@@ -517,6 +517,8 @@
 
   /* ---------------- Projection chart ---------------- */
   .proj-controls{ display:flex; flex-wrap:wrap; gap:14px; margin-bottom:16px; }
+  .proj-headline{ font-size:15px; line-height:1.5; color: var(--ink-soft); margin:0 0 16px; }
+  .proj-headline b{ color: var(--brass-strong); font-weight:700; }
   .proj-field{ display:flex; flex-direction:column; gap:3px; }
   .proj-field label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; }
   .proj-field input{
@@ -548,6 +550,7 @@
   .milestone-table th, .milestone-table td{ padding:7px 10px; font-size:12.5px; border-bottom:1px solid var(--border); }
   .milestone-table th{ text-align:right; color: var(--ink-soft); font-weight:600; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; background: var(--paper-sunken); }
   .milestone-table th:first-child, .milestone-table td:first-child{ text-align:left; }
+  .milestone-table .proj-swatch{ display:inline-block; vertical-align:middle; margin-right:6px; }
   .milestone-table td{ text-align:right; font-family:"IBM Plex Mono",monospace; font-variant-numeric: tabular-nums; }
   .milestone-table tr:last-child td{ border-bottom:none; }
 
@@ -806,7 +809,9 @@
             </summary>
             <div class="ledger-body">
               <p class="ledger-note" style="margin-left:0">What you own today. Cash and Shares count as liquid funds against the upfront cost of buying.</p>
-              <div class="table-scroll"><table class="assets-table" id="tableAssets"></table></div>
+              <p class="income-summary-line" id="assetsSummaryLine" style="display:none"></p>
+              <p class="income-summary-line" id="assetsLiquidLine" title="Liquid assets can be used toward the upfront cash needed to buy — see the comparison below. Super and Property can't be accessed for a deposit."></p>
+              <div id="assetGroups"></div>
               <div class="ledger-footer">
                 <button class="btn btn-sm" data-add="assets">+ Add asset</button>
               </div>
@@ -828,12 +833,13 @@
             <div class="ledger-body">
               <p class="ledger-note" style="margin-left:0">Projects each scenario's net worth forward: your home equity grows with the property and shrinks with the loan paydown, while your surplus savings (and existing portfolio) compound as investments. Shared living costs and non-loan housing costs (insurance, rates, water, maintenance) inflate each year; loan repayments stay fixed in nominal terms, as they are in reality. All assumptions below are yours to set — treat the result as a "what if," not a forecast.</p>
               <div class="proj-controls">
-                <div class="proj-field"><label>Horizon (years)</label><input type="number" min="1" max="50" step="1" id="projHorizon"></div>
-                <div class="proj-field"><label>Investment return % p.a.</label><input type="number" min="0" max="30" step="0.1" id="projInvestRate"></div>
-                <div class="proj-field"><label>Property growth % p.a.</label><input type="number" min="-10" max="30" step="0.1" id="projPropertyRate"></div>
-                <div class="proj-field"><label>Inflation % p.a.</label><input type="number" min="0" max="15" step="0.1" id="projInflationRate"></div>
+                <div class="proj-field" title="How many years forward the chart and table below project."><label>Horizon (years)</label><input type="number" min="1" max="50" step="1" id="projHorizon"></div>
+                <div class="proj-field" title="Annual growth rate applied to your surplus savings and existing non-property portfolio (Cash, Shares, Super, Other from the Assets page), compounded monthly."><label>Investment return % p.a.</label><input type="number" min="0" max="30" step="0.1" id="projInvestRate"></div>
+                <div class="proj-field" title="Annual growth rate applied to a scenario's home value (if buying) and any Property-category assets from the Assets page. Reduces home equity growth if negative."><label>Property growth % p.a.</label><input type="number" min="-10" max="30" step="0.1" id="projPropertyRate"></div>
+                <div class="proj-field" title="Annual increase applied to shared living costs and non-loan housing costs (insurance, rates, water, maintenance). Loan repayments stay fixed in nominal terms, as they do in reality."><label>Inflation % p.a.</label><input type="number" min="0" max="15" step="0.1" id="projInflationRate"></div>
                 <div class="proj-field"><label>Rate shock (+pp)</label><input type="number" min="0" max="10" step="0.25" id="projRateShock" title="Stress-test: adds this many percentage points to every buy scenario's interest rate, for the whole projection"></div>
               </div>
+              <p class="proj-headline" id="projHeadline"></p>
               <div id="projOutputs"></div>
             </div>
           </details>
@@ -2268,7 +2274,7 @@
       '<td><input type="text" class="a-what" value="' + escapeAttr(item.what) + '" aria-label="Asset name">' + assetTrendHtml(item) + '</td>' +
       '<td><select class="a-category">' + optionsHtml(ASSET_CATEGORIES, item.category) + '</select></td>' +
       '<td class="num"><input type="number" step="100" min="0" class="a-amount" value="' + item.amount + '" aria-label="Asset value"></td>' +
-      '<td><button type="button" class="asset-log-btn" data-asset-log="' + idx + '" title="Log today\'s value to track over time">Log</button></td>' +
+      '<td><button type="button" class="asset-log-btn" data-asset-log="' + idx + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart below">Log</button></td>' +
       '<td><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete asset">✕</button></td>' +
       '</tr>';
   }
@@ -2276,33 +2282,83 @@
   function logAssetSnapshot(idx){
     var asset = state.assets[idx];
     if(!asset) return;
-    var val = prompt('Log a new value for "' + asset.what + '":', asset.amount);
-    if(val === null) return;
-    var num = parseFloat(val);
-    if(isNaN(num)) { showToast("Enter a number"); return; }
+    var num = Number(asset.amount) || 0;
     var dateStr = new Date().toISOString().slice(0, 10);
     if(!Array.isArray(asset.history)) asset.history = [];
     var existing = asset.history.find(function(h){ return h.date === dateStr; });
     if(existing) existing.value = num;
     else asset.history.push({ date: dateStr, value: num });
     asset.history.sort(function(a, b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
-    asset.amount = num;
     renderAssets();
     renderProjectionOutputs();
     persist();
-    showToast("Logged " + fmtCurrency0.format(num) + " for " + asset.what);
+    showToast("Logged " + fmtCurrency0.format(num) + " for " + asset.what + " (" + dateStr + ")");
   }
 
   function totalAssetsValue(){
     return state.assets.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
   }
 
-  function buildAssetsTable(){
-    var tableEl = document.getElementById("tableAssets");
-    var thead = '<thead><tr><th>What</th><th>Category</th><th class="num">Value</th><th></th><th></th></tr></thead>';
-    var rows = state.assets.map(function(item, idx){ return assetRowHtml(item, idx); }).join("");
-    var totalRow = '<tr class="assets-total-row"><td>Total</td><td></td><td class="num">' + fmtCurrency0.format(totalAssetsValue()) + '</td><td></td><td></td></tr>';
-    tableEl.innerHTML = thead + "<tbody>" + rows + totalRow + "</tbody>";
+  function assetGroupOrder(){
+    return ASSET_CATEGORIES.filter(function(cat){
+      return state.assets.some(function(a){ return (a.category || "Other") === cat; });
+    });
+  }
+
+  function computeAssetGroups(){
+    return assetGroupOrder().map(function(cat){
+      var indices = [];
+      var items = [];
+      state.assets.forEach(function(item, idx){
+        if((item.category || "Other") === cat){ indices.push(idx); items.push(item); }
+      });
+      var total = items.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
+      return { key: cat, indices: indices, items: items, total: total };
+    });
+  }
+
+  function patchAssetGroupTotals(){
+    var groups = computeAssetGroups();
+    var summaryEl = document.getElementById("assetsSummaryLine");
+    if(summaryEl){
+      if(groups.length > 1){
+        var total = groups.reduce(function(s, g){ return s + g.total; }, 0);
+        var parts = groups.map(function(g){ return g.key + " " + fmtCurrency0.format(g.total); }).join(" + ");
+        summaryEl.innerHTML = "Adds up: " + parts + " = <b>" + fmtCurrency0.format(total) + "</b> total assets";
+        summaryEl.style.display = "";
+      } else {
+        summaryEl.style.display = "none";
+      }
+    }
+    var liquidLine = document.getElementById("assetsLiquidLine");
+    if(liquidLine){
+      var liquid = state.assets.filter(function(a){ return LIQUID_CATEGORIES.indexOf(a.category) !== -1; })
+        .reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
+      var illiquid = totalAssetsValue() - liquid;
+      liquidLine.innerHTML = 'Liquid (Cash + Shares) <b>' + fmtCurrency0.format(liquid) + '</b> · Illiquid (Super, Property, Other) <b>' + fmtCurrency0.format(illiquid) + '</b>';
+    }
+    document.querySelectorAll("#assetGroups .income-group-total").forEach(function(el, gi){
+      if(groups[gi]) el.textContent = fmtCurrency0.format(groups[gi].total);
+    });
+  }
+
+  function renderAssetGroups(){
+    var container = document.getElementById("assetGroups");
+    if(!container) return;
+    var groups = computeAssetGroups();
+    patchAssetGroupTotals();
+    container.innerHTML = groups.map(function(g, gi){
+      return '<div class="income-group"><div class="income-group-head">' +
+        '<div class="income-group-head-left"><h4>' + escapeAttr(g.key) + '</h4></div>' +
+        '<div class="income-group-total">' + fmtCurrency0.format(g.total) + '</div>' +
+        '</div><div class="table-scroll"><table class="assets-table" id="assetGroupTable' + gi + '"></table></div></div>';
+    }).join("");
+    groups.forEach(function(g, gi){
+      var tableEl = document.getElementById("assetGroupTable" + gi);
+      var thead = '<thead><tr><th>What</th><th>Category</th><th class="num">Value</th><th></th><th></th></tr></thead>';
+      var rows = g.items.map(function(item, i){ return assetRowHtml(item, g.indices[i]); }).join("");
+      tableEl.innerHTML = thead + "<tbody>" + rows + "</tbody>";
+    });
   }
 
   function renderNetWorthPanel(){
@@ -2328,14 +2384,19 @@
     }).join("");
     panel.innerHTML =
       '<div class="table-scroll"><table class="worth-table">' +
-        '<thead><tr><th>Scenario</th><th class="num">Upfront cash needed</th><th class="num">Liquid assets (cash + shares)</th><th class="num">Surplus / shortfall</th><th class="num">Net worth after</th></tr></thead>' +
+        '<thead><tr><th>Scenario</th>' +
+          '<th class="num" title="Deposit + stamp duty + LMI + other acquisition costs for this scenario — the cash you need available on settlement day.">Upfront cash needed</th>' +
+          '<th class="num" title="Your Cash + Shares from the assets above. Super and Property can\'t be drawn on for a deposit.">Liquid assets (cash + shares)</th>' +
+          '<th class="num" title="Liquid assets minus upfront cash needed. A shortfall means your current liquid savings don\'t cover it — you\'d need to save more first, borrow a larger share (higher LVR, likely with LMI), or choose a cheaper property.">Surplus / shortfall</th>' +
+          '<th class="num" title="Current total assets minus stamp duty, LMI and other acquisition costs (see note below).">Net worth after</th>' +
+        '</tr></thead>' +
         '<tbody>' + rows + '</tbody>' +
       '</table></div>' +
       '<p class="calc-note" style="margin-top:10px">Net worth after purchase = current total assets minus stamp duty, LMI and other acquisition costs. The deposit itself just moves from cash into home equity, so it doesn\'t change net worth on its own.</p>';
   }
 
   function renderAssets(){
-    buildAssetsTable();
+    renderAssetGroups();
     document.getElementById("totalAssets").textContent = fmtCurrency0.format(totalAssetsValue());
     renderNetWorthPanel();
     renderPortfolioHistoryChart();
@@ -2487,6 +2548,25 @@
         points: computeNetWorthSeries(scenario, horizon)
       };
     });
+
+    var headlineEl = document.getElementById("projHeadline");
+    if(headlineEl){
+      var finals = series.map(function(s){
+        var pt = s.points.find(function(p){ return p.x === horizon; });
+        return { label: s.label, value: pt ? pt.y : 0 };
+      }).sort(function(a, b){ return b.value - a.value; });
+      var yrWord = horizon === 1 ? "year" : "years";
+      if(finals.length > 1){
+        var margin = finals[0].value - finals[1].value;
+        headlineEl.innerHTML = "In " + horizon + " " + yrWord + ", <b>" + escapeAttr(finals[0].label) + "</b> comes out ahead at <b>" +
+          fmtCurrency0.format(finals[0].value) + "</b> — " + fmtCurrency0.format(margin) + " more than " + escapeAttr(finals[1].label) + ".";
+      } else if(finals.length === 1){
+        headlineEl.innerHTML = "In " + horizon + " " + yrWord + ", <b>" + escapeAttr(finals[0].label) + "</b> reaches <b>" + fmtCurrency0.format(finals[0].value) + "</b>.";
+      } else {
+        headlineEl.innerHTML = "";
+      }
+    }
+
     renderLineChart(container, series, {
       height: 280,
       yFormat: function(v){ return fmtCurrency0.format(v); },
@@ -2503,7 +2583,7 @@
         var pt = s.points.find(function(p){ return p.x === y; });
         return "<td>" + fmtCurrency0.format(pt ? pt.y : 0) + "</td>";
       }).join("");
-      return "<tr><td>" + escapeAttr(s.label) + "</td>" + cells + "</tr>";
+      return "<tr><td><span class=\"proj-swatch " + s.colorClass + "\"></span>" + escapeAttr(s.label) + "</td>" + cells + "</tr>";
     }).join("");
     table.innerHTML = "<thead>" + headRow + "</thead><tbody>" + bodyRows + "</tbody>";
     container.appendChild(table);
@@ -2795,8 +2875,7 @@
       if(e.target.classList.contains("a-what")) item.what = e.target.value;
       else if(e.target.classList.contains("a-amount")) item.amount = parseFloat(e.target.value) || 0;
       else return;
-      var totalCell = document.querySelector(".assets-total-row td.num");
-      if(totalCell) totalCell.textContent = fmtCurrency0.format(totalAssetsValue());
+      patchAssetGroupTotals();
       document.getElementById("totalAssets").textContent = fmtCurrency0.format(totalAssetsValue());
       renderNetWorthPanel();
       persist();

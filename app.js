@@ -35,6 +35,9 @@
     { key: "classification", label: "Classification" },
     { key: "account", label: "Account" }
   ];
+  var ASSET_COL_DEFS = [
+    { key: "category", label: "Category" }
+  ];
 
   // Australian resident individual tax brackets (2024-25, stage-3 rates). Estimates —
   // thresholds are indexed / change with policy; confirm with your accountant or the ATO.
@@ -394,6 +397,7 @@
       incomeCols: { person: false, type: false, super: true, sacrifice: true, account: false },
       expenseCols: { classification: false, account: false },
       homeCols: { account: false },
+      assetCols: { category: false },
       income: [],
       ip: [],
       shared: [],
@@ -505,6 +509,8 @@
     if(s.expenseCols.classification == null) s.expenseCols.classification = false;
     if(!s.homeCols) s.homeCols = { account: false };
     if(s.homeCols.account == null) s.homeCols.account = false;
+    if(!s.assetCols) s.assetCols = { category: false };
+    if(s.assetCols.category == null) s.assetCols.category = false;
     if(!s.home) s.home = {};
     if(!Array.isArray(s.scenarios) || !s.scenarios.length) s.scenarios = Object.keys(s.home);
     if(!s.scenarios.length) s.scenarios = ["Renting"];
@@ -1173,6 +1179,10 @@
     document.querySelectorAll(".col-account-home").forEach(function(el){
       el.classList.toggle("col-hidden", !homeAcctVisible);
     });
+    var assetCategoryVisible = !!state.assetCols.category;
+    document.querySelectorAll(".col-category").forEach(function(el){
+      el.classList.toggle("col-hidden", !assetCategoryVisible);
+    });
   }
 
   function renderTotals(){
@@ -1457,7 +1467,7 @@
   function assetRowHtml(item, idx){
     return '<tr data-index="' + idx + '">' +
       '<td><input type="text" class="a-what" value="' + escapeAttr(item.what) + '" aria-label="Asset name">' + assetTrendHtml(item) + '</td>' +
-      '<td><select class="a-category">' + optionsHtml(ASSET_CATEGORIES, item.category) + '</select></td>' +
+      '<td class="col-category"><select class="a-category">' + optionsHtml(ASSET_CATEGORIES, item.category) + '</select></td>' +
       '<td class="num"><input type="number" step="100" min="0" class="a-amount" value="' + item.amount + '" aria-label="Asset value"></td>' +
       '<td><button type="button" class="asset-log-btn" data-asset-log="' + idx + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart below">Log</button></td>' +
       '<td><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete asset">✕</button></td>' +
@@ -1540,7 +1550,7 @@
     }).join("");
     groups.forEach(function(g, gi){
       var tableEl = document.getElementById("assetGroupTable" + gi);
-      var thead = '<thead><tr><th>What</th><th>Category</th><th class="num">Value</th><th></th><th></th></tr></thead>';
+      var thead = '<thead><tr><th>What</th><th class="col-category">Category</th><th class="num">Value</th><th></th><th></th></tr></thead>';
       var rows = g.items.map(function(item, i){ return assetRowHtml(item, g.indices[i]); }).join("");
       tableEl.innerHTML = thead + "<tbody>" + rows + "</tbody>";
     });
@@ -2219,6 +2229,7 @@
   });
   var renderIncomeColPicker = setupColPicker("incomeColPickerBtn", "incomeColPickerPanel", INCOME_COL_DEFS, "incomeCols");
   var renderExpenseColPicker = setupColPicker("expenseColPickerBtn", "expenseColPickerPanel", EXPENSE_COL_DEFS, "expenseCols");
+  var renderAssetColPicker = setupColPicker("assetColPickerBtn", "assetColPickerPanel", ASSET_COL_DEFS, "assetCols");
 
   function showToast(msg){
     var wrap = document.getElementById("toastWrap");
@@ -2395,6 +2406,7 @@
     document.getElementById("homeAcctToggle").checked = !!state.homeCols.account;
     renderIncomeColPicker();
     renderExpenseColPicker();
+    renderAssetColPicker();
     document.getElementById("projHorizon").value = state.projection.horizonYears;
     document.getElementById("projInvestRate").value = state.projection.investReturnRate;
     document.getElementById("projPropertyRate").value = state.projection.propertyAppreciationRate;

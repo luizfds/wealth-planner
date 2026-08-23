@@ -314,6 +314,7 @@
   .col-person.col-hidden, .col-type.col-hidden, .col-super.col-hidden, .col-sacrifice.col-hidden, .col-account.col-hidden{ display:none; }
   .col-account-exp.col-hidden, .col-account-home.col-hidden{ display:none; }
   .col-classification.col-hidden{ display:none; }
+  .col-category.col-hidden{ display:none; }
 
   table.ledger-table input[type="text"], table.ledger-table input[type="number"], table.ledger-table select{
     width:100%; border:1px solid transparent; background:transparent; color:var(--ink); padding:5px 6px; border-radius:6px;

@@ -187,6 +187,10 @@
             </summary>
             <div class="ledger-body">
               <p class="ledger-note" style="margin-left:0">What you own today. Cash and Shares count as liquid funds against the upfront cost of buying.</p>
+              <div class="col-picker" id="assetColPicker">
+                <button type="button" class="btn btn-sm col-picker-btn" id="assetColPickerBtn" aria-haspopup="true" aria-expanded="false">Columns ▾</button>
+                <div class="col-picker-panel" id="assetColPickerPanel" hidden></div>
+              </div>
               <p class="income-summary-line" id="assetsSummaryLine" style="display:none"></p>
               <p class="income-summary-line" id="assetsLiquidLine" title="Liquid assets can be used toward the upfront cash needed to buy — see the comparison below. Super and Property can't be accessed for a deposit."></p>
               <div id="assetGroups"></div>

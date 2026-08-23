@@ -1705,8 +1705,23 @@
       '<p class="calc-note" style="margin-top:10px">Net worth after purchase = current total assets minus stamp duty, LMI and other acquisition costs. The deposit itself just moves from cash into home equity, so it doesn\'t change net worth on its own.</p>';
   }
 
+  function renderAssetEmptyAdds(){
+    var footer = document.getElementById("assetEmptyCategoryAdds");
+    if(!footer) return;
+    var present = {};
+    state.assets.forEach(function(a){ present[a.category || "Other"] = true; });
+    var buttons = ASSET_CATEGORIES.filter(function(cat){ return !present[cat]; }).map(function(cat){
+      if(cat === "Shares"){
+        return '<button class="btn btn-sm" data-add="holding" title="Track an individual shareholding — symbol, quantity, cost, and value">+ Add share holding</button>';
+      }
+      return '<button class="btn btn-sm" data-add="assets:' + escapeAttr(cat) + '">+ Add ' + escapeAttr(cat) + '</button>';
+    });
+    footer.innerHTML = buttons.length ? '<span class="actions-group">' + buttons.join("") + '</span>' : "";
+  }
+
   function renderAssets(){
     renderAssetGroups();
+    renderAssetEmptyAdds();
     document.getElementById("totalAssets").textContent = fmtCurrency0.format(totalAssetsValue());
     renderNetWorthPanel();
     renderPortfolioHistoryChart();

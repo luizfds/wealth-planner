@@ -115,6 +115,10 @@
 
       <section class="app-page" id="page-expenses" hidden>
         <p class="page-intro">Recurring costs that don't change between scenarios — your investment property and everyday household spending.</p>
+        <div class="col-picker" id="expenseColPicker">
+          <button type="button" class="btn btn-sm col-picker-btn" id="expenseColPickerBtn" aria-haspopup="true" aria-expanded="false">Columns ▾</button>
+          <div class="col-picker-panel" id="expenseColPickerPanel" hidden></div>
+        </div>
         <div class="ledgers">
           <details class="ledger" open>
             <summary>
@@ -123,13 +127,6 @@
             </summary>
             <div class="ledger-body">
               <p class="ledger-note" style="margin-left:0">Kept in every scenario. The property-manager fee updates automatically from the rent above.</p>
-              <label class="toggle-periods" style="margin:0 0 12px">
-                <span class="switch">
-                  <input type="checkbox" id="expenseAcctToggle">
-                  <span class="switch-track"><span class="switch-thumb"></span></span>
-                </span>
-                Show account column
-              </label>
               <div class="table-scroll"><table class="ledger-table" id="tableIp"></table></div>
               <div class="ledger-footer">
                 <button class="btn btn-sm" data-add="ip">+ Add expense</button>

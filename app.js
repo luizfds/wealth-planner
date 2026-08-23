@@ -31,6 +31,10 @@
     { key: "sacrifice", label: "Cash / Sacrifice" },
     { key: "account", label: "Account" }
   ];
+  var EXPENSE_COL_DEFS = [
+    { key: "classification", label: "Classification" },
+    { key: "account", label: "Account" }
+  ];
 
   // Australian resident individual tax brackets (2024-25, stage-3 rates). Estimates —
   // thresholds are indexed / change with policy; confirm with your accountant or the ATO.
@@ -388,7 +392,7 @@
       scenarios: ["Scenario 1"],
       showAllPeriods: false,
       incomeCols: { person: false, type: false, super: true, sacrifice: true, account: false },
-      expenseCols: { account: false },
+      expenseCols: { classification: false, account: false },
       homeCols: { account: false },
       income: [],
       ip: [],
@@ -497,6 +501,7 @@
     INCOME_COL_DEFS.forEach(function(c){ if(s.incomeCols[c.key] == null) s.incomeCols[c.key] = true; });
     if(!s.expenseCols) s.expenseCols = { account: false };
     if(s.expenseCols.account == null) s.expenseCols.account = false;
+    if(s.expenseCols.classification == null) s.expenseCols.classification = false;
     if(!s.homeCols) s.homeCols = { account: false };
     if(s.homeCols.account == null) s.homeCols.account = false;
     if(!s.home) s.home = {};
@@ -837,15 +842,16 @@
     var showClass = opts.showClass !== false;
     var showIncomeFields = !!opts.showIncomeFields;
     var acctClass = opts.acctColClass || (opts.hideAcctToggle ? "col-account-exp" : "");
+    var classClass = opts.hideClassToggle ? "col-classification" : "";
     var thead = '<thead><tr><th>What</th>' +
-      (showClass ? '<th>Classification</th>' : '') +
+      (showClass ? '<th' + (classClass ? ' class="' + classClass + '"' : '') + '>Classification</th>' : '') +
       (showIncomeFields ? '<th class="col-person">Person</th><th class="col-type">Type</th><th class="col-super">Super</th><th class="col-sacrifice">Cash / Sacrifice</th>' : '') +
       '<th' + (showIncomeFields ? ' class="col-account"' : acctClass ? ' class="' + acctClass + '"' : '') + '>Account</th><th class="num">Amount</th><th>Frequency</th>' + periodTh() + '<th></th></tr></thead>';
-    var rows = items.map(function(item, idx){ return rowHtml(section, item, indices ? indices[idx] : idx, showClass, showIncomeFields, acctClass); }).join("");
+    var rows = items.map(function(item, idx){ return rowHtml(section, item, indices ? indices[idx] : idx, showClass, showIncomeFields, acctClass, classClass); }).join("");
     tableEl.innerHTML = thead + "<tbody>" + rows + "</tbody>";
   }
 
-  function rowHtml(section, item, idx, showClass, showIncomeFields, acctClass){
+  function rowHtml(section, item, idx, showClass, showIncomeFields, acctClass, classClass){
     var isComputed = !!item.computed;
     var isGrossRef = showIncomeFields && item.incomeType === "Gross" && !isComputed;
     var rowClass = (isComputed ? " is-computed" : (isGrossRef ? " is-gross-ref" : "")) + (item.id === "homeLoanRow" ? " is-home-loan-row" : "");
@@ -853,7 +859,7 @@
       '<td class="what-cell"><input type="text" class="f-what" value="' + escapeAttr(item.what) + '" aria-label="Item name">' +
         (item.syntheticNetFor ? '<button type="button" class="row-breakdown-toggle" data-breakdown-person="' + escapeAttr(item.syntheticNetFor) + '" aria-expanded="false">▸ Breakdown</button>' : "") +
       '</td>' +
-      (showClass ? '<td class="class-cell"><select class="f-class">' + optionsHtml(CLASSES, item.classification || "Needs") + '</select></td>' : '') +
+      (showClass ? '<td class="class-cell' + (classClass ? " " + classClass : "") + '"><select class="f-class">' + optionsHtml(CLASSES, item.classification || "Needs") + '</select></td>' : '') +
       (showIncomeFields ? (
         '<td class="account-cell col-person"><input type="text" class="f-person" list="personSuggestions" value="' + escapeAttr(item.person || "") + '" aria-label="Person" placeholder="—"' + (isComputed ? " disabled" : "") + '></td>' +
         '<td class="freq-cell col-type"><select class="f-incometype"' + (isComputed ? " disabled" : "") + '>' + optionsHtml(INCOME_TYPES, item.incomeType || "Net") + '</select></td>' +
@@ -883,7 +889,7 @@
 
   function rerenderTableFor(section){
     if(section === "income") renderIncomeGroups();
-    else if(section === "ip") buildTable(document.getElementById("tableIp"), "ip", state.ip, {showClass:true, hideAcctToggle:true});
+    else if(section === "ip") buildTable(document.getElementById("tableIp"), "ip", state.ip, {showClass:true, hideAcctToggle:true, hideClassToggle:true});
     else if(section === "shared") renderSharedGroups();
     else { var m = /^home:(.+)$/.exec(section); if(m){ var hi = state.scenarios.indexOf(m[1]); buildTable(document.getElementById("homeTable_" + slug(m[1]) + hi), section, state.home[m[1]], {showClass:true, acctColClass:"col-account-home"}); } }
     applyPeriodVisibility();
@@ -1009,7 +1015,7 @@
         '</div><div class="table-scroll"><table class="ledger-table" id="sharedGroupTable' + gi + '"></table></div></div>';
     }).join("");
     groups.forEach(function(g, gi){
-      buildTable(document.getElementById("sharedGroupTable" + gi), "shared", g.items, {showClass:true, hideAcctToggle:true}, g.indices);
+      buildTable(document.getElementById("sharedGroupTable" + gi), "shared", g.items, {showClass:true, hideAcctToggle:true, hideClassToggle:true}, g.indices);
     });
   }
 
@@ -1139,6 +1145,10 @@
     var expAcctVisible = !!state.expenseCols.account;
     document.querySelectorAll(".col-account-exp").forEach(function(el){
       el.classList.toggle("col-hidden", !expAcctVisible);
+    });
+    var expClassVisible = !!state.expenseCols.classification;
+    document.querySelectorAll(".col-classification").forEach(function(el){
+      el.classList.toggle("col-hidden", !expClassVisible);
     });
     var homeAcctVisible = !!state.homeCols.account;
     document.querySelectorAll(".col-account-home").forEach(function(el){
@@ -2134,47 +2144,49 @@
     persist();
   });
 
-  document.getElementById("expenseAcctToggle").addEventListener("change", function(e){
-    state.expenseCols.account = e.target.checked;
-    applyPeriodVisibility();
-    persist();
-  });
-
   document.getElementById("homeAcctToggle").addEventListener("change", function(e){
     state.homeCols.account = e.target.checked;
     applyPeriodVisibility();
     persist();
   });
 
-  function renderIncomeColPicker(){
-    var panel = document.getElementById("incomeColPickerPanel");
-    if(!panel) return;
-    panel.innerHTML = INCOME_COL_DEFS.map(function(c){
-      var checked = state.incomeCols[c.key] !== false;
-      return '<label class="col-picker-row"><input type="checkbox" class="col-picker-check" data-col-key="' + c.key + '"' + (checked ? " checked" : "") + '>' + escapeAttr(c.label) + '</label>';
-    }).join("");
+  var colPickers = [];
+  function setupColPicker(btnId, panelId, colDefs, stateKey){
+    var btn = document.getElementById(btnId);
+    var panel = document.getElementById(panelId);
+    if(!btn || !panel) return function(){};
+    function render(){
+      panel.innerHTML = colDefs.map(function(c){
+        var checked = state[stateKey][c.key] !== false;
+        return '<label class="col-picker-row"><input type="checkbox" class="col-picker-check" data-col-key="' + c.key + '"' + (checked ? " checked" : "") + '>' + escapeAttr(c.label) + '</label>';
+      }).join("");
+    }
+    render();
+    btn.addEventListener("click", function(e){
+      e.stopPropagation();
+      var willOpen = panel.hidden;
+      colPickers.forEach(function(p){ if(p.panel !== panel){ p.panel.hidden = true; p.btn.setAttribute("aria-expanded", "false"); } });
+      panel.hidden = !willOpen;
+      btn.setAttribute("aria-expanded", String(willOpen));
+      if(willOpen) render();
+    });
+    panel.addEventListener("click", function(e){ e.stopPropagation(); });
+    panel.addEventListener("change", function(e){
+      if(!e.target.classList.contains("col-picker-check")) return;
+      state[stateKey][e.target.getAttribute("data-col-key")] = e.target.checked;
+      applyPeriodVisibility();
+      persist();
+    });
+    colPickers.push({ btn: btn, panel: panel });
+    return render;
   }
-  renderIncomeColPicker();
-
-  document.getElementById("incomeColPickerBtn").addEventListener("click", function(e){
-    e.stopPropagation();
-    var panel = document.getElementById("incomeColPickerPanel");
-    var willOpen = panel.hidden;
-    panel.hidden = !willOpen;
-    this.setAttribute("aria-expanded", String(willOpen));
-  });
-  document.getElementById("incomeColPickerPanel").addEventListener("click", function(e){ e.stopPropagation(); });
-  document.getElementById("incomeColPickerPanel").addEventListener("change", function(e){
-    if(!e.target.classList.contains("col-picker-check")) return;
-    state.incomeCols[e.target.getAttribute("data-col-key")] = e.target.checked;
-    applyPeriodVisibility();
-    persist();
-  });
   document.addEventListener("click", function(){
-    var panel = document.getElementById("incomeColPickerPanel");
-    var btn = document.getElementById("incomeColPickerBtn");
-    if(panel && !panel.hidden){ panel.hidden = true; btn.setAttribute("aria-expanded", "false"); }
+    colPickers.forEach(function(p){
+      if(!p.panel.hidden){ p.panel.hidden = true; p.btn.setAttribute("aria-expanded", "false"); }
+    });
   });
+  var renderIncomeColPicker = setupColPicker("incomeColPickerBtn", "incomeColPickerPanel", INCOME_COL_DEFS, "incomeCols");
+  var renderExpenseColPicker = setupColPicker("expenseColPickerBtn", "expenseColPickerPanel", EXPENSE_COL_DEFS, "expenseCols");
 
   function showToast(msg){
     var wrap = document.getElementById("toastWrap");
@@ -2364,9 +2376,9 @@
 
   function renderAll(){
     document.getElementById("periodsToggle").checked = !!state.showAllPeriods;
-    document.getElementById("expenseAcctToggle").checked = !!state.expenseCols.account;
     document.getElementById("homeAcctToggle").checked = !!state.homeCols.account;
     renderIncomeColPicker();
+    renderExpenseColPicker();
     document.getElementById("projHorizon").value = state.projection.horizonYears;
     document.getElementById("projInvestRate").value = state.projection.investReturnRate;
     document.getElementById("projPropertyRate").value = state.projection.propertyAppreciationRate;
@@ -2374,7 +2386,7 @@
     document.getElementById("projRateShock").value = state.projection.rateShockPct;
     recalcComputedItems();
     renderIncomeGroups();
-    buildTable(document.getElementById("tableIp"), "ip", state.ip, {showClass:true, hideAcctToggle:true});
+    buildTable(document.getElementById("tableIp"), "ip", state.ip, {showClass:true, hideAcctToggle:true, hideClassToggle:true});
     renderSharedGroups();
     renderHomeBody();
     renderCards();

@@ -18,6 +18,7 @@
       <button type="button" class="nav-item" data-page="dashboard">Dashboard</button>
       <button type="button" class="nav-item" data-page="income">Income &amp; Tax</button>
       <button type="button" class="nav-item" data-page="expenses">Expenses</button>
+      <button type="button" class="nav-item" data-page="properties">Properties</button>
       <button type="button" class="nav-item" data-page="scenarios">Scenarios</button>
       <button type="button" class="nav-item" data-page="assets">Assets</button>
       <button type="button" class="nav-item" data-page="projections">Projections</button>
@@ -114,30 +115,12 @@
       </section>
 
       <section class="app-page" id="page-expenses" hidden>
-        <p class="page-intro">Recurring costs that don't change between scenarios — your investment property and everyday household spending.</p>
+        <p class="page-intro">Recurring household costs that don't change between scenarios.</p>
         <div class="col-picker" id="expenseColPicker">
           <button type="button" class="btn btn-sm col-picker-btn" id="expenseColPickerBtn" aria-haspopup="true" aria-expanded="false">Columns ▾</button>
           <div class="col-picker-panel" id="expenseColPickerPanel" hidden></div>
         </div>
         <div class="ledgers">
-          <details class="ledger" open>
-            <summary>
-              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Investment Property</h2></div>
-              <div class="ledger-total">Monthly total <b id="totalIpMonthly">—</b></div>
-            </summary>
-            <div class="ledger-body">
-              <p class="ledger-note" style="margin-left:0">Kept in every scenario. The property-manager fee updates automatically from the rent above.</p>
-              <div class="proj-controls" id="pmFeeSettings" style="display:none">
-                <div class="proj-field" title="Applied to the linked property-manager fee row below, worked out from the linked rent income row above"><label>PM fee % of rent</label><input type="number" min="0" max="100" step="0.1" id="pmFeePercent"></div>
-                <div class="proj-field"><label>+ flat $/week</label><input type="number" min="0" step="0.5" id="pmFeeFlat"></div>
-              </div>
-              <div class="table-scroll"><table class="ledger-table" id="tableIp"></table></div>
-              <div class="ledger-footer">
-                <button class="btn btn-sm" data-add="ip">+ Add expense</button>
-              </div>
-            </div>
-          </details>
-
           <details class="ledger" open>
             <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Shared living expenses</h2></div>
@@ -153,6 +136,16 @@
             </div>
           </details>
         </div>
+      </section>
+
+      <section class="app-page" id="page-properties" hidden>
+        <p class="page-intro">What you actually own — value, loans, and the rent/expenses tied to each property.</p>
+        <div class="proj-controls" id="pmFeeSettings" style="display:none">
+          <div class="proj-field" title="Applied to the linked property-manager fee row on any property below, worked out from that property's own linked rent"><label>PM fee % of rent</label><input type="number" min="0" max="100" step="0.1" id="pmFeePercent"></div>
+          <div class="proj-field"><label>+ flat $/week</label><input type="number" min="0" step="0.5" id="pmFeeFlat"></div>
+        </div>
+        <div id="propertiesBody"></div>
+        <button type="button" class="btn btn-sm" id="addPropertyBtn">+ Add property</button>
       </section>
 
       <section class="app-page" id="page-scenarios" hidden>
@@ -215,7 +208,7 @@
               <div class="proj-controls">
                 <div class="proj-field" title="How many years forward the chart and table below project."><label>Horizon (years)</label><input type="number" min="1" max="50" step="1" id="projHorizon"></div>
                 <div class="proj-field" title="Annual growth rate applied to your surplus savings and existing non-property portfolio (Cash, Shares, Super, Other from the Assets page), compounded monthly."><label>Investment return % p.a.</label><input type="number" min="0" max="30" step="0.1" id="projInvestRate"></div>
-                <div class="proj-field" title="Annual growth rate applied to a scenario's home value (if buying) and any Property-category assets from the Assets page. Reduces home equity growth if negative."><label>Property growth % p.a.</label><input type="number" min="-10" max="30" step="0.1" id="projPropertyRate"></div>
+                <div class="proj-field" title="Annual growth rate applied to a scenario's home value (if buying) and every property tracked on the Properties tab. Reduces equity growth if negative."><label>Property growth % p.a.</label><input type="number" min="-10" max="30" step="0.1" id="projPropertyRate"></div>
                 <div class="proj-field" title="Annual increase applied to shared living costs and non-loan housing costs (insurance, rates, water, maintenance). Loan repayments stay fixed in nominal terms, as they do in reality."><label>Inflation % p.a.</label><input type="number" min="0" max="15" step="0.1" id="projInflationRate"></div>
                 <div class="proj-field"><label>Rate shock (+pp)</label><input type="number" min="0" max="10" step="0.25" id="projRateShock" title="Stress-test: adds this many percentage points to every buy scenario's interest rate, for the whole projection"></div>
               </div>

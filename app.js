@@ -16,7 +16,7 @@
   var FREQS = ["Weekly","Fortnightly","Monthly","Quarterly","Yearly"];
   var CLASSES = ["Needs","Wants","Savings","N/A"];
   var HOME_CATEGORIES = ["Rent / Home Loan", "Home Insurance", "Council Rates", "Water & Wastewater", "Property Maintenance"];
-  var ASSET_CATEGORIES = ["Cash", "Shares", "Super", "Property", "Other"];
+  var ASSET_CATEGORIES = ["Cash", "Shares", "Super", "Other"];
   var LIQUID_CATEGORIES = ["Cash", "Shares"];
   var SHARE_MARKETS = ["ASX", "US"];
   var PURCHASE_STATE_CODES = ["NSW", "VIC", "Other"];
@@ -247,9 +247,12 @@
   }
 
   function ipNetResultAnnual(){
-    var rentItem = state.income.find(function(i){ return i.id === "rentIncome"; });
-    var rentYearly = rentItem ? periodsOf(rentItem.amount, rentItem.freq).yearly : 0;
-    return rentYearly - sumField(state.ip, "yearly");
+    return state.properties.filter(function(p){ return p.kind === "IP"; }).reduce(function(sum, p){
+      var rentYearly = sumField(p.income, "yearly");
+      var expenseYearly = sumField(p.expenses, "yearly");
+      var loanYearly = p.loans.reduce(function(s, l){ return s + loanRepaymentMonthly(l) * 12; }, 0);
+      return sum + (rentYearly - expenseYearly - loanYearly);
+    }, 0);
   }
 
   function personTaxSettings(person){
@@ -321,6 +324,24 @@
     return Math.max(0, principal * pow - M * ((pow - 1) / r));
   }
 
+  function loanRepaymentMonthly(loan){
+    if(loan.repaymentMode === "manual") return periodsOf(Number(loan.manualRepaymentAmount) || 0, loan.manualRepaymentFreq || "Monthly").monthly;
+    return calcRepaymentMonthly(loan.balance, loan.rate, loan.termYears, loan.repaymentType);
+  }
+  // Only Investment Property costs are "kept in every scenario" for cash-flow purposes — a PPOR's costs
+  // are out of scope here since they'd double up with whichever scenario's own home cost is being compared.
+  function ipProperties(){ return state.properties.filter(function(p){ return p.kind === "IP"; }); }
+  function ipExpensesMonthly(){ return ipProperties().reduce(function(s, p){ return s + sumField(p.expenses, "monthly"); }, 0); }
+  function ipLoansMonthly(){ return ipProperties().reduce(function(s, p){ return s + p.loans.reduce(function(ss, l){ return ss + loanRepaymentMonthly(l); }, 0); }, 0); }
+  function ipExpenseItemsForClassification(){
+    var items = [];
+    ipProperties().forEach(function(p){
+      items = items.concat(p.expenses);
+      p.loans.forEach(function(l){ items.push({ what: l.what, classification: "Needs", amount: loanRepaymentMonthly(l), freq: "Monthly" }); });
+    });
+    return items;
+  }
+
   function scenarioInflatableMonthly(scenario){
     var homeItems = state.home[scenario] || [];
     var homeNonLoan = homeItems.filter(function(i){ return i.id !== "homeLoanRow"; });
@@ -337,10 +358,7 @@
     var rateShock = (Number(proj.rateShockPct) || 0) / 100;
     var monthlyInvestRate = Math.pow(1 + investRate, 1 / 12) - 1;
 
-    var nonPropertyAssets = state.assets.filter(function(a){ return a.category !== "Property"; })
-      .reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
-    var propertyAssets = state.assets.filter(function(a){ return a.category === "Property"; })
-      .reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
+    var nonPropertyAssets = totalAssetsValue();
 
     var price = purchaseEnabled ? Math.max(0, Number(cfg.price) || 0) : 0;
     var depositAmt = purchaseEnabled ? price * (Math.max(0, Math.min(100, Number(cfg.depositPct) || 0)) / 100) : 0;
@@ -361,8 +379,8 @@
     var portfolio = nonPropertyAssets - upfrontCash;
 
     var incomeMonthly = scenarioTotals(scenario).incomeMonthly;
-    var fixedMonthly = sumField(state.ip, "monthly") + repaymentMonthly;
-    var inflatableBase = scenarioInflatableMonthly(scenario);
+    var fixedMonthly = ipLoansMonthly() + repaymentMonthly;
+    var inflatableBase = scenarioInflatableMonthly(scenario) + ipExpensesMonthly();
 
     var points = [];
     for(var year = 0; year <= horizonYears; year++){
@@ -374,8 +392,15 @@
       var homeValue = price * Math.pow(1 + propRate, year);
       var loanBal = purchaseEnabled ? loanBalanceAfterMonths(loanAmount0, rate, term, year * 12, cfg.repaymentType) : 0;
       var homeEquity = purchaseEnabled ? (homeValue - loanBal) : 0;
-      var propertyGrown = propertyAssets * Math.pow(1 + propRate, year);
-      points.push({ x: year, y: homeEquity + portfolio + propertyGrown });
+      var propertiesEquitySum = state.properties.reduce(function(sum, p){
+        var val = (Number(p.value) || 0) * Math.pow(1 + propRate, year);
+        var loanNet = (p.loans || []).reduce(function(s, l){
+          var bal = loanBalanceAfterMonths(l.balance, l.rate, l.termYears, year * 12, l.repaymentType);
+          return s + Math.max(0, bal - (Number(l.offsetBalance) || 0));
+        }, 0);
+        return sum + (val - loanNet);
+      }, 0);
+      points.push({ x: year, y: homeEquity + portfolio + propertiesEquitySum });
     }
     return points;
   }
@@ -389,6 +414,7 @@
   ];
 
   function deepClone(o){ return JSON.parse(JSON.stringify(o)); }
+  function genId(prefix){ return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
   function defaultState(){
     return {
@@ -405,6 +431,7 @@
       home: { "Scenario 1": defaultHomeBlock() },
       purchase: { "Scenario 1": defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", false) },
       assets: [],
+      properties: [],
       projection: { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0 },
       tax: { sgRate: 12, ipOwnership: {}, settings: {} },
       pmFee: { percent: 6, flat: 5.5 }
@@ -496,6 +523,27 @@
           { what:"Superannuation", category:"Super", amount: rndStep(20000, 250000, 500) }
         ];
       })(),
+      properties: (function(){
+        var ipValue = rndStep(500000, 900000, 5000);
+        var ipLoanBalance = Math.round(ipValue * rndBetween(0.6, 0.8));
+        var ipRentWeekly = rndStep(450, 750, 10);
+        return [{
+          id: genId("p"), what: "48 Example St", kind: "IP", value: ipValue, history: [],
+          loans: [{
+            id: genId("l"), what: "Investment Loan", balance: ipLoanBalance, rate: rndStep(5.8, 6.8, 0.05), termYears: 27,
+            repaymentType: "PI", repaymentMode: "auto", manualRepaymentAmount: 0, manualRepaymentFreq: "Monthly",
+            offsetBalance: rndStep(0, 15000, 500)
+          }],
+          income: [{ what: "Rent", account: "Everyday Account", amount: ipRentWeekly, freq: "Weekly", classification: "" }],
+          expenses: [
+            { what: "Building Insurance", classification: "Needs", account: "Everyday Account", amount: rndStep(800, 1800, 50), freq: "Yearly" },
+            { what: "Council Rates", classification: "Needs", account: "Everyday Account", amount: rndStep(400, 900, 25), freq: "Quarterly" },
+            { what: "Water Rates", classification: "Needs", account: "Everyday Account", amount: rndStep(200, 400, 10), freq: "Quarterly" },
+            { what: "Property Maintenance", classification: "Needs", account: "Everyday Account", amount: rndStep(1000, 3000, 100), freq: "Yearly" },
+            { id: "pmFee6", what: "Property Manager Fee", classification: "Needs", account: "Everyday Account", amount: 0, freq: "Weekly", computed: true, computedNote: "" }
+          ]
+        }];
+      })(),
       projection: { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0 },
       tax: { sgRate: 12, ipOwnership: {}, settings: {} }
     };
@@ -561,6 +609,60 @@
       if(i.sacrificeMode == null) i.sacrificeMode = "none";
       if(i.sacrificeValue == null) i.sacrificeValue = 0;
     });
+
+    if(!Array.isArray(s.properties)) s.properties = [];
+    s.properties.forEach(function(p){
+      if(!Array.isArray(p.loans)) p.loans = [];
+      if(!Array.isArray(p.income)) p.income = [];
+      if(!Array.isArray(p.expenses)) p.expenses = [];
+      if(!Array.isArray(p.history)) p.history = [];
+      if(p.kind !== "IP" && p.kind !== "PPOR") p.kind = "IP";
+      if(p.value == null) p.value = 0;
+      p.loans.forEach(function(l){
+        if(l.id == null) l.id = genId("l");
+        if(l.repaymentMode !== "manual") l.repaymentMode = "auto";
+        if(l.manualRepaymentAmount == null) l.manualRepaymentAmount = 0;
+        if(l.manualRepaymentFreq == null) l.manualRepaymentFreq = "Monthly";
+        if(l.offsetBalance == null) l.offsetBalance = 0;
+        if(l.repaymentType !== "IO") l.repaymentType = "PI";
+        if(l.balance == null) l.balance = 0;
+        if(l.rate == null) l.rate = 0;
+        if(l.termYears == null) l.termYears = 30;
+      });
+    });
+
+    var hasLegacyIp = (s.income || []).some(function(i){ return i.id === "rentIncome"; }) || !!(s.ip && s.ip.length > 0);
+    if(hasLegacyIp && !s.propertiesMigratedFromIp){
+      var rentIdx = (s.income || []).findIndex(function(i){ return i.id === "rentIncome"; });
+      var rentRow = rentIdx !== -1 ? s.income.splice(rentIdx, 1)[0] : null;
+      var pmFeeIdx = (s.ip || []).findIndex(function(i){ return i.id === "pmFee6"; });
+      var pmFeeRow = pmFeeIdx !== -1 ? s.ip.splice(pmFeeIdx, 1)[0] : null;
+      var remainingExpenses = (s.ip || []).slice();
+      s.properties.push({
+        id: genId("p"),
+        what: rentRow ? (rentRow.what || "Investment Property").replace(/\s*-\s*Rent$/i, "") : "Investment Property",
+        kind: "IP", value: 0, history: [], loans: [],
+        income: rentRow ? [{ what: rentRow.what || "Rent", account: rentRow.account || "", amount: rentRow.amount || 0, freq: rentRow.freq || "Monthly", classification: "" }] : [],
+        expenses: remainingExpenses.concat(pmFeeRow ? [pmFeeRow] : [])
+      });
+      s.ip = [];
+      s.propertiesMigratedFromIp = true;
+    }
+
+    var legacyPropertyAssets = (s.assets || []).filter(function(a){ return (a.category || "Other") === "Property"; });
+    if(legacyPropertyAssets.length && !s.assetPropertiesMigrated){
+      legacyPropertyAssets.forEach(function(a){
+        s.properties.push({
+          id: genId("p"), what: a.what || "Property", kind: "IP",
+          value: Number(a.amount) || 0, history: Array.isArray(a.history) ? a.history : [],
+          loans: [], income: [], expenses: []
+        });
+      });
+      s.assets = (s.assets || []).filter(function(a){ return (a.category || "Other") !== "Property"; });
+      s.assetPropertiesMigrated = true;
+      showToast("Moved " + legacyPropertyAssets.length + " propert" + (legacyPropertyAssets.length === 1 ? "y" : "ies") + " to the new Properties tab — check the kind (IP/PPOR) for each");
+    }
+
     return s;
   }
 
@@ -571,6 +673,10 @@
     state = raw ? JSON.parse(raw) : defaultState();
     if(!state || !state.income || !state.home) state = defaultState();
     state = migrateState(state);
+    // Write back immediately (not debounced) so a one-time, non-idempotent migration (e.g. moving
+    // state.ip into state.properties) can't re-run and duplicate data on the next reload before the
+    // user has made any edit of their own to trigger the normal debounced persist().
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }catch(e){
     storageAvailable = false;
     state = defaultState();
@@ -636,16 +742,16 @@
   var fmtPercent1 = new Intl.NumberFormat("en-AU", {style:"percent", maximumFractionDigits:1});
 
   function recalcComputedItems(){
-    var rentItem = state.income.find(function(i){ return i.id === "rentIncome"; });
-    var pmFeeItem = state.ip.find(function(i){ return i.id === "pmFee6"; });
-    if(rentItem && pmFeeItem){
-      var rentWeekly = toWeekly(rentItem.amount, rentItem.freq);
+    state.properties.forEach(function(p){
+      var pmFeeItem = p.expenses.find(function(i){ return i.id === "pmFee6"; });
+      if(!pmFeeItem) return;
+      var rentWeekly = toWeekly(sumField(p.income, "yearly") / 52, "Weekly");
       var pmPercent = state.pmFee.percent;
       var pmFlat = state.pmFee.flat;
       pmFeeItem.amount = Math.round((rentWeekly * (pmPercent / 100) + pmFlat) * 100) / 100;
       pmFeeItem.freq = "Weekly";
       pmFeeItem.computedNote = "auto: " + pmPercent + "% of rent + $" + pmFlat.toFixed(2);
-    }
+    });
     state.scenarios.forEach(function(scenario){
       var cfg = state.purchase[scenario];
       var loanRow = (state.home[scenario] || []).find(function(i){ return i.id === "homeLoanRow"; });
@@ -680,12 +786,32 @@
         });
       }
     });
+
+    var ipPropertyIds = state.properties.filter(function(p){ return p.kind === "IP"; }).map(function(p){ return p.id; });
+    state.income = state.income.filter(function(i){ return !(i.syntheticRentForProperty && ipPropertyIds.indexOf(i.syntheticRentForProperty) === -1); });
+    state.properties.filter(function(p){ return p.kind === "IP"; }).forEach(function(p){
+      var monthlyRent = sumField(p.income, "monthly");
+      var existingRent = state.income.find(function(i){ return i.syntheticRentForProperty === p.id; });
+      var note = "auto: rent for " + p.what + " — edit on the Properties tab";
+      if(existingRent){
+        existingRent.amount = monthlyRent;
+        existingRent.freq = "Monthly";
+        existingRent.computed = true;
+        existingRent.computedNote = note;
+      } else {
+        state.income.push({
+          syntheticRentForProperty: p.id, computed: true, what: p.what + " — Rent",
+          classification: "", account: "", incomeType: "Net", amount: monthlyRent, freq: "Monthly",
+          computedNote: note
+        });
+      }
+    });
   }
 
   function renderPmFeeSettings(){
     var wrap = document.getElementById("pmFeeSettings");
     if(!wrap) return;
-    var hasPmFee = state.ip.some(function(i){ return i.id === "pmFee6"; });
+    var hasPmFee = state.properties.some(function(p){ return p.expenses.some(function(i){ return i.id === "pmFee6"; }); });
     wrap.style.display = hasPmFee ? "" : "none";
     if(hasPmFee){
       var pctEl = document.getElementById("pmFeePercent");
@@ -697,7 +823,7 @@
 
   function scenarioTotals(scenario){
     var incomeMonthly = sumField(effectiveIncomeItems(), "monthly");
-    var ipMonthly = sumField(state.ip, "monthly");
+    var ipMonthly = ipExpensesMonthly() + ipLoansMonthly();
     var sharedMonthly = sumField(state.shared, "monthly");
     var homeMonthly = sumField(state.home[scenario], "monthly");
     var expensesMonthly = ipMonthly + sharedMonthly + homeMonthly;
@@ -752,14 +878,15 @@
   function renderDashboardStats(){
     var el = document.getElementById("dashboardStats");
     if(!el || el.closest(".app-page").hidden) return;
-    var totalAssets = totalAssetsValue();
+    var totalNetWorth = totalNetWorthValue();
+    var itemCount = state.assets.length + state.properties.length;
     var active = state.activeScenario;
     var t = scenarioTotals(active);
     var horizon = Math.max(1, Number(state.projection.horizonYears) || 1);
     var series = computeNetWorthSeries(active, horizon);
     var projected = series[series.length - 1].y;
     el.innerHTML =
-      '<div class="stat-tile"><span>Total assets today</span><b>' + fmtCurrency0.format(totalAssets) + '</b><small>across ' + state.assets.length + ' item' + (state.assets.length === 1 ? "" : "s") + '</small></div>' +
+      '<div class="stat-tile"><span>Total net worth today</span><b>' + fmtCurrency0.format(totalNetWorth) + '</b><small>across ' + itemCount + ' item' + (itemCount === 1 ? "" : "s") + '</small></div>' +
       '<div class="stat-tile"><span>' + escapeAttr(active) + ' — net savings</span><b' + (t.netMonthly < 0 ? ' style="color:var(--bad)"' : '') + '>' + fmtCurrency0.format(t.netMonthly) + '/mo</b><small>' + fmtPercent1.format(t.rate) + ' savings rate</small></div>' +
       '<div class="stat-tile"><span>Projected net worth</span><b>' + fmtCurrency0.format(projected) + '</b><small>in ' + horizon + ' years, ' + escapeAttr(active) + '</small></div>' +
       '<div class="stat-tile"><span>Scenarios compared</span><b>' + state.scenarios.length + '</b><small>' + state.scenarios.map(escapeAttr).join(", ") + '</small></div>';
@@ -831,7 +958,7 @@
   function renderDetail(){
     document.getElementById("activeLabel").textContent = state.activeScenario;
     var scenario = state.activeScenario;
-    var combined = state.ip.concat(state.shared).concat(state.home[scenario]);
+    var combined = ipExpenseItemsForClassification().concat(state.shared).concat(state.home[scenario]);
     var incomeMonthly = sumField(effectiveIncomeItems(), "monthly");
     var needs = sumByClassification(combined, "Needs", "monthly");
     var wants = sumByClassification(combined, "Wants", "monthly");
@@ -922,20 +1049,33 @@
   }
   function escapeAttr(s){ return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;"); }
 
+  function findProperty(id){
+    return state.properties.find(function(p){ return p.id === id; });
+  }
+
   function getArrayForSection(section){
     if(section === "income") return state.income;
-    if(section === "ip") return state.ip;
     if(section === "shared") return state.shared;
-    var m = /^home:(.+)$/.exec(section);
-    if(m) return state.home[m[1]];
+    var mHome = /^home:(.+)$/.exec(section);
+    if(mHome) return state.home[mHome[1]];
+    var mPropInc = /^propinc:(.+)$/.exec(section);
+    if(mPropInc){ var pi = findProperty(mPropInc[1]); return pi ? pi.income : null; }
+    var mPropExp = /^propexp:(.+)$/.exec(section);
+    if(mPropExp){ var pe = findProperty(mPropExp[1]); return pe ? pe.expenses : null; }
     return null;
   }
 
   function rerenderTableFor(section){
     if(section === "income") renderIncomeGroups();
-    else if(section === "ip"){ buildTable(document.getElementById("tableIp"), "ip", state.ip, {showClass:true, hideAcctToggle:true, hideClassToggle:true}); renderPmFeeSettings(); }
     else if(section === "shared") renderSharedGroups();
-    else { var m = /^home:(.+)$/.exec(section); if(m){ var hi = state.scenarios.indexOf(m[1]); buildTable(document.getElementById("homeTable_" + slug(m[1]) + hi), section, state.home[m[1]], {showClass:true, acctColClass:"col-account-home"}); } }
+    else {
+      var mHome = /^home:(.+)$/.exec(section);
+      if(mHome){ var hi = state.scenarios.indexOf(mHome[1]); buildTable(document.getElementById("homeTable_" + slug(mHome[1]) + hi), section, state.home[mHome[1]], {showClass:true, acctColClass:"col-account-home"}); }
+      var mPropInc = /^propinc:(.+)$/.exec(section);
+      if(mPropInc){ var pi = findProperty(mPropInc[1]); if(pi) buildTable(document.getElementById("propIncomeTable_" + pi.id), section, pi.income, {showClass:false}); }
+      var mPropExp = /^propexp:(.+)$/.exec(section);
+      if(mPropExp){ var pe = findProperty(mPropExp[1]); if(pe) buildTable(document.getElementById("propExpTable_" + pe.id), section, pe.expenses, {showClass:true, hideAcctToggle:true, hideClassToggle:true}); }
+    }
     applyPeriodVisibility();
   }
 
@@ -1209,7 +1349,6 @@
 
   function renderTotals(){
     document.getElementById("totalIncomeMonthly").textContent = fmtCurrency2.format(sumField(effectiveIncomeItems(), "monthly"));
-    document.getElementById("totalIpMonthly").textContent = fmtCurrency2.format(sumField(state.ip, "monthly"));
     document.getElementById("totalSharedMonthly").textContent = fmtCurrency2.format(sumField(state.shared, "monthly"));
   }
 
@@ -1218,7 +1357,7 @@
     var table = document.getElementById("incomeGroups");
     if(!table) return;
     state.income.forEach(function(item, idx){
-      if(!item.syntheticNetFor) return;
+      if(!item.syntheticNetFor && !item.syntheticRentForProperty) return;
       var tr = table.querySelector('tr[data-index="' + idx + '"]');
       if(!tr) return;
       var amountInput = tr.querySelector(".f-amount");
@@ -1257,14 +1396,6 @@
     }
 
     recalcComputedItems();
-    var pmTr = document.querySelector('tr.is-computed[data-section="ip"]');
-    if(pmTr){
-      var pmItem = state.ip.find(function(i){ return i.computed; });
-      pmTr.querySelector(".f-amount").value = pmItem.amount;
-      var pmCells = pmTr.querySelectorAll("td.computed");
-      var pp = periodsOf(pmItem.amount, pmItem.freq);
-      PERIODS.forEach(function(pd, i){ pmCells[i].textContent = fmtCurrency2.format(pp[pd.key]); });
-    }
 
     if(section === "income" && structural){
       rerenderTableFor("income");
@@ -1277,6 +1408,9 @@
       rerenderTableFor("shared");
     } else if(section === "shared"){
       patchSharedGroupTotals();
+    } else if(section.indexOf("propinc:") === 0){
+      rerenderTableFor("propexp:" + section.slice(8));
+      patchSyntheticIncomeRows();
     }
 
     renderCards();
@@ -1284,7 +1418,7 @@
     renderTotals();
     if(section.indexOf("home:") === 0) renderHomeBodyTotalsOnly();
     renderProjectionOutputs();
-    if(section === "income") renderTaxSuper();
+    if(section === "income" || section.indexOf("propinc:") === 0 || section.indexOf("propexp:") === 0) renderTaxSuper();
     persist();
   }
 
@@ -1336,6 +1470,10 @@
   function refreshAfterLedgerChange(section){
     recalcComputedItems();
     rerenderTableFor(section);
+    if(section.indexOf("propinc:") === 0 || section.indexOf("propexp:") === 0){
+      patchSyntheticIncomeRows();
+      renderTaxSuper();
+    }
     renderCards(); renderDetail(); renderTotals(); renderHomeBodyTotalsOnly();
     renderProjectionOutputs();
     persist();
@@ -1583,6 +1721,19 @@
     return state.assets.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
   }
 
+  function propertyEquityToday(property){
+    var loanNet = (property.loans || []).reduce(function(s, l){
+      return s + Math.max(0, (Number(l.balance) || 0) - (Number(l.offsetBalance) || 0));
+    }, 0);
+    return (Number(property.value) || 0) - loanNet;
+  }
+  function propertiesTotalEquityToday(){
+    return state.properties.reduce(function(s, p){ return s + propertyEquityToday(p); }, 0);
+  }
+  function totalNetWorthValue(){
+    return totalAssetsValue() + propertiesTotalEquityToday();
+  }
+
   function assetGroupOrder(){
     return ASSET_CATEGORIES.filter(function(cat){
       return state.assets.some(function(a){ return (a.category || "Other") === cat; });
@@ -1672,7 +1823,7 @@
   }
 
   function renderNetWorthPanel(){
-    var total = totalAssetsValue();
+    var total = totalNetWorthValue();
     var liquid = state.assets.filter(function(a){ return LIQUID_CATEGORIES.indexOf(a.category) !== -1; })
                               .reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
     var purchaseScenarios = state.scenarios.filter(function(s){ return state.purchase[s] && state.purchase[s].enabled; });
@@ -1726,6 +1877,91 @@
     renderNetWorthPanel();
     renderPortfolioHistoryChart();
     renderProjectionOutputs();
+  }
+
+  // ---------------- Properties ----------------
+  function loanRowHtml(loan, li){
+    var repayment = loanRepaymentMonthly(loan);
+    return '<tr data-loan-index="' + li + '">' +
+      '<td><input type="text" class="loan-what" value="' + escapeAttr(loan.what) + '" aria-label="Loan name"></td>' +
+      '<td class="num"><input type="number" step="1000" min="0" class="loan-balance" value="' + (Number(loan.balance) || 0) + '" aria-label="Loan balance"></td>' +
+      '<td class="num"><input type="number" step="0.01" min="0" class="loan-rate" value="' + (Math.round((Number(loan.rate) || 0) * 100) / 100) + '" aria-label="Interest rate percent"></td>' +
+      '<td class="num"><input type="number" step="1" min="0" class="loan-term" value="' + (Number(loan.termYears) || 0) + '" aria-label="Term years remaining"></td>' +
+      '<td><select class="loan-type" aria-label="Repayment type">' + optionsHtml(["PI", "IO"], loan.repaymentType) + '</select></td>' +
+      '<td class="num loan-repayment-cell">' +
+        '<select class="loan-repay-mode" aria-label="Repayment mode">' + optionsHtml(["auto", "manual"], loan.repaymentMode) + '</select>' +
+        (loan.repaymentMode === "manual"
+          ? '<input type="number" step="1" min="0" class="loan-manual-amount" value="' + (Number(loan.manualRepaymentAmount) || 0) + '" aria-label="Manual repayment amount">'
+          : '<span class="computed-note">' + fmtCurrency0.format(repayment) + '/mo</span>') +
+      '</td>' +
+      '<td class="num"><input type="number" step="1000" min="0" class="loan-offset" value="' + (Number(loan.offsetBalance) || 0) + '" aria-label="Offset account balance" title="Netted against the balance for equity purposes"></td>' +
+      '<td><button type="button" class="btn btn-ghost btn-sm row-del" data-loan-del="' + li + '" aria-label="Delete loan">✕</button></td>' +
+      '</tr>';
+  }
+
+  function propertyCardHtml(p){
+    var equity = propertyEquityToday(p);
+    var loanRows = (p.loans || []).map(loanRowHtml).join("");
+    return '<div class="home-block" data-property-id="' + escapeAttr(p.id) + '">' +
+      '<div class="home-block-head">' +
+        '<div class="home-block-head-left">' +
+          '<h4><input type="text" class="prop-what" value="' + escapeAttr(p.what) + '" aria-label="Property name">' +
+          '<select class="prop-kind" aria-label="Property kind">' + optionsHtml(["IP", "PPOR"], p.kind) + '</select></h4>' +
+        '</div>' +
+        '<div class="home-block-right">' +
+          '<span class="home-block-total-label">Equity</span>' +
+          '<span class="home-block-total' + (equity < 0 ? " short" : "") + '">' + fmtCurrency0.format(equity) + '</span>' +
+          '<button type="button" class="btn btn-ghost btn-sm row-del" data-property-del="' + escapeAttr(p.id) + '" aria-label="Delete property">✕</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="calc-grid">' +
+        '<div class="calc-field"><label>Current value</label><input type="number" step="1000" min="0" class="prop-value" value="' + (Number(p.value) || 0) + '"></div>' +
+      '</div>' +
+      '<div class="prop-value-log"><button type="button" class="asset-log-btn" data-property-log="' + escapeAttr(p.id) + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart">Log</button>' + assetTrendHtml(p) + '</div>' +
+      '<div class="calc-costs-title">Loans</div>' +
+      '<div class="table-scroll"><table class="calc-costs-table prop-loans-table"><thead><tr><th>What</th><th class="num">Balance</th><th class="num">Rate %</th><th class="num">Term (yrs)</th><th>Type</th><th>Repayment</th><th class="num">Offset</th><th></th></tr></thead><tbody>' + loanRows + '</tbody></table></div>' +
+      '<button type="button" class="btn btn-sm btn-ghost" data-loan-add="' + escapeAttr(p.id) + '">+ Add loan</button>' +
+      '<div class="income-group prop-subledger">' +
+        '<div class="income-group-head"><div class="income-group-head-left"><h4>Income</h4></div></div>' +
+        '<div class="table-scroll"><table class="ledger-table" id="propIncomeTable_' + escapeAttr(p.id) + '"></table></div>' +
+        '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="propinc:' + escapeAttr(p.id) + '">+ Add income</button>' +
+      '</div>' +
+      '<div class="income-group prop-subledger">' +
+        '<div class="income-group-head"><div class="income-group-head-left"><h4>Expenses</h4></div></div>' +
+        '<div class="table-scroll"><table class="ledger-table" id="propExpTable_' + escapeAttr(p.id) + '"></table></div>' +
+        '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="propexp:' + escapeAttr(p.id) + '">+ Add expense</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function renderProperties(){
+    var container = document.getElementById("propertiesBody");
+    if(!container) return;
+    container.innerHTML = state.properties.length
+      ? state.properties.map(propertyCardHtml).join("")
+      : '<p class="ledger-note" style="margin:0">No properties yet — add one below to start tracking its value, loans, and (for an investment property) rent and expenses.</p>';
+    state.properties.forEach(function(p){
+      buildTable(document.getElementById("propIncomeTable_" + p.id), "propinc:" + p.id, p.income, {showClass:false});
+      buildTable(document.getElementById("propExpTable_" + p.id), "propexp:" + p.id, p.expenses, {showClass:true, hideAcctToggle:true, hideClassToggle:true});
+    });
+    renderPmFeeSettings();
+    applyPeriodVisibility();
+  }
+
+  function logPropertySnapshot(id){
+    var property = findProperty(id);
+    if(!property) return;
+    var num = Number(property.value) || 0;
+    var dateStr = new Date().toISOString().slice(0, 10);
+    if(!Array.isArray(property.history)) property.history = [];
+    var existing = property.history.find(function(h){ return h.date === dateStr; });
+    if(existing) existing.value = num;
+    else property.history.push({ date: dateStr, value: num });
+    property.history.sort(function(a, b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+    renderProperties();
+    renderProjectionOutputs();
+    persist();
+    showToast("Logged " + fmtCurrency0.format(num) + " for " + property.what + " (" + dateStr + ")");
   }
 
   // ---------------- Generic SVG line chart (used by projection + portfolio history) ----------------
@@ -2272,6 +2508,140 @@
     if(logBtn) logAssetSnapshot(Number(logBtn.getAttribute("data-asset-log")));
   });
 
+  function patchPropertyCardComputed(property){
+    var card = document.querySelector('.home-block[data-property-id="' + CSS.escape(property.id) + '"]');
+    if(!card) return;
+    var equity = propertyEquityToday(property);
+    var totalEl = card.querySelector(".home-block-total");
+    if(totalEl){ totalEl.textContent = fmtCurrency0.format(equity); totalEl.classList.toggle("short", equity < 0); }
+    (property.loans || []).forEach(function(loan, li){
+      var tr = card.querySelector('tr[data-loan-index="' + li + '"]');
+      if(!tr) return;
+      var note = tr.querySelector(".loan-repayment-cell .computed-note");
+      if(note) note.textContent = fmtCurrency0.format(loanRepaymentMonthly(loan)) + "/mo";
+    });
+  }
+
+  document.getElementById("propertiesBody").addEventListener("input", function(e){
+    var card = e.target.closest("[data-property-id]");
+    if(!card) return;
+    var property = findProperty(card.getAttribute("data-property-id"));
+    if(!property) return;
+    var loanTr = e.target.closest("tr[data-loan-index]");
+    if(loanTr){
+      var loan = property.loans[Number(loanTr.getAttribute("data-loan-index"))];
+      if(!loan) return;
+      if(e.target.classList.contains("loan-what")) loan.what = e.target.value;
+      else if(e.target.classList.contains("loan-balance")) loan.balance = parseFloat(e.target.value) || 0;
+      else if(e.target.classList.contains("loan-rate")) loan.rate = parseFloat(e.target.value) || 0;
+      else if(e.target.classList.contains("loan-term")) loan.termYears = parseFloat(e.target.value) || 0;
+      else if(e.target.classList.contains("loan-manual-amount")) loan.manualRepaymentAmount = parseFloat(e.target.value) || 0;
+      else if(e.target.classList.contains("loan-offset")) loan.offsetBalance = parseFloat(e.target.value) || 0;
+      else return;
+      patchPropertyCardComputed(property);
+      renderProjectionOutputs();
+      persist();
+      return;
+    }
+    if(e.target.classList.contains("prop-what")) property.what = e.target.value;
+    else if(e.target.classList.contains("prop-value")){ property.value = parseFloat(e.target.value) || 0; patchPropertyCardComputed(property); }
+    else return;
+    renderProjectionOutputs();
+    persist();
+  });
+
+  document.getElementById("propertiesBody").addEventListener("change", function(e){
+    var card = e.target.closest("[data-property-id]");
+    if(!card) return;
+    var property = findProperty(card.getAttribute("data-property-id"));
+    if(!property) return;
+    var loanTr = e.target.closest("tr[data-loan-index]");
+    if(loanTr){
+      var loan = property.loans[Number(loanTr.getAttribute("data-loan-index"))];
+      if(!loan) return;
+      if(e.target.classList.contains("loan-type")) loan.repaymentType = e.target.value;
+      else if(e.target.classList.contains("loan-repay-mode")) loan.repaymentMode = e.target.value;
+      else return;
+      renderProperties();
+      renderProjectionOutputs();
+      persist();
+      return;
+    }
+    if(e.target.classList.contains("prop-kind")){
+      property.kind = e.target.value;
+      recalcComputedItems();
+      renderProperties();
+      rerenderTableFor("income");
+      renderTaxSuper();
+      renderProjectionOutputs();
+      persist();
+    }
+  });
+
+  document.getElementById("propertiesBody").addEventListener("click", function(e){
+    var addLoanBtn = e.target.closest("[data-loan-add]");
+    if(addLoanBtn){
+      var forProperty = findProperty(addLoanBtn.getAttribute("data-loan-add"));
+      if(forProperty){
+        forProperty.loans.push({ id: genId("l"), what:"New loan", balance:0, rate:0, termYears:30, repaymentType:"PI", repaymentMode:"auto", manualRepaymentAmount:0, manualRepaymentFreq:"Monthly", offsetBalance:0 });
+        renderProperties();
+        renderProjectionOutputs();
+        persist();
+      }
+      return;
+    }
+    var delLoanBtn = e.target.closest("[data-loan-del]");
+    if(delLoanBtn){
+      var loanCard = e.target.closest("[data-property-id]");
+      var loanProperty = loanCard ? findProperty(loanCard.getAttribute("data-property-id")) : null;
+      if(loanProperty){
+        var li = Number(delLoanBtn.getAttribute("data-loan-del"));
+        var removedLoan = loanProperty.loans[li];
+        loanProperty.loans.splice(li, 1);
+        renderProperties();
+        renderProjectionOutputs();
+        persist();
+        showUndoToast('Deleted loan "' + (removedLoan.what || "Loan") + '"', function(){
+          loanProperty.loans.splice(Math.min(li, loanProperty.loans.length), 0, removedLoan);
+          renderProperties();
+          renderProjectionOutputs();
+          persist();
+        });
+      }
+      return;
+    }
+    var propLogBtn = e.target.closest("[data-property-log]");
+    if(propLogBtn){ logPropertySnapshot(propLogBtn.getAttribute("data-property-log")); return; }
+    var delPropBtn = e.target.closest("[data-property-del]");
+    if(delPropBtn){
+      var pid = delPropBtn.getAttribute("data-property-del");
+      var pidx = state.properties.findIndex(function(p){ return p.id === pid; });
+      if(pidx === -1) return;
+      var removedProperty = state.properties[pidx];
+      var afterPropertyDelete = function(){
+        recalcComputedItems();
+        renderProperties();
+        rerenderTableFor("income");
+        renderTaxSuper();
+        renderProjectionOutputs();
+        persist();
+      };
+      state.properties.splice(pidx, 1);
+      afterPropertyDelete();
+      showUndoToast('Deleted "' + (removedProperty.what || "Property") + '"', function(){
+        state.properties.splice(Math.min(pidx, state.properties.length), 0, removedProperty);
+        afterPropertyDelete();
+      });
+    }
+  });
+
+  document.getElementById("addPropertyBtn").addEventListener("click", function(){
+    state.properties.push({ id: genId("p"), what:"New property", kind:"IP", value:0, history:[], loans:[], income:[], expenses:[] });
+    renderProperties();
+    renderProjectionOutputs();
+    persist();
+  });
+
   document.addEventListener("input", function(e){
     if(e.target.closest("table.ledger-table")) onLedgerInput(e);
   });
@@ -2331,11 +2701,18 @@
     }
     var arr = getArrayForSection(section);
     if(!arr) return;
-    var showClass = section !== "income";
+    var showClass = section !== "income" && section.indexOf("propinc:") !== 0;
     var newItem = { what:"New item", classification: showClass ? (groupValue != null ? groupValue : "Needs") : "", account:"", amount:0, freq:"Monthly" };
     if(section === "income"){ newItem.person = groupValue != null ? groupValue : ""; newItem.incomeType = "Net"; }
     arr.push(newItem);
     rerenderTableFor(section);
+    if(section.indexOf("propinc:") === 0){
+      recalcComputedItems();
+      rerenderTableFor("propexp:" + section.slice(8));
+      patchSyntheticIncomeRows();
+    } else if(section.indexOf("propexp:") === 0){
+      recalcComputedItems();
+    }
     if(section.indexOf("home:") === 0) renderHomeBodyTotalsOnly();
     renderCards(); renderDetail(); renderTotals();
     renderTaxSuper();
@@ -2360,10 +2737,11 @@
     else if(e.target.id === "pmFeeFlat") state.pmFee.flat = parseFloat(e.target.value) || 0;
     else return;
     recalcComputedItems();
-    rerenderTableFor("ip");
+    state.properties.forEach(function(p){ rerenderTableFor("propexp:" + p.id); });
     renderCards();
     renderDetail();
     renderTotals();
+    renderTaxSuper();
     renderProjectionOutputs();
     persist();
   });
@@ -2544,6 +2922,7 @@
     { id: "dashboard", label: "Dashboard" },
     { id: "income", label: "Income & Tax" },
     { id: "expenses", label: "Expenses" },
+    { id: "properties", label: "Properties" },
     { id: "scenarios", label: "Scenarios" },
     { id: "assets", label: "Assets" },
     { id: "projections", label: "Projections" }
@@ -2590,8 +2969,7 @@
     document.getElementById("projRateShock").value = state.projection.rateShockPct;
     recalcComputedItems();
     renderIncomeGroups();
-    buildTable(document.getElementById("tableIp"), "ip", state.ip, {showClass:true, hideAcctToggle:true, hideClassToggle:true});
-    renderPmFeeSettings();
+    renderProperties();
     renderSharedGroups();
     renderHomeBody();
     renderCards();

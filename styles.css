@@ -392,6 +392,15 @@
   .income-group-head h4{ margin:0; font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:.03em; color: var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .income-group-total{ font-family:"IBM Plex Mono", monospace; font-size:12.5px; color: var(--ink-soft); white-space:nowrap; }
   .income-group-note{ font-size:11px; color: var(--ink-soft); margin:0 0 8px; }
+  .holding-subgroup{ margin:10px 0 14px 2px; padding-left:12px; border-left:2px solid var(--border); }
+  .holding-subgroup:last-child{ margin-bottom:0; }
+  .holding-subgroup .income-group-head h4{ font-size:11.5px; }
+  .holdings-table th, .holdings-table td{ white-space:nowrap; }
+  .holdings-table th:first-child, .holdings-table td:first-child{ white-space:normal; min-width:130px; }
+  .holdings-table .h-symbol, .holdings-table .h-market{ width:64px; }
+  .holdings-table .h-qty, .holdings-table .h-avgcost, .holdings-table .h-price{ width:80px; }
+  .holdings-table .h-person{ width:100px; }
+  .asset-trend.gain-cell{ padding-left:0; margin-top:0; }
   .income-summary-line{ font-size:11.5px; color: var(--ink-soft); margin:0 0 14px; }
   .income-summary-line b{ color: var(--ink); font-weight:600; }
 

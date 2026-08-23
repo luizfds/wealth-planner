@@ -473,6 +473,25 @@
   .calc-costs-table input.cc-amount:hover, .calc-costs-table input.cc-amount:focus{ background: var(--paper-raised); }
   .calc-costs-table td.cc-amount-cell{ width:110px; }
   .calc-costs-table td.cc-del{ width:24px; }
+
+  .home-block-total.short{ color: var(--bad); }
+  .prop-value-log{ display:flex; align-items:center; gap:8px; margin:4px 0 14px; }
+  .prop-loans-table th, .prop-loans-table td{ white-space:nowrap; padding:4px 6px; font-size:12.5px; border-bottom:1px solid var(--border); }
+  .prop-loans-table th{ text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; }
+  .prop-loans-table th.num, .prop-loans-table td.num{ text-align:right; }
+  .prop-loans-table tr:last-child td{ border-bottom:none; }
+  .prop-loans-table th:first-child, .prop-loans-table td:first-child{ white-space:normal; min-width:110px; }
+  .prop-loans-table input, .prop-loans-table select{
+    border:none; background:transparent; color:var(--ink); font-size:12.5px; padding:3px 4px; border-radius:5px; width:100%;
+  }
+  .prop-loans-table input:hover, .prop-loans-table input:focus,
+  .prop-loans-table select:hover, .prop-loans-table select:focus{ background: var(--paper-raised); }
+  .prop-loans-table .loan-balance, .prop-loans-table .loan-offset{ width:90px; }
+  .prop-loans-table .loan-rate, .prop-loans-table .loan-term{ width:64px; }
+  .prop-loans-table .loan-repay-mode{ width:74px; }
+  .prop-loans-table .loan-manual-amount{ width:80px; }
+  .prop-loans-table .loan-repayment-cell{ min-width:100px; }
+  .prop-subledger{ margin-top:14px; }
   .calc-note{ font-size:11px; color: var(--ink-soft); line-height:1.5; }
   .calc-help{ color: var(--ink-soft); font-size:11px; }
 

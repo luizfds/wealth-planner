@@ -381,6 +381,12 @@
     all:unset; font-size:11px; color: var(--ink-soft); cursor:pointer; padding:2px 8px; border-radius:100px; border:1px solid var(--border);
   }
   .home-setactive-btn:hover{ color: var(--brass-strong); border-color: var(--brass); }
+  .gearing-badge{
+    font-size:10px; text-transform:uppercase; letter-spacing:.04em; font-weight:700;
+    border-radius:100px; padding:2px 8px; flex:none;
+  }
+  .gearing-badge.positive{ color: var(--good); background: var(--good-wash); }
+  .gearing-badge.negative{ color: var(--bad); background: var(--bad-wash); }
   .home-block-right{ display:flex; align-items:center; gap:8px; flex:none; }
   .home-block-total-label{ font-size:10px; text-transform:uppercase; letter-spacing:.03em; color: var(--ink-soft); white-space:nowrap; }
   .home-block-total{ font-family:"IBM Plex Mono", monospace; font-size:12.5px; color: var(--ink-soft); white-space:nowrap; }

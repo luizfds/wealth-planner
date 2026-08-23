@@ -246,13 +246,16 @@
     return { baseGross: baseGross, sg: sg, packageTotal: packageTotal, autoSacrifice: autoSacrifice };
   }
 
+  function propertyGearingAnnual(property){
+    var rentYearly = sumField(property.income, "yearly");
+    var expenseYearly = sumField(property.expenses, "yearly");
+    var loanYearly = (property.loans || []).reduce(function(s, l){ return s + loanRepaymentMonthly(l) * 12; }, 0);
+    return rentYearly - expenseYearly - loanYearly;
+  }
+
   function ipNetResultAnnual(){
-    return state.properties.filter(function(p){ return p.kind === "IP"; }).reduce(function(sum, p){
-      var rentYearly = sumField(p.income, "yearly");
-      var expenseYearly = sumField(p.expenses, "yearly");
-      var loanYearly = p.loans.reduce(function(s, l){ return s + loanRepaymentMonthly(l) * 12; }, 0);
-      return sum + (rentYearly - expenseYearly - loanYearly);
-    }, 0);
+    return state.properties.filter(function(p){ return p.kind === "IP"; })
+      .reduce(function(sum, p){ return sum + propertyGearingAnnual(p); }, 0);
   }
 
   function personTaxSettings(person){
@@ -433,8 +436,7 @@
       assets: [],
       properties: [],
       projection: { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0 },
-      tax: { sgRate: 12, ipOwnership: {}, settings: {} },
-      pmFee: { percent: 6, flat: 5.5 }
+      tax: { sgRate: 12, ipOwnership: {}, settings: {} }
     };
   }
 
@@ -529,6 +531,7 @@
         var ipRentWeekly = rndStep(450, 750, 10);
         return [{
           id: genId("p"), what: "48 Example St", kind: "IP", value: ipValue, history: [],
+          pmFee: { percent: rndStep(5, 8, 0.5), flat: rndStep(0, 8, 0.5) },
           loans: [{
             id: genId("l"), what: "Investment Loan", balance: ipLoanBalance, rate: rndStep(5.8, 6.8, 0.05), termYears: 27,
             repaymentType: "PI", repaymentMode: "auto", manualRepaymentAmount: 0, manualRepaymentFreq: "Monthly",
@@ -602,9 +605,6 @@
     if(!s.tax.ipOwnership) s.tax.ipOwnership = {};
     if(!s.tax.settings) s.tax.settings = {};
     if(s.tax.sgRate == null) s.tax.sgRate = 11.5;
-    if(!s.pmFee) s.pmFee = { percent: 6, flat: 5.5 };
-    if(s.pmFee.percent == null) s.pmFee.percent = 6;
-    if(s.pmFee.flat == null) s.pmFee.flat = 5.5;
     (s.income || []).forEach(function(i){
       if(i.sacrificeMode == null) i.sacrificeMode = "none";
       if(i.sacrificeValue == null) i.sacrificeValue = 0;
@@ -618,6 +618,9 @@
       if(!Array.isArray(p.history)) p.history = [];
       if(p.kind !== "IP" && p.kind !== "PPOR") p.kind = "IP";
       if(p.value == null) p.value = 0;
+      if(!p.pmFee) p.pmFee = { percent: 6, flat: 5.5 };
+      if(p.pmFee.percent == null) p.pmFee.percent = 6;
+      if(p.pmFee.flat == null) p.pmFee.flat = 5.5;
       p.loans.forEach(function(l){
         if(l.id == null) l.id = genId("l");
         if(l.repaymentMode !== "manual") l.repaymentMode = "auto";
@@ -642,6 +645,10 @@
         id: genId("p"),
         what: rentRow ? (rentRow.what || "Investment Property").replace(/\s*-\s*Rent$/i, "") : "Investment Property",
         kind: "IP", value: 0, history: [], loans: [],
+        pmFee: {
+          percent: (s.pmFee && s.pmFee.percent != null) ? s.pmFee.percent : 6,
+          flat: (s.pmFee && s.pmFee.flat != null) ? s.pmFee.flat : 5.5
+        },
         income: rentRow ? [{ what: rentRow.what || "Rent", account: rentRow.account || "", amount: rentRow.amount || 0, freq: rentRow.freq || "Monthly", classification: "" }] : [],
         expenses: remainingExpenses.concat(pmFeeRow ? [pmFeeRow] : [])
       });
@@ -655,6 +662,7 @@
         s.properties.push({
           id: genId("p"), what: a.what || "Property", kind: "IP",
           value: Number(a.amount) || 0, history: Array.isArray(a.history) ? a.history : [],
+          pmFee: { percent: 6, flat: 5.5 },
           loans: [], income: [], expenses: []
         });
       });
@@ -746,8 +754,8 @@
       var pmFeeItem = p.expenses.find(function(i){ return i.id === "pmFee6"; });
       if(!pmFeeItem) return;
       var rentWeekly = toWeekly(sumField(p.income, "yearly") / 52, "Weekly");
-      var pmPercent = state.pmFee.percent;
-      var pmFlat = state.pmFee.flat;
+      var pmPercent = p.pmFee.percent;
+      var pmFlat = p.pmFee.flat;
       pmFeeItem.amount = Math.round((rentWeekly * (pmPercent / 100) + pmFlat) * 100) / 100;
       pmFeeItem.freq = "Weekly";
       pmFeeItem.computedNote = "auto: " + pmPercent + "% of rent + $" + pmFlat.toFixed(2);
@@ -808,18 +816,6 @@
     });
   }
 
-  function renderPmFeeSettings(){
-    var wrap = document.getElementById("pmFeeSettings");
-    if(!wrap) return;
-    var hasPmFee = state.properties.some(function(p){ return p.expenses.some(function(i){ return i.id === "pmFee6"; }); });
-    wrap.style.display = hasPmFee ? "" : "none";
-    if(hasPmFee){
-      var pctEl = document.getElementById("pmFeePercent");
-      var flatEl = document.getElementById("pmFeeFlat");
-      if(document.activeElement !== pctEl) pctEl.value = state.pmFee.percent;
-      if(document.activeElement !== flatEl) flatEl.value = state.pmFee.flat;
-    }
-  }
 
   function scenarioTotals(scenario){
     var incomeMonthly = sumField(effectiveIncomeItems(), "monthly");
@@ -1412,6 +1408,10 @@
       rerenderTableFor("propexp:" + section.slice(8));
       patchSyntheticIncomeRows();
     }
+    if(section.indexOf("propinc:") === 0 || section.indexOf("propexp:") === 0){
+      var editedProperty = findProperty(section.slice(section.indexOf(":") + 1));
+      if(editedProperty) patchPropertyCardComputed(editedProperty);
+    }
 
     renderCards();
     renderDetail();
@@ -1473,6 +1473,8 @@
     if(section.indexOf("propinc:") === 0 || section.indexOf("propexp:") === 0){
       patchSyntheticIncomeRows();
       renderTaxSuper();
+      var editedProperty = findProperty(section.slice(section.indexOf(":") + 1));
+      if(editedProperty) patchPropertyCardComputed(editedProperty);
     }
     renderCards(); renderDetail(); renderTotals(); renderHomeBodyTotalsOnly();
     renderProjectionOutputs();
@@ -1902,11 +1904,27 @@
   function propertyCardHtml(p){
     var equity = propertyEquityToday(p);
     var loanRows = (p.loans || []).map(loanRowHtml).join("");
+    var hasPmFee = p.expenses.some(function(i){ return i.id === "pmFee6"; });
+    var pmFeePanel = hasPmFee
+      ? '<div class="proj-controls prop-pmfee-panel">' +
+          '<div class="proj-field" title="Applied to this property\'s Property Manager Fee expense row, worked out from its own rent — each property manager can charge a different rate"><label>PM fee % of rent</label><input type="number" min="0" max="100" step="0.1" class="prop-pmfee-percent" value="' + (Number(p.pmFee.percent) || 0) + '"></div>' +
+          '<div class="proj-field"><label>+ flat $/week</label><input type="number" min="0" step="0.5" class="prop-pmfee-flat" value="' + (Number(p.pmFee.flat) || 0) + '"></div>' +
+        '</div>'
+      : "";
+    var gearingBadge = "";
+    if(p.kind === "IP"){
+      var gearing = propertyGearingAnnual(p);
+      var isPositive = gearing >= 0;
+      gearingBadge = '<span class="gearing-badge ' + (isPositive ? "positive" : "negative") + '" title="Rent minus expenses and loan repayments, per year (' + fmtCurrency0.format(gearing) + '/yr). ' +
+        (isPositive ? "Positively geared — the property earns more than it costs to hold." : "Negatively geared — the property costs more to hold than it earns, a common tax strategy.") +
+        '">' + (isPositive ? "Positively geared" : "Negatively geared") + '</span>';
+    }
     return '<div class="home-block" data-property-id="' + escapeAttr(p.id) + '">' +
       '<div class="home-block-head">' +
         '<div class="home-block-head-left">' +
           '<h4><input type="text" class="prop-what" value="' + escapeAttr(p.what) + '" aria-label="Property name">' +
           '<select class="prop-kind" aria-label="Property kind">' + optionsHtml(["IP", "PPOR"], p.kind) + '</select></h4>' +
+          gearingBadge +
         '</div>' +
         '<div class="home-block-right">' +
           '<span class="home-block-total-label">Equity</span>' +
@@ -1928,6 +1946,7 @@
       '</div>' +
       '<div class="income-group prop-subledger">' +
         '<div class="income-group-head"><div class="income-group-head-left"><h4>Expenses</h4></div></div>' +
+        pmFeePanel +
         '<div class="table-scroll"><table class="ledger-table" id="propExpTable_' + escapeAttr(p.id) + '"></table></div>' +
         '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="propexp:' + escapeAttr(p.id) + '">+ Add expense</button>' +
       '</div>' +
@@ -1944,7 +1963,6 @@
       buildTable(document.getElementById("propIncomeTable_" + p.id), "propinc:" + p.id, p.income, {showClass:false});
       buildTable(document.getElementById("propExpTable_" + p.id), "propexp:" + p.id, p.expenses, {showClass:true, hideAcctToggle:true, hideClassToggle:true});
     });
-    renderPmFeeSettings();
     applyPeriodVisibility();
   }
 
@@ -2520,6 +2538,15 @@
       var note = tr.querySelector(".loan-repayment-cell .computed-note");
       if(note) note.textContent = fmtCurrency0.format(loanRepaymentMonthly(loan)) + "/mo";
     });
+    var badge = card.querySelector(".gearing-badge");
+    if(badge && property.kind === "IP"){
+      var gearing = propertyGearingAnnual(property);
+      var isPositive = gearing >= 0;
+      badge.className = "gearing-badge " + (isPositive ? "positive" : "negative");
+      badge.textContent = isPositive ? "Positively geared" : "Negatively geared";
+      badge.title = "Rent minus expenses and loan repayments, per year (" + fmtCurrency0.format(gearing) + "/yr). " +
+        (isPositive ? "Positively geared — the property earns more than it costs to hold." : "Negatively geared — the property costs more to hold than it earns, a common tax strategy.");
+    }
   }
 
   document.getElementById("propertiesBody").addEventListener("input", function(e){
@@ -2538,6 +2565,16 @@
       else if(e.target.classList.contains("loan-manual-amount")) loan.manualRepaymentAmount = parseFloat(e.target.value) || 0;
       else if(e.target.classList.contains("loan-offset")) loan.offsetBalance = parseFloat(e.target.value) || 0;
       else return;
+      patchPropertyCardComputed(property);
+      renderProjectionOutputs();
+      persist();
+      return;
+    }
+    if(e.target.classList.contains("prop-pmfee-percent") || e.target.classList.contains("prop-pmfee-flat")){
+      if(e.target.classList.contains("prop-pmfee-percent")) property.pmFee.percent = parseFloat(e.target.value) || 0;
+      else property.pmFee.flat = parseFloat(e.target.value) || 0;
+      recalcComputedItems();
+      rerenderTableFor("propexp:" + property.id);
       patchPropertyCardComputed(property);
       renderProjectionOutputs();
       persist();
@@ -2636,7 +2673,7 @@
   });
 
   document.getElementById("addPropertyBtn").addEventListener("click", function(){
-    state.properties.push({ id: genId("p"), what:"New property", kind:"IP", value:0, history:[], loans:[], income:[], expenses:[] });
+    state.properties.push({ id: genId("p"), what:"New property", kind:"IP", value:0, history:[], pmFee:{percent:6, flat:5.5}, loans:[], income:[], expenses:[] });
     renderProperties();
     renderProjectionOutputs();
     persist();
@@ -2710,8 +2747,12 @@
       recalcComputedItems();
       rerenderTableFor("propexp:" + section.slice(8));
       patchSyntheticIncomeRows();
+      var addedToProperty = findProperty(section.slice(8));
+      if(addedToProperty) patchPropertyCardComputed(addedToProperty);
     } else if(section.indexOf("propexp:") === 0){
       recalcComputedItems();
+      var expAddedProperty = findProperty(section.slice(8));
+      if(expAddedProperty) patchPropertyCardComputed(expAddedProperty);
     }
     if(section.indexOf("home:") === 0) renderHomeBodyTotalsOnly();
     renderCards(); renderDetail(); renderTotals();
@@ -2729,20 +2770,6 @@
   document.getElementById("homeAcctToggle").addEventListener("change", function(e){
     state.homeCols.account = e.target.checked;
     applyPeriodVisibility();
-    persist();
-  });
-
-  document.getElementById("pmFeeSettings").addEventListener("input", function(e){
-    if(e.target.id === "pmFeePercent") state.pmFee.percent = parseFloat(e.target.value) || 0;
-    else if(e.target.id === "pmFeeFlat") state.pmFee.flat = parseFloat(e.target.value) || 0;
-    else return;
-    recalcComputedItems();
-    state.properties.forEach(function(p){ rerenderTableFor("propexp:" + p.id); });
-    renderCards();
-    renderDetail();
-    renderTotals();
-    renderTaxSuper();
-    renderProjectionOutputs();
     persist();
   });
 

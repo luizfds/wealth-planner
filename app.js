@@ -18,6 +18,7 @@
   var HOME_CATEGORIES = ["Rent / Home Loan", "Home Insurance", "Council Rates", "Water & Wastewater", "Property Maintenance"];
   var ASSET_CATEGORIES = ["Cash", "Shares", "Super", "Property", "Other"];
   var LIQUID_CATEGORIES = ["Cash", "Shares"];
+  var SHARE_MARKETS = ["ASX", "US"];
   var PURCHASE_STATE_CODES = ["NSW", "VIC", "Other"];
   var INCOME_TYPES = ["Net", "Gross"];
   var SUPER_MODES = ["On top", "Included"];
@@ -483,11 +484,18 @@
         p[scenarios[2]] = defaultPurchaseConfig(priceB, 20, rndStep(5.5, 7, 0.25), 30, rndPick(["NSW","VIC","Other"]), true);
         return p;
       })(),
-      assets: [
-        { what:"Cash Savings", category:"Cash", amount: rndStep(5000, 90000, 500) },
-        { what:"Shares / ETFs", category:"Shares", amount: rndStep(0, 120000, 500) },
-        { what:"Superannuation", category:"Super", amount: rndStep(20000, 250000, 500) }
-      ],
+      assets: (function(){
+        var h1Qty = rndStep(20, 150, 5), h1Price = rndStep(220, 320, 1), h1Cost = rndStep(180, 260, 1);
+        var h2Qty = rndStep(5, 40, 1), h2Price = rndStep(150, 300, 1), h2Cost = rndStep(140, 280, 1);
+        var h3Qty = rndStep(50, 300, 5), h3Price = rndStep(30, 90, 1), h3Cost = rndStep(35, 85, 1);
+        return [
+          { what:"Cash Savings", category:"Cash", amount: rndStep(5000, 90000, 500) },
+          { what:"CSL Limited", category:"Shares", symbol:"CSL", market:"ASX", quantity:h1Qty, avgCost:h1Cost, price:h1Price, person:personA, priceUpdated:"", amount: Math.round(h1Qty * h1Price * 100) / 100 },
+          { what:"Apple Inc", category:"Shares", symbol:"AAPL", market:"US", quantity:h2Qty, avgCost:h2Cost, price:h2Price, person:personB, priceUpdated:"", amount: Math.round(h2Qty * h2Price * 100) / 100 },
+          { what:"Vanguard Australian Shares ETF", category:"Shares", symbol:"VAS", market:"ASX", quantity:h3Qty, avgCost:h3Cost, price:h3Price, person:"", priceUpdated:"", amount: Math.round(h3Qty * h3Price * 100) / 100 },
+          { what:"Superannuation", category:"Super", amount: rndStep(20000, 250000, 500) }
+        ];
+      })(),
       projection: { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0 },
       tax: { sgRate: 12, ipOwnership: {}, settings: {} }
     };
@@ -528,6 +536,17 @@
       if(pcfg.ioRate == null) pcfg.ioRate = pcfg.rate;
     });
     if(!Array.isArray(s.assets)) s.assets = [];
+    s.assets.forEach(function(a){
+      if((a.category || "Other") !== "Shares") return;
+      if(a.quantity == null) a.quantity = 1;
+      if(a.price == null) a.price = (Number(a.amount) || 0) / (Number(a.quantity) || 1);
+      if(a.avgCost === undefined) a.avgCost = null;
+      if(a.market == null) a.market = "ASX";
+      if(a.symbol == null) a.symbol = "";
+      if(a.person == null) a.person = "";
+      if(a.priceUpdated == null) a.priceUpdated = "";
+      a.amount = Math.round((Number(a.quantity) || 0) * (Number(a.price) || 0) * 100) / 100;
+    });
     if(!s.projection) s.projection = { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0 };
     if(s.projection.inflationRate == null) s.projection.inflationRate = 3;
     if(s.projection.rateShockPct == null) s.projection.rateShockPct = 0;
@@ -1474,6 +1493,73 @@
       '</tr>';
   }
 
+  function gainLossHtml(item){
+    if(item.avgCost == null || item.avgCost === "") return '<span class="calc-note">—</span>';
+    var qty = Number(item.quantity) || 0;
+    var cost = Number(item.avgCost) || 0;
+    var price = Number(item.price) || 0;
+    var gainDollar = (price - cost) * qty;
+    var pct = cost ? (price - cost) / cost : 0;
+    var cls = gainDollar > 0 ? "up" : (gainDollar < 0 ? "down" : "");
+    var arrow = gainDollar > 0 ? "▲" : (gainDollar < 0 ? "▼" : "–");
+    return '<span class="asset-trend gain-cell ' + cls + '">' + arrow + ' ' + fmtCurrency0.format(Math.abs(gainDollar)) +
+      ' (' + fmtPercent1.format(Math.abs(pct)) + ')</span>';
+  }
+
+  function holdingRowHtml(item, idx){
+    var qty = Number(item.quantity) || 0;
+    var price = Number(item.price) || 0;
+    return '<tr data-index="' + idx + '">' +
+      '<td><input type="text" class="h-what" value="' + escapeAttr(item.what) + '" aria-label="Holding name">' + assetTrendHtml(item) + '</td>' +
+      '<td><input type="text" class="h-symbol" value="' + escapeAttr(item.symbol || "") + '" placeholder="e.g. CBA" aria-label="Ticker symbol"></td>' +
+      '<td><select class="h-market">' + optionsHtml(SHARE_MARKETS, item.market || "ASX") + '</select></td>' +
+      '<td class="num"><input type="number" step="1" min="0" class="h-qty" value="' + qty + '" aria-label="Quantity"></td>' +
+      '<td class="num"><input type="number" step="0.01" min="0" class="h-avgcost" value="' + (item.avgCost != null ? item.avgCost : "") + '" placeholder="—" aria-label="Average cost per share"></td>' +
+      '<td class="num"><input type="number" step="0.01" min="0" class="h-price" value="' + price + '" aria-label="Current price per share">' +
+        (item.priceUpdated ? '<span class="computed-note h-price-note">as of ' + escapeAttr(item.priceUpdated) + '</span>' : '<span class="computed-note h-price-note"></span>') + '</td>' +
+      '<td class="num h-value-cell">' + fmtCurrency0.format(qty * price) + '</td>' +
+      '<td class="h-gain-cell">' + gainLossHtml(item) + '</td>' +
+      '<td><input type="text" class="h-person" list="personSuggestions" value="' + escapeAttr(item.person || "") + '" placeholder="Household" aria-label="Person"></td>' +
+      '<td><button type="button" class="asset-log-btn" data-asset-log="' + idx + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart below">Log</button></td>' +
+      '<td><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete holding">✕</button></td>' +
+      '</tr>';
+  }
+
+  function patchHoldingRow(tr, item){
+    var qty = Number(item.quantity) || 0;
+    var price = Number(item.price) || 0;
+    var valueCell = tr.querySelector(".h-value-cell");
+    if(valueCell) valueCell.textContent = fmtCurrency0.format(qty * price);
+    var gainCell = tr.querySelector(".h-gain-cell");
+    if(gainCell) gainCell.innerHTML = gainLossHtml(item);
+    var priceNote = tr.querySelector(".h-price-note");
+    if(priceNote) priceNote.textContent = item.priceUpdated ? ("as of " + item.priceUpdated) : "";
+  }
+
+  function assetPersonGroupKey(item){
+    return item.person ? item.person : "__household";
+  }
+
+  function computeHoldingPersonGroups(items, indices){
+    var order = [];
+    items.forEach(function(item){
+      var key = assetPersonGroupKey(item);
+      if(order.indexOf(key) === -1) order.push(key);
+    });
+    if(order.indexOf("__household") !== -1){
+      order.splice(order.indexOf("__household"), 1);
+      order.push("__household");
+    }
+    return order.map(function(key){
+      var subItems = [], subIndices = [];
+      items.forEach(function(item, i){
+        if(assetPersonGroupKey(item) === key){ subItems.push(item); subIndices.push(indices[i]); }
+      });
+      var total = subItems.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
+      return { key: key, items: subItems, indices: subIndices, total: total };
+    });
+  }
+
   function logAssetSnapshot(idx){
     var asset = state.assets[idx];
     if(!asset) return;
@@ -1543,12 +1629,35 @@
     var groups = computeAssetGroups();
     patchAssetGroupTotals();
     container.innerHTML = groups.map(function(g, gi){
+      var body;
+      if(g.key === "Shares"){
+        var personGroups = computeHoldingPersonGroups(g.items, g.indices);
+        body = personGroups.map(function(pg, pi){
+          var label = pg.key === "__household" ? "Household / shared" : pg.key;
+          return '<div class="holding-subgroup"><div class="income-group-head">' +
+            '<div class="income-group-head-left"><h4>' + escapeAttr(label) + '</h4></div>' +
+            '<div class="income-group-total">' + fmtCurrency0.format(pg.total) + '</div>' +
+            '</div><div class="table-scroll"><table class="assets-table holdings-table" id="holdingGroupTable' + gi + '_' + pi + '"></table></div></div>';
+        }).join("");
+      } else {
+        body = '<div class="table-scroll"><table class="assets-table" id="assetGroupTable' + gi + '"></table></div>';
+      }
       return '<div class="income-group"><div class="income-group-head">' +
         '<div class="income-group-head-left"><h4>' + escapeAttr(g.key) + '</h4></div>' +
         '<div class="income-group-total">' + fmtCurrency0.format(g.total) + '</div>' +
-        '</div><div class="table-scroll"><table class="assets-table" id="assetGroupTable' + gi + '"></table></div></div>';
+        '</div>' + body + '</div>';
     }).join("");
     groups.forEach(function(g, gi){
+      if(g.key === "Shares"){
+        var personGroups = computeHoldingPersonGroups(g.items, g.indices);
+        var thead = '<thead><tr><th>What</th><th>Symbol</th><th>Mkt</th><th class="num">Qty</th><th class="num">Avg cost</th><th class="num">Price</th><th class="num">Value</th><th>Gain/Loss</th><th>Person</th><th></th><th></th></tr></thead>';
+        personGroups.forEach(function(pg, pi){
+          var tableEl = document.getElementById("holdingGroupTable" + gi + "_" + pi);
+          var rows = pg.items.map(function(item, i){ return holdingRowHtml(item, pg.indices[i]); }).join("");
+          tableEl.innerHTML = thead + "<tbody>" + rows + "</tbody>";
+        });
+        return;
+      }
       var tableEl = document.getElementById("assetGroupTable" + gi);
       var thead = '<thead><tr><th>What</th><th class="col-category">Category</th><th class="num">Value</th><th></th><th></th></tr></thead>';
       var rows = g.items.map(function(item, i){ return assetRowHtml(item, g.indices[i]); }).join("");
@@ -2073,6 +2182,32 @@
       if(!item) return;
       if(e.target.classList.contains("a-what")) item.what = e.target.value;
       else if(e.target.classList.contains("a-amount")) item.amount = parseFloat(e.target.value) || 0;
+      else if(e.target.classList.contains("h-what")) item.what = e.target.value;
+      else if(e.target.classList.contains("h-symbol")) item.symbol = e.target.value;
+      else if(e.target.classList.contains("h-qty")){
+        item.quantity = parseFloat(e.target.value) || 0;
+        item.amount = Math.round(item.quantity * (Number(item.price) || 0) * 100) / 100;
+        patchHoldingRow(tr, item);
+      }
+      else if(e.target.classList.contains("h-avgcost")){
+        item.avgCost = e.target.value === "" ? null : (parseFloat(e.target.value) || 0);
+        patchHoldingRow(tr, item);
+      }
+      else if(e.target.classList.contains("h-price")){
+        item.price = parseFloat(e.target.value) || 0;
+        item.priceUpdated = new Date().toISOString().slice(0, 10);
+        item.amount = Math.round((Number(item.quantity) || 0) * item.price * 100) / 100;
+        patchHoldingRow(tr, item);
+      }
+      else if(e.target.classList.contains("h-person")){
+        item.person = e.target.value;
+        renderAssetGroups();
+        updatePersonSuggestions();
+        document.getElementById("totalAssets").textContent = fmtCurrency0.format(totalAssetsValue());
+        renderNetWorthPanel();
+        persist();
+        return;
+      }
       else return;
       patchAssetGroupTotals();
       document.getElementById("totalAssets").textContent = fmtCurrency0.format(totalAssetsValue());
@@ -2086,6 +2221,12 @@
       if(!tr) return;
       var idx = Number(tr.getAttribute("data-index"));
       if(state.assets[idx]){ state.assets[idx].category = e.target.value; renderAssets(); persist(); }
+    }
+    if(e.target.closest("table.assets-table") && e.target.classList.contains("h-market")){
+      var htr = e.target.closest("tr[data-index]");
+      if(!htr) return;
+      var hidx = Number(htr.getAttribute("data-index"));
+      if(state.assets[hidx]){ state.assets[hidx].market = e.target.value; persist(); }
     }
   });
   document.addEventListener("click", function(e){
@@ -2149,6 +2290,12 @@
     var section = addBtn.getAttribute("data-add");
     if(section === "assets"){
       state.assets.push({ what:"New asset", category:"Cash", amount:0 });
+      renderAssets();
+      persist();
+      return;
+    }
+    if(section === "holding"){
+      state.assets.push({ what:"New holding", category:"Shares", symbol:"", market:"ASX", quantity:0, avgCost:null, price:0, priceUpdated:"", person:"", amount:0 });
       renderAssets();
       persist();
       return;
@@ -2440,6 +2587,7 @@
   function updatePersonSuggestions(){
     var names = {};
     state.income.forEach(function(i){ if(i.person) names[i.person] = true; });
+    state.assets.forEach(function(a){ if(a.person) names[a.person] = true; });
     personDatalist.innerHTML = Object.keys(names).map(function(n){ return '<option value="' + escapeAttr(n) + '">'; }).join("");
   }
 

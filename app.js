@@ -2293,14 +2293,14 @@
       }).then(function(){
         showToast("Backup saved");
       }).catch(function(){
-        showToast("Couldn't write to that file — try Export again");
+        fallbackExport(payload, filename, "Couldn't write there directly (common with synced cloud folders) — saved to your downloads instead");
       });
     }).catch(function(err){
       if(err && err.name === "AbortError") return;
       fallbackExport(payload, filename);
     });
   }
-  function fallbackExport(payload, filename){
+  function fallbackExport(payload, filename, successMessage){
     try{
       var blob = new Blob([payload], {type:"application/json"});
       var url = URL.createObjectURL(blob);
@@ -2308,7 +2308,7 @@
       a.href = url; a.download = filename;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-      showToast("Backup saved");
+      showToast(successMessage || "Backup saved");
     }catch(e){
       showToast("Couldn't save a file here — copy is in your clipboard? Try again from a full browser tab.");
     }

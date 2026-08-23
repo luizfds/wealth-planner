@@ -999,13 +999,15 @@
     patchIncomeGroupTotals();
     container.innerHTML = groups.map(function(g, gi){
       var label = g.key === "__household" ? "Household / shared" : g.key;
+      var addValue = g.key === "__household" ? "" : g.key;
       var hasGrossRows = g.items.some(function(i){ return i.incomeType === "Gross" && !i.computed; });
       return '<div class="income-group"><div class="income-group-head">' +
         '<div class="income-group-head-left"><h4>' + escapeAttr(label) + '</h4></div>' +
         '<div class="income-group-total">' + fmtCurrency0.format(g.monthly) + ' / mo</div>' +
         '</div>' +
         (hasGrossRows ? '<p class="income-group-note">Gross rows below are reference only, excluded from the total — see “' + escapeAttr(g.key) + ' — Net income” for the actual after-tax contribution.</p>' : '') +
-        '<div class="table-scroll"><table class="ledger-table" id="incomeGroupTable' + gi + '"></table></div></div>';
+        '<div class="table-scroll"><table class="ledger-table" id="incomeGroupTable' + gi + '"></table></div>' +
+        '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="income:' + escapeAttr(addValue) + '">+ Add to ' + escapeAttr(label) + '</button></div>';
     }).join("");
     groups.forEach(function(g, gi){
       buildTable(document.getElementById("incomeGroupTable" + gi), "income", g.items, {showClass:false, showIncomeFields:true}, g.indices);
@@ -1056,7 +1058,8 @@
       return '<div class="income-group"><div class="income-group-head">' +
         '<div class="income-group-head-left"><h4>' + escapeAttr(g.key) + '</h4></div>' +
         '<div class="income-group-total">' + fmtCurrency0.format(g.monthly) + ' / mo</div>' +
-        '</div><div class="table-scroll"><table class="ledger-table" id="sharedGroupTable' + gi + '"></table></div></div>';
+        '</div><div class="table-scroll"><table class="ledger-table" id="sharedGroupTable' + gi + '"></table></div>' +
+        '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="shared:' + escapeAttr(g.key) + '">+ Add to ' + escapeAttr(g.key) + '</button></div>';
     }).join("");
     groups.forEach(function(g, gi){
       buildTable(document.getElementById("sharedGroupTable" + gi), "shared", g.items, {showClass:true, hideAcctToggle:true, hideClassToggle:true}, g.indices);
@@ -1634,13 +1637,16 @@
         var personGroups = computeHoldingPersonGroups(g.items, g.indices);
         body = personGroups.map(function(pg, pi){
           var label = pg.key === "__household" ? "Household / shared" : pg.key;
+          var addValue = pg.key === "__household" ? "" : pg.key;
           return '<div class="holding-subgroup"><div class="income-group-head">' +
             '<div class="income-group-head-left"><h4>' + escapeAttr(label) + '</h4></div>' +
             '<div class="income-group-total">' + fmtCurrency0.format(pg.total) + '</div>' +
-            '</div><div class="table-scroll"><table class="assets-table holdings-table" id="holdingGroupTable' + gi + '_' + pi + '"></table></div></div>';
+            '</div><div class="table-scroll"><table class="assets-table holdings-table" id="holdingGroupTable' + gi + '_' + pi + '"></table></div>' +
+            '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="holding:' + escapeAttr(addValue) + '">+ Add holding to ' + escapeAttr(label) + '</button></div>';
         }).join("");
       } else {
-        body = '<div class="table-scroll"><table class="assets-table" id="assetGroupTable' + gi + '"></table></div>';
+        body = '<div class="table-scroll"><table class="assets-table" id="assetGroupTable' + gi + '"></table></div>' +
+          '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="assets:' + escapeAttr(g.key) + '">+ Add to ' + escapeAttr(g.key) + '</button>';
       }
       return '<div class="income-group"><div class="income-group-head">' +
         '<div class="income-group-head-left"><h4>' + escapeAttr(g.key) + '</h4></div>' +
@@ -2287,15 +2293,23 @@
   document.addEventListener("click", function(e){
     var addBtn = e.target.closest("[data-add]");
     if(!addBtn) return;
-    var section = addBtn.getAttribute("data-add");
+    var raw = addBtn.getAttribute("data-add");
+    var section, groupValue;
+    if(raw.indexOf("home:") === 0){
+      section = raw; groupValue = null;
+    } else {
+      var colonIdx = raw.indexOf(":");
+      section = colonIdx === -1 ? raw : raw.slice(0, colonIdx);
+      groupValue = colonIdx === -1 ? null : raw.slice(colonIdx + 1);
+    }
     if(section === "assets"){
-      state.assets.push({ what:"New asset", category:"Cash", amount:0 });
+      state.assets.push({ what:"New asset", category: groupValue != null ? groupValue : "Cash", amount:0 });
       renderAssets();
       persist();
       return;
     }
     if(section === "holding"){
-      state.assets.push({ what:"New holding", category:"Shares", symbol:"", market:"ASX", quantity:0, avgCost:null, price:0, priceUpdated:"", person:"", amount:0 });
+      state.assets.push({ what:"New holding", category:"Shares", symbol:"", market:"ASX", quantity:0, avgCost:null, price:0, priceUpdated:"", person: groupValue != null ? groupValue : "", amount:0 });
       renderAssets();
       persist();
       return;
@@ -2303,8 +2317,8 @@
     var arr = getArrayForSection(section);
     if(!arr) return;
     var showClass = section !== "income";
-    var newItem = { what:"New item", classification: showClass ? "Needs" : "", account:"", amount:0, freq:"Monthly" };
-    if(section === "income"){ newItem.person = ""; newItem.incomeType = "Net"; }
+    var newItem = { what:"New item", classification: showClass ? (groupValue != null ? groupValue : "Needs") : "", account:"", amount:0, freq:"Monthly" };
+    if(section === "income"){ newItem.person = groupValue != null ? groupValue : ""; newItem.incomeType = "Net"; }
     arr.push(newItem);
     rerenderTableFor(section);
     if(section.indexOf("home:") === 0) renderHomeBodyTotalsOnly();

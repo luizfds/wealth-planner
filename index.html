@@ -122,6 +122,10 @@
   @media (max-width: 880px){
     .app-shell{ display:block; }
     .app-sidebar{ position:sticky; top:0; height:auto; width:auto; flex-direction:row; align-items:center; overflow-x:auto; padding:10px 12px; gap:12px; z-index:5; }
+    .app-sidebar::after{
+      content:""; position:absolute; top:0; right:0; bottom:0; width:28px; pointer-events:none;
+      background: linear-gradient(to right, transparent, var(--paper-raised));
+    }
     .app-brand{ padding:0; flex:none; }
     .app-brand-tag{ display:none; }
     .app-nav{ flex-direction:row; gap:4px; }
@@ -139,7 +143,7 @@
     box-shadow: var(--shadow); display:flex; flex-direction:column; gap:4px;
   }
   .stat-tile span{ font-size:11px; text-transform:uppercase; letter-spacing:.05em; color: var(--ink-soft); font-weight:600; }
-  .stat-tile b{ font-family:"Fraunces", Georgia, serif; font-weight:600; font-size:24px; letter-spacing:-0.01em; font-variant-numeric: tabular-nums; }
+  .stat-tile b{ font-family:"Fraunces", Georgia, serif; font-weight:600; font-size:21px; letter-spacing:-0.01em; font-variant-numeric: tabular-nums; }
   .stat-tile small{ font-size:11.5px; color: var(--ink-soft); }
 
   /* ---------------- Header ---------------- */
@@ -155,6 +159,8 @@
   }
   .topbar p{ margin:0; color: var(--ink-soft); max-width: 54ch; font-size: 14px; }
   .actions{ display:flex; align-items:center; gap:8px; flex-wrap: wrap; }
+  .actions-group{ display:flex; align-items:center; gap:8px; }
+  .actions-divider{ width:1px; height:18px; background: var(--border); flex:none; }
   .status-chip{
     font-size: 11.5px; color: var(--ink-soft); display:flex; align-items:center; gap:6px;
     padding: 5px 10px; border:1px solid var(--border); border-radius: 100px; background: var(--paper-raised);
@@ -205,8 +211,8 @@
   .card-name{ font-weight:600; font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .card-controls{ display:flex; align-items:center; gap:2px; flex:none; }
   .icon-btn{
-    all:unset; box-sizing:border-box; cursor:pointer; width:20px; height:20px; border-radius:6px;
-    display:flex; align-items:center; justify-content:center; color: var(--ink-soft); font-size:11px;
+    all:unset; box-sizing:border-box; cursor:pointer; width:26px; height:26px; border-radius:6px;
+    display:flex; align-items:center; justify-content:center; color: var(--ink-soft); font-size:12px;
   }
   .icon-btn:hover{ background: var(--paper-sunken); color: var(--ink); }
   .icon-btn:focus-visible{ box-shadow: var(--focus-ring); }
@@ -334,7 +340,7 @@
   td.sacrifice-cell .sacrifice-wrap{ display:flex; align-items:center; gap:4px; }
   td.sacrifice-cell select{ flex: 1 1 auto; min-width: 96px; width:auto; }
   td.sacrifice-cell input[type="number"]{ flex: 0 0 60px; width:60px; }
-  .row-del{ opacity:0.5; }
+  .row-del{ opacity:0.5; padding:8px 11px; }
   .row-del:hover{ opacity:1; }
   tr.is-computed .amount-cell input{ color: var(--ink-soft); font-style: italic; }
   tr.is-gross-ref{ background: var(--paper-sunken); }
@@ -579,9 +585,12 @@
   .tax-out b{ font-family:"IBM Plex Mono", monospace; font-size:14.5px; font-variant-numeric: tabular-nums; }
   .tax-out.emph b{ color: var(--brass-strong); font-size:16px; }
   .tax-out.neg b{ color: var(--bad); }
+  .tax-inputs-label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; margin:2px 0 6px; }
+  .tax-inputs-panel{ background: var(--paper-raised); border:1px solid var(--border); border-radius:9px; padding:12px 14px; margin-bottom:12px; }
+  .tax-inputs-panel .tax-inputs{ margin-bottom:0; }
   .tax-inputs{ display:grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap:10px 14px; margin-bottom:10px; }
   .tax-inputs .proj-field label{ min-height:30px; display:flex; align-items:flex-start; }
-  .tax-advanced{ margin-bottom:10px; }
+  .tax-advanced{ margin-bottom:0; margin-top:10px; }
   .tax-advanced summary{ cursor:pointer; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; padding:2px 0; user-select:none; }
   .tax-advanced summary:hover{ color: var(--ink); }
   .tax-advanced[open] summary{ margin-bottom:8px; }
@@ -631,6 +640,11 @@
   .toast.show{ opacity:1; transform: translateY(0); }
   @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .toast{ background: var(--brass-wash); color: var(--ink); border:1px solid var(--border); } }
   :root[data-theme="dark"] .toast{ background: var(--brass-wash); color: var(--ink); border:1px solid var(--border); }
+  .toast{ display:flex; align-items:center; gap:12px; }
+  .toast-undo-btn{
+    all:unset; cursor:pointer; font-weight:700; text-decoration:underline; text-underline-offset:2px;
+    color: inherit; flex:none;
+  }
 
   .visually-hidden{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
 </style>
@@ -669,10 +683,15 @@
         <span class="status-chip" id="statusChip"><span class="status-dot" id="statusDot"></span><span id="statusText">Saved</span></span>
         <button class="btn btn-sm" id="themeToggleBtn" title="Cycle between following your system theme, always light, or always dark">Theme: System</button>
         <input type="file" id="importFile" accept="application/json,.json">
-        <button class="btn btn-sm" id="importBtn" title="Load a previously exported backup">Import</button>
-        <button class="btn btn-sm" id="exportBtn" title="Save a backup file of your numbers">Export</button>
-        <button class="btn btn-sm" id="mockDataBtn" title="Fill in randomised example numbers so you can try the tool before entering your own">Sample data</button>
-        <button class="btn btn-sm btn-ghost" id="resetBtn" title="Clear everything back to a blank slate">Reset</button>
+        <span class="actions-group">
+          <button class="btn btn-sm" id="importBtn" title="Load a previously exported backup">Import</button>
+          <button class="btn btn-sm" id="exportBtn" title="Save a backup file of your numbers">Export</button>
+        </span>
+        <span class="actions-divider" aria-hidden="true"></span>
+        <span class="actions-group">
+          <button class="btn btn-sm btn-ghost" id="mockDataBtn" title="Replaces everything currently entered with randomised example numbers, so you can try the tool before entering your own">Sample data</button>
+          <button class="btn btn-sm btn-ghost" id="resetBtn" title="Clear everything back to a blank slate">Reset</button>
+        </span>
       </div>
     </header>
 
@@ -2114,14 +2133,26 @@
       var idx = Number(parts[parts.length - 1]);
       var arr = getArrayForSection(section);
       if(arr && arr.length > 0){
+        var removedItem = arr[idx];
+        var removedWhat = removedItem && removedItem.what ? removedItem.what : "Item";
         arr.splice(idx, 1);
-        rerenderTableFor(section);
-        recalcComputedItems();
-        renderCards(); renderDetail(); renderTotals(); renderHomeBodyTotalsOnly();
-        renderProjectionOutputs();
-        persist();
+        refreshAfterLedgerChange(section);
+        showUndoToast('Deleted "' + removedWhat + '"', function(){
+          var arrNow = getArrayForSection(section);
+          if(!arrNow) return;
+          arrNow.splice(Math.min(idx, arrNow.length), 0, removedItem);
+          refreshAfterLedgerChange(section);
+        });
       }
     }
+  }
+
+  function refreshAfterLedgerChange(section){
+    recalcComputedItems();
+    rerenderTableFor(section);
+    renderCards(); renderDetail(); renderTotals(); renderHomeBodyTotalsOnly();
+    renderProjectionOutputs();
+    persist();
   }
 
   function renderHomeBodyTotalsOnly(){
@@ -2730,16 +2761,20 @@
         (Math.abs(r.packageTotal - r.gross) > 1
           ? '<p class="tax-package-note" data-out="packagenote" style="margin:-6px 0 12px">Of that ' + fmtCurrency0.format(r.packageTotal) + ', ' + fmtCurrency0.format(r.packageTotal - r.gross) + ' is super already included inside a row marked "Super: Included" — so tax and take-home are calculated on ' + fmtCurrency0.format(r.gross) + ' base salary, not the full ' + fmtCurrency0.format(r.packageTotal) + '. (Total super for the year, from every row, is in the cap line below.)</p>'
           : '') +
-        '<div class="tax-inputs">' +
-          '<div class="proj-field"><label>IP ownership %</label><input type="number" min="0" max="100" step="1" class="tax-ipshare" value="' + r.ownershipPct + '"></div>' +
-          '<div class="proj-field"><label title="Separate from the Cash / Sacrifice column on income rows above — use this for sacrifice not tied to a specific item">Manual sacrifice $/yr</label><input type="number" min="0" step="500" class="tax-sacrifice" value="' + settings.superSacrificeAnnual + '"></div>' +
-        '</div>' +
-        '<details class="tax-advanced"><summary>Advanced — concessional cap &amp; carry-forward</summary>' +
+        '<div class="tax-inputs-label">Your inputs</div>' +
+        '<div class="tax-inputs-panel">' +
           '<div class="tax-inputs">' +
-            '<div class="proj-field"><label>Concessional cap $/yr</label><input type="number" min="0" step="500" class="tax-cap" value="' + settings.concessionalCap + '"></div>' +
-            '<div class="proj-field"><label>Carry-forward available $</label><input type="number" min="0" step="500" class="tax-carryforward" value="' + settings.carryForward + '"></div>' +
+            '<div class="proj-field"><label>IP ownership %</label><input type="number" min="0" max="100" step="1" class="tax-ipshare" value="' + r.ownershipPct + '"></div>' +
+            '<div class="proj-field"><label title="Separate from the Cash / Sacrifice column on income rows above — use this for sacrifice not tied to a specific item">Manual sacrifice $/yr</label><input type="number" min="0" step="500" class="tax-sacrifice" value="' + settings.superSacrificeAnnual + '"></div>' +
           '</div>' +
-        '</details>' +
+          '<details class="tax-advanced"><summary>Advanced — concessional cap &amp; carry-forward</summary>' +
+            '<div class="tax-inputs">' +
+              '<div class="proj-field"><label>Concessional cap $/yr</label><input type="number" min="0" step="500" class="tax-cap" value="' + settings.concessionalCap + '"></div>' +
+              '<div class="proj-field"><label>Carry-forward available $</label><input type="number" min="0" step="500" class="tax-carryforward" value="' + settings.carryForward + '"></div>' +
+            '</div>' +
+          '</details>' +
+        '</div>' +
+        '<div class="tax-inputs-label">Concessional cap usage <span class="calc-help" title="Estimated from your inputs above — not something you set directly.">ⓘ</span></div>' +
         '<div class="cap-bar-track"><div class="cap-bar-fill' + (r.capExceeded > 0 ? " over" : "") + '" style="width:' + Math.min(100, capPct) + '%"></div></div>' +
         '<div class="tax-cap-note' + (r.capExceeded > 0 ? " warn" : "") + '">' +
           (r.capExceeded > 0
@@ -2893,10 +2928,18 @@
     var delBtn = e.target.closest("[data-asset-del]");
     if(delBtn){
       var idx = Number(delBtn.getAttribute("data-asset-del"));
+      var removedAsset = state.assets[idx];
+      var removedWhat = removedAsset && removedAsset.what ? removedAsset.what : "Asset";
       state.assets.splice(idx, 1);
       renderAssets();
       renderProjectionOutputs();
       persist();
+      showUndoToast('Deleted "' + removedWhat + '"', function(){
+        state.assets.splice(Math.min(idx, state.assets.length), 0, removedAsset);
+        renderAssets();
+        renderProjectionOutputs();
+        persist();
+      });
       return;
     }
     var logBtn = e.target.closest("[data-asset-log]");
@@ -3018,6 +3061,32 @@
     setTimeout(function(){ t.classList.remove("show"); setTimeout(function(){ t.remove(); }, 200); }, 3200);
   }
 
+  function showUndoToast(msg, undoFn){
+    var wrap = document.getElementById("toastWrap");
+    var t = document.createElement("div");
+    t.className = "toast";
+    var label = document.createElement("span");
+    label.textContent = msg;
+    var undoBtn = document.createElement("button");
+    undoBtn.type = "button";
+    undoBtn.className = "toast-undo-btn";
+    undoBtn.textContent = "Undo";
+    t.appendChild(label);
+    t.appendChild(undoBtn);
+    wrap.appendChild(t);
+    requestAnimationFrame(function(){ t.classList.add("show"); });
+    var dismissTimer = setTimeout(dismiss, 6000);
+    function dismiss(){
+      clearTimeout(dismissTimer);
+      t.classList.remove("show");
+      setTimeout(function(){ t.remove(); }, 200);
+    }
+    undoBtn.addEventListener("click", function(){
+      undoFn();
+      dismiss();
+    });
+  }
+
   function isoDateStamp(){
     var d = new Date();
     var mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -3131,7 +3200,10 @@
       var section = document.getElementById("page-" + p.id);
       if(section) section.hidden = (p.id !== id);
       var navBtn = document.querySelector('.nav-item[data-page="' + p.id + '"]');
-      if(navBtn) navBtn.classList.toggle("active", p.id === id);
+      if(navBtn){
+        navBtn.classList.toggle("active", p.id === id);
+        if(p.id === id) navBtn.setAttribute("aria-current", "page"); else navBtn.removeAttribute("aria-current");
+      }
     });
     var page = PAGES.find(function(p){ return p.id === id; });
     document.getElementById("pageTitle").textContent = page ? page.label : "Dashboard";

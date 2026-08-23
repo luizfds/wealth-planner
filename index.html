@@ -672,7 +672,7 @@
         </span>
         Show all periods
       </label>
-      <p class="app-sidebar-note">Stored only in this browser (<code>localStorage</code>) — nothing is sent anywhere. Clearing your browser data clears this too, so <button class="link-btn" id="exportLink2">Export</button> a backup now and then.</p>
+      <p class="app-sidebar-note">Stored only in this browser (<code>localStorage</code>) — nothing is sent anywhere. Clearing your browser data clears this too, so <button class="link-btn" id="exportLink2">Export</button> a backup now and then — save it into a Google Drive folder on this computer for a cloud copy.</p>
     </div>
   </nav>
 
@@ -684,8 +684,8 @@
         <button class="btn btn-sm" id="themeToggleBtn" title="Cycle between following your system theme, always light, or always dark">Theme: System</button>
         <input type="file" id="importFile" accept="application/json,.json">
         <span class="actions-group">
-          <button class="btn btn-sm" id="importBtn" title="Load a previously exported backup">Import</button>
-          <button class="btn btn-sm" id="exportBtn" title="Save a backup file of your numbers">Export</button>
+          <button class="btn btn-sm" id="importBtn" title="Load a previously exported backup — browse into a Google Drive folder if you keep backups there">Import</button>
+          <button class="btn btn-sm" id="exportBtn" title="Save a backup file — choose any folder, including a synced Google Drive folder">Export</button>
         </span>
         <span class="actions-divider" aria-hidden="true"></span>
         <span class="actions-group">
@@ -3101,17 +3101,33 @@
     var filename = "wealth-planner-backup-" + isoDateStamp() + ".json";
     if(window.claude && window.claude.use){
       window.claude.use("downloads").then(function(downloads){
-        if(!downloads){ fallbackExport(payload, filename); return; }
+        if(!downloads){ trySaveFilePicker(payload, filename); return; }
         downloads.save({filename: filename, data: payload}).then(function(){
           showToast("Backup saved");
         }).catch(function(err){
           if(err && err.code === "declined") return;
-          fallbackExport(payload, filename);
+          trySaveFilePicker(payload, filename);
         });
-      }).catch(function(){ fallbackExport(payload, filename); });
+      }).catch(function(){ trySaveFilePicker(payload, filename); });
     } else {
-      fallbackExport(payload, filename);
+      trySaveFilePicker(payload, filename);
     }
+  }
+  function trySaveFilePicker(payload, filename){
+    if(!window.showSaveFilePicker){ fallbackExport(payload, filename); return; }
+    window.showSaveFilePicker({
+      suggestedName: filename,
+      types: [{ description: "JSON backup", accept: { "application/json": [".json"] } }]
+    }).then(function(handle){
+      return handle.createWritable().then(function(writable){
+        return writable.write(payload).then(function(){ return writable.close(); });
+      });
+    }).then(function(){
+      showToast("Backup saved");
+    }).catch(function(err){
+      if(err && err.name === "AbortError") return;
+      fallbackExport(payload, filename);
+    });
   }
   function fallbackExport(payload, filename){
     try{

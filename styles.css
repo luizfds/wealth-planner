@@ -380,6 +380,19 @@
   .home-block-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; flex-wrap:wrap; }
   .home-block-head-left{ display:flex; align-items:center; gap:8px; min-width:0; }
   .home-block-head h4{ margin:0; font-size:14px; font-weight:600; display:flex; align-items:center; gap:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .prop-what{
+    all:unset; box-sizing:border-box; font-family:inherit; font-size:14px; font-weight:600; color: var(--ink);
+    padding:3px 6px; border-radius:6px; min-width:60px; max-width:220px;
+  }
+  .prop-what:hover, .prop-what:focus{ background: var(--paper-sunken); }
+  .prop-what:focus-visible{ box-shadow: var(--focus-ring); }
+  .prop-kind{
+    all:unset; box-sizing:border-box; font-family:"IBM Plex Sans", sans-serif; font-size:10.5px; text-transform:uppercase;
+    letter-spacing:.04em; font-weight:600; color: var(--ink-soft); background: var(--paper-sunken);
+    padding:4px 10px; border-radius:100px; cursor:pointer; flex:none;
+  }
+  .prop-kind:hover{ color: var(--ink); }
+  .prop-kind:focus-visible{ box-shadow: var(--focus-ring); }
   .home-dot{ width:8px; height:8px; border-radius:50%; background: var(--border); flex:none; }
   .home-block.is-active .home-dot{ background: var(--brass); }
   .home-active-badge{

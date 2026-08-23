@@ -401,7 +401,8 @@
       purchase: { "Scenario 1": defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", false) },
       assets: [],
       projection: { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0 },
-      tax: { sgRate: 12, ipOwnership: {}, settings: {} }
+      tax: { sgRate: 12, ipOwnership: {}, settings: {} },
+      pmFee: { percent: 6, flat: 5.5 }
     };
   }
 
@@ -528,6 +529,9 @@
     if(!s.tax.ipOwnership) s.tax.ipOwnership = {};
     if(!s.tax.settings) s.tax.settings = {};
     if(s.tax.sgRate == null) s.tax.sgRate = 11.5;
+    if(!s.pmFee) s.pmFee = { percent: 6, flat: 5.5 };
+    if(s.pmFee.percent == null) s.pmFee.percent = 6;
+    if(s.pmFee.flat == null) s.pmFee.flat = 5.5;
     (s.income || []).forEach(function(i){
       if(i.sacrificeMode == null) i.sacrificeMode = "none";
       if(i.sacrificeValue == null) i.sacrificeValue = 0;
@@ -611,9 +615,11 @@
     var pmFeeItem = state.ip.find(function(i){ return i.id === "pmFee6"; });
     if(rentItem && pmFeeItem){
       var rentWeekly = toWeekly(rentItem.amount, rentItem.freq);
-      pmFeeItem.amount = Math.round((rentWeekly * 0.06 + 5.5) * 100) / 100;
+      var pmPercent = state.pmFee.percent;
+      var pmFlat = state.pmFee.flat;
+      pmFeeItem.amount = Math.round((rentWeekly * (pmPercent / 100) + pmFlat) * 100) / 100;
       pmFeeItem.freq = "Weekly";
-      pmFeeItem.computedNote = "auto: 6% of rent + $5.50";
+      pmFeeItem.computedNote = "auto: " + pmPercent + "% of rent + $" + pmFlat.toFixed(2);
     }
     state.scenarios.forEach(function(scenario){
       var cfg = state.purchase[scenario];
@@ -649,6 +655,19 @@
         });
       }
     });
+  }
+
+  function renderPmFeeSettings(){
+    var wrap = document.getElementById("pmFeeSettings");
+    if(!wrap) return;
+    var hasPmFee = state.ip.some(function(i){ return i.id === "pmFee6"; });
+    wrap.style.display = hasPmFee ? "" : "none";
+    if(hasPmFee){
+      var pctEl = document.getElementById("pmFeePercent");
+      var flatEl = document.getElementById("pmFeeFlat");
+      if(document.activeElement !== pctEl) pctEl.value = state.pmFee.percent;
+      if(document.activeElement !== flatEl) flatEl.value = state.pmFee.flat;
+    }
   }
 
   function scenarioTotals(scenario){
@@ -889,7 +908,7 @@
 
   function rerenderTableFor(section){
     if(section === "income") renderIncomeGroups();
-    else if(section === "ip") buildTable(document.getElementById("tableIp"), "ip", state.ip, {showClass:true, hideAcctToggle:true, hideClassToggle:true});
+    else if(section === "ip"){ buildTable(document.getElementById("tableIp"), "ip", state.ip, {showClass:true, hideAcctToggle:true, hideClassToggle:true}); renderPmFeeSettings(); }
     else if(section === "shared") renderSharedGroups();
     else { var m = /^home:(.+)$/.exec(section); if(m){ var hi = state.scenarios.indexOf(m[1]); buildTable(document.getElementById("homeTable_" + slug(m[1]) + hi), section, state.home[m[1]], {showClass:true, acctColClass:"col-account-home"}); } }
     applyPeriodVisibility();
@@ -2150,6 +2169,19 @@
     persist();
   });
 
+  document.getElementById("pmFeeSettings").addEventListener("input", function(e){
+    if(e.target.id === "pmFeePercent") state.pmFee.percent = parseFloat(e.target.value) || 0;
+    else if(e.target.id === "pmFeeFlat") state.pmFee.flat = parseFloat(e.target.value) || 0;
+    else return;
+    recalcComputedItems();
+    rerenderTableFor("ip");
+    renderCards();
+    renderDetail();
+    renderTotals();
+    renderProjectionOutputs();
+    persist();
+  });
+
   var colPickers = [];
   function setupColPicker(btnId, panelId, colDefs, stateKey){
     var btn = document.getElementById(btnId);
@@ -2258,9 +2290,11 @@
     }).then(function(handle){
       return handle.createWritable().then(function(writable){
         return writable.write(payload).then(function(){ return writable.close(); });
+      }).then(function(){
+        showToast("Backup saved");
+      }).catch(function(){
+        showToast("Couldn't write to that file — try Export again");
       });
-    }).then(function(){
-      showToast("Backup saved");
     }).catch(function(err){
       if(err && err.name === "AbortError") return;
       fallbackExport(payload, filename);
@@ -2387,6 +2421,7 @@
     recalcComputedItems();
     renderIncomeGroups();
     buildTable(document.getElementById("tableIp"), "ip", state.ip, {showClass:true, hideAcctToggle:true, hideClassToggle:true});
+    renderPmFeeSettings();
     renderSharedGroups();
     renderHomeBody();
     renderCards();

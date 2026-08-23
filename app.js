@@ -2270,37 +2270,19 @@
     var filename = "wealth-planner-backup-" + isoDateStamp() + ".json";
     if(window.claude && window.claude.use){
       window.claude.use("downloads").then(function(downloads){
-        if(!downloads){ trySaveFilePicker(payload, filename); return; }
+        if(!downloads){ fallbackExport(payload, filename); return; }
         downloads.save({filename: filename, data: payload}).then(function(){
           showToast("Backup saved");
         }).catch(function(err){
           if(err && err.code === "declined") return;
-          trySaveFilePicker(payload, filename);
+          fallbackExport(payload, filename);
         });
-      }).catch(function(){ trySaveFilePicker(payload, filename); });
+      }).catch(function(){ fallbackExport(payload, filename); });
     } else {
-      trySaveFilePicker(payload, filename);
+      fallbackExport(payload, filename);
     }
   }
-  function trySaveFilePicker(payload, filename){
-    if(!window.showSaveFilePicker){ fallbackExport(payload, filename); return; }
-    window.showSaveFilePicker({
-      suggestedName: filename,
-      types: [{ description: "JSON backup", accept: { "application/json": [".json"] } }]
-    }).then(function(handle){
-      return handle.createWritable().then(function(writable){
-        return writable.write(payload).then(function(){ return writable.close(); });
-      }).then(function(){
-        showToast("Backup saved");
-      }).catch(function(){
-        fallbackExport(payload, filename, "Couldn't write there directly (common with synced cloud folders) — saved to your downloads instead");
-      });
-    }).catch(function(err){
-      if(err && err.name === "AbortError") return;
-      fallbackExport(payload, filename);
-    });
-  }
-  function fallbackExport(payload, filename, successMessage){
+  function fallbackExport(payload, filename){
     try{
       var blob = new Blob([payload], {type:"application/json"});
       var url = URL.createObjectURL(blob);
@@ -2308,7 +2290,7 @@
       a.href = url; a.download = filename;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-      showToast(successMessage || "Backup saved");
+      showToast("Backup saved");
     }catch(e){
       showToast("Couldn't save a file here — copy is in your clipboard? Try again from a full browser tab.");
     }

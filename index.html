@@ -168,27 +168,45 @@
 
       <section class="app-page" id="page-assets" hidden>
         <p class="page-intro">What you own today, tracked over time, and what buying would do to your net worth.</p>
-        <div class="ledgers">
-          <details class="ledger" open>
-            <summary>
-              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Your assets &amp; net worth</h2></div>
-              <div class="ledger-total">Total <b id="totalAssets">—</b></div>
-            </summary>
-            <div class="ledger-body">
-              <p class="ledger-note" style="margin-left:0">What you own today. Cash and Shares count as liquid funds against the upfront cost of buying.</p>
-              <div class="col-picker" id="assetColPicker">
-                <button type="button" class="btn btn-sm col-picker-btn" id="assetColPickerBtn" aria-haspopup="true" aria-expanded="false">Columns ▾</button>
-                <div class="col-picker-panel" id="assetColPickerPanel" hidden></div>
-              </div>
-              <p class="income-summary-line" id="assetsSummaryLine" style="display:none"></p>
-              <p class="income-summary-line" id="assetsLiquidLine" title="Liquid assets can be used toward the upfront cash needed to buy — see the comparison below. Super and Property can't be accessed for a deposit."></p>
-              <div id="assetGroups"></div>
-              <div class="ledger-footer" id="assetEmptyCategoryAdds"></div>
-              <div id="netWorthPanel"></div>
-              <div id="portfolioHistoryPanel" style="margin-top:20px"></div>
-            </div>
-          </details>
+        <div class="subnav" id="assetsSubnav">
+          <button type="button" class="subnav-item active" data-assets-sub="summary">Summary</button>
+          <button type="button" class="subnav-item" data-assets-sub="Cash">Cash</button>
+          <button type="button" class="subnav-item" data-assets-sub="Shares">Shares</button>
+          <button type="button" class="subnav-item" data-assets-sub="Super">Super</button>
+          <button type="button" class="subnav-item" data-assets-sub="Other">Other</button>
         </div>
+
+        <div class="assets-subpage" id="assetsSub-summary">
+          <div class="stat-row" id="assetsSummaryStats"></div>
+          <div class="ledgers">
+            <details class="ledger" open>
+              <summary>
+                <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Allocation</h2></div>
+              </summary>
+              <div class="ledger-body">
+                <p class="ledger-note" style="margin-left:0">Cash and Shares count as liquid funds against the upfront cost of buying — Super, Other, and property equity can't be accessed for a deposit.</p>
+                <div id="assetsAllocation"></div>
+              </div>
+            </details>
+            <details class="ledger" open>
+              <summary>
+                <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Net worth if you buy</h2></div>
+              </summary>
+              <div class="ledger-body"><div id="netWorthPanel"></div></div>
+            </details>
+            <details class="ledger" open>
+              <summary>
+                <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Portfolio value over time</h2></div>
+              </summary>
+              <div class="ledger-body"><div id="portfolioHistoryPanel"></div></div>
+            </details>
+          </div>
+        </div>
+
+        <div class="assets-subpage" id="assetsSub-Cash" hidden></div>
+        <div class="assets-subpage" id="assetsSub-Shares" hidden></div>
+        <div class="assets-subpage" id="assetsSub-Super" hidden></div>
+        <div class="assets-subpage" id="assetsSub-Other" hidden></div>
       </section>
 
       <section class="app-page" id="page-projections" hidden>

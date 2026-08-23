@@ -36,9 +36,6 @@
     { key: "classification", label: "Classification" },
     { key: "account", label: "Account" }
   ];
-  var ASSET_COL_DEFS = [
-    { key: "category", label: "Category" }
-  ];
 
   // Australian resident individual tax brackets (2024-25, stage-3 rates). Estimates —
   // thresholds are indexed / change with policy; confirm with your accountant or the ATO.
@@ -427,7 +424,6 @@
       incomeCols: { person: false, type: false, super: true, sacrifice: true, account: false },
       expenseCols: { classification: false, account: false },
       homeCols: { account: false },
-      assetCols: { category: false },
       income: [],
       ip: [],
       shared: [],
@@ -568,8 +564,6 @@
     if(s.expenseCols.classification == null) s.expenseCols.classification = false;
     if(!s.homeCols) s.homeCols = { account: false };
     if(s.homeCols.account == null) s.homeCols.account = false;
-    if(!s.assetCols) s.assetCols = { category: false };
-    if(s.assetCols.category == null) s.assetCols.category = false;
     if(!s.home) s.home = {};
     if(!Array.isArray(s.scenarios) || !s.scenarios.length) s.scenarios = Object.keys(s.home);
     if(!s.scenarios.length) s.scenarios = ["Renting"];
@@ -1337,10 +1331,6 @@
     document.querySelectorAll(".col-account-home").forEach(function(el){
       el.classList.toggle("col-hidden", !homeAcctVisible);
     });
-    var assetCategoryVisible = !!state.assetCols.category;
-    document.querySelectorAll(".col-category").forEach(function(el){
-      el.classList.toggle("col-hidden", !assetCategoryVisible);
-    });
   }
 
   function renderTotals(){
@@ -1629,7 +1619,7 @@
   function assetRowHtml(item, idx){
     return '<tr data-index="' + idx + '">' +
       '<td><input type="text" class="a-what" value="' + escapeAttr(item.what) + '" aria-label="Asset name">' + assetTrendHtml(item) + '</td>' +
-      '<td class="col-category"><select class="a-category">' + optionsHtml(ASSET_CATEGORIES, item.category) + '</select></td>' +
+      '<td><select class="a-category" title="Move to a different category" aria-label="Category">' + optionsHtml(ASSET_CATEGORIES, item.category) + '</select></td>' +
       '<td class="num"><input type="number" step="100" min="0" class="a-amount" value="' + item.amount + '" aria-label="Asset value"></td>' +
       '<td><button type="button" class="asset-log-btn" data-asset-log="' + idx + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart below">Log</button></td>' +
       '<td><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete asset">✕</button></td>' +
@@ -1736,92 +1726,134 @@
     return totalAssetsValue() + propertiesTotalEquityToday();
   }
 
-  function assetGroupOrder(){
-    return ASSET_CATEGORIES.filter(function(cat){
-      return state.assets.some(function(a){ return (a.category || "Other") === cat; });
+  function assetCategoryItems(cat){
+    var items = [], indices = [];
+    state.assets.forEach(function(a, idx){ if((a.category || "Other") === cat){ items.push(a); indices.push(idx); } });
+    return { items: items, indices: indices };
+  }
+
+  function showAssetsSubpage(id){
+    document.querySelectorAll(".assets-subpage").forEach(function(el){ el.hidden = el.id !== "assetsSub-" + id; });
+    document.querySelectorAll("#assetsSubnav .subnav-item").forEach(function(btn){
+      btn.classList.toggle("active", btn.getAttribute("data-assets-sub") === id);
     });
   }
 
-  function computeAssetGroups(){
-    return assetGroupOrder().map(function(cat){
-      var indices = [];
-      var items = [];
-      state.assets.forEach(function(item, idx){
-        if((item.category || "Other") === cat){ indices.push(idx); items.push(item); }
-      });
-      var total = items.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
-      return { key: cat, indices: indices, items: items, total: total };
-    });
-  }
-
-  function patchAssetGroupTotals(){
-    var groups = computeAssetGroups();
-    var summaryEl = document.getElementById("assetsSummaryLine");
-    if(summaryEl){
-      if(groups.length > 1){
-        var total = groups.reduce(function(s, g){ return s + g.total; }, 0);
-        var parts = groups.map(function(g){ return g.key + " " + fmtCurrency0.format(g.total); }).join(" + ");
-        summaryEl.innerHTML = "Adds up: " + parts + " = <b>" + fmtCurrency0.format(total) + "</b> total assets";
-        summaryEl.style.display = "";
-      } else {
-        summaryEl.style.display = "none";
-      }
+  function renderAssetCategoryPage(cat){
+    var container = document.getElementById("assetsSub-" + cat);
+    if(!container) return;
+    var data = assetCategoryItems(cat);
+    var total = data.items.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
+    var footerBtn = '<button type="button" class="btn btn-sm' + (data.items.length ? " btn-ghost" : "") + '" data-add="assets:' + escapeAttr(cat) + '">+ Add ' + escapeAttr(cat) + '</button>';
+    var body = data.items.length
+      ? '<div class="table-scroll"><table class="assets-table" id="assetCatTable-' + cat + '"></table></div><div class="ledger-footer">' + footerBtn + '</div>'
+      : '<p class="ledger-note" style="margin:0 0 12px">No ' + escapeAttr(cat) + ' tracked yet.</p>' + footerBtn;
+    container.innerHTML = '<div class="ledgers"><details class="ledger" open>' +
+      '<summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">' + escapeAttr(cat) + '</h2></div>' +
+      '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
+      '<div class="ledger-body">' + body + '</div></details></div>';
+    if(data.items.length){
+      var thead = '<thead><tr><th>What</th><th>Category</th><th class="num">Value</th><th></th><th></th></tr></thead>';
+      var rows = data.items.map(function(item, i){ return assetRowHtml(item, data.indices[i]); }).join("");
+      document.getElementById("assetCatTable-" + cat).innerHTML = thead + "<tbody>" + rows + "</tbody>";
     }
-    var liquidLine = document.getElementById("assetsLiquidLine");
-    if(liquidLine){
+  }
+
+  function renderSharesSubpage(){
+    var container = document.getElementById("assetsSub-Shares");
+    if(!container) return;
+    var data = assetCategoryItems("Shares");
+    var total = data.items.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
+    var personGroups = computeHoldingPersonGroups(data.items, data.indices);
+    var body;
+    if(!personGroups.length){
+      body = '<p class="ledger-note" style="margin:0 0 12px">No share holdings yet.</p>' +
+        '<button type="button" class="btn btn-sm" data-add="holding" title="Track an individual shareholding — symbol, quantity, cost, and value">+ Add share holding</button>';
+    } else {
+      body = personGroups.map(function(pg, pi){
+        var label = pg.key === "__household" ? "Household / shared" : pg.key;
+        var addValue = pg.key === "__household" ? "" : pg.key;
+        return '<div class="holding-subgroup"><div class="income-group-head">' +
+          '<div class="income-group-head-left"><h4>' + escapeAttr(label) + '</h4></div>' +
+          '<div class="income-group-total">' + fmtCurrency0.format(pg.total) + '</div>' +
+          '</div><div class="table-scroll"><table class="assets-table holdings-table" id="holdingGroupTable_' + pi + '"></table></div>' +
+          '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="holding:' + escapeAttr(addValue) + '">+ Add holding to ' + escapeAttr(label) + '</button></div>';
+      }).join("");
+    }
+    container.innerHTML = '<div class="ledgers"><details class="ledger" open>' +
+      '<summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Shares</h2></div>' +
+      '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
+      '<div class="ledger-body">' + body + '</div></details></div>';
+    personGroups.forEach(function(pg, pi){
+      var tableEl = document.getElementById("holdingGroupTable_" + pi);
+      var thead = '<thead><tr><th>What</th><th>Symbol</th><th>Mkt</th><th class="num">Qty</th><th class="num">Avg cost</th><th class="num">Price</th><th class="num">Value</th><th>Gain/Loss</th><th>Person</th><th></th><th></th></tr></thead>';
+      var rows = pg.items.map(function(item, i){ return holdingRowHtml(item, pg.indices[i]); }).join("");
+      tableEl.innerHTML = thead + "<tbody>" + rows + "</tbody>";
+    });
+  }
+
+  var ASSET_ALLOC_SEGMENTS = [
+    { key: "Cash", colorClass: "series-color-0" },
+    { key: "Shares", colorClass: "series-color-2" },
+    { key: "Super", colorClass: "series-color-6" },
+    { key: "Other", colorClass: "series-color-3" },
+    { key: "Property", colorClass: "series-color-1" }
+  ];
+  function assetAllocationValues(){
+    var values = {};
+    ASSET_CATEGORIES.forEach(function(cat){ values[cat] = assetCategoryItems(cat).items.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0); });
+    values.Property = propertiesTotalEquityToday();
+    return values;
+  }
+  function renderAssetAllocationHtml(){
+    var values = assetAllocationValues();
+    var whole = ASSET_ALLOC_SEGMENTS.reduce(function(s, seg){ return s + Math.max(0, values[seg.key]); }, 0);
+    if(whole <= 0) return '<p class="ledger-note" style="margin:0">Add some assets or properties to see your allocation.</p>';
+    var bar = ASSET_ALLOC_SEGMENTS.filter(function(seg){ return values[seg.key] > 0; }).map(function(seg){
+      return '<div class="tax-waterfall-seg ' + seg.colorClass + '" style="flex:' + values[seg.key] + ' 1 0%" title="' + seg.key + ': ' + fmtCurrency0.format(values[seg.key]) + ' (' + fmtPercent1.format(values[seg.key] / whole) + ')"></div>';
+    }).join("");
+    var legend = ASSET_ALLOC_SEGMENTS.filter(function(seg){ return values[seg.key] > 0; }).map(function(seg){
+      return '<div class="tax-waterfall-item"><span class="proj-swatch ' + seg.colorClass + '"></span><div class="tax-waterfall-item-text"><span class="tax-waterfall-item-label">' + seg.key + '</span><span class="tax-waterfall-item-value">' + fmtCurrency0.format(values[seg.key]) + '</span></div></div>';
+    }).join("");
+    return '<div class="tax-waterfall-bar">' + bar + '</div><div class="tax-waterfall-legend">' + legend + '</div>';
+  }
+
+  function renderAssetsSummary(){
+    var statsEl = document.getElementById("assetsSummaryStats");
+    if(statsEl){
       var liquid = state.assets.filter(function(a){ return LIQUID_CATEGORIES.indexOf(a.category) !== -1; })
         .reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
       var illiquid = totalAssetsValue() - liquid;
-      liquidLine.innerHTML = 'Liquid (Cash + Shares) <b>' + fmtCurrency0.format(liquid) + '</b> · Illiquid (Super, Property, Other) <b>' + fmtCurrency0.format(illiquid) + '</b>';
+      var propEquity = propertiesTotalEquityToday();
+      statsEl.innerHTML =
+        '<div class="stat-tile"><span>Total net worth</span><b>' + fmtCurrency0.format(totalNetWorthValue()) + '</b><small>assets + property equity</small></div>' +
+        '<div class="stat-tile"><span>Liquid assets</span><b>' + fmtCurrency0.format(liquid) + '</b><small>Cash + Shares</small></div>' +
+        '<div class="stat-tile"><span>Illiquid assets</span><b>' + fmtCurrency0.format(illiquid) + '</b><small>Super + Other</small></div>' +
+        '<div class="stat-tile"><span>Property equity</span><b>' + fmtCurrency0.format(propEquity) + '</b><small>across ' + state.properties.length + ' propert' + (state.properties.length === 1 ? "y" : "ies") + '</small></div>';
     }
-    document.querySelectorAll("#assetGroups .income-group-total").forEach(function(el, gi){
-      if(groups[gi]) el.textContent = fmtCurrency0.format(groups[gi].total);
-    });
+    var allocEl = document.getElementById("assetsAllocation");
+    if(allocEl) allocEl.innerHTML = renderAssetAllocationHtml();
   }
 
-  function renderAssetGroups(){
-    var container = document.getElementById("assetGroups");
-    if(!container) return;
-    var groups = computeAssetGroups();
-    patchAssetGroupTotals();
-    container.innerHTML = groups.map(function(g, gi){
-      var body;
-      if(g.key === "Shares"){
-        var personGroups = computeHoldingPersonGroups(g.items, g.indices);
-        body = personGroups.map(function(pg, pi){
-          var label = pg.key === "__household" ? "Household / shared" : pg.key;
-          var addValue = pg.key === "__household" ? "" : pg.key;
-          return '<div class="holding-subgroup"><div class="income-group-head">' +
-            '<div class="income-group-head-left"><h4>' + escapeAttr(label) + '</h4></div>' +
-            '<div class="income-group-total">' + fmtCurrency0.format(pg.total) + '</div>' +
-            '</div><div class="table-scroll"><table class="assets-table holdings-table" id="holdingGroupTable' + gi + '_' + pi + '"></table></div>' +
-            '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="holding:' + escapeAttr(addValue) + '">+ Add holding to ' + escapeAttr(label) + '</button></div>';
-        }).join("");
-      } else {
-        body = '<div class="table-scroll"><table class="assets-table" id="assetGroupTable' + gi + '"></table></div>' +
-          '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="assets:' + escapeAttr(g.key) + '">+ Add to ' + escapeAttr(g.key) + '</button>';
-      }
-      return '<div class="income-group"><div class="income-group-head">' +
-        '<div class="income-group-head-left"><h4>' + escapeAttr(g.key) + '</h4></div>' +
-        '<div class="income-group-total">' + fmtCurrency0.format(g.total) + '</div>' +
-        '</div>' + body + '</div>';
-    }).join("");
-    groups.forEach(function(g, gi){
-      if(g.key === "Shares"){
-        var personGroups = computeHoldingPersonGroups(g.items, g.indices);
-        var thead = '<thead><tr><th>What</th><th>Symbol</th><th>Mkt</th><th class="num">Qty</th><th class="num">Avg cost</th><th class="num">Price</th><th class="num">Value</th><th>Gain/Loss</th><th>Person</th><th></th><th></th></tr></thead>';
-        personGroups.forEach(function(pg, pi){
-          var tableEl = document.getElementById("holdingGroupTable" + gi + "_" + pi);
-          var rows = pg.items.map(function(item, i){ return holdingRowHtml(item, pg.indices[i]); }).join("");
-          tableEl.innerHTML = thead + "<tbody>" + rows + "</tbody>";
-        });
-        return;
-      }
-      var tableEl = document.getElementById("assetGroupTable" + gi);
-      var thead = '<thead><tr><th>What</th><th class="col-category">Category</th><th class="num">Value</th><th></th><th></th></tr></thead>';
-      var rows = g.items.map(function(item, i){ return assetRowHtml(item, g.indices[i]); }).join("");
-      tableEl.innerHTML = thead + "<tbody>" + rows + "</tbody>";
+  function patchAssetCategoryTotals(){
+    ASSET_CATEGORIES.forEach(function(cat){
+      if(cat === "Shares") return;
+      var data = assetCategoryItems(cat);
+      var total = data.items.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
+      var container = document.getElementById("assetsSub-" + cat);
+      var totalEl = container && container.querySelector(".ledger-total b");
+      if(totalEl) totalEl.textContent = fmtCurrency0.format(total);
     });
+    var sharesData = assetCategoryItems("Shares");
+    var sharesTotal = sharesData.items.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
+    var sharesContainer = document.getElementById("assetsSub-Shares");
+    var sharesTotalEl = sharesContainer && sharesContainer.querySelector(".ledger-total b");
+    if(sharesTotalEl) sharesTotalEl.textContent = fmtCurrency0.format(sharesTotal);
+    var personGroups = computeHoldingPersonGroups(sharesData.items, sharesData.indices);
+    document.querySelectorAll("#assetsSub-Shares .holding-subgroup .income-group-total").forEach(function(el, pi){
+      if(personGroups[pi]) el.textContent = fmtCurrency0.format(personGroups[pi].total);
+    });
+    renderAssetsSummary();
   }
 
   function renderNetWorthPanel(){
@@ -1858,24 +1890,12 @@
       '<p class="calc-note" style="margin-top:10px">Net worth after purchase = current total assets minus stamp duty, LMI and other acquisition costs. The deposit itself just moves from cash into home equity, so it doesn\'t change net worth on its own.</p>';
   }
 
-  function renderAssetEmptyAdds(){
-    var footer = document.getElementById("assetEmptyCategoryAdds");
-    if(!footer) return;
-    var present = {};
-    state.assets.forEach(function(a){ present[a.category || "Other"] = true; });
-    var buttons = ASSET_CATEGORIES.filter(function(cat){ return !present[cat]; }).map(function(cat){
-      if(cat === "Shares"){
-        return '<button class="btn btn-sm" data-add="holding" title="Track an individual shareholding — symbol, quantity, cost, and value">+ Add share holding</button>';
-      }
-      return '<button class="btn btn-sm" data-add="assets:' + escapeAttr(cat) + '">+ Add ' + escapeAttr(cat) + '</button>';
-    });
-    footer.innerHTML = buttons.length ? '<span class="actions-group">' + buttons.join("") + '</span>' : "";
-  }
-
   function renderAssets(){
-    renderAssetGroups();
-    renderAssetEmptyAdds();
-    document.getElementById("totalAssets").textContent = fmtCurrency0.format(totalAssetsValue());
+    renderAssetCategoryPage("Cash");
+    renderSharesSubpage();
+    renderAssetCategoryPage("Super");
+    renderAssetCategoryPage("Other");
+    renderAssetsSummary();
     renderNetWorthPanel();
     renderPortfolioHistoryChart();
     renderProjectionOutputs();
@@ -2476,16 +2496,15 @@
       }
       else if(e.target.classList.contains("h-person")){
         item.person = e.target.value;
-        renderAssetGroups();
+        renderSharesSubpage();
         updatePersonSuggestions();
-        document.getElementById("totalAssets").textContent = fmtCurrency0.format(totalAssetsValue());
+        renderAssetsSummary();
         renderNetWorthPanel();
         persist();
         return;
       }
       else return;
-      patchAssetGroupTotals();
-      document.getElementById("totalAssets").textContent = fmtCurrency0.format(totalAssetsValue());
+      patchAssetCategoryTotals();
       renderNetWorthPanel();
       persist();
     }
@@ -2810,7 +2829,6 @@
   });
   var renderIncomeColPicker = setupColPicker("incomeColPickerBtn", "incomeColPickerPanel", INCOME_COL_DEFS, "incomeCols");
   var renderExpenseColPicker = setupColPicker("expenseColPickerBtn", "expenseColPickerPanel", EXPENSE_COL_DEFS, "expenseCols");
-  var renderAssetColPicker = setupColPicker("assetColPickerBtn", "assetColPickerPanel", ASSET_COL_DEFS, "assetCols");
 
   function showToast(msg){
     var wrap = document.getElementById("toastWrap");
@@ -2980,6 +2998,12 @@
     showPage(btn.getAttribute("data-page"));
   });
 
+  document.getElementById("assetsSubnav").addEventListener("click", function(e){
+    var btn = e.target.closest("[data-assets-sub]");
+    if(!btn) return;
+    showAssetsSubpage(btn.getAttribute("data-assets-sub"));
+  });
+
   var initialPage = "dashboard";
   try{ initialPage = localStorage.getItem(PAGE_KEY) || "dashboard"; }catch(e){}
 
@@ -2988,7 +3012,6 @@
     document.getElementById("homeAcctToggle").checked = !!state.homeCols.account;
     renderIncomeColPicker();
     renderExpenseColPicker();
-    renderAssetColPicker();
     document.getElementById("projHorizon").value = state.projection.horizonYears;
     document.getElementById("projInvestRate").value = state.projection.investReturnRate;
     document.getElementById("projPropertyRate").value = state.projection.propertyAppreciationRate;

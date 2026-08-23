@@ -745,8 +745,12 @@
 
   function recalcComputedItems(){
     state.properties.forEach(function(p){
+      if(p.kind !== "IP") return;
       var pmFeeItem = p.expenses.find(function(i){ return i.id === "pmFee6"; });
-      if(!pmFeeItem) return;
+      if(!pmFeeItem){
+        pmFeeItem = { id: "pmFee6", what: "Property Manager Fee", classification: "Needs", account: "", amount: 0, freq: "Weekly", computed: true, computedNote: "" };
+        p.expenses.push(pmFeeItem);
+      }
       var rentWeekly = toWeekly(sumField(p.income, "yearly") / 52, "Weekly");
       var pmPercent = p.pmFee.percent;
       var pmFlat = p.pmFee.flat;
@@ -1924,7 +1928,7 @@
   function propertyCardHtml(p){
     var equity = propertyEquityToday(p);
     var loanRows = (p.loans || []).map(loanRowHtml).join("");
-    var hasPmFee = p.expenses.some(function(i){ return i.id === "pmFee6"; });
+    var hasPmFee = p.kind === "IP";
     var pmFeePanel = hasPmFee
       ? '<div class="proj-controls prop-pmfee-panel">' +
           '<div class="proj-field" title="Applied to this property\'s Property Manager Fee expense row, worked out from its own rent — each property manager can charge a different rate"><label>PM fee % of rent</label><input type="number" min="0" max="100" step="0.1" class="prop-pmfee-percent" value="' + (Number(p.pmFee.percent) || 0) + '"></div>' +
@@ -2693,6 +2697,7 @@
 
   document.getElementById("addPropertyBtn").addEventListener("click", function(){
     state.properties.push({ id: genId("p"), what:"New property", kind:"IP", value:0, history:[], pmFee:{percent:6, flat:5.5}, loans:[], income:[], expenses:[] });
+    recalcComputedItems();
     renderProperties();
     renderProjectionOutputs();
     persist();

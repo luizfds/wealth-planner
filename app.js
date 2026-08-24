@@ -1755,15 +1755,29 @@
     return state.assets.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
   }
 
-  // Equity nets the offset against the loan balance — the offset account IS money that reduces
-  // what you actually owe against this property, so this is its single source of truth for net
-  // worth purposes. Don't ALSO enter that same balance as a separate Cash asset (see the Offset
-  // field's tooltip) — that would double-count it, which is the one thing to avoid here.
+  // Property equity is split into two pieces with very different liquidity:
+  // - offset balance: real cash sitting in a linked transaction account — instantly
+  //   spendable/withdrawable, so it's treated as liquid alongside Cash/Shares.
+  // - illiquid equity (value minus the FULL loan balance): only accessible by selling
+  //   or refinancing the property.
+  // propertyEquityToday() is their sum — the "how much of this property do I own outright"
+  // figure — but don't ALSO enter the offset balance as a separate Cash asset (see the
+  // Offset field's tooltip), or it'll be counted twice.
+  function propertyOffsetTotal(property){
+    return (property.loans || []).reduce(function(s, l){ return s + (Number(l.offsetBalance) || 0); }, 0);
+  }
+  function propertyIlliquidEquityToday(property){
+    var loanTotal = (property.loans || []).reduce(function(s, l){ return s + (Number(l.balance) || 0); }, 0);
+    return (Number(property.value) || 0) - loanTotal;
+  }
   function propertyEquityToday(property){
-    var loanNet = (property.loans || []).reduce(function(s, l){
-      return s + Math.max(0, (Number(l.balance) || 0) - (Number(l.offsetBalance) || 0));
-    }, 0);
-    return (Number(property.value) || 0) - loanNet;
+    return propertyIlliquidEquityToday(property) + propertyOffsetTotal(property);
+  }
+  function propertiesOffsetTotal(){
+    return state.properties.reduce(function(s, p){ return s + propertyOffsetTotal(p); }, 0);
+  }
+  function propertiesIlliquidEquityToday(){
+    return state.properties.reduce(function(s, p){ return s + propertyIlliquidEquityToday(p); }, 0);
   }
   function propertiesTotalEquityToday(){
     return state.properties.reduce(function(s, p){ return s + propertyEquityToday(p); }, 0);
@@ -1841,6 +1855,7 @@
   var ASSET_ALLOC_SEGMENTS = [
     { key: "Cash", colorClass: "series-color-0", liquid: true },
     { key: "Shares", colorClass: "series-color-2", liquid: true },
+    { key: "Offset", colorClass: "series-color-4", liquid: true },
     { key: "Super", colorClass: "series-color-6", liquid: false },
     { key: "Other", colorClass: "series-color-3", liquid: false },
     { key: "Property", colorClass: "series-color-1", liquid: false }
@@ -1848,7 +1863,8 @@
   function assetAllocationValues(){
     var values = {};
     ASSET_CATEGORIES.forEach(function(cat){ values[cat] = assetCategoryItems(cat).items.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0); });
-    values.Property = propertiesTotalEquityToday();
+    values.Property = propertiesIlliquidEquityToday();
+    values.Offset = propertiesOffsetTotal();
     return values;
   }
   function allocBarHtml(segments, values){
@@ -1877,15 +1893,17 @@
   function renderAssetsSummary(){
     var statsEl = document.getElementById("assetsSummaryStats");
     if(statsEl){
-      var liquid = state.assets.filter(function(a){ return LIQUID_CATEGORIES.indexOf(a.category) !== -1; })
+      var liquidAssets = state.assets.filter(function(a){ return LIQUID_CATEGORIES.indexOf(a.category) !== -1; })
         .reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
-      var illiquid = totalAssetsValue() - liquid;
-      var propEquity = propertiesTotalEquityToday();
+      var offset = propertiesOffsetTotal();
+      var liquid = liquidAssets + offset;
+      var illiquid = totalAssetsValue() - liquidAssets;
+      var propEquity = propertiesIlliquidEquityToday();
       statsEl.innerHTML =
         '<div class="stat-tile"><span>Total net worth</span><b>' + fmtCurrency0.format(totalNetWorthValue()) + '</b><small>assets + property equity</small></div>' +
-        '<div class="stat-tile"><span>Liquid assets</span><b>' + fmtCurrency0.format(liquid) + '</b><small>Cash + Shares</small></div>' +
+        '<div class="stat-tile" title="Cash + Shares + any property offset balances — real, spendable cash"><span>Liquid assets</span><b>' + fmtCurrency0.format(liquid) + '</b><small>Cash + Shares + Offset</small></div>' +
         '<div class="stat-tile"><span>Illiquid assets</span><b>' + fmtCurrency0.format(illiquid) + '</b><small>Super + Other</small></div>' +
-        '<div class="stat-tile"><span>Property equity</span><b>' + fmtCurrency0.format(propEquity) + '</b><small>across ' + state.properties.length + ' propert' + (state.properties.length === 1 ? "y" : "ies") + '</small></div>';
+        '<div class="stat-tile" title="Value minus full loan balance, net of offset — only accessible by selling or refinancing"><span>Property equity</span><b>' + fmtCurrency0.format(propEquity) + '</b><small>across ' + state.properties.length + ' propert' + (state.properties.length === 1 ? "y" : "ies") + ', net of offset</small></div>';
     }
     var allocEl = document.getElementById("assetsAllocation");
     if(allocEl) allocEl.innerHTML = renderAssetAllocationHtml();
@@ -1915,7 +1933,8 @@
   function renderNetWorthPanel(){
     var total = totalNetWorthValue();
     var liquid = state.assets.filter(function(a){ return LIQUID_CATEGORIES.indexOf(a.category) !== -1; })
-                              .reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
+                              .reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0)
+                            + propertiesOffsetTotal();
     var purchaseScenarios = state.scenarios.filter(function(s){ return state.purchase[s] && state.purchase[s].enabled; });
     var panel = document.getElementById("netWorthPanel");
     if(!purchaseScenarios.length){
@@ -1937,7 +1956,7 @@
       '<div class="table-scroll"><table class="worth-table">' +
         '<thead><tr><th>Scenario</th>' +
           '<th class="num" title="Deposit + stamp duty + LMI + other acquisition costs for this scenario — the cash you need available on settlement day.">Upfront cash needed</th>' +
-          '<th class="num" title="Your Cash + Shares from the assets above. Super and Property can\'t be drawn on for a deposit.">Liquid assets (cash + shares)</th>' +
+          '<th class="num" title="Your Cash + Shares from the assets above, plus any property offset balances (real, spendable cash). Super and property equity can\'t be drawn on for a deposit.">Liquid assets (cash + shares + offset)</th>' +
           '<th class="num" title="Liquid assets minus upfront cash needed. A shortfall means your current liquid savings don\'t cover it — you\'d need to save more first, borrow a larger share (higher LVR, likely with LMI), or choose a cheaper property.">Surplus / shortfall</th>' +
           '<th class="num" title="Current total assets minus stamp duty, LMI and other acquisition costs (see note below).">Net worth after</th>' +
         '</tr></thead>' +

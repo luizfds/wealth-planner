@@ -250,9 +250,24 @@
     return rentYearly - expenseYearly - loanYearly;
   }
 
+  // Only the interest portion of a loan repayment is tax-deductible — principal repayment just
+  // reduces the liability (already reflected in equity via loanBalanceAfterMonths), it's not a loss.
+  function loanInterestMonthly(loan){
+    if(loan.repaymentType === "IO") return loanRepaymentMonthly(loan);
+    var monthlyRate = (Number(loan.rate) || 0) / 100 / 12;
+    return (Number(loan.balance) || 0) * monthlyRate;
+  }
+
+  function propertyTaxDeductibleResultAnnual(property){
+    var rentYearly = sumField(property.income, "yearly");
+    var expenseYearly = sumField(property.expenses, "yearly");
+    var loanInterestYearly = (property.loans || []).reduce(function(s, l){ return s + loanInterestMonthly(l) * 12; }, 0);
+    return rentYearly - expenseYearly - loanInterestYearly;
+  }
+
   function ipNetResultAnnual(){
     return state.properties.filter(function(p){ return p.kind === "IP"; })
-      .reduce(function(sum, p){ return sum + propertyGearingAnnual(p); }, 0);
+      .reduce(function(sum, p){ return sum + propertyTaxDeductibleResultAnnual(p); }, 0);
   }
 
   function personTaxSettings(person){
@@ -328,6 +343,12 @@
     if(loan.repaymentMode === "manual") return periodsOf(Number(loan.manualRepaymentAmount) || 0, loan.manualRepaymentFreq || "Monthly").monthly;
     return calcRepaymentMonthly(loan.balance, loan.rate, loan.termYears, loan.repaymentType);
   }
+  // Projection-only: applies the Rate Shock stress-test to a real loan's rate. Manual-repayment
+  // loans have no rate to shock, so their entered figure is left as-is.
+  function shockedLoanRepaymentMonthly(loan, shockPts){
+    if(loan.repaymentMode === "manual") return periodsOf(Number(loan.manualRepaymentAmount) || 0, loan.manualRepaymentFreq || "Monthly").monthly;
+    return calcRepaymentMonthly(loan.balance, (Number(loan.rate) || 0) + shockPts, loan.termYears, loan.repaymentType);
+  }
   // Only Investment Property costs are "kept in every scenario" for cash-flow purposes — a PPOR's costs
   // are out of scope here since they'd double up with whichever scenario's own home cost is being compared.
   function ipProperties(){ return state.properties.filter(function(p){ return p.kind === "IP"; }); }
@@ -378,8 +399,12 @@
     }
     var portfolio = nonPropertyAssets - upfrontCash;
 
+    var rateShockPts = Number(proj.rateShockPct) || 0;
     var incomeMonthly = scenarioTotals(scenario).incomeMonthly;
-    var fixedMonthly = ipLoansMonthly() + repaymentMonthly;
+    var ipLoansMonthlyShocked = ipProperties().reduce(function(s, p){
+      return s + p.loans.reduce(function(ss, l){ return ss + shockedLoanRepaymentMonthly(l, rateShockPts); }, 0);
+    }, 0);
+    var fixedMonthly = ipLoansMonthlyShocked + repaymentMonthly;
     var inflatableBase = scenarioInflatableMonthly(scenario) + ipExpensesMonthly();
 
     var points = [];
@@ -395,7 +420,7 @@
       var propertiesEquitySum = state.properties.reduce(function(sum, p){
         var val = (Number(p.value) || 0) * Math.pow(1 + propRate, year);
         var loanNet = (p.loans || []).reduce(function(s, l){
-          var bal = loanBalanceAfterMonths(l.balance, l.rate, l.termYears, year * 12, l.repaymentType);
+          var bal = loanBalanceAfterMonths(l.balance, (Number(l.rate) || 0) + rateShockPts, l.termYears, year * 12, l.repaymentType);
           return s + Math.max(0, bal - (Number(l.offsetBalance) || 0));
         }, 0);
         return sum + (val - loanNet);
@@ -1797,11 +1822,11 @@
   }
 
   var ASSET_ALLOC_SEGMENTS = [
-    { key: "Cash", colorClass: "series-color-0" },
-    { key: "Shares", colorClass: "series-color-2" },
-    { key: "Super", colorClass: "series-color-6" },
-    { key: "Other", colorClass: "series-color-3" },
-    { key: "Property", colorClass: "series-color-1" }
+    { key: "Cash", colorClass: "series-color-0", liquid: true },
+    { key: "Shares", colorClass: "series-color-2", liquid: true },
+    { key: "Super", colorClass: "series-color-6", liquid: false },
+    { key: "Other", colorClass: "series-color-3", liquid: false },
+    { key: "Property", colorClass: "series-color-1", liquid: false }
   ];
   function assetAllocationValues(){
     var values = {};
@@ -1809,17 +1834,27 @@
     values.Property = propertiesTotalEquityToday();
     return values;
   }
-  function renderAssetAllocationHtml(){
-    var values = assetAllocationValues();
-    var whole = ASSET_ALLOC_SEGMENTS.reduce(function(s, seg){ return s + Math.max(0, values[seg.key]); }, 0);
-    if(whole <= 0) return '<p class="ledger-note" style="margin:0">Add some assets or properties to see your allocation.</p>';
-    var bar = ASSET_ALLOC_SEGMENTS.filter(function(seg){ return values[seg.key] > 0; }).map(function(seg){
-      return '<div class="tax-waterfall-seg ' + seg.colorClass + '" style="flex:' + values[seg.key] + ' 1 0%" title="' + seg.key + ': ' + fmtCurrency0.format(values[seg.key]) + ' (' + fmtPercent1.format(values[seg.key] / whole) + ')"></div>';
+  function allocBarHtml(segments, values){
+    var whole = segments.reduce(function(s, seg){ return s + Math.max(0, values[seg.key]); }, 0);
+    var visible = segments.filter(function(seg){ return values[seg.key] > 0; });
+    if(!visible.length) return '<p class="ledger-note" style="margin:0">Nothing here yet.</p>';
+    var bar = visible.map(function(seg){
+      return '<div class="tax-waterfall-seg ' + seg.colorClass + '" style="flex:' + values[seg.key] + ' 1 0%" title="' + seg.key + ': ' + fmtCurrency0.format(values[seg.key]) + ' (' + fmtPercent1.format(whole > 0 ? values[seg.key] / whole : 0) + ')"></div>';
     }).join("");
-    var legend = ASSET_ALLOC_SEGMENTS.filter(function(seg){ return values[seg.key] > 0; }).map(function(seg){
+    var legend = visible.map(function(seg){
       return '<div class="tax-waterfall-item"><span class="proj-swatch ' + seg.colorClass + '"></span><div class="tax-waterfall-item-text"><span class="tax-waterfall-item-label">' + seg.key + '</span><span class="tax-waterfall-item-value">' + fmtCurrency0.format(values[seg.key]) + '</span></div></div>';
     }).join("");
     return '<div class="tax-waterfall-bar">' + bar + '</div><div class="tax-waterfall-legend">' + legend + '</div>';
+  }
+  function renderAssetAllocationHtml(){
+    var values = assetAllocationValues();
+    var liquidSegs = ASSET_ALLOC_SEGMENTS.filter(function(seg){ return seg.liquid; });
+    var illiquidSegs = ASSET_ALLOC_SEGMENTS.filter(function(seg){ return !seg.liquid; });
+    var liquidTotal = liquidSegs.reduce(function(s, seg){ return s + Math.max(0, values[seg.key]); }, 0);
+    var illiquidTotal = illiquidSegs.reduce(function(s, seg){ return s + Math.max(0, values[seg.key]); }, 0);
+    if(liquidTotal + illiquidTotal <= 0) return '<p class="ledger-note" style="margin:0">Add some assets or properties to see your allocation.</p>';
+    return '<div class="tax-inputs-label">Liquid — ' + fmtCurrency0.format(liquidTotal) + '</div>' + allocBarHtml(liquidSegs, values) +
+      '<div class="tax-inputs-label" style="margin-top:16px">Illiquid — ' + fmtCurrency0.format(illiquidTotal) + '</div>' + allocBarHtml(illiquidSegs, values);
   }
 
   function renderAssetsSummary(){
@@ -1936,26 +1971,37 @@
         '</div>'
       : "";
     var gearingBadge = "";
+    var yieldBadge = "";
+    var mortgageBalance = (p.loans || []).reduce(function(s, l){ return s + (Number(l.balance) || 0); }, 0);
     if(p.kind === "IP"){
       var gearing = propertyGearingAnnual(p);
       var isPositive = gearing >= 0;
       gearingBadge = '<span class="gearing-badge ' + (isPositive ? "positive" : "negative") + '" title="Rent minus expenses and loan repayments, per year (' + fmtCurrency0.format(gearing) + '/yr). ' +
         (isPositive ? "Positively geared — the property earns more than it costs to hold." : "Negatively geared — the property costs more to hold than it earns, a common tax strategy.") +
         '">' + (isPositive ? "Positively geared" : "Negatively geared") + '</span>';
+      if(Number(p.value) > 0){
+        var grossYield = sumField(p.income, "yearly") / Number(p.value);
+        yieldBadge = '<span class="gearing-badge neutral" title="Annual rent ÷ current property value">' + fmtPercent1.format(grossYield) + ' gross yield</span>';
+      }
+    }
+    var summaryTiles =
+      '<div class="calc-out"><span>Valuation</span><b data-out="valuation">' + fmtCurrency0.format(Number(p.value) || 0) + '</b></div>' +
+      '<div class="calc-out"><span>Mortgage balance</span><b data-out="mortgagebalance">' + fmtCurrency0.format(mortgageBalance) + '</b></div>' +
+      '<div class="calc-out emph"><span>Net equity</span><b data-out="netequity">' + fmtCurrency0.format(equity) + '</b></div>';
+    if(p.kind === "IP"){
+      var netCashFlowMonthly = propertyGearingAnnual(p) / 12;
+      summaryTiles += '<div class="calc-out"><span>Net cash flow</span><b data-out="cashflow" style="color:' + (netCashFlowMonthly < 0 ? "var(--bad)" : "var(--good)") + '">' + (netCashFlowMonthly >= 0 ? "+" : "") + fmtCurrency0.format(netCashFlowMonthly) + '/mo</b></div>';
     }
     return '<div class="home-block" data-property-id="' + escapeAttr(p.id) + '">' +
       '<div class="home-block-head">' +
         '<div class="home-block-head-left">' +
           '<h4><input type="text" class="prop-what" value="' + escapeAttr(p.what) + '" aria-label="Property name">' +
           '<select class="prop-kind" aria-label="Property kind">' + optionsHtml(["IP", "PPOR"], p.kind) + '</select></h4>' +
-          gearingBadge +
+          gearingBadge + yieldBadge +
         '</div>' +
-        '<div class="home-block-right">' +
-          '<span class="home-block-total-label">Equity</span>' +
-          '<span class="home-block-total' + (equity < 0 ? " short" : "") + '">' + fmtCurrency0.format(equity) + '</span>' +
-          '<button type="button" class="btn btn-ghost btn-sm row-del" data-property-del="' + escapeAttr(p.id) + '" aria-label="Delete property">✕</button>' +
-        '</div>' +
+        '<button type="button" class="btn btn-ghost btn-sm row-del" data-property-del="' + escapeAttr(p.id) + '" aria-label="Delete property">✕</button>' +
       '</div>' +
+      '<div class="calc-outputs">' + summaryTiles + '</div>' +
       '<div class="calc-grid">' +
         '<div class="calc-field"><label>Current value</label><input type="number" step="1000" min="0" class="prop-value" value="' + (Number(p.value) || 0) + '"></div>' +
       '</div>' +
@@ -2553,22 +2599,37 @@
     var card = document.querySelector('.home-block[data-property-id="' + CSS.escape(property.id) + '"]');
     if(!card) return;
     var equity = propertyEquityToday(property);
-    var totalEl = card.querySelector(".home-block-total");
-    if(totalEl){ totalEl.textContent = fmtCurrency0.format(equity); totalEl.classList.toggle("short", equity < 0); }
+    var mortgageBalance = (property.loans || []).reduce(function(s, l){ return s + (Number(l.balance) || 0); }, 0);
+    var setOut = function(key, text, color){
+      var el = card.querySelector('[data-out="' + key + '"]');
+      if(el){ el.textContent = text; if(color) el.style.color = color; }
+    };
+    setOut("valuation", fmtCurrency0.format(Number(property.value) || 0));
+    setOut("mortgagebalance", fmtCurrency0.format(mortgageBalance));
+    setOut("netequity", fmtCurrency0.format(equity));
+    if(property.kind === "IP"){
+      var netCashFlowMonthly = propertyGearingAnnual(property) / 12;
+      setOut("cashflow", (netCashFlowMonthly >= 0 ? "+" : "") + fmtCurrency0.format(netCashFlowMonthly), netCashFlowMonthly < 0 ? "var(--bad)" : "var(--good)");
+    }
     (property.loans || []).forEach(function(loan, li){
       var tr = card.querySelector('tr[data-loan-index="' + li + '"]');
       if(!tr) return;
       var note = tr.querySelector(".loan-repayment-cell .computed-note");
       if(note) note.textContent = fmtCurrency0.format(loanRepaymentMonthly(loan)) + "/mo";
     });
-    var badge = card.querySelector(".gearing-badge");
-    if(badge && property.kind === "IP"){
+    var gearBadge = card.querySelector(".gearing-badge.positive, .gearing-badge.negative");
+    if(gearBadge && property.kind === "IP"){
       var gearing = propertyGearingAnnual(property);
       var isPositive = gearing >= 0;
-      badge.className = "gearing-badge " + (isPositive ? "positive" : "negative");
-      badge.textContent = isPositive ? "Positively geared" : "Negatively geared";
-      badge.title = "Rent minus expenses and loan repayments, per year (" + fmtCurrency0.format(gearing) + "/yr). " +
+      gearBadge.className = "gearing-badge " + (isPositive ? "positive" : "negative");
+      gearBadge.textContent = isPositive ? "Positively geared" : "Negatively geared";
+      gearBadge.title = "Rent minus expenses and loan repayments, per year (" + fmtCurrency0.format(gearing) + "/yr). " +
         (isPositive ? "Positively geared — the property earns more than it costs to hold." : "Negatively geared — the property costs more to hold than it earns, a common tax strategy.");
+    }
+    var yieldBadge = card.querySelector(".gearing-badge.neutral");
+    if(yieldBadge && property.kind === "IP" && Number(property.value) > 0){
+      var grossYield = sumField(property.income, "yearly") / Number(property.value);
+      yieldBadge.textContent = fmtPercent1.format(grossYield) + " gross yield";
     }
   }
 

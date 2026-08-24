@@ -1553,7 +1553,7 @@
   }
 
   function renderHomeBodyTotalsOnly(){
-    document.querySelectorAll('.home-block').forEach(function(block, i){
+    document.querySelectorAll('#homeBody .home-block').forEach(function(block, i){
       var scenario = state.scenarios[i];
       var monthly = sumField(state.home[scenario], "monthly");
       var totalSpan = block.querySelector('.home-block-total');

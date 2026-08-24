@@ -2307,6 +2307,27 @@
     renderProjectionOutputs();
     persist();
   });
+  // Pairs each projection number input with a same-range slider: dragging the slider
+  // writes into the number input and fires its native "input" event so the existing
+  // handler above stays the single source of truth for updating state; typing in the
+  // number input keeps the slider's thumb in sync going the other way.
+  function pairSlider(numberId, sliderId){
+    var numberInput = document.getElementById(numberId);
+    var slider = document.getElementById(sliderId);
+    if(!numberInput || !slider) return;
+    slider.value = numberInput.value;
+    slider.addEventListener("input", function(){
+      numberInput.value = slider.value;
+      numberInput.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    numberInput.addEventListener("input", function(){
+      slider.value = numberInput.value || 0;
+    });
+  }
+  pairSlider("projInvestRate", "projInvestRateRange");
+  pairSlider("projPropertyRate", "projPropertyRateRange");
+  pairSlider("projInflationRate", "projInflationRateRange");
+  pairSlider("projRateShock", "projRateShockRange");
 
   // ---------------- Net worth over time ----------------
   function renderPortfolioHistoryChart(){
@@ -3156,9 +3177,13 @@
     renderExpenseColPicker();
     document.getElementById("projHorizon").value = state.projection.horizonYears;
     document.getElementById("projInvestRate").value = state.projection.investReturnRate;
+    document.getElementById("projInvestRateRange").value = state.projection.investReturnRate;
     document.getElementById("projPropertyRate").value = state.projection.propertyAppreciationRate;
+    document.getElementById("projPropertyRateRange").value = state.projection.propertyAppreciationRate;
     document.getElementById("projInflationRate").value = state.projection.inflationRate;
+    document.getElementById("projInflationRateRange").value = state.projection.inflationRate;
     document.getElementById("projRateShock").value = state.projection.rateShockPct;
+    document.getElementById("projRateShockRange").value = state.projection.rateShockPct;
     recalcComputedItems();
     renderIncomeGroups();
     renderProperties();

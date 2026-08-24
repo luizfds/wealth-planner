@@ -599,11 +599,26 @@
   .proj-headline b{ color: var(--brass-strong); font-weight:700; }
   .proj-field{ display:flex; flex-direction:column; gap:3px; }
   .proj-field label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; }
-  .proj-field input{
+  .proj-field input[type="number"]{
     border:1px solid var(--border); background: var(--paper-raised); color: var(--ink);
     padding:6px 8px; border-radius:7px; font-size:13px; width:110px;
   }
-  .proj-field input:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); transition: border-color .18s ease, box-shadow .18s ease; }
+  .proj-field input[type="number"]:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); transition: border-color .18s ease, box-shadow .18s ease; }
+  .proj-slider{
+    -webkit-appearance:none; appearance:none; width:110px; height:16px; margin:2px 0 0; background:transparent; cursor:pointer;
+  }
+  .proj-slider::-webkit-slider-runnable-track{ height:4px; border-radius:100px; background: var(--border); }
+  .proj-slider::-moz-range-track{ height:4px; border-radius:100px; background: var(--border); }
+  .proj-slider::-webkit-slider-thumb{
+    -webkit-appearance:none; width:14px; height:14px; margin-top:-5px; border-radius:50%;
+    background: var(--brass); border:2px solid var(--paper-raised); box-shadow: 0 0 0 1px var(--brass);
+  }
+  .proj-slider::-moz-range-thumb{
+    width:14px; height:14px; border-radius:50%; background: var(--brass); border:2px solid var(--paper-raised); box-shadow: 0 0 0 1px var(--brass);
+  }
+  .proj-slider:focus-visible{ outline:none; }
+  .proj-slider:focus-visible::-webkit-slider-thumb{ box-shadow: 0 0 0 1px var(--brass), var(--focus-ring); }
+  .proj-slider:focus-visible::-moz-range-thumb{ box-shadow: 0 0 0 1px var(--brass), var(--focus-ring); }
   .proj-chart-wrap{ position:relative; }
   .proj-svg{ width:100%; height:auto; display:block; overflow:visible; }
   .proj-grid{ stroke: var(--border); stroke-width:1; }

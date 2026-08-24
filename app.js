@@ -306,13 +306,23 @@
     var capExceeded = Math.max(0, totalConcessional - capAvailable);
     var contributionsTax = Math.min(totalConcessional, capAvailable) * 0.15;
     var superNet = totalConcessional - contributionsTax;
+    // Division 293: an extra 15% on low-tax (concessional, within-cap) super contributions once
+    // "income for surcharge purposes" exceeds $250k. Simplified to taxable income + those
+    // contributions, which covers the common case without modelling reportable fringe benefits
+    // or net investment losses — consistent with the rest of this tax engine's stated scope.
+    var lowTaxContributions = Math.min(totalConcessional, capAvailable);
+    var div293Income = taxable + lowTaxContributions;
+    var div293Threshold = 250000;
+    var div293ExcessIncome = Math.max(0, div293Income - div293Threshold);
+    var div293Tax = Math.min(lowTaxContributions, div293ExcessIncome) * 0.15;
     return {
       gross: gross, packageTotal: inc.packageTotal, ipShare: ipShare, ownershipPct: ownershipPct,
       sacrifice: sacrifice, manualSacrifice: manualSacrifice, autoSacrifice: autoSacrifice, taxable: taxable,
       incomeTax: incomeTax, medicare: medicare, totalTax: totalTax, netTakeHome: netTakeHome,
       effectiveRate: gross > 0 ? totalTax / gross : 0,
       sg: sg, totalConcessional: totalConcessional, capAvailable: capAvailable, capExceeded: capExceeded,
-      contributionsTax: contributionsTax, superNet: superNet, marginalRate: marginalRateAU(taxable)
+      contributionsTax: contributionsTax, superNet: superNet, marginalRate: marginalRateAU(taxable),
+      div293Income: div293Income, div293Tax: div293Tax
     };
   }
 
@@ -2479,6 +2489,7 @@
             : (fmtCurrency0.format(r.totalConcessional) + ' of ' + fmtCurrency0.format(r.capAvailable) + ' concessional cap used (SG ' + fmtCurrency0.format(r.sg) + (r.autoSacrifice > 0 ? ' + bonus/income sacrifice ' + fmtCurrency0.format(r.autoSacrifice) : '') + (r.manualSacrifice > 0 ? ' + manual sacrifice ' + fmtCurrency0.format(r.manualSacrifice) : '') + ') — super received net of 15% contributions tax: ' + fmtCurrency0.format(r.superNet))
           ) +
         '</div>' +
+        '<div class="tax-cap-note tax-div293-note warn"' + (r.div293Tax > 0.5 ? '' : ' hidden') + ' title="Simplified: income for surcharge purposes is approximated as taxable income + your within-cap concessional contributions, ignoring reportable fringe benefits and net investment losses. Check with your accountant.">Division 293: your income is over the $250,000 threshold, so an extra 15% applies to ' + fmtCurrency0.format(Math.min(r.totalConcessional, r.capAvailable)) + ' of low-tax super contributions — ' + fmtCurrency0.format(r.div293Tax) + '/yr, assessed separately by the ATO (not withheld from take-home above).</div>' +
       '</div>';
     }).join("");
     container.innerHTML = html;
@@ -2505,12 +2516,17 @@
       var capPct = r.capAvailable > 0 ? Math.min(100, (r.totalConcessional / r.capAvailable) * 100) : 0;
       var fill = panel.querySelector(".cap-bar-fill");
       if(fill){ fill.style.width = Math.min(100, capPct) + "%"; fill.classList.toggle("over", r.capExceeded > 0); }
-      var note = panel.querySelector(".tax-cap-note");
+      var note = panel.querySelector(".tax-cap-note:not(.tax-div293-note)");
       if(note){
         note.classList.toggle("warn", r.capExceeded > 0);
         note.textContent = r.capExceeded > 0
           ? ("Over cap by " + fmtCurrency0.format(r.capExceeded) + " — excess concessional contributions are taxed at your marginal rate, not just 15%. Check with your accountant.")
           : (fmtCurrency0.format(r.totalConcessional) + " of " + fmtCurrency0.format(r.capAvailable) + " concessional cap used (SG " + fmtCurrency0.format(r.sg) + (r.autoSacrifice > 0 ? " + bonus/income sacrifice " + fmtCurrency0.format(r.autoSacrifice) : "") + (r.manualSacrifice > 0 ? " + manual sacrifice " + fmtCurrency0.format(r.manualSacrifice) : "") + ") — super received net of 15% contributions tax: " + fmtCurrency0.format(r.superNet));
+      }
+      var div293Note = panel.querySelector(".tax-div293-note");
+      if(div293Note){
+        div293Note.hidden = !(r.div293Tax > 0.5);
+        div293Note.textContent = "Division 293: your income is over the $250,000 threshold, so an extra 15% applies to " + fmtCurrency0.format(Math.min(r.totalConcessional, r.capAvailable)) + " of low-tax super contributions — " + fmtCurrency0.format(r.div293Tax) + "/yr, assessed separately by the ATO (not withheld from take-home above).";
       }
       var pkgNote = panel.querySelector('[data-out="packagenote"]');
       if(pkgNote && Math.abs(r.packageTotal - r.gross) > 1){

@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Wealth Planner</title>
+<script>
+  // GitHub Pages has no server-side routing, so a fresh load of a deep link this app
+  // owns (e.g. /wealth-planner/assets/shares) lands here instead of a real page. Stash
+  // the intended path and bounce to index.html, which restores it client-side — see the
+  // matching restore block in app.js.
+  sessionStorage.setItem("wealthPlanner.redirectPath", location.pathname + location.search);
+  location.replace("/wealth-planner/");
+</script>
+</head>
+<body></body>
+</html>

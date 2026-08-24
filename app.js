@@ -1417,6 +1417,20 @@
   function renderTotals(){
     document.getElementById("totalIncomeMonthly").textContent = fmtCurrency2.format(sumField(effectiveIncomeItems(), "monthly"));
     document.getElementById("totalSharedMonthly").textContent = fmtCurrency2.format(sumField(state.shared, "monthly"));
+    renderGlobalMetrics();
+  }
+
+  // Sticky header figures — always visible regardless of which tab is open, so a change
+  // made three tabs deep is immediately reflected in the two numbers that matter most.
+  function renderGlobalMetrics(){
+    var netWorthEl = document.getElementById("globalNetWorth");
+    var cashFlowEl = document.getElementById("globalCashFlow");
+    if(!netWorthEl || !cashFlowEl) return;
+    netWorthEl.textContent = fmtCurrency0.format(totalNetWorthValue());
+    var t = scenarioTotals(state.activeScenario);
+    cashFlowEl.textContent = (t.netMonthly >= 0 ? "+" : "") + fmtCurrency0.format(t.netMonthly) + "/mo";
+    cashFlowEl.classList.toggle("pos", t.netMonthly >= 0);
+    cashFlowEl.classList.toggle("neg", t.netMonthly < 0);
   }
 
   // ---------------- Event wiring ----------------
@@ -3163,6 +3177,13 @@
     state.assets.forEach(function(a){ if(a.person) names[a.person] = true; });
     personDatalist.innerHTML = Object.keys(names).map(function(n){ return '<option value="' + escapeAttr(n) + '">'; }).join("");
   }
+
+  // Catch-all so the sticky header stays correct after ANY edit anywhere in the app,
+  // not just the paths that happen to call renderTotals() already. Registered last, so
+  // by the time this fires in the bubble phase every other handler for the same event
+  // has already run and mutated state.
+  document.addEventListener("input", renderGlobalMetrics);
+  document.addEventListener("change", renderGlobalMetrics);
 
   renderAll();
   showPage(initialPage);

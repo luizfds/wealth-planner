@@ -3,7 +3,7 @@
 <title>Wealth Planner</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
 <link rel="stylesheet" href="styles.css">
 
@@ -32,12 +32,20 @@
         Show all periods
       </label>
       <p class="app-sidebar-note">Stored only in this browser (<code>localStorage</code>) — nothing is sent anywhere. Clearing your browser data clears this too, so <button class="link-btn" id="exportLink2">Export</button> a backup now and then.</p>
+      <p class="app-version">v1.0.0</p>
     </div>
   </nav>
 
   <div class="app-main">
     <header class="app-topbar">
-      <h1 id="pageTitle">Dashboard</h1>
+      <div class="app-topbar-left">
+        <h1 id="pageTitle">Dashboard</h1>
+        <div class="global-metrics" id="globalMetrics">
+          <div class="global-metric"><span>Net worth</span><b id="globalNetWorth">—</b></div>
+          <div class="global-metric-divider" aria-hidden="true"></div>
+          <div class="global-metric"><span>Monthly cash</span><b id="globalCashFlow">—</b></div>
+        </div>
+      </div>
       <div class="actions">
         <span class="status-chip" id="statusChip"><span class="status-dot" id="statusDot"></span><span id="statusText">Saved</span></span>
         <button class="btn btn-sm" id="themeToggleBtn" title="Cycle between following your system theme, always light, or always dark">Theme: System</button>

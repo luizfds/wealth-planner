@@ -278,8 +278,13 @@
   }
   .detail{ margin-bottom: 32px; }
   .detail-label{ font-size:12px; color: var(--ink-soft); margin-bottom: 6px; text-transform:uppercase; letter-spacing:.05em; }
-  .detail-grid{ display:grid; grid-template-columns: 1.1fr 1fr; gap: 16px; }
+  .detail-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
   @media (max-width: 760px){ .detail-grid{ grid-template-columns: 1fr; } }
+  .fire-bar-track{ height:10px; border-radius:100px; background: var(--paper-sunken); border:1px solid var(--border); overflow:hidden; margin:10px 0 12px; }
+  .fire-bar-fill{ height:100%; background: linear-gradient(90deg, var(--brass), var(--good)); border-radius:inherit; transition: width .3s ease; }
+  .fire-stat-row{ display:flex; justify-content:space-between; align-items:baseline; font-size:12.5px; color: var(--ink-soft); margin-bottom:4px; }
+  .fire-stat-row b{ color: var(--ink); font-family:"IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; }
+  .fire-note{ font-size:11.5px; color: var(--ink-soft); margin:8px 0 0; line-height:1.5; }
   .panel{
     background: var(--paper-raised); border:1px solid var(--border); border-radius: 14px;
     padding: 18px 20px; box-shadow: var(--shadow);

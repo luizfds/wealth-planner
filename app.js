@@ -1041,6 +1041,44 @@
         '<span class="acct-track"><span class="acct-fill" style="width:' + (e[1]/maxAcct*100) + '%"></span></span>' +
         '<span class="acct-amt">' + fmtCurrency0.format(e[1]) + '</span></div>';
     }).join("") : '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">No expenses yet.</p>';
+
+    renderFireProgress(scenario, t);
+  }
+
+  // Financial independence progress via the standard 4% safe-withdrawal rule: a target
+  // number 25x annual living costs (shared + home, excluding investment property — that's
+  // a separate business-like expense, usually funded by its own rent) that, if reached,
+  // could sustain 4%/yr withdrawals indefinitely. Reuses the same projection series as the
+  // main chart to estimate which year (if any) crosses that number under current assumptions.
+  function renderFireProgress(scenario, t){
+    var panel = document.getElementById("firePanel");
+    if(!panel) return;
+    var annualLivingExpenses = (t.sharedMonthly + t.homeMonthly) * 12;
+    var targetFI = annualLivingExpenses * 25;
+    var netWorth = totalNetWorthValue();
+    var progressPct = targetFI > 0 ? Math.min(100, (netWorth / targetFI) * 100) : 0;
+
+    var horizon = Math.max(1, Number(state.projection.horizonYears) || 1);
+    var series = computeNetWorthSeries(scenario, horizon);
+    var hitYear = null;
+    if(targetFI > 0){
+      for(var i = 0; i < series.length; i++){
+        if(series[i].y >= targetFI){ hitYear = series[i].x; break; }
+      }
+    }
+
+    var etaText;
+    if(netWorth >= targetFI && targetFI > 0) etaText = "You've already reached this number.";
+    else if(hitYear != null) etaText = "Projected to reach it around Year " + hitYear + " under " + escapeAttr(scenario) + "'s current assumptions.";
+    else etaText = "Not projected within " + horizon + " years under current assumptions — try adjusting the projection inputs.";
+
+    panel.innerHTML =
+      '<h3>Financial independence <span style="font-weight:400;color:var(--ink-soft)">— 4% rule</span></h3>' +
+      '<div class="fire-bar-track"><div class="fire-bar-fill" style="width:' + progressPct + '%"></div></div>' +
+      '<div class="fire-stat-row"><span>Progress</span><b>' + fmtPercent1.format(progressPct / 100) + '</b></div>' +
+      '<div class="fire-stat-row"><span>Net worth today</span><b>' + fmtCurrency0.format(netWorth) + '</b></div>' +
+      '<div class="fire-stat-row"><span>Target FI number</span><b>' + fmtCurrency0.format(targetFI) + '</b></div>' +
+      '<p class="fire-note">Target = ' + escapeAttr(scenario) + '’s annual living costs (' + fmtCurrency0.format(annualLivingExpenses) + '/yr, excluding investment property) × 25 — what a 4%/yr withdrawal could sustain indefinitely. ' + etaText + '</p>';
   }
 
   // ---------------- Generic ledger table ----------------

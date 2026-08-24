@@ -792,9 +792,10 @@
       var rentWeekly = toWeekly(sumField(p.income, "yearly") / 52, "Weekly");
       var pmPercent = p.pmFee.percent;
       var pmFlat = p.pmFee.flat;
-      pmFeeItem.amount = Math.round((rentWeekly * (pmPercent / 100) + pmFlat) * 100) / 100;
+      var pmFlatWeekly = pmFlat * 12 / 52; // pmFlat is a flat $/month fee; this row's frequency is Weekly
+      pmFeeItem.amount = Math.round((rentWeekly * (pmPercent / 100) + pmFlatWeekly) * 100) / 100;
       pmFeeItem.freq = "Weekly";
-      pmFeeItem.computedNote = "auto: " + pmPercent + "% of rent + $" + pmFlat.toFixed(2);
+      pmFeeItem.computedNote = "auto: " + pmPercent + "% of rent + $" + pmFlat.toFixed(2) + "/mo";
     });
     state.scenarios.forEach(function(scenario){
       var cfg = state.purchase[scenario];
@@ -2009,7 +2010,7 @@
     var pmFeePanel = hasPmFee
       ? '<div class="proj-controls prop-pmfee-panel">' +
           '<div class="proj-field" title="Applied to this property\'s Property Manager Fee expense row, worked out from its own rent — each property manager can charge a different rate"><label>PM fee % of rent</label><input type="number" min="0" max="100" step="0.1" class="prop-pmfee-percent" value="' + (Number(p.pmFee.percent) || 0) + '"></div>' +
-          '<div class="proj-field"><label>+ flat $/week</label><input type="number" min="0" step="0.5" class="prop-pmfee-flat" value="' + (Number(p.pmFee.flat) || 0) + '"></div>' +
+          '<div class="proj-field"><label>+ flat $/month</label><input type="number" min="0" step="0.5" class="prop-pmfee-flat" value="' + (Number(p.pmFee.flat) || 0) + '"></div>' +
         '</div>'
       : "";
     var gearingBadge = "";

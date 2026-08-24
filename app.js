@@ -252,9 +252,9 @@
 
   // Only the interest portion of a loan repayment is tax-deductible — principal repayment just
   // reduces the liability, it's not a loss. An offset account reduces the balance interest is
-  // charged on (that's its entire financial purpose) — but it must NOT also reduce the balance
-  // used for equity, since the offset money is real cash the user tracks as its own Cash asset;
-  // netting it against the loan there too would double-count it in net worth.
+  // charged on — the same offset balance is also netted against the loan for equity purposes
+  // (see propertyEquityToday), since offsetBalance is the single source of truth for that money.
+  // Don't also enter it as a separate Cash asset, or it'll be counted twice.
   function loanInterestMonthlyAtRate(loan, ratePts){
     var interestBalance = Math.max(0, (Number(loan.balance) || 0) - (Number(loan.offsetBalance) || 0));
     var monthlyRate = ratePts / 100 / 12;
@@ -432,10 +432,11 @@
       var homeEquity = purchaseEnabled ? (homeValue - loanBal) : 0;
       var propertiesEquitySum = state.properties.reduce(function(sum, p){
         var val = (Number(p.value) || 0) * Math.pow(1 + propRate, year);
-        var loanTotal = (p.loans || []).reduce(function(s, l){
-          return s + loanBalanceAfterMonths(l.balance, (Number(l.rate) || 0) + rateShockPts, l.termYears, year * 12, l.repaymentType);
+        var loanNet = (p.loans || []).reduce(function(s, l){
+          var bal = loanBalanceAfterMonths(l.balance, (Number(l.rate) || 0) + rateShockPts, l.termYears, year * 12, l.repaymentType);
+          return s + Math.max(0, bal - (Number(l.offsetBalance) || 0));
         }, 0);
-        return sum + (val - loanTotal);
+        return sum + (val - loanNet);
       }, 0);
       points.push({ x: year, y: homeEquity + portfolio + propertiesEquitySum });
     }
@@ -1754,12 +1755,15 @@
     return state.assets.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
   }
 
-  // Equity uses the FULL loan balance, not netted against any offset — the offset balance is real
-  // cash the user tracks as its own Cash asset elsewhere, so netting it here too would double-count
-  // it in net worth. Offset only reduces the interest charged (see loanInterestMonthly).
+  // Equity nets the offset against the loan balance — the offset account IS money that reduces
+  // what you actually owe against this property, so this is its single source of truth for net
+  // worth purposes. Don't ALSO enter that same balance as a separate Cash asset (see the Offset
+  // field's tooltip) — that would double-count it, which is the one thing to avoid here.
   function propertyEquityToday(property){
-    var loanTotal = (property.loans || []).reduce(function(s, l){ return s + (Number(l.balance) || 0); }, 0);
-    return (Number(property.value) || 0) - loanTotal;
+    var loanNet = (property.loans || []).reduce(function(s, l){
+      return s + Math.max(0, (Number(l.balance) || 0) - (Number(l.offsetBalance) || 0));
+    }, 0);
+    return (Number(property.value) || 0) - loanNet;
   }
   function propertiesTotalEquityToday(){
     return state.properties.reduce(function(s, p){ return s + propertyEquityToday(p); }, 0);
@@ -1968,7 +1972,7 @@
           ? '<input type="number" step="1" min="0" class="loan-manual-amount" value="' + (Number(loan.manualRepaymentAmount) || 0) + '" aria-label="Manual repayment amount">'
           : '<span class="computed-note">' + fmtCurrency0.format(repayment) + '/mo</span>') +
       '</td>' +
-      '<td class="num"><input type="number" step="1000" min="0" class="loan-offset" value="' + (Number(loan.offsetBalance) || 0) + '" aria-label="Offset account balance" title="Reduces the interest charged on this loan only — doesn\'t change equity or mortgage balance. If you also track this money as a Cash asset (most offset accounts are just your everyday transaction account), don\'t double-enter its value anywhere else."></td>' +
+      '<td class="num"><input type="number" step="1000" min="0" class="loan-offset" value="' + (Number(loan.offsetBalance) || 0) + '" aria-label="Offset account balance" title="Netted against this loan\'s balance for both equity and interest — this is the one place to enter it. Don\'t also add it as a separate Cash asset on the Assets tab, or it\'ll be counted twice."></td>' +
       '<td><button type="button" class="btn btn-ghost btn-sm row-del" data-loan-del="' + li + '" aria-label="Delete loan">✕</button></td>' +
       '</tr>';
   }
@@ -2020,7 +2024,7 @@
       '</div>' +
       '<div class="prop-value-log"><button type="button" class="asset-log-btn" data-property-log="' + escapeAttr(p.id) + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart">Log</button>' + assetTrendHtml(p) + '</div>' +
       '<div class="calc-costs-title">Loans</div>' +
-      '<div class="table-scroll"><table class="calc-costs-table prop-loans-table"><thead><tr><th>What</th><th class="num">Balance</th><th class="num">Rate %</th><th class="num">Term (yrs)</th><th>Type</th><th>Repayment</th><th class="num" title="Reduces interest charged only — track the actual cash balance as a Cash asset, not here, or it\'ll be counted twice">Offset</th><th></th></tr></thead><tbody>' + loanRows + '</tbody></table></div>' +
+      '<div class="table-scroll"><table class="calc-costs-table prop-loans-table"><thead><tr><th>What</th><th class="num">Balance</th><th class="num">Rate %</th><th class="num">Term (yrs)</th><th>Type</th><th>Repayment</th><th class="num" title="Netted against the loan balance for both equity and interest — the one place to enter this money, not also as a separate Cash asset">Offset</th><th></th></tr></thead><tbody>' + loanRows + '</tbody></table></div>' +
       '<button type="button" class="btn btn-sm btn-ghost" data-loan-add="' + escapeAttr(p.id) + '">+ Add loan</button>' +
       '<div class="income-group prop-subledger">' +
         '<div class="income-group-head"><div class="income-group-head-left"><h4>Income</h4></div></div>' +

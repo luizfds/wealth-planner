@@ -150,6 +150,11 @@
     return loanAmount * r / (1 - Math.pow(1 + r, -n));
   }
 
+  // Long-run compound annual growth in established house prices, 1980-2022 (Landmark
+  // Valuations analysis of ABS/state-government median price series). These are historical
+  // averages for context, not a forecast — past growth doesn't predict future growth, which
+  // is why this is only ever a suggested starting point the user can override per scenario.
+  var STATE_GROWTH_RATES = { NSW: 6.8, VIC: 7.2, Other: 6.4 };
   function defaultPurchaseConfig(price, depositPct, rate, termYears, stateCode, enabled){
     return {
       enabled: !!enabled,
@@ -161,6 +166,7 @@
       firstHomeBuyer: false,
       repaymentType: "PI",
       ioRate: rate,
+      propertyGrowthRate: null,
       syncRepayment: !!enabled,
       otherCosts: [
         {what:"Conveyancing / Legal Fees", amount:1800},
@@ -397,6 +403,11 @@
     var purchaseEnabled = !!(cfg && cfg.enabled);
     var proj = state.projection || {};
     var propRate = (Number(proj.propertyAppreciationRate) || 0) / 100;
+    // A scenario can override the global growth rate (e.g. to reflect its own state's
+    // long-run average) via cfg.propertyGrowthRate; null/unset falls back to the global rate.
+    var homePropRate = (cfg && cfg.propertyGrowthRate != null && cfg.propertyGrowthRate !== "")
+      ? (Number(cfg.propertyGrowthRate) || 0) / 100
+      : propRate;
     var investRate = (Number(proj.investReturnRate) || 0) / 100;
     var inflationRate = (Number(proj.inflationRate) || 0) / 100;
     var rateShock = (Number(proj.rateShockPct) || 0) / 100;
@@ -437,7 +448,7 @@
         var savingsThisYear = incomeMonthly - fixedMonthly - inflatableThisYear;
         for(var m = 0; m < 12; m++){ portfolio = portfolio * (1 + monthlyInvestRate) + savingsThisYear; }
       }
-      var homeValue = price * Math.pow(1 + propRate, year);
+      var homeValue = price * Math.pow(1 + homePropRate, year);
       var loanBal = purchaseEnabled ? loanBalanceAfterMonths(loanAmount0, rate, term, year * 12, cfg.repaymentType) : 0;
       var homeEquity = purchaseEnabled ? (homeValue - loanBal) : 0;
       var propertiesEquitySum = state.properties.reduce(function(sum, p){
@@ -627,6 +638,7 @@
       var pcfg = s.purchase[name];
       if(pcfg.repaymentType == null) pcfg.repaymentType = "PI";
       if(pcfg.ioRate == null) pcfg.ioRate = pcfg.rate;
+      if(pcfg.propertyGrowthRate === undefined) pcfg.propertyGrowthRate = null;
     });
     if(!Array.isArray(s.assets)) s.assets = [];
     s.assets.forEach(function(a){
@@ -1399,6 +1411,7 @@
             '<div class="calc-field" title="Below 20% usually means paying Lenders Mortgage Insurance (LMI) — see the settlement costs below."><label>Deposit %</label><input type="number" step="1" min="0" max="100" class="calc-depositPct" value="' + cfg.depositPct + '"><span class="calc-hint" data-out="deposit">' + fmtCurrency0.format(out.depositAmt) + '</span></div>' +
             '<div class="calc-field"><label>Loan term (years)</label><input type="number" step="1" min="1" class="calc-term" value="' + cfg.termYears + '"></div>' +
             '<div class="calc-field"><label>State</label><select class="calc-state">' + stateOptions + '</select></div>' +
+            '<div class="calc-field" title="Overrides the global Property growth % p.a. (Projections tab) for this scenario only. Leave blank to use the global rate for every scenario alike."><label>Property growth % p.a. <span style="text-transform:none;font-weight:400">(this scenario)</span></label><input type="number" step="0.1" min="-10" max="30" class="calc-growth-override" placeholder="Global: ' + (Number(state.projection.propertyAppreciationRate) || 0) + '%" value="' + (cfg.propertyGrowthRate != null ? cfg.propertyGrowthRate : '') + '"><span class="calc-hint">' + (STATE_GROWTH_RATES[cfg.state] != null ? (cfg.state + ' long-run avg ' + STATE_GROWTH_RATES[cfg.state] + '%/yr (1980–2022) — <button type="button" class="calc-hint-link" data-use-growth="' + STATE_GROWTH_RATES[cfg.state] + '">use this</button>') : '') + '</span></div>' +
             '<div class="calc-field" title="Rate for a standard principal &amp; interest loan — get your bank/broker\'s quoted rate for an accurate comparison."><label>Interest rate % p.a. (P&amp;I)</label><input type="number" step="0.05" min="0" class="calc-rate" value="' + cfg.rate + '"></div>' +
             '<div class="calc-field" title="Interest-only rate — lenders usually price this higher than P&amp;I. Get the actual IO rate quoted by your bank, don\'t assume it matches P&amp;I."><label>Interest rate % p.a. (IO)</label><input type="number" step="0.05" min="0" class="calc-iorate" value="' + cfg.ioRate + '"></div>' +
             '<div class="calc-field" title="Which repayment feeds your budget below and the long-term projection. Both are shown for comparison regardless of this choice."><label>Repayment type used</label><select class="calc-repaymenttype"><option value="PI"' + (cfg.repaymentType !== "IO" ? " selected" : "") + '>Principal &amp; interest</option><option value="IO"' + (cfg.repaymentType === "IO" ? " selected" : "") + '>Interest only</option></select></div>' +
@@ -1689,6 +1702,7 @@
     else if(t.classList.contains("calc-iorate")) cfg.ioRate = parseFloat(t.value) || 0;
     else if(t.classList.contains("calc-term")) cfg.termYears = Math.max(1, parseFloat(t.value) || 1);
     else if(t.classList.contains("calc-manual-stampduty")) cfg.manualStampDuty = parseFloat(t.value) || 0;
+    else if(t.classList.contains("calc-growth-override")) cfg.propertyGrowthRate = t.value === "" ? null : (parseFloat(t.value) || 0);
     else if(t.classList.contains("cc-what") || t.classList.contains("cc-amount")){
       var tr = t.closest("tr");
       var idx = Array.prototype.indexOf.call(tr.parentNode.children, tr);
@@ -1727,6 +1741,18 @@
   }
 
   function onCalcClick(e){
+    var useGrowthBtn = e.target.closest("[data-use-growth]");
+    if(useGrowthBtn){
+      var growthPanel = e.target.closest("[data-calc-scenario]");
+      if(!growthPanel) return;
+      var growthScenario = growthPanel.getAttribute("data-calc-scenario");
+      var growthCfg = state.purchase[growthScenario];
+      if(!growthCfg) return;
+      growthCfg.propertyGrowthRate = parseFloat(useGrowthBtn.getAttribute("data-use-growth")) || 0;
+      renderHomeBody();
+      afterCalcChange(growthScenario);
+      return;
+    }
     var addBtn = e.target.closest("[data-cc-add]");
     var delBtn = e.target.closest("[data-cc-del]");
     if(!addBtn && !delBtn) return;

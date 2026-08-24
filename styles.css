@@ -495,6 +495,7 @@
   }
   .calc-field input:focus, .calc-field select:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
   .calc-hint{ font-size:11px; color: var(--ink-soft); }
+  .calc-hint-link{ all:unset; color: var(--brass-strong); text-decoration:underline; text-underline-offset:2px; cursor:pointer; font-size:11px; }
   .calc-field label .calc-help{ text-transform:none; letter-spacing:normal; cursor:help; }
   .calc-check-inline{
     display:flex; align-items:center; gap:7px; font-size:13px; color: var(--ink); cursor:pointer;

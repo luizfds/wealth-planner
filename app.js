@@ -1238,6 +1238,37 @@
     });
   }
 
+  // Read-only mirror of each IP property's costs onto the Expenses page — same idea as the
+  // synthetic rent row on the Income tab, but this never touches state.shared, since property
+  // costs are already counted separately (ipExpenseItemsForClassification/ipExpensesMonthly/
+  // ipLoansMonthly) in every real total. Adding it as a real row there would double-count it.
+  function propertyMonthlyCost(p){
+    var loanMonthly = (p.loans || []).reduce(function(s, l){ return s + loanRepaymentMonthly(l); }, 0);
+    return sumField(p.expenses, "monthly") + loanMonthly;
+  }
+  function renderPropertyExpensesSummary(){
+    var wrap = document.getElementById("propertyExpensesCard");
+    var table = document.getElementById("propertyExpensesTable");
+    if(!wrap || !table) return;
+    var ips = ipProperties();
+    wrap.hidden = !ips.length;
+    if(!ips.length) return;
+    var rows = ips.map(function(p){
+      var monthly = propertyMonthlyCost(p);
+      return '<tr class="is-computed">' +
+        '<td class="what-cell">' + escapeAttr(p.what) + ' — Property costs</td>' +
+        '<td class="amount-cell"><span class="computed-value">' + fmtCurrency0.format(monthly) + '</span>' +
+          '<span class="computed-note">auto: expenses + loan repayment for ' + escapeAttr(p.what) + ' — edit on the Properties tab</span></td>' +
+        '<td class="freq-cell">Monthly</td>' +
+        '<td class="num">' + fmtCurrency0.format(monthly) + '</td>' +
+        '<td class="num">' + fmtCurrency0.format(monthly * 12) + '</td>' +
+        '</tr>';
+    }).join("");
+    var total = ips.reduce(function(s, p){ return s + propertyMonthlyCost(p); }, 0);
+    table.innerHTML = '<thead><tr><th>What</th><th>Amount</th><th>Frequency</th><th class="num">Monthly</th><th class="num">Yearly</th></tr></thead><tbody>' + rows + '</tbody>';
+    document.getElementById("propertyExpensesTotal").textContent = fmtCurrency0.format(total);
+  }
+
   function slug(s){ return s.replace(/[^a-z0-9]/gi, ""); }
 
   function homeReconciliationHtml(scenario){
@@ -2069,6 +2100,7 @@
       buildTable(document.getElementById("propIncomeTable_" + p.id), "propinc:" + p.id, p.income, {showClass:false});
       buildTable(document.getElementById("propExpTable_" + p.id), "propexp:" + p.id, p.expenses, {showClass:true, hideAcctToggle:true, hideClassToggle:true});
     });
+    renderPropertyExpensesSummary();
     applyPeriodVisibility();
   }
 
@@ -2670,6 +2702,7 @@
       var grossYield = sumField(property.income, "yearly") / Number(property.value);
       yieldBadge.textContent = fmtPercent1.format(grossYield) + " gross yield";
     }
+    renderPropertyExpensesSummary();
   }
 
   document.getElementById("propertiesBody").addEventListener("input", function(e){

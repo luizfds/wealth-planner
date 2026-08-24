@@ -2308,7 +2308,7 @@
     persist();
   });
 
-  // ---------------- Portfolio value over time ----------------
+  // ---------------- Net worth over time ----------------
   function renderPortfolioHistoryChart(){
     var container = document.getElementById("portfolioHistoryPanel");
     if(!container) return;
@@ -2324,8 +2324,7 @@
     if(dates.indexOf(today) === -1) dates.push(today);
 
     if(dates.length < 2){
-      container.innerHTML = '<h4 style="margin:0 0 8px;font-size:13.5px;font-weight:600">Portfolio value over time</h4>' +
-        '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">Log a value for at least one asset (click "Log" in the table above) to start tracking your total portfolio over time.</p>';
+      container.innerHTML = '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">Log a value for at least one asset (click "Log" in the table above) to start tracking your net worth over time.</p>';
       return;
     }
 
@@ -2335,26 +2334,38 @@
       if(!atOrBefore.length) return 0;
       return atOrBefore[atOrBefore.length - 1].value;
     }
+    function hasValueAtDate(history, d){
+      if(!history || !history.length) return d === today;
+      return history.some(function(h){ return h.date <= d; });
+    }
+    // Net out each property's loans (at today's balance/offset — we don't log loan balance
+    // history) against its historical valuation, so this tracks net worth like every other
+    // total in the app, not gross asset value inflated by debt that's never subtracted. Only
+    // applied on dates where we actually have a logged valuation for that property, so a
+    // property with just one recent snapshot doesn't drag earlier points deep into negative
+    // territory for a loan it didn't have tracked at that point.
     var points = dates.map(function(d){
       var total = state.assets.reduce(function(sum, a){ return sum + valueAtDate(a.history, a.amount, d); }, 0);
-      total += state.properties.reduce(function(sum, p){ return sum + valueAtDate(p.history, p.value, d); }, 0);
+      total += state.properties.reduce(function(sum, p){
+        if(!hasValueAtDate(p.history, d)) return sum;
+        var loanNet = (p.loans || []).reduce(function(s, l){
+          return s + Math.max(0, (Number(l.balance) || 0) - (Number(l.offsetBalance) || 0));
+        }, 0);
+        return sum + valueAtDate(p.history, p.value, d) - loanNet;
+      }, 0);
       return { x: new Date(d + "T00:00:00").getTime(), y: total, dateLabel: d };
     });
 
-    var header = document.createElement("h4");
-    header.style.cssText = "margin:0 0 8px;font-size:13.5px;font-weight:600";
-    header.textContent = "Portfolio value over time";
     container.innerHTML = "";
-    container.appendChild(header);
     var chartDiv = document.createElement("div");
     container.appendChild(chartDiv);
 
-    renderLineChart(chartDiv, [{ label: "Total portfolio", colorClass: "series-color-0", points: points }], {
+    renderLineChart(chartDiv, [{ label: "Net worth", colorClass: "series-color-0", points: points }], {
       height: 220,
       yFormat: function(v){ return fmtCurrency0.format(v); },
       xFormat: function(ms){ return new Date(ms).toLocaleDateString(undefined, { year: "numeric", month: "short" }); },
       xTickCount: Math.min(7, Math.max(2, dates.length)),
-      ariaLabel: "Total portfolio value over time",
+      ariaLabel: "Net worth over time",
       alwaysLegend: false
     });
   }

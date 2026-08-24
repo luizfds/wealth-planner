@@ -1980,15 +1980,61 @@
     var body = data.items.length
       ? '<div class="table-scroll"><table class="assets-table holdings-table" id="sharesTable"></table></div><div class="ledger-footer">' + footerBtn + '</div>'
       : '<p class="ledger-note" style="margin:0 0 12px">No share holdings yet.</p>' + footerBtn;
+    var pasteTool = data.items.length
+      ? '<details class="tax-advanced" style="margin:0 0 14px"><summary>Paste prices from Google Sheets</summary>' +
+          '<p class="ledger-note" style="margin:8px 0">This app never fetches prices itself — nothing is sent anywhere. Instead, in a Google Sheet put <code>=GOOGLEFINANCE("ASX:CBA","price")</code> next to each symbol, copy the Symbol and Price columns, and paste the two-column range below. Matches your holdings by ticker symbol (case-insensitive).</p>' +
+          '<textarea id="sharesPasteArea" rows="4" placeholder="CBA&#9;105.32&#10;BHP&#9;43.10" style="width:100%;box-sizing:border-box;font-family:&quot;IBM Plex Mono&quot;,monospace;font-size:12.5px;padding:8px;background:var(--paper-sunken);border:1px solid var(--border);border-radius:8px;color:var(--ink);resize:vertical"></textarea>' +
+          '<div style="margin-top:8px"><button type="button" class="btn btn-sm" id="sharesPasteApply">Update prices</button></div>' +
+        '</details>'
+      : "";
     container.innerHTML = '<div class="ledgers"><details class="ledger" open>' +
       '<summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Shares</h2></div>' +
       '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
-      '<div class="ledger-body">' + body + '</div></details></div>';
+      '<div class="ledger-body">' + pasteTool + body + '</div></details></div>';
     if(data.items.length){
       var thead = '<thead><tr><th>What</th><th>Symbol</th><th>Mkt</th><th class="num">Qty</th><th class="num">Avg cost</th><th class="num">Price</th><th class="num">Value</th><th>Gain/Loss</th><th>Person</th><th></th><th></th></tr></thead>';
       var rows = data.items.map(function(item, i){ return holdingRowHtml(item, data.indices[i]); }).join("");
       document.getElementById("sharesTable").innerHTML = thead + "<tbody>" + rows + "</tbody>";
     }
+  }
+
+  function parseSharesPasteLine(line){
+    var trimmed = line.trim();
+    if(!trimmed) return null;
+    var parts = trimmed.split(/\t+/);
+    if(parts.length < 2) parts = trimmed.split(/,+/);
+    if(parts.length < 2) parts = trimmed.split(/\s+/);
+    if(parts.length < 2) return null;
+    var symbol = parts[0].trim().replace(/^["']|["']$/g, "").replace(/^[A-Za-z]+:/, "").toUpperCase();
+    var price = parseFloat(parts[parts.length - 1].replace(/[^0-9.\-]/g, ""));
+    if(!symbol || isNaN(price)) return null;
+    return { symbol: symbol, price: price };
+  }
+
+  function applySharesPaste(){
+    var area = document.getElementById("sharesPasteArea");
+    if(!area) return;
+    var lines = area.value.split(/\r?\n/);
+    var updatedCount = 0, notFound = [];
+    var todayStr = new Date().toISOString().slice(0, 10);
+    lines.forEach(function(line){
+      var parsed = parseSharesPasteLine(line);
+      if(!parsed) return;
+      var matches = state.assets.filter(function(a){ return a.category === "Shares" && (a.symbol || "").toUpperCase() === parsed.symbol; });
+      if(!matches.length){ notFound.push(parsed.symbol); return; }
+      matches.forEach(function(item){
+        item.price = parsed.price;
+        item.priceUpdated = todayStr;
+        item.amount = Math.round((Number(item.quantity) || 0) * parsed.price * 100) / 100;
+      });
+      updatedCount += matches.length;
+    });
+    renderAssets();
+    renderNetWorthPanel();
+    persist();
+    var msg = updatedCount + " price" + (updatedCount === 1 ? "" : "s") + " updated" +
+      (notFound.length ? " — no holding found for " + notFound.join(", ") : "");
+    showToast(msg);
   }
 
   var ASSET_ALLOC_SEGMENTS = [
@@ -2831,7 +2877,8 @@
       return;
     }
     var logBtn = e.target.closest("[data-asset-log]");
-    if(logBtn) logAssetSnapshot(Number(logBtn.getAttribute("data-asset-log")));
+    if(logBtn){ logAssetSnapshot(Number(logBtn.getAttribute("data-asset-log"))); return; }
+    if(e.target.id === "sharesPasteApply") applySharesPaste();
   });
 
   function patchPropertyCardComputed(property){

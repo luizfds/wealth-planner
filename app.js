@@ -1742,30 +1742,6 @@
     if(priceNote) priceNote.textContent = item.priceUpdated ? ("as of " + item.priceUpdated) : "";
   }
 
-  function assetPersonGroupKey(item){
-    return item.person ? item.person : "__household";
-  }
-
-  function computeHoldingPersonGroups(items, indices){
-    var order = [];
-    items.forEach(function(item){
-      var key = assetPersonGroupKey(item);
-      if(order.indexOf(key) === -1) order.push(key);
-    });
-    if(order.indexOf("__household") !== -1){
-      order.splice(order.indexOf("__household"), 1);
-      order.push("__household");
-    }
-    return order.map(function(key){
-      var subItems = [], subIndices = [];
-      items.forEach(function(item, i){
-        if(assetPersonGroupKey(item) === key){ subItems.push(item); subIndices.push(indices[i]); }
-      });
-      var total = subItems.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
-      return { key: key, items: subItems, indices: subIndices, total: total };
-    });
-  }
-
   function logAssetSnapshot(idx){
     var asset = state.assets[idx];
     if(!asset) return;
@@ -1855,32 +1831,19 @@
     if(!container) return;
     var data = assetCategoryItems("Shares");
     var total = data.items.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
-    var personGroups = computeHoldingPersonGroups(data.items, data.indices);
-    var body;
-    if(!personGroups.length){
-      body = '<p class="ledger-note" style="margin:0 0 12px">No share holdings yet.</p>' +
-        '<button type="button" class="btn btn-sm" data-add="holding" title="Track an individual shareholding — symbol, quantity, cost, and value">+ Add share holding</button>';
-    } else {
-      body = personGroups.map(function(pg, pi){
-        var label = pg.key === "__household" ? "Household / shared" : pg.key;
-        var addValue = pg.key === "__household" ? "" : pg.key;
-        return '<div class="holding-subgroup"><div class="income-group-head">' +
-          '<div class="income-group-head-left"><h4>' + escapeAttr(label) + '</h4></div>' +
-          '<div class="income-group-total">' + fmtCurrency0.format(pg.total) + '</div>' +
-          '</div><div class="table-scroll"><table class="assets-table holdings-table" id="holdingGroupTable_' + pi + '"></table></div>' +
-          '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="holding:' + escapeAttr(addValue) + '">+ Add holding to ' + escapeAttr(label) + '</button></div>';
-      }).join("");
-    }
+    var footerBtn = '<button type="button" class="btn btn-sm' + (data.items.length ? " btn-ghost" : "") + '" data-add="holding" title="Track an individual shareholding — symbol, quantity, cost, and value">+ Add share holding</button>';
+    var body = data.items.length
+      ? '<div class="table-scroll"><table class="assets-table holdings-table" id="sharesTable"></table></div><div class="ledger-footer">' + footerBtn + '</div>'
+      : '<p class="ledger-note" style="margin:0 0 12px">No share holdings yet.</p>' + footerBtn;
     container.innerHTML = '<div class="ledgers"><details class="ledger" open>' +
       '<summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Shares</h2></div>' +
       '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
       '<div class="ledger-body">' + body + '</div></details></div>';
-    personGroups.forEach(function(pg, pi){
-      var tableEl = document.getElementById("holdingGroupTable_" + pi);
+    if(data.items.length){
       var thead = '<thead><tr><th>What</th><th>Symbol</th><th>Mkt</th><th class="num">Qty</th><th class="num">Avg cost</th><th class="num">Price</th><th class="num">Value</th><th>Gain/Loss</th><th>Person</th><th></th><th></th></tr></thead>';
-      var rows = pg.items.map(function(item, i){ return holdingRowHtml(item, pg.indices[i]); }).join("");
-      tableEl.innerHTML = thead + "<tbody>" + rows + "</tbody>";
-    });
+      var rows = data.items.map(function(item, i){ return holdingRowHtml(item, data.indices[i]); }).join("");
+      document.getElementById("sharesTable").innerHTML = thead + "<tbody>" + rows + "</tbody>";
+    }
   }
 
   var ASSET_ALLOC_SEGMENTS = [
@@ -1942,21 +1905,11 @@
 
   function patchAssetCategoryTotals(){
     ASSET_CATEGORIES.forEach(function(cat){
-      if(cat === "Shares") return;
       var data = assetCategoryItems(cat);
       var total = data.items.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
       var container = document.getElementById("assetsSub-" + cat);
       var totalEl = container && container.querySelector(".ledger-total b");
       if(totalEl) totalEl.textContent = fmtCurrency0.format(total);
-    });
-    var sharesData = assetCategoryItems("Shares");
-    var sharesTotal = sharesData.items.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
-    var sharesContainer = document.getElementById("assetsSub-Shares");
-    var sharesTotalEl = sharesContainer && sharesContainer.querySelector(".ledger-total b");
-    if(sharesTotalEl) sharesTotalEl.textContent = fmtCurrency0.format(sharesTotal);
-    var personGroups = computeHoldingPersonGroups(sharesData.items, sharesData.indices);
-    document.querySelectorAll("#assetsSub-Shares .holding-subgroup .income-group-total").forEach(function(el, pi){
-      if(personGroups[pi]) el.textContent = fmtCurrency0.format(personGroups[pi].total);
     });
     renderAssetsSummary();
   }
@@ -2636,10 +2589,7 @@
       if(state.assets[hidx]){ state.assets[hidx].market = e.target.value; persist(); }
     }
     if(e.target.closest("table.assets-table") && e.target.classList.contains("h-person")){
-      renderSharesSubpage();
       updatePersonSuggestions();
-      renderNetWorthPanel();
-      persist();
     }
   });
   document.addEventListener("click", function(e){

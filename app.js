@@ -2101,10 +2101,12 @@
         yieldBadge = '<span class="gearing-badge neutral" title="Annual rent ÷ current property value">' + fmtPercent1.format(grossYield) + ' gross yield</span>';
       }
     }
+    var usableEquity = Math.max(0, (Number(p.value) || 0) * 0.8 - mortgageBalance);
     var summaryTiles =
       '<div class="calc-out"><span>Valuation</span><b data-out="valuation">' + fmtCurrency0.format(Number(p.value) || 0) + '</b></div>' +
       '<div class="calc-out"><span>Mortgage balance</span><b data-out="mortgagebalance">' + fmtCurrency0.format(mortgageBalance) + '</b></div>' +
-      '<div class="calc-out emph"><span>Net equity</span><b data-out="netequity">' + fmtCurrency0.format(equity) + '</b></div>';
+      '<div class="calc-out emph"><span>Net equity</span><b data-out="netequity">' + fmtCurrency0.format(equity) + '</b></div>' +
+      '<div class="calc-out" title="What you could borrow against this property, up to 80% LVR, without triggering LMI — based on its balance, not netted against any offset (that\'s a separate liquid asset, not more borrowing capacity)."><span>Usable equity <span style="text-transform:none;font-weight:400">(to 80% LVR)</span></span><b data-out="usableequity">' + fmtCurrency0.format(usableEquity) + '</b></div>';
     if(p.kind === "IP"){
       var netCashFlowMonthly = propertyGearingAnnual(p) / 12;
       summaryTiles += '<div class="calc-out"><span>Net cash flow</span><b data-out="cashflow" style="color:' + (netCashFlowMonthly < 0 ? "var(--bad)" : "var(--good)") + '">' + (netCashFlowMonthly >= 0 ? "+" : "") + fmtCurrency0.format(netCashFlowMonthly) + '/mo</b></div>';
@@ -2761,6 +2763,7 @@
     setOut("valuation", fmtCurrency0.format(Number(property.value) || 0));
     setOut("mortgagebalance", fmtCurrency0.format(mortgageBalance));
     setOut("netequity", fmtCurrency0.format(equity));
+    setOut("usableequity", fmtCurrency0.format(Math.max(0, (Number(property.value) || 0) * 0.8 - mortgageBalance)));
     if(property.kind === "IP"){
       var netCashFlowMonthly = propertyGearingAnnual(property) / 12;
       setOut("cashflow", (netCashFlowMonthly >= 0 ? "+" : "") + fmtCurrency0.format(netCashFlowMonthly), netCashFlowMonthly < 0 ? "var(--bad)" : "var(--good)");

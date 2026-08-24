@@ -2615,15 +2615,7 @@
         item.amount = Math.round((Number(item.quantity) || 0) * item.price * 100) / 100;
         patchHoldingRow(tr, item);
       }
-      else if(e.target.classList.contains("h-person")){
-        item.person = e.target.value;
-        renderSharesSubpage();
-        updatePersonSuggestions();
-        renderAssetsSummary();
-        renderNetWorthPanel();
-        persist();
-        return;
-      }
+      else if(e.target.classList.contains("h-person")) item.person = e.target.value;
       else return;
       patchAssetCategoryTotals();
       renderNetWorthPanel();
@@ -2642,6 +2634,12 @@
       if(!htr) return;
       var hidx = Number(htr.getAttribute("data-index"));
       if(state.assets[hidx]){ state.assets[hidx].market = e.target.value; persist(); }
+    }
+    if(e.target.closest("table.assets-table") && e.target.classList.contains("h-person")){
+      renderSharesSubpage();
+      updatePersonSuggestions();
+      renderNetWorthPanel();
+      persist();
     }
   });
   document.addEventListener("click", function(e){

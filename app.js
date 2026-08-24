@@ -2308,6 +2308,9 @@
     state.assets.forEach(function(a){
       (a.history || []).forEach(function(h){ dateSet[h.date] = true; });
     });
+    state.properties.forEach(function(p){
+      (p.history || []).forEach(function(h){ dateSet[h.date] = true; });
+    });
     var dates = Object.keys(dateSet).sort();
     var today = new Date().toISOString().slice(0, 10);
     if(dates.indexOf(today) === -1) dates.push(today);
@@ -2318,15 +2321,15 @@
       return;
     }
 
+    function valueAtDate(history, currentAmount, d){
+      if(!history || !history.length) return d === today ? (Number(currentAmount) || 0) : 0;
+      var atOrBefore = history.filter(function(h){ return h.date <= d; });
+      if(!atOrBefore.length) return 0;
+      return atOrBefore[atOrBefore.length - 1].value;
+    }
     var points = dates.map(function(d){
-      var total = state.assets.reduce(function(sum, a){
-        if(!a.history || !a.history.length){
-          return sum + (d === today ? (Number(a.amount) || 0) : 0);
-        }
-        var atOrBefore = a.history.filter(function(h){ return h.date <= d; });
-        if(!atOrBefore.length) return sum;
-        return sum + atOrBefore[atOrBefore.length - 1].value;
-      }, 0);
+      var total = state.assets.reduce(function(sum, a){ return sum + valueAtDate(a.history, a.amount, d); }, 0);
+      total += state.properties.reduce(function(sum, p){ return sum + valueAtDate(p.history, p.value, d); }, 0);
       return { x: new Date(d + "T00:00:00").getTime(), y: total, dateLabel: d };
     });
 

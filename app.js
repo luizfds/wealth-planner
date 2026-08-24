@@ -2974,17 +2974,39 @@
     var filename = "wealth-planner-backup-" + isoDateStamp() + ".json";
     if(window.claude && window.claude.use){
       window.claude.use("downloads").then(function(downloads){
-        if(!downloads){ fallbackExport(payload, filename); return; }
+        if(!downloads){ shareExport(payload, filename); return; }
         downloads.save({filename: filename, data: payload}).then(function(){
           showToast("Backup saved");
         }).catch(function(err){
           if(err && err.code === "declined") return;
+          shareExport(payload, filename);
+        });
+      }).catch(function(){ shareExport(payload, filename); });
+    } else {
+      shareExport(payload, filename);
+    }
+  }
+  // On iPad/Android, a plain download link just dumps the file into Downloads with no
+  // choice of where it goes — the same friction Import avoids by using the OS's native
+  // file picker. navigator.canShare() lets us check, synchronously and before ever
+  // calling .share(), whether this browser can hand a File to the OS share sheet (Save
+  // to Files, Drive, AirDrop, etc.) instead. Desktop browsers mostly don't support
+  // sharing files this way, so canShare() correctly returns false there and we fall
+  // straight through to the existing download-link behavior, unchanged.
+  function shareExport(payload, filename){
+    try{
+      var file = new File([payload], filename, {type: "application/json"});
+      if(navigator.canShare && navigator.canShare({files: [file]})){
+        navigator.share({files: [file], title: filename}).then(function(){
+          showToast("Backup shared");
+        }).catch(function(err){
+          if(err && err.name === "AbortError") return; // user dismissed the share sheet — not a failure
           fallbackExport(payload, filename);
         });
-      }).catch(function(){ fallbackExport(payload, filename); });
-    } else {
-      fallbackExport(payload, filename);
-    }
+        return;
+      }
+    }catch(e){ /* fall through to the direct download */ }
+    fallbackExport(payload, filename);
   }
   function fallbackExport(payload, filename){
     try{

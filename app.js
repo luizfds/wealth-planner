@@ -3236,9 +3236,71 @@
     var ss = String(d.getSeconds()).padStart(2, "0");
     return d.getFullYear() + "-" + mm + "-" + dd + "_" + hh + "-" + mi + "-" + ss;
   }
+  // Encryption is entirely client-side (Web Crypto API): a passphrase derives an
+  // AES-256-GCM key via PBKDF2 (250k iterations, random salt), which encrypts the
+  // backup JSON. Nothing is sent anywhere — same privacy promise as the rest of the
+  // app — this only protects the exported *file* if it ends up somewhere less trusted
+  // than this browser (cloud sync, email, a shared drive). Forgetting the passphrase
+  // means the backup is unrecoverable; there's no reset path by design.
+  function bufToBase64(buf){
+    var bytes = new Uint8Array(buf), binary = "";
+    for(var i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary);
+  }
+  function base64ToBuf(b64){
+    var binary = atob(b64), bytes = new Uint8Array(binary.length);
+    for(var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes.buffer;
+  }
+  function deriveBackupKey(passphrase, saltBytes){
+    var enc = new TextEncoder();
+    return crypto.subtle.importKey("raw", enc.encode(passphrase), {name: "PBKDF2"}, false, ["deriveKey"])
+      .then(function(keyMaterial){
+        return crypto.subtle.deriveKey(
+          {name: "PBKDF2", salt: saltBytes, iterations: 250000, hash: "SHA-256"},
+          keyMaterial, {name: "AES-GCM", length: 256}, false, ["encrypt", "decrypt"]
+        );
+      });
+  }
+  function encryptBackup(payloadStr, passphrase){
+    var salt = crypto.getRandomValues(new Uint8Array(16));
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    return deriveBackupKey(passphrase, salt).then(function(key){
+      var enc = new TextEncoder();
+      return crypto.subtle.encrypt({name: "AES-GCM", iv: iv}, key, enc.encode(payloadStr)).then(function(ciphertextBuf){
+        return JSON.stringify({
+          wealthPlannerEncrypted: true, v: 1,
+          salt: bufToBase64(salt), iv: bufToBase64(iv), ciphertext: bufToBase64(ciphertextBuf)
+        }, null, 2);
+      });
+    });
+  }
+  function decryptBackup(envelope, passphrase){
+    var salt = new Uint8Array(base64ToBuf(envelope.salt));
+    var iv = new Uint8Array(base64ToBuf(envelope.iv));
+    return deriveBackupKey(passphrase, salt).then(function(key){
+      return crypto.subtle.decrypt({name: "AES-GCM", iv: iv}, key, base64ToBuf(envelope.ciphertext)).then(function(plainBuf){
+        return new TextDecoder().decode(plainBuf);
+      });
+    });
+  }
+
   function doExport(){
+    var passphrase = prompt("Optional: encrypt this backup with a passphrase (leave blank for a plain, unencrypted backup as before). You'll need this exact passphrase to import it again — it can't be recovered if you forget it.");
+    if(passphrase === null) return;
     var payload = JSON.stringify(state, null, 2);
-    var filename = "wealth-planner-backup-" + isoDateStamp() + ".json";
+    var filename = "wealth-planner-backup-" + isoDateStamp() + (passphrase ? "-encrypted" : "") + ".json";
+    if(passphrase){
+      encryptBackup(payload, passphrase).then(function(encPayload){
+        finishExport(encPayload, filename);
+      }).catch(function(){
+        showToast("Encryption failed — nothing was exported. Try again.");
+      });
+    } else {
+      finishExport(payload, filename);
+    }
+  }
+  function finishExport(payload, filename){
     if(window.claude && window.claude.use){
       window.claude.use("downloads").then(function(downloads){
         if(!downloads){ shareExport(payload, filename); return; }
@@ -3295,20 +3357,35 @@
   document.getElementById("importBtn").addEventListener("click", function(){
     document.getElementById("importFile").click();
   });
+  function applyImportedBackupJson(jsonStr){
+    try{
+      var parsed = JSON.parse(jsonStr);
+      if(!parsed || !parsed.income || !parsed.home) throw new Error("bad shape");
+      state = migrateState(parsed);
+      renderAll();
+      persist();
+      showToast("Backup imported");
+    }catch(err){
+      showToast("That file doesn't look like a valid backup");
+    }
+  }
   document.getElementById("importFile").addEventListener("change", function(e){
     var file = e.target.files[0];
     if(!file) return;
     var reader = new FileReader();
     reader.onload = function(){
-      try{
-        var parsed = JSON.parse(reader.result);
-        if(!parsed || !parsed.income || !parsed.home) throw new Error("bad shape");
-        state = migrateState(parsed);
-        renderAll();
-        persist();
-        showToast("Backup imported");
-      }catch(err){
-        showToast("That file doesn't look like a valid backup");
+      var raw = reader.result, envelope;
+      try{ envelope = JSON.parse(raw); }catch(err){ showToast("That file doesn't look like a valid backup"); return; }
+      if(envelope && envelope.wealthPlannerEncrypted){
+        var passphrase = prompt("This backup is encrypted. Enter its passphrase to unlock it:");
+        if(passphrase == null) return;
+        decryptBackup(envelope, passphrase).then(function(plainStr){
+          applyImportedBackupJson(plainStr);
+        }).catch(function(){
+          showToast("Wrong passphrase, or this backup is corrupted.");
+        });
+      } else {
+        applyImportedBackupJson(raw);
       }
     };
     reader.readAsText(file);

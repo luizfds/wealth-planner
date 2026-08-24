@@ -16,7 +16,7 @@
   var FREQS = ["Weekly","Fortnightly","Monthly","Quarterly","Yearly"];
   var CLASSES = ["Needs","Wants","Savings","N/A"];
   var HOME_CATEGORIES = ["Rent / Home Loan", "Home Insurance", "Council Rates", "Water & Wastewater", "Property Maintenance"];
-  var ASSET_CATEGORIES = ["Cash", "Shares", "Super", "Other"];
+  var ASSET_CATEGORIES = ["Cash", "Shares", "Super", "Vehicle", "Other"];
   var LIQUID_CATEGORIES = ["Cash", "Shares"];
   var SHARE_MARKETS = ["ASX", "US"];
   var PURCHASE_STATE_CODES = ["NSW", "VIC", "Other"];
@@ -872,6 +872,17 @@
           computedNote: note
         });
       }
+    });
+
+    state.assets.forEach(function(a){
+      if(a.category !== "Vehicle") return;
+      var price = Number(a.purchasePrice) || 0;
+      var rate = Number(a.depreciationRate) || 0;
+      if(!a.purchaseDate || price <= 0){ a.computed = false; return; }
+      var years = Math.max(0, (Date.now() - new Date(a.purchaseDate + "T00:00:00").getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+      a.amount = Math.max(0, Math.round(price * Math.pow(1 - rate / 100, years)));
+      a.computed = true;
+      a.computedNote = "auto: " + rate + "%/yr declining balance from " + fmtCurrency0.format(price) + " (" + a.purchaseDate + ")";
     });
   }
 
@@ -1923,6 +1934,43 @@
     }
   }
 
+  function vehicleRowHtml(item, idx){
+    return '<tr data-index="' + idx + '">' +
+      '<td><input type="text" class="v-what" value="' + escapeAttr(item.what) + '" aria-label="Vehicle name">' + assetTrendHtml(item) + '</td>' +
+      '<td class="num"><input type="number" step="500" min="0" class="v-purchaseprice" value="' + (Number(item.purchasePrice) || 0) + '" aria-label="Purchase price"></td>' +
+      '<td><input type="date" class="v-purchasedate" value="' + escapeAttr(item.purchaseDate || "") + '" aria-label="Purchase date"></td>' +
+      '<td class="num"><input type="number" step="0.5" min="0" max="100" class="v-deprate" value="' + (item.depreciationRate != null ? item.depreciationRate : 15) + '" aria-label="Depreciation % per year"></td>' +
+      '<td class="num v-value-cell">' + fmtCurrency0.format(Number(item.amount) || 0) + (item.computed ? '<span class="computed-note">auto</span>' : '<span class="computed-note">set price + date to auto-depreciate</span>') + '</td>' +
+      '<td><button type="button" class="asset-log-btn" data-asset-log="' + idx + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart below">Log</button></td>' +
+      '<td><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete vehicle">✕</button></td>' +
+      '</tr>';
+  }
+
+  function patchVehicleRow(tr, item){
+    var valueCell = tr.querySelector(".v-value-cell");
+    if(valueCell) valueCell.innerHTML = fmtCurrency0.format(Number(item.amount) || 0) + (item.computed ? '<span class="computed-note">auto</span>' : '<span class="computed-note">set price + date to auto-depreciate</span>');
+  }
+
+  function renderVehiclesSubpage(){
+    var container = document.getElementById("assetsSub-Vehicle");
+    if(!container) return;
+    var data = assetCategoryItems("Vehicle");
+    var total = data.items.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
+    var footerBtn = '<button type="button" class="btn btn-sm' + (data.items.length ? " btn-ghost" : "") + '" data-add="vehicle" title="Track a car or other depreciating vehicle — enter purchase price, date, and an annual depreciation rate and its current value is estimated for you">+ Add vehicle</button>';
+    var body = data.items.length
+      ? '<div class="table-scroll"><table class="assets-table holdings-table" id="vehiclesTable"></table></div><div class="ledger-footer">' + footerBtn + '</div>'
+      : '<p class="ledger-note" style="margin:0 0 12px">No vehicles tracked yet.</p>' + footerBtn;
+    container.innerHTML = '<div class="ledgers"><details class="ledger" open>' +
+      '<summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Vehicle</h2></div>' +
+      '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
+      '<div class="ledger-body"><p class="ledger-note" style="margin-left:0">Current value is estimated as declining-balance depreciation from your purchase price — a common approximation for cars, not a valuation. Leave depreciation fields blank to enter a value manually instead.</p>' + body + '</div></details></div>';
+    if(data.items.length){
+      var thead = '<thead><tr><th>What</th><th class="num">Purchase price</th><th>Purchase date</th><th class="num">Depreciation %/yr</th><th class="num">Current value</th><th></th><th></th></tr></thead>';
+      var rows = data.items.map(function(item, i){ return vehicleRowHtml(item, data.indices[i]); }).join("");
+      document.getElementById("vehiclesTable").innerHTML = thead + "<tbody>" + rows + "</tbody>";
+    }
+  }
+
   function renderSharesSubpage(){
     var container = document.getElementById("assetsSub-Shares");
     if(!container) return;
@@ -1948,6 +1996,7 @@
     { key: "Shares", colorClass: "series-color-2", liquid: true },
     { key: "Offset", colorClass: "series-color-4", liquid: true },
     { key: "Super", colorClass: "series-color-6", liquid: false },
+    { key: "Vehicle", colorClass: "series-color-5", liquid: false },
     { key: "Other", colorClass: "series-color-3", liquid: false },
     { key: "Property", colorClass: "series-color-1", liquid: false }
   ];
@@ -1993,7 +2042,7 @@
       statsEl.innerHTML =
         '<div class="stat-tile"><span>Total net worth</span><b>' + fmtCurrency0.format(totalNetWorthValue()) + '</b><small>assets + property equity</small></div>' +
         '<div class="stat-tile" title="Cash + Shares + any property offset balances — real, spendable cash"><span>Liquid assets</span><b>' + fmtCurrency0.format(liquid) + '</b><small>Cash + Shares + Offset</small></div>' +
-        '<div class="stat-tile"><span>Illiquid assets</span><b>' + fmtCurrency0.format(illiquid) + '</b><small>Super + Other</small></div>' +
+        '<div class="stat-tile"><span>Illiquid assets</span><b>' + fmtCurrency0.format(illiquid) + '</b><small>Super + Vehicle + Other</small></div>' +
         '<div class="stat-tile" title="Value minus full loan balance, net of offset — only accessible by selling or refinancing"><span>Property equity</span><b>' + fmtCurrency0.format(propEquity) + '</b><small>across ' + state.properties.length + ' propert' + (state.properties.length === 1 ? "y" : "ies") + ', net of offset</small></div>';
     }
     var allocEl = document.getElementById("assetsAllocation");
@@ -2050,6 +2099,7 @@
     renderAssetCategoryPage("Cash");
     renderSharesSubpage();
     renderAssetCategoryPage("Super");
+    renderVehiclesSubpage();
     renderAssetCategoryPage("Other");
     renderAssetsSummary();
     renderNetWorthPanel();
@@ -2723,6 +2773,22 @@
         patchHoldingRow(tr, item);
       }
       else if(e.target.classList.contains("h-person")) item.person = e.target.value;
+      else if(e.target.classList.contains("v-what")) item.what = e.target.value;
+      else if(e.target.classList.contains("v-purchaseprice")){
+        item.purchasePrice = parseFloat(e.target.value) || 0;
+        recalcComputedItems();
+        patchVehicleRow(tr, item);
+      }
+      else if(e.target.classList.contains("v-purchasedate")){
+        item.purchaseDate = e.target.value;
+        recalcComputedItems();
+        patchVehicleRow(tr, item);
+      }
+      else if(e.target.classList.contains("v-deprate")){
+        item.depreciationRate = e.target.value === "" ? null : (parseFloat(e.target.value) || 0);
+        recalcComputedItems();
+        patchVehicleRow(tr, item);
+      }
       else return;
       patchAssetCategoryTotals();
       renderNetWorthPanel();
@@ -2992,6 +3058,13 @@
     }
     if(section === "holding"){
       state.assets.push({ what:"New holding", category:"Shares", symbol:"", market:"ASX", quantity:0, avgCost:null, price:0, priceUpdated:"", person: groupValue != null ? groupValue : "", amount:0 });
+      renderAssets();
+      persist();
+      return;
+    }
+    if(section === "vehicle"){
+      state.assets.push({ what:"New vehicle", category:"Vehicle", purchasePrice:0, purchaseDate:"", depreciationRate:15, amount:0 });
+      recalcComputedItems();
       renderAssets();
       persist();
       return;

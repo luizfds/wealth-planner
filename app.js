@@ -3072,9 +3072,9 @@
     { id: "dashboard", label: "Dashboard" },
     { id: "income", label: "Income & Tax" },
     { id: "expenses", label: "Expenses" },
+    { id: "assets", label: "Assets" },
     { id: "properties", label: "Properties" },
     { id: "scenarios", label: "Scenarios" },
-    { id: "assets", label: "Assets" },
     { id: "projections", label: "Projections" }
   ];
   var PAGE_KEY = "wealthPlanner.page";

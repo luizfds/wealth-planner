@@ -910,6 +910,11 @@
   function renderDashboardStats(){
     var el = document.getElementById("dashboardStats");
     if(!el || el.closest(".app-page").hidden) return;
+    var isComparing = state.scenarios.length > 1;
+    var introEl = document.getElementById("dashboardIntro");
+    if(introEl) introEl.textContent = isComparing
+      ? 'Compare renting against buying, scenario by scenario — keep any investment property in the mix across every option. Nothing here is pre-filled; add your own numbers or click "Sample data" above to try it out first.'
+      : 'Your household finances at a glance. Nothing here is pre-filled; add your own numbers or click "Sample data" above to try it out first — or add another scenario on the Scenarios tab if you want to compare renting against buying.';
     var totalNetWorth = totalNetWorthValue();
     var itemCount = state.assets.length + state.properties.length;
     var active = state.activeScenario;
@@ -917,11 +922,14 @@
     var horizon = Math.max(1, Number(state.projection.horizonYears) || 1);
     var series = computeNetWorthSeries(active, horizon);
     var projected = series[series.length - 1].y;
+    var lastTile = isComparing
+      ? '<div class="stat-tile"><span>Scenarios compared</span><b>' + state.scenarios.length + '</b><small>' + state.scenarios.map(escapeAttr).join(", ") + '</small></div>'
+      : '<div class="stat-tile"><span>Scenario</span><b>' + escapeAttr(active) + '</b><small>add another on the Scenarios tab to compare options</small></div>';
     el.innerHTML =
       '<div class="stat-tile"><span>Total net worth today</span><b>' + fmtCurrency0.format(totalNetWorth) + '</b><small>across ' + itemCount + ' item' + (itemCount === 1 ? "" : "s") + '</small></div>' +
       '<div class="stat-tile"><span>' + escapeAttr(active) + ' — net savings</span><b' + (t.netMonthly < 0 ? ' style="color:var(--bad)"' : '') + '>' + fmtCurrency0.format(t.netMonthly) + '/mo</b><small>' + fmtPercent1.format(t.rate) + ' savings rate</small></div>' +
       '<div class="stat-tile"><span>Projected net worth</span><b>' + fmtCurrency0.format(projected) + '</b><small>in ' + horizon + ' years, ' + escapeAttr(active) + '</small></div>' +
-      '<div class="stat-tile"><span>Scenarios compared</span><b>' + state.scenarios.length + '</b><small>' + state.scenarios.map(escapeAttr).join(", ") + '</small></div>';
+      lastTile;
   }
 
   function selectScenario(name){

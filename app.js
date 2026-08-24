@@ -2538,7 +2538,7 @@
         '<div class="tax-inputs-panel">' +
           '<div class="tax-inputs">' +
             '<div class="proj-field"><label>IP ownership %</label><input type="number" min="0" max="100" step="1" class="tax-ipshare" value="' + r.ownershipPct + '"></div>' +
-            '<div class="proj-field"><label title="Separate from the Cash / Sacrifice column on income rows above — use this for sacrifice not tied to a specific item">Manual sacrifice $/yr</label><input type="number" min="0" step="500" class="tax-sacrifice" value="' + settings.superSacrificeAnnual + '"></div>' +
+            '<div class="proj-field"><label title="Separate from the Cash / Sacrifice column on income rows above — use this for sacrifice not tied to a specific item">Manual sacrifice $/yr</label><input type="number" min="0" step="500" class="tax-sacrifice" value="' + settings.superSacrificeAnnual + '"><button type="button" class="calc-hint-link" style="margin-top:4px" data-tax-maxcap="' + pid + '" title="Fills your remaining concessional cap headroom this year with manual sacrifice (SG and any auto/bonus sacrifice already counted): sets manual sacrifice to ' + fmtCurrency0.format(Math.max(0, r.capAvailable - r.sg - r.autoSacrifice)) + '">Max out cap</button></div>' +
           '</div>' +
           '<details class="tax-advanced"><summary>Advanced — concessional cap &amp; carry-forward</summary>' +
             '<div class="tax-inputs">' +
@@ -2643,7 +2643,24 @@
     var renameBtn = e.target.closest("[data-tax-rename]");
     if(renameBtn){ renameTaxPerson(renameBtn.getAttribute("data-tax-rename")); return; }
     var removeBtn = e.target.closest("[data-tax-remove]");
-    if(removeBtn){ removeTaxPerson(removeBtn.getAttribute("data-tax-remove")); }
+    if(removeBtn){ removeTaxPerson(removeBtn.getAttribute("data-tax-remove")); return; }
+    var maxCapBtn = e.target.closest("[data-tax-maxcap]");
+    if(maxCapBtn){
+      var maxPerson = maxCapBtn.getAttribute("data-tax-maxcap");
+      var maxSettings = personTaxSettings(maxPerson);
+      var maxR = computePersonTax(maxPerson);
+      maxSettings.superSacrificeAnnual = Math.max(0, Math.round(maxR.capAvailable - maxR.sg - maxR.autoSacrifice));
+      recalcComputedItems();
+      patchSyntheticIncomeRows();
+      patchIncomeGroupTotals();
+      patchOpenRowBreakdowns();
+      renderTaxSuper();
+      renderCards();
+      renderDetail();
+      renderTotals();
+      renderProjectionOutputs();
+      persist();
+    }
   });
 
   document.getElementById("taxSuperBody").addEventListener("input", function(e){

@@ -251,11 +251,17 @@
   }
 
   // Only the interest portion of a loan repayment is tax-deductible — principal repayment just
-  // reduces the liability (already reflected in equity via loanBalanceAfterMonths), it's not a loss.
+  // reduces the liability, it's not a loss. An offset account reduces the balance interest is
+  // charged on (that's its entire financial purpose) — but it must NOT also reduce the balance
+  // used for equity, since the offset money is real cash the user tracks as its own Cash asset;
+  // netting it against the loan there too would double-count it in net worth.
+  function loanInterestMonthlyAtRate(loan, ratePts){
+    var interestBalance = Math.max(0, (Number(loan.balance) || 0) - (Number(loan.offsetBalance) || 0));
+    var monthlyRate = ratePts / 100 / 12;
+    return interestBalance * monthlyRate;
+  }
   function loanInterestMonthly(loan){
-    if(loan.repaymentType === "IO") return loanRepaymentMonthly(loan);
-    var monthlyRate = (Number(loan.rate) || 0) / 100 / 12;
-    return (Number(loan.balance) || 0) * monthlyRate;
+    return loanInterestMonthlyAtRate(loan, Number(loan.rate) || 0);
   }
 
   function propertyTaxDeductibleResultAnnual(property){
@@ -341,13 +347,20 @@
 
   function loanRepaymentMonthly(loan){
     if(loan.repaymentMode === "manual") return periodsOf(Number(loan.manualRepaymentAmount) || 0, loan.manualRepaymentFreq || "Monthly").monthly;
+    // An interest-only repayment IS the interest owed, so an offset (which reduces interest
+    // charged) reduces it too. A P&I repayment is fixed by the bank regardless of any offset —
+    // the offset just makes more of each fixed repayment go to principal, paying the loan down
+    // faster — so it stays based on the full balance.
+    if(loan.repaymentType === "IO") return loanInterestMonthly(loan);
     return calcRepaymentMonthly(loan.balance, loan.rate, loan.termYears, loan.repaymentType);
   }
   // Projection-only: applies the Rate Shock stress-test to a real loan's rate. Manual-repayment
   // loans have no rate to shock, so their entered figure is left as-is.
   function shockedLoanRepaymentMonthly(loan, shockPts){
     if(loan.repaymentMode === "manual") return periodsOf(Number(loan.manualRepaymentAmount) || 0, loan.manualRepaymentFreq || "Monthly").monthly;
-    return calcRepaymentMonthly(loan.balance, (Number(loan.rate) || 0) + shockPts, loan.termYears, loan.repaymentType);
+    var shockedRate = (Number(loan.rate) || 0) + shockPts;
+    if(loan.repaymentType === "IO") return loanInterestMonthlyAtRate(loan, shockedRate);
+    return calcRepaymentMonthly(loan.balance, shockedRate, loan.termYears, loan.repaymentType);
   }
   // Only Investment Property costs are "kept in every scenario" for cash-flow purposes — a PPOR's costs
   // are out of scope here since they'd double up with whichever scenario's own home cost is being compared.
@@ -419,11 +432,10 @@
       var homeEquity = purchaseEnabled ? (homeValue - loanBal) : 0;
       var propertiesEquitySum = state.properties.reduce(function(sum, p){
         var val = (Number(p.value) || 0) * Math.pow(1 + propRate, year);
-        var loanNet = (p.loans || []).reduce(function(s, l){
-          var bal = loanBalanceAfterMonths(l.balance, (Number(l.rate) || 0) + rateShockPts, l.termYears, year * 12, l.repaymentType);
-          return s + Math.max(0, bal - (Number(l.offsetBalance) || 0));
+        var loanTotal = (p.loans || []).reduce(function(s, l){
+          return s + loanBalanceAfterMonths(l.balance, (Number(l.rate) || 0) + rateShockPts, l.termYears, year * 12, l.repaymentType);
         }, 0);
-        return sum + (val - loanNet);
+        return sum + (val - loanTotal);
       }, 0);
       points.push({ x: year, y: homeEquity + portfolio + propertiesEquitySum });
     }
@@ -1742,11 +1754,12 @@
     return state.assets.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
   }
 
+  // Equity uses the FULL loan balance, not netted against any offset — the offset balance is real
+  // cash the user tracks as its own Cash asset elsewhere, so netting it here too would double-count
+  // it in net worth. Offset only reduces the interest charged (see loanInterestMonthly).
   function propertyEquityToday(property){
-    var loanNet = (property.loans || []).reduce(function(s, l){
-      return s + Math.max(0, (Number(l.balance) || 0) - (Number(l.offsetBalance) || 0));
-    }, 0);
-    return (Number(property.value) || 0) - loanNet;
+    var loanTotal = (property.loans || []).reduce(function(s, l){ return s + (Number(l.balance) || 0); }, 0);
+    return (Number(property.value) || 0) - loanTotal;
   }
   function propertiesTotalEquityToday(){
     return state.properties.reduce(function(s, p){ return s + propertyEquityToday(p); }, 0);
@@ -1955,7 +1968,7 @@
           ? '<input type="number" step="1" min="0" class="loan-manual-amount" value="' + (Number(loan.manualRepaymentAmount) || 0) + '" aria-label="Manual repayment amount">'
           : '<span class="computed-note">' + fmtCurrency0.format(repayment) + '/mo</span>') +
       '</td>' +
-      '<td class="num"><input type="number" step="1000" min="0" class="loan-offset" value="' + (Number(loan.offsetBalance) || 0) + '" aria-label="Offset account balance" title="Netted against the balance for equity purposes"></td>' +
+      '<td class="num"><input type="number" step="1000" min="0" class="loan-offset" value="' + (Number(loan.offsetBalance) || 0) + '" aria-label="Offset account balance" title="Reduces the interest charged on this loan only — doesn\'t change equity or mortgage balance. If you also track this money as a Cash asset (most offset accounts are just your everyday transaction account), don\'t double-enter its value anywhere else."></td>' +
       '<td><button type="button" class="btn btn-ghost btn-sm row-del" data-loan-del="' + li + '" aria-label="Delete loan">✕</button></td>' +
       '</tr>';
   }
@@ -2007,7 +2020,7 @@
       '</div>' +
       '<div class="prop-value-log"><button type="button" class="asset-log-btn" data-property-log="' + escapeAttr(p.id) + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart">Log</button>' + assetTrendHtml(p) + '</div>' +
       '<div class="calc-costs-title">Loans</div>' +
-      '<div class="table-scroll"><table class="calc-costs-table prop-loans-table"><thead><tr><th>What</th><th class="num">Balance</th><th class="num">Rate %</th><th class="num">Term (yrs)</th><th>Type</th><th>Repayment</th><th class="num">Offset</th><th></th></tr></thead><tbody>' + loanRows + '</tbody></table></div>' +
+      '<div class="table-scroll"><table class="calc-costs-table prop-loans-table"><thead><tr><th>What</th><th class="num">Balance</th><th class="num">Rate %</th><th class="num">Term (yrs)</th><th>Type</th><th>Repayment</th><th class="num" title="Reduces interest charged only — track the actual cash balance as a Cash asset, not here, or it\'ll be counted twice">Offset</th><th></th></tr></thead><tbody>' + loanRows + '</tbody></table></div>' +
       '<button type="button" class="btn btn-sm btn-ghost" data-loan-add="' + escapeAttr(p.id) + '">+ Add loan</button>' +
       '<div class="income-group prop-subledger">' +
         '<div class="income-group-head"><div class="income-group-head-left"><h4>Income</h4></div></div>' +

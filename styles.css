@@ -345,7 +345,7 @@
   td.sacrifice-cell input[type="number"]{ flex: 0 0 60px; width:60px; }
   .row-del{ opacity:0.5; padding:8px 11px; }
   .row-del:hover{ opacity:1; }
-  tr.is-computed .amount-cell input{ color: var(--ink-soft); font-style: italic; }
+  tr.is-computed .amount-cell input, tr.is-computed .amount-cell .computed-value{ color: var(--ink-soft); font-style: italic; }
   tr.is-gross-ref{ background: var(--paper-sunken); }
   tr.is-gross-ref .what-cell input, tr.is-gross-ref .amount-cell input{ color: var(--ink-soft); }
   tr.is-gross-ref td.computed{ color: var(--ink-soft); opacity: 0.7; }

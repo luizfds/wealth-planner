@@ -136,6 +136,10 @@
     .app-sidebar-note{ display:none; }
     .app-topbar{ padding:14px 16px; }
     .app-content{ padding:18px 16px 48px; }
+    .table-scroll{
+      -webkit-mask-image: linear-gradient(to right, black calc(100% - 20px), transparent);
+      mask-image: linear-gradient(to right, black calc(100% - 20px), transparent);
+    }
   }
 
   /* ---------------- Dashboard stat tiles ---------------- */
@@ -378,8 +382,9 @@
   .home-block:last-child{ margin-bottom:0; }
   .home-block.is-active{ border-color: var(--brass); box-shadow: 0 0 0 1px var(--brass); }
   .home-block-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; flex-wrap:wrap; }
-  .home-block-head-left{ display:flex; align-items:center; gap:8px; min-width:0; }
-  .home-block-head h4{ margin:0; font-size:14px; font-weight:600; display:flex; align-items:center; gap:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .home-block-head-left{ display:flex; align-items:center; gap:8px; min-width:0; flex-wrap:wrap; row-gap:6px; }
+  .home-block-head h4{ margin:0; font-size:14px; font-weight:600; display:flex; align-items:center; gap:8px; min-width:0; max-width:100%; }
+  .home-block-head h4 input, .home-block-head h4 select{ min-width:0; }
   .prop-what{
     all:unset; box-sizing:border-box; font-family:inherit; font-size:14px; font-weight:600; color: var(--ink);
     padding:3px 6px; border-radius:6px; min-width:60px; max-width:220px;
@@ -408,7 +413,7 @@
     border-radius:100px; padding:2px 8px; flex:none;
   }
   .gearing-badge.positive{ color: var(--good); background: var(--good-wash); }
-  .gearing-badge.negative{ color: var(--bad); background: var(--bad-wash); }
+  .gearing-badge.negative{ color: var(--brass-strong); background: var(--brass-wash); }
   .gearing-badge.neutral{ color: var(--ink-soft); background: var(--paper-sunken); }
   .home-block-right{ display:flex; align-items:center; gap:8px; flex:none; }
   .home-block-total-label{ font-size:10px; text-transform:uppercase; letter-spacing:.03em; color: var(--ink-soft); white-space:nowrap; }

@@ -554,6 +554,12 @@
   .uimode-toggle-btn:hover{ color: var(--ink); }
   .uimode-toggle-btn.active{ background: var(--paper-raised); color: var(--brass-strong); box-shadow: var(--shadow); }
   .uimode-toggle-btn:focus-visible{ box-shadow: var(--focus-ring); outline:none; }
+  @media (max-width: 880px){
+    /* Classic/Modern is one global preference duplicated across five pages' intro rows —
+       crowded next to Export CSV on a narrow screen. Consolidated into a single "Layout"
+       toggle in the More panel instead, same as Theme. */
+    .uimode-toggle{ display:none; }
+  }
   .page-intro-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; }
   .page-intro-row .page-intro{ flex:1 1 320px; }
   .page-intro-actions{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }

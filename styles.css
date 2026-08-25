@@ -175,7 +175,8 @@
     .mobile-tab:active .mobile-tab-pill{ background: var(--paper-sunken); }
     .mobile-tab.active .mobile-tab-pill{ color: var(--brass-strong); background: var(--brass-wash); }
     .mobile-more-panel{
-      position:absolute; bottom:100%; right:6px; margin-bottom:8px; min-width:170px;
+      position:absolute; bottom:100%; right:6px; margin-bottom:8px; min-width:180px;
+      max-height: calc(100vh - 140px); overflow-y:auto;
       background: var(--paper-raised); border:1px solid var(--border); border-radius:10px; padding:6px;
       box-shadow: 0 -8px 24px rgba(0,0,0,0.22);
     }
@@ -185,6 +186,7 @@
     }
     .mobile-more-item:hover, .mobile-more-item:active{ background: var(--paper-sunken); }
     .mobile-more-item.active{ color: var(--brass-strong); font-weight:600; }
+    .mobile-more-divider{ height:1px; background: var(--border); margin:6px 4px; }
     .mobile-more-version{ font-size:10.5px; color: var(--ink-soft); padding:8px 10px 2px; margin:4px 0 0; border-top:1px solid var(--border); }
     .table-scroll{
       -webkit-mask-image: linear-gradient(to right, black calc(100% - 20px), transparent);
@@ -228,6 +230,11 @@
   }
   .topbar p{ margin:0; color: var(--ink-soft); max-width: 54ch; font-size: 14px; }
   .actions{ display:flex; align-items:center; gap:8px; flex-wrap: wrap; }
+  @media (max-width: 880px){
+    /* The utility actions (Theme/Import/Export/Sample data/Reset) move into the mobile bottom
+       tab bar's More panel instead — see mobile-more-item rules and mobileTabbar markup. */
+    .actions{ display:none; }
+  }
   .actions-group{ display:flex; align-items:center; gap:8px; }
   .actions-divider{ width:1px; height:18px; background: var(--border); flex:none; }
   .status-chip{
@@ -237,6 +244,10 @@
   }
   .status-dot{ width:6px; height:6px; border-radius:50%; background: var(--good); flex:none; }
   .status-dot.warn{ background: var(--bad); }
+  .mobile-status-chip{ display:none; }
+  @media (max-width: 880px){
+    .mobile-status-chip{ display:flex; font-size:10.5px; padding:4px 9px; margin-left:8px; flex:none; }
+  }
 
   button{ font: inherit; cursor: pointer; }
   .btn{

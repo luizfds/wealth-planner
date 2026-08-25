@@ -1312,6 +1312,11 @@
     document.querySelectorAll("#incomeGroups .m-card").forEach(function(card, gi){
       var totalEl = card.querySelector(".m-card-total");
       if(totalEl && groups[gi]) totalEl.innerHTML = fmtCurrency0.format(groups[gi].monthly) + "<span>/mo</span>";
+      var barWrap = card.querySelector("[data-comp-bar]");
+      if(barWrap && groups[gi]){
+        var freshBar = modernIncomeCompBarHtml(incomeGroupRowMeta(groups[gi]));
+        if(freshBar) barWrap.outerHTML = freshBar;
+      }
     });
   }
 
@@ -1349,6 +1354,31 @@
   // snap shut the moment they touched the field driving the change.
   var modernIncomeRowOpen = {};
 
+  // Assigns each non-computed row in a group a stable color index (cycling the same 8-color
+  // series used everywhere else) — shared by the row's identity dot and the card's composition
+  // bar so the two visuals stay in sync, and reused by the patch path so a live edit doesn't
+  // have to guess the same assignment a second way.
+  function incomeGroupRowMeta(g){
+    var contribIdx = 0;
+    return g.items.map(function(item, i){
+      var colorIdx = null;
+      if(!item.computed){ colorIdx = contribIdx % 8; contribIdx++; }
+      return { item: item, idx: g.indices[i], colorIdx: colorIdx };
+    });
+  }
+
+  function modernIncomeCompBarHtml(rowMeta){
+    var segs = rowMeta.filter(function(m){ return m.colorIdx != null; }).map(function(m){
+      return { item: m.item, colorIdx: m.colorIdx, monthly: Math.max(0, periodsOf(m.item.amount, m.item.freq).monthly) };
+    }).filter(function(x){ return x.monthly > 0.5; });
+    if(segs.length < 2) return "";
+    var total = segs.reduce(function(s, x){ return s + x.monthly; }, 0);
+    return '<div class="m-comp-bar" data-comp-bar>' + segs.map(function(x){
+      var pct = total > 0 ? x.monthly / total : 0;
+      return '<div class="m-comp-seg series-color-' + x.colorIdx + '" style="flex:' + x.monthly + ' 1 0%" title="' + escapeAttr(x.item.what) + ': ' + fmtCurrency0.format(x.monthly) + '/mo (' + fmtPercent1.format(pct) + ')"></div>';
+    }).join("") + '</div>';
+  }
+
   function renderIncomeGroupsModern(){
     var container = document.getElementById("incomeGroups");
     if(!container) return;
@@ -1360,23 +1390,27 @@
       var addValue = g.key === "__household" ? "" : g.key;
       var avatarClass = g.key === "__household" ? "m-avatar-neutral" : "series-color-" + (order.indexOf(g.key) % 8);
       var initial = escapeAttr(label.charAt(0).toUpperCase());
-      var rows = g.items.map(function(item, i){ return modernIncomeRowHtml(item, g.indices[i]); }).join("");
+      var rowMeta = incomeGroupRowMeta(g);
+      var rows = rowMeta.map(function(m){ return modernIncomeRowHtml(m.item, m.idx, m.colorIdx); }).join("");
       return '<div class="m-card">' +
         '<div class="m-card-head"><span class="m-avatar ' + avatarClass + '">' + initial + '</span>' +
         '<div class="m-card-name">' + escapeAttr(label) + '</div>' +
         '<div class="m-card-total">' + fmtCurrency0.format(g.monthly) + '<span>/mo</span></div></div>' +
+        modernIncomeCompBarHtml(rowMeta) +
         '<div class="m-rows">' + rows + '</div>' +
         '<button type="button" class="m-add-row" data-add="income:' + escapeAttr(addValue) + '">+ Add income</button>' +
       '</div>';
     }).join("") + '</div>';
   }
 
-  function modernIncomeRowHtml(item, idx){
+  function modernIncomeRowHtml(item, idx, colorIdx){
     var isComputed = !!item.computed;
     var isGrossRef = item.incomeType === "Gross" && !isComputed;
     var monthly = periodsOf(item.amount, item.freq).monthly;
     var note = isGrossRef ? incomeRowSuperNote(item) : "";
+    var dot = colorIdx != null ? '<span class="m-row-dot series-color-' + colorIdx + '" aria-hidden="true"></span>' : "";
     var summary = '<div class="m-row-summary"' + (isComputed ? ' style="cursor:default"' : ' role="button" tabindex="0" data-row-toggle') + '>' +
+      (isComputed ? "" : dot) +
       '<div style="flex:1 1 auto; min-width:0">' +
         '<div class="m-row-name">' + escapeAttr(item.what) + '</div>' +
         (note ? '<div class="m-row-sub super-note">' + escapeAttr(note) + '</div>' : "") +
@@ -1392,16 +1426,22 @@
     var sacrificeValueField = (item.sacrificeMode && item.sacrificeMode !== "none")
       ? '<input type="number" min="0" step="' + (item.sacrificeMode === "percent" ? "1" : "50") + '" max="' + (item.sacrificeMode === "percent" ? "100" : "") + '" class="f-sacrificevalue" value="' + (item.sacrificeValue || 0) + '" aria-label="Sacrifice ' + (item.sacrificeMode === "percent" ? "percent" : "amount") + '">'
       : "";
-    var edit = '<div class="m-row-edit"><div class="m-edit-grid">' +
-      '<div class="m-edit-field span2"><label>What</label><input type="text" class="f-what" value="' + escapeAttr(item.what) + '" aria-label="Item name"></div>' +
-      '<div class="m-edit-field"><label>Type</label><select class="f-incometype">' + optionsHtml(INCOME_TYPES, item.incomeType || "Net") + '</select></div>' +
-      '<div class="m-edit-field"><label>Amount</label><input type="number" step="0.01" min="0" class="f-amount" value="' + item.amount + '" aria-label="Amount"></div>' +
-      '<div class="m-edit-field"><label>Frequency</label><select class="f-freq">' + optionsHtml(FREQS, item.freq) + '</select></div>' +
-      '<div class="m-edit-field"><label>Super</label><select class="f-superincluded" title="Whether super is already included in the Amount, paid on top, or doesn\'t apply at all">' + optionsHtml(SUPER_MODES, item.superMode || "On top") + '</select></div>' +
-      '<div class="m-edit-field"><label>Sacrifice</label><div class="sacrifice-wrap"><select class="f-sacrificemode">' + optionsHtml(SACRIFICE_MODES, sacrificeModeToLabel(item.sacrificeMode)) + '</select>' + sacrificeValueField + '</div></div>' +
-      '<div class="m-edit-field span2"><label>Account</label><input type="text" class="f-account" list="acctSuggestions" value="' + escapeAttr(item.account || "") + '" aria-label="Account"></div>' +
+    var edit = '<div class="m-row-edit"><div class="m-row-edit-inner"><div class="m-row-edit-pad">' +
+      '<div class="m-edit-grid">' +
+        '<div class="m-edit-field span3"><label>What</label><input type="text" class="f-what" value="' + escapeAttr(item.what) + '" aria-label="Item name"></div>' +
+        '<div class="m-edit-field"><label>Type</label><select class="f-incometype">' + optionsHtml(INCOME_TYPES, item.incomeType || "Net") + '</select></div>' +
+        '<div class="m-edit-field"><label>Amount</label><input type="number" step="0.01" min="0" class="f-amount" value="' + item.amount + '" aria-label="Amount"></div>' +
+        '<div class="m-edit-field"><label>Frequency</label><select class="f-freq">' + optionsHtml(FREQS, item.freq) + '</select></div>' +
+      '</div>' +
+      '<details class="tax-advanced m-more-options"><summary>More options</summary>' +
+        '<div class="m-edit-grid" style="margin-top:8px">' +
+          '<div class="m-edit-field"><label>Super</label><select class="f-superincluded" title="Whether super is already included in the Amount, paid on top, or doesn\'t apply at all">' + optionsHtml(SUPER_MODES, item.superMode || "On top") + '</select></div>' +
+          '<div class="m-edit-field"><label>Sacrifice</label><div class="sacrifice-wrap"><select class="f-sacrificemode">' + optionsHtml(SACRIFICE_MODES, sacrificeModeToLabel(item.sacrificeMode)) + '</select>' + sacrificeValueField + '</div></div>' +
+          '<div class="m-edit-field"><label>Account</label><input type="text" class="f-account" list="acctSuggestions" value="' + escapeAttr(item.account || "") + '" aria-label="Account"></div>' +
+        '</div>' +
+      '</details>' +
       '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm row-del" data-del="income:' + idx + '">Delete</button></div>' +
-    '</div></div>';
+    '</div></div></div>';
     return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="income" data-index="' + idx + '">' + summary + edit + '</div>';
   }
 

@@ -2870,51 +2870,90 @@
 
     html += people.map(function(person, pi){
       var r = computePersonTax(person);
-      var settings = personTaxSettings(person);
-      var capPct = r.capAvailable > 0 ? Math.min(100, (r.totalConcessional / r.capAvailable) * 100) : 0;
       var pid = escapeAttr(person);
-      var contributingRows = state.income.filter(function(i){ return i.incomeType === "Gross" && i.person === person; });
-      var rowsSummary = contributingRows.map(function(i){ return escapeAttr(i.what) + " " + fmtCurrency0.format(periodsOf(i.amount, i.freq).yearly) + "/yr"; }).join(" + ");
-      var baseLabel = Math.abs(r.packageTotal - r.gross) > 1 ? "Base salary (excl. super) /yr" : "Total gross income /yr";
       return '<div class="tax-person" data-tax-person="' + pid + '">' +
-        '<div class="tax-person-head">' +
-          '<h4><span class="m-avatar series-color-' + (pi % 8) + '" style="width:24px;height:24px;font-size:11px;margin-right:8px">' + escapeAttr(person.charAt(0).toUpperCase()) + '</span>' + escapeAttr(person) + '<button type="button" class="icon-btn" data-tax-rename="' + pid + '" aria-label="Rename ' + pid + '" title="Rename this person (updates every income row)">✎</button><button type="button" class="icon-btn icon-del" data-tax-remove="' + pid + '" aria-label="Remove ' + pid + '" title="Remove this person from tax &amp; super (their income rows go back to Net)">✕</button></h4>' +
-          '<span class="tax-marginal">Marginal rate ' + fmtPercent1.format(r.marginalRate) + ' · effective ' + fmtPercent1.format(r.effectiveRate) + '</span>' +
-        '</div>' +
-        (rowsSummary ? '<p class="tax-rows-summary">Adds up: ' + rowsSummary + ' = <b>' + fmtCurrency0.format(r.packageTotal) + '/yr</b> total gross</p>' : '') +
-        '<div class="tax-hero"><span class="tax-hero-label">Net take-home</span><div class="tax-hero-value"><span data-out="nettakehome">' + fmtCurrency0.format(r.netTakeHome) + '</span><small> /yr · <span data-out="nettakehomemo">' + fmtCurrency0.format(r.netTakeHome / 12) + '</span> /mo</small></div></div>' +
-        '<div class="tax-waterfall">' + renderTaxWaterfallHtml(r) + '</div>' +
-        '<p class="tax-secondary-line">' + baseLabel.replace(" /yr", "") + ' <b data-out="gross">' + fmtCurrency0.format(r.gross) + '</b> · IP share <b data-out="ipshare" class="' + (r.ipShare < 0 ? "neg" : "") + '">' + (r.ipShare >= 0 ? "+" : "") + fmtCurrency0.format(r.ipShare) + '</b> · Taxable income <b data-out="taxable">' + fmtCurrency0.format(r.taxable) + '</b> /yr</p>' +
-        (Math.abs(r.packageTotal - r.gross) > 1
-          ? '<p class="tax-package-note" data-out="packagenote" style="margin:-6px 0 12px">Of that ' + fmtCurrency0.format(r.packageTotal) + ', ' + fmtCurrency0.format(r.packageTotal - r.gross) + ' is super already included inside a row marked "Super: Included" — so tax and take-home are calculated on ' + fmtCurrency0.format(r.gross) + ' base salary, not the full ' + fmtCurrency0.format(r.packageTotal) + '. (Total super for the year, from every row, is in the cap line below.)</p>'
-          : '') +
-        '<div class="tax-inputs-label">Concessional cap usage <span class="calc-help" title="Estimated from your inputs below — not something you set directly.">ⓘ</span></div>' +
-        '<div class="cap-bar-track"><div class="cap-bar-fill' + (r.capExceeded > 0 ? " over" : "") + '" style="width:' + Math.min(100, capPct) + '%"></div></div>' +
-        '<div class="tax-cap-note' + (r.capExceeded > 0 ? " warn" : "") + '">' +
-          (r.capExceeded > 0
-            ? ('Over cap by ' + fmtCurrency0.format(r.capExceeded) + ' — excess concessional contributions are taxed at your marginal rate, not just 15%. Check with your accountant.')
-            : (fmtCurrency0.format(r.totalConcessional) + ' of ' + fmtCurrency0.format(r.capAvailable) + ' concessional cap used (SG ' + fmtCurrency0.format(r.sg) + (r.autoSacrifice > 0 ? ' + bonus/income sacrifice ' + fmtCurrency0.format(r.autoSacrifice) : '') + (r.manualSacrifice > 0 ? ' + manual sacrifice ' + fmtCurrency0.format(r.manualSacrifice) : '') + ') — super received net of 15% contributions tax: ' + fmtCurrency0.format(r.superNet))
-          ) +
-        '</div>' +
-        '<div class="tax-cap-note tax-div293-note warn"' + (r.div293Tax > 0.5 ? '' : ' hidden') + ' title="Simplified: income for surcharge purposes is approximated as taxable income + your within-cap concessional contributions, ignoring reportable fringe benefits and net investment losses. Check with your accountant.">Division 293: your income is over the $250,000 threshold, so an extra 15% applies to ' + fmtCurrency0.format(Math.min(r.totalConcessional, r.capAvailable)) + ' of low-tax super contributions — ' + fmtCurrency0.format(r.div293Tax) + '/yr, assessed separately by the ATO (not withheld from take-home above).</div>' +
-        '<div class="tax-cap-note tax-mscb-note"' + (r.superOverCap ? '' : ' hidden') + ' title="Employer super guarantee isn\'t compulsory on ordinary-time earnings above this threshold — indexed each financial year.">Your ordinary earnings are over the ' + fmtCurrency0.format(MAX_SUPER_BASE) + '/yr Maximum Super Contribution Base, so employer super isn\'t compulsory on the excess — SG above is capped accordingly.</div>' +
-        '<details class="tax-advanced" style="margin-top:12px"><summary>Adjust ownership &amp; sacrifice</summary>' +
-          '<div class="tax-inputs-panel" style="margin-top:8px">' +
-            '<div class="tax-inputs">' +
-              '<div class="proj-field"><label>IP ownership %</label><input type="number" min="0" max="100" step="1" class="tax-ipshare" value="' + r.ownershipPct + '"></div>' +
-              '<div class="proj-field"><label title="Separate from the Cash / Sacrifice column on income rows above — use this for sacrifice not tied to a specific item">Manual sacrifice $/yr</label><input type="number" min="0" step="500" class="tax-sacrifice" value="' + settings.superSacrificeAnnual + '"><button type="button" class="calc-hint-link" style="margin-top:4px" data-tax-maxcap="' + pid + '" title="Fills your remaining concessional cap headroom this year with manual sacrifice (SG and any auto/bonus sacrifice already counted): sets manual sacrifice to ' + fmtCurrency0.format(Math.max(0, r.capAvailable - r.sg - r.autoSacrifice)) + '">Max out cap</button></div>' +
-            '</div>' +
-            '<details class="tax-advanced"><summary>Advanced — concessional cap &amp; carry-forward</summary>' +
-              '<div class="tax-inputs">' +
-                '<div class="proj-field"><label>Concessional cap $/yr</label><input type="number" min="0" step="500" class="tax-cap" value="' + settings.concessionalCap + '"></div>' +
-                '<div class="proj-field"><label>Carry-forward available $</label><input type="number" min="0" step="500" class="tax-carryforward" value="' + settings.carryForward + '"></div>' +
-              '</div>' +
-            '</details>' +
-          '</div>' +
-        '</details>' +
+        taxPersonHeadHtml(person, r, pi) +
+        '<div class="m-taxp-flipface" data-flipface>' + (taxCardFlipped[person] ? personBreakdownHtml(person) : taxPersonFrontBodyHtml(person, r)) + '</div>' +
       '</div>';
     }).join("");
     container.innerHTML = html;
+  }
+
+  function taxPersonHeadHtml(person, r, pi){
+    var pid = escapeAttr(person);
+    return '<div class="tax-person-head">' +
+        '<h4><span class="m-avatar series-color-' + (pi % 8) + '" style="width:24px;height:24px;font-size:11px;margin-right:8px">' + escapeAttr(person.charAt(0).toUpperCase()) + '</span>' + escapeAttr(person) + '<button type="button" class="icon-btn" data-tax-rename="' + pid + '" aria-label="Rename ' + pid + '" title="Rename this person (updates every income row)">✎</button><button type="button" class="icon-btn icon-del" data-tax-remove="' + pid + '" aria-label="Remove ' + pid + '" title="Remove this person from tax &amp; super (their income rows go back to Net)">✕</button></h4>' +
+        '<span class="tax-marginal">Marginal rate ' + fmtPercent1.format(r.marginalRate) + ' · effective ' + fmtPercent1.format(r.effectiveRate) + '</span>' +
+        '<button type="button" class="m-flip-btn" data-tax-flip="' + pid + '" aria-label="Flip ' + pid + '\'s card to see the calculation breakdown" title="Flip to see how this is calculated"><span aria-hidden="true">⇋</span> Breakdown</button>' +
+      '</div>';
+  }
+
+  function taxPersonFrontBodyHtml(person, r){
+    var settings = personTaxSettings(person);
+    var pid = escapeAttr(person);
+    var capPct = r.capAvailable > 0 ? Math.min(100, (r.totalConcessional / r.capAvailable) * 100) : 0;
+    var contributingRows = state.income.filter(function(i){ return i.incomeType === "Gross" && i.person === person; });
+    var rowsSummary = contributingRows.map(function(i){ return escapeAttr(i.what) + " " + fmtCurrency0.format(periodsOf(i.amount, i.freq).yearly) + "/yr"; }).join(" + ");
+    var baseLabel = Math.abs(r.packageTotal - r.gross) > 1 ? "Base salary (excl. super) /yr" : "Total gross income /yr";
+    return (rowsSummary ? '<p class="tax-rows-summary">Adds up: ' + rowsSummary + ' = <b>' + fmtCurrency0.format(r.packageTotal) + '/yr</b> total gross</p>' : '') +
+      '<div class="tax-hero"><span class="tax-hero-label">Net take-home</span><div class="tax-hero-value"><span data-out="nettakehome">' + fmtCurrency0.format(r.netTakeHome) + '</span><small> /yr · <span data-out="nettakehomemo">' + fmtCurrency0.format(r.netTakeHome / 12) + '</span> /mo</small></div></div>' +
+      '<div class="tax-waterfall">' + renderTaxWaterfallHtml(r) + '</div>' +
+      '<p class="tax-secondary-line">' + baseLabel.replace(" /yr", "") + ' <b data-out="gross">' + fmtCurrency0.format(r.gross) + '</b> · IP share <b data-out="ipshare" class="' + (r.ipShare < 0 ? "neg" : "") + '">' + (r.ipShare >= 0 ? "+" : "") + fmtCurrency0.format(r.ipShare) + '</b> · Taxable income <b data-out="taxable">' + fmtCurrency0.format(r.taxable) + '</b> /yr</p>' +
+      (Math.abs(r.packageTotal - r.gross) > 1
+        ? '<p class="tax-package-note" data-out="packagenote" style="margin:-6px 0 12px">Of that ' + fmtCurrency0.format(r.packageTotal) + ', ' + fmtCurrency0.format(r.packageTotal - r.gross) + ' is super already included inside a row marked "Super: Included" — so tax and take-home are calculated on ' + fmtCurrency0.format(r.gross) + ' base salary, not the full ' + fmtCurrency0.format(r.packageTotal) + '. (Total super for the year, from every row, is in the cap line below.)</p>'
+        : '') +
+      '<div class="tax-inputs-label">Concessional cap usage <span class="calc-help" title="Estimated from your inputs below — not something you set directly.">ⓘ</span></div>' +
+      '<div class="cap-bar-track"><div class="cap-bar-fill' + (r.capExceeded > 0 ? " over" : "") + '" style="width:' + Math.min(100, capPct) + '%"></div></div>' +
+      '<div class="tax-cap-note' + (r.capExceeded > 0 ? " warn" : "") + '">' +
+        (r.capExceeded > 0
+          ? ('Over cap by ' + fmtCurrency0.format(r.capExceeded) + ' — excess concessional contributions are taxed at your marginal rate, not just 15%. Check with your accountant.')
+          : (fmtCurrency0.format(r.totalConcessional) + ' of ' + fmtCurrency0.format(r.capAvailable) + ' concessional cap used (SG ' + fmtCurrency0.format(r.sg) + (r.autoSacrifice > 0 ? ' + bonus/income sacrifice ' + fmtCurrency0.format(r.autoSacrifice) : '') + (r.manualSacrifice > 0 ? ' + manual sacrifice ' + fmtCurrency0.format(r.manualSacrifice) : '') + ') — super received net of 15% contributions tax: ' + fmtCurrency0.format(r.superNet))
+        ) +
+      '</div>' +
+      '<div class="tax-cap-note tax-div293-note warn"' + (r.div293Tax > 0.5 ? '' : ' hidden') + ' title="Simplified: income for surcharge purposes is approximated as taxable income + your within-cap concessional contributions, ignoring reportable fringe benefits and net investment losses. Check with your accountant.">Division 293: your income is over the $250,000 threshold, so an extra 15% applies to ' + fmtCurrency0.format(Math.min(r.totalConcessional, r.capAvailable)) + ' of low-tax super contributions — ' + fmtCurrency0.format(r.div293Tax) + '/yr, assessed separately by the ATO (not withheld from take-home above).</div>' +
+      '<div class="tax-cap-note tax-mscb-note"' + (r.superOverCap ? '' : ' hidden') + ' title="Employer super guarantee isn\'t compulsory on ordinary-time earnings above this threshold — indexed each financial year.">Your ordinary earnings are over the ' + fmtCurrency0.format(MAX_SUPER_BASE) + '/yr Maximum Super Contribution Base, so employer super isn\'t compulsory on the excess — SG above is capped accordingly.</div>' +
+      '<details class="tax-advanced" style="margin-top:12px"><summary>Adjust ownership &amp; sacrifice</summary>' +
+        '<div class="tax-inputs-panel" style="margin-top:8px">' +
+          '<div class="tax-inputs">' +
+            '<div class="proj-field"><label>IP ownership %</label><input type="number" min="0" max="100" step="1" class="tax-ipshare" value="' + r.ownershipPct + '"></div>' +
+            '<div class="proj-field"><label title="Separate from the Cash / Sacrifice column on income rows above — use this for sacrifice not tied to a specific item">Manual sacrifice $/yr</label><input type="number" min="0" step="500" class="tax-sacrifice" value="' + settings.superSacrificeAnnual + '"><button type="button" class="calc-hint-link" style="margin-top:4px" data-tax-maxcap="' + pid + '" title="Fills your remaining concessional cap headroom this year with manual sacrifice (SG and any auto/bonus sacrifice already counted): sets manual sacrifice to ' + fmtCurrency0.format(Math.max(0, r.capAvailable - r.sg - r.autoSacrifice)) + '">Max out cap</button></div>' +
+          '</div>' +
+          '<details class="tax-advanced"><summary>Advanced — concessional cap &amp; carry-forward</summary>' +
+            '<div class="tax-inputs">' +
+              '<div class="proj-field"><label>Concessional cap $/yr</label><input type="number" min="0" step="500" class="tax-cap" value="' + settings.concessionalCap + '"></div>' +
+              '<div class="proj-field"><label>Carry-forward available $</label><input type="number" min="0" step="500" class="tax-carryforward" value="' + settings.carryForward + '"></div>' +
+            '</div>' +
+          '</details>' +
+        '</div>' +
+      '</details>';
+  }
+
+  // Session-only (not persisted) — which Tax & Super cards are showing the calculation
+  // breakdown instead of the normal front. Keyed by person so it survives a full re-render
+  // (e.g. from an income edit elsewhere) without snapping back to the front on its own.
+  var taxCardFlipped = {};
+
+  function flipTaxCard(panel, person){
+    var face = panel.querySelector("[data-flipface]");
+    if(!face || face.classList.contains("is-flipping")) return;
+    var willShowBack = !taxCardFlipped[person];
+    taxCardFlipped[person] = willShowBack;
+    var buildFace = function(){ return willShowBack ? personBreakdownHtml(person) : taxPersonFrontBodyHtml(person, computePersonTax(person)); };
+    if(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches){
+      face.innerHTML = buildFace();
+      return;
+    }
+    face.classList.add("is-flipping");
+    face.style.transform = "rotateY(90deg)";
+    setTimeout(function(){
+      face.innerHTML = buildFace();
+      face.style.transition = "none";
+      face.style.transform = "rotateY(-90deg)";
+      void face.offsetWidth;
+      face.style.transition = "";
+      face.style.transform = "rotateY(0deg)";
+      setTimeout(function(){ face.classList.remove("is-flipping"); }, 180);
+    }, 160);
   }
 
   function patchAllTaxPersonOutputs(){
@@ -3002,6 +3041,12 @@
     if(renameBtn){ renameTaxPerson(renameBtn.getAttribute("data-tax-rename")); return; }
     var removeBtn = e.target.closest("[data-tax-remove]");
     if(removeBtn){ removeTaxPerson(removeBtn.getAttribute("data-tax-remove")); return; }
+    var flipBtn = e.target.closest("[data-tax-flip]");
+    if(flipBtn){
+      var flipPanel = flipBtn.closest("[data-tax-person]");
+      if(flipPanel) flipTaxCard(flipPanel, flipBtn.getAttribute("data-tax-flip"));
+      return;
+    }
     var maxCapBtn = e.target.closest("[data-tax-maxcap]");
     if(maxCapBtn){
       var maxPerson = maxCapBtn.getAttribute("data-tax-maxcap");

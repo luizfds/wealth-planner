@@ -788,11 +788,22 @@
 
   /* ---------------- Tax & super ---------------- */
   .tax-global{ display:flex; gap:14px; margin-bottom:16px; flex-wrap:wrap; }
-  .tax-person{ border:1px solid var(--border); border-radius:10px; background: var(--paper-sunken); padding:14px 16px; margin-bottom:14px; }
+  .tax-person{ border:1px solid var(--border); border-radius:10px; background: var(--paper-sunken); padding:14px 16px; margin-bottom:14px; perspective:1000px; }
   .tax-person:last-child{ margin-bottom:0; }
-  .tax-person-head{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:10px; }
+  .tax-person-head{ display:flex; align-items:baseline; justify-content:space-between; gap:8px 10px; flex-wrap:wrap; margin-bottom:10px; }
   .tax-person-head h4{ margin:0; font-size:14px; font-weight:600; display:flex; align-items:center; gap:2px; }
   .tax-marginal{ font-size:11.5px; color: var(--ink-soft); }
+  .m-flip-btn{
+    all:unset; box-sizing:border-box; align-self:center; display:inline-flex; align-items:center; gap:4px;
+    font-size:11px; font-weight:600; color: var(--ink-soft); cursor:pointer; padding:3px 9px; border-radius:100px;
+    border:1px solid var(--border); flex:none; white-space:nowrap;
+  }
+  .m-flip-btn:hover{ color: var(--brass-strong); border-color: var(--brass); }
+  .m-flip-btn:focus-visible{ box-shadow: var(--focus-ring); outline:none; }
+  .m-flip-btn span{ font-size:12px; }
+  .m-taxp-flipface{ transform-style:preserve-3d; backface-visibility:hidden; }
+  .m-taxp-flipface.is-flipping{ transition: transform .16s ease; }
+  .m-taxp-flipface .row-breakdown-panel{ padding:4px 0 6px; min-width:0; width:100%; grid-template-columns:1fr auto; }
   .tax-rows-summary{ font-size:11.5px; color: var(--ink-soft); margin:0 0 10px; }
   .tax-rows-summary b{ color: var(--ink); font-weight:600; }
   .tax-grid{

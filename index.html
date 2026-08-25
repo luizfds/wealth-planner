@@ -176,7 +176,13 @@
       </section>
 
       <section class="app-page" id="page-properties" hidden>
-        <p class="page-intro">What you actually own — value, loans, and the rent/expenses tied to each property.</p>
+        <div class="page-intro-row">
+          <p class="page-intro">What you actually own — value, loans, and the rent/expenses tied to each property.</p>
+          <div class="uimode-toggle" id="propertiesUiModeToggle" role="tablist" aria-label="Properties layout">
+            <button type="button" class="uimode-toggle-btn" data-uimode="classic" role="tab">Classic</button>
+            <button type="button" class="uimode-toggle-btn" data-uimode="modern" role="tab">Modern</button>
+          </div>
+        </div>
         <div id="propertiesBody"></div>
         <button type="button" class="btn btn-sm" id="addPropertyBtn">+ Add property</button>
       </section>

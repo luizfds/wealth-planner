@@ -1,5 +1,13 @@
 export var STORAGE_KEY = "wealthPlanner.v1";
 
+export var FREQS = ["Weekly","Fortnightly","Monthly","Quarterly","Yearly"];
+export var CLASSES = ["Needs","Wants","Savings","N/A"];
+export var INCOME_TYPES = ["Net", "Gross"];
+export var SUPER_MODES = ["On top", "Included", "N/A"];
+export var SACRIFICE_MODES = ["Cash out", "Sacrifice %", "Sacrifice $"];
+export function sacrificeModeToLabel(mode){ return mode === "percent" ? "Sacrifice %" : mode === "amount" ? "Sacrifice $" : "Cash out"; }
+export function sacrificeLabelToMode(label){ return label === "Sacrifice %" ? "percent" : label === "Sacrifice $" ? "amount" : "none"; }
+
 export var HOME_CATEGORIES = ["Rent / Home Loan", "Home Insurance", "Council Rates", "Water & Wastewater", "Property Maintenance"];
 
 // ATO Maximum Super Contribution Base — the annual ordinary-time-earnings ceiling above which
@@ -56,4 +64,12 @@ export var LMI_BANDS = [
   {upTo:0.90, rate:0.013},
   {upTo:0.95, rate:0.028},
   {upTo:1.01, rate:0.045}
+];
+
+export var PERIODS = [
+  {key:"weekly", label:"Weekly", hidden:true},
+  {key:"fortnightly", label:"Fortnightly", hidden:true},
+  {key:"monthly", label:"Monthly", hidden:false},
+  {key:"quarterly", label:"Quarterly", hidden:true},
+  {key:"yearly", label:"Yearly", hidden:false}
 ];

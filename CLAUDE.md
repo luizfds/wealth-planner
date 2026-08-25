@@ -28,10 +28,11 @@ list with explanations, established UI patterns, and what's still pending — se
   all derived/synthetic rows" pass).
 - `src/components/` — one file per page, each exporting its `render*()` functions for `app.js` to
   import and wire up. Extraction is incremental and in call-graph order (see
-  `.claude/PROJECT_KNOWLEDGE.md`); only `dashboard.js` exists so far.
-- `src/constants.js`, `src/lib/{format,toast,html}.js` — static data tables and small
-  dependency-free utilities (currency/percent formatters, toasts, `escapeAttr`) used across
-  everything above.
+  `.claude/PROJECT_KNOWLEDGE.md`); `dashboard.js` and `income.js` exist so far.
+- `src/constants.js`, `src/lib/{format,toast,html,uimode,ledger-table}.js` — static data tables
+  and dependency-free utilities used across everything above: currency/percent formatters, toasts,
+  `escapeAttr`, the global Classic/Modern toggle sync, and the generic Classic-mode `<table>`
+  renderer (`buildTable`/`rowHtml`) shared by every ledger page.
 
 **`state` is a live import, not a value** — never reassign the imported `state` binding directly
 (`state = X` throws for an ES-module import). Use `setState(newState)` from `state.js` instead;
@@ -70,6 +71,12 @@ not the bundled Chromium) is the standard way to drive/verify UI changes in this
 - **`state.uiMode` is one global setting**, not per-page, even though it affects five different
   pages' rendering. Changing it anywhere must call `refreshAllUiModePages()` and
   `syncUiModeToggle()` together, or other pages go stale.
+- **When extracting a component out of `app.js`, its session-only UI-state maps (e.g. Modern-row
+  open/closed state) can be mutated from code still in `app.js`** (the generic
+  `wireModernRowToggle` takes the map by reference). Forgetting to export one of these produces a
+  runtime `ReferenceError` on first interaction, not a syntax error — `node --check` won't catch
+  it, only actually clicking the thing in a browser will. See `.claude/PROJECT_KNOWLEDGE.md`'s
+  "Modularization progress" for the real instance of this.
 - **CSS `[hidden]` silently does nothing** if any author rule sets `display` on that element —
   author CSS beats the browser's built-in `[hidden]{display:none}` regardless of specificity.
   Add an explicit `.your-class[hidden]{ display:none; }` override whenever you toggle `.hidden`

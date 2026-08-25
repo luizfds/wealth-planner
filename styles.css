@@ -509,6 +509,7 @@
     transition: border-color .18s ease, box-shadow .18s ease;
   }
   .calc-field input:focus, .calc-field select:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
+  .calc-field input[type="number"]{ text-align:right; }
   .calc-hint{ font-size:11px; color: var(--ink-soft); }
   .calc-hint-link{ all:unset; color: var(--brass-strong); text-decoration:underline; text-underline-offset:2px; cursor:pointer; font-size:11px; }
   .calc-field label .calc-help{ text-transform:none; letter-spacing:normal; cursor:help; }
@@ -554,6 +555,7 @@
   .prop-loans-table input, .prop-loans-table select{
     border:none; background:transparent; color:var(--ink); font-size:12.5px; padding:3px 4px; border-radius:5px; width:100%;
   }
+  .prop-loans-table input[type="number"]{ text-align:right; }
   .prop-loans-table input:hover, .prop-loans-table input:focus,
   .prop-loans-table select:hover, .prop-loans-table select:focus{ background: var(--paper-raised); }
   .prop-loans-table .loan-balance, .prop-loans-table .loan-offset{ width:90px; }
@@ -622,7 +624,7 @@
   .proj-field label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; }
   .proj-field input[type="number"]{
     border:1px solid var(--border); background: var(--paper-raised); color: var(--ink);
-    padding:6px 8px; border-radius:7px; font-size:13px; width:110px;
+    padding:6px 8px; border-radius:7px; font-size:13px; width:110px; text-align:right;
   }
   .proj-field input[type="number"]:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); transition: border-color .18s ease, box-shadow .18s ease; }
   .proj-slider{

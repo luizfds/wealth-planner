@@ -531,7 +531,11 @@
       activeScenario: "Scenario 1",
       scenarios: ["Scenario 1"],
       showAllPeriods: false,
-      uiMode: "classic",
+      // Classic's tables rely on horizontal scroll even with a sticky first column — a rough
+      // landing experience on a phone. Modern was built mobile-first, so a fresh mobile visitor
+      // (same breakpoint the CSS uses everywhere else) starts there instead. Desktop keeps the
+      // long-standing Classic default.
+      uiMode: window.innerWidth < 880 ? "modern" : "classic",
       incomeCols: { person: false, type: true, super: true, sacrifice: true, account: false },
       expenseCols: { classification: false, account: false },
       homeCols: { account: false },
@@ -668,7 +672,9 @@
   }
 
   function migrateState(s){
-    if(s.uiMode !== "modern") s.uiMode = "classic";
+    // Same viewport-aware default as defaultState() — generateMockData() (Sample data) never
+    // sets uiMode itself, so it lands here too, and shouldn't skip the mobile default.
+    if(s.uiMode !== "modern" && s.uiMode !== "classic") s.uiMode = window.innerWidth < 880 ? "modern" : "classic";
     if(!s.incomeCols) s.incomeCols = { person: false, type: true, super: true, sacrifice: true, account: false };
     INCOME_COL_DEFS.forEach(function(c){ if(s.incomeCols[c.key] == null) s.incomeCols[c.key] = true; });
     if(!s._incomeTypeColDefaultApplied){

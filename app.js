@@ -1249,7 +1249,11 @@
     else if(section === "shared") renderSharedGroups();
     else {
       var mHome = /^home:(.+)$/.exec(section);
-      if(mHome){ var hi = state.scenarios.indexOf(mHome[1]); buildTable(document.getElementById("homeTable_" + slug(mHome[1]) + hi), section, state.home[mHome[1]], {showClass:true, acctColClass:"col-account-home"}); }
+      if(mHome){
+        var hi = state.scenarios.indexOf(mHome[1]);
+        if(state.uiMode === "modern") renderHomeListModern(mHome[1], hi);
+        else buildTable(document.getElementById("homeTable_" + slug(mHome[1]) + hi), section, state.home[mHome[1]], {showClass:true, acctColClass:"col-account-home"});
+      }
       var mPropInc = /^propinc:(.+)$/.exec(section);
       if(mPropInc){
         var pi = findProperty(mPropInc[1]);
@@ -1577,6 +1581,7 @@
   function modernPlainRowHtml(item, idx, section, openState, opts){
     opts = opts || {};
     var isComputed = !!item.computed;
+    var isPrimary = opts.primaryId && item.id === opts.primaryId;
     var monthly = periodsOf(item.amount, item.freq).monthly;
     var summary = '<div class="m-row-summary"' + (isComputed ? ' style="cursor:default"' : ' role="button" tabindex="0" data-row-toggle') + '>' +
       '<div style="flex:1 1 auto; min-width:0">' +
@@ -1606,7 +1611,7 @@
       '</div>' +
       '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm row-del" data-del="' + escapeAttr(section) + ':' + idx + '">Delete</button></div>' +
     '</div></div></div>';
-    return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="' + escapeAttr(section) + '" data-index="' + idx + '">' + summary + edit + '</div>';
+    return '<div class="m-row' + (isOpen ? " open" : "") + (isPrimary ? " m-row-primary" : "") + '" data-section="' + escapeAttr(section) + '" data-index="' + idx + '">' + summary + edit + '</div>';
   }
 
   // Session-only (not persisted) — mirrors modernIncomeRowOpen for the Expenses page's rows.
@@ -1683,7 +1688,22 @@
   // purchase calculator fully expanded; the active scenario starts open, the rest start closed.
   var homeBlockCollapsed = {};
 
+  // Session-only (not persisted) — mirrors modernPropRowOpen, shared across every scenario's
+  // recurring-costs list (the "home:<scenario>" section prefix keeps each scenario's rows
+  // unique in the map, the same way "propinc:<id>"/"propexp:<id>" do for Properties).
+  var modernHomeRowOpen = {};
+  function modernHomeListHtml(scenario){
+    return (state.home[scenario] || []).map(function(item, idx){
+      return modernPlainRowHtml(item, idx, "home:" + scenario, modernHomeRowOpen, {showClass:true, primaryId:"homeLoanRow"});
+    }).join("");
+  }
+  function renderHomeListModern(scenario, i){
+    var container = document.getElementById("homeRows_" + slug(scenario) + i);
+    if(container) container.innerHTML = modernHomeListHtml(scenario);
+  }
+
   function renderHomeBody(){
+    syncUiModeToggle();
     var body = document.getElementById("homeBody");
     var canDelete = state.scenarios.length > 1;
     state.scenarios.forEach(function(scenario){
@@ -1713,15 +1733,19 @@
           renderPurchasePanelHtml(scenario) +
           '<div class="home-recurring-label">Recurring costs — per month</div>' +
           '<p class="income-summary-line home-recon-line">' + homeReconciliationHtml(scenario) + '</p>' +
-          '<div class="table-scroll"><table class="ledger-table" id="homeTable_' + slug(scenario) + i + '"></table></div>' +
+          (state.uiMode === "modern"
+            ? '<div class="m-card"><div class="m-rows" id="homeRows_' + slug(scenario) + i + '">' + modernHomeListHtml(scenario) + '</div></div>'
+            : '<div class="table-scroll"><table class="ledger-table" id="homeTable_' + slug(scenario) + i + '"></table></div>') +
           '<div class="ledger-footer"><button class="btn btn-sm" data-add="home:' + escapeAttr(scenario) + '">+ Add item</button></div>' +
         '</div>' +
         '</div>';
     }).join("") +
     '<button type="button" class="add-scenario-row" id="addScenarioBtn2"><span class="add-plus" style="font-size:16px">+</span> Add another scenario</button>';
-    state.scenarios.forEach(function(scenario, i){
-      buildTable(document.getElementById("homeTable_" + slug(scenario) + i), "home:" + scenario, state.home[scenario], {showClass:true, acctColClass:"col-account-home"});
-    });
+    if(state.uiMode !== "modern"){
+      state.scenarios.forEach(function(scenario, i){
+        buildTable(document.getElementById("homeTable_" + slug(scenario) + i), "home:" + scenario, state.home[scenario], {showClass:true, acctColClass:"col-account-home"});
+      });
+    }
     applyPeriodVisibility();
   }
 
@@ -1735,12 +1759,20 @@
       var stateOptions = PURCHASE_STATE_CODES.map(function(sc){
         return '<option value="' + sc + '"' + (sc === cfg.state ? " selected" : "") + '>' + sc + '</option>';
       }).join("");
+      var isModern = state.uiMode === "modern";
       var costsRows = (cfg.otherCosts || []).map(function(c, ci){
-        return '<tr>' +
+        return '<tr class="cc-row">' +
           '<td><input type="text" class="cc-what" value="' + escapeAttr(c.what) + '" aria-label="Cost name"></td>' +
           '<td class="cc-amount-cell"><input type="number" step="1" min="0" class="cc-amount" value="' + c.amount + '" aria-label="Cost amount"></td>' +
           '<td class="cc-del"><button type="button" class="btn btn-ghost btn-sm row-del" data-cc-del="' + ci + '" aria-label="Remove cost">✕</button></td>' +
           '</tr>';
+      }).join("");
+      var modernCostsRows = (cfg.otherCosts || []).map(function(c, ci){
+        return '<div class="cc-row m-cost-row">' +
+          '<input type="text" class="cc-what" value="' + escapeAttr(c.what) + '" aria-label="Cost name" placeholder="Cost name">' +
+          '<input type="number" step="1" min="0" class="cc-amount" value="' + c.amount + '" aria-label="Cost amount">' +
+          '<button type="button" class="btn btn-ghost btn-sm row-del" data-cc-del="' + ci + '" aria-label="Remove cost">✕</button>' +
+        '</div>';
       }).join("");
       var stampDutyHtml = out.stampDuty === null
         ? '<input type="number" step="1" min="0" class="calc-manual-stampduty" value="' + (Number(cfg.manualStampDuty) || 0) + '" style="width:100%;font-family:\'IBM Plex Mono\',monospace;font-size:15px;background:transparent;border:1px solid var(--border);border-radius:6px;padding:2px 4px;">'
@@ -1774,7 +1806,7 @@
           '</div>' +
           '<div>' +
             '<div class="calc-costs-title">Other acquisition costs</div>' +
-            '<table class="calc-costs-table">' + costsRows + '</table>' +
+            (isModern ? '<div class="m-card m-cost-rows">' + modernCostsRows + '</div>' : '<table class="calc-costs-table">' + costsRows + '</table>') +
             '<button type="button" class="btn btn-sm" style="margin-top:8px" data-cc-add="1">+ Add cost</button>' +
           '</div>' +
           '<label style="display:flex;align-items:center;gap:7px;font-size:12.5px;cursor:pointer">' +
@@ -2002,11 +2034,6 @@
   }
 
   // ---------------- Purchase calculator: wiring ----------------
-  function getHomeTableEl(scenario){
-    var i = state.scenarios.indexOf(scenario);
-    if(i === -1) return null;
-    return document.getElementById("homeTable_" + slug(scenario) + i);
-  }
 
   function patchHomeLoanRowIfSynced(scenario){
     var cfg = state.purchase[scenario];
@@ -2015,15 +2042,19 @@
     var idx = arr.findIndex(function(i){ return i.id === "homeLoanRow"; });
     if(idx === -1) return;
     var item = arr[idx];
-    var table = getHomeTableEl(scenario);
-    if(!table) return;
-    var tr = table.querySelector('tr[data-index="' + idx + '"]');
+    var i = state.scenarios.indexOf(scenario);
+    if(i === -1) return;
+    var wrap = document.getElementById(state.uiMode === "modern" ? ("homeRows_" + slug(scenario) + i) : ("homeTable_" + slug(scenario) + i));
+    if(!wrap) return;
+    var tr = wrap.querySelector('[data-index="' + idx + '"]');
     if(!tr) return;
     var amountInput = tr.querySelector(".f-amount");
     if(amountInput) amountInput.value = item.amount;
     var cells = tr.querySelectorAll("td.computed");
     var p = periodsOf(item.amount, item.freq);
-    PERIODS.forEach(function(pd, i){ if(cells[i]) cells[i].textContent = fmtCurrency2.format(p[pd.key]); });
+    PERIODS.forEach(function(pd, pi){ if(cells[pi]) cells[pi].textContent = fmtCurrency2.format(p[pd.key]); });
+    var modernAmt = tr.querySelector('[data-computed="amt"]');
+    if(modernAmt) modernAmt.textContent = fmtCurrency2.format(p.monthly) + "/mo";
   }
 
   function patchCalcOutputs(panel, scenario){
@@ -2066,7 +2097,7 @@
     else if(t.classList.contains("calc-manual-stampduty")) cfg.manualStampDuty = parseFloat(t.value) || 0;
     else if(t.classList.contains("calc-growth-override")) cfg.propertyGrowthRate = t.value === "" ? null : (parseFloat(t.value) || 0);
     else if(t.classList.contains("cc-what") || t.classList.contains("cc-amount")){
-      var tr = t.closest("tr");
+      var tr = t.closest(".cc-row");
       var idx = Array.prototype.indexOf.call(tr.parentNode.children, tr);
       var cost = (cfg.otherCosts || [])[idx];
       if(!cost) return;
@@ -3692,6 +3723,7 @@
   wireModernRowToggle("incomeGroups", modernIncomeRowOpen);
   wireModernRowToggle("sharedGroups", modernSharedRowOpen);
   wireModernRowToggle("propertiesBody", modernPropRowOpen);
+  wireModernRowToggle("homeBody", modernHomeRowOpen);
   ["Cash", "Shares", "Super", "Vehicle", "Other"].forEach(function(cat){
     wireModernRowToggle("assetsSub-" + cat, modernAssetRowOpen);
   });
@@ -3702,9 +3734,9 @@
       btn.classList.toggle("active", active);
       btn.setAttribute("aria-selected", String(active));
     });
-    // The column picker only makes sense for the classic table's fixed columns — modern rows
-    // already show every field, just tucked behind an expand instead of hidden by a toggle.
-    ["incomeColPicker", "expenseColPicker"].forEach(function(id){
+    // The column picker/toggle only makes sense for the classic table's fixed columns — modern
+    // rows already show every field, just tucked behind an expand instead of hidden by a toggle.
+    ["incomeColPicker", "expenseColPicker", "homeAcctToggleWrap"].forEach(function(id){
       var picker = document.getElementById(id);
       if(picker) picker.hidden = state.uiMode === "modern";
     });
@@ -3733,10 +3765,12 @@
     renderPropertyExpensesSummary();
     renderProperties();
     renderAssets();
+    renderHomeBody();
   }
   wireUiModeToggle("incomeUiModeToggle", refreshAllUiModePages);
   wireUiModeToggle("expenseUiModeToggle", refreshAllUiModePages);
   wireUiModeToggle("propertiesUiModeToggle", refreshAllUiModePages);
+  wireUiModeToggle("scenariosUiModeToggle", refreshAllUiModePages);
   wireUiModeToggle("assetsUiModeToggle", refreshAllUiModePages);
 
   function onScenarioControlClick(e){

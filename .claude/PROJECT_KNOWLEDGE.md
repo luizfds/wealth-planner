@@ -1,0 +1,180 @@
+# Wealth Planner — project knowledge
+
+Deeper reference behind the root [`CLAUDE.md`](../CLAUDE.md). Read that first; come here for the
+"why" and the details it points to.
+
+## What the app is
+
+A single-page Australian personal finance / property tool. Pages: Dashboard, Income & Tax,
+Expenses, Assets (Cash/Shares/Super/Vehicle/Other), Properties, Scenarios (rent-vs-buy, one
+purchase calculator per scenario), Projections. Everything lives in one `state` object, persisted
+to `localStorage` only — there is no server, no accounts, no sync between devices.
+
+Every page (except Dashboard/Projections) has a **Classic** (spreadsheet-style `<table>`) and
+**Modern** (card-based) rendering of the same data, controlled by one global `state.uiMode`. This
+was a deliberate multi-week rollout across the project's history: Income & Tax → Expenses →
+Properties → Assets → Scenarios, each shipped and verified before moving to the next, followed by
+a polish pass (see "Modern-mode UI patterns" below) applied in the same order.
+
+## Data model (top-level `state` keys)
+
+`activeScenario`, `scenarios[]`, `uiMode`, `showAllPeriods`, `incomeCols`/`expenseCols`/`homeCols`
+(classic-table column visibility prefs), `income[]`, `shared[]` (household/shared expenses),
+`home{scenario: item[]}` (per-scenario recurring home costs — rent or "Rent / Home Loan" +
+insurance/rates/water/maintenance), `purchase{scenario: cfg}` (purchase calculator config per
+scenario), `assets[]` (category field distinguishes Cash/Shares/Super/Vehicle/Other), `properties[]`
+(each with `loans[]`, `income[]`, `expenses[]`), `projection` (horizon/rates), `tax` (super
+guarantee rate, per-property IP ownership split, per-person settings).
+
+Several `income[]` rows are **synthetic/computed** (`item.computed === true`): a per-person
+"Net income after tax & super" mirror, and a per-IP-property "Rent" mirror. These are
+recalculated by `recalcComputedItems()` (in `calc/engine.js`) and must never be hand-edited or
+double-counted elsewhere. The same `computed` flag pattern is used for the auto Property Manager
+Fee expense row and for vehicle assets whose value is declining-balance depreciated from a
+purchase price/date rather than manually entered.
+
+## Business-logic assumptions (all approximate — the app says so in-UI, keep it that way)
+
+- **AU tax brackets** (`constants.js: AU_TAX_BRACKETS`) are stage-3 2024-25 rates. Indexed/changed
+  by policy — revisit periodically. No HECS/HELP, no Medicare levy surcharge modeled.
+- **Medicare levy** (`tax.js: medicareLevyAU`) — low-income shade-in thresholds are approximate
+  and indexed yearly.
+- **Division 293** (`tax.js`, inside `computePersonTax`) — simplified to taxable income + low-tax
+  concessional contributions vs. the $250k threshold; doesn't model reportable fringe benefits or
+  net investment losses.
+- **Maximum Super Contribution Base** (`constants.js: MAX_SUPER_BASE`) — one annual ceiling under
+  the "Payday Super" reform (effective 1 July 2026), applied once per person across all their
+  Gross income rows combined (not per-row, not per-employer — this app doesn't model separate
+  employers). Indexed each financial year.
+- **Stamp duty** (`calc/property.js`) is only modeled precisely for NSW and VIC
+  (`constants.js: STAMP_DUTY_BRACKETS`, `FHB_RULES`); other states return `null` from
+  `standardStampDuty()` and the UI falls back to a manual entry field. Don't silently extend this
+  to "estimate" other states without flagging it clearly as an estimate in the UI.
+- **LMI** (`calc/property.js: calcLMI`, `constants.js: LMI_BANDS`) is an indicative flat-band
+  estimate — real premiums are lender/insurer-specific.
+- **Negative gearing / tax refund timing** (`tax.js: computePersonTax`) — this is the one most
+  worth understanding before touching: `netTakeHome` folds a property's tax effect (loss or
+  profit) evenly across the year, but that's not how it actually arrives unless the person has an
+  active PAYG withholding variation — by default it's a lump sum after lodging a return.
+  `payslipTakeHome` (tax computed as if the property's result were zero) and `ipTaxEffect`
+  (`netTakeHome - payslipTakeHome`) exist specifically to surface that gap in
+  `personBreakdownHtml()` (the "▸ Breakdown" / flip-card view), **additively** — the existing
+  `netTakeHome` figure used everywhere else (Dashboard, Scenarios affordability) is deliberately
+  left untouched. If asked to make the rest of the app "cash-flow accurate," that's a bigger,
+  separate decision (would need a real "how is this refund actually received" setting) — don't
+  fold it in casually.
+- Loan interest-only vs P&I, offset accounts, rate-shock stress test, property equity/gearing —
+  see the doc comments directly above each function in `calc/property.js`; they're dense but
+  current and explain the "why," not just the "what."
+
+## Modern-mode UI patterns (established over many rounds — follow these, don't reinvent)
+
+- **`modernPlainRowHtml(item, idx, section, openState, opts)`** — the generic "name + amount,
+  expands to a small field grid" row, shared by Properties' income/expense lists, Expenses'
+  shared groups, and Scenarios' recurring-costs list. `opts.showClass` toggles a Classification
+  field; `opts.primaryId` bolds one specific row (e.g. the home loan row); `opts.colorIdx`
+  (optional) adds a colored identity dot — pass it only from call sites that also render a
+  composition bar (see below), so unrelated pages don't pick up dots they don't need.
+- **Session-only open/closed-state maps**, one per modernized list (e.g. `modernIncomeRowOpen`,
+  `modernPropRowOpen`), keyed by `section + ":" + idx` — never by bare index, since one container
+  can hold rows from several separately-indexed arrays (e.g. Properties, where each property's
+  own income/expense arrays share one open-state map). These are **not persisted** — intentional,
+  it's UI state, not data.
+- **Composition bar + colored dot** — a row gets a colored dot (`series-color-0` through `-7`,
+  cycling), and the card gets a thin composition bar showing each row's share of the total, when
+  a card has 2+ non-computed contributing rows. Computed/synthetic rows never get a dot or join
+  the bar (would double-count or represent something the user didn't directly enter). Established
+  independently for Income, Properties' Loans, every Assets category, and Scenarios' recurring
+  costs — each with its own small `xRowMeta()` + `modernXCompBarHtml()` pair, not a shared
+  abstraction, because the "what counts as the total" question differs slightly each time.
+- **Progressive disclosure** — a `<details class="tax-advanced m-more-options"><summary>More
+  options</summary>...` wraps secondary fields when a row's edit grid would otherwise have too
+  many fields at once (Loans, Shares holdings). Threshold is a judgment call, not a fixed field
+  count — used for ~7+ fields, not for simple 3-field rows (Cash/Super/Other assets).
+  the shared `.rb-secondary`/`.calc-note` styling for muted/secondary figures inside a breakdown
+  is the same idea applied to display, not just editing.
+- **Scoped-rebuild functions** (`renderPropListModern(propId, section, items, showClass)`,
+  `renderHomeListModern(scenario, i)`, etc.) rebuild *one specific list's container* rather than
+  the whole page. Necessary because some edits trigger a sibling list's re-render as a side
+  effect (e.g. typing rent recalculates a Property Manager Fee expense row; typing a purchase
+  price re-syncs the Home Loan row) — a full-page re-render would destroy focus mid-keystroke in
+  the field the user is actually typing in.
+- **`state.uiMode` is global, consolidated to one control per device class** — desktop: a single
+  "Modern layout" switch in the sidebar (styled like "Show all periods" right below it); mobile: a
+  single cycling "Layout: Classic/Modern" button inside the bottom tab bar's "More" panel. There
+  used to be five duplicate per-page segmented toggles (one per page); they were removed
+  entirely, not just hidden, once consolidated. Any code path that changes `state.uiMode` must
+  call both `refreshAllUiModePages()` (re-renders every modernized page) and `syncUiModeToggle()`
+  (syncs both toggle controls' visual state + hides classic-only pickers like the Columns
+  dropdown) — missing either one leaves some page/control stale.
+- **Mobile nav** — a fixed bottom tab bar (Dashboard/Income/Expenses/Assets/Properties direct,
+  Scenarios/Projections behind a "More" popup) replaced an earlier hamburger-dropdown pattern.
+  Utility actions that used to live in the desktop-only topbar (Theme/Import/Export/Sample
+  data/Reset), plus "Show all periods" and the "Modern layout" toggle, all live in that same
+  "More" panel on mobile. Rather than duplicating their logic, the mobile buttons **forward
+  clicks to the real desktop buttons** (`document.getElementById("themeToggleBtn").click()`,
+  etc.) — except checkbox-style controls (Show all periods, Modern layout), which mirror via
+  plain `.checked` assignment on `change` instead (see the CLAUDE.md gotcha about
+  `preventDefault()` on checkboxes — forwarding via `.click()` + `preventDefault()` does *not*
+  work for checkboxes the way it does for buttons).
+- **Per-section CSV export** (Income/Expenses/Assets/Properties-loans) reuses the JSON backup's
+  existing download pipeline (`finishExport`/`shareExport`/`fallbackExport` — mobile share sheet
+  with a desktop direct-download fallback), generalized to take a `mime` type and toast message
+  instead of hardcoding JSON's. Export-only; there's no matching CSV *import* — that's a
+  deliberately separate, harder problem (column mapping, type coercion, merge-vs-replace
+  semantics), not yet scoped.
+- **Fresh state defaults to Modern on a mobile-sized viewport** (`<880px`, same breakpoint the
+  CSS uses everywhere), Classic on desktop — both in `defaultState()` and in `migrateState()`'s
+  fallback (which is what "Sample data" actually goes through, since `generateMockData()` never
+  sets `uiMode` itself). A *returning* user's own explicit choice is never overridden regardless
+  of device.
+
+## Testing / dev workflow
+
+There's no test framework or CI. Verification throughout this project's history has meant: serve
+the app locally, drive it with a real installed Chrome via Playwright, and actually look at
+screenshots or query computed DOM state — not just read the code and assume it works. The
+recurring working pattern:
+
+```js
+const { chromium } = require('playwright-core'); // npm-installed in the environment; no browser download needed
+const browser = await chromium.launch({
+  executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  args: ['--no-sandbox'],
+});
+```
+
+- Serve via `python3 -m http.server <port>` from the repo root first — required now that
+  `src/app.js` is an ES module (`file://` won't work).
+- `page.on('dialog', d => d.accept())` — several actions (`Reset`, `Sample data`, encrypted
+  export) use native `confirm()`/`prompt()`.
+- Click `#mockDataBtn` (desktop) or the mobile More panel's `#mobileSampleDataBtn` to populate
+  realistic data before testing anything that needs content.
+- Several `uiMode`-related selectors are **global**, not scoped to one page — e.g. multiple
+  `[data-uimode="modern"]`-style elements can exist if old test habits assume the removed
+  per-page toggles; use `#uiModeToggleWrap` (desktop) or `.mobile-tab`/`#mobileLayoutBtn`
+  (mobile) instead.
+- `persist()` debounces writes by 300ms — a test that clicks something, then immediately
+  reloads/navigates to check persistence, needs to wait past that or the write never happens.
+- Write throwaway scripts/screenshots to the session scratchpad directory, never inside the repo.
+- When a bug might be CSS-cascade-related, write a quick `getComputedStyle()` probe rather than
+  guessing from a screenshot — this project's real bugs were consistently found that way, not by
+  eyeballing (see the CSS gotchas in the root CLAUDE.md).
+
+## Known pending work
+
+- **Touch-target sizing** (found by an audit, not yet fixed): the edit (✎) / delete (✕)
+  `.icon-btn` pair used on Scenarios/Dashboard/Income cards sit only ~2px apart — a low tap on
+  "edit" can land on "delete". Same issue, smaller severity, for Assets' modern-card "Log"/
+  "Delete" text links (zero gap) and a few `all:unset` text-link toggles rendering at 13-20px
+  tall (`.row-breakdown-toggle`, `.calc-hint-link`, `.tax-advanced summary`). Fix is a handful of
+  CSS changes (bump `.icon-btn` size + `.card-controls`/`.m-edit-actions` gap, add padding to the
+  three text-link classes) — they're shared components, so each fix resolves every instance at
+  once.
+
+## Versioning (repeated from CLAUDE.md — important enough to say twice)
+
+Every shipped change gets: (1) its own functional commit, (2) a separate "Bump version to
+vX.Y.Z — reason" commit that updates `<p class="app-version">` in `index.html` (Minor for
+features/behavior changes, Patch for bug fixes), (3) an annotated git tag `vX.Y.Z`, (4) both
+pushed to `origin`. Do this without being asked, every time.

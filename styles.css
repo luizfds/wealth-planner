@@ -583,6 +583,8 @@
   .m-row.computed .m-row-summary{ background: var(--brass-wash); cursor:default; }
   .m-row.computed .m-row-name{ color: var(--brass-strong); }
   .m-row.computed .m-row-amt{ color: var(--brass-strong); }
+  .m-row.m-row-primary .m-row-name{ font-weight:700; }
+  .m-row.m-row-primary .m-row-amt{ color: var(--brass-strong); font-weight:700; }
   .m-add-row{
     all:unset; box-sizing:border-box; display:flex; align-items:center; justify-content:center; gap:6px; width:100%;
     padding:10px; font-size:12.5px; font-weight:600; color: var(--ink-soft); cursor:pointer; border-top:1px dashed var(--border);
@@ -676,6 +678,14 @@
   .calc-costs-table input.cc-amount:hover, .calc-costs-table input.cc-amount:focus{ background: var(--paper-raised); }
   .calc-costs-table td.cc-amount-cell{ width:110px; }
   .calc-costs-table td.cc-del{ width:24px; }
+  .m-cost-rows{ padding:4px 12px; }
+  .m-cost-row{ display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid var(--border); }
+  .m-cost-row:last-child{ border-bottom:none; }
+  .m-cost-row input.cc-what{ flex:1 1 auto; min-width:0; border:1px solid transparent; background:transparent; color:var(--ink); font-size:13px; font-family:inherit; padding:5px 6px; border-radius:6px; }
+  .m-cost-row input.cc-amount{ flex:0 0 100px; min-width:0; border:1px solid transparent; background:transparent; color:var(--ink); text-align:right; font-size:13px; font-family:"IBM Plex Mono", monospace; padding:5px 6px; border-radius:6px; }
+  .m-cost-row input.cc-what:hover, .m-cost-row input.cc-what:focus, .m-cost-row input.cc-amount:hover, .m-cost-row input.cc-amount:focus{ border-color: var(--border); background: var(--paper-sunken); }
+  .m-cost-row input.cc-what:focus, .m-cost-row input.cc-amount:focus{ border-color: var(--brass); outline:none; background: var(--paper); box-shadow: var(--focus-ring); }
+  .m-cost-row .row-del{ flex:none; }
 
   .home-block-total.short{ color: var(--bad); }
   .prop-value-log{ display:flex; align-items:center; gap:8px; margin:4px 0 14px; }
@@ -874,6 +884,7 @@
   .tax-secondary-line b.neg{ color: var(--bad); }
 
   .toggle-periods{ display:flex; align-items:center; gap:8px; font-size:12px; color: var(--ink-soft); user-select:none; }
+  .toggle-periods[hidden]{ display:none; }
   .switch{ position:relative; width:32px; height:18px; }
   .switch input{ opacity:0; width:0; height:0; position:absolute; }
   .switch-track{ position:absolute; inset:0; background: var(--paper-sunken); border:1px solid var(--border); border-radius:100px; transition: background .15s; }

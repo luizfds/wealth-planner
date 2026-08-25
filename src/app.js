@@ -1,3 +1,17 @@
+import { state, setState, storageAvailable, persist, setStatus, defaultState, defaultHomeBlock, defaultPurchaseConfig, migrateState, genId } from "./state.js";
+import { INCOME_COL_DEFS, MAX_SUPER_BASE } from "./constants.js";
+import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "./lib/format.js";
+import { showToast, showUndoToast } from "./lib/toast.js";
+import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount } from "./calc/ledger.js";
+import {
+  recalcPurchase, propertyGearingAnnual, ipNetResultAnnual,
+  loanRepaymentMonthly, ipProperties, ipExpensesMonthly, ipLoansMonthly, ipExpenseItemsForClassification
+} from "./calc/property.js";
+import {
+  effectiveIncomeItems, getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax
+} from "./calc/tax.js";
+import { recalcComputedItems, scenarioTotals, computeNetWorthSeries, totalAssetsValue } from "./calc/engine.js";
+
 (function(){
   "use strict";
 
@@ -12,388 +26,27 @@
   }
   applyTheme(getThemePref());
 
-  var STORAGE_KEY = "wealthPlanner.v1";
   var FREQS = ["Weekly","Fortnightly","Monthly","Quarterly","Yearly"];
   var CLASSES = ["Needs","Wants","Savings","N/A"];
-  var HOME_CATEGORIES = ["Rent / Home Loan", "Home Insurance", "Council Rates", "Water & Wastewater", "Property Maintenance"];
   var ASSET_CATEGORIES = ["Cash", "Shares", "Super", "Vehicle", "Other"];
   var LIQUID_CATEGORIES = ["Cash", "Shares"];
   var SHARE_MARKETS = ["ASX", "US"];
   var PURCHASE_STATE_CODES = ["NSW", "VIC", "Other"];
   var INCOME_TYPES = ["Net", "Gross"];
   var SUPER_MODES = ["On top", "Included", "N/A"];
-  // ATO Maximum Super Contribution Base — the annual ordinary-time-earnings ceiling above which
-  // employer SG isn't compulsory. A single annual figure under the "Payday Super" reform effective
-  // 1 July 2026; indexed each financial year, so revisit this each July.
-  var MAX_SUPER_BASE = 270830;
   var SACRIFICE_MODES = ["Cash out", "Sacrifice %", "Sacrifice $"];
   function sacrificeModeToLabel(mode){ return mode === "percent" ? "Sacrifice %" : mode === "amount" ? "Sacrifice $" : "Cash out"; }
   function sacrificeLabelToMode(label){ return label === "Sacrifice %" ? "percent" : label === "Sacrifice $" ? "amount" : "none"; }
-  var INCOME_COL_DEFS = [
-    { key: "person", label: "Person" },
-    { key: "type", label: "Type" },
-    { key: "super", label: "Super" },
-    { key: "sacrifice", label: "Cash / Sacrifice" },
-    { key: "account", label: "Account" }
-  ];
   var EXPENSE_COL_DEFS = [
     { key: "classification", label: "Classification" },
     { key: "account", label: "Account" }
   ];
-
-  // Australian resident individual tax brackets (2024-25, stage-3 rates). Estimates —
-  // thresholds are indexed / change with policy; confirm with your accountant or the ATO.
-  var AU_TAX_BRACKETS = [
-    { from: 0, to: 18200, base: 0, rate: 0 },
-    { from: 18200, to: 45000, base: 0, rate: 0.16 },
-    { from: 45000, to: 135000, base: 4288, rate: 0.30 },
-    { from: 135000, to: 190000, base: 31288, rate: 0.37 },
-    { from: 190000, to: Infinity, base: 51638, rate: 0.45 }
-  ];
-  function incomeTaxAU(taxable){
-    taxable = Math.max(0, Number(taxable) || 0);
-    for(var i = 0; i < AU_TAX_BRACKETS.length; i++){
-      var b = AU_TAX_BRACKETS[i];
-      if(taxable <= b.to) return b.base + (taxable - b.from) * b.rate;
-    }
-    return 0;
-  }
-  function marginalRateAU(taxable){
-    taxable = Math.max(0, Number(taxable) || 0);
-    for(var i = 0; i < AU_TAX_BRACKETS.length; i++){
-      if(taxable <= AU_TAX_BRACKETS[i].to) return AU_TAX_BRACKETS[i].rate;
-    }
-    return AU_TAX_BRACKETS[AU_TAX_BRACKETS.length - 1].rate;
-  }
-  // Medicare levy low-income shade-in — approximate current singles thresholds (also indexed yearly).
-  function medicareLevyAU(taxable){
-    taxable = Math.max(0, Number(taxable) || 0);
-    var lower = 26000, upper = 32500;
-    if(taxable <= lower) return 0;
-    if(taxable <= upper) return (taxable - lower) * 0.10;
-    return taxable * 0.02;
-  }
-
-  // Standard general (non-concession) transfer-duty marginal brackets.
-  // Estimates only: state revenue offices update these periodically — confirm before settlement.
-  var STAMP_DUTY_BRACKETS = {
-    NSW: [
-      {from:0, to:17000, base:0, rate:0.0125},
-      {from:17000, to:36000, base:212, rate:0.015},
-      {from:36000, to:97000, base:497, rate:0.0175},
-      {from:97000, to:364000, base:1564, rate:0.035},
-      {from:364000, to:1212000, base:10909, rate:0.045},
-      {from:1212000, to:Infinity, base:48079, rate:0.055}
-    ],
-    VIC: [
-      {from:0, to:25000, base:0, rate:0.014},
-      {from:25000, to:130000, base:350, rate:0.024},
-      {from:130000, to:960000, base:2870, rate:0.06}
-      // 960k-2m and 2m+ handled as special cases below (VIC duty isn't purely marginal up there)
-    ]
-  };
-  var FHB_RULES = {
-    NSW: {exemptUpTo:800000, concessionUpTo:1000000},
-    VIC: {exemptUpTo:600000, concessionUpTo:750000}
-  };
-
-  function bracketDuty(brackets, price){
-    for(var i = 0; i < brackets.length; i++){
-      var b = brackets[i];
-      if(price > b.from && price <= b.to) return b.base + (price - b.from) * b.rate;
-    }
-    var last = brackets[brackets.length - 1];
-    return last.base + (price - last.from) * last.rate;
-  }
-
-  function standardStampDuty(stateCode, price){
-    price = Math.max(0, Number(price) || 0);
-    if(stateCode === "NSW") return bracketDuty(STAMP_DUTY_BRACKETS.NSW, price);
-    if(stateCode === "VIC"){
-      if(price <= 960000) return bracketDuty(STAMP_DUTY_BRACKETS.VIC, price);
-      if(price <= 2000000) return price * 0.055;
-      return 110000 + (price - 2000000) * 0.065;
-    }
-    return null; // unmodelled state — caller should let the user enter it manually
-  }
-
-  function calcStampDuty(stateCode, price, isFHB){
-    price = Math.max(0, Number(price) || 0);
-    var standard = standardStampDuty(stateCode, price);
-    if(standard === null) return null;
-    if(!isFHB) return standard;
-    var rule = FHB_RULES[stateCode];
-    if(!rule) return standard;
-    if(price <= rule.exemptUpTo) return 0;
-    if(price >= rule.concessionUpTo) return standard;
-    var frac = (price - rule.exemptUpTo) / (rule.concessionUpTo - rule.exemptUpTo);
-    return standard * frac;
-  }
-
-  // Indicative single-premium LMI as a % of the loan amount. Real premiums are
-  // lender/insurer-specific (Helia, QBE, etc.) and vary by loan size and risk fee — estimate only.
-  var LMI_BANDS = [
-    {upTo:0.80, rate:0},
-    {upTo:0.85, rate:0.006},
-    {upTo:0.90, rate:0.013},
-    {upTo:0.95, rate:0.028},
-    {upTo:1.01, rate:0.045}
-  ];
-  function calcLMI(loanAmount, lvr){
-    if(lvr <= 0.8) return 0;
-    var band = LMI_BANDS.find(function(b){ return lvr <= b.upTo; }) || LMI_BANDS[LMI_BANDS.length - 1];
-    return Math.max(0, loanAmount) * band.rate;
-  }
-
-  function calcRepaymentMonthly(loanAmount, annualRatePct, termYears, repaymentType){
-    loanAmount = Math.max(0, Number(loanAmount) || 0);
-    if(repaymentType === "IO") return loanAmount * (Number(annualRatePct) || 0) / 100 / 12;
-    var n = Math.max(1, Number(termYears) || 0) * 12;
-    var r = (Number(annualRatePct) || 0) / 100 / 12;
-    if(r <= 0) return loanAmount / n;
-    return loanAmount * r / (1 - Math.pow(1 + r, -n));
-  }
 
   // Long-run compound annual growth in established house prices, 1980-2022 (Landmark
   // Valuations analysis of ABS/state-government median price series). These are historical
   // averages for context, not a forecast — past growth doesn't predict future growth, which
   // is why this is only ever a suggested starting point the user can override per scenario.
   var STATE_GROWTH_RATES = { NSW: 6.8, VIC: 7.2, Other: 6.4 };
-  function defaultPurchaseConfig(price, depositPct, rate, termYears, stateCode, enabled){
-    return {
-      enabled: !!enabled,
-      price: price,
-      depositPct: depositPct,
-      rate: rate,
-      termYears: termYears,
-      state: stateCode,
-      firstHomeBuyer: false,
-      repaymentType: "PI",
-      ioRate: rate,
-      propertyGrowthRate: null,
-      syncRepayment: !!enabled,
-      otherCosts: [
-        {what:"Conveyancing / Legal Fees", amount:1800},
-        {what:"Building & Pest Inspection", amount:500},
-        {what:"Loan Application Fee", amount:600},
-        {what:"Mortgage Registration Fee", amount:154},
-        {what:"Transfer Fee", amount:154}
-      ]
-    };
-  }
-
-  function purchaseActiveRate(cfg){
-    return cfg.repaymentType === "IO" ? (Number(cfg.ioRate) || 0) : (Number(cfg.rate) || 0);
-  }
-
-  function recalcPurchase(scenario){
-    var cfg = state.purchase[scenario];
-    if(!cfg) return null;
-    var price = Math.max(0, Number(cfg.price) || 0);
-    var depositAmt = price * (Math.max(0, Math.min(100, Number(cfg.depositPct) || 0)) / 100);
-    var loanAmount = Math.max(0, price - depositAmt);
-    var lvr = price > 0 ? loanAmount / price : 0;
-    var stampDuty = calcStampDuty(cfg.state, price, cfg.firstHomeBuyer);
-    var lmi = calcLMI(loanAmount, lvr);
-    var otherTotal = (cfg.otherCosts || []).reduce(function(s, c){ return s + (Number(c.amount) || 0); }, 0);
-    var stampDutyForTotal = stampDuty === null ? (Number(cfg.manualStampDuty) || 0) : stampDuty;
-    var upfrontCash = depositAmt + stampDutyForTotal + lmi + otherTotal;
-    var repaymentMonthlyPI = calcRepaymentMonthly(loanAmount, cfg.rate, cfg.termYears, "PI");
-    var repaymentMonthlyIO = calcRepaymentMonthly(loanAmount, cfg.ioRate, cfg.termYears, "IO");
-    var repaymentMonthly = cfg.repaymentType === "IO" ? repaymentMonthlyIO : repaymentMonthlyPI;
-    return {
-      price: price, depositAmt: depositAmt, loanAmount: loanAmount, lvr: lvr,
-      stampDuty: stampDuty, stampDutyForTotal: stampDutyForTotal, lmi: lmi, otherTotal: otherTotal,
-      upfrontCash: upfrontCash, repaymentMonthly: repaymentMonthly,
-      repaymentMonthlyPI: repaymentMonthlyPI, repaymentMonthlyIO: repaymentMonthlyIO,
-      repaymentPeriods: periodsOf(repaymentMonthly, "Monthly")
-    };
-  }
-
-  function effectiveIncomeItems(){
-    return state.income.filter(function(i){ return i.incomeType !== "Gross"; });
-  }
-
-  function getTaxPeople(){
-    var seen = {};
-    var order = [];
-    state.income.forEach(function(i){
-      if(i.incomeType === "Gross" && i.person){
-        if(!seen[i.person]){ seen[i.person] = true; order.push(i.person); }
-      }
-    });
-    return order;
-  }
-
-  // A "Gross" income row's Amount either already has super folded into it ("Included"), has
-  // super paid on top of it ("On top"), or isn't super-eligible at all ("N/A" — dividends,
-  // sole-trader income, government benefits). Uncapped: ignores the Maximum Super Contribution
-  // Base, which applies per-person across all their rows combined, not per row — see
-  // personSuperRows() for that.
-  function rowSuperSplitUncapped(annual, superMode, sgRate){
-    if(superMode === "N/A") return { sg: 0, cashPortion: annual, superApplies: false };
-    if(superMode === "Included"){
-      var rowSg = annual * sgRate / (1 + sgRate);
-      return { sg: rowSg, cashPortion: annual - rowSg, superApplies: true };
-    }
-    return { sg: annual * sgRate, cashPortion: annual, superApplies: true };
-  }
-
-  // Employer SG isn't compulsory on ordinary-time earnings above the Maximum Super Contribution
-  // Base — this app doesn't model separate employers, so the cap is applied once per person
-  // across all their Gross rows combined (the common case: multiple rows from the same job,
-  // e.g. base salary + bonus). When the cap bites, every row's super shrinks proportionally to
-  // its uncapped share, and "Included" rows give the freed-up amount back as cash (the package
-  // total the user entered doesn't change, just how it splits).
-  function personSuperRows(person){
-    var sgRate = (Number(state.tax.sgRate) || 11.5) / 100;
-    var rows = state.income.filter(function(i){ return i.incomeType === "Gross" && i.person === person; });
-    var uncapped = rows.map(function(row){
-      var annual = periodsOf(row.amount, row.freq).yearly;
-      return { row: row, annual: annual, split: rowSuperSplitUncapped(annual, row.superMode || "On top", sgRate) };
-    });
-    var ordinaryEarnings = uncapped.reduce(function(s, r){ return s + (r.split.superApplies ? r.split.cashPortion : 0); }, 0);
-    var uncappedTotalSg = uncapped.reduce(function(s, r){ return s + r.split.sg; }, 0);
-    var overCap = ordinaryEarnings > MAX_SUPER_BASE;
-    var scale = (overCap && uncappedTotalSg > 0) ? (MAX_SUPER_BASE * sgRate) / uncappedTotalSg : 1;
-    var finalRows = uncapped.map(function(r){
-      if(!r.split.superApplies || !overCap) return { row: r.row, annual: r.annual, sg: r.split.sg, cashPortion: r.split.cashPortion };
-      var cappedSg = r.split.sg * scale;
-      var cashPortion = r.row.superMode === "Included" ? (r.annual - cappedSg) : r.annual;
-      return { row: r.row, annual: r.annual, sg: cappedSg, cashPortion: cashPortion };
-    });
-    return { rows: finalRows, overCap: overCap, ordinaryEarnings: ordinaryEarnings };
-  }
-
-  function incomeRowSuperNote(item){
-    if(item.incomeType !== "Gross" || item.computed) return "";
-    var mode = item.superMode || "On top";
-    if(mode === "N/A") return "No super applies to this income";
-    var info = personSuperRows(item.person);
-    var match = info.rows.find(function(r){ return r.row === item; });
-    if(!match) return "";
-    var freqKey = item.freq.toLowerCase();
-    var cashInFreq = periodsOf(match.cashPortion, "Yearly")[freqKey];
-    var sgInFreq = periodsOf(match.sg, "Yearly")[freqKey];
-    var base = mode === "Included"
-      ? (fmtCurrency0.format(cashInFreq) + " salary + " + fmtCurrency0.format(sgInFreq) + " super")
-      : ("+ " + fmtCurrency0.format(sgInFreq) + " super on top");
-    return info.overCap ? (base + " (MSCB cap applied)") : base;
-  }
-
-  function personIncomeBreakdown(person){
-    var info = personSuperRows(person);
-    var baseGross = 0, sg = 0, packageTotal = 0, autoSacrifice = 0;
-    info.rows.forEach(function(r){
-      var row = r.row;
-      packageTotal += r.annual;
-      sg += r.sg;
-      baseGross += r.cashPortion;
-      var rowSacrifice = 0;
-      if(row.sacrificeMode === "percent"){
-        rowSacrifice = r.cashPortion * (Math.max(0, Math.min(100, Number(row.sacrificeValue) || 0)) / 100);
-      } else if(row.sacrificeMode === "amount"){
-        rowSacrifice = periodsOf(Number(row.sacrificeValue) || 0, row.freq).yearly;
-      }
-      autoSacrifice += Math.max(0, Math.min(rowSacrifice, r.cashPortion));
-    });
-    return { baseGross: baseGross, sg: sg, packageTotal: packageTotal, autoSacrifice: autoSacrifice, superOverCap: info.overCap };
-  }
-
-  function propertyGearingAnnual(property){
-    var rentYearly = sumField(property.income, "yearly");
-    var expenseYearly = sumField(property.expenses, "yearly");
-    var loanYearly = (property.loans || []).reduce(function(s, l){ return s + loanRepaymentMonthly(l) * 12; }, 0);
-    return rentYearly - expenseYearly - loanYearly;
-  }
-
-  // Only the interest portion of a loan repayment is tax-deductible — principal repayment just
-  // reduces the liability, it's not a loss. An offset account reduces the balance interest is
-  // charged on — the same offset balance is also netted against the loan for equity purposes
-  // (see propertyEquityToday), since offsetBalance is the single source of truth for that money.
-  // Don't also enter it as a separate Cash asset, or it'll be counted twice.
-  function loanInterestMonthlyAtRate(loan, ratePts){
-    var interestBalance = Math.max(0, (Number(loan.balance) || 0) - (Number(loan.offsetBalance) || 0));
-    var monthlyRate = ratePts / 100 / 12;
-    return interestBalance * monthlyRate;
-  }
-  function loanInterestMonthly(loan){
-    return loanInterestMonthlyAtRate(loan, Number(loan.rate) || 0);
-  }
-
-  function propertyTaxDeductibleResultAnnual(property){
-    var rentYearly = sumField(property.income, "yearly");
-    var expenseYearly = sumField(property.expenses, "yearly");
-    var loanInterestYearly = (property.loans || []).reduce(function(s, l){ return s + loanInterestMonthly(l) * 12; }, 0);
-    return rentYearly - expenseYearly - loanInterestYearly;
-  }
-
-  function ipNetResultAnnual(){
-    return state.properties.filter(function(p){ return p.kind === "IP"; })
-      .reduce(function(sum, p){ return sum + propertyTaxDeductibleResultAnnual(p); }, 0);
-  }
-
-  function personTaxSettings(person){
-    if(!state.tax.settings[person]){
-      state.tax.settings[person] = { superSacrificeAnnual: 0, concessionalCap: 30000, carryForward: 0 };
-    }
-    return state.tax.settings[person];
-  }
-
-  function computePersonTax(person){
-    var inc = personIncomeBreakdown(person);
-    var gross = inc.baseGross;
-    var settings = personTaxSettings(person);
-    var people = getTaxPeople();
-    var ownershipPct = (state.tax.ipOwnership && state.tax.ipOwnership[person] != null)
-      ? Number(state.tax.ipOwnership[person])
-      : (people.length ? 100 / people.length : 0);
-    var ipShare = ipNetResultAnnual() * (ownershipPct / 100);
-    var manualSacrifice = Math.max(0, Number(settings.superSacrificeAnnual) || 0);
-    var autoSacrifice = inc.autoSacrifice || 0;
-    var sacrifice = manualSacrifice + autoSacrifice;
-    var taxable = Math.max(0, gross - sacrifice + ipShare);
-    var incomeTax = incomeTaxAU(taxable);
-    var medicare = medicareLevyAU(taxable);
-    var totalTax = incomeTax + medicare;
-    var netTakeHome = gross - sacrifice - totalTax;
-    // netTakeHome already folds in the property's tax effect evenly across the year — but a tax
-    // refund from a negative-geared loss (or a bill from a positively-geared profit) doesn't
-    // actually arrive that way unless the PAYG withholding was varied; by default it's a lump sum
-    // after lodging a return. payslipTakeHome is what would actually land each pay cycle with
-    // withholding unaffected by the property, so the gap between the two numbers is the answer to
-    // "how much am I really saving/paying" — surfaced in personBreakdownHtml, not folded silently
-    // into the one blended figure used everywhere else in the app.
-    var taxableWithoutIp = Math.max(0, gross - sacrifice);
-    var payslipTakeHome = gross - sacrifice - incomeTaxAU(taxableWithoutIp) - medicareLevyAU(taxableWithoutIp);
-    var ipTaxEffect = netTakeHome - payslipTakeHome;
-    var sg = inc.sg;
-    var totalConcessional = sg + sacrifice;
-    var capAvailable = (Number(settings.concessionalCap) || 30000) + (Number(settings.carryForward) || 0);
-    var capExceeded = Math.max(0, totalConcessional - capAvailable);
-    var contributionsTax = Math.min(totalConcessional, capAvailable) * 0.15;
-    var superNet = totalConcessional - contributionsTax;
-    // Division 293: an extra 15% on low-tax (concessional, within-cap) super contributions once
-    // "income for surcharge purposes" exceeds $250k. Simplified to taxable income + those
-    // contributions, which covers the common case without modelling reportable fringe benefits
-    // or net investment losses — consistent with the rest of this tax engine's stated scope.
-    var lowTaxContributions = Math.min(totalConcessional, capAvailable);
-    var div293Income = taxable + lowTaxContributions;
-    var div293Threshold = 250000;
-    var div293ExcessIncome = Math.max(0, div293Income - div293Threshold);
-    var div293Tax = Math.min(lowTaxContributions, div293ExcessIncome) * 0.15;
-    return {
-      gross: gross, packageTotal: inc.packageTotal, ipShare: ipShare, ownershipPct: ownershipPct,
-      sacrifice: sacrifice, manualSacrifice: manualSacrifice, autoSacrifice: autoSacrifice, taxable: taxable,
-      incomeTax: incomeTax, medicare: medicare, totalTax: totalTax, netTakeHome: netTakeHome,
-      payslipTakeHome: payslipTakeHome, ipTaxEffect: ipTaxEffect,
-      effectiveRate: gross > 0 ? totalTax / gross : 0,
-      sg: sg, totalConcessional: totalConcessional, capAvailable: capAvailable, capExceeded: capExceeded,
-      contributionsTax: contributionsTax, superNet: superNet, marginalRate: marginalRateAU(taxable),
-      div293Income: div293Income, div293Tax: div293Tax, superOverCap: inc.superOverCap
-    };
-  }
-
 
   function personBreakdownHtml(person){
     var r = computePersonTax(person);
@@ -422,120 +75,6 @@
     return html;
   }
 
-  function loanBalanceAfterMonths(principal, annualRatePct, termYears, monthsElapsed, repaymentType){
-    var n = Math.max(1, Number(termYears) || 0) * 12;
-    if(monthsElapsed >= n) return 0;
-    if(repaymentType === "IO") return Math.max(0, Number(principal) || 0);
-    var r = (Number(annualRatePct) || 0) / 100 / 12;
-    if(r <= 0) return Math.max(0, principal - (principal / n) * monthsElapsed);
-    var pow = Math.pow(1 + r, monthsElapsed);
-    var M = calcRepaymentMonthly(principal, annualRatePct, termYears);
-    return Math.max(0, principal * pow - M * ((pow - 1) / r));
-  }
-
-  function loanRepaymentMonthly(loan){
-    if(loan.repaymentMode === "manual") return periodsOf(Number(loan.manualRepaymentAmount) || 0, loan.manualRepaymentFreq || "Monthly").monthly;
-    // An interest-only repayment IS the interest owed, so an offset (which reduces interest
-    // charged) reduces it too. A P&I repayment is fixed by the bank regardless of any offset —
-    // the offset just makes more of each fixed repayment go to principal, paying the loan down
-    // faster — so it stays based on the full balance.
-    if(loan.repaymentType === "IO") return loanInterestMonthly(loan);
-    return calcRepaymentMonthly(loan.balance, loan.rate, loan.termYears, loan.repaymentType);
-  }
-  // Projection-only: applies the Rate Shock stress-test to a real loan's rate. Manual-repayment
-  // loans have no rate to shock, so their entered figure is left as-is.
-  function shockedLoanRepaymentMonthly(loan, shockPts){
-    if(loan.repaymentMode === "manual") return periodsOf(Number(loan.manualRepaymentAmount) || 0, loan.manualRepaymentFreq || "Monthly").monthly;
-    var shockedRate = (Number(loan.rate) || 0) + shockPts;
-    if(loan.repaymentType === "IO") return loanInterestMonthlyAtRate(loan, shockedRate);
-    return calcRepaymentMonthly(loan.balance, shockedRate, loan.termYears, loan.repaymentType);
-  }
-  // Only Investment Property costs are "kept in every scenario" for cash-flow purposes — a PPOR's costs
-  // are out of scope here since they'd double up with whichever scenario's own home cost is being compared.
-  function ipProperties(){ return state.properties.filter(function(p){ return p.kind === "IP"; }); }
-  function ipExpensesMonthly(){ return ipProperties().reduce(function(s, p){ return s + sumField(p.expenses, "monthly"); }, 0); }
-  function ipLoansMonthly(){ return ipProperties().reduce(function(s, p){ return s + p.loans.reduce(function(ss, l){ return ss + loanRepaymentMonthly(l); }, 0); }, 0); }
-  function ipExpenseItemsForClassification(){
-    var items = [];
-    ipProperties().forEach(function(p){
-      items = items.concat(p.expenses);
-      p.loans.forEach(function(l){ items.push({ what: l.what, classification: "Needs", amount: loanRepaymentMonthly(l), freq: "Monthly" }); });
-    });
-    return items;
-  }
-
-  function scenarioInflatableMonthly(scenario){
-    var homeItems = state.home[scenario] || [];
-    var homeNonLoan = homeItems.filter(function(i){ return i.id !== "homeLoanRow"; });
-    return sumField(state.shared, "monthly") + sumField(homeNonLoan, "monthly");
-  }
-
-  function computeNetWorthSeries(scenario, horizonYears){
-    var cfg = state.purchase[scenario];
-    var purchaseEnabled = !!(cfg && cfg.enabled);
-    var proj = state.projection || {};
-    var propRate = (Number(proj.propertyAppreciationRate) || 0) / 100;
-    // A scenario can override the global growth rate (e.g. to reflect its own state's
-    // long-run average) via cfg.propertyGrowthRate; null/unset falls back to the global rate.
-    var homePropRate = (cfg && cfg.propertyGrowthRate != null && cfg.propertyGrowthRate !== "")
-      ? (Number(cfg.propertyGrowthRate) || 0) / 100
-      : propRate;
-    var investRate = (Number(proj.investReturnRate) || 0) / 100;
-    var inflationRate = (Number(proj.inflationRate) || 0) / 100;
-    var rateShock = (Number(proj.rateShockPct) || 0) / 100;
-    var monthlyInvestRate = Math.pow(1 + investRate, 1 / 12) - 1;
-
-    var nonPropertyAssets = totalAssetsValue();
-
-    var price = purchaseEnabled ? Math.max(0, Number(cfg.price) || 0) : 0;
-    var depositAmt = purchaseEnabled ? price * (Math.max(0, Math.min(100, Number(cfg.depositPct) || 0)) / 100) : 0;
-    var loanAmount0 = Math.max(0, price - depositAmt);
-    var rate = purchaseEnabled ? purchaseActiveRate(cfg) + rateShock * 100 : 0;
-    var term = purchaseEnabled ? cfg.termYears : 0;
-    var repaymentMonthly = purchaseEnabled ? calcRepaymentMonthly(loanAmount0, rate, term, cfg.repaymentType) : 0;
-
-    var upfrontCash = 0;
-    if(purchaseEnabled){
-      var lvr0 = price > 0 ? loanAmount0 / price : 0;
-      var stampDuty0 = calcStampDuty(cfg.state, price, cfg.firstHomeBuyer);
-      var lmi0 = calcLMI(loanAmount0, lvr0);
-      var otherTotal0 = (cfg.otherCosts || []).reduce(function(s, c){ return s + (Number(c.amount) || 0); }, 0);
-      var stampDutyForTotal0 = stampDuty0 === null ? (Number(cfg.manualStampDuty) || 0) : stampDuty0;
-      upfrontCash = depositAmt + stampDutyForTotal0 + lmi0 + otherTotal0;
-    }
-    var portfolio = nonPropertyAssets - upfrontCash;
-
-    var rateShockPts = Number(proj.rateShockPct) || 0;
-    var incomeMonthly = scenarioTotals(scenario).incomeMonthly;
-    var ipLoansMonthlyShocked = ipProperties().reduce(function(s, p){
-      return s + p.loans.reduce(function(ss, l){ return ss + shockedLoanRepaymentMonthly(l, rateShockPts); }, 0);
-    }, 0);
-    var fixedMonthly = ipLoansMonthlyShocked + repaymentMonthly;
-    var inflatableBase = scenarioInflatableMonthly(scenario) + ipExpensesMonthly();
-
-    var points = [];
-    for(var year = 0; year <= horizonYears; year++){
-      if(year > 0){
-        var inflatableThisYear = inflatableBase * Math.pow(1 + inflationRate, year);
-        var savingsThisYear = incomeMonthly - fixedMonthly - inflatableThisYear;
-        for(var m = 0; m < 12; m++){ portfolio = portfolio * (1 + monthlyInvestRate) + savingsThisYear; }
-      }
-      var homeValue = price * Math.pow(1 + homePropRate, year);
-      var loanBal = purchaseEnabled ? loanBalanceAfterMonths(loanAmount0, rate, term, year * 12, cfg.repaymentType) : 0;
-      var homeEquity = purchaseEnabled ? (homeValue - loanBal) : 0;
-      var propertiesEquitySum = state.properties.reduce(function(sum, p){
-        var val = (Number(p.value) || 0) * Math.pow(1 + propRate, year);
-        var loanNet = (p.loans || []).reduce(function(s, l){
-          var bal = loanBalanceAfterMonths(l.balance, (Number(l.rate) || 0) + rateShockPts, l.termYears, year * 12, l.repaymentType);
-          return s + Math.max(0, bal - (Number(l.offsetBalance) || 0));
-        }, 0);
-        return sum + (val - loanNet);
-      }, 0);
-      points.push({ x: year, y: homeEquity + portfolio + propertiesEquitySum });
-    }
-    return points;
-  }
-
   var PERIODS = [
     {key:"weekly", label:"Weekly", hidden:true},
     {key:"fortnightly", label:"Fortnightly", hidden:true},
@@ -543,34 +82,6 @@
     {key:"quarterly", label:"Quarterly", hidden:true},
     {key:"yearly", label:"Yearly", hidden:false}
   ];
-
-  function deepClone(o){ return JSON.parse(JSON.stringify(o)); }
-  function genId(prefix){ return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
-
-  function defaultState(){
-    return {
-      activeScenario: "Scenario 1",
-      scenarios: ["Scenario 1"],
-      showAllPeriods: false,
-      // Classic's tables rely on horizontal scroll even with a sticky first column — a rough
-      // landing experience on a phone. Modern was built mobile-first, so a fresh mobile visitor
-      // (same breakpoint the CSS uses everywhere else) starts there instead. Desktop keeps the
-      // long-standing Classic default.
-      uiMode: window.innerWidth < 880 ? "modern" : "classic",
-      incomeCols: { person: false, type: true, super: true, sacrifice: true, account: false },
-      expenseCols: { classification: false, account: false },
-      homeCols: { account: false },
-      income: [],
-      ip: [],
-      shared: [],
-      home: { "Scenario 1": defaultHomeBlock() },
-      purchase: { "Scenario 1": defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", false) },
-      assets: [],
-      properties: [],
-      projection: { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0 },
-      tax: { sgRate: 12, ipOwnership: {}, settings: {} }
-    };
-  }
 
   function rndBetween(min, max){ return Math.random() * (max - min) + min; }
   function rndStep(min, max, step){ return Math.round(rndBetween(min, max) / step) * step; }
@@ -681,317 +192,6 @@
       })(),
       projection: { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0 },
       tax: { sgRate: 12, ipOwnership: {}, settings: {} }
-    };
-  }
-
-  function defaultHomeBlock(){
-    return HOME_CATEGORIES.map(function(what, i){
-      var item = { what: what, classification: "Needs", account: "", amount: 0, freq: "Monthly" };
-      if(i === 0) item.id = "homeLoanRow";
-      return item;
-    });
-  }
-
-  function migrateState(s){
-    // Same viewport-aware default as defaultState() — generateMockData() (Sample data) never
-    // sets uiMode itself, so it lands here too, and shouldn't skip the mobile default.
-    if(s.uiMode !== "modern" && s.uiMode !== "classic") s.uiMode = window.innerWidth < 880 ? "modern" : "classic";
-    if(!s.incomeCols) s.incomeCols = { person: false, type: true, super: true, sacrifice: true, account: false };
-    INCOME_COL_DEFS.forEach(function(c){ if(s.incomeCols[c.key] == null) s.incomeCols[c.key] = true; });
-    if(!s._incomeTypeColDefaultApplied){
-      s.incomeCols.type = true;
-      s._incomeTypeColDefaultApplied = true;
-    }
-    if(Array.isArray(s.income)){
-      s.income.forEach(function(item){
-        if(item.superMode == null) item.superMode = item.superIncluded ? "Included" : "On top";
-      });
-    }
-    if(!s.expenseCols) s.expenseCols = { account: false };
-    if(s.expenseCols.account == null) s.expenseCols.account = false;
-    if(s.expenseCols.classification == null) s.expenseCols.classification = false;
-    if(!s.homeCols) s.homeCols = { account: false };
-    if(s.homeCols.account == null) s.homeCols.account = false;
-    if(!s.home) s.home = {};
-    if(!Array.isArray(s.scenarios) || !s.scenarios.length) s.scenarios = Object.keys(s.home);
-    if(!s.scenarios.length) s.scenarios = ["Renting"];
-    s.scenarios.forEach(function(name){ if(!s.home[name]) s.home[name] = defaultHomeBlock(); });
-    s.scenarios.forEach(function(name){
-      var block = s.home[name];
-      if(block && block.length && !block.some(function(i){ return i.id === "homeLoanRow"; })) block[0].id = "homeLoanRow";
-    });
-    if(!s.activeScenario || s.scenarios.indexOf(s.activeScenario) === -1) s.activeScenario = s.scenarios[0];
-    if(!s.purchase) s.purchase = {};
-    s.scenarios.forEach(function(name){
-      if(!s.purchase[name]) s.purchase[name] = defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", false);
-      var pcfg = s.purchase[name];
-      if(pcfg.repaymentType == null) pcfg.repaymentType = "PI";
-      if(pcfg.ioRate == null) pcfg.ioRate = pcfg.rate;
-      if(pcfg.propertyGrowthRate === undefined) pcfg.propertyGrowthRate = null;
-    });
-    if(!Array.isArray(s.assets)) s.assets = [];
-    s.assets.forEach(function(a){
-      if((a.category || "Other") !== "Shares") return;
-      if(a.quantity == null) a.quantity = 1;
-      if(a.price == null) a.price = (Number(a.amount) || 0) / (Number(a.quantity) || 1);
-      if(a.avgCost === undefined) a.avgCost = null;
-      if(a.market == null) a.market = "ASX";
-      if(a.symbol == null) a.symbol = "";
-      if(a.person == null) a.person = "";
-      if(a.priceUpdated == null) a.priceUpdated = "";
-      a.amount = Math.round((Number(a.quantity) || 0) * (Number(a.price) || 0) * 100) / 100;
-    });
-    if(!s.projection) s.projection = { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0 };
-    if(s.projection.inflationRate == null) s.projection.inflationRate = 3;
-    if(s.projection.rateShockPct == null) s.projection.rateShockPct = 0;
-    if(!s.tax) s.tax = { sgRate: 12, ipOwnership: {}, settings: {} };
-    if(!s.tax.ipOwnership) s.tax.ipOwnership = {};
-    if(!s.tax.settings) s.tax.settings = {};
-    if(s.tax.sgRate == null) s.tax.sgRate = 11.5;
-    (s.income || []).forEach(function(i){
-      if(i.sacrificeMode == null) i.sacrificeMode = "none";
-      if(i.sacrificeValue == null) i.sacrificeValue = 0;
-    });
-
-    if(!Array.isArray(s.properties)) s.properties = [];
-    s.properties.forEach(function(p){
-      if(!Array.isArray(p.loans)) p.loans = [];
-      if(!Array.isArray(p.income)) p.income = [];
-      if(!Array.isArray(p.expenses)) p.expenses = [];
-      if(!Array.isArray(p.history)) p.history = [];
-      if(p.kind !== "IP" && p.kind !== "PPOR") p.kind = "IP";
-      if(p.value == null) p.value = 0;
-      if(!p.pmFee) p.pmFee = { percent: 6, flat: 5.5 };
-      if(p.pmFee.percent == null) p.pmFee.percent = 6;
-      if(p.pmFee.flat == null) p.pmFee.flat = 5.5;
-      p.loans.forEach(function(l){
-        if(l.id == null) l.id = genId("l");
-        if(l.repaymentMode !== "manual") l.repaymentMode = "auto";
-        if(l.manualRepaymentAmount == null) l.manualRepaymentAmount = 0;
-        if(l.manualRepaymentFreq == null) l.manualRepaymentFreq = "Monthly";
-        if(l.offsetBalance == null) l.offsetBalance = 0;
-        if(l.repaymentType !== "IO") l.repaymentType = "PI";
-        if(l.balance == null) l.balance = 0;
-        if(l.rate == null) l.rate = 0;
-        if(l.termYears == null) l.termYears = 30;
-      });
-    });
-
-    var hasLegacyIp = (s.income || []).some(function(i){ return i.id === "rentIncome"; }) || !!(s.ip && s.ip.length > 0);
-    if(hasLegacyIp && !s.propertiesMigratedFromIp){
-      var rentIdx = (s.income || []).findIndex(function(i){ return i.id === "rentIncome"; });
-      var rentRow = rentIdx !== -1 ? s.income.splice(rentIdx, 1)[0] : null;
-      var pmFeeIdx = (s.ip || []).findIndex(function(i){ return i.id === "pmFee6"; });
-      var pmFeeRow = pmFeeIdx !== -1 ? s.ip.splice(pmFeeIdx, 1)[0] : null;
-      var remainingExpenses = (s.ip || []).slice();
-      s.properties.push({
-        id: genId("p"),
-        what: rentRow ? (rentRow.what || "Investment Property").replace(/\s*-\s*Rent$/i, "") : "Investment Property",
-        kind: "IP", value: 0, history: [], loans: [],
-        pmFee: {
-          percent: (s.pmFee && s.pmFee.percent != null) ? s.pmFee.percent : 6,
-          flat: (s.pmFee && s.pmFee.flat != null) ? s.pmFee.flat : 5.5
-        },
-        income: rentRow ? [{ what: rentRow.what || "Rent", account: rentRow.account || "", amount: rentRow.amount || 0, freq: rentRow.freq || "Monthly", classification: "" }] : [],
-        expenses: remainingExpenses.concat(pmFeeRow ? [pmFeeRow] : [])
-      });
-      s.ip = [];
-      s.propertiesMigratedFromIp = true;
-    }
-
-    var legacyPropertyAssets = (s.assets || []).filter(function(a){ return (a.category || "Other") === "Property"; });
-    if(legacyPropertyAssets.length && !s.assetPropertiesMigrated){
-      legacyPropertyAssets.forEach(function(a){
-        s.properties.push({
-          id: genId("p"), what: a.what || "Property", kind: "IP",
-          value: Number(a.amount) || 0, history: Array.isArray(a.history) ? a.history : [],
-          pmFee: { percent: 6, flat: 5.5 },
-          loans: [], income: [], expenses: []
-        });
-      });
-      s.assets = (s.assets || []).filter(function(a){ return (a.category || "Other") !== "Property"; });
-      s.assetPropertiesMigrated = true;
-      showToast("Moved " + legacyPropertyAssets.length + " propert" + (legacyPropertyAssets.length === 1 ? "y" : "ies") + " to the new Properties tab — check the kind (IP/PPOR) for each");
-    }
-
-    return s;
-  }
-
-  var storageAvailable = true;
-  var state;
-  try{
-    var raw = localStorage.getItem(STORAGE_KEY);
-    state = raw ? JSON.parse(raw) : defaultState();
-    if(!state || !state.income || !state.home) state = defaultState();
-    state = migrateState(state);
-    // Write back immediately (not debounced) so a one-time, non-idempotent migration (e.g. moving
-    // state.ip into state.properties) can't re-run and duplicate data on the next reload before the
-    // user has made any edit of their own to trigger the normal debounced persist().
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }catch(e){
-    storageAvailable = false;
-    state = defaultState();
-  }
-
-  var saveTimer = null;
-  function persist(){
-    if(!storageAvailable){
-      setStatus(false, "Not saved — storage unavailable");
-      return;
-    }
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(function(){
-      try{
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-        setStatus(true, "Saved " + new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}));
-      }catch(e){
-        storageAvailable = false;
-        setStatus(false, "Not saved — storage unavailable");
-      }
-    }, 300);
-  }
-  function setStatus(ok, text){
-    document.getElementById("statusDot").className = "status-dot" + (ok ? "" : " warn");
-    document.getElementById("statusText").textContent = text;
-    // Mirrors into the sticky top bar's copy — the only place a mobile viewport (<880px,
-    // where .actions is hidden in favor of the bottom tab bar) can see save status.
-    document.getElementById("mobileStatusDot").className = "status-dot" + (ok ? "" : " warn");
-    document.getElementById("mobileStatusText").textContent = text;
-  }
-
-  function toWeekly(amount, freq){
-    amount = Number(amount) || 0;
-    switch(freq){
-      case "Weekly": return amount;
-      case "Fortnightly": return amount / 2;
-      case "Monthly": return amount / (52/12);
-      case "Quarterly": return amount / 13;
-      case "Yearly": return amount / 52;
-      default: return 0;
-    }
-  }
-  function periodsOf(amount, freq){
-    var w = toWeekly(amount, freq);
-    return { weekly:w, fortnightly:w*2, monthly:w*52/12, quarterly:w*13, yearly:w*52 };
-  }
-  function sumField(items, field){
-    return items.reduce(function(s,i){ return s + periodsOf(i.amount, i.freq)[field]; }, 0);
-  }
-  function sumByClassification(items, cls, field){
-    return items.filter(function(i){ return i.classification === cls; })
-                .reduce(function(s,i){ return s + periodsOf(i.amount, i.freq)[field]; }, 0);
-  }
-  function safeDiv(a, b){ return b ? a / b : 0; }
-  function sumByAccount(items, field){
-    var map = {};
-    items.forEach(function(i){
-      var acct = (i.account || "").trim() || "Unassigned";
-      var v = periodsOf(i.amount, i.freq)[field];
-      map[acct] = (map[acct] || 0) + v;
-    });
-    return map;
-  }
-
-  var fmtCurrency0 = new Intl.NumberFormat("en-AU", {style:"currency", currency:"AUD", maximumFractionDigits:0});
-  var fmtCurrency2 = new Intl.NumberFormat("en-AU", {style:"currency", currency:"AUD", minimumFractionDigits:2, maximumFractionDigits:2});
-  var fmtPercent1 = new Intl.NumberFormat("en-AU", {style:"percent", maximumFractionDigits:1});
-
-  function recalcComputedItems(){
-    state.properties.forEach(function(p){
-      if(p.kind !== "IP") return;
-      var pmFeeItem = p.expenses.find(function(i){ return i.id === "pmFee6"; });
-      if(!pmFeeItem){
-        pmFeeItem = { id: "pmFee6", what: "Property Manager Fee", classification: "Needs", account: "", amount: 0, freq: "Weekly", computed: true, computedNote: "" };
-        p.expenses.push(pmFeeItem);
-      }
-      var rentWeekly = toWeekly(sumField(p.income, "yearly") / 52, "Weekly");
-      var pmPercent = p.pmFee.percent;
-      var pmFlat = p.pmFee.flat;
-      var pmFlatWeekly = pmFlat * 12 / 52; // pmFlat is a flat $/month fee; this row's frequency is Weekly
-      pmFeeItem.amount = Math.round((rentWeekly * (pmPercent / 100) + pmFlatWeekly) * 100) / 100;
-      pmFeeItem.freq = "Weekly";
-      pmFeeItem.computedNote = "auto: " + pmPercent + "% of rent + $" + pmFlat.toFixed(2) + "/mo";
-    });
-    state.scenarios.forEach(function(scenario){
-      var cfg = state.purchase[scenario];
-      var loanRow = (state.home[scenario] || []).find(function(i){ return i.id === "homeLoanRow"; });
-      if(!loanRow) return;
-      if(cfg && cfg.enabled && cfg.syncRepayment){
-        var out = recalcPurchase(scenario);
-        loanRow.amount = Math.round(out.repaymentMonthly * 100) / 100;
-        loanRow.freq = "Monthly";
-        loanRow.computed = true;
-        loanRow.computedNote = "auto: from purchase calculator above";
-      } else if(loanRow.computed){
-        loanRow.computed = false;
-      }
-    });
-
-    var people = getTaxPeople();
-    state.income = state.income.filter(function(i){ return !(i.syntheticNetFor && people.indexOf(i.syntheticNetFor) === -1); });
-    people.forEach(function(person){
-      var result = computePersonTax(person);
-      var monthly = Math.round((result.netTakeHome / 12) * 100) / 100;
-      var existing = state.income.find(function(i){ return i.syntheticNetFor === person; });
-      if(existing){
-        existing.amount = monthly;
-        existing.freq = "Monthly";
-        existing.computed = true;
-        existing.computedNote = "auto: " + person + "'s net income after tax & super sacrifice";
-      } else {
-        state.income.push({
-          syntheticNetFor: person, computed: true, what: person + " — Net income (after tax & super)",
-          classification: "", account: "", incomeType: "Net", amount: monthly, freq: "Monthly",
-          computedNote: "auto: " + person + "'s net income after tax & super sacrifice"
-        });
-      }
-    });
-
-    var ipPropertyIds = state.properties.filter(function(p){ return p.kind === "IP"; }).map(function(p){ return p.id; });
-    state.income = state.income.filter(function(i){ return !(i.syntheticRentForProperty && ipPropertyIds.indexOf(i.syntheticRentForProperty) === -1); });
-    state.properties.filter(function(p){ return p.kind === "IP"; }).forEach(function(p){
-      var monthlyRent = Math.round(sumField(p.income, "monthly") * 100) / 100;
-      var existingRent = state.income.find(function(i){ return i.syntheticRentForProperty === p.id; });
-      var note = "auto: rent for " + p.what + " — edit on the Properties tab";
-      if(existingRent){
-        existingRent.amount = monthlyRent;
-        existingRent.freq = "Monthly";
-        existingRent.computed = true;
-        existingRent.computedNote = note;
-      } else {
-        state.income.push({
-          syntheticRentForProperty: p.id, computed: true, what: p.what + " — Rent",
-          classification: "", account: "", incomeType: "Net", amount: monthlyRent, freq: "Monthly",
-          computedNote: note
-        });
-      }
-    });
-
-    state.assets.forEach(function(a){
-      if(a.category !== "Vehicle") return;
-      var price = Number(a.purchasePrice) || 0;
-      var rate = Number(a.depreciationRate) || 0;
-      if(!a.purchaseDate || price <= 0){ a.computed = false; return; }
-      var years = Math.max(0, (Date.now() - new Date(a.purchaseDate + "T00:00:00").getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-      a.amount = Math.max(0, Math.round(price * Math.pow(1 - rate / 100, years)));
-      a.computed = true;
-      a.computedNote = "auto: " + rate + "%/yr declining balance from " + fmtCurrency0.format(price) + " (" + a.purchaseDate + ")";
-    });
-  }
-
-
-  function scenarioTotals(scenario){
-    var incomeMonthly = sumField(effectiveIncomeItems(), "monthly");
-    var ipMonthly = ipExpensesMonthly() + ipLoansMonthly();
-    var sharedMonthly = sumField(state.shared, "monthly");
-    var homeMonthly = sumField(state.home[scenario], "monthly");
-    var expensesMonthly = ipMonthly + sharedMonthly + homeMonthly;
-    var netMonthly = incomeMonthly - expensesMonthly;
-    return {
-      incomeMonthly: incomeMonthly, ipMonthly: ipMonthly, sharedMonthly: sharedMonthly,
-      homeMonthly: homeMonthly, expensesMonthly: expensesMonthly,
-      netMonthly: netMonthly, netYearly: netMonthly * 12,
-      rate: incomeMonthly > 0 ? netMonthly / incomeMonthly : 0
     };
   }
 
@@ -2322,10 +1522,6 @@
     renderProjectionOutputs();
     persist();
     showToast("Logged " + fmtCurrency0.format(num) + " for " + asset.what + " (" + dateStr + ")");
-  }
-
-  function totalAssetsValue(){
-    return state.assets.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
   }
 
   // Property equity is split into two pieces with very different liquidity:
@@ -4099,42 +3295,6 @@
   var renderIncomeColPicker = setupColPicker("incomeColPickerBtn", "incomeColPickerPanel", INCOME_COL_DEFS, "incomeCols");
   var renderExpenseColPicker = setupColPicker("expenseColPickerBtn", "expenseColPickerPanel", EXPENSE_COL_DEFS, "expenseCols");
 
-  function showToast(msg){
-    var wrap = document.getElementById("toastWrap");
-    var t = document.createElement("div");
-    t.className = "toast";
-    t.textContent = msg;
-    wrap.appendChild(t);
-    requestAnimationFrame(function(){ t.classList.add("show"); });
-    setTimeout(function(){ t.classList.remove("show"); setTimeout(function(){ t.remove(); }, 200); }, 3200);
-  }
-
-  function showUndoToast(msg, undoFn){
-    var wrap = document.getElementById("toastWrap");
-    var t = document.createElement("div");
-    t.className = "toast";
-    var label = document.createElement("span");
-    label.textContent = msg;
-    var undoBtn = document.createElement("button");
-    undoBtn.type = "button";
-    undoBtn.className = "toast-undo-btn";
-    undoBtn.textContent = "Undo";
-    t.appendChild(label);
-    t.appendChild(undoBtn);
-    wrap.appendChild(t);
-    requestAnimationFrame(function(){ t.classList.add("show"); });
-    var dismissTimer = setTimeout(dismiss, 6000);
-    function dismiss(){
-      clearTimeout(dismissTimer);
-      t.classList.remove("show");
-      setTimeout(function(){ t.remove(); }, 200);
-    }
-    undoBtn.addEventListener("click", function(){
-      undoFn();
-      dismiss();
-    });
-  }
-
   function isoDateStamp(){
     var d = new Date();
     var mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -4326,7 +3486,7 @@
     try{
       var parsed = JSON.parse(jsonStr);
       if(!parsed || !parsed.income || !parsed.home) throw new Error("bad shape");
-      state = migrateState(parsed);
+      setState(migrateState(parsed));
       renderAll();
       persist();
       showToast("Backup imported");
@@ -4359,7 +3519,7 @@
 
   document.getElementById("resetBtn").addEventListener("click", function(){
     if(!confirm("Clear everything back to a blank slate? This replaces everything currently entered — export a backup first if you want to keep it.")) return;
-    state = defaultState();
+    setState(defaultState());
     renderAll();
     persist();
     showToast("Cleared");
@@ -4367,7 +3527,7 @@
 
   document.getElementById("mockDataBtn").addEventListener("click", function(){
     if(!confirm("Fill in randomised sample data so you can try the tool? This replaces everything currently entered — export a backup first if you want to keep it.")) return;
-    state = migrateState(generateMockData());
+    setState(migrateState(generateMockData()));
     renderAll();
     persist();
     showToast("Sample data generated");

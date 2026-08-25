@@ -940,6 +940,10 @@
   footer.note a.link-btn{ color: var(--brass-strong); text-decoration:underline; cursor:pointer; background:none; border:none; font: inherit; padding:0; }
 
   .toast-wrap{ position: fixed; bottom: 18px; right: 18px; z-index: 50; display:flex; flex-direction:column; gap:8px; align-items:flex-end; }
+  @media (max-width: 880px){
+    /* Clears the fixed bottom tab bar instead of covering its last couple of tabs. */
+    .toast-wrap{ bottom: calc(18px + 66px + env(safe-area-inset-bottom)); right: 12px; left: 12px; align-items:center; }
+  }
   .toast{
     background: var(--ink); color: var(--paper); padding: 9px 14px; border-radius: 9px; font-size: 12.5px;
     box-shadow: var(--shadow); opacity: 0; transform: translateY(6px); transition: opacity .18s, transform .18s;

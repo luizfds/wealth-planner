@@ -4168,19 +4168,21 @@
       finishExport(payload, filename);
     }
   }
-  function finishExport(payload, filename){
+  function finishExport(payload, filename, mime, savedMsg){
+    mime = mime || "application/json";
+    savedMsg = savedMsg || "Backup saved";
     if(window.claude && window.claude.use){
       window.claude.use("downloads").then(function(downloads){
-        if(!downloads){ shareExport(payload, filename); return; }
+        if(!downloads){ shareExport(payload, filename, mime, savedMsg); return; }
         downloads.save({filename: filename, data: payload}).then(function(){
-          showToast("Backup saved");
+          showToast(savedMsg);
         }).catch(function(err){
           if(err && err.code === "declined") return;
-          shareExport(payload, filename);
+          shareExport(payload, filename, mime, savedMsg);
         });
-      }).catch(function(){ shareExport(payload, filename); });
+      }).catch(function(){ shareExport(payload, filename, mime, savedMsg); });
     } else {
-      shareExport(payload, filename);
+      shareExport(payload, filename, mime, savedMsg);
     }
   }
   // On iPad/Android, a plain download link just dumps the file into Downloads with no
@@ -4190,34 +4192,89 @@
   // to Files, Drive, AirDrop, etc.) instead. Desktop browsers mostly don't support
   // sharing files this way, so canShare() correctly returns false there and we fall
   // straight through to the existing download-link behavior, unchanged.
-  function shareExport(payload, filename){
+  function shareExport(payload, filename, mime, savedMsg){
     try{
-      var file = new File([payload], filename, {type: "application/json"});
+      var file = new File([payload], filename, {type: mime});
       if(navigator.canShare && navigator.canShare({files: [file]})){
         navigator.share({files: [file], title: filename}).then(function(){
-          showToast("Backup shared");
+          showToast(savedMsg.replace("saved", "shared"));
         }).catch(function(err){
           if(err && err.name === "AbortError") return; // user dismissed the share sheet — not a failure
-          fallbackExport(payload, filename);
+          fallbackExport(payload, filename, mime, savedMsg);
         });
         return;
       }
     }catch(e){ /* fall through to the direct download */ }
-    fallbackExport(payload, filename);
+    fallbackExport(payload, filename, mime, savedMsg);
   }
-  function fallbackExport(payload, filename){
+  function fallbackExport(payload, filename, mime, savedMsg){
     try{
-      var blob = new Blob([payload], {type:"application/json"});
+      var blob = new Blob([payload], {type: mime});
       var url = URL.createObjectURL(blob);
       var a = document.createElement("a");
       a.href = url; a.download = filename;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-      showToast("Backup saved");
+      showToast(savedMsg);
     }catch(e){
       showToast("Couldn't save a file here — copy is in your clipboard? Try again from a full browser tab.");
     }
   }
+
+  // ---------------- Per-section CSV export ----------------
+  // A lighter-weight sibling to the full JSON backup above: one section's rows as a plain CSV,
+  // for opening in a spreadsheet, sharing with an accountant, or a quick sanity check — not a
+  // backup/restore format, so there's no matching CSV import (yet).
+  function csvCell(v){
+    var s = v == null ? "" : String(v);
+    return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  function buildCsv(headers, rows){
+    var lines = [headers.map(csvCell).join(",")];
+    rows.forEach(function(row){ lines.push(row.map(csvCell).join(",")); });
+    return lines.join("\r\n");
+  }
+  function exportCsv(filename, headers, rows){
+    if(!rows.length){ showToast("Nothing to export yet"); return; }
+    finishExport(buildCsv(headers, rows), filename, "text/csv", "CSV saved");
+  }
+
+  function exportIncomeCsv(){
+    var headers = ["What", "Person", "Type", "Amount", "Frequency", "Super", "Sacrifice mode", "Sacrifice value", "Account"];
+    var rows = state.income.filter(function(i){ return !i.computed; }).map(function(i){
+      return [i.what, i.person || "", i.incomeType || "Net", i.amount, i.freq, i.superMode || "", sacrificeModeToLabel(i.sacrificeMode), i.sacrificeValue || "", i.account || ""];
+    });
+    exportCsv("income-" + isoDateStamp() + ".csv", headers, rows);
+  }
+  function exportExpensesCsv(){
+    var headers = ["What", "Classification", "Amount", "Frequency", "Account"];
+    var rows = state.shared.map(function(i){
+      return [i.what, i.classification || "", i.amount, i.freq, i.account || ""];
+    });
+    exportCsv("expenses-" + isoDateStamp() + ".csv", headers, rows);
+  }
+  function exportAssetsCsv(){
+    var headers = ["What", "Category", "Amount", "Symbol", "Market", "Quantity", "Avg cost", "Price", "Person", "Purchase price", "Purchase date", "Depreciation %/yr"];
+    var rows = state.assets.map(function(a){
+      return [a.what, a.category || "", a.amount, a.symbol || "", a.market || "", a.quantity != null ? a.quantity : "", a.avgCost != null ? a.avgCost : "", a.price != null ? a.price : "", a.person || "", a.purchasePrice != null ? a.purchasePrice : "", a.purchaseDate || "", a.depreciationRate != null ? a.depreciationRate : ""];
+    });
+    exportCsv("assets-" + isoDateStamp() + ".csv", headers, rows);
+  }
+  function exportPropertyLoansCsv(){
+    var headers = ["Property", "What", "Balance", "Rate %", "Term (yrs)", "Type", "Repayment mode", "Manual repayment amount", "Offset balance"];
+    var rows = [];
+    state.properties.forEach(function(p){
+      (p.loans || []).forEach(function(l){
+        var rateDisplay = Math.round((Number(l.rate) || 0) * 100) / 100;
+        rows.push([p.what, l.what, l.balance, rateDisplay, l.termYears, l.repaymentType, l.repaymentMode, l.repaymentMode === "manual" ? l.manualRepaymentAmount : "", l.offsetBalance]);
+      });
+    });
+    exportCsv("property-loans-" + isoDateStamp() + ".csv", headers, rows);
+  }
+  document.getElementById("incomeExportCsvBtn").addEventListener("click", exportIncomeCsv);
+  document.getElementById("expenseExportCsvBtn").addEventListener("click", exportExpensesCsv);
+  document.getElementById("assetsExportCsvBtn").addEventListener("click", exportAssetsCsv);
+  document.getElementById("propertyLoansExportCsvBtn").addEventListener("click", exportPropertyLoansCsv);
 
   document.getElementById("exportBtn").addEventListener("click", doExport);
   document.getElementById("exportLink2").addEventListener("click", doExport);

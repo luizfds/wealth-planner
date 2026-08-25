@@ -531,6 +531,7 @@
       activeScenario: "Scenario 1",
       scenarios: ["Scenario 1"],
       showAllPeriods: false,
+      uiMode: "classic",
       incomeCols: { person: false, type: true, super: true, sacrifice: true, account: false },
       expenseCols: { classification: false, account: false },
       homeCols: { account: false },
@@ -667,6 +668,7 @@
   }
 
   function migrateState(s){
+    if(s.uiMode !== "modern") s.uiMode = "classic";
     if(!s.incomeCols) s.incomeCols = { person: false, type: true, super: true, sacrifice: true, account: false };
     INCOME_COL_DEFS.forEach(function(c){ if(s.incomeCols[c.key] == null) s.incomeCols[c.key] = true; });
     if(!s._incomeTypeColDefaultApplied){
@@ -1307,9 +1309,19 @@
     document.querySelectorAll("#incomeGroups .income-group-total").forEach(function(el, gi){
       if(groups[gi]) el.textContent = fmtCurrency0.format(groups[gi].monthly) + " / mo";
     });
+    document.querySelectorAll("#incomeGroups .m-card").forEach(function(card, gi){
+      var totalEl = card.querySelector(".m-card-total");
+      if(totalEl && groups[gi]) totalEl.innerHTML = fmtCurrency0.format(groups[gi].monthly) + "<span>/mo</span>";
+    });
   }
 
   function renderIncomeGroups(){
+    syncUiModeToggle();
+    if(state.uiMode === "modern") renderIncomeGroupsModern();
+    else renderIncomeGroupsClassic();
+  }
+
+  function renderIncomeGroupsClassic(){
     var container = document.getElementById("incomeGroups");
     if(!container) return;
     var groups = computeIncomeGroups();
@@ -1329,6 +1341,68 @@
     groups.forEach(function(g, gi){
       buildTable(document.getElementById("incomeGroupTable" + gi), "income", g.items, {showClass:false, showIncomeFields:true}, g.indices);
     });
+  }
+
+  // Session-only UI state (not persisted app data) — which modern income rows are expanded,
+  // keyed by their state.income index. A structural edit (Type, sacrifice mode, Person) forces a
+  // full re-render of #incomeGroups, and without this the row the user is mid-edit on would
+  // snap shut the moment they touched the field driving the change.
+  var modernIncomeRowOpen = {};
+
+  function renderIncomeGroupsModern(){
+    var container = document.getElementById("incomeGroups");
+    if(!container) return;
+    var groups = computeIncomeGroups();
+    patchIncomeGroupTotals();
+    var order = incomeGroupOrder();
+    container.innerHTML = '<div class="m-people">' + groups.map(function(g){
+      var label = g.key === "__household" ? "Household / Shared" : g.key;
+      var addValue = g.key === "__household" ? "" : g.key;
+      var avatarClass = g.key === "__household" ? "m-avatar-neutral" : "series-color-" + (order.indexOf(g.key) % 8);
+      var initial = escapeAttr(label.charAt(0).toUpperCase());
+      var rows = g.items.map(function(item, i){ return modernIncomeRowHtml(item, g.indices[i]); }).join("");
+      return '<div class="m-card">' +
+        '<div class="m-card-head"><span class="m-avatar ' + avatarClass + '">' + initial + '</span>' +
+        '<div class="m-card-name">' + escapeAttr(label) + '</div>' +
+        '<div class="m-card-total">' + fmtCurrency0.format(g.monthly) + '<span>/mo</span></div></div>' +
+        '<div class="m-rows">' + rows + '</div>' +
+        '<button type="button" class="m-add-row" data-add="income:' + escapeAttr(addValue) + '">+ Add income</button>' +
+      '</div>';
+    }).join("") + '</div>';
+  }
+
+  function modernIncomeRowHtml(item, idx){
+    var isComputed = !!item.computed;
+    var isGrossRef = item.incomeType === "Gross" && !isComputed;
+    var monthly = periodsOf(item.amount, item.freq).monthly;
+    var note = isGrossRef ? incomeRowSuperNote(item) : "";
+    var summary = '<div class="m-row-summary"' + (isComputed ? ' style="cursor:default"' : ' role="button" tabindex="0" data-row-toggle') + '>' +
+      '<div style="flex:1 1 auto; min-width:0">' +
+        '<div class="m-row-name">' + escapeAttr(item.what) + '</div>' +
+        (note ? '<div class="m-row-sub super-note">' + escapeAttr(note) + '</div>' : "") +
+      '</div>' +
+      (isGrossRef ? '<span class="m-row-tag gross">Gross</span>' : "") +
+      '<span class="m-row-amt" data-computed="amt">' + fmtCurrency2.format(monthly) + '/mo</span>' +
+      (isComputed ? "" : '<svg class="m-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>') +
+    '</div>';
+    if(isComputed){
+      return '<div class="m-row computed" data-section="income" data-index="' + idx + '">' + summary + '</div>';
+    }
+    var isOpen = !!modernIncomeRowOpen[idx];
+    var sacrificeValueField = (item.sacrificeMode && item.sacrificeMode !== "none")
+      ? '<input type="number" min="0" step="' + (item.sacrificeMode === "percent" ? "1" : "50") + '" max="' + (item.sacrificeMode === "percent" ? "100" : "") + '" class="f-sacrificevalue" value="' + (item.sacrificeValue || 0) + '" aria-label="Sacrifice ' + (item.sacrificeMode === "percent" ? "percent" : "amount") + '">'
+      : "";
+    var edit = '<div class="m-row-edit"><div class="m-edit-grid">' +
+      '<div class="m-edit-field span2"><label>What</label><input type="text" class="f-what" value="' + escapeAttr(item.what) + '" aria-label="Item name"></div>' +
+      '<div class="m-edit-field"><label>Type</label><select class="f-incometype">' + optionsHtml(INCOME_TYPES, item.incomeType || "Net") + '</select></div>' +
+      '<div class="m-edit-field"><label>Amount</label><input type="number" step="0.01" min="0" class="f-amount" value="' + item.amount + '" aria-label="Amount"></div>' +
+      '<div class="m-edit-field"><label>Frequency</label><select class="f-freq">' + optionsHtml(FREQS, item.freq) + '</select></div>' +
+      '<div class="m-edit-field"><label>Super</label><select class="f-superincluded" title="Whether super is already included in the Amount, paid on top, or doesn\'t apply at all">' + optionsHtml(SUPER_MODES, item.superMode || "On top") + '</select></div>' +
+      '<div class="m-edit-field"><label>Sacrifice</label><div class="sacrifice-wrap"><select class="f-sacrificemode">' + optionsHtml(SACRIFICE_MODES, sacrificeModeToLabel(item.sacrificeMode)) + '</select>' + sacrificeValueField + '</div></div>' +
+      '<div class="m-edit-field span2"><label>Account</label><input type="text" class="f-account" list="acctSuggestions" value="' + escapeAttr(item.account || "") + '" aria-label="Account"></div>' +
+      '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm row-del" data-del="income:' + idx + '">Delete</button></div>' +
+    '</div></div>';
+    return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="income" data-index="' + idx + '">' + summary + edit + '</div>';
   }
 
   function sharedGroupOrder(){
@@ -1591,13 +1665,15 @@
     if(!table) return;
     state.income.forEach(function(item, idx){
       if(!item.syntheticNetFor && !item.syntheticRentForProperty) return;
-      var tr = table.querySelector('tr[data-index="' + idx + '"]');
+      var tr = table.querySelector('[data-index="' + idx + '"]');
       if(!tr) return;
       var amountInput = tr.querySelector(".f-amount");
       if(amountInput) amountInput.value = item.amount;
       var cells = tr.querySelectorAll("td.computed");
       var p = periodsOf(item.amount, item.freq);
       PERIODS.forEach(function(pd, i){ if(cells[i]) cells[i].textContent = fmtCurrency2.format(p[pd.key]); });
+      var modernAmt = tr.querySelector('[data-computed="amt"]');
+      if(modernAmt) modernAmt.textContent = fmtCurrency2.format(p.monthly) + "/mo";
     });
   }
 
@@ -1605,7 +1681,7 @@
     var table = document.getElementById("incomeGroups");
     if(!table) return;
     table.querySelectorAll(".super-note").forEach(function(el){
-      var tr = el.closest("tr[data-index]");
+      var tr = el.closest("[data-index]");
       if(!tr) return;
       var item = state.income[Number(tr.getAttribute("data-index"))];
       if(item) el.textContent = incomeRowSuperNote(item);
@@ -1613,7 +1689,7 @@
   }
 
   function onLedgerInput(e){
-    var tr = e.target.closest("tr[data-section]");
+    var tr = e.target.closest("[data-section]");
     if(!tr) return;
     var section = tr.getAttribute("data-section");
     var idx = Number(tr.getAttribute("data-index"));
@@ -1636,7 +1712,9 @@
     if(e.target.classList.contains("f-amount") || e.target.classList.contains("f-freq")){
       var cells = tr.querySelectorAll("td.computed");
       var p = periodsOf(item.amount, item.freq);
-      PERIODS.forEach(function(pd, i){ cells[i].textContent = fmtCurrency2.format(p[pd.key]); });
+      PERIODS.forEach(function(pd, i){ if(cells[i]) cells[i].textContent = fmtCurrency2.format(p[pd.key]); });
+      var modernAmt = tr.querySelector('[data-computed="amt"]');
+      if(modernAmt) modernAmt.textContent = fmtCurrency2.format(p.monthly) + "/mo";
     }
     if(section === "income" && (e.target.classList.contains("f-amount") || e.target.classList.contains("f-freq") || e.target.classList.contains("f-superincluded"))){
       // A single row's edit can shift the Maximum Super Contribution Base cap for every one of
@@ -2705,6 +2783,11 @@
     });
   }
   function renderTaxSuper(){
+    if(state.uiMode === "modern") renderTaxSuperModern();
+    else renderTaxSuperClassic();
+  }
+
+  function renderTaxSuperClassic(){
     var container = document.getElementById("taxSuperBody");
     if(!container) return;
     var people = getTaxPeople();
@@ -2761,6 +2844,74 @@
         '</div>' +
         '<div class="tax-cap-note tax-div293-note warn"' + (r.div293Tax > 0.5 ? '' : ' hidden') + ' title="Simplified: income for surcharge purposes is approximated as taxable income + your within-cap concessional contributions, ignoring reportable fringe benefits and net investment losses. Check with your accountant.">Division 293: your income is over the $250,000 threshold, so an extra 15% applies to ' + fmtCurrency0.format(Math.min(r.totalConcessional, r.capAvailable)) + ' of low-tax super contributions — ' + fmtCurrency0.format(r.div293Tax) + '/yr, assessed separately by the ATO (not withheld from take-home above).</div>' +
         '<div class="tax-cap-note tax-mscb-note"' + (r.superOverCap ? '' : ' hidden') + ' title="Employer super guarantee isn\'t compulsory on ordinary-time earnings above this threshold — indexed each financial year.">Your ordinary earnings are over the ' + fmtCurrency0.format(MAX_SUPER_BASE) + '/yr Maximum Super Contribution Base, so employer super isn\'t compulsory on the excess — SG above is capped accordingly.</div>' +
+      '</div>';
+    }).join("");
+    container.innerHTML = html;
+  }
+
+  // Same data and the same data-tax-person/tax-ipshare/tax-sacrifice/etc. contract as classic
+  // (reuses computePersonTax, renderTaxWaterfallHtml, and the existing taxSuperBody click/input
+  // handlers below verbatim — patchAllTaxPersonOutputs doesn't care which layout produced the
+  // DOM it's patching) — the only real difference is ownership/sacrifice tucked behind a
+  // disclosure instead of always-open, so the net take-home number stays the headline.
+  function renderTaxSuperModern(){
+    var container = document.getElementById("taxSuperBody");
+    if(!container) return;
+    var people = getTaxPeople();
+    if(!people.length){
+      container.innerHTML = '<p class="tax-empty">Mark an Income row\'s Type as "Gross" and give it a Person to see their estimated tax, Medicare levy, and super here.</p>';
+      return;
+    }
+    var ipResult = ipNetResultAnnual();
+    var html = '<div class="tax-global">' +
+      '<div class="proj-field"><label>Super guarantee % p.a.</label><input type="number" min="0" max="30" step="0.1" id="taxSgRate" value="' + (Number(state.tax.sgRate) || 11.5) + '"></div>' +
+      '</div>';
+    html += '<p class="ledger-note" style="margin:0 0 12px">Investment property result this year: <b style="font-family:\'IBM Plex Mono\',monospace">' + fmtCurrency0.format(ipResult) + '</b> (' + (ipResult < 0 ? "a loss — negatively geared, reduces taxable income" : "net rental profit — adds to taxable income") + '), split below by ownership share.</p>';
+
+    html += people.map(function(person, pi){
+      var r = computePersonTax(person);
+      var settings = personTaxSettings(person);
+      var capPct = r.capAvailable > 0 ? Math.min(100, (r.totalConcessional / r.capAvailable) * 100) : 0;
+      var pid = escapeAttr(person);
+      var contributingRows = state.income.filter(function(i){ return i.incomeType === "Gross" && i.person === person; });
+      var rowsSummary = contributingRows.map(function(i){ return escapeAttr(i.what) + " " + fmtCurrency0.format(periodsOf(i.amount, i.freq).yearly) + "/yr"; }).join(" + ");
+      var baseLabel = Math.abs(r.packageTotal - r.gross) > 1 ? "Base salary (excl. super) /yr" : "Total gross income /yr";
+      return '<div class="tax-person" data-tax-person="' + pid + '">' +
+        '<div class="tax-person-head">' +
+          '<h4><span class="m-avatar series-color-' + (pi % 8) + '" style="width:24px;height:24px;font-size:11px;margin-right:8px">' + escapeAttr(person.charAt(0).toUpperCase()) + '</span>' + escapeAttr(person) + '<button type="button" class="icon-btn" data-tax-rename="' + pid + '" aria-label="Rename ' + pid + '" title="Rename this person (updates every income row)">✎</button><button type="button" class="icon-btn icon-del" data-tax-remove="' + pid + '" aria-label="Remove ' + pid + '" title="Remove this person from tax &amp; super (their income rows go back to Net)">✕</button></h4>' +
+          '<span class="tax-marginal">Marginal rate ' + fmtPercent1.format(r.marginalRate) + ' · effective ' + fmtPercent1.format(r.effectiveRate) + '</span>' +
+        '</div>' +
+        (rowsSummary ? '<p class="tax-rows-summary">Adds up: ' + rowsSummary + ' = <b>' + fmtCurrency0.format(r.packageTotal) + '/yr</b> total gross</p>' : '') +
+        '<div class="tax-hero"><span class="tax-hero-label">Net take-home</span><div class="tax-hero-value"><span data-out="nettakehome">' + fmtCurrency0.format(r.netTakeHome) + '</span><small> /yr · <span data-out="nettakehomemo">' + fmtCurrency0.format(r.netTakeHome / 12) + '</span> /mo</small></div></div>' +
+        '<div class="tax-waterfall">' + renderTaxWaterfallHtml(r) + '</div>' +
+        '<p class="tax-secondary-line">' + baseLabel.replace(" /yr", "") + ' <b data-out="gross">' + fmtCurrency0.format(r.gross) + '</b> · IP share <b data-out="ipshare" class="' + (r.ipShare < 0 ? "neg" : "") + '">' + (r.ipShare >= 0 ? "+" : "") + fmtCurrency0.format(r.ipShare) + '</b> · Taxable income <b data-out="taxable">' + fmtCurrency0.format(r.taxable) + '</b> /yr</p>' +
+        (Math.abs(r.packageTotal - r.gross) > 1
+          ? '<p class="tax-package-note" data-out="packagenote" style="margin:-6px 0 12px">Of that ' + fmtCurrency0.format(r.packageTotal) + ', ' + fmtCurrency0.format(r.packageTotal - r.gross) + ' is super already included inside a row marked "Super: Included" — so tax and take-home are calculated on ' + fmtCurrency0.format(r.gross) + ' base salary, not the full ' + fmtCurrency0.format(r.packageTotal) + '. (Total super for the year, from every row, is in the cap line below.)</p>'
+          : '') +
+        '<div class="tax-inputs-label">Concessional cap usage <span class="calc-help" title="Estimated from your inputs below — not something you set directly.">ⓘ</span></div>' +
+        '<div class="cap-bar-track"><div class="cap-bar-fill' + (r.capExceeded > 0 ? " over" : "") + '" style="width:' + Math.min(100, capPct) + '%"></div></div>' +
+        '<div class="tax-cap-note' + (r.capExceeded > 0 ? " warn" : "") + '">' +
+          (r.capExceeded > 0
+            ? ('Over cap by ' + fmtCurrency0.format(r.capExceeded) + ' — excess concessional contributions are taxed at your marginal rate, not just 15%. Check with your accountant.')
+            : (fmtCurrency0.format(r.totalConcessional) + ' of ' + fmtCurrency0.format(r.capAvailable) + ' concessional cap used (SG ' + fmtCurrency0.format(r.sg) + (r.autoSacrifice > 0 ? ' + bonus/income sacrifice ' + fmtCurrency0.format(r.autoSacrifice) : '') + (r.manualSacrifice > 0 ? ' + manual sacrifice ' + fmtCurrency0.format(r.manualSacrifice) : '') + ') — super received net of 15% contributions tax: ' + fmtCurrency0.format(r.superNet))
+          ) +
+        '</div>' +
+        '<div class="tax-cap-note tax-div293-note warn"' + (r.div293Tax > 0.5 ? '' : ' hidden') + ' title="Simplified: income for surcharge purposes is approximated as taxable income + your within-cap concessional contributions, ignoring reportable fringe benefits and net investment losses. Check with your accountant.">Division 293: your income is over the $250,000 threshold, so an extra 15% applies to ' + fmtCurrency0.format(Math.min(r.totalConcessional, r.capAvailable)) + ' of low-tax super contributions — ' + fmtCurrency0.format(r.div293Tax) + '/yr, assessed separately by the ATO (not withheld from take-home above).</div>' +
+        '<div class="tax-cap-note tax-mscb-note"' + (r.superOverCap ? '' : ' hidden') + ' title="Employer super guarantee isn\'t compulsory on ordinary-time earnings above this threshold — indexed each financial year.">Your ordinary earnings are over the ' + fmtCurrency0.format(MAX_SUPER_BASE) + '/yr Maximum Super Contribution Base, so employer super isn\'t compulsory on the excess — SG above is capped accordingly.</div>' +
+        '<details class="tax-advanced" style="margin-top:12px"><summary>Adjust ownership &amp; sacrifice</summary>' +
+          '<div class="tax-inputs-panel" style="margin-top:8px">' +
+            '<div class="tax-inputs">' +
+              '<div class="proj-field"><label>IP ownership %</label><input type="number" min="0" max="100" step="1" class="tax-ipshare" value="' + r.ownershipPct + '"></div>' +
+              '<div class="proj-field"><label title="Separate from the Cash / Sacrifice column on income rows above — use this for sacrifice not tied to a specific item">Manual sacrifice $/yr</label><input type="number" min="0" step="500" class="tax-sacrifice" value="' + settings.superSacrificeAnnual + '"><button type="button" class="calc-hint-link" style="margin-top:4px" data-tax-maxcap="' + pid + '" title="Fills your remaining concessional cap headroom this year with manual sacrifice (SG and any auto/bonus sacrifice already counted): sets manual sacrifice to ' + fmtCurrency0.format(Math.max(0, r.capAvailable - r.sg - r.autoSacrifice)) + '">Max out cap</button></div>' +
+            '</div>' +
+            '<details class="tax-advanced"><summary>Advanced — concessional cap &amp; carry-forward</summary>' +
+              '<div class="tax-inputs">' +
+                '<div class="proj-field"><label>Concessional cap $/yr</label><input type="number" min="0" step="500" class="tax-cap" value="' + settings.concessionalCap + '"></div>' +
+                '<div class="proj-field"><label>Carry-forward available $</label><input type="number" min="0" step="500" class="tax-carryforward" value="' + settings.carryForward + '"></div>' +
+              '</div>' +
+            '</details>' +
+          '</div>' +
+        '</details>' +
       '</div>';
     }).join("");
     container.innerHTML = html;
@@ -3165,12 +3316,57 @@
   });
 
   document.addEventListener("input", function(e){
-    if(e.target.closest("table.ledger-table")) onLedgerInput(e);
+    if(e.target.closest("table.ledger-table") || e.target.closest(".m-rows")) onLedgerInput(e);
   });
   document.addEventListener("change", function(e){
-    if(e.target.closest("table.ledger-table") && (e.target.tagName === "SELECT")) onLedgerInput(e);
+    if((e.target.closest("table.ledger-table") || e.target.closest(".m-rows")) && (e.target.tagName === "SELECT")) onLedgerInput(e);
   });
   document.addEventListener("click", onLedgerClick);
+
+  // Modern income rows expand in place instead of showing every field at once — purely a UI
+  // toggle, doesn't touch state.income.
+  document.getElementById("incomeGroups").addEventListener("click", function(e){
+    var toggle = e.target.closest("[data-row-toggle]");
+    if(!toggle) return;
+    var row = toggle.closest(".m-row");
+    if(!row) return;
+    var idx = row.getAttribute("data-index");
+    var willOpen = !row.classList.contains("open");
+    row.classList.toggle("open", willOpen);
+    modernIncomeRowOpen[idx] = willOpen;
+  });
+  document.getElementById("incomeGroups").addEventListener("keydown", function(e){
+    if(e.key !== "Enter" && e.key !== " ") return;
+    var toggle = e.target.closest("[data-row-toggle]");
+    if(!toggle) return;
+    e.preventDefault();
+    toggle.click();
+  });
+
+  function syncUiModeToggle(){
+    document.querySelectorAll(".uimode-toggle-btn").forEach(function(btn){
+      var active = btn.getAttribute("data-uimode") === state.uiMode;
+      btn.classList.toggle("active", active);
+      btn.setAttribute("aria-selected", String(active));
+    });
+    // The column picker only makes sense for the classic table's fixed columns — modern rows
+    // already show every field, just tucked behind an expand instead of hidden by a toggle.
+    var picker = document.getElementById("incomeColPicker");
+    if(picker) picker.hidden = state.uiMode === "modern";
+  }
+  var uiModeToggleEl = document.getElementById("incomeUiModeToggle");
+  if(uiModeToggleEl){
+    uiModeToggleEl.addEventListener("click", function(e){
+      var btn = e.target.closest("[data-uimode]");
+      if(!btn) return;
+      var mode = btn.getAttribute("data-uimode");
+      if(mode === state.uiMode) return;
+      state.uiMode = mode;
+      renderIncomeGroups();
+      renderTaxSuper();
+      persist();
+    });
+  }
 
   function onScenarioControlClick(e){
     var collapseBtn = e.target.closest("[data-collapse-toggle]");

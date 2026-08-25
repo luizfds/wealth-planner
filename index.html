@@ -94,7 +94,13 @@
       </section>
 
       <section class="app-page" id="page-income" hidden>
-        <p class="page-intro">Your household income, and what it's really worth after tax.</p>
+        <div class="page-intro-row">
+          <p class="page-intro">Your household income, and what it's really worth after tax.</p>
+          <div class="uimode-toggle" id="incomeUiModeToggle" role="tablist" aria-label="Income &amp; Tax layout">
+            <button type="button" class="uimode-toggle-btn" data-uimode="classic" role="tab">Classic</button>
+            <button type="button" class="uimode-toggle-btn" data-uimode="modern" role="tab">Modern</button>
+          </div>
+        </div>
         <div class="ledgers">
           <details class="ledger" open>
             <summary>

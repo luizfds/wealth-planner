@@ -2305,9 +2305,26 @@
   // regardless of category, so no section prefix is needed to avoid collisions.
   var modernAssetRowOpen = {};
 
-  function modernAssetRowHtml(item, idx){
+  // Every item in a category gets a color, cycling the same 8-color series used everywhere else —
+  // shared by each row's identity dot and the category's composition bar so the two stay in sync.
+  function assetRowMeta(data){
+    return data.items.map(function(item, i){ return { item: item, idx: data.indices[i], colorIdx: i % 8 }; });
+  }
+  function modernAssetCompBarHtml(rowMeta){
+    var segs = rowMeta.map(function(m){ return { item: m.item, colorIdx: m.colorIdx, amount: Math.max(0, Number(m.item.amount) || 0) }; })
+      .filter(function(x){ return x.amount > 0.5; });
+    if(segs.length < 2) return "";
+    var total = segs.reduce(function(s, x){ return s + x.amount; }, 0);
+    return '<div class="m-comp-bar" data-comp-bar>' + segs.map(function(x){
+      var pct = total > 0 ? x.amount / total : 0;
+      return '<div class="m-comp-seg series-color-' + x.colorIdx + '" style="flex:' + x.amount + ' 1 0%" title="' + escapeAttr(x.item.what) + ': ' + fmtCurrency0.format(x.amount) + ' (' + fmtPercent1.format(pct) + ')"></div>';
+    }).join("") + '</div>';
+  }
+  function modernAssetRowHtml(item, idx, colorIdx){
     var isOpen = !!modernAssetRowOpen[idx];
+    var dot = colorIdx != null ? '<span class="m-row-dot series-color-' + colorIdx + '" aria-hidden="true"></span>' : "";
     var summary = '<div class="m-row-summary" role="button" tabindex="0" data-row-toggle>' +
+      dot +
       '<div style="flex:1 1 auto; min-width:0"><div class="m-row-name">' + escapeAttr(item.what) + '</div></div>' +
       '<span class="m-row-amt" data-computed="amt">' + fmtCurrency0.format(Number(item.amount) || 0) + '</span>' +
       '<svg class="m-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>' +
@@ -2334,7 +2351,8 @@
     if(!data.items.length){
       body = '<p class="ledger-note" style="margin:0 0 12px">No ' + escapeAttr(cat) + ' tracked yet.</p>' + footerBtn;
     } else if(isModern){
-      body = '<div class="m-card"><div class="m-rows m-asset-rows">' + data.items.map(function(item, i){ return modernAssetRowHtml(item, data.indices[i]); }).join("") + '</div></div><div class="ledger-footer">' + footerBtn + '</div>';
+      var rowMeta = assetRowMeta(data);
+      body = '<div class="m-card" id="assetsComp-' + cat + '">' + modernAssetCompBarHtml(rowMeta) + '<div class="m-rows m-asset-rows">' + rowMeta.map(function(m){ return modernAssetRowHtml(m.item, m.idx, m.colorIdx); }).join("") + '</div></div><div class="ledger-footer">' + footerBtn + '</div>';
     } else {
       body = '<div class="table-scroll"><table class="assets-table" id="assetCatTable-' + cat + '"></table></div><div class="ledger-footer">' + footerBtn + '</div>';
     }
@@ -2366,9 +2384,11 @@
     if(valueCell) valueCell.innerHTML = fmtCurrency0.format(Number(item.amount) || 0) + (item.computed ? '<span class="computed-note">auto</span>' : '<span class="computed-note">set price + date to auto-depreciate</span>');
   }
 
-  function modernVehicleRowHtml(item, idx){
+  function modernVehicleRowHtml(item, idx, colorIdx){
     var isOpen = !!modernAssetRowOpen[idx];
+    var dot = colorIdx != null ? '<span class="m-row-dot series-color-' + colorIdx + '" aria-hidden="true"></span>' : "";
     var summary = '<div class="m-row-summary" role="button" tabindex="0" data-row-toggle>' +
+      dot +
       '<div style="flex:1 1 auto; min-width:0"><div class="m-row-name">' + escapeAttr(item.what) + '</div></div>' +
       '<span class="m-row-amt" data-computed="amt">' + fmtCurrency0.format(Number(item.amount) || 0) + '</span>' +
       '<svg class="m-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>' +
@@ -2397,7 +2417,8 @@
     if(!data.items.length){
       body = '<p class="ledger-note" style="margin:0 0 12px">No vehicles tracked yet.</p>' + footerBtn;
     } else if(isModern){
-      body = '<div class="m-card"><div class="m-rows m-asset-rows">' + data.items.map(function(item, i){ return modernVehicleRowHtml(item, data.indices[i]); }).join("") + '</div></div><div class="ledger-footer">' + footerBtn + '</div>';
+      var rowMeta = assetRowMeta(data);
+      body = '<div class="m-card" id="assetsComp-Vehicle">' + modernAssetCompBarHtml(rowMeta) + '<div class="m-rows m-asset-rows">' + rowMeta.map(function(m){ return modernVehicleRowHtml(m.item, m.idx, m.colorIdx); }).join("") + '</div></div><div class="ledger-footer">' + footerBtn + '</div>';
     } else {
       body = '<div class="table-scroll"><table class="assets-table holdings-table" id="vehiclesTable"></table></div><div class="ledger-footer">' + footerBtn + '</div>';
     }
@@ -2412,12 +2433,14 @@
     }
   }
 
-  function modernShareRowHtml(item, idx){
+  function modernShareRowHtml(item, idx, colorIdx){
     var qty = Number(item.quantity) || 0;
     var price = Number(item.price) || 0;
     var isOpen = !!modernAssetRowOpen[idx];
+    var dot = colorIdx != null ? '<span class="m-row-dot series-color-' + colorIdx + '" aria-hidden="true"></span>' : "";
     var tag = item.symbol ? '<span class="m-row-tag">' + escapeAttr(item.symbol) + '</span>' : "";
     var summary = '<div class="m-row-summary" role="button" tabindex="0" data-row-toggle>' +
+      dot +
       '<div style="flex:1 1 auto; min-width:0">' +
         '<div class="m-row-name">' + escapeAttr(item.what) + '</div>' +
         '<div class="m-row-sub h-gain-cell">' + gainLossHtml(item) + '</div>' +
@@ -2430,12 +2453,16 @@
       '<div class="m-edit-grid">' +
         '<div class="m-edit-field span3"><label>What</label><input type="text" class="h-what" value="' + escapeAttr(item.what) + '" aria-label="Holding name"></div>' +
         '<div class="m-edit-field"><label>Symbol</label><input type="text" class="h-symbol" value="' + escapeAttr(item.symbol || "") + '" placeholder="e.g. CBA" aria-label="Ticker symbol"></div>' +
-        '<div class="m-edit-field"><label>Market</label><select class="h-market">' + optionsHtml(SHARE_MARKETS, item.market || "ASX") + '</select></div>' +
         '<div class="m-edit-field"><label>Qty</label><input type="number" step="1" min="0" class="h-qty" value="' + qty + '" aria-label="Quantity"></div>' +
-        '<div class="m-edit-field"><label>Avg cost</label><input type="number" step="0.01" min="0" class="h-avgcost" value="' + (item.avgCost != null ? item.avgCost : "") + '" placeholder="—" aria-label="Average cost per share"></div>' +
         '<div class="m-edit-field"><label>Price</label><input type="number" step="0.01" min="0" class="h-price" value="' + price + '" aria-label="Current price per share">' + (item.priceUpdated ? '<span class="computed-note h-price-note">as of ' + escapeAttr(item.priceUpdated) + '</span>' : '<span class="computed-note h-price-note"></span>') + '</div>' +
-        '<div class="m-edit-field"><label>Person</label><input type="text" class="h-person" list="personSuggestions" value="' + escapeAttr(item.person || "") + '" placeholder="Household" aria-label="Person"></div>' +
       '</div>' +
+      '<details class="tax-advanced m-more-options"><summary>More options</summary>' +
+        '<div class="m-edit-grid" style="margin-top:8px">' +
+          '<div class="m-edit-field"><label>Market</label><select class="h-market">' + optionsHtml(SHARE_MARKETS, item.market || "ASX") + '</select></div>' +
+          '<div class="m-edit-field"><label>Avg cost</label><input type="number" step="0.01" min="0" class="h-avgcost" value="' + (item.avgCost != null ? item.avgCost : "") + '" placeholder="—" aria-label="Average cost per share"></div>' +
+          '<div class="m-edit-field"><label>Person</label><input type="text" class="h-person" list="personSuggestions" value="' + escapeAttr(item.person || "") + '" placeholder="Household" aria-label="Person"></div>' +
+        '</div>' +
+      '</details>' +
       '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm asset-log-btn" data-asset-log="' + idx + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart below">Log</button><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete holding">Delete</button></div>' +
     '</div></div></div>';
     return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="assets" data-index="' + idx + '">' + summary + edit + '</div>';
@@ -2452,7 +2479,8 @@
     if(!data.items.length){
       body = '<p class="ledger-note" style="margin:0 0 12px">No share holdings yet.</p>' + footerBtn;
     } else if(isModern){
-      body = '<div class="m-card"><div class="m-rows m-asset-rows">' + data.items.map(function(item, i){ return modernShareRowHtml(item, data.indices[i]); }).join("") + '</div></div><div class="ledger-footer">' + footerBtn + '</div>';
+      var rowMeta = assetRowMeta(data);
+      body = '<div class="m-card" id="assetsComp-Shares">' + modernAssetCompBarHtml(rowMeta) + '<div class="m-rows m-asset-rows">' + rowMeta.map(function(m){ return modernShareRowHtml(m.item, m.idx, m.colorIdx); }).join("") + '</div></div><div class="ledger-footer">' + footerBtn + '</div>';
     } else {
       body = '<div class="table-scroll"><table class="assets-table holdings-table" id="sharesTable"></table></div><div class="ledger-footer">' + footerBtn + '</div>';
     }
@@ -2578,6 +2606,8 @@
       var container = document.getElementById("assetsSub-" + cat);
       var totalEl = container && container.querySelector(".ledger-total b");
       if(totalEl) totalEl.textContent = fmtCurrency0.format(total);
+      var barWrap = container && container.querySelector("#assetsComp-" + cat + " [data-comp-bar]");
+      if(barWrap) barWrap.outerHTML = modernAssetCompBarHtml(assetRowMeta(data));
     });
     renderAssetsSummary();
   }

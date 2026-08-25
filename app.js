@@ -1583,7 +1583,9 @@
     var isComputed = !!item.computed;
     var isPrimary = opts.primaryId && item.id === opts.primaryId;
     var monthly = periodsOf(item.amount, item.freq).monthly;
+    var dot = (!isComputed && opts.colorIdx != null) ? '<span class="m-row-dot series-color-' + opts.colorIdx + '" aria-hidden="true"></span>' : "";
     var summary = '<div class="m-row-summary"' + (isComputed ? ' style="cursor:default"' : ' role="button" tabindex="0" data-row-toggle') + '>' +
+      dot +
       '<div style="flex:1 1 auto; min-width:0">' +
         '<div class="m-row-name">' + escapeAttr(item.what) + '</div>' +
         (isComputed && item.computedNote ? '<div class="m-row-sub">' + escapeAttr(item.computedNote) + '</div>' : "") +
@@ -1692,9 +1694,31 @@
   // recurring-costs list (the "home:<scenario>" section prefix keeps each scenario's rows
   // unique in the map, the same way "propinc:<id>"/"propexp:<id>" do for Properties).
   var modernHomeRowOpen = {};
-  function modernHomeListHtml(scenario){
+  // Every non-computed cost row gets a color, cycling the same 8-color series used everywhere
+  // else — shared by each row's identity dot and the card's composition bar so the two stay in
+  // sync (mirrors incomeGroupRowMeta/loanRowMeta).
+  function homeRowMeta(scenario){
+    var contribIdx = 0;
     return (state.home[scenario] || []).map(function(item, idx){
-      return modernPlainRowHtml(item, idx, "home:" + scenario, modernHomeRowOpen, {showClass:true, primaryId:"homeLoanRow"});
+      var colorIdx = null;
+      if(!item.computed){ colorIdx = contribIdx % 8; contribIdx++; }
+      return { item: item, idx: idx, colorIdx: colorIdx };
+    });
+  }
+  function modernHomeCompBarHtml(rowMeta){
+    var segs = rowMeta.filter(function(m){ return m.colorIdx != null; }).map(function(m){
+      return { item: m.item, colorIdx: m.colorIdx, monthly: Math.max(0, periodsOf(m.item.amount, m.item.freq).monthly) };
+    }).filter(function(x){ return x.monthly > 0.5; });
+    if(segs.length < 2) return "";
+    var total = segs.reduce(function(s, x){ return s + x.monthly; }, 0);
+    return '<div class="m-comp-bar" data-comp-bar>' + segs.map(function(x){
+      var pct = total > 0 ? x.monthly / total : 0;
+      return '<div class="m-comp-seg series-color-' + x.colorIdx + '" style="flex:' + x.monthly + ' 1 0%" title="' + escapeAttr(x.item.what) + ': ' + fmtCurrency0.format(x.monthly) + '/mo (' + fmtPercent1.format(pct) + ')"></div>';
+    }).join("") + '</div>';
+  }
+  function modernHomeListHtml(scenario){
+    return homeRowMeta(scenario).map(function(m){
+      return modernPlainRowHtml(m.item, m.idx, "home:" + scenario, modernHomeRowOpen, {showClass:true, primaryId:"homeLoanRow", colorIdx:m.colorIdx});
     }).join("");
   }
   function renderHomeListModern(scenario, i){
@@ -1734,7 +1758,7 @@
           '<div class="home-recurring-label">Recurring costs — per month</div>' +
           '<p class="income-summary-line home-recon-line">' + homeReconciliationHtml(scenario) + '</p>' +
           (state.uiMode === "modern"
-            ? '<div class="m-card"><div class="m-rows" id="homeRows_' + slug(scenario) + i + '">' + modernHomeListHtml(scenario) + '</div></div>'
+            ? '<div class="m-card" id="homeCard_' + slug(scenario) + i + '">' + modernHomeCompBarHtml(homeRowMeta(scenario)) + '<div class="m-rows" id="homeRows_' + slug(scenario) + i + '">' + modernHomeListHtml(scenario) + '</div></div>'
             : '<div class="table-scroll"><table class="ledger-table" id="homeTable_' + slug(scenario) + i + '"></table></div>') +
           '<div class="ledger-footer"><button class="btn btn-sm" data-add="home:' + escapeAttr(scenario) + '">+ Add item</button></div>' +
         '</div>' +
@@ -2030,6 +2054,8 @@
       if(totalSpan) totalSpan.textContent = fmtCurrency0.format(monthly) + " / mo";
       var reconLine = block.querySelector('.home-recon-line');
       if(reconLine) reconLine.innerHTML = homeReconciliationHtml(scenario);
+      var barWrap = block.querySelector('[id^="homeCard_"] [data-comp-bar]');
+      if(barWrap) barWrap.outerHTML = modernHomeCompBarHtml(homeRowMeta(scenario));
     });
   }
 

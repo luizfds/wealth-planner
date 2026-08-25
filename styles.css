@@ -319,6 +319,7 @@
   .rule-seg.needs{ background: #6b7a8f; }
   .rule-seg.wants{ background: var(--brass); }
   .rule-seg.savings{ background: var(--good); }
+  .rule-seg.na{ background: var(--ink-soft); }
   .rule-target{ position:absolute; top:0; bottom:0; width:0; border-right: 1.5px dashed rgba(0,0,0,0.35); }
   @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .rule-target{ border-right-color: rgba(255,255,255,0.35); } }
   :root[data-theme="dark"] .rule-target{ border-right-color: rgba(255,255,255,0.35); }
@@ -326,7 +327,7 @@
   .rule-legend-item{ display:flex; align-items:center; gap:6px; color: var(--ink-soft); }
   .rule-legend b{ color: var(--ink); font-weight:600; }
   .rule-swatch{ width:9px; height:9px; border-radius:3px; flex:none; }
-  .rule-swatch.needs{ background:#6b7a8f; } .rule-swatch.wants{ background:var(--brass); } .rule-swatch.savings{ background:var(--good); }
+  .rule-swatch.needs{ background:#6b7a8f; } .rule-swatch.wants{ background:var(--brass); } .rule-swatch.savings{ background:var(--good); } .rule-swatch.na{ background:var(--ink-soft); }
 
   /* account bars */
   .acct-row{ display:grid; grid-template-columns: 92px 1fr 78px; align-items:center; gap:10px; margin-bottom:9px; font-size:12.5px; }
@@ -518,6 +519,10 @@
     font-weight:700; font-size:13px; color:#fff; background: var(--series-color); font-family:"Inter",sans-serif;
   }
   .m-avatar.m-avatar-neutral{ background: var(--ink-soft); }
+  .m-avatar.m-avatar-needs{ background: #6b7a8f; }
+  .m-avatar.m-avatar-wants{ background: var(--brass); }
+  .m-avatar.m-avatar-savings{ background: var(--good); }
+  .m-avatar.m-avatar-na{ background: var(--ink-soft); }
   .m-people{ display:flex; flex-direction:column; gap:14px; }
   .m-card{ border:1px solid var(--border); border-radius:12px; background: var(--paper-sunken); overflow:hidden; }
   .m-card-head{ display:flex; align-items:center; gap:12px; padding:13px 16px; }

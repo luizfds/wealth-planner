@@ -1275,7 +1275,7 @@
       var label = g.key === "__household" ? "Household / shared" : g.key;
       var addValue = g.key === "__household" ? "" : g.key;
       var hasGrossRows = g.items.some(function(i){ return i.incomeType === "Gross" && !i.computed; });
-      return '<div class="income-group"><div class="income-group-head">' +
+      return '<div class="income-group income-person-card"><div class="income-group-head">' +
         '<div class="income-group-head-left"><h4>' + escapeAttr(label) + '</h4></div>' +
         '<div class="income-group-total">' + fmtCurrency0.format(g.monthly) + ' / mo</div>' +
         '</div>' +

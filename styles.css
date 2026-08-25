@@ -640,7 +640,7 @@
   .calc-field label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; }
   .calc-field input[type="number"], .calc-field select{
     border:1px solid var(--border); background: var(--paper-raised); color: var(--ink);
-    padding:6px 8px; border-radius:7px; font-size:13px; width:100%;
+    padding:6px 8px; border-radius:7px; font-size:13px; width:100%; font-family:inherit;
     transition: border-color .18s ease, box-shadow .18s ease;
   }
   .calc-field input:focus, .calc-field select:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
@@ -652,7 +652,6 @@
     display:flex; align-items:center; gap:7px; font-size:13px; color: var(--ink); cursor:pointer;
     border:1px solid var(--border); background: var(--paper-raised); padding:6px 8px; border-radius:7px;
   }
-  .calc-check-inline input{ width:14px; height:14px; accent-color: var(--brass); cursor:pointer; flex:none; }
 
   .calc-outputs-label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; margin:-2px 0 -4px; }
   .home-recurring-label{ font-size:12.5px; text-transform:uppercase; letter-spacing:.03em; color: var(--ink-soft); font-weight:600; margin:2px 0 2px; }

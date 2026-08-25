@@ -1829,7 +1829,7 @@
             '<div class="calc-field" title="Rate for a standard principal &amp; interest loan — get your bank/broker\'s quoted rate for an accurate comparison."><label>Interest rate % p.a. (P&amp;I)</label><input type="number" step="0.05" min="0" class="calc-rate" value="' + cfg.rate + '"></div>' +
             '<div class="calc-field" title="Interest-only rate — lenders usually price this higher than P&amp;I. Get the actual IO rate quoted by your bank, don\'t assume it matches P&amp;I."><label>Interest rate % p.a. (IO)</label><input type="number" step="0.05" min="0" class="calc-iorate" value="' + cfg.ioRate + '"></div>' +
             '<div class="calc-field" title="Which repayment feeds your budget below and the long-term projection. Both are shown for comparison regardless of this choice."><label>Repayment type used</label><select class="calc-repaymenttype"><option value="PI"' + (cfg.repaymentType !== "IO" ? " selected" : "") + '>Principal &amp; interest</option><option value="IO"' + (cfg.repaymentType === "IO" ? " selected" : "") + '>Interest only</option></select></div>' +
-            '<div class="calc-field"><label>First home buyer <span class="calc-help" title="Applies first-home-buyer stamp duty savings: full exemption below $800k (NSW) / $600k (VIC), tapering down to no discount at $1M (NSW) / $750k (VIC). No effect when State is \'Other\' — stamp duty is entered manually there.">ⓘ</span></label><label class="calc-check-inline"><input type="checkbox" class="calc-fhb"' + (cfg.firstHomeBuyer ? " checked" : "") + '> Yes</label></div>' +
+            '<div class="calc-field"><label>First home buyer <span class="calc-help" title="Applies first-home-buyer stamp duty savings: full exemption below $800k (NSW) / $600k (VIC), tapering down to no discount at $1M (NSW) / $750k (VIC). No effect when State is \'Other\' — stamp duty is entered manually there.">ⓘ</span></label><label class="calc-check-inline"><span class="switch"><input type="checkbox" class="calc-fhb"' + (cfg.firstHomeBuyer ? " checked" : "") + '><span class="switch-track"><span class="switch-thumb"></span></span></span> Yes</label></div>' +
           '</div>' +
           '<div class="calc-outputs-label">At settlement — one-off</div>' +
           '<div class="calc-outputs">' +
@@ -1850,8 +1850,8 @@
             (isModern ? '<div class="m-card m-cost-rows">' + modernCostsCompBar + modernCostsRows + '</div>' : '<table class="calc-costs-table">' + costsRows + '</table>') +
             '<button type="button" class="btn btn-sm" style="margin-top:8px" data-cc-add="1">+ Add cost</button>' +
           '</div>' +
-          '<label style="display:flex;align-items:center;gap:7px;font-size:12.5px;cursor:pointer">' +
-            '<input type="checkbox" class="calc-sync" style="width:14px;height:14px;accent-color:var(--brass)"' + (cfg.syncRepayment ? " checked" : "") + '> Use this repayment as "Rent / Home Loan" below' +
+          '<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;cursor:pointer">' +
+            '<span class="switch"><input type="checkbox" class="calc-sync"' + (cfg.syncRepayment ? " checked" : "") + '><span class="switch-track"><span class="switch-thumb"></span></span></span> Use this repayment as "Rent / Home Loan" below' +
           '</label>' +
           '<p class="calc-note">P&amp;I repayment is exact (standard amortisation). Interest-only repayment is simplified — modelled flat for the full loan term rather than a fixed IO period reverting to P&amp;I, and the projection assumes the balance never reduces while IO is selected. Stamp duty (NSW/VIC) and LMI are estimates based on published general scales and typical lender premiums — all rates and fees vary by lender/insurer and change over time, so confirm exact figures with your bank, broker or state revenue office before relying on them.</p>' +
         '</div>';

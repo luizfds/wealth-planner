@@ -357,6 +357,16 @@
     var medicare = medicareLevyAU(taxable);
     var totalTax = incomeTax + medicare;
     var netTakeHome = gross - sacrifice - totalTax;
+    // netTakeHome already folds in the property's tax effect evenly across the year — but a tax
+    // refund from a negative-geared loss (or a bill from a positively-geared profit) doesn't
+    // actually arrive that way unless the PAYG withholding was varied; by default it's a lump sum
+    // after lodging a return. payslipTakeHome is what would actually land each pay cycle with
+    // withholding unaffected by the property, so the gap between the two numbers is the answer to
+    // "how much am I really saving/paying" — surfaced in personBreakdownHtml, not folded silently
+    // into the one blended figure used everywhere else in the app.
+    var taxableWithoutIp = Math.max(0, gross - sacrifice);
+    var payslipTakeHome = gross - sacrifice - incomeTaxAU(taxableWithoutIp) - medicareLevyAU(taxableWithoutIp);
+    var ipTaxEffect = netTakeHome - payslipTakeHome;
     var sg = inc.sg;
     var totalConcessional = sg + sacrifice;
     var capAvailable = (Number(settings.concessionalCap) || 30000) + (Number(settings.carryForward) || 0);
@@ -376,6 +386,7 @@
       gross: gross, packageTotal: inc.packageTotal, ipShare: ipShare, ownershipPct: ownershipPct,
       sacrifice: sacrifice, manualSacrifice: manualSacrifice, autoSacrifice: autoSacrifice, taxable: taxable,
       incomeTax: incomeTax, medicare: medicare, totalTax: totalTax, netTakeHome: netTakeHome,
+      payslipTakeHome: payslipTakeHome, ipTaxEffect: ipTaxEffect,
       effectiveRate: gross > 0 ? totalTax / gross : 0,
       sg: sg, totalConcessional: totalConcessional, capAvailable: capAvailable, capExceeded: capExceeded,
       contributionsTax: contributionsTax, superNet: superNet, marginalRate: marginalRateAU(taxable),
@@ -397,7 +408,17 @@
     html += row("Medicare levy", "−" + fmtCurrency0.format(r.medicare) + "/yr", "neg");
     if(r.sacrifice > 0.5) html += row("Super sacrifice", "−" + fmtCurrency0.format(r.sacrifice) + "/yr", "neg");
     html += row("Net take-home", fmtCurrency0.format(r.netTakeHome) + "/yr", "rb-total");
+    if(Math.abs(r.ipTaxEffect) > 0.5) html += row("Payslip take-home", fmtCurrency0.format(r.payslipTakeHome) + "/yr", "rb-secondary");
     html += '</div>';
+    if(Math.abs(r.ipTaxEffect) > 0.5){
+      var isBenefit = r.ipTaxEffect > 0;
+      html += '<p class="calc-note rb-ip-note">' +
+        (isBenefit ? "+" : "−") + fmtCurrency0.format(Math.abs(r.ipTaxEffect)) + "/yr " + (isBenefit ? "less" : "more") +
+        " tax from this property’s " + (r.ipShare < 0 ? "loss" : "profit") + " — “Net take-home” above already includes it, " +
+        "but it usually arrives as a lump sum after lodging a return (“Payslip take-home”), not spread through the year, " +
+        "unless you’ve arranged a PAYG withholding variation." +
+      "</p>";
+    }
     return html;
   }
 
@@ -3887,11 +3908,7 @@
   });
 
   function syncUiModeToggle(){
-    document.querySelectorAll(".uimode-toggle-btn").forEach(function(btn){
-      var active = btn.getAttribute("data-uimode") === state.uiMode;
-      btn.classList.toggle("active", active);
-      btn.setAttribute("aria-selected", String(active));
-    });
+    document.getElementById("uiModeToggle").checked = state.uiMode === "modern";
     document.getElementById("mobileLayoutBtn").textContent = "Layout: " + (state.uiMode === "modern" ? "Modern" : "Classic");
     // The column picker/toggle only makes sense for the classic table's fixed columns — modern
     // rows already show every field, just tucked behind an expand instead of hidden by a toggle.
@@ -3900,23 +3917,9 @@
       if(picker) picker.hidden = state.uiMode === "modern";
     });
   }
-  function wireUiModeToggle(elId, onSwitch){
-    var el = document.getElementById(elId);
-    if(!el) return;
-    el.addEventListener("click", function(e){
-      var btn = e.target.closest("[data-uimode]");
-      if(!btn) return;
-      var mode = btn.getAttribute("data-uimode");
-      if(mode === state.uiMode) return;
-      state.uiMode = mode;
-      onSwitch();
-      persist();
-    });
-  }
-  // state.uiMode is a single global preference, not per-page — switching it from any one page's
-  // toggle has to refresh every page that has a modern layout, or the others sit stale (still
-  // showing the old mode's content and controls, like a Classic-mode-only "Columns" picker) until
-  // something else happens to re-render them.
+  // state.uiMode is a single global preference, not per-page — switching it has to refresh every
+  // page that has a modern layout, or the others sit stale (still showing the old mode's content
+  // and controls, like a Classic-mode-only "Columns" picker) until something else re-renders them.
   function refreshAllUiModePages(){
     renderIncomeGroups();
     renderTaxSuper();
@@ -3926,13 +3929,16 @@
     renderAssets();
     renderHomeBody();
   }
-  wireUiModeToggle("incomeUiModeToggle", refreshAllUiModePages);
-  wireUiModeToggle("expenseUiModeToggle", refreshAllUiModePages);
-  wireUiModeToggle("propertiesUiModeToggle", refreshAllUiModePages);
-  wireUiModeToggle("scenariosUiModeToggle", refreshAllUiModePages);
-  wireUiModeToggle("assetsUiModeToggle", refreshAllUiModePages);
-  // Mobile's single consolidated Layout control — cycles instead of picking from a segmented
-  // toggle, matching the Theme button's interaction right above it in the same panel.
+  // One switch in the sidebar (desktop) — the five separate per-page segmented toggles this used
+  // to be were redundant duplicates of the same global setting, crowding each page's intro row.
+  document.getElementById("uiModeToggle").addEventListener("change", function(e){
+    state.uiMode = e.target.checked ? "modern" : "classic";
+    refreshAllUiModePages();
+    syncUiModeToggle();
+    persist();
+  });
+  // Mobile's equivalent — a cycling button instead of a switch, matching the Theme button's
+  // interaction right above it in the same More panel.
   document.getElementById("mobileLayoutBtn").addEventListener("click", function(){
     state.uiMode = state.uiMode === "modern" ? "classic" : "modern";
     refreshAllUiModePages();

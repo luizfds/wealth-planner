@@ -4362,6 +4362,10 @@
     closeNavMenu();
   });
 
+  // Mirrors the sidebar footer's version text into the mobile nav dropdown, which is the only
+  // place a mobile viewport (<880px, where .app-version is hidden) can see it.
+  document.getElementById("appNavVersion").textContent = document.querySelector(".app-version").textContent;
+
   // Mobile-only dropdown: appNav is a vertical panel behind this toggle below 880px
   // (see styles.css), so a page's 7 tabs stay reachable without horizontal scroll-hunting.
   var navMenuToggle = document.getElementById("navMenuToggle");

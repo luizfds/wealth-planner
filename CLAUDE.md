@@ -14,17 +14,24 @@ list with explanations, established UI patterns, and what's still pending — se
   Properties, Scenarios, Projections). Pages are `<section class="app-page" id="page-...">`,
   shown/hidden via `showPage()`, not separate documents.
 - `styles.css` — one stylesheet, light/dark via CSS custom properties + `prefers-color-scheme`.
-- `src/app.js` — the entry point (`<script type="module">`). Owns all DOM rendering, event
-  wiring, and page-specific logic. Imports everything else it needs.
+- `src/app.js` — the entry point (`<script type="module">`). Still owns most DOM rendering, event
+  wiring, and page-specific logic — components are being carved out of it one page at a time (see
+  "Modularization progress" in `.claude/PROJECT_KNOWLEDGE.md` for exactly how far that's gotten).
+  Imports everything else it needs.
 - `src/state.js` — `state` (the single source of truth), `defaultState()`, `migrateState()`
   (schema migration + safe defaults for old/partial saves), `persist()` (debounced localStorage
   write), `setStatus()`.
 - `src/calc/{ledger,property,tax,engine}.js` — pure financial math, no DOM access. `ledger.js`
-  (period conversions, sums), `property.js` (stamp duty, LMI, loan repayments, gearing),
-  `tax.js` (AU income tax/Medicare, super contribution caps, Division 293), `engine.js`
-  (net-worth projection series, the "recompute all derived/synthetic rows" pass).
-- `src/constants.js`, `src/lib/{format,toast}.js` — static data tables and small DOM-touching
-  utilities (toasts) used across the above.
+  (period conversions, sums), `property.js` (stamp duty, LMI, loan repayments, gearing, equity —
+  `propertyEquityToday()` and friends), `tax.js` (AU income tax/Medicare, super contribution caps,
+  Division 293), `engine.js` (net-worth projection series, `totalNetWorthValue()`, the "recompute
+  all derived/synthetic rows" pass).
+- `src/components/` — one file per page, each exporting its `render*()` functions for `app.js` to
+  import and wire up. Extraction is incremental and in call-graph order (see
+  `.claude/PROJECT_KNOWLEDGE.md`); only `dashboard.js` exists so far.
+- `src/constants.js`, `src/lib/{format,toast,html}.js` — static data tables and small
+  dependency-free utilities (currency/percent formatters, toasts, `escapeAttr`) used across
+  everything above.
 
 **`state` is a live import, not a value** — never reassign the imported `state` binding directly
 (`state = X` throws for an ES-module import). Use `setState(newState)` from `state.js` instead;

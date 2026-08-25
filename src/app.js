@@ -2,15 +2,18 @@ import { state, setState, storageAvailable, persist, setStatus, defaultState, de
 import { INCOME_COL_DEFS, MAX_SUPER_BASE } from "./constants.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "./lib/format.js";
 import { showToast, showUndoToast } from "./lib/toast.js";
+import { escapeAttr } from "./lib/html.js";
 import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount } from "./calc/ledger.js";
 import {
   recalcPurchase, propertyGearingAnnual, ipNetResultAnnual,
-  loanRepaymentMonthly, ipProperties, ipExpensesMonthly, ipLoansMonthly, ipExpenseItemsForClassification
+  loanRepaymentMonthly, ipProperties, ipExpensesMonthly, ipLoansMonthly, ipExpenseItemsForClassification,
+  propertyEquityToday, propertiesOffsetTotal, propertiesIlliquidEquityToday
 } from "./calc/property.js";
 import {
   effectiveIncomeItems, getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax
 } from "./calc/tax.js";
-import { recalcComputedItems, scenarioTotals, computeNetWorthSeries, totalAssetsValue } from "./calc/engine.js";
+import { recalcComputedItems, scenarioTotals, computeNetWorthSeries, totalAssetsValue, totalNetWorthValue } from "./calc/engine.js";
+import { renderCards, renderDashboardStats, renderDetail } from "./components/dashboard.js";
 
 (function(){
   "use strict";
@@ -196,69 +199,6 @@ import { recalcComputedItems, scenarioTotals, computeNetWorthSeries, totalAssets
   }
 
   // ---------------- Rendering: cards ----------------
-  function renderCards(){
-    var el = document.getElementById("cards");
-    var allRates = state.scenarios.map(function(s){ return scenarioTotals(s).rate; });
-    var maxAbsRate = Math.max.apply(null, allRates.map(Math.abs).concat([0.01]));
-    var canDelete = state.scenarios.length > 1;
-
-    var html = state.scenarios.map(function(scenario){
-      var t = scenarioTotals(scenario);
-      var isActive = state.activeScenario === scenario;
-      return (
-        '<div class="card-select" role="radio" tabindex="0" aria-checked="' + (isActive ? "true" : "false") + '" data-scenario="' + escapeAttr(scenario) + '">' +
-          '<div class="card' + (isActive ? " is-active" : "") + '">' +
-            '<div class="card-top">' +
-              '<span class="card-name">' + escapeAttr(scenario) + '</span>' +
-              '<span class="card-controls">' +
-                '<button type="button" class="icon-btn" data-rename="' + escapeAttr(scenario) + '" aria-label="Rename ' + escapeAttr(scenario) + '" title="Rename">✎</button>' +
-                (canDelete ? '<button type="button" class="icon-btn icon-del" data-delete="' + escapeAttr(scenario) + '" aria-label="Delete ' + escapeAttr(scenario) + '" title="Delete">✕</button>' : "") +
-                '<span class="card-radio"></span>' +
-              '</span>' +
-            '</div>' +
-            '<div>' +
-              '<div class="card-savings' + (t.netMonthly < 0 ? " neg" : "") + '">' + fmtCurrency0.format(t.netMonthly) + '<span style="font-size:13px;font-weight:400;color:var(--ink-soft)"> /mo</span></div>' +
-              '<div class="card-sub">' + fmtCurrency0.format(t.netYearly) + ' / year net savings</div>' +
-            '</div>' +
-            '<div class="card-bar-track"><div class="card-bar-fill' + (t.rate < 0 ? " neg" : "") + '" style="width:' + Math.min(100, Math.abs(t.rate) / maxAbsRate * 100) + '%"></div></div>' +
-            '<div class="card-stats"><span>Savings rate</span><b>' + fmtPercent1.format(t.rate) + '</b></div>' +
-            '<div class="card-stats"><span>Home cost / mo</span><b>' + fmtCurrency0.format(t.homeMonthly) + '</b></div>' +
-            '<button type="button" class="card-edit-link" data-edit-scenario="' + escapeAttr(scenario) + '">Edit rent/home loan &amp; purchase calculator →</button>' +
-          '</div>' +
-        '</div>'
-      );
-    }).join("") +
-    '<button type="button" class="add-card" id="addScenarioBtn"><span class="add-plus">+</span><span class="add-label">Add scenario</span></button>';
-
-    el.innerHTML = html;
-    renderDashboardStats();
-  }
-
-  function renderDashboardStats(){
-    var el = document.getElementById("dashboardStats");
-    if(!el || el.closest(".app-page").hidden) return;
-    var isComparing = state.scenarios.length > 1;
-    var introEl = document.getElementById("dashboardIntro");
-    if(introEl) introEl.textContent = isComparing
-      ? 'Compare renting against buying, scenario by scenario — keep any investment property in the mix across every option. Nothing here is pre-filled; add your own numbers or click "Sample data" above to try it out first.'
-      : 'Your household finances at a glance. Nothing here is pre-filled; add your own numbers or click "Sample data" above to try it out first — or add another scenario on the Scenarios tab if you want to compare renting against buying.';
-    var totalNetWorth = totalNetWorthValue();
-    var itemCount = state.assets.length + state.properties.length;
-    var active = state.activeScenario;
-    var t = scenarioTotals(active);
-    var horizon = Math.max(1, Number(state.projection.horizonYears) || 1);
-    var series = computeNetWorthSeries(active, horizon);
-    var projected = series[series.length - 1].y;
-    var lastTile = isComparing
-      ? '<div class="stat-tile"><span>Scenarios compared</span><b>' + state.scenarios.length + '</b><small>' + state.scenarios.map(escapeAttr).join(", ") + '</small></div>'
-      : '<div class="stat-tile"><span>Scenario</span><b>' + escapeAttr(active) + '</b><small>add another on the Scenarios tab to compare options</small></div>';
-    el.innerHTML =
-      '<div class="stat-tile"><span>Total net worth today</span><b>' + fmtCurrency0.format(totalNetWorth) + '</b><small>across ' + itemCount + ' item' + (itemCount === 1 ? "" : "s") + '</small></div>' +
-      '<div class="stat-tile"><span>' + escapeAttr(active) + ' — net savings</span><b' + (t.netMonthly < 0 ? ' style="color:var(--bad)"' : '') + '>' + fmtCurrency0.format(t.netMonthly) + '/mo</b><small>' + fmtPercent1.format(t.rate) + ' savings rate</small></div>' +
-      '<div class="stat-tile"><span>Projected net worth</span><b>' + fmtCurrency0.format(projected) + '</b><small>in ' + horizon + ' years, ' + escapeAttr(active) + '</small></div>' +
-      lastTile;
-  }
-
   function selectScenario(name){
     if(state.activeScenario === name) return;
     state.activeScenario = name;
@@ -321,82 +261,6 @@ import { recalcComputedItems, scenarioTotals, computeNetWorthSeries, totalAssets
     renderAssets();
   }
 
-  // ---------------- Rendering: 50/30/20 + accounts ----------------
-  function renderDetail(){
-    document.getElementById("activeLabel").textContent = state.activeScenario;
-    var scenario = state.activeScenario;
-    var combined = ipExpenseItemsForClassification().concat(state.shared).concat(state.home[scenario]);
-    var incomeMonthly = sumField(effectiveIncomeItems(), "monthly");
-    var needs = sumByClassification(combined, "Needs", "monthly");
-    var wants = sumByClassification(combined, "Wants", "monthly");
-    var t = scenarioTotals(scenario);
-    var savings = t.netMonthly;
-
-    var total = Math.max(incomeMonthly, needs + wants + Math.max(savings, 0), 1);
-    var needsPct = needs / total, wantsPct = wants / total, savingsPct = Math.max(savings, 0) / total;
-
-    var bar = document.getElementById("ruleBar");
-    bar.innerHTML =
-      '<div class="rule-seg needs" style="width:' + (needsPct*100) + '%">' + (needsPct > 0.1 ? fmtPercent1.format(safeDiv(needs,incomeMonthly)) : "") + '</div>' +
-      '<div class="rule-seg wants" style="width:' + (wantsPct*100) + '%">' + (wantsPct > 0.1 ? fmtPercent1.format(safeDiv(wants,incomeMonthly)) : "") + '</div>' +
-      '<div class="rule-seg savings" style="width:' + (savingsPct*100) + '%">' + (savingsPct > 0.1 ? fmtPercent1.format(safeDiv(savings,incomeMonthly)) : "") + '</div>' +
-      '<div class="rule-target" style="left:50%"></div>' +
-      '<div class="rule-target" style="left:80%"></div>';
-
-    document.getElementById("ruleLegend").innerHTML =
-      '<div class="rule-legend-item"><span class="rule-swatch needs"></span>Needs <b>' + fmtCurrency0.format(needs) + '</b> · target 50%</div>' +
-      '<div class="rule-legend-item"><span class="rule-swatch wants"></span>Wants <b>' + fmtCurrency0.format(wants) + '</b> · target 30%</div>' +
-      '<div class="rule-legend-item"><span class="rule-swatch savings"></span>Savings <b>' + fmtCurrency0.format(savings) + '</b> · target 20%</div>';
-
-    var acctMap = sumByAccount(combined, "monthly");
-    var entries = Object.keys(acctMap).map(function(k){ return [k, acctMap[k]]; }).sort(function(a,b){ return b[1]-a[1]; });
-    var maxAcct = Math.max.apply(null, entries.map(function(e){ return e[1]; }).concat([1]));
-    var acctList = document.getElementById("acctList");
-    acctList.innerHTML = entries.length ? entries.map(function(e){
-      return '<div class="acct-row"><span class="acct-name" title="' + e[0] + '">' + e[0] + '</span>' +
-        '<span class="acct-track"><span class="acct-fill" style="width:' + (e[1]/maxAcct*100) + '%"></span></span>' +
-        '<span class="acct-amt">' + fmtCurrency0.format(e[1]) + '</span></div>';
-    }).join("") : '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">No expenses yet.</p>';
-
-    renderFireProgress(scenario, t);
-  }
-
-  // Financial independence progress via the standard 4% safe-withdrawal rule: a target
-  // number 25x annual living costs (shared + home, excluding investment property — that's
-  // a separate business-like expense, usually funded by its own rent) that, if reached,
-  // could sustain 4%/yr withdrawals indefinitely. Reuses the same projection series as the
-  // main chart to estimate which year (if any) crosses that number under current assumptions.
-  function renderFireProgress(scenario, t){
-    var panel = document.getElementById("firePanel");
-    if(!panel) return;
-    var annualLivingExpenses = (t.sharedMonthly + t.homeMonthly) * 12;
-    var targetFI = annualLivingExpenses * 25;
-    var netWorth = totalNetWorthValue();
-    var progressPct = targetFI > 0 ? Math.min(100, (netWorth / targetFI) * 100) : 0;
-
-    var horizon = Math.max(1, Number(state.projection.horizonYears) || 1);
-    var series = computeNetWorthSeries(scenario, horizon);
-    var hitYear = null;
-    if(targetFI > 0){
-      for(var i = 0; i < series.length; i++){
-        if(series[i].y >= targetFI){ hitYear = series[i].x; break; }
-      }
-    }
-
-    var etaText;
-    if(netWorth >= targetFI && targetFI > 0) etaText = "You've already reached this number.";
-    else if(hitYear != null) etaText = "Projected to reach it around Year " + hitYear + " under " + escapeAttr(scenario) + "'s current assumptions.";
-    else etaText = "Not projected within " + horizon + " years under current assumptions — try adjusting the projection inputs.";
-
-    panel.innerHTML =
-      '<h3>Financial independence <span style="font-weight:400;color:var(--ink-soft)">— 4% rule</span></h3>' +
-      '<div class="fire-bar-track"><div class="fire-bar-fill" style="width:' + progressPct + '%"></div></div>' +
-      '<div class="fire-stat-row"><span>Progress</span><b>' + fmtPercent1.format(progressPct / 100) + '</b></div>' +
-      '<div class="fire-stat-row"><span>Net worth today</span><b>' + fmtCurrency0.format(netWorth) + '</b></div>' +
-      '<div class="fire-stat-row"><span>Target FI number</span><b>' + fmtCurrency0.format(targetFI) + '</b></div>' +
-      '<p class="fire-note">Target = ' + escapeAttr(scenario) + '’s annual living costs (' + fmtCurrency0.format(annualLivingExpenses) + '/yr, excluding investment property) × 25 — what a 4%/yr withdrawal could sustain indefinitely. ' + etaText + '</p>';
-  }
-
   // ---------------- Generic ledger table ----------------
   function periodTh(){
     return PERIODS.map(function(p){
@@ -457,7 +321,6 @@ import { recalcComputedItems, scenarioTotals, computeNetWorthSeries, totalAssets
       '<td>' + (isComputed ? "" : '<button class="btn btn-ghost btn-sm row-del" data-del="' + section + ':' + idx + '" aria-label="Delete row">✕</button>') + '</td>' +
       '</tr>';
   }
-  function escapeAttr(s){ return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;"); }
 
   function findProperty(id){
     return state.properties.find(function(p){ return p.id === id; });
@@ -1522,37 +1385,6 @@ import { recalcComputedItems, scenarioTotals, computeNetWorthSeries, totalAssets
     renderProjectionOutputs();
     persist();
     showToast("Logged " + fmtCurrency0.format(num) + " for " + asset.what + " (" + dateStr + ")");
-  }
-
-  // Property equity is split into two pieces with very different liquidity:
-  // - offset balance: real cash sitting in a linked transaction account — instantly
-  //   spendable/withdrawable, so it's treated as liquid alongside Cash/Shares.
-  // - illiquid equity (value minus the FULL loan balance): only accessible by selling
-  //   or refinancing the property.
-  // propertyEquityToday() is their sum — the "how much of this property do I own outright"
-  // figure — but don't ALSO enter the offset balance as a separate Cash asset (see the
-  // Offset field's tooltip), or it'll be counted twice.
-  function propertyOffsetTotal(property){
-    return (property.loans || []).reduce(function(s, l){ return s + (Number(l.offsetBalance) || 0); }, 0);
-  }
-  function propertyIlliquidEquityToday(property){
-    var loanTotal = (property.loans || []).reduce(function(s, l){ return s + (Number(l.balance) || 0); }, 0);
-    return (Number(property.value) || 0) - loanTotal;
-  }
-  function propertyEquityToday(property){
-    return propertyIlliquidEquityToday(property) + propertyOffsetTotal(property);
-  }
-  function propertiesOffsetTotal(){
-    return state.properties.reduce(function(s, p){ return s + propertyOffsetTotal(p); }, 0);
-  }
-  function propertiesIlliquidEquityToday(){
-    return state.properties.reduce(function(s, p){ return s + propertyIlliquidEquityToday(p); }, 0);
-  }
-  function propertiesTotalEquityToday(){
-    return state.properties.reduce(function(s, p){ return s + propertyEquityToday(p); }, 0);
-  }
-  function totalNetWorthValue(){
-    return totalAssetsValue() + propertiesTotalEquityToday();
   }
 
   function assetCategoryItems(cat){

@@ -33,6 +33,49 @@ double-counted elsewhere. The same `computed` flag pattern is used for the auto 
 Fee expense row and for vehicle assets whose value is declining-balance depreciated from a
 purchase price/date rather than manually entered.
 
+## Modularization progress
+
+The app is mid-migration from one `app.js` closure (pre-v1.33.1) to native ES modules under
+`src/`, done in small verified steps rather than one rewrite — see the versioning rule below,
+each step is its own tagged commit. Current state:
+
+**Done:**
+- `src/constants.js` — config-only constants (tax brackets, stamp duty tables, LMI bands,
+  `STORAGE_KEY`, etc.) needed by the modules below. UI-only constant lists (`CLASSES`,
+  `ASSET_CATEGORIES`, column defs, page lists, chart segment configs, ...) haven't moved yet —
+  they migrate alongside whichever component first needs them out of `app.js`.
+- `src/state.js` — the `state` singleton (`export let`, a live binding — see the gotcha in the
+  root `CLAUDE.md`), `persist`/`setStatus`, `defaultState`/`migrateState`/`defaultHomeBlock`/
+  `defaultPurchaseConfig`, `setState(newState)`.
+- `src/calc/{ledger,property,tax,engine}.js` — layered `ledger` → `property`/`tax` → `engine`,
+  no import cycles. `property.js` also owns the property-equity family
+  (`propertyEquityToday`/`propertiesOffsetTotal`/etc.) even though `totalNetWorthValue()` — which
+  combines equity with `totalAssetsValue()` — lives one layer up in `engine.js`.
+- `src/lib/{format,toast,html}.js` — leaf utilities with zero app-specific deps.
+- `src/components/dashboard.js` — `renderCards`/`renderDashboardStats`/`renderDetail` (all
+  exported; `app.js` still calls them from scenario CRUD) + the private `renderFireProgress`
+  helper (not exported — nothing outside the module calls it).
+
+**How the boundaries were actually chosen:** by tracing the real call graph (which function calls
+which, and which touch `state` directly) before moving anything — not by section headings or
+"looks dashboard-y." Two things this caught: `totalAssetsValue`/property-equity functions looked
+like they belonged with Assets/Properties rendering (that's where they physically sat in the old
+file) but are pure calc needed by `engine.js`'s projection series and by Dashboard's stat tiles —
+they moved to `calc/` instead. And `selectScenario`/`addScenario`/`renameScenario`/
+`deleteScenario` look like Dashboard code (the "Add scenario" card lives there) but also call
+`renderHomeBody` (Scenarios tab) and `renderAssets` (Assets tab), neither extracted yet — they
+stay in `app.js` for now, calling `dashboard.js`'s exported `renderCards`/`renderDetail`, and will
+only move once Scenarios/Assets exist as modules too.
+
+**Not done yet**, in the planned order:
+1. `src/components/{income,expenses,assets,properties,scenarios,projections}.js` — one tab at a
+   time, each carrying its render + ledger-event-delegate functions out of `app.js`. Scenario CRUD
+   (above) is the natural trigger to do Scenarios+Assets together, or at least back-to-back.
+2. `src/components/nav.js` — `showPage`/`syncUrl`/`parseRouteFromLocation`/mobile tab bar.
+3. `src/lib/charts.js` (hand-rolled SVG line chart) and `src/lib/backup.js` (export/import/CSV/Web
+   Crypto encrypted backup) — last, since other components depend on them.
+4. Matching `styles.css` split into per-component files + `@import`, alongside each JS move.
+
 ## Business-logic assumptions (all approximate — the app says so in-UI, keep it that way)
 
 - **AU tax brackets** (`constants.js: AU_TAX_BRACKETS`) are stage-3 2024-25 rates. Indexed/changed
@@ -137,9 +180,9 @@ screenshots or query computed DOM state — not just read the code and assume it
 recurring working pattern:
 
 ```js
-const { chromium } = require('playwright-core'); // npm-installed in the environment; no browser download needed
+const { chromium } = require('playwright-core'); // `npm install playwright-core` in your scratchpad if not already present — it's a thin driver, no browser download
 const browser = await chromium.launch({
-  executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', // confirmed present; falls back to `npx playwright install chromium` (downloads its own browser) if a real Chrome isn't found
   args: ['--no-sandbox'],
 });
 ```
@@ -156,6 +199,14 @@ const browser = await chromium.launch({
   (mobile) instead.
 - `persist()` debounces writes by 300ms — a test that clicks something, then immediately
   reloads/navigates to check persistence, needs to wait past that or the write never happens.
+- **Don't use `page.reload()` after the app has navigated client-side** (clicking a tab pushes a
+  URL like `/properties` via `history.pushState`, with no matching file on a plain
+  `http.server`). A real reload of that URL 404s — looks like a persistence bug, isn't one. Use
+  `page.goto()` back to `/` instead to test a fresh load/localStorage round-trip.
+- A one-time key-backfill diff is expected between the *first* load after generating sample data
+  and the *next* fresh load: `migrateState()` backfills fields like `sacrificeMode`/`superMode`
+  onto every `income[]` row that lacks them, including synthetic rows `recalcComputedItems()` just
+  created (which don't set those fields) — settles after one more load. Not a regression signal.
 - Write throwaway scripts/screenshots to the session scratchpad directory, never inside the repo.
 - When a bug might be CSS-cascade-related, write a quick `getComputedStyle()` probe rather than
   guessing from a screenshot — this project's real bugs were consistently found that way, not by

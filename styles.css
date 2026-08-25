@@ -497,6 +497,82 @@
   .income-person-card{ border:1px solid var(--border); border-radius:10px; background: var(--paper-sunken); padding:14px 16px; }
   .income-person-card .income-group-head h4{ font-size:14px; }
   .income-person-card .income-group-total{ font-size:14px; color: var(--ink); font-weight:600; }
+
+  /* ---------------- Income & Tax: modern (card) layout ---------------- */
+  .uimode-toggle{
+    display:inline-flex; padding:3px; background: var(--paper-sunken); border:1px solid var(--border);
+    border-radius:10px; gap:2px; flex:none;
+  }
+  .uimode-toggle-btn{
+    all:unset; box-sizing:border-box; padding:6px 14px; border-radius:7px; font-size:12.5px; font-weight:600;
+    color: var(--ink-soft); cursor:pointer; transition: background-color .15s ease, color .15s ease;
+  }
+  .uimode-toggle-btn:hover{ color: var(--ink); }
+  .uimode-toggle-btn.active{ background: var(--paper-raised); color: var(--brass-strong); box-shadow: var(--shadow); }
+  .uimode-toggle-btn:focus-visible{ box-shadow: var(--focus-ring); outline:none; }
+  .page-intro-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+  .page-intro-row .page-intro{ flex:1 1 320px; }
+
+  .m-avatar{
+    width:30px; height:30px; border-radius:50%; flex:none; display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:13px; color:#fff; background: var(--series-color); font-family:"Inter",sans-serif;
+  }
+  .m-avatar.m-avatar-neutral{ background: var(--ink-soft); }
+  .m-people{ display:flex; flex-direction:column; gap:14px; }
+  .m-card{ border:1px solid var(--border); border-radius:12px; background: var(--paper-sunken); overflow:hidden; }
+  .m-card-head{ display:flex; align-items:center; gap:12px; padding:13px 16px; }
+  .m-card-name{ font-weight:700; font-size:14px; flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .m-card-total{ font-family:"IBM Plex Mono", monospace; font-weight:700; font-size:14.5px; white-space:nowrap; }
+  .m-card-total span{ font-size:11px; font-weight:500; color: var(--ink-soft); margin-left:2px; }
+  .m-rows{ background: var(--paper-raised); border-top:1px solid var(--border); }
+  .m-row{ border-bottom:1px solid var(--border); }
+  .m-row:last-child{ border-bottom:none; }
+  .m-row-summary{
+    all:unset; box-sizing:border-box; width:100%; display:flex; align-items:center; gap:10px;
+    padding:10px 16px; cursor:pointer; text-align:left;
+  }
+  button.m-row-summary:hover{ background: var(--paper-sunken); }
+  button.m-row-summary:focus-visible{ box-shadow: inset 0 0 0 2px var(--brass); }
+  .m-row-name{ font-weight:600; font-size:13.5px; }
+  .m-row-sub{ font-size:11px; color: var(--ink-soft); margin-top:1px; }
+  .m-row-tag{
+    font-size:9.5px; text-transform:uppercase; letter-spacing:.04em; font-weight:700; padding:2px 7px; border-radius:100px;
+    background: var(--paper-sunken); color: var(--ink-soft); flex:none;
+  }
+  .m-row-tag.gross{ background: var(--brass-wash); color: var(--brass-strong); }
+  .m-row-amt{ margin-left:auto; font-family:"IBM Plex Mono", monospace; font-weight:600; font-size:13.5px; white-space:nowrap; flex:none; }
+  .m-row-chev{ width:14px; height:14px; flex:none; color: var(--ink-soft); transition: transform .15s ease; }
+  .m-row.open .m-row-chev{ transform: rotate(90deg); }
+  .m-row-edit{ display:none; padding:2px 16px 16px 40px; }
+  .m-row.open .m-row-edit{ display:block; }
+  .m-edit-grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap:10px 12px; background: var(--paper-sunken); border:1px solid var(--border); border-radius:9px; padding:12px 14px; }
+  .m-edit-field{ min-width:0; }
+  .m-edit-field.span2{ grid-column: span 2; }
+  .m-edit-field.span3{ grid-column: span 3; }
+  .m-edit-field label{ display:block; font-size:10px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:700; margin-bottom:4px; }
+  .m-edit-field input, .m-edit-field select{
+    width:100%; border:1px solid var(--border); background: var(--paper); color: var(--ink); border-radius:7px;
+    padding:6px 8px; font-size:13px; font-family:inherit;
+  }
+  .m-edit-field input:focus, .m-edit-field select:focus{ outline:none; border-color: var(--brass); box-shadow: var(--focus-ring); }
+  .m-edit-field .sacrifice-wrap{ display:flex; align-items:center; gap:4px; }
+  .m-edit-field .sacrifice-wrap input{ flex: 0 0 64px; }
+  .m-edit-actions{ display:flex; justify-content:flex-end; grid-column:1 / -1; margin-top:-2px; }
+  .m-row.computed .m-row-summary{ background: var(--brass-wash); cursor:default; }
+  .m-row.computed .m-row-name{ color: var(--brass-strong); }
+  .m-row.computed .m-row-amt{ color: var(--brass-strong); }
+  .m-add-row{
+    all:unset; box-sizing:border-box; display:flex; align-items:center; justify-content:center; gap:6px; width:100%;
+    padding:10px; font-size:12.5px; font-weight:600; color: var(--ink-soft); cursor:pointer; border-top:1px dashed var(--border);
+  }
+  .m-add-row:hover{ color: var(--brass-strong); background: var(--paper-sunken); }
+  .m-add-row:focus-visible{ box-shadow: inset 0 0 0 2px var(--brass); }
+
+  @media (max-width:640px){
+    .m-edit-grid{ grid-template-columns: 1fr 1fr; }
+    .m-edit-field.span2, .m-edit-field.span3{ grid-column: span 2; }
+    .m-row-edit{ padding-left:16px; }
+  }
   .holdings-table th, .holdings-table td{ white-space:nowrap; }
   .holdings-table th:first-child, .holdings-table td:first-child{ white-space:normal; min-width:130px; }
   .holdings-table .h-symbol, .holdings-table .h-market{ width:64px; }

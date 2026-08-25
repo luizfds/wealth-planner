@@ -1251,9 +1251,21 @@
       var mHome = /^home:(.+)$/.exec(section);
       if(mHome){ var hi = state.scenarios.indexOf(mHome[1]); buildTable(document.getElementById("homeTable_" + slug(mHome[1]) + hi), section, state.home[mHome[1]], {showClass:true, acctColClass:"col-account-home"}); }
       var mPropInc = /^propinc:(.+)$/.exec(section);
-      if(mPropInc){ var pi = findProperty(mPropInc[1]); if(pi) buildTable(document.getElementById("propIncomeTable_" + pi.id), section, pi.income, {showClass:false}); }
+      if(mPropInc){
+        var pi = findProperty(mPropInc[1]);
+        if(pi){
+          if(state.uiMode === "modern") renderPropListModern(pi.id, section, pi.income, false);
+          else buildTable(document.getElementById("propIncomeTable_" + pi.id), section, pi.income, {showClass:false});
+        }
+      }
       var mPropExp = /^propexp:(.+)$/.exec(section);
-      if(mPropExp){ var pe = findProperty(mPropExp[1]); if(pe) buildTable(document.getElementById("propExpTable_" + pe.id), section, pe.expenses, {showClass:true, hideAcctToggle:true, hideClassToggle:true}); }
+      if(mPropExp){
+        var pe = findProperty(mPropExp[1]);
+        if(pe){
+          if(state.uiMode === "modern") renderPropListModern(pe.id, section, pe.expenses, true);
+          else buildTable(document.getElementById("propExpTable_" + pe.id), section, pe.expenses, {showClass:true, hideAcctToggle:true, hideClassToggle:true});
+        }
+      }
     }
     applyPeriodVisibility();
   }
@@ -1422,7 +1434,7 @@
     if(isComputed){
       return '<div class="m-row computed" data-section="income" data-index="' + idx + '">' + summary + '</div>';
     }
-    var isOpen = !!modernIncomeRowOpen[idx];
+    var isOpen = !!modernIncomeRowOpen["income:" + idx];
     var sacrificeValueField = (item.sacrificeMode && item.sacrificeMode !== "none")
       ? '<input type="number" min="0" step="' + (item.sacrificeMode === "percent" ? "1" : "50") + '" max="' + (item.sacrificeMode === "percent" ? "100" : "") + '" class="f-sacrificevalue" value="' + (item.sacrificeValue || 0) + '" aria-label="Sacrifice ' + (item.sacrificeMode === "percent" ? "percent" : "amount") + '">'
       : "";
@@ -1550,31 +1562,51 @@
         '<div class="m-card-head"><span class="m-avatar m-avatar-' + classificationSwatchClass(g.key) + '">' + initial + '</span>' +
         '<div class="m-card-name">' + escapeAttr(g.key) + '</div>' +
         '<div class="m-card-total">' + fmtCurrency0.format(g.monthly) + '<span>/mo</span></div></div>' +
-        '<div class="m-rows">' + g.items.map(function(item, i){ return modernSharedRowHtml(item, g.indices[i]); }).join("") + '</div>' +
+        '<div class="m-rows">' + g.items.map(function(item, i){ return modernPlainRowHtml(item, g.indices[i], "shared", modernSharedRowOpen, {showClass:true}); }).join("") + '</div>' +
         '<button type="button" class="m-add-row" data-add="shared:' + escapeAttr(g.key) + '">+ Add expense</button>' +
       '</div>';
     }).join("") + '</div>';
   }
 
-  function modernSharedRowHtml(item, idx){
+  // Generic "name + amount, expands to a small field grid" row — used everywhere a ledger-table
+  // row is just What/[Classification]/Amount/Frequency/[Account] with no person-tax machinery
+  // (that's what makes Income's row special enough to need its own function). section is the
+  // data-section/data-del prefix (e.g. "shared", "propinc:<id>", "propexp:<id>") and also scopes
+  // the openState key, so the same in-memory map can safely track rows from several entities
+  // (every property's income and expenses) without index collisions.
+  function modernPlainRowHtml(item, idx, section, openState, opts){
+    opts = opts || {};
+    var isComputed = !!item.computed;
     var monthly = periodsOf(item.amount, item.freq).monthly;
-    var isOpen = !!modernSharedRowOpen[idx];
-    var summary = '<div class="m-row-summary" role="button" tabindex="0" data-row-toggle>' +
-      '<div style="flex:1 1 auto; min-width:0"><div class="m-row-name">' + escapeAttr(item.what) + '</div></div>' +
+    var summary = '<div class="m-row-summary"' + (isComputed ? ' style="cursor:default"' : ' role="button" tabindex="0" data-row-toggle') + '>' +
+      '<div style="flex:1 1 auto; min-width:0">' +
+        '<div class="m-row-name">' + escapeAttr(item.what) + '</div>' +
+        (isComputed && item.computedNote ? '<div class="m-row-sub">' + escapeAttr(item.computedNote) + '</div>' : "") +
+      '</div>' +
       '<span class="m-row-amt" data-computed="amt">' + fmtCurrency2.format(monthly) + '/mo</span>' +
-      '<svg class="m-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>' +
+      (isComputed ? "" : '<svg class="m-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>') +
     '</div>';
+    if(isComputed){
+      return '<div class="m-row computed" data-section="' + escapeAttr(section) + '" data-index="' + idx + '">' + summary + '</div>';
+    }
+    var isOpen = !!openState[section + ":" + idx];
+    // With a Classification field, Account gets its own full-width row below (matches Expenses);
+    // without one, there's room for Amount/Frequency/Account to share a single row instead.
+    var classField = opts.showClass
+      ? '<div class="m-edit-field"><label>Classification</label><select class="f-class">' + optionsHtml(CLASSES, item.classification || "Needs") + '</select></div>'
+      : "";
+    var accountField = '<div class="m-edit-field' + (opts.showClass ? " span3" : "") + '"><label>Account</label><input type="text" class="f-account" list="acctSuggestions" value="' + escapeAttr(item.account || "") + '" aria-label="Account"></div>';
     var edit = '<div class="m-row-edit"><div class="m-row-edit-inner"><div class="m-row-edit-pad">' +
       '<div class="m-edit-grid">' +
         '<div class="m-edit-field span3"><label>What</label><input type="text" class="f-what" value="' + escapeAttr(item.what) + '" aria-label="Item name"></div>' +
-        '<div class="m-edit-field"><label>Classification</label><select class="f-class">' + optionsHtml(CLASSES, item.classification || "Needs") + '</select></div>' +
+        classField +
         '<div class="m-edit-field"><label>Amount</label><input type="number" step="0.01" min="0" class="f-amount" value="' + item.amount + '" aria-label="Amount"></div>' +
         '<div class="m-edit-field"><label>Frequency</label><select class="f-freq">' + optionsHtml(FREQS, item.freq) + '</select></div>' +
-        '<div class="m-edit-field span3"><label>Account</label><input type="text" class="f-account" list="acctSuggestions" value="' + escapeAttr(item.account || "") + '" aria-label="Account"></div>' +
+        accountField +
       '</div>' +
-      '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm row-del" data-del="shared:' + idx + '">Delete</button></div>' +
+      '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm row-del" data-del="' + escapeAttr(section) + ':' + idx + '">Delete</button></div>' +
     '</div></div></div>';
-    return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="shared" data-index="' + idx + '">' + summary + edit + '</div>';
+    return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="' + escapeAttr(section) + '" data-index="' + idx + '">' + summary + edit + '</div>';
   }
 
   // Session-only (not persisted) — mirrors modernIncomeRowOpen for the Expenses page's rows.
@@ -2554,7 +2586,9 @@
       '<div class="property-section">' +
         '<div class="income-group">' +
           '<div class="income-group-head"><div class="income-group-head-left"><h4>Income</h4></div></div>' +
-          '<div class="table-scroll"><table class="ledger-table" id="propIncomeTable_' + escapeAttr(p.id) + '"></table></div>' +
+          (state.uiMode === "modern"
+            ? '<div class="m-card"><div class="m-rows" id="propIncomeRows_' + escapeAttr(p.id) + '">' + modernPropListHtml(p.income, "propinc:" + p.id, false) + '</div></div>'
+            : '<div class="table-scroll"><table class="ledger-table" id="propIncomeTable_' + escapeAttr(p.id) + '"></table></div>') +
           '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="propinc:' + escapeAttr(p.id) + '">+ Add income</button>' +
         '</div>' +
       '</div>' +
@@ -2562,23 +2596,45 @@
         '<div class="income-group">' +
           '<div class="income-group-head"><div class="income-group-head-left"><h4>Expenses</h4></div></div>' +
           pmFeePanel +
-          '<div class="table-scroll"><table class="ledger-table" id="propExpTable_' + escapeAttr(p.id) + '"></table></div>' +
+          (state.uiMode === "modern"
+            ? '<div class="m-card"><div class="m-rows" id="propExpRows_' + escapeAttr(p.id) + '">' + modernPropListHtml(p.expenses, "propexp:" + p.id, true) + '</div></div>'
+            : '<div class="table-scroll"><table class="ledger-table" id="propExpTable_' + escapeAttr(p.id) + '"></table></div>') +
           '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="propexp:' + escapeAttr(p.id) + '">+ Add expense</button>' +
         '</div>' +
       '</div>' +
     '</div>';
   }
 
+  // Session-only (not persisted) — mirrors modernIncomeRowOpen/modernSharedRowOpen, shared across
+  // every property's income and expense lists (the section string, e.g. "propexp:<id>", already
+  // makes each property's keys unique within this one map).
+  var modernPropRowOpen = {};
+  function modernPropListHtml(items, section, showClass){
+    return items.map(function(item, i){ return modernPlainRowHtml(item, i, section, modernPropRowOpen, {showClass: showClass}); }).join("");
+  }
+  // Rebuilds just one property's income or expense list in place — used by rerenderTableFor so
+  // that, in modern mode, editing a property's rent (which auto-recalculates its Property Manager
+  // Fee expense row) only touches the expense list's own container, not the whole Properties page
+  // — the income row the user is actively typing into lives in a separate container and is never
+  // torn down mid-edit.
+  function renderPropListModern(propId, section, items, showClass){
+    var container = document.getElementById((showClass ? "propExpRows_" : "propIncomeRows_") + propId);
+    if(container) container.innerHTML = modernPropListHtml(items, section, showClass);
+  }
+
   function renderProperties(){
+    syncUiModeToggle();
     var container = document.getElementById("propertiesBody");
     if(!container) return;
     container.innerHTML = state.properties.length
       ? state.properties.map(propertyCardHtml).join("")
       : '<p class="ledger-note" style="margin:0">No properties yet — add one below to start tracking its value, loans, and (for an investment property) rent and expenses.</p>';
-    state.properties.forEach(function(p){
-      buildTable(document.getElementById("propIncomeTable_" + p.id), "propinc:" + p.id, p.income, {showClass:false});
-      buildTable(document.getElementById("propExpTable_" + p.id), "propexp:" + p.id, p.expenses, {showClass:true, hideAcctToggle:true, hideClassToggle:true});
-    });
+    if(state.uiMode !== "modern"){
+      state.properties.forEach(function(p){
+        buildTable(document.getElementById("propIncomeTable_" + p.id), "propinc:" + p.id, p.income, {showClass:false});
+        buildTable(document.getElementById("propExpTable_" + p.id), "propexp:" + p.id, p.expenses, {showClass:true, hideAcctToggle:true, hideClassToggle:true});
+      });
+    }
     renderPropertyExpensesSummary();
     applyPeriodVisibility();
   }
@@ -3523,10 +3579,13 @@
       if(!toggle) return;
       var row = toggle.closest(".m-row");
       if(!row) return;
-      var idx = row.getAttribute("data-index");
+      // Keyed by section+index, not index alone — a bare index would collide once the same
+      // container can hold rows from more than one entity (e.g. Properties, where each
+      // property's income/expenses are separately-indexed arrays sharing one open-state map).
+      var key = row.getAttribute("data-section") + ":" + row.getAttribute("data-index");
       var willOpen = !row.classList.contains("open");
       row.classList.toggle("open", willOpen);
-      openState[idx] = willOpen;
+      openState[key] = willOpen;
     });
     container.addEventListener("keydown", function(e){
       if(e.key !== "Enter" && e.key !== " ") return;
@@ -3538,6 +3597,7 @@
   }
   wireModernRowToggle("incomeGroups", modernIncomeRowOpen);
   wireModernRowToggle("sharedGroups", modernSharedRowOpen);
+  wireModernRowToggle("propertiesBody", modernPropRowOpen);
 
   function syncUiModeToggle(){
     document.querySelectorAll(".uimode-toggle-btn").forEach(function(btn){
@@ -3574,9 +3634,11 @@
     renderTaxSuper();
     renderSharedGroups();
     renderPropertyExpensesSummary();
+    renderProperties();
   }
   wireUiModeToggle("incomeUiModeToggle", refreshAllUiModePages);
   wireUiModeToggle("expenseUiModeToggle", refreshAllUiModePages);
+  wireUiModeToggle("propertiesUiModeToggle", refreshAllUiModePages);
 
   function onScenarioControlClick(e){
     var collapseBtn = e.target.closest("[data-collapse-toggle]");

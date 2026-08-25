@@ -3888,7 +3888,7 @@
     });
     // The column picker/toggle only makes sense for the classic table's fixed columns — modern
     // rows already show every field, just tucked behind an expand instead of hidden by a toggle.
-    ["incomeColPicker", "expenseColPicker", "homeAcctToggleWrap", "periodsToggleWrap"].forEach(function(id){
+    ["incomeColPicker", "expenseColPicker", "homeAcctToggleWrap", "periodsToggleWrap", "mobilePeriodsToggleWrap"].forEach(function(id){
       var picker = document.getElementById(id);
       if(picker) picker.hidden = state.uiMode === "modern";
     });
@@ -4013,11 +4013,25 @@
     persist();
   });
 
+  // Both checkboxes (desktop sidebar + mobile More panel) toggle themselves natively and just
+  // mirror the other's .checked by plain assignment on change — a preventDefault-and-forward
+  // approach doesn't work here, since the browser reverts a checkbox's own checked state after
+  // preventDefault() regardless of what a same-tick listener sets it to.
   document.getElementById("periodsToggle").addEventListener("change", function(e){
     state.showAllPeriods = e.target.checked;
     applyPeriodVisibility();
     persist();
+    document.getElementById("mobilePeriodsToggle").checked = e.target.checked;
   });
+  document.getElementById("mobilePeriodsToggle").addEventListener("change", function(e){
+    state.showAllPeriods = e.target.checked;
+    applyPeriodVisibility();
+    persist();
+    document.getElementById("periodsToggle").checked = e.target.checked;
+  });
+  // Keeps the More panel open on this toggle specifically — it's a preference to sit and watch
+  // take effect, not a one-off action like the buttons above it that close the panel on click.
+  document.getElementById("mobilePeriodsToggleWrap").addEventListener("click", function(e){ e.stopPropagation(); });
 
   document.getElementById("homeAcctToggle").addEventListener("change", function(e){
     state.homeCols.account = e.target.checked;
@@ -4525,6 +4539,7 @@
 
   function renderAll(){
     document.getElementById("periodsToggle").checked = !!state.showAllPeriods;
+    document.getElementById("mobilePeriodsToggle").checked = !!state.showAllPeriods;
     document.getElementById("homeAcctToggle").checked = !!state.homeCols.account;
     renderIncomeColPicker();
     renderExpenseColPicker();

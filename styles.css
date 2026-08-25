@@ -152,9 +152,11 @@
     }
     .app-sidebar.nav-open .app-nav{ display:flex; }
     .nav-item{ white-space:normal; text-align:left; padding:10px 12px; border-radius:7px; }
-    .app-sidebar-footer{ flex-direction:row; align-items:center; margin-top:0; padding-top:0; border-top:none; margin-left:auto; }
-    .app-sidebar-note{ display:none; }
-    .app-version{ display:none; }
+    /* Show all periods and the version note move into the bottom tab bar's More panel on
+       mobile (see mobile-more-toggle / mobile-more-version) — nothing left here is shown,
+       so the whole footer goes, freeing the sticky top row for just the brand and the save
+       status badge. */
+    .app-sidebar-footer{ display:none; }
     .app-topbar{ padding:14px 16px; }
     .app-content{ padding:18px 16px calc(48px + 82px); }
     .mobile-tabbar{
@@ -186,6 +188,7 @@
     }
     .mobile-more-item:hover, .mobile-more-item:active{ background: var(--paper-sunken); }
     .mobile-more-item.active{ color: var(--brass-strong); font-weight:600; }
+    .mobile-more-toggle{ display:flex; align-items:center; gap:9px; cursor:pointer; }
     .mobile-more-divider{ height:1px; background: var(--border); margin:6px 4px; }
     .mobile-more-version{ font-size:10.5px; color: var(--ink-soft); padding:8px 10px 2px; margin:4px 0 0; border-top:1px solid var(--border); }
     .table-scroll{
@@ -246,7 +249,7 @@
   .status-dot.warn{ background: var(--bad); }
   .mobile-status-chip{ display:none; }
   @media (max-width: 880px){
-    .mobile-status-chip{ display:flex; font-size:10.5px; padding:4px 9px; margin-left:8px; flex:none; }
+    .mobile-status-chip{ display:flex; font-size:10.5px; padding:4px 9px; margin-left:auto; flex:none; }
   }
 
   button{ font: inherit; cursor: pointer; }

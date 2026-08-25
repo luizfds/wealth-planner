@@ -325,7 +325,7 @@
   :root[data-theme="dark"] .rule-target{ border-right-color: rgba(255,255,255,0.35); }
   .rule-legend{ display:flex; gap:16px; flex-wrap:wrap; font-size:12px; }
   .rule-legend-item{ display:flex; align-items:center; gap:6px; color: var(--ink-soft); }
-  .rule-legend b{ color: var(--ink); font-weight:600; }
+  .rule-legend b{ color: var(--ink); font-weight:600; font-family:"IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
   .rule-swatch{ width:9px; height:9px; border-radius:3px; flex:none; }
   .rule-swatch.needs{ background:#6b7a8f; } .rule-swatch.wants{ background:var(--brass); } .rule-swatch.savings{ background:var(--good); } .rule-swatch.na{ background:var(--ink-soft); }
 
@@ -378,6 +378,10 @@
     width:100%; border:1px solid transparent; background:transparent; color:var(--ink); padding:5px 6px; border-radius:6px;
     font-size:13px; transition: border-color .18s ease, background-color .18s ease, box-shadow .18s ease;
   }
+  /* Form controls don't inherit the page font by default in any browser — only the text/select
+     fields need this fix; the number input already gets IBM Plex Mono from the site-wide
+     "numbers are mono" rule below, and this selector's specificity would otherwise beat it. */
+  table.ledger-table input[type="text"], table.ledger-table select{ font-family:inherit; }
   table.ledger-table input[type="number"]{ text-align:right; }
   table.ledger-table input:hover, table.ledger-table select:hover{ border-color: var(--border); background: var(--paper-sunken); }
   table.ledger-table input:focus, table.ledger-table select:focus{ border-color: var(--brass); outline:none; background: var(--paper); box-shadow: var(--focus-ring); }
@@ -393,6 +397,7 @@
   .row-del{ opacity:0.5; padding:8px 11px; }
   .row-del:hover{ opacity:1; }
   tr.is-computed .amount-cell input, tr.is-computed .amount-cell .computed-value{ color: var(--ink-soft); font-style: italic; }
+  .computed-value{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
   tr.is-gross-ref{ background: var(--paper-sunken); }
   tr.is-gross-ref .what-cell input, tr.is-gross-ref .amount-cell input{ color: var(--ink-soft); }
   tr.is-gross-ref td.computed{ color: var(--ink-soft); opacity: 0.7; }
@@ -566,6 +571,10 @@
     width:100%; border:1px solid var(--border); background: var(--paper); color: var(--ink); border-radius:7px;
     padding:6px 8px; font-size:13px; font-family:inherit;
   }
+  /* Same "numbers are mono" rule every other amount on the page follows (the row summary this
+     panel expands from is already mono) — font-family:inherit above is for the text/select
+     fields only; it was overriding the number input's mono by equal-specificity source order. */
+  .m-edit-field input[type="number"]{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
   .m-edit-field input:focus, .m-edit-field select:focus{ outline:none; border-color: var(--brass); box-shadow: var(--focus-ring); }
   .m-edit-field .sacrifice-wrap{ display:flex; align-items:center; gap:4px; }
   .m-edit-field .sacrifice-wrap input{ flex: 0 0 64px; }

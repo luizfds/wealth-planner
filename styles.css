@@ -460,6 +460,8 @@
     border-top:1px solid var(--border); margin-top:2px; padding-top:7px; font-weight:700; color: var(--brass-strong); font-size:14.5px;
   }
   .row-breakdown-panel .rb-row{ display:contents; }
+  .row-breakdown-panel .rb-row.rb-secondary .rb-label, .row-breakdown-panel .rb-row.rb-secondary .rb-value{ color: var(--ink-soft); font-style:italic; }
+  .rb-ip-note{ max-width:340px; margin:8px 0 0; }
 
   .ledger-footer{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px; flex-wrap:wrap; }
 
@@ -543,23 +545,6 @@
   .income-person-card .income-group-total{ font-size:14px; color: var(--ink); font-weight:600; }
 
   /* ---------------- Income & Tax: modern (card) layout ---------------- */
-  .uimode-toggle{
-    display:inline-flex; padding:3px; background: var(--paper-sunken); border:1px solid var(--border);
-    border-radius:10px; gap:2px; flex:none;
-  }
-  .uimode-toggle-btn{
-    all:unset; box-sizing:border-box; padding:6px 14px; border-radius:7px; font-size:12.5px; font-weight:600;
-    color: var(--ink-soft); cursor:pointer; transition: background-color .15s ease, color .15s ease;
-  }
-  .uimode-toggle-btn:hover{ color: var(--ink); }
-  .uimode-toggle-btn.active{ background: var(--paper-raised); color: var(--brass-strong); box-shadow: var(--shadow); }
-  .uimode-toggle-btn:focus-visible{ box-shadow: var(--focus-ring); outline:none; }
-  @media (max-width: 880px){
-    /* Classic/Modern is one global preference duplicated across five pages' intro rows —
-       crowded next to Export CSV on a narrow screen. Consolidated into a single "Layout"
-       toggle in the More panel instead, same as Theme. */
-    .uimode-toggle{ display:none; }
-  }
   .page-intro-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; }
   .page-intro-row .page-intro{ flex:1 1 320px; }
   .page-intro-actions{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }

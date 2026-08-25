@@ -29,6 +29,13 @@
       <button type="button" class="nav-item" data-page="projections">Projections</button>
     </div>
     <div class="app-sidebar-footer">
+      <label class="toggle-periods" id="uiModeToggleWrap">
+        <span class="switch">
+          <input type="checkbox" id="uiModeToggle">
+          <span class="switch-track"><span class="switch-thumb"></span></span>
+        </span>
+        Modern layout
+      </label>
       <label class="toggle-periods" id="periodsToggleWrap">
         <span class="switch">
           <input type="checkbox" id="periodsToggle">
@@ -99,10 +106,6 @@
           <p class="page-intro">Your household income, and what it's really worth after tax.</p>
           <div class="page-intro-actions">
             <button type="button" class="btn btn-sm btn-ghost" id="incomeExportCsvBtn" title="Download every income row as a CSV file">Export CSV</button>
-            <div class="uimode-toggle" id="incomeUiModeToggle" role="tablist" aria-label="Income &amp; Tax layout">
-              <button type="button" class="uimode-toggle-btn" data-uimode="classic" role="tab">Classic</button>
-              <button type="button" class="uimode-toggle-btn" data-uimode="modern" role="tab">Modern</button>
-            </div>
           </div>
         </div>
         <div class="ledgers">
@@ -143,10 +146,6 @@
           <p class="page-intro">Recurring household costs that don't change between scenarios.</p>
           <div class="page-intro-actions">
             <button type="button" class="btn btn-sm btn-ghost" id="expenseExportCsvBtn" title="Download every expense row as a CSV file">Export CSV</button>
-            <div class="uimode-toggle" id="expenseUiModeToggle" role="tablist" aria-label="Expenses layout">
-              <button type="button" class="uimode-toggle-btn" data-uimode="classic" role="tab">Classic</button>
-              <button type="button" class="uimode-toggle-btn" data-uimode="modern" role="tab">Modern</button>
-            </div>
           </div>
         </div>
         <div class="col-picker" id="expenseColPicker">
@@ -187,10 +186,6 @@
           <p class="page-intro">What you actually own — value, loans, and the rent/expenses tied to each property.</p>
           <div class="page-intro-actions">
             <button type="button" class="btn btn-sm btn-ghost" id="propertyLoansExportCsvBtn" title="Download every loan, across every property, as a CSV file">Export loans CSV</button>
-            <div class="uimode-toggle" id="propertiesUiModeToggle" role="tablist" aria-label="Properties layout">
-              <button type="button" class="uimode-toggle-btn" data-uimode="classic" role="tab">Classic</button>
-              <button type="button" class="uimode-toggle-btn" data-uimode="modern" role="tab">Modern</button>
-            </div>
           </div>
         </div>
         <div id="propertiesBody"></div>
@@ -200,10 +195,6 @@
       <section class="app-page" id="page-scenarios" hidden>
         <div class="page-intro-row">
           <p class="page-intro">What each scenario costs to live in — rent or a home loan, plus a purchase calculator for anything you're buying.</p>
-          <div class="uimode-toggle" id="scenariosUiModeToggle" role="tablist" aria-label="Scenarios layout">
-            <button type="button" class="uimode-toggle-btn" data-uimode="classic" role="tab">Classic</button>
-            <button type="button" class="uimode-toggle-btn" data-uimode="modern" role="tab">Modern</button>
-          </div>
         </div>
         <div class="ledgers">
           <details class="ledger" open>
@@ -230,10 +221,6 @@
           <p class="page-intro">What you own today, tracked over time, and what buying would do to your net worth.</p>
           <div class="page-intro-actions">
             <button type="button" class="btn btn-sm btn-ghost" id="assetsExportCsvBtn" title="Download every asset, across every category, as a CSV file">Export CSV</button>
-            <div class="uimode-toggle" id="assetsUiModeToggle" role="tablist" aria-label="Assets layout">
-              <button type="button" class="uimode-toggle-btn" data-uimode="classic" role="tab">Classic</button>
-              <button type="button" class="uimode-toggle-btn" data-uimode="modern" role="tab">Modern</button>
-            </div>
           </div>
         </div>
         <div class="subnav" id="assetsSubnav">

@@ -1773,6 +1773,21 @@
     applyPeriodVisibility();
   }
 
+  // Every acquisition cost gets a color, cycling the same 8-color series used everywhere else —
+  // shared by each row's identity dot and this list's composition bar so the two stay in sync.
+  function costRowMeta(cfg){
+    return (cfg.otherCosts || []).map(function(c, ci){ return { cost: c, ci: ci, colorIdx: ci % 8 }; });
+  }
+  function modernCostCompBarHtml(rowMeta){
+    var segs = rowMeta.map(function(m){ return { cost: m.cost, colorIdx: m.colorIdx, amount: Math.max(0, Number(m.cost.amount) || 0) }; })
+      .filter(function(x){ return x.amount > 0.5; });
+    if(segs.length < 2) return "";
+    var total = segs.reduce(function(s, x){ return s + x.amount; }, 0);
+    return '<div class="m-comp-bar" data-comp-bar>' + segs.map(function(x){
+      var pct = total > 0 ? x.amount / total : 0;
+      return '<div class="m-comp-seg series-color-' + x.colorIdx + '" style="flex:' + x.amount + ' 1 0%" title="' + escapeAttr(x.cost.what) + ': ' + fmtCurrency0.format(x.amount) + ' (' + fmtPercent1.format(pct) + ')"></div>';
+    }).join("") + '</div>';
+  }
   function renderPurchasePanelHtml(scenario){
     var cfg = state.purchase[scenario];
     if(!cfg) return "";
@@ -1791,13 +1806,15 @@
           '<td class="cc-del"><button type="button" class="btn btn-ghost btn-sm row-del" data-cc-del="' + ci + '" aria-label="Remove cost">✕</button></td>' +
           '</tr>';
       }).join("");
-      var modernCostsRows = (cfg.otherCosts || []).map(function(c, ci){
+      var modernCostsRows = costRowMeta(cfg).map(function(m){
         return '<div class="cc-row m-cost-row">' +
-          '<input type="text" class="cc-what" value="' + escapeAttr(c.what) + '" aria-label="Cost name" placeholder="Cost name">' +
-          '<input type="number" step="1" min="0" class="cc-amount" value="' + c.amount + '" aria-label="Cost amount">' +
-          '<button type="button" class="btn btn-ghost btn-sm row-del" data-cc-del="' + ci + '" aria-label="Remove cost">✕</button>' +
+          '<span class="m-row-dot series-color-' + m.colorIdx + '" aria-hidden="true"></span>' +
+          '<input type="text" class="cc-what" value="' + escapeAttr(m.cost.what) + '" aria-label="Cost name" placeholder="Cost name">' +
+          '<input type="number" step="1" min="0" class="cc-amount" value="' + m.cost.amount + '" aria-label="Cost amount">' +
+          '<button type="button" class="btn btn-ghost btn-sm row-del" data-cc-del="' + m.ci + '" aria-label="Remove cost">✕</button>' +
         '</div>';
       }).join("");
+      var modernCostsCompBar = modernCostCompBarHtml(costRowMeta(cfg));
       var stampDutyHtml = out.stampDuty === null
         ? '<input type="number" step="1" min="0" class="calc-manual-stampduty" value="' + (Number(cfg.manualStampDuty) || 0) + '" style="width:100%;font-family:\'IBM Plex Mono\',monospace;font-size:15px;background:transparent;border:1px solid var(--border);border-radius:6px;padding:2px 4px;">'
         : fmtCurrency0.format(out.stampDuty);
@@ -1830,7 +1847,7 @@
           '</div>' +
           '<div>' +
             '<div class="calc-costs-title">Other acquisition costs</div>' +
-            (isModern ? '<div class="m-card m-cost-rows">' + modernCostsRows + '</div>' : '<table class="calc-costs-table">' + costsRows + '</table>') +
+            (isModern ? '<div class="m-card m-cost-rows">' + modernCostsCompBar + modernCostsRows + '</div>' : '<table class="calc-costs-table">' + costsRows + '</table>') +
             '<button type="button" class="btn btn-sm" style="margin-top:8px" data-cc-add="1">+ Add cost</button>' +
           '</div>' +
           '<label style="display:flex;align-items:center;gap:7px;font-size:12.5px;cursor:pointer">' +
@@ -1841,7 +1858,7 @@
     }
     return (
       '<div class="calc-panel" data-calc-scenario="' + escapeAttr(scenario) + '">' +
-        '<label class="calc-enable"><input type="checkbox" class="calc-enabled"' + (enabled ? " checked" : "") + '> This is a property purchase — show the calculator</label>' +
+        '<label class="calc-enable"><span class="switch"><input type="checkbox" class="calc-enabled"' + (enabled ? " checked" : "") + '><span class="switch-track"><span class="switch-thumb"></span></span></span> This is a property purchase — show the calculator</label>' +
         body +
       '</div>'
     );
@@ -2096,6 +2113,8 @@
     setOut("repaymentpi", fmtCurrency0.format(out.repaymentMonthlyPI) + "/mo");
     setOut("repaymentio", fmtCurrency0.format(out.repaymentMonthlyIO) + "/mo");
     setOut("deposit", fmtCurrency0.format(out.depositAmt));
+    var barWrap = panel.querySelector(".m-cost-rows [data-comp-bar]");
+    if(barWrap) barWrap.outerHTML = modernCostCompBarHtml(costRowMeta(state.purchase[scenario]));
   }
 
   function afterCalcChange(scenario){

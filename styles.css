@@ -520,6 +520,7 @@
   .uimode-toggle-btn:focus-visible{ box-shadow: var(--focus-ring); outline:none; }
   .page-intro-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; }
   .page-intro-row .page-intro{ flex:1 1 320px; }
+  .page-intro-actions{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
 
   .m-avatar{
     width:30px; height:30px; border-radius:50%; flex:none; display:flex; align-items:center; justify-content:center;

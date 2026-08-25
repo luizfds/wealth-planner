@@ -160,3 +160,31 @@ export function scenarioInflatableMonthly(scenario){
   var homeNonLoan = homeItems.filter(function(i){ return i.id !== "homeLoanRow"; });
   return sumField(state.shared, "monthly") + sumField(homeNonLoan, "monthly");
 }
+
+// Property equity is split into two pieces with very different liquidity:
+// - offset balance: real cash sitting in a linked transaction account — instantly
+//   spendable/withdrawable, so it's treated as liquid alongside Cash/Shares.
+// - illiquid equity (value minus the FULL loan balance): only accessible by selling
+//   or refinancing the property.
+// propertyEquityToday() is their sum — the "how much of this property do I own outright"
+// figure — but don't ALSO enter the offset balance as a separate Cash asset (see the
+// Offset field's tooltip), or it'll be counted twice.
+export function propertyOffsetTotal(property){
+  return (property.loans || []).reduce(function(s, l){ return s + (Number(l.offsetBalance) || 0); }, 0);
+}
+export function propertyIlliquidEquityToday(property){
+  var loanTotal = (property.loans || []).reduce(function(s, l){ return s + (Number(l.balance) || 0); }, 0);
+  return (Number(property.value) || 0) - loanTotal;
+}
+export function propertyEquityToday(property){
+  return propertyIlliquidEquityToday(property) + propertyOffsetTotal(property);
+}
+export function propertiesOffsetTotal(){
+  return state.properties.reduce(function(s, p){ return s + propertyOffsetTotal(p); }, 0);
+}
+export function propertiesIlliquidEquityToday(){
+  return state.properties.reduce(function(s, p){ return s + propertyIlliquidEquityToday(p); }, 0);
+}
+export function propertiesTotalEquityToday(){
+  return state.properties.reduce(function(s, p){ return s + propertyEquityToday(p); }, 0);
+}

@@ -3,13 +3,18 @@ import { toWeekly, sumField } from "./ledger.js";
 import {
   recalcPurchase, ipProperties, ipExpensesMonthly, ipLoansMonthly,
   shockedLoanRepaymentMonthly, scenarioInflatableMonthly, calcStampDuty,
-  calcLMI, calcRepaymentMonthly, purchaseActiveRate, loanBalanceAfterMonths
+  calcLMI, calcRepaymentMonthly, purchaseActiveRate, loanBalanceAfterMonths,
+  propertiesTotalEquityToday
 } from "./property.js";
 import { getTaxPeople, computePersonTax, effectiveIncomeItems } from "./tax.js";
 import { fmtCurrency0 } from "../lib/format.js";
 
 export function totalAssetsValue(){
   return state.assets.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
+}
+
+export function totalNetWorthValue(){
+  return totalAssetsValue() + propertiesTotalEquityToday();
 }
 
 export function computeNetWorthSeries(scenario, horizonYears){

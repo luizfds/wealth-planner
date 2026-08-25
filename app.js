@@ -2653,12 +2653,30 @@
   // Session-only (not persisted) — shares modernPropRowOpen with each property's income/expense
   // rows, keyed by "loan:<propertyId>:<loanIndex>" so it never collides with "propinc:<id>"/
   // "propexp:<id>" keys, and is already wired up for free via wireModernRowToggle("propertiesBody", ...).
-  function loanRowModernHtml(loan, li, propId){
+  // Every loan gets a color (none are "computed" read-only rows), cycling the same 8-color
+  // series used everywhere else — shared by each row's identity dot and the card's composition
+  // bar so the two visuals stay in sync.
+  function loanRowMeta(p){
+    return (p.loans || []).map(function(loan, li){ return { loan: loan, li: li, colorIdx: li % 8 }; });
+  }
+  function modernLoanCompBarHtml(rowMeta){
+    var segs = rowMeta.map(function(m){ return { loan: m.loan, colorIdx: m.colorIdx, balance: Math.max(0, Number(m.loan.balance) || 0) }; })
+      .filter(function(x){ return x.balance > 0.5; });
+    if(segs.length < 2) return "";
+    var total = segs.reduce(function(s, x){ return s + x.balance; }, 0);
+    return '<div class="m-comp-bar" data-comp-bar>' + segs.map(function(x){
+      var pct = total > 0 ? x.balance / total : 0;
+      return '<div class="m-comp-seg series-color-' + x.colorIdx + '" style="flex:' + x.balance + ' 1 0%" title="' + escapeAttr(x.loan.what) + ': ' + fmtCurrency0.format(x.balance) + ' balance (' + fmtPercent1.format(pct) + ')"></div>';
+    }).join("") + '</div>';
+  }
+  function loanRowModernHtml(loan, li, propId, colorIdx){
     var section = "loan:" + propId;
     var isOpen = !!modernPropRowOpen[section + ":" + li];
     var repayment = loanRepaymentMonthly(loan);
     var rateDisplay = Math.round((Number(loan.rate) || 0) * 100) / 100;
+    var dot = colorIdx != null ? '<span class="m-row-dot series-color-' + colorIdx + '" aria-hidden="true"></span>' : "";
     var summary = '<div class="m-row-summary" role="button" tabindex="0" data-row-toggle>' +
+      dot +
       '<div style="flex:1 1 auto; min-width:0">' +
         '<div class="m-row-name">' + escapeAttr(loan.what) + '</div>' +
         '<div class="m-row-sub" data-computed="sub">' + fmtCurrency0.format(Number(loan.balance) || 0) + ' balance · ' + rateDisplay + '% · ' + loan.repaymentType + (loan.repaymentMode === "manual" ? " · manual repayment" : "") + '</div>' +
@@ -2672,19 +2690,25 @@
         '<div class="m-edit-field"><label>Balance</label><input type="number" step="1000" min="0" class="loan-balance" value="' + (Number(loan.balance) || 0) + '" aria-label="Loan balance"></div>' +
         '<div class="m-edit-field"><label>Rate %</label><input type="number" step="0.01" min="0" class="loan-rate" value="' + rateDisplay + '" aria-label="Interest rate percent"></div>' +
         '<div class="m-edit-field"><label>Term (yrs)</label><input type="number" step="1" min="0" class="loan-term" value="' + (Number(loan.termYears) || 0) + '" aria-label="Term years remaining"></div>' +
-        '<div class="m-edit-field"><label>Type</label><select class="loan-type" aria-label="Repayment type">' + optionsHtml(["PI", "IO"], loan.repaymentType) + '</select></div>' +
-        '<div class="m-edit-field"><label>Repayment</label><select class="loan-repay-mode" aria-label="Repayment mode">' + optionsHtml(["auto", "manual"], loan.repaymentMode) + '</select></div>' +
-        '<div class="m-edit-field" title="Netted against this loan\'s balance for both equity and interest — this is the one place to enter it. Don\'t also add it as a separate Cash asset on the Assets tab, or it\'ll be counted twice."><label>Offset</label><input type="number" step="1000" min="0" class="loan-offset" value="' + (Number(loan.offsetBalance) || 0) + '" aria-label="Offset account balance"></div>' +
-        (loan.repaymentMode === "manual"
-          ? '<div class="m-edit-field span3"><label>Manual repayment / month</label><input type="number" step="1" min="0" class="loan-manual-amount" value="' + (Number(loan.manualRepaymentAmount) || 0) + '" aria-label="Manual repayment amount"></div>'
-          : "") +
       '</div>' +
+      '<details class="tax-advanced m-more-options"><summary>More options</summary>' +
+        '<div class="m-edit-grid" style="margin-top:8px">' +
+          '<div class="m-edit-field"><label>Type</label><select class="loan-type" aria-label="Repayment type">' + optionsHtml(["PI", "IO"], loan.repaymentType) + '</select></div>' +
+          '<div class="m-edit-field"><label>Repayment</label><select class="loan-repay-mode" aria-label="Repayment mode">' + optionsHtml(["auto", "manual"], loan.repaymentMode) + '</select></div>' +
+          '<div class="m-edit-field" title="Netted against this loan\'s balance for both equity and interest — this is the one place to enter it. Don\'t also add it as a separate Cash asset on the Assets tab, or it\'ll be counted twice."><label>Offset</label><input type="number" step="1000" min="0" class="loan-offset" value="' + (Number(loan.offsetBalance) || 0) + '" aria-label="Offset account balance"></div>' +
+          (loan.repaymentMode === "manual"
+            ? '<div class="m-edit-field span3"><label>Manual repayment / month</label><input type="number" step="1" min="0" class="loan-manual-amount" value="' + (Number(loan.manualRepaymentAmount) || 0) + '" aria-label="Manual repayment amount"></div>'
+            : "") +
+        '</div>' +
+      '</details>' +
       '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm row-del" data-loan-del="' + li + '">Delete</button></div>' +
     '</div></div></div>';
     return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="' + escapeAttr(section) + '" data-index="' + li + '" data-loan-index="' + li + '">' + summary + edit + '</div>';
   }
   function modernLoanListHtml(p){
-    return (p.loans || []).map(function(loan, li){ return loanRowModernHtml(loan, li, p.id); }).join("");
+    var rowMeta = loanRowMeta(p);
+    var rows = rowMeta.map(function(m){ return loanRowModernHtml(m.loan, m.li, p.id, m.colorIdx); }).join("");
+    return modernLoanCompBarHtml(rowMeta) + '<div class="m-rows">' + rows + '</div>';
   }
 
   function propertyCardHtml(p){
@@ -2741,7 +2765,7 @@
       '<div class="property-section">' +
         '<div class="property-section-title">Loans</div>' +
         (state.uiMode === "modern"
-          ? '<div class="m-card"><div class="m-rows" id="propLoanRows_' + escapeAttr(p.id) + '">' + modernLoanListHtml(p) + '</div></div>'
+          ? '<div class="m-card" id="propLoanRows_' + escapeAttr(p.id) + '">' + modernLoanListHtml(p) + '</div>'
           : '<div class="table-scroll"><table class="calc-costs-table prop-loans-table"><thead><tr><th>What</th><th class="num">Balance</th><th class="num">Rate %</th><th class="num">Term (yrs)</th><th>Type</th><th>Repayment</th><th class="num" title="Netted against the loan balance for both equity and interest — the one place to enter this money, not also as a separate Cash asset">Offset</th><th></th></tr></thead><tbody>' + loanRows + '</tbody></table></div>') +
         '<button type="button" class="btn btn-sm btn-ghost" data-loan-add="' + escapeAttr(p.id) + '">+ Add loan</button>' +
       '</div>' +
@@ -3585,6 +3609,8 @@
         sub.textContent = fmtCurrency0.format(Number(loan.balance) || 0) + " balance · " + rateDisplay + "% · " + loan.repaymentType + (loan.repaymentMode === "manual" ? " · manual repayment" : "");
       }
     });
+    var loanBarWrap = card.querySelector('#propLoanRows_' + CSS.escape(property.id) + ' [data-comp-bar]');
+    if(loanBarWrap) loanBarWrap.outerHTML = modernLoanCompBarHtml(loanRowMeta(property));
     var gearBadge = card.querySelector(".gearing-badge.positive, .gearing-badge.negative");
     if(gearBadge && property.kind === "IP"){
       var gearing = propertyGearingAnnual(property);

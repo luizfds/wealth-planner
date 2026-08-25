@@ -27,7 +27,6 @@
       <button type="button" class="nav-item" data-page="properties">Properties</button>
       <button type="button" class="nav-item" data-page="scenarios">Scenarios</button>
       <button type="button" class="nav-item" data-page="projections">Projections</button>
-      <p class="app-nav-version" id="appNavVersion"></p>
     </div>
     <div class="app-sidebar-footer">
       <label class="toggle-periods" id="periodsToggleWrap">
@@ -307,6 +306,20 @@
   </div>
 
 </div>
+
+<nav class="mobile-tabbar" id="mobileTabbar">
+  <button type="button" class="mobile-tab" data-page="dashboard">Dashboard</button>
+  <button type="button" class="mobile-tab" data-page="income">Income</button>
+  <button type="button" class="mobile-tab" data-page="expenses">Expenses</button>
+  <button type="button" class="mobile-tab" data-page="assets">Assets</button>
+  <button type="button" class="mobile-tab" data-page="properties">Properties</button>
+  <button type="button" class="mobile-tab" id="mobileTabMore" aria-haspopup="true" aria-expanded="false">More</button>
+  <div class="mobile-more-panel" id="mobileMorePanel" hidden>
+    <button type="button" class="mobile-more-item" data-page="scenarios">Scenarios</button>
+    <button type="button" class="mobile-more-item" data-page="projections">Projections</button>
+    <p class="mobile-more-version" id="mobileMoreVersion"></p>
+  </div>
+</nav>
 
 <div class="toast-wrap" id="toastWrap"></div>
 

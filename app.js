@@ -3543,8 +3543,17 @@
       persist();
     });
   }
-  wireUiModeToggle("incomeUiModeToggle", function(){ renderIncomeGroups(); renderTaxSuper(); });
-  wireUiModeToggle("expenseUiModeToggle", function(){ renderSharedGroups(); });
+  // state.uiMode is a single global preference, not per-page — switching it from any one page's
+  // toggle has to refresh every page that has a modern layout, or the others sit stale (still
+  // showing the old mode's content and controls, like a Classic-mode-only "Columns" picker) until
+  // something else happens to re-render them.
+  function refreshAllUiModePages(){
+    renderIncomeGroups();
+    renderTaxSuper();
+    renderSharedGroups();
+  }
+  wireUiModeToggle("incomeUiModeToggle", refreshAllUiModePages);
+  wireUiModeToggle("expenseUiModeToggle", refreshAllUiModePages);
 
   function onScenarioControlClick(e){
     var collapseBtn = e.target.closest("[data-collapse-toggle]");

@@ -917,7 +917,7 @@
     var ipPropertyIds = state.properties.filter(function(p){ return p.kind === "IP"; }).map(function(p){ return p.id; });
     state.income = state.income.filter(function(i){ return !(i.syntheticRentForProperty && ipPropertyIds.indexOf(i.syntheticRentForProperty) === -1); });
     state.properties.filter(function(p){ return p.kind === "IP"; }).forEach(function(p){
-      var monthlyRent = sumField(p.income, "monthly");
+      var monthlyRent = Math.round(sumField(p.income, "monthly") * 100) / 100;
       var existingRent = state.income.find(function(i){ return i.syntheticRentForProperty === p.id; });
       var note = "auto: rent for " + p.what + " — edit on the Properties tab";
       if(existingRent){
@@ -1197,7 +1197,11 @@
   function rowHtml(section, item, idx, showClass, showIncomeFields, acctClass, classClass){
     var isComputed = !!item.computed;
     var isGrossRef = showIncomeFields && item.incomeType === "Gross" && !isComputed;
-    var rowClass = (isComputed ? " is-computed" : (isGrossRef ? " is-gross-ref" : "")) + (item.id === "homeLoanRow" ? " is-home-loan-row" : "");
+    // A template row nobody has filled in yet (still $0) shouldn't read with the same weight as
+    // real numbers next to it — most visible on the Scenarios page, where every scenario starts
+    // with the same Home Insurance/Council Rates/etc. rows whether or not they apply.
+    var isZero = !isComputed && !isGrossRef && item.id !== "homeLoanRow" && (Number(item.amount) || 0) === 0;
+    var rowClass = (isComputed ? " is-computed" : (isGrossRef ? " is-gross-ref" : (isZero ? " is-zero-value" : ""))) + (item.id === "homeLoanRow" ? " is-home-loan-row" : "");
     return '<tr data-section="' + section + '" data-index="' + idx + '"' + (rowClass ? ' class="' + rowClass.trim() + '"' : "") + '>' +
       '<td class="what-cell"><input type="text" class="f-what" value="' + escapeAttr(item.what) + '" aria-label="Item name">' +
         (item.syntheticNetFor ? '<button type="button" class="row-breakdown-toggle" data-breakdown-person="' + escapeAttr(item.syntheticNetFor) + '" aria-expanded="false">▸ Breakdown</button>' : "") +
@@ -1422,15 +1426,27 @@
       " + other recurring costs " + fmtCurrency0.format(other) + " = <b>" + fmtCurrency0.format(total) + " / mo</b> total home cost";
   }
 
+  // Session-only UI preference (not persisted app data, like colPickers below) — which
+  // scenario cards are collapsed on the Scenarios page. Seeded per-scenario the first time
+  // it's rendered so comparing several scenarios at once doesn't mean scrolling past every
+  // purchase calculator fully expanded; the active scenario starts open, the rest start closed.
+  var homeBlockCollapsed = {};
+
   function renderHomeBody(){
     var body = document.getElementById("homeBody");
     var canDelete = state.scenarios.length > 1;
+    state.scenarios.forEach(function(scenario){
+      if(!(scenario in homeBlockCollapsed)) homeBlockCollapsed[scenario] = (scenario !== state.activeScenario);
+    });
     body.innerHTML = state.scenarios.map(function(scenario, i){
       var isActive = state.activeScenario === scenario;
+      var isCollapsed = !!homeBlockCollapsed[scenario];
       var total = sumField(state.home[scenario], "monthly");
-      return '<div class="home-block' + (isActive ? " is-active" : "") + '">' +
+      return '<div class="home-block' + (isActive ? " is-active" : "") + (isCollapsed ? " is-collapsed" : "") + '">' +
         '<div class="home-block-head">' +
-          '<div class="home-block-head-left"><span class="home-dot"></span><h4>' + escapeAttr(scenario) + '</h4>' +
+          '<div class="home-block-head-left">' +
+            '<button type="button" class="icon-btn home-collapse-toggle" data-collapse-toggle="' + escapeAttr(scenario) + '" aria-expanded="' + (!isCollapsed) + '" aria-label="' + (isCollapsed ? "Expand" : "Collapse") + ' ' + escapeAttr(scenario) + '"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg></button>' +
+            '<span class="home-dot"></span><h4>' + escapeAttr(scenario) + '</h4>' +
             (isActive
               ? '<span class="home-active-badge" title="This is the scenario shown on the Dashboard and compared against the others">Active on Dashboard</span>'
               : '<button type="button" class="home-setactive-btn" data-edit-scenario2="' + escapeAttr(scenario) + '" title="Make this the scenario shown on the Dashboard">Set active</button>') +
@@ -1442,11 +1458,13 @@
             (canDelete ? '<button type="button" class="icon-btn icon-del" data-delete="' + escapeAttr(scenario) + '" aria-label="Delete ' + escapeAttr(scenario) + '" title="Delete">✕</button>' : "") +
           '</div>' +
         '</div>' +
-        renderPurchasePanelHtml(scenario) +
-        '<div class="home-recurring-label">Recurring costs — per month</div>' +
-        '<p class="income-summary-line home-recon-line">' + homeReconciliationHtml(scenario) + '</p>' +
-        '<div class="table-scroll"><table class="ledger-table" id="homeTable_' + slug(scenario) + i + '"></table></div>' +
-        '<div class="ledger-footer"><button class="btn btn-sm" data-add="home:' + escapeAttr(scenario) + '">+ Add item</button></div>' +
+        '<div class="home-block-body">' +
+          renderPurchasePanelHtml(scenario) +
+          '<div class="home-recurring-label">Recurring costs — per month</div>' +
+          '<p class="income-summary-line home-recon-line">' + homeReconciliationHtml(scenario) + '</p>' +
+          '<div class="table-scroll"><table class="ledger-table" id="homeTable_' + slug(scenario) + i + '"></table></div>' +
+          '<div class="ledger-footer"><button class="btn btn-sm" data-add="home:' + escapeAttr(scenario) + '">+ Add item</button></div>' +
+        '</div>' +
         '</div>';
     }).join("") +
     '<button type="button" class="add-scenario-row" id="addScenarioBtn2"><span class="add-plus" style="font-size:16px">+</span> Add another scenario</button>';
@@ -3155,6 +3173,13 @@
   document.addEventListener("click", onLedgerClick);
 
   function onScenarioControlClick(e){
+    var collapseBtn = e.target.closest("[data-collapse-toggle]");
+    if(collapseBtn){
+      var cs = collapseBtn.getAttribute("data-collapse-toggle");
+      homeBlockCollapsed[cs] = !homeBlockCollapsed[cs];
+      renderHomeBody();
+      return true;
+    }
     var renameBtn = e.target.closest("[data-rename]");
     if(renameBtn){ renameScenario(renameBtn.getAttribute("data-rename")); return true; }
     var delBtn = e.target.closest("[data-delete]");
@@ -3573,6 +3598,8 @@
     });
     var page = PAGES.find(function(p){ return p.id === id; });
     document.getElementById("pageTitle").textContent = page ? page.label : "Dashboard";
+    var navLabel = document.getElementById("navMenuCurrentLabel");
+    if(navLabel) navLabel.textContent = page ? page.label : "Dashboard";
     try{ localStorage.setItem(PAGE_KEY, id); }catch(e){}
     if(id === "dashboard") renderDashboardStats();
     if(!opts.skipScroll) window.scrollTo(0, 0);
@@ -3583,7 +3610,25 @@
     var btn = e.target.closest(".nav-item");
     if(!btn) return;
     showPage(btn.getAttribute("data-page"));
+    closeNavMenu();
   });
+
+  // Mobile-only dropdown: appNav is a vertical panel behind this toggle below 880px
+  // (see styles.css), so a page's 7 tabs stay reachable without horizontal scroll-hunting.
+  var navMenuToggle = document.getElementById("navMenuToggle");
+  function closeNavMenu(){
+    document.querySelector(".app-sidebar").classList.remove("nav-open");
+    navMenuToggle.setAttribute("aria-expanded", "false");
+  }
+  navMenuToggle.addEventListener("click", function(e){
+    e.stopPropagation();
+    var willOpen = !document.querySelector(".app-sidebar").classList.contains("nav-open");
+    document.querySelector(".app-sidebar").classList.toggle("nav-open", willOpen);
+    navMenuToggle.setAttribute("aria-expanded", String(willOpen));
+  });
+  document.getElementById("appNav").addEventListener("click", function(e){ e.stopPropagation(); });
+  document.addEventListener("click", closeNavMenu);
+  document.addEventListener("keydown", function(e){ if(e.key === "Escape") closeNavMenu(); });
 
   document.getElementById("assetsSubnav").addEventListener("click", function(e){
     var btn = e.target.closest("[data-assets-sub]");

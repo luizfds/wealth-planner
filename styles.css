@@ -87,6 +87,7 @@
   .app-brand-name{ font-family:"Inter", system-ui, sans-serif; font-weight:600; font-size:18px; letter-spacing:-0.01em; display:flex; align-items:center; gap:8px; }
   .app-brand-mark{ width:22px; height:22px; border-radius:6px; background: var(--brass); flex:none; display:flex; align-items:center; justify-content:center; color:#ffffff; font-family:"Inter",sans-serif; font-weight:700; font-size:13px; }
   .app-brand-tag{ font-size:11px; color: var(--ink-soft); margin-top:2px; }
+  .nav-menu-toggle{ display:none; }
   .app-nav{ display:flex; flex-direction:column; gap:2px; }
   .nav-item{
     all:unset; box-sizing:border-box; display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:8px;
@@ -136,15 +137,26 @@
 
   @media (max-width: 880px){
     .app-shell{ display:block; }
-    .app-sidebar{ position:sticky; top:0; height:auto; width:auto; flex-direction:row; align-items:center; overflow-x:auto; padding:10px 12px; gap:12px; z-index:5; }
-    .app-sidebar::after{
-      content:""; position:absolute; top:0; right:0; bottom:0; width:28px; pointer-events:none;
-      background: linear-gradient(to right, transparent, var(--paper-raised));
-    }
+    .app-sidebar{ position:sticky; top:0; height:auto; width:auto; overflow-y:visible; flex-direction:row; align-items:center; flex-wrap:wrap; padding:10px 12px; gap:10px 12px; z-index:5; }
     .app-brand{ padding:0; flex:none; }
     .app-brand-tag{ display:none; }
-    .app-nav{ flex-direction:row; gap:4px; }
-    .nav-item{ white-space:nowrap; padding:8px 10px; }
+    /* Nav collapses into a dropdown behind navMenuToggle — 7 pages don't fit in one row,
+       and a horizontal-scroll strip left most of them invisible with no hint they existed. */
+    .nav-menu-toggle{
+      display:flex; align-items:center; gap:6px; font: inherit; font-size:14px; font-weight:600; color: var(--ink);
+      background: var(--paper-sunken); border:1px solid var(--border); border-radius:8px; padding:7px 10px; cursor:pointer;
+    }
+    .nav-menu-toggle:hover{ background: var(--paper); }
+    .nav-menu-toggle:focus-visible{ box-shadow: var(--focus-ring); outline:none; }
+    .nav-menu-chevron{ transition: transform .15s ease; flex:none; }
+    .nav-menu-toggle[aria-expanded="true"] .nav-menu-chevron{ transform: rotate(180deg); }
+    .app-nav{
+      display:none; flex-direction:column; gap:2px; position:absolute; top:100%; left:12px; right:12px; margin-top:6px;
+      background: var(--paper-raised); border:1px solid var(--border); border-radius:10px; padding:6px;
+      box-shadow: 0 12px 28px rgba(0,0,0,0.28); z-index:20;
+    }
+    .app-sidebar.nav-open .app-nav{ display:flex; }
+    .nav-item{ white-space:normal; text-align:left; padding:10px 12px; border-radius:7px; }
     .app-sidebar-footer{ flex-direction:row; align-items:center; margin-top:0; padding-top:0; border-top:none; margin-left:auto; }
     .app-sidebar-note{ display:none; }
     .app-version{ display:none; }
@@ -154,6 +166,13 @@
       -webkit-mask-image: linear-gradient(to right, black calc(100% - 20px), transparent);
       mask-image: linear-gradient(to right, black calc(100% - 20px), transparent);
     }
+    /* Freeze the label column so a row's name stays in view while scrolling right to its numbers —
+       otherwise the amount, frequency and totals scroll fully off-screen with no way to tell which row they belong to. */
+    .table-scroll table td:first-child, .table-scroll table th:first-child{
+      position: sticky; left:0; z-index:2; background: var(--paper-raised); box-shadow: 1px 0 0 var(--border);
+    }
+    .table-scroll table th:first-child{ z-index:3; background: var(--paper-sunken); }
+    .table-scroll tr.is-gross-ref td:first-child{ background: var(--paper-sunken); }
   }
 
   /* ---------------- Dashboard stat tiles ---------------- */
@@ -377,6 +396,8 @@
   tr.is-gross-ref .what-cell input, tr.is-gross-ref .amount-cell input{ color: var(--ink-soft); }
   tr.is-gross-ref td.computed{ color: var(--ink-soft); opacity: 0.7; }
   tr.is-gross-ref .computed-note{ color: var(--brass-strong); }
+  tr.is-zero-value .what-cell input, tr.is-zero-value .class-cell select{ color: var(--ink-soft); }
+  tr.is-zero-value:hover .what-cell input, tr.is-zero-value:focus-within .what-cell input{ color: var(--ink); }
   tr.is-home-loan-row .what-cell input{ font-weight:600; }
   tr.is-home-loan-row td.computed{ color: var(--brass-strong); font-weight:700; }
   tr.is-home-loan-row .amount-cell input{ color: var(--brass-strong); font-weight:700; }
@@ -455,6 +476,15 @@
   .home-block-right{ display:flex; align-items:center; gap:8px; flex:none; }
   .home-block-total-label{ font-size:10px; text-transform:uppercase; letter-spacing:.03em; color: var(--ink-soft); white-space:nowrap; }
   .home-block-total{ font-family:"IBM Plex Mono", monospace; font-size:12.5px; color: var(--ink-soft); white-space:nowrap; }
+  /* Comparing several scenarios means several full purchase calculators on one page — collapsed
+     cards keep just the header (name + total) visible so the page reads as a scannable list,
+     matching the disclosure pattern the ledger sections use elsewhere. */
+  .home-collapse-toggle{ width:20px; height:20px; margin-right:2px; }
+  .home-block:not(.is-collapsed) .home-collapse-toggle .ledger-caret{ transform: rotate(90deg); }
+  .home-block-body{ margin-top:8px; }
+  .home-block.is-collapsed .home-block-head{ margin-bottom:0; }
+  .home-block.is-collapsed .home-block-body{ display:none; }
+  .home-block.is-collapsed .home-block-total{ color: var(--ink); font-weight:700; font-size:13.5px; }
 
   .income-group{ margin-bottom: 20px; }
   .income-group:last-child{ margin-bottom:0; }

@@ -4390,18 +4390,23 @@
     return { page: page.id, sub: sub };
   }
 
+  // Pages reachable directly from the mobile bottom tab bar; the rest live behind its "More"
+  // tab. Scenarios/Projections are occasional "what-if" pages, unlike the four data-entry
+  // pages above them, so the More tab's own active state also lights up for those two.
+  var MOBILE_MORE_PAGES = ["scenarios", "projections"];
   function showPage(id, opts){
     opts = opts || {};
     if(!PAGES.some(function(p){ return p.id === id; })) id = "dashboard";
     PAGES.forEach(function(p){
       var section = document.getElementById("page-" + p.id);
       if(section) section.hidden = (p.id !== id);
-      var navBtn = document.querySelector('.nav-item[data-page="' + p.id + '"]');
-      if(navBtn){
+      document.querySelectorAll('.nav-item[data-page="' + p.id + '"], .mobile-tab[data-page="' + p.id + '"], .mobile-more-item[data-page="' + p.id + '"]').forEach(function(navBtn){
         navBtn.classList.toggle("active", p.id === id);
         if(p.id === id) navBtn.setAttribute("aria-current", "page"); else navBtn.removeAttribute("aria-current");
-      }
+      });
     });
+    var moreTab = document.getElementById("mobileTabMore");
+    if(moreTab) moreTab.classList.toggle("active", MOBILE_MORE_PAGES.indexOf(id) !== -1);
     var page = PAGES.find(function(p){ return p.id === id; });
     document.getElementById("pageTitle").textContent = page ? page.label : "Dashboard";
     var navLabel = document.getElementById("navMenuCurrentLabel");
@@ -4410,6 +4415,7 @@
     if(id === "dashboard") renderDashboardStats();
     if(!opts.skipScroll) window.scrollTo(0, 0);
     if(!opts.skipUrl) syncUrl(id, !!opts.replace);
+    closeMobileMore();
   }
 
   document.getElementById("appNav").addEventListener("click", function(e){
@@ -4418,10 +4424,6 @@
     showPage(btn.getAttribute("data-page"));
     closeNavMenu();
   });
-
-  // Mirrors the sidebar footer's version text into the mobile nav dropdown, which is the only
-  // place a mobile viewport (<880px, where .app-version is hidden) can see it.
-  document.getElementById("appNavVersion").textContent = document.querySelector(".app-version").textContent;
 
   // Mobile-only dropdown: appNav is a vertical panel behind this toggle below 880px
   // (see styles.css), so a page's 7 tabs stay reachable without horizontal scroll-hunting.
@@ -4439,6 +4441,32 @@
   document.getElementById("appNav").addEventListener("click", function(e){ e.stopPropagation(); });
   document.addEventListener("click", closeNavMenu);
   document.addEventListener("keydown", function(e){ if(e.key === "Escape") closeNavMenu(); });
+
+  // Mobile bottom tab bar — the primary nav on a mobile viewport (<880px), replacing the old
+  // dropdown above. Five pages are one tap away; Scenarios/Projections live behind "More"
+  // since they're occasional "what-if" pages rather than day-to-day data entry.
+  var mobileTabMore = document.getElementById("mobileTabMore");
+  var mobileMorePanel = document.getElementById("mobileMorePanel");
+  function closeMobileMore(){
+    mobileMorePanel.hidden = true;
+    mobileTabMore.setAttribute("aria-expanded", "false");
+  }
+  document.getElementById("mobileTabbar").addEventListener("click", function(e){
+    var pageBtn = e.target.closest("[data-page]");
+    if(pageBtn){ showPage(pageBtn.getAttribute("data-page")); return; }
+    if(e.target.closest("#mobileTabMore")){
+      e.stopPropagation();
+      var willOpen = mobileMorePanel.hidden;
+      mobileMorePanel.hidden = !willOpen;
+      mobileTabMore.setAttribute("aria-expanded", String(willOpen));
+    }
+  });
+  document.addEventListener("click", closeMobileMore);
+  document.addEventListener("keydown", function(e){ if(e.key === "Escape") closeMobileMore(); });
+
+  // Mirrors the sidebar footer's version text into the mobile "More" panel, which is the only
+  // place a mobile viewport (<880px, where .app-version is hidden) can see it.
+  document.getElementById("mobileMoreVersion").textContent = document.querySelector(".app-version").textContent;
 
   document.getElementById("assetsSubnav").addEventListener("click", function(e){
     var btn = e.target.closest("[data-assets-sub]");

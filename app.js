@@ -480,7 +480,7 @@
       activeScenario: "Scenario 1",
       scenarios: ["Scenario 1"],
       showAllPeriods: false,
-      incomeCols: { person: false, type: false, super: true, sacrifice: true, account: false },
+      incomeCols: { person: false, type: true, super: true, sacrifice: true, account: false },
       expenseCols: { classification: false, account: false },
       homeCols: { account: false },
       income: [],
@@ -616,8 +616,12 @@
   }
 
   function migrateState(s){
-    if(!s.incomeCols) s.incomeCols = { person: false, type: false, super: true, sacrifice: true, account: false };
+    if(!s.incomeCols) s.incomeCols = { person: false, type: true, super: true, sacrifice: true, account: false };
     INCOME_COL_DEFS.forEach(function(c){ if(s.incomeCols[c.key] == null) s.incomeCols[c.key] = true; });
+    if(!s._incomeTypeColDefaultApplied){
+      s.incomeCols.type = true;
+      s._incomeTypeColDefaultApplied = true;
+    }
     if(!s.expenseCols) s.expenseCols = { account: false };
     if(s.expenseCols.account == null) s.expenseCols.account = false;
     if(s.expenseCols.classification == null) s.expenseCols.classification = false;

@@ -2268,20 +2268,50 @@
     if(!opts.skipUrl) syncUrl("assets", !!opts.replace);
   }
 
+  // Session-only (not persisted) — shared across every asset subpage (Cash/Shares/Super/Vehicle/
+  // Other) and both row types below. Keyed by the row's index into the flat state.assets array,
+  // which (unlike Properties' several separately-indexed arrays) is already globally unique
+  // regardless of category, so no section prefix is needed to avoid collisions.
+  var modernAssetRowOpen = {};
+
+  function modernAssetRowHtml(item, idx){
+    var isOpen = !!modernAssetRowOpen[idx];
+    var summary = '<div class="m-row-summary" role="button" tabindex="0" data-row-toggle>' +
+      '<div style="flex:1 1 auto; min-width:0"><div class="m-row-name">' + escapeAttr(item.what) + '</div></div>' +
+      '<span class="m-row-amt" data-computed="amt">' + fmtCurrency0.format(Number(item.amount) || 0) + '</span>' +
+      '<svg class="m-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>' +
+    '</div>';
+    var edit = '<div class="m-row-edit"><div class="m-row-edit-inner"><div class="m-row-edit-pad">' +
+      '<div class="m-edit-grid">' +
+        '<div class="m-edit-field span3"><label>What</label><input type="text" class="a-what" value="' + escapeAttr(item.what) + '" aria-label="Asset name"></div>' +
+        '<div class="m-edit-field"><label>Category</label><select class="a-category" title="Move to a different category" aria-label="Category">' + optionsHtml(ASSET_CATEGORIES, item.category) + '</select></div>' +
+        '<div class="m-edit-field span2"><label>Value</label><input type="number" step="100" min="0" class="a-amount" value="' + item.amount + '" aria-label="Asset value"></div>' +
+      '</div>' +
+      '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm asset-log-btn" data-asset-log="' + idx + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart below">Log</button><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete asset">Delete</button></div>' +
+    '</div></div></div>';
+    return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="assets" data-index="' + idx + '">' + summary + edit + '</div>';
+  }
+
   function renderAssetCategoryPage(cat){
     var container = document.getElementById("assetsSub-" + cat);
     if(!container) return;
     var data = assetCategoryItems(cat);
     var total = data.items.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
     var footerBtn = '<button type="button" class="btn btn-sm' + (data.items.length ? " btn-ghost" : "") + '" data-add="assets:' + escapeAttr(cat) + '">+ Add ' + escapeAttr(cat) + '</button>';
-    var body = data.items.length
-      ? '<div class="table-scroll"><table class="assets-table" id="assetCatTable-' + cat + '"></table></div><div class="ledger-footer">' + footerBtn + '</div>'
-      : '<p class="ledger-note" style="margin:0 0 12px">No ' + escapeAttr(cat) + ' tracked yet.</p>' + footerBtn;
+    var isModern = state.uiMode === "modern";
+    var body;
+    if(!data.items.length){
+      body = '<p class="ledger-note" style="margin:0 0 12px">No ' + escapeAttr(cat) + ' tracked yet.</p>' + footerBtn;
+    } else if(isModern){
+      body = '<div class="m-card"><div class="m-rows m-asset-rows">' + data.items.map(function(item, i){ return modernAssetRowHtml(item, data.indices[i]); }).join("") + '</div></div><div class="ledger-footer">' + footerBtn + '</div>';
+    } else {
+      body = '<div class="table-scroll"><table class="assets-table" id="assetCatTable-' + cat + '"></table></div><div class="ledger-footer">' + footerBtn + '</div>';
+    }
     container.innerHTML = '<div class="ledgers"><details class="ledger" open>' +
       '<summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">' + escapeAttr(cat) + '</h2></div>' +
       '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
       '<div class="ledger-body">' + body + '</div></details></div>';
-    if(data.items.length){
+    if(data.items.length && !isModern){
       var thead = '<thead><tr><th>What</th><th>Category</th><th class="num">Value</th><th></th><th></th></tr></thead>';
       var rows = data.items.map(function(item, i){ return assetRowHtml(item, data.indices[i]); }).join("");
       document.getElementById("assetCatTable-" + cat).innerHTML = thead + "<tbody>" + rows + "</tbody>";
@@ -2305,24 +2335,79 @@
     if(valueCell) valueCell.innerHTML = fmtCurrency0.format(Number(item.amount) || 0) + (item.computed ? '<span class="computed-note">auto</span>' : '<span class="computed-note">set price + date to auto-depreciate</span>');
   }
 
+  function modernVehicleRowHtml(item, idx){
+    var isOpen = !!modernAssetRowOpen[idx];
+    var summary = '<div class="m-row-summary" role="button" tabindex="0" data-row-toggle>' +
+      '<div style="flex:1 1 auto; min-width:0"><div class="m-row-name">' + escapeAttr(item.what) + '</div></div>' +
+      '<span class="m-row-amt" data-computed="amt">' + fmtCurrency0.format(Number(item.amount) || 0) + '</span>' +
+      '<svg class="m-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>' +
+    '</div>';
+    var edit = '<div class="m-row-edit"><div class="m-row-edit-inner"><div class="m-row-edit-pad">' +
+      '<div class="m-edit-grid">' +
+        '<div class="m-edit-field span3"><label>What</label><input type="text" class="v-what" value="' + escapeAttr(item.what) + '" aria-label="Vehicle name"></div>' +
+        '<div class="m-edit-field"><label>Purchase price</label><input type="number" step="500" min="0" class="v-purchaseprice" value="' + (Number(item.purchasePrice) || 0) + '" aria-label="Purchase price"></div>' +
+        '<div class="m-edit-field"><label>Purchase date</label><input type="date" class="v-purchasedate" value="' + escapeAttr(item.purchaseDate || "") + '" aria-label="Purchase date"></div>' +
+        '<div class="m-edit-field"><label>Depreciation %/yr</label><input type="number" step="0.5" min="0" max="100" class="v-deprate" value="' + (item.depreciationRate != null ? item.depreciationRate : 15) + '" aria-label="Depreciation % per year"></div>' +
+      '</div>' +
+      '<p class="ledger-note v-value-cell" style="margin:8px 0 0">Current value <b>' + fmtCurrency0.format(Number(item.amount) || 0) + '</b>' + (item.computed ? '<span class="computed-note">auto</span>' : '<span class="computed-note">set price + date to auto-depreciate</span>') + '</p>' +
+      '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm asset-log-btn" data-asset-log="' + idx + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart below">Log</button><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete vehicle">Delete</button></div>' +
+    '</div></div></div>';
+    return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="assets" data-index="' + idx + '">' + summary + edit + '</div>';
+  }
+
   function renderVehiclesSubpage(){
     var container = document.getElementById("assetsSub-Vehicle");
     if(!container) return;
     var data = assetCategoryItems("Vehicle");
     var total = data.items.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
     var footerBtn = '<button type="button" class="btn btn-sm' + (data.items.length ? " btn-ghost" : "") + '" data-add="vehicle" title="Track a car or other depreciating vehicle — enter purchase price, date, and an annual depreciation rate and its current value is estimated for you">+ Add vehicle</button>';
-    var body = data.items.length
-      ? '<div class="table-scroll"><table class="assets-table holdings-table" id="vehiclesTable"></table></div><div class="ledger-footer">' + footerBtn + '</div>'
-      : '<p class="ledger-note" style="margin:0 0 12px">No vehicles tracked yet.</p>' + footerBtn;
+    var isModern = state.uiMode === "modern";
+    var body;
+    if(!data.items.length){
+      body = '<p class="ledger-note" style="margin:0 0 12px">No vehicles tracked yet.</p>' + footerBtn;
+    } else if(isModern){
+      body = '<div class="m-card"><div class="m-rows m-asset-rows">' + data.items.map(function(item, i){ return modernVehicleRowHtml(item, data.indices[i]); }).join("") + '</div></div><div class="ledger-footer">' + footerBtn + '</div>';
+    } else {
+      body = '<div class="table-scroll"><table class="assets-table holdings-table" id="vehiclesTable"></table></div><div class="ledger-footer">' + footerBtn + '</div>';
+    }
     container.innerHTML = '<div class="ledgers"><details class="ledger" open>' +
       '<summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Vehicle</h2></div>' +
       '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
       '<div class="ledger-body"><p class="ledger-note" style="margin-left:0">Current value is estimated as declining-balance depreciation from your purchase price — a common approximation for cars, not a valuation. Leave depreciation fields blank to enter a value manually instead.</p>' + body + '</div></details></div>';
-    if(data.items.length){
+    if(data.items.length && !isModern){
       var thead = '<thead><tr><th>What</th><th class="num">Purchase price</th><th>Purchase date</th><th class="num">Depreciation %/yr</th><th class="num">Current value</th><th></th><th></th></tr></thead>';
       var rows = data.items.map(function(item, i){ return vehicleRowHtml(item, data.indices[i]); }).join("");
       document.getElementById("vehiclesTable").innerHTML = thead + "<tbody>" + rows + "</tbody>";
     }
+  }
+
+  function modernShareRowHtml(item, idx){
+    var qty = Number(item.quantity) || 0;
+    var price = Number(item.price) || 0;
+    var isOpen = !!modernAssetRowOpen[idx];
+    var tag = item.symbol ? '<span class="m-row-tag">' + escapeAttr(item.symbol) + '</span>' : "";
+    var summary = '<div class="m-row-summary" role="button" tabindex="0" data-row-toggle>' +
+      '<div style="flex:1 1 auto; min-width:0">' +
+        '<div class="m-row-name">' + escapeAttr(item.what) + '</div>' +
+        '<div class="m-row-sub h-gain-cell">' + gainLossHtml(item) + '</div>' +
+      '</div>' +
+      tag +
+      '<span class="m-row-amt h-value-cell" data-computed="amt">' + fmtCurrency0.format(qty * price) + '</span>' +
+      '<svg class="m-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>' +
+    '</div>';
+    var edit = '<div class="m-row-edit"><div class="m-row-edit-inner"><div class="m-row-edit-pad">' +
+      '<div class="m-edit-grid">' +
+        '<div class="m-edit-field span3"><label>What</label><input type="text" class="h-what" value="' + escapeAttr(item.what) + '" aria-label="Holding name"></div>' +
+        '<div class="m-edit-field"><label>Symbol</label><input type="text" class="h-symbol" value="' + escapeAttr(item.symbol || "") + '" placeholder="e.g. CBA" aria-label="Ticker symbol"></div>' +
+        '<div class="m-edit-field"><label>Market</label><select class="h-market">' + optionsHtml(SHARE_MARKETS, item.market || "ASX") + '</select></div>' +
+        '<div class="m-edit-field"><label>Qty</label><input type="number" step="1" min="0" class="h-qty" value="' + qty + '" aria-label="Quantity"></div>' +
+        '<div class="m-edit-field"><label>Avg cost</label><input type="number" step="0.01" min="0" class="h-avgcost" value="' + (item.avgCost != null ? item.avgCost : "") + '" placeholder="—" aria-label="Average cost per share"></div>' +
+        '<div class="m-edit-field"><label>Price</label><input type="number" step="0.01" min="0" class="h-price" value="' + price + '" aria-label="Current price per share">' + (item.priceUpdated ? '<span class="computed-note h-price-note">as of ' + escapeAttr(item.priceUpdated) + '</span>' : '<span class="computed-note h-price-note"></span>') + '</div>' +
+        '<div class="m-edit-field"><label>Person</label><input type="text" class="h-person" list="personSuggestions" value="' + escapeAttr(item.person || "") + '" placeholder="Household" aria-label="Person"></div>' +
+      '</div>' +
+      '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm asset-log-btn" data-asset-log="' + idx + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart below">Log</button><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete holding">Delete</button></div>' +
+    '</div></div></div>';
+    return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="assets" data-index="' + idx + '">' + summary + edit + '</div>';
   }
 
   function renderSharesSubpage(){
@@ -2331,9 +2416,15 @@
     var data = assetCategoryItems("Shares");
     var total = data.items.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
     var footerBtn = '<button type="button" class="btn btn-sm' + (data.items.length ? " btn-ghost" : "") + '" data-add="holding" title="Track an individual shareholding — symbol, quantity, cost, and value">+ Add share holding</button>';
-    var body = data.items.length
-      ? '<div class="table-scroll"><table class="assets-table holdings-table" id="sharesTable"></table></div><div class="ledger-footer">' + footerBtn + '</div>'
-      : '<p class="ledger-note" style="margin:0 0 12px">No share holdings yet.</p>' + footerBtn;
+    var isModern = state.uiMode === "modern";
+    var body;
+    if(!data.items.length){
+      body = '<p class="ledger-note" style="margin:0 0 12px">No share holdings yet.</p>' + footerBtn;
+    } else if(isModern){
+      body = '<div class="m-card"><div class="m-rows m-asset-rows">' + data.items.map(function(item, i){ return modernShareRowHtml(item, data.indices[i]); }).join("") + '</div></div><div class="ledger-footer">' + footerBtn + '</div>';
+    } else {
+      body = '<div class="table-scroll"><table class="assets-table holdings-table" id="sharesTable"></table></div><div class="ledger-footer">' + footerBtn + '</div>';
+    }
     var pasteTool = data.items.length
       ? '<details class="tax-advanced" style="margin:0 0 14px"><summary>Paste prices from Google Sheets</summary>' +
           '<p class="ledger-note" style="margin:8px 0">This app never fetches prices itself — nothing is sent anywhere. Instead, in a Google Sheet put <code>=GOOGLEFINANCE("ASX:CBA","price")</code> next to each symbol, copy the Symbol and Price columns, and paste the two-column range below. Matches your holdings by ticker symbol (case-insensitive).</p>' +
@@ -2345,7 +2436,7 @@
       '<summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Shares</h2></div>' +
       '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
       '<div class="ledger-body">' + pasteTool + body + '</div></details></div>';
-    if(data.items.length){
+    if(data.items.length && !isModern){
       var thead = '<thead><tr><th>What</th><th>Symbol</th><th>Mkt</th><th class="num">Qty</th><th class="num">Avg cost</th><th class="num">Price</th><th class="num">Value</th><th>Gain/Loss</th><th>Person</th><th></th><th></th></tr></thead>';
       var rows = data.items.map(function(item, i){ return holdingRowHtml(item, data.indices[i]); }).join("");
       document.getElementById("sharesTable").innerHTML = thead + "<tbody>" + rows + "</tbody>";
@@ -2496,6 +2587,7 @@
   }
 
   function renderAssets(){
+    syncUiModeToggle();
     renderAssetCategoryPage("Cash");
     renderSharesSubpage();
     renderAssetCategoryPage("Super");
@@ -3302,8 +3394,8 @@
   document.getElementById("homeBody").addEventListener("click", onCalcClick);
 
   document.addEventListener("input", function(e){
-    if(e.target.closest("table.assets-table")){
-      var tr = e.target.closest("tr[data-index]");
+    if(e.target.closest("table.assets-table, .m-asset-rows")){
+      var tr = e.target.closest("[data-index]");
       if(!tr) return;
       var idx = Number(tr.getAttribute("data-index"));
       var item = state.assets[idx];
@@ -3345,25 +3437,27 @@
         patchVehicleRow(tr, item);
       }
       else return;
+      var modernAmt = tr.querySelector('[data-computed="amt"]');
+      if(modernAmt) modernAmt.textContent = fmtCurrency0.format(Number(item.amount) || 0);
       patchAssetCategoryTotals();
       renderNetWorthPanel();
       persist();
     }
   });
   document.addEventListener("change", function(e){
-    if(e.target.closest("table.assets-table") && e.target.classList.contains("a-category")){
-      var tr = e.target.closest("tr[data-index]");
+    if(e.target.closest("table.assets-table, .m-asset-rows") && e.target.classList.contains("a-category")){
+      var tr = e.target.closest("[data-index]");
       if(!tr) return;
       var idx = Number(tr.getAttribute("data-index"));
       if(state.assets[idx]){ state.assets[idx].category = e.target.value; renderAssets(); persist(); }
     }
-    if(e.target.closest("table.assets-table") && e.target.classList.contains("h-market")){
-      var htr = e.target.closest("tr[data-index]");
+    if(e.target.closest("table.assets-table, .m-asset-rows") && e.target.classList.contains("h-market")){
+      var htr = e.target.closest("[data-index]");
       if(!htr) return;
       var hidx = Number(htr.getAttribute("data-index"));
       if(state.assets[hidx]){ state.assets[hidx].market = e.target.value; persist(); }
     }
-    if(e.target.closest("table.assets-table") && e.target.classList.contains("h-person")){
+    if(e.target.closest("table.assets-table, .m-asset-rows") && e.target.classList.contains("h-person")){
       updatePersonSuggestions();
     }
   });
@@ -3598,6 +3692,9 @@
   wireModernRowToggle("incomeGroups", modernIncomeRowOpen);
   wireModernRowToggle("sharedGroups", modernSharedRowOpen);
   wireModernRowToggle("propertiesBody", modernPropRowOpen);
+  ["Cash", "Shares", "Super", "Vehicle", "Other"].forEach(function(cat){
+    wireModernRowToggle("assetsSub-" + cat, modernAssetRowOpen);
+  });
 
   function syncUiModeToggle(){
     document.querySelectorAll(".uimode-toggle-btn").forEach(function(btn){
@@ -3635,10 +3732,12 @@
     renderSharedGroups();
     renderPropertyExpensesSummary();
     renderProperties();
+    renderAssets();
   }
   wireUiModeToggle("incomeUiModeToggle", refreshAllUiModePages);
   wireUiModeToggle("expenseUiModeToggle", refreshAllUiModePages);
   wireUiModeToggle("propertiesUiModeToggle", refreshAllUiModePages);
+  wireUiModeToggle("assetsUiModeToggle", refreshAllUiModePages);
 
   function onScenarioControlClick(e){
     var collapseBtn = e.target.closest("[data-collapse-toggle]");

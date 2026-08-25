@@ -210,7 +210,13 @@
       </section>
 
       <section class="app-page" id="page-assets" hidden>
-        <p class="page-intro">What you own today, tracked over time, and what buying would do to your net worth.</p>
+        <div class="page-intro-row">
+          <p class="page-intro">What you own today, tracked over time, and what buying would do to your net worth.</p>
+          <div class="uimode-toggle" id="assetsUiModeToggle" role="tablist" aria-label="Assets layout">
+            <button type="button" class="uimode-toggle-btn" data-uimode="classic" role="tab">Classic</button>
+            <button type="button" class="uimode-toggle-btn" data-uimode="modern" role="tab">Modern</button>
+          </div>
+        </div>
         <div class="subnav" id="assetsSubnav">
           <button type="button" class="subnav-item active" data-assets-sub="summary">Summary</button>
           <button type="button" class="subnav-item" data-assets-sub="Cash">Cash</button>

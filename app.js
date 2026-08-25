@@ -3886,6 +3886,7 @@
       btn.classList.toggle("active", active);
       btn.setAttribute("aria-selected", String(active));
     });
+    document.getElementById("mobileLayoutBtn").textContent = "Layout: " + (state.uiMode === "modern" ? "Modern" : "Classic");
     // The column picker/toggle only makes sense for the classic table's fixed columns — modern
     // rows already show every field, just tucked behind an expand instead of hidden by a toggle.
     ["incomeColPicker", "expenseColPicker", "homeAcctToggleWrap", "periodsToggleWrap", "mobilePeriodsToggleWrap"].forEach(function(id){
@@ -3924,6 +3925,15 @@
   wireUiModeToggle("propertiesUiModeToggle", refreshAllUiModePages);
   wireUiModeToggle("scenariosUiModeToggle", refreshAllUiModePages);
   wireUiModeToggle("assetsUiModeToggle", refreshAllUiModePages);
+  // Mobile's single consolidated Layout control — cycles instead of picking from a segmented
+  // toggle, matching the Theme button's interaction right above it in the same panel.
+  document.getElementById("mobileLayoutBtn").addEventListener("click", function(){
+    state.uiMode = state.uiMode === "modern" ? "classic" : "modern";
+    refreshAllUiModePages();
+    syncUiModeToggle();
+    persist();
+    closeMobileMore();
+  });
 
   function onScenarioControlClick(e){
     var collapseBtn = e.target.closest("[data-collapse-toggle]");

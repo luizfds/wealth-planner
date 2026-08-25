@@ -21,7 +21,11 @@
   var SHARE_MARKETS = ["ASX", "US"];
   var PURCHASE_STATE_CODES = ["NSW", "VIC", "Other"];
   var INCOME_TYPES = ["Net", "Gross"];
-  var SUPER_MODES = ["On top", "Included"];
+  var SUPER_MODES = ["On top", "Included", "N/A"];
+  // ATO Maximum Super Contribution Base — the annual ordinary-time-earnings ceiling above which
+  // employer SG isn't compulsory. A single annual figure under the "Payday Super" reform effective
+  // 1 July 2026; indexed each financial year, so revisit this each July.
+  var MAX_SUPER_BASE = 270830;
   var SACRIFICE_MODES = ["Cash out", "Sacrifice %", "Sacrifice $"];
   function sacrificeModeToLabel(mode){ return mode === "percent" ? "Sacrifice %" : mode === "amount" ? "Sacrifice $" : "Cash out"; }
   function sacrificeLabelToMode(label){ return label === "Sacrifice %" ? "percent" : label === "Sacrifice $" ? "amount" : "none"; }
@@ -221,49 +225,79 @@
     return order;
   }
 
-  // A "Gross" income row's Amount either already has super folded into it (superIncluded)
-  // or has super paid on top of it — either way, the same annual figure splits into a cash
-  // portion and a super portion. Shared by the per-person tax rollup and the inline row note.
-  function rowSuperSplit(annual, superIncluded, sgRate){
-    if(superIncluded){
+  // A "Gross" income row's Amount either already has super folded into it ("Included"), has
+  // super paid on top of it ("On top"), or isn't super-eligible at all ("N/A" — dividends,
+  // sole-trader income, government benefits). Uncapped: ignores the Maximum Super Contribution
+  // Base, which applies per-person across all their rows combined, not per row — see
+  // personSuperRows() for that.
+  function rowSuperSplitUncapped(annual, superMode, sgRate){
+    if(superMode === "N/A") return { sg: 0, cashPortion: annual, superApplies: false };
+    if(superMode === "Included"){
       var rowSg = annual * sgRate / (1 + sgRate);
-      return { sg: rowSg, cashPortion: annual - rowSg };
+      return { sg: rowSg, cashPortion: annual - rowSg, superApplies: true };
     }
-    return { sg: annual * sgRate, cashPortion: annual };
+    return { sg: annual * sgRate, cashPortion: annual, superApplies: true };
+  }
+
+  // Employer SG isn't compulsory on ordinary-time earnings above the Maximum Super Contribution
+  // Base — this app doesn't model separate employers, so the cap is applied once per person
+  // across all their Gross rows combined (the common case: multiple rows from the same job,
+  // e.g. base salary + bonus). When the cap bites, every row's super shrinks proportionally to
+  // its uncapped share, and "Included" rows give the freed-up amount back as cash (the package
+  // total the user entered doesn't change, just how it splits).
+  function personSuperRows(person){
+    var sgRate = (Number(state.tax.sgRate) || 11.5) / 100;
+    var rows = state.income.filter(function(i){ return i.incomeType === "Gross" && i.person === person; });
+    var uncapped = rows.map(function(row){
+      var annual = periodsOf(row.amount, row.freq).yearly;
+      return { row: row, annual: annual, split: rowSuperSplitUncapped(annual, row.superMode || "On top", sgRate) };
+    });
+    var ordinaryEarnings = uncapped.reduce(function(s, r){ return s + (r.split.superApplies ? r.split.cashPortion : 0); }, 0);
+    var uncappedTotalSg = uncapped.reduce(function(s, r){ return s + r.split.sg; }, 0);
+    var overCap = ordinaryEarnings > MAX_SUPER_BASE;
+    var scale = (overCap && uncappedTotalSg > 0) ? (MAX_SUPER_BASE * sgRate) / uncappedTotalSg : 1;
+    var finalRows = uncapped.map(function(r){
+      if(!r.split.superApplies || !overCap) return { row: r.row, annual: r.annual, sg: r.split.sg, cashPortion: r.split.cashPortion };
+      var cappedSg = r.split.sg * scale;
+      var cashPortion = r.row.superMode === "Included" ? (r.annual - cappedSg) : r.annual;
+      return { row: r.row, annual: r.annual, sg: cappedSg, cashPortion: cashPortion };
+    });
+    return { rows: finalRows, overCap: overCap, ordinaryEarnings: ordinaryEarnings };
   }
 
   function incomeRowSuperNote(item){
     if(item.incomeType !== "Gross" || item.computed) return "";
-    var sgRate = (Number(state.tax.sgRate) || 11.5) / 100;
-    var annual = periodsOf(item.amount, item.freq).yearly;
-    var split = rowSuperSplit(annual, item.superIncluded, sgRate);
+    var mode = item.superMode || "On top";
+    if(mode === "N/A") return "No super applies to this income";
+    var info = personSuperRows(item.person);
+    var match = info.rows.find(function(r){ return r.row === item; });
+    if(!match) return "";
     var freqKey = item.freq.toLowerCase();
-    var cashInFreq = periodsOf(split.cashPortion, "Yearly")[freqKey];
-    var sgInFreq = periodsOf(split.sg, "Yearly")[freqKey];
-    return item.superIncluded
+    var cashInFreq = periodsOf(match.cashPortion, "Yearly")[freqKey];
+    var sgInFreq = periodsOf(match.sg, "Yearly")[freqKey];
+    var base = mode === "Included"
       ? (fmtCurrency0.format(cashInFreq) + " salary + " + fmtCurrency0.format(sgInFreq) + " super")
       : ("+ " + fmtCurrency0.format(sgInFreq) + " super on top");
+    return info.overCap ? (base + " (MSCB cap applied)") : base;
   }
 
   function personIncomeBreakdown(person){
-    var sgRate = (Number(state.tax.sgRate) || 11.5) / 100;
-    var rows = state.income.filter(function(i){ return i.incomeType === "Gross" && i.person === person; });
+    var info = personSuperRows(person);
     var baseGross = 0, sg = 0, packageTotal = 0, autoSacrifice = 0;
-    rows.forEach(function(row){
-      var annual = periodsOf(row.amount, row.freq).yearly;
-      packageTotal += annual;
-      var split = rowSuperSplit(annual, row.superIncluded, sgRate);
-      sg += split.sg;
-      baseGross += split.cashPortion;
+    info.rows.forEach(function(r){
+      var row = r.row;
+      packageTotal += r.annual;
+      sg += r.sg;
+      baseGross += r.cashPortion;
       var rowSacrifice = 0;
       if(row.sacrificeMode === "percent"){
-        rowSacrifice = split.cashPortion * (Math.max(0, Math.min(100, Number(row.sacrificeValue) || 0)) / 100);
+        rowSacrifice = r.cashPortion * (Math.max(0, Math.min(100, Number(row.sacrificeValue) || 0)) / 100);
       } else if(row.sacrificeMode === "amount"){
         rowSacrifice = periodsOf(Number(row.sacrificeValue) || 0, row.freq).yearly;
       }
-      autoSacrifice += Math.max(0, Math.min(rowSacrifice, split.cashPortion));
+      autoSacrifice += Math.max(0, Math.min(rowSacrifice, r.cashPortion));
     });
-    return { baseGross: baseGross, sg: sg, packageTotal: packageTotal, autoSacrifice: autoSacrifice };
+    return { baseGross: baseGross, sg: sg, packageTotal: packageTotal, autoSacrifice: autoSacrifice, superOverCap: info.overCap };
   }
 
   function propertyGearingAnnual(property){
@@ -345,7 +379,7 @@
       effectiveRate: gross > 0 ? totalTax / gross : 0,
       sg: sg, totalConcessional: totalConcessional, capAvailable: capAvailable, capExceeded: capExceeded,
       contributionsTax: contributionsTax, superNet: superNet, marginalRate: marginalRateAU(taxable),
-      div293Income: div293Income, div293Tax: div293Tax
+      div293Income: div293Income, div293Tax: div293Tax, superOverCap: inc.superOverCap
     };
   }
 
@@ -638,6 +672,11 @@
     if(!s._incomeTypeColDefaultApplied){
       s.incomeCols.type = true;
       s._incomeTypeColDefaultApplied = true;
+    }
+    if(Array.isArray(s.income)){
+      s.income.forEach(function(item){
+        if(item.superMode == null) item.superMode = item.superIncluded ? "Included" : "On top";
+      });
     }
     if(!s.expenseCols) s.expenseCols = { account: false };
     if(s.expenseCols.account == null) s.expenseCols.account = false;
@@ -1167,7 +1206,7 @@
       (showIncomeFields ? (
         '<td class="account-cell col-person"><input type="text" class="f-person" list="personSuggestions" value="' + escapeAttr(item.person || "") + '" aria-label="Person" placeholder="—"' + (isComputed ? " disabled" : "") + '></td>' +
         '<td class="freq-cell col-type"><select class="f-incometype"' + (isComputed ? " disabled" : "") + '>' + optionsHtml(INCOME_TYPES, item.incomeType || "Net") + '</select></td>' +
-        '<td class="freq-cell col-super"><select class="f-superincluded" title="Whether super is already included in the Amount, or paid on top"' + (isComputed ? " disabled" : "") + '>' + optionsHtml(SUPER_MODES, item.superIncluded ? "Included" : "On top") + '</select></td>' +
+        '<td class="freq-cell col-super"><select class="f-superincluded" title="Whether super is already included in the Amount, paid on top, or doesn\'t apply at all (e.g. dividends, sole-trader income, government benefits)"' + (isComputed ? " disabled" : "") + '>' + optionsHtml(SUPER_MODES, item.superMode || "On top") + '</select></td>' +
         '<td class="freq-cell sacrifice-cell col-sacrifice"><div class="sacrifice-wrap"><select class="f-sacrificemode" title="Take this item as cash, or redirect part of it into super instead"' + (isComputed ? " disabled" : "") + '>' + optionsHtml(SACRIFICE_MODES, sacrificeModeToLabel(item.sacrificeMode)) + '</select>' +
           (!isComputed && item.sacrificeMode && item.sacrificeMode !== "none" ? '<input type="number" min="0" step="' + (item.sacrificeMode === "percent" ? "1" : "50") + '" max="' + (item.sacrificeMode === "percent" ? "100" : "") + '" class="f-sacrificevalue" value="' + (item.sacrificeValue || 0) + '" aria-label="Sacrifice ' + (item.sacrificeMode === "percent" ? "percent" : "amount") + '">' : '') +
         '</div></td>'
@@ -1571,7 +1610,7 @@
     else if(e.target.classList.contains("f-amount")) item.amount = parseFloat(e.target.value) || 0;
     else if(e.target.classList.contains("f-person")){ item.person = e.target.value; structural = true; }
     else if(e.target.classList.contains("f-incometype")){ item.incomeType = e.target.value; structural = true; }
-    else if(e.target.classList.contains("f-superincluded")){ item.superIncluded = e.target.value === "Included"; }
+    else if(e.target.classList.contains("f-superincluded")){ item.superMode = e.target.value; }
     else if(e.target.classList.contains("f-sacrificemode")){ item.sacrificeMode = sacrificeLabelToMode(e.target.value); structural = true; }
     else if(e.target.classList.contains("f-sacrificevalue")){ item.sacrificeValue = parseFloat(e.target.value) || 0; }
     else return;
@@ -1582,8 +1621,10 @@
       PERIODS.forEach(function(pd, i){ cells[i].textContent = fmtCurrency2.format(p[pd.key]); });
     }
     if(section === "income" && (e.target.classList.contains("f-amount") || e.target.classList.contains("f-freq") || e.target.classList.contains("f-superincluded"))){
-      var superNoteEl = tr.querySelector(".super-note");
-      if(superNoteEl) superNoteEl.textContent = incomeRowSuperNote(item);
+      // A single row's edit can shift the Maximum Super Contribution Base cap for every one of
+      // this person's Gross rows (the cap is shared across all of them), so refresh every note,
+      // not just this row's.
+      patchIncomeSuperNotes();
     }
 
     recalcComputedItems();
@@ -2701,6 +2742,7 @@
           ) +
         '</div>' +
         '<div class="tax-cap-note tax-div293-note warn"' + (r.div293Tax > 0.5 ? '' : ' hidden') + ' title="Simplified: income for surcharge purposes is approximated as taxable income + your within-cap concessional contributions, ignoring reportable fringe benefits and net investment losses. Check with your accountant.">Division 293: your income is over the $250,000 threshold, so an extra 15% applies to ' + fmtCurrency0.format(Math.min(r.totalConcessional, r.capAvailable)) + ' of low-tax super contributions — ' + fmtCurrency0.format(r.div293Tax) + '/yr, assessed separately by the ATO (not withheld from take-home above).</div>' +
+        '<div class="tax-cap-note tax-mscb-note"' + (r.superOverCap ? '' : ' hidden') + ' title="Employer super guarantee isn\'t compulsory on ordinary-time earnings above this threshold — indexed each financial year.">Your ordinary earnings are over the ' + fmtCurrency0.format(MAX_SUPER_BASE) + '/yr Maximum Super Contribution Base, so employer super isn\'t compulsory on the excess — SG above is capped accordingly.</div>' +
       '</div>';
     }).join("");
     container.innerHTML = html;
@@ -2739,6 +2781,8 @@
         div293Note.hidden = !(r.div293Tax > 0.5);
         div293Note.textContent = "Division 293: your income is over the $250,000 threshold, so an extra 15% applies to " + fmtCurrency0.format(Math.min(r.totalConcessional, r.capAvailable)) + " of low-tax super contributions — " + fmtCurrency0.format(r.div293Tax) + "/yr, assessed separately by the ATO (not withheld from take-home above).";
       }
+      var mscbNote = panel.querySelector(".tax-mscb-note");
+      if(mscbNote) mscbNote.hidden = !r.superOverCap;
       var pkgNote = panel.querySelector('[data-out="packagenote"]');
       if(pkgNote && Math.abs(r.packageTotal - r.gross) > 1){
         pkgNote.textContent = "Of that " + fmtCurrency0.format(r.packageTotal) + ", " + fmtCurrency0.format(r.packageTotal - r.gross) + " is super already included inside a row marked \"Super: Included\" — so tax and take-home are calculated on " + fmtCurrency0.format(r.gross) + " base salary, not the full " + fmtCurrency0.format(r.packageTotal) + ". (Total super for the year, from every row, is in the cap line below.)";

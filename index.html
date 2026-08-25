@@ -37,7 +37,7 @@
         Show all periods
       </label>
       <p class="app-sidebar-note">Stored only in this browser (<code>localStorage</code>) — nothing is sent anywhere. Clearing your browser data clears this too, so <button class="link-btn" id="exportLink2">Export</button> a backup now and then.</p>
-      <p class="app-version">v1.20.0</p>
+      <p class="app-version">v1.21.0</p>
     </div>
   </nav>
 
@@ -188,7 +188,13 @@
       </section>
 
       <section class="app-page" id="page-scenarios" hidden>
-        <p class="page-intro">What each scenario costs to live in — rent or a home loan, plus a purchase calculator for anything you're buying.</p>
+        <div class="page-intro-row">
+          <p class="page-intro">What each scenario costs to live in — rent or a home loan, plus a purchase calculator for anything you're buying.</p>
+          <div class="uimode-toggle" id="scenariosUiModeToggle" role="tablist" aria-label="Scenarios layout">
+            <button type="button" class="uimode-toggle-btn" data-uimode="classic" role="tab">Classic</button>
+            <button type="button" class="uimode-toggle-btn" data-uimode="modern" role="tab">Modern</button>
+          </div>
+        </div>
         <div class="ledgers">
           <details class="ledger" open>
             <summary>
@@ -196,7 +202,7 @@
               <div class="ledger-total">edit each scenario</div>
             </summary>
             <div class="ledger-body">
-              <label class="toggle-periods" style="margin:0 0 14px">
+              <label class="toggle-periods" id="homeAcctToggleWrap" style="margin:0 0 14px">
                 <span class="switch">
                   <input type="checkbox" id="homeAcctToggle">
                   <span class="switch-track"><span class="switch-thumb"></span></span>

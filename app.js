@@ -1588,9 +1588,24 @@
     var loanMonthly = (p.loans || []).reduce(function(s, l){ return s + loanRepaymentMonthly(l); }, 0);
     return sumField(p.expenses, "monthly") + loanMonthly;
   }
+  function propertyExpensesModernHtml(ips){
+    var rows = ips.map(function(p){
+      var monthly = propertyMonthlyCost(p);
+      return '<div class="m-row computed"><div class="m-row-summary" style="cursor:default">' +
+        '<div style="flex:1 1 auto; min-width:0">' +
+          '<div class="m-row-name">' + escapeAttr(p.what) + ' — Property costs</div>' +
+          '<div class="m-row-sub">auto: expenses + loan repayment — edit on the Properties tab</div>' +
+        '</div>' +
+        '<span class="m-row-amt">' + fmtCurrency0.format(monthly) + '/mo</span>' +
+      '</div></div>';
+    }).join("");
+    return '<div class="m-card"><div class="m-rows">' + rows + '</div></div>';
+  }
+
   function renderPropertyExpensesSummary(){
     var wrap = document.getElementById("propertyExpensesCard");
     var table = document.getElementById("propertyExpensesTable");
+    var modernWrap = document.getElementById("propertyExpensesModern");
     if(!wrap || !table) return;
     var ips = ipProperties();
     wrap.hidden = !ips.length;
@@ -1609,6 +1624,13 @@
     var total = ips.reduce(function(s, p){ return s + propertyMonthlyCost(p); }, 0);
     table.innerHTML = '<thead><tr><th>What</th><th>Amount</th><th>Frequency</th><th class="num">Monthly</th><th class="num">Yearly</th></tr></thead><tbody>' + rows + '</tbody>';
     document.getElementById("propertyExpensesTotal").textContent = fmtCurrency0.format(total);
+    var scrollWrap = table.closest(".table-scroll");
+    var isModern = state.uiMode === "modern";
+    if(scrollWrap) scrollWrap.hidden = isModern;
+    if(modernWrap){
+      modernWrap.hidden = !isModern;
+      if(isModern) modernWrap.innerHTML = propertyExpensesModernHtml(ips);
+    }
   }
 
   function slug(s){ return s.replace(/[^a-z0-9]/gi, ""); }
@@ -3551,6 +3573,7 @@
     renderIncomeGroups();
     renderTaxSuper();
     renderSharedGroups();
+    renderPropertyExpensesSummary();
   }
   wireUiModeToggle("incomeUiModeToggle", refreshAllUiModePages);
   wireUiModeToggle("expenseUiModeToggle", refreshAllUiModePages);

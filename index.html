@@ -135,7 +135,13 @@
       </section>
 
       <section class="app-page" id="page-expenses" hidden>
-        <p class="page-intro">Recurring household costs that don't change between scenarios.</p>
+        <div class="page-intro-row">
+          <p class="page-intro">Recurring household costs that don't change between scenarios.</p>
+          <div class="uimode-toggle" id="expenseUiModeToggle" role="tablist" aria-label="Expenses layout">
+            <button type="button" class="uimode-toggle-btn" data-uimode="classic" role="tab">Classic</button>
+            <button type="button" class="uimode-toggle-btn" data-uimode="modern" role="tab">Modern</button>
+          </div>
+        </div>
         <div class="col-picker" id="expenseColPicker">
           <button type="button" class="btn btn-sm col-picker-btn" id="expenseColPickerBtn" aria-haspopup="true" aria-expanded="false">Columns ▾</button>
           <div class="col-picker-panel" id="expenseColPickerPanel" hidden></div>

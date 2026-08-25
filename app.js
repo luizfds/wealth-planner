@@ -221,6 +221,30 @@
     return order;
   }
 
+  // A "Gross" income row's Amount either already has super folded into it (superIncluded)
+  // or has super paid on top of it — either way, the same annual figure splits into a cash
+  // portion and a super portion. Shared by the per-person tax rollup and the inline row note.
+  function rowSuperSplit(annual, superIncluded, sgRate){
+    if(superIncluded){
+      var rowSg = annual * sgRate / (1 + sgRate);
+      return { sg: rowSg, cashPortion: annual - rowSg };
+    }
+    return { sg: annual * sgRate, cashPortion: annual };
+  }
+
+  function incomeRowSuperNote(item){
+    if(item.incomeType !== "Gross" || item.computed) return "";
+    var sgRate = (Number(state.tax.sgRate) || 11.5) / 100;
+    var annual = periodsOf(item.amount, item.freq).yearly;
+    var split = rowSuperSplit(annual, item.superIncluded, sgRate);
+    var freqKey = item.freq.toLowerCase();
+    var cashInFreq = periodsOf(split.cashPortion, "Yearly")[freqKey];
+    var sgInFreq = periodsOf(split.sg, "Yearly")[freqKey];
+    return item.superIncluded
+      ? (fmtCurrency0.format(cashInFreq) + " salary + " + fmtCurrency0.format(sgInFreq) + " super")
+      : ("+ " + fmtCurrency0.format(sgInFreq) + " super on top");
+  }
+
   function personIncomeBreakdown(person){
     var sgRate = (Number(state.tax.sgRate) || 11.5) / 100;
     var rows = state.income.filter(function(i){ return i.incomeType === "Gross" && i.person === person; });
@@ -228,23 +252,16 @@
     rows.forEach(function(row){
       var annual = periodsOf(row.amount, row.freq).yearly;
       packageTotal += annual;
-      var rowSg, cashPortion;
-      if(row.superIncluded){
-        rowSg = annual * sgRate / (1 + sgRate);
-        cashPortion = annual - rowSg;
-      } else {
-        rowSg = annual * sgRate;
-        cashPortion = annual;
-      }
-      sg += rowSg;
-      baseGross += cashPortion;
+      var split = rowSuperSplit(annual, row.superIncluded, sgRate);
+      sg += split.sg;
+      baseGross += split.cashPortion;
       var rowSacrifice = 0;
       if(row.sacrificeMode === "percent"){
-        rowSacrifice = cashPortion * (Math.max(0, Math.min(100, Number(row.sacrificeValue) || 0)) / 100);
+        rowSacrifice = split.cashPortion * (Math.max(0, Math.min(100, Number(row.sacrificeValue) || 0)) / 100);
       } else if(row.sacrificeMode === "amount"){
         rowSacrifice = periodsOf(Number(row.sacrificeValue) || 0, row.freq).yearly;
       }
-      autoSacrifice += Math.max(0, Math.min(rowSacrifice, cashPortion));
+      autoSacrifice += Math.max(0, Math.min(rowSacrifice, split.cashPortion));
     });
     return { baseGross: baseGross, sg: sg, packageTotal: packageTotal, autoSacrifice: autoSacrifice };
   }
@@ -1157,7 +1174,8 @@
       ) : '') +
       '<td class="account-cell' + (showIncomeFields ? " col-account" : acctClass ? " " + acctClass : "") + '"><input type="text" class="f-account" list="acctSuggestions" value="' + escapeAttr(item.account || "") + '" aria-label="Account"' + (isComputed ? " disabled" : "") + '></td>' +
       '<td class="amount-cell"><input type="number" step="0.01" min="0" class="f-amount" value="' + item.amount + '"' + (isComputed ? " readonly" : "") + ' aria-label="Amount">' +
-        (isComputed ? '<span class="computed-note">' + escapeAttr(item.computedNote || "auto-calculated") + '</span>' : "") + '</td>' +
+        (isComputed ? '<span class="computed-note">' + escapeAttr(item.computedNote || "auto-calculated") + '</span>' : "") +
+        (isGrossRef ? '<span class="computed-note super-note">' + escapeAttr(incomeRowSuperNote(item)) + '</span>' : "") + '</td>' +
       '<td class="freq-cell"><select class="f-freq"' + (isComputed ? " disabled" : "") + '>' + optionsHtml(FREQS, item.freq) + '</select></td>' +
       periodTd(item) +
       '<td>' + (isComputed ? "" : '<button class="btn btn-ghost btn-sm row-del" data-del="' + section + ':' + idx + '" aria-label="Delete row">✕</button>') + '</td>' +
@@ -1526,6 +1544,17 @@
     });
   }
 
+  function patchIncomeSuperNotes(){
+    var table = document.getElementById("incomeGroups");
+    if(!table) return;
+    table.querySelectorAll(".super-note").forEach(function(el){
+      var tr = el.closest("tr[data-index]");
+      if(!tr) return;
+      var item = state.income[Number(tr.getAttribute("data-index"))];
+      if(item) el.textContent = incomeRowSuperNote(item);
+    });
+  }
+
   function onLedgerInput(e){
     var tr = e.target.closest("tr[data-section]");
     if(!tr) return;
@@ -1551,6 +1580,10 @@
       var cells = tr.querySelectorAll("td.computed");
       var p = periodsOf(item.amount, item.freq);
       PERIODS.forEach(function(pd, i){ cells[i].textContent = fmtCurrency2.format(p[pd.key]); });
+    }
+    if(section === "income" && (e.target.classList.contains("f-amount") || e.target.classList.contains("f-freq") || e.target.classList.contains("f-superincluded"))){
+      var superNoteEl = tr.querySelector(".super-note");
+      if(superNoteEl) superNoteEl.textContent = incomeRowSuperNote(item);
     }
 
     recalcComputedItems();
@@ -2797,6 +2830,7 @@
     patchIncomeGroupTotals();
     patchOpenRowBreakdowns();
     patchAllTaxPersonOutputs();
+    patchIncomeSuperNotes();
     renderCards();
     renderDetail();
     renderTotals();

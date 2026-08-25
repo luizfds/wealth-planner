@@ -308,12 +308,42 @@
 </div>
 
 <nav class="mobile-tabbar" id="mobileTabbar">
-  <button type="button" class="mobile-tab" data-page="dashboard">Dashboard</button>
-  <button type="button" class="mobile-tab" data-page="income">Income</button>
-  <button type="button" class="mobile-tab" data-page="expenses">Expenses</button>
-  <button type="button" class="mobile-tab" data-page="assets">Assets</button>
-  <button type="button" class="mobile-tab" data-page="properties">Properties</button>
-  <button type="button" class="mobile-tab" id="mobileTabMore" aria-haspopup="true" aria-expanded="false">More</button>
+  <button type="button" class="mobile-tab" data-page="dashboard">
+    <span class="mobile-tab-pill">
+      <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="6" height="6" rx="1.5"/><rect x="11" y="3" width="6" height="6" rx="1.5"/><rect x="3" y="11" width="6" height="6" rx="1.5"/><rect x="11" y="11" width="6" height="6" rx="1.5"/></svg>
+      <span class="mobile-tab-label">Dashboard</span>
+    </span>
+  </button>
+  <button type="button" class="mobile-tab" data-page="income">
+    <span class="mobile-tab-pill">
+      <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13l5-5 3 3 6-6"/><path d="M13 5h4v4"/></svg>
+      <span class="mobile-tab-label">Income</span>
+    </span>
+  </button>
+  <button type="button" class="mobile-tab" data-page="expenses">
+    <span class="mobile-tab-pill">
+      <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h10v14l-2.5-1.5L10 17l-2.5-1.5L5 17z"/><path d="M7.5 7h5M7.5 10h5"/></svg>
+      <span class="mobile-tab-label">Expenses</span>
+    </span>
+  </button>
+  <button type="button" class="mobile-tab" data-page="assets">
+    <span class="mobile-tab-pill">
+      <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3l7 4-7 4-7-4z"/><path d="M3 11l7 4 7-4"/><path d="M3 15l7 4 7-4"/></svg>
+      <span class="mobile-tab-label">Assets</span>
+    </span>
+  </button>
+  <button type="button" class="mobile-tab" data-page="properties">
+    <span class="mobile-tab-pill">
+      <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l7-6 7 6"/><path d="M5 8v9h10V8"/><path d="M8 17v-5h4v5"/></svg>
+      <span class="mobile-tab-label">Properties</span>
+    </span>
+  </button>
+  <button type="button" class="mobile-tab" id="mobileTabMore" aria-haspopup="true" aria-expanded="false">
+    <span class="mobile-tab-pill">
+      <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><circle cx="4" cy="10" r="1.6"/><circle cx="10" cy="10" r="1.6"/><circle cx="16" cy="10" r="1.6"/></svg>
+      <span class="mobile-tab-label">More</span>
+    </span>
+  </button>
   <div class="mobile-more-panel" id="mobileMorePanel" hidden>
     <button type="button" class="mobile-more-item" data-page="scenarios">Scenarios</button>
     <button type="button" class="mobile-more-item" data-page="projections">Projections</button>

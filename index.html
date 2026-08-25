@@ -39,6 +39,7 @@
       <p class="app-sidebar-note">Stored only in this browser (<code>localStorage</code>) — nothing is sent anywhere. Clearing your browser data clears this too, so <button class="link-btn" id="exportLink2">Export</button> a backup now and then.</p>
       <p class="app-version">v1.29.1</p>
     </div>
+    <span class="status-chip mobile-status-chip" id="mobileStatusChip"><span class="status-dot" id="mobileStatusDot"></span><span id="mobileStatusText">Saved</span></span>
   </nav>
 
   <div class="app-main">
@@ -347,6 +348,13 @@
   <div class="mobile-more-panel" id="mobileMorePanel" hidden>
     <button type="button" class="mobile-more-item" data-page="scenarios">Scenarios</button>
     <button type="button" class="mobile-more-item" data-page="projections">Projections</button>
+    <div class="mobile-more-divider"></div>
+    <button type="button" class="mobile-more-item" id="mobileThemeBtn">Theme: System</button>
+    <button type="button" class="mobile-more-item" id="mobileImportBtn">Import backup</button>
+    <button type="button" class="mobile-more-item" id="mobileExportBtn">Export backup</button>
+    <div class="mobile-more-divider"></div>
+    <button type="button" class="mobile-more-item" id="mobileSampleDataBtn">Sample data</button>
+    <button type="button" class="mobile-more-item" id="mobileResetBtn">Reset</button>
     <p class="mobile-more-version" id="mobileMoreVersion"></p>
   </div>
 </nav>

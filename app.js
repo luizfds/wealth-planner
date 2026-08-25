@@ -826,6 +826,10 @@
   function setStatus(ok, text){
     document.getElementById("statusDot").className = "status-dot" + (ok ? "" : " warn");
     document.getElementById("statusText").textContent = text;
+    // Mirrors into the sticky top bar's copy — the only place a mobile viewport (<880px,
+    // where .actions is hidden in favor of the bottom tab bar) can see save status.
+    document.getElementById("mobileStatusDot").className = "status-dot" + (ok ? "" : " warn");
+    document.getElementById("mobileStatusText").textContent = text;
   }
 
   function toWeekly(amount, freq){
@@ -4337,6 +4341,7 @@
     var mode = getThemePref();
     var label = mode === "light" ? "Theme: Light" : mode === "dark" ? "Theme: Dark" : "Theme: System";
     document.getElementById("themeToggleBtn").textContent = label;
+    document.getElementById("mobileThemeBtn").textContent = label;
   }
   document.getElementById("themeToggleBtn").addEventListener("click", function(){
     var current = getThemePref();
@@ -4467,6 +4472,23 @@
   // Mirrors the sidebar footer's version text into the mobile "More" panel, which is the only
   // place a mobile viewport (<880px, where .app-version is hidden) can see it.
   document.getElementById("mobileMoreVersion").textContent = document.querySelector(".app-version").textContent;
+
+  // The utility actions (Theme/Import/Export/Sample data/Reset) live in .actions on desktop,
+  // hidden on mobile in favor of the bottom tab bar — these forward to the same real buttons
+  // rather than duplicating their logic, so behavior (confirms, dialogs, label state) matches
+  // exactly with nothing to keep in sync beyond the label mirrors above.
+  [
+    ["mobileThemeBtn", "themeToggleBtn"],
+    ["mobileImportBtn", "importBtn"],
+    ["mobileExportBtn", "exportBtn"],
+    ["mobileSampleDataBtn", "mockDataBtn"],
+    ["mobileResetBtn", "resetBtn"]
+  ].forEach(function(pair){
+    document.getElementById(pair[0]).addEventListener("click", function(){
+      closeMobileMore();
+      document.getElementById(pair[1]).click();
+    });
+  });
 
   document.getElementById("assetsSubnav").addEventListener("click", function(e){
     var btn = e.target.closest("[data-assets-sub]");

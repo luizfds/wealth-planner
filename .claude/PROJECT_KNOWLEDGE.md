@@ -58,8 +58,11 @@ each step is its own tagged commit. Current state:
   first.
 - `src/lib/ledger-table.js` — the fully generic Classic-mode `<table>` renderer (`buildTable`,
   `rowHtml`, `periodTh`/`periodTd`, `optionsHtml`) shared by Income/Expenses/Home/Property-expense
-  tables alike. Takes `section`/`items`/`opts` as plain arguments — no `state` import, so safe for
-  every component to depend on with zero cycle risk.
+  tables alike, plus `modernPlainRowHtml` — the equivalent generic Modern-mode row (What/
+  [Classification]/Amount/Frequency/[Account], no person-tax machinery), used by Expenses/
+  Properties/Home. Unlike Income's row renderer, `modernPlainRowHtml` takes its `openState` map as
+  a parameter rather than a module-level var, so there's no cross-module-export gotcha for it —
+  each caller passes its own. Nothing here imports `state`, so zero cycle risk for any component.
 - `src/components/dashboard.js` — `renderCards`/`renderDashboardStats`/`renderDetail` (all
   exported; `app.js` still calls them from scenario CRUD) + the private `renderFireProgress`
   helper (not exported — nothing outside the module calls it).
@@ -71,6 +74,13 @@ each step is its own tagged commit. Current state:
   (see gotcha below). `renameTaxPerson`/`removeTaxPerson` stay in `app.js` — same reason as
   scenario CRUD: they also call `updatePersonSuggestions`/`renderProjectionOutputs`, not extracted
   yet.
+- `src/components/expenses.js` — the Shared living expenses ledger (grouped by
+  Needs/Wants/Savings/N/A) and the read-only "Investment property costs" mirror on the same page
+  (each IP property's expenses + loan repayment, summed — never written into `state.shared`, since
+  those costs are already counted via `ipExpenseItemsForClassification`/`ipExpensesMonthly`
+  elsewhere; adding a real row here would double-count). Exports: `renderSharedGroups`,
+  `patchSharedGroupTotals`, `renderPropertyExpensesSummary`, and the mutable `modernSharedRowOpen`
+  map.
 
 **How the boundaries were actually chosen:** by tracing the real call graph (which function calls
 which, and which touch `state` directly) before moving anything — not by section headings or
@@ -100,8 +110,8 @@ which, and which touch `state` directly) before moving anything — not by secti
   "data."
 
 **Not done yet**, in the planned order:
-1. `src/components/{expenses,assets,properties,scenarios,projections}.js` — one tab at a time
-   (or Scenarios+Assets together, since that's what finally lets scenario CRUD and
+1. `src/components/{assets,properties,scenarios,projections}.js` — one tab at a time (or
+   Scenarios+Assets together, since that's what finally lets scenario CRUD and
    `renameTaxPerson`/`removeTaxPerson` move out of `app.js`), each carrying its render +
    ledger-event-delegate functions out of `app.js`.
 2. `src/components/nav.js` — `showPage`/`syncUrl`/`parseRouteFromLocation`/mobile tab bar.

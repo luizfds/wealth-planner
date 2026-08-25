@@ -63,3 +63,48 @@ export function rowHtml(section, item, idx, showClass, showIncomeFields, acctCla
     '<td>' + (isComputed ? "" : '<button class="btn btn-ghost btn-sm row-del" data-del="' + section + ':' + idx + '" aria-label="Delete row">✕</button>') + '</td>' +
     '</tr>';
 }
+
+// Generic "name + amount, expands to a small field grid" row — used everywhere a ledger-table
+// row is just What/[Classification]/Amount/Frequency/[Account] with no person-tax machinery
+// (that's what makes Income's row special enough to need its own function). section is the
+// data-section/data-del prefix (e.g. "shared", "propinc:<id>", "propexp:<id>") and also scopes
+// the openState key, so the same in-memory map can safely track rows from several entities
+// (every property's income and expenses) without index collisions. openState is passed in by the
+// caller (not module-level here) so each page owns and exports its own open/closed map.
+export function modernPlainRowHtml(item, idx, section, openState, opts){
+  opts = opts || {};
+  var isComputed = !!item.computed;
+  var isPrimary = opts.primaryId && item.id === opts.primaryId;
+  var monthly = periodsOf(item.amount, item.freq).monthly;
+  var dot = (!isComputed && opts.colorIdx != null) ? '<span class="m-row-dot series-color-' + opts.colorIdx + '" aria-hidden="true"></span>' : "";
+  var summary = '<div class="m-row-summary"' + (isComputed ? ' style="cursor:default"' : ' role="button" tabindex="0" data-row-toggle') + '>' +
+    dot +
+    '<div style="flex:1 1 auto; min-width:0">' +
+      '<div class="m-row-name">' + escapeAttr(item.what) + '</div>' +
+      (isComputed && item.computedNote ? '<div class="m-row-sub">' + escapeAttr(item.computedNote) + '</div>' : "") +
+    '</div>' +
+    '<span class="m-row-amt" data-computed="amt">' + fmtCurrency2.format(monthly) + '/mo</span>' +
+    (isComputed ? "" : '<svg class="m-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>') +
+  '</div>';
+  if(isComputed){
+    return '<div class="m-row computed" data-section="' + escapeAttr(section) + '" data-index="' + idx + '">' + summary + '</div>';
+  }
+  var isOpen = !!openState[section + ":" + idx];
+  // With a Classification field, Account gets its own full-width row below (matches Expenses);
+  // without one, there's room for Amount/Frequency/Account to share a single row instead.
+  var classField = opts.showClass
+    ? '<div class="m-edit-field"><label>Classification</label><select class="f-class">' + optionsHtml(CLASSES, item.classification || "Needs") + '</select></div>'
+    : "";
+  var accountField = '<div class="m-edit-field' + (opts.showClass ? " span3" : "") + '"><label>Account</label><input type="text" class="f-account" list="acctSuggestions" value="' + escapeAttr(item.account || "") + '" aria-label="Account"></div>';
+  var edit = '<div class="m-row-edit"><div class="m-row-edit-inner"><div class="m-row-edit-pad">' +
+    '<div class="m-edit-grid">' +
+      '<div class="m-edit-field span3"><label>What</label><input type="text" class="f-what" value="' + escapeAttr(item.what) + '" aria-label="Item name"></div>' +
+      classField +
+      '<div class="m-edit-field"><label>Amount</label><input type="number" step="0.01" min="0" class="f-amount" value="' + item.amount + '" aria-label="Amount"></div>' +
+      '<div class="m-edit-field"><label>Frequency</label><select class="f-freq">' + optionsHtml(FREQS, item.freq) + '</select></div>' +
+      accountField +
+    '</div>' +
+    '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm row-del" data-del="' + escapeAttr(section) + ':' + idx + '">Delete</button></div>' +
+  '</div></div></div>';
+  return '<div class="m-row' + (isOpen ? " open" : "") + (isPrimary ? " m-row-primary" : "") + '" data-section="' + escapeAttr(section) + '" data-index="' + idx + '">' + summary + edit + '</div>';
+}

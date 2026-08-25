@@ -2205,12 +2205,12 @@
       '<div class="calc-out"><span>Valuation</span><b data-out="valuation">' + fmtCurrency0.format(Number(p.value) || 0) + '</b></div>' +
       '<div class="calc-out"><span>Mortgage balance</span><b data-out="mortgagebalance">' + fmtCurrency0.format(mortgageBalance) + '</b></div>' +
       '<div class="calc-out emph"><span>Net equity</span><b data-out="netequity">' + fmtCurrency0.format(equity) + '</b></div>' +
-      '<div class="calc-out" title="What you could borrow against this property, up to 80% LVR, without triggering LMI — based on its balance, not netted against any offset (that\'s a separate liquid asset, not more borrowing capacity)."><span>Usable equity <span style="text-transform:none;font-weight:400">(to 80% LVR)</span></span><b data-out="usableequity">' + fmtCurrency0.format(usableEquity) + '</b></div>';
+      '<div class="calc-out" title="What you could borrow against this property, up to 80% LVR, without triggering LMI — based on its balance, not netted against any offset (that\'s a separate liquid asset, not more borrowing capacity)."><span>Usable equity</span><b data-out="usableequity">' + fmtCurrency0.format(usableEquity) + '</b></div>';
     if(p.kind === "IP"){
       var netCashFlowMonthly = propertyGearingAnnual(p) / 12;
       summaryTiles += '<div class="calc-out"><span>Net cash flow</span><b data-out="cashflow" style="color:' + (netCashFlowMonthly < 0 ? "var(--bad)" : "var(--good)") + '">' + (netCashFlowMonthly >= 0 ? "+" : "") + fmtCurrency0.format(netCashFlowMonthly) + '/mo</b></div>';
     }
-    return '<div class="home-block" data-property-id="' + escapeAttr(p.id) + '">' +
+    return '<div class="property-card" data-property-id="' + escapeAttr(p.id) + '">' +
       '<div class="home-block-head">' +
         '<div class="home-block-head-left">' +
           '<h4><input type="text" class="prop-what" value="' + escapeAttr(p.what) + '" aria-label="Property name">' +
@@ -2220,23 +2220,32 @@
         '<button type="button" class="btn btn-ghost btn-sm row-del" data-property-del="' + escapeAttr(p.id) + '" aria-label="Delete property">✕</button>' +
       '</div>' +
       '<div class="calc-outputs">' + summaryTiles + '</div>' +
-      '<div class="calc-grid">' +
-        '<div class="calc-field"><label>Current value</label><input type="number" step="1000" min="0" class="prop-value" value="' + (Number(p.value) || 0) + '"></div>' +
+      '<div class="property-section">' +
+        '<div class="property-section-title">Property value</div>' +
+        '<div class="calc-grid">' +
+          '<div class="calc-field"><label>Current value</label><input type="number" step="1000" min="0" class="prop-value" value="' + (Number(p.value) || 0) + '"></div>' +
+        '</div>' +
+        '<div class="prop-value-log"><button type="button" class="asset-log-btn" data-property-log="' + escapeAttr(p.id) + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart">Log</button>' + assetTrendHtml(p) + '</div>' +
       '</div>' +
-      '<div class="prop-value-log"><button type="button" class="asset-log-btn" data-property-log="' + escapeAttr(p.id) + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart">Log</button>' + assetTrendHtml(p) + '</div>' +
-      '<div class="calc-costs-title">Loans</div>' +
-      '<div class="table-scroll"><table class="calc-costs-table prop-loans-table"><thead><tr><th>What</th><th class="num">Balance</th><th class="num">Rate %</th><th class="num">Term (yrs)</th><th>Type</th><th>Repayment</th><th class="num" title="Netted against the loan balance for both equity and interest — the one place to enter this money, not also as a separate Cash asset">Offset</th><th></th></tr></thead><tbody>' + loanRows + '</tbody></table></div>' +
-      '<button type="button" class="btn btn-sm btn-ghost" data-loan-add="' + escapeAttr(p.id) + '">+ Add loan</button>' +
-      '<div class="income-group prop-subledger">' +
-        '<div class="income-group-head"><div class="income-group-head-left"><h4>Income</h4></div></div>' +
-        '<div class="table-scroll"><table class="ledger-table" id="propIncomeTable_' + escapeAttr(p.id) + '"></table></div>' +
-        '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="propinc:' + escapeAttr(p.id) + '">+ Add income</button>' +
+      '<div class="property-section">' +
+        '<div class="property-section-title">Loans</div>' +
+        '<div class="table-scroll"><table class="calc-costs-table prop-loans-table"><thead><tr><th>What</th><th class="num">Balance</th><th class="num">Rate %</th><th class="num">Term (yrs)</th><th>Type</th><th>Repayment</th><th class="num" title="Netted against the loan balance for both equity and interest — the one place to enter this money, not also as a separate Cash asset">Offset</th><th></th></tr></thead><tbody>' + loanRows + '</tbody></table></div>' +
+        '<button type="button" class="btn btn-sm btn-ghost" data-loan-add="' + escapeAttr(p.id) + '">+ Add loan</button>' +
       '</div>' +
-      '<div class="income-group prop-subledger">' +
-        '<div class="income-group-head"><div class="income-group-head-left"><h4>Expenses</h4></div></div>' +
-        pmFeePanel +
-        '<div class="table-scroll"><table class="ledger-table" id="propExpTable_' + escapeAttr(p.id) + '"></table></div>' +
-        '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="propexp:' + escapeAttr(p.id) + '">+ Add expense</button>' +
+      '<div class="property-section">' +
+        '<div class="income-group">' +
+          '<div class="income-group-head"><div class="income-group-head-left"><h4>Income</h4></div></div>' +
+          '<div class="table-scroll"><table class="ledger-table" id="propIncomeTable_' + escapeAttr(p.id) + '"></table></div>' +
+          '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="propinc:' + escapeAttr(p.id) + '">+ Add income</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="property-section">' +
+        '<div class="income-group">' +
+          '<div class="income-group-head"><div class="income-group-head-left"><h4>Expenses</h4></div></div>' +
+          pmFeePanel +
+          '<div class="table-scroll"><table class="ledger-table" id="propExpTable_' + escapeAttr(p.id) + '"></table></div>' +
+          '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="propexp:' + escapeAttr(p.id) + '">+ Add expense</button>' +
+        '</div>' +
       '</div>' +
     '</div>';
   }
@@ -2885,7 +2894,7 @@
   });
 
   function patchPropertyCardComputed(property){
-    var card = document.querySelector('.home-block[data-property-id="' + CSS.escape(property.id) + '"]');
+    var card = document.querySelector('.property-card[data-property-id="' + CSS.escape(property.id) + '"]');
     if(!card) return;
     var equity = propertyEquityToday(property);
     var mortgageBalance = (property.loans || []).reduce(function(s, l){ return s + (Number(l.balance) || 0); }, 0);

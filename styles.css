@@ -69,6 +69,9 @@
 
   .display{ font-family:"Inter", system-ui, sans-serif; }
   .mono, td.num, input[type="number"]{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  input[type="number"]{ -moz-appearance:textfield; }
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
 
   a{ color: var(--brass-strong); }
 
@@ -355,9 +358,7 @@
     width:100%; border:1px solid transparent; background:transparent; color:var(--ink); padding:5px 6px; border-radius:6px;
     font-size:13px; transition: border-color .18s ease, background-color .18s ease, box-shadow .18s ease;
   }
-  table.ledger-table input[type="number"]{ text-align:right; -moz-appearance:textfield; }
-  table.ledger-table input[type="number"]::-webkit-outer-spin-button,
-  table.ledger-table input[type="number"]::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+  table.ledger-table input[type="number"]{ text-align:right; }
   table.ledger-table input:hover, table.ledger-table select:hover{ border-color: var(--border); background: var(--paper-sunken); }
   table.ledger-table input:focus, table.ledger-table select:focus{ border-color: var(--brass); outline:none; background: var(--paper); box-shadow: var(--focus-ring); }
   table.ledger-table select{ appearance:none; -webkit-appearance:none; background-image:none; padding-right:16px; }

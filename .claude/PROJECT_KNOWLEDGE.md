@@ -41,9 +41,10 @@ each step is its own tagged commit. Current state:
 
 **Done:**
 - `src/constants.js` — config-only constants (tax brackets, stamp duty tables, LMI bands,
-  `STORAGE_KEY`, etc.) needed by the modules below. UI-only constant lists (`CLASSES`,
-  `ASSET_CATEGORIES`, column defs, page lists, chart segment configs, ...) haven't moved yet —
-  they migrate alongside whichever component first needs them out of `app.js`.
+  `STORAGE_KEY`, `PERIODS`, `FREQS`/`CLASSES`/`INCOME_TYPES`/`SUPER_MODES`/`SACRIFICE_MODES` +
+  their label-mapping helpers, etc.). Still-local-to-`app.js`: `ASSET_CATEGORIES`,
+  `LIQUID_CATEGORIES`, `SHARE_MARKETS`, `PURCHASE_STATE_CODES`, page lists, chart segment
+  configs — they migrate alongside whichever component first needs them out.
 - `src/state.js` — the `state` singleton (`export let`, a live binding — see the gotcha in the
   root `CLAUDE.md`), `persist`/`setStatus`, `defaultState`/`migrateState`/`defaultHomeBlock`/
   `defaultPurchaseConfig`, `setState(newState)`.
@@ -51,26 +52,58 @@ each step is its own tagged commit. Current state:
   no import cycles. `property.js` also owns the property-equity family
   (`propertyEquityToday`/`propertiesOffsetTotal`/etc.) even though `totalNetWorthValue()` — which
   combines equity with `totalAssetsValue()` — lives one layer up in `engine.js`.
-- `src/lib/{format,toast,html}.js` — leaf utilities with zero app-specific deps.
+- `src/lib/{format,toast,html,uimode}.js` — leaf DOM utilities with no page-specific logic.
+  `uimode.js`'s `syncUiModeToggle()` is called from the top of nearly every page's `render*()`,
+  which is why it's a lib export rather than living in whichever component happened to need it
+  first.
+- `src/lib/ledger-table.js` — the fully generic Classic-mode `<table>` renderer (`buildTable`,
+  `rowHtml`, `periodTh`/`periodTd`, `optionsHtml`) shared by Income/Expenses/Home/Property-expense
+  tables alike. Takes `section`/`items`/`opts` as plain arguments — no `state` import, so safe for
+  every component to depend on with zero cycle risk.
 - `src/components/dashboard.js` — `renderCards`/`renderDashboardStats`/`renderDetail` (all
   exported; `app.js` still calls them from scenario CRUD) + the private `renderFireProgress`
   helper (not exported — nothing outside the module calls it).
+- `src/components/income.js` — the Income ledger (group-by-person rows, synthetic net-income/rent
+  rows) and the Tax & Super section (per-person cards, waterfall bar, concessional-cap usage,
+  flip-to-breakdown). Exports: `renderIncomeGroups`, `renderTaxSuper`, `personBreakdownHtml`,
+  `flipTaxCard`, `patchAllTaxPersonOutputs`, `patchOpenRowBreakdowns`, `patchIncomeGroupTotals`,
+  `patchSyntheticIncomeRows`, `patchIncomeSuperNotes`, and the mutable `modernIncomeRowOpen` map
+  (see gotcha below). `renameTaxPerson`/`removeTaxPerson` stay in `app.js` — same reason as
+  scenario CRUD: they also call `updatePersonSuggestions`/`renderProjectionOutputs`, not extracted
+  yet.
 
 **How the boundaries were actually chosen:** by tracing the real call graph (which function calls
 which, and which touch `state` directly) before moving anything — not by section headings or
-"looks dashboard-y." Two things this caught: `totalAssetsValue`/property-equity functions looked
-like they belonged with Assets/Properties rendering (that's where they physically sat in the old
-file) but are pure calc needed by `engine.js`'s projection series and by Dashboard's stat tiles —
-they moved to `calc/` instead. And `selectScenario`/`addScenario`/`renameScenario`/
-`deleteScenario` look like Dashboard code (the "Add scenario" card lives there) but also call
-`renderHomeBody` (Scenarios tab) and `renderAssets` (Assets tab), neither extracted yet — they
-stay in `app.js` for now, calling `dashboard.js`'s exported `renderCards`/`renderDetail`, and will
-only move once Scenarios/Assets exist as modules too.
+"looks dashboard-y"/"looks income-y." Things this caught:
+- `totalAssetsValue`/property-equity functions looked like they belonged with Assets/Properties
+  rendering (that's where they physically sat in the old file) but are pure calc needed by
+  `engine.js`'s projection series and by Dashboard's stat tiles — they moved to `calc/` instead.
+- `selectScenario`/`addScenario`/`renameScenario`/`deleteScenario` look like Dashboard code (the
+  "Add scenario" card lives there) but also call `renderHomeBody` (Scenarios tab) and
+  `renderAssets` (Assets tab), neither extracted yet — they stay in `app.js`, calling
+  `dashboard.js`'s exports, until Scenarios/Assets exist as modules too. Same pattern used for
+  `renameTaxPerson`/`removeTaxPerson` above.
+- `buildTable`/`rowHtml`/`periodTh`/`periodTd`/`optionsHtml` looked like "the income table's
+  renderer" but are genuinely page-agnostic (`section` is just a string key) — every future
+  Classic-mode component needs them, so they became `lib/ledger-table.js` rather than getting
+  duplicated or creating an income→other-component import.
+- **Gotcha that cost a real bug**: a component's own session-only UI state (like
+  `modernIncomeRowOpen`, the open/closed map for Modern-mode rows) can be *mutated from app.js*
+  even after the component owns the code that *reads* it — `app.js`'s generic
+  `wireModernRowToggle(containerId, openState)` takes the map by reference and writes
+  `openState[key] = ...` on click. Moving `renderIncomeGroups`/`modernIncomeRowHtml` to
+  `income.js` without also exporting `modernIncomeRowOpen` produced a silent-until-runtime
+  `ReferenceError` the moment a Modern row was clicked — caught by the browser smoke test, not by
+  `node --check` (module syntax was fine; the bug was a missing export). When extracting a
+  component, grep the *whole* `app.js`, not just the block being moved, for every `var` the moved
+  code reads — session-state maps like this are the easy ones to miss since they don't look like
+  "data."
 
 **Not done yet**, in the planned order:
-1. `src/components/{income,expenses,assets,properties,scenarios,projections}.js` — one tab at a
-   time, each carrying its render + ledger-event-delegate functions out of `app.js`. Scenario CRUD
-   (above) is the natural trigger to do Scenarios+Assets together, or at least back-to-back.
+1. `src/components/{expenses,assets,properties,scenarios,projections}.js` — one tab at a time
+   (or Scenarios+Assets together, since that's what finally lets scenario CRUD and
+   `renameTaxPerson`/`removeTaxPerson` move out of `app.js`), each carrying its render +
+   ledger-event-delegate functions out of `app.js`.
 2. `src/components/nav.js` — `showPage`/`syncUrl`/`parseRouteFromLocation`/mobile tab bar.
 3. `src/lib/charts.js` (hand-rolled SVG line chart) and `src/lib/backup.js` (export/import/CSV/Web
    Crypto encrypted backup) — last, since other components depend on them.

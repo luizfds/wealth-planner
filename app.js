@@ -3884,7 +3884,7 @@
     });
     // The column picker/toggle only makes sense for the classic table's fixed columns — modern
     // rows already show every field, just tucked behind an expand instead of hidden by a toggle.
-    ["incomeColPicker", "expenseColPicker", "homeAcctToggleWrap"].forEach(function(id){
+    ["incomeColPicker", "expenseColPicker", "homeAcctToggleWrap", "periodsToggleWrap"].forEach(function(id){
       var picker = document.getElementById(id);
       if(picker) picker.hidden = state.uiMode === "modern";
     });

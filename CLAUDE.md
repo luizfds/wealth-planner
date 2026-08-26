@@ -28,10 +28,10 @@ list with explanations, established UI patterns, and what's still pending — se
   all derived/synthetic rows" pass).
 - `src/components/` — one file per page, each exporting its `render*()` functions for `app.js` to
   import and wire up. Extraction is incremental and in call-graph order (see
-  `.claude/PROJECT_KNOWLEDGE.md`); `dashboard.js`, `income.js`, `expenses.js`, and `assets.js`
-  exist so far. Not every function on a page moves — one that also depends on an un-extracted page
-  (e.g. `renderAssets()` needs Projections' `renderProjectionOutputs()`) stays in `app.js` and
-  calls the component's exports instead of the other way around.
+  `.claude/PROJECT_KNOWLEDGE.md`); `dashboard.js`, `income.js`, `expenses.js`, `assets.js`, and
+  `properties.js` exist so far. Not every function on a page moves — one that also depends on an
+  un-extracted page (e.g. `renderAssets()` needs Projections' `renderProjectionOutputs()`) stays
+  in `app.js` and calls the component's exports instead of the other way around.
 - `src/constants.js`, `src/lib/{format,toast,html,uimode,ledger-table,charts}.js` — static data
   tables and dependency-free utilities used across everything above: currency/percent formatters,
   toasts, `escapeAttr`, the global Classic/Modern toggle sync, the generic Classic/Modern-mode row

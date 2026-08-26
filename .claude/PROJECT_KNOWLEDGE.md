@@ -100,6 +100,13 @@ each step is its own tagged commit. Current state:
   the Properties page), not by `node --check`. Same lesson as the `modernIncomeRowOpen` gotcha:
   counting a function's call sites isn't enough — check *where* each call site actually is before
   assuming they're all inside the block you're moving.
+- `src/components/properties.js` — the Properties page's cards: value/loans/income/expenses per
+  property, gearing/yield badges, net-equity/usable-equity tiles. Exports `renderProperties`,
+  `patchPropertyCardComputed`, `renderPropListModern`, and the mutable `modernPropRowOpen` map.
+  `logPropertySnapshot` stays in `app.js` (calls `renderProjectionOutputs()`, not extracted) —
+  same pattern as `logAssetSnapshot`. `applyPeriodVisibility` (a `state`-driven column/period
+  visibility toggle `renderProperties` needs, alongside several not-yet-extracted pages) moved to
+  `lib/uimode.js` next to `syncUiModeToggle` — same shape of dependency as that one, same fix.
 
 **How the boundaries were actually chosen:** by tracing the real call graph (which function calls
 which, and which touch `state` directly) before moving anything — not by section headings or
@@ -129,16 +136,18 @@ which, and which touch `state` directly) before moving anything — not by secti
   "data."
 
 **Not done yet**, in the planned order:
-1. `src/components/{properties,scenarios,projections}.js` — one tab at a time, each carrying its
-   render + ledger-event-delegate functions out of `app.js`. `renderAssets`/`logAssetSnapshot`/
-   `applySharesPaste`/scenario CRUD/`renameTaxPerson`/`removeTaxPerson` all stay in `app.js` until
-   Projections (specifically `renderProjectionOutputs`) is extracted too — they all call it.
+1. `src/components/{scenarios,projections}.js` — one tab at a time, each carrying its render +
+   ledger-event-delegate functions out of `app.js`. `renderAssets`/`logAssetSnapshot`/
+   `applySharesPaste`/`logPropertySnapshot`/scenario CRUD/`renameTaxPerson`/`removeTaxPerson` all
+   stay in `app.js` until Projections (specifically `renderProjectionOutputs`) is extracted too —
+   they all call it. Do Projections before or together with Scenarios if possible, since it's the
+   one remaining blocker for all of those orchestrator functions moving out.
 2. `src/components/nav.js` — `showPage`/`syncUrl`/`parseRouteFromLocation`/mobile tab bar.
    `showAssetsSubpage` (Assets' subpage switcher) turned out to belong here, not in
    `assets.js` — it only toggles `.hidden`/calls `syncUrl`, never touches any assets.js export, so
-   it's routing-flavored-by-Assets rather than Assets-flavored-by-routing. Watch for the same shape
-   in Properties (`showPage`-adjacent subpage/tab switching, if any) before assuming a `show*Sub`
-   function belongs with its page's other render code.
+   it's routing-flavored-by-Assets rather than Assets-flavored-by-routing. Properties had no
+   equivalent (no subpages/routing of its own), so this pattern didn't recur there — still worth
+   checking for on Scenarios/Projections before assuming a page's every function belongs together.
 3. `src/lib/backup.js` (export/import/CSV/Web Crypto encrypted backup) — last, since other
    components depend on it. (`src/lib/charts.js` already done — pulled forward since Assets needed
    it immediately, see above.)

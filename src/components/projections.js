@@ -38,7 +38,8 @@ export function renderProjectionOutputs(){
     height: 280,
     yFormat: function(v){ return fmtCurrency0.format(v); },
     xFormat: function(v){ return "Yr " + v; },
-    ariaLabel: "Net worth projection by scenario"
+    ariaLabel: "Net worth projection by scenario",
+    interactiveLegend: true
   });
 
   var milestones = [0, 5, 10, 15, 20, horizon].filter(function(y, i, arr){ return y <= horizon && arr.indexOf(y) === i; }).sort(function(a,b){return a-b;});
@@ -50,7 +51,10 @@ export function renderProjectionOutputs(){
       var pt = s.points.find(function(p){ return p.x === y; });
       return "<td>" + fmtCurrency0.format(pt ? pt.y : 0) + "</td>";
     }).join("");
-    return "<tr><td><span class=\"proj-swatch " + s.colorClass + "\"></span>" + escapeAttr(s.label) + "</td>" + cells + "</tr>";
+    var isBaseline = s.label === state.baselineScenario;
+    return "<tr><td><span class=\"proj-swatch " + s.colorClass + "\"></span>" + escapeAttr(s.label) +
+      (isBaseline ? ' <span class="home-baseline-badge" title="Your current, real-life situation">Current situation</span>' : "") +
+      "</td>" + cells + "</tr>";
   }).join("");
   table.innerHTML = "<thead>" + headRow + "</thead><tbody>" + bodyRows + "</tbody>";
   container.appendChild(table);

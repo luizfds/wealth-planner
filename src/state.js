@@ -1,4 +1,4 @@
-import { STORAGE_KEY, HOME_CATEGORIES, INCOME_COL_DEFS, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE } from "./constants.js";
+import { STORAGE_KEY, HOME_CATEGORIES, INCOME_COL_DEFS, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, INVEST_LEG_TYPES } from "./constants.js";
 import { showToast } from "./lib/toast.js";
 
 export function defaultPurchaseConfig(price, depositPct, rate, termYears, stateCode, enabled){
@@ -25,13 +25,32 @@ export function defaultPurchaseConfig(price, depositPct, rate, termYears, stateC
   };
 }
 
+// A scenario's alternative to defaultPurchaseConfig(): invest instead of buying. Mutually
+// exclusive with the purchase leg in the UI (enabling one disables the other) — see
+// computeNetWorthSeries() for why that matters for the math, not just the display.
+export function defaultInvestConfig(assetType){
+  var meta = INVEST_LEG_TYPES.find(function(t){ return t.key === assetType; }) || INVEST_LEG_TYPES[0];
+  return {
+    enabled: false,
+    assetType: meta.key,
+    initialAmount: 0,
+    // "auto" redirects the scenario's own real monthly cash-flow surplus into this leg's growth
+    // rate instead of the generic portfolio rate — see computeNetWorthSeries(). "manual" lets the
+    // user pin an exact monthly figure instead, independent of actual cash flow.
+    contributionMode: "auto",
+    monthlyContribution: 0,
+    growthRatePct: meta.defaultGrowthRate
+  };
+}
+
 export function deepClone(o){ return JSON.parse(JSON.stringify(o)); }
 export function genId(prefix){ return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
 export function defaultState(){
   return {
-    activeScenario: "Scenario 1",
-    scenarios: ["Scenario 1"],
+    activeScenario: "Current situation",
+    scenarios: ["Current situation"],
+    baselineScenario: "Current situation",
     showAllPeriods: false,
     // Classic's tables rely on horizontal scroll even with a sticky first column — a rough
     // landing experience on a phone. Modern was built mobile-first, so a fresh mobile visitor
@@ -44,8 +63,9 @@ export function defaultState(){
     income: [],
     ip: [],
     shared: [],
-    home: { "Scenario 1": defaultHomeBlock() },
-    purchase: { "Scenario 1": defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", false) },
+    home: { "Current situation": defaultHomeBlock() },
+    purchase: { "Current situation": defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", false) },
+    invest: { "Current situation": defaultInvestConfig() },
     assets: [],
     properties: [],
     projection: { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0 },
@@ -90,6 +110,18 @@ export function migrateState(s){
     if(block && block.length && !block.some(function(i){ return i.id === "homeLoanRow"; })) block[0].id = "homeLoanRow";
   });
   if(!s.activeScenario || s.scenarios.indexOf(s.activeScenario) === -1) s.activeScenario = s.scenarios[0];
+  // One-shot-per-load (not flagged — cheap and idempotent): if there's no baseline yet, or the
+  // named baseline no longer exists (e.g. it was renamed before this field existed), designate
+  // whichever scenario is currently active as "Current situation" and pin it at index 0 so
+  // every renderer that just iterates state.scenarios in order shows it first automatically.
+  if(!s.baselineScenario || s.scenarios.indexOf(s.baselineScenario) === -1){
+    s.baselineScenario = s.activeScenario;
+    var baseIdx = s.scenarios.indexOf(s.baselineScenario);
+    if(baseIdx > 0){
+      s.scenarios.splice(baseIdx, 1);
+      s.scenarios.unshift(s.baselineScenario);
+    }
+  }
   if(!s.purchase) s.purchase = {};
   s.scenarios.forEach(function(name){
     if(!s.purchase[name]) s.purchase[name] = defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", false);
@@ -98,6 +130,21 @@ export function migrateState(s){
     if(pcfg.ioRate == null) pcfg.ioRate = pcfg.rate;
     if(pcfg.propertyGrowthRate === undefined) pcfg.propertyGrowthRate = null;
     if(pcfg.lmiCapitalized == null) pcfg.lmiCapitalized = false;
+  });
+  if(!s.invest) s.invest = {};
+  s.scenarios.forEach(function(name){
+    if(!s.invest[name]) s.invest[name] = defaultInvestConfig();
+    var icfg = s.invest[name];
+    if(icfg.assetType == null || !INVEST_LEG_TYPES.some(function(t){ return t.key === icfg.assetType; })) icfg.assetType = INVEST_LEG_TYPES[0].key;
+    if(icfg.initialAmount == null) icfg.initialAmount = 0;
+    if(icfg.contributionMode !== "manual") icfg.contributionMode = "auto";
+    if(icfg.monthlyContribution == null) icfg.monthlyContribution = 0;
+    if(icfg.growthRatePct == null) icfg.growthRatePct = defaultInvestConfig(icfg.assetType).growthRatePct;
+    // Never carry both legs enabled at once out of a partial/manual edit to a saved backup —
+    // see computeNetWorthSeries() for why that would double-count. Invest wins if both are
+    // somehow true, matching computeNetWorthSeries()'s own precedence; the UI itself keeps them
+    // mutually exclusive so this should only ever bite a hand-edited or very old backup.
+    if(icfg.enabled && s.purchase[name]) s.purchase[name].enabled = false;
   });
   if(!Array.isArray(s.assets)) s.assets = [];
   s.assets.forEach(function(a){

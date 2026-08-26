@@ -21,6 +21,18 @@ export function sumByClassification(items, cls, field){
               .reduce(function(s,i){ return s + periodsOf(i.amount, i.freq)[field]; }, 0);
 }
 export function safeDiv(a, b){ return b ? a / b : 0; }
+// A ledger item can optionally carry a sparse per-scenario amount override (see
+// state.shared[]'s scenarioOverrides) so the same expense (e.g. water rates) can differ between
+// scenarios/the baseline without needing a separate row per scenario. Absent map or absent key
+// for this scenario just falls back to the item's plain amount, so every existing item (which
+// has no scenarioOverrides field at all) behaves exactly as before.
+export function resolveSharedAmount(item, scenarioName){
+  var overrides = item.scenarioOverrides;
+  return (overrides && overrides[scenarioName] != null) ? overrides[scenarioName] : item.amount;
+}
+export function sumFieldForScenario(items, scenarioName, field){
+  return items.reduce(function(s, i){ return s + periodsOf(resolveSharedAmount(i, scenarioName), i.freq)[field]; }, 0);
+}
 export function sumByAccount(items, field){
   var map = {};
   items.forEach(function(i){

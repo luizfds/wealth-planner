@@ -75,6 +75,12 @@
     *{ transition: none !important; animation: none !important; }
   }
 
+  /* Page-switch cross-fade (see nav.js's showPage/startViewTransition) — the browser default is
+     ~0.25s, tuned down to match every other UI transition's snappier .15s-.18s in this app.
+     Never created at all when reduced motion is preferred (nav.js skips startViewTransition() in
+     that case), so no reduced-motion override is needed here. */
+  ::view-transition-old(root), ::view-transition-new(root){ animation-duration: 0.16s; }
+
   /* Every clickable control in this app is a real <button> (styled minimally via all:unset in
      many cases) — targeting the element, not a long tail of individual classes, kills the mobile
      tap-highlight flash and the iOS "callout" long-press menu (Copy/Share) app-wide in one rule,

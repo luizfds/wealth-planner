@@ -50,25 +50,40 @@ var MOBILE_MORE_PAGES = ["scenarios", "projections"];
 export function showPage(id, opts){
   opts = opts || {};
   if(!PAGES.some(function(p){ return p.id === id; })) id = "dashboard";
-  PAGES.forEach(function(p){
-    var section = document.getElementById("page-" + p.id);
-    if(section) section.hidden = (p.id !== id);
-    document.querySelectorAll('.nav-item[data-page="' + p.id + '"], .mobile-tab[data-page="' + p.id + '"], .mobile-more-item[data-page="' + p.id + '"]').forEach(function(navBtn){
-      navBtn.classList.toggle("active", p.id === id);
-      if(p.id === id) navBtn.setAttribute("aria-current", "page"); else navBtn.removeAttribute("aria-current");
+
+  function applyPageChange(){
+    PAGES.forEach(function(p){
+      var section = document.getElementById("page-" + p.id);
+      if(section) section.hidden = (p.id !== id);
+      document.querySelectorAll('.nav-item[data-page="' + p.id + '"], .mobile-tab[data-page="' + p.id + '"], .mobile-more-item[data-page="' + p.id + '"]').forEach(function(navBtn){
+        navBtn.classList.toggle("active", p.id === id);
+        if(p.id === id) navBtn.setAttribute("aria-current", "page"); else navBtn.removeAttribute("aria-current");
+      });
     });
-  });
-  var moreTab = document.getElementById("mobileTabMore");
-  if(moreTab) moreTab.classList.toggle("active", MOBILE_MORE_PAGES.indexOf(id) !== -1);
-  var page = PAGES.find(function(p){ return p.id === id; });
-  document.getElementById("pageTitle").textContent = page ? page.label : "Dashboard";
-  var navLabel = document.getElementById("navMenuCurrentLabel");
-  if(navLabel) navLabel.textContent = page ? page.label : "Dashboard";
-  try{ localStorage.setItem(PAGE_KEY, id); }catch(e){}
-  if(id === "dashboard") renderDashboardStats();
-  if(!opts.skipScroll) window.scrollTo(0, 0);
-  if(!opts.skipUrl) syncUrl(id, !!opts.replace);
-  closeMobileMore();
+    var moreTab = document.getElementById("mobileTabMore");
+    if(moreTab) moreTab.classList.toggle("active", MOBILE_MORE_PAGES.indexOf(id) !== -1);
+    var page = PAGES.find(function(p){ return p.id === id; });
+    document.getElementById("pageTitle").textContent = page ? page.label : "Dashboard";
+    var navLabel = document.getElementById("navMenuCurrentLabel");
+    if(navLabel) navLabel.textContent = page ? page.label : "Dashboard";
+    try{ localStorage.setItem(PAGE_KEY, id); }catch(e){}
+    if(id === "dashboard") renderDashboardStats();
+    if(!opts.skipScroll) window.scrollTo(0, 0);
+    if(!opts.skipUrl) syncUrl(id, !!opts.replace);
+    closeMobileMore();
+  }
+
+  // A plain hidden-toggle instant swap is the single biggest "this is a website, not an app" tell
+  // in the whole nav. The View Transitions API cross-fades old/new page content automatically —
+  // no manual before/after class choreography — and simply isn't called at all on browsers
+  // without support (Firefox, older Safari) or when the user prefers reduced motion, so this is
+  // pure enhancement with no fallback path to maintain.
+  var prefersReducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if(document.startViewTransition && !prefersReducedMotion){
+    document.startViewTransition(applyPageChange);
+  } else {
+    applyPageChange();
+  }
 }
 
 export function showAssetsSubpage(id, opts){

@@ -14,15 +14,15 @@ list with explanations, established UI patterns, and what's still pending — se
   Properties, Scenarios, Projections). Pages are `<section class="app-page" id="page-...">`,
   shown/hidden via `showPage()`, not separate documents.
 - `styles.css` — one stylesheet, light/dark via CSS custom properties + `prefers-color-scheme`.
-- `src/app.js` — the entry point (`<script type="module">`), ~1,450 lines (down from the original
-  4,618-line monolith). All seven pages' rendering and routing have moved to `src/components/`;
-  what's left is DOM event wiring/registration, the purchase-calculator glue, CSV export,
-  encrypted backup, and cross-cutting dispatch helpers (`rerenderTableFor`, `getArrayForSection`,
-  `findProperty`, `updatePersonSuggestions`, `renderAll`, `refreshAllUiModePages`) that route by a
-  section-string key across every page and are expected to stay here permanently — see
-  "Modularization progress" in `.claude/PROJECT_KNOWLEDGE.md` for what's still planned
-  (`lib/backup.js`, the CSS split) and the full list of functions deliberately pinned to `app.js`
-  for good, not just for now.
+- `src/app.js` — the entry point (`<script type="module">`), ~1,275 lines (down from the original
+  4,618-line monolith). All seven pages' rendering/routing and export/import/backup have moved to
+  `src/components/`/`src/lib/backup.js`; what's left is DOM event wiring/registration, the
+  purchase-calculator glue, and cross-cutting dispatch helpers (`rerenderTableFor`,
+  `getArrayForSection`, `findProperty`, `updatePersonSuggestions`, `renderAll`,
+  `refreshAllUiModePages`) that route by a section-string key across every page and are expected
+  to stay here permanently — see "Modularization progress" in `.claude/PROJECT_KNOWLEDGE.md` for
+  the full list of functions deliberately pinned to `app.js` for good, not just for now. The CSS
+  split is the only remaining migration step.
 - `src/state.js` — `state` (the single source of truth), `defaultState()`, `migrateState()`
   (schema migration + safe defaults for old/partial saves), `persist()` (debounced localStorage
   write), `setStatus()`.
@@ -44,6 +44,9 @@ list with explanations, established UI patterns, and what's still pending — se
   sync, the generic Classic/Modern-mode row and `<table>` renderers
   (`buildTable`/`rowHtml`/`modernPlainRowHtml`) shared by every ledger page, and the hand-rolled
   SVG line chart (`renderLineChart`).
+- `src/lib/backup.js` — JSON backup export/import (with optional Web Crypto passphrase
+  encryption) and per-section CSV export. `applyImportedBackupJson` stays in `app.js` since it
+  calls the permanent-resident `renderAll()`.
 
 **`state` is a live import, not a value** — never reassign the imported `state` binding directly
 (`state = X` throws for an ES-module import). Use `setState(newState)` from `state.js` instead;

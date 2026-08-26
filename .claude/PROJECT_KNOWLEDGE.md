@@ -40,12 +40,14 @@ The app is mid-migration from one `app.js` closure (pre-v1.33.1) to native ES mo
 each step is its own tagged commit. Current state:
 
 **All seven page components now exist** (`dashboard`, `income`, `expenses`, `assets`, `properties`,
-`projections`, `scenarios`) plus `nav.js`. `app.js` is down to ~1,450 lines from the original
-4,618 — DOM event wiring/delegation, the purchase-calculator and ledger-table generic handlers,
-CSV export, encrypted backup, and a handful of genuinely cross-cutting helpers (`findProperty`,
-`getArrayForSection`, `rerenderTableFor`, `updatePersonSuggestions`, `renderTotals`, `renderAll`,
-`refreshAllUiModePages`). What's left in `.claude/PROJECT_KNOWLEDGE.md`'s "Not done yet" below is
-`lib/backup.js` and the CSS split.
+`projections`, `scenarios`) plus `nav.js`. `lib/backup.js` (export/import/CSV/Web Crypto encrypted
+backup) is also done — the last planned `lib/` extraction. `app.js` is down to ~1,275 lines from
+the original 4,618 — DOM event wiring/delegation, the purchase-calculator and ledger-table generic
+handlers, and a handful of genuinely cross-cutting helpers (`findProperty`, `getArrayForSection`,
+`rerenderTableFor`, `updatePersonSuggestions`, `renderTotals`, `renderAll`,
+`refreshAllUiModePages`). `applyImportedBackupJson` stays in `app.js` (not `backup.js`) since it
+calls the permanent-resident `renderAll()`. What's left is only the CSS split (see "Not done yet"
+below).
 
 **Done:**
 - `src/constants.js` — config-only constants (tax brackets, stamp duty tables, LMI bands,
@@ -154,6 +156,25 @@ CSV export, encrypted backup, and a handful of genuinely cross-cutting helpers (
   turned fully private once `showAssetsSubpage` moved in with it — it had only ever been read by
   `buildRoutePath`/`syncUrl` (both private too) and mutated by `showAssetsSubpage` itself, so
   nothing outside `nav.js` was left needing an import for it.
+- `src/lib/backup.js` — the last `lib/` extraction. Exports: `decryptBackup`, `doExport`,
+  `exportIncomeCsv`, `exportExpensesCsv`, `exportAssetsCsv`, `exportPropertyLoansCsv`. Everything
+  else (`isoDateStamp`, `bufToBase64`/`base64ToBuf`, `deriveBackupKey`, `encryptBackup`,
+  `finishExport`/`shareExport`/`fallbackExport`, `csvCell`/`buildCsv`/`exportCsv`) stays private —
+  only ever called from inside this file. `applyImportedBackupJson` deliberately stayed in
+  `app.js` rather than moving here: it calls the permanent-resident `renderAll()`, so pulling it
+  into `backup.js` would create a component→app.js import backwards from every other extraction.
+- **Web Share API hangs in headless Chrome — test gotcha, not a bug**: `shareExport()`'s
+  `navigator.share({files: [file], ...})` call never resolves or rejects in this project's
+  Playwright-driven headless Chrome, for any file type tested, even though
+  `navigator.canShare()` synchronously reports `true` first. Confirmed pre-existing (not a
+  refactor regression) by running the identical CSV-export click against the untouched
+  pre-`v1.33.1` `app.js` via `git cat-file -p <commit>:app.js` — same indefinite hang, byte-for-byte
+  unchanged code. Real devices show the native OS share sheet, which resolves the promise either
+  way once the user picks something or dismisses it; headless Chrome has no such UI to dismiss, so
+  the promise just sits forever. **When testing export-adjacent features, don't `await` the
+  share-triggered path directly** — either test on a build where `canShare()` returns `false`
+  (forces the plain-download `fallbackExport` path instead) or race the assertion against a short
+  timeout and treat a timeout on `navigator.share()` specifically as inconclusive, not a failure.
 
 **How the boundaries were actually chosen:** by tracing the real call graph (which function calls
 which, and which touch `state` directly) before moving anything — not by section headings or
@@ -181,11 +202,9 @@ which, and which touch `state` directly) before moving anything — not by secti
   code reads — session-state maps like this are the easy ones to miss since they don't look like
   "data."
 
-**Not done yet**, in the planned order:
-1. `src/lib/backup.js` (export/import/CSV/Web Crypto encrypted backup) — last remaining lib
-   extraction, since components would depend on it. (`src/lib/charts.js` was done much earlier
-   than planned — pulled forward since Assets needed it immediately.)
-2. Matching `styles.css` split into per-component files + `@import`, alongside each JS move.
+**Not done yet:**
+1. `styles.css` split into per-component files + `@import`. This is the only remaining
+   migration step — all JS extractions (`lib/`, every page component, `nav.js`) are complete.
 
 **Believed-permanent `app.js` residents** (cross-cutting by nature — dispatch or wire across every
 page by a section-string key or DOM id, unlike the now-fully-extracted page-specific code; don't

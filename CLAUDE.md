@@ -13,7 +13,15 @@ list with explanations, established UI patterns, and what's still pending — se
 - `index.html` — all markup for every page/section (Dashboard, Income & Tax, Expenses, Assets,
   Properties, Scenarios, Projections). Pages are `<section class="app-page" id="page-...">`,
   shown/hidden via `showPage()`, not separate documents.
-- `styles.css` — one stylesheet, light/dark via CSS custom properties + `prefers-color-scheme`.
+- `styles.css` — just eight `@import` statements pulling in `src/styles/{base,shell,dashboard,
+  ledger,income,properties,assets,projections}.css`, in that specific order. Light/dark theming is
+  CSS custom properties + `prefers-color-scheme`, defined in `base.css`.
+  **Import order is load-bearing, not cosmetic** — several classes with equal specificity are
+  combined on the same element (e.g. `class="income-summary-line home-recon-line"` in
+  `scenarios.js`) and rely on source order to resolve which value wins, exactly as the original
+  monolithic file did. Moving one `@import` line before another can silently flip such an
+  override. Before reordering, re-run the cross-bucket conflict check described in
+  `.claude/PROJECT_KNOWLEDGE.md`'s "Modularization progress" section.
 - `src/app.js` — the entry point (`<script type="module">`), ~1,275 lines (down from the original
   4,618-line monolith). All seven pages' rendering/routing and export/import/backup have moved to
   `src/components/`/`src/lib/backup.js`; what's left is DOM event wiring/registration, the
@@ -21,8 +29,8 @@ list with explanations, established UI patterns, and what's still pending — se
   `getArrayForSection`, `findProperty`, `updatePersonSuggestions`, `renderAll`,
   `refreshAllUiModePages`) that route by a section-string key across every page and are expected
   to stay here permanently — see "Modularization progress" in `.claude/PROJECT_KNOWLEDGE.md` for
-  the full list of functions deliberately pinned to `app.js` for good, not just for now. The CSS
-  split is the only remaining migration step.
+  the full list of functions deliberately pinned to `app.js` for good, not just for now. Both the
+  JS and CSS splits (see above) are now complete — the ES-modules migration is done.
 - `src/state.js` — `state` (the single source of truth), `defaultState()`, `migrateState()`
   (schema migration + safe defaults for old/partial saves), `persist()` (debounced localStorage
   write), `setStatus()`.

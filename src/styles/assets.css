@@ -1,0 +1,38 @@
+  .holdings-table th, .holdings-table td{ white-space:nowrap; }
+  .holdings-table th:first-child, .holdings-table td:first-child{ white-space:normal; min-width:130px; }
+  .holdings-table .h-symbol, .holdings-table .h-market{ width:64px; }
+  .holdings-table .h-qty, .holdings-table .h-avgcost, .holdings-table .h-price{ width:80px; }
+  .holdings-table .h-person{ width:100px; }
+  .asset-trend.gain-cell{ padding-left:0; margin-top:0; }
+
+  /* ---------------- Assets & net worth ---------------- */
+  .assets-table{ width:100%; border-collapse:collapse; }
+  .assets-table th{
+    text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color: var(--ink-soft);
+    font-weight:600; padding:9px 10px; background: var(--paper-sunken); border-bottom:1px solid var(--border);
+  }
+  .assets-table td{ padding:6px 8px; border-bottom:1px solid var(--border); }
+  .assets-table tr:last-child td{ border-bottom:none; }
+  .assets-table td.num, .assets-table th.num{ text-align:right; font-family:"IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; }
+  .assets-table input[type="text"], .assets-table input[type="number"], .assets-table select{
+    width:100%; border:1px solid transparent; background:transparent; color:var(--ink); padding:5px 6px; border-radius:6px; font-size:13px;
+  }
+  .assets-table input[type="number"]{ text-align:right; font-family:"IBM Plex Mono", monospace; }
+  .assets-table input:hover, .assets-table select:hover{ border-color: var(--border); }
+  .assets-table input:focus, .assets-table select:focus{ border-color: var(--brass); outline:none; background: var(--paper); }
+  .assets-total-row td{ font-weight:700; border-top:1.5px solid var(--border); border-bottom:none; }
+
+  .worth-table{ width:100%; border-collapse:collapse; margin-top:14px; }
+  .worth-table th, .worth-table td{ padding:8px 10px; font-size:13px; border-bottom:1px solid var(--border); }
+  .worth-table th{ text-align:left; color: var(--ink-soft); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.04em; background: var(--paper-sunken); }
+  .worth-table td.num, .worth-table th.num{ text-align:right; font-family:"IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; }
+  .worth-table tr:last-child td{ border-bottom:none; font-weight:700; }
+  .worth-table td.short{ color: var(--bad); }
+  .worth-table td.ok{ color: var(--good); }
+
+  /* ---------------- Asset tracking ---------------- */
+  .asset-trend{ font-size:10.5px; margin-top:2px; padding-left:6px; }
+  .asset-trend.up{ color: var(--good); }
+  .asset-trend.down{ color: var(--bad); }
+  .asset-log-btn{ all:unset; cursor:pointer; color: var(--ink-soft); font-size:11px; padding:3px 6px; border-radius:5px; }
+  .asset-log-btn:hover{ background: var(--paper-sunken); color: var(--brass-strong); }

@@ -46,8 +46,9 @@ the original 4,618 — DOM event wiring/delegation, the purchase-calculator and 
 handlers, and a handful of genuinely cross-cutting helpers (`findProperty`, `getArrayForSection`,
 `rerenderTableFor`, `updatePersonSuggestions`, `renderTotals`, `renderAll`,
 `refreshAllUiModePages`). `applyImportedBackupJson` stays in `app.js` (not `backup.js`) since it
-calls the permanent-resident `renderAll()`. What's left is only the CSS split (see "Not done yet"
-below).
+calls the permanent-resident `renderAll()`. **The CSS split is also done** — `styles.css` is now
+eight `@import` statements into `src/styles/{base,shell,dashboard,ledger,income,properties,
+assets,projections}.css`. The whole ES-modules migration described in this section is complete.
 
 **Done:**
 - `src/constants.js` — config-only constants (tax brackets, stamp duty tables, LMI bands,
@@ -202,9 +203,61 @@ which, and which touch `state` directly) before moving anything — not by secti
   code reads — session-state maps like this are the easy ones to miss since they don't look like
   "data."
 
-**Not done yet:**
-1. `styles.css` split into per-component files + `@import`. This is the only remaining
-   migration step — all JS extractions (`lib/`, every page component, `nav.js`) are complete.
+**Not done yet:** nothing — the JS and CSS migrations described in this section are both complete.
+
+**`src/styles/` split (the CSS half of the migration)**: the original 945-line `styles.css` had
+no per-page structure — its `/* ---- Section ---- */` comments were mostly chronological (rules
+appended as features shipped), not organized by page, so several buckets below don't map 1:1 to a
+single component. Boundaries were decided pragmatically, then verified empirically (see below),
+not redesigned "properly" — a page-perfect split isn't there and wasn't the goal.
+- `base.css` — tokens (`:root`/dark overrides), reset, typography primitives, `.wrap`, the
+  Header/buttons/actions/status-chip block, the categorical series-color palette, the shared
+  chart tooltip (`.viz-tooltip`, used by both Assets and Projections), toast, `.visually-hidden`.
+  Anything used broadly enough that no single page "owns" it landed here.
+- `shell.css` — the app chrome matching `nav.js`: sidebar, desktop topbar, mobile tabbar/More
+  panel, and their own `@media (max-width: 880px)` block.
+- `ledger.css` — the generic Classic `<table>` styles, row-breakdown panels, account bars,
+  section shells (`.panel`/`.section-title`/fire-bar), **and** the generic Modern-mode card/row
+  system (`.m-card`/`.m-row`/`.m-avatar`/`.m-edit-grid`, shared by Income/Expenses/Properties/
+  Assets/Scenarios alike) — this is the CSS counterpart to `lib/ledger-table.js`.
+- `dashboard.css`, `income.css` (Tax & super only — the modern row system itself is in
+  `ledger.css`), `properties.css` (home-block/property-card/purchase-calculator — covers both
+  Properties *and* Scenarios' home block, since they're the same visual component), `assets.css`,
+  `projections.css` — one file per remaining page-specific chunk.
+- **`styles.css`'s `@import` order is load-bearing** (`base, shell, dashboard, ledger, income,
+  properties, assets, projections`) — see the CLAUDE.md gotcha. Two different classes with equal
+  specificity can land on the *same element* (one component composing another's CSS via a second
+  class, e.g. `class="income-summary-line home-recon-line"`) and rely on **source order**, not
+  specificity, to pick the winning value — exactly how a single unsplit stylesheet always worked.
+  Splitting into files preserves each bucket's *internal* order for free (ranges were extracted
+  verbatim, never reassembled), but a naive import order can still flip the *relative* order
+  between two buckets that never had a reason to be ordered relative to each other before.
+- **How this was actually caught**: a full before/after Playwright screenshot diff (every page,
+  desktop+mobile, light+dark, Google Fonts requests aborted via `page.route` for determinism —
+  they're blocked in this sandbox anyway, and left unblocked they add nondeterministic
+  hash-level noise across runs even for byte-identical CSS) turned up one real, reproducible
+  layout shift (`.home-recon-line`'s `margin-bottom` resolving to 14px instead of 10px on
+  Scenarios). Found the exact culprit via `getComputedStyle` + walking `document.styleSheets` for
+  every rule matching the element — turned out to be `.income-summary-line`'s `margin` shorthand
+  (also 3-margin-value, includes `margin-bottom:14px`) landing later than `.home-recon-line`'s
+  `margin-bottom:10px` because `properties.css` was imported before `income.css`. Fixed by
+  reordering the `@import`s (income before properties). **Don't trust "no visual diff" from
+  eyeballing screenshots alone** — this bug was invisible to the eye in isolation (a few px of
+  card spacing) and only surfaced as a byte-level hash mismatch; the systematic pixel-diff (via a
+  `<canvas>`-based per-pixel comparison, not just perceptual judgment) is what made it findable.
+- **Before trusting any other reorder**: this project's static check for this class of bug —
+  extract every literal `class="a b c"` string from `src/**/*.js` and `index.html`, find pairs of
+  classes that (a) co-occur on the same element and (b) are each defined as a bare single-class
+  CSS selector in a *different* bucket, then confirm the chosen import order preserves each
+  pair's original relative line order in the pre-split `styles.css` (`git show <pre-split-tag>
+  :styles.css`) — found exactly one real violation (the one above) among 15 candidate pairs.
+  This only catches *literal* class strings, not dynamically concatenated ones — the empirical
+  screenshot-diff pass is still the real gate, this is just how the fix was located quickly.
+- **Residual pixel-level nondeterminism** (1–138 px per screenshot, always on slider thumbs or
+  percentage-width bar edges — `.proj-slider::-webkit-slider-thumb`, `.rule-bar`/`.fire-bar-fill`/
+  `.cap-bar-fill`) is sub-pixel antialiasing jitter, present even between two runs of the
+  *identical* build — not a regression signal. Confirmed by re-running the same build twice and
+  seeing it self-diff by the same small margin.
 
 **Believed-permanent `app.js` residents** (cross-cutting by nature — dispatch or wire across every
 page by a section-string key or DOM id, unlike the now-fully-extracted page-specific code; don't

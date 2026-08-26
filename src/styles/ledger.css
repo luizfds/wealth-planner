@@ -1,0 +1,251 @@
+  /* ---------------- Section shells ---------------- */
+  .section-title{
+    font-family:"Inter", system-ui, sans-serif; font-weight:600; font-size: 18px; margin: 0 0 12px;
+  }
+  .detail{ margin-bottom: 32px; }
+  .detail-label{ font-size:12px; color: var(--ink-soft); margin-bottom: 6px; text-transform:uppercase; letter-spacing:.05em; }
+  .detail-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  @media (max-width: 760px){ .detail-grid{ grid-template-columns: 1fr; } }
+  .fire-bar-track{ height:10px; border-radius:100px; background: var(--paper-sunken); border:1px solid var(--border); overflow:hidden; margin:10px 0 12px; }
+  .fire-bar-fill{ height:100%; background: linear-gradient(90deg, var(--brass), var(--good)); border-radius:inherit; transition: width .3s ease; }
+  .fire-stat-row{ display:flex; justify-content:space-between; align-items:baseline; font-size:12.5px; color: var(--ink-soft); margin-bottom:4px; }
+  .fire-stat-row b{ color: var(--ink); font-family:"IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; }
+  .fire-note{ font-size:11.5px; color: var(--ink-soft); margin:8px 0 0; line-height:1.5; }
+  .panel{
+    background: var(--paper-raised); border:1px solid var(--border); border-radius: 14px;
+    padding: 18px 20px; box-shadow: var(--shadow);
+  }
+  .panel h3{ margin:0 0 14px; font-size:14px; font-weight:600; }
+
+  /* 50/30/20 bar */
+  .rule-bar{ position:relative; height: 34px; border-radius:8px; overflow:hidden; display:flex; background: var(--paper-sunken); margin-bottom: 10px; }
+  .rule-seg{ height:100%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; color:#fff; overflow:hidden; white-space:nowrap; }
+  .rule-seg.needs{ background: #6b7a8f; }
+  .rule-seg.wants{ background: var(--brass); }
+  .rule-seg.savings{ background: var(--good); }
+  .rule-seg.na{ background: var(--ink-soft); }
+  .rule-target{ position:absolute; top:0; bottom:0; width:0; border-right: 1.5px dashed rgba(0,0,0,0.35); }
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .rule-target{ border-right-color: rgba(255,255,255,0.35); } }
+  :root[data-theme="dark"] .rule-target{ border-right-color: rgba(255,255,255,0.35); }
+  .rule-legend{ display:flex; gap:16px; flex-wrap:wrap; font-size:12px; }
+  .rule-legend-item{ display:flex; align-items:center; gap:6px; color: var(--ink-soft); }
+  .rule-legend b{ color: var(--ink); font-weight:600; font-family:"IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  .rule-swatch{ width:9px; height:9px; border-radius:3px; flex:none; }
+  .rule-swatch.needs{ background:#6b7a8f; } .rule-swatch.wants{ background:var(--brass); } .rule-swatch.savings{ background:var(--good); } .rule-swatch.na{ background:var(--ink-soft); }
+
+  /* account bars */
+  .acct-row{ display:grid; grid-template-columns: 92px 1fr 78px; align-items:center; gap:10px; margin-bottom:9px; font-size:12.5px; }
+  .acct-row:last-child{ margin-bottom:0; }
+  .acct-name{ color: var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .acct-track{ height:8px; border-radius:100px; background: var(--paper-sunken); overflow:hidden; }
+  .acct-fill{ height:100%; background: var(--brass); border-radius:inherit; }
+  .acct-amt{ text-align:right; font-weight:500; }
+
+  /* ---------------- Ledger tables ---------------- */
+  .ledgers{ display:flex; flex-direction:column; gap:12px; }
+  details.ledger{
+    background: var(--paper-raised); border:1px solid var(--border); border-radius: 14px;
+    box-shadow: var(--shadow); overflow:hidden;
+  }
+  details.ledger > summary{
+    list-style:none; cursor:pointer; padding: 16px 20px; display:flex; align-items:center; justify-content:space-between; gap:12px;
+  }
+  details.ledger > summary::-webkit-details-marker{ display:none; }
+  .ledger-title{ display:flex; align-items:center; gap:10px; }
+  .ledger-title .section-title{ margin:0; }
+  .ledger-caret{ transition: transform .15s ease; color: var(--ink-soft); flex:none; }
+  details[open] > summary .ledger-caret{ transform: rotate(90deg); }
+  .ledger-total{ font-family:"IBM Plex Mono", monospace; font-size: 13px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .ledger-total b{ color: var(--ink); font-weight:600; }
+  .ledger-note{ font-size:12px; color: var(--ink-soft); margin:0 20px 12px; }
+  .ledger-body{ padding: 0 20px 18px; }
+
+  .table-scroll{ overflow-x:auto; border:1px solid var(--border); border-radius:10px; }
+  table.ledger-table{ width:100%; border-collapse: collapse; min-width: 640px; }
+  table.ledger-table th{
+    text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color: var(--ink-soft);
+    font-weight:600; padding: 9px 10px; background: var(--paper-sunken); border-bottom:1px solid var(--border);
+    white-space:nowrap;
+  }
+  table.ledger-table td{ padding: 6px 8px; border-bottom:1px solid var(--border); vertical-align:middle; }
+  table.ledger-table tr:last-child td{ border-bottom:none; }
+  table.ledger-table td.num{ text-align:right; white-space:nowrap; font-size:13px; }
+  th.num{ text-align:right; }
+  td.computed{ color: var(--ink-soft); }
+  .period-col{ }
+  .period-col.hidden-period{ display:none; }
+  .col-person.col-hidden, .col-type.col-hidden, .col-super.col-hidden, .col-sacrifice.col-hidden, .col-account.col-hidden{ display:none; }
+  .col-account-exp.col-hidden, .col-account-home.col-hidden{ display:none; }
+  .col-classification.col-hidden{ display:none; }
+
+  table.ledger-table input[type="text"], table.ledger-table input[type="number"], table.ledger-table select{
+    width:100%; border:1px solid transparent; background:transparent; color:var(--ink); padding:5px 6px; border-radius:6px;
+    font-size:13px; transition: border-color .18s ease, background-color .18s ease, box-shadow .18s ease;
+  }
+  /* Form controls don't inherit the page font by default in any browser — only the text/select
+     fields need this fix; the number input already gets IBM Plex Mono from the site-wide
+     "numbers are mono" rule below, and this selector's specificity would otherwise beat it. */
+  table.ledger-table input[type="text"], table.ledger-table select{ font-family:inherit; }
+  table.ledger-table input[type="number"]{ text-align:right; }
+  table.ledger-table input:hover, table.ledger-table select:hover{ border-color: var(--border); background: var(--paper-sunken); }
+  table.ledger-table input:focus, table.ledger-table select:focus{ border-color: var(--brass); outline:none; background: var(--paper); box-shadow: var(--focus-ring); }
+  table.ledger-table select{ appearance:none; -webkit-appearance:none; background-image:none; padding-right:16px; }
+  td.what-cell{ min-width: 190px; }
+  td.amount-cell{ min-width: 96px; }
+  td.freq-cell, td.class-cell{ min-width: 110px; }
+  td.account-cell{ min-width: 110px; }
+  td.sacrifice-cell{ min-width: 150px; }
+  td.sacrifice-cell .sacrifice-wrap{ display:flex; align-items:center; gap:4px; }
+  td.sacrifice-cell select{ flex: 1 1 auto; min-width: 96px; width:auto; }
+  td.sacrifice-cell input[type="number"]{ flex: 0 0 60px; width:60px; }
+  .row-del{ opacity:0.5; padding:8px 11px; }
+  .row-del:hover{ opacity:1; }
+  tr.is-computed .amount-cell input, tr.is-computed .amount-cell .computed-value{ color: var(--ink-soft); font-style: italic; }
+  .computed-value{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  tr.is-gross-ref{ background: var(--paper-sunken); }
+  tr.is-gross-ref .what-cell input, tr.is-gross-ref .amount-cell input{ color: var(--ink-soft); }
+  tr.is-gross-ref td.computed{ color: var(--ink-soft); opacity: 0.7; }
+  tr.is-gross-ref .computed-note{ color: var(--brass-strong); }
+  tr.is-zero-value .what-cell input, tr.is-zero-value .class-cell select{ color: var(--ink-soft); }
+  tr.is-zero-value:hover .what-cell input, tr.is-zero-value:focus-within .what-cell input{ color: var(--ink); }
+  tr.is-home-loan-row .what-cell input{ font-weight:600; }
+  tr.is-home-loan-row td.computed{ color: var(--brass-strong); font-weight:700; }
+  tr.is-home-loan-row .amount-cell input{ color: var(--brass-strong); font-weight:700; }
+  .computed-note{ font-size: 10.5px; color: var(--ink-soft); display:block; margin-top:1px; }
+  .row-breakdown-toggle{
+    all:unset; display:inline-block; font-size:10.5px; color: var(--brass-strong); cursor:pointer;
+    margin-top:2px; text-decoration:underline; text-underline-offset:2px;
+  }
+  .row-breakdown-toggle:hover{ color: var(--brass); }
+  tr.row-breakdown-row td{ background: var(--paper-raised); padding:14px 18px; }
+  .row-breakdown-panel{ display:inline-grid; grid-template-columns: auto auto; gap:5px 28px; min-width:280px; }
+  .row-breakdown-panel .rb-label{ font-size:12px; color: var(--ink-soft); }
+  .row-breakdown-panel .rb-value{ font-family:"IBM Plex Mono", monospace; font-size:13px; font-variant-numeric: tabular-nums; text-align:right; color: var(--ink); white-space:nowrap; }
+  .row-breakdown-panel .rb-row.neg .rb-value{ color: var(--bad); }
+  .row-breakdown-panel .rb-row.rb-total .rb-label, .row-breakdown-panel .rb-row.rb-total .rb-value{
+    border-top:1px solid var(--border); margin-top:2px; padding-top:7px; font-weight:700; color: var(--brass-strong); font-size:14.5px;
+  }
+  .row-breakdown-panel .rb-row{ display:contents; }
+  .row-breakdown-panel .rb-row.rb-secondary .rb-label, .row-breakdown-panel .rb-row.rb-secondary .rb-value{ color: var(--ink-soft); font-style:italic; }
+  .rb-ip-note{ max-width:340px; margin:8px 0 0; }
+
+  .ledger-footer{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px; flex-wrap:wrap; }
+
+  @media (max-width: 880px){
+    .table-scroll{
+      -webkit-mask-image: linear-gradient(to right, black calc(100% - 20px), transparent);
+      mask-image: linear-gradient(to right, black calc(100% - 20px), transparent);
+    }
+    /* Freeze the label column so a row's name stays in view while scrolling right to its numbers —
+       otherwise the amount, frequency and totals scroll fully off-screen with no way to tell which row they belong to. */
+    .table-scroll table td:first-child, .table-scroll table th:first-child{
+      position: sticky; left:0; z-index:2; background: var(--paper-raised); box-shadow: 1px 0 0 var(--border);
+    }
+    .table-scroll table th:first-child{ z-index:3; background: var(--paper-sunken); }
+    .table-scroll tr.is-gross-ref td:first-child{ background: var(--paper-sunken); }
+  }
+
+  /* ---------------- Income & Tax: modern (card) layout ---------------- */
+  .page-intro-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+  .page-intro-row .page-intro{ flex:1 1 320px; }
+  .page-intro-actions{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+
+  .m-avatar{
+    width:30px; height:30px; border-radius:50%; flex:none; display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:13px; color:#fff; background: var(--series-color); font-family:"Inter",sans-serif;
+  }
+  .m-avatar.m-avatar-neutral{ background: var(--ink-soft); }
+  .m-avatar.m-avatar-needs{ background: #6b7a8f; }
+  .m-avatar.m-avatar-wants{ background: var(--brass); }
+  .m-avatar.m-avatar-savings{ background: var(--good); }
+  .m-avatar.m-avatar-na{ background: var(--ink-soft); }
+  .m-people{ display:flex; flex-direction:column; gap:14px; }
+  .m-card{ border:1px solid var(--border); border-radius:12px; background: var(--paper-sunken); overflow:hidden; }
+  .m-card-head{ display:flex; align-items:center; gap:12px; padding:13px 16px; }
+  .m-card-name{ font-weight:700; font-size:14px; flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .m-card-total{ font-family:"IBM Plex Mono", monospace; font-weight:700; font-size:14.5px; white-space:nowrap; }
+  .m-card-total span{ font-size:11px; font-weight:500; color: var(--ink-soft); margin-left:2px; }
+  .m-comp-bar{ display:flex; gap:2px; height:6px; border-radius:4px; overflow:hidden; margin:0 16px 12px; }
+  .m-comp-seg{ background: var(--series-color); min-width:2px; }
+  .m-rows{ background: var(--paper-raised); border-top:1px solid var(--border); }
+  .m-row{ border-bottom:1px solid var(--border); }
+  .m-row:last-child{ border-bottom:none; }
+  .m-row-summary{
+    all:unset; box-sizing:border-box; width:100%; display:flex; align-items:center; gap:10px;
+    padding:10px 16px; cursor:pointer; text-align:left;
+  }
+  button.m-row-summary:hover{ background: var(--paper-sunken); }
+  button.m-row-summary:focus-visible{ box-shadow: inset 0 0 0 2px var(--brass); }
+  .m-row-dot{ width:7px; height:7px; border-radius:50%; background: var(--series-color); flex:none; }
+  .m-row-name{ font-weight:600; font-size:13.5px; }
+  .m-row-sub{ font-size:11px; color: var(--ink-soft); margin-top:1px; }
+  .m-row-tag{
+    font-size:9.5px; text-transform:uppercase; letter-spacing:.04em; font-weight:700; padding:2px 7px; border-radius:100px;
+    background: var(--paper-sunken); color: var(--ink-soft); flex:none;
+  }
+  .m-row-tag.gross{ background: var(--brass-wash); color: var(--brass-strong); }
+  .m-row-amt{ margin-left:auto; font-family:"IBM Plex Mono", monospace; font-weight:600; font-size:13.5px; white-space:nowrap; flex:none; }
+  .m-row-chev{ width:14px; height:14px; flex:none; color: var(--ink-soft); transition: transform .15s ease; }
+  .m-row.open .m-row-chev{ transform: rotate(90deg); }
+  /* grid-template-rows 0fr→1fr animates height without knowing the content's height up front —
+     the inner wrapper clips the overflow while the row is collapsed or mid-animation. */
+  .m-row-edit{ display:grid; grid-template-rows:0fr; transition: grid-template-rows .22s ease; }
+  .m-row.open .m-row-edit{ grid-template-rows:1fr; }
+  .m-row-edit-inner{ overflow:hidden; min-height:0; }
+  .m-row-edit-pad{ padding:2px 16px 16px 40px; }
+  .m-edit-grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap:10px 12px; background: var(--paper-sunken); border:1px solid var(--border); border-radius:9px; padding:12px 14px; }
+  .m-edit-field{ min-width:0; }
+  .m-edit-field.span2{ grid-column: span 2; }
+  .m-edit-field.span3{ grid-column: span 3; }
+  .m-edit-field label{ display:block; font-size:10px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:700; margin-bottom:4px; }
+  .m-edit-field input, .m-edit-field select{
+    width:100%; border:1px solid var(--border); background: var(--paper); color: var(--ink); border-radius:7px;
+    padding:6px 8px; font-size:13px; font-family:inherit;
+  }
+  /* Same "numbers are mono" rule every other amount on the page follows (the row summary this
+     panel expands from is already mono) — font-family:inherit above is for the text/select
+     fields only; it was overriding the number input's mono by equal-specificity source order. */
+  .m-edit-field input[type="number"]{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  .m-edit-field input:focus, .m-edit-field select:focus{ outline:none; border-color: var(--brass); box-shadow: var(--focus-ring); }
+  .m-edit-field .sacrifice-wrap{ display:flex; align-items:center; gap:4px; }
+  .m-edit-field .sacrifice-wrap input{ flex: 0 0 64px; }
+  .m-more-options{ margin-top:10px; }
+  .m-edit-actions{ display:flex; justify-content:flex-end; margin-top:10px; }
+  .m-row.computed .m-row-summary{ background: var(--brass-wash); cursor:default; }
+  .m-row.computed .m-row-name{ color: var(--brass-strong); }
+  .m-row.computed .m-row-amt{ color: var(--brass-strong); }
+  .m-row.m-row-primary .m-row-name{ font-weight:700; }
+  .m-row.m-row-primary .m-row-amt{ color: var(--brass-strong); font-weight:700; }
+  .m-add-row{
+    all:unset; box-sizing:border-box; display:flex; align-items:center; justify-content:center; gap:6px; width:100%;
+    padding:10px; font-size:12.5px; font-weight:600; color: var(--ink-soft); cursor:pointer; border-top:1px dashed var(--border);
+  }
+  .m-add-row:hover{ color: var(--brass-strong); background: var(--paper-sunken); }
+  .m-add-row:focus-visible{ box-shadow: inset 0 0 0 2px var(--brass); }
+
+  @media (max-width:640px){
+    .m-edit-grid{ grid-template-columns: 1fr 1fr; }
+    .m-edit-field.span2, .m-edit-field.span3{ grid-column: span 2; }
+    .m-row-edit-pad{ padding-left:16px; }
+  }
+
+  .col-picker{ position:relative; display:inline-block; margin-bottom:12px; }
+  .col-picker[hidden]{ display:none; }
+  .col-picker-panel{
+    position:absolute; top:calc(100% + 6px); left:0; z-index:20; min-width:190px;
+    background: var(--paper-raised); border:1px solid var(--border); border-radius:9px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.22); padding:6px;
+  }
+  .col-picker-row{ display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:6px; font-size:12.5px; cursor:pointer; user-select:none; }
+  .col-picker-row:hover{ background: var(--paper-sunken); }
+  .col-picker-row input{ margin:0; accent-color: var(--brass); }
+
+  .toggle-periods{ display:flex; align-items:center; gap:8px; font-size:12px; color: var(--ink-soft); user-select:none; }
+  .toggle-periods[hidden]{ display:none; }
+  .switch{ position:relative; width:32px; height:18px; }
+  .switch input{ opacity:0; width:0; height:0; position:absolute; }
+  .switch-track{ position:absolute; inset:0; background: var(--paper-sunken); border:1px solid var(--border); border-radius:100px; transition: background .15s; }
+  .switch-thumb{ position:absolute; top:1px; left:1px; width:14px; height:14px; border-radius:50%; background: var(--ink-soft); transition: transform .15s, background .15s; }
+  .switch input:checked + .switch-track{ background: var(--brass-wash); border-color: var(--brass); }
+  .switch input:checked + .switch-track .switch-thumb{ transform: translateX(14px); background: var(--brass); }
+  .switch input:focus-visible + .switch-track{ box-shadow: var(--focus-ring); }

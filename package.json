@@ -1,0 +1,9 @@
+{
+  "name": "wealth-planner",
+  "private": true,
+  "type": "module",
+  "description": "Static, no-build personal finance / property-investment planner. package.json exists only to run the test suite with Node's built-in test runner — the app itself has no dependencies or build step.",
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  }
+}

@@ -107,6 +107,14 @@ each step is its own tagged commit. Current state:
   same pattern as `logAssetSnapshot`. `applyPeriodVisibility` (a `state`-driven column/period
   visibility toggle `renderProperties` needs, alongside several not-yet-extracted pages) moved to
   `lib/uimode.js` next to `syncUiModeToggle` — same shape of dependency as that one, same fix.
+- `src/components/projections.js` — just `renderProjectionOutputs` (the net-worth-by-scenario
+  chart + headline sentence + milestone table). The smallest extraction so far, and the one that
+  actually unblocks the others: it has zero dependency on any not-yet-extracted page, which is
+  *why* every orchestrator stuck in `app.js` so far (`renderAssets`, `logAssetSnapshot`,
+  `applySharesPaste`, `logPropertySnapshot`, scenario CRUD, `renameTaxPerson`/`removeTaxPerson`)
+  was stuck on this one function specifically. The `#proj*` input/slider event wiring and the
+  `pairSlider` helper stay in `app.js` — consistent with every other component so far, DOM event
+  registration itself never moves, only the render/patch functions it calls.
 
 **How the boundaries were actually chosen:** by tracing the real call graph (which function calls
 which, and which touch `state` directly) before moving anything — not by section headings or
@@ -136,18 +144,21 @@ which, and which touch `state` directly) before moving anything — not by secti
   "data."
 
 **Not done yet**, in the planned order:
-1. `src/components/{scenarios,projections}.js` — one tab at a time, each carrying its render +
-   ledger-event-delegate functions out of `app.js`. `renderAssets`/`logAssetSnapshot`/
-   `applySharesPaste`/`logPropertySnapshot`/scenario CRUD/`renameTaxPerson`/`removeTaxPerson` all
-   stay in `app.js` until Projections (specifically `renderProjectionOutputs`) is extracted too —
-   they all call it. Do Projections before or together with Scenarios if possible, since it's the
-   one remaining blocker for all of those orchestrator functions moving out.
+1. `src/components/scenarios.js` — the last page component: `renderHomeBody` and friends (home
+   cost reconciliation, the purchase calculator panel). Once this exists, go back and actually
+   move the orchestrator functions that have been deliberately left behind in `app.js` through
+   this whole migration — `renderAssets`/`logAssetSnapshot`/`applySharesPaste` (→ `assets.js`),
+   `logPropertySnapshot` (→ `properties.js`), `renameTaxPerson`/`removeTaxPerson` (→ `income.js`),
+   scenario CRUD (`selectScenario`/`addScenario`/`renameScenario`/`deleteScenario`, →
+   `scenarios.js`) — Projections (their one remaining blocker) is done now, so nothing stops this
+   except that it hadn't been done yet as of this writing. Do it as its own small cleanup pass
+   rather than folding it into the Scenarios extraction itself, so each commit stays reviewable.
 2. `src/components/nav.js` — `showPage`/`syncUrl`/`parseRouteFromLocation`/mobile tab bar.
    `showAssetsSubpage` (Assets' subpage switcher) turned out to belong here, not in
    `assets.js` — it only toggles `.hidden`/calls `syncUrl`, never touches any assets.js export, so
-   it's routing-flavored-by-Assets rather than Assets-flavored-by-routing. Properties had no
-   equivalent (no subpages/routing of its own), so this pattern didn't recur there — still worth
-   checking for on Scenarios/Projections before assuming a page's every function belongs together.
+   it's routing-flavored-by-Assets rather than Assets-flavored-by-routing. Neither Properties nor
+   Projections had an equivalent — still worth checking for on Scenarios before assuming a page's
+   every function belongs together.
 3. `src/lib/backup.js` (export/import/CSV/Web Crypto encrypted backup) — last, since other
    components depend on it. (`src/lib/charts.js` already done — pulled forward since Assets needed
    it immediately, see above.)

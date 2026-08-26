@@ -1,7 +1,7 @@
-import { state, persist, defaultHomeBlock, defaultPurchaseConfig } from "../state.js";
-import { PURCHASE_STATE_CODES, STATE_GROWTH_RATES, PERIODS } from "../constants.js";
+import { state, persist, defaultHomeBlock, defaultPurchaseConfig, defaultInvestConfig } from "../state.js";
+import { PURCHASE_STATE_CODES, STATE_GROWTH_RATES, PERIODS, INVEST_LEG_TYPES } from "../constants.js";
 import { recalcPurchase } from "../calc/property.js";
-import { recalcComputedItems } from "../calc/engine.js";
+import { recalcComputedItems, scenarioTotals } from "../calc/engine.js";
 import { periodsOf, sumField } from "../calc/ledger.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
 import { escapeAttr, slug } from "../lib/html.js";
@@ -29,6 +29,7 @@ export function addScenario(){
   state.scenarios.push(name);
   state.home[name] = defaultHomeBlock();
   state.purchase[name] = defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", true);
+  state.invest[name] = defaultInvestConfig();
   state.activeScenario = name;
   persist();
   renderCards();
@@ -51,6 +52,8 @@ export function renameScenario(oldName){
   delete state.home[oldName];
   state.purchase[name] = state.purchase[oldName];
   delete state.purchase[oldName];
+  state.invest[name] = state.invest[oldName];
+  delete state.invest[oldName];
   if(state.activeScenario === oldName) state.activeScenario = name;
   if(state.baselineScenario === oldName) state.baselineScenario = name;
   state.shared.forEach(function(item){
@@ -72,6 +75,7 @@ export function deleteScenario(name){
   state.scenarios = state.scenarios.filter(function(s){ return s !== name; });
   delete state.home[name];
   delete state.purchase[name];
+  delete state.invest[name];
   state.shared.forEach(function(item){
     if(item.scenarioOverrides) delete item.scenarioOverrides[name];
   });
@@ -166,6 +170,7 @@ export function renderHomeBody(){
       '</div>' +
       '<div class="home-block-body">' +
         renderPurchasePanelHtml(scenario) +
+        renderInvestPanelHtml(scenario) +
         '<div class="home-recurring-label">Recurring costs — per month</div>' +
         '<p class="income-summary-line home-recon-line">' + homeReconciliationHtml(scenario) + '</p>' +
         (state.uiMode === "modern"
@@ -277,6 +282,52 @@ function renderPurchasePanelHtml(scenario){
       body +
     '</div>'
   );
+}
+
+function investResolvedMonthlyLabel(scenario, cfg){
+  if(cfg.contributionMode === "manual") return fmtCurrency0.format(Number(cfg.monthlyContribution) || 0) + "/mo (manual)";
+  // "Auto" mirrors computeNetWorthSeries()'s own definition: this scenario's actual monthly
+  // cash-flow surplus today, redirected into this leg instead of the generic portfolio rate.
+  // It's a today snapshot for display — the engine re-derives it fresh every projected year as
+  // income/expenses change, this just previews what it currently resolves to.
+  return fmtCurrency0.format(scenarioTotals(scenario).netMonthly) + "/mo today (auto — updates as income/expenses change)";
+}
+
+function renderInvestPanelHtml(scenario){
+  var cfg = state.invest[scenario];
+  if(!cfg) return "";
+  var enabled = !!cfg.enabled;
+  var body = "";
+  if(enabled){
+    var typeOptions = INVEST_LEG_TYPES.map(function(t){
+      return '<option value="' + t.key + '"' + (t.key === cfg.assetType ? " selected" : "") + '>' + escapeAttr(t.label) + '</option>';
+    }).join("");
+    body =
+      '<div class="calc-body">' +
+        '<div class="calc-grid">' +
+          '<div class="calc-field"><label>Invest in</label><select class="invest-assettype">' + typeOptions + '</select></div>' +
+          '<div class="calc-field"><label>Starting amount</label><input type="number" step="100" min="0" class="invest-initial" value="' + cfg.initialAmount + '"></div>' +
+          '<div class="calc-field"><label>Growth % p.a.</label><input type="number" step="0.1" class="invest-growth" value="' + cfg.growthRatePct + '"></div>' +
+          '<div class="calc-field"><label>Monthly contribution</label><select class="invest-contribmode"><option value="auto"' + (cfg.contributionMode !== "manual" ? " selected" : "") + '>Auto — freed-up cash flow</option><option value="manual"' + (cfg.contributionMode === "manual" ? " selected" : "") + '>Manual amount</option></select></div>' +
+          (cfg.contributionMode === "manual" ? '<div class="calc-field"><label>Manual amount / mo</label><input type="number" step="10" min="0" class="invest-manual-amount" value="' + cfg.monthlyContribution + '"></div>' : "") +
+        '</div>' +
+        '<p class="calc-note" data-invest-resolved>Monthly contribution used in the projection: <b>' + investResolvedMonthlyLabel(scenario, cfg) + '</b></p>' +
+        '<p class="calc-note">A simple alternative to buying: your starting amount plus the monthly contribution above, compounding at the growth rate you set — no loan, stamp duty, or property math. "Auto" keeps this honestly comparable to a purchase scenario by using whatever this scenario\'s own cash flow actually frees up; switch to Manual to test a fixed contribution instead.</p>' +
+      '</div>';
+  }
+  return (
+    '<div class="calc-panel" data-invest-scenario="' + escapeAttr(scenario) + '">' +
+      '<label class="calc-enable"><span class="switch"><input type="checkbox" class="invest-enabled"' + (enabled ? " checked" : "") + '><span class="switch-track"><span class="switch-thumb"></span></span></span> Investing instead of buying — show the calculator</label>' +
+      body +
+    '</div>'
+  );
+}
+
+export function patchInvestOutputs(panel, scenario){
+  var cfg = state.invest[scenario];
+  if(!cfg) return;
+  var noteB = panel.querySelector("[data-invest-resolved] b");
+  if(noteB) noteB.textContent = investResolvedMonthlyLabel(scenario, cfg);
 }
 
 export function renderHomeBodyTotalsOnly(){

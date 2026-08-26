@@ -19,7 +19,12 @@ export function totalNetWorthValue(){
 
 export function computeNetWorthSeries(scenario, horizonYears){
   var cfg = state.purchase[scenario];
-  var purchaseEnabled = !!(cfg && cfg.enabled);
+  var investCfg = state.invest[scenario];
+  var investEnabled = !!(investCfg && investCfg.enabled);
+  // Invest wins if a scenario's stored state somehow has both legs enabled (shouldn't happen —
+  // the UI keeps them mutually exclusive, and migrateState() resolves it the same way on load —
+  // but this keeps the math itself correct regardless of how state got here).
+  var purchaseEnabled = !!(cfg && cfg.enabled) && !investEnabled;
   var proj = state.projection || {};
   var propRate = (Number(proj.propertyAppreciationRate) || 0) / 100;
   // A scenario can override the global growth rate (e.g. to reflect its own state's
@@ -50,7 +55,13 @@ export function computeNetWorthSeries(scenario, horizonYears){
     var stampDutyForTotal0 = stampDuty0 === null ? (Number(cfg.manualStampDuty) || 0) : stampDuty0;
     upfrontCash = depositAmt + stampDutyForTotal0 + lmi0 + otherTotal0;
   }
-  var portfolio = nonPropertyAssets - upfrontCash;
+  // The invest leg's initial lump sum is money reallocated out of today's non-property assets
+  // (the same way upfrontCash above leaves the liquid portfolio to become a deposit) — subtract
+  // it from portfolio's starting point so it isn't compounded in both buckets at once.
+  var investGrowthMonthly = investEnabled ? Math.pow(1 + (Number(investCfg.growthRatePct) || 0) / 100, 1 / 12) - 1 : 0;
+  var investInitial = investEnabled ? Math.max(0, Number(investCfg.initialAmount) || 0) : 0;
+  var investBalance = investInitial;
+  var portfolio = nonPropertyAssets - upfrontCash - investInitial;
 
   var rateShockPts = Number(proj.rateShockPct) || 0;
   var incomeMonthly = scenarioTotals(scenario).incomeMonthly;
@@ -65,7 +76,17 @@ export function computeNetWorthSeries(scenario, horizonYears){
     if(year > 0){
       var inflatableThisYear = inflatableBase * Math.pow(1 + inflationRate, year);
       var savingsThisYear = incomeMonthly - fixedMonthly - inflatableThisYear;
-      for(var m = 0; m < 12; m++){ portfolio = portfolio * (1 + monthlyInvestRate) + savingsThisYear; }
+      // "auto" mode redirects the scenario's own real monthly surplus into the invest leg's
+      // growth rate instead of the generic portfolio rate — not an extra contribution on top of
+      // it, which would double-count the same money. "manual" pins a fixed figure instead, and
+      // whatever's left of the actual surplus still compounds in the generic portfolio as usual.
+      var investContribThisYear = investEnabled
+        ? (investCfg.contributionMode === "manual" ? (Number(investCfg.monthlyContribution) || 0) : savingsThisYear)
+        : 0;
+      for(var m = 0; m < 12; m++){
+        portfolio = portfolio * (1 + monthlyInvestRate) + (savingsThisYear - investContribThisYear);
+        if(investEnabled) investBalance = investBalance * (1 + investGrowthMonthly) + investContribThisYear;
+      }
     }
     var homeValue = price * Math.pow(1 + homePropRate, year);
     var loanBal = purchaseEnabled ? loanBalanceAfterMonths(loanAmount0, rate, term, year * 12, cfg.repaymentType) : 0;
@@ -78,7 +99,7 @@ export function computeNetWorthSeries(scenario, horizonYears){
       }, 0);
       return sum + (val - loanNet);
     }, 0);
-    points.push({ x: year, y: homeEquity + portfolio + propertiesEquitySum });
+    points.push({ x: year, y: homeEquity + portfolio + investBalance + propertiesEquitySum });
   }
   return points;
 }

@@ -1,5 +1,5 @@
-import { state, setState, storageAvailable, persist, setStatus, defaultState, defaultPurchaseConfig, migrateState, genId } from "./state.js";
-import { INCOME_COL_DEFS, PERIODS, sacrificeModeToLabel, sacrificeLabelToMode, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE } from "./constants.js";
+import { state, setState, storageAvailable, persist, setStatus, defaultState, defaultPurchaseConfig, defaultInvestConfig, migrateState, genId } from "./state.js";
+import { INCOME_COL_DEFS, PERIODS, sacrificeModeToLabel, sacrificeLabelToMode, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, INVEST_LEG_TYPES } from "./constants.js";
 import { fmtCurrency0, fmtCurrency2 } from "./lib/format.js";
 import { showToast, showUndoToast } from "./lib/toast.js";
 import { escapeAttr, slug } from "./lib/html.js";
@@ -35,7 +35,7 @@ import { renderProjectionOutputs } from "./components/projections.js";
 import {
   selectScenario, addScenario, renameScenario, deleteScenario, renderHomeBody, renderHomeListModern,
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
-  patchCalcOutputs, afterCalcChange
+  patchCalcOutputs, afterCalcChange, patchInvestOutputs
 } from "./components/scenarios.js";
 import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, PAGE_KEY } from "./components/nav.js";
 
@@ -412,7 +412,12 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     var cfg = state.purchase[scenario];
     if(!cfg) return;
     var t = e.target;
-    if(t.classList.contains("calc-enabled")) cfg.enabled = t.checked;
+    if(t.classList.contains("calc-enabled")){
+      cfg.enabled = t.checked;
+      // Mutually exclusive with the invest-instead leg — see the invest-enabled handler below
+      // and computeNetWorthSeries()'s own precedence for why both enabled would double-count.
+      if(cfg.enabled && state.invest[scenario]) state.invest[scenario].enabled = false;
+    }
     else if(t.classList.contains("calc-state")){
       cfg.state = t.value;
       // Transfer/Mortgage Registration are flat statutory land-registry fees, not something a
@@ -472,6 +477,62 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     persist();
   }
 
+  // ---------------- Invest-instead-of-buying calculator: wiring ----------------
+  // Mirrors onCalcInput/onCalcChange's split: per-keystroke number fields patch in place
+  // (afterCalcChange + patchInvestOutputs, no full re-render — preserves focus mid-keystroke),
+  // checkbox/select fields go through a full renderHomeBody() since they can change which
+  // fields are even shown (e.g. contribution mode revealing the manual-amount input).
+
+  function onInvestInput(e){
+    var panel = e.target.closest("[data-invest-scenario]");
+    if(!panel) return;
+    var scenario = panel.getAttribute("data-invest-scenario");
+    var cfg = state.invest[scenario];
+    if(!cfg) return;
+    var t = e.target;
+    var matched = true;
+    if(t.classList.contains("invest-initial")) cfg.initialAmount = Math.max(0, parseFloat(t.value) || 0);
+    else if(t.classList.contains("invest-growth")) cfg.growthRatePct = parseFloat(t.value) || 0;
+    else if(t.classList.contains("invest-manual-amount")) cfg.monthlyContribution = Math.max(0, parseFloat(t.value) || 0);
+    else { matched = false; }
+    if(!matched) return;
+
+    patchInvestOutputs(panel, scenario);
+    afterCalcChange(scenario);
+  }
+
+  function onInvestChange(e){
+    var panel = e.target.closest("[data-invest-scenario]");
+    if(!panel) return;
+    var scenario = panel.getAttribute("data-invest-scenario");
+    var cfg = state.invest[scenario];
+    if(!cfg) return;
+    var t = e.target;
+    if(t.classList.contains("invest-enabled")){
+      cfg.enabled = t.checked;
+      // Mutually exclusive with the purchase leg — see computeNetWorthSeries()'s own precedence
+      // for why having both enabled would double-count.
+      if(cfg.enabled && state.purchase[scenario]) state.purchase[scenario].enabled = false;
+    }
+    else if(t.classList.contains("invest-assettype")){
+      var oldType = cfg.assetType;
+      var oldDefault = defaultInvestConfig(oldType).growthRatePct;
+      cfg.assetType = t.value;
+      // Only follow the new type's suggested rate if the field still held the old type's
+      // default — a rate the user deliberately typed in is left alone, same reasoning as the
+      // Transfer/Mortgage Registration fee re-sync on the purchase panel's state field.
+      if((Number(cfg.growthRatePct) || 0) === oldDefault) cfg.growthRatePct = defaultInvestConfig(t.value).growthRatePct;
+    }
+    else if(t.classList.contains("invest-contribmode")) cfg.contributionMode = t.value;
+    else return;
+
+    recalcComputedItems();
+    renderHomeBody();
+    renderCards();
+    renderDetail();
+    renderAssets();
+    persist();
+  }
 
   // ---------------- Long-term projection ----------------
   document.getElementById("projHorizon").addEventListener("input", function(e){
@@ -636,6 +697,8 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
   document.getElementById("homeBody").addEventListener("input", onCalcInput);
   document.getElementById("homeBody").addEventListener("change", onCalcChange);
   document.getElementById("homeBody").addEventListener("click", onCalcClick);
+  document.getElementById("homeBody").addEventListener("input", onInvestInput);
+  document.getElementById("homeBody").addEventListener("change", onInvestChange);
 
   document.addEventListener("input", function(e){
     if(e.target.closest("table.assets-table, .m-asset-rows")){

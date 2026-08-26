@@ -1,4 +1,4 @@
-import { STORAGE_KEY, HOME_CATEGORIES, INCOME_COL_DEFS, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE } from "./constants.js";
+import { STORAGE_KEY, HOME_CATEGORIES, INCOME_COL_DEFS, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, INVEST_LEG_TYPES } from "./constants.js";
 import { showToast } from "./lib/toast.js";
 
 export function defaultPurchaseConfig(price, depositPct, rate, termYears, stateCode, enabled){
@@ -25,6 +25,24 @@ export function defaultPurchaseConfig(price, depositPct, rate, termYears, stateC
   };
 }
 
+// A scenario's alternative to defaultPurchaseConfig(): invest instead of buying. Mutually
+// exclusive with the purchase leg in the UI (enabling one disables the other) — see
+// computeNetWorthSeries() for why that matters for the math, not just the display.
+export function defaultInvestConfig(assetType){
+  var meta = INVEST_LEG_TYPES.find(function(t){ return t.key === assetType; }) || INVEST_LEG_TYPES[0];
+  return {
+    enabled: false,
+    assetType: meta.key,
+    initialAmount: 0,
+    // "auto" redirects the scenario's own real monthly cash-flow surplus into this leg's growth
+    // rate instead of the generic portfolio rate — see computeNetWorthSeries(). "manual" lets the
+    // user pin an exact monthly figure instead, independent of actual cash flow.
+    contributionMode: "auto",
+    monthlyContribution: 0,
+    growthRatePct: meta.defaultGrowthRate
+  };
+}
+
 export function deepClone(o){ return JSON.parse(JSON.stringify(o)); }
 export function genId(prefix){ return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
@@ -47,6 +65,7 @@ export function defaultState(){
     shared: [],
     home: { "Current situation": defaultHomeBlock() },
     purchase: { "Current situation": defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", false) },
+    invest: { "Current situation": defaultInvestConfig() },
     assets: [],
     properties: [],
     projection: { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0 },
@@ -111,6 +130,21 @@ export function migrateState(s){
     if(pcfg.ioRate == null) pcfg.ioRate = pcfg.rate;
     if(pcfg.propertyGrowthRate === undefined) pcfg.propertyGrowthRate = null;
     if(pcfg.lmiCapitalized == null) pcfg.lmiCapitalized = false;
+  });
+  if(!s.invest) s.invest = {};
+  s.scenarios.forEach(function(name){
+    if(!s.invest[name]) s.invest[name] = defaultInvestConfig();
+    var icfg = s.invest[name];
+    if(icfg.assetType == null || !INVEST_LEG_TYPES.some(function(t){ return t.key === icfg.assetType; })) icfg.assetType = INVEST_LEG_TYPES[0].key;
+    if(icfg.initialAmount == null) icfg.initialAmount = 0;
+    if(icfg.contributionMode !== "manual") icfg.contributionMode = "auto";
+    if(icfg.monthlyContribution == null) icfg.monthlyContribution = 0;
+    if(icfg.growthRatePct == null) icfg.growthRatePct = defaultInvestConfig(icfg.assetType).growthRatePct;
+    // Never carry both legs enabled at once out of a partial/manual edit to a saved backup —
+    // see computeNetWorthSeries() for why that would double-count. Invest wins if both are
+    // somehow true, matching computeNetWorthSeries()'s own precedence; the UI itself keeps them
+    // mutually exclusive so this should only ever bite a hand-edited or very old backup.
+    if(icfg.enabled && s.purchase[name]) s.purchase[name].enabled = false;
   });
   if(!Array.isArray(s.assets)) s.assets = [];
   s.assets.forEach(function(a){

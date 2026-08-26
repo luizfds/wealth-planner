@@ -52,6 +52,7 @@ export function renameScenario(oldName){
   state.purchase[name] = state.purchase[oldName];
   delete state.purchase[oldName];
   if(state.activeScenario === oldName) state.activeScenario = name;
+  if(state.baselineScenario === oldName) state.baselineScenario = name;
   persist();
   renderCards();
   renderDetail();
@@ -61,6 +62,7 @@ export function renameScenario(oldName){
 
 export function deleteScenario(name){
   if(state.scenarios.length <= 1){ showToast("You need at least one scenario"); return; }
+  if(name === state.baselineScenario){ showToast('"' + name + '" is your Current situation baseline and can\'t be deleted — rename it instead if you want to reuse the slot.'); return; }
   if(!confirm('Delete "' + name + '"? This removes its home-cost inputs.')) return;
   state.scenarios = state.scenarios.filter(function(s){ return s !== name; });
   delete state.home[name];
@@ -134,6 +136,7 @@ export function renderHomeBody(){
   });
   body.innerHTML = state.scenarios.map(function(scenario, i){
     var isActive = state.activeScenario === scenario;
+    var isBaseline = state.baselineScenario === scenario;
     var isCollapsed = !!homeBlockCollapsed[scenario];
     var total = sumField(state.home[scenario], "monthly");
     return '<div class="home-block' + (isActive ? " is-active" : "") + (isCollapsed ? " is-collapsed" : "") + '">' +
@@ -141,6 +144,7 @@ export function renderHomeBody(){
         '<div class="home-block-head-left">' +
           '<span class="icon-btn home-collapse-toggle" aria-hidden="true"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg></span>' +
           '<span class="home-dot"></span><h4>' + escapeAttr(scenario) + '</h4>' +
+          (isBaseline ? '<span class="home-baseline-badge" title="Your current, real-life situation — kept as the fixed baseline every other scenario is compared against">Current situation</span>' : "") +
           (isActive
             ? '<span class="home-active-badge" title="This is the scenario shown on the Dashboard and compared against the others">Active on Dashboard</span>'
             : '<button type="button" class="home-setactive-btn" data-edit-scenario2="' + escapeAttr(scenario) + '" title="Make this the scenario shown on the Dashboard">Set active</button>') +
@@ -149,7 +153,7 @@ export function renderHomeBody(){
           '<span class="home-block-total-label">Home cost</span>' +
           '<span class="home-block-total">' + fmtCurrency0.format(total) + ' / mo</span>' +
           '<button type="button" class="icon-btn" data-rename="' + escapeAttr(scenario) + '" aria-label="Rename ' + escapeAttr(scenario) + '" title="Rename">✎</button>' +
-          (canDelete ? '<button type="button" class="icon-btn icon-del" data-delete="' + escapeAttr(scenario) + '" aria-label="Delete ' + escapeAttr(scenario) + '" title="Delete">✕</button>' : "") +
+          (canDelete && !isBaseline ? '<button type="button" class="icon-btn icon-del" data-delete="' + escapeAttr(scenario) + '" aria-label="Delete ' + escapeAttr(scenario) + '" title="Delete">✕</button>' : "") +
         '</div>' +
       '</div>' +
       '<div class="home-block-body">' +

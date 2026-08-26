@@ -111,6 +111,7 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     return {
       activeScenario: "Renting",
       scenarios: scenarios,
+      baselineScenario: "Renting",
       showAllPeriods: false,
       income: income,
       ip: [],

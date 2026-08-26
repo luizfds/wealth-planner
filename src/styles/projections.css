@@ -36,6 +36,11 @@
   .proj-legend-item{ display:flex; align-items:center; gap:6px; color: var(--ink-soft); }
   .proj-legend-item b{ color: var(--ink); font-weight:600; }
   .proj-swatch{ width:10px; height:10px; border-radius:3px; background: var(--series-color); flex:none; }
+  .proj-legend-item-toggle{ cursor:pointer; border-radius:5px; padding:2px 6px; margin:-2px -6px; user-select:none; }
+  .proj-legend-item-toggle:hover{ background: var(--paper-sunken); }
+  .proj-legend-item-toggle:focus-visible{ outline:none; box-shadow: var(--focus-ring); }
+  .proj-legend-item-toggle.is-hidden{ opacity:.45; }
+  .proj-legend-item-toggle.is-hidden .proj-swatch{ background: var(--ink-soft); }
 
   .milestone-table{ width:100%; border-collapse:collapse; margin-top:16px; color: var(--ink); }
   .milestone-table th, .milestone-table td{ padding:7px 10px; font-size:12.5px; border-bottom:1px solid var(--border); }

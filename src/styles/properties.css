@@ -39,6 +39,10 @@
     font-size:10px; text-transform:uppercase; letter-spacing:.04em; font-weight:700; color: var(--brass-strong);
     background: var(--brass-wash); border-radius:100px; padding:2px 8px; flex:none;
   }
+  .home-baseline-badge{
+    font-size:10px; text-transform:uppercase; letter-spacing:.04em; font-weight:700; color: var(--good);
+    background: var(--good-wash); border-radius:100px; padding:2px 8px; flex:none;
+  }
   .home-setactive-btn{
     all:unset; font-size:11px; color: var(--ink-soft); cursor:pointer; padding:2px 8px; border-radius:100px; border:1px solid var(--border);
   }

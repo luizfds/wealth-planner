@@ -60,7 +60,7 @@
   .ledger-note{ font-size:12px; color: var(--ink-soft); margin:0 20px 12px; }
   .ledger-body{ padding: 0 20px 18px; }
 
-  .table-scroll{ overflow-x:auto; border:1px solid var(--border); border-radius:10px; }
+  .table-scroll{ overflow-x:auto; overscroll-behavior-x: contain; border:1px solid var(--border); border-radius:10px; }
   table.ledger-table{ width:100%; border-collapse: collapse; min-width: 640px; }
   table.ledger-table th{
     text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color: var(--ink-soft);

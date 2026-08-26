@@ -376,6 +376,24 @@ be reverted without touching the others.
   matter in practice — same generator approach as the app icons (Playwright screenshot of an
   inline SVG: solid `background_color`-matching fill + centered brand mark), see
   `icons/splash/` generation notes in the shipping commit.
+- **Swipe gestures** (`src/lib/swipe.js`'s `onHorizontalSwipe`, wired from `app.js`): the Assets
+  subnav (Cash/Shares/Super/Vehicle/Other, no wraparound past either end) and Tax & Super's
+  breakdown-flip cards (either swipe direction just toggles — there are only two faces, so there's
+  no "which direction reveals what" to get wrong). Both gated to `max-width: 880px` — desktop
+  already has the subnav buttons/flip button within easy reach, and a touch-enabled desktop
+  swiping to scroll shouldn't also flip a card. `onHorizontalSwipe` ignores any touch that
+  *starts* inside a `.table-scroll` element entirely (checked once, at `touchstart`, via
+  `e.target.closest`) — without that, swiping a horizontally-scrollable ledger/holdings table to
+  see its hidden columns would also fire the page-level gesture underneath it. Requires a
+  reasonable speed (< 600ms) and a horizontal:vertical ratio favoring horizontal (`abs(dx) >
+  abs(dy) * 1.5`) before firing, so it doesn't compete with the page's normal vertical scroll.
+  **Testing gotcha**: dispatching a synthetic `TouchEvent` directly on the element an
+  `addEventListener` delegation listener is attached to (e.g. `#taxSuperBody` itself) sets
+  `e.target` to that same container — `closest()` only searches an element and its *ancestors*,
+  never descendants, so a delegated handler expecting to find a descendant like
+  `[data-tax-person]` will never match. Dispatch on an actual descendant of the card instead (a
+  real touch's `target` is whatever's under the finger, then bubbles up) — this cost a debugging
+  round-trip before being recognized as a test bug, not an app bug.
 
 ## Business-logic assumptions (all approximate — the app says so in-UI, keep it that way)
 

@@ -1,11 +1,14 @@
-import { state } from "../state.js";
+import { state, persist } from "../state.js";
 import { ASSET_CATEGORIES, LIQUID_CATEGORIES, SHARE_MARKETS } from "../constants.js";
 import { propertiesOffsetTotal, propertiesIlliquidEquityToday, recalcPurchase } from "../calc/property.js";
 import { totalAssetsValue, totalNetWorthValue } from "../calc/engine.js";
 import { fmtCurrency0, fmtPercent1 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
+import { syncUiModeToggle } from "../lib/uimode.js";
 import { optionsHtml } from "../lib/ledger-table.js";
 import { renderLineChart } from "../lib/charts.js";
+import { showToast } from "../lib/toast.js";
+import { renderProjectionOutputs } from "./projections.js";
 
 export function assetTrendHtml(item){
   var hist = item.history;
@@ -459,4 +462,59 @@ export function renderPortfolioHistoryChart(){
     ariaLabel: "Net worth over time",
     alwaysLegend: false
   });
+}
+
+export function renderAssets(){
+  syncUiModeToggle();
+  renderAssetCategoryPage("Cash");
+  renderSharesSubpage();
+  renderAssetCategoryPage("Super");
+  renderVehiclesSubpage();
+  renderAssetCategoryPage("Other");
+  renderAssetsSummary();
+  renderNetWorthPanel();
+  renderPortfolioHistoryChart();
+  renderProjectionOutputs();
+}
+
+export function logAssetSnapshot(idx){
+  var asset = state.assets[idx];
+  if(!asset) return;
+  var num = Number(asset.amount) || 0;
+  var dateStr = new Date().toISOString().slice(0, 10);
+  if(!Array.isArray(asset.history)) asset.history = [];
+  var existing = asset.history.find(function(h){ return h.date === dateStr; });
+  if(existing) existing.value = num;
+  else asset.history.push({ date: dateStr, value: num });
+  asset.history.sort(function(a, b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+  renderAssets();
+  renderProjectionOutputs();
+  persist();
+  showToast("Logged " + fmtCurrency0.format(num) + " for " + asset.what + " (" + dateStr + ")");
+}
+
+export function applySharesPaste(){
+  var area = document.getElementById("sharesPasteArea");
+  if(!area) return;
+  var lines = area.value.split(/\r?\n/);
+  var updatedCount = 0, notFound = [];
+  var todayStr = new Date().toISOString().slice(0, 10);
+  lines.forEach(function(line){
+    var parsed = parseSharesPasteLine(line);
+    if(!parsed) return;
+    var matches = state.assets.filter(function(a){ return a.category === "Shares" && (a.symbol || "").toUpperCase() === parsed.symbol; });
+    if(!matches.length){ notFound.push(parsed.symbol); return; }
+    matches.forEach(function(item){
+      item.price = parsed.price;
+      item.priceUpdated = todayStr;
+      item.amount = Math.round((Number(item.quantity) || 0) * parsed.price * 100) / 100;
+    });
+    updatedCount += matches.length;
+  });
+  renderAssets();
+  renderNetWorthPanel();
+  persist();
+  var msg = updatedCount + " price" + (updatedCount === 1 ? "" : "s") + " updated" +
+    (notFound.length ? " — no holding found for " + notFound.join(", ") : "");
+  showToast(msg);
 }

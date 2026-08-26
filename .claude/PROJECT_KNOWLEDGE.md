@@ -39,12 +39,22 @@ The app is mid-migration from one `app.js` closure (pre-v1.33.1) to native ES mo
 `src/`, done in small verified steps rather than one rewrite — see the versioning rule below,
 each step is its own tagged commit. Current state:
 
+**All seven page components now exist** (`dashboard`, `income`, `expenses`, `assets`, `properties`,
+`projections`, `scenarios`). `app.js` is down to ~1,500 lines from the original 4,618 — routing,
+DOM event wiring/delegation, the purchase-calculator and ledger-table generic handlers, CSV
+export, encrypted backup, and a handful of genuinely cross-cutting helpers (`findProperty`,
+`getArrayForSection`, `rerenderTableFor`, `updatePersonSuggestions`, `renderTotals`). What's left
+in `.claude/PROJECT_KNOWLEDGE.md`'s "Not done yet" below is `nav.js`, `lib/backup.js`, and the CSS
+split.
+
 **Done:**
 - `src/constants.js` — config-only constants (tax brackets, stamp duty tables, LMI bands,
-  `STORAGE_KEY`, `PERIODS`, `FREQS`/`CLASSES`/`INCOME_TYPES`/`SUPER_MODES`/`SACRIFICE_MODES` +
-  their label-mapping helpers, etc.). Still-local-to-`app.js`: `ASSET_CATEGORIES`,
-  `LIQUID_CATEGORIES`, `SHARE_MARKETS`, `PURCHASE_STATE_CODES`, page lists, chart segment
-  configs — they migrate alongside whichever component first needs them out.
+  `STORAGE_KEY`, `PERIODS`, `FREQS`/`CLASSES`/`INCOME_TYPES`/`SUPER_MODES`/`SACRIFICE_MODES`/
+  `ASSET_CATEGORIES`/`LIQUID_CATEGORIES`/`SHARE_MARKETS`/`PURCHASE_STATE_CODES`/
+  `STATE_GROWTH_RATES` + label-mapping helpers). Still-local-to-`app.js`: `PAGES`/`PAGE_KEY`/
+  `BASE_PATH`/`ASSETS_SUB_TO_SLUG`/`SLUG_TO_ASSETS_SUB`/`MOBILE_MORE_PAGES` (routing config,
+  migrates with `nav.js`) and `EXPENSE_COL_DEFS` (only ever read by `app.js`'s own column-picker
+  wiring, never needed by a component — may just stay put).
 - `src/state.js` — the `state` singleton (`export let`, a live binding — see the gotcha in the
   root `CLAUDE.md`), `persist`/`setStatus`, `defaultState`/`migrateState`/`defaultHomeBlock`/
   `defaultPurchaseConfig`, `setState(newState)`.
@@ -85,15 +95,15 @@ each step is its own tagged commit. Current state:
   crosshair/tooltip, used by Assets' "Net worth over time" and Projections' net-worth-series chart.
   Extracted as a prerequisite for the Assets extraction below rather than waiting for its own
   planned step, since Assets needed it immediately. No `state` import.
-- `src/components/assets.js` — the Cash/Shares/Super/Vehicle/Other subpages, the allocation/net-worth-if-you-buy/net-worth-over-time summary panels. Exports the per-category and per-summary
-  render functions individually (`renderAssetCategoryPage`, `renderSharesSubpage`,
-  `renderVehiclesSubpage`, `renderAssetsSummary`, `patchAssetCategoryTotals`,
-  `renderNetWorthPanel`, `renderPortfolioHistoryChart`, `patchHoldingRow`, `patchVehicleRow`,
-  `parseSharesPasteLine`, `assetTrendHtml`, `modernAssetRowOpen`) rather than one big composer —
-  `renderAssets()` itself, plus `logAssetSnapshot`/`applySharesPaste`, stay in `app.js` and call
-  those exports, because all three also call `renderProjectionOutputs()` (Projections tab, not
-  extracted). Same "orchestrator stays behind, pieces move" pattern as Dashboard/Income's CRUD
-  functions — see below.
+- `src/components/assets.js` — the Cash/Shares/Super/Vehicle/Other subpages, the allocation/
+  net-worth-if-you-buy/net-worth-over-time summary panels, and (once Projections existed to
+  import) the composer `renderAssets()` plus `logAssetSnapshot`/`applySharesPaste` themselves.
+  Exports: `renderAssetCategoryPage`, `renderSharesSubpage`, `renderVehiclesSubpage`,
+  `renderAssetsSummary`, `patchAssetCategoryTotals`, `renderNetWorthPanel`,
+  `renderPortfolioHistoryChart`, `patchHoldingRow`, `patchVehicleRow`, `assetTrendHtml`,
+  `modernAssetRowOpen`, `renderAssets`, `logAssetSnapshot`, `applySharesPaste`.
+  `showAssetsSubpage` stays in `app.js` regardless (see routing note below) — it never touches any
+  assets.js export.
 - **`assetTrendHtml` gotcha**: looked Assets-only (asset/share/vehicle rows all show a value-trend
   arrow) but Properties' `propertyCardHtml` also calls it for a property's own value history —
   missed on the first pass, caught by the browser smoke test (`assetTrendHtml is not defined` on
@@ -101,20 +111,38 @@ each step is its own tagged commit. Current state:
   counting a function's call sites isn't enough — check *where* each call site actually is before
   assuming they're all inside the block you're moving.
 - `src/components/properties.js` — the Properties page's cards: value/loans/income/expenses per
-  property, gearing/yield badges, net-equity/usable-equity tiles. Exports `renderProperties`,
-  `patchPropertyCardComputed`, `renderPropListModern`, and the mutable `modernPropRowOpen` map.
-  `logPropertySnapshot` stays in `app.js` (calls `renderProjectionOutputs()`, not extracted) —
-  same pattern as `logAssetSnapshot`. `applyPeriodVisibility` (a `state`-driven column/period
-  visibility toggle `renderProperties` needs, alongside several not-yet-extracted pages) moved to
-  `lib/uimode.js` next to `syncUiModeToggle` — same shape of dependency as that one, same fix.
+  property, gearing/yield badges, net-equity/usable-equity tiles, plus `logPropertySnapshot`
+  (moved in once its blocker — Projections — existed; inlines the property lookup rather than
+  importing `app.js`'s generic `findProperty`, to avoid a reverse-direction import for one
+  one-line helper). Exports: `renderProperties`, `patchPropertyCardComputed`,
+  `renderPropListModern`, `logPropertySnapshot`, and the mutable `modernPropRowOpen` map.
+  `applyPeriodVisibility` (a `state`-driven column/period visibility toggle `renderProperties`
+  needs, alongside several other pages) moved to `lib/uimode.js` next to `syncUiModeToggle` — same
+  shape of dependency as that one, same fix.
 - `src/components/projections.js` — just `renderProjectionOutputs` (the net-worth-by-scenario
-  chart + headline sentence + milestone table). The smallest extraction so far, and the one that
-  actually unblocks the others: it has zero dependency on any not-yet-extracted page, which is
-  *why* every orchestrator stuck in `app.js` so far (`renderAssets`, `logAssetSnapshot`,
-  `applySharesPaste`, `logPropertySnapshot`, scenario CRUD, `renameTaxPerson`/`removeTaxPerson`)
-  was stuck on this one function specifically. The `#proj*` input/slider event wiring and the
-  `pairSlider` helper stay in `app.js` — consistent with every other component so far, DOM event
-  registration itself never moves, only the render/patch functions it calls.
+  chart + headline sentence + milestone table). The smallest extraction in the whole series, and
+  the one that unblocked the rest: it has zero dependency on any other page, which is *why* every
+  orchestrator stuck in `app.js` up to that point (`renderAssets`, `logAssetSnapshot`,
+  `applySharesPaste`, `logPropertySnapshot`, scenario CRUD) was stuck on this one function
+  specifically. The `#proj*` input/slider event wiring and the `pairSlider` helper stay in
+  `app.js` — DOM event *registration* never moves, only the render/patch functions it calls.
+- `src/components/scenarios.js` — the last page component: `renderHomeBody` and the per-scenario
+  purchase-calculator panel (stamp duty/LMI/repayment breakdown, acquisition-cost list), plus
+  scenario CRUD (`selectScenario`/`addScenario`/`renameScenario`/`deleteScenario` — movable once
+  this file existed, since they only ever needed `renderHomeBody` here and `renderAssets`, already
+  exported from `assets.js`). Exports: `selectScenario`, `addScenario`, `renameScenario`,
+  `deleteScenario`, `renderHomeBody`, `renderHomeListModern`, `renderHomeBodyTotalsOnly`,
+  `patchHomeLoanRowIfSynced`, `patchCalcOutputs`, `afterCalcChange`, and the mutable
+  `homeBlockCollapsed`/`modernHomeRowOpen` maps. `onCalcInput`/`onCalcChange`/`onCalcClick` (the
+  `#homeBody` purchase-calculator event handlers) and `onScenarioControlClick` (shared between the
+  Dashboard cards and Scenarios' home blocks) stay in `app.js`, importing these exports — same
+  "DOM registration stays, logic moves" split as every other component.
+- **`renameTaxPerson`/`removeTaxPerson` turned out to be permanently pinned to `app.js`**, not
+  just temporarily blocked like the others were: beyond `renderProjectionOutputs` (now
+  extractable), they also call `rerenderTableFor` and `updatePersonSuggestions` — genuine
+  cross-page routers/helpers that touch every page's DOM by section-string dispatch, which makes
+  them architecturally app.js-resident forever (or a candidate for `nav.js`, never for a
+  page-specific component). Don't expect these two to ever move to `income.js`.
 
 **How the boundaries were actually chosen:** by tracing the real call graph (which function calls
 which, and which touch `state` directly) before moving anything — not by section headings or
@@ -123,10 +151,9 @@ which, and which touch `state` directly) before moving anything — not by secti
   rendering (that's where they physically sat in the old file) but are pure calc needed by
   `engine.js`'s projection series and by Dashboard's stat tiles — they moved to `calc/` instead.
 - `selectScenario`/`addScenario`/`renameScenario`/`deleteScenario` look like Dashboard code (the
-  "Add scenario" card lives there) but also call `renderHomeBody` (Scenarios tab) and
-  `renderAssets` (Assets tab), neither extracted yet — they stay in `app.js`, calling
-  `dashboard.js`'s exports, until Scenarios/Assets exist as modules too. Same pattern used for
-  `renameTaxPerson`/`removeTaxPerson` above.
+  "Add scenario" card lives there) but call `renderHomeBody` — they ended up in `scenarios.js`,
+  not `dashboard.js`, once that existed. Until then they stayed in `app.js`, same as every other
+  orchestrator blocked on a not-yet-extracted page.
 - `buildTable`/`rowHtml`/`periodTh`/`periodTd`/`optionsHtml` looked like "the income table's
   renderer" but are genuinely page-agnostic (`section` is just a string key) — every future
   Classic-mode component needs them, so they became `lib/ledger-table.js` rather than getting
@@ -144,25 +171,24 @@ which, and which touch `state` directly) before moving anything — not by secti
   "data."
 
 **Not done yet**, in the planned order:
-1. `src/components/scenarios.js` — the last page component: `renderHomeBody` and friends (home
-   cost reconciliation, the purchase calculator panel). Once this exists, go back and actually
-   move the orchestrator functions that have been deliberately left behind in `app.js` through
-   this whole migration — `renderAssets`/`logAssetSnapshot`/`applySharesPaste` (→ `assets.js`),
-   `logPropertySnapshot` (→ `properties.js`), `renameTaxPerson`/`removeTaxPerson` (→ `income.js`),
-   scenario CRUD (`selectScenario`/`addScenario`/`renameScenario`/`deleteScenario`, →
-   `scenarios.js`) — Projections (their one remaining blocker) is done now, so nothing stops this
-   except that it hadn't been done yet as of this writing. Do it as its own small cleanup pass
-   rather than folding it into the Scenarios extraction itself, so each commit stays reviewable.
-2. `src/components/nav.js` — `showPage`/`syncUrl`/`parseRouteFromLocation`/mobile tab bar.
-   `showAssetsSubpage` (Assets' subpage switcher) turned out to belong here, not in
-   `assets.js` — it only toggles `.hidden`/calls `syncUrl`, never touches any assets.js export, so
-   it's routing-flavored-by-Assets rather than Assets-flavored-by-routing. Neither Properties nor
-   Projections had an equivalent — still worth checking for on Scenarios before assuming a page's
-   every function belongs together.
-3. `src/lib/backup.js` (export/import/CSV/Web Crypto encrypted backup) — last, since other
-   components depend on it. (`src/lib/charts.js` already done — pulled forward since Assets needed
-   it immediately, see above.)
-4. Matching `styles.css` split into per-component files + `@import`, alongside each JS move.
+1. `src/components/nav.js` — `showPage`/`syncUrl`/`parseRouteFromLocation`/`buildRoutePath`/mobile
+   tab bar/nav-menu dropdown, plus the `PAGES`/`PAGE_KEY`/`BASE_PATH`/`ASSETS_SUB_TO_SLUG`/
+   `SLUG_TO_ASSETS_SUB`/`MOBILE_MORE_PAGES` config that goes with it. `showAssetsSubpage` moves
+   here too (it's routing-flavored-by-Assets, not Assets-flavored-by-routing — it only toggles
+   `.hidden`/calls `syncUrl`, never touches an assets.js export). Watch for `renderAll()` and
+   `refreshAllUiModePages()`: both call nearly every component's render function and are genuine
+   top-level orchestrators — they may be right to stay in `app.js` permanently (mirroring
+   `renameTaxPerson`/`removeTaxPerson`'s fate) rather than being forced into `nav.js`.
+2. `src/lib/backup.js` (export/import/CSV/Web Crypto encrypted backup) — last, since other
+   components depend on it. (`src/lib/charts.js` was done much earlier than planned — pulled
+   forward since Assets needed it immediately.)
+3. Matching `styles.css` split into per-component files + `@import`, alongside each JS move.
+4. `app.js`'s remaining generic ledger/calc event handlers (`onLedgerInput`/`onLedgerClick`/
+   `refreshAfterLedgerChange`/`getArrayForSection`/`rerenderTableFor`/`onCalcInput`/`onCalcChange`/
+   `onCalcClick`/`findProperty`/`updatePersonSuggestions`/`renderTotals`/`renderGlobalMetrics`) are
+   probably permanent `app.js` residents, not a "not done yet" — they're cross-cutting by nature
+   (dispatch across every page by a section-string key), unlike the page-specific code that's now
+   fully extracted. Confirm this assumption holds before ever trying to move one of them.
 
 ## Business-logic assumptions (all approximate — the app says so in-UI, keep it that way)
 

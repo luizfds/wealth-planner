@@ -1,12 +1,14 @@
-import { state } from "../state.js";
+import { state, persist } from "../state.js";
 import { propertyEquityToday, propertyGearingAnnual, loanRepaymentMonthly } from "../calc/property.js";
 import { sumField } from "../calc/ledger.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { syncUiModeToggle, applyPeriodVisibility } from "../lib/uimode.js";
 import { optionsHtml, buildTable, modernPlainRowHtml } from "../lib/ledger-table.js";
+import { showToast } from "../lib/toast.js";
 import { assetTrendHtml } from "./assets.js";
 import { renderPropertyExpensesSummary } from "./expenses.js";
+import { renderProjectionOutputs } from "./projections.js";
 
 function loanRowHtml(loan, li){
   var repayment = loanRepaymentMonthly(loan);
@@ -250,4 +252,20 @@ export function patchPropertyCardComputed(property){
     yieldBadge.textContent = fmtPercent1.format(grossYield) + " gross yield";
   }
   renderPropertyExpensesSummary();
+}
+
+export function logPropertySnapshot(id){
+  var property = state.properties.find(function(p){ return p.id === id; });
+  if(!property) return;
+  var num = Number(property.value) || 0;
+  var dateStr = new Date().toISOString().slice(0, 10);
+  if(!Array.isArray(property.history)) property.history = [];
+  var existing = property.history.find(function(h){ return h.date === dateStr; });
+  if(existing) existing.value = num;
+  else property.history.push({ date: dateStr, value: num });
+  property.history.sort(function(a, b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+  renderProperties();
+  renderProjectionOutputs();
+  persist();
+  showToast("Logged " + fmtCurrency0.format(num) + " for " + property.what + " (" + dateStr + ")");
 }

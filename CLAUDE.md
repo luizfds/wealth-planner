@@ -55,6 +55,18 @@ list with explanations, established UI patterns, and what's still pending — se
 - `src/lib/backup.js` — JSON backup export/import (with optional Web Crypto passphrase
   encryption) and per-section CSV export. `applyImportedBackupJson` stays in `app.js` since it
   calls the permanent-resident `renderAll()`.
+- `manifest.webmanifest`, `sw.js`, `icons/` — installable PWA support. The manifest's
+  `start_url`/`scope` are `"."` (relative to the manifest's own URL) rather than an absolute
+  path, so the same file works unmodified from both local dev (served at root) and GitHub Pages
+  (served under `/wealth-planner/`) — same reasoning as `nav.js`'s `BASE_PATH` detection, just via
+  browser URL resolution instead of a JS runtime check. `sw.js` is network-first with
+  cache-as-you-go (no fixed precache list): every online load refreshes the cache, and whatever's
+  already cached keeps the app fully working offline, matching the fact that this app was already
+  100%-client-side/localStorage before the PWA work. Registered from `app.js` via
+  `navigator.serviceWorker.register("sw.js")` — see `.claude/PROJECT_KNOWLEDGE.md` for two gotchas
+  that cost real debugging time here: the `event.waitUntil()` requirement for any cache write that
+  outlives the fetch handler's synchronous return, and same-origin `no-cors` (opaque) responses
+  always reporting `.ok === false` even on success.
 
 **`state` is a live import, not a value** — never reassign the imported `state` binding directly
 (`state = X` throws for an ES-module import). Use `setState(newState)` from `state.js` instead;
@@ -112,6 +124,16 @@ not the bundled Chromium) is the standard way to drive/verify UI changes in this
   listeners finish running** — regardless of what a listener sets `.checked` to in the meantime.
   Don't use a "preventDefault + forward to the real control" pattern for mirrored checkboxes;
   let each one toggle itself natively and sync via plain `.checked = ...` assignment on `change`.
+- **A service worker `fetch` handler's async side effects (e.g. `cache.put()`) need
+  `event.waitUntil()`** if they happen after the response you hand back — the browser is free to
+  suspend/kill the worker the instant `event.respondWith()`'s promise resolves, mid-write, since
+  nothing told it to wait. `sw.js`'s cache-as-you-go writes were silently no-ops for a while
+  because the `caches.open().then(cache.put)` chain wasn't wrapped in `waitUntil()`.
+- **A same-origin `fetch()` made in `no-cors` mode (which browsers use for plain `<link
+  rel="stylesheet">`/`@import`/font fetches, even same-origin) always returns an opaque response
+  with `status: 0` and `.ok === false`, even on success** — you cannot tell it apart from a real
+  failure from JS. `sw.js` caches on `response.ok || response.type === "opaque"`, not `.ok` alone,
+  or every CSS/font request would silently never get cached.
 
 ## Testing conventions
 

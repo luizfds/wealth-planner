@@ -269,6 +269,72 @@ expect these to move into a component later without a real reason):
 (every `addEventListener` call in the file) and the nav-menu/mobile-tabbar wiring itself (see
 `nav.js` above).
 
+## Installability (PWA)
+
+`manifest.webmanifest` + `sw.js` + `icons/` make the app installable (Chrome's install-icon/
+`beforeinstallprompt`, iOS "Add to Home Screen") and fully offline-capable, added after the JS/CSS
+modularization was complete. Three requirements, all independently verified in a real browser
+(not just "the files exist"): a valid manifest (name/icons/`start_url`/`display`), a registered
+service worker with a `fetch` handler, served over a valid origin (HTTPS in production; localhost
+is exempt).
+
+- **Icons**: `icons/icon-192.png` and `icon-512.png` (`purpose: "any"`) are the existing favicon
+  design (blue rounded square, white "W") rendered to PNG at each size via Playwright screenshot
+  of an inline SVG — no separate source-of-truth asset to keep in sync, just re-render if the
+  brand mark ever changes. `icons/icon-maskable-512.png` is a *different* SVG: full-bleed
+  background with no rounding (Android applies its own shape mask — circle/squircle/rounded
+  square depending on OEM launcher) and the "W" scaled down to fit inside the safe zone (~80% of
+  the canvas), so it survives any mask without the letter getting clipped. `apple-touch-icon.png`
+  reuses the maskable (full-bleed, no pre-rounding) version — iOS also applies its own squircle
+  mask on top of whatever's provided.
+- **Manifest `start_url`/`scope` are `"."`**, not `"/"` or `"/wealth-planner/"` — a relative URL
+  resolves against the manifest file's own location, so the identical file works whether the app
+  is served from domain root (local dev) or a GitHub Pages project subpath, with zero runtime
+  detection needed (unlike `nav.js`'s `BASE_PATH`, which has to branch on `location.hostname`
+  because it's building paths in JS, not letting the browser resolve a relative URL for it).
+  Verified by copying the whole site into a `/wealth-planner/` subdirectory under a second local
+  server and confirming `new URL(manifest.start_url, manifestLinkHref)` and the service worker's
+  resolved `registration.scope` both land on the subpath, not root.
+- **`sw.js` is network-first with cache-as-you-go** — deliberately no fixed list of files to
+  precache (would need manual updates every time a component/`src/styles/*.css` file is added or
+  renamed, the exact kind of hidden coupling this codebase's modularization has been trying to
+  eliminate elsewhere). Every successful `fetch()` response is written into the cache as a side
+  effect before being returned to the page; offline, the same handler falls back to whatever's
+  cached. Cache name (`wealth-planner-cache-v1`) is versioned independently of the app's own
+  semver — bump the number in `sw.js` only if the *caching strategy itself* changes in a way that
+  requires wiping old cache entries, not on every release (network-first already keeps the cache
+  fresh on every online visit, so there's no staleness problem the version-bump convention needs
+  to solve here).
+- **Client-side routing needs an explicit shell fallback, or offline reload/relaunch breaks**:
+  clicking a nav tab calls `history.pushState` (see `nav.js`) without ever issuing a real network
+  request for that path — so a URL like `/properties` is never actually fetched, never cached
+  under its own key, and a plain per-URL `caches.match()` fallback (the "obvious" first attempt)
+  produces a hard `net::ERR_FAILED` the moment you reload that URL offline, or when the OS
+  relaunches an installed PWA to a remembered non-root path. This is the *offline* version of the
+  already-documented "deep-link 404 on `page.reload()`" testing gotcha — except now it's a real
+  runtime bug, not just a test-methodology footgun, because a real user's browser really can be
+  offline. Fixed by having the fetch handler special-case `event.request.mode === "navigate"`:
+  on success, also stash a copy of the response under the canonical `index.html` URL (not just the
+  actual requested URL); on failure with no exact-URL cache hit, fall back to that stashed shell
+  copy instead of failing. Caught by an actual offline-reload Playwright test
+  (`context.setOffline(true)` + `page.reload()` on a pushState'd sub-path) — not by inspecting the
+  code, which looked correct before this was found.
+- **Two service-worker-specific footguns, both silent (no thrown error, just "nothing gets
+  cached")** — see the two `CLAUDE.md` gotchas: (1) any cache write that outlives the synchronous
+  return from a `fetch` handler must be wrapped in `event.waitUntil()`, or the browser can tear
+  down the worker mid-write; (2) a same-origin request made in `no-cors` mode (which is what
+  browsers use for plain stylesheet `<link>`/`@import`/font fetches, even same-origin) always
+  comes back as an opaque response with `.ok === false`, so gating "should I cache this" on
+  `.ok` alone silently drops every CSS/font file. Both were only caught by adding a temporary
+  `console.log` inside the `fetch` handler and reading it via Playwright's
+  `context.on("serviceworker", sw => sw.on("console", ...))` — `page.on("console")` does **not**
+  surface a service worker's own console output, only requests made *by* the page.
+- **`beforeinstallprompt` did not fire in headless Playwright testing** even with a fully valid
+  manifest + activated service worker — this is a known Chrome engagement-heuristic limitation in
+  headless/automated contexts, not a signal that the setup is broken. Don't chase this signal in
+  this environment; verify installability by checking the manifest/service-worker requirements
+  directly (as above) instead.
+
 ## Business-logic assumptions (all approximate — the app says so in-UI, keep it that way)
 
 - **AU tax brackets** (`constants.js: AU_TAX_BRACKETS`) are stage-3 2024-25 rates. Indexed/changed

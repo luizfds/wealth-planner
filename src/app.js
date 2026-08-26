@@ -1,5 +1,5 @@
 import { state, setState, storageAvailable, persist, setStatus, defaultState, defaultPurchaseConfig, migrateState, genId } from "./state.js";
-import { INCOME_COL_DEFS, PERIODS, sacrificeModeToLabel, sacrificeLabelToMode } from "./constants.js";
+import { INCOME_COL_DEFS, PERIODS, sacrificeModeToLabel, sacrificeLabelToMode, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE } from "./constants.js";
 import { fmtCurrency0, fmtCurrency2 } from "./lib/format.js";
 import { showToast, showUndoToast } from "./lib/toast.js";
 import { escapeAttr, slug } from "./lib/html.js";
@@ -401,7 +401,18 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     if(!cfg) return;
     var t = e.target;
     if(t.classList.contains("calc-enabled")) cfg.enabled = t.checked;
-    else if(t.classList.contains("calc-state")) cfg.state = t.value;
+    else if(t.classList.contains("calc-state")){
+      cfg.state = t.value;
+      // Transfer/Mortgage Registration are flat statutory land-registry fees, not something a
+      // user has any reason to hand-tune the way Conveyancing or Building & Pest costs vary by
+      // provider — so unlike every other otherCosts row, these two re-sync to the new state's
+      // figure automatically, matching stamp duty's own state-driven recalculation just above.
+      // Matched by exact label so a row the user has renamed/repurposed is left alone.
+      (cfg.otherCosts || []).forEach(function(c){
+        if(c.what === "Transfer Fee") c.amount = TRANSFER_FEE_BY_STATE[cfg.state] != null ? TRANSFER_FEE_BY_STATE[cfg.state] : TRANSFER_FEE_BY_STATE.Other;
+        else if(c.what === "Mortgage Registration Fee") c.amount = MORTGAGE_REG_FEE_BY_STATE[cfg.state] != null ? MORTGAGE_REG_FEE_BY_STATE[cfg.state] : MORTGAGE_REG_FEE_BY_STATE.Other;
+      });
+    }
     else if(t.classList.contains("calc-fhb")) cfg.firstHomeBuyer = t.checked;
     else if(t.classList.contains("calc-sync")) cfg.syncRepayment = t.checked;
     else if(t.classList.contains("calc-repaymenttype")) cfg.repaymentType = t.value;

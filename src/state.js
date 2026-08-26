@@ -1,4 +1,4 @@
-import { STORAGE_KEY, HOME_CATEGORIES, INCOME_COL_DEFS } from "./constants.js";
+import { STORAGE_KEY, HOME_CATEGORIES, INCOME_COL_DEFS, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE } from "./constants.js";
 import { showToast } from "./lib/toast.js";
 
 export function defaultPurchaseConfig(price, depositPct, rate, termYears, stateCode, enabled){
@@ -18,8 +18,8 @@ export function defaultPurchaseConfig(price, depositPct, rate, termYears, stateC
       {what:"Conveyancing / Legal Fees", amount:1800},
       {what:"Building & Pest Inspection", amount:500},
       {what:"Loan Application Fee", amount:600},
-      {what:"Mortgage Registration Fee", amount:154},
-      {what:"Transfer Fee", amount:154}
+      {what:"Mortgage Registration Fee", amount: MORTGAGE_REG_FEE_BY_STATE[stateCode] != null ? MORTGAGE_REG_FEE_BY_STATE[stateCode] : MORTGAGE_REG_FEE_BY_STATE.Other},
+      {what:"Transfer Fee", amount: TRANSFER_FEE_BY_STATE[stateCode] != null ? TRANSFER_FEE_BY_STATE[stateCode] : TRANSFER_FEE_BY_STATE.Other}
     ]
   };
 }

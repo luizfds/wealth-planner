@@ -67,6 +67,13 @@ export var FHB_RULES = {
   VIC: {exemptUpTo:600000, concessionUpTo:750000}
 };
 
+// Flat statutory land-registry fees for lodging the Transfer and Mortgage — not value-based,
+// unlike stamp duty above, but still indexed annually by each state's land registry. Same
+// NSW/VIC-precise, "Other" is a generic estimate scope as STAMP_DUTY_BRACKETS — confirm current
+// figures with the relevant land registry before settlement.
+export var TRANSFER_FEE_BY_STATE = { NSW: 154, VIC: 118.30, Other: 154 };
+export var MORTGAGE_REG_FEE_BY_STATE = { NSW: 154, VIC: 118.30, Other: 154 };
+
 // Indicative single-premium LMI as a % of the loan amount. Real premiums are
 // lender/insurer-specific (Helia, QBE, etc.) and vary by loan size and risk fee — estimate only.
 export var LMI_BANDS = [

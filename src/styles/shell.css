@@ -3,6 +3,7 @@
   .app-sidebar{
     background: var(--paper-raised); border-right:1px solid var(--border);
     display:flex; flex-direction:column; padding: 20px 14px; gap:18px; position:sticky; top:0; height:100vh; overflow-y:auto;
+    overscroll-behavior: contain;
   }
   .app-brand{ padding: 0 8px; }
   .app-brand-name{ font-family:"Inter", system-ui, sans-serif; font-weight:600; font-size:18px; letter-spacing:-0.01em; display:flex; align-items:center; gap:8px; }
@@ -99,7 +100,7 @@
     .mobile-tab.active .mobile-tab-pill{ color: var(--brass-strong); background: var(--brass-wash); }
     .mobile-more-panel{
       position:absolute; bottom:100%; right:6px; margin-bottom:8px; min-width:180px;
-      max-height: calc(100vh - 140px); overflow-y:auto;
+      max-height: calc(100vh - 140px); overflow-y:auto; overscroll-behavior: contain;
       background: var(--paper-raised); border:1px solid var(--border); border-radius:10px; padding:6px;
       box-shadow: 0 -8px 24px rgba(0,0,0,0.22);
     }

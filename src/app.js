@@ -1273,3 +1273,11 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
   showPage(initialPage, { replace: true, skipScroll: true });
   if(initialPage === "assets") showAssetsSubpage(initialAssetsSub, { replace: true });
 })();
+
+// Registered from the page's own origin/path, so this resolves correctly whether served from
+// domain root (local dev) or a GitHub Pages project subpath — same reasoning as nav.js's BASE_PATH.
+if("serviceWorker" in navigator){
+  window.addEventListener("load", function(){
+    navigator.serviceWorker.register("sw.js").catch(function(){});
+  });
+}

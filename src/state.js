@@ -30,8 +30,9 @@ export function genId(prefix){ return prefix + Date.now().toString(36) + Math.ra
 
 export function defaultState(){
   return {
-    activeScenario: "Scenario 1",
-    scenarios: ["Scenario 1"],
+    activeScenario: "Current situation",
+    scenarios: ["Current situation"],
+    baselineScenario: "Current situation",
     showAllPeriods: false,
     // Classic's tables rely on horizontal scroll even with a sticky first column — a rough
     // landing experience on a phone. Modern was built mobile-first, so a fresh mobile visitor
@@ -44,8 +45,8 @@ export function defaultState(){
     income: [],
     ip: [],
     shared: [],
-    home: { "Scenario 1": defaultHomeBlock() },
-    purchase: { "Scenario 1": defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", false) },
+    home: { "Current situation": defaultHomeBlock() },
+    purchase: { "Current situation": defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", false) },
     assets: [],
     properties: [],
     projection: { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0 },
@@ -90,6 +91,18 @@ export function migrateState(s){
     if(block && block.length && !block.some(function(i){ return i.id === "homeLoanRow"; })) block[0].id = "homeLoanRow";
   });
   if(!s.activeScenario || s.scenarios.indexOf(s.activeScenario) === -1) s.activeScenario = s.scenarios[0];
+  // One-shot-per-load (not flagged — cheap and idempotent): if there's no baseline yet, or the
+  // named baseline no longer exists (e.g. it was renamed before this field existed), designate
+  // whichever scenario is currently active as "Current situation" and pin it at index 0 so
+  // every renderer that just iterates state.scenarios in order shows it first automatically.
+  if(!s.baselineScenario || s.scenarios.indexOf(s.baselineScenario) === -1){
+    s.baselineScenario = s.activeScenario;
+    var baseIdx = s.scenarios.indexOf(s.baselineScenario);
+    if(baseIdx > 0){
+      s.scenarios.splice(baseIdx, 1);
+      s.scenarios.unshift(s.baselineScenario);
+    }
+  }
   if(!s.purchase) s.purchase = {};
   s.scenarios.forEach(function(name){
     if(!s.purchase[name]) s.purchase[name] = defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", false);

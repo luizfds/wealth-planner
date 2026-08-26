@@ -40,21 +40,21 @@ The app is mid-migration from one `app.js` closure (pre-v1.33.1) to native ES mo
 each step is its own tagged commit. Current state:
 
 **All seven page components now exist** (`dashboard`, `income`, `expenses`, `assets`, `properties`,
-`projections`, `scenarios`). `app.js` is down to ~1,500 lines from the original 4,618 — routing,
-DOM event wiring/delegation, the purchase-calculator and ledger-table generic handlers, CSV
-export, encrypted backup, and a handful of genuinely cross-cutting helpers (`findProperty`,
-`getArrayForSection`, `rerenderTableFor`, `updatePersonSuggestions`, `renderTotals`). What's left
-in `.claude/PROJECT_KNOWLEDGE.md`'s "Not done yet" below is `nav.js`, `lib/backup.js`, and the CSS
-split.
+`projections`, `scenarios`) plus `nav.js`. `app.js` is down to ~1,450 lines from the original
+4,618 — DOM event wiring/delegation, the purchase-calculator and ledger-table generic handlers,
+CSV export, encrypted backup, and a handful of genuinely cross-cutting helpers (`findProperty`,
+`getArrayForSection`, `rerenderTableFor`, `updatePersonSuggestions`, `renderTotals`, `renderAll`,
+`refreshAllUiModePages`). What's left in `.claude/PROJECT_KNOWLEDGE.md`'s "Not done yet" below is
+`lib/backup.js` and the CSS split.
 
 **Done:**
 - `src/constants.js` — config-only constants (tax brackets, stamp duty tables, LMI bands,
   `STORAGE_KEY`, `PERIODS`, `FREQS`/`CLASSES`/`INCOME_TYPES`/`SUPER_MODES`/`SACRIFICE_MODES`/
   `ASSET_CATEGORIES`/`LIQUID_CATEGORIES`/`SHARE_MARKETS`/`PURCHASE_STATE_CODES`/
-  `STATE_GROWTH_RATES` + label-mapping helpers). Still-local-to-`app.js`: `PAGES`/`PAGE_KEY`/
-  `BASE_PATH`/`ASSETS_SUB_TO_SLUG`/`SLUG_TO_ASSETS_SUB`/`MOBILE_MORE_PAGES` (routing config,
-  migrates with `nav.js`) and `EXPENSE_COL_DEFS` (only ever read by `app.js`'s own column-picker
-  wiring, never needed by a component — may just stay put).
+  `STATE_GROWTH_RATES` + label-mapping helpers). `PAGES`/`BASE_PATH`/`ASSETS_SUB_TO_SLUG`/
+  `SLUG_TO_ASSETS_SUB`/`MOBILE_MORE_PAGES` live in `nav.js` instead (routing-only config, never
+  needed elsewhere). Still-local-to-`app.js`: `EXPENSE_COL_DEFS` (only ever read by `app.js`'s own
+  column-picker wiring, never needed by a component — may just stay put).
 - `src/state.js` — the `state` singleton (`export let`, a live binding — see the gotcha in the
   root `CLAUDE.md`), `persist`/`setStatus`, `defaultState`/`migrateState`/`defaultHomeBlock`/
   `defaultPurchaseConfig`, `setState(newState)`.
@@ -143,6 +143,17 @@ split.
   cross-page routers/helpers that touch every page's DOM by section-string dispatch, which makes
   them architecturally app.js-resident forever (or a candidate for `nav.js`, never for a
   page-specific component). Don't expect these two to ever move to `income.js`.
+- `src/components/nav.js` — routing (`showPage`, `parseRouteFromLocation`, `showAssetsSubpage`,
+  the private `buildRoutePath`/`syncUrl`, and the `PAGES`/`BASE_PATH`/slug-map config that back
+  them) plus the two menu-close helpers `closeNavMenu`/`closeMobileMore`. Unlike every other
+  component, this one's actual DOM event *registration* (`appNav`/`navMenuToggle`/`mobileTabbar`/
+  `assetsSubnav` click handlers, the document-level click-away/Escape listeners for both menus)
+  stayed in `app.js` too, on purpose — keeping that one consistent rule ("registration in
+  `app.js`, logic in the component") for all eight modules beat carving out a one-off exception
+  just because nav's wiring doesn't depend on any other component's data. `currentAssetsSub`
+  turned fully private once `showAssetsSubpage` moved in with it — it had only ever been read by
+  `buildRoutePath`/`syncUrl` (both private too) and mutated by `showAssetsSubpage` itself, so
+  nothing outside `nav.js` was left needing an import for it.
 
 **How the boundaries were actually chosen:** by tracing the real call graph (which function calls
 which, and which touch `state` directly) before moving anything — not by section headings or
@@ -171,24 +182,20 @@ which, and which touch `state` directly) before moving anything — not by secti
   "data."
 
 **Not done yet**, in the planned order:
-1. `src/components/nav.js` — `showPage`/`syncUrl`/`parseRouteFromLocation`/`buildRoutePath`/mobile
-   tab bar/nav-menu dropdown, plus the `PAGES`/`PAGE_KEY`/`BASE_PATH`/`ASSETS_SUB_TO_SLUG`/
-   `SLUG_TO_ASSETS_SUB`/`MOBILE_MORE_PAGES` config that goes with it. `showAssetsSubpage` moves
-   here too (it's routing-flavored-by-Assets, not Assets-flavored-by-routing — it only toggles
-   `.hidden`/calls `syncUrl`, never touches an assets.js export). Watch for `renderAll()` and
-   `refreshAllUiModePages()`: both call nearly every component's render function and are genuine
-   top-level orchestrators — they may be right to stay in `app.js` permanently (mirroring
-   `renameTaxPerson`/`removeTaxPerson`'s fate) rather than being forced into `nav.js`.
-2. `src/lib/backup.js` (export/import/CSV/Web Crypto encrypted backup) — last, since other
-   components depend on it. (`src/lib/charts.js` was done much earlier than planned — pulled
-   forward since Assets needed it immediately.)
-3. Matching `styles.css` split into per-component files + `@import`, alongside each JS move.
-4. `app.js`'s remaining generic ledger/calc event handlers (`onLedgerInput`/`onLedgerClick`/
-   `refreshAfterLedgerChange`/`getArrayForSection`/`rerenderTableFor`/`onCalcInput`/`onCalcChange`/
-   `onCalcClick`/`findProperty`/`updatePersonSuggestions`/`renderTotals`/`renderGlobalMetrics`) are
-   probably permanent `app.js` residents, not a "not done yet" — they're cross-cutting by nature
-   (dispatch across every page by a section-string key), unlike the page-specific code that's now
-   fully extracted. Confirm this assumption holds before ever trying to move one of them.
+1. `src/lib/backup.js` (export/import/CSV/Web Crypto encrypted backup) — last remaining lib
+   extraction, since components would depend on it. (`src/lib/charts.js` was done much earlier
+   than planned — pulled forward since Assets needed it immediately.)
+2. Matching `styles.css` split into per-component files + `@import`, alongside each JS move.
+
+**Believed-permanent `app.js` residents** (cross-cutting by nature — dispatch or wire across every
+page by a section-string key or DOM id, unlike the now-fully-extracted page-specific code; don't
+expect these to move into a component later without a real reason):
+`onLedgerInput`/`onLedgerClick`/`refreshAfterLedgerChange`/`getArrayForSection`/
+`rerenderTableFor`/`onCalcInput`/`onCalcChange`/`onCalcClick`/`onScenarioControlClick`/
+`findProperty`/`updatePersonSuggestions`/`renderTotals`/`renderGlobalMetrics`/`renderAll`/
+`refreshAllUiModePages`/`renameTaxPerson`/`removeTaxPerson`, plus all DOM event *registration*
+(every `addEventListener` call in the file) and the nav-menu/mobile-tabbar wiring itself (see
+`nav.js` above).
 
 ## Business-logic assumptions (all approximate — the app says so in-UI, keep it that way)
 

@@ -14,14 +14,15 @@ list with explanations, established UI patterns, and what's still pending — se
   Properties, Scenarios, Projections). Pages are `<section class="app-page" id="page-...">`,
   shown/hidden via `showPage()`, not separate documents.
 - `styles.css` — one stylesheet, light/dark via CSS custom properties + `prefers-color-scheme`.
-- `src/app.js` — the entry point (`<script type="module">`), ~1,500 lines (down from the original
-  4,618-line monolith). All seven pages' rendering has moved to `src/components/`; what's left is
-  routing, DOM event wiring/delegation, the purchase-calculator glue, CSV export, encrypted
-  backup, and cross-cutting dispatch helpers (`rerenderTableFor`, `getArrayForSection`,
-  `findProperty`, `updatePersonSuggestions`) that route by a section-string key across every page
-  and are expected to stay here permanently — see "Modularization progress" in
-  `.claude/PROJECT_KNOWLEDGE.md` for what's still planned (`nav.js`, `lib/backup.js`, the CSS
-  split) and which functions are deliberately pinned to `app.js` for good, not just for now.
+- `src/app.js` — the entry point (`<script type="module">`), ~1,450 lines (down from the original
+  4,618-line monolith). All seven pages' rendering and routing have moved to `src/components/`;
+  what's left is DOM event wiring/registration, the purchase-calculator glue, CSV export,
+  encrypted backup, and cross-cutting dispatch helpers (`rerenderTableFor`, `getArrayForSection`,
+  `findProperty`, `updatePersonSuggestions`, `renderAll`, `refreshAllUiModePages`) that route by a
+  section-string key across every page and are expected to stay here permanently — see
+  "Modularization progress" in `.claude/PROJECT_KNOWLEDGE.md` for what's still planned
+  (`lib/backup.js`, the CSS split) and the full list of functions deliberately pinned to `app.js`
+  for good, not just for now.
 - `src/state.js` — `state` (the single source of truth), `defaultState()`, `migrateState()`
   (schema migration + safe defaults for old/partial saves), `persist()` (debounced localStorage
   write), `setStatus()`.
@@ -30,13 +31,13 @@ list with explanations, established UI patterns, and what's still pending — se
   `propertyEquityToday()` and friends), `tax.js` (AU income tax/Medicare, super contribution caps,
   Division 293), `engine.js` (net-worth projection series, `totalNetWorthValue()`, the "recompute
   all derived/synthetic rows" pass).
-- `src/components/{dashboard,income,expenses,assets,properties,projections,scenarios}.js` — one
-  file per page, each exporting its `render*()` functions for `app.js` to import and wire up. Not
-  every function on a page moved into its component — one that also depends on an un-extracted
-  page stayed in `app.js` calling the component's exports until that dependency existed too (all
-  resolved now that every page is extracted), and a few (`renameTaxPerson`/`removeTaxPerson`,
-  `showAssetsSubpage`) turned out to belong with `app.js`'s cross-cutting routing/dispatch code
-  permanently, not with their "obvious" page.
+- `src/components/{dashboard,income,expenses,assets,properties,projections,scenarios,nav}.js` —
+  one file per page (plus `nav.js` for routing/page-switching), each exporting its functions for
+  `app.js` to import and wire up. Not every function that "belongs" to a page lives in its
+  component — `renameTaxPerson`/`removeTaxPerson` (Income) and `showAssetsSubpage` (Assets)
+  turned out to be cross-cutting routing/dispatch code and stayed in `app.js`/moved to `nav.js`
+  instead. DOM event *registration* (every `addEventListener` call) also stays in `app.js` for
+  every component, `nav.js` included — only the callable render/patch/routing logic moved.
 - `src/constants.js`, `src/lib/{format,toast,html,uimode,ledger-table,charts}.js` — static data
   tables and dependency-free utilities used across everything above: currency/percent formatters,
   toasts, `escapeAttr`/`slug`, the global Classic/Modern toggle sync and period/column-visibility

@@ -1305,6 +1305,15 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
   renderAll();
   showPage(initialPage, { replace: true, skipScroll: true });
   if(initialPage === "assets") showAssetsSubpage(initialAssetsSub, { replace: true });
+
+  // Matching #appLoading's inline styles in index.html — fades out only once the real UI above
+  // has actually been built, not on a fixed timer, so a slow first load (cold cache, slow device)
+  // keeps the loading screen up for exactly as long as it's needed and no longer.
+  var appLoadingEl = document.getElementById("appLoading");
+  if(appLoadingEl){
+    appLoadingEl.classList.add("is-hidden");
+    setTimeout(function(){ appLoadingEl.remove(); }, 300);
+  }
 })();
 
 // Registered from the page's own origin/path, so this resolves correctly whether served from

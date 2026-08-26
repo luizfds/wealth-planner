@@ -8,6 +8,10 @@ export var SACRIFICE_MODES = ["Cash out", "Sacrifice %", "Sacrifice $"];
 export function sacrificeModeToLabel(mode){ return mode === "percent" ? "Sacrifice %" : mode === "amount" ? "Sacrifice $" : "Cash out"; }
 export function sacrificeLabelToMode(label){ return label === "Sacrifice %" ? "percent" : label === "Sacrifice $" ? "amount" : "none"; }
 
+export var ASSET_CATEGORIES = ["Cash", "Shares", "Super", "Vehicle", "Other"];
+export var LIQUID_CATEGORIES = ["Cash", "Shares"];
+export var SHARE_MARKETS = ["ASX", "US"];
+
 export var HOME_CATEGORIES = ["Rent / Home Loan", "Home Insurance", "Council Rates", "Water & Wastewater", "Property Maintenance"];
 
 // ATO Maximum Super Contribution Base — the annual ordinary-time-earnings ceiling above which

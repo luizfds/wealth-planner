@@ -81,6 +81,25 @@ each step is its own tagged commit. Current state:
   elsewhere; adding a real row here would double-count). Exports: `renderSharedGroups`,
   `patchSharedGroupTotals`, `renderPropertyExpensesSummary`, and the mutable `modernSharedRowOpen`
   map.
+- `src/lib/charts.js` — `renderLineChart` (+ private `svgEl`), the hand-rolled SVG line chart with
+  crosshair/tooltip, used by Assets' "Net worth over time" and Projections' net-worth-series chart.
+  Extracted as a prerequisite for the Assets extraction below rather than waiting for its own
+  planned step, since Assets needed it immediately. No `state` import.
+- `src/components/assets.js` — the Cash/Shares/Super/Vehicle/Other subpages, the allocation/net-worth-if-you-buy/net-worth-over-time summary panels. Exports the per-category and per-summary
+  render functions individually (`renderAssetCategoryPage`, `renderSharesSubpage`,
+  `renderVehiclesSubpage`, `renderAssetsSummary`, `patchAssetCategoryTotals`,
+  `renderNetWorthPanel`, `renderPortfolioHistoryChart`, `patchHoldingRow`, `patchVehicleRow`,
+  `parseSharesPasteLine`, `assetTrendHtml`, `modernAssetRowOpen`) rather than one big composer —
+  `renderAssets()` itself, plus `logAssetSnapshot`/`applySharesPaste`, stay in `app.js` and call
+  those exports, because all three also call `renderProjectionOutputs()` (Projections tab, not
+  extracted). Same "orchestrator stays behind, pieces move" pattern as Dashboard/Income's CRUD
+  functions — see below.
+- **`assetTrendHtml` gotcha**: looked Assets-only (asset/share/vehicle rows all show a value-trend
+  arrow) but Properties' `propertyCardHtml` also calls it for a property's own value history —
+  missed on the first pass, caught by the browser smoke test (`assetTrendHtml is not defined` on
+  the Properties page), not by `node --check`. Same lesson as the `modernIncomeRowOpen` gotcha:
+  counting a function's call sites isn't enough — check *where* each call site actually is before
+  assuming they're all inside the block you're moving.
 
 **How the boundaries were actually chosen:** by tracing the real call graph (which function calls
 which, and which touch `state` directly) before moving anything — not by section headings or
@@ -110,13 +129,19 @@ which, and which touch `state` directly) before moving anything — not by secti
   "data."
 
 **Not done yet**, in the planned order:
-1. `src/components/{assets,properties,scenarios,projections}.js` — one tab at a time (or
-   Scenarios+Assets together, since that's what finally lets scenario CRUD and
-   `renameTaxPerson`/`removeTaxPerson` move out of `app.js`), each carrying its render +
-   ledger-event-delegate functions out of `app.js`.
+1. `src/components/{properties,scenarios,projections}.js` — one tab at a time, each carrying its
+   render + ledger-event-delegate functions out of `app.js`. `renderAssets`/`logAssetSnapshot`/
+   `applySharesPaste`/scenario CRUD/`renameTaxPerson`/`removeTaxPerson` all stay in `app.js` until
+   Projections (specifically `renderProjectionOutputs`) is extracted too — they all call it.
 2. `src/components/nav.js` — `showPage`/`syncUrl`/`parseRouteFromLocation`/mobile tab bar.
-3. `src/lib/charts.js` (hand-rolled SVG line chart) and `src/lib/backup.js` (export/import/CSV/Web
-   Crypto encrypted backup) — last, since other components depend on them.
+   `showAssetsSubpage` (Assets' subpage switcher) turned out to belong here, not in
+   `assets.js` — it only toggles `.hidden`/calls `syncUrl`, never touches any assets.js export, so
+   it's routing-flavored-by-Assets rather than Assets-flavored-by-routing. Watch for the same shape
+   in Properties (`showPage`-adjacent subpage/tab switching, if any) before assuming a `show*Sub`
+   function belongs with its page's other render code.
+3. `src/lib/backup.js` (export/import/CSV/Web Crypto encrypted backup) — last, since other
+   components depend on it. (`src/lib/charts.js` already done — pulled forward since Assets needed
+   it immediately, see above.)
 4. Matching `styles.css` split into per-component files + `@import`, alongside each JS move.
 
 ## Business-logic assumptions (all approximate — the app says so in-UI, keep it that way)

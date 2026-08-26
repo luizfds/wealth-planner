@@ -1,0 +1,78 @@
+  /* ---------------- Dashboard stat tiles ---------------- */
+  /* Bento: the first tile (net worth) reads as the hero module, spanning two columns
+     on wider screens; the rest fall in as evenly-sized supporting tiles. */
+  .stat-row{ display:grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap:14px; }
+  #dashboardStats.stat-row{ grid-template-columns: repeat(4, minmax(180px,1fr)); }
+  #dashboardStats.stat-row .stat-tile:first-child{ grid-column: span 2; background: linear-gradient(135deg, var(--brass-wash), var(--paper-raised)); }
+  @media (max-width: 900px){ #dashboardStats.stat-row{ grid-template-columns: repeat(2, minmax(150px,1fr)); } #dashboardStats.stat-row .stat-tile:first-child{ grid-column: span 2; } }
+  .stat-tile{
+    background: var(--paper-raised); border:1px solid var(--border); border-radius:14px; padding:16px 18px;
+    box-shadow: var(--shadow); display:flex; flex-direction:column; gap:4px; transition: transform .18s ease, box-shadow .18s ease;
+  }
+  .stat-tile:hover{ transform: translateY(-1px); box-shadow: 0 2px 4px rgba(15,23,42,0.06), 0 12px 28px -12px rgba(15,23,42,0.2); }
+  .stat-tile span{ font-size:11px; text-transform:uppercase; letter-spacing:.05em; color: var(--ink-soft); font-weight:600; }
+  .stat-tile b{ font-family:"Inter", system-ui, sans-serif; font-weight:600; font-size:21px; letter-spacing:-0.01em; font-variant-numeric: tabular-nums; }
+  .stat-tile small{ font-size:11.5px; color: var(--ink-soft); }
+
+  /* ---------------- Scenario cards ---------------- */
+  .cards{
+    display:grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 14px; margin-bottom: 30px;
+  }
+  .card{
+    position: relative;
+    text-align:left;
+    background: var(--paper-raised);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px 18px 16px;
+    box-shadow: var(--shadow);
+    display:flex; flex-direction:column; gap:10px;
+  }
+  .card-select{
+    all: unset; box-sizing: border-box; cursor:pointer; display:block; width:100%;
+    border-radius: 14px;
+  }
+  .card-select:focus-visible{ box-shadow: var(--focus-ring); }
+  .card.is-active{ border-color: var(--brass); box-shadow: var(--shadow), 0 0 0 1.5px var(--brass); }
+  .card-top{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .card-name{ font-weight:600; font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .card-controls{ display:flex; align-items:center; gap:2px; flex:none; }
+  .icon-btn{
+    all:unset; box-sizing:border-box; cursor:pointer; width:26px; height:26px; border-radius:6px;
+    display:flex; align-items:center; justify-content:center; color: var(--ink-soft); font-size:12px;
+  }
+  .icon-btn:hover{ background: var(--paper-sunken); color: var(--ink); }
+  .icon-btn:focus-visible{ box-shadow: var(--focus-ring); }
+  .icon-btn.icon-del:hover{ color: var(--bad); }
+  .card-radio{
+    width:16px; height:16px; border-radius:50%; border:1.5px solid var(--border); flex:none;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .card.is-active .card-radio{ border-color: var(--brass); }
+  .card.is-active .card-radio::after{ content:""; width:8px; height:8px; border-radius:50%; background: var(--brass); }
+  .card-savings{
+    font-family:"Inter", system-ui, sans-serif; font-weight:600; font-size: 27px; letter-spacing:-0.01em;
+    font-variant-numeric: tabular-nums; line-height:1.1;
+  }
+  .card-savings.neg{ color: var(--bad); }
+  .card-sub{ font-size:12px; color: var(--ink-soft); }
+  .card-bar-track{ height:6px; border-radius:100px; background: var(--paper-sunken); overflow:hidden; }
+  .card-bar-fill{ height:100%; background: var(--brass); border-radius: inherit; }
+  .card-bar-fill.neg{ background: var(--bad); }
+  .card-stats{ display:flex; justify-content:space-between; font-size:11.5px; color: var(--ink-soft); }
+  .card-edit-link{
+    all:unset; display:block; margin-top:10px; padding-top:9px; border-top:1px solid var(--border);
+    font-size:11.5px; color: var(--brass-strong); cursor:pointer; text-align:left;
+  }
+  .card-edit-link:hover{ color: var(--brass); text-decoration:underline; }
+  .card-stats b{ color: var(--ink); font-weight:600; }
+  .add-card{
+    all:unset; box-sizing:border-box; cursor:pointer; width:100%; min-height:150px;
+    border:1.5px dashed var(--border); border-radius:14px; color: var(--ink-soft);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+  }
+  .add-card:hover{ border-color: var(--brass); color: var(--brass-strong); }
+  .add-card:focus-visible{ box-shadow: var(--focus-ring); }
+  .add-plus{ font-family:"Inter", system-ui, sans-serif; font-size:22px; line-height:1; }
+  .add-label{ font-size:12.5px; font-weight:500; }

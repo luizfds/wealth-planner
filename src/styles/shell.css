@@ -1,0 +1,115 @@
+  /* ---------------- App shell ---------------- */
+  .app-shell{ display:grid; grid-template-columns: 216px 1fr; min-height: 100vh; }
+  .app-sidebar{
+    background: var(--paper-raised); border-right:1px solid var(--border);
+    display:flex; flex-direction:column; padding: 20px 14px; gap:18px; position:sticky; top:0; height:100vh; overflow-y:auto;
+  }
+  .app-brand{ padding: 0 8px; }
+  .app-brand-name{ font-family:"Inter", system-ui, sans-serif; font-weight:600; font-size:18px; letter-spacing:-0.01em; display:flex; align-items:center; gap:8px; }
+  .app-brand-mark{ width:22px; height:22px; border-radius:6px; background: var(--brass); flex:none; display:flex; align-items:center; justify-content:center; color:#ffffff; font-family:"Inter",sans-serif; font-weight:700; font-size:13px; }
+  .app-brand-tag{ font-size:11px; color: var(--ink-soft); margin-top:2px; }
+  .nav-menu-toggle{ display:none; }
+  .app-nav{ display:flex; flex-direction:column; gap:2px; }
+  .mobile-tabbar{ display:none; }
+  .nav-item{
+    all:unset; box-sizing:border-box; display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:8px;
+    font-size:13.5px; font-weight:500; color: var(--ink-soft); cursor:pointer;
+  }
+  .nav-item:hover{ background: var(--paper-sunken); color: var(--ink); }
+  .nav-item.active{ background: var(--brass-wash); color: var(--brass-strong); font-weight:600; }
+  .nav-item:focus-visible{ box-shadow: var(--focus-ring); }
+  .nav-icon{ width:16px; height:16px; flex:none; display:flex; align-items:center; justify-content:center; }
+  .subnav{ display:flex; gap:4px; flex-wrap:wrap; }
+  .subnav-item{
+    all:unset; box-sizing:border-box; padding:7px 14px; border-radius:100px;
+    font-size:12.5px; font-weight:500; color: var(--ink-soft); cursor:pointer;
+  }
+  .subnav-item:hover{ background: var(--paper-sunken); color: var(--ink); }
+  .subnav-item.active{ background: var(--brass-wash); color: var(--brass-strong); font-weight:600; }
+  .subnav-item:focus-visible{ box-shadow: var(--focus-ring); }
+  .assets-subpage{ display:flex; flex-direction:column; gap:20px; }
+  .assets-subpage[hidden]{ display:none; }
+  .app-sidebar-footer{ margin-top:auto; display:flex; flex-direction:column; gap:14px; padding-top:14px; border-top:1px solid var(--border); }
+  .app-sidebar-footer .toggle-periods{ font-size:11.5px; }
+  .app-sidebar-note{ font-size:10.5px; color: var(--ink-soft); line-height:1.5; }
+  .app-version{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:10px; color: var(--ink-soft); opacity:.65; margin:6px 0 0; }
+  .app-sidebar-note a.link-btn{ color: var(--brass-strong); text-decoration:underline; cursor:pointer; background:none; border:none; font: inherit; padding:0; }
+
+  .app-main{ min-width:0; display:flex; flex-direction:column; }
+  .app-topbar{
+    display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+    padding: 18px 28px; border-bottom:1px solid var(--border); background: var(--paper); position:sticky; top:0; z-index:4;
+  }
+  .app-topbar h1{ font-family:"Inter", system-ui, sans-serif; font-weight:600; font-size:22px; margin:0; letter-spacing:-0.01em; }
+  .app-topbar-left{ display:flex; align-items:center; gap:20px; flex-wrap:wrap; }
+  .global-metrics{ display:flex; align-items:center; gap:14px; padding:6px 14px; border-radius:100px; background: var(--paper-sunken); border:1px solid var(--border); }
+  .global-metric{ display:flex; align-items:baseline; gap:6px; }
+  .global-metric span{ font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; }
+  .global-metric b{ font-family:"Inter", system-ui, sans-serif; font-weight:700; font-size:14.5px; font-variant-numeric: tabular-nums; color: var(--ink); white-space:nowrap; }
+  .global-metric b.neg{ color: var(--bad); }
+  .global-metric b.pos{ color: var(--good); }
+  .global-metric-divider{ width:1px; height:14px; background: var(--border); }
+  @media (max-width: 1080px){ .global-metrics{ order:1; width:100%; justify-content:flex-start; } }
+  .app-content{ padding: 24px 28px 60px; width:100%; }
+  .app-page{ display:flex; flex-direction:column; gap:20px; }
+  .app-page[hidden]{ display:none; }
+  .page-intro{ color: var(--ink-soft); font-size:13.5px; max-width:70ch; margin:0; }
+
+  .mobile-nav-toggle{ display:none; }
+
+  @media (max-width: 880px){
+    .app-shell{ display:block; }
+    .app-sidebar{ position:sticky; top:0; height:auto; width:auto; overflow-y:visible; flex-direction:row; align-items:center; flex-wrap:wrap; padding:10px 12px; gap:10px 12px; z-index:5; }
+    .app-brand{ padding:0; flex:none; }
+    .app-brand-tag{ display:none; }
+    /* Page navigation moves to the fixed bottom tab bar below — the old dropdown behind
+       navMenuToggle is superseded by it, so the trigger (and its now-unreachable dropdown)
+       just stays hidden rather than being ripped out. */
+    .nav-menu-toggle{ display:none; }
+    .app-nav{
+      display:none; flex-direction:column; gap:2px; position:absolute; top:100%; left:12px; right:12px; margin-top:6px;
+      background: var(--paper-raised); border:1px solid var(--border); border-radius:10px; padding:6px;
+      box-shadow: 0 12px 28px rgba(0,0,0,0.28); z-index:20;
+    }
+    .app-sidebar.nav-open .app-nav{ display:flex; }
+    .nav-item{ white-space:normal; text-align:left; padding:10px 12px; border-radius:7px; }
+    /* Show all periods and the version note move into the bottom tab bar's More panel on
+       mobile (see mobile-more-toggle / mobile-more-version) — nothing left here is shown,
+       so the whole footer goes, freeing the sticky top row for just the brand and the save
+       status badge. */
+    .app-sidebar-footer{ display:none; }
+    .app-topbar{ padding:14px 16px; }
+    .app-content{ padding:18px 16px calc(48px + 82px); }
+    .mobile-tabbar{
+      display:flex; position:fixed; left:0; right:0; bottom:0; z-index:15;
+      background: var(--paper-raised); border-top:1px solid var(--border);
+      padding:6px max(4px, env(safe-area-inset-left)) calc(6px + env(safe-area-inset-bottom)) max(4px, env(safe-area-inset-right));
+      box-shadow: 0 -4px 16px rgba(0,0,0,0.10);
+    }
+    .mobile-tab{
+      all:unset; box-sizing:border-box; flex:1 1 0; display:flex; align-items:center; justify-content:center; cursor:pointer;
+    }
+    .mobile-tab-pill{
+      display:flex; flex-direction:column; align-items:center; gap:4px; padding:7px 6px 6px; border-radius:13px;
+      color: var(--ink-soft); text-align:center; transition: background .15s ease, color .15s ease;
+    }
+    .mobile-tab-icon{ width:21px; height:21px; flex:none; }
+    .mobile-tab-label{ font-size:10.5px; font-weight:600; letter-spacing:.01em; }
+    .mobile-tab:active .mobile-tab-pill{ background: var(--paper-sunken); }
+    .mobile-tab.active .mobile-tab-pill{ color: var(--brass-strong); background: var(--brass-wash); }
+    .mobile-more-panel{
+      position:absolute; bottom:100%; right:6px; margin-bottom:8px; min-width:180px;
+      max-height: calc(100vh - 140px); overflow-y:auto;
+      background: var(--paper-raised); border:1px solid var(--border); border-radius:10px; padding:6px;
+      box-shadow: 0 -8px 24px rgba(0,0,0,0.22);
+    }
+    .mobile-more-item{
+      all:unset; box-sizing:border-box; display:block; width:100%; padding:10px 10px; border-radius:7px;
+      font-size:13.5px; color: var(--ink); cursor:pointer;
+    }
+    .mobile-more-item:hover, .mobile-more-item:active{ background: var(--paper-sunken); }
+    .mobile-more-item.active{ color: var(--brass-strong); font-weight:600; }
+    .mobile-more-toggle{ display:flex; align-items:center; gap:9px; cursor:pointer; }
+    .mobile-more-divider{ height:1px; background: var(--border); margin:6px 4px; }
+    .mobile-more-version{ font-size:10.5px; color: var(--ink-soft); padding:8px 10px 2px; margin:4px 0 0; border-top:1px solid var(--border); }
+  }

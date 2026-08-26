@@ -60,7 +60,10 @@
 
   @media (max-width: 880px){
     .app-shell{ display:block; }
-    .app-sidebar{ position:sticky; top:0; height:auto; width:auto; overflow-y:visible; flex-direction:row; align-items:center; flex-wrap:wrap; padding:10px 12px; gap:10px 12px; z-index:5; }
+    .app-sidebar{
+      position:sticky; top:0; height:auto; width:auto; overflow-y:visible; flex-direction:row; align-items:center; flex-wrap:wrap;
+      padding:calc(10px + env(safe-area-inset-top)) 12px 10px; gap:10px 12px; z-index:5;
+    }
     .app-brand{ padding:0; flex:none; }
     .app-brand-tag{ display:none; }
     /* Page navigation moves to the fixed bottom tab bar below — the old dropdown behind

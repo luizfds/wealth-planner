@@ -394,6 +394,27 @@ be reverted without touching the others.
   `[data-tax-person]` will never match. Dispatch on an actual descendant of the card instead (a
   real touch's `target` is whatever's under the finger, then bubbles up) — this cost a debugging
   round-trip before being recognized as a test bug, not an app bug.
+- **OS status/nav bar theming**: Android's top toolbar already matched via the two
+  `<meta name="theme-color" media="(prefers-color-scheme: ...)">` tags (set to `--paper`'s light/
+  dark values, matching `.app-topbar`'s own background) — no separate work needed there. Android's
+  bottom system gesture/nav bar color is **not controllable** from a regular installed web app
+  (no standard API outside a native Trusted Web Activity wrapper) — don't attempt to "fix" this,
+  it's a platform wall. iOS's status bar is set to `black-translucent`
+  (`apple-mobile-web-app-status-bar-style`) — transparent, showing the app's own background
+  through it in both themes — a deliberate trade-off the user chose explicitly: Apple's mechanism
+  only offers *white* status-bar icons in this mode, which read with genuinely low contrast
+  against the light theme's near-white `--paper` (`#f8fafc`). The alternative (`default`, opaque
+  bar) has no theme mismatch in light mode but is a jarring white stripe over the dark theme; a
+  third option (opaque but theme-switching between `black`/`default`) isn't supported — iOS reads
+  this meta tag once at launch, it can't be changed live to track `prefers-color-scheme`. Requires
+  `viewport-fit=cover` on the `<meta name="viewport">` tag to actually take effect — without it,
+  every `env(safe-area-inset-*)` in the CSS silently resolves to `0` (content is confined to the
+  safe area automatically instead, so there's nothing to inset for) — this also means the
+  pre-existing `env(safe-area-inset-bottom)` padding on `.mobile-tabbar`/`.toast-wrap` was already
+  correct code, just inert until now. Added matching `padding-top: env(safe-area-inset-top)` to
+  the mobile `.app-sidebar` (the actual top-of-viewport sticky element) so its content clears the
+  now-transparent status bar/notch — verified this doesn't change anything on a non-notched
+  device (`env()` resolves to `0`, so it's the exact same `10px` as before).
 
 ## Business-logic assumptions (all approximate — the app says so in-UI, keep it that way)
 

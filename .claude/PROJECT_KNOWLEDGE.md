@@ -335,6 +335,48 @@ is exempt).
   this environment; verify installability by checking the manifest/service-worker requirements
   directly (as above) instead.
 
+### App-like feel (v1.34.1–v1.34.4, after installability shipped)
+
+Four independent, separately-shipped improvements to how the *installed* app feels to use, not
+just whether it can be installed — each is its own tagged commit pair, on purpose, so any one can
+be reverted without touching the others.
+
+- **Mobile-browser tells removed** (`base.css`): `-webkit-tap-highlight-color: transparent`,
+  `-webkit-touch-callout: none`, `user-select: none`, and `touch-action: manipulation` on `button`
+  (plus the toggle-switch classes `.switch`/`.toggle-periods`/`.calc-enable`/
+  `.calc-check-inline`) — targeting the *element*, not a long tail of individual classes, since
+  virtually every clickable control in this codebase is a real `<button>` (confirmed by grep
+  before relying on it, not assumed). `overscroll-behavior-y: none` on `html` stops the page-level
+  pull-to-refresh/rubber-band bounce; the scrollable sub-areas that need their own independent
+  scroll (`.app-sidebar`, `.mobile-more-panel`, `.table-scroll`) get `overscroll-behavior: contain`
+  so their bounce doesn't chain up into the now-disabled page-level one.
+- **Page-switch cross-fade** (`nav.js`'s `showPage`, `base.css`): wraps the existing DOM-toggle
+  body of `showPage` in `document.startViewTransition()` when supported and
+  `prefers-reduced-motion` isn't set — no manual before/after class choreography, the API
+  snapshots old/new state and animates automatically. Zero fallback code: unsupported browsers
+  (Firefox, older Safari) just never call it, so today's instant-swap behavior is exactly what
+  they still get. Tuned `::view-transition-old(root)`/`::view-transition-new(root)`
+  `animation-duration` down to `0.16s` to match this app's existing snappier hover/focus
+  transitions rather than the browser's ~0.25s default. Verified by monkey-patching
+  `document.startViewTransition` in a Playwright test to count real invocations on nav clicks —
+  not just "the code looks right."
+- **Home-screen shortcuts** (`manifest.webmanifest`): long-press the installed icon for Income &
+  Tax/Expenses/Assets/Properties (Dashboard excluded — it's already the default launch target).
+  URLs are relative (`"./income"`) for the same reason `start_url`/`scope` are — resolves
+  correctly under both local root and the GitHub Pages subpath with no JS-side `BASE_PATH`
+  handling needed, since a relative `url` in a manifest resolves against the manifest's own
+  location exactly like `start_url` does.
+- **iOS launch screens** (`icons/splash/*.png` + `index.html` `apple-touch-startup-image` links):
+  8 images (4 device-size tiers × light/dark) — **deliberately not an exhaustive per-model
+  matrix**. Apple's mechanism needs an *exact* `device-width`/`device-height`/
+  `-webkit-device-pixel-ratio` match per physical screen; a device that isn't listed just shows no
+  splash (a brief blank flash), never a broken one, so this was scoped to the current + one prior
+  generation's common tiers rather than chasing every historical iPhone/iPad panel size. Add more
+  `<link rel="apple-touch-startup-image">` tiers the same way if a specific gap turns out to
+  matter in practice — same generator approach as the app icons (Playwright screenshot of an
+  inline SVG: solid `background_color`-matching fill + centered brand mark), see
+  `icons/splash/` generation notes in the shipping commit.
+
 ## Business-logic assumptions (all approximate — the app says so in-UI, keep it that way)
 
 - **AU tax brackets** (`constants.js: AU_TAX_BRACKETS`) are stage-3 2024-25 rates. Indexed/changed

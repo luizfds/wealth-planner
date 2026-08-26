@@ -137,9 +137,9 @@ export function renderHomeBody(){
     var isCollapsed = !!homeBlockCollapsed[scenario];
     var total = sumField(state.home[scenario], "monthly");
     return '<div class="home-block' + (isActive ? " is-active" : "") + (isCollapsed ? " is-collapsed" : "") + '">' +
-      '<div class="home-block-head">' +
+      '<div class="home-block-head" data-collapse-toggle="' + escapeAttr(scenario) + '" role="button" tabindex="0" aria-expanded="' + (!isCollapsed) + '" aria-label="' + (isCollapsed ? "Expand" : "Collapse") + ' ' + escapeAttr(scenario) + '">' +
         '<div class="home-block-head-left">' +
-          '<button type="button" class="icon-btn home-collapse-toggle" data-collapse-toggle="' + escapeAttr(scenario) + '" aria-expanded="' + (!isCollapsed) + '" aria-label="' + (isCollapsed ? "Expand" : "Collapse") + ' ' + escapeAttr(scenario) + '"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg></button>' +
+          '<span class="icon-btn home-collapse-toggle" aria-hidden="true"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg></span>' +
           '<span class="home-dot"></span><h4>' + escapeAttr(scenario) + '</h4>' +
           (isActive
             ? '<span class="home-active-badge" title="This is the scenario shown on the Dashboard and compared against the others">Active on Dashboard</span>'

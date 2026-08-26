@@ -933,13 +933,9 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
   });
 
   function onScenarioControlClick(e){
-    var collapseBtn = e.target.closest("[data-collapse-toggle]");
-    if(collapseBtn){
-      var cs = collapseBtn.getAttribute("data-collapse-toggle");
-      homeBlockCollapsed[cs] = !homeBlockCollapsed[cs];
-      renderHomeBody();
-      return true;
-    }
+    // More specific controls first — data-rename/data-delete/data-edit-scenario2 all live
+    // *inside* the now-clickable .home-block-head (data-collapse-toggle), so that catch-all has
+    // to be checked last or it would swallow clicks meant for the buttons nested inside it.
     var renameBtn = e.target.closest("[data-rename]");
     if(renameBtn){ renameScenario(renameBtn.getAttribute("data-rename")); return true; }
     var delBtn = e.target.closest("[data-delete]");
@@ -949,6 +945,13 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     if(editBtn){ selectScenario(editBtn.getAttribute("data-edit-scenario")); showPage("scenarios"); return true; }
     var setActiveBtn = e.target.closest("[data-edit-scenario2]");
     if(setActiveBtn){ selectScenario(setActiveBtn.getAttribute("data-edit-scenario2")); return true; }
+    var collapseBtn = e.target.closest("[data-collapse-toggle]");
+    if(collapseBtn){
+      var cs = collapseBtn.getAttribute("data-collapse-toggle");
+      homeBlockCollapsed[cs] = !homeBlockCollapsed[cs];
+      renderHomeBody();
+      return true;
+    }
     return false;
   }
 
@@ -963,6 +966,13 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     if(cardSel){ e.preventDefault(); selectScenario(cardSel.getAttribute("data-scenario")); }
   });
   document.getElementById("homeBody").addEventListener("click", onScenarioControlClick);
+  document.getElementById("homeBody").addEventListener("keydown", function(e){
+    if(e.key !== "Enter" && e.key !== " ") return;
+    var collapseBtn = e.target.closest("[data-collapse-toggle]");
+    if(!collapseBtn) return;
+    e.preventDefault();
+    collapseBtn.click();
+  });
 
   document.addEventListener("click", function(e){
     var addBtn = e.target.closest("[data-add]");

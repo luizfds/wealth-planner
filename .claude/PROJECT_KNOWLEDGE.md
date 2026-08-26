@@ -583,6 +583,39 @@ be reverted without touching the others.
   fallback (which is what "Sample data" actually goes through, since `generateMockData()` never
   sets `uiMode` itself). A *returning* user's own explicit choice is never overridden regardless
   of device.
+- **Editing a Modern-row's name must patch `.m-row-name`, not just state** — every "what"-field
+  input handler (`f-what` in the shared `onLedgerInput`, `a-what`/`h-what`/`v-what` in the Assets
+  input handler, `loan-what` in the Properties loan handler) had the identical gap: it updated
+  the underlying item/state correctly but only ever patched the row's *amount* output
+  (`[data-computed="amt"]`), never the collapsed summary's own name label. All three now also do
+  `tr.querySelector(".m-row-name").textContent = item.what`. If a new "what"-style field gets
+  added anywhere with this row-summary/edit-panel split, remember this patch — it's easy to
+  reproduce the same gap since the amount-only patch is the existing pattern to copy from.
+- **`.home-block-head`/`.home-block-head-left` are, confusingly, reused as plain class names by
+  Properties' own (non-interactive, no-collapse) card header** — a CSS rule or JS behavior meant
+  only for Scenarios' collapsible `.home-block` must be scoped via `.home-block > .home-block-head`
+  (or an `#homeBody` ancestor), never the bare class, or it silently bleeds onto Properties cards
+  too. Found and fixed exactly this leak while making the Scenarios collapse header fully
+  clickable (previously only the small chevron `<button>` toggled collapse, unlike every other
+  page's "click anywhere on the row" Modern-row pattern) — the fix moved `data-collapse-toggle`/
+  `role="button"`/`tabindex` onto the whole `.home-block-head` div, which required reordering
+  `onScenarioControlClick`'s checks (`data-rename`/`data-delete`/`data-edit-scenario2` — all
+  *nested inside* that now-clickable header — must be checked before the generic collapse-toggle
+  catch-all, not after, or they'd never be reachable) and adding a `keydown` handler for Enter/
+  Space (free before, since it used to be a real `<button>`).
+- **Two real spacing bugs found by measuring actual pixel gaps between siblings, not by
+  eyeballing a screenshot**: `.home-recurring-label`'s bottom margin was `2px` against a
+  consistent ~10-14px rhythm everywhere else on the page (fixed: `2px 0 10px`), and `.calc-note`
+  (a `<p>`) was the one child of `.calc-body` (a flex column with its own `gap:14px`) still
+  carrying the browser's unset default paragraph margin, stacking an extra ~11px on top of that
+  gap instead of relying on it like every sibling does (fixed: `margin:0`, not "add a matching
+  margin" — that was the wrong first fix, confirmed wrong by re-measuring rather than assuming a
+  similar-looking number was correct). The general method that found both: walk every parent's
+  direct children in the live DOM, compute `nextRect.top - prevRect.bottom` for each consecutive
+  pair, and look for outliers against the surrounding values — far more reliable than visual
+  inspection for "this gap looks off" complaints, and immune to being fooled by intentional
+  negative margins used elsewhere for fine-tuning (e.g. `.calc-outputs-label`/`.calc-costs-title`
+  both deliberately use small negative bottom margins — don't "fix" those without reason).
 
 ## Testing / dev workflow
 

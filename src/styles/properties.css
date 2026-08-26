@@ -5,6 +5,18 @@
   .home-block:last-child{ margin-bottom:0; }
   .home-block.is-active{ border-color: var(--brass); box-shadow: 0 0 0 1px var(--brass); }
   .home-block-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; flex-wrap:wrap; }
+  /* Scoped to .home-block specifically — .home-block-head/-left are, confusingly, also reused
+     as plain (non-interactive) class names for Properties' own card header, which has no collapse
+     concept at all. A bare .home-block-head selector here would put a misleading pointer
+     cursor/hover on Properties' cards too. */
+  .home-block > .home-block-head{ cursor:pointer; border-radius:8px; transition: background-color .15s ease; }
+  .home-block > .home-block-head:hover{ background: var(--paper-raised); }
+  .home-block > .home-block-head:focus-visible{ outline:none; box-shadow: var(--focus-ring); }
+  /* The nested rename/delete/set-active buttons keep their own pointer cursor and hover — this
+     just makes the rest of the row (name, dot, total, blank space) clickable too, matching the
+     "click anywhere on the row" pattern every Modern-mode list uses elsewhere in the app, which
+     this outer scenario-block collapse was the one holdout not following. */
+  .home-block > .home-block-head button{ cursor:pointer; }
   .home-block-head-left{ display:flex; align-items:center; gap:8px; min-width:0; flex-wrap:wrap; row-gap:6px; }
   .home-block-head h4{ margin:0; font-size:14px; font-weight:600; display:flex; align-items:center; gap:8px; min-width:0; max-width:100%; }
   .home-block-head h4 input, .home-block-head h4 select{ min-width:0; }
@@ -101,7 +113,7 @@
   }
 
   .calc-outputs-label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; margin:-2px 0 -4px; }
-  .home-recurring-label{ font-size:12.5px; text-transform:uppercase; letter-spacing:.03em; color: var(--ink-soft); font-weight:600; margin:2px 0 2px; }
+  .home-recurring-label{ font-size:12.5px; text-transform:uppercase; letter-spacing:.03em; color: var(--ink-soft); font-weight:600; margin:2px 0 10px; }
   .home-recon-line{ margin-bottom:10px; }
   .calc-outputs{
     display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px 16px;
@@ -153,5 +165,8 @@
   .prop-loans-table .loan-repay-mode{ width:74px; }
   .prop-loans-table .loan-manual-amount{ width:80px; }
   .prop-loans-table .loan-repayment-cell{ min-width:130px; }
-  .calc-note{ font-size:11px; color: var(--ink-soft); line-height:1.5; }
+  /* .calc-body is a flex column with its own gap:14px between every child — this is the one
+     child (a <p>) that still had the browser's default paragraph margin, stacking an extra ~11px
+     on top of that gap instead of relying on it like every sibling here does. */
+  .calc-note{ font-size:11px; color: var(--ink-soft); line-height:1.5; margin:0; }
   .calc-help{ color: var(--ink-soft); font-size:11px; }

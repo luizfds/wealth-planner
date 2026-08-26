@@ -11,6 +11,13 @@ export function sacrificeLabelToMode(label){ return label === "Sacrifice %" ? "p
 export var ASSET_CATEGORIES = ["Cash", "Shares", "Super", "Vehicle", "Other"];
 export var LIQUID_CATEGORIES = ["Cash", "Shares"];
 export var SHARE_MARKETS = ["ASX", "US"];
+export var PURCHASE_STATE_CODES = ["NSW", "VIC", "Other"];
+
+// Long-run compound annual growth in established house prices, 1980-2022 (Landmark
+// Valuations analysis of ABS/state-government median price series). These are historical
+// averages for context, not a forecast — past growth doesn't predict future growth, which
+// is why this is only ever a suggested starting point the user can override per scenario.
+export var STATE_GROWTH_RATES = { NSW: 6.8, VIC: 7.2, Other: 6.4 };
 
 export var HOME_CATEGORIES = ["Rent / Home Loan", "Home Insurance", "Council Rates", "Water & Wastewater", "Property Maintenance"];
 

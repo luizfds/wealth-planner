@@ -416,6 +416,7 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     else if(t.classList.contains("calc-fhb")) cfg.firstHomeBuyer = t.checked;
     else if(t.classList.contains("calc-sync")) cfg.syncRepayment = t.checked;
     else if(t.classList.contains("calc-repaymenttype")) cfg.repaymentType = t.value;
+    else if(t.classList.contains("calc-lmi-capitalize")) cfg.lmiCapitalized = t.checked;
     else return;
 
     recalcComputedItems();

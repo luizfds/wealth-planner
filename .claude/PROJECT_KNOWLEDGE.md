@@ -476,15 +476,26 @@ be reverted without touching the others.
 - **LMI** (`calc/property.js: calcLMI`, `constants.js: LMI_BANDS`) is an indicative flat-band
   estimate — real premiums are lender/insurer-specific. Mechanically correct: `0` at ≤80% LVR,
   tiered by LVR band above that, calculated on the *loan amount* (matching real-world convention,
-  not the property price). One real modeling choice worth knowing if asked "is this right": LMI
-  is added to `upfrontCash` as a cash cost due at settlement, **not capitalized into the loan** —
-  in practice most lenders default to capitalizing it (adding it to the loan balance and
-  repayments) rather than requiring extra cash on top, since requiring the cash defeats much of
-  the point of a low-deposit loan. This isn't a bug — it's a disclosed, consistent simplification
-  (the "Total upfront cash" tooltip literally says "deposit + stamp duty + LMI + other costs —
-  the cash you need available on settlement day") — but if the user asks for it to instead be
-  capitalized, that's a real scope decision (changes `loanAmount`/repayments, not just a label),
-  not a quick fix — confirm the direction before touching `recalcPurchase()`.
+  not the property price).
+- **LMI can be paid upfront (cash at settlement) or capitalized into the loan** — a per-scenario
+  toggle (`cfg.lmiCapitalized`, default `false` — unchanged behavior unless the user turns it on),
+  since real lenders default to capitalizing it (adding it to the loan balance/repayments) rather
+  than requiring cash on top, which defeats much of the point of a low-deposit loan; the app
+  originally only modeled the upfront-cash path. `recalcPurchase()` in `calc/property.js` returns
+  both `loanAmount` (the base, pre-LMI figure — always what LVR is measured against, since real
+  lenders price the premium off the LVR *before* adding it, not after) and `loanBalance` (what
+  repayments are actually calculated on — equals `loanAmount` unless capitalized, in which case
+  it's `loanAmount + lmi`). `upfrontCash` excludes `lmi` when capitalized. UI elements affected by
+  this toggle (`[data-out="lmicapwrap"]` the checkbox itself, `[data-out="loanlmicap"]` the "+ $X
+  capitalized = $Y" note under Loan amount, `[data-out="upfrontwrap"]`'s tooltip) are **always
+  rendered, visibility toggled via inline `style.display`, not conditionally omitted from the
+  initial HTML** — deliberately, so `patchCalcOutputs()` (the per-keystroke patch path used while
+  typing Price/Deposit — see the "scoped-rebuild" pattern in the Modern-mode section below) can
+  show/hide them live as LVR crosses the 80% threshold, without needing a full `renderHomeBody()`
+  that would drop focus mid-keystroke. Don't use the `hidden` attribute for this kind of
+  toggle-by-JS visibility here — `.calc-check-inline`/`.calc-out` both set their own `display`,
+  which (per the root CLAUDE.md's `[hidden]` gotcha) silently wins over the browser's built-in
+  `[hidden]{display:none}` regardless of specificity.
 - **Transfer Fee / Mortgage Registration Fee** (`constants.js: TRANSFER_FEE_BY_STATE`,
   `MORTGAGE_REG_FEE_BY_STATE`) — flat statutory land-registry lodgement fees, NSW/VIC-precise same
   scope as stamp duty, `Other` a generic estimate. Unlike every other `otherCosts` row (which are

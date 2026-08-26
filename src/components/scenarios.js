@@ -232,12 +232,16 @@ function renderPurchasePanelHtml(scenario){
         '</div>' +
         '<div class="calc-outputs-label">At settlement — one-off</div>' +
         '<div class="calc-outputs">' +
-          '<div class="calc-out"><span>Loan amount</span><b data-out="loan">' + fmtCurrency0.format(out.loanAmount) + '</b></div>' +
+          '<div class="calc-out"><span>Loan amount</span><b data-out="loan">' + fmtCurrency0.format(out.loanAmount) + '</b>' +
+            '<small data-out="loanlmicap" style="font-weight:400;font-size:10.5px;color:var(--ink-soft)' + (out.lmiCapitalized && out.lmi > 0 ? '' : ';display:none') + '">+ ' + fmtCurrency0.format(out.lmi) + ' capitalized LMI = ' + fmtCurrency0.format(out.loanBalance) + '</small>' +
+          '</div>' +
           '<div class="calc-out" title="Loan amount ÷ property price. Above 80% usually triggers Lenders Mortgage Insurance (LMI) below."><span>LVR</span><b data-out="lvr">' + fmtPercent1.format(out.lvr) + '</b></div>' +
           '<div class="calc-out"><span>Stamp duty' + (out.stampDuty === null ? " (enter manually)" : "") + '</span><b data-out="stampduty">' + stampDutyHtml + '</b></div>' +
-          '<div class="calc-out" title="Lenders Mortgage Insurance — a one-off premium lenders charge when your deposit is under 20% (LVR over 80%), protecting the lender, not you. $0 below 80% LVR."><span>LMI (estimate)</span><b data-out="lmi">' + fmtCurrency0.format(out.lmi) + '</b></div>' +
+          '<div class="calc-out" title="Lenders Mortgage Insurance — a one-off premium lenders charge when your deposit is under 20% (LVR over 80%), protecting the lender, not you. $0 below 80% LVR."><span>LMI (estimate)</span><b data-out="lmi">' + fmtCurrency0.format(out.lmi) + '</b>' +
+            '<label class="calc-check-inline" data-out="lmicapwrap" style="margin-top:4px;font-size:11px;padding:3px 6px' + (out.lmi > 0 ? '' : ';display:none') + '"><span class="switch" style="width:26px;height:15px"><input type="checkbox" class="calc-lmi-capitalize"' + (out.lmiCapitalized ? " checked" : "") + '><span class="switch-track"><span class="switch-thumb" style="width:11px;height:11px"></span></span></span> Capitalize into loan <span class="calc-help" title="Add the LMI premium to your loan balance instead of paying it as cash at settlement — increases your loan amount and repayments, but reduces the cash you need on hand. Most lenders default to this.">ⓘ</span></label>' +
+          '</div>' +
           '<div class="calc-out"><span>Other costs</span><b data-out="othercosts">' + fmtCurrency0.format(out.otherTotal) + '</b></div>' +
-          '<div class="calc-out emph" title="Deposit + stamp duty + LMI + other costs — the cash you need available on settlement day."><span>Total upfront cash</span><b data-out="upfront">' + fmtCurrency0.format(out.upfrontCash) + '</b></div>' +
+          '<div class="calc-out emph" data-out="upfrontwrap" title="Deposit + stamp duty + other costs' + (out.lmiCapitalized ? " — LMI is capitalized into the loan, not paid as cash" : " + LMI") + ' — the cash you need available on settlement day."><span>Total upfront cash</span><b data-out="upfront">' + fmtCurrency0.format(out.upfrontCash) + '</b></div>' +
         '</div>' +
         '<div class="calc-outputs-label">Ongoing — per month · compare repayment options</div>' +
         '<div class="calc-outputs">' +
@@ -311,6 +315,23 @@ export function patchCalcOutputs(panel, scenario){
   setOut("repaymentpi", fmtCurrency0.format(out.repaymentMonthlyPI) + "/mo");
   setOut("repaymentio", fmtCurrency0.format(out.repaymentMonthlyIO) + "/mo");
   setOut("deposit", fmtCurrency0.format(out.depositAmt));
+  // These three toggle visibility as LMI crosses in/out of applying (e.g. typing a price/deposit
+  // that pushes LVR over 80%) — always present in the markup (see renderHomeBody) specifically so
+  // this per-keystroke patch can show/hide them without a full re-render, which would drop focus
+  // mid-keystroke on whichever field the user is actually typing in.
+  var lmiCapWrap = panel.querySelector('[data-out="lmicapwrap"]');
+  if(lmiCapWrap){
+    lmiCapWrap.style.display = out.lmi > 0 ? "" : "none";
+    var lmiCapInput = lmiCapWrap.querySelector(".calc-lmi-capitalize");
+    if(lmiCapInput) lmiCapInput.checked = out.lmiCapitalized;
+  }
+  var loanLmiCap = panel.querySelector('[data-out="loanlmicap"]');
+  if(loanLmiCap){
+    loanLmiCap.style.display = out.lmiCapitalized && out.lmi > 0 ? "" : "none";
+    loanLmiCap.textContent = "+ " + fmtCurrency0.format(out.lmi) + " capitalized LMI = " + fmtCurrency0.format(out.loanBalance);
+  }
+  var upfrontWrap = panel.querySelector('[data-out="upfrontwrap"]');
+  if(upfrontWrap) upfrontWrap.title = "Deposit + stamp duty + other costs" + (out.lmiCapitalized ? " — LMI is capitalized into the loan, not paid as cash" : " + LMI") + " — the cash you need available on settlement day.";
   var barWrap = panel.querySelector(".m-cost-rows [data-comp-bar]");
   if(barWrap) barWrap.outerHTML = modernCostCompBarHtml(costRowMeta(state.purchase[scenario]));
 }

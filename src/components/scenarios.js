@@ -1,7 +1,7 @@
-import { state, persist, defaultHomeBlock, defaultPurchaseConfig } from "../state.js";
-import { PURCHASE_STATE_CODES, STATE_GROWTH_RATES, PERIODS } from "../constants.js";
+import { state, persist, defaultHomeBlock, defaultPurchaseConfig, defaultInvestConfig } from "../state.js";
+import { PURCHASE_STATE_CODES, STATE_GROWTH_RATES, PERIODS, INVEST_LEG_TYPES } from "../constants.js";
 import { recalcPurchase } from "../calc/property.js";
-import { recalcComputedItems } from "../calc/engine.js";
+import { recalcComputedItems, scenarioTotals } from "../calc/engine.js";
 import { periodsOf, sumField } from "../calc/ledger.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
 import { escapeAttr, slug } from "../lib/html.js";
@@ -29,6 +29,7 @@ export function addScenario(){
   state.scenarios.push(name);
   state.home[name] = defaultHomeBlock();
   state.purchase[name] = defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", true);
+  state.invest[name] = defaultInvestConfig();
   state.activeScenario = name;
   persist();
   renderCards();
@@ -51,7 +52,15 @@ export function renameScenario(oldName){
   delete state.home[oldName];
   state.purchase[name] = state.purchase[oldName];
   delete state.purchase[oldName];
+  state.invest[name] = state.invest[oldName];
+  delete state.invest[oldName];
   if(state.activeScenario === oldName) state.activeScenario = name;
+  if(state.baselineScenario === oldName) state.baselineScenario = name;
+  state.shared.forEach(function(item){
+    if(!item.scenarioOverrides || !(oldName in item.scenarioOverrides)) return;
+    item.scenarioOverrides[name] = item.scenarioOverrides[oldName];
+    delete item.scenarioOverrides[oldName];
+  });
   persist();
   renderCards();
   renderDetail();
@@ -61,10 +70,15 @@ export function renameScenario(oldName){
 
 export function deleteScenario(name){
   if(state.scenarios.length <= 1){ showToast("You need at least one scenario"); return; }
+  if(name === state.baselineScenario){ showToast('"' + name + '" is your Current situation baseline and can\'t be deleted — rename it instead if you want to reuse the slot.'); return; }
   if(!confirm('Delete "' + name + '"? This removes its home-cost inputs.')) return;
   state.scenarios = state.scenarios.filter(function(s){ return s !== name; });
   delete state.home[name];
   delete state.purchase[name];
+  delete state.invest[name];
+  state.shared.forEach(function(item){
+    if(item.scenarioOverrides) delete item.scenarioOverrides[name];
+  });
   if(state.activeScenario === name) state.activeScenario = state.scenarios[0];
   persist();
   renderCards();
@@ -134,6 +148,7 @@ export function renderHomeBody(){
   });
   body.innerHTML = state.scenarios.map(function(scenario, i){
     var isActive = state.activeScenario === scenario;
+    var isBaseline = state.baselineScenario === scenario;
     var isCollapsed = !!homeBlockCollapsed[scenario];
     var total = sumField(state.home[scenario], "monthly");
     return '<div class="home-block' + (isActive ? " is-active" : "") + (isCollapsed ? " is-collapsed" : "") + '">' +
@@ -141,6 +156,7 @@ export function renderHomeBody(){
         '<div class="home-block-head-left">' +
           '<span class="icon-btn home-collapse-toggle" aria-hidden="true"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg></span>' +
           '<span class="home-dot"></span><h4>' + escapeAttr(scenario) + '</h4>' +
+          (isBaseline ? '<span class="home-baseline-badge" title="Your current, real-life situation — kept as the fixed baseline every other scenario is compared against">Current situation</span>' : "") +
           (isActive
             ? '<span class="home-active-badge" title="This is the scenario shown on the Dashboard and compared against the others">Active on Dashboard</span>'
             : '<button type="button" class="home-setactive-btn" data-edit-scenario2="' + escapeAttr(scenario) + '" title="Make this the scenario shown on the Dashboard">Set active</button>') +
@@ -149,11 +165,12 @@ export function renderHomeBody(){
           '<span class="home-block-total-label">Home cost</span>' +
           '<span class="home-block-total">' + fmtCurrency0.format(total) + ' / mo</span>' +
           '<button type="button" class="icon-btn" data-rename="' + escapeAttr(scenario) + '" aria-label="Rename ' + escapeAttr(scenario) + '" title="Rename">✎</button>' +
-          (canDelete ? '<button type="button" class="icon-btn icon-del" data-delete="' + escapeAttr(scenario) + '" aria-label="Delete ' + escapeAttr(scenario) + '" title="Delete">✕</button>' : "") +
+          (canDelete && !isBaseline ? '<button type="button" class="icon-btn icon-del" data-delete="' + escapeAttr(scenario) + '" aria-label="Delete ' + escapeAttr(scenario) + '" title="Delete">✕</button>' : "") +
         '</div>' +
       '</div>' +
       '<div class="home-block-body">' +
         renderPurchasePanelHtml(scenario) +
+        renderInvestPanelHtml(scenario) +
         '<div class="home-recurring-label">Recurring costs — per month</div>' +
         '<p class="income-summary-line home-recon-line">' + homeReconciliationHtml(scenario) + '</p>' +
         (state.uiMode === "modern"
@@ -265,6 +282,52 @@ function renderPurchasePanelHtml(scenario){
       body +
     '</div>'
   );
+}
+
+function investResolvedMonthlyLabel(scenario, cfg){
+  if(cfg.contributionMode === "manual") return fmtCurrency0.format(Number(cfg.monthlyContribution) || 0) + "/mo (manual)";
+  // "Auto" mirrors computeNetWorthSeries()'s own definition: this scenario's actual monthly
+  // cash-flow surplus today, redirected into this leg instead of the generic portfolio rate.
+  // It's a today snapshot for display — the engine re-derives it fresh every projected year as
+  // income/expenses change, this just previews what it currently resolves to.
+  return fmtCurrency0.format(scenarioTotals(scenario).netMonthly) + "/mo today (auto — updates as income/expenses change)";
+}
+
+function renderInvestPanelHtml(scenario){
+  var cfg = state.invest[scenario];
+  if(!cfg) return "";
+  var enabled = !!cfg.enabled;
+  var body = "";
+  if(enabled){
+    var typeOptions = INVEST_LEG_TYPES.map(function(t){
+      return '<option value="' + t.key + '"' + (t.key === cfg.assetType ? " selected" : "") + '>' + escapeAttr(t.label) + '</option>';
+    }).join("");
+    body =
+      '<div class="calc-body">' +
+        '<div class="calc-grid">' +
+          '<div class="calc-field"><label>Invest in</label><select class="invest-assettype">' + typeOptions + '</select></div>' +
+          '<div class="calc-field"><label>Starting amount</label><input type="number" step="100" min="0" class="invest-initial" value="' + cfg.initialAmount + '"></div>' +
+          '<div class="calc-field"><label>Growth % p.a.</label><input type="number" step="0.1" class="invest-growth" value="' + cfg.growthRatePct + '"></div>' +
+          '<div class="calc-field"><label>Monthly contribution</label><select class="invest-contribmode"><option value="auto"' + (cfg.contributionMode !== "manual" ? " selected" : "") + '>Auto — freed-up cash flow</option><option value="manual"' + (cfg.contributionMode === "manual" ? " selected" : "") + '>Manual amount</option></select></div>' +
+          (cfg.contributionMode === "manual" ? '<div class="calc-field"><label>Manual amount / mo</label><input type="number" step="10" min="0" class="invest-manual-amount" value="' + cfg.monthlyContribution + '"></div>' : "") +
+        '</div>' +
+        '<p class="calc-note" data-invest-resolved>Monthly contribution used in the projection: <b>' + investResolvedMonthlyLabel(scenario, cfg) + '</b></p>' +
+        '<p class="calc-note">A simple alternative to buying: your starting amount plus the monthly contribution above, compounding at the growth rate you set — no loan, stamp duty, or property math. "Auto" keeps this honestly comparable to a purchase scenario by using whatever this scenario\'s own cash flow actually frees up; switch to Manual to test a fixed contribution instead.</p>' +
+      '</div>';
+  }
+  return (
+    '<div class="calc-panel" data-invest-scenario="' + escapeAttr(scenario) + '">' +
+      '<label class="calc-enable"><span class="switch"><input type="checkbox" class="invest-enabled"' + (enabled ? " checked" : "") + '><span class="switch-track"><span class="switch-thumb"></span></span></span> Investing instead of buying — show the calculator</label>' +
+      body +
+    '</div>'
+  );
+}
+
+export function patchInvestOutputs(panel, scenario){
+  var cfg = state.invest[scenario];
+  if(!cfg) return;
+  var noteB = panel.querySelector("[data-invest-resolved] b");
+  if(noteB) noteB.textContent = investResolvedMonthlyLabel(scenario, cfg);
 }
 
 export function renderHomeBodyTotalsOnly(){

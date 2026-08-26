@@ -21,6 +21,15 @@ export var STATE_GROWTH_RATES = { NSW: 6.8, VIC: 7.2, Other: 6.4 };
 
 export var HOME_CATEGORIES = ["Rent / Home Loan", "Home Insurance", "Council Rates", "Water & Wastewater", "Property Maintenance"];
 
+// A scenario's alternative to buying a property: put the money into one of these instead.
+// defaultGrowthRate is just a starting-point suggestion (prefilled the same way
+// STATE_GROWTH_RATES prefills the purchase calculator) — not a forecast, fully editable.
+export var INVEST_LEG_TYPES = [
+  { key: "Shares", label: "Shares / ETFs", defaultGrowthRate: 8 },
+  { key: "Crypto", label: "Crypto", defaultGrowthRate: 12 },
+  { key: "Other", label: "Other investment", defaultGrowthRate: 6 }
+];
+
 // ATO Maximum Super Contribution Base — the annual ordinary-time-earnings ceiling above which
 // employer SG isn't compulsory. A single annual figure under the "Payday Super" reform effective
 // 1 July 2026; indexed each financial year, so revisit this each July.

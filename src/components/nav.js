@@ -1,4 +1,5 @@
 import { renderDashboardStats } from "./dashboard.js";
+import { closeScenarioOverridePanel } from "./expenses.js";
 
 // ---------------- Page navigation ----------------
 var PAGES = [
@@ -52,6 +53,10 @@ export function showPage(id, opts){
   if(!PAGES.some(function(p){ return p.id === id; })) id = "dashboard";
 
   function applyPageChange(){
+    // The per-scenario expense override panel (Expenses page) is a fixed-position overlay
+    // appended outside any .app-page section, so it would otherwise stay visible on top of
+    // whatever page the user navigates to next.
+    closeScenarioOverridePanel();
     PAGES.forEach(function(p){
       var section = document.getElementById("page-" + p.id);
       if(section) section.hidden = (p.id !== id);

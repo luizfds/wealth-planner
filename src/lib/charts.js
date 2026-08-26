@@ -37,13 +37,36 @@ export function renderLineChart(container, series, opts){
   var wrap = document.createElement("div");
   wrap.className = "proj-chart-wrap";
 
+  // Session-only (not persisted) — which series are hidden via the legend toggle below.
+  // Axis scale stays fixed to all series' data regardless of what's toggled off, so hiding a
+  // line never rescales/jumps the chart; only that line's path/dot/tooltip row disappear.
+  var hiddenIdx = {};
+
   if(validSeries.length > 1 || opts.alwaysLegend){
     var legend = document.createElement("div");
     legend.className = "proj-legend";
-    validSeries.forEach(function(s){
+    validSeries.forEach(function(s, idx){
       var item = document.createElement("div");
-      item.className = "proj-legend-item";
+      item.className = "proj-legend-item" + (opts.interactiveLegend ? " proj-legend-item-toggle" : "");
       item.innerHTML = '<span class="proj-swatch ' + s.colorClass + '"></span><b>' + escapeAttr(s.label) + '</b>';
+      if(opts.interactiveLegend){
+        item.setAttribute("role", "button");
+        item.setAttribute("tabindex", "0");
+        item.setAttribute("aria-pressed", "true");
+        item.title = "Click to hide/show this line on the chart";
+        var toggle = function(){
+          hiddenIdx[idx] = !hiddenIdx[idx];
+          var isHidden = !!hiddenIdx[idx];
+          item.classList.toggle("is-hidden", isHidden);
+          item.setAttribute("aria-pressed", isHidden ? "false" : "true");
+          var line = svg.querySelector('[data-series-idx="' + idx + '"].series-line');
+          var dot = svg.querySelector('[data-series-idx="' + idx + '"].series-dot');
+          if(line) line.style.display = isHidden ? "none" : "";
+          if(dot) dot.style.display = isHidden ? "none" : "";
+        };
+        item.addEventListener("click", toggle);
+        item.addEventListener("keydown", function(e){ if(e.key === "Enter" || e.key === " "){ e.preventDefault(); toggle(); } });
+      }
       legend.appendChild(item);
     });
     wrap.appendChild(legend);
@@ -75,11 +98,11 @@ export function renderLineChart(container, series, opts){
     svg.appendChild(xlbl);
   }
 
-  validSeries.forEach(function(s){
-    var d = s.points.map(function(p, idx){ return (idx === 0 ? "M" : "L") + xScale(p.x).toFixed(1) + "," + yScale(p.y).toFixed(1); }).join(" ");
-    svg.appendChild(svgEl("path", { d: d, class: "series-line " + s.colorClass }));
+  validSeries.forEach(function(s, idx){
+    var d = s.points.map(function(p, pidx){ return (pidx === 0 ? "M" : "L") + xScale(p.x).toFixed(1) + "," + yScale(p.y).toFixed(1); }).join(" ");
+    svg.appendChild(svgEl("path", { d: d, class: "series-line " + s.colorClass, "data-series-idx": idx }));
     var last = s.points[s.points.length - 1];
-    svg.appendChild(svgEl("circle", { cx: xScale(last.x), cy: yScale(last.y), r: 3.5, class: "series-dot " + s.colorClass }));
+    svg.appendChild(svgEl("circle", { cx: xScale(last.x), cy: yScale(last.y), r: 3.5, class: "series-dot " + s.colorClass, "data-series-idx": idx }));
   });
 
   var crosshair = svgEl("line", { y1: padT, y2: H - padB, class: "proj-crosshair", visibility: "hidden" });
@@ -113,7 +136,8 @@ export function renderLineChart(container, series, opts){
     var xPix = xScale(xVal);
     crosshair.setAttribute("x1", xPix); crosshair.setAttribute("x2", xPix);
     crosshair.setAttribute("visibility", "visible");
-    var rows = validSeries.map(function(s){
+    var rows = validSeries.map(function(s, sidx){
+      if(hiddenIdx[sidx]) return "";
       var pt = s.points[idx] || s.points[s.points.length - 1];
       return '<div class="viz-tooltip-row"><span class="proj-swatch ' + s.colorClass + '"></span>' + escapeAttr(s.label) + ': <b>' + (opts.yFormat ? opts.yFormat(pt.y) : Math.round(pt.y)) + '</b></div>';
     }).join("");

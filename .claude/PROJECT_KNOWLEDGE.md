@@ -415,6 +415,35 @@ be reverted without touching the others.
   the mobile `.app-sidebar` (the actual top-of-viewport sticky element) so its content clears the
   now-transparent status bar/notch — verified this doesn't change anything on a non-notched
   device (`env()` resolves to `0`, so it's the exact same `10px` as before).
+- **App mark redesign — ascending bars, not a "W" lettermark**: the mark now used everywhere
+  (favicon, `.app-brand-mark` in the sidebar, all PWA icons, the iOS launch screens) is three
+  bars of increasing height, not text. Reason: a bold letter rendered via a system font (Arial,
+  as the original favicon did) doesn't stay crisp at every size the same way a few solid
+  rectangles do — the bars read clearly even at a 16px favicon. Colors are three blue tones
+  (`#bfdbfe`/`#93c5fd`/`#ffffff`) on the `--brass` (`#3b82f6`) background, same brand blue as
+  everywhere else in the app. Four concepts (this one, a redrawn "W" path, a "W" drawn as a
+  growth-line zigzag, and a "W" inside a coin ring) were rendered and shown side by side before
+  the user picked this one — a brand decision, not something to have guessed at silently.
+  `.app-brand-mark`'s CSS still provides the rounded-blue-square *container* (`background:
+  var(--brass)`); only the glyph inside changed from a text node to an inline `<svg>` with just
+  the three bars (no background rect — the container already draws that), so the sidebar mark and
+  the standalone icon assets share the same bar geometry without duplicating the background.
+- **In-app animated loading screen** (`#appLoading` in `index.html`, hidden by a hook at the end
+  of `app.js`'s init IIFE): distinct from — and the *only* animatable option, given — the native
+  OS-level PWA splash/launch screen, which is a static image the OS paints before a single byte of
+  this app's JS or CSS has run and **cannot** be animated by any web-standard mechanism. This is a
+  separate, in-page overlay: the same bars mark, each bar pulsing on a staggered
+  `scaleY`/`transform-origin:bottom` loop (grows from the ground up, like a mini bar chart
+  animating in), that the page paints immediately and `app.js` fades out and removes once
+  `renderAll()`/`showPage()` have actually finished building the real UI — not on a fixed timer,
+  so it's up for exactly as long as the real init takes and no artificial delay is ever added.
+  **Its CSS is inline in `index.html`, not in `styles.css`/`src/styles/*.css`** — deliberately:
+  it has to be visible before the external stylesheet's 8-file `@import` chain (a separate network
+  round-trip) resolves, or there's nothing to show during precisely the gap it exists to cover.
+  Respects `prefers-reduced-motion` (animation removed entirely, not just shortened). Verified with
+  a CDP-throttled-network Playwright test (`Network.emulateNetworkConditions`) that actually catches
+  the overlay mid-animation with `opacity:1`, not just by reading the code and assuming the timing
+  works out — a fast local `http.server` load is too quick to ever observe this any other way.
 
 ## Business-logic assumptions (all approximate — the app says so in-UI, keep it that way)
 

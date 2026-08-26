@@ -415,35 +415,46 @@ be reverted without touching the others.
   the mobile `.app-sidebar` (the actual top-of-viewport sticky element) so its content clears the
   now-transparent status bar/notch — verified this doesn't change anything on a non-notched
   device (`env()` resolves to `0`, so it's the exact same `10px` as before).
-- **App mark redesign — ascending bars, not a "W" lettermark**: the mark now used everywhere
-  (favicon, `.app-brand-mark` in the sidebar, all PWA icons, the iOS launch screens) is three
-  bars of increasing height, not text. Reason: a bold letter rendered via a system font (Arial,
-  as the original favicon did) doesn't stay crisp at every size the same way a few solid
-  rectangles do — the bars read clearly even at a 16px favicon. Colors are three blue tones
-  (`#bfdbfe`/`#93c5fd`/`#ffffff`) on the `--brass` (`#3b82f6`) background, same brand blue as
-  everywhere else in the app. Four concepts (this one, a redrawn "W" path, a "W" drawn as a
-  growth-line zigzag, and a "W" inside a coin ring) were rendered and shown side by side before
-  the user picked this one — a brand decision, not something to have guessed at silently.
-  `.app-brand-mark`'s CSS still provides the rounded-blue-square *container* (`background:
-  var(--brass)`); only the glyph inside changed from a text node to an inline `<svg>` with just
-  the three bars (no background rect — the container already draws that), so the sidebar mark and
-  the standalone icon assets share the same bar geometry without duplicating the background.
+- **App mark redesign — geometric "W", not a system-font letter (went through two rounds)**:
+  round 1 shipped three ascending bars (no letterform at all); the user tried it live and called
+  it "not good enough, a bit ugly," so it was replaced, not patched. Round 2 rendered five fresh
+  concepts (pill-shaped bars on a gradient, a bold up-arrow, a coin-with-arrow, this geometric W,
+  and a flat-color bars variant) — the user picked the geometric W. It's a hand-drawn path (`M8 11
+  L11.5 21 L16 14 L20.5 21 L24 11`, one continuous stroke, `stroke-width:3`, round caps/joins), not
+  a font character — the whole reason the very first version (pre-any-redesign, an Arial "W" text
+  node) needed replacing at all was that a system font doesn't stay crisp/consistent at every icon
+  size, and a custom-drawn path does. Applied identically everywhere: favicon, `.app-brand-mark`
+  (sidebar — the `<span>` still provides the rounded-blue-square *container* via
+  `background:var(--brass)`; only the inline `<svg>` glyph inside changed), all PWA icons, the iOS
+  launch screens, and `#appLoading` (below). **Takeaway for next time a shipped design gets
+  rejected**: don't iterate on the same concept — render several genuinely different directions
+  side by side and let the user pick, same as both rounds here did.
 - **In-app animated loading screen** (`#appLoading` in `index.html`, hidden by a hook at the end
   of `app.js`'s init IIFE): distinct from — and the *only* animatable option, given — the native
   OS-level PWA splash/launch screen, which is a static image the OS paints before a single byte of
   this app's JS or CSS has run and **cannot** be animated by any web-standard mechanism. This is a
-  separate, in-page overlay: the same bars mark, each bar pulsing on a staggered
-  `scaleY`/`transform-origin:bottom` loop (grows from the ground up, like a mini bar chart
-  animating in), that the page paints immediately and `app.js` fades out and removes once
-  `renderAll()`/`showPage()` have actually finished building the real UI — not on a fixed timer,
-  so it's up for exactly as long as the real init takes and no artificial delay is ever added.
-  **Its CSS is inline in `index.html`, not in `styles.css`/`src/styles/*.css`** — deliberately:
-  it has to be visible before the external stylesheet's 8-file `@import` chain (a separate network
-  round-trip) resolves, or there's nothing to show during precisely the gap it exists to cover.
-  Respects `prefers-reduced-motion` (animation removed entirely, not just shortened). Verified with
-  a CDP-throttled-network Playwright test (`Network.emulateNetworkConditions`) that actually catches
-  the overlay mid-animation with `opacity:1`, not just by reading the code and assuming the timing
-  works out — a fast local `http.server` load is too quick to ever observe this any other way.
+  separate, in-page overlay: the same W mark, animated as a continuously-traveling dash along the
+  path (`stroke-dasharray: 12 26` — a 12-long visible segment, everything else gap — animating
+  `stroke-dashoffset` linearly to `-38`, looping), like the line is perpetually being drawn. The
+  page paints it immediately and `app.js` fades it out once `renderAll()`/`showPage()` have
+  actually finished building the real UI — not on a fixed timer, so it's up for exactly as long as
+  real init takes and no artificial delay is ever added. **Its CSS is inline in `index.html`, not
+  in `styles.css`/`src/styles/*.css`** — deliberately: it has to be visible before the external
+  stylesheet's 8-file `@import` chain (a separate network round-trip) resolves, or there's nothing
+  to show during precisely the gap it exists to cover. Respects `prefers-reduced-motion`
+  (`stroke-dasharray: none` — full solid mark, no animation at all, not just a shorter one).
+  **Real dash-animation bug caught only by looking at a mid-animation screenshot, not by reading
+  the code**: the first attempt used `stroke-dasharray: 40` (roughly the ~37.8-long path, dash =
+  gap = 40) with a `0 → 0 → ±40` back-and-forth keyframe. At exactly `dashoffset: 40` — precisely
+  one full dash-cycle — the pattern shifts by exactly one dash-width, which lands the *entire*
+  path inside the gap phase: the mark blinks completely invisible at both animation extremes, only
+  briefly visible near the 50% keyframe. Code review alone wouldn't catch this (the logic "looks"
+  right); a CDP-throttled-network Playwright test (`Network.emulateNetworkConditions`) sampling
+  several real frames mid-animation showed a plain blue square with no mark at all. Fixed with the
+  shorter-dash-longer-gap "traveling segment" pattern described above, which is never fully hidden
+  by construction (the dash is always shorter than the full path, so some part of it is always
+  within the path's length) — the general lesson: verify a CSS animation by actually sampling
+  frames of it, not by eyeballing the keyframe math.
 
 ## Business-logic assumptions (all approximate — the app says so in-UI, keep it that way)
 

@@ -1,11 +1,12 @@
 import { state } from "../state.js";
 import { CLASSES } from "../constants.js";
-import { sumField } from "../calc/ledger.js";
+import { sumField, resolveSharedAmount } from "../calc/ledger.js";
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
-import { fmtCurrency0, fmtPercent1 } from "../lib/format.js";
+import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { syncUiModeToggle } from "../lib/uimode.js";
 import { buildTable, modernPlainRowHtml } from "../lib/ledger-table.js";
+import { showToast } from "../lib/toast.js";
 
 function sharedGroupOrder(){
   return CLASSES.filter(function(cls){
@@ -74,6 +75,7 @@ function renderSharedGroupsClassic(){
   groups.forEach(function(g, gi){
     buildTable(document.getElementById("sharedGroupTable" + gi), "shared", g.items, {showClass:true, hideAcctToggle:true, hideClassToggle:true}, g.indices);
   });
+  injectScenarioOverrideButtons();
 }
 
 // Needs/Wants/Savings already carry fixed colors everywhere else in the app (the Dashboard's
@@ -119,6 +121,98 @@ function renderSharedGroupsModern(){
       '<button type="button" class="m-add-row" data-add="shared:' + escapeAttr(g.key) + '">+ Add expense</button>' +
     '</div>';
   }).join("") + '</div>';
+  injectScenarioOverrideButtons();
+}
+
+// Only state.shared rows get a "vary by scenario" action — income/home/property rows use the
+// same generic rowHtml()/modernPlainRowHtml() but have no scenarioOverrides concept, so this is
+// a post-render DOM patch scoped to #sharedGroups rather than a change to those shared
+// renderers (which would otherwise need to special-case every other section that reuses them).
+function injectScenarioOverrideButtons(){
+  document.querySelectorAll('#sharedGroups [data-section="shared"]').forEach(function(rowEl){
+    var idx = rowEl.getAttribute("data-index");
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn btn-ghost btn-sm";
+    btn.setAttribute("data-vary-scenario", idx);
+    var item = state.shared[Number(idx)];
+    var hasOverrides = !!(item && item.scenarioOverrides && Object.keys(item.scenarioOverrides).length);
+    btn.title = hasOverrides ? "Varies by scenario — click to edit" : "Set a different amount for one or more scenarios";
+    btn.textContent = hasOverrides ? "⇄ Varies" : "⇄";
+    var actionsHost = rowEl.querySelector(".m-edit-actions") || rowEl.querySelector("td:last-child");
+    if(actionsHost) actionsHost.insertBefore(btn, actionsHost.firstChild);
+  });
+}
+
+// Session-only (not persisted) — which state.shared index (if any) has its per-scenario
+// override panel open, mirrors homeBlockCollapsed/modernSharedRowOpen's pattern of session UI
+// state living as a plain exported var here, mutated from app.js's event handlers.
+export var scenarioOverrideOpenIdx = null;
+
+function scenarioOverridePanelHtml(idx){
+  var item = state.shared[idx];
+  if(!item) return "";
+  var baseLabel = fmtCurrency2.format(item.amount) + " " + item.freq;
+  var rows = state.scenarios.map(function(name){
+    var isBaseline = name === state.baselineScenario;
+    var hasOverride = !!(item.scenarioOverrides && item.scenarioOverrides[name] != null);
+    var value = resolveSharedAmount(item, name);
+    return '<div class="scen-override-row">' +
+      '<span class="scen-override-name">' + escapeAttr(name) +
+        (isBaseline ? ' <span class="home-baseline-badge">Current situation</span>' : '') + '</span>' +
+      '<input type="number" step="0.01" min="0" class="scen-override-input" data-override-scenario="' + escapeAttr(name) + '" value="' + value + '" aria-label="Amount for ' + escapeAttr(name) + '">' +
+      (hasOverride ? '<button type="button" class="icon-btn" data-override-reset="' + escapeAttr(name) + '" title="Use the shared amount instead">↺</button>' : '') +
+      '<button type="button" class="btn btn-ghost btn-sm" data-override-use-everywhere="' + escapeAttr(name) + '" title="Set this amount for every scenario, including Current situation">Use everywhere</button>' +
+    '</div>';
+  }).join("");
+  return '<div class="scen-override-backdrop" data-override-backdrop data-override-idx="' + idx + '">' +
+    '<div class="scen-override-panel" role="dialog" aria-label="Vary &quot;' + escapeAttr(item.what) + '&quot; by scenario">' +
+      '<div class="scen-override-head"><h4>Vary "' + escapeAttr(item.what) + '" by scenario</h4>' +
+        '<button type="button" class="icon-btn" data-override-close aria-label="Close">✕</button></div>' +
+      '<p class="scen-override-note">Shared amount (used by any scenario without its own value below): <b>' + baseLabel + '</b></p>' +
+      '<div class="scen-override-rows">' + rows + '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+export function openScenarioOverridePanel(idx){
+  scenarioOverrideOpenIdx = idx;
+  renderScenarioOverridePanel();
+}
+export function closeScenarioOverridePanel(){
+  scenarioOverrideOpenIdx = null;
+  var root = document.getElementById("scenarioOverrideRoot");
+  if(root) root.innerHTML = "";
+}
+export function renderScenarioOverridePanel(){
+  var root = document.getElementById("scenarioOverrideRoot");
+  if(!root) return;
+  if(scenarioOverrideOpenIdx == null || !state.shared[scenarioOverrideOpenIdx]){
+    scenarioOverrideOpenIdx = null;
+    root.innerHTML = "";
+    return;
+  }
+  root.innerHTML = scenarioOverridePanelHtml(scenarioOverrideOpenIdx);
+}
+
+export function setScenarioOverride(idx, scenarioName, amount){
+  var item = state.shared[idx];
+  if(!item) return;
+  if(!item.scenarioOverrides) item.scenarioOverrides = {};
+  item.scenarioOverrides[scenarioName] = amount;
+}
+export function resetScenarioOverride(idx, scenarioName){
+  var item = state.shared[idx];
+  if(!item || !item.scenarioOverrides) return;
+  delete item.scenarioOverrides[scenarioName];
+}
+export function copyScenarioAmountToAll(idx, scenarioName){
+  var item = state.shared[idx];
+  if(!item) return;
+  var value = resolveSharedAmount(item, scenarioName);
+  item.amount = value;
+  item.scenarioOverrides = {};
+  showToast('Set "' + item.what + '" to ' + fmtCurrency2.format(value) + ' for every scenario');
 }
 
 // Read-only mirror of each IP property's costs onto the Expenses page — same idea as the

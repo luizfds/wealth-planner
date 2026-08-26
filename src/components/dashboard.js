@@ -1,5 +1,5 @@
 import { state } from "../state.js";
-import { sumField, sumByClassification, sumByAccount, safeDiv } from "../calc/ledger.js";
+import { sumField, sumByClassification, sumByAccount, safeDiv, resolveSharedAmount } from "../calc/ledger.js";
 import { ipExpenseItemsForClassification } from "../calc/property.js";
 import { effectiveIncomeItems } from "../calc/tax.js";
 import { scenarioTotals, computeNetWorthSeries, totalNetWorthValue } from "../calc/engine.js";
@@ -74,7 +74,16 @@ export function renderDashboardStats(){
 export function renderDetail(){
   document.getElementById("activeLabel").textContent = state.activeScenario;
   var scenario = state.activeScenario;
-  var combined = ipExpenseItemsForClassification().concat(state.shared).concat(state.home[scenario]);
+  // state.shared items may carry a per-scenario override (see scenarioOverrides) — resolve
+  // each to its effective amount for the active scenario before this breakdown sums them, so
+  // the 50/30/20 bar and accounts list agree with what scenarioTotals()/computeNetWorthSeries()
+  // actually use for this scenario.
+  var sharedForScenario = state.shared.map(function(item){
+    return item.scenarioOverrides && item.scenarioOverrides[scenario] != null
+      ? Object.assign({}, item, { amount: resolveSharedAmount(item, scenario) })
+      : item;
+  });
+  var combined = ipExpenseItemsForClassification().concat(sharedForScenario).concat(state.home[scenario]);
   var incomeMonthly = sumField(effectiveIncomeItems(), "monthly");
   var needs = sumByClassification(combined, "Needs", "monthly");
   var wants = sumByClassification(combined, "Wants", "monthly");

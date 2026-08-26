@@ -53,6 +53,11 @@ export function renameScenario(oldName){
   delete state.purchase[oldName];
   if(state.activeScenario === oldName) state.activeScenario = name;
   if(state.baselineScenario === oldName) state.baselineScenario = name;
+  state.shared.forEach(function(item){
+    if(!item.scenarioOverrides || !(oldName in item.scenarioOverrides)) return;
+    item.scenarioOverrides[name] = item.scenarioOverrides[oldName];
+    delete item.scenarioOverrides[oldName];
+  });
   persist();
   renderCards();
   renderDetail();
@@ -67,6 +72,9 @@ export function deleteScenario(name){
   state.scenarios = state.scenarios.filter(function(s){ return s !== name; });
   delete state.home[name];
   delete state.purchase[name];
+  state.shared.forEach(function(item){
+    if(item.scenarioOverrides) delete item.scenarioOverrides[name];
+  });
   if(state.activeScenario === name) state.activeScenario = state.scenarios[0];
   persist();
   renderCards();

@@ -1,5 +1,5 @@
 import { state } from "../state.js";
-import { toWeekly, sumField } from "./ledger.js";
+import { toWeekly, sumField, sumFieldForScenario } from "./ledger.js";
 import {
   recalcPurchase, ipProperties, ipExpensesMonthly, ipLoansMonthly,
   shockedLoanRepaymentMonthly, scenarioInflatableMonthly, calcStampDuty,
@@ -169,7 +169,7 @@ export function recalcComputedItems(){
 export function scenarioTotals(scenario){
   var incomeMonthly = sumField(effectiveIncomeItems(), "monthly");
   var ipMonthly = ipExpensesMonthly() + ipLoansMonthly();
-  var sharedMonthly = sumField(state.shared, "monthly");
+  var sharedMonthly = sumFieldForScenario(state.shared, scenario, "monthly");
   var homeMonthly = sumField(state.home[scenario], "monthly");
   var expensesMonthly = ipMonthly + sharedMonthly + homeMonthly;
   var netMonthly = incomeMonthly - expensesMonthly;

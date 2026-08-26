@@ -46,7 +46,7 @@ list with explanations, established UI patterns, and what's still pending — se
   turned out to be cross-cutting routing/dispatch code and stayed in `app.js`/moved to `nav.js`
   instead. DOM event *registration* (every `addEventListener` call) also stays in `app.js` for
   every component, `nav.js` included — only the callable render/patch/routing logic moved.
-- `src/constants.js`, `src/lib/{format,toast,html,uimode,ledger-table,charts}.js` — static data
+- `src/constants.js`, `src/lib/{format,toast,html,uimode,ledger-table,charts,swipe}.js` — static data
   tables and dependency-free utilities used across everything above: currency/percent formatters,
   toasts, `escapeAttr`/`slug`, the global Classic/Modern toggle sync and period/column-visibility
   sync, the generic Classic/Modern-mode row and `<table>` renderers

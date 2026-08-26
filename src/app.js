@@ -5,6 +5,7 @@ import { showToast, showUndoToast } from "./lib/toast.js";
 import { escapeAttr, slug } from "./lib/html.js";
 import { syncUiModeToggle, applyPeriodVisibility } from "./lib/uimode.js";
 import { buildTable } from "./lib/ledger-table.js";
+import { onHorizontalSwipe } from "./lib/swipe.js";
 import {
   decryptBackup, doExport, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv
 } from "./lib/backup.js";
@@ -563,6 +564,20 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       persist();
     }
   });
+
+  // Swipe a Tax & Super card (either direction) to flip it to/from the calculation breakdown on
+  // mobile — same reach-vs-thumb reasoning as the Assets subnav swipe above. Only two faces exist,
+  // so there's no "which direction reveals what" to get wrong — either direction just flips it.
+  onHorizontalSwipe(document.getElementById("taxSuperBody"), {
+    onSwipeLeft: function(e){ flipTaxCardFromSwipe(e); },
+    onSwipeRight: function(e){ flipTaxCardFromSwipe(e); }
+  });
+  function flipTaxCardFromSwipe(e){
+    if(!window.matchMedia("(max-width: 880px)").matches) return;
+    var panel = e.target.closest("[data-tax-person]");
+    if(!panel) return;
+    flipTaxCard(panel, panel.getAttribute("data-tax-person"));
+  }
 
   document.getElementById("taxSuperBody").addEventListener("input", function(e){
     var panel = e.target.closest("[data-tax-person]");
@@ -1186,6 +1201,24 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     var btn = e.target.closest("[data-assets-sub]");
     if(!btn) return;
     showAssetsSubpage(btn.getAttribute("data-assets-sub"));
+  });
+
+  // Swipe between Assets' Cash/Shares/Super/Vehicle/Other tabs on mobile — desktop already has
+  // the subnav buttons within easy reach, so this only kicks in below the app's usual mobile
+  // breakpoint. No wraparound (swiping past the last tab does nothing) — a jump from Other back
+  // to Summary would be more disorienting than a swipe that simply stops.
+  var ASSETS_SUB_ORDER = ["summary", "Cash", "Shares", "Super", "Vehicle", "Other"];
+  function stepAssetsSubpage(step){
+    if(!window.matchMedia("(max-width: 880px)").matches) return;
+    var activeBtn = document.querySelector("#assetsSubnav .subnav-item.active");
+    var current = activeBtn ? activeBtn.getAttribute("data-assets-sub") : "summary";
+    var nextIndex = ASSETS_SUB_ORDER.indexOf(current) + step;
+    if(nextIndex < 0 || nextIndex >= ASSETS_SUB_ORDER.length) return;
+    showAssetsSubpage(ASSETS_SUB_ORDER[nextIndex]);
+  }
+  onHorizontalSwipe(document.getElementById("page-assets"), {
+    onSwipeLeft: function(){ stepAssetsSubpage(1); },
+    onSwipeRight: function(){ stepAssetsSubpage(-1); }
   });
 
 

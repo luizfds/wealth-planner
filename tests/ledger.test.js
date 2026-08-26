@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount } from "../src/calc/ledger.js";
+import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario } from "../src/calc/ledger.js";
 
 test("toWeekly converts every frequency to a weekly figure", function(){
   assert.equal(toWeekly(100, "Weekly"), 100);
@@ -40,6 +40,33 @@ test("sumByClassification only totals rows matching the given classification", f
 test("safeDiv guards against division by zero", function(){
   assert.equal(safeDiv(10, 2), 5);
   assert.equal(safeDiv(10, 0), 0);
+});
+
+test("resolveSharedAmount falls back to the plain amount with no override for this scenario", function(){
+  var item = { amount: 100, freq: "Weekly" };
+  assert.equal(resolveSharedAmount(item, "Renting"), 100);
+  item.scenarioOverrides = {};
+  assert.equal(resolveSharedAmount(item, "Renting"), 100);
+});
+
+test("resolveSharedAmount uses the scenario-specific override when one is set", function(){
+  var item = { amount: 100, freq: "Weekly", scenarioOverrides: { "Buy Brisbane": 40 } };
+  assert.equal(resolveSharedAmount(item, "Buy Brisbane"), 40);
+  assert.equal(resolveSharedAmount(item, "Renting"), 100);
+});
+
+test("resolveSharedAmount treats an explicit 0 override as a real value, not 'unset'", function(){
+  var item = { amount: 100, freq: "Weekly", scenarioOverrides: { "Buy Brisbane": 0 } };
+  assert.equal(resolveSharedAmount(item, "Buy Brisbane"), 0);
+});
+
+test("sumFieldForScenario sums each item's resolved (possibly overridden) amount for that scenario", function(){
+  var items = [
+    { amount: 100, freq: "Weekly" },
+    { amount: 100, freq: "Weekly", scenarioOverrides: { "Buy Brisbane": 40 } }
+  ];
+  assert.equal(sumFieldForScenario(items, "Renting", "weekly"), 200);
+  assert.equal(sumFieldForScenario(items, "Buy Brisbane", "weekly"), 140);
 });
 
 test("sumByAccount groups by trimmed account name, defaulting blanks to Unassigned", function(){

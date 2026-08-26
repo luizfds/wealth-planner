@@ -1,6 +1,6 @@
 import { state } from "../state.js";
 import { STAMP_DUTY_BRACKETS, FHB_RULES, LMI_BANDS } from "../constants.js";
-import { periodsOf, sumField } from "./ledger.js";
+import { periodsOf, sumField, sumFieldForScenario } from "./ledger.js";
 
 export function bracketDuty(brackets, price){
   // At exactly $0, no bracket's "price > b.from" matches (every table's first bracket starts
@@ -171,7 +171,7 @@ export function ipExpenseItemsForClassification(){
 export function scenarioInflatableMonthly(scenario){
   var homeItems = state.home[scenario] || [];
   var homeNonLoan = homeItems.filter(function(i){ return i.id !== "homeLoanRow"; });
-  return sumField(state.shared, "monthly") + sumField(homeNonLoan, "monthly");
+  return sumFieldForScenario(state.shared, scenario, "monthly") + sumField(homeNonLoan, "monthly");
 }
 
 // Property equity is split into two pieces with very different liquidity:

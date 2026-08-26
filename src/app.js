@@ -19,7 +19,9 @@ import {
   modernIncomeRowOpen
 } from "./components/income.js";
 import {
-  patchSharedGroupTotals, renderSharedGroups, renderPropertyExpensesSummary, modernSharedRowOpen
+  patchSharedGroupTotals, renderSharedGroups, renderPropertyExpensesSummary, modernSharedRowOpen,
+  openScenarioOverridePanel, closeScenarioOverridePanel, renderScenarioOverridePanel,
+  setScenarioOverride, resetScenarioOverride, copyScenarioAmountToAll
 } from "./components/expenses.js";
 import {
   patchHoldingRow, patchVehicleRow, modernAssetRowOpen, patchAssetCategoryTotals,
@@ -329,6 +331,11 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
         breakdownBtn.setAttribute("aria-expanded", "true");
         breakdownBtn.textContent = "▾ Breakdown";
       }
+      return;
+    }
+    var varyBtn = e.target.closest("[data-vary-scenario]");
+    if(varyBtn){
+      openScenarioOverridePanel(Number(varyBtn.getAttribute("data-vary-scenario")));
       return;
     }
     var del = e.target.closest("[data-del]");
@@ -897,6 +904,52 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
   }
   wireModernRowToggle("incomeGroups", modernIncomeRowOpen);
   wireModernRowToggle("sharedGroups", modernSharedRowOpen);
+
+  // ---------------- Shared expenses: per-scenario override panel ----------------
+  document.getElementById("scenarioOverrideRoot").addEventListener("click", function(e){
+    if(e.target.closest("[data-override-close]") || e.target === e.target.closest("[data-override-backdrop]")){
+      closeScenarioOverridePanel();
+      return;
+    }
+    var backdrop = e.target.closest("[data-override-backdrop]");
+    if(!backdrop) return;
+    var idx = Number(backdrop.getAttribute("data-override-idx"));
+    var resetBtn = e.target.closest("[data-override-reset]");
+    if(resetBtn){
+      resetScenarioOverride(idx, resetBtn.getAttribute("data-override-reset"));
+      refreshAfterLedgerChange("shared");
+      renderScenarioOverridePanel();
+      return;
+    }
+    var useBtn = e.target.closest("[data-override-use-everywhere]");
+    if(useBtn){
+      copyScenarioAmountToAll(idx, useBtn.getAttribute("data-override-use-everywhere"));
+      refreshAfterLedgerChange("shared");
+      renderScenarioOverridePanel();
+      return;
+    }
+  });
+  document.getElementById("scenarioOverrideRoot").addEventListener("change", function(e){
+    var input = e.target.closest(".scen-override-input");
+    if(!input) return;
+    var backdrop = e.target.closest("[data-override-backdrop]");
+    if(!backdrop) return;
+    var idx = Number(backdrop.getAttribute("data-override-idx"));
+    var scenarioName = input.getAttribute("data-override-scenario");
+    setScenarioOverride(idx, scenarioName, parseFloat(input.value) || 0);
+    refreshAfterLedgerChange("shared");
+    // Deferred to the next tick: this handler runs synchronously inside the input's own
+    // 'change' dispatch, and rebuilding #scenarioOverrideRoot's innerHTML (an ancestor of the
+    // input that's still mid-event) right now throws "the node to be removed is no longer a
+    // child of this node" in Chromium — the same class of reentrant-DOM-mutation issue as the
+    // checkbox preventDefault gotcha elsewhere in this codebase, just triggered by innerHTML
+    // replacement instead of a checked-state revert.
+    setTimeout(renderScenarioOverridePanel, 0);
+  });
+  document.addEventListener("keydown", function(e){
+    if(e.key !== "Escape") return;
+    if(document.querySelector("[data-override-backdrop]")) closeScenarioOverridePanel();
+  });
   wireModernRowToggle("propertiesBody", modernPropRowOpen);
   wireModernRowToggle("homeBody", modernHomeRowOpen);
   ["Cash", "Shares", "Super", "Vehicle", "Other"].forEach(function(cat){

@@ -245,7 +245,11 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     if(!arr) return;
     var item = arr[idx];
     var structural = false;
-    if(e.target.classList.contains("f-what")) item.what = e.target.value;
+    if(e.target.classList.contains("f-what")){
+      item.what = e.target.value;
+      var nameEl = tr.querySelector(".m-row-name");
+      if(nameEl) nameEl.textContent = item.what;
+    }
     else if(e.target.classList.contains("f-account")) item.account = e.target.value;
     else if(e.target.classList.contains("f-class")){ item.classification = e.target.value; if(section === "shared") structural = true; }
     else if(e.target.classList.contains("f-freq")) item.freq = e.target.value;
@@ -669,6 +673,10 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
         patchVehicleRow(tr, item);
       }
       else return;
+      if(e.target.classList.contains("a-what") || e.target.classList.contains("h-what") || e.target.classList.contains("v-what")){
+        var nameEl = tr.querySelector(".m-row-name");
+        if(nameEl) nameEl.textContent = item.what;
+      }
       var modernAmt = tr.querySelector('[data-computed="amt"]');
       if(modernAmt) modernAmt.textContent = fmtCurrency0.format(Number(item.amount) || 0);
       patchAssetCategoryTotals();
@@ -726,7 +734,11 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     if(loanTr){
       var loan = property.loans[Number(loanTr.getAttribute("data-loan-index"))];
       if(!loan) return;
-      if(e.target.classList.contains("loan-what")) loan.what = e.target.value;
+      if(e.target.classList.contains("loan-what")){
+        loan.what = e.target.value;
+        var loanNameEl = loanTr.querySelector(".m-row-name");
+        if(loanNameEl) loanNameEl.textContent = loan.what;
+      }
       else if(e.target.classList.contains("loan-balance")) loan.balance = parseFloat(e.target.value) || 0;
       else if(e.target.classList.contains("loan-rate")) loan.rate = parseFloat(e.target.value) || 0;
       else if(e.target.classList.contains("loan-term")) loan.termYears = parseFloat(e.target.value) || 0;

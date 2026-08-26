@@ -60,19 +60,27 @@ export function recalcPurchase(scenario){
   var price = Math.max(0, Number(cfg.price) || 0);
   var depositAmt = price * (Math.max(0, Math.min(100, Number(cfg.depositPct) || 0)) / 100);
   var loanAmount = Math.max(0, price - depositAmt);
+  // LVR (and so the LMI premium tier) is always based on the loan before any capitalization —
+  // matching how lenders actually price it: the premium is set by the LVR you're borrowing at,
+  // then optionally added on top of that same loan, not the other way around.
   var lvr = price > 0 ? loanAmount / price : 0;
   var stampDuty = calcStampDuty(cfg.state, price, cfg.firstHomeBuyer);
   var lmi = calcLMI(loanAmount, lvr);
+  var lmiCapitalized = !!cfg.lmiCapitalized;
+  // The actual balance you'd owe and repay against — most lenders capitalize LMI onto the loan
+  // by default rather than requiring it as extra cash, so this (not the pre-LMI loanAmount) is
+  // what repayments should be calculated on whenever that's how this scenario is set up.
+  var loanBalance = lmiCapitalized ? loanAmount + lmi : loanAmount;
   var otherTotal = (cfg.otherCosts || []).reduce(function(s, c){ return s + (Number(c.amount) || 0); }, 0);
   var stampDutyForTotal = stampDuty === null ? (Number(cfg.manualStampDuty) || 0) : stampDuty;
-  var upfrontCash = depositAmt + stampDutyForTotal + lmi + otherTotal;
-  var repaymentMonthlyPI = calcRepaymentMonthly(loanAmount, cfg.rate, cfg.termYears, "PI");
-  var repaymentMonthlyIO = calcRepaymentMonthly(loanAmount, cfg.ioRate, cfg.termYears, "IO");
+  var upfrontCash = depositAmt + stampDutyForTotal + otherTotal + (lmiCapitalized ? 0 : lmi);
+  var repaymentMonthlyPI = calcRepaymentMonthly(loanBalance, cfg.rate, cfg.termYears, "PI");
+  var repaymentMonthlyIO = calcRepaymentMonthly(loanBalance, cfg.ioRate, cfg.termYears, "IO");
   var repaymentMonthly = cfg.repaymentType === "IO" ? repaymentMonthlyIO : repaymentMonthlyPI;
   return {
-    price: price, depositAmt: depositAmt, loanAmount: loanAmount, lvr: lvr,
-    stampDuty: stampDuty, stampDutyForTotal: stampDutyForTotal, lmi: lmi, otherTotal: otherTotal,
-    upfrontCash: upfrontCash, repaymentMonthly: repaymentMonthly,
+    price: price, depositAmt: depositAmt, loanAmount: loanAmount, loanBalance: loanBalance, lvr: lvr,
+    stampDuty: stampDuty, stampDutyForTotal: stampDutyForTotal, lmi: lmi, lmiCapitalized: lmiCapitalized,
+    otherTotal: otherTotal, upfrontCash: upfrontCash, repaymentMonthly: repaymentMonthly,
     repaymentMonthlyPI: repaymentMonthlyPI, repaymentMonthlyIO: repaymentMonthlyIO,
     repaymentPeriods: periodsOf(repaymentMonthly, "Monthly")
   };

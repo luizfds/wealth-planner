@@ -14,6 +14,7 @@ export function defaultPurchaseConfig(price, depositPct, rate, termYears, stateC
     ioRate: rate,
     propertyGrowthRate: null,
     syncRepayment: !!enabled,
+    lmiCapitalized: false,
     otherCosts: [
       {what:"Conveyancing / Legal Fees", amount:1800},
       {what:"Building & Pest Inspection", amount:500},
@@ -96,6 +97,7 @@ export function migrateState(s){
     if(pcfg.repaymentType == null) pcfg.repaymentType = "PI";
     if(pcfg.ioRate == null) pcfg.ioRate = pcfg.rate;
     if(pcfg.propertyGrowthRate === undefined) pcfg.propertyGrowthRate = null;
+    if(pcfg.lmiCapitalized == null) pcfg.lmiCapitalized = false;
   });
   if(!Array.isArray(s.assets)) s.assets = [];
   s.assets.forEach(function(a){

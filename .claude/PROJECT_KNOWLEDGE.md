@@ -474,7 +474,28 @@ be reverted without touching the others.
   `standardStampDuty()` and the UI falls back to a manual entry field. Don't silently extend this
   to "estimate" other states without flagging it clearly as an estimate in the UI.
 - **LMI** (`calc/property.js: calcLMI`, `constants.js: LMI_BANDS`) is an indicative flat-band
-  estimate — real premiums are lender/insurer-specific.
+  estimate — real premiums are lender/insurer-specific. Mechanically correct: `0` at ≤80% LVR,
+  tiered by LVR band above that, calculated on the *loan amount* (matching real-world convention,
+  not the property price). One real modeling choice worth knowing if asked "is this right": LMI
+  is added to `upfrontCash` as a cash cost due at settlement, **not capitalized into the loan** —
+  in practice most lenders default to capitalizing it (adding it to the loan balance and
+  repayments) rather than requiring extra cash on top, since requiring the cash defeats much of
+  the point of a low-deposit loan. This isn't a bug — it's a disclosed, consistent simplification
+  (the "Total upfront cash" tooltip literally says "deposit + stamp duty + LMI + other costs —
+  the cash you need available on settlement day") — but if the user asks for it to instead be
+  capitalized, that's a real scope decision (changes `loanAmount`/repayments, not just a label),
+  not a quick fix — confirm the direction before touching `recalcPurchase()`.
+- **Transfer Fee / Mortgage Registration Fee** (`constants.js: TRANSFER_FEE_BY_STATE`,
+  `MORTGAGE_REG_FEE_BY_STATE`) — flat statutory land-registry lodgement fees, NSW/VIC-precise same
+  scope as stamp duty, `Other` a generic estimate. Unlike every other `otherCosts` row (which are
+  free-text, user-owned, never auto-touched), these two are the one pair that **auto-resyncs to
+  the new state's figure whenever the State dropdown changes** (`app.js`'s `onCalcChange`,
+  matched by exact `what` label) — deliberately different from e.g. Conveyancing, since these are
+  fixed government fees with no legitimate reason for a user to want a different number than
+  whatever their state currently charges, unlike genuinely variable/negotiated costs. Renaming a
+  row (e.g. to "Transfer Fee (custom)") exempts it from the auto-resync, same as any other row —
+  verified this exact behavior (rename → survives a state change; leave the label alone → syncs,
+  even overwriting a manually-typed amount) in the browser, not just by reading the code.
 - **Negative gearing / tax refund timing** (`tax.js: computePersonTax`) — this is the one most
   worth understanding before touching: `netTakeHome` folds a property's tax effect (loss or
   profit) evenly across the year, but that's not how it actually arrives unless the person has an

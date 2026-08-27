@@ -374,9 +374,17 @@ export function renderNetWorthPanel(){
                             .reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0)
                           + propertiesOffsetTotal();
   var purchaseScenarios = state.scenarios.filter(function(s){ return state.purchase[s] && state.purchase[s].enabled; });
+  // This table's columns (LVR/stamp duty/LMI/upfront cash) are all purchase-specific and don't
+  // apply to a scenario using the invest leg instead — rather than force it into a row shape
+  // that doesn't fit, just point at where its own numbers live (Scenarios tab).
+  var investScenarios = state.scenarios.filter(function(s){ return state.invest[s] && state.invest[s].enabled; });
+  var investNote = investScenarios.length
+    ? '<p class="calc-note" style="margin-top:10px">' + (investScenarios.length === 1 ? escapeAttr(investScenarios[0]) + ' is' : investScenarios.map(escapeAttr).join(", ") + ' are') +
+      ' using "invest instead of buying" — see the Scenarios tab for that leg\'s own numbers.</p>'
+    : '';
   var panel = document.getElementById("netWorthPanel");
   if(!purchaseScenarios.length){
-    panel.innerHTML = '<p style="color:var(--ink-soft);font-size:12.5px;margin-top:14px">Turn on the purchase calculator for a scenario (under &quot;Your home&quot;) to see how buying would affect your net worth.</p>';
+    panel.innerHTML = '<p style="color:var(--ink-soft);font-size:12.5px;margin-top:14px">Turn on the purchase calculator for a scenario (under &quot;Your home&quot;) to see how buying would affect your net worth.</p>' + investNote;
     return;
   }
   var rows = purchaseScenarios.map(function(s){
@@ -400,7 +408,8 @@ export function renderNetWorthPanel(){
       '</tr></thead>' +
       '<tbody>' + rows + '</tbody>' +
     '</table></div>' +
-    '<p class="calc-note" style="margin-top:10px">Net worth after purchase = current total assets minus stamp duty, LMI and other acquisition costs. The deposit itself just moves from cash into home equity, so it doesn\'t change net worth on its own.</p>';
+    '<p class="calc-note" style="margin-top:10px">Net worth after purchase = current total assets minus stamp duty, LMI and other acquisition costs. The deposit itself just moves from cash into home equity, so it doesn\'t change net worth on its own.</p>' +
+    investNote;
 }
 
 export function renderPortfolioHistoryChart(){

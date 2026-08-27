@@ -119,6 +119,18 @@
   }
   .calc-field input:focus, .calc-field select:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
   .calc-field input[type="number"]{ text-align:right; }
+  /* A few $-denominated fields (Property price, Starting amount, Manual amount/mo) had no unit
+     shown at all next to the input — unlike every %-denominated field, which already
+     self-documents via its label text ("Growth % p.a." etc.). Real sibling element rather than
+     a pseudo-element on .calc-field, since .calc-field is a column (label above input) and
+     ::before/::after can't target the input specifically; this wrapper gives a precise
+     position:relative scope matching just the input's own box. */
+  .calc-input-wrap{ position:relative; }
+  .calc-input-wrap input[type="number"]{ padding-left:20px; }
+  .calc-currency-prefix{
+    position:absolute; left:9px; top:50%; transform:translateY(-50%);
+    color: var(--ink-soft); font-size:13px; pointer-events:none;
+  }
   .calc-hint{ font-size:11px; color: var(--ink-soft); }
   .calc-hint-link{ all:unset; color: var(--brass-strong); text-decoration:underline; text-underline-offset:2px; cursor:pointer; font-size:11px; padding:4px 2px; }
   .calc-field label .calc-help{ text-transform:none; letter-spacing:normal; cursor:help; }

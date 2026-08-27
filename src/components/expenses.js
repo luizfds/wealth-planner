@@ -140,7 +140,10 @@ function injectScenarioOverrideButtons(){
     var varyLabel = hasOverrides ? "Varies by scenario — click to edit" : "Set a different amount for one or more scenarios";
     btn.title = varyLabel;
     btn.setAttribute("aria-label", varyLabel);
-    btn.textContent = hasOverrides ? "⇄ Varies" : "⇄";
+    // Always carries visible text, not just the icon — "⇄" alone doesn't read as "differs by
+    // scenario" the way ✎/✕ read as edit/delete; those stay icon-only elsewhere since they're
+    // an established enough convention not to need it (see PROJECT_KNOWLEDGE.md's UX audit note).
+    btn.textContent = hasOverrides ? "⇄ Varies" : "⇄ Vary";
     var actionsHost = rowEl.querySelector(".m-edit-actions") || rowEl.querySelector("td:last-child");
     if(actionsHost) actionsHost.insertBefore(btn, actionsHost.firstChild);
   });
@@ -163,7 +166,7 @@ function scenarioOverridePanelHtml(idx){
       '<span class="scen-override-name">' + escapeAttr(name) +
         (isBaseline ? ' <span class="home-baseline-badge">Current situation</span>' : '') + '</span>' +
       '<input type="number" step="0.01" min="0" class="scen-override-input" data-override-scenario="' + escapeAttr(name) + '" value="' + value + '" aria-label="Amount for ' + escapeAttr(name) + '">' +
-      (hasOverride ? '<button type="button" class="icon-btn" data-override-reset="' + escapeAttr(name) + '" title="Use the shared amount instead" aria-label="Use the shared amount instead for ' + escapeAttr(name) + '">↺</button>' : '') +
+      (hasOverride ? '<button type="button" class="btn btn-ghost btn-sm" data-override-reset="' + escapeAttr(name) + '" title="Use the shared amount instead" aria-label="Use the shared amount instead for ' + escapeAttr(name) + '">↺ Reset</button>' : '') +
       '<button type="button" class="btn btn-ghost btn-sm" data-override-use-everywhere="' + escapeAttr(name) + '" title="Set this amount for every scenario, including Current situation">Use everywhere</button>' +
     '</div>';
   }).join("");

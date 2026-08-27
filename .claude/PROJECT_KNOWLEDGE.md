@@ -659,14 +659,16 @@ const browser = await chromium.launch({
 
 ## Known pending work
 
-- **Touch-target sizing** (found by an audit, not yet fixed): the edit (✎) / delete (✕)
-  `.icon-btn` pair used on Scenarios/Dashboard/Income cards sit only ~2px apart — a low tap on
-  "edit" can land on "delete". Same issue, smaller severity, for Assets' modern-card "Log"/
-  "Delete" text links (zero gap) and a few `all:unset` text-link toggles rendering at 13-20px
-  tall (`.row-breakdown-toggle`, `.calc-hint-link`, `.tax-advanced summary`). Fix is a handful of
-  CSS changes (bump `.icon-btn` size + `.card-controls`/`.m-edit-actions` gap, add padding to the
-  three text-link classes) — they're shared components, so each fix resolves every instance at
-  once.
+(none currently — the touch-target sizing issue below was fixed in the v1.42.2 UX pass.)
+
+**Touch-target sizing** (fixed, v1.42.2): the edit (✎) / delete (✕) `.icon-btn` pair used on
+Scenarios/Dashboard/Income cards sat only ~2px apart — a low tap on "edit" could land on
+"delete". Bumped `.icon-btn` to 32x32px with a 6px `.card-controls` gap / 8px `.m-edit-actions`
+gap (the latter was actually 0px, unset — worse than the 2px first measured, and the same
+container the per-scenario-expense "⇄ Vary" button landed in next to Delete without a gap during
+the Scenarios expansion work), plus padding on three `all:unset` text-link toggles
+(`.row-breakdown-toggle`, `.calc-hint-link`, `.tax-advanced summary`) that previously had only
+their text's own line-height as a tap target.
 
 ## Versioning (repeated from CLAUDE.md — important enough to say twice)
 

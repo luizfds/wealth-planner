@@ -170,6 +170,7 @@ export function renderHomeBody(){
       '</div>' +
       '<div class="home-block-body">' +
         renderPurchasePanelHtml(scenario) +
+        '<div class="calc-or-divider" aria-hidden="true"><span>or</span></div>' +
         renderInvestPanelHtml(scenario) +
         '<div class="home-recurring-label">Recurring costs — per month</div>' +
         '<p class="income-summary-line home-recon-line">' + homeReconciliationHtml(scenario) + '</p>' +
@@ -278,7 +279,8 @@ function renderPurchasePanelHtml(scenario){
   }
   return (
     '<div class="calc-panel" data-calc-scenario="' + escapeAttr(scenario) + '">' +
-      '<label class="calc-enable"><span class="switch"><input type="checkbox" class="calc-enabled"' + (enabled ? " checked" : "") + '><span class="switch-track"><span class="switch-thumb"></span></span></span> This is a property purchase — show the calculator</label>' +
+      '<label class="calc-enable"><span class="switch"><input type="checkbox" class="calc-enabled"' + (enabled ? " checked" : "") + '><span class="switch-track"><span class="switch-thumb"></span></span></span>' +
+        '<span class="calc-enable-text">This is a property purchase — show the calculator<span class="calc-enable-note">Turns off "Investing instead" below — only one can be active</span></span></label>' +
       body +
     '</div>'
   );
@@ -317,7 +319,8 @@ function renderInvestPanelHtml(scenario){
   }
   return (
     '<div class="calc-panel" data-invest-scenario="' + escapeAttr(scenario) + '">' +
-      '<label class="calc-enable"><span class="switch"><input type="checkbox" class="invest-enabled"' + (enabled ? " checked" : "") + '><span class="switch-track"><span class="switch-thumb"></span></span></span> Investing instead of buying — show the calculator</label>' +
+      '<label class="calc-enable"><span class="switch"><input type="checkbox" class="invest-enabled"' + (enabled ? " checked" : "") + '><span class="switch-track"><span class="switch-thumb"></span></span></span>' +
+        '<span class="calc-enable-text">Investing instead of buying — show the calculator<span class="calc-enable-note">Turns off the property purchase above — only one can be active</span></span></label>' +
       body +
     '</div>'
   );

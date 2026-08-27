@@ -114,7 +114,7 @@
   .computed-note{ font-size: 10.5px; color: var(--ink-soft); display:block; margin-top:1px; }
   .row-breakdown-toggle{
     all:unset; display:inline-block; font-size:10.5px; color: var(--brass-strong); cursor:pointer;
-    margin-top:2px; text-decoration:underline; text-underline-offset:2px;
+    margin-top:2px; padding:4px 2px; text-decoration:underline; text-underline-offset:2px;
   }
   .row-breakdown-toggle:hover{ color: var(--brass); }
   tr.row-breakdown-row td{ background: var(--paper-raised); padding:14px 18px; }
@@ -210,7 +210,7 @@
   .m-edit-field .sacrifice-wrap{ display:flex; align-items:center; gap:4px; }
   .m-edit-field .sacrifice-wrap input{ flex: 0 0 64px; }
   .m-more-options{ margin-top:10px; }
-  .m-edit-actions{ display:flex; justify-content:flex-end; margin-top:10px; }
+  .m-edit-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:10px; }
   .m-row.computed .m-row-summary{ background: var(--brass-wash); cursor:default; }
   .m-row.computed .m-row-name{ color: var(--brass-strong); }
   .m-row.computed .m-row-amt{ color: var(--brass-strong); }

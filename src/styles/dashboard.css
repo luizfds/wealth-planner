@@ -37,10 +37,14 @@
   .card.is-active{ border-color: var(--brass); box-shadow: var(--shadow), 0 0 0 1.5px var(--brass); }
   .card-top{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
   .card-name{ font-weight:600; font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .card-controls{ display:flex; align-items:center; gap:2px; flex:none; }
+  /* .icon-btn pairs (rename/delete etc.) were 26px with only a 2px gap — a low tap on one could
+     land on its neighbor, worse when one of the two is destructive (delete). Both bumped as a
+     shared fix: every .icon-btn instance across the app gets the larger, better-separated
+     target at once. */
+  .card-controls{ display:flex; align-items:center; gap:6px; flex:none; }
   .icon-btn{
-    all:unset; box-sizing:border-box; cursor:pointer; width:26px; height:26px; border-radius:6px;
-    display:flex; align-items:center; justify-content:center; color: var(--ink-soft); font-size:12px;
+    all:unset; box-sizing:border-box; cursor:pointer; width:32px; height:32px; border-radius:7px;
+    display:flex; align-items:center; justify-content:center; color: var(--ink-soft); font-size:13px;
   }
   .icon-btn:hover{ background: var(--paper-sunken); color: var(--ink); }
   .icon-btn:focus-visible{ box-shadow: var(--focus-ring); }

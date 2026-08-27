@@ -95,6 +95,17 @@
     padding: 12px 14px; margin-bottom: 12px;
   }
   .calc-enable{ display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; cursor:pointer; user-select:none; }
+  .calc-enable-text{ display:flex; flex-direction:column; gap:2px; }
+  .calc-enable-note{ font-size:10.5px; font-weight:400; color: var(--ink-soft); }
+  /* Buy-vs-invest is a mutually-exclusive choice (enabling one disables the other — see
+     onCalcChange/onInvestChange in app.js), but with the purchase calculator's ~15 fields
+     between the two toggles, nothing on screen said so. This divider plus the .calc-enable-note
+     above make the relationship legible even when only one panel is scrolled into view. */
+  .calc-or-divider{
+    display:flex; align-items:center; gap:10px; margin:2px 0;
+    color: var(--ink-soft); font-size:10.5px; text-transform:uppercase; letter-spacing:.06em;
+  }
+  .calc-or-divider::before, .calc-or-divider::after{ content:""; flex:1 1 auto; height:1px; background: var(--border); }
   .calc-body{ margin-top: 12px; display:flex; flex-direction:column; gap:14px; }
   .calc-grid{
     display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px 14px;

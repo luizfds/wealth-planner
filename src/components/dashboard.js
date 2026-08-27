@@ -1,9 +1,9 @@
 import { state } from "../state.js";
-import { sumField, sumByClassification, sumByAccount, safeDiv, resolveSharedAmount } from "../calc/ledger.js";
+import { sumField, sumByClassification, sumByAccount, safeDiv, resolveSharedAmount, nextDueDate, daysUntil } from "../calc/ledger.js";
 import { ipExpenseItemsForClassification } from "../calc/property.js";
 import { effectiveIncomeItems } from "../calc/tax.js";
-import { scenarioTotals, computeNetWorthSeries, totalNetWorthValue } from "../calc/engine.js";
-import { fmtCurrency0, fmtPercent1 } from "../lib/format.js";
+import { scenarioTotals, computeNetWorthSeries, totalNetWorthValue, runwayMonths, actualAssetGrowthLastMonth, staleAssets } from "../calc/engine.js";
+import { fmtCurrency0, fmtPercent1, fmtRunway } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 
 export function renderCards(){
@@ -63,11 +63,84 @@ export function renderDashboardStats(){
   var lastTile = isComparing
     ? '<div class="stat-tile"><span>Scenarios compared</span><b>' + state.scenarios.length + '</b><small>' + state.scenarios.map(escapeAttr).join(", ") + '</small></div>'
     : '<div class="stat-tile"><span>Scenario</span><b>' + escapeAttr(active) + '</b><small>add another on the Scenarios tab to compare options</small></div>';
+  var runway = runwayMonths(t.expensesMonthly);
+  var runwayTile = '<div class="stat-tile" title="Liquid assets (cash + shares + property offset) ÷ ' + escapeAttr(active) + '\'s monthly expenses — how long you could cover costs with zero income. A common rule of thumb targets 3-6 months."><span>Runway</span><b>' +
+    (runway == null ? "—" : fmtRunway.format(runway) + " mo") + '</b><small>liquid assets ÷ monthly expenses</small></div>';
   el.innerHTML =
     '<div class="stat-tile"><span>Total net worth today</span><b>' + fmtCurrency0.format(totalNetWorth) + '</b><small>across ' + itemCount + ' item' + (itemCount === 1 ? "" : "s") + '</small></div>' +
     '<div class="stat-tile"><span>' + escapeAttr(active) + ' — net savings</span><b' + (t.netMonthly < 0 ? ' style="color:var(--bad)"' : '') + '>' + fmtCurrency0.format(t.netMonthly) + '/mo</b><small>' + fmtPercent1.format(t.rate) + ' savings rate</small></div>' +
     '<div class="stat-tile"><span>Projected net worth</span><b>' + fmtCurrency0.format(projected) + '</b><small>in ' + horizon + ' years, ' + escapeAttr(active) + '</small></div>' +
+    runwayTile +
     lastTile;
+  renderStaleAssetsBanner();
+  renderActualVsExpectedPanel(active, t);
+  renderUpcomingBillsPanel();
+}
+
+// Shared expenses with a tracked "last paid" date, projected forward via nextDueDate() and
+// sorted soonest-first — same-scenario expenses only (state.shared, not state.home[scenario]),
+// matching where the "Last paid" field was actually added.
+function renderUpcomingBillsPanel(){
+  var panel = document.getElementById("upcomingBillsPanel");
+  if(!panel) return;
+  var upcoming = state.shared
+    .filter(function(i){ return i.lastIncurredDate; })
+    .map(function(i){ return { what: i.what, due: nextDueDate(i.lastIncurredDate, i.freq), amount: i.amount, freq: i.freq }; })
+    .filter(function(i){ return i.due; })
+    .sort(function(a, b){ return a.due < b.due ? -1 : (a.due > b.due ? 1 : 0); });
+  if(!upcoming.length){
+    panel.innerHTML =
+      '<h3>Upcoming bills</h3>' +
+      '<p class="fire-note">Set a "Last paid" date on a shared expense (Expenses tab) to see it projected here.</p>';
+    return;
+  }
+  var rows = upcoming.slice(0, 8).map(function(i){
+    var days = daysUntil(i.due);
+    var label = days < 0 ? ("overdue " + Math.abs(days) + "d") : (days === 0 ? "today" : "in " + days + "d");
+    var cls = days < 0 ? "due-overdue" : (days <= 7 ? "due-soon" : "");
+    return '<div class="fire-stat-row"><span>' + escapeAttr(i.what) + ' <span class="due-note ' + cls + '" style="display:inline">(' + label + ')</span></span><b>' + fmtCurrency0.format(i.amount) + '</b></div>';
+  }).join("");
+  panel.innerHTML = '<h3>Upcoming bills</h3>' + rows;
+}
+
+// A nudge, not an error — this app has no backend, so there's no way to push a notification
+// when it's closed. This only ever surfaces on load/whenever the Dashboard re-renders.
+function renderStaleAssetsBanner(){
+  var el = document.getElementById("staleAssetsBanner");
+  if(!el) return;
+  var stale = staleAssets();
+  if(!stale.length){ el.innerHTML = ""; return; }
+  var names = stale.map(function(s){
+    return escapeAttr(s.what) + (s.days == null ? " (never logged)" : " (" + s.days + "d ago)");
+  }).join(", ");
+  el.innerHTML =
+    '<div class="stale-assets-note" title="Log a fresh value for each (Assets tab → Log) to keep net worth history and the Actual vs. expected panel accurate.">' +
+      '<span>⏱</span> ' + stale.length + " asset" + (stale.length === 1 ? "" : "s") + " haven't been logged in 30+ days — " + names +
+    '</div>';
+}
+
+// Compares real month-over-month asset growth (from logged history snapshots) against what the
+// active scenario's own cash flow says should have been saved — a reality check on whether the
+// plan's assumptions are holding up, not just a forward projection.
+function renderActualVsExpectedPanel(scenario, t){
+  var panel = document.getElementById("actualVsExpectedPanel");
+  if(!panel) return;
+  var expected = t.netMonthly;
+  var actual = actualAssetGrowthLastMonth();
+  if(!actual.hasData){
+    panel.innerHTML =
+      '<h3>Actual vs. expected <span style="font-weight:400;color:var(--ink-soft)">— last 30 days</span></h3>' +
+      '<p class="fire-note">Log a value for at least one asset (Assets tab → Log) on two occasions ~a month apart to compare real growth against ' + escapeAttr(scenario) + '\'s expected monthly surplus.</p>';
+    return;
+  }
+  var gap = actual.deltaSum - expected;
+  var gapWord = gap >= 0 ? "ahead of" : "behind";
+  panel.innerHTML =
+    '<h3>Actual vs. expected <span style="font-weight:400;color:var(--ink-soft)">— last 30 days</span></h3>' +
+    '<div class="fire-stat-row"><span>Actual asset growth</span><b' + (actual.deltaSum < 0 ? ' style="color:var(--bad)"' : '') + '>' + fmtCurrency0.format(actual.deltaSum) + '</b></div>' +
+    '<div class="fire-stat-row"><span>' + escapeAttr(scenario) + ' expected surplus</span><b>' + fmtCurrency0.format(expected) + '/mo</b></div>' +
+    '<div class="fire-stat-row"><span>Gap</span><b' + (gap < 0 ? ' style="color:var(--bad)"' : ' style="color:var(--good)"') + '>' + fmtCurrency0.format(Math.abs(gap)) + " " + gapWord + " plan</b></div>" +
+    '<p class="fire-note">Based on ' + actual.trackedCount + ' asset' + (actual.trackedCount === 1 ? "" : "s") + ' with a logged value from ~30 days ago and a current one. Doesn\'t include properties (no monthly re-valuation) or assets without an old-enough snapshot — log values regularly for a fuller picture.</p>';
 }
 
 // ---------------- Rendering: 50/30/20 + accounts ----------------

@@ -1,8 +1,20 @@
 import { PERIODS, FREQS, CLASSES, INCOME_TYPES, SUPER_MODES, SACRIFICE_MODES, sacrificeModeToLabel } from "../constants.js";
-import { periodsOf } from "../calc/ledger.js";
+import { periodsOf, nextDueDate, daysUntil } from "../calc/ledger.js";
 import { incomeRowSuperNote } from "../calc/tax.js";
 import { fmtCurrency2 } from "./format.js";
 import { escapeAttr } from "./html.js";
+
+// Shared by both row renderers below (opts.showDueDate) — projects a plain-language "next due"
+// note from item.lastIncurredDate + item.freq, or a prompt to set one if it's never been
+// tracked. Not shown for computed rows (nothing to "pay" — they're auto-derived).
+export function dueDateNoteHtml(item){
+  var due = nextDueDate(item.lastIncurredDate, item.freq);
+  if(!due) return '<span class="due-note due-unset">No last-paid date set</span>';
+  var days = daysUntil(due);
+  var label = days < 0 ? ("overdue by " + Math.abs(days) + "d") : (days === 0 ? "due today" : "due in " + days + "d");
+  var cls = days < 0 ? "due-overdue" : (days <= 7 ? "due-soon" : "");
+  return '<span class="due-note ' + cls + '">Next due ' + escapeAttr(due) + " (" + label + ")</span>";
+}
 
 export function periodTh(){
   return PERIODS.map(function(p){
@@ -23,17 +35,20 @@ export function buildTable(tableEl, section, items, opts, indices){
   opts = opts || {};
   var showClass = opts.showClass !== false;
   var showIncomeFields = !!opts.showIncomeFields;
+  var showDueDate = !!opts.showDueDate;
   var acctClass = opts.acctColClass || (opts.hideAcctToggle ? "col-account-exp" : "");
   var classClass = opts.hideClassToggle ? "col-classification" : "";
   var thead = '<thead><tr><th>What</th>' +
     (showClass ? '<th' + (classClass ? ' class="' + classClass + '"' : '') + '>Classification</th>' : '') +
     (showIncomeFields ? '<th class="col-person">Person</th><th class="col-type">Type</th><th class="col-super">Super</th><th class="col-sacrifice">Cash / Sacrifice</th>' : '') +
-    '<th' + (showIncomeFields ? ' class="col-account"' : acctClass ? ' class="' + acctClass + '"' : '') + '>Account</th><th class="num">Amount</th><th>Frequency</th>' + periodTh() + '<th></th></tr></thead>';
-  var rows = items.map(function(item, idx){ return rowHtml(section, item, indices ? indices[idx] : idx, showClass, showIncomeFields, acctClass, classClass); }).join("");
+    '<th' + (showIncomeFields ? ' class="col-account"' : acctClass ? ' class="' + acctClass + '"' : '') + '>Account</th><th class="num">Amount</th><th>Frequency</th>' +
+    (showDueDate ? '<th title="When this was last actually paid — used to project when it\'s next due">Last paid</th>' : '') +
+    periodTh() + '<th></th></tr></thead>';
+  var rows = items.map(function(item, idx){ return rowHtml(section, item, indices ? indices[idx] : idx, showClass, showIncomeFields, acctClass, classClass, showDueDate); }).join("");
   tableEl.innerHTML = thead + "<tbody>" + rows + "</tbody>";
 }
 
-export function rowHtml(section, item, idx, showClass, showIncomeFields, acctClass, classClass){
+export function rowHtml(section, item, idx, showClass, showIncomeFields, acctClass, classClass, showDueDate){
   var isComputed = !!item.computed;
   var isGrossRef = showIncomeFields && item.incomeType === "Gross" && !isComputed;
   // A template row nobody has filled in yet (still $0) shouldn't read with the same weight as
@@ -59,6 +74,7 @@ export function rowHtml(section, item, idx, showClass, showIncomeFields, acctCla
       (isComputed ? '<span class="computed-note">' + escapeAttr(item.computedNote || "auto-calculated") + '</span>' : "") +
       (isGrossRef ? '<span class="computed-note super-note">' + escapeAttr(incomeRowSuperNote(item)) + '</span>' : "") + '</td>' +
     '<td class="freq-cell"><select class="f-freq"' + (isComputed ? " disabled" : "") + '>' + optionsHtml(FREQS, item.freq) + '</select></td>' +
+    (showDueDate ? '<td class="due-cell"><input type="date" class="f-lastpaid" value="' + escapeAttr(item.lastIncurredDate || "") + '"' + (isComputed ? " disabled" : "") + ' aria-label="Last paid date">' + (isComputed ? "" : dueDateNoteHtml(item)) + '</td>' : '') +
     periodTd(item) +
     '<td>' + (isComputed ? "" : '<button class="btn btn-ghost btn-sm row-del" data-del="' + section + ':' + idx + '" aria-label="Delete row">✕</button>') + '</td>' +
     '</tr>';
@@ -82,6 +98,7 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
     '<div style="flex:1 1 auto; min-width:0">' +
       '<div class="m-row-name">' + escapeAttr(item.what) + '</div>' +
       (isComputed && item.computedNote ? '<div class="m-row-sub">' + escapeAttr(item.computedNote) + '</div>' : "") +
+      (opts.showDueDate && !isComputed ? '<div class="m-row-sub">' + dueDateNoteHtml(item) + '</div>' : "") +
     '</div>' +
     '<span class="m-row-amt" data-computed="amt">' + fmtCurrency2.format(monthly) + '/mo</span>' +
     (isComputed ? "" : '<svg class="m-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>') +
@@ -96,6 +113,9 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
     ? '<div class="m-edit-field"><label>Classification</label><select class="f-class">' + optionsHtml(CLASSES, item.classification || "Needs") + '</select></div>'
     : "";
   var accountField = '<div class="m-edit-field' + (opts.showClass ? " span3" : "") + '"><label>Account</label><input type="text" class="f-account" list="acctSuggestions" value="' + escapeAttr(item.account || "") + '" aria-label="Account"></div>';
+  var dueDateField = opts.showDueDate
+    ? '<div class="m-edit-field"><label>Last paid</label><input type="date" class="f-lastpaid" value="' + escapeAttr(item.lastIncurredDate || "") + '" aria-label="Last paid date"></div>'
+    : "";
   var edit = '<div class="m-row-edit"><div class="m-row-edit-inner"><div class="m-row-edit-pad">' +
     '<div class="m-edit-grid">' +
       '<div class="m-edit-field span3"><label>What</label><input type="text" class="f-what" value="' + escapeAttr(item.what) + '" aria-label="Item name"></div>' +
@@ -103,6 +123,7 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
       '<div class="m-edit-field"><label>Amount</label><input type="number" step="0.01" min="0" class="f-amount" value="' + item.amount + '" aria-label="Amount"></div>' +
       '<div class="m-edit-field"><label>Frequency</label><select class="f-freq">' + optionsHtml(FREQS, item.freq) + '</select></div>' +
       accountField +
+      dueDateField +
     '</div>' +
     '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm row-del" data-del="' + escapeAttr(section) + ':' + idx + '">Delete</button></div>' +
   '</div></div></div>';

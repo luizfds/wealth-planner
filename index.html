@@ -130,6 +130,8 @@
 
         <div class="stat-row" id="dashboardStats"></div>
 
+        <div id="staleAssetsBanner"></div>
+
         <div class="cards" id="cards" role="radiogroup" aria-label="Choose active scenario"></div>
 
         <div class="detail">
@@ -145,6 +147,8 @@
               <div id="acctList"></div>
             </div>
             <div class="panel" id="firePanel"></div>
+            <div class="panel" id="actualVsExpectedPanel"></div>
+            <div class="panel" id="upcomingBillsPanel"></div>
           </div>
         </div>
       </section>
@@ -283,6 +287,17 @@
         <div class="assets-subpage" id="assetsSub-summary">
           <div class="stat-row" id="assetsSummaryStats"></div>
           <div class="ledgers">
+            <details class="ledger" open>
+              <summary>
+                <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Debts</h2></div>
+                <div class="ledger-total">Total <b id="totalDebtsAmount">—</b></div>
+              </summary>
+              <div class="ledger-body">
+                <p class="ledger-note" style="margin-left:0">Anything you owe outside a property loan — credit cards, personal loans, BNPL. Subtracted from your net worth as a flat balance (no interest/repayment modeling here — property loans have their own full amortisation on the Properties tab; don't duplicate them here).</p>
+                <div id="debtsTable"></div>
+                <div class="ledger-footer"><button class="btn btn-sm" id="addDebtBtn">+ Add debt</button></div>
+              </div>
+            </details>
             <details class="ledger" open>
               <summary>
                 <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Allocation</h2></div>

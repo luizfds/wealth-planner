@@ -1,7 +1,7 @@
 import { state, persist } from "../state.js";
 import { ASSET_CATEGORIES, LIQUID_CATEGORIES, SHARE_MARKETS } from "../constants.js";
 import { propertiesOffsetTotal, propertiesIlliquidEquityToday, recalcPurchase } from "../calc/property.js";
-import { totalAssetsValue, totalNetWorthValue } from "../calc/engine.js";
+import { totalAssetsValue, totalNetWorthValue, totalDebtsValue } from "../calc/engine.js";
 import { fmtCurrency0, fmtPercent1 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { syncUiModeToggle } from "../lib/uimode.js";
@@ -481,9 +481,41 @@ export function renderAssets(){
   renderVehiclesSubpage();
   renderAssetCategoryPage("Other");
   renderAssetsSummary();
+  renderDebts();
   renderNetWorthPanel();
   renderPortfolioHistoryChart();
   renderProjectionOutputs();
+}
+
+// Deliberately not built on the generic ledger-table.js machinery — debts have a different
+// shape (just what/balance, no freq/period math) and reusing rowHtml()/modernPlainRowHtml()
+// would mean fighting their amount+frequency assumptions rather than a small bespoke renderer.
+export function renderDebts(){
+  var container = document.getElementById("debtsTable");
+  var totalEl = document.getElementById("totalDebtsAmount");
+  if(!container) return;
+  var total = totalDebtsValue();
+  if(totalEl) totalEl.textContent = fmtCurrency0.format(total);
+  if(!state.debts.length){
+    container.innerHTML = '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">No debts tracked — add anything you owe outside a property loan (credit cards, personal loans, BNPL).</p>';
+    return;
+  }
+  if(state.uiMode === "modern"){
+    container.innerHTML = '<div class="m-rows">' + state.debts.map(function(d, idx){
+      return '<div class="m-row computed" data-debt-index="' + idx + '"><div class="m-row-summary" style="cursor:default">' +
+        '<div style="flex:1 1 auto;min-width:0"><input type="text" class="debt-what" data-debt-index="' + idx + '" value="' + escapeAttr(d.what) + '" aria-label="Debt name" style="all:unset;width:100%;font:inherit;color:inherit"></div>' +
+        '<input type="number" step="100" min="0" class="debt-balance" data-debt-index="' + idx + '" value="' + d.balance + '" aria-label="Balance" style="width:110px;text-align:right;font-family:\'IBM Plex Mono\',monospace;border:1px solid transparent;background:transparent;color:inherit;padding:5px 6px;border-radius:6px">' +
+        '<button type="button" class="btn btn-ghost btn-sm row-del" data-debt-del="' + idx + '" aria-label="Delete debt">✕</button>' +
+      '</div></div>';
+    }).join("") + '</div>';
+  } else {
+    container.innerHTML = '<div class="table-scroll"><table class="ledger-table"><thead><tr><th>What</th><th class="num">Balance</th><th></th></tr></thead><tbody>' +
+      state.debts.map(function(d, idx){
+        return '<tr><td class="what-cell"><input type="text" class="debt-what" data-debt-index="' + idx + '" value="' + escapeAttr(d.what) + '" aria-label="Debt name"></td>' +
+          '<td class="amount-cell"><input type="number" step="100" min="0" class="debt-balance" data-debt-index="' + idx + '" value="' + d.balance + '" aria-label="Balance"></td>' +
+          '<td><button class="btn btn-ghost btn-sm row-del" data-debt-del="' + idx + '" aria-label="Delete row">✕</button></td></tr>';
+      }).join("") + '</tbody></table></div>';
+  }
 }
 
 export function logAssetSnapshot(idx){

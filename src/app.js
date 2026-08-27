@@ -4,14 +4,14 @@ import { fmtCurrency0, fmtCurrency2 } from "./lib/format.js";
 import { showToast, showUndoToast } from "./lib/toast.js";
 import { escapeAttr, slug } from "./lib/html.js";
 import { syncUiModeToggle, applyPeriodVisibility } from "./lib/uimode.js";
-import { buildTable } from "./lib/ledger-table.js";
+import { buildTable, dueDateNoteHtml } from "./lib/ledger-table.js";
 import { onHorizontalSwipe } from "./lib/swipe.js";
 import {
   decryptBackup, doExport, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv
 } from "./lib/backup.js";
 import { periodsOf, sumField } from "./calc/ledger.js";
 import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax } from "./calc/tax.js";
-import { recalcComputedItems, scenarioTotals, totalNetWorthValue } from "./calc/engine.js";
+import { recalcComputedItems, scenarioTotals, totalNetWorthValue, totalDebtsValue } from "./calc/engine.js";
 import { renderCards, renderDashboardStats, renderDetail } from "./components/dashboard.js";
 import {
   personBreakdownHtml, renderIncomeGroups, patchOpenRowBreakdowns, patchIncomeGroupTotals,
@@ -262,6 +262,7 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     else if(e.target.classList.contains("f-superincluded")){ item.superMode = e.target.value; }
     else if(e.target.classList.contains("f-sacrificemode")){ item.sacrificeMode = sacrificeLabelToMode(e.target.value); structural = true; }
     else if(e.target.classList.contains("f-sacrificevalue")){ item.sacrificeValue = parseFloat(e.target.value) || 0; }
+    else if(e.target.classList.contains("f-lastpaid")){ item.lastIncurredDate = e.target.value || null; }
     else return;
 
     if(e.target.classList.contains("f-amount") || e.target.classList.contains("f-freq")){
@@ -270,6 +271,9 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       PERIODS.forEach(function(pd, i){ if(cells[i]) cells[i].textContent = fmtCurrency2.format(p[pd.key]); });
       var modernAmt = tr.querySelector('[data-computed="amt"]');
       if(modernAmt) modernAmt.textContent = fmtCurrency2.format(p.monthly) + "/mo";
+    }
+    if(e.target.classList.contains("f-lastpaid") || e.target.classList.contains("f-freq")){
+      tr.querySelectorAll(".due-note").forEach(function(el){ el.outerHTML = dueDateNoteHtml(item); });
     }
     if(section === "income" && (e.target.classList.contains("f-amount") || e.target.classList.contains("f-freq") || e.target.classList.contains("f-superincluded"))){
       // A single row's edit can shift the Maximum Super Contribution Base cap for every one of
@@ -793,6 +797,48 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     var logBtn = e.target.closest("[data-asset-log]");
     if(logBtn){ logAssetSnapshot(Number(logBtn.getAttribute("data-asset-log"))); return; }
     if(e.target.id === "sharesPasteApply") applySharesPaste();
+    var debtDelBtn = e.target.closest("[data-debt-del]");
+    if(debtDelBtn){
+      var didx = Number(debtDelBtn.getAttribute("data-debt-del"));
+      var removedDebt = state.debts[didx];
+      var removedDebtWhat = removedDebt && removedDebt.what ? removedDebt.what : "Debt";
+      state.debts.splice(didx, 1);
+      renderAssets();
+      renderDashboardStats();
+      renderProjectionOutputs();
+      persist();
+      showUndoToast('Deleted "' + removedDebtWhat + '"', function(){
+        state.debts.splice(Math.min(didx, state.debts.length), 0, removedDebt);
+        renderAssets();
+        renderDashboardStats();
+        renderProjectionOutputs();
+        persist();
+      });
+      return;
+    }
+  });
+  document.getElementById("addDebtBtn").addEventListener("click", function(){
+    state.debts.push({ what: "New debt", balance: 0 });
+    renderAssets();
+    renderDashboardStats();
+    renderProjectionOutputs();
+    persist();
+  });
+  // Per-keystroke: patches the total + downstream figures in place rather than a full
+  // renderAssets(), which would blow away focus mid-keystroke on whichever field the user is
+  // actually typing in (the same class of bug fixed earlier for the scenario-override panel).
+  document.addEventListener("input", function(e){
+    if(!e.target.classList.contains("debt-what") && !e.target.classList.contains("debt-balance")) return;
+    var idx = Number(e.target.getAttribute("data-debt-index"));
+    var debt = state.debts[idx];
+    if(!debt) return;
+    if(e.target.classList.contains("debt-what")) debt.what = e.target.value;
+    else debt.balance = parseFloat(e.target.value) || 0;
+    var totalEl = document.getElementById("totalDebtsAmount");
+    if(totalEl) totalEl.textContent = fmtCurrency0.format(totalDebtsValue());
+    renderDashboardStats();
+    renderProjectionOutputs();
+    persist();
   });
 
 

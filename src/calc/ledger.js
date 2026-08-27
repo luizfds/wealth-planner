@@ -33,6 +33,47 @@ export function resolveSharedAmount(item, scenarioName){
 export function sumFieldForScenario(items, scenarioName, field){
   return items.reduce(function(s, i){ return s + periodsOf(resolveSharedAmount(i, scenarioName), i.freq)[field]; }, 0);
 }
+// Advances a date by one occurrence of the given ledger frequency. Month/year steps use
+// setMonth/setFullYear rather than a fixed day count, so e.g. a Monthly bill last paid on the
+// 31st correctly rolls to the last day of shorter months instead of drifting.
+function addFreqStep(d, freq){
+  var next = new Date(d.getTime());
+  switch(freq){
+    case "Weekly": next.setDate(next.getDate() + 7); break;
+    case "Fortnightly": next.setDate(next.getDate() + 14); break;
+    case "Quarterly": next.setMonth(next.getMonth() + 3); break;
+    case "Yearly": next.setFullYear(next.getFullYear() + 1); break;
+    default: next.setMonth(next.getMonth() + 1); // Monthly, and the default for any other freq
+  }
+  return next;
+}
+// Given when an expense was last incurred and how often it recurs, projects the next
+// occurrence on/after fromDateStr (defaults to today) — always at least one step past
+// lastIncurredDate, even if that date is today or in the future (i.e. "next due" never means
+// "due today, the day you just paid it"). Returns null if lastIncurredDate is absent/invalid,
+// so callers can distinguish "never tracked" from a real computed date.
+export function nextDueDate(lastIncurredDate, freq, fromDateStr){
+  if(!lastIncurredDate) return null;
+  var d = new Date(lastIncurredDate + "T00:00:00");
+  if(isNaN(d.getTime())) return null;
+  var from = fromDateStr ? new Date(fromDateStr + "T00:00:00") : new Date();
+  from.setHours(0, 0, 0, 0);
+  d = addFreqStep(d, freq);
+  var guard = 0; // belt-and-suspenders against an unexpected infinite loop, not expected to bite
+  while(d.getTime() < from.getTime() && guard < 1000){
+    d = addFreqStep(d, freq);
+    guard++;
+  }
+  return d.toISOString().slice(0, 10);
+}
+// Whole days between fromDateStr (defaults to today) and dateStr — negative means dateStr is in
+// the past (overdue).
+export function daysUntil(dateStr, fromDateStr){
+  var from = fromDateStr ? new Date(fromDateStr + "T00:00:00") : new Date();
+  from.setHours(0, 0, 0, 0);
+  var d = new Date(dateStr + "T00:00:00");
+  return Math.round((d.getTime() - from.getTime()) / (24 * 60 * 60 * 1000));
+}
 export function sumByAccount(items, field){
   var map = {};
   items.forEach(function(i){

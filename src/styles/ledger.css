@@ -112,6 +112,11 @@
   tr.is-home-loan-row td.computed{ color: var(--brass-strong); font-weight:700; }
   tr.is-home-loan-row .amount-cell input{ color: var(--brass-strong); font-weight:700; }
   .computed-note{ font-size: 10.5px; color: var(--ink-soft); display:block; margin-top:1px; }
+  .due-cell{ min-width:130px; }
+  .due-note{ font-size:10.5px; color: var(--ink-soft); display:block; margin-top:2px; }
+  .due-note.due-unset{ font-style:italic; }
+  .due-note.due-soon{ color: var(--brass-strong); font-weight:600; }
+  .due-note.due-overdue{ color: var(--bad); font-weight:600; }
   .row-breakdown-toggle{
     all:unset; display:inline-block; font-size:10.5px; color: var(--brass-strong); cursor:pointer;
     margin-top:2px; padding:4px 2px; text-decoration:underline; text-underline-offset:2px;

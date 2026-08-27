@@ -149,6 +149,10 @@ export function renderHomeBody(){
   body.innerHTML = state.scenarios.map(function(scenario, i){
     var isActive = state.activeScenario === scenario;
     var isBaseline = state.baselineScenario === scenario;
+    // With only one scenario, "active" is trivially true and redundant next to the baseline
+    // badge (there's nothing else it could be compared against yet) — the "Set active" link
+    // also has nothing meaningful to do at that point, so it's suppressed the same way.
+    var showActiveBadge = isActive && state.scenarios.length > 1;
     var isCollapsed = !!homeBlockCollapsed[scenario];
     var total = sumField(state.home[scenario], "monthly");
     return '<div class="home-block' + (isActive ? " is-active" : "") + (isCollapsed ? " is-collapsed" : "") + '">' +
@@ -157,9 +161,9 @@ export function renderHomeBody(){
           '<span class="icon-btn home-collapse-toggle" aria-hidden="true"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg></span>' +
           '<span class="home-dot"></span><h4>' + escapeAttr(scenario) + '</h4>' +
           (isBaseline ? '<span class="home-baseline-badge" title="Your current, real-life situation — kept as the fixed baseline every other scenario is compared against">Current situation</span>' : "") +
-          (isActive
+          (showActiveBadge
             ? '<span class="home-active-badge" title="This is the scenario shown on the Dashboard and compared against the others">Active on Dashboard</span>'
-            : '<button type="button" class="home-setactive-btn" data-edit-scenario2="' + escapeAttr(scenario) + '" title="Make this the scenario shown on the Dashboard">Set active</button>') +
+            : (isActive ? "" : '<button type="button" class="home-setactive-btn" data-edit-scenario2="' + escapeAttr(scenario) + '" title="Make this the scenario shown on the Dashboard">Set active</button>')) +
         '</div>' +
         '<div class="home-block-right" title="Total home cost per month — rent/repayment plus insurance, rates, water &amp; maintenance">' +
           '<span class="home-block-total-label">Home cost</span>' +
@@ -170,6 +174,7 @@ export function renderHomeBody(){
       '</div>' +
       '<div class="home-block-body">' +
         renderPurchasePanelHtml(scenario) +
+        '<div class="calc-or-divider" aria-hidden="true"><span>or</span></div>' +
         renderInvestPanelHtml(scenario) +
         '<div class="home-recurring-label">Recurring costs — per month</div>' +
         '<p class="income-summary-line home-recon-line">' + homeReconciliationHtml(scenario) + '</p>' +
@@ -237,7 +242,7 @@ function renderPurchasePanelHtml(scenario){
     body =
       '<div class="calc-body">' +
         '<div class="calc-grid">' +
-          '<div class="calc-field"><label>Property price</label><input type="number" step="1000" min="0" class="calc-price" value="' + cfg.price + '"></div>' +
+          '<div class="calc-field"><label>Property price</label><div class="calc-input-wrap"><span class="calc-currency-prefix" aria-hidden="true">$</span><input type="number" step="1000" min="0" class="calc-price" value="' + cfg.price + '"></div></div>' +
           '<div class="calc-field" title="Below 20% usually means paying Lenders Mortgage Insurance (LMI) — see the settlement costs below."><label>Deposit %</label><input type="number" step="1" min="0" max="100" class="calc-depositPct" value="' + cfg.depositPct + '"><span class="calc-hint" data-out="deposit">' + fmtCurrency0.format(out.depositAmt) + '</span></div>' +
           '<div class="calc-field"><label>Loan term (years)</label><input type="number" step="1" min="1" class="calc-term" value="' + cfg.termYears + '"></div>' +
           '<div class="calc-field"><label>State</label><select class="calc-state">' + stateOptions + '</select></div>' +
@@ -278,7 +283,8 @@ function renderPurchasePanelHtml(scenario){
   }
   return (
     '<div class="calc-panel" data-calc-scenario="' + escapeAttr(scenario) + '">' +
-      '<label class="calc-enable"><span class="switch"><input type="checkbox" class="calc-enabled"' + (enabled ? " checked" : "") + '><span class="switch-track"><span class="switch-thumb"></span></span></span> This is a property purchase — show the calculator</label>' +
+      '<label class="calc-enable"><span class="switch"><input type="checkbox" class="calc-enabled"' + (enabled ? " checked" : "") + '><span class="switch-track"><span class="switch-thumb"></span></span></span>' +
+        '<span class="calc-enable-text">This is a property purchase — show the calculator<span class="calc-enable-note">Turns off "Investing instead" below — only one can be active</span></span></label>' +
       body +
     '</div>'
   );
@@ -306,10 +312,10 @@ function renderInvestPanelHtml(scenario){
       '<div class="calc-body">' +
         '<div class="calc-grid">' +
           '<div class="calc-field"><label>Invest in</label><select class="invest-assettype">' + typeOptions + '</select></div>' +
-          '<div class="calc-field"><label>Starting amount</label><input type="number" step="100" min="0" class="invest-initial" value="' + cfg.initialAmount + '"></div>' +
+          '<div class="calc-field"><label>Starting amount</label><div class="calc-input-wrap"><span class="calc-currency-prefix" aria-hidden="true">$</span><input type="number" step="100" min="0" class="invest-initial" value="' + cfg.initialAmount + '"></div></div>' +
           '<div class="calc-field"><label>Growth % p.a.</label><input type="number" step="0.1" class="invest-growth" value="' + cfg.growthRatePct + '"></div>' +
           '<div class="calc-field"><label>Monthly contribution</label><select class="invest-contribmode"><option value="auto"' + (cfg.contributionMode !== "manual" ? " selected" : "") + '>Auto — freed-up cash flow</option><option value="manual"' + (cfg.contributionMode === "manual" ? " selected" : "") + '>Manual amount</option></select></div>' +
-          (cfg.contributionMode === "manual" ? '<div class="calc-field"><label>Manual amount / mo</label><input type="number" step="10" min="0" class="invest-manual-amount" value="' + cfg.monthlyContribution + '"></div>' : "") +
+          (cfg.contributionMode === "manual" ? '<div class="calc-field"><label>Manual amount / mo</label><div class="calc-input-wrap"><span class="calc-currency-prefix" aria-hidden="true">$</span><input type="number" step="10" min="0" class="invest-manual-amount" value="' + cfg.monthlyContribution + '"></div></div>' : "") +
         '</div>' +
         '<p class="calc-note" data-invest-resolved>Monthly contribution used in the projection: <b>' + investResolvedMonthlyLabel(scenario, cfg) + '</b></p>' +
         '<p class="calc-note">A simple alternative to buying: your starting amount plus the monthly contribution above, compounding at the growth rate you set — no loan, stamp duty, or property math. "Auto" keeps this honestly comparable to a purchase scenario by using whatever this scenario\'s own cash flow actually frees up; switch to Manual to test a fixed contribution instead.</p>' +
@@ -317,7 +323,8 @@ function renderInvestPanelHtml(scenario){
   }
   return (
     '<div class="calc-panel" data-invest-scenario="' + escapeAttr(scenario) + '">' +
-      '<label class="calc-enable"><span class="switch"><input type="checkbox" class="invest-enabled"' + (enabled ? " checked" : "") + '><span class="switch-track"><span class="switch-thumb"></span></span></span> Investing instead of buying — show the calculator</label>' +
+      '<label class="calc-enable"><span class="switch"><input type="checkbox" class="invest-enabled"' + (enabled ? " checked" : "") + '><span class="switch-track"><span class="switch-thumb"></span></span></span>' +
+        '<span class="calc-enable-text">Investing instead of buying — show the calculator<span class="calc-enable-note">Turns off the property purchase above — only one can be active</span></span></label>' +
       body +
     '</div>'
   );

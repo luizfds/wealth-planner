@@ -48,7 +48,7 @@
   .tax-inputs{ display:grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap:10px 14px; margin-bottom:10px; }
   .tax-inputs .proj-field label{ min-height:30px; display:flex; align-items:flex-start; }
   .tax-advanced{ margin-bottom:0; margin-top:10px; }
-  .tax-advanced summary{ cursor:pointer; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; padding:2px 0; user-select:none; }
+  .tax-advanced summary{ cursor:pointer; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; padding:6px 0; user-select:none; }
   .tax-advanced summary:hover{ color: var(--ink); }
   .tax-advanced[open] summary{ margin-bottom:8px; }
   .tax-advanced .tax-inputs{ margin-bottom:0; }

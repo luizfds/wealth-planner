@@ -150,6 +150,23 @@
   .m-cost-row input.cc-what:focus, .m-cost-row input.cc-amount:focus{ border-color: var(--brass); outline:none; background: var(--paper); box-shadow: var(--focus-ring); }
   .m-cost-row .row-del{ flex:none; }
 
+  /* At mobile widths, cramming the dot + name input + amount input + delete button onto one
+     flex row left the name illegibly clipped (confirmed via screenshot — every default cost
+     name like "Conveyancing / Legal Fees" cut to ~5 characters). Grid instead of flex here since
+     "one item gets its own full-width row, the rest share the row below" is what grid-template-
+     areas is for — flex-wrap forcing this same shape gets fragile fast with a fixed-width
+     neighbor (the dot) that must stay anchored across both rows. */
+  @media (max-width:480px){
+    .m-cost-row{
+      display:grid; grid-template-columns:auto 1fr auto; grid-template-areas:"dot name name" "dot amount del";
+      column-gap:8px; row-gap:4px; align-items:center;
+    }
+    .m-cost-row .m-row-dot{ grid-area:dot; align-self:start; margin-top:9px; }
+    .m-cost-row input.cc-what{ grid-area:name; width:100%; }
+    .m-cost-row input.cc-amount{ grid-area:amount; justify-self:end; }
+    .m-cost-row .row-del{ grid-area:del; }
+  }
+
   .home-block-total.short{ color: var(--bad); }
   .prop-value-log{ display:flex; align-items:center; gap:8px; margin:4px 0 14px; }
   .prop-loans-table th, .prop-loans-table td{ white-space:nowrap; padding:4px 6px; font-size:12.5px; border-bottom:1px solid var(--border); }

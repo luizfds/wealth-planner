@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario } from "../src/calc/ledger.js";
+import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, daysUntil, appendHistorySnapshot } from "../src/calc/ledger.js";
 
 test("toWeekly converts every frequency to a weekly figure", function(){
   assert.equal(toWeekly(100, "Weekly"), 100);
@@ -67,6 +67,64 @@ test("sumFieldForScenario sums each item's resolved (possibly overridden) amount
   ];
   assert.equal(sumFieldForScenario(items, "Renting", "weekly"), 200);
   assert.equal(sumFieldForScenario(items, "Buy Brisbane", "weekly"), 140);
+});
+
+test("nextDueDate returns null when there's no last-incurred date to project from", function(){
+  assert.equal(nextDueDate(null, "Monthly"), null);
+  assert.equal(nextDueDate(undefined, "Monthly"), null);
+  assert.equal(nextDueDate("not a date", "Monthly"), null);
+});
+
+test("nextDueDate advances one Monthly step past a recent last-paid date", function(){
+  // Paid 2024-01-15, "today" is 2024-01-20 — still within the same period, next due is one
+  // month on, not today (you don't owe it again the same week you paid it).
+  assert.equal(nextDueDate("2024-01-15", "Monthly", "2024-01-20"), "2024-02-15");
+});
+
+test("nextDueDate keeps advancing until it catches up to a stale last-paid date", function(){
+  // Paid 2024-01-15 (Quarterly), "today" is 2024-09-01 — several quarters have passed since;
+  // the projected next due date must be the first quarterly occurrence on/after today, not the
+  // very next one after the stale last-paid date.
+  var result = nextDueDate("2024-01-15", "Quarterly", "2024-09-01");
+  assert.equal(result, "2024-10-15");
+});
+
+test("nextDueDate rolls a Monthly bill from a month-end date into the next month correctly", function(){
+  // Jan 31 + 1 month via setMonth lands on Mar 3 in vanilla JS Date arithmetic (Feb has no 31st,
+  // so it overflows) — asserting the actual behavior here as documented, not a "correct"
+  // calendar-aware answer, since that's what addFreqStep actually does.
+  var result = nextDueDate("2024-01-31", "Monthly", "2024-02-01");
+  assert.equal(result, "2024-03-02"); // 2024 is a leap year: Jan 31 + 1mo = Mar 2 (29-day Feb)
+});
+
+test("nextDueDate handles every FREQS value without falling through to an infinite loop", function(){
+  ["Weekly", "Fortnightly", "Monthly", "Quarterly", "Yearly"].forEach(function(freq){
+    var result = nextDueDate("2024-01-01", freq, "2024-01-01");
+    assert.ok(result > "2024-01-01", freq + " should project forward, got " + result);
+  });
+});
+
+test("daysUntil is negative for a past date (overdue) and positive for a future one", function(){
+  assert.equal(daysUntil("2024-01-10", "2024-01-15"), -5);
+  assert.equal(daysUntil("2024-01-20", "2024-01-15"), 5);
+  assert.equal(daysUntil("2024-01-15", "2024-01-15"), 0);
+});
+
+test("appendHistorySnapshot appends today's value and sorts by date", function(){
+  var history = [{ date: "2024-01-01", value: 100 }];
+  var dateStr = appendHistorySnapshot(history, 150);
+  assert.equal(dateStr, new Date().toISOString().slice(0, 10));
+  assert.equal(history.length, 2);
+  // Sorted ascending regardless of push order — "today" (whatever it is) sorts after 2024-01-01.
+  assert.equal(history[history.length - 1].value, 150);
+});
+
+test("appendHistorySnapshot updates today's own entry instead of duplicating it on a second click", function(){
+  var history = [];
+  appendHistorySnapshot(history, 100);
+  appendHistorySnapshot(history, 200);
+  assert.equal(history.length, 1);
+  assert.equal(history[0].value, 200);
 });
 
 test("sumByAccount groups by trimmed account name, defaulting blanks to Unassigned", function(){

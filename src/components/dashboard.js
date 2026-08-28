@@ -1,10 +1,12 @@
-import { state } from "../state.js";
-import { sumField, sumByClassification, sumByAccount, safeDiv, resolveSharedAmount } from "../calc/ledger.js";
+import { state, persist } from "../state.js";
+import { sumField, sumByClassification, sumByAccount, safeDiv, resolveSharedAmount, nextDueDate, daysUntil, appendHistorySnapshot } from "../calc/ledger.js";
 import { ipExpenseItemsForClassification } from "../calc/property.js";
 import { effectiveIncomeItems } from "../calc/tax.js";
-import { scenarioTotals, computeNetWorthSeries, totalNetWorthValue } from "../calc/engine.js";
-import { fmtCurrency0, fmtPercent1 } from "../lib/format.js";
+import { scenarioTotals, computeNetWorthSeries, totalNetWorthValue, runwayMonths, actualAssetGrowthLastMonth, staleAssets } from "../calc/engine.js";
+import { fmtCurrency0, fmtPercent1, fmtRunway } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
+import { showToast, showUndoToast } from "../lib/toast.js";
+import { renderLineChart } from "../lib/charts.js";
 
 export function renderCards(){
   var el = document.getElementById("cards");
@@ -63,11 +65,85 @@ export function renderDashboardStats(){
   var lastTile = isComparing
     ? '<div class="stat-tile"><span>Scenarios compared</span><b>' + state.scenarios.length + '</b><small>' + state.scenarios.map(escapeAttr).join(", ") + '</small></div>'
     : '<div class="stat-tile"><span>Scenario</span><b>' + escapeAttr(active) + '</b><small>add another on the Scenarios tab to compare options</small></div>';
+  var runway = runwayMonths(t.expensesMonthly);
+  var runwayTile = '<div class="stat-tile" title="Liquid assets (cash + shares + property offset) ÷ ' + escapeAttr(active) + '\'s monthly expenses — how long you could cover costs with zero income. A common rule of thumb targets 3-6 months."><span>Runway</span><b>' +
+    (runway == null ? "—" : fmtRunway.format(runway) + " mo") + '</b><small>liquid assets ÷ monthly expenses</small></div>';
   el.innerHTML =
     '<div class="stat-tile"><span>Total net worth today</span><b>' + fmtCurrency0.format(totalNetWorth) + '</b><small>across ' + itemCount + ' item' + (itemCount === 1 ? "" : "s") + '</small></div>' +
     '<div class="stat-tile"><span>' + escapeAttr(active) + ' — net savings</span><b' + (t.netMonthly < 0 ? ' style="color:var(--bad)"' : '') + '>' + fmtCurrency0.format(t.netMonthly) + '/mo</b><small>' + fmtPercent1.format(t.rate) + ' savings rate</small></div>' +
     '<div class="stat-tile"><span>Projected net worth</span><b>' + fmtCurrency0.format(projected) + '</b><small>in ' + horizon + ' years, ' + escapeAttr(active) + '</small></div>' +
+    runwayTile +
     lastTile;
+  renderStaleAssetsBanner();
+  renderActualVsExpectedPanel(active, t);
+  renderUpcomingBillsPanel();
+  renderProjectionAccuracyPanel();
+}
+
+// Shared expenses with a tracked "last paid" date, projected forward via nextDueDate() and
+// sorted soonest-first — same-scenario expenses only (state.shared, not state.home[scenario]),
+// matching where the "Last paid" field was actually added.
+function renderUpcomingBillsPanel(){
+  var panel = document.getElementById("upcomingBillsPanel");
+  if(!panel) return;
+  var upcoming = state.shared
+    .filter(function(i){ return i.lastIncurredDate; })
+    .map(function(i){ return { what: i.what, due: nextDueDate(i.lastIncurredDate, i.freq), amount: i.amount, freq: i.freq }; })
+    .filter(function(i){ return i.due; })
+    .sort(function(a, b){ return a.due < b.due ? -1 : (a.due > b.due ? 1 : 0); });
+  if(!upcoming.length){
+    panel.innerHTML =
+      '<h3>Upcoming bills</h3>' +
+      '<p class="fire-note">Set a "Last paid" date on a shared expense (Expenses tab) to see it projected here.</p>';
+    return;
+  }
+  var rows = upcoming.slice(0, 8).map(function(i){
+    var days = daysUntil(i.due);
+    var label = days < 0 ? ("overdue " + Math.abs(days) + "d") : (days === 0 ? "today" : "in " + days + "d");
+    var cls = days < 0 ? "due-overdue" : (days <= 7 ? "due-soon" : "");
+    return '<div class="fire-stat-row"><span>' + escapeAttr(i.what) + ' <span class="due-note ' + cls + '" style="display:inline">(' + label + ')</span></span><b>' + fmtCurrency0.format(i.amount) + '</b></div>';
+  }).join("");
+  panel.innerHTML = '<h3>Upcoming bills</h3>' + rows;
+}
+
+// A nudge, not an error — this app has no backend, so there's no way to push a notification
+// when it's closed. This only ever surfaces on load/whenever the Dashboard re-renders.
+function renderStaleAssetsBanner(){
+  var el = document.getElementById("staleAssetsBanner");
+  if(!el) return;
+  var stale = staleAssets();
+  if(!stale.length){ el.innerHTML = ""; return; }
+  var names = stale.map(function(s){
+    return escapeAttr(s.what) + (s.days == null ? " (never logged)" : " (" + s.days + "d ago)");
+  }).join(", ");
+  el.innerHTML =
+    '<div class="stale-assets-note" title="Log a fresh value for each (Assets tab → Log) to keep net worth history and the Actual vs. expected panel accurate.">' +
+      '<span>⏱</span> ' + stale.length + " asset" + (stale.length === 1 ? "" : "s") + " haven't been logged in 30+ days — " + names +
+    '</div>';
+}
+
+// Compares real month-over-month asset growth (from logged history snapshots) against what the
+// active scenario's own cash flow says should have been saved — a reality check on whether the
+// plan's assumptions are holding up, not just a forward projection.
+function renderActualVsExpectedPanel(scenario, t){
+  var panel = document.getElementById("actualVsExpectedPanel");
+  if(!panel) return;
+  var expected = t.netMonthly;
+  var actual = actualAssetGrowthLastMonth();
+  if(!actual.hasData){
+    panel.innerHTML =
+      '<h3>Actual vs. expected <span style="font-weight:400;color:var(--ink-soft)">— last 30 days</span></h3>' +
+      '<p class="fire-note">Log a value for at least one asset (Assets tab → Log) on two occasions ~a month apart to compare real growth against ' + escapeAttr(scenario) + '\'s expected monthly surplus.</p>';
+    return;
+  }
+  var gap = actual.deltaSum - expected;
+  var gapWord = gap >= 0 ? "ahead of" : "behind";
+  panel.innerHTML =
+    '<h3>Actual vs. expected <span style="font-weight:400;color:var(--ink-soft)">— last 30 days</span></h3>' +
+    '<div class="fire-stat-row"><span>Actual asset growth</span><b' + (actual.deltaSum < 0 ? ' style="color:var(--bad)"' : '') + '>' + fmtCurrency0.format(actual.deltaSum) + '</b></div>' +
+    '<div class="fire-stat-row"><span>' + escapeAttr(scenario) + ' expected surplus</span><b>' + fmtCurrency0.format(expected) + '/mo</b></div>' +
+    '<div class="fire-stat-row"><span>Gap</span><b' + (gap < 0 ? ' style="color:var(--bad)"' : ' style="color:var(--good)"') + '>' + fmtCurrency0.format(Math.abs(gap)) + " " + gapWord + " plan</b></div>" +
+    '<p class="fire-note">Based on ' + actual.trackedCount + ' asset' + (actual.trackedCount === 1 ? "" : "s") + ' with a logged value from ~30 days ago and a current one. Doesn\'t include properties (no monthly re-valuation) or assets without an old-enough snapshot — log values regularly for a fuller picture.</p>';
 }
 
 // ---------------- Rendering: 50/30/20 + accounts ----------------
@@ -153,4 +229,85 @@ function renderFireProgress(scenario, t){
     '<div class="fire-stat-row"><span>Net worth today</span><b>' + fmtCurrency0.format(netWorth) + '</b></div>' +
     '<div class="fire-stat-row"><span>Target FI number</span><b>' + fmtCurrency0.format(targetFI) + '</b></div>' +
     '<p class="fire-note">Target = ' + escapeAttr(scenario) + '’s annual living costs (' + fmtCurrency0.format(annualLivingExpenses) + '/yr, excluding investment property) × 25 — what a 4%/yr withdrawal could sustain indefinitely. ' + etaText + '</p>';
+}
+
+// Freezes today's projection for the active scenario as a fixed line to grade real net worth
+// against later (see renderProjectionAccuracyPanel()). Deliberately never re-run automatically —
+// comparing against a projection re-computed with today's assumptions would make every check
+// trivially "on track", since a fresh projection always starts from wherever you actually are.
+// Re-clicking this (labelled "Reset" once a reference exists) intentionally throws the old one
+// away, undoable via the toast — use it when you've knowingly changed the plan (new job,
+// refinance), not as routine maintenance, since resetting erases whatever drift you'd otherwise
+// be trying to see.
+export function setProjectionReference(){
+  var old = state.projectionReference;
+  var scenario = state.activeScenario;
+  var horizon = Math.max(1, Number(state.projection.horizonYears) || 1);
+  state.projectionReference = {
+    date: new Date().toISOString().slice(0, 10),
+    scenario: scenario,
+    horizonYears: horizon,
+    series: computeNetWorthSeries(scenario, horizon)
+  };
+  renderDashboardStats();
+  persist();
+  showUndoToast((old ? "Reference projection reset" : "Reference projection set") + " to today's " + scenario + " projection", function(){
+    state.projectionReference = old;
+    renderDashboardStats();
+    persist();
+  });
+}
+
+// A manual, roughly-monthly data point — deliberately not derived from assets/properties/debts
+// history, since those get logged whenever the user happens to update each item, not necessarily
+// together or on any particular cadence.
+export function logNetWorthSnapshot(){
+  var value = totalNetWorthValue();
+  var dateStr = appendHistorySnapshot(state.netWorthLog, value);
+  renderDashboardStats();
+  persist();
+  showToast("Logged net worth " + fmtCurrency0.format(value) + " (" + dateStr + ")");
+}
+
+function yearsSinceDate(dateStr, refDateStr){
+  var ms = new Date(dateStr + "T00:00:00").getTime() - new Date(refDateStr + "T00:00:00").getTime();
+  return ms / (365.25 * 24 * 60 * 60 * 1000);
+}
+
+// The reference projection's own points already sit on a whole-year grid (x: 0..horizonYears,
+// from computeNetWorthSeries()); actual log entries are irregularly-dated real-world snapshots,
+// converted to the same "years since reference" x-axis so the two overlay on one chart.
+function renderProjectionAccuracyPanel(){
+  var panel = document.getElementById("projectionAccuracyPanel");
+  if(!panel) return;
+  var ref = state.projectionReference;
+  var setBtnHtml = '<button type="button" class="btn btn-sm btn-ghost" data-set-projection-reference>' + (ref ? "Reset reference projection" : "Set reference projection") + '</button>';
+  if(!ref){
+    panel.innerHTML =
+      '<h3>Projection accuracy</h3>' +
+      '<p class="fire-note">Set a reference projection to start tracking how ' + escapeAttr(state.activeScenario) + '\'s projection holds up against reality over time. Once set, log your net worth roughly monthly ("Log net worth now" below) to build up the comparison.</p>' +
+      '<div class="fire-stat-row" style="justify-content:flex-start;gap:8px">' + setBtnHtml + '</div>';
+    return;
+  }
+  var logBtnHtml = '<button type="button" class="btn btn-sm btn-ghost" data-log-networth>Log net worth now</button>';
+  var actualPoints = state.netWorthLog
+    .filter(function(h){ return h.date >= ref.date; })
+    .map(function(h){ return { x: yearsSinceDate(h.date, ref.date), y: h.value }; });
+  var series = [
+    { label: "Reference — " + ref.scenario + " (set " + ref.date + ")", colorClass: "series-color-0", points: ref.series },
+    { label: "Actual net worth (logged)", colorClass: "series-color-2", points: actualPoints }
+  ];
+  panel.innerHTML =
+    '<h3>Projection accuracy</h3>' +
+    '<p class="fire-note">Grading against the ' + escapeAttr(ref.scenario) + ' projection frozen on ' + escapeAttr(ref.date) + '. Log your net worth roughly monthly to fill in the actual line.</p>' +
+    '<div id="projAccuracyChartHost"></div>' +
+    '<div class="fire-stat-row" style="justify-content:flex-start;gap:8px">' + logBtnHtml + setBtnHtml + '</div>';
+  renderLineChart(document.getElementById("projAccuracyChartHost"), series, {
+    height: 220,
+    yFormat: function(v){ return fmtCurrency0.format(v); },
+    xFormat: function(v){ return "Yr " + (Math.round(v * 10) / 10); },
+    ariaLabel: "Projection accuracy: reference projection vs actual logged net worth",
+    alwaysLegend: true,
+    emptyMessage: "Log your net worth at least once to see it plotted against the reference projection."
+  });
 }

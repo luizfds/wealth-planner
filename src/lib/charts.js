@@ -117,13 +117,16 @@ export function renderLineChart(container, series, opts){
   wrap.appendChild(tooltip);
   container.appendChild(wrap);
 
-  function nearestPointIndex(xData){
+  function nearestIndexInPoints(points, xData){
     var best = 0, bestDist = Infinity;
-    validSeries[0].points.forEach(function(p, idx){
+    points.forEach(function(p, idx){
       var dist = Math.abs(p.x - xData);
       if(dist < bestDist){ bestDist = dist; best = idx; }
     });
     return best;
+  }
+  function nearestPointIndex(xData){
+    return nearestIndexInPoints(validSeries[0].points, xData);
   }
 
   hitRect.addEventListener("mousemove", function(e){
@@ -138,7 +141,11 @@ export function renderLineChart(container, series, opts){
     crosshair.setAttribute("visibility", "visible");
     var rows = validSeries.map(function(s, sidx){
       if(hiddenIdx[sidx]) return "";
-      var pt = s.points[idx] || s.points[s.points.length - 1];
+      // Looked up independently per series (not the shared `idx` from series[0]'s grid) so two
+      // series with different point counts/spacing — e.g. a yearly reference projection overlaid
+      // with sparse, irregularly-dated actual net-worth log entries — each show their own nearest
+      // real data point instead of series[0]'s index misapplied to a shorter/differently-spaced one.
+      var pt = s.points[nearestIndexInPoints(s.points, xData)];
       return '<div class="viz-tooltip-row"><span class="proj-swatch ' + s.colorClass + '"></span>' + escapeAttr(s.label) + ': <b>' + (opts.yFormat ? opts.yFormat(pt.y) : Math.round(pt.y)) + '</b></div>';
     }).join("");
     tooltip.innerHTML = '<div style="margin-bottom:4px;color:var(--paper);opacity:.75">' + (opts.xFormat ? opts.xFormat(xVal) : xVal) + '</div>' + rows;

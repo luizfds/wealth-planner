@@ -8,6 +8,32 @@ function svgEl(tag, attrs){
   return el;
 }
 
+// A tiny inline trend line built straight from a logged history[] array (no axes, grid, or
+// tooltip — those belong to renderLineChart's full charts). Returns an HTML string rather than
+// mutating a container, since every caller so far splices this into a row's template string
+// (a holdings row, a future watchlist card) rather than owning a dedicated container element.
+// Empty string with fewer than two points, matching historyTrendHtml's "nothing to show yet"
+// convention, so callers can splice it in with no extra "no data" placeholder cluttering rows
+// nobody has logged twice yet.
+export function sparklineHtml(history, opts){
+  opts = opts || {};
+  if(!history || history.length < 2) return "";
+  var w = opts.width || 56, h = opts.height || 22;
+  var values = history.map(function(p){ return Number(p.value) || 0; });
+  var min = Math.min.apply(null, values), max = Math.max.apply(null, values);
+  if(min === max){ min -= 1; max += 1; }
+  var stepX = w / (values.length - 1);
+  var d = values.map(function(v, i){
+    var x = i * stepX;
+    var y = h - ((v - min) / (max - min)) * h;
+    return (i === 0 ? "M" : "L") + x.toFixed(1) + "," + y.toFixed(1);
+  }).join(" ");
+  var trendCls = values[values.length - 1] > values[0] ? "up" : (values[values.length - 1] < values[0] ? "down" : "");
+  return '<svg class="sparkline' + (trendCls ? " " + trendCls : "") + '" width="' + w + '" height="' + h +
+    '" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" aria-hidden="true">' +
+    '<path d="' + d + '" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+}
+
 export function renderLineChart(container, series, opts){
   opts = opts || {};
   container.innerHTML = "";

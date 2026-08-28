@@ -36,3 +36,16 @@
   .asset-trend.down{ color: var(--bad); }
   .asset-log-btn{ all:unset; cursor:pointer; color: var(--ink-soft); font-size:11px; padding:3px 6px; border-radius:5px; }
   .asset-log-btn:hover{ background: var(--paper-sunken); color: var(--brass-strong); }
+
+  /* ---------------- Share holding rows: sparkline + value block ---------------- */
+  /* Scoped to Assets' modern rows (Cash/Shares/Super/Vehicle/Other all share this container) —
+     a share holding's name (e.g. a full company name) is the one case in this app where a row
+     also has to fit an avatar, sparkline, and value block in the same line, so it can't afford
+     to wrap to a second line the way a plain amount+frequency row can. */
+  .m-asset-rows .m-row-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sparkline{ display:block; flex:none; color: var(--ink-soft); margin:0 4px; }
+  .sparkline.up{ color: var(--good); }
+  .sparkline.down{ color: var(--bad); }
+  .m-row-share-value{ text-align:right; flex:none; }
+  .m-row-share-value .asset-trend.gain-cell{ display:block; padding-left:0; margin-top:2px; text-align:right; }
+  .holdings-table .sparkline{ vertical-align:middle; }

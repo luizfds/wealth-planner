@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, daysUntil } from "../src/calc/ledger.js";
+import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, daysUntil, appendHistorySnapshot } from "../src/calc/ledger.js";
 
 test("toWeekly converts every frequency to a weekly figure", function(){
   assert.equal(toWeekly(100, "Weekly"), 100);
@@ -108,6 +108,23 @@ test("daysUntil is negative for a past date (overdue) and positive for a future 
   assert.equal(daysUntil("2024-01-10", "2024-01-15"), -5);
   assert.equal(daysUntil("2024-01-20", "2024-01-15"), 5);
   assert.equal(daysUntil("2024-01-15", "2024-01-15"), 0);
+});
+
+test("appendHistorySnapshot appends today's value and sorts by date", function(){
+  var history = [{ date: "2024-01-01", value: 100 }];
+  var dateStr = appendHistorySnapshot(history, 150);
+  assert.equal(dateStr, new Date().toISOString().slice(0, 10));
+  assert.equal(history.length, 2);
+  // Sorted ascending regardless of push order — "today" (whatever it is) sorts after 2024-01-01.
+  assert.equal(history[history.length - 1].value, 150);
+});
+
+test("appendHistorySnapshot updates today's own entry instead of duplicating it on a second click", function(){
+  var history = [];
+  appendHistorySnapshot(history, 100);
+  appendHistorySnapshot(history, 200);
+  assert.equal(history.length, 1);
+  assert.equal(history[0].value, 200);
 });
 
 test("sumByAccount groups by trimmed account name, defaulting blanks to Unassigned", function(){

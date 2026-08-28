@@ -6,7 +6,7 @@ import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax }
 import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { syncUiModeToggle } from "../lib/uimode.js";
-import { buildTable, optionsHtml } from "../lib/ledger-table.js";
+import { buildTable, optionsHtml, historyTrendHtml } from "../lib/ledger-table.js";
 
 export function personBreakdownHtml(person){
   var r = computePersonTax(person);
@@ -121,7 +121,7 @@ function renderIncomeGroupsClassic(){
       '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="income:' + escapeAttr(addValue) + '">+ Add to ' + escapeAttr(label) + '</button></div>';
   }).join("");
   groups.forEach(function(g, gi){
-    buildTable(document.getElementById("incomeGroupTable" + gi), "income", g.items, {showClass:false, showIncomeFields:true}, g.indices);
+    buildTable(document.getElementById("incomeGroupTable" + gi), "income", g.items, {showClass:false, showIncomeFields:true, showLog:true}, g.indices);
   });
 }
 
@@ -186,11 +186,13 @@ function modernIncomeRowHtml(item, idx, colorIdx){
   var monthly = periodsOf(item.amount, item.freq).monthly;
   var note = isGrossRef ? incomeRowSuperNote(item) : "";
   var dot = colorIdx != null ? '<span class="m-row-dot series-color-' + colorIdx + '" aria-hidden="true"></span>' : "";
+  var trendHtml = isComputed ? "" : historyTrendHtml(item);
   var summary = '<div class="m-row-summary"' + (isComputed ? ' style="cursor:default"' : ' role="button" tabindex="0" data-row-toggle') + '>' +
     (isComputed ? "" : dot) +
     '<div style="flex:1 1 auto; min-width:0">' +
       '<div class="m-row-name">' + escapeAttr(item.what) + '</div>' +
       (note ? '<div class="m-row-sub super-note">' + escapeAttr(note) + '</div>' : "") +
+      (trendHtml ? '<div class="m-row-sub">' + trendHtml + '</div>' : "") +
     '</div>' +
     (isGrossRef ? '<span class="m-row-tag gross">Gross</span>' : "") +
     '<span class="m-row-amt" data-computed="amt">' + fmtCurrency2.format(monthly) + '/mo</span>' +
@@ -217,7 +219,10 @@ function modernIncomeRowHtml(item, idx, colorIdx){
         '<div class="m-edit-field"><label>Account</label><input type="text" class="f-account" list="acctSuggestions" value="' + escapeAttr(item.account || "") + '" aria-label="Account"></div>' +
       '</div>' +
     '</details>' +
-    '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm row-del" data-del="income:' + idx + '">Delete</button></div>' +
+    '<div class="m-edit-actions">' +
+      '<button type="button" class="asset-log-btn" data-log="income:' + idx + '" title="Snapshot the amount above with today\'s date">Log</button>' +
+      '<button type="button" class="btn btn-ghost btn-sm row-del" data-del="income:' + idx + '">Delete</button>' +
+    '</div>' +
   '</div></div></div>';
   return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="income" data-index="' + idx + '">' + summary + edit + '</div>';
 }

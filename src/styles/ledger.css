@@ -38,7 +38,7 @@
   .acct-row:last-child{ margin-bottom:0; }
   .acct-name{ color: var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .acct-track{ height:8px; border-radius:100px; background: var(--paper-sunken); overflow:hidden; }
-  .acct-fill{ height:100%; background: var(--brass); border-radius:inherit; }
+  .acct-fill{ height:100%; background: var(--series-color, var(--brass)); border-radius:inherit; }
   .acct-amt{ text-align:right; font-weight:500; }
 
   /* ---------------- Ledger tables ---------------- */

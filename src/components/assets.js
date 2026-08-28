@@ -2,11 +2,11 @@ import { state, persist } from "../state.js";
 import { ASSET_CATEGORIES, LIQUID_CATEGORIES, SHARE_MARKETS } from "../constants.js";
 import { propertiesOffsetTotal, propertiesIlliquidEquityToday, recalcPurchase } from "../calc/property.js";
 import { totalAssetsValue, totalNetWorthValue, totalDebtsValue } from "../calc/engine.js";
-import { fmtCurrency0, fmtPercent1 } from "../lib/format.js";
+import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { syncUiModeToggle } from "../lib/uimode.js";
 import { optionsHtml, historyTrendHtml } from "../lib/ledger-table.js";
-import { renderLineChart } from "../lib/charts.js";
+import { renderLineChart, sparklineHtml } from "../lib/charts.js";
 import { showToast } from "../lib/toast.js";
 import { appendHistorySnapshot } from "../calc/ledger.js";
 import { renderProjectionOutputs } from "./projections.js";
@@ -40,6 +40,7 @@ function holdingRowHtml(item, idx){
   var price = Number(item.price) || 0;
   return '<tr data-index="' + idx + '">' +
     '<td><input type="text" class="h-what" value="' + escapeAttr(item.what) + '" aria-label="Holding name">' + historyTrendHtml(item) + '</td>' +
+    '<td>' + (sparklineHtml(item.history) || '<span class="calc-note">—</span>') + '</td>' +
     '<td><input type="text" class="h-symbol" value="' + escapeAttr(item.symbol || "") + '" placeholder="e.g. CBA" aria-label="Ticker symbol"></td>' +
     '<td><select class="h-market">' + optionsHtml(SHARE_MARKETS, item.market || "ASX") + '</select></td>' +
     '<td class="num"><input type="number" step="1" min="0" class="h-qty" value="' + qty + '" aria-label="Quantity"></td>' +
@@ -63,6 +64,8 @@ export function patchHoldingRow(tr, item){
   if(gainCell) gainCell.innerHTML = gainLossHtml(item);
   var priceNote = tr.querySelector(".h-price-note");
   if(priceNote) priceNote.textContent = item.priceUpdated ? ("as of " + item.priceUpdated) : "";
+  var subCell = tr.querySelector(".h-sub-cell");
+  if(subCell) subCell.textContent = qty + " · " + fmtCurrency2.format(holdingAvgCostDisplay(item, price));
 }
 
 function assetCategoryItems(cat){
@@ -205,20 +208,27 @@ export function renderVehiclesSubpage(){
   }
 }
 
+function holdingAvgCostDisplay(item, price){
+  return item.avgCost != null && item.avgCost !== "" ? Number(item.avgCost) : price;
+}
 function modernShareRowHtml(item, idx, colorIdx){
   var qty = Number(item.quantity) || 0;
   var price = Number(item.price) || 0;
   var isOpen = !!modernAssetRowOpen[idx];
-  var dot = colorIdx != null ? '<span class="m-row-dot series-color-' + colorIdx + '" aria-hidden="true"></span>' : "";
-  var tag = item.symbol ? '<span class="m-row-tag">' + escapeAttr(item.symbol) + '</span>' : "";
+  var initials = (item.symbol || item.what || "?").slice(0, 2).toUpperCase();
+  var avatar = '<span class="m-avatar' + (colorIdx != null ? " series-color-" + colorIdx : " m-avatar-neutral") + '">' + escapeAttr(initials) + '</span>';
+  var spark = sparklineHtml(item.history);
   var summary = '<div class="m-row-summary" role="button" tabindex="0" data-row-toggle>' +
-    dot +
+    avatar +
     '<div style="flex:1 1 auto; min-width:0">' +
       '<div class="m-row-name">' + escapeAttr(item.what) + '</div>' +
-      '<div class="m-row-sub h-gain-cell">' + gainLossHtml(item) + '</div>' +
+      '<div class="m-row-sub h-sub-cell">' + qty + ' · ' + fmtCurrency2.format(holdingAvgCostDisplay(item, price)) + '</div>' +
     '</div>' +
-    tag +
-    '<span class="m-row-amt h-value-cell" data-computed="amt">' + fmtCurrency0.format(qty * price) + '</span>' +
+    spark +
+    '<div class="m-row-share-value">' +
+      '<div class="m-row-amt h-value-cell" data-computed="amt">' + fmtCurrency0.format(qty * price) + '</div>' +
+      '<div class="h-gain-cell">' + gainLossHtml(item) + '</div>' +
+    '</div>' +
     '<svg class="m-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>' +
   '</div>';
   var edit = '<div class="m-row-edit"><div class="m-row-edit-inner"><div class="m-row-edit-pad">' +
@@ -268,7 +278,7 @@ export function renderSharesSubpage(){
     '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
     '<div class="ledger-body">' + pasteTool + body + '</div></details></div>';
   if(data.items.length && !isModern){
-    var thead = '<thead><tr><th>What</th><th>Symbol</th><th>Mkt</th><th class="num">Qty</th><th class="num">Avg cost</th><th class="num">Price</th><th class="num">Value</th><th>Gain/Loss</th><th>Person</th><th></th><th></th></tr></thead>';
+    var thead = '<thead><tr><th>What</th><th>Trend</th><th>Symbol</th><th>Mkt</th><th class="num">Qty</th><th class="num">Avg cost</th><th class="num">Price</th><th class="num">Value</th><th>Gain/Loss</th><th>Person</th><th></th><th></th></tr></thead>';
     var rows = data.items.map(function(item, i){ return holdingRowHtml(item, data.indices[i]); }).join("");
     document.getElementById("sharesTable").innerHTML = thead + "<tbody>" + rows + "</tbody>";
   }

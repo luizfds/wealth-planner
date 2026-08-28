@@ -186,9 +186,9 @@ export function renderDetail(){
   var entries = Object.keys(acctMap).map(function(k){ return [k, acctMap[k]]; }).sort(function(a,b){ return b[1]-a[1]; });
   var maxAcct = Math.max.apply(null, entries.map(function(e){ return e[1]; }).concat([1]));
   var acctList = document.getElementById("acctList");
-  acctList.innerHTML = entries.length ? entries.map(function(e){
+  acctList.innerHTML = entries.length ? entries.map(function(e, i){
     return '<div class="acct-row"><span class="acct-name" title="' + e[0] + '">' + e[0] + '</span>' +
-      '<span class="acct-track"><span class="acct-fill" style="width:' + (e[1]/maxAcct*100) + '%"></span></span>' +
+      '<span class="acct-track"><span class="acct-fill series-color-' + (i % 8) + '" style="width:' + (e[1]/maxAcct*100) + '%"></span></span>' +
       '<span class="acct-amt">' + fmtCurrency0.format(e[1]) + '</span></div>';
   }).join("") : '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">No expenses yet.</p>';
 

@@ -1,10 +1,12 @@
-import { state } from "../state.js";
-import { sumField, sumByClassification, sumByAccount, safeDiv, resolveSharedAmount, nextDueDate, daysUntil } from "../calc/ledger.js";
+import { state, persist } from "../state.js";
+import { sumField, sumByClassification, sumByAccount, safeDiv, resolveSharedAmount, nextDueDate, daysUntil, appendHistorySnapshot } from "../calc/ledger.js";
 import { ipExpenseItemsForClassification } from "../calc/property.js";
 import { effectiveIncomeItems } from "../calc/tax.js";
 import { scenarioTotals, computeNetWorthSeries, totalNetWorthValue, runwayMonths, actualAssetGrowthLastMonth, staleAssets } from "../calc/engine.js";
 import { fmtCurrency0, fmtPercent1, fmtRunway } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
+import { showToast, showUndoToast } from "../lib/toast.js";
+import { renderLineChart } from "../lib/charts.js";
 
 export function renderCards(){
   var el = document.getElementById("cards");
@@ -75,6 +77,7 @@ export function renderDashboardStats(){
   renderStaleAssetsBanner();
   renderActualVsExpectedPanel(active, t);
   renderUpcomingBillsPanel();
+  renderProjectionAccuracyPanel();
 }
 
 // Shared expenses with a tracked "last paid" date, projected forward via nextDueDate() and
@@ -226,4 +229,85 @@ function renderFireProgress(scenario, t){
     '<div class="fire-stat-row"><span>Net worth today</span><b>' + fmtCurrency0.format(netWorth) + '</b></div>' +
     '<div class="fire-stat-row"><span>Target FI number</span><b>' + fmtCurrency0.format(targetFI) + '</b></div>' +
     '<p class="fire-note">Target = ' + escapeAttr(scenario) + '’s annual living costs (' + fmtCurrency0.format(annualLivingExpenses) + '/yr, excluding investment property) × 25 — what a 4%/yr withdrawal could sustain indefinitely. ' + etaText + '</p>';
+}
+
+// Freezes today's projection for the active scenario as a fixed line to grade real net worth
+// against later (see renderProjectionAccuracyPanel()). Deliberately never re-run automatically —
+// comparing against a projection re-computed with today's assumptions would make every check
+// trivially "on track", since a fresh projection always starts from wherever you actually are.
+// Re-clicking this (labelled "Reset" once a reference exists) intentionally throws the old one
+// away, undoable via the toast — use it when you've knowingly changed the plan (new job,
+// refinance), not as routine maintenance, since resetting erases whatever drift you'd otherwise
+// be trying to see.
+export function setProjectionReference(){
+  var old = state.projectionReference;
+  var scenario = state.activeScenario;
+  var horizon = Math.max(1, Number(state.projection.horizonYears) || 1);
+  state.projectionReference = {
+    date: new Date().toISOString().slice(0, 10),
+    scenario: scenario,
+    horizonYears: horizon,
+    series: computeNetWorthSeries(scenario, horizon)
+  };
+  renderDashboardStats();
+  persist();
+  showUndoToast((old ? "Reference projection reset" : "Reference projection set") + " to today's " + scenario + " projection", function(){
+    state.projectionReference = old;
+    renderDashboardStats();
+    persist();
+  });
+}
+
+// A manual, roughly-monthly data point — deliberately not derived from assets/properties/debts
+// history, since those get logged whenever the user happens to update each item, not necessarily
+// together or on any particular cadence.
+export function logNetWorthSnapshot(){
+  var value = totalNetWorthValue();
+  var dateStr = appendHistorySnapshot(state.netWorthLog, value);
+  renderDashboardStats();
+  persist();
+  showToast("Logged net worth " + fmtCurrency0.format(value) + " (" + dateStr + ")");
+}
+
+function yearsSinceDate(dateStr, refDateStr){
+  var ms = new Date(dateStr + "T00:00:00").getTime() - new Date(refDateStr + "T00:00:00").getTime();
+  return ms / (365.25 * 24 * 60 * 60 * 1000);
+}
+
+// The reference projection's own points already sit on a whole-year grid (x: 0..horizonYears,
+// from computeNetWorthSeries()); actual log entries are irregularly-dated real-world snapshots,
+// converted to the same "years since reference" x-axis so the two overlay on one chart.
+function renderProjectionAccuracyPanel(){
+  var panel = document.getElementById("projectionAccuracyPanel");
+  if(!panel) return;
+  var ref = state.projectionReference;
+  var setBtnHtml = '<button type="button" class="btn btn-sm btn-ghost" data-set-projection-reference>' + (ref ? "Reset reference projection" : "Set reference projection") + '</button>';
+  if(!ref){
+    panel.innerHTML =
+      '<h3>Projection accuracy</h3>' +
+      '<p class="fire-note">Set a reference projection to start tracking how ' + escapeAttr(state.activeScenario) + '\'s projection holds up against reality over time. Once set, log your net worth roughly monthly ("Log net worth now" below) to build up the comparison.</p>' +
+      '<div class="fire-stat-row" style="justify-content:flex-start;gap:8px">' + setBtnHtml + '</div>';
+    return;
+  }
+  var logBtnHtml = '<button type="button" class="btn btn-sm btn-ghost" data-log-networth>Log net worth now</button>';
+  var actualPoints = state.netWorthLog
+    .filter(function(h){ return h.date >= ref.date; })
+    .map(function(h){ return { x: yearsSinceDate(h.date, ref.date), y: h.value }; });
+  var series = [
+    { label: "Reference — " + ref.scenario + " (set " + ref.date + ")", colorClass: "series-color-0", points: ref.series },
+    { label: "Actual net worth (logged)", colorClass: "series-color-2", points: actualPoints }
+  ];
+  panel.innerHTML =
+    '<h3>Projection accuracy</h3>' +
+    '<p class="fire-note">Grading against the ' + escapeAttr(ref.scenario) + ' projection frozen on ' + escapeAttr(ref.date) + '. Log your net worth roughly monthly to fill in the actual line.</p>' +
+    '<div id="projAccuracyChartHost"></div>' +
+    '<div class="fire-stat-row" style="justify-content:flex-start;gap:8px">' + logBtnHtml + setBtnHtml + '</div>';
+  renderLineChart(document.getElementById("projAccuracyChartHost"), series, {
+    height: 220,
+    yFormat: function(v){ return fmtCurrency0.format(v); },
+    xFormat: function(v){ return "Yr " + (Math.round(v * 10) / 10); },
+    ariaLabel: "Projection accuracy: reference projection vs actual logged net worth",
+    alwaysLegend: true,
+    emptyMessage: "Log your net worth at least once to see it plotted against the reference projection."
+  });
 }

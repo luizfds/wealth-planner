@@ -4,9 +4,9 @@ import { sumField } from "../calc/ledger.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { syncUiModeToggle, applyPeriodVisibility } from "../lib/uimode.js";
-import { optionsHtml, buildTable, modernPlainRowHtml } from "../lib/ledger-table.js";
+import { optionsHtml, buildTable, modernPlainRowHtml, historyTrendHtml } from "../lib/ledger-table.js";
 import { showToast } from "../lib/toast.js";
-import { assetTrendHtml } from "./assets.js";
+import { appendHistorySnapshot } from "../calc/ledger.js";
 import { renderPropertyExpensesSummary } from "./expenses.js";
 import { renderProjectionOutputs } from "./projections.js";
 
@@ -139,7 +139,7 @@ function propertyCardHtml(p){
       '<div class="calc-grid">' +
         '<div class="calc-field"><label>Current value</label><input type="number" step="1000" min="0" class="prop-value" value="' + (Number(p.value) || 0) + '"></div>' +
       '</div>' +
-      '<div class="prop-value-log"><button type="button" class="asset-log-btn" data-property-log="' + escapeAttr(p.id) + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart">Log</button>' + assetTrendHtml(p) + '</div>' +
+      '<div class="prop-value-log"><button type="button" class="asset-log-btn" data-property-log="' + escapeAttr(p.id) + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart">Log</button>' + historyTrendHtml(p) + '</div>' +
     '</div>' +
     '<div class="property-section">' +
       '<div class="property-section-title">Loans</div>' +
@@ -258,12 +258,8 @@ export function logPropertySnapshot(id){
   var property = state.properties.find(function(p){ return p.id === id; });
   if(!property) return;
   var num = Number(property.value) || 0;
-  var dateStr = new Date().toISOString().slice(0, 10);
   if(!Array.isArray(property.history)) property.history = [];
-  var existing = property.history.find(function(h){ return h.date === dateStr; });
-  if(existing) existing.value = num;
-  else property.history.push({ date: dateStr, value: num });
-  property.history.sort(function(a, b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+  var dateStr = appendHistorySnapshot(property.history, num);
   renderProperties();
   renderProjectionOutputs();
   persist();

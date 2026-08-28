@@ -1,8 +1,24 @@
 import { PERIODS, FREQS, CLASSES, INCOME_TYPES, SUPER_MODES, SACRIFICE_MODES, sacrificeModeToLabel } from "../constants.js";
 import { periodsOf, nextDueDate, daysUntil } from "../calc/ledger.js";
 import { incomeRowSuperNote } from "../calc/tax.js";
-import { fmtCurrency2 } from "./format.js";
+import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "./format.js";
 import { escapeAttr } from "./html.js";
+
+// Shared by every "Log"-able row (assets, properties, debts, income, shared expenses) — a small
+// up/down note showing the change since the previous logged snapshot. Empty string (not a
+// placeholder) when there's fewer than two snapshots yet, so callers can splice it in without an
+// extra "nothing logged" wrapper cluttering rows nobody has logged.
+export function historyTrendHtml(item){
+  var hist = item.history;
+  if(!hist || hist.length < 2) return "";
+  var last = hist[hist.length - 1], prev = hist[hist.length - 2];
+  var delta = last.value - prev.value;
+  var pct = prev.value ? (delta / Math.abs(prev.value)) : 0;
+  var cls = delta > 0 ? "up" : (delta < 0 ? "down" : "");
+  var arrow = delta > 0 ? "▲" : (delta < 0 ? "▼" : "–");
+  return '<div class="asset-trend ' + cls + '">' + arrow + ' ' + fmtCurrency0.format(Math.abs(delta)) +
+    ' (' + fmtPercent1.format(Math.abs(pct)) + ') since ' + escapeAttr(prev.date) + '</div>';
+}
 
 // Shared by both row renderers below (opts.showDueDate) — projects a plain-language "next due"
 // note from item.lastIncurredDate + item.freq, or a prompt to set one if it's never been
@@ -36,6 +52,7 @@ export function buildTable(tableEl, section, items, opts, indices){
   var showClass = opts.showClass !== false;
   var showIncomeFields = !!opts.showIncomeFields;
   var showDueDate = !!opts.showDueDate;
+  var showLog = !!opts.showLog;
   var acctClass = opts.acctColClass || (opts.hideAcctToggle ? "col-account-exp" : "");
   var classClass = opts.hideClassToggle ? "col-classification" : "";
   var thead = '<thead><tr><th>What</th>' +
@@ -44,11 +61,11 @@ export function buildTable(tableEl, section, items, opts, indices){
     '<th' + (showIncomeFields ? ' class="col-account"' : acctClass ? ' class="' + acctClass + '"' : '') + '>Account</th><th class="num">Amount</th><th>Frequency</th>' +
     (showDueDate ? '<th title="When this was last actually paid — used to project when it\'s next due">Last paid</th>' : '') +
     periodTh() + '<th></th></tr></thead>';
-  var rows = items.map(function(item, idx){ return rowHtml(section, item, indices ? indices[idx] : idx, showClass, showIncomeFields, acctClass, classClass, showDueDate); }).join("");
+  var rows = items.map(function(item, idx){ return rowHtml(section, item, indices ? indices[idx] : idx, showClass, showIncomeFields, acctClass, classClass, showDueDate, showLog); }).join("");
   tableEl.innerHTML = thead + "<tbody>" + rows + "</tbody>";
 }
 
-export function rowHtml(section, item, idx, showClass, showIncomeFields, acctClass, classClass, showDueDate){
+export function rowHtml(section, item, idx, showClass, showIncomeFields, acctClass, classClass, showDueDate, showLog){
   var isComputed = !!item.computed;
   var isGrossRef = showIncomeFields && item.incomeType === "Gross" && !isComputed;
   // A template row nobody has filled in yet (still $0) shouldn't read with the same weight as
@@ -59,6 +76,7 @@ export function rowHtml(section, item, idx, showClass, showIncomeFields, acctCla
   return '<tr data-section="' + section + '" data-index="' + idx + '"' + (rowClass ? ' class="' + rowClass.trim() + '"' : "") + '>' +
     '<td class="what-cell"><input type="text" class="f-what" value="' + escapeAttr(item.what) + '" aria-label="Item name">' +
       (item.syntheticNetFor ? '<button type="button" class="row-breakdown-toggle" data-breakdown-person="' + escapeAttr(item.syntheticNetFor) + '" aria-expanded="false">▸ Breakdown</button>' : "") +
+      (showLog && !isComputed ? historyTrendHtml(item) : "") +
     '</td>' +
     (showClass ? '<td class="class-cell' + (classClass ? " " + classClass : "") + '"><select class="f-class">' + optionsHtml(CLASSES, item.classification || "Needs") + '</select></td>' : '') +
     (showIncomeFields ? (
@@ -76,7 +94,10 @@ export function rowHtml(section, item, idx, showClass, showIncomeFields, acctCla
     '<td class="freq-cell"><select class="f-freq"' + (isComputed ? " disabled" : "") + '>' + optionsHtml(FREQS, item.freq) + '</select></td>' +
     (showDueDate ? '<td class="due-cell"><input type="date" class="f-lastpaid" value="' + escapeAttr(item.lastIncurredDate || "") + '"' + (isComputed ? " disabled" : "") + ' aria-label="Last paid date">' + (isComputed ? "" : dueDateNoteHtml(item)) + '</td>' : '') +
     periodTd(item) +
-    '<td>' + (isComputed ? "" : '<button class="btn btn-ghost btn-sm row-del" data-del="' + section + ':' + idx + '" aria-label="Delete row">✕</button>') + '</td>' +
+    '<td>' + (isComputed ? "" : (
+      (showLog ? '<button type="button" class="asset-log-btn" data-log="' + section + ':' + idx + '" title="Snapshot the amount above with today\'s date">Log</button>' : "") +
+      '<button class="btn btn-ghost btn-sm row-del" data-del="' + section + ':' + idx + '" aria-label="Delete row">✕</button>'
+    )) + '</td>' +
     '</tr>';
 }
 
@@ -93,12 +114,14 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
   var isPrimary = opts.primaryId && item.id === opts.primaryId;
   var monthly = periodsOf(item.amount, item.freq).monthly;
   var dot = (!isComputed && opts.colorIdx != null) ? '<span class="m-row-dot series-color-' + opts.colorIdx + '" aria-hidden="true"></span>' : "";
+  var trendHtml = (opts.showLog && !isComputed) ? historyTrendHtml(item) : "";
   var summary = '<div class="m-row-summary"' + (isComputed ? ' style="cursor:default"' : ' role="button" tabindex="0" data-row-toggle') + '>' +
     dot +
     '<div style="flex:1 1 auto; min-width:0">' +
       '<div class="m-row-name">' + escapeAttr(item.what) + '</div>' +
       (isComputed && item.computedNote ? '<div class="m-row-sub">' + escapeAttr(item.computedNote) + '</div>' : "") +
       (opts.showDueDate && !isComputed ? '<div class="m-row-sub">' + dueDateNoteHtml(item) + '</div>' : "") +
+      (trendHtml ? '<div class="m-row-sub">' + trendHtml + '</div>' : "") +
     '</div>' +
     '<span class="m-row-amt" data-computed="amt">' + fmtCurrency2.format(monthly) + '/mo</span>' +
     (isComputed ? "" : '<svg class="m-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>') +
@@ -125,7 +148,10 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
       accountField +
       dueDateField +
     '</div>' +
-    '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm row-del" data-del="' + escapeAttr(section) + ':' + idx + '">Delete</button></div>' +
+    '<div class="m-edit-actions">' +
+      (opts.showLog ? '<button type="button" class="asset-log-btn" data-log="' + escapeAttr(section) + ':' + idx + '" title="Snapshot the amount above with today\'s date">Log</button>' : "") +
+      '<button type="button" class="btn btn-ghost btn-sm row-del" data-del="' + escapeAttr(section) + ':' + idx + '">Delete</button>' +
+    '</div>' +
   '</div></div></div>';
   return '<div class="m-row' + (isOpen ? " open" : "") + (isPrimary ? " m-row-primary" : "") + '" data-section="' + escapeAttr(section) + '" data-index="' + idx + '">' + summary + edit + '</div>';
 }

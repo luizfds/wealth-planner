@@ -74,6 +74,20 @@ export function daysUntil(dateStr, fromDateStr){
   var d = new Date(dateStr + "T00:00:00");
   return Math.round((d.getTime() - from.getTime()) / (24 * 60 * 60 * 1000));
 }
+// Records today's value into a history array (mutated in place — caller must already have
+// ensured `history` is an array, matching the pre-existing per-item convention in
+// assets.js/properties.js). Re-clicking "Log" the same day updates that day's entry rather than
+// appending a duplicate. Shared by every "Log" button in the app (assets, properties, debts,
+// income, shared expenses, and the Dashboard's net-worth snapshot) so the find-or-update-then-sort
+// logic exists in exactly one place.
+export function appendHistorySnapshot(history, value){
+  var dateStr = new Date().toISOString().slice(0, 10);
+  var existing = history.find(function(h){ return h.date === dateStr; });
+  if(existing) existing.value = value;
+  else history.push({ date: dateStr, value: value });
+  history.sort(function(a, b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+  return dateStr;
+}
 export function sumByAccount(items, field){
   var map = {};
   items.forEach(function(i){

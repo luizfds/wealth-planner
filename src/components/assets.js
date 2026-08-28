@@ -1,30 +1,20 @@
 import { state, persist } from "../state.js";
 import { ASSET_CATEGORIES, LIQUID_CATEGORIES, SHARE_MARKETS } from "../constants.js";
 import { propertiesOffsetTotal, propertiesIlliquidEquityToday, recalcPurchase } from "../calc/property.js";
-import { totalAssetsValue, totalNetWorthValue } from "../calc/engine.js";
+import { totalAssetsValue, totalNetWorthValue, totalDebtsValue } from "../calc/engine.js";
 import { fmtCurrency0, fmtPercent1 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { syncUiModeToggle } from "../lib/uimode.js";
-import { optionsHtml } from "../lib/ledger-table.js";
+import { optionsHtml, historyTrendHtml } from "../lib/ledger-table.js";
 import { renderLineChart } from "../lib/charts.js";
 import { showToast } from "../lib/toast.js";
+import { appendHistorySnapshot } from "../calc/ledger.js";
 import { renderProjectionOutputs } from "./projections.js";
-
-export function assetTrendHtml(item){
-  var hist = item.history;
-  if(!hist || hist.length < 2) return "";
-  var last = hist[hist.length - 1], prev = hist[hist.length - 2];
-  var delta = last.value - prev.value;
-  var pct = prev.value ? (delta / Math.abs(prev.value)) : 0;
-  var cls = delta > 0 ? "up" : (delta < 0 ? "down" : "");
-  var arrow = delta > 0 ? "▲" : (delta < 0 ? "▼" : "–");
-  return '<div class="asset-trend ' + cls + '">' + arrow + ' ' + fmtCurrency0.format(Math.abs(delta)) +
-    ' (' + fmtPercent1.format(Math.abs(pct)) + ') since ' + escapeAttr(prev.date) + '</div>';
-}
+import { renderDashboardStats } from "./dashboard.js";
 
 function assetRowHtml(item, idx){
   return '<tr data-index="' + idx + '">' +
-    '<td><input type="text" class="a-what" value="' + escapeAttr(item.what) + '" aria-label="Asset name">' + assetTrendHtml(item) + '</td>' +
+    '<td><input type="text" class="a-what" value="' + escapeAttr(item.what) + '" aria-label="Asset name">' + historyTrendHtml(item) + '</td>' +
     '<td><select class="a-category" title="Move to a different category" aria-label="Category">' + optionsHtml(ASSET_CATEGORIES, item.category) + '</select></td>' +
     '<td class="num"><input type="number" step="100" min="0" class="a-amount" value="' + item.amount + '" aria-label="Asset value"></td>' +
     '<td><button type="button" class="asset-log-btn" data-asset-log="' + idx + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart below">Log</button></td>' +
@@ -49,7 +39,7 @@ function holdingRowHtml(item, idx){
   var qty = Number(item.quantity) || 0;
   var price = Number(item.price) || 0;
   return '<tr data-index="' + idx + '">' +
-    '<td><input type="text" class="h-what" value="' + escapeAttr(item.what) + '" aria-label="Holding name">' + assetTrendHtml(item) + '</td>' +
+    '<td><input type="text" class="h-what" value="' + escapeAttr(item.what) + '" aria-label="Holding name">' + historyTrendHtml(item) + '</td>' +
     '<td><input type="text" class="h-symbol" value="' + escapeAttr(item.symbol || "") + '" placeholder="e.g. CBA" aria-label="Ticker symbol"></td>' +
     '<td><select class="h-market">' + optionsHtml(SHARE_MARKETS, item.market || "ASX") + '</select></td>' +
     '<td class="num"><input type="number" step="1" min="0" class="h-qty" value="' + qty + '" aria-label="Quantity"></td>' +
@@ -151,7 +141,7 @@ export function renderAssetCategoryPage(cat){
 
 function vehicleRowHtml(item, idx){
   return '<tr data-index="' + idx + '">' +
-    '<td><input type="text" class="v-what" value="' + escapeAttr(item.what) + '" aria-label="Vehicle name">' + assetTrendHtml(item) + '</td>' +
+    '<td><input type="text" class="v-what" value="' + escapeAttr(item.what) + '" aria-label="Vehicle name">' + historyTrendHtml(item) + '</td>' +
     '<td class="num"><input type="number" step="500" min="0" class="v-purchaseprice" value="' + (Number(item.purchasePrice) || 0) + '" aria-label="Purchase price"></td>' +
     '<td><input type="date" class="v-purchasedate" value="' + escapeAttr(item.purchaseDate || "") + '" aria-label="Purchase date"></td>' +
     '<td class="num"><input type="number" step="0.5" min="0" max="100" class="v-deprate" value="' + (item.depreciationRate != null ? item.depreciationRate : 15) + '" aria-label="Depreciation % per year"></td>' +
@@ -481,25 +471,67 @@ export function renderAssets(){
   renderVehiclesSubpage();
   renderAssetCategoryPage("Other");
   renderAssetsSummary();
+  renderDebts();
   renderNetWorthPanel();
   renderPortfolioHistoryChart();
   renderProjectionOutputs();
+}
+
+// Deliberately not built on the generic ledger-table.js machinery — debts have a different
+// shape (just what/balance, no freq/period math) and reusing rowHtml()/modernPlainRowHtml()
+// would mean fighting their amount+frequency assumptions rather than a small bespoke renderer.
+export function renderDebts(){
+  var container = document.getElementById("debtsTable");
+  var totalEl = document.getElementById("totalDebtsAmount");
+  if(!container) return;
+  var total = totalDebtsValue();
+  if(totalEl) totalEl.textContent = fmtCurrency0.format(total);
+  if(!state.debts.length){
+    container.innerHTML = '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">No debts tracked — add anything you owe outside a property loan (credit cards, personal loans, BNPL).</p>';
+    return;
+  }
+  if(state.uiMode === "modern"){
+    container.innerHTML = '<div class="m-rows">' + state.debts.map(function(d, idx){
+      return '<div class="m-row computed" data-debt-index="' + idx + '"><div class="m-row-summary" style="cursor:default">' +
+        '<div style="flex:1 1 auto;min-width:0"><input type="text" class="debt-what" data-debt-index="' + idx + '" value="' + escapeAttr(d.what) + '" aria-label="Debt name" style="all:unset;width:100%;font:inherit;color:inherit">' + historyTrendHtml(d) + '</div>' +
+        '<input type="number" step="100" min="0" class="debt-balance" data-debt-index="' + idx + '" value="' + d.balance + '" aria-label="Balance" style="width:110px;text-align:right;font-family:\'IBM Plex Mono\',monospace;border:1px solid transparent;background:transparent;color:inherit;padding:5px 6px;border-radius:6px">' +
+        '<button type="button" class="asset-log-btn" data-debt-log="' + idx + '" title="Snapshot the balance above with today\'s date">Log</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm row-del" data-debt-del="' + idx + '" aria-label="Delete debt">✕</button>' +
+      '</div></div>';
+    }).join("") + '</div>';
+  } else {
+    container.innerHTML = '<div class="table-scroll"><table class="ledger-table"><thead><tr><th>What</th><th class="num">Balance</th><th></th></tr></thead><tbody>' +
+      state.debts.map(function(d, idx){
+        return '<tr><td class="what-cell"><input type="text" class="debt-what" data-debt-index="' + idx + '" value="' + escapeAttr(d.what) + '" aria-label="Debt name">' + historyTrendHtml(d) + '</td>' +
+          '<td class="amount-cell"><input type="number" step="100" min="0" class="debt-balance" data-debt-index="' + idx + '" value="' + d.balance + '" aria-label="Balance"></td>' +
+          '<td><button type="button" class="asset-log-btn" data-debt-log="' + idx + '" title="Snapshot the balance above with today\'s date">Log</button>' +
+          '<button class="btn btn-ghost btn-sm row-del" data-debt-del="' + idx + '" aria-label="Delete row">✕</button></td></tr>';
+      }).join("") + '</tbody></table></div>';
+  }
 }
 
 export function logAssetSnapshot(idx){
   var asset = state.assets[idx];
   if(!asset) return;
   var num = Number(asset.amount) || 0;
-  var dateStr = new Date().toISOString().slice(0, 10);
   if(!Array.isArray(asset.history)) asset.history = [];
-  var existing = asset.history.find(function(h){ return h.date === dateStr; });
-  if(existing) existing.value = num;
-  else asset.history.push({ date: dateStr, value: num });
-  asset.history.sort(function(a, b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+  var dateStr = appendHistorySnapshot(asset.history, num);
   renderAssets();
   renderProjectionOutputs();
   persist();
   showToast("Logged " + fmtCurrency0.format(num) + " for " + asset.what + " (" + dateStr + ")");
+}
+
+export function logDebtSnapshot(idx){
+  var debt = state.debts[idx];
+  if(!debt) return;
+  var num = Number(debt.balance) || 0;
+  if(!Array.isArray(debt.history)) debt.history = [];
+  var dateStr = appendHistorySnapshot(debt.history, num);
+  renderDebts();
+  renderDashboardStats();
+  persist();
+  showToast("Logged " + fmtCurrency0.format(num) + " for " + debt.what + " (" + dateStr + ")");
 }
 
 export function applySharesPaste(){

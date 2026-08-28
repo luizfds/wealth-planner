@@ -67,7 +67,17 @@ export function defaultState(){
     purchase: { "Current situation": defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", false) },
     invest: { "Current situation": defaultInvestConfig() },
     assets: [],
+    debts: [],
     properties: [],
+    // A frozen copy of a past projection, graded against real logged net worth over time — see
+    // dashboard.js's setProjectionReference()/renderProjectionAccuracyPanel(). null until the
+    // user sets one; never auto-captured, since silently freezing on first load would grade
+    // against assumptions the user hasn't actually reviewed yet.
+    projectionReference: null,
+    // Manual, roughly-monthly net-worth snapshots (see dashboard.js's logNetWorthSnapshot()) —
+    // deliberately not derived from assets/properties/debts history, since those are logged on
+    // whatever cadence the user updates each item, not necessarily together or monthly.
+    netWorthLog: [],
     projection: { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0 },
     tax: { sgRate: 12, ipOwnership: {}, settings: {} }
   };
@@ -146,6 +156,10 @@ export function migrateState(s){
     // mutually exclusive so this should only ever bite a hand-edited or very old backup.
     if(icfg.enabled && s.purchase[name]) s.purchase[name].enabled = false;
   });
+  if(!Array.isArray(s.debts)) s.debts = [];
+  s.debts.forEach(function(d){ if(d.balance == null) d.balance = 0; });
+  if(s.projectionReference === undefined) s.projectionReference = null;
+  if(!Array.isArray(s.netWorthLog)) s.netWorthLog = [];
   if(!Array.isArray(s.assets)) s.assets = [];
   s.assets.forEach(function(a){
     if((a.category || "Other") !== "Shares") return;

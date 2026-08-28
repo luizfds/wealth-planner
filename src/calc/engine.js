@@ -1,10 +1,11 @@
 import { state } from "../state.js";
+import { LIQUID_CATEGORIES } from "../constants.js";
 import { toWeekly, sumField, sumFieldForScenario } from "./ledger.js";
 import {
   recalcPurchase, ipProperties, ipExpensesMonthly, ipLoansMonthly,
   shockedLoanRepaymentMonthly, scenarioInflatableMonthly, calcStampDuty,
   calcLMI, calcRepaymentMonthly, purchaseActiveRate, loanBalanceAfterMonths,
-  propertiesTotalEquityToday
+  propertiesTotalEquityToday, propertiesOffsetTotal
 } from "./property.js";
 import { getTaxPeople, computePersonTax, effectiveIncomeItems } from "./tax.js";
 import { fmtCurrency0 } from "../lib/format.js";
@@ -13,8 +14,84 @@ export function totalAssetsValue(){
   return state.assets.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
 }
 
+// Anything owed outside a property loan (credit cards, personal loans, BNPL — property loans
+// stay tracked on the Properties tab, already netted into propertiesTotalEquityToday()). No
+// interest/repayment modeling here on purpose — just a flat balance subtracted from net worth,
+// unlike a property loan's full amortization schedule. Keeping it this simple was a deliberate
+// scope call, not an oversight; a fuller debt-payoff model (minimum payments, interest accrual)
+// would be a real follow-up feature, not a quick addition to this one.
+export function totalDebtsValue(){
+  return state.debts.reduce(function(s, d){ return s + (Number(d.balance) || 0); }, 0);
+}
+
 export function totalNetWorthValue(){
-  return totalAssetsValue() + propertiesTotalEquityToday();
+  return totalAssetsValue() + propertiesTotalEquityToday() - totalDebtsValue();
+}
+
+// Cash + Shares (readily spendable) plus any property offset balances — the same definition
+// already used by the Assets page's "Net worth if you buy" table, extracted here so the
+// Dashboard's runway stat can reuse it instead of re-deriving it.
+export function liquidAssetsValue(){
+  return state.assets.filter(function(a){ return LIQUID_CATEGORIES.indexOf(a.category) !== -1; })
+    .reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0) + propertiesOffsetTotal();
+}
+
+// How many months of expenses your liquid assets would cover at zero income — the standard
+// "emergency fund" health check. Infinity reads oddly in the UI, so a scenario with $0 monthly
+// expenses (nothing entered yet) reports null rather than a nonsensical number.
+export function runwayMonths(monthlyExpenses){
+  if(!monthlyExpenses || monthlyExpenses <= 0) return null;
+  return liquidAssetsValue() / monthlyExpenses;
+}
+
+// Sums each asset/property's logged value ~30 days ago against its latest logged value, for
+// comparing real month-over-month growth against a scenario's projected monthly surplus
+// (scenarioTotals().netMonthly) — a reality check on whether net worth is actually tracking the
+// plan. Only counts items with at least one snapshot on/before the reference date and one after
+// it (or today, for the "after" side) — an item with no history at all, or only very recent
+// history, doesn't silently count as $0 growth; it's just excluded from the comparison.
+export function actualAssetGrowthLastMonth(){
+  var today = new Date();
+  var monthAgo = new Date(today.getTime());
+  monthAgo.setDate(monthAgo.getDate() - 30);
+  var monthAgoStr = monthAgo.toISOString().slice(0, 10);
+  var todayStr = today.toISOString().slice(0, 10);
+
+  function latestValueOnOrBefore(history, d){
+    if(!history || !history.length) return null;
+    var atOrBefore = history.filter(function(h){ return h.date <= d; });
+    if(!atOrBefore.length) return null;
+    return atOrBefore[atOrBefore.length - 1].value;
+  }
+
+  var trackedCount = 0;
+  var deltaSum = 0;
+  state.assets.forEach(function(a){
+    var before = latestValueOnOrBefore(a.history, monthAgoStr);
+    var after = latestValueOnOrBefore(a.history, todayStr);
+    if(after == null) after = Number(a.amount) || 0; // today's live value if never explicitly logged today
+    if(before == null) return; // no snapshot old enough to compare against — exclude, don't assume $0
+    deltaSum += after - before;
+    trackedCount++;
+  });
+
+  return { deltaSum: deltaSum, trackedCount: trackedCount, hasData: trackedCount > 0 };
+}
+
+// Assets whose logged value is stale (>=30 days old) or that have never been logged at all —
+// a nudge, not an error: the app has no way to push a notification when it's closed (no
+// backend), so this only surfaces on load/whenever the Dashboard re-renders.
+export function staleAssets(){
+  var todayMs = Date.now();
+  var STALE_DAYS = 30;
+  var result = [];
+  state.assets.forEach(function(a){
+    var hist = a.history;
+    var lastDate = hist && hist.length ? hist[hist.length - 1].date : null;
+    var days = lastDate ? Math.floor((todayMs - new Date(lastDate + "T00:00:00").getTime()) / (24 * 60 * 60 * 1000)) : null;
+    if(days == null || days >= STALE_DAYS) result.push({ what: a.what, days: days });
+  });
+  return result;
 }
 
 export function computeNetWorthSeries(scenario, horizonYears){
@@ -37,7 +114,10 @@ export function computeNetWorthSeries(scenario, horizonYears){
   var rateShock = (Number(proj.rateShockPct) || 0) / 100;
   var monthlyInvestRate = Math.pow(1 + investRate, 1 / 12) - 1;
 
-  var nonPropertyAssets = totalAssetsValue();
+  // Debts have no growth/repayment schedule of their own (see totalDebtsValue()) — folded into
+  // the starting portfolio balance as a flat reduction, same treatment as any other liquid
+  // asset/liability that isn't a property loan or the purchase/invest leg's own math.
+  var nonPropertyAssets = totalAssetsValue() - totalDebtsValue();
 
   var price = purchaseEnabled ? Math.max(0, Number(cfg.price) || 0) : 0;
   var depositAmt = purchaseEnabled ? price * (Math.max(0, Math.min(100, Number(cfg.depositPct) || 0)) / 100) : 0;

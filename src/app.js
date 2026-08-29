@@ -23,7 +23,8 @@ import {
   openScenarioOverridePanel, closeScenarioOverridePanel, renderScenarioOverridePanel,
   setScenarioOverride, resetScenarioOverride, copyScenarioAmountToAll,
   openExpenseReview, closeExpenseReview, renderExpenseReviewPanel,
-  logCurrentReviewCard, skipCurrentReviewCard, expenseReview
+  logCurrentReviewCard, skipCurrentReviewCard, expenseReview,
+  renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel
 } from "./components/expenses.js";
 import {
   patchHoldingRow, patchVehicleRow, modernAssetRowOpen, patchAssetCategoryTotals,
@@ -1164,6 +1165,40 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     onSwipeRight: performReviewLog
   });
 
+  // ---------------- Transactions: real dated spend, separate from the planned budget ----------------
+  document.getElementById("addTransactionBtn").addEventListener("click", addTransaction);
+  document.addEventListener("click", function(e){
+    var delTxBtn = e.target.closest("[data-tx-del]");
+    if(delTxBtn){ deleteTransaction(Number(delTxBtn.getAttribute("data-tx-del"))); return; }
+  });
+  document.addEventListener("input", function(e){
+    if(!e.target.closest("#transactionsTable")) return;
+    var idx = Number(e.target.getAttribute("data-tx-index"));
+    var t = state.transactions[idx];
+    if(!t) return;
+    if(e.target.classList.contains("tx-what")) t.what = e.target.value;
+    else if(e.target.classList.contains("tx-amount")){
+      t.amount = parseFloat(e.target.value) || 0;
+      var totalEl = document.getElementById("totalTransactionsAmount");
+      if(totalEl) totalEl.textContent = fmtCurrency0.format(state.transactions.reduce(function(s, x){ return s + (Number(x.amount) || 0); }, 0));
+    }
+    else if(e.target.classList.contains("tx-link")) t.linkedExpenseId = e.target.value || null;
+    else if(e.target.classList.contains("tx-date")){
+      t.date = e.target.value;
+      renderActualVsPlannedPanel();
+      persist();
+      // Deferred to the next tick: re-sorting the list (a date edit can move this row) means
+      // rebuilding #transactionsTable's innerHTML — an ancestor of the input still mid-event
+      // right now — which throws in Chromium, the same reentrant-DOM-mutation issue already
+      // hit by the scenario-override panel's own date-adjacent edit.
+      setTimeout(renderTransactions, 0);
+      return;
+    }
+    else return;
+    renderActualVsPlannedPanel();
+    persist();
+  });
+
   wireModernRowToggle("propertiesBody", modernPropRowOpen);
   wireModernRowToggle("homeBody", modernHomeRowOpen);
   ["Cash", "Shares", "Super", "Vehicle", "Other"].forEach(function(cat){
@@ -1177,6 +1212,7 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     renderIncomeGroups();
     renderTaxSuper();
     renderSharedGroups();
+    renderTransactions();
     renderPropertyExpensesSummary();
     renderProperties();
     renderAssets();
@@ -1570,6 +1606,8 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     renderIncomeGroups();
     renderProperties();
     renderSharedGroups();
+    renderTransactions();
+    renderActualVsPlannedPanel();
     renderHomeBody();
     renderCards();
     renderDetail();

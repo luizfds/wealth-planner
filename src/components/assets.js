@@ -6,7 +6,7 @@ import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { syncUiModeToggle } from "../lib/uimode.js";
 import { optionsHtml, historyTrendHtml } from "../lib/ledger-table.js";
-import { renderLineChart, sparklineHtml } from "../lib/charts.js";
+import { renderLineChart, sparklineHtml, sparklinePlaceholderHtml } from "../lib/charts.js";
 import { showToast } from "../lib/toast.js";
 import { appendHistorySnapshot } from "../calc/ledger.js";
 import { renderProjectionOutputs } from "./projections.js";
@@ -40,7 +40,7 @@ function holdingRowHtml(item, idx){
   var price = Number(item.price) || 0;
   return '<tr data-index="' + idx + '">' +
     '<td><input type="text" class="h-what" value="' + escapeAttr(item.what) + '" aria-label="Holding name">' + historyTrendHtml(item) + '</td>' +
-    '<td>' + (sparklineHtml(item.history) || '<span class="calc-note">—</span>') + '</td>' +
+    '<td>' + (sparklineHtml(item.history) || sparklinePlaceholderHtml()) + '</td>' +
     '<td><input type="text" class="h-symbol" value="' + escapeAttr(item.symbol || "") + '" placeholder="e.g. CBA" aria-label="Ticker symbol"></td>' +
     '<td><select class="h-market">' + optionsHtml(SHARE_MARKETS, item.market || "ASX") + '</select></td>' +
     '<td class="num"><input type="number" step="1" min="0" class="h-qty" value="' + qty + '" aria-label="Quantity"></td>' +
@@ -217,7 +217,7 @@ function modernShareRowHtml(item, idx, colorIdx){
   var isOpen = !!modernAssetRowOpen[idx];
   var initials = (item.symbol || item.what || "?").slice(0, 2).toUpperCase();
   var avatar = '<span class="m-avatar' + (colorIdx != null ? " series-color-" + colorIdx : " m-avatar-neutral") + '">' + escapeAttr(initials) + '</span>';
-  var spark = sparklineHtml(item.history);
+  var spark = sparklineHtml(item.history) || sparklinePlaceholderHtml();
   var summary = '<div class="m-row-summary" role="button" tabindex="0" data-row-toggle>' +
     avatar +
     '<div style="flex:1 1 auto; min-width:0">' +

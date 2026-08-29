@@ -34,6 +34,18 @@ export function sparklineHtml(history, opts){
     '<path d="' + d + '" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 }
 
+// A faint dashed placeholder for wherever sparklineHtml() would otherwise return nothing (fewer
+// than 2 logged snapshots) — without this, a row that's meant to show a trend chart just shows a
+// blank gap where one should be, which reads as broken rather than "not enough data yet".
+export function sparklinePlaceholderHtml(width, height){
+  width = width || 56; height = height || 22;
+  var y = height / 2;
+  return '<svg class="sparkline sparkline-empty" width="' + width + '" height="' + height +
+    '" viewBox="0 0 ' + width + ' ' + height + '" aria-hidden="true">' +
+    '<title>Log this holding at least twice to see a trend line</title>' +
+    '<line x1="2" y1="' + y + '" x2="' + (width - 2) + '" y2="' + y + '" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 3" stroke-linecap="round"/></svg>';
+}
+
 export function renderLineChart(container, series, opts){
   opts = opts || {};
   container.innerHTML = "";

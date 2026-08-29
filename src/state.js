@@ -63,6 +63,12 @@ export function defaultState(){
     income: [],
     ip: [],
     shared: [],
+    // Real, dated spend events — deliberately separate from state.shared[]'s amount/freq (the
+    // planned budget, unaffected by these). Each optionally links to a state.shared[] item via
+    // its id (see migrateState()) so a period's actual spend can be compared against what was
+    // budgeted for it; unlinked (linkedExpenseId: null) covers a one-off that has no matching
+    // budget line at all. See expenses.js's renderTransactions()/renderActualVsPlannedPanel().
+    transactions: [],
     home: { "Current situation": defaultHomeBlock() },
     purchase: { "Current situation": defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", false) },
     invest: { "Current situation": defaultInvestConfig() },
@@ -158,6 +164,11 @@ export function migrateState(s){
   });
   if(!Array.isArray(s.debts)) s.debts = [];
   s.debts.forEach(function(d){ if(d.balance == null) d.balance = 0; });
+  if(!Array.isArray(s.shared)) s.shared = [];
+  // A stable id so a transaction (see below) can still find the right expense after this array
+  // is reordered/added to elsewhere — an array index would silently point at the wrong row.
+  s.shared.forEach(function(item){ if(!item.id) item.id = genId("exp"); });
+  if(!Array.isArray(s.transactions)) s.transactions = [];
   if(s.projectionReference === undefined) s.projectionReference = null;
   if(!Array.isArray(s.netWorthLog)) s.netWorthLog = [];
   if(!Array.isArray(s.assets)) s.assets = [];

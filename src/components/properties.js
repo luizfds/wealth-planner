@@ -175,7 +175,7 @@ function propertyCardHtml(p){
 // makes each property's keys unique within this one map).
 export var modernPropRowOpen = {};
 function modernPropListHtml(items, section, showClass){
-  return items.map(function(item, i){ return modernPlainRowHtml(item, i, section, modernPropRowOpen, {showClass: showClass}); }).join("");
+  return items.map(function(item, i){ return modernPlainRowHtml(item, i, section, modernPropRowOpen, {showClass: showClass, showLog: true}); }).join("");
 }
 // Rebuilds just one property's income or expense list in place — used by rerenderTableFor so
 // that, in modern mode, editing a property's rent (which auto-recalculates its Property Manager
@@ -196,8 +196,8 @@ export function renderProperties(){
     : '<p class="ledger-note" style="margin:0">No properties yet — add one below to start tracking its value, loans, and (for an investment property) rent and expenses.</p>';
   if(state.uiMode !== "modern"){
     state.properties.forEach(function(p){
-      buildTable(document.getElementById("propIncomeTable_" + p.id), "propinc:" + p.id, p.income, {showClass:false});
-      buildTable(document.getElementById("propExpTable_" + p.id), "propexp:" + p.id, p.expenses, {showClass:true, hideAcctToggle:true, hideClassToggle:true});
+      buildTable(document.getElementById("propIncomeTable_" + p.id), "propinc:" + p.id, p.income, {showClass:false, showLog:true});
+      buildTable(document.getElementById("propExpTable_" + p.id), "propexp:" + p.id, p.expenses, {showClass:true, hideAcctToggle:true, hideClassToggle:true, showLog:true});
     });
   }
   renderPropertyExpensesSummary();

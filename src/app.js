@@ -62,6 +62,22 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
 
   function rndBetween(min, max){ return Math.random() * (max - min) + min; }
   function rndStep(min, max, step){ return Math.round(rndBetween(min, max) / step) * step; }
+
+  // A few backdated snapshots ending exactly at today's real value, so a fresh "Sample data"
+  // holding shows a sparkline immediately instead of the empty history every holding actually
+  // starts with (the sparkline needs 2+ logged points, which nobody has on day one) — the whole
+  // point of sample data is to show what the feature looks like once it's in use.
+  function syntheticPriceHistory(qty, currentPrice){
+    var days = [-45, -30, -15, -7, -2, 0];
+    var driftPct = rndBetween(-0.18, 0.22);
+    return days.map(function(d, i){
+      var dt = new Date();
+      dt.setDate(dt.getDate() + d);
+      var progress = i / (days.length - 1);
+      var histPrice = i === days.length - 1 ? currentPrice : currentPrice * (1 - driftPct * (1 - progress));
+      return { date: dt.toISOString().slice(0, 10), value: Math.round(qty * histPrice * 100) / 100 };
+    });
+  }
   function rndPick(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
 
   function generateMockData(){
@@ -140,9 +156,9 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
         var h3Qty = rndStep(50, 300, 5), h3Price = rndStep(30, 90, 1), h3Cost = rndStep(35, 85, 1);
         return [
           { what:"Cash Savings", category:"Cash", amount: rndStep(5000, 90000, 500) },
-          { what:"CSL Limited", category:"Shares", symbol:"CSL", market:"ASX", quantity:h1Qty, avgCost:h1Cost, price:h1Price, person:personA, priceUpdated:"", amount: Math.round(h1Qty * h1Price * 100) / 100 },
-          { what:"Apple Inc", category:"Shares", symbol:"AAPL", market:"US", quantity:h2Qty, avgCost:h2Cost, price:h2Price, person:personB, priceUpdated:"", amount: Math.round(h2Qty * h2Price * 100) / 100 },
-          { what:"Vanguard Australian Shares ETF", category:"Shares", symbol:"VAS", market:"ASX", quantity:h3Qty, avgCost:h3Cost, price:h3Price, person:"", priceUpdated:"", amount: Math.round(h3Qty * h3Price * 100) / 100 },
+          { what:"CSL Limited", category:"Shares", symbol:"CSL", market:"ASX", quantity:h1Qty, avgCost:h1Cost, price:h1Price, person:personA, priceUpdated:"", amount: Math.round(h1Qty * h1Price * 100) / 100, history: syntheticPriceHistory(h1Qty, h1Price) },
+          { what:"Apple Inc", category:"Shares", symbol:"AAPL", market:"US", quantity:h2Qty, avgCost:h2Cost, price:h2Price, person:personB, priceUpdated:"", amount: Math.round(h2Qty * h2Price * 100) / 100, history: syntheticPriceHistory(h2Qty, h2Price) },
+          { what:"Vanguard Australian Shares ETF", category:"Shares", symbol:"VAS", market:"ASX", quantity:h3Qty, avgCost:h3Cost, price:h3Price, person:"", priceUpdated:"", amount: Math.round(h3Qty * h3Price * 100) / 100, history: syntheticPriceHistory(h3Qty, h3Price) },
           { what:"Superannuation", category:"Super", amount: rndStep(20000, 250000, 500) }
         ];
       })(),

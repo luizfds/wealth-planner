@@ -1,5 +1,5 @@
 import { state, persist } from "../state.js";
-import { sumField, sumByClassification, sumByAccount, safeDiv, resolveSharedAmount, nextDueDate, daysUntil, appendHistorySnapshot } from "../calc/ledger.js";
+import { sumField, sumByClassification, sumByAccount, safeDiv, resolveSharedAmount, nextDueDate, daysUntil, appendHistorySnapshot, lastTransactionDateFor } from "../calc/ledger.js";
 import { ipExpenseItemsForClassification } from "../calc/property.js";
 import { effectiveIncomeItems } from "../calc/tax.js";
 import { scenarioTotals, computeNetWorthSeries, totalNetWorthValue, runwayMonths, actualAssetGrowthLastMonth, staleAssets } from "../calc/engine.js";
@@ -80,21 +80,21 @@ export function renderDashboardStats(){
   renderProjectionAccuracyPanel();
 }
 
-// Shared expenses with a tracked "last paid" date, projected forward via nextDueDate() and
-// sorted soonest-first — same-scenario expenses only (state.shared, not state.home[scenario]),
-// matching where the "Last paid" field was actually added.
+// Shared expenses with at least one logged transaction, projected forward via nextDueDate() from
+// the most recent one and sorted soonest-first — same-scenario expenses only (state.shared, not
+// state.home[scenario]). Sourced from state.transactions[] (via lastTransactionDateFor()), not a
+// manual field on the expense itself — see expenses.js's logExpenseTransaction()/isDueForReview().
 function renderUpcomingBillsPanel(){
   var panel = document.getElementById("upcomingBillsPanel");
   if(!panel) return;
   var upcoming = state.shared
-    .filter(function(i){ return i.lastIncurredDate; })
-    .map(function(i){ return { what: i.what, due: nextDueDate(i.lastIncurredDate, i.freq), amount: i.amount, freq: i.freq }; })
+    .map(function(i){ return { what: i.what, due: nextDueDate(lastTransactionDateFor(state.transactions, i.id), i.freq), amount: i.amount, freq: i.freq }; })
     .filter(function(i){ return i.due; })
     .sort(function(a, b){ return a.due < b.due ? -1 : (a.due > b.due ? 1 : 0); });
   if(!upcoming.length){
     panel.innerHTML =
       '<h3>Upcoming bills</h3>' +
-      '<p class="fire-note">Set a "Last paid" date on a shared expense (Expenses tab) to see it projected here.</p>';
+      '<p class="fire-note">Log a transaction against a shared expense (Expenses tab) to see it projected here.</p>';
     return;
   }
   var rows = upcoming.slice(0, 8).map(function(i){

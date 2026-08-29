@@ -114,6 +114,16 @@ export function sumByAccount(items, field){
   });
   return map;
 }
+// Latest transaction date recorded against a given shared-expense id, or null if none — now that
+// logging a shared expense creates a transaction rather than writing a manual "last paid" field
+// directly onto the budget line, this is what tells us "when was this actually last paid".
+export function lastTransactionDateFor(transactions, expenseId){
+  var latest = null;
+  transactions.forEach(function(t){
+    if(t.linkedExpenseId === expenseId && (!latest || t.date > latest)) latest = t.date;
+  });
+  return latest;
+}
 // Real, dated spend events (state.transactions[]) filtered to one calendar month — defaults to
 // the current month so the "actual vs planned" panel means "this month" without the caller
 // having to know today's date itself.

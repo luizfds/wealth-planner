@@ -127,6 +127,22 @@ test("appendHistorySnapshot updates today's own entry instead of duplicating it 
   assert.equal(history[0].value, 200);
 });
 
+test("appendHistorySnapshot accepts an explicit backdated date instead of defaulting to today", function(){
+  var history = [{ date: "2024-01-01", value: 100 }];
+  var dateStr = appendHistorySnapshot(history, 120, "2024-02-15");
+  assert.equal(dateStr, "2024-02-15");
+  assert.equal(history.length, 2);
+  assert.equal(history[1].date, "2024-02-15");
+  assert.equal(history[1].value, 120);
+});
+
+test("appendHistorySnapshot updates an existing entry for the same explicit date rather than duplicating", function(){
+  var history = [{ date: "2024-02-15", value: 100 }];
+  appendHistorySnapshot(history, 999, "2024-02-15");
+  assert.equal(history.length, 1);
+  assert.equal(history[0].value, 999);
+});
+
 test("sumByAccount groups by trimmed account name, defaulting blanks to Unassigned", function(){
   var items = [
     { amount: 100, freq: "Weekly", account: "Everyday" },

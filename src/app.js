@@ -351,7 +351,9 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       var litem = larr && larr[lidx];
       if(litem){
         if(!Array.isArray(litem.history)) litem.history = [];
-        var ldate = appendHistorySnapshot(litem.history, Number(litem.amount) || 0);
+        var dateInput = logBtn2.previousElementSibling;
+        var logDate = (dateInput && dateInput.classList.contains("log-date") && dateInput.value) || undefined;
+        var ldate = appendHistorySnapshot(litem.history, Number(litem.amount) || 0, logDate);
         rerenderTableFor(lsection);
         renderProjectionOutputs();
         persist();

@@ -27,7 +27,8 @@ import {
 } from "./components/expenses.js";
 import {
   patchHoldingRow, patchVehicleRow, modernAssetRowOpen, patchAssetCategoryTotals,
-  renderNetWorthPanel, renderAssets, logAssetSnapshot, applySharesPaste, logDebtSnapshot
+  renderNetWorthPanel, renderAssets, logAssetSnapshot, applySharesPaste, logDebtSnapshot,
+  patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter
 } from "./components/assets.js";
 import {
   modernPropRowOpen, renderPropListModern, renderProperties, patchPropertyCardComputed,
@@ -159,7 +160,8 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
           { what:"CSL Limited", category:"Shares", symbol:"CSL", market:"ASX", quantity:h1Qty, avgCost:h1Cost, price:h1Price, person:personA, priceUpdated:"", amount: Math.round(h1Qty * h1Price * 100) / 100, history: syntheticPriceHistory(h1Qty, h1Price) },
           { what:"Apple Inc", category:"Shares", symbol:"AAPL", market:"US", quantity:h2Qty, avgCost:h2Cost, price:h2Price, person:personB, priceUpdated:"", amount: Math.round(h2Qty * h2Price * 100) / 100, history: syntheticPriceHistory(h2Qty, h2Price) },
           { what:"Vanguard Australian Shares ETF", category:"Shares", symbol:"VAS", market:"ASX", quantity:h3Qty, avgCost:h3Cost, price:h3Price, person:"", priceUpdated:"", amount: Math.round(h3Qty * h3Price * 100) / 100, history: syntheticPriceHistory(h3Qty, h3Price) },
-          { what:"Superannuation", category:"Super", amount: rndStep(20000, 250000, 500) }
+          { what:"Superannuation", category:"Super", person: personA, amount: rndStep(20000, 250000, 500) },
+          { what:"Superannuation", category:"Super", person: personB, amount: rndStep(20000, 250000, 500) }
         ];
       })(),
       properties: (function(){
@@ -750,22 +752,26 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       if(!item) return;
       if(e.target.classList.contains("a-what")) item.what = e.target.value;
       else if(e.target.classList.contains("a-amount")) item.amount = parseFloat(e.target.value) || 0;
+      else if(e.target.classList.contains("a-person")) item.person = e.target.value;
       else if(e.target.classList.contains("h-what")) item.what = e.target.value;
       else if(e.target.classList.contains("h-symbol")) item.symbol = e.target.value;
       else if(e.target.classList.contains("h-qty")){
         item.quantity = parseFloat(e.target.value) || 0;
         item.amount = Math.round(item.quantity * (Number(item.price) || 0) * 100) / 100;
         patchHoldingRow(tr, item);
+        patchSharesGlance();
       }
       else if(e.target.classList.contains("h-avgcost")){
         item.avgCost = e.target.value === "" ? null : (parseFloat(e.target.value) || 0);
         patchHoldingRow(tr, item);
+        patchSharesGlance();
       }
       else if(e.target.classList.contains("h-price")){
         item.price = parseFloat(e.target.value) || 0;
         item.priceUpdated = new Date().toISOString().slice(0, 10);
         item.amount = Math.round((Number(item.quantity) || 0) * item.price * 100) / 100;
         patchHoldingRow(tr, item);
+        patchSharesGlance();
       }
       else if(e.target.classList.contains("h-person")) item.person = e.target.value;
       else if(e.target.classList.contains("v-what")) item.what = e.target.value;
@@ -784,6 +790,7 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
         recalcComputedItems();
         patchVehicleRow(tr, item);
       }
+      else if(e.target.classList.contains("v-person")) item.person = e.target.value;
       else return;
       if(e.target.classList.contains("a-what") || e.target.classList.contains("h-what") || e.target.classList.contains("v-what")){
         var nameEl = tr.querySelector(".m-row-name");
@@ -809,8 +816,12 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       var hidx = Number(htr.getAttribute("data-index"));
       if(state.assets[hidx]){ state.assets[hidx].market = e.target.value; persist(); }
     }
-    if(e.target.closest("table.assets-table, .m-asset-rows") && e.target.classList.contains("h-person")){
+    if(e.target.closest("table.assets-table, .m-asset-rows") &&
+       (e.target.classList.contains("h-person") || e.target.classList.contains("a-person") || e.target.classList.contains("v-person"))){
       updatePersonSuggestions();
+      // Patches just the filter chip row (not a full renderAssets()), so typing a new person's
+      // name into a still-focused field doesn't blow away that same field's own focus mid-edit.
+      renderAssetPersonFilter();
     }
   });
   document.addEventListener("click", function(e){
@@ -834,6 +845,8 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     var logBtn = e.target.closest("[data-asset-log]");
     if(logBtn){ logAssetSnapshot(Number(logBtn.getAttribute("data-asset-log"))); return; }
     if(e.target.id === "sharesPasteApply") applySharesPaste();
+    var personFilterBtn = e.target.closest("[data-asset-person-filter]");
+    if(personFilterBtn){ setAssetPersonFilter(personFilterBtn.getAttribute("data-asset-person-filter")); return; }
     if(e.target.closest("[data-set-projection-reference]")){ setProjectionReference(); return; }
     if(e.target.closest("[data-log-networth]")){ logNetWorthSnapshot(); return; }
     var debtLogBtn = e.target.closest("[data-debt-log]");

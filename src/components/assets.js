@@ -17,6 +17,7 @@ function assetRowHtml(item, idx){
     '<td><input type="text" class="a-what" value="' + escapeAttr(item.what) + '" aria-label="Asset name">' + historyTrendHtml(item) + '</td>' +
     '<td><select class="a-category" title="Move to a different category" aria-label="Category">' + optionsHtml(ASSET_CATEGORIES, item.category) + '</select></td>' +
     '<td class="num"><input type="number" step="100" min="0" class="a-amount" value="' + item.amount + '" aria-label="Asset value"></td>' +
+    '<td><input type="text" class="a-person" list="personSuggestions" value="' + escapeAttr(item.person || "") + '" placeholder="Household" aria-label="Person"></td>' +
     '<td><button type="button" class="asset-log-btn" data-asset-log="' + idx + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart below">Log</button></td>' +
     '<td><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete asset">✕</button></td>' +
     '</tr>';
@@ -68,9 +69,53 @@ export function patchHoldingRow(tr, item){
   if(subCell) subCell.textContent = qty + " · " + fmtCurrency2.format(holdingAvgCostDisplay(item, price));
 }
 
+// Keeps the Shares page's aggregate gain/loss figure in step with a live qty/avg-cost/price
+// edit — patchHoldingRow() above only touches that one row's own gain/loss, not the portfolio
+// total, so without this the header figure would go stale until the next full re-render.
+export function patchSharesGlance(){
+  var el = document.getElementById("sharesGlance");
+  if(!el) return;
+  el.innerHTML = sharesGainLossGlanceHtml(assetCategoryItems("Shares").items);
+}
+
+// Session-only (not persisted) — which person's assets every category subpage is filtered to.
+// "" = everyone (no filter), "__household" = only items with no person set. Deliberately only
+// filters each category's own list/total, not the Summary subpage's headline stats (total net
+// worth, liquid/illiquid) or engine.js's totals — those are whole-household figures regardless
+// of who's asking to see just their own slice, and property equity/debts have no person field
+// to split by anyway.
+export var assetPersonFilter = "";
+export function setAssetPersonFilter(value){
+  assetPersonFilter = value;
+  renderAssets();
+}
+function distinctAssetPersons(){
+  var names = {};
+  state.assets.forEach(function(a){ if(a.person) names[a.person] = true; });
+  return Object.keys(names).sort();
+}
+function assetPersonMatches(item){
+  if(!assetPersonFilter) return true;
+  if(assetPersonFilter === "__household") return !item.person;
+  return item.person === assetPersonFilter;
+}
+export function renderAssetPersonFilter(){
+  var el = document.getElementById("assetsPersonFilter");
+  if(!el) return;
+  var persons = distinctAssetPersons();
+  // Nobody's tagged a person yet — nothing to filter by, so stay out of the way entirely
+  // rather than showing an "Everyone"/"Household" toggle with no other option to choose.
+  if(!persons.length){ el.innerHTML = ""; return; }
+  var options = [{ key: "", label: "Everyone" }, { key: "__household", label: "Household" }]
+    .concat(persons.map(function(p){ return { key: p, label: p }; }));
+  el.innerHTML = options.map(function(o){
+    return '<button type="button" class="subnav-item' + (assetPersonFilter === o.key ? " active" : "") + '" data-asset-person-filter="' + escapeAttr(o.key) + '">' + escapeAttr(o.label) + '</button>';
+  }).join("");
+}
+
 function assetCategoryItems(cat){
   var items = [], indices = [];
-  state.assets.forEach(function(a, idx){ if((a.category || "Other") === cat){ items.push(a); indices.push(idx); } });
+  state.assets.forEach(function(a, idx){ if((a.category || "Other") === cat && assetPersonMatches(a)){ items.push(a); indices.push(idx); } });
   return { items: items, indices: indices };
 }
 
@@ -109,6 +154,7 @@ function modernAssetRowHtml(item, idx, colorIdx){
       '<div class="m-edit-field span3"><label>What</label><input type="text" class="a-what" value="' + escapeAttr(item.what) + '" aria-label="Asset name"></div>' +
       '<div class="m-edit-field"><label>Category</label><select class="a-category" title="Move to a different category" aria-label="Category">' + optionsHtml(ASSET_CATEGORIES, item.category) + '</select></div>' +
       '<div class="m-edit-field span2"><label>Value</label><input type="number" step="100" min="0" class="a-amount" value="' + item.amount + '" aria-label="Asset value"></div>' +
+      '<div class="m-edit-field"><label>Person</label><input type="text" class="a-person" list="personSuggestions" value="' + escapeAttr(item.person || "") + '" placeholder="Household" aria-label="Person"></div>' +
     '</div>' +
     '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm asset-log-btn" data-asset-log="' + idx + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart below">Log</button><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete asset">Delete</button></div>' +
   '</div></div></div>';
@@ -136,7 +182,7 @@ export function renderAssetCategoryPage(cat){
     '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
     '<div class="ledger-body">' + body + '</div></details></div>';
   if(data.items.length && !isModern){
-    var thead = '<thead><tr><th>What</th><th>Category</th><th class="num">Value</th><th></th><th></th></tr></thead>';
+    var thead = '<thead><tr><th>What</th><th>Category</th><th class="num">Value</th><th>Person</th><th></th><th></th></tr></thead>';
     var rows = data.items.map(function(item, i){ return assetRowHtml(item, data.indices[i]); }).join("");
     document.getElementById("assetCatTable-" + cat).innerHTML = thead + "<tbody>" + rows + "</tbody>";
   }
@@ -149,6 +195,7 @@ function vehicleRowHtml(item, idx){
     '<td><input type="date" class="v-purchasedate" value="' + escapeAttr(item.purchaseDate || "") + '" aria-label="Purchase date"></td>' +
     '<td class="num"><input type="number" step="0.5" min="0" max="100" class="v-deprate" value="' + (item.depreciationRate != null ? item.depreciationRate : 15) + '" aria-label="Depreciation % per year"></td>' +
     '<td class="num v-value-cell">' + fmtCurrency0.format(Number(item.amount) || 0) + (item.computed ? '<span class="computed-note">auto</span>' : '<span class="computed-note">set price + date to auto-depreciate</span>') + '</td>' +
+    '<td><input type="text" class="v-person" list="personSuggestions" value="' + escapeAttr(item.person || "") + '" placeholder="Household" aria-label="Person"></td>' +
     '<td><button type="button" class="asset-log-btn" data-asset-log="' + idx + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart below">Log</button></td>' +
     '<td><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete vehicle">✕</button></td>' +
     '</tr>';
@@ -174,6 +221,7 @@ function modernVehicleRowHtml(item, idx, colorIdx){
       '<div class="m-edit-field"><label>Purchase price</label><input type="number" step="500" min="0" class="v-purchaseprice" value="' + (Number(item.purchasePrice) || 0) + '" aria-label="Purchase price"></div>' +
       '<div class="m-edit-field"><label>Purchase date</label><input type="date" class="v-purchasedate" value="' + escapeAttr(item.purchaseDate || "") + '" aria-label="Purchase date"></div>' +
       '<div class="m-edit-field"><label>Depreciation %/yr</label><input type="number" step="0.5" min="0" max="100" class="v-deprate" value="' + (item.depreciationRate != null ? item.depreciationRate : 15) + '" aria-label="Depreciation % per year"></div>' +
+      '<div class="m-edit-field"><label>Person</label><input type="text" class="v-person" list="personSuggestions" value="' + escapeAttr(item.person || "") + '" placeholder="Household" aria-label="Person"></div>' +
     '</div>' +
     '<p class="ledger-note v-value-cell" style="margin:8px 0 0">Current value <b>' + fmtCurrency0.format(Number(item.amount) || 0) + '</b>' + (item.computed ? '<span class="computed-note">auto</span>' : '<span class="computed-note">set price + date to auto-depreciate</span>') + '</p>' +
     '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm asset-log-btn" data-asset-log="' + idx + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart below">Log</button><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete vehicle">Delete</button></div>' +
@@ -202,7 +250,7 @@ export function renderVehiclesSubpage(){
     '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
     '<div class="ledger-body"><p class="ledger-note" style="margin-left:0">Current value is estimated as declining-balance depreciation from your purchase price — a common approximation for cars, not a valuation. Leave depreciation fields blank to enter a value manually instead.</p>' + body + '</div></details></div>';
   if(data.items.length && !isModern){
-    var thead = '<thead><tr><th>What</th><th class="num">Purchase price</th><th>Purchase date</th><th class="num">Depreciation %/yr</th><th class="num">Current value</th><th></th><th></th></tr></thead>';
+    var thead = '<thead><tr><th>What</th><th class="num">Purchase price</th><th>Purchase date</th><th class="num">Depreciation %/yr</th><th class="num">Current value</th><th>Person</th><th></th><th></th></tr></thead>';
     var rows = data.items.map(function(item, i){ return vehicleRowHtml(item, data.indices[i]); }).join("");
     document.getElementById("vehiclesTable").innerHTML = thead + "<tbody>" + rows + "</tbody>";
   }
@@ -250,6 +298,61 @@ function modernShareRowHtml(item, idx, colorIdx){
   return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="assets" data-index="' + idx + '">' + summary + edit + '</div>';
 }
 
+// Aggregates unrealized gain/loss across a set of holdings (whatever's currently visible —
+// already person-filtered by the caller via assetCategoryItems). Only counts holdings with an
+// avg cost set, same requirement gainLossHtml() uses per-row, so a portfolio where nobody's
+// entered a cost basis yet correctly reports "nothing to show" rather than a misleading $0.
+function sharesGainLossSummary(items){
+  var totalCost = 0, totalValue = 0, upCount = 0, downCount = 0, flatCount = 0;
+  items.forEach(function(item){
+    if(item.avgCost == null || item.avgCost === "") return;
+    var qty = Number(item.quantity) || 0;
+    var cost = Number(item.avgCost) || 0;
+    var price = Number(item.price) || 0;
+    totalCost += qty * cost;
+    totalValue += qty * price;
+    var gain = (price - cost) * qty;
+    if(gain > 0.5) upCount++;
+    else if(gain < -0.5) downCount++;
+    else flatCount++;
+  });
+  var trackedCount = upCount + downCount + flatCount;
+  var gainDollar = totalValue - totalCost;
+  return {
+    trackedCount: trackedCount, gainDollar: gainDollar,
+    pct: totalCost ? gainDollar / totalCost : 0,
+    upCount: upCount, downCount: downCount, flatCount: flatCount
+  };
+}
+function sharesGlanceBarSegHtml(count, colorStyle, label){
+  if(!count) return "";
+  return '<div class="tax-waterfall-seg" style="flex:' + count + ' 1 0%;' + colorStyle + '" title="' + count + ' ' + label + '"></div>';
+}
+function sharesGlanceLegendItemHtml(count, colorStyle, label){
+  if(!count) return "";
+  return '<div class="tax-waterfall-item"><span class="proj-swatch" style="' + colorStyle + '"></span>' + count + ' ' + label + '</div>';
+}
+function sharesGainLossGlanceHtml(items){
+  var s = sharesGainLossSummary(items);
+  if(!s.trackedCount) return "";
+  var cls = s.gainDollar > 0.5 ? "up" : (s.gainDollar < -0.5 ? "down" : "");
+  var arrow = s.gainDollar > 0.5 ? "▲" : (s.gainDollar < -0.5 ? "▼" : "–");
+  return '<div class="shares-glance">' +
+    '<div class="shares-glance-figure asset-trend ' + cls + '">' + arrow + ' ' + fmtCurrency0.format(Math.abs(s.gainDollar)) + ' (' + fmtPercent1.format(Math.abs(s.pct)) + ')</div>' +
+    '<div class="shares-glance-sub">unrealized gain/loss, across ' + s.trackedCount + ' holding' + (s.trackedCount === 1 ? "" : "s") + ' with an avg cost set</div>' +
+    '<div class="tax-waterfall-bar shares-glance-bar">' +
+      sharesGlanceBarSegHtml(s.upCount, "background:var(--good)", "up") +
+      sharesGlanceBarSegHtml(s.flatCount, "background:var(--ink-soft)", "flat") +
+      sharesGlanceBarSegHtml(s.downCount, "background:var(--bad)", "down") +
+    '</div>' +
+    '<div class="tax-waterfall-legend">' +
+      sharesGlanceLegendItemHtml(s.upCount, "background:var(--good)", "up") +
+      sharesGlanceLegendItemHtml(s.flatCount, "background:var(--ink-soft)", "flat") +
+      sharesGlanceLegendItemHtml(s.downCount, "background:var(--bad)", "down") +
+    '</div>' +
+  '</div>';
+}
+
 export function renderSharesSubpage(){
   var container = document.getElementById("assetsSub-Shares");
   if(!container) return;
@@ -276,7 +379,7 @@ export function renderSharesSubpage(){
   container.innerHTML = '<div class="ledgers"><details class="ledger" open>' +
     '<summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Shares</h2></div>' +
     '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
-    '<div class="ledger-body">' + pasteTool + body + '</div></details></div>';
+    '<div class="ledger-body"><div id="sharesGlance">' + sharesGainLossGlanceHtml(data.items) + '</div>' + pasteTool + body + '</div></details></div>';
   if(data.items.length && !isModern){
     var thead = '<thead><tr><th>What</th><th>Trend</th><th>Symbol</th><th>Mkt</th><th class="num">Qty</th><th class="num">Avg cost</th><th class="num">Price</th><th class="num">Value</th><th>Gain/Loss</th><th>Person</th><th></th><th></th></tr></thead>';
     var rows = data.items.map(function(item, i){ return holdingRowHtml(item, data.indices[i]); }).join("");
@@ -475,6 +578,7 @@ export function renderPortfolioHistoryChart(){
 
 export function renderAssets(){
   syncUiModeToggle();
+  renderAssetPersonFilter();
   renderAssetCategoryPage("Cash");
   renderSharesSubpage();
   renderAssetCategoryPage("Super");

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, daysUntil, appendHistorySnapshot, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange } from "../src/calc/ledger.js";
+import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, isOverdue, daysUntil, appendHistorySnapshot, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange } from "../src/calc/ledger.js";
 
 test("toWeekly converts every frequency to a weekly figure", function(){
   assert.equal(toWeekly(100, "Weekly"), 100);
@@ -102,6 +102,23 @@ test("nextDueDate handles every FREQS value without falling through to an infini
     var result = nextDueDate("2024-01-01", freq, "2024-01-01");
     assert.ok(result > "2024-01-01", freq + " should project forward, got " + result);
   });
+});
+
+test("isOverdue is false with no last-incurred date — never-logged is handled by the caller, not here", function(){
+  assert.equal(isOverdue(null, "Monthly"), false);
+  assert.equal(isOverdue(undefined, "Monthly"), false);
+  assert.equal(isOverdue("not a date", "Monthly"), false);
+});
+
+test("isOverdue is false when still within the current period (unlike nextDueDate, which always projects forward and so can never itself look overdue)", function(){
+  assert.equal(isOverdue("2024-01-15", "Monthly", "2024-01-20"), false);
+  assert.equal(isOverdue("2024-01-15", "Monthly", "2024-02-14"), false);
+});
+
+test("isOverdue is true once a full period has elapsed, and stays true no matter how many periods have been skipped", function(){
+  assert.equal(isOverdue("2024-01-15", "Monthly", "2024-02-15"), true); // exactly one period on: due today counts
+  assert.equal(isOverdue("2024-01-15", "Monthly", "2024-03-01"), true);
+  assert.equal(isOverdue("2024-01-15", "Quarterly", "2024-09-01"), true); // several quarters skipped
 });
 
 test("daysUntil is negative for a past date (overdue) and positive for a future one", function(){

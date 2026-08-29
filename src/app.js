@@ -376,6 +376,11 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
         var dateInput = logBtn2.previousElementSibling;
         var logDate = (dateInput && dateInput.classList.contains("log-date") && dateInput.value) || undefined;
         var ldate = appendHistorySnapshot(litem.history, Number(litem.amount) || 0, logDate);
+        // Keeps the "Last paid"/due-date projection (dueDateNoteHtml(), Review expenses'
+        // isDueForReview()) in sync with reality — logging an amount here IS "I just paid/
+        // received this", so it should clear the item's due status the same way the Review
+        // flow's own Log action does.
+        if("lastIncurredDate" in litem || litem.freq) litem.lastIncurredDate = ldate;
         rerenderTableFor(lsection);
         renderProjectionOutputs();
         persist();

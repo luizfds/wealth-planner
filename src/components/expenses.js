@@ -1,6 +1,6 @@
 import { state, persist, genId } from "../state.js";
 import { CLASSES } from "../constants.js";
-import { sumField, resolveSharedAmount, appendHistorySnapshot, periodsOf, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange } from "../calc/ledger.js";
+import { sumField, resolveSharedAmount, appendHistorySnapshot, periodsOf, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, isOverdue, daysUntil } from "../calc/ledger.js";
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
@@ -280,12 +280,36 @@ export function renderPropertyExpensesSummary(){
 // a review is somehow still open can't shift what "next" points at mid-review.
 export var expenseReview = null;
 
+// "Needs review" means overdue against its own frequency — never logged at all, or a full
+// period has elapsed since lastIncurredDate without a new log (isOverdue(), not nextDueDate():
+// that always projects forward to the next occurrence on/after today, so it can never itself
+// land in the past — useless for "is this actually overdue"). An expense logged recently enough
+// that it's not due yet has nothing to review, so it's left out rather than re-shown every time.
+function isDueForReview(item){
+  if(!item.lastIncurredDate) return true;
+  return isOverdue(item.lastIncurredDate, item.freq);
+}
+// Explains *why* a card is in the review queue — distinct from ledger-table.js's
+// dueDateNoteHtml(), which projects the next upcoming date and would misleadingly read as
+// "due in Xd" for an item that's actually already overdue (nextDueDate always rolls forward
+// past today, see isDueForReview() above).
+function reviewDueNoteHtml(item){
+  if(!item.lastIncurredDate) return '<span class="due-note due-unset">Never logged</span>';
+  var daysAgo = -daysUntil(item.lastIncurredDate);
+  return '<span class="due-note due-overdue">Last logged ' + escapeAttr(item.lastIncurredDate) + ' (' + daysAgo + 'd ago) — overdue for a new ' + escapeAttr(item.freq) + ' entry</span>';
+}
 export function openExpenseReview(){
   if(!state.shared.length){
     showToast("No expenses to review yet — add one on this page first.");
     return;
   }
-  expenseReview = { queue: state.shared.map(function(_, i){ return i; }), pos: 0, reviewedCount: 0 };
+  var due = [];
+  state.shared.forEach(function(item, i){ if(isDueForReview(item)) due.push(i); });
+  if(!due.length){
+    showToast("Nothing due for review — every expense has been logged recently enough.");
+    return;
+  }
+  expenseReview = { queue: due, pos: 0, reviewedCount: 0 };
   renderExpenseReviewPanel();
 }
 export function closeExpenseReview(){
@@ -304,7 +328,10 @@ export function logCurrentReviewCard(amount, dateStr){
   if(!item) return;
   item.amount = amount;
   if(!Array.isArray(item.history)) item.history = [];
-  appendHistorySnapshot(item.history, amount, dateStr);
+  // Also updates lastIncurredDate (the same field the "Last paid" due-date projection reads —
+  // see dueDateNoteHtml()/isDueForReview()) so logging here is what actually clears an item's
+  // due status, not just a value snapshot disconnected from it.
+  item.lastIncurredDate = appendHistorySnapshot(item.history, amount, dateStr);
   expenseReview.reviewedCount++;
   expenseReview.pos++;
 }
@@ -318,6 +345,7 @@ function reviewCardHtml(item){
   return '<div class="review-card-badge ' + classificationSwatchClass(item.classification || "N/A") + '">' + escapeAttr(item.classification || "N/A") + '</div>' +
     '<div class="review-card-name">' + escapeAttr(item.what) + '</div>' +
     '<div class="review-card-freq">Currently ' + fmtCurrency2.format(item.amount) + ' / ' + item.freq + '</div>' +
+    reviewDueNoteHtml(item) +
     trend +
     '<div class="review-card-fields">' +
       '<div class="m-edit-field"><label>Amount</label><input type="number" step="0.01" min="0" class="review-amount" value="' + item.amount + '" aria-label="Amount to log"></div>' +

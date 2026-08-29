@@ -66,6 +66,21 @@ export function nextDueDate(lastIncurredDate, freq, fromDateStr){
   }
   return d.toISOString().slice(0, 10);
 }
+// Whether a full period has already elapsed since lastIncurredDate without a new log — i.e. the
+// *single* next occurrence after lastIncurredDate (not nextDueDate()'s loop, which always rolls
+// forward to on/after fromDateStr and so can never itself land in the past) is on or before
+// fromDateStr (defaults to today). Used to flag an expense as "needs review" regardless of how
+// many periods have been silently skipped, e.g. a Monthly expense last logged 4 months ago is
+// just as overdue as one last logged 5 weeks ago — both need a fresh entry now.
+export function isOverdue(lastIncurredDate, freq, fromDateStr){
+  if(!lastIncurredDate) return false;
+  var d = new Date(lastIncurredDate + "T00:00:00");
+  if(isNaN(d.getTime())) return false;
+  var from = fromDateStr ? new Date(fromDateStr + "T00:00:00") : new Date();
+  from.setHours(0, 0, 0, 0);
+  var due = addFreqStep(d, freq);
+  return due.getTime() <= from.getTime();
+}
 // Whole days between fromDateStr (defaults to today) and dateStr — negative means dateStr is in
 // the past (overdue).
 export function daysUntil(dateStr, fromDateStr){

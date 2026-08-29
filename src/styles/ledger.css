@@ -117,6 +117,14 @@
   .due-note.due-unset{ font-style:italic; }
   .due-note.due-soon{ color: var(--brass-strong); font-weight:600; }
   .due-note.due-overdue{ color: var(--bad); font-weight:600; }
+  .log-cell{ white-space:nowrap; }
+  .log-date{
+    width:120px; font-size:11px; padding:4px 5px; border:1px solid var(--border); border-radius:5px;
+    background: var(--paper); color: var(--ink); font-family:inherit; vertical-align:middle; margin-right:4px;
+  }
+  .log-date:hover{ border-color: var(--brass); }
+  .log-date:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
+  .m-edit-actions .log-date{ margin-right:0; }
   .row-breakdown-toggle{
     all:unset; display:inline-block; font-size:10.5px; color: var(--brass-strong); cursor:pointer;
     margin-top:2px; padding:4px 2px; text-decoration:underline; text-underline-offset:2px;

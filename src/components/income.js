@@ -6,7 +6,7 @@ import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax }
 import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { syncUiModeToggle } from "../lib/uimode.js";
-import { buildTable, optionsHtml, historyTrendHtml } from "../lib/ledger-table.js";
+import { buildTable, optionsHtml, historyTrendHtml, logControlsHtml } from "../lib/ledger-table.js";
 
 export function personBreakdownHtml(person){
   var r = computePersonTax(person);
@@ -220,7 +220,7 @@ function modernIncomeRowHtml(item, idx, colorIdx){
       '</div>' +
     '</details>' +
     '<div class="m-edit-actions">' +
-      '<button type="button" class="asset-log-btn" data-log="income:' + idx + '" title="Snapshot the amount above with today\'s date">Log</button>' +
+      logControlsHtml("income", idx) +
       '<button type="button" class="btn btn-ghost btn-sm row-del" data-del="income:' + idx + '">Delete</button>' +
     '</div>' +
   '</div></div></div>';

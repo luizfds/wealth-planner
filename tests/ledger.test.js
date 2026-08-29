@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, daysUntil, appendHistorySnapshot } from "../src/calc/ledger.js";
+import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, daysUntil, appendHistorySnapshot, transactionsInMonth, sumTransactionsByExpense } from "../src/calc/ledger.js";
 
 test("toWeekly converts every frequency to a weekly figure", function(){
   assert.equal(toWeekly(100, "Weekly"), 100);
@@ -152,4 +152,31 @@ test("sumByAccount groups by trimmed account name, defaulting blanks to Unassign
   var map = sumByAccount(items, "weekly");
   assert.equal(map.Everyday, 150);
   assert.equal(map.Unassigned, 25);
+});
+
+test("transactionsInMonth filters to the given YYYY-MM, defaulting to the current month", function(){
+  var txns = [
+    { date: "2024-03-05", amount: 10 },
+    { date: "2024-03-31", amount: 20 },
+    { date: "2024-04-01", amount: 30 }
+  ];
+  var march = transactionsInMonth(txns, "2024-03");
+  assert.equal(march.length, 2);
+  assert.equal(march.reduce(function(s, t){ return s + t.amount; }, 0), 30);
+  assert.equal(transactionsInMonth(txns, "2024-04").length, 1);
+  assert.equal(transactionsInMonth(txns, "2099-01").length, 0);
+});
+
+test("sumTransactionsByExpense buckets by linkedExpenseId, unlinked entries under __unlinked", function(){
+  var txns = [
+    { amount: 40, linkedExpenseId: "exp1" },
+    { amount: 15, linkedExpenseId: "exp1" },
+    { amount: 25, linkedExpenseId: "exp2" },
+    { amount: 5, linkedExpenseId: null },
+    { amount: 8 }
+  ];
+  var map = sumTransactionsByExpense(txns);
+  assert.equal(map.exp1, 55);
+  assert.equal(map.exp2, 25);
+  assert.equal(map.__unlinked, 13);
 });

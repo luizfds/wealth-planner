@@ -1,12 +1,12 @@
-import { state } from "../state.js";
+import { state, persist, genId } from "../state.js";
 import { CLASSES } from "../constants.js";
-import { sumField, resolveSharedAmount, appendHistorySnapshot } from "../calc/ledger.js";
+import { sumField, resolveSharedAmount, appendHistorySnapshot, periodsOf, transactionsInMonth, sumTransactionsByExpense } from "../calc/ledger.js";
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { syncUiModeToggle } from "../lib/uimode.js";
 import { buildTable, modernPlainRowHtml, historyTrendHtml } from "../lib/ledger-table.js";
-import { showToast } from "../lib/toast.js";
+import { showToast, showUndoToast } from "../lib/toast.js";
 
 function sharedGroupOrder(){
   return CLASSES.filter(function(cls){
@@ -349,4 +349,114 @@ export function renderExpenseReviewPanel(){
       '</div>' +
       '<p class="review-hint">Swipe the card left to skip, right to log — or use the buttons.</p>' +
     '</div></div>';
+}
+
+// ---------------- Transactions: real dated spend, separate from the planned budget ----------------
+// Deliberately not built on ledger-table.js's machinery — a transaction has a different shape
+// (date/description/amount/link, no freq/period math) and, like debts, is simple enough that a
+// small bespoke renderer beats fighting the generic row's amount+frequency assumptions.
+function transactionLinkOptionsHtml(selectedId){
+  var options = '<option value=""' + (!selectedId ? " selected" : "") + '>— One-off (not linked) —</option>';
+  return options + state.shared.map(function(item){
+    return '<option value="' + escapeAttr(item.id) + '"' + (item.id === selectedId ? " selected" : "") + '>' + escapeAttr(item.what) + '</option>';
+  }).join("");
+}
+function transactionRowHtml(t, idx){
+  var dateInput = '<input type="date" class="tx-date" data-tx-index="' + idx + '" value="' + escapeAttr(t.date || "") + '" aria-label="Date">';
+  var whatInput = '<input type="text" class="tx-what" data-tx-index="' + idx + '" value="' + escapeAttr(t.what || "") + '" placeholder="Description" aria-label="Description">';
+  var amountInput = '<input type="number" step="0.01" min="0" class="tx-amount" data-tx-index="' + idx + '" value="' + t.amount + '" aria-label="Amount">';
+  var linkSelect = '<select class="tx-link" data-tx-index="' + idx + '" aria-label="Linked expense">' + transactionLinkOptionsHtml(t.linkedExpenseId) + '</select>';
+  var delBtn = '<button type="button" class="btn btn-ghost btn-sm row-del" data-tx-del="' + idx + '" aria-label="Delete transaction">✕</button>';
+  if(state.uiMode === "modern"){
+    return '<div class="m-row computed tx-row" data-tx-index="' + idx + '">' +
+      '<div class="m-row-summary" style="cursor:default;flex-wrap:wrap;gap:8px">' + dateInput + whatInput + amountInput + delBtn + '</div>' +
+      '<div class="tx-link-row">' + linkSelect + '</div>' +
+    '</div>';
+  }
+  return '<tr data-tx-index="' + idx + '">' +
+    '<td>' + dateInput + '</td>' +
+    '<td class="what-cell">' + whatInput + '</td>' +
+    '<td class="amount-cell">' + amountInput + '</td>' +
+    '<td>' + linkSelect + '</td>' +
+    '<td>' + delBtn + '</td>' +
+    '</tr>';
+}
+export function renderTransactions(){
+  var container = document.getElementById("transactionsTable");
+  var totalEl = document.getElementById("totalTransactionsAmount");
+  if(!container) return;
+  var total = state.transactions.reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0);
+  if(totalEl) totalEl.textContent = fmtCurrency0.format(total);
+  if(!state.transactions.length){
+    container.innerHTML = '<p class="ledger-note" style="margin:0">No transactions logged yet — add one below to start tracking actual spend against your budget, optionally linked to one of the expenses above.</p>';
+    return;
+  }
+  // Newest first for review, but data-tx-index always keeps pointing at the item's real
+  // position in state.transactions (not its position in this sorted display).
+  var sorted = state.transactions
+    .map(function(t, i){ return { t: t, i: i }; })
+    .sort(function(a, b){ return (b.t.date || "") < (a.t.date || "") ? -1 : ((b.t.date || "") > (a.t.date || "") ? 1 : 0); });
+  var rows = sorted.map(function(x){ return transactionRowHtml(x.t, x.i); }).join("");
+  container.innerHTML = state.uiMode === "modern"
+    ? '<div class="m-rows">' + rows + '</div>'
+    : '<div class="table-scroll"><table class="ledger-table"><thead><tr><th>Date</th><th>Description</th><th class="num">Amount</th><th>Linked to</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+}
+export function addTransaction(){
+  state.transactions.push({ id: genId("t"), date: new Date().toISOString().slice(0, 10), amount: 0, what: "", linkedExpenseId: null });
+  renderTransactions();
+  renderActualVsPlannedPanel();
+  persist();
+}
+export function deleteTransaction(idx){
+  var removed = state.transactions[idx];
+  if(!removed) return;
+  state.transactions.splice(idx, 1);
+  renderTransactions();
+  renderActualVsPlannedPanel();
+  persist();
+  showUndoToast("Deleted transaction", function(){
+    state.transactions.splice(Math.min(idx, state.transactions.length), 0, removed);
+    renderTransactions();
+    renderActualVsPlannedPanel();
+    persist();
+  });
+}
+
+// ---------------- Actual vs. planned: this month's transactions against the budget ----------------
+// Reuses the Dashboard's .acct-row layout (name / mid-detail / right-aligned figure) — the shape
+// fits, and it keeps this panel visually consistent with the other "reality check" panels rather
+// than inventing a new row style for one more three-column list.
+export function renderActualVsPlannedPanel(){
+  var el = document.getElementById("actualVsPlannedPanel");
+  if(!el) return;
+  var monthTxns = transactionsInMonth(state.transactions);
+  var byExpense = sumTransactionsByExpense(monthTxns);
+  if(!state.shared.length && !monthTxns.length){
+    el.innerHTML = '<p class="ledger-note" style="margin:0">Add a shared expense and log a transaction against it to see actual vs. planned here.</p>';
+    return;
+  }
+  var plannedTotal = sumField(state.shared, "monthly");
+  var actualTotal = monthTxns.reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0);
+  var overallDelta = actualTotal - plannedTotal;
+  // Framed from a spending point of view: spending less than planned is "good" (green), more is
+  // "bad" (red) — the inverse of the up/down convention used for asset values elsewhere in the
+  // app, where "up" is always good. Both read correctly for what they each represent.
+  var overallColor = overallDelta > 0.5 ? "var(--bad)" : (overallDelta < -0.5 ? "var(--good)" : "");
+  var rows = state.shared.map(function(item){
+    var planned = periodsOf(item.amount, item.freq).monthly;
+    var actual = byExpense[item.id] || 0;
+    var delta = actual - planned;
+    var color = delta > 0.5 ? "var(--bad)" : (delta < -0.5 ? "var(--good)" : "");
+    return '<div class="acct-row"><span class="acct-name" title="' + escapeAttr(item.what) + '">' + escapeAttr(item.what) + '</span>' +
+      '<span style="font-size:11px;color:var(--ink-soft)">' + fmtCurrency0.format(actual) + ' actual / ' + fmtCurrency0.format(planned) + ' planned</span>' +
+      '<span class="acct-amt"' + (color ? ' style="color:' + color + '"' : '') + '>' + (delta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(delta)) + '</span></div>';
+  }).join("");
+  var unlinkedTotal = byExpense.__unlinked || 0;
+  var unlinkedRow = unlinkedTotal
+    ? '<div class="acct-row"><span class="acct-name" style="font-style:italic">Uncategorized (one-off)</span><span></span><span class="acct-amt">' + fmtCurrency0.format(unlinkedTotal) + '</span></div>'
+    : "";
+  el.innerHTML =
+    '<div class="fire-stat-row"><span>This month — actual vs. planned</span><b' + (overallColor ? ' style="color:' + overallColor + '"' : '') + '>' + fmtCurrency0.format(actualTotal) + ' / ' + fmtCurrency0.format(plannedTotal) + '</b></div>' +
+    '<p class="fire-note" style="margin:2px 0 12px">' + (overallDelta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(overallDelta)) + (overallDelta > 0.5 ? " over budget so far this month." : overallDelta < -0.5 ? " under budget so far this month." : " right on budget so far this month.") + '</p>' +
+    rows + unlinkedRow;
 }

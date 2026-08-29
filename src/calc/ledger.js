@@ -99,3 +99,21 @@ export function sumByAccount(items, field){
   });
   return map;
 }
+// Real, dated spend events (state.transactions[]) filtered to one calendar month — defaults to
+// the current month so the "actual vs planned" panel means "this month" without the caller
+// having to know today's date itself.
+export function transactionsInMonth(transactions, monthStr){
+  monthStr = monthStr || new Date().toISOString().slice(0, 7);
+  return transactions.filter(function(t){ return (t.date || "").slice(0, 7) === monthStr; });
+}
+// Sums a set of transactions by the state.shared[] id they're linked to — an unlinked
+// transaction (a one-off with no matching budget line) is bucketed under "__unlinked" rather
+// than dropped, so its total isn't silently lost from the reconciliation.
+export function sumTransactionsByExpense(transactions){
+  var map = {};
+  transactions.forEach(function(t){
+    var key = t.linkedExpenseId || "__unlinked";
+    map[key] = (map[key] || 0) + (Number(t.amount) || 0);
+  });
+  return map;
+}

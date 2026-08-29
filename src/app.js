@@ -21,7 +21,9 @@ import {
 import {
   patchSharedGroupTotals, renderSharedGroups, renderPropertyExpensesSummary, modernSharedRowOpen,
   openScenarioOverridePanel, closeScenarioOverridePanel, renderScenarioOverridePanel,
-  setScenarioOverride, resetScenarioOverride, copyScenarioAmountToAll
+  setScenarioOverride, resetScenarioOverride, copyScenarioAmountToAll,
+  openExpenseReview, closeExpenseReview, renderExpenseReviewPanel,
+  logCurrentReviewCard, skipCurrentReviewCard, expenseReview
 } from "./components/expenses.js";
 import {
   patchHoldingRow, patchVehicleRow, modernAssetRowOpen, patchAssetCategoryTotals,
@@ -1082,6 +1084,57 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     if(e.key !== "Escape") return;
     if(document.querySelector("[data-override-backdrop]")) closeScenarioOverridePanel();
   });
+
+  // ---------------- Review expenses: one-at-a-time swipe/confirm flow ----------------
+  // A brief slide-out + fade before advancing to the next card — skipped for
+  // prefers-reduced-motion, matching the flip-card pattern on Tax & Super.
+  function animateReviewCard(direction, callback){
+    var card = document.querySelector(".review-card");
+    if(!card || (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches)){
+      callback();
+      return;
+    }
+    card.classList.add("swipe-out-" + direction);
+    setTimeout(callback, 200);
+  }
+  function performReviewSkip(){
+    if(!expenseReview || expenseReview.pos >= expenseReview.queue.length) return;
+    animateReviewCard("left", function(){
+      skipCurrentReviewCard();
+      renderExpenseReviewPanel();
+    });
+  }
+  function performReviewLog(){
+    if(!expenseReview || expenseReview.pos >= expenseReview.queue.length) return;
+    var amountInput = document.querySelector(".review-amount");
+    var dateInput = document.querySelector(".review-date");
+    var amount = amountInput ? (parseFloat(amountInput.value) || 0) : 0;
+    var dateStr = (dateInput && dateInput.value) || undefined;
+    animateReviewCard("right", function(){
+      logCurrentReviewCard(amount, dateStr);
+      refreshAfterLedgerChange("shared");
+      renderExpenseReviewPanel();
+    });
+  }
+  var reviewBtn = document.getElementById("reviewExpensesBtn");
+  if(reviewBtn) reviewBtn.addEventListener("click", openExpenseReview);
+  document.getElementById("expenseReviewRoot").addEventListener("click", function(e){
+    if(e.target.closest("[data-review-close]") || e.target === e.target.closest("[data-review-backdrop]")){
+      closeExpenseReview();
+      return;
+    }
+    if(e.target.closest("[data-review-skip]")){ performReviewSkip(); return; }
+    if(e.target.closest("[data-review-log]")){ performReviewLog(); return; }
+  });
+  document.addEventListener("keydown", function(e){
+    if(e.key !== "Escape") return;
+    if(document.querySelector("[data-review-backdrop]")) closeExpenseReview();
+  });
+  onHorizontalSwipe(document.getElementById("expenseReviewRoot"), {
+    onSwipeLeft: performReviewSkip,
+    onSwipeRight: performReviewLog
+  });
+
   wireModernRowToggle("propertiesBody", modernPropRowOpen);
   wireModernRowToggle("homeBody", modernHomeRowOpen);
   ["Cash", "Shares", "Super", "Vehicle", "Other"].forEach(function(cat){

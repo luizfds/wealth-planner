@@ -117,3 +117,21 @@ export function sumTransactionsByExpense(transactions){
   });
   return map;
 }
+// A credit card's "bill" doesn't line up with the calendar month — it's whatever was charged
+// between one statement date and the next. Given the account's statementStartDay (1-28, the day
+// of the month its cycle begins) and today (defaults to now), returns the currently-open cycle's
+// [start, end] as ISO date strings — e.g. startDay 15 on 2026-08-29 returns
+// {start:"2026-08-15", end:"2026-09-14"}, and startDay 15 on 2026-08-10 returns the *previous*
+// cycle, {start:"2026-07-15", end:"2026-08-14"}, since the 15th hasn't happened yet this month.
+export function currentStatementCycle(startDay, todayStr){
+  var today = todayStr ? new Date(todayStr + "T00:00:00") : new Date();
+  var y = today.getFullYear(), m = today.getMonth(), d = today.getDate();
+  var cycleStart = d >= startDay ? new Date(y, m, startDay) : new Date(y, m - 1, startDay);
+  var cycleEnd = new Date(cycleStart.getFullYear(), cycleStart.getMonth() + 1, cycleStart.getDate() - 1);
+  return { start: cycleStart.toISOString().slice(0, 10), end: cycleEnd.toISOString().slice(0, 10) };
+}
+// Inclusive date-range filter for state.transactions[] — startDate/endDate are ISO strings
+// (e.g. from currentStatementCycle()).
+export function transactionsInRange(transactions, startDate, endDate){
+  return transactions.filter(function(t){ return t.date >= startDate && t.date <= endDate; });
+}

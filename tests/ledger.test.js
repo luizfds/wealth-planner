@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, daysUntil, appendHistorySnapshot, transactionsInMonth, sumTransactionsByExpense } from "../src/calc/ledger.js";
+import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, daysUntil, appendHistorySnapshot, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange } from "../src/calc/ledger.js";
 
 test("toWeekly converts every frequency to a weekly figure", function(){
   assert.equal(toWeekly(100, "Weekly"), 100);
@@ -179,4 +179,31 @@ test("sumTransactionsByExpense buckets by linkedExpenseId, unlinked entries unde
   assert.equal(map.exp1, 55);
   assert.equal(map.exp2, 25);
   assert.equal(map.__unlinked, 13);
+});
+
+test("currentStatementCycle returns the cycle containing today, straddling a month boundary", function(){
+  var late = currentStatementCycle(15, "2026-08-29");
+  assert.deepEqual(late, { start: "2026-08-15", end: "2026-09-14" });
+  var early = currentStatementCycle(15, "2026-08-10");
+  assert.deepEqual(early, { start: "2026-07-15", end: "2026-08-14" });
+  var onStartDay = currentStatementCycle(15, "2026-08-15");
+  assert.deepEqual(onStartDay, { start: "2026-08-15", end: "2026-09-14" });
+});
+
+test("currentStatementCycle handles a start day near end of month across shorter months", function(){
+  var cycle = currentStatementCycle(28, "2026-02-27");
+  assert.deepEqual(cycle, { start: "2026-01-28", end: "2026-02-27" });
+});
+
+test("transactionsInRange filters inclusively on both ends", function(){
+  var txns = [
+    { date: "2026-08-14", amount: 1 },
+    { date: "2026-08-15", amount: 2 },
+    { date: "2026-09-01", amount: 3 },
+    { date: "2026-09-14", amount: 4 },
+    { date: "2026-09-15", amount: 5 }
+  ];
+  var inRange = transactionsInRange(txns, "2026-08-15", "2026-09-14");
+  assert.equal(inRange.length, 3);
+  assert.equal(inRange.reduce(function(s, t){ return s + t.amount; }, 0), 9);
 });

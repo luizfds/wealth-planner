@@ -1,6 +1,6 @@
 import { state, persist, genId } from "../state.js";
 import { CLASSES } from "../constants.js";
-import { sumField, resolveSharedAmount, appendHistorySnapshot, periodsOf, transactionsInMonth, sumTransactionsByExpense } from "../calc/ledger.js";
+import { sumField, resolveSharedAmount, appendHistorySnapshot, periodsOf, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange } from "../calc/ledger.js";
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
@@ -361,16 +361,35 @@ function transactionLinkOptionsHtml(selectedId){
     return '<option value="' + escapeAttr(item.id) + '"' + (item.id === selectedId ? " selected" : "") + '>' + escapeAttr(item.what) + '</option>';
   }).join("");
 }
+function transactionAccountOptionsHtml(selected){
+  var options = '<option value=""' + (!selected ? " selected" : "") + '>— No account —</option>';
+  return options + state.accounts.map(function(a){
+    return '<option value="' + escapeAttr(a.name) + '"' + (a.name === selected ? " selected" : "") + '>' + escapeAttr(a.name) + (a.type === "credit" ? " (credit)" : "") + '</option>';
+  }).join("");
+}
+// A transaction's own account wins if set; otherwise falls back to its linked expense's account
+// (e.g. a transaction linked to "Netflix" inherits Netflix's account without the user having to
+// set it twice) — mirrors resolveSharedAmount()'s override-then-fallback shape.
+export function transactionAccount(t){
+  var direct = (t.account || "").trim();
+  if(direct) return direct;
+  if(t.linkedExpenseId){
+    var item = state.shared.find(function(i){ return i.id === t.linkedExpenseId; });
+    if(item && item.account) return item.account;
+  }
+  return "";
+}
 function transactionRowHtml(t, idx){
   var dateInput = '<input type="date" class="tx-date" data-tx-index="' + idx + '" value="' + escapeAttr(t.date || "") + '" aria-label="Date">';
   var whatInput = '<input type="text" class="tx-what" data-tx-index="' + idx + '" value="' + escapeAttr(t.what || "") + '" placeholder="Description" aria-label="Description">';
   var amountInput = '<input type="number" step="0.01" min="0" class="tx-amount" data-tx-index="' + idx + '" value="' + t.amount + '" aria-label="Amount">';
   var linkSelect = '<select class="tx-link" data-tx-index="' + idx + '" aria-label="Linked expense">' + transactionLinkOptionsHtml(t.linkedExpenseId) + '</select>';
+  var acctSelect = '<select class="tx-account" data-tx-index="' + idx + '" aria-label="Account">' + transactionAccountOptionsHtml(t.account || "") + '</select>';
   var delBtn = '<button type="button" class="btn btn-ghost btn-sm row-del" data-tx-del="' + idx + '" aria-label="Delete transaction">✕</button>';
   if(state.uiMode === "modern"){
     return '<div class="m-row computed tx-row" data-tx-index="' + idx + '">' +
       '<div class="m-row-summary" style="cursor:default;flex-wrap:wrap;gap:8px">' + dateInput + whatInput + amountInput + delBtn + '</div>' +
-      '<div class="tx-link-row">' + linkSelect + '</div>' +
+      '<div class="tx-link-row">' + linkSelect + acctSelect + '</div>' +
     '</div>';
   }
   return '<tr data-tx-index="' + idx + '">' +
@@ -378,6 +397,7 @@ function transactionRowHtml(t, idx){
     '<td class="what-cell">' + whatInput + '</td>' +
     '<td class="amount-cell">' + amountInput + '</td>' +
     '<td>' + linkSelect + '</td>' +
+    '<td>' + acctSelect + '</td>' +
     '<td>' + delBtn + '</td>' +
     '</tr>';
 }
@@ -399,10 +419,10 @@ export function renderTransactions(){
   var rows = sorted.map(function(x){ return transactionRowHtml(x.t, x.i); }).join("");
   container.innerHTML = state.uiMode === "modern"
     ? '<div class="m-rows">' + rows + '</div>'
-    : '<div class="table-scroll"><table class="ledger-table"><thead><tr><th>Date</th><th>Description</th><th class="num">Amount</th><th>Linked to</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+    : '<div class="table-scroll"><table class="ledger-table"><thead><tr><th>Date</th><th>Description</th><th class="num">Amount</th><th>Linked to</th><th>Account</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
 }
 export function addTransaction(){
-  state.transactions.push({ id: genId("t"), date: new Date().toISOString().slice(0, 10), amount: 0, what: "", linkedExpenseId: null });
+  state.transactions.push({ id: genId("t"), date: new Date().toISOString().slice(0, 10), amount: 0, what: "", linkedExpenseId: null, account: "" });
   renderTransactions();
   renderActualVsPlannedPanel();
   persist();
@@ -458,5 +478,94 @@ export function renderActualVsPlannedPanel(){
   el.innerHTML =
     '<div class="fire-stat-row"><span>This month — actual vs. planned</span><b' + (overallColor ? ' style="color:' + overallColor + '"' : '') + '>' + fmtCurrency0.format(actualTotal) + ' / ' + fmtCurrency0.format(plannedTotal) + '</b></div>' +
     '<p class="fire-note" style="margin:2px 0 12px">' + (overallDelta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(overallDelta)) + (overallDelta > 0.5 ? " over budget so far this month." : overallDelta < -0.5 ? " under budget so far this month." : " right on budget so far this month.") + '</p>' +
-    rows + unlinkedRow;
+    rows + unlinkedRow +
+    creditStatementCyclesHtml();
+}
+
+// A credit card's bill is charges grouped by its own statement cycle, not the calendar month —
+// see calc/ledger.js's currentStatementCycle(). Logging "the bill" as its own transaction would
+// double-count what's already logged per-purchase, so this is a pure rollup of existing
+// transactions attributed (directly or via a linked expense) to a credit-type account.
+function creditStatementCyclesHtml(){
+  var creditAccounts = state.accounts.filter(function(a){ return a.type === "credit"; });
+  if(!creditAccounts.length) return "";
+  var rows = creditAccounts.map(function(a){
+    var cycle = currentStatementCycle(a.statementStartDay || 1);
+    var cycleTxns = transactionsInRange(state.transactions, cycle.start, cycle.end)
+      .filter(function(t){ return transactionAccount(t) === a.name; });
+    var total = cycleTxns.reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0);
+    return '<div class="acct-row"><span class="acct-name" title="' + escapeAttr(a.name) + '">' + escapeAttr(a.name) + '</span>' +
+      '<span style="font-size:11px;color:var(--ink-soft)">' + cycle.start + ' – ' + cycle.end + ' · ' + cycleTxns.length + ' charge' + (cycleTxns.length === 1 ? "" : "s") + '</span>' +
+      '<span class="acct-amt">' + fmtCurrency0.format(total) + '</span></div>';
+  }).join("");
+  return '<div style="margin-top:16px"><div class="fire-stat-row" style="margin-bottom:2px"><span>This bill so far — by statement cycle</span></div>' + rows + '</div>';
+}
+
+// ---------------- Accounts: named money sources, used to group transactions into a credit card's statement cycle ----------------
+function accountRowHtml(a, idx){
+  var nameInput = '<input type="text" class="acct-mgmt-name" data-acct-index="' + idx + '" value="' + escapeAttr(a.name || "") + '" placeholder="Account name" aria-label="Account name">';
+  var typeSelect = '<select class="acct-mgmt-type" data-acct-index="' + idx + '" aria-label="Account type">' +
+    '<option value="debit"' + (a.type !== "credit" ? " selected" : "") + '>Debit / savings — no due date</option>' +
+    '<option value="credit"' + (a.type === "credit" ? " selected" : "") + '>Credit card — has a statement cycle</option>' +
+    '</select>';
+  var dayInput = a.type === "credit"
+    ? '<input type="number" min="1" max="28" step="1" class="acct-mgmt-day" data-acct-index="' + idx + '" value="' + (a.statementStartDay || 1) + '" aria-label="Statement start day (1-28)">'
+    : "";
+  var delBtn = '<button type="button" class="btn btn-ghost btn-sm row-del" data-acct-del="' + idx + '" aria-label="Delete account">✕</button>';
+  if(state.uiMode === "modern"){
+    return '<div class="m-row computed acct-mgmt-row" data-acct-index="' + idx + '">' +
+      '<div class="m-row-summary" style="cursor:default;flex-wrap:wrap;gap:8px">' + nameInput + typeSelect + dayInput + delBtn + '</div>' +
+    '</div>';
+  }
+  return '<tr data-acct-index="' + idx + '">' +
+    '<td class="what-cell">' + nameInput + '</td>' +
+    '<td>' + typeSelect + '</td>' +
+    '<td>' + (dayInput || '<span class="ledger-note" style="margin:0">—</span>') + '</td>' +
+    '<td>' + delBtn + '</td>' +
+    '</tr>';
+}
+export function renderAccounts(){
+  var container = document.getElementById("accountsTable");
+  if(!container) return;
+  if(!state.accounts.length){
+    container.innerHTML = '<p class="ledger-note" style="margin:0">No accounts yet — add one below (e.g. your credit card) to group its transactions into a statement cycle.</p>';
+    return;
+  }
+  var rows = state.accounts.map(function(a, i){ return accountRowHtml(a, i); }).join("");
+  container.innerHTML = state.uiMode === "modern"
+    ? '<div class="m-rows">' + rows + '</div>'
+    : '<div class="table-scroll"><table class="ledger-table"><thead><tr><th>Name</th><th>Type</th><th>Statement start day</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+}
+export function addAccount(){
+  state.accounts.push({ id: genId("acct"), name: "", type: "debit", statementStartDay: 1 });
+  renderAccounts();
+  persist();
+}
+export function deleteAccount(idx){
+  var removed = state.accounts[idx];
+  if(!removed) return;
+  state.accounts.splice(idx, 1);
+  renderAccounts();
+  renderTransactions();
+  renderActualVsPlannedPanel();
+  persist();
+  showUndoToast("Deleted account", function(){
+    state.accounts.splice(Math.min(idx, state.accounts.length), 0, removed);
+    renderAccounts();
+    renderTransactions();
+    renderActualVsPlannedPanel();
+    persist();
+  });
+}
+// Cascades a rename across every plain "account" string in the app — those fields predate
+// state.accounts[] and were never a foreign key, so nothing else keeps them in sync automatically.
+export function renameAccountEverywhere(oldName, newName){
+  if(!oldName || oldName === newName) return;
+  function retarget(items){
+    (items || []).forEach(function(item){ if((item.account || "") === oldName) item.account = newName; });
+  }
+  retarget(state.income);
+  retarget(state.shared);
+  (state.properties || []).forEach(function(p){ retarget(p.income); retarget(p.expenses); });
+  state.transactions.forEach(function(t){ if((t.account || "") === oldName) t.account = newName; });
 }

@@ -92,7 +92,7 @@
         Show all periods
       </label>
       <p class="app-sidebar-note">Stored only in this browser (<code>localStorage</code>) — nothing is sent anywhere. Clearing your browser data clears this too, so <button class="link-btn" id="exportLink2">Export</button> a backup now and then.</p>
-      <p class="app-version">v2.8.0</p>
+      <p class="app-version">v2.9.1</p>
     </div>
     <span class="status-chip mobile-status-chip" id="mobileStatusChip"><span class="status-dot" id="mobileStatusDot"></span><span id="mobileStatusText">Saved</span></span>
   </nav>
@@ -198,7 +198,7 @@
         <div class="page-intro-row">
           <p class="page-intro">Recurring household costs — the same in every scenario unless you vary a row.</p>
           <div class="page-intro-actions">
-            <button type="button" class="btn btn-sm btn-ghost" id="reviewExpensesBtn" title="Go through each expense one at a time to confirm or update its amount and date, and log it">Review expenses</button>
+            <button type="button" class="btn btn-sm btn-ghost" id="reviewExpensesBtn" title="Go through expenses that are overdue (or never logged) one at a time, and confirm or update their amount and date">Review expenses</button>
             <button type="button" class="btn btn-sm btn-ghost" id="expenseExportCsvBtn" title="Download every expense row as a CSV file">Export CSV</button>
           </div>
         </div>
@@ -232,13 +232,25 @@
               <div id="propertyExpensesModern" hidden></div>
             </div>
           </details>
+          <details class="ledger">
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Accounts</h2></div>
+            </summary>
+            <div class="ledger-body">
+              <p class="ledger-note" style="margin-left:0">Where your money actually moves through. A debit/savings account has no due date — spending there just draws it down. A credit card has a statement cycle instead of a due date each transaction hits separately; set its cycle's start day (e.g. 15 for a 15th–14th cycle) so "Actual vs. planned" below can total up the current bill.</p>
+              <div id="accountsTable"></div>
+              <div class="ledger-footer">
+                <button class="btn btn-sm" id="addAccountBtn">+ Add account</button>
+              </div>
+            </div>
+          </details>
           <details class="ledger" open>
             <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Transactions</h2></div>
               <div class="ledger-total">Total <b id="totalTransactionsAmount">—</b></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note" style="margin-left:0">Real, dated spend — separate from the planned budget above, which stays untouched. Optionally link a transaction to one of your expenses to compare actual vs. planned; leave it unlinked for a one-off that has no matching budget line.</p>
+              <p class="ledger-note" style="margin-left:0">Real, dated spend — separate from the planned budget above, which stays untouched. Optionally link a transaction to one of your expenses to compare actual vs. planned; leave it unlinked for a one-off that has no matching budget line. Set an account so credit-card spend can be grouped into its statement cycle below.</p>
               <div id="transactionsTable"></div>
               <div class="ledger-footer">
                 <button class="btn btn-sm" id="addTransactionBtn">+ Add transaction</button>

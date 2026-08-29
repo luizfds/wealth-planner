@@ -150,6 +150,13 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
   var dueDateField = opts.showDueDate
     ? '<div class="m-edit-field"><label>Last paid</label><input type="date" class="f-lastpaid" value="' + escapeAttr(item.lastIncurredDate || "") + '" aria-label="Last paid date"></div>'
     : "";
+  // span2: the date input + button need more room than a single 1-of-3 grid column gives them
+  // at narrow widths (they'd wrap onto separate lines) — span2 fits them on one line and, for
+  // every current caller, exactly fills out the row alongside whatever's next to it (Account
+  // alone, or Account on its own span3 row followed by this and, where present, Last paid).
+  var logField = opts.showLog
+    ? '<div class="m-edit-field span2"><label>Log</label>' + logControlsHtml(section, idx) + '</div>'
+    : "";
   var edit = '<div class="m-row-edit"><div class="m-row-edit-inner"><div class="m-row-edit-pad">' +
     '<div class="m-edit-grid">' +
       '<div class="m-edit-field span3"><label>What</label><input type="text" class="f-what" value="' + escapeAttr(item.what) + '" aria-label="Item name"></div>' +
@@ -157,10 +164,10 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
       '<div class="m-edit-field"><label>Amount</label><input type="number" step="0.01" min="0" class="f-amount" value="' + item.amount + '" aria-label="Amount"></div>' +
       '<div class="m-edit-field"><label>Frequency</label><select class="f-freq">' + optionsHtml(FREQS, item.freq) + '</select></div>' +
       accountField +
+      logField +
       dueDateField +
     '</div>' +
     '<div class="m-edit-actions">' +
-      (opts.showLog ? logControlsHtml(section, idx) : "") +
       '<button type="button" class="btn btn-ghost btn-sm row-del" data-del="' + escapeAttr(section) + ':' + idx + '">Delete</button>' +
     '</div>' +
   '</div></div></div>';

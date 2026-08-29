@@ -4,6 +4,17 @@ import { incomeRowSuperNote } from "../calc/tax.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "./format.js";
 import { escapeAttr } from "./html.js";
 
+function todayStr(){ return new Date().toISOString().slice(0, 10); }
+
+// The date input + button every "Log"-able row shows together — defaults to today but can be
+// backdated (e.g. a payslip that landed last week). The date lives in a sibling input rather
+// than a prompt/modal so it fits this app's established inline-editing style; the click handler
+// reads it directly off the row rather than threading it through here.
+export function logControlsHtml(section, idx){
+  return '<input type="date" class="log-date" value="' + todayStr() + '" aria-label="Date to log this amount under" title="Date to log this amount under — defaults to today, can be backdated">' +
+    '<button type="button" class="asset-log-btn" data-log="' + escapeAttr(section) + ':' + idx + '" title="Snapshot the amount above under the date to the left">Log</button>';
+}
+
 // Shared by every "Log"-able row (assets, properties, debts, income, shared expenses) — a small
 // up/down note showing the change since the previous logged snapshot. Empty string (not a
 // placeholder) when there's fewer than two snapshots yet, so callers can splice it in without an
@@ -94,8 +105,8 @@ export function rowHtml(section, item, idx, showClass, showIncomeFields, acctCla
     '<td class="freq-cell"><select class="f-freq"' + (isComputed ? " disabled" : "") + '>' + optionsHtml(FREQS, item.freq) + '</select></td>' +
     (showDueDate ? '<td class="due-cell"><input type="date" class="f-lastpaid" value="' + escapeAttr(item.lastIncurredDate || "") + '"' + (isComputed ? " disabled" : "") + ' aria-label="Last paid date">' + (isComputed ? "" : dueDateNoteHtml(item)) + '</td>' : '') +
     periodTd(item) +
-    '<td>' + (isComputed ? "" : (
-      (showLog ? '<button type="button" class="asset-log-btn" data-log="' + section + ':' + idx + '" title="Snapshot the amount above with today\'s date">Log</button>' : "") +
+    '<td class="log-cell">' + (isComputed ? "" : (
+      (showLog ? logControlsHtml(section, idx) : "") +
       '<button class="btn btn-ghost btn-sm row-del" data-del="' + section + ':' + idx + '" aria-label="Delete row">✕</button>'
     )) + '</td>' +
     '</tr>';
@@ -149,7 +160,7 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
       dueDateField +
     '</div>' +
     '<div class="m-edit-actions">' +
-      (opts.showLog ? '<button type="button" class="asset-log-btn" data-log="' + escapeAttr(section) + ':' + idx + '" title="Snapshot the amount above with today\'s date">Log</button>' : "") +
+      (opts.showLog ? logControlsHtml(section, idx) : "") +
       '<button type="button" class="btn btn-ghost btn-sm row-del" data-del="' + escapeAttr(section) + ':' + idx + '">Delete</button>' +
     '</div>' +
   '</div></div></div>';

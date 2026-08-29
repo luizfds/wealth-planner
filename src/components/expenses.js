@@ -1,11 +1,11 @@
 import { state } from "../state.js";
 import { CLASSES } from "../constants.js";
-import { sumField, resolveSharedAmount } from "../calc/ledger.js";
+import { sumField, resolveSharedAmount, appendHistorySnapshot } from "../calc/ledger.js";
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { syncUiModeToggle } from "../lib/uimode.js";
-import { buildTable, modernPlainRowHtml } from "../lib/ledger-table.js";
+import { buildTable, modernPlainRowHtml, historyTrendHtml } from "../lib/ledger-table.js";
 import { showToast } from "../lib/toast.js";
 
 function sharedGroupOrder(){
@@ -271,4 +271,82 @@ export function renderPropertyExpensesSummary(){
     modernWrap.hidden = !isModern;
     if(isModern) modernWrap.innerHTML = propertyExpensesModernHtml(ips);
   }
+}
+
+// ---------------- Review expenses: one-at-a-time swipe/confirm flow ----------------
+// Session-only (not persisted) — which state.shared indices are queued for review and how far
+// through the queue the user has gotten. null when the review flow is closed. A snapshot of
+// indices taken at open time (not re-derived live), so deleting/reordering rows elsewhere while
+// a review is somehow still open can't shift what "next" points at mid-review.
+export var expenseReview = null;
+
+export function openExpenseReview(){
+  if(!state.shared.length){
+    showToast("No expenses to review yet — add one on this page first.");
+    return;
+  }
+  expenseReview = { queue: state.shared.map(function(_, i){ return i; }), pos: 0, reviewedCount: 0 };
+  renderExpenseReviewPanel();
+}
+export function closeExpenseReview(){
+  expenseReview = null;
+  var root = document.getElementById("expenseReviewRoot");
+  if(root) root.innerHTML = "";
+}
+// Records the (possibly edited) amount/date for the currently-shown expense and advances the
+// queue. Updates item.amount itself (not just a separate "actual" field) — same convention as
+// every other Log button in this app, where the logged value and the ongoing planned amount are
+// the same field. Caller (app.js) is responsible for the cross-cutting refresh afterward
+// (totals, projections, persist) — same split as the scenario-override panel's mutation helpers.
+export function logCurrentReviewCard(amount, dateStr){
+  if(!expenseReview) return;
+  var item = state.shared[expenseReview.queue[expenseReview.pos]];
+  if(!item) return;
+  item.amount = amount;
+  if(!Array.isArray(item.history)) item.history = [];
+  appendHistorySnapshot(item.history, amount, dateStr);
+  expenseReview.reviewedCount++;
+  expenseReview.pos++;
+}
+export function skipCurrentReviewCard(){
+  if(!expenseReview) return;
+  expenseReview.pos++;
+}
+function reviewCardHtml(item){
+  var todayStr = new Date().toISOString().slice(0, 10);
+  var trend = historyTrendHtml(item);
+  return '<div class="review-card-badge ' + classificationSwatchClass(item.classification || "N/A") + '">' + escapeAttr(item.classification || "N/A") + '</div>' +
+    '<div class="review-card-name">' + escapeAttr(item.what) + '</div>' +
+    '<div class="review-card-freq">Currently ' + fmtCurrency2.format(item.amount) + ' / ' + item.freq + '</div>' +
+    trend +
+    '<div class="review-card-fields">' +
+      '<div class="m-edit-field"><label>Amount</label><input type="number" step="0.01" min="0" class="review-amount" value="' + item.amount + '" aria-label="Amount to log"></div>' +
+      '<div class="m-edit-field"><label>Date</label><input type="date" class="review-date" value="' + todayStr + '" aria-label="Date to log under"></div>' +
+    '</div>';
+}
+export function renderExpenseReviewPanel(){
+  var root = document.getElementById("expenseReviewRoot");
+  if(!root) return;
+  if(!expenseReview){ root.innerHTML = ""; return; }
+  var total = expenseReview.queue.length;
+  if(expenseReview.pos >= total){
+    root.innerHTML = '<div class="review-backdrop" data-review-backdrop>' +
+      '<div class="review-panel" role="dialog" aria-label="Expense review complete">' +
+        '<div class="review-head"><h4>All done!</h4><button type="button" class="icon-btn" data-review-close aria-label="Close">✕</button></div>' +
+        '<p class="review-complete-note">Logged ' + expenseReview.reviewedCount + ' of ' + total + ' expense' + (total === 1 ? "" : "s") + '.</p>' +
+        '<button type="button" class="btn btn-sm" data-review-close>Close</button>' +
+      '</div></div>';
+    return;
+  }
+  var item = state.shared[expenseReview.queue[expenseReview.pos]];
+  root.innerHTML = '<div class="review-backdrop" data-review-backdrop>' +
+    '<div class="review-panel" role="dialog" aria-label="Review expenses">' +
+      '<div class="review-head"><span class="review-progress">' + (expenseReview.pos + 1) + ' of ' + total + '</span><button type="button" class="icon-btn" data-review-close aria-label="Close">✕</button></div>' +
+      '<div class="review-card">' + reviewCardHtml(item) + '</div>' +
+      '<div class="review-actions">' +
+        '<button type="button" class="btn review-skip-btn" data-review-skip>✕ Skip</button>' +
+        '<button type="button" class="btn review-log-btn" data-review-log>✓ Log</button>' +
+      '</div>' +
+      '<p class="review-hint">Swipe the card left to skip, right to log — or use the buttons.</p>' +
+    '</div></div>';
 }

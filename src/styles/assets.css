@@ -46,6 +46,13 @@
   .sparkline{ display:block; flex:none; color: var(--ink-soft); margin:0 4px; }
   .sparkline.up{ color: var(--good); }
   .sparkline.down{ color: var(--bad); }
+  .sparkline.sparkline-empty{ color: var(--border); }
   .m-row-share-value{ text-align:right; flex:none; }
   .m-row-share-value .asset-trend.gain-cell{ display:block; padding-left:0; margin-top:2px; text-align:right; }
   .holdings-table .sparkline{ vertical-align:middle; }
+
+  /* ---------------- Shares: at-a-glance gain/loss summary ---------------- */
+  .shares-glance{ margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid var(--border); }
+  .shares-glance-figure{ display:inline-block; padding-left:0; font-size:20px; font-weight:700; }
+  .shares-glance-sub{ font-size:11.5px; color: var(--ink-soft); margin:2px 0 10px; }
+  .shares-glance-bar{ margin-bottom:8px; }

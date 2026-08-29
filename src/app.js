@@ -21,11 +21,14 @@ import {
 import {
   patchSharedGroupTotals, renderSharedGroups, renderPropertyExpensesSummary, modernSharedRowOpen,
   openScenarioOverridePanel, closeScenarioOverridePanel, renderScenarioOverridePanel,
-  setScenarioOverride, resetScenarioOverride, copyScenarioAmountToAll
+  setScenarioOverride, resetScenarioOverride, copyScenarioAmountToAll,
+  openExpenseReview, closeExpenseReview, renderExpenseReviewPanel,
+  logCurrentReviewCard, skipCurrentReviewCard, expenseReview
 } from "./components/expenses.js";
 import {
   patchHoldingRow, patchVehicleRow, modernAssetRowOpen, patchAssetCategoryTotals,
-  renderNetWorthPanel, renderAssets, logAssetSnapshot, applySharesPaste, logDebtSnapshot
+  renderNetWorthPanel, renderAssets, logAssetSnapshot, applySharesPaste, logDebtSnapshot,
+  patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter
 } from "./components/assets.js";
 import {
   modernPropRowOpen, renderPropListModern, renderProperties, patchPropertyCardComputed,
@@ -60,6 +63,22 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
 
   function rndBetween(min, max){ return Math.random() * (max - min) + min; }
   function rndStep(min, max, step){ return Math.round(rndBetween(min, max) / step) * step; }
+
+  // A few backdated snapshots ending exactly at today's real value, so a fresh "Sample data"
+  // holding shows a sparkline immediately instead of the empty history every holding actually
+  // starts with (the sparkline needs 2+ logged points, which nobody has on day one) — the whole
+  // point of sample data is to show what the feature looks like once it's in use.
+  function syntheticPriceHistory(qty, currentPrice){
+    var days = [-45, -30, -15, -7, -2, 0];
+    var driftPct = rndBetween(-0.18, 0.22);
+    return days.map(function(d, i){
+      var dt = new Date();
+      dt.setDate(dt.getDate() + d);
+      var progress = i / (days.length - 1);
+      var histPrice = i === days.length - 1 ? currentPrice : currentPrice * (1 - driftPct * (1 - progress));
+      return { date: dt.toISOString().slice(0, 10), value: Math.round(qty * histPrice * 100) / 100 };
+    });
+  }
   function rndPick(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
 
   function generateMockData(){
@@ -138,10 +157,11 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
         var h3Qty = rndStep(50, 300, 5), h3Price = rndStep(30, 90, 1), h3Cost = rndStep(35, 85, 1);
         return [
           { what:"Cash Savings", category:"Cash", amount: rndStep(5000, 90000, 500) },
-          { what:"CSL Limited", category:"Shares", symbol:"CSL", market:"ASX", quantity:h1Qty, avgCost:h1Cost, price:h1Price, person:personA, priceUpdated:"", amount: Math.round(h1Qty * h1Price * 100) / 100 },
-          { what:"Apple Inc", category:"Shares", symbol:"AAPL", market:"US", quantity:h2Qty, avgCost:h2Cost, price:h2Price, person:personB, priceUpdated:"", amount: Math.round(h2Qty * h2Price * 100) / 100 },
-          { what:"Vanguard Australian Shares ETF", category:"Shares", symbol:"VAS", market:"ASX", quantity:h3Qty, avgCost:h3Cost, price:h3Price, person:"", priceUpdated:"", amount: Math.round(h3Qty * h3Price * 100) / 100 },
-          { what:"Superannuation", category:"Super", amount: rndStep(20000, 250000, 500) }
+          { what:"CSL Limited", category:"Shares", symbol:"CSL", market:"ASX", quantity:h1Qty, avgCost:h1Cost, price:h1Price, person:personA, priceUpdated:"", amount: Math.round(h1Qty * h1Price * 100) / 100, history: syntheticPriceHistory(h1Qty, h1Price) },
+          { what:"Apple Inc", category:"Shares", symbol:"AAPL", market:"US", quantity:h2Qty, avgCost:h2Cost, price:h2Price, person:personB, priceUpdated:"", amount: Math.round(h2Qty * h2Price * 100) / 100, history: syntheticPriceHistory(h2Qty, h2Price) },
+          { what:"Vanguard Australian Shares ETF", category:"Shares", symbol:"VAS", market:"ASX", quantity:h3Qty, avgCost:h3Cost, price:h3Price, person:"", priceUpdated:"", amount: Math.round(h3Qty * h3Price * 100) / 100, history: syntheticPriceHistory(h3Qty, h3Price) },
+          { what:"Superannuation", category:"Super", person: personA, amount: rndStep(20000, 250000, 500) },
+          { what:"Superannuation", category:"Super", person: personB, amount: rndStep(20000, 250000, 500) }
         ];
       })(),
       properties: (function(){
@@ -351,7 +371,9 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       var litem = larr && larr[lidx];
       if(litem){
         if(!Array.isArray(litem.history)) litem.history = [];
-        var ldate = appendHistorySnapshot(litem.history, Number(litem.amount) || 0);
+        var dateInput = logBtn2.previousElementSibling;
+        var logDate = (dateInput && dateInput.classList.contains("log-date") && dateInput.value) || undefined;
+        var ldate = appendHistorySnapshot(litem.history, Number(litem.amount) || 0, logDate);
         rerenderTableFor(lsection);
         renderProjectionOutputs();
         persist();
@@ -730,22 +752,26 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       if(!item) return;
       if(e.target.classList.contains("a-what")) item.what = e.target.value;
       else if(e.target.classList.contains("a-amount")) item.amount = parseFloat(e.target.value) || 0;
+      else if(e.target.classList.contains("a-person")) item.person = e.target.value;
       else if(e.target.classList.contains("h-what")) item.what = e.target.value;
       else if(e.target.classList.contains("h-symbol")) item.symbol = e.target.value;
       else if(e.target.classList.contains("h-qty")){
         item.quantity = parseFloat(e.target.value) || 0;
         item.amount = Math.round(item.quantity * (Number(item.price) || 0) * 100) / 100;
         patchHoldingRow(tr, item);
+        patchSharesGlance();
       }
       else if(e.target.classList.contains("h-avgcost")){
         item.avgCost = e.target.value === "" ? null : (parseFloat(e.target.value) || 0);
         patchHoldingRow(tr, item);
+        patchSharesGlance();
       }
       else if(e.target.classList.contains("h-price")){
         item.price = parseFloat(e.target.value) || 0;
         item.priceUpdated = new Date().toISOString().slice(0, 10);
         item.amount = Math.round((Number(item.quantity) || 0) * item.price * 100) / 100;
         patchHoldingRow(tr, item);
+        patchSharesGlance();
       }
       else if(e.target.classList.contains("h-person")) item.person = e.target.value;
       else if(e.target.classList.contains("v-what")) item.what = e.target.value;
@@ -764,6 +790,7 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
         recalcComputedItems();
         patchVehicleRow(tr, item);
       }
+      else if(e.target.classList.contains("v-person")) item.person = e.target.value;
       else return;
       if(e.target.classList.contains("a-what") || e.target.classList.contains("h-what") || e.target.classList.contains("v-what")){
         var nameEl = tr.querySelector(".m-row-name");
@@ -789,8 +816,12 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       var hidx = Number(htr.getAttribute("data-index"));
       if(state.assets[hidx]){ state.assets[hidx].market = e.target.value; persist(); }
     }
-    if(e.target.closest("table.assets-table, .m-asset-rows") && e.target.classList.contains("h-person")){
+    if(e.target.closest("table.assets-table, .m-asset-rows") &&
+       (e.target.classList.contains("h-person") || e.target.classList.contains("a-person") || e.target.classList.contains("v-person"))){
       updatePersonSuggestions();
+      // Patches just the filter chip row (not a full renderAssets()), so typing a new person's
+      // name into a still-focused field doesn't blow away that same field's own focus mid-edit.
+      renderAssetPersonFilter();
     }
   });
   document.addEventListener("click", function(e){
@@ -814,6 +845,8 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     var logBtn = e.target.closest("[data-asset-log]");
     if(logBtn){ logAssetSnapshot(Number(logBtn.getAttribute("data-asset-log"))); return; }
     if(e.target.id === "sharesPasteApply") applySharesPaste();
+    var personFilterBtn = e.target.closest("[data-asset-person-filter]");
+    if(personFilterBtn){ setAssetPersonFilter(personFilterBtn.getAttribute("data-asset-person-filter")); return; }
     if(e.target.closest("[data-set-projection-reference]")){ setProjectionReference(); return; }
     if(e.target.closest("[data-log-networth]")){ logNetWorthSnapshot(); return; }
     var debtLogBtn = e.target.closest("[data-debt-log]");
@@ -1080,6 +1113,57 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     if(e.key !== "Escape") return;
     if(document.querySelector("[data-override-backdrop]")) closeScenarioOverridePanel();
   });
+
+  // ---------------- Review expenses: one-at-a-time swipe/confirm flow ----------------
+  // A brief slide-out + fade before advancing to the next card — skipped for
+  // prefers-reduced-motion, matching the flip-card pattern on Tax & Super.
+  function animateReviewCard(direction, callback){
+    var card = document.querySelector(".review-card");
+    if(!card || (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches)){
+      callback();
+      return;
+    }
+    card.classList.add("swipe-out-" + direction);
+    setTimeout(callback, 200);
+  }
+  function performReviewSkip(){
+    if(!expenseReview || expenseReview.pos >= expenseReview.queue.length) return;
+    animateReviewCard("left", function(){
+      skipCurrentReviewCard();
+      renderExpenseReviewPanel();
+    });
+  }
+  function performReviewLog(){
+    if(!expenseReview || expenseReview.pos >= expenseReview.queue.length) return;
+    var amountInput = document.querySelector(".review-amount");
+    var dateInput = document.querySelector(".review-date");
+    var amount = amountInput ? (parseFloat(amountInput.value) || 0) : 0;
+    var dateStr = (dateInput && dateInput.value) || undefined;
+    animateReviewCard("right", function(){
+      logCurrentReviewCard(amount, dateStr);
+      refreshAfterLedgerChange("shared");
+      renderExpenseReviewPanel();
+    });
+  }
+  var reviewBtn = document.getElementById("reviewExpensesBtn");
+  if(reviewBtn) reviewBtn.addEventListener("click", openExpenseReview);
+  document.getElementById("expenseReviewRoot").addEventListener("click", function(e){
+    if(e.target.closest("[data-review-close]") || e.target === e.target.closest("[data-review-backdrop]")){
+      closeExpenseReview();
+      return;
+    }
+    if(e.target.closest("[data-review-skip]")){ performReviewSkip(); return; }
+    if(e.target.closest("[data-review-log]")){ performReviewLog(); return; }
+  });
+  document.addEventListener("keydown", function(e){
+    if(e.key !== "Escape") return;
+    if(document.querySelector("[data-review-backdrop]")) closeExpenseReview();
+  });
+  onHorizontalSwipe(document.getElementById("expenseReviewRoot"), {
+    onSwipeLeft: performReviewSkip,
+    onSwipeRight: performReviewLog
+  });
+
   wireModernRowToggle("propertiesBody", modernPropRowOpen);
   wireModernRowToggle("homeBody", modernHomeRowOpen);
   ["Cash", "Shares", "Super", "Vehicle", "Other"].forEach(function(cat){

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, daysUntil, appendHistorySnapshot, transactionsInMonth, sumTransactionsByExpense } from "../src/calc/ledger.js";
+import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, isOverdue, daysUntil, appendHistorySnapshot, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange } from "../src/calc/ledger.js";
 
 test("toWeekly converts every frequency to a weekly figure", function(){
   assert.equal(toWeekly(100, "Weekly"), 100);
@@ -104,6 +104,23 @@ test("nextDueDate handles every FREQS value without falling through to an infini
   });
 });
 
+test("isOverdue is false with no last-incurred date — never-logged is handled by the caller, not here", function(){
+  assert.equal(isOverdue(null, "Monthly"), false);
+  assert.equal(isOverdue(undefined, "Monthly"), false);
+  assert.equal(isOverdue("not a date", "Monthly"), false);
+});
+
+test("isOverdue is false when still within the current period (unlike nextDueDate, which always projects forward and so can never itself look overdue)", function(){
+  assert.equal(isOverdue("2024-01-15", "Monthly", "2024-01-20"), false);
+  assert.equal(isOverdue("2024-01-15", "Monthly", "2024-02-14"), false);
+});
+
+test("isOverdue is true once a full period has elapsed, and stays true no matter how many periods have been skipped", function(){
+  assert.equal(isOverdue("2024-01-15", "Monthly", "2024-02-15"), true); // exactly one period on: due today counts
+  assert.equal(isOverdue("2024-01-15", "Monthly", "2024-03-01"), true);
+  assert.equal(isOverdue("2024-01-15", "Quarterly", "2024-09-01"), true); // several quarters skipped
+});
+
 test("daysUntil is negative for a past date (overdue) and positive for a future one", function(){
   assert.equal(daysUntil("2024-01-10", "2024-01-15"), -5);
   assert.equal(daysUntil("2024-01-20", "2024-01-15"), 5);
@@ -179,4 +196,31 @@ test("sumTransactionsByExpense buckets by linkedExpenseId, unlinked entries unde
   assert.equal(map.exp1, 55);
   assert.equal(map.exp2, 25);
   assert.equal(map.__unlinked, 13);
+});
+
+test("currentStatementCycle returns the cycle containing today, straddling a month boundary", function(){
+  var late = currentStatementCycle(15, "2026-08-29");
+  assert.deepEqual(late, { start: "2026-08-15", end: "2026-09-14" });
+  var early = currentStatementCycle(15, "2026-08-10");
+  assert.deepEqual(early, { start: "2026-07-15", end: "2026-08-14" });
+  var onStartDay = currentStatementCycle(15, "2026-08-15");
+  assert.deepEqual(onStartDay, { start: "2026-08-15", end: "2026-09-14" });
+});
+
+test("currentStatementCycle handles a start day near end of month across shorter months", function(){
+  var cycle = currentStatementCycle(28, "2026-02-27");
+  assert.deepEqual(cycle, { start: "2026-01-28", end: "2026-02-27" });
+});
+
+test("transactionsInRange filters inclusively on both ends", function(){
+  var txns = [
+    { date: "2026-08-14", amount: 1 },
+    { date: "2026-08-15", amount: 2 },
+    { date: "2026-09-01", amount: 3 },
+    { date: "2026-09-14", amount: 4 },
+    { date: "2026-09-15", amount: 5 }
+  ];
+  var inRange = transactionsInRange(txns, "2026-08-15", "2026-09-14");
+  assert.equal(inRange.length, 3);
+  assert.equal(inRange.reduce(function(s, t){ return s + t.amount; }, 0), 9);
 });

@@ -69,6 +69,14 @@ export function defaultState(){
     // budgeted for it; unlinked (linkedExpenseId: null) covers a one-off that has no matching
     // budget line at all. See expenses.js's renderTransactions()/renderActualVsPlannedPanel().
     transactions: [],
+    // Named money sources referenced by the free-text "account" field elsewhere (income, shared
+    // expenses, property income/expenses, transactions). {id, name, type: "debit"|"credit",
+    // statementStartDay}. type controls what the Accounts card shows/expects: a credit account
+    // has a statement cycle (statementStartDay, 1-28) used to group transactions into "the bill"
+    // instead of a calendar month — see calc/ledger.js's currentStatementCycle(); a debit account
+    // has no due date, since spending there just draws down whatever's in it. Seeded once from
+    // existing account strings in migrateState() so nothing already typed in gets orphaned.
+    accounts: [],
     home: { "Current situation": defaultHomeBlock() },
     purchase: { "Current situation": defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", false) },
     invest: { "Current situation": defaultInvestConfig() },
@@ -169,6 +177,31 @@ export function migrateState(s){
   // is reordered/added to elsewhere — an array index would silently point at the wrong row.
   s.shared.forEach(function(item){ if(!item.id) item.id = genId("exp"); });
   if(!Array.isArray(s.transactions)) s.transactions = [];
+  if(!Array.isArray(s.accounts)) s.accounts = [];
+  s.accounts.forEach(function(a){
+    if(!a.id) a.id = genId("acct");
+    if(a.type !== "credit") a.type = "debit";
+    if(a.statementStartDay == null) a.statementStartDay = 1;
+  });
+  // One-shot-per-load, idempotent: pick up every distinct account name already typed into an
+  // "Account" field before this registry existed, so nothing gets silently orphaned. Only adds
+  // names not already present — safe to re-run every load, unlike the one-off migrations below.
+  (function seedAccountsFromUsage(){
+    var known = {};
+    s.accounts.forEach(function(a){ known[a.name] = true; });
+    function collect(items){
+      (items || []).forEach(function(item){
+        var name = (item.account || "").trim();
+        if(name && !known[name]){
+          known[name] = true;
+          s.accounts.push({ id: genId("acct"), name: name, type: "debit", statementStartDay: 1 });
+        }
+      });
+    }
+    collect(s.income);
+    collect(s.shared);
+    (s.properties || []).forEach(function(p){ collect(p.income); collect(p.expenses); });
+  })();
   if(s.projectionReference === undefined) s.projectionReference = null;
   if(!Array.isArray(s.netWorthLog)) s.netWorthLog = [];
   if(!Array.isArray(s.assets)) s.assets = [];

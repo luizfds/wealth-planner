@@ -66,6 +66,21 @@ export function nextDueDate(lastIncurredDate, freq, fromDateStr){
   }
   return d.toISOString().slice(0, 10);
 }
+// Whether a full period has already elapsed since lastIncurredDate without a new log — i.e. the
+// *single* next occurrence after lastIncurredDate (not nextDueDate()'s loop, which always rolls
+// forward to on/after fromDateStr and so can never itself land in the past) is on or before
+// fromDateStr (defaults to today). Used to flag an expense as "needs review" regardless of how
+// many periods have been silently skipped, e.g. a Monthly expense last logged 4 months ago is
+// just as overdue as one last logged 5 weeks ago — both need a fresh entry now.
+export function isOverdue(lastIncurredDate, freq, fromDateStr){
+  if(!lastIncurredDate) return false;
+  var d = new Date(lastIncurredDate + "T00:00:00");
+  if(isNaN(d.getTime())) return false;
+  var from = fromDateStr ? new Date(fromDateStr + "T00:00:00") : new Date();
+  from.setHours(0, 0, 0, 0);
+  var due = addFreqStep(d, freq);
+  return due.getTime() <= from.getTime();
+}
 // Whole days between fromDateStr (defaults to today) and dateStr — negative means dateStr is in
 // the past (overdue).
 export function daysUntil(dateStr, fromDateStr){
@@ -116,4 +131,22 @@ export function sumTransactionsByExpense(transactions){
     map[key] = (map[key] || 0) + (Number(t.amount) || 0);
   });
   return map;
+}
+// A credit card's "bill" doesn't line up with the calendar month — it's whatever was charged
+// between one statement date and the next. Given the account's statementStartDay (1-28, the day
+// of the month its cycle begins) and today (defaults to now), returns the currently-open cycle's
+// [start, end] as ISO date strings — e.g. startDay 15 on 2026-08-29 returns
+// {start:"2026-08-15", end:"2026-09-14"}, and startDay 15 on 2026-08-10 returns the *previous*
+// cycle, {start:"2026-07-15", end:"2026-08-14"}, since the 15th hasn't happened yet this month.
+export function currentStatementCycle(startDay, todayStr){
+  var today = todayStr ? new Date(todayStr + "T00:00:00") : new Date();
+  var y = today.getFullYear(), m = today.getMonth(), d = today.getDate();
+  var cycleStart = d >= startDay ? new Date(y, m, startDay) : new Date(y, m - 1, startDay);
+  var cycleEnd = new Date(cycleStart.getFullYear(), cycleStart.getMonth() + 1, cycleStart.getDate() - 1);
+  return { start: cycleStart.toISOString().slice(0, 10), end: cycleEnd.toISOString().slice(0, 10) };
+}
+// Inclusive date-range filter for state.transactions[] — startDate/endDate are ISO strings
+// (e.g. from currentStatementCycle()).
+export function transactionsInRange(transactions, startDate, endDate){
+  return transactions.filter(function(t){ return t.date >= startDate && t.date <= endDate; });
 }

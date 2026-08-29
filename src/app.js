@@ -24,7 +24,8 @@ import {
   setScenarioOverride, resetScenarioOverride, copyScenarioAmountToAll,
   openExpenseReview, closeExpenseReview, renderExpenseReviewPanel,
   logCurrentReviewCard, skipCurrentReviewCard, expenseReview,
-  renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel
+  renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel,
+  renderAccounts, addAccount, deleteAccount, renameAccountEverywhere
 } from "./components/expenses.js";
 import {
   patchHoldingRow, patchVehicleRow, modernAssetRowOpen, patchAssetCategoryTotals,
@@ -375,6 +376,11 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
         var dateInput = logBtn2.previousElementSibling;
         var logDate = (dateInput && dateInput.classList.contains("log-date") && dateInput.value) || undefined;
         var ldate = appendHistorySnapshot(litem.history, Number(litem.amount) || 0, logDate);
+        // Keeps the "Last paid"/due-date projection (dueDateNoteHtml(), Review expenses'
+        // isDueForReview()) in sync with reality — logging an amount here IS "I just paid/
+        // received this", so it should clear the item's due status the same way the Review
+        // flow's own Log action does.
+        if("lastIncurredDate" in litem || litem.freq) litem.lastIncurredDate = ldate;
         rerenderTableFor(lsection);
         renderProjectionOutputs();
         persist();
@@ -1183,6 +1189,12 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       if(totalEl) totalEl.textContent = fmtCurrency0.format(state.transactions.reduce(function(s, x){ return s + (Number(x.amount) || 0); }, 0));
     }
     else if(e.target.classList.contains("tx-link")) t.linkedExpenseId = e.target.value || null;
+    else if(e.target.classList.contains("tx-account")){
+      t.account = e.target.value || "";
+      renderActualVsPlannedPanel();
+      persist();
+      return;
+    }
     else if(e.target.classList.contains("tx-date")){
       t.date = e.target.value;
       renderActualVsPlannedPanel();
@@ -1193,6 +1205,42 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       // hit by the scenario-override panel's own date-adjacent edit.
       setTimeout(renderTransactions, 0);
       return;
+    }
+    else return;
+    renderActualVsPlannedPanel();
+    persist();
+  });
+
+  // ---------------- Accounts: named money sources, used for credit-card statement cycles ----------------
+  document.getElementById("addAccountBtn").addEventListener("click", function(){ addAccount(); updateAccountSuggestions(); });
+  document.addEventListener("click", function(e){
+    var delAcctBtn = e.target.closest("[data-acct-del]");
+    if(delAcctBtn){ deleteAccount(Number(delAcctBtn.getAttribute("data-acct-del"))); updateAccountSuggestions(); return; }
+  });
+  document.addEventListener("input", function(e){
+    if(!e.target.closest("#accountsTable")) return;
+    var idx = Number(e.target.getAttribute("data-acct-index"));
+    var a = state.accounts[idx];
+    if(!a) return;
+    if(e.target.classList.contains("acct-mgmt-name")){
+      var oldName = a.name;
+      a.name = e.target.value;
+      renameAccountEverywhere(oldName, a.name);
+      renderTransactions();
+      updateAccountSuggestions();
+    }
+    else if(e.target.classList.contains("acct-mgmt-type")){
+      a.type = e.target.value === "credit" ? "credit" : "debit";
+      renderActualVsPlannedPanel();
+      persist();
+      // Deferred: showing/hiding the statement-day field means rebuilding #accountsTable, an
+      // ancestor of this <select> that's still mid-event right now — same reentrant-DOM-mutation
+      // issue as the Transactions date field above.
+      setTimeout(renderAccounts, 0);
+      return;
+    }
+    else if(e.target.classList.contains("acct-mgmt-day")){
+      a.statementStartDay = Math.min(28, Math.max(1, parseInt(e.target.value, 10) || 1));
     }
     else return;
     renderActualVsPlannedPanel();
@@ -1212,6 +1260,7 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     renderIncomeGroups();
     renderTaxSuper();
     renderSharedGroups();
+    renderAccounts();
     renderTransactions();
     renderPropertyExpensesSummary();
     renderProperties();
@@ -1606,6 +1655,7 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     renderIncomeGroups();
     renderProperties();
     renderSharedGroups();
+    renderAccounts();
     renderTransactions();
     renderActualVsPlannedPanel();
     renderHomeBody();
@@ -1614,6 +1664,7 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     renderTotals();
     renderAssets();
     updatePersonSuggestions();
+    updateAccountSuggestions();
     renderTaxSuper();
     applyPeriodVisibility();
   }
@@ -1622,8 +1673,17 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
 
   var datalist = document.createElement("datalist");
   datalist.id = "acctSuggestions";
-  datalist.innerHTML = '<option value="Everyday Account"><option value="Savings Account"><option value="Offset Account"><option value="Credit Card">';
   document.body.appendChild(datalist);
+  // A few generic starting points, plus whatever the user has actually named in the Accounts
+  // card (Expenses page) — real names first since they're the ones actually meaningful to
+  // autocomplete against.
+  function updateAccountSuggestions(){
+    var defaults = ["Everyday Account", "Savings Account", "Offset Account", "Credit Card"];
+    var names = state.accounts.map(function(a){ return a.name; }).filter(Boolean);
+    defaults.forEach(function(n){ if(names.indexOf(n) === -1) names.push(n); });
+    datalist.innerHTML = names.map(function(n){ return '<option value="' + escapeAttr(n) + '">'; }).join("");
+  }
+  updateAccountSuggestions();
 
   var personDatalist = document.createElement("datalist");
   personDatalist.id = "personSuggestions";

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, isOverdue, daysUntil, appendHistorySnapshot, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange } from "../src/calc/ledger.js";
+import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, isOverdue, daysUntil, appendHistorySnapshot, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, lastTransactionDateFor } from "../src/calc/ledger.js";
 
 test("toWeekly converts every frequency to a weekly figure", function(){
   assert.equal(toWeekly(100, "Weekly"), 100);
@@ -196,6 +196,18 @@ test("sumTransactionsByExpense buckets by linkedExpenseId, unlinked entries unde
   assert.equal(map.exp1, 55);
   assert.equal(map.exp2, 25);
   assert.equal(map.__unlinked, 13);
+});
+
+test("lastTransactionDateFor returns the most recent date linked to an expense id, or null with none", function(){
+  var txns = [
+    { date: "2026-01-05", amount: 10, linkedExpenseId: "exp1" },
+    { date: "2026-03-01", amount: 20, linkedExpenseId: "exp1" },
+    { date: "2026-02-01", amount: 30, linkedExpenseId: "exp2" },
+    { date: "2026-06-01", amount: 5, linkedExpenseId: null }
+  ];
+  assert.equal(lastTransactionDateFor(txns, "exp1"), "2026-03-01");
+  assert.equal(lastTransactionDateFor(txns, "exp2"), "2026-02-01");
+  assert.equal(lastTransactionDateFor(txns, "exp3"), null);
 });
 
 test("currentStatementCycle returns the cycle containing today, straddling a month boundary", function(){

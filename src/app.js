@@ -4,7 +4,7 @@ import { fmtCurrency0, fmtCurrency2 } from "./lib/format.js";
 import { showToast, showUndoToast } from "./lib/toast.js";
 import { escapeAttr, slug } from "./lib/html.js";
 import { syncUiModeToggle, applyPeriodVisibility } from "./lib/uimode.js";
-import { buildTable, dueDateNoteHtml } from "./lib/ledger-table.js";
+import { buildTable } from "./lib/ledger-table.js";
 import { onHorizontalSwipe } from "./lib/swipe.js";
 import {
   decryptBackup, doExport, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv
@@ -25,7 +25,7 @@ import {
   openExpenseReview, closeExpenseReview, renderExpenseReviewPanel,
   logCurrentReviewCard, skipCurrentReviewCard, expenseReview,
   renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel,
-  renderAccounts, addAccount, deleteAccount, renameAccountEverywhere
+  renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, logExpenseTransaction
 } from "./components/expenses.js";
 import {
   patchHoldingRow, patchVehicleRow, modernAssetRowOpen, patchAssetCategoryTotals,
@@ -284,7 +284,6 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     else if(e.target.classList.contains("f-superincluded")){ item.superMode = e.target.value; }
     else if(e.target.classList.contains("f-sacrificemode")){ item.sacrificeMode = sacrificeLabelToMode(e.target.value); structural = true; }
     else if(e.target.classList.contains("f-sacrificevalue")){ item.sacrificeValue = parseFloat(e.target.value) || 0; }
-    else if(e.target.classList.contains("f-lastpaid")){ item.lastIncurredDate = e.target.value || null; }
     else return;
 
     if(e.target.classList.contains("f-amount") || e.target.classList.contains("f-freq")){
@@ -293,9 +292,6 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       PERIODS.forEach(function(pd, i){ if(cells[i]) cells[i].textContent = fmtCurrency2.format(p[pd.key]); });
       var modernAmt = tr.querySelector('[data-computed="amt"]');
       if(modernAmt) modernAmt.textContent = fmtCurrency2.format(p.monthly) + "/mo";
-    }
-    if(e.target.classList.contains("f-lastpaid") || e.target.classList.contains("f-freq")){
-      tr.querySelectorAll(".due-note").forEach(function(el){ el.outerHTML = dueDateNoteHtml(item); });
     }
     if(section === "income" && (e.target.classList.contains("f-amount") || e.target.classList.contains("f-freq") || e.target.classList.contains("f-superincluded"))){
       // A single row's edit can shift the Maximum Super Contribution Base cap for every one of
@@ -372,19 +368,28 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       var larr = getArrayForSection(lsection);
       var litem = larr && larr[lidx];
       if(litem){
-        if(!Array.isArray(litem.history)) litem.history = [];
         var dateInput = logBtn2.previousElementSibling;
         var logDate = (dateInput && dateInput.classList.contains("log-date") && dateInput.value) || undefined;
-        var ldate = appendHistorySnapshot(litem.history, Number(litem.amount) || 0, logDate);
-        // Keeps the "Last paid"/due-date projection (dueDateNoteHtml(), Review expenses'
-        // isDueForReview()) in sync with reality — logging an amount here IS "I just paid/
-        // received this", so it should clear the item's due status the same way the Review
-        // flow's own Log action does.
-        if("lastIncurredDate" in litem || litem.freq) litem.lastIncurredDate = ldate;
-        rerenderTableFor(lsection);
-        renderProjectionOutputs();
-        persist();
-        showToast("Logged " + fmtCurrency0.format(Number(litem.amount) || 0) + " for " + litem.what + " (" + ldate + ")");
+        if(logBtn2.hasAttribute("data-log-tx")){
+          // Shared expenses: "Log" records a transaction against this budget line instead of a
+          // value snapshot — the plan (amount/freq) itself is untouched. See
+          // logExpenseTransaction() in expenses.js for why.
+          var amountInput = dateInput && dateInput.previousElementSibling;
+          var logAmount = (amountInput && amountInput.classList.contains("log-amount")) ? (parseFloat(amountInput.value) || 0) : (Number(litem.amount) || 0);
+          var tx = logExpenseTransaction(litem, logAmount, logDate);
+          rerenderTableFor(lsection);
+          renderTransactions();
+          renderActualVsPlannedPanel();
+          persist();
+          showToast("Logged " + fmtCurrency0.format(logAmount) + " against " + litem.what + " (" + tx.date + ")");
+        } else {
+          if(!Array.isArray(litem.history)) litem.history = [];
+          var ldate = appendHistorySnapshot(litem.history, Number(litem.amount) || 0, logDate);
+          rerenderTableFor(lsection);
+          renderProjectionOutputs();
+          persist();
+          showToast("Logged " + fmtCurrency0.format(Number(litem.amount) || 0) + " for " + litem.what + " (" + ldate + ")");
+        }
       }
       return;
     }

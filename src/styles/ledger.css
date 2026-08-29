@@ -125,6 +125,11 @@
   .log-date:hover{ border-color: var(--brass); }
   .log-date:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
   .m-edit-actions .log-date{ margin-right:0; }
+  /* Beats the generic ".m-edit-field input{width:100%}" rule (higher specificity: two classes
+     vs one class + one type) — inside "More options", the date input should stay its normal
+     compact width with the Log button sitting beside it, not stretch to fill the field's full
+     width and push the button onto its own line. */
+  .m-edit-field .log-date{ width:110px; display:inline-block; }
 
   /* ---------------- Transactions (Expenses page) ---------------- */
   .tx-row .m-row-summary{ cursor:default; }

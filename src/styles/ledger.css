@@ -78,7 +78,7 @@
   .col-account-exp.col-hidden, .col-account-home.col-hidden{ display:none; }
   .col-classification.col-hidden{ display:none; }
 
-  table.ledger-table input[type="text"], table.ledger-table input[type="number"], table.ledger-table select{
+  table.ledger-table input[type="text"], table.ledger-table input[type="number"], table.ledger-table input[type="date"], table.ledger-table select{
     width:100%; border:1px solid transparent; background:transparent; color:var(--ink); padding:5px 6px; border-radius:6px;
     font-size:13px; transition: border-color .18s ease, background-color .18s ease, box-shadow .18s ease;
   }
@@ -125,6 +125,29 @@
   .log-date:hover{ border-color: var(--brass); }
   .log-date:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
   .m-edit-actions .log-date{ margin-right:0; }
+
+  /* ---------------- Transactions (Expenses page) ---------------- */
+  .tx-row .m-row-summary{ cursor:default; }
+  .tx-row .tx-date{
+    width:118px; font-size:12.5px; padding:5px 6px; border:1px solid var(--border); border-radius:6px;
+    background: var(--paper); color: var(--ink); font-family:inherit; flex:none;
+  }
+  .tx-row .tx-what{
+    flex:1 1 100px; min-width:80px; all:unset; box-sizing:border-box; padding:5px 6px; border-radius:6px;
+    border:1px solid transparent; color: var(--ink); font-size:13px;
+  }
+  .tx-row .tx-what:hover{ border-color: var(--border); background: var(--paper-sunken); }
+  .tx-row .tx-what:focus{ border-color: var(--brass); outline:none; background: var(--paper); box-shadow: var(--focus-ring); }
+  .tx-row .tx-amount{
+    width:88px; flex:none; text-align:right; font-family:"IBM Plex Mono", monospace; font-size:13px;
+    padding:5px 6px; border:1px solid var(--border); border-radius:6px; background: var(--paper); color: var(--ink);
+  }
+  .tx-row .tx-date:focus, .tx-row .tx-amount:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
+  .tx-link-row{ padding: 0 16px 12px; }
+  .tx-link-row .tx-link{
+    width:100%; font-size:12.5px; padding:5px 6px; border:1px solid var(--border); border-radius:6px;
+    background: var(--paper); color: var(--ink); font-family:inherit;
+  }
   .row-breakdown-toggle{
     all:unset; display:inline-block; font-size:10.5px; color: var(--brass-strong); cursor:pointer;
     margin-top:2px; padding:4px 2px; text-decoration:underline; text-underline-offset:2px;

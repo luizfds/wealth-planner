@@ -1,4 +1,4 @@
-import { state, setState, storageAvailable, persist, setStatus, defaultState, defaultPurchaseConfig, defaultInvestConfig, migrateState, genId } from "./state.js";
+import { state, setState, storageAvailable, persist, setStatus, defaultState, defaultPurchaseConfig, defaultInvestConfig, migrateState, genId, normalizeShareAsset } from "./state.js";
 import { INCOME_COL_DEFS, PERIODS, sacrificeModeToLabel, sacrificeLabelToMode, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, INVEST_LEG_TYPES } from "./constants.js";
 import { fmtCurrency0, fmtCurrency2 } from "./lib/format.js";
 import { showToast, showUndoToast } from "./lib/toast.js";
@@ -820,7 +820,15 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       var tr = e.target.closest("[data-index]");
       if(!tr) return;
       var idx = Number(tr.getAttribute("data-index"));
-      if(state.assets[idx]){ state.assets[idx].category = e.target.value; renderAssets(); persist(); }
+      if(state.assets[idx]){
+        state.assets[idx].category = e.target.value;
+        // Moving INTO Shares needs the same quantity/price/avgCost defaulting migrateState()
+        // does for legacy data — otherwise a plain-dollar item (e.g. a crypto holding tracked
+        // under Other) would render as qty 0 / price 0 the instant it lands here, silently
+        // losing its value instead of carrying it over as 1 unit at that price.
+        if(e.target.value === "Shares") normalizeShareAsset(state.assets[idx]);
+        renderAssets(); persist();
+      }
     }
     if(e.target.closest("table.assets-table, .m-asset-rows") && e.target.classList.contains("h-market")){
       var htr = e.target.closest("[data-index]");

@@ -44,7 +44,7 @@ function holdingRowHtml(item, idx){
     '<td>' + (sparklineHtml(item.history) || sparklinePlaceholderHtml()) + '</td>' +
     '<td><input type="text" class="h-symbol" value="' + escapeAttr(item.symbol || "") + '" placeholder="e.g. CBA" aria-label="Ticker symbol"></td>' +
     '<td><select class="h-market">' + optionsHtml(SHARE_MARKETS, item.market || "ASX") + '</select></td>' +
-    '<td class="num"><input type="number" step="1" min="0" class="h-qty" value="' + qty + '" aria-label="Quantity"></td>' +
+    '<td class="num"><input type="number" step="any" min="0" class="h-qty" value="' + qty + '" aria-label="Quantity"></td>' +
     '<td class="num"><input type="number" step="0.01" min="0" class="h-avgcost" value="' + (item.avgCost != null ? item.avgCost : "") + '" placeholder="—" aria-label="Average cost per share"></td>' +
     '<td class="num"><input type="number" step="0.01" min="0" class="h-price" value="' + price + '" aria-label="Current price per share">' +
       (item.priceUpdated ? '<span class="computed-note h-price-note">as of ' + escapeAttr(item.priceUpdated) + '</span>' : '<span class="computed-note h-price-note"></span>') + '</td>' +
@@ -283,7 +283,7 @@ function modernShareRowHtml(item, idx, colorIdx){
     '<div class="m-edit-grid">' +
       '<div class="m-edit-field span3"><label>What</label><input type="text" class="h-what" value="' + escapeAttr(item.what) + '" aria-label="Holding name"></div>' +
       '<div class="m-edit-field"><label>Symbol</label><input type="text" class="h-symbol" value="' + escapeAttr(item.symbol || "") + '" placeholder="e.g. CBA" aria-label="Ticker symbol"></div>' +
-      '<div class="m-edit-field"><label>Qty</label><input type="number" step="1" min="0" class="h-qty" value="' + qty + '" aria-label="Quantity"></div>' +
+      '<div class="m-edit-field"><label>Qty</label><input type="number" step="any" min="0" class="h-qty" value="' + qty + '" aria-label="Quantity"></div>' +
       '<div class="m-edit-field"><label>Price</label><input type="number" step="0.01" min="0" class="h-price" value="' + price + '" aria-label="Current price per share">' + (item.priceUpdated ? '<span class="computed-note h-price-note">as of ' + escapeAttr(item.priceUpdated) + '</span>' : '<span class="computed-note h-price-note"></span>') + '</div>' +
     '</div>' +
     '<details class="tax-advanced m-more-options"><summary>More options</summary>' +
@@ -358,11 +358,11 @@ export function renderSharesSubpage(){
   if(!container) return;
   var data = assetCategoryItems("Shares");
   var total = data.items.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
-  var footerBtn = '<button type="button" class="btn btn-sm' + (data.items.length ? " btn-ghost" : "") + '" data-add="holding" title="Track an individual shareholding — symbol, quantity, cost, and value">+ Add share holding</button>';
+  var footerBtn = '<button type="button" class="btn btn-sm' + (data.items.length ? " btn-ghost" : "") + '" data-add="holding" title="Track an individual holding — symbol, quantity, cost, and value. Set Market to Crypto to track a coin the same way.">+ Add share holding</button>';
   var isModern = state.uiMode === "modern";
   var body;
   if(!data.items.length){
-    body = '<p class="ledger-note" style="margin:0 0 12px">No share holdings yet.</p>' + footerBtn;
+    body = '<p class="ledger-note" style="margin:0 0 12px">No share holdings yet — set Market to "Crypto" on a holding to track a coin the same way (quantity, avg cost, gain/loss, sparkline).</p>' + footerBtn;
   } else if(isModern){
     var rowMeta = assetRowMeta(data);
     body = '<div class="m-card" id="assetsComp-Shares">' + modernAssetCompBarHtml(rowMeta) + '<div class="m-rows m-asset-rows">' + rowMeta.map(function(m){ return modernShareRowHtml(m.item, m.idx, m.colorIdx); }).join("") + '</div></div><div class="ledger-footer">' + footerBtn + '</div>';
@@ -371,7 +371,7 @@ export function renderSharesSubpage(){
   }
   var pasteTool = data.items.length
     ? '<details class="tax-advanced" style="margin:0 0 14px"><summary>Paste prices from Google Sheets</summary>' +
-        '<p class="ledger-note" style="margin:8px 0">This app never fetches prices itself — nothing is sent anywhere. Instead, in a Google Sheet put <code>=GOOGLEFINANCE("ASX:CBA","price")</code> next to each symbol, copy the Symbol and Price columns, and paste the two-column range below. Matches your holdings by ticker symbol (case-insensitive).</p>' +
+        '<p class="ledger-note" style="margin:8px 0">This app never fetches prices itself — nothing is sent anywhere. Instead, in a Google Sheet put <code>=GOOGLEFINANCE("ASX:CBA","price")</code> next to each symbol (crypto works too, e.g. <code>=GOOGLEFINANCE("BTCUSD","price")</code>), copy the Symbol and Price columns, and paste the two-column range below. Matches your holdings by ticker symbol (case-insensitive).</p>' +
         '<textarea id="sharesPasteArea" rows="4" placeholder="CBA&#9;105.32&#10;BHP&#9;43.10" style="width:100%;box-sizing:border-box;font-family:&quot;IBM Plex Mono&quot;,monospace;font-size:12.5px;padding:8px;background:var(--paper-sunken);border:1px solid var(--border);border-radius:8px;color:var(--ink);resize:vertical"></textarea>' +
         '<div style="margin-top:8px"><button type="button" class="btn btn-sm" id="sharesPasteApply">Update prices</button></div>' +
       '</details>'

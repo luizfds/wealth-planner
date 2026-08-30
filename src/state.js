@@ -46,6 +46,23 @@ export function defaultInvestConfig(assetType){
 export function deepClone(o){ return JSON.parse(JSON.stringify(o)); }
 export function genId(prefix){ return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
+// Fills in a Shares-holding asset's quantity/price/avgCost/market/symbol from whatever it had
+// before (a plain dollar amount, most commonly) — used both by migrateState() below for
+// legacy/imported data and by app.js's category-switch handler, so an existing Cash/Other/etc.
+// asset (a crypto holding tracked under "Other", say) keeps its dollar value intact the moment
+// its category is changed to "Shares" live in the UI, not just on the next reload.
+export function normalizeShareAsset(a){
+  if(a.quantity == null) a.quantity = 1;
+  if(a.price == null) a.price = (Number(a.amount) || 0) / (Number(a.quantity) || 1);
+  if(a.avgCost === undefined) a.avgCost = null;
+  if(a.market == null) a.market = "ASX";
+  if(a.symbol == null) a.symbol = "";
+  if(a.person == null) a.person = "";
+  if(a.priceUpdated == null) a.priceUpdated = "";
+  a.amount = Math.round((Number(a.quantity) || 0) * (Number(a.price) || 0) * 100) / 100;
+  return a;
+}
+
 export function defaultState(){
   return {
     activeScenario: "Current situation",
@@ -206,15 +223,7 @@ export function migrateState(s){
   if(!Array.isArray(s.netWorthLog)) s.netWorthLog = [];
   if(!Array.isArray(s.assets)) s.assets = [];
   s.assets.forEach(function(a){
-    if((a.category || "Other") !== "Shares") return;
-    if(a.quantity == null) a.quantity = 1;
-    if(a.price == null) a.price = (Number(a.amount) || 0) / (Number(a.quantity) || 1);
-    if(a.avgCost === undefined) a.avgCost = null;
-    if(a.market == null) a.market = "ASX";
-    if(a.symbol == null) a.symbol = "";
-    if(a.person == null) a.person = "";
-    if(a.priceUpdated == null) a.priceUpdated = "";
-    a.amount = Math.round((Number(a.quantity) || 0) * (Number(a.price) || 0) * 100) / 100;
+    if((a.category || "Other") === "Shares") normalizeShareAsset(a);
   });
   if(!s.projection) s.projection = { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0 };
   if(s.projection.inflationRate == null) s.projection.inflationRate = 3;

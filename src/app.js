@@ -1569,10 +1569,19 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
   document.getElementById("importBtn").addEventListener("click", function(){
     document.getElementById("importFile").click();
   });
+  // "Have they actually started using the app" — not just "does localStorage have an entry",
+  // since state.js's own load path writes a fresh defaultState() back to STORAGE_KEY on first
+  // run, before the user has touched anything. A genuinely untouched install has none of these
+  // (home's own default scenario block doesn't count — that always exists).
+  function hasRealUserData(){
+    return !!(state.income.length || state.shared.length || state.assets.length ||
+      state.properties.length || state.transactions.length || state.debts.length);
+  }
   function applyImportedBackupJson(jsonStr){
     try{
       var parsed = JSON.parse(jsonStr);
       if(!parsed || !parsed.income || !parsed.home) throw new Error("bad shape");
+      if(hasRealUserData() && !confirm("You already have data in Wealth Planner on this device. Importing will replace it — this can't be undone unless you've exported a backup first. Continue?")) return;
       setState(migrateState(parsed));
       renderAll();
       persist();
@@ -1818,6 +1827,18 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
   renderAll();
   showPage(initialPage, { replace: true, skipScroll: true });
   if(initialPage === "assets") showAssetsSubpage(initialAssetsSub, { replace: true });
+
+  // onboarding.html's "Try it with sample data" link lands here with ?mock=1 — generate it
+  // immediately (no confirm needed, unlike the header's own Sample data button: there's nothing
+  // to lose landing here for the first time) and strip the query param via replaceState so a
+  // later reload or bookmark of this URL doesn't keep re-rolling random data.
+  if(new URLSearchParams(location.search).get("mock") === "1"){
+    setState(migrateState(generateMockData()));
+    renderAll();
+    persist();
+    showToast("Sample data generated");
+    history.replaceState(history.state, "", location.pathname + location.hash);
+  }
 
   // Matching #appLoading's inline styles in index.html — fades out only once the real UI above
   // has actually been built, not on a fixed timer, so a slow first load (cold cache, slow device)

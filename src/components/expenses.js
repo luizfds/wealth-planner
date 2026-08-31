@@ -432,9 +432,12 @@ function transactionRowHtml(t, idx){
   var acctSelect = '<select class="tx-account" data-tx-index="' + idx + '" aria-label="Account">' + transactionAccountOptionsHtml(t.account || "") + '</select>';
   var delBtn = '<button type="button" class="btn btn-ghost btn-sm row-del" data-tx-del="' + idx + '" aria-label="Delete transaction">✕</button>';
   if(state.uiMode === "modern"){
-    return '<div class="m-row computed tx-row" data-tx-index="' + idx + '">' +
+    return '<div class="m-row tx-row" data-tx-index="' + idx + '">' +
       '<div class="m-row-summary" style="cursor:default;flex-wrap:wrap;gap:8px">' + dateInput + whatInput + amountInput + delBtn + '</div>' +
-      '<div class="tx-link-row">' + linkSelect + acctSelect + '</div>' +
+      '<div class="tx-link-row">' +
+        '<div class="tx-field"><span class="tx-field-label">Linked to</span>' + linkSelect + '</div>' +
+        '<div class="tx-field"><span class="tx-field-label">Account</span>' + acctSelect + '</div>' +
+      '</div>' +
     '</div>';
   }
   return '<tr data-tx-index="' + idx + '">' +

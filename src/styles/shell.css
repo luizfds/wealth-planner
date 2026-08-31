@@ -114,6 +114,9 @@
       all:unset; box-sizing:border-box; display:block; width:100%; padding:10px 10px; border-radius:7px;
       font-size:13.5px; color: var(--ink); cursor:pointer;
     }
+    /* [hidden] alone does nothing here — .mobile-more-item already sets its own display (see
+       CLAUDE.md) — used to feature-detect-hide Share on devices without file-capable Web Share. */
+    .mobile-more-item[hidden]{ display:none; }
     .mobile-more-item:hover, .mobile-more-item:active{ background: var(--paper-sunken); }
     .mobile-more-item.active{ color: var(--brass-strong); font-weight:600; }
     .mobile-more-toggle{ display:flex; align-items:center; gap:9px; cursor:pointer; }

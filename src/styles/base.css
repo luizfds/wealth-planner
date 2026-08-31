@@ -144,6 +144,9 @@
     padding: 7px 13px; border-radius: 8px; font-size: 13px; font-weight: 500;
     display:inline-flex; align-items:center; gap:6px;
   }
+  /* [hidden] alone does nothing here — .btn already sets its own display (see CLAUDE.md) — used
+     to feature-detect-hide the Share button in browsers without file-capable Web Share. */
+  .btn[hidden]{ display:none; }
   .btn:hover{ border-color: var(--brass); }
   .btn:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible, [tabindex]:focus-visible{
     outline:none; box-shadow: var(--focus-ring);

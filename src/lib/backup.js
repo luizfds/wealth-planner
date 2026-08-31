@@ -1,6 +1,6 @@
 import { state } from "../state.js";
 import { sacrificeModeToLabel } from "../constants.js";
-import { showToast } from "./toast.js";
+import { showToast, showPersistentToast } from "./toast.js";
 
 function isoDateStamp(){
   var d = new Date();
@@ -76,13 +76,16 @@ export function doExport(){
   }
 }
 // ---------------- Share: hand the backup straight to another device ----------------
-// Same underlying JSON as Export, but framed as a device-to-device transfer instead of a backup —
+// Same underlying data as Export, but framed as a device-to-device transfer instead of a backup —
 // the OS share sheet (AirDrop, Messages, email, whatever's installed) gets the file *and* a short
 // explanation of what to do with it, so the "why am I looking at a .json file" confusion a bare
-// Export never addressed doesn't happen on the receiving end. Deliberately unencrypted and
-// one-tap — Export still exists, passphrase prompt and all, for anyone who wants that extra
-// protection before the file leaves this device (e.g. sending it through email/cloud storage
-// instead of a direct device-to-device channel like AirDrop).
+// Export never addressed doesn't happen on the receiving end.
+//
+// Unlike Export (where the passphrase is optional — the user controls where that downloaded file
+// ends up), a passphrase here is mandatory: a share sheet is one fat-fingered tap from going to
+// the wrong contact instead of AirDrop-to-self, and this is a full financial profile (income,
+// tax, assets, super, property). Cancelling or leaving it blank aborts the share entirely rather
+// than falling back to plaintext.
 export function canShareFiles(){
   if(!navigator.canShare) return false;
   try{
@@ -99,25 +102,37 @@ function appRootUrl(){
   return location.origin + base + "/";
 }
 export function doShare(){
-  var payload = JSON.stringify(state, null, 2);
-  var filename = "wealth-planner-backup-" + isoDateStamp() + ".json";
-  var text = "My Wealth Planner data. Open " + appRootUrl() + ", then tap Import and choose this file to load it there.";
-  var file;
-  try{
-    file = new File([payload], filename, { type: "application/json" });
-  }catch(e){
-    showToast("Couldn't prepare the file to share — try Export instead.");
-    return;
-  }
   if(!canShareFiles()){
     showToast("Sharing files isn't supported in this browser — use Export instead, then send the file yourself.");
     return;
   }
-  navigator.share({ files: [file], title: "Wealth Planner backup", text: text }).then(function(){
-    showToast("Shared");
-  }).catch(function(err){
-    if(err && err.name === "AbortError") return; // user dismissed the share sheet — not a failure
-    showToast("Couldn't share — try Export instead.");
+  var passphrase = prompt("Set a passphrase to protect this share (required — whoever you send this to will need it to open it). Choose one you can tell them separately, e.g. in person or by text.");
+  if(!passphrase){
+    if(passphrase !== null) showToast("A passphrase is required to share — nothing was sent.");
+    return;
+  }
+  var payload = JSON.stringify(state, null, 2);
+  var filename = "wealth-planner-backup-" + isoDateStamp() + "-encrypted.json";
+  var text = "My Wealth Planner data (password-protected). Open " + appRootUrl() + ", tap Import, choose this file, and enter the passphrase I gave you.";
+  encryptBackup(payload, passphrase).then(function(encPayload){
+    var file = new File([encPayload], filename, { type: "application/json" });
+    // navigator.share() only works when it's the direct, synchronous result of a user gesture —
+    // encryption above is async (Web Crypto), so by the time it resolves, the click that started
+    // this has gone stale as far as some browsers are concerned (confirmed on a real Android
+    // device: share() rejected outright once a passphrase prompt + async encrypt sat in front of
+    // it, where the original one-tap unencrypted version worked fine). A persistent toast with its
+    // own action button gives us a fresh, guaranteed-synchronous click to hang the real share()
+    // call off of, instead of triggering it from inside this .then().
+    showPersistentToast("Ready to share (encrypted)", "Send", function(){
+      navigator.share({ files: [file], title: "Wealth Planner backup", text: text }).then(function(){
+        showToast("Shared");
+      }).catch(function(err){
+        if(err && err.name === "AbortError") return; // user dismissed the share sheet — not a failure
+        showToast("Couldn't share — try Export instead.");
+      });
+    });
+  }).catch(function(){
+    showToast("Encryption failed — nothing was shared. Try again.");
   });
 }
 

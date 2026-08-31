@@ -60,7 +60,7 @@
 
   <nav class="app-sidebar">
     <div class="app-brand">
-      <div class="app-brand-name"><span class="app-brand-mark"><svg width="14" height="14" viewBox="0 0 32 32" aria-hidden="true"><path d="M8 11 L11.5 21 L16 14 L20.5 21 L24 11" stroke="#ffffff" stroke-width="3.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Wealth Planner</div>
+      <div class="app-brand-name"><span class="app-brand-mark">W</span>ealth Planner</div>
       <div class="app-brand-tag">Budget · Property · Tax · Net worth</div>
     </div>
     <button type="button" class="nav-menu-toggle" id="navMenuToggle" aria-haspopup="true" aria-expanded="false" aria-controls="appNav">
@@ -93,7 +93,7 @@
         Show all periods
       </label>
       <p class="app-sidebar-note">Stored only in this browser (<code>localStorage</code>) — nothing is sent anywhere. Clearing your browser data clears this too, so <button class="link-btn" id="exportLink2">Export</button> a backup now and then.</p>
-      <p class="app-version">v2.23.0</p>
+      <p class="app-version">v2.23.2</p>
     </div>
     <div class="mobile-header-right">
       <button type="button" class="notif-bell-btn mobile-notif-bell" id="mobileNotifBellBtn" aria-haspopup="true" aria-expanded="false" aria-label="Notifications">
@@ -123,7 +123,7 @@
         <button class="btn btn-sm" id="themeToggleBtn" title="Cycle between following your system theme, always light, or always dark">Theme: System</button>
         <input type="file" id="importFile" accept="application/json,.json">
         <span class="actions-group">
-          <button class="btn btn-sm" id="shareBtn" hidden title="Send your data to another device — opens your phone/computer's share sheet (AirDrop, Messages, email, etc.) with the file and instructions">Share to device</button>
+          <button class="btn btn-sm" id="shareBtn" hidden title="Send your data to another device — opens your phone/computer's share sheet (AirDrop, Messages, email, etc.) with a password-protected file and instructions. You'll set a passphrase to share it separately with whoever's receiving it.">Share securely</button>
           <button class="btn btn-sm" id="importBtn" title="Load a file from Share or Export">Import</button>
           <button class="btn btn-sm btn-ghost" id="exportBtn" title="Save a backup file — same data as Share, but downloaded instead of sent, with an optional passphrase">Export</button>
         </span>
@@ -456,7 +456,7 @@
     <div class="mobile-more-divider"></div>
     <button type="button" class="mobile-more-item" id="mobileThemeBtn">Theme: System</button>
     <button type="button" class="mobile-more-item" id="mobileLayoutBtn">Layout: Classic</button>
-    <button type="button" class="mobile-more-item" id="mobileShareBtn" hidden>Share to device</button>
+    <button type="button" class="mobile-more-item" id="mobileShareBtn" hidden>Share securely</button>
     <button type="button" class="mobile-more-item" id="mobileImportBtn">Import backup</button>
     <button type="button" class="mobile-more-item" id="mobileExportBtn">Export backup</button>
     <label class="mobile-more-item mobile-more-toggle" id="mobilePeriodsToggleWrap">

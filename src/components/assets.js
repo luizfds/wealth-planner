@@ -1,8 +1,8 @@
 import { state, persist } from "../state.js";
-import { ASSET_CATEGORIES, LIQUID_CATEGORIES, SHARE_MARKETS } from "../constants.js";
+import { ASSET_CATEGORIES, LIQUID_CATEGORIES, SHARE_MARKETS, MARKET_CURRENCY } from "../constants.js";
 import { propertiesOffsetTotal, propertiesIlliquidEquityToday, recalcPurchase } from "../calc/property.js";
 import { totalAssetsValue, totalNetWorthValue, totalDebtsValue } from "../calc/engine.js";
-import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
+import { fmtCurrency0, fmtCurrency2, fmtPercent1, fmtCurrency0For, fmtCurrency2For } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { syncUiModeToggle } from "../lib/uimode.js";
 import { optionsHtml, historyTrendHtml } from "../lib/ledger-table.js";
@@ -23,6 +23,13 @@ function assetRowHtml(item, idx){
     '</tr>';
 }
 
+// Every other figure in this app is implicitly AUD; a Shares holding's price/value is only
+// sometimes that (ASX), and otherwise USD (US, Crypto) — see MARKET_CURRENCY. Used to pick the
+// right Intl-formatted currency symbol ("US$..." vs a bare "$...") for that holding's own
+// figures, rather than silently formatting a USD number as if it were AUD.
+function holdingCurrency(item){
+  return MARKET_CURRENCY[item.market] || "AUD";
+}
 function gainLossHtml(item){
   if(item.avgCost == null || item.avgCost === "") return '<span class="calc-note">—</span>';
   var qty = Number(item.quantity) || 0;
@@ -32,13 +39,20 @@ function gainLossHtml(item){
   var pct = cost ? (price - cost) / cost : 0;
   var cls = gainDollar > 0 ? "up" : (gainDollar < 0 ? "down" : "");
   var arrow = gainDollar > 0 ? "▲" : (gainDollar < 0 ? "▼" : "–");
-  return '<span class="asset-trend gain-cell ' + cls + '">' + arrow + ' ' + fmtCurrency0.format(Math.abs(gainDollar)) +
+  return '<span class="asset-trend gain-cell ' + cls + '">' + arrow + ' ' + fmtCurrency0For(holdingCurrency(item)).format(Math.abs(gainDollar)) +
     ' (' + fmtPercent1.format(Math.abs(pct)) + ')</span>';
 }
 
+// "as of 2026-08-31 · USD" (or just "USD" with no date yet) — always shown, not only once a
+// price has been pasted/logged, so the currency is visible from the moment a holding is added.
+function priceNoteText(item){
+  var currency = holdingCurrency(item);
+  return item.priceUpdated ? ("as of " + item.priceUpdated + " · " + currency) : currency;
+}
 function holdingRowHtml(item, idx){
   var qty = Number(item.quantity) || 0;
   var price = Number(item.price) || 0;
+  var currency = holdingCurrency(item);
   return '<tr data-index="' + idx + '">' +
     '<td><input type="text" class="h-what" value="' + escapeAttr(item.what) + '" aria-label="Holding name">' + historyTrendHtml(item) + '</td>' +
     '<td>' + (sparklineHtml(item.history) || sparklinePlaceholderHtml()) + '</td>' +
@@ -46,9 +60,9 @@ function holdingRowHtml(item, idx){
     '<td><select class="h-market">' + optionsHtml(SHARE_MARKETS, item.market || "ASX") + '</select></td>' +
     '<td class="num"><input type="number" step="any" min="0" class="h-qty" value="' + qty + '" aria-label="Quantity"></td>' +
     '<td class="num"><input type="number" step="0.01" min="0" class="h-avgcost" value="' + (item.avgCost != null ? item.avgCost : "") + '" placeholder="—" aria-label="Average cost per share"></td>' +
-    '<td class="num"><input type="number" step="0.01" min="0" class="h-price" value="' + price + '" aria-label="Current price per share">' +
-      (item.priceUpdated ? '<span class="computed-note h-price-note">as of ' + escapeAttr(item.priceUpdated) + '</span>' : '<span class="computed-note h-price-note"></span>') + '</td>' +
-    '<td class="num h-value-cell">' + fmtCurrency0.format(qty * price) + '</td>' +
+    '<td class="num"><input type="number" step="0.01" min="0" class="h-price" value="' + price + '" aria-label="Current price per ' + (item.market === "Crypto" ? "coin" : "share") + ' (' + currency + ')">' +
+      '<span class="computed-note h-price-note">' + priceNoteText(item) + '</span></td>' +
+    '<td class="num h-value-cell">' + fmtCurrency0For(currency).format(qty * price) + '</td>' +
     '<td class="h-gain-cell">' + gainLossHtml(item) + '</td>' +
     '<td><input type="text" class="h-person" list="personSuggestions" value="' + escapeAttr(item.person || "") + '" placeholder="Household" aria-label="Person"></td>' +
     '<td><button type="button" class="asset-log-btn" data-asset-log="' + idx + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart below">Log</button></td>' +
@@ -59,14 +73,15 @@ function holdingRowHtml(item, idx){
 export function patchHoldingRow(tr, item){
   var qty = Number(item.quantity) || 0;
   var price = Number(item.price) || 0;
+  var currency = holdingCurrency(item);
   var valueCell = tr.querySelector(".h-value-cell");
-  if(valueCell) valueCell.textContent = fmtCurrency0.format(qty * price);
+  if(valueCell) valueCell.textContent = fmtCurrency0For(currency).format(qty * price);
   var gainCell = tr.querySelector(".h-gain-cell");
   if(gainCell) gainCell.innerHTML = gainLossHtml(item);
   var priceNote = tr.querySelector(".h-price-note");
-  if(priceNote) priceNote.textContent = item.priceUpdated ? ("as of " + item.priceUpdated) : "";
+  if(priceNote) priceNote.textContent = priceNoteText(item);
   var subCell = tr.querySelector(".h-sub-cell");
-  if(subCell) subCell.textContent = qty + " · " + fmtCurrency2.format(holdingAvgCostDisplay(item, price));
+  if(subCell) subCell.textContent = qty + " · " + fmtCurrency2For(currency).format(holdingAvgCostDisplay(item, price));
 }
 
 // Keeps the Shares page's aggregate gain/loss figure in step with a live qty/avg-cost/price
@@ -262,6 +277,7 @@ function holdingAvgCostDisplay(item, price){
 function modernShareRowHtml(item, idx, colorIdx){
   var qty = Number(item.quantity) || 0;
   var price = Number(item.price) || 0;
+  var currency = holdingCurrency(item);
   var isOpen = !!modernAssetRowOpen[idx];
   var initials = (item.symbol || item.what || "?").slice(0, 2).toUpperCase();
   var avatar = '<span class="m-avatar' + (colorIdx != null ? " series-color-" + colorIdx : " m-avatar-neutral") + '">' + escapeAttr(initials) + '</span>';
@@ -270,11 +286,11 @@ function modernShareRowHtml(item, idx, colorIdx){
     avatar +
     '<div style="flex:1 1 auto; min-width:0">' +
       '<div class="m-row-name">' + escapeAttr(item.what) + '</div>' +
-      '<div class="m-row-sub h-sub-cell">' + qty + ' · ' + fmtCurrency2.format(holdingAvgCostDisplay(item, price)) + '</div>' +
+      '<div class="m-row-sub h-sub-cell">' + qty + ' · ' + fmtCurrency2For(currency).format(holdingAvgCostDisplay(item, price)) + '</div>' +
     '</div>' +
     spark +
     '<div class="m-row-share-value">' +
-      '<div class="m-row-amt h-value-cell" data-computed="amt">' + fmtCurrency0.format(qty * price) + '</div>' +
+      '<div class="m-row-amt h-value-cell" data-computed="amt">' + fmtCurrency0For(currency).format(qty * price) + '</div>' +
       '<div class="h-gain-cell">' + gainLossHtml(item) + '</div>' +
     '</div>' +
     '<svg class="m-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>' +
@@ -284,7 +300,7 @@ function modernShareRowHtml(item, idx, colorIdx){
       '<div class="m-edit-field span3"><label>What</label><input type="text" class="h-what" value="' + escapeAttr(item.what) + '" aria-label="Holding name"></div>' +
       '<div class="m-edit-field"><label>Symbol</label><input type="text" class="h-symbol" value="' + escapeAttr(item.symbol || "") + '" placeholder="e.g. CBA" aria-label="Ticker symbol"></div>' +
       '<div class="m-edit-field"><label>Qty</label><input type="number" step="any" min="0" class="h-qty" value="' + qty + '" aria-label="Quantity"></div>' +
-      '<div class="m-edit-field"><label>Price</label><input type="number" step="0.01" min="0" class="h-price" value="' + price + '" aria-label="Current price per share">' + (item.priceUpdated ? '<span class="computed-note h-price-note">as of ' + escapeAttr(item.priceUpdated) + '</span>' : '<span class="computed-note h-price-note"></span>') + '</div>' +
+      '<div class="m-edit-field"><label>Price</label><input type="number" step="0.01" min="0" class="h-price" value="' + price + '" aria-label="Current price per ' + (item.market === "Crypto" ? "coin" : "share") + ' (' + currency + ')"><span class="computed-note h-price-note">' + priceNoteText(item) + '</span></div>' +
     '</div>' +
     '<details class="tax-advanced m-more-options"><summary>More options</summary>' +
       '<div class="m-edit-grid" style="margin-top:8px">' +
@@ -667,6 +683,11 @@ export function applySharesPaste(){
       item.price = parsed.price;
       item.priceUpdated = todayStr;
       item.amount = Math.round((Number(item.quantity) || 0) * parsed.price * 100) / 100;
+      // Same history snapshot the manual "Log" button records — without this, a pasted price
+      // update the value but the sparkline/trend note (both driven by item.history) stayed
+      // frozen until someone clicked Log on every row by hand.
+      if(!Array.isArray(item.history)) item.history = [];
+      appendHistorySnapshot(item.history, item.amount, todayStr);
     });
     updatedCount += matches.length;
   });

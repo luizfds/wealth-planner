@@ -834,7 +834,13 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       var htr = e.target.closest("[data-index]");
       if(!htr) return;
       var hidx = Number(htr.getAttribute("data-index"));
-      if(state.assets[hidx]){ state.assets[hidx].market = e.target.value; persist(); }
+      if(state.assets[hidx]){
+        state.assets[hidx].market = e.target.value;
+        // Market decides currency (see MARKET_CURRENCY) — patch immediately so the price/value
+        // figures relabel without waiting on some other edit to trigger a re-render.
+        patchHoldingRow(htr, state.assets[hidx]);
+        persist();
+      }
     }
     if(e.target.closest("table.assets-table, .m-asset-rows") &&
        (e.target.classList.contains("h-person") || e.target.classList.contains("a-person") || e.target.classList.contains("v-person"))){

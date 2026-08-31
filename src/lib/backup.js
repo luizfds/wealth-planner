@@ -144,7 +144,25 @@ export function doShare(){
         // scary failure and buries the actually-reassuring part (a file WAS saved). One short,
         // plainly positive toast instead of two competing ones.
         console.error("navigator.share() failed:", err);
-        fallbackExport(encPayload, filename, "application/json", "Share unavailable here — saved the encrypted file instead");
+        fallbackExport(encPayload, filename, "application/json", "Couldn't attach the file — saved it instead");
+        // Attaching the file is the part that usually fails (no installed app on the device
+        // declares it can receive an application/json share) — plain text/link shares don't have
+        // that problem, since virtually every messaging/email app accepts those. Offer a second,
+        // separate attempt at just the message, so the user still gets the actual OS share sheet
+        // they're expecting and can pick an app to send the (already-downloaded) file through
+        // manually. This needs its own fresh "Send" click: navigator.share() consumes the page's
+        // user-activation the moment it's called, even on failure, so retrying programmatically
+        // from inside this .catch() would just fail a second time with "must be handling a user
+        // gesture" instead of actually opening the sheet.
+        showPersistentToast("Share the message instead?", "Send", function(){
+          navigator.share({ title: "Wealth Planner backup", text: text }).then(function(){
+            showToast("Message shared — attach the file we just saved");
+          }).catch(function(err2){
+            if(err2 && err2.name === "AbortError") return;
+            console.error("navigator.share() (text-only) failed:", err2);
+            showToast("Couldn't open the share sheet — the file is still saved, send it however you like");
+          });
+        });
       });
     });
   }).catch(function(){

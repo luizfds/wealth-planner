@@ -75,6 +75,52 @@ export function doExport(){
     finishExport(payload, filename);
   }
 }
+// ---------------- Share: hand the backup straight to another device ----------------
+// Same underlying JSON as Export, but framed as a device-to-device transfer instead of a backup —
+// the OS share sheet (AirDrop, Messages, email, whatever's installed) gets the file *and* a short
+// explanation of what to do with it, so the "why am I looking at a .json file" confusion a bare
+// Export never addressed doesn't happen on the receiving end. Deliberately unencrypted and
+// one-tap — Export still exists, passphrase prompt and all, for anyone who wants that extra
+// protection before the file leaves this device (e.g. sending it through email/cloud storage
+// instead of a direct device-to-device channel like AirDrop).
+export function canShareFiles(){
+  if(!navigator.canShare) return false;
+  try{
+    return navigator.canShare({ files: [new File(["x"], "x.json", { type: "application/json" })] });
+  }catch(e){
+    return false;
+  }
+}
+// Mirrors nav.js's own BASE_PATH detection (GitHub Pages serves this project under a fixed
+// /wealth-planner path; local dev and any custom domain serve it from root) — duplicated rather
+// than imported so this lib file doesn't take on a dependency on a UI component module.
+function appRootUrl(){
+  var base = location.hostname.indexOf("github.io") !== -1 ? "/wealth-planner" : "";
+  return location.origin + base + "/";
+}
+export function doShare(){
+  var payload = JSON.stringify(state, null, 2);
+  var filename = "wealth-planner-backup-" + isoDateStamp() + ".json";
+  var text = "My Wealth Planner data. Open " + appRootUrl() + ", then tap Import and choose this file to load it there.";
+  var file;
+  try{
+    file = new File([payload], filename, { type: "application/json" });
+  }catch(e){
+    showToast("Couldn't prepare the file to share — try Export instead.");
+    return;
+  }
+  if(!canShareFiles()){
+    showToast("Sharing files isn't supported in this browser — use Export instead, then send the file yourself.");
+    return;
+  }
+  navigator.share({ files: [file], title: "Wealth Planner backup", text: text }).then(function(){
+    showToast("Shared");
+  }).catch(function(err){
+    if(err && err.name === "AbortError") return; // user dismissed the share sheet — not a failure
+    showToast("Couldn't share — try Export instead.");
+  });
+}
+
 function finishExport(payload, filename, mime, savedMsg){
   mime = mime || "application/json";
   savedMsg = savedMsg || "Backup saved";

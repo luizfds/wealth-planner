@@ -207,5 +207,9 @@
     all:unset; cursor:pointer; font-weight:700; text-decoration:underline; text-underline-offset:2px;
     color: inherit; flex:none;
   }
+  .toast-close-btn{
+    all:unset; cursor:pointer; color: inherit; opacity:.65; flex:none; font-size:11px; padding:2px 4px;
+  }
+  .toast-close-btn:hover{ opacity:1; }
 
   .visually-hidden{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }

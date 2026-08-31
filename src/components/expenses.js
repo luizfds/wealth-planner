@@ -571,7 +571,7 @@ function accountRowHtml(a, idx){
     : "";
   var delBtn = '<button type="button" class="btn btn-ghost btn-sm row-del" data-acct-del="' + idx + '" aria-label="Delete account">✕</button>';
   if(state.uiMode === "modern"){
-    return '<div class="m-row computed acct-mgmt-row" data-acct-index="' + idx + '">' +
+    return '<div class="m-row acct-mgmt-row" data-acct-index="' + idx + '">' +
       '<div class="m-row-summary" style="cursor:default;flex-wrap:wrap;gap:8px">' + nameInput + typeSelect + dayInput + delBtn + '</div>' +
     '</div>';
   }

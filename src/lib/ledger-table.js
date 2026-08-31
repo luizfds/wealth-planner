@@ -1,5 +1,5 @@
 import { PERIODS, FREQS, CLASSES, INCOME_TYPES, SUPER_MODES, SACRIFICE_MODES, sacrificeModeToLabel } from "../constants.js";
-import { periodsOf, nextDueDate, daysUntil } from "../calc/ledger.js";
+import { periodsOf } from "../calc/ledger.js";
 import { incomeRowSuperNote } from "../calc/tax.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "./format.js";
 import { escapeAttr } from "./html.js";
@@ -10,9 +10,20 @@ function todayStr(){ return new Date().toISOString().slice(0, 10); }
 // backdated (e.g. a payslip that landed last week). The date lives in a sibling input rather
 // than a prompt/modal so it fits this app's established inline-editing style; the click handler
 // reads it directly off the row rather than threading it through here.
-export function logControlsHtml(section, idx){
-  return '<input type="date" class="log-date" value="' + todayStr() + '" aria-label="Date to log this amount under" title="Date to log this amount under — defaults to today, can be backdated">' +
-    '<button type="button" class="asset-log-btn" data-log="' + escapeAttr(section) + ':' + idx + '" title="Snapshot the amount above under the date to the left">Log</button>';
+//
+// asTransaction (shared expenses only) changes what "Log" means: instead of snapshotting the
+// row's own Amount field into item.history, it adds an editable-amount entry to
+// state.transactions[] linked to this item, leaving the row's Amount/Frequency alone as the
+// untouched planned budget. Needs its own amount input since the two numbers can now genuinely
+// differ (e.g. logging $187 of actual groceries against a $150 planned line).
+export function logControlsHtml(section, idx, item, asTransaction){
+  var amountField = asTransaction
+    ? '<input type="number" step="0.01" min="0" class="log-amount" value="' + item.amount + '" aria-label="Amount actually spent" title="Amount actually spent — defaults to the planned amount, edit if it differs">'
+    : "";
+  return amountField +
+    '<input type="date" class="log-date" value="' + todayStr() + '" aria-label="Date to log this' + (asTransaction ? " transaction" : " amount") + ' under" title="Date to log this under — defaults to today, can be backdated">' +
+    '<button type="button" class="asset-log-btn" data-log="' + escapeAttr(section) + ':' + idx + '"' + (asTransaction ? ' data-log-tx="1"' : '') +
+      ' title="' + (asTransaction ? "Record this as a transaction against this budget line" : "Snapshot the amount above under the date to the left") + '">Log</button>';
 }
 
 // Shared by every "Log"-able row (assets, properties, debts, income, shared expenses) — a small
@@ -29,18 +40,6 @@ export function historyTrendHtml(item){
   var arrow = delta > 0 ? "▲" : (delta < 0 ? "▼" : "–");
   return '<div class="asset-trend ' + cls + '">' + arrow + ' ' + fmtCurrency0.format(Math.abs(delta)) +
     ' (' + fmtPercent1.format(Math.abs(pct)) + ') since ' + escapeAttr(prev.date) + '</div>';
-}
-
-// Shared by both row renderers below (opts.showDueDate) — projects a plain-language "next due"
-// note from item.lastIncurredDate + item.freq, or a prompt to set one if it's never been
-// tracked. Not shown for computed rows (nothing to "pay" — they're auto-derived).
-export function dueDateNoteHtml(item){
-  var due = nextDueDate(item.lastIncurredDate, item.freq);
-  if(!due) return '<span class="due-note due-unset">No last-paid date set</span>';
-  var days = daysUntil(due);
-  var label = days < 0 ? ("overdue by " + Math.abs(days) + "d") : (days === 0 ? "due today" : "due in " + days + "d");
-  var cls = days < 0 ? "due-overdue" : (days <= 7 ? "due-soon" : "");
-  return '<span class="due-note ' + cls + '">Next due ' + escapeAttr(due) + " (" + label + ")</span>";
 }
 
 export function periodTh(){
@@ -62,21 +61,20 @@ export function buildTable(tableEl, section, items, opts, indices){
   opts = opts || {};
   var showClass = opts.showClass !== false;
   var showIncomeFields = !!opts.showIncomeFields;
-  var showDueDate = !!opts.showDueDate;
   var showLog = !!opts.showLog;
+  var logAsTransaction = !!opts.logAsTransaction;
   var acctClass = opts.acctColClass || (opts.hideAcctToggle ? "col-account-exp" : "");
   var classClass = opts.hideClassToggle ? "col-classification" : "";
   var thead = '<thead><tr><th>What</th>' +
     (showClass ? '<th' + (classClass ? ' class="' + classClass + '"' : '') + '>Classification</th>' : '') +
     (showIncomeFields ? '<th class="col-person">Person</th><th class="col-type">Type</th><th class="col-super">Super</th><th class="col-sacrifice">Cash / Sacrifice</th>' : '') +
     '<th' + (showIncomeFields ? ' class="col-account"' : acctClass ? ' class="' + acctClass + '"' : '') + '>Account</th><th class="num">Amount</th><th>Frequency</th>' +
-    (showDueDate ? '<th title="When this was last actually paid — used to project when it\'s next due">Last paid</th>' : '') +
     periodTh() + '<th></th></tr></thead>';
-  var rows = items.map(function(item, idx){ return rowHtml(section, item, indices ? indices[idx] : idx, showClass, showIncomeFields, acctClass, classClass, showDueDate, showLog); }).join("");
+  var rows = items.map(function(item, idx){ return rowHtml(section, item, indices ? indices[idx] : idx, showClass, showIncomeFields, acctClass, classClass, showLog, logAsTransaction); }).join("");
   tableEl.innerHTML = thead + "<tbody>" + rows + "</tbody>";
 }
 
-export function rowHtml(section, item, idx, showClass, showIncomeFields, acctClass, classClass, showDueDate, showLog){
+export function rowHtml(section, item, idx, showClass, showIncomeFields, acctClass, classClass, showLog, logAsTransaction){
   var isComputed = !!item.computed;
   var isGrossRef = showIncomeFields && item.incomeType === "Gross" && !isComputed;
   // A template row nobody has filled in yet (still $0) shouldn't read with the same weight as
@@ -87,7 +85,7 @@ export function rowHtml(section, item, idx, showClass, showIncomeFields, acctCla
   return '<tr data-section="' + section + '" data-index="' + idx + '"' + (rowClass ? ' class="' + rowClass.trim() + '"' : "") + '>' +
     '<td class="what-cell"><input type="text" class="f-what" value="' + escapeAttr(item.what) + '" aria-label="Item name">' +
       (item.syntheticNetFor ? '<button type="button" class="row-breakdown-toggle" data-breakdown-person="' + escapeAttr(item.syntheticNetFor) + '" aria-expanded="false">▸ Breakdown</button>' : "") +
-      (showLog && !isComputed ? historyTrendHtml(item) : "") +
+      (showLog && !logAsTransaction && !isComputed ? historyTrendHtml(item) : "") +
     '</td>' +
     (showClass ? '<td class="class-cell' + (classClass ? " " + classClass : "") + '"><select class="f-class">' + optionsHtml(CLASSES, item.classification || "Needs") + '</select></td>' : '') +
     (showIncomeFields ? (
@@ -103,10 +101,9 @@ export function rowHtml(section, item, idx, showClass, showIncomeFields, acctCla
       (isComputed ? '<span class="computed-note">' + escapeAttr(item.computedNote || "auto-calculated") + '</span>' : "") +
       (isGrossRef ? '<span class="computed-note super-note">' + escapeAttr(incomeRowSuperNote(item)) + '</span>' : "") + '</td>' +
     '<td class="freq-cell"><select class="f-freq"' + (isComputed ? " disabled" : "") + '>' + optionsHtml(FREQS, item.freq) + '</select></td>' +
-    (showDueDate ? '<td class="due-cell"><input type="date" class="f-lastpaid" value="' + escapeAttr(item.lastIncurredDate || "") + '"' + (isComputed ? " disabled" : "") + ' aria-label="Last paid date">' + (isComputed ? "" : dueDateNoteHtml(item)) + '</td>' : '') +
     periodTd(item) +
     '<td class="log-cell">' + (isComputed ? "" : (
-      (showLog ? logControlsHtml(section, idx) : "") +
+      (showLog ? logControlsHtml(section, idx, item, logAsTransaction) : "") +
       '<button class="btn btn-ghost btn-sm row-del" data-del="' + section + ':' + idx + '" aria-label="Delete row">✕</button>'
     )) + '</td>' +
     '</tr>';
@@ -125,13 +122,12 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
   var isPrimary = opts.primaryId && item.id === opts.primaryId;
   var monthly = periodsOf(item.amount, item.freq).monthly;
   var dot = (!isComputed && opts.colorIdx != null) ? '<span class="m-row-dot series-color-' + opts.colorIdx + '" aria-hidden="true"></span>' : "";
-  var trendHtml = (opts.showLog && !isComputed) ? historyTrendHtml(item) : "";
+  var trendHtml = (opts.showLog && !opts.logAsTransaction && !isComputed) ? historyTrendHtml(item) : "";
   var summary = '<div class="m-row-summary"' + (isComputed ? ' style="cursor:default"' : ' role="button" tabindex="0" data-row-toggle') + '>' +
     dot +
     '<div style="flex:1 1 auto; min-width:0">' +
       '<div class="m-row-name">' + escapeAttr(item.what) + '</div>' +
       (isComputed && item.computedNote ? '<div class="m-row-sub">' + escapeAttr(item.computedNote) + '</div>' : "") +
-      (opts.showDueDate && !isComputed ? '<div class="m-row-sub">' + dueDateNoteHtml(item) + '</div>' : "") +
       (trendHtml ? '<div class="m-row-sub">' + trendHtml + '</div>' : "") +
     '</div>' +
     '<span class="m-row-amt" data-computed="amt">' + fmtCurrency2.format(monthly) + '/mo</span>' +
@@ -147,15 +143,11 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
     ? '<div class="m-edit-field"><label>Classification</label><select class="f-class">' + optionsHtml(CLASSES, item.classification || "Needs") + '</select></div>'
     : "";
   var accountField = '<div class="m-edit-field' + (opts.showClass ? " span3" : "") + '"><label>Account</label><input type="text" class="f-account" list="acctSuggestions" value="' + escapeAttr(item.account || "") + '" aria-label="Account"></div>';
-  var dueDateField = opts.showDueDate
-    ? '<div class="m-edit-field"><label>Last paid</label><input type="date" class="f-lastpaid" value="' + escapeAttr(item.lastIncurredDate || "") + '" aria-label="Last paid date"></div>'
-    : "";
   // span2: the date input + button need more room than a single 1-of-3 grid column gives them
   // at narrow widths (they'd wrap onto separate lines) — span2 fits them on one line and, for
-  // every current caller, exactly fills out the row alongside whatever's next to it (Account
-  // alone, or Account on its own span3 row followed by this and, where present, Last paid).
+  // every current caller, exactly fills out the row alongside whatever's next to it.
   var logField = opts.showLog
-    ? '<div class="m-edit-field span2"><label>Log</label>' + logControlsHtml(section, idx) + '</div>'
+    ? '<div class="m-edit-field' + (opts.logAsTransaction ? " span3" : " span2") + '"><label>' + (opts.logAsTransaction ? "Log a transaction" : "Log") + '</label>' + logControlsHtml(section, idx, item, opts.logAsTransaction) + '</div>'
     : "";
   var edit = '<div class="m-row-edit"><div class="m-row-edit-inner"><div class="m-row-edit-pad">' +
     '<div class="m-edit-grid">' +
@@ -165,7 +157,6 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
       '<div class="m-edit-field"><label>Frequency</label><select class="f-freq">' + optionsHtml(FREQS, item.freq) + '</select></div>' +
       accountField +
       logField +
-      dueDateField +
     '</div>' +
     '<div class="m-edit-actions">' +
       '<button type="button" class="btn btn-ghost btn-sm row-del" data-del="' + escapeAttr(section) + ':' + idx + '">Delete</button>' +

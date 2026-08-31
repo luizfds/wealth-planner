@@ -10,7 +10,7 @@ export function sacrificeLabelToMode(label){ return label === "Sacrifice %" ? "p
 
 export var ASSET_CATEGORIES = ["Cash", "Shares", "Super", "Vehicle", "Other"];
 export var LIQUID_CATEGORIES = ["Cash", "Shares"];
-export var SHARE_MARKETS = ["ASX", "US"];
+export var SHARE_MARKETS = ["ASX", "US", "Crypto"];
 export var PURCHASE_STATE_CODES = ["NSW", "VIC", "Other"];
 
 // Long-run compound annual growth in established house prices, 1980-2022 (Landmark

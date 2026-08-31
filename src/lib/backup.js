@@ -89,7 +89,11 @@ export function doExport(){
 export function canShareFiles(){
   if(!navigator.canShare) return false;
   try{
-    return navigator.canShare({ files: [new File(["x"], "x.json", { type: "application/json" })] });
+    // Tested with the same extension/MIME doShare() actually sends (see the comment there) —
+    // canShare() can structurally approve a type Chromium's OS-level share intent then refuses,
+    // but there's no reason to let this capability check and the real send disagree about which
+    // type they're even testing.
+    return navigator.canShare({ files: [new File(["x"], "x.txt", { type: "text/plain" })] });
   }catch(e){
     return false;
   }
@@ -119,10 +123,19 @@ export function doShare(){
     return;
   }
   var payload = JSON.stringify(state, null, 2);
-  var filename = "wealth-planner-backup-" + isoDateStamp() + "-encrypted.json";
+  // Sent as .txt/text/plain, not .json/application/json, even though the content is identical
+  // (still valid JSON once decrypted) — Chromium's navigator.share() only hands a file to the OS
+  // share sheet if its type is on an internal safelist, checked again at share() time regardless
+  // of what canShare() already approved, and application/json apparently isn't reliably on it
+  // (confirmed: a real Android device's installed PWA rejected it with NotAllowedError even from
+  // a fresh gesture). "Plain text" is about as universally accepted as file shares get. The
+  // Import file pickers (index.html's #importFile, welcome.html's #welcomeImportFile) accept
+  // .txt too so a recipient can still pick this file up — parsing only checks that the content
+  // is valid JSON, never the filename or MIME type.
+  var filename = "wealth-planner-backup-" + isoDateStamp() + "-encrypted.txt";
   var text = "My Wealth Planner data (password-protected). Open " + welcomeUrl() + " for how to load it, or go straight to Import and enter the passphrase I gave you.";
   encryptBackup(payload, passphrase).then(function(encPayload){
-    var file = new File([encPayload], filename, { type: "application/json" });
+    var file = new File([encPayload], filename, { type: "text/plain" });
     // navigator.share() only works when it's the direct, synchronous result of a user gesture —
     // encryption above is async (Web Crypto), so by the time it resolves, the click that started
     // this has gone stale as far as some browsers are concerned. A persistent toast with its own
@@ -133,21 +146,21 @@ export function doShare(){
         showToast("Shared");
       }).catch(function(err){
         if(err && err.name === "AbortError") return; // user dismissed the share sheet — not a failure
-        // The share sheet itself can still fail for reasons outside our control (confirmed: at
-        // least one real Android device — an installed/standalone PWA — rejects this outright
-        // with NotAllowedError, even from a fresh synchronous gesture; most likely no installed
-        // app there declares it can receive an application/json file). Rather than dead-end
-        // there, fall back to a direct download of the same encrypted file so the user still
-        // ends up with something to hand over manually. The raw error name goes to the console
-        // only, not the toast — a user report of "not allowed" showed that surfacing it in a
-        // single fast-dismissing toast alongside "downloading the file instead" reads as a
-        // scary failure and buries the actually-reassuring part (a file WAS saved). One short,
-        // plainly positive toast instead of two competing ones.
+        // The share sheet itself can still fail for reasons outside our control even for a type
+        // (text/plain) meant to be about as widely accepted as file shares get (confirmed: a real
+        // Android device — an installed/standalone PWA — rejected this outright with
+        // NotAllowedError, even from a fresh synchronous gesture). Rather than dead-end there,
+        // fall back to a direct download of the same encrypted file so the user still ends up
+        // with something to hand over manually. The raw error name goes to the console only, not
+        // the toast — a user report of "not allowed" showed that surfacing it in a single
+        // fast-dismissing toast alongside "downloading the file instead" reads as a scary failure
+        // and buries the actually-reassuring part (a file WAS saved). One short, plainly positive
+        // toast instead of two competing ones.
         console.error("navigator.share() failed:", err);
-        fallbackExport(encPayload, filename, "application/json", "Couldn't attach the file — saved it instead");
-        // Attaching the file is the part that usually fails (no installed app on the device
-        // declares it can receive an application/json share) — plain text/link shares don't have
-        // that problem, since virtually every messaging/email app accepts those. Offer a second,
+        fallbackExport(encPayload, filename, "text/plain", "Couldn't attach the file — saved it instead");
+        // Attaching the file is the part that can still fail even for a broadly-accepted type —
+        // plain text/link shares (no file attached at all) don't have that problem, since
+        // virtually every messaging/email app accepts those. Offer a second,
         // separate attempt at just the message, so the user still gets the actual OS share sheet
         // they're expecting and can pick an app to send the (already-downloaded) file through
         // manually. This needs its own fresh "Send" click: navigator.share() consumes the page's

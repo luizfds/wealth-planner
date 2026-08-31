@@ -1,5 +1,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- A genuinely first-ever visit (nothing saved yet, never seen either intro page) gets sent to
+     the onboarding tutorial instead of straight into an empty Dashboard. Plain synchronous
+     script, not a module — needs to run and redirect before the rest of this page (fonts,
+     styles.css, the app bundle) starts loading, or the user sees a flash of the real app first.
+     "wealthPlanner.v1" duplicates state.js's STORAGE_KEY constant (can't import it here without
+     becoming an async module, which would defeat the point) — keep both in sync if it ever
+     changes. welcome.html/onboarding.html both set wealthPlanner.hasSeenIntro on load, so this
+     never fires twice for the same visitor and never hijacks someone mid-import. -->
+<script>
+  try{
+    if(!localStorage.getItem("wealthPlanner.v1") && !localStorage.getItem("wealthPlanner.hasSeenIntro")){
+      location.replace("onboarding.html");
+    }
+  }catch(e){}
+</script>
 <title>Wealth Planner</title>
 <meta name="description" content="Australian personal finance and property-investment planner. Everything stays in your browser — nothing is sent anywhere.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%233b82f6'/%3E%3Cpath d='M8 11 L11.5 21 L16 14 L20.5 21 L24 11' stroke='%23ffffff' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
@@ -93,6 +108,7 @@
         Show all periods
       </label>
       <p class="app-sidebar-note">Stored only in this browser (<code>localStorage</code>) — nothing is sent anywhere. Clearing your browser data clears this too, so <button class="link-btn" id="exportLink2">Export</button> a backup now and then.</p>
+      <a class="feature-request-link" href="https://github.com/luizfds/wealth-planner/issues/new" target="_blank" rel="noopener noreferrer">💡 Request a feature</a>
       <p class="app-version">v2.24.0</p>
     </div>
     <div class="mobile-header-right">
@@ -469,6 +485,8 @@
     <div class="mobile-more-divider"></div>
     <button type="button" class="mobile-more-item" id="mobileSampleDataBtn">Sample data</button>
     <button type="button" class="mobile-more-item" id="mobileResetBtn">Reset</button>
+    <div class="mobile-more-divider"></div>
+    <a class="mobile-more-item" href="https://github.com/luizfds/wealth-planner/issues/new" target="_blank" rel="noopener noreferrer">💡 Request a feature</a>
     <p class="mobile-more-version" id="mobileMoreVersion"></p>
   </div>
 </nav>

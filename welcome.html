@@ -32,7 +32,12 @@
   }
   .welcome-steps b{ display:block; margin-bottom:2px; }
   .welcome-steps span{ color:var(--ink-soft); }
-  .welcome-cta{ display:block; text-align:center; text-decoration:none; margin-bottom:12px; }
+  .welcome-cta{ display:block; width:100%; text-align:center; text-decoration:none; margin-bottom:12px; cursor:pointer; font:inherit; }
+  .welcome-divider{
+    display:flex; align-items:center; gap:10px; margin:4px 0 22px; color:var(--ink-soft); font-size:11.5px;
+    text-transform:uppercase; letter-spacing:.04em;
+  }
+  .welcome-divider::before, .welcome-divider::after{ content:""; flex:1 1 auto; height:1px; background:var(--border); }
   .welcome-note{
     font-size:11.5px; color:var(--ink-soft); text-align:center; margin:0 0 18px; line-height:1.5;
   }
@@ -48,17 +53,110 @@
     </div>
     <div class="welcome-card">
       <h1>Someone shared their data with you</h1>
-      <p>Wealth Planner is a free budgeting &amp; property-investment tool that keeps everything in your browser — nothing is ever sent anywhere. Here's how to load the file they sent you:</p>
+      <p>Wealth Planner is a free budgeting &amp; property-investment tool that keeps everything in your browser — nothing is ever sent anywhere.</p>
       <ol class="welcome-steps">
-        <li><span class="welcome-step-num">1</span><span><b>Save the file, if you haven't already.</b><span>It's a <code>.json</code> file — from Messages, Mail, AirDrop, etc., save it or keep the share sheet handy.</span></span></li>
-        <li><span class="welcome-step-num">2</span><span><b>Open Wealth Planner.</b><span>Tap the button below.</span></span></li>
-        <li><span class="welcome-step-num">3</span><span><b>Tap Import.</b><span>Top bar on desktop, or the ⋯ More menu on mobile — then choose the file.</span></span></li>
-        <li><span class="welcome-step-num">4</span><span><b>Enter the passphrase.</b><span>Whoever sent this set one when they shared it — ask them if you don't have it.</span></span></li>
+        <li><span class="welcome-step-num">1</span><span><b>Save the file, if you haven't already.</b><span>It's a <code>.json</code> file — from Messages, Mail, AirDrop, etc.</span></span></li>
+        <li><span class="welcome-step-num">2</span><span><b>Import it below.</b><span>You'll need the passphrase whoever sent this gave you separately.</span></span></li>
       </ol>
-      <a class="welcome-cta btn btn-primary" href="index.html">Open Wealth Planner →</a>
-      <p class="welcome-note">Importing replaces whatever's currently in the app on this device — export a backup first if you've already got your own data here.</p>
+      <input type="file" id="welcomeImportFile" accept="application/json,.json" hidden>
+      <button type="button" class="welcome-cta btn btn-primary" id="welcomeImportBtn">Import file →</button>
+      <p class="welcome-note" id="welcomeImportStatus" hidden></p>
+      <p class="welcome-note">Replaces whatever's currently in the app on this device — you'll be asked to confirm first if there's anything to lose.</p>
+      <div class="welcome-divider"><span>or</span></div>
+      <a class="welcome-cta btn" href="index.html">Open Wealth Planner, import later →</a>
       <p class="welcome-alt">Just exploring, no file to import? <a href="index.html">Open the app and start fresh →</a></p>
     </div>
   </div>
+  <div class="toast-wrap" id="toastWrap"></div>
+  <script type="module">
+    import { STORAGE_KEY } from "./src/constants.js";
+    import { migrateState } from "./src/state.js";
+    import { decryptBackup } from "./src/lib/backup.js";
+    import { showToast } from "./src/lib/toast.js";
+
+    // Landing here at all (share recipient or not) means the generic first-time-visitor
+    // onboarding tutorial isn't the right thing to show if they later open the bare app —
+    // this page already oriented them.
+    try{ localStorage.setItem("wealthPlanner.hasSeenIntro", "1"); }catch(e){}
+
+    var fileInput = document.getElementById("welcomeImportFile");
+    var importBtn = document.getElementById("welcomeImportBtn");
+    var statusEl = document.getElementById("welcomeImportStatus");
+
+    function setStatus(msg){
+      statusEl.textContent = msg;
+      statusEl.hidden = !msg;
+    }
+
+    importBtn.addEventListener("click", function(){ fileInput.click(); });
+    fileInput.addEventListener("change", function(e){
+      var file = e.target.files[0];
+      fileInput.value = ""; // so re-picking the same file still fires "change" next time
+      if(!file) return;
+      setStatus("Reading " + file.name + "…");
+      var reader = new FileReader();
+      reader.onload = function(){ handleImportedText(reader.result); };
+      reader.onerror = function(){ setStatus(""); showToast("Couldn't read that file — try again."); };
+      reader.readAsText(file);
+    });
+
+    function handleImportedText(raw){
+      var envelope;
+      try{ envelope = JSON.parse(raw); }catch(err){ setStatus(""); showToast("That file doesn't look like a valid backup"); return; }
+      if(envelope && envelope.wealthPlannerEncrypted){
+        var passphrase = prompt("This backup is encrypted. Enter its passphrase to unlock it:");
+        if(passphrase == null){ setStatus(""); return; }
+        setStatus("Decrypting…");
+        decryptBackup(envelope, passphrase).then(function(plainStr){
+          finishImport(plainStr);
+        }).catch(function(){
+          setStatus("");
+          showToast("Wrong passphrase, or this backup is corrupted.");
+        });
+      } else {
+        finishImport(raw);
+      }
+    }
+
+    function finishImport(jsonStr){
+      var parsed;
+      try{
+        parsed = JSON.parse(jsonStr);
+        if(!parsed || !parsed.income || !parsed.home) throw new Error("bad shape");
+      }catch(err){
+        setStatus("");
+        showToast("That file doesn't look like a valid backup");
+        return;
+      }
+      // Already-started-using-it check: state.js writes a fresh defaultState() back to
+      // localStorage the very first time the real app loads, before the user has touched
+      // anything — so "is there a saved entry at all" isn't precise enough once someone's
+      // opened the app even once. Parse what's there and look for actual content instead, same
+      // check app.js's own Import flow uses.
+      var hasExistingData = false;
+      try{
+        var existingRaw = localStorage.getItem(STORAGE_KEY);
+        var existing = existingRaw ? JSON.parse(existingRaw) : null;
+        hasExistingData = !!(existing && (
+          (existing.income && existing.income.length) || (existing.shared && existing.shared.length) ||
+          (existing.assets && existing.assets.length) || (existing.properties && existing.properties.length) ||
+          (existing.transactions && existing.transactions.length) || (existing.debts && existing.debts.length)
+        ));
+      }catch(e){}
+      if(hasExistingData){
+        var ok = confirm("You already have data saved in Wealth Planner on this device. Importing will replace it — this can't be undone unless you've exported a backup first. Continue?");
+        if(!ok){ setStatus(""); return; }
+      }
+      try{
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(migrateState(parsed)));
+      }catch(e){
+        setStatus("");
+        showToast("Couldn't save that here — try again, or use Import from inside the app instead.");
+        return;
+      }
+      setStatus("Imported — opening the app…");
+      setTimeout(function(){ location.href = "index.html"; }, 500);
+    }
+  </script>
 </body>
 </html>

@@ -101,6 +101,13 @@ function appRootUrl(){
   var base = location.hostname.indexOf("github.io") !== -1 ? "/wealth-planner" : "";
   return location.origin + base + "/";
 }
+// A recipient who's never seen this app before landing straight on the Dashboard (empty, with no
+// obvious connection to "someone just sent me a file") is a worse first impression than a short
+// explainer page — welcome.html is a static page (not part of the SPA's client routing) that
+// walks through saving the file, opening the app, and importing it.
+function welcomeUrl(){
+  return appRootUrl() + "welcome.html";
+}
 export function doShare(){
   if(!canShareFiles()){
     showToast("Sharing files isn't supported in this browser — use Export instead, then send the file yourself.");
@@ -113,22 +120,28 @@ export function doShare(){
   }
   var payload = JSON.stringify(state, null, 2);
   var filename = "wealth-planner-backup-" + isoDateStamp() + "-encrypted.json";
-  var text = "My Wealth Planner data (password-protected). Open " + appRootUrl() + ", tap Import, choose this file, and enter the passphrase I gave you.";
+  var text = "My Wealth Planner data (password-protected). Open " + welcomeUrl() + " for how to load it, or go straight to Import and enter the passphrase I gave you.";
   encryptBackup(payload, passphrase).then(function(encPayload){
     var file = new File([encPayload], filename, { type: "application/json" });
     // navigator.share() only works when it's the direct, synchronous result of a user gesture —
     // encryption above is async (Web Crypto), so by the time it resolves, the click that started
-    // this has gone stale as far as some browsers are concerned (confirmed on a real Android
-    // device: share() rejected outright once a passphrase prompt + async encrypt sat in front of
-    // it, where the original one-tap unencrypted version worked fine). A persistent toast with its
-    // own action button gives us a fresh, guaranteed-synchronous click to hang the real share()
-    // call off of, instead of triggering it from inside this .then().
+    // this has gone stale as far as some browsers are concerned. A persistent toast with its own
+    // action button gives us a fresh, guaranteed-synchronous click to hang the real share() call
+    // off of, instead of triggering it from inside this .then().
     showPersistentToast("Ready to share (encrypted)", "Send", function(){
       navigator.share({ files: [file], title: "Wealth Planner backup", text: text }).then(function(){
         showToast("Shared");
       }).catch(function(err){
         if(err && err.name === "AbortError") return; // user dismissed the share sheet — not a failure
-        showToast("Couldn't share — try Export instead.");
+        // The share sheet itself can still fail for reasons outside our control (confirmed: at
+        // least one real Android device rejects this outright, even from a fresh synchronous
+        // gesture — most likely no installed app declares it can receive an application/json
+        // file). Rather than dead-end there, fall back to a direct download of the same encrypted
+        // file — the user can still hand it over manually — and surface the real error (not just
+        // a generic message) so a report of this actually says what the browser said.
+        console.error("navigator.share() failed:", err);
+        showToast("Couldn't open the share sheet" + (err && err.name ? " (" + err.name + ")" : "") + " — downloading the file instead.");
+        fallbackExport(encPayload, filename, "application/json", "Backup saved");
       });
     });
   }).catch(function(){

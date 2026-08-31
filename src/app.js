@@ -8,7 +8,7 @@ import { getNotifications, unreadNotificationCount, markNotificationRead, markAl
 import { buildTable } from "./lib/ledger-table.js";
 import { onHorizontalSwipe } from "./lib/swipe.js";
 import {
-  decryptBackup, doExport, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv, exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard
+  decryptBackup, doExport, doShare, canShareFiles, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv, exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard
 } from "./lib/backup.js";
 import { periodsOf, sumField, appendHistorySnapshot } from "./calc/ledger.js";
 import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax } from "./calc/tax.js";
@@ -1558,6 +1558,14 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
   document.getElementById("exportBtn").addEventListener("click", doExport);
   document.getElementById("exportLink2").addEventListener("click", doExport);
 
+  // Only shown where the browser can actually hand a file to the OS share sheet — everywhere
+  // else (most desktop browsers, notably) it stays hidden and Export remains the only path.
+  if(canShareFiles()){
+    document.getElementById("shareBtn").hidden = false;
+    document.getElementById("mobileShareBtn").hidden = false;
+  }
+  document.getElementById("shareBtn").addEventListener("click", doShare);
+
   document.getElementById("importBtn").addEventListener("click", function(){
     document.getElementById("importFile").click();
   });
@@ -1676,6 +1684,7 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
   // exactly with nothing to keep in sync beyond the label mirrors above.
   [
     ["mobileThemeBtn", "themeToggleBtn"],
+    ["mobileShareBtn", "shareBtn"],
     ["mobileImportBtn", "importBtn"],
     ["mobileExportBtn", "exportBtn"],
     ["mobileSampleDataBtn", "mockDataBtn"],

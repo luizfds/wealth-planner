@@ -30,17 +30,25 @@ function assetRowHtml(item, idx){
 function holdingCurrency(item){
   return MARKET_CURRENCY[item.market] || "AUD";
 }
-function gainLossHtml(item){
-  if(item.avgCost == null || item.avgCost === "") return '<span class="calc-note">—</span>';
+// Shared by gainLossHtml() (display) and the winners/losers filter + gain-based sort below —
+// one calculation, not three copies of the same "no avg cost set = null, else (price-cost)*qty"
+// logic. null (not a $0 struct) specifically means "nothing to compare against yet", so a filter
+// or sort can tell that apart from a holding that's flat.
+function holdingGain(item){
+  if(item.avgCost == null || item.avgCost === "") return null;
   var qty = Number(item.quantity) || 0;
   var cost = Number(item.avgCost) || 0;
   var price = Number(item.price) || 0;
   var gainDollar = (price - cost) * qty;
-  var pct = cost ? (price - cost) / cost : 0;
-  var cls = gainDollar > 0 ? "up" : (gainDollar < 0 ? "down" : "");
-  var arrow = gainDollar > 0 ? "▲" : (gainDollar < 0 ? "▼" : "–");
-  return '<span class="asset-trend gain-cell ' + cls + '">' + arrow + ' ' + fmtCurrency0For(holdingCurrency(item)).format(Math.abs(gainDollar)) +
-    ' (' + fmtPercent1.format(Math.abs(pct)) + ')</span>';
+  return { gainDollar: gainDollar, pct: cost ? (price - cost) / cost : 0 };
+}
+function gainLossHtml(item){
+  var g = holdingGain(item);
+  if(!g) return '<span class="calc-note">—</span>';
+  var cls = g.gainDollar > 0 ? "up" : (g.gainDollar < 0 ? "down" : "");
+  var arrow = g.gainDollar > 0 ? "▲" : (g.gainDollar < 0 ? "▼" : "–");
+  return '<span class="asset-trend gain-cell ' + cls + '">' + arrow + ' ' + fmtCurrency0For(holdingCurrency(item)).format(Math.abs(g.gainDollar)) +
+    ' (' + fmtPercent1.format(Math.abs(g.pct)) + ')</span>';
 }
 
 // "as of 2026-08-31 · USD" (or just "USD" with no date yet) — always shown, not only once a
@@ -369,23 +377,103 @@ function sharesGainLossGlanceHtml(items){
   '</div>';
 }
 
+// Session-only (not persisted, mirrors assetPersonFilter's own convention) — narrows the row
+// list/table to holdings whose unrealized gain is positive/negative/not trackable yet.
+// Deliberately does NOT affect sharesGainLossGlanceHtml() above: that panel summarizes the whole
+// (person-filtered) portfolio, and narrowing the row list below it shouldn't silently change
+// what the summary above it means.
+export var sharesGainFilter = "";
+export function setSharesGainFilter(value){
+  sharesGainFilter = value;
+  renderSharesSubpage();
+}
+function sharesGainMatches(item){
+  var g = holdingGain(item);
+  if(sharesGainFilter === "winners") return !!g && g.gainDollar > 0;
+  if(sharesGainFilter === "losers") return !!g && g.gainDollar < 0;
+  if(sharesGainFilter === "unset") return !g;
+  return true;
+}
+var SHARES_GAIN_FILTERS = [
+  { key: "", label: "All" },
+  { key: "winners", label: "▲ Winners" },
+  { key: "losers", label: "▼ Losers" },
+  { key: "unset", label: "No cost set" }
+];
+
+// Also session-only. "" (Default) keeps whatever order state.assets itself stores them in — the
+// same order every other asset category renders in — rather than silently imposing a sort nobody
+// asked for the moment this feature shipped.
+export var sharesSortMode = "";
+export function setSharesSortMode(value){
+  sharesSortMode = value;
+  renderSharesSubpage();
+}
+var SHARES_SORT_OPTIONS = [
+  { key: "", label: "Sort: Default" },
+  { key: "name", label: "Sort: Name (A–Z)" },
+  { key: "value-desc", label: "Sort: Value (high–low)" },
+  { key: "value-asc", label: "Sort: Value (low–high)" },
+  { key: "gain-desc", label: "Sort: Gain/loss $ (high–low)" },
+  { key: "gain-asc", label: "Sort: Gain/loss $ (low–high)" },
+  { key: "pct-desc", label: "Sort: Gain/loss % (high–low)" },
+  { key: "pct-asc", label: "Sort: Gain/loss % (low–high)" }
+];
+// Sorts items/indices together (indices have to keep pointing at each item's real position in
+// state.assets, same convention as every other filtered-then-rendered list in this app) — a
+// holding with no avg cost sorts after any gain/loss-figure sort so "can't compare" doesn't read
+// as "compares as zero".
+function sortShareData(data){
+  if(!sharesSortMode) return data;
+  var paired = data.items.map(function(item, i){ return { item: item, idx: data.indices[i] }; });
+  function value(item){ return (Number(item.quantity) || 0) * (Number(item.price) || 0); }
+  paired.sort(function(a, b){
+    var ga = holdingGain(a.item), gb = holdingGain(b.item);
+    switch(sharesSortMode){
+      case "name": return a.item.what.localeCompare(b.item.what);
+      case "value-desc": return value(b.item) - value(a.item);
+      case "value-asc": return value(a.item) - value(b.item);
+      case "gain-desc": return (gb ? gb.gainDollar : -Infinity) - (ga ? ga.gainDollar : -Infinity);
+      case "gain-asc": return (ga ? ga.gainDollar : Infinity) - (gb ? gb.gainDollar : Infinity);
+      case "pct-desc": return (gb ? gb.pct : -Infinity) - (ga ? ga.pct : -Infinity);
+      case "pct-asc": return (ga ? ga.pct : Infinity) - (gb ? gb.pct : Infinity);
+      default: return 0;
+    }
+  });
+  return { items: paired.map(function(p){ return p.item; }), indices: paired.map(function(p){ return p.idx; }) };
+}
+function sharesFilterSortHtml(){
+  var filterHtml = '<div class="subnav" id="sharesGainFilter">' + SHARES_GAIN_FILTERS.map(function(o){
+    return '<button type="button" class="subnav-item' + (sharesGainFilter === o.key ? " active" : "") + '" data-shares-gain-filter="' + escapeAttr(o.key) + '">' + escapeAttr(o.label) + '</button>';
+  }).join("") + '</div>';
+  var sortHtml = '<select id="sharesSortSelect" aria-label="Sort holdings">' + SHARES_SORT_OPTIONS.map(function(o){
+    return '<option value="' + o.key + '"' + (sharesSortMode === o.key ? " selected" : "") + '>' + escapeAttr(o.label) + '</option>';
+  }).join("") + '</select>';
+  return '<div class="shares-toolbar">' + filterHtml + sortHtml + '</div>';
+}
+
 export function renderSharesSubpage(){
   var container = document.getElementById("assetsSub-Shares");
   if(!container) return;
-  var data = assetCategoryItems("Shares");
-  var total = data.items.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
-  var footerBtn = '<button type="button" class="btn btn-sm' + (data.items.length ? " btn-ghost" : "") + '" data-add="holding" title="Track an individual holding — symbol, quantity, cost, and value. Set Market to Crypto to track a coin the same way.">+ Add share holding</button>';
+  var allData = assetCategoryItems("Shares");
+  var total = allData.items.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
+  var filteredPairs = allData.items.map(function(item, i){ return { item: item, idx: allData.indices[i] }; }).filter(function(p){ return sharesGainMatches(p.item); });
+  var data = sortShareData({ items: filteredPairs.map(function(p){ return p.item; }), indices: filteredPairs.map(function(p){ return p.idx; }) });
+  var footerBtn = '<button type="button" class="btn btn-sm' + (allData.items.length ? " btn-ghost" : "") + '" data-add="holding" title="Track an individual holding — symbol, quantity, cost, and value. Set Market to Crypto to track a coin the same way.">+ Add share holding</button>';
   var isModern = state.uiMode === "modern";
+  var toolbar = allData.items.length ? sharesFilterSortHtml() : "";
   var body;
-  if(!data.items.length){
+  if(!allData.items.length){
     body = '<p class="ledger-note" style="margin:0 0 12px">No share holdings yet — set Market to "Crypto" on a holding to track a coin the same way (quantity, avg cost, gain/loss, sparkline).</p>' + footerBtn;
+  } else if(!data.items.length){
+    body = '<p class="ledger-note" style="margin:0 0 12px">No holdings match this filter.</p>';
   } else if(isModern){
     var rowMeta = assetRowMeta(data);
     body = '<div class="m-card" id="assetsComp-Shares">' + modernAssetCompBarHtml(rowMeta) + '<div class="m-rows m-asset-rows">' + rowMeta.map(function(m){ return modernShareRowHtml(m.item, m.idx, m.colorIdx); }).join("") + '</div></div><div class="ledger-footer">' + footerBtn + '</div>';
   } else {
-    body = '<div class="table-scroll"><table class="assets-table holdings-table" id="sharesTable"></table></div><div class="ledger-footer">' + footerBtn + '</div>';
+    body = modernAssetCompBarHtml(assetRowMeta(data)) + '<div class="table-scroll"><table class="assets-table holdings-table" id="sharesTable"></table></div><div class="ledger-footer">' + footerBtn + '</div>';
   }
-  var pasteTool = data.items.length
+  var pasteTool = allData.items.length
     ? '<details class="tax-advanced" style="margin:0 0 14px"><summary>Paste prices from Google Sheets</summary>' +
         '<p class="ledger-note" style="margin:8px 0">This app never fetches prices itself — nothing is sent anywhere. First time: "Copy to clipboard", then paste straight into an empty cell in a Google Sheet (or "Download" and import the file instead) — either way you get a live-price formula already written for every holding, crypto included. Then copy its Symbol and Price columns and paste the two-column range below; matches your holdings by ticker symbol (case-insensitive). After that, re-paste the same two columns any time to refresh prices.</p>' +
         '<div style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap">' +
@@ -396,15 +484,65 @@ export function renderSharesSubpage(){
         '<div style="margin-top:8px"><button type="button" class="btn btn-sm" id="sharesPasteApply">Update prices</button></div>' +
       '</details>'
     : "";
+  var historyPanel = allData.items.length
+    ? '<details class="ledger" open><summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Shares value over time</h2></div></summary>' +
+      '<div class="ledger-body"><div id="sharesHistoryPanel"></div></div></details>'
+    : "";
   container.innerHTML = '<div class="ledgers"><details class="ledger" open>' +
     '<summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Shares</h2></div>' +
     '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
-    '<div class="ledger-body"><div id="sharesGlance">' + sharesGainLossGlanceHtml(data.items) + '</div>' + pasteTool + body + '</div></details></div>';
+    '<div class="ledger-body"><div id="sharesGlance">' + sharesGainLossGlanceHtml(allData.items) + '</div>' + pasteTool + toolbar + body + '</div></details>' + historyPanel + '</div>';
   if(data.items.length && !isModern){
     var thead = '<thead><tr><th>What</th><th>Trend</th><th>Symbol</th><th>Mkt</th><th class="num">Qty</th><th class="num">Avg cost</th><th class="num">Price</th><th class="num">Value</th><th>Gain/Loss</th><th>Person</th><th></th><th></th></tr></thead>';
     var rows = data.items.map(function(item, i){ return holdingRowHtml(item, data.indices[i]); }).join("");
     document.getElementById("sharesTable").innerHTML = thead + "<tbody>" + rows + "</tbody>";
   }
+  if(allData.items.length) renderSharesHistoryChart();
+}
+
+// Scoped to just this (person-filtered) Shares portfolio — deliberately reads allData, not the
+// winners/losers-filtered `data` above, since this describes the whole holding set the same way
+// the at-a-glance panel and Total do, not whatever the row filter currently narrows the list to.
+export function renderSharesHistoryChart(){
+  var container = document.getElementById("sharesHistoryPanel");
+  if(!container) return;
+  var data = assetCategoryItems("Shares");
+  var dateSet = {};
+  data.items.forEach(function(a){
+    (a.history || []).forEach(function(h){ dateSet[h.date] = true; });
+  });
+  var dates = Object.keys(dateSet).sort();
+  var today = new Date().toISOString().slice(0, 10);
+  if(dates.indexOf(today) === -1) dates.push(today);
+
+  if(!data.items.length || dates.length < 2){
+    container.innerHTML = '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">Log a value for at least one holding (or paste updated prices) to start tracking your Shares value over time.</p>';
+    return;
+  }
+
+  function valueAtDate(history, currentAmount, d){
+    if(!history || !history.length) return d === today ? (Number(currentAmount) || 0) : 0;
+    var atOrBefore = history.filter(function(h){ return h.date <= d; });
+    if(!atOrBefore.length) return 0;
+    return atOrBefore[atOrBefore.length - 1].value;
+  }
+  var points = dates.map(function(d){
+    var total = data.items.reduce(function(sum, a){ return sum + valueAtDate(a.history, a.amount, d); }, 0);
+    return { x: new Date(d + "T00:00:00").getTime(), y: total, dateLabel: d };
+  });
+
+  container.innerHTML = "";
+  var chartDiv = document.createElement("div");
+  container.appendChild(chartDiv);
+
+  renderLineChart(chartDiv, [{ label: "Shares value", colorClass: "series-color-2", points: points }], {
+    height: 220,
+    yFormat: function(v){ return fmtCurrency0.format(v); },
+    xFormat: function(ms){ return new Date(ms).toLocaleDateString(undefined, { year: "numeric", month: "short" }); },
+    xTickCount: Math.min(7, Math.max(2, dates.length)),
+    ariaLabel: "Shares value over time",
+    alwaysLegend: false
+  });
 }
 
 export function parseSharesPasteLine(line){
@@ -672,11 +810,23 @@ export function applySharesPaste(){
   var area = document.getElementById("sharesPasteArea");
   if(!area) return;
   var lines = area.value.split(/\r?\n/);
-  var updatedCount = 0, notFound = [];
+  var updatedCount = 0, notFound = [], unparseable = [];
   var todayStr = new Date().toISOString().slice(0, 10);
   lines.forEach(function(line){
+    var trimmed = line.trim();
+    if(!trimmed) return;
     var parsed = parseSharesPasteLine(line);
-    if(!parsed) return;
+    if(!parsed){
+      // A non-blank line that failed to parse — most commonly a #N/A/#ERROR!/blank price cell
+      // (a GOOGLEFINANCE formula that briefly failed to resolve that ticker), which used to be
+      // dropped with zero feedback: the row's price silently never updated (and so neither did
+      // its sparkline/trend, which only move when history actually gets a new, different value)
+      // with nothing on screen explaining why. Best-effort the first token so the toast can name
+      // it, rather than leaving "why didn't GPRO update" a mystery.
+      var firstToken = trimmed.split(/\t+|,+|\s+/)[0];
+      if(firstToken) unparseable.push(firstToken.toUpperCase());
+      return;
+    }
     var matches = state.assets.filter(function(a){ return a.category === "Shares" && (a.symbol || "").toUpperCase() === parsed.symbol; });
     if(!matches.length){ notFound.push(parsed.symbol); return; }
     matches.forEach(function(item){
@@ -695,6 +845,7 @@ export function applySharesPaste(){
   renderNetWorthPanel();
   persist();
   var msg = updatedCount + " price" + (updatedCount === 1 ? "" : "s") + " updated" +
-    (notFound.length ? " — no holding found for " + notFound.join(", ") : "");
+    (notFound.length ? " — no holding found for " + notFound.join(", ") : "") +
+    (unparseable.length ? " — couldn't read a price for " + unparseable.join(", ") + " (check for #N/A or a blank cell in your sheet)" : "");
   showToast(msg);
 }

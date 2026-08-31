@@ -56,3 +56,13 @@
   .shares-glance-figure{ display:inline-block; padding-left:0; font-size:20px; font-weight:700; }
   .shares-glance-sub{ font-size:11.5px; color: var(--ink-soft); margin:2px 0 10px; }
   .shares-glance-bar{ margin-bottom:8px; }
+
+  /* ---------------- Shares: winners/losers filter + sort ---------------- */
+  .shares-toolbar{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+  #sharesGainFilter .subnav-item{ font-size:11px; padding:5px 10px; border:1px solid var(--border); }
+  #sharesGainFilter .subnav-item.active{ border-color: var(--brass); }
+  #sharesSortSelect{
+    font-size:11.5px; padding:6px 24px 6px 10px; border-radius:100px; border:1px solid var(--border);
+    background: var(--paper); color: var(--ink); font-family:inherit; cursor:pointer; flex:none;
+  }
+  #sharesSortSelect:focus-visible{ box-shadow: var(--focus-ring); outline:none; }

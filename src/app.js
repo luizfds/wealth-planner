@@ -1,7 +1,7 @@
 import { state, setState, storageAvailable, persist, setStatus, defaultState, defaultPurchaseConfig, defaultInvestConfig, migrateState, genId, normalizeShareAsset } from "./state.js";
 import { INCOME_COL_DEFS, PERIODS, sacrificeModeToLabel, sacrificeLabelToMode, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, INVEST_LEG_TYPES } from "./constants.js";
 import { fmtCurrency0, fmtCurrency2 } from "./lib/format.js";
-import { showToast, showUndoToast } from "./lib/toast.js";
+import { showToast, showUndoToast, showPersistentToast } from "./lib/toast.js";
 import { escapeAttr, slug } from "./lib/html.js";
 import { syncUiModeToggle, applyPeriodVisibility } from "./lib/uimode.js";
 import { buildTable } from "./lib/ledger-table.js";
@@ -834,7 +834,13 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       var htr = e.target.closest("[data-index]");
       if(!htr) return;
       var hidx = Number(htr.getAttribute("data-index"));
-      if(state.assets[hidx]){ state.assets[hidx].market = e.target.value; persist(); }
+      if(state.assets[hidx]){
+        state.assets[hidx].market = e.target.value;
+        // Market decides currency (see MARKET_CURRENCY) — patch immediately so the price/value
+        // figures relabel without waiting on some other edit to trigger a re-render.
+        patchHoldingRow(htr, state.assets[hidx]);
+        persist();
+      }
     }
     if(e.target.closest("table.assets-table, .m-asset-rows") &&
        (e.target.classList.contains("h-person") || e.target.classList.contains("a-person") || e.target.classList.contains("v-person"))){
@@ -1731,10 +1737,54 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
   }
 })();
 
+// ---------------- Update detection ----------------
+// sw.js's own script rarely changes between releases (this app has no fixed precache list, so
+// most version bumps only touch app.js/CSS/index.html) — the browser's built-in service-worker
+// update check only re-installs a worker when sw.js's own bytes differ, so relying on that alone
+// would miss the common case entirely. Polling index.html's own <p class="app-version"> instead
+// catches every release, regardless of what changed.
+var CURRENT_APP_VERSION = (function(){
+  var el = document.querySelector(".app-version");
+  return el ? el.textContent.trim() : "";
+})();
+var updateBannerShown = false;
+function announceUpdateAvailable(newVersion){
+  if(updateBannerShown) return;
+  updateBannerShown = true;
+  var msg = newVersion ? ("A new version (" + newVersion + ") is available") : "A new version is available";
+  showPersistentToast(msg, "Reload", function(){ window.location.reload(); });
+}
+function checkForNewVersion(){
+  // A relative fetch resolves against the document's own URL, so this lands on the right
+  // index.html whether served from domain root (local dev) or a GitHub Pages project subpath —
+  // same reasoning as nav.js's BASE_PATH — even from a pushState'd path like /properties.
+  // cache:"no-store" bypasses the browser's HTTP cache, same reasoning as sw.js's own fetch.
+  fetch("index.html", { cache: "no-store" }).then(function(r){ return r.text(); }).then(function(html){
+    var match = html.match(/<p class="app-version">([^<]*)<\/p>/);
+    var latest = match ? match[1].trim() : "";
+    if(latest && CURRENT_APP_VERSION && latest !== CURRENT_APP_VERSION) announceUpdateAvailable(latest);
+  }).catch(function(){ /* offline, or the request was blocked — next check will just retry */ });
+}
+// Cheap enough to run whenever the tab regains focus (the common "came back after a while" case)
+// plus a periodic fallback for a tab that's simply left open and never loses focus.
+document.addEventListener("visibilitychange", function(){
+  if(document.visibilityState === "visible") checkForNewVersion();
+});
+setInterval(checkForNewVersion, 30 * 60 * 1000);
+
 // Registered from the page's own origin/path, so this resolves correctly whether served from
 // domain root (local dev) or a GitHub Pages project subpath — same reasoning as nav.js's BASE_PATH.
 if("serviceWorker" in navigator){
+  var hadControllerAtLoad = !!navigator.serviceWorker.controller;
   window.addEventListener("load", function(){
     navigator.serviceWorker.register("sw.js").catch(function(){});
+  });
+  // Fires when this page starts being controlled by a different worker than the one that had it
+  // at load — the fast path for the (comparatively rare) release that touches sw.js itself.
+  // Skipped on the very first-ever activation (no prior controller): that's a first-time visitor
+  // gaining offline support, not an update.
+  navigator.serviceWorker.addEventListener("controllerchange", function(){
+    if(!hadControllerAtLoad) return;
+    announceUpdateAvailable();
   });
 }

@@ -22,8 +22,17 @@ var SHELL_URL = new URL("index.html", self.registration.scope).href;
 self.addEventListener("fetch", function(event){
   if(event.request.method !== "GET") return;
   var isNavigation = event.request.mode === "navigate";
+  // fetch(event.request) alone still goes through the browser's own HTTP cache (a layer below
+  // this one, governed by GitHub Pages' response headers) — so "network-first" could silently be
+  // satisfied by a stale disk-cached response without this worker or the origin ever being asked,
+  // which is how a shipped update can go quietly unseen even on a hard reload. Cloning with
+  // cache:"no-store" forces an actual round-trip every time. (Request's mode can't be set to
+  // "navigate" explicitly, so cloning a navigation request without overriding mode downgrades it
+  // to "same-origin" — the standard, documented way to still add cache:"no-store" to a navigation
+  // fetch inside a service worker; harmless here since this fetch never leaves the same origin.)
+  var networkRequest = new Request(event.request, { cache: "no-store" });
   event.respondWith(
-    fetch(event.request).then(function(response){
+    fetch(networkRequest).then(function(response){
       // A same-origin stylesheet/font fetch (mode "no-cors") comes back as an opaque response —
       // status is always 0 and .ok is always false by spec, even on success, so .ok alone would
       // silently skip caching every CSS/font request. Still worth caching: we just can't inspect it.

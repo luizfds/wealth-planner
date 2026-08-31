@@ -178,22 +178,70 @@ function googleFinanceTicker(a){
   if(a.market === "Crypto") return symbol + "USD";
   return symbol;
 }
-// A ready-to-paste starting point for the "Paste prices from Google Sheets" round trip — every
-// current Shares/Crypto holding, with a live GOOGLEFINANCE formula already written for it, so a
+// Shared by both the file-download export and the clipboard copy below — every current
+// Shares/Crypto holding, with a live GOOGLEFINANCE formula already written for it, so a
 // first-time setup means paste-this-in rather than hand-typing one formula per holding. Symbol
 // and Price are adjacent columns (matching what the paste-back box expects) so after Sheets
-// evaluates the formulas, selecting and copying those two columns is a single drag. The formula
-// text (leading "=", embedded commas/quotes) round-trips correctly through CSV import in both
-// Sheets and Excel, which treat a leading "=" in an imported cell as a live formula — the same
-// mechanism spreadsheet CSV exports commonly rely on for this.
-export function exportSharesPriceTemplateCsv(){
+// evaluates the formulas, selecting and copying those two columns is a single drag.
+function sharesPriceTemplateTable(){
   var headers = ["What", "Market", "Symbol", "Price"];
   var rows = state.assets.filter(function(a){ return a.category === "Shares"; }).map(function(a){
     var ticker = googleFinanceTicker(a);
     var formula = ticker ? '=GOOGLEFINANCE("' + ticker + '","price")' : "";
     return [a.what, a.market || "ASX", a.symbol || "", formula];
   });
-  exportCsv("shares-price-template-" + isoDateStamp() + ".csv", headers, rows);
+  return { headers: headers, rows: rows };
+}
+// The formula text (leading "=", embedded commas/quotes) round-trips correctly through CSV
+// import in both Sheets and Excel, which treat a leading "=" in an imported cell as a live
+// formula — the same mechanism spreadsheet CSV exports commonly rely on for this.
+export function exportSharesPriceTemplateCsv(){
+  var t = sharesPriceTemplateTable();
+  exportCsv("shares-price-template-" + isoDateStamp() + ".csv", t.headers, t.rows);
+}
+// Tab-separated instead of comma — matches what a real spreadsheet range copies as, so pasting
+// directly into a Google Sheets cell lands each field in its own column (a comma-separated paste
+// would just dump the whole row as literal text into one cell). Same leading-"=" formula
+// behavior applies on a plain paste as it does on CSV import.
+function tsvCell(v){
+  var s = v == null ? "" : String(v);
+  return s.replace(/[\t\r\n]/g, " ");
+}
+function buildTsv(headers, rows){
+  var lines = [headers.map(tsvCell).join("\t")];
+  rows.forEach(function(row){ lines.push(row.map(tsvCell).join("\t")); });
+  return lines.join("\r\n");
+}
+// navigator.clipboard.writeText needs a secure context (https:, or localhost) and is only
+// reliably grantable from a direct user-gesture click handler — both true here. Falls back to
+// the hidden-textarea + execCommand("copy") trick for anything older/unsupported, same pattern
+// browsers have used for clipboard writes since before the async Clipboard API existed.
+function copyTextToClipboard(text){
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    return navigator.clipboard.writeText(text);
+  }
+  return new Promise(function(resolve, reject){
+    try{
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      var ok = document.execCommand("copy");
+      ta.remove();
+      ok ? resolve() : reject(new Error("execCommand copy failed"));
+    }catch(e){ reject(e); }
+  });
+}
+export function copySharesPriceTemplateToClipboard(){
+  var t = sharesPriceTemplateTable();
+  if(!t.rows.length){ showToast("Nothing to copy yet"); return; }
+  copyTextToClipboard(buildTsv(t.headers, t.rows)).then(function(){
+    showToast("Copied — paste straight into a Google Sheets cell");
+  }).catch(function(){
+    showToast("Couldn't copy automatically — try the download button instead");
+  });
 }
 
 export function exportPropertyLoansCsv(){

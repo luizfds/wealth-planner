@@ -82,40 +82,102 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     });
   }
   function rndPick(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
+  function rndInt(min, max){ return Math.floor(rndBetween(min, max + 1)); }
+  // Distinct random picks (no repeats) — used to choose a varying-size, varying-membership
+  // subset of a larger pool (which expenses/holdings appear this time), not just varying amounts
+  // on an always-identical fixed list.
+  function rndPickN(arr, n){
+    var pool = arr.slice();
+    var out = [];
+    n = Math.min(n, pool.length);
+    for(var i = 0; i < n; i++){ out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]); }
+    return out;
+  }
+
+  // A pool for each category (expenses/shares/vehicles/employers/...), with a *varying-size,
+  // varying-membership* random subset picked each run — not just randomized amounts on an
+  // always-identical fixed list. Household size itself varies too (1 or 2 people), which cuts
+  // through everything below: income, super, and how share holdings get attributed by person.
+  var MOCK_NAMES = ["Alex","Jordan","Sam","Taylor","Morgan","Casey","Riley","Jamie","Charlie","Sydney","Harper","Quinn","Avery","Rowan","Skyler","Dakota","Reese","Emerson","Finley","Hayden","Kai","Logan","Micah","Parker","Sage","Drew","Elliot","Frankie"];
+  var MOCK_EMPLOYERS = ["Woolworths","Coles","Commonwealth Bank","Telstra","Qantas","Atlassian","Canva","BHP","Rio Tinto","Westpac","NAB","ANZ","Officeworks","JB Hi-Fi","Bunnings","Deloitte","PwC","KPMG","EY","Optus","Woodside","Suncorp"];
+  var MOCK_CITIES = ["Sydney","Melbourne","Brisbane","Perth","Adelaide","Hobart","Canberra","Gold Coast"];
+  var MOCK_EXPENSE_POOL = [
+    { what:"Internet", classification:"Needs", freq:"Monthly", min:60, max:120, step:5 },
+    { what:"Electricity", classification:"Needs", freq:"Monthly", min:120, max:280, step:5 },
+    { what:"Gas", classification:"Needs", freq:"Quarterly", min:80, max:220, step:5 },
+    { what:"Mobile Phones", classification:"Needs", freq:"Monthly", min:40, max:120, step:5 },
+    { what:"Health Insurance", classification:"Needs", freq:"Monthly", min:100, max:260, step:5 },
+    { what:"Streaming Subscriptions", classification:"Wants", freq:"Monthly", min:20, max:60, step:1 },
+    { what:"Gym Membership", classification:"Wants", freq:"Fortnightly", min:40, max:100, step:5 },
+    { what:"Car Insurance", classification:"Needs", freq:"Monthly", min:80, max:200, step:5 },
+    { what:"Car Rego", classification:"Needs", freq:"Yearly", min:400, max:900, step:10 },
+    { what:"Petrol", classification:"Needs", freq:"Monthly", min:100, max:250, step:5 },
+    { what:"Groceries", classification:"Needs", freq:"Weekly", min:150, max:350, step:5 },
+    { what:"Public Transport", classification:"Needs", freq:"Weekly", min:20, max:60, step:5 },
+    { what:"Eating Out", classification:"Wants", freq:"Fortnightly", min:80, max:250, step:5 },
+    { what:"Trips / Travel", classification:"Wants", freq:"Yearly", min:3000, max:20000, step:500 },
+    { what:"Pets", classification:"Wants", freq:"Weekly", min:30, max:120, step:5 },
+    { what:"Miscellaneous", classification:"Wants", freq:"Yearly", min:500, max:2000, step:50 },
+    { what:"Childcare", classification:"Needs", freq:"Weekly", min:100, max:400, step:10 },
+    { what:"Private School Fees", classification:"Needs", freq:"Yearly", min:5000, max:25000, step:500 },
+    { what:"Home & Contents Insurance", classification:"Needs", freq:"Yearly", min:600, max:1800, step:50 },
+    { what:"Life Insurance", classification:"Needs", freq:"Monthly", min:40, max:200, step:5 },
+    { what:"Charity Donations", classification:"Wants", freq:"Monthly", min:20, max:150, step:5 },
+    { what:"Clothing & Shoes", classification:"Wants", freq:"Monthly", min:50, max:300, step:10 },
+    { what:"Haircuts / Grooming", classification:"Wants", freq:"Monthly", min:30, max:150, step:5 },
+    { what:"Parking", classification:"Needs", freq:"Monthly", min:50, max:250, step:5 },
+    { what:"Tolls", classification:"Needs", freq:"Monthly", min:20, max:150, step:5 },
+    { what:"Home Cleaning", classification:"Wants", freq:"Fortnightly", min:80, max:220, step:10 },
+    { what:"Music Lessons", classification:"Wants", freq:"Monthly", min:40, max:150, step:5 }
+  ];
+  // priceMin/priceMax are per-unit; US/Crypto tickers are USD (see MARKET_CURRENCY, constants.js)
+  // just like a real holding under those markets would be.
+  var MOCK_SHARE_UNIVERSE = [
+    { what:"CSL Limited", symbol:"CSL", market:"ASX", priceMin:180, priceMax:320 },
+    { what:"BHP Group", symbol:"BHP", market:"ASX", priceMin:35, priceMax:55 },
+    { what:"Commonwealth Bank", symbol:"CBA", market:"ASX", priceMin:90, priceMax:170 },
+    { what:"Woolworths Group", symbol:"WOW", market:"ASX", priceMin:25, priceMax:42 },
+    { what:"Telstra", symbol:"TLS", market:"ASX", priceMin:3.5, priceMax:5 },
+    { what:"Wesfarmers", symbol:"WES", market:"ASX", priceMin:50, priceMax:85 },
+    { what:"Vanguard Australian Shares ETF", symbol:"VAS", market:"ASX", priceMin:80, priceMax:110 },
+    { what:"iShares Core S&P 500 ETF", symbol:"IVV", market:"ASX", priceMin:50, priceMax:75 },
+    { what:"Apple Inc", symbol:"AAPL", market:"US", priceMin:140, priceMax:260 },
+    { what:"Microsoft Corp", symbol:"MSFT", market:"US", priceMin:300, priceMax:470 },
+    { what:"Amazon.com Inc", symbol:"AMZN", market:"US", priceMin:100, priceMax:220 },
+    { what:"Alphabet Inc", symbol:"GOOGL", market:"US", priceMin:100, priceMax:200 },
+    { what:"NVIDIA Corp", symbol:"NVDA", market:"US", priceMin:60, priceMax:150 },
+    { what:"Tesla Inc", symbol:"TSLA", market:"US", priceMin:150, priceMax:350 }
+  ];
+  var MOCK_VEHICLES = ["Toyota Corolla","Mazda 3","Tesla Model 3","Ford Ranger","Hyundai i30","Mitsubishi ASX","Subaru Outback","Kia Sportage"];
 
   function generateMockData(){
-    var names = ["Alex", "Jordan", "Sam", "Taylor", "Morgan", "Casey", "Riley", "Jamie"];
-    var personA = rndPick(names);
-    var personB = rndPick(names.filter(function(n){ return n !== personA; }));
-    var cities = ["Sydney", "Melbourne", "Brisbane", "Perth", "Adelaide", "Hobart"];
-    var cityA = rndPick(cities);
-    var cityB = rndPick(cities.filter(function(c){ return c !== cityA; }));
+    var numPeople = rndPick([1, 2]);
+    var personA = rndPick(MOCK_NAMES);
+    var personB = numPeople === 2 ? rndPick(MOCK_NAMES.filter(function(n){ return n !== personA; })) : null;
+    var cityA = rndPick(MOCK_CITIES);
+    var cityB = rndPick(MOCK_CITIES.filter(function(c){ return c !== cityA; }));
     var scenarios = ["Renting", "Buy " + cityA, "Buy " + cityB];
 
-    var income = [
-      { id:"mockIncomeA", what: personA + "'s Salary", classification:"", account:"Everyday Account", person: personA, incomeType:"Gross", amount: rndStep(6000, 13000, 50), freq:"Monthly" },
-      { id:"mockIncomeB", what: personB + "'s Salary", classification:"", account:"Everyday Account", person: personB, incomeType:"Gross", amount: rndStep(4000, 10000, 50), freq:"Monthly" },
-      { what: personA + "'s Bonus", classification:"", account:"Everyday Account", person: personA, incomeType:"Gross", amount: rndStep(2000, 20000, 500), freq:"Yearly", sacrificeMode: "percent", sacrificeValue: rndStep(0, 50, 10) }
-    ];
+    function incomeForPerson(person, idPrefix){
+      var employer = rndPick(MOCK_EMPLOYERS);
+      var items = [
+        { id: idPrefix + "Salary", what: person + "'s Salary (" + employer + ")", classification:"", account:"Everyday Account", person: person, incomeType:"Gross", amount: rndStep(4500, 13000, 50), freq:"Monthly" }
+      ];
+      if(Math.random() < 0.55){
+        var hasSacrifice = Math.random() < 0.4;
+        items.push({ what: person + "'s Bonus", classification:"", account:"Everyday Account", person: person, incomeType:"Gross", amount: rndStep(1500, 20000, 500), freq:"Yearly", sacrificeMode: hasSacrifice ? "percent" : "none", sacrificeValue: hasSacrifice ? rndStep(10, 50, 10) : 0 });
+      }
+      if(Math.random() < 0.25){
+        items.push({ what: person + "'s Side Income", classification:"", account:"Everyday Account", person: person, incomeType:"Net", amount: rndStep(200, 2000, 50), freq:"Monthly" });
+      }
+      return items;
+    }
+    var income = incomeForPerson(personA, "mockIncomeA").concat(personB ? incomeForPerson(personB, "mockIncomeB") : []);
 
-    var shared = [
-      { what:"Internet", classification:"Needs", account:"Everyday Account", amount: rndStep(60, 120, 5), freq:"Monthly" },
-      { what:"Electricity", classification:"Needs", account:"Everyday Account", amount: rndStep(120, 280, 5), freq:"Monthly" },
-      { what:"Gas", classification:"Needs", account:"Everyday Account", amount: rndStep(80, 220, 5), freq:"Quarterly" },
-      { what:"Mobile Phones", classification:"Needs", account:"Credit Card", amount: rndStep(40, 120, 5), freq:"Monthly" },
-      { what:"Health Insurance", classification:"Needs", account:"Credit Card", amount: rndStep(100, 260, 5), freq:"Monthly" },
-      { what:"Streaming Subscriptions", classification:"Wants", account:"Credit Card", amount: rndStep(20, 60, 1), freq:"Monthly" },
-      { what:"Gym Membership", classification:"Wants", account:"Credit Card", amount: rndStep(40, 100, 5), freq:"Fortnightly" },
-      { what:"Car Insurance", classification:"Needs", account:"Credit Card", amount: rndStep(80, 200, 5), freq:"Monthly" },
-      { what:"Car Rego", classification:"Needs", account:"Credit Card", amount: rndStep(400, 900, 10), freq:"Yearly" },
-      { what:"Petrol", classification:"Needs", account:"Credit Card", amount: rndStep(100, 250, 5), freq:"Monthly" },
-      { what:"Groceries", classification:"Needs", account:"Credit Card", amount: rndStep(150, 350, 5), freq:"Weekly" },
-      { what:"Public Transport", classification:"Needs", account:"Credit Card", amount: rndStep(20, 60, 5), freq:"Weekly" },
-      { what:"Eating Out", classification:"Wants", account:"Credit Card", amount: rndStep(80, 250, 5), freq:"Fortnightly" },
-      { what:"Trips / Travel", classification:"Wants", account:"Credit Card", amount: rndStep(3000, 20000, 500), freq:"Yearly" },
-      { what:"Pets", classification:"Wants", account:"Credit Card", amount: rndStep(30, 120, 5), freq:"Weekly" },
-      { what:"Miscellaneous", classification:"Wants", account:"Credit Card", amount: rndStep(500, 2000, 50), freq:"Yearly" }
-    ];
+    var chosenExpenses = rndPickN(MOCK_EXPENSE_POOL, rndInt(12, MOCK_EXPENSE_POOL.length));
+    var shared = chosenExpenses.map(function(e){
+      return { what: e.what, classification: e.classification, account: rndPick(["Everyday Account", "Credit Card"]), amount: rndStep(e.min, e.max, e.step), freq: e.freq };
+    });
 
     var homeCats = function(rentAmt, rentFreq, acct, insurance, council, water, maintenance){
       return [
@@ -130,6 +192,30 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     var rentWeekly = rndStep(450, 900, 10);
     var priceA = rndStep(650000, 1800000, 5000);
     var priceB = rndStep(500000, 1400000, 5000);
+
+    var chosenShares = rndPickN(MOCK_SHARE_UNIVERSE, rndInt(2, 5));
+    var shareHoldings = chosenShares.map(function(s){
+      var isUs = s.market === "US";
+      var qty = isUs ? rndStep(2, 40, 1) : rndStep(10, 300, 5);
+      var priceStep = isUs ? 1 : 0.5;
+      var price = rndStep(s.priceMin, s.priceMax, priceStep);
+      var cost = rndStep(price * 0.7, price * 1.15, priceStep);
+      var person = personB ? rndPick([personA, personB, ""]) : personA;
+      return { what: s.what, category:"Shares", symbol: s.symbol, market: s.market, quantity: qty, avgCost: cost, price: price, priceUpdated:"", person: person, amount: Math.round(qty * price * 100) / 100, history: syntheticPriceHistory(qty, price) };
+    });
+    if(Math.random() < 0.3){
+      var btcQty = Math.round(rndBetween(0.001, 0.05) * 1e8) / 1e8;
+      var btcPrice = rndStep(60000, 130000, 500);
+      shareHoldings.push({ what:"Bitcoin", category:"Shares", symbol:"BTC", market:"Crypto", quantity: btcQty, avgCost: rndStep(btcPrice * 0.7, btcPrice * 1.3, 500), price: btcPrice, priceUpdated:"", person: personA, amount: Math.round(btcQty * btcPrice * 100) / 100, history: syntheticPriceHistory(btcQty, btcPrice) });
+    }
+
+    var assets = [{ what:"Cash Savings", category:"Cash", amount: rndStep(3000, 90000, 500) }].concat(shareHoldings);
+    assets.push({ what:"Superannuation", category:"Super", person: personA, amount: rndStep(15000, 250000, 500) });
+    if(personB) assets.push({ what:"Superannuation", category:"Super", person: personB, amount: rndStep(15000, 250000, 500) });
+    if(Math.random() < 0.5){
+      var vehiclePrice = rndStep(15000, 60000, 500);
+      assets.push({ what: rndPick(MOCK_VEHICLES), category:"Vehicle", purchasePrice: vehiclePrice, purchaseDate: "202" + rndInt(1, 4) + "-0" + rndInt(1, 9) + "-01", depreciationRate: rndStep(8, 15, 1), amount: Math.round(vehiclePrice * 0.65), computed:true, computedNote:"auto: declining balance" });
+    }
 
     return {
       activeScenario: "Renting",
@@ -153,25 +239,13 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
         p[scenarios[2]] = defaultPurchaseConfig(priceB, 20, rndStep(5.5, 7, 0.25), 30, rndPick(["NSW","VIC","Other"]), true);
         return p;
       })(),
-      assets: (function(){
-        var h1Qty = rndStep(20, 150, 5), h1Price = rndStep(220, 320, 1), h1Cost = rndStep(180, 260, 1);
-        var h2Qty = rndStep(5, 40, 1), h2Price = rndStep(150, 300, 1), h2Cost = rndStep(140, 280, 1);
-        var h3Qty = rndStep(50, 300, 5), h3Price = rndStep(30, 90, 1), h3Cost = rndStep(35, 85, 1);
-        return [
-          { what:"Cash Savings", category:"Cash", amount: rndStep(5000, 90000, 500) },
-          { what:"CSL Limited", category:"Shares", symbol:"CSL", market:"ASX", quantity:h1Qty, avgCost:h1Cost, price:h1Price, person:personA, priceUpdated:"", amount: Math.round(h1Qty * h1Price * 100) / 100, history: syntheticPriceHistory(h1Qty, h1Price) },
-          { what:"Apple Inc", category:"Shares", symbol:"AAPL", market:"US", quantity:h2Qty, avgCost:h2Cost, price:h2Price, person:personB, priceUpdated:"", amount: Math.round(h2Qty * h2Price * 100) / 100, history: syntheticPriceHistory(h2Qty, h2Price) },
-          { what:"Vanguard Australian Shares ETF", category:"Shares", symbol:"VAS", market:"ASX", quantity:h3Qty, avgCost:h3Cost, price:h3Price, person:"", priceUpdated:"", amount: Math.round(h3Qty * h3Price * 100) / 100, history: syntheticPriceHistory(h3Qty, h3Price) },
-          { what:"Superannuation", category:"Super", person: personA, amount: rndStep(20000, 250000, 500) },
-          { what:"Superannuation", category:"Super", person: personB, amount: rndStep(20000, 250000, 500) }
-        ];
-      })(),
-      properties: (function(){
+      assets: assets,
+      properties: Math.random() < 0.6 ? (function(){
         var ipValue = rndStep(500000, 900000, 5000);
         var ipLoanBalance = Math.round(ipValue * rndBetween(0.6, 0.8));
         var ipRentWeekly = rndStep(450, 750, 10);
         return [{
-          id: genId("p"), what: "48 Example St", kind: "IP", value: ipValue, history: [],
+          id: genId("p"), what: rndStep(1, 99, 1) + " Example St", kind: "IP", value: ipValue, history: [],
           pmFee: { percent: rndStep(5, 8, 0.5), flat: rndStep(0, 8, 0.5) },
           loans: [{
             id: genId("l"), what: "Investment Loan", balance: ipLoanBalance, rate: rndStep(5.8, 6.8, 0.05), termYears: 27,
@@ -187,7 +261,7 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
             { id: "pmFee6", what: "Property Manager Fee", classification: "Needs", account: "Everyday Account", amount: 0, freq: "Weekly", computed: true, computedNote: "" }
           ]
         }];
-      })(),
+      })() : [],
       projection: { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0 },
       tax: { sgRate: 12, ipOwnership: {}, settings: {} }
     };

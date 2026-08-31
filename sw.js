@@ -38,17 +38,21 @@ self.addEventListener("fetch", function(event){
       // silently skip caching every CSS/font request. Still worth caching: we just can't inspect it.
       if(response && (response.ok || response.type === "opaque")){
         var copyForRequest = response.clone();
-        var copyForShell = isNavigation ? response.clone() : null;
+        // Client-side routing (nav.js pushState) means any *extensionless* path — /properties,
+        // /assets/shares — is really just this same shell; a URL never actually fetched over the
+        // network before (only pushState'd to) would otherwise be a guaranteed cache miss when
+        // reloaded offline or when the OS relaunches the installed app to a remembered non-root
+        // path. A real, separate .html file (welcome.html, 404.html) is not that — caching its
+        // content under SHELL_URL would silently replace the actual app shell, breaking offline
+        // navigation to every pushState'd route afterward.
+        var isDistinctHtmlPage = /\.html$/i.test(new URL(event.request.url).pathname) && event.request.url !== SHELL_URL;
+        var copyForShell = (isNavigation && !isDistinctHtmlPage) ? response.clone() : null;
         // Caching is a side effect of returning `response` below — without waitUntil(), the browser
         // is free to tear down this fetch event (and the still-pending cache write) the instant the
         // response is handed back, before cache.put() actually finishes.
         event.waitUntil(
           caches.open(CACHE_NAME).then(function(cache){
             var puts = [cache.put(event.request, copyForRequest)];
-            // Client-side routing (nav.js pushState) means any path — /properties, /assets/shares —
-            // is really just this same shell; a URL never actually fetched over the network before
-            // (only pushState'd to) would otherwise be a guaranteed cache miss when reloaded offline
-            // or when the OS relaunches the installed app to a remembered non-root path.
             if(copyForShell) puts.push(cache.put(SHELL_URL, copyForShell));
             return Promise.all(puts);
           })

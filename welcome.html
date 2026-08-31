@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wealth Planner — Import shared data</title>
+<meta name="robots" content="noindex">
+<meta name="description" content="Someone shared their Wealth Planner data with you — how to import it.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%233b82f6'/%3E%3Cpath d='M8 11 L11.5 21 L16 14 L20.5 21 L24 11' stroke='%23ffffff' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f8fafc">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b0f19">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+  .welcome-wrap{ max-width:460px; margin:0 auto; padding:48px 20px 60px; }
+  .welcome-brand{ text-align:center; margin-bottom:28px; }
+  .welcome-brand .app-brand-name{ font-size:24px; justify-content:center; }
+  .welcome-brand p{ color:var(--ink-soft); font-size:12.5px; margin:4px 0 0; }
+  .welcome-card{
+    background:var(--paper-raised); border:1px solid var(--border); border-radius:14px;
+    padding:24px 22px; box-shadow:var(--shadow);
+  }
+  .welcome-card h1{ font-size:19px; margin:0 0 6px; letter-spacing:-0.01em; }
+  .welcome-card > p{ color:var(--ink-soft); font-size:13.5px; margin:0 0 20px; }
+  .welcome-steps{ list-style:none; margin:0 0 22px; padding:0; display:flex; flex-direction:column; gap:14px; }
+  .welcome-steps li{ display:flex; gap:12px; align-items:flex-start; font-size:13.5px; }
+  .welcome-step-num{
+    flex:none; width:24px; height:24px; border-radius:50%; background:var(--brass-wash); color:var(--brass-strong);
+    font-weight:700; font-size:12px; display:flex; align-items:center; justify-content:center; margin-top:1px;
+  }
+  .welcome-steps b{ display:block; margin-bottom:2px; }
+  .welcome-steps span{ color:var(--ink-soft); }
+  .welcome-cta{ display:block; text-align:center; text-decoration:none; margin-bottom:12px; }
+  .welcome-note{
+    font-size:11.5px; color:var(--ink-soft); text-align:center; margin:0 0 18px; line-height:1.5;
+  }
+  .welcome-alt{ text-align:center; font-size:12.5px; }
+  .welcome-alt a{ color:var(--brass-strong); text-decoration:underline; text-underline-offset:2px; }
+</style>
+</head>
+<body>
+  <div class="welcome-wrap">
+    <div class="welcome-brand">
+      <div class="app-brand-name"><span class="app-brand-mark">W</span>ealth Planner</div>
+      <p>Budget · Property · Tax · Net worth</p>
+    </div>
+    <div class="welcome-card">
+      <h1>Someone shared their data with you</h1>
+      <p>Wealth Planner is a free budgeting &amp; property-investment tool that keeps everything in your browser — nothing is ever sent anywhere. Here's how to load the file they sent you:</p>
+      <ol class="welcome-steps">
+        <li><span class="welcome-step-num">1</span><span><b>Save the file, if you haven't already.</b><span>It's a <code>.json</code> file — from Messages, Mail, AirDrop, etc., save it or keep the share sheet handy.</span></span></li>
+        <li><span class="welcome-step-num">2</span><span><b>Open Wealth Planner.</b><span>Tap the button below.</span></span></li>
+        <li><span class="welcome-step-num">3</span><span><b>Tap Import.</b><span>Top bar on desktop, or the ⋯ More menu on mobile — then choose the file.</span></span></li>
+        <li><span class="welcome-step-num">4</span><span><b>Enter the passphrase.</b><span>Whoever sent this set one when they shared it — ask them if you don't have it.</span></span></li>
+      </ol>
+      <a class="welcome-cta btn btn-primary" href="index.html">Open Wealth Planner →</a>
+      <p class="welcome-note">Importing replaces whatever's currently in the app on this device — export a backup first if you've already got your own data here.</p>
+      <p class="welcome-alt">Just exploring, no file to import? <a href="index.html">Open the app and start fresh →</a></p>
+    </div>
+  </div>
+</body>
+</html>

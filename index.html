@@ -71,6 +71,7 @@
       <button type="button" class="nav-item" data-page="dashboard">Dashboard</button>
       <button type="button" class="nav-item" data-page="income">Income &amp; Tax</button>
       <button type="button" class="nav-item" data-page="expenses">Expenses</button>
+      <button type="button" class="nav-item" data-page="accounts">Accounts</button>
       <button type="button" class="nav-item" data-page="assets">Assets</button>
       <button type="button" class="nav-item" data-page="properties">Properties</button>
       <button type="button" class="nav-item" data-page="scenarios">Scenarios</button>
@@ -232,25 +233,13 @@
               <div id="propertyExpensesModern" hidden></div>
             </div>
           </details>
-          <details class="ledger">
-            <summary>
-              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Accounts</h2></div>
-            </summary>
-            <div class="ledger-body">
-              <p class="ledger-note" style="margin-left:0">Where your money actually moves through. A debit/savings account has no due date — spending there just draws it down. A credit card has a statement cycle instead of a due date each transaction hits separately; set its cycle's start day (e.g. 15 for a 15th–14th cycle) so "Actual vs. planned" below can total up the current bill.</p>
-              <div id="accountsTable"></div>
-              <div class="ledger-footer">
-                <button class="btn btn-sm" id="addAccountBtn">+ Add account</button>
-              </div>
-            </div>
-          </details>
           <details class="ledger" open>
             <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Transactions</h2></div>
               <div class="ledger-total">Total <b id="totalTransactionsAmount">—</b></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note" style="margin-left:0">Real, dated spend — separate from the planned budget above, which stays untouched. Optionally link a transaction to one of your expenses to compare actual vs. planned; leave it unlinked for a one-off that has no matching budget line. Set an account so credit-card spend can be grouped into its statement cycle below.</p>
+              <p class="ledger-note" style="margin-left:0">Real, dated spend — separate from the planned budget above, which stays untouched. Optionally link a transaction to one of your expenses to compare actual vs. planned; leave it unlinked for a one-off that has no matching budget line. Set an account (manage them on the Accounts tab) so credit-card spend can be grouped into its statement cycle below.</p>
               <div id="transactionsTable"></div>
               <div class="ledger-footer">
                 <button class="btn btn-sm" id="addTransactionBtn">+ Add transaction</button>
@@ -262,6 +251,26 @@
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Actual vs. planned</h2></div>
             </summary>
             <div class="ledger-body"><div id="actualVsPlannedPanel"></div></div>
+          </details>
+        </div>
+      </section>
+
+      <section class="app-page" id="page-accounts" hidden>
+        <div class="page-intro-row">
+          <p class="page-intro">Where your money actually moves through — used to group transactions into a credit card's statement cycle.</p>
+        </div>
+        <div class="ledgers">
+          <details class="ledger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Accounts</h2></div>
+            </summary>
+            <div class="ledger-body">
+              <p class="ledger-note" style="margin-left:0">A debit/savings account has no due date — spending there just draws it down. A credit card has a statement cycle instead, so each transaction hits separately; set its cycle's start day (e.g. 15 for a 15th–14th cycle) so "Actual vs. planned" on the Expenses tab can total up the current bill.</p>
+              <div id="accountsTable"></div>
+              <div class="ledger-footer">
+                <button class="btn btn-sm" id="addAccountBtn">+ Add account</button>
+              </div>
+            </div>
           </details>
         </div>
       </section>
@@ -430,6 +439,7 @@
     </span>
   </button>
   <div class="mobile-more-panel" id="mobileMorePanel" hidden>
+    <button type="button" class="mobile-more-item" data-page="accounts">Accounts</button>
     <button type="button" class="mobile-more-item" data-page="scenarios">Scenarios</button>
     <button type="button" class="mobile-more-item" data-page="projections">Projections</button>
     <div class="mobile-more-divider"></div>

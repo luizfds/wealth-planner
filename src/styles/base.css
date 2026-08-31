@@ -132,8 +132,10 @@
   .status-dot{ width:6px; height:6px; border-radius:50%; background: var(--good); flex:none; }
   .status-dot.warn{ background: var(--bad); }
   .mobile-status-chip{ display:none; }
+  .mobile-header-right{ display:none; }
   @media (max-width: 880px){
-    .mobile-status-chip{ display:flex; font-size:10.5px; padding:4px 9px; margin-left:auto; flex:none; }
+    .mobile-status-chip{ display:flex; font-size:10.5px; padding:4px 9px; flex:none; }
+    .mobile-header-right{ display:flex; align-items:center; gap:6px; margin-left:auto; }
   }
 
   button{ font: inherit; cursor: pointer; }
@@ -213,3 +215,58 @@
   .toast-close-btn:hover{ opacity:1; }
 
   .visually-hidden{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+
+  /* ---------------- Notifications ---------------- */
+  .notif-bell-btn{
+    all:unset; position:relative; box-sizing:border-box; display:flex; align-items:center; justify-content:center;
+    width:32px; height:32px; border-radius:8px; color: var(--ink-soft); cursor:pointer; flex:none;
+  }
+  .notif-bell-btn:hover{ background: var(--paper-sunken); color: var(--ink); }
+  .notif-bell-btn:focus-visible{ box-shadow: var(--focus-ring); outline:none; }
+  .notif-badge{
+    position:absolute; top:2px; right:2px; min-width:15px; height:15px; padding:0 3px; border-radius:100px;
+    background: var(--bad); color:#fff; font-size:9.5px; font-weight:700; line-height:1;
+    display:flex; align-items:center; justify-content:center; font-family:"Inter", system-ui, sans-serif;
+  }
+  /* [hidden] alone does nothing here — .notif-badge already sets its own display, which beats the
+     browser's built-in [hidden]{display:none} regardless of specificity (see CLAUDE.md). */
+  .notif-badge[hidden]{ display:none; }
+
+  /* Positioned by JS (top/left set from the trigger button's bounding rect) rather than plain CSS
+     anchoring — the two trigger buttons (desktop topbar vs. mobile sidebar row) sit in visually
+     unrelated places, and the desktop sidebar's own overflow-y:auto would clip an absolutely-
+     positioned child anyway (per-spec, overflow-y:auto implies overflow-x:auto too), so this is
+     rendered into #notifPanelRoot — a fixed-position root outside any scrolling ancestor,
+     matching #scenarioOverrideRoot/#expenseReviewRoot's existing pattern in this app. */
+  .notif-panel{
+    position:fixed; z-index:50; width:340px; max-width:calc(100vw - 24px);
+    max-height:min(480px, calc(100vh - 80px)); overflow-y:auto; overscroll-behavior:contain;
+    background: var(--paper-raised); border:1px solid var(--border); border-radius:12px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.28);
+  }
+  .notif-panel[hidden]{ display:none; }
+  .notif-panel-head{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:12px 14px; border-bottom:1px solid var(--border); position:sticky; top:0; background: var(--paper-raised);
+  }
+  .notif-panel-head h4{ margin:0; font-size:13.5px; }
+  .notif-mark-all-btn{ all:unset; cursor:pointer; font-size:11.5px; color: var(--brass-strong); flex:none; }
+  .notif-mark-all-btn:hover{ text-decoration:underline; }
+  .notif-mark-all-btn[disabled]{ color: var(--ink-soft); cursor:default; pointer-events:none; }
+  .notif-list{ padding:6px; }
+  .notif-empty{ padding:22px 16px; text-align:center; color: var(--ink-soft); font-size:12.5px; }
+  .notif-item{
+    all:unset; box-sizing:border-box; width:100%; display:flex; gap:10px; align-items:flex-start;
+    padding:9px 8px; border-radius:8px; cursor:pointer;
+  }
+  .notif-item:hover{ background: var(--paper-sunken); }
+  .notif-item:focus-visible{ box-shadow: var(--focus-ring); outline:none; }
+  .notif-item + .notif-item{ margin-top:1px; }
+  .notif-item.is-unread{ background: var(--brass-wash); }
+  .notif-item.is-unread:hover{ filter: brightness(0.97); }
+  .notif-dot{ width:7px; height:7px; border-radius:50%; flex:none; margin-top:5px; background: var(--ink-soft); }
+  .notif-dot.bad{ background: var(--bad); }
+  .notif-dot.warn{ background: var(--brass-strong); }
+  .notif-item-body{ min-width:0; flex:1 1 auto; text-align:left; }
+  .notif-item-title{ display:block; font-size:12.5px; font-weight:600; }
+  .notif-item-detail{ display:block; font-size:11px; color: var(--ink-soft); margin-top:2px; }

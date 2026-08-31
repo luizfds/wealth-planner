@@ -5,7 +5,7 @@ import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { syncUiModeToggle } from "../lib/uimode.js";
-import { buildTable, modernPlainRowHtml } from "../lib/ledger-table.js";
+import { buildTable, modernPlainRowHtml, modernRowSummaryHtml, modernRowEditHtml, modernRowShellHtml } from "../lib/ledger-table.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 
 function sharedGroupOrder(){
@@ -453,26 +453,20 @@ function transactionRowHtml(t, idx){
   var linkSelect = '<select class="tx-link" data-tx-index="' + idx + '" aria-label="Linked expense">' + transactionLinkOptionsHtml(t.linkedExpenseId) + '</select>';
   var acctSelect = '<select class="tx-account" data-tx-index="' + idx + '" aria-label="Account">' + transactionAccountOptionsHtml(t.account || "") + '</select>';
   if(state.uiMode === "modern"){
-    var isOpen = !!modernTransactionRowOpen["tx:" + idx];
-    var summary = '<div class="m-row-summary" role="button" tabindex="0" data-row-toggle>' +
-      '<div style="flex:1 1 auto; min-width:0">' +
-        '<div class="m-row-name">' + escapeAttr(t.what || "Transaction") + '</div>' +
-        '<div class="m-row-sub">' + transactionSummaryText(t) + '</div>' +
-      '</div>' +
-      '<span class="m-row-amt">' + fmtCurrency2.format(Number(t.amount) || 0) + '</span>' +
-      '<svg class="m-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>' +
-    '</div>';
-    var edit = '<div class="m-row-edit"><div class="m-row-edit-inner"><div class="m-row-edit-pad">' +
-      '<div class="m-edit-grid">' +
-        '<div class="m-edit-field span3"><label>Description</label>' + whatInput + '</div>' +
-        '<div class="m-edit-field"><label>Date</label>' + dateInput + '</div>' +
-        '<div class="m-edit-field"><label>Amount</label>' + amountInput + '</div>' +
-        '<div class="m-edit-field"><label>Account</label>' + acctSelect + '</div>' +
-        '<div class="m-edit-field span3"><label>Linked to</label>' + linkSelect + '</div>' +
-      '</div>' +
-      '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm row-del" data-tx-del="' + idx + '">Delete</button></div>' +
-    '</div></div></div>';
-    return '<div class="m-row tx-row' + (isOpen ? " open" : "") + '" data-section="tx" data-index="' + idx + '">' + summary + edit + '</div>';
+    var summary = modernRowSummaryHtml({
+      name: t.what || "Transaction",
+      subLines: [transactionSummaryText(t)],
+      amountHtml: fmtCurrency2.format(Number(t.amount) || 0)
+    });
+    var fieldsHtml =
+      '<div class="m-edit-field span3"><label>Description</label>' + whatInput + '</div>' +
+      '<div class="m-edit-field"><label>Date</label>' + dateInput + '</div>' +
+      '<div class="m-edit-field"><label>Amount</label>' + amountInput + '</div>' +
+      '<div class="m-edit-field"><label>Account</label>' + acctSelect + '</div>' +
+      '<div class="m-edit-field span3"><label>Linked to</label>' + linkSelect + '</div>';
+    var actionsHtml = '<button type="button" class="btn btn-ghost btn-sm row-del" data-tx-del="' + idx + '">Delete</button>';
+    var edit = modernRowEditHtml(fieldsHtml, actionsHtml);
+    return modernRowShellHtml("tx", idx, modernTransactionRowOpen, summary, edit, { extraClass: "tx-row" });
   }
   var delBtn = '<button type="button" class="btn btn-ghost btn-sm row-del" data-tx-del="' + idx + '" aria-label="Delete transaction">✕</button>';
   return '<tr data-tx-index="' + idx + '">' +

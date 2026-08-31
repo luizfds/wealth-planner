@@ -134,14 +134,17 @@ export function doShare(){
       }).catch(function(err){
         if(err && err.name === "AbortError") return; // user dismissed the share sheet — not a failure
         // The share sheet itself can still fail for reasons outside our control (confirmed: at
-        // least one real Android device rejects this outright, even from a fresh synchronous
-        // gesture — most likely no installed app declares it can receive an application/json
-        // file). Rather than dead-end there, fall back to a direct download of the same encrypted
-        // file — the user can still hand it over manually — and surface the real error (not just
-        // a generic message) so a report of this actually says what the browser said.
+        // least one real Android device — an installed/standalone PWA — rejects this outright
+        // with NotAllowedError, even from a fresh synchronous gesture; most likely no installed
+        // app there declares it can receive an application/json file). Rather than dead-end
+        // there, fall back to a direct download of the same encrypted file so the user still
+        // ends up with something to hand over manually. The raw error name goes to the console
+        // only, not the toast — a user report of "not allowed" showed that surfacing it in a
+        // single fast-dismissing toast alongside "downloading the file instead" reads as a
+        // scary failure and buries the actually-reassuring part (a file WAS saved). One short,
+        // plainly positive toast instead of two competing ones.
         console.error("navigator.share() failed:", err);
-        showToast("Couldn't open the share sheet" + (err && err.name ? " (" + err.name + ")" : "") + " — downloading the file instead.");
-        fallbackExport(encPayload, filename, "application/json", "Backup saved");
+        fallbackExport(encPayload, filename, "application/json", "Share unavailable here — saved the encrypted file instead");
       });
     });
   }).catch(function(){

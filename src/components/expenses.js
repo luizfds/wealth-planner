@@ -500,8 +500,13 @@ export function renderActualVsPlannedPanel(){
     el.innerHTML = '<p class="ledger-note" style="margin:0">Add a shared expense and log a transaction against it to see actual vs. planned here.</p>';
     return;
   }
-  var plannedTotal = sumField(state.shared, "monthly");
-  var actualTotal = monthTxns.reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0);
+  // Rounded to cents before any comparison/formatting below — periodsOf()'s weekly-then-back
+  // conversion leaves a float epsilon (e.g. 2.4900000000000007) that can land a genuinely-exact
+  // $0.50 delta a hair under the ">0.5" thresholds and, worse, make the displayed whole-dollar
+  // "over"/"left" figure not match the difference between the whole-dollar actual/planned figures
+  // shown right next to it (e.g. "$3 actual / $2 planned — $0 over").
+  var plannedTotal = Math.round(sumField(state.shared, "monthly") * 100) / 100;
+  var actualTotal = Math.round(monthTxns.reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0) * 100) / 100;
   var overallDelta = actualTotal - plannedTotal;
   // Framed from a spending point of view: spending less than planned is "good" (green), more is
   // "bad" (red) — the inverse of the up/down convention used for asset values elsewhere in the
@@ -509,8 +514,8 @@ export function renderActualVsPlannedPanel(){
   var overallColor = overallDelta > 0.5 ? "var(--bad)" : (overallDelta < -0.5 ? "var(--good)" : "");
   var overallPct = plannedTotal > 0 ? Math.min(100, (actualTotal / plannedTotal) * 100) : (actualTotal > 0 ? 100 : 0);
   var rows = state.shared.map(function(item){
-    var planned = periodsOf(item.amount, item.freq).monthly;
-    var actual = byExpense[item.id] || 0;
+    var planned = Math.round(periodsOf(item.amount, item.freq).monthly * 100) / 100;
+    var actual = Math.round((byExpense[item.id] || 0) * 100) / 100;
     var delta = actual - planned;
     var color = delta > 0.5 ? "var(--bad)" : (delta < -0.5 ? "var(--good)" : "");
     var pct = planned > 0 ? Math.min(100, (actual / planned) * 100) : (actual > 0 ? 100 : 0);

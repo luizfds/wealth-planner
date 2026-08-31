@@ -384,6 +384,15 @@ export function renderExpenseReviewPanel(){
 // Deliberately not built on ledger-table.js's machinery — a transaction has a different shape
 // (date/description/amount/link, no freq/period math) and, like debts, is simple enough that a
 // small bespoke renderer beats fighting the generic row's amount+frequency assumptions.
+// Session-only (not persisted) — collapsed to the most recent TRANSACTIONS_RECENT_COUNT by
+// default so a real transaction history doesn't turn the Expenses page into a mile-long scroll;
+// "Show all" flips this for the rest of the session, same lifetime as the shares filter/sort.
+export var transactionsShowAll = false;
+export function setTransactionsShowAll(value){
+  transactionsShowAll = value;
+  renderTransactions();
+}
+var TRANSACTIONS_RECENT_COUNT = 10;
 function transactionLinkOptionsHtml(selectedId){
   var options = '<option value=""' + (!selectedId ? " selected" : "") + '>— One-off (not linked) —</option>';
   return options + state.shared.map(function(item){
@@ -464,10 +473,18 @@ export function renderTransactions(){
   var sorted = state.transactions
     .map(function(t, i){ return { t: t, i: i }; })
     .sort(function(a, b){ return (b.t.date || "") < (a.t.date || "") ? -1 : ((b.t.date || "") > (a.t.date || "") ? 1 : 0); });
-  var rows = sorted.map(function(x){ return transactionRowHtml(x.t, x.i); }).join("");
-  container.innerHTML = state.uiMode === "modern"
+  var hasMore = sorted.length > TRANSACTIONS_RECENT_COUNT;
+  var visible = (transactionsShowAll || !hasMore) ? sorted : sorted.slice(0, TRANSACTIONS_RECENT_COUNT);
+  var rows = visible.map(function(x){ return transactionRowHtml(x.t, x.i); }).join("");
+  var toggleHtml = hasMore
+    ? '<div class="ledger-footer"><button type="button" class="btn btn-sm btn-ghost" data-tx-show-all-toggle="' + (transactionsShowAll ? "0" : "1") + '">' +
+        (transactionsShowAll ? "Show recent only" : "Show all " + sorted.length + " transactions") +
+      '</button></div>'
+    : "";
+  container.innerHTML = (state.uiMode === "modern"
     ? '<div class="m-rows">' + rows + '</div>'
-    : '<div class="table-scroll"><table class="ledger-table"><thead><tr><th>Date</th><th>Description</th><th class="num">Amount</th><th>Linked to</th><th>Account</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+    : '<div class="table-scroll"><table class="ledger-table"><thead><tr><th>Date</th><th>Description</th><th class="num">Amount</th><th>Linked to</th><th>Account</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>')
+    + toggleHtml;
 }
 export function addTransaction(){
   state.transactions.push({ id: genId("t"), date: new Date().toISOString().slice(0, 10), amount: 0, what: "", linkedExpenseId: null, account: "" });

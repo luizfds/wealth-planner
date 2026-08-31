@@ -102,7 +102,7 @@
   table.ledger-table input:hover, table.ledger-table select:hover{ border-color: var(--border); background: var(--paper-sunken); }
   table.ledger-table input:focus, table.ledger-table select:focus{ border-color: var(--brass); outline:none; background: var(--paper); box-shadow: var(--focus-ring); }
   table.ledger-table select{ appearance:none; -webkit-appearance:none; background-image:none; padding-right:16px; }
-  td.what-cell{ min-width: 190px; }
+  td.what-cell{ min-width: 230px; }
   td.amount-cell{ min-width: 96px; }
   td.freq-cell, td.class-cell{ min-width: 110px; }
   td.account-cell{ min-width: 110px; }
@@ -169,11 +169,18 @@
   }
   .tx-row .tx-date:focus, .tx-row .tx-amount:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
   .tx-link-row{ padding: 0 16px 12px; display:flex; gap:8px; flex-wrap:wrap; }
+  .tx-field{ flex:1 1 140px; min-width:0; }
+  .tx-field-label{ display:block; font-size:10px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:700; margin-bottom:4px; }
   .tx-link-row .tx-link, .tx-link-row .tx-account{
-    flex:1 1 140px; font-size:12.5px; padding:5px 6px; border:1px solid var(--border); border-radius:6px;
+    width:100%; font-size:12.5px; padding:5px 6px; border:1px solid var(--border); border-radius:6px;
     background: var(--paper); color: var(--ink); font-family:inherit;
   }
-  table.ledger-table .tx-account{ width:100%; }
+  /* Classic mode: the browser's auto table layout doesn't reliably size a <select> column to fit
+     its widest real option text (e.g. "Car Insurance Comprehensive", "Credit Card (credit)"),
+     so without an explicit floor these columns clip mid-word with no ellipsis. table-scroll's
+     own horizontal scroll (already in place for this table) absorbs the extra width. */
+  table.ledger-table .tx-link{ width:100%; min-width:230px; }
+  table.ledger-table .tx-account{ width:100%; min-width:150px; }
 
   /* ---------------- Accounts (Expenses page) ---------------- */
   .acct-mgmt-row .m-row-summary{ cursor:default; }

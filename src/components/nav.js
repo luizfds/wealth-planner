@@ -6,6 +6,7 @@ var PAGES = [
   { id: "dashboard", label: "Dashboard" },
   { id: "income", label: "Income & Tax" },
   { id: "expenses", label: "Expenses" },
+  { id: "accounts", label: "Accounts" },
   { id: "assets", label: "Assets" },
   { id: "properties", label: "Properties" },
   { id: "scenarios", label: "Scenarios" },
@@ -47,7 +48,7 @@ export function parseRouteFromLocation(){
 // Pages reachable directly from the mobile bottom tab bar; the rest live behind its "More"
 // tab. Scenarios/Projections are occasional "what-if" pages, unlike the four data-entry
 // pages above them, so the More tab's own active state also lights up for those two.
-var MOBILE_MORE_PAGES = ["scenarios", "projections"];
+var MOBILE_MORE_PAGES = ["accounts", "scenarios", "projections"];
 export function showPage(id, opts){
   opts = opts || {};
   if(!PAGES.some(function(p){ return p.id === id; })) id = "dashboard";

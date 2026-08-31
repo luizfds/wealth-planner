@@ -384,6 +384,15 @@ export function renderExpenseReviewPanel(){
 // Deliberately not built on ledger-table.js's machinery — a transaction has a different shape
 // (date/description/amount/link, no freq/period math) and, like debts, is simple enough that a
 // small bespoke renderer beats fighting the generic row's amount+frequency assumptions.
+// Session-only (not persisted) — collapsed to the most recent TRANSACTIONS_RECENT_COUNT by
+// default so a real transaction history doesn't turn the Expenses page into a mile-long scroll;
+// "Show all" flips this for the rest of the session, same lifetime as the shares filter/sort.
+export var transactionsShowAll = false;
+export function setTransactionsShowAll(value){
+  transactionsShowAll = value;
+  renderTransactions();
+}
+var TRANSACTIONS_RECENT_COUNT = 10;
 function transactionLinkOptionsHtml(selectedId){
   var options = '<option value=""' + (!selectedId ? " selected" : "") + '>— One-off (not linked) —</option>';
   return options + state.shared.map(function(item){
@@ -432,9 +441,12 @@ function transactionRowHtml(t, idx){
   var acctSelect = '<select class="tx-account" data-tx-index="' + idx + '" aria-label="Account">' + transactionAccountOptionsHtml(t.account || "") + '</select>';
   var delBtn = '<button type="button" class="btn btn-ghost btn-sm row-del" data-tx-del="' + idx + '" aria-label="Delete transaction">✕</button>';
   if(state.uiMode === "modern"){
-    return '<div class="m-row computed tx-row" data-tx-index="' + idx + '">' +
+    return '<div class="m-row tx-row" data-tx-index="' + idx + '">' +
       '<div class="m-row-summary" style="cursor:default;flex-wrap:wrap;gap:8px">' + dateInput + whatInput + amountInput + delBtn + '</div>' +
-      '<div class="tx-link-row">' + linkSelect + acctSelect + '</div>' +
+      '<div class="tx-link-row">' +
+        '<div class="tx-field"><span class="tx-field-label">Linked to</span>' + linkSelect + '</div>' +
+        '<div class="tx-field"><span class="tx-field-label">Account</span>' + acctSelect + '</div>' +
+      '</div>' +
     '</div>';
   }
   return '<tr data-tx-index="' + idx + '">' +
@@ -461,10 +473,18 @@ export function renderTransactions(){
   var sorted = state.transactions
     .map(function(t, i){ return { t: t, i: i }; })
     .sort(function(a, b){ return (b.t.date || "") < (a.t.date || "") ? -1 : ((b.t.date || "") > (a.t.date || "") ? 1 : 0); });
-  var rows = sorted.map(function(x){ return transactionRowHtml(x.t, x.i); }).join("");
-  container.innerHTML = state.uiMode === "modern"
+  var hasMore = sorted.length > TRANSACTIONS_RECENT_COUNT;
+  var visible = (transactionsShowAll || !hasMore) ? sorted : sorted.slice(0, TRANSACTIONS_RECENT_COUNT);
+  var rows = visible.map(function(x){ return transactionRowHtml(x.t, x.i); }).join("");
+  var toggleHtml = hasMore
+    ? '<div class="ledger-footer"><button type="button" class="btn btn-sm btn-ghost" data-tx-show-all-toggle="' + (transactionsShowAll ? "0" : "1") + '">' +
+        (transactionsShowAll ? "Show recent only" : "Show all " + sorted.length + " transactions") +
+      '</button></div>'
+    : "";
+  container.innerHTML = (state.uiMode === "modern"
     ? '<div class="m-rows">' + rows + '</div>'
-    : '<div class="table-scroll"><table class="ledger-table"><thead><tr><th>Date</th><th>Description</th><th class="num">Amount</th><th>Linked to</th><th>Account</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+    : '<div class="table-scroll"><table class="ledger-table"><thead><tr><th>Date</th><th>Description</th><th class="num">Amount</th><th>Linked to</th><th>Account</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>')
+    + toggleHtml;
 }
 export function addTransaction(){
   state.transactions.push({ id: genId("t"), date: new Date().toISOString().slice(0, 10), amount: 0, what: "", linkedExpenseId: null, account: "" });
@@ -500,8 +520,13 @@ export function renderActualVsPlannedPanel(){
     el.innerHTML = '<p class="ledger-note" style="margin:0">Add a shared expense and log a transaction against it to see actual vs. planned here.</p>';
     return;
   }
-  var plannedTotal = sumField(state.shared, "monthly");
-  var actualTotal = monthTxns.reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0);
+  // Rounded to cents before any comparison/formatting below — periodsOf()'s weekly-then-back
+  // conversion leaves a float epsilon (e.g. 2.4900000000000007) that can land a genuinely-exact
+  // $0.50 delta a hair under the ">0.5" thresholds and, worse, make the displayed whole-dollar
+  // "over"/"left" figure not match the difference between the whole-dollar actual/planned figures
+  // shown right next to it (e.g. "$3 actual / $2 planned — $0 over").
+  var plannedTotal = Math.round(sumField(state.shared, "monthly") * 100) / 100;
+  var actualTotal = Math.round(monthTxns.reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0) * 100) / 100;
   var overallDelta = actualTotal - plannedTotal;
   // Framed from a spending point of view: spending less than planned is "good" (green), more is
   // "bad" (red) — the inverse of the up/down convention used for asset values elsewhere in the
@@ -509,8 +534,8 @@ export function renderActualVsPlannedPanel(){
   var overallColor = overallDelta > 0.5 ? "var(--bad)" : (overallDelta < -0.5 ? "var(--good)" : "");
   var overallPct = plannedTotal > 0 ? Math.min(100, (actualTotal / plannedTotal) * 100) : (actualTotal > 0 ? 100 : 0);
   var rows = state.shared.map(function(item){
-    var planned = periodsOf(item.amount, item.freq).monthly;
-    var actual = byExpense[item.id] || 0;
+    var planned = Math.round(periodsOf(item.amount, item.freq).monthly * 100) / 100;
+    var actual = Math.round((byExpense[item.id] || 0) * 100) / 100;
     var delta = actual - planned;
     var color = delta > 0.5 ? "var(--bad)" : (delta < -0.5 ? "var(--good)" : "");
     var pct = planned > 0 ? Math.min(100, (actual / planned) * 100) : (actual > 0 ? 100 : 0);
@@ -566,7 +591,7 @@ function accountRowHtml(a, idx){
     : "";
   var delBtn = '<button type="button" class="btn btn-ghost btn-sm row-del" data-acct-del="' + idx + '" aria-label="Delete account">✕</button>';
   if(state.uiMode === "modern"){
-    return '<div class="m-row computed acct-mgmt-row" data-acct-index="' + idx + '">' +
+    return '<div class="m-row acct-mgmt-row" data-acct-index="' + idx + '">' +
       '<div class="m-row-summary" style="cursor:default;flex-wrap:wrap;gap:8px">' + nameInput + typeSelect + dayInput + delBtn + '</div>' +
     '</div>';
   }

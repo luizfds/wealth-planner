@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Welcome to Wealth Planner</title>
+<meta name="robots" content="noindex">
+<meta name="description" content="What Wealth Planner does and how it works.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%233b82f6'/%3E%3Cpath d='M8 11 L11.5 21 L16 14 L20.5 21 L24 11' stroke='%23ffffff' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f8fafc">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b0f19">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+  .ob-wrap{ max-width:520px; margin:0 auto; padding:48px 20px 60px; }
+  .ob-brand{ text-align:center; margin-bottom:8px; }
+  .ob-brand .app-brand-name{ font-size:26px; justify-content:center; }
+  .ob-tagline{ text-align:center; color:var(--ink-soft); font-size:14px; margin:6px 0 32px; }
+  .ob-card{
+    background:var(--paper-raised); border:1px solid var(--border); border-radius:14px;
+    padding:24px 22px; box-shadow:var(--shadow); margin-bottom:16px;
+  }
+  .ob-card h1{ font-size:19px; margin:0 0 8px; letter-spacing:-0.01em; }
+  .ob-card > p{ color:var(--ink-soft); font-size:13.5px; margin:0; line-height:1.6; }
+  .ob-sections{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:16px; }
+  .ob-sections li{ display:flex; gap:12px; align-items:flex-start; font-size:13.5px; }
+  .ob-icon{
+    flex:none; width:30px; height:30px; border-radius:8px; background:var(--brass-wash); color:var(--brass-strong);
+    display:flex; align-items:center; justify-content:center; margin-top:1px; font-size:14px;
+  }
+  .ob-sections b{ display:block; margin-bottom:2px; }
+  .ob-sections span{ color:var(--ink-soft); }
+  .ob-privacy{
+    display:flex; gap:10px; align-items:flex-start; font-size:12.5px; color:var(--ink-soft); line-height:1.55;
+  }
+  .ob-privacy .ob-icon{ background:var(--good-wash); color:var(--good); }
+  .ob-cta{ display:block; width:100%; text-align:center; text-decoration:none; margin-bottom:10px; }
+  .ob-alt{ text-align:center; font-size:12.5px; }
+  .ob-alt a{ color:var(--brass-strong); text-decoration:underline; text-underline-offset:2px; }
+</style>
+</head>
+<body>
+  <div class="ob-wrap">
+    <div class="ob-brand">
+      <div class="app-brand-name"><span class="app-brand-mark">W</span>ealth Planner</div>
+    </div>
+    <p class="ob-tagline">Budget · Property · Tax · Net worth — all in one place</p>
+
+    <div class="ob-card">
+      <h1>Renting vs. buying, side by side</h1>
+      <p>Set up your income and everyday expenses once, then compare as many scenarios as you like — keep renting, buy in one suburb vs. another, or invest instead of buying — and see how each one plays out for your savings rate and net worth over time.</p>
+    </div>
+
+    <div class="ob-card">
+      <h1>What's inside</h1>
+      <ul class="ob-sections">
+        <li><span class="ob-icon">$</span><span><b>Income &amp; Tax</b><span>Enter gross or net pay — Australian income tax, Medicare levy and super are worked out for you.</span></span></li>
+        <li><span class="ob-icon">☰</span><span><b>Expenses &amp; Accounts</b><span>Recurring budget lines plus real dated transactions, reconciled against what you planned.</span></span></li>
+        <li><span class="ob-icon">◆</span><span><b>Assets</b><span>Cash, shares, crypto, super, vehicles — tracked over time, with live-price paste-in for shares.</span></span></li>
+        <li><span class="ob-icon">⌂</span><span><b>Properties</b><span>Value, loans, rent and running costs for anything you already own, investment or home.</span></span></li>
+        <li><span class="ob-icon">⇄</span><span><b>Scenarios &amp; Projections</b><span>The purchase calculator, stamp duty and LMI, and a net-worth projection years into the future.</span></span></li>
+      </ul>
+    </div>
+
+    <div class="ob-card">
+      <div class="ob-privacy">
+        <span class="ob-icon">✓</span>
+        <span>Everything you enter stays in this browser (<code>localStorage</code>) — nothing is ever sent anywhere. Export a backup any time from the top bar to keep a copy or move to another device.</span>
+      </div>
+    </div>
+
+    <a class="ob-cta btn btn-primary" href="index.html?mock=1">Try it with sample data →</a>
+    <a class="ob-cta btn" href="index.html">Start from scratch →</a>
+    <p class="ob-alt">Importing a file someone shared with you? <a href="welcome.html">Go here instead →</a></p>
+  </div>
+  <script>
+    // Landing here at all means the auto-redirect that brought a first-time visitor here has
+    // done its job — never show it again, even if they back out without picking either option.
+    try{ localStorage.setItem("wealthPlanner.hasSeenIntro", "1"); }catch(e){}
+  </script>
+</body>
+</html>

@@ -484,15 +484,65 @@ export function renderSharesSubpage(){
         '<div style="margin-top:8px"><button type="button" class="btn btn-sm" id="sharesPasteApply">Update prices</button></div>' +
       '</details>'
     : "";
+  var historyPanel = allData.items.length
+    ? '<details class="ledger" open><summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Shares value over time</h2></div></summary>' +
+      '<div class="ledger-body"><div id="sharesHistoryPanel"></div></div></details>'
+    : "";
   container.innerHTML = '<div class="ledgers"><details class="ledger" open>' +
     '<summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Shares</h2></div>' +
     '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
-    '<div class="ledger-body"><div id="sharesGlance">' + sharesGainLossGlanceHtml(allData.items) + '</div>' + pasteTool + toolbar + body + '</div></details></div>';
+    '<div class="ledger-body"><div id="sharesGlance">' + sharesGainLossGlanceHtml(allData.items) + '</div>' + pasteTool + toolbar + body + '</div></details>' + historyPanel + '</div>';
   if(data.items.length && !isModern){
     var thead = '<thead><tr><th>What</th><th>Trend</th><th>Symbol</th><th>Mkt</th><th class="num">Qty</th><th class="num">Avg cost</th><th class="num">Price</th><th class="num">Value</th><th>Gain/Loss</th><th>Person</th><th></th><th></th></tr></thead>';
     var rows = data.items.map(function(item, i){ return holdingRowHtml(item, data.indices[i]); }).join("");
     document.getElementById("sharesTable").innerHTML = thead + "<tbody>" + rows + "</tbody>";
   }
+  if(allData.items.length) renderSharesHistoryChart();
+}
+
+// Scoped to just this (person-filtered) Shares portfolio — deliberately reads allData, not the
+// winners/losers-filtered `data` above, since this describes the whole holding set the same way
+// the at-a-glance panel and Total do, not whatever the row filter currently narrows the list to.
+export function renderSharesHistoryChart(){
+  var container = document.getElementById("sharesHistoryPanel");
+  if(!container) return;
+  var data = assetCategoryItems("Shares");
+  var dateSet = {};
+  data.items.forEach(function(a){
+    (a.history || []).forEach(function(h){ dateSet[h.date] = true; });
+  });
+  var dates = Object.keys(dateSet).sort();
+  var today = new Date().toISOString().slice(0, 10);
+  if(dates.indexOf(today) === -1) dates.push(today);
+
+  if(!data.items.length || dates.length < 2){
+    container.innerHTML = '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">Log a value for at least one holding (or paste updated prices) to start tracking your Shares value over time.</p>';
+    return;
+  }
+
+  function valueAtDate(history, currentAmount, d){
+    if(!history || !history.length) return d === today ? (Number(currentAmount) || 0) : 0;
+    var atOrBefore = history.filter(function(h){ return h.date <= d; });
+    if(!atOrBefore.length) return 0;
+    return atOrBefore[atOrBefore.length - 1].value;
+  }
+  var points = dates.map(function(d){
+    var total = data.items.reduce(function(sum, a){ return sum + valueAtDate(a.history, a.amount, d); }, 0);
+    return { x: new Date(d + "T00:00:00").getTime(), y: total, dateLabel: d };
+  });
+
+  container.innerHTML = "";
+  var chartDiv = document.createElement("div");
+  container.appendChild(chartDiv);
+
+  renderLineChart(chartDiv, [{ label: "Shares value", colorClass: "series-color-2", points: points }], {
+    height: 220,
+    yFormat: function(v){ return fmtCurrency0.format(v); },
+    xFormat: function(ms){ return new Date(ms).toLocaleDateString(undefined, { year: "numeric", month: "short" }); },
+    xTickCount: Math.min(7, Math.max(2, dates.length)),
+    ariaLabel: "Shares value over time",
+    alwaysLegend: false
+  });
 }
 
 export function parseSharesPasteLine(line){

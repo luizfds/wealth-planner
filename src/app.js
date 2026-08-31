@@ -25,6 +25,7 @@ import {
   openExpenseReview, closeExpenseReview, renderExpenseReviewPanel,
   logCurrentReviewCard, skipCurrentReviewCard, expenseReview,
   renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel,
+  setTransactionsShowAll,
   renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, logExpenseTransaction
 } from "./components/expenses.js";
 import {
@@ -1274,6 +1275,8 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
   document.addEventListener("click", function(e){
     var delTxBtn = e.target.closest("[data-tx-del]");
     if(delTxBtn){ deleteTransaction(Number(delTxBtn.getAttribute("data-tx-del"))); return; }
+    var txShowAllBtn = e.target.closest("[data-tx-show-all-toggle]");
+    if(txShowAllBtn){ setTransactionsShowAll(txShowAllBtn.getAttribute("data-tx-show-all-toggle") === "1"); return; }
   });
   document.addEventListener("input", function(e){
     if(!e.target.closest("#transactionsTable")) return;

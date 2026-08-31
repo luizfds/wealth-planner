@@ -11,6 +11,11 @@ export function sacrificeLabelToMode(label){ return label === "Sacrifice %" ? "p
 export var ASSET_CATEGORIES = ["Cash", "Shares", "Super", "Vehicle", "Other"];
 export var LIQUID_CATEGORIES = ["Cash", "Shares"];
 export var SHARE_MARKETS = ["ASX", "US", "Crypto"];
+// What currency a Shares holding's price is actually quoted in, by market — every other figure
+// in this app is implicitly AUD, but a US or Crypto holding's price/value is not, and nothing
+// said so until now. Crypto is USD to match the GOOGLEFINANCE "SYMBOLUSD" pairing already used
+// elsewhere (backup.js's price-template export, the "Paste prices" hint text).
+export var MARKET_CURRENCY = { ASX: "AUD", US: "USD", Crypto: "USD" };
 export var PURCHASE_STATE_CODES = ["NSW", "VIC", "Other"];
 
 // Long-run compound annual growth in established house prices, 1980-2022 (Landmark

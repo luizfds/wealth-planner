@@ -152,29 +152,10 @@
   .m-edit-field .log-amount{ width:90px; display:inline-block; }
 
   /* ---------------- Transactions (Expenses page) ---------------- */
-  .tx-row .m-row-summary{ cursor:default; }
-  .tx-row .tx-date{
-    width:118px; font-size:12.5px; padding:5px 6px; border:1px solid var(--border); border-radius:6px;
-    background: var(--paper); color: var(--ink); font-family:inherit; flex:none;
-  }
-  .tx-row .tx-what{
-    flex:1 1 100px; min-width:80px; all:unset; box-sizing:border-box; padding:5px 6px; border-radius:6px;
-    border:1px solid transparent; color: var(--ink); font-size:13px;
-  }
-  .tx-row .tx-what:hover{ border-color: var(--border); background: var(--paper-sunken); }
-  .tx-row .tx-what:focus{ border-color: var(--brass); outline:none; background: var(--paper); box-shadow: var(--focus-ring); }
-  .tx-row .tx-amount{
-    width:88px; flex:none; text-align:right; font-family:"IBM Plex Mono", monospace; font-size:13px;
-    padding:5px 6px; border:1px solid var(--border); border-radius:6px; background: var(--paper); color: var(--ink);
-  }
-  .tx-row .tx-date:focus, .tx-row .tx-amount:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
-  .tx-link-row{ padding: 0 16px 12px; display:flex; gap:8px; flex-wrap:wrap; }
-  .tx-field{ flex:1 1 140px; min-width:0; }
-  .tx-field-label{ display:block; font-size:10px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:700; margin-bottom:4px; }
-  .tx-link-row .tx-link, .tx-link-row .tx-account{
-    width:100%; font-size:12.5px; padding:5px 6px; border:1px solid var(--border); border-radius:6px;
-    background: var(--paper); color: var(--ink); font-family:inherit;
-  }
+  /* Modern mode: a plain summary (name + date/linked-to/account + amount) that expands via the
+     same .m-row/.m-edit-field machinery every other ledger row uses (see modernPlainRowHtml in
+     ledger-table.js) — Classic mode below stays a flat table, matching every other page's
+     Classic-mode convention of no expand/collapse. */
   /* Classic mode: the browser's auto table layout doesn't reliably size a <select> column to fit
      its widest real option text (e.g. "Car Insurance Comprehensive", "Credit Card (credit)"),
      so without an explicit floor these columns clip mid-word with no ellipsis. table-scroll's

@@ -393,6 +393,10 @@ export function setTransactionsShowAll(value){
   renderTransactions();
 }
 var TRANSACTIONS_RECENT_COUNT = 10;
+// Modern-mode open/closed state per row, same lifetime/shape as modernSharedRowOpen etc. — keyed
+// "tx:<idx>" (idx is the transaction's real state.transactions[] position, stable across a
+// resort) so an in-progress edit stays open across the rebuild a date edit triggers.
+export var modernTransactionRowOpen = {};
 function transactionLinkOptionsHtml(selectedId){
   var options = '<option value=""' + (!selectedId ? " selected" : "") + '>— One-off (not linked) —</option>';
   return options + state.shared.map(function(item){
@@ -433,22 +437,44 @@ export function transactionAccount(t){
   }
   return "";
 }
+// Summary sub-line for a collapsed row — date, what it's linked to (or "One-off"), and its
+// resolved account, so the closed row already answers "what is this" without expanding it.
+function transactionSummaryText(t){
+  var linked = t.linkedExpenseId && state.shared.find(function(i){ return i.id === t.linkedExpenseId; });
+  var acct = transactionAccount(t);
+  var bits = [t.date || "—", linked ? linked.what : "One-off"];
+  if(acct) bits.push(acct);
+  return bits.map(escapeAttr).join(" · ");
+}
 function transactionRowHtml(t, idx){
   var dateInput = '<input type="date" class="tx-date" data-tx-index="' + idx + '" value="' + escapeAttr(t.date || "") + '" aria-label="Date">';
   var whatInput = '<input type="text" class="tx-what" data-tx-index="' + idx + '" value="' + escapeAttr(t.what || "") + '" placeholder="Description" aria-label="Description">';
   var amountInput = '<input type="number" step="0.01" min="0" class="tx-amount" data-tx-index="' + idx + '" value="' + t.amount + '" aria-label="Amount">';
   var linkSelect = '<select class="tx-link" data-tx-index="' + idx + '" aria-label="Linked expense">' + transactionLinkOptionsHtml(t.linkedExpenseId) + '</select>';
   var acctSelect = '<select class="tx-account" data-tx-index="' + idx + '" aria-label="Account">' + transactionAccountOptionsHtml(t.account || "") + '</select>';
-  var delBtn = '<button type="button" class="btn btn-ghost btn-sm row-del" data-tx-del="' + idx + '" aria-label="Delete transaction">✕</button>';
   if(state.uiMode === "modern"){
-    return '<div class="m-row tx-row" data-tx-index="' + idx + '">' +
-      '<div class="m-row-summary" style="cursor:default;flex-wrap:wrap;gap:8px">' + dateInput + whatInput + amountInput + delBtn + '</div>' +
-      '<div class="tx-link-row">' +
-        '<div class="tx-field"><span class="tx-field-label">Linked to</span>' + linkSelect + '</div>' +
-        '<div class="tx-field"><span class="tx-field-label">Account</span>' + acctSelect + '</div>' +
+    var isOpen = !!modernTransactionRowOpen["tx:" + idx];
+    var summary = '<div class="m-row-summary" role="button" tabindex="0" data-row-toggle>' +
+      '<div style="flex:1 1 auto; min-width:0">' +
+        '<div class="m-row-name">' + escapeAttr(t.what || "Transaction") + '</div>' +
+        '<div class="m-row-sub">' + transactionSummaryText(t) + '</div>' +
       '</div>' +
+      '<span class="m-row-amt">' + fmtCurrency2.format(Number(t.amount) || 0) + '</span>' +
+      '<svg class="m-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>' +
     '</div>';
+    var edit = '<div class="m-row-edit"><div class="m-row-edit-inner"><div class="m-row-edit-pad">' +
+      '<div class="m-edit-grid">' +
+        '<div class="m-edit-field span3"><label>Description</label>' + whatInput + '</div>' +
+        '<div class="m-edit-field"><label>Date</label>' + dateInput + '</div>' +
+        '<div class="m-edit-field"><label>Amount</label>' + amountInput + '</div>' +
+        '<div class="m-edit-field"><label>Account</label>' + acctSelect + '</div>' +
+        '<div class="m-edit-field span3"><label>Linked to</label>' + linkSelect + '</div>' +
+      '</div>' +
+      '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm row-del" data-tx-del="' + idx + '">Delete</button></div>' +
+    '</div></div></div>';
+    return '<div class="m-row tx-row' + (isOpen ? " open" : "") + '" data-section="tx" data-index="' + idx + '">' + summary + edit + '</div>';
   }
+  var delBtn = '<button type="button" class="btn btn-ghost btn-sm row-del" data-tx-del="' + idx + '" aria-label="Delete transaction">✕</button>';
   return '<tr data-tx-index="' + idx + '">' +
     '<td>' + dateInput + '</td>' +
     '<td class="what-cell">' + whatInput + '</td>' +

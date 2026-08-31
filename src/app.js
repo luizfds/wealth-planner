@@ -25,7 +25,7 @@ import {
   openExpenseReview, closeExpenseReview, renderExpenseReviewPanel,
   logCurrentReviewCard, skipCurrentReviewCard, expenseReview,
   renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel,
-  setTransactionsShowAll,
+  setTransactionsShowAll, modernTransactionRowOpen,
   renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, logExpenseTransaction
 } from "./components/expenses.js";
 import {
@@ -1272,6 +1272,7 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
 
   // ---------------- Transactions: real dated spend, separate from the planned budget ----------------
   document.getElementById("addTransactionBtn").addEventListener("click", addTransaction);
+  wireModernRowToggle("transactionsTable", modernTransactionRowOpen);
   document.addEventListener("click", function(e){
     var delTxBtn = e.target.closest("[data-tx-del]");
     if(delTxBtn){ deleteTransaction(Number(delTxBtn.getAttribute("data-tx-del"))); return; }

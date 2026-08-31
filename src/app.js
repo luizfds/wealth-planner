@@ -30,7 +30,7 @@ import {
 import {
   patchHoldingRow, patchVehicleRow, modernAssetRowOpen, patchAssetCategoryTotals,
   renderNetWorthPanel, renderAssets, logAssetSnapshot, applySharesPaste, logDebtSnapshot,
-  patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter
+  patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter, setSharesGainFilter, setSharesSortMode
 } from "./components/assets.js";
 import {
   modernPropRowOpen, renderPropListModern, renderProperties, patchPropertyCardComputed,
@@ -890,6 +890,7 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     }
   });
   document.addEventListener("change", function(e){
+    if(e.target.id === "sharesSortSelect"){ setSharesSortMode(e.target.value); return; }
     if(e.target.closest("table.assets-table, .m-asset-rows") && e.target.classList.contains("a-category")){
       var tr = e.target.closest("[data-index]");
       if(!tr) return;
@@ -949,6 +950,8 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     if(e.target.id === "sharesCopyPriceTemplateBtn") copySharesPriceTemplateToClipboard();
     var personFilterBtn = e.target.closest("[data-asset-person-filter]");
     if(personFilterBtn){ setAssetPersonFilter(personFilterBtn.getAttribute("data-asset-person-filter")); return; }
+    var gainFilterBtn = e.target.closest("[data-shares-gain-filter]");
+    if(gainFilterBtn){ setSharesGainFilter(gainFilterBtn.getAttribute("data-shares-gain-filter")); return; }
     if(e.target.closest("[data-set-projection-reference]")){ setProjectionReference(); return; }
     if(e.target.closest("[data-log-networth]")){ logNetWorthSnapshot(); return; }
     var debtLogBtn = e.target.closest("[data-debt-log]");

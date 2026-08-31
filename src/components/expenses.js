@@ -1,11 +1,11 @@
 import { state, persist, genId } from "../state.js";
 import { CLASSES } from "../constants.js";
-import { sumField, resolveSharedAmount, appendHistorySnapshot, periodsOf, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, isOverdue, daysUntil } from "../calc/ledger.js";
+import { sumField, resolveSharedAmount, periodsOf, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, isOverdue, daysUntil, lastTransactionDateFor } from "../calc/ledger.js";
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { syncUiModeToggle } from "../lib/uimode.js";
-import { buildTable, modernPlainRowHtml, historyTrendHtml } from "../lib/ledger-table.js";
+import { buildTable, modernPlainRowHtml } from "../lib/ledger-table.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 
 function sharedGroupOrder(){
@@ -73,7 +73,7 @@ function renderSharedGroupsClassic(){
       '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="shared:' + escapeAttr(g.key) + '">+ Add to ' + escapeAttr(g.key) + '</button></div>';
   }).join("");
   groups.forEach(function(g, gi){
-    buildTable(document.getElementById("sharedGroupTable" + gi), "shared", g.items, {showClass:true, hideAcctToggle:true, hideClassToggle:true, showDueDate:true, showLog:true}, g.indices);
+    buildTable(document.getElementById("sharedGroupTable" + gi), "shared", g.items, {showClass:true, hideAcctToggle:true, hideClassToggle:true, showLog:true, logAsTransaction:true}, g.indices);
   });
   injectScenarioOverrideButtons();
 }
@@ -117,7 +117,7 @@ function renderSharedGroupsModern(){
       '<div class="m-card-head"><span class="m-avatar m-avatar-' + classificationSwatchClass(g.key) + '">' + initial + '</span>' +
       '<div class="m-card-name">' + escapeAttr(g.key) + '</div>' +
       '<div class="m-card-total">' + fmtCurrency0.format(g.monthly) + '<span>/mo</span></div></div>' +
-      '<div class="m-rows">' + g.items.map(function(item, i){ return modernPlainRowHtml(item, g.indices[i], "shared", modernSharedRowOpen, {showClass:true, showDueDate:true, showLog:true}); }).join("") + '</div>' +
+      '<div class="m-rows">' + g.items.map(function(item, i){ return modernPlainRowHtml(item, g.indices[i], "shared", modernSharedRowOpen, {showClass:true, showLog:true, logAsTransaction:true}); }).join("") + '</div>' +
       '<button type="button" class="m-add-row" data-add="shared:' + escapeAttr(g.key) + '">+ Add expense</button>' +
     '</div>';
   }).join("") + '</div>';
@@ -280,23 +280,30 @@ export function renderPropertyExpensesSummary(){
 // a review is somehow still open can't shift what "next" points at mid-review.
 export var expenseReview = null;
 
-// "Needs review" means overdue against its own frequency — never logged at all, or a full
-// period has elapsed since lastIncurredDate without a new log (isOverdue(), not nextDueDate():
-// that always projects forward to the next occurrence on/after today, so it can never itself
-// land in the past — useless for "is this actually overdue"). An expense logged recently enough
-// that it's not due yet has nothing to review, so it's left out rather than re-shown every time.
+// A shared expense's amount/freq is purely the planned budget — logging against it (below,
+// and the row's own Log button) records a transaction instead, so "when was this last paid" now
+// lives on state.transactions[], not a field on the budget line itself. lastTransactionDateFor()
+// reads that back out.
+//
+// "Needs review" means overdue against its own frequency — no transaction ever recorded at all,
+// or a full period has elapsed since the most recent one (isOverdue(), not nextDueDate(): that
+// always projects forward to the next occurrence on/after today, so it can never itself land in
+// the past — useless for "is this actually overdue"). An expense with a recent-enough transaction
+// has nothing to review, so it's left out rather than re-shown every time.
 function isDueForReview(item){
-  if(!item.lastIncurredDate) return true;
-  return isOverdue(item.lastIncurredDate, item.freq);
+  var lastDate = lastTransactionDateFor(state.transactions, item.id);
+  if(!lastDate) return true;
+  return isOverdue(lastDate, item.freq);
 }
 // Explains *why* a card is in the review queue — distinct from ledger-table.js's
 // dueDateNoteHtml(), which projects the next upcoming date and would misleadingly read as
 // "due in Xd" for an item that's actually already overdue (nextDueDate always rolls forward
 // past today, see isDueForReview() above).
 function reviewDueNoteHtml(item){
-  if(!item.lastIncurredDate) return '<span class="due-note due-unset">Never logged</span>';
-  var daysAgo = -daysUntil(item.lastIncurredDate);
-  return '<span class="due-note due-overdue">Last logged ' + escapeAttr(item.lastIncurredDate) + ' (' + daysAgo + 'd ago) — overdue for a new ' + escapeAttr(item.freq) + ' entry</span>';
+  var lastDate = lastTransactionDateFor(state.transactions, item.id);
+  if(!lastDate) return '<span class="due-note due-unset">No transaction logged yet</span>';
+  var daysAgo = -daysUntil(lastDate);
+  return '<span class="due-note due-overdue">Last transaction ' + escapeAttr(lastDate) + ' (' + daysAgo + 'd ago) — overdue for a new ' + escapeAttr(item.freq) + ' entry</span>';
 }
 export function openExpenseReview(){
   if(!state.shared.length){
@@ -317,21 +324,17 @@ export function closeExpenseReview(){
   var root = document.getElementById("expenseReviewRoot");
   if(root) root.innerHTML = "";
 }
-// Records the (possibly edited) amount/date for the currently-shown expense and advances the
-// queue. Updates item.amount itself (not just a separate "actual" field) — same convention as
-// every other Log button in this app, where the logged value and the ongoing planned amount are
-// the same field. Caller (app.js) is responsible for the cross-cutting refresh afterward
-// (totals, projections, persist) — same split as the scenario-override panel's mutation helpers.
+// Records the (possibly edited) amount/date for the currently-shown expense as a transaction and
+// advances the queue. Deliberately does NOT touch item.amount — the planned budget stays exactly
+// as planned regardless of what was actually spent this time; edit the row's own Amount field
+// directly (always available, independent of this flow) if the plan itself needs to change.
+// Caller (app.js) is responsible for the cross-cutting refresh afterward (totals, projections,
+// persist) — same split as the scenario-override panel's mutation helpers.
 export function logCurrentReviewCard(amount, dateStr){
   if(!expenseReview) return;
   var item = state.shared[expenseReview.queue[expenseReview.pos]];
   if(!item) return;
-  item.amount = amount;
-  if(!Array.isArray(item.history)) item.history = [];
-  // Also updates lastIncurredDate (the same field the "Last paid" due-date projection reads —
-  // see dueDateNoteHtml()/isDueForReview()) so logging here is what actually clears an item's
-  // due status, not just a value snapshot disconnected from it.
-  item.lastIncurredDate = appendHistorySnapshot(item.history, amount, dateStr);
+  logExpenseTransaction(item, amount, dateStr);
   expenseReview.reviewedCount++;
   expenseReview.pos++;
 }
@@ -341,14 +344,12 @@ export function skipCurrentReviewCard(){
 }
 function reviewCardHtml(item){
   var todayStr = new Date().toISOString().slice(0, 10);
-  var trend = historyTrendHtml(item);
   return '<div class="review-card-badge ' + classificationSwatchClass(item.classification || "N/A") + '">' + escapeAttr(item.classification || "N/A") + '</div>' +
     '<div class="review-card-name">' + escapeAttr(item.what) + '</div>' +
-    '<div class="review-card-freq">Currently ' + fmtCurrency2.format(item.amount) + ' / ' + item.freq + '</div>' +
+    '<div class="review-card-freq">Budgeted ' + fmtCurrency2.format(item.amount) + ' / ' + item.freq + '</div>' +
     reviewDueNoteHtml(item) +
-    trend +
     '<div class="review-card-fields">' +
-      '<div class="m-edit-field"><label>Amount</label><input type="number" step="0.01" min="0" class="review-amount" value="' + item.amount + '" aria-label="Amount to log"></div>' +
+      '<div class="m-edit-field"><label>Amount spent</label><input type="number" step="0.01" min="0" class="review-amount" value="' + item.amount + '" aria-label="Amount actually spent"></div>' +
       '<div class="m-edit-field"><label>Date</label><input type="date" class="review-date" value="' + todayStr + '" aria-label="Date to log under"></div>' +
     '</div>';
 }
@@ -394,6 +395,22 @@ function transactionAccountOptionsHtml(selected){
   return options + state.accounts.map(function(a){
     return '<option value="' + escapeAttr(a.name) + '"' + (a.name === selected ? " selected" : "") + '>' + escapeAttr(a.name) + (a.type === "credit" ? " (credit)" : "") + '</option>';
   }).join("");
+}
+// What a shared expense row's own "Log" button does now (opts.logAsTransaction — see
+// ledger-table.js) — and what the Review-expenses flow's logCurrentReviewCard() delegates to.
+// Deliberately leaves item.amount/freq untouched: the planned budget doesn't move just because
+// this instance's actual spend differs from it.
+export function logExpenseTransaction(item, amount, dateStr){
+  var t = {
+    id: genId("t"),
+    date: dateStr || new Date().toISOString().slice(0, 10),
+    amount: Number(amount) || 0,
+    what: item.what,
+    linkedExpenseId: item.id,
+    account: item.account || ""
+  };
+  state.transactions.push(t);
+  return t;
 }
 // A transaction's own account wins if set; otherwise falls back to its linked expense's account
 // (e.g. a transaction linked to "Netflix" inherits Netflix's account without the user having to
@@ -490,14 +507,21 @@ export function renderActualVsPlannedPanel(){
   // "bad" (red) — the inverse of the up/down convention used for asset values elsewhere in the
   // app, where "up" is always good. Both read correctly for what they each represent.
   var overallColor = overallDelta > 0.5 ? "var(--bad)" : (overallDelta < -0.5 ? "var(--good)" : "");
+  var overallPct = plannedTotal > 0 ? Math.min(100, (actualTotal / plannedTotal) * 100) : (actualTotal > 0 ? 100 : 0);
   var rows = state.shared.map(function(item){
     var planned = periodsOf(item.amount, item.freq).monthly;
     var actual = byExpense[item.id] || 0;
     var delta = actual - planned;
     var color = delta > 0.5 ? "var(--bad)" : (delta < -0.5 ? "var(--good)" : "");
-    return '<div class="acct-row"><span class="acct-name" title="' + escapeAttr(item.what) + '">' + escapeAttr(item.what) + '</span>' +
-      '<span style="font-size:11px;color:var(--ink-soft)">' + fmtCurrency0.format(actual) + ' actual / ' + fmtCurrency0.format(planned) + ' planned</span>' +
-      '<span class="acct-amt"' + (color ? ' style="color:' + color + '"' : '') + '>' + (delta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(delta)) + '</span></div>';
+    var pct = planned > 0 ? Math.min(100, (actual / planned) * 100) : (actual > 0 ? 100 : 0);
+    var remaining = planned - actual;
+    var remainingLabel = remaining >= 0 ? (fmtCurrency0.format(remaining) + " left") : (fmtCurrency0.format(-remaining) + " over");
+    return '<div class="budget-row">' +
+      '<div class="acct-row"><span class="acct-name" title="' + escapeAttr(item.what) + '">' + escapeAttr(item.what) + '</span>' +
+        '<span style="font-size:11px;color:var(--ink-soft)">' + fmtCurrency0.format(actual) + ' actual / ' + fmtCurrency0.format(planned) + ' planned — ' + remainingLabel + '</span>' +
+        '<span class="acct-amt"' + (color ? ' style="color:' + color + '"' : '') + '>' + (delta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(delta)) + '</span></div>' +
+      '<div class="budget-bar-track"><div class="budget-bar-fill' + (delta > 0.5 ? " over" : "") + '" style="width:' + pct + '%"></div></div>' +
+    '</div>';
   }).join("");
   var unlinkedTotal = byExpense.__unlinked || 0;
   var unlinkedRow = unlinkedTotal
@@ -505,6 +529,7 @@ export function renderActualVsPlannedPanel(){
     : "";
   el.innerHTML =
     '<div class="fire-stat-row"><span>This month — actual vs. planned</span><b' + (overallColor ? ' style="color:' + overallColor + '"' : '') + '>' + fmtCurrency0.format(actualTotal) + ' / ' + fmtCurrency0.format(plannedTotal) + '</b></div>' +
+    '<div class="fire-bar-track"><div class="fire-bar-fill' + (overallDelta > 0.5 ? " over" : "") + '" style="width:' + overallPct + '%"></div></div>' +
     '<p class="fire-note" style="margin:2px 0 12px">' + (overallDelta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(overallDelta)) + (overallDelta > 0.5 ? " over budget so far this month." : overallDelta < -0.5 ? " under budget so far this month." : " right on budget so far this month.") + '</p>' +
     rows + unlinkedRow +
     creditStatementCyclesHtml();

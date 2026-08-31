@@ -7,7 +7,7 @@ import { syncUiModeToggle, applyPeriodVisibility } from "./lib/uimode.js";
 import { buildTable } from "./lib/ledger-table.js";
 import { onHorizontalSwipe } from "./lib/swipe.js";
 import {
-  decryptBackup, doExport, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv
+  decryptBackup, doExport, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv, exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard
 } from "./lib/backup.js";
 import { periodsOf, sumField, appendHistorySnapshot } from "./calc/ledger.js";
 import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax } from "./calc/tax.js";
@@ -865,6 +865,8 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     var logBtn = e.target.closest("[data-asset-log]");
     if(logBtn){ logAssetSnapshot(Number(logBtn.getAttribute("data-asset-log"))); return; }
     if(e.target.id === "sharesPasteApply") applySharesPaste();
+    if(e.target.id === "sharesExportPriceTemplateBtn") exportSharesPriceTemplateCsv();
+    if(e.target.id === "sharesCopyPriceTemplateBtn") copySharesPriceTemplateToClipboard();
     var personFilterBtn = e.target.closest("[data-asset-person-filter]");
     if(personFilterBtn){ setAssetPersonFilter(personFilterBtn.getAttribute("data-asset-person-filter")); return; }
     if(e.target.closest("[data-set-projection-reference]")){ setProjectionReference(); return; }

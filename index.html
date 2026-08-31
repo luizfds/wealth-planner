@@ -95,7 +95,13 @@
       <p class="app-sidebar-note">Stored only in this browser (<code>localStorage</code>) — nothing is sent anywhere. Clearing your browser data clears this too, so <button class="link-btn" id="exportLink2">Export</button> a backup now and then.</p>
       <p class="app-version">v2.21.1</p>
     </div>
-    <span class="status-chip mobile-status-chip" id="mobileStatusChip"><span class="status-dot" id="mobileStatusDot"></span><span id="mobileStatusText">Saved</span></span>
+    <div class="mobile-header-right">
+      <button type="button" class="notif-bell-btn mobile-notif-bell" id="mobileNotifBellBtn" aria-haspopup="true" aria-expanded="false" aria-label="Notifications">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3a5 5 0 0 0-5 5v2.5L3.5 14h13L15 10.5V8a5 5 0 0 0-5-5z"/><path d="M8.2 16.5a1.9 1.9 0 0 0 3.6 0"/></svg>
+        <span class="notif-badge" hidden></span>
+      </button>
+      <span class="status-chip mobile-status-chip" id="mobileStatusChip"><span class="status-dot" id="mobileStatusDot"></span><span id="mobileStatusText">Saved</span></span>
+    </div>
   </nav>
 
   <div class="app-main">
@@ -109,6 +115,10 @@
         </div>
       </div>
       <div class="actions">
+        <button type="button" class="notif-bell-btn" id="notifBellBtn" aria-haspopup="true" aria-expanded="false" aria-label="Notifications">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3a5 5 0 0 0-5 5v2.5L3.5 14h13L15 10.5V8a5 5 0 0 0-5-5z"/><path d="M8.2 16.5a1.9 1.9 0 0 0 3.6 0"/></svg>
+          <span class="notif-badge" hidden></span>
+        </button>
         <span class="status-chip" id="statusChip"><span class="status-dot" id="statusDot"></span><span id="statusText">Saved</span></span>
         <button class="btn btn-sm" id="themeToggleBtn" title="Cycle between following your system theme, always light, or always dark">Theme: System</button>
         <input type="file" id="importFile" accept="application/json,.json">
@@ -464,5 +474,6 @@
 <div class="toast-wrap" id="toastWrap"></div>
 <div id="scenarioOverrideRoot"></div>
 <div id="expenseReviewRoot"></div>
+<div id="notifPanelRoot"></div>
 
 <script type="module" src="src/app.js"></script>

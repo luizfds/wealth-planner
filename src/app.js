@@ -4,6 +4,7 @@ import { fmtCurrency0, fmtCurrency2 } from "./lib/format.js";
 import { showToast, showUndoToast, showPersistentToast } from "./lib/toast.js";
 import { escapeAttr, slug } from "./lib/html.js";
 import { syncUiModeToggle, applyPeriodVisibility } from "./lib/uimode.js";
+import { getNotifications, unreadNotificationCount, markNotificationRead, markAllNotificationsRead } from "./lib/notifications.js";
 import { buildTable } from "./lib/ledger-table.js";
 import { onHorizontalSwipe } from "./lib/swipe.js";
 import {
@@ -1769,6 +1770,7 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     updateAccountSuggestions();
     renderTaxSuper();
     applyPeriodVisibility();
+    renderNotifBadge();
   }
 
   if(!storageAvailable) setStatus(false, "Storage unavailable — export to keep changes");
@@ -1817,6 +1819,106 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     setTimeout(function(){ appLoadingEl.remove(); }, 300);
   }
 })();
+
+// ---------------- Notifications ----------------
+// A bell over locally-computed alerts (overdue/upcoming bills, expenses due for review, stale
+// assets, over-budget-this-month) — see lib/notifications.js for why this only ever refreshes on
+// load/focus/open, same "nudge, not a push" limitation as the Dashboard's stale-assets banner.
+// Two trigger buttons in the DOM (desktop topbar, mobile sidebar row — see index.html) share this
+// one panel/badge-refresh logic; whichever one was clicked decides where the panel anchors.
+var notifPanelOpen = false;
+function renderNotifBadge(){
+  var count = unreadNotificationCount();
+  document.querySelectorAll(".notif-badge").forEach(function(el){
+    el.textContent = count > 9 ? "9+" : String(count);
+    el.hidden = count === 0;
+  });
+}
+function closeNotifPanel(){
+  if(!notifPanelOpen) return;
+  notifPanelOpen = false;
+  var root = document.getElementById("notifPanelRoot");
+  if(root) root.innerHTML = "";
+  document.querySelectorAll(".notif-bell-btn").forEach(function(btn){ btn.setAttribute("aria-expanded", "false"); });
+}
+function notifItemHtml(n){
+  return '<button type="button" class="notif-item' + (n.read ? "" : " is-unread") + '" data-notif-id="' + escapeAttr(n.id) + '" data-notif-page="' + escapeAttr(n.page) + '">' +
+    '<span class="notif-dot ' + escapeAttr(n.severity) + '" aria-hidden="true"></span>' +
+    '<span class="notif-item-body"><span class="notif-item-title">' + escapeAttr(n.title) + '</span><span class="notif-item-detail">' + escapeAttr(n.detail) + '</span></span>' +
+  '</button>';
+}
+function renderNotifPanelContent(){
+  var root = document.getElementById("notifPanelRoot");
+  if(!root) return;
+  var notifications = getNotifications();
+  var hasUnread = notifications.some(function(n){ return !n.read; });
+  var list = notifications.length
+    ? '<div class="notif-list">' + notifications.map(notifItemHtml).join("") + '</div>'
+    : '<p class="notif-empty">Nothing to flag right now — bills, review reminders, and budget alerts will show up here.</p>';
+  root.innerHTML = '<div class="notif-panel" id="notifPanel" role="dialog" aria-label="Notifications">' +
+    '<div class="notif-panel-head"><h4>Notifications</h4><button type="button" class="notif-mark-all-btn" id="notifMarkAllBtn"' + (hasUnread ? "" : " disabled") + '>Mark all read</button></div>' +
+    list +
+  '</div>';
+}
+// Rendered into #notifPanelRoot (a position:fixed root outside any scrolling ancestor — see the
+// CSS comment on .notif-panel), so it's positioned in JS from the trigger button's own bounding
+// rect rather than plain CSS anchoring, keeping it correct regardless of which of the two trigger
+// buttons (desktop vs. mobile — different places in the layout entirely) opened it.
+function positionNotifPanel(triggerBtn){
+  var panel = document.getElementById("notifPanel");
+  if(!panel || !triggerBtn) return;
+  var rect = triggerBtn.getBoundingClientRect();
+  var width = panel.offsetWidth || 340;
+  var left = Math.min(Math.max(8, rect.right - width), window.innerWidth - width - 8);
+  var top = Math.min(rect.bottom + 8, window.innerHeight - 60);
+  panel.style.left = left + "px";
+  panel.style.top = top + "px";
+}
+function openNotifPanel(triggerBtn){
+  notifPanelOpen = true;
+  renderNotifPanelContent();
+  positionNotifPanel(triggerBtn);
+  document.querySelectorAll(".notif-bell-btn").forEach(function(btn){ btn.setAttribute("aria-expanded", String(btn === triggerBtn)); });
+}
+document.querySelectorAll(".notif-bell-btn").forEach(function(btn){
+  btn.addEventListener("click", function(e){
+    e.stopPropagation();
+    if(notifPanelOpen){ closeNotifPanel(); return; }
+    openNotifPanel(btn);
+  });
+});
+document.addEventListener("click", function(e){
+  if(!notifPanelOpen) return;
+  if(e.target.closest(".notif-panel") || e.target.closest(".notif-bell-btn")) return;
+  closeNotifPanel();
+});
+document.addEventListener("keydown", function(e){
+  if(e.key === "Escape") closeNotifPanel();
+});
+window.addEventListener("resize", function(){
+  if(notifPanelOpen) positionNotifPanel(document.querySelector('.notif-bell-btn[aria-expanded="true"]'));
+});
+document.getElementById("notifPanelRoot").addEventListener("click", function(e){
+  if(e.target.closest("#notifMarkAllBtn")){
+    markAllNotificationsRead(getNotifications());
+    renderNotifBadge();
+    renderNotifPanelContent();
+    return;
+  }
+  var item = e.target.closest("[data-notif-id]");
+  if(item){
+    markNotificationRead(item.getAttribute("data-notif-id"));
+    renderNotifBadge();
+    closeNotifPanel();
+    showPage(item.getAttribute("data-notif-page"));
+  }
+});
+// Cheap enough to run on the same "tab regains focus" signal as the update checker below — local
+// data can change while the tab was backgrounded (e.g. a bill's due date rolling over at midnight)
+// without any edit happening in this tab to trigger a re-render otherwise.
+document.addEventListener("visibilitychange", function(){
+  if(document.visibilityState === "visible") renderNotifBadge();
+});
 
 // ---------------- Update detection ----------------
 // sw.js's own script rarely changes between releases (this app has no fixed precache list, so

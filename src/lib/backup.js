@@ -142,8 +142,14 @@ export function doShare(){
     // action button gives us a fresh, guaranteed-synchronous click to hang the real share() call
     // off of, instead of triggering it from inside this .then().
     showPersistentToast("Ready to share (encrypted)", "Send", function(){
+      // The OS share sheet is handed both a file and a text/title, but plenty of apps only
+      // surface one or the other when both are present — confirmed on a real device: the file
+      // now attaches (see the .txt/text-plain change above) but the passphrase-and-import
+      // message doesn't come through with it. Copying the message to the clipboard as well
+      // means it's there to paste manually regardless of what the receiving app decided to show.
+      if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).catch(function(){});
       navigator.share({ files: [file], title: "Wealth Planner backup", text: text }).then(function(){
-        showToast("Shared");
+        showToast("Shared — message also copied, paste it if it didn't come through with the file");
       }).catch(function(err){
         if(err && err.name === "AbortError") return; // user dismissed the share sheet — not a failure
         // The share sheet itself can still fail for reasons outside our control even for a type

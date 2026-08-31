@@ -167,6 +167,35 @@ export function exportAssetsCsv(){
   });
   exportCsv("assets-" + isoDateStamp() + ".csv", headers, rows);
 }
+// The exchange-qualified ticker GOOGLEFINANCE expects, matching the manual convention already
+// documented in the "Paste prices" hint text (assets.js): ASX needs an "ASX:" prefix, US tickers
+// take no prefix (GOOGLEFINANCE defaults to US exchanges), and crypto is a currency pair against
+// USD, e.g. "BTCUSD".
+function googleFinanceTicker(a){
+  var symbol = (a.symbol || "").trim().toUpperCase();
+  if(!symbol) return "";
+  if(a.market === "ASX") return "ASX:" + symbol;
+  if(a.market === "Crypto") return symbol + "USD";
+  return symbol;
+}
+// A ready-to-paste starting point for the "Paste prices from Google Sheets" round trip — every
+// current Shares/Crypto holding, with a live GOOGLEFINANCE formula already written for it, so a
+// first-time setup means paste-this-in rather than hand-typing one formula per holding. Symbol
+// and Price are adjacent columns (matching what the paste-back box expects) so after Sheets
+// evaluates the formulas, selecting and copying those two columns is a single drag. The formula
+// text (leading "=", embedded commas/quotes) round-trips correctly through CSV import in both
+// Sheets and Excel, which treat a leading "=" in an imported cell as a live formula — the same
+// mechanism spreadsheet CSV exports commonly rely on for this.
+export function exportSharesPriceTemplateCsv(){
+  var headers = ["What", "Market", "Symbol", "Price"];
+  var rows = state.assets.filter(function(a){ return a.category === "Shares"; }).map(function(a){
+    var ticker = googleFinanceTicker(a);
+    var formula = ticker ? '=GOOGLEFINANCE("' + ticker + '","price")' : "";
+    return [a.what, a.market || "ASX", a.symbol || "", formula];
+  });
+  exportCsv("shares-price-template-" + isoDateStamp() + ".csv", headers, rows);
+}
+
 export function exportPropertyLoansCsv(){
   var headers = ["Property", "What", "Balance", "Rate %", "Term (yrs)", "Type", "Repayment mode", "Manual repayment amount", "Offset balance"];
   var rows = [];

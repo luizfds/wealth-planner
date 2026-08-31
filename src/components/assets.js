@@ -672,11 +672,23 @@ export function applySharesPaste(){
   var area = document.getElementById("sharesPasteArea");
   if(!area) return;
   var lines = area.value.split(/\r?\n/);
-  var updatedCount = 0, notFound = [];
+  var updatedCount = 0, notFound = [], unparseable = [];
   var todayStr = new Date().toISOString().slice(0, 10);
   lines.forEach(function(line){
+    var trimmed = line.trim();
+    if(!trimmed) return;
     var parsed = parseSharesPasteLine(line);
-    if(!parsed) return;
+    if(!parsed){
+      // A non-blank line that failed to parse — most commonly a #N/A/#ERROR!/blank price cell
+      // (a GOOGLEFINANCE formula that briefly failed to resolve that ticker), which used to be
+      // dropped with zero feedback: the row's price silently never updated (and so neither did
+      // its sparkline/trend, which only move when history actually gets a new, different value)
+      // with nothing on screen explaining why. Best-effort the first token so the toast can name
+      // it, rather than leaving "why didn't GPRO update" a mystery.
+      var firstToken = trimmed.split(/\t+|,+|\s+/)[0];
+      if(firstToken) unparseable.push(firstToken.toUpperCase());
+      return;
+    }
     var matches = state.assets.filter(function(a){ return a.category === "Shares" && (a.symbol || "").toUpperCase() === parsed.symbol; });
     if(!matches.length){ notFound.push(parsed.symbol); return; }
     matches.forEach(function(item){
@@ -695,6 +707,7 @@ export function applySharesPaste(){
   renderNetWorthPanel();
   persist();
   var msg = updatedCount + " price" + (updatedCount === 1 ? "" : "s") + " updated" +
-    (notFound.length ? " — no holding found for " + notFound.join(", ") : "");
+    (notFound.length ? " — no holding found for " + notFound.join(", ") : "") +
+    (unparseable.length ? " — couldn't read a price for " + unparseable.join(", ") + " (check for #N/A or a blank cell in your sheet)" : "");
   showToast(msg);
 }

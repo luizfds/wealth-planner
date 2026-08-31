@@ -109,6 +109,57 @@ export function rowHtml(section, item, idx, showClass, showIncomeFields, acctCla
     '</tr>';
 }
 
+// ---------------- Generic collapsible-row shell ----------------
+// The part of a modern-mode row that's truly generic — the open/closed wrapper, its
+// data-section/data-index (what every row-level delegated handler keys off: delete,
+// wireModernRowToggle, the field-input listeners), and the [data-row-toggle] summary button —
+// split out from modernPlainRowHtml below so a row shape that doesn't fit "amount + frequency"
+// (e.g. Transactions' date/description/link fields in expenses.js) can reuse the same shell
+// without reimplementing the toggle/expand plumbing. Three small pieces, composed by the caller:
+// modernRowSummaryHtml (the collapsed bar), modernRowEditHtml (the expand panel), and
+// modernRowShellHtml (the wrapper that ties them to open/closed state).
+
+// The collapsed bar: an optional color dot, a name + any sub-lines, a trailing amount, and
+// (unless computed) the expand chevron. `name` is escaped here since it's always plain text;
+// `subLines` entries are taken as pre-built HTML (falsy entries are dropped) since a sub-line can
+// itself carry markup (e.g. historyTrendHtml's colored up/down note) — escape the plain-text ones
+// yourself before passing them in, same as everywhere else in this codebase.
+export function modernRowSummaryHtml(opts){
+  opts = opts || {};
+  var dot = (!opts.computed && opts.colorIdx != null) ? '<span class="m-row-dot series-color-' + opts.colorIdx + '" aria-hidden="true"></span>' : "";
+  var subs = (opts.subLines || []).filter(Boolean).map(function(s){ return '<div class="m-row-sub">' + s + '</div>'; }).join("");
+  return '<div class="m-row-summary"' + (opts.computed ? ' style="cursor:default"' : ' role="button" tabindex="0" data-row-toggle') + '>' +
+    dot +
+    '<div style="flex:1 1 auto; min-width:0">' +
+      '<div class="m-row-name">' + escapeAttr(opts.name || "") + '</div>' +
+      subs +
+    '</div>' +
+    '<span class="m-row-amt" data-computed="amt">' + (opts.amountHtml || "") + '</span>' +
+    (opts.computed ? "" : '<svg class="m-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>') +
+  '</div>';
+}
+// The expand panel: caller-built .m-edit-field HTML dropped into the standard field grid, plus
+// an actions row (normally just the row's own Delete button), wrapped in the grid-template-rows
+// animation container every expandable row shares (see ledger.css's .m-row-edit/-inner/-pad).
+export function modernRowEditHtml(fieldsHtml, actionsHtml){
+  return '<div class="m-row-edit"><div class="m-row-edit-inner"><div class="m-row-edit-pad">' +
+    '<div class="m-edit-grid">' + fieldsHtml + '</div>' +
+    '<div class="m-edit-actions">' + actionsHtml + '</div>' +
+  '</div></div></div>';
+}
+// Ties a summary + edit panel to open/closed state and gives the row its data-section/data-index.
+// A computed row renders the summary only — there's nothing to edit, so no edit panel, no toggle.
+// extraClass lets a caller add its own marker class (e.g. Transactions' "tx-row") alongside "m-row".
+export function modernRowShellHtml(section, idx, openState, summaryHtml, editHtml, opts){
+  opts = opts || {};
+  var extra = (opts.extraClass ? " " + opts.extraClass : "") + (opts.primary ? " m-row-primary" : "");
+  if(opts.computed){
+    return '<div class="m-row computed' + extra + '" data-section="' + escapeAttr(section) + '" data-index="' + idx + '">' + summaryHtml + '</div>';
+  }
+  var isOpen = !!openState[section + ":" + idx];
+  return '<div class="m-row' + (isOpen ? " open" : "") + extra + '" data-section="' + escapeAttr(section) + '" data-index="' + idx + '">' + summaryHtml + editHtml + '</div>';
+}
+
 // Generic "name + amount, expands to a small field grid" row — used everywhere a ledger-table
 // row is just What/[Classification]/Amount/Frequency/[Account] with no person-tax machinery
 // (that's what makes Income's row special enough to need its own function). section is the
@@ -119,24 +170,18 @@ export function rowHtml(section, item, idx, showClass, showIncomeFields, acctCla
 export function modernPlainRowHtml(item, idx, section, openState, opts){
   opts = opts || {};
   var isComputed = !!item.computed;
-  var isPrimary = opts.primaryId && item.id === opts.primaryId;
   var monthly = periodsOf(item.amount, item.freq).monthly;
-  var dot = (!isComputed && opts.colorIdx != null) ? '<span class="m-row-dot series-color-' + opts.colorIdx + '" aria-hidden="true"></span>' : "";
   var trendHtml = (opts.showLog && !opts.logAsTransaction && !isComputed) ? historyTrendHtml(item) : "";
-  var summary = '<div class="m-row-summary"' + (isComputed ? ' style="cursor:default"' : ' role="button" tabindex="0" data-row-toggle') + '>' +
-    dot +
-    '<div style="flex:1 1 auto; min-width:0">' +
-      '<div class="m-row-name">' + escapeAttr(item.what) + '</div>' +
-      (isComputed && item.computedNote ? '<div class="m-row-sub">' + escapeAttr(item.computedNote) + '</div>' : "") +
-      (trendHtml ? '<div class="m-row-sub">' + trendHtml + '</div>' : "") +
-    '</div>' +
-    '<span class="m-row-amt" data-computed="amt">' + fmtCurrency2.format(monthly) + '/mo</span>' +
-    (isComputed ? "" : '<svg class="m-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>') +
-  '</div>';
+  var summary = modernRowSummaryHtml({
+    computed: isComputed,
+    colorIdx: opts.colorIdx,
+    name: item.what,
+    subLines: [isComputed && item.computedNote ? escapeAttr(item.computedNote) : "", trendHtml],
+    amountHtml: fmtCurrency2.format(monthly) + "/mo"
+  });
   if(isComputed){
-    return '<div class="m-row computed" data-section="' + escapeAttr(section) + '" data-index="' + idx + '">' + summary + '</div>';
+    return modernRowShellHtml(section, idx, openState, summary, "", { computed: true });
   }
-  var isOpen = !!openState[section + ":" + idx];
   // With a Classification field, Account gets its own full-width row below (matches Expenses);
   // without one, there's room for Amount/Frequency/Account to share a single row instead.
   var classField = opts.showClass
@@ -149,18 +194,14 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
   var logField = opts.showLog
     ? '<div class="m-edit-field' + (opts.logAsTransaction ? " span3" : " span2") + '"><label>' + (opts.logAsTransaction ? "Log a transaction" : "Log") + '</label>' + logControlsHtml(section, idx, item, opts.logAsTransaction) + '</div>'
     : "";
-  var edit = '<div class="m-row-edit"><div class="m-row-edit-inner"><div class="m-row-edit-pad">' +
-    '<div class="m-edit-grid">' +
-      '<div class="m-edit-field span3"><label>What</label><input type="text" class="f-what" value="' + escapeAttr(item.what) + '" aria-label="Item name"></div>' +
-      classField +
-      '<div class="m-edit-field"><label>Amount</label><input type="number" step="0.01" min="0" class="f-amount" value="' + item.amount + '" aria-label="Amount"></div>' +
-      '<div class="m-edit-field"><label>Frequency</label><select class="f-freq">' + optionsHtml(FREQS, item.freq) + '</select></div>' +
-      accountField +
-      logField +
-    '</div>' +
-    '<div class="m-edit-actions">' +
-      '<button type="button" class="btn btn-ghost btn-sm row-del" data-del="' + escapeAttr(section) + ':' + idx + '">Delete</button>' +
-    '</div>' +
-  '</div></div></div>';
-  return '<div class="m-row' + (isOpen ? " open" : "") + (isPrimary ? " m-row-primary" : "") + '" data-section="' + escapeAttr(section) + '" data-index="' + idx + '">' + summary + edit + '</div>';
+  var fieldsHtml =
+    '<div class="m-edit-field span3"><label>What</label><input type="text" class="f-what" value="' + escapeAttr(item.what) + '" aria-label="Item name"></div>' +
+    classField +
+    '<div class="m-edit-field"><label>Amount</label><input type="number" step="0.01" min="0" class="f-amount" value="' + item.amount + '" aria-label="Amount"></div>' +
+    '<div class="m-edit-field"><label>Frequency</label><select class="f-freq">' + optionsHtml(FREQS, item.freq) + '</select></div>' +
+    accountField +
+    logField;
+  var actionsHtml = '<button type="button" class="btn btn-ghost btn-sm row-del" data-del="' + escapeAttr(section) + ':' + idx + '">Delete</button>';
+  var edit = modernRowEditHtml(fieldsHtml, actionsHtml);
+  return modernRowShellHtml(section, idx, openState, summary, edit, { primary: opts.primaryId && item.id === opts.primaryId });
 }

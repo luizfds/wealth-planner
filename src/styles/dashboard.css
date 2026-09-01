@@ -42,7 +42,22 @@
   .card-select:focus-visible{ box-shadow: var(--focus-ring); }
   .card.is-active{ border-color: var(--brass); box-shadow: var(--shadow), 0 0 0 1.5px var(--brass); }
   .card-top{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
-  .card-name{ font-weight:600; font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  /* A flex row, not a single truncated text run — a long scenario name plus the "Current
+     situation" pill used to share one `overflow:hidden;text-overflow:ellipsis` box, so the
+     ellipsis could land mid-badge ("CURRENT SITUA…") instead of only ever shortening the name.
+     `min-width:0` is required on a flex item before its child's own overflow:hidden can do
+     anything — flex items default to min-width:auto (their content's intrinsic width), which
+     otherwise refuses to shrink at all. */
+  /* flex-wrap, not a fixed one-line shrink: the name is the primary label and should keep its
+     full natural width as long as there's any reasonable way to fit it, so the badge (secondary
+     status info) is what drops to its own line first when the two don't both fit — the opposite
+     priority from a plain flex-shrink split, which would (and did) squeeze the name down to a
+     couple of characters to protect the badge's full width instead. .card-name-text's `min-width:
+     0` only applies once it's alone on its own line with nothing left to defer to (see below) —
+     it's the final fallback for a name so long even that line can't hold it, not the everyday
+     "give ground to the badge" behavior. */
+  .card-name{ display:flex; flex-wrap:wrap; align-items:center; gap:2px 6px; min-width:0; font-weight:600; font-size:13.5px; }
+  .card-name-text{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; }
   /* .icon-btn pairs (rename/delete etc.) were 26px with only a 2px gap — a low tap on one could
      land on its neighbor, worse when one of the two is destructive (delete). Both bumped as a
      shared fix: every .icon-btn instance across the app gets the larger, better-separated

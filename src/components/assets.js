@@ -524,7 +524,7 @@ function sharesFilterSortHtml(){
     return '<option value="' + o.key + '"' + (sharesSortMode === o.key ? " selected" : "") + '>' + escapeAttr(o.label) + '</option>';
   }).join("") + '</select>';
   return '<div class="shares-toolbar">' + filterHtml + sortHtml + '</div><div class="shares-toolbar">' +
-    '<span class="calc-note" style="align-self:center">Change:</span>' + sharesChangeWindowHtml() + '</div>';
+    '<span class="shares-toolbar-label">Change:</span>' + sharesChangeWindowHtml() + '</div>';
 }
 
 export function renderSharesSubpage(){

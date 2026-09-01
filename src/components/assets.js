@@ -57,6 +57,56 @@ function priceNoteText(item){
   var currency = holdingCurrency(item);
   return item.priceUpdated ? ("as of " + item.priceUpdated + " · " + currency) : currency;
 }
+
+// Session-only (not persisted, mirrors sharesGainFilter's own convention) — which lookback
+// window the "change" badge on every holding uses. Only Log and the price-paste feature ever
+// write a .price onto a history entry (see logAssetSnapshot/applySharesPaste), so a holding with
+// no price history at all — or none old enough to reach the selected window — simply has
+// nothing to show; there's no synthetic/interpolated fallback here, unlike valueAtDate's
+// portfolio-chart use of history, since a made-up price would be actively misleading.
+export var sharesChangeWindow = "1d";
+export function setSharesChangeWindow(value){
+  sharesChangeWindow = value;
+  renderSharesSubpage();
+}
+var SHARES_CHANGE_WINDOWS = [
+  { key: "1d", label: "1D", days: 1 },
+  { key: "1w", label: "1W", days: 7 },
+  { key: "1m", label: "1M", days: 30 },
+  { key: "3m", label: "3M", days: 90 }
+];
+function holdingPriceChange(item){
+  var win = SHARES_CHANGE_WINDOWS.find(function(w){ return w.key === sharesChangeWindow; });
+  var price = Number(item.price) || 0;
+  if(!win || !price || !Array.isArray(item.history) || !item.history.length) return null;
+  var priced = item.history.filter(function(h){ return h.price != null; });
+  if(!priced.length) return null;
+  var target = new Date();
+  target.setDate(target.getDate() - win.days);
+  var targetStr = target.toISOString().slice(0, 10);
+  // history is kept date-sorted by appendHistorySnapshot — the last priced entry on or before
+  // the target date is the closest known price at (or just before) that point in time.
+  var from = null;
+  for(var i = 0; i < priced.length; i++){
+    if(priced[i].date <= targetStr) from = priced[i]; else break;
+  }
+  if(!from || !from.price) return null;
+  return { pct: (price - from.price) / from.price, fromDate: from.date };
+}
+function priceChangeHtml(item){
+  var c = holdingPriceChange(item);
+  var win = SHARES_CHANGE_WINDOWS.find(function(w){ return w.key === sharesChangeWindow; });
+  var label = win ? win.label : "";
+  if(!c) return '<span class="calc-note" title="No price logged from at least ' + escapeAttr(label) + ' ago — paste updated prices or use Log to start tracking this.">— ' + escapeAttr(label) + '</span>';
+  var cls = c.pct > 0 ? "up" : (c.pct < 0 ? "down" : "");
+  var arrow = c.pct > 0 ? "▲" : (c.pct < 0 ? "▼" : "–");
+  return '<span class="asset-trend ' + cls + '" title="Since ' + escapeAttr(c.fromDate) + '">' + arrow + ' ' + fmtPercent1.format(Math.abs(c.pct)) + ' ' + escapeAttr(label) + '</span>';
+}
+function sharesChangeWindowHtml(){
+  return '<div class="subnav" id="sharesChangeWindow">' + SHARES_CHANGE_WINDOWS.map(function(w){
+    return '<button type="button" class="subnav-item' + (sharesChangeWindow === w.key ? " active" : "") + '" data-shares-change-window="' + escapeAttr(w.key) + '" title="Price change over the last ' + escapeAttr(w.label) + '">' + escapeAttr(w.label) + '</button>';
+  }).join("") + '</div>';
+}
 function holdingRowHtml(item, idx){
   var qty = Number(item.quantity) || 0;
   var price = Number(item.price) || 0;
@@ -70,6 +120,7 @@ function holdingRowHtml(item, idx){
     '<td class="num"><input type="number" step="0.01" min="0" class="h-avgcost" value="' + (item.avgCost != null ? item.avgCost : "") + '" placeholder="—" aria-label="Average cost per share"></td>' +
     '<td class="num"><input type="number" step="0.01" min="0" class="h-price" value="' + price + '" aria-label="Current price per ' + (item.market === "Crypto" ? "coin" : "share") + ' (' + currency + ')">' +
       '<span class="computed-note h-price-note">' + priceNoteText(item) + '</span></td>' +
+    '<td class="h-change-cell">' + priceChangeHtml(item) + '</td>' +
     '<td class="num h-value-cell">' + fmtCurrency0For(currency).format(qty * price) + '</td>' +
     '<td class="h-gain-cell">' + gainLossHtml(item) + '</td>' +
     '<td><input type="text" class="h-person" list="personSuggestions" value="' + escapeAttr(item.person || "") + '" placeholder="Household" aria-label="Person"></td>' +
@@ -86,6 +137,8 @@ export function patchHoldingRow(tr, item){
   if(valueCell) valueCell.textContent = fmtCurrency0For(currency).format(qty * price);
   var gainCell = tr.querySelector(".h-gain-cell");
   if(gainCell) gainCell.innerHTML = gainLossHtml(item);
+  var changeCell = tr.querySelector(".h-change-cell");
+  if(changeCell) changeCell.innerHTML = priceChangeHtml(item);
   var priceNote = tr.querySelector(".h-price-note");
   if(priceNote) priceNote.textContent = priceNoteText(item);
   var subCell = tr.querySelector(".h-sub-cell");
@@ -300,6 +353,7 @@ function modernShareRowHtml(item, idx, colorIdx){
     '<div class="m-row-share-value">' +
       '<div class="m-row-amt h-value-cell" data-computed="amt">' + fmtCurrency0For(currency).format(qty * price) + '</div>' +
       '<div class="h-gain-cell">' + gainLossHtml(item) + '</div>' +
+      '<div class="h-change-cell">' + priceChangeHtml(item) + '</div>' +
     '</div>' +
     '<svg class="m-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>' +
   '</div>';
@@ -449,7 +503,8 @@ function sharesFilterSortHtml(){
   var sortHtml = '<select id="sharesSortSelect" aria-label="Sort holdings">' + SHARES_SORT_OPTIONS.map(function(o){
     return '<option value="' + o.key + '"' + (sharesSortMode === o.key ? " selected" : "") + '>' + escapeAttr(o.label) + '</option>';
   }).join("") + '</select>';
-  return '<div class="shares-toolbar">' + filterHtml + sortHtml + '</div>';
+  return '<div class="shares-toolbar">' + filterHtml + sortHtml + '</div><div class="shares-toolbar">' +
+    '<span class="calc-note" style="align-self:center">Change:</span>' + sharesChangeWindowHtml() + '</div>';
 }
 
 export function renderSharesSubpage(){
@@ -493,7 +548,7 @@ export function renderSharesSubpage(){
     '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
     '<div class="ledger-body"><div id="sharesGlance">' + sharesGainLossGlanceHtml(allData.items) + '</div>' + pasteTool + toolbar + body + '</div></details>' + historyPanel + '</div>';
   if(data.items.length && !isModern){
-    var thead = '<thead><tr><th>What</th><th>Trend</th><th>Symbol</th><th>Mkt</th><th class="num">Qty</th><th class="num">Avg cost</th><th class="num">Price</th><th class="num">Value</th><th>Gain/Loss</th><th>Person</th><th></th><th></th></tr></thead>';
+    var thead = '<thead><tr><th>What</th><th>Trend</th><th>Symbol</th><th>Mkt</th><th class="num">Qty</th><th class="num">Avg cost</th><th class="num">Price</th><th>Change</th><th class="num">Value</th><th>Gain/Loss</th><th>Person</th><th></th><th></th></tr></thead>';
     var rows = data.items.map(function(item, i){ return holdingRowHtml(item, data.indices[i]); }).join("");
     document.getElementById("sharesTable").innerHTML = thead + "<tbody>" + rows + "</tbody>";
   }
@@ -788,6 +843,14 @@ export function logAssetSnapshot(idx){
   var num = Number(asset.amount) || 0;
   if(!Array.isArray(asset.history)) asset.history = [];
   var dateStr = appendHistorySnapshot(asset.history, num);
+  // A Shares holding's history entry also gets tagged with the per-share price at that moment
+  // (not just the total value above), so a later "change over the last day/week/month" figure
+  // can compare price to price — not total value, which would also move with quantity if shares
+  // were bought or sold in between. Every other asset category's history stays value-only.
+  if(asset.category === "Shares"){
+    var entry = asset.history.find(function(h){ return h.date === dateStr; });
+    if(entry) entry.price = Number(asset.price) || 0;
+  }
   renderAssets();
   renderProjectionOutputs();
   persist();
@@ -837,7 +900,9 @@ export function applySharesPaste(){
       // update the value but the sparkline/trend note (both driven by item.history) stayed
       // frozen until someone clicked Log on every row by hand.
       if(!Array.isArray(item.history)) item.history = [];
-      appendHistorySnapshot(item.history, item.amount, todayStr);
+      var entryDate = appendHistorySnapshot(item.history, item.amount, todayStr);
+      var entry = item.history.find(function(h){ return h.date === entryDate; });
+      if(entry) entry.price = parsed.price;
     });
     updatedCount += matches.length;
   });

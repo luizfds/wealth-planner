@@ -7,6 +7,7 @@ import { syncUiModeToggle, applyPeriodVisibility } from "./lib/uimode.js";
 import { getNotifications, unreadNotificationCount, markNotificationRead, markAllNotificationsRead } from "./lib/notifications.js";
 import { buildTable } from "./lib/ledger-table.js";
 import { onHorizontalSwipe } from "./lib/swipe.js";
+import { initTableScrollShadows } from "./lib/scroll-shadow.js";
 import {
   decryptBackup, doExport, doShare, canShareFiles, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv, exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard
 } from "./lib/backup.js";
@@ -1847,6 +1848,7 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
   document.addEventListener("change", renderGlobalMetrics);
 
   renderAll();
+  initTableScrollShadows();
   showPage(initialPage, { replace: true, skipScroll: true });
   if(initialPage === "assets") showAssetsSubpage(initialAssetsSub, { replace: true });
 

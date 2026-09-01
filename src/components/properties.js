@@ -10,22 +10,23 @@ import { appendHistorySnapshot } from "../calc/ledger.js";
 import { renderPropertyExpensesSummary } from "./expenses.js";
 import { renderProjectionOutputs } from "./projections.js";
 
-// Real mortgages are only ever paid weekly, fortnightly, or monthly — unlike income/expense
-// rows elsewhere in this app, Quarterly/Yearly aren't real options here, so this is its own
-// shorter list rather than reusing the global FREQS.
-var LOAN_REPAY_FREQS = ["Weekly", "Fortnightly", "Monthly"];
-var LOAN_REPAY_FREQ_SUFFIX = { Weekly: "/wk", Fortnightly: "/fn", Monthly: "/mo" };
+// Real-world payment cadences (loan repayments, and how a property manager actually disburses
+// rent) are only ever weekly, fortnightly, or monthly — unlike income/expense rows elsewhere in
+// this app, Quarterly/Yearly aren't real options here, so this is its own shorter list rather
+// than reusing the global FREQS.
+var PAYMENT_FREQS = ["Weekly", "Fortnightly", "Monthly"];
+var PAYMENT_FREQ_SUFFIX = { Weekly: "/wk", Fortnightly: "/fn", Monthly: "/mo" };
 
 function loanRowHtml(loan, li){
   var disp = loanRepaymentDisplay(loan);
-  var suffix = LOAN_REPAY_FREQ_SUFFIX[disp.freq] || "/mo";
+  var suffix = PAYMENT_FREQ_SUFFIX[disp.freq] || "/mo";
   return '<tr data-loan-index="' + li + '">' +
     '<td><input type="text" class="loan-what" value="' + escapeAttr(loan.what) + '" aria-label="Loan name"></td>' +
     '<td class="num"><input type="number" step="1000" min="0" class="loan-balance" value="' + (Number(loan.balance) || 0) + '" aria-label="Loan balance"></td>' +
     '<td class="num"><input type="number" step="0.01" min="0" class="loan-rate" value="' + (Math.round((Number(loan.rate) || 0) * 100) / 100) + '" aria-label="Interest rate percent"></td>' +
     '<td class="num"><input type="number" step="1" min="0" class="loan-term" value="' + (Number(loan.termYears) || 0) + '" aria-label="Term years remaining"></td>' +
     '<td><select class="loan-type" aria-label="Repayment type">' + optionsHtml(["PI", "IO"], loan.repaymentType) + '</select></td>' +
-    '<td><select class="loan-repay-freq" aria-label="How often this loan is paid" title="For auto repayments this only changes how the amount is displayed (still calculated monthly) — for a manual repayment it\'s the frequency the amount you type in is actually paid at.">' + optionsHtml(LOAN_REPAY_FREQS, disp.freq) + '</select></td>' +
+    '<td><select class="loan-repay-freq" aria-label="How often this loan is paid" title="For auto repayments this only changes how the amount is displayed (still calculated monthly) — for a manual repayment it\'s the frequency the amount you type in is actually paid at.">' + optionsHtml(PAYMENT_FREQS, disp.freq) + '</select></td>' +
     '<td class="num loan-repayment-cell">' +
       '<select class="loan-repay-mode" aria-label="Repayment mode">' + optionsHtml(["auto", "manual"], loan.repaymentMode) + '</select>' +
       (loan.repaymentMode === "manual"
@@ -60,7 +61,7 @@ function loanRowModernHtml(loan, li, propId, colorIdx){
   var section = "loan:" + propId;
   var isOpen = !!modernPropRowOpen[section + ":" + li];
   var disp = loanRepaymentDisplay(loan);
-  var suffix = LOAN_REPAY_FREQ_SUFFIX[disp.freq] || "/mo";
+  var suffix = PAYMENT_FREQ_SUFFIX[disp.freq] || "/mo";
   var rateDisplay = Math.round((Number(loan.rate) || 0) * 100) / 100;
   var dot = colorIdx != null ? '<span class="m-row-dot series-color-' + colorIdx + '" aria-hidden="true"></span>' : "";
   var summary = '<div class="m-row-summary" role="button" tabindex="0" data-row-toggle>' +
@@ -82,7 +83,7 @@ function loanRowModernHtml(loan, li, propId, colorIdx){
     '<details class="tax-advanced m-more-options"><summary>More options</summary>' +
       '<div class="m-edit-grid" style="margin-top:8px">' +
         '<div class="m-edit-field"><label>Type</label><select class="loan-type" aria-label="Repayment type">' + optionsHtml(["PI", "IO"], loan.repaymentType) + '</select></div>' +
-        '<div class="m-edit-field"><label>Paid</label><select class="loan-repay-freq" aria-label="How often this loan is paid" title="For auto repayments this only changes how the amount is displayed (still calculated monthly) — for a manual repayment it\'s the frequency the amount you type in is actually paid at.">' + optionsHtml(LOAN_REPAY_FREQS, disp.freq) + '</select></div>' +
+        '<div class="m-edit-field"><label>Paid</label><select class="loan-repay-freq" aria-label="How often this loan is paid" title="For auto repayments this only changes how the amount is displayed (still calculated monthly) — for a manual repayment it\'s the frequency the amount you type in is actually paid at.">' + optionsHtml(PAYMENT_FREQS, disp.freq) + '</select></div>' +
         '<div class="m-edit-field"><label>Repayment</label><select class="loan-repay-mode" aria-label="Repayment mode">' + optionsHtml(["auto", "manual"], loan.repaymentMode) + '</select></div>' +
         '<div class="m-edit-field" title="Netted against this loan\'s balance for both equity and interest — this is the one place to enter it. Don\'t also add it as a separate Cash asset on the Assets tab, or it\'ll be counted twice."><label>Offset</label><input type="number" step="1000" min="0" class="loan-offset" value="' + (Number(loan.offsetBalance) || 0) + '" aria-label="Offset account balance"></div>' +
         (loan.repaymentMode === "manual"
@@ -110,6 +111,18 @@ function propertyCardHtml(p){
         '<div class="proj-field"><label>+ flat $/month</label><input type="number" min="0" step="0.5" class="prop-pmfee-flat" value="' + (Number(p.pmFee.flat) || 0) + '"></div>' +
       '</div>'
     : "";
+  // Purely informational — the amount/frequency on each income row below is still the rate used
+  // for every calculation (gearing, cash flow, projections), same as it's always been. This just
+  // notes that the actual cash doesn't necessarily land on that same cadence — a weekly-quoted
+  // rent is still commonly paid out as one monthly lump sum by a property manager, and that's
+  // worth knowing when looking at the numbers, even though it changes nothing about them. Shown
+  // unconditionally, even with no income rows yet, rather than gated on p.income.length — adding
+  // the first row goes through rerenderTableFor's partial rebuild of just the row list, which
+  // wouldn't retroactively reveal a panel that lives outside that container.
+  var incomePaidPanel =
+    '<div class="proj-controls prop-income-paid-panel">' +
+      '<div class="proj-field" title="Doesn\'t change any calculation below — the amount/frequency on each row is still the rate used for planning. This just notes when the money actually lands, e.g. a property manager batching weekly-quoted rent into one monthly payout."><label>Actually received</label><select class="prop-income-paid-freq" aria-label="How often income from this property actually arrives">' + optionsHtml(PAYMENT_FREQS, p.incomePaidFreq || "Monthly") + '</select></div>' +
+    '</div>';
   var gearingBadge = "";
   var yieldBadge = "";
   var mortgageBalance = (p.loans || []).reduce(function(s, l){ return s + (Number(l.balance) || 0); }, 0);
@@ -163,6 +176,7 @@ function propertyCardHtml(p){
     '<div class="property-section">' +
       '<div class="income-group">' +
         '<div class="income-group-head"><div class="income-group-head-left"><h4>Income</h4></div></div>' +
+        incomePaidPanel +
         (state.uiMode === "modern"
           ? '<div class="m-card"><div class="m-rows" id="propIncomeRows_' + escapeAttr(p.id) + '">' + modernPropListHtml(p.income, "propinc:" + p.id, false) + '</div></div>'
           : '<div class="table-scroll"><table class="ledger-table" id="propIncomeTable_' + escapeAttr(p.id) + '"></table></div>') +
@@ -238,7 +252,7 @@ export function patchPropertyCardComputed(property){
     var row = card.querySelector('[data-loan-index="' + li + '"]');
     if(!row) return;
     var disp = loanRepaymentDisplay(loan);
-    var suffix = LOAN_REPAY_FREQ_SUFFIX[disp.freq] || "/mo";
+    var suffix = PAYMENT_FREQ_SUFFIX[disp.freq] || "/mo";
     var note = row.querySelector(".loan-repayment-cell .computed-note");
     if(note) note.textContent = fmtCurrency0.format(disp.amount) + suffix;
     var headlineAmt = row.querySelector('[data-computed="amt"]');

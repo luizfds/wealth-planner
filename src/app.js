@@ -1,6 +1,6 @@
 import { state, setState, storageAvailable, persist, setStatus, defaultState, defaultPurchaseConfig, defaultInvestConfig, migrateState, genId, normalizeShareAsset } from "./state.js";
 import { INCOME_COL_DEFS, PERIODS, sacrificeModeToLabel, sacrificeLabelToMode, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, INVEST_LEG_TYPES } from "./constants.js";
-import { fmtCurrency0, fmtCurrency2 } from "./lib/format.js";
+import { fmtCurrency0, fmtCurrency2, localDateStr } from "./lib/format.js";
 import { showToast, showUndoToast, showPersistentToast } from "./lib/toast.js";
 import { escapeAttr, slug } from "./lib/html.js";
 import { syncUiModeToggle, applyPeriodVisibility } from "./lib/uimode.js";
@@ -81,7 +81,7 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       dt.setDate(dt.getDate() + d);
       var progress = i / (days.length - 1);
       var histPrice = i === days.length - 1 ? currentPrice : currentPrice * (1 - driftPct * (1 - progress));
-      return { date: dt.toISOString().slice(0, 10), value: Math.round(qty * histPrice * 100) / 100 };
+      return { date: localDateStr(dt), value: Math.round(qty * histPrice * 100) / 100 };
     });
   }
   function rndPick(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
@@ -869,7 +869,7 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       }
       else if(e.target.classList.contains("h-price")){
         item.price = parseFloat(e.target.value) || 0;
-        item.priceUpdated = new Date().toISOString().slice(0, 10);
+        item.priceUpdated = localDateStr();
         item.amount = Math.round((Number(item.quantity) || 0) * item.price * 100) / 100;
         patchHoldingRow(tr, item);
         patchSharesGlance();

@@ -1,3 +1,5 @@
+import { localDateStr } from "../lib/format.js";
+
 export function toWeekly(amount, freq){
   amount = Number(amount) || 0;
   switch(freq){
@@ -64,7 +66,7 @@ export function nextDueDate(lastIncurredDate, freq, fromDateStr){
     d = addFreqStep(d, freq);
     guard++;
   }
-  return d.toISOString().slice(0, 10);
+  return localDateStr(d);
 }
 // Whether a full period has already elapsed since lastIncurredDate without a new log — i.e. the
 // *single* next occurrence after lastIncurredDate (not nextDueDate()'s loop, which always rolls
@@ -98,7 +100,7 @@ export function daysUntil(dateStr, fromDateStr){
 // expenses, the expense review flow, and the Dashboard's net-worth snapshot) so the
 // find-or-update-then-sort logic exists in exactly one place.
 export function appendHistorySnapshot(history, value, dateStr){
-  dateStr = dateStr || new Date().toISOString().slice(0, 10);
+  dateStr = dateStr || localDateStr();
   var existing = history.find(function(h){ return h.date === dateStr; });
   if(existing) existing.value = value;
   else history.push({ date: dateStr, value: value });
@@ -128,7 +130,7 @@ export function lastTransactionDateFor(transactions, expenseId){
 // the current month so the "actual vs planned" panel means "this month" without the caller
 // having to know today's date itself.
 export function transactionsInMonth(transactions, monthStr){
-  monthStr = monthStr || new Date().toISOString().slice(0, 7);
+  monthStr = monthStr || localDateStr().slice(0, 7);
   return transactions.filter(function(t){ return (t.date || "").slice(0, 7) === monthStr; });
 }
 // Sums a set of transactions by the state.shared[] id they're linked to — an unlinked
@@ -153,7 +155,7 @@ export function currentStatementCycle(startDay, todayStr){
   var y = today.getFullYear(), m = today.getMonth(), d = today.getDate();
   var cycleStart = d >= startDay ? new Date(y, m, startDay) : new Date(y, m - 1, startDay);
   var cycleEnd = new Date(cycleStart.getFullYear(), cycleStart.getMonth() + 1, cycleStart.getDate() - 1);
-  return { start: cycleStart.toISOString().slice(0, 10), end: cycleEnd.toISOString().slice(0, 10) };
+  return { start: localDateStr(cycleStart), end: localDateStr(cycleEnd) };
 }
 // Inclusive date-range filter for state.transactions[] — startDate/endDate are ISO strings
 // (e.g. from currentStatementCycle()).

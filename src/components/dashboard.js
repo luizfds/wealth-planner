@@ -3,7 +3,7 @@ import { sumField, sumByClassification, sumByAccount, safeDiv, resolveSharedAmou
 import { ipExpenseItemsForClassification } from "../calc/property.js";
 import { effectiveIncomeItems } from "../calc/tax.js";
 import { scenarioTotals, computeNetWorthSeries, totalNetWorthValue, runwayMonths, actualAssetGrowthLastMonth, staleAssets } from "../calc/engine.js";
-import { fmtCurrency0, fmtPercent1, fmtRunway } from "../lib/format.js";
+import { fmtCurrency0, fmtPercent1, fmtRunway, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { renderLineChart } from "../lib/charts.js";
@@ -244,7 +244,7 @@ export function setProjectionReference(){
   var scenario = state.activeScenario;
   var horizon = Math.max(1, Number(state.projection.horizonYears) || 1);
   state.projectionReference = {
-    date: new Date().toISOString().slice(0, 10),
+    date: localDateStr(),
     scenario: scenario,
     horizonYears: horizon,
     series: computeNetWorthSeries(scenario, horizon)

@@ -1056,6 +1056,7 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       if(!loan) return;
       if(e.target.classList.contains("loan-type")) loan.repaymentType = e.target.value;
       else if(e.target.classList.contains("loan-repay-mode")) loan.repaymentMode = e.target.value;
+      else if(e.target.classList.contains("loan-repay-freq")) loan.manualRepaymentFreq = e.target.value;
       else return;
       renderProperties();
       renderProjectionOutputs();

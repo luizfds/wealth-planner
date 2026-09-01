@@ -126,13 +126,22 @@ export function renderLineChart(container, series, opts){
     svg.appendChild(svgEl("line", { x1: padL, x2: W - padR, y1: zp, y2: zp, class: "proj-zero" }));
   }
   var xTickCount = Math.max(2, opts.xTickCount || 7);
+  // A short date range (e.g. a few weeks of logged history) formatted at month granularity can
+  // put two+ evenly-spaced ticks in the same calendar month — skip re-rendering an immediately
+  // repeated label rather than showing "Jul 2026" twice in a row with nothing distinguishing
+  // them. Only checked against the *previous* tick, not all previous ticks, so a label is free
+  // to legitimately recur later (e.g. a multi-year axis crossing back into "Q1" territory).
+  var lastXLabel = null;
   for(var ti = 0; ti < xTickCount; ti++){
     var xv = xMin + (xMax - xMin) * ti / (xTickCount - 1);
     var xPix = xScale(xv);
     var xvLabel = (ti === 0) ? xMin : (ti === xTickCount - 1) ? xMax : Math.round(xv);
+    var xText = opts.xFormat ? opts.xFormat(xvLabel) : xvLabel;
+    if(xText === lastXLabel) continue;
+    lastXLabel = xText;
     var anchor = ti === 0 ? "start" : (ti === xTickCount - 1 ? "end" : "middle");
     var xlbl = svgEl("text", { x: xPix, y: H - 8, "text-anchor": anchor, class: "proj-axislabel" });
-    xlbl.textContent = opts.xFormat ? opts.xFormat(xvLabel) : xvLabel;
+    xlbl.textContent = xText;
     svg.appendChild(xlbl);
   }
 

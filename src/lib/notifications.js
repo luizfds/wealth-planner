@@ -1,7 +1,7 @@
 import { state } from "../state.js";
 import { nextDueDate, daysUntil, lastTransactionDateFor, isOverdue, transactionsInMonth, sumField } from "../calc/ledger.js";
 import { staleAssets } from "../calc/engine.js";
-import { fmtCurrency0 } from "./format.js";
+import { fmtCurrency0, localDateStr } from "./format.js";
 
 // ---------------- Notifications: a small, backend-shaped layer over locally-computed alerts ----------------
 // This app has no backend (see CLAUDE.md) — every notification here is derived live from
@@ -21,7 +21,7 @@ var READ_KEY = "wealthPlanner.notifications.read";
 // different urgency label in two different places.
 var DUE_SOON_DAYS = 7;
 
-function todayStr(){ return new Date().toISOString().slice(0, 10); }
+function todayStr(){ return localDateStr(); }
 
 // ---------------- Read-state store ----------------
 // Generic on purpose — keyed only by a notification's id, so it doesn't care whether that

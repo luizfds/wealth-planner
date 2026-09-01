@@ -2,7 +2,7 @@ import { state, persist } from "../state.js";
 import { ASSET_CATEGORIES, LIQUID_CATEGORIES, SHARE_MARKETS, MARKET_CURRENCY } from "../constants.js";
 import { propertiesOffsetTotal, propertiesIlliquidEquityToday, recalcPurchase } from "../calc/property.js";
 import { totalAssetsValue, totalNetWorthValue, totalDebtsValue } from "../calc/engine.js";
-import { fmtCurrency0, fmtCurrency2, fmtPercent1, fmtCurrency0For, fmtCurrency2For } from "../lib/format.js";
+import { fmtCurrency0, fmtCurrency2, fmtPercent1, fmtCurrency0For, fmtCurrency2For, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { syncUiModeToggle } from "../lib/uimode.js";
 import { optionsHtml, historyTrendHtml } from "../lib/ledger-table.js";
@@ -102,7 +102,7 @@ function holdingPriceChange(item){
     } else {
       var target = new Date();
       target.setDate(target.getDate() - win.days);
-      targetStr = target.toISOString().slice(0, 10);
+      targetStr = localDateStr(target);
     }
     // the last priced entry on or before the target date is the closest known price at (or just
     // before) that point in time.
@@ -587,7 +587,7 @@ export function renderSharesHistoryChart(){
     (a.history || []).forEach(function(h){ dateSet[h.date] = true; });
   });
   var dates = Object.keys(dateSet).sort();
-  var today = new Date().toISOString().slice(0, 10);
+  var today = localDateStr();
   if(dates.indexOf(today) === -1) dates.push(today);
 
   if(!data.items.length || dates.length < 2){
@@ -759,7 +759,7 @@ export function renderPortfolioHistoryChart(){
     (p.history || []).forEach(function(h){ dateSet[h.date] = true; });
   });
   var dates = Object.keys(dateSet).sort();
-  var today = new Date().toISOString().slice(0, 10);
+  var today = localDateStr();
   if(dates.indexOf(today) === -1) dates.push(today);
 
   if(dates.length < 2){
@@ -894,7 +894,7 @@ export function applySharesPaste(){
   if(!area) return;
   var lines = area.value.split(/\r?\n/);
   var updatedCount = 0, notFound = [], unparseable = [];
-  var todayStr = new Date().toISOString().slice(0, 10);
+  var todayStr = localDateStr();
   lines.forEach(function(line){
     var trimmed = line.trim();
     if(!trimmed) return;

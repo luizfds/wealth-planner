@@ -73,7 +73,15 @@ var SHARES_CHANGE_WINDOWS = [
   { key: "1d", label: "1D", days: 1 },
   { key: "1w", label: "1W", days: 7 },
   { key: "1m", label: "1M", days: 30 },
-  { key: "3m", label: "3M", days: 90 }
+  { key: "3m", label: "3M", days: 90 },
+  { key: "6m", label: "6M", days: 182 },
+  { key: "1y", label: "1Y", days: 365 },
+  // Not a fixed day-count like the ones above — the start of the current calendar year, whatever
+  // that date happens to be today.
+  { key: "ytd", label: "YTD", ytd: true },
+  // Whatever the earliest priced entry is, no matter how recent — the only window that can show
+  // something with as little as two logged prices, regardless of how young the history is.
+  { key: "all", label: "All", all: true }
 ];
 function holdingPriceChange(item){
   var win = SHARES_CHANGE_WINDOWS.find(function(w){ return w.key === sharesChangeWindow; });
@@ -81,14 +89,26 @@ function holdingPriceChange(item){
   if(!win || !price || !Array.isArray(item.history) || !item.history.length) return null;
   var priced = item.history.filter(function(h){ return h.price != null; });
   if(!priced.length) return null;
-  var target = new Date();
-  target.setDate(target.getDate() - win.days);
-  var targetStr = target.toISOString().slice(0, 10);
-  // history is kept date-sorted by appendHistorySnapshot — the last priced entry on or before
-  // the target date is the closest known price at (or just before) that point in time.
+  // history is kept date-sorted by appendHistorySnapshot, and filter() preserves that order.
   var from = null;
-  for(var i = 0; i < priced.length; i++){
-    if(priced[i].date <= targetStr) from = priced[i]; else break;
+  if(win.all){
+    // A single priced entry is necessarily today's own price — comparing it to itself would
+    // read as a flat "0%" that looks like real data instead of "nothing to compare against yet".
+    if(priced.length >= 2) from = priced[0];
+  } else {
+    var targetStr;
+    if(win.ytd){
+      targetStr = new Date().getFullYear() + "-01-01";
+    } else {
+      var target = new Date();
+      target.setDate(target.getDate() - win.days);
+      targetStr = target.toISOString().slice(0, 10);
+    }
+    // the last priced entry on or before the target date is the closest known price at (or just
+    // before) that point in time.
+    for(var i = 0; i < priced.length; i++){
+      if(priced[i].date <= targetStr) from = priced[i]; else break;
+    }
   }
   if(!from || !from.price) return null;
   return { pct: (price - from.price) / from.price, fromDate: from.date };

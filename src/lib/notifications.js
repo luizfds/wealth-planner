@@ -83,26 +83,48 @@ function dueBillNotifications(){
       };
     });
 }
-// Shared expenses with no transaction logged recently enough against their own frequency — one
-// per item, matching expenses.js's own isDueForReview() (duplicated here as a plain predicate
-// rather than imported, so this file only depends on the pure calc layer, not a UI component).
+// Shared expenses with no transaction logged recently enough against their own frequency —
+// matching expenses.js's own isDueForReview() (duplicated here as a plain predicate rather than
+// imported, so this file only depends on the pure calc layer, not a UI component).
+//
+// Collapsed into a single notification rather than one per item — this is the one source here
+// with no natural cap on how many can fire at once (dueBillNotifications is bounded by
+// DUE_SOON_DAYS, staleAssetNotifications by "30+ days", budgetNotifications is one per month by
+// construction), and every shared expense starts with no transactions logged against it, so a
+// brand-new budget (or Sample data, which never seeds transactions) used to mean one "X needs a
+// fresh entry" per line — the bell showing "9+" on the very first look at the app, all of it
+// saying the same thing. The id is a hash of the current *set* of due items (sorted so member
+// order doesn't matter) rather than each item's own id, so "mark read" stays read while that set
+// is unchanged and only resurfaces once it actually changes (an item newly falls due, or one
+// gets logged and drops out).
 function reviewDueNotifications(){
-  return state.shared
-    .filter(function(item){
-      var lastDate = lastTransactionDateFor(state.transactions, item.id);
-      return lastDate ? isOverdue(lastDate, item.freq) : true;
-    })
-    .map(function(item){
-      return {
-        id: "review:" + item.id,
-        type: "review",
-        severity: "warn",
-        title: item.what + " needs a fresh entry",
-        detail: "No recent transaction logged against this budget line — use Review expenses on the Expenses tab.",
-        date: todayStr(),
-        page: "expenses"
-      };
-    });
+  var due = state.shared.filter(function(item){
+    var lastDate = lastTransactionDateFor(state.transactions, item.id);
+    return lastDate ? isOverdue(lastDate, item.freq) : true;
+  });
+  if(!due.length) return [];
+  if(due.length === 1){
+    return [{
+      id: "review:" + due[0].id,
+      type: "review",
+      severity: "warn",
+      title: due[0].what + " needs a fresh entry",
+      detail: "No recent transaction logged against this budget line — use Review expenses on the Expenses tab.",
+      date: todayStr(),
+      page: "expenses"
+    }];
+  }
+  var names = due.slice(0, 3).map(function(item){ return item.what; }).join(", ");
+  var extraCount = due.length - 3;
+  return [{
+    id: "review:" + due.map(function(item){ return item.id; }).sort().join(","),
+    type: "review",
+    severity: "warn",
+    title: due.length + " budget lines need a fresh entry",
+    detail: names + (extraCount > 0 ? " and " + extraCount + " more" : "") + " — use Review expenses on the Expenses tab.",
+    date: todayStr(),
+    page: "expenses"
+  }];
 }
 // Assets not logged in 30+ days — assets have no stable id (see assets.js), so this falls back to
 // name-based identity: acceptable here since the cost of a false "unread" after a rename is just

@@ -22,7 +22,7 @@ export function renderCards(){
       '<div class="card-select" role="radio" tabindex="0" aria-checked="' + (isActive ? "true" : "false") + '" data-scenario="' + escapeAttr(scenario) + '">' +
         '<div class="card' + (isActive ? " is-active" : "") + '">' +
           '<div class="card-top">' +
-            '<span class="card-name">' + escapeAttr(scenario) + (isBaseline ? ' <span class="home-baseline-badge" title="Your current, real-life situation">Current situation</span>' : "") + '</span>' +
+            '<span class="card-name"><span class="card-name-text">' + escapeAttr(scenario) + '</span>' + (isBaseline ? '<span class="home-baseline-badge" title="Your current, real-life situation">Current situation</span>' : "") + '</span>' +
             '<span class="card-controls">' +
               '<button type="button" class="icon-btn" data-rename="' + escapeAttr(scenario) + '" aria-label="Rename ' + escapeAttr(scenario) + '" title="Rename">✎</button>' +
               (canDelete && !isBaseline ? '<button type="button" class="icon-btn icon-del" data-delete="' + escapeAttr(scenario) + '" aria-label="Delete ' + escapeAttr(scenario) + '" title="Delete">✕</button>' : "") +

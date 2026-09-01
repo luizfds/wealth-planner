@@ -248,6 +248,11 @@ export function migrateState(s){
     if(!p.pmFee) p.pmFee = { percent: 6, flat: 5.5 };
     if(p.pmFee.percent == null) p.pmFee.percent = 6;
     if(p.pmFee.flat == null) p.pmFee.flat = 5.5;
+    // Purely informational — doesn't feed any calculation. Rent is typically entered/quoted
+    // weekly (the AU market convention), but a property manager usually batches it into one
+    // monthly disbursement — this just notes that expectation on the card, defaulting to the
+    // overwhelmingly common case rather than leaving it unset.
+    if(p.incomePaidFreq == null) p.incomePaidFreq = "Monthly";
     p.loans.forEach(function(l){
       if(l.id == null) l.id = genId("l");
       if(l.repaymentMode !== "manual") l.repaymentMode = "auto";
@@ -276,6 +281,7 @@ export function migrateState(s){
         percent: (s.pmFee && s.pmFee.percent != null) ? s.pmFee.percent : 6,
         flat: (s.pmFee && s.pmFee.flat != null) ? s.pmFee.flat : 5.5
       },
+      incomePaidFreq: "Monthly",
       income: rentRow ? [{ what: rentRow.what || "Rent", account: rentRow.account || "", amount: rentRow.amount || 0, freq: rentRow.freq || "Monthly", classification: "" }] : [],
       expenses: remainingExpenses.concat(pmFeeRow ? [pmFeeRow] : [])
     });
@@ -289,7 +295,7 @@ export function migrateState(s){
       s.properties.push({
         id: genId("p"), what: a.what || "Property", kind: "IP",
         value: Number(a.amount) || 0, history: Array.isArray(a.history) ? a.history : [],
-        pmFee: { percent: 6, flat: 5.5 },
+        pmFee: { percent: 6, flat: 5.5 }, incomePaidFreq: "Monthly",
         loans: [], income: [], expenses: []
       });
     });

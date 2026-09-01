@@ -32,7 +32,7 @@ import {
 import {
   patchHoldingRow, patchVehicleRow, modernAssetRowOpen, patchAssetCategoryTotals,
   renderNetWorthPanel, renderAssets, logAssetSnapshot, applySharesPaste, logDebtSnapshot,
-  patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter, setSharesGainFilter, setSharesSortMode
+  patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter, setSharesGainFilter, setSharesSortMode, setSharesChangeWindow
 } from "./components/assets.js";
 import {
   modernPropRowOpen, renderPropListModern, renderProperties, patchPropertyCardComputed,
@@ -248,7 +248,7 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
         var ipRentWeekly = rndStep(450, 750, 10);
         return [{
           id: genId("p"), what: rndStep(1, 99, 1) + " Example St", kind: "IP", value: ipValue, history: [],
-          pmFee: { percent: rndStep(5, 8, 0.5), flat: rndStep(0, 8, 0.5) },
+          pmFee: { percent: rndStep(5, 8, 0.5), flat: rndStep(0, 8, 0.5) }, incomePaidFreq: "Monthly",
           loans: [{
             id: genId("l"), what: "Investment Loan", balance: ipLoanBalance, rate: rndStep(5.8, 6.8, 0.05), termYears: 27,
             repaymentType: "PI", repaymentMode: "auto", manualRepaymentAmount: 0, manualRepaymentFreq: "Monthly",
@@ -954,6 +954,8 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     if(personFilterBtn){ setAssetPersonFilter(personFilterBtn.getAttribute("data-asset-person-filter")); return; }
     var gainFilterBtn = e.target.closest("[data-shares-gain-filter]");
     if(gainFilterBtn){ setSharesGainFilter(gainFilterBtn.getAttribute("data-shares-gain-filter")); return; }
+    var changeWindowBtn = e.target.closest("[data-shares-change-window]");
+    if(changeWindowBtn){ setSharesChangeWindow(changeWindowBtn.getAttribute("data-shares-change-window")); return; }
     if(e.target.closest("[data-set-projection-reference]")){ setProjectionReference(); return; }
     if(e.target.closest("[data-log-networth]")){ logNetWorthSnapshot(); return; }
     var debtLogBtn = e.target.closest("[data-debt-log]");
@@ -1056,6 +1058,7 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       if(!loan) return;
       if(e.target.classList.contains("loan-type")) loan.repaymentType = e.target.value;
       else if(e.target.classList.contains("loan-repay-mode")) loan.repaymentMode = e.target.value;
+      else if(e.target.classList.contains("loan-repay-freq")) loan.manualRepaymentFreq = e.target.value;
       else return;
       renderProperties();
       renderProjectionOutputs();
@@ -1069,6 +1072,13 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       rerenderTableFor("income");
       renderTaxSuper();
       renderProjectionOutputs();
+      persist();
+      return;
+    }
+    if(e.target.classList.contains("prop-income-paid-freq")){
+      // Informational only (see propertyCardHtml's incomePaidPanel comment) — nothing else on
+      // screen depends on this value, so no recompute/re-render needed beyond persisting it.
+      property.incomePaidFreq = e.target.value;
       persist();
     }
   });
@@ -1131,7 +1141,7 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
   });
 
   document.getElementById("addPropertyBtn").addEventListener("click", function(){
-    state.properties.push({ id: genId("p"), what:"New property", kind:"IP", value:0, history:[], pmFee:{percent:6, flat:5.5}, loans:[], income:[], expenses:[] });
+    state.properties.push({ id: genId("p"), what:"New property", kind:"IP", value:0, history:[], pmFee:{percent:6, flat:5.5}, incomePaidFreq:"Monthly", loans:[], income:[], expenses:[] });
     recalcComputedItems();
     renderProperties();
     renderProjectionOutputs();

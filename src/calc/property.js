@@ -145,6 +145,23 @@ export function loanRepaymentMonthly(loan){
   return calcRepaymentMonthly(loan.balance, loan.rate, loan.termYears, loan.repaymentType);
 }
 
+// "How often is this loan actually paid" — reuses manualRepaymentFreq for both modes, not just
+// manual ones. For a manual loan it's already load-bearing (loanRepaymentMonthly above converts
+// the entered amount using this same field). For an auto loan it does nothing to the underlying
+// figure — that's always a true monthly amortization/interest calc — it only controls what
+// frequency the same total is *displayed* at, the way a lender might quote a mortgage as a
+// weekly or fortnightly amount despite calculating and charging it monthly.
+export function loanRepaymentDisplay(loan){
+  var freq = loan.manualRepaymentFreq || "Monthly";
+  var p = periodsOf(loanRepaymentMonthly(loan), "Monthly");
+  var amount = freq === "Weekly" ? p.weekly : freq === "Fortnightly" ? p.fortnightly : p.monthly;
+  return { amount: amount, freq: freq };
+}
+
+export function propertyLoanRepaymentMonthly(property){
+  return (property.loans || []).reduce(function(s, l){ return s + loanRepaymentMonthly(l); }, 0);
+}
+
 // Projection-only: applies the Rate Shock stress-test to a real loan's rate. Manual-repayment
 // loans have no rate to shock, so their entered figure is left as-is.
 export function shockedLoanRepaymentMonthly(loan, shockPts){

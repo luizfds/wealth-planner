@@ -248,7 +248,7 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
         var ipRentWeekly = rndStep(450, 750, 10);
         return [{
           id: genId("p"), what: rndStep(1, 99, 1) + " Example St", kind: "IP", value: ipValue, history: [],
-          pmFee: { percent: rndStep(5, 8, 0.5), flat: rndStep(0, 8, 0.5) },
+          pmFee: { percent: rndStep(5, 8, 0.5), flat: rndStep(0, 8, 0.5) }, incomePaidFreq: "Monthly",
           loans: [{
             id: genId("l"), what: "Investment Loan", balance: ipLoanBalance, rate: rndStep(5.8, 6.8, 0.05), termYears: 27,
             repaymentType: "PI", repaymentMode: "auto", manualRepaymentAmount: 0, manualRepaymentFreq: "Monthly",
@@ -1071,6 +1071,13 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       renderTaxSuper();
       renderProjectionOutputs();
       persist();
+      return;
+    }
+    if(e.target.classList.contains("prop-income-paid-freq")){
+      // Informational only (see propertyCardHtml's incomePaidPanel comment) — nothing else on
+      // screen depends on this value, so no recompute/re-render needed beyond persisting it.
+      property.incomePaidFreq = e.target.value;
+      persist();
     }
   });
 
@@ -1132,7 +1139,7 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
   });
 
   document.getElementById("addPropertyBtn").addEventListener("click", function(){
-    state.properties.push({ id: genId("p"), what:"New property", kind:"IP", value:0, history:[], pmFee:{percent:6, flat:5.5}, loans:[], income:[], expenses:[] });
+    state.properties.push({ id: genId("p"), what:"New property", kind:"IP", value:0, history:[], pmFee:{percent:6, flat:5.5}, incomePaidFreq:"Monthly", loans:[], income:[], expenses:[] });
     recalcComputedItems();
     renderProperties();
     renderProjectionOutputs();

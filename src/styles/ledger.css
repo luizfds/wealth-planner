@@ -213,6 +213,33 @@
     .table-scroll tr.is-gross-ref td:first-child{ background: var(--paper-sunken); }
   }
 
+  /* Desktop/tablet counterpart to the mobile mask-image fade above — see scroll-shadow.js for
+     why this can't just reuse the same always-on mask (a table here may or may not actually
+     overflow, unlike on a phone-width screen where it always does). `.can-scroll-left/-right`
+     are toggled by initTableScrollShadows() based on real scrollLeft/scrollWidth, so the fade
+     only ever shows in a direction there's genuinely more content to reveal. z-index:4 to clear
+     the sticky first column's z-index:3 (mobile block above) in case both ever apply at once at
+     a boundary width. */
+  @media (min-width: 881px){
+    .table-scroll{ position:relative; }
+    .table-scroll::before, .table-scroll::after{
+      content:""; position:absolute; top:0; bottom:0; width:28px; pointer-events:none;
+      opacity:0; transition:opacity .15s ease; z-index:4;
+    }
+    .table-scroll::before{ left:0; background:linear-gradient(to right, rgba(0,0,0,.08), transparent); }
+    .table-scroll::after{ right:0; background:linear-gradient(to left, rgba(0,0,0,.08), transparent); }
+    .table-scroll.can-scroll-left::before{ opacity:1; }
+    .table-scroll.can-scroll-right::after{ opacity:1; }
+  }
+  @media (min-width: 881px) and (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]) .table-scroll::before{ background:linear-gradient(to right, rgba(0,0,0,.35), transparent); }
+    :root:not([data-theme="light"]) .table-scroll::after{ background:linear-gradient(to left, rgba(0,0,0,.35), transparent); }
+  }
+  @media (min-width: 881px){
+    :root[data-theme="dark"] .table-scroll::before{ background:linear-gradient(to right, rgba(0,0,0,.35), transparent); }
+    :root[data-theme="dark"] .table-scroll::after{ background:linear-gradient(to left, rgba(0,0,0,.35), transparent); }
+  }
+
   /* ---------------- Income & Tax: modern (card) layout ---------------- */
   .page-intro-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; }
   .page-intro-row .page-intro{ flex:1 1 320px; }

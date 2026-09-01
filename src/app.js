@@ -227,6 +227,18 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       income: income,
       ip: [],
       shared: shared,
+      // Explicit, not left to migrateState()'s seedAccountsFromUsage() fallback — that seeder
+      // only knows account *names* already typed into an Account field (from shared/income
+      // above, both of which randomly use "Credit Card" as a label) and has no way to tell a
+      // credit card apart from a debit account by name alone, so it always defaults type
+      // "debit". Sample data is the one first-touch a new visitor gets, and it should actually
+      // demonstrate the credit-card statement-cycle grouping ("Actual vs. planned" on the
+      // Expenses tab) rather than silently leave the exact account named "Credit Card"
+      // unconfigured for it.
+      accounts: [
+        { id: genId("acct"), name: "Everyday Account", type: "debit", statementStartDay: 1 },
+        { id: genId("acct"), name: "Credit Card", type: "credit", statementStartDay: rndStep(1, 28, 1) }
+      ],
       home: (function(){
         var h = {};
         h["Renting"] = homeCats(rentWeekly, "Weekly", "Everyday Account", 0, 0, rndStep(30, 60, 1), 0);

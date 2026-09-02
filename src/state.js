@@ -110,7 +110,16 @@ export function defaultState(){
     // whatever cadence the user updates each item, not necessarily together or monthly.
     netWorthLog: [],
     projection: { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0 },
-    tax: { sgRate: 12, ipOwnership: {}, settings: {} }
+    tax: { sgRate: 12, ipOwnership: {}, settings: {} },
+    // 1 USD in AUD — the only cross-currency conversion this app needs, since MARKET_CURRENCY
+    // only ever produces AUD or USD. Set via the Shares page's "Paste prices" box (pasting a
+    // USDAUD row alongside your holdings, same GOOGLEFINANCE("CURRENCY:USDAUD") template
+    // mechanism already used for share prices — see calc/engine.js's toAudAmount()) or typed in
+    // directly. null until set, which every AUD total already treats the same as "no conversion
+    // available" (US/Crypto holdings' native amounts pass through unconverted rather than being
+    // zeroed out) — this app has never fetched anything itself, and a portfolio with no USD
+    // holdings needs no rate at all.
+    fx: { usdAud: null, usdAudUpdated: "" }
   };
 }
 
@@ -232,6 +241,9 @@ export function migrateState(s){
   if(!s.tax.ipOwnership) s.tax.ipOwnership = {};
   if(!s.tax.settings) s.tax.settings = {};
   if(s.tax.sgRate == null) s.tax.sgRate = 11.5;
+  if(!s.fx) s.fx = { usdAud: null, usdAudUpdated: "" };
+  if(s.fx.usdAud === undefined) s.fx.usdAud = null;
+  if(s.fx.usdAudUpdated == null) s.fx.usdAudUpdated = "";
   (s.income || []).forEach(function(i){
     if(i.sacrificeMode == null) i.sacrificeMode = "none";
     if(i.sacrificeValue == null) i.sacrificeValue = 0;

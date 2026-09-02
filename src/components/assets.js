@@ -1,7 +1,7 @@
 import { state, persist } from "../state.js";
 import { ASSET_CATEGORIES, LIQUID_CATEGORIES, SHARE_MARKETS, MARKET_CURRENCY } from "../constants.js";
 import { propertiesOffsetTotal, propertiesIlliquidEquityToday, recalcPurchase } from "../calc/property.js";
-import { totalAssetsValue, totalNetWorthValue, totalDebtsValue } from "../calc/engine.js";
+import { totalAssetsValue, totalNetWorthValue, totalDebtsValue, liquidAssetsValue, toAudAmount } from "../calc/engine.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, fmtCurrency0For, fmtCurrency2For, localDateStr, fmtQtyDisplay } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { syncUiModeToggle } from "../lib/uimode.js";
@@ -436,20 +436,24 @@ function modernShareRowHtml(item, idx, colorIdx){
   return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="assets" data-index="' + idx + '">' + summary + edit + '</div>';
 }
 
-// Aggregates unrealized gain/loss across a set of holdings (whatever's currently visible —
-// already person-filtered by the caller via assetCategoryItems). Only counts holdings with an
-// avg cost set, same requirement gainLossHtml() uses per-row, so a portfolio where nobody's
-// entered a cost basis yet correctly reports "nothing to show" rather than a misleading $0.
+// Aggregates gain/loss over the selected Change window across a set of holdings (whatever's
+// currently visible — already person-filtered by the caller via assetCategoryItems). Only counts
+// holdings with price history reaching that far back, same requirement gainLossHtml() uses
+// per-row, so a portfolio where nothing's been logged/pasted yet correctly reports "nothing to
+// show" rather than a misleading $0. Each holding's own dollar figures get converted to AUD (a
+// no-op for anything already AUD) before summing, so a USD holding doesn't get added to an AUD
+// one at face value — see toAudAmount() in calc/engine.js.
 function sharesGainLossSummary(items){
   var gainDollar = 0, startValue = 0, upCount = 0, downCount = 0, flatCount = 0;
   items.forEach(function(item){
     var g = holdingWindowChange(item);
     if(!g) return;
     var qty = Number(item.quantity) || 0, price = Number(item.price) || 0;
-    gainDollar += g.gainDollar;
-    startValue += qty * price - g.gainDollar;
-    if(g.gainDollar > 0.5) upCount++;
-    else if(g.gainDollar < -0.5) downCount++;
+    var gainAud = toAudAmount(item, g.gainDollar);
+    gainDollar += gainAud;
+    startValue += toAudAmount(item, qty * price) - gainAud;
+    if(gainAud > 0.5) upCount++;
+    else if(gainAud < -0.5) downCount++;
     else flatCount++;
   });
   var trackedCount = upCount + downCount + flatCount;
@@ -573,7 +577,7 @@ export function renderSharesSubpage(){
   var container = document.getElementById("assetsSub-Shares");
   if(!container) return;
   var allData = assetCategoryItems("Shares");
-  var total = allData.items.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
+  var total = allData.items.reduce(function(s, a){ return s + toAudAmount(a, a.amount); }, 0);
   var filteredPairs = allData.items.map(function(item, i){ return { item: item, idx: allData.indices[i] }; }).filter(function(p){ return sharesGainMatches(p.item); });
   var data = sortShareData({ items: filteredPairs.map(function(p){ return p.item; }), indices: filteredPairs.map(function(p){ return p.idx; }) });
   var footerBtn = '<button type="button" class="btn btn-sm' + (allData.items.length ? " btn-ghost" : "") + '" data-add="holding" title="Track an individual holding — symbol, quantity, cost, and value. Set Market to Crypto to track a coin the same way.">+ Add share holding</button>';
@@ -590,9 +594,19 @@ export function renderSharesSubpage(){
   } else {
     body = modernAssetCompBarHtml(assetRowMeta(data)) + '<div class="table-scroll"><table class="assets-table holdings-table" id="sharesTable"></table></div><div class="ledger-footer">' + footerBtn + '</div>';
   }
+  // Only worth mentioning once there's an actual USD-denominated holding for a rate to convert —
+  // same gate sharesPriceTemplateTable() (lib/backup.js) uses to decide whether the template
+  // even includes the USDAUD row. Two states: a rate is set (show it, and how stale), or one
+  // isn't (flag that Net worth/Dashboard/allocation are currently adding USD holdings' raw
+  // numbers in as if they were already AUD — see toAudAmount() in calc/engine.js).
+  var hasUsdHoldings = allData.items.some(function(a){ return (MARKET_CURRENCY[a.market] || "AUD") !== "AUD"; });
+  var fxNote = !hasUsdHoldings ? "" : (state.fx && state.fx.usdAud
+    ? '<p class="ledger-note" style="margin:8px 0"><b>USD → AUD:</b> 1 USD = ' + Number(state.fx.usdAud).toFixed(4) + ' AUD (as of ' + escapeAttr(state.fx.usdAudUpdated) + ') — used to convert your USD holdings into Net worth, Dashboard, and allocation totals. Re-paste the template below (it includes a conversion row) any time to refresh it.</p>'
+    : '<p class="ledger-note" style="margin:8px 0;color:var(--brass-strong)">You have USD-priced holdings but no USD → AUD rate set yet — Net worth, Dashboard, and allocation totals are currently adding their raw USD numbers in as if they were already AUD. Paste the template below (it now includes a conversion row) to fix this.</p>');
   var pasteTool = allData.items.length
     ? '<details class="tax-advanced" style="margin:0 0 14px"><summary>Paste prices from Google Sheets</summary>' +
-        '<p class="ledger-note" style="margin:8px 0">This app never fetches prices itself — nothing is sent anywhere. First time: "Copy to clipboard", then paste straight into an empty cell in a Google Sheet (or "Download" and import the file instead) — either way you get a live-price formula already written for every holding, crypto included. Then copy its Symbol and Price columns and paste the two-column range below; matches your holdings by ticker symbol (case-insensitive). After that, re-paste the same two columns any time to refresh prices.</p>' +
+        '<p class="ledger-note" style="margin:8px 0">This app never fetches prices itself — nothing is sent anywhere. First time: "Copy to clipboard", then paste straight into an empty cell in a Google Sheet (or "Download" and import the file instead) — either way you get a live-price formula already written for every holding, crypto included, plus a USD → AUD exchange rate row if you hold anything priced in USD. Then copy its Symbol and Price columns and paste the two-column range below; matches your holdings by ticker symbol (case-insensitive), and the exchange rate row updates your USD → AUD conversion. After that, re-paste the same range any time to refresh prices.</p>' +
+        fxNote +
         '<div style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap">' +
           '<button type="button" class="btn btn-sm btn-ghost" id="sharesCopyPriceTemplateBtn" title="Copy the same table to your clipboard, ready to paste straight into a Google Sheets cell">⧉ Copy to clipboard</button>' +
           '<button type="button" class="btn btn-sm btn-ghost" id="sharesExportPriceTemplateBtn" title="A CSV with every holding\'s symbol and a ready-made =GOOGLEFINANCE(...) formula — open it in Google Sheets to get live prices without writing the formulas yourself">⇩ Download price template</button>' +
@@ -644,7 +658,7 @@ export function renderSharesHistoryChart(){
     return atOrBefore[atOrBefore.length - 1].value;
   }
   var points = dates.map(function(d){
-    var total = data.items.reduce(function(sum, a){ return sum + valueAtDate(a.history, a.amount, d); }, 0);
+    var total = data.items.reduce(function(sum, a){ return sum + toAudAmount(a, valueAtDate(a.history, a.amount, d)); }, 0);
     return { x: new Date(d + "T00:00:00").getTime(), y: total, dateLabel: d };
   });
 
@@ -686,7 +700,7 @@ var ASSET_ALLOC_SEGMENTS = [
 ];
 function assetAllocationValues(){
   var values = {};
-  ASSET_CATEGORIES.forEach(function(cat){ values[cat] = assetCategoryItems(cat).items.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0); });
+  ASSET_CATEGORIES.forEach(function(cat){ values[cat] = assetCategoryItems(cat).items.reduce(function(s, a){ return s + toAudAmount(a, a.amount); }, 0); });
   values.Property = propertiesIlliquidEquityToday();
   values.Offset = propertiesOffsetTotal();
   return values;
@@ -718,7 +732,7 @@ export function renderAssetsSummary(){
   var statsEl = document.getElementById("assetsSummaryStats");
   if(statsEl){
     var liquidAssets = state.assets.filter(function(a){ return LIQUID_CATEGORIES.indexOf(a.category) !== -1; })
-      .reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
+      .reduce(function(s, a){ return s + toAudAmount(a, a.amount); }, 0);
     var offset = propertiesOffsetTotal();
     var liquid = liquidAssets + offset;
     var illiquid = totalAssetsValue() - liquidAssets;
@@ -736,7 +750,7 @@ export function renderAssetsSummary(){
 export function patchAssetCategoryTotals(){
   ASSET_CATEGORIES.forEach(function(cat){
     var data = assetCategoryItems(cat);
-    var total = data.items.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
+    var total = data.items.reduce(function(s, a){ return s + toAudAmount(a, a.amount); }, 0);
     var container = document.getElementById("assetsSub-" + cat);
     var totalEl = container && container.querySelector(".ledger-total b");
     if(totalEl) totalEl.textContent = fmtCurrency0.format(total);
@@ -748,9 +762,7 @@ export function patchAssetCategoryTotals(){
 
 export function renderNetWorthPanel(){
   var total = totalNetWorthValue();
-  var liquid = state.assets.filter(function(a){ return LIQUID_CATEGORIES.indexOf(a.category) !== -1; })
-                            .reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0)
-                          + propertiesOffsetTotal();
+  var liquid = liquidAssetsValue();
   var purchaseScenarios = state.scenarios.filter(function(s){ return state.purchase[s] && state.purchase[s].enabled; });
   // This table's columns (LVR/stamp duty/LMI/upfront cash) are all purchase-specific and don't
   // apply to a scenario using the invest leg instead — rather than force it into a row shape
@@ -826,7 +838,7 @@ export function renderPortfolioHistoryChart(){
   // property with just one recent snapshot doesn't drag earlier points deep into negative
   // territory for a loan it didn't have tracked at that point.
   var points = dates.map(function(d){
-    var total = state.assets.reduce(function(sum, a){ return sum + valueAtDate(a.history, a.amount, d); }, 0);
+    var total = state.assets.reduce(function(sum, a){ return sum + toAudAmount(a, valueAtDate(a.history, a.amount, d)); }, 0);
     total += state.properties.reduce(function(sum, p){
       if(!hasValueAtDate(p.history, d)) return sum;
       var loanNet = (p.loans || []).reduce(function(s, l){
@@ -936,6 +948,7 @@ export function applySharesPaste(){
   if(!area) return;
   var lines = area.value.split(/\r?\n/);
   var updatedCount = 0, notFound = [], unparseable = [];
+  var fxUpdated = false;
   var todayStr = localDateStr();
   lines.forEach(function(line){
     var trimmed = line.trim();
@@ -950,6 +963,16 @@ export function applySharesPaste(){
       // it, rather than leaving "why didn't GPRO update" a mystery.
       var firstToken = trimmed.split(/\t+|,+|\s+/)[0];
       if(firstToken) unparseable.push(firstToken.toUpperCase());
+      return;
+    }
+    // Not a holding at all — the exchange rate row the price template adds whenever there's a
+    // USD-denominated holding to convert (see sharesPriceTemplateTable() in lib/backup.js).
+    // Routes straight to state.fx instead of the symbol-match below, same paste box, same
+    // GOOGLEFINANCE-formula-in/plain-number-out round trip as every share price on this page.
+    if(parsed.symbol === "USDAUD"){
+      state.fx.usdAud = parsed.price;
+      state.fx.usdAudUpdated = todayStr;
+      fxUpdated = true;
       return;
     }
     var matches = state.assets.filter(function(a){ return a.category === "Shares" && (a.symbol || "").toUpperCase() === parsed.symbol; });
@@ -972,6 +995,7 @@ export function applySharesPaste(){
   renderNetWorthPanel();
   persist();
   var msg = updatedCount + " price" + (updatedCount === 1 ? "" : "s") + " updated" +
+    (fxUpdated ? " — USD/AUD rate refreshed" : "") +
     (notFound.length ? " — no holding found for " + notFound.join(", ") : "") +
     (unparseable.length ? " — couldn't read a price for " + unparseable.join(", ") + " (check for #N/A or a blank cell in your sheet)" : "");
   showToast(msg);

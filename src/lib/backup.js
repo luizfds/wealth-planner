@@ -1,5 +1,5 @@
 import { state } from "../state.js";
-import { sacrificeModeToLabel } from "../constants.js";
+import { sacrificeModeToLabel, MARKET_CURRENCY } from "../constants.js";
 import { showToast, showPersistentToast } from "./toast.js";
 
 function isoDateStamp(){
@@ -299,11 +299,18 @@ function googleFinanceTicker(a){
 // evaluates the formulas, selecting and copying those two columns is a single drag.
 function sharesPriceTemplateTable(){
   var headers = ["What", "Market", "Symbol", "Price"];
-  var rows = state.assets.filter(function(a){ return a.category === "Shares"; }).map(function(a){
+  var shares = state.assets.filter(function(a){ return a.category === "Shares"; });
+  var rows = shares.map(function(a){
     var ticker = googleFinanceTicker(a);
     var formula = ticker ? '=GOOGLEFINANCE("' + ticker + '","price")' : "";
     return [a.what, a.market || "ASX", a.symbol || "", formula];
   });
+  // Only worth including once there's an actual USD-denominated holding for it to convert — a
+  // pure-AUD portfolio has nothing for a USD rate to do. "USDAUD" as the Symbol is what
+  // applySharesPaste() (assets.js) looks for on the way back in — it routes straight to
+  // state.fx.usdAud instead of trying to match it against a holding by ticker.
+  var hasUsd = shares.some(function(a){ return (MARKET_CURRENCY[a.market] || "AUD") !== "AUD"; });
+  if(hasUsd) rows.push(["USD → AUD exchange rate", "", "USDAUD", '=GOOGLEFINANCE("CURRENCY:USDAUD")']);
   return { headers: headers, rows: rows };
 }
 // The formula text (leading "=", embedded commas/quotes) round-trips correctly through CSV

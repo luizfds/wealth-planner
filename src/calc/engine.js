@@ -1,5 +1,5 @@
 import { state } from "../state.js";
-import { LIQUID_CATEGORIES } from "../constants.js";
+import { LIQUID_CATEGORIES, MARKET_CURRENCY } from "../constants.js";
 import { toWeekly, sumField, sumFieldForScenario } from "./ledger.js";
 import {
   recalcPurchase, ipProperties, ipExpensesMonthly, ipLoansMonthly,
@@ -10,8 +10,28 @@ import {
 import { getTaxPeople, computePersonTax, effectiveIncomeItems } from "./tax.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
 
+// Every non-Shares asset, and every Shares holding on the ASX, is already AUD — the only
+// currency this app ever mixes in is USD (US-market and Crypto holdings, see MARKET_CURRENCY).
+// Converts one asset's dollar amount (its current .amount, or a historical .value from its own
+// history[]) to AUD using the visitor's own stored rate (state.fx.usdAud — see state.js for how
+// it gets set) before it's added into any total that spans multiple holdings/currencies at once.
+// A single row's own display (the Shares table's Value/Price columns) deliberately stays in its
+// native currency and never calls this — only cross-holding sums (net worth, liquid assets,
+// portfolio charts, the Shares gain/loss glance) need a common currency to add correctly. No
+// rate set yet: passes the amount through unconverted, same as every one of these totals behaved
+// before this existed — a portfolio with no USD holdings needs no rate at all, and one that does
+// but hasn't set a rate is no worse off than today rather than having its USD holdings zeroed out.
+export function toAudAmount(item, amount){
+  amount = Number(amount) || 0;
+  if(item.category !== "Shares") return amount;
+  var currency = MARKET_CURRENCY[item.market] || "AUD";
+  if(currency === "AUD") return amount;
+  var rate = Number(state.fx && state.fx.usdAud) || 0;
+  return rate > 0 ? amount * rate : amount;
+}
+
 export function totalAssetsValue(){
-  return state.assets.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
+  return state.assets.reduce(function(s, a){ return s + toAudAmount(a, a.amount); }, 0);
 }
 
 // Anything owed outside a property loan (credit cards, personal loans, BNPL — property loans
@@ -33,7 +53,7 @@ export function totalNetWorthValue(){
 // Dashboard's runway stat can reuse it instead of re-deriving it.
 export function liquidAssetsValue(){
   return state.assets.filter(function(a){ return LIQUID_CATEGORIES.indexOf(a.category) !== -1; })
-    .reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0) + propertiesOffsetTotal();
+    .reduce(function(s, a){ return s + toAudAmount(a, a.amount); }, 0) + propertiesOffsetTotal();
 }
 
 // How many months of expenses your liquid assets would cover at zero income — the standard
@@ -71,7 +91,7 @@ export function actualAssetGrowthLastMonth(){
     var after = latestValueOnOrBefore(a.history, todayStr);
     if(after == null) after = Number(a.amount) || 0; // today's live value if never explicitly logged today
     if(before == null) return; // no snapshot old enough to compare against — exclude, don't assume $0
-    deltaSum += after - before;
+    deltaSum += toAudAmount(a, after) - toAudAmount(a, before);
     trackedCount++;
   });
 

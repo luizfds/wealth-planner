@@ -2,6 +2,7 @@ import { state } from "../state.js";
 import { nextDueDate, daysUntil, lastTransactionDateFor, isOverdue, transactionsInMonth, sumField } from "../calc/ledger.js";
 import { staleAssets } from "../calc/engine.js";
 import { fmtCurrency0, localDateStr } from "./format.js";
+import { MARKET_CURRENCY } from "../constants.js";
 
 // ---------------- Notifications: a small, backend-shaped layer over locally-computed alerts ----------------
 // This app has no backend (see CLAUDE.md) — every notification here is derived live from
@@ -142,6 +143,41 @@ function staleAssetNotifications(){
     };
   });
 }
+// Shares/crypto prices going stale, and (when the portfolio actually holds anything priced in
+// USD) the USD → AUD conversion rate going stale or never having been set — both refreshed by
+// the same "Paste prices from Google Sheets" action on the Shares tab, so they're folded into one
+// notification rather than two competing ones. 7 days matches assets.js's own STALE_PRICE_DAYS
+// (the threshold behind each row's stale-price dot), duplicated here as a plain number rather
+// than imported for the same reason reviewDueNotifications() duplicates isOverdue() as a plain
+// predicate: this file only depends on the pure calc/lib layer, not a UI component.
+//
+// The id is scoped to today's date rather than to the underlying issue (unlike every other
+// source here) — this one's meant to actually come back daily as a nudge to check in, not stay
+// dismissed for a week just because you cleared it once while nothing had changed yet.
+var STALE_PRICE_DAYS = 7;
+function sharePricesNotifications(){
+  var shares = state.assets.filter(function(a){ return a.category === "Shares"; });
+  if(!shares.length) return [];
+  var staleCount = shares.filter(function(a){
+    return !a.priceUpdated || daysUntil(a.priceUpdated) <= -STALE_PRICE_DAYS;
+  }).length;
+  var hasUsd = shares.some(function(a){ return (MARKET_CURRENCY[a.market] || "AUD") !== "AUD"; });
+  var fx = state.fx || {};
+  var fxStale = hasUsd && (!fx.usdAud || !fx.usdAudUpdated || daysUntil(fx.usdAudUpdated) <= -STALE_PRICE_DAYS);
+  if(!staleCount && !fxStale) return [];
+  var parts = [];
+  if(staleCount) parts.push(staleCount + " price" + (staleCount === 1 ? "" : "s") + " 7+ days old");
+  if(fxStale) parts.push(fx.usdAud ? "USD → AUD rate 7+ days old" : "no USD → AUD rate set");
+  return [{
+    id: "shareprices:" + todayStr(),
+    type: "share-prices",
+    severity: "info",
+    title: "Share prices could use a refresh",
+    detail: parts.join(" · ") + " — paste an update from the Shares tab.",
+    date: todayStr(),
+    page: "assets"
+  }];
+}
 // This month's spend vs. plan, overall — one notification per calendar month (id rolls over at
 // the month boundary), so dismissing August's doesn't silently dismiss September's too. Same
 // rounded-to-cents math as renderActualVsPlannedPanel() in expenses.js, for the same reason (an
@@ -172,6 +208,7 @@ export function getLocalNotifications(){
     dueBillNotifications(),
     reviewDueNotifications(),
     staleAssetNotifications(),
+    sharePricesNotifications(),
     budgetNotifications()
   );
 }

@@ -36,6 +36,10 @@
   .asset-trend.down{ color: var(--bad); }
   .asset-log-btn{ all:unset; cursor:pointer; color: var(--ink-soft); font-size:11px; padding:3px 6px; border-radius:5px; }
   .asset-log-btn:hover{ background: var(--paper-sunken); color: var(--brass-strong); }
+  /* A "no avg cost set" gain/loss cell reads as a prompt ("Set cost"), not a blank/muted dash —
+     brass (the app's accent color) plus a dotted underline signal "there's a tooltip and a next
+     step here", not "nothing to see". */
+  .gain-cell-hint{ color: var(--brass-strong); border-bottom:1px dotted var(--brass-strong); cursor:help; }
 
   /* ---------------- Share holding rows: sparkline + value block ---------------- */
   /* Scoped to Assets' modern rows (Cash/Shares/Super/Vehicle/Other all share this container) —
@@ -43,6 +47,15 @@
      also has to fit an avatar, sparkline, and value block in the same line, so it can't afford
      to wrap to a second line the way a plain amount+frequency row can. */
   .m-asset-rows .m-row-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  /* .h-stale-dot is a flex:none sibling of .m-row-name, not nested inside it — min-width:0 lets
+     the name keep shrinking/ellipsizing on its own while the dot never gets squeezed to 0 or
+     clipped by the name's own overflow:hidden. */
+  .m-row-name-line{ display:flex; align-items:center; gap:5px; min-width:0; }
+  .m-row-name-line .m-row-name{ min-width:0; }
+  .h-stale-dot{
+    display:inline-block; width:6px; height:6px; border-radius:50%; flex:none;
+    background: var(--brass); box-shadow: 0 0 0 2px var(--brass-wash);
+  }
   .sparkline{ display:block; flex:none; color: var(--ink-soft); margin:0 4px; }
   .sparkline.up{ color: var(--good); }
   .sparkline.down{ color: var(--bad); }
@@ -50,6 +63,19 @@
   .m-row-share-value{ text-align:right; flex:none; }
   .m-row-share-value .asset-trend.gain-cell{ display:block; padding-left:0; margin-top:2px; text-align:right; }
   .holdings-table .sparkline{ vertical-align:middle; }
+  /* On a narrow phone, a share row's avatar + sparkline + value block + chevron were eating
+     roughly 270px of a ~315px-wide row before the name got a look-in — capping the value block's
+     widest line (a USD gain/loss figure like "USD 2,100 (30.6%)") to force it onto two lines
+     clawed back some of that, but the sparkline (56px, plus 8px margin) turned out to be the
+     bigger single cost for what it's showing: a decorative trend line duplicating information
+     the up/down arrow and % change right next to it already state in words. Dropping it below
+     640px roughly doubles the name's remaining room; the Classic table's own sparkline column
+     (plenty of width there) is untouched. */
+  @media (max-width:640px){
+    .m-row-share-value{ max-width:104px; }
+    .m-row-share-value .m-row-amt{ white-space:normal; }
+    .m-asset-rows .m-row-summary .sparkline{ display:none; }
+  }
 
   /* ---------------- Shares: at-a-glance gain/loss summary ---------------- */
   .shares-glance{ margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid var(--border); }

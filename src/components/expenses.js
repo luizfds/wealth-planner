@@ -2,7 +2,7 @@ import { state, persist, genId } from "../state.js";
 import { CLASSES } from "../constants.js";
 import { sumField, resolveSharedAmount, periodsOf, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, isOverdue, daysUntil, lastTransactionDateFor } from "../calc/ledger.js";
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
-import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
+import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { syncUiModeToggle } from "../lib/uimode.js";
 import { buildTable, modernPlainRowHtml, modernRowSummaryHtml, modernRowEditHtml, modernRowShellHtml } from "../lib/ledger-table.js";
@@ -343,7 +343,7 @@ export function skipCurrentReviewCard(){
   expenseReview.pos++;
 }
 function reviewCardHtml(item){
-  var todayStr = new Date().toISOString().slice(0, 10);
+  var todayStr = localDateStr();
   return '<div class="review-card-badge ' + classificationSwatchClass(item.classification || "N/A") + '">' + escapeAttr(item.classification || "N/A") + '</div>' +
     '<div class="review-card-name">' + escapeAttr(item.what) + '</div>' +
     '<div class="review-card-freq">Budgeted ' + fmtCurrency2.format(item.amount) + ' / ' + item.freq + '</div>' +
@@ -416,7 +416,7 @@ function transactionAccountOptionsHtml(selected){
 export function logExpenseTransaction(item, amount, dateStr){
   var t = {
     id: genId("t"),
-    date: dateStr || new Date().toISOString().slice(0, 10),
+    date: dateStr || localDateStr(),
     amount: Number(amount) || 0,
     what: item.what,
     linkedExpenseId: item.id,
@@ -507,7 +507,7 @@ export function renderTransactions(){
     + toggleHtml;
 }
 export function addTransaction(){
-  state.transactions.push({ id: genId("t"), date: new Date().toISOString().slice(0, 10), amount: 0, what: "", linkedExpenseId: null, account: "" });
+  state.transactions.push({ id: genId("t"), date: localDateStr(), amount: 0, what: "", linkedExpenseId: null, account: "" });
   renderTransactions();
   renderActualVsPlannedPanel();
   persist();

@@ -21,3 +21,23 @@ export function fmtCurrency2For(currency){
   if(!currency2Cache[currency]) currency2Cache[currency] = new Intl.NumberFormat("en-AU", {style:"currency", currency: currency, minimumFractionDigits:2, maximumFractionDigits:2});
   return currency2Cache[currency];
 }
+
+// Every "today" (and every "format this computed Date back into a YYYY-MM-DD string") in this
+// app used to go through `date.toISOString().slice(0, 10)` — but toISOString() always renders in
+// UTC, not the visitor's own local time. For anyone east of UTC — this app's primary Australian
+// audience very much included, AEST/AEDT is UTC+10/+11 — that means "today" from local midnight
+// until mid-morning actually resolves to *yesterday*'s UTC date: a Log date picker prefilled
+// yesterday, "last logged N days ago" and every due/overdue check off by the same day. The date
+// *arithmetic* elsewhere in the app (addFreqStep, setDate/setMonth, `new Date(dateStr +
+// "T00:00:00")`) already happens in local time via native Date methods and stays untouched by
+// this — only the final Date-to-string step was wrong. Reads the Date object's own local getters
+// instead, so it always matches the calendar date showing on the visitor's own clock. Takes an
+// existing Date (for formatting an already-computed date, e.g. a projected due date) or defaults
+// to right now.
+export function localDateStr(d){
+  d = d || new Date();
+  var y = d.getFullYear();
+  var m = String(d.getMonth() + 1).padStart(2, "0");
+  var day = String(d.getDate()).padStart(2, "0");
+  return y + "-" + m + "-" + day;
+}

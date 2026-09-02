@@ -8,7 +8,7 @@ import {
   propertiesTotalEquityToday, propertiesOffsetTotal
 } from "./property.js";
 import { getTaxPeople, computePersonTax, effectiveIncomeItems } from "./tax.js";
-import { fmtCurrency0 } from "../lib/format.js";
+import { fmtCurrency0, localDateStr } from "../lib/format.js";
 
 export function totalAssetsValue(){
   return state.assets.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
@@ -54,8 +54,8 @@ export function actualAssetGrowthLastMonth(){
   var today = new Date();
   var monthAgo = new Date(today.getTime());
   monthAgo.setDate(monthAgo.getDate() - 30);
-  var monthAgoStr = monthAgo.toISOString().slice(0, 10);
-  var todayStr = today.toISOString().slice(0, 10);
+  var monthAgoStr = localDateStr(monthAgo);
+  var todayStr = localDateStr(today);
 
   function latestValueOnOrBefore(history, d){
     if(!history || !history.length) return null;

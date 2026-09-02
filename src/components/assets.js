@@ -30,27 +30,54 @@ function assetRowHtml(item, idx){
 function holdingCurrency(item){
   return MARKET_CURRENCY[item.market] || "AUD";
 }
-// Shared by gainLossHtml() (display) and the winners/losers filter + gain-based sort below —
-// one calculation, not three copies of the same "no avg cost set = null, else (price-cost)*qty"
-// logic. null (not a $0 struct) specifically means "nothing to compare against yet", so a filter
-// or sort can tell that apart from a holding that's flat.
-function holdingGain(item){
-  if(item.avgCost == null || item.avgCost === "") return null;
-  var qty = Number(item.quantity) || 0;
-  var cost = Number(item.avgCost) || 0;
+// "Gain/Loss" ($) and "Change" (%) are the same underlying comparison — this holding's price now
+// vs. its price at the start of the selected Change window (sharesChangeWindow, defined below) —
+// so both are computed together here instead of duplicating the window/history lookup. Used by
+// gainLossHtml()/priceChangeHtml() (display), the winners/losers filter, and the gain-based sort
+// further down. Previously Gain/Loss compared against Avg cost (a fixed since-purchase basis,
+// independent of the window picker) — changed to match Change's own window so picking "1W" moves
+// every gain/loss figure on the page together, not just the % badge. null (not a $0 struct)
+// specifically means "no price logged from at least that far back", so a filter or sort can tell
+// that apart from a holding that's genuinely flat.
+function holdingWindowChange(item){
+  var win = SHARES_CHANGE_WINDOWS.find(function(w){ return w.key === sharesChangeWindow; });
   var price = Number(item.price) || 0;
-  var gainDollar = (price - cost) * qty;
-  return { gainDollar: gainDollar, pct: cost ? (price - cost) / cost : 0 };
+  var qty = Number(item.quantity) || 0;
+  if(!win || !price || !Array.isArray(item.history) || !item.history.length) return null;
+  var priced = item.history.filter(function(h){ return h.price != null; });
+  if(!priced.length) return null;
+  // history is kept date-sorted by appendHistorySnapshot, and filter() preserves that order.
+  var from = null;
+  if(win.all){
+    // A single priced entry is necessarily today's own price — comparing it to itself would
+    // read as a flat "0%"/$0 that looks like real data instead of "nothing to compare against yet".
+    if(priced.length >= 2) from = priced[0];
+  } else {
+    var targetStr;
+    if(win.ytd){
+      targetStr = new Date().getFullYear() + "-01-01";
+    } else {
+      var target = new Date();
+      target.setDate(target.getDate() - win.days);
+      targetStr = localDateStr(target);
+    }
+    // the last priced entry on or before the target date is the closest known price at (or just
+    // before) that point in time.
+    for(var i = 0; i < priced.length; i++){
+      if(priced[i].date <= targetStr) from = priced[i]; else break;
+    }
+  }
+  if(!from || !from.price) return null;
+  return { fromDate: from.date, pct: (price - from.price) / from.price, gainDollar: (price - from.price) * qty };
+}
+function windowFallbackHtml(){
+  var win = SHARES_CHANGE_WINDOWS.find(function(w){ return w.key === sharesChangeWindow; });
+  var label = win ? win.label : "";
+  return '<span class="calc-note" title="No price logged from at least ' + escapeAttr(label) + ' ago — paste updated prices or use Log to start tracking this.">— ' + escapeAttr(label) + '</span>';
 }
 function gainLossHtml(item){
-  var g = holdingGain(item);
-  // A plain "—" reads as "no data available", when what's actually true is "there's one field
-  // away from having this" — the whole point of the existing "No cost set" filter chip is to
-  // round these up, but a holding you land on directly gave no hint at all why its gain/loss was
-  // blank. In Modern mode this sits inside the row's own toggle button, so it's already one tap
-  // from the Avg cost field under "More options"; in Classic mode Avg cost is the very next
-  // column over — either way, the tooltip says where to go.
-  if(!g) return '<span class="calc-note gain-cell-hint" title="No average cost set — add one to track unrealized gain/loss for this holding">Set cost</span>';
+  var g = holdingWindowChange(item);
+  if(!g) return windowFallbackHtml();
   var cls = g.gainDollar > 0 ? "up" : (g.gainDollar < 0 ? "down" : "");
   var arrow = g.gainDollar > 0 ? "▲" : (g.gainDollar < 0 ? "▼" : "–");
   return '<span class="asset-trend gain-cell ' + cls + '">' + arrow + ' ' + fmtCurrency0For(holdingCurrency(item)).format(Math.abs(g.gainDollar)) +
@@ -109,41 +136,11 @@ var SHARES_CHANGE_WINDOWS = [
   // something with as little as two logged prices, regardless of how young the history is.
   { key: "all", label: "All", all: true }
 ];
-function holdingPriceChange(item){
-  var win = SHARES_CHANGE_WINDOWS.find(function(w){ return w.key === sharesChangeWindow; });
-  var price = Number(item.price) || 0;
-  if(!win || !price || !Array.isArray(item.history) || !item.history.length) return null;
-  var priced = item.history.filter(function(h){ return h.price != null; });
-  if(!priced.length) return null;
-  // history is kept date-sorted by appendHistorySnapshot, and filter() preserves that order.
-  var from = null;
-  if(win.all){
-    // A single priced entry is necessarily today's own price — comparing it to itself would
-    // read as a flat "0%" that looks like real data instead of "nothing to compare against yet".
-    if(priced.length >= 2) from = priced[0];
-  } else {
-    var targetStr;
-    if(win.ytd){
-      targetStr = new Date().getFullYear() + "-01-01";
-    } else {
-      var target = new Date();
-      target.setDate(target.getDate() - win.days);
-      targetStr = localDateStr(target);
-    }
-    // the last priced entry on or before the target date is the closest known price at (or just
-    // before) that point in time.
-    for(var i = 0; i < priced.length; i++){
-      if(priced[i].date <= targetStr) from = priced[i]; else break;
-    }
-  }
-  if(!from || !from.price) return null;
-  return { pct: (price - from.price) / from.price, fromDate: from.date };
-}
 function priceChangeHtml(item){
-  var c = holdingPriceChange(item);
+  var c = holdingWindowChange(item);
   var win = SHARES_CHANGE_WINDOWS.find(function(w){ return w.key === sharesChangeWindow; });
   var label = win ? win.label : "";
-  if(!c) return '<span class="calc-note" title="No price logged from at least ' + escapeAttr(label) + ' ago — paste updated prices or use Log to start tracking this.">— ' + escapeAttr(label) + '</span>';
+  if(!c) return windowFallbackHtml();
   var cls = c.pct > 0 ? "up" : (c.pct < 0 ? "down" : "");
   var arrow = c.pct > 0 ? "▲" : (c.pct < 0 ? "▼" : "–");
   return '<span class="asset-trend ' + cls + '" title="Since ' + escapeAttr(c.fromDate) + '">' + arrow + ' ' + fmtPercent1.format(Math.abs(c.pct)) + ' ' + escapeAttr(label) + '</span>';
@@ -435,24 +432,21 @@ function modernShareRowHtml(item, idx, colorIdx){
 // avg cost set, same requirement gainLossHtml() uses per-row, so a portfolio where nobody's
 // entered a cost basis yet correctly reports "nothing to show" rather than a misleading $0.
 function sharesGainLossSummary(items){
-  var totalCost = 0, totalValue = 0, upCount = 0, downCount = 0, flatCount = 0;
+  var gainDollar = 0, startValue = 0, upCount = 0, downCount = 0, flatCount = 0;
   items.forEach(function(item){
-    if(item.avgCost == null || item.avgCost === "") return;
-    var qty = Number(item.quantity) || 0;
-    var cost = Number(item.avgCost) || 0;
-    var price = Number(item.price) || 0;
-    totalCost += qty * cost;
-    totalValue += qty * price;
-    var gain = (price - cost) * qty;
-    if(gain > 0.5) upCount++;
-    else if(gain < -0.5) downCount++;
+    var g = holdingWindowChange(item);
+    if(!g) return;
+    var qty = Number(item.quantity) || 0, price = Number(item.price) || 0;
+    gainDollar += g.gainDollar;
+    startValue += qty * price - g.gainDollar;
+    if(g.gainDollar > 0.5) upCount++;
+    else if(g.gainDollar < -0.5) downCount++;
     else flatCount++;
   });
   var trackedCount = upCount + downCount + flatCount;
-  var gainDollar = totalValue - totalCost;
   return {
     trackedCount: trackedCount, gainDollar: gainDollar,
-    pct: totalCost ? gainDollar / totalCost : 0,
+    pct: startValue ? gainDollar / startValue : 0,
     upCount: upCount, downCount: downCount, flatCount: flatCount
   };
 }
@@ -467,11 +461,13 @@ function sharesGlanceLegendItemHtml(count, colorStyle, label){
 function sharesGainLossGlanceHtml(items){
   var s = sharesGainLossSummary(items);
   if(!s.trackedCount) return "";
+  var win = SHARES_CHANGE_WINDOWS.find(function(w){ return w.key === sharesChangeWindow; });
+  var label = win ? win.label : "";
   var cls = s.gainDollar > 0.5 ? "up" : (s.gainDollar < -0.5 ? "down" : "");
   var arrow = s.gainDollar > 0.5 ? "▲" : (s.gainDollar < -0.5 ? "▼" : "–");
   return '<div class="shares-glance">' +
     '<div class="shares-glance-figure asset-trend ' + cls + '">' + arrow + ' ' + fmtCurrency0.format(Math.abs(s.gainDollar)) + ' (' + fmtPercent1.format(Math.abs(s.pct)) + ')</div>' +
-    '<div class="shares-glance-sub">unrealized gain/loss, across ' + s.trackedCount + ' holding' + (s.trackedCount === 1 ? "" : "s") + ' with an avg cost set</div>' +
+    '<div class="shares-glance-sub">' + escapeAttr(label) + ' gain/loss, across ' + s.trackedCount + ' holding' + (s.trackedCount === 1 ? "" : "s") + ' with price history</div>' +
     '<div class="tax-waterfall-bar shares-glance-bar">' +
       sharesGlanceBarSegHtml(s.upCount, "background:var(--good)", "up") +
       sharesGlanceBarSegHtml(s.flatCount, "background:var(--ink-soft)", "flat") +
@@ -496,7 +492,7 @@ export function setSharesGainFilter(value){
   renderSharesSubpage();
 }
 function sharesGainMatches(item){
-  var g = holdingGain(item);
+  var g = holdingWindowChange(item);
   if(sharesGainFilter === "winners") return !!g && g.gainDollar > 0;
   if(sharesGainFilter === "losers") return !!g && g.gainDollar < 0;
   if(sharesGainFilter === "unset") return !g;
@@ -506,7 +502,10 @@ var SHARES_GAIN_FILTERS = [
   { key: "", label: "All" },
   { key: "winners", label: "▲ Winners" },
   { key: "losers", label: "▼ Losers" },
-  { key: "unset", label: "No cost set" }
+  // Was "No cost set" back when gain/loss compared against Avg cost — now it's about price
+  // history for the selected window instead (see holdingWindowChange), so a holding lands here
+  // whenever there's no price logged from at least that far back, cost basis aside.
+  { key: "unset", label: "No history" }
 ];
 
 // Also session-only. "" (Default) keeps whatever order state.assets itself stores them in — the
@@ -529,14 +528,14 @@ var SHARES_SORT_OPTIONS = [
 ];
 // Sorts items/indices together (indices have to keep pointing at each item's real position in
 // state.assets, same convention as every other filtered-then-rendered list in this app) — a
-// holding with no avg cost sorts after any gain/loss-figure sort so "can't compare" doesn't read
-// as "compares as zero".
+// holding with no price history for the selected window sorts after any gain/loss-figure sort so
+// "can't compare" doesn't read as "compares as zero".
 function sortShareData(data){
   if(!sharesSortMode) return data;
   var paired = data.items.map(function(item, i){ return { item: item, idx: data.indices[i] }; });
   function value(item){ return (Number(item.quantity) || 0) * (Number(item.price) || 0); }
   paired.sort(function(a, b){
-    var ga = holdingGain(a.item), gb = holdingGain(b.item);
+    var ga = holdingWindowChange(a.item), gb = holdingWindowChange(b.item);
     switch(sharesSortMode){
       case "name": return a.item.what.localeCompare(b.item.what);
       case "value-desc": return value(b.item) - value(a.item);

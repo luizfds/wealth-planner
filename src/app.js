@@ -81,7 +81,14 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       dt.setDate(dt.getDate() + d);
       var progress = i / (days.length - 1);
       var histPrice = i === days.length - 1 ? currentPrice : currentPrice * (1 - driftPct * (1 - progress));
-      return { date: localDateStr(dt), value: Math.round(qty * histPrice * 100) / 100 };
+      histPrice = Math.round(histPrice * 100) / 100;
+      // The per-unit price, not just the total value below — holdingWindowChange() (Change/
+      // Gain-Loss on the Shares page) compares price to price for a given lookback window and
+      // ignores any entry missing this field, the same way a real Log/paste-prices entry would.
+      // Without it, every mock share holding showed "— 1D"/"— 1W"/etc. for both Change and
+      // Gain/Loss no matter which window was picked — sample data is the one first-touch a new
+      // visitor gets, and it should actually demonstrate the feature.
+      return { date: localDateStr(dt), value: Math.round(qty * histPrice * 100) / 100, price: histPrice };
     });
   }
   function rndPick(arr){ return arr[Math.floor(Math.random() * arr.length)]; }

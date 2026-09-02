@@ -162,7 +162,7 @@ export function patchHoldingRow(tr, item){
   var priceNote = tr.querySelector(".h-price-note");
   if(priceNote) priceNote.textContent = priceNoteText(item);
   var subCell = tr.querySelector(".h-sub-cell");
-  if(subCell) subCell.textContent = qty + " · " + fmtCurrency2For(currency).format(holdingAvgCostDisplay(item, price));
+  if(subCell) subCell.textContent = qty + " · " + fmtCurrency2For(currency).format(price);
 }
 
 // Keeps the Shares page's aggregate gain/loss figure in step with a live qty/avg-cost/price
@@ -352,9 +352,6 @@ export function renderVehiclesSubpage(){
   }
 }
 
-function holdingAvgCostDisplay(item, price){
-  return item.avgCost != null && item.avgCost !== "" ? Number(item.avgCost) : price;
-}
 function modernShareRowHtml(item, idx, colorIdx){
   var qty = Number(item.quantity) || 0;
   var price = Number(item.price) || 0;
@@ -363,11 +360,16 @@ function modernShareRowHtml(item, idx, colorIdx){
   var initials = (item.symbol || item.what || "?").slice(0, 2).toUpperCase();
   var avatar = '<span class="m-avatar' + (colorIdx != null ? " series-color-" + colorIdx : " m-avatar-neutral") + '">' + escapeAttr(initials) + '</span>';
   var spark = sparklineHtml(item.history) || sparklinePlaceholderHtml();
+  // Qty · current price, not qty · avg cost — the collapsed row's one line of secondary detail
+  // should explain the Value figure shown to its right (qty * price), and price is what's
+  // actually live/changing day to day. Avg cost is a cost-basis input you set once and rarely
+  // revisit; it's still right there under "More options" (below), just not fighting price for
+  // the one line of room here.
   var summary = '<div class="m-row-summary" role="button" tabindex="0" data-row-toggle>' +
     avatar +
     '<div style="flex:1 1 auto; min-width:0">' +
       '<div class="m-row-name">' + escapeAttr(item.what) + '</div>' +
-      '<div class="m-row-sub h-sub-cell">' + qty + ' · ' + fmtCurrency2For(currency).format(holdingAvgCostDisplay(item, price)) + '</div>' +
+      '<div class="m-row-sub h-sub-cell">' + qty + ' · ' + fmtCurrency2For(currency).format(price) + '</div>' +
     '</div>' +
     spark +
     '<div class="m-row-share-value">' +

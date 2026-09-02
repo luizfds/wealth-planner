@@ -36,10 +36,6 @@
   .asset-trend.down{ color: var(--bad); }
   .asset-log-btn{ all:unset; cursor:pointer; color: var(--ink-soft); font-size:11px; padding:3px 6px; border-radius:5px; }
   .asset-log-btn:hover{ background: var(--paper-sunken); color: var(--brass-strong); }
-  /* A "no avg cost set" gain/loss cell reads as a prompt ("Set cost"), not a blank/muted dash —
-     brass (the app's accent color) plus a dotted underline signal "there's a tooltip and a next
-     step here", not "nothing to see". */
-  .gain-cell-hint{ color: var(--brass-strong); border-bottom:1px dotted var(--brass-strong); cursor:help; }
 
   /* ---------------- Share holding rows: sparkline + value block ---------------- */
   /* Scoped to Assets' modern rows (Cash/Shares/Super/Vehicle/Other all share this container) —

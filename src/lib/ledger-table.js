@@ -1,10 +1,10 @@
 import { PERIODS, FREQS, CLASSES, INCOME_TYPES, SUPER_MODES, SACRIFICE_MODES, sacrificeModeToLabel } from "../constants.js";
 import { periodsOf } from "../calc/ledger.js";
 import { incomeRowSuperNote } from "../calc/tax.js";
-import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "./format.js";
+import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "./format.js";
 import { escapeAttr } from "./html.js";
 
-function todayStr(){ return new Date().toISOString().slice(0, 10); }
+function todayStr(){ return localDateStr(); }
 
 // The date input + button every "Log"-able row shows together — defaults to today but can be
 // backdated (e.g. a payslip that landed last week). The date lives in a sibling input rather

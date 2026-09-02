@@ -1,12 +1,13 @@
 import { state, setState, storageAvailable, persist, setStatus, defaultState, defaultPurchaseConfig, defaultInvestConfig, migrateState, genId, normalizeShareAsset } from "./state.js";
 import { INCOME_COL_DEFS, PERIODS, sacrificeModeToLabel, sacrificeLabelToMode, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, INVEST_LEG_TYPES } from "./constants.js";
-import { fmtCurrency0, fmtCurrency2 } from "./lib/format.js";
+import { fmtCurrency0, fmtCurrency2, localDateStr } from "./lib/format.js";
 import { showToast, showUndoToast, showPersistentToast } from "./lib/toast.js";
 import { escapeAttr, slug } from "./lib/html.js";
 import { syncUiModeToggle, applyPeriodVisibility } from "./lib/uimode.js";
 import { getNotifications, unreadNotificationCount, markNotificationRead, markAllNotificationsRead } from "./lib/notifications.js";
 import { buildTable } from "./lib/ledger-table.js";
 import { onHorizontalSwipe } from "./lib/swipe.js";
+import { initTableScrollShadows } from "./lib/scroll-shadow.js";
 import {
   decryptBackup, doExport, doShare, canShareFiles, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv, exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard
 } from "./lib/backup.js";
@@ -80,7 +81,7 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       dt.setDate(dt.getDate() + d);
       var progress = i / (days.length - 1);
       var histPrice = i === days.length - 1 ? currentPrice : currentPrice * (1 - driftPct * (1 - progress));
-      return { date: dt.toISOString().slice(0, 10), value: Math.round(qty * histPrice * 100) / 100 };
+      return { date: localDateStr(dt), value: Math.round(qty * histPrice * 100) / 100 };
     });
   }
   function rndPick(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
@@ -227,6 +228,18 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       income: income,
       ip: [],
       shared: shared,
+      // Explicit, not left to migrateState()'s seedAccountsFromUsage() fallback — that seeder
+      // only knows account *names* already typed into an Account field (from shared/income
+      // above, both of which randomly use "Credit Card" as a label) and has no way to tell a
+      // credit card apart from a debit account by name alone, so it always defaults type
+      // "debit". Sample data is the one first-touch a new visitor gets, and it should actually
+      // demonstrate the credit-card statement-cycle grouping ("Actual vs. planned" on the
+      // Expenses tab) rather than silently leave the exact account named "Credit Card"
+      // unconfigured for it.
+      accounts: [
+        { id: genId("acct"), name: "Everyday Account", type: "debit", statementStartDay: 1 },
+        { id: genId("acct"), name: "Credit Card", type: "credit", statementStartDay: rndStep(1, 28, 1) }
+      ],
       home: (function(){
         var h = {};
         h["Renting"] = homeCats(rentWeekly, "Weekly", "Everyday Account", 0, 0, rndStep(30, 60, 1), 0);
@@ -856,7 +869,7 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       }
       else if(e.target.classList.contains("h-price")){
         item.price = parseFloat(e.target.value) || 0;
-        item.priceUpdated = new Date().toISOString().slice(0, 10);
+        item.priceUpdated = localDateStr();
         item.amount = Math.round((Number(item.quantity) || 0) * item.price * 100) / 100;
         patchHoldingRow(tr, item);
         patchSharesGlance();
@@ -1835,6 +1848,7 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
   document.addEventListener("change", renderGlobalMetrics);
 
   renderAll();
+  initTableScrollShadows();
   showPage(initialPage, { replace: true, skipScroll: true });
   if(initialPage === "assets") showAssetsSubpage(initialAssetsSub, { replace: true });
 

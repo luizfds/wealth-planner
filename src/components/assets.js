@@ -2,13 +2,13 @@ import { state, persist } from "../state.js";
 import { ASSET_CATEGORIES, LIQUID_CATEGORIES, SHARE_MARKETS, MARKET_CURRENCY } from "../constants.js";
 import { propertiesOffsetTotal, propertiesIlliquidEquityToday, recalcPurchase } from "../calc/property.js";
 import { totalAssetsValue, totalNetWorthValue, totalDebtsValue } from "../calc/engine.js";
-import { fmtCurrency0, fmtCurrency2, fmtPercent1, fmtCurrency0For, fmtCurrency2For, localDateStr } from "../lib/format.js";
+import { fmtCurrency0, fmtCurrency2, fmtPercent1, fmtCurrency0For, fmtCurrency2For, localDateStr, fmtQtyDisplay } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { syncUiModeToggle } from "../lib/uimode.js";
 import { optionsHtml, historyTrendHtml } from "../lib/ledger-table.js";
 import { renderLineChart, sparklineHtml, sparklinePlaceholderHtml } from "../lib/charts.js";
 import { showToast } from "../lib/toast.js";
-import { appendHistorySnapshot } from "../calc/ledger.js";
+import { appendHistorySnapshot, daysUntil } from "../calc/ledger.js";
 import { renderProjectionOutputs } from "./projections.js";
 import { renderDashboardStats } from "./dashboard.js";
 
@@ -44,7 +44,13 @@ function holdingGain(item){
 }
 function gainLossHtml(item){
   var g = holdingGain(item);
-  if(!g) return '<span class="calc-note">—</span>';
+  // A plain "—" reads as "no data available", when what's actually true is "there's one field
+  // away from having this" — the whole point of the existing "No cost set" filter chip is to
+  // round these up, but a holding you land on directly gave no hint at all why its gain/loss was
+  // blank. In Modern mode this sits inside the row's own toggle button, so it's already one tap
+  // from the Avg cost field under "More options"; in Classic mode Avg cost is the very next
+  // column over — either way, the tooltip says where to go.
+  if(!g) return '<span class="calc-note gain-cell-hint" title="No average cost set — add one to track unrealized gain/loss for this holding">Set cost</span>';
   var cls = g.gainDollar > 0 ? "up" : (g.gainDollar < 0 ? "down" : "");
   var arrow = g.gainDollar > 0 ? "▲" : (g.gainDollar < 0 ? "▼" : "–");
   return '<span class="asset-trend gain-cell ' + cls + '">' + arrow + ' ' + fmtCurrency0For(holdingCurrency(item)).format(Math.abs(g.gainDollar)) +
@@ -56,6 +62,26 @@ function gainLossHtml(item){
 function priceNoteText(item){
   var currency = holdingCurrency(item);
   return item.priceUpdated ? ("as of " + item.priceUpdated + " · " + currency) : currency;
+}
+
+// A week is generous for a share/crypto price (these move daily) but short enough that it only
+// flags a holding genuinely left untouched, not one from yesterday. priceUpdated is set by
+// editing the Price field or by the Paste-prices feature — never by Log, which snapshots a
+// point-in-time *value* into history, a different concern from "is the live price current".
+// Empty priceUpdated (a holding whose price has never been edited/pasted since it was added, mock
+// data included) counts as stale too, same as priceNoteText()'s own "no date yet" fallback above.
+var STALE_PRICE_DAYS = 7;
+function isPriceStale(item){
+  return !item.priceUpdated || daysUntil(item.priceUpdated) <= -STALE_PRICE_DAYS;
+}
+// Small dot + tooltip, not a text badge — the collapsed row has no room to spare (see the
+// max-width comment on .m-row-share-value in assets.css) for a second warning label competing
+// with the name, price, and gain/loss already fighting for space there.
+function stalePriceDotHtml(item){
+  if(!isPriceStale(item)) return "";
+  var days = item.priceUpdated ? daysUntil(item.priceUpdated) * -1 : null;
+  var title = days == null ? "Price never updated — paste or edit it to refresh" : "Price last updated " + days + " day" + (days === 1 ? "" : "s") + " ago";
+  return '<span class="h-stale-dot" title="' + escapeAttr(title) + '" aria-label="' + escapeAttr(title) + '"></span>';
 }
 
 // Session-only (not persisted, mirrors sharesGainFilter's own convention) — which lookback
@@ -161,8 +187,10 @@ export function patchHoldingRow(tr, item){
   if(changeCell) changeCell.innerHTML = priceChangeHtml(item);
   var priceNote = tr.querySelector(".h-price-note");
   if(priceNote) priceNote.textContent = priceNoteText(item);
+  var staleCell = tr.querySelector(".h-stale-cell");
+  if(staleCell) staleCell.innerHTML = stalePriceDotHtml(item);
   var subCell = tr.querySelector(".h-sub-cell");
-  if(subCell) subCell.textContent = qty + " · " + fmtCurrency2For(currency).format(price);
+  if(subCell) subCell.textContent = fmtQtyDisplay.format(qty) + " · " + fmtCurrency2For(currency).format(price);
 }
 
 // Keeps the Shares page's aggregate gain/loss figure in step with a live qty/avg-cost/price
@@ -368,8 +396,12 @@ function modernShareRowHtml(item, idx, colorIdx){
   var summary = '<div class="m-row-summary" role="button" tabindex="0" data-row-toggle>' +
     avatar +
     '<div style="flex:1 1 auto; min-width:0">' +
-      '<div class="m-row-name">' + escapeAttr(item.what) + '</div>' +
-      '<div class="m-row-sub h-sub-cell">' + qty + ' · ' + fmtCurrency2For(currency).format(price) + '</div>' +
+      // A sibling to .m-row-name, not nested inside it — .m-row-name truncates with an ellipsis
+      // when the name is long, and a dot nested inside that same overflow:hidden box would get
+      // clipped away right when a long name needs it most. m-row-name-line's own flex row keeps
+      // the dot as a flex:none item that always renders at fixed size (see assets.css).
+      '<div class="m-row-name-line"><div class="m-row-name">' + escapeAttr(item.what) + '</div><span class="h-stale-cell">' + stalePriceDotHtml(item) + '</span></div>' +
+      '<div class="m-row-sub h-sub-cell">' + fmtQtyDisplay.format(qty) + ' · ' + fmtCurrency2For(currency).format(price) + '</div>' +
     '</div>' +
     spark +
     '<div class="m-row-share-value">' +

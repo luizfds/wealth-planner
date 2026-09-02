@@ -2,6 +2,15 @@ export var fmtCurrency0 = new Intl.NumberFormat("en-AU", {style:"currency", curr
 export var fmtCurrency2 = new Intl.NumberFormat("en-AU", {style:"currency", currency:"AUD", minimumFractionDigits:2, maximumFractionDigits:2});
 export var fmtPercent1 = new Intl.NumberFormat("en-AU", {style:"percent", maximumFractionDigits:1});
 export var fmtRunway = new Intl.NumberFormat("en-AU", {maximumFractionDigits:1, minimumFractionDigits:1});
+// For a *read-only* display of a holding quantity — a whole share count is left exactly as-is
+// (maximumFractionDigits never rounds the integer part, only caps decimals, so "50000" still
+// renders in full, just with thousands separators), while a fractional quantity — almost always
+// crypto, e.g. "0.04318707" — is capped to 4 decimal places so it reads cleanly next to a share
+// count instead of dominating the line with 8 digits of precision nobody's scanning for at a
+// glance. Never use this for an editable quantity field (Classic table's Qty input, the Modern
+// edit panel's) — those must keep the value exactly as stored, decimals and all, or a save would
+// silently truncate real precision the visitor typed in.
+export var fmtQtyDisplay = new Intl.NumberFormat("en-AU", {maximumFractionDigits:4});
 
 // Every other figure in this app is implicitly AUD — the one place that's not true is a Shares
 // holding whose market is US or Crypto (see MARKET_CURRENCY in constants.js), where the price

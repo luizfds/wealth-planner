@@ -39,15 +39,23 @@
 
   /* ---------------- Share holding rows: sparkline + value block ---------------- */
   /* Scoped to Assets' modern rows (Cash/Shares/Super/Vehicle/Other all share this container) —
-     a share holding's name (e.g. a full company name) is the one case in this app where a row
-     also has to fit an avatar, sparkline, and value block in the same line, so it can't afford
-     to wrap to a second line the way a plain amount+frequency row can. */
-  .m-asset-rows .m-row-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  /* .h-stale-dot is a flex:none sibling of .m-row-name, not nested inside it — min-width:0 lets
-     the name keep shrinking/ellipsizing on its own while the dot never gets squeezed to 0 or
-     clipped by the name's own overflow:hidden. */
-  .m-row-name-line{ display:flex; align-items:center; gap:5px; min-width:0; }
-  .m-row-name-line .m-row-name{ min-width:0; }
+     a share holding also has to fit an avatar, sparkline, and value block in the same line, so
+     it can't afford to wrap to a second line the way a plain amount+frequency row can. The ticker
+     symbol leads (.m-row-name, reusing the standard bold "primary name" look every other modern
+     row uses) since it's short by nature; the full company name follows as a secondary,
+     truncatable label (.m-row-name-secondary) rather than the other way around — leading with a
+     potentially-long full name is what used to force the sparkline into a separate "hide it below
+     640px" trade-off. A holding with no symbol set falls back to the name alone in the primary
+     (.m-row-name) slot, same as before this existed. */
+  .m-row-name-line{ display:flex; align-items:baseline; gap:5px; min-width:0; }
+  .m-row-name-line .m-row-name{ flex:none; }
+  .m-row-name-secondary{
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;
+    font-size:12px; font-weight:500; color: var(--ink-soft);
+  }
+  /* .h-stale-dot is a flex:none sibling here too — min-width:0 above lets the secondary name
+     keep shrinking/ellipsizing on its own while the dot never gets squeezed to 0 or clipped by
+     its overflow:hidden. */
   .h-stale-dot{
     display:inline-block; width:6px; height:6px; border-radius:50%; flex:none;
     background: var(--brass); box-shadow: 0 0 0 2px var(--brass-wash);
@@ -59,18 +67,12 @@
   .m-row-share-value{ text-align:right; flex:none; }
   .m-row-share-value .asset-trend.gain-cell{ display:block; padding-left:0; margin-top:2px; text-align:right; }
   .holdings-table .sparkline{ vertical-align:middle; }
-  /* On a narrow phone, a share row's avatar + sparkline + value block + chevron were eating
-     roughly 270px of a ~315px-wide row before the name got a look-in — capping the value block's
-     widest line (a USD gain/loss figure like "USD 2,100 (30.6%)") to force it onto two lines
-     clawed back some of that, but the sparkline (56px, plus 8px margin) turned out to be the
-     bigger single cost for what it's showing: a decorative trend line duplicating information
-     the up/down arrow and % change right next to it already state in words. Dropping it below
-     640px roughly doubles the name's remaining room; the Classic table's own sparkline column
-     (plenty of width there) is untouched. */
+  /* A USD gain/loss figure ("USD 2,100 (30.6%)") is the value block's widest line on a narrow
+     phone — capping the block's width forces just that one line to wrap onto two rather than
+     dictating the whole row's remaining space. */
   @media (max-width:640px){
     .m-row-share-value{ max-width:104px; }
     .m-row-share-value .m-row-amt{ white-space:normal; }
-    .m-asset-rows .m-row-summary .sparkline{ display:none; }
   }
 
   /* ---------------- Shares: at-a-glance gain/loss summary ---------------- */

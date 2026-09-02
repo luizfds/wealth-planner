@@ -390,14 +390,23 @@ function modernShareRowHtml(item, idx, colorIdx){
   // actually live/changing day to day. Avg cost is a cost-basis input you set once and rarely
   // revisit; it's still right there under "More options" (below), just not fighting price for
   // the one line of room here.
+  // Symbol leads (bold, never truncates), the full name follows as a secondary, truncatable
+  // label — a ticker is short by nature ("BBD" vs. "Banco Bradesco S.A."), so leading with it is
+  // what actually leaves enough room for the sparkline to stay visible at every width instead of
+  // needing to hide below 640px (the previous fix). Falls back to the name alone, in the primary
+  // weight, for a holding with no symbol set.
+  var symbolText = (item.symbol || "").trim();
+  var titleHtml = symbolText
+    ? '<span class="m-row-name">' + escapeAttr(symbolText) + '</span><span class="m-row-name-secondary">' + escapeAttr(item.what) + '</span>'
+    : '<span class="m-row-name">' + escapeAttr(item.what) + '</span>';
   var summary = '<div class="m-row-summary" role="button" tabindex="0" data-row-toggle>' +
     avatar +
     '<div style="flex:1 1 auto; min-width:0">' +
-      // A sibling to .m-row-name, not nested inside it — .m-row-name truncates with an ellipsis
-      // when the name is long, and a dot nested inside that same overflow:hidden box would get
-      // clipped away right when a long name needs it most. m-row-name-line's own flex row keeps
-      // the dot as a flex:none item that always renders at fixed size (see assets.css).
-      '<div class="m-row-name-line"><div class="m-row-name">' + escapeAttr(item.what) + '</div><span class="h-stale-cell">' + stalePriceDotHtml(item) + '</span></div>' +
+      // A sibling to .m-row-name, not nested inside it — .m-row-name-secondary truncates with an
+      // ellipsis when the name is long, and a dot nested inside that same overflow:hidden box
+      // would get clipped away right when a long name needs it most. m-row-name-line's own flex
+      // row keeps the dot as a flex:none item that always renders at fixed size (see assets.css).
+      '<div class="m-row-name-line">' + titleHtml + '<span class="h-stale-cell">' + stalePriceDotHtml(item) + '</span></div>' +
       '<div class="m-row-sub h-sub-cell">' + fmtQtyDisplay.format(qty) + ' · ' + fmtCurrency2For(currency).format(price) + '</div>' +
     '</div>' +
     spark +

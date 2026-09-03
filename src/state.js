@@ -119,7 +119,13 @@ export function defaultState(){
     // available" (US/Crypto holdings' native amounts pass through unconverted rather than being
     // zeroed out) — this app has never fetched anything itself, and a portfolio with no USD
     // holdings needs no rate at all.
-    fx: { usdAud: null, usdAudUpdated: "" }
+    fx: { usdAud: null, usdAudUpdated: "" },
+    // Last time Export or Share produced a full backup — not touched by CSV/template exports
+    // (those are partial, one-section-at-a-time, not a way to recover from data loss) or Import.
+    // "" until the first one. Powers the backup-reminder notification (lib/notifications.js) —
+    // the only way this browser-only, no-backend app's data survives clearing site data or losing
+    // the device.
+    lastBackupDate: ""
   };
 }
 
@@ -244,6 +250,7 @@ export function migrateState(s){
   if(!s.fx) s.fx = { usdAud: null, usdAudUpdated: "" };
   if(s.fx.usdAud === undefined) s.fx.usdAud = null;
   if(s.fx.usdAudUpdated == null) s.fx.usdAudUpdated = "";
+  if(s.lastBackupDate == null) s.lastBackupDate = "";
   (s.income || []).forEach(function(i){
     if(i.sacrificeMode == null) i.sacrificeMode = "none";
     if(i.sacrificeValue == null) i.sacrificeValue = 0;

@@ -152,7 +152,7 @@ function acquisitionCostsSectionHtml(p){
     '<p class="ledger-note" style="margin-left:0">Stamp duty, legal/conveyancing, buyer\'s agent, building/pest inspection — itemize what you actually paid. Added to Purchase price above for Capital gain and yield-on-cost.</p>' +
     (isModern
       ? '<div class="m-card m-cost-rows" id="propAcqCostRows_' + escapeAttr(p.id) + '">' + acquisitionCostCompBarHtml(rowMeta) + rowsHtml + '</div>'
-      : (rowMeta.length ? '<div class="table-scroll"><table class="calc-costs-table">' + rowsHtml + '</table></div>' : '')) +
+      : (rowMeta.length ? '<div class="table-scroll"><table class="calc-costs-table"><thead><tr><th>What</th><th class="num">Amount</th><th></th></tr></thead><tbody>' + rowsHtml + '</tbody></table></div>' : '')) +
     '<button type="button" class="btn btn-sm btn-ghost" style="margin-top:8px" data-acq-cost-add="' + escapeAttr(p.id) + '">+ Add cost</button>' +
   '</div>';
 }

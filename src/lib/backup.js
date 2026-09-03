@@ -1,6 +1,7 @@
-import { state } from "../state.js";
+import { state, persist } from "../state.js";
 import { sacrificeModeToLabel, MARKET_CURRENCY } from "../constants.js";
 import { showToast, showPersistentToast } from "./toast.js";
+import { localDateStr } from "./format.js";
 
 function isoDateStamp(){
   var d = new Date();
@@ -60,9 +61,20 @@ export function decryptBackup(envelope, passphrase){
   });
 }
 
+// Stamps today as the last time a full backup was produced — called before payload capture in
+// both doExport() and doShare() below, so the exported/shared file's own state.lastBackupDate
+// already reflects itself. Deliberately not touched by the per-section CSV/template exports
+// (buildCsv/exportCsv above) — those are a partial, one-section snapshot, not a way to recover
+// from data loss, so they shouldn't silence the backup-reminder notification (lib/notifications.js).
+function markBackedUp(){
+  state.lastBackupDate = localDateStr();
+  persist();
+}
+
 export function doExport(){
   var passphrase = prompt("Optional: encrypt this backup with a passphrase (leave blank for a plain, unencrypted backup as before). You'll need this exact passphrase to import it again — it can't be recovered if you forget it.");
   if(passphrase === null) return;
+  markBackedUp();
   var payload = JSON.stringify(state, null, 2);
   var filename = "wealth-planner-backup-" + isoDateStamp() + (passphrase ? "-encrypted" : "") + ".json";
   if(passphrase){
@@ -122,6 +134,7 @@ export function doShare(){
     if(passphrase !== null) showToast("A passphrase is required to share — nothing was sent.");
     return;
   }
+  markBackedUp();
   var payload = JSON.stringify(state, null, 2);
   // Sent as .txt/text/plain, not .json/application/json, even though the content is identical
   // (still valid JSON once decrypted) — Chromium's navigator.share() only hands a file to the OS
@@ -288,12 +301,17 @@ export function parseCsv(text){
 }
 
 var EXPENSES_CSV_HEADERS = ["What", "Classification", "Amount", "Frequency", "Account"];
+var INCOME_CSV_HEADERS = ["What", "Person", "Type", "Amount", "Frequency", "Super", "Sacrifice mode", "Sacrifice value", "Account"];
 export function exportIncomeCsv(){
-  var headers = ["What", "Person", "Type", "Amount", "Frequency", "Super", "Sacrifice mode", "Sacrifice value", "Account"];
   var rows = state.income.filter(function(i){ return !i.computed; }).map(function(i){
     return [i.what, i.person || "", i.incomeType || "Net", i.amount, i.freq, i.superMode || "", sacrificeModeToLabel(i.sacrificeMode), i.sacrificeValue || "", i.account || ""];
   });
-  exportCsv("income-" + isoDateStamp() + ".csv", headers, rows);
+  exportCsv("income-" + isoDateStamp() + ".csv", INCOME_CSV_HEADERS, rows);
+}
+// Blank starting point for the Income page's "Import CSV" — same headers as the real export
+// above, zero rows. See exportExpensesImportTemplateCsv's comment for the same rationale.
+export function exportIncomeImportTemplateCsv(){
+  finishExport(buildCsv(INCOME_CSV_HEADERS, []), "income-import-template.csv", "text/csv", "Template saved");
 }
 export function exportExpensesCsv(){
   var rows = state.shared.map(function(i){
@@ -308,12 +326,17 @@ export function exportExpensesCsv(){
 export function exportExpensesImportTemplateCsv(){
   finishExport(buildCsv(EXPENSES_CSV_HEADERS, []), "expenses-import-template.csv", "text/csv", "Template saved");
 }
+var ASSETS_CSV_HEADERS = ["What", "Category", "Amount", "Symbol", "Market", "Quantity", "Avg cost", "Price", "Person", "Purchase price", "Purchase date", "Depreciation %/yr"];
 export function exportAssetsCsv(){
-  var headers = ["What", "Category", "Amount", "Symbol", "Market", "Quantity", "Avg cost", "Price", "Person", "Purchase price", "Purchase date", "Depreciation %/yr"];
   var rows = state.assets.map(function(a){
     return [a.what, a.category || "", a.amount, a.symbol || "", a.market || "", a.quantity != null ? a.quantity : "", a.avgCost != null ? a.avgCost : "", a.price != null ? a.price : "", a.person || "", a.purchasePrice != null ? a.purchasePrice : "", a.purchaseDate || "", a.depreciationRate != null ? a.depreciationRate : ""];
   });
-  exportCsv("assets-" + isoDateStamp() + ".csv", headers, rows);
+  exportCsv("assets-" + isoDateStamp() + ".csv", ASSETS_CSV_HEADERS, rows);
+}
+// Blank starting point for the Assets page's "Import CSV" — same headers as the real export
+// above, zero rows. See exportExpensesImportTemplateCsv's comment for the same rationale.
+export function exportAssetsImportTemplateCsv(){
+  finishExport(buildCsv(ASSETS_CSV_HEADERS, []), "assets-import-template.csv", "text/csv", "Template saved");
 }
 // The exchange-qualified ticker GOOGLEFINANCE expects, matching the manual convention already
 // documented in the "Paste prices" hint text (assets.js): ASX needs an "ASX:" prefix, US tickers

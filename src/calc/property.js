@@ -98,6 +98,27 @@ export function propertyGearingAnnual(property){
   return rentYearly - expenseYearly - loanYearly;
 }
 
+// Current value vs. what was actually paid — null (not $0) whenever purchasePrice isn't set, so a
+// property added without one shows no capital gain figure at all rather than a misleading 100%
+// "gain" against a $0 cost base. Distinct from the property's own history[] (a log of *current*
+// value over time, which for a property added well after the actual purchase starts from whatever
+// day it was first logged — never the real purchase price).
+export function propertyCapitalGain(property){
+  var cost = Number(property.purchasePrice);
+  if(!(cost > 0)) return null;
+  var value = Number(property.value) || 0;
+  var gain = value - cost;
+  return { gain: gain, pct: gain / cost };
+}
+// Annual rent against what was paid, not against today's value (that's the existing gross-yield
+// badge) — a different question: "how is my original investment performing" vs. "would this be a
+// good buy at today's price". Same null-not-$0 gating as propertyCapitalGain, same reason.
+export function propertyYieldOnCost(property){
+  var cost = Number(property.purchasePrice);
+  if(!(cost > 0)) return null;
+  return sumField(property.income, "yearly") / cost;
+}
+
 // Only the interest portion of a loan repayment is tax-deductible — principal repayment just
 // reduces the liability, it's not a loss. An offset account reduces the balance interest is
 // charged on — the same offset balance is also netted against the loan for equity purposes

@@ -1,5 +1,5 @@
 import { state, persist } from "../state.js";
-import { propertyEquityToday, propertyGearingAnnual, propertyLoanRepaymentMonthly, loanRepaymentDisplay } from "../calc/property.js";
+import { propertyEquityToday, propertyGearingAnnual, propertyLoanRepaymentMonthly, loanRepaymentDisplay, propertyCapitalGain, propertyYieldOnCost } from "../calc/property.js";
 import { sumField } from "../calc/ledger.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
@@ -134,17 +134,25 @@ function propertyCardHtml(p){
       '">' + (isPositive ? "Positively geared" : "Negatively geared") + '</span>';
     if(Number(p.value) > 0){
       var grossYield = sumField(p.income, "yearly") / Number(p.value);
-      yieldBadge = '<span class="gearing-badge neutral" title="Annual rent ÷ current property value">' + fmtPercent1.format(grossYield) + ' gross yield</span>';
+      yieldBadge = '<span class="gearing-badge neutral" data-badge="yield-value" title="Annual rent ÷ current property value">' + fmtPercent1.format(grossYield) + ' gross yield</span>';
+    }
+    var yieldOnCost = propertyYieldOnCost(p);
+    if(yieldOnCost != null){
+      yieldBadge += '<span class="gearing-badge neutral" data-badge="yield-cost" title="Annual rent ÷ what you paid — how your original investment is performing, as opposed to gross yield\'s \'would this be a good buy at today\'s price\'">' + fmtPercent1.format(yieldOnCost) + ' yield on cost</span>';
     }
   }
   var usableEquity = Math.max(0, (Number(p.value) || 0) * 0.8 - mortgageBalance);
   var loanRepaymentMonthlyTotal = propertyLoanRepaymentMonthly(p);
+  var capitalGain = propertyCapitalGain(p);
   var summaryTiles =
     '<div class="calc-out"><span>Valuation</span><b data-out="valuation">' + fmtCurrency0.format(Number(p.value) || 0) + '</b></div>' +
     '<div class="calc-out"><span>Mortgage balance</span><b data-out="mortgagebalance">' + fmtCurrency0.format(mortgageBalance) + '</b></div>' +
     '<div class="calc-out" title="Combined across every loan below, each converted to a monthly figure regardless of how it\'s individually displayed."><span>Loan repayment</span><b data-out="loanrepayment">' + fmtCurrency0.format(loanRepaymentMonthlyTotal) + '/mo</b></div>' +
     '<div class="calc-out emph"><span>Net equity</span><b data-out="netequity">' + fmtCurrency0.format(equity) + '</b></div>' +
     '<div class="calc-out" title="What you could borrow against this property, up to 80% LVR, without triggering LMI — based on its balance, not netted against any offset (that\'s a separate liquid asset, not more borrowing capacity)."><span>Usable equity</span><b data-out="usableequity">' + fmtCurrency0.format(usableEquity) + '</b></div>';
+  if(capitalGain){
+    summaryTiles += '<div class="calc-out" data-tile="capitalgain" title="Current value minus what you paid"><span>Capital gain</span><b data-out="capitalgain" style="color:' + (capitalGain.gain >= 0 ? "var(--good)" : "var(--bad)") + '">' + (capitalGain.gain >= 0 ? "+" : "") + fmtCurrency0.format(capitalGain.gain) + ' (' + (capitalGain.gain >= 0 ? "+" : "") + fmtPercent1.format(capitalGain.pct) + ')</b></div>';
+  }
   if(p.kind === "IP"){
     var netCashFlowMonthly = propertyGearingAnnual(p) / 12;
     summaryTiles += '<div class="calc-out"><span>Net cash flow</span><b data-out="cashflow" style="color:' + (netCashFlowMonthly < 0 ? "var(--bad)" : "var(--good)") + '">' + (netCashFlowMonthly >= 0 ? "+" : "") + fmtCurrency0.format(netCashFlowMonthly) + '/mo</b></div>';
@@ -163,6 +171,8 @@ function propertyCardHtml(p){
       '<div class="property-section-title">Property value</div>' +
       '<div class="calc-grid">' +
         '<div class="calc-field"><label>Current value</label><input type="number" step="1000" min="0" class="prop-value" value="' + (Number(p.value) || 0) + '"></div>' +
+        '<div class="calc-field" title="What you actually paid — separate from Current value above, and from the Log button\'s value-over-time history, which starts whenever this property was first added rather than the real purchase date. Powers Capital gain and the yield-on-cost badge above; leave blank if unknown."><label>Purchase price</label><input type="number" step="1000" min="0" class="prop-purchase-price" value="' + (p.purchasePrice != null ? p.purchasePrice : "") + '" placeholder="Unknown"></div>' +
+        '<div class="calc-field"><label>Purchase date</label><input type="date" class="prop-purchase-date" value="' + escapeAttr(p.purchaseDate || "") + '"></div>' +
       '</div>' +
       '<div class="prop-value-log"><button type="button" class="asset-log-btn" data-property-log="' + escapeAttr(p.id) + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart">Log</button>' + historyTrendHtml(p) + '</div>' +
     '</div>' +
@@ -274,10 +284,23 @@ export function patchPropertyCardComputed(property){
     gearBadge.title = "Rent minus expenses and loan repayments, per year (" + fmtCurrency0.format(gearing) + "/yr). " +
       (isPositive ? "Positively geared — the property earns more than it costs to hold." : "Negatively geared — the property costs more to hold than it earns, a common tax strategy.");
   }
-  var yieldBadge = card.querySelector(".gearing-badge.neutral");
+  var yieldBadge = card.querySelector('[data-badge="yield-value"]');
   if(yieldBadge && property.kind === "IP" && Number(property.value) > 0){
     var grossYield = sumField(property.income, "yearly") / Number(property.value);
     yieldBadge.textContent = fmtPercent1.format(grossYield) + " gross yield";
+  }
+  var yieldCostBadge = card.querySelector('[data-badge="yield-cost"]');
+  if(yieldCostBadge && property.kind === "IP"){
+    var yieldOnCost = propertyYieldOnCost(property);
+    if(yieldOnCost != null) yieldCostBadge.textContent = fmtPercent1.format(yieldOnCost) + " yield on cost";
+  }
+  var capitalGainOut = card.querySelector('[data-out="capitalgain"]');
+  if(capitalGainOut){
+    var capitalGain = propertyCapitalGain(property);
+    if(capitalGain){
+      capitalGainOut.textContent = (capitalGain.gain >= 0 ? "+" : "") + fmtCurrency0.format(capitalGain.gain) + " (" + (capitalGain.gain >= 0 ? "+" : "") + fmtPercent1.format(capitalGain.pct) + ")";
+      capitalGainOut.style.color = capitalGain.gain >= 0 ? "var(--good)" : "var(--bad)";
+    }
   }
   renderPropertyExpensesSummary();
 }

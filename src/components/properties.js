@@ -101,33 +101,59 @@ function modernLoanListHtml(p){
   return modernLoanCompBarHtml(rowMeta) + '<div class="m-rows">' + rows + '</div>';
 }
 
-// A flat inline row (no expand/collapse) in both modes — just two fields, the same treatment
-// expenses.js's accountRowHtml gives its own simple 2-3 field rows, rather than the full
-// summary+edit shell the Loans list above uses for its many fields.
+// Reuses the exact cc-what/cc-amount/cc-del/calc-costs-table component scenarios.js's purchase
+// calculator already built for its own "Other acquisition costs" list (same real-world concept —
+// settlement costs — just attached to a planned future purchase there instead of a real property
+// here) — borderless inputs, a fixed-width right-aligned amount column, the same row-dot +
+// composition-bar treatment in Modern mode. data-acq-cost-index/data-acq-cost-del stay as extra
+// attributes (not extra classes) so app.js's existing event delegation for this section is
+// unaffected by reusing the shared classes.
+function acquisitionCostRowMeta(p){
+  var costs = Array.isArray(p.acquisitionCosts) ? p.acquisitionCosts : [];
+  return costs.map(function(c, i){ return { cost: c, i: i, colorIdx: i % 8 }; });
+}
+function acquisitionCostCompBarHtml(rowMeta){
+  var segs = rowMeta.map(function(m){ return { cost: m.cost, colorIdx: m.colorIdx, amount: Math.max(0, Number(m.cost.amount) || 0) }; })
+    .filter(function(x){ return x.amount > 0.5; });
+  if(segs.length < 2) return "";
+  var total = segs.reduce(function(s, x){ return s + x.amount; }, 0);
+  return '<div class="m-comp-bar" data-comp-bar>' + segs.map(function(x){
+    var pct = total > 0 ? x.amount / total : 0;
+    return '<div class="m-comp-seg series-color-' + x.colorIdx + '" style="flex:' + x.amount + ' 1 0%" title="' + escapeAttr(x.cost.what) + ': ' + fmtCurrency0.format(x.amount) + ' (' + fmtPercent1.format(pct) + ')"></div>';
+  }).join("") + '</div>';
+}
 function acquisitionCostRowHtml(item, index){
-  var whatInput = '<input type="text" class="acq-cost-what" data-acq-cost-index="' + index + '" value="' + escapeAttr(item.what) + '" placeholder="e.g. Stamp duty" aria-label="Acquisition cost description">';
-  var amountInput = '<input type="number" step="100" min="0" class="acq-cost-amount" data-acq-cost-index="' + index + '" value="' + (Number(item.amount) || 0) + '" aria-label="Amount">';
+  var whatInput = '<input type="text" class="cc-what" data-acq-cost-index="' + index + '" value="' + escapeAttr(item.what) + '" placeholder="e.g. Stamp duty" aria-label="Acquisition cost description">';
+  var amountInput = '<input type="number" step="100" min="0" class="cc-amount" data-acq-cost-index="' + index + '" value="' + (Number(item.amount) || 0) + '" aria-label="Amount">';
   var delBtn = '<button type="button" class="btn btn-ghost btn-sm row-del" data-acq-cost-del="' + index + '" aria-label="Delete acquisition cost">✕</button>';
-  if(state.uiMode === "modern"){
-    return '<div class="m-row acq-cost-row" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 0">' + whatInput + amountInput + delBtn + '</div>';
-  }
-  return '<tr data-acq-cost-index="' + index + '"><td>' + whatInput + '</td><td class="num">' + amountInput + '</td><td>' + delBtn + '</td></tr>';
+  return '<tr class="cc-row" data-acq-cost-index="' + index + '"><td>' + whatInput + '</td><td class="cc-amount-cell">' + amountInput + '</td><td class="cc-del">' + delBtn + '</td></tr>';
+}
+function acquisitionCostRowModernHtml(item, index, colorIdx){
+  var whatInput = '<input type="text" class="cc-what" data-acq-cost-index="' + index + '" value="' + escapeAttr(item.what) + '" placeholder="e.g. Stamp duty" aria-label="Acquisition cost description">';
+  var amountInput = '<input type="number" step="100" min="0" class="cc-amount" data-acq-cost-index="' + index + '" value="' + (Number(item.amount) || 0) + '" aria-label="Amount">';
+  var delBtn = '<button type="button" class="btn btn-ghost btn-sm row-del" data-acq-cost-del="' + index + '" aria-label="Delete acquisition cost">✕</button>';
+  return '<div class="cc-row m-cost-row" data-acq-cost-index="' + index + '">' +
+    '<span class="m-row-dot series-color-' + colorIdx + '" aria-hidden="true"></span>' + whatInput + amountInput + delBtn +
+  '</div>';
 }
 // Stamp duty, legal, buyer's agent, inspection, etc. — itemized rather than a single lump sum, so
 // it doubles as a real record of what was paid, not just a number. Always rendered (even with an
 // empty list) so there's somewhere obvious to add the first one — unlike Loans/Income/Expenses,
 // this section has no natural "hide until non-empty" moment since it's core to Capital gain.
 function acquisitionCostsSectionHtml(p){
-  var costs = Array.isArray(p.acquisitionCosts) ? p.acquisitionCosts : [];
-  var total = costs.reduce(function(s, c){ return s + (Number(c.amount) || 0); }, 0);
-  var rows = costs.map(acquisitionCostRowHtml).join("");
+  var rowMeta = acquisitionCostRowMeta(p);
+  var total = rowMeta.reduce(function(s, m){ return s + (Number(m.cost.amount) || 0); }, 0);
+  var isModern = state.uiMode === "modern";
+  var rowsHtml = isModern
+    ? rowMeta.map(function(m){ return acquisitionCostRowModernHtml(m.cost, m.i, m.colorIdx); }).join("")
+    : rowMeta.map(function(m){ return acquisitionCostRowHtml(m.cost, m.i); }).join("");
   return '<div class="property-section">' +
     '<div class="property-section-title">Acquisition costs <span data-out="acqcoststotal" style="font-weight:400;color:var(--ink-soft)">' + (total > 0 ? "— " + fmtCurrency0.format(total) + " total" : "") + '</span></div>' +
     '<p class="ledger-note" style="margin-left:0">Stamp duty, legal/conveyancing, buyer\'s agent, building/pest inspection — itemize what you actually paid. Added to Purchase price above for Capital gain and yield-on-cost.</p>' +
-    (state.uiMode === "modern"
-      ? '<div class="m-rows" id="propAcqCostRows_' + escapeAttr(p.id) + '">' + rows + '</div>'
-      : (costs.length ? '<div class="table-scroll"><table class="calc-costs-table prop-acq-costs-table"><thead><tr><th>What</th><th class="num">Amount</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '')) +
-    '<button type="button" class="btn btn-sm btn-ghost" data-acq-cost-add="' + escapeAttr(p.id) + '">+ Add cost</button>' +
+    (isModern
+      ? '<div class="m-card m-cost-rows" id="propAcqCostRows_' + escapeAttr(p.id) + '">' + acquisitionCostCompBarHtml(rowMeta) + rowsHtml + '</div>'
+      : (rowMeta.length ? '<div class="table-scroll"><table class="calc-costs-table">' + rowsHtml + '</table></div>' : '')) +
+    '<button type="button" class="btn btn-sm btn-ghost" style="margin-top:8px" data-acq-cost-add="' + escapeAttr(p.id) + '">+ Add cost</button>' +
   '</div>';
 }
 

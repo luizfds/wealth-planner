@@ -9,7 +9,8 @@ import { buildTable } from "./lib/ledger-table.js";
 import { onHorizontalSwipe } from "./lib/swipe.js";
 import { initTableScrollShadows } from "./lib/scroll-shadow.js";
 import {
-  decryptBackup, doExport, doShare, canShareFiles, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv, exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard
+  decryptBackup, doExport, doShare, canShareFiles, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv, exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard,
+  exportExpensesImportTemplateCsv
 } from "./lib/backup.js";
 import { periodsOf, sumField, appendHistorySnapshot } from "./calc/ledger.js";
 import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax } from "./calc/tax.js";
@@ -28,7 +29,8 @@ import {
   logCurrentReviewCard, skipCurrentReviewCard, expenseReview,
   renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel,
   setTransactionsShowAll, modernTransactionRowOpen,
-  renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, logExpenseTransaction
+  renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, logExpenseTransaction,
+  parseExpensesImportCsv, renderExpensesImportPreview, clearExpensesImportPreview, commitExpensesImport
 } from "./components/expenses.js";
 import {
   patchHoldingRow, patchVehicleRow, modernAssetRowOpen, patchAssetCategoryTotals,
@@ -970,6 +972,25 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     if(e.target.id === "sharesPasteApply") applySharesPaste();
     if(e.target.id === "sharesExportPriceTemplateBtn") exportSharesPriceTemplateCsv();
     if(e.target.id === "sharesCopyPriceTemplateBtn") copySharesPriceTemplateToClipboard();
+    if(e.target.id === "expenseImportCancelBtn"){
+      pendingExpensesImport = [];
+      clearExpensesImportPreview();
+      return;
+    }
+    if(e.target.id === "expenseImportConfirmBtn"){
+      if(!pendingExpensesImport.length) return;
+      var importCount = pendingExpensesImport.length;
+      var startingSharedLength = state.shared.length;
+      commitExpensesImport(pendingExpensesImport);
+      pendingExpensesImport = [];
+      clearExpensesImportPreview();
+      refreshAfterLedgerChange("shared");
+      showUndoToast(importCount + " expense" + (importCount === 1 ? "" : "s") + " imported", function(){
+        state.shared.length = startingSharedLength;
+        refreshAfterLedgerChange("shared");
+      });
+      return;
+    }
     var personFilterBtn = e.target.closest("[data-asset-person-filter]");
     if(personFilterBtn){ setAssetPersonFilter(personFilterBtn.getAttribute("data-asset-person-filter")); return; }
     var gainFilterBtn = e.target.closest("[data-shares-gain-filter]");
@@ -1584,6 +1605,27 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
   document.getElementById("expenseExportCsvBtn").addEventListener("click", exportExpensesCsv);
   document.getElementById("assetsExportCsvBtn").addEventListener("click", exportAssetsCsv);
   document.getElementById("propertyLoansExportCsvBtn").addEventListener("click", exportPropertyLoansCsv);
+
+  // ---------------- Expenses: import from a spreadsheet ----------------
+  // Parsed rows live here (not in expenses.js) between file-select and the confirm click — nothing
+  // touches state.shared until expenseImportConfirmBtn, handled in the global click delegate below.
+  var pendingExpensesImport = [];
+  document.getElementById("expenseDownloadTemplateBtn").addEventListener("click", exportExpensesImportTemplateCsv);
+  document.getElementById("expenseImportBtn").addEventListener("click", function(){
+    document.getElementById("expenseImportFile").click();
+  });
+  document.getElementById("expenseImportFile").addEventListener("change", function(e){
+    var file = e.target.files[0];
+    e.target.value = "";
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      var parsed = parseExpensesImportCsv(String(reader.result));
+      pendingExpensesImport = renderExpensesImportPreview(parsed);
+    };
+    reader.onerror = function(){ showToast("Couldn't read that file"); };
+    reader.readAsText(file);
+  });
 
   document.getElementById("exportBtn").addEventListener("click", doExport);
   document.getElementById("exportLink2").addEventListener("click", doExport);

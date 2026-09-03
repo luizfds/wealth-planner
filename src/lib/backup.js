@@ -259,7 +259,35 @@ function exportCsv(filename, headers, rows){
   if(!rows.length){ showToast("Nothing to export yet"); return; }
   finishExport(buildCsv(headers, rows), filename, "text/csv", "CSV saved");
 }
+// Inverse of csvCell()/buildCsv() above — a small state-machine parser rather than a naive
+// split(","), since a quoted field can itself contain commas, embedded newlines, or an escaped
+// ("") quote (all of which csvCell() produces on the way out, so a round-tripped export needs to
+// read back correctly, and so does a real spreadsheet's own CSV export). Returns an array of
+// rows, each an array of raw string cells — no header handling or type coercion; callers own both.
+export function parseCsv(text){
+  var rows = [], row = [], field = "", inQuotes = false, i = 0, len = text.length;
+  while(i < len){
+    var c = text[i];
+    if(inQuotes){
+      if(c === '"'){
+        if(text[i + 1] === '"'){ field += '"'; i += 2; continue; }
+        inQuotes = false; i++; continue;
+      }
+      field += c; i++; continue;
+    }
+    if(c === '"'){ inQuotes = true; i++; continue; }
+    if(c === ","){ row.push(field); field = ""; i++; continue; }
+    if(c === "\r"){ i++; continue; } // swallowed — \n (or EOF) below ends the row either way
+    if(c === "\n"){ row.push(field); rows.push(row); row = []; field = ""; i++; continue; }
+    field += c; i++;
+  }
+  if(field.length || row.length){ row.push(field); rows.push(row); } // no trailing newline in the file
+  // A trailing blank line (or a spreadsheet export's empty last row) shouldn't read as real data.
+  while(rows.length && rows[rows.length - 1].every(function(cell){ return cell === ""; })) rows.pop();
+  return rows;
+}
 
+var EXPENSES_CSV_HEADERS = ["What", "Classification", "Amount", "Frequency", "Account"];
 export function exportIncomeCsv(){
   var headers = ["What", "Person", "Type", "Amount", "Frequency", "Super", "Sacrifice mode", "Sacrifice value", "Account"];
   var rows = state.income.filter(function(i){ return !i.computed; }).map(function(i){
@@ -268,11 +296,17 @@ export function exportIncomeCsv(){
   exportCsv("income-" + isoDateStamp() + ".csv", headers, rows);
 }
 export function exportExpensesCsv(){
-  var headers = ["What", "Classification", "Amount", "Frequency", "Account"];
   var rows = state.shared.map(function(i){
     return [i.what, i.classification || "", i.amount, i.freq, i.account || ""];
   });
-  exportCsv("expenses-" + isoDateStamp() + ".csv", headers, rows);
+  exportCsv("expenses-" + isoDateStamp() + ".csv", EXPENSES_CSV_HEADERS, rows);
+}
+// A blank starting point for the Expenses page's "Import CSV" — same headers as the real export
+// above (so an export and a template are interchangeable — filling in a past export works exactly
+// as well as starting from this), just with zero rows. Bypasses exportCsv()'s "nothing to export"
+// guard on purpose: an empty template is the whole point here, not an error.
+export function exportExpensesImportTemplateCsv(){
+  finishExport(buildCsv(EXPENSES_CSV_HEADERS, []), "expenses-import-template.csv", "text/csv", "Template saved");
 }
 export function exportAssetsCsv(){
   var headers = ["What", "Category", "Amount", "Symbol", "Market", "Quantity", "Avg cost", "Price", "Person", "Purchase price", "Purchase date", "Depreciation %/yr"];

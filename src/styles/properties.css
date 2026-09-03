@@ -63,7 +63,17 @@
   .property-card:last-child{ margin-bottom:0; }
   .property-section{ margin-top:22px; padding-top:20px; border-top:1px solid var(--border); }
   .property-section:first-of-type{ margin-top:20px; }
-  .property-section-title{ font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:.03em; color: var(--ink-soft); margin:0 0 10px; }
+  .property-section-title{ font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:.03em; color: var(--ink-soft); margin:0; }
+  /* Every property-card section (Property value, Acquisition costs, Loans, Income, Expenses) is
+     collapsible — a property card stacking all five is the single longest scroll in the app on
+     mobile. Mirrors the Scenarios page's .home-block collapse treatment (same caret-rotate,
+     display:none body) under its own class names, since this is a different structural context
+     (nested sections within one card, not top-level page blocks). */
+  .property-section-head{ display:flex; align-items:center; gap:6px; margin-bottom:10px; cursor:pointer; }
+  .property-section-toggle{ width:18px; height:18px; margin-right:-2px; }
+  .property-section:not(.is-collapsed) .property-section-toggle .ledger-caret{ transform: rotate(90deg); }
+  .property-section.is-collapsed .property-section-head{ margin-bottom:0; }
+  .property-section.is-collapsed .property-section-body{ display:none; }
   .property-card .calc-outputs{ background: var(--paper-sunken); }
   .prop-pmfee-panel{
     background: var(--paper-sunken); border:1px solid var(--border); border-radius:9px; padding:12px 14px; margin: 0 0 14px;
@@ -165,6 +175,15 @@
   .calc-costs-table input.cc-amount:hover, .calc-costs-table input.cc-amount:focus{ background: var(--paper-raised); }
   .calc-costs-table td.cc-amount-cell{ width:110px; }
   .calc-costs-table td.cc-del{ width:24px; }
+  /* No header row existed at all before this — the scenarios.js purchase-calculator table this
+     component was borrowed from never had one either, relying on its own "Other acquisition
+     costs" title as the only label. Fine there with just 2 columns and nothing else on the page
+     competing for meaning, but every other property-card list (Loans, Income, Expenses) has a
+     visible column header, so a bare "17728" with no "Amount" label above it read as an
+     unlabeled orphan number here by comparison. Purely additive — scenarios.js's own table has no
+     <thead> markup, so this rule has no effect there unless one gets added later. */
+  .calc-costs-table th{ text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; padding:4px 0 6px; }
+  .calc-costs-table th.num{ text-align:right; }
   .m-cost-rows{ padding:4px 12px; }
   .m-cost-row{ display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid var(--border); }
   .m-cost-row:last-child{ border-bottom:none; }

@@ -98,19 +98,20 @@ export function propertyGearingAnnual(property){
   return rentYearly - expenseYearly - loanYearly;
 }
 
-// Current value vs. what was actually paid — null (not $0) whenever purchasePrice isn't set, so a
-// property added without one shows no capital gain figure at all rather than a misleading 100%
-// "gain" against a $0 cost base. Distinct from the property's own history[] (a log of *current*
-// value over time, which for a property added well after the actual purchase starts from whatever
-// day it was first logged — never the real purchase price).
-// Purchase price alone, or price + acquisition costs (stamp duty, legal, buyer's agent, etc. —
-// see state.js's acquisitionCosts comment) when any were entered. Shared by both figures below so
-// "cost" always means the same thing in both places.
+// Purchase price plus every itemized acquisition cost (stamp duty, legal, buyer's agent, etc. —
+// see state.js's acquisitionCosts comment) — null (not $0) whenever purchasePrice isn't set, so a
+// property added without one shows no capital gain/yield-on-cost figure at all rather than a
+// misleading number against a $0 cost base. Shared by both functions below so "cost" always means
+// the same thing in both places.
 function propertyCostBase(property){
   var price = Number(property.purchasePrice);
   if(!(price > 0)) return null;
-  return price + (Number(property.acquisitionCosts) || 0);
+  var costsTotal = (property.acquisitionCosts || []).reduce(function(s, c){ return s + (Number(c.amount) || 0); }, 0);
+  return price + costsTotal;
 }
+// Current value vs. what was actually paid — distinct from the property's own history[] (a log of
+// *current* value over time, which for a property added well after the actual purchase starts
+// from whatever day it was first logged, never the real purchase price).
 export function propertyCapitalGain(property){
   var cost = propertyCostBase(property);
   if(cost == null) return null;

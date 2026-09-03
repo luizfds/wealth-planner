@@ -119,7 +119,13 @@ export function defaultState(){
     // available" (US/Crypto holdings' native amounts pass through unconverted rather than being
     // zeroed out) — this app has never fetched anything itself, and a portfolio with no USD
     // holdings needs no rate at all.
-    fx: { usdAud: null, usdAudUpdated: "" }
+    fx: { usdAud: null, usdAudUpdated: "" },
+    // Last time Export or Share produced a full backup — not touched by CSV/template exports
+    // (those are partial, one-section-at-a-time, not a way to recover from data loss) or Import.
+    // "" until the first one. Powers the backup-reminder notification (lib/notifications.js) —
+    // the only way this browser-only, no-backend app's data survives clearing site data or losing
+    // the device.
+    lastBackupDate: ""
   };
 }
 
@@ -244,6 +250,7 @@ export function migrateState(s){
   if(!s.fx) s.fx = { usdAud: null, usdAudUpdated: "" };
   if(s.fx.usdAud === undefined) s.fx.usdAud = null;
   if(s.fx.usdAudUpdated == null) s.fx.usdAudUpdated = "";
+  if(s.lastBackupDate == null) s.lastBackupDate = "";
   (s.income || []).forEach(function(i){
     if(i.sacrificeMode == null) i.sacrificeMode = "none";
     if(i.sacrificeValue == null) i.sacrificeValue = 0;
@@ -265,13 +272,25 @@ export function migrateState(s){
     // identical purchasePrice/purchaseDate fields (assets.js).
     if(p.purchasePrice === undefined) p.purchasePrice = null;
     if(p.purchaseDate == null) p.purchaseDate = "";
-    // Stamp duty + legal/conveyancing + buyer's agent + building/pest inspection, as one total —
-    // not itemized, and not auto-calculated from calcStampDuty() (that function's brackets are
-    // today's rates, meant for planning a *future* purchase; recomputing "what stamp duty would've
-    // been" for a property bought years ago against current brackets would misstate a fixed
-    // historical fact). Meaningless without a purchase price, so it only ever adds to the cost
-    // base alongside it — see propertyCapitalGain()/propertyYieldOnCost() in calc/property.js.
-    if(p.acquisitionCosts == null) p.acquisitionCosts = 0;
+    // Stamp duty, legal/conveyancing, buyer's agent, building/pest inspection — itemized as
+    // {id, what, amount} rows rather than auto-calculated from calcStampDuty() (that function's
+    // brackets are today's rates, meant for planning a *future* purchase; recomputing "what stamp
+    // duty would've been" for a property bought years ago against current brackets would misstate
+    // a fixed historical fact, not approximate it). Meaningless without a purchase price, so it
+    // only ever adds to the cost base alongside it — see propertyCapitalGain()/
+    // propertyYieldOnCost() in calc/property.js, which sum this array.
+    //
+    // Was a single lump-sum number before itemization — a positive legacy value becomes one row
+    // rather than being dropped, so nobody's already-entered total silently vanishes.
+    if(typeof p.acquisitionCosts === "number"){
+      p.acquisitionCosts = p.acquisitionCosts > 0 ? [{ id: genId("ac"), what: "Acquisition costs", amount: p.acquisitionCosts }] : [];
+    }
+    if(!Array.isArray(p.acquisitionCosts)) p.acquisitionCosts = [];
+    p.acquisitionCosts.forEach(function(c){
+      if(c.id == null) c.id = genId("ac");
+      if(c.what == null) c.what = "";
+      if(c.amount == null) c.amount = 0;
+    });
     if(!p.pmFee) p.pmFee = { percent: 6, flat: 5.5 };
     if(p.pmFee.percent == null) p.pmFee.percent = 6;
     if(p.pmFee.flat == null) p.pmFee.flat = 5.5;

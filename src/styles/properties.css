@@ -112,10 +112,11 @@
   }
   .calc-field{ display:flex; flex-direction:column; gap:3px; }
   .calc-field label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; }
-  .calc-field input[type="number"], .calc-field select{
+  .calc-field input[type="number"], .calc-field input[type="date"], .calc-field select{
     border:1px solid var(--border); background: var(--paper-raised); color: var(--ink);
     padding:6px 8px; border-radius:7px; font-size:13px; width:100%; font-family:inherit;
     transition: border-color .18s ease, box-shadow .18s ease;
+    color-scheme: light dark;
   }
   .calc-field input:focus, .calc-field select:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
   .calc-field input[type="number"]{ text-align:right; }

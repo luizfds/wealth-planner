@@ -64,3 +64,27 @@ test("migrateState leaves the baseline's own name untouched", function(){
   assert.equal(s.baselineScenario, "My custom scenario name");
   assert.deepEqual(s.scenarios, ["My custom scenario name"]);
 });
+
+test("migrateState converts a property's legacy lump-sum acquisitionCosts into one itemized row, not dropping the value", function(){
+  var s = migrateState({
+    activeScenario: "Current situation",
+    scenarios: ["Current situation"],
+    home: { "Current situation": [] },
+    purchase: {},
+    properties: [{ id: "p1", what: "1 Test St", acquisitionCosts: 27500 }]
+  });
+  assert.equal(s.properties[0].acquisitionCosts.length, 1);
+  assert.equal(s.properties[0].acquisitionCosts[0].amount, 27500);
+  assert.ok(s.properties[0].acquisitionCosts[0].id);
+});
+
+test("migrateState turns a legacy $0 acquisitionCosts into an empty array, not a zero-amount row", function(){
+  var s = migrateState({
+    activeScenario: "Current situation",
+    scenarios: ["Current situation"],
+    home: { "Current situation": [] },
+    purchase: {},
+    properties: [{ id: "p1", what: "1 Test St", acquisitionCosts: 0 }]
+  });
+  assert.deepEqual(s.properties[0].acquisitionCosts, []);
+});

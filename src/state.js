@@ -257,6 +257,21 @@ export function migrateState(s){
     if(!Array.isArray(p.history)) p.history = [];
     if(p.kind !== "IP" && p.kind !== "PPOR") p.kind = "IP";
     if(p.value == null) p.value = 0;
+    // What was actually paid, and when — distinct from p.value (kept current via the Value
+    // section's own Log button) and from p.history (a log of *current* value over time, which for
+    // a property added to the app well after buying it starts from whatever day it was first
+    // logged, not the purchase date). null/"" until set — capital gain and yield-on-cost both
+    // gate on purchasePrice > 0 rather than guessing $0, same convention as Vehicle assets'
+    // identical purchasePrice/purchaseDate fields (assets.js).
+    if(p.purchasePrice === undefined) p.purchasePrice = null;
+    if(p.purchaseDate == null) p.purchaseDate = "";
+    // Stamp duty + legal/conveyancing + buyer's agent + building/pest inspection, as one total —
+    // not itemized, and not auto-calculated from calcStampDuty() (that function's brackets are
+    // today's rates, meant for planning a *future* purchase; recomputing "what stamp duty would've
+    // been" for a property bought years ago against current brackets would misstate a fixed
+    // historical fact). Meaningless without a purchase price, so it only ever adds to the cost
+    // base alongside it — see propertyCapitalGain()/propertyYieldOnCost() in calc/property.js.
+    if(p.acquisitionCosts == null) p.acquisitionCosts = 0;
     if(!p.pmFee) p.pmFee = { percent: 6, flat: 5.5 };
     if(p.pmFee.percent == null) p.pmFee.percent = 6;
     if(p.pmFee.flat == null) p.pmFee.flat = 5.5;

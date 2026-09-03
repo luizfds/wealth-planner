@@ -40,7 +40,7 @@ import {
 } from "./components/assets.js";
 import {
   modernPropRowOpen, renderPropListModern, renderProperties, patchPropertyCardComputed,
-  logPropertySnapshot
+  logPropertySnapshot, propertySectionCollapsed
 } from "./components/properties.js";
 import { renderProjectionOutputs } from "./components/projections.js";
 import {
@@ -1099,6 +1099,14 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
   });
 
 
+  document.getElementById("propertiesBody").addEventListener("keydown", function(e){
+    if(e.key !== "Enter" && e.key !== " ") return;
+    var sectionToggleBtn = e.target.closest("[data-prop-section-toggle]");
+    if(!sectionToggleBtn) return;
+    e.preventDefault();
+    sectionToggleBtn.click();
+  });
+
   document.getElementById("propertiesBody").addEventListener("input", function(e){
     var card = e.target.closest("[data-property-id]");
     if(!card) return;
@@ -1204,6 +1212,13 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
   });
 
   document.getElementById("propertiesBody").addEventListener("click", function(e){
+    var sectionToggleBtn = e.target.closest("[data-prop-section-toggle]");
+    if(sectionToggleBtn){
+      var sectionKey = sectionToggleBtn.getAttribute("data-prop-section-toggle");
+      propertySectionCollapsed[sectionKey] = !propertySectionCollapsed[sectionKey];
+      renderProperties();
+      return;
+    }
     var addLoanBtn = e.target.closest("[data-loan-add]");
     if(addLoanBtn){
       var forProperty = findProperty(addLoanBtn.getAttribute("data-loan-add"));

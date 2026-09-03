@@ -1,5 +1,5 @@
 import { state } from "../state.js";
-import { FREQS, INCOME_TYPES, SUPER_MODES, SACRIFICE_MODES, MAX_SUPER_BASE, PERIODS, sacrificeModeToLabel } from "../constants.js";
+import { FREQS, INCOME_TYPES, SUPER_MODES, SACRIFICE_MODES, MAX_SUPER_BASE, PERIODS, sacrificeModeToLabel, sacrificeLabelToMode } from "../constants.js";
 import { periodsOf, sumField } from "../calc/ledger.js";
 import { ipNetResultAnnual } from "../calc/property.js";
 import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax } from "../calc/tax.js";
@@ -7,6 +7,7 @@ import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { syncUiModeToggle } from "../lib/uimode.js";
 import { buildTable, optionsHtml, historyTrendHtml, logControlsHtml } from "../lib/ledger-table.js";
+import { parseCsv } from "../lib/backup.js";
 
 export function personBreakdownHtml(person){
   var r = computePersonTax(person);
@@ -101,6 +102,106 @@ export function renderIncomeGroups(){
   syncUiModeToggle();
   if(state.uiMode === "modern") renderIncomeGroupsModern();
   else renderIncomeGroupsClassic();
+}
+
+// ---------------- Import income from a spreadsheet ----------------
+// Same shape as expenses.js's CSV import (see that file's own comment for the full rationale) —
+// mirrors exportIncomeCsv()'s own headers rather than trying to auto-map an arbitrary layout.
+var INCOME_IMPORT_HEADERS = ["what", "person", "type", "amount", "frequency", "super", "sacrifice mode", "sacrifice value", "account"];
+function matchIncomeImportHeader(headerRow){
+  var colOf = {};
+  headerRow.forEach(function(h, i){
+    var key = (h || "").trim().toLowerCase();
+    if(INCOME_IMPORT_HEADERS.indexOf(key) !== -1 && colOf[key] === undefined) colOf[key] = i;
+  });
+  return colOf;
+}
+// Pure parse+validate — see expenses.js's parseExpensesImportCsv for the same shape/rationale.
+// Type/Super/Sacrifice mode all fall back to the same defaults a fresh "+Add income" row gets
+// ("Net"/"On top"/"Cash out") rather than rejecting the row over an unrecognized value.
+export function parseIncomeImportCsv(text){
+  var rows = parseCsv(text);
+  if(!rows.length) return { valid: [], errors: [], headerOk: false };
+  var colOf = matchIncomeImportHeader(rows[0]);
+  if(colOf.what === undefined || colOf.amount === undefined) return { valid: [], errors: [], headerOk: false };
+  var valid = [], errors = [];
+  rows.slice(1).forEach(function(cells, i){
+    var rowNum = i + 2;
+    var what = (cells[colOf.what] || "").trim();
+    var amountRaw = (cells[colOf.amount] || "").trim();
+    if(!what && cells.every(function(c){ return !c || !c.trim(); })) return; // fully blank row
+    if(!what){ errors.push({ row: rowNum, reason: 'Missing "What"' }); return; }
+    var amount = parseFloat(amountRaw.replace(/[^0-9.\-]/g, ""));
+    if(!amountRaw || isNaN(amount)){ errors.push({ row: rowNum, reason: 'Amount "' + amountRaw + '" isn\'t a number' }); return; }
+    var typeRaw = colOf.type !== undefined ? (cells[colOf.type] || "").trim() : "";
+    var typeMatch = INCOME_TYPES.find(function(t){ return t.toLowerCase() === typeRaw.toLowerCase(); });
+    var freqRaw = colOf.frequency !== undefined ? (cells[colOf.frequency] || "").trim() : "";
+    var freqMatch = FREQS.find(function(f){ return f.toLowerCase() === freqRaw.toLowerCase(); });
+    var superRaw = colOf["super"] !== undefined ? (cells[colOf["super"]] || "").trim() : "";
+    var superMatch = SUPER_MODES.find(function(s){ return s.toLowerCase() === superRaw.toLowerCase(); });
+    var sacrificeRaw = colOf["sacrifice mode"] !== undefined ? (cells[colOf["sacrifice mode"]] || "").trim() : "";
+    var sacrificeLabelMatch = SACRIFICE_MODES.find(function(s){ return s.toLowerCase() === sacrificeRaw.toLowerCase(); });
+    var sacrificeValueRaw = colOf["sacrifice value"] !== undefined ? (cells[colOf["sacrifice value"]] || "").trim() : "";
+    var sacrificeValue = parseFloat(sacrificeValueRaw.replace(/[^0-9.\-]/g, ""));
+    var person = colOf.person !== undefined ? (cells[colOf.person] || "").trim() : "";
+    var account = colOf.account !== undefined ? (cells[colOf.account] || "").trim() : "";
+    valid.push({
+      what: what, person: person, incomeType: typeMatch || "Net", amount: amount, freq: freqMatch || "Monthly",
+      superMode: superMatch || "On top", sacrificeMode: sacrificeLabelToMode(sacrificeLabelMatch || ""),
+      sacrificeValue: isNaN(sacrificeValue) ? 0 : sacrificeValue, account: account
+    });
+  });
+  return { valid: valid, errors: errors, headerOk: true };
+}
+export function renderIncomeImportPreview(parsed){
+  var container = document.getElementById("incomeImportPreview");
+  if(!container) return parsed.valid;
+  container.hidden = false;
+  if(!parsed.headerOk){
+    container.innerHTML = '<p class="ledger-note" style="margin:0;color:var(--brass-strong)">Couldn\'t find "What" and "Amount" columns in that file — download the import template below, or check your header row matches it.</p>' +
+      '<div style="margin-top:10px"><button type="button" class="btn btn-sm btn-ghost" id="incomeImportCancelBtn">Dismiss</button></div>';
+    return parsed.valid;
+  }
+  if(!parsed.valid.length && !parsed.errors.length){
+    container.innerHTML = '<p class="ledger-note" style="margin:0">No rows found in that file.</p>' +
+      '<div style="margin-top:10px"><button type="button" class="btn btn-sm btn-ghost" id="incomeImportCancelBtn">Dismiss</button></div>';
+    return parsed.valid;
+  }
+  var summary = parsed.valid.length + " row" + (parsed.valid.length === 1 ? "" : "s") + " ready to import" +
+    (parsed.errors.length ? ", " + parsed.errors.length + " skipped" : "");
+  var errorsHtml = parsed.errors.length
+    ? '<ul style="margin:6px 0 0;padding-left:18px;font-size:12px;color:var(--ink-soft)">' +
+        parsed.errors.slice(0, 10).map(function(e){ return "<li>Row " + e.row + ": " + escapeAttr(e.reason) + "</li>"; }).join("") +
+        (parsed.errors.length > 10 ? "<li>and " + (parsed.errors.length - 10) + " more</li>" : "") +
+      "</ul>"
+    : "";
+  var previewRows = parsed.valid.slice(0, 8).map(function(item){
+    return "<tr><td>" + escapeAttr(item.what) + "</td><td>" + escapeAttr(item.person) + "</td><td>" + escapeAttr(item.incomeType) + '</td><td class="num">' + fmtCurrency2.format(item.amount) + "</td><td>" + escapeAttr(item.freq) + "</td></tr>";
+  }).join("");
+  var moreNote = parsed.valid.length > 8 ? '<p class="ledger-note" style="margin:6px 0 0">and ' + (parsed.valid.length - 8) + " more…</p>" : "";
+  container.innerHTML =
+    '<p class="ledger-note" style="margin:0"><b>' + summary + "</b></p>" +
+    errorsHtml +
+    (parsed.valid.length ? '<div class="table-scroll" style="margin-top:8px"><table class="ledger-table"><thead><tr><th>What</th><th>Person</th><th>Type</th><th class="num">Amount</th><th>Frequency</th></tr></thead><tbody>' + previewRows + "</tbody></table></div>" + moreNote : "") +
+    '<div style="margin-top:10px;display:flex;gap:8px">' +
+      (parsed.valid.length ? '<button type="button" class="btn btn-sm" id="incomeImportConfirmBtn">Import ' + parsed.valid.length + " row" + (parsed.valid.length === 1 ? "" : "s") + "</button>" : "") +
+      '<button type="button" class="btn btn-sm btn-ghost" id="incomeImportCancelBtn">Cancel</button>' +
+    "</div>";
+  return parsed.valid;
+}
+export function clearIncomeImportPreview(){
+  var container = document.getElementById("incomeImportPreview");
+  if(container){ container.hidden = true; container.innerHTML = ""; }
+}
+// Same minimal shape "+Add income" pushes onto state.income today.
+export function commitIncomeImport(items){
+  items.forEach(function(item){
+    state.income.push({
+      what: item.what, person: item.person, classification: "", account: item.account,
+      incomeType: item.incomeType, amount: item.amount, freq: item.freq,
+      superMode: item.superMode, sacrificeMode: item.sacrificeMode, sacrificeValue: item.sacrificeValue
+    });
+  });
 }
 
 function renderIncomeGroupsClassic(){

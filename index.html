@@ -203,6 +203,9 @@
           <p class="page-intro">Your household income, and what it's really worth after tax.</p>
           <div class="page-intro-actions">
             <button type="button" class="btn btn-sm btn-ghost" id="incomeExportCsvBtn" title="Download every income row as a CSV file">Export CSV</button>
+            <button type="button" class="btn btn-sm btn-ghost" id="incomeDownloadTemplateBtn" title="Download a blank CSV shaped for importing income back in">Import template</button>
+            <button type="button" class="btn btn-sm btn-ghost" id="incomeImportBtn" title="Add income rows from a CSV file shaped like the import template">Import CSV</button>
+            <input type="file" id="incomeImportFile" accept=".csv,text/csv" hidden>
           </div>
         </div>
         <div class="ledgers">
@@ -217,6 +220,7 @@
                 <button type="button" class="btn btn-sm col-picker-btn" id="incomeColPickerBtn" aria-haspopup="true" aria-expanded="false">Columns ▾</button>
                 <div class="col-picker-panel" id="incomeColPickerPanel" hidden></div>
               </div>
+              <div id="incomeImportPreview" hidden></div>
               <p class="income-summary-line" id="incomeSummaryLine" style="display:none"></p>
               <div id="incomeGroups"></div>
               <div class="ledger-footer">

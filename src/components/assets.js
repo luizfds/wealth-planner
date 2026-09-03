@@ -11,6 +11,7 @@ import { showToast } from "../lib/toast.js";
 import { appendHistorySnapshot, daysUntil } from "../calc/ledger.js";
 import { renderProjectionOutputs } from "./projections.js";
 import { renderDashboardStats } from "./dashboard.js";
+import { parseCsv } from "../lib/backup.js";
 
 function assetRowHtml(item, idx){
   return '<tr data-index="' + idx + '">' +
@@ -860,6 +861,146 @@ export function renderPortfolioHistoryChart(){
     xTickCount: Math.min(7, Math.max(2, dates.length)),
     ariaLabel: "Net worth over time",
     alwaysLegend: false
+  });
+}
+
+// ---------------- Import assets from a spreadsheet ----------------
+// Same shape as expenses.js/income.js's CSV import — mirrors exportAssetsCsv()'s own headers. The
+// meaningful fields differ by Category though (a Cash row only needs Amount; a Shares row needs
+// Symbol/Market/Quantity/Price; a Vehicle row needs Purchase price/date/Depreciation) — so unlike
+// Expenses/Income, an unrecognized Category is a hard error per row rather than defaulted, since
+// silently treating a Shares row as Cash would just drop its symbol/quantity/price on the floor.
+var ASSETS_IMPORT_HEADERS = ["what", "category", "amount", "symbol", "market", "quantity", "avg cost", "price", "person", "purchase price", "purchase date", "depreciation %/yr"];
+function matchAssetsImportHeader(headerRow){
+  var colOf = {};
+  headerRow.forEach(function(h, i){
+    var key = (h || "").trim().toLowerCase();
+    if(ASSETS_IMPORT_HEADERS.indexOf(key) !== -1 && colOf[key] === undefined) colOf[key] = i;
+  });
+  return colOf;
+}
+function assetsImportCell(cells, colOf, key){
+  return colOf[key] !== undefined ? (cells[colOf[key]] || "").trim() : "";
+}
+export function parseAssetsImportCsv(text){
+  var rows = parseCsv(text);
+  if(!rows.length) return { valid: [], errors: [], headerOk: false };
+  var colOf = matchAssetsImportHeader(rows[0]);
+  if(colOf.what === undefined || colOf.category === undefined) return { valid: [], errors: [], headerOk: false };
+  var valid = [], errors = [];
+  rows.slice(1).forEach(function(cells, i){
+    var rowNum = i + 2;
+    var what = assetsImportCell(cells, colOf, "what");
+    var categoryRaw = assetsImportCell(cells, colOf, "category");
+    if(!what && cells.every(function(c){ return !c || !c.trim(); })) return; // fully blank row
+    if(!what){ errors.push({ row: rowNum, reason: 'Missing "What"' }); return; }
+    var category = ASSET_CATEGORIES.find(function(c){ return c.toLowerCase() === categoryRaw.toLowerCase(); });
+    if(!category){ errors.push({ row: rowNum, reason: 'Category "' + categoryRaw + '" isn\'t one of ' + ASSET_CATEGORIES.join("/") }); return; }
+    var item = { what: what, category: category, person: assetsImportCell(cells, colOf, "person") };
+    if(category === "Shares"){
+      var symbol = assetsImportCell(cells, colOf, "symbol");
+      if(!symbol){ errors.push({ row: rowNum, reason: "Shares row needs a Symbol" }); return; }
+      var quantityRaw = assetsImportCell(cells, colOf, "quantity");
+      var quantity = parseFloat(quantityRaw.replace(/[^0-9.\-]/g, ""));
+      if(!quantityRaw || isNaN(quantity)){ errors.push({ row: rowNum, reason: 'Quantity "' + quantityRaw + '" isn\'t a number' }); return; }
+      var marketRaw = assetsImportCell(cells, colOf, "market");
+      var marketMatch = SHARE_MARKETS.find(function(m){ return m.toLowerCase() === marketRaw.toLowerCase(); });
+      var avgCostRaw = assetsImportCell(cells, colOf, "avg cost");
+      var avgCostNum = avgCostRaw === "" ? NaN : parseFloat(avgCostRaw.replace(/[^0-9.\-]/g, ""));
+      var priceRaw = assetsImportCell(cells, colOf, "price");
+      var price = priceRaw === "" ? 0 : (parseFloat(priceRaw.replace(/[^0-9.\-]/g, "")) || 0);
+      item.symbol = symbol.toUpperCase();
+      item.market = marketMatch || "ASX";
+      item.quantity = quantity;
+      item.avgCost = isNaN(avgCostNum) ? null : avgCostNum;
+      item.price = price;
+      item.amount = Math.round(quantity * price * 100) / 100;
+    } else if(category === "Vehicle"){
+      var purchasePriceRaw = assetsImportCell(cells, colOf, "purchase price");
+      var depRaw = assetsImportCell(cells, colOf, "depreciation %/yr");
+      item.purchasePrice = purchasePriceRaw === "" ? 0 : (parseFloat(purchasePriceRaw.replace(/[^0-9.\-]/g, "")) || 0);
+      item.purchaseDate = assetsImportCell(cells, colOf, "purchase date");
+      item.depreciationRate = depRaw === "" ? 15 : (parseFloat(depRaw.replace(/[^0-9.\-]/g, "")) || 0);
+      item.amount = 0; // auto-recalculated once purchasePrice+purchaseDate land in state — see recalcComputedItems()
+    } else {
+      var amountRaw = assetsImportCell(cells, colOf, "amount");
+      var amount = parseFloat(amountRaw.replace(/[^0-9.\-]/g, ""));
+      if(!amountRaw || isNaN(amount)){ errors.push({ row: rowNum, reason: 'Amount "' + amountRaw + '" isn\'t a number' }); return; }
+      item.amount = amount;
+    }
+    valid.push(item);
+  });
+  return { valid: valid, errors: errors, headerOk: true };
+}
+function assetsImportRowDetail(item){
+  if(item.category === "Shares") return item.quantity + " @ " + fmtCurrency2.format(item.price) + (item.market ? " (" + item.market + ")" : "");
+  if(item.category === "Vehicle") return fmtCurrency0.format(item.purchasePrice) + " purchase price, " + item.depreciationRate + "%/yr" + (item.purchaseDate ? " from " + item.purchaseDate : "");
+  return fmtCurrency2.format(item.amount);
+}
+export function renderAssetsImportPreview(parsed){
+  var container = document.getElementById("assetsImportPreview");
+  if(!container) return parsed.valid;
+  container.hidden = false;
+  if(!parsed.headerOk){
+    container.innerHTML = '<p class="ledger-note" style="margin:0;color:var(--brass-strong)">Couldn\'t find "What" and "Category" columns in that file — download the import template below, or check your header row matches it.</p>' +
+      '<div style="margin-top:10px"><button type="button" class="btn btn-sm btn-ghost" id="assetsImportCancelBtn">Dismiss</button></div>';
+    return parsed.valid;
+  }
+  if(!parsed.valid.length && !parsed.errors.length){
+    container.innerHTML = '<p class="ledger-note" style="margin:0">No rows found in that file.</p>' +
+      '<div style="margin-top:10px"><button type="button" class="btn btn-sm btn-ghost" id="assetsImportCancelBtn">Dismiss</button></div>';
+    return parsed.valid;
+  }
+  var summary = parsed.valid.length + " row" + (parsed.valid.length === 1 ? "" : "s") + " ready to import" +
+    (parsed.errors.length ? ", " + parsed.errors.length + " skipped" : "");
+  var errorsHtml = parsed.errors.length
+    ? '<ul style="margin:6px 0 0;padding-left:18px;font-size:12px;color:var(--ink-soft)">' +
+        parsed.errors.slice(0, 10).map(function(e){ return "<li>Row " + e.row + ": " + escapeAttr(e.reason) + "</li>"; }).join("") +
+        (parsed.errors.length > 10 ? "<li>and " + (parsed.errors.length - 10) + " more</li>" : "") +
+      "</ul>"
+    : "";
+  var previewRows = parsed.valid.slice(0, 8).map(function(item){
+    return "<tr><td>" + escapeAttr(item.what) + "</td><td>" + escapeAttr(item.category) + "</td><td>" + escapeAttr(assetsImportRowDetail(item)) + "</td></tr>";
+  }).join("");
+  var moreNote = parsed.valid.length > 8 ? '<p class="ledger-note" style="margin:6px 0 0">and ' + (parsed.valid.length - 8) + " more…</p>" : "";
+  container.innerHTML =
+    '<p class="ledger-note" style="margin:0"><b>' + summary + "</b></p>" +
+    errorsHtml +
+    (parsed.valid.length ? '<div class="table-scroll" style="margin-top:8px"><table class="ledger-table"><thead><tr><th>What</th><th>Category</th><th>Detail</th></tr></thead><tbody>' + previewRows + "</tbody></table></div>" + moreNote : "") +
+    '<div style="margin-top:10px;display:flex;gap:8px">' +
+      (parsed.valid.length ? '<button type="button" class="btn btn-sm" id="assetsImportConfirmBtn">Import ' + parsed.valid.length + " asset" + (parsed.valid.length === 1 ? "" : "s") + "</button>" : "") +
+      '<button type="button" class="btn btn-sm btn-ghost" id="assetsImportCancelBtn">Cancel</button>' +
+    "</div>";
+  return parsed.valid;
+}
+export function clearAssetsImportPreview(){
+  var container = document.getElementById("assetsImportPreview");
+  if(container){ container.hidden = true; container.innerHTML = ""; }
+}
+// Same minimal per-category shapes "+Add asset"/"+Add holding"/"+Add vehicle" push today. A
+// Shares row with a real price also gets priceUpdated + a history snapshot stamped — same as a
+// paste-prices import (applySharesPaste) — so it doesn't immediately show as "stale"/"never
+// updated" the moment it lands, and so it already has a first point for its sparkline.
+export function commitAssetsImport(items){
+  var today = localDateStr();
+  items.forEach(function(item){
+    if(item.category === "Shares"){
+      var holding = {
+        what: item.what, category: "Shares", symbol: item.symbol, market: item.market,
+        quantity: item.quantity, avgCost: item.avgCost, price: item.price,
+        priceUpdated: item.price > 0 ? today : "", person: item.person, amount: item.amount, history: []
+      };
+      if(item.price > 0){
+        var entryDate = appendHistorySnapshot(holding.history, holding.amount, today);
+        var entry = holding.history.find(function(h){ return h.date === entryDate; });
+        if(entry) entry.price = item.price;
+      }
+      state.assets.push(holding);
+    } else if(item.category === "Vehicle"){
+      state.assets.push({ what: item.what, category: "Vehicle", purchasePrice: item.purchasePrice, purchaseDate: item.purchaseDate, depreciationRate: item.depreciationRate, amount: item.amount, person: item.person });
+    } else {
+      state.assets.push({ what: item.what, category: item.category, amount: item.amount, person: item.person });
+    }
   });
 }
 

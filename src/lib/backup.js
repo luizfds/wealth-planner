@@ -313,12 +313,17 @@ export function exportExpensesCsv(){
 export function exportExpensesImportTemplateCsv(){
   finishExport(buildCsv(EXPENSES_CSV_HEADERS, []), "expenses-import-template.csv", "text/csv", "Template saved");
 }
+var ASSETS_CSV_HEADERS = ["What", "Category", "Amount", "Symbol", "Market", "Quantity", "Avg cost", "Price", "Person", "Purchase price", "Purchase date", "Depreciation %/yr"];
 export function exportAssetsCsv(){
-  var headers = ["What", "Category", "Amount", "Symbol", "Market", "Quantity", "Avg cost", "Price", "Person", "Purchase price", "Purchase date", "Depreciation %/yr"];
   var rows = state.assets.map(function(a){
     return [a.what, a.category || "", a.amount, a.symbol || "", a.market || "", a.quantity != null ? a.quantity : "", a.avgCost != null ? a.avgCost : "", a.price != null ? a.price : "", a.person || "", a.purchasePrice != null ? a.purchasePrice : "", a.purchaseDate || "", a.depreciationRate != null ? a.depreciationRate : ""];
   });
-  exportCsv("assets-" + isoDateStamp() + ".csv", headers, rows);
+  exportCsv("assets-" + isoDateStamp() + ".csv", ASSETS_CSV_HEADERS, rows);
+}
+// Blank starting point for the Assets page's "Import CSV" — same headers as the real export
+// above, zero rows. See exportExpensesImportTemplateCsv's comment for the same rationale.
+export function exportAssetsImportTemplateCsv(){
+  finishExport(buildCsv(ASSETS_CSV_HEADERS, []), "assets-import-template.csv", "text/csv", "Template saved");
 }
 // The exchange-qualified ticker GOOGLEFINANCE expects, matching the manual convention already
 // documented in the "Paste prices" hint text (assets.js): ASX needs an "ASX:" prefix, US tickers

@@ -10,7 +10,7 @@ import { onHorizontalSwipe } from "./lib/swipe.js";
 import { initTableScrollShadows } from "./lib/scroll-shadow.js";
 import {
   decryptBackup, doExport, doShare, canShareFiles, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv, exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard,
-  exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv
+  exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv, exportAssetsImportTemplateCsv
 } from "./lib/backup.js";
 import { periodsOf, sumField, appendHistorySnapshot } from "./calc/ledger.js";
 import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax } from "./calc/tax.js";
@@ -35,7 +35,8 @@ import {
 import {
   patchHoldingRow, patchVehicleRow, modernAssetRowOpen, patchAssetCategoryTotals,
   renderNetWorthPanel, renderAssets, logAssetSnapshot, applySharesPaste, logDebtSnapshot,
-  patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter, setSharesGainFilter, setSharesSortMode, setSharesChangeWindow
+  patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter, setSharesGainFilter, setSharesSortMode, setSharesChangeWindow,
+  parseAssetsImportCsv, renderAssetsImportPreview, clearAssetsImportPreview, commitAssetsImport
 } from "./components/assets.js";
 import {
   modernPropRowOpen, renderPropListModern, renderProperties, patchPropertyCardComputed,
@@ -1015,6 +1016,29 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       });
       return;
     }
+    if(e.target.id === "assetsImportCancelBtn"){
+      pendingAssetsImport = [];
+      clearAssetsImportPreview();
+      return;
+    }
+    if(e.target.id === "assetsImportConfirmBtn"){
+      if(!pendingAssetsImport.length) return;
+      var assetsImportCount = pendingAssetsImport.length;
+      var startingAssetsLength = state.assets.length;
+      commitAssetsImport(pendingAssetsImport);
+      pendingAssetsImport = [];
+      clearAssetsImportPreview();
+      recalcComputedItems();
+      renderAssets();
+      persist();
+      showUndoToast(assetsImportCount + " asset" + (assetsImportCount === 1 ? "" : "s") + " imported", function(){
+        state.assets.length = startingAssetsLength;
+        recalcComputedItems();
+        renderAssets();
+        persist();
+      });
+      return;
+    }
     var personFilterBtn = e.target.closest("[data-asset-person-filter]");
     if(personFilterBtn){ setAssetPersonFilter(personFilterBtn.getAttribute("data-asset-person-filter")); return; }
     var gainFilterBtn = e.target.closest("[data-shares-gain-filter]");
@@ -1676,6 +1700,25 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     reader.onload = function(){
       var parsed = parseIncomeImportCsv(String(reader.result));
       pendingIncomeImport = renderIncomeImportPreview(parsed);
+    };
+    reader.onerror = function(){ showToast("Couldn't read that file"); };
+    reader.readAsText(file);
+  });
+
+  // ---------------- Assets: import from a spreadsheet ----------------
+  var pendingAssetsImport = [];
+  document.getElementById("assetsDownloadTemplateBtn").addEventListener("click", exportAssetsImportTemplateCsv);
+  document.getElementById("assetsImportBtn").addEventListener("click", function(){
+    document.getElementById("assetsImportFile").click();
+  });
+  document.getElementById("assetsImportFile").addEventListener("change", function(e){
+    var file = e.target.files[0];
+    e.target.value = "";
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      var parsed = parseAssetsImportCsv(String(reader.result));
+      pendingAssetsImport = renderAssetsImportPreview(parsed);
     };
     reader.onerror = function(){ showToast("Couldn't read that file"); };
     reader.readAsText(file);

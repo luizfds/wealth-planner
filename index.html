@@ -244,6 +244,9 @@
           <div class="page-intro-actions">
             <button type="button" class="btn btn-sm btn-ghost" id="reviewExpensesBtn" title="Go through expenses that are overdue (or never logged) one at a time, and confirm or update their amount and date">Review expenses</button>
             <button type="button" class="btn btn-sm btn-ghost" id="expenseExportCsvBtn" title="Download every expense row as a CSV file">Export CSV</button>
+            <button type="button" class="btn btn-sm btn-ghost" id="expenseDownloadTemplateBtn" title="Download a blank CSV shaped for importing expenses back in">Import template</button>
+            <button type="button" class="btn btn-sm btn-ghost" id="expenseImportBtn" title="Add expenses from a CSV file shaped like the import template">Import CSV</button>
+            <input type="file" id="expenseImportFile" accept=".csv,text/csv" hidden>
           </div>
         </div>
         <div class="col-picker" id="expenseColPicker">
@@ -258,6 +261,7 @@
             </summary>
             <div class="ledger-body">
               <p class="ledger-note" style="margin-left:0">Subscriptions, car, groceries, and the rest — the same amount in every scenario unless you vary a row by scenario (⇄ button on the row).</p>
+              <div id="expenseImportPreview" hidden></div>
               <p class="income-summary-line" id="sharedSummaryLine" style="display:none"></p>
               <div id="sharedGroups"></div>
               <div class="ledger-footer">

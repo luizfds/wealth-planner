@@ -1,5 +1,5 @@
 import { state, persist, genId } from "../state.js";
-import { CLASSES } from "../constants.js";
+import { CLASSES, FREQS } from "../constants.js";
 import { sumField, resolveSharedAmount, periodsOf, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, isOverdue, daysUntil, lastTransactionDateFor } from "../calc/ledger.js";
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
@@ -7,6 +7,7 @@ import { escapeAttr } from "../lib/html.js";
 import { syncUiModeToggle } from "../lib/uimode.js";
 import { buildTable, modernPlainRowHtml, modernRowSummaryHtml, modernRowEditHtml, modernRowShellHtml } from "../lib/ledger-table.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
+import { parseCsv } from "../lib/backup.js";
 
 function sharedGroupOrder(){
   return CLASSES.filter(function(cls){
@@ -58,6 +59,101 @@ export function renderSharedGroups(){
   syncUiModeToggle();
   if(state.uiMode === "modern") renderSharedGroupsModern();
   else renderSharedGroupsClassic();
+}
+
+// ---------------- Import expenses from a spreadsheet ----------------
+// Mirrors exportExpensesCsv()'s own column headers (lib/backup.js) rather than trying to auto-map
+// an arbitrary spreadsheet's layout — there's no backend/LLM here to guess a mapping reliably, so
+// the dependable path is "download our template (or a past export), fill it in, import it back".
+// Matching is case/order-insensitive on header names so a reordered or re-cased copy still works.
+var EXPENSES_IMPORT_HEADERS = ["what", "classification", "amount", "frequency", "account"];
+function matchExpensesImportHeader(headerRow){
+  var colOf = {};
+  headerRow.forEach(function(h, i){
+    var key = (h || "").trim().toLowerCase();
+    if(EXPENSES_IMPORT_HEADERS.indexOf(key) !== -1 && colOf[key] === undefined) colOf[key] = i;
+  });
+  return colOf;
+}
+// Pure parse+validate — doesn't touch state. The caller renders this as a preview and only calls
+// commitExpensesImport() once the user confirms (see app.js's expenseImportFile/Confirm wiring).
+// What/Amount are required to make sense of a row at all; Classification/Frequency fall back to
+// the same default "+Add expense" uses rather than rejecting the row, so a spreadsheet that left
+// them blank still imports cleanly. headerOk is false when the file doesn't even have recognizable
+// What/Amount columns — a different failure mode than "every row had a problem", worth its own
+// message in the preview.
+export function parseExpensesImportCsv(text){
+  var rows = parseCsv(text);
+  if(!rows.length) return { valid: [], errors: [], headerOk: false };
+  var colOf = matchExpensesImportHeader(rows[0]);
+  if(colOf.what === undefined || colOf.amount === undefined) return { valid: [], errors: [], headerOk: false };
+  var valid = [], errors = [];
+  rows.slice(1).forEach(function(cells, i){
+    var rowNum = i + 2; // header row + 1-based display
+    var what = (cells[colOf.what] || "").trim();
+    var amountRaw = (cells[colOf.amount] || "").trim();
+    if(!what && !amountRaw && cells.every(function(c){ return !c || !c.trim(); })) return; // fully blank row
+    if(!what){ errors.push({ row: rowNum, reason: 'Missing "What"' }); return; }
+    var amount = parseFloat(amountRaw.replace(/[^0-9.\-]/g, ""));
+    if(!amountRaw || isNaN(amount)){ errors.push({ row: rowNum, reason: 'Amount "' + amountRaw + '" isn\'t a number' }); return; }
+    var classRaw = colOf.classification !== undefined ? (cells[colOf.classification] || "").trim() : "";
+    var classMatch = CLASSES.find(function(c){ return c.toLowerCase() === classRaw.toLowerCase(); });
+    var freqRaw = colOf.frequency !== undefined ? (cells[colOf.frequency] || "").trim() : "";
+    var freqMatch = FREQS.find(function(f){ return f.toLowerCase() === freqRaw.toLowerCase(); });
+    var account = colOf.account !== undefined ? (cells[colOf.account] || "").trim() : "";
+    valid.push({ what: what, classification: classMatch || "Needs", amount: amount, freq: freqMatch || "Monthly", account: account });
+  });
+  return { valid: valid, errors: errors, headerOk: true };
+}
+// Renders the parsed result into the inline preview panel (below the shared-expenses ledger note)
+// and returns the pending valid rows for app.js to hold onto — nothing is added to state until
+// the user clicks the confirm button this renders, per commitExpensesImport() below.
+export function renderExpensesImportPreview(parsed){
+  var container = document.getElementById("expenseImportPreview");
+  if(!container) return parsed.valid;
+  container.hidden = false;
+  if(!parsed.headerOk){
+    container.innerHTML = '<p class="ledger-note" style="margin:0;color:var(--brass-strong)">Couldn\'t find "What" and "Amount" columns in that file — download the import template below, or check your header row matches it.</p>' +
+      '<div style="margin-top:10px"><button type="button" class="btn btn-sm btn-ghost" id="expenseImportCancelBtn">Dismiss</button></div>';
+    return parsed.valid;
+  }
+  if(!parsed.valid.length && !parsed.errors.length){
+    container.innerHTML = '<p class="ledger-note" style="margin:0">No rows found in that file.</p>' +
+      '<div style="margin-top:10px"><button type="button" class="btn btn-sm btn-ghost" id="expenseImportCancelBtn">Dismiss</button></div>';
+    return parsed.valid;
+  }
+  var summary = parsed.valid.length + " row" + (parsed.valid.length === 1 ? "" : "s") + " ready to import" +
+    (parsed.errors.length ? ", " + parsed.errors.length + " skipped" : "");
+  var errorsHtml = parsed.errors.length
+    ? '<ul style="margin:6px 0 0;padding-left:18px;font-size:12px;color:var(--ink-soft)">' +
+        parsed.errors.slice(0, 10).map(function(e){ return "<li>Row " + e.row + ": " + escapeAttr(e.reason) + "</li>"; }).join("") +
+        (parsed.errors.length > 10 ? "<li>and " + (parsed.errors.length - 10) + " more</li>" : "") +
+      "</ul>"
+    : "";
+  var previewRows = parsed.valid.slice(0, 8).map(function(item){
+    return "<tr><td>" + escapeAttr(item.what) + "</td><td>" + escapeAttr(item.classification) + '</td><td class="num">' + fmtCurrency2.format(item.amount) + "</td><td>" + escapeAttr(item.freq) + "</td><td>" + escapeAttr(item.account) + "</td></tr>";
+  }).join("");
+  var moreNote = parsed.valid.length > 8 ? '<p class="ledger-note" style="margin:6px 0 0">and ' + (parsed.valid.length - 8) + " more…</p>" : "";
+  container.innerHTML =
+    '<p class="ledger-note" style="margin:0"><b>' + summary + "</b></p>" +
+    errorsHtml +
+    (parsed.valid.length ? '<div class="table-scroll" style="margin-top:8px"><table class="ledger-table"><thead><tr><th>What</th><th>Classification</th><th class="num">Amount</th><th>Frequency</th><th>Account</th></tr></thead><tbody>' + previewRows + "</tbody></table></div>" + moreNote : "") +
+    '<div style="margin-top:10px;display:flex;gap:8px">' +
+      (parsed.valid.length ? '<button type="button" class="btn btn-sm" id="expenseImportConfirmBtn">Import ' + parsed.valid.length + " expense" + (parsed.valid.length === 1 ? "" : "s") + "</button>" : "") +
+      '<button type="button" class="btn btn-sm btn-ghost" id="expenseImportCancelBtn">Cancel</button>' +
+    "</div>";
+  return parsed.valid;
+}
+export function clearExpensesImportPreview(){
+  var container = document.getElementById("expenseImportPreview");
+  if(container){ container.hidden = true; container.innerHTML = ""; }
+}
+// Same minimal shape "+Add expense" pushes onto state.shared today — no id, no factory, so this
+// stays a plain mutation the caller wraps with its own render/persist/undo (see app.js).
+export function commitExpensesImport(items){
+  items.forEach(function(item){
+    state.shared.push({ what: item.what, classification: item.classification, account: item.account, amount: item.amount, freq: item.freq });
+  });
 }
 
 function renderSharedGroupsClassic(){

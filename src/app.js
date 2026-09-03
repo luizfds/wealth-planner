@@ -1179,14 +1179,17 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       persist();
       return;
     }
-    if(e.target.classList.contains("acq-cost-what") || e.target.classList.contains("acq-cost-amount")){
+    if(e.target.hasAttribute("data-acq-cost-index")){
       // Editing an existing row's fields, not adding/removing one — Capital gain and yield-on-cost
       // already exist in the DOM whenever purchasePrice is set (unaffected by whether any
       // acquisition-cost rows exist yet), so this can use the fast patch path, same as prop-value.
+      // cc-what/cc-amount are the same shared classes scenarios.js's own cost list uses (see
+      // properties.js's acquisitionCostRowHtml) — safe to key off directly since this whole
+      // handler is already scoped to #propertiesBody, nowhere near that other list's container.
       var acqIdx = Number(e.target.getAttribute("data-acq-cost-index"));
       var costItem = property.acquisitionCosts[acqIdx];
       if(!costItem) return;
-      if(e.target.classList.contains("acq-cost-what")) costItem.what = e.target.value;
+      if(e.target.classList.contains("cc-what")) costItem.what = e.target.value;
       else costItem.amount = parseFloat(e.target.value) || 0;
       patchPropertyCardComputed(property);
       persist();

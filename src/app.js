@@ -271,9 +271,14 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
         var ipRentWeekly = rndStep(450, 750, 10);
         var ipPurchasePrice = Math.round(ipValue * rndBetween(0.65, 0.9));
         var ipPurchaseDate = "20" + rndInt(15, 21) + "-0" + rndInt(1, 9) + "-01";
+        var ipAcquisitionCosts = [
+          { id: genId("ac"), what: "Stamp duty", amount: Math.round(ipPurchasePrice * rndBetween(0.03, 0.05)) },
+          { id: genId("ac"), what: "Legal / conveyancing", amount: rndStep(1200, 2500, 100) },
+          { id: genId("ac"), what: "Building & pest inspection", amount: rndStep(400, 800, 50) }
+        ];
         return [{
           id: genId("p"), what: rndStep(1, 99, 1) + " Example St", kind: "IP", value: ipValue,
-          purchasePrice: ipPurchasePrice, purchaseDate: ipPurchaseDate, history: [],
+          purchasePrice: ipPurchasePrice, purchaseDate: ipPurchaseDate, acquisitionCosts: ipAcquisitionCosts, history: [],
           pmFee: { percent: rndStep(5, 8, 0.5), flat: rndStep(0, 8, 0.5) }, incomePaidFreq: "Monthly",
           loans: [{
             id: genId("l"), what: "Investment Loan", balance: ipLoanBalance, rate: rndStep(5.8, 6.8, 0.05), termYears: 27,
@@ -1164,14 +1169,26 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       persist();
       return;
     }
-    if(e.target.classList.contains("prop-purchase-price") || e.target.classList.contains("prop-purchase-date") || e.target.classList.contains("prop-acquisition-costs")){
+    if(e.target.classList.contains("prop-purchase-price") || e.target.classList.contains("prop-purchase-date")){
       // Full re-render (like prop-kind above), not a patch — Capital gain and the yield-on-cost
       // badge only exist in the DOM once purchasePrice is set, so a patch here could be patching
       // an element that was never rendered in the first place (going from unset to set).
       if(e.target.classList.contains("prop-purchase-price")) property.purchasePrice = e.target.value === "" ? null : (parseFloat(e.target.value) || 0);
-      else if(e.target.classList.contains("prop-purchase-date")) property.purchaseDate = e.target.value;
-      else property.acquisitionCosts = parseFloat(e.target.value) || 0;
+      else property.purchaseDate = e.target.value;
       renderProperties();
+      persist();
+      return;
+    }
+    if(e.target.classList.contains("acq-cost-what") || e.target.classList.contains("acq-cost-amount")){
+      // Editing an existing row's fields, not adding/removing one — Capital gain and yield-on-cost
+      // already exist in the DOM whenever purchasePrice is set (unaffected by whether any
+      // acquisition-cost rows exist yet), so this can use the fast patch path, same as prop-value.
+      var acqIdx = Number(e.target.getAttribute("data-acq-cost-index"));
+      var costItem = property.acquisitionCosts[acqIdx];
+      if(!costItem) return;
+      if(e.target.classList.contains("acq-cost-what")) costItem.what = e.target.value;
+      else costItem.amount = parseFloat(e.target.value) || 0;
+      patchPropertyCardComputed(property);
       persist();
       return;
     }
@@ -1215,6 +1232,34 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       }
       return;
     }
+    var addAcqCostBtn = e.target.closest("[data-acq-cost-add]");
+    if(addAcqCostBtn){
+      var acqCostProperty = findProperty(addAcqCostBtn.getAttribute("data-acq-cost-add"));
+      if(acqCostProperty){
+        acqCostProperty.acquisitionCosts.push({ id: genId("ac"), what: "New cost", amount: 0 });
+        renderProperties();
+        persist();
+      }
+      return;
+    }
+    var delAcqCostBtn = e.target.closest("[data-acq-cost-del]");
+    if(delAcqCostBtn){
+      var acqCostCard = e.target.closest("[data-property-id]");
+      var acqCostProperty2 = acqCostCard ? findProperty(acqCostCard.getAttribute("data-property-id")) : null;
+      if(acqCostProperty2){
+        var aci = Number(delAcqCostBtn.getAttribute("data-acq-cost-del"));
+        var removedCost = acqCostProperty2.acquisitionCosts[aci];
+        acqCostProperty2.acquisitionCosts.splice(aci, 1);
+        renderProperties();
+        persist();
+        showUndoToast('Deleted "' + (removedCost.what || "cost") + '"', function(){
+          acqCostProperty2.acquisitionCosts.splice(Math.min(aci, acqCostProperty2.acquisitionCosts.length), 0, removedCost);
+          renderProperties();
+          persist();
+        });
+      }
+      return;
+    }
     var propLogBtn = e.target.closest("[data-property-log]");
     if(propLogBtn){ logPropertySnapshot(propLogBtn.getAttribute("data-property-log")); return; }
     var delPropBtn = e.target.closest("[data-property-del]");
@@ -1241,7 +1286,7 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
   });
 
   document.getElementById("addPropertyBtn").addEventListener("click", function(){
-    state.properties.push({ id: genId("p"), what:"New property", kind:"IP", value:0, purchasePrice:null, purchaseDate:"", history:[], pmFee:{percent:6, flat:5.5}, incomePaidFreq:"Monthly", loans:[], income:[], expenses:[] });
+    state.properties.push({ id: genId("p"), what:"New property", kind:"IP", value:0, purchasePrice:null, purchaseDate:"", acquisitionCosts:[], history:[], pmFee:{percent:6, flat:5.5}, incomePaidFreq:"Monthly", loans:[], income:[], expenses:[] });
     recalcComputedItems();
     renderProperties();
     renderProjectionOutputs();

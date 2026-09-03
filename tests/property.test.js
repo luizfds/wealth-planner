@@ -15,7 +15,7 @@ function makeProperty(overrides){
   var p = {
     value: 800000,
     purchasePrice: null,
-    acquisitionCosts: 0,
+    acquisitionCosts: [],
     income: [{ amount: 600, freq: "Weekly" }],
     expenses: [{ amount: 3000, freq: "Yearly" }],
     loans: [{ balance: 500000, rate: 6, termYears: 30, repaymentType: "PI", repaymentMode: "auto", offsetBalance: 20000 }]
@@ -136,21 +136,23 @@ test("propertyCapitalGain is null (not $0 or a misleading 100%) when no purchase
   assert.equal(propertyCapitalGain(makeProperty({ purchasePrice: 0 })), null);
 });
 
-test("propertyCapitalGain is current value minus purchase price + acquisition costs, as both $ and %", function(){
-  var gain = propertyCapitalGain(makeProperty({ value: 800000, purchasePrice: 500000, acquisitionCosts: 25000 }));
+test("propertyCapitalGain is current value minus purchase price + every itemized acquisition cost, as both $ and %", function(){
+  var costs = [{ id: "ac1", what: "Stamp duty", amount: 20000 }, { id: "ac2", what: "Legal", amount: 5000 }];
+  var gain = propertyCapitalGain(makeProperty({ value: 800000, purchasePrice: 500000, acquisitionCosts: costs }));
   assert.ok(gain);
   assert.equal(gain.gain, 800000 - 525000);
   assert.ok(Math.abs(gain.pct - (275000 / 525000)) < 1e-9);
 });
 
 test("propertyCapitalGain can be negative when the property has lost value", function(){
-  var gain = propertyCapitalGain(makeProperty({ value: 400000, purchasePrice: 500000, acquisitionCosts: 0 }));
+  var gain = propertyCapitalGain(makeProperty({ value: 400000, purchasePrice: 500000, acquisitionCosts: [] }));
   assert.equal(gain.gain, -100000);
   assert.ok(gain.pct < 0);
 });
 
 test("propertyYieldOnCost is null with no purchase price, and annual rent / (price + acquisition costs) once set", function(){
   assert.equal(propertyYieldOnCost(makeProperty({ purchasePrice: null })), null);
-  var p = makeProperty({ income: [{ amount: 600, freq: "Weekly" }], purchasePrice: 500000, acquisitionCosts: 25000 });
+  var costs = [{ id: "ac1", what: "Stamp duty", amount: 25000 }];
+  var p = makeProperty({ income: [{ amount: 600, freq: "Weekly" }], purchasePrice: 500000, acquisitionCosts: costs });
   assert.ok(Math.abs(propertyYieldOnCost(p) - (31200 / 525000)) < 1e-9);
 });

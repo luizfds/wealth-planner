@@ -1,6 +1,7 @@
-import { state } from "../state.js";
+import { state, persist } from "../state.js";
 import { sacrificeModeToLabel, MARKET_CURRENCY } from "../constants.js";
 import { showToast, showPersistentToast } from "./toast.js";
+import { localDateStr } from "./format.js";
 
 function isoDateStamp(){
   var d = new Date();
@@ -60,9 +61,20 @@ export function decryptBackup(envelope, passphrase){
   });
 }
 
+// Stamps today as the last time a full backup was produced — called before payload capture in
+// both doExport() and doShare() below, so the exported/shared file's own state.lastBackupDate
+// already reflects itself. Deliberately not touched by the per-section CSV/template exports
+// (buildCsv/exportCsv above) — those are a partial, one-section snapshot, not a way to recover
+// from data loss, so they shouldn't silence the backup-reminder notification (lib/notifications.js).
+function markBackedUp(){
+  state.lastBackupDate = localDateStr();
+  persist();
+}
+
 export function doExport(){
   var passphrase = prompt("Optional: encrypt this backup with a passphrase (leave blank for a plain, unencrypted backup as before). You'll need this exact passphrase to import it again — it can't be recovered if you forget it.");
   if(passphrase === null) return;
+  markBackedUp();
   var payload = JSON.stringify(state, null, 2);
   var filename = "wealth-planner-backup-" + isoDateStamp() + (passphrase ? "-encrypted" : "") + ".json";
   if(passphrase){
@@ -122,6 +134,7 @@ export function doShare(){
     if(passphrase !== null) showToast("A passphrase is required to share — nothing was sent.");
     return;
   }
+  markBackedUp();
   var payload = JSON.stringify(state, null, 2);
   // Sent as .txt/text/plain, not .json/application/json, even though the content is identical
   // (still valid JSON once decrypted) — Chromium's navigator.share() only hands a file to the OS

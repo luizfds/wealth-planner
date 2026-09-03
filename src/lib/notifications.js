@@ -211,6 +211,41 @@ function budgetNotifications(){
   }];
 }
 
+// "Have they actually started using the app" — same check app.js's own hasRealUserData() makes
+// before warning about an Import overwriting things, duplicated here (rather than imported) for
+// the same reason reviewDueNotifications() duplicates isOverdue(): this file only depends on the
+// pure calc/lib layer, not app.js. A brand-new install with nothing entered yet has nothing worth
+// backing up, so it shouldn't nag about it.
+function hasRealUserData(){
+  return !!(state.income.length || state.shared.length || state.assets.length ||
+    state.properties.length || state.transactions.length || state.debts.length);
+}
+// This is a browser-only, no-backend app (see CLAUDE.md) — Export/Share (lib/backup.js) are the
+// only way this data survives clearing site data or losing the device, and nothing else reminds
+// anyone to actually do it. state.lastBackupDate is stamped by doExport()/doShare() specifically,
+// not by the per-section CSV/template exports (those are partial, not a real recovery path).
+//
+// id is the last-backup date itself (or "never") rather than today's date — unlike
+// sharePricesNotifications' deliberately-daily id, this one should stay dismissed for the full
+// BACKUP_REMINDER_DAYS window once cleared, not resurface every morning; it only comes back once
+// the underlying fact (how stale the backup is) has actually changed.
+var BACKUP_REMINDER_DAYS = 30;
+function backupReminderNotification(){
+  if(!hasRealUserData()) return [];
+  var last = state.lastBackupDate;
+  var daysSince = last ? -daysUntil(last) : null; // daysUntil is negative for a past date
+  if(last && daysSince < BACKUP_REMINDER_DAYS) return [];
+  return [{
+    id: "backup:" + (last || "never"),
+    type: "backup",
+    severity: "info",
+    title: last ? "Time for a fresh backup" : "You haven't backed up yet",
+    detail: (last ? "Last backup was " + daysSince + " days ago" : "Everything's stored only in this browser") + " — use Export (top right) to save a copy.",
+    date: todayStr(),
+    page: "dashboard"
+  }];
+}
+
 // The one local source today — a future remote source (fetched notifications from a backend)
 // would be added here as a sibling function and merged into getNotifications() below, unchanged
 // everywhere else.
@@ -220,6 +255,7 @@ export function getLocalNotifications(){
     reviewDueNotifications(),
     staleAssetNotifications(),
     sharePricesNotifications(),
+    backupReminderNotification(),
     budgetNotifications()
   );
 }

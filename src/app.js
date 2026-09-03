@@ -268,8 +268,11 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
         var ipValue = rndStep(500000, 900000, 5000);
         var ipLoanBalance = Math.round(ipValue * rndBetween(0.6, 0.8));
         var ipRentWeekly = rndStep(450, 750, 10);
+        var ipPurchasePrice = Math.round(ipValue * rndBetween(0.65, 0.9));
+        var ipPurchaseDate = "20" + rndInt(15, 21) + "-0" + rndInt(1, 9) + "-01";
         return [{
-          id: genId("p"), what: rndStep(1, 99, 1) + " Example St", kind: "IP", value: ipValue, history: [],
+          id: genId("p"), what: rndStep(1, 99, 1) + " Example St", kind: "IP", value: ipValue,
+          purchasePrice: ipPurchasePrice, purchaseDate: ipPurchaseDate, history: [],
           pmFee: { percent: rndStep(5, 8, 0.5), flat: rndStep(0, 8, 0.5) }, incomePaidFreq: "Monthly",
           loans: [{
             id: genId("l"), what: "Investment Loan", balance: ipLoanBalance, rate: rndStep(5.8, 6.8, 0.05), termYears: 27,
@@ -1116,6 +1119,17 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       persist();
       return;
     }
+    if(e.target.classList.contains("prop-purchase-price") || e.target.classList.contains("prop-purchase-date") || e.target.classList.contains("prop-acquisition-costs")){
+      // Full re-render (like prop-kind above), not a patch — Capital gain and the yield-on-cost
+      // badge only exist in the DOM once purchasePrice is set, so a patch here could be patching
+      // an element that was never rendered in the first place (going from unset to set).
+      if(e.target.classList.contains("prop-purchase-price")) property.purchasePrice = e.target.value === "" ? null : (parseFloat(e.target.value) || 0);
+      else if(e.target.classList.contains("prop-purchase-date")) property.purchaseDate = e.target.value;
+      else property.acquisitionCosts = parseFloat(e.target.value) || 0;
+      renderProperties();
+      persist();
+      return;
+    }
     if(e.target.classList.contains("prop-income-paid-freq")){
       // Informational only (see propertyCardHtml's incomePaidPanel comment) — nothing else on
       // screen depends on this value, so no recompute/re-render needed beyond persisting it.
@@ -1182,7 +1196,7 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
   });
 
   document.getElementById("addPropertyBtn").addEventListener("click", function(){
-    state.properties.push({ id: genId("p"), what:"New property", kind:"IP", value:0, history:[], pmFee:{percent:6, flat:5.5}, incomePaidFreq:"Monthly", loans:[], income:[], expenses:[] });
+    state.properties.push({ id: genId("p"), what:"New property", kind:"IP", value:0, purchasePrice:null, purchaseDate:"", history:[], pmFee:{percent:6, flat:5.5}, incomePaidFreq:"Monthly", loans:[], income:[], expenses:[] });
     recalcComputedItems();
     renderProperties();
     renderProjectionOutputs();

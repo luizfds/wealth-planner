@@ -103,9 +103,17 @@ export function propertyGearingAnnual(property){
 // "gain" against a $0 cost base. Distinct from the property's own history[] (a log of *current*
 // value over time, which for a property added well after the actual purchase starts from whatever
 // day it was first logged — never the real purchase price).
+// Purchase price alone, or price + acquisition costs (stamp duty, legal, buyer's agent, etc. —
+// see state.js's acquisitionCosts comment) when any were entered. Shared by both figures below so
+// "cost" always means the same thing in both places.
+function propertyCostBase(property){
+  var price = Number(property.purchasePrice);
+  if(!(price > 0)) return null;
+  return price + (Number(property.acquisitionCosts) || 0);
+}
 export function propertyCapitalGain(property){
-  var cost = Number(property.purchasePrice);
-  if(!(cost > 0)) return null;
+  var cost = propertyCostBase(property);
+  if(cost == null) return null;
   var value = Number(property.value) || 0;
   var gain = value - cost;
   return { gain: gain, pct: gain / cost };
@@ -114,8 +122,8 @@ export function propertyCapitalGain(property){
 // badge) — a different question: "how is my original investment performing" vs. "would this be a
 // good buy at today's price". Same null-not-$0 gating as propertyCapitalGain, same reason.
 export function propertyYieldOnCost(property){
-  var cost = Number(property.purchasePrice);
-  if(!(cost > 0)) return null;
+  var cost = propertyCostBase(property);
+  if(cost == null) return null;
   return sumField(property.income, "yearly") / cost;
 }
 

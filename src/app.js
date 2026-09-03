@@ -1119,12 +1119,13 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       persist();
       return;
     }
-    if(e.target.classList.contains("prop-purchase-price") || e.target.classList.contains("prop-purchase-date")){
+    if(e.target.classList.contains("prop-purchase-price") || e.target.classList.contains("prop-purchase-date") || e.target.classList.contains("prop-acquisition-costs")){
       // Full re-render (like prop-kind above), not a patch — Capital gain and the yield-on-cost
       // badge only exist in the DOM once purchasePrice is set, so a patch here could be patching
       // an element that was never rendered in the first place (going from unset to set).
       if(e.target.classList.contains("prop-purchase-price")) property.purchasePrice = e.target.value === "" ? null : (parseFloat(e.target.value) || 0);
-      else property.purchaseDate = e.target.value;
+      else if(e.target.classList.contains("prop-purchase-date")) property.purchaseDate = e.target.value;
+      else property.acquisitionCosts = parseFloat(e.target.value) || 0;
       renderProperties();
       persist();
       return;

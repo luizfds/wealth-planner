@@ -101,6 +101,36 @@ function modernLoanListHtml(p){
   return modernLoanCompBarHtml(rowMeta) + '<div class="m-rows">' + rows + '</div>';
 }
 
+// A flat inline row (no expand/collapse) in both modes — just two fields, the same treatment
+// expenses.js's accountRowHtml gives its own simple 2-3 field rows, rather than the full
+// summary+edit shell the Loans list above uses for its many fields.
+function acquisitionCostRowHtml(item, index){
+  var whatInput = '<input type="text" class="acq-cost-what" data-acq-cost-index="' + index + '" value="' + escapeAttr(item.what) + '" placeholder="e.g. Stamp duty" aria-label="Acquisition cost description">';
+  var amountInput = '<input type="number" step="100" min="0" class="acq-cost-amount" data-acq-cost-index="' + index + '" value="' + (Number(item.amount) || 0) + '" aria-label="Amount">';
+  var delBtn = '<button type="button" class="btn btn-ghost btn-sm row-del" data-acq-cost-del="' + index + '" aria-label="Delete acquisition cost">✕</button>';
+  if(state.uiMode === "modern"){
+    return '<div class="m-row acq-cost-row" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 0">' + whatInput + amountInput + delBtn + '</div>';
+  }
+  return '<tr data-acq-cost-index="' + index + '"><td>' + whatInput + '</td><td class="num">' + amountInput + '</td><td>' + delBtn + '</td></tr>';
+}
+// Stamp duty, legal, buyer's agent, inspection, etc. — itemized rather than a single lump sum, so
+// it doubles as a real record of what was paid, not just a number. Always rendered (even with an
+// empty list) so there's somewhere obvious to add the first one — unlike Loans/Income/Expenses,
+// this section has no natural "hide until non-empty" moment since it's core to Capital gain.
+function acquisitionCostsSectionHtml(p){
+  var costs = Array.isArray(p.acquisitionCosts) ? p.acquisitionCosts : [];
+  var total = costs.reduce(function(s, c){ return s + (Number(c.amount) || 0); }, 0);
+  var rows = costs.map(acquisitionCostRowHtml).join("");
+  return '<div class="property-section">' +
+    '<div class="property-section-title">Acquisition costs <span data-out="acqcoststotal" style="font-weight:400;color:var(--ink-soft)">' + (total > 0 ? "— " + fmtCurrency0.format(total) + " total" : "") + '</span></div>' +
+    '<p class="ledger-note" style="margin-left:0">Stamp duty, legal/conveyancing, buyer\'s agent, building/pest inspection — itemize what you actually paid. Added to Purchase price above for Capital gain and yield-on-cost.</p>' +
+    (state.uiMode === "modern"
+      ? '<div class="m-rows" id="propAcqCostRows_' + escapeAttr(p.id) + '">' + rows + '</div>'
+      : (costs.length ? '<div class="table-scroll"><table class="calc-costs-table prop-acq-costs-table"><thead><tr><th>What</th><th class="num">Amount</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '')) +
+    '<button type="button" class="btn btn-sm btn-ghost" data-acq-cost-add="' + escapeAttr(p.id) + '">+ Add cost</button>' +
+  '</div>';
+}
+
 function propertyCardHtml(p){
   var equity = propertyEquityToday(p);
   var loanRows = (p.loans || []).map(loanRowHtml).join("");
@@ -173,10 +203,10 @@ function propertyCardHtml(p){
         '<div class="calc-field"><label>Current value</label><input type="number" step="1000" min="0" class="prop-value" value="' + (Number(p.value) || 0) + '"></div>' +
         '<div class="calc-field" title="What you actually paid — separate from Current value above, and from the Log button\'s value-over-time history, which starts whenever this property was first added rather than the real purchase date. Powers Capital gain and the yield-on-cost badge above; leave blank if unknown."><label>Purchase price</label><input type="number" step="1000" min="0" class="prop-purchase-price" value="' + (p.purchasePrice != null ? p.purchasePrice : "") + '" placeholder="Unknown"></div>' +
         '<div class="calc-field"><label>Purchase date</label><input type="date" class="prop-purchase-date" value="' + escapeAttr(p.purchaseDate || "") + '"></div>' +
-        '<div class="calc-field" title="Stamp duty, legal/conveyancing, buyer\'s agent, building/pest inspection — one combined total from your own records, not auto-calculated (today\'s stamp duty brackets wouldn\'t match what you actually paid years ago). Added to Purchase price for Capital gain and yield-on-cost."><label>Acquisition costs</label><input type="number" step="500" min="0" class="prop-acquisition-costs" value="' + (Number(p.acquisitionCosts) || 0) + '"></div>' +
       '</div>' +
       '<div class="prop-value-log"><button type="button" class="asset-log-btn" data-property-log="' + escapeAttr(p.id) + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart">Log</button>' + historyTrendHtml(p) + '</div>' +
     '</div>' +
+    acquisitionCostsSectionHtml(p) +
     '<div class="property-section">' +
       '<div class="property-section-title">Loans</div>' +
       (state.uiMode === "modern"
@@ -302,6 +332,11 @@ export function patchPropertyCardComputed(property){
       capitalGainOut.textContent = (capitalGain.gain >= 0 ? "+" : "") + fmtCurrency0.format(capitalGain.gain) + " (" + (capitalGain.gain >= 0 ? "+" : "") + fmtPercent1.format(capitalGain.pct) + ")";
       capitalGainOut.style.color = capitalGain.gain >= 0 ? "var(--good)" : "var(--bad)";
     }
+  }
+  var acqCostsTotalOut = card.querySelector('[data-out="acqcoststotal"]');
+  if(acqCostsTotalOut){
+    var acqTotal = (property.acquisitionCosts || []).reduce(function(s, c){ return s + (Number(c.amount) || 0); }, 0);
+    acqCostsTotalOut.textContent = acqTotal > 0 ? "— " + fmtCurrency0.format(acqTotal) + " total" : "";
   }
   renderPropertyExpensesSummary();
 }

@@ -17,6 +17,32 @@ import { renderProjectionOutputs } from "./projections.js";
 var PAYMENT_FREQS = ["Weekly", "Fortnightly", "Monthly"];
 var PAYMENT_FREQ_SUFFIX = { Weekly: "/wk", Fortnightly: "/fn", Monthly: "/mo" };
 
+// Session-only (not persisted) — mirrors scenarios.js's homeBlockCollapsed exactly, same reason:
+// a structural edit anywhere on the page (adding a loan, an acquisition cost, editing Purchase
+// price) rebuilds this whole card's innerHTML via renderProperties(), which would silently reset
+// a native <details> back to its default open/closed state. Keeping collapse state in this
+// external map instead means it survives that rebuild — re-read on every render, not stored in
+// the DOM. Every property's five sections (value/acquisition/loans/income/expenses) default open,
+// so nothing changes for anyone until they actually collapse something — a property card stacking
+// all five is the single longest scroll in the app on mobile, which is what this exists to shorten.
+export var propertySectionCollapsed = {};
+// Wraps one section's already-built head/body HTML with the collapse toggle chrome — shared by
+// every .property-section below (Property value, Acquisition costs, Loans, Income, Expenses) so
+// they all get identical collapse behavior and a consistent title treatment, rather than five
+// slightly different hand-rolled headers. sectionKey only needs to be unique within one property
+// (e.g. "value", "acquisition") — propertySectionCollapsed's own key combines it with property.id.
+function propertySectionHtml(property, sectionKey, titleHtml, bodyHtml){
+  var key = property.id + ":" + sectionKey;
+  var isCollapsed = !!propertySectionCollapsed[key];
+  return '<div class="property-section' + (isCollapsed ? " is-collapsed" : "") + '">' +
+    '<div class="property-section-head" data-prop-section-toggle="' + escapeAttr(key) + '" role="button" tabindex="0" aria-expanded="' + (!isCollapsed) + '">' +
+      '<span class="icon-btn property-section-toggle" aria-hidden="true"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg></span>' +
+      titleHtml +
+    '</div>' +
+    '<div class="property-section-body">' + bodyHtml + '</div>' +
+  '</div>';
+}
+
 function loanRowHtml(loan, li){
   var disp = loanRepaymentDisplay(loan);
   var suffix = PAYMENT_FREQ_SUFFIX[disp.freq] || "/mo";
@@ -147,14 +173,14 @@ function acquisitionCostsSectionHtml(p){
   var rowsHtml = isModern
     ? rowMeta.map(function(m){ return acquisitionCostRowModernHtml(m.cost, m.i, m.colorIdx); }).join("")
     : rowMeta.map(function(m){ return acquisitionCostRowHtml(m.cost, m.i); }).join("");
-  return '<div class="property-section">' +
-    '<div class="property-section-title">Acquisition costs <span data-out="acqcoststotal" style="font-weight:400;color:var(--ink-soft)">' + (total > 0 ? "— " + fmtCurrency0.format(total) + " total" : "") + '</span></div>' +
+  var titleHtml = '<div class="property-section-title">Acquisition costs <span data-out="acqcoststotal" style="font-weight:400;color:var(--ink-soft)">' + (total > 0 ? "— " + fmtCurrency0.format(total) + " total" : "") + '</span></div>';
+  var bodyHtml =
     '<p class="ledger-note" style="margin-left:0">Stamp duty, legal/conveyancing, buyer\'s agent, building/pest inspection — itemize what you actually paid. Added to Purchase price above for Capital gain and yield-on-cost.</p>' +
     (isModern
       ? '<div class="m-card m-cost-rows" id="propAcqCostRows_' + escapeAttr(p.id) + '">' + acquisitionCostCompBarHtml(rowMeta) + rowsHtml + '</div>'
       : (rowMeta.length ? '<div class="table-scroll"><table class="calc-costs-table"><thead><tr><th>What</th><th class="num">Amount</th><th></th></tr></thead><tbody>' + rowsHtml + '</tbody></table></div>' : '')) +
-    '<button type="button" class="btn btn-sm btn-ghost" style="margin-top:8px" data-acq-cost-add="' + escapeAttr(p.id) + '">+ Add cost</button>' +
-  '</div>';
+    '<button type="button" class="btn btn-sm btn-ghost" style="margin-top:8px" data-acq-cost-add="' + escapeAttr(p.id) + '">+ Add cost</button>';
+  return propertySectionHtml(p, "acquisition", titleHtml, bodyHtml);
 }
 
 function propertyCardHtml(p){
@@ -223,43 +249,35 @@ function propertyCardHtml(p){
       '<button type="button" class="btn btn-ghost btn-sm row-del" data-property-del="' + escapeAttr(p.id) + '" aria-label="Delete property">✕</button>' +
     '</div>' +
     '<div class="calc-outputs">' + summaryTiles + '</div>' +
-    '<div class="property-section">' +
-      '<div class="property-section-title">Property value</div>' +
+    propertySectionHtml(p, "value",
+      '<div class="property-section-title">Property value</div>',
       '<div class="calc-grid">' +
         '<div class="calc-field"><label>Current value</label><input type="number" step="1000" min="0" class="prop-value" value="' + (Number(p.value) || 0) + '"></div>' +
         '<div class="calc-field" title="What you actually paid — separate from Current value above, and from the Log button\'s value-over-time history, which starts whenever this property was first added rather than the real purchase date. Powers Capital gain and the yield-on-cost badge above; leave blank if unknown."><label>Purchase price</label><input type="number" step="1000" min="0" class="prop-purchase-price" value="' + (p.purchasePrice != null ? p.purchasePrice : "") + '" placeholder="Unknown"></div>' +
         '<div class="calc-field"><label>Purchase date</label><input type="date" class="prop-purchase-date" value="' + escapeAttr(p.purchaseDate || "") + '"></div>' +
       '</div>' +
-      '<div class="prop-value-log"><button type="button" class="asset-log-btn" data-property-log="' + escapeAttr(p.id) + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart">Log</button>' + historyTrendHtml(p) + '</div>' +
-    '</div>' +
+      '<div class="prop-value-log"><button type="button" class="asset-log-btn" data-property-log="' + escapeAttr(p.id) + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart">Log</button>' + historyTrendHtml(p) + '</div>') +
     acquisitionCostsSectionHtml(p) +
-    '<div class="property-section">' +
-      '<div class="property-section-title">Loans</div>' +
+    propertySectionHtml(p, "loans",
+      '<div class="property-section-title">Loans</div>',
       (state.uiMode === "modern"
         ? '<div class="m-card" id="propLoanRows_' + escapeAttr(p.id) + '">' + modernLoanListHtml(p) + '</div>'
         : '<div class="table-scroll"><table class="calc-costs-table prop-loans-table"><thead><tr><th>What</th><th class="num">Balance</th><th class="num">Rate %</th><th class="num">Term (yrs)</th><th>Type</th><th>Paid</th><th>Repayment</th><th class="num" title="Netted against the loan balance for both equity and interest — the one place to enter this money, not also as a separate Cash asset">Offset</th><th></th></tr></thead><tbody>' + loanRows + '</tbody></table></div>') +
-      '<button type="button" class="btn btn-sm btn-ghost" data-loan-add="' + escapeAttr(p.id) + '">+ Add loan</button>' +
-    '</div>' +
-    '<div class="property-section">' +
-      '<div class="income-group">' +
-        '<div class="income-group-head"><div class="income-group-head-left"><h4>Income</h4></div></div>' +
-        incomePaidPanel +
-        (state.uiMode === "modern"
-          ? '<div class="m-card"><div class="m-rows" id="propIncomeRows_' + escapeAttr(p.id) + '">' + modernPropListHtml(p.income, "propinc:" + p.id, false) + '</div></div>'
-          : '<div class="table-scroll"><table class="ledger-table" id="propIncomeTable_' + escapeAttr(p.id) + '"></table></div>') +
-        '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="propinc:' + escapeAttr(p.id) + '">+ Add income</button>' +
-      '</div>' +
-    '</div>' +
-    '<div class="property-section">' +
-      '<div class="income-group">' +
-        '<div class="income-group-head"><div class="income-group-head-left"><h4>Expenses</h4></div></div>' +
-        pmFeePanel +
-        (state.uiMode === "modern"
-          ? '<div class="m-card"><div class="m-rows" id="propExpRows_' + escapeAttr(p.id) + '">' + modernPropListHtml(p.expenses, "propexp:" + p.id, true) + '</div></div>'
-          : '<div class="table-scroll"><table class="ledger-table" id="propExpTable_' + escapeAttr(p.id) + '"></table></div>') +
-        '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="propexp:' + escapeAttr(p.id) + '">+ Add expense</button>' +
-      '</div>' +
-    '</div>' +
+      '<button type="button" class="btn btn-sm btn-ghost" data-loan-add="' + escapeAttr(p.id) + '">+ Add loan</button>') +
+    propertySectionHtml(p, "income",
+      '<div class="property-section-title">Income</div>',
+      incomePaidPanel +
+      (state.uiMode === "modern"
+        ? '<div class="m-card"><div class="m-rows" id="propIncomeRows_' + escapeAttr(p.id) + '">' + modernPropListHtml(p.income, "propinc:" + p.id, false) + '</div></div>'
+        : '<div class="table-scroll"><table class="ledger-table" id="propIncomeTable_' + escapeAttr(p.id) + '"></table></div>') +
+      '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="propinc:' + escapeAttr(p.id) + '">+ Add income</button>') +
+    propertySectionHtml(p, "expenses",
+      '<div class="property-section-title">Expenses</div>',
+      pmFeePanel +
+      (state.uiMode === "modern"
+        ? '<div class="m-card"><div class="m-rows" id="propExpRows_' + escapeAttr(p.id) + '">' + modernPropListHtml(p.expenses, "propexp:" + p.id, true) + '</div></div>'
+        : '<div class="table-scroll"><table class="ledger-table" id="propExpTable_' + escapeAttr(p.id) + '"></table></div>') +
+      '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="propexp:' + escapeAttr(p.id) + '">+ Add expense</button>') +
   '</div>';
 }
 

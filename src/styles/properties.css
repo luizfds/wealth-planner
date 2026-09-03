@@ -63,7 +63,17 @@
   .property-card:last-child{ margin-bottom:0; }
   .property-section{ margin-top:22px; padding-top:20px; border-top:1px solid var(--border); }
   .property-section:first-of-type{ margin-top:20px; }
-  .property-section-title{ font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:.03em; color: var(--ink-soft); margin:0 0 10px; }
+  .property-section-title{ font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:.03em; color: var(--ink-soft); margin:0; }
+  /* Every property-card section (Property value, Acquisition costs, Loans, Income, Expenses) is
+     collapsible — a property card stacking all five is the single longest scroll in the app on
+     mobile. Mirrors the Scenarios page's .home-block collapse treatment (same caret-rotate,
+     display:none body) under its own class names, since this is a different structural context
+     (nested sections within one card, not top-level page blocks). */
+  .property-section-head{ display:flex; align-items:center; gap:6px; margin-bottom:10px; cursor:pointer; }
+  .property-section-toggle{ width:18px; height:18px; margin-right:-2px; }
+  .property-section:not(.is-collapsed) .property-section-toggle .ledger-caret{ transform: rotate(90deg); }
+  .property-section.is-collapsed .property-section-head{ margin-bottom:0; }
+  .property-section.is-collapsed .property-section-body{ display:none; }
   .property-card .calc-outputs{ background: var(--paper-sunken); }
   .prop-pmfee-panel{
     background: var(--paper-sunken); border:1px solid var(--border); border-radius:9px; padding:12px 14px; margin: 0 0 14px;

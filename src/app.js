@@ -10,7 +10,7 @@ import { onHorizontalSwipe } from "./lib/swipe.js";
 import { initTableScrollShadows } from "./lib/scroll-shadow.js";
 import {
   decryptBackup, doExport, doShare, canShareFiles, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv, exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard,
-  exportExpensesImportTemplateCsv
+  exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv
 } from "./lib/backup.js";
 import { periodsOf, sumField, appendHistorySnapshot } from "./calc/ledger.js";
 import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax } from "./calc/tax.js";
@@ -19,7 +19,7 @@ import { renderCards, renderDashboardStats, renderDetail, setProjectionReference
 import {
   personBreakdownHtml, renderIncomeGroups, patchOpenRowBreakdowns, patchIncomeGroupTotals,
   patchSyntheticIncomeRows, patchIncomeSuperNotes, renderTaxSuper, flipTaxCard, patchAllTaxPersonOutputs,
-  modernIncomeRowOpen
+  modernIncomeRowOpen, parseIncomeImportCsv, renderIncomeImportPreview, clearIncomeImportPreview, commitIncomeImport
 } from "./components/income.js";
 import {
   patchSharedGroupTotals, renderSharedGroups, renderPropertyExpensesSummary, modernSharedRowOpen,
@@ -994,6 +994,27 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
       });
       return;
     }
+    if(e.target.id === "incomeImportCancelBtn"){
+      pendingIncomeImport = [];
+      clearIncomeImportPreview();
+      return;
+    }
+    if(e.target.id === "incomeImportConfirmBtn"){
+      if(!pendingIncomeImport.length) return;
+      var incomeImportCount = pendingIncomeImport.length;
+      var startingIncomeLength = state.income.length;
+      commitIncomeImport(pendingIncomeImport);
+      pendingIncomeImport = [];
+      clearIncomeImportPreview();
+      refreshAfterLedgerChange("income");
+      updatePersonSuggestions();
+      showUndoToast(incomeImportCount + " income row" + (incomeImportCount === 1 ? "" : "s") + " imported", function(){
+        state.income.length = startingIncomeLength;
+        refreshAfterLedgerChange("income");
+        updatePersonSuggestions();
+      });
+      return;
+    }
     var personFilterBtn = e.target.closest("[data-asset-person-filter]");
     if(personFilterBtn){ setAssetPersonFilter(personFilterBtn.getAttribute("data-asset-person-filter")); return; }
     var gainFilterBtn = e.target.closest("[data-shares-gain-filter]");
@@ -1636,6 +1657,25 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     reader.onload = function(){
       var parsed = parseExpensesImportCsv(String(reader.result));
       pendingExpensesImport = renderExpensesImportPreview(parsed);
+    };
+    reader.onerror = function(){ showToast("Couldn't read that file"); };
+    reader.readAsText(file);
+  });
+
+  // ---------------- Income: import from a spreadsheet ----------------
+  var pendingIncomeImport = [];
+  document.getElementById("incomeDownloadTemplateBtn").addEventListener("click", exportIncomeImportTemplateCsv);
+  document.getElementById("incomeImportBtn").addEventListener("click", function(){
+    document.getElementById("incomeImportFile").click();
+  });
+  document.getElementById("incomeImportFile").addEventListener("change", function(e){
+    var file = e.target.files[0];
+    e.target.value = "";
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      var parsed = parseIncomeImportCsv(String(reader.result));
+      pendingIncomeImport = renderIncomeImportPreview(parsed);
     };
     reader.onerror = function(){ showToast("Couldn't read that file"); };
     reader.readAsText(file);

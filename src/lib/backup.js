@@ -288,12 +288,17 @@ export function parseCsv(text){
 }
 
 var EXPENSES_CSV_HEADERS = ["What", "Classification", "Amount", "Frequency", "Account"];
+var INCOME_CSV_HEADERS = ["What", "Person", "Type", "Amount", "Frequency", "Super", "Sacrifice mode", "Sacrifice value", "Account"];
 export function exportIncomeCsv(){
-  var headers = ["What", "Person", "Type", "Amount", "Frequency", "Super", "Sacrifice mode", "Sacrifice value", "Account"];
   var rows = state.income.filter(function(i){ return !i.computed; }).map(function(i){
     return [i.what, i.person || "", i.incomeType || "Net", i.amount, i.freq, i.superMode || "", sacrificeModeToLabel(i.sacrificeMode), i.sacrificeValue || "", i.account || ""];
   });
-  exportCsv("income-" + isoDateStamp() + ".csv", headers, rows);
+  exportCsv("income-" + isoDateStamp() + ".csv", INCOME_CSV_HEADERS, rows);
+}
+// Blank starting point for the Income page's "Import CSV" — same headers as the real export
+// above, zero rows. See exportExpensesImportTemplateCsv's comment for the same rationale.
+export function exportIncomeImportTemplateCsv(){
+  finishExport(buildCsv(INCOME_CSV_HEADERS, []), "income-import-template.csv", "text/csv", "Template saved");
 }
 export function exportExpensesCsv(){
   var rows = state.shared.map(function(i){

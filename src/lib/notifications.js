@@ -64,10 +64,21 @@ export function markAllNotificationsRead(notifications){
 // Shared expenses overdue or due within DUE_SOON_DAYS — one notification per (item, projected due
 // date) pair, so a bill that rolls to a new due date naturally comes back as unread even if the
 // previous occurrence was dismissed.
+//
+// Skips anything already logged today: nextDueDate() always projects the *next* occurrence after
+// the last transaction, and for a Weekly expense that next occurrence lands exactly DUE_SOON_DAYS
+// out — so without this check, logging one this morning immediately produces a fresh "Due in 7
+// days" notification for the same item, the moment it's paid. Same-day is a deliberately narrow
+// guard (not "logged recently enough for its own freq", which is reviewDueNotifications' job) —
+// it only silences the instant the log happens, not the genuine next-cycle reminder a few days
+// later.
 function dueBillNotifications(){
+  var today = todayStr();
   return state.shared
     .map(function(item){
-      var due = nextDueDate(lastTransactionDateFor(state.transactions, item.id), item.freq);
+      var lastDate = lastTransactionDateFor(state.transactions, item.id);
+      if(lastDate === today) return null;
+      var due = nextDueDate(lastDate, item.freq);
       return due ? { item: item, due: due, days: daysUntil(due) } : null;
     })
     .filter(function(x){ return x && x.days <= DUE_SOON_DAYS; })

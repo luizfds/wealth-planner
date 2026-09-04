@@ -228,6 +228,29 @@
     .m-cost-row .row-del{ grid-area:del; }
   }
 
+  /* ---------------- Portfolio-wide overview (above the property card list) ---------------- */
+  /* One row per property — name, then a few key stats — that doubles as jump-nav to that
+     property's own card below (see app.js's data-jump-property handler). A plain <button> rather
+     than an <a href="#..."> since the target's scroll behavior is handled in JS (smooth-scroll),
+     and this list only renders at all once there are 2+ properties to compare/jump between. */
+  .property-compare-list{ display:flex; flex-direction:column; gap:2px; margin-bottom:18px; }
+  .property-compare-row{
+    all:unset; box-sizing:border-box; display:flex; align-items:center; gap:8px; width:100%;
+    padding:8px 10px; border-radius:8px; cursor:pointer; font-size:12.5px; color:var(--ink);
+    border:1px solid transparent;
+  }
+  .property-compare-row:hover{ background: var(--paper-sunken); border-color: var(--border); }
+  .property-compare-row:focus-visible{ box-shadow: var(--focus-ring); }
+  .property-compare-name{ flex:1 1 auto; min-width:0; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .property-compare-stat{ flex:none; color: var(--ink-soft); font-family:"IBM Plex Mono", monospace; font-size:11.5px; white-space:nowrap; }
+  /* Name + three stats all on one row runs out of space well before 480px — name gets its own
+     full-width line, stats wrap freely on the line below, same "one item gets a full-width row"
+     shape as the acquisition-costs mobile fix just above this in the file. */
+  @media (max-width:480px){
+    .property-compare-row{ flex-wrap:wrap; row-gap:4px; }
+    .property-compare-name{ flex-basis:100%; }
+  }
+
   .home-block-total.short{ color: var(--bad); }
   .prop-value-log{ display:flex; align-items:center; gap:8px; margin:4px 0 14px; }
   .prop-loans-table th, .prop-loans-table td{ white-space:nowrap; padding:4px 6px; font-size:12.5px; border-bottom:1px solid var(--border); }

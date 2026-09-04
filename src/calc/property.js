@@ -248,3 +248,26 @@ export function propertiesIlliquidEquityToday(){
 export function propertiesTotalEquityToday(){
   return state.properties.reduce(function(s, p){ return s + propertyEquityToday(p); }, 0);
 }
+// ---- Portfolio-wide aggregates, for the Properties page's own summary/overview panel (as
+// opposed to propertiesTotalEquityToday/propertiesOffsetTotal above, which mainly feed Assets'
+// net-worth math) ----
+export function propertiesTotalValue(){
+  return state.properties.reduce(function(s, p){ return s + (Number(p.value) || 0); }, 0);
+}
+export function propertiesTotalMortgageBalance(){
+  return state.properties.reduce(function(s, p){ return s + (p.loans || []).reduce(function(ss, l){ return ss + (Number(l.balance) || 0); }, 0); }, 0);
+}
+// Only IPs contribute — a PPOR has no rent to be "cash flow", same scoping as ipProperties() above.
+export function propertiesNetCashFlowMonthly(){
+  return ipProperties().reduce(function(s, p){ return s + propertyGearingAnnual(p) / 12; }, 0);
+}
+// Value-weighted (not a simple average of each property's own %) so one large, low-yield IP
+// doesn't get equal say to a small, high-yield one — null (not 0) when there's no IP value to
+// weight against, so the caller can show "—" instead of a misleading 0.0%.
+export function propertiesWeightedGrossYield(){
+  var ips = ipProperties();
+  var totalValue = ips.reduce(function(s, p){ return s + (Number(p.value) || 0); }, 0);
+  if(totalValue <= 0) return null;
+  var totalRent = ips.reduce(function(s, p){ return s + sumField(p.income, "yearly"); }, 0);
+  return totalRent / totalValue;
+}

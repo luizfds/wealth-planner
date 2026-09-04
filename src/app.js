@@ -1319,6 +1319,16 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     }
   });
 
+  // Portfolio-wide comparison list (rendered above #propertiesBody) doubles as jump-nav — click
+  // a row to scroll straight to that property's card, useful once there's enough properties that
+  // the list itself is a shorter overview than scrolling past every card to find the one you want.
+  document.getElementById("propertiesCompareList").addEventListener("click", function(e){
+    var jumpBtn = e.target.closest("[data-jump-property]");
+    if(!jumpBtn) return;
+    var target = document.getElementById("property-card-" + jumpBtn.getAttribute("data-jump-property"));
+    if(target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
   document.getElementById("addPropertyBtn").addEventListener("click", function(){
     state.properties.push({ id: genId("p"), what:"New property", kind:"IP", value:0, purchasePrice:null, purchaseDate:"", acquisitionCosts:[], history:[], pmFee:{percent:6, flat:5.5}, incomePaidFreq:"Monthly", sectionsCollapsed:{acquisition:true, loans:true, income:true, expenses:true}, loans:[], income:[], expenses:[] });
     recalcComputedItems();

@@ -5,9 +5,11 @@ import {
   bracketDuty, standardStampDuty, calcStampDuty, calcLMI, calcRepaymentMonthly,
   loanRepaymentMonthly, propertyLoanRepaymentMonthly, propertyOffsetTotal,
   propertyIlliquidEquityToday, propertyEquityToday, propertyGearingAnnual,
-  propertyCapitalGain, propertyYieldOnCost
+  propertyCapitalGain, propertyYieldOnCost, propertiesTotalValue,
+  propertiesTotalMortgageBalance, propertiesNetCashFlowMonthly, propertiesWeightedGrossYield
 } from "../src/calc/property.js";
 import { STAMP_DUTY_BRACKETS, FHB_RULES } from "../src/constants.js";
+import { state } from "../src/state.js";
 
 // Minimal fixture shared by the property-level tests below — just enough shape for each function
 // under test (income/expenses/loans as plain {amount, freq} ledger items, same as the real app).
@@ -155,4 +157,44 @@ test("propertyYieldOnCost is null with no purchase price, and annual rent / (pri
   var costs = [{ id: "ac1", what: "Stamp duty", amount: 25000 }];
   var p = makeProperty({ income: [{ amount: 600, freq: "Weekly" }], purchasePrice: 500000, acquisitionCosts: costs });
   assert.ok(Math.abs(propertyYieldOnCost(p) - (31200 / 525000)) < 1e-9);
+});
+
+// ---- Portfolio-wide aggregates (Properties page's overview panel) — these read state.properties
+// directly rather than taking a property argument, so each test sets it up and restores it after.
+test("propertiesTotalValue and propertiesTotalMortgageBalance sum across every property, IP and PPOR alike", function(){
+  var prev = state.properties;
+  state.properties = [
+    makeProperty({ kind: "IP", value: 800000, loans: [{ balance: 500000 }] }),
+    makeProperty({ kind: "PPOR", value: 900000, loans: [{ balance: 300000 }, { balance: 100000 }] })
+  ];
+  assert.equal(propertiesTotalValue(), 1700000);
+  assert.equal(propertiesTotalMortgageBalance(), 900000);
+  state.properties = prev;
+});
+
+test("propertiesNetCashFlowMonthly only counts IPs (a PPOR has no rent to be cash flow)", function(){
+  var prev = state.properties;
+  state.properties = [
+    makeProperty({ kind: "IP", income: [{ amount: 600, freq: "Weekly" }], expenses: [{ amount: 3000, freq: "Yearly" }], loans: [] }),
+    makeProperty({ kind: "PPOR", income: [{ amount: 10000, freq: "Weekly" }], expenses: [], loans: [] })
+  ];
+  assert.ok(Math.abs(propertiesNetCashFlowMonthly() - ((31200 - 3000) / 12)) < 1e-9);
+  state.properties = prev;
+});
+
+test("propertiesWeightedGrossYield is null with no IPs, and value-weighted (not a simple average) across several", function(){
+  var prev = state.properties;
+  state.properties = [makeProperty({ kind: "PPOR", income: [], value: 900000 })];
+  assert.equal(propertiesWeightedGrossYield(), null);
+  // Property A: $1,000/wk ($52,000/yr) on $500k = 10.4% yield. Property B: $200/wk ($10,400/yr)
+  // on $1,000,000 = 1.04% yield. A simple average would be ~5.7%; weighted by value it should sit
+  // much closer to B's low yield, since B's value dominates the pool.
+  state.properties = [
+    makeProperty({ kind: "IP", value: 500000, income: [{ amount: 1000, freq: "Weekly" }] }),
+    makeProperty({ kind: "IP", value: 1000000, income: [{ amount: 200, freq: "Weekly" }] })
+  ];
+  var expected = (52000 + 10400) / 1500000;
+  assert.ok(Math.abs(propertiesWeightedGrossYield() - expected) < 1e-9);
+  assert.ok(propertiesWeightedGrossYield() < 0.057);
+  state.properties = prev;
 });

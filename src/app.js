@@ -40,7 +40,7 @@ import {
 } from "./components/assets.js";
 import {
   modernPropRowOpen, renderPropListModern, renderProperties, patchPropertyCardComputed,
-  logPropertySnapshot, propertySectionCollapsed
+  logPropertySnapshot, PROPERTY_SECTION_KEYS
 } from "./components/properties.js";
 import { renderProjectionOutputs } from "./components/projections.js";
 import {
@@ -1214,9 +1214,25 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
   document.getElementById("propertiesBody").addEventListener("click", function(e){
     var sectionToggleBtn = e.target.closest("[data-prop-section-toggle]");
     if(sectionToggleBtn){
+      var toggleCard = sectionToggleBtn.closest("[data-property-id]");
+      var toggleProperty = toggleCard && findProperty(toggleCard.getAttribute("data-property-id"));
+      if(!toggleProperty) return;
       var sectionKey = sectionToggleBtn.getAttribute("data-prop-section-toggle");
-      propertySectionCollapsed[sectionKey] = !propertySectionCollapsed[sectionKey];
+      if(!toggleProperty.sectionsCollapsed) toggleProperty.sectionsCollapsed = {};
+      toggleProperty.sectionsCollapsed[sectionKey] = !toggleProperty.sectionsCollapsed[sectionKey];
       renderProperties();
+      persist();
+      return;
+    }
+    var collapseAllBtn = e.target.closest("[data-prop-collapse-toggle]");
+    if(collapseAllBtn){
+      var collapseProperty = findProperty(collapseAllBtn.getAttribute("data-prop-collapse-toggle"));
+      if(!collapseProperty) return;
+      if(!collapseProperty.sectionsCollapsed) collapseProperty.sectionsCollapsed = {};
+      var wasAllCollapsed = PROPERTY_SECTION_KEYS.every(function(k){ return !!collapseProperty.sectionsCollapsed[k]; });
+      PROPERTY_SECTION_KEYS.forEach(function(k){ collapseProperty.sectionsCollapsed[k] = !wasAllCollapsed; });
+      renderProperties();
+      persist();
       return;
     }
     var addLoanBtn = e.target.closest("[data-loan-add]");
@@ -1303,8 +1319,18 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     }
   });
 
+  // Portfolio-wide comparison list (rendered above #propertiesBody) doubles as jump-nav — click
+  // a row to scroll straight to that property's card, useful once there's enough properties that
+  // the list itself is a shorter overview than scrolling past every card to find the one you want.
+  document.getElementById("propertiesCompareList").addEventListener("click", function(e){
+    var jumpBtn = e.target.closest("[data-jump-property]");
+    if(!jumpBtn) return;
+    var target = document.getElementById("property-card-" + jumpBtn.getAttribute("data-jump-property"));
+    if(target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
   document.getElementById("addPropertyBtn").addEventListener("click", function(){
-    state.properties.push({ id: genId("p"), what:"New property", kind:"IP", value:0, purchasePrice:null, purchaseDate:"", acquisitionCosts:[], history:[], pmFee:{percent:6, flat:5.5}, incomePaidFreq:"Monthly", loans:[], income:[], expenses:[] });
+    state.properties.push({ id: genId("p"), what:"New property", kind:"IP", value:0, purchasePrice:null, purchaseDate:"", acquisitionCosts:[], history:[], pmFee:{percent:6, flat:5.5}, incomePaidFreq:"Monthly", sectionsCollapsed:{acquisition:true, loans:true, income:true, expenses:true}, loans:[], income:[], expenses:[] });
     recalcComputedItems();
     renderProperties();
     renderProjectionOutputs();

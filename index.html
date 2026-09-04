@@ -125,7 +125,7 @@
       </label>
       <p class="app-sidebar-note">Stored only in this browser (<code>localStorage</code>) — nothing is sent anywhere. Clearing your browser data clears this too, so <button class="link-btn" id="exportLink2">Export</button> a backup now and then.</p>
       <a class="feature-request-link" href="https://github.com/luizfds/wealth-planner/issues/new" target="_blank" rel="noopener noreferrer">💡 Request a feature</a>
-      <p class="app-version">v2.40.0</p>
+      <p class="app-version">v2.43.0</p>
     </div>
     <div class="mobile-header-right">
       <button type="button" class="notif-bell-btn mobile-notif-bell" id="mobileNotifBellBtn" aria-haspopup="true" aria-expanded="false" aria-label="Notifications">
@@ -333,6 +333,25 @@
             <button type="button" class="btn btn-sm btn-ghost" id="propertyLoansExportCsvBtn" title="Download every loan, across every property, as a CSV file">Export loans CSV</button>
           </div>
         </div>
+        <div class="stat-row" id="propertiesSummaryStats"></div>
+        <div class="ledgers">
+          <details class="ledger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Equity vs debt</h2></div>
+            </summary>
+            <div class="ledger-body">
+              <p class="ledger-note" style="margin-left:0">What you actually own vs. what's still owed, added up across every property.</p>
+              <div id="propertiesEquityDebtBar"></div>
+            </div>
+          </details>
+          <details class="ledger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Total property value over time</h2></div>
+            </summary>
+            <div class="ledger-body"><div id="propertiesValueHistoryPanel"></div></div>
+          </details>
+        </div>
+        <div id="propertiesCompareList"></div>
         <div id="propertiesBody"></div>
         <button type="button" class="btn btn-sm" id="addPropertyBtn">+ Add property</button>
       </section>

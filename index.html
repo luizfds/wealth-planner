@@ -333,6 +333,25 @@
             <button type="button" class="btn btn-sm btn-ghost" id="propertyLoansExportCsvBtn" title="Download every loan, across every property, as a CSV file">Export loans CSV</button>
           </div>
         </div>
+        <div class="stat-row" id="propertiesSummaryStats"></div>
+        <div class="ledgers">
+          <details class="ledger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Equity vs debt</h2></div>
+            </summary>
+            <div class="ledger-body">
+              <p class="ledger-note" style="margin-left:0">What you actually own vs. what's still owed, added up across every property.</p>
+              <div id="propertiesEquityDebtBar"></div>
+            </div>
+          </details>
+          <details class="ledger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Total property value over time</h2></div>
+            </summary>
+            <div class="ledger-body"><div id="propertiesValueHistoryPanel"></div></div>
+          </details>
+        </div>
+        <div id="propertiesCompareList"></div>
         <div id="propertiesBody"></div>
         <button type="button" class="btn btn-sm" id="addPropertyBtn">+ Add property</button>
       </section>

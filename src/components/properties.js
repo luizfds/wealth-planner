@@ -1,12 +1,17 @@
 import { state, persist } from "../state.js";
-import { propertyEquityToday, propertyGearingAnnual, propertyLoanRepaymentMonthly, loanRepaymentDisplay, propertyCapitalGain, propertyYieldOnCost } from "../calc/property.js";
+import {
+  propertyEquityToday, propertyGearingAnnual, propertyLoanRepaymentMonthly, loanRepaymentDisplay,
+  propertyCapitalGain, propertyYieldOnCost, propertiesTotalValue, propertiesTotalEquityToday,
+  propertiesTotalMortgageBalance, propertiesNetCashFlowMonthly, propertiesWeightedGrossYield
+} from "../calc/property.js";
 import { sumField } from "../calc/ledger.js";
-import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
+import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { syncUiModeToggle, applyPeriodVisibility } from "../lib/uimode.js";
 import { optionsHtml, buildTable, modernPlainRowHtml, historyTrendHtml } from "../lib/ledger-table.js";
 import { showToast } from "../lib/toast.js";
 import { appendHistorySnapshot } from "../calc/ledger.js";
+import { renderLineChart } from "../lib/charts.js";
 import { renderPropertyExpensesSummary } from "./expenses.js";
 import { renderProjectionOutputs } from "./projections.js";
 
@@ -266,7 +271,7 @@ function propertyCardHtml(p, colorIdx){
 
   var allSectionsCollapsed = PROPERTY_SECTION_KEYS.every(function(k){ return !!(p.sectionsCollapsed && p.sectionsCollapsed[k]); });
 
-  return '<div class="property-card series-color-' + (colorIdx % 8) + '" data-property-id="' + escapeAttr(p.id) + '">' +
+  return '<div class="property-card series-color-' + (colorIdx % 8) + '" data-property-id="' + escapeAttr(p.id) + '" id="property-card-' + escapeAttr(p.id) + '">' +
     '<div class="property-card-head">' +
       '<h4><input type="text" class="prop-what" value="' + escapeAttr(p.what) + '" aria-label="Property name">' +
       '<select class="prop-kind" aria-label="Property kind">' + optionsHtml(["IP", "PPOR"], p.kind) + '</select></h4>' +
@@ -327,6 +332,110 @@ export function renderPropListModern(propId, section, items, showClass){
   if(container) container.innerHTML = modernPropListHtml(items, section, showClass);
 }
 
+// ---------------- Portfolio-wide overview (stat tiles, equity/debt bar, compare list) ----------------
+// Reuses the same tax-waterfall-bar/-legend component assets.js's own Allocation panel already
+// built (colored proportional bar + a legend row per segment) — same visual language, just two
+// segments (Equity vs Debt) instead of asset categories.
+function propertiesEquityDebtBarHtml(){
+  var segs = [
+    { key: "Equity", value: propertiesTotalEquityToday(), colorClass: "series-color-2" },
+    { key: "Debt", value: propertiesTotalMortgageBalance(), colorClass: "series-color-7" }
+  ];
+  var visible = segs.filter(function(s){ return s.value > 0; });
+  if(!visible.length) return '<p class="ledger-note" style="margin:0">Add a property to see this.</p>';
+  var whole = visible.reduce(function(s, x){ return s + x.value; }, 0);
+  var bar = visible.map(function(s){
+    return '<div class="tax-waterfall-seg ' + s.colorClass + '" style="flex:' + s.value + ' 1 0%" title="' + s.key + ': ' + fmtCurrency0.format(s.value) + ' (' + fmtPercent1.format(whole > 0 ? s.value / whole : 0) + ')"></div>';
+  }).join("");
+  var legend = visible.map(function(s){
+    return '<div class="tax-waterfall-item"><span class="proj-swatch ' + s.colorClass + '"></span><div class="tax-waterfall-item-text"><span class="tax-waterfall-item-label">' + s.key + '</span><span class="tax-waterfall-item-value">' + fmtCurrency0.format(s.value) + '</span></div></div>';
+  }).join("");
+  return '<div class="tax-waterfall-bar">' + bar + '</div><div class="tax-waterfall-legend">' + legend + '</div>';
+}
+export function renderPropertiesSummary(){
+  var statsEl = document.getElementById("propertiesSummaryStats");
+  if(statsEl){
+    if(!state.properties.length){
+      statsEl.innerHTML = "";
+    } else {
+      var netCashFlow = propertiesNetCashFlowMonthly();
+      var weightedYield = propertiesWeightedGrossYield();
+      statsEl.innerHTML =
+        '<div class="stat-tile"><span>Total value</span><b>' + fmtCurrency0.format(propertiesTotalValue()) + '</b><small>across ' + state.properties.length + ' propert' + (state.properties.length === 1 ? "y" : "ies") + '</small></div>' +
+        '<div class="stat-tile" title="Value minus full loan balance, net of offset — matches each card\'s own Net equity tile, summed across the portfolio"><span>Total equity</span><b>' + fmtCurrency0.format(propertiesTotalEquityToday()) + '</b><small>net of offset</small></div>' +
+        '<div class="stat-tile"><span>Total mortgage</span><b>' + fmtCurrency0.format(propertiesTotalMortgageBalance()) + '</b><small>across every loan</small></div>' +
+        '<div class="stat-tile" title="Rent minus expenses and loan repayments, across every investment property"><span>Net cash flow</span><b style="color:' + (netCashFlow < 0 ? "var(--bad)" : "var(--good)") + '">' + (netCashFlow >= 0 ? "+" : "") + fmtCurrency0.format(netCashFlow) + '/mo</b><small>investment properties</small></div>' +
+        '<div class="stat-tile" title="Annual rent ÷ value, weighted by each investment property\'s own value"><span>Avg gross yield</span><b>' + (weightedYield != null ? fmtPercent1.format(weightedYield) : "—") + '</b><small>investment properties</small></div>';
+    }
+  }
+  var barEl = document.getElementById("propertiesEquityDebtBar");
+  if(barEl) barEl.innerHTML = propertiesEquityDebtBarHtml();
+}
+
+// "Total property value over time" — the properties-only counterpart to Assets' Net worth over
+// time chart (renderPortfolioHistoryChart), same reconstruction approach: at each date any
+// property was logged on, take every property's most-recent logged value at-or-before that date
+// (falling back to its current value only on today's synthetic point, for a property that's
+// never been logged). Deliberately gross value, not net of loans — the Equity vs debt bar above
+// already covers the net point-in-time view; this tracks the honestly-available time series
+// (property.history[] snapshots), which is only ever a value log, not a loan-balance log.
+export function renderPropertiesValueHistoryChart(){
+  var container = document.getElementById("propertiesValueHistoryPanel");
+  if(!container) return;
+  var dateSet = {};
+  state.properties.forEach(function(p){ (p.history || []).forEach(function(h){ dateSet[h.date] = true; }); });
+  var dates = Object.keys(dateSet).sort();
+  var today = localDateStr();
+  if(dates.indexOf(today) === -1) dates.push(today);
+
+  if(dates.length < 2){
+    container.innerHTML = '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">Log a value for at least one property (the "Log" button under Property value) on two occasions to start tracking total property value over time.</p>';
+    return;
+  }
+
+  function valueAtDate(history, currentValue, d){
+    if(!history || !history.length) return d === today ? (Number(currentValue) || 0) : 0;
+    var atOrBefore = history.filter(function(h){ return h.date <= d; });
+    if(!atOrBefore.length) return 0;
+    return atOrBefore[atOrBefore.length - 1].value;
+  }
+  var points = dates.map(function(d){
+    var total = state.properties.reduce(function(s, p){ return s + valueAtDate(p.history, p.value, d); }, 0);
+    return { x: new Date(d + "T00:00:00").getTime(), y: total, dateLabel: d };
+  });
+
+  container.innerHTML = "";
+  var chartDiv = document.createElement("div");
+  container.appendChild(chartDiv);
+  renderLineChart(chartDiv, [{ label: "Total property value", colorClass: "series-color-1", points: points }], {
+    height: 220,
+    yFormat: function(v){ return fmtCurrency0.format(v); },
+    xFormat: function(ms){ return new Date(ms).toLocaleDateString(undefined, { year: "numeric", month: "short" }); },
+    xTickCount: Math.min(7, Math.max(2, dates.length)),
+    ariaLabel: "Total property value over time",
+    alwaysLegend: false
+  });
+}
+
+// A compact comparison row per property (value/equity/yield) that doubles as jump-nav to its
+// card below — only worth showing once there's actually more than one property to compare/jump
+// between; a single property has nowhere to jump to and nothing to compare against.
+function propertiesCompareListHtml(){
+  if(state.properties.length < 2) return "";
+  var rows = state.properties.map(function(p, idx){
+    var equity = propertyEquityToday(p);
+    var yieldOnCost = p.kind === "IP" && Number(p.value) > 0 ? sumField(p.income, "yearly") / Number(p.value) : null;
+    return '<button type="button" class="property-compare-row series-color-' + (idx % 8) + '" data-jump-property="' + escapeAttr(p.id) + '">' +
+      '<span class="m-row-dot series-color-' + (idx % 8) + '" aria-hidden="true"></span>' +
+      '<span class="property-compare-name">' + escapeAttr(p.what) + '</span>' +
+      '<span class="property-compare-stat">' + fmtCurrency0.format(Number(p.value) || 0) + '</span>' +
+      '<span class="property-compare-stat">' + fmtCurrency0.format(equity) + ' equity</span>' +
+      (yieldOnCost != null ? '<span class="property-compare-stat">' + fmtPercent1.format(yieldOnCost) + ' yield</span>' : '') +
+    '</button>';
+  }).join("");
+  return '<div class="property-compare-list">' + rows + '</div>';
+}
+
 export function renderProperties(){
   syncUiModeToggle();
   var container = document.getElementById("propertiesBody");
@@ -342,6 +451,10 @@ export function renderProperties(){
   }
   renderPropertyExpensesSummary();
   applyPeriodVisibility();
+  renderPropertiesSummary();
+  renderPropertiesValueHistoryChart();
+  var compareEl = document.getElementById("propertiesCompareList");
+  if(compareEl) compareEl.innerHTML = propertiesCompareListHtml();
 }
 
 export function patchPropertyCardComputed(property){
@@ -412,6 +525,9 @@ export function patchPropertyCardComputed(property){
     acqCostsTotalOut.textContent = acqTotal > 0 ? "— " + fmtCurrency0.format(acqTotal) + " total" : "";
   }
   renderPropertyExpensesSummary();
+  renderPropertiesSummary();
+  var compareEl = document.getElementById("propertiesCompareList");
+  if(compareEl) compareEl.innerHTML = propertiesCompareListHtml();
 }
 
 export function logPropertySnapshot(id){

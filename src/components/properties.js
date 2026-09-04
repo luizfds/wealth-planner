@@ -1,12 +1,17 @@
 import { state, persist } from "../state.js";
-import { propertyEquityToday, propertyGearingAnnual, propertyLoanRepaymentMonthly, loanRepaymentDisplay, propertyCapitalGain, propertyYieldOnCost } from "../calc/property.js";
+import {
+  propertyEquityToday, propertyGearingAnnual, propertyLoanRepaymentMonthly, loanRepaymentDisplay,
+  propertyCapitalGain, propertyYieldOnCost, propertiesTotalValue, propertiesTotalEquityToday,
+  propertiesTotalMortgageBalance, propertiesNetCashFlowMonthly, propertiesWeightedGrossYield
+} from "../calc/property.js";
 import { sumField } from "../calc/ledger.js";
-import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
+import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { syncUiModeToggle, applyPeriodVisibility } from "../lib/uimode.js";
 import { optionsHtml, buildTable, modernPlainRowHtml, historyTrendHtml } from "../lib/ledger-table.js";
 import { showToast } from "../lib/toast.js";
 import { appendHistorySnapshot } from "../calc/ledger.js";
+import { renderLineChart, sparklineHtml, sparklinePlaceholderHtml } from "../lib/charts.js";
 import { renderPropertyExpensesSummary } from "./expenses.js";
 import { renderProjectionOutputs } from "./projections.js";
 
@@ -17,25 +22,24 @@ import { renderProjectionOutputs } from "./projections.js";
 var PAYMENT_FREQS = ["Weekly", "Fortnightly", "Monthly"];
 var PAYMENT_FREQ_SUFFIX = { Weekly: "/wk", Fortnightly: "/fn", Monthly: "/mo" };
 
-// Session-only (not persisted) — mirrors scenarios.js's homeBlockCollapsed exactly, same reason:
-// a structural edit anywhere on the page (adding a loan, an acquisition cost, editing Purchase
-// price) rebuilds this whole card's innerHTML via renderProperties(), which would silently reset
-// a native <details> back to its default open/closed state. Keeping collapse state in this
-// external map instead means it survives that rebuild — re-read on every render, not stored in
-// the DOM. Every property's five sections (value/acquisition/loans/income/expenses) default open,
-// so nothing changes for anyone until they actually collapse something — a property card stacking
-// all five is the single longest scroll in the app on mobile, which is what this exists to shorten.
-export var propertySectionCollapsed = {};
+// Which of a property's five sections (value/acquisition/loans/income/expenses) collapse-all/
+// expand-all should toggle — order here is also the display order, matching propertyCardHtml.
+export var PROPERTY_SECTION_KEYS = ["value", "acquisition", "loans", "income", "expenses"];
 // Wraps one section's already-built head/body HTML with the collapse toggle chrome — shared by
 // every .property-section below (Property value, Acquisition costs, Loans, Income, Expenses) so
 // they all get identical collapse behavior and a consistent title treatment, rather than five
 // slightly different hand-rolled headers. sectionKey only needs to be unique within one property
-// (e.g. "value", "acquisition") — propertySectionCollapsed's own key combines it with property.id.
+// (e.g. "value", "acquisition") — the property card itself scopes it, via property.sectionsCollapsed.
+// Persisted on the property (state.js migration), not session-only — a structural edit anywhere on
+// the page (adding a loan, an acquisition cost, editing Purchase price) rebuilds this whole card's
+// innerHTML via renderProperties(), which would silently reset a native <details> back to its
+// default open/closed state; reading straight off the property object survives that rebuild same
+// as it did when this was a session-only map, but also survives a reload rather than resetting
+// every session to all-open.
 function propertySectionHtml(property, sectionKey, titleHtml, bodyHtml){
-  var key = property.id + ":" + sectionKey;
-  var isCollapsed = !!propertySectionCollapsed[key];
+  var isCollapsed = !!(property.sectionsCollapsed && property.sectionsCollapsed[sectionKey]);
   return '<div class="property-section' + (isCollapsed ? " is-collapsed" : "") + '">' +
-    '<div class="property-section-head" data-prop-section-toggle="' + escapeAttr(key) + '" role="button" tabindex="0" aria-expanded="' + (!isCollapsed) + '">' +
+    '<div class="property-section-head" data-prop-section-toggle="' + escapeAttr(sectionKey) + '" role="button" tabindex="0" aria-expanded="' + (!isCollapsed) + '">' +
       '<span class="icon-btn property-section-toggle" aria-hidden="true"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg></span>' +
       titleHtml +
     '</div>' +
@@ -183,7 +187,17 @@ function acquisitionCostsSectionHtml(p){
   return propertySectionHtml(p, "acquisition", titleHtml, bodyHtml);
 }
 
-function propertyCardHtml(p){
+// One stat tile — shared by both the always-visible "primary" row and the collapsible "More
+// detail" row below it, so the two rows are visually identical, just showing a different subset.
+function propertyStatTileHtml(key, label, valueHtml, opts){
+  opts = opts || {};
+  return '<div class="calc-out' + (opts.emph ? " emph" : "") + '"' + (opts.title ? ' title="' + escapeAttr(opts.title) + '"' : "") + '>' +
+    '<span>' + label + '</span><b data-out="' + key + '"' + (opts.color ? ' style="color:' + opts.color + '"' : "") + '>' + valueHtml + '</b>' +
+    (opts.extraHtml || "") +
+  '</div>';
+}
+
+function propertyCardHtml(p, colorIdx){
   var equity = propertyEquityToday(p);
   var loanRows = (p.loans || []).map(loanRowHtml).join("");
   var hasPmFee = p.kind === "IP";
@@ -226,29 +240,53 @@ function propertyCardHtml(p){
   var usableEquity = Math.max(0, (Number(p.value) || 0) * 0.8 - mortgageBalance);
   var loanRepaymentMonthlyTotal = propertyLoanRepaymentMonthly(p);
   var capitalGain = propertyCapitalGain(p);
-  var summaryTiles =
-    '<div class="calc-out"><span>Valuation</span><b data-out="valuation">' + fmtCurrency0.format(Number(p.value) || 0) + '</b></div>' +
-    '<div class="calc-out"><span>Mortgage balance</span><b data-out="mortgagebalance">' + fmtCurrency0.format(mortgageBalance) + '</b></div>' +
-    '<div class="calc-out" title="Combined across every loan below, each converted to a monthly figure regardless of how it\'s individually displayed."><span>Loan repayment</span><b data-out="loanrepayment">' + fmtCurrency0.format(loanRepaymentMonthlyTotal) + '/mo</b></div>' +
-    '<div class="calc-out emph"><span>Net equity</span><b data-out="netequity">' + fmtCurrency0.format(equity) + '</b></div>' +
-    '<div class="calc-out" title="What you could borrow against this property, up to 80% LVR, without triggering LMI — based on its balance, not netted against any offset (that\'s a separate liquid asset, not more borrowing capacity)."><span>Usable equity</span><b data-out="usableequity">' + fmtCurrency0.format(usableEquity) + '</b></div>';
+  var netCashFlowMonthly = p.kind === "IP" ? propertyGearingAnnual(p) / 12 : null;
+
+  // All seven possible stat tiles, keyed so the primary row (always visible) and the "More
+  // detail" row (collapsed by default) can each pull a distinct subset without duplicating any
+  // tile's markup — a mobile card showing all seven flat used to be ~450px of numbers before any
+  // actual editable content, the single biggest contributor to the page's mobile scroll length.
+  var allTiles = {
+    valuation: propertyStatTileHtml("valuation", "Valuation", fmtCurrency0.format(Number(p.value) || 0), {
+      extraHtml: '<span data-out-spark="valuation">' + (sparklineHtml(p.history) || sparklinePlaceholderHtml()) + '</span>'
+    }),
+    netequity: propertyStatTileHtml("netequity", "Net equity", fmtCurrency0.format(equity), { emph: true }),
+    mortgagebalance: propertyStatTileHtml("mortgagebalance", "Mortgage balance", fmtCurrency0.format(mortgageBalance)),
+    loanrepayment: propertyStatTileHtml("loanrepayment", "Loan repayment", fmtCurrency0.format(loanRepaymentMonthlyTotal) + "/mo", { title: "Combined across every loan below, each converted to a monthly figure regardless of how it's individually displayed." }),
+    usableequity: propertyStatTileHtml("usableequity", "Usable equity", fmtCurrency0.format(usableEquity), { title: "What you could borrow against this property, up to 80% LVR, without triggering LMI — based on its balance, not netted against any offset (that's a separate liquid asset, not more borrowing capacity)." })
+  };
   if(capitalGain){
-    summaryTiles += '<div class="calc-out" data-tile="capitalgain" title="Current value minus what you paid"><span>Capital gain</span><b data-out="capitalgain" style="color:' + (capitalGain.gain >= 0 ? "var(--good)" : "var(--bad)") + '">' + (capitalGain.gain >= 0 ? "+" : "") + fmtCurrency0.format(capitalGain.gain) + ' (' + (capitalGain.gain >= 0 ? "+" : "") + fmtPercent1.format(capitalGain.pct) + ')</b></div>';
+    allTiles.capitalgain = propertyStatTileHtml("capitalgain", "Capital gain",
+      (capitalGain.gain >= 0 ? "+" : "") + fmtCurrency0.format(capitalGain.gain) + ' (' + (capitalGain.gain >= 0 ? "+" : "") + fmtPercent1.format(capitalGain.pct) + ')',
+      { title: "Current value minus what you paid", color: capitalGain.gain >= 0 ? "var(--good)" : "var(--bad)" });
   }
-  if(p.kind === "IP"){
-    var netCashFlowMonthly = propertyGearingAnnual(p) / 12;
-    summaryTiles += '<div class="calc-out"><span>Net cash flow</span><b data-out="cashflow" style="color:' + (netCashFlowMonthly < 0 ? "var(--bad)" : "var(--good)") + '">' + (netCashFlowMonthly >= 0 ? "+" : "") + fmtCurrency0.format(netCashFlowMonthly) + '/mo</b></div>';
+  if(netCashFlowMonthly != null){
+    allTiles.cashflow = propertyStatTileHtml("cashflow", "Net cash flow",
+      (netCashFlowMonthly >= 0 ? "+" : "") + fmtCurrency0.format(netCashFlowMonthly) + '/mo',
+      { color: netCashFlowMonthly < 0 ? "var(--bad)" : "var(--good)" });
   }
-  return '<div class="property-card" data-property-id="' + escapeAttr(p.id) + '">' +
-    '<div class="home-block-head">' +
-      '<div class="home-block-head-left">' +
-        '<h4><input type="text" class="prop-what" value="' + escapeAttr(p.what) + '" aria-label="Property name">' +
-        '<select class="prop-kind" aria-label="Property kind">' + optionsHtml(["IP", "PPOR"], p.kind) + '</select></h4>' +
-        gearingBadge + yieldBadge +
-      '</div>' +
-      '<button type="button" class="btn btn-ghost btn-sm row-del" data-property-del="' + escapeAttr(p.id) + '" aria-label="Delete property">✕</button>' +
+  // Third primary tile: whichever of "how this property is doing right now" is most relevant —
+  // net cash flow for an IP (is it costing or earning money this month), capital gain for a PPOR
+  // with a known purchase price, usable equity as the fallback when neither applies yet.
+  var thirdPrimaryKey = allTiles.cashflow ? "cashflow" : (allTiles.capitalgain ? "capitalgain" : "usableequity");
+  var primaryKeys = ["valuation", "netequity", thirdPrimaryKey];
+  var primaryTiles = primaryKeys.map(function(k){ return allTiles[k]; }).join("");
+  var moreTiles = Object.keys(allTiles).filter(function(k){ return primaryKeys.indexOf(k) === -1; }).map(function(k){ return allTiles[k]; }).join("");
+
+  var allSectionsCollapsed = PROPERTY_SECTION_KEYS.every(function(k){ return !!(p.sectionsCollapsed && p.sectionsCollapsed[k]); });
+
+  return '<div class="property-card series-color-' + (colorIdx % 8) + '" data-property-id="' + escapeAttr(p.id) + '" id="property-card-' + escapeAttr(p.id) + '">' +
+    '<div class="property-card-head">' +
+      '<h4><input type="text" class="prop-what" value="' + escapeAttr(p.what) + '" aria-label="Property name">' +
+      '<select class="prop-kind" aria-label="Property kind">' + optionsHtml(["IP", "PPOR"], p.kind) + '</select></h4>' +
+      '<button type="button" class="btn btn-ghost btn-sm row-del property-del-btn" data-property-del="' + escapeAttr(p.id) + '" aria-label="Delete property">✕</button>' +
     '</div>' +
-    '<div class="calc-outputs">' + summaryTiles + '</div>' +
+    (gearingBadge || yieldBadge ? '<div class="property-card-badges">' + gearingBadge + yieldBadge + '</div>' : '') +
+    '<div class="calc-outputs">' + primaryTiles + '</div>' +
+    (moreTiles ? '<details class="tax-advanced m-more-options property-stats-more"><summary>More detail</summary><div class="calc-outputs" style="margin-top:10px">' + moreTiles + '</div></details>' : '') +
+    '<div class="property-card-actions">' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-prop-collapse-toggle="' + escapeAttr(p.id) + '">' + (allSectionsCollapsed ? "Expand all" : "Collapse all") + '</button>' +
+    '</div>' +
     propertySectionHtml(p, "value",
       '<div class="property-section-title">Property value</div>',
       '<div class="calc-grid">' +
@@ -298,12 +336,116 @@ export function renderPropListModern(propId, section, items, showClass){
   if(container) container.innerHTML = modernPropListHtml(items, section, showClass);
 }
 
+// ---------------- Portfolio-wide overview (stat tiles, equity/debt bar, compare list) ----------------
+// Reuses the same tax-waterfall-bar/-legend component assets.js's own Allocation panel already
+// built (colored proportional bar + a legend row per segment) — same visual language, just two
+// segments (Equity vs Debt) instead of asset categories.
+function propertiesEquityDebtBarHtml(){
+  var segs = [
+    { key: "Equity", value: propertiesTotalEquityToday(), colorClass: "series-color-2" },
+    { key: "Debt", value: propertiesTotalMortgageBalance(), colorClass: "series-color-7" }
+  ];
+  var visible = segs.filter(function(s){ return s.value > 0; });
+  if(!visible.length) return '<p class="ledger-note" style="margin:0">Add a property to see this.</p>';
+  var whole = visible.reduce(function(s, x){ return s + x.value; }, 0);
+  var bar = visible.map(function(s){
+    return '<div class="tax-waterfall-seg ' + s.colorClass + '" style="flex:' + s.value + ' 1 0%" title="' + s.key + ': ' + fmtCurrency0.format(s.value) + ' (' + fmtPercent1.format(whole > 0 ? s.value / whole : 0) + ')"></div>';
+  }).join("");
+  var legend = visible.map(function(s){
+    return '<div class="tax-waterfall-item"><span class="proj-swatch ' + s.colorClass + '"></span><div class="tax-waterfall-item-text"><span class="tax-waterfall-item-label">' + s.key + '</span><span class="tax-waterfall-item-value">' + fmtCurrency0.format(s.value) + '</span></div></div>';
+  }).join("");
+  return '<div class="tax-waterfall-bar">' + bar + '</div><div class="tax-waterfall-legend">' + legend + '</div>';
+}
+export function renderPropertiesSummary(){
+  var statsEl = document.getElementById("propertiesSummaryStats");
+  if(statsEl){
+    if(!state.properties.length){
+      statsEl.innerHTML = "";
+    } else {
+      var netCashFlow = propertiesNetCashFlowMonthly();
+      var weightedYield = propertiesWeightedGrossYield();
+      statsEl.innerHTML =
+        '<div class="stat-tile"><span>Total value</span><b>' + fmtCurrency0.format(propertiesTotalValue()) + '</b><small>across ' + state.properties.length + ' propert' + (state.properties.length === 1 ? "y" : "ies") + '</small></div>' +
+        '<div class="stat-tile" title="Value minus full loan balance, net of offset — matches each card\'s own Net equity tile, summed across the portfolio"><span>Total equity</span><b>' + fmtCurrency0.format(propertiesTotalEquityToday()) + '</b><small>net of offset</small></div>' +
+        '<div class="stat-tile"><span>Total mortgage</span><b>' + fmtCurrency0.format(propertiesTotalMortgageBalance()) + '</b><small>across every loan</small></div>' +
+        '<div class="stat-tile" title="Rent minus expenses and loan repayments, across every investment property"><span>Net cash flow</span><b style="color:' + (netCashFlow < 0 ? "var(--bad)" : "var(--good)") + '">' + (netCashFlow >= 0 ? "+" : "") + fmtCurrency0.format(netCashFlow) + '/mo</b><small>investment properties</small></div>' +
+        '<div class="stat-tile" title="Annual rent ÷ value, weighted by each investment property\'s own value"><span>Avg gross yield</span><b>' + (weightedYield != null ? fmtPercent1.format(weightedYield) : "—") + '</b><small>investment properties</small></div>';
+    }
+  }
+  var barEl = document.getElementById("propertiesEquityDebtBar");
+  if(barEl) barEl.innerHTML = propertiesEquityDebtBarHtml();
+}
+
+// "Total property value over time" — the properties-only counterpart to Assets' Net worth over
+// time chart (renderPortfolioHistoryChart), same reconstruction approach: at each date any
+// property was logged on, take every property's most-recent logged value at-or-before that date
+// (falling back to its current value only on today's synthetic point, for a property that's
+// never been logged). Deliberately gross value, not net of loans — the Equity vs debt bar above
+// already covers the net point-in-time view; this tracks the honestly-available time series
+// (property.history[] snapshots), which is only ever a value log, not a loan-balance log.
+export function renderPropertiesValueHistoryChart(){
+  var container = document.getElementById("propertiesValueHistoryPanel");
+  if(!container) return;
+  var dateSet = {};
+  state.properties.forEach(function(p){ (p.history || []).forEach(function(h){ dateSet[h.date] = true; }); });
+  var dates = Object.keys(dateSet).sort();
+  var today = localDateStr();
+  if(dates.indexOf(today) === -1) dates.push(today);
+
+  if(dates.length < 2){
+    container.innerHTML = '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">Log a value for at least one property (the "Log" button under Property value) on two occasions to start tracking total property value over time.</p>';
+    return;
+  }
+
+  function valueAtDate(history, currentValue, d){
+    if(!history || !history.length) return d === today ? (Number(currentValue) || 0) : 0;
+    var atOrBefore = history.filter(function(h){ return h.date <= d; });
+    if(!atOrBefore.length) return 0;
+    return atOrBefore[atOrBefore.length - 1].value;
+  }
+  var points = dates.map(function(d){
+    var total = state.properties.reduce(function(s, p){ return s + valueAtDate(p.history, p.value, d); }, 0);
+    return { x: new Date(d + "T00:00:00").getTime(), y: total, dateLabel: d };
+  });
+
+  container.innerHTML = "";
+  var chartDiv = document.createElement("div");
+  container.appendChild(chartDiv);
+  renderLineChart(chartDiv, [{ label: "Total property value", colorClass: "series-color-1", points: points }], {
+    height: 220,
+    yFormat: function(v){ return fmtCurrency0.format(v); },
+    xFormat: function(ms){ return new Date(ms).toLocaleDateString(undefined, { year: "numeric", month: "short" }); },
+    xTickCount: Math.min(7, Math.max(2, dates.length)),
+    ariaLabel: "Total property value over time",
+    alwaysLegend: false
+  });
+}
+
+// A compact comparison row per property (value/equity/yield) that doubles as jump-nav to its
+// card below — only worth showing once there's actually more than one property to compare/jump
+// between; a single property has nowhere to jump to and nothing to compare against.
+function propertiesCompareListHtml(){
+  if(state.properties.length < 2) return "";
+  var rows = state.properties.map(function(p, idx){
+    var equity = propertyEquityToday(p);
+    var yieldOnCost = p.kind === "IP" && Number(p.value) > 0 ? sumField(p.income, "yearly") / Number(p.value) : null;
+    return '<button type="button" class="property-compare-row series-color-' + (idx % 8) + '" data-jump-property="' + escapeAttr(p.id) + '">' +
+      '<span class="m-row-dot series-color-' + (idx % 8) + '" aria-hidden="true"></span>' +
+      '<span class="property-compare-name">' + escapeAttr(p.what) + '</span>' +
+      '<span class="property-compare-stat">' + fmtCurrency0.format(Number(p.value) || 0) + '</span>' +
+      '<span class="property-compare-stat">' + fmtCurrency0.format(equity) + ' equity</span>' +
+      (yieldOnCost != null ? '<span class="property-compare-stat">' + fmtPercent1.format(yieldOnCost) + ' yield</span>' : '') +
+    '</button>';
+  }).join("");
+  return '<div class="property-compare-list">' + rows + '</div>';
+}
+
 export function renderProperties(){
   syncUiModeToggle();
   var container = document.getElementById("propertiesBody");
   if(!container) return;
   container.innerHTML = state.properties.length
-    ? state.properties.map(propertyCardHtml).join("")
+    ? state.properties.map(function(p, idx){ return propertyCardHtml(p, idx); }).join("")
     : '<p class="ledger-note" style="margin:0">No properties yet — add one below to start tracking its value, loans, and (for an investment property) rent and expenses.</p>';
   if(state.uiMode !== "modern"){
     state.properties.forEach(function(p){
@@ -313,6 +455,10 @@ export function renderProperties(){
   }
   renderPropertyExpensesSummary();
   applyPeriodVisibility();
+  renderPropertiesSummary();
+  renderPropertiesValueHistoryChart();
+  var compareEl = document.getElementById("propertiesCompareList");
+  if(compareEl) compareEl.innerHTML = propertiesCompareListHtml();
 }
 
 export function patchPropertyCardComputed(property){
@@ -383,6 +529,9 @@ export function patchPropertyCardComputed(property){
     acqCostsTotalOut.textContent = acqTotal > 0 ? "— " + fmtCurrency0.format(acqTotal) + " total" : "";
   }
   renderPropertyExpensesSummary();
+  renderPropertiesSummary();
+  var compareEl = document.getElementById("propertiesCompareList");
+  if(compareEl) compareEl.innerHTML = propertiesCompareListHtml();
 }
 
 export function logPropertySnapshot(id){

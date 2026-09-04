@@ -88,3 +88,25 @@ test("migrateState turns a legacy $0 acquisitionCosts into an empty array, not a
   });
   assert.deepEqual(s.properties[0].acquisitionCosts, []);
 });
+
+test("migrateState defaults a property's sectionsCollapsed to acquisition/loans/income/expenses collapsed, value left open", function(){
+  var s = migrateState({
+    activeScenario: "Current situation",
+    scenarios: ["Current situation"],
+    home: { "Current situation": [] },
+    purchase: {},
+    properties: [{ id: "p1", what: "1 Test St" }]
+  });
+  assert.deepEqual(s.properties[0].sectionsCollapsed, { acquisition: true, loans: true, income: true, expenses: true });
+});
+
+test("migrateState leaves an already-set sectionsCollapsed alone (doesn't overwrite a user's own toggles)", function(){
+  var s = migrateState({
+    activeScenario: "Current situation",
+    scenarios: ["Current situation"],
+    home: { "Current situation": [] },
+    purchase: {},
+    properties: [{ id: "p1", what: "1 Test St", sectionsCollapsed: { acquisition: false, loans: true, income: false, expenses: true } }]
+  });
+  assert.deepEqual(s.properties[0].sectionsCollapsed, { acquisition: false, loans: true, income: false, expenses: true });
+});

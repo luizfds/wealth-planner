@@ -299,6 +299,16 @@ export function migrateState(s){
     // monthly disbursement — this just notes that expectation on the card, defaulting to the
     // overwhelmingly common case rather than leaving it unset.
     if(p.incomePaidFreq == null) p.incomePaidFreq = "Monthly";
+    // Which of the card's five sections (value/acquisition/loans/income/expenses) are collapsed —
+    // was a session-only in-memory map (propertySectionCollapsed) before this, which meant every
+    // reload started from the same all-open state no matter what the user last set. Defaulting
+    // everyone to acquisition/loans/income/expenses collapsed (value stays open) on first migration
+    // through this code is deliberate, not just a placeholder default: a property card stacking all
+    // five open is the single longest scroll in the app on mobile, and nobody has "customized" this
+    // away from all-open before now since persistence didn't exist yet to customize.
+    if(!p.sectionsCollapsed || typeof p.sectionsCollapsed !== "object"){
+      p.sectionsCollapsed = { acquisition: true, loans: true, income: true, expenses: true };
+    }
     p.loans.forEach(function(l){
       if(l.id == null) l.id = genId("l");
       if(l.repaymentMode !== "manual") l.repaymentMode = "auto";

@@ -11,7 +11,7 @@ import { syncUiModeToggle, applyPeriodVisibility } from "../lib/uimode.js";
 import { optionsHtml, buildTable, modernPlainRowHtml, historyTrendHtml } from "../lib/ledger-table.js";
 import { showToast } from "../lib/toast.js";
 import { appendHistorySnapshot } from "../calc/ledger.js";
-import { renderLineChart } from "../lib/charts.js";
+import { renderLineChart, sparklineHtml, sparklinePlaceholderHtml } from "../lib/charts.js";
 import { renderPropertyExpensesSummary } from "./expenses.js";
 import { renderProjectionOutputs } from "./projections.js";
 
@@ -192,7 +192,9 @@ function acquisitionCostsSectionHtml(p){
 function propertyStatTileHtml(key, label, valueHtml, opts){
   opts = opts || {};
   return '<div class="calc-out' + (opts.emph ? " emph" : "") + '"' + (opts.title ? ' title="' + escapeAttr(opts.title) + '"' : "") + '>' +
-    '<span>' + label + '</span><b data-out="' + key + '"' + (opts.color ? ' style="color:' + opts.color + '"' : "") + '>' + valueHtml + '</b></div>';
+    '<span>' + label + '</span><b data-out="' + key + '"' + (opts.color ? ' style="color:' + opts.color + '"' : "") + '>' + valueHtml + '</b>' +
+    (opts.extraHtml || "") +
+  '</div>';
 }
 
 function propertyCardHtml(p, colorIdx){
@@ -245,7 +247,9 @@ function propertyCardHtml(p, colorIdx){
   // tile's markup — a mobile card showing all seven flat used to be ~450px of numbers before any
   // actual editable content, the single biggest contributor to the page's mobile scroll length.
   var allTiles = {
-    valuation: propertyStatTileHtml("valuation", "Valuation", fmtCurrency0.format(Number(p.value) || 0)),
+    valuation: propertyStatTileHtml("valuation", "Valuation", fmtCurrency0.format(Number(p.value) || 0), {
+      extraHtml: '<span data-out-spark="valuation">' + (sparklineHtml(p.history) || sparklinePlaceholderHtml()) + '</span>'
+    }),
     netequity: propertyStatTileHtml("netequity", "Net equity", fmtCurrency0.format(equity), { emph: true }),
     mortgagebalance: propertyStatTileHtml("mortgagebalance", "Mortgage balance", fmtCurrency0.format(mortgageBalance)),
     loanrepayment: propertyStatTileHtml("loanrepayment", "Loan repayment", fmtCurrency0.format(loanRepaymentMonthlyTotal) + "/mo", { title: "Combined across every loan below, each converted to a monthly figure regardless of how it's individually displayed." }),

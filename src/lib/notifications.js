@@ -75,6 +75,7 @@ export function markAllNotificationsRead(notifications){
 function dueBillNotifications(){
   var today = todayStr();
   return state.shared
+    .filter(function(item){ return !item.irregular; })
     .map(function(item){
       var lastDate = lastTransactionDateFor(state.transactions, item.id);
       if(lastDate === today) return null;
@@ -97,7 +98,11 @@ function dueBillNotifications(){
 }
 // Shared expenses with no transaction logged recently enough against their own frequency —
 // matching expenses.js's own isDueForReview() (duplicated here as a plain predicate rather than
-// imported, so this file only depends on the pure calc layer, not a UI component).
+// imported, so this file only depends on the pure calc layer, not a UI component). Items marked
+// item.irregular (Extras, property maintenance — a lumpy spend with no predictable schedule) are
+// excluded here and from dueBillNotifications() above: nagging for "a fresh entry" on a schedule
+// that was never real to begin with is exactly the false-alarm this flag exists to silence — see
+// expenses.js's renderActualVsPlannedPanel() for how these are compared against a budget instead.
 //
 // Collapsed into a single notification rather than one per item — this is the one source here
 // with no natural cap on how many can fire at once (dueBillNotifications is bounded by
@@ -111,6 +116,7 @@ function dueBillNotifications(){
 // gets logged and drops out).
 function reviewDueNotifications(){
   var due = state.shared.filter(function(item){
+    if(item.irregular) return false;
     var lastDate = lastTransactionDateFor(state.transactions, item.id);
     return lastDate ? isOverdue(lastDate, item.freq) : true;
   });

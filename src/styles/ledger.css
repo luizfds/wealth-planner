@@ -347,6 +347,16 @@
   .m-edit-field .sacrifice-wrap{ display:flex; align-items:center; gap:4px; }
   .m-edit-field .sacrifice-wrap input{ flex: 0 0 64px; }
   .m-more-options{ margin-top:10px; }
+  /* Generic "more options" disclosure for a row's less-common fields (currently just the
+     irregular/due-month timing fields — see lib/ledger-table.js's timingFieldsHtml()) — same
+     look as income.js's own bespoke .tax-advanced details, factored out so any row built on the
+     shared modernPlainRowHtml() can use it too without depending on an income-specific class. */
+  .row-more-options{ margin-top:10px; }
+  .row-more-options summary{ cursor:pointer; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; padding:6px 0; user-select:none; }
+  .row-more-options summary:hover{ color: var(--ink); }
+  .row-more-options[open] summary{ margin-bottom:8px; }
+  .m-checkbox-field{ display:flex; align-items:center; gap:7px; font-size:12.5px; color: var(--ink); cursor:pointer; }
+  .m-checkbox-field input{ width:auto !important; }
   .m-edit-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:10px; }
   .m-row.computed .m-row-summary{ background: var(--brass-wash); cursor:default; }
   .m-row.computed .m-row-name{ color: var(--brass-strong); }

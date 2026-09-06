@@ -392,6 +392,8 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     else if(e.target.classList.contains("f-superincluded")){ item.superMode = e.target.value; }
     else if(e.target.classList.contains("f-sacrificemode")){ item.sacrificeMode = sacrificeLabelToMode(e.target.value); structural = true; }
     else if(e.target.classList.contains("f-sacrificevalue")){ item.sacrificeValue = parseFloat(e.target.value) || 0; }
+    else if(e.target.classList.contains("f-irregular")) item.irregular = e.target.checked;
+    else if(e.target.classList.contains("f-duemonth")) item.dueMonth = e.target.value ? Number(e.target.value) : null;
     else return;
 
     if(e.target.classList.contains("f-amount") || e.target.classList.contains("f-freq")){
@@ -421,6 +423,10 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       rerenderTableFor("shared");
     } else if(section === "shared"){
       patchSharedGroupTotals();
+      // Toggling "irregular" moves this item between the regular monthly rows and the
+      // year-to-date reserve section below on the same page — worth a live refresh rather than
+      // waiting for whatever next unrelated action happens to re-render the panel.
+      if(e.target.classList.contains("f-irregular")) renderActualVsPlannedPanel();
     } else if(section.indexOf("propinc:") === 0){
       rerenderTableFor("propexp:" + section.slice(8));
       patchSyntheticIncomeRows();

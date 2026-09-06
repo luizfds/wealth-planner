@@ -125,9 +125,12 @@
       </label>
       <p class="app-sidebar-note">Stored only in this browser (<code>localStorage</code>) — nothing is sent anywhere. Clearing your browser data clears this too, so <button class="link-btn" id="exportLink2">Export</button> a backup now and then.</p>
       <a class="feature-request-link" href="https://github.com/luizfds/wealth-planner/issues/new" target="_blank" rel="noopener noreferrer">💡 Request a feature</a>
-      <p class="app-version">v2.45.0</p>
+      <p class="app-version">v2.50.0</p>
     </div>
     <div class="mobile-header-right">
+      <button type="button" class="icon-btn" id="mobileSearchBtn" aria-label="Search">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="6"/><path d="M17 17l-4-4"/></svg>
+      </button>
       <button type="button" class="notif-bell-btn mobile-notif-bell" id="mobileNotifBellBtn" aria-haspopup="true" aria-expanded="false" aria-label="Notifications">
         <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3a5 5 0 0 0-5 5v2.5L3.5 14h13L15 10.5V8a5 5 0 0 0-5-5z"/><path d="M8.2 16.5a1.9 1.9 0 0 0 3.6 0"/></svg>
         <span class="notif-badge" hidden></span>
@@ -147,6 +150,9 @@
         </div>
       </div>
       <div class="actions">
+        <button type="button" class="icon-btn" id="searchBtn" aria-label="Search" title="Search expenses, transactions, income, assets, properties, debts and accounts">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="6"/><path d="M17 17l-4-4"/></svg>
+        </button>
         <button type="button" class="notif-bell-btn" id="notifBellBtn" aria-haspopup="true" aria-expanded="false" aria-label="Notifications">
           <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3a5 5 0 0 0-5 5v2.5L3.5 14h13L15 10.5V8a5 5 0 0 0-5-5z"/><path d="M8.2 16.5a1.9 1.9 0 0 0 3.6 0"/></svg>
           <span class="notif-badge" hidden></span>
@@ -173,27 +179,41 @@
         <p class="page-intro" id="dashboardIntro">Compare renting against buying, scenario by scenario — keep any investment property in the mix across every option. Nothing here is pre-filled; add your own numbers or click "Sample data" above to try it out first.</p>
 
         <div class="stat-row" id="dashboardStats"></div>
+        <button type="button" class="calc-hint-link" id="dashboardProjectionsLink" style="display:block;margin:4px 0 2px">See your long-term projection (all scenarios, 20 years out) →</button>
 
         <div id="staleAssetsBanner"></div>
 
-        <div class="cards" id="cards" role="radiogroup" aria-label="Choose active scenario"></div>
+        <!-- Overview (top stats + scenario comparison) vs. Insights (50/30/20, FI progress, actual
+             vs. expected, etc.) — a daily 5-second glance only needs the former; splitting them the
+             same way Assets already splits Summary/Cash/Shares/... means Insights' six cards stop
+             adding to the scroll length of every single visit, not just the ones that want them. -->
+        <div class="subnav" id="dashboardSubnav">
+          <button type="button" class="subnav-item active" data-dashboard-sub="overview">Overview</button>
+          <button type="button" class="subnav-item" data-dashboard-sub="insights">Insights</button>
+        </div>
 
-        <div class="detail">
-          <div class="detail-label">Active scenario detail — <strong id="activeLabel"></strong></div>
-          <div class="detail-grid">
-            <div class="panel">
-              <h3>The 50/30/20 rule <span style="font-weight:400;color:var(--ink-soft)">— monthly</span></h3>
-              <div class="rule-bar" id="ruleBar"></div>
-              <div class="rule-legend" id="ruleLegend"></div>
+        <div class="dashboard-subpage" id="dashboardSub-overview">
+          <div class="cards" id="cards" role="radiogroup" aria-label="Choose active scenario"></div>
+        </div>
+
+        <div class="dashboard-subpage" id="dashboardSub-insights" hidden>
+          <div class="detail">
+            <div class="detail-label">Active scenario detail — <strong id="activeLabel"></strong></div>
+            <div class="detail-grid">
+              <div class="panel">
+                <h3>The 50/30/20 rule <span style="font-weight:400;color:var(--ink-soft)">— monthly</span></h3>
+                <div class="rule-bar" id="ruleBar"></div>
+                <div class="rule-legend" id="ruleLegend"></div>
+              </div>
+              <div class="panel">
+                <h3>Monthly expenses by account</h3>
+                <div id="acctList"></div>
+              </div>
+              <div class="panel" id="firePanel"></div>
+              <div class="panel" id="actualVsExpectedPanel"></div>
+              <div class="panel" id="upcomingBillsPanel"></div>
+              <div class="panel" id="projectionAccuracyPanel"></div>
             </div>
-            <div class="panel">
-              <h3>Monthly expenses by account</h3>
-              <div id="acctList"></div>
-            </div>
-            <div class="panel" id="firePanel"></div>
-            <div class="panel" id="actualVsExpectedPanel"></div>
-            <div class="panel" id="upcomingBillsPanel"></div>
-            <div class="panel" id="projectionAccuracyPanel"></div>
           </div>
         </div>
       </section>
@@ -513,9 +533,9 @@
     </span>
   </button>
   <div class="mobile-more-panel" id="mobileMorePanel" hidden>
-    <button type="button" class="mobile-more-item" data-page="accounts">Accounts</button>
     <button type="button" class="mobile-more-item" data-page="scenarios">Scenarios</button>
     <button type="button" class="mobile-more-item" data-page="projections">Projections</button>
+    <button type="button" class="mobile-more-item" data-page="accounts">Accounts</button>
     <div class="mobile-more-divider"></div>
     <button type="button" class="mobile-more-item" id="mobileThemeBtn">Theme: System</button>
     <button type="button" class="mobile-more-item" id="mobileLayoutBtn">Layout: Classic</button>
@@ -538,9 +558,14 @@
   </div>
 </nav>
 
+<button type="button" class="quick-fab" id="quickFab" hidden>
+  <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M10 3v14M3 10h14"/></svg>
+</button>
+
 <div class="toast-wrap" id="toastWrap"></div>
 <div id="scenarioOverrideRoot"></div>
 <div id="expenseReviewRoot"></div>
 <div id="notifPanelRoot"></div>
+<div id="searchRoot"></div>
 
 <script type="module" src="src/app.js"></script>

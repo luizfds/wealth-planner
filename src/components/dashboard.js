@@ -7,6 +7,7 @@ import { fmtCurrency0, fmtPercent1, fmtRunway, localDateStr } from "../lib/forma
 import { escapeAttr } from "../lib/html.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { renderLineChart } from "../lib/charts.js";
+import { staleAssetNamesList } from "../lib/notifications.js";
 
 export function renderCards(){
   var el = document.getElementById("cards");
@@ -113,12 +114,9 @@ function renderStaleAssetsBanner(){
   if(!el) return;
   var stale = staleAssets();
   if(!stale.length){ el.innerHTML = ""; return; }
-  var names = stale.map(function(s){
-    return escapeAttr(s.what) + (s.days == null ? " (never logged)" : " (" + s.days + "d ago)");
-  }).join(", ");
   el.innerHTML =
     '<div class="stale-assets-note" title="Log a fresh value for each (Assets tab → Log) to keep net worth history and the Actual vs. expected panel accurate.">' +
-      '<span>⏱</span> ' + stale.length + " asset" + (stale.length === 1 ? "" : "s") + " haven't been logged in 30+ days — " + names +
+      '<span>⏱</span> ' + escapeAttr(stale.length + " asset" + (stale.length === 1 ? "" : "s") + " haven't been logged in 30+ days — " + staleAssetNamesList(stale)) +
     '</div>';
 }
 

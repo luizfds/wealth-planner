@@ -125,3 +125,24 @@
     .mobile-more-divider{ height:1px; background: var(--border); margin:6px 4px; }
     .mobile-more-version{ font-size:10.5px; color: var(--ink-soft); padding:8px 10px 2px; margin:4px 0 0; border-top:1px solid var(--border); }
   }
+
+  /* ---------------- Quick-action button ---------------- */
+  /* One button, present on every page, whose target/label/handler app.js swaps per page (see
+     updateQuickFab()) — the single most common "add/log something" action for wherever you
+     currently are, reachable without scrolling to the bottom of that page's own section. Hidden
+     via the [hidden] attribute (not a class) on pages with no single obvious action (Projections)
+     or a currently-empty target (e.g. Assets' Summary subpage, which has no add button of its
+     own) — see CLAUDE.md's [hidden] gotcha for why author CSS must repeat that rule explicitly. */
+  .quick-fab{
+    all:unset; box-sizing:border-box; position:fixed; right:20px; bottom:24px; z-index:16;
+    width:52px; height:52px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    background: var(--brass); color:#fff; box-shadow: 0 6px 18px rgba(0,0,0,0.28); cursor:pointer;
+    transition: transform .12s ease, background-color .15s ease;
+  }
+  .quick-fab[hidden]{ display:none; }
+  .quick-fab:hover{ background: var(--brass-strong); }
+  .quick-fab:active{ transform: scale(0.92); }
+  .quick-fab:focus-visible{ outline:none; box-shadow: var(--focus-ring), 0 6px 18px rgba(0,0,0,0.28); }
+  @media (max-width: 880px){
+    .quick-fab{ right:16px; bottom: calc(78px + env(safe-area-inset-bottom) + 14px); }
+  }

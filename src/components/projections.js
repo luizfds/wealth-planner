@@ -57,5 +57,15 @@ export function renderProjectionOutputs(){
       "</td>" + cells + "</tr>";
   }).join("");
   table.innerHTML = "<thead>" + headRow + "</thead><tbody>" + bodyRows + "</tbody>";
-  container.appendChild(table);
+  // Every other wide table in the app (Loans, ledger tables, Assets' worth-table) gets wrapped in
+  // .table-scroll for a bounded horizontal scroll, a mobile edge-fade + sticky first column, and
+  // a scroll-position-aware fade on wider viewports (see lib/scroll-shadow.js) — this table was
+  // appended bare with none of that, so on mobile its later milestone columns (Year 15, Year 20 —
+  // exactly the numbers this whole page exists to show) were clipped with no indication there was
+  // more to scroll to, or in some cases forced the whole page to scroll sideways instead.
+  var scrollWrap = document.createElement("div");
+  scrollWrap.className = "table-scroll";
+  scrollWrap.style.marginTop = "16px";
+  scrollWrap.appendChild(table);
+  container.appendChild(scrollWrap);
 }

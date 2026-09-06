@@ -138,21 +138,48 @@ function reviewDueNotifications(){
     page: "expenses"
   }];
 }
-// Assets not logged in 30+ days — assets have no stable id (see assets.js), so this falls back to
-// name-based identity: acceptable here since the cost of a false "unread" after a rename is just
-// seeing the reminder once more, not losing anything.
+// Shared "<name> (never logged)" / "<name> (Nd ago)" comma-joined formatting — used by both this
+// file's own stale-asset notification below and the Dashboard's separate inline banner
+// (dashboard.js's renderStaleAssetsBanner), so the two surfaces can never drift out of sync on
+// how a stale asset's age gets worded, even though each wraps it in its own surrounding sentence.
+export function staleAssetNamesList(stale){
+  return stale.map(function(s){ return s.what + (s.days == null ? " (never logged)" : " (" + s.days + "d ago)"); }).join(", ");
+}
+// Assets not logged in 30+ days — assets have no stable id (see assets.js), so identity for a
+// single item falls back to its name (acceptable: the cost of a false "unread" after a rename is
+// just seeing the reminder once more, not losing anything). Grouped into one notification once
+// there's more than one, same shape as reviewDueNotifications() above. A fixed 30-day cliff does
+// put a "natural cap" on how large this can get (it can't grow unboundedly the way an ungrouped
+// reviewDue once did) — but that only bounds it, it doesn't stop it being repetitive: a household
+// tracking two Super accounts, a car, and a couple of cash accounts can easily have 4-5 go stale
+// at once (e.g. after a long trip), and the Dashboard's own stale-assets banner already collapses
+// that exact set into one line — this keeps the bell panel consistent with it instead of listing
+// the same items as several visually-identical separate notifications.
 function staleAssetNotifications(){
-  return staleAssets().map(function(s){
-    return {
-      id: "stale:" + s.what,
+  var stale = staleAssets();
+  if(!stale.length) return [];
+  if(stale.length === 1){
+    var only = stale[0];
+    return [{
+      id: "stale:" + only.what,
       type: "stale-asset",
       severity: "info",
-      title: s.what + " hasn't been logged recently",
-      detail: s.days == null ? "Never logged a value" : ("Last logged " + s.days + " days ago"),
+      title: only.what + " hasn't been logged recently",
+      detail: only.days == null ? "Never logged a value" : ("Last logged " + only.days + " days ago"),
       date: todayStr(),
       page: "assets"
-    };
-  });
+    }];
+  }
+  var extraCount = stale.length - 3;
+  return [{
+    id: "stale:" + stale.map(function(s){ return s.what; }).sort().join(","),
+    type: "stale-asset",
+    severity: "info",
+    title: stale.length + " assets haven't been logged recently",
+    detail: staleAssetNamesList(stale.slice(0, 3)) + (extraCount > 0 ? " and " + extraCount + " more" : "") + " — log a fresh value on the Assets tab.",
+    date: todayStr(),
+    page: "assets"
+  }];
 }
 // Shares/crypto prices going stale, and (when the portfolio actually holds anything priced in
 // USD) the USD → AUD conversion rate going stale or never having been set — both refreshed by

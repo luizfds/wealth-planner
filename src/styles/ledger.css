@@ -437,3 +437,30 @@
   .review-log-btn{ background: var(--good); color:#fff; border:1px solid var(--good); }
   .review-hint{ text-align:center; font-size:11px; color: var(--ink-soft); margin:14px 0 0; }
   .review-complete-note{ font-size:13px; color: var(--ink-soft); margin:0 0 16px; }
+
+  /* ---------------- Cross-page search ---------------- */
+  /* Reuses .review-backdrop/.review-panel as-is (see above) for the modal shell — this only adds
+     what's specific to search: the input row and the results list. */
+  .search-panel{ max-width:440px; text-align:left; }
+  .search-input-row{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .search-icon{ flex:none; color: var(--ink-soft); }
+  .search-input-row input{
+    flex:1 1 auto; min-width:0; border:1px solid var(--border); background: var(--paper); color: var(--ink);
+    padding:8px 10px; border-radius:8px; font-size:14px; font-family:inherit;
+  }
+  .search-input-row input:focus{ outline:none; border-color: var(--brass); box-shadow: var(--focus-ring); }
+  .search-empty{ color: var(--ink-soft); font-size:12.5px; text-align:center; padding:20px 8px; margin:0; }
+  .search-results{ display:flex; flex-direction:column; gap:2px; max-height:55vh; overflow-y:auto; overscroll-behavior:contain; }
+  .search-result{
+    all:unset; box-sizing:border-box; display:flex; align-items:center; gap:10px; padding:9px 8px;
+    border-radius:8px; cursor:pointer; width:100%;
+  }
+  .search-result:hover{ background: var(--paper-sunken); }
+  .search-result:focus-visible{ box-shadow: var(--focus-ring); outline:none; }
+  .search-result-type{
+    flex:none; font-size:10px; text-transform:uppercase; letter-spacing:.04em; font-weight:700;
+    color: var(--brass-strong); background: var(--brass-wash); padding:2px 7px; border-radius:100px;
+  }
+  .search-result-body{ min-width:0; flex:1 1 auto; display:flex; flex-direction:column; }
+  .search-result-label{ font-size:13px; font-weight:600; color: var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .search-result-sub{ font-size:11px; color: var(--ink-soft); }

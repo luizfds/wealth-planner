@@ -48,7 +48,8 @@ import {
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
   patchCalcOutputs, afterCalcChange, patchInvestOutputs
 } from "./components/scenarios.js";
-import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, PAGE_KEY } from "./components/nav.js";
+import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, PAGE_KEY } from "./components/nav.js";
+import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./components/search.js";
 
 (function(){
   "use strict";
@@ -1470,6 +1471,40 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     onSwipeRight: performReviewLog
   });
 
+  // ---------------- Cross-page search ----------------
+  document.getElementById("searchBtn").addEventListener("click", openSearch);
+  document.getElementById("mobileSearchBtn").addEventListener("click", openSearch);
+  document.getElementById("searchRoot").addEventListener("click", function(e){
+    if(e.target.closest("[data-search-close]") || e.target === e.target.closest("[data-search-backdrop]")){
+      closeSearch();
+      return;
+    }
+    var resultBtn = e.target.closest("[data-search-result]");
+    if(!resultBtn) return;
+    var input = document.getElementById("searchInput");
+    var results = getSearchResults(input ? input.value : "");
+    var result = results[Number(resultBtn.getAttribute("data-search-result"))];
+    if(!result) return;
+    closeSearch();
+    showPage(result.page);
+    if(result.extra.sub) showAssetsSubpage(result.extra.sub);
+    if(result.extra.scrollToId){
+      // Give showPage's own render + view-transition a moment to finish before scrolling —
+      // scrolling to an element mid-transition can land at the wrong offset once it settles.
+      setTimeout(function(){
+        var el = document.getElementById(result.extra.scrollToId);
+        if(el) el.scrollIntoView({ block: "center", behavior: "smooth" });
+      }, 200);
+    }
+  });
+  document.getElementById("searchRoot").addEventListener("input", function(e){
+    if(e.target.id === "searchInput") setSearchQuery(e.target.value);
+  });
+  document.addEventListener("keydown", function(e){
+    if(e.key !== "Escape") return;
+    if(document.querySelector("[data-search-backdrop]")) closeSearch();
+  });
+
   // ---------------- Transactions: real dated spend, separate from the planned budget ----------------
   document.getElementById("addTransactionBtn").addEventListener("click", addTransaction);
   wireModernRowToggle("transactionsTable", modernTransactionRowOpen);
@@ -1640,6 +1675,12 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     if(cardSel){ e.preventDefault(); selectScenario(cardSel.getAttribute("data-scenario")); }
   });
   document.getElementById("homeBody").addEventListener("click", onScenarioControlClick);
+
+  // Dashboard's own stats already tease the "Projected net worth" figure this links through to —
+  // Projections itself had no reachable link from Dashboard at all, and lives behind the mobile
+  // "More" tab (an occasional what-if page, not day-to-day data entry), so this is the one
+  // one-tap bridge from the page everyone actually lands on first.
+  document.getElementById("dashboardProjectionsLink").addEventListener("click", function(){ showPage("projections"); });
   document.getElementById("homeBody").addEventListener("keydown", function(e){
     if(e.key !== "Enter" && e.key !== " ") return;
     var collapseBtn = e.target.closest("[data-collapse-toggle]");
@@ -1960,6 +2001,21 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
   document.addEventListener("click", closeMobileMore);
   document.addEventListener("keydown", function(e){ if(e.key === "Escape") closeMobileMore(); });
 
+  // Quick-action button — one button, present on every page, retargeted per page/subpage by
+  // nav.js's updateQuickFab() (data-fab-mode/data-fab-selector). "networth" is the one mode with
+  // no button to click (Dashboard has no add-something UI at all); everything else scrolls the
+  // page's own real +Add control into view and clicks it, so this never duplicates what that
+  // button already does — it just saves the trip down the page to find it.
+  document.getElementById("quickFab").addEventListener("click", function(e){
+    var fab = e.currentTarget;
+    if(fab.getAttribute("data-fab-mode") === "networth"){ logNetWorthSnapshot(); return; }
+    var selector = fab.getAttribute("data-fab-selector");
+    var target = selector && document.querySelector(selector);
+    if(!target) return;
+    target.scrollIntoView({ block: "center", behavior: "smooth" });
+    setTimeout(function(){ target.click(); }, 220);
+  });
+
   // Mirrors the sidebar footer's version text into the mobile "More" panel, which is the only
   // place a mobile viewport (<880px, where .app-version is hidden) can see it.
   document.getElementById("mobileMoreVersion").textContent = document.querySelector(".app-version").textContent;
@@ -1986,6 +2042,12 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     var btn = e.target.closest("[data-assets-sub]");
     if(!btn) return;
     showAssetsSubpage(btn.getAttribute("data-assets-sub"));
+  });
+
+  document.getElementById("dashboardSubnav").addEventListener("click", function(e){
+    var btn = e.target.closest("[data-dashboard-sub]");
+    if(!btn) return;
+    showDashboardSubpage(btn.getAttribute("data-dashboard-sub"));
   });
 
   // Swipe between Assets' Cash/Shares/Super/Vehicle/Other tabs on mobile — desktop already has

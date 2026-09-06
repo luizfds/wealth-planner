@@ -49,6 +49,57 @@ export function parseRouteFromLocation(){
 // tab. Scenarios/Projections are occasional "what-if" pages, unlike the four data-entry
 // pages above them, so the More tab's own active state also lights up for those two.
 var MOBILE_MORE_PAGES = ["accounts", "scenarios", "projections"];
+
+// Plain-button pages: the page's own single, unambiguous "add" entry point. Income/Assets/
+// Scenarios are handled separately below (grouped by person/category/scenario, so there's no one
+// global button — the first currently-visible [data-add] element stands in for "the" action on
+// whichever group/subpage is showing). Dashboard has no add button at all — logging net worth is
+// a direct function call, dispatched by app.js's click handler via data-fab-mode="networth"
+// rather than a selector, since there's nothing in the DOM to click. Projections has no natural
+// "add" action and simply isn't listed, so the fab hides there.
+var QUICK_FAB_BUTTON_PAGES = {
+  expenses: { label: "Add transaction", selector: "#addTransactionBtn" },
+  properties: { label: "Add property", selector: "#addPropertyBtn" },
+  accounts: { label: "Add account", selector: "#addAccountBtn" }
+};
+var QUICK_FAB_GROUPED_PAGES = ["income", "assets", "scenarios"];
+// Re-targets the quick-action button for whichever page/subpage is now visible — called after
+// every page switch and Assets subpage switch (see applyPageChange/showAssetsSubpage below), so
+// tapping it always performs the single most useful "add/log something" action for wherever the
+// user currently is, without them having to scroll to that page's own +Add button first.
+export function updateQuickFab(pageId){
+  var fab = document.getElementById("quickFab");
+  if(!fab) return;
+  var label = null, mode = null, selector = null;
+  if(pageId === "dashboard"){
+    label = "Log net worth now";
+    mode = "networth";
+  } else if(QUICK_FAB_BUTTON_PAGES[pageId]){
+    label = QUICK_FAB_BUTTON_PAGES[pageId].label;
+    selector = QUICK_FAB_BUTTON_PAGES[pageId].selector;
+  } else if(QUICK_FAB_GROUPED_PAGES.indexOf(pageId) !== -1){
+    var section = document.getElementById("page-" + pageId);
+    var candidates = section ? section.querySelectorAll("[data-add]") : [];
+    var target = Array.prototype.find.call(candidates, function(el){ return el.offsetParent !== null; });
+    if(target){
+      label = (target.textContent || "").replace(/^\+\s*/, "").trim() || "Add";
+      // Re-found by this same attribute at click time (see app.js), not stored as an element
+      // reference — a re-render can replace the actual node before the button is tapped, but the
+      // data-add value itself stays stable for the same logical group.
+      selector = '[data-add="' + CSS.escape(target.getAttribute("data-add")) + '"]';
+    }
+  }
+  fab.hidden = !label;
+  if(!label){
+    fab.removeAttribute("data-fab-mode");
+    fab.removeAttribute("data-fab-selector");
+    return;
+  }
+  fab.title = label;
+  fab.setAttribute("aria-label", label);
+  if(mode) fab.setAttribute("data-fab-mode", mode); else fab.removeAttribute("data-fab-mode");
+  if(selector) fab.setAttribute("data-fab-selector", selector); else fab.removeAttribute("data-fab-selector");
+}
 export function showPage(id, opts){
   opts = opts || {};
   if(!PAGES.some(function(p){ return p.id === id; })) id = "dashboard";
@@ -74,6 +125,7 @@ export function showPage(id, opts){
     if(navLabel) navLabel.textContent = page ? page.label : "Dashboard";
     try{ localStorage.setItem(PAGE_KEY, id); }catch(e){}
     if(id === "dashboard") renderDashboardStats();
+    updateQuickFab(id);
     if(!opts.skipScroll) window.scrollTo(0, 0);
     if(!opts.skipUrl) syncUrl(id, !!opts.replace);
     closeMobileMore();
@@ -99,7 +151,21 @@ export function showAssetsSubpage(id, opts){
   document.querySelectorAll("#assetsSubnav .subnav-item").forEach(function(btn){
     btn.classList.toggle("active", btn.getAttribute("data-assets-sub") === id);
   });
+  updateQuickFab("assets");
   if(!opts.skipUrl) syncUrl("assets", !!opts.replace);
+}
+
+// Overview (top stats + scenario cards) vs. Insights (50/30/20, FI progress, actual vs. expected,
+// upcoming bills, projection accuracy) — same pill-subnav pattern as showAssetsSubpage above, so a
+// daily glance at Dashboard only pays for the six Insights cards' scroll length when actually
+// wanted. No URL sync or persisted default (unlike Assets' subpage, which is deep-linkable) —
+// this stays a lighter, session-only split; navigating away and back to Dashboard keeps whichever
+// tab was last open rather than resetting, since the two subpage <div>s are never destroyed.
+export function showDashboardSubpage(id){
+  document.querySelectorAll(".dashboard-subpage").forEach(function(el){ el.hidden = el.id !== "dashboardSub-" + id; });
+  document.querySelectorAll("#dashboardSubnav .subnav-item").forEach(function(btn){
+    btn.classList.toggle("active", btn.getAttribute("data-dashboard-sub") === id);
+  });
 }
 
 // Mobile-only dropdown: appNav is a vertical panel behind this toggle below 880px

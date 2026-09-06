@@ -85,9 +85,9 @@
      many cases) — targeting the element, not a long tail of individual classes, kills the mobile
      tap-highlight flash and the iOS "callout" long-press menu (Copy/Share) app-wide in one rule,
      and touch-action:manipulation removes the ~300ms double-tap-to-zoom delay some browsers still
-     apply without it. Toggle-style labels (Show all periods, Modern layout, purchase-calculator
-     checkboxes) get the same treatment since they're native-toggle affordances, not selectable text. */
-  button, .switch, .toggle-periods, .calc-enable, .calc-check-inline{
+     apply without it. Toggle-style labels (purchase-calculator checkboxes, etc.) get the same
+     treatment since they're native-toggle affordances, not selectable text. */
+  button, .switch, .calc-enable, .calc-check-inline{
     -webkit-tap-highlight-color: transparent;
     -webkit-touch-callout: none;
     user-select: none;

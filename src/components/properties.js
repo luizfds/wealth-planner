@@ -7,8 +7,7 @@ import {
 import { sumField } from "../calc/ledger.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
-import { syncUiModeToggle, applyPeriodVisibility } from "../lib/uimode.js";
-import { optionsHtml, buildTable, modernPlainRowHtml, historyTrendHtml } from "../lib/ledger-table.js";
+import { optionsHtml, modernPlainRowHtml, historyTrendHtml } from "../lib/ledger-table.js";
 import { showToast } from "../lib/toast.js";
 import { appendHistorySnapshot } from "../calc/ledger.js";
 import { renderLineChart, sparklineHtml, sparklinePlaceholderHtml } from "../lib/charts.js";
@@ -45,27 +44,6 @@ function propertySectionHtml(property, sectionKey, titleHtml, bodyHtml){
     '</div>' +
     '<div class="property-section-body">' + bodyHtml + '</div>' +
   '</div>';
-}
-
-function loanRowHtml(loan, li){
-  var disp = loanRepaymentDisplay(loan);
-  var suffix = PAYMENT_FREQ_SUFFIX[disp.freq] || "/mo";
-  return '<tr data-loan-index="' + li + '">' +
-    '<td><input type="text" class="loan-what" value="' + escapeAttr(loan.what) + '" aria-label="Loan name"></td>' +
-    '<td class="num"><input type="number" step="1000" min="0" class="loan-balance" value="' + (Number(loan.balance) || 0) + '" aria-label="Loan balance"></td>' +
-    '<td class="num"><input type="number" step="0.01" min="0" class="loan-rate" value="' + (Math.round((Number(loan.rate) || 0) * 100) / 100) + '" aria-label="Interest rate percent"></td>' +
-    '<td class="num"><input type="number" step="1" min="0" class="loan-term" value="' + (Number(loan.termYears) || 0) + '" aria-label="Term years remaining"></td>' +
-    '<td><select class="loan-type" aria-label="Repayment type">' + optionsHtml(["PI", "IO"], loan.repaymentType) + '</select></td>' +
-    '<td><select class="loan-repay-freq" aria-label="How often this loan is paid" title="For auto repayments this only changes how the amount is displayed (still calculated monthly) — for a manual repayment it\'s the frequency the amount you type in is actually paid at.">' + optionsHtml(PAYMENT_FREQS, disp.freq) + '</select></td>' +
-    '<td class="num loan-repayment-cell">' +
-      '<select class="loan-repay-mode" aria-label="Repayment mode">' + optionsHtml(["auto", "manual"], loan.repaymentMode) + '</select>' +
-      (loan.repaymentMode === "manual"
-        ? '<input type="number" step="1" min="0" class="loan-manual-amount" value="' + (Number(loan.manualRepaymentAmount) || 0) + '" aria-label="Manual repayment amount">'
-        : '<span class="computed-note">' + fmtCurrency0.format(disp.amount) + suffix + '</span>') +
-    '</td>' +
-    '<td class="num"><input type="number" step="1000" min="0" class="loan-offset" value="' + (Number(loan.offsetBalance) || 0) + '" aria-label="Offset account balance" title="Netted against this loan\'s balance for both equity and interest — this is the one place to enter it. Don\'t also add it as a separate Cash asset on the Assets tab, or it\'ll be counted twice."></td>' +
-    '<td><button type="button" class="btn btn-ghost btn-sm row-del" data-loan-del="' + li + '" aria-label="Delete loan">✕</button></td>' +
-    '</tr>';
 }
 
 // Session-only (not persisted) — shares modernPropRowOpen with each property's income/expense
@@ -131,13 +109,13 @@ function modernLoanListHtml(p){
   return modernLoanCompBarHtml(rowMeta) + '<div class="m-rows">' + rows + '</div>';
 }
 
-// Reuses the exact cc-what/cc-amount/cc-del/calc-costs-table component scenarios.js's purchase
+// Reuses the exact cc-what/cc-amount/cc-del/.m-cost-row component scenarios.js's purchase
 // calculator already built for its own "Other acquisition costs" list (same real-world concept —
 // settlement costs — just attached to a planned future purchase there instead of a real property
 // here) — borderless inputs, a fixed-width right-aligned amount column, the same row-dot +
-// composition-bar treatment in Modern mode. data-acq-cost-index/data-acq-cost-del stay as extra
-// attributes (not extra classes) so app.js's existing event delegation for this section is
-// unaffected by reusing the shared classes.
+// composition-bar treatment. data-acq-cost-index/data-acq-cost-del stay as extra attributes (not
+// extra classes) so app.js's existing event delegation for this section is unaffected by reusing
+// the shared classes.
 function acquisitionCostRowMeta(p){
   var costs = Array.isArray(p.acquisitionCosts) ? p.acquisitionCosts : [];
   return costs.map(function(c, i){ return { cost: c, i: i, colorIdx: i % 8 }; });
@@ -151,12 +129,6 @@ function acquisitionCostCompBarHtml(rowMeta){
     var pct = total > 0 ? x.amount / total : 0;
     return '<div class="m-comp-seg series-color-' + x.colorIdx + '" style="flex:' + x.amount + ' 1 0%" title="' + escapeAttr(x.cost.what) + ': ' + fmtCurrency0.format(x.amount) + ' (' + fmtPercent1.format(pct) + ')"></div>';
   }).join("") + '</div>';
-}
-function acquisitionCostRowHtml(item, index){
-  var whatInput = '<input type="text" class="cc-what" data-acq-cost-index="' + index + '" value="' + escapeAttr(item.what) + '" placeholder="e.g. Stamp duty" aria-label="Acquisition cost description">';
-  var amountInput = '<input type="number" step="100" min="0" class="cc-amount" data-acq-cost-index="' + index + '" value="' + (Number(item.amount) || 0) + '" aria-label="Amount">';
-  var delBtn = '<button type="button" class="btn btn-ghost btn-sm row-del" data-acq-cost-del="' + index + '" aria-label="Delete acquisition cost">✕</button>';
-  return '<tr class="cc-row" data-acq-cost-index="' + index + '"><td>' + whatInput + '</td><td class="cc-amount-cell">' + amountInput + '</td><td class="cc-del">' + delBtn + '</td></tr>';
 }
 function acquisitionCostRowModernHtml(item, index, colorIdx){
   var whatInput = '<input type="text" class="cc-what" data-acq-cost-index="' + index + '" value="' + escapeAttr(item.what) + '" placeholder="e.g. Stamp duty" aria-label="Acquisition cost description">';
@@ -173,16 +145,11 @@ function acquisitionCostRowModernHtml(item, index, colorIdx){
 function acquisitionCostsSectionHtml(p){
   var rowMeta = acquisitionCostRowMeta(p);
   var total = rowMeta.reduce(function(s, m){ return s + (Number(m.cost.amount) || 0); }, 0);
-  var isModern = state.uiMode === "modern";
-  var rowsHtml = isModern
-    ? rowMeta.map(function(m){ return acquisitionCostRowModernHtml(m.cost, m.i, m.colorIdx); }).join("")
-    : rowMeta.map(function(m){ return acquisitionCostRowHtml(m.cost, m.i); }).join("");
+  var rowsHtml = rowMeta.map(function(m){ return acquisitionCostRowModernHtml(m.cost, m.i, m.colorIdx); }).join("");
   var titleHtml = '<div class="property-section-title">Acquisition costs <span data-out="acqcoststotal" style="font-weight:400;color:var(--ink-soft)">' + (total > 0 ? "— " + fmtCurrency0.format(total) + " total" : "") + '</span></div>';
   var bodyHtml =
     '<p class="ledger-note" style="margin-left:0">Stamp duty, legal/conveyancing, buyer\'s agent, building/pest inspection — itemize what you actually paid. Added to Purchase price above for Capital gain and yield-on-cost.</p>' +
-    (isModern
-      ? '<div class="m-card m-cost-rows" id="propAcqCostRows_' + escapeAttr(p.id) + '">' + acquisitionCostCompBarHtml(rowMeta) + rowsHtml + '</div>'
-      : (rowMeta.length ? '<div class="table-scroll"><table class="calc-costs-table"><thead><tr><th>What</th><th class="num">Amount</th><th></th></tr></thead><tbody>' + rowsHtml + '</tbody></table></div>' : '')) +
+    '<div class="m-card m-cost-rows" id="propAcqCostRows_' + escapeAttr(p.id) + '">' + acquisitionCostCompBarHtml(rowMeta) + rowsHtml + '</div>' +
     '<button type="button" class="btn btn-sm btn-ghost" style="margin-top:8px" data-acq-cost-add="' + escapeAttr(p.id) + '">+ Add cost</button>';
   return propertySectionHtml(p, "acquisition", titleHtml, bodyHtml);
 }
@@ -199,7 +166,6 @@ function propertyStatTileHtml(key, label, valueHtml, opts){
 
 function propertyCardHtml(p, colorIdx){
   var equity = propertyEquityToday(p);
-  var loanRows = (p.loans || []).map(loanRowHtml).join("");
   var hasPmFee = p.kind === "IP";
   var pmFeePanel = hasPmFee
     ? '<div class="proj-controls prop-pmfee-panel">' +
@@ -310,23 +276,17 @@ function propertyCardHtml(p, colorIdx){
     acquisitionCostsSectionHtml(p) +
     propertySectionHtml(p, "loans",
       '<div class="property-section-title">Loans</div>',
-      (state.uiMode === "modern"
-        ? '<div class="m-card" id="propLoanRows_' + escapeAttr(p.id) + '">' + modernLoanListHtml(p) + '</div>'
-        : '<div class="table-scroll"><table class="calc-costs-table prop-loans-table"><thead><tr><th>What</th><th class="num">Balance</th><th class="num">Rate %</th><th class="num">Term (yrs)</th><th>Type</th><th>Paid</th><th>Repayment</th><th class="num" title="Netted against the loan balance for both equity and interest — the one place to enter this money, not also as a separate Cash asset">Offset</th><th></th></tr></thead><tbody>' + loanRows + '</tbody></table></div>') +
+      '<div class="m-card" id="propLoanRows_' + escapeAttr(p.id) + '">' + modernLoanListHtml(p) + '</div>' +
       '<button type="button" class="btn btn-sm btn-ghost" data-loan-add="' + escapeAttr(p.id) + '">+ Add loan</button>') +
     propertySectionHtml(p, "income",
       '<div class="property-section-title">Income</div>',
       incomePaidPanel +
-      (state.uiMode === "modern"
-        ? '<div class="m-card"><div class="m-rows" id="propIncomeRows_' + escapeAttr(p.id) + '">' + modernPropListHtml(p.income, "propinc:" + p.id, false) + '</div></div>'
-        : '<div class="table-scroll"><table class="ledger-table" id="propIncomeTable_' + escapeAttr(p.id) + '"></table></div>') +
+      '<div class="m-card"><div class="m-rows" id="propIncomeRows_' + escapeAttr(p.id) + '">' + modernPropListHtml(p.income, "propinc:" + p.id, false) + '</div></div>' +
       '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="propinc:' + escapeAttr(p.id) + '">+ Add income</button>') +
     propertySectionHtml(p, "expenses",
       '<div class="property-section-title">Expenses</div>',
       pmFeePanel +
-      (state.uiMode === "modern"
-        ? '<div class="m-card"><div class="m-rows" id="propExpRows_' + escapeAttr(p.id) + '">' + modernPropListHtml(p.expenses, "propexp:" + p.id, true) + '</div></div>'
-        : '<div class="table-scroll"><table class="ledger-table" id="propExpTable_' + escapeAttr(p.id) + '"></table></div>') +
+      '<div class="m-card"><div class="m-rows" id="propExpRows_' + escapeAttr(p.id) + '">' + modernPropListHtml(p.expenses, "propexp:" + p.id, true) + '</div></div>' +
       '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="propexp:' + escapeAttr(p.id) + '">+ Add expense</button>') +
   '</div>';
 }
@@ -453,20 +413,12 @@ function propertiesCompareListHtml(){
 }
 
 export function renderProperties(){
-  syncUiModeToggle();
   var container = document.getElementById("propertiesBody");
   if(!container) return;
   container.innerHTML = state.properties.length
     ? state.properties.map(function(p, idx){ return propertyCardHtml(p, idx); }).join("")
     : '<p class="ledger-note" style="margin:0">No properties yet — add one below to start tracking its value, loans, and (for an investment property) rent and expenses.</p>';
-  if(state.uiMode !== "modern"){
-    state.properties.forEach(function(p){
-      buildTable(document.getElementById("propIncomeTable_" + p.id), "propinc:" + p.id, p.income, {showClass:false, showLog:true});
-      buildTable(document.getElementById("propExpTable_" + p.id), "propexp:" + p.id, p.expenses, {showClass:true, hideAcctToggle:true, hideClassToggle:true, showLog:true});
-    });
-  }
   renderPropertyExpensesSummary();
-  applyPeriodVisibility();
   renderPropertiesSummary();
   renderPropertiesValueHistoryChart();
   var compareEl = document.getElementById("propertiesCompareList");

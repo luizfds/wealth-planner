@@ -752,7 +752,7 @@ export function renderActualVsPlannedPanel(){
     var txnPairs = monthTransactionsForExpense(item.id);
     var isExpandable = txnPairs.length > 0;
     var isOpen = isExpandable && !!budgetRowTxnsOpen[item.id];
-    var chev = isExpandable ? '<svg class="m-row-chev budget-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>' : "";
+    var chev = isExpandable ? '<svg class="budget-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>' : "";
     return '<div class="budget-row' + (isExpandable ? " is-expandable" : "") + (isOpen ? " open" : "") + '"' +
         (isExpandable ? ' data-budget-row-toggle="' + escapeAttr(item.id) + '" role="button" tabindex="0" aria-expanded="' + isOpen + '"' : '') + '>' +
       '<div class="acct-row"><span class="acct-name" title="' + escapeAttr(item.what) + '">' + escapeAttr(item.what) + '</span>' +
@@ -765,7 +765,7 @@ export function renderActualVsPlannedPanel(){
   var unlinkedTotal = byExpense.__unlinked || 0;
   var unlinkedPairs = unlinkedTotal ? monthTransactionsForExpense("__unlinked") : [];
   var unlinkedOpen = unlinkedPairs.length > 0 && !!budgetRowTxnsOpen.__unlinked;
-  var unlinkedChev = unlinkedPairs.length ? '<svg class="m-row-chev budget-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>' : "";
+  var unlinkedChev = unlinkedPairs.length ? '<svg class="budget-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>' : "";
   var unlinkedRow = unlinkedTotal
     ? '<div class="budget-row' + (unlinkedPairs.length ? " is-expandable" : "") + (unlinkedOpen ? " open" : "") + '"' +
         (unlinkedPairs.length ? ' data-budget-row-toggle="__unlinked" role="button" tabindex="0" aria-expanded="' + unlinkedOpen + '"' : '') + '>' +

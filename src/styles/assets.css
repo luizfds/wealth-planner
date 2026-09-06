@@ -26,6 +26,7 @@
      potentially-long full name is what used to force the sparkline into a separate "hide it below
      640px" trade-off. A holding with no symbol set falls back to the name alone in the primary
      (.m-row-name) slot, same as before this existed. */
+  .m-row-share-name{ flex:1 1 auto; min-width:0; }
   .m-row-name-line{ display:flex; align-items:baseline; gap:5px; min-width:0; }
   .m-row-name-line .m-row-name{ flex:none; }
   .m-row-name-secondary{
@@ -51,6 +52,17 @@
   @media (max-width:640px){
     .m-row-share-value{ max-width:104px; }
     .m-row-share-value .m-row-amt{ white-space:normal; }
+  }
+  /* On a wide desktop card, .m-row-share-name's flex:1 1 auto used to claim every pixel of
+     leftover row width even though its own content (ticker + name, qty · price) never needed
+     more than a few hundred px — leaving a wide dead gap between the name and the sparkline/value
+     block pinned at the far right. Capping the name column and handing its flex-grow to the
+     sparkline instead puts that reclaimed space to use: a longer, more legible trend line rather
+     than blank canvas. Sizing is flex-driven (not a fixed width) so it still adapts between this
+     breakpoint and an ultra-wide monitor. */
+  @media (min-width:1200px){
+    .m-row-share-name{ flex:0 1 340px; }
+    .sparkline{ flex:1 1 auto; max-width:200px; margin:0 16px; }
   }
 
   /* ---------------- Shares: at-a-glance gain/loss summary ---------------- */

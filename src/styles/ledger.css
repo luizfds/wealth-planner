@@ -234,6 +234,16 @@
   .m-avatar.m-avatar-savings{ background: var(--good); }
   .m-avatar.m-avatar-na{ background: var(--ink-soft); }
   .m-people{ display:flex; flex-direction:column; gap:14px; }
+  /* Income's person cards and Expenses' Needs/Wants cards were a single column at every width,
+     so a wide desktop viewport just meant a much longer scroll for no benefit — the cards
+     themselves have a comfortable natural width well under half of a 1200px+ content area.
+     align-items:start (not grid's default stretch) keeps each card at its own natural height
+     instead of stretching a short card to match a tall neighbor's row count. An odd card count
+     (e.g. two people + Household) leaves the last card alone in its row, which reads fine here —
+     no need for the extra complexity of a masonry layout just to fill that one gap. */
+  @media (min-width:1200px){
+    .m-people{ display:grid; grid-template-columns: repeat(2, 1fr); align-items:start; gap:14px 16px; }
+  }
   .m-card{ border:1px solid var(--border); border-radius:12px; background: var(--paper-sunken); overflow:hidden; }
   .m-card-head{ display:flex; align-items:center; gap:12px; padding:13px 16px; }
   .m-card-name{ font-weight:700; font-size:14px; flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

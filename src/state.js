@@ -137,6 +137,17 @@ export function defaultHomeBlock(){
   });
 }
 
+// Shared by every ledger array below (income, shared expenses, home costs, property
+// income/expenses) — irregular marks a lumpy, unpredictable-timing spend (Extras, property
+// maintenance) as a smoothed reserve rather than a bill expected on a fixed schedule; dueMonth
+// (1-12) optionally pins which calendar month a Yearly/Quarterly item actually lands in, for the
+// 12-month cash flow forecast (calc/cashflow.js) — see resolvedDueMonth() in calc/ledger.js for
+// how an unset dueMonth falls back to inferring it from the item's own logged history instead.
+function applyTimingDefaults(item){
+  if(item.irregular == null) item.irregular = false;
+  if(item.dueMonth === undefined) item.dueMonth = null;
+}
+
 export function migrateState(s){
   // Same viewport-aware default as defaultState() — generateMockData() (Sample data) never
   // sets uiMode itself, so it lands here too, and shouldn't skip the mobile default.
@@ -161,6 +172,7 @@ export function migrateState(s){
   if(!Array.isArray(s.scenarios) || !s.scenarios.length) s.scenarios = Object.keys(s.home);
   if(!s.scenarios.length) s.scenarios = ["Renting"];
   s.scenarios.forEach(function(name){ if(!s.home[name]) s.home[name] = defaultHomeBlock(); });
+  s.scenarios.forEach(function(name){ (s.home[name] || []).forEach(applyTimingDefaults); });
   s.scenarios.forEach(function(name){
     var block = s.home[name];
     if(block && block.length && !block.some(function(i){ return i.id === "homeLoanRow"; })) block[0].id = "homeLoanRow";
@@ -207,7 +219,7 @@ export function migrateState(s){
   if(!Array.isArray(s.shared)) s.shared = [];
   // A stable id so a transaction (see below) can still find the right expense after this array
   // is reordered/added to elsewhere — an array index would silently point at the wrong row.
-  s.shared.forEach(function(item){ if(!item.id) item.id = genId("exp"); });
+  s.shared.forEach(function(item){ if(!item.id) item.id = genId("exp"); applyTimingDefaults(item); });
   if(!Array.isArray(s.transactions)) s.transactions = [];
   if(!Array.isArray(s.accounts)) s.accounts = [];
   s.accounts.forEach(function(a){
@@ -254,6 +266,7 @@ export function migrateState(s){
   (s.income || []).forEach(function(i){
     if(i.sacrificeMode == null) i.sacrificeMode = "none";
     if(i.sacrificeValue == null) i.sacrificeValue = 0;
+    applyTimingDefaults(i);
   });
 
   if(!Array.isArray(s.properties)) s.properties = [];
@@ -261,6 +274,8 @@ export function migrateState(s){
     if(!Array.isArray(p.loans)) p.loans = [];
     if(!Array.isArray(p.income)) p.income = [];
     if(!Array.isArray(p.expenses)) p.expenses = [];
+    p.income.forEach(applyTimingDefaults);
+    p.expenses.forEach(applyTimingDefaults);
     if(!Array.isArray(p.history)) p.history = [];
     if(p.kind !== "IP" && p.kind !== "PPOR") p.kind = "IP";
     if(p.value == null) p.value = 0;

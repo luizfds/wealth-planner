@@ -6,7 +6,7 @@ import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax }
 import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { syncUiModeToggle } from "../lib/uimode.js";
-import { buildTable, optionsHtml, historyTrendHtml, logControlsHtml } from "../lib/ledger-table.js";
+import { buildTable, optionsHtml, historyTrendHtml, logControlsHtml, timingFieldsHtml } from "../lib/ledger-table.js";
 import { parseCsv } from "../lib/backup.js";
 
 export function personBreakdownHtml(person){
@@ -319,6 +319,7 @@ function modernIncomeRowHtml(item, idx, colorIdx){
         '<div class="m-edit-field"><label>Sacrifice</label><div class="sacrifice-wrap"><select class="f-sacrificemode">' + optionsHtml(SACRIFICE_MODES, sacrificeModeToLabel(item.sacrificeMode)) + '</select>' + sacrificeValueField + '</div></div>' +
         '<div class="m-edit-field"><label>Account</label><input type="text" class="f-account" list="acctSuggestions" value="' + escapeAttr(item.account || "") + '" aria-label="Account"></div>' +
         '<div class="m-edit-field span3"><label>Log</label>' + logControlsHtml("income", idx) + '</div>' +
+        timingFieldsHtml(item) +
       '</div>' +
     '</details>' +
     '<div class="m-edit-actions">' +

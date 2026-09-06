@@ -162,3 +162,39 @@ export function currentStatementCycle(startDay, todayStr){
 export function transactionsInRange(transactions, startDate, endDate){
   return transactions.filter(function(t){ return t.date >= startDate && t.date <= endDate; });
 }
+// Real, dated spend events filtered to one calendar year — defaults to the current year, mirroring
+// transactionsInMonth() above. Used by the Actual vs. planned panel's "irregular/reserve" items
+// (Extras, property maintenance, etc.), which are compared against a year-to-date budget rather
+// than a monthly one, since they're not expected to land on any particular month.
+export function transactionsInYear(transactions, yearStr){
+  yearStr = yearStr || localDateStr().slice(0, 4);
+  return transactions.filter(function(t){ return (t.date || "").slice(0, 4) === yearStr; });
+}
+// A ledger item's last-known "when did this actually happen" date, regardless of which of the
+// app's two logging mechanisms it uses — a plain value-history snapshot (income, home costs,
+// property income/expenses — see appendHistorySnapshot()) or a linked state.transactions[] entry
+// (shared expenses only — see logExpenseTransaction()). Centralizing this here lets
+// resolvedDueMonth() below work the same way regardless of which ledger page an item lives on.
+export function lastKnownDateFor(item, transactions){
+  if(item.history && item.history.length) return item.history[item.history.length - 1].date;
+  if(item.id){
+    var txDate = lastTransactionDateFor(transactions, item.id);
+    if(txDate) return txDate;
+  }
+  return null;
+}
+// Which calendar month (1-12) a Yearly/Quarterly item actually lands in — an explicit
+// item.dueMonth always wins (set directly on the row, independent of any logging history);
+// otherwise it's inferred from the month of its last known occurrence (see lastKnownDateFor()),
+// since a bill paid in July this year is paid in July every year (Yearly) or every third month
+// from July (Quarterly). Returns null when neither is available — an item that's never been
+// logged and has no explicit month can't be placed on the 12-month cash flow forecast (see
+// calc/cashflow.js), so it falls back to being smoothed like a regular monthly cost instead.
+export function resolvedDueMonth(item, transactions){
+  if(item.dueMonth) return item.dueMonth;
+  var last = lastKnownDateFor(item, transactions);
+  if(!last) return null;
+  var d = new Date(last + "T00:00:00");
+  if(isNaN(d.getTime())) return null;
+  return d.getMonth() + 1;
+}

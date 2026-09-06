@@ -176,24 +176,37 @@
 
         <div id="staleAssetsBanner"></div>
 
-        <div class="cards" id="cards" role="radiogroup" aria-label="Choose active scenario"></div>
+        <!-- Overview (top stats + scenario comparison) vs. Insights (50/30/20, FI progress, actual
+             vs. expected, etc.) — a daily 5-second glance only needs the former; splitting them the
+             same way Assets already splits Summary/Cash/Shares/... means Insights' six cards stop
+             adding to the scroll length of every single visit, not just the ones that want them. -->
+        <div class="subnav" id="dashboardSubnav">
+          <button type="button" class="subnav-item active" data-dashboard-sub="overview">Overview</button>
+          <button type="button" class="subnav-item" data-dashboard-sub="insights">Insights</button>
+        </div>
 
-        <div class="detail">
-          <div class="detail-label">Active scenario detail — <strong id="activeLabel"></strong></div>
-          <div class="detail-grid">
-            <div class="panel">
-              <h3>The 50/30/20 rule <span style="font-weight:400;color:var(--ink-soft)">— monthly</span></h3>
-              <div class="rule-bar" id="ruleBar"></div>
-              <div class="rule-legend" id="ruleLegend"></div>
+        <div class="dashboard-subpage" id="dashboardSub-overview">
+          <div class="cards" id="cards" role="radiogroup" aria-label="Choose active scenario"></div>
+        </div>
+
+        <div class="dashboard-subpage" id="dashboardSub-insights" hidden>
+          <div class="detail">
+            <div class="detail-label">Active scenario detail — <strong id="activeLabel"></strong></div>
+            <div class="detail-grid">
+              <div class="panel">
+                <h3>The 50/30/20 rule <span style="font-weight:400;color:var(--ink-soft)">— monthly</span></h3>
+                <div class="rule-bar" id="ruleBar"></div>
+                <div class="rule-legend" id="ruleLegend"></div>
+              </div>
+              <div class="panel">
+                <h3>Monthly expenses by account</h3>
+                <div id="acctList"></div>
+              </div>
+              <div class="panel" id="firePanel"></div>
+              <div class="panel" id="actualVsExpectedPanel"></div>
+              <div class="panel" id="upcomingBillsPanel"></div>
+              <div class="panel" id="projectionAccuracyPanel"></div>
             </div>
-            <div class="panel">
-              <h3>Monthly expenses by account</h3>
-              <div id="acctList"></div>
-            </div>
-            <div class="panel" id="firePanel"></div>
-            <div class="panel" id="actualVsExpectedPanel"></div>
-            <div class="panel" id="upcomingBillsPanel"></div>
-            <div class="panel" id="projectionAccuracyPanel"></div>
           </div>
         </div>
       </section>

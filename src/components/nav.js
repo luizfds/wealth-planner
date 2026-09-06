@@ -155,6 +155,19 @@ export function showAssetsSubpage(id, opts){
   if(!opts.skipUrl) syncUrl("assets", !!opts.replace);
 }
 
+// Overview (top stats + scenario cards) vs. Insights (50/30/20, FI progress, actual vs. expected,
+// upcoming bills, projection accuracy) — same pill-subnav pattern as showAssetsSubpage above, so a
+// daily glance at Dashboard only pays for the six Insights cards' scroll length when actually
+// wanted. No URL sync or persisted default (unlike Assets' subpage, which is deep-linkable) —
+// this stays a lighter, session-only split; navigating away and back to Dashboard keeps whichever
+// tab was last open rather than resetting, since the two subpage <div>s are never destroyed.
+export function showDashboardSubpage(id){
+  document.querySelectorAll(".dashboard-subpage").forEach(function(el){ el.hidden = el.id !== "dashboardSub-" + id; });
+  document.querySelectorAll("#dashboardSubnav .subnav-item").forEach(function(btn){
+    btn.classList.toggle("active", btn.getAttribute("data-dashboard-sub") === id);
+  });
+}
+
 // Mobile-only dropdown: appNav is a vertical panel behind this toggle below 880px
 // (see styles.css), so a page's 7 tabs stay reachable without horizontal scroll-hunting.
 export function closeNavMenu(){

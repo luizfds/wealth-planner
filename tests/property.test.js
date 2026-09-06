@@ -5,7 +5,7 @@ import {
   bracketDuty, standardStampDuty, calcStampDuty, calcLMI, calcRepaymentMonthly,
   loanRepaymentMonthly, propertyLoanRepaymentMonthly, propertyOffsetTotal,
   propertyIlliquidEquityToday, propertyEquityToday, propertyGearingAnnual,
-  propertyCapitalGain, propertyYieldOnCost, propertiesTotalValue,
+  propertyCapitalGain, propertyYieldOnCost, propertyLVR, propertiesTotalValue,
   propertiesTotalMortgageBalance, propertiesNetCashFlowMonthly, propertiesWeightedGrossYield
 } from "../src/calc/property.js";
 import { STAMP_DUTY_BRACKETS, FHB_RULES } from "../src/constants.js";
@@ -157,6 +157,19 @@ test("propertyYieldOnCost is null with no purchase price, and annual rent / (pri
   var costs = [{ id: "ac1", what: "Stamp duty", amount: 25000 }];
   var p = makeProperty({ income: [{ amount: 600, freq: "Weekly" }], purchasePrice: 500000, acquisitionCosts: costs });
   assert.ok(Math.abs(propertyYieldOnCost(p) - (31200 / 525000)) < 1e-9);
+});
+
+test("propertyLVR is gross loan balance over value, not netted against offset, and null with no value set", function(){
+  assert.equal(propertyLVR(makeProperty({ value: 0 })), null);
+  // offsetBalance:20000 in the fixture must NOT reduce this — LVR is priced off the actual owed
+  // balance, same basis as the Usable-equity tile, unlike propertyEquityToday which does net it.
+  var p = makeProperty({ value: 800000, loans: [{ balance: 500000, offsetBalance: 20000 }] });
+  assert.ok(Math.abs(propertyLVR(p) - (500000 / 800000)) < 1e-9);
+});
+
+test("propertyLVR sums every loan's balance against the one property value", function(){
+  var p = makeProperty({ value: 1000000, loans: [{ balance: 400000 }, { balance: 200000 }] });
+  assert.ok(Math.abs(propertyLVR(p) - 0.6) < 1e-9);
 });
 
 // ---- Portfolio-wide aggregates (Properties page's overview panel) — these read state.properties

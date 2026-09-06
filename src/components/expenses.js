@@ -671,6 +671,19 @@ export function renderActualVsPlannedPanel(){
     el.innerHTML = '<p class="ledger-note" style="margin:0">Add a shared expense and log a transaction against it to see actual vs. planned here.</p>';
     return;
   }
+  // With shared expenses defined but nothing logged yet this month, the full row-by-row
+  // breakdown below is pure noise — every single row would repeat the Shared Expenses list above
+  // at "$0 actual / $X planned", telling you nothing you don't already know from that list. Skip
+  // straight to a compact nudge instead. Credit statement cycles still get their own section
+  // regardless — a card's current bill runs on its own cycle dates, not the calendar month, so it
+  // can be genuinely nonzero even with nothing logged today.
+  if(!monthTxns.length){
+    var plannedTotalEmpty = Math.round(sumField(state.shared, "monthly") * 100) / 100;
+    el.innerHTML =
+      '<p class="ledger-note" style="margin:0 0 12px">No transactions logged yet this month — planned budget is ' + fmtCurrency0.format(plannedTotalEmpty) + '/mo. Log one above, or against a shared expense below, to start tracking actual vs. planned.</p>' +
+      creditStatementCyclesHtml();
+    return;
+  }
   // Rounded to cents before any comparison/formatting below — periodsOf()'s weekly-then-back
   // conversion leaves a float epsilon (e.g. 2.4900000000000007) that can land a genuinely-exact
   // $0.50 delta a hair under the ">0.5" thresholds and, worse, make the displayed whole-dollar

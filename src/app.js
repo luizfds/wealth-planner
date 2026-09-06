@@ -1377,19 +1377,25 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   // below can open the row it just created as a modal immediately — matching a native app's
   // "tap + → the new entry's fields are already in front of you" flow, instead of silently
   // appending a collapsed row somewhere in the list that has to be found and tapped first.
-  function openModernRow(row, openState, key){
+  //
+  // autoFocus is only ever true for that "+Add" flow (see openNewRowModal below) — focusing a
+  // text input on a phone immediately raises the on-screen keyboard, which is exactly what you
+  // want the instant a blank "New item" field appears in front of you, but is an unwanted
+  // surprise every time you tap an *existing* row just to glance at or adjust one of its fields.
+  // Plain taps route through wireModernRowToggle's click handler below, which never passes it.
+  function openModernRow(row, openState, key, autoFocus){
     if(activeModernRow && activeModernRow.row !== row) closeActiveModernRow();
     row.classList.add("open");
     openState[key] = true;
     activeModernRow = { row: row, openState: openState, key: key };
     document.getElementById("mRowBackdrop").hidden = false;
+    if(!autoFocus) return;
     var firstField = row.querySelector(".m-row-edit input, .m-row-edit select");
     if(firstField){
       firstField.focus();
       // A freshly-added item's "What" field still holds its generic default ("New item", "New
       // loan", "New asset"...) — select it so typing immediately replaces it, rather than
-      // requiring a select-all first. Editing an *existing* row's own real value should never
-      // auto-select out from under someone who just wanted to click in and adjust part of it.
+      // requiring a select-all first.
       if(firstField.tagName === "INPUT" && /^New /.test(firstField.value)) firstField.select();
     }
   }
@@ -1747,7 +1753,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   function openNewRowModal(containerId, section, idx, openState){
     var container = document.getElementById(containerId);
     var row = container && container.querySelector('[data-section="' + CSS.escape(section) + '"][data-index="' + idx + '"]');
-    if(row) openModernRow(row, openState, section + ":" + idx);
+    if(row) openModernRow(row, openState, section + ":" + idx, true);
   }
 
   document.addEventListener("click", function(e){

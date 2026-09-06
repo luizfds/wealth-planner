@@ -1,7 +1,7 @@
 import { state, persist } from "../state.js";
 import {
   propertyEquityToday, propertyGearingAnnual, propertyLoanRepaymentMonthly, loanRepaymentDisplay,
-  propertyCapitalGain, propertyYieldOnCost, propertiesTotalValue, propertiesTotalEquityToday,
+  propertyCapitalGain, propertyYieldOnCost, propertyLVR, propertiesTotalValue, propertiesTotalEquityToday,
   propertiesTotalMortgageBalance, propertiesNetCashFlowMonthly, propertiesWeightedGrossYield
 } from "../calc/property.js";
 import { sumField } from "../calc/ledger.js";
@@ -221,11 +221,23 @@ function propertyCardHtml(p, colorIdx){
     '</div>';
   var gearingBadge = "";
   var yieldBadge = "";
+  var lvrBadge = "";
   var mortgageBalance = (p.loans || []).reduce(function(s, l){ return s + (Number(l.balance) || 0); }, 0);
+  // Unlike gearing/yield (IP-only — a PPOR has no rent to gear or yield on), LVR is meaningful for
+  // any mortgaged property, so this isn't gated on p.kind. Flagged (brass/warning, same treatment
+  // as negative gearing) above 80%, the threshold where a lender would charge LMI on any new
+  // borrowing against this property — informational only, doesn't imply LMI is currently owed.
+  var lvr = propertyLVR(p);
+  if(lvr != null){
+    var lvrOverThreshold = lvr > 0.8;
+    lvrBadge = '<span class="gearing-badge ' + (lvrOverThreshold ? "negative" : "neutral") + '" data-badge="lvr" title="Loan balance ÷ current value' +
+      (lvrOverThreshold ? " — above 80% typically triggers Lenders Mortgage Insurance on any new borrowing against this property" : "") +
+      '">' + fmtPercent1.format(lvr) + ' LVR</span>';
+  }
   if(p.kind === "IP"){
     var gearing = propertyGearingAnnual(p);
     var isPositive = gearing >= 0;
-    gearingBadge = '<span class="gearing-badge ' + (isPositive ? "positive" : "negative") + '" title="Rent minus expenses and loan repayments, per year (' + fmtCurrency0.format(gearing) + '/yr). ' +
+    gearingBadge = '<span class="gearing-badge ' + (isPositive ? "positive" : "negative") + '" data-badge="gearing" title="Rent minus expenses and loan repayments, per year (' + fmtCurrency0.format(gearing) + '/yr). ' +
       (isPositive ? "Positively geared — the property earns more than it costs to hold." : "Negatively geared — the property costs more to hold than it earns, a common tax strategy.") +
       '">' + (isPositive ? "Positively geared" : "Negatively geared") + '</span>';
     if(Number(p.value) > 0){
@@ -281,7 +293,7 @@ function propertyCardHtml(p, colorIdx){
       '<select class="prop-kind" aria-label="Property kind">' + optionsHtml(["IP", "PPOR"], p.kind) + '</select></h4>' +
       '<button type="button" class="btn btn-ghost btn-sm row-del property-del-btn" data-property-del="' + escapeAttr(p.id) + '" aria-label="Delete property">✕</button>' +
     '</div>' +
-    (gearingBadge || yieldBadge ? '<div class="property-card-badges">' + gearingBadge + yieldBadge + '</div>' : '') +
+    (lvrBadge || gearingBadge || yieldBadge ? '<div class="property-card-badges">' + lvrBadge + gearingBadge + yieldBadge + '</div>' : '') +
     '<div class="calc-outputs">' + primaryTiles + '</div>' +
     (moreTiles ? '<details class="tax-advanced m-more-options property-stats-more"><summary>More detail</summary><div class="calc-outputs" style="margin-top:10px">' + moreTiles + '</div></details>' : '') +
     '<div class="property-card-actions">' +
@@ -496,7 +508,7 @@ export function patchPropertyCardComputed(property){
   });
   var loanBarWrap = card.querySelector('#propLoanRows_' + CSS.escape(property.id) + ' [data-comp-bar]');
   if(loanBarWrap) loanBarWrap.outerHTML = modernLoanCompBarHtml(loanRowMeta(property));
-  var gearBadge = card.querySelector(".gearing-badge.positive, .gearing-badge.negative");
+  var gearBadge = card.querySelector('[data-badge="gearing"]');
   if(gearBadge && property.kind === "IP"){
     var gearing = propertyGearingAnnual(property);
     var isPositive = gearing >= 0;
@@ -504,6 +516,16 @@ export function patchPropertyCardComputed(property){
     gearBadge.textContent = isPositive ? "Positively geared" : "Negatively geared";
     gearBadge.title = "Rent minus expenses and loan repayments, per year (" + fmtCurrency0.format(gearing) + "/yr). " +
       (isPositive ? "Positively geared — the property earns more than it costs to hold." : "Negatively geared — the property costs more to hold than it earns, a common tax strategy.");
+  }
+  var lvrBadgeOut = card.querySelector('[data-badge="lvr"]');
+  if(lvrBadgeOut){
+    var lvrNow = propertyLVR(property);
+    if(lvrNow != null){
+      var lvrOverThresholdNow = lvrNow > 0.8;
+      lvrBadgeOut.className = "gearing-badge " + (lvrOverThresholdNow ? "negative" : "neutral");
+      lvrBadgeOut.textContent = fmtPercent1.format(lvrNow) + " LVR";
+      lvrBadgeOut.title = "Loan balance ÷ current value" + (lvrOverThresholdNow ? " — above 80% typically triggers Lenders Mortgage Insurance on any new borrowing against this property" : "");
+    }
   }
   var yieldBadge = card.querySelector('[data-badge="yield-value"]');
   if(yieldBadge && property.kind === "IP" && Number(property.value) > 0){

@@ -1640,6 +1640,12 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     if(cardSel){ e.preventDefault(); selectScenario(cardSel.getAttribute("data-scenario")); }
   });
   document.getElementById("homeBody").addEventListener("click", onScenarioControlClick);
+
+  // Dashboard's own stats already tease the "Projected net worth" figure this links through to —
+  // Projections itself had no reachable link from Dashboard at all, and lives behind the mobile
+  // "More" tab (an occasional what-if page, not day-to-day data entry), so this is the one
+  // one-tap bridge from the page everyone actually lands on first.
+  document.getElementById("dashboardProjectionsLink").addEventListener("click", function(){ showPage("projections"); });
   document.getElementById("homeBody").addEventListener("keydown", function(e){
     if(e.key !== "Enter" && e.key !== " ") return;
     var collapseBtn = e.target.closest("[data-collapse-toggle]");

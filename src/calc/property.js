@@ -239,6 +239,16 @@ export function propertyIlliquidEquityToday(property){
 export function propertyEquityToday(property){
   return propertyIlliquidEquityToday(property) + propertyOffsetTotal(property);
 }
+// Loan Value Ratio — gross loan balance ÷ current value. Deliberately not netted against offset
+// (same basis as the Usable-equity tile's own mortgageBalance): lenders price LVR off the actual
+// owed balance, not what an offset account happens to be sitting on. Null (not 0) with no value
+// set, so a property that's just been added shows no badge rather than a misleading "0% LVR".
+export function propertyLVR(property){
+  var value = Number(property.value) || 0;
+  if(value <= 0) return null;
+  var balance = (property.loans || []).reduce(function(s, l){ return s + (Number(l.balance) || 0); }, 0);
+  return balance / value;
+}
 export function propertiesOffsetTotal(){
   return state.properties.reduce(function(s, p){ return s + propertyOffsetTotal(p); }, 0);
 }

@@ -627,6 +627,41 @@ export function deleteTransaction(idx){
 // Reuses the Dashboard's .acct-row layout (name / mid-detail / right-aligned figure) — the shape
 // fits, and it keeps this panel visually consistent with the other "reality check" panels rather
 // than inventing a new row style for one more three-column list.
+
+// Session-only (not persisted) — which budget rows are expanded to show their own this-month
+// transactions, keyed by the shared expense's id ("__unlinked" for the Uncategorized row).
+// Mirrors modernSharedRowOpen's lifetime/shape: re-read on every render, reset on reload.
+export var budgetRowTxnsOpen = {};
+// Real state.transactions[] indices (not positions in some filtered array) are what
+// data-tx-del/deleteTransaction expect, so this keeps {t, i} pairs the same way
+// renderTransactions() does, rather than returning bare transactions like sumTransactionsByExpense
+// does — that's fine for a sum, but this list needs a working Delete button on each row.
+function monthTransactionsForExpense(expenseId){
+  var monthStr = localDateStr().slice(0, 7);
+  var pairs = [];
+  state.transactions.forEach(function(t, i){
+    if((t.date || "").slice(0, 7) !== monthStr) return;
+    var matches = expenseId === "__unlinked" ? !t.linkedExpenseId : t.linkedExpenseId === expenseId;
+    if(matches) pairs.push({ t: t, i: i });
+  });
+  return pairs.sort(function(a, b){ return (b.t.date || "") < (a.t.date || "") ? -1 : ((b.t.date || "") > (a.t.date || "") ? 1 : 0); });
+}
+// The expand panel's own transaction rows — deliberately read-only (date/description/amount +
+// Delete) rather than the full editable tx-row shape from the Transactions list below: this is a
+// "what's actually logged against this line" drill-down, not a second place to edit everything.
+// data-tx-del reuses the exact same global delete handler the Transactions list already wires up
+// (app.js binds it on document, not scoped to #transactionsTable), so Delete here works for free.
+function budgetRowTxnListHtml(pairs){
+  var rows = pairs.map(function(pair){
+    return '<div class="budget-row-txn">' +
+      '<span class="budget-row-txn-date">' + escapeAttr(pair.t.date || "") + '</span>' +
+      '<span class="budget-row-txn-what" title="' + escapeAttr(pair.t.what || "") + '">' + escapeAttr(pair.t.what || "Transaction") + '</span>' +
+      '<span class="budget-row-txn-amt">' + fmtCurrency2.format(Number(pair.t.amount) || 0) + '</span>' +
+      '<button type="button" class="btn btn-ghost btn-sm row-del" data-tx-del="' + pair.i + '" aria-label="Delete transaction">✕</button>' +
+    '</div>';
+  }).join("");
+  return '<div class="budget-row-txns">' + rows + '</div>';
+}
 export function renderActualVsPlannedPanel(){
   var el = document.getElementById("actualVsPlannedPanel");
   if(!el) return;
@@ -657,16 +692,32 @@ export function renderActualVsPlannedPanel(){
     var pct = planned > 0 ? Math.min(100, (actual / planned) * 100) : (actual > 0 ? 100 : 0);
     var remaining = planned - actual;
     var remainingLabel = remaining >= 0 ? (fmtCurrency0.format(remaining) + " left") : (fmtCurrency0.format(-remaining) + " over");
-    return '<div class="budget-row">' +
+    // Only worth expanding once there's actually a transaction logged against it this month —
+    // nothing to drill into otherwise, so a row with $0 actual stays a plain, non-interactive row.
+    var txnPairs = monthTransactionsForExpense(item.id);
+    var isExpandable = txnPairs.length > 0;
+    var isOpen = isExpandable && !!budgetRowTxnsOpen[item.id];
+    var chev = isExpandable ? '<svg class="m-row-chev budget-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>' : "";
+    return '<div class="budget-row' + (isExpandable ? " is-expandable" : "") + (isOpen ? " open" : "") + '"' +
+        (isExpandable ? ' data-budget-row-toggle="' + escapeAttr(item.id) + '" role="button" tabindex="0" aria-expanded="' + isOpen + '"' : '') + '>' +
       '<div class="acct-row"><span class="acct-name" title="' + escapeAttr(item.what) + '">' + escapeAttr(item.what) + '</span>' +
         '<span style="font-size:11px;color:var(--ink-soft)">' + fmtCurrency0.format(actual) + ' actual / ' + fmtCurrency0.format(planned) + ' planned — ' + remainingLabel + '</span>' +
-        '<span class="acct-amt"' + (color ? ' style="color:' + color + '"' : '') + '>' + (delta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(delta)) + '</span></div>' +
+        '<span class="acct-amt"' + (color ? ' style="color:' + color + '"' : '') + '>' + (delta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(delta)) + '</span>' + chev + '</div>' +
       '<div class="budget-bar-track"><div class="budget-bar-fill' + (delta > 0.5 ? " over" : "") + '" style="width:' + pct + '%"></div></div>' +
+      (isOpen ? budgetRowTxnListHtml(txnPairs) : '') +
     '</div>';
   }).join("");
   var unlinkedTotal = byExpense.__unlinked || 0;
+  var unlinkedPairs = unlinkedTotal ? monthTransactionsForExpense("__unlinked") : [];
+  var unlinkedOpen = unlinkedPairs.length > 0 && !!budgetRowTxnsOpen.__unlinked;
+  var unlinkedChev = unlinkedPairs.length ? '<svg class="m-row-chev budget-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>' : "";
   var unlinkedRow = unlinkedTotal
-    ? '<div class="acct-row"><span class="acct-name" style="font-style:italic">Uncategorized (one-off)</span><span></span><span class="acct-amt">' + fmtCurrency0.format(unlinkedTotal) + '</span></div>'
+    ? '<div class="budget-row' + (unlinkedPairs.length ? " is-expandable" : "") + (unlinkedOpen ? " open" : "") + '"' +
+        (unlinkedPairs.length ? ' data-budget-row-toggle="__unlinked" role="button" tabindex="0" aria-expanded="' + unlinkedOpen + '"' : '') + '>' +
+        '<div class="acct-row"><span class="acct-name" style="font-style:italic">Uncategorized (one-off)</span><span></span>' +
+        '<span class="acct-amt">' + fmtCurrency0.format(unlinkedTotal) + '</span>' + unlinkedChev + '</div>' +
+        (unlinkedOpen ? budgetRowTxnListHtml(unlinkedPairs) : '') +
+      '</div>'
     : "";
   el.innerHTML =
     '<div class="fire-stat-row"><span>This month — actual vs. planned</span><b' + (overallColor ? ' style="color:' + overallColor + '"' : '') + '>' + fmtCurrency0.format(actualTotal) + ' / ' + fmtCurrency0.format(plannedTotal) + '</b></div>' +

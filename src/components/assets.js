@@ -339,7 +339,7 @@ function modernShareRowHtml(item, idx, colorIdx){
     : '<span class="m-row-name">' + escapeAttr(item.what) + '</span>';
   var summary = '<div class="m-row-summary" role="button" tabindex="0" data-row-toggle>' +
     avatar +
-    '<div style="flex:1 1 auto; min-width:0">' +
+    '<div class="m-row-share-name">' +
       // A sibling to .m-row-name, not nested inside it — .m-row-name-secondary truncates with an
       // ellipsis when the name is long, and a dot nested inside that same overflow:hidden box
       // would get clipped away right when a long name needs it most. m-row-name-line's own flex

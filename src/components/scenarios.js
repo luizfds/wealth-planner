@@ -1,12 +1,11 @@
 import { state, persist, defaultHomeBlock, defaultPurchaseConfig, defaultInvestConfig } from "../state.js";
-import { PURCHASE_STATE_CODES, STATE_GROWTH_RATES, PERIODS, INVEST_LEG_TYPES } from "../constants.js";
+import { PURCHASE_STATE_CODES, STATE_GROWTH_RATES, INVEST_LEG_TYPES } from "../constants.js";
 import { recalcPurchase } from "../calc/property.js";
 import { recalcComputedItems, scenarioTotals } from "../calc/engine.js";
 import { periodsOf, sumField } from "../calc/ledger.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
 import { escapeAttr, slug } from "../lib/html.js";
-import { syncUiModeToggle, applyPeriodVisibility } from "../lib/uimode.js";
-import { buildTable, modernPlainRowHtml } from "../lib/ledger-table.js";
+import { modernPlainRowHtml } from "../lib/ledger-table.js";
 import { showToast } from "../lib/toast.js";
 import { renderCards, renderDetail } from "./dashboard.js";
 import { renderAssets } from "./assets.js";
@@ -140,7 +139,6 @@ export function renderHomeListModern(scenario, i){
 }
 
 export function renderHomeBody(){
-  syncUiModeToggle();
   var body = document.getElementById("homeBody");
   var canDelete = state.scenarios.length > 1;
   state.scenarios.forEach(function(scenario){
@@ -178,20 +176,12 @@ export function renderHomeBody(){
         renderInvestPanelHtml(scenario) +
         '<div class="home-recurring-label">Recurring costs — per month</div>' +
         '<p class="income-summary-line home-recon-line">' + homeReconciliationHtml(scenario) + '</p>' +
-        (state.uiMode === "modern"
-          ? '<div class="m-card" id="homeCard_' + slug(scenario) + i + '">' + modernHomeCompBarHtml(homeRowMeta(scenario)) + '<div class="m-rows" id="homeRows_' + slug(scenario) + i + '">' + modernHomeListHtml(scenario) + '</div></div>'
-          : '<div class="table-scroll"><table class="ledger-table" id="homeTable_' + slug(scenario) + i + '"></table></div>') +
+        '<div class="m-card" id="homeCard_' + slug(scenario) + i + '">' + modernHomeCompBarHtml(homeRowMeta(scenario)) + '<div class="m-rows" id="homeRows_' + slug(scenario) + i + '">' + modernHomeListHtml(scenario) + '</div></div>' +
         '<div class="ledger-footer"><button class="btn btn-sm" data-add="home:' + escapeAttr(scenario) + '">+ Add item</button></div>' +
       '</div>' +
       '</div>';
   }).join("") +
   '<button type="button" class="add-scenario-row" id="addScenarioBtn2"><span class="add-plus" style="font-size:16px">+</span> Add another scenario</button>';
-  if(state.uiMode !== "modern"){
-    state.scenarios.forEach(function(scenario, i){
-      buildTable(document.getElementById("homeTable_" + slug(scenario) + i), "home:" + scenario, state.home[scenario], {showClass:true, acctColClass:"col-account-home"});
-    });
-  }
-  applyPeriodVisibility();
 }
 
 // Every acquisition cost gets a color, cycling the same 8-color series used everywhere else —
@@ -218,14 +208,6 @@ function renderPurchasePanelHtml(scenario){
     var out = recalcPurchase(scenario);
     var stateOptions = PURCHASE_STATE_CODES.map(function(sc){
       return '<option value="' + sc + '"' + (sc === cfg.state ? " selected" : "") + '>' + sc + '</option>';
-    }).join("");
-    var isModern = state.uiMode === "modern";
-    var costsRows = (cfg.otherCosts || []).map(function(c, ci){
-      return '<tr class="cc-row">' +
-        '<td><input type="text" class="cc-what" value="' + escapeAttr(c.what) + '" aria-label="Cost name"></td>' +
-        '<td class="cc-amount-cell"><input type="number" step="1" min="0" class="cc-amount" value="' + c.amount + '" aria-label="Cost amount"></td>' +
-        '<td class="cc-del"><button type="button" class="btn btn-ghost btn-sm row-del" data-cc-del="' + ci + '" aria-label="Remove cost">✕</button></td>' +
-        '</tr>';
     }).join("");
     var modernCostsRows = costRowMeta(cfg).map(function(m){
       return '<div class="cc-row m-cost-row">' +
@@ -272,7 +254,7 @@ function renderPurchasePanelHtml(scenario){
         '</div>' +
         '<div>' +
           '<div class="calc-costs-title">Other acquisition costs</div>' +
-          (isModern ? '<div class="m-card m-cost-rows">' + modernCostsCompBar + modernCostsRows + '</div>' : '<table class="calc-costs-table">' + costsRows + '</table>') +
+          '<div class="m-card m-cost-rows">' + modernCostsCompBar + modernCostsRows + '</div>' +
           '<button type="button" class="btn btn-sm" style="margin-top:8px" data-cc-add="1">+ Add cost</button>' +
         '</div>' +
         '<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;cursor:pointer">' +
@@ -359,15 +341,13 @@ export function patchHomeLoanRowIfSynced(scenario){
   var item = arr[idx];
   var i = state.scenarios.indexOf(scenario);
   if(i === -1) return;
-  var wrap = document.getElementById(state.uiMode === "modern" ? ("homeRows_" + slug(scenario) + i) : ("homeTable_" + slug(scenario) + i));
+  var wrap = document.getElementById("homeRows_" + slug(scenario) + i);
   if(!wrap) return;
   var tr = wrap.querySelector('[data-index="' + idx + '"]');
   if(!tr) return;
   var amountInput = tr.querySelector(".f-amount");
   if(amountInput) amountInput.value = item.amount;
-  var cells = tr.querySelectorAll("td.computed");
   var p = periodsOf(item.amount, item.freq);
-  PERIODS.forEach(function(pd, pi){ if(cells[pi]) cells[pi].textContent = fmtCurrency2.format(p[pd.key]); });
   var modernAmt = tr.querySelector('[data-computed="amt"]');
   if(modernAmt) modernAmt.textContent = fmtCurrency2.format(p.monthly) + "/mo";
 }

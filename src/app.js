@@ -1,11 +1,9 @@
 import { state, setState, storageAvailable, persist, setStatus, defaultState, defaultPurchaseConfig, defaultInvestConfig, migrateState, genId, normalizeShareAsset } from "./state.js";
-import { INCOME_COL_DEFS, PERIODS, sacrificeModeToLabel, sacrificeLabelToMode, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, INVEST_LEG_TYPES } from "./constants.js";
+import { sacrificeModeToLabel, sacrificeLabelToMode, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, INVEST_LEG_TYPES } from "./constants.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr } from "./lib/format.js";
 import { showToast, showUndoToast, showPersistentToast } from "./lib/toast.js";
-import { escapeAttr, slug } from "./lib/html.js";
-import { syncUiModeToggle, applyPeriodVisibility } from "./lib/uimode.js";
+import { escapeAttr } from "./lib/html.js";
 import { getNotifications, unreadNotificationCount, markNotificationRead, markAllNotificationsRead } from "./lib/notifications.js";
-import { buildTable } from "./lib/ledger-table.js";
 import { onHorizontalSwipe } from "./lib/swipe.js";
 import { initTableScrollShadows } from "./lib/scroll-shadow.js";
 import {
@@ -64,11 +62,6 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     try{ return localStorage.getItem(THEME_KEY) || "system"; }catch(e){ return "system"; }
   }
   applyTheme(getThemePref());
-
-  var EXPENSE_COL_DEFS = [
-    { key: "classification", label: "Classification" },
-    { key: "account", label: "Account" }
-  ];
 
   function rndBetween(min, max){ return Math.random() * (max - min) + min; }
   function rndStep(min, max, step){ return Math.round(rndBetween(min, max) / step) * step; }
@@ -325,27 +318,19 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       var mHome = /^home:(.+)$/.exec(section);
       if(mHome){
         var hi = state.scenarios.indexOf(mHome[1]);
-        if(state.uiMode === "modern") renderHomeListModern(mHome[1], hi);
-        else buildTable(document.getElementById("homeTable_" + slug(mHome[1]) + hi), section, state.home[mHome[1]], {showClass:true, acctColClass:"col-account-home"});
+        renderHomeListModern(mHome[1], hi);
       }
       var mPropInc = /^propinc:(.+)$/.exec(section);
       if(mPropInc){
         var pi = findProperty(mPropInc[1]);
-        if(pi){
-          if(state.uiMode === "modern") renderPropListModern(pi.id, section, pi.income, false);
-          else buildTable(document.getElementById("propIncomeTable_" + pi.id), section, pi.income, {showClass:false});
-        }
+        if(pi) renderPropListModern(pi.id, section, pi.income, false);
       }
       var mPropExp = /^propexp:(.+)$/.exec(section);
       if(mPropExp){
         var pe = findProperty(mPropExp[1]);
-        if(pe){
-          if(state.uiMode === "modern") renderPropListModern(pe.id, section, pe.expenses, true);
-          else buildTable(document.getElementById("propExpTable_" + pe.id), section, pe.expenses, {showClass:true, hideAcctToggle:true, hideClassToggle:true});
-        }
+        if(pe) renderPropListModern(pe.id, section, pe.expenses, true);
       }
     }
-    applyPeriodVisibility();
   }
 
 
@@ -397,9 +382,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     else return;
 
     if(e.target.classList.contains("f-amount") || e.target.classList.contains("f-freq")){
-      var cells = tr.querySelectorAll("td.computed");
       var p = periodsOf(item.amount, item.freq);
-      PERIODS.forEach(function(pd, i){ if(cells[i]) cells[i].textContent = fmtCurrency2.format(p[pd.key]); });
       var modernAmt = tr.querySelector('[data-computed="amt"]');
       if(modernAmt) modernAmt.textContent = fmtCurrency2.format(p.monthly) + "/mo";
     }
@@ -870,7 +853,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   document.getElementById("homeBody").addEventListener("change", onInvestChange);
 
   document.addEventListener("input", function(e){
-    if(e.target.closest("table.assets-table, .m-asset-rows")){
+    if(e.target.closest(".m-asset-rows")){
       var tr = e.target.closest("[data-index]");
       if(!tr) return;
       var idx = Number(tr.getAttribute("data-index"));
@@ -931,7 +914,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   });
   document.addEventListener("change", function(e){
     if(e.target.id === "sharesSortSelect"){ setSharesSortMode(e.target.value); return; }
-    if(e.target.closest("table.assets-table, .m-asset-rows") && e.target.classList.contains("a-category")){
+    if(e.target.closest(".m-asset-rows") && e.target.classList.contains("a-category")){
       var tr = e.target.closest("[data-index]");
       if(!tr) return;
       var idx = Number(tr.getAttribute("data-index"));
@@ -945,7 +928,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
         renderAssets(); persist();
       }
     }
-    if(e.target.closest("table.assets-table, .m-asset-rows") && e.target.classList.contains("h-market")){
+    if(e.target.closest(".m-asset-rows") && e.target.classList.contains("h-market")){
       var htr = e.target.closest("[data-index]");
       if(!htr) return;
       var hidx = Number(htr.getAttribute("data-index"));
@@ -957,7 +940,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
         persist();
       }
     }
-    if(e.target.closest("table.assets-table, .m-asset-rows") &&
+    if(e.target.closest(".m-asset-rows") &&
        (e.target.classList.contains("h-person") || e.target.classList.contains("a-person") || e.target.classList.contains("v-person"))){
       updatePersonSuggestions();
       // Patches just the filter chip row (not a full renderAssets()), so typing a new person's
@@ -1666,38 +1649,6 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     wireModernRowToggle("assetsSub-" + cat, modernAssetRowOpen);
   });
 
-  // state.uiMode is a single global preference, not per-page — switching it has to refresh every
-  // page that has a modern layout, or the others sit stale (still showing the old mode's content
-  // and controls, like a Classic-mode-only "Columns" picker) until something else re-renders them.
-  function refreshAllUiModePages(){
-    renderIncomeGroups();
-    renderTaxSuper();
-    renderSharedGroups();
-    renderAccounts();
-    renderTransactions();
-    renderPropertyExpensesSummary();
-    renderProperties();
-    renderAssets();
-    renderHomeBody();
-  }
-  // One switch in the sidebar (desktop) — the five separate per-page segmented toggles this used
-  // to be were redundant duplicates of the same global setting, crowding each page's intro row.
-  document.getElementById("uiModeToggle").addEventListener("change", function(e){
-    state.uiMode = e.target.checked ? "modern" : "classic";
-    refreshAllUiModePages();
-    syncUiModeToggle();
-    persist();
-  });
-  // Mobile's equivalent — a cycling button instead of a switch, matching the Theme button's
-  // interaction right above it in the same More panel.
-  document.getElementById("mobileLayoutBtn").addEventListener("click", function(){
-    state.uiMode = state.uiMode === "modern" ? "classic" : "modern";
-    refreshAllUiModePages();
-    syncUiModeToggle();
-    persist();
-    closeMobileMore();
-  });
-
   function onScenarioControlClick(e){
     // More specific controls first — data-rename/data-delete/data-edit-scenario2 all live
     // *inside* the now-clickable .home-block-head (data-collapse-toggle), so that catch-all has
@@ -1746,10 +1697,9 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     collapseBtn.click();
   });
 
-  // Finds the row a just-pushed item rendered as, in Modern mode, and opens it as a modal
-  // immediately — matching a native app's "tap + → the new entry's fields are already in front
-  // of you" flow, instead of silently appending a collapsed row somewhere in the list that has to
-  // be found and tapped first. A no-op in Classic mode (no .m-row exists there to find).
+  // Finds the row a just-pushed item rendered as and opens it as a modal immediately — matching
+  // a native app's "tap + → the new entry's fields are already in front of you" flow, instead of
+  // silently appending a collapsed row somewhere in the list that has to be found and tapped first.
   function openNewRowModal(containerId, section, idx, openState){
     var container = document.getElementById(containerId);
     var row = container && container.querySelector('[data-section="' + CSS.escape(section) + '"][data-index="' + idx + '"]');
@@ -1827,70 +1777,6 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     renderProjectionOutputs();
     persist();
   });
-
-  // Both checkboxes (desktop sidebar + mobile More panel) toggle themselves natively and just
-  // mirror the other's .checked by plain assignment on change — a preventDefault-and-forward
-  // approach doesn't work here, since the browser reverts a checkbox's own checked state after
-  // preventDefault() regardless of what a same-tick listener sets it to.
-  document.getElementById("periodsToggle").addEventListener("change", function(e){
-    state.showAllPeriods = e.target.checked;
-    applyPeriodVisibility();
-    persist();
-    document.getElementById("mobilePeriodsToggle").checked = e.target.checked;
-  });
-  document.getElementById("mobilePeriodsToggle").addEventListener("change", function(e){
-    state.showAllPeriods = e.target.checked;
-    applyPeriodVisibility();
-    persist();
-    document.getElementById("periodsToggle").checked = e.target.checked;
-  });
-  // Keeps the More panel open on this toggle specifically — it's a preference to sit and watch
-  // take effect, not a one-off action like the buttons above it that close the panel on click.
-  document.getElementById("mobilePeriodsToggleWrap").addEventListener("click", function(e){ e.stopPropagation(); });
-
-  document.getElementById("homeAcctToggle").addEventListener("change", function(e){
-    state.homeCols.account = e.target.checked;
-    applyPeriodVisibility();
-    persist();
-  });
-
-  var colPickers = [];
-  function setupColPicker(btnId, panelId, colDefs, stateKey){
-    var btn = document.getElementById(btnId);
-    var panel = document.getElementById(panelId);
-    if(!btn || !panel) return function(){};
-    function render(){
-      panel.innerHTML = colDefs.map(function(c){
-        var checked = state[stateKey][c.key] !== false;
-        return '<label class="col-picker-row"><input type="checkbox" class="col-picker-check" data-col-key="' + c.key + '"' + (checked ? " checked" : "") + '>' + escapeAttr(c.label) + '</label>';
-      }).join("");
-    }
-    render();
-    btn.addEventListener("click", function(e){
-      e.stopPropagation();
-      var willOpen = panel.hidden;
-      colPickers.forEach(function(p){ if(p.panel !== panel){ p.panel.hidden = true; p.btn.setAttribute("aria-expanded", "false"); } });
-      panel.hidden = !willOpen;
-      btn.setAttribute("aria-expanded", String(willOpen));
-      if(willOpen) render();
-    });
-    panel.addEventListener("click", function(e){ e.stopPropagation(); });
-    panel.addEventListener("change", function(e){
-      if(!e.target.classList.contains("col-picker-check")) return;
-      state[stateKey][e.target.getAttribute("data-col-key")] = e.target.checked;
-      applyPeriodVisibility();
-      persist();
-    });
-    colPickers.push({ btn: btn, panel: panel });
-    return render;
-  }
-  document.addEventListener("click", function(){
-    colPickers.forEach(function(p){
-      if(!p.panel.hidden){ p.panel.hidden = true; p.btn.setAttribute("aria-expanded", "false"); }
-    });
-  });
-  var renderIncomeColPicker = setupColPicker("incomeColPickerBtn", "incomeColPickerPanel", INCOME_COL_DEFS, "incomeCols");
-  var renderExpenseColPicker = setupColPicker("expenseColPickerBtn", "expenseColPickerPanel", EXPENSE_COL_DEFS, "expenseCols");
 
   document.getElementById("incomeExportCsvBtn").addEventListener("click", exportIncomeCsv);
   document.getElementById("expenseExportCsvBtn").addEventListener("click", exportExpensesCsv);
@@ -2180,11 +2066,6 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   });
 
   function renderAll(){
-    document.getElementById("periodsToggle").checked = !!state.showAllPeriods;
-    document.getElementById("mobilePeriodsToggle").checked = !!state.showAllPeriods;
-    document.getElementById("homeAcctToggle").checked = !!state.homeCols.account;
-    renderIncomeColPicker();
-    renderExpenseColPicker();
     document.getElementById("projHorizon").value = state.projection.horizonYears;
     document.getElementById("projInvestRate").value = state.projection.investReturnRate;
     document.getElementById("projInvestRateRange").value = state.projection.investReturnRate;
@@ -2209,7 +2090,6 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     updatePersonSuggestions();
     updateAccountSuggestions();
     renderTaxSuper();
-    applyPeriodVisibility();
     renderNotifBadge();
   }
 

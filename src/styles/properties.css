@@ -181,27 +181,6 @@
   .calc-out.emph b{ color: var(--brass-strong); font-size:17px; }
 
   .calc-costs-title{ font-size:11.5px; font-weight:600; color: var(--ink-soft); margin: 2px 0 -4px; }
-  .calc-costs-table{ width:100%; border-collapse:collapse; }
-  .calc-costs-table td{ padding:4px 0; font-size:12.5px; border-bottom:1px solid var(--border); }
-  .calc-costs-table tr:last-child td{ border-bottom:none; }
-  .calc-costs-table input.cc-what{ border:none; background:transparent; color:var(--ink); width:100%; font-size:12.5px; padding:3px 4px; border-radius:5px; }
-  .calc-costs-table input.cc-what:hover, .calc-costs-table input.cc-what:focus{ background: var(--paper-raised); }
-  .calc-costs-table input.cc-amount{
-    border:none; background:transparent; color:var(--ink); width:100%; text-align:right; font-size:12.5px;
-    font-family:"IBM Plex Mono", monospace; padding:3px 4px; border-radius:5px;
-  }
-  .calc-costs-table input.cc-amount:hover, .calc-costs-table input.cc-amount:focus{ background: var(--paper-raised); }
-  .calc-costs-table td.cc-amount-cell{ width:110px; }
-  .calc-costs-table td.cc-del{ width:24px; }
-  /* No header row existed at all before this — the scenarios.js purchase-calculator table this
-     component was borrowed from never had one either, relying on its own "Other acquisition
-     costs" title as the only label. Fine there with just 2 columns and nothing else on the page
-     competing for meaning, but every other property-card list (Loans, Income, Expenses) has a
-     visible column header, so a bare "17728" with no "Amount" label above it read as an
-     unlabeled orphan number here by comparison. Purely additive — scenarios.js's own table has no
-     <thead> markup, so this rule has no effect there unless one gets added later. */
-  .calc-costs-table th{ text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; padding:4px 0 6px; }
-  .calc-costs-table th.num{ text-align:right; }
   .m-cost-rows{ padding:4px 12px; }
   .m-cost-row{ display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid var(--border); }
   .m-cost-row:last-child{ border-bottom:none; }
@@ -253,23 +232,6 @@
 
   .home-block-total.short{ color: var(--bad); }
   .prop-value-log{ display:flex; align-items:center; gap:8px; margin:4px 0 14px; }
-  .prop-loans-table th, .prop-loans-table td{ white-space:nowrap; padding:4px 6px; font-size:12.5px; border-bottom:1px solid var(--border); }
-  .prop-loans-table th{ text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; }
-  .prop-loans-table th.num, .prop-loans-table td.num{ text-align:right; }
-  .prop-loans-table tr:last-child td{ border-bottom:none; }
-  .prop-loans-table th:first-child, .prop-loans-table td:first-child{ white-space:normal; min-width:170px; }
-  .prop-loans-table input, .prop-loans-table select{
-    border:none; background:transparent; color:var(--ink); font-size:12.5px; padding:3px 4px; border-radius:5px; width:100%;
-  }
-  .prop-loans-table input[type="number"]{ text-align:right; }
-  .prop-loans-table input:hover, .prop-loans-table input:focus,
-  .prop-loans-table select:hover, .prop-loans-table select:focus{ background: var(--paper-raised); }
-  .prop-loans-table .loan-balance, .prop-loans-table .loan-offset{ width:90px; }
-  .prop-loans-table .loan-rate, .prop-loans-table .loan-term{ width:64px; }
-  .prop-loans-table .loan-type{ width:46px; }
-  .prop-loans-table .loan-repay-mode{ width:74px; }
-  .prop-loans-table .loan-manual-amount{ width:80px; }
-  .prop-loans-table .loan-repayment-cell{ min-width:130px; }
   /* .calc-body is a flex column with its own gap:14px between every child — this is the one
      child (a <p>) that still had the browser's default paragraph margin, stacking an extra ~11px
      on top of that gap instead of relying on it like every sibling here does. */

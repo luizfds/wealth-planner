@@ -1,4 +1,4 @@
-import { STORAGE_KEY, HOME_CATEGORIES, INCOME_COL_DEFS, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, INVEST_LEG_TYPES } from "./constants.js";
+import { STORAGE_KEY, HOME_CATEGORIES, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, INVEST_LEG_TYPES } from "./constants.js";
 import { showToast } from "./lib/toast.js";
 
 export function defaultPurchaseConfig(price, depositPct, rate, termYears, stateCode, enabled){
@@ -68,15 +68,6 @@ export function defaultState(){
     activeScenario: "Current situation",
     scenarios: ["Current situation"],
     baselineScenario: "Current situation",
-    showAllPeriods: false,
-    // Classic's tables rely on horizontal scroll even with a sticky first column — a rough
-    // landing experience on a phone. Modern was built mobile-first, so a fresh mobile visitor
-    // (same breakpoint the CSS uses everywhere else) starts there instead. Desktop keeps the
-    // long-standing Classic default.
-    uiMode: window.innerWidth < 880 ? "modern" : "classic",
-    incomeCols: { person: false, type: true, super: true, sacrifice: true, account: false },
-    expenseCols: { classification: false, account: false },
-    homeCols: { account: false },
     income: [],
     ip: [],
     shared: [],
@@ -149,25 +140,11 @@ function applyTimingDefaults(item){
 }
 
 export function migrateState(s){
-  // Same viewport-aware default as defaultState() — generateMockData() (Sample data) never
-  // sets uiMode itself, so it lands here too, and shouldn't skip the mobile default.
-  if(s.uiMode !== "modern" && s.uiMode !== "classic") s.uiMode = window.innerWidth < 880 ? "modern" : "classic";
-  if(!s.incomeCols) s.incomeCols = { person: false, type: true, super: true, sacrifice: true, account: false };
-  INCOME_COL_DEFS.forEach(function(c){ if(s.incomeCols[c.key] == null) s.incomeCols[c.key] = true; });
-  if(!s._incomeTypeColDefaultApplied){
-    s.incomeCols.type = true;
-    s._incomeTypeColDefaultApplied = true;
-  }
   if(Array.isArray(s.income)){
     s.income.forEach(function(item){
       if(item.superMode == null) item.superMode = item.superIncluded ? "Included" : "On top";
     });
   }
-  if(!s.expenseCols) s.expenseCols = { account: false };
-  if(s.expenseCols.account == null) s.expenseCols.account = false;
-  if(s.expenseCols.classification == null) s.expenseCols.classification = false;
-  if(!s.homeCols) s.homeCols = { account: false };
-  if(s.homeCols.account == null) s.homeCols.account = false;
   if(!s.home) s.home = {};
   if(!Array.isArray(s.scenarios) || !s.scenarios.length) s.scenarios = Object.keys(s.home);
   if(!s.scenarios.length) s.scenarios = ["Renting"];

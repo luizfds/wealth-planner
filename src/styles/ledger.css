@@ -330,6 +330,46 @@
   @keyframes mRowModalIn{ from{ opacity:0; transform:translate(-50%,-50%) translateY(8px); } to{ opacity:1; transform:translate(-50%,-50%); } }
   @media (prefers-reduced-motion: reduce){ .m-row.open{ animation:none; } }
   .m-row.open .m-row-summary:hover{ background:transparent; }
+  /* On a phone, editing/adding a row becomes a real full-screen page that slides in from the
+     right and covers the tab bar — the native "push a screen, tap back to pop it" pattern most
+     mobile apps use, rather than a centered dialog card (which stays the treatment at wider
+     widths, where a full-screen takeover would feel broken — a dialog is the desktop-app
+     equivalent there, e.g. Slack's "Edit message"). Same breakpoint uiMode itself uses to default
+     to Modern in the first place (app.js). Reuses the exact same .m-row.open element and JS
+     (wireModernRowToggle/openModernRow/closeActiveModernRow, both unchanged) — only the CSS
+     presentation changes again, per the architecture note above. Placed after the base .m-row.open
+     rule per CLAUDE.md's "later media query wins by source order" gotcha. */
+  @media (max-width: 880px){
+    .m-row.open{
+      top:0; left:0; right:0; bottom:0; transform:none; width:100%; max-width:none;
+      height:100%; max-height:none; border:none; border-radius:0; box-shadow:none;
+      display:flex; flex-direction:column; animation: mRowPageIn .22s ease;
+    }
+    @keyframes mRowPageIn{ from{ transform:translateX(100%); } to{ transform:translateX(0); } }
+    @media (prefers-reduced-motion: reduce){ .m-row.open{ animation:none; } }
+    /* The collapsed row's own summary bar becomes the page's sticky header. Its chevron — a
+       plain right-pointing triangle, normally rotated 90° to point down for the dialog/accordion
+       treatment — is repurposed as a back arrow here: rotated a further 90° (180° total) and
+       moved to the front of the row via flex `order`, so it reads left-to-right as "‹ back, then
+       the item's name" without touching the shared row markup. The amount is dropped from the
+       header (redundant with the Amount field right below it) rather than crowding a title bar
+       that's meant to read as just "‹ Item name". */
+    .m-row.open .m-row-summary{
+      flex:none; position:sticky; top:0; z-index:1; background: var(--paper-raised);
+      border-bottom:1px solid var(--border); padding:14px 16px calc(14px + env(safe-area-inset-bottom, 0px)) 16px;
+      padding-top: calc(14px + env(safe-area-inset-top));
+    }
+    .m-row.open .m-row-chev{ order:-1; width:16px; height:16px; margin-right:2px; transform: rotate(180deg); }
+    .m-row.open .m-row-amt{ display:none; }
+    /* The grid-template-rows 0fr→1fr trick above exists to animate an *inline* accordion's height
+       without knowing its content height up front — moot once the row is a full page instead (the
+       slide-in animation above is the transition), so this switches to a plain flexed, internally
+       scrolling page body. min-height:0 at every level is required for a flex child to shrink
+       below its content size enough to actually scroll instead of overflowing its parent. */
+    .m-row.open .m-row-edit{ display:flex; flex-direction:column; flex:1 1 auto; min-height:0; }
+    .m-row.open .m-row-edit-inner{ flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; }
+    .m-row.open .m-row-edit-pad{ padding:16px; }
+  }
   .m-edit-grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap:10px 12px; background: var(--paper-sunken); border:1px solid var(--border); border-radius:9px; padding:12px 14px; }
   .m-edit-field{ min-width:0; }
   .m-edit-field.span2{ grid-column: span 2; }

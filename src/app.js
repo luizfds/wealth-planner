@@ -49,6 +49,7 @@ import {
   patchCalcOutputs, afterCalcChange, patchInvestOutputs
 } from "./components/scenarios.js";
 import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, PAGE_KEY } from "./components/nav.js";
+import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./components/search.js";
 
 (function(){
   "use strict";
@@ -1468,6 +1469,40 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
   onHorizontalSwipe(document.getElementById("expenseReviewRoot"), {
     onSwipeLeft: performReviewSkip,
     onSwipeRight: performReviewLog
+  });
+
+  // ---------------- Cross-page search ----------------
+  document.getElementById("searchBtn").addEventListener("click", openSearch);
+  document.getElementById("mobileSearchBtn").addEventListener("click", openSearch);
+  document.getElementById("searchRoot").addEventListener("click", function(e){
+    if(e.target.closest("[data-search-close]") || e.target === e.target.closest("[data-search-backdrop]")){
+      closeSearch();
+      return;
+    }
+    var resultBtn = e.target.closest("[data-search-result]");
+    if(!resultBtn) return;
+    var input = document.getElementById("searchInput");
+    var results = getSearchResults(input ? input.value : "");
+    var result = results[Number(resultBtn.getAttribute("data-search-result"))];
+    if(!result) return;
+    closeSearch();
+    showPage(result.page);
+    if(result.extra.sub) showAssetsSubpage(result.extra.sub);
+    if(result.extra.scrollToId){
+      // Give showPage's own render + view-transition a moment to finish before scrolling —
+      // scrolling to an element mid-transition can land at the wrong offset once it settles.
+      setTimeout(function(){
+        var el = document.getElementById(result.extra.scrollToId);
+        if(el) el.scrollIntoView({ block: "center", behavior: "smooth" });
+      }, 200);
+    }
+  });
+  document.getElementById("searchRoot").addEventListener("input", function(e){
+    if(e.target.id === "searchInput") setSearchQuery(e.target.value);
+  });
+  document.addEventListener("keydown", function(e){
+    if(e.key !== "Escape") return;
+    if(document.querySelector("[data-search-backdrop]")) closeSearch();
   });
 
   // ---------------- Transactions: real dated spend, separate from the planned budget ----------------

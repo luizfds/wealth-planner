@@ -128,6 +128,9 @@
       <p class="app-version">v2.49.1</p>
     </div>
     <div class="mobile-header-right">
+      <button type="button" class="icon-btn" id="mobileSearchBtn" aria-label="Search">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="6"/><path d="M17 17l-4-4"/></svg>
+      </button>
       <button type="button" class="notif-bell-btn mobile-notif-bell" id="mobileNotifBellBtn" aria-haspopup="true" aria-expanded="false" aria-label="Notifications">
         <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3a5 5 0 0 0-5 5v2.5L3.5 14h13L15 10.5V8a5 5 0 0 0-5-5z"/><path d="M8.2 16.5a1.9 1.9 0 0 0 3.6 0"/></svg>
         <span class="notif-badge" hidden></span>
@@ -147,6 +150,9 @@
         </div>
       </div>
       <div class="actions">
+        <button type="button" class="icon-btn" id="searchBtn" aria-label="Search" title="Search expenses, transactions, income, assets, properties, debts and accounts">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="6"/><path d="M17 17l-4-4"/></svg>
+        </button>
         <button type="button" class="notif-bell-btn" id="notifBellBtn" aria-haspopup="true" aria-expanded="false" aria-label="Notifications">
           <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3a5 5 0 0 0-5 5v2.5L3.5 14h13L15 10.5V8a5 5 0 0 0-5-5z"/><path d="M8.2 16.5a1.9 1.9 0 0 0 3.6 0"/></svg>
           <span class="notif-badge" hidden></span>
@@ -560,5 +566,6 @@
 <div id="scenarioOverrideRoot"></div>
 <div id="expenseReviewRoot"></div>
 <div id="notifPanelRoot"></div>
+<div id="searchRoot"></div>
 
 <script type="module" src="src/app.js"></script>

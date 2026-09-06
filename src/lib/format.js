@@ -7,9 +7,9 @@ export var fmtRunway = new Intl.NumberFormat("en-AU", {maximumFractionDigits:1, 
 // renders in full, just with thousands separators), while a fractional quantity — almost always
 // crypto, e.g. "0.04318707" — is capped to 4 decimal places so it reads cleanly next to a share
 // count instead of dominating the line with 8 digits of precision nobody's scanning for at a
-// glance. Never use this for an editable quantity field (Classic table's Qty input, the Modern
-// edit panel's) — those must keep the value exactly as stored, decimals and all, or a save would
-// silently truncate real precision the visitor typed in.
+// glance. Never use this for an editable quantity field (the Modern edit panel's Qty input) —
+// it must keep the value exactly as stored, decimals and all, or a save would silently truncate
+// real precision the visitor typed in.
 export var fmtQtyDisplay = new Intl.NumberFormat("en-AU", {maximumFractionDigits:4});
 
 // Every other figure in this app is implicitly AUD — the one place that's not true is a Shares

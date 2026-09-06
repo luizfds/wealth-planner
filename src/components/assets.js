@@ -4,7 +4,6 @@ import { propertiesOffsetTotal, propertiesIlliquidEquityToday, recalcPurchase } 
 import { totalAssetsValue, totalNetWorthValue, totalDebtsValue, liquidAssetsValue, toAudAmount } from "../calc/engine.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, fmtCurrency0For, fmtCurrency2For, localDateStr, fmtQtyDisplay } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
-import { syncUiModeToggle } from "../lib/uimode.js";
 import { optionsHtml, historyTrendHtml } from "../lib/ledger-table.js";
 import { renderLineChart, sparklineHtml, sparklinePlaceholderHtml } from "../lib/charts.js";
 import { showToast } from "../lib/toast.js";
@@ -12,17 +11,6 @@ import { appendHistorySnapshot, daysUntil } from "../calc/ledger.js";
 import { renderProjectionOutputs } from "./projections.js";
 import { renderDashboardStats } from "./dashboard.js";
 import { parseCsv } from "../lib/backup.js";
-
-function assetRowHtml(item, idx){
-  return '<tr data-index="' + idx + '">' +
-    '<td><input type="text" class="a-what" value="' + escapeAttr(item.what) + '" aria-label="Asset name">' + historyTrendHtml(item) + '</td>' +
-    '<td><select class="a-category" title="Move to a different category" aria-label="Category">' + optionsHtml(ASSET_CATEGORIES, item.category) + '</select></td>' +
-    '<td class="num"><input type="number" step="100" min="0" class="a-amount" value="' + item.amount + '" aria-label="Asset value"></td>' +
-    '<td><input type="text" class="a-person" list="personSuggestions" value="' + escapeAttr(item.person || "") + '" placeholder="Household" aria-label="Person"></td>' +
-    '<td><button type="button" class="asset-log-btn" data-asset-log="' + idx + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart below">Log</button></td>' +
-    '<td><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete asset">✕</button></td>' +
-    '</tr>';
-}
 
 // Every other figure in this app is implicitly AUD; a Shares holding's price/value is only
 // sometimes that (ASX), and otherwise USD (US, Crypto) — see MARKET_CURRENCY. Used to pick the
@@ -151,28 +139,6 @@ function sharesChangeWindowHtml(){
     return '<button type="button" class="subnav-item' + (sharesChangeWindow === w.key ? " active" : "") + '" data-shares-change-window="' + escapeAttr(w.key) + '" title="Price change over the last ' + escapeAttr(w.label) + '">' + escapeAttr(w.label) + '</button>';
   }).join("") + '</div>';
 }
-function holdingRowHtml(item, idx){
-  var qty = Number(item.quantity) || 0;
-  var price = Number(item.price) || 0;
-  var currency = holdingCurrency(item);
-  return '<tr data-index="' + idx + '">' +
-    '<td><input type="text" class="h-what" value="' + escapeAttr(item.what) + '" aria-label="Holding name">' + historyTrendHtml(item) + '</td>' +
-    '<td>' + (sparklineHtml(item.history) || sparklinePlaceholderHtml()) + '</td>' +
-    '<td><input type="text" class="h-symbol" value="' + escapeAttr(item.symbol || "") + '" placeholder="e.g. CBA" aria-label="Ticker symbol"></td>' +
-    '<td><select class="h-market">' + optionsHtml(SHARE_MARKETS, item.market || "ASX") + '</select></td>' +
-    '<td class="num"><input type="number" step="any" min="0" class="h-qty" value="' + qty + '" aria-label="Quantity"></td>' +
-    '<td class="num"><input type="number" step="0.01" min="0" class="h-avgcost" value="' + (item.avgCost != null ? item.avgCost : "") + '" placeholder="—" aria-label="Average cost per share"></td>' +
-    '<td class="num"><input type="number" step="0.01" min="0" class="h-price" value="' + price + '" aria-label="Current price per ' + (item.market === "Crypto" ? "coin" : "share") + ' (' + currency + ')">' +
-      '<span class="computed-note h-price-note">' + priceNoteText(item) + '</span></td>' +
-    '<td class="h-change-cell">' + priceChangeHtml(item) + '</td>' +
-    '<td class="num h-value-cell">' + fmtCurrency0For(currency).format(qty * price) + '</td>' +
-    '<td class="h-gain-cell">' + gainLossHtml(item) + '</td>' +
-    '<td><input type="text" class="h-person" list="personSuggestions" value="' + escapeAttr(item.person || "") + '" placeholder="Household" aria-label="Person"></td>' +
-    '<td><button type="button" class="asset-log-btn" data-asset-log="' + idx + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart below">Log</button></td>' +
-    '<td><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete holding">✕</button></td>' +
-    '</tr>';
-}
-
 export function patchHoldingRow(tr, item){
   var qty = Number(item.quantity) || 0;
   var price = Number(item.price) || 0;
@@ -289,38 +255,17 @@ export function renderAssetCategoryPage(cat){
   var data = assetCategoryItems(cat);
   var total = data.items.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
   var footerBtn = '<button type="button" class="btn btn-sm' + (data.items.length ? " btn-ghost" : "") + '" data-add="assets:' + escapeAttr(cat) + '">+ Add ' + escapeAttr(cat) + '</button>';
-  var isModern = state.uiMode === "modern";
   var body;
   if(!data.items.length){
     body = '<p class="ledger-note" style="margin:0 0 12px">No ' + escapeAttr(cat) + ' tracked yet.</p>' + footerBtn;
-  } else if(isModern){
+  } else {
     var rowMeta = assetRowMeta(data);
     body = '<div class="m-card" id="assetsComp-' + cat + '">' + modernAssetCompBarHtml(rowMeta) + '<div class="m-rows m-asset-rows">' + rowMeta.map(function(m){ return modernAssetRowHtml(m.item, m.idx, m.colorIdx); }).join("") + '</div></div><div class="ledger-footer">' + footerBtn + '</div>';
-  } else {
-    body = '<div class="table-scroll"><table class="assets-table" id="assetCatTable-' + cat + '"></table></div><div class="ledger-footer">' + footerBtn + '</div>';
   }
   container.innerHTML = '<div class="ledgers"><details class="ledger" open>' +
     '<summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">' + escapeAttr(cat) + '</h2></div>' +
     '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
     '<div class="ledger-body">' + body + '</div></details></div>';
-  if(data.items.length && !isModern){
-    var thead = '<thead><tr><th>What</th><th>Category</th><th class="num">Value</th><th>Person</th><th></th><th></th></tr></thead>';
-    var rows = data.items.map(function(item, i){ return assetRowHtml(item, data.indices[i]); }).join("");
-    document.getElementById("assetCatTable-" + cat).innerHTML = thead + "<tbody>" + rows + "</tbody>";
-  }
-}
-
-function vehicleRowHtml(item, idx){
-  return '<tr data-index="' + idx + '">' +
-    '<td><input type="text" class="v-what" value="' + escapeAttr(item.what) + '" aria-label="Vehicle name">' + historyTrendHtml(item) + '</td>' +
-    '<td class="num"><input type="number" step="500" min="0" class="v-purchaseprice" value="' + (Number(item.purchasePrice) || 0) + '" aria-label="Purchase price"></td>' +
-    '<td><input type="date" class="v-purchasedate" value="' + escapeAttr(item.purchaseDate || "") + '" aria-label="Purchase date"></td>' +
-    '<td class="num"><input type="number" step="0.5" min="0" max="100" class="v-deprate" value="' + (item.depreciationRate != null ? item.depreciationRate : 15) + '" aria-label="Depreciation % per year"></td>' +
-    '<td class="num v-value-cell">' + fmtCurrency0.format(Number(item.amount) || 0) + (item.computed ? '<span class="computed-note">auto</span>' : '<span class="computed-note">set price + date to auto-depreciate</span>') + '</td>' +
-    '<td><input type="text" class="v-person" list="personSuggestions" value="' + escapeAttr(item.person || "") + '" placeholder="Household" aria-label="Person"></td>' +
-    '<td><button type="button" class="asset-log-btn" data-asset-log="' + idx + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart below">Log</button></td>' +
-    '<td><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete vehicle">✕</button></td>' +
-    '</tr>';
 }
 
 export function patchVehicleRow(tr, item){
@@ -357,25 +302,17 @@ export function renderVehiclesSubpage(){
   var data = assetCategoryItems("Vehicle");
   var total = data.items.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
   var footerBtn = '<button type="button" class="btn btn-sm' + (data.items.length ? " btn-ghost" : "") + '" data-add="vehicle" title="Track a car or other depreciating vehicle — enter purchase price, date, and an annual depreciation rate and its current value is estimated for you">+ Add vehicle</button>';
-  var isModern = state.uiMode === "modern";
   var body;
   if(!data.items.length){
     body = '<p class="ledger-note" style="margin:0 0 12px">No vehicles tracked yet.</p>' + footerBtn;
-  } else if(isModern){
+  } else {
     var rowMeta = assetRowMeta(data);
     body = '<div class="m-card" id="assetsComp-Vehicle">' + modernAssetCompBarHtml(rowMeta) + '<div class="m-rows m-asset-rows">' + rowMeta.map(function(m){ return modernVehicleRowHtml(m.item, m.idx, m.colorIdx); }).join("") + '</div></div><div class="ledger-footer">' + footerBtn + '</div>';
-  } else {
-    body = '<div class="table-scroll"><table class="assets-table holdings-table" id="vehiclesTable"></table></div><div class="ledger-footer">' + footerBtn + '</div>';
   }
   container.innerHTML = '<div class="ledgers"><details class="ledger" open>' +
     '<summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Vehicle</h2></div>' +
     '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
     '<div class="ledger-body"><p class="ledger-note" style="margin-left:0">Current value is estimated as declining-balance depreciation from your purchase price — a common approximation for cars, not a valuation. Leave depreciation fields blank to enter a value manually instead.</p>' + body + '</div></details></div>';
-  if(data.items.length && !isModern){
-    var thead = '<thead><tr><th>What</th><th class="num">Purchase price</th><th>Purchase date</th><th class="num">Depreciation %/yr</th><th class="num">Current value</th><th>Person</th><th></th><th></th></tr></thead>';
-    var rows = data.items.map(function(item, i){ return vehicleRowHtml(item, data.indices[i]); }).join("");
-    document.getElementById("vehiclesTable").innerHTML = thead + "<tbody>" + rows + "</tbody>";
-  }
 }
 
 function modernShareRowHtml(item, idx, colorIdx){
@@ -582,18 +519,15 @@ export function renderSharesSubpage(){
   var filteredPairs = allData.items.map(function(item, i){ return { item: item, idx: allData.indices[i] }; }).filter(function(p){ return sharesGainMatches(p.item); });
   var data = sortShareData({ items: filteredPairs.map(function(p){ return p.item; }), indices: filteredPairs.map(function(p){ return p.idx; }) });
   var footerBtn = '<button type="button" class="btn btn-sm' + (allData.items.length ? " btn-ghost" : "") + '" data-add="holding" title="Track an individual holding — symbol, quantity, cost, and value. Set Market to Crypto to track a coin the same way.">+ Add share holding</button>';
-  var isModern = state.uiMode === "modern";
   var toolbar = allData.items.length ? sharesFilterSortHtml() : "";
   var body;
   if(!allData.items.length){
     body = '<p class="ledger-note" style="margin:0 0 12px">No share holdings yet — set Market to "Crypto" on a holding to track a coin the same way (quantity, avg cost, gain/loss, sparkline).</p>' + footerBtn;
   } else if(!data.items.length){
     body = '<p class="ledger-note" style="margin:0 0 12px">No holdings match this filter.</p>';
-  } else if(isModern){
+  } else {
     var rowMeta = assetRowMeta(data);
     body = '<div class="m-card" id="assetsComp-Shares">' + modernAssetCompBarHtml(rowMeta) + '<div class="m-rows m-asset-rows">' + rowMeta.map(function(m){ return modernShareRowHtml(m.item, m.idx, m.colorIdx); }).join("") + '</div></div><div class="ledger-footer">' + footerBtn + '</div>';
-  } else {
-    body = modernAssetCompBarHtml(assetRowMeta(data)) + '<div class="table-scroll"><table class="assets-table holdings-table" id="sharesTable"></table></div><div class="ledger-footer">' + footerBtn + '</div>';
   }
   // Only worth mentioning once there's an actual USD-denominated holding for a rate to convert —
   // same gate sharesPriceTemplateTable() (lib/backup.js) uses to decide whether the template
@@ -624,11 +558,6 @@ export function renderSharesSubpage(){
     '<summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Shares</h2></div>' +
     '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
     '<div class="ledger-body"><div id="sharesGlance">' + sharesGainLossGlanceHtml(allData.items) + '</div>' + pasteTool + toolbar + body + '</div></details>' + historyPanel + '</div>';
-  if(data.items.length && !isModern){
-    var thead = '<thead><tr><th>What</th><th>Trend</th><th>Symbol</th><th>Mkt</th><th class="num">Qty</th><th class="num">Avg cost</th><th class="num">Price</th><th>Change</th><th class="num">Value</th><th>Gain/Loss</th><th>Person</th><th></th><th></th></tr></thead>';
-    var rows = data.items.map(function(item, i){ return holdingRowHtml(item, data.indices[i]); }).join("");
-    document.getElementById("sharesTable").innerHTML = thead + "<tbody>" + rows + "</tbody>";
-  }
   if(allData.items.length) renderSharesHistoryChart();
 }
 
@@ -966,7 +895,7 @@ export function renderAssetsImportPreview(parsed){
   container.innerHTML =
     '<p class="ledger-note" style="margin:0"><b>' + summary + "</b></p>" +
     errorsHtml +
-    (parsed.valid.length ? '<div class="table-scroll" style="margin-top:8px"><table class="ledger-table"><thead><tr><th>What</th><th>Category</th><th>Detail</th></tr></thead><tbody>' + previewRows + "</tbody></table></div>" + moreNote : "") +
+    (parsed.valid.length ? '<div class="table-scroll" style="margin-top:8px"><table class="import-preview-table"><thead><tr><th>What</th><th>Category</th><th>Detail</th></tr></thead><tbody>' + previewRows + "</tbody></table></div>" + moreNote : "") +
     '<div style="margin-top:10px;display:flex;gap:8px">' +
       (parsed.valid.length ? '<button type="button" class="btn btn-sm" id="assetsImportConfirmBtn">Import ' + parsed.valid.length + " asset" + (parsed.valid.length === 1 ? "" : "s") + "</button>" : "") +
       '<button type="button" class="btn btn-sm btn-ghost" id="assetsImportCancelBtn">Cancel</button>' +
@@ -1005,7 +934,6 @@ export function commitAssetsImport(items){
 }
 
 export function renderAssets(){
-  syncUiModeToggle();
   renderAssetPersonFilter();
   renderAssetCategoryPage("Cash");
   renderSharesSubpage();
@@ -1032,24 +960,14 @@ export function renderDebts(){
     container.innerHTML = '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">No debts tracked — add anything you owe outside a property loan (credit cards, personal loans, BNPL).</p>';
     return;
   }
-  if(state.uiMode === "modern"){
-    container.innerHTML = '<div class="m-rows">' + state.debts.map(function(d, idx){
-      return '<div class="m-row computed" data-debt-index="' + idx + '"><div class="m-row-summary" style="cursor:default">' +
-        '<div style="flex:1 1 auto;min-width:0"><input type="text" class="debt-what" data-debt-index="' + idx + '" value="' + escapeAttr(d.what) + '" aria-label="Debt name" style="all:unset;width:100%;font:inherit;color:inherit">' + historyTrendHtml(d) + '</div>' +
-        '<input type="number" step="100" min="0" class="debt-balance" data-debt-index="' + idx + '" value="' + d.balance + '" aria-label="Balance" style="width:110px;text-align:right;font-family:\'IBM Plex Mono\',monospace;border:1px solid transparent;background:transparent;color:inherit;padding:5px 6px;border-radius:6px">' +
-        '<button type="button" class="asset-log-btn" data-debt-log="' + idx + '" title="Snapshot the balance above with today\'s date">Log</button>' +
-        '<button type="button" class="btn btn-ghost btn-sm row-del" data-debt-del="' + idx + '" aria-label="Delete debt">✕</button>' +
-      '</div></div>';
-    }).join("") + '</div>';
-  } else {
-    container.innerHTML = '<div class="table-scroll"><table class="ledger-table"><thead><tr><th>What</th><th class="num">Balance</th><th></th></tr></thead><tbody>' +
-      state.debts.map(function(d, idx){
-        return '<tr><td class="what-cell"><input type="text" class="debt-what" data-debt-index="' + idx + '" value="' + escapeAttr(d.what) + '" aria-label="Debt name">' + historyTrendHtml(d) + '</td>' +
-          '<td class="amount-cell"><input type="number" step="100" min="0" class="debt-balance" data-debt-index="' + idx + '" value="' + d.balance + '" aria-label="Balance"></td>' +
-          '<td><button type="button" class="asset-log-btn" data-debt-log="' + idx + '" title="Snapshot the balance above with today\'s date">Log</button>' +
-          '<button class="btn btn-ghost btn-sm row-del" data-debt-del="' + idx + '" aria-label="Delete row">✕</button></td></tr>';
-      }).join("") + '</tbody></table></div>';
-  }
+  container.innerHTML = '<div class="m-rows">' + state.debts.map(function(d, idx){
+    return '<div class="m-row computed" data-debt-index="' + idx + '"><div class="m-row-summary" style="cursor:default">' +
+      '<div style="flex:1 1 auto;min-width:0"><input type="text" class="debt-what" data-debt-index="' + idx + '" value="' + escapeAttr(d.what) + '" aria-label="Debt name" style="all:unset;width:100%;font:inherit;color:inherit">' + historyTrendHtml(d) + '</div>' +
+      '<input type="number" step="100" min="0" class="debt-balance" data-debt-index="' + idx + '" value="' + d.balance + '" aria-label="Balance" style="width:110px;text-align:right;font-family:\'IBM Plex Mono\',monospace;border:1px solid transparent;background:transparent;color:inherit;padding:5px 6px;border-radius:6px">' +
+      '<button type="button" class="asset-log-btn" data-debt-log="' + idx + '" title="Snapshot the balance above with today\'s date">Log</button>' +
+      '<button type="button" class="btn btn-ghost btn-sm row-del" data-debt-del="' + idx + '" aria-label="Delete debt">✕</button>' +
+    '</div></div>';
+  }).join("") + '</div>';
 }
 
 export function logAssetSnapshot(idx){

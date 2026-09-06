@@ -28,7 +28,10 @@
   .budget-row.is-expandable{ cursor:pointer; }
   .budget-row.is-expandable:focus-visible{ outline:none; box-shadow: var(--focus-ring); }
   .budget-row.is-expandable .acct-row{ grid-template-columns: 92px 1fr 78px 14px; }
-  .budget-row-chev{ justify-self:end; }
+  /* Genuinely still an inline accordion (unlike every .m-row, which now opens a full
+     page/dialog) — self-contained sizing rather than sharing .m-row-chev, which is hidden by
+     default now that its own rows no longer need an "expands in place" indicator. */
+  .budget-row-chev{ justify-self:end; width:14px; height:14px; flex:none; color: var(--ink-soft); transition: transform .15s ease; }
   .budget-row.open .budget-row-chev{ transform: rotate(90deg); }
   .budget-row-txns{ margin-top:6px; padding-top:2px; display:flex; flex-direction:column; }
   .budget-row-txn{
@@ -98,62 +101,21 @@
   .ledger-body{ padding: 0 20px 18px; }
 
   .table-scroll{ overflow-x:auto; overscroll-behavior-x: contain; border:1px solid var(--border); border-radius:10px; }
-  table.ledger-table{ width:100%; border-collapse: collapse; min-width: 640px; }
-  table.ledger-table th{
+  .import-preview-table{ width:100%; border-collapse:collapse; }
+  .import-preview-table th{
     text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color: var(--ink-soft);
-    font-weight:600; padding: 9px 10px; background: var(--paper-sunken); border-bottom:1px solid var(--border);
-    white-space:nowrap;
+    font-weight:600; padding:8px 10px; background: var(--paper-sunken); border-bottom:1px solid var(--border); white-space:nowrap;
   }
-  table.ledger-table td{ padding: 6px 8px; border-bottom:1px solid var(--border); vertical-align:middle; }
-  table.ledger-table tr:last-child td{ border-bottom:none; }
-  table.ledger-table td.num{ text-align:right; white-space:nowrap; font-size:13px; }
-  th.num{ text-align:right; }
-  td.computed{ color: var(--ink-soft); }
-  .period-col{ }
-  .period-col.hidden-period{ display:none; }
-  .col-person.col-hidden, .col-type.col-hidden, .col-super.col-hidden, .col-sacrifice.col-hidden, .col-account.col-hidden{ display:none; }
-  .col-account-exp.col-hidden, .col-account-home.col-hidden{ display:none; }
-  .col-classification.col-hidden{ display:none; }
-
-  table.ledger-table input[type="text"], table.ledger-table input[type="number"], table.ledger-table input[type="date"], table.ledger-table select{
-    width:100%; border:1px solid transparent; background:transparent; color:var(--ink); padding:5px 6px; border-radius:6px;
-    font-size:13px; transition: border-color .18s ease, background-color .18s ease, box-shadow .18s ease;
-  }
-  /* Form controls don't inherit the page font by default in any browser — only the text/select
-     fields need this fix; the number input already gets IBM Plex Mono from the site-wide
-     "numbers are mono" rule below, and this selector's specificity would otherwise beat it. */
-  table.ledger-table input[type="text"], table.ledger-table select{ font-family:inherit; }
-  table.ledger-table input[type="number"]{ text-align:right; }
-  table.ledger-table input:hover, table.ledger-table select:hover{ border-color: var(--border); background: var(--paper-sunken); }
-  table.ledger-table input:focus, table.ledger-table select:focus{ border-color: var(--brass); outline:none; background: var(--paper); box-shadow: var(--focus-ring); }
-  table.ledger-table select{ appearance:none; -webkit-appearance:none; background-image:none; padding-right:16px; }
-  td.what-cell{ min-width: 230px; }
-  td.amount-cell{ min-width: 96px; }
-  td.freq-cell, td.class-cell{ min-width: 110px; }
-  td.account-cell{ min-width: 110px; }
-  td.sacrifice-cell{ min-width: 150px; }
-  td.sacrifice-cell .sacrifice-wrap{ display:flex; align-items:center; gap:4px; }
-  td.sacrifice-cell select{ flex: 1 1 auto; min-width: 96px; width:auto; }
-  td.sacrifice-cell input[type="number"]{ flex: 0 0 60px; width:60px; }
+  .import-preview-table td{ padding:6px 10px; border-bottom:1px solid var(--border); font-size:12.5px; white-space:nowrap; }
+  .import-preview-table tr:last-child td{ border-bottom:none; }
+  .import-preview-table td.num, .import-preview-table th.num{ text-align:right; font-family:"IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; }
   .row-del{ opacity:0.5; padding:8px 11px; }
   .row-del:hover{ opacity:1; }
-  tr.is-computed .amount-cell input, tr.is-computed .amount-cell .computed-value{ color: var(--ink-soft); font-style: italic; }
-  .computed-value{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
-  tr.is-gross-ref{ background: var(--paper-sunken); }
-  tr.is-gross-ref .what-cell input, tr.is-gross-ref .amount-cell input{ color: var(--ink-soft); }
-  tr.is-gross-ref td.computed{ color: var(--ink-soft); opacity: 0.7; }
-  tr.is-gross-ref .computed-note{ color: var(--brass-strong); }
-  tr.is-zero-value .what-cell input, tr.is-zero-value .class-cell select{ color: var(--ink-soft); }
-  tr.is-zero-value:hover .what-cell input, tr.is-zero-value:focus-within .what-cell input{ color: var(--ink); }
-  tr.is-home-loan-row .what-cell input{ font-weight:600; }
-  tr.is-home-loan-row td.computed{ color: var(--brass-strong); font-weight:700; }
-  tr.is-home-loan-row .amount-cell input{ color: var(--brass-strong); font-weight:700; }
   .computed-note{ font-size: 10.5px; color: var(--ink-soft); display:block; margin-top:1px; }
   .due-note{ font-size:10.5px; color: var(--ink-soft); display:block; margin-top:2px; }
   .due-note.due-unset{ font-style:italic; }
   .due-note.due-soon{ color: var(--brass-strong); font-weight:600; }
   .due-note.due-overdue{ color: var(--bad); font-weight:600; }
-  .log-cell{ white-space:nowrap; }
   .log-date{
     width:120px; font-size:11px; padding:4px 5px; border:1px solid var(--border); border-radius:5px;
     background: var(--paper); color: var(--ink); font-family:inherit; vertical-align:middle; margin-right:4px;
@@ -177,16 +139,9 @@
   .m-edit-field .log-amount{ width:90px; display:inline-block; }
 
   /* ---------------- Transactions (Expenses page) ---------------- */
-  /* Modern mode: a plain summary (name + date/linked-to/account + amount) that expands via the
-     same .m-row/.m-edit-field machinery every other ledger row uses (see modernPlainRowHtml in
-     ledger-table.js) — Classic mode below stays a flat table, matching every other page's
-     Classic-mode convention of no expand/collapse. */
-  /* Classic mode: the browser's auto table layout doesn't reliably size a <select> column to fit
-     its widest real option text (e.g. "Car Insurance Comprehensive", "Credit Card (credit)"),
-     so without an explicit floor these columns clip mid-word with no ellipsis. table-scroll's
-     own horizontal scroll (already in place for this table) absorbs the extra width. */
-  table.ledger-table .tx-link{ width:100%; min-width:230px; }
-  table.ledger-table .tx-account{ width:100%; min-width:150px; }
+  /* A plain summary (name + date/linked-to/account + amount) that expands via the same
+     .m-row/.m-edit-field machinery every other ledger row uses — see modernPlainRowHtml in
+     ledger-table.js. */
 
   /* ---------------- Accounts (Expenses page) ---------------- */
   .acct-mgmt-row .m-row-summary{ cursor:default; }
@@ -203,8 +158,6 @@
     padding:5px 6px; border:1px solid var(--border); border-radius:6px; background: var(--paper); color: var(--ink);
   }
   .acct-mgmt-name:focus, .acct-mgmt-type:focus, .acct-mgmt-day:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
-  table.ledger-table .acct-mgmt-name{ width:100%; }
-  table.ledger-table .acct-mgmt-type{ width:auto; }
   .row-breakdown-toggle{
     all:unset; display:inline-block; font-size:10.5px; color: var(--brass-strong); cursor:pointer;
     margin-top:2px; padding:4px 2px; text-decoration:underline; text-underline-offset:2px;
@@ -235,7 +188,6 @@
       position: sticky; left:0; z-index:2; background: var(--paper-raised); box-shadow: 1px 0 0 var(--border);
     }
     .table-scroll table th:first-child{ z-index:3; background: var(--paper-sunken); }
-    .table-scroll tr.is-gross-ref td:first-child{ background: var(--paper-sunken); }
   }
 
   /* Desktop/tablet counterpart to the mobile mask-image fade above — see scroll-shadow.js for
@@ -305,8 +257,14 @@
   }
   .m-row-tag.gross{ background: var(--brass-wash); color: var(--brass-strong); }
   .m-row-amt{ margin-left:auto; font-family:"IBM Plex Mono", monospace; font-weight:600; font-size:13.5px; white-space:nowrap; flex:none; }
-  .m-row-chev{ width:14px; height:14px; flex:none; color: var(--ink-soft); transition: transform .15s ease; }
-  .m-row.open .m-row-chev{ transform: rotate(90deg); }
+  /* Hidden while collapsed — every row already reads as tappable on its own (name + amount,
+     cursor:pointer, hover state) now that opening one pushes a full page/dialog rather than
+     expanding in place, so a trailing "this expands" arrow was redundant clutter in the list.
+     Still needed once open, though: the very same element becomes this row's back arrow on a
+     mobile full-screen page (see the max-width:880px block below) or its "expanded" indicator on
+     a wider-viewport dialog, so it stays in the markup rather than being deleted outright. */
+  .m-row-chev{ display:none; width:14px; height:14px; flex:none; color: var(--ink-soft); transition: transform .15s ease; }
+  .m-row.open .m-row-chev{ display:block; transform: rotate(90deg); }
   /* grid-template-rows 0fr→1fr animates height without knowing the content's height up front —
      the inner wrapper clips the overflow while the row is collapsed or mid-animation. Still used
      inside the modal below, just no longer for an inline accordion — see #mRowBackdrop's comment
@@ -334,8 +292,7 @@
      right and covers the tab bar — the native "push a screen, tap back to pop it" pattern most
      mobile apps use, rather than a centered dialog card (which stays the treatment at wider
      widths, where a full-screen takeover would feel broken — a dialog is the desktop-app
-     equivalent there, e.g. Slack's "Edit message"). Same breakpoint uiMode itself uses to default
-     to Modern in the first place (app.js). Reuses the exact same .m-row.open element and JS
+     equivalent there, e.g. Slack's "Edit message"). Reuses the exact same .m-row.open element and JS
      (wireModernRowToggle/openModernRow/closeActiveModernRow, both unchanged) — only the CSS
      presentation changes again, per the architecture note above. Placed after the base .m-row.open
      rule per CLAUDE.md's "later media query wins by source order" gotcha. */
@@ -416,19 +373,6 @@
     .m-row-edit-pad{ padding-left:16px; }
   }
 
-  .col-picker{ position:relative; display:inline-block; margin-bottom:12px; }
-  .col-picker[hidden]{ display:none; }
-  .col-picker-panel{
-    position:absolute; top:calc(100% + 6px); left:0; z-index:20; min-width:190px;
-    background: var(--paper-raised); border:1px solid var(--border); border-radius:9px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.22); padding:6px;
-  }
-  .col-picker-row{ display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:6px; font-size:12.5px; cursor:pointer; user-select:none; }
-  .col-picker-row:hover{ background: var(--paper-sunken); }
-  .col-picker-row input{ margin:0; accent-color: var(--brass); }
-
-  .toggle-periods{ display:flex; align-items:center; gap:8px; font-size:12px; color: var(--ink-soft); user-select:none; }
-  .toggle-periods[hidden]{ display:none; }
   .switch{ position:relative; width:32px; height:18px; }
   .switch input{ opacity:0; width:0; height:0; position:absolute; }
   .switch-track{ position:absolute; inset:0; background: var(--paper-sunken); border:1px solid var(--border); border-radius:100px; transition: background .15s; }

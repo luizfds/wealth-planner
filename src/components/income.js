@@ -1,12 +1,11 @@
 import { state } from "../state.js";
-import { FREQS, INCOME_TYPES, SUPER_MODES, SACRIFICE_MODES, MAX_SUPER_BASE, PERIODS, sacrificeModeToLabel, sacrificeLabelToMode } from "../constants.js";
+import { FREQS, INCOME_TYPES, SUPER_MODES, SACRIFICE_MODES, MAX_SUPER_BASE, sacrificeModeToLabel, sacrificeLabelToMode } from "../constants.js";
 import { periodsOf, sumField } from "../calc/ledger.js";
 import { ipNetResultAnnual } from "../calc/property.js";
 import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax } from "../calc/tax.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
-import { syncUiModeToggle } from "../lib/uimode.js";
-import { buildTable, optionsHtml, historyTrendHtml, logControlsHtml, timingFieldsHtml } from "../lib/ledger-table.js";
+import { optionsHtml, historyTrendHtml, logControlsHtml, timingFieldsHtml } from "../lib/ledger-table.js";
 import { parseCsv } from "../lib/backup.js";
 
 export function personBreakdownHtml(person){
@@ -84,9 +83,6 @@ export function patchIncomeGroupTotals(){
       summaryEl.style.display = "none";
     }
   }
-  document.querySelectorAll("#incomeGroups .income-group-total").forEach(function(el, gi){
-    if(groups[gi]) el.textContent = fmtCurrency0.format(groups[gi].monthly) + " / mo";
-  });
   document.querySelectorAll("#incomeGroups .m-card").forEach(function(card, gi){
     var totalEl = card.querySelector(".m-card-total");
     if(totalEl && groups[gi]) totalEl.innerHTML = fmtCurrency0.format(groups[gi].monthly) + "<span>/mo</span>";
@@ -98,11 +94,6 @@ export function patchIncomeGroupTotals(){
   });
 }
 
-export function renderIncomeGroups(){
-  syncUiModeToggle();
-  if(state.uiMode === "modern") renderIncomeGroupsModern();
-  else renderIncomeGroupsClassic();
-}
 
 // ---------------- Import income from a spreadsheet ----------------
 // Same shape as expenses.js's CSV import (see that file's own comment for the full rationale) —
@@ -182,7 +173,7 @@ export function renderIncomeImportPreview(parsed){
   container.innerHTML =
     '<p class="ledger-note" style="margin:0"><b>' + summary + "</b></p>" +
     errorsHtml +
-    (parsed.valid.length ? '<div class="table-scroll" style="margin-top:8px"><table class="ledger-table"><thead><tr><th>What</th><th>Person</th><th>Type</th><th class="num">Amount</th><th>Frequency</th></tr></thead><tbody>' + previewRows + "</tbody></table></div>" + moreNote : "") +
+    (parsed.valid.length ? '<div class="table-scroll" style="margin-top:8px"><table class="import-preview-table"><thead><tr><th>What</th><th>Person</th><th>Type</th><th class="num">Amount</th><th>Frequency</th></tr></thead><tbody>' + previewRows + "</tbody></table></div>" + moreNote : "") +
     '<div style="margin-top:10px;display:flex;gap:8px">' +
       (parsed.valid.length ? '<button type="button" class="btn btn-sm" id="incomeImportConfirmBtn">Import ' + parsed.valid.length + " row" + (parsed.valid.length === 1 ? "" : "s") + "</button>" : "") +
       '<button type="button" class="btn btn-sm btn-ghost" id="incomeImportCancelBtn">Cancel</button>' +
@@ -201,28 +192,6 @@ export function commitIncomeImport(items){
       incomeType: item.incomeType, amount: item.amount, freq: item.freq,
       superMode: item.superMode, sacrificeMode: item.sacrificeMode, sacrificeValue: item.sacrificeValue
     });
-  });
-}
-
-function renderIncomeGroupsClassic(){
-  var container = document.getElementById("incomeGroups");
-  if(!container) return;
-  var groups = computeIncomeGroups();
-  patchIncomeGroupTotals();
-  container.innerHTML = groups.map(function(g, gi){
-    var label = g.key === "__household" ? "Household / shared" : g.key;
-    var addValue = g.key === "__household" ? "" : g.key;
-    var hasGrossRows = g.items.some(function(i){ return i.incomeType === "Gross" && !i.computed; });
-    return '<div class="income-group income-person-card"><div class="income-group-head">' +
-      '<div class="income-group-head-left"><h4>' + escapeAttr(label) + '</h4></div>' +
-      '<div class="income-group-total">' + fmtCurrency0.format(g.monthly) + ' / mo</div>' +
-      '</div>' +
-      (hasGrossRows ? '<p class="income-group-note">Gross rows below are reference only, excluded from the total — see “' + escapeAttr(g.key) + ' — Net income” for the actual after-tax contribution.</p>' : '') +
-      '<div class="table-scroll"><table class="ledger-table" id="incomeGroupTable' + gi + '"></table></div>' +
-      '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="income:' + escapeAttr(addValue) + '">+ Add to ' + escapeAttr(label) + '</button></div>';
-  }).join("");
-  groups.forEach(function(g, gi){
-    buildTable(document.getElementById("incomeGroupTable" + gi), "income", g.items, {showClass:false, showIncomeFields:true, showLog:true}, g.indices);
   });
 }
 
@@ -257,7 +226,7 @@ function modernIncomeCompBarHtml(rowMeta){
   }).join("") + '</div>';
 }
 
-function renderIncomeGroupsModern(){
+export function renderIncomeGroups(){
   var container = document.getElementById("incomeGroups");
   if(!container) return;
   var groups = computeIncomeGroups();
@@ -338,9 +307,7 @@ export function patchSyntheticIncomeRows(){
     if(!tr) return;
     var amountInput = tr.querySelector(".f-amount");
     if(amountInput) amountInput.value = item.amount;
-    var cells = tr.querySelectorAll("td.computed");
     var p = periodsOf(item.amount, item.freq);
-    PERIODS.forEach(function(pd, i){ if(cells[i]) cells[i].textContent = fmtCurrency2.format(p[pd.key]); });
     var modernAmt = tr.querySelector('[data-computed="amt"]');
     if(modernAmt) modernAmt.textContent = fmtCurrency2.format(p.monthly) + "/mo";
   });
@@ -389,79 +356,11 @@ function patchTaxWaterfall(panel, r){
     if(el) el.textContent = fmtCurrency0.format(values[seg.key]);
   });
 }
+// Ownership/sacrifice sits tucked behind a disclosure instead of always-open, so the net
+// take-home number stays the headline — reuses computePersonTax, renderTaxWaterfallHtml, and
+// the existing taxSuperBody click/input handlers below verbatim; patchAllTaxPersonOutputs
+// doesn't care which function produced the DOM it's patching.
 export function renderTaxSuper(){
-  if(state.uiMode === "modern") renderTaxSuperModern();
-  else renderTaxSuperClassic();
-}
-
-function renderTaxSuperClassic(){
-  var container = document.getElementById("taxSuperBody");
-  if(!container) return;
-  var people = getTaxPeople();
-  if(!people.length){
-    container.innerHTML = '<p class="tax-empty">Mark an Income row\'s Type as "Gross" and give it a Person to see their estimated tax, Medicare levy, and super here.</p>';
-    return;
-  }
-  var ipResult = ipNetResultAnnual();
-  var html = '<div class="tax-global">' +
-    '<div class="proj-field"><label>Super guarantee % p.a.</label><input type="number" min="0" max="30" step="0.1" id="taxSgRate" value="' + (Number(state.tax.sgRate) || 11.5) + '"></div>' +
-    '</div>';
-  html += '<p class="ledger-note" style="margin:0 0 12px">Investment property result this year: <b style="font-family:\'IBM Plex Mono\',monospace">' + fmtCurrency0.format(ipResult) + '</b> (' + (ipResult < 0 ? "a loss — negatively geared, reduces taxable income" : "net rental profit — adds to taxable income") + '), split below by ownership share.</p>';
-
-  html += people.map(function(person){
-    var r = computePersonTax(person);
-    var settings = personTaxSettings(person);
-    var capPct = r.capAvailable > 0 ? Math.min(100, (r.totalConcessional / r.capAvailable) * 100) : 0;
-    var pid = escapeAttr(person);
-    var contributingRows = state.income.filter(function(i){ return i.incomeType === "Gross" && i.person === person; });
-    var rowsSummary = contributingRows.map(function(i){ return escapeAttr(i.what) + " " + fmtCurrency0.format(periodsOf(i.amount, i.freq).yearly) + "/yr"; }).join(" + ");
-    var baseLabel = Math.abs(r.packageTotal - r.gross) > 1 ? "Base salary (excl. super) /yr" : "Total gross income /yr";
-    return '<div class="tax-person" data-tax-person="' + pid + '">' +
-      '<div class="tax-person-head">' +
-        '<h4>' + escapeAttr(person) + '<button type="button" class="icon-btn" data-tax-rename="' + pid + '" aria-label="Rename ' + pid + '" title="Rename this person (updates every income row)">✎</button><button type="button" class="icon-btn icon-del" data-tax-remove="' + pid + '" aria-label="Remove ' + pid + '" title="Remove this person from tax &amp; super (their income rows go back to Net)">✕</button></h4>' +
-        '<span class="tax-marginal">Marginal rate ' + fmtPercent1.format(r.marginalRate) + ' · effective ' + fmtPercent1.format(r.effectiveRate) + '</span>' +
-      '</div>' +
-      (rowsSummary ? '<p class="tax-rows-summary">Adds up: ' + rowsSummary + ' = <b>' + fmtCurrency0.format(r.packageTotal) + '/yr</b> total gross</p>' : '') +
-      '<div class="tax-hero"><span class="tax-hero-label">Net take-home</span><div class="tax-hero-value"><span data-out="nettakehome">' + fmtCurrency0.format(r.netTakeHome) + '</span><small> /yr · <span data-out="nettakehomemo">' + fmtCurrency0.format(r.netTakeHome / 12) + '</span> /mo</small></div></div>' +
-      '<div class="tax-waterfall">' + renderTaxWaterfallHtml(r) + '</div>' +
-      '<p class="tax-secondary-line">' + baseLabel.replace(" /yr", "") + ' <b data-out="gross">' + fmtCurrency0.format(r.gross) + '</b> · IP share <b data-out="ipshare" class="' + (r.ipShare < 0 ? "neg" : "") + '">' + (r.ipShare >= 0 ? "+" : "") + fmtCurrency0.format(r.ipShare) + '</b> · Taxable income <b data-out="taxable">' + fmtCurrency0.format(r.taxable) + '</b> /yr</p>' +
-      (Math.abs(r.packageTotal - r.gross) > 1
-        ? '<p class="tax-package-note" data-out="packagenote" style="margin:-6px 0 12px">Of that ' + fmtCurrency0.format(r.packageTotal) + ', ' + fmtCurrency0.format(r.packageTotal - r.gross) + ' is super already included inside a row marked "Super: Included" — so tax and take-home are calculated on ' + fmtCurrency0.format(r.gross) + ' base salary, not the full ' + fmtCurrency0.format(r.packageTotal) + '. (Total super for the year, from every row, is in the cap line below.)</p>'
-        : '') +
-      '<div class="tax-inputs-label">Your inputs</div>' +
-      '<div class="tax-inputs-panel">' +
-        '<div class="tax-inputs">' +
-          '<div class="proj-field"><label>IP ownership %</label><input type="number" min="0" max="100" step="1" class="tax-ipshare" value="' + r.ownershipPct + '"></div>' +
-          '<div class="proj-field"><label title="Separate from the Cash / Sacrifice column on income rows above — use this for sacrifice not tied to a specific item">Manual sacrifice $/yr</label><input type="number" min="0" step="500" class="tax-sacrifice" value="' + settings.superSacrificeAnnual + '"><button type="button" class="calc-hint-link" style="margin-top:4px" data-tax-maxcap="' + pid + '" title="Fills your remaining concessional cap headroom this year with manual sacrifice (SG and any auto/bonus sacrifice already counted): sets manual sacrifice to ' + fmtCurrency0.format(Math.max(0, r.capAvailable - r.sg - r.autoSacrifice)) + '">Max out cap</button></div>' +
-        '</div>' +
-        '<details class="tax-advanced"><summary>Advanced — concessional cap &amp; carry-forward</summary>' +
-          '<div class="tax-inputs">' +
-            '<div class="proj-field"><label>Concessional cap $/yr</label><input type="number" min="0" step="500" class="tax-cap" value="' + settings.concessionalCap + '"></div>' +
-            '<div class="proj-field"><label>Carry-forward available $</label><input type="number" min="0" step="500" class="tax-carryforward" value="' + settings.carryForward + '"></div>' +
-          '</div>' +
-        '</details>' +
-      '</div>' +
-      '<div class="tax-inputs-label">Concessional cap usage <span class="calc-help" title="Estimated from your inputs above — not something you set directly.">ⓘ</span></div>' +
-      '<div class="cap-bar-track"><div class="cap-bar-fill' + (r.capExceeded > 0 ? " over" : "") + '" style="width:' + Math.min(100, capPct) + '%"></div></div>' +
-      '<div class="tax-cap-note' + (r.capExceeded > 0 ? " warn" : "") + '">' +
-        (r.capExceeded > 0
-          ? ('Over cap by ' + fmtCurrency0.format(r.capExceeded) + ' — excess concessional contributions are taxed at your marginal rate, not just 15%. Check with your accountant.')
-          : (fmtCurrency0.format(r.totalConcessional) + ' of ' + fmtCurrency0.format(r.capAvailable) + ' concessional cap used (SG ' + fmtCurrency0.format(r.sg) + (r.autoSacrifice > 0 ? ' + bonus/income sacrifice ' + fmtCurrency0.format(r.autoSacrifice) : '') + (r.manualSacrifice > 0 ? ' + manual sacrifice ' + fmtCurrency0.format(r.manualSacrifice) : '') + ') — super received net of 15% contributions tax: ' + fmtCurrency0.format(r.superNet))
-        ) +
-      '</div>' +
-      '<div class="tax-cap-note tax-div293-note warn"' + (r.div293Tax > 0.5 ? '' : ' hidden') + ' title="Simplified: income for surcharge purposes is approximated as taxable income + your within-cap concessional contributions, ignoring reportable fringe benefits and net investment losses. Check with your accountant.">Division 293: your income is over the $250,000 threshold, so an extra 15% applies to ' + fmtCurrency0.format(Math.min(r.totalConcessional, r.capAvailable)) + ' of low-tax super contributions — ' + fmtCurrency0.format(r.div293Tax) + '/yr, assessed separately by the ATO (not withheld from take-home above).</div>' +
-      '<div class="tax-cap-note tax-mscb-note"' + (r.superOverCap ? '' : ' hidden') + ' title="Employer super guarantee isn\'t compulsory on ordinary-time earnings above this threshold — indexed each financial year.">Your ordinary earnings are over the ' + fmtCurrency0.format(MAX_SUPER_BASE) + '/yr Maximum Super Contribution Base, so employer super isn\'t compulsory on the excess — SG above is capped accordingly.</div>' +
-    '</div>';
-  }).join("");
-  container.innerHTML = html;
-}
-
-// Same data and the same data-tax-person/tax-ipshare/tax-sacrifice/etc. contract as classic
-// (reuses computePersonTax, renderTaxWaterfallHtml, and the existing taxSuperBody click/input
-// handlers below verbatim — patchAllTaxPersonOutputs doesn't care which layout produced the
-// DOM it's patching) — the only real difference is ownership/sacrifice tucked behind a
-// disclosure instead of always-open, so the net take-home number stays the headline.
-function renderTaxSuperModern(){
   var container = document.getElementById("taxSuperBody");
   if(!container) return;
   var people = getTaxPeople();

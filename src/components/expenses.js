@@ -4,8 +4,7 @@ import { sumField, resolveSharedAmount, periodsOf, transactionsInMonth, transact
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
-import { syncUiModeToggle } from "../lib/uimode.js";
-import { buildTable, modernPlainRowHtml, modernRowSummaryHtml, modernRowEditHtml, modernRowShellHtml } from "../lib/ledger-table.js";
+import { modernPlainRowHtml, modernRowSummaryHtml, modernRowEditHtml, modernRowShellHtml } from "../lib/ledger-table.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { parseCsv } from "../lib/backup.js";
 
@@ -28,22 +27,6 @@ function computeSharedGroups(){
 
 export function patchSharedGroupTotals(){
   var groups = computeSharedGroups();
-  var summaryEl = document.getElementById("sharedSummaryLine");
-  if(summaryEl){
-    // In modern mode the composition bar below already shows this same per-classification
-    // split, so the text line would just repeat it.
-    if(state.uiMode !== "modern" && groups.length > 1){
-      var total = groups.reduce(function(s, g){ return s + g.monthly; }, 0);
-      var parts = groups.map(function(g){ return g.key + " " + fmtCurrency0.format(g.monthly); }).join(" + ");
-      summaryEl.innerHTML = "Adds up: " + parts + " = <b>" + fmtCurrency0.format(total) + " / mo</b> total shared expenses";
-      summaryEl.style.display = "";
-    } else {
-      summaryEl.style.display = "none";
-    }
-  }
-  document.querySelectorAll("#sharedGroups .income-group-total").forEach(function(el, gi){
-    if(groups[gi]) el.textContent = fmtCurrency0.format(groups[gi].monthly) + " / mo";
-  });
   document.querySelectorAll("#sharedGroups .m-card").forEach(function(card, gi){
     var totalEl = card.querySelector(".m-card-total");
     if(totalEl && groups[gi]) totalEl.innerHTML = fmtCurrency0.format(groups[gi].monthly) + "<span>/mo</span>";
@@ -55,11 +38,6 @@ export function patchSharedGroupTotals(){
   }
 }
 
-export function renderSharedGroups(){
-  syncUiModeToggle();
-  if(state.uiMode === "modern") renderSharedGroupsModern();
-  else renderSharedGroupsClassic();
-}
 
 // ---------------- Import expenses from a spreadsheet ----------------
 // Mirrors exportExpensesCsv()'s own column headers (lib/backup.js) rather than trying to auto-map
@@ -137,7 +115,7 @@ export function renderExpensesImportPreview(parsed){
   container.innerHTML =
     '<p class="ledger-note" style="margin:0"><b>' + summary + "</b></p>" +
     errorsHtml +
-    (parsed.valid.length ? '<div class="table-scroll" style="margin-top:8px"><table class="ledger-table"><thead><tr><th>What</th><th>Classification</th><th class="num">Amount</th><th>Frequency</th><th>Account</th></tr></thead><tbody>' + previewRows + "</tbody></table></div>" + moreNote : "") +
+    (parsed.valid.length ? '<div class="table-scroll" style="margin-top:8px"><table class="import-preview-table"><thead><tr><th>What</th><th>Classification</th><th class="num">Amount</th><th>Frequency</th><th>Account</th></tr></thead><tbody>' + previewRows + "</tbody></table></div>" + moreNote : "") +
     '<div style="margin-top:10px;display:flex;gap:8px">' +
       (parsed.valid.length ? '<button type="button" class="btn btn-sm" id="expenseImportConfirmBtn">Import ' + parsed.valid.length + " expense" + (parsed.valid.length === 1 ? "" : "s") + "</button>" : "") +
       '<button type="button" class="btn btn-sm btn-ghost" id="expenseImportCancelBtn">Cancel</button>' +
@@ -154,24 +132,6 @@ export function commitExpensesImport(items){
   items.forEach(function(item){
     state.shared.push({ what: item.what, classification: item.classification, account: item.account, amount: item.amount, freq: item.freq });
   });
-}
-
-function renderSharedGroupsClassic(){
-  var container = document.getElementById("sharedGroups");
-  if(!container) return;
-  var groups = computeSharedGroups();
-  patchSharedGroupTotals();
-  container.innerHTML = groups.map(function(g, gi){
-    return '<div class="income-group"><div class="income-group-head">' +
-      '<div class="income-group-head-left"><h4>' + escapeAttr(g.key) + '</h4></div>' +
-      '<div class="income-group-total">' + fmtCurrency0.format(g.monthly) + ' / mo</div>' +
-      '</div><div class="table-scroll"><table class="ledger-table" id="sharedGroupTable' + gi + '"></table></div>' +
-      '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="shared:' + escapeAttr(g.key) + '">+ Add to ' + escapeAttr(g.key) + '</button></div>';
-  }).join("");
-  groups.forEach(function(g, gi){
-    buildTable(document.getElementById("sharedGroupTable" + gi), "shared", g.items, {showClass:true, hideAcctToggle:true, hideClassToggle:true, showLog:true, logAsTransaction:true}, g.indices);
-  });
-  injectScenarioOverrideButtons();
 }
 
 // Needs/Wants/Savings already carry fixed colors everywhere else in the app (the Dashboard's
@@ -202,7 +162,7 @@ function sharedCompositionBarHtml(groups){
 // Session-only (not persisted) — mirrors modernIncomeRowOpen for the Expenses page's rows.
 export var modernSharedRowOpen = {};
 
-function renderSharedGroupsModern(){
+export function renderSharedGroups(){
   var container = document.getElementById("sharedGroups");
   if(!container) return;
   var groups = computeSharedGroups();
@@ -340,33 +300,14 @@ function propertyExpensesModernHtml(ips){
 
 export function renderPropertyExpensesSummary(){
   var wrap = document.getElementById("propertyExpensesCard");
-  var table = document.getElementById("propertyExpensesTable");
   var modernWrap = document.getElementById("propertyExpensesModern");
-  if(!wrap || !table) return;
+  if(!wrap || !modernWrap) return;
   var ips = ipProperties();
   wrap.hidden = !ips.length;
   if(!ips.length) return;
-  var rows = ips.map(function(p){
-    var monthly = propertyMonthlyCost(p);
-    return '<tr class="is-computed">' +
-      '<td class="what-cell">' + escapeAttr(p.what) + ' — Property costs</td>' +
-      '<td class="amount-cell"><span class="computed-value">' + fmtCurrency0.format(monthly) + '</span>' +
-        '<span class="computed-note">auto: expenses + loan repayment for ' + escapeAttr(p.what) + ' — edit on the Properties tab</span></td>' +
-      '<td class="freq-cell">Monthly</td>' +
-      '<td class="num">' + fmtCurrency0.format(monthly) + '</td>' +
-      '<td class="num">' + fmtCurrency0.format(monthly * 12) + '</td>' +
-      '</tr>';
-  }).join("");
   var total = ips.reduce(function(s, p){ return s + propertyMonthlyCost(p); }, 0);
-  table.innerHTML = '<thead><tr><th>What</th><th>Amount</th><th>Frequency</th><th class="num">Monthly</th><th class="num">Yearly</th></tr></thead><tbody>' + rows + '</tbody>';
   document.getElementById("propertyExpensesTotal").textContent = fmtCurrency0.format(total);
-  var scrollWrap = table.closest(".table-scroll");
-  var isModern = state.uiMode === "modern";
-  if(scrollWrap) scrollWrap.hidden = isModern;
-  if(modernWrap){
-    modernWrap.hidden = !isModern;
-    if(isModern) modernWrap.innerHTML = propertyExpensesModernHtml(ips);
-  }
+  modernWrap.innerHTML = propertyExpensesModernHtml(ips);
 }
 
 // ---------------- Review expenses: one-at-a-time swipe/confirm flow ----------------
@@ -549,31 +490,20 @@ function transactionRowHtml(t, idx){
   var amountInput = '<input type="number" step="0.01" min="0" class="tx-amount" data-tx-index="' + idx + '" value="' + t.amount + '" aria-label="Amount">';
   var linkSelect = '<select class="tx-link" data-tx-index="' + idx + '" aria-label="Linked expense">' + transactionLinkOptionsHtml(t.linkedExpenseId) + '</select>';
   var acctSelect = '<select class="tx-account" data-tx-index="' + idx + '" aria-label="Account">' + transactionAccountOptionsHtml(t.account || "") + '</select>';
-  if(state.uiMode === "modern"){
-    var summary = modernRowSummaryHtml({
-      name: t.what || "Transaction",
-      subLines: [transactionSummaryText(t)],
-      amountHtml: fmtCurrency2.format(Number(t.amount) || 0)
-    });
-    var fieldsHtml =
-      '<div class="m-edit-field span3"><label>Description</label>' + whatInput + '</div>' +
-      '<div class="m-edit-field"><label>Date</label>' + dateInput + '</div>' +
-      '<div class="m-edit-field"><label>Amount</label>' + amountInput + '</div>' +
-      '<div class="m-edit-field"><label>Account</label>' + acctSelect + '</div>' +
-      '<div class="m-edit-field span3"><label>Linked to</label>' + linkSelect + '</div>';
-    var actionsHtml = '<button type="button" class="btn btn-ghost btn-sm row-del" data-tx-del="' + idx + '">Delete</button>';
-    var edit = modernRowEditHtml(fieldsHtml, actionsHtml);
-    return modernRowShellHtml("tx", idx, modernTransactionRowOpen, summary, edit, { extraClass: "tx-row" });
-  }
-  var delBtn = '<button type="button" class="btn btn-ghost btn-sm row-del" data-tx-del="' + idx + '" aria-label="Delete transaction">✕</button>';
-  return '<tr data-tx-index="' + idx + '">' +
-    '<td>' + dateInput + '</td>' +
-    '<td class="what-cell">' + whatInput + '</td>' +
-    '<td class="amount-cell">' + amountInput + '</td>' +
-    '<td>' + linkSelect + '</td>' +
-    '<td>' + acctSelect + '</td>' +
-    '<td>' + delBtn + '</td>' +
-    '</tr>';
+  var summary = modernRowSummaryHtml({
+    name: t.what || "Transaction",
+    subLines: [transactionSummaryText(t)],
+    amountHtml: fmtCurrency2.format(Number(t.amount) || 0)
+  });
+  var fieldsHtml =
+    '<div class="m-edit-field span3"><label>Description</label>' + whatInput + '</div>' +
+    '<div class="m-edit-field"><label>Date</label>' + dateInput + '</div>' +
+    '<div class="m-edit-field"><label>Amount</label>' + amountInput + '</div>' +
+    '<div class="m-edit-field"><label>Account</label>' + acctSelect + '</div>' +
+    '<div class="m-edit-field span3"><label>Linked to</label>' + linkSelect + '</div>';
+  var actionsHtml = '<button type="button" class="btn btn-ghost btn-sm row-del" data-tx-del="' + idx + '">Delete</button>';
+  var edit = modernRowEditHtml(fieldsHtml, actionsHtml);
+  return modernRowShellHtml("tx", idx, modernTransactionRowOpen, summary, edit, { extraClass: "tx-row" });
 }
 export function renderTransactions(){
   var container = document.getElementById("transactionsTable");
@@ -598,10 +528,7 @@ export function renderTransactions(){
         (transactionsShowAll ? "Show recent only" : "Show all " + sorted.length + " transactions") +
       '</button></div>'
     : "";
-  container.innerHTML = (state.uiMode === "modern"
-    ? '<div class="m-rows">' + rows + '</div>'
-    : '<div class="table-scroll"><table class="ledger-table"><thead><tr><th>Date</th><th>Description</th><th class="num">Amount</th><th>Linked to</th><th>Account</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>')
-    + toggleHtml;
+  container.innerHTML = '<div class="m-rows">' + rows + '</div>' + toggleHtml;
 }
 export function addTransaction(){
   state.transactions.push({ id: genId("t"), date: localDateStr(), amount: 0, what: "", linkedExpenseId: null, account: "" });
@@ -812,17 +739,9 @@ function accountRowHtml(a, idx){
     ? '<input type="number" min="1" max="28" step="1" class="acct-mgmt-day" data-acct-index="' + idx + '" value="' + (a.statementStartDay || 1) + '" aria-label="Statement start day (1-28)">'
     : "";
   var delBtn = '<button type="button" class="btn btn-ghost btn-sm row-del" data-acct-del="' + idx + '" aria-label="Delete account">✕</button>';
-  if(state.uiMode === "modern"){
-    return '<div class="m-row acct-mgmt-row" data-acct-index="' + idx + '">' +
-      '<div class="m-row-summary" style="cursor:default;flex-wrap:wrap;gap:8px">' + nameInput + typeSelect + dayInput + delBtn + '</div>' +
-    '</div>';
-  }
-  return '<tr data-acct-index="' + idx + '">' +
-    '<td class="what-cell">' + nameInput + '</td>' +
-    '<td>' + typeSelect + '</td>' +
-    '<td>' + (dayInput || '<span class="ledger-note" style="margin:0">—</span>') + '</td>' +
-    '<td>' + delBtn + '</td>' +
-    '</tr>';
+  return '<div class="m-row acct-mgmt-row" data-acct-index="' + idx + '">' +
+    '<div class="m-row-summary" style="cursor:default;flex-wrap:wrap;gap:8px">' + nameInput + typeSelect + dayInput + delBtn + '</div>' +
+  '</div>';
 }
 export function renderAccounts(){
   var container = document.getElementById("accountsTable");
@@ -832,9 +751,7 @@ export function renderAccounts(){
     return;
   }
   var rows = state.accounts.map(function(a, i){ return accountRowHtml(a, i); }).join("");
-  container.innerHTML = state.uiMode === "modern"
-    ? '<div class="m-rows">' + rows + '</div>'
-    : '<div class="table-scroll"><table class="ledger-table"><thead><tr><th>Name</th><th>Type</th><th>Statement start day</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+  container.innerHTML = '<div class="m-rows">' + rows + '</div>';
 }
 export function addAccount(){
   state.accounts.push({ id: genId("acct"), name: "", type: "debit", statementStartDay: 1 });

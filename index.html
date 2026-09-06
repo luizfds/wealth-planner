@@ -109,20 +109,6 @@
       <button type="button" class="nav-item" data-page="projections">Projections</button>
     </div>
     <div class="app-sidebar-footer">
-      <label class="toggle-periods" id="uiModeToggleWrap">
-        <span class="switch">
-          <input type="checkbox" id="uiModeToggle">
-          <span class="switch-track"><span class="switch-thumb"></span></span>
-        </span>
-        Modern layout
-      </label>
-      <label class="toggle-periods" id="periodsToggleWrap">
-        <span class="switch">
-          <input type="checkbox" id="periodsToggle">
-          <span class="switch-track"><span class="switch-thumb"></span></span>
-        </span>
-        Show all periods
-      </label>
       <p class="app-sidebar-note">Stored only in this browser (<code>localStorage</code>) — nothing is sent anywhere. Clearing your browser data clears this too, so <button class="link-btn" id="exportLink2">Export</button> a backup now and then.</p>
       <a class="feature-request-link" href="https://github.com/luizfds/wealth-planner/issues/new" target="_blank" rel="noopener noreferrer">💡 Request a feature</a>
       <p class="app-version">v2.53.1</p>
@@ -237,10 +223,6 @@
             </summary>
             <div class="ledger-body">
               <p class="ledger-note" style="margin-left:0">Same for every scenario. Enter a paycheck as-is (Type "Net") if that's what actually lands in your account, or mark it "Gross" and add a Person to have the Tax &amp; Super section below work out real take-home pay.</p>
-              <div class="col-picker" id="incomeColPicker">
-                <button type="button" class="btn btn-sm col-picker-btn" id="incomeColPickerBtn" aria-haspopup="true" aria-expanded="false">Columns ▾</button>
-                <div class="col-picker-panel" id="incomeColPickerPanel" hidden></div>
-              </div>
               <div id="incomeImportPreview" hidden></div>
               <p class="income-summary-line" id="incomeSummaryLine" style="display:none"></p>
               <div id="incomeGroups"></div>
@@ -274,10 +256,6 @@
             <input type="file" id="expenseImportFile" accept=".csv,text/csv" hidden>
           </div>
         </div>
-        <div class="col-picker" id="expenseColPicker">
-          <button type="button" class="btn btn-sm col-picker-btn" id="expenseColPickerBtn" aria-haspopup="true" aria-expanded="false">Columns ▾</button>
-          <div class="col-picker-panel" id="expenseColPickerPanel" hidden></div>
-        </div>
         <div class="ledgers">
           <details class="ledger" open>
             <summary>
@@ -301,8 +279,7 @@
             </summary>
             <div class="ledger-body">
               <p class="ledger-note" style="margin-left:0">Read-only — each property's expenses plus loan repayments. Edit on the Properties tab.</p>
-              <div class="table-scroll"><table class="ledger-table" id="propertyExpensesTable"></table></div>
-              <div id="propertyExpensesModern" hidden></div>
+              <div id="propertyExpensesModern"></div>
             </div>
           </details>
           <details class="ledger" open>
@@ -388,13 +365,6 @@
               <div class="ledger-total">edit each scenario</div>
             </summary>
             <div class="ledger-body">
-              <label class="toggle-periods" id="homeAcctToggleWrap" style="margin:0 0 14px">
-                <span class="switch">
-                  <input type="checkbox" id="homeAcctToggle">
-                  <span class="switch-track"><span class="switch-thumb"></span></span>
-                </span>
-                Show account column
-              </label>
               <div id="homeBody"></div>
             </div>
           </details>
@@ -539,17 +509,9 @@
     <button type="button" class="mobile-more-item" data-page="accounts">Accounts</button>
     <div class="mobile-more-divider"></div>
     <button type="button" class="mobile-more-item" id="mobileThemeBtn">Theme: System</button>
-    <button type="button" class="mobile-more-item" id="mobileLayoutBtn">Layout: Classic</button>
     <button type="button" class="mobile-more-item" id="mobileShareBtn" hidden>Share securely</button>
     <button type="button" class="mobile-more-item" id="mobileImportBtn">Import backup</button>
     <button type="button" class="mobile-more-item" id="mobileExportBtn">Export backup</button>
-    <label class="mobile-more-item mobile-more-toggle" id="mobilePeriodsToggleWrap">
-      <span class="switch">
-        <input type="checkbox" id="mobilePeriodsToggle">
-        <span class="switch-track"><span class="switch-thumb"></span></span>
-      </span>
-      Show all periods
-    </label>
     <div class="mobile-more-divider"></div>
     <button type="button" class="mobile-more-item" id="mobileSampleDataBtn">Sample data</button>
     <button type="button" class="mobile-more-item" id="mobileResetBtn">Reset</button>

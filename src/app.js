@@ -1960,6 +1960,21 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
   document.addEventListener("click", closeMobileMore);
   document.addEventListener("keydown", function(e){ if(e.key === "Escape") closeMobileMore(); });
 
+  // Quick-action button — one button, present on every page, retargeted per page/subpage by
+  // nav.js's updateQuickFab() (data-fab-mode/data-fab-selector). "networth" is the one mode with
+  // no button to click (Dashboard has no add-something UI at all); everything else scrolls the
+  // page's own real +Add control into view and clicks it, so this never duplicates what that
+  // button already does — it just saves the trip down the page to find it.
+  document.getElementById("quickFab").addEventListener("click", function(e){
+    var fab = e.currentTarget;
+    if(fab.getAttribute("data-fab-mode") === "networth"){ logNetWorthSnapshot(); return; }
+    var selector = fab.getAttribute("data-fab-selector");
+    var target = selector && document.querySelector(selector);
+    if(!target) return;
+    target.scrollIntoView({ block: "center", behavior: "smooth" });
+    setTimeout(function(){ target.click(); }, 220);
+  });
+
   // Mirrors the sidebar footer's version text into the mobile "More" panel, which is the only
   // place a mobile viewport (<880px, where .app-version is hidden) can see it.
   document.getElementById("mobileMoreVersion").textContent = document.querySelector(".app-version").textContent;

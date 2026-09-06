@@ -28,7 +28,7 @@ import {
   openExpenseReview, closeExpenseReview, renderExpenseReviewPanel,
   logCurrentReviewCard, skipCurrentReviewCard, expenseReview,
   renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel,
-  setTransactionsShowAll, modernTransactionRowOpen,
+  setTransactionsShowAll, modernTransactionRowOpen, budgetRowTxnsOpen,
   renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, logExpenseTransaction,
   parseExpensesImportCsv, renderExpensesImportPreview, clearExpensesImportPreview, commitExpensesImport
 } from "./components/expenses.js";
@@ -1478,6 +1478,25 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     if(delTxBtn){ deleteTransaction(Number(delTxBtn.getAttribute("data-tx-del"))); return; }
     var txShowAllBtn = e.target.closest("[data-tx-show-all-toggle]");
     if(txShowAllBtn){ setTransactionsShowAll(txShowAllBtn.getAttribute("data-tx-show-all-toggle") === "1"); return; }
+  });
+
+  // Actual vs. planned: click a budget row (that has at least one transaction logged against it
+  // this month) to expand it in place and see exactly which transactions make up its "actual"
+  // figure — no need to separately scroll the Transactions list below to find them.
+  document.getElementById("actualVsPlannedPanel").addEventListener("click", function(e){
+    if(e.target.closest("[data-tx-del]")) return; // let the delete handler above own this click
+    var toggleRow = e.target.closest("[data-budget-row-toggle]");
+    if(!toggleRow) return;
+    var key = toggleRow.getAttribute("data-budget-row-toggle");
+    budgetRowTxnsOpen[key] = !budgetRowTxnsOpen[key];
+    renderActualVsPlannedPanel();
+  });
+  document.getElementById("actualVsPlannedPanel").addEventListener("keydown", function(e){
+    if(e.key !== "Enter" && e.key !== " ") return;
+    var toggleRow = e.target.closest("[data-budget-row-toggle]");
+    if(!toggleRow) return;
+    e.preventDefault();
+    toggleRow.click();
   });
   document.addEventListener("input", function(e){
     if(!e.target.closest("#transactionsTable")) return;

@@ -48,7 +48,7 @@ import {
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
   patchCalcOutputs, afterCalcChange, patchInvestOutputs
 } from "./components/scenarios.js";
-import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, PAGE_KEY } from "./components/nav.js";
+import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, PAGE_KEY } from "./components/nav.js";
 
 (function(){
   "use strict";
@@ -2001,6 +2001,12 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
     var btn = e.target.closest("[data-assets-sub]");
     if(!btn) return;
     showAssetsSubpage(btn.getAttribute("data-assets-sub"));
+  });
+
+  document.getElementById("dashboardSubnav").addEventListener("click", function(e){
+    var btn = e.target.closest("[data-dashboard-sub]");
+    if(!btn) return;
+    showDashboardSubpage(btn.getAttribute("data-dashboard-sub"));
   });
 
   // Swipe between Assets' Cash/Shares/Super/Vehicle/Other tabs on mobile — desktop already has

@@ -14,12 +14,37 @@
      row-scoped sibling of .fire-bar-track/.fire-bar-fill (same over/under color language) rather
      than reusing .acct-track/.acct-fill, which is a comparative multi-category chart (Dashboard's
      spend-by-account bars, colored per series) with no over-budget concept of its own. */
-  .budget-row{ margin-bottom:9px; }
+  .budget-row{ margin-bottom:9px; border-radius:8px; }
   .budget-row:last-child{ margin-bottom:0; }
   .budget-row .acct-row{ margin-bottom:3px; }
   .budget-bar-track{ height:5px; border-radius:100px; background: var(--paper-sunken); overflow:hidden; }
   .budget-bar-fill{ height:100%; background: var(--good); border-radius:inherit; transition: width .3s ease; }
   .budget-bar-fill.over{ background: var(--bad); }
+  /* A budget row with at least one transaction logged against it this month can expand in place
+     to show exactly which ones — clicking anywhere on the row (not just the chevron) toggles it,
+     matching the click-anywhere-on-the-row pattern used elsewhere (property-section-head,
+     home-block-head). Only rows with something to show get the chevron/cursor at all; a $0-actual
+     row stays a plain, non-interactive row same as before this. */
+  .budget-row.is-expandable{ cursor:pointer; }
+  .budget-row.is-expandable:focus-visible{ outline:none; box-shadow: var(--focus-ring); }
+  .budget-row.is-expandable .acct-row{ grid-template-columns: 92px 1fr 78px 14px; }
+  .budget-row-chev{ justify-self:end; }
+  .budget-row.open .budget-row-chev{ transform: rotate(90deg); }
+  .budget-row-txns{ margin-top:6px; padding-top:2px; display:flex; flex-direction:column; }
+  .budget-row-txn{
+    display:flex; align-items:center; gap:8px; padding:6px 0; border-top:1px solid var(--border);
+    font-size:12px; color: var(--ink-soft);
+  }
+  .budget-row-txn-date{ flex:none; width:64px; font-family:"IBM Plex Mono", monospace; font-size:11px; }
+  .budget-row-txn-what{ flex:1 1 auto; min-width:0; color: var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .budget-row-txn-amt{ flex:none; font-family:"IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; color: var(--ink); }
+  /* At mobile widths a 64px date column leaves too little room for description + amount + delete
+     on one line — drop the date to its own line above, same "give the tight element more room"
+     shape as this file's other mobile row fixes (properties.css's .m-cost-row, .property-compare-row). */
+  @media (max-width:480px){
+    .budget-row-txn{ flex-wrap:wrap; row-gap:2px; }
+    .budget-row-txn-date{ width:auto; flex-basis:100%; }
+  }
   .fire-stat-row{ display:flex; justify-content:space-between; align-items:baseline; font-size:12.5px; color: var(--ink-soft); margin-bottom:4px; }
   .fire-stat-row b{ color: var(--ink); font-family:"IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; }
   .fire-note{ font-size:11.5px; color: var(--ink-soft); margin:8px 0 0; line-height:1.5; }

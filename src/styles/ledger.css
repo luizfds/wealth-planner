@@ -308,11 +308,28 @@
   .m-row-chev{ width:14px; height:14px; flex:none; color: var(--ink-soft); transition: transform .15s ease; }
   .m-row.open .m-row-chev{ transform: rotate(90deg); }
   /* grid-template-rows 0fr→1fr animates height without knowing the content's height up front —
-     the inner wrapper clips the overflow while the row is collapsed or mid-animation. */
+     the inner wrapper clips the overflow while the row is collapsed or mid-animation. Still used
+     inside the modal below, just no longer for an inline accordion — see #mRowBackdrop's comment
+     in shell.css for why editing moved to a modal at all. */
   .m-row-edit{ display:grid; grid-template-rows:0fr; transition: grid-template-rows .22s ease; }
   .m-row.open .m-row-edit{ grid-template-rows:1fr; }
   .m-row-edit-inner{ overflow:hidden; min-height:0; }
   .m-row-edit-pad{ padding:2px 16px 16px 40px; }
+  /* An "open" row becomes its own centered modal card via position:fixed — real browsers render
+     position:fixed relative to the viewport regardless of DOM nesting, so this works correctly no
+     matter which list/page the row actually lives in. #mRowBackdrop (shell.css) is a single shared
+     backdrop shown/hidden by app.js's wireModernRowToggle whenever any row opens/closes, rather
+     than a separate backdrop per row. Only one row can be .open at a time (enforced in JS) or
+     these would visually stack. */
+  .m-row.open{
+    position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:100;
+    width:calc(100% - 32px); max-width:420px; max-height:calc(100vh - 64px); overflow-y:auto; overscroll-behavior:contain;
+    border:1px solid var(--border); border-radius:14px; box-shadow: 0 16px 48px rgba(0,0,0,0.3);
+    background: var(--paper-raised); margin:0; animation: mRowModalIn .15s ease;
+  }
+  @keyframes mRowModalIn{ from{ opacity:0; transform:translate(-50%,-50%) translateY(8px); } to{ opacity:1; transform:translate(-50%,-50%); } }
+  @media (prefers-reduced-motion: reduce){ .m-row.open{ animation:none; } }
+  .m-row.open .m-row-summary:hover{ background:transparent; }
   .m-edit-grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap:10px 12px; background: var(--paper-sunken); border:1px solid var(--border); border-radius:9px; padding:12px 14px; }
   .m-edit-field{ min-width:0; }
   .m-edit-field.span2{ grid-column: span 2; }

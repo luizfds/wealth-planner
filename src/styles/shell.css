@@ -146,3 +146,17 @@
   @media (max-width: 880px){
     .quick-fab{ right:16px; bottom: calc(78px + env(safe-area-inset-bottom) + 14px); }
   }
+
+  /* ---------------- Modern-row edit modal backdrop ---------------- */
+  /* Editing (or adding — see app.js's add handlers) any Modern-mode row used to expand its fields
+     inline in the scrolling list, accordion-style — closer to a web form than how a mobile finance
+     app actually handles data entry (a focused modal, cursor already in the first field). Every
+     such row already funnels through one shared toggle mechanism (wireModernRowToggle in app.js),
+     so this one shared backdrop plus a `.m-row.open` → fixed-position centered card (ledger.css)
+     is enough to turn every one of them into that same modal pattern app-wide — Income, Expenses,
+     Transactions, Assets, Properties, Scenarios — without changing any page's own field-building
+     or state-mutation code, only where that same content visually renders. */
+  #mRowBackdrop{
+    position:fixed; inset:0; z-index:99; background: rgba(0,0,0,0.45);
+  }
+  #mRowBackdrop[hidden]{ display:none; }

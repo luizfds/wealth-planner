@@ -1,4 +1,4 @@
-import { PERIODS, FREQS, CLASSES, INCOME_TYPES, SUPER_MODES, SACRIFICE_MODES, sacrificeModeToLabel } from "../constants.js";
+import { PERIODS, FREQS, CLASSES, INCOME_TYPES, SUPER_MODES, SACRIFICE_MODES, sacrificeModeToLabel, MONTH_NAMES } from "../constants.js";
 import { periodsOf } from "../calc/ledger.js";
 import { incomeRowSuperNote } from "../calc/tax.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "./format.js";
@@ -42,6 +42,21 @@ export function historyTrendHtml(item){
     ' (' + fmtPercent1.format(Math.abs(pct)) + ') since ' + escapeAttr(prev.date) + '</div>';
 }
 
+// The two fields behind every row's "irregular / due month" timing (see state.js's
+// applyTimingDefaults() and calc/ledger.js's resolvedDueMonth()) — shared by the generic Modern
+// row (modernPlainRowHtml below), Income's own bespoke Modern row (income.js), and the Classic
+// table's own two extra columns (rowHtml below), so the three surfaces can never drift apart on
+// what these fields mean or how they're labeled. "Auto" (blank) lets a Yearly/Quarterly item's
+// due month be inferred from the last time it was logged instead of set explicitly.
+export function timingFieldsHtml(item){
+  var monthOptions = '<option value="">Auto</option>' + MONTH_NAMES.map(function(m, i){
+    return '<option value="' + (i + 1) + '"' + (item.dueMonth === i + 1 ? " selected" : "") + '>' + m + '</option>';
+  }).join("");
+  return '<div class="m-edit-field span2"><label class="m-checkbox-field"><input type="checkbox" class="f-irregular"' + (item.irregular ? " checked" : "") +
+      '> No fixed timing (irregular) — a lumpy spend like Extras or property maintenance, budgeted as a smoothed reserve instead of expected every period</label></div>' +
+    '<div class="m-edit-field"><label>Due month</label><select class="f-duemonth" title="For a Yearly/Quarterly item — which month it\'s actually due. Auto infers it from the last time you logged it.">' + monthOptions + '</select></div>';
+}
+
 export function periodTh(){
   return PERIODS.map(function(p){
     return '<th class="num period-col' + (p.hidden ? " hidden-period" : "") + '" data-period="' + p.key + '">' + p.label + '</th>';
@@ -69,6 +84,8 @@ export function buildTable(tableEl, section, items, opts, indices){
     (showClass ? '<th' + (classClass ? ' class="' + classClass + '"' : '') + '>Classification</th>' : '') +
     (showIncomeFields ? '<th class="col-person">Person</th><th class="col-type">Type</th><th class="col-super">Super</th><th class="col-sacrifice">Cash / Sacrifice</th>' : '') +
     '<th' + (showIncomeFields ? ' class="col-account"' : acctClass ? ' class="' + acctClass + '"' : '') + '>Account</th><th class="num">Amount</th><th>Frequency</th>' +
+    '<th title="A lumpy, unpredictable-timing spend (e.g. Extras, property maintenance) — budgeted as a smoothed reserve instead of expected every period">Irregular</th>' +
+    '<th title="For a Yearly/Quarterly item — which month it\'s actually due. Blank infers it from the last time you logged it.">Due month</th>' +
     periodTh() + '<th></th></tr></thead>';
   var rows = items.map(function(item, idx){ return rowHtml(section, item, indices ? indices[idx] : idx, showClass, showIncomeFields, acctClass, classClass, showLog, logAsTransaction); }).join("");
   tableEl.innerHTML = thead + "<tbody>" + rows + "</tbody>";
@@ -101,6 +118,12 @@ export function rowHtml(section, item, idx, showClass, showIncomeFields, acctCla
       (isComputed ? '<span class="computed-note">' + escapeAttr(item.computedNote || "auto-calculated") + '</span>' : "") +
       (isGrossRef ? '<span class="computed-note super-note">' + escapeAttr(incomeRowSuperNote(item)) + '</span>' : "") + '</td>' +
     '<td class="freq-cell"><select class="f-freq"' + (isComputed ? " disabled" : "") + '>' + optionsHtml(FREQS, item.freq) + '</select></td>' +
+    '<td class="irregular-cell">' + (isComputed ? "" : '<input type="checkbox" class="f-irregular" aria-label="No fixed timing (irregular)"' + (item.irregular ? " checked" : "") + '>') + '</td>' +
+    '<td class="freq-cell">' + (isComputed ? "" : (
+      '<select class="f-duemonth" aria-label="Due month"><option value="">Auto</option>' +
+      MONTH_NAMES.map(function(m, i){ return '<option value="' + (i + 1) + '"' + (item.dueMonth === i + 1 ? " selected" : "") + '>' + m + '</option>'; }).join("") +
+      '</select>'
+    )) + '</td>' +
     periodTd(item) +
     '<td class="log-cell">' + (isComputed ? "" : (
       (showLog ? logControlsHtml(section, idx, item, logAsTransaction) : "") +
@@ -138,12 +161,15 @@ export function modernRowSummaryHtml(opts){
     (opts.computed ? "" : '<svg class="m-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>') +
   '</div>';
 }
-// The expand panel: caller-built .m-edit-field HTML dropped into the standard field grid, plus
-// an actions row (normally just the row's own Delete button), wrapped in the grid-template-rows
+// The expand panel: caller-built .m-edit-field HTML dropped into the standard field grid, an
+// optional collapsed "more options" block below it (own HTML, own <details> — not wrapped in the
+// field grid, matching income.js's bespoke row so the two never look different), and an actions
+// row (normally just the row's own Delete button) — all wrapped in the grid-template-rows
 // animation container every expandable row shares (see ledger.css's .m-row-edit/-inner/-pad).
-export function modernRowEditHtml(fieldsHtml, actionsHtml){
+export function modernRowEditHtml(fieldsHtml, actionsHtml, moreOptionsHtml){
   return '<div class="m-row-edit"><div class="m-row-edit-inner"><div class="m-row-edit-pad">' +
     '<div class="m-edit-grid">' + fieldsHtml + '</div>' +
+    (moreOptionsHtml || "") +
     '<div class="m-edit-actions">' + actionsHtml + '</div>' +
   '</div></div></div>';
 }
@@ -201,7 +227,8 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
     '<div class="m-edit-field"><label>Frequency</label><select class="f-freq">' + optionsHtml(FREQS, item.freq) + '</select></div>' +
     accountField +
     logField;
+  var moreOptionsHtml = '<details class="row-more-options"><summary>More options</summary><div class="m-edit-grid" style="margin-top:8px">' + timingFieldsHtml(item) + '</div></details>';
   var actionsHtml = '<button type="button" class="btn btn-ghost btn-sm row-del" data-del="' + escapeAttr(section) + ':' + idx + '">Delete</button>';
-  var edit = modernRowEditHtml(fieldsHtml, actionsHtml);
+  var edit = modernRowEditHtml(fieldsHtml, actionsHtml, moreOptionsHtml);
   return modernRowShellHtml(section, idx, openState, summary, edit, { primary: opts.primaryId && item.id === opts.primaryId });
 }

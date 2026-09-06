@@ -7,6 +7,9 @@ import { staleAssetNamesList, getLocalNotifications } from "../src/lib/notificat
 function findStaleAssetNotification(notifications){
   return notifications.find(function(n){ return n.type === "stale-asset"; });
 }
+function findReviewNotification(notifications){
+  return notifications.find(function(n){ return n.type === "review"; });
+}
 
 test("staleAssetNamesList formats never-logged and days-ago entries and joins them", function(){
   var text = staleAssetNamesList([
@@ -52,4 +55,24 @@ test("getLocalNotifications caps the grouped stale-asset detail at 3 names, plus
   assert.ok(stale.detail.indexOf("and 2 more") !== -1);
   assert.equal(stale.detail.split(",").length, 3); // exactly A, B, C named before "and 2 more"
   state.assets = prevAssets;
+});
+
+test("getLocalNotifications skips the 'needs a fresh entry' review nudge for an item marked irregular", function(){
+  var prevShared = state.shared, prevTx = state.transactions;
+  state.shared = [{ id: "exp1", what: "Extras / Misc", amount: 100, freq: "Monthly", irregular: true }];
+  state.transactions = [];
+  assert.equal(findReviewNotification(getLocalNotifications()), undefined);
+  state.shared = prevShared;
+  state.transactions = prevTx;
+});
+
+test("getLocalNotifications still nudges a non-irregular item with the same never-logged shape", function(){
+  var prevShared = state.shared, prevTx = state.transactions;
+  state.shared = [{ id: "exp1", what: "Groceries", amount: 100, freq: "Monthly", irregular: false }];
+  state.transactions = [];
+  var review = findReviewNotification(getLocalNotifications());
+  assert.ok(review);
+  assert.equal(review.title, "Groceries needs a fresh entry");
+  state.shared = prevShared;
+  state.transactions = prevTx;
 });

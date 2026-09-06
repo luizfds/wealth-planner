@@ -3,6 +3,8 @@ import { sumField, sumByClassification, sumByAccount, safeDiv, resolveSharedAmou
 import { ipExpenseItemsForClassification } from "../calc/property.js";
 import { effectiveIncomeItems } from "../calc/tax.js";
 import { scenarioTotals, computeNetWorthSeries, totalNetWorthValue, runwayMonths, actualAssetGrowthLastMonth, staleAssets } from "../calc/engine.js";
+import { monthlyCashFlowForecast } from "../calc/cashflow.js";
+import { MONTH_NAMES } from "../constants.js";
 import { fmtCurrency0, fmtPercent1, fmtRunway, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
@@ -78,7 +80,40 @@ export function renderDashboardStats(){
   renderStaleAssetsBanner();
   renderActualVsExpectedPanel(active, t);
   renderUpcomingBillsPanel();
+  renderCashFlowForecastPanel();
   renderProjectionAccuracyPanel();
+}
+
+// Every other total on this page (scenarioTotals, the cards above) smooths every item — Weekly
+// through Yearly alike — into one flat monthly-equivalent average. That hides real shape: a
+// Yearly bonus or house-insurance bill doesn't actually land evenly across the year, it lands
+// once, in one month. This instead places Yearly/Quarterly items in the actual month they're due
+// (calc/cashflow.js) so a month that's genuinely going to run tight — or genuinely has room to
+// save more — shows up as such, rather than being averaged away.
+function renderCashFlowForecastPanel(){
+  var panel = document.getElementById("cashFlowForecastPanel");
+  if(!panel) return;
+  if(!state.income.length && !state.shared.length){
+    panel.innerHTML = '<h3>12-month cash flow forecast</h3><p class="fire-note">Add some income and expenses to see a month-by-month forecast here.</p>';
+    return;
+  }
+  var forecast = monthlyCashFlowForecast(12);
+  var rows = forecast.months.map(function(m){
+    var label = MONTH_NAMES[m.month - 1] + " " + m.year;
+    var note = m.items.length
+      ? m.items.map(function(it){ return escapeAttr(it.what) + " " + (it.side === "income" ? "+" : "−") + fmtCurrency0.format(it.amount); }).join(", ")
+      : "steady month — no one-off items";
+    var color = m.net < -0.5 ? "var(--bad)" : (m.net > 0.5 ? "var(--good)" : "");
+    return '<div class="acct-row"><span class="acct-name">' + escapeAttr(label) + '</span>' +
+      '<span style="font-size:11px;color:var(--ink-soft)">' + note + '</span>' +
+      '<span class="acct-amt"' + (color ? ' style="color:' + color + '"' : '') + '>' + (m.net >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(m.net)) + '</span></div>';
+  }).join("");
+  var reserveNote = (forecast.reserveIncome || forecast.reserveExpense)
+    ? '<p class="fire-note">Includes ' + fmtCurrency0.format(Math.max(0, forecast.reserveExpense - forecast.reserveIncome)) + '/mo set aside for items marked "no fixed timing" (e.g. Extras, property maintenance) — spread evenly rather than expected on a specific date.</p>'
+    : '';
+  panel.innerHTML = '<h3>12-month cash flow forecast <span style="font-weight:400;color:var(--ink-soft)">— ' + escapeAttr(state.activeScenario) + '</span></h3>' +
+    '<p class="fire-note" style="margin-bottom:10px">Steady baseline ' + fmtCurrency0.format(forecast.baselineNet) + '/mo, adjusted below for annual/quarterly items landing in their actual month.</p>' +
+    rows + reserveNote;
 }
 
 // Shared expenses with at least one logged transaction, projected forward via nextDueDate() from

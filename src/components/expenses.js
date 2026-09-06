@@ -1,6 +1,6 @@
 import { state, persist, genId } from "../state.js";
 import { CLASSES, FREQS } from "../constants.js";
-import { sumField, resolveSharedAmount, periodsOf, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, isOverdue, daysUntil, lastTransactionDateFor } from "../calc/ledger.js";
+import { sumField, resolveSharedAmount, periodsOf, transactionsInMonth, transactionsInYear, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, isOverdue, daysUntil, lastTransactionDateFor } from "../calc/ledger.js";
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
@@ -387,6 +387,7 @@ export var expenseReview = null;
 // the past — useless for "is this actually overdue"). An expense with a recent-enough transaction
 // has nothing to review, so it's left out rather than re-shown every time.
 function isDueForReview(item){
+  if(item.irregular) return false;
   var lastDate = lastTransactionDateFor(state.transactions, item.id);
   if(!lastDate) return true;
   return isOverdue(lastDate, item.freq);
@@ -662,12 +663,53 @@ function budgetRowTxnListHtml(pairs){
   }).join("");
   return '<div class="budget-row-txns">' + rows + '</div>';
 }
+// Items marked "no fixed timing" (Extras, property maintenance, etc.) are lumpy by nature — a
+// $0 actual most months is expected, not a budget miss. Comparing them against this month's
+// slice of their budget (like every regular item below) produced a false "over/under budget"
+// reading almost every month; comparing year-to-date actual against a full year's budget instead
+// only flags a real problem (spending more than the whole year's allowance, this early in the
+// year) and stays quiet the rest of the time. Rendered as its own section regardless of whether
+// anything's been logged this month, since it's answering a different question ("on track for
+// the year") than the month-by-month panel above it.
+function irregularBudgetSectionHtml(irregularItems){
+  if(!irregularItems.length) return "";
+  var yearTxns = transactionsInYear(state.transactions);
+  var byExpenseYear = sumTransactionsByExpense(yearTxns);
+  var rows = irregularItems.map(function(item){
+    var plannedYear = Math.round(periodsOf(item.amount, item.freq).yearly * 100) / 100;
+    var actualYear = Math.round((byExpenseYear[item.id] || 0) * 100) / 100;
+    var delta = actualYear - plannedYear;
+    var color = delta > 0.5 ? "var(--bad)" : "";
+    var pct = plannedYear > 0 ? Math.min(100, (actualYear / plannedYear) * 100) : (actualYear > 0 ? 100 : 0);
+    var remaining = plannedYear - actualYear;
+    var remainingLabel = remaining >= 0 ? (fmtCurrency0.format(remaining) + " left this year") : (fmtCurrency0.format(-remaining) + " over this year's budget");
+    return '<div class="budget-row">' +
+      '<div class="acct-row"><span class="acct-name" title="' + escapeAttr(item.what) + '">' + escapeAttr(item.what) + '</span>' +
+        '<span style="font-size:11px;color:var(--ink-soft)">' + fmtCurrency0.format(actualYear) + ' actual / ' + fmtCurrency0.format(plannedYear) + ' planned this year — ' + remainingLabel + '</span>' +
+        '<span class="acct-amt"' + (color ? ' style="color:' + color + '"' : '') + '>' + (delta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(delta)) + '</span></div>' +
+      '<div class="budget-bar-track"><div class="budget-bar-fill' + (delta > 0.5 ? " over" : "") + '" style="width:' + pct + '%"></div></div>' +
+    '</div>';
+  }).join("");
+  return '<div style="margin-top:16px"><div class="fire-stat-row" style="margin-bottom:2px"><span>Irregular / reserve budgets <span style="font-weight:400;color:var(--ink-soft)">— this year</span></span></div>' +
+    '<p class="ledger-note" style="margin:0 0 8px">Marked "no fixed timing" — compared against a full year\'s budget instead of this month\'s, since these aren\'t expected on any particular schedule.</p>' +
+    rows + '</div>';
+}
 export function renderActualVsPlannedPanel(){
   var el = document.getElementById("actualVsPlannedPanel");
   if(!el) return;
-  var monthTxns = transactionsInMonth(state.transactions);
+  var regularItems = state.shared.filter(function(item){ return !item.irregular; });
+  var irregularItems = state.shared.filter(function(item){ return item.irregular; });
+  var irregularIds = {};
+  irregularItems.forEach(function(item){ irregularIds[item.id] = true; });
+  var irregularSection = irregularBudgetSectionHtml(irregularItems);
+  var allMonthTxns = transactionsInMonth(state.transactions);
+  // This month's aggregate/per-row breakdown only ever concerns regular (predictable) items —
+  // an irregular item's own transaction, if one lands this month, is reported in the year-to-date
+  // section above instead, not folded into "this month" actual (which would otherwise read as a
+  // budget miss against a monthly slice that was never a real expectation for that item).
+  var monthTxns = allMonthTxns.filter(function(t){ return !t.linkedExpenseId || !irregularIds[t.linkedExpenseId]; });
   var byExpense = sumTransactionsByExpense(monthTxns);
-  if(!state.shared.length && !monthTxns.length){
+  if(!state.shared.length && !allMonthTxns.length){
     el.innerHTML = '<p class="ledger-note" style="margin:0">Add a shared expense and log a transaction against it to see actual vs. planned here.</p>';
     return;
   }
@@ -678,10 +720,10 @@ export function renderActualVsPlannedPanel(){
   // regardless — a card's current bill runs on its own cycle dates, not the calendar month, so it
   // can be genuinely nonzero even with nothing logged today.
   if(!monthTxns.length){
-    var plannedTotalEmpty = Math.round(sumField(state.shared, "monthly") * 100) / 100;
+    var plannedTotalEmpty = Math.round(sumField(regularItems, "monthly") * 100) / 100;
     el.innerHTML =
       '<p class="ledger-note" style="margin:0 0 12px">No transactions logged yet this month — planned budget is ' + fmtCurrency0.format(plannedTotalEmpty) + '/mo. Log one above, or against a shared expense below, to start tracking actual vs. planned.</p>' +
-      creditStatementCyclesHtml();
+      creditStatementCyclesHtml() + irregularSection;
     return;
   }
   // Rounded to cents before any comparison/formatting below — periodsOf()'s weekly-then-back
@@ -689,7 +731,7 @@ export function renderActualVsPlannedPanel(){
   // $0.50 delta a hair under the ">0.5" thresholds and, worse, make the displayed whole-dollar
   // "over"/"left" figure not match the difference between the whole-dollar actual/planned figures
   // shown right next to it (e.g. "$3 actual / $2 planned — $0 over").
-  var plannedTotal = Math.round(sumField(state.shared, "monthly") * 100) / 100;
+  var plannedTotal = Math.round(sumField(regularItems, "monthly") * 100) / 100;
   var actualTotal = Math.round(monthTxns.reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0) * 100) / 100;
   var overallDelta = actualTotal - plannedTotal;
   // Framed from a spending point of view: spending less than planned is "good" (green), more is
@@ -697,7 +739,7 @@ export function renderActualVsPlannedPanel(){
   // app, where "up" is always good. Both read correctly for what they each represent.
   var overallColor = overallDelta > 0.5 ? "var(--bad)" : (overallDelta < -0.5 ? "var(--good)" : "");
   var overallPct = plannedTotal > 0 ? Math.min(100, (actualTotal / plannedTotal) * 100) : (actualTotal > 0 ? 100 : 0);
-  var rows = state.shared.map(function(item){
+  var rows = regularItems.map(function(item){
     var planned = Math.round(periodsOf(item.amount, item.freq).monthly * 100) / 100;
     var actual = Math.round((byExpense[item.id] || 0) * 100) / 100;
     var delta = actual - planned;
@@ -737,7 +779,7 @@ export function renderActualVsPlannedPanel(){
     '<div class="fire-bar-track"><div class="fire-bar-fill' + (overallDelta > 0.5 ? " over" : "") + '" style="width:' + overallPct + '%"></div></div>' +
     '<p class="fire-note" style="margin:2px 0 12px">' + (overallDelta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(overallDelta)) + (overallDelta > 0.5 ? " over budget so far this month." : overallDelta < -0.5 ? " under budget so far this month." : " right on budget so far this month.") + '</p>' +
     rows + unlinkedRow +
-    creditStatementCyclesHtml();
+    creditStatementCyclesHtml() + irregularSection;
 }
 
 // A credit card's bill is charges grouped by its own statement cycle, not the calendar month —

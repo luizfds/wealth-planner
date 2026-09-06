@@ -110,3 +110,31 @@ test("migrateState leaves an already-set sectionsCollapsed alone (doesn't overwr
   });
   assert.deepEqual(s.properties[0].sectionsCollapsed, { acquisition: false, loans: true, income: false, expenses: true });
 });
+
+test("migrateState backfills irregular:false/dueMonth:null onto every ledger array's items", function(){
+  var s = migrateState({
+    activeScenario: "Current situation",
+    scenarios: ["Current situation"],
+    home: { "Current situation": [{ what: "Home Insurance", amount: 1200, freq: "Yearly" }] },
+    purchase: {},
+    income: [{ what: "Salary", amount: 5000, freq: "Monthly" }],
+    shared: [{ what: "Extras", amount: 100, freq: "Monthly" }],
+    properties: [{ id: "p1", what: "1 Test St", income: [{ what: "Rent", amount: 400, freq: "Weekly" }], expenses: [{ what: "Maintenance", amount: 2000, freq: "Yearly" }] }]
+  });
+  [s.home["Current situation"][0], s.income[0], s.shared[0], s.properties[0].income[0], s.properties[0].expenses[0]].forEach(function(item){
+    assert.equal(item.irregular, false);
+    assert.equal(item.dueMonth, null);
+  });
+});
+
+test("migrateState leaves an already-set irregular/dueMonth alone", function(){
+  var s = migrateState({
+    activeScenario: "Current situation",
+    scenarios: ["Current situation"],
+    home: { "Current situation": [] },
+    purchase: {},
+    shared: [{ what: "Extras", amount: 100, freq: "Monthly", irregular: true, dueMonth: 5 }]
+  });
+  assert.equal(s.shared[0].irregular, true);
+  assert.equal(s.shared[0].dueMonth, 5);
+});

@@ -28,7 +28,10 @@
   .budget-row.is-expandable{ cursor:pointer; }
   .budget-row.is-expandable:focus-visible{ outline:none; box-shadow: var(--focus-ring); }
   .budget-row.is-expandable .acct-row{ grid-template-columns: 92px 1fr 78px 14px; }
-  .budget-row-chev{ justify-self:end; }
+  /* Genuinely still an inline accordion (unlike every .m-row, which now opens a full
+     page/dialog) — self-contained sizing rather than sharing .m-row-chev, which is hidden by
+     default now that its own rows no longer need an "expands in place" indicator. */
+  .budget-row-chev{ justify-self:end; width:14px; height:14px; flex:none; color: var(--ink-soft); transition: transform .15s ease; }
   .budget-row.open .budget-row-chev{ transform: rotate(90deg); }
   .budget-row-txns{ margin-top:6px; padding-top:2px; display:flex; flex-direction:column; }
   .budget-row-txn{
@@ -305,8 +308,14 @@
   }
   .m-row-tag.gross{ background: var(--brass-wash); color: var(--brass-strong); }
   .m-row-amt{ margin-left:auto; font-family:"IBM Plex Mono", monospace; font-weight:600; font-size:13.5px; white-space:nowrap; flex:none; }
-  .m-row-chev{ width:14px; height:14px; flex:none; color: var(--ink-soft); transition: transform .15s ease; }
-  .m-row.open .m-row-chev{ transform: rotate(90deg); }
+  /* Hidden while collapsed — every row already reads as tappable on its own (name + amount,
+     cursor:pointer, hover state) now that opening one pushes a full page/dialog rather than
+     expanding in place, so a trailing "this expands" arrow was redundant clutter in the list.
+     Still needed once open, though: the very same element becomes this row's back arrow on a
+     mobile full-screen page (see the max-width:880px block below) or its "expanded" indicator on
+     a wider-viewport dialog, so it stays in the markup rather than being deleted outright. */
+  .m-row-chev{ display:none; width:14px; height:14px; flex:none; color: var(--ink-soft); transition: transform .15s ease; }
+  .m-row.open .m-row-chev{ display:block; transform: rotate(90deg); }
   /* grid-template-rows 0fr→1fr animates height without knowing the content's height up front —
      the inner wrapper clips the overflow while the row is collapsed or mid-animation. Still used
      inside the modal below, just no longer for an inline accordion — see #mRowBackdrop's comment

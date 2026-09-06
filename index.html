@@ -125,7 +125,7 @@
       </label>
       <p class="app-sidebar-note">Stored only in this browser (<code>localStorage</code>) — nothing is sent anywhere. Clearing your browser data clears this too, so <button class="link-btn" id="exportLink2">Export</button> a backup now and then.</p>
       <a class="feature-request-link" href="https://github.com/luizfds/wealth-planner/issues/new" target="_blank" rel="noopener noreferrer">💡 Request a feature</a>
-      <p class="app-version">v2.50.0</p>
+      <p class="app-version">v2.52.0</p>
     </div>
     <div class="mobile-header-right">
       <button type="button" class="icon-btn" id="mobileSearchBtn" aria-label="Search">
@@ -212,6 +212,7 @@
               <div class="panel" id="firePanel"></div>
               <div class="panel" id="actualVsExpectedPanel"></div>
               <div class="panel" id="upcomingBillsPanel"></div>
+              <div class="panel" id="cashFlowForecastPanel"></div>
               <div class="panel" id="projectionAccuracyPanel"></div>
             </div>
           </div>
@@ -567,5 +568,6 @@
 <div id="expenseReviewRoot"></div>
 <div id="notifPanelRoot"></div>
 <div id="searchRoot"></div>
+<div id="mRowBackdrop" hidden></div>
 
 <script type="module" src="src/app.js"></script>

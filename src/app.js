@@ -392,6 +392,8 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     else if(e.target.classList.contains("f-superincluded")){ item.superMode = e.target.value; }
     else if(e.target.classList.contains("f-sacrificemode")){ item.sacrificeMode = sacrificeLabelToMode(e.target.value); structural = true; }
     else if(e.target.classList.contains("f-sacrificevalue")){ item.sacrificeValue = parseFloat(e.target.value) || 0; }
+    else if(e.target.classList.contains("f-irregular")) item.irregular = e.target.checked;
+    else if(e.target.classList.contains("f-duemonth")) item.dueMonth = e.target.value ? Number(e.target.value) : null;
     else return;
 
     if(e.target.classList.contains("f-amount") || e.target.classList.contains("f-freq")){
@@ -421,6 +423,10 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       rerenderTableFor("shared");
     } else if(section === "shared"){
       patchSharedGroupTotals();
+      // Toggling "irregular" moves this item between the regular monthly rows and the
+      // year-to-date reserve section below on the same page — worth a live refresh rather than
+      // waiting for whatever next unrelated action happens to re-render the panel.
+      if(e.target.classList.contains("f-irregular")) renderActualVsPlannedPanel();
     } else if(section.indexOf("propinc:") === 0){
       rerenderTableFor("propexp:" + section.slice(8));
       patchSyntheticIncomeRows();
@@ -1242,6 +1248,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       if(forProperty){
         forProperty.loans.push({ id: genId("l"), what:"New loan", balance:0, rate:0, termYears:30, repaymentType:"PI", repaymentMode:"auto", manualRepaymentAmount:0, manualRepaymentFreq:"Monthly", offsetBalance:0 });
         renderProperties();
+        openNewRowModal("propertiesBody", "loan:" + forProperty.id, forProperty.loans.length - 1, modernPropRowOpen);
         renderProjectionOutputs();
         persist();
       }
@@ -1346,8 +1353,46 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   });
   document.addEventListener("click", onLedgerClick);
 
-  // Modern rows (Income and Expenses both) expand in place instead of showing every field at
-  // once — purely a UI toggle, doesn't touch state.
+  // Every Modern-mode row (Income, Expenses, Transactions, Assets, Properties, Scenarios) used to
+  // expand its edit fields in place, accordion-style, within the scrolling list — closer to a web
+  // form than how a mobile finance app actually handles data entry (tap +, a focused sheet takes
+  // over with the cursor already in the first field). Since every one of these rows already
+  // funnels through this one shared toggle mechanism, turning `.open` into a real modal (see
+  // `.m-row.open` in ledger.css — position:fixed, centered, backed by the single shared
+  // #mRowBackdrop) fixes all of them at once, without touching any page's own field-building or
+  // state-mutation code — only where that same already-correct content visually renders.
+  //
+  // Only one row can be a modal at a time (openModernRow closes whichever was open before opening
+  // a new one) — nothing enforced that before, harmless for an inline accordion where several
+  // could stay expanded at once, but two would visually stack as a modal.
+  var activeModernRow = null; // { row, openState, key }
+  function closeActiveModernRow(){
+    if(!activeModernRow) return;
+    activeModernRow.row.classList.remove("open");
+    activeModernRow.openState[activeModernRow.key] = false;
+    activeModernRow = null;
+    document.getElementById("mRowBackdrop").hidden = true;
+  }
+  // Exported to module scope (not just wireModernRowToggle's closure) so every "+Add" handler
+  // below can open the row it just created as a modal immediately — matching a native app's
+  // "tap + → the new entry's fields are already in front of you" flow, instead of silently
+  // appending a collapsed row somewhere in the list that has to be found and tapped first.
+  function openModernRow(row, openState, key){
+    if(activeModernRow && activeModernRow.row !== row) closeActiveModernRow();
+    row.classList.add("open");
+    openState[key] = true;
+    activeModernRow = { row: row, openState: openState, key: key };
+    document.getElementById("mRowBackdrop").hidden = false;
+    var firstField = row.querySelector(".m-row-edit input, .m-row-edit select");
+    if(firstField){
+      firstField.focus();
+      // A freshly-added item's "What" field still holds its generic default ("New item", "New
+      // loan", "New asset"...) — select it so typing immediately replaces it, rather than
+      // requiring a select-all first. Editing an *existing* row's own real value should never
+      // auto-select out from under someone who just wanted to click in and adjust part of it.
+      if(firstField.tagName === "INPUT" && /^New /.test(firstField.value)) firstField.select();
+    }
+  }
   function wireModernRowToggle(containerId, openState){
     var container = document.getElementById(containerId);
     if(!container) return;
@@ -1360,9 +1405,8 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       // container can hold rows from more than one entity (e.g. Properties, where each
       // property's income/expenses are separately-indexed arrays sharing one open-state map).
       var key = row.getAttribute("data-section") + ":" + row.getAttribute("data-index");
-      var willOpen = !row.classList.contains("open");
-      row.classList.toggle("open", willOpen);
-      openState[key] = willOpen;
+      if(row.classList.contains("open")) closeActiveModernRow();
+      else openModernRow(row, openState, key);
     });
     container.addEventListener("keydown", function(e){
       if(e.key !== "Enter" && e.key !== " ") return;
@@ -1372,6 +1416,10 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       toggle.click();
     });
   }
+  document.getElementById("mRowBackdrop").addEventListener("click", closeActiveModernRow);
+  document.addEventListener("keydown", function(e){
+    if(e.key === "Escape" && activeModernRow) closeActiveModernRow();
+  });
   wireModernRowToggle("incomeGroups", modernIncomeRowOpen);
   wireModernRowToggle("sharedGroups", modernSharedRowOpen);
 
@@ -1506,7 +1554,10 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   });
 
   // ---------------- Transactions: real dated spend, separate from the planned budget ----------------
-  document.getElementById("addTransactionBtn").addEventListener("click", addTransaction);
+  document.getElementById("addTransactionBtn").addEventListener("click", function(){
+    addTransaction();
+    openNewRowModal("transactionsTable", "tx", state.transactions.length - 1, modernTransactionRowOpen);
+  });
   wireModernRowToggle("transactionsTable", modernTransactionRowOpen);
   document.addEventListener("click", function(e){
     var delTxBtn = e.target.closest("[data-tx-del]");
@@ -1689,12 +1740,29 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     collapseBtn.click();
   });
 
+  // Finds the row a just-pushed item rendered as, in Modern mode, and opens it as a modal
+  // immediately — matching a native app's "tap + → the new entry's fields are already in front
+  // of you" flow, instead of silently appending a collapsed row somewhere in the list that has to
+  // be found and tapped first. A no-op in Classic mode (no .m-row exists there to find).
+  function openNewRowModal(containerId, section, idx, openState){
+    var container = document.getElementById(containerId);
+    var row = container && container.querySelector('[data-section="' + CSS.escape(section) + '"][data-index="' + idx + '"]');
+    if(row) openModernRow(row, openState, section + ":" + idx);
+  }
+
   document.addEventListener("click", function(e){
     var addBtn = e.target.closest("[data-add]");
     if(!addBtn) return;
     var raw = addBtn.getAttribute("data-add");
     var section, groupValue;
-    if(raw.indexOf("home:") === 0){
+    // "home:", "propinc:" and "propexp:" all embed a further-qualified id after their own colon
+    // (a scenario name, a property id) that's part of the section itself, not a separate group
+    // value — unlike "shared:Needs"/"income:Sam"/"assets:Cash", where the part after the colon
+    // really is a separate classification/person/category. Splitting on the first colon
+    // regardless used to silently break propinc:/propexp: specifically (section became just
+    // "propinc"/"propexp" with the property id lost, which getArrayForSection() never matches —
+    // "+ Add income"/"+ Add expense" on a property card did nothing at all, with no error).
+    if(raw.indexOf("home:") === 0 || raw.indexOf("propinc:") === 0 || raw.indexOf("propexp:") === 0){
       section = raw; groupValue = null;
     } else {
       var colonIdx = raw.indexOf(":");
@@ -1702,14 +1770,17 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       groupValue = colonIdx === -1 ? null : raw.slice(colonIdx + 1);
     }
     if(section === "assets"){
-      state.assets.push({ what:"New asset", category: groupValue != null ? groupValue : "Cash", amount:0 });
+      var assetCat = groupValue != null ? groupValue : "Cash";
+      state.assets.push({ what:"New asset", category: assetCat, amount:0 });
       renderAssets();
+      openNewRowModal("assetsSub-" + assetCat, "assets", state.assets.length - 1, modernAssetRowOpen);
       persist();
       return;
     }
     if(section === "holding"){
       state.assets.push({ what:"New holding", category:"Shares", symbol:"", market:"ASX", quantity:0, avgCost:null, price:0, priceUpdated:"", person: groupValue != null ? groupValue : "", amount:0 });
       renderAssets();
+      openNewRowModal("assetsSub-Shares", "assets", state.assets.length - 1, modernAssetRowOpen);
       persist();
       return;
     }
@@ -1717,6 +1788,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       state.assets.push({ what:"New vehicle", category:"Vehicle", purchasePrice:0, purchaseDate:"", depreciationRate:15, amount:0 });
       recalcComputedItems();
       renderAssets();
+      openNewRowModal("assetsSub-Vehicle", "assets", state.assets.length - 1, modernAssetRowOpen);
       persist();
       return;
     }
@@ -1726,7 +1798,12 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     var newItem = { what:"New item", classification: showClass ? (groupValue != null ? groupValue : "Needs") : "", account:"", amount:0, freq:"Monthly" };
     if(section === "income"){ newItem.person = groupValue != null ? groupValue : ""; newItem.incomeType = "Net"; }
     arr.push(newItem);
+    var newIdx = arr.length - 1;
     rerenderTableFor(section);
+    if(section === "income") openNewRowModal("incomeGroups", "income", newIdx, modernIncomeRowOpen);
+    else if(section === "shared") openNewRowModal("sharedGroups", "shared", newIdx, modernSharedRowOpen);
+    else if(section.indexOf("propinc:") === 0 || section.indexOf("propexp:") === 0) openNewRowModal("propertiesBody", section, newIdx, modernPropRowOpen);
+    else if(section.indexOf("home:") === 0) openNewRowModal("homeBody", section, newIdx, modernHomeRowOpen);
     if(section.indexOf("propinc:") === 0){
       recalcComputedItems();
       rerenderTableFor("propexp:" + section.slice(8));

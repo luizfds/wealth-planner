@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, isOverdue, daysUntil, appendHistorySnapshot, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, lastTransactionDateFor } from "../src/calc/ledger.js";
+import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, isOverdue, daysUntil, appendHistorySnapshot, transactionsInMonth, transactionsInYear, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, lastTransactionDateFor, lastKnownDateFor, resolvedDueMonth } from "../src/calc/ledger.js";
 
 test("toWeekly converts every frequency to a weekly figure", function(){
   assert.equal(toWeekly(100, "Weekly"), 100);
@@ -222,6 +222,50 @@ test("currentStatementCycle returns the cycle containing today, straddling a mon
 test("currentStatementCycle handles a start day near end of month across shorter months", function(){
   var cycle = currentStatementCycle(28, "2026-02-27");
   assert.deepEqual(cycle, { start: "2026-01-28", end: "2026-02-27" });
+});
+
+test("transactionsInYear filters to the given YYYY, defaulting to the current year", function(){
+  var txns = [
+    { date: "2024-03-05", amount: 10 },
+    { date: "2024-11-30", amount: 20 },
+    { date: "2025-01-01", amount: 30 }
+  ];
+  var year2024 = transactionsInYear(txns, "2024");
+  assert.equal(year2024.length, 2);
+  assert.equal(year2024.reduce(function(s, t){ return s + t.amount; }, 0), 30);
+  assert.equal(transactionsInYear(txns, "2025").length, 1);
+  assert.equal(transactionsInYear(txns, "2099").length, 0);
+});
+
+test("lastKnownDateFor prefers an item's own value-history log over a linked transaction", function(){
+  var item = { id: "i1", history: [{ date: "2026-01-01", value: 100 }, { date: "2026-03-01", value: 120 }] };
+  var txns = [{ date: "2026-06-01", linkedExpenseId: "i1" }];
+  assert.equal(lastKnownDateFor(item, txns), "2026-03-01");
+});
+
+test("lastKnownDateFor falls back to a linked transaction when there's no value-history log", function(){
+  var item = { id: "i1" };
+  var txns = [{ date: "2026-06-01", linkedExpenseId: "i1" }, { date: "2026-02-01", linkedExpenseId: "i1" }];
+  assert.equal(lastKnownDateFor(item, txns), "2026-06-01");
+});
+
+test("lastKnownDateFor returns null when neither source has anything", function(){
+  assert.equal(lastKnownDateFor({ id: "i1" }, []), null);
+  assert.equal(lastKnownDateFor({}, []), null);
+});
+
+test("resolvedDueMonth prefers an explicit dueMonth over any inferred date", function(){
+  var item = { id: "i1", dueMonth: 7, history: [{ date: "2026-03-01", value: 100 }] };
+  assert.equal(resolvedDueMonth(item, []), 7);
+});
+
+test("resolvedDueMonth infers the month from the item's last known date when unset", function(){
+  var item = { id: "i1", history: [{ date: "2026-09-15", value: 100 }] };
+  assert.equal(resolvedDueMonth(item, []), 9);
+});
+
+test("resolvedDueMonth returns null when there's no explicit month and nothing to infer from", function(){
+  assert.equal(resolvedDueMonth({ id: "i1" }, []), null);
 });
 
 test("transactionsInRange filters inclusively on both ends", function(){

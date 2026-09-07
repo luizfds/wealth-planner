@@ -272,11 +272,14 @@
   /* Hidden while collapsed — every row already reads as tappable on its own (name + amount,
      cursor:pointer, hover state) now that opening one pushes a full page/dialog rather than
      expanding in place, so a trailing "this expands" arrow was redundant clutter in the list.
-     Still needed once open, though: the very same element becomes this row's back arrow on a
-     mobile full-screen page (see the max-width:880px block below) or its "expanded" indicator on
-     a wider-viewport dialog, so it stays in the markup rather than being deleted outright. */
-  .m-row-chev{ display:none; width:14px; height:14px; flex:none; color: var(--ink-soft); transition: transform .15s ease; }
-  .m-row.open .m-row-chev{ display:block; transform: rotate(90deg); }
+     Still needed once open, though: the very same element is this row's close affordance, on
+     both the mobile full-screen page (see the max-width:880px block below) and the wider-viewport
+     dialog, so it stays in the markup rather than being deleted outright. A plain "✕" (the same
+     glyph every other close button in this app already uses) rather than a chevron/arrow, since
+     tapping it always closes the row outright — it was never a "back" step to undo, just this
+     modal's own dismiss action, and an arrow implied a hierarchy that isn't actually there. */
+  .m-row-chev{ display:none; flex:none; font-size:14px; line-height:1; color: var(--ink-soft); }
+  .m-row.open .m-row-chev{ display:block; }
   /* grid-template-rows 0fr→1fr animates height without knowing the content's height up front —
      the inner wrapper clips the overflow while the row is collapsed or mid-animation. Still used
      inside the modal below, just no longer for an inline accordion — see #mRowBackdrop's comment
@@ -316,19 +319,17 @@
     }
     @keyframes mRowPageIn{ from{ transform:translateX(100%); } to{ transform:translateX(0); } }
     @media (prefers-reduced-motion: reduce){ .m-row.open{ animation:none; } }
-    /* The collapsed row's own summary bar becomes the page's sticky header. Its chevron — a
-       plain right-pointing triangle, normally rotated 90° to point down for the dialog/accordion
-       treatment — is repurposed as a back arrow here: rotated a further 90° (180° total) and
-       moved to the front of the row via flex `order`, so it reads left-to-right as "‹ back, then
-       the item's name" without touching the shared row markup. The amount is dropped from the
-       header (redundant with the Amount field right below it) rather than crowding a title bar
-       that's meant to read as just "‹ Item name". */
+    /* The collapsed row's own summary bar becomes the page's sticky header, read left-to-right as
+       "Item name ✕" — the same title-then-close-button layout as the Search and Review-expenses
+       overlays' own headers (see .review-head), so every full-page/dialog takeover in the app
+       closes the same way. The amount is dropped from the header (redundant with the Amount field
+       right below it) rather than crowding a title bar that's meant to read as just "Item name". */
     .m-row.open .m-row-summary{
       flex:none; position:sticky; top:0; z-index:1; background: var(--paper-raised);
       border-bottom:1px solid var(--border); padding:14px 16px calc(14px + env(safe-area-inset-bottom, 0px)) 16px;
       padding-top: calc(14px + env(safe-area-inset-top));
     }
-    .m-row.open .m-row-chev{ order:-1; width:16px; height:16px; margin-right:2px; transform: rotate(180deg); }
+    .m-row.open .m-row-chev{ margin-left:auto; font-size:16px; }
     .m-row.open .m-row-amt{ display:none; }
     /* The grid-template-rows 0fr→1fr trick above exists to animate an *inline* accordion's height
        without knowing its content height up front — moot once the row is a full page instead (the

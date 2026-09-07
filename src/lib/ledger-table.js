@@ -156,7 +156,13 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
     accountField +
     logField;
   var moreOptionsHtml = '<details class="row-more-options"><summary>More options</summary><div class="m-edit-grid" style="margin-top:8px">' + timingFieldsHtml(item) + '</div></details>';
-  var actionsHtml = '<button type="button" class="btn btn-ghost btn-sm row-del" data-del="' + escapeAttr(section) + ':' + idx + '">Delete</button>';
+  // A visible "Done" — every field here already saves itself as you type, same as any other row
+  // in the app, but a raw transaction/log entry reads more like a deliberate, dated action than a
+  // setting you tweak, so its own row gets an explicit confirm button the generic ones don't.
+  // data-row-toggle re-uses wireModernRowToggle's existing "tap anything so-marked closes an open
+  // row" handling — no separate click wiring needed for this to actually close the row.
+  var doneButtonHtml = opts.logAsTransaction ? '<button type="button" class="btn btn-primary btn-sm" data-row-toggle>Done</button>' : '';
+  var actionsHtml = doneButtonHtml + '<button type="button" class="btn btn-ghost btn-sm row-del" data-del="' + escapeAttr(section) + ':' + idx + '">Delete</button>';
   var edit = modernRowEditHtml(fieldsHtml, actionsHtml, moreOptionsHtml);
   return modernRowShellHtml(section, idx, openState, summary, edit, { primary: opts.primaryId && item.id === opts.primaryId });
 }

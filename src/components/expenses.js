@@ -477,7 +477,9 @@ export function transactionAccount(t){
 }
 // Summary sub-line for a collapsed row — date, what it's linked to (or "One-off"), and its
 // resolved account, so the closed row already answers "what is this" without expanding it.
-function transactionSummaryText(t){
+// Exported so app.js's live-input handlers can re-derive it to patch an open row's header text
+// (see the tx-what/tx-link/tx-account cases) instead of waiting for a full renderTransactions().
+export function transactionSummaryText(t){
   var linked = t.linkedExpenseId && state.shared.find(function(i){ return i.id === t.linkedExpenseId; });
   var acct = transactionAccount(t);
   var bits = [t.date || "—", linked ? linked.what : "One-off"];
@@ -506,7 +508,13 @@ function transactionRowHtml(t, idx){
     '<div class="m-edit-field"><label>Amount</label>' + amountInput + '</div>' +
     '<div class="m-edit-field"><label>Date</label>' + dateInput + '</div>' +
     '<div class="m-edit-field"><label>Account</label>' + acctSelect + '</div>';
-  var actionsHtml = '<button type="button" class="btn btn-ghost btn-sm row-del" data-tx-del="' + idx + '">Delete</button>';
+  // See modernPlainRowHtml's identical doneButtonHtml for why: every field here already
+  // auto-saves as you type, but a transaction reads as a deliberate, dated action, not a setting
+  // you tweak, so it gets an explicit confirm button the generic rows don't. data-row-toggle
+  // re-uses wireModernRowToggle's existing "tap anything so-marked closes an open row" handling.
+  var actionsHtml =
+    '<button type="button" class="btn btn-primary btn-sm" data-row-toggle>Done</button>' +
+    '<button type="button" class="btn btn-ghost btn-sm row-del" data-tx-del="' + idx + '">Delete</button>';
   var edit = modernRowEditHtml(fieldsHtml, actionsHtml);
   return modernRowShellHtml("tx", idx, modernTransactionRowOpen, summary, edit, { extraClass: "tx-row" });
 }

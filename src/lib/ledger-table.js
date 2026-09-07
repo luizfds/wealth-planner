@@ -86,7 +86,7 @@ export function modernRowSummaryHtml(opts){
       subs +
     '</div>' +
     '<span class="m-row-amt" data-computed="amt">' + (opts.amountHtml || "") + '</span>' +
-    (opts.computed ? "" : '<svg class="m-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>') +
+    (opts.computed ? "" : '<span class="m-row-chev" aria-hidden="true">✕</span>') +
   '</div>';
 }
 // The expand panel: caller-built .m-edit-field HTML dropped into the standard field grid, an

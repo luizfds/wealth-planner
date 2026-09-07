@@ -488,19 +488,24 @@ function transactionRowHtml(t, idx){
   var dateInput = '<input type="date" class="tx-date" data-tx-index="' + idx + '" value="' + escapeAttr(t.date || "") + '" aria-label="Date">';
   var whatInput = '<input type="text" class="tx-what" data-tx-index="' + idx + '" value="' + escapeAttr(t.what || "") + '" placeholder="Description" aria-label="Description">';
   var amountInput = '<input type="number" step="0.01" min="0" class="tx-amount" data-tx-index="' + idx + '" value="' + t.amount + '" aria-label="Amount">';
-  var linkSelect = '<select class="tx-link" data-tx-index="' + idx + '" aria-label="Linked expense">' + transactionLinkOptionsHtml(t.linkedExpenseId) + '</select>';
+  var linkSelect = '<select class="tx-link" data-tx-index="' + idx + '" aria-label="Linked expense" title="Pick a budget line to log this transaction against — fills in its description and amount for you, or leave it as One-off for spend that has no matching budget line">' + transactionLinkOptionsHtml(t.linkedExpenseId) + '</select>';
   var acctSelect = '<select class="tx-account" data-tx-index="' + idx + '" aria-label="Account">' + transactionAccountOptionsHtml(t.account || "") + '</select>';
   var summary = modernRowSummaryHtml({
     name: t.what || "Transaction",
     subLines: [transactionSummaryText(t)],
     amountHtml: fmtCurrency2.format(Number(t.amount) || 0)
   });
+  // "Linked to" leads (not Description) and autoFocus (see openNewRowModal) lands there for a
+  // freshly-added transaction — picking a budget line first, before typing anything, mirrors how
+  // an existing expense row's own "Log a transaction" control already works (pick what this is
+  // for, get its description/amount filled in for you) rather than starting from a blank form
+  // with no obvious way to connect it to a budget line at all.
   var fieldsHtml =
+    '<div class="m-edit-field span3"><label>Linked to</label>' + linkSelect + '</div>' +
     '<div class="m-edit-field span3"><label>Description</label>' + whatInput + '</div>' +
-    '<div class="m-edit-field"><label>Date</label>' + dateInput + '</div>' +
     '<div class="m-edit-field"><label>Amount</label>' + amountInput + '</div>' +
-    '<div class="m-edit-field"><label>Account</label>' + acctSelect + '</div>' +
-    '<div class="m-edit-field span3"><label>Linked to</label>' + linkSelect + '</div>';
+    '<div class="m-edit-field"><label>Date</label>' + dateInput + '</div>' +
+    '<div class="m-edit-field"><label>Account</label>' + acctSelect + '</div>';
   var actionsHtml = '<button type="button" class="btn btn-ghost btn-sm row-del" data-tx-del="' + idx + '">Delete</button>';
   var edit = modernRowEditHtml(fieldsHtml, actionsHtml);
   return modernRowShellHtml("tx", idx, modernTransactionRowOpen, summary, edit, { extraClass: "tx-row" });

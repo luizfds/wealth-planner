@@ -1345,16 +1345,61 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   // #mRowBackdrop) fixes all of them at once, without touching any page's own field-building or
   // state-mutation code — only where that same already-correct content visually renders.
   //
+  // ---------------- Overlay history integration ----------------
+  // Any full-page-feeling overlay in this app (a row's edit modal below, cross-page search,
+  // expense review) pushes exactly one history entry for as long as it's open, and every one of
+  // its on-screen close affordances (tap outside, an explicit X, Escape) routes through
+  // requestCloseActiveOverlay() rather than tearing itself down immediately. That makes the same
+  // single entry what a device/browser back-button press naturally pops too — the popstate
+  // handler below is the one place that actually runs the close callback, whichever way it was
+  // triggered. Without this, opening one of these silently occupied no space in the browser's
+  // back-history, so pressing back while one was open fell through to whatever the *page*
+  // underneath was doing there instead — another page, or leaving the app — rather than just
+  // closing the thing in front of you.
+  var activeOverlayClose = null; // the pure cleanup function for whichever overlay is open, if any
+  function pushActiveOverlay(onClose, replace){
+    activeOverlayClose = onClose;
+    try{ history[replace ? "replaceState" : "pushState"]({ overlayOpen: true }, "", location.href); }catch(e){}
+  }
+  function requestCloseActiveOverlay(){
+    if(!activeOverlayClose) return;
+    history.back();
+  }
+
   // Only one row can be a modal at a time (openModernRow closes whichever was open before opening
   // a new one) — nothing enforced that before, harmless for an inline accordion where several
   // could stay expanded at once, but two would visually stack as a modal.
-  var activeModernRow = null; // { row, openState, key }
-  function closeActiveModernRow(){
+  var activeModernRow = null; // { section, idx, openState, key }
+  // Looked up fresh by data-section/data-index rather than a cached element reference — an
+  // action taken *while* a row is open (e.g. the "Log" button inside a shared expense's edit
+  // panel) can trigger a full re-render of that row's container (renderSharedGroups() and
+  // friends replace the whole innerHTML), which detaches the original element from the document
+  // even though openState still says it's open, so the freshly-rendered replacement row also
+  // renders with the "open" class. A cached reference to the old, now-detached node would have
+  // its "open" class removed with no visible effect, permanently stranding the new node open and
+  // (since activeModernRow then goes stale/null) un-closeable by any further tap.
+  function findModernRowElement(section, idx){
+    return document.querySelector('.m-row[data-section="' + CSS.escape(section) + '"][data-index="' + CSS.escape(String(idx)) + '"]');
+  }
+  // Pure DOM/state cleanup, no history involved — used both as the overlay's close callback (the
+  // entry's already gone by the time the popstate handler calls this) and internally when
+  // swapping directly from one open row to another (see openModernRow's switchingRow case), where
+  // touching history would mean an async round-trip through popstate for what should be an
+  // instant swap.
+  function closeActiveModernRowUI(){
     if(!activeModernRow) return;
-    activeModernRow.row.classList.remove("open");
+    var row = findModernRowElement(activeModernRow.section, activeModernRow.idx);
+    if(row) row.classList.remove("open");
     activeModernRow.openState[activeModernRow.key] = false;
     activeModernRow = null;
     document.getElementById("mRowBackdrop").hidden = true;
+  }
+  // The close entry point for every on-screen affordance (tap the row/header, Escape, tap the
+  // backdrop) — see wireModernRowToggle, the Escape listener, and #mRowBackdrop's click listener
+  // below.
+  function closeActiveModernRow(){
+    if(!activeModernRow) return;
+    requestCloseActiveOverlay();
   }
   // Exported to module scope (not just wireModernRowToggle's closure) so every "+Add" handler
   // below can open the row it just created as a modal immediately — matching a native app's
@@ -1367,11 +1412,16 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   // surprise every time you tap an *existing* row just to glance at or adjust one of its fields.
   // Plain taps route through wireModernRowToggle's click handler below, which never passes it.
   function openModernRow(row, openState, key, autoFocus){
-    if(activeModernRow && activeModernRow.row !== row) closeActiveModernRow();
+    // Swapping directly from one open row to another re-uses the same history entry (replaceState)
+    // rather than stacking a second one — the back button should undo "a row was open" once, not
+    // once per row visited on the way to this one.
+    var switchingRow = activeModernRow && activeModernRow.key !== key;
+    if(switchingRow) closeActiveModernRowUI();
     row.classList.add("open");
     openState[key] = true;
-    activeModernRow = { row: row, openState: openState, key: key };
+    activeModernRow = { section: row.getAttribute("data-section"), idx: row.getAttribute("data-index"), openState: openState, key: key };
     document.getElementById("mRowBackdrop").hidden = false;
+    pushActiveOverlay(closeActiveModernRowUI, switchingRow);
     if(!autoFocus) return;
     var firstField = row.querySelector(".m-row-edit input, .m-row-edit select");
     if(firstField){
@@ -1490,10 +1540,15 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     });
   }
   var reviewBtn = document.getElementById("reviewExpensesBtn");
-  if(reviewBtn) reviewBtn.addEventListener("click", openExpenseReview);
+  if(reviewBtn) reviewBtn.addEventListener("click", function(){
+    openExpenseReview();
+    // openExpenseReview() can no-op (nothing due for review, or no expenses at all — see its own
+    // early-return toasts), so check the panel actually rendered before claiming a history entry.
+    if(document.querySelector("[data-review-backdrop]")) pushActiveOverlay(closeExpenseReview);
+  });
   document.getElementById("expenseReviewRoot").addEventListener("click", function(e){
     if(e.target.closest("[data-review-close]") || e.target === e.target.closest("[data-review-backdrop]")){
-      closeExpenseReview();
+      requestCloseActiveOverlay();
       return;
     }
     if(e.target.closest("[data-review-skip]")){ performReviewSkip(); return; }
@@ -1501,7 +1556,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   });
   document.addEventListener("keydown", function(e){
     if(e.key !== "Escape") return;
-    if(document.querySelector("[data-review-backdrop]")) closeExpenseReview();
+    if(document.querySelector("[data-review-backdrop]")) requestCloseActiveOverlay();
   });
   onHorizontalSwipe(document.getElementById("expenseReviewRoot"), {
     onSwipeLeft: performReviewSkip,
@@ -1509,11 +1564,15 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   });
 
   // ---------------- Cross-page search ----------------
-  document.getElementById("searchBtn").addEventListener("click", openSearch);
-  document.getElementById("mobileSearchBtn").addEventListener("click", openSearch);
+  function openSearchOverlay(){
+    openSearch();
+    pushActiveOverlay(closeSearch);
+  }
+  document.getElementById("searchBtn").addEventListener("click", openSearchOverlay);
+  document.getElementById("mobileSearchBtn").addEventListener("click", openSearchOverlay);
   document.getElementById("searchRoot").addEventListener("click", function(e){
     if(e.target.closest("[data-search-close]") || e.target === e.target.closest("[data-search-backdrop]")){
-      closeSearch();
+      requestCloseActiveOverlay();
       return;
     }
     var resultBtn = e.target.closest("[data-search-result]");
@@ -1523,8 +1582,13 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     var result = results[Number(resultBtn.getAttribute("data-search-result"))];
     if(!result) return;
     closeSearch();
-    showPage(result.page);
-    if(result.extra.sub) showAssetsSubpage(result.extra.sub);
+    // Not requestCloseActiveOverlay() — we're navigating to a specific destination right away, so
+    // the search-open history entry gets replaced by that destination's own (via showPage's
+    // {replace:true}) instead of popped: pressing back from there should land wherever the user
+    // was *before* opening search, not resurrect an empty search overlay in between.
+    activeOverlayClose = null;
+    showPage(result.page, { replace: true });
+    if(result.extra.sub) showAssetsSubpage(result.extra.sub, { replace: true });
     if(result.extra.scrollToId){
       // Give showPage's own render + view-transition a moment to finish before scrolling —
       // scrolling to an element mid-transition can land at the wrong offset once it settles.
@@ -1539,7 +1603,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   });
   document.addEventListener("keydown", function(e){
     if(e.key !== "Escape") return;
-    if(document.querySelector("[data-search-backdrop]")) closeSearch();
+    if(document.querySelector("[data-search-backdrop]")) requestCloseActiveOverlay();
   });
 
   // ---------------- Transactions: real dated spend, separate from the planned budget ----------------
@@ -2059,7 +2123,18 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     try{ initialPage = localStorage.getItem(PAGE_KEY) || "dashboard"; }catch(e){}
   }
 
-  window.addEventListener("popstate", function(){
+  window.addEventListener("popstate", function(e){
+    // A back navigation while an overlay (row modal, search, expense review) was open pops the
+    // history entry pushActiveOverlay() pushed for it — this is that entry landing, so just run
+    // the overlay's own close callback and stop, rather than also running the page-nav logic
+    // below: the URL/page never actually changed underneath it, so that logic would at best no-op
+    // and at worst reset scroll position for no reason.
+    if(activeOverlayClose && !(e.state && e.state.overlayOpen)){
+      var closeOverlay = activeOverlayClose;
+      activeOverlayClose = null;
+      closeOverlay();
+      return;
+    }
     var route = parseRouteFromLocation() || { page: "dashboard", sub: null };
     showPage(route.page, { skipUrl: true });
     if(route.page === "assets") showAssetsSubpage(route.sub || "summary", { skipUrl: true });

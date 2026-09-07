@@ -1648,7 +1648,29 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       var totalEl = document.getElementById("totalTransactionsAmount");
       if(totalEl) totalEl.textContent = fmtCurrency0.format(state.transactions.reduce(function(s, x){ return s + (Number(x.amount) || 0); }, 0));
     }
-    else if(e.target.classList.contains("tx-link")) t.linkedExpenseId = e.target.value || null;
+    else if(e.target.classList.contains("tx-link")){
+      var linkedId = e.target.value || null;
+      t.linkedExpenseId = linkedId;
+      // Picking a budget line to log against does most of the work for you, the same way an
+      // existing expense row's own "Log a transaction" control already does — but only fills in
+      // fields the user hasn't touched yet (still blank/zero), never overwriting something
+      // they've already typed.
+      if(linkedId){
+        var linkedItem = state.shared.find(function(i){ return i.id === linkedId; });
+        var txRow = e.target.closest(".m-row");
+        if(linkedItem && txRow){
+          var whatField = txRow.querySelector(".tx-what");
+          if(whatField && !whatField.value.trim()){ whatField.value = linkedItem.what; t.what = linkedItem.what; }
+          var amtField = txRow.querySelector(".tx-amount");
+          if(amtField && (parseFloat(amtField.value) || 0) === 0){
+            amtField.value = linkedItem.amount;
+            t.amount = Number(linkedItem.amount) || 0;
+            var totalEl2 = document.getElementById("totalTransactionsAmount");
+            if(totalEl2) totalEl2.textContent = fmtCurrency0.format(state.transactions.reduce(function(s, x){ return s + (Number(x.amount) || 0); }, 0));
+          }
+        }
+      }
+    }
     else if(e.target.classList.contains("tx-account")){
       t.account = e.target.value || "";
       renderActualVsPlannedPanel();

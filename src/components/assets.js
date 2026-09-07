@@ -235,7 +235,7 @@ function modernAssetRowHtml(item, idx, colorIdx){
     dot +
     '<div style="flex:1 1 auto; min-width:0"><div class="m-row-name">' + escapeAttr(item.what) + '</div></div>' +
     '<span class="m-row-amt" data-computed="amt">' + fmtCurrency0.format(Number(item.amount) || 0) + '</span>' +
-    '<svg class="m-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>' +
+    '<span class="m-row-chev" aria-hidden="true">✕</span>' +
   '</div>';
   var edit = '<div class="m-row-edit"><div class="m-row-edit-inner"><div class="m-row-edit-pad">' +
     '<div class="m-edit-grid">' +
@@ -280,7 +280,7 @@ function modernVehicleRowHtml(item, idx, colorIdx){
     dot +
     '<div style="flex:1 1 auto; min-width:0"><div class="m-row-name">' + escapeAttr(item.what) + '</div></div>' +
     '<span class="m-row-amt" data-computed="amt">' + fmtCurrency0.format(Number(item.amount) || 0) + '</span>' +
-    '<svg class="m-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>' +
+    '<span class="m-row-chev" aria-hidden="true">✕</span>' +
   '</div>';
   var edit = '<div class="m-row-edit"><div class="m-row-edit-inner"><div class="m-row-edit-pad">' +
     '<div class="m-edit-grid">' +
@@ -353,7 +353,7 @@ function modernShareRowHtml(item, idx, colorIdx){
       '<div class="h-gain-cell">' + gainLossHtml(item) + '</div>' +
       '<div class="h-change-cell">' + priceChangeHtml(item) + '</div>' +
     '</div>' +
-    '<svg class="m-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>' +
+    '<span class="m-row-chev" aria-hidden="true">✕</span>' +
   '</div>';
   var edit = '<div class="m-row-edit"><div class="m-row-edit-inner"><div class="m-row-edit-pad">' +
     '<div class="m-edit-grid">' +

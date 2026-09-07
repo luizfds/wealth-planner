@@ -266,7 +266,7 @@ function modernIncomeRowHtml(item, idx, colorIdx){
     '</div>' +
     (isGrossRef ? '<span class="m-row-tag gross">Gross</span>' : "") +
     '<span class="m-row-amt" data-computed="amt">' + fmtCurrency2.format(monthly) + '/mo</span>' +
-    (isComputed ? "" : '<svg class="m-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>') +
+    (isComputed ? "" : '<span class="m-row-chev" aria-hidden="true">✕</span>') +
   '</div>';
   if(isComputed){
     return '<div class="m-row computed" data-section="income" data-index="' + idx + '">' + summary + '</div>';

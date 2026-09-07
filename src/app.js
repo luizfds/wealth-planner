@@ -26,7 +26,7 @@ import {
   openExpenseReview, closeExpenseReview, renderExpenseReviewPanel,
   logCurrentReviewCard, skipCurrentReviewCard, expenseReview,
   renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel,
-  setTransactionsShowAll, modernTransactionRowOpen, budgetRowTxnsOpen,
+  setTransactionsShowAll, modernTransactionRowOpen, budgetRowTxnsOpen, transactionSummaryText,
   renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, logExpenseTransaction,
   parseExpensesImportCsv, renderExpensesImportPreview, clearExpensesImportPreview, commitExpensesImport
 } from "./components/expenses.js";
@@ -1637,12 +1637,29 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     e.preventDefault();
     toggleRow.click();
   });
+  // The collapsed row's title/subline (built once, at render time, from t.what and
+  // transactionSummaryText()) is also what's visible in an *open* row's sticky header — but
+  // editing tx-what/tx-link/tx-account only ever mutated state.transactions directly, with
+  // nothing re-deriving that header text afterward. The edit was always saved correctly; the
+  // header just silently went stale until something else (navigating away and back, etc.)
+  // happened to trigger a full renderTransactions(). tx-date doesn't need this: it already forces
+  // a full re-render itself (see below) since a date edit can also re-sort the row's position.
+  function patchTransactionRowHeader(row, t){
+    var nameEl = row.querySelector(".m-row-name");
+    if(nameEl) nameEl.textContent = t.what || "Transaction";
+    var subEl = row.querySelector(".m-row-sub");
+    if(subEl) subEl.innerHTML = transactionSummaryText(t);
+  }
   document.addEventListener("input", function(e){
     if(!e.target.closest("#transactionsTable")) return;
     var idx = Number(e.target.getAttribute("data-tx-index"));
     var t = state.transactions[idx];
     if(!t) return;
-    if(e.target.classList.contains("tx-what")) t.what = e.target.value;
+    var txRow = e.target.closest(".m-row");
+    if(e.target.classList.contains("tx-what")){
+      t.what = e.target.value;
+      if(txRow) patchTransactionRowHeader(txRow, t);
+    }
     else if(e.target.classList.contains("tx-amount")){
       t.amount = parseFloat(e.target.value) || 0;
       var totalEl = document.getElementById("totalTransactionsAmount");
@@ -1657,7 +1674,6 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       // they've already typed.
       if(linkedId){
         var linkedItem = state.shared.find(function(i){ return i.id === linkedId; });
-        var txRow = e.target.closest(".m-row");
         if(linkedItem && txRow){
           var whatField = txRow.querySelector(".tx-what");
           if(whatField && !whatField.value.trim()){ whatField.value = linkedItem.what; t.what = linkedItem.what; }
@@ -1670,9 +1686,11 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
           }
         }
       }
+      if(txRow) patchTransactionRowHeader(txRow, t);
     }
     else if(e.target.classList.contains("tx-account")){
       t.account = e.target.value || "";
+      if(txRow) patchTransactionRowHeader(txRow, t);
       renderActualVsPlannedPanel();
       persist();
       return;

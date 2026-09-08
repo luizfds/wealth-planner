@@ -1,4 +1,5 @@
 import { localDateStr } from "../lib/format.js";
+import { MONTH_NAMES } from "../constants.js";
 
 export function toWeekly(amount, freq){
   amount = Number(amount) || 0;
@@ -203,6 +204,85 @@ export function lastKnownDateFor(item, transactions){
 // from July (Quarterly). Returns null when neither is available — an item that's never been
 // logged and has no explicit month can't be placed on the 12-month cash flow forecast (see
 // calc/cashflow.js), so it falls back to being smoothed like a regular monthly cost instead.
+// ---------------- Billing cycles: comparing spend against the window it's actually billed in ----
+// The app converts every budget line to a smoothed $/mo (periodsOf) because that's the right
+// number for cash flow, net worth and projections — a $230 quarterly gas bill genuinely costs
+// $76.67/mo on average. But it's the wrong denominator for "am I on track right now": in the
+// month the bill actually lands you spend the whole $230, so comparing it against one month's
+// smoothed slice reports a line that's exactly on plan as 3x over budget.
+//
+// This returns the window a line is really billed over, so spend and budget can be compared like
+// with like. Same idea as currentStatementCycle() above — the window that contains today, anchored
+// on the real billing rhythm rather than the calendar.
+//
+//   { start, end, label, target, dueThisMonth }
+//
+// target is what one cycle's worth costs (so a quarterly line's target is the full $230, not a
+// third of it); dueThisMonth says whether this cycle's payment falls in the current calendar
+// month, which is what the month rollup needs to decide whose bill to expect.
+//
+// Weekly/Fortnightly keep a calendar-month window — there's no stored anchor day to build a
+// "current week" from, and a monthly view is how these are actually thought about — but their
+// target counts the whole periods that fall in this month rather than using the 52/12 average,
+// so a 5-week month expects five weekly shops instead of 4.33.
+function monthWindow(today){
+  var y = today.getFullYear(), m = today.getMonth();
+  return { start: localDateStr(new Date(y, m, 1)), end: localDateStr(new Date(y, m + 1, 0)) };
+}
+// How many whole `stepDays` periods fall inside the month containing `today`. Used for the
+// sub-monthly targets above: a 31-day month holds four whole weeks plus three days, so it expects
+// four weekly payments, not 4.43.
+function wholePeriodsInMonth(today, stepDays){
+  var daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  return Math.max(1, Math.floor(daysInMonth / stepDays));
+}
+export function budgetCycleFor(item, transactions, todayStr){
+  var today = todayStr ? new Date(todayStr + "T00:00:00") : new Date();
+  today.setHours(0, 0, 0, 0);
+  var amount = Number(item.amount) || 0;
+  var freq = item.freq;
+  if(freq === "Weekly" || freq === "Fortnightly"){
+    var win = monthWindow(today);
+    var count = wholePeriodsInMonth(today, freq === "Weekly" ? 7 : 14);
+    // The count goes in the label because the target it produces ($250 x 4 = $1,000) deliberately
+    // differs from the smoothed "/mo" figure shown right beside it on the row ($1,083.33, i.e.
+    // x 52/12). Both are correct — one is this month's actual payments, the other the long-run
+    // average — but two adjacent numbers that disagree read as a bug unless the row says why.
+    return { start: win.start, end: win.end, label: "this month ×" + count, target: amount * count, dueThisMonth: true };
+  }
+  if(freq !== "Quarterly" && freq !== "Yearly"){
+    var mwin = monthWindow(today);
+    return { start: mwin.start, end: mwin.end, label: "this month", target: amount, dueThisMonth: true };
+  }
+  var stepMonths = freq === "Quarterly" ? 3 : 12;
+  // Anchor month: where the user said the bill lands (item.dueMonth), else inferred from the last
+  // time it was logged. With neither, fall back to the calendar period containing today — no
+  // worse than the old behaviour, and it self-corrects the first time anything is logged.
+  var anchorMonth = resolvedDueMonth(item, transactions);
+  var anchorIdx = anchorMonth ? anchorMonth - 1 : 0;
+  // Walk back from an anchor in today's year (or the year after, if the anchor is still ahead of
+  // us) in whole cycles until we find the one containing today. The guard is belt-and-braces
+  // against a malformed freq, matching nextDueDate()'s own loop.
+  var cycleStart = new Date(today.getFullYear() + 1, anchorIdx, 1);
+  var guard = 0;
+  while(cycleStart.getTime() > today.getTime() && guard < 1000){
+    cycleStart = new Date(cycleStart.getFullYear(), cycleStart.getMonth() - stepMonths, 1);
+    guard++;
+  }
+  var cycleEnd = new Date(cycleStart.getFullYear(), cycleStart.getMonth() + stepMonths, 0);
+  // "Sep–Nov" rather than "this quarter": it's shorter (the row's sub-line is ellipsized well
+  // before the amount column on a phone, and the window is the whole point of the line), and it
+  // says exactly which months are being counted — which also makes the next cycle's start
+  // self-evident without spending more width spelling it out.
+  return {
+    start: localDateStr(cycleStart),
+    end: localDateStr(cycleEnd),
+    label: MONTH_NAMES[cycleStart.getMonth()] + "–" + MONTH_NAMES[cycleEnd.getMonth()],
+    target: amount,
+    // The bill is expected in the cycle's anchor month — the month the cycle opens on.
+    dueThisMonth: cycleStart.getFullYear() === today.getFullYear() && cycleStart.getMonth() === today.getMonth()
+  };
+}
 export function resolvedDueMonth(item, transactions){
   if(item.dueMonth) return item.dueMonth;
   var last = lastKnownDateFor(item, transactions);

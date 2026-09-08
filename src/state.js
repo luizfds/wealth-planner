@@ -131,7 +131,7 @@ export function defaultHomeBlock(){
 // Shared by every ledger array below (income, shared expenses, home costs, property
 // income/expenses) — irregular marks a lumpy, unpredictable-timing spend (Extras, property
 // maintenance) as a smoothed reserve rather than a bill expected on a fixed schedule; dueMonth
-// (1-12) optionally pins which calendar month a Yearly/Quarterly item actually lands in, for the
+// (1-12) optionally pins which calendar month a less-than-monthly item actually lands in, for the
 // 12-month cash flow forecast (calc/cashflow.js) — see resolvedDueMonth() in calc/ledger.js for
 // how an unset dueMonth falls back to inferring it from the item's own logged history instead.
 function applyTimingDefaults(item){

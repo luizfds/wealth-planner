@@ -42,7 +42,7 @@ export function historyTrendHtml(item){
 // applyTimingDefaults() and calc/ledger.js's resolvedDueMonth()) — shared by the generic Modern
 // row (modernPlainRowHtml below) and Income's own bespoke Modern row (income.js), so the two
 // surfaces can never drift apart on what these fields mean or how they're labeled. "Auto" (blank)
-// lets a Yearly/Quarterly item's due month be inferred from the last time it was logged instead
+// lets a less-than-monthly item's due month be inferred from the last time it was logged instead
 // of set explicitly.
 export function timingFieldsHtml(item){
   var monthOptions = '<option value="">Auto</option>' + MONTH_NAMES.map(function(m, i){
@@ -50,7 +50,7 @@ export function timingFieldsHtml(item){
   }).join("");
   return '<div class="m-edit-field span2"><label class="m-checkbox-field"><input type="checkbox" class="f-irregular"' + (item.irregular ? " checked" : "") +
       '> No fixed timing (irregular) — a lumpy spend like Extras or property maintenance, budgeted as a smoothed reserve instead of expected every period</label></div>' +
-    '<div class="m-edit-field"><label>Due month</label><select class="f-duemonth" title="For a Yearly/Quarterly item — which month it\'s actually due. Auto infers it from the last time you logged it.">' + monthOptions + '</select></div>';
+    '<div class="m-edit-field"><label>Due month</label><select class="f-duemonth" title="For anything billed less often than monthly — which month it\'s actually due. Auto infers it from the last time you logged it.">' + monthOptions + '</select></div>';
 }
 
 export function optionsHtml(list, value){

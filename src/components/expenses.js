@@ -855,7 +855,7 @@ function irregularBudgetSectionHtml(irregularItems){
     rows + '</div>';
 }
 // What these budget lines actually put on this month's bills: every monthly (and sub-monthly) line
-// plus only those quarterly/yearly lines whose cycle opens this month. This is the denominator a
+// plus only those less-than-monthly lines whose cycle opens this month. This is the denominator a
 // single month's real spend can honestly be judged against — the smoothed sum over-states quiet
 // months and under-states the month a quarterly bill lands, which is what made an on-plan payment
 // read as a budget miss. It does mean the headline moves month to month, which is the point: real

@@ -48,7 +48,7 @@ import {
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
   patchCalcOutputs, afterCalcChange, patchInvestOutputs
 } from "./components/scenarios.js";
-import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, PAGE_KEY } from "./components/nav.js";
+import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, PAGE_KEY } from "./components/nav.js";
 import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./components/search.js";
 
 (function(){
@@ -2256,6 +2256,26 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     onSwipeLeft: function(){ stepAssetsSubpage(1); },
     onSwipeRight: function(){ stepAssetsSubpage(-1); }
   });
+  document.getElementById("expensesSubnav").addEventListener("click", function(e){
+    var expensesSubBtn = e.target.closest("[data-expenses-sub]");
+    if(!expensesSubBtn) return;
+    showExpensesSubpage(expensesSubBtn.getAttribute("data-expenses-sub"));
+  });
+  // Same swipe-between-tabs affordance as Assets above, and same mobile-only guard: two tabs, so
+  // a swipe simply stops at either end rather than wrapping.
+  var EXPENSES_SUB_ORDER = ["budget", "spending"];
+  function stepExpensesSubpage(step){
+    if(!window.matchMedia("(max-width: 880px)").matches) return;
+    var activeExpensesBtn = document.querySelector("#expensesSubnav .subnav-item.active");
+    var currentExpensesTab = activeExpensesBtn ? activeExpensesBtn.getAttribute("data-expenses-sub") : "budget";
+    var nextExpensesIndex = EXPENSES_SUB_ORDER.indexOf(currentExpensesTab) + step;
+    if(nextExpensesIndex < 0 || nextExpensesIndex >= EXPENSES_SUB_ORDER.length) return;
+    showExpensesSubpage(EXPENSES_SUB_ORDER[nextExpensesIndex]);
+  }
+  onHorizontalSwipe(document.getElementById("page-expenses"), {
+    onSwipeLeft: function(){ stepExpensesSubpage(1); },
+    onSwipeRight: function(){ stepExpensesSubpage(-1); }
+  });
 
 
   // A fresh load of a deep link (e.g. /wealth-planner/assets/shares) has no matching file
@@ -2272,9 +2292,11 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   var routeFromUrl = parseRouteFromLocation();
   var initialPage = "dashboard";
   var initialAssetsSub = "summary";
+  var initialExpensesSub = "budget";
   if(routeFromUrl){
     initialPage = routeFromUrl.page;
-    if(routeFromUrl.sub) initialAssetsSub = routeFromUrl.sub;
+    if(routeFromUrl.sub && routeFromUrl.page === "assets") initialAssetsSub = routeFromUrl.sub;
+    if(routeFromUrl.sub && routeFromUrl.page === "expenses") initialExpensesSub = routeFromUrl.sub;
   } else {
     try{ initialPage = localStorage.getItem(PAGE_KEY) || "dashboard"; }catch(e){}
   }
@@ -2294,6 +2316,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     var route = parseRouteFromLocation() || { page: "dashboard", sub: null };
     showPage(route.page, { skipUrl: true });
     if(route.page === "assets") showAssetsSubpage(route.sub || "summary", { skipUrl: true });
+    if(route.page === "expenses") showExpensesSubpage(route.sub || "budget", { skipUrl: true });
   });
 
   function renderAll(){
@@ -2361,6 +2384,10 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   initTableScrollShadows();
   showPage(initialPage, { replace: true, skipScroll: true });
   if(initialPage === "assets") showAssetsSubpage(initialAssetsSub, { replace: true });
+  // Always applied, not just when landing on Expenses: showExpensesSubpage seeds the module's
+  // currentExpensesSub, which buildRoutePath needs to be correct the first time the user
+  // navigates *to* Expenses from somewhere else.
+  showExpensesSubpage(initialExpensesSub, { skipUrl: initialPage !== "expenses", replace: true });
 
   // onboarding.html's "Try it with sample data" link lands here with ?mock=1 — generate it
   // immediately (no confirm needed, unlike the header's own Sample data button: there's nothing

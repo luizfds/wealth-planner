@@ -30,6 +30,11 @@
   .subnav-item:focus-visible{ box-shadow: var(--focus-ring); }
   .assets-subpage{ display:flex; flex-direction:column; gap:20px; }
   .assets-subpage[hidden]{ display:none; }
+  /* Expenses' Budget/Spending halves — same shape as .assets-subpage above, including the
+     explicit [hidden] override: the browser's own [hidden]{display:none} loses to any author
+     `display` rule on the same element regardless of specificity. */
+  .expenses-subpage{ display:flex; flex-direction:column; gap:20px; }
+  .expenses-subpage[hidden]{ display:none; }
   #assetsPersonFilter{ margin-top:8px; }
   #assetsPersonFilter .subnav-item{ font-size:11px; padding:5px 10px; border:1px solid var(--border); }
   #assetsPersonFilter .subnav-item.active{ border-color: var(--brass); }

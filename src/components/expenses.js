@@ -163,6 +163,10 @@ function sharedCompositionBarHtml(groups){
 export var modernSharedRowOpen = {};
 
 export function renderSharedGroups(){
+  // The overdue count depends on the budget lines and on what's been logged against them, so it's
+  // refreshed from both of the renders that follow a change to either (see also
+  // renderActualVsPlannedPanel) rather than from every call site that mutates them.
+  renderExpenseReviewButton();
   var container = document.getElementById("sharedGroups");
   if(!container) return;
   var groups = computeSharedGroups();
@@ -342,6 +346,17 @@ function reviewDueNoteHtml(item){
   if(!lastDate) return '<span class="due-note due-unset">No transaction logged yet</span>';
   var daysAgo = -daysUntil(lastDate);
   return '<span class="due-note due-overdue">Last transaction ' + escapeAttr(lastDate) + ' (' + daysAgo + 'd ago) — overdue for a new ' + escapeAttr(item.freq) + ' entry</span>';
+}
+// The Spending tab's "Catch up" button only earns its place when there's actually something to
+// catch up on, so it's hidden at zero and carries the count otherwise — a standing, honest
+// answer to "am I behind on logging?" instead of a button that has to be pressed to find out
+// (which is what the old always-visible "Review expenses" was).
+export function renderExpenseReviewButton(){
+  var btn = document.getElementById("reviewExpensesBtn");
+  if(!btn) return;
+  var dueCount = state.shared.reduce(function(n, item){ return n + (isDueForReview(item) ? 1 : 0); }, 0);
+  btn.hidden = dueCount === 0;
+  btn.textContent = "Catch up on " + dueCount + " overdue";
 }
 export function openExpenseReview(){
   if(!state.shared.length){
@@ -806,6 +821,7 @@ function irregularBudgetSectionHtml(irregularItems){
     rows + '</div>';
 }
 export function renderActualVsPlannedPanel(){
+  renderExpenseReviewButton();
   var el = document.getElementById("actualVsPlannedPanel");
   if(!el) return;
   var regularItems = state.shared.filter(function(item){ return !item.irregular; });

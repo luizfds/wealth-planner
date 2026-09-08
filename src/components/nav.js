@@ -66,17 +66,17 @@ var MOBILE_MORE_PAGES = ["accounts", "scenarios", "projections"];
 // rather than a selector, since there's nothing in the DOM to click. Projections has no natural
 // "add" action and simply isn't listed, so the fab hides there.
 var QUICK_FAB_BUTTON_PAGES = {
+  // Log spend on both of Expenses' halves, not just Spending. Budget briefly had its own "Add
+  // expense" action, but that made the page's most frequent job — logging what you just spent —
+  // cost an extra tap whenever you arrived on Expenses, which opens on Budget. Adding a budget
+  // line is well served without the fab (the ledger footer and every classification card carry
+  // their own "+ Add expense"), and it's a set-up-day action, not a daily one. #quickLogBtn lives
+  // on the Spending subpage, but a hidden button still clicks fine and the sheet covers the page
+  // either way — so logging from Budget lands you back on Budget with the bars already updated.
+  expenses: { label: "Log spend", selector: "#quickLogBtn" },
   properties: { label: "Add property", selector: "#addPropertyBtn" },
   accounts: { label: "Add account", selector: "#addAccountBtn" }
 };
-// Expenses' two halves want different single actions: on Budget the useful thing is adding a
-// planned line, on Spending it's logging what you actually spent. Kept out of the map above
-// (which is keyed by page alone) since it has to be resolved per subpage, not per page.
-function expensesFabAction(){
-  return currentExpensesSub === "spending"
-    ? { label: "Log spend", selector: "#quickLogBtn" }
-    : { label: "Add expense", selector: '[data-add="shared"]' };
-}
 var QUICK_FAB_GROUPED_PAGES = ["income", "assets", "scenarios"];
 // Re-targets the quick-action button for whichever page/subpage is now visible — called after
 // every page switch and Assets subpage switch (see applyPageChange/showAssetsSubpage below), so
@@ -89,10 +89,6 @@ export function updateQuickFab(pageId){
   if(pageId === "dashboard"){
     label = "Log net worth now";
     mode = "networth";
-  } else if(pageId === "expenses"){
-    var expensesAction = expensesFabAction();
-    label = expensesAction.label;
-    selector = expensesAction.selector;
   } else if(QUICK_FAB_BUTTON_PAGES[pageId]){
     label = QUICK_FAB_BUTTON_PAGES[pageId].label;
     selector = QUICK_FAB_BUTTON_PAGES[pageId].selector;

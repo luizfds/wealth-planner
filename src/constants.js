@@ -1,7 +1,7 @@
 export var STORAGE_KEY = "wealthPlanner.v1";
 
-export var FREQS = ["Weekly","Fortnightly","Monthly","Quarterly","Yearly"];
-// Used by the Yearly/Quarterly "due month" field (calc/ledger.js's resolvedDueMonth) and the
+export var FREQS = ["Weekly","Fortnightly","Monthly","Quarterly","Half-yearly","Yearly"];
+// Used by the "due month" field on any less-than-monthly item (calc/ledger.js's resolvedDueMonth) and the
 // 12-month cash flow forecast (calc/cashflow.js) — index 0 = January, matching Date#getMonth().
 export var MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 export var CLASSES = ["Needs","Wants","Savings","N/A"];

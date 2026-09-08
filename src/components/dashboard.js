@@ -87,7 +87,8 @@ export function renderDashboardStats(){
 // Every other total on this page (scenarioTotals, the cards above) smooths every item — Weekly
 // through Yearly alike — into one flat monthly-equivalent average. That hides real shape: a
 // Yearly bonus or house-insurance bill doesn't actually land evenly across the year, it lands
-// once, in one month. This instead places Yearly/Quarterly items in the actual month they're due
+// once, in one month. This instead places every less-than-monthly item (Quarterly, Half-yearly,
+// Yearly) in the actual month it's due
 // (calc/cashflow.js) so a month that's genuinely going to run tight — or genuinely has room to
 // save more — shows up as such, rather than being averaged away.
 function renderCashFlowForecastPanel(){

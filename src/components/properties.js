@@ -16,7 +16,8 @@ import { renderProjectionOutputs } from "./projections.js";
 
 // Real-world payment cadences (loan repayments, and how a property manager actually disburses
 // rent) are only ever weekly, fortnightly, or monthly — unlike income/expense rows elsewhere in
-// this app, Quarterly/Yearly aren't real options here, so this is its own shorter list rather
+// this app, the less-than-monthly frequencies aren't real options here, so this is its own
+// shorter list rather
 // than reusing the global FREQS.
 var PAYMENT_FREQS = ["Weekly", "Fortnightly", "Monthly"];
 var PAYMENT_FREQ_SUFFIX = { Weekly: "/wk", Fortnightly: "/fn", Monthly: "/mo" };

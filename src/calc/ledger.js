@@ -8,6 +8,7 @@ export function toWeekly(amount, freq){
     case "Fortnightly": return amount / 2;
     case "Monthly": return amount / (52/12);
     case "Quarterly": return amount / 13;
+    case "Half-yearly": return amount / 26;
     case "Yearly": return amount / 52;
     default: return 0;
   }
@@ -39,15 +40,24 @@ export function sumFieldForScenario(items, scenarioName, field){
 // Advances a date by one occurrence of the given ledger frequency. Month/year steps use
 // setMonth/setFullYear rather than a fixed day count, so e.g. a Monthly bill last paid on the
 // 31st correctly rolls to the last day of shorter months instead of drifting.
+// How many months one cycle of a frequency spans — the single place that knows this, so adding a
+// frequency (Half-yearly was the third) is one line here rather than a hunt through every
+// "is it lumpy", "when's the next one" and "which months does it land in" test in the app.
+// Sub-monthly frequencies collapse to 1: they're handled in days where the distinction matters
+// (addFreqStep below), and everywhere else "at least monthly" is the only property that counts.
+export function freqStepMonths(freq){
+  switch(freq){
+    case "Quarterly": return 3;
+    case "Half-yearly": return 6;
+    case "Yearly": return 12;
+    default: return 1;
+  }
+}
 function addFreqStep(d, freq){
   var next = new Date(d.getTime());
-  switch(freq){
-    case "Weekly": next.setDate(next.getDate() + 7); break;
-    case "Fortnightly": next.setDate(next.getDate() + 14); break;
-    case "Quarterly": next.setMonth(next.getMonth() + 3); break;
-    case "Yearly": next.setFullYear(next.getFullYear() + 1); break;
-    default: next.setMonth(next.getMonth() + 1); // Monthly, and the default for any other freq
-  }
+  if(freq === "Weekly"){ next.setDate(next.getDate() + 7); return next; }
+  if(freq === "Fortnightly"){ next.setDate(next.getDate() + 14); return next; }
+  next.setMonth(next.getMonth() + freqStepMonths(freq));
   return next;
 }
 // Given when an expense was last incurred and how often it recurs, projects the next
@@ -197,7 +207,7 @@ export function lastKnownDateFor(item, transactions){
   }
   return null;
 }
-// Which calendar month (1-12) a Yearly/Quarterly item actually lands in — an explicit
+// Which calendar month (1-12) a less-than-monthly item actually lands in — an explicit
 // item.dueMonth always wins (set directly on the row, independent of any logging history);
 // otherwise it's inferred from the month of its last known occurrence (see lastKnownDateFor()),
 // since a bill paid in July this year is paid in July every year (Yearly) or every third month
@@ -250,11 +260,11 @@ export function budgetCycleFor(item, transactions, todayStr){
     // average — but two adjacent numbers that disagree read as a bug unless the row says why.
     return { start: win.start, end: win.end, label: "this month ×" + count, target: amount * count, dueThisMonth: true };
   }
-  if(freq !== "Quarterly" && freq !== "Yearly"){
+  var stepMonths = freqStepMonths(freq);
+  if(stepMonths <= 1){
     var mwin = monthWindow(today);
     return { start: mwin.start, end: mwin.end, label: "this month", target: amount, dueThisMonth: true };
   }
-  var stepMonths = freq === "Quarterly" ? 3 : 12;
   // Anchor month: where the user said the bill lands (item.dueMonth), else inferred from the last
   // time it was logged. With neither, fall back to the calendar period containing today — no
   // worse than the old behaviour, and it self-corrects the first time anything is logged.

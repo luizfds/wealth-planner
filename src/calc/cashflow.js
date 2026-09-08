@@ -1,29 +1,30 @@
 import { state } from "../state.js";
-import { periodsOf, resolveSharedAmount, resolvedDueMonth } from "./ledger.js";
+import { periodsOf, resolveSharedAmount, resolvedDueMonth, freqStepMonths } from "./ledger.js";
 import { effectiveIncomeItems } from "./tax.js";
 import { ipProperties, ipLoansMonthly } from "./property.js";
 
 // ---------------- 12-month cash flow forecast ----------------
 // Every other total in this app (scenarioTotals, the sticky-header "Monthly Cash" figure, the
-// Actual vs. planned panel) smooths every item — Weekly/Fortnightly/Monthly/Quarterly/Yearly
+// Actual vs. planned panel) smooths every item — whatever its frequency
 // alike — into a flat monthly-equivalent average. That's the right number for "what does this
 // cost per month on average", but it hides real shape: a Yearly house-insurance bill or a Yearly
 // bonus doesn't actually land evenly across 12 months, it lands once, in one specific month. This
 // forecast instead classifies every income/expense item into one of three buckets and only
 // smooths the ones that are actually smooth:
-//   - "lumpy"   — Quarterly/Yearly, not marked irregular, with a resolvable due month (explicit
+//   - "lumpy"   — anything billed less often than monthly (Quarterly, Half-yearly, Yearly), not
+//                 marked irregular, with a resolvable due month (explicit
 //                 or inferred — see resolvedDueMonth()). Placed at full amount in its real
 //                 month(s), not smoothed at all.
 //   - "reserve" — marked item.irregular (Extras, misc, property maintenance — spends that happen
 //                 but on no predictable schedule). Smoothed into every month as a savings-style
 //                 set-aside, same as before, since there's no real month to place it in.
-//   - "baseline"— everything else (Weekly/Fortnightly/Monthly items, and any Quarterly/Yearly
+//   - "baseline"— everything else (Weekly/Fortnightly/Monthly items, and any lumpy-frequency
 //                 item with no resolvable due month yet) — smoothed, same as scenarioTotals().
 function monthlyEquivalent(amount, freq){ return periodsOf(amount, freq).monthly; }
 
 function classifyItem(item, transactions){
   if(item.irregular) return "reserve";
-  if(item.freq === "Quarterly" || item.freq === "Yearly"){
+  if(freqStepMonths(item.freq) > 1){
     return resolvedDueMonth(item, transactions) ? "lumpy" : "baseline";
   }
   return "baseline";
@@ -60,11 +61,12 @@ function collectCashFlowEntries(scenario){
   });
   return entries;
 }
-// True when a lumpy item's cycle includes the given calendar month (1-12) — Yearly hits once,
-// Quarterly hits every third month starting from its own due month.
+// True when a lumpy item's cycle includes the given calendar month (1-12): every step-th month
+// counting from its own due month. Yearly needs no special case — a step of 12 can only ever hit
+// the due month itself.
 function lumpyHitsMonth(entry, monthNum){
-  if(entry.freq === "Yearly") return entry.dueMonth === monthNum;
-  return ((monthNum - entry.dueMonth) % 3 + 3) % 3 === 0;
+  var step = freqStepMonths(entry.freq);
+  return ((monthNum - entry.dueMonth) % step + step) % step === 0;
 }
 export function monthlyCashFlowForecast(monthsAhead){
   monthsAhead = monthsAhead || 12;

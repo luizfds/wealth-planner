@@ -142,6 +142,15 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
   var classField = opts.showClass
     ? '<div class="m-edit-field"><label>Classification</label><select class="f-class">' + optionsHtml(CLASSES, item.classification || "Needs") + '</select></div>'
     : "";
+  // A second, orthogonal axis to Classification: that one says whether the spend is discretionary,
+  // this says where it goes. Only offered where the caller passes a category list (Expenses), and
+  // only ever used for reporting — it never regroups the list the row lives in.
+  var categoryField = opts.categories
+    ? '<div class="m-edit-field"><label>Category</label><select class="f-category" title="Groups this line with others like it for the spending charts — manage the list under Accounts → Categories">' +
+        '<option value=""' + (!(item.category || "") ? " selected" : "") + '>— None —</option>' +
+        optionsHtml(opts.categories, item.category || "") +
+      '</select></div>'
+    : "";
   var accountField = '<div class="m-edit-field' + (opts.showClass ? " span3" : "") + '"><label>Account</label><input type="text" class="f-account" list="acctSuggestions" value="' + escapeAttr(item.account || "") + '" aria-label="Account"></div>';
   // span2: the date input + button need more room than a single 1-of-3 grid column gives them
   // at narrow widths (they'd wrap onto separate lines) — span2 fits them on one line and, for
@@ -152,6 +161,7 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
   var fieldsHtml =
     '<div class="m-edit-field span3"><label>What</label><input type="text" class="f-what" value="' + escapeAttr(item.what) + '" aria-label="Item name"></div>' +
     classField +
+    categoryField +
     '<div class="m-edit-field"><label>Amount</label><input type="number" step="0.01" min="0" class="f-amount" value="' + item.amount + '" aria-label="Amount"></div>' +
     '<div class="m-edit-field"><label>Frequency</label><select class="f-freq">' + optionsHtml(FREQS, item.freq) + '</select></div>' +
     accountField +

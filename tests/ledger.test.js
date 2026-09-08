@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, isOverdue, daysUntil, appendHistorySnapshot, transactionsInMonth, transactionsInYear, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, lastTransactionDateFor, transactionDisplayName, lastKnownDateFor, resolvedDueMonth } from "../src/calc/ledger.js";
+import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, isOverdue, daysUntil, appendHistorySnapshot, transactionsInMonth, transactionsInYear, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, lastTransactionDateFor, transactionDisplayName, budgetCycleFor, lastKnownDateFor, resolvedDueMonth } from "../src/calc/ledger.js";
 
 test("toWeekly converts every frequency to a weekly figure", function(){
   assert.equal(toWeekly(100, "Weekly"), 100);
@@ -295,4 +295,68 @@ test("transactionsInRange filters inclusively on both ends", function(){
   var inRange = transactionsInRange(txns, "2026-08-15", "2026-09-14");
   assert.equal(inRange.length, 3);
   assert.equal(inRange.reduce(function(s, t){ return s + t.amount; }, 0), 9);
+});
+
+test("budgetCycleFor keeps a calendar-month window for monthly lines", function(){
+  var c = budgetCycleFor({ amount: 99, freq: "Monthly" }, [], "2026-09-08");
+  assert.deepEqual({ start: c.start, end: c.end, label: c.label, target: c.target, dueThisMonth: c.dueThisMonth },
+    { start: "2026-09-01", end: "2026-09-30", label: "this month", target: 99, dueThisMonth: true });
+});
+
+test("budgetCycleFor counts whole periods in the month for sub-monthly lines", function(){
+  // September 2026 has 30 days: four whole weeks, two whole fortnights.
+  var wk = budgetCycleFor({ amount: 200, freq: "Weekly" }, [], "2026-09-08");
+  assert.equal(wk.target, 800, "four weekly payments, not the 4.33 average");
+  // The count is in the label so the row explains why its target differs from the smoothed /mo.
+  assert.equal(wk.label, "this month \u00d74");
+  var fn = budgetCycleFor({ amount: 200, freq: "Fortnightly" }, [], "2026-09-08");
+  assert.equal(fn.target, 400);
+  // A 31-day month still holds only four whole weeks.
+  assert.equal(budgetCycleFor({ amount: 200, freq: "Weekly" }, [], "2026-08-08").target, 800);
+  // February 2026 (28 days) also holds exactly four.
+  assert.equal(budgetCycleFor({ amount: 200, freq: "Weekly" }, [], "2026-02-10").target, 800);
+});
+
+test("budgetCycleFor anchors a quarterly line on its due month and spans the whole quarter", function(){
+  // Due August: cycles run Aug-Oct, Nov-Jan, Feb-Apr, May-Jul.
+  var item = { amount: 230, freq: "Quarterly", dueMonth: 8 };
+  var c = budgetCycleFor(item, [], "2026-09-08");
+  assert.deepEqual({ start: c.start, end: c.end }, { start: "2026-08-01", end: "2026-10-31" });
+  assert.equal(c.label, "Aug–Oct", "names the window rather than spending width on \"this quarter\"");
+  assert.equal(c.target, 230, "the target is a full cycle's bill, not a monthly slice");
+  assert.equal(c.dueThisMonth, false, "September is mid-cycle, the bill landed in August");
+  // In the anchor month itself the bill is due now.
+  assert.equal(budgetCycleFor(item, [], "2026-08-03").dueThisMonth, true);
+  // The next cycle over, including one that straddles the new year.
+  var nov = budgetCycleFor(item, [], "2026-12-20");
+  assert.deepEqual({ start: nov.start, end: nov.end }, { start: "2026-11-01", end: "2027-01-31" });
+  assert.equal(budgetCycleFor(item, [], "2027-01-05").start, "2026-11-01", "January is still in the Nov cycle");
+});
+
+test("budgetCycleFor anchors a yearly line on its due month", function(){
+  var item = { amount: 1400, freq: "Yearly", dueMonth: 11 };
+  var c = budgetCycleFor(item, [], "2026-09-08");
+  assert.deepEqual({ start: c.start, end: c.end }, { start: "2025-11-01", end: "2026-10-31" });
+  assert.equal(c.target, 1400);
+  assert.equal(c.dueThisMonth, false);
+  assert.equal(budgetCycleFor(item, [], "2026-11-14").dueThisMonth, true);
+  assert.equal(budgetCycleFor(item, [], "2026-11-14").start, "2026-11-01");
+});
+
+test("budgetCycleFor infers a quarterly line's anchor from the last logged transaction", function(){
+  var item = { id: "exp1", amount: 230, freq: "Quarterly" };
+  var txns = [{ date: "2026-08-14", amount: 230, linkedExpenseId: "exp1" }];
+  var c = budgetCycleFor(item, txns, "2026-09-08");
+  assert.deepEqual({ start: c.start, end: c.end }, { start: "2026-08-01", end: "2026-10-31" },
+    "no explicit dueMonth, so the August payment anchors the cycle");
+  // An explicit dueMonth still wins over the inferred one.
+  var pinned = budgetCycleFor({ id: "exp1", amount: 230, freq: "Quarterly", dueMonth: 9 }, txns, "2026-09-08");
+  assert.equal(pinned.start, "2026-09-01");
+});
+
+test("budgetCycleFor falls back to a calendar-anchored cycle with nothing to infer from", function(){
+  var c = budgetCycleFor({ amount: 230, freq: "Quarterly" }, [], "2026-09-08");
+  // Anchored on January, so the cycle containing September is Jul-Sep.
+  assert.deepEqual({ start: c.start, end: c.end }, { start: "2026-07-01", end: "2026-09-30" });
+  assert.equal(c.target, 230);
 });

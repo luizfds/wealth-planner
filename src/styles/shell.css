@@ -137,8 +137,19 @@
      via the [hidden] attribute (not a class) on pages with no single obvious action (Projections)
      or a currently-empty target (e.g. Assets' Summary subpage, which has no add button of its
      own) — see CLAUDE.md's [hidden] gotcha for why author CSS must repeat that rule explicitly. */
+  /* The fab is split in two: the big circle performs the single most useful action for whatever
+     page you're on (one tap, unchanged), and the small chevron above it opens a menu of the
+     actions that live on *other* pages. Turning the whole fab into a menu was the obvious move
+     and the wrong one — it would have put a second tap in front of logging spend, the thing you
+     do daily, to save one on adding a share, which you do monthly at most. When a page has no
+     single obvious action (Projections), the big circle opens the menu instead and the chevron
+     hides, so the fab is never a dead control. */
+  .quick-fab-wrap{
+    position:fixed; right:20px; bottom:24px; z-index:16;
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+  }
   .quick-fab{
-    all:unset; box-sizing:border-box; position:fixed; right:20px; bottom:24px; z-index:16;
+    all:unset; box-sizing:border-box;
     width:52px; height:52px; border-radius:50%; display:flex; align-items:center; justify-content:center;
     background: var(--brass); color:#fff; box-shadow: 0 6px 18px rgba(0,0,0,0.28); cursor:pointer;
     transition: transform .12s ease, background-color .15s ease;
@@ -147,8 +158,21 @@
   .quick-fab:hover{ background: var(--brass-strong); }
   .quick-fab:active{ transform: scale(0.92); }
   .quick-fab:focus-visible{ outline:none; box-shadow: var(--focus-ring), 0 6px 18px rgba(0,0,0,0.28); }
+  /* Deliberately smaller and in the page's own surface colours rather than the brass of the main
+     fab: it's the secondary path, and two equally-loud circles would make neither read as primary. */
+  .quick-fab-more{
+    all:unset; box-sizing:border-box;
+    width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    background: var(--paper-raised); color: var(--ink-soft); border:1px solid var(--border);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.18); cursor:pointer;
+    transition: transform .12s ease, color .15s ease, border-color .15s ease;
+  }
+  .quick-fab-more[hidden]{ display:none; }
+  .quick-fab-more:hover{ color: var(--ink); border-color: var(--brass); }
+  .quick-fab-more:active{ transform: scale(0.9); }
+  .quick-fab-more:focus-visible{ outline:none; box-shadow: var(--focus-ring), 0 3px 10px rgba(0,0,0,0.18); }
   @media (max-width: 880px){
-    .quick-fab{ right:16px; bottom: calc(78px + env(safe-area-inset-bottom) + 14px); }
+    .quick-fab-wrap{ right:16px; bottom: calc(78px + env(safe-area-inset-bottom) + 14px); }
   }
 
   /* ---------------- Modern-row edit modal backdrop ---------------- */

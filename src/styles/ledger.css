@@ -545,15 +545,31 @@
      up shortens the sheet from the top rather than hiding its primary action. Placed after the
      base rules per the "responsive override goes last" gotcha in CLAUDE.md. */
   @media (max-width: 880px){
-    .review-backdrop:has(.qlog-panel){ align-items:flex-end; padding:0; }
-    .qlog-panel{
+    .review-backdrop:has(.qlog-panel), .review-backdrop:has(.qfab-panel){ align-items:flex-end; padding:0; }
+    .qlog-panel, .qfab-panel{
       max-width:none; border-radius:16px 16px 0 0; border-bottom:none;
       max-height:92vh; padding:16px 16px calc(16px + env(safe-area-inset-bottom, 0px));
       animation: qlogSheetIn .2s ease;
     }
     @keyframes qlogSheetIn{ from{ transform: translateY(100%); } to{ transform: translateY(0); } }
-    @media (prefers-reduced-motion: reduce){ .qlog-panel{ animation:none; } }
+    @media (prefers-reduced-motion: reduce){ .qlog-panel, .qfab-panel{ animation:none; } }
   }
+
+  /* ---------------- Quick actions menu (the fab's chevron) ---------------- */
+  /* Reuses .review-backdrop/.review-panel for the shell, same as the quick-log sheet above. */
+  .qfab-panel{ max-width:400px; text-align:left; }
+  .qfab-actions{ display:flex; flex-direction:column; gap:2px; }
+  /* A list, not the chip grid the quick-log sheet uses: these are eight distinct destinations
+     that each need a name and a line of explanation, where the chips are one repeated kind of
+     thing (a budget line) picked by name alone. */
+  .qfab-action{
+    all:unset; box-sizing:border-box; display:flex; flex-direction:column; gap:1px;
+    width:100%; padding:10px; border-radius:8px; cursor:pointer;
+  }
+  .qfab-action:hover{ background: var(--paper-sunken); }
+  .qfab-action:focus-visible{ outline:none; box-shadow: var(--focus-ring); }
+  .qfab-action-label{ font-size:14px; font-weight:600; color: var(--ink); }
+  .qfab-action-hint{ font-size:11.5px; color: var(--ink-soft); }
 
   /* ---------------- Cross-page search ---------------- */
   /* Reuses .review-backdrop/.review-panel as-is (see above) for the modal shell — this only adds

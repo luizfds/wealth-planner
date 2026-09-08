@@ -90,6 +90,11 @@ export function defaultState(){
     // referencing row (renameCategoryEverywhere), which keeps CSV import/export and hand-edited
     // backups readable instead of full of opaque ids.
     categories: DEFAULT_CATEGORIES.slice(),
+    // Which axis the Budget tab groups its cards (and its composition bar) by: "type" is the
+    // Needs/Wants/Savings budgeting frame, "category" the where-does-it-go rollup. Persisted
+    // rather than session-only because it's a stable way of looking at your own budget, and
+    // resetting it on every load of a daily-use app would be its own small annoyance.
+    budgetGroupBy: "type",
     home: { "Current situation": defaultHomeBlock() },
     purchase: { "Current situation": defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", false) },
     invest: { "Current situation": defaultInvestConfig() },
@@ -206,6 +211,7 @@ export function migrateState(s){
   // Categories are a later addition, so an older save has none: seed the defaults so the feature
   // works on first load rather than presenting an empty manager. An existing (possibly emptied)
   // list is left exactly as the user left it — only a missing key seeds.
+  if(s.budgetGroupBy !== "category") s.budgetGroupBy = "type";
   if(!Array.isArray(s.categories)) s.categories = DEFAULT_CATEGORIES.slice();
   s.categories = s.categories.filter(function(name){ return typeof name === "string" && name.trim(); });
   s.shared.forEach(function(item){ if(typeof item.category !== "string") item.category = ""; });

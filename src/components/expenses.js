@@ -162,6 +162,27 @@ function sharedCompositionBarHtml(groups){
 // Session-only (not persisted) — mirrors modernIncomeRowOpen for the Expenses page's rows.
 export var modernSharedRowOpen = {};
 
+// Each budget line's own "how's this one going" line: a thin bar plus "$120 of $200 this month".
+// This is what makes the Budget tab worth opening on any day other than set-up day — the planned
+// figure on its own never changes, so a list of planned figures is a list you stop reading.
+// Irregular items are deliberately excluded: they're budgeted as a smoothed yearly reserve, not
+// expected every month, so a monthly progress bar for one would report a "miss" against an
+// expectation that was never real (same reasoning as the Actual vs. planned panel's own split).
+function budgetRowProgressHtml(item, spentByExpense){
+  if(item.irregular) return "";
+  // item.amount, not resolveSharedAmount(): the row's own headline "/mo" figure right next to this
+  // is the un-overridden amount, as is the Actual vs. planned panel's, so reading the scenario
+  // override here would make the two numbers on the same row disagree whenever one is set.
+  var planned = Math.round(periodsOf(item.amount, item.freq).monthly * 100) / 100;
+  if(planned <= 0) return "";
+  var spent = Math.round((spentByExpense[item.id] || 0) * 100) / 100;
+  var over = spent - planned > 0.5;
+  var pct = Math.min(100, (spent / planned) * 100);
+  return '<div class="budget-progress">' +
+    '<div class="budget-progress-track"><div class="budget-progress-fill' + (over ? " over" : "") + '" style="width:' + pct + '%"></div></div>' +
+    '<span class="budget-progress-text' + (over ? " over" : "") + '">' + escapeAttr(fmtCurrency0.format(spent) + " of " + fmtCurrency0.format(planned) + " this month") + '</span>' +
+  '</div>';
+}
 export function renderSharedGroups(){
   // The overdue count depends on the budget lines and on what's been logged against them, so it's
   // refreshed from both of the renders that follow a change to either (see also
@@ -171,13 +192,14 @@ export function renderSharedGroups(){
   if(!container) return;
   var groups = computeSharedGroups();
   patchSharedGroupTotals();
+  var spentByExpense = sumTransactionsByExpense(transactionsInMonth(state.transactions));
   container.innerHTML = sharedCompositionBarHtml(groups) + '<div class="m-people">' + groups.map(function(g){
     var initial = g.key === "N/A" ? "–" : g.key.charAt(0);
     return '<div class="m-card">' +
       '<div class="m-card-head"><span class="m-avatar m-avatar-' + classificationSwatchClass(g.key) + '">' + initial + '</span>' +
       '<div class="m-card-name">' + escapeAttr(g.key) + '</div>' +
       '<div class="m-card-total">' + fmtCurrency0.format(g.monthly) + '<span>/mo</span></div></div>' +
-      '<div class="m-rows">' + g.items.map(function(item, i){ return modernPlainRowHtml(item, g.indices[i], "shared", modernSharedRowOpen, {showClass:true, showDone:true}); }).join("") + '</div>' +
+      '<div class="m-rows">' + g.items.map(function(item, i){ return modernPlainRowHtml(item, g.indices[i], "shared", modernSharedRowOpen, {showClass:true, showDone:true, extraSubLine: budgetRowProgressHtml(item, spentByExpense)}); }).join("") + '</div>' +
       '<button type="button" class="m-add-row" data-add="shared:' + escapeAttr(g.key) + '">+ Add expense</button>' +
     '</div>';
   }).join("") + '</div>';
@@ -837,7 +859,7 @@ export function renderActualVsPlannedPanel(){
   var monthTxns = allMonthTxns.filter(function(t){ return !t.linkedExpenseId || !irregularIds[t.linkedExpenseId]; });
   var byExpense = sumTransactionsByExpense(monthTxns);
   if(!state.shared.length && !allMonthTxns.length){
-    el.innerHTML = '<p class="ledger-note" style="margin:0">Add a shared expense and log a transaction against it to see actual vs. planned here.</p>';
+    el.innerHTML = '<p class="ledger-note" style="margin:0">Add a budget line on the Budget tab, then log spend against it to see where the month is going.</p>';
     return;
   }
   // With shared expenses defined but nothing logged yet this month, the full row-by-row
@@ -849,7 +871,7 @@ export function renderActualVsPlannedPanel(){
   if(!monthTxns.length){
     var plannedTotalEmpty = Math.round(sumField(regularItems, "monthly") * 100) / 100;
     el.innerHTML =
-      '<p class="ledger-note" style="margin:0 0 12px">No transactions logged yet this month — planned budget is ' + fmtCurrency0.format(plannedTotalEmpty) + '/mo. Tap <b>+ Log spend</b> above to record what you actually spent and start tracking actual vs. planned.</p>' +
+      '<p class="ledger-note" style="margin:0 0 12px">Nothing logged yet this month — the plan is ' + fmtCurrency0.format(plannedTotalEmpty) + '/mo. Tap <b>+ Log spend</b> above and this fills in with where the month is actually going.</p>' +
       creditStatementCyclesHtml() + irregularSection;
     return;
   }
@@ -866,7 +888,14 @@ export function renderActualVsPlannedPanel(){
   // app, where "up" is always good. Both read correctly for what they each represent.
   var overallColor = overallDelta > 0.5 ? "var(--bad)" : (overallDelta < -0.5 ? "var(--good)" : "");
   var overallPct = plannedTotal > 0 ? Math.min(100, (actualTotal / plannedTotal) * 100) : (actualTotal > 0 ? 100 : 0);
-  var rows = regularItems.map(function(item){
+  // Only lines something was actually logged against this month. Every regular line's planned
+  // figure and its progress against it now lives on the line's own row in the Budget tab (see
+  // budgetRowProgressHtml), so listing all of them again here produced a second, longer copy of
+  // that list where all but a handful of rows read "$0 actual / $X planned" — telling you nothing
+  // the Budget tab doesn't already say, and burying the few rows that did move. What's left is
+  // the one thing the Budget tab can't answer: where this month's money actually went.
+  var spentItems = regularItems.filter(function(item){ return Math.round((byExpense[item.id] || 0) * 100) / 100 !== 0; });
+  var rows = spentItems.map(function(item){
     var planned = Math.round(periodsOf(item.amount, item.freq).monthly * 100) / 100;
     var actual = Math.round((byExpense[item.id] || 0) * 100) / 100;
     var delta = actual - planned;
@@ -905,6 +934,7 @@ export function renderActualVsPlannedPanel(){
     '<div class="fire-stat-row"><span>This month — actual vs. planned</span><b' + (overallColor ? ' style="color:' + overallColor + '"' : '') + '>' + fmtCurrency0.format(actualTotal) + ' / ' + fmtCurrency0.format(plannedTotal) + '</b></div>' +
     '<div class="fire-bar-track"><div class="fire-bar-fill' + (overallDelta > 0.5 ? " over" : "") + '" style="width:' + overallPct + '%"></div></div>' +
     '<p class="fire-note" style="margin:2px 0 12px">' + (overallDelta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(overallDelta)) + (overallDelta > 0.5 ? " over budget so far this month." : overallDelta < -0.5 ? " under budget so far this month." : " right on budget so far this month.") + '</p>' +
+    '<div class="ledger-note" style="margin:0 0 6px">Where it went — tap a line for the individual transactions.</div>' +
     rows + unlinkedRow +
     creditStatementCyclesHtml() + irregularSection;
 }

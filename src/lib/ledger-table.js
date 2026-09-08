@@ -127,7 +127,11 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
     computed: isComputed,
     colorIdx: opts.colorIdx,
     name: item.what,
-    subLines: [isComputed && item.computedNote ? escapeAttr(item.computedNote) : "", trendHtml],
+    // extraSubLine is caller-built HTML (already escaped by the caller, same contract as every
+    // other subLines entry) — Expenses uses it for each budget line's own spent-this-month
+    // progress bar, so the planned figure and what's actually gone against it read together in
+    // the list rather than in a second, parallel list further down the page.
+    subLines: [isComputed && item.computedNote ? escapeAttr(item.computedNote) : "", trendHtml, opts.extraSubLine || ""],
     amountHtml: fmtCurrency2.format(monthly) + "/mo"
   });
   if(isComputed){

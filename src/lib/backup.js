@@ -300,7 +300,7 @@ export function parseCsv(text){
   return rows;
 }
 
-var EXPENSES_CSV_HEADERS = ["What", "Classification", "Amount", "Frequency", "Account"];
+var EXPENSES_CSV_HEADERS = ["What", "Classification", "Category", "Amount", "Frequency", "Account"];
 var INCOME_CSV_HEADERS = ["What", "Person", "Type", "Amount", "Frequency", "Super", "Sacrifice mode", "Sacrifice value", "Account"];
 export function exportIncomeCsv(){
   var rows = state.income.filter(function(i){ return !i.computed; }).map(function(i){
@@ -315,7 +315,7 @@ export function exportIncomeImportTemplateCsv(){
 }
 export function exportExpensesCsv(){
   var rows = state.shared.map(function(i){
-    return [i.what, i.classification || "", i.amount, i.freq, i.account || ""];
+    return [i.what, i.classification || "", i.category || "", i.amount, i.freq, i.account || ""];
   });
   exportCsv("expenses-" + isoDateStamp() + ".csv", EXPENSES_CSV_HEADERS, rows);
 }

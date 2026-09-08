@@ -1,4 +1,4 @@
-import { STORAGE_KEY, HOME_CATEGORIES, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, INVEST_LEG_TYPES } from "./constants.js";
+import { STORAGE_KEY, HOME_CATEGORIES, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, INVEST_LEG_TYPES, DEFAULT_CATEGORIES } from "./constants.js";
 import { showToast } from "./lib/toast.js";
 
 export function defaultPurchaseConfig(price, depositPct, rate, termYears, stateCode, enabled){
@@ -85,6 +85,11 @@ export function defaultState(){
     // has no due date, since spending there just draws down whatever's in it. Seeded once from
     // existing account strings in migrateState() so nothing already typed in gets orphaned.
     accounts: [],
+    // User-managed spending categories (Accounts → Categories). A budget line's own `category`
+    // holds the name, not an id — same trade-off as `account` above: renaming retargets every
+    // referencing row (renameCategoryEverywhere), which keeps CSV import/export and hand-edited
+    // backups readable instead of full of opaque ids.
+    categories: DEFAULT_CATEGORIES.slice(),
     home: { "Current situation": defaultHomeBlock() },
     purchase: { "Current situation": defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", false) },
     invest: { "Current situation": defaultInvestConfig() },
@@ -198,6 +203,23 @@ export function migrateState(s){
   // is reordered/added to elsewhere — an array index would silently point at the wrong row.
   s.shared.forEach(function(item){ if(!item.id) item.id = genId("exp"); applyTimingDefaults(item); });
   if(!Array.isArray(s.transactions)) s.transactions = [];
+  // Categories are a later addition, so an older save has none: seed the defaults so the feature
+  // works on first load rather than presenting an empty manager. An existing (possibly emptied)
+  // list is left exactly as the user left it — only a missing key seeds.
+  if(!Array.isArray(s.categories)) s.categories = DEFAULT_CATEGORIES.slice();
+  s.categories = s.categories.filter(function(name){ return typeof name === "string" && name.trim(); });
+  s.shared.forEach(function(item){ if(typeof item.category !== "string") item.category = ""; });
+  // Same idempotent, every-load seeding as accounts below: pick up any category name already on a
+  // budget line (a CSV import, a restored backup) that isn't in the registry yet, so nothing a row
+  // references is missing from the manager.
+  (function seedCategoriesFromUsage(){
+    var knownCats = {};
+    s.categories.forEach(function(name){ knownCats[name] = true; });
+    s.shared.forEach(function(item){
+      var name = (item.category || "").trim();
+      if(name && !knownCats[name]){ knownCats[name] = true; s.categories.push(name); }
+    });
+  })();
   if(!Array.isArray(s.accounts)) s.accounts = [];
   s.accounts.forEach(function(a){
     if(!a.id) a.id = genId("acct");

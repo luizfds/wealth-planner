@@ -133,3 +133,25 @@ test("monthlyCashFlowForecast includes an investment property's lumpy expenses a
   assert.equal(hitMonths[0].month, due);
   assert.equal(hitMonths[0].items[0].what, "Property Maintenance");
 });
+
+test("monthlyCashFlowForecast places a Half-yearly item every sixth month from its due month", function(){
+  resetState();
+  state.income = [{ what: "Salary", incomeType: "Net", amount: 6000, freq: "Monthly" }];
+  state.shared = [{ id: "s1", what: "Car Insurance", amount: 600, freq: "Half-yearly", dueMonth: 2 }];
+  var forecast = monthlyCashFlowForecast(12);
+  var hits = forecast.months.filter(function(m){ return m.items.length > 0; });
+  // Feb and Aug — every 12-month window contains exactly two occurrences, wherever it starts.
+  assert.equal(hits.length, 2);
+  hits.forEach(function(m){ assert.equal((m.month - 2) % 6, 0); });
+  // Placed at the full bill, not a smoothed sixth of it.
+  hits.forEach(function(m){ assert.equal(m.items[0].amount, 600); });
+});
+
+test("monthlyCashFlowForecast smooths a Half-yearly item with no resolvable due month", function(){
+  resetState();
+  state.income = [{ what: "Salary", incomeType: "Net", amount: 6000, freq: "Monthly" }];
+  state.shared = [{ id: "s1", what: "Car Insurance", amount: 600, freq: "Half-yearly" }];
+  var forecast = monthlyCashFlowForecast(12);
+  assert.equal(forecast.months.filter(function(m){ return m.items.length > 0; }).length, 0,
+    "nothing to anchor on, so it falls back to the smoothed baseline like any other frequency");
+});

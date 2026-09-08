@@ -1,5 +1,6 @@
 import { renderDashboardStats } from "./dashboard.js";
 import { closeScenarioOverridePanel } from "./expenses.js";
+import { escapeAttr } from "../lib/html.js";
 
 // ---------------- Page navigation ----------------
 var PAGES = [
@@ -66,18 +67,56 @@ var MOBILE_MORE_PAGES = ["accounts", "scenarios", "projections"];
 // rather than a selector, since there's nothing in the DOM to click. Projections has no natural
 // "add" action and simply isn't listed, so the fab hides there.
 var QUICK_FAB_BUTTON_PAGES = {
+  // Log spend on both of Expenses' halves, not just Spending. Budget briefly had its own "Add
+  // expense" action, but that made the page's most frequent job — logging what you just spent —
+  // cost an extra tap whenever you arrived on Expenses, which opens on Budget. Adding a budget
+  // line is well served without the fab (the ledger footer and every classification card carry
+  // their own "+ Add expense"), and it's a set-up-day action, not a daily one. #quickLogBtn lives
+  // on the Spending subpage, but a hidden button still clicks fine and the sheet covers the page
+  // either way — so logging from Budget lands you back on Budget with the bars already updated.
+  expenses: { label: "Log spend", selector: "#quickLogBtn" },
   properties: { label: "Add property", selector: "#addPropertyBtn" },
   accounts: { label: "Add account", selector: "#addAccountBtn" }
 };
-// Expenses' two halves want different single actions: on Budget the useful thing is adding a
-// planned line, on Spending it's logging what you actually spent. Kept out of the map above
-// (which is keyed by page alone) since it has to be resolved per subpage, not per page.
-function expensesFabAction(){
-  return currentExpensesSub === "spending"
-    ? { label: "Log spend", selector: "#quickLogBtn" }
-    : { label: "Add expense", selector: '[data-add="shared"]' };
-}
 var QUICK_FAB_GROUPED_PAGES = ["income", "assets", "scenarios"];
+// Every "add or log something" the app can do, in one list, reachable from any page via the fab's
+// chevron. The point is the cross-page case: the fab itself can only trigger what's already on
+// screen, so adding a share from the Dashboard meant navigating to Assets, switching to the Shares
+// subpage and only then tapping the fab. These carry their own destination, so one tap gets there.
+//
+// Ordered by how often a household actually does them, not by how the app is organised — logging
+// spend is a daily act, adding a property is a once-every-few-years one.
+export var QUICK_ACTIONS = [
+  { label: "Log spend",     hint: "A real transaction against a budget line", page: "expenses",   sub: "spending", selector: "#quickLogBtn" },
+  { label: "Add expense",   hint: "A new planned budget line",                page: "expenses",   sub: "budget",   selector: '[data-add="shared"]' },
+  // No selector on these three: Income and Assets build their add buttons per person/category
+  // (data-add="income:<person>", "assets:Cash", "holding"), so the value isn't knowable from here.
+  // They resolve to the first visible [data-add] on the destination page instead — the same way
+  // updateQuickFab already targets those pages, and robust to the row markup changing.
+  { label: "Add income",    hint: "A salary, rent or other income row",       page: "income" },
+  { label: "Add shares",    hint: "A holding in the Shares list",             page: "assets",     sub: "Shares" },
+  { label: "Add cash",      hint: "A savings or offset balance",              page: "assets",     sub: "Cash" },
+  { label: "Add property",  hint: "A home or investment property",            page: "properties", selector: "#addPropertyBtn" },
+  { label: "Add account",   hint: "A bank or credit card account",            page: "accounts",   selector: "#addAccountBtn" },
+  { label: "Log net worth", hint: "Snapshot today's total",                   page: "dashboard",  mode: "networth" }
+];
+// Reuses the .review-backdrop/.review-panel sheet shell every other overlay in this app uses (see
+// ledger.css), so this inherits the bottom-anchored-on-mobile treatment and the shared backdrop
+// behaviour for free rather than inventing a third overlay shape.
+export function quickActionsSheetHtml(){
+  var rows = QUICK_ACTIONS.map(function(action, i){
+    return '<button type="button" class="qfab-action" data-quick-action="' + i + '">' +
+      '<span class="qfab-action-label">' + escapeAttr(action.label) + '</span>' +
+      '<span class="qfab-action-hint">' + escapeAttr(action.hint) + '</span>' +
+    '</button>';
+  }).join("");
+  return '<div class="review-backdrop" data-qfab-backdrop>' +
+    '<div class="review-panel qfab-panel" role="dialog" aria-label="Quick actions">' +
+      '<div class="review-head"><h4>Quick actions</h4><button type="button" class="icon-btn" data-qfab-close aria-label="Close">✕</button></div>' +
+      '<div class="qfab-actions">' + rows + '</div>' +
+    '</div></div>';
+}
+
 // Re-targets the quick-action button for whichever page/subpage is now visible — called after
 // every page switch and Assets subpage switch (see applyPageChange/showAssetsSubpage below), so
 // tapping it always performs the single most useful "add/log something" action for wherever the
@@ -89,10 +128,6 @@ export function updateQuickFab(pageId){
   if(pageId === "dashboard"){
     label = "Log net worth now";
     mode = "networth";
-  } else if(pageId === "expenses"){
-    var expensesAction = expensesFabAction();
-    label = expensesAction.label;
-    selector = expensesAction.selector;
   } else if(QUICK_FAB_BUTTON_PAGES[pageId]){
     label = QUICK_FAB_BUTTON_PAGES[pageId].label;
     selector = QUICK_FAB_BUTTON_PAGES[pageId].selector;
@@ -108,10 +143,16 @@ export function updateQuickFab(pageId){
       selector = '[data-add="' + CSS.escape(target.getAttribute("data-add")) + '"]';
     }
   }
-  fab.hidden = !label;
+  var more = document.getElementById("quickFabMore");
+  // No single obvious action for this page (Projections): the big circle opens the quick-actions
+  // menu instead of hiding, and the chevron stands down rather than duplicating it.
+  fab.hidden = false;
+  if(more) more.hidden = !label;
   if(!label){
-    fab.removeAttribute("data-fab-mode");
+    fab.setAttribute("data-fab-mode", "menu");
     fab.removeAttribute("data-fab-selector");
+    fab.title = "Quick actions";
+    fab.setAttribute("aria-label", "Quick actions");
     return;
   }
   fab.title = label;

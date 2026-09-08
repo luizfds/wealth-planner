@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, isOverdue, daysUntil, appendHistorySnapshot, transactionsInMonth, transactionsInYear, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, lastTransactionDateFor, transactionDisplayName, budgetCycleFor, lastKnownDateFor, resolvedDueMonth } from "../src/calc/ledger.js";
+import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, isOverdue, daysUntil, appendHistorySnapshot, transactionsInMonth, transactionsInYear, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, lastTransactionDateFor, transactionDisplayName, budgetCycleFor, freqStepMonths, lastKnownDateFor, resolvedDueMonth } from "../src/calc/ledger.js";
 
 test("toWeekly converts every frequency to a weekly figure", function(){
   assert.equal(toWeekly(100, "Weekly"), 100);
@@ -359,4 +359,43 @@ test("budgetCycleFor falls back to a calendar-anchored cycle with nothing to inf
   // Anchored on January, so the cycle containing September is Jul-Sep.
   assert.deepEqual({ start: c.start, end: c.end }, { start: "2026-07-01", end: "2026-09-30" });
   assert.equal(c.target, 230);
+});
+
+test("freqStepMonths knows how many months each frequency's cycle spans", function(){
+  assert.equal(freqStepMonths("Quarterly"), 3);
+  assert.equal(freqStepMonths("Half-yearly"), 6);
+  assert.equal(freqStepMonths("Yearly"), 12);
+  // Everything monthly-or-shorter collapses to 1 — the distinction is handled in days elsewhere.
+  assert.equal(freqStepMonths("Monthly"), 1);
+  assert.equal(freqStepMonths("Fortnightly"), 1);
+  assert.equal(freqStepMonths("Weekly"), 1);
+  assert.equal(freqStepMonths(undefined), 1);
+});
+
+test("toWeekly and periodsOf handle Half-yearly", function(){
+  // 26 weeks to the half-year, so a $600 half-yearly bill is $100/mo and $1,200/yr.
+  assert.equal(toWeekly(600, "Half-yearly"), 600 / 26);
+  var p = periodsOf(600, "Half-yearly");
+  assert.equal(Math.round(p.monthly * 100) / 100, 100);
+  assert.equal(Math.round(p.yearly), 1200);
+});
+
+test("budgetCycleFor spans six months for a Half-yearly line, anchored on its due month", function(){
+  var item = { amount: 600, freq: "Half-yearly", dueMonth: 2 };
+  // Feb-Jul and Aug-Jan are the two cycles; September sits in the second.
+  var c = budgetCycleFor(item, [], "2026-09-08");
+  assert.deepEqual({ start: c.start, end: c.end }, { start: "2026-08-01", end: "2027-01-31" });
+  assert.equal(c.label, "Aug–Jan");
+  assert.equal(c.target, 600, "a full cycle's bill, not a monthly slice");
+  assert.equal(c.dueThisMonth, false);
+  assert.equal(budgetCycleFor(item, [], "2026-08-02").dueThisMonth, true);
+  // Back in the first cycle of the year, and across the year boundary into the second.
+  assert.equal(budgetCycleFor(item, [], "2026-03-15").start, "2026-02-01");
+  assert.equal(budgetCycleFor(item, [], "2027-01-20").start, "2026-08-01");
+});
+
+test("nextDueDate and isOverdue step six months for a Half-yearly item", function(){
+  assert.equal(nextDueDate("2026-02-10", "Half-yearly", "2026-03-01"), "2026-08-10");
+  assert.equal(isOverdue("2026-02-10", "Half-yearly", "2026-07-01"), false);
+  assert.equal(isOverdue("2026-02-10", "Half-yearly", "2026-08-10"), true);
 });

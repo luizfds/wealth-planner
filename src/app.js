@@ -48,7 +48,7 @@ import {
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
   patchCalcOutputs, afterCalcChange, patchInvestOutputs
 } from "./components/scenarios.js";
-import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, PAGE_KEY } from "./components/nav.js";
+import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY } from "./components/nav.js";
 import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./components/search.js";
 
 (function(){
@@ -2197,12 +2197,70 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   // button already does — it just saves the trip down the page to find it.
   document.getElementById("quickFab").addEventListener("click", function(e){
     var fab = e.currentTarget;
-    if(fab.getAttribute("data-fab-mode") === "networth"){ logNetWorthSnapshot(); return; }
+    var fabMode = fab.getAttribute("data-fab-mode");
+    if(fabMode === "networth"){ logNetWorthSnapshot(); return; }
+    if(fabMode === "menu"){ openQuickActions(); return; }
     var selector = fab.getAttribute("data-fab-selector");
     var target = selector && document.querySelector(selector);
     if(!target) return;
     target.scrollIntoView({ block: "center", behavior: "smooth" });
     setTimeout(function(){ target.click(); }, 220);
+  });
+  // ---------------- Quick actions menu (the fab's chevron) ----------------
+  function openQuickActions(){
+    document.getElementById("quickFabRoot").innerHTML = quickActionsSheetHtml();
+    pushActiveOverlay(closeQuickActions);
+  }
+  function closeQuickActions(){
+    document.getElementById("quickFabRoot").innerHTML = "";
+  }
+  // Unlike the fab itself — which only ever clicks something already on screen — a quick action
+  // usually has to travel first: "Add shares" from the Dashboard means Assets, then the Shares
+  // subpage, and only then the add button. Same shape as the search-result handler above,
+  // including why the menu's own history entry is replaced rather than popped: we're navigating
+  // straight to a destination, so back should return to wherever you were before opening the
+  // menu, not resurrect the menu on the way.
+  function runQuickAction(action){
+    closeQuickActions();
+    activeOverlayClose = null;
+    showPage(action.page, { replace: true });
+    if(action.page === "assets" && action.sub) showAssetsSubpage(action.sub, { replace: true });
+    if(action.page === "expenses" && action.sub) showExpensesSubpage(action.sub, { replace: true });
+    if(action.mode === "networth"){ logNetWorthSnapshot(); return; }
+    // Deferred for the same reason the search handler defers its scroll: showPage's render and
+    // view transition have to settle before the target button exists in its final form.
+    setTimeout(function(){
+      var target = action.selector
+        ? document.querySelector(action.selector)
+        : firstVisibleAddButton(action.page);
+      if(target) target.click();
+    }, 240);
+  }
+  // Income and Assets name their add buttons after the group they belong to (a person, an asset
+  // category), so a quick action can't carry a fixed selector for them — it takes whichever one is
+  // on screen once we've navigated to the right page and subpage, exactly as updateQuickFab does.
+  function firstVisibleAddButton(pageId){
+    var section = document.getElementById("page-" + pageId);
+    if(!section) return null;
+    return Array.prototype.find.call(section.querySelectorAll("[data-add]"), function(el){
+      return el.offsetParent !== null;
+    }) || null;
+  }
+  var quickFabMore = document.getElementById("quickFabMore");
+  if(quickFabMore) quickFabMore.addEventListener("click", openQuickActions);
+  document.getElementById("quickFabRoot").addEventListener("click", function(e){
+    if(e.target.closest("[data-qfab-close]") || e.target === e.target.closest("[data-qfab-backdrop]")){
+      requestCloseActiveOverlay();
+      return;
+    }
+    var actionBtn = e.target.closest("[data-quick-action]");
+    if(!actionBtn) return;
+    var action = QUICK_ACTIONS[Number(actionBtn.getAttribute("data-quick-action"))];
+    if(action) runQuickAction(action);
+  });
+  document.addEventListener("keydown", function(e){
+    if(e.key !== "Escape") return;
+    if(document.querySelector("[data-qfab-backdrop]")) requestCloseActiveOverlay();
   });
 
   // Mirrors the sidebar footer's version text into the mobile "More" panel, which is the only

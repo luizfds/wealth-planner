@@ -111,7 +111,7 @@
     <div class="app-sidebar-footer">
       <p class="app-sidebar-note">Stored only in this browser (<code>localStorage</code>) — nothing is sent anywhere. Clearing your browser data clears this too, so <button class="link-btn" id="exportLink2">Export</button> a backup now and then.</p>
       <a class="feature-request-link" href="https://github.com/luizfds/wealth-planner/issues/new" target="_blank" rel="noopener noreferrer">💡 Request a feature</a>
-      <p class="app-version">v2.64.0</p>
+      <p class="app-version">v2.67.0</p>
     </div>
     <div class="mobile-header-right">
       <button type="button" class="icon-btn" id="mobileSearchBtn" aria-label="Search">
@@ -537,9 +537,15 @@
   </div>
 </nav>
 
-<button type="button" class="quick-fab" id="quickFab" hidden>
-  <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M10 3v14M3 10h14"/></svg>
-</button>
+<div class="quick-fab-wrap" id="quickFabWrap">
+  <button type="button" class="quick-fab-more" id="quickFabMore" aria-label="More quick actions" aria-haspopup="dialog" hidden>
+    <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 13l6-6 6 6"/></svg>
+  </button>
+  <button type="button" class="quick-fab" id="quickFab" hidden>
+    <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M10 3v14M3 10h14"/></svg>
+  </button>
+</div>
+<div id="quickFabRoot"></div>
 
 <div class="toast-wrap" id="toastWrap"></div>
 <div id="scenarioOverrideRoot"></div>

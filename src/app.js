@@ -27,6 +27,8 @@ import {
   logCurrentReviewCard, skipCurrentReviewCard, expenseReview,
   renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel,
   setTransactionsShowAll, modernTransactionRowOpen, budgetRowTxnsOpen, transactionSummaryText,
+  openQuickLog, closeQuickLog, setQuickLogLink, setQuickLogDateOpen,
+  setQuickLogShowAllChips, submitQuickLog, quickLogContextText, quickLog,
   renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, logExpenseTransaction,
   parseExpensesImportCsv, renderExpensesImportPreview, clearExpensesImportPreview, commitExpensesImport
 } from "./components/expenses.js";
@@ -491,26 +493,12 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       if(litem){
         var dateInput = logBtn2.previousElementSibling;
         var logDate = (dateInput && dateInput.classList.contains("log-date") && dateInput.value) || undefined;
-        if(logBtn2.hasAttribute("data-log-tx")){
-          // Shared expenses: "Log" records a transaction against this budget line instead of a
-          // value snapshot — the plan (amount/freq) itself is untouched. See
-          // logExpenseTransaction() in expenses.js for why.
-          var amountInput = dateInput && dateInput.previousElementSibling;
-          var logAmount = (amountInput && amountInput.classList.contains("log-amount")) ? (parseFloat(amountInput.value) || 0) : (Number(litem.amount) || 0);
-          var tx = logExpenseTransaction(litem, logAmount, logDate);
-          rerenderTableFor(lsection);
-          renderTransactions();
-          renderActualVsPlannedPanel();
-          persist();
-          showToast("Logged " + fmtCurrency0.format(logAmount) + " against " + litem.what + " (" + tx.date + ")");
-        } else {
-          if(!Array.isArray(litem.history)) litem.history = [];
-          var ldate = appendHistorySnapshot(litem.history, Number(litem.amount) || 0, logDate);
-          rerenderTableFor(lsection);
-          renderProjectionOutputs();
-          persist();
-          showToast("Logged " + fmtCurrency0.format(Number(litem.amount) || 0) + " for " + litem.what + " (" + ldate + ")");
-        }
+        if(!Array.isArray(litem.history)) litem.history = [];
+        var ldate = appendHistorySnapshot(litem.history, Number(litem.amount) || 0, logDate);
+        rerenderTableFor(lsection);
+        renderProjectionOutputs();
+        persist();
+        showToast("Logged " + fmtCurrency0.format(Number(litem.amount) || 0) + " for " + litem.what + " (" + ldate + ")");
       }
       return;
     }
@@ -1594,6 +1582,95 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   onHorizontalSwipe(document.getElementById("expenseReviewRoot"), {
     onSwipeLeft: performReviewSkip,
     onSwipeRight: performReviewLog
+  });
+
+  // ---------------- Quick log ----------------
+  // The everyday "I just spent money" path — the Expenses page's primary action and what the
+  // mobile quick-action fab points at there. Deliberately a thin controller: expenses.js owns the
+  // sheet's markup and session state, this owns the DOM events and the cross-cutting refresh.
+  function openQuickLogSheet(){
+    openQuickLog();
+    if(document.querySelector("[data-qlog-backdrop]")) pushActiveOverlay(closeQuickLog);
+  }
+  // Chip changes and expanding the date row re-render the sheet, which would otherwise discard
+  // whatever's already been typed into the amount/note. Read them out first, put them back after.
+  function rerenderQuickLogPreservingInput(apply){
+    var amountEl = document.getElementById("quickLogAmount");
+    var noteEl = document.getElementById("quickLogNote");
+    var amount = amountEl ? amountEl.value : "";
+    var note = noteEl ? noteEl.value : "";
+    apply();
+    var newAmount = document.getElementById("quickLogAmount");
+    var newNote = document.getElementById("quickLogNote");
+    if(newAmount) newAmount.value = amount;
+    if(newNote) newNote.value = note;
+  }
+  function performQuickLog(){
+    var amountEl = document.getElementById("quickLogAmount");
+    var noteEl = document.getElementById("quickLogNote");
+    var dateEl = document.getElementById("quickLogDate");
+    var amount = amountEl ? (parseFloat(amountEl.value) || 0) : 0;
+    // A zero/blank amount is the one thing this sheet genuinely can't infer, so it's the only
+    // thing it refuses — everything else has a sensible default (today, One-off, no note).
+    if(amount <= 0){
+      showToast("Enter an amount first.");
+      if(amountEl) amountEl.focus();
+      return;
+    }
+    var t = submitQuickLog(amount, noteEl ? noteEl.value : "", dateEl && dateEl.value ? dateEl.value : undefined);
+    if(!t) return;
+    requestCloseActiveOverlay();
+    refreshAfterLedgerChange("shared");
+    renderTransactions();
+    // The whole point of logging is watching this move — refreshAfterLedgerChange only covers the
+    // planned-budget side, so the actual-vs-planned bars need their own refresh to include the
+    // transaction that was just recorded.
+    renderActualVsPlannedPanel();
+    showToast("Logged " + fmtCurrency2.format(t.amount) + " to " + transactionDisplayName(t, state.shared));
+  }
+  var quickLogBtn = document.getElementById("quickLogBtn");
+  if(quickLogBtn) quickLogBtn.addEventListener("click", openQuickLogSheet);
+  document.getElementById("quickLogRoot").addEventListener("click", function(e){
+    if(e.target.closest("[data-qlog-close]") || e.target === e.target.closest("[data-qlog-backdrop]")){
+      requestCloseActiveOverlay();
+      return;
+    }
+    var chip = e.target.closest("[data-qlog-chip]");
+    if(chip){
+      // Patched in place rather than re-rendered: the whole point of picking the line after
+      // typing the amount is that changing your mind costs nothing, and a re-render here would
+      // drop the caret out of a field the user may still be editing.
+      setQuickLogLink(chip.getAttribute("data-qlog-chip"));
+      document.querySelectorAll("[data-qlog-chip]").forEach(function(el){
+        var on = el.getAttribute("data-qlog-chip") === (quickLog.linkedId || "");
+        el.classList.toggle("is-selected", on);
+        el.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      var linked = quickLog.linkedId && state.shared.find(function(i){ return i.id === quickLog.linkedId; });
+      var ctx = document.querySelector(".qlog-context");
+      if(ctx) ctx.textContent = quickLogContextText(linked);
+      var noteEl = document.getElementById("quickLogNote");
+      if(noteEl) noteEl.placeholder = linked ? "Note (optional)" : "What was it? (optional)";
+      return;
+    }
+    if(e.target.closest("[data-qlog-more]")){
+      rerenderQuickLogPreservingInput(function(){ setQuickLogShowAllChips(true); });
+      return;
+    }
+    if(e.target.closest("[data-qlog-date-open]")){
+      rerenderQuickLogPreservingInput(function(){ setQuickLogDateOpen(true); });
+      return;
+    }
+    if(e.target.closest("[data-qlog-submit]")){ performQuickLog(); return; }
+  });
+  // Enter anywhere in the sheet logs it — on a phone that's the keyboard's own "go" key, so the
+  // whole flow can be amount, chip, go without ever reaching for the button.
+  document.getElementById("quickLogRoot").addEventListener("keydown", function(e){
+    if(e.key === "Enter"){ e.preventDefault(); performQuickLog(); }
+  });
+  document.addEventListener("keydown", function(e){
+    if(e.key !== "Escape") return;
+    if(document.querySelector("[data-qlog-backdrop]")) requestCloseActiveOverlay();
   });
 
   // ---------------- Cross-page search ----------------

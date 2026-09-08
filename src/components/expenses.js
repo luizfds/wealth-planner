@@ -173,7 +173,7 @@ export function renderSharedGroups(){
       '<div class="m-card-head"><span class="m-avatar m-avatar-' + classificationSwatchClass(g.key) + '">' + initial + '</span>' +
       '<div class="m-card-name">' + escapeAttr(g.key) + '</div>' +
       '<div class="m-card-total">' + fmtCurrency0.format(g.monthly) + '<span>/mo</span></div></div>' +
-      '<div class="m-rows">' + g.items.map(function(item, i){ return modernPlainRowHtml(item, g.indices[i], "shared", modernSharedRowOpen, {showClass:true, showLog:true, logAsTransaction:true}); }).join("") + '</div>' +
+      '<div class="m-rows">' + g.items.map(function(item, i){ return modernPlainRowHtml(item, g.indices[i], "shared", modernSharedRowOpen, {showClass:true, showDone:true}); }).join("") + '</div>' +
       '<button type="button" class="m-add-row" data-add="shared:' + escapeAttr(g.key) + '">+ Add expense</button>' +
     '</div>';
   }).join("") + '</div>';
@@ -418,6 +418,166 @@ export function renderExpenseReviewPanel(){
     '</div></div>';
 }
 
+// ---------------- Quick log: the one-tap "I just spent money" sheet ----------------
+// The everyday path into state.transactions[], and the reason the budget lines above are worth
+// keeping current: logging spend has to be faster than not logging it, or the actual-vs-planned
+// picture quietly stops being true. So this is deliberately not the transaction row's full form
+// (link / description / amount / date / account, five fields, all optional-looking) — it's
+// amount, then which budget line, then Log. Everything else is either inferred (account comes
+// from the budget line, date defaults to today) or genuinely optional and tucked away.
+//
+// Session-only, like every other overlay's state here: which line is picked and whether the date
+// row has been expanded. The amount and note are read straight off the DOM at submit time rather
+// than mirrored into here on every keystroke — re-rendering the sheet mid-typing would blow away
+// focus and the caret position in the field the user is actually using.
+export var quickLog = null;
+// How many budget-line chips to show before "More…" — enough to cover the handful of lines a
+// household actually logs against week to week (which is what the recency ordering surfaces),
+// without turning the sheet into a scrolling list of every budget line.
+var QUICK_LOG_CHIP_COUNT = 8;
+
+// Budget lines ordered by how recently something was logged against them, most recent first,
+// then everything never logged against in their existing order. Recency (rather than
+// alphabetical or biggest-budget-first) is what puts groceries and petrol under the thumb, since
+// the lines you log most often are by definition the ones you logged most recently.
+export function quickLogChipOrder(){
+  var lastByExpense = {};
+  (state.transactions || []).forEach(function(t){
+    if(!t.linkedExpenseId) return;
+    var d = t.date || "";
+    if(!lastByExpense[t.linkedExpenseId] || d > lastByExpense[t.linkedExpenseId]) lastByExpense[t.linkedExpenseId] = d;
+  });
+  return state.shared
+    .map(function(item, i){ return { item: item, i: i, last: lastByExpense[item.id] || "" }; })
+    .sort(function(a, b){
+      if(a.last !== b.last) return a.last > b.last ? -1 : 1;
+      return a.i - b.i;
+    })
+    .map(function(x){ return x.item; });
+}
+export function openQuickLog(){
+  quickLog = { linkedId: null, dateOpen: false, showAllChips: false };
+  renderQuickLogSheet();
+}
+export function closeQuickLog(){
+  quickLog = null;
+  var root = document.getElementById("quickLogRoot");
+  if(root) root.innerHTML = "";
+}
+// Picking a chip only ever changes which line is selected — the sheet is patched in place
+// (see app.js) rather than re-rendered, so an amount already typed survives changing your mind
+// about what it was for.
+export function setQuickLogLink(id){
+  if(!quickLog) return;
+  quickLog.linkedId = id || null;
+}
+export function setQuickLogShowAllChips(value){
+  if(!quickLog) return;
+  quickLog.showAllChips = !!value;
+  renderQuickLogSheet();
+}
+export function setQuickLogDateOpen(value){
+  if(!quickLog) return;
+  quickLog.dateOpen = !!value;
+  renderQuickLogSheet();
+}
+// The reassurance line under the chips: what this line is budgeted at and how much of that has
+// already gone this month. It's the whole reason to pick a line before logging rather than
+// after — you find out you're at $120 of $200 *while* deciding, not on a report later.
+export function quickLogContextText(item){
+  if(!item) return "One-off spend — not counted against any budget line.";
+  var spent = monthTransactionsForExpense(item.id).reduce(function(sum, pair){ return sum + (Number(pair.t.amount) || 0); }, 0);
+  var planned = resolveSharedAmount(item, state.activeScenario);
+  var monthlyPlanned = periodsOf(planned, item.freq).monthly;
+  return fmtCurrency0.format(spent) + " of " + fmtCurrency0.format(monthlyPlanned) + " logged this month";
+}
+// Records the sheet's contents as a transaction. Mirrors logExpenseTransaction()'s contract —
+// the planned budget line is never touched, and the description stays empty unless the user
+// actually typed one (see transactionDisplayName). Returns the transaction so the caller can
+// name it in a confirmation toast.
+export function submitQuickLog(amount, note, dateStr){
+  if(!quickLog) return null;
+  var item = quickLog.linkedId && state.shared.find(function(i){ return i.id === quickLog.linkedId; });
+  var t = {
+    id: genId("t"),
+    date: dateStr || localDateStr(),
+    amount: Number(amount) || 0,
+    what: (note || "").trim(),
+    linkedExpenseId: item ? item.id : null,
+    account: item && item.account ? item.account : ""
+  };
+  state.transactions.push(t);
+  return t;
+}
+function quickLogChipsHtml(){
+  var ordered = quickLogChipOrder();
+  var hasMore = ordered.length > QUICK_LOG_CHIP_COUNT;
+  var shown = (quickLog.showAllChips || !hasMore) ? ordered : ordered.slice(0, QUICK_LOG_CHIP_COUNT);
+  var chips = shown.map(function(item){
+    var selected = quickLog.linkedId === item.id;
+    return '<button type="button" class="qlog-chip' + (selected ? " is-selected" : "") + '" data-qlog-chip="' + escapeAttr(item.id) + '"' +
+      ' aria-pressed="' + (selected ? "true" : "false") + '">' + escapeAttr(item.what) + '</button>';
+  }).join("");
+  // "One-off" sits last, not first: it's the fallback for spend with no budget line, and putting
+  // it under the thumb ahead of the real lines would make the easy path the one that doesn't
+  // actually feed actual-vs-planned.
+  var oneOffSelected = !quickLog.linkedId;
+  chips += '<button type="button" class="qlog-chip qlog-chip-oneoff' + (oneOffSelected ? " is-selected" : "") + '" data-qlog-chip=""' +
+    ' aria-pressed="' + (oneOffSelected ? "true" : "false") + '">One-off</button>';
+  if(hasMore && !quickLog.showAllChips){
+    chips += '<button type="button" class="qlog-chip qlog-chip-more" data-qlog-more>More…</button>';
+  }
+  return '<div class="qlog-chips">' + chips + '</div>';
+}
+function quickLogDateRowHtml(){
+  var today = localDateStr();
+  if(quickLog.dateOpen){
+    return '<div class="qlog-date-row"><label class="qlog-date-label" for="quickLogDate">Date</label>' +
+      '<input type="date" id="quickLogDate" class="qlog-date" value="' + escapeAttr(today) + '" aria-label="Date to log this under"></div>';
+  }
+  // Collapsed by default and showing what it will use, so the overwhelmingly common case (I spent
+  // this today) needs no interaction at all, while backdating is still one tap away.
+  return '<div class="qlog-date-row"><button type="button" class="qlog-date-toggle" data-qlog-date-open>' +
+    'Today · ' + escapeAttr(today) + ' <span class="qlog-date-change">Change</span></button></div>';
+}
+export function renderQuickLogSheet(){
+  var root = document.getElementById("quickLogRoot");
+  if(!root) return;
+  if(!quickLog){ root.innerHTML = ""; return; }
+  if(!state.shared.length){
+    // Nothing to log against yet — the sheet would be all "One-off", which teaches the wrong
+    // model of what this page is for. Point at the budget instead.
+    root.innerHTML = '<div class="review-backdrop" data-qlog-backdrop>' +
+      '<div class="review-panel qlog-panel" role="dialog" aria-label="Log spend">' +
+        '<div class="review-head"><h4>Log spend</h4><button type="button" class="icon-btn" data-qlog-close aria-label="Close">✕</button></div>' +
+        '<p class="qlog-empty">Add a budget line above first — then logging what you actually spend against it is a couple of taps.</p>' +
+        '<button type="button" class="btn btn-sm" data-qlog-close>Close</button>' +
+      '</div></div>';
+    return;
+  }
+  var item = quickLog.linkedId && state.shared.find(function(i){ return i.id === quickLog.linkedId; });
+  root.innerHTML = '<div class="review-backdrop" data-qlog-backdrop>' +
+    '<div class="review-panel qlog-panel" role="dialog" aria-label="Log spend">' +
+      '<div class="review-head"><h4>Log spend</h4><button type="button" class="icon-btn" data-qlog-close aria-label="Close">✕</button></div>' +
+      '<div class="qlog-amount-row">' +
+        '<span class="qlog-currency" aria-hidden="true">$</span>' +
+        '<input type="number" step="0.01" min="0" inputmode="decimal" id="quickLogAmount" class="qlog-amount" placeholder="0.00" aria-label="Amount spent">' +
+      '</div>' +
+      '<div class="qlog-section-label">What was it for?</div>' +
+      quickLogChipsHtml() +
+      '<p class="qlog-context">' + escapeAttr(quickLogContextText(item)) + '</p>' +
+      '<input type="text" id="quickLogNote" class="qlog-note" placeholder="' + escapeAttr(item ? "Note (optional)" : "What was it? (optional)") + '" aria-label="Note (optional)">' +
+      quickLogDateRowHtml() +
+      '<button type="button" class="btn review-log-btn qlog-submit" data-qlog-submit>Log spend</button>' +
+    '</div></div>';
+  var amountInput = document.getElementById("quickLogAmount");
+  // Focus lands on the amount every time the sheet re-renders (a chip page change, expanding the
+  // date row) — the amount is always the next thing to type, and re-rendering would otherwise
+  // silently drop focus to the body. Preserved across those re-renders by the caller reading the
+  // old value back in (see app.js's quick-log click handler).
+  if(amountInput) amountInput.focus();
+}
+
 // ---------------- Transactions: real dated spend, separate from the planned budget ----------------
 // Deliberately not built on ledger-table.js's machinery — a transaction has a different shape
 // (date/description/amount/link, no freq/period math) and, like debts, is simple enough that a
@@ -447,8 +607,8 @@ function transactionAccountOptionsHtml(selected){
     return '<option value="' + escapeAttr(a.name) + '"' + (a.name === selected ? " selected" : "") + '>' + escapeAttr(a.name) + (a.type === "credit" ? " (credit)" : "") + '</option>';
   }).join("");
 }
-// What a shared expense row's own "Log" button does now (opts.logAsTransaction — see
-// ledger-table.js) — and what the Review-expenses flow's logCurrentReviewCard() delegates to.
+// What the Review-expenses flow's logCurrentReviewCard() delegates to (the quick-log sheet builds
+// its own transaction inline, since it also has to handle the unlinked One-off case).
 // Deliberately leaves item.amount/freq untouched: the planned budget doesn't move just because
 // this instance's actual spend differs from it.
 export function logExpenseTransaction(item, amount, dateStr){
@@ -509,10 +669,10 @@ function transactionRowHtml(t, idx){
     amountHtml: fmtCurrency2.format(Number(t.amount) || 0)
   });
   // "Linked to" leads (not Description) and autoFocus (see openNewRowModal) lands there for a
-  // freshly-added transaction — picking a budget line first, before typing anything, mirrors how
-  // an existing expense row's own "Log a transaction" control already works (pick what this is
-  // for, get its description/amount filled in for you) rather than starting from a blank form
-  // with no obvious way to connect it to a budget line at all.
+  // freshly-added transaction — picking a budget line first, before typing anything, mirrors the
+  // quick-log sheet's chips and keeps this form from opening on a blank Description with no
+  // obvious way to connect the transaction to a budget line at all. This is the deliberate
+  // long-form path ("Add with full details"); the sheet is the everyday one.
   var fieldsHtml =
     '<div class="m-edit-field span3"><label>Linked to</label>' + linkSelect + '</div>' +
     '<div class="m-edit-field span3"><label>Description <span class="label-optional">(optional)</span></label>' + whatInput + '</div>' +
@@ -673,7 +833,7 @@ export function renderActualVsPlannedPanel(){
   if(!monthTxns.length){
     var plannedTotalEmpty = Math.round(sumField(regularItems, "monthly") * 100) / 100;
     el.innerHTML =
-      '<p class="ledger-note" style="margin:0 0 12px">No transactions logged yet this month — planned budget is ' + fmtCurrency0.format(plannedTotalEmpty) + '/mo. Log one above, or against a shared expense below, to start tracking actual vs. planned.</p>' +
+      '<p class="ledger-note" style="margin:0 0 12px">No transactions logged yet this month — planned budget is ' + fmtCurrency0.format(plannedTotalEmpty) + '/mo. Tap <b>+ Log spend</b> above to record what you actually spent and start tracking actual vs. planned.</p>' +
       creditStatementCyclesHtml() + irregularSection;
     return;
   }

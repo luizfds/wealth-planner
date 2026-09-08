@@ -26,11 +26,16 @@
      read as an annotation rather than compete with the name for attention. The bar is capped at a
      short fixed width instead of filling the row — a full-width bar under every name turns the
      list into a wall of bars and pushes the text that actually says the numbers off to one side. */
-  .budget-progress{ display:flex; align-items:center; gap:7px; margin-top:3px; }
-  .budget-progress-track{ flex:none; width:52px; height:4px; border-radius:100px; background: var(--paper-sunken); overflow:hidden; }
+  /* align-items:flex-start, not center: the text is allowed to wrap (below), and a centred bar
+     would drift to the middle of a two-line label instead of sitting against its first line. */
+  .budget-progress{ display:flex; align-items:flex-start; gap:6px; margin-top:3px; }
+  .budget-progress-track{ flex:none; width:40px; height:4px; margin-top:6px; border-radius:100px; background: var(--paper-sunken); overflow:hidden; }
   .budget-progress-fill{ height:100%; background: var(--good); border-radius:inherit; transition: width .3s ease; }
   .budget-progress-fill.over{ background: var(--bad); }
-  .budget-progress-text{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  /* Wraps rather than ellipsizing: the window this spend is measured against ("Sep–Nov", "this
+     month ×4") is the whole point of the line, and a wide amount column on a narrow phone would
+     otherwise cut off exactly that. A second line on the few rows that need one beats hiding it. */
+  .budget-progress-text{ min-width:0; }
   .budget-progress-text.over{ color: var(--bad); }
   /* A budget row with at least one transaction logged against it this month can expand in place
      to show exactly which ones — clicking anywhere on the row (not just the chevron) toggles it,

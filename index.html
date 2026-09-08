@@ -288,10 +288,11 @@
               <div class="ledger-total">Total <b id="totalTransactionsAmount">—</b></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note" style="margin-left:0">Real, dated spend — separate from the planned budget above, which stays untouched. Optionally link a transaction to one of your expenses to compare actual vs. planned; leave it unlinked for a one-off that has no matching budget line. Set an account (manage them on the Accounts tab) so credit-card spend can be grouped into its statement cycle below.</p>
+              <p class="ledger-note" style="margin-left:0">Real, dated spend — separate from the planned budget above, which stays untouched. <b>+ Log spend</b> is the quick way in: type the amount, tap which budget line it came out of, done. Anything logged against a budget line counts towards it in Actual vs. planned below; a one-off with no matching line just sits on its own. Accounts are inherited from the budget line (manage them on the Accounts tab) so credit-card spend groups into its statement cycle.</p>
               <div id="transactionsTable"></div>
               <div class="ledger-footer">
-                <button class="btn btn-sm" id="addTransactionBtn">+ Add transaction</button>
+                <button class="btn btn-sm btn-primary" id="quickLogBtn" title="Log what you just spent in a couple of taps — amount, which budget line it came out of, done">+ Log spend</button>
+                <button class="btn btn-sm btn-ghost" id="addTransactionBtn" title="Add a transaction with every field available — link, description, amount, date and account">Add with full details</button>
               </div>
             </div>
           </details>
@@ -527,6 +528,7 @@
 
 <div class="toast-wrap" id="toastWrap"></div>
 <div id="scenarioOverrideRoot"></div>
+<div id="quickLogRoot"></div>
 <div id="expenseReviewRoot"></div>
 <div id="notifPanelRoot"></div>
 <div id="searchRoot"></div>

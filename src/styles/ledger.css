@@ -130,15 +130,6 @@
      digits behind the native calendar-icon affordance on mobile Chrome/Safari, since neither
      shrinks the date text or wraps it to fit. */
   .m-edit-field .log-date{ width:150px; display:inline-block; }
-  /* Shared expenses' "Log a transaction" control (opts.logAsTransaction) adds this amount input
-     ahead of the date — same compact sizing/specificity treatment as .log-date above. */
-  .log-amount{
-    width:90px; font-size:11px; padding:4px 5px; border:1px solid var(--border); border-radius:5px;
-    background: var(--paper); color: var(--ink); font-family:"IBM Plex Mono", monospace; vertical-align:middle; margin-right:4px;
-  }
-  .log-amount:hover{ border-color: var(--brass); }
-  .log-amount:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
-  .m-edit-field .log-amount{ width:90px; display:inline-block; }
 
   /* ---------------- Transactions (Expenses page) ---------------- */
   /* A plain summary (name + date/linked-to/account + amount) that expands via the same
@@ -473,6 +464,72 @@
   .review-log-btn{ background: var(--good); color:#fff; border:1px solid var(--good); }
   .review-hint{ text-align:center; font-size:11px; color: var(--ink-soft); margin:14px 0 0; }
   .review-complete-note{ font-size:13px; color: var(--ink-soft); margin:0 0 16px; }
+
+  /* ---------------- Quick log: the one-tap "I just spent money" sheet ---------------- */
+  /* Reuses .review-backdrop/.review-panel for the modal shell (see above) — this only adds the
+     sheet's own controls. Bottom-anchored on a phone rather than centred: the amount field and
+     the chips are what the thumb has to reach, and a centred card pushes both to the middle of
+     the screen with the on-screen keyboard covering the Log button underneath it. */
+  .qlog-panel{ max-width:400px; text-align:left; }
+  /* The amount is the headline, not a form field — it's the first thing typed and the number the
+     whole sheet is about, so it gets display-size type and no box around it. */
+  .qlog-amount-row{ display:flex; align-items:center; gap:6px; padding:4px 0 10px; }
+  .qlog-currency{ font-size:26px; font-weight:600; color: var(--ink-soft); }
+  .qlog-amount{
+    flex:1 1 auto; min-width:0; all:unset; box-sizing:border-box; width:100%;
+    font-size:34px; font-weight:700; font-family:inherit; color: var(--ink); line-height:1.1;
+  }
+  .qlog-amount::placeholder{ color: var(--ink-soft); opacity:.45; }
+  /* Chrome/Safari render number inputs with spinner arrows that crowd a field this size and are
+     useless on touch — the keyboard is already numeric via inputmode. */
+  .qlog-amount::-webkit-outer-spin-button, .qlog-amount::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+  .qlog-amount{ -moz-appearance:textfield; }
+  .qlog-section-label{ font-size:10px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:700; margin-bottom:7px; }
+  .qlog-chips{ display:flex; flex-wrap:wrap; gap:6px; }
+  .qlog-chip{
+    all:unset; box-sizing:border-box; cursor:pointer; font-family:inherit; font-size:13px; font-weight:600;
+    padding:8px 12px; border-radius:100px; border:1px solid var(--border);
+    background: var(--paper-sunken); color: var(--ink-soft); max-width:100%;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .qlog-chip:hover{ border-color: var(--brass); color: var(--ink); }
+  .qlog-chip:focus-visible{ box-shadow: var(--focus-ring); outline:none; }
+  .qlog-chip.is-selected{ background: var(--brass); border-color: var(--brass); color:#fff; }
+  .qlog-chip-more, .qlog-chip-oneoff{ font-weight:500; }
+  .qlog-context{ font-size:11.5px; color: var(--ink-soft); margin:9px 0 12px; }
+  .qlog-note{
+    box-sizing:border-box; width:100%; border:1px solid var(--border); background: var(--paper);
+    color: var(--ink); padding:9px 10px; border-radius:8px; font-size:14px; font-family:inherit;
+  }
+  .qlog-note:focus{ outline:none; border-color: var(--brass); box-shadow: var(--focus-ring); }
+  .qlog-date-row{ display:flex; align-items:center; gap:8px; margin:10px 0 4px; }
+  .qlog-date-label{ font-size:10px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:700; }
+  .qlog-date{
+    flex:1 1 auto; min-width:0; border:1px solid var(--border); background: var(--paper); color: var(--ink);
+    padding:8px 10px; border-radius:8px; font-size:14px; font-family:inherit;
+  }
+  .qlog-date-toggle{
+    all:unset; box-sizing:border-box; cursor:pointer; font-family:inherit; font-size:12.5px;
+    color: var(--ink-soft); padding:6px 0;
+  }
+  .qlog-date-toggle:focus-visible{ box-shadow: var(--focus-ring); outline:none; }
+  .qlog-date-change{ color: var(--brass-strong); font-weight:600; margin-left:4px; }
+  .qlog-submit{ width:100%; margin-top:12px; }
+  .qlog-empty{ font-size:13px; color: var(--ink-soft); margin:0 0 16px; }
+  /* On a phone the sheet slides up from the bottom edge and spans the full width — a thumb
+     reaches the Log button and the chips there, and the on-screen keyboard pushing the viewport
+     up shortens the sheet from the top rather than hiding its primary action. Placed after the
+     base rules per the "responsive override goes last" gotcha in CLAUDE.md. */
+  @media (max-width: 880px){
+    .review-backdrop:has(.qlog-panel){ align-items:flex-end; padding:0; }
+    .qlog-panel{
+      max-width:none; border-radius:16px 16px 0 0; border-bottom:none;
+      max-height:92vh; padding:16px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+      animation: qlogSheetIn .2s ease;
+    }
+    @keyframes qlogSheetIn{ from{ transform: translateY(100%); } to{ transform: translateY(0); } }
+    @media (prefers-reduced-motion: reduce){ .qlog-panel{ animation:none; } }
+  }
 
   /* ---------------- Cross-page search ---------------- */
   /* Reuses .review-backdrop/.review-panel as-is (see above) for the modal shell — this only adds

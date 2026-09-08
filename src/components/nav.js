@@ -58,7 +58,7 @@ var MOBILE_MORE_PAGES = ["accounts", "scenarios", "projections"];
 // rather than a selector, since there's nothing in the DOM to click. Projections has no natural
 // "add" action and simply isn't listed, so the fab hides there.
 var QUICK_FAB_BUTTON_PAGES = {
-  expenses: { label: "Add transaction", selector: "#addTransactionBtn" },
+  expenses: { label: "Log spend", selector: "#quickLogBtn" },
   properties: { label: "Add property", selector: "#addPropertyBtn" },
   accounts: { label: "Add account", selector: "#addAccountBtn" }
 };

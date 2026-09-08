@@ -2,6 +2,7 @@ import { state, persist } from "../state.js";
 import { sacrificeModeToLabel, MARKET_CURRENCY } from "../constants.js";
 import { showToast, showPersistentToast } from "./toast.js";
 import { localDateStr } from "./format.js";
+import { ipProperties } from "../calc/property.js";
 
 function isoDateStamp(){
   var d = new Date();
@@ -300,7 +301,10 @@ export function parseCsv(text){
   return rows;
 }
 
-var EXPENSES_CSV_HEADERS = ["What", "Classification", "Category", "Amount", "Frequency", "Account"];
+// Source says which list a row belongs to, so exporting and re-importing round-trips instead of
+// flattening housing into ordinary shared expenses. Kept last so a file from before this column
+// existed still lines up column-for-column, and a blank value reads as "Shared".
+var EXPENSES_CSV_HEADERS = ["What", "Classification", "Category", "Amount", "Frequency", "Account", "Source"];
 var INCOME_CSV_HEADERS = ["What", "Person", "Type", "Amount", "Frequency", "Super", "Sacrifice mode", "Sacrifice value", "Account"];
 export function exportIncomeCsv(){
   var rows = state.income.filter(function(i){ return !i.computed; }).map(function(i){
@@ -314,9 +318,25 @@ export function exportIncomeImportTemplateCsv(){
   finishExport(buildCsv(INCOME_CSV_HEADERS, []), "income-import-template.csv", "text/csv", "Template saved");
 }
 export function exportExpensesCsv(){
-  var rows = state.shared.map(function(i){
-    return [i.what, i.classification || "", i.category || "", i.amount, i.freq, i.account || ""];
-  });
+  function rowsFrom(items, source){
+    return (items || []).filter(function(i){ return !i.computed; }).map(function(i){
+      return [i.what, i.classification || "", i.category || "", i.amount, i.freq, i.account || "", source];
+    });
+  }
+  // Exactly what the Budget tab lists: shared, the active scenario's housing, and each investment
+  // property's own costs. Computed rows (a synced home-loan repayment) are skipped — they're
+  // derived from the purchase calculator, so importing one back would just be overwritten on the
+  // next recalc.
+  //
+  // An IP's rows carry the property's *name* as their Source rather than its id, for the same
+  // reason a category is stored by name: this file gets opened in a spreadsheet and edited by
+  // hand, and "12 Smith St" is something a person can retype correctly where "p_k3f9" isn't. The
+  // import matches it back case-insensitively and falls back to a shared expense when no property
+  // answers to it, so a renamed property degrades to a visible mismatch in the preview rather
+  // than a row silently landing on the wrong property.
+  var rows = rowsFrom(state.shared, "Shared")
+    .concat(rowsFrom(state.home[state.activeScenario], "Housing"));
+  ipProperties().forEach(function(p){ rows = rows.concat(rowsFrom(p.expenses, p.what || "Investment property")); });
   exportCsv("expenses-" + isoDateStamp() + ".csv", EXPENSES_CSV_HEADERS, rows);
 }
 // A blank starting point for the Expenses page's "Import CSV" — same headers as the real export

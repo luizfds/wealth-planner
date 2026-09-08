@@ -25,11 +25,16 @@ export function searchApp(query){
     results.push({ type: type, label: label, sublabel: sublabel || "", page: page, extra: extra || {} });
   }
 
-  // Housing lives in state.home keyed by scenario but is listed on the Budget tab alongside
-  // state.shared, so it's searchable on the same terms — mirrors expenses.js's budgetLineItems()
-  // without importing a component into lib/.
+  // Housing lives in state.home keyed by scenario, and an investment property's costs live on the
+  // property, but both are listed on the Budget tab alongside state.shared — so both are
+  // searchable on the same terms. Mirrors expenses.js's budgetLineItems() without importing a
+  // component into lib/; keep the two in step.
   function budgetLines(){
-    return (state.shared || []).concat(state.home && state.home[state.activeScenario] || []);
+    var lines = (state.shared || []).concat(state.home && state.home[state.activeScenario] || []);
+    (state.properties || []).forEach(function(p){
+      if(p.kind === "IP" && Array.isArray(p.expenses)) lines = lines.concat(p.expenses);
+    });
+    return lines;
   }
   budgetLines().forEach(function(item){
     add("Expense", item.what, fmtCurrency0.format(Number(item.amount) || 0) + " " + (item.freq || "").toLowerCase(), "expenses");

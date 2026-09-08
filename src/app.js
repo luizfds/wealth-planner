@@ -336,6 +336,9 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       if(mPropExp){
         var pe = findProperty(mPropExp[1]);
         if(pe) renderPropListModern(pe.id, section, pe.expenses, true);
+        // Same two-renderer situation as housing above: an IP's costs are shown both on its
+        // Properties card and as budget lines on the Expenses page, off the one array.
+        if(pe && pe.kind === "IP") renderSharedGroups();
       }
     }
   }
@@ -388,8 +391,16 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   // Set when a row's category changes and cleared once the list has been rebuilt — see
   // closeActiveModernRowUI for why the rebuild waits.
   var budgetRegroupPending = false;
+  // "Does a row in this section appear in the Budget tab's list?" — which is what decides whether
+  // an edit has to keep #sharedGroups in step, not which page the edit was made from. An IP's
+  // costs are editable from either end (its Properties card, or the budget list), and both write
+  // to the same p.expenses array, so both need the same follow-up either way.
   function isBudgetListSection(section){
-    return section === "shared" || section === "home:" + state.activeScenario;
+    if(section === "shared" || section === "home:" + state.activeScenario) return true;
+    var mPropExp = /^propexp:(.+)$/.exec(section);
+    if(!mPropExp) return false;
+    var p = findProperty(mPropExp[1]);
+    return !!(p && p.kind === "IP");
   }
 
   // ---------------- Event wiring ----------------
@@ -1909,7 +1920,13 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   document.getElementById("accountsSubnav").addEventListener("click", function(e){
     var accountsSubBtn = e.target.closest("[data-accounts-sub]");
     if(!accountsSubBtn) return;
-    showAccountsSubpage(accountsSubBtn.getAttribute("data-accounts-sub"));
+    var accountsSubId = accountsSubBtn.getAttribute("data-accounts-sub");
+    showAccountsSubpage(accountsSubId);
+    // Each category row carries a live "used by N lines" count, which goes stale every time a
+    // budget line is added, deleted, recategorised or imported — none of which re-render this
+    // normally-hidden tab, and none of which should have to know it exists. Recounting on the way
+    // in is both cheaper and more reliable than adding a renderCategories() to all of them.
+    if(accountsSubId === "categories") renderCategories();
   });
   document.getElementById("addCategoryBtn").addEventListener("click", function(){
     addCategory();

@@ -111,7 +111,7 @@
     <div class="app-sidebar-footer">
       <p class="app-sidebar-note">Stored only in this browser (<code>localStorage</code>) — nothing is sent anywhere. Clearing your browser data clears this too, so <button class="link-btn" id="exportLink2">Export</button> a backup now and then.</p>
       <a class="feature-request-link" href="https://github.com/luizfds/wealth-planner/issues/new" target="_blank" rel="noopener noreferrer">💡 Request a feature</a>
-      <p class="app-version">v2.67.0</p>
+      <p class="app-version">v2.69.0</p>
     </div>
     <div class="mobile-header-right">
       <button type="button" class="icon-btn" id="mobileSearchBtn" aria-label="Search">
@@ -270,6 +270,7 @@
               <p class="ledger-note" style="margin-left:0">Subscriptions, car, groceries, and the rest — what each one is expected to cost, and how often.</p>
               <div id="expenseImportPreview" hidden></div>
               <p class="income-summary-line" id="sharedSummaryLine" style="display:none"></p>
+              <div class="groupby" id="budgetGroupBy" hidden></div>
               <div id="sharedGroups"></div>
               <div class="ledger-footer">
                 <button class="btn btn-sm" data-add="shared">+ Add expense</button>
@@ -314,13 +315,18 @@
             <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Actual vs. planned</h2></div>
             </summary>
-            <div class="ledger-body"><div id="actualVsPlannedPanel"></div></div>
+            <div class="ledger-body"><div id="spendCategoryChart" hidden></div><div id="actualVsPlannedPanel"></div></div>
           </details>
         </div>
         </div>
       </section>
 
       <section class="app-page" id="page-accounts" hidden>
+        <div class="subnav" id="accountsSubnav">
+          <button type="button" class="subnav-item active" data-accounts-sub="accounts">Accounts</button>
+          <button type="button" class="subnav-item" data-accounts-sub="categories">Categories</button>
+        </div>
+        <div class="accounts-subpage" id="accountsSub-accounts">
         <div class="page-intro-row">
           <p class="page-intro">Where your money actually moves through — used to group transactions into a credit card's statement cycle.</p>
         </div>
@@ -337,6 +343,26 @@
               </div>
             </div>
           </details>
+        </div>
+        </div>
+        <div class="accounts-subpage" id="accountsSub-categories" hidden>
+        <div class="page-intro-row">
+          <p class="page-intro">How spending is grouped for the charts — a category should cover several budget lines, not restate one.</p>
+        </div>
+        <div class="ledgers">
+          <details class="ledger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Categories</h2></div>
+            </summary>
+            <div class="ledger-body">
+              <p class="ledger-note" style="margin-left:0">Set a category on each budget line (Expenses → Budget) and the charts there show what you plan and actually spend per category. Categories work best coarse — one "Car" covering rego, insurance, fuel and servicing says more than four categories that each match a single line. Renaming one here updates every line using it; deleting one leaves those lines uncategorised rather than removing them.</p>
+              <div id="categoriesTable"></div>
+              <div class="ledger-footer">
+                <button class="btn btn-sm" id="addCategoryBtn">+ Add category</button>
+              </div>
+            </div>
+          </details>
+        </div>
         </div>
       </section>
 

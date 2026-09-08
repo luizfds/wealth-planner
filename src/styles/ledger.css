@@ -84,6 +84,27 @@
   .rule-target{ position:absolute; top:0; bottom:0; width:0; border-right: 1.5px dashed rgba(0,0,0,0.35); }
   @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .rule-target{ border-right-color: rgba(255,255,255,0.35); } }
   :root[data-theme="dark"] .rule-target{ border-right-color: rgba(255,255,255,0.35); }
+  /* The by-category chart reuses .rule-bar/.rule-seg/.rule-legend above, but takes its colour from
+     the cycling series palette (--series-color) instead of a fixed swatch class — a user-defined
+     category set is open-ended, so colour comes from position, not name. */
+  .rule-seg.cat-seg{ background: var(--series-color); }
+  .rule-swatch.cat-seg{ background: var(--series-color); }
+  .cat-chart{ margin-bottom:16px; }
+  /* The Group by control: deliberately quieter than the page-level .subnav pills — it re-slices
+     the list below it rather than navigating anywhere, so it shouldn't compete with the
+     Budget/Spending tabs directly above for "which control moves me somewhere". */
+  .groupby{ display:flex; align-items:center; gap:6px; margin:0 0 12px; }
+  .groupby[hidden]{ display:none; }
+  .groupby-label{ font-size:10px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:700; margin-right:2px; }
+  .groupby-option{
+    all:unset; box-sizing:border-box; cursor:pointer; font-family:inherit; font-size:12px; font-weight:600;
+    padding:5px 11px; border-radius:100px; color: var(--ink-soft); border:1px solid transparent;
+  }
+  .groupby-option:hover{ color: var(--ink); border-color: var(--border); }
+  .groupby-option:focus-visible{ box-shadow: var(--focus-ring); outline:none; }
+  .groupby-option.is-selected{ background: var(--brass-wash); color: var(--brass-strong); }
+  .cat-chart-title{ font-size:10px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:700; margin-bottom:7px; }
+  #spendCategoryChart[hidden]{ display:none; }
   .rule-legend{ display:flex; gap:16px; flex-wrap:wrap; font-size:12px; }
   .rule-legend-item{ display:flex; align-items:center; gap:6px; color: var(--ink-soft); }
   .rule-legend b{ color: var(--ink); font-weight:600; font-family:"IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
@@ -241,6 +262,9 @@
   .m-avatar.m-avatar-wants{ background: var(--brass); }
   .m-avatar.m-avatar-savings{ background: var(--good); }
   .m-avatar.m-avatar-na{ background: var(--ink-soft); }
+  /* Grouped by category, a card's avatar takes the same cycling palette slot as its slice in the
+     composition bar above, so the two read as the same thing. */
+  .m-avatar.m-avatar-series{ background: var(--series-color); }
   .m-people{ display:flex; flex-direction:column; gap:14px; }
   /* Income's person cards and Expenses' Needs/Wants cards were a single column at every width,
      so a wide desktop viewport just meant a much longer scroll for no benefit — the cards
@@ -526,6 +550,13 @@
     color: var(--ink); padding:9px 10px; border-radius:8px; font-size:14px; font-family:inherit;
   }
   .qlog-note:focus{ outline:none; border-color: var(--brass); box-shadow: var(--focus-ring); }
+  .qlog-cat-row{ display:flex; align-items:center; gap:8px; margin:10px 0 0; }
+  .qlog-cat-label{ font-size:10px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:700; }
+  .qlog-cat{
+    flex:1 1 auto; min-width:0; border:1px solid var(--border); background: var(--paper); color: var(--ink);
+    padding:8px 10px; border-radius:8px; font-size:14px; font-family:inherit;
+  }
+  .qlog-cat:focus{ outline:none; border-color: var(--brass); box-shadow: var(--focus-ring); }
   .qlog-date-row{ display:flex; align-items:center; gap:8px; margin:10px 0 4px; }
   .qlog-date-label{ font-size:10px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:700; }
   .qlog-date{

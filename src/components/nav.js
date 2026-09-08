@@ -75,9 +75,15 @@ var QUICK_FAB_BUTTON_PAGES = {
   // on the Spending subpage, but a hidden button still clicks fine and the sheet covers the page
   // either way — so logging from Budget lands you back on Budget with the bars already updated.
   expenses: { label: "Log spend", selector: "#quickLogBtn" },
-  properties: { label: "Add property", selector: "#addPropertyBtn" },
-  accounts: { label: "Add account", selector: "#addAccountBtn" }
+  properties: { label: "Add property", selector: "#addPropertyBtn" }
 };
+// Accounts' fab follows its visible half, the same way Expenses' used to — resolved per subpage
+// rather than per page, so it can't sit in the map above.
+function accountsFabAction(){
+  return document.getElementById("accountsSub-categories") && !document.getElementById("accountsSub-categories").hidden
+    ? { label: "Add category", selector: "#addCategoryBtn" }
+    : { label: "Add account", selector: "#addAccountBtn" };
+}
 var QUICK_FAB_GROUPED_PAGES = ["income", "assets", "scenarios"];
 // Every "add or log something" the app can do, in one list, reachable from any page via the fab's
 // chevron. The point is the cross-page case: the fab itself can only trigger what's already on
@@ -128,6 +134,10 @@ export function updateQuickFab(pageId){
   if(pageId === "dashboard"){
     label = "Log net worth now";
     mode = "networth";
+  } else if(pageId === "accounts"){
+    var accountsAction = accountsFabAction();
+    label = accountsAction.label;
+    selector = accountsAction.selector;
   } else if(QUICK_FAB_BUTTON_PAGES[pageId]){
     label = QUICK_FAB_BUTTON_PAGES[pageId].label;
     selector = QUICK_FAB_BUTTON_PAGES[pageId].selector;
@@ -213,6 +223,18 @@ export function showAssetsSubpage(id, opts){
   });
   updateQuickFab("assets");
   if(!opts.skipUrl) syncUrl("assets", !!opts.replace);
+}
+
+// Accounts vs. Categories — the two registries this app asks you to maintain. Session-only, like
+// the Dashboard's own split and unlike Assets/Expenses: there's no reason to deep-link a settings
+// registry, and keeping it out of the URL keeps buildRoutePath to the two subpages worth sharing.
+export function showAccountsSubpage(id){
+  if(id !== "categories") id = "accounts";
+  document.querySelectorAll(".accounts-subpage").forEach(function(el){ el.hidden = el.id !== "accountsSub-" + id; });
+  document.querySelectorAll("#accountsSubnav .subnav-item").forEach(function(btn){
+    btn.classList.toggle("active", btn.getAttribute("data-accounts-sub") === id);
+  });
+  updateQuickFab("accounts");
 }
 
 // Budget (what you plan to spend) vs. Spending (what you actually spent, logged against it) —

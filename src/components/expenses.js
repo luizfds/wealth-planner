@@ -21,13 +21,14 @@ function budgetGroupKeyOf(item){
 // first. This is a list you edit: ordering it by amount would make cards jump around as you type
 // into them. The charts sort by size instead, because a chart is read, not edited.
 function sharedGroupOrder(){
+  var lineItems = allBudgetLines().map(function(line){ return line.item; });
   if(state.budgetGroupBy !== "category"){
     return CLASSES.filter(function(cls){
-      return state.shared.some(function(item){ return (item.classification || "N/A") === cls; });
+      return lineItems.some(function(item){ return (item.classification || "N/A") === cls; });
     });
   }
   var used = {};
-  state.shared.forEach(function(item){ used[budgetGroupKeyOf(item)] = true; });
+  lineItems.forEach(function(item){ used[budgetGroupKeyOf(item)] = true; });
   var order = state.categories.filter(function(name){ return used[name]; });
   // Uncategorised last: it's the leftovers, and putting it first would make an unstarted budget
   // look like one giant unnamed group standing in front of the real ones.
@@ -35,22 +36,56 @@ function sharedGroupOrder(){
   return order;
 }
 
+// Every budget line the Budget tab lists, each tagged with the array it actually lives in.
+//
+// Housing used to be invisible here: state.home is keyed by scenario, because scenarios were once
+// this app's organising principle and housing was the thing being compared rather than a cost you
+// budget for. That left the single largest household expense — rent, or a mortgage plus rates and
+// insurance — out of the budget, its category rollups and its charts entirely.
+//
+// It isn't merged into state.shared, because scenarios differ by *row set*, not just amount:
+// Council Rates and Home Insurance exist only if you buy. scenarioOverrides varies an amount on a
+// row that exists everywhere, so a merge would need either $0 placeholder rows cluttering the
+// everyday budget or a new "doesn't apply here" concept. Instead the active scenario's housing is
+// listed alongside shared as first-class lines, carrying their own section so every existing
+// handler (edit, delete, log, scenario override) routes to the right array unchanged. Scenarios
+// keep their own blocks for comparison; this is just where you look at the one you live in.
+function budgetLineSources(){
+  var sources = [{ section: "shared", items: state.shared }];
+  var homeItems = state.home[state.activeScenario];
+  if(homeItems && homeItems.length) sources.push({ section: "home:" + state.activeScenario, items: homeItems });
+  return sources;
+}
+// Flat list of { item, section, idx } across every source, in display order.
+function allBudgetLines(){
+  var lines = [];
+  budgetLineSources().forEach(function(source){
+    source.items.forEach(function(item, idx){ lines.push({ item: item, section: source.section, idx: idx }); });
+  });
+  return lines;
+}
 function computeSharedGroups(){
+  var lines = allBudgetLines();
   return sharedGroupOrder().map(function(key){
-    var indices = [];
-    var items = [];
-    state.shared.forEach(function(item, idx){
-      if(budgetGroupKeyOf(item) === key){ indices.push(idx); items.push(item); }
-    });
-    return { key: key, indices: indices, items: items, monthly: sumField(items, "monthly") };
+    var members = lines.filter(function(line){ return budgetGroupKeyOf(line.item) === key; });
+    var items = members.map(function(line){ return line.item; });
+    return { key: key, members: members, items: items, monthly: sumField(items, "monthly") };
   });
 }
 
 export function patchSharedGroupTotals(){
   var groups = computeSharedGroups();
-  document.querySelectorAll("#sharedGroups .m-card").forEach(function(card, gi){
+  // Matched by card name, not by position. Recategorising a row can create or empty a whole group,
+  // so the freshly-computed list and the cards still on screen can differ in length and order —
+  // writing totals by index then puts Rent's $3,510 under "Groceries". A card whose group no
+  // longer exists is simply left alone until the next full render moves its rows.
+  var byKey = {};
+  groups.forEach(function(g){ byKey[g.key] = g; });
+  document.querySelectorAll("#sharedGroups .m-card").forEach(function(card){
+    var nameEl = card.querySelector(".m-card-name");
+    var group = nameEl && byKey[nameEl.textContent];
     var totalEl = card.querySelector(".m-card-total");
-    if(totalEl && groups[gi]) totalEl.innerHTML = fmtCurrency0.format(groups[gi].monthly) + "<span>/mo</span>";
+    if(totalEl && group) totalEl.innerHTML = fmtCurrency0.format(group.monthly) + "<span>/mo</span>";
   });
   var compWrap = document.querySelector("[data-shared-comp-bar]");
   if(compWrap){
@@ -233,6 +268,9 @@ export function renderSharedGroups(){
   renderExpenseReviewButton();
   var container = document.getElementById("sharedGroups");
   if(!container) return;
+  // Names the scenario the housing rows came from, so it's never a mystery why rent changed.
+  var scenarioLabel = document.getElementById("budgetHousingScenario");
+  if(scenarioLabel) scenarioLabel.textContent = state.activeScenario;
   var groups = computeSharedGroups();
   patchSharedGroupTotals();
   var byCategory = state.budgetGroupBy === "category";
@@ -258,7 +296,10 @@ export function renderSharedGroups(){
       '<div class="m-card-head"><span class="m-avatar ' + avatarClass + '">' + escapeAttr(initial) + '</span>' +
       '<div class="m-card-name">' + escapeAttr(g.key) + '</div>' +
       '<div class="m-card-total">' + fmtCurrency0.format(g.monthly) + '<span>/mo</span></div></div>' +
-      '<div class="m-rows">' + g.items.map(function(item, i){ return modernPlainRowHtml(item, g.indices[i], "shared", modernSharedRowOpen, {showClass:true, showDone:true, categories: state.categories, extraSubLine: budgetRowProgressHtml(item)}); }).join("") + '</div>' +
+      // Each row renders under its own source section, so a housing line's edits, deletes and
+      // logs land in state.home[scenario] while a shared line's land in state.shared — no
+      // special-casing anywhere downstream, since every handler already keys off data-section.
+      '<div class="m-rows">' + g.members.map(function(line){ return modernPlainRowHtml(line.item, line.idx, line.section, modernSharedRowOpen, {showClass:true, showDone:true, categories: state.categories, extraSubLine: budgetRowProgressHtml(line.item)}); }).join("") + '</div>' +
       '<button type="button" class="m-add-row" data-add="' + escapeAttr(addValue) + '">+ Add expense</button>' +
     '</div>';
   }).join("") + '</div>';
@@ -543,7 +584,7 @@ export function quickLogChipOrder(){
     var d = t.date || "";
     if(!lastByExpense[t.linkedExpenseId] || d > lastByExpense[t.linkedExpenseId]) lastByExpense[t.linkedExpenseId] = d;
   });
-  return state.shared
+  return budgetLineItems()
     .map(function(item, i){ return { item: item, i: i, last: lastByExpense[item.id] || "" }; })
     .sort(function(a, b){
       if(a.last !== b.last) return a.last > b.last ? -1 : 1;
@@ -593,7 +634,7 @@ export function quickLogContextText(item){
 // name it in a confirmation toast.
 export function submitQuickLog(amount, note, dateStr, category){
   if(!quickLog) return null;
-  var item = quickLog.linkedId && state.shared.find(function(i){ return i.id === quickLog.linkedId; });
+  var item = quickLog.linkedId && budgetLineItems().find(function(i){ return i.id === quickLog.linkedId; });
   var t = {
     id: genId("t"),
     date: dateStr || localDateStr(),
@@ -664,7 +705,7 @@ export function renderQuickLogSheet(){
       '</div></div>';
     return;
   }
-  var item = quickLog.linkedId && state.shared.find(function(i){ return i.id === quickLog.linkedId; });
+  var item = quickLog.linkedId && budgetLineItems().find(function(i){ return i.id === quickLog.linkedId; });
   root.innerHTML = '<div class="review-backdrop" data-qlog-backdrop>' +
     '<div class="review-panel qlog-panel" role="dialog" aria-label="Log spend">' +
       '<div class="review-head"><h4>Log spend</h4><button type="button" class="icon-btn" data-qlog-close aria-label="Close">✕</button></div>' +
@@ -729,7 +770,7 @@ var TRANSACTIONS_RECENT_COUNT = 10;
 export var modernTransactionRowOpen = {};
 function transactionLinkOptionsHtml(selectedId){
   var options = '<option value=""' + (!selectedId ? " selected" : "") + '>— One-off (not linked) —</option>';
-  return options + state.shared.map(function(item){
+  return options + budgetLineItems().map(function(item){
     return '<option value="' + escapeAttr(item.id) + '"' + (item.id === selectedId ? " selected" : "") + '>' + escapeAttr(item.what) + '</option>';
   }).join("");
 }
@@ -766,7 +807,7 @@ export function transactionAccount(t){
   var direct = (t.account || "").trim();
   if(direct) return direct;
   if(t.linkedExpenseId){
-    var item = state.shared.find(function(i){ return i.id === t.linkedExpenseId; });
+    var item = budgetLineItems().find(function(i){ return i.id === t.linkedExpenseId; });
     if(item && item.account) return item.account;
   }
   return "";
@@ -779,7 +820,7 @@ export function transactionCategory(t){
   var direct = (t.category || "").trim();
   if(direct) return direct;
   if(t.linkedExpenseId){
-    var linkedItem = state.shared.find(function(i){ return i.id === t.linkedExpenseId; });
+    var linkedItem = budgetLineItems().find(function(i){ return i.id === t.linkedExpenseId; });
     if(linkedItem && (linkedItem.category || "").trim()) return linkedItem.category.trim();
   }
   return "";
@@ -789,7 +830,7 @@ export function transactionCategory(t){
 // Exported so app.js's live-input handlers can re-derive it to patch an open row's header text
 // (see the tx-what/tx-link/tx-account cases) instead of waiting for a full renderTransactions().
 export function transactionSummaryText(t){
-  var linked = t.linkedExpenseId && state.shared.find(function(i){ return i.id === t.linkedExpenseId; });
+  var linked = t.linkedExpenseId && budgetLineItems().find(function(i){ return i.id === t.linkedExpenseId; });
   var acct = transactionAccount(t);
   var bits = [t.date || "—", linked ? linked.what : "One-off"];
   if(acct) bits.push(acct);
@@ -799,7 +840,7 @@ export function transactionSummaryText(t){
 // transaction it shows the name it will be listed under if left blank, so the field reads as a
 // refinement of an already-complete entry rather than a blank required box.
 function transactionDescriptionPlaceholder(t){
-  var linked = t.linkedExpenseId && state.shared.find(function(i){ return i.id === t.linkedExpenseId; });
+  var linked = t.linkedExpenseId && budgetLineItems().find(function(i){ return i.id === t.linkedExpenseId; });
   return linked && linked.what ? linked.what : "Optional note";
 }
 function transactionRowHtml(t, idx){
@@ -967,8 +1008,9 @@ export function renderActualVsPlannedPanel(){
   renderSpendCategoryChart();
   var el = document.getElementById("actualVsPlannedPanel");
   if(!el) return;
-  var regularItems = state.shared.filter(function(item){ return !item.irregular; });
-  var irregularItems = state.shared.filter(function(item){ return item.irregular; });
+  var budgetItems = budgetLineItems();
+  var regularItems = budgetItems.filter(function(item){ return !item.irregular; });
+  var irregularItems = budgetItems.filter(function(item){ return item.irregular; });
   var irregularIds = {};
   irregularItems.forEach(function(item){ irregularIds[item.id] = true; });
   var irregularSection = irregularBudgetSectionHtml(irregularItems);
@@ -1193,6 +1235,12 @@ export function categoryChartHtml(groups, unit, opts){
 // Real spend this month per category, resolved through each transaction's linked budget line —
 // so categorising a line retroactively categorises everything ever logged against it, and a
 // one-off with no link falls into its own bucket rather than being dropped.
+// Every budget line the Budget tab lists — shared plus the active scenario's housing. Exported so
+// the actual-vs-planned panel totals exactly what the list shows, rather than the two disagreeing
+// about whether rent counts.
+export function budgetLineItems(){
+  return budgetLineSources().reduce(function(acc, source){ return acc.concat(source.items); }, []);
+}
 export function renderSpendCategoryChart(){
   var el = document.getElementById("spendCategoryChart");
   if(!el) return;

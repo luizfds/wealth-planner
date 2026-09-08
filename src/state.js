@@ -164,6 +164,18 @@ export function migrateState(s){
     var block = s.home[name];
     if(block && block.length && !block.some(function(i){ return i.id === "homeLoanRow"; })) block[0].id = "homeLoanRow";
   });
+  // Housing rows need stable ids for the same reason shared expenses do: a transaction links to
+  // its budget line by id, and the Budget tab now lists housing alongside everything else, so
+  // rent and rates can be logged against and get their own progress bars. Only the loan row
+  // carried an id before (it's found by a fixed "homeLoanRow" id, above); the rest were addressed
+  // purely by array position, which no transaction can hold onto.
+  //
+  // Ids are per scenario, deliberately: "Council Rates" under Buy Sydney and under Buy Melbourne
+  // are different amounts for different hypothetical houses, so sharing an id would let a
+  // transaction logged against one silently count towards the other.
+  s.scenarios.forEach(function(name){
+    (s.home[name] || []).forEach(function(item){ if(!item.id) item.id = genId("exp"); });
+  });
   if(!s.activeScenario || s.scenarios.indexOf(s.activeScenario) === -1) s.activeScenario = s.scenarios[0];
   // One-shot-per-load (not flagged — cheap and idempotent): if there's no baseline yet, or the
   // named baseline no longer exists (e.g. it was renamed before this field existed), designate

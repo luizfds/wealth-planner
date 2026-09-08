@@ -173,3 +173,37 @@ test("migrateState drops junk entries from a category list", function(){
   var s = migrateState({ categories: ["Car", "", "   ", null, 42, "Health"], shared: [] });
   assert.deepEqual(s.categories, ["Car", "Health"]);
 });
+
+test("migrateState gives every home row a stable id, unique per scenario", function(){
+  var s = migrateState({
+    scenarios: ["Renting", "Buy Sydney"],
+    home: {
+      "Renting": [{ what: "Rent", amount: 810, freq: "Weekly" }, { what: "Water", amount: 147, freq: "Quarterly" }],
+      "Buy Sydney": [{ what: "Home Loan", amount: 6257, freq: "Monthly" }, { what: "Council Rates", amount: 185, freq: "Monthly" }]
+    },
+    shared: []
+  });
+  var allRows = s.scenarios.reduce(function(acc, name){ return acc.concat(s.home[name]); }, []);
+  assert.ok(allRows.every(function(i){ return typeof i.id === "string" && i.id; }), "every home row is addressable by id");
+  // Unique *within* a scenario, which is the scope anything resolves an id in — the Budget list
+  // and its transactions only ever see the active scenario's housing.
+  s.scenarios.forEach(function(name){
+    var ids = s.home[name].map(function(i){ return i.id; });
+    assert.equal(new Set(ids).size, ids.length, name + " has no duplicate ids");
+  });
+  // The loan row is the deliberate exception: every scenario's row 0 carries the same fixed
+  // "homeLoanRow" id, because engine.js and the purchase calculator look it up by that name
+  // within a given scenario's block. Sharing it across scenarios is what makes "the housing
+  // payment" resolve to whichever one you're actually living in.
+  assert.equal(s.home["Renting"][0].id, "homeLoanRow");
+  assert.equal(s.home["Buy Sydney"][0].id, "homeLoanRow");
+  assert.notEqual(s.home["Renting"][1].id, s.home["Buy Sydney"][1].id,
+    "non-loan rows are per scenario — Renting's Water and Buy Sydney's Council Rates are different lines");
+});
+
+test("migrateState leaves home ids it has already assigned alone", function(){
+  var first = migrateState({ scenarios: ["Renting"], home: { "Renting": [{ what: "Rent" }, { what: "Water" }] }, shared: [] });
+  var waterId = first.home["Renting"][1].id;
+  var second = migrateState(JSON.parse(JSON.stringify(first)));
+  assert.equal(second.home["Renting"][1].id, waterId, "re-running migration must not orphan transactions linked to it");
+});

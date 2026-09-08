@@ -293,7 +293,12 @@ function propertyCardHtml(p, colorIdx){
 // makes each property's keys unique within this one map).
 export var modernPropRowOpen = {};
 function modernPropListHtml(items, section, showClass){
-  return items.map(function(item, i){ return modernPlainRowHtml(item, i, section, modernPropRowOpen, {showClass: showClass, showLog: true}); }).join("");
+  // An expense row gets the Category field an income row doesn't: an IP's costs are budget lines
+  // on the Expenses page now, and they'd be the only ones you couldn't categorise from the page
+  // that owns them. Passed off state.categories so both ends offer the same list.
+  var opts = { showClass: showClass, showLog: true };
+  if(showClass) opts.categories = state.categories;
+  return items.map(function(item, i){ return modernPlainRowHtml(item, i, section, modernPropRowOpen, opts); }).join("");
 }
 // Rebuilds just one property's income or expense list in place — used by rerenderTableFor so
 // that, in modern mode, editing a property's rent (which auto-recalculates its Property Manager

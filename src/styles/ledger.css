@@ -298,10 +298,17 @@
     position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:100;
     width:calc(100% - 32px); max-width:420px; max-height:calc(100vh - 64px); overflow-y:auto; overscroll-behavior:contain;
     border:1px solid var(--border); border-radius:14px; box-shadow: 0 16px 48px rgba(0,0,0,0.3);
-    background: var(--paper-raised); margin:0; animation: mRowModalIn .15s ease;
+    background: var(--paper-raised); margin:0;
   }
+  /* The entrance animation is gated on .is-entering (added by openModernRow, removed on
+     animationend) rather than sitting on .open itself. A container re-render while a row is open
+     — e.g. logging a transaction against a shared expense re-renders #sharedGroups — replaces the
+     open row's DOM node with a fresh one that still has .open, and an animation declared on .open
+     would replay in full on that new node, making an in-place edit look like a brand-new page
+     being pushed. Gating on a transient class means only a genuine open animates. */
+  .m-row.open.is-entering{ animation: mRowModalIn .15s ease; }
   @keyframes mRowModalIn{ from{ opacity:0; transform:translate(-50%,-50%) translateY(8px); } to{ opacity:1; transform:translate(-50%,-50%); } }
-  @media (prefers-reduced-motion: reduce){ .m-row.open{ animation:none; } }
+  @media (prefers-reduced-motion: reduce){ .m-row.open.is-entering{ animation:none; } }
   .m-row.open .m-row-summary:hover{ background:transparent; }
   /* On a phone, editing/adding a row becomes a real full-screen page that slides in from the
      right and covers the tab bar — the native "push a screen, tap back to pop it" pattern most
@@ -315,10 +322,11 @@
     .m-row.open{
       top:0; left:0; right:0; bottom:0; transform:none; width:100%; max-width:none;
       height:100%; max-height:none; border:none; border-radius:0; box-shadow:none;
-      display:flex; flex-direction:column; animation: mRowPageIn .22s ease;
+      display:flex; flex-direction:column;
     }
+    .m-row.open.is-entering{ animation: mRowPageIn .22s ease; }
     @keyframes mRowPageIn{ from{ transform:translateX(100%); } to{ transform:translateX(0); } }
-    @media (prefers-reduced-motion: reduce){ .m-row.open{ animation:none; } }
+    @media (prefers-reduced-motion: reduce){ .m-row.open.is-entering{ animation:none; } }
     /* The collapsed row's own summary bar becomes the page's sticky header, read left-to-right as
        "Item name ✕" — the same title-then-close-button layout as the Search and Review-expenses
        overlays' own headers (see .review-head), so every full-page/dialog takeover in the app
@@ -345,6 +353,10 @@
   .m-edit-field.span2{ grid-column: span 2; }
   .m-edit-field.span3{ grid-column: span 3; }
   .m-edit-field label{ display:block; font-size:10px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:700; margin-bottom:4px; }
+  /* "(optional)" next to a field label — deliberately quieter than the label itself (normal
+     weight, no uppercase) so a form scans as "these are the fields" first and "this one you can
+     skip" second, rather than every label competing at the same visual weight. */
+  .m-edit-field label .label-optional{ text-transform:none; letter-spacing:0; font-weight:500; opacity:.75; }
   .m-edit-field input, .m-edit-field select{
     width:100%; border:1px solid var(--border); background: var(--paper); color: var(--ink); border-radius:7px;
     padding:6px 8px; font-size:13px; font-family:inherit;

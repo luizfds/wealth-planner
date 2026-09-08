@@ -8,20 +8,41 @@ import { modernPlainRowHtml, modernRowSummaryHtml, modernRowEditHtml, modernRowS
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { parseCsv } from "../lib/backup.js";
 
+// Which axis the Budget list is grouped by, and the value a given line sits under on it. The two
+// axes are deliberately different in kind: classification is a fixed four-value scale every line
+// has, category an open user-defined set most lines may not have yet — hence the "Uncategorised"
+// bucket, which has no equivalent on the type axis (there, "N/A" is a real choice).
+function budgetGroupKeyOf(item){
+  return state.budgetGroupBy === "category"
+    ? ((item.category || "").trim() || UNCATEGORISED)
+    : (item.classification || "N/A");
+}
+// Group order is the *stable* one — CLASSES order, or the user's own category list — not biggest
+// first. This is a list you edit: ordering it by amount would make cards jump around as you type
+// into them. The charts sort by size instead, because a chart is read, not edited.
 function sharedGroupOrder(){
-  return CLASSES.filter(function(cls){
-    return state.shared.some(function(item){ return (item.classification || "N/A") === cls; });
-  });
+  if(state.budgetGroupBy !== "category"){
+    return CLASSES.filter(function(cls){
+      return state.shared.some(function(item){ return (item.classification || "N/A") === cls; });
+    });
+  }
+  var used = {};
+  state.shared.forEach(function(item){ used[budgetGroupKeyOf(item)] = true; });
+  var order = state.categories.filter(function(name){ return used[name]; });
+  // Uncategorised last: it's the leftovers, and putting it first would make an unstarted budget
+  // look like one giant unnamed group standing in front of the real ones.
+  if(used[UNCATEGORISED]) order.push(UNCATEGORISED);
+  return order;
 }
 
 function computeSharedGroups(){
-  return sharedGroupOrder().map(function(cls){
+  return sharedGroupOrder().map(function(key){
     var indices = [];
     var items = [];
     state.shared.forEach(function(item, idx){
-      if((item.classification || "N/A") === cls){ indices.push(idx); items.push(item); }
+      if(budgetGroupKeyOf(item) === key){ indices.push(idx); items.push(item); }
     });
-    return { key: cls, indices: indices, items: items, monthly: sumField(items, "monthly") };
+    return { key: key, indices: indices, items: items, monthly: sumField(items, "monthly") };
   });
 }
 
@@ -214,15 +235,31 @@ export function renderSharedGroups(){
   if(!container) return;
   var groups = computeSharedGroups();
   patchSharedGroupTotals();
-  renderBudgetCategoryChart();
-  container.innerHTML = sharedCompositionBarHtml(groups) + '<div class="m-people">' + groups.map(function(g){
-    var initial = g.key === "N/A" ? "–" : g.key.charAt(0);
+  var byCategory = state.budgetGroupBy === "category";
+  // One bar, and it always splits the money the same way the cards below it do. This is what the
+  // toggle really buys: the alternative was showing both splits at once, and two stacked
+  // percentage-labelled bars compete for a single glance instead of answering one question each.
+  var compositionHtml = byCategory
+    ? categoryChartHtml(groups.map(function(g){ return { key: g.key, monthly: g.monthly }; }), "/mo")
+    : sharedCompositionBarHtml(groups);
+  // "+ Add expense" on a card presets whichever group it sits under, on whichever axis is showing
+  // — sharedcat: for a category, shared: for a classification. The Uncategorised card presets
+  // nothing, since it isn't a category you can put something into.
+  var addPrefix = byCategory ? "sharedcat:" : "shared:";
+  container.innerHTML = compositionHtml + '<div class="m-people">' + groups.map(function(g, gi){
+    var initial = (g.key === "N/A" || g.key === UNCATEGORISED) ? "–" : g.key.charAt(0);
+    // Category avatars take the same cycling palette as the chart, so a card and its slice are
+    // the same colour; classification keeps its fixed named swatches.
+    var avatarClass = byCategory
+      ? (g.key === UNCATEGORISED ? "m-avatar-neutral" : "m-avatar-series series-color-" + (gi % 8))
+      : "m-avatar-" + classificationSwatchClass(g.key);
+    var addValue = (byCategory && g.key === UNCATEGORISED) ? "shared" : addPrefix + g.key;
     return '<div class="m-card">' +
-      '<div class="m-card-head"><span class="m-avatar m-avatar-' + classificationSwatchClass(g.key) + '">' + initial + '</span>' +
+      '<div class="m-card-head"><span class="m-avatar ' + avatarClass + '">' + escapeAttr(initial) + '</span>' +
       '<div class="m-card-name">' + escapeAttr(g.key) + '</div>' +
       '<div class="m-card-total">' + fmtCurrency0.format(g.monthly) + '<span>/mo</span></div></div>' +
       '<div class="m-rows">' + g.items.map(function(item, i){ return modernPlainRowHtml(item, g.indices[i], "shared", modernSharedRowOpen, {showClass:true, showDone:true, categories: state.categories, extraSubLine: budgetRowProgressHtml(item)}); }).join("") + '</div>' +
-      '<button type="button" class="m-add-row" data-add="shared:' + escapeAttr(g.key) + '">+ Add expense</button>' +
+      '<button type="button" class="m-add-row" data-add="' + escapeAttr(addValue) + '">+ Add expense</button>' +
     '</div>';
   }).join("") + '</div>';
   injectScenarioOverrideButtons();
@@ -659,6 +696,28 @@ export function renderQuickLogSheet(){
 // default so a real transaction history doesn't turn the Expenses page into a mile-long scroll;
 // "Show all" flips this for the rest of the session, same lifetime as the shares filter/sort.
 export var transactionsShowAll = false;
+// Persisted rather than session-only (see state.js) — so this both writes and re-renders.
+export function setBudgetGroupBy(value){
+  state.budgetGroupBy = value === "category" ? "category" : "type";
+  renderSharedGroups();
+  renderBudgetGroupByToggle();
+  persist();
+}
+export function renderBudgetGroupByToggle(){
+  var el = document.getElementById("budgetGroupBy");
+  if(!el) return;
+  // Hidden until there's a second way to slice the money: with no categories defined, "Group by"
+  // offers a choice between one real grouping and a single "Uncategorised" pile.
+  var anyCategorised = state.shared.some(function(item){ return (item.category || "").trim(); });
+  el.hidden = !anyCategorised;
+  if(!anyCategorised) return;
+  el.innerHTML = '<span class="groupby-label">Group by</span>' +
+    [["type", "Type"], ["category", "Category"]].map(function(pair){
+      var on = (state.budgetGroupBy === "category" ? "category" : "type") === pair[0];
+      return '<button type="button" class="groupby-option' + (on ? " is-selected" : "") + '"' +
+        ' data-budget-groupby="' + pair[0] + '" aria-pressed="' + (on ? "true" : "false") + '">' + pair[1] + '</button>';
+    }).join("");
+}
 export function setTransactionsShowAll(value){
   transactionsShowAll = value;
   renderTransactions();
@@ -1130,20 +1189,6 @@ export function categoryChartHtml(groups, unit, opts){
   }).join("");
   var bar = opts.barless ? "" : '<div class="rule-bar">' + segs + '</div>';
   return '<div class="cat-chart' + (opts.barless ? " cat-chart-compact" : "") + '">' + bar + '<div class="rule-legend">' + legend + '</div></div>';
-}
-// Planned monthly spend per category. Uses the smoothed /mo figure (not budgetCycleFor's per-cycle
-// target) precisely because this is the cross-line comparison the smoothing exists for: putting a
-// quarterly bill's full amount next to a monthly one's would make the quarter's category look four
-// times its real share of the year.
-export function renderBudgetCategoryChart(){
-  var el = document.getElementById("budgetCategoryChart");
-  if(!el) return;
-  var groups = categoryTotals(state.shared, function(item){
-    return Math.round(periodsOf(item.amount, item.freq).monthly * 100) / 100;
-  });
-  var html = categoryChartHtml(groups, "/mo", { barless: true });
-  el.innerHTML = html ? '<div class="cat-chart-title">Planned by category</div>' + html : "";
-  el.hidden = !html;
 }
 // Real spend this month per category, resolved through each transaction's linked budget line —
 // so categorising a line retroactively categorises everything ever logged against it, and a

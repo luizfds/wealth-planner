@@ -31,7 +31,7 @@ import {
   setQuickLogShowAllChips, submitQuickLog, quickLogContextText, quickLog,
   renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, logExpenseTransaction,
   renderCategories, addCategory, deleteCategory, renameCategoryEverywhere,
-  renderBudgetCategoryChart,
+  setBudgetGroupBy, renderBudgetGroupByToggle,
   parseExpensesImportCsv, renderExpensesImportPreview, clearExpensesImportPreview, commitExpensesImport
 } from "./components/expenses.js";
 import {
@@ -1912,13 +1912,17 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   // happens to re-render next. Not renderCategories() itself — that would rebuild the row being
   // typed into and drop the caret.
   function refreshCategoryUi(){
+    renderBudgetGroupByToggle();
     renderSharedGroups();
     renderActualVsPlannedPanel();
   }
-  // Redraws just the Budget tab's chart. Used from the row editor, where a full renderSharedGroups()
-  // would rebuild the very row the <select> being changed lives in — closing the open modal.
+  // Recategorising a line from the row editor can change which groups exist and what the
+  // composition bar shows — but only when the list is grouped by category, and a full
+  // renderSharedGroups() there would rebuild the very row the <select> lives in, closing the open
+  // modal mid-edit. So the list is left alone until the row is closed; the Spending tab's chart
+  // (rendered separately) still updates immediately.
   function patchCategoryCharts(){
-    renderBudgetCategoryChart();
+    renderBudgetGroupByToggle();
   }
 
   wireModernRowToggle("propertiesBody", modernPropRowOpen);
@@ -2026,10 +2030,14 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       persist();
       return;
     }
+    // "sharedcat:<name>" is the same add as "shared:" but presets the category instead of the
+    // classification — what "+ Add expense" on a card means while the list is grouped by category.
+    var addCategory = "";
+    if(section === "sharedcat"){ addCategory = groupValue || ""; section = "shared"; groupValue = null; }
     var arr = getArrayForSection(section);
     if(!arr) return;
     var showClass = section !== "income" && section.indexOf("propinc:") !== 0;
-    var newItem = { what:"New item", classification: showClass ? (groupValue != null ? groupValue : "Needs") : "", account:"", amount:0, freq:"Monthly" };
+    var newItem = { what:"New item", classification: showClass ? (groupValue != null ? groupValue : "Needs") : "", category: addCategory, account:"", amount:0, freq:"Monthly" };
     if(section === "income"){ newItem.person = groupValue != null ? groupValue : ""; newItem.incomeType = "Net"; }
     arr.push(newItem);
     var newIdx = arr.length - 1;
@@ -2372,6 +2380,10 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     onSwipeLeft: function(){ stepAssetsSubpage(1); },
     onSwipeRight: function(){ stepAssetsSubpage(-1); }
   });
+  document.getElementById("budgetGroupBy").addEventListener("click", function(e){
+    var groupByBtn = e.target.closest("[data-budget-groupby]");
+    if(groupByBtn) setBudgetGroupBy(groupByBtn.getAttribute("data-budget-groupby"));
+  });
   document.getElementById("expensesSubnav").addEventListener("click", function(e){
     var expensesSubBtn = e.target.closest("[data-expenses-sub]");
     if(!expensesSubBtn) return;
@@ -2451,6 +2463,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     renderSharedGroups();
     renderAccounts();
     renderCategories();
+    renderBudgetGroupByToggle();
     renderTransactions();
     renderActualVsPlannedPanel();
     renderHomeBody();

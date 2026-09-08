@@ -90,12 +90,21 @@
   .rule-seg.cat-seg{ background: var(--series-color); }
   .rule-swatch.cat-seg{ background: var(--series-color); }
   .cat-chart{ margin-bottom:16px; }
-  /* Legend-only variant (Budget tab): tighter, and the swatches shrink since without a bar above
-     them they're the only colour cue and would otherwise read as the loudest thing in the block. */
-  .cat-chart-compact{ margin-bottom:14px; }
-  .cat-chart-compact .rule-legend{ gap:6px 14px; font-size:11.5px; }
+  /* The Group by control: deliberately quieter than the page-level .subnav pills — it re-slices
+     the list below it rather than navigating anywhere, so it shouldn't compete with the
+     Budget/Spending tabs directly above for "which control moves me somewhere". */
+  .groupby{ display:flex; align-items:center; gap:6px; margin:0 0 12px; }
+  .groupby[hidden]{ display:none; }
+  .groupby-label{ font-size:10px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:700; margin-right:2px; }
+  .groupby-option{
+    all:unset; box-sizing:border-box; cursor:pointer; font-family:inherit; font-size:12px; font-weight:600;
+    padding:5px 11px; border-radius:100px; color: var(--ink-soft); border:1px solid transparent;
+  }
+  .groupby-option:hover{ color: var(--ink); border-color: var(--border); }
+  .groupby-option:focus-visible{ box-shadow: var(--focus-ring); outline:none; }
+  .groupby-option.is-selected{ background: var(--brass-wash); color: var(--brass-strong); }
   .cat-chart-title{ font-size:10px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:700; margin-bottom:7px; }
-  #budgetCategoryChart[hidden], #spendCategoryChart[hidden]{ display:none; }
+  #spendCategoryChart[hidden]{ display:none; }
   .rule-legend{ display:flex; gap:16px; flex-wrap:wrap; font-size:12px; }
   .rule-legend-item{ display:flex; align-items:center; gap:6px; color: var(--ink-soft); }
   .rule-legend b{ color: var(--ink); font-weight:600; font-family:"IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
@@ -253,6 +262,9 @@
   .m-avatar.m-avatar-wants{ background: var(--brass); }
   .m-avatar.m-avatar-savings{ background: var(--good); }
   .m-avatar.m-avatar-na{ background: var(--ink-soft); }
+  /* Grouped by category, a card's avatar takes the same cycling palette slot as its slice in the
+     composition bar above, so the two read as the same thing. */
+  .m-avatar.m-avatar-series{ background: var(--series-color); }
   .m-people{ display:flex; flex-direction:column; gap:14px; }
   /* Income's person cards and Expenses' Needs/Wants cards were a single column at every width,
      so a wide desktop viewport just meant a much longer scroll for no benefit — the cards

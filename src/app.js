@@ -10,7 +10,7 @@ import {
   decryptBackup, doExport, doShare, canShareFiles, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv, exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard,
   exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv, exportAssetsImportTemplateCsv
 } from "./lib/backup.js";
-import { periodsOf, sumField, appendHistorySnapshot } from "./calc/ledger.js";
+import { periodsOf, sumField, appendHistorySnapshot, transactionDisplayName } from "./calc/ledger.js";
 import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax } from "./calc/tax.js";
 import { recalcComputedItems, scenarioTotals, totalNetWorthValue, totalDebtsValue } from "./calc/engine.js";
 import { renderCards, renderDashboardStats, renderDetail, setProjectionReference, logNetWorthSnapshot } from "./components/dashboard.js";
@@ -353,6 +353,25 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     cashFlowEl.classList.toggle("neg", t.netMonthly < 0);
   }
 
+  // Live-refresh the labels of every rendered transaction that takes its display name from a
+  // budget line being renamed — the rows whose own description is blank. Also repoints their
+  // Description placeholder, which shows the same inherited name.
+  function patchLinkedTransactionNames(item){
+    var container = document.getElementById("transactionsTable");
+    if(!container || !item || !item.id) return;
+    container.querySelectorAll(".m-row[data-section='tx']").forEach(function(row){
+      var t = state.transactions[Number(row.getAttribute("data-index"))];
+      if(!t || t.linkedExpenseId !== item.id) return;
+      var whatField = row.querySelector(".tx-what");
+      if(whatField) whatField.placeholder = item.what || "Optional note";
+      if((t.what || "").trim()) return;
+      var nameEl = row.querySelector(".m-row-name");
+      if(nameEl) nameEl.textContent = transactionDisplayName(t, state.shared);
+      var subEl = row.querySelector(".m-row-sub");
+      if(subEl) subEl.innerHTML = transactionSummaryText(t);
+    });
+  }
+
   // ---------------- Event wiring ----------------
   function onLedgerInput(e){
     var tr = e.target.closest("[data-section]");
@@ -406,6 +425,11 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       rerenderTableFor("shared");
     } else if(section === "shared"){
       patchSharedGroupTotals();
+      // A transaction logged against this budget line with no description of its own is listed
+      // under the line's name (transactionDisplayName), so renaming the line has to move those
+      // labels too. Patched in place rather than re-rendering #transactionsTable, since this
+      // fires on every keystroke of the rename.
+      if(e.target.classList.contains("f-what")) patchLinkedTransactionNames(item);
       // Toggling "irregular" moves this item between the regular monthly rows and the
       // year-to-date reserve section below on the same page — worth a live refresh rather than
       // waiting for whatever next unrelated action happens to re-render the panel.
@@ -1418,6 +1442,15 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     var switchingRow = activeModernRow && activeModernRow.key !== key;
     if(switchingRow) closeActiveModernRowUI();
     row.classList.add("open");
+    // .is-entering is what actually carries the slide-in/fade-in animation (see ledger.css) — a
+    // transient marker so a container re-render that recreates an already-open row doesn't replay
+    // the entrance and read as a whole new page opening. The timeout is a fallback for the case
+    // where no animation runs at all (reduced motion, or the row being detached mid-animation),
+    // since animationend would then never fire and the class would stick around for the next open.
+    row.classList.add("is-entering");
+    var clearEntering = function(){ row.classList.remove("is-entering"); };
+    row.addEventListener("animationend", clearEntering, { once: true });
+    setTimeout(clearEntering, 400);
     openState[key] = true;
     activeModernRow = { section: row.getAttribute("data-section"), idx: row.getAttribute("data-index"), openState: openState, key: key };
     document.getElementById("mRowBackdrop").hidden = false;
@@ -1646,7 +1679,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   // a full re-render itself (see below) since a date edit can also re-sort the row's position.
   function patchTransactionRowHeader(row, t){
     var nameEl = row.querySelector(".m-row-name");
-    if(nameEl) nameEl.textContent = t.what || "Transaction";
+    if(nameEl) nameEl.textContent = transactionDisplayName(t, state.shared);
     var subEl = row.querySelector(".m-row-sub");
     if(subEl) subEl.innerHTML = transactionSummaryText(t);
   }
@@ -1670,13 +1703,16 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       t.linkedExpenseId = linkedId;
       // Picking a budget line to log against does most of the work for you, the same way an
       // existing expense row's own "Log a transaction" control already does — but only fills in
-      // fields the user hasn't touched yet (still blank/zero), never overwriting something
-      // they've already typed.
+      // fields the user hasn't touched yet (still zero), never overwriting something they've
+      // already typed. Description is deliberately *not* auto-filled: it's optional, and a blank
+      // one already displays as the linked line's name (transactionDisplayName), so copying the
+      // text in would only create a duplicate that goes stale when the line is renamed. The
+      // placeholder is repointed instead, so the field still shows what it'll be listed as.
       if(linkedId){
         var linkedItem = state.shared.find(function(i){ return i.id === linkedId; });
         if(linkedItem && txRow){
           var whatField = txRow.querySelector(".tx-what");
-          if(whatField && !whatField.value.trim()){ whatField.value = linkedItem.what; t.what = linkedItem.what; }
+          if(whatField) whatField.placeholder = linkedItem.what || "Optional note";
           var amtField = txRow.querySelector(".tx-amount");
           if(amtField && (parseFloat(amtField.value) || 0) === 0){
             amtField.value = linkedItem.amount;
@@ -1685,6 +1721,9 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
             if(totalEl2) totalEl2.textContent = fmtCurrency0.format(state.transactions.reduce(function(s, x){ return s + (Number(x.amount) || 0); }, 0));
           }
         }
+      } else if(txRow){
+        var whatFieldOff = txRow.querySelector(".tx-what");
+        if(whatFieldOff) whatFieldOff.placeholder = "Optional note";
       }
       if(txRow) patchTransactionRowHeader(txRow, t);
     }

@@ -65,3 +65,14 @@ test("searchApp covers income, debts and accounts too", function(){
     assert.equal(searchApp("everyday")[0].page, "accounts");
   });
 });
+
+test("searchApp finds a description-less transaction by its linked budget line's name", function(){
+  withState({
+    shared: [{ id: "s1", what: "Groceries", amount: 200, freq: "Monthly" }],
+    transactions: [{ id: "t1", date: "2026-03-04", amount: 87.4, what: "", linkedExpenseId: "s1" }]
+  }, function(){
+    var hit = searchApp("grocer").find(function(r){ return r.type === "Transaction"; });
+    assert.ok(hit, "a transaction with no description of its own should still match its budget line's name");
+    assert.equal(hit.label, "Groceries");
+  });
+});

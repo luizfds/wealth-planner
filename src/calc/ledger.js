@@ -126,6 +126,19 @@ export function lastTransactionDateFor(transactions, expenseId){
   });
   return latest;
 }
+// The one place that decides what a transaction is *called* anywhere it's listed (its own row,
+// a budget line's drill-down, search results). A transaction's own description wins when it has
+// one, but descriptions are optional — most spend logged against a budget line needs no extra
+// label — so a linked transaction falls back to that line's current name rather than showing a
+// bare "Transaction". Reading the name through the link, rather than snapshotting it at log
+// time, also means renaming a budget line renames its whole logged history with it.
+export function transactionDisplayName(t, sharedList){
+  var own = (t.what || "").trim();
+  if(own) return own;
+  var linked = t.linkedExpenseId && (sharedList || []).find(function(i){ return i.id === t.linkedExpenseId; });
+  if(linked && linked.what) return linked.what;
+  return "Transaction";
+}
 // Real, dated spend events (state.transactions[]) filtered to one calendar month — defaults to
 // the current month so the "actual vs planned" panel means "this month" without the caller
 // having to know today's date itself.

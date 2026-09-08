@@ -1,6 +1,6 @@
 import { state, persist, genId } from "../state.js";
 import { CLASSES, FREQS } from "../constants.js";
-import { sumField, resolveSharedAmount, periodsOf, transactionsInMonth, transactionsInYear, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, isOverdue, daysUntil, lastTransactionDateFor } from "../calc/ledger.js";
+import { sumField, resolveSharedAmount, periodsOf, transactionDisplayName, transactionsInMonth, transactionsInYear, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, isOverdue, daysUntil, lastTransactionDateFor } from "../calc/ledger.js";
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
@@ -452,11 +452,15 @@ function transactionAccountOptionsHtml(selected){
 // Deliberately leaves item.amount/freq untouched: the planned budget doesn't move just because
 // this instance's actual spend differs from it.
 export function logExpenseTransaction(item, amount, dateStr){
+  // what stays empty on purpose: a linked transaction already shows its budget line's name
+  // through transactionDisplayName(), so copying it in would just be a stale duplicate the
+  // moment the budget line is renamed. The description field is there for the times the extra
+  // detail actually matters ("Miscellaneous" → "new kettle"), not as a required label.
   var t = {
     id: genId("t"),
     date: dateStr || localDateStr(),
     amount: Number(amount) || 0,
-    what: item.what,
+    what: "",
     linkedExpenseId: item.id,
     account: item.account || ""
   };
@@ -486,14 +490,21 @@ export function transactionSummaryText(t){
   if(acct) bits.push(acct);
   return bits.map(escapeAttr).join(" · ");
 }
+// The Description placeholder doubles as the "you don't have to fill this in" hint: for a linked
+// transaction it shows the name it will be listed under if left blank, so the field reads as a
+// refinement of an already-complete entry rather than a blank required box.
+function transactionDescriptionPlaceholder(t){
+  var linked = t.linkedExpenseId && state.shared.find(function(i){ return i.id === t.linkedExpenseId; });
+  return linked && linked.what ? linked.what : "Optional note";
+}
 function transactionRowHtml(t, idx){
   var dateInput = '<input type="date" class="tx-date" data-tx-index="' + idx + '" value="' + escapeAttr(t.date || "") + '" aria-label="Date">';
-  var whatInput = '<input type="text" class="tx-what" data-tx-index="' + idx + '" value="' + escapeAttr(t.what || "") + '" placeholder="Description" aria-label="Description">';
+  var whatInput = '<input type="text" class="tx-what" data-tx-index="' + idx + '" value="' + escapeAttr(t.what || "") + '" placeholder="' + escapeAttr(transactionDescriptionPlaceholder(t)) + '" aria-label="Description (optional)" title="Optional — only worth filling in when the budget line\'s own name doesn\'t say enough (e.g. what the Miscellaneous spend actually was)">';
   var amountInput = '<input type="number" step="0.01" min="0" class="tx-amount" data-tx-index="' + idx + '" value="' + t.amount + '" aria-label="Amount">';
   var linkSelect = '<select class="tx-link" data-tx-index="' + idx + '" aria-label="Linked expense" title="Pick a budget line to log this transaction against — fills in its description and amount for you, or leave it as One-off for spend that has no matching budget line">' + transactionLinkOptionsHtml(t.linkedExpenseId) + '</select>';
   var acctSelect = '<select class="tx-account" data-tx-index="' + idx + '" aria-label="Account">' + transactionAccountOptionsHtml(t.account || "") + '</select>';
   var summary = modernRowSummaryHtml({
-    name: t.what || "Transaction",
+    name: transactionDisplayName(t, state.shared),
     subLines: [transactionSummaryText(t)],
     amountHtml: fmtCurrency2.format(Number(t.amount) || 0)
   });
@@ -504,7 +515,7 @@ function transactionRowHtml(t, idx){
   // with no obvious way to connect it to a budget line at all.
   var fieldsHtml =
     '<div class="m-edit-field span3"><label>Linked to</label>' + linkSelect + '</div>' +
-    '<div class="m-edit-field span3"><label>Description</label>' + whatInput + '</div>' +
+    '<div class="m-edit-field span3"><label>Description <span class="label-optional">(optional)</span></label>' + whatInput + '</div>' +
     '<div class="m-edit-field"><label>Amount</label>' + amountInput + '</div>' +
     '<div class="m-edit-field"><label>Date</label>' + dateInput + '</div>' +
     '<div class="m-edit-field"><label>Account</label>' + acctSelect + '</div>';
@@ -596,7 +607,7 @@ function budgetRowTxnListHtml(pairs){
   var rows = pairs.map(function(pair){
     return '<div class="budget-row-txn">' +
       '<span class="budget-row-txn-date">' + escapeAttr(pair.t.date || "") + '</span>' +
-      '<span class="budget-row-txn-what" title="' + escapeAttr(pair.t.what || "") + '">' + escapeAttr(pair.t.what || "Transaction") + '</span>' +
+      '<span class="budget-row-txn-what" title="' + escapeAttr(transactionDisplayName(pair.t, state.shared)) + '">' + escapeAttr(transactionDisplayName(pair.t, state.shared)) + '</span>' +
       '<span class="budget-row-txn-amt">' + fmtCurrency2.format(Number(pair.t.amount) || 0) + '</span>' +
       '<button type="button" class="btn btn-ghost btn-sm row-del" data-tx-del="' + pair.i + '" aria-label="Delete transaction">✕</button>' +
     '</div>';

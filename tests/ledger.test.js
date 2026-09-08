@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, isOverdue, daysUntil, appendHistorySnapshot, transactionsInMonth, transactionsInYear, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, lastTransactionDateFor, lastKnownDateFor, resolvedDueMonth } from "../src/calc/ledger.js";
+import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, isOverdue, daysUntil, appendHistorySnapshot, transactionsInMonth, transactionsInYear, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, lastTransactionDateFor, transactionDisplayName, lastKnownDateFor, resolvedDueMonth } from "../src/calc/ledger.js";
 
 test("toWeekly converts every frequency to a weekly figure", function(){
   assert.equal(toWeekly(100, "Weekly"), 100);
@@ -208,6 +208,22 @@ test("lastTransactionDateFor returns the most recent date linked to an expense i
   assert.equal(lastTransactionDateFor(txns, "exp1"), "2026-03-01");
   assert.equal(lastTransactionDateFor(txns, "exp2"), "2026-02-01");
   assert.equal(lastTransactionDateFor(txns, "exp3"), null);
+});
+
+test("transactionDisplayName prefers its own description, then the linked budget line's name", function(){
+  var shared = [{ id: "exp1", what: "Groceries" }, { id: "exp2", what: "" }];
+  // Its own description always wins, linked or not.
+  assert.equal(transactionDisplayName({ what: "Woolies run", linkedExpenseId: "exp1" }, shared), "Woolies run");
+  assert.equal(transactionDisplayName({ what: "Coffee", linkedExpenseId: null }, shared), "Coffee");
+  // Blank/whitespace-only description falls back to the linked line's current name.
+  assert.equal(transactionDisplayName({ what: "", linkedExpenseId: "exp1" }, shared), "Groceries");
+  assert.equal(transactionDisplayName({ what: "   ", linkedExpenseId: "exp1" }, shared), "Groceries");
+  assert.equal(transactionDisplayName({ linkedExpenseId: "exp1" }, shared), "Groceries");
+  // Nothing to fall back to: unlinked, a dangling link, or a nameless budget line.
+  assert.equal(transactionDisplayName({ what: "", linkedExpenseId: null }, shared), "Transaction");
+  assert.equal(transactionDisplayName({ what: "", linkedExpenseId: "gone" }, shared), "Transaction");
+  assert.equal(transactionDisplayName({ what: "", linkedExpenseId: "exp2" }, shared), "Transaction");
+  assert.equal(transactionDisplayName({ what: "", linkedExpenseId: "exp1" }, undefined), "Transaction");
 });
 
 test("currentStatementCycle returns the cycle containing today, straddling a month boundary", function(){

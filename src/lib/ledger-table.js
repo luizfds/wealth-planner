@@ -10,19 +10,16 @@ function todayStr(){ return localDateStr(); }
 // than a prompt/modal so it fits this app's established inline-editing style; the click handler
 // reads it directly off the row rather than threading it through here.
 //
-// asTransaction (shared expenses only) changes what "Log" means: instead of snapshotting the
-// row's own Amount field into item.history, it adds an editable-amount entry to
-// state.transactions[] linked to this item, leaving the row's Amount/Frequency alone as the
-// untouched planned budget. Needs its own amount input since the two numbers can now genuinely
-// differ (e.g. logging $187 of actual groceries against a $150 planned line).
-export function logControlsHtml(section, idx, item, asTransaction){
-  var amountField = asTransaction
-    ? '<input type="number" step="0.01" min="0" class="log-amount" value="' + item.amount + '" aria-label="Amount actually spent" title="Amount actually spent — defaults to the planned amount, edit if it differs">'
-    : "";
-  return amountField +
-    '<input type="date" class="log-date" value="' + todayStr() + '" aria-label="Date to log this' + (asTransaction ? " transaction" : " amount") + ' under" title="Date to log this under — defaults to today, can be backdated">' +
-    '<button type="button" class="asset-log-btn" data-log="' + escapeAttr(section) + ':' + idx + '"' + (asTransaction ? ' data-log-tx="1"' : '') +
-      ' title="' + (asTransaction ? "Record this as a transaction against this budget line" : "Snapshot the amount above under the date to the left") + '">Log</button>';
+// "Log" here always means the same thing: snapshot this row's own current Amount into
+// item.history under a date, which is what the value-tracking rows (assets, debts, income,
+// property income/expenses) need. Shared expenses used to reuse this control for something
+// materially different — recording an actual, editable spend amount against a planned budget
+// line — which is now the quick-log sheet's job (expenses.js), where amount comes first and the
+// budget line is picked from chips instead of being fixed by whichever row you happened to open.
+export function logControlsHtml(section, idx, item){
+  return '<input type="date" class="log-date" value="' + todayStr() + '" aria-label="Date to log this amount under" title="Date to log this under — defaults to today, can be backdated">' +
+    '<button type="button" class="asset-log-btn" data-log="' + escapeAttr(section) + ':' + idx + '"' +
+      ' title="Snapshot the amount above under the date to the left">Log</button>';
 }
 
 // Shared by every "Log"-able row (assets, properties, debts, income, shared expenses) — a small
@@ -125,12 +122,16 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
   opts = opts || {};
   var isComputed = !!item.computed;
   var monthly = periodsOf(item.amount, item.freq).monthly;
-  var trendHtml = (opts.showLog && !opts.logAsTransaction && !isComputed) ? historyTrendHtml(item) : "";
+  var trendHtml = (opts.showLog && !isComputed) ? historyTrendHtml(item) : "";
   var summary = modernRowSummaryHtml({
     computed: isComputed,
     colorIdx: opts.colorIdx,
     name: item.what,
-    subLines: [isComputed && item.computedNote ? escapeAttr(item.computedNote) : "", trendHtml],
+    // extraSubLine is caller-built HTML (already escaped by the caller, same contract as every
+    // other subLines entry) — Expenses uses it for each budget line's own spent-this-month
+    // progress bar, so the planned figure and what's actually gone against it read together in
+    // the list rather than in a second, parallel list further down the page.
+    subLines: [isComputed && item.computedNote ? escapeAttr(item.computedNote) : "", trendHtml, opts.extraSubLine || ""],
     amountHtml: fmtCurrency2.format(monthly) + "/mo"
   });
   if(isComputed){
@@ -146,7 +147,7 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
   // at narrow widths (they'd wrap onto separate lines) — span2 fits them on one line and, for
   // every current caller, exactly fills out the row alongside whatever's next to it.
   var logField = opts.showLog
-    ? '<div class="m-edit-field' + (opts.logAsTransaction ? " span3" : " span2") + '"><label>' + (opts.logAsTransaction ? "Log a transaction" : "Log") + '</label>' + logControlsHtml(section, idx, item, opts.logAsTransaction) + '</div>'
+    ? '<div class="m-edit-field span2"><label>Log</label>' + logControlsHtml(section, idx, item) + '</div>'
     : "";
   var fieldsHtml =
     '<div class="m-edit-field span3"><label>What</label><input type="text" class="f-what" value="' + escapeAttr(item.what) + '" aria-label="Item name"></div>' +
@@ -156,12 +157,14 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
     accountField +
     logField;
   var moreOptionsHtml = '<details class="row-more-options"><summary>More options</summary><div class="m-edit-grid" style="margin-top:8px">' + timingFieldsHtml(item) + '</div></details>';
-  // A visible "Done" — every field here already saves itself as you type, same as any other row
-  // in the app, but a raw transaction/log entry reads more like a deliberate, dated action than a
-  // setting you tweak, so its own row gets an explicit confirm button the generic ones don't.
+  // A visible "Done" (opts.showDone) — every field here already saves itself as you type, same as
+  // any other row in the app, but on a full-screen mobile row editor there's otherwise nothing
+  // that reads as "I'm finished, put this away" except the ✕ in the header, which reads more like
+  // discard than save. Opt-in per caller rather than always-on, since a row that lives inside a
+  // panel the user is already scanning doesn't need the extra button.
   // data-row-toggle re-uses wireModernRowToggle's existing "tap anything so-marked closes an open
   // row" handling — no separate click wiring needed for this to actually close the row.
-  var doneButtonHtml = opts.logAsTransaction ? '<button type="button" class="btn btn-primary btn-sm" data-row-toggle>Done</button>' : '';
+  var doneButtonHtml = opts.showDone ? '<button type="button" class="btn btn-primary btn-sm" data-row-toggle>Done</button>' : '';
   var actionsHtml = doneButtonHtml + '<button type="button" class="btn btn-ghost btn-sm row-del" data-del="' + escapeAttr(section) + ':' + idx + '">Delete</button>';
   var edit = modernRowEditHtml(fieldsHtml, actionsHtml, moreOptionsHtml);
   return modernRowShellHtml(section, idx, openState, summary, edit, { primary: opts.primaryId && item.id === opts.primaryId });

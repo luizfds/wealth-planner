@@ -90,6 +90,13 @@ commit and a matching git tag:
 Do this for every shipped change, without being asked. This is a strong, explicit standing
 preference — not optional polish.
 
+## Always open a pull request for shipped work
+
+Pushing the branch is not the end of the job. Once a piece of work is complete and pushed, open a
+pull request for it without being asked — same standing-preference weight as the version rule
+above. One PR per coherent piece of work, covering however many increments it took; don't leave
+finished commits sitting on a branch with no PR, and don't wait to be prompted.
+
 ## Running it locally
 
 ```

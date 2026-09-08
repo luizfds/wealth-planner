@@ -1,5 +1,6 @@
 import { state } from "../state.js";
 import { fmtCurrency0 } from "./format.js";
+import { transactionDisplayName } from "../calc/ledger.js";
 
 // Cross-page search over the app's main named records. Nothing here is indexed/cached — every
 // call rebuilds the list fresh from `state`, which is fine at the sizes this app deals with (a
@@ -28,7 +29,9 @@ export function searchApp(query){
     add("Expense", item.what, fmtCurrency0.format(Number(item.amount) || 0) + " " + (item.freq || "").toLowerCase(), "expenses");
   });
   (state.transactions || []).forEach(function(t){
-    add("Transaction", t.what || "Transaction", (t.date || "") + " · " + fmtCurrency0.format(Number(t.amount) || 0), "expenses");
+    // Indexed by its display name, not t.what: a transaction logged against "Groceries" with no
+    // description of its own is still expected to turn up when you search "groceries".
+    add("Transaction", transactionDisplayName(t, state.shared), (t.date || "") + " · " + fmtCurrency0.format(Number(t.amount) || 0), "expenses");
   });
   (state.income || []).forEach(function(i){
     add("Income", i.what, (i.person ? i.person + " · " : "") + fmtCurrency0.format(Number(i.amount) || 0) + " " + (i.freq || "").toLowerCase(), "income");

@@ -10,7 +10,7 @@ import {
   decryptBackup, doExport, doShare, canShareFiles, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv, exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard,
   exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv, exportAssetsImportTemplateCsv
 } from "./lib/backup.js";
-import { periodsOf, sumField, appendHistorySnapshot } from "./calc/ledger.js";
+import { periodsOf, sumField, appendHistorySnapshot, transactionDisplayName } from "./calc/ledger.js";
 import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax } from "./calc/tax.js";
 import { recalcComputedItems, scenarioTotals, totalNetWorthValue, totalDebtsValue } from "./calc/engine.js";
 import { renderCards, renderDashboardStats, renderDetail, setProjectionReference, logNetWorthSnapshot } from "./components/dashboard.js";
@@ -27,6 +27,8 @@ import {
   logCurrentReviewCard, skipCurrentReviewCard, expenseReview,
   renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel,
   setTransactionsShowAll, modernTransactionRowOpen, budgetRowTxnsOpen, transactionSummaryText,
+  openQuickLog, closeQuickLog, setQuickLogLink, setQuickLogDateOpen,
+  setQuickLogShowAllChips, submitQuickLog, quickLogContextText, quickLog,
   renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, logExpenseTransaction,
   parseExpensesImportCsv, renderExpensesImportPreview, clearExpensesImportPreview, commitExpensesImport
 } from "./components/expenses.js";
@@ -46,7 +48,7 @@ import {
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
   patchCalcOutputs, afterCalcChange, patchInvestOutputs
 } from "./components/scenarios.js";
-import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, PAGE_KEY } from "./components/nav.js";
+import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, PAGE_KEY } from "./components/nav.js";
 import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./components/search.js";
 
 (function(){
@@ -353,6 +355,25 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     cashFlowEl.classList.toggle("neg", t.netMonthly < 0);
   }
 
+  // Live-refresh the labels of every rendered transaction that takes its display name from a
+  // budget line being renamed — the rows whose own description is blank. Also repoints their
+  // Description placeholder, which shows the same inherited name.
+  function patchLinkedTransactionNames(item){
+    var container = document.getElementById("transactionsTable");
+    if(!container || !item || !item.id) return;
+    container.querySelectorAll(".m-row[data-section='tx']").forEach(function(row){
+      var t = state.transactions[Number(row.getAttribute("data-index"))];
+      if(!t || t.linkedExpenseId !== item.id) return;
+      var whatField = row.querySelector(".tx-what");
+      if(whatField) whatField.placeholder = item.what || "Optional note";
+      if((t.what || "").trim()) return;
+      var nameEl = row.querySelector(".m-row-name");
+      if(nameEl) nameEl.textContent = transactionDisplayName(t, state.shared);
+      var subEl = row.querySelector(".m-row-sub");
+      if(subEl) subEl.innerHTML = transactionSummaryText(t);
+    });
+  }
+
   // ---------------- Event wiring ----------------
   function onLedgerInput(e){
     var tr = e.target.closest("[data-section]");
@@ -406,6 +427,11 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       rerenderTableFor("shared");
     } else if(section === "shared"){
       patchSharedGroupTotals();
+      // A transaction logged against this budget line with no description of its own is listed
+      // under the line's name (transactionDisplayName), so renaming the line has to move those
+      // labels too. Patched in place rather than re-rendering #transactionsTable, since this
+      // fires on every keystroke of the rename.
+      if(e.target.classList.contains("f-what")) patchLinkedTransactionNames(item);
       // Toggling "irregular" moves this item between the regular monthly rows and the
       // year-to-date reserve section below on the same page — worth a live refresh rather than
       // waiting for whatever next unrelated action happens to re-render the panel.
@@ -467,26 +493,12 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       if(litem){
         var dateInput = logBtn2.previousElementSibling;
         var logDate = (dateInput && dateInput.classList.contains("log-date") && dateInput.value) || undefined;
-        if(logBtn2.hasAttribute("data-log-tx")){
-          // Shared expenses: "Log" records a transaction against this budget line instead of a
-          // value snapshot — the plan (amount/freq) itself is untouched. See
-          // logExpenseTransaction() in expenses.js for why.
-          var amountInput = dateInput && dateInput.previousElementSibling;
-          var logAmount = (amountInput && amountInput.classList.contains("log-amount")) ? (parseFloat(amountInput.value) || 0) : (Number(litem.amount) || 0);
-          var tx = logExpenseTransaction(litem, logAmount, logDate);
-          rerenderTableFor(lsection);
-          renderTransactions();
-          renderActualVsPlannedPanel();
-          persist();
-          showToast("Logged " + fmtCurrency0.format(logAmount) + " against " + litem.what + " (" + tx.date + ")");
-        } else {
-          if(!Array.isArray(litem.history)) litem.history = [];
-          var ldate = appendHistorySnapshot(litem.history, Number(litem.amount) || 0, logDate);
-          rerenderTableFor(lsection);
-          renderProjectionOutputs();
-          persist();
-          showToast("Logged " + fmtCurrency0.format(Number(litem.amount) || 0) + " for " + litem.what + " (" + ldate + ")");
-        }
+        if(!Array.isArray(litem.history)) litem.history = [];
+        var ldate = appendHistorySnapshot(litem.history, Number(litem.amount) || 0, logDate);
+        rerenderTableFor(lsection);
+        renderProjectionOutputs();
+        persist();
+        showToast("Logged " + fmtCurrency0.format(Number(litem.amount) || 0) + " for " + litem.what + " (" + ldate + ")");
       }
       return;
     }
@@ -1418,6 +1430,15 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     var switchingRow = activeModernRow && activeModernRow.key !== key;
     if(switchingRow) closeActiveModernRowUI();
     row.classList.add("open");
+    // .is-entering is what actually carries the slide-in/fade-in animation (see ledger.css) — a
+    // transient marker so a container re-render that recreates an already-open row doesn't replay
+    // the entrance and read as a whole new page opening. The timeout is a fallback for the case
+    // where no animation runs at all (reduced motion, or the row being detached mid-animation),
+    // since animationend would then never fire and the class would stick around for the next open.
+    row.classList.add("is-entering");
+    var clearEntering = function(){ row.classList.remove("is-entering"); };
+    row.addEventListener("animationend", clearEntering, { once: true });
+    setTimeout(clearEntering, 400);
     openState[key] = true;
     activeModernRow = { section: row.getAttribute("data-section"), idx: row.getAttribute("data-index"), openState: openState, key: key };
     document.getElementById("mRowBackdrop").hidden = false;
@@ -1563,6 +1584,95 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     onSwipeRight: performReviewLog
   });
 
+  // ---------------- Quick log ----------------
+  // The everyday "I just spent money" path — the Expenses page's primary action and what the
+  // mobile quick-action fab points at there. Deliberately a thin controller: expenses.js owns the
+  // sheet's markup and session state, this owns the DOM events and the cross-cutting refresh.
+  function openQuickLogSheet(){
+    openQuickLog();
+    if(document.querySelector("[data-qlog-backdrop]")) pushActiveOverlay(closeQuickLog);
+  }
+  // Chip changes and expanding the date row re-render the sheet, which would otherwise discard
+  // whatever's already been typed into the amount/note. Read them out first, put them back after.
+  function rerenderQuickLogPreservingInput(apply){
+    var amountEl = document.getElementById("quickLogAmount");
+    var noteEl = document.getElementById("quickLogNote");
+    var amount = amountEl ? amountEl.value : "";
+    var note = noteEl ? noteEl.value : "";
+    apply();
+    var newAmount = document.getElementById("quickLogAmount");
+    var newNote = document.getElementById("quickLogNote");
+    if(newAmount) newAmount.value = amount;
+    if(newNote) newNote.value = note;
+  }
+  function performQuickLog(){
+    var amountEl = document.getElementById("quickLogAmount");
+    var noteEl = document.getElementById("quickLogNote");
+    var dateEl = document.getElementById("quickLogDate");
+    var amount = amountEl ? (parseFloat(amountEl.value) || 0) : 0;
+    // A zero/blank amount is the one thing this sheet genuinely can't infer, so it's the only
+    // thing it refuses — everything else has a sensible default (today, One-off, no note).
+    if(amount <= 0){
+      showToast("Enter an amount first.");
+      if(amountEl) amountEl.focus();
+      return;
+    }
+    var t = submitQuickLog(amount, noteEl ? noteEl.value : "", dateEl && dateEl.value ? dateEl.value : undefined);
+    if(!t) return;
+    requestCloseActiveOverlay();
+    refreshAfterLedgerChange("shared");
+    renderTransactions();
+    // The whole point of logging is watching this move — refreshAfterLedgerChange only covers the
+    // planned-budget side, so the actual-vs-planned bars need their own refresh to include the
+    // transaction that was just recorded.
+    renderActualVsPlannedPanel();
+    showToast("Logged " + fmtCurrency2.format(t.amount) + " to " + transactionDisplayName(t, state.shared));
+  }
+  var quickLogBtn = document.getElementById("quickLogBtn");
+  if(quickLogBtn) quickLogBtn.addEventListener("click", openQuickLogSheet);
+  document.getElementById("quickLogRoot").addEventListener("click", function(e){
+    if(e.target.closest("[data-qlog-close]") || e.target === e.target.closest("[data-qlog-backdrop]")){
+      requestCloseActiveOverlay();
+      return;
+    }
+    var chip = e.target.closest("[data-qlog-chip]");
+    if(chip){
+      // Patched in place rather than re-rendered: the whole point of picking the line after
+      // typing the amount is that changing your mind costs nothing, and a re-render here would
+      // drop the caret out of a field the user may still be editing.
+      setQuickLogLink(chip.getAttribute("data-qlog-chip"));
+      document.querySelectorAll("[data-qlog-chip]").forEach(function(el){
+        var on = el.getAttribute("data-qlog-chip") === (quickLog.linkedId || "");
+        el.classList.toggle("is-selected", on);
+        el.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      var linked = quickLog.linkedId && state.shared.find(function(i){ return i.id === quickLog.linkedId; });
+      var ctx = document.querySelector(".qlog-context");
+      if(ctx) ctx.textContent = quickLogContextText(linked);
+      var noteEl = document.getElementById("quickLogNote");
+      if(noteEl) noteEl.placeholder = linked ? "Note (optional)" : "What was it? (optional)";
+      return;
+    }
+    if(e.target.closest("[data-qlog-more]")){
+      rerenderQuickLogPreservingInput(function(){ setQuickLogShowAllChips(true); });
+      return;
+    }
+    if(e.target.closest("[data-qlog-date-open]")){
+      rerenderQuickLogPreservingInput(function(){ setQuickLogDateOpen(true); });
+      return;
+    }
+    if(e.target.closest("[data-qlog-submit]")){ performQuickLog(); return; }
+  });
+  // Enter anywhere in the sheet logs it — on a phone that's the keyboard's own "go" key, so the
+  // whole flow can be amount, chip, go without ever reaching for the button.
+  document.getElementById("quickLogRoot").addEventListener("keydown", function(e){
+    if(e.key === "Enter"){ e.preventDefault(); performQuickLog(); }
+  });
+  document.addEventListener("keydown", function(e){
+    if(e.key !== "Escape") return;
+    if(document.querySelector("[data-qlog-backdrop]")) requestCloseActiveOverlay();
+  });
+
   // ---------------- Cross-page search ----------------
   function openSearchOverlay(){
     openSearch();
@@ -1646,7 +1756,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   // a full re-render itself (see below) since a date edit can also re-sort the row's position.
   function patchTransactionRowHeader(row, t){
     var nameEl = row.querySelector(".m-row-name");
-    if(nameEl) nameEl.textContent = t.what || "Transaction";
+    if(nameEl) nameEl.textContent = transactionDisplayName(t, state.shared);
     var subEl = row.querySelector(".m-row-sub");
     if(subEl) subEl.innerHTML = transactionSummaryText(t);
   }
@@ -1670,13 +1780,16 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       t.linkedExpenseId = linkedId;
       // Picking a budget line to log against does most of the work for you, the same way an
       // existing expense row's own "Log a transaction" control already does — but only fills in
-      // fields the user hasn't touched yet (still blank/zero), never overwriting something
-      // they've already typed.
+      // fields the user hasn't touched yet (still zero), never overwriting something they've
+      // already typed. Description is deliberately *not* auto-filled: it's optional, and a blank
+      // one already displays as the linked line's name (transactionDisplayName), so copying the
+      // text in would only create a duplicate that goes stale when the line is renamed. The
+      // placeholder is repointed instead, so the field still shows what it'll be listed as.
       if(linkedId){
         var linkedItem = state.shared.find(function(i){ return i.id === linkedId; });
         if(linkedItem && txRow){
           var whatField = txRow.querySelector(".tx-what");
-          if(whatField && !whatField.value.trim()){ whatField.value = linkedItem.what; t.what = linkedItem.what; }
+          if(whatField) whatField.placeholder = linkedItem.what || "Optional note";
           var amtField = txRow.querySelector(".tx-amount");
           if(amtField && (parseFloat(amtField.value) || 0) === 0){
             amtField.value = linkedItem.amount;
@@ -1685,6 +1798,9 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
             if(totalEl2) totalEl2.textContent = fmtCurrency0.format(state.transactions.reduce(function(s, x){ return s + (Number(x.amount) || 0); }, 0));
           }
         }
+      } else if(txRow){
+        var whatFieldOff = txRow.querySelector(".tx-what");
+        if(whatFieldOff) whatFieldOff.placeholder = "Optional note";
       }
       if(txRow) patchTransactionRowHeader(txRow, t);
     }
@@ -2140,6 +2256,26 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     onSwipeLeft: function(){ stepAssetsSubpage(1); },
     onSwipeRight: function(){ stepAssetsSubpage(-1); }
   });
+  document.getElementById("expensesSubnav").addEventListener("click", function(e){
+    var expensesSubBtn = e.target.closest("[data-expenses-sub]");
+    if(!expensesSubBtn) return;
+    showExpensesSubpage(expensesSubBtn.getAttribute("data-expenses-sub"));
+  });
+  // Same swipe-between-tabs affordance as Assets above, and same mobile-only guard: two tabs, so
+  // a swipe simply stops at either end rather than wrapping.
+  var EXPENSES_SUB_ORDER = ["budget", "spending"];
+  function stepExpensesSubpage(step){
+    if(!window.matchMedia("(max-width: 880px)").matches) return;
+    var activeExpensesBtn = document.querySelector("#expensesSubnav .subnav-item.active");
+    var currentExpensesTab = activeExpensesBtn ? activeExpensesBtn.getAttribute("data-expenses-sub") : "budget";
+    var nextExpensesIndex = EXPENSES_SUB_ORDER.indexOf(currentExpensesTab) + step;
+    if(nextExpensesIndex < 0 || nextExpensesIndex >= EXPENSES_SUB_ORDER.length) return;
+    showExpensesSubpage(EXPENSES_SUB_ORDER[nextExpensesIndex]);
+  }
+  onHorizontalSwipe(document.getElementById("page-expenses"), {
+    onSwipeLeft: function(){ stepExpensesSubpage(1); },
+    onSwipeRight: function(){ stepExpensesSubpage(-1); }
+  });
 
 
   // A fresh load of a deep link (e.g. /wealth-planner/assets/shares) has no matching file
@@ -2156,9 +2292,11 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   var routeFromUrl = parseRouteFromLocation();
   var initialPage = "dashboard";
   var initialAssetsSub = "summary";
+  var initialExpensesSub = "budget";
   if(routeFromUrl){
     initialPage = routeFromUrl.page;
-    if(routeFromUrl.sub) initialAssetsSub = routeFromUrl.sub;
+    if(routeFromUrl.sub && routeFromUrl.page === "assets") initialAssetsSub = routeFromUrl.sub;
+    if(routeFromUrl.sub && routeFromUrl.page === "expenses") initialExpensesSub = routeFromUrl.sub;
   } else {
     try{ initialPage = localStorage.getItem(PAGE_KEY) || "dashboard"; }catch(e){}
   }
@@ -2178,6 +2316,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     var route = parseRouteFromLocation() || { page: "dashboard", sub: null };
     showPage(route.page, { skipUrl: true });
     if(route.page === "assets") showAssetsSubpage(route.sub || "summary", { skipUrl: true });
+    if(route.page === "expenses") showExpensesSubpage(route.sub || "budget", { skipUrl: true });
   });
 
   function renderAll(){
@@ -2245,6 +2384,10 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   initTableScrollShadows();
   showPage(initialPage, { replace: true, skipScroll: true });
   if(initialPage === "assets") showAssetsSubpage(initialAssetsSub, { replace: true });
+  // Always applied, not just when landing on Expenses: showExpensesSubpage seeds the module's
+  // currentExpensesSub, which buildRoutePath needs to be correct the first time the user
+  // navigates *to* Expenses from somewhere else.
+  showExpensesSubpage(initialExpensesSub, { skipUrl: initialPage !== "expenses", replace: true });
 
   // onboarding.html's "Try it with sample data" link lands here with ?mock=1 — generate it
   // immediately (no confirm needed, unlike the header's own Sample data button: there's nothing

@@ -14,23 +14,29 @@ var PAGES = [
 ];
 export var PAGE_KEY = "wealthPlanner.page";
 
-// Shareable URLs: /<page>[/<assets-subpage>], e.g. /assets/shares. GitHub Pages serves
-// this project under a fixed /wealth-planner base; local dev (python http.server, etc.)
+// Shareable URLs: /<page>[/<subpage>], e.g. /assets/shares or /expenses/spending. GitHub Pages
+// serves this project under a fixed /wealth-planner base; local dev (python http.server, etc.)
 // serves it from root — no generic base-path detection needed for a single-repo app.
 var BASE_PATH = location.hostname.indexOf("github.io") !== -1 ? "/wealth-planner" : "";
 var ASSETS_SUB_TO_SLUG = { summary: "summary", Cash: "cash", Shares: "shares", Super: "super", Vehicle: "vehicle", Other: "other" };
 var SLUG_TO_ASSETS_SUB = { summary: "summary", cash: "Cash", shares: "Shares", super: "Super", vehicle: "Vehicle", other: "Other" };
 var currentAssetsSub = "summary";
+// Expenses' own two halves — the planned budget and the real spend logged against it. Unlike
+// Assets' categories (whose ids are the user-facing category names and so need a slug map), these
+// are already lowercase route slugs, so they double as their own DOM ids and URL segments.
+var EXPENSES_SUBS = ["budget", "spending"];
+var currentExpensesSub = "budget";
 
-function buildRoutePath(pageId, assetsSub){
+function buildRoutePath(pageId){
   var parts = [pageId];
-  if(pageId === "assets") parts.push(ASSETS_SUB_TO_SLUG[assetsSub] || "summary");
+  if(pageId === "assets") parts.push(ASSETS_SUB_TO_SLUG[currentAssetsSub] || "summary");
+  if(pageId === "expenses") parts.push(currentExpensesSub);
   return BASE_PATH + "/" + parts.join("/");
 }
 function syncUrl(pageId, replace){
-  var path = buildRoutePath(pageId, currentAssetsSub);
+  var path = buildRoutePath(pageId);
   if(location.pathname === path) return;
-  history[replace ? "replaceState" : "pushState"]({page: pageId, assetsSub: currentAssetsSub}, "", path + location.search);
+  history[replace ? "replaceState" : "pushState"]({page: pageId, assetsSub: currentAssetsSub, expensesSub: currentExpensesSub}, "", path + location.search);
 }
 export function parseRouteFromLocation(){
   var path = location.pathname;
@@ -41,7 +47,9 @@ export function parseRouteFromLocation(){
   if(!segs.length) return null;
   var page = PAGES.find(function(p){ return p.id === segs[0]; });
   if(!page) return null;
-  var sub = (page.id === "assets" && segs[1] && SLUG_TO_ASSETS_SUB[segs[1]]) ? SLUG_TO_ASSETS_SUB[segs[1]] : null;
+  var sub = null;
+  if(page.id === "assets" && segs[1] && SLUG_TO_ASSETS_SUB[segs[1]]) sub = SLUG_TO_ASSETS_SUB[segs[1]];
+  else if(page.id === "expenses" && segs[1] && EXPENSES_SUBS.indexOf(segs[1]) !== -1) sub = segs[1];
   return { page: page.id, sub: sub };
 }
 
@@ -58,10 +66,17 @@ var MOBILE_MORE_PAGES = ["accounts", "scenarios", "projections"];
 // rather than a selector, since there's nothing in the DOM to click. Projections has no natural
 // "add" action and simply isn't listed, so the fab hides there.
 var QUICK_FAB_BUTTON_PAGES = {
-  expenses: { label: "Log spend", selector: "#quickLogBtn" },
   properties: { label: "Add property", selector: "#addPropertyBtn" },
   accounts: { label: "Add account", selector: "#addAccountBtn" }
 };
+// Expenses' two halves want different single actions: on Budget the useful thing is adding a
+// planned line, on Spending it's logging what you actually spent. Kept out of the map above
+// (which is keyed by page alone) since it has to be resolved per subpage, not per page.
+function expensesFabAction(){
+  return currentExpensesSub === "spending"
+    ? { label: "Log spend", selector: "#quickLogBtn" }
+    : { label: "Add expense", selector: '[data-add="shared"]' };
+}
 var QUICK_FAB_GROUPED_PAGES = ["income", "assets", "scenarios"];
 // Re-targets the quick-action button for whichever page/subpage is now visible — called after
 // every page switch and Assets subpage switch (see applyPageChange/showAssetsSubpage below), so
@@ -74,6 +89,10 @@ export function updateQuickFab(pageId){
   if(pageId === "dashboard"){
     label = "Log net worth now";
     mode = "networth";
+  } else if(pageId === "expenses"){
+    var expensesAction = expensesFabAction();
+    label = expensesAction.label;
+    selector = expensesAction.selector;
   } else if(QUICK_FAB_BUTTON_PAGES[pageId]){
     label = QUICK_FAB_BUTTON_PAGES[pageId].label;
     selector = QUICK_FAB_BUTTON_PAGES[pageId].selector;
@@ -153,6 +172,24 @@ export function showAssetsSubpage(id, opts){
   });
   updateQuickFab("assets");
   if(!opts.skipUrl) syncUrl("assets", !!opts.replace);
+}
+
+// Budget (what you plan to spend) vs. Spending (what you actually spent, logged against it) —
+// same pill-subnav + URL-sync pattern as showAssetsSubpage above, and deep-linkable for the same
+// reason: "open my spending for the month" is a thing worth bookmarking on a phone. The split
+// exists because the two halves are used on completely different rhythms — the budget is set up
+// once and revisited occasionally, spending is logged constantly — and stacking all four ledgers
+// on one page made the everyday half the one you had to scroll past the other to reach.
+export function showExpensesSubpage(id, opts){
+  opts = opts || {};
+  if(EXPENSES_SUBS.indexOf(id) === -1) id = "budget";
+  currentExpensesSub = id;
+  document.querySelectorAll(".expenses-subpage").forEach(function(el){ el.hidden = el.id !== "expensesSub-" + id; });
+  document.querySelectorAll("#expensesSubnav .subnav-item").forEach(function(btn){
+    btn.classList.toggle("active", btn.getAttribute("data-expenses-sub") === id);
+  });
+  updateQuickFab("expenses");
+  if(!opts.skipUrl) syncUrl("expenses", !!opts.replace);
 }
 
 // Overview (top stats + scenario cards) vs. Insights (50/30/20, FI progress, actual vs. expected,

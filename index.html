@@ -246,10 +246,14 @@
       </section>
 
       <section class="app-page" id="page-expenses" hidden>
+        <div class="subnav" id="expensesSubnav">
+          <button type="button" class="subnav-item active" data-expenses-sub="budget">Budget</button>
+          <button type="button" class="subnav-item" data-expenses-sub="spending">Spending</button>
+        </div>
+        <div class="expenses-subpage" id="expensesSub-budget">
         <div class="page-intro-row">
-          <p class="page-intro">Recurring household costs — the same in every scenario unless you vary a row.</p>
+          <p class="page-intro">What you plan to spend — the same in every scenario unless you vary a row (⇄ on the row).</p>
           <div class="page-intro-actions">
-            <button type="button" class="btn btn-sm btn-ghost" id="reviewExpensesBtn" title="Go through expenses that are overdue (or never logged) one at a time, and confirm or update their amount and date">Review expenses</button>
             <button type="button" class="btn btn-sm btn-ghost" id="expenseExportCsvBtn" title="Download every expense row as a CSV file">Export CSV</button>
             <button type="button" class="btn btn-sm btn-ghost" id="expenseDownloadTemplateBtn" title="Download a blank CSV shaped for importing expenses back in">Import template</button>
             <button type="button" class="btn btn-sm btn-ghost" id="expenseImportBtn" title="Add expenses from a CSV file shaped like the import template">Import CSV</button>
@@ -263,7 +267,7 @@
               <div class="ledger-total">Monthly total <b id="totalSharedMonthly">—</b></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note" style="margin-left:0">Subscriptions, car, groceries, and the rest — the same amount in every scenario unless you vary a row by scenario (⇄ button on the row).</p>
+              <p class="ledger-note" style="margin-left:0">Subscriptions, car, groceries, and the rest — what each one is expected to cost, and how often.</p>
               <div id="expenseImportPreview" hidden></div>
               <p class="income-summary-line" id="sharedSummaryLine" style="display:none"></p>
               <div id="sharedGroups"></div>
@@ -282,13 +286,23 @@
               <div id="propertyExpensesModern"></div>
             </div>
           </details>
+        </div>
+        </div>
+        <div class="expenses-subpage" id="expensesSub-spending" hidden>
+        <div class="page-intro-row">
+          <p class="page-intro">What you actually spent. Log it here and the Budget tab becomes a live picture of the month.</p>
+          <div class="page-intro-actions">
+            <button type="button" class="btn btn-sm review-cta" id="reviewExpensesBtn" hidden title="Go through budget lines that are overdue (or never logged) one at a time and record what you actually spent">Catch up</button>
+          </div>
+        </div>
+        <div class="ledgers">
           <details class="ledger" open>
             <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Transactions</h2></div>
               <div class="ledger-total">Total <b id="totalTransactionsAmount">—</b></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note" style="margin-left:0">Real, dated spend — separate from the planned budget above, which stays untouched. <b>+ Log spend</b> is the quick way in: type the amount, tap which budget line it came out of, done. Anything logged against a budget line counts towards it in Actual vs. planned below; a one-off with no matching line just sits on its own. Accounts are inherited from the budget line (manage them on the Accounts tab) so credit-card spend groups into its statement cycle.</p>
+              <p class="ledger-note" style="margin-left:0"><b>+ Log spend</b> is the quick way in: type the amount, tap which budget line it came out of, done. The budget itself never moves — only this list does.</p>
               <div id="transactionsTable"></div>
               <div class="ledger-footer">
                 <button class="btn btn-sm btn-primary" id="quickLogBtn" title="Log what you just spent in a couple of taps — amount, which budget line it came out of, done">+ Log spend</button>
@@ -302,6 +316,7 @@
             </summary>
             <div class="ledger-body"><div id="actualVsPlannedPanel"></div></div>
           </details>
+        </div>
         </div>
       </section>
 

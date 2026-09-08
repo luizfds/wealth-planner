@@ -1,10 +1,10 @@
 import { state, persist, genId } from "../state.js";
-import { CLASSES, FREQS } from "../constants.js";
+import { CLASSES, FREQS, UNCATEGORISED } from "../constants.js";
 import { sumField, resolveSharedAmount, periodsOf, budgetCycleFor, transactionDisplayName, transactionsInMonth, transactionsInYear, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, isOverdue, daysUntil, lastTransactionDateFor } from "../calc/ledger.js";
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
-import { modernPlainRowHtml, modernRowSummaryHtml, modernRowEditHtml, modernRowShellHtml } from "../lib/ledger-table.js";
+import { modernPlainRowHtml, modernRowSummaryHtml, modernRowEditHtml, modernRowShellHtml, optionsHtml } from "../lib/ledger-table.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { parseCsv } from "../lib/backup.js";
 
@@ -44,7 +44,7 @@ export function patchSharedGroupTotals(){
 // an arbitrary spreadsheet's layout — there's no backend/LLM here to guess a mapping reliably, so
 // the dependable path is "download our template (or a past export), fill it in, import it back".
 // Matching is case/order-insensitive on header names so a reordered or re-cased copy still works.
-var EXPENSES_IMPORT_HEADERS = ["what", "classification", "amount", "frequency", "account"];
+var EXPENSES_IMPORT_HEADERS = ["what", "classification", "category", "amount", "frequency", "account"];
 function matchExpensesImportHeader(headerRow){
   var colOf = {};
   headerRow.forEach(function(h, i){
@@ -79,7 +79,11 @@ export function parseExpensesImportCsv(text){
     var freqRaw = colOf.frequency !== undefined ? (cells[colOf.frequency] || "").trim() : "";
     var freqMatch = FREQS.find(function(f){ return f.toLowerCase() === freqRaw.toLowerCase(); });
     var account = colOf.account !== undefined ? (cells[colOf.account] || "").trim() : "";
-    valid.push({ what: what, classification: classMatch || "Needs", amount: amount, freq: freqMatch || "Monthly", account: account });
+    // Free text rather than matched against state.categories: an import is usually how a category
+    // set arrives in the first place, and migrateState's seed-from-usage pass registers whatever
+    // comes in, so rejecting an unknown name here would be rejecting the point of the column.
+    var category = colOf.category !== undefined ? (cells[colOf.category] || "").trim() : "";
+    valid.push({ what: what, classification: classMatch || "Needs", category: category, amount: amount, freq: freqMatch || "Monthly", account: account });
   });
   return { valid: valid, errors: errors, headerOk: true };
 }
@@ -130,7 +134,12 @@ export function clearExpensesImportPreview(){
 // stays a plain mutation the caller wraps with its own render/persist/undo (see app.js).
 export function commitExpensesImport(items){
   items.forEach(function(item){
-    state.shared.push({ what: item.what, classification: item.classification, account: item.account, amount: item.amount, freq: item.freq });
+    state.shared.push({ what: item.what, classification: item.classification, category: item.category || "", account: item.account, amount: item.amount, freq: item.freq });
+    // Register any category the file brought in that the manager doesn't know yet, so an import
+    // can't leave a row pointing at a category missing from Accounts → Categories. Same contract
+    // as migrateState's seed-from-usage pass, applied at the moment the rows actually land.
+    var importedCat = (item.category || "").trim();
+    if(importedCat && state.categories.indexOf(importedCat) === -1) state.categories.push(importedCat);
   });
 }
 
@@ -205,13 +214,14 @@ export function renderSharedGroups(){
   if(!container) return;
   var groups = computeSharedGroups();
   patchSharedGroupTotals();
+  renderBudgetCategoryChart();
   container.innerHTML = sharedCompositionBarHtml(groups) + '<div class="m-people">' + groups.map(function(g){
     var initial = g.key === "N/A" ? "–" : g.key.charAt(0);
     return '<div class="m-card">' +
       '<div class="m-card-head"><span class="m-avatar m-avatar-' + classificationSwatchClass(g.key) + '">' + initial + '</span>' +
       '<div class="m-card-name">' + escapeAttr(g.key) + '</div>' +
       '<div class="m-card-total">' + fmtCurrency0.format(g.monthly) + '<span>/mo</span></div></div>' +
-      '<div class="m-rows">' + g.items.map(function(item, i){ return modernPlainRowHtml(item, g.indices[i], "shared", modernSharedRowOpen, {showClass:true, showDone:true, extraSubLine: budgetRowProgressHtml(item)}); }).join("") + '</div>' +
+      '<div class="m-rows">' + g.items.map(function(item, i){ return modernPlainRowHtml(item, g.indices[i], "shared", modernSharedRowOpen, {showClass:true, showDone:true, categories: state.categories, extraSubLine: budgetRowProgressHtml(item)}); }).join("") + '</div>' +
       '<button type="button" class="m-add-row" data-add="shared:' + escapeAttr(g.key) + '">+ Add expense</button>' +
     '</div>';
   }).join("") + '</div>';
@@ -544,7 +554,7 @@ export function quickLogContextText(item){
 // the planned budget line is never touched, and the description stays empty unless the user
 // actually typed one (see transactionDisplayName). Returns the transaction so the caller can
 // name it in a confirmation toast.
-export function submitQuickLog(amount, note, dateStr){
+export function submitQuickLog(amount, note, dateStr, category){
   if(!quickLog) return null;
   var item = quickLog.linkedId && state.shared.find(function(i){ return i.id === quickLog.linkedId; });
   var t = {
@@ -553,10 +563,23 @@ export function submitQuickLog(amount, note, dateStr){
     amount: Number(amount) || 0,
     what: (note || "").trim(),
     linkedExpenseId: item ? item.id : null,
-    account: item && item.account ? item.account : ""
+    account: item && item.account ? item.account : "",
+    // Only ever set for a one-off — a linked transaction resolves its category through the link
+    // (transactionCategory), so storing a copy here would go stale the moment the line is recategorised.
+    category: item ? "" : (category || "")
   };
   state.transactions.push(t);
   return t;
+}
+// Shown only when nothing is linked: a transaction against a budget line already takes that
+// line's category, so offering a second one would invite them to disagree. A one-off has nothing
+// to inherit from, and without this every one-off would land in Uncategorised forever.
+function quickLogCategoryHtml(item){
+  if(item || !state.categories.length) return "";
+  return '<div class="qlog-cat-row"><label class="qlog-cat-label" for="quickLogCategory">Category</label>' +
+    '<select id="quickLogCategory" class="qlog-cat" aria-label="Category (optional)">' +
+      '<option value="">— None —</option>' + optionsHtml(state.categories, "") +
+    '</select></div>';
 }
 function quickLogChipsHtml(){
   var ordered = quickLogChipOrder();
@@ -616,6 +639,7 @@ export function renderQuickLogSheet(){
       quickLogChipsHtml() +
       '<p class="qlog-context">' + escapeAttr(quickLogContextText(item)) + '</p>' +
       '<input type="text" id="quickLogNote" class="qlog-note" placeholder="' + escapeAttr(item ? "Note (optional)" : "What was it? (optional)") + '" aria-label="Note (optional)">' +
+      quickLogCategoryHtml(item) +
       quickLogDateRowHtml() +
       '<button type="button" class="btn review-log-btn qlog-submit" data-qlog-submit>Log spend</button>' +
     '</div></div>';
@@ -685,6 +709,19 @@ export function transactionAccount(t){
   if(t.linkedExpenseId){
     var item = state.shared.find(function(i){ return i.id === t.linkedExpenseId; });
     if(item && item.account) return item.account;
+  }
+  return "";
+}
+// A transaction's own category wins if set; otherwise it inherits from its linked budget line —
+// the same override-then-fallback shape as transactionAccount() above. Categorising a budget line
+// therefore retroactively categorises everything ever logged against it, while a one-off with no
+// line to inherit from can still carry its own.
+export function transactionCategory(t){
+  var direct = (t.category || "").trim();
+  if(direct) return direct;
+  if(t.linkedExpenseId){
+    var linkedItem = state.shared.find(function(i){ return i.id === t.linkedExpenseId; });
+    if(linkedItem && (linkedItem.category || "").trim()) return linkedItem.category.trim();
   }
   return "";
 }
@@ -868,6 +905,7 @@ function billedThisMonth(items){
 }
 export function renderActualVsPlannedPanel(){
   renderExpenseReviewButton();
+  renderSpendCategoryChart();
   var el = document.getElementById("actualVsPlannedPanel");
   if(!el) return;
   var regularItems = state.shared.filter(function(item){ return !item.irregular; });
@@ -990,6 +1028,145 @@ function creditStatementCyclesHtml(){
 }
 
 // ---------------- Accounts: named money sources, used to group transactions into a credit card's statement cycle ----------------
+// ---------------- Categories: the "where does it go" rollup ----------------
+// A second, orthogonal axis to `classification` (Needs/Wants/Savings). Classification answers
+// "is this discretionary?" and groups the Budget list; a category answers "where does it go?" and
+// only ever *reports* — it never regroups the list, because two competing groupings on one page
+// would be harder to read than either alone.
+//
+// Stored as the name on the line, not an id, matching how `account` works: renaming retargets
+// every referencing row (renameCategoryEverywhere below), which keeps CSV exports and hand-edited
+// backups readable rather than full of opaque ids.
+function categoryRowHtml(name, idx){
+  var usedBy = state.shared.filter(function(item){ return (item.category || "") === name; }).length;
+  var nameInput = '<input type="text" class="cat-mgmt-name" data-cat-index="' + idx + '" value="' + escapeAttr(name) + '" placeholder="Category name" aria-label="Category name">';
+  var usage = '<span class="cat-mgmt-count">' + (usedBy ? usedBy + (usedBy === 1 ? " line" : " lines") : "unused") + '</span>';
+  var delBtn = '<button type="button" class="btn btn-ghost btn-sm row-del" data-cat-del="' + idx + '" aria-label="Delete category">✕</button>';
+  return '<div class="m-row acct-mgmt-row" data-cat-index="' + idx + '">' +
+    '<div class="m-row-summary" style="cursor:default;flex-wrap:wrap;gap:8px">' + nameInput + usage + delBtn + '</div>' +
+  '</div>';
+}
+export function renderCategories(){
+  var container = document.getElementById("categoriesTable");
+  if(!container) return;
+  if(!state.categories.length){
+    container.innerHTML = '<p class="ledger-note" style="margin:0">No categories yet — add one below to start grouping budget lines for the spending charts.</p>';
+    return;
+  }
+  container.innerHTML = '<div class="m-rows">' + state.categories.map(categoryRowHtml).join("") + '</div>';
+}
+export function addCategory(){
+  state.categories.push("");
+  renderCategories();
+  persist();
+}
+// Renaming retargets every budget line pointing at the old name, so a rename is a rename rather
+// than a silent orphaning — same contract as renameAccountEverywhere below.
+export function renameCategoryEverywhere(oldName, newName){
+  if(!oldName || oldName === newName) return;
+  state.shared.forEach(function(item){ if((item.category || "") === oldName) item.category = newName; });
+}
+// Deleting a category never deletes the budget lines using it — they fall back to uncategorised,
+// which the charts report honestly as its own slice. Losing a label should not lose data.
+export function deleteCategory(idx){
+  var removed = state.categories[idx];
+  if(removed == null) return;
+  var orphaned = state.shared.filter(function(item){ return (item.category || "") === removed; });
+  state.categories.splice(idx, 1);
+  orphaned.forEach(function(item){ item.category = ""; });
+  renderCategories();
+  persist();
+  showUndoToast('Deleted "' + (removed || "category") + '"' + (orphaned.length ? " — " + orphaned.length + " line" + (orphaned.length === 1 ? "" : "s") + " uncategorised" : ""), function(){
+    state.categories.splice(Math.min(idx, state.categories.length), 0, removed);
+    orphaned.forEach(function(item){ item.category = removed; });
+    renderCategories();
+    persist();
+  });
+}
+// Every category that currently carries something, plus an "Uncategorised" bucket when anything
+// is left over. valueFor is what to total per budget line — the planned monthly figure on the
+// Budget tab, this month's real spend on Spending — so one function serves both charts.
+export function categoryTotals(items, valueFor){
+  var byName = {};
+  var order = [];
+  items.forEach(function(item){
+    var name = (item.category || "").trim() || UNCATEGORISED;
+    var value = valueFor(item);
+    if(!value) return;
+    if(byName[name] == null){ byName[name] = 0; order.push(name); }
+    byName[name] += value;
+  });
+  // Biggest first: a spending chart is read to find where the money went, and that answer should
+  // be the first thing in the legend rather than something to hunt for.
+  return order.map(function(name){ return { key: name, monthly: byName[name] }; })
+    .sort(function(a, b){ return b.monthly - a.monthly; });
+}
+// The by-category chart, used twice: planned spend on the Budget tab, real spend this month on
+// Spending. Same 100%-stacked bar + legend as sharedCompositionBarHtml above, but coloured from
+// the cycling series palette rather than the fixed Needs/Wants/Savings swatches — a category set
+// is user-defined and open-ended, so its colours have to come from position rather than name.
+//
+// Nothing is drawn below two segments: a single full-width bar labelled with the only category
+// in play says nothing the total above it doesn't already say.
+// barless renders the legend alone. The Budget tab uses it because the composition bar directly
+// below already splits the same money by Needs/Wants — two stacked 100% bars, both labelled in
+// percentages, compete for the same glance and neither wins. What's genuinely new there is the
+// number ("Car $280/mo" across four separate lines), not another bar, so Budget gets the totals
+// and Spending — where "where did it actually go" is the whole question — gets the full chart.
+export function categoryChartHtml(groups, unit, opts){
+  opts = opts || {};
+  if(groups.length < 2) return "";
+  var total = groups.reduce(function(sum, g){ return sum + g.monthly; }, 0);
+  if(total <= 0) return "";
+  var segs = groups.map(function(g, i){
+    var pct = g.monthly / total;
+    return '<div class="rule-seg cat-seg series-color-' + (i % 8) + '" style="width:' + (pct * 100) + '%"' +
+      ' title="' + escapeAttr(g.key) + ': ' + fmtCurrency0.format(g.monthly) + unit + ' (' + fmtPercent1.format(pct) + ')">' +
+      (pct > 0.12 ? fmtPercent1.format(pct) : "") + '</div>';
+  }).join("");
+  var legend = groups.map(function(g, i){
+    return '<div class="rule-legend-item"><span class="rule-swatch cat-seg series-color-' + (i % 8) + '"></span>' +
+      escapeAttr(g.key) + ' <b>' + fmtCurrency0.format(g.monthly) + '</b></div>';
+  }).join("");
+  var bar = opts.barless ? "" : '<div class="rule-bar">' + segs + '</div>';
+  return '<div class="cat-chart' + (opts.barless ? " cat-chart-compact" : "") + '">' + bar + '<div class="rule-legend">' + legend + '</div></div>';
+}
+// Planned monthly spend per category. Uses the smoothed /mo figure (not budgetCycleFor's per-cycle
+// target) precisely because this is the cross-line comparison the smoothing exists for: putting a
+// quarterly bill's full amount next to a monthly one's would make the quarter's category look four
+// times its real share of the year.
+export function renderBudgetCategoryChart(){
+  var el = document.getElementById("budgetCategoryChart");
+  if(!el) return;
+  var groups = categoryTotals(state.shared, function(item){
+    return Math.round(periodsOf(item.amount, item.freq).monthly * 100) / 100;
+  });
+  var html = categoryChartHtml(groups, "/mo", { barless: true });
+  el.innerHTML = html ? '<div class="cat-chart-title">Planned by category</div>' + html : "";
+  el.hidden = !html;
+}
+// Real spend this month per category, resolved through each transaction's linked budget line —
+// so categorising a line retroactively categorises everything ever logged against it, and a
+// one-off with no link falls into its own bucket rather than being dropped.
+export function renderSpendCategoryChart(){
+  var el = document.getElementById("spendCategoryChart");
+  if(!el) return;
+  var monthTxns = transactionsInMonth(state.transactions);
+  var byCategory = {};
+  var order = [];
+  monthTxns.forEach(function(t){
+    var name = transactionCategory(t) || UNCATEGORISED;
+    var value = Math.round((Number(t.amount) || 0) * 100) / 100;
+    if(!value) return;
+    if(byCategory[name] == null){ byCategory[name] = 0; order.push(name); }
+    byCategory[name] += value;
+  });
+  var groups = order.map(function(name){ return { key: name, monthly: byCategory[name] }; })
+    .sort(function(a, b){ return b.monthly - a.monthly; });
+  var html = categoryChartHtml(groups, "");
+  el.innerHTML = html ? '<div class="cat-chart-title">Spent by category this month</div>' + html : "";
+  el.hidden = !html;
+}
 function accountRowHtml(a, idx){
   var nameInput = '<input type="text" class="acct-mgmt-name" data-acct-index="' + idx + '" value="' + escapeAttr(a.name || "") + '" placeholder="Account name" aria-label="Account name">';
   var typeSelect = '<select class="acct-mgmt-type" data-acct-index="' + idx + '" aria-label="Account type">' +

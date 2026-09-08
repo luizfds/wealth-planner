@@ -2,6 +2,7 @@ import "./_env.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { defaultState, migrateState } from "../src/state.js";
+import { DEFAULT_CATEGORIES } from "../src/constants.js";
 
 test("defaultState seeds a single 'Current situation' scenario marked as the baseline", function(){
   var s = defaultState();
@@ -137,4 +138,38 @@ test("migrateState leaves an already-set irregular/dueMonth alone", function(){
   });
   assert.equal(s.shared[0].irregular, true);
   assert.equal(s.shared[0].dueMonth, 5);
+});
+
+test("migrateState seeds the default categories into a save that predates them", function(){
+  var s = migrateState({ shared: [{ id: "e1", what: "Gas", amount: 230, freq: "Quarterly" }] });
+  assert.deepEqual(s.categories, DEFAULT_CATEGORIES);
+  assert.equal(s.shared[0].category, "", "existing lines start uncategorised rather than guessed at");
+});
+
+test("migrateState leaves an existing category list alone, including a deliberately emptied one", function(){
+  var trimmed = migrateState({ categories: ["Car", "Health"], shared: [] });
+  assert.deepEqual(trimmed.categories, ["Car", "Health"], "the user's own list wins over the defaults");
+  var emptied = migrateState({ categories: [], shared: [] });
+  assert.deepEqual(emptied.categories, [], "an emptied list is a choice, not a missing key to re-seed");
+});
+
+test("migrateState picks up category names used by a row but missing from the registry", function(){
+  // How a CSV import or a hand-edited backup can reference a category the manager never knew.
+  var s = migrateState({
+    categories: ["Car"],
+    shared: [
+      { id: "e1", what: "Rego", category: "Car" },
+      { id: "e2", what: "Swim lessons", category: "Kids activities" },
+      { id: "e3", what: "Gas", category: "  " },
+      { id: "e4", what: "Netflix" }
+    ]
+  });
+  assert.deepEqual(s.categories, ["Car", "Kids activities"]);
+  assert.equal(s.shared[2].category, "  ", "a blank-ish value is left as-is on the row, just not registered");
+  assert.equal(s.shared[3].category, "", "a missing category defaults to empty rather than undefined");
+});
+
+test("migrateState drops junk entries from a category list", function(){
+  var s = migrateState({ categories: ["Car", "", "   ", null, 42, "Health"], shared: [] });
+  assert.deepEqual(s.categories, ["Car", "Health"]);
 });

@@ -27,9 +27,11 @@ import {
   logCurrentReviewCard, skipCurrentReviewCard, expenseReview,
   renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel,
   setTransactionsShowAll, modernTransactionRowOpen, budgetRowTxnsOpen, transactionSummaryText,
-  openQuickLog, closeQuickLog, setQuickLogLink, setQuickLogDateOpen,
+  openQuickLog, closeQuickLog, renderQuickLogSheet, setQuickLogLink, setQuickLogDateOpen,
   setQuickLogShowAllChips, submitQuickLog, quickLogContextText, quickLog,
   renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, logExpenseTransaction,
+  renderCategories, addCategory, deleteCategory, renameCategoryEverywhere,
+  renderBudgetCategoryChart,
   parseExpensesImportCsv, renderExpensesImportPreview, clearExpensesImportPreview, commitExpensesImport
 } from "./components/expenses.js";
 import {
@@ -48,7 +50,7 @@ import {
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
   patchCalcOutputs, afterCalcChange, patchInvestOutputs
 } from "./components/scenarios.js";
-import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY } from "./components/nav.js";
+import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY } from "./components/nav.js";
 import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./components/search.js";
 
 (function(){
@@ -391,6 +393,9 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     }
     else if(e.target.classList.contains("f-account")) item.account = e.target.value;
     else if(e.target.classList.contains("f-class")){ item.classification = e.target.value; if(section === "shared") structural = true; }
+    // Not structural: category is a reporting dimension, so it changes both by-category charts
+    // but never which card this row sits in — no need to rebuild the list around it.
+    else if(e.target.classList.contains("f-category")){ item.category = e.target.value; }
     else if(e.target.classList.contains("f-freq")) item.freq = e.target.value;
     else if(e.target.classList.contains("f-amount")) item.amount = parseFloat(e.target.value) || 0;
     else if(e.target.classList.contains("f-person")){ item.person = e.target.value; structural = true; }
@@ -432,6 +437,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       // labels too. Patched in place rather than re-rendering #transactionsTable, since this
       // fires on every keystroke of the rename.
       if(e.target.classList.contains("f-what")) patchLinkedTransactionNames(item);
+      if(e.target.classList.contains("f-category")){ patchCategoryCharts(); renderActualVsPlannedPanel(); }
       // Toggling "irregular" moves this item between the regular monthly rows and the
       // year-to-date reserve section below on the same page — worth a live refresh rather than
       // waiting for whatever next unrelated action happens to re-render the panel.
@@ -1617,7 +1623,8 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       if(amountEl) amountEl.focus();
       return;
     }
-    var t = submitQuickLog(amount, noteEl ? noteEl.value : "", dateEl && dateEl.value ? dateEl.value : undefined);
+    var catEl = document.getElementById("quickLogCategory");
+    var t = submitQuickLog(amount, noteEl ? noteEl.value : "", dateEl && dateEl.value ? dateEl.value : undefined, catEl ? catEl.value : "");
     if(!t) return;
     requestCloseActiveOverlay();
     refreshAfterLedgerChange("shared");
@@ -1640,7 +1647,16 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       // Patched in place rather than re-rendered: the whole point of picking the line after
       // typing the amount is that changing your mind costs nothing, and a re-render here would
       // drop the caret out of a field the user may still be editing.
+      var wasOneOff = !quickLog.linkedId;
       setQuickLogLink(chip.getAttribute("data-qlog-chip"));
+      var isOneOff = !quickLog.linkedId;
+      // Crossing between linked and one-off adds or removes the Category field (a linked
+      // transaction inherits its line's), which needs a re-render; staying on the same side of
+      // that line only needs the selection and context patched, so the caret stays put.
+      if(wasOneOff !== isOneOff){
+        rerenderQuickLogPreservingInput(function(){ renderQuickLogSheet(); });
+        return;
+      }
       document.querySelectorAll("[data-qlog-chip]").forEach(function(el){
         var on = el.getAttribute("data-qlog-chip") === (quickLog.linkedId || "");
         el.classList.toggle("is-selected", on);
@@ -1862,6 +1878,48 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     renderActualVsPlannedPanel();
     persist();
   });
+
+  // ---------------- Categories: the spending rollup ----------------
+  document.getElementById("accountsSubnav").addEventListener("click", function(e){
+    var accountsSubBtn = e.target.closest("[data-accounts-sub]");
+    if(!accountsSubBtn) return;
+    showAccountsSubpage(accountsSubBtn.getAttribute("data-accounts-sub"));
+  });
+  document.getElementById("addCategoryBtn").addEventListener("click", function(){
+    addCategory();
+    // Straight into the new (blank) row's name field — a category with no name is useless, and
+    // this saves a tap on the one control that has to be filled in.
+    var lastCatInput = document.querySelector("#categoriesTable .m-row:last-child .cat-mgmt-name");
+    if(lastCatInput) lastCatInput.focus();
+  });
+  document.addEventListener("click", function(e){
+    var delCatBtn = e.target.closest("[data-cat-del]");
+    if(delCatBtn){ deleteCategory(Number(delCatBtn.getAttribute("data-cat-del"))); refreshCategoryUi(); }
+  });
+  document.addEventListener("input", function(e){
+    if(!e.target.closest("#categoriesTable")) return;
+    if(!e.target.classList.contains("cat-mgmt-name")) return;
+    var catIdx = Number(e.target.getAttribute("data-cat-index"));
+    var oldCatName = state.categories[catIdx];
+    if(oldCatName == null) return;
+    state.categories[catIdx] = e.target.value;
+    renameCategoryEverywhere(oldCatName, e.target.value);
+    refreshCategoryUi();
+    persist();
+  });
+  // A category rename or delete changes what the Budget rows' selects offer and what both
+  // by-category charts total, so all of it is re-derived together rather than left to whatever
+  // happens to re-render next. Not renderCategories() itself — that would rebuild the row being
+  // typed into and drop the caret.
+  function refreshCategoryUi(){
+    renderSharedGroups();
+    renderActualVsPlannedPanel();
+  }
+  // Redraws just the Budget tab's chart. Used from the row editor, where a full renderSharedGroups()
+  // would rebuild the very row the <select> being changed lives in — closing the open modal.
+  function patchCategoryCharts(){
+    renderBudgetCategoryChart();
+  }
 
   wireModernRowToggle("propertiesBody", modernPropRowOpen);
   wireModernRowToggle("homeBody", modernHomeRowOpen);
@@ -2392,6 +2450,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     renderProperties();
     renderSharedGroups();
     renderAccounts();
+    renderCategories();
     renderTransactions();
     renderActualVsPlannedPanel();
     renderHomeBody();

@@ -20,6 +20,18 @@
   .budget-bar-track{ height:5px; border-radius:100px; background: var(--paper-sunken); overflow:hidden; }
   .budget-bar-fill{ height:100%; background: var(--good); border-radius:inherit; transition: width .3s ease; }
   .budget-bar-fill.over{ background: var(--bad); }
+  /* Each budget line's own spent-this-month progress, rendered as a .m-row-sub inside the
+     collapsed row (see budgetRowProgressHtml). Sized down from .budget-bar-track above: this one
+     sits inside a list row alongside the line's name, not as a standalone panel row, so it has to
+     read as an annotation rather than compete with the name for attention. The bar is capped at a
+     short fixed width instead of filling the row — a full-width bar under every name turns the
+     list into a wall of bars and pushes the text that actually says the numbers off to one side. */
+  .budget-progress{ display:flex; align-items:center; gap:7px; margin-top:3px; }
+  .budget-progress-track{ flex:none; width:52px; height:4px; border-radius:100px; background: var(--paper-sunken); overflow:hidden; }
+  .budget-progress-fill{ height:100%; background: var(--good); border-radius:inherit; transition: width .3s ease; }
+  .budget-progress-fill.over{ background: var(--bad); }
+  .budget-progress-text{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .budget-progress-text.over{ color: var(--bad); }
   /* A budget row with at least one transaction logged against it this month can expand in place
      to show exactly which ones — clicking anywhere on the row (not just the chevron) toggles it,
      matching the click-anywhere-on-the-row pattern used elsewhere (property-section-head,

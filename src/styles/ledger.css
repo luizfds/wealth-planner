@@ -174,12 +174,22 @@
      .m-row/.m-edit-field machinery every other ledger row uses — see modernPlainRowHtml in
      ledger-table.js. */
 
-  /* ---------------- Accounts (Expenses page) ---------------- */
+  /* ---------------- The two registries (Accounts page): accounts, and categories ---------------- */
+  /* Both build the same row — .m-row.acct-mgmt-row, a name input plus a couple of controls and a
+     delete button — so they share this chrome rather than each having their own near-copy of it.
+     .cat-mgmt-name used to be missing from here entirely, which isn't a subtle difference: an
+     input with no author styling falls all the way back to the browser's own control (Arial,
+     square corners, a 2px inset border) and, worse, a hardcoded white background and black text
+     that ignore the theme — so the Categories tab had a glaring white box in dark mode. Any new
+     registry row belongs on these selectors, not in a rule of its own. */
   .acct-mgmt-row .m-row-summary{ cursor:default; }
-  .acct-mgmt-name{
+  .acct-mgmt-name, .cat-mgmt-name{
     flex:1 1 140px; min-width:100px; padding:5px 6px; border:1px solid var(--border); border-radius:6px;
     background: var(--paper); color: var(--ink); font-family:inherit; font-size:13px;
   }
+  /* The "used by N lines" note next to a category's name. Lived in shell.css while its own row's
+     styling lived here, which is how the input above came to be forgotten — kept together now. */
+  .cat-mgmt-count{ font-size:11.5px; color: var(--ink-soft); white-space:nowrap; }
   .acct-mgmt-type{
     flex:1 1 200px; font-size:12.5px; padding:5px 6px; border:1px solid var(--border); border-radius:6px;
     background: var(--paper); color: var(--ink); font-family:inherit;
@@ -188,7 +198,7 @@
     width:64px; flex:none; text-align:center; font-family:"IBM Plex Mono", monospace; font-size:13px;
     padding:5px 6px; border:1px solid var(--border); border-radius:6px; background: var(--paper); color: var(--ink);
   }
-  .acct-mgmt-name:focus, .acct-mgmt-type:focus, .acct-mgmt-day:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
+  .acct-mgmt-name:focus, .cat-mgmt-name:focus, .acct-mgmt-type:focus, .acct-mgmt-day:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
   .row-breakdown-toggle{
     all:unset; display:inline-block; font-size:10.5px; color: var(--brass-strong); cursor:pointer;
     margin-top:2px; padding:4px 2px; text-decoration:underline; text-underline-offset:2px;

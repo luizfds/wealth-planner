@@ -392,6 +392,11 @@
   }
   .m-edit-grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap:10px 12px; background: var(--paper-sunken); border:1px solid var(--border); border-radius:9px; padding:12px 14px; }
   .m-edit-field{ min-width:0; }
+  /* The "Budget year" field is toggled with [hidden] as the irregular checkbox is ticked. Nothing
+     sets `display` on .m-edit-field today so the browser's own [hidden] rule already works, but
+     author CSS beats it regardless of specificity (see CLAUDE.md) — so this states it outright
+     rather than leaving a hidden field one future `display:grid` away from being visible. */
+  .m-edit-field[hidden]{ display:none; }
   .m-edit-field.span2{ grid-column: span 2; }
   .m-edit-field.span3{ grid-column: span 3; }
   .m-edit-field label{ display:block; font-size:10px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:700; margin-bottom:4px; }

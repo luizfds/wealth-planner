@@ -430,8 +430,17 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     else if(e.target.classList.contains("f-superincluded")){ item.superMode = e.target.value; }
     else if(e.target.classList.contains("f-sacrificemode")){ item.sacrificeMode = sacrificeLabelToMode(e.target.value); structural = true; }
     else if(e.target.classList.contains("f-sacrificevalue")){ item.sacrificeValue = parseFloat(e.target.value) || 0; }
-    else if(e.target.classList.contains("f-irregular")) item.irregular = e.target.checked;
+    else if(e.target.classList.contains("f-irregular")){
+      item.irregular = e.target.checked;
+      // "Budget year" only means anything for a reserve line, so it lives behind this checkbox —
+      // revealed in place rather than by re-rendering the row, which would close the editor the
+      // user is standing in. (.m-edit-field sets no `display` of its own, so plain [hidden] works
+      // here — see the CSS gotcha in CLAUDE.md for when it wouldn't.)
+      var reserveField = tr.querySelector(".f-reserveyear-field");
+      if(reserveField) reserveField.hidden = !e.target.checked;
+    }
     else if(e.target.classList.contains("f-duemonth")) item.dueMonth = e.target.value ? Number(e.target.value) : null;
+    else if(e.target.classList.contains("f-reserveyear")) item.reserveYear = e.target.value;
     else return;
 
     if(e.target.classList.contains("f-amount") || e.target.classList.contains("f-freq")){
@@ -473,6 +482,9 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       // year-to-date reserve section below on the same page — worth a live refresh rather than
       // waiting for whatever next unrelated action happens to re-render the panel.
       if(e.target.classList.contains("f-irregular")) renderActualVsPlannedPanel();
+      // Changing which twelve months a reserve is measured over changes its numbers immediately —
+      // and it's the one edit whose whole point is the figure on the panel below.
+      if(e.target.classList.contains("f-reserveyear")) renderActualVsPlannedPanel();
     } else if(section.indexOf("propinc:") === 0){
       rerenderTableFor("propexp:" + section.slice(8));
       patchSyntheticIncomeRows();

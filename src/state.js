@@ -147,6 +147,12 @@ export function defaultHomeBlock(){
 function applyTimingDefaults(item){
   if(item.irregular == null) item.irregular = false;
   if(item.dueMonth === undefined) item.dueMonth = null;
+  // Which twelve months an irregular (reserve) line is measured over on the Spending tab —
+  // "calendar" (Jan–Dec), "financial" (the Australian Jul–Jun year) or "rolling12" (the twelve
+  // months ending today). Only meaningful when irregular is set, but stored unconditionally so
+  // ticking that box never has to backfill a field. Defaults to "calendar", which is what every
+  // reserve line was measured over before this was a choice — an existing save keeps its numbers.
+  if(!item.reserveYear) item.reserveYear = "calendar";
 }
 
 export function migrateState(s){

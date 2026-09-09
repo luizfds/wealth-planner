@@ -1,6 +1,6 @@
 import { state, persist, genId } from "../state.js";
 import { CLASSES, FREQS, UNCATEGORISED } from "../constants.js";
-import { sumField, resolveSharedAmount, periodsOf, budgetCycleFor, transactionDisplayName, transactionsInMonth, transactionsInYear, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, isOverdue, daysUntil, lastTransactionDateFor } from "../calc/ledger.js";
+import { sumField, resolveSharedAmount, periodsOf, budgetCycleFor, transactionDisplayName, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, isOverdue, daysUntil, lastTransactionDateFor, reserveYearWindowFor } from "../calc/ledger.js";
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
@@ -1036,25 +1036,31 @@ function budgetRowTxnListHtml(pairs){
 // the year") than the month-by-month panel above it.
 function irregularBudgetSectionHtml(irregularItems){
   if(!irregularItems.length) return "";
-  var yearTxns = transactionsInYear(state.transactions);
-  var byExpenseYear = sumTransactionsByExpense(yearTxns);
   var rows = irregularItems.map(function(item){
+    // Each line carries its own twelve months (see reserveYearWindowFor): a travel budget usually
+    // means the calendar year, an annual maintenance allowance often means the financial one, and
+    // a standing allowance is best read as "the last twelve months" rather than one that resets to
+    // zero every 1 January. So the window is resolved per row, not once for the section.
+    var win = reserveYearWindowFor(item);
+    var actualYear = Math.round((sumTransactionsByExpense(transactionsInRange(state.transactions, win.start, win.end))[item.id] || 0) * 100) / 100;
     var plannedYear = Math.round(periodsOf(item.amount, item.freq).yearly * 100) / 100;
-    var actualYear = Math.round((byExpenseYear[item.id] || 0) * 100) / 100;
     var delta = actualYear - plannedYear;
     var color = delta > 0.5 ? "var(--bad)" : "";
     var pct = plannedYear > 0 ? Math.min(100, (actualYear / plannedYear) * 100) : (actualYear > 0 ? 100 : 0);
     var remaining = plannedYear - actualYear;
-    var remainingLabel = remaining >= 0 ? (fmtCurrency0.format(remaining) + " left this year") : (fmtCurrency0.format(-remaining) + " over this year's budget");
+    // The period now lives in the "planned <label>" half, so this half doesn't repeat it.
+    var remainingLabel = remaining >= 0 ? (fmtCurrency0.format(remaining) + " left") : (fmtCurrency0.format(-remaining) + " over budget");
     return '<div class="budget-row">' +
       '<div class="acct-row"><span class="acct-name" title="' + escapeAttr(item.what) + '">' + escapeAttr(item.what) + '</span>' +
-        '<span style="font-size:11px;color:var(--ink-soft)">' + fmtCurrency0.format(actualYear) + ' actual / ' + fmtCurrency0.format(plannedYear) + ' planned this year — ' + remainingLabel + '</span>' +
+        '<span style="font-size:11px;color:var(--ink-soft)">' + fmtCurrency0.format(actualYear) + ' actual / ' + fmtCurrency0.format(plannedYear) + ' planned ' + escapeAttr(win.label) + ' — ' + remainingLabel + '</span>' +
         '<span class="acct-amt"' + (color ? ' style="color:' + color + '"' : '') + '>' + (delta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(delta)) + '</span></div>' +
       '<div class="budget-bar-track"><div class="budget-bar-fill' + (delta > 0.5 ? " over" : "") + '" style="width:' + pct + '%"></div></div>' +
     '</div>';
   }).join("");
-  return '<div style="margin-top:16px"><div class="fire-stat-row" style="margin-bottom:2px"><span>Irregular / reserve budgets <span style="font-weight:400;color:var(--ink-soft)">— this year</span></span></div>' +
-    '<p class="ledger-note" style="margin:0 0 8px">Marked "no fixed timing" — compared against a full year\'s budget instead of this month\'s, since these aren\'t expected on any particular schedule.</p>' +
+  // No period in the heading any more — rows can each be on a different one, and a heading that
+  // named only one of them would be wrong for the rest.
+  return '<div style="margin-top:16px"><div class="fire-stat-row" style="margin-bottom:2px"><span>Irregular / reserve budgets</span></div>' +
+    '<p class="ledger-note" style="margin:0 0 8px">Marked "no fixed timing" — compared against a full year\'s budget instead of this month\'s, since these aren\'t expected on any particular schedule. Each line names the twelve months it\'s measured over; change that with "Budget year" on the row.</p>' +
     rows + '</div>';
 }
 // What these budget lines actually put on this month's bills: every monthly (and sub-monthly) line

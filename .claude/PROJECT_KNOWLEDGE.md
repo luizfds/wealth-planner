@@ -57,6 +57,29 @@ consequences worth knowing before touching any of this:
   monthly total use the full set. A computed line is real money but nobody logs a direct debit,
   so it would otherwise read "$0 of $3,510" forever.
 
+### Two comparison windows, and how a line picks one
+
+A budget line is judged against one of two windows, and `item.irregular` is the switch:
+
+- **Regular lines** get `budgetCycleFor()` — the line's own billing cycle (this month, `this
+  month ×4` for weekly, `Sep–Nov` for a quarterly bill). Anchored on `dueMonth`, else inferred
+  from the last logged transaction.
+- **Irregular lines** ("no fixed timing") are reserves — Extras, property maintenance, a travel
+  budget — and are compared against a *whole year*, because they aren't expected in any
+  particular month. They're excluded from the monthly rollup, from the overdue queue
+  (`isDueForReview` returns false), and from the Budget row's progress bar, all deliberately:
+  there's no schedule to be behind on.
+
+Which year is per line, via `item.reserveYear` and `reserveYearWindow()`: `"calendar"` (Jan–Dec,
+the default and what every reserve line used before the choice existed), `"financial"` (the
+Australian Jul–Jun year, labelled `FY26/27`), or `"rolling12"` (the twelve months ending today).
+Rows can differ, so the period is named per row rather than in the section heading. Anything
+unset or unrecognised falls back to calendar, so an old save reads the same numbers as before.
+
+The `rolling12` window clamps the day-of-month before stepping back a year: `new Date(y - 1, 1,
+30)` for a 29 Feb "today" silently overflows to 2 March and yields a window a day short. There's
+a test for exactly this.
+
 Investment *loan repayments* are the one IP cost that is not a budget line — derived from
 balance/rate/term, nothing to edit and nothing to fall behind on. They keep the read-only
 "Investment loan repayments" card at the bottom of the page (`#propertyExpensesCard`), which is

@@ -1,5 +1,5 @@
 import { FREQS, CLASSES, MONTH_NAMES } from "../constants.js";
-import { periodsOf } from "../calc/ledger.js";
+import { periodsOf, RESERVE_YEAR_BASES } from "../calc/ledger.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "./format.js";
 import { escapeAttr } from "./html.js";
 
@@ -50,7 +50,27 @@ export function timingFieldsHtml(item){
   }).join("");
   return '<div class="m-edit-field span2"><label class="m-checkbox-field"><input type="checkbox" class="f-irregular"' + (item.irregular ? " checked" : "") +
       '> No fixed timing (irregular) — a lumpy spend like Extras or property maintenance, budgeted as a smoothed reserve instead of expected every period</label></div>' +
-    '<div class="m-edit-field"><label>Due month</label><select class="f-duemonth" title="For anything billed less often than monthly — which month it\'s actually due. Auto infers it from the last time you logged it.">' + monthOptions + '</select></div>';
+    '<div class="m-edit-field"><label>Due month</label><select class="f-duemonth" title="For anything billed less often than monthly — which month it\'s actually due. Auto infers it from the last time you logged it.">' + monthOptions + '</select></div>' +
+    reserveYearFieldHtml(item);
+}
+// Only shown once "no fixed timing" is ticked, because that's the only case it changes anything:
+// a reserve line is the one thing compared against a whole year rather than a billing cycle, so
+// this is where "which year?" becomes a real question. Hidden rather than absent so ticking the
+// box can reveal it without re-rendering the row out from under an open editor.
+var RESERVE_YEAR_LABELS = [
+  ["calendar", "Calendar year (Jan–Dec)"],
+  ["financial", "Financial year (Jul–Jun)"],
+  ["rolling12", "Rolling 12 months"]
+];
+function reserveYearFieldHtml(item){
+  var current = RESERVE_YEAR_BASES.indexOf(item.reserveYear) !== -1 ? item.reserveYear : "calendar";
+  var options = RESERVE_YEAR_LABELS.map(function(pair){
+    return '<option value="' + pair[0] + '"' + (pair[0] === current ? " selected" : "") + '>' + pair[1] + '</option>';
+  }).join("");
+  return '<div class="m-edit-field f-reserveyear-field"' + (item.irregular ? "" : " hidden") + '>' +
+    '<label>Budget year</label>' +
+    '<select class="f-reserveyear" title="Which twelve months this reserve is measured over on the Spending tab. A travel or maintenance budget you think of in financial years shouldn\'t reset every 1 January.">' + options + '</select>' +
+  '</div>';
 }
 
 export function optionsHtml(list, value){

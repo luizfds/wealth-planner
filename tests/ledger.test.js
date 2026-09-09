@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, isOverdue, daysUntil, appendHistorySnapshot, transactionsInMonth, transactionsInYear, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, lastTransactionDateFor, transactionDisplayName, budgetCycleFor, freqStepMonths, lastKnownDateFor, resolvedDueMonth } from "../src/calc/ledger.js";
+import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, isOverdue, daysUntil, appendHistorySnapshot, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, lastTransactionDateFor, transactionDisplayName, budgetCycleFor, freqStepMonths, lastKnownDateFor, resolvedDueMonth, reserveYearWindow, reserveYearWindowFor } from "../src/calc/ledger.js";
 
 test("toWeekly converts every frequency to a weekly figure", function(){
   assert.equal(toWeekly(100, "Weekly"), 100);
@@ -240,17 +240,49 @@ test("currentStatementCycle handles a start day near end of month across shorter
   assert.deepEqual(cycle, { start: "2026-01-28", end: "2026-02-27" });
 });
 
-test("transactionsInYear filters to the given YYYY, defaulting to the current year", function(){
-  var txns = [
-    { date: "2024-03-05", amount: 10 },
-    { date: "2024-11-30", amount: 20 },
-    { date: "2025-01-01", amount: 30 }
-  ];
-  var year2024 = transactionsInYear(txns, "2024");
-  assert.equal(year2024.length, 2);
-  assert.equal(year2024.reduce(function(s, t){ return s + t.amount; }, 0), 30);
-  assert.equal(transactionsInYear(txns, "2025").length, 1);
-  assert.equal(transactionsInYear(txns, "2099").length, 0);
+test("reserveYearWindow: the calendar year is Jan 1 to Dec 31 of the year containing today", function(){
+  assert.deepEqual(reserveYearWindow("calendar", "2026-09-09"),
+    { start: "2026-01-01", end: "2026-12-31", label: "this year" });
+  // Boundaries land in the year they belong to rather than rolling into the next one.
+  assert.equal(reserveYearWindow("calendar", "2026-01-01").start, "2026-01-01");
+  assert.equal(reserveYearWindow("calendar", "2026-12-31").end, "2026-12-31");
+});
+
+test("reserveYearWindow: the financial year runs Jul-Jun and is named the way AU statements name it", function(){
+  // On or after 1 July we're in the FY that just opened.
+  assert.deepEqual(reserveYearWindow("financial", "2026-09-09"),
+    { start: "2026-07-01", end: "2027-06-30", label: "FY26/27" });
+  assert.deepEqual(reserveYearWindow("financial", "2026-07-01"),
+    { start: "2026-07-01", end: "2027-06-30", label: "FY26/27" });
+  // Before it, we're still in the one that opened last July — the case a naive
+  // getFullYear() would get wrong for half of every year.
+  assert.deepEqual(reserveYearWindow("financial", "2026-06-30"),
+    { start: "2025-07-01", end: "2026-06-30", label: "FY25/26" });
+  assert.equal(reserveYearWindow("financial", "2026-01-15").label, "FY25/26");
+  // Zero-padded either side of the century, so it never reads "FY9/10".
+  assert.equal(reserveYearWindow("financial", "2009-08-01").label, "FY09/10");
+  assert.equal(reserveYearWindow("financial", "2099-08-01").label, "FY99/00");
+});
+
+test("reserveYearWindow: rolling 12 months ends today and spans a year, not a year and a day", function(){
+  assert.deepEqual(reserveYearWindow("rolling12", "2026-09-09"),
+    { start: "2025-09-10", end: "2026-09-09", label: "last 12 months" });
+  // Leap day: the window still ends on today and starts the day after the same date a year back.
+  assert.equal(reserveYearWindow("rolling12", "2024-02-29").end, "2024-02-29");
+  assert.equal(reserveYearWindow("rolling12", "2024-02-29").start, "2023-03-01");
+});
+
+test("reserveYearWindowFor falls back to the calendar year for anything unset or unrecognised", function(){
+  // Every reserve line was measured over the calendar year before this was a choice, so an older
+  // save (or a hand-edited backup carrying nonsense) has to keep reading the same numbers.
+  var calendar = reserveYearWindow("calendar", "2026-09-09");
+  assert.deepEqual(reserveYearWindowFor({}, "2026-09-09"), calendar);
+  assert.deepEqual(reserveYearWindowFor({ reserveYear: "" }, "2026-09-09"), calendar);
+  assert.deepEqual(reserveYearWindowFor({ reserveYear: "fiscal" }, "2026-09-09"), calendar);
+  assert.deepEqual(reserveYearWindowFor(null, "2026-09-09"), calendar);
+  // ...and a recognised one is honoured.
+  assert.equal(reserveYearWindowFor({ reserveYear: "financial" }, "2026-09-09").label, "FY26/27");
+  assert.equal(reserveYearWindowFor({ reserveYear: "rolling12" }, "2026-09-09").label, "last 12 months");
 });
 
 test("lastKnownDateFor prefers an item's own value-history log over a linked transaction", function(){

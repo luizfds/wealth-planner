@@ -21,13 +21,14 @@ function budgetGroupKeyOf(item){
 // first. This is a list you edit: ordering it by amount would make cards jump around as you type
 // into them. The charts sort by size instead, because a chart is read, not edited.
 function sharedGroupOrder(){
+  var lineItems = allBudgetLines().map(function(line){ return line.item; });
   if(state.budgetGroupBy !== "category"){
     return CLASSES.filter(function(cls){
-      return state.shared.some(function(item){ return (item.classification || "N/A") === cls; });
+      return lineItems.some(function(item){ return (item.classification || "N/A") === cls; });
     });
   }
   var used = {};
-  state.shared.forEach(function(item){ used[budgetGroupKeyOf(item)] = true; });
+  lineItems.forEach(function(item){ used[budgetGroupKeyOf(item)] = true; });
   var order = state.categories.filter(function(name){ return used[name]; });
   // Uncategorised last: it's the leftovers, and putting it first would make an unstarted budget
   // look like one giant unnamed group standing in front of the real ones.
@@ -35,22 +36,71 @@ function sharedGroupOrder(){
   return order;
 }
 
+// Every budget line the Budget tab lists, each tagged with the array it actually lives in.
+//
+// Housing used to be invisible here: state.home is keyed by scenario, because scenarios were once
+// this app's organising principle and housing was the thing being compared rather than a cost you
+// budget for. That left the single largest household expense — rent, or a mortgage plus rates and
+// insurance — out of the budget, its category rollups and its charts entirely.
+//
+// It isn't merged into state.shared, because scenarios differ by *row set*, not just amount:
+// Council Rates and Home Insurance exist only if you buy. scenarioOverrides varies an amount on a
+// row that exists everywhere, so a merge would need either $0 placeholder rows cluttering the
+// everyday budget or a new "doesn't apply here" concept. Instead the active scenario's housing is
+// listed alongside shared as first-class lines, carrying their own section so every existing
+// handler (edit, delete, log, scenario override) routes to the right array unchanged. Scenarios
+// keep their own blocks for comparison; this is just where you look at the one you live in.
+//
+// Investment-property costs join for the same reason and on the same terms. They were a read-only
+// mirror here for a long time, on the grounds that they're already counted separately in every
+// total — true of the *arithmetic*, but the point of this page isn't arithmetic: strata, rates and
+// landlord insurance are bills that get paid, get logged against and belong in a category rollup
+// like every other bill. They stay in p.expenses (the Properties tab is still where a property is
+// managed as a whole) and are listed here through their own "propexp:<id>" section, so editing one
+// from the Budget tab writes to exactly the same row the Properties tab shows.
+//
+// Loan repayments are deliberately not lines: they're derived from balance/rate/term rather than
+// budgeted, so there's nothing to edit and nothing to fall behind on logging. They keep their own
+// summary card below the list instead.
+function budgetLineSources(){
+  var sources = [{ section: "shared", items: state.shared }];
+  var homeItems = state.home[state.activeScenario];
+  if(homeItems && homeItems.length) sources.push({ section: "home:" + state.activeScenario, items: homeItems });
+  ipProperties().forEach(function(p){
+    if(p.expenses && p.expenses.length) sources.push({ section: "propexp:" + p.id, items: p.expenses });
+  });
+  return sources;
+}
+// Flat list of { item, section, idx } across every source, in display order.
+function allBudgetLines(){
+  var lines = [];
+  budgetLineSources().forEach(function(source){
+    source.items.forEach(function(item, idx){ lines.push({ item: item, section: source.section, idx: idx }); });
+  });
+  return lines;
+}
 function computeSharedGroups(){
+  var lines = allBudgetLines();
   return sharedGroupOrder().map(function(key){
-    var indices = [];
-    var items = [];
-    state.shared.forEach(function(item, idx){
-      if(budgetGroupKeyOf(item) === key){ indices.push(idx); items.push(item); }
-    });
-    return { key: key, indices: indices, items: items, monthly: sumField(items, "monthly") };
+    var members = lines.filter(function(line){ return budgetGroupKeyOf(line.item) === key; });
+    var items = members.map(function(line){ return line.item; });
+    return { key: key, members: members, items: items, monthly: sumField(items, "monthly") };
   });
 }
 
 export function patchSharedGroupTotals(){
   var groups = computeSharedGroups();
-  document.querySelectorAll("#sharedGroups .m-card").forEach(function(card, gi){
+  // Matched by card name, not by position. Recategorising a row can create or empty a whole group,
+  // so the freshly-computed list and the cards still on screen can differ in length and order —
+  // writing totals by index then puts Rent's $3,510 under "Groceries". A card whose group no
+  // longer exists is simply left alone until the next full render moves its rows.
+  var byKey = {};
+  groups.forEach(function(g){ byKey[g.key] = g; });
+  document.querySelectorAll("#sharedGroups .m-card").forEach(function(card){
+    var nameEl = card.querySelector(".m-card-name");
+    var group = nameEl && byKey[nameEl.textContent];
     var totalEl = card.querySelector(".m-card-total");
-    if(totalEl && groups[gi]) totalEl.innerHTML = fmtCurrency0.format(groups[gi].monthly) + "<span>/mo</span>";
+    if(totalEl && group) totalEl.innerHTML = fmtCurrency0.format(group.monthly) + "<span>/mo</span>";
   });
   var compWrap = document.querySelector("[data-shared-comp-bar]");
   if(compWrap){
@@ -65,7 +115,7 @@ export function patchSharedGroupTotals(){
 // an arbitrary spreadsheet's layout — there's no backend/LLM here to guess a mapping reliably, so
 // the dependable path is "download our template (or a past export), fill it in, import it back".
 // Matching is case/order-insensitive on header names so a reordered or re-cased copy still works.
-var EXPENSES_IMPORT_HEADERS = ["what", "classification", "category", "amount", "frequency", "account"];
+var EXPENSES_IMPORT_HEADERS = ["what", "classification", "category", "amount", "frequency", "account", "source"];
 function matchExpensesImportHeader(headerRow){
   var colOf = {};
   headerRow.forEach(function(h, i){
@@ -104,7 +154,16 @@ export function parseExpensesImportCsv(text){
     // set arrives in the first place, and migrateState's seed-from-usage pass registers whatever
     // comes in, so rejecting an unknown name here would be rejecting the point of the column.
     var category = colOf.category !== undefined ? (cells[colOf.category] || "").trim() : "";
-    valid.push({ what: what, classification: classMatch || "Needs", category: category, amount: amount, freq: freqMatch || "Monthly", account: account });
+    // Where the row belongs: "Housing" (the active scenario's block), the name of an investment
+    // property (that property's costs), or anything else — including a blank cell or a file
+    // predating the column — meaning a shared expense, which is what every import did before this
+    // existed. "Housing" wins over a property that happens to be called that, so the keyword can
+    // never stop working; matched case-insensitively so a hand-typed column still lands right.
+    var sourceRaw = colOf.source !== undefined ? (cells[colOf.source] || "").trim() : "";
+    var ipMatch = sourceRaw && ipProperties().find(function(p){ return (p.what || "").trim().toLowerCase() === sourceRaw.toLowerCase(); });
+    var source = sourceRaw.toLowerCase() === "housing" ? "Housing" : (ipMatch ? ipMatch.what : "Shared");
+    var propertyId = (source !== "Housing" && ipMatch) ? ipMatch.id : null;
+    valid.push({ what: what, classification: classMatch || "Needs", category: category, amount: amount, freq: freqMatch || "Monthly", account: account, source: source, propertyId: propertyId });
   });
   return { valid: valid, errors: errors, headerOk: true };
 }
@@ -134,13 +193,13 @@ export function renderExpensesImportPreview(parsed){
       "</ul>"
     : "";
   var previewRows = parsed.valid.slice(0, 8).map(function(item){
-    return "<tr><td>" + escapeAttr(item.what) + "</td><td>" + escapeAttr(item.classification) + '</td><td class="num">' + fmtCurrency2.format(item.amount) + "</td><td>" + escapeAttr(item.freq) + "</td><td>" + escapeAttr(item.account) + "</td></tr>";
+    return "<tr><td>" + escapeAttr(item.what) + "</td><td>" + escapeAttr(item.classification) + '</td><td class="num">' + fmtCurrency2.format(item.amount) + "</td><td>" + escapeAttr(item.freq) + "</td><td>" + escapeAttr(item.account) + "</td><td>" + escapeAttr(item.source) + "</td></tr>";
   }).join("");
   var moreNote = parsed.valid.length > 8 ? '<p class="ledger-note" style="margin:6px 0 0">and ' + (parsed.valid.length - 8) + " more…</p>" : "";
   container.innerHTML =
     '<p class="ledger-note" style="margin:0"><b>' + summary + "</b></p>" +
     errorsHtml +
-    (parsed.valid.length ? '<div class="table-scroll" style="margin-top:8px"><table class="import-preview-table"><thead><tr><th>What</th><th>Classification</th><th class="num">Amount</th><th>Frequency</th><th>Account</th></tr></thead><tbody>' + previewRows + "</tbody></table></div>" + moreNote : "") +
+    (parsed.valid.length ? '<div class="table-scroll" style="margin-top:8px"><table class="import-preview-table"><thead><tr><th>What</th><th>Classification</th><th class="num">Amount</th><th>Frequency</th><th>Account</th><th>Goes to</th></tr></thead><tbody>' + previewRows + "</tbody></table></div>" + moreNote : "") +
     '<div style="margin-top:10px;display:flex;gap:8px">' +
       (parsed.valid.length ? '<button type="button" class="btn btn-sm" id="expenseImportConfirmBtn">Import ' + parsed.valid.length + " expense" + (parsed.valid.length === 1 ? "" : "s") + "</button>" : "") +
       '<button type="button" class="btn btn-sm btn-ghost" id="expenseImportCancelBtn">Cancel</button>' +
@@ -155,7 +214,27 @@ export function clearExpensesImportPreview(){
 // stays a plain mutation the caller wraps with its own render/persist/undo (see app.js).
 export function commitExpensesImport(items){
   items.forEach(function(item){
-    state.shared.push({ what: item.what, classification: item.classification, category: item.category || "", account: item.account, amount: item.amount, freq: item.freq });
+    var row = { what: item.what, classification: item.classification, category: item.category || "", account: item.account, amount: item.amount, freq: item.freq };
+    // Housing rows land in the active scenario's block, where the Budget tab reads them from —
+    // pushing them onto state.shared would duplicate rent into a second, scenario-blind copy.
+    // They need an id for the same reason every other budget line does (transactions link by it).
+    var targetProperty = item.propertyId && state.properties.find(function(p){ return p.id === item.propertyId; });
+    if(item.source === "Housing"){
+      row.id = genId("exp");
+      row.irregular = false;
+      row.dueMonth = null;
+      (state.home[state.activeScenario] = state.home[state.activeScenario] || []).push(row);
+    } else if(targetProperty){
+      // Named an investment property, so it's that property's cost — the same row the Properties
+      // tab edits. Resolved by id captured at parse time rather than re-matching the name here,
+      // so a property renamed between preview and confirm can't silently retarget the import.
+      row.id = genId("exp");
+      row.irregular = false;
+      row.dueMonth = null;
+      targetProperty.expenses.push(row);
+    } else {
+      state.shared.push(row);
+    }
     // Register any category the file brought in that the manager doesn't know yet, so an import
     // can't leave a row pointing at a category missing from Accounts → Categories. Same contract
     // as migrateState's seed-from-usage pass, applied at the moment the rows actually land.
@@ -206,6 +285,10 @@ export var modernSharedRowOpen = {};
 // planned panel's own split).
 function budgetRowProgressHtml(item){
   if(item.irregular) return "";
+  // A computed line can't be logged against (it's not a quick-log chip and never enters the
+  // overdue queue), so its progress bar would sit at "$0 of $173" forever — a permanent red herring
+  // on a row that is, in fact, always paid.
+  if(item.computed) return "";
   // item.amount, not resolveSharedAmount(): the row's own headline "/mo" figure right next to this
   // is the un-overridden amount, as is the Actual vs. planned panel's, so reading the scenario
   // override here would make the two numbers on the same row disagree whenever one is set.
@@ -233,6 +316,9 @@ export function renderSharedGroups(){
   renderExpenseReviewButton();
   var container = document.getElementById("sharedGroups");
   if(!container) return;
+  // Names the scenario the housing rows came from, so it's never a mystery why rent changed.
+  var scenarioLabel = document.getElementById("budgetHousingScenario");
+  if(scenarioLabel) scenarioLabel.textContent = state.activeScenario;
   var groups = computeSharedGroups();
   patchSharedGroupTotals();
   var byCategory = state.budgetGroupBy === "category";
@@ -258,7 +344,10 @@ export function renderSharedGroups(){
       '<div class="m-card-head"><span class="m-avatar ' + avatarClass + '">' + escapeAttr(initial) + '</span>' +
       '<div class="m-card-name">' + escapeAttr(g.key) + '</div>' +
       '<div class="m-card-total">' + fmtCurrency0.format(g.monthly) + '<span>/mo</span></div></div>' +
-      '<div class="m-rows">' + g.items.map(function(item, i){ return modernPlainRowHtml(item, g.indices[i], "shared", modernSharedRowOpen, {showClass:true, showDone:true, categories: state.categories, extraSubLine: budgetRowProgressHtml(item)}); }).join("") + '</div>' +
+      // Each row renders under its own source section, so a housing line's edits, deletes and
+      // logs land in state.home[scenario] while a shared line's land in state.shared — no
+      // special-casing anywhere downstream, since every handler already keys off data-section.
+      '<div class="m-rows">' + g.members.map(function(line){ return modernPlainRowHtml(line.item, line.idx, line.section, modernSharedRowOpen, {showClass:true, showDone:true, categories: state.categories, extraSubLine: budgetRowProgressHtml(line.item)}); }).join("") + '</div>' +
       '<button type="button" class="m-add-row" data-add="' + escapeAttr(addValue) + '">+ Add expense</button>' +
     '</div>';
   }).join("") + '</div>';
@@ -361,23 +450,27 @@ export function copyScenarioAmountToAll(idx, scenarioName){
   showToast('Set "' + item.what + '" to ' + fmtCurrency2.format(value) + ' for every scenario');
 }
 
-// Read-only mirror of each IP property's costs onto the Expenses page — same idea as the
-// synthetic rent row on the Income tab, but this never touches state.shared, since property
-// costs are already counted separately (ipExpenseItemsForClassification/ipExpensesMonthly/
-// ipLoansMonthly) in every real total. Adding it as a real row there would double-count it.
-function propertyMonthlyCost(p){
-  var loanMonthly = (p.loans || []).reduce(function(s, l){ return s + loanRepaymentMonthly(l); }, 0);
-  return sumField(p.expenses, "monthly") + loanMonthly;
+// What's left of the old read-only "Investment property costs" mirror. Its expense half is gone:
+// those rows are real budget lines in the list above now (see budgetLineSources), so keeping the
+// mirror would have shown every strata and rates bill twice on one page.
+//
+// Loan repayments stay, and stay read-only, because they aren't budgeted — each is derived from
+// its loan's balance, rate, term and repayment type, so there is nothing here to edit and nothing
+// to fall behind on logging. They're still the single biggest line an investment property carries,
+// though, and the Budget total above deliberately excludes them (it totals the list, and they
+// aren't in it), so dropping them entirely would have left the Expenses page quietly understating
+// what a property costs to hold. This card is the honest remainder.
+function propertyLoanMonthly(p){
+  return (p.loans || []).reduce(function(s, l){ return s + loanRepaymentMonthly(l); }, 0);
 }
-function propertyExpensesModernHtml(ips){
+function propertyLoansModernHtml(ips){
   var rows = ips.map(function(p){
-    var monthly = propertyMonthlyCost(p);
     return '<div class="m-row computed"><div class="m-row-summary" style="cursor:default">' +
       '<div style="flex:1 1 auto; min-width:0">' +
-        '<div class="m-row-name">' + escapeAttr(p.what) + ' — Property costs</div>' +
-        '<div class="m-row-sub">auto: expenses + loan repayment — edit on the Properties tab</div>' +
+        '<div class="m-row-name">' + escapeAttr(p.what) + ' — Loan repayments</div>' +
+        '<div class="m-row-sub">auto: from the loan\'s balance and rate — edit on the Properties tab</div>' +
       '</div>' +
-      '<span class="m-row-amt">' + fmtCurrency0.format(monthly) + '/mo</span>' +
+      '<span class="m-row-amt">' + fmtCurrency0.format(propertyLoanMonthly(p)) + '/mo</span>' +
     '</div></div>';
   }).join("");
   return '<div class="m-card"><div class="m-rows">' + rows + '</div></div>';
@@ -387,12 +480,14 @@ export function renderPropertyExpensesSummary(){
   var wrap = document.getElementById("propertyExpensesCard");
   var modernWrap = document.getElementById("propertyExpensesModern");
   if(!wrap || !modernWrap) return;
-  var ips = ipProperties();
+  // Only properties that actually carry a loan — an unencumbered IP has nothing to say here, and
+  // an empty card headed "Investment loan repayments" reads like a bug.
+  var ips = ipProperties().filter(function(p){ return propertyLoanMonthly(p) > 0; });
   wrap.hidden = !ips.length;
   if(!ips.length) return;
-  var total = ips.reduce(function(s, p){ return s + propertyMonthlyCost(p); }, 0);
+  var total = ips.reduce(function(s, p){ return s + propertyLoanMonthly(p); }, 0);
   document.getElementById("propertyExpensesTotal").textContent = fmtCurrency0.format(total);
-  modernWrap.innerHTML = propertyExpensesModernHtml(ips);
+  modernWrap.innerHTML = propertyLoansModernHtml(ips);
 }
 
 // ---------------- Review expenses: one-at-a-time swipe/confirm flow ----------------
@@ -400,6 +495,10 @@ export function renderPropertyExpensesSummary(){
 // through the queue the user has gotten. null when the review flow is closed. A snapshot of
 // indices taken at open time (not re-derived live), so deleting/reordering rows elsewhere while
 // a review is somehow still open can't shift what "next" points at mid-review.
+// queue holds budget-line *ids*, not indices. It used to hold positions in state.shared, which
+// made the flow structurally incapable of covering housing (a different array) and quietly wrong
+// if a row was added or deleted mid-review. Every budget line carries a stable id now, so the
+// queue resolves through budgetLineItems() and works across every source without an index model.
 export var expenseReview = null;
 
 // A shared expense's amount/freq is purely the planned budget — logging against it (below,
@@ -435,17 +534,24 @@ function reviewDueNoteHtml(item){
 export function renderExpenseReviewButton(){
   var btn = document.getElementById("reviewExpensesBtn");
   if(!btn) return;
-  var dueCount = state.shared.reduce(function(n, item){ return n + (isDueForReview(item) ? 1 : 0); }, 0);
+  var dueCount = loggableBudgetLineItems().reduce(function(n, item){ return n + (isDueForReview(item) ? 1 : 0); }, 0);
   btn.hidden = dueCount === 0;
   btn.textContent = "Catch up on " + dueCount + " overdue";
 }
+export function reviewQueueItem(){
+  if(!expenseReview) return null;
+  var id = expenseReview.queue[expenseReview.pos];
+  if(id == null) return null;
+  return budgetLineItems().find(function(i){ return i.id === id; }) || null;
+}
 export function openExpenseReview(){
-  if(!state.shared.length){
+  var lines = loggableBudgetLineItems();
+  if(!lines.length){
     showToast("No expenses to review yet — add one on this page first.");
     return;
   }
   var due = [];
-  state.shared.forEach(function(item, i){ if(isDueForReview(item)) due.push(i); });
+  lines.forEach(function(item){ if(isDueForReview(item)) due.push(item.id); });
   if(!due.length){
     showToast("Nothing due for review — every expense has been logged recently enough.");
     return;
@@ -466,7 +572,7 @@ export function closeExpenseReview(){
 // persist) — same split as the scenario-override panel's mutation helpers.
 export function logCurrentReviewCard(amount, dateStr){
   if(!expenseReview) return;
-  var item = state.shared[expenseReview.queue[expenseReview.pos]];
+  var item = reviewQueueItem();
   if(!item) return;
   logExpenseTransaction(item, amount, dateStr);
   expenseReview.reviewedCount++;
@@ -501,7 +607,8 @@ export function renderExpenseReviewPanel(){
       '</div></div>';
     return;
   }
-  var item = state.shared[expenseReview.queue[expenseReview.pos]];
+  var item = reviewQueueItem();
+  if(!item){ expenseReview.pos++; renderExpenseReviewPanel(); return; }
   root.innerHTML = '<div class="review-backdrop" data-review-backdrop>' +
     '<div class="review-panel" role="dialog" aria-label="Review expenses">' +
       '<div class="review-head"><span class="review-progress">' + (expenseReview.pos + 1) + ' of ' + total + '</span><button type="button" class="icon-btn" data-review-close aria-label="Close">✕</button></div>' +
@@ -543,7 +650,7 @@ export function quickLogChipOrder(){
     var d = t.date || "";
     if(!lastByExpense[t.linkedExpenseId] || d > lastByExpense[t.linkedExpenseId]) lastByExpense[t.linkedExpenseId] = d;
   });
-  return state.shared
+  return loggableBudgetLineItems()
     .map(function(item, i){ return { item: item, i: i, last: lastByExpense[item.id] || "" }; })
     .sort(function(a, b){
       if(a.last !== b.last) return a.last > b.last ? -1 : 1;
@@ -593,7 +700,7 @@ export function quickLogContextText(item){
 // name it in a confirmation toast.
 export function submitQuickLog(amount, note, dateStr, category){
   if(!quickLog) return null;
-  var item = quickLog.linkedId && state.shared.find(function(i){ return i.id === quickLog.linkedId; });
+  var item = quickLog.linkedId && budgetLineItems().find(function(i){ return i.id === quickLog.linkedId; });
   var t = {
     id: genId("t"),
     date: dateStr || localDateStr(),
@@ -664,7 +771,7 @@ export function renderQuickLogSheet(){
       '</div></div>';
     return;
   }
-  var item = quickLog.linkedId && state.shared.find(function(i){ return i.id === quickLog.linkedId; });
+  var item = quickLog.linkedId && budgetLineItems().find(function(i){ return i.id === quickLog.linkedId; });
   root.innerHTML = '<div class="review-backdrop" data-qlog-backdrop>' +
     '<div class="review-panel qlog-panel" role="dialog" aria-label="Log spend">' +
       '<div class="review-head"><h4>Log spend</h4><button type="button" class="icon-btn" data-qlog-close aria-label="Close">✕</button></div>' +
@@ -729,7 +836,7 @@ var TRANSACTIONS_RECENT_COUNT = 10;
 export var modernTransactionRowOpen = {};
 function transactionLinkOptionsHtml(selectedId){
   var options = '<option value=""' + (!selectedId ? " selected" : "") + '>— One-off (not linked) —</option>';
-  return options + state.shared.map(function(item){
+  return options + loggableBudgetLineItems().map(function(item){
     return '<option value="' + escapeAttr(item.id) + '"' + (item.id === selectedId ? " selected" : "") + '>' + escapeAttr(item.what) + '</option>';
   }).join("");
 }
@@ -766,7 +873,7 @@ export function transactionAccount(t){
   var direct = (t.account || "").trim();
   if(direct) return direct;
   if(t.linkedExpenseId){
-    var item = state.shared.find(function(i){ return i.id === t.linkedExpenseId; });
+    var item = budgetLineItems().find(function(i){ return i.id === t.linkedExpenseId; });
     if(item && item.account) return item.account;
   }
   return "";
@@ -779,7 +886,7 @@ export function transactionCategory(t){
   var direct = (t.category || "").trim();
   if(direct) return direct;
   if(t.linkedExpenseId){
-    var linkedItem = state.shared.find(function(i){ return i.id === t.linkedExpenseId; });
+    var linkedItem = budgetLineItems().find(function(i){ return i.id === t.linkedExpenseId; });
     if(linkedItem && (linkedItem.category || "").trim()) return linkedItem.category.trim();
   }
   return "";
@@ -789,7 +896,7 @@ export function transactionCategory(t){
 // Exported so app.js's live-input handlers can re-derive it to patch an open row's header text
 // (see the tx-what/tx-link/tx-account cases) instead of waiting for a full renderTransactions().
 export function transactionSummaryText(t){
-  var linked = t.linkedExpenseId && state.shared.find(function(i){ return i.id === t.linkedExpenseId; });
+  var linked = t.linkedExpenseId && budgetLineItems().find(function(i){ return i.id === t.linkedExpenseId; });
   var acct = transactionAccount(t);
   var bits = [t.date || "—", linked ? linked.what : "One-off"];
   if(acct) bits.push(acct);
@@ -799,7 +906,7 @@ export function transactionSummaryText(t){
 // transaction it shows the name it will be listed under if left blank, so the field reads as a
 // refinement of an already-complete entry rather than a blank required box.
 function transactionDescriptionPlaceholder(t){
-  var linked = t.linkedExpenseId && state.shared.find(function(i){ return i.id === t.linkedExpenseId; });
+  var linked = t.linkedExpenseId && budgetLineItems().find(function(i){ return i.id === t.linkedExpenseId; });
   return linked && linked.what ? linked.what : "Optional note";
 }
 function transactionRowHtml(t, idx){
@@ -967,8 +1074,14 @@ export function renderActualVsPlannedPanel(){
   renderSpendCategoryChart();
   var el = document.getElementById("actualVsPlannedPanel");
   if(!el) return;
-  var regularItems = state.shared.filter(function(item){ return !item.irregular; });
-  var irregularItems = state.shared.filter(function(item){ return item.irregular; });
+  // Only lines you can log against. A computed line always reads "$0 actual of $X planned" —
+  // nobody logs a mortgage direct debit — and this panel exists to answer "how am I tracking",
+  // which a permanent, unfixable miss the size of a loan repayment actively obscures. Same
+  // reasoning as the overdue queue; the Budget tab's own total still counts them, because there
+  // the question is what the month costs, not what's been recorded.
+  var budgetItems = loggableBudgetLineItems();
+  var regularItems = budgetItems.filter(function(item){ return !item.irregular; });
+  var irregularItems = budgetItems.filter(function(item){ return item.irregular; });
   var irregularIds = {};
   irregularItems.forEach(function(item){ irregularIds[item.id] = true; });
   var irregularSection = irregularBudgetSectionHtml(irregularItems);
@@ -979,7 +1092,9 @@ export function renderActualVsPlannedPanel(){
   // budget miss against a monthly slice that was never a real expectation for that item).
   var monthTxns = allMonthTxns.filter(function(t){ return !t.linkedExpenseId || !irregularIds[t.linkedExpenseId]; });
   var byExpense = sumTransactionsByExpense(monthTxns);
-  if(!state.shared.length && !allMonthTxns.length){
+  // Every budget line, not just state.shared: a household whose only lines are housing and an
+  // investment property's costs has plenty to report on, and used to be told to go add one.
+  if(!budgetItems.length && !allMonthTxns.length){
     el.innerHTML = '<p class="ledger-note" style="margin:0">Add a budget line on the Budget tab, then log spend against it to see where the month is going.</p>';
     return;
   }
@@ -1097,7 +1212,10 @@ function creditStatementCyclesHtml(){
 // every referencing row (renameCategoryEverywhere below), which keeps CSV exports and hand-edited
 // backups readable rather than full of opaque ids.
 function categoryRowHtml(name, idx){
-  var usedBy = state.shared.filter(function(item){ return (item.category || "") === name; }).length;
+  // Counted across every budget line, not just state.shared — housing and investment-property
+  // costs carry categories too, and a manager that reported "unused" for a category three of them
+  // sit on would be actively misleading about what deleting it costs.
+  var usedBy = budgetLineItems().filter(function(item){ return (item.category || "") === name; }).length;
   var nameInput = '<input type="text" class="cat-mgmt-name" data-cat-index="' + idx + '" value="' + escapeAttr(name) + '" placeholder="Category name" aria-label="Category name">';
   var usage = '<span class="cat-mgmt-count">' + (usedBy ? usedBy + (usedBy === 1 ? " line" : " lines") : "unused") + '</span>';
   var delBtn = '<button type="button" class="btn btn-ghost btn-sm row-del" data-cat-del="' + idx + '" aria-label="Delete category">✕</button>';
@@ -1123,14 +1241,31 @@ export function addCategory(){
 // than a silent orphaning — same contract as renameAccountEverywhere below.
 export function renameCategoryEverywhere(oldName, newName){
   if(!oldName || oldName === newName) return;
-  state.shared.forEach(function(item){ if((item.category || "") === oldName) item.category = newName; });
+  // "Everywhere" means every array a budget line can live in — including scenarios you aren't
+  // currently in. A rename that skipped them would leave the old name behind on rows the Budget
+  // tab shows the moment you switch scenario, and migrateState's seed-from-usage pass would then
+  // helpfully re-add the category you just renamed away from.
+  everyCategorisableArray().forEach(function(items){
+    items.forEach(function(item){ if((item.category || "") === oldName) item.category = newName; });
+  });
+}
+// Every array whose rows carry a category, across all scenarios and properties — deliberately
+// wider than budgetLineItems() (which is only what the Budget tab currently lists) because
+// renaming and deleting a category have to reach rows that aren't on screen right now.
+function everyCategorisableArray(){
+  var arrays = [state.shared];
+  Object.keys(state.home || {}).forEach(function(name){ if(Array.isArray(state.home[name])) arrays.push(state.home[name]); });
+  (state.properties || []).forEach(function(p){ if(Array.isArray(p.expenses)) arrays.push(p.expenses); });
+  return arrays;
 }
 // Deleting a category never deletes the budget lines using it — they fall back to uncategorised,
 // which the charts report honestly as its own slice. Losing a label should not lose data.
 export function deleteCategory(idx){
   var removed = state.categories[idx];
   if(removed == null) return;
-  var orphaned = state.shared.filter(function(item){ return (item.category || "") === removed; });
+  var orphaned = everyCategorisableArray().reduce(function(acc, items){
+    return acc.concat(items.filter(function(item){ return (item.category || "") === removed; }));
+  }, []);
   state.categories.splice(idx, 1);
   orphaned.forEach(function(item){ item.category = ""; });
   renderCategories();
@@ -1193,6 +1328,21 @@ export function categoryChartHtml(groups, unit, opts){
 // Real spend this month per category, resolved through each transaction's linked budget line —
 // so categorising a line retroactively categorises everything ever logged against it, and a
 // one-off with no link falls into its own bucket rather than being dropped.
+// Every budget line the Budget tab lists — shared plus the active scenario's housing. Exported so
+// the actual-vs-planned panel totals exactly what the list shows, rather than the two disagreeing
+// about whether rent counts.
+export function budgetLineItems(){
+  return budgetLineSources().reduce(function(acc, source){ return acc.concat(source.items); }, []);
+}
+// The subset you can actually log spend against. A computed line (a synced home-loan repayment, a
+// property manager fee worked out from the rent) is a real cost and stays in the list and in the
+// totals — but its amount isn't yours to set and there's no bill to fall behind on paying, so
+// offering it as a quick-log chip or queuing it under "Catch up on overdue" is asking for a
+// confirmation of something the app already knows. Same rows exportExpensesCsv() skips, same
+// reason.
+export function loggableBudgetLineItems(){
+  return budgetLineItems().filter(function(item){ return !item.computed; });
+}
 export function renderSpendCategoryChart(){
   var el = document.getElementById("spendCategoryChart");
   if(!el) return;

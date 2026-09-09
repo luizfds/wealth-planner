@@ -26,6 +26,42 @@ scenario), `assets[]` (category field distinguishes Cash/Shares/Super/Vehicle/Ot
 (each with `loans[]`, `income[]`, `expenses[]`), `projection` (horizon/rates), `tax` (super
 guarantee rate, per-property IP ownership split, per-person settings).
 
+### The budget list is three arrays, not one
+
+The Expenses page's "Household budget" is assembled by `budgetLineSources()` in
+`components/expenses.js` from three places that are deliberately *not* merged in state:
+
+| Source | `section` key | Array |
+|---|---|---|
+| Shared household expenses | `shared` | `state.shared` |
+| The active scenario's housing | `home:<scenario>` | `state.home[state.activeScenario]` |
+| Each investment property's costs | `propexp:<propertyId>` | `property.expenses` |
+
+Every row renders with its own `data-section`, so all the existing generic handlers (edit,
+delete, add, scenario-override) route to the right array with no special-casing. Three
+consequences worth knowing before touching any of this:
+
+- **They stay separate on purpose.** Scenarios differ by *row set*, not just amount (Council
+  Rates only exists if you buy), and an IP's costs belong to the property — they're edited from
+  the Properties tab too, off the same array. Merging into `state.shared` would need `$0`
+  placeholder rows or a "doesn't apply here" concept.
+- **Anything that walks "every budget line" must use `budgetLineItems()`**, never `state.shared`
+  alone. That caught out the category manager's usage counts, `renameCategoryEverywhere`,
+  `deleteCategory`, the Actual-vs-Planned empty state, and `lib/search.js` (which keeps its own
+  mirror of the same list, since `lib/` can't import a component — keep the two in step).
+  Rename/delete go wider still, via `everyCategorisableArray()`: they must reach rows in
+  scenarios you aren't currently in, or the old name comes back the next time you switch.
+- **`loggableBudgetLineItems()` is the subset you can log spend against** — `budgetLineItems()`
+  minus `computed` rows. Quick-log chips, the overdue queue, the transaction "link to" select,
+  the Actual-vs-Planned panel and per-row progress bars all use it; the Budget tab's list and
+  monthly total use the full set. A computed line is real money but nobody logs a direct debit,
+  so it would otherwise read "$0 of $3,510" forever.
+
+Investment *loan repayments* are the one IP cost that is not a budget line — derived from
+balance/rate/term, nothing to edit and nothing to fall behind on. They keep the read-only
+"Investment loan repayments" card at the bottom of the page (`#propertyExpensesCard`), which is
+explicitly *not* counted in the budget total above it.
+
 Several `income[]` rows are **synthetic/computed** (`item.computed === true`): a per-person
 "Net income after tax & super" mirror, and a per-IP-property "Rent" mirror. These are
 recalculated by `recalcComputedItems()` (in `calc/engine.js`) and must never be hand-edited or

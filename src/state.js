@@ -1,4 +1,4 @@
-import { STORAGE_KEY, HOME_CATEGORIES, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, INVEST_LEG_TYPES, DEFAULT_CATEGORIES } from "./constants.js";
+import { STORAGE_KEY, HOME_CATEGORIES, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, INVEST_LEG_TYPES, DEFAULT_CATEGORIES, IP_CATEGORY } from "./constants.js";
 import { showToast } from "./lib/toast.js";
 
 export function defaultPurchaseConfig(price, depositPct, rate, termYears, stateCode, enabled){
@@ -164,6 +164,18 @@ export function migrateState(s){
     var block = s.home[name];
     if(block && block.length && !block.some(function(i){ return i.id === "homeLoanRow"; })) block[0].id = "homeLoanRow";
   });
+  // Housing rows need stable ids for the same reason shared expenses do: a transaction links to
+  // its budget line by id, and the Budget tab now lists housing alongside everything else, so
+  // rent and rates can be logged against and get their own progress bars. Only the loan row
+  // carried an id before (it's found by a fixed "homeLoanRow" id, above); the rest were addressed
+  // purely by array position, which no transaction can hold onto.
+  //
+  // Ids are per scenario, deliberately: "Council Rates" under Buy Sydney and under Buy Melbourne
+  // are different amounts for different hypothetical houses, so sharing an id would let a
+  // transaction logged against one silently count towards the other.
+  s.scenarios.forEach(function(name){
+    (s.home[name] || []).forEach(function(item){ if(!item.id) item.id = genId("exp"); });
+  });
   if(!s.activeScenario || s.scenarios.indexOf(s.activeScenario) === -1) s.activeScenario = s.scenarios[0];
   // One-shot-per-load (not flagged — cheap and idempotent): if there's no baseline yet, or the
   // named baseline no longer exists (e.g. it was renamed before this field existed), designate
@@ -214,16 +226,30 @@ export function migrateState(s){
   if(s.budgetGroupBy !== "category") s.budgetGroupBy = "type";
   if(!Array.isArray(s.categories)) s.categories = DEFAULT_CATEGORIES.slice();
   s.categories = s.categories.filter(function(name){ return typeof name === "string" && name.trim(); });
-  s.shared.forEach(function(item){ if(typeof item.category !== "string") item.category = ""; });
+  // Every array the Budget tab lists, in the same order expenses.js's budgetLineSources() walks
+  // them. Categories started out as a state.shared-only idea, but housing and investment-property
+  // costs are budget lines now too — normalising and seeding from state.shared alone left a
+  // category typed onto one of those missing from the manager (and its usage count wrong).
+  function everyBudgetArray(){
+    var arrays = [s.shared];
+    Object.keys(s.home || {}).forEach(function(name){ if(Array.isArray(s.home[name])) arrays.push(s.home[name]); });
+    (s.properties || []).forEach(function(p){ if(Array.isArray(p.expenses)) arrays.push(p.expenses); });
+    return arrays;
+  }
+  everyBudgetArray().forEach(function(items){
+    items.forEach(function(item){ if(typeof item.category !== "string") item.category = ""; });
+  });
   // Same idempotent, every-load seeding as accounts below: pick up any category name already on a
   // budget line (a CSV import, a restored backup) that isn't in the registry yet, so nothing a row
   // references is missing from the manager.
   (function seedCategoriesFromUsage(){
     var knownCats = {};
     s.categories.forEach(function(name){ knownCats[name] = true; });
-    s.shared.forEach(function(item){
-      var name = (item.category || "").trim();
-      if(name && !knownCats[name]){ knownCats[name] = true; s.categories.push(name); }
+    everyBudgetArray().forEach(function(items){
+      items.forEach(function(item){
+        var name = (item.category || "").trim();
+        if(name && !knownCats[name]){ knownCats[name] = true; s.categories.push(name); }
+      });
     });
   })();
   if(!Array.isArray(s.accounts)) s.accounts = [];
@@ -281,6 +307,11 @@ export function migrateState(s){
     if(!Array.isArray(p.expenses)) p.expenses = [];
     p.income.forEach(applyTimingDefaults);
     p.expenses.forEach(applyTimingDefaults);
+    // Same reason housing rows got ids above: an investment property's costs are budget lines on
+    // the Expenses page now, so a transaction has to be able to link to one and a review queue has
+    // to be able to hold onto it across a re-render. Per property, never shared between them —
+    // "Council Rates" on two different properties are two different bills.
+    p.expenses.forEach(function(item){ if(!item.id) item.id = genId("exp"); });
     if(!Array.isArray(p.history)) p.history = [];
     if(p.kind !== "IP" && p.kind !== "PPOR") p.kind = "IP";
     if(p.value == null) p.value = 0;
@@ -341,6 +372,23 @@ export function migrateState(s){
       if(l.termYears == null) l.termYears = 30;
     });
   });
+
+  // One-off: give every existing investment-property cost the "Investment property" category, so
+  // the Budget tab's Group-by-Category view and the spending charts have something meaningful to
+  // roll them up under from the first load rather than a wall of "Uncategorised". Flagged rather
+  // than idempotent on purpose — deliberately clearing or re-categorising one of these rows must
+  // stick, and an every-load seed would silently undo that on the next refresh.
+  if(!s.ipCategorySeeded){
+    var seededAny = false;
+    s.properties.forEach(function(p){
+      if(p.kind !== "IP") return;
+      p.expenses.forEach(function(item){
+        if(!(item.category || "").trim()){ item.category = IP_CATEGORY; seededAny = true; }
+      });
+    });
+    if(seededAny && s.categories.indexOf(IP_CATEGORY) === -1) s.categories.push(IP_CATEGORY);
+    s.ipCategorySeeded = true;
+  }
 
   var hasLegacyIp = (s.income || []).some(function(i){ return i.id === "rentIncome"; }) || !!(s.ip && s.ip.length > 0);
   if(hasLegacyIp && !s.propertiesMigratedFromIp){

@@ -25,13 +25,24 @@ export function searchApp(query){
     results.push({ type: type, label: label, sublabel: sublabel || "", page: page, extra: extra || {} });
   }
 
-  (state.shared || []).forEach(function(item){
+  // Housing lives in state.home keyed by scenario, and an investment property's costs live on the
+  // property, but both are listed on the Budget tab alongside state.shared — so both are
+  // searchable on the same terms. Mirrors expenses.js's budgetLineItems() without importing a
+  // component into lib/; keep the two in step.
+  function budgetLines(){
+    var lines = (state.shared || []).concat(state.home && state.home[state.activeScenario] || []);
+    (state.properties || []).forEach(function(p){
+      if(p.kind === "IP" && Array.isArray(p.expenses)) lines = lines.concat(p.expenses);
+    });
+    return lines;
+  }
+  budgetLines().forEach(function(item){
     add("Expense", item.what, fmtCurrency0.format(Number(item.amount) || 0) + " " + (item.freq || "").toLowerCase(), "expenses");
   });
   (state.transactions || []).forEach(function(t){
     // Indexed by its display name, not t.what: a transaction logged against "Groceries" with no
     // description of its own is still expected to turn up when you search "groceries".
-    add("Transaction", transactionDisplayName(t, state.shared), (t.date || "") + " · " + fmtCurrency0.format(Number(t.amount) || 0), "expenses");
+    add("Transaction", transactionDisplayName(t, budgetLines()), (t.date || "") + " · " + fmtCurrency0.format(Number(t.amount) || 0), "expenses");
   });
   (state.income || []).forEach(function(i){
     add("Income", i.what, (i.person ? i.person + " · " : "") + fmtCurrency0.format(Number(i.amount) || 0) + " " + (i.freq || "").toLowerCase(), "income");

@@ -39,7 +39,6 @@
      the same explicit [hidden] override as the two above. */
   .accounts-subpage{ display:flex; flex-direction:column; gap:20px; }
   .accounts-subpage[hidden]{ display:none; }
-  .cat-mgmt-count{ font-size:11.5px; color: var(--ink-soft); white-space:nowrap; }
   #assetsPersonFilter{ margin-top:8px; }
   #assetsPersonFilter .subnav-item{ font-size:11px; padding:5px 10px; border:1px solid var(--border); }
   #assetsPersonFilter .subnav-item.active{ border-color: var(--brass); }

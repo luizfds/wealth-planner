@@ -186,13 +186,55 @@ export function currentStatementCycle(startDay, todayStr){
 export function transactionsInRange(transactions, startDate, endDate){
   return transactions.filter(function(t){ return t.date >= startDate && t.date <= endDate; });
 }
-// Real, dated spend events filtered to one calendar year — defaults to the current year, mirroring
-// transactionsInMonth() above. Used by the Actual vs. planned panel's "irregular/reserve" items
-// (Extras, property maintenance, etc.), which are compared against a year-to-date budget rather
-// than a monthly one, since they're not expected to land on any particular month.
-export function transactionsInYear(transactions, yearStr){
-  yearStr = yearStr || localDateStr().slice(0, 4);
-  return transactions.filter(function(t){ return (t.date || "").slice(0, 4) === yearStr; });
+// The window a reserve (irregular) budget line is measured over. "This year" was the only option
+// for a long time and quietly meant the *calendar* year, which is wrong for a lot of what these
+// lines actually hold: in Australia a household thinks about plenty of annual money in financial
+// years (Jul–Jun), and a rolling budget like travel is better answered by "what have I spent in
+// the last twelve months" than by one that resets to zero every 1 January — right when people
+// book their summer trip.
+//
+// Returns { start, end, label } with inclusive ISO date bounds. The label goes straight into the
+// row's "$X actual / $Y planned <label>" line, so it has to read as a period in that sentence.
+export var RESERVE_YEAR_BASES = ["calendar", "financial", "rolling12"];
+export function reserveYearWindow(basis, todayStr){
+  var today = todayStr ? new Date(todayStr + "T00:00:00") : new Date();
+  today.setHours(0, 0, 0, 0);
+  var y = today.getFullYear();
+  if(basis === "financial"){
+    // The Australian financial year: 1 July to 30 June. Before July we're still in the FY that
+    // opened last July, hence the shift.
+    var startYear = today.getMonth() >= 6 ? y : y - 1;
+    return {
+      start: localDateStr(new Date(startYear, 6, 1)),
+      end: localDateStr(new Date(startYear + 1, 5, 30)),
+      // "FY24/25", the way it's written on every Australian statement — and short enough for the
+      // row's sub-line, which ellipsizes well before the amount column on a phone.
+      label: "FY" + String(startYear % 100).padStart(2, "0") + "/" + String((startYear + 1) % 100).padStart(2, "0")
+    };
+  }
+  if(basis === "rolling12"){
+    // The twelve months ending today, inclusive at both ends: the day after the same date a year
+    // back, so the window is 12 months long rather than 12 months and a day.
+    //
+    // The day-of-month is clamped to that month's length before stepping forward, because the one
+    // date this has to get right is the one JS gets wrong: today = 29 Feb has no counterpart a
+    // year earlier, and `new Date(y - 1, 1, 30)` silently overflows to 2 March — a window a day
+    // short, with no error to notice. Clamped to 28 Feb, +1 day lands on 1 March, which is what
+    // "the twelve months ending 29 Feb" means.
+    var backYear = y - 1, m = today.getMonth();
+    var daysInMonthThen = new Date(backYear, m + 1, 0).getDate();
+    var back = new Date(backYear, m, Math.min(today.getDate(), daysInMonthThen));
+    var from = new Date(back.getFullYear(), back.getMonth(), back.getDate() + 1);
+    return { start: localDateStr(from), end: localDateStr(today), label: "last 12 months" };
+  }
+  return { start: localDateStr(new Date(y, 0, 1)), end: localDateStr(new Date(y, 11, 31)), label: "this year" };
+}
+// The reserve window for one budget line. Anything unset (or set to something unrecognised — a
+// hand-edited backup, an older save) falls back to the calendar year, which is what every reserve
+// line was measured over before this was a choice.
+export function reserveYearWindowFor(item, todayStr){
+  var basis = item && RESERVE_YEAR_BASES.indexOf(item.reserveYear) !== -1 ? item.reserveYear : "calendar";
+  return reserveYearWindow(basis, todayStr);
 }
 // A ledger item's last-known "when did this actually happen" date, regardless of which of the
 // app's two logging mechanisms it uses — a plain value-history snapshot (income, home costs,

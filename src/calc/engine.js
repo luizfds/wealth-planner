@@ -1,5 +1,5 @@
 import { state } from "../state.js";
-import { LIQUID_CATEGORIES, MARKET_CURRENCY } from "../constants.js";
+import { LIQUID_CATEGORIES, MARKET_CURRENCY, IP_CATEGORY } from "../constants.js";
 import { toWeekly, sumField, sumFieldForScenario } from "./ledger.js";
 import {
   recalcPurchase, ipProperties, ipExpensesMonthly, ipLoansMonthly,
@@ -209,7 +209,10 @@ export function recalcComputedItems(){
     if(p.kind !== "IP") return;
     var pmFeeItem = p.expenses.find(function(i){ return i.id === "pmFee6"; });
     if(!pmFeeItem){
-      pmFeeItem = { id: "pmFee6", what: "Property Manager Fee", classification: "Needs", account: "", amount: 0, freq: "Weekly", computed: true, computedNote: "" };
+      // Born with the same category migrateState seeds onto every other investment-property cost:
+      // this row is created here at runtime rather than by the migration, so without it a brand-new
+      // property's PM fee would be the one line sitting under "Uncategorised" in the rollups.
+      pmFeeItem = { id: "pmFee6", what: "Property Manager Fee", classification: "Needs", category: IP_CATEGORY, account: "", amount: 0, freq: "Weekly", computed: true, computedNote: "" };
       p.expenses.push(pmFeeItem);
     }
     var rentWeekly = toWeekly(sumField(p.income, "yearly") / 52, "Weekly");

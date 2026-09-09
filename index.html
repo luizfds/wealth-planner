@@ -111,7 +111,7 @@
     <div class="app-sidebar-footer">
       <p class="app-sidebar-note">Stored only in this browser (<code>localStorage</code>) — nothing is sent anywhere. Clearing your browser data clears this too, so <button class="link-btn" id="exportLink2">Export</button> a backup now and then.</p>
       <a class="feature-request-link" href="https://github.com/luizfds/wealth-planner/issues/new" target="_blank" rel="noopener noreferrer">💡 Request a feature</a>
-      <p class="app-version">v2.69.0</p>
+      <p class="app-version">v2.71.0</p>
     </div>
     <div class="mobile-header-right">
       <button type="button" class="icon-btn" id="mobileSearchBtn" aria-label="Search">
@@ -252,7 +252,7 @@
         </div>
         <div class="expenses-subpage" id="expensesSub-budget">
         <div class="page-intro-row">
-          <p class="page-intro">What you plan to spend — the same in every scenario unless you vary a row (⇄ on the row).</p>
+          <p class="page-intro">Everything the household plans to spend, in one list — and what's actually been spent against it.</p>
           <div class="page-intro-actions">
             <button type="button" class="btn btn-sm btn-ghost" id="expenseExportCsvBtn" title="Download every expense row as a CSV file">Export CSV</button>
             <button type="button" class="btn btn-sm btn-ghost" id="expenseDownloadTemplateBtn" title="Download a blank CSV shaped for importing expenses back in">Import template</button>
@@ -263,11 +263,11 @@
         <div class="ledgers">
           <details class="ledger" open>
             <summary>
-              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Shared living expenses</h2></div>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Household budget</h2></div>
               <div class="ledger-total">Monthly total <b id="totalSharedMonthly">—</b></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note" style="margin-left:0">Subscriptions, car, groceries, and the rest — what each one is expected to cost, and how often.</p>
+              <p class="ledger-note" style="margin-left:0">Everything you plan to spend — housing, subscriptions, car, groceries and the rest — with what each is expected to cost and how often. Housing comes from the scenario you're currently in (<b id="budgetHousingScenario">—</b>), so switching scenarios on the Scenarios tab swaps it for that one's costs, and each investment property's costs come from the Properties tab.</p>
               <div id="expenseImportPreview" hidden></div>
               <p class="income-summary-line" id="sharedSummaryLine" style="display:none"></p>
               <div class="groupby" id="budgetGroupBy" hidden></div>
@@ -279,11 +279,11 @@
           </details>
           <details class="ledger" id="propertyExpensesCard" open hidden>
             <summary>
-              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Investment property costs</h2></div>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Investment loan repayments</h2></div>
               <div class="ledger-total">Monthly total <b id="propertyExpensesTotal">—</b></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note" style="margin-left:0">Read-only — each property's expenses plus loan repayments. Edit on the Properties tab.</p>
+              <p class="ledger-note" style="margin-left:0">Read-only, and not counted in the budget total above — a repayment is worked out from the loan's balance, rate and term rather than budgeted. Each property's other costs are listed as ordinary budget lines above. Edit either on the Properties tab.</p>
               <div id="propertyExpensesModern"></div>
             </div>
           </details>

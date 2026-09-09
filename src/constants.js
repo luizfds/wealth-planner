@@ -9,9 +9,14 @@ export var FREQS = ["Weekly","Fortnightly","Monthly","Quarterly","Half-yearly","
 // would just restate the line's own name, so the default set is about a dozen buckets rather
 // than an exhaustive taxonomy.
 export var DEFAULT_CATEGORIES = [
-  "Housing", "Utilities", "Groceries", "Transport", "Car", "Health", "Insurance",
-  "Education", "Childcare", "Subscriptions", "Eating out", "Shopping", "Personal", "Other"
+  "Housing", "Investment property", "Utilities", "Groceries", "Transport", "Car", "Health",
+  "Insurance", "Education", "Childcare", "Subscriptions", "Eating out", "Shopping", "Personal",
+  "Other"
 ];
+// The default every investment-property cost is seeded onto (migrateState, one-shot). Named as a
+// constant because both the seeding and the Budget tab's "these came from the Properties tab"
+// grouping have to agree on the exact string — a category is matched by name, not by id.
+export var IP_CATEGORY = "Investment property";
 // What an uncategorised line is called wherever categories are grouped or charted. Not a real
 // entry in state.categories — it's the absence of one, named so charts and rollups have
 // something honest to label the remainder with.

@@ -31,7 +31,7 @@ import {
   setQuickLogShowAllChips, submitQuickLog, quickLogContextText, quickLog,
   renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, logExpenseTransaction,
   renderCategories, addCategory, deleteCategory, renameCategoryEverywhere,
-  setBudgetGroupBy, renderBudgetGroupByToggle,
+  setBudgetGroupBy, renderBudgetGroupByToggle, budgetLineItems,
   parseExpensesImportCsv, renderExpensesImportPreview, clearExpensesImportPreview, commitExpensesImport
 } from "./components/expenses.js";
 import {
@@ -323,6 +323,9 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       if(mHome){
         var hi = state.scenarios.indexOf(mHome[1]);
         renderHomeListModern(mHome[1], hi);
+        // The active scenario's housing is also listed on the Budget tab (see budgetLineSources),
+        // so it has two renderers to keep in step — the Scenarios block above and the budget list.
+        if(mHome[1] === state.activeScenario) renderSharedGroups();
       }
       var mPropInc = /^propinc:(.+)$/.exec(section);
       if(mPropInc){
@@ -333,6 +336,9 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       if(mPropExp){
         var pe = findProperty(mPropExp[1]);
         if(pe) renderPropListModern(pe.id, section, pe.expenses, true);
+        // Same two-renderer situation as housing above: an IP's costs are shown both on its
+        // Properties card and as budget lines on the Expenses page, off the one array.
+        if(pe && pe.kind === "IP") renderSharedGroups();
       }
     }
   }
@@ -340,7 +346,9 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
 
   function renderTotals(){
     document.getElementById("totalIncomeMonthly").textContent = fmtCurrency2.format(sumField(effectiveIncomeItems(), "monthly"));
-    document.getElementById("totalSharedMonthly").textContent = fmtCurrency2.format(sumField(state.shared, "monthly"));
+    // Totals what the list actually shows — shared plus the active scenario's housing — not just
+    // state.shared, or the header disagrees with the cards beneath it by the size of your rent.
+    document.getElementById("totalSharedMonthly").textContent = fmtCurrency2.format(sumField(budgetLineItems(), "monthly"));
     renderGlobalMetrics();
   }
 
@@ -370,10 +378,29 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       if(whatField) whatField.placeholder = item.what || "Optional note";
       if((t.what || "").trim()) return;
       var nameEl = row.querySelector(".m-row-name");
-      if(nameEl) nameEl.textContent = transactionDisplayName(t, state.shared);
+      if(nameEl) nameEl.textContent = transactionDisplayName(t, budgetLineItems());
       var subEl = row.querySelector(".m-row-sub");
       if(subEl) subEl.innerHTML = transactionSummaryText(t);
     });
+  }
+
+  // True for any section the Budget tab lists: state.shared, plus the active scenario's housing
+  // (see budgetLineSources in expenses.js). A housing row edited there needs the same live totals,
+  // charts and regrouping a shared row gets — the same scenario's block on the Scenarios page is
+  // updated alongside it by rerenderTableFor.
+  // Set when a row's category changes and cleared once the list has been rebuilt — see
+  // closeActiveModernRowUI for why the rebuild waits.
+  var budgetRegroupPending = false;
+  // "Does a row in this section appear in the Budget tab's list?" — which is what decides whether
+  // an edit has to keep #sharedGroups in step, not which page the edit was made from. An IP's
+  // costs are editable from either end (its Properties card, or the budget list), and both write
+  // to the same p.expenses array, so both need the same follow-up either way.
+  function isBudgetListSection(section){
+    if(section === "shared" || section === "home:" + state.activeScenario) return true;
+    var mPropExp = /^propexp:(.+)$/.exec(section);
+    if(!mPropExp) return false;
+    var p = findProperty(mPropExp[1]);
+    return !!(p && p.kind === "IP");
   }
 
   // ---------------- Event wiring ----------------
@@ -392,7 +419,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       if(nameEl) nameEl.textContent = item.what;
     }
     else if(e.target.classList.contains("f-account")) item.account = e.target.value;
-    else if(e.target.classList.contains("f-class")){ item.classification = e.target.value; if(section === "shared") structural = true; }
+    else if(e.target.classList.contains("f-class")){ item.classification = e.target.value; if(isBudgetListSection(section)) structural = true; }
     // Not structural: category is a reporting dimension, so it changes both by-category charts
     // but never which card this row sits in — no need to rebuild the list around it.
     else if(e.target.classList.contains("f-category")){ item.category = e.target.value; }
@@ -428,16 +455,20 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       patchSyntheticIncomeRows();
       patchIncomeGroupTotals();
       patchOpenRowBreakdowns();
-    } else if(section === "shared" && structural){
-      rerenderTableFor("shared");
-    } else if(section === "shared"){
+    } else if(isBudgetListSection(section) && structural){
+      rerenderTableFor(section);
+    } else if(isBudgetListSection(section)){
       patchSharedGroupTotals();
       // A transaction logged against this budget line with no description of its own is listed
       // under the line's name (transactionDisplayName), so renaming the line has to move those
       // labels too. Patched in place rather than re-rendering #transactionsTable, since this
       // fires on every keystroke of the rename.
       if(e.target.classList.contains("f-what")) patchLinkedTransactionNames(item);
-      if(e.target.classList.contains("f-category")){ patchCategoryCharts(); renderActualVsPlannedPanel(); }
+      if(e.target.classList.contains("f-category")){
+        budgetRegroupPending = true;
+        patchCategoryCharts();
+        renderActualVsPlannedPanel();
+      }
       // Toggling "irregular" moves this item between the regular monthly rows and the
       // year-to-date reserve section below on the same page — worth a live refresh rather than
       // waiting for whatever next unrelated action happens to re-render the panel.
@@ -1409,8 +1440,14 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     var row = findModernRowElement(activeModernRow.section, activeModernRow.idx);
     if(row) row.classList.remove("open");
     activeModernRow.openState[activeModernRow.key] = false;
+    var wasBudgetRow = isBudgetListSection(activeModernRow.section);
     activeModernRow = null;
     document.getElementById("mRowBackdrop").hidden = true;
+    // Recategorising is the one edit whose effect can't be patched in place: grouped by category
+    // it moves the row into a different card, which means rebuilding the list — and doing that
+    // while the modal is open would tear the row out from under the person editing it. So it's
+    // deferred to here, the moment the modal closes.
+    if(wasBudgetRow && budgetRegroupPending){ budgetRegroupPending = false; renderSharedGroups(); }
   }
   // The close entry point for every on-screen affordance (tap the row/header, Escape, tap the
   // backdrop) — see wireModernRowToggle, the Escape listener, and #mRowBackdrop's click listener
@@ -1633,7 +1670,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     // planned-budget side, so the actual-vs-planned bars need their own refresh to include the
     // transaction that was just recorded.
     renderActualVsPlannedPanel();
-    showToast("Logged " + fmtCurrency2.format(t.amount) + " to " + transactionDisplayName(t, state.shared));
+    showToast("Logged " + fmtCurrency2.format(t.amount) + " to " + transactionDisplayName(t, budgetLineItems()));
   }
   var quickLogBtn = document.getElementById("quickLogBtn");
   if(quickLogBtn) quickLogBtn.addEventListener("click", openQuickLogSheet);
@@ -1662,7 +1699,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
         el.classList.toggle("is-selected", on);
         el.setAttribute("aria-pressed", on ? "true" : "false");
       });
-      var linked = quickLog.linkedId && state.shared.find(function(i){ return i.id === quickLog.linkedId; });
+      var linked = quickLog.linkedId && budgetLineItems().find(function(i){ return i.id === quickLog.linkedId; });
       var ctx = document.querySelector(".qlog-context");
       if(ctx) ctx.textContent = quickLogContextText(linked);
       var noteEl = document.getElementById("quickLogNote");
@@ -1772,7 +1809,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   // a full re-render itself (see below) since a date edit can also re-sort the row's position.
   function patchTransactionRowHeader(row, t){
     var nameEl = row.querySelector(".m-row-name");
-    if(nameEl) nameEl.textContent = transactionDisplayName(t, state.shared);
+    if(nameEl) nameEl.textContent = transactionDisplayName(t, budgetLineItems());
     var subEl = row.querySelector(".m-row-sub");
     if(subEl) subEl.innerHTML = transactionSummaryText(t);
   }
@@ -1802,7 +1839,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       // text in would only create a duplicate that goes stale when the line is renamed. The
       // placeholder is repointed instead, so the field still shows what it'll be listed as.
       if(linkedId){
-        var linkedItem = state.shared.find(function(i){ return i.id === linkedId; });
+        var linkedItem = budgetLineItems().find(function(i){ return i.id === linkedId; });
         if(linkedItem && txRow){
           var whatField = txRow.querySelector(".tx-what");
           if(whatField) whatField.placeholder = linkedItem.what || "Optional note";
@@ -1883,7 +1920,13 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   document.getElementById("accountsSubnav").addEventListener("click", function(e){
     var accountsSubBtn = e.target.closest("[data-accounts-sub]");
     if(!accountsSubBtn) return;
-    showAccountsSubpage(accountsSubBtn.getAttribute("data-accounts-sub"));
+    var accountsSubId = accountsSubBtn.getAttribute("data-accounts-sub");
+    showAccountsSubpage(accountsSubId);
+    // Each category row carries a live "used by N lines" count, which goes stale every time a
+    // budget line is added, deleted, recategorised or imported — none of which re-render this
+    // normally-hidden tab, and none of which should have to know it exists. Recounting on the way
+    // in is both cheaper and more reliable than adding a renderCategories() to all of them.
+    if(accountsSubId === "categories") renderCategories();
   });
   document.getElementById("addCategoryBtn").addEventListener("click", function(){
     addCategory();

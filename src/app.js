@@ -50,7 +50,7 @@ import {
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
   patchCalcOutputs, afterCalcChange, patchInvestOutputs
 } from "./components/scenarios.js";
-import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY } from "./components/nav.js";
+import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY } from "./components/nav.js";
 import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./components/search.js";
 
 (function(){
@@ -1414,11 +1414,39 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     if(!activeOverlayClose) return;
     history.back();
   }
+  // Navigating to another page while an overlay is open (open a row, tap another tab) used to
+  // leave it open and, worse, strand its history entry under the page entry syncUrl() then
+  // pushes — after which the overlay's own close path went back a *page* instead of closing it.
+  // nav.js calls this from showPage before it writes that entry; no history here, since it's
+  // about to be rewritten anyway.
+  setOverlayCleanup(function(){
+    if(!activeOverlayClose) return;
+    var closeOverlay = activeOverlayClose;
+    activeOverlayClose = null;
+    closeOverlay();
+  });
 
   // Only one row can be a modal at a time (openModernRow closes whichever was open before opening
   // a new one) — nothing enforced that before, harmless for an inline accordion where several
   // could stay expanded at once, but two would visually stack as a modal.
-  var activeModernRow = null; // { section, idx, openState, key }
+  var activeModernRow = null; // { section, idx, openState, key, containerId }
+  // section+index does NOT identify a row uniquely across the document: the same underlying row
+  // can be rendered on two pages at once. The active scenario's housing appears both in the
+  // Scenarios block and in the Expenses page's budget list, and an investment property's costs
+  // appear both on its Properties card and in that same list — by design, since both ends edit
+  // the one array. #page-expenses comes first in index.html, so a document-wide lookup always
+  // returned the budget-list copy, and closing a housing row opened on the Scenarios page cleared
+  // "open" off a row that didn't have it while the one actually on screen stayed open forever
+  // (with activeModernRow then null, no further tap could close it either). So the search is
+  // scoped to the container the row was opened in.
+  function containerIdForRow(row){
+    // Nearest id-bearing ancestor: every wired container has one ("homeBody", "sharedGroups",
+    // "propertiesBody"…), and an inner wrapper that has one too (e.g. "propExpRows_<id>") only
+    // scopes tighter, which is just as correct.
+    var el = row && row.parentElement;
+    while(el && !el.id) el = el.parentElement;
+    return el ? el.id : null;
+  }
   // Looked up fresh by data-section/data-index rather than a cached element reference — an
   // action taken *while* a row is open (e.g. the "Log" button inside a shared expense's edit
   // panel) can trigger a full re-render of that row's container (renderSharedGroups() and
@@ -1426,9 +1454,12 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   // even though openState still says it's open, so the freshly-rendered replacement row also
   // renders with the "open" class. A cached reference to the old, now-detached node would have
   // its "open" class removed with no visible effect, permanently stranding the new node open and
-  // (since activeModernRow then goes stale/null) un-closeable by any further tap.
-  function findModernRowElement(section, idx){
-    return document.querySelector('.m-row[data-section="' + CSS.escape(section) + '"][data-index="' + CSS.escape(String(idx)) + '"]');
+  // (since activeModernRow then goes stale/null) un-closeable by any further tap. The container is
+  // re-resolved by id for the same reason — a render one level up (renderProperties() rebuilding
+  // #propertiesBody) can replace the wrapper element itself, not just its contents.
+  function findModernRowElement(section, idx, containerId){
+    var scope = (containerId && document.getElementById(containerId)) || document;
+    return scope.querySelector('.m-row[data-section="' + CSS.escape(section) + '"][data-index="' + CSS.escape(String(idx)) + '"]');
   }
   // Pure DOM/state cleanup, no history involved — used both as the overlay's close callback (the
   // entry's already gone by the time the popstate handler calls this) and internally when
@@ -1437,7 +1468,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   // instant swap.
   function closeActiveModernRowUI(){
     if(!activeModernRow) return;
-    var row = findModernRowElement(activeModernRow.section, activeModernRow.idx);
+    var row = findModernRowElement(activeModernRow.section, activeModernRow.idx, activeModernRow.containerId);
     if(row) row.classList.remove("open");
     activeModernRow.openState[activeModernRow.key] = false;
     var wasBudgetRow = isBudgetListSection(activeModernRow.section);
@@ -1470,7 +1501,11 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     // Swapping directly from one open row to another re-uses the same history entry (replaceState)
     // rather than stacking a second one — the back button should undo "a row was open" once, not
     // once per row visited on the way to this one.
-    var switchingRow = activeModernRow && activeModernRow.key !== key;
+    // Compared on container as well as key: the two copies of a housing row share a section, an
+    // index and therefore a key, but are separate rows on separate pages with separate open-state
+    // maps — treating a tap on one as "the same row" as the other would leave the first open.
+    var containerId = containerIdForRow(row);
+    var switchingRow = !!activeModernRow && (activeModernRow.key !== key || activeModernRow.containerId !== containerId);
     if(switchingRow) closeActiveModernRowUI();
     row.classList.add("open");
     // .is-entering is what actually carries the slide-in/fade-in animation (see ledger.css) — a
@@ -1483,7 +1518,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     row.addEventListener("animationend", clearEntering, { once: true });
     setTimeout(clearEntering, 400);
     openState[key] = true;
-    activeModernRow = { section: row.getAttribute("data-section"), idx: row.getAttribute("data-index"), openState: openState, key: key };
+    activeModernRow = { section: row.getAttribute("data-section"), idx: row.getAttribute("data-index"), openState: openState, key: key, containerId: containerId };
     document.getElementById("mRowBackdrop").hidden = false;
     pushActiveOverlay(closeActiveModernRowUI, switchingRow);
     if(!autoFocus) return;
@@ -1508,8 +1543,18 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       // container can hold rows from more than one entity (e.g. Properties, where each
       // property's income/expenses are separately-indexed arrays sharing one open-state map).
       var key = row.getAttribute("data-section") + ":" + row.getAttribute("data-index");
-      if(row.classList.contains("open")) closeActiveModernRow();
-      else openModernRow(row, openState, key);
+      if(!row.classList.contains("open")){ openModernRow(row, openState, key); return; }
+      // Safety net, not the fix for anything in particular: a row that renders "open" while
+      // activeModernRow is null has no close path at all — closeActiveModernRow() early-returns
+      // and the modal is stuck with no way out but a reload, which on a phone reads as the app
+      // having crashed. If tracking and the DOM ever disagree again, believe the DOM.
+      if(!activeModernRow){
+        row.classList.remove("open");
+        openState[key] = false;
+        document.getElementById("mRowBackdrop").hidden = true;
+        return;
+      }
+      closeActiveModernRow();
     });
     container.addEventListener("keydown", function(e){
       if(e.key !== "Enter" && e.key !== " ") return;

@@ -170,6 +170,17 @@ export function updateQuickFab(pageId){
   if(mode) fab.setAttribute("data-fab-mode", mode); else fab.removeAttribute("data-fab-mode");
   if(selector) fab.setAttribute("data-fab-selector", selector); else fab.removeAttribute("data-fab-selector");
 }
+// Overlays that live *outside* any .app-page section (the row-edit modal and its backdrop, the
+// search sheet, the quick-log sheet, the expense review) have to be torn down when the page
+// changes, or they hang over whatever you navigated to — and worse, the history entry
+// pushActiveOverlay() left behind gets stranded under the page entry syncUrl() pushes next, so
+// the overlay's own close path stops working entirely.
+//
+// app.js owns those primitives and can't be imported from here without a cycle, so it registers
+// its cleanup once at startup. Pure DOM/state cleanup only, no history: showPage is about to write
+// the history entry itself.
+var overlayCleanup = null;
+export function setOverlayCleanup(fn){ overlayCleanup = fn; }
 export function showPage(id, opts){
   opts = opts || {};
   if(!PAGES.some(function(p){ return p.id === id; })) id = "dashboard";
@@ -179,6 +190,7 @@ export function showPage(id, opts){
     // appended outside any .app-page section, so it would otherwise stay visible on top of
     // whatever page the user navigates to next.
     closeScenarioOverridePanel();
+    if(overlayCleanup) overlayCleanup();
     PAGES.forEach(function(p){
       var section = document.getElementById("page-" + p.id);
       if(section) section.hidden = (p.id !== id);

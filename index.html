@@ -111,7 +111,10 @@
     <div class="app-sidebar-footer">
       <p class="app-sidebar-note">Stored only in this browser (<code>localStorage</code>) — nothing is sent anywhere. Clearing your browser data clears this too, so <button class="link-btn" id="exportLink2">Export</button> a backup now and then.</p>
       <a class="feature-request-link" href="https://github.com/luizfds/wealth-planner/issues/new" target="_blank" rel="noopener noreferrer">💡 Request a feature</a>
-      <p class="app-version">v2.74.0</p>
+      <!-- The number lives in its own span because it is *parsed*, both out of this DOM and out of
+           a freshly-fetched copy of this file, to decide whether a newer version is deployed. Left
+           bare in the <p>, the "Check for updates" button beside it would end up inside the match. -->
+      <p class="app-version"><span class="app-version-num">v2.74.0</span> · <button type="button" class="link-btn" id="checkUpdatesLink">Check for updates</button></p>
     </div>
     <div class="mobile-header-right">
       <button type="button" class="icon-btn" id="mobileSearchBtn" aria-label="Search">
@@ -579,6 +582,7 @@
     <button type="button" class="mobile-more-item" id="mobileResetBtn">Reset</button>
     <div class="mobile-more-divider"></div>
     <a class="mobile-more-item" href="https://github.com/luizfds/wealth-planner/issues/new" target="_blank" rel="noopener noreferrer">💡 Request a feature</a>
+    <button type="button" class="mobile-more-item" id="mobileCheckUpdatesBtn">Check for updates</button>
     <p class="mobile-more-version" id="mobileMoreVersion"></p>
   </div>
 </nav>

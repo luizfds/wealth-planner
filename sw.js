@@ -19,6 +19,36 @@ self.addEventListener("activate", function(event){
 
 var SHELL_URL = new URL("index.html", self.registration.scope).href;
 
+// "Give me a genuinely clean copy" — sent by the page when the user accepts an update banner.
+// A plain reload isn't enough on its own: the version check only reads index.html, so a freshly
+// deployed shell sitting alongside a still-cached src/*.js would reload into a new version number
+// running old code.
+//
+// The page can reach CacheStorage itself, but doing it there would mean duplicating CACHE_NAME and
+// SHELL_URL outside this file — and, more importantly, a bare purge deletes the cached shell that
+// is the *only* thing making a reload work on a pushState'd path (/expenses/budget) when the
+// network hiccups. So the purge and the re-prime happen together, here, where both names live.
+self.addEventListener("message", function(event){
+  if(!event.data || event.data.type !== "purge-and-reprime") return;
+  var reply = function(ok){
+    if(event.ports && event.ports[0]) event.ports[0].postMessage({ ok: ok });
+  };
+  event.waitUntil(
+    caches.keys()
+      .then(function(names){ return Promise.all(names.map(function(n){ return caches.delete(n); })); })
+      // Straight back with a fresh shell, so the reload this is about to trigger has something to
+      // fall back on even if it lands offline. Failure here is survivable — the page reloads either
+      // way and the fetch handler re-caches as it goes — so it resolves rather than rejects.
+      .then(function(){ return fetch(new Request(SHELL_URL, { cache: "no-store" })); })
+      .then(function(response){
+        if(!response || !(response.ok || response.type === "opaque")) return null;
+        return caches.open(CACHE_NAME).then(function(cache){ return cache.put(SHELL_URL, response.clone()); });
+      })
+      .then(function(){ reply(true); })
+      .catch(function(){ reply(false); })
+  );
+});
+
 self.addEventListener("fetch", function(event){
   if(event.request.method !== "GET") return;
   var isNavigation = event.request.mode === "navigate";

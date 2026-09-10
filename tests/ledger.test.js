@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, isOverdue, daysUntil, appendHistorySnapshot, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, lastTransactionDateFor, transactionDisplayName, budgetCycleFor, freqStepMonths, lastKnownDateFor, resolvedDueMonth, reserveYearWindow, reserveYearWindowFor } from "../src/calc/ledger.js";
+import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, isOverdue, daysUntil, appendHistorySnapshot, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, lastTransactionDateFor, transactionDisplayName, budgetCycleFor, freqStepMonths, lastKnownDateFor, resolvedDueMonth, reserveYearWindow, reserveYearWindowFor, nextPayDate, payScheduleKindFor } from "../src/calc/ledger.js";
 
 test("toWeekly converts every frequency to a weekly figure", function(){
   assert.equal(toWeekly(100, "Weekly"), 100);
@@ -430,4 +430,75 @@ test("nextDueDate and isOverdue step six months for a Half-yearly item", functio
   assert.equal(nextDueDate("2026-02-10", "Half-yearly", "2026-03-01"), "2026-08-10");
   assert.equal(isOverdue("2026-02-10", "Half-yearly", "2026-07-01"), false);
   assert.equal(isOverdue("2026-02-10", "Half-yearly", "2026-08-10"), true);
+});
+
+test("payScheduleKindFor asks for the one thing each frequency actually needs", function(){
+  assert.equal(payScheduleKindFor("Weekly"), "weekday");
+  assert.equal(payScheduleKindFor("Fortnightly"), "anchor");
+  ["Monthly", "Quarterly", "Half-yearly", "Yearly"].forEach(function(f){
+    assert.equal(payScheduleKindFor(f), "monthday");
+  });
+});
+
+test("nextPayDate: weekly lands on the next matching weekday, and today counts", function(){
+  // 2026-09-10 is a Thursday (getDay() === 4).
+  var thu = { freq: "Weekly", payWeekday: 4 };
+  assert.equal(nextPayDate(thu, [], "2026-09-10"), "2026-09-10", "paid today is still the next pay");
+  assert.equal(nextPayDate(thu, [], "2026-09-11"), "2026-09-17", "the day after rolls a full week");
+  assert.equal(nextPayDate({ freq: "Weekly", payWeekday: 1 }, [], "2026-09-10"), "2026-09-14");
+  // Nothing set: say so rather than guessing.
+  assert.equal(nextPayDate({ freq: "Weekly" }, [], "2026-09-10"), null);
+  assert.equal(nextPayDate({ freq: "Weekly", payWeekday: "" }, [], "2026-09-10"), null);
+});
+
+test("nextPayDate: fortnightly steps the real 14-day cycle from its anchor", function(){
+  var item = { freq: "Fortnightly", payAnchor: "2026-09-03" };
+  assert.equal(nextPayDate(item, [], "2026-09-03"), "2026-09-03");
+  assert.equal(nextPayDate(item, [], "2026-09-04"), "2026-09-17");
+  assert.equal(nextPayDate(item, [], "2026-09-17"), "2026-09-17");
+  assert.equal(nextPayDate(item, [], "2026-09-18"), "2026-10-01");
+  // A stale anchor months back still resolves to the correct upcoming date, not the next one
+  // after the anchor.
+  assert.equal(nextPayDate({ freq: "Fortnightly", payAnchor: "2026-01-08" }, [], "2026-09-10"), "2026-09-17");
+  // An anchor in the future (a pay date already diarised) walks *back* to the right one rather
+  // than reporting a date months out. Dec 31 less 14s lands on Sep 10 — which is today, and today
+  // counts, exactly as it does on the forward path above.
+  assert.equal(nextPayDate({ freq: "Fortnightly", payAnchor: "2026-12-31" }, [], "2026-09-10"), "2026-09-10");
+  assert.equal(nextPayDate({ freq: "Fortnightly", payAnchor: "2026-12-31" }, [], "2026-09-11"), "2026-09-24");
+  assert.equal(nextPayDate({ freq: "Fortnightly" }, [], "2026-09-10"), null);
+});
+
+test("nextPayDate: monthly uses this month until the day passes, then next", function(){
+  var item = { freq: "Monthly", payDay: 15 };
+  assert.equal(nextPayDate(item, [], "2026-09-01"), "2026-09-15");
+  assert.equal(nextPayDate(item, [], "2026-09-15"), "2026-09-15");
+  assert.equal(nextPayDate(item, [], "2026-09-16"), "2026-10-15");
+});
+
+test("nextPayDate: a day the month doesn't have is clamped, and \"last\" means last", function(){
+  // The 31st in a 30-day month is the 30th, not the 1st of the next one.
+  assert.equal(nextPayDate({ freq: "Monthly", payDay: 31 }, [], "2026-09-01"), "2026-09-30");
+  assert.equal(nextPayDate({ freq: "Monthly", payDay: 31 }, [], "2026-10-01"), "2026-10-31");
+  assert.equal(nextPayDate({ freq: "Monthly", payDay: "last" }, [], "2026-02-01"), "2026-02-28");
+  // 2028 is a leap year, so "last" is the 29th.
+  assert.equal(nextPayDate({ freq: "Monthly", payDay: "last" }, [], "2028-02-01"), "2028-02-29");
+});
+
+test("nextPayDate: less often than monthly places the day inside its due month", function(){
+  // Quarterly, due in February, paid on the 20th -> Feb/May/Aug/Nov.
+  var q = { freq: "Quarterly", payDay: 20, dueMonth: 2 };
+  assert.equal(nextPayDate(q, [], "2026-01-01"), "2026-02-20");
+  assert.equal(nextPayDate(q, [], "2026-02-21"), "2026-05-20");
+  assert.equal(nextPayDate(q, [], "2026-09-10"), "2026-11-20");
+  // Rolls into next year rather than reporting a date already gone.
+  assert.equal(nextPayDate(q, [], "2026-11-21"), "2027-02-20");
+  // Yearly with a bonus month.
+  assert.equal(nextPayDate({ freq: "Yearly", payDay: 5, dueMonth: 7 }, [], "2026-09-10"), "2027-07-05");
+  // No due month set and nothing logged to infer one from: unknowable, so null.
+  assert.equal(nextPayDate({ freq: "Quarterly", payDay: 20 }, [], "2026-09-10"), null);
+});
+
+test("nextPayDate: an unset schedule is null rather than a guess", function(){
+  assert.equal(nextPayDate(null, [], "2026-09-10"), null);
+  assert.equal(nextPayDate({ freq: "Monthly" }, [], "2026-09-10"), null);
 });

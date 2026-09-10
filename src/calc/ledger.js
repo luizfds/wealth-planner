@@ -335,6 +335,99 @@ export function budgetCycleFor(item, transactions, todayStr){
     dueThisMonth: cycleStart.getFullYear() === today.getFullYear() && cycleStart.getMonth() === today.getMonth()
   };
 }
+// ---------------- Pay schedule ----------------
+// "When am I next paid?" — answerable per income row, and deliberately answered by a different
+// field per frequency, because the three families genuinely need different information:
+//
+//   Weekly       a weekday is enough                      -> payWeekday (0=Sun … 6=Sat)
+//   Fortnightly  a weekday is NOT enough — you also need  -> payAnchor (any recent real pay date;
+//                to know which of the two weeks             the weekday falls out of it)
+//   Monthly+     a day of the month                       -> payDay (1–31, or "last")
+//
+// Each field is stored independently rather than one polymorphic "payDay", so switching an income
+// row from Monthly to Weekly and back doesn't silently discard what was already set.
+export var WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+export function payScheduleKindFor(freq){
+  if(freq === "Weekly") return "weekday";
+  if(freq === "Fortnightly") return "anchor";
+  return "monthday";
+}
+function atMidnight(dateStr){
+  var d = dateStr ? new Date(dateStr + "T00:00:00") : new Date();
+  d.setHours(0, 0, 0, 0);
+  return isNaN(d.getTime()) ? null : d;
+}
+// Strict: no argument means "not set", never "today". atMidnight above deliberately defaults to
+// now because that's right for a todayStr parameter — but reusing it for a *stored* date silently
+// turned "this row has no anchor" into "the anchor is today", which is how an unconfigured
+// fortnightly row reported a confident next-pay date of today.
+function storedDate(dateStr){
+  return (typeof dateStr === "string" && dateStr) ? atMidnight(dateStr) : null;
+}
+// payDay may be the string "last" — a salary paid on the final working day of the month can't be
+// expressed as a fixed number, and clamping 31 into February would land on the 28th anyway but
+// reads as a mistake rather than an intent.
+function monthDayIn(year, month, payDay){
+  var lastDay = new Date(year, month + 1, 0).getDate();
+  var day = payDay === "last" ? lastDay : Math.min(Number(payDay) || 1, lastDay);
+  return new Date(year, month, day);
+}
+// Returns an ISO date string, or null when the row hasn't been told enough to know.
+export function nextPayDate(item, transactions, todayStr){
+  if(!item) return null;
+  var today = atMidnight(todayStr);
+  if(!today) return null;
+  var kind = payScheduleKindFor(item.freq);
+  if(kind === "weekday"){
+    if(item.payWeekday == null || item.payWeekday === "") return null;
+    // Today counts as the next payday if it *is* the day — you were paid this morning.
+    var delta = ((Number(item.payWeekday) - today.getDay()) + 7) % 7;
+    return localDateStr(new Date(today.getFullYear(), today.getMonth(), today.getDate() + delta));
+  }
+  if(kind === "anchor"){
+    var anchor = storedDate(item.payAnchor);
+    if(!anchor) return null;
+    // Step the real 14-day cycle rather than guessing at a weekday: the anchor is what makes a
+    // fortnightly schedule knowable at all. Steps backwards too, so an anchor in the future (a
+    // pay date already diarised) still resolves to the right upcoming one rather than looping.
+    var cursor = new Date(anchor.getTime());
+    var guard = 0;
+    while(cursor.getTime() < today.getTime() && guard < 5000){
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 14);
+      guard++;
+    }
+    while(cursor.getTime() - 14 * 86400000 >= today.getTime() && guard < 5000){
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() - 14);
+      guard++;
+    }
+    return localDateStr(cursor);
+  }
+  if(item.payDay == null || item.payDay === "") return null;
+  var stepMonths = freqStepMonths(item.freq);
+  if(stepMonths <= 1){
+    var thisMonth = monthDayIn(today.getFullYear(), today.getMonth(), item.payDay);
+    if(thisMonth.getTime() >= today.getTime()) return localDateStr(thisMonth);
+    return localDateStr(monthDayIn(today.getFullYear(), today.getMonth() + 1, item.payDay));
+  }
+  // Less often than monthly: which month it lands in is already a solved problem (dueMonth, set
+  // explicitly or inferred), so this only has to place the day inside it and roll forward by whole
+  // cycles until it's not in the past.
+  var dueMonth = resolvedDueMonth(item, transactions);
+  if(!dueMonth) return null;
+  var candidate = monthDayIn(today.getFullYear(), dueMonth - 1, item.payDay);
+  var guardM = 0;
+  while(candidate.getTime() < today.getTime() && guardM < 100){
+    candidate = monthDayIn(candidate.getFullYear(), candidate.getMonth() + stepMonths, item.payDay);
+    guardM++;
+  }
+  while(guardM < 100){
+    var earlier = monthDayIn(candidate.getFullYear(), candidate.getMonth() - stepMonths, item.payDay);
+    if(earlier.getTime() < today.getTime()) break;
+    candidate = earlier;
+    guardM++;
+  }
+  return localDateStr(candidate);
+}
 export function resolvedDueMonth(item, transactions){
   if(item.dueMonth) return item.dueMonth;
   var last = lastKnownDateFor(item, transactions);

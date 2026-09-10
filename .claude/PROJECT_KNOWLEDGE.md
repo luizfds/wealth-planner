@@ -599,6 +599,20 @@ be reverted without touching the others.
   Because the rail scrolls, every `show<X>Subpage()` calls `scrollActiveSubnavIntoView()` — a tab
   can be active but off-screen when a page is entered rather than tapped (a deep link to
   `/assets/other`, a restored route).
+- **Four control vocabularies, and they are not interchangeable.** Reaching for whichever one
+  looks right is how the Assets page ended up with three near-identical pill rows:
+  | Class | Means | Where |
+  |---|---|---|
+  | `.subnav` / `.subnav-item` | page navigation | the four page rails, **nothing else** |
+  | `.filter-chip` | a filter whose options live in a sheet | `Showing <person> ▾` |
+  | `.chip-row` / `.chip` | a filter applied in place, several plausibly tried | Shares winners/losers |
+  | `.seg-control` / `.seg-option` | one mutually-exclusive fixed set | Shares change window |
+  `.subnav` is navigation *only* — the Shares card's two filter rows used to borrow it purely for
+  the pill look, which became visibly wrong the moment `.subnav` grew a hairline and an active
+  underline and they started rendering as tab rails inside a card. A segmented control reads as one
+  control rather than N buttons because of its shared sunken track, so it scrolls inside itself
+  rather than wrapping; `--paper-raised` is lighter than `--paper-sunken` in both themes, so the
+  active thumb needs no per-theme override.
 - **A control you change occasionally belongs in a sheet, not a row of its own.** Reuse the
   `.review-backdrop` / `.review-panel` shell (quick-log, quick actions, expense review, asset
   person filter all share it) and register with `pushActiveOverlay` so the device back button

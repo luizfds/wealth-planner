@@ -1,11 +1,11 @@
 import { state } from "../state.js";
-import { FREQS, INCOME_TYPES, SUPER_MODES, SACRIFICE_MODES, MAX_SUPER_BASE, sacrificeModeToLabel, sacrificeLabelToMode } from "../constants.js";
-import { periodsOf, sumField } from "../calc/ledger.js";
+import { FREQS, INCOME_TYPES, SUPER_MODES, SACRIFICE_MODES, MAX_SUPER_BASE, MONTH_NAMES, sacrificeModeToLabel, sacrificeLabelToMode } from "../constants.js";
+import { periodsOf, sumField, nextPayDate, payScheduleKindFor, daysUntil, WEEKDAY_NAMES } from "../calc/ledger.js";
 import { ipNetResultAnnual } from "../calc/property.js";
 import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax } from "../calc/tax.js";
-import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
+import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
-import { optionsHtml, historyTrendHtml, logControlsHtml, timingFieldsHtml } from "../lib/ledger-table.js";
+import { optionsHtml, historyTrendHtml, timingFieldsHtml } from "../lib/ledger-table.js";
 import { parseCsv } from "../lib/backup.js";
 
 export function personBreakdownHtml(person){
@@ -250,6 +250,82 @@ export function renderIncomeGroups(){
   }).join("") + '</div>';
 }
 
+// Exactly one of these is shown per row, chosen by the frequency — see nextPayDate's own note on
+// why the three families need different information. Rendering all three and hiding two would be
+// simpler, but "Paid on" meaning three different things depending on a select two fields up is the
+// kind of ambiguity that makes people fill it in wrong.
+function payScheduleFieldHtml(item, idx){
+  var kind = payScheduleKindFor(item.freq);
+  if(kind === "weekday"){
+    var days = WEEKDAY_NAMES.map(function(name, i){
+      return '<option value="' + i + '"' + (String(item.payWeekday) === String(i) ? " selected" : "") + '>' + name + '</option>';
+    }).join("");
+    return '<div class="m-edit-field"><label>Paid on</label>' +
+      '<select class="f-payweekday" aria-label="Day of the week this is paid">' +
+        '<option value=""' + (item.payWeekday == null || item.payWeekday === "" ? " selected" : "") + '>—</option>' + days +
+      '</select></div>';
+  }
+  if(kind === "anchor"){
+    // A weekday alone can't place a fortnightly cycle — which of the two weeks is only knowable
+    // from a real date, so that's what this asks for.
+    return '<div class="m-edit-field"><label>A recent pay date</label>' +
+      '<input type="date" class="f-payanchor" value="' + escapeAttr(item.payAnchor || "") + '"' +
+      ' title="Any date you were actually paid — every fortnight is counted from here" aria-label="A recent pay date"></div>';
+  }
+  var dayOptions = "";
+  for(var d = 1; d <= 31; d++){
+    dayOptions += '<option value="' + d + '"' + (String(item.payDay) === String(d) ? " selected" : "") + '>' + d + '</option>';
+  }
+  dayOptions += '<option value="last"' + (item.payDay === "last" ? " selected" : "") + '>Last day</option>';
+  return '<div class="m-edit-field"><label>Paid on</label>' +
+    '<select class="f-payday" aria-label="Day of the month this is paid" title="A day the month doesn\'t have is treated as its last — the 31st in a 30-day month means the 30th.">' +
+      '<option value=""' + (item.payDay == null || item.payDay === "" ? " selected" : "") + '>—</option>' + dayOptions +
+    '</select></div>';
+}
+// A short, human "next pay" line for the row summary. Empty when the row hasn't been told enough
+// to know — a blank is honest, an invented date isn't.
+function nextPayNoteHtml(item){
+  var next = nextPayDate(item, state.transactions);
+  if(!next) return "";
+  var d = new Date(next + "T00:00:00");
+  var days = daysUntil(next);
+  var when = days === 0 ? "today" : (days === 1 ? "tomorrow" : "in " + days + " days");
+  var label = WEEKDAY_NAMES[d.getDay()].slice(0, 3) + " " + d.getDate() + " " + MONTH_NAMES[d.getMonth()];
+  return '<span class="next-pay">Next pay ' + escapeAttr(label) + ' · ' + escapeAttr(when) + '</span>';
+}
+// What the old "Log" button should always have been on this page. It used to snapshot whatever was
+// already in the Amount field, which meant a pay rise took two steps in the right order (edit the
+// amount, then log) and silently recorded the wrong figure in the wrong order. This asks for the
+// new amount directly and applies it: the row's amount becomes this, and the change is dated.
+function payChangeControlsHtml(idx, item){
+  return '<div class="pay-change">' +
+    '<input type="number" step="0.01" min="0" class="pay-change-amount" value="' + (Number(item.amount) || 0) + '" aria-label="New amount">' +
+    '<input type="date" class="pay-change-date" value="' + localDateStr() + '" aria-label="Date the new amount starts">' +
+    // A real button, not .asset-log-btn's bare text link: this is the primary action of the block
+    // it sits in, and on a phone a borderless label next to two filled inputs doesn't read as
+    // tappable at all.
+    '<button type="button" class="btn btn-sm" data-pay-change="' + idx + '" title="Set this as the new amount from that date, and keep the old one in this row\'s history">Record</button>' +
+  '</div>';
+}
+// Past amounts, newest first — the point of recording a change is being able to see the series
+// afterwards. Without this the feature wrote to a store nothing ever displayed beyond a one-line
+// "since" delta.
+function payHistoryHtml(item){
+  var hist = item.history;
+  if(!hist || !hist.length) return '<p class="ledger-note" style="margin:6px 0 0">No changes recorded yet.</p>';
+  var rows = hist.slice().reverse().slice(0, 8).map(function(entry, i, arr){
+    var prev = arr[i + 1];
+    var delta = prev ? entry.value - prev.value : null;
+    var deltaHtml = delta == null ? "" :
+      '<span class="pay-hist-delta ' + (delta > 0 ? "up" : (delta < 0 ? "down" : "")) + '">' +
+        (delta > 0 ? "▲" : (delta < 0 ? "▼" : "–")) + " " + fmtCurrency0.format(Math.abs(delta)) +
+      '</span>';
+    return '<div class="pay-hist-row"><span class="pay-hist-date">' + escapeAttr(entry.date) + '</span>' +
+      '<span class="pay-hist-value">' + fmtCurrency2.format(entry.value) + '</span>' + deltaHtml + '</div>';
+  }).join("");
+  var more = hist.length > 8 ? '<p class="ledger-note" style="margin:6px 0 0">and ' + (hist.length - 8) + ' earlier</p>' : "";
+  return '<div class="pay-hist">' + rows + '</div>' + more;
+}
 function modernIncomeRowHtml(item, idx, colorIdx){
   var isComputed = !!item.computed;
   var isGrossRef = item.incomeType === "Gross" && !isComputed;
@@ -263,6 +339,7 @@ function modernIncomeRowHtml(item, idx, colorIdx){
       '<div class="m-row-name">' + escapeAttr(item.what) + '</div>' +
       (note ? '<div class="m-row-sub super-note">' + escapeAttr(note) + '</div>' : "") +
       (trendHtml ? '<div class="m-row-sub">' + trendHtml + '</div>' : "") +
+      (isComputed ? "" : (function(){ var n = nextPayNoteHtml(item); return n ? '<div class="m-row-sub">' + n + '</div>' : ""; })()) +
     '</div>' +
     (isGrossRef ? '<span class="m-row-tag gross">Gross</span>' : "") +
     '<span class="m-row-amt" data-computed="amt">' + fmtCurrency2.format(monthly) + '/mo</span>' +
@@ -284,7 +361,11 @@ function modernIncomeRowHtml(item, idx, colorIdx){
       '<div class="m-edit-field"><label>Super</label><select class="f-superincluded" title="Whether super is already included in the Amount, paid on top, or doesn\'t apply at all">' + optionsHtml(SUPER_MODES, item.superMode || "On top") + '</select></div>' +
       '<div class="m-edit-field"><label>Sacrifice</label><div class="sacrifice-wrap"><select class="f-sacrificemode">' + optionsHtml(SACRIFICE_MODES, sacrificeModeToLabel(item.sacrificeMode)) + '</select>' + sacrificeValueField + '</div></div>' +
       '<div class="m-edit-field"><label>Account</label><input type="text" class="f-account" list="acctSuggestions" value="' + escapeAttr(item.account || "") + '" aria-label="Account"></div>' +
-      '<div class="m-edit-field span3"><label>Log</label>' + logControlsHtml("income", idx) + '</div>' +
+      payScheduleFieldHtml(item, idx) +
+      '<div class="m-edit-field span3"><label>Record a pay change</label>' + payChangeControlsHtml(idx, item) +
+        '<p class="ledger-note" style="margin:6px 0 0">Sets this as the new amount from that date. The old one stays below.</p>' +
+        payHistoryHtml(item) +
+      '</div>' +
     '</div>' +
     '<details class="tax-advanced m-more-options"><summary>More options</summary>' +
       '<div class="m-edit-grid" style="margin-top:8px">' +

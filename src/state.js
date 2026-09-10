@@ -303,6 +303,14 @@ export function migrateState(s){
   (s.income || []).forEach(function(i){
     if(i.sacrificeMode == null) i.sacrificeMode = "none";
     if(i.sacrificeValue == null) i.sacrificeValue = 0;
+    // When this row is actually paid. Three fields rather than one polymorphic "payDay" because
+    // each frequency family needs different information (see calc/ledger.js's nextPayDate) — and
+    // because keeping them apart means switching a row from Monthly to Weekly and back doesn't
+    // throw away what was already set. null throughout = not told yet, which reads as "—" and
+    // produces no next-pay date rather than a guess.
+    if(i.payDay === undefined) i.payDay = null;          // 1–31 or "last"  (Monthly and less often)
+    if(i.payWeekday === undefined) i.payWeekday = null;  // 0=Sun … 6=Sat   (Weekly)
+    if(i.payAnchor === undefined) i.payAnchor = "";      // a real pay date (Fortnightly)
     applyTimingDefaults(i);
   });
 

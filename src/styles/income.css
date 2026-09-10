@@ -67,3 +67,26 @@
   .tax-secondary-line b{ font-family:"IBM Plex Mono", monospace; font-weight:600; font-variant-numeric: tabular-nums; color: var(--ink); }
   .tax-secondary-line b.neg{ color: var(--bad); }
 
+
+  /* ---------------- Pay schedule + pay-change history (Income rows) ---------------- */
+  /* "Next pay Thu 10 Sep · today" on the row summary. Rendered only when the row has been told
+     enough to know (see nextPayDate) — a blank beats an invented date. */
+  .next-pay{ font-size:11.5px; color: var(--ink-soft); }
+  /* Amount + date + button on one line. The amount leads because it's the field you came here to
+     change; the date defaults to today and is usually left alone. */
+  .pay-change{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .pay-change-amount{ flex:1 1 110px; min-width:90px; }
+  .pay-change-date{ flex:1 1 140px; min-width:130px; }
+  .pay-hist{ margin-top:8px; border-top:1px solid var(--border); }
+  .pay-hist-row{
+    display:flex; align-items:center; gap:8px; padding:5px 0;
+    border-bottom:1px solid var(--border); font-size:12px;
+  }
+  .pay-hist-row:last-child{ border-bottom:none; }
+  .pay-hist-date{ color: var(--ink-soft); font-family:"IBM Plex Mono", monospace; font-size:11px; flex:none; }
+  /* The value takes the slack so the deltas line up on the right edge, which is what makes a
+     column of raises scannable as a series rather than as a list of rows. */
+  .pay-hist-value{ flex:1 1 auto; text-align:right; font-family:"IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; }
+  .pay-hist-delta{ flex:none; font-size:11px; color: var(--ink-soft); min-width:74px; text-align:right; }
+  .pay-hist-delta.up{ color: var(--good); }
+  .pay-hist-delta.down{ color: var(--bad); }

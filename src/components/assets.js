@@ -187,18 +187,58 @@ function assetPersonMatches(item){
   if(assetPersonFilter === "__household") return !item.person;
   return item.person === assetPersonFilter;
 }
+// Everyone / Household / each tagged person, in the order the sheet lists them.
+function assetPersonOptions(){
+  return [{ key: "", label: "Everyone" }, { key: "__household", label: "Household" }]
+    .concat(distinctAssetPersons().map(function(p){ return { key: p, label: p }; }));
+}
+function assetPersonLabel(){
+  var match = assetPersonOptions().find(function(o){ return o.key === assetPersonFilter; });
+  return match ? match.label : "Everyone";
+}
+// One chip, not a rail. This used to be a second row of .subnav pills sitting directly under the
+// real subnav, distinguishable from it only by a border — so the page had two strips competing to
+// be "the tabs". Phrased as a sentence ("Showing Everyone") so it reads as state rather than
+// navigation, and the options live in a sheet, which is where a control you change occasionally
+// belongs.
 export function renderAssetPersonFilter(){
   var el = document.getElementById("assetsPersonFilter");
   if(!el) return;
-  var persons = distinctAssetPersons();
-  // Nobody's tagged a person yet — nothing to filter by, so stay out of the way entirely
-  // rather than showing an "Everyone"/"Household" toggle with no other option to choose.
-  if(!persons.length){ el.innerHTML = ""; return; }
-  var options = [{ key: "", label: "Everyone" }, { key: "__household", label: "Household" }]
-    .concat(persons.map(function(p){ return { key: p, label: p }; }));
-  el.innerHTML = options.map(function(o){
-    return '<button type="button" class="subnav-item' + (assetPersonFilter === o.key ? " active" : "") + '" data-asset-person-filter="' + escapeAttr(o.key) + '">' + escapeAttr(o.label) + '</button>';
+  // Nobody's tagged a person yet — nothing to filter by, so stay out of the way entirely rather
+  // than offering a chip whose sheet has only "Everyone" and "Household" in it.
+  if(!distinctAssetPersons().length){ el.hidden = true; el.innerHTML = ""; return; }
+  el.hidden = false;
+  el.innerHTML = '<button type="button" class="filter-chip" data-asset-person-open ' +
+      'aria-haspopup="dialog" title="Choose whose assets to show">Showing <b>' + escapeAttr(assetPersonLabel()) + '</b>' +
+      '<span class="filter-chip-caret" aria-hidden="true">▾</span></button>';
+}
+// Session-only, like every other overlay's state here: null when the sheet is closed.
+export var assetPersonSheetOpen = false;
+export function setAssetPersonSheetOpen(open){ assetPersonSheetOpen = open; }
+// Reuses the .review-backdrop/.review-panel shell every other sheet in this app uses, so it
+// inherits the bottom-anchored-on-mobile treatment and the shared backdrop behaviour for free.
+export function renderAssetPersonSheet(){
+  var root = document.getElementById("assetPersonSheetRoot");
+  if(!root) return;
+  if(!assetPersonSheetOpen){ root.innerHTML = ""; return; }
+  var rows = assetPersonOptions().map(function(o){
+    var selected = assetPersonFilter === o.key;
+    return '<button type="button" class="qfab-action' + (selected ? " is-selected" : "") + '" data-asset-person-filter="' + escapeAttr(o.key) + '"' +
+      ' aria-pressed="' + (selected ? "true" : "false") + '">' +
+      '<span class="qfab-action-label">' + escapeAttr(o.label) + '</span>' +
+      '<span class="qfab-action-hint">' + escapeAttr(assetPersonHint(o.key)) + '</span>' +
+    '</button>';
   }).join("");
+  root.innerHTML = '<div class="review-backdrop" data-asset-person-backdrop>' +
+    '<div class="review-panel qfab-panel" role="dialog" aria-label="Show assets for">' +
+      '<div class="review-head"><h4>Show assets for</h4><button type="button" class="icon-btn" data-asset-person-close aria-label="Close">✕</button></div>' +
+      '<div class="qfab-actions">' + rows + '</div>' +
+    '</div></div>';
+}
+function assetPersonHint(key){
+  if(key === "") return "Every asset, however it's tagged";
+  if(key === "__household") return "Only assets with no person on them";
+  return "Only assets tagged " + key;
 }
 
 function assetCategoryItems(cat){

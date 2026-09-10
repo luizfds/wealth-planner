@@ -423,13 +423,25 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     // Not structural: category is a reporting dimension, so it changes both by-category charts
     // but never which card this row sits in — no need to rebuild the list around it.
     else if(e.target.classList.contains("f-category")){ item.category = e.target.value; }
-    else if(e.target.classList.contains("f-freq")) item.freq = e.target.value;
+    else if(e.target.classList.contains("f-freq")){
+      item.freq = e.target.value;
+      // Income only: which pay-schedule field the row offers is chosen by the frequency (a weekday
+      // for Weekly, an anchor date for Fortnightly, a day of the month otherwise), so changing it
+      // has to rebuild the row. Everywhere else a frequency change is still just a number change
+      // and a re-render would needlessly tear down whatever row is being edited.
+      if(section === "income") structural = true;
+    }
     else if(e.target.classList.contains("f-amount")) item.amount = parseFloat(e.target.value) || 0;
     else if(e.target.classList.contains("f-person")){ item.person = e.target.value; structural = true; }
     else if(e.target.classList.contains("f-incometype")){ item.incomeType = e.target.value; structural = true; }
     else if(e.target.classList.contains("f-superincluded")){ item.superMode = e.target.value; }
     else if(e.target.classList.contains("f-sacrificemode")){ item.sacrificeMode = sacrificeLabelToMode(e.target.value); structural = true; }
     else if(e.target.classList.contains("f-sacrificevalue")){ item.sacrificeValue = parseFloat(e.target.value) || 0; }
+    // The pay schedule: one of these per row, whichever the frequency calls for. structural,
+    // because the row's "Next pay …" sub-line is derived from it and has to be re-rendered.
+    else if(e.target.classList.contains("f-payday")){ item.payDay = e.target.value === "last" ? "last" : (e.target.value ? Number(e.target.value) : null); structural = true; }
+    else if(e.target.classList.contains("f-payweekday")){ item.payWeekday = e.target.value === "" ? null : Number(e.target.value); structural = true; }
+    else if(e.target.classList.contains("f-payanchor")){ item.payAnchor = e.target.value || ""; structural = true; }
     else if(e.target.classList.contains("f-irregular")){
       item.irregular = e.target.checked;
       // "Budget year" only means anything for a reserve line, so it lives behind this checkbox —
@@ -530,6 +542,44 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     var varyBtn = e.target.closest("[data-vary-scenario]");
     if(varyBtn){
       openScenarioOverridePanel(Number(varyBtn.getAttribute("data-vary-scenario")));
+      return;
+    }
+    // "Record a pay change" (Income). Distinct from [data-log] below, which snapshots whatever is
+    // already in the Amount field: this takes the new figure directly and *applies* it, which is
+    // what a pay rise actually is — the amount changes, as of a date.
+    var payChangeBtn = e.target.closest("[data-pay-change]");
+    if(payChangeBtn){
+      var pIdx = Number(payChangeBtn.getAttribute("data-pay-change"));
+      var pItem = state.income[pIdx];
+      var pWrap = payChangeBtn.closest(".pay-change");
+      var amountEl = pWrap && pWrap.querySelector(".pay-change-amount");
+      var dateEl = pWrap && pWrap.querySelector(".pay-change-date");
+      var newAmount = amountEl ? parseFloat(amountEl.value) : NaN;
+      if(!pItem || isNaN(newAmount)){ showToast("Enter the new amount first."); return; }
+      var effectiveFrom = (dateEl && dateEl.value) || undefined;
+      var previousAmount = Number(pItem.amount) || 0;
+      if(!Array.isArray(pItem.history)) pItem.history = [];
+      // Seed the history with what it was *before* this change, so a first-ever recorded rise
+      // still produces a comparison rather than a lone entry with nothing to be a change from.
+      // Dated the day before, since the old amount applied right up until the new one started.
+      if(!pItem.history.length && previousAmount && previousAmount !== newAmount){
+        var dayBefore = new Date((effectiveFrom || localDateStr()) + "T00:00:00");
+        dayBefore.setDate(dayBefore.getDate() - 1);
+        pItem.history.push({ date: localDateStr(dayBefore), value: previousAmount });
+      }
+      pItem.amount = newAmount;
+      var recordedOn = appendHistorySnapshot(pItem.history, newAmount, effectiveFrom);
+      recalcComputedItems();
+      rerenderTableFor("income");
+      renderTaxSuper();
+      renderCards(); renderDetail(); renderTotals();
+      renderProjectionOutputs();
+      persist();
+      var move = newAmount - previousAmount;
+      showToast(move === 0
+        ? pItem.what + " recorded at " + fmtCurrency0.format(newAmount) + " from " + recordedOn
+        : pItem.what + " " + (move > 0 ? "up" : "down") + " " + fmtCurrency0.format(Math.abs(move)) +
+          " to " + fmtCurrency0.format(newAmount) + " from " + recordedOn);
       return;
     }
     var logBtn2 = e.target.closest("[data-log]");

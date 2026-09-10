@@ -209,9 +209,14 @@
         <div class="page-intro-row">
           <p class="page-intro">Your household income, and what it's really worth after tax.</p>
           <div class="page-intro-actions">
-            <button type="button" class="btn btn-sm btn-ghost" id="incomeExportCsvBtn" title="Download every income row as a CSV file">Export CSV</button>
-            <button type="button" class="btn btn-sm btn-ghost" id="incomeDownloadTemplateBtn" title="Download a blank CSV shaped for importing income back in">Import template</button>
-            <button type="button" class="btn btn-sm btn-ghost" id="incomeImportBtn" title="Add income rows from a CSV file shaped like the import template">Import CSV</button>
+            <div class="page-overflow">
+              <button type="button" class="page-overflow-btn" data-overflow-toggle aria-haspopup="true" aria-expanded="false" aria-label="Income import and export" title="Income import and export">⋯</button>
+              <div class="page-overflow-menu" data-overflow-menu hidden>
+              <button type="button" class="btn btn-sm btn-ghost" id="incomeExportCsvBtn" title="Download every income row as a CSV file">Export CSV</button>
+              <button type="button" class="btn btn-sm btn-ghost" id="incomeDownloadTemplateBtn" title="Download a blank CSV shaped for importing income back in">Import template</button>
+              <button type="button" class="btn btn-sm btn-ghost" id="incomeImportBtn" title="Add income rows from a CSV file shaped like the import template">Import CSV</button>
+              </div>
+            </div>
             <input type="file" id="incomeImportFile" accept=".csv,text/csv" hidden>
           </div>
         </div>
@@ -254,9 +259,14 @@
         <div class="page-intro-row">
           <p class="page-intro">Everything the household plans to spend, in one list — and what's actually been spent against it.</p>
           <div class="page-intro-actions">
-            <button type="button" class="btn btn-sm btn-ghost" id="expenseExportCsvBtn" title="Download every expense row as a CSV file">Export CSV</button>
-            <button type="button" class="btn btn-sm btn-ghost" id="expenseDownloadTemplateBtn" title="Download a blank CSV shaped for importing expenses back in">Import template</button>
-            <button type="button" class="btn btn-sm btn-ghost" id="expenseImportBtn" title="Add expenses from a CSV file shaped like the import template">Import CSV</button>
+            <div class="page-overflow">
+              <button type="button" class="page-overflow-btn" data-overflow-toggle aria-haspopup="true" aria-expanded="false" aria-label="Expenses import and export" title="Expenses import and export">⋯</button>
+              <div class="page-overflow-menu" data-overflow-menu hidden>
+              <button type="button" class="btn btn-sm btn-ghost" id="expenseExportCsvBtn" title="Download every expense row as a CSV file">Export CSV</button>
+              <button type="button" class="btn btn-sm btn-ghost" id="expenseDownloadTemplateBtn" title="Download a blank CSV shaped for importing expenses back in">Import template</button>
+              <button type="button" class="btn btn-sm btn-ghost" id="expenseImportBtn" title="Add expenses from a CSV file shaped like the import template">Import CSV</button>
+              </div>
+            </div>
             <input type="file" id="expenseImportFile" accept=".csv,text/csv" hidden>
           </div>
         </div>
@@ -370,7 +380,12 @@
         <div class="page-intro-row">
           <p class="page-intro">What you actually own — value, loans, and the rent/expenses tied to each property.</p>
           <div class="page-intro-actions">
-            <button type="button" class="btn btn-sm btn-ghost" id="propertyLoansExportCsvBtn" title="Download every loan, across every property, as a CSV file">Export loans CSV</button>
+            <div class="page-overflow">
+              <button type="button" class="page-overflow-btn" data-overflow-toggle aria-haspopup="true" aria-expanded="false" aria-label="Properties export" title="Properties export">⋯</button>
+              <div class="page-overflow-menu" data-overflow-menu hidden>
+              <button type="button" class="btn btn-sm btn-ghost" id="propertyLoansExportCsvBtn" title="Download every loan, across every property, as a CSV file">Export loans CSV</button>
+              </div>
+            </div>
           </div>
         </div>
         <div class="stat-row" id="propertiesSummaryStats"></div>
@@ -417,9 +432,14 @@
         <div class="page-intro-row">
           <p class="page-intro">What you own today, tracked over time, and what buying would do to your net worth.</p>
           <div class="page-intro-actions">
-            <button type="button" class="btn btn-sm btn-ghost" id="assetsExportCsvBtn" title="Download every asset, across every category, as a CSV file">Export CSV</button>
-            <button type="button" class="btn btn-sm btn-ghost" id="assetsDownloadTemplateBtn" title="Download a blank CSV shaped for importing assets back in">Import template</button>
-            <button type="button" class="btn btn-sm btn-ghost" id="assetsImportBtn" title="Add assets from a CSV file shaped like the import template">Import CSV</button>
+            <div class="page-overflow">
+              <button type="button" class="page-overflow-btn" data-overflow-toggle aria-haspopup="true" aria-expanded="false" aria-label="Assets import and export" title="Assets import and export">⋯</button>
+              <div class="page-overflow-menu" data-overflow-menu hidden>
+              <button type="button" class="btn btn-sm btn-ghost" id="assetsExportCsvBtn" title="Download every asset, across every category, as a CSV file">Export CSV</button>
+              <button type="button" class="btn btn-sm btn-ghost" id="assetsDownloadTemplateBtn" title="Download a blank CSV shaped for importing assets back in">Import template</button>
+              <button type="button" class="btn btn-sm btn-ghost" id="assetsImportBtn" title="Add assets from a CSV file shaped like the import template">Import CSV</button>
+              </div>
+            </div>
             <input type="file" id="assetsImportFile" accept=".csv,text/csv" hidden>
           </div>
         </div>
@@ -431,7 +451,7 @@
           <button type="button" class="subnav-item" data-assets-sub="Vehicle">Vehicle</button>
           <button type="button" class="subnav-item" data-assets-sub="Other">Other</button>
         </div>
-        <div class="subnav" id="assetsPersonFilter"></div>
+        <div class="filter-row" id="assetsPersonFilter" hidden></div>
         <div id="assetsImportPreview" hidden></div>
 
         <div class="assets-subpage" id="assetsSub-summary">
@@ -577,6 +597,7 @@
 <div id="scenarioOverrideRoot"></div>
 <div id="quickLogRoot"></div>
 <div id="expenseReviewRoot"></div>
+<div id="assetPersonSheetRoot"></div>
 <div id="notifPanelRoot"></div>
 <div id="searchRoot"></div>
 <div id="mRowBackdrop" hidden></div>

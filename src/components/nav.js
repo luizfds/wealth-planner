@@ -226,6 +226,19 @@ export function showPage(id, opts){
   }
 }
 
+// Now that a subnav scrolls instead of wrapping, the active tab can be off-screen when a page is
+// entered rather than tapped — a deep link to /assets/other, or restoring the last subpage on
+// load. Both leave the rail showing "Summary … Shares" with no sign that the visible content is
+// Other. Nothing needs doing when the tab is already in view, which scrollIntoView with
+// "nearest" handles by itself.
+function scrollActiveSubnavIntoView(railId){
+  var rail = document.getElementById(railId);
+  var active = rail && rail.querySelector(".subnav-item.active");
+  if(!active || !active.scrollIntoView) return;
+  // inline:"nearest" scrolls the rail horizontally; block:"nearest" is what stops it dragging the
+  // whole *page* down to the rail as a side effect.
+  try{ active.scrollIntoView({ inline: "nearest", block: "nearest" }); }catch(e){}
+}
 export function showAssetsSubpage(id, opts){
   opts = opts || {};
   currentAssetsSub = id;
@@ -234,6 +247,7 @@ export function showAssetsSubpage(id, opts){
     btn.classList.toggle("active", btn.getAttribute("data-assets-sub") === id);
   });
   updateQuickFab("assets");
+  scrollActiveSubnavIntoView("assetsSubnav");
   if(!opts.skipUrl) syncUrl("assets", !!opts.replace);
 }
 
@@ -246,6 +260,7 @@ export function showAccountsSubpage(id){
   document.querySelectorAll("#accountsSubnav .subnav-item").forEach(function(btn){
     btn.classList.toggle("active", btn.getAttribute("data-accounts-sub") === id);
   });
+  scrollActiveSubnavIntoView("accountsSubnav");
   updateQuickFab("accounts");
 }
 
@@ -263,6 +278,7 @@ export function showExpensesSubpage(id, opts){
   document.querySelectorAll("#expensesSubnav .subnav-item").forEach(function(btn){
     btn.classList.toggle("active", btn.getAttribute("data-expenses-sub") === id);
   });
+  scrollActiveSubnavIntoView("expensesSubnav");
   updateQuickFab("expenses");
   if(!opts.skipUrl) syncUrl("expenses", !!opts.replace);
 }
@@ -278,6 +294,7 @@ export function showDashboardSubpage(id){
   document.querySelectorAll("#dashboardSubnav .subnav-item").forEach(function(btn){
     btn.classList.toggle("active", btn.getAttribute("data-dashboard-sub") === id);
   });
+  scrollActiveSubnavIntoView("dashboardSubnav");
 }
 
 // Mobile-only dropdown: appNav is a vertical panel behind this toggle below 880px

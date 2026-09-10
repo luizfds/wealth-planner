@@ -81,7 +81,9 @@ Every commit that ships a real change to the app must be followed by its own ver
 commit and a matching git tag:
 
 1. Make the functional change, commit it on its own.
-2. Bump `<p class="app-version">vX.Y.Z</p>` in `index.html` — **Minor** (`v1.X.0`) for a new
+2. Bump `<span class="app-version-num">vX.Y.Z</span>` in `index.html` (inside `<p class="app-version">`
+   — the number sits in its own span because it's parsed, both from the live DOM and from a
+   freshly-fetched copy of the file, to detect a newer deployed version) — **Minor** (`v1.X.0`) for a new
    feature/behavior change, **Patch** (`v1.0.X`) for a bug fix — in a separate commit titled
    `Bump version to vX.Y.Z — <short reason>`.
 3. `git tag -a vX.Y.Z -m "<short reason>"`.

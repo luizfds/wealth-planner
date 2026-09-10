@@ -135,8 +135,8 @@ function priceChangeHtml(item){
   return '<span class="asset-trend ' + cls + '" title="Since ' + escapeAttr(c.fromDate) + '">' + arrow + ' ' + fmtPercent1.format(Math.abs(c.pct)) + ' ' + escapeAttr(label) + '</span>';
 }
 function sharesChangeWindowHtml(){
-  return '<div class="subnav" id="sharesChangeWindow">' + SHARES_CHANGE_WINDOWS.map(function(w){
-    return '<button type="button" class="subnav-item' + (sharesChangeWindow === w.key ? " active" : "") + '" data-shares-change-window="' + escapeAttr(w.key) + '" title="Price change over the last ' + escapeAttr(w.label) + '">' + escapeAttr(w.label) + '</button>';
+  return '<div class="seg-control" id="sharesChangeWindow" role="group" aria-label="Price change window">' + SHARES_CHANGE_WINDOWS.map(function(w){
+    return '<button type="button" class="seg-option' + (sharesChangeWindow === w.key ? " active" : "") + '" aria-pressed="' + (sharesChangeWindow === w.key) + '" data-shares-change-window="' + escapeAttr(w.key) + '" title="Price change over the last ' + escapeAttr(w.label) + '">' + escapeAttr(w.label) + '</button>';
   }).join("") + '</div>';
 }
 export function patchHoldingRow(tr, item){
@@ -537,14 +537,16 @@ function sortShareData(data){
   return { items: paired.map(function(p){ return p.item; }), indices: paired.map(function(p){ return p.idx; }) };
 }
 function sharesFilterSortHtml(){
-  var filterHtml = '<div class="subnav" id="sharesGainFilter">' + SHARES_GAIN_FILTERS.map(function(o){
-    return '<button type="button" class="subnav-item' + (sharesGainFilter === o.key ? " active" : "") + '" data-shares-gain-filter="' + escapeAttr(o.key) + '">' + escapeAttr(o.label) + '</button>';
+  var filterHtml = '<div class="chip-row" id="sharesGainFilter" role="group" aria-label="Filter holdings">' + SHARES_GAIN_FILTERS.map(function(o){
+    return '<button type="button" class="chip' + (sharesGainFilter === o.key ? " active" : "") + '" aria-pressed="' + (sharesGainFilter === o.key) + '" data-shares-gain-filter="' + escapeAttr(o.key) + '">' + escapeAttr(o.label) + '</button>';
   }).join("") + '</div>';
   var sortHtml = '<select id="sharesSortSelect" aria-label="Sort holdings">' + SHARES_SORT_OPTIONS.map(function(o){
     return '<option value="' + o.key + '"' + (sharesSortMode === o.key ? " selected" : "") + '>' + escapeAttr(o.label) + '</option>';
   }).join("") + '</select>';
-  return '<div class="shares-toolbar">' + filterHtml + sortHtml + '</div><div class="shares-toolbar">' +
-    '<span class="shares-toolbar-label">Change:</span>' + sharesChangeWindowHtml() + '</div>';
+  return '<div class="shares-toolbar">' + filterHtml + sortHtml + '</div>' +
+    '<div class="shares-toolbar shares-toolbar-start">' +
+      '<span class="shares-toolbar-label">Change</span>' + sharesChangeWindowHtml() +
+    '</div>';
 }
 
 export function renderSharesSubpage(){

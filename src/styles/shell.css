@@ -20,14 +20,35 @@
   .nav-item.active{ background: var(--brass-wash); color: var(--brass-strong); font-weight:600; }
   .nav-item:focus-visible{ box-shadow: var(--focus-ring); }
   .nav-icon{ width:16px; height:16px; flex:none; display:flex; align-items:center; justify-content:center; }
-  .subnav{ display:flex; gap:4px; flex-wrap:wrap; }
-  .subnav-item{
-    all:unset; box-sizing:border-box; padding:7px 14px; border-radius:100px;
-    font-size:12.5px; font-weight:500; color: var(--ink-soft); cursor:pointer;
+  /* A tab rail, not a row of pills. Two things do the work here and both are load-bearing:
+     the full-width hairline, which makes the strip read as navigation before you've read a single
+     label; and nowrap + overflow-x, which is what stops six Assets categories wrapping so that
+     "Other" lands on its own line and the whole thing stops looking like a strip at all.
+     Standard "scrollable tabs" — Gmail, YouTube. A partially-clipped tab at the right edge is the
+     scroll affordance, which is why there's no gradient here: a static fade would lie on the
+     two-tab rails (Dashboard, Expenses, Accounts) that never overflow. */
+  .subnav{
+    display:flex; gap:2px; flex-wrap:nowrap; overflow-x:auto;
+    border-bottom:1px solid var(--border);
+    /* The rail scrolls edge to edge on mobile even though the page has padding — a tab clipped by
+       the viewport edge reads as "more this way" far better than one clipped by an invisible
+       container inset. The padding puts the first/last tab back in line with the page text. */
+    scrollbar-width:none; -ms-overflow-style:none;
   }
-  .subnav-item:hover{ background: var(--paper-sunken); color: var(--ink); }
-  .subnav-item.active{ background: var(--brass-wash); color: var(--brass-strong); font-weight:600; }
-  .subnav-item:focus-visible{ box-shadow: var(--focus-ring); }
+  .subnav::-webkit-scrollbar{ display:none; }
+  .subnav-item{
+    all:unset; box-sizing:border-box; padding:9px 12px 10px;
+    font-size:13px; font-weight:600; color: var(--ink-soft); cursor:pointer;
+    white-space:nowrap;
+    /* Declared after all:unset (which strips it) — transparent on every tab so the active one's
+       underline doesn't shift its neighbours by 2px when it moves. The negative margin sits it on
+       top of .subnav's own hairline rather than 1px below it. */
+    border-bottom:2px solid transparent; margin-bottom:-1px;
+  }
+  .subnav-item:hover{ color: var(--ink); }
+  .subnav-item.active{ color: var(--brass-strong); border-bottom-color: var(--brass); }
+  /* Inset so the ring isn't clipped by the rail's own overflow:hidden on the first/last tab. */
+  .subnav-item:focus-visible{ box-shadow: inset var(--focus-ring); border-radius:6px; }
   .assets-subpage{ display:flex; flex-direction:column; gap:20px; }
   .assets-subpage[hidden]{ display:none; }
   /* Expenses' Budget/Spending halves — same shape as .assets-subpage above, including the
@@ -39,9 +60,51 @@
      the same explicit [hidden] override as the two above. */
   .accounts-subpage{ display:flex; flex-direction:column; gap:20px; }
   .accounts-subpage[hidden]{ display:none; }
-  #assetsPersonFilter{ margin-top:8px; }
-  #assetsPersonFilter .subnav-item{ font-size:11px; padding:5px 10px; border:1px solid var(--border); }
-  #assetsPersonFilter .subnav-item.active{ border-color: var(--brass); }
+  /* The Assets person filter used to be a second row of .subnav pills directly under the real
+     subnav, told apart from it only by a border — so two rows competed to be "the tabs" and
+     neither won. It's one control now, phrased as a sentence so it reads as *state* rather than
+     navigation, and it opens a sheet (the same shell the quick-log and quick-action sheets use)
+     instead of spending a whole row on options you rarely change. */
+  .filter-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:10px; }
+  .filter-chip{
+    all:unset; box-sizing:border-box; display:inline-flex; align-items:center; gap:6px;
+    padding:6px 11px; border-radius:8px; border:1px solid var(--border);
+    background: var(--paper-raised); color: var(--ink-soft); font-size:12px; cursor:pointer;
+    white-space:nowrap;
+  }
+  .filter-chip b{ color: var(--ink); font-weight:600; }
+  .filter-chip:hover{ border-color: var(--brass); }
+  .filter-chip:focus-visible{ box-shadow: var(--focus-ring); }
+  .filter-chip-caret{ color: var(--ink-soft); font-size:10px; }
+  #assetsPersonFilter[hidden]{ display:none; }
+
+  /* Export/Import lived as three ghost buttons across the top of four pages — a row of controls
+     with the same visual weight as the tabs beneath them, for actions a household runs maybe
+     monthly. Behind a ⋯ they stop competing without going anywhere. Deliberately not a portal or
+     a popover element: the menu is a plain absolutely-positioned box next to its own button, so
+     the buttons inside keep their ids and every existing handler works untouched. */
+  .page-overflow{ position:relative; }
+  /* Bordered at rest, not just on hover: this is the only control left in the page header, and on
+     a phone there is no hover — three bare dots floating in whitespace don't read as a button. */
+  .page-overflow-btn{
+    all:unset; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center;
+    width:32px; height:32px; border-radius:8px; cursor:pointer;
+    border:1px solid var(--border); background: var(--paper-raised); color: var(--ink-soft);
+    font-size:18px; line-height:1;
+  }
+  .page-overflow-btn:hover{ border-color: var(--brass); color: var(--ink); }
+  .page-overflow-btn:focus-visible{ box-shadow: var(--focus-ring); }
+  .page-overflow-btn[aria-expanded="true"]{ border-color: var(--brass); color: var(--ink); }
+  .page-overflow-menu{
+    position:absolute; right:0; top:36px; z-index:30; min-width:184px;
+    display:flex; flex-direction:column; align-items:stretch; gap:2px; padding:6px;
+    background: var(--paper-raised); border:1px solid var(--border); border-radius:10px;
+    box-shadow: var(--shadow);
+  }
+  /* .btn sets its own display, so the browser's [hidden] would lose to it on the buttons inside —
+     and this container needs the same explicit override for the same reason (see CLAUDE.md). */
+  .page-overflow-menu[hidden]{ display:none; }
+  .page-overflow-menu .btn{ justify-content:flex-start; text-align:left; width:100%; }
   .app-sidebar-footer{ margin-top:auto; display:flex; flex-direction:column; gap:14px; padding-top:14px; border-top:1px solid var(--border); }
   .app-sidebar-note{ font-size:10.5px; color: var(--ink-soft); line-height:1.5; }
   .app-version{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:10px; color: var(--ink-soft); opacity:.65; margin:6px 0 0; }

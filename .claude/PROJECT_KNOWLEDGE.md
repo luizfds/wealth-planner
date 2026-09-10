@@ -583,6 +583,42 @@ be reverted without touching the others.
 
 ## Modern-mode UI patterns (established over many rounds — follow these, don't reinvent)
 
+- **Page header hierarchy is three tiers, and only one of them is navigation.** In order down the
+  page: the page intro plus a single `⋯` (`.page-overflow`) holding rare actions like Export/Import
+  CSV; then `.subnav`, the tab rail; then any filter, as a `.filter-chip` reading `Showing <X> ▾`
+  that opens a sheet. Two of these looking alike is the failure mode — Assets once had the subnav
+  and the person filter as two adjacent rows of identical pills, told apart only by a border, and
+  neither read as "the tabs".
+- **`.subnav` is a scrollable underlined tab rail, never wrapping pills.** The full-width hairline
+  on `.subnav` is what makes it read as navigation before any label is read; `flex-wrap:nowrap` +
+  `overflow-x:auto` is what stops six Assets categories wrapping so "Other" lands alone on a second
+  line. There is deliberately **no edge gradient**: a clipped tab is the scroll affordance, and a
+  static fade would lie on the two-tab rails (Dashboard, Expenses, Accounts) that never overflow.
+  `.subnav-item` must re-declare `border-bottom` *after* `all:unset` (which strips it), transparent
+  on inactive tabs so the active underline doesn't shift its neighbours.
+  Because the rail scrolls, every `show<X>Subpage()` calls `scrollActiveSubnavIntoView()` — a tab
+  can be active but off-screen when a page is entered rather than tapped (a deep link to
+  `/assets/other`, a restored route).
+- **Four control vocabularies, and they are not interchangeable.** Reaching for whichever one
+  looks right is how the Assets page ended up with three near-identical pill rows:
+  | Class | Means | Where |
+  |---|---|---|
+  | `.subnav` / `.subnav-item` | page navigation | the four page rails, **nothing else** |
+  | `.filter-chip` | a filter whose options live in a sheet | `Showing <person> ▾` |
+  | `.chip-row` / `.chip` | a filter applied in place, several plausibly tried | Shares winners/losers |
+  | `.seg-control` / `.seg-option` | one mutually-exclusive fixed set | Shares change window |
+  `.subnav` is navigation *only* — the Shares card's two filter rows used to borrow it purely for
+  the pill look, which became visibly wrong the moment `.subnav` grew a hairline and an active
+  underline and they started rendering as tab rails inside a card. A segmented control reads as one
+  control rather than N buttons because of its shared sunken track, so it scrolls inside itself
+  rather than wrapping; `--paper-raised` is lighter than `--paper-sunken` in both themes, so the
+  active thumb needs no per-theme override.
+- **A control you change occasionally belongs in a sheet, not a row of its own.** Reuse the
+  `.review-backdrop` / `.review-panel` shell (quick-log, quick actions, expense review, asset
+  person filter all share it) and register with `pushActiveOverlay` so the device back button
+  closes it. `.qfab-action` rows carry `.is-selected` when the sheet presents a *choice* rather
+  than a list of actions.
+
 - **`modernPlainRowHtml(item, idx, section, openState, opts)`** — the generic "name + amount,
   expands to a small field grid" row, shared by Properties' income/expense lists, Expenses'
   shared groups, and Scenarios' recurring-costs list. `opts.showClass` toggles a Classification

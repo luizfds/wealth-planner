@@ -261,7 +261,11 @@
   /* ---------------- Income & Tax: modern (card) layout ---------------- */
   .page-intro-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; }
   .page-intro-row .page-intro{ flex:1 1 320px; }
-  .page-intro-actions{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  /* margin-left:auto rather than relying on .page-intro-row's space-between: the intro paragraph
+     is flex:1 1 320px, so below ~420px it takes the whole line and the actions wrap onto a new
+     one — where space-between has nothing to space against and leaves them stranded on the left,
+     directly above the tab rail. Pushed right, the ⋯ stays out of the rail's way at every width. */
+  .page-intro-actions{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-left:auto; }
 
   .m-avatar{
     width:30px; height:30px; border-radius:50%; flex:none; display:flex; align-items:center; justify-content:center;
@@ -613,6 +617,11 @@
     width:100%; padding:10px; border-radius:8px; cursor:pointer;
   }
   .qfab-action:hover{ background: var(--paper-sunken); }
+  /* The asset-person sheet reuses this row to present a *choice* rather than a list of actions,
+     so it needs a selected state the quick-actions sheet never had — the currently-filtered
+     person has to be obvious the moment the sheet opens. */
+  .qfab-action.is-selected{ background: var(--brass-wash); }
+  .qfab-action.is-selected .qfab-action-label{ color: var(--brass-strong); }
   .qfab-action:focus-visible{ outline:none; box-shadow: var(--focus-ring); }
   .qfab-action-label{ font-size:14px; font-weight:600; color: var(--ink); }
   .qfab-action-hint{ font-size:11.5px; color: var(--ink-soft); }

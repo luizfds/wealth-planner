@@ -85,6 +85,43 @@ balance/rate/term, nothing to edit and nothing to fall behind on. They keep the 
 "Investment loan repayments" card at the bottom of the page (`#propertyExpensesCard`), which is
 explicitly *not* counted in the budget total above it.
 
+### Two different "Log" buttons, and only one records money moving
+
+They look alike and do unrelated things — a real source of confusion, so keep them straight:
+
+- **Expenses' quick-log** writes a dated entry to `state.transactions[]` linked to a budget line.
+  That's a real transaction: it feeds actual-vs-planned, the overdue queue and the category charts.
+- **Every other page's `[data-log]`** (assets, properties, debts, home costs) snapshots the row's
+  *current amount* into `item.history[]` via `appendHistorySnapshot`. That's a valuation over time,
+  not a payment.
+
+Income used to carry the second kind, labelled "Log", which made a pay rise a two-step-in-the-right-
+order dance (edit Amount, then Log) and silently recorded the wrong figure in the wrong order. It
+now has **"Record a pay change"** (`[data-pay-change]`) instead: you give it the new amount and a
+date, and it *applies* the amount and dates the change. Same `item.history[]` store, so old saves
+and backups keep working — and the row now actually displays that history, which nothing did
+before beyond a one-line "since" delta.
+
+### When an income row is paid
+
+`nextPayDate(item, transactions, todayStr)` in `calc/ledger.js`, driven by a different field per
+frequency — because the three families genuinely need different information, and one polymorphic
+"payDay" would mean three things depending on a select two fields away:
+
+| Frequency | Field | Why |
+|---|---|---|
+| Weekly | `payWeekday` (0=Sun…6=Sat) | a weekday is enough |
+| Fortnightly | `payAnchor` (a real pay date) | a weekday can't say *which* of the two weeks |
+| Monthly and less often | `payDay` (1–31 or `"last"`) | a day of the month |
+
+All three are stored independently so flipping a row's frequency and back doesn't discard what was
+set. Less-than-monthly rows combine `payDay` with the existing `dueMonth` to place the day inside
+the right month. Anything unset returns `null` and the row simply shows no next-pay line — a blank
+beats an invented date. Two traps with tests on them: a day the month doesn't have is clamped (the
+31st in a 30-day month is the 30th, not the 1st of the next), and a *stored* date must never be
+parsed by a helper that defaults to "now" when absent — that turned "no anchor set" into "the
+anchor is today" and produced a confident wrong answer.
+
 Several `income[]` rows are **synthetic/computed** (`item.computed === true`): a per-person
 "Net income after tax & super" mirror, and a per-IP-property "Rent" mirror. These are
 recalculated by `recalcComputedItems()` (in `calc/engine.js`) and must never be hand-edited or

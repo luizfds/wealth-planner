@@ -73,9 +73,46 @@
 
   /* ---------------- Shares: winners/losers filter, sort, and change-window ---------------- */
   .shares-toolbar{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
-  .shares-toolbar-label{ font-size:11.5px; color: var(--ink-soft); }
-  #sharesGainFilter .subnav-item, #sharesChangeWindow .subnav-item{ font-size:11px; padding:5px 10px; border:1px solid var(--border); }
-  #sharesGainFilter .subnav-item.active, #sharesChangeWindow .subnav-item.active{ border-color: var(--brass); }
+  /* Label then control, left to right — space-between would shove the window picker to the far
+     right, away from the word that names it. */
+  .shares-toolbar-start{ justify-content:flex-start; }
+  .shares-toolbar-label{ font-size:11.5px; color: var(--ink-soft); font-weight:600; }
+  /* Both of these used to be .subnav containers with .subnav-item children, borrowed purely for
+     the pill look. That was always a category error — they're controls inside a card, not page
+     navigation — and it became a visible one when .subnav grew a hairline and an active underline:
+     two filter rows inside the Shares card started rendering as tab rails. They have their own
+     vocabulary now, and .subnav is navigation only.
+     .chip is a filter: several may plausibly be tried, so each is its own outlined thing.
+     .seg-control is a mutually-exclusive fixed set on one sunken track — the timeframe picker
+     every finance app uses (Apple Stocks, Robinhood), and it reads as one control rather than
+     eight buttons precisely because of the shared track. */
+  .chip-row{ display:flex; gap:6px; flex-wrap:wrap; }
+  .chip{
+    all:unset; box-sizing:border-box; padding:5px 10px; border-radius:100px;
+    border:1px solid var(--border); background: var(--paper);
+    font-size:11px; font-weight:500; color: var(--ink-soft); cursor:pointer; white-space:nowrap;
+  }
+  .chip:hover{ color: var(--ink); border-color: var(--brass); }
+  .chip.active{ background: var(--brass-wash); border-color: var(--brass); color: var(--brass-strong); font-weight:600; }
+  .chip:focus-visible{ box-shadow: var(--focus-ring); }
+  .seg-control{
+    display:inline-flex; gap:2px; padding:3px; max-width:100%;
+    background: var(--paper-sunken); border:1px solid var(--border); border-radius:9px;
+    /* Eight two-character labels fit at 390px, but a longer set (or a large text size) shouldn't
+       break the track — it scrolls inside itself rather than wrapping into two rows, which would
+       stop it reading as a single control. */
+    overflow-x:auto; scrollbar-width:none; -ms-overflow-style:none;
+  }
+  .seg-control::-webkit-scrollbar{ display:none; }
+  .seg-option{
+    all:unset; box-sizing:border-box; padding:5px 9px; border-radius:6px; text-align:center;
+    font-size:11px; font-weight:600; color: var(--ink-soft); cursor:pointer; white-space:nowrap;
+  }
+  .seg-option:hover{ color: var(--ink); }
+  /* Raised above the track — --paper-raised is lighter than --paper-sunken in both themes, so the
+     thumb reads as sitting on top either way rather than needing a per-theme override. */
+  .seg-option.active{ background: var(--paper-raised); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,0.22); }
+  .seg-option:focus-visible{ box-shadow: var(--focus-ring); }
   #sharesSortSelect{
     font-size:11.5px; padding:6px 10px; border-radius:100px; border:1px solid var(--border);
     background: var(--paper); color: var(--ink); font-family:inherit; cursor:pointer; flex:none;

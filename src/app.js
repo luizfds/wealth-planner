@@ -37,7 +37,7 @@ import {
 import {
   patchHoldingRow, patchVehicleRow, modernAssetRowOpen, patchAssetCategoryTotals,
   renderNetWorthPanel, renderAssets, logAssetSnapshot, applySharesPaste, logDebtSnapshot,
-  patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter, setSharesGainFilter, setSharesSortMode, setSharesChangeWindow,
+  patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter, renderAssetPersonSheet, assetPersonSheetOpen, setAssetPersonSheetOpen, setSharesGainFilter, setSharesSortMode, setSharesChangeWindow,
   parseAssetsImportCsv, renderAssetsImportPreview, clearAssetsImportPreview, commitAssetsImport
 } from "./components/assets.js";
 import {
@@ -1095,8 +1095,15 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       });
       return;
     }
+    if(e.target.closest("[data-asset-person-open]")){ openAssetPersonSheet(); return; }
     var personFilterBtn = e.target.closest("[data-asset-person-filter]");
-    if(personFilterBtn){ setAssetPersonFilter(personFilterBtn.getAttribute("data-asset-person-filter")); return; }
+    if(personFilterBtn){
+      setAssetPersonFilter(personFilterBtn.getAttribute("data-asset-person-filter"));
+      // renderAssets() has already redrawn the chip with the new name; this closes the sheet the
+      // choice was made in, through the overlay stack so the back button stays in step.
+      if(assetPersonSheetOpen) requestCloseActiveOverlay();
+      return;
+    }
     var gainFilterBtn = e.target.closest("[data-shares-gain-filter]");
     if(gainFilterBtn){ setSharesGainFilter(gainFilterBtn.getAttribute("data-shares-gain-filter")); return; }
     var changeWindowBtn = e.target.closest("[data-shares-change-window]");
@@ -1576,6 +1583,61 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       toggle.click();
     });
   }
+  // ---------------- Assets: "Showing <person>" sheet ----------------
+  function closeAssetPersonSheetUi(){
+    setAssetPersonSheetOpen(false);
+    renderAssetPersonSheet();
+  }
+  function openAssetPersonSheet(){
+    setAssetPersonSheetOpen(true);
+    renderAssetPersonSheet();
+    if(document.querySelector("[data-asset-person-backdrop]")) pushActiveOverlay(closeAssetPersonSheetUi);
+  }
+  document.getElementById("assetPersonSheetRoot").addEventListener("click", function(e){
+    if(e.target.closest("[data-asset-person-close]") || e.target === e.target.closest("[data-asset-person-backdrop]")){
+      requestCloseActiveOverlay();
+    }
+    // Picking a person is handled by the page-level [data-asset-person-filter] handler above —
+    // this root sits outside .app-page, so the click never reaches it otherwise.
+  });
+  document.addEventListener("keydown", function(e){
+    if(e.key !== "Escape") return;
+    if(document.querySelector("[data-asset-person-backdrop]")) requestCloseActiveOverlay();
+  });
+
+  // ---------------- Page-header ⋯ menus ----------------
+  // One delegated handler for all four (Income, Expenses, Properties, Assets). The menu is a
+  // sibling of its own button inside .page-overflow, so "which menu?" is answered by walking up
+  // from the click rather than by an id per page.
+  function closeAllOverflowMenus(except){
+    document.querySelectorAll(".page-overflow").forEach(function(wrap){
+      if(wrap === except) return;
+      var menu = wrap.querySelector("[data-overflow-menu]");
+      var btn = wrap.querySelector("[data-overflow-toggle]");
+      if(menu) menu.hidden = true;
+      if(btn) btn.setAttribute("aria-expanded", "false");
+    });
+  }
+  document.addEventListener("click", function(e){
+    var toggle = e.target.closest("[data-overflow-toggle]");
+    if(toggle){
+      var wrap = toggle.closest(".page-overflow");
+      var menu = wrap.querySelector("[data-overflow-menu]");
+      var willOpen = menu.hidden;
+      closeAllOverflowMenus(wrap);
+      menu.hidden = !willOpen;
+      toggle.setAttribute("aria-expanded", String(willOpen));
+      return;
+    }
+    // A click on an item inside the menu (Export CSV, Import…) closes it too — those handlers run
+    // on their own ids and don't know this menu exists, so closing is this handler's job either
+    // way, whether the click was inside or outside.
+    closeAllOverflowMenus(null);
+  });
+  document.addEventListener("keydown", function(e){
+    if(e.key === "Escape") closeAllOverflowMenus(null);
+  });
+
   document.getElementById("mRowBackdrop").addEventListener("click", closeActiveModernRow);
   document.addEventListener("keydown", function(e){
     if(e.key === "Escape" && activeModernRow) closeActiveModernRow();

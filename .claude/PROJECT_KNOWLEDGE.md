@@ -367,6 +367,39 @@ expect these to move into a component later without a real reason):
 
 ## Installability (PWA)
 
+### Getting a shipped update onto a device
+
+Three layers sit between a merge and a phone showing new code, and only the third is ours:
+
+1. **GitHub Pages build** — a minute or two after the merge before the files exist at all.
+2. **The CDN edge.** `cache: "no-store"` stops the *browser* answering from its own cache; it says
+   nothing about an intermediary. This is why the version probe fetches `index.html?v=<Date.now()>`:
+   a URL nothing has requested before can't be served from an edge cache. Without the query string
+   a check can be answered by a minutes-old copy, quietly conclude "no update", and then wait for
+   the next one — the failure mode that looks exactly like a bug.
+3. **The app's own check.** `checkForNewVersion()` compares the deployed `app-version-num` against
+   the running one, on `visibilitychange`, on `focus`, every 15 minutes, and on demand via
+   **Check for updates** (sidebar footer, and the mobile More panel). The manual one reports both
+   outcomes — a background check that finds nothing is silent by design, but a person who just
+   tapped a button and got silence can't tell that from a broken button.
+
+The version number lives in its own `<span class="app-version-num">` because it is parsed twice:
+out of the live DOM, and out of a freshly-fetched copy of `index.html`. Anything else added to that
+line (the Check for updates button) would otherwise land inside the match.
+
+Accepting the update banner does **not** just reload. It messages the worker
+(`{type:"purge-and-reprime"}`), which clears its caches and immediately re-caches the shell. Both
+halves matter: the version check only reads `index.html`, so a fresh shell beside a stale
+`src/*.js` would reload into a new version number running old code — and a bare purge would delete
+the cached shell that is the only thing making a reload work on a pushState'd path when the network
+hiccups. The page reloads on the worker's reply or after a 3s timeout, whichever comes first; a
+failed purge is a stale cache, which is where we already were, whereas not reloading leaves a
+banner that does nothing.
+
+Worth knowing: a first visit never caches the shell at all — that navigation happens before the
+worker has control, so nothing is stored under `SHELL_URL`. Measured, not assumed.
+
+
 `manifest.webmanifest` + `sw.js` + `icons/` make the app installable (Chrome's install-icon/
 `beforeinstallprompt`, iOS "Add to Home Screen") and fully offline-capable, added after the JS/CSS
 modularization was complete. Three requirements, all independently verified in a real browser

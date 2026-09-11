@@ -59,6 +59,14 @@ export function normalizeShareAsset(a){
   if(a.symbol == null) a.symbol = "";
   if(a.person == null) a.person = "";
   if(a.priceUpdated == null) a.priceUpdated = "";
+  // Dividend fields (v2.84.0). Per-unit yearly rather than a total, so the figure survives buying
+  // or selling units — a total would silently become wrong the moment the holding changed size,
+  // which is exactly when nobody thinks to revisit it.
+  if(a.dividendPerUnit == null) a.dividendPerUnit = 0;
+  // 0-100. Australian companies pay tax at 30% before distributing, and a fully franked dividend
+  // carries a credit for that. Partially-franked and unfranked are both common (LICs, REITs,
+  // foreign-sourced income), so this is a percentage rather than a flag.
+  if(a.frankedPct == null) a.frankedPct = 100;
   a.amount = Math.round((Number(a.quantity) || 0) * (Number(a.price) || 0) * 100) / 100;
   return a;
 }

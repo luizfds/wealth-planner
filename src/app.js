@@ -40,7 +40,7 @@ import {
   patchHoldingRow, patchVehicleRow, modernAssetRowOpen, patchAssetCategoryTotals,
   renderNetWorthPanel, renderAssets, logAssetSnapshot, applySharesPaste, logDebtSnapshot,
   patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter, renderAssetPersonSheet, assetPersonSheetOpen, setAssetPersonSheetOpen, setSharesGainFilter, setSharesSortMode, setSharesChangeWindow,
-  parseAssetsImportCsv, renderAssetsImportPreview, clearAssetsImportPreview, commitAssetsImport
+  parseAssetsImportCsv, renderAssetsImportPreview, clearAssetsImportPreview, commitAssetsImport, dividendNoteText
 } from "./components/assets.js";
 import {
   modernPropRowOpen, renderPropListModern, renderProperties, patchPropertyCardComputed,
@@ -1051,6 +1051,20 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
         item.amount = Math.round(item.quantity * (Number(item.price) || 0) * 100) / 100;
         patchHoldingRow(tr, item);
         patchSharesGlance();
+      }
+      // A dividend change moves that person's taxable income, so it has to re-run the tax chain —
+      // unlike price/qty, which only move the holding's value.
+      else if(e.target.classList.contains("h-dividend") || e.target.classList.contains("h-franked")){
+        if(e.target.classList.contains("h-dividend")) item.dividendPerUnit = Math.max(0, parseFloat(e.target.value) || 0);
+        else item.frankedPct = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
+        var divNote = tr.querySelector(".h-div-note");
+        if(divNote) divNote.textContent = dividendNoteText(item);
+        recalcComputedItems();
+        renderTaxSuper();
+        patchSyntheticIncomeRows();
+        patchIncomeGroupTotals();
+        renderCards(); renderDetail(); renderTotals();
+        renderProjectionOutputs();
       }
       else if(e.target.classList.contains("h-avgcost")){
         item.avgCost = e.target.value === "" ? null : (parseFloat(e.target.value) || 0);

@@ -436,3 +436,128 @@ test("no provider and no opts means no deductions, exactly as before", function(
     assert.equal(computePersonTax("Sam").deductions, 0);
   });
 });
+
+// ---------------- Dividends & franking (v2.84.0) ----------------
+
+import { frankingCredit, holdingDividend, personDividends, COMPANY_TAX_RATE } from "../src/calc/tax.js";
+
+function withAssets(assets, body){
+  var saved = state.assets;
+  state.assets = assets;
+  try { body(); } finally { state.assets = saved; }
+}
+function holding(person, units, perUnit, frankedPct){
+  return { category: "Shares", person: person, quantity: units, price: 10, dividendPerUnit: perUnit, frankedPct: frankedPct };
+}
+
+test("the franking credit grosses up, it is not a percentage of the cash", function(){
+  // cash * rate/(1-rate), not cash * rate: the cash is what's left AFTER the company paid 30%, so
+  // a $700 fully franked dividend carries a $300 credit — $1,000 of pre-tax profit.
+  assert.equal(frankingCredit(700, 100), 300);
+  assert.notEqual(frankingCredit(700, 100), 700 * COMPANY_TAX_RATE);
+});
+
+test("partial and zero franking scale the credit", function(){
+  assert.equal(frankingCredit(700, 50), 150);
+  assert.equal(frankingCredit(700, 0), 0, "unfranked: nothing was paid, nothing to credit");
+  assert.equal(frankingCredit(0, 100), 0);
+});
+
+test("a holding's dividend follows its unit count, not a stored total", function(){
+  // Per-unit is the point: a total would silently become wrong the moment units are bought or
+  // sold, which is exactly when nobody thinks to revisit it.
+  var d = holdingDividend({ quantity: 1000, dividendPerUnit: 0.7, frankedPct: 100 });
+  assert.equal(d.cash, 700);
+  assert.equal(d.credit, 300);
+  assert.equal(d.grossedUp, 1000);
+  assert.equal(holdingDividend({ quantity: 2000, dividendPerUnit: 0.7, frankedPct: 100 }).cash, 1400);
+});
+
+test("only Shares holdings with a dividend count, and attribution follows the deduction rule", function(){
+  withIncome([grossRow("Sam", 100000), grossRow("Alex", 100000)], function(){
+    withAssets([
+      holding("Sam", 1000, 0.7, 100),
+      holding("Alex", 500, 0.7, 100),
+      holding("", 9999, 0.7, 100),                                    // unattributed, two people
+      { category: "Cash", person: "Sam", quantity: 1, dividendPerUnit: 5 },  // not shares
+      holding("Sam", 1000, 0, 100)                                    // shares, but pays nothing
+    ], function(){
+      assert.equal(personDividends("Sam").cash, 700, "the unattributed one is claimed by nobody");
+      assert.equal(personDividends("Alex").cash, 350);
+    });
+  });
+});
+
+test("dividends enter taxable income grossed up, and the credit comes off the tax bill", function(){
+  withIncome([grossRow("Sam", 100000)], function(){
+    // Cover on, to isolate this from the surcharge — the extra income moves that too, which is
+    // the subject of the next test rather than this one.
+    state.tax.privateHospitalCover = true;
+    withAssets([holding("Sam", 10000, 0.7, 100)], function(){   // $7,000 cash, $3,000 credit
+      var t = computePersonTax("Sam");
+      assert.equal(t.dividendCash, 7000);
+      assert.equal(t.frankingCredit, 3000);
+      assert.equal(t.dividendGrossedUp, 10000);
+      var noDividends = (function(){
+        var r;
+        withAssets([], function(){ r = computePersonTax("Sam"); });
+        return r;
+      })();
+      assert.equal(t.taxable, noDividends.taxable + 10000, "grossed up, not just the cash");
+      assert.ok(Math.abs((t.totalTax - noDividends.totalTax) - (10000 * 0.30 + 10000 * 0.02 - 3000)) < 1,
+        "tax on the grossed-up amount at 30% + levy, less the credit");
+      state.tax.privateHospitalCover = false;
+    });
+  });
+});
+
+test("grossed-up dividend income cascades into the Medicare levy surcharge", function(){
+  // Caught by a test expectation of mine that forgot it: $10,000 of grossed-up dividend income
+  // pushed the surcharge up $100 on top of the tax and the credit. Dividends aren't a sidecar —
+  // they move every figure built on taxable income.
+  withIncome([grossRow("Sam", 100000)], function(){
+    state.tax.privateHospitalCover = false;
+    state.tax.familyThresholds = false;
+    var before, after;
+    withAssets([], function(){ before = computePersonTax("Sam"); });
+    withAssets([holding("Sam", 10000, 0.7, 100)], function(){ after = computePersonTax("Sam"); });
+    assert.ok(after.medicareSurcharge > before.medicareSurcharge);
+    assert.ok(Math.abs((after.medicareSurcharge - before.medicareSurcharge) - 100) < 1);
+  });
+});
+
+test("the franking credit is refundable — the tax bill can go below zero", function(){
+  // The case that matters most and the one clamping at zero would quietly delete: a low- or
+  // no-income shareholder gets the credit paid out.
+  withIncome([grossRow("Sam", 0)], function(){
+    withAssets([holding("Sam", 10000, 0.7, 100)], function(){
+      var t = computePersonTax("Sam");
+      assert.ok(t.totalTax < 0, "a refund, not a bill: " + t.totalTax);
+      assert.ok(t.netTakeHome > t.dividendCash, "so more arrives than the company distributed");
+    });
+  });
+});
+
+test("above a 30% marginal rate a fully franked dividend still costs a top-up", function(){
+  withIncome([grossRow("Sam", 200000)], function(){
+    withAssets([holding("Sam", 10000, 0.7, 100)], function(){
+      var t = computePersonTax("Sam");
+      assert.ok(t.dividendNet < t.dividendCash, "worth less than the cash: " + t.dividendNet);
+      assert.ok(t.dividendNet > 0, "but still worth having");
+    });
+  });
+});
+
+test("dividend cash lands in take-home once, not twice", function(){
+  // The credit is settled through the tax bill; adding the grossed-up figure to take-home as well
+  // would count it a second time.
+  withIncome([grossRow("Sam", 100000)], function(){
+    var before;
+    withAssets([], function(){ before = computePersonTax("Sam"); });
+    withAssets([holding("Sam", 10000, 0.7, 100)], function(){
+      var after = computePersonTax("Sam");
+      var expected = before.netTakeHome + 7000 - (after.totalTax - before.totalTax);
+      assert.ok(Math.abs(after.netTakeHome - expected) < 0.01);
+    });
+  });
+});

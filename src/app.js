@@ -50,7 +50,7 @@ import {
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
   patchCalcOutputs, afterCalcChange, patchInvestOutputs
 } from "./components/scenarios.js";
-import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY } from "./components/nav.js";
+import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
 import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./components/search.js";
 
 (function(){
@@ -2972,16 +2972,17 @@ function reloadForUpdate(){
 }
 // Resolves to the deployed version string, or "" when the response didn't carry one.
 function fetchDeployedVersion(){
-  // A relative fetch resolves against the document's own URL, so this lands on the right
-  // index.html whether served from domain root (local dev) or a GitHub Pages project subpath —
-  // same reasoning as nav.js's BASE_PATH — even from a pushState'd path like /properties.
+  // appAssetUrl(), NOT a bare "index.html": a document-relative fetch resolves against whatever
+  // route is in the address bar, and by the time this runs the app has already rewritten it. From
+  // /expenses/spending that fetched /expenses/index.html and 404'd, so the update check silently
+  // never worked on a two-segment route. See appAssetUrl()'s own comment in nav.js.
   //
   // cache:"no-store" stops the *browser* answering from its own cache, but it says nothing about
   // what an intermediary does, and this app is served through a CDN. A URL nothing has requested
   // before can't be answered from an edge cache, so the timestamp is what makes the answer
   // trustworthy rather than possibly-minutes-stale — which matters most in exactly the case that
   // looks like a bug: a check that quietly concludes "no update" and then waits for the next one.
-  return fetch("index.html?v=" + Date.now(), { cache: "no-store" })
+  return fetch(appAssetUrl("index.html") + "?v=" + Date.now(), { cache: "no-store" })
     .then(function(r){ return r.text(); })
     .then(function(html){
       var match = html.match(/<span class="app-version-num">([^<]*)<\/span>/);
@@ -3032,12 +3033,16 @@ document.addEventListener("visibilitychange", function(){
 window.addEventListener("focus", checkForNewVersion);
 setInterval(checkForNewVersion, 15 * 60 * 1000);
 
-// Registered from the page's own origin/path, so this resolves correctly whether served from
-// domain root (local dev) or a GitHub Pages project subpath — same reasoning as nav.js's BASE_PATH.
+// appAssetUrl(), NOT a bare "sw.js" — same trap as the version fetch above, and it cost more here:
+// a bare "sw.js" resolved against the restored route, so on a fresh load of /expenses/spending or
+// /assets/shares (a shared link, a bookmark, or a plain reload) registration 404'd and the service
+// worker never installed. Offline support was silently absent for anyone who didn't land on the
+// bare root. The resulting scope is "/" locally and "/wealth-planner/" on Pages — the whole app
+// either way, which is what sw.js's own new URL("index.html", registration.scope) assumes.
 if("serviceWorker" in navigator){
   var hadControllerAtLoad = !!navigator.serviceWorker.controller;
   window.addEventListener("load", function(){
-    navigator.serviceWorker.register("sw.js").catch(function(){});
+    navigator.serviceWorker.register(appAssetUrl("sw.js")).catch(function(){});
   });
   // Fires when this page starts being controlled by a different worker than the one that had it
   // at load — the fast path for the (comparatively rare) release that touches sw.js itself.

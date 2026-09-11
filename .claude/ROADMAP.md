@@ -210,14 +210,22 @@ ever loosen that threshold, this is the reason it exists.
 - Categories under **$50 across the window** are dropped, on the *window* total so a once-a-year
   line (car rego) keeps its place.
 
-### Found while verifying this, not fixed here
+### Found while verifying this — fixed in v2.78.1
 
-`navigator.serviceWorker.register("sw.js")` (`app.js`) uses a **relative** URL, and `nav.js` has
-already rewritten the address bar to the restored route by the time it runs — so on any deep link
-or restored route (`/expenses/spending`), it resolves to `/expenses/sw.js` and **404s**. Confirmed
-pre-existing (reproduces on `main`), and invisible to page-level request logging because service
-worker script fetches don't surface there. Offline support silently doesn't register for anyone
-who doesn't land on the bare root. Small fix, different subsystem — worth its own change.
+`navigator.serviceWorker.register("sw.js")` **and** the update check's `fetch("index.html?v=…")`
+both used **document-relative** URLs, and `nav.js` has already rewritten the address bar to the
+current route by the time either runs. One-segment routes resolved correctly by luck; two-segment
+ones (`/expenses/*`, `/assets/*`) resolved to `/expenses/sw.js` and 404'd.
+
+Measured on a fresh load of `/expenses/spending` (a shared link, a bookmark, or a reload):
+
+| | before | after |
+|---|---|---|
+| Service worker | **none registered** — no offline support | registered, scope `/` |
+| "Check for updates" | *"Couldn't read the deployed version"* | reports the real version |
+
+Both now go through `appAssetUrl()` in `nav.js`. `tests/asset-urls.test.js` guards the spelling —
+see `PROJECT_KNOWLEDGE.md` for why a source-level guard is the right shape here.
 
 ---
 

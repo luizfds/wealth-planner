@@ -150,7 +150,7 @@ actually moves the ranking.
 
 ---
 
-## 3. `[ ]` Month-over-month spending
+## 3. `[~]` Month-over-month spending
 
 Nothing in the app compares you against your own past. Every spending view is "this month", "this
 cycle" or "this year" — so it can say you're over budget on groceries, but never that groceries

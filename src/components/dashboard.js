@@ -1,9 +1,10 @@
 import { state, persist } from "../state.js";
 import { sumField, sumByClassification, sumByAccount, safeDiv, resolveSharedAmount, nextDueDate, daysUntil, appendHistorySnapshot, lastTransactionDateFor } from "../calc/ledger.js";
 import { ipExpenseItemsForClassification } from "../calc/property.js";
-import { effectiveIncomeItems } from "../calc/tax.js";
+import { scenarioIncomeMonthly } from "../calc/tax.js";
 import { scenarioTotals, computeNetWorthSeries, totalNetWorthValue, runwayMonths, actualAssetGrowthLastMonth, staleAssets } from "../calc/engine.js";
 import { monthlyCashFlowForecast } from "../calc/cashflow.js";
+import { fireSettings, fireWealthSplit, simulateRetirementAt, earliestWorkableRetirementAge } from "../calc/fire.js";
 import { MONTH_NAMES } from "../constants.js";
 import { fmtCurrency0, fmtPercent1, fmtRunway, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
@@ -74,7 +75,7 @@ export function renderDashboardStats(){
   el.innerHTML =
     '<div class="stat-tile"><span>Total net worth today</span><b>' + fmtCurrency0.format(totalNetWorth) + '</b><small>across ' + itemCount + ' item' + (itemCount === 1 ? "" : "s") + '</small></div>' +
     '<div class="stat-tile"><span>' + escapeAttr(active) + ' — net savings</span><b' + (t.netMonthly < 0 ? ' style="color:var(--bad)"' : '') + '>' + fmtCurrency0.format(t.netMonthly) + '/mo</b><small>' + fmtPercent1.format(t.rate) + ' savings rate</small></div>' +
-    '<div class="stat-tile"><span>Projected net worth</span><b>' + fmtCurrency0.format(projected) + '</b><small>in ' + horizon + ' years, ' + escapeAttr(active) + '</small></div>' +
+    '<div class="stat-tile"><span>Projected net worth</span><b>' + fmtCurrency0.format(projected) + '</b><small>in ' + horizon + ' years, ' + escapeAttr(active) + ', ' + (state.projection.realTerms !== false ? "today's" : "future") + ' dollars</small></div>' +
     runwayTile +
     lastTile;
   renderStaleAssetsBanner();
@@ -194,7 +195,10 @@ export function renderDetail(){
       : item;
   });
   var combined = ipExpenseItemsForClassification().concat(sharedForScenario).concat(state.home[scenario]);
-  var incomeMonthly = sumField(effectiveIncomeItems(), "monthly");
+  // Scenario-resolved for the same reason the shared rows above are: this breakdown has to agree
+  // with scenarioTotals()/computeNetWorthSeries() for the scenario being shown, and income can now
+  // differ between them.
+  var incomeMonthly = scenarioIncomeMonthly({ scenario: scenario });
   var needs = sumByClassification(combined, "Needs", "monthly");
   var wants = sumByClassification(combined, "Wants", "monthly");
   var t = scenarioTotals(scenario);
@@ -229,40 +233,96 @@ export function renderDetail(){
   renderFireProgress(scenario, t);
 }
 
-// Financial independence progress via the standard 4% safe-withdrawal rule: a target
-// number 25x annual living costs (shared + home, excluding investment property — that's
-// a separate business-like expense, usually funded by its own rent) that, if reached,
-// could sustain 4%/yr withdrawals indefinitely. Reuses the same projection series as the
-// main chart to estimate which year (if any) crosses that number under current assumptions.
+// Financial independence, as two questions rather than one — see calc/fire.js for why.
+//
+// The old version of this panel reported a single "progress %" of total net worth against a 4%
+// target. On real data that counted $179,806 of super (32% of the figure) and a car, and would
+// have counted the family home the moment a Buy scenario was active. It answered "will the pot be
+// big enough?" while staying silent on "can you reach 60 on what isn't super?", which is the
+// question that actually decides whether an early retirement is possible.
+function fireAgeInputsHtml(settings){
+  return '<div class="fire-ages">' +
+    '<label class="fire-age-field">I\'m<input type="number" min="16" max="99" step="1" id="fireCurrentAge" ' +
+      'value="' + (settings.currentAge == null ? "" : settings.currentAge) + '" placeholder="--" aria-label="My age now"></label>' +
+    '<label class="fire-age-field">and want to stop working at<input type="number" min="16" max="99" step="1" id="fireRetireAge" ' +
+      'value="' + (settings.retireAge == null ? "" : settings.retireAge) + '" placeholder="--" aria-label="Target retirement age"></label>' +
+  '</div>';
+}
+
+// A timeline, not a progress bar: the point is *when* each pot becomes usable, which a percentage
+// can't show. Accumulation up to the retirement age, then the bridge years that have to come from
+// non-super money, then the wall at preservation age where super unlocks.
+function fireBridgeHtml(settings, run){
+  var span = Math.max(1, settings.preservationAge - settings.currentAge);
+  var workPct = Math.max(0, Math.min(100, ((run.retireAge - settings.currentAge) / span) * 100));
+  var bridgePct = Math.max(0, 100 - workPct);
+  var bridgeClass = run.bridgeSurvives ? "ok" : "short";
+  return '<div class="fire-timeline">' +
+      '<div class="fire-seg work" style="flex:' + workPct + ' 1 0%"><span>' + (run.retireAge - settings.currentAge) + 'y saving</span></div>' +
+      (bridgePct > 0 ? '<div class="fire-seg bridge ' + bridgeClass + '" style="flex:' + bridgePct + ' 1 0%"><span>' + run.bridgeYears + 'y bridge</span></div>' : "") +
+    '</div>' +
+    '<div class="fire-timeline-axis">' +
+      '<span>now · ' + settings.currentAge + '</span>' +
+      '<span>stop · ' + run.retireAge + '</span>' +
+      '<span>super unlocks · ' + settings.preservationAge + '</span>' +
+    '</div>';
+}
+
 function renderFireProgress(scenario, t){
   var panel = document.getElementById("firePanel");
   if(!panel) return;
-  var annualLivingExpenses = (t.sharedMonthly + t.homeMonthly) * 12;
-  var targetFI = annualLivingExpenses * 25;
-  var netWorth = totalNetWorthValue();
-  var progressPct = targetFI > 0 ? Math.min(100, (netWorth / targetFI) * 100) : 0;
+  var settings = fireSettings();
+  var split = fireWealthSplit();
+  var annualExpenses = (t.sharedMonthly + t.homeMonthly) * 12;
+  var targetFI = annualExpenses * 25;
+  var head = '<h3>Financial independence <span style="font-weight:400;color:var(--ink-soft)">— 4% rule, in today\'s dollars</span></h3>';
 
-  var horizon = Math.max(1, Number(state.projection.horizonYears) || 1);
-  var series = computeNetWorthSeries(scenario, horizon);
-  var hitYear = null;
-  if(targetFI > 0){
-    for(var i = 0; i < series.length; i++){
-      if(series[i].y >= targetFI){ hitYear = series[i].x; break; }
-    }
+  // What the money can and can't do, which is true whether or not any age has been entered yet.
+  var excluded = split.pporEquity + split.vehicleOther;
+  var splitHtml =
+    '<div class="fire-stat-row"><span>Could fund an early retirement</span><b>' + fmtCurrency0.format(split.accessible) + '</b></div>' +
+    '<div class="fire-stat-row"><span>Super — locked until ' + settings.preservationAge + '</span><b>' + fmtCurrency0.format(split.superValue) + '</b></div>' +
+    (excluded > 0 ? '<div class="fire-stat-row"><span>Excluded (home, vehicles)</span><b>' + fmtCurrency0.format(excluded) + '</b></div>' : "") +
+    '<div class="fire-stat-row"><span>Target to sustain ' + fmtCurrency0.format(annualExpenses) + '/yr</span><b>' + fmtCurrency0.format(targetFI) + '</b></div>';
+
+  if(settings.currentAge == null || settings.retireAge == null){
+    panel.innerHTML = head + splitHtml + fireAgeInputsHtml(settings) +
+      '<p class="fire-note">Add both ages to see whether you can actually reach ' + settings.preservationAge +
+      ' on the money that isn\'t super. Until then this only answers whether the pot could ever be big enough — not whether you could get there.</p>';
+    return;
   }
 
-  var etaText;
-  if(netWorth >= targetFI && targetFI > 0) etaText = "You've already reached this number.";
-  else if(hitYear != null) etaText = "Projected to reach it around Year " + hitYear + " under " + escapeAttr(scenario) + "'s current assumptions.";
-  else etaText = "Not projected within " + horizon + " years under current assumptions — try adjusting the projection inputs.";
+  var run = simulateRetirementAt(settings.retireAge);
+  if(!run){ panel.innerHTML = head + splitHtml + fireAgeInputsHtml(settings); return; }
+  var earliest = earliestWorkableRetirementAge();
 
-  panel.innerHTML =
-    '<h3>Financial independence <span style="font-weight:400;color:var(--ink-soft)">— 4% rule</span></h3>' +
-    '<div class="fire-bar-track"><div class="fire-bar-fill" style="width:' + progressPct + '%"></div></div>' +
-    '<div class="fire-stat-row"><span>Progress</span><b>' + fmtPercent1.format(progressPct / 100) + '</b></div>' +
-    '<div class="fire-stat-row"><span>Net worth today</span><b>' + fmtCurrency0.format(netWorth) + '</b></div>' +
-    '<div class="fire-stat-row"><span>Target FI number</span><b>' + fmtCurrency0.format(targetFI) + '</b></div>' +
-    '<p class="fire-note">Target = ' + escapeAttr(scenario) + '’s annual living costs (' + fmtCurrency0.format(annualLivingExpenses) + '/yr, excluding investment property) × 25 — what a 4%/yr withdrawal could sustain indefinitely. ' + etaText + '</p>';
+  var verdict, verdictClass;
+  if(run.passes){
+    verdict = "Retiring at " + run.retireAge + " works on these numbers.";
+    verdictClass = "ok";
+  } else if(!run.bridgeSurvives){
+    verdict = "Retiring at " + run.retireAge + " runs out before super unlocks.";
+    verdictClass = "short";
+  } else {
+    verdict = "You'd reach " + settings.preservationAge + ", but the pot wouldn't sustain " + fmtCurrency0.format(annualExpenses) + "/yr.";
+    verdictClass = "short";
+  }
+  var earliestNote = run.passes
+    ? (earliest != null && earliest < run.retireAge ? " You could stop as early as " + earliest + "." : "")
+    : (earliest != null ? " The earliest that works is " + earliest + "." : " No age up to 75 works on these numbers.");
+
+  panel.innerHTML = head +
+    '<p class="fire-verdict ' + verdictClass + '">' + escapeAttr(verdict) + escapeAttr(earliestNote) + '</p>' +
+    fireBridgeHtml(settings, run) +
+    '<div class="fire-stat-row"><span>Accessible at ' + run.retireAge + '</span><b>' + fmtCurrency0.format(run.accessibleAtRetire) + '</b></div>' +
+    (run.bridgeYears > 0
+      ? '<div class="fire-stat-row"><span>Needed to cover the ' + run.bridgeYears + '-year bridge</span><b>' + fmtCurrency0.format(run.bridgeNeeded) + '</b></div>'
+      : "") +
+    '<div class="fire-stat-row"><span>Pot at ' + settings.preservationAge + ' (accessible + super)</span><b>' + fmtCurrency0.format(run.potAtPreservation) + '</b></div>' +
+    '<div class="fire-stat-row"><span>Target at 4%</span><b>' + fmtCurrency0.format(run.targetFI) + '</b></div>' +
+    splitHtml +
+    fireAgeInputsHtml(settings) +
+    '<p class="fire-note">Today\'s dollars throughout — returns are net of inflation, so these figures compare directly with the expenses you entered. Super keeps growing through the bridge but is never drawn on before ' + settings.preservationAge + '. Excludes the home you live in: selling it means buying or renting another.</p>';
 }
 
 // Freezes today's projection for the active scenario as a fixed line to grade real net worth
@@ -281,7 +341,9 @@ export function setProjectionReference(){
     date: localDateStr(),
     scenario: scenario,
     horizonYears: horizon,
-    series: computeNetWorthSeries(scenario, horizon)
+    // Pinned nominal: this reference is graded against state.netWorthLog, which records real
+    // logged dollars. Deflating one side and not the other would make every check drift.
+    series: computeNetWorthSeries(scenario, horizon, { realTerms: false })
   };
   renderDashboardStats();
   persist();

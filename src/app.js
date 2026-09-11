@@ -50,7 +50,7 @@ import {
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
   patchCalcOutputs, afterCalcChange, patchInvestOutputs
 } from "./components/scenarios.js";
-import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY } from "./components/nav.js";
+import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
 import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./components/search.js";
 
 (function(){
@@ -293,7 +293,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
           ]
         }];
       })() : [],
-      projection: { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0 },
+      projection: { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0, incomeGrowthRate: 3, realTerms: true },
       tax: { sgRate: 12, ipOwnership: {}, settings: {} }
     };
   }
@@ -451,6 +451,9 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       var reserveField = tr.querySelector(".f-reserveyear-field");
       if(reserveField) reserveField.hidden = !e.target.checked;
     }
+    // structural: the collapsed row carries an "Ends …" note derived from this, and on the budget
+    // pages an ended line is excluded from the projection — both need the row rebuilt, not patched.
+    else if(e.target.classList.contains("f-enddate")){ item.endDate = e.target.value || ""; structural = true; }
     else if(e.target.classList.contains("f-duemonth")) item.dueMonth = e.target.value ? Number(e.target.value) : null;
     else if(e.target.classList.contains("f-reserveyear")) item.reserveYear = e.target.value;
     else return;
@@ -541,7 +544,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     }
     var varyBtn = e.target.closest("[data-vary-scenario]");
     if(varyBtn){
-      openScenarioOverridePanel(Number(varyBtn.getAttribute("data-vary-scenario")));
+      openScenarioOverridePanel(varyBtn.getAttribute("data-vary-section") || "shared", Number(varyBtn.getAttribute("data-vary-scenario")));
       return;
     }
     // "Record a pay change" (Income). Distinct from [data-log] below, which snapshots whatever is
@@ -815,6 +818,23 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   });
   document.getElementById("projInflationRate").addEventListener("input", function(e){
     state.projection.inflationRate = parseFloat(e.target.value) || 0;
+    // The basis note quotes this rate ("deflated by 3% a year"), so it goes stale otherwise.
+    syncProjBasisControl();
+    renderProjectionOutputs();
+    persist();
+  });
+  document.getElementById("projIncomeGrowth").addEventListener("input", function(e){
+    state.projection.incomeGrowthRate = parseFloat(e.target.value) || 0;
+    renderProjectionOutputs();
+    persist();
+  });
+  // Not an assumption but a unit — it doesn't change the plan, only which dollars it's reported
+  // in, so it re-renders the outputs without touching anything the model computes from.
+  document.getElementById("projBasis").addEventListener("click", function(e){
+    var btn = e.target.closest("[data-proj-basis]");
+    if(!btn) return;
+    state.projection.realTerms = btn.getAttribute("data-proj-basis") === "real";
+    syncProjBasisControl();
     renderProjectionOutputs();
     persist();
   });
@@ -843,7 +863,30 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   pairSlider("projInvestRate", "projInvestRateRange");
   pairSlider("projPropertyRate", "projPropertyRateRange");
   pairSlider("projInflationRate", "projInflationRateRange");
+  pairSlider("projIncomeGrowth", "projIncomeGrowthRange");
   pairSlider("projRateShock", "projRateShockRange");
+
+  // Both halves of the basis control in one place: the segmented button's pressed state, and the
+  // sentence next to it that says what the choice actually means. Called on load and on every
+  // change, rather than rebuilt inside renderProjectionOutputs(), because the control is static
+  // markup in index.html — only its state moves.
+  function syncProjBasisControl(){
+    var real = state.projection.realTerms !== false;
+    var group = document.getElementById("projBasis");
+    if(group){
+      group.querySelectorAll("[data-proj-basis]").forEach(function(btn){
+        var on = (btn.getAttribute("data-proj-basis") === "real") === real;
+        btn.classList.toggle("active", on);
+        btn.setAttribute("aria-pressed", String(on));
+      });
+    }
+    var note = document.getElementById("projBasisNote");
+    if(note){
+      note.textContent = real
+        ? "Every figure below is deflated by " + (Number(state.projection.inflationRate) || 0) + "% a year — what it would buy today."
+        : "Raw future dollars, not adjusted for inflation.";
+    }
+  }
 
 
   // ---------------- Tax & super ----------------
@@ -1695,26 +1738,34 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   wireModernRowToggle("incomeGroups", modernIncomeRowOpen);
   wireModernRowToggle("sharedGroups", modernSharedRowOpen);
 
-  // ---------------- Shared expenses: per-scenario override panel ----------------
+  // ---------------- Per-scenario override panel (shared expenses and income) ----------------
+  // The panel carries its own section now, because the same dialog serves state.shared and
+  // state.income. An income change has to go through refreshAfterLedgerChange("income"), which
+  // re-runs recalcComputedItems() — a Gross row's override changes that person's tax, and so the
+  // synthetic net row and every total derived from it.
+  function overrideBackdropTarget(e){
+    var backdrop = e.target.closest("[data-override-backdrop]");
+    if(!backdrop) return null;
+    return { section: backdrop.getAttribute("data-override-section") || "shared", idx: Number(backdrop.getAttribute("data-override-idx")) };
+  }
   document.getElementById("scenarioOverrideRoot").addEventListener("click", function(e){
     if(e.target.closest("[data-override-close]") || e.target === e.target.closest("[data-override-backdrop]")){
       closeScenarioOverridePanel();
       return;
     }
-    var backdrop = e.target.closest("[data-override-backdrop]");
-    if(!backdrop) return;
-    var idx = Number(backdrop.getAttribute("data-override-idx"));
+    var target = overrideBackdropTarget(e);
+    if(!target) return;
     var resetBtn = e.target.closest("[data-override-reset]");
     if(resetBtn){
-      resetScenarioOverride(idx, resetBtn.getAttribute("data-override-reset"));
-      refreshAfterLedgerChange("shared");
+      resetScenarioOverride(target.section, target.idx, resetBtn.getAttribute("data-override-reset"));
+      refreshAfterLedgerChange(target.section);
       renderScenarioOverridePanel();
       return;
     }
     var useBtn = e.target.closest("[data-override-use-everywhere]");
     if(useBtn){
-      copyScenarioAmountToAll(idx, useBtn.getAttribute("data-override-use-everywhere"));
-      refreshAfterLedgerChange("shared");
+      copyScenarioAmountToAll(target.section, target.idx, useBtn.getAttribute("data-override-use-everywhere"));
+      refreshAfterLedgerChange(target.section);
       renderScenarioOverridePanel();
       return;
     }
@@ -1722,12 +1773,11 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   document.getElementById("scenarioOverrideRoot").addEventListener("change", function(e){
     var input = e.target.closest(".scen-override-input");
     if(!input) return;
-    var backdrop = e.target.closest("[data-override-backdrop]");
-    if(!backdrop) return;
-    var idx = Number(backdrop.getAttribute("data-override-idx"));
+    var target = overrideBackdropTarget(e);
+    if(!target) return;
     var scenarioName = input.getAttribute("data-override-scenario");
-    setScenarioOverride(idx, scenarioName, parseFloat(input.value) || 0);
-    refreshAfterLedgerChange("shared");
+    setScenarioOverride(target.section, target.idx, scenarioName, parseFloat(input.value) || 0);
+    refreshAfterLedgerChange(target.section);
     // Deferred to the next tick: this handler runs synchronously inside the input's own
     // 'change' dispatch, and rebuilding #scenarioOverrideRoot's innerHTML (an ancestor of the
     // input that's still mid-event) right now throws "the node to be removed is no longer a
@@ -2564,6 +2614,25 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     });
   });
 
+  // The FIRE panel's two age inputs. Delegated from #firePanel rather than bound by id, because
+  // renderDetail() replaces that panel's innerHTML on every dashboard refresh — a direct listener
+  // would be attached to a node that no longer exists by the second render.
+  //
+  // Written on "change" (not "input"): re-rendering the panel mid-keystroke would pull the field
+  // out from under the caret, and a half-typed "5" on the way to "52" would briefly report a plan
+  // that fails. Blurring or pressing Enter commits it.
+  document.getElementById("firePanel").addEventListener("change", function(e){
+    var isCurrent = e.target.id === "fireCurrentAge";
+    var isRetire = e.target.id === "fireRetireAge";
+    if(!isCurrent && !isRetire) return;
+    if(!state.fire) state.fire = {};
+    var raw = e.target.value === "" ? null : Number(e.target.value);
+    var value = raw == null || isNaN(raw) ? null : Math.max(16, Math.min(99, Math.round(raw)));
+    state.fire[isCurrent ? "currentAge" : "retireAge"] = value;
+    renderDetail();
+    persist();
+  });
+
   document.getElementById("checkUpdatesLink").addEventListener("click", runManualUpdateCheck);
 
   document.getElementById("assetsSubnav").addEventListener("click", function(e){
@@ -2670,8 +2739,11 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     document.getElementById("projPropertyRateRange").value = state.projection.propertyAppreciationRate;
     document.getElementById("projInflationRate").value = state.projection.inflationRate;
     document.getElementById("projInflationRateRange").value = state.projection.inflationRate;
+    document.getElementById("projIncomeGrowth").value = state.projection.incomeGrowthRate;
+    document.getElementById("projIncomeGrowthRange").value = state.projection.incomeGrowthRate;
     document.getElementById("projRateShock").value = state.projection.rateShockPct;
     document.getElementById("projRateShockRange").value = state.projection.rateShockPct;
+    syncProjBasisControl();
     recalcComputedItems();
     renderIncomeGroups();
     renderProperties();
@@ -2907,16 +2979,17 @@ function reloadForUpdate(){
 }
 // Resolves to the deployed version string, or "" when the response didn't carry one.
 function fetchDeployedVersion(){
-  // A relative fetch resolves against the document's own URL, so this lands on the right
-  // index.html whether served from domain root (local dev) or a GitHub Pages project subpath —
-  // same reasoning as nav.js's BASE_PATH — even from a pushState'd path like /properties.
+  // appAssetUrl(), NOT a bare "index.html": a document-relative fetch resolves against whatever
+  // route is in the address bar, and by the time this runs the app has already rewritten it. From
+  // /expenses/spending that fetched /expenses/index.html and 404'd, so the update check silently
+  // never worked on a two-segment route. See appAssetUrl()'s own comment in nav.js.
   //
   // cache:"no-store" stops the *browser* answering from its own cache, but it says nothing about
   // what an intermediary does, and this app is served through a CDN. A URL nothing has requested
   // before can't be answered from an edge cache, so the timestamp is what makes the answer
   // trustworthy rather than possibly-minutes-stale — which matters most in exactly the case that
   // looks like a bug: a check that quietly concludes "no update" and then waits for the next one.
-  return fetch("index.html?v=" + Date.now(), { cache: "no-store" })
+  return fetch(appAssetUrl("index.html") + "?v=" + Date.now(), { cache: "no-store" })
     .then(function(r){ return r.text(); })
     .then(function(html){
       var match = html.match(/<span class="app-version-num">([^<]*)<\/span>/);
@@ -2967,12 +3040,16 @@ document.addEventListener("visibilitychange", function(){
 window.addEventListener("focus", checkForNewVersion);
 setInterval(checkForNewVersion, 15 * 60 * 1000);
 
-// Registered from the page's own origin/path, so this resolves correctly whether served from
-// domain root (local dev) or a GitHub Pages project subpath — same reasoning as nav.js's BASE_PATH.
+// appAssetUrl(), NOT a bare "sw.js" — same trap as the version fetch above, and it cost more here:
+// a bare "sw.js" resolved against the restored route, so on a fresh load of /expenses/spending or
+// /assets/shares (a shared link, a bookmark, or a plain reload) registration 404'd and the service
+// worker never installed. Offline support was silently absent for anyone who didn't land on the
+// bare root. The resulting scope is "/" locally and "/wealth-planner/" on Pages — the whole app
+// either way, which is what sw.js's own new URL("index.html", registration.scope) assumes.
 if("serviceWorker" in navigator){
   var hadControllerAtLoad = !!navigator.serviceWorker.controller;
   window.addEventListener("load", function(){
-    navigator.serviceWorker.register("sw.js").catch(function(){});
+    navigator.serviceWorker.register(appAssetUrl("sw.js")).catch(function(){});
   });
   // Fires when this page starts being controlled by a different worker than the one that had it
   // at load — the fast path for the (comparatively rare) release that touches sw.js itself.

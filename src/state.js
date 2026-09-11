@@ -110,7 +110,14 @@ export function defaultState(){
     // deliberately not derived from assets/properties/debts history, since those are logged on
     // whatever cadence the user updates each item, not necessarily together or monthly.
     netWorthLog: [],
-    projection: { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0 },
+    // incomeGrowthRate defaults to the inflation rate: the model has to assume *something* about
+    // pay over 20 years, and "keeps pace with prices" is the least wrong default. Assuming 0 —
+    // which is what the projection did implicitly until now — quietly has the surplus shrinking
+    // every year and turning negative partway through the horizon.
+    // realTerms shows the series in today's dollars rather than future ones.
+    projection: { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0, incomeGrowthRate: 3, realTerms: true },
+    // Age now, target retirement age, and when super unlocks — see calc/fire.js.
+    fire: { currentAge: null, retireAge: null, preservationAge: 60 },
     tax: { sgRate: 12, ipOwnership: {}, settings: {} },
     // 1 USD in AUD — the only cross-currency conversion this app needs, since MARKET_CURRENCY
     // only ever produces AUD or USD. Set via the Shares page's "Paste prices" box (pasting a
@@ -145,6 +152,9 @@ export function defaultHomeBlock(){
 // 12-month cash flow forecast (calc/cashflow.js) — see resolvedDueMonth() in calc/ledger.js for
 // how an unset dueMonth falls back to inferring it from the item's own logged history instead.
 function applyTimingDefaults(item){
+  // When this row stops, if it ever does. "" means it runs forever, which is the default and the
+  // common case — see calc/ledger.js's isActiveOn/isActiveInYear.
+  if(item.endDate === undefined) item.endDate = "";
   if(item.irregular == null) item.irregular = false;
   if(item.dueMonth === undefined) item.dueMonth = null;
   // Which twelve months an irregular (reserve) line is measured over on the Spending tab —
@@ -283,6 +293,13 @@ export function migrateState(s){
     collect(s.shared);
     (s.properties || []).forEach(function(p){ collect(p.income); collect(p.expenses); });
   })();
+  // Ages for the FIRE bridge (calc/fire.js). null means "not told yet", which the panel reports as
+  // a prompt rather than inventing a plausible age — the whole point of the bridge view is that
+  // it's specific to when *you* want to stop working.
+  if(!s.fire) s.fire = {};
+  if(s.fire.currentAge === undefined) s.fire.currentAge = null;
+  if(s.fire.retireAge === undefined) s.fire.retireAge = null;
+  if(s.fire.preservationAge == null) s.fire.preservationAge = 60;
   if(s.projectionReference === undefined) s.projectionReference = null;
   if(!Array.isArray(s.netWorthLog)) s.netWorthLog = [];
   if(!Array.isArray(s.assets)) s.assets = [];
@@ -292,6 +309,11 @@ export function migrateState(s){
   if(!s.projection) s.projection = { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0 };
   if(s.projection.inflationRate == null) s.projection.inflationRate = 3;
   if(s.projection.rateShockPct == null) s.projection.rateShockPct = 0;
+  // An existing save has been running with an implicit 0% — but 0 was never a considered choice,
+  // it was the absence of one, so this seeds the same default a new save gets rather than
+  // preserving an assumption nobody made. Called out in the release notes for that reason.
+  if(s.projection.incomeGrowthRate == null) s.projection.incomeGrowthRate = s.projection.inflationRate != null ? s.projection.inflationRate : 3;
+  if(s.projection.realTerms == null) s.projection.realTerms = true;
   if(!s.tax) s.tax = { sgRate: 12, ipOwnership: {}, settings: {} };
   if(!s.tax.ipOwnership) s.tax.ipOwnership = {};
   if(!s.tax.settings) s.tax.settings = {};

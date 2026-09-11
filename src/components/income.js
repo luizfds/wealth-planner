@@ -5,8 +5,9 @@ import { ipNetResultAnnual } from "../calc/property.js";
 import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax } from "../calc/tax.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
-import { optionsHtml, historyTrendHtml, timingFieldsHtml } from "../lib/ledger-table.js";
+import { optionsHtml, historyTrendHtml, timingFieldsHtml, endDateNoteHtml, scenarioVaryNoteHtml } from "../lib/ledger-table.js";
 import { parseCsv } from "../lib/backup.js";
+import { injectScenarioOverrideButtons } from "./expenses.js";
 
 export function personBreakdownHtml(person){
   var r = computePersonTax(person);
@@ -248,6 +249,10 @@ export function renderIncomeGroups(){
       '<button type="button" class="m-add-row" data-add="income:' + escapeAttr(addValue) + '">+ Add income</button>' +
     '</div>';
   }).join("") + '</div>';
+  // Same post-render DOM patch the Expenses budget list uses, for the same reason: the "⇄ Vary"
+  // button belongs to rows that can carry a per-scenario override, not to the generic row
+  // renderers, which are shared with several sections that can't.
+  injectScenarioOverrideButtons("incomeGroups", "income");
 }
 
 // Exactly one of these is shown per row, chosen by the frequency — see nextPayDate's own note on
@@ -340,6 +345,8 @@ function modernIncomeRowHtml(item, idx, colorIdx){
       (note ? '<div class="m-row-sub super-note">' + escapeAttr(note) + '</div>' : "") +
       (trendHtml ? '<div class="m-row-sub">' + trendHtml + '</div>' : "") +
       (isComputed ? "" : (function(){ var n = nextPayNoteHtml(item); return n ? '<div class="m-row-sub">' + n + '</div>' : ""; })()) +
+      (function(){ var e = endDateNoteHtml(item); return e ? '<div class="m-row-sub">' + e + '</div>' : ""; })() +
+      (function(){ var v = scenarioVaryNoteHtml(item, state.activeScenario); return v ? '<div class="m-row-sub">' + v + '</div>' : ""; })() +
     '</div>' +
     (isGrossRef ? '<span class="m-row-tag gross">Gross</span>' : "") +
     '<span class="m-row-amt" data-computed="amt">' + fmtCurrency2.format(monthly) + '/mo</span>' +

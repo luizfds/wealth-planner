@@ -309,6 +309,15 @@
   .m-row-dot{ width:7px; height:7px; border-radius:50%; background: var(--series-color); flex:none; }
   .m-row-name{ font-weight:600; font-size:13.5px; }
   .m-row-sub{ font-size:11px; color: var(--ink-soft); margin-top:1px; }
+  /* "Ends 2028-01-01" on a collapsed row. A pill rather than plain sub-text because it's the one
+     sub-line that changes what the row *means* rather than annotating its amount — and .ended
+     goes red because a line still sitting in the list after its end date is still inflating every
+     per-month total on the page until it's deleted. */
+  .row-end-note{
+    display:inline-block; padding:1px 7px; border-radius:100px; font-size:10.5px; font-weight:600;
+    background: var(--paper-sunken); color: var(--ink-soft);
+  }
+  .row-end-note.ended{ background: var(--bad-wash); color: var(--bad); }
   .m-row-tag{
     font-size:9.5px; text-transform:uppercase; letter-spacing:.04em; font-weight:700; padding:2px 7px; border-radius:100px;
     background: var(--paper-sunken); color: var(--ink-soft); flex:none;
@@ -652,3 +661,83 @@
   .search-result-body{ min-width:0; flex:1 1 auto; display:flex; flex-direction:column; }
   .search-result-label{ font-size:13px; font-weight:600; color: var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .search-result-sub{ font-size:11px; color: var(--ink-soft); }
+
+  /* ---------------- Spending over time ----------------
+     Bar strips rather than a category-by-month grid: six numeric columns at 390px is a horizontal
+     scroll you have to work at, and "is this climbing" is a shape question. The figures live one
+     <details> away for anyone who wants them.
+
+     Direction colours are inverted from the rest of the app on purpose — .up is --bad here,
+     because this is spending. Everywhere else (asset trends, capital gain) up is good. */
+  .trend-headline{ font-size:14px; line-height:1.55; color: var(--ink-soft); margin:0 0 10px; }
+  .trend-headline b{ color: var(--ink); font-weight:700; }
+  .trend-word.up{ color: var(--bad); }
+  .trend-word.down{ color: var(--good); }
+  .trend-partial-note{ margin-left:0 !important; }
+
+  .trend-alerts{ display:flex; flex-wrap:wrap; gap:6px; margin:0 0 12px; }
+  .trend-alert{
+    font-size:11px; font-weight:600; padding:3px 9px; border-radius:100px;
+    background: var(--paper-sunken); color: var(--ink-soft);
+  }
+  .trend-alert.up{ background: var(--bad-wash); color: var(--bad); }
+  .trend-alert.down{ background: var(--good-wash); color: var(--good); }
+
+  /* auto-fit rather than a fixed column count: one strip fills the width on a phone, and a
+     desktop gets as many side by side as fit without the rows ever going narrower than a
+     six-bar strip can use. */
+  .trend-rows{ display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:10px; }
+  .trend-row{
+    border:1px solid var(--border); border-radius:10px; background: var(--paper-raised);
+    padding:10px 12px 8px;
+  }
+  .trend-row-head{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .trend-row-name{
+    font-size:12.5px; font-weight:600; color: var(--ink); flex:1 1 auto; min-width:0;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .trend-row-amt{ font-family:"IBM Plex Mono", monospace; font-size:12.5px; font-weight:600; flex:none; }
+  .trend-delta{ flex:none; font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:100px; white-space:nowrap; }
+  .trend-delta.up{ background: var(--bad-wash); color: var(--bad); }
+  .trend-delta.down{ background: var(--good-wash); color: var(--good); }
+  .trend-delta.flat, .trend-delta.none{ background: var(--paper-sunken); color: var(--ink-soft); }
+  .trend-base{ font-size:10.5px; color: var(--ink-soft); flex:none; }
+
+  .trend-spark{ display:flex; align-items:flex-end; gap:4px; }
+  .trend-bar{ flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:stretch; gap:3px; }
+  /* Fixed-height track with the fill sized inside it, so every bar shares one baseline and one
+     ceiling — flex on the bars alone would let a tall neighbour stretch the row. */
+  .trend-bar-track{ height:44px; display:flex; align-items:flex-end; }
+  .trend-bar-fill{
+    width:100%; border-radius:3px 3px 0 0; background: var(--brass); opacity:.45;
+    transition: opacity .18s ease;
+  }
+  .trend-bar:hover .trend-bar-fill{ opacity:.75; }
+  .trend-bar.current .trend-bar-fill{ opacity:1; }
+  /* The current month is still filling. Striped rather than merely faded, so it doesn't read as
+     a genuinely small month next to five whole ones. */
+  .trend-bar.partial .trend-bar-fill{
+    background: repeating-linear-gradient(135deg, var(--brass) 0 4px, transparent 4px 8px), var(--brass-wash);
+  }
+  .trend-bar-label{
+    font-size:9.5px; color: var(--ink-soft); text-align:center; letter-spacing:.01em;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .trend-bar.current .trend-bar-label{ color: var(--ink); font-weight:600; }
+
+  .trend-numbers{ margin-top:12px; }
+  .trend-numbers summary{
+    cursor:pointer; font-size:11.5px; color: var(--ink-soft); padding:4px 2px; width:fit-content;
+  }
+  .trend-numbers summary:hover{ color: var(--ink); }
+  .trend-numbers summary:focus-visible{ box-shadow: var(--focus-ring); outline:none; border-radius:6px; }
+  .trend-table td, .trend-table th{ font-size:11.5px; }
+  .trend-total-row td{ font-weight:700; border-top:1px solid var(--border); }
+
+  /* "⇄ $7,260 in Buy Sydney" on a collapsed row whose amount differs by scenario. Same pill
+     vocabulary as .row-end-note above; brass rather than red, because varying by scenario is a
+     deliberate modelling choice, not a problem to fix. */
+  .row-vary-note{
+    display:inline-block; padding:1px 7px; border-radius:100px; font-size:10.5px; font-weight:600;
+    background: var(--brass-wash); color: var(--brass-strong);
+  }

@@ -19,6 +19,24 @@ export var PAGE_KEY = "wealthPlanner.page";
 // serves this project under a fixed /wealth-planner base; local dev (python http.server, etc.)
 // serves it from root — no generic base-path detection needed for a single-repo app.
 var BASE_PATH = location.hostname.indexOf("github.io") !== -1 ? "/wealth-planner" : "";
+
+// Root-relative URL for a file that sits next to index.html — the ONLY safe way to reach one from
+// app code, because by the time any of it runs the address bar has been rewritten to the current
+// route and a *document*-relative URL no longer points where you think.
+//
+// This was a real, silent, shipped bug (fixed v2.78.1). Both `fetch("index.html?v=…")` (the
+// update check) and `register("sw.js")` resolved against the route, so:
+//
+//   /dashboard          + "sw.js"  ->  /sw.js            correct, by luck
+//   /expenses/spending  + "sw.js"  ->  /expenses/sw.js   404
+//
+// One-segment routes happen to resolve correctly, which is exactly why it went unnoticed: the
+// only broken routes are the two-segment ones (/expenses/*, /assets/*), and only on a fresh load
+// there — a shared link, a bookmark, or a plain reload. Measured on such a load, the service
+// worker never registered at all (no offline support) and "Check for updates" silently 404'd.
+export function appAssetUrl(file){
+  return BASE_PATH + "/" + file;
+}
 var ASSETS_SUB_TO_SLUG = { summary: "summary", Cash: "cash", Shares: "shares", Super: "super", Vehicle: "vehicle", Other: "other" };
 var SLUG_TO_ASSETS_SUB = { summary: "summary", cash: "Cash", shares: "Shares", super: "Super", vehicle: "Vehicle", other: "Other" };
 var currentAssetsSub = "summary";

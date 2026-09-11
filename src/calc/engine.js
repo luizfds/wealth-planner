@@ -1,13 +1,13 @@
 import { state } from "../state.js";
 import { LIQUID_CATEGORIES, MARKET_CURRENCY, IP_CATEGORY } from "../constants.js";
-import { toWeekly, sumField, sumFieldForScenario } from "./ledger.js";
+import { toWeekly, sumField, sumFieldForScenario, sumFieldActiveInYear, isActiveInYear, resolveSharedAmount } from "./ledger.js";
 import {
   recalcPurchase, ipProperties, ipExpensesMonthly, ipLoansMonthly,
-  shockedLoanRepaymentMonthly, scenarioInflatableMonthly, calcStampDuty,
+  shockedLoanRepaymentMonthly, scenarioInflatableHomeItems, calcStampDuty,
   calcLMI, calcRepaymentMonthly, purchaseActiveRate, loanBalanceAfterMonths,
   propertiesTotalEquityToday, propertiesOffsetTotal
 } from "./property.js";
-import { getTaxPeople, computePersonTax, effectiveIncomeItems } from "./tax.js";
+import { getTaxPeople, computePersonTax, scenarioIncomeMonthly } from "./tax.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
 
 // Every non-Shares asset, and every Shares holding on the ASX, is already AUD — the only
@@ -114,7 +114,7 @@ export function staleAssets(){
   return result;
 }
 
-export function computeNetWorthSeries(scenario, horizonYears){
+export function computeNetWorthSeries(scenario, horizonYears, opts){
   var cfg = state.purchase[scenario];
   var investCfg = state.invest[scenario];
   var investEnabled = !!(investCfg && investCfg.enabled);
@@ -131,6 +131,10 @@ export function computeNetWorthSeries(scenario, horizonYears){
     : propRate;
   var investRate = (Number(proj.investReturnRate) || 0) / 100;
   var inflationRate = (Number(proj.inflationRate) || 0) / 100;
+  // opts.realTerms lets a caller pin the basis explicitly — the projection-accuracy panel compares
+  // a stored reference series against real logged net worth, which is nominal by nature, so it
+  // must not be silently deflated by whatever the preference happens to be today.
+  var realTerms = opts && opts.realTerms != null ? !!opts.realTerms : proj.realTerms !== false;
   var rateShock = (Number(proj.rateShockPct) || 0) / 100;
   var monthlyInvestRate = Math.pow(1 + investRate, 1 / 12) - 1;
 
@@ -164,18 +168,45 @@ export function computeNetWorthSeries(scenario, horizonYears){
   var portfolio = nonPropertyAssets - upfrontCash - investInitial;
 
   var rateShockPts = Number(proj.rateShockPct) || 0;
-  var incomeMonthly = scenarioTotals(scenario).incomeMonthly;
   var ipLoansMonthlyShocked = ipProperties().reduce(function(s, p){
     return s + p.loans.reduce(function(ss, l){ return ss + shockedLoanRepaymentMonthly(l, rateShockPts); }, 0);
   }, 0);
   var fixedMonthly = ipLoansMonthlyShocked + repaymentMonthly;
-  var inflatableBase = scenarioInflatableMonthly(scenario) + ipExpensesMonthly();
+  // Income grew at 0% for the whole horizon until now — not as a modelling choice but because
+  // scenarioTotals() was read once, before the loop. Against expenses inflating every year that
+  // had the surplus shrinking annually and going negative partway through a 20-year horizon. The
+  // default matches inflation, so the surplus at least holds its real value.
+  var incomeGrowthRate = (Number(proj.incomeGrowthRate) || 0) / 100;
+  var todayStr = localDateStr();
+
+  // Income and inflatable expenses are now summed per year rather than once, because a row can
+  // stop (item.endDate). Both are computed from the same year index so a row that ends drops out
+  // of both the series and the surplus on the same boundary.
+  // Scenario-resolved, and the end-date filter is handed *into* the tax chain rather than applied
+  // to its output: a salary that ends in three years has to stop being taxed, not just stop being
+  // counted, or the remaining income keeps paying tax on money nobody earns.
+  function activeIncomeMonthlyAt(year){
+    return scenarioIncomeMonthly({
+      scenario: scenario,
+      includeRow: function(row){ return isActiveInYear(row, year, todayStr); }
+    });
+  }
+  function activeInflatableMonthlyAt(year){
+    return sumFieldActiveInYear(state.shared, "monthly", year, todayStr, function(item){
+        return resolveSharedAmount(item, scenario);
+      }) +
+      sumFieldActiveInYear(scenarioInflatableHomeItems(scenario), "monthly", year, todayStr) +
+      ipProperties().reduce(function(sum, p){
+        return sum + sumFieldActiveInYear(p.expenses, "monthly", year, todayStr);
+      }, 0);
+  }
 
   var points = [];
   for(var year = 0; year <= horizonYears; year++){
     if(year > 0){
-      var inflatableThisYear = inflatableBase * Math.pow(1 + inflationRate, year);
-      var savingsThisYear = incomeMonthly - fixedMonthly - inflatableThisYear;
+      var inflatableThisYear = activeInflatableMonthlyAt(year) * Math.pow(1 + inflationRate, year);
+      var incomeThisYear = activeIncomeMonthlyAt(year) * Math.pow(1 + incomeGrowthRate, year);
+      var savingsThisYear = incomeThisYear - fixedMonthly - inflatableThisYear;
       // "auto" mode redirects the scenario's own real monthly surplus into the invest leg's
       // growth rate instead of the generic portfolio rate — not an extra contribution on top of
       // it, which would double-count the same money. "manual" pins a fixed figure instead, and
@@ -199,7 +230,12 @@ export function computeNetWorthSeries(scenario, horizonYears){
       }, 0);
       return sum + (val - loanNet);
     }, 0);
-    points.push({ x: year, y: homeEquity + portfolio + investBalance + propertiesEquitySum });
+    var nominal = homeEquity + portfolio + investBalance + propertiesEquitySum;
+    // Today's dollars by default. A nominal series is arithmetically fine and completely unusable
+    // as a plan: "$8,002,580 at year 20" can't be weighed against the expenses actually typed in,
+    // because those are in today's money and that isn't. Deflating by the same inflation rate the
+    // model already applies to expenses puts every figure on one scale.
+    points.push({ x: year, y: realTerms ? nominal / Math.pow(1 + inflationRate, year) : nominal });
   }
   return points;
 }
@@ -291,7 +327,11 @@ export function recalcComputedItems(){
 }
 
 export function scenarioTotals(scenario){
-  var incomeMonthly = sumField(effectiveIncomeItems(), "monthly");
+  // Per-scenario: an income row can carry the same scenarioOverrides map a shared expense can, and
+  // a Gross row's override re-runs the whole tax computation (see scenarioIncomeMonthly). Before
+  // this, every scenario shared one income figure and the Scenarios page could only compare
+  // housing costs.
+  var incomeMonthly = scenarioIncomeMonthly({ scenario: scenario });
   var ipMonthly = ipExpensesMonthly() + ipLoansMonthly();
   var sharedMonthly = sumFieldForScenario(state.shared, scenario, "monthly");
   var homeMonthly = sumField(state.home[scenario], "monthly");

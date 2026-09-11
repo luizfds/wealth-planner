@@ -9,14 +9,14 @@ import { modernPlainRowHtml } from "../lib/ledger-table.js";
 import { showToast } from "../lib/toast.js";
 import { renderCards, renderDetail } from "./dashboard.js";
 import { renderAssets } from "./assets.js";
+import { renderSharedGroups, renderActualVsPlannedPanel } from "./expenses.js";
+import { renderIncomeGroups } from "./income.js";
 
 export function selectScenario(name){
   if(state.activeScenario === name) return;
   state.activeScenario = name;
   persist();
-  renderCards();
-  renderDetail();
-  renderHomeBody();
+  refreshScenarioDependentViews();
 }
 
 export function addScenario(){
@@ -31,11 +31,34 @@ export function addScenario(){
   state.invest[name] = defaultInvestConfig();
   state.activeScenario = name;
   persist();
+  refreshScenarioDependentViews();
+  renderAssets();
+  showToast('Added "' + name + '"');
+}
+
+// Everything that reads state.activeScenario and therefore goes stale the moment it changes.
+//
+// The Expenses budget list is the one that bit: budgetLineSources() pulls in
+// state.home[activeScenario], so switching scenarios left the list showing the *previous*
+// scenario's housing rows — three of them where the new scenario has five — and with them the
+// budget total, the category charts and the Actual-vs-Planned panel. That predates per-scenario
+// income; income joined it when a row gained a scenario-dependent "⇄ varies" note.
+//
+// selectScenario() only re-rendered the Dashboard, which was enough back when the active scenario
+// changed nothing else on screen. It isn't any more.
+function refreshScenarioDependentViews(){
   renderCards();
   renderDetail();
   renderHomeBody();
-  renderAssets();
-  showToast('Added "' + name + '"');
+  renderSharedGroups();
+  renderActualVsPlannedPanel();
+  renderIncomeGroups();
+}
+
+// The one place that knows which arrays hold rows carrying scenarioOverrides. Rename and delete
+// both walk it, so adding a third such list is one edit rather than two easily-missed ones.
+function overridableRows(){
+  return state.shared.concat(state.income);
 }
 
 export function renameScenario(oldName){
@@ -55,15 +78,17 @@ export function renameScenario(oldName){
   delete state.invest[oldName];
   if(state.activeScenario === oldName) state.activeScenario = name;
   if(state.baselineScenario === oldName) state.baselineScenario = name;
-  state.shared.forEach(function(item){
+  // Every list whose rows can carry a per-scenario override — shared expenses since v1, income
+  // since v2.79.0. Miss one and a rename silently orphans its overrides: the map still holds the
+  // old key, resolveSharedAmount stops finding it, and the row quietly reverts to its default
+  // amount with nothing on screen to say why.
+  overridableRows().forEach(function(item){
     if(!item.scenarioOverrides || !(oldName in item.scenarioOverrides)) return;
     item.scenarioOverrides[name] = item.scenarioOverrides[oldName];
     delete item.scenarioOverrides[oldName];
   });
   persist();
-  renderCards();
-  renderDetail();
-  renderHomeBody();
+  refreshScenarioDependentViews();
   renderAssets();
 }
 
@@ -75,14 +100,12 @@ export function deleteScenario(name){
   delete state.home[name];
   delete state.purchase[name];
   delete state.invest[name];
-  state.shared.forEach(function(item){
+  overridableRows().forEach(function(item){
     if(item.scenarioOverrides) delete item.scenarioOverrides[name];
   });
   if(state.activeScenario === name) state.activeScenario = state.scenarios[0];
   persist();
-  renderCards();
-  renderDetail();
-  renderHomeBody();
+  refreshScenarioDependentViews();
   renderAssets();
 }
 

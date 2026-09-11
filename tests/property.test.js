@@ -6,7 +6,8 @@ import {
   loanRepaymentMonthly, propertyLoanRepaymentMonthly, propertyOffsetTotal,
   propertyIlliquidEquityToday, propertyEquityToday, propertyGearingAnnual,
   propertyCapitalGain, propertyYieldOnCost, propertyLVR, propertiesTotalValue,
-  propertiesTotalMortgageBalance, propertiesNetCashFlowMonthly, propertiesWeightedGrossYield
+  propertiesTotalMortgageBalance, propertiesNetCashFlowMonthly, propertiesWeightedGrossYield,
+  scenarioInflatableHomeItems, scenarioInflatableMonthly
 } from "../src/calc/property.js";
 import { STAMP_DUTY_BRACKETS, FHB_RULES } from "../src/constants.js";
 import { state } from "../src/state.js";
@@ -210,4 +211,60 @@ test("propertiesWeightedGrossYield is null with no IPs, and value-weighted (not 
   assert.ok(Math.abs(propertiesWeightedGrossYield() - expected) < 1e-9);
   assert.ok(propertiesWeightedGrossYield() < 0.057);
   state.properties = prev;
+});
+
+
+// ---------------- Which housing rows inflate in the projection ----------------
+// The homeLoanRow is the one row whose meaning flips with the scenario's purchase leg, and
+// getting that wrong is silent and large — see the function's own comment for the real case.
+function withScenario(name, homeRows, purchase, invest, body){
+  var savedHome = state.home, savedPurchase = state.purchase, savedInvest = state.invest, savedShared = state.shared;
+  state.home = {}; state.home[name] = homeRows;
+  state.purchase = {}; state.purchase[name] = purchase;
+  state.invest = {}; state.invest[name] = invest;
+  state.shared = [];
+  try { body(); }
+  finally { state.home = savedHome; state.purchase = savedPurchase; state.invest = savedInvest; state.shared = savedShared; }
+}
+var RENT_ROW = { id: "homeLoanRow", what: "Rent / Home Loan", amount: 810, freq: "Weekly" };
+var RATES_ROW = { id: "x1", what: "Council Rates", amount: 600, freq: "Quarterly" };
+
+test("purchase leg off: the homeLoanRow is rent, and it counts", function(){
+  // The bug this covers: nothing else in the model paid this row, so a renting scenario's largest
+  // expense vanished from the projection entirely.
+  withScenario("Renting", [RENT_ROW, RATES_ROW], { enabled: false }, { enabled: false }, function(){
+    var items = scenarioInflatableHomeItems("Renting");
+    assert.equal(items.length, 2);
+    assert.ok(items.some(function(i){ return i.id === "homeLoanRow"; }), "rent must be in the inflatable set");
+    assert.ok(Math.abs(scenarioInflatableMonthly("Renting") - (810 * 52 / 12 + 600 * 4 / 12)) < 1e-9);
+  });
+});
+
+test("purchase leg on: the homeLoanRow is the mortgage, paid by the purchase calculator instead", function(){
+  withScenario("Buy", [RENT_ROW, RATES_ROW], { enabled: true }, { enabled: false }, function(){
+    var items = scenarioInflatableHomeItems("Buy");
+    assert.equal(items.length, 1);
+    assert.equal(items[0].id, "x1");
+    // Excluded here because computeNetWorthSeries() adds its own amortised repayment — counting
+    // both would charge the same housing cost twice.
+    assert.ok(Math.abs(scenarioInflatableMonthly("Buy") - 600 * 4 / 12) < 1e-9);
+  });
+});
+
+test("invest leg beats the purchase leg, so the row counts again", function(){
+  // Matches computeNetWorthSeries()'s own precedence: with the invest leg on there is no
+  // purchase repayment, so nothing else is paying this row.
+  withScenario("Invest", [RENT_ROW], { enabled: true }, { enabled: true }, function(){
+    assert.equal(scenarioInflatableHomeItems("Invest").length, 1);
+  });
+});
+
+test("scenarioInflatableHomeItems never hands back the live array", function(){
+  // It's filtered in one branch and not the other — a caller mutating the result must not be
+  // able to edit state.home through the unfiltered path.
+  withScenario("Renting", [RENT_ROW], { enabled: false }, { enabled: false }, function(){
+    var items = scenarioInflatableHomeItems("Renting");
+    items.pop();
+    assert.equal(state.home.Renting.length, 1);
+  });
 });

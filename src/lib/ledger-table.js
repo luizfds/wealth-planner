@@ -38,7 +38,7 @@ export function historyTrendHtml(item){
     ' (' + fmtPercent1.format(Math.abs(pct)) + ') since ' + escapeAttr(prev.date) + '</div>';
 }
 
-// The two fields behind every row's "irregular / due month" timing (see state.js's
+// The fields behind every row's timing (see state.js's
 // applyTimingDefaults() and calc/ledger.js's resolvedDueMonth()) — shared by the generic Modern
 // row (modernPlainRowHtml below) and Income's own bespoke Modern row (income.js), so the two
 // surfaces can never drift apart on what these fields mean or how they're labeled. "Auto" (blank)
@@ -51,8 +51,24 @@ export function timingFieldsHtml(item){
   return '<div class="m-edit-field span2"><label class="m-checkbox-field"><input type="checkbox" class="f-irregular"' + (item.irregular ? " checked" : "") +
       '> No fixed timing (irregular) — a lumpy spend like Extras or property maintenance, budgeted as a smoothed reserve instead of expected every period</label></div>' +
     '<div class="m-edit-field"><label>Due month</label><select class="f-duemonth" title="For anything billed less often than monthly — which month it\'s actually due. Auto infers it from the last time you logged it.">' + monthOptions + '</select></div>' +
+    endDateFieldHtml(item) +
     reserveYearFieldHtml(item);
 }
+// An optional last date a row applies. Blank — the default, and what every row created before
+// this existed carries — means "runs forever", which is what the projection assumed for
+// everything until now. Childcare that finishes in two years and a car loan with eighteen
+// payments left were both being projected out to the horizon; this is the field that lets the
+// model stop counting them (calc/ledger.js's isActiveInYear, honoured by computeNetWorthSeries).
+//
+// Deliberately a plain date rather than a "months remaining" count: a count goes stale the day
+// after you type it, and this file is edited months apart.
+function endDateFieldHtml(item){
+  return '<div class="m-edit-field"><label>Ends (optional)</label>' +
+    '<input type="date" class="f-enddate" value="' + escapeAttr(item.endDate || "") + '"' +
+      ' title="The last date this line applies. Leave blank if it runs indefinitely. Projections stop counting it after this date.">' +
+  '</div>';
+}
+
 // Only shown once "no fixed timing" is ticked, because that's the only case it changes anything:
 // a reserve line is the one thing compared against a whole year rather than a billing cycle, so
 // this is where "which year?" becomes a real question. Hidden rather than absent so ticking the
@@ -71,6 +87,39 @@ function reserveYearFieldHtml(item){
     '<label>Budget year</label>' +
     '<select class="f-reserveyear" title="Which twelve months this reserve is measured over on the Spending tab. A travel or maintenance budget you think of in financial years shouldn\'t reset every 1 January.">' + options + '</select>' +
   '</div>';
+}
+
+// The collapsed-row counterpart to the Ends field: a row with an end date looks identical to a
+// perpetual one in the list, which matters because the projection now treats them very
+// differently. Past tense once the date has gone by, since a row that has already ended is still
+// in the list contributing to every "per month" figure on the page — that's the case worth
+// noticing.
+export function endDateNoteHtml(item){
+  if(!item || !item.endDate) return "";
+  var ended = item.endDate < todayStr();
+  return '<span class="row-end-note' + (ended ? " ended" : "") + '">' +
+    (ended ? "Ended " : "Ends ") + escapeAttr(item.endDate) + '</span>';
+}
+
+// A row whose amount differs in some scenario looks identical to one that doesn't, and the list
+// it sits in shows the *default* amount — so without this the Income page can read $14,520 while
+// the scenario you're actually looking at uses half that, with nothing on screen to say so.
+//
+// Names the active scenario's own figure when it has one, since that's the number the Dashboard
+// and Projections are using right now; falls back to a plain "varies" when the active scenario
+// happens to be the one on the default.
+export function scenarioVaryNoteHtml(item, activeScenario){
+  var overrides = item && item.scenarioOverrides;
+  if(!overrides) return "";
+  var names = Object.keys(overrides).filter(function(k){ return overrides[k] != null; });
+  if(!names.length) return "";
+  var here = overrides[activeScenario];
+  var text = here != null
+    ? fmtCurrency2.format(here) + " in " + activeScenario
+    : "Varies in " + (names.length === 1 ? names[0] : names.length + " scenarios");
+  return '<span class="row-vary-note" title="' + escapeAttr(
+    "This row's amount differs by scenario. The figure on the row is the default, used by any scenario without its own value.") +
+    '">⇄ ' + escapeAttr(text) + '</span>';
 }
 
 export function optionsHtml(list, value){
@@ -151,7 +200,8 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
     // other subLines entry) — Expenses uses it for each budget line's own spent-this-month
     // progress bar, so the planned figure and what's actually gone against it read together in
     // the list rather than in a second, parallel list further down the page.
-    subLines: [isComputed && item.computedNote ? escapeAttr(item.computedNote) : "", trendHtml, opts.extraSubLine || ""],
+    subLines: [isComputed && item.computedNote ? escapeAttr(item.computedNote) : "", trendHtml,
+      endDateNoteHtml(item), scenarioVaryNoteHtml(item, opts.activeScenario), opts.extraSubLine || ""],
     amountHtml: fmtCurrency2.format(monthly) + "/mo"
   });
   if(isComputed){

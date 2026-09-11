@@ -95,6 +95,16 @@ export function defaultState(){
     // rather than session-only because it's a stable way of looking at your own budget, and
     // resetting it on every load of a daily-use app would be its own small annoyance.
     budgetGroupBy: "type",
+    // Which twelve months the household thinks of as "a year" — "financial" (Jul-Jun) or
+    // "calendar". Defaults to financial: this is an Australian app, a tax return is a
+    // financial-year document, and most of what a household here calls "a year of" something
+    // (insurance, rates, the private-health rebate) runs Jul-Jun too.
+    //
+    // Deliberately NOT offering "rolling12" at household level, even though reserveYearWindow
+    // supports it per line: a rolling window is a way of budgeting one lumpy line, not a year
+    // anyone else recognises, and "what did we spend last year" has to mean something you could
+    // put in front of an accountant.
+    yearBasis: "financial",
     home: { "Current situation": defaultHomeBlock() },
     purchase: { "Current situation": defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", false) },
     invest: { "Current situation": defaultInvestConfig() },
@@ -162,7 +172,10 @@ function applyTimingDefaults(item){
   // months ending today). Only meaningful when irregular is set, but stored unconditionally so
   // ticking that box never has to backfill a field. Defaults to "calendar", which is what every
   // reserve line was measured over before this was a choice — an existing save keeps its numbers.
-  if(!item.reserveYear) item.reserveYear = "calendar";
+  // "" means "follow the household default" (state.yearBasis) — see reserveYearWindowFor(). Left
+  // blank rather than stamped with a basis so a line created before the household preference
+  // existed starts following it, instead of being silently pinned to calendar years forever.
+  if(item.reserveYear == null) item.reserveYear = "";
 }
 
 export function migrateState(s){
@@ -240,6 +253,11 @@ export function migrateState(s){
   // works on first load rather than presenting an empty manager. An existing (possibly emptied)
   // list is left exactly as the user left it — only a missing key seeds.
   if(s.budgetGroupBy !== "category") s.budgetGroupBy = "type";
+  // A save from before the household year existed gets the financial year — the app's new default
+  // — rather than being pinned to the calendar year its reserve lines happened to use. Those lines
+  // keep any basis the user chose explicitly; only ones left on the old implicit default follow
+  // the household now (see applyTimingDefaults).
+  if(s.yearBasis !== "calendar") s.yearBasis = "financial";
   if(!Array.isArray(s.categories)) s.categories = DEFAULT_CATEGORIES.slice();
   s.categories = s.categories.filter(function(name){ return typeof name === "string" && name.trim(); });
   // Every array the Budget tab lists, in the same order expenses.js's budgetLineSources() walks

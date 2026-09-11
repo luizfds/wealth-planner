@@ -7,7 +7,7 @@ import { escapeAttr } from "../lib/html.js";
 import { optionsHtml, historyTrendHtml } from "../lib/ledger-table.js";
 import { renderLineChart, sparklineHtml, sparklinePlaceholderHtml } from "../lib/charts.js";
 import { showToast } from "../lib/toast.js";
-import { appendHistorySnapshot, daysUntil } from "../calc/ledger.js";
+import { appendHistorySnapshot, daysUntil, householdYearWindow, householdYearBasis } from "../calc/ledger.js";
 import { renderProjectionOutputs } from "./projections.js";
 import { renderDashboardStats } from "./dashboard.js";
 import { parseCsv } from "../lib/backup.js";
@@ -44,7 +44,12 @@ function holdingWindowChange(item){
   } else {
     var targetStr;
     if(win.ytd){
-      targetStr = new Date().getFullYear() + "-01-01";
+      // The day *before* the year opened: the loop below takes the last priced entry on or before
+      // the target, and a price logged exactly on 1 July is this year's opening price, not the
+      // baseline the year's gain should be measured from.
+      var yearStart = new Date(householdYearWindow().start + "T00:00:00");
+      yearStart.setDate(yearStart.getDate() - 1);
+      targetStr = localDateStr(yearStart);
     } else {
       var target = new Date();
       target.setDate(target.getDate() - win.days);
@@ -61,7 +66,7 @@ function holdingWindowChange(item){
 }
 function windowFallbackHtml(){
   var win = SHARES_CHANGE_WINDOWS.find(function(w){ return w.key === sharesChangeWindow; });
-  var label = win ? win.label : "";
+  var label = win ? sharesWindowLabel(win) : "";
   return '<span class="calc-note" title="No price logged from at least ' + escapeAttr(label) + ' ago — paste updated prices or use Log to start tracking this.">— ' + escapeAttr(label) + '</span>';
 }
 function gainLossHtml(item){
@@ -118,8 +123,10 @@ var SHARES_CHANGE_WINDOWS = [
   { key: "3m", label: "3M", days: 90 },
   { key: "6m", label: "6M", days: 182 },
   { key: "1y", label: "1Y", days: 365 },
-  // Not a fixed day-count like the ones above — the start of the current calendar year, whatever
-  // that date happens to be today.
+  // Not a fixed day-count like the ones above — the start of the household's current year
+  // (Accounts → Preferences), whatever date that happens to be. Labelled "FYTD" on the financial
+  // basis, because a share gain measured from 1 July is not the same number as one measured from
+  // 1 January and the picker shouldn't call them both "YTD".
   { key: "ytd", label: "YTD", ytd: true },
   // Whatever the earliest priced entry is, no matter how recent — the only window that can show
   // something with as little as two logged prices, regardless of how young the history is.
@@ -128,15 +135,20 @@ var SHARES_CHANGE_WINDOWS = [
 function priceChangeHtml(item){
   var c = holdingWindowChange(item);
   var win = SHARES_CHANGE_WINDOWS.find(function(w){ return w.key === sharesChangeWindow; });
-  var label = win ? win.label : "";
+  var label = win ? sharesWindowLabel(win) : "";
   if(!c) return windowFallbackHtml();
   var cls = c.pct > 0 ? "up" : (c.pct < 0 ? "down" : "");
   var arrow = c.pct > 0 ? "▲" : (c.pct < 0 ? "▼" : "–");
   return '<span class="asset-trend ' + cls + '" title="Since ' + escapeAttr(c.fromDate) + '">' + arrow + ' ' + fmtPercent1.format(Math.abs(c.pct)) + ' ' + escapeAttr(label) + '</span>';
 }
+// "YTD" on the calendar basis, "FYTD" on the financial one — see SHARES_CHANGE_WINDOWS.
+function sharesWindowLabel(w){
+  if(w.ytd && householdYearBasis() === "financial") return "FYTD";
+  return w.label;
+}
 function sharesChangeWindowHtml(){
   return '<div class="seg-control" id="sharesChangeWindow" role="group" aria-label="Price change window">' + SHARES_CHANGE_WINDOWS.map(function(w){
-    return '<button type="button" class="seg-option' + (sharesChangeWindow === w.key ? " active" : "") + '" aria-pressed="' + (sharesChangeWindow === w.key) + '" data-shares-change-window="' + escapeAttr(w.key) + '" title="Price change over the last ' + escapeAttr(w.label) + '">' + escapeAttr(w.label) + '</button>';
+    return '<button type="button" class="seg-option' + (sharesChangeWindow === w.key ? " active" : "") + '" aria-pressed="' + (sharesChangeWindow === w.key) + '" data-shares-change-window="' + escapeAttr(w.key) + '" title="Price change over the last ' + escapeAttr(w.label) + '">' + escapeAttr(sharesWindowLabel(w)) + '</button>';
   }).join("") + '</div>';
 }
 export function patchHoldingRow(tr, item){
@@ -449,7 +461,7 @@ function sharesGainLossGlanceHtml(items){
   var s = sharesGainLossSummary(items);
   if(!s.trackedCount) return "";
   var win = SHARES_CHANGE_WINDOWS.find(function(w){ return w.key === sharesChangeWindow; });
-  var label = win ? win.label : "";
+  var label = win ? sharesWindowLabel(win) : "";
   var cls = s.gainDollar > 0.5 ? "up" : (s.gainDollar < -0.5 ? "down" : "");
   var arrow = s.gainDollar > 0.5 ? "▲" : (s.gainDollar < -0.5 ? "▼" : "–");
   return '<div class="shares-glance">' +

@@ -272,8 +272,9 @@ export function showAssetsSubpage(id, opts){
 // Accounts vs. Categories — the two registries this app asks you to maintain. Session-only, like
 // the Dashboard's own split and unlike Assets/Expenses: there's no reason to deep-link a settings
 // registry, and keeping it out of the URL keeps buildRoutePath to the two subpages worth sharing.
+var ACCOUNTS_SUBS = ["accounts", "categories", "preferences"];
 export function showAccountsSubpage(id){
-  if(id !== "categories") id = "accounts";
+  if(ACCOUNTS_SUBS.indexOf(id) === -1) id = "accounts";
   document.querySelectorAll(".accounts-subpage").forEach(function(el){ el.hidden = el.id !== "accountsSub-" + id; });
   document.querySelectorAll("#accountsSubnav .subnav-item").forEach(function(btn){
     btn.classList.toggle("active", btn.getAttribute("data-accounts-sub") === id);

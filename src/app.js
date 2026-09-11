@@ -7,7 +7,7 @@ import { getNotifications, unreadNotificationCount, markNotificationRead, markAl
 import { onHorizontalSwipe } from "./lib/swipe.js";
 import { initTableScrollShadows } from "./lib/scroll-shadow.js";
 import {
-  decryptBackup, doExport, doShare, canShareFiles, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv, exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard,
+  decryptBackup, doExport, doShare, canShareFiles, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv, exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard, exportYearTransactionsCsv,
   exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv, exportAssetsImportTemplateCsv
 } from "./lib/backup.js";
 import { periodsOf, sumField, appendHistorySnapshot, transactionDisplayName } from "./calc/ledger.js";
@@ -32,6 +32,7 @@ import {
   renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, logExpenseTransaction,
   renderCategories, addCategory, deleteCategory, renameCategoryEverywhere,
   setBudgetGroupBy, renderBudgetGroupByToggle, budgetLineItems,
+  renderYearSpending, renderYearBasisPreference, setYearBasis, transactionCategory,
   parseExpensesImportCsv, renderExpensesImportPreview, clearExpensesImportPreview, commitExpensesImport
 } from "./components/expenses.js";
 import {
@@ -2146,6 +2147,39 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     // normally-hidden tab, and none of which should have to know it exists. Recounting on the way
     // in is both cheaper and more reliable than adding a renderCategories() to all of them.
     if(accountsSubId === "categories") renderCategories();
+    // Same reasoning as renderCategories() above: this tab is normally hidden, and its labels are
+    // derived from today's date ("FY26/27 so far", "20% through it"), so they go stale on their
+    // own without anything having changed.
+    if(accountsSubId === "preferences") renderYearBasisPreference();
+  });
+  document.getElementById("yearBasisControl").addEventListener("click", function(e){
+    var btn = e.target.closest("[data-year-basis]");
+    if(!btn) return;
+    setYearBasis(btn.getAttribute("data-year-basis"));
+    renderYearBasisPreference();
+    // The household year reaches further than any other preference in this app: the year-to-date
+    // spending panel, every reserve line that hasn't been given its own budget year (so the
+    // Actual-vs-planned panel and the budget rows' progress), the shares YTD timeframe, and the
+    // tax estimate's heading. Re-rendering all of it is the cheap, reliable option.
+    renderYearSpending();
+    renderActualVsPlannedPanel();
+    renderSharedGroups();
+    renderAssets();
+    renderTaxSuper();
+  });
+  document.getElementById("exportYearTransactionsBtn").addEventListener("click", function(){
+    // The resolvers are passed in because the walks they do (a transaction's category via its
+    // linked budget line, that line's name, the account) live in components/expenses.js, and
+    // lib/backup.js can't import a component.
+    exportYearTransactionsCsv({
+      displayName: function(t){ return transactionDisplayName(t, budgetLineItems()); },
+      categoryFor: transactionCategory,
+      budgetLineName: function(t){
+        var line = t.linkedExpenseId && budgetLineItems().find(function(i){ return i.id === t.linkedExpenseId; });
+        return line ? line.what : "";
+      },
+      accountFor: function(t){ return t.account || ""; }
+    });
   });
   document.getElementById("addCategoryBtn").addEventListener("click", function(){
     addCategory();
@@ -2751,6 +2785,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     renderAccounts();
     renderCategories();
     renderBudgetGroupByToggle();
+    renderYearBasisPreference();
     renderTransactions();
     renderActualVsPlannedPanel();
     renderHomeBody();

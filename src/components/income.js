@@ -1,6 +1,6 @@
 import { state } from "../state.js";
 import { FREQS, INCOME_TYPES, SUPER_MODES, SACRIFICE_MODES, MAX_SUPER_BASE, MONTH_NAMES, sacrificeModeToLabel, sacrificeLabelToMode } from "../constants.js";
-import { periodsOf, sumField, nextPayDate, payScheduleKindFor, daysUntil, WEEKDAY_NAMES } from "../calc/ledger.js";
+import { periodsOf, sumField, nextPayDate, payScheduleKindFor, daysUntil, WEEKDAY_NAMES, householdYearWindow } from "../calc/ledger.js";
 import { ipNetResultAnnual } from "../calc/property.js";
 import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax } from "../calc/tax.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
@@ -449,6 +449,11 @@ function patchTaxWaterfall(panel, r){
 // the existing taxSuperBody click/input handlers below verbatim; patchAllTaxPersonOutputs
 // doesn't care which function produced the DOM it's patching.
 export function renderTaxSuper(){
+  // Names the year it's estimating. A tax estimate that doesn't say which twelve months it covers
+  // is the one figure on this page you can't check, and the answer differs by household
+  // (Accounts → Preferences) now that the year is a preference rather than an assumption.
+  var periodEl = document.getElementById("taxSuperPeriod");
+  if(periodEl) periodEl.textContent = householdYearWindow().label + " · per person";
   var container = document.getElementById("taxSuperBody");
   if(!container) return;
   var people = getTaxPeople();

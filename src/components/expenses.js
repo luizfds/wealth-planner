@@ -1,6 +1,6 @@
 import { state, persist, genId } from "../state.js";
 import { CLASSES, FREQS, UNCATEGORISED } from "../constants.js";
-import { sumField, resolveSharedAmount, periodsOf, budgetCycleFor, transactionDisplayName, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, isOverdue, daysUntil, lastTransactionDateFor, reserveYearWindowFor } from "../calc/ledger.js";
+import { sumField, resolveSharedAmount, periodsOf, budgetCycleFor, transactionDisplayName, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, isOverdue, daysUntil, lastTransactionDateFor, reserveYearWindowFor, householdYearWindow, householdYearToDate, householdYearProgress, householdYearBasis, HOUSEHOLD_YEAR_BASES } from "../calc/ledger.js";
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent0, fmtPercent1, localDateStr } from "../lib/format.js";
 import { spendingTrends, monthKeyLabel } from "../calc/trends.js";
@@ -1113,6 +1113,7 @@ export function renderActualVsPlannedPanel(){
   renderExpenseReviewButton();
   renderSpendCategoryChart();
   renderSpendingTrends();
+  renderYearSpending();
   var el = document.getElementById("actualVsPlannedPanel");
   if(!el) return;
   // Only lines you can log against. A computed line always reads "$0 actual of $X planned" —
@@ -1601,6 +1602,91 @@ export function renderSpendingTrends(){
     (rowsHtml ? '<div class="trend-rows">' + rowsHtml + '</div>'
               : '<p class="ledger-note" style="margin:0">Nothing logged above ' + fmtCurrency0.format(TRENDS_MIN_SPEND) + ' over the last ' + TRENDS_MONTHS + ' months yet.</p>') +
     (rowsHtml ? '<details class="trend-numbers"><summary>Show the numbers</summary>' + trendNumbersTableHtml(view) + '</details>' : "");
+}
+
+// ---------------- This year so far ----------------
+//
+// The one period view that isn't "this month" or "this cycle". A tax return, a yearly review and
+// an insurance renewal are all asked in years, and until state.yearBasis existed the app had no
+// household year to answer them with — only per-reserve-line ones.
+//
+// Deliberately year-to-date rather than the whole year: on 11 September an FY is 20% done, and a
+// figure that silently covers ten weeks while reading like a year is the same failure mode the
+// spending-trends panel exists to avoid. Every figure here is labelled with how much of the year
+// it covers, and nothing is ever scaled up to a full year.
+export function renderYearSpending(){
+  var panel = document.getElementById("yearSpendPanel");
+  var labelEl = document.getElementById("yearSpendLabel");
+  var win = householdYearToDate();
+  if(labelEl) labelEl.textContent = win.displayLabel;
+  if(!panel) return;
+
+  var txns = transactionsInRange(state.transactions, win.start, win.end);
+  if(!txns.length){
+    panel.innerHTML = '<p class="ledger-note" style="margin:0">Nothing logged in ' + escapeAttr(win.label) +
+      ' yet. Spending you log on this tab shows up here, grouped by category.</p>';
+    return;
+  }
+  var byCategory = {};
+  var order = [];
+  var total = 0;
+  txns.forEach(function(t){
+    var amount = Number(t.amount) || 0;
+    if(!amount) return;
+    var name = transactionCategory(t) || UNCATEGORISED;
+    if(byCategory[name] == null){ byCategory[name] = 0; order.push(name); }
+    byCategory[name] += amount;
+    total += amount;
+  });
+  var groups = order.map(function(name){ return { key: name, monthly: byCategory[name] }; })
+    .sort(function(a, b){ return b.monthly - a.monthly; });
+
+  var progress = householdYearProgress();
+  var headline = '<p class="trend-headline"><b>' + fmtCurrency0.format(total) + '</b> logged in ' +
+    escapeAttr(win.label) + ', across ' + txns.length + ' transaction' + (txns.length === 1 ? "" : "s") +
+    (win.complete ? "." : " — " + fmtPercent0.format(progress) + " of the way through the year.") + '</p>';
+
+  var rows = groups.map(function(g){
+    var share = total > 0 ? g.monthly / total : 0;
+    return '<div class="year-cat-row">' +
+      '<span class="year-cat-name">' + escapeAttr(g.key) + '</span>' +
+      '<span class="year-cat-bar"><span class="year-cat-fill" style="width:' + (share * 100) + '%"></span></span>' +
+      '<span class="year-cat-amt">' + fmtCurrency0.format(g.monthly) + '</span>' +
+      '<span class="year-cat-pct">' + fmtPercent0.format(share) + '</span>' +
+    '</div>';
+  }).join("");
+
+  panel.innerHTML = headline +
+    (categoryChartHtml(groups, "") || "") +
+    '<div class="year-cat-rows">' + rows + '</div>';
+}
+
+// Which twelve months the household counts as a year — rendered here rather than in app.js because
+// the label it writes is the same householdYearToDate() the panel above uses.
+export function renderYearBasisPreference(){
+  var group = document.getElementById("yearBasisControl");
+  var basis = householdYearBasis();
+  if(group){
+    group.querySelectorAll("[data-year-basis]").forEach(function(btn){
+      var on = btn.getAttribute("data-year-basis") === basis;
+      btn.classList.toggle("active", on);
+      btn.setAttribute("aria-pressed", String(on));
+    });
+  }
+  var win = householdYearToDate();
+  var current = document.getElementById("yearBasisCurrent");
+  if(current) current.textContent = win.label;
+  var note = document.getElementById("yearBasisNote");
+  if(note){
+    note.textContent = "Right now that's " + win.label + ": " + win.start + " to " + householdYearWindow().end +
+      (win.complete ? "." : ", and you're " + fmtPercent0.format(householdYearProgress()) + " through it.") +
+      " Budget lines marked \"no fixed timing\" follow this unless you give one its own budget year.";
+  }
+}
+export function setYearBasis(basis){
+  if(HOUSEHOLD_YEAR_BASES.indexOf(basis) === -1) return;
+  state.yearBasis = basis;
+  persist();
 }
 
 function accountRowHtml(a, idx){

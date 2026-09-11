@@ -79,10 +79,15 @@ var RESERVE_YEAR_LABELS = [
   ["rolling12", "Rolling 12 months"]
 ];
 function reserveYearFieldHtml(item){
-  var current = RESERVE_YEAR_BASES.indexOf(item.reserveYear) !== -1 ? item.reserveYear : "calendar";
-  var options = RESERVE_YEAR_LABELS.map(function(pair){
-    return '<option value="' + pair[0] + '"' + (pair[0] === current ? " selected" : "") + '>' + pair[1] + '</option>';
-  }).join("");
+  // "" is a real, selectable choice, not an absence: it means "whatever the household uses"
+  // (Accounts → Preferences), so changing that preference moves every line that hasn't been given
+  // its own answer. It's first and default because that's what most lines want — a line only
+  // needs its own budget year when it genuinely differs from the household's.
+  var current = RESERVE_YEAR_BASES.indexOf(item.reserveYear) !== -1 ? item.reserveYear : "";
+  var options = '<option value=""' + (current === "" ? " selected" : "") + '>Follow my year (Accounts → Preferences)</option>' +
+    RESERVE_YEAR_LABELS.map(function(pair){
+      return '<option value="' + pair[0] + '"' + (pair[0] === current ? " selected" : "") + '>' + pair[1] + '</option>';
+    }).join("");
   return '<div class="m-edit-field f-reserveyear-field"' + (item.irregular ? "" : " hidden") + '>' +
     '<label>Budget year</label>' +
     '<select class="f-reserveyear" title="Which twelve months this reserve is measured over on the Spending tab. A travel or maintenance budget you think of in financial years shouldn\'t reset every 1 January.">' + options + '</select>' +

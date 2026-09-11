@@ -3,6 +3,7 @@ import { sacrificeModeToLabel, MARKET_CURRENCY } from "../constants.js";
 import { showToast, showPersistentToast } from "./toast.js";
 import { localDateStr } from "./format.js";
 import { ipProperties } from "../calc/property.js";
+import { transactionsInRange, householdYearToDate } from "../calc/ledger.js";
 
 function isoDateStamp(){
   var d = new Date();
@@ -306,6 +307,46 @@ export function parseCsv(text){
 // existed still lines up column-for-column, and a blank value reads as "Shared".
 var EXPENSES_CSV_HEADERS = ["What", "Classification", "Category", "Amount", "Frequency", "Account", "Source"];
 var INCOME_CSV_HEADERS = ["What", "Person", "Type", "Amount", "Frequency", "Super", "Sacrifice mode", "Sacrifice value", "Account"];
+// Real, dated spend for the household's year — the first export in this app that's a *period*
+// document rather than a snapshot of the configuration. Every other CSV here answers "what does my
+// budget look like"; this one answers "what did I actually spend between these two dates", which
+// is the shape a tax return, an accountant or a yearly review asks for.
+//
+// Bounded to the household year (Accounts → Preferences) rather than exporting everything: the
+// point is a file you can hand over for one year, and "all transactions ever" is a different,
+// less useful thing — and one the JSON backup already covers.
+//
+// The category is *resolved*, not raw: a transaction usually has none of its own and inherits its
+// linked budget line's, so exporting t.category alone would produce a column that's mostly empty
+// on exactly the rows a category matters for. The resolver is passed in by the caller because the
+// walk lives in components/expenses.js (lib/ can't import a component).
+var TRANSACTIONS_CSV_HEADERS = ["Date", "Description", "Amount", "Category", "Budget line", "Account"];
+export function exportYearTransactionsCsv(opts){
+  opts = opts || {};
+  var win = householdYearToDate();
+  var txns = transactionsInRange(state.transactions, win.start, win.end)
+    .slice()
+    .sort(function(a, b){ return (a.date || "").localeCompare(b.date || ""); });
+  if(!txns.length){
+    showToast("Nothing logged in " + win.label + " yet — nothing to export.");
+    return;
+  }
+  var rows = txns.map(function(t){
+    return [
+      t.date || "",
+      opts.displayName ? opts.displayName(t) : (t.what || ""),
+      Number(t.amount) || 0,
+      opts.categoryFor ? (opts.categoryFor(t) || "") : (t.category || ""),
+      opts.budgetLineName ? (opts.budgetLineName(t) || "") : "",
+      opts.accountFor ? (opts.accountFor(t) || "") : (t.account || "")
+    ];
+  });
+  // The filename carries the period, because a folder of these is otherwise indistinguishable —
+  // and "FY26/27" can't go in a filename, so the slash becomes a dash.
+  var period = win.label.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  exportCsv("transactions-" + period + "-" + isoDateStamp() + ".csv", TRANSACTIONS_CSV_HEADERS, rows);
+}
+
 export function exportIncomeCsv(){
   var rows = state.income.filter(function(i){ return !i.computed; }).map(function(i){
     return [i.what, i.person || "", i.incomeType || "Net", i.amount, i.freq, i.superMode || "", sacrificeModeToLabel(i.sacrificeMode), i.sacrificeValue || "", i.account || ""];

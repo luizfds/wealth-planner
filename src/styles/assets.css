@@ -119,3 +119,17 @@
     appearance:none; -webkit-appearance:none;
   }
   #sharesSortSelect:focus-visible{ box-shadow: var(--focus-ring); outline:none; }
+
+  /* ---------------- Recorded sales (capital gains) ----------------
+     A compact ledger under the sale form: date, what was sold, the raw gain, and whether the
+     12-month discount applied. The discount pill is the point — once a sale is recorded it's too
+     late to act on the holding period, so it can't be something you have to work out. */
+  .sale-list{ display:flex; flex-direction:column; gap:2px; margin-top:10px; }
+  .sale-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:11.5px; padding:5px 2px; border-top:1px solid var(--border); }
+  .sale-date{ font-family:"IBM Plex Mono", monospace; color: var(--ink-soft); flex:none; }
+  .sale-detail{ flex:1 1 160px; min-width:0; color: var(--ink-soft); }
+  .sale-discount{
+    flex:none; font-size:10.5px; font-weight:600; padding:1px 7px; border-radius:100px;
+    background: var(--paper-sunken); color: var(--ink-soft);
+  }
+  .sale-discount.on{ background: var(--good-wash); color: var(--good); }

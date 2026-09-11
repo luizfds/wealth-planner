@@ -1,6 +1,7 @@
+import "./_env.js";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, isOverdue, daysUntil, appendHistorySnapshot, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, lastTransactionDateFor, transactionDisplayName, budgetCycleFor, freqStepMonths, lastKnownDateFor, resolvedDueMonth, reserveYearWindow, reserveYearWindowFor, nextPayDate, payScheduleKindFor } from "../src/calc/ledger.js";
+import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, isOverdue, daysUntil, appendHistorySnapshot, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, lastTransactionDateFor, transactionDisplayName, budgetCycleFor, freqStepMonths, lastKnownDateFor, resolvedDueMonth, reserveYearWindow, reserveYearWindowFor, householdYearWindow, nextPayDate, payScheduleKindFor } from "../src/calc/ledger.js";
 
 test("toWeekly converts every frequency to a weekly figure", function(){
   assert.equal(toWeekly(100, "Weekly"), 100);
@@ -272,15 +273,18 @@ test("reserveYearWindow: rolling 12 months ends today and spans a year, not a ye
   assert.equal(reserveYearWindow("rolling12", "2024-02-29").start, "2023-03-01");
 });
 
-test("reserveYearWindowFor falls back to the calendar year for anything unset or unrecognised", function(){
-  // Every reserve line was measured over the calendar year before this was a choice, so an older
-  // save (or a hand-edited backup carrying nonsense) has to keep reading the same numbers.
-  var calendar = reserveYearWindow("calendar", "2026-09-09");
-  assert.deepEqual(reserveYearWindowFor({}, "2026-09-09"), calendar);
-  assert.deepEqual(reserveYearWindowFor({ reserveYear: "" }, "2026-09-09"), calendar);
-  assert.deepEqual(reserveYearWindowFor({ reserveYear: "fiscal" }, "2026-09-09"), calendar);
-  assert.deepEqual(reserveYearWindowFor(null, "2026-09-09"), calendar);
-  // ...and a recognised one is honoured.
+test("reserveYearWindowFor falls back to the household year for anything unset or unrecognised", function(){
+  // Changed in v2.80.0: the fallback used to be a hard "calendar". That was the wrong default for
+  // an Australian app and, worse, invisible — nothing on the row said which twelve months it was
+  // measured over. Unset now means "follow state.yearBasis", which defaults to financial.
+  // A line the user *explicitly* set is still honoured, which is what protects an existing choice.
+  var household = householdYearWindow("2026-09-09");
+  assert.deepEqual(reserveYearWindowFor({}, "2026-09-09"), household);
+  assert.deepEqual(reserveYearWindowFor({ reserveYear: "" }, "2026-09-09"), household);
+  assert.deepEqual(reserveYearWindowFor({ reserveYear: "fiscal" }, "2026-09-09"), household);
+  assert.deepEqual(reserveYearWindowFor(null, "2026-09-09"), household);
+  // ...and a recognised one is honoured regardless of the household setting.
+  assert.equal(reserveYearWindowFor({ reserveYear: "calendar" }, "2026-09-09").start, "2026-01-01");
   assert.equal(reserveYearWindowFor({ reserveYear: "financial" }, "2026-09-09").label, "FY26/27");
   assert.equal(reserveYearWindowFor({ reserveYear: "rolling12" }, "2026-09-09").label, "last 12 months");
 });
@@ -628,4 +632,42 @@ test("sumFieldActiveInYear resolves each amount through the caller's own resolve
   // Tolerance, not equality: a Monthly amount round-trips through weekly inside periodsOf().
   assert.ok(Math.abs(sumFieldActiveInYear(items, "monthly", 0, "2026-09-11", resolver) - 40) < 1e-9);
   assert.ok(Math.abs(sumFieldActiveInYear(items, "monthly", 0, "2026-09-11") - 100) < 1e-9, "no resolver = raw amount");
+});
+
+// ---------------- Ended rows stop counting (v2.87.0) ----------------
+// The bug: end dates shipped in v2.77.0 and were honoured by computeNetWorthSeries, but not by
+// sumField — so the Dashboard's "you spend $X/mo" and the projection's own year-1 figure
+// disagreed by the amount of every ended row, forever.
+
+test("sumField skips a row that has already ended", function(){
+  var items = [
+    { amount: 100, freq: "Monthly" },
+    { amount: 99, freq: "Monthly", endDate: "2020-01-01" }   // long over
+  ];
+  assert.ok(Math.abs(sumField(items, "monthly") - 100) < 1e-9);
+});
+
+test("sumField still counts a row that ends in the future, and one with no end date", function(){
+  var items = [
+    { amount: 100, freq: "Monthly", endDate: "2099-01-01" },
+    { amount: 50, freq: "Monthly" },
+    { amount: 25, freq: "Monthly", endDate: "" }
+  ];
+  assert.ok(Math.abs(sumField(items, "monthly") - 175) < 1e-9);
+});
+
+test("sumFieldForScenario skips ended rows too, and still resolves overrides", function(){
+  var items = [
+    { amount: 100, freq: "Monthly", scenarioOverrides: { Buy: 40 } },
+    { amount: 999, freq: "Monthly", endDate: "2020-01-01", scenarioOverrides: { Buy: 500 } }
+  ];
+  assert.ok(Math.abs(sumFieldForScenario(items, "Buy", "monthly") - 40) < 1e-9);
+  assert.ok(Math.abs(sumFieldForScenario(items, "Renting", "monthly") - 100) < 1e-9);
+});
+
+test("a row ending today still counts today", function(){
+  // isActiveOn is inclusive of the end date: the last day it applies is a day you still pay it.
+  var today = new Date();
+  var iso = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
+  assert.ok(Math.abs(sumField([{ amount: 10, freq: "Monthly", endDate: iso }], "monthly") - 10) < 1e-9);
 });

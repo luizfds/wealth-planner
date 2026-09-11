@@ -268,3 +268,72 @@ test("scenarioInflatableHomeItems never hands back the live array", function(){
     assert.equal(state.home.Renting.length, 1);
   });
 });
+
+// ---------------- Depreciation (v2.86.0) ----------------
+
+import {
+  capitalWorksAnnual, plantDepreciationAnnual, propertyDepreciationAnnual,
+  propertyTaxDeductibleResultAnnual, propertyCashResultAnnual, CAPITAL_WORKS_RATE
+} from "../src/calc/property.js";
+
+test("capital works is 2.5% of CONSTRUCTION cost, not the purchase price", function(){
+  // Land isn't depreciable. Conflating build cost with purchase price is the commonest way this
+  // gets overstated, which is why they're separate fields rather than a percentage of the price.
+  assert.equal(CAPITAL_WORKS_RATE, 0.025);
+  assert.equal(capitalWorksAnnual({ constructionCost: 400000 }, "2026-09-11"), 10000);
+  assert.equal(capitalWorksAnnual({ constructionCost: 0, purchasePrice: 900000 }, "2026-09-11"), 0,
+    "no construction cost means no claim, whatever the property is worth");
+});
+
+test("the capital works clock stops after 40 years", function(){
+  assert.equal(capitalWorksAnnual({ constructionCost: 400000, constructionDate: "2000-01-01" }, "2026-09-11"), 10000);
+  assert.equal(capitalWorksAnnual({ constructionCost: 400000, constructionDate: "1980-01-01" }, "2026-09-11"), 0);
+  // Right on the boundary.
+  assert.equal(capitalWorksAnnual({ constructionCost: 400000, constructionDate: "1986-09-12" }, "2026-09-11"), 10000);
+  assert.equal(capitalWorksAnnual({ constructionCost: 400000, constructionDate: "1986-09-10" }, "2026-09-11"), 0);
+});
+
+test("an unknown construction date claims the full year", function(){
+  // A blank date on a property someone has bothered to enter a construction cost for almost always
+  // means "haven't filled this in", not "it's 41 years old".
+  assert.equal(capitalWorksAnnual({ constructionCost: 400000, constructionDate: "" }, "2026-09-11"), 10000);
+});
+
+test("plant is straight-line over its effective life, defaulting to 10 years", function(){
+  assert.equal(plantDepreciationAnnual({ plantValue: 30000, plantEffectiveLife: 10 }), 3000);
+  assert.equal(plantDepreciationAnnual({ plantValue: 30000, plantEffectiveLife: 5 }), 6000);
+  assert.equal(plantDepreciationAnnual({ plantValue: 30000 }), 3000, "default life");
+  assert.equal(plantDepreciationAnnual({ plantValue: 0 }), 0);
+  // A zero or missing life would divide by zero; floored at 1.
+  assert.equal(plantDepreciationAnnual({ plantValue: 30000, plantEffectiveLife: 0 }), 3000);
+});
+
+test("depreciation reduces the TAX result but never the cash result", function(){
+  // The whole reason it matters: it's the difference between what a property costs you and what it
+  // costs you after tax, and the reason one can be cash-flow negative and still worth holding.
+  var property = {
+    kind: "IP",
+    income: [{ amount: 600, freq: "Weekly" }],
+    expenses: [{ amount: 4000, freq: "Yearly" }],
+    loans: [{ balance: 500000, rate: 6, offsetBalance: 0, termYears: 30, repaymentType: "PI", repaymentMode: "auto" }],
+    constructionCost: 400000,
+    plantValue: 30000,
+    plantEffectiveLife: 10
+  };
+  var cash = propertyCashResultAnnual(property);
+  var taxed = propertyTaxDeductibleResultAnnual(property);
+  assert.equal(propertyDepreciationAnnual(property, "2026-09-11"), 13000);
+  assert.ok(Math.abs((cash - taxed) - 13000) < 0.01, "the tax result is lower by exactly the depreciation");
+  assert.ok(taxed < cash);
+});
+
+test("a property with no depreciation entered behaves exactly as before", function(){
+  var property = {
+    kind: "IP",
+    income: [{ amount: 600, freq: "Weekly" }],
+    expenses: [{ amount: 4000, freq: "Yearly" }],
+    loans: [{ balance: 500000, rate: 6, offsetBalance: 0, termYears: 30, repaymentType: "PI", repaymentMode: "auto" }]
+  };
+  assert.equal(propertyDepreciationAnnual(property, "2026-09-11"), 0);
+  assert.equal(propertyTaxDeductibleResultAnnual(property), propertyCashResultAnnual(property));
+});

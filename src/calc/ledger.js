@@ -1,5 +1,9 @@
 import { localDateStr } from "../lib/format.js";
 import { MONTH_NAMES } from "../constants.js";
+// state.js imports only constants.js and lib/toast.js, so this is a leaf-ward import, not a cycle.
+// Needed for householdYearBasis() below — the one thing in this module that reads a preference
+// rather than taking everything it needs as an argument.
+import { state } from "../state.js";
 
 export function toWeekly(amount, freq){
   amount = Number(amount) || 0;
@@ -17,8 +21,25 @@ export function periodsOf(amount, freq){
   var w = toWeekly(amount, freq);
   return { weekly:w, fortnightly:w*2, monthly:w*52/12, quarterly:w*13, yearly:w*52 };
 }
+// Both summers skip rows that have ENDED (item.endDate in the past — see isActiveOn below).
+//
+// Applied at the primitive rather than at each of the ~25 call sites, because every one of them
+// means the same thing: "what does this cost, or earn, per period *right now*". A row that
+// finished two years ago costs nothing, and before this it went on inflating monthly expenses, the
+// savings rate, the runway, the 50/30/20 bar and the Expenses header total forever.
+//
+// It also removed a straight contradiction: computeNetWorthSeries has honoured end dates since
+// v2.77.0, so the Dashboard's "you spend $X/mo" and the projection's own year-1 figure disagreed
+// by the amount of every ended row. Measured on the reference backup: $5,382/mo against $5,283.
+//
+// A row with no endDate — which is every row created before v2.77.0, and most since — is always
+// active, so nothing else changes.
 export function sumField(items, field){
-  return items.reduce(function(s,i){ return s + periodsOf(i.amount, i.freq)[field]; }, 0);
+  var today = localDateStr();
+  return items.reduce(function(s,i){
+    if(!isActiveOn(i, today)) return s;
+    return s + periodsOf(i.amount, i.freq)[field];
+  }, 0);
 }
 export function sumByClassification(items, cls, field){
   return items.filter(function(i){ return i.classification === cls; })
@@ -35,7 +56,11 @@ export function resolveSharedAmount(item, scenarioName){
   return (overrides && overrides[scenarioName] != null) ? overrides[scenarioName] : item.amount;
 }
 export function sumFieldForScenario(items, scenarioName, field){
-  return items.reduce(function(s, i){ return s + periodsOf(resolveSharedAmount(i, scenarioName), i.freq)[field]; }, 0);
+  var today = localDateStr();
+  return items.reduce(function(s, i){
+    if(!isActiveOn(i, today)) return s;
+    return s + periodsOf(resolveSharedAmount(i, scenarioName), i.freq)[field];
+  }, 0);
 }
 // Advances a date by one occurrence of the given ledger frequency. Month/year steps use
 // setMonth/setFullYear rather than a fixed day count, so e.g. a Monthly bill last paid on the
@@ -233,8 +258,72 @@ export function reserveYearWindow(basis, todayStr){
 // hand-edited backup, an older save) falls back to the calendar year, which is what every reserve
 // line was measured over before this was a choice.
 export function reserveYearWindowFor(item, todayStr){
-  var basis = item && RESERVE_YEAR_BASES.indexOf(item.reserveYear) !== -1 ? item.reserveYear : "calendar";
+  // "" (or anything unrecognised) means "follow the household default" — see householdYearBasis().
+  // Before v2.80.0 the fallback was a hard "calendar", which is the wrong default for an
+  // Australian app and, worse, was invisible: nothing on the row said which twelve months it was
+  // being measured over unless you opened it.
+  var basis = item && RESERVE_YEAR_BASES.indexOf(item.reserveYear) !== -1 ? item.reserveYear : householdYearBasis();
   return reserveYearWindow(basis, todayStr);
+}
+
+// ---------------- The household's year ----------------
+//
+// A tax return is a financial-year document, and in Australia so is most of what a household
+// thinks of as "a year of" something — insurance, rates, the private-health rebate. The app knew
+// about Jul-Jun since v2.72.0 but only one reserve line at a time, which meant the *household*
+// had no year: the Spending views said "this month", the Assets timeframe picker's YTD was
+// hardcoded to 1 January, and nothing could answer "what did we spend this financial year".
+//
+// state.yearBasis is that missing preference. Only the two real calendars are offered here —
+// "rolling12" stays a per-line choice, because a rolling window is a way of budgeting one lumpy
+// line (travel, maintenance), not a year a household or the ATO recognises.
+export var HOUSEHOLD_YEAR_BASES = ["financial", "calendar"];
+export function householdYearBasis(){
+  var basis = state.yearBasis;
+  return HOUSEHOLD_YEAR_BASES.indexOf(basis) !== -1 ? basis : "financial";
+}
+// The household year containing todayStr — {start, end, label}, same shape reserveYearWindow
+// returns, so anything already rendering one of those can take this instead.
+export function householdYearWindow(todayStr){
+  var win = reserveYearWindow(householdYearBasis(), todayStr);
+  // reserveYearWindow labels the calendar basis "this year", which reads correctly in the sentence
+  // it was written for — a row's "$X actual / $Y planned this year". As a *household* year it's a
+  // noun, and lands in sentences like "$4,953 logged in ___" and "Export ___'s transactions",
+  // where "this year" is at best clumsy and in a filename is useless. The financial label ("FY26/27")
+  // is already a noun, so only the calendar one needs rewriting.
+  if(householdYearBasis() === "calendar") return { start: win.start, end: win.end, label: win.start.slice(0, 4) };
+  return win;
+}
+// The same window, cut off at today: "FY26/27 so far" is the honest label for a year still
+// running, and comparing a part-finished year against a full year's budget without saying so is
+// the same mistake the spending trends panel exists to avoid.
+export function householdYearToDate(todayStr){
+  var win = householdYearWindow(todayStr);
+  var today = todayStr || localDateStr();
+  var complete = today >= win.end;
+  return {
+    start: win.start,
+    end: complete ? win.end : today,
+    label: win.label,
+    complete: complete,
+    // Whole-year label vs "so far": a finished year is just "FY25/26", a running one has to say
+    // it isn't over, or every year-on-year comparison silently compares 12 months against 3.
+    displayLabel: complete ? win.label : win.label + " so far"
+  };
+}
+// How far through the household year todayStr is, 0-1. Used the same way monthProgressFor() is in
+// calc/trends.js — to say how much of the year a figure covers, never to scale one up.
+export function householdYearProgress(todayStr){
+  var win = householdYearWindow(todayStr);
+  var today = todayStr || localDateStr();
+  if(today >= win.end) return 1;
+  var startMs = new Date(win.start + "T00:00:00").getTime();
+  var endMs = new Date(win.end + "T00:00:00").getTime();
+  var nowMs = new Date(today + "T00:00:00").getTime();
+  // Strictly before the window, not "on its first day": 1 July is day one of 365, not zero days
+  // in. An off-by-one here reads as "0% through the year" for the whole of the first day.
+  if(nowMs < startMs) return 0;
+  return (nowMs - startMs + 86400000) / (endMs - startMs + 86400000);
 }
 // A ledger item's last-known "when did this actually happen" date, regardless of which of the
 // app's two logging mechanisms it uses — a plain value-history snapshot (income, home costs,

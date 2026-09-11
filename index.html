@@ -114,7 +114,7 @@
       <!-- The number lives in its own span because it is *parsed*, both out of this DOM and out of
            a freshly-fetched copy of this file, to decide whether a newer version is deployed. Left
            bare in the <p>, the "Check for updates" button beside it would end up inside the match. -->
-      <p class="app-version"><span class="app-version-num">v2.79.0</span> · <button type="button" class="link-btn" id="checkUpdatesLink">Check for updates</button></p>
+      <p class="app-version"><span class="app-version-num">v2.87.0</span> · <button type="button" class="link-btn" id="checkUpdatesLink">Check for updates</button></p>
     </div>
     <div class="mobile-header-right">
       <button type="button" class="icon-btn" id="mobileSearchBtn" aria-label="Search">
@@ -243,10 +243,10 @@
           <details class="ledger" open>
             <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Tax &amp; super</h2></div>
-              <div class="ledger-total">per person</div>
+              <div class="ledger-total" id="taxSuperPeriod">per person</div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note" style="margin-left:0">Estimated Australian resident income tax, Medicare levy, and concessional super — computed from any Income rows marked "Gross" above. A person appears here the moment one of their rows is marked Gross; use ✎ to rename or ✕ to remove them (their rows just go back to Type "Net"). This is a simplified estimate (no HECS/HELP or Medicare levy surcharge; Division 293 is approximated where it applies); confirm real figures with your accountant.</p>
+              <p class="ledger-note" style="margin-left:0">Estimated Australian resident income tax, Medicare levy, and concessional super — a full year at the rates shown, computed from any Income rows marked "Gross" above. Which twelve months that year is comes from Accounts &rarr; Preferences. A person appears here the moment one of their rows is marked Gross; use ✎ to rename or ✕ to remove them (their rows just go back to Type "Net"). Covers HELP/HECS, the Medicare levy surcharge, work-related deductions, dividends and franking, capital gains and property depreciation. Still an estimate — rates are indexed annually, Division 293 and surcharge income are approximated, and each capital gain is discounted on its own holding period rather than netted against losses first. Confirm real figures with your accountant.</p>
               <div id="taxSuperBody"></div>
             </div>
           </details>
@@ -332,6 +332,19 @@
           </details>
           <details class="ledger" open>
             <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">This year so far</h2></div>
+              <div class="ledger-total" id="yearSpendLabel"></div>
+            </summary>
+            <div class="ledger-body">
+              <p class="ledger-note" style="margin-left:0">Everything logged since your year began — the view a tax return, a yearly review or an insurance renewal is actually asked in. Change which twelve months this covers under Accounts → Preferences.</p>
+              <div id="yearSpendPanel"></div>
+              <div class="ledger-footer">
+                <button class="btn btn-sm" id="exportYearTransactionsBtn" title="Every transaction logged in this year, as a CSV — dated, categorised, and with the budget line each one was logged against">Export this year's transactions (CSV)</button>
+              </div>
+            </div>
+          </details>
+          <details class="ledger" open>
+            <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Spending over time</h2></div>
               <div class="ledger-total">last 6 months</div>
             </summary>
@@ -348,6 +361,7 @@
         <div class="subnav" id="accountsSubnav">
           <button type="button" class="subnav-item active" data-accounts-sub="accounts">Accounts</button>
           <button type="button" class="subnav-item" data-accounts-sub="categories">Categories</button>
+          <button type="button" class="subnav-item" data-accounts-sub="preferences">Preferences</button>
         </div>
         <div class="accounts-subpage" id="accountsSub-accounts">
         <div class="page-intro-row">
@@ -383,6 +397,27 @@
               <div class="ledger-footer">
                 <button class="btn btn-sm" id="addCategoryBtn">+ Add category</button>
               </div>
+            </div>
+          </details>
+        </div>
+        </div>
+        <div class="accounts-subpage" id="accountsSub-preferences" hidden>
+        <div class="page-intro-row">
+          <p class="page-intro">Settings that apply to your whole household, not to one account or one budget line.</p>
+        </div>
+        <div class="ledgers">
+          <details class="ledger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Your year</h2></div>
+              <div class="ledger-total" id="yearBasisCurrent"></div>
+            </summary>
+            <div class="ledger-body">
+              <p class="ledger-note" style="margin-left:0">Which twelve months this app treats as "a year" — used by the year-to-date spending view, the transactions export, the share price "YTD" timeframe, and the tax estimate below Income. In Australia a tax return is a financial-year document, and so is most of what a household calls a year of something, so that's the default.</p>
+              <div class="seg-control" id="yearBasisControl" role="group" aria-label="Household year">
+                <button type="button" class="seg-option" data-year-basis="financial" title="1 July to 30 June — the Australian financial year, and what a tax return covers">Financial year (Jul–Jun)</button>
+                <button type="button" class="seg-option" data-year-basis="calendar" title="1 January to 31 December">Calendar year (Jan–Dec)</button>
+              </div>
+              <p class="ledger-note" style="margin-left:0;margin-top:12px" id="yearBasisNote"></p>
             </div>
           </details>
         </div>

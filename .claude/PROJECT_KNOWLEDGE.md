@@ -68,6 +68,85 @@ consequences worth knowing before touching any of this:
   monthly total use the full set. A computed line is real money but nobody logs a direct debit,
   so it would otherwise read "$0 of $3,510" forever.
 
+### The tax engine: what's modelled, and the three rules that keep it honest (v2.81.0-v2.86.0)
+
+`calc/tax.js` now covers brackets, the Medicare levy, **HELP/HECS**, the **Medicare levy
+surcharge**, **work-related deductions**, **dividends and franking**, **capital gains**, super caps
+and Division 293; `calc/property.js` covers **depreciation**. Every rate table lives in
+`constants.js` with the same status as `AU_TAX_BRACKETS`: an estimate, indexed annually.
+
+**1. Flat-rate is not marginal, and the app must say so.** Income tax is marginal; **HELP and the
+MLS are not** — the rate applies to the *whole* income, so crossing a threshold is a step, not a
+slope. Both surface the next threshold and what crossing it costs per year. If you add another
+flat-rate charge, do the same.
+
+**2. Which income base each thing uses is different, deliberately, and it's where the traps are:**
+
+| Figure | Base | The trap |
+|---|---|---|
+| Income tax, Medicare levy | taxable income | — |
+| **HELP repayment** | `gross + max(0, ipShare)` | salary sacrifice and negative gearing do **not** reduce it |
+| **MLS** | taxable + reportable super | salary sacrificing under a threshold doesn't work |
+| **MLS tier (family)** | **combined household** income | each spouse then pays on their *own* income |
+| Deductions, dividends, CGT | reduce/raise **taxable** | so they cascade into the levy and the MLS tier, but not HELP |
+
+The family-tier one shipped wrong for about ten minutes: testing each person against the doubled
+threshold separately reports **$0 for two people on $150k each**, who are a $300k household.
+`householdSurchargeIncome()` exists for that, and needs a `personSurchargeIncome()` that does *not*
+call `computePersonTax` — that would recurse.
+
+**3. A repayment is not a tax; a franking credit is refundable; depreciation is not cash.**
+
+- The **HELP repayment** comes out of take-home but is excluded from `totalTax`, or the effective
+  rate would overstate what the ATO keeps. The **MLS** is a tax and is included.
+- `totalTax` is **not clamped at zero** — an Australian franking credit is refundable, so a
+  low-income holder genuinely receives more than the company distributed. Clamping deletes exactly
+  that case.
+- `propertyTaxDeductibleResultAnnual()` subtracts depreciation; `propertyCashResultAnnual()` and
+  `propertyGearingAnnual()` don't. That gap is why a property can be cash-flow negative and worth
+  holding, and every cash-flow view must use the latter.
+
+**Other standing details.** The CGT discount is **366 days**, not 365 — "more than" 12 months, so a
+sale one day early costs half of it; losses are never discounted. Dividends are stored **per unit**
+so they follow the holding. Capital works is **2.5% of construction cost, not the purchase price**
+(land isn't depreciable). An unattributed deduction or holding belongs to the only person, or to
+**nobody** when there are two — silently loading an ambiguous claim onto whoever is first is worse,
+it's someone's tax return.
+
+**Two providers are registered once in `app.js`**, because `calc/` and `lib/` can't import a
+component: `setDeductibleItemsProvider(budgetLineItems)` and
+`setDeductionPeopleProvider(getTaxPeople)`. Unset — how the unit tests run — means no deductions.
+Threading the list through every `computePersonTax` caller was the alternative, and a deduction
+silently vanishing wherever one caller forgot is the worst failure mode a tax figure has.
+
+### The household year (v2.80.0)
+
+`state.yearBasis` — `"financial"` (Jul–Jun, the default) or `"calendar"` — is the household's
+answer to "what's a year". Read it through `householdYearBasis()` in `calc/ledger.js`, never
+directly; `householdYearWindow()`, `householdYearToDate()` and `householdYearProgress()` are built
+on it, and `reserveYearWindowFor()` falls back to it when a line has no basis of its own.
+
+- **`"rolling12"` is a per-line basis only.** It's a way of budgeting one lumpy line (travel,
+  maintenance), not a year the ATO or anyone else recognises, so `HOUSEHOLD_YEAR_BASES` is just the
+  two real calendars.
+- **`item.reserveYear === ""` means "follow the household"**, and is the default for new and
+  migrated lines. Before v2.80.0 the fallback was a hard `"calendar"` — wrong for an Australian app
+  and invisible on the row. A line the user set *explicitly* is never overwritten.
+- **`householdYearWindow` relabels the calendar basis** to the year number (`"2026"`), because
+  `reserveYearWindow`'s `"this year"` only reads correctly in the one sentence it was written for
+  (a row's "$X actual / $Y planned this year"). As a household year the label lands in "$4,953
+  logged in ___" and in export filenames.
+- **Year views are year-to-*date*.** `householdYearToDate()` cuts off at today and its
+  `displayLabel` says "so far"; `householdYearProgress()` says how much of the year a figure
+  covers. Same discipline as the spending-trends panel: never scale a part-finished period up.
+- **Changing the preference reaches further than any other setting in this app** — the year panel,
+  every reserve line without its own basis (so the Actual-vs-planned panel and the budget rows'
+  progress), the shares YTD/FYTD timeframe, and the tax estimate's heading. The handler in `app.js`
+  re-renders all of them.
+
+`calc/ledger.js` imports `state.js` for this. Leaf-ward, not a cycle — `state.js` imports only
+`constants.js` and `lib/toast.js`.
+
 ### Per-scenario amounts: which arrays, and what the active scenario re-renders (v2.79.0)
 
 Two arrays hold rows that can carry a `scenarioOverrides` map — **`state.shared` and
@@ -144,9 +223,32 @@ never frees up cash in month nine. A row that ends part-way through a month is c
 whole of it — the forecast's unit is a month, and dropping a cost the day it ends would understate
 the very month you still have to pay it in.
 
-Rows do **not** end anywhere else yet: the Spending tab, the budget totals and the CSV exports all
-still count an ended row at full value. That's why a collapsed row shows a red "Ended …" pill — it
-is still inflating every per-month figure on the page until it's deleted.
+**Ended rows stop counting everywhere (v2.87.0).** `sumField` and `sumFieldForScenario` skip them,
+which is the primitive ~25 call sites go through — so monthly expenses, the savings rate, the
+runway, the 50/30/20 bar and the Expenses header all drop an ended row together. Applied at the
+primitive because every caller means the same thing: *what does this cost, or earn, right now*.
+
+Until v2.87.0 only `computeNetWorthSeries` honoured end dates, so the Dashboard's "you spend $X/mo"
+and the projection's own year-1 figure disagreed by the amount of every ended row. The same default
+now applies in the tax chain (`rowIncluded`), so an ended income row stops being taxed and an ended
+expense stops being claimable.
+
+The row stays **in the list** — you have to see it to extend or delete it — with a red "Ended …"
+pill and its amount struck through, because otherwise the list visibly fails to add up to the card
+total above it with nothing saying why.
+
+### One scenario, one set of numbers (v2.87.0)
+
+Every "what does this cost" total resolves against `state.activeScenario`, including the ones on
+the Expenses page. `computeSharedGroups()` and the `#totalSharedMonthly` header used raw
+`item.amount`, so the Budget list quoted a different household cost than the Dashboard for the very
+same scenario, by the size of every override.
+
+A budget **row's headline figure is also scenario-resolved**, so the list adds up to the card total
+above it. The edit panel's Amount field still edits the *default* — the "⇄ default $X" pill names
+it, and the Vary dialog says so. Both the renderer and `onLedgerInput`'s live patch must use
+`resolveSharedAmount`; patching one and not the other overwrites the headline with a figure the
+scenario doesn't pay.
 
 ### Reaching a file next to index.html: always root-relative (v2.78.1)
 
@@ -987,7 +1089,10 @@ panel no longer counts super and the family home toward a number you can't draw 
 projection now reports in today's dollars, grows income, lets rows end, and charges a renting
 scenario its rent. What's left is **capability**: no spending view compares you against your own
 past (**done**, v2.78.0); scenarios can't vary income (**done**, v2.79.0); then financial-year
-support, then tax (HECS first).
+support (**done**, v2.80.0), then tax (**done**, v2.81.0-v2.86.0).
+
+**The roadmap is complete.** All six items shipped. `.claude/ROADMAP.md` keeps the measurements and
+the decisions behind each; anything new starts a new list.
 
 (The service-worker registration bug found while building item 3 was fixed in v2.78.1 — see
 "Reaching a file next to index.html" above.)

@@ -288,19 +288,63 @@ $14,520 while the scenario on screen used half that.
 
 ---
 
-## 5. `[ ]` Financial year as a first-class period
+## 5. `[x]` Financial year as a first-class period — shipped v2.80.0
 
-A tax return is a **financial-year** document. The app gained the concept only in v2.72.0, on
-reserve budgets, one line at a time (`reserveYearWindow` in `calc/ledger.js` already knows Jul–Jun
-and labels it `FY26/27`).
+A tax return is a **financial-year** document. The app gained the concept in v2.72.0 but only on
+reserve budgets, one line at a time — so the *household* had no year: every spending view was "this
+month" or "this cycle", the shares YTD timeframe was hardcoded to 1 January, and nothing could
+answer "what did we spend this financial year".
 
-Promote it: a household-level preference, honoured by the spending views, the CSV exports and the
-tax panel. **Do this before item 6, not during** — it's what makes the tax work cheap instead of
-repetitive.
+**What shipped.** `state.yearBasis` — `"financial"` (default) or `"calendar"` — under a new
+**Accounts → Preferences** tab, plus `householdYearBasis()` / `householdYearWindow()` /
+`householdYearToDate()` / `householdYearProgress()` in `calc/ledger.js`.
+
+`"rolling12"` is deliberately **not** offered at household level even though `reserveYearWindow`
+supports it per line: a rolling window is a way of budgeting one lumpy line, not a year anyone else
+recognises, and "what did we spend last year" has to mean something you could put in front of an
+accountant.
+
+### What follows it
+
+| Surface | Before | Now |
+|---|---|---|
+| Spending tab | "this month" / statement cycle only | **"This year so far"** panel — total + category breakdown with shares |
+| Exports | config snapshots only | `exportYearTransactionsCsv()` — dated, categorised, period in the filename |
+| Reserve lines | unset fell back to a hard `calendar` | unset means **follow my year** |
+| Shares timeframe | `YTD` hardcoded to 1 Jan | `FYTD` on the financial basis, measured from the day before the year opened |
+| Tax & super | no period named | heading names the year being estimated |
+
+**The year panel is year-to-*date*, never the whole year.** On 11 September an FY is 20% done, and
+a figure that silently covers ten weeks while reading like a year is the same failure the spending
+trends panel exists to avoid. Nothing is scaled up to a full year, and the panel says how far
+through it you are.
+
+**The transactions export is the first period document in this app.** Every other CSV answers "what
+does my budget look like"; this answers "what did I spend between these two dates". The category is
+resolved through the linked budget line — most transactions carry none of their own, so a raw
+`t.category` column would be empty on exactly the rows it matters for.
+
+### Two decisions worth not re-litigating
+
+- **`householdYearWindow` relabels the calendar basis** from `"this year"` to the year number.
+  `"this year"` reads correctly in the sentence `reserveYearWindow` was written for (a row's "$X
+  actual / $Y planned this year") but as a household year it lands in "$4,953 logged in ___" and in
+  an export filename. The per-line label is untouched.
+- **A reserve line's explicit basis is never overwritten.** Migration blanks only lines stamped with
+  the old *implicit* `calendar` default, so a deliberate choice survives a household change.
+
+**Measured on the reference backup:** FY26/27 so far is $4,244 across 47 transactions (20% through);
+the same data on a calendar basis is $4,953 across 50.
+
+One bug caught by a test written first: `householdYearProgress` guarded with `nowMs <= startMs`, so
+1 July — day one of 365 — reported 0% through the year for the whole of its first day.
+
+`calc/ledger.js` now imports `state.js`. Leaf-ward, not a cycle: `state.js` imports only
+`constants.js` and `lib/toast.js`.
 
 ---
 
-## 6. `[ ]` Tax: HECS first, then deductions
+## 6. `[x]` Tax: HECS first, then deductions — all six shipped, v2.81.0–v2.86.0
 
 `calc/tax.js` covers brackets, Medicare levy, super caps, Division 293, and an honest split between
 blended take-home and what lands on a payslip. Not yet modelled, roughly by how many Australians
@@ -308,12 +352,12 @@ they affect:
 
 | Gap | Note |
 |---|---|
-| `[ ]` HECS / HELP | No concept at all. A compulsory repayment is a real deduction from take-home, so every net figure is currently too high for anyone carrying a debt. **Do first** — it corrects numbers already on screen. |
-| `[ ]` Deductions | Nothing anywhere. Work-related expenses, donations, tax agent fee. Expense rows could carry a deductible flag and roll straight into a return. |
-| `[ ]` Dividends & franking | Shares are tracked by quantity and price; dividends and franking credits don't exist. |
-| `[ ]` Capital gains | Cost basis is stored, but there's no sale event and no 12-month CGT discount. |
-| `[ ]` Medicare levy surcharge | Not modelled, so the app can't answer whether private hospital cover is worth it — a question it has every other input for. |
-| `[ ]` Property depreciation | Interest and expenses flow into gearing, but there's no capital works or plant schedule — usually the largest non-cash deduction on an investment property. |
+| `[x]` HECS / HELP | **Shipped v2.81.0.** Per-person balance on the Tax & super card; a flat-rate (not marginal) repayment withheld from take-home, with the next threshold and what crossing it costs. Repayment income adds back salary sacrifice and any rental loss, so neither reduces it. On the reference backup a $45k balance cuts household net savings **$8,727 → $7,040/mo**. |
+| `[x]` Deductions | **Shipped v2.83.0.** Any budget line can be flagged work-related, with a **share** (a phone bill is rarely 100%) and a person. Reduces taxable income, so it cascades into the levy and the MLS tier — but *not* HELP, which is worked out on gross. The panel leads with what the deduction is **worth** at the marginal rate, not what it cost. The year's transactions CSV carries the flag, share and claimant. |
+| `[x]` Dividends & franking | **Shipped v2.84.0.** Dividend **per unit** (so it follows the holding when units change) + franked %. Declared **grossed up**, credit as a **refundable** offset — so above a 30% marginal rate a fully franked dividend still costs a top-up, and at a low rate it pays more than the company distributed. Both stated on the card. |
+| `[x]` Capital gains | **Shipped v2.85.0.** A sale event per holding (`asset.sales[]`) that reduces the units held, with the **12-month discount** — "more than" 12 months, exactly: 366 days, so a sale one day early costs half the discount. Losses are never discounted. Bounded to the household year, since a sale is a one-off rather than a rate. |
+| `[x]` Medicare levy surcharge | **Shipped v2.82.0.** Household toggles for private hospital cover and family thresholds; flat-rate (not marginal) tiers, with the next tier and its step cost. Always states both directions — with cover it names what the cover is saving, so "is a policy worth it" is answerable. Family tiers are set by **combined** household income, then charged on each person's own. |
+| `[x]` Property depreciation | **Shipped v2.86.0.** Capital works (2.5% of **construction** cost — not the purchase price; land isn't depreciable — for 40 years) and plant & equipment (straight-line over an effective life). Reduces the **taxable** result only; `propertyCashResultAnnual()` is the untouched cash figure. On the reference backup $13,300/yr, taking the IP result from −$8,106 to −$21,406 and household net savings from $8,339 to $8,820/mo. |
 
 ---
 

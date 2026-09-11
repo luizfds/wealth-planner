@@ -741,3 +741,25 @@
     display:inline-block; padding:1px 7px; border-radius:100px; font-size:10.5px; font-weight:600;
     background: var(--brass-wash); color: var(--brass-strong);
   }
+
+  /* ---------------- This year so far ----------------
+     A flat name/bar/amount/share row rather than the .m-card treatment the Budget tab uses: this
+     is a read-only rollup, nothing here expands or is editable, and at 390px four aligned columns
+     read faster than a stack of cards. */
+  .year-cat-rows{ display:flex; flex-direction:column; gap:2px; margin-top:12px; }
+  .year-cat-row{ display:flex; align-items:center; gap:10px; padding:5px 2px; font-size:12.5px; }
+  .year-cat-name{
+    flex:0 1 auto; min-width:0; font-weight:600; color: var(--ink);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  /* The bar takes the slack so the two numeric columns stay right-aligned with each other
+     whatever the category names do. */
+  .year-cat-bar{ flex:1 1 auto; min-width:32px; height:6px; border-radius:100px; background: var(--paper-sunken); overflow:hidden; }
+  .year-cat-fill{ display:block; height:100%; background: var(--brass); border-radius:100px; }
+  .year-cat-amt{ flex:none; font-family:"IBM Plex Mono", monospace; font-weight:600; min-width:72px; text-align:right; }
+  .year-cat-pct{ flex:none; font-size:11px; color: var(--ink-soft); min-width:38px; text-align:right; }
+
+  /* An ended row's amount: still shown (you have to see it to extend or delete the row) but
+     struck through, because sumField no longer counts it in any total. Without this the list
+     visibly fails to add up to the card total above it, with nothing saying why. */
+  .m-row-amt.row-amt-ended{ opacity:.45; text-decoration: line-through; }

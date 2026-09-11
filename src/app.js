@@ -6,12 +6,13 @@ import { escapeAttr } from "./lib/html.js";
 import { getNotifications, unreadNotificationCount, markNotificationRead, markAllNotificationsRead } from "./lib/notifications.js";
 import { onHorizontalSwipe } from "./lib/swipe.js";
 import { initTableScrollShadows } from "./lib/scroll-shadow.js";
+import { setDeductionPeopleProvider } from "./lib/ledger-table.js";
 import {
-  decryptBackup, doExport, doShare, canShareFiles, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv, exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard,
+  decryptBackup, doExport, doShare, canShareFiles, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv, exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard, exportYearTransactionsCsv,
   exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv, exportAssetsImportTemplateCsv
 } from "./lib/backup.js";
-import { periodsOf, sumField, appendHistorySnapshot, transactionDisplayName } from "./calc/ledger.js";
-import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax } from "./calc/tax.js";
+import { periodsOf, sumField, sumFieldForScenario, resolveSharedAmount, appendHistorySnapshot, transactionDisplayName } from "./calc/ledger.js";
+import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider, saleCapitalGain } from "./calc/tax.js";
 import { recalcComputedItems, scenarioTotals, totalNetWorthValue, totalDebtsValue } from "./calc/engine.js";
 import { renderCards, renderDashboardStats, renderDetail, setProjectionReference, logNetWorthSnapshot } from "./components/dashboard.js";
 import {
@@ -32,13 +33,15 @@ import {
   renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, logExpenseTransaction,
   renderCategories, addCategory, deleteCategory, renameCategoryEverywhere,
   setBudgetGroupBy, renderBudgetGroupByToggle, budgetLineItems,
+  renderYearSpending, renderYearBasisPreference, setYearBasis, transactionCategory,
   parseExpensesImportCsv, renderExpensesImportPreview, clearExpensesImportPreview, commitExpensesImport
 } from "./components/expenses.js";
 import {
   patchHoldingRow, patchVehicleRow, modernAssetRowOpen, patchAssetCategoryTotals,
   renderNetWorthPanel, renderAssets, logAssetSnapshot, applySharesPaste, logDebtSnapshot,
   patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter, renderAssetPersonSheet, assetPersonSheetOpen, setAssetPersonSheetOpen, setSharesGainFilter, setSharesSortMode, setSharesChangeWindow,
-  parseAssetsImportCsv, renderAssetsImportPreview, clearAssetsImportPreview, commitAssetsImport
+  parseAssetsImportCsv, renderAssetsImportPreview, clearAssetsImportPreview, commitAssetsImport, dividendNoteText,
+  recordAssetSale, deleteAssetSale
 } from "./components/assets.js";
 import {
   modernPropRowOpen, renderPropListModern, renderProperties, patchPropertyCardComputed,
@@ -348,7 +351,8 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     document.getElementById("totalIncomeMonthly").textContent = fmtCurrency2.format(sumField(effectiveIncomeItems(), "monthly"));
     // Totals what the list actually shows — shared plus the active scenario's housing — not just
     // state.shared, or the header disagrees with the cards beneath it by the size of your rent.
-    document.getElementById("totalSharedMonthly").textContent = fmtCurrency2.format(sumField(budgetLineItems(), "monthly"));
+    // Scenario-resolved, matching the cards below it and every other total in the app.
+    document.getElementById("totalSharedMonthly").textContent = fmtCurrency2.format(sumFieldForScenario(budgetLineItems(), state.activeScenario, "monthly"));
     renderGlobalMetrics();
   }
 
@@ -413,6 +417,10 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     if(!arr) return;
     var item = arr[idx];
     var structural = false;
+    // A deduction edit changes somebody's taxable income, which changes their net income row, which
+    // changes every total on every page. Flagged here and acted on below rather than calling the
+    // tax re-render from three separate branches.
+    var taxDeductionsChanged = false;
     if(e.target.classList.contains("f-what")){
       item.what = e.target.value;
       var nameEl = tr.querySelector(".m-row-name");
@@ -454,12 +462,24 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     // structural: the collapsed row carries an "Ends …" note derived from this, and on the budget
     // pages an ended line is excluded from the projection — both need the row rebuilt, not patched.
     else if(e.target.classList.contains("f-enddate")){ item.endDate = e.target.value || ""; structural = true; }
+    // Deduction fields. structural on the flag only: ticking it reveals the share/person fields,
+    // which are already in the DOM hidden — revealed in place rather than by re-rendering the row
+    // out from under the user, same as the "no fixed timing" checkbox below.
+    else if(e.target.classList.contains("f-deductible")){
+      item.deductible = e.target.checked;
+      tr.querySelectorAll(".f-deduct-extra").forEach(function(el){ el.hidden = !e.target.checked; });
+      taxDeductionsChanged = true;
+    }
+    else if(e.target.classList.contains("f-deductpct")){ item.deductiblePct = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)); taxDeductionsChanged = true; }
+    else if(e.target.classList.contains("f-deductperson")){ item.deductiblePerson = e.target.value; taxDeductionsChanged = true; }
     else if(e.target.classList.contains("f-duemonth")) item.dueMonth = e.target.value ? Number(e.target.value) : null;
     else if(e.target.classList.contains("f-reserveyear")) item.reserveYear = e.target.value;
     else return;
 
     if(e.target.classList.contains("f-amount") || e.target.classList.contains("f-freq")){
-      var p = periodsOf(item.amount, item.freq);
+      // Scenario-resolved, matching what the renderer puts there — otherwise editing the default
+      // on an overridden row would overwrite the headline with a figure this scenario doesn't pay.
+      var p = periodsOf(resolveSharedAmount(item, state.activeScenario), item.freq);
       var modernAmt = tr.querySelector('[data-computed="amt"]');
       if(modernAmt) modernAmt.textContent = fmtCurrency2.format(p.monthly) + "/mo";
     }
@@ -471,6 +491,13 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     }
 
     recalcComputedItems();
+    if(taxDeductionsChanged){
+      // recalcComputedItems() above has already rebuilt the synthetic net-income rows from the new
+      // taxable income; these repaint the Tax & super card and the Income list that show them.
+      renderTaxSuper();
+      patchSyntheticIncomeRows();
+      patchIncomeGroupTotals();
+    }
 
     if(section === "income" && structural){
       rerenderTableFor("income");
@@ -982,9 +1009,14 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       } else if(t.classList.contains("tax-sacrifice")) settings.superSacrificeAnnual = parseFloat(t.value) || 0;
       else if(t.classList.contains("tax-cap")) settings.concessionalCap = parseFloat(t.value) || 0;
       else if(t.classList.contains("tax-carryforward")) settings.carryForward = parseFloat(t.value) || 0;
+      else if(t.classList.contains("tax-help")) settings.helpBalance = Math.max(0, parseFloat(t.value) || 0);
       else return;
     } else if(e.target.id === "taxSgRate"){
       state.tax.sgRate = parseFloat(e.target.value) || 0;
+    } else if(e.target.id === "taxPrivateCover"){
+      state.tax.privateHospitalCover = e.target.checked;
+    } else if(e.target.id === "taxFamilyThresholds"){
+      state.tax.familyThresholds = e.target.checked;
     } else return;
 
     recalcComputedItems();
@@ -1023,6 +1055,20 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
         item.amount = Math.round(item.quantity * (Number(item.price) || 0) * 100) / 100;
         patchHoldingRow(tr, item);
         patchSharesGlance();
+      }
+      // A dividend change moves that person's taxable income, so it has to re-run the tax chain —
+      // unlike price/qty, which only move the holding's value.
+      else if(e.target.classList.contains("h-dividend") || e.target.classList.contains("h-franked")){
+        if(e.target.classList.contains("h-dividend")) item.dividendPerUnit = Math.max(0, parseFloat(e.target.value) || 0);
+        else item.frankedPct = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
+        var divNote = tr.querySelector(".h-div-note");
+        if(divNote) divNote.textContent = dividendNoteText(item);
+        recalcComputedItems();
+        renderTaxSuper();
+        patchSyntheticIncomeRows();
+        patchIncomeGroupTotals();
+        renderCards(); renderDetail(); renderTotals();
+        renderProjectionOutputs();
       }
       else if(e.target.classList.contains("h-avgcost")){
         item.avgCost = e.target.value === "" ? null : (parseFloat(e.target.value) || 0);
@@ -1118,6 +1164,35 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
         renderProjectionOutputs();
         persist();
       });
+      return;
+    }
+    var saleBtn = e.target.closest("[data-asset-sale]");
+    if(saleBtn){
+      var sIdx = Number(saleBtn.getAttribute("data-asset-sale"));
+      var sRow = saleBtn.closest('[data-section="assets"]');
+      var out = recordAssetSale(sIdx, {
+        units: sRow.querySelector(".h-sale-units").value,
+        proceeds: sRow.querySelector(".h-sale-proceeds").value,
+        date: sRow.querySelector(".h-sale-date").value,
+        acquired: sRow.querySelector(".h-sale-acquired").value,
+        costBase: sRow.querySelector(".h-sale-costbase").value
+      });
+      if(!out) return;
+      if(out.error){ showToast(out.error); return; }
+      var gain = saleCapitalGain(out.sale);
+      showToast(gain.isLoss
+        ? "Sale recorded — a " + fmtCurrency0.format(Math.abs(gain.raw)) + " capital loss"
+        : "Sale recorded — " + fmtCurrency0.format(gain.raw) + " gain" + (gain.discountApplied ? ", halved by the 12-month discount" : ", no discount (held " + gain.heldDays + " days)"));
+      afterAssetSaleChange();
+      return;
+    }
+    var saleDelBtn = e.target.closest("[data-asset-sale-del]");
+    if(saleDelBtn){
+      var parts = saleDelBtn.getAttribute("data-asset-sale-del").split(":");
+      if(deleteAssetSale(Number(parts[0]), Number(parts[1]))){
+        showToast("Sale removed — the units are back in the holding");
+        afterAssetSaleChange();
+      }
       return;
     }
     var logBtn = e.target.closest("[data-asset-log]");
@@ -1328,6 +1403,27 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       persist();
       return;
     }
+    // Depreciation. Full re-render for the same reason prop-purchase-price uses one: the section
+    // prints a live "capital works + plant = $X/yr" summary and a section total in its header, and
+    // both have to move together with the tax figures below.
+    if(e.target.classList.contains("prop-construction-cost") || e.target.classList.contains("prop-construction-date") ||
+       e.target.classList.contains("prop-plant-value") || e.target.classList.contains("prop-plant-life")){
+      if(e.target.classList.contains("prop-construction-cost")) property.constructionCost = Math.max(0, parseFloat(e.target.value) || 0);
+      else if(e.target.classList.contains("prop-construction-date")) property.constructionDate = e.target.value;
+      else if(e.target.classList.contains("prop-plant-value")) property.plantValue = Math.max(0, parseFloat(e.target.value) || 0);
+      else property.plantEffectiveLife = Math.max(1, parseFloat(e.target.value) || 10);
+      recalcComputedItems();
+      renderProperties();
+      // Depreciation changes the property's taxable result, which changes each owner's taxable
+      // income, their synthetic net-income row, and every total derived from it.
+      renderTaxSuper();
+      patchSyntheticIncomeRows();
+      patchIncomeGroupTotals();
+      renderCards(); renderDetail(); renderTotals();
+      renderProjectionOutputs();
+      persist();
+      return;
+    }
     if(e.target.classList.contains("prop-purchase-price") || e.target.classList.contains("prop-purchase-date")){
       // Full re-render (like prop-kind above), not a patch — Capital gain and the yield-on-cost
       // badge only exist in the DOM once purchasePrice is set, so a patch here could be patching
@@ -1531,6 +1627,26 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   // pushes — after which the overlay's own close path went back a *page* instead of closing it.
   // nav.js calls this from showPage before it writes that entry; no history here, since it's
   // about to be rewritten anyway.
+  // A sale changes units held (so the portfolio and net worth), and an assessable gain changes
+  // taxable income (so the tax card and every net figure). Both halves, in one place, because
+  // forgetting either leaves the app visibly disagreeing with itself.
+  function afterAssetSaleChange(){
+    recalcComputedItems();
+    renderAssets();
+    renderTaxSuper();
+    patchSyntheticIncomeRows();
+    patchIncomeGroupTotals();
+    renderCards(); renderDetail(); renderTotals();
+    renderProjectionOutputs();
+    persist();
+  }
+
+  // Two providers registered once at startup, both for the same reason: calc/ and lib/ can't import
+  // a component, but the data they need (which budget lines exist, who the tax people are) is
+  // assembled by one. See setDeductibleItemsProvider's own comment for why this beats threading the
+  // list through every caller of computePersonTax.
+  setDeductibleItemsProvider(budgetLineItems);
+  setDeductionPeopleProvider(getTaxPeople);
   setOverlayCleanup(function(){
     if(!activeOverlayClose) return;
     var closeOverlay = activeOverlayClose;
@@ -2146,6 +2262,42 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     // normally-hidden tab, and none of which should have to know it exists. Recounting on the way
     // in is both cheaper and more reliable than adding a renderCategories() to all of them.
     if(accountsSubId === "categories") renderCategories();
+    // Same reasoning as renderCategories() above: this tab is normally hidden, and its labels are
+    // derived from today's date ("FY26/27 so far", "20% through it"), so they go stale on their
+    // own without anything having changed.
+    if(accountsSubId === "preferences") renderYearBasisPreference();
+  });
+  document.getElementById("yearBasisControl").addEventListener("click", function(e){
+    var btn = e.target.closest("[data-year-basis]");
+    if(!btn) return;
+    setYearBasis(btn.getAttribute("data-year-basis"));
+    renderYearBasisPreference();
+    // The household year reaches further than any other preference in this app: the year-to-date
+    // spending panel, every reserve line that hasn't been given its own budget year (so the
+    // Actual-vs-planned panel and the budget rows' progress), the shares YTD timeframe, and the
+    // tax estimate's heading. Re-rendering all of it is the cheap, reliable option.
+    renderYearSpending();
+    renderActualVsPlannedPanel();
+    renderSharedGroups();
+    renderAssets();
+    renderTaxSuper();
+  });
+  document.getElementById("exportYearTransactionsBtn").addEventListener("click", function(){
+    // The resolvers are passed in because the walks they do (a transaction's category via its
+    // linked budget line, that line's name, the account) live in components/expenses.js, and
+    // lib/backup.js can't import a component.
+    exportYearTransactionsCsv({
+      displayName: function(t){ return transactionDisplayName(t, budgetLineItems()); },
+      categoryFor: transactionCategory,
+      budgetLineFor: function(t){
+        return (t.linkedExpenseId && budgetLineItems().find(function(i){ return i.id === t.linkedExpenseId; })) || null;
+      },
+      budgetLineName: function(t){
+        var line = t.linkedExpenseId && budgetLineItems().find(function(i){ return i.id === t.linkedExpenseId; });
+        return line ? line.what : "";
+      },
+      accountFor: function(t){ return t.account || ""; }
+    });
   });
   document.getElementById("addCategoryBtn").addEventListener("click", function(){
     addCategory();
@@ -2751,6 +2903,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     renderAccounts();
     renderCategories();
     renderBudgetGroupByToggle();
+    renderYearBasisPreference();
     renderTransactions();
     renderActualVsPlannedPanel();
     renderHomeBody();

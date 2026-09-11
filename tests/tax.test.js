@@ -561,3 +561,83 @@ test("dividend cash lands in take-home once, not twice", function(){
     });
   });
 });
+
+// ---------------- Capital gains (v2.85.0) ----------------
+
+import {
+  saleCapitalGain, qualifiesForCgtDiscount, heldDays, personCapitalGains, CGT_DISCOUNT_MIN_DAYS
+} from "../src/calc/tax.js";
+
+test("the CGT discount needs MORE than 12 months, not 12 months to the day", function(){
+  // A sale one day early costs half the discount. Precision here is the whole point of modelling it.
+  assert.equal(heldDays("2025-07-01", "2026-07-01"), 365);
+  assert.equal(qualifiesForCgtDiscount("2025-07-01", "2026-07-01"), false, "365 days is not enough");
+  assert.equal(qualifiesForCgtDiscount("2025-07-01", "2026-07-02"), true, "366 is");
+  assert.equal(CGT_DISCOUNT_MIN_DAYS, 366);
+});
+
+test("a qualifying gain is halved; a short-held one is not", function(){
+  var quick = saleCapitalGain({ acquired: "2026-01-01", date: "2026-06-01", proceeds: 15000, costBase: 5000 });
+  assert.equal(quick.raw, 10000);
+  assert.equal(quick.assessable, 10000);
+  assert.equal(quick.discountApplied, false);
+  var held = saleCapitalGain({ acquired: "2024-01-01", date: "2026-06-01", proceeds: 15000, costBase: 5000 });
+  assert.equal(held.raw, 10000);
+  assert.equal(held.assessable, 5000);
+  assert.equal(held.discountApplied, true);
+});
+
+test("a capital loss is never discounted", function(){
+  // Halving a loss would understate a real offset. The discount only ever applies to a gain.
+  var loss = saleCapitalGain({ acquired: "2020-01-01", date: "2026-06-01", proceeds: 3000, costBase: 8000 });
+  assert.equal(loss.raw, -5000);
+  assert.equal(loss.assessable, -5000);
+  assert.equal(loss.isLoss, true);
+  assert.equal(loss.discountApplied, false);
+});
+
+test("capital gains are bounded to the household year", function(){
+  // A CGT event belongs to the year it happened in. Unlike every other figure in this engine —
+  // which is a rate — a sale is a one-off, so carrying last year's into this year's estimate
+  // would be plainly wrong.
+  withIncome([grossRow("Sam", 100000)], function(){
+    withAssets([{
+      category: "Shares", person: "Sam", quantity: 0, price: 0,
+      sales: [
+        { date: "2026-08-01", proceeds: 15000, costBase: 5000, acquired: "2024-01-01" },  // this FY
+        { date: "2025-08-01", proceeds: 15000, costBase: 5000, acquired: "2023-01-01" }   // last FY
+      ]
+    }], function(){
+      var thisYear = personCapitalGains("Sam", { from: "2026-07-01", to: "2027-06-30" });
+      assert.equal(thisYear.sales.length, 1);
+      assert.equal(thisYear.assessable, 5000);
+      assert.equal(personCapitalGains("Sam").sales.length, 2, "unbounded gets both");
+    });
+  });
+});
+
+test("an assessable gain lands in taxable income and cascades like any other income", function(){
+  withIncome([grossRow("Sam", 100000)], function(){
+    state.tax.privateHospitalCover = true;
+    var before, after;
+    withAssets([], function(){ before = computePersonTax("Sam"); });
+    withAssets([{
+      category: "Shares", person: "Sam", quantity: 0, price: 0,
+      sales: [{ date: "2026-08-01", proceeds: 25000, costBase: 5000, acquired: "2024-01-01" }]
+    }], function(){ after = computePersonTax("Sam"); });
+    assert.equal(after.capitalGainsRaw, 20000);
+    assert.equal(after.capitalGains, 10000, "halved by the discount");
+    assert.equal(after.capitalGainsDiscount, 10000, "and the saving is reported");
+    assert.equal(after.taxable, before.taxable + 10000);
+    assert.ok(after.totalTax > before.totalTax);
+    state.tax.privateHospitalCover = false;
+  });
+});
+
+test("an asset with no sales contributes nothing", function(){
+  withIncome([grossRow("Sam", 100000)], function(){
+    withAssets([{ category: "Shares", person: "Sam", quantity: 100, price: 10 }], function(){
+      assert.equal(computePersonTax("Sam").capitalGains, 0);
+    });
+  });
+});

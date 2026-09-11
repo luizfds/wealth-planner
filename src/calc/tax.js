@@ -28,6 +28,64 @@ export function medicareLevyAU(taxable){
   return taxable * 0.02;
 }
 
+// ---------------- Dividends & franking credits ----------------
+//
+// Shares were tracked by quantity and price, so the app knew what a holding was worth and knew
+// nothing about what it paid. That's half of what a share portfolio is for, and all of what it
+// contributes to a tax return.
+//
+// Franking is the part worth modelling carefully, because it's the part that surprises people.
+// An Australian company pays 30% tax before distributing, so a franked dividend arrives with a
+// credit for tax already paid. You declare the GROSSED-UP amount (cash + credit) as income, then
+// subtract the credit from your tax bill. The consequences run both ways and neither is obvious:
+//
+//   - Above a 30% marginal rate, a fully franked dividend still costs you tax (the top-up).
+//   - Below it — and especially at 0%, e.g. in retirement — the credit is REFUNDABLE in Australia,
+//     so the dividend can pay you more than it distributed.
+//
+// Showing the cash figure alone, or treating the credit as a nice extra, gets both of those wrong.
+export var COMPANY_TAX_RATE = 0.30;
+
+// The imputation credit attached to a dividend: the company tax already paid on the franked
+// portion. cash * rate/(1-rate) — the standard gross-up, not cash * rate, because the cash is what
+// is left AFTER the company paid, not the pre-tax profit.
+export function frankingCredit(cashDividend, frankedPct){
+  var cash = Math.max(0, Number(cashDividend) || 0);
+  var franked = Math.max(0, Math.min(100, frankedPct == null ? 100 : Number(frankedPct) || 0)) / 100;
+  return Math.round(cash * franked * (COMPANY_TAX_RATE / (1 - COMPANY_TAX_RATE)) * 100) / 100;
+}
+// One holding's yearly dividend picture. Per-unit times units held, so it follows the holding's
+// size instead of going stale the moment units are bought or sold.
+export function holdingDividend(asset){
+  var units = Math.max(0, Number(asset.quantity) || 0);
+  var cash = Math.round(units * (Number(asset.dividendPerUnit) || 0) * 100) / 100;
+  var credit = frankingCredit(cash, asset.frankedPct);
+  return {
+    cash: cash,
+    credit: credit,
+    // What you declare: cash plus the credit. Forgetting the gross-up understates taxable income
+    // and overstates the benefit.
+    grossedUp: Math.round((cash + credit) * 100) / 100,
+    frankedPct: asset.frankedPct == null ? 100 : asset.frankedPct
+  };
+}
+// Every Shares holding attributed to this person. An unattributed holding follows the same rule as
+// an unattributed deduction: it belongs to the only person, or to nobody when there are two.
+export function personDividends(person){
+  var people = getTaxPeople();
+  return state.assets.filter(function(a){
+    if(a.category !== "Shares" || !(Number(a.dividendPerUnit) || 0)) return false;
+    if(!a.person) return people.length <= 1;
+    return a.person === person;
+  }).reduce(function(acc, a){
+    var d = holdingDividend(a);
+    acc.cash += d.cash;
+    acc.credit += d.credit;
+    acc.grossedUp += d.grossedUp;
+    return acc;
+  }, { cash: 0, credit: 0, grossedUp: 0 });
+}
+
 // ---------------- Work-related deductions ----------------
 //
 // Any budget line can be flagged deductible and attributed to a person — a laptop, a professional
@@ -407,7 +465,10 @@ export function computePersonTax(person, opts){
   // calc/ can't import a component.
   var deductibleItems = deductibleItemsFor(opts);
   var deductions = deductibleItems ? personDeductionsAnnual(person, deductibleItems) : 0;
-  var taxable = Math.max(0, gross - sacrifice + ipShare - deductions);
+  // Dividends enter taxable income GROSSED UP (cash + franking credit); the credit then comes off
+  // the tax bill below. Adding only the cash would understate the income and overstate the benefit.
+  var dividends = personDividends(person);
+  var taxable = Math.max(0, gross - sacrifice + ipShare - deductions + dividends.grossedUp);
   var incomeTax = incomeTaxAU(taxable);
   var medicare = medicareLevyAU(taxable);
   // HELP repayment income is deliberately NOT taxable income. It adds back the two things the tax
@@ -438,11 +499,16 @@ export function computePersonTax(person, opts){
   var tierIncome = isFamily ? householdSurchargeIncome(opts) : surchargeIncome;
   var medicareSurcharge = hasCover ? 0
     : Math.round(surchargeIncome * mlsTierFor(tierIncome, isFamily).rate * 100) / 100;
-  var totalTax = incomeTax + medicare + medicareSurcharge;
+  // The franking credit is a REFUNDABLE offset in Australia — it can take the bill below zero and
+  // be paid out, which is why this isn't clamped at 0. That's the case that matters most (a
+  // low-income or retired shareholder), and clamping would quietly delete it.
+  var totalTax = incomeTax + medicare + medicareSurcharge - dividends.credit;
   // Part of take-home, not of "tax": it's a repayment of a debt, not a tax, and totalTax feeds the
   // effective-rate figure where lumping it in would overstate what the ATO keeps. But it does come
   // out of the same pay, so every downstream net figure has to see it.
-  var netTakeHome = gross - sacrifice - totalTax - helpRepayment;
+  // The dividend CASH is real money arriving; the credit is settled through the tax bill above, so
+  // adding the grossed-up figure here would count it twice.
+  var netTakeHome = gross - sacrifice - totalTax - helpRepayment + dividends.cash;
   // netTakeHome already folds in the property's tax effect evenly across the year — but a tax
   // refund from a negative-geared loss (or a bill from a positively-geared profit) doesn't
   // actually arrive that way unless the PAYG withholding was varied; by default it's a lump sum
@@ -474,6 +540,10 @@ export function computePersonTax(person, opts){
     gross: gross, packageTotal: inc.packageTotal, ipShare: ipShare, ownershipPct: ownershipPct,
     sacrifice: sacrifice, manualSacrifice: manualSacrifice, autoSacrifice: autoSacrifice, taxable: taxable,
     deductions: deductions,
+    dividendCash: dividends.cash, frankingCredit: dividends.credit, dividendGrossedUp: dividends.grossedUp,
+    // The number people actually want: what the dividend is worth after tax. Negative top-up above
+    // a 30% marginal rate, positive refund below it.
+    dividendNet: Math.round((dividends.cash + dividends.credit - (dividends.grossedUp * marginalRateAU(taxable))) * 100) / 100,
     // What the deductions are actually worth: tax saved at the marginal rate, not the deduction
     // itself. "I claimed $2,000" and "I got $2,000 back" is the single most common confusion about
     // deductions, and the panel exists to not repeat it.

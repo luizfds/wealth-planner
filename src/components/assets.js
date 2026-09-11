@@ -8,6 +8,7 @@ import { optionsHtml, historyTrendHtml } from "../lib/ledger-table.js";
 import { renderLineChart, sparklineHtml, sparklinePlaceholderHtml } from "../lib/charts.js";
 import { showToast } from "../lib/toast.js";
 import { appendHistorySnapshot, daysUntil, householdYearWindow, householdYearBasis } from "../calc/ledger.js";
+import { holdingDividend } from "../calc/tax.js";
 import { renderProjectionOutputs } from "./projections.js";
 import { renderDashboardStats } from "./dashboard.js";
 import { parseCsv } from "../lib/backup.js";
@@ -76,6 +77,16 @@ function gainLossHtml(item){
   var arrow = g.gainDollar > 0 ? "▲" : (g.gainDollar < 0 ? "▼" : "–");
   return '<span class="asset-trend gain-cell ' + cls + '">' + arrow + ' ' + fmtCurrency0For(holdingCurrency(item)).format(Math.abs(g.gainDollar)) +
     ' (' + fmtPercent1.format(Math.abs(g.pct)) + ')</span>';
+}
+
+// The franking credit and grossed-up figure for one holding, shown under the Franked % field —
+// because "$700 cash" and "$1,000 of taxable income with a $300 credit" are very different
+// statements and only the second one is what goes on a return.
+export function dividendNoteText(item){
+  var d = holdingDividend(item);
+  if(!d.cash) return "";
+  return fmtCurrency0.format(d.cash) + "/yr cash" +
+    (d.credit ? " + " + fmtCurrency0.format(d.credit) + " franking credit = " + fmtCurrency0.format(d.grossedUp) + " declared" : " (unfranked)");
 }
 
 // "as of 2026-08-31 · USD" (or just "USD" with no date yet) — always shown, not only once a
@@ -416,6 +427,10 @@ function modernShareRowHtml(item, idx, colorIdx){
       '<div class="m-edit-field"><label>Market</label><select class="h-market">' + optionsHtml(SHARE_MARKETS, item.market || "ASX") + '</select></div>' +
       '<div class="m-edit-field"><label>Avg cost</label><input type="number" step="0.01" min="0" class="h-avgcost" value="' + (item.avgCost != null ? item.avgCost : "") + '" placeholder="—" aria-label="Average cost per share"></div>' +
       '<div class="m-edit-field"><label>Person</label><input type="text" class="h-person" list="personSuggestions" value="' + escapeAttr(item.person || "") + '" placeholder="Household" aria-label="Person"></div>' +
+      // Per-unit, not a yearly total: a total would silently become wrong the moment units are
+      // bought or sold, which is exactly when nobody thinks to revisit it.
+      '<div class="m-edit-field"><label>Dividend / unit /yr</label><input type="number" step="0.01" min="0" class="h-dividend" value="' + (Number(item.dividendPerUnit) || 0) + '" placeholder="0" title="Yearly distribution per share or unit. Multiplied by the quantity above, so it follows the holding if you buy or sell." aria-label="Yearly dividend per unit"></div>' +
+      '<div class="m-edit-field"><label>Franked %</label><input type="number" step="5" min="0" max="100" class="h-franked" value="' + (item.frankedPct == null ? 100 : item.frankedPct) + '" title="How much of the dividend carries a franking credit for company tax already paid. Fully franked is 100; LICs, REITs and foreign income are often less." aria-label="Franked percentage"><span class="computed-note h-div-note">' + dividendNoteText(item) + '</span></div>' +
     '</div>' +
     '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm asset-log-btn" data-asset-log="' + idx + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart below">Log</button><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete holding">Delete</button></div>' +
   '</div></div></div>';

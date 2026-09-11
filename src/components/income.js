@@ -522,6 +522,7 @@ function taxPersonFrontBodyHtml(person, r){
     // Always shown, in both directions: without cover it names the cost, with cover it names what
     // the cover is saving — which is the only way the panel can answer "is a policy worth it",
     // the question this app has every other input for.
+    '<div class="tax-cap-note tax-div-note"' + (r.dividendGrossedUp > 0 ? '' : ' hidden') + ' title="Taken from Shares holdings with a dividend per unit set on the Assets page. Australian franking credits are refundable, so a low-income holder can receive more than the company distributed.">' + dividendNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-deduct-note"' + (r.deductions > 0 ? '' : ' hidden') + ' title="Taken from budget lines flagged as work-related on the Expenses page. They reduce taxable income, which also reduces the Medicare levy and can move you under a surcharge tier — but not your HELP repayment, which is worked out on gross income.">' + deductionsNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-mls-note' + (r.medicareSurcharge > 0 ? " warn" : "") + '"' + (r.mlsIfUncovered > 0 ? '' : ' hidden') + ' title="Income for surcharge purposes is approximated as taxable income + your reportable super contributions, ignoring reportable fringe benefits and net investment losses — the same simplification Division 293 uses here.">' + mlsNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-help-note"' + (r.helpBalance > 0 ? '' : ' hidden') + ' title="Compulsory repayment, worked out as a flat percentage of your repayment income — which adds back salary sacrifice and any rental loss, so neither of those reduces it.">' + helpNoteText(r) + '</div>' +
@@ -540,6 +541,20 @@ function taxPersonFrontBodyHtml(person, r){
         '</details>' +
       '</div>' +
     '</details>';
+}
+
+// Dividends, stated the way a return states them: grossed up, with the credit as an offset and
+// the after-tax result spelled out. Above a 30% marginal rate a fully franked dividend still costs
+// a top-up; below it the credit is refundable. Neither is obvious from the cash figure.
+function dividendNoteText(r){
+  var sign = r.dividendNet >= 0 ? "" : "-";
+  return "Dividends: " + fmtCurrency0.format(r.dividendCash) + " cash + " +
+    fmtCurrency0.format(r.frankingCredit) + " franking credit = " + fmtCurrency0.format(r.dividendGrossedUp) +
+    " declared as income. The credit comes off the tax bill, so after tax at your " +
+    fmtPercent1.format(r.marginalRate) + " marginal rate they're worth about " + sign +
+    fmtCurrency0.format(Math.abs(r.dividendNet)) + "." +
+    (r.marginalRate > 0.30 ? " Above the 30% company rate, so a fully franked dividend still costs a top-up." :
+     r.marginalRate < 0.30 ? " Below the 30% company rate, so the credit is refunded to you." : "");
 }
 
 // What the deductions are worth, not what they cost. "I claimed $2,000" and "I got $2,000 back"
@@ -651,6 +666,11 @@ export function patchAllTaxPersonOutputs(){
     }
     var mscbNote = panel.querySelector(".tax-mscb-note");
     if(mscbNote) mscbNote.hidden = !r.superOverCap;
+    var divNote = panel.querySelector(".tax-div-note");
+    if(divNote){
+      divNote.hidden = !(r.dividendGrossedUp > 0);
+      divNote.textContent = dividendNoteText(r);
+    }
     var deductNote = panel.querySelector(".tax-deduct-note");
     if(deductNote){
       deductNote.hidden = !(r.deductions > 0);

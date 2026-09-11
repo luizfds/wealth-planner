@@ -344,7 +344,7 @@ One bug caught by a test written first: `householdYearProgress` guarded with `no
 
 ---
 
-## 6. `[ ]` Tax: HECS first, then deductions
+## 6. `[~]` Tax: HECS first, then deductions
 
 `calc/tax.js` covers brackets, Medicare levy, super caps, Division 293, and an honest split between
 blended take-home and what lands on a payslip. Not yet modelled, roughly by how many Australians
@@ -352,7 +352,7 @@ they affect:
 
 | Gap | Note |
 |---|---|
-| `[ ]` HECS / HELP | No concept at all. A compulsory repayment is a real deduction from take-home, so every net figure is currently too high for anyone carrying a debt. **Do first** — it corrects numbers already on screen. |
+| `[~]` HECS / HELP | No concept at all. A compulsory repayment is a real deduction from take-home, so every net figure is currently too high for anyone carrying a debt. **Do first** — it corrects numbers already on screen. |
 | `[ ]` Deductions | Nothing anywhere. Work-related expenses, donations, tax agent fee. Expense rows could carry a deductible flag and roll straight into a return. |
 | `[ ]` Dividends & franking | Shares are tracked by quantity and price; dividends and franking credits don't exist. |
 | `[ ]` Capital gains | Cost basis is stored, but there's no sale event and no 12-month CGT discount. |

@@ -59,6 +59,10 @@
   .tax-waterfall-seg{ min-width:2px; background: var(--series-color); }
   .tax-waterfall-legend{ display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:8px 14px; }
   .tax-waterfall-item{ display:flex; align-items:center; gap:7px; }
+  /* The CLAUDE.md [hidden] trap, exactly: author CSS setting `display` beats the browser's built-in
+     [hidden]{display:none} regardless of specificity, so without this every $0 segment row would
+     stay visible and the six-segment legend would read "$0" three times for most people. */
+  .tax-waterfall-item[hidden]{ display:none; }
   .tax-waterfall-item .proj-swatch{ border-radius:3px; }
   .tax-waterfall-item-text{ display:flex; flex-direction:column; gap:1px; min-width:0; }
   .tax-waterfall-item-label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }

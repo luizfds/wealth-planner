@@ -75,41 +75,78 @@ be modelled, that's the line to revisit.
 
 ---
 
-## 2. `[~]` Make the projection honest about time
+## 2. `[x]` Make the projection honest about time — shipped v2.77.0
 
-Three related changes to one model (`computeNetWorthSeries` in `calc/engine.js`). Best done
-together — they interact, and two of them currently mask each other.
+Three related changes to one model (`computeNetWorthSeries` in `calc/engine.js`), plus a fourth
+the work uncovered. Done together because they interact and two of them masked each other.
 
-### 2a. `[~]` Show the projection in today's dollars
+### 2a. `[x]` Show the projection in today's dollars
 
 **Scope changed once item 1 shipped.** The original finding was a nominal series measured against
 an FI target frozen in today's dollars (year 9 reported vs year 12 like-for-like). Item 1 replaced
-that panel with a real-terms model, so *that* comparison is gone.
+that panel with a real-terms model, so ~~that comparison~~ is gone.
 
-What remains is the other half: the Projections page and the Dashboard chart are still **nominal**,
-and nothing on either says so. "$8,002,580 at year 20" is in future dollars, which is not a number
-anyone can weigh against the expenses they typed in. Deflate to today's dollars.
+What shipped is the other half: a `Today's dollars / Future dollars` segmented control on the
+Projections page (`state.projection.realTerms`, defaulting to real), with the headline, the
+chart's aria-label and the Dashboard's projected-net-worth tile all naming the basis. Callers can
+pin it — the projection-accuracy panel passes `{ realTerms: false }` because it grades a stored
+reference series against real logged net worth, which is nominal by nature.
 
-### 2b. `[~]` Add an income growth rate
+### 2b. `[x]` Add an income growth rate
 
-`incomeMonthly` is read **once, before the year loop**, and held flat for the whole horizon while
-expenses inflate. Real data: income $23,340/mo at 0%/yr against expenses $14,613/mo at 3%/yr — the
-model has the $8,727/mo surplus **going negative around year 16**, then spends four years of a
+`incomeMonthly` was read **once, before the year loop**, and held flat for the whole horizon while
+expenses inflated. Real data: income $23,340/mo at 0%/yr against expenses $14,613/mo at 3%/yr —
+the model had the $8,727/mo surplus **going negative around year 16**, then spent four years of a
 20-year horizon assuming a drawdown.
 
-Add a rate to `state.projection`, defaulting to the inflation rate so the surplus at least holds
-its real value. Income rows now record pay changes (`item.history`, v2.74.0) — the honest version
-derives a suggested default from that history rather than only asking.
+`state.projection.incomeGrowthRate`, defaulting to 3 (matching the inflation default), with its
+own number+slider pair on the Projections page. ~~The honest version derives a suggested default
+from `item.history`~~ — not built; the rows record pay changes (v2.74.0) but nothing reads them
+back as a suggestion yet. Worth doing, and cheap now that the field exists.
 
-> **Note the interaction.** 2a is optimistic and 2b is pessimistic, so they partly cancel today.
-> Shipping either alone will visibly move the headline in one direction. Ship both, and say so in
-> the PR.
+### 2c. `[x]` Let ledger rows end
 
-### 2c. `[~]` Let ledger rows end
+Optional `item.endDate` per row, offered as "Ends (optional)" in the shared `timingFieldsHtml()`
+so every ledger page (Income, Expenses, Scenarios housing, property income/expenses) gets it at
+once. `calc/ledger.js` gained `isActiveOn` / `isActiveInYear` / `sumFieldActiveInYear`; blank
+means "runs forever", which is what every pre-existing row carries and what the model assumed for
+everything until now.
 
-No income or expense row has a start or end date, so childcare that finishes in two years and a car
-loan with eighteen payments left are both projected forever. Add an optional "until" date per row,
-honoured by `computeNetWorthSeries` and `calc/cashflow.js`.
+Honoured by `computeNetWorthSeries` and by `calc/cashflow.js`, which now sums its smoothed side
+**per month** rather than once — otherwise a row ending in month eight would never free up cash in
+month nine. A collapsed row carries an "Ends …" pill, red once the date has passed, because a row
+still sitting in the list after it ended is still inflating every per-month total on the page.
+
+### 2d. `[x]` The one this uncovered: a renting scenario was never charged rent
+
+Not in the audit, found while verifying 2c — ending the rent row changed the projection by $0.
+
+`scenarioInflatableMonthly()` dropped the `homeLoanRow` because with the purchase leg **on** that
+row is the mortgage, which the model replaces with its own amortised repayment (counting both
+would charge the same housing cost twice). But with the purchase leg **off**, the very same row is
+the rent, and nothing else was paying it. On the real backup the projection assumed **$3,510/mo
+more savings** than the Dashboard's own net-savings tile showed for the same scenario.
+
+The decision now lives in one place, `scenarioInflatableHomeItems()` in `calc/property.js`, with
+the invest-leg-beats-purchase-leg precedence `computeNetWorthSeries` uses. **If you touch the
+homeLoanRow, this is the trap** — the row's meaning depends on the scenario's purchase leg.
+
+**Measured at year 20 on the reference backup** (20-year horizon, 7% / 5% / 3% / 3%). Only Renting
+has an uncharged `homeLoanRow`, so only Renting moves:
+
+| today's dollars | before rent fix | after |
+|---|---:|---:|
+| Renting | $6,373,317 | $5,094,846 |
+| Buy Sydney | $5,322,626 | $5,322,626 |
+| Buy Melbourne | $5,575,582 | $5,575,582 |
+
+That **changes the headline's winner** from Renting to Buy Melbourne. "Renting comes out ahead"
+was an artefact of not charging it rent.
+
+On Renting, what v2.76.0 showed against what this ships: $8,002,576 (nominal, income flat) against
+$5,094,846 (today's dollars, income growing 3%, rent counted) — the same figure in future dollars
+is $9,201,859. 2a is optimistic and 2b pessimistic, so they partly cancel; the rent fix is what
+actually moves the ranking.
 
 ---
 

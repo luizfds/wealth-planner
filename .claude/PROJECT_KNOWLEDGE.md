@@ -23,8 +23,19 @@ a polish pass (see "Modern-mode UI patterns" below) applied in the same order.
 `home{scenario: item[]}` (per-scenario recurring home costs — rent or "Rent / Home Loan" +
 insurance/rates/water/maintenance), `purchase{scenario: cfg}` (purchase calculator config per
 scenario), `assets[]` (category field distinguishes Cash/Shares/Super/Vehicle/Other), `properties[]`
-(each with `loans[]`, `income[]`, `expenses[]`), `projection` (horizon/rates), `tax` (super
-guarantee rate, per-property IP ownership split, per-person settings).
+(each with `loans[]`, `income[]`, `expenses[]`), `projection`, `tax` (super
+guarantee rate, per-property IP ownership split, per-person settings), `fire` (current age,
+target retirement age, preservation age — see `calc/fire.js`).
+
+`projection` is `{ horizonYears, investReturnRate, propertyAppreciationRate, inflationRate,
+rateShockPct, incomeGrowthRate, realTerms }`. The last two are v2.77.0: `incomeGrowthRate`
+(default 3, matching the inflation default) is the annual pay rise applied to every income row —
+before it existed income was held flat for the whole horizon while expenses inflated, which had
+the surplus going negative partway through a 20-year horizon. `realTerms` (default `true`) is not
+an assumption but a **unit**: it picks whether the series is deflated to today's dollars, and
+changes nothing the model computes. Callers can pin it via `computeNetWorthSeries(scenario,
+horizon, { realTerms })` — the projection-accuracy panel passes `false`, because it grades a
+stored reference series against real logged net worth, which is nominal by nature.
 
 ### The budget list is three arrays, not one
 
@@ -56,6 +67,54 @@ consequences worth knowing before touching any of this:
   the Actual-vs-Planned panel and per-row progress bars all use it; the Budget tab's list and
   monthly total use the full set. A computed line is real money but nobody logs a direct debit,
   so it would otherwise read "$0 of $3,510" forever.
+
+### `homeLoanRow` means two different things, and the projection has to know which
+
+Every scenario's housing array has one row with `id: "homeLoanRow"`, labelled "Rent / Home Loan".
+Which of those two it actually is depends on the scenario's **purchase leg**:
+
+| Purchase leg | The row is | Who pays it in `computeNetWorthSeries` |
+|---|---|---|
+| on (`state.purchase[scenario].enabled`) | the mortgage | the model's own amortised `repaymentMonthly`, fixed in nominal terms |
+| off | the rent | the inflatable expense set, inflating each year |
+
+Getting this wrong is **silent and large in both directions**: include it with the purchase leg on
+and the same housing cost is charged twice; exclude it with the leg off and a renting household's
+single largest expense vanishes from the projection. The second one was a real, shipped bug — on
+the reference backup the model assumed $3,510/mo more savings than the Dashboard's own
+net-savings tile showed for the same scenario, and it flattered precisely the scenario the "comes
+out ahead" headline named, which changed the headline's winner once fixed (v2.77.0).
+
+The decision lives in exactly one place: `scenarioInflatableHomeItems()` in `calc/property.js`,
+which also carries the invest-leg-beats-purchase-leg precedence `computeNetWorthSeries` uses. Use
+it rather than re-filtering `state.home[scenario]` by id — that re-filter is the bug.
+
+Note that `scenarioTotals()` deliberately counts the **whole** housing array including this row:
+it reports what the household actually spends, with no purchase calculator in the picture. The two
+are not supposed to agree on this row, which is why the discrepancy went unnoticed for so long.
+
+### Rows can end (`item.endDate`, v2.77.0)
+
+Every ledger row takes an optional `endDate` (ISO date string, `""` = runs forever, which is what
+every pre-existing row carries after migration). Offered as "Ends (optional)" inside
+`timingFieldsHtml()` in `lib/ledger-table.js`, so every ledger surface gets the field from one
+edit — Income's bespoke Modern row included, since it calls the same helper.
+
+Anything that projects a row forward must filter on it — `calc/ledger.js` has `isActiveOn(item,
+dateStr)`, `isActiveInYear(item, yearsFromNow, todayStr)` and `sumFieldActiveInYear(items, field,
+yearsFromNow, todayStr, amountFor)` (the resolver argument is how the shared ledger gets
+scenario-resolved amounts out of the same helper income uses raw). Two consumers today:
+`computeNetWorthSeries` and `calc/cashflow.js`.
+
+**The cash-flow forecast's smoothed side is summed per month, not once.** It used to compute one
+`baselineNet` before the month loop; with end dates that would mean a row ending in month eight
+never frees up cash in month nine. A row that ends part-way through a month is counted for the
+whole of it — the forecast's unit is a month, and dropping a cost the day it ends would understate
+the very month you still have to pay it in.
+
+Rows do **not** end anywhere else yet: the Spending tab, the budget totals and the CSV exports all
+still count an ended row at full value. That's why a collapsed row shows a red "Ended …" pill — it
+is still inflating every per-month figure on the page until it's deleted.
 
 ### Two comparison windows, and how a line picks one
 
@@ -825,10 +884,15 @@ const browser = await chromium.launch({
 ## Known pending work
 
 The agreed build order lives in [`ROADMAP.md`](ROADMAP.md), with a status marker per item — check
-there first. In short: the FI panel counts super and the family home toward a number you can't draw
-4% from; the projection compares a nominal series against a target frozen in today's dollars *and*
-holds income flat while expenses inflate (two errors that partly cancel); no spending view compares
-you against your own past; scenarios can't vary income. Then financial-year support, then tax.
+there first. Items 1 and 2 — the two **corrections** — have shipped (v2.76.0, v2.77.0): the FI
+panel no longer counts super and the family home toward a number you can't draw 4% from, and the
+projection now reports in today's dollars, grows income, lets rows end, and charges a renting
+scenario its rent. What's left is **capability**: no spending view compares you against your own
+past; scenarios can't vary income; then financial-year support, then tax (HECS first).
+
+One thread deliberately left open from item 2: income rows have recorded pay changes since
+v2.74.0 (`item.history`), and nothing reads that history back to suggest an income growth rate.
+The field exists now, so that suggestion is cheap.
 
 **Touch-target sizing** (fixed, v1.42.2): the edit (✎) / delete (✕) `.icon-btn` pair used on
 Scenarios/Dashboard/Income cards sat only ~2px apart — a low tap on "edit" could land on

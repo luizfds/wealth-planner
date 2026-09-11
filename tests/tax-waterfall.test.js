@@ -20,7 +20,7 @@ import { computePersonTax } from "../src/calc/tax.js";
 function withPerson(rows, settings, body){
   var s = { income: state.income, tax: state.tax, properties: state.properties, assets: state.assets };
   state.income = rows;
-  state.tax = { sgRate: 12, ipOwnership: {}, settings: settings || {}, privateHospitalCover: false, familyThresholds: false };
+  state.tax = { sgRate: 12, settings: settings || {}, privateHospitalCover: false, familyThresholds: false };
   state.properties = [];
   state.assets = [];
   try { body(); }

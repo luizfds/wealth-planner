@@ -116,6 +116,38 @@ Rows do **not** end anywhere else yet: the Spending tab, the budget totals and t
 still count an ended row at full value. That's why a collapsed row shows a red "Ended …" pill — it
 is still inflating every per-month figure on the page until it's deleted.
 
+### Spending trends: what the transaction log can and cannot tell you (v2.78.0)
+
+`calc/trends.js` powers the Spending tab's "Spending over time" panel. The arithmetic is easy;
+everything hard about it is about **not making claims the data can't support**. Three rules, all
+learned by running it against a real backup rather than by reasoning about the code:
+
+1. **An unlogged month is indistinguishable from a month with no spending.** Both are `$0`.
+   Comparing against months from before the user started logging produced *"Groceries up 3,124%"*
+   on the reference data. `coveredMonthCount()` trims the window to the contiguous run of months
+   that were genuinely being logged — thresholded against the median of *that household's own*
+   non-empty months, never a fixed dollar figure.
+
+2. **Never extrapolate a part-finished month.** The obvious fix for "a partial month always looks
+   like a fall" is to scale it up by the fraction of the month elapsed. **Don't.** Household
+   spending is front-loaded — rent, power and insurance all land in week one — and this app's own
+   "Catch up on overdue" flow encourages logging in bulk. Eleven days into the month that turned
+   $3,067 into a confident "on track for $8,366". Instead every comparison runs on a
+   **month-to-date** series: this month so far against the *same days* of earlier months
+   (`spendByCategoryByMonth`'s `throughDay`). Whole months still drive the bars and the table, so
+   the view carries two series per category — `values` (whole) and `mtdValues` (truncated).
+
+3. **The app cannot tell "spent more" from "logged more thoroughly."** Nothing short of a bank
+   feed can. On the reference backup August was logged mostly in its last week and September
+   mostly in its first, so even a same-days comparison read "515% more". Hence
+   `TRENDS_MIN_MONTHS_FOR_COMPARISON = 3` in `components/expenses.js`: below three logged months
+   the panel renders bars and numbers but **no deltas and no streak alerts**, and says why. Two
+   points can't distinguish a trend from a difference. Don't loosen this without a better signal
+   than transaction counts.
+
+Direction colours are **inverted** from the rest of the app in this panel — `.up` is `--bad`,
+because this is spending. Everywhere else (asset trends, capital gain) up is good.
+
 ### Two comparison windows, and how a line picks one
 
 A budget line is judged against one of two windows, and `item.irregular` is the switch:
@@ -888,7 +920,14 @@ there first. Items 1 and 2 — the two **corrections** — have shipped (v2.76.0
 panel no longer counts super and the family home toward a number you can't draw 4% from, and the
 projection now reports in today's dollars, grows income, lets rows end, and charges a renting
 scenario its rent. What's left is **capability**: no spending view compares you against your own
-past; scenarios can't vary income; then financial-year support, then tax (HECS first).
+past (**done**, v2.78.0); scenarios can't vary income; then financial-year support, then tax
+(HECS first).
+
+**A live bug found while building item 3 and not yet fixed:** `navigator.serviceWorker.register("sw.js")`
+in `app.js` uses a relative URL, but `nav.js` has already rewritten the address bar to the restored
+route by the time it runs — so on any deep link (`/expenses/spending`) it resolves to
+`/expenses/sw.js` and 404s, and offline support silently never registers. Reproduces on `main`.
+Invisible to page-level request logging, because service worker script fetches don't surface there.
 
 One thread deliberately left open from item 2: income rows have recorded pay changes since
 v2.74.0 (`item.history`), and nothing reads that history back to suggest an income growth rate.

@@ -150,18 +150,74 @@ actually moves the ranking.
 
 ---
 
-## 3. `[~]` Month-over-month spending
+## 3. `[x]` Month-over-month spending — shipped v2.78.0
 
-Nothing in the app compares you against your own past. Every spending view is "this month", "this
-cycle" or "this year" — so it can say you're over budget on groceries, but never that groceries
-have climbed three months running.
+Nothing in the app compared you against your own past. Every spending view was "this month", "this
+cycle" or "this year" — so it could say you were over budget on groceries, but never that
+groceries had climbed three months running.
 
-**The data is already there and correctly shaped**: dated transactions carrying a category through
-their linked budget line. `transactionsInMonth` and `transactionsInRange` exist; nothing calls them
-across more than one window. A category-by-month table and a "vs your 3-month average" line on the
-Spending tab need no new data model.
+**What shipped.** `calc/trends.js` (pure) plus a "Spending over time" section on the Spending tab:
+a headline (this month against your own recent average), "up N months running" callouts, one bar
+strip per category over six months, and the numbers behind it under a `<details>`.
 
-Cheapest real capability on the list, and the one that makes daily logging pay off.
+Bar strips, **not** the category-by-month grid this item originally called for — six numeric
+columns at 390px is a horizontal scroll you have to work at, and "is this climbing" is a shape
+question. The table is still there, one disclosure away.
+
+### The two ways this could have lied, and what it cost to find them
+
+Both were only visible by running the panel against the real backup. Neither would have shown up
+in a unit test written from the plan.
+
+**1. An unlogged month looks exactly like a month with no spending.** Anyone who started logging
+in August has $0 across every earlier month. The first working version reported *"Groceries up
+3,124%"* and *"Car up 2 months running"* — confident nonsense, on the first day the panel is
+visible. `coveredMonthCount()` now trims the window to the contiguous run of months that were
+genuinely being logged, judged against the median of **this household's own** non-empty months
+rather than a fixed dollar figure ("typical" is $600 for one person and $12,000 for another).
+
+**2. A part-finished month can't be compared to whole ones.** Comparing raw reports a fall every
+time — useless for three weeks of every month. *Scaling the partial month up to a full one looks
+like the fix and is worse*: household spending is front-loaded (rent, power, insurance all land in
+week one) and this app's own "Catch up on overdue" flow actively encourages logging in bulk.
+Eleven days into September on the real data, that projection turned **$3,067 actually spent** into
+a confident **"on track for $8,366"** — a 611% rise that never happened.
+
+Every comparison now runs on a **month-to-date** series: this month so far against the *same days*
+of earlier months. It never extrapolates, so there's no model of how spending is distributed to
+get wrong. Whole months still drive the bars and the table.
+
+### The limit that survived both fixes — read this before extending it
+
+**The app cannot tell "spent more" from "logged more thoroughly."** Nothing short of a bank feed
+can. On the real backup August was logged mostly in its last week and September mostly in its
+first, so even a same-days comparison read *"515% more"*.
+
+So deltas and streak alerts are withheld until **three** months are logged
+(`TRENDS_MIN_MONTHS_FOR_COMPARISON`); below that the panel shows the bars and the numbers and says
+plainly why it isn't comparing yet. Two points can't distinguish a trend from a difference. If you
+ever loosen that threshold, this is the reason it exists.
+
+### Smaller calls, each with a test
+
+- A **flat** month breaks a streak rather than extending it, or an unchanged direct debit reads as
+  a trend forever.
+- Streaks run on **settled** months only — the current part-finished one can't support a claim
+  about months.
+- The average **excludes** the current month, so an outlier isn't partly compared against itself.
+- `$0` this month reads **"none yet"**, not "new" — identical in the data (both have a null
+  trend), opposite in meaning.
+- Categories under **$50 across the window** are dropped, on the *window* total so a once-a-year
+  line (car rego) keeps its place.
+
+### Found while verifying this, not fixed here
+
+`navigator.serviceWorker.register("sw.js")` (`app.js`) uses a **relative** URL, and `nav.js` has
+already rewritten the address bar to the restored route by the time it runs — so on any deep link
+or restored route (`/expenses/spending`), it resolves to `/expenses/sw.js` and **404s**. Confirmed
+pre-existing (reproduces on `main`), and invisible to page-level request logging because service
+worker script fetches don't surface there. Offline support silently doesn't register for anyone
+who doesn't land on the bare root. Small fix, different subsystem — worth its own change.
 
 ---
 

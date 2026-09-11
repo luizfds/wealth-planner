@@ -68,6 +68,57 @@ consequences worth knowing before touching any of this:
   monthly total use the full set. A computed line is real money but nobody logs a direct debit,
   so it would otherwise read "$0 of $3,510" forever.
 
+### The tax engine: what's modelled, and the three rules that keep it honest (v2.81.0-v2.86.0)
+
+`calc/tax.js` now covers brackets, the Medicare levy, **HELP/HECS**, the **Medicare levy
+surcharge**, **work-related deductions**, **dividends and franking**, **capital gains**, super caps
+and Division 293; `calc/property.js` covers **depreciation**. Every rate table lives in
+`constants.js` with the same status as `AU_TAX_BRACKETS`: an estimate, indexed annually.
+
+**1. Flat-rate is not marginal, and the app must say so.** Income tax is marginal; **HELP and the
+MLS are not** — the rate applies to the *whole* income, so crossing a threshold is a step, not a
+slope. Both surface the next threshold and what crossing it costs per year. If you add another
+flat-rate charge, do the same.
+
+**2. Which income base each thing uses is different, deliberately, and it's where the traps are:**
+
+| Figure | Base | The trap |
+|---|---|---|
+| Income tax, Medicare levy | taxable income | — |
+| **HELP repayment** | `gross + max(0, ipShare)` | salary sacrifice and negative gearing do **not** reduce it |
+| **MLS** | taxable + reportable super | salary sacrificing under a threshold doesn't work |
+| **MLS tier (family)** | **combined household** income | each spouse then pays on their *own* income |
+| Deductions, dividends, CGT | reduce/raise **taxable** | so they cascade into the levy and the MLS tier, but not HELP |
+
+The family-tier one shipped wrong for about ten minutes: testing each person against the doubled
+threshold separately reports **$0 for two people on $150k each**, who are a $300k household.
+`householdSurchargeIncome()` exists for that, and needs a `personSurchargeIncome()` that does *not*
+call `computePersonTax` — that would recurse.
+
+**3. A repayment is not a tax; a franking credit is refundable; depreciation is not cash.**
+
+- The **HELP repayment** comes out of take-home but is excluded from `totalTax`, or the effective
+  rate would overstate what the ATO keeps. The **MLS** is a tax and is included.
+- `totalTax` is **not clamped at zero** — an Australian franking credit is refundable, so a
+  low-income holder genuinely receives more than the company distributed. Clamping deletes exactly
+  that case.
+- `propertyTaxDeductibleResultAnnual()` subtracts depreciation; `propertyCashResultAnnual()` and
+  `propertyGearingAnnual()` don't. That gap is why a property can be cash-flow negative and worth
+  holding, and every cash-flow view must use the latter.
+
+**Other standing details.** The CGT discount is **366 days**, not 365 — "more than" 12 months, so a
+sale one day early costs half of it; losses are never discounted. Dividends are stored **per unit**
+so they follow the holding. Capital works is **2.5% of construction cost, not the purchase price**
+(land isn't depreciable). An unattributed deduction or holding belongs to the only person, or to
+**nobody** when there are two — silently loading an ambiguous claim onto whoever is first is worse,
+it's someone's tax return.
+
+**Two providers are registered once in `app.js`**, because `calc/` and `lib/` can't import a
+component: `setDeductibleItemsProvider(budgetLineItems)` and
+`setDeductionPeopleProvider(getTaxPeople)`. Unset — how the unit tests run — means no deductions.
+Threading the list through every `computePersonTax` caller was the alternative, and a deduction
+silently vanishing wherever one caller forgot is the worst failure mode a tax figure has.
+
 ### The household year (v2.80.0)
 
 `state.yearBasis` — `"financial"` (Jul–Jun, the default) or `"calendar"` — is the household's
@@ -1015,7 +1066,10 @@ panel no longer counts super and the family home toward a number you can't draw 
 projection now reports in today's dollars, grows income, lets rows end, and charges a renting
 scenario its rent. What's left is **capability**: no spending view compares you against your own
 past (**done**, v2.78.0); scenarios can't vary income (**done**, v2.79.0); then financial-year
-support (**done**, v2.80.0), then tax (HECS first) — the last item on the roadmap.
+support (**done**, v2.80.0), then tax (**done**, v2.81.0-v2.86.0).
+
+**The roadmap is complete.** All six items shipped. `.claude/ROADMAP.md` keeps the measurements and
+the decisions behind each; anything new starts a new list.
 
 (The service-worker registration bug found while building item 3 was fixed in v2.78.1 — see
 "Reaching a file next to index.html" above.)

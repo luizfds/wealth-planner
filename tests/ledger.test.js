@@ -502,3 +502,82 @@ test("nextPayDate: an unset schedule is null rather than a guess", function(){
   assert.equal(nextPayDate(null, [], "2026-09-10"), null);
   assert.equal(nextPayDate({ freq: "Monthly" }, [], "2026-09-10"), null);
 });
+
+// ---------------- FIRE: the preservation-age bridge ----------------
+// These call the simulation with every input passed explicitly, so they exercise the model rather
+// than a particular saved state — the same reason the ledger tests above take a todayStr.
+import { simulateRetirementAt, earliestWorkableRetirementAge } from "../src/calc/fire.js";
+
+var BRIDGE_BASE = {
+  currentAge: 40, preservationAge: 60, realReturn: 0.04,
+  annualExpenses: 60000, annualSavings: 50000, superContributions: 20000,
+  split: { accessible: 200000, superValue: 300000 }
+};
+function runAt(age, over){ return simulateRetirementAt(age, Object.assign({}, BRIDGE_BASE, over || {})); }
+
+test("simulateRetirementAt: retiring at preservation age has no bridge to cross", function(){
+  var r = runAt(60);
+  assert.equal(r.bridgeYears, 0);
+  assert.equal(r.bridgeNeeded, 0);
+  assert.equal(r.bridgeSurvives, true);
+  // Nothing is withdrawn, so the pot at 60 is just everything accumulated.
+  assert.equal(Math.round(r.accessibleAtPreservation), Math.round(r.accessibleAtRetire));
+});
+
+test("simulateRetirementAt: retiring early creates a bridge that has to be funded from non-super", function(){
+  var r = runAt(45);
+  assert.equal(r.bridgeYears, 15);
+  assert.equal(r.bridgeNeeded, 60000 * 15);
+  // Super keeps compounding through the bridge but is never drawn on.
+  assert.ok(r.superAtPreservation > 300000);
+});
+
+test("simulateRetirementAt: a bridge the accessible pot can't cover fails, however big super is", function(){
+  // The exact trap the old single-number panel hid: a fortune in super, nothing to live on until 60.
+  var r = runAt(42, { split: { accessible: 10000, superValue: 5000000 }, annualSavings: 0 });
+  assert.equal(r.bridgeSurvives, false);
+  assert.equal(r.potSustains, true, "the pot is enormous");
+  assert.equal(r.passes, false, "but the plan is still impossible");
+});
+
+test("simulateRetirementAt: a survivable bridge with too small a pot also fails", function(){
+  var r = runAt(59, { split: { accessible: 500000, superValue: 1000 }, annualSavings: 0, superContributions: 0 });
+  assert.equal(r.bridgeSurvives, true);
+  assert.equal(r.potSustains, false);
+  assert.equal(r.passes, false);
+});
+
+test("simulateRetirementAt: withdrawals come out before growth, contributions land after it", function(){
+  // One year of bridge, no growth: the accessible pot should drop by exactly one year of expenses.
+  var r = runAt(59, { realReturn: 0, annualSavings: 0, superContributions: 0,
+                      split: { accessible: 100000, superValue: 0 }, currentAge: 59 });
+  assert.equal(r.accessibleAtRetire, 100000);
+  assert.equal(r.accessibleAtPreservation, 40000);
+  // And one year of work with no growth adds exactly one year of savings, not more.
+  var w = runAt(60, { realReturn: 0, annualSavings: 50000, superContributions: 0,
+                      split: { accessible: 100000, superValue: 0 }, currentAge: 59 });
+  assert.equal(w.accessibleAtRetire, 150000);
+});
+
+test("simulateRetirementAt needs an age to work from, and says so rather than guessing", function(){
+  assert.equal(simulateRetirementAt(50, { currentAge: null }), null);
+  assert.equal(simulateRetirementAt(null, { currentAge: 40 }), null);
+});
+
+test("earliestWorkableRetirementAge finds the first age that clears both tests", function(){
+  var earliest = earliestWorkableRetirementAge(BRIDGE_BASE);
+  assert.ok(earliest >= BRIDGE_BASE.currentAge, "never earlier than today");
+  assert.equal(runAt(earliest).passes, true, "the age it returns actually passes");
+  if(earliest > BRIDGE_BASE.currentAge){
+    assert.equal(runAt(earliest - 1).passes, false, "and the year before it does not");
+  }
+});
+
+test("earliestWorkableRetirementAge returns null when no age works, rather than a reassuring one", function(){
+  // Spending more than comes in, forever.
+  var never = earliestWorkableRetirementAge(Object.assign({}, BRIDGE_BASE, {
+    annualSavings: 0, superContributions: 0, annualExpenses: 200000,
+    split: { accessible: 1000, superValue: 1000 }
+  }));
+  assert.equal(never, null);
+});

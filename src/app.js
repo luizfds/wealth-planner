@@ -2564,6 +2564,25 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     });
   });
 
+  // The FIRE panel's two age inputs. Delegated from #firePanel rather than bound by id, because
+  // renderDetail() replaces that panel's innerHTML on every dashboard refresh — a direct listener
+  // would be attached to a node that no longer exists by the second render.
+  //
+  // Written on "change" (not "input"): re-rendering the panel mid-keystroke would pull the field
+  // out from under the caret, and a half-typed "5" on the way to "52" would briefly report a plan
+  // that fails. Blurring or pressing Enter commits it.
+  document.getElementById("firePanel").addEventListener("change", function(e){
+    var isCurrent = e.target.id === "fireCurrentAge";
+    var isRetire = e.target.id === "fireRetireAge";
+    if(!isCurrent && !isRetire) return;
+    if(!state.fire) state.fire = {};
+    var raw = e.target.value === "" ? null : Number(e.target.value);
+    var value = raw == null || isNaN(raw) ? null : Math.max(16, Math.min(99, Math.round(raw)));
+    state.fire[isCurrent ? "currentAge" : "retireAge"] = value;
+    renderDetail();
+    persist();
+  });
+
   document.getElementById("checkUpdatesLink").addEventListener("click", runManualUpdateCheck);
 
   document.getElementById("assetsSubnav").addEventListener("click", function(e){

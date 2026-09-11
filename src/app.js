@@ -293,7 +293,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
           ]
         }];
       })() : [],
-      projection: { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0 },
+      projection: { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0, incomeGrowthRate: 3, realTerms: true },
       tax: { sgRate: 12, ipOwnership: {}, settings: {} }
     };
   }
@@ -451,6 +451,9 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       var reserveField = tr.querySelector(".f-reserveyear-field");
       if(reserveField) reserveField.hidden = !e.target.checked;
     }
+    // structural: the collapsed row carries an "Ends …" note derived from this, and on the budget
+    // pages an ended line is excluded from the projection — both need the row rebuilt, not patched.
+    else if(e.target.classList.contains("f-enddate")){ item.endDate = e.target.value || ""; structural = true; }
     else if(e.target.classList.contains("f-duemonth")) item.dueMonth = e.target.value ? Number(e.target.value) : null;
     else if(e.target.classList.contains("f-reserveyear")) item.reserveYear = e.target.value;
     else return;
@@ -815,6 +818,23 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   });
   document.getElementById("projInflationRate").addEventListener("input", function(e){
     state.projection.inflationRate = parseFloat(e.target.value) || 0;
+    // The basis note quotes this rate ("deflated by 3% a year"), so it goes stale otherwise.
+    syncProjBasisControl();
+    renderProjectionOutputs();
+    persist();
+  });
+  document.getElementById("projIncomeGrowth").addEventListener("input", function(e){
+    state.projection.incomeGrowthRate = parseFloat(e.target.value) || 0;
+    renderProjectionOutputs();
+    persist();
+  });
+  // Not an assumption but a unit — it doesn't change the plan, only which dollars it's reported
+  // in, so it re-renders the outputs without touching anything the model computes from.
+  document.getElementById("projBasis").addEventListener("click", function(e){
+    var btn = e.target.closest("[data-proj-basis]");
+    if(!btn) return;
+    state.projection.realTerms = btn.getAttribute("data-proj-basis") === "real";
+    syncProjBasisControl();
     renderProjectionOutputs();
     persist();
   });
@@ -843,7 +863,30 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   pairSlider("projInvestRate", "projInvestRateRange");
   pairSlider("projPropertyRate", "projPropertyRateRange");
   pairSlider("projInflationRate", "projInflationRateRange");
+  pairSlider("projIncomeGrowth", "projIncomeGrowthRange");
   pairSlider("projRateShock", "projRateShockRange");
+
+  // Both halves of the basis control in one place: the segmented button's pressed state, and the
+  // sentence next to it that says what the choice actually means. Called on load and on every
+  // change, rather than rebuilt inside renderProjectionOutputs(), because the control is static
+  // markup in index.html — only its state moves.
+  function syncProjBasisControl(){
+    var real = state.projection.realTerms !== false;
+    var group = document.getElementById("projBasis");
+    if(group){
+      group.querySelectorAll("[data-proj-basis]").forEach(function(btn){
+        var on = (btn.getAttribute("data-proj-basis") === "real") === real;
+        btn.classList.toggle("active", on);
+        btn.setAttribute("aria-pressed", String(on));
+      });
+    }
+    var note = document.getElementById("projBasisNote");
+    if(note){
+      note.textContent = real
+        ? "Every figure below is deflated by " + (Number(state.projection.inflationRate) || 0) + "% a year — what it would buy today."
+        : "Raw future dollars, not adjusted for inflation.";
+    }
+  }
 
 
   // ---------------- Tax & super ----------------
@@ -2689,8 +2732,11 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     document.getElementById("projPropertyRateRange").value = state.projection.propertyAppreciationRate;
     document.getElementById("projInflationRate").value = state.projection.inflationRate;
     document.getElementById("projInflationRateRange").value = state.projection.inflationRate;
+    document.getElementById("projIncomeGrowth").value = state.projection.incomeGrowthRate;
+    document.getElementById("projIncomeGrowthRange").value = state.projection.incomeGrowthRate;
     document.getElementById("projRateShock").value = state.projection.rateShockPct;
     document.getElementById("projRateShockRange").value = state.projection.rateShockPct;
+    syncProjBasisControl();
     recalcComputedItems();
     renderIncomeGroups();
     renderProperties();

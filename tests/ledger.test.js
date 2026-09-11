@@ -581,3 +581,51 @@ test("earliestWorkableRetirementAge returns null when no age works, rather than 
   }));
   assert.equal(never, null);
 });
+
+// ---------------- Rows that stop ----------------
+import { isActiveOn, isActiveInYear, sumFieldActiveInYear } from "../src/calc/ledger.js";
+
+test("isActiveOn: no end date means it runs forever, which is the default", function(){
+  assert.equal(isActiveOn({}, "2099-01-01"), true);
+  assert.equal(isActiveOn({ endDate: "" }, "2099-01-01"), true);
+  assert.equal(isActiveOn(null, "2099-01-01"), true);
+});
+
+test("isActiveOn: the end date is inclusive — the row is still running on its last day", function(){
+  var item = { endDate: "2027-06-30" };
+  assert.equal(isActiveOn(item, "2027-06-29"), true);
+  assert.equal(isActiveOn(item, "2027-06-30"), true, "its last day still counts");
+  assert.equal(isActiveOn(item, "2027-07-01"), false);
+});
+
+test("isActiveInYear steps whole years from today, so a row drops out on the right one", function(){
+  // Childcare finishing mid-2029, asked from Sep 2026: years 0-2 are still inside it, year 3 isn't.
+  var childcare = { endDate: "2029-06-30" };
+  assert.equal(isActiveInYear(childcare, 0, "2026-09-11"), true);
+  assert.equal(isActiveInYear(childcare, 2, "2026-09-11"), true);
+  assert.equal(isActiveInYear(childcare, 3, "2026-09-11"), false);
+  // Unset is always active, at any horizon.
+  assert.equal(isActiveInYear({}, 40, "2026-09-11"), true);
+});
+
+test("sumFieldActiveInYear drops rows that have ended, and keeps the rest", function(){
+  var items = [
+    { amount: 1000, freq: "Monthly" },                             // forever
+    { amount: 500, freq: "Monthly", endDate: "2028-01-01" },       // ends in ~1.3 years
+    { amount: 200, freq: "Monthly", endDate: "2026-01-01" }        // already over
+  ];
+  // Today: the two that haven't ended.
+  assert.equal(sumFieldActiveInYear(items, "monthly", 0, "2026-09-11"), 1500);
+  // Two years out: only the perpetual one.
+  assert.equal(sumFieldActiveInYear(items, "monthly", 2, "2026-09-11"), 1000);
+});
+
+test("sumFieldActiveInYear resolves each amount through the caller's own resolver", function(){
+  // The shared ledger needs scenario-resolved amounts; income does not. Same helper, so the
+  // resolver is passed in rather than baked in.
+  var items = [{ amount: 100, freq: "Monthly", scenarioOverrides: { Buy: 40 } }];
+  var resolver = function(item){ return resolveSharedAmount(item, "Buy"); };
+  // Tolerance, not equality: a Monthly amount round-trips through weekly inside periodsOf().
+  assert.ok(Math.abs(sumFieldActiveInYear(items, "monthly", 0, "2026-09-11", resolver) - 40) < 1e-9);
+  assert.ok(Math.abs(sumFieldActiveInYear(items, "monthly", 0, "2026-09-11") - 100) < 1e-9, "no resolver = raw amount");
+});

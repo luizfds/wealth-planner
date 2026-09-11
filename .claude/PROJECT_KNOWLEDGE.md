@@ -23,9 +23,20 @@ a polish pass (see "Modern-mode UI patterns" below) applied in the same order.
 `home{scenario: item[]}` (per-scenario recurring home costs — rent or "Rent / Home Loan" +
 insurance/rates/water/maintenance), `purchase{scenario: cfg}` (purchase calculator config per
 scenario), `assets[]` (category field distinguishes Cash/Shares/Super/Vehicle/Other), `properties[]`
-(each with `loans[]`, `income[]`, `expenses[]`), `projection`, `tax` (super
-guarantee rate, per-property IP ownership split, per-person settings), `fire` (current age,
+(each with `loans[]`, `income[]`, `expenses[]`, and — on an IP — `ownership{person: pct}`),
+`projection`, `tax` (super guarantee rate, per-person settings), `fire` (current age,
 target retirement age, preservation age — see `calc/fire.js`).
+
+`ownership` is per property as of v2.90.0. It used to be one `tax.ipOwnership{person: pct}`
+applied to the *whole* portfolio's result, which meant two investment properties owned differently
+were unrepresentable, and nothing anywhere checked that the percentages summed to 100 — two people
+could each enter 100% and the same negative-gearing loss was deducted twice, silently, on both tax
+cards. `migrateState()` copies the old global onto every IP once (guarded by `ipOwnershipPerProperty`)
+and then deletes `tax.ipOwnership`, so an upgraded save's tax figures don't move. An empty/absent
+`ownership` map still means "split evenly between everyone with a Gross income row" — see
+`propertyOwnershipPct()`. Nothing normalises the shares: `ipOwnershipMismatches()` reports a split
+that doesn't add to 100% and both the property card and the Income page's tax panel say so, because
+rescaling a number the user typed is worse than telling them it's wrong.
 
 `projection` is `{ horizonYears, investReturnRate, propertyAppreciationRate, inflationRate,
 rateShockPct, incomeGrowthRate, realTerms }`. The last two are v2.77.0: `incomeGrowthRate`

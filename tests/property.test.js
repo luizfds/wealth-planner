@@ -7,7 +7,8 @@ import {
   propertyIlliquidEquityToday, propertyEquityToday, propertyGearingAnnual,
   propertyCapitalGain, propertyYieldOnCost, propertyLVR, propertiesTotalValue,
   propertiesTotalMortgageBalance, propertiesNetCashFlowMonthly, propertiesWeightedGrossYield,
-  scenarioInflatableHomeItems, scenarioInflatableMonthly
+  scenarioInflatableHomeItems, scenarioInflatableMonthly,
+  propertyOwnershipPct, propertyOwnershipTotal, ipOwnershipMismatches, personIpResultAnnual
 } from "../src/calc/property.js";
 import { STAMP_DUTY_BRACKETS, FHB_RULES } from "../src/constants.js";
 import { state } from "../src/state.js";
@@ -273,7 +274,8 @@ test("scenarioInflatableHomeItems never hands back the live array", function(){
 
 import {
   capitalWorksAnnual, plantDepreciationAnnual, propertyDepreciationAnnual,
-  propertyTaxDeductibleResultAnnual, propertyCashResultAnnual, CAPITAL_WORKS_RATE
+  propertyTaxDeductibleResultAnnual, propertyCashResultAnnual, CAPITAL_WORKS_RATE,
+  ipNetResultAnnual
 } from "../src/calc/property.js";
 
 test("capital works is 2.5% of CONSTRUCTION cost, not the purchase price", function(){
@@ -336,4 +338,77 @@ test("a property with no depreciation entered behaves exactly as before", functi
   };
   assert.equal(propertyDepreciationAnnual(property, "2026-09-11"), 0);
   assert.equal(propertyTaxDeductibleResultAnnual(property), propertyCashResultAnnual(property));
+});
+
+// ---------------- Per-property ownership ----------------
+// The model this replaced was one percentage per person in state.tax.ipOwnership, multiplied by
+// the whole portfolio's result. These tests pin the two things it structurally could not do.
+
+function withProperties(props, body){
+  var saved = state.properties;
+  state.properties = props;
+  try { body(); } finally { state.properties = saved; }
+}
+function ipWithResult(ownership, rentWeekly){
+  return makeProperty({
+    kind: "IP", what: "IP", ownership: ownership || {},
+    income: [{ amount: rentWeekly == null ? 600 : rentWeekly, freq: "Weekly" }],
+    loans: []
+  });
+}
+
+test("an unset ownership map still means an even split, exactly as the old global default did", function(){
+  var p = ipWithResult(null);
+  assert.equal(propertyOwnershipPct(p, "Sam", ["Sam", "Alex"]), 50);
+  assert.equal(propertyOwnershipPct(p, "Alex", ["Sam", "Alex"]), 50);
+  assert.equal(propertyOwnershipTotal(p), null, "null, not 100 — 'not told' is not the same answer as 'told, and it adds up'");
+});
+
+test("a person absent from a set map owns none of that property", function(){
+  // The case the single global percentage could not express: one spouse's property.
+  var p = ipWithResult({ Sam: 100 });
+  assert.equal(propertyOwnershipPct(p, "Sam", ["Sam", "Alex"]), 100);
+  assert.equal(propertyOwnershipPct(p, "Alex", ["Sam", "Alex"]), 0);
+});
+
+test("two properties can be owned differently, and each person's share adds up across them", function(){
+  var solo = ipWithResult({ Sam: 100 }, 600);
+  var joint = ipWithResult({ Sam: 50, Alex: 50 }, 400);
+  withProperties([solo, joint], function(){
+    var people = ["Sam", "Alex"];
+    var soloResult = propertyTaxDeductibleResultAnnual(solo);
+    var jointResult = propertyTaxDeductibleResultAnnual(joint);
+    assert.ok(Math.abs(personIpResultAnnual("Sam", people) - (soloResult + jointResult * 0.5)) < 1e-9);
+    assert.ok(Math.abs(personIpResultAnnual("Alex", people) - (jointResult * 0.5)) < 1e-9);
+    // And the two shares still reconstruct the portfolio total, which is the invariant the old
+    // model broke the moment anyone touched a percentage.
+    assert.ok(Math.abs(personIpResultAnnual("Sam", people) + personIpResultAnnual("Alex", people) - ipNetResultAnnual()) < 1e-9);
+  });
+});
+
+test("shares that don't add to 100% are reported, not silently rescaled", function(){
+  // The old model's worst failure: both people at 100% deducted the same loss twice with no
+  // warning anywhere. The result here is still double-counted — that's the honest consequence of
+  // what was entered — but ipOwnershipMismatches() names the property so the UI can say so.
+  var p = ipWithResult({ Sam: 100, Alex: 100 });
+  withProperties([p], function(){
+    assert.equal(propertyOwnershipTotal(p), 200);
+    assert.deepEqual(ipOwnershipMismatches(), [p]);
+    var people = ["Sam", "Alex"];
+    assert.ok(Math.abs(personIpResultAnnual("Sam", people) + personIpResultAnnual("Alex", people) - ipNetResultAnnual() * 2) < 1e-9);
+  });
+});
+
+test("an even-split property is never flagged as a mismatch", function(){
+  withProperties([ipWithResult(null)], function(){
+    assert.deepEqual(ipOwnershipMismatches(), [], "'not told' is not the same as 'wrong'");
+  });
+});
+
+test("a PPOR never reaches the ownership split — it has no taxable result to share", function(){
+  var ppor = makeProperty({ kind: "PPOR", ownership: { Sam: 100, Alex: 100 } });
+  withProperties([ppor], function(){
+    assert.deepEqual(ipOwnershipMismatches(), []);
+    assert.equal(personIpResultAnnual("Sam", ["Sam", "Alex"]), 0);
+  });
 });

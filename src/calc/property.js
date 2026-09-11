@@ -211,6 +211,45 @@ export function ipDepreciationAnnual(){
     .reduce(function(sum, p){ return sum + propertyDepreciationAnnual(p); }, 0);
 }
 
+// One investment property's ownership split, resolved for `person`.
+//
+// An empty/absent map means "not told" and splits evenly across `people` — the same default the
+// retired global state.tax.ipOwnership had, so an unconfigured save behaves exactly as before.
+// Once any share is set the map is authoritative: a person missing from it owns none of this
+// property, which is the whole point of moving the split here (one spouse's property, jointly
+// held second one). Nothing normalises the shares to 100% — see propertyOwnershipTotal(): a split
+// that doesn't add up is a data problem the card should show, not one to paper over by rescaling
+// numbers the user typed.
+export function propertyOwnershipPct(p, person, people){
+  var map = p && p.ownership;
+  if(map && Object.keys(map).length) return Number(map[person]) || 0;
+  var n = (people || []).length;
+  return n ? 100 / n : 0;
+}
+// Sum of the explicitly-set shares, or null when this property is on the even-split default.
+// null and 100 are different answers: one means "not told", the other "told, and it adds up".
+export function propertyOwnershipTotal(p){
+  var map = p && p.ownership;
+  if(!map || !Object.keys(map).length) return null;
+  return Object.keys(map).reduce(function(sum, k){ return sum + (Number(map[k]) || 0); }, 0);
+}
+// Every investment property whose split doesn't add to 100% — what the UI warns on, and the only
+// place the old model's silent double-counting could have hidden.
+export function ipOwnershipMismatches(){
+  return ipProperties().filter(function(p){
+    var total = propertyOwnershipTotal(p);
+    return total != null && Math.abs(total - 100) > 0.01;
+  });
+}
+// This person's share of the whole portfolio's taxable result, property by property. Replaces
+// `ipNetResultAnnual() * (onePercentage / 100)`, which could only ever apply one split to
+// everything.
+export function personIpResultAnnual(person, people){
+  return ipProperties().reduce(function(sum, p){
+    return sum + propertyTaxDeductibleResultAnnual(p) * (propertyOwnershipPct(p, person, people) / 100);
+  }, 0);
+}
+
 export function ipNetResultAnnual(){
   return state.properties.filter(function(p){ return p.kind === "IP"; })
     .reduce(function(sum, p){ return sum + propertyTaxDeductibleResultAnnual(p); }, 0);

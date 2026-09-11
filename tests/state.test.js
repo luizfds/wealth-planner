@@ -98,10 +98,10 @@ test("migrateState defaults a property's sectionsCollapsed to acquisition/loans/
     purchase: {},
     properties: [{ id: "p1", what: "1 Test St" }]
   });
-  assert.deepEqual(s.properties[0].sectionsCollapsed, { acquisition: true, loans: true, income: true, expenses: true });
+  assert.deepEqual(s.properties[0].sectionsCollapsed, { acquisition: true, ownership: true, loans: true, income: true, expenses: true });
 });
 
-test("migrateState leaves an already-set sectionsCollapsed alone (doesn't overwrite a user's own toggles)", function(){
+test("migrateState leaves an already-set sectionsCollapsed's own keys alone, but backfills a newly-added section", function(){
   var s = migrateState({
     activeScenario: "Current situation",
     scenarios: ["Current situation"],
@@ -109,7 +109,10 @@ test("migrateState leaves an already-set sectionsCollapsed alone (doesn't overwr
     purchase: {},
     properties: [{ id: "p1", what: "1 Test St", sectionsCollapsed: { acquisition: false, loans: true, income: false, expenses: true } }]
   });
-  assert.deepEqual(s.properties[0].sectionsCollapsed, { acquisition: false, loans: true, income: false, expenses: true });
+  // Every key the user had set is untouched. `ownership` is the one section that didn't exist
+  // when this save was written, and it backfills collapsed for the same reason the whole default
+  // is collapsed: a card shouldn't get taller on its own across an upgrade.
+  assert.deepEqual(s.properties[0].sectionsCollapsed, { acquisition: false, ownership: true, loans: true, income: false, expenses: true });
 });
 
 test("migrateState backfills irregular:false/dueMonth:null onto every ledger array's items", function(){

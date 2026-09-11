@@ -1,7 +1,7 @@
 import { state } from "../state.js";
 import { AU_TAX_BRACKETS, MAX_SUPER_BASE, HELP_REPAYMENT_RATES, MLS_TIERS, MLS_FAMILY_MULTIPLIER } from "../constants.js";
 import { periodsOf, resolveSharedAmount, householdYearWindow, isActiveOn } from "./ledger.js";
-import { ipNetResultAnnual } from "./property.js";
+import { ipNetResultAnnual, personIpResultAnnual } from "./property.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
 
 export function incomeTaxAU(taxable){
@@ -266,11 +266,8 @@ function personSurchargeIncome(person, opts){
   var inc = personIncomeBreakdown(person, opts);
   var settings = personTaxSettings(person);
   var people = getTaxPeople();
-  var ownershipPct = (state.tax.ipOwnership && state.tax.ipOwnership[person] != null)
-    ? Number(state.tax.ipOwnership[person])
-    : (people.length ? 100 / people.length : 0);
   var sacrifice = Math.max(0, Number(settings.superSacrificeAnnual) || 0) + (inc.autoSacrifice || 0);
-  var taxable = Math.max(0, inc.baseGross - sacrifice + ipNetResultAnnual() * (ownershipPct / 100));
+  var taxable = Math.max(0, inc.baseGross - sacrifice + personIpResultAnnual(person, people));
   return Math.max(0, taxable + sacrifice);
 }
 // Combined surcharge income across everyone with a Gross row.
@@ -530,10 +527,12 @@ export function computePersonTax(person, opts){
   var gross = inc.baseGross;
   var settings = personTaxSettings(person);
   var people = getTaxPeople();
-  var ownershipPct = (state.tax.ipOwnership && state.tax.ipOwnership[person] != null)
-    ? Number(state.tax.ipOwnership[person])
-    : (people.length ? 100 / people.length : 0);
-  var ipShare = ipNetResultAnnual() * (ownershipPct / 100);
+  // Per property now, not one global percentage times the whole portfolio — see
+  // personIpResultAnnual(). ownershipPct survives only as a display figure: the blended share of
+  // the portfolio's result this person ends up carrying, which is what the card's note reports.
+  var ipShare = personIpResultAnnual(person, people);
+  var ipTotal = ipNetResultAnnual();
+  var ownershipPct = ipTotal !== 0 ? (ipShare / ipTotal) * 100 : (people.length ? 100 / people.length : 0);
   var manualSacrifice = Math.max(0, Number(settings.superSacrificeAnnual) || 0);
   var autoSacrifice = inc.autoSacrifice || 0;
   var sacrifice = manualSacrifice + autoSacrifice;

@@ -1,7 +1,7 @@
 import { state } from "../state.js";
 import { FREQS, INCOME_TYPES, SUPER_MODES, SACRIFICE_MODES, MAX_SUPER_BASE, MONTH_NAMES, sacrificeModeToLabel, sacrificeLabelToMode } from "../constants.js";
 import { periodsOf, sumField, nextPayDate, payScheduleKindFor, daysUntil, WEEKDAY_NAMES, householdYearWindow } from "../calc/ledger.js";
-import { ipNetResultAnnual, ipDepreciationAnnual } from "../calc/property.js";
+import { ipNetResultAnnual, ipDepreciationAnnual, ipOwnershipMismatches, propertyOwnershipTotal } from "../calc/property.js";
 import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax } from "../calc/tax.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
@@ -485,6 +485,22 @@ function patchTaxWaterfall(panel, r){
     if(row) row.hidden = seg.key !== "nettakehome" && !(values[seg.key] > 0);
   });
 }
+// The shares on one property adding to 97% or 140% is not a rounding artifact — it means the
+// portfolio result reaching these cards is under- or over-claimed by that much, which is precisely
+// the failure the old single global percentage could never even surface (two people could each
+// enter 100% and the same loss was deducted twice, in silence). Nothing rescales: the fix belongs
+// on the property, and this says which one.
+function ipOwnershipWarningHtml(){
+  var bad = ipOwnershipMismatches();
+  if(!bad.length) return "";
+  return '<p class="tax-cap-note warn" style="margin:0 0 12px">Ownership doesn\'t add up to 100% on ' +
+    bad.map(function(p){
+      return '<b>' + escapeAttr(p.what || "an unnamed property") + '</b> (' + Math.round(propertyOwnershipTotal(p)) + '%)';
+    }).join(", ") +
+    ' — so the result below is ' + (propertyOwnershipTotal(bad[0]) > 100 ? "over" : "under") +
+    '-claimed against it. Fix it in that card\'s Ownership section on the Properties tab.</p>';
+}
+
 // Ownership/sacrifice sits tucked behind a disclosure instead of always-open, so the net
 // take-home number stays the headline — reuses computePersonTax, renderTaxWaterfallHtml, and
 // the existing taxSuperBody click/input handlers below verbatim; patchAllTaxPersonOutputs
@@ -513,10 +529,10 @@ export function renderTaxSuper(){
   // Depreciation is named separately because it's the part of the result that isn't cash — leaving
   // it folded into one figure is how people conclude a property "costs" more or less than it does.
   var ipDepreciation = ipDepreciationAnnual();
-  html += '<p class="ledger-note" style="margin:0 0 12px">Investment property result this year: <b style="font-family:\'IBM Plex Mono\',monospace">' + fmtCurrency0.format(ipResult) + '</b> (' + (ipResult < 0 ? "a loss — negatively geared, reduces taxable income" : "net rental profit — adds to taxable income") + '), split below by ownership share.' +
+  html += '<p class="ledger-note" style="margin:0 0 12px">Investment property result this year: <b style="font-family:\'IBM Plex Mono\',monospace">' + fmtCurrency0.format(ipResult) + '</b> (' + (ipResult < 0 ? "a loss — negatively geared, reduces taxable income" : "net rental profit — adds to taxable income") + '), split below by ownership share — set per property, on each card\'s <b>Ownership</b> section on the Properties tab.' +
     (ipDepreciation > 0
       ? ' Includes <b>' + fmtCurrency0.format(ipDepreciation) + '</b> of depreciation — a deduction that never leaves your bank account, so the cash result is that much better than the taxable one.'
-      : '') + '</p>';
+      : '') + '</p>' + ipOwnershipWarningHtml();
 
   html += people.map(function(person, pi){
     var r = computePersonTax(person);
@@ -574,10 +590,9 @@ function taxPersonFrontBodyHtml(person, r){
     '<div class="tax-cap-note tax-deduct-note"' + (r.deductions > 0 ? '' : ' hidden') + ' title="Taken from budget lines flagged as work-related on the Expenses page. They reduce taxable income, which also reduces the Medicare levy and can move you under a surcharge tier — but not your HELP repayment, which is worked out on gross income.">' + deductionsNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-mls-note' + (r.medicareSurcharge > 0 ? " warn" : "") + '"' + (r.mlsIfUncovered > 0 ? '' : ' hidden') + ' title="Income for surcharge purposes is approximated as taxable income + your reportable super contributions, ignoring reportable fringe benefits and net investment losses — the same simplification Division 293 uses here.">' + mlsNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-help-note"' + (r.helpBalance > 0 ? '' : ' hidden') + ' title="Compulsory repayment, worked out as a flat percentage of your repayment income — which adds back salary sacrifice and any rental loss, so neither of those reduces it.">' + helpNoteText(r) + '</div>' +
-    '<details class="tax-advanced" style="margin-top:12px"><summary>Adjust ownership &amp; sacrifice</summary>' +
+    '<details class="tax-advanced" style="margin-top:12px"><summary>Adjust HELP &amp; sacrifice</summary>' +
       '<div class="tax-inputs-panel" style="margin-top:8px">' +
         '<div class="tax-inputs">' +
-          '<div class="proj-field"><label>IP ownership %</label><input type="number" min="0" max="100" step="1" class="tax-ipshare" value="' + r.ownershipPct + '"></div>' +
           '<div class="proj-field"><label title="What you still owe on HELP/HECS (or any other study loan with the same repayment schedule). Leave at 0 if you have none. The compulsory repayment is worked out from this and withheld from take-home.">HELP/HECS owing $</label><input type="number" min="0" step="500" class="tax-help" value="' + settings.helpBalance + '"></div>' +
           '<div class="proj-field"><label title="Separate from the Cash / Sacrifice column on income rows above — use this for sacrifice not tied to a specific item">Manual sacrifice $/yr</label><input type="number" min="0" step="500" class="tax-sacrifice" value="' + settings.superSacrificeAnnual + '"><button type="button" class="calc-hint-link" style="margin-top:4px" data-tax-maxcap="' + pid + '" title="Fills your remaining concessional cap headroom this year with manual sacrifice (SG and any auto/bonus sacrifice already counted): sets manual sacrifice to ' + fmtCurrency0.format(Math.max(0, r.capAvailable - r.sg - r.autoSacrifice)) + '">Max out cap</button></div>' +
         '</div>' +

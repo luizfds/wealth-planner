@@ -3,8 +3,10 @@ import {
   propertyEquityToday, propertyGearingAnnual, propertyLoanRepaymentMonthly, loanRepaymentDisplay,
   capitalWorksAnnual, plantDepreciationAnnual,
   propertyCapitalGain, propertyYieldOnCost, propertyLVR, propertiesTotalValue, propertiesTotalEquityToday,
-  propertiesTotalMortgageBalance, propertiesNetCashFlowMonthly, propertiesWeightedGrossYield
+  propertiesTotalMortgageBalance, propertiesNetCashFlowMonthly, propertiesWeightedGrossYield,
+  propertyOwnershipPct, propertyOwnershipTotal, propertyTaxDeductibleResultAnnual
 } from "../calc/property.js";
+import { getTaxPeople } from "../calc/tax.js";
 import { sumField } from "../calc/ledger.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
@@ -25,7 +27,7 @@ var PAYMENT_FREQ_SUFFIX = { Weekly: "/wk", Fortnightly: "/fn", Monthly: "/mo" };
 
 // Which of a property's five sections (value/acquisition/loans/income/expenses) collapse-all/
 // expand-all should toggle — order here is also the display order, matching propertyCardHtml.
-export var PROPERTY_SECTION_KEYS = ["value", "acquisition", "loans", "income", "expenses"];
+export var PROPERTY_SECTION_KEYS = ["value", "acquisition", "ownership", "depreciation", "loans", "income", "expenses"];
 // Wraps one section's already-built head/body HTML with the collapse toggle chrome — shared by
 // every .property-section below (Property value, Acquisition costs, Loans, Income, Expenses) so
 // they all get identical collapse behavior and a consistent title treatment, rather than five
@@ -165,6 +167,49 @@ function depreciationSectionHtml(p){
     '</p>');
 }
 
+// Who owns this property, and therefore who carries its taxable result. This used to be a single
+// "IP ownership %" field per person on the Income page, applied to the whole portfolio at once:
+// two properties owned differently were unrepresentable, and nothing ever checked the shares added
+// to 100 — both spouses at 100% silently deducted the same negative-gearing loss twice. The split
+// belongs to the property, so it lives on the property.
+//
+// One row per person with a Gross income row. No one else can appear here: the share only matters
+// because it moves a taxable income, and someone with no taxable income to move has nothing to
+// carry. Empty (nobody has set a share) means an even split — the same default as before — and the
+// note says so rather than pre-filling numbers the user never chose.
+function ownershipSectionHtml(p){
+  var people = getTaxPeople();
+  var total = propertyOwnershipTotal(p);
+  var isDefault = total == null;
+  var offBy = !isDefault && Math.abs(total - 100) > 0.01;
+  var result = propertyTaxDeductibleResultAnnual(p);
+  if(!people.length){
+    return propertySectionHtml(p, "ownership",
+      '<div class="property-section-title">Ownership</div>',
+      '<p class="ledger-note" style="margin-left:0">Mark an Income row\'s Type as "Gross" and give it a Person on the Income tab, and they\'ll show up here to take a share of this property\'s result.</p>');
+  }
+  var rows = people.map(function(person){
+    var pct = propertyOwnershipPct(p, person, people);
+    return '<div class="calc-field"><label>' + escapeAttr(person) + ' %</label>' +
+      '<input type="number" min="0" max="100" step="1" class="prop-ownership" data-ownership-person="' + escapeAttr(person) + '" value="' + (Math.round(pct * 100) / 100) + '"></div>';
+  }).join("");
+  return propertySectionHtml(p, "ownership",
+    '<div class="property-section-title">Ownership</div>' +
+      '<div class="property-section-total' + (offBy ? " is-warn" : "") + '">' + (isDefault ? "Even split" : Math.round(total) + "%") + '</div>',
+    '<p class="ledger-note" style="margin-left:0">What share of this property\'s ' +
+      (result < 0 ? "loss" : "result") + ' (' + fmtCurrency0.format(result) + '/yr) each person carries on their tax return. ' +
+      (isDefault
+        ? 'Not set, so it\'s split evenly between everyone with a Gross income row. Change a number to make it explicit.'
+        : 'These must add to 100% — the app won\'t rescale them for you, because the number you typed is more likely right than a number it invented.') +
+    '</p>' +
+    '<div class="calc-grid">' + rows + '</div>' +
+    (offBy
+      ? '<p class="tax-cap-note warn" style="margin:10px 0 0">These add to ' + Math.round(total) + '%, not 100% — ' +
+        fmtCurrency0.format(Math.abs(result * (total - 100) / 100)) + '/yr of this property\'s result is being ' +
+        (total > 100 ? "claimed twice" : "claimed by nobody") + ' on the Income tab.</p>'
+      : '') );
+}
+
 function acquisitionCostsSectionHtml(p){
   var rowMeta = acquisitionCostRowMeta(p);
   var total = rowMeta.reduce(function(s, m){ return s + (Number(m.cost.amount) || 0); }, 0);
@@ -297,6 +342,7 @@ function propertyCardHtml(p, colorIdx){
       '</div>' +
       '<div class="prop-value-log"><button type="button" class="asset-log-btn" data-property-log="' + escapeAttr(p.id) + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart">Log</button>' + historyTrendHtml(p) + '</div>') +
     acquisitionCostsSectionHtml(p) +
+    (p.kind === "IP" ? ownershipSectionHtml(p) : "") +
     (p.kind === "IP" ? depreciationSectionHtml(p) : "") +
     propertySectionHtml(p, "loans",
       '<div class="property-section-title">Loans</div>',

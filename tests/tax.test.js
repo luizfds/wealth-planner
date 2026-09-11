@@ -52,7 +52,7 @@ import {
 function withIncome(rows, body){
   var savedIncome = state.income, savedTax = state.tax, savedProps = state.properties;
   state.income = rows;
-  state.tax = { sgRate: 12, ipOwnership: {}, settings: {} };
+  state.tax = { sgRate: 12, settings: {} };
   state.properties = [];
   try { body(); }
   finally { state.income = savedIncome; state.tax = savedTax; state.properties = savedProps; }
@@ -328,7 +328,6 @@ test("family thresholds set the tier from COMBINED income, then charge each pers
   withIncome([grossRow("Sam", 150000), grossRow("Alex", 150000)], function(){
     state.tax.privateHospitalCover = false;
     state.tax.familyThresholds = true;
-    state.tax.ipOwnership = {};
     var sam = computePersonTax("Sam");
     assert.equal(sam.tierIncome, 300000, "the tier is set by the household");
     assert.equal(sam.surchargeIncome, 150000, "but the charge is on this person's own income");

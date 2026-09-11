@@ -68,6 +68,34 @@ consequences worth knowing before touching any of this:
   monthly total use the full set. A computed line is real money but nobody logs a direct debit,
   so it would otherwise read "$0 of $3,510" forever.
 
+### The household year (v2.80.0)
+
+`state.yearBasis` — `"financial"` (Jul–Jun, the default) or `"calendar"` — is the household's
+answer to "what's a year". Read it through `householdYearBasis()` in `calc/ledger.js`, never
+directly; `householdYearWindow()`, `householdYearToDate()` and `householdYearProgress()` are built
+on it, and `reserveYearWindowFor()` falls back to it when a line has no basis of its own.
+
+- **`"rolling12"` is a per-line basis only.** It's a way of budgeting one lumpy line (travel,
+  maintenance), not a year the ATO or anyone else recognises, so `HOUSEHOLD_YEAR_BASES` is just the
+  two real calendars.
+- **`item.reserveYear === ""` means "follow the household"**, and is the default for new and
+  migrated lines. Before v2.80.0 the fallback was a hard `"calendar"` — wrong for an Australian app
+  and invisible on the row. A line the user set *explicitly* is never overwritten.
+- **`householdYearWindow` relabels the calendar basis** to the year number (`"2026"`), because
+  `reserveYearWindow`'s `"this year"` only reads correctly in the one sentence it was written for
+  (a row's "$X actual / $Y planned this year"). As a household year the label lands in "$4,953
+  logged in ___" and in export filenames.
+- **Year views are year-to-*date*.** `householdYearToDate()` cuts off at today and its
+  `displayLabel` says "so far"; `householdYearProgress()` says how much of the year a figure
+  covers. Same discipline as the spending-trends panel: never scale a part-finished period up.
+- **Changing the preference reaches further than any other setting in this app** — the year panel,
+  every reserve line without its own basis (so the Actual-vs-planned panel and the budget rows'
+  progress), the shares YTD/FYTD timeframe, and the tax estimate's heading. The handler in `app.js`
+  re-renders all of them.
+
+`calc/ledger.js` imports `state.js` for this. Leaf-ward, not a cycle — `state.js` imports only
+`constants.js` and `lib/toast.js`.
+
 ### Per-scenario amounts: which arrays, and what the active scenario re-renders (v2.79.0)
 
 Two arrays hold rows that can carry a `scenarioOverrides` map — **`state.shared` and
@@ -987,7 +1015,7 @@ panel no longer counts super and the family home toward a number you can't draw 
 projection now reports in today's dollars, grows income, lets rows end, and charges a renting
 scenario its rent. What's left is **capability**: no spending view compares you against your own
 past (**done**, v2.78.0); scenarios can't vary income (**done**, v2.79.0); then financial-year
-support, then tax (HECS first).
+support (**done**, v2.80.0), then tax (HECS first) — the last item on the roadmap.
 
 (The service-worker registration bug found while building item 3 was fixed in v2.78.1 — see
 "Reaching a file next to index.html" above.)

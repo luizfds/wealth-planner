@@ -288,15 +288,59 @@ $14,520 while the scenario on screen used half that.
 
 ---
 
-## 5. `[~]` Financial year as a first-class period
+## 5. `[x]` Financial year as a first-class period — shipped v2.80.0
 
-A tax return is a **financial-year** document. The app gained the concept only in v2.72.0, on
-reserve budgets, one line at a time (`reserveYearWindow` in `calc/ledger.js` already knows Jul–Jun
-and labels it `FY26/27`).
+A tax return is a **financial-year** document. The app gained the concept in v2.72.0 but only on
+reserve budgets, one line at a time — so the *household* had no year: every spending view was "this
+month" or "this cycle", the shares YTD timeframe was hardcoded to 1 January, and nothing could
+answer "what did we spend this financial year".
 
-Promote it: a household-level preference, honoured by the spending views, the CSV exports and the
-tax panel. **Do this before item 6, not during** — it's what makes the tax work cheap instead of
-repetitive.
+**What shipped.** `state.yearBasis` — `"financial"` (default) or `"calendar"` — under a new
+**Accounts → Preferences** tab, plus `householdYearBasis()` / `householdYearWindow()` /
+`householdYearToDate()` / `householdYearProgress()` in `calc/ledger.js`.
+
+`"rolling12"` is deliberately **not** offered at household level even though `reserveYearWindow`
+supports it per line: a rolling window is a way of budgeting one lumpy line, not a year anyone else
+recognises, and "what did we spend last year" has to mean something you could put in front of an
+accountant.
+
+### What follows it
+
+| Surface | Before | Now |
+|---|---|---|
+| Spending tab | "this month" / statement cycle only | **"This year so far"** panel — total + category breakdown with shares |
+| Exports | config snapshots only | `exportYearTransactionsCsv()` — dated, categorised, period in the filename |
+| Reserve lines | unset fell back to a hard `calendar` | unset means **follow my year** |
+| Shares timeframe | `YTD` hardcoded to 1 Jan | `FYTD` on the financial basis, measured from the day before the year opened |
+| Tax & super | no period named | heading names the year being estimated |
+
+**The year panel is year-to-*date*, never the whole year.** On 11 September an FY is 20% done, and
+a figure that silently covers ten weeks while reading like a year is the same failure the spending
+trends panel exists to avoid. Nothing is scaled up to a full year, and the panel says how far
+through it you are.
+
+**The transactions export is the first period document in this app.** Every other CSV answers "what
+does my budget look like"; this answers "what did I spend between these two dates". The category is
+resolved through the linked budget line — most transactions carry none of their own, so a raw
+`t.category` column would be empty on exactly the rows it matters for.
+
+### Two decisions worth not re-litigating
+
+- **`householdYearWindow` relabels the calendar basis** from `"this year"` to the year number.
+  `"this year"` reads correctly in the sentence `reserveYearWindow` was written for (a row's "$X
+  actual / $Y planned this year") but as a household year it lands in "$4,953 logged in ___" and in
+  an export filename. The per-line label is untouched.
+- **A reserve line's explicit basis is never overwritten.** Migration blanks only lines stamped with
+  the old *implicit* `calendar` default, so a deliberate choice survives a household change.
+
+**Measured on the reference backup:** FY26/27 so far is $4,244 across 47 transactions (20% through);
+the same data on a calendar basis is $4,953 across 50.
+
+One bug caught by a test written first: `householdYearProgress` guarded with `nowMs <= startMs`, so
+1 July — day one of 365 — reported 0% through the year for the whole of its first day.
+
+`calc/ledger.js` now imports `state.js`. Leaf-ward, not a cycle: `state.js` imports only
+`constants.js` and `lib/toast.js`.
 
 ---
 

@@ -361,6 +361,34 @@ they affect:
 
 ---
 
+## 7. `[~]` Bank CSV import — make logging cheap
+
+**Problem.** Every figure on the Spending tab, and every claim the trends panel is allowed to make,
+depends on transactions having been logged by hand, one at a time. Item 3 shipped with a
+three-month coverage gate precisely because that's a burden most people don't sustain — the panel
+refuses to compare months it can see were only partly logged, which is honest but leaves the whole
+feature dark for a new user's first quarter.
+
+The bank already has the data. Importing one statement replaces three months of tapping.
+
+**What to build.** Three increments, one PR:
+
+- **a. A parser that survives real bank exports** (`calc/bank-import.js`). No two Australian banks
+  agree on a shape: some have no header row, some split Debit/Credit into two columns, some put
+  spending as a negative Amount. Dates are `DD/MM/YYYY` here and `03/04/2026` is 3 April — getting
+  that backwards silently moves a third of a year's spending into the wrong months. Duplicate
+  detection matters as much as parsing: re-importing an overlapping date range must not
+  double-count.
+- **b. Rules that learn** (`state.importRules[]`). "WOOLWORTHS 1234 SYDNEY NS" should become
+  Groceries once, not every month. The payoff isn't the first import, it's the second.
+- **c. The review-and-confirm UI**, mobile-first, on the Spending tab — and the trends empty state
+  pointing at it, since importing a year of history is now the fastest way past the coverage gate.
+
+**How to verify.** Drive it with real bank-shaped files, not hand-written ideal ones: a headerless
+CommBank-style export, a Debit/Credit-split export, and the same file imported twice.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

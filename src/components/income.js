@@ -412,29 +412,60 @@ export function patchIncomeSuperNotes(){
   });
 }
 
+// The bar answers one question — everything that came in, and where it went — so the segments have
+// to be exhaustive or the answer is a lie. They were not: the Medicare levy surcharge (v2.82.0) and
+// the HELP repayment (v2.81.0) both came out of take-home and neither was ever added here, so the
+// bar and its legend left $23,198 of a $202,465 salary unaccounted for on the reference data. The
+// most-read figure on the page, quietly wrong for five versions.
+//
+// taxWaterfallTotal() states what the segments add up to, and a unit test pins the identity. If you
+// add another deduction to computePersonTax, it belongs here too.
 var TAX_WATERFALL_SEGMENTS = [
   { key: "nettakehome", label: "Net take-home", colorClass: "series-color-0" },
   { key: "incometax", label: "Income tax", colorClass: "series-color-1" },
   { key: "medicare", label: "Medicare levy", colorClass: "series-color-2" },
+  { key: "surcharge", label: "Medicare levy surcharge", colorClass: "series-color-4" },
+  { key: "help", label: "HELP/HECS repayment", colorClass: "series-color-5" },
   { key: "sacrifice", label: "To super (sacrifice)", colorClass: "series-color-3" }
 ];
-function taxWaterfallValues(r){
-  return { nettakehome: Math.max(0, r.netTakeHome), incometax: Math.max(0, r.incomeTax), medicare: Math.max(0, r.medicare), sacrifice: Math.max(0, r.sacrifice) };
+export function taxWaterfallValues(r){
+  return {
+    nettakehome: Math.max(0, r.netTakeHome),
+    incometax: Math.max(0, r.incomeTax),
+    medicare: Math.max(0, r.medicare),
+    surcharge: Math.max(0, r.medicareSurcharge || 0),
+    help: Math.max(0, r.helpRepayment || 0),
+    sacrifice: Math.max(0, r.sacrifice)
+  };
+}
+// What the segments sum to: the salary package plus any dividend money, since net take-home
+// carries the dividend cash and the franking credit is settled through the tax bill. Stated rather
+// than implied, because "where did it go" is only meaningful against a named total.
+export function taxWaterfallTotal(r){
+  return Math.max(0, r.gross) + Math.max(0, r.dividendCash || 0) + Math.max(0, r.frankingCredit || 0);
+}
+function waterfallWhole(values){
+  return TAX_WATERFALL_SEGMENTS.reduce(function(sum, seg){ return sum + values[seg.key]; }, 0);
 }
 function renderTaxWaterfallHtml(r){
   var values = taxWaterfallValues(r);
-  var whole = values.nettakehome + values.incometax + values.medicare + values.sacrifice;
+  var whole = waterfallWhole(values);
   var bar = TAX_WATERFALL_SEGMENTS.filter(function(seg){ return values[seg.key] > 0; }).map(function(seg){
     return '<div class="tax-waterfall-seg ' + seg.colorClass + '" data-seg-bar="' + seg.key + '" style="flex:' + values[seg.key] + ' 1 0%" title="' + escapeAttr(seg.label) + ': ' + fmtCurrency0.format(values[seg.key]) + ' (' + fmtPercent1.format(whole > 0 ? values[seg.key] / whole : 0) + ')"></div>';
   }).join("");
+  // Zero rows are hidden, not omitted: six segments means most people would otherwise read two or
+  // three "$0" lines, but patchAllTaxPersonOutputs writes by data-seg-val and needs the element to
+  // still be there when a figure appears. Net take-home always shows, even at $0 — that's the
+  // headline, and a missing headline reads as a broken card.
   var legend = TAX_WATERFALL_SEGMENTS.map(function(seg){
-    return '<div class="tax-waterfall-item"><span class="proj-swatch ' + seg.colorClass + '"></span><div class="tax-waterfall-item-text"><span class="tax-waterfall-item-label">' + seg.label + '</span><span class="tax-waterfall-item-value" data-seg-val="' + seg.key + '">' + fmtCurrency0.format(values[seg.key]) + '</span></div></div>';
+    var empty = seg.key !== "nettakehome" && !(values[seg.key] > 0);
+    return '<div class="tax-waterfall-item" data-seg-row="' + seg.key + '"' + (empty ? " hidden" : "") + '><span class="proj-swatch ' + seg.colorClass + '"></span><div class="tax-waterfall-item-text"><span class="tax-waterfall-item-label">' + seg.label + '</span><span class="tax-waterfall-item-value" data-seg-val="' + seg.key + '">' + fmtCurrency0.format(values[seg.key]) + '</span></div></div>';
   }).join("");
   return '<div class="tax-waterfall-bar" data-waterfall-bar>' + bar + '</div><div class="tax-waterfall-legend">' + legend + '</div>';
 }
 function patchTaxWaterfall(panel, r){
   var values = taxWaterfallValues(r);
-  var whole = values.nettakehome + values.incometax + values.medicare + values.sacrifice;
+  var whole = waterfallWhole(values);
   var barWrap = panel.querySelector("[data-waterfall-bar]");
   if(barWrap) barWrap.innerHTML = TAX_WATERFALL_SEGMENTS.filter(function(seg){ return values[seg.key] > 0; }).map(function(seg){
     return '<div class="tax-waterfall-seg ' + seg.colorClass + '" data-seg-bar="' + seg.key + '" style="flex:' + values[seg.key] + ' 1 0%" title="' + escapeAttr(seg.label) + ': ' + fmtCurrency0.format(values[seg.key]) + ' (' + fmtPercent1.format(whole > 0 ? values[seg.key] / whole : 0) + ')"></div>';
@@ -442,6 +473,8 @@ function patchTaxWaterfall(panel, r){
   TAX_WATERFALL_SEGMENTS.forEach(function(seg){
     var el = panel.querySelector('[data-seg-val="' + seg.key + '"]');
     if(el) el.textContent = fmtCurrency0.format(values[seg.key]);
+    var row = panel.querySelector('[data-seg-row="' + seg.key + '"]');
+    if(row) row.hidden = seg.key !== "nettakehome" && !(values[seg.key] > 0);
   });
 }
 // Ownership/sacrifice sits tucked behind a disclosure instead of always-open, so the net

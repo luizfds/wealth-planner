@@ -9,7 +9,7 @@ import { initTableScrollShadows } from "./lib/scroll-shadow.js";
 import { setDeductionPeopleProvider } from "./lib/ledger-table.js";
 import {
   decryptBackup, doExport, doShare, canShareFiles, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv, exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard, exportYearTransactionsCsv,
-  exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv, exportAssetsImportTemplateCsv
+  exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv, exportAssetsImportTemplateCsv, parseCsv
 } from "./lib/backup.js";
 import { periodsOf, sumField, sumFieldForScenario, resolveSharedAmount, appendHistorySnapshot, transactionDisplayName } from "./calc/ledger.js";
 import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider, saleCapitalGain } from "./calc/tax.js";
@@ -34,7 +34,8 @@ import {
   renderCategories, addCategory, deleteCategory, renameCategoryEverywhere,
   setBudgetGroupBy, renderBudgetGroupByToggle, budgetLineItems,
   renderYearSpending, renderYearBasisPreference, setYearBasis, transactionCategory,
-  parseExpensesImportCsv, renderExpensesImportPreview, clearExpensesImportPreview, commitExpensesImport
+  parseExpensesImportCsv, renderExpensesImportPreview, clearExpensesImportPreview, commitExpensesImport,
+  renderSpendCategoryChart, renderSpendingTrends
 } from "./components/expenses.js";
 import {
   patchHoldingRow, patchVehicleRow, modernAssetRowOpen, patchAssetCategoryTotals,
@@ -55,6 +56,11 @@ import {
 } from "./components/scenarios.js";
 import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
 import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./components/search.js";
+import {
+  startBankImport, reparseBankImportWith, setBankImportRawRows, clearBankImport,
+  setBankImportGroupLine, setBankImportGroupCategory, renderBankImportPanel, patchBankImportPanel,
+  commitBankImport, undoBankImport
+} from "./components/bank-import.js";
 
 (function(){
   "use strict";
@@ -2526,6 +2532,76 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     reader.onerror = function(){ showToast("Couldn't read that file"); };
     reader.readAsText(file);
   });
+
+  // ---------------- Spending: import a bank CSV ----------------
+  // Nothing here writes to state until bankImportConfirmBtn — the review panel is built entirely
+  // from the module's own session-only `bankImport`, so cancelling or navigating away leaves the
+  // transaction list exactly as it was.
+  document.getElementById("bankImportPickBtn").addEventListener("click", function(){
+    document.getElementById("bankImportFile").click();
+  });
+  document.getElementById("bankImportFile").addEventListener("change", function(e){
+    var file = e.target.files[0];
+    e.target.value = "";
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      var text = String(reader.result);
+      startBankImport(text, file.name);
+      // The raw rows are held so the date-order control can re-parse without the user having to
+      // find the file again — the one mistake in this flow worth being able to take back cheaply.
+      setBankImportRawRows(parseCsv(text));
+      renderBankImportPanel();
+      var card = document.getElementById("bankImportCard");
+      if(card) card.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    reader.onerror = function(){ showToast("Couldn't read that file"); };
+    reader.readAsText(file);
+  });
+  // Patched, not re-rendered. A full renderBankImportPanel() here would move the row the user just
+  // touched out of "Needs you" and into "Ready" — reordering the list under their finger mid-review,
+  // on a phone, which is how a review screen gets abandoned. The counts and badge update in place
+  // and the row stays where it is until the next file is loaded.
+  document.getElementById("bankImportPanel").addEventListener("change", function(e){
+    var lineSel = e.target.closest(".bank-group-line");
+    if(lineSel) setBankImportGroupLine(lineSel.getAttribute("data-bank-group"), lineSel.value);
+    var catSel = e.target.closest(".bank-group-category");
+    if(catSel) setBankImportGroupCategory(catSel.getAttribute("data-bank-group"), catSel.value);
+    if(lineSel || catSel) patchBankImportPanel((lineSel || catSel).getAttribute("data-bank-group"));
+  });
+  document.getElementById("bankImportPanel").addEventListener("click", function(e){
+    var orderBtn = e.target.closest("[data-bank-date-order]");
+    if(orderBtn){
+      reparseBankImportWith(orderBtn.getAttribute("data-bank-date-order"));
+      renderBankImportPanel();
+      return;
+    }
+    if(e.target.closest("#bankImportCancelBtn")){ clearBankImport(); return; }
+    if(!e.target.closest("#bankImportConfirmBtn")) return;
+    var result = commitBankImport();
+    clearBankImport();
+    refreshAfterBankImport();
+    showUndoToast(
+      "Imported " + result.ids.length + " transaction" + (result.ids.length === 1 ? "" : "s") +
+        (result.learned ? " · learned " + result.learned + " shop" + (result.learned === 1 ? "" : "s") : ""),
+      function(){
+        // Rules the import taught are left in place on purpose — they're a preference, not part of
+        // the data being undone, and re-importing the same file is the usual reason to undo.
+        undoBankImport(result.ids);
+        refreshAfterBankImport();
+      }
+    );
+  });
+  // Every panel on the Spending tab reads state.transactions, and an import moves all of them at
+  // once — which is the point, and also why this is one named function rather than a list repeated
+  // at the import and undo call sites where the two could drift apart.
+  function refreshAfterBankImport(){
+    renderTransactions();
+    renderActualVsPlannedPanel();
+    renderSpendCategoryChart();
+    renderSpendingTrends();
+    renderYearSpending();
+  }
 
   // ---------------- Income: import from a spreadsheet ----------------
   var pendingIncomeImport = [];

@@ -81,6 +81,38 @@ export var AU_TAX_BRACKETS = [
   { from: 190000, to: Infinity, base: 51638, rate: 0.45 }
 ];
 
+// Compulsory HELP/HECS repayment rates, 2024-25 — same status as AU_TAX_BRACKETS above: an
+// estimate, indexed every year, confirm against the ATO.
+//
+// Note the shape. Unlike income tax, this is NOT marginal: the rate that applies is a flat
+// percentage of your WHOLE repayment income, not of the slice above each threshold. Crossing a
+// threshold therefore costs real money — a dollar more income can cost tens of dollars of
+// repayment — which is why the panel shows the next threshold rather than only the current rate.
+//
+// (The ATO has flagged moving to a marginal system; if that lands, this table's shape changes, not
+// just its numbers. helpRepaymentAnnual() is the single place that reads it.)
+export var HELP_REPAYMENT_RATES = [
+  { from: 0, rate: 0 },
+  { from: 54435, rate: 0.01 },
+  { from: 62851, rate: 0.02 },
+  { from: 66621, rate: 0.025 },
+  { from: 70619, rate: 0.03 },
+  { from: 74856, rate: 0.035 },
+  { from: 79347, rate: 0.04 },
+  { from: 84108, rate: 0.045 },
+  { from: 89155, rate: 0.05 },
+  { from: 94504, rate: 0.055 },
+  { from: 100175, rate: 0.06 },
+  { from: 106186, rate: 0.065 },
+  { from: 112557, rate: 0.07 },
+  { from: 119310, rate: 0.075 },
+  { from: 126468, rate: 0.08 },
+  { from: 134057, rate: 0.085 },
+  { from: 142101, rate: 0.09 },
+  { from: 150627, rate: 0.095 },
+  { from: 159664, rate: 0.10 }
+];
+
 // Standard general (non-concession) transfer-duty marginal brackets.
 // Estimates only: state revenue offices update these periodically — confirm before settlement.
 export var STAMP_DUTY_BRACKETS = {

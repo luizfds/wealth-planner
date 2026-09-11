@@ -503,7 +503,7 @@ function taxPersonFrontBodyHtml(person, r){
       : '') +
     '<div class="tax-inputs-label">Concessional cap usage <span class="calc-help" title="Estimated from your inputs below — not something you set directly.">ⓘ</span></div>' +
     '<div class="cap-bar-track"><div class="cap-bar-fill' + (r.capExceeded > 0 ? " over" : "") + '" style="width:' + Math.min(100, capPct) + '%"></div></div>' +
-    '<div class="tax-cap-note' + (r.capExceeded > 0 ? " warn" : "") + '">' +
+    '<div class="tax-cap-note tax-cap-main' + (r.capExceeded > 0 ? " warn" : "") + '">' +
       (r.capExceeded > 0
         ? ('Over cap by ' + fmtCurrency0.format(r.capExceeded) + ' — excess concessional contributions are taxed at your marginal rate, not just 15%. Check with your accountant.')
         : (fmtCurrency0.format(r.totalConcessional) + ' of ' + fmtCurrency0.format(r.capAvailable) + ' concessional cap used (SG ' + fmtCurrency0.format(r.sg) + (r.autoSacrifice > 0 ? ' + bonus/income sacrifice ' + fmtCurrency0.format(r.autoSacrifice) : '') + (r.manualSacrifice > 0 ? ' + manual sacrifice ' + fmtCurrency0.format(r.manualSacrifice) : '') + ') — super received net of 15% contributions tax: ' + fmtCurrency0.format(r.superNet))
@@ -511,10 +511,16 @@ function taxPersonFrontBodyHtml(person, r){
     '</div>' +
     '<div class="tax-cap-note tax-div293-note warn"' + (r.div293Tax > 0.5 ? '' : ' hidden') + ' title="Simplified: income for surcharge purposes is approximated as taxable income + your within-cap concessional contributions, ignoring reportable fringe benefits and net investment losses. Check with your accountant.">Division 293: your income is over the $250,000 threshold, so an extra 15% applies to ' + fmtCurrency0.format(Math.min(r.totalConcessional, r.capAvailable)) + ' of low-tax super contributions — ' + fmtCurrency0.format(r.div293Tax) + '/yr, assessed separately by the ATO (not withheld from take-home above).</div>' +
     '<div class="tax-cap-note tax-mscb-note"' + (r.superOverCap ? '' : ' hidden') + ' title="Employer super guarantee isn\'t compulsory on ordinary-time earnings above this threshold — indexed each financial year.">Your ordinary earnings are over the ' + fmtCurrency0.format(MAX_SUPER_BASE) + '/yr Maximum Super Contribution Base, so employer super isn\'t compulsory on the excess — SG above is capped accordingly.</div>' +
+    // HELP is its own note rather than a line in the cap note above, because it isn't a super
+    // figure and it isn't a tax — it's a debt repayment coming out of the same pay. The "next
+    // threshold" line is the point: the rate applies to the whole income, so crossing one costs
+    // real money in a way a marginal system never does.
+    '<div class="tax-cap-note tax-help-note"' + (r.helpBalance > 0 ? '' : ' hidden') + ' title="Compulsory repayment, worked out as a flat percentage of your repayment income — which adds back salary sacrifice and any rental loss, so neither of those reduces it.">' + helpNoteText(r) + '</div>' +
     '<details class="tax-advanced" style="margin-top:12px"><summary>Adjust ownership &amp; sacrifice</summary>' +
       '<div class="tax-inputs-panel" style="margin-top:8px">' +
         '<div class="tax-inputs">' +
           '<div class="proj-field"><label>IP ownership %</label><input type="number" min="0" max="100" step="1" class="tax-ipshare" value="' + r.ownershipPct + '"></div>' +
+          '<div class="proj-field"><label title="What you still owe on HELP/HECS (or any other study loan with the same repayment schedule). Leave at 0 if you have none. The compulsory repayment is worked out from this and withheld from take-home.">HELP/HECS owing $</label><input type="number" min="0" step="500" class="tax-help" value="' + settings.helpBalance + '"></div>' +
           '<div class="proj-field"><label title="Separate from the Cash / Sacrifice column on income rows above — use this for sacrifice not tied to a specific item">Manual sacrifice $/yr</label><input type="number" min="0" step="500" class="tax-sacrifice" value="' + settings.superSacrificeAnnual + '"><button type="button" class="calc-hint-link" style="margin-top:4px" data-tax-maxcap="' + pid + '" title="Fills your remaining concessional cap headroom this year with manual sacrifice (SG and any auto/bonus sacrifice already counted): sets manual sacrifice to ' + fmtCurrency0.format(Math.max(0, r.capAvailable - r.sg - r.autoSacrifice)) + '">Max out cap</button></div>' +
         '</div>' +
         '<details class="tax-advanced"><summary>Advanced — concessional cap &amp; carry-forward</summary>' +
@@ -525,6 +531,21 @@ function taxPersonFrontBodyHtml(person, r){
         '</details>' +
       '</div>' +
     '</details>';
+}
+
+// One builder for the HELP note, shared by the render above and patchAllTaxPersonOutputs below —
+// the two used to be written out twice for the cap and Division 293 notes, and keeping a third
+// pair in step by hand is how they drift.
+function helpNoteText(r){
+  return "HELP/HECS: " + fmtPercent1.format(r.helpRate) + " of " + fmtCurrency0.format(r.repaymentIncome) +
+    " repayment income = " + fmtCurrency0.format(r.helpRepayment) + "/yr, withheld from take-home above. " +
+    fmtCurrency0.format(r.helpBalance) + " owing" +
+    (r.helpRepayment > 0 ? ", " + fmtCurrency0.format(r.helpBalanceAfter) + " after this year" : "") + "." +
+    (r.helpNext
+      ? " Next threshold is " + fmtCurrency0.format(r.helpNext.at) + " (" + fmtCurrency0.format(r.helpNext.away) +
+        " away) — crossing it takes the rate to " + fmtPercent1.format(r.helpNext.rate) +
+        " of the whole amount, about " + fmtCurrency0.format(r.helpNext.stepCost) + " more a year."
+      : "");
 }
 
 // Session-only (not persisted) — which Tax & Super cards are showing the calculation
@@ -576,7 +597,11 @@ export function patchAllTaxPersonOutputs(){
     var capPct = r.capAvailable > 0 ? Math.min(100, (r.totalConcessional / r.capAvailable) * 100) : 0;
     var fill = panel.querySelector(".cap-bar-fill");
     if(fill){ fill.style.width = Math.min(100, capPct) + "%"; fill.classList.toggle("over", r.capExceeded > 0); }
-    var note = panel.querySelector(".tax-cap-note:not(.tax-div293-note)");
+    // Every note on this card is a .tax-cap-note; this one is the concessional-cap note
+    // specifically. Excluding each sibling by class was already fragile with two of them — a third
+    // (HELP) would have silently patched the wrong element, since querySelector takes the first
+    // match and the notes are siblings.
+    var note = panel.querySelector(".tax-cap-note.tax-cap-main");
     if(note){
       note.classList.toggle("warn", r.capExceeded > 0);
       note.textContent = r.capExceeded > 0
@@ -590,6 +615,11 @@ export function patchAllTaxPersonOutputs(){
     }
     var mscbNote = panel.querySelector(".tax-mscb-note");
     if(mscbNote) mscbNote.hidden = !r.superOverCap;
+    var helpNote = panel.querySelector(".tax-help-note");
+    if(helpNote){
+      helpNote.hidden = !(r.helpBalance > 0);
+      helpNote.textContent = helpNoteText(r);
+    }
     var pkgNote = panel.querySelector('[data-out="packagenote"]');
     if(pkgNote && Math.abs(r.packageTotal - r.gross) > 1){
       pkgNote.textContent = "Of that " + fmtCurrency0.format(r.packageTotal) + ", " + fmtCurrency0.format(r.packageTotal - r.gross) + " is super already included inside a row marked \"Super: Included\" — so tax and take-home are calculated on " + fmtCurrency0.format(r.gross) + " base salary, not the full " + fmtCurrency0.format(r.packageTotal) + ". (Total super for the year, from every row, is in the cap line below.)";

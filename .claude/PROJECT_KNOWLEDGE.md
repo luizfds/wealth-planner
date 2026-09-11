@@ -824,7 +824,11 @@ const browser = await chromium.launch({
 
 ## Known pending work
 
-(none currently — the touch-target sizing issue below was fixed in the v1.42.2 UX pass.)
+The agreed build order lives in [`ROADMAP.md`](ROADMAP.md), with a status marker per item — check
+there first. In short: the FI panel counts super and the family home toward a number you can't draw
+4% from; the projection compares a nominal series against a target frozen in today's dollars *and*
+holds income flat while expenses inflate (two errors that partly cancel); no spending view compares
+you against your own past; scenarios can't vary income. Then financial-year support, then tax.
 
 **Touch-target sizing** (fixed, v1.42.2): the edit (✎) / delete (✕) `.icon-btn` pair used on
 Scenarios/Dashboard/Income cards sat only ~2px apart — a low tap on "edit" could land on

@@ -180,6 +180,12 @@ function applyTimingDefaults(item){
   // blank rather than stamped with a basis so a line created before the household preference
   // existed starts following it, instead of being silently pinned to calendar years forever.
   if(item.reserveYear == null) item.reserveYear = "";
+  // Work-related deduction fields (v2.83.0). deductible is the flag; deductiblePct is the
+  // work-related share, because the honest answer for a phone bill or a car is rarely 100%.
+  // deductiblePerson attributes the claim — only meaningful in a two-income household.
+  if(item.deductible == null) item.deductible = false;
+  if(item.deductiblePct == null) item.deductiblePct = 100;
+  if(item.deductiblePerson == null) item.deductiblePerson = "";
 }
 
 export function migrateState(s){

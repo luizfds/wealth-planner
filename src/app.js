@@ -6,12 +6,13 @@ import { escapeAttr } from "./lib/html.js";
 import { getNotifications, unreadNotificationCount, markNotificationRead, markAllNotificationsRead } from "./lib/notifications.js";
 import { onHorizontalSwipe } from "./lib/swipe.js";
 import { initTableScrollShadows } from "./lib/scroll-shadow.js";
+import { setDeductionPeopleProvider } from "./lib/ledger-table.js";
 import {
   decryptBackup, doExport, doShare, canShareFiles, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv, exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard, exportYearTransactionsCsv,
   exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv, exportAssetsImportTemplateCsv
 } from "./lib/backup.js";
 import { periodsOf, sumField, appendHistorySnapshot, transactionDisplayName } from "./calc/ledger.js";
-import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax } from "./calc/tax.js";
+import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider } from "./calc/tax.js";
 import { recalcComputedItems, scenarioTotals, totalNetWorthValue, totalDebtsValue } from "./calc/engine.js";
 import { renderCards, renderDashboardStats, renderDetail, setProjectionReference, logNetWorthSnapshot } from "./components/dashboard.js";
 import {
@@ -414,6 +415,10 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     if(!arr) return;
     var item = arr[idx];
     var structural = false;
+    // A deduction edit changes somebody's taxable income, which changes their net income row, which
+    // changes every total on every page. Flagged here and acted on below rather than calling the
+    // tax re-render from three separate branches.
+    var taxDeductionsChanged = false;
     if(e.target.classList.contains("f-what")){
       item.what = e.target.value;
       var nameEl = tr.querySelector(".m-row-name");
@@ -455,6 +460,16 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     // structural: the collapsed row carries an "Ends …" note derived from this, and on the budget
     // pages an ended line is excluded from the projection — both need the row rebuilt, not patched.
     else if(e.target.classList.contains("f-enddate")){ item.endDate = e.target.value || ""; structural = true; }
+    // Deduction fields. structural on the flag only: ticking it reveals the share/person fields,
+    // which are already in the DOM hidden — revealed in place rather than by re-rendering the row
+    // out from under the user, same as the "no fixed timing" checkbox below.
+    else if(e.target.classList.contains("f-deductible")){
+      item.deductible = e.target.checked;
+      tr.querySelectorAll(".f-deduct-extra").forEach(function(el){ el.hidden = !e.target.checked; });
+      taxDeductionsChanged = true;
+    }
+    else if(e.target.classList.contains("f-deductpct")){ item.deductiblePct = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)); taxDeductionsChanged = true; }
+    else if(e.target.classList.contains("f-deductperson")){ item.deductiblePerson = e.target.value; taxDeductionsChanged = true; }
     else if(e.target.classList.contains("f-duemonth")) item.dueMonth = e.target.value ? Number(e.target.value) : null;
     else if(e.target.classList.contains("f-reserveyear")) item.reserveYear = e.target.value;
     else return;
@@ -472,6 +487,13 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     }
 
     recalcComputedItems();
+    if(taxDeductionsChanged){
+      // recalcComputedItems() above has already rebuilt the synthetic net-income rows from the new
+      // taxable income; these repaint the Tax & super card and the Income list that show them.
+      renderTaxSuper();
+      patchSyntheticIncomeRows();
+      patchIncomeGroupTotals();
+    }
 
     if(section === "income" && structural){
       rerenderTableFor("income");
@@ -1537,6 +1559,12 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   // pushes — after which the overlay's own close path went back a *page* instead of closing it.
   // nav.js calls this from showPage before it writes that entry; no history here, since it's
   // about to be rewritten anyway.
+  // Two providers registered once at startup, both for the same reason: calc/ and lib/ can't import
+  // a component, but the data they need (which budget lines exist, who the tax people are) is
+  // assembled by one. See setDeductibleItemsProvider's own comment for why this beats threading the
+  // list through every caller of computePersonTax.
+  setDeductibleItemsProvider(budgetLineItems);
+  setDeductionPeopleProvider(getTaxPeople);
   setOverlayCleanup(function(){
     if(!activeOverlayClose) return;
     var closeOverlay = activeOverlayClose;
@@ -2179,6 +2207,9 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     exportYearTransactionsCsv({
       displayName: function(t){ return transactionDisplayName(t, budgetLineItems()); },
       categoryFor: transactionCategory,
+      budgetLineFor: function(t){
+        return (t.linkedExpenseId && budgetLineItems().find(function(i){ return i.id === t.linkedExpenseId; })) || null;
+      },
       budgetLineName: function(t){
         var line = t.linkedExpenseId && budgetLineItems().find(function(i){ return i.id === t.linkedExpenseId; });
         return line ? line.what : "";

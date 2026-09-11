@@ -28,6 +28,58 @@ export function medicareLevyAU(taxable){
   return taxable * 0.02;
 }
 
+// ---------------- Work-related deductions ----------------
+//
+// Any budget line can be flagged deductible and attributed to a person — a laptop, a professional
+// subscription, union fees, a home-office share, a donation, last year's tax agent fee. Until this
+// existed the app tracked those expenses precisely and then threw the information away at tax time,
+// which is the gap worth closing: the data was already being typed in.
+//
+// Two fields on the row, not one. `deductible` is the flag; `deductiblePct` is how much of it is
+// work-related, because the honest answer for a phone bill or a car is rarely 100% and a flag alone
+// would either overstate the claim or push people to keep a second set of numbers somewhere else.
+//
+// Deductions reduce *taxable* income, which means they also reduce the Medicare levy and — because
+// surcharge and repayment income are both built on taxable income — can move the MLS tier and the
+// HELP rate. That cascade is the reason this is computed inside the tax chain rather than presented
+// as a standalone "you could claim $X" note.
+// The list of budget lines that might be flagged deductible has to come from
+// components/expenses.js's budgetLineItems() — it walks state.shared, the active scenario's housing
+// and every investment property — and calc/ can't import a component. Rather than making every
+// caller of computePersonTax pass it (there are callers in four files, and a deduction silently
+// vanishing wherever one forgot would be the worst possible failure mode for a tax figure),
+// app.js registers a provider once at startup. Same shape as nav.js's setOverlayCleanup.
+//
+// Unset — which is how the unit tests run — means no deductions, so every existing test and every
+// caller behaves exactly as it did before this existed.
+var deductibleItemsProvider = null;
+export function setDeductibleItemsProvider(fn){ deductibleItemsProvider = fn; }
+function deductibleItemsFor(opts){
+  if(opts && opts.deductibleItems) return opts.deductibleItems;
+  return deductibleItemsProvider ? deductibleItemsProvider() : null;
+}
+
+export function deductionRows(items, person){
+  return (items || []).filter(function(i){
+    if(!i.deductible) return false;
+    // A row with no person attributed belongs to whoever is being computed only when there's
+    // exactly one person — otherwise it's ambiguous and silently loading it onto the first person
+    // would be worse than asking.
+    if(!i.deductiblePerson) return getTaxPeople().length <= 1;
+    return i.deductiblePerson === person;
+  });
+}
+// The claimable amount of one row, per year: its annual cost times its work-related share.
+export function rowDeductionAnnual(item){
+  var pct = item.deductiblePct == null ? 100 : Math.max(0, Math.min(100, Number(item.deductiblePct) || 0));
+  return periodsOf(Number(item.amount) || 0, item.freq).yearly * (pct / 100);
+}
+export function personDeductionsAnnual(person, items){
+  return deductionRows(items, person).reduce(function(sum, item){
+    return sum + rowDeductionAnnual(item);
+  }, 0);
+}
+
 // ---------------- Medicare levy surcharge ----------------
 //
 // The levy you pay for NOT having private hospital cover. Modelled because the app has every input
@@ -349,7 +401,13 @@ export function computePersonTax(person, opts){
   var manualSacrifice = Math.max(0, Number(settings.superSacrificeAnnual) || 0);
   var autoSacrifice = inc.autoSacrifice || 0;
   var sacrifice = manualSacrifice + autoSacrifice;
-  var taxable = Math.max(0, gross - sacrifice + ipShare);
+  // Work-related deductions from budget lines flagged on the Expenses page (see deductionRows).
+  // The caller supplies the lines because assembling them walks state.shared, the active scenario's
+  // housing and every investment property — that's components/expenses.js's budgetLineItems(), and
+  // calc/ can't import a component.
+  var deductibleItems = deductibleItemsFor(opts);
+  var deductions = deductibleItems ? personDeductionsAnnual(person, deductibleItems) : 0;
+  var taxable = Math.max(0, gross - sacrifice + ipShare - deductions);
   var incomeTax = incomeTaxAU(taxable);
   var medicare = medicareLevyAU(taxable);
   // HELP repayment income is deliberately NOT taxable income. It adds back the two things the tax
@@ -392,7 +450,7 @@ export function computePersonTax(person, opts){
   // withholding unaffected by the property, so the gap between the two numbers is the answer to
   // "how much am I really saving/paying" — surfaced in personBreakdownHtml, not folded silently
   // into the one blended figure used everywhere else in the app.
-  var taxableWithoutIp = Math.max(0, gross - sacrifice);
+  var taxableWithoutIp = Math.max(0, gross - sacrifice - deductions);
   var payslipTakeHome = gross - sacrifice - incomeTaxAU(taxableWithoutIp) - medicareLevyAU(taxableWithoutIp) -
     (hasCover ? 0 : Math.max(0, taxableWithoutIp + sacrifice) * mlsTierFor(tierIncome, isFamily).rate) -
     helpRepaymentAnnual(Math.max(0, gross), helpBalance);
@@ -415,6 +473,11 @@ export function computePersonTax(person, opts){
   return {
     gross: gross, packageTotal: inc.packageTotal, ipShare: ipShare, ownershipPct: ownershipPct,
     sacrifice: sacrifice, manualSacrifice: manualSacrifice, autoSacrifice: autoSacrifice, taxable: taxable,
+    deductions: deductions,
+    // What the deductions are actually worth: tax saved at the marginal rate, not the deduction
+    // itself. "I claimed $2,000" and "I got $2,000 back" is the single most common confusion about
+    // deductions, and the panel exists to not repeat it.
+    deductionsWorth: Math.round(deductions * marginalRateAU(taxable + deductions) * 100) / 100,
     incomeTax: incomeTax, medicare: medicare, totalTax: totalTax, netTakeHome: netTakeHome,
     payslipTakeHome: payslipTakeHome, ipTaxEffect: ipTaxEffect,
     effectiveRate: gross > 0 ? totalTax / gross : 0,

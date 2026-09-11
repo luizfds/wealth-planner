@@ -52,6 +52,7 @@ export function timingFieldsHtml(item){
       '> No fixed timing (irregular) — a lumpy spend like Extras or property maintenance, budgeted as a smoothed reserve instead of expected every period</label></div>' +
     '<div class="m-edit-field"><label>Due month</label><select class="f-duemonth" title="For anything billed less often than monthly — which month it\'s actually due. Auto infers it from the last time you logged it.">' + monthOptions + '</select></div>' +
     endDateFieldHtml(item) +
+    deductionFieldsHtml(item) +
     reserveYearFieldHtml(item);
 }
 // An optional last date a row applies. Blank — the default, and what every row created before
@@ -68,6 +69,33 @@ function endDateFieldHtml(item){
       ' title="The last date this line applies. Leave blank if it runs indefinitely. Projections stop counting it after this date.">' +
   '</div>';
 }
+
+// Work-related deduction fields. Two, not one: the flag alone would claim 100% of a phone bill or
+// a car, which is almost never the honest answer, and a share field is what stops people keeping a
+// second set of numbers in a spreadsheet somewhere.
+//
+// The person select only appears with more than one person to choose between — in a single-income
+// household an unattributed row already belongs to the only person, and asking would be noise.
+// See calc/tax.js's deductionRows() for why an ambiguous row is deliberately claimed by nobody.
+function deductionFieldsHtml(item){
+  var people = deductionPeopleProvider ? deductionPeopleProvider() : [];
+  var personField = people.length > 1
+    ? '<div class="m-edit-field"><label>Claimed by</label><select class="f-deductperson" title="Whose tax return this deduction belongs on. Left unset in a two-income household it is claimed by nobody, rather than silently loaded onto one of you.">' +
+        '<option value=""' + (!(item.deductiblePerson || "") ? " selected" : "") + '>— Not set —</option>' +
+        optionsHtml(people, item.deductiblePerson || "") +
+      '</select></div>'
+    : "";
+  return '<div class="m-edit-field span2"><label class="m-checkbox-field"><input type="checkbox" class="f-deductible"' + (item.deductible ? " checked" : "") +
+      '> Work-related deduction — claimable on a tax return</label></div>' +
+    '<div class="m-edit-field f-deduct-extra"' + (item.deductible ? "" : " hidden") + '><label>Work-related %</label>' +
+      '<input type="number" min="0" max="100" step="5" class="f-deductpct" value="' + (item.deductiblePct == null ? 100 : item.deductiblePct) + '" title="How much of this is work-related. A phone bill or a car is rarely 100%.">' +
+    '</div>' +
+    (personField ? '<div class="f-deduct-extra"' + (item.deductible ? "" : " hidden") + ' style="display:contents">' + personField + '</div>' : "");
+}
+// Same registration shape as calc/tax.js's deductible-items provider, and for the same reason: the
+// person list comes from calc/tax.js's getTaxPeople(), and lib/ deliberately imports no calc module.
+var deductionPeopleProvider = null;
+export function setDeductionPeopleProvider(fn){ deductionPeopleProvider = fn; }
 
 // Only shown once "no fixed timing" is ticked, because that's the only case it changes anything:
 // a reserve line is the one thing compared against a whole year rather than a billing cycle, so

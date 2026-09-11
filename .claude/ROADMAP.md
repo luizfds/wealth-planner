@@ -344,7 +344,7 @@ One bug caught by a test written first: `householdYearProgress` guarded with `no
 
 ---
 
-## 6. `[~]` Tax: HECS first, then deductions
+## 6. `[x]` Tax: HECS first, then deductions — all six shipped, v2.81.0–v2.86.0
 
 `calc/tax.js` covers brackets, Medicare levy, super caps, Division 293, and an honest split between
 blended take-home and what lands on a payslip. Not yet modelled, roughly by how many Australians
@@ -357,7 +357,7 @@ they affect:
 | `[x]` Dividends & franking | **Shipped v2.84.0.** Dividend **per unit** (so it follows the holding when units change) + franked %. Declared **grossed up**, credit as a **refundable** offset — so above a 30% marginal rate a fully franked dividend still costs a top-up, and at a low rate it pays more than the company distributed. Both stated on the card. |
 | `[x]` Capital gains | **Shipped v2.85.0.** A sale event per holding (`asset.sales[]`) that reduces the units held, with the **12-month discount** — "more than" 12 months, exactly: 366 days, so a sale one day early costs half the discount. Losses are never discounted. Bounded to the household year, since a sale is a one-off rather than a rate. |
 | `[x]` Medicare levy surcharge | **Shipped v2.82.0.** Household toggles for private hospital cover and family thresholds; flat-rate (not marginal) tiers, with the next tier and its step cost. Always states both directions — with cover it names what the cover is saving, so "is a policy worth it" is answerable. Family tiers are set by **combined** household income, then charged on each person's own. |
-| `[ ]` Property depreciation | Interest and expenses flow into gearing, but there's no capital works or plant schedule — usually the largest non-cash deduction on an investment property. |
+| `[x]` Property depreciation | **Shipped v2.86.0.** Capital works (2.5% of **construction** cost — not the purchase price; land isn't depreciable — for 40 years) and plant & equipment (straight-line over an effective life). Reduces the **taxable** result only; `propertyCashResultAnnual()` is the untouched cash figure. On the reference backup $13,300/yr, taking the IP result from −$8,106 to −$21,406 and household net savings from $8,339 to $8,820/mo. |
 
 ---
 

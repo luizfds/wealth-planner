@@ -414,6 +414,17 @@ export function migrateState(s){
       p.acquisitionCosts = p.acquisitionCosts > 0 ? [{ id: genId("ac"), what: "Acquisition costs", amount: p.acquisitionCosts }] : [];
     }
     if(!Array.isArray(p.acquisitionCosts)) p.acquisitionCosts = [];
+    // Depreciation (v2.86.0). Two schedules, kept separate because they are two different things
+    // with different rules — see calc/property.js.
+    //
+    // constructionCost is the original BUILD cost, not the purchase price: land isn't depreciable,
+    // and conflating the two is the commonest way capital works gets overstated. Defaults to 0
+    // (claim nothing) rather than guessing a share of the purchase price, because a wrong
+    // depreciation figure is a wrong tax return.
+    if(p.constructionCost == null) p.constructionCost = 0;
+    if(p.constructionDate == null) p.constructionDate = "";
+    if(p.plantValue == null) p.plantValue = 0;
+    if(p.plantEffectiveLife == null) p.plantEffectiveLife = 10;
     p.acquisitionCosts.forEach(function(c){
       if(c.id == null) c.id = genId("ac");
       if(c.what == null) c.what = "";

@@ -1,7 +1,7 @@
 import { state } from "../state.js";
 import { FREQS, INCOME_TYPES, SUPER_MODES, SACRIFICE_MODES, MAX_SUPER_BASE, MONTH_NAMES, sacrificeModeToLabel, sacrificeLabelToMode } from "../constants.js";
 import { periodsOf, sumField, nextPayDate, payScheduleKindFor, daysUntil, WEEKDAY_NAMES, householdYearWindow } from "../calc/ledger.js";
-import { ipNetResultAnnual } from "../calc/property.js";
+import { ipNetResultAnnual, ipDepreciationAnnual } from "../calc/property.js";
 import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax } from "../calc/tax.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
@@ -469,7 +469,13 @@ export function renderTaxSuper(){
     '<div class="proj-field"><label class="m-checkbox-field" title="Private hospital cover (not extras-only) exempts you from the Medicare levy surcharge at any income."><input type="checkbox" id="taxPrivateCover"' + (state.tax.privateHospitalCover ? " checked" : "") + '> Private hospital cover</label></div>' +
     '<div class="proj-field"><label class="m-checkbox-field" title="Couples and anyone with dependants are assessed against family thresholds — roughly double the singles ones (+$1,500 per child after the first, which this app doesn\'t model)."><input type="checkbox" id="taxFamilyThresholds"' + (state.tax.familyThresholds ? " checked" : "") + '> Family thresholds</label></div>' +
     '</div>';
-  html += '<p class="ledger-note" style="margin:0 0 12px">Investment property result this year: <b style="font-family:\'IBM Plex Mono\',monospace">' + fmtCurrency0.format(ipResult) + '</b> (' + (ipResult < 0 ? "a loss — negatively geared, reduces taxable income" : "net rental profit — adds to taxable income") + '), split below by ownership share.</p>';
+  // Depreciation is named separately because it's the part of the result that isn't cash — leaving
+  // it folded into one figure is how people conclude a property "costs" more or less than it does.
+  var ipDepreciation = ipDepreciationAnnual();
+  html += '<p class="ledger-note" style="margin:0 0 12px">Investment property result this year: <b style="font-family:\'IBM Plex Mono\',monospace">' + fmtCurrency0.format(ipResult) + '</b> (' + (ipResult < 0 ? "a loss — negatively geared, reduces taxable income" : "net rental profit — adds to taxable income") + '), split below by ownership share.' +
+    (ipDepreciation > 0
+      ? ' Includes <b>' + fmtCurrency0.format(ipDepreciation) + '</b> of depreciation — a deduction that never leaves your bank account, so the cash result is that much better than the taxable one.'
+      : '') + '</p>';
 
   html += people.map(function(person, pi){
     var r = computePersonTax(person);

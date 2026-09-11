@@ -1400,6 +1400,27 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       persist();
       return;
     }
+    // Depreciation. Full re-render for the same reason prop-purchase-price uses one: the section
+    // prints a live "capital works + plant = $X/yr" summary and a section total in its header, and
+    // both have to move together with the tax figures below.
+    if(e.target.classList.contains("prop-construction-cost") || e.target.classList.contains("prop-construction-date") ||
+       e.target.classList.contains("prop-plant-value") || e.target.classList.contains("prop-plant-life")){
+      if(e.target.classList.contains("prop-construction-cost")) property.constructionCost = Math.max(0, parseFloat(e.target.value) || 0);
+      else if(e.target.classList.contains("prop-construction-date")) property.constructionDate = e.target.value;
+      else if(e.target.classList.contains("prop-plant-value")) property.plantValue = Math.max(0, parseFloat(e.target.value) || 0);
+      else property.plantEffectiveLife = Math.max(1, parseFloat(e.target.value) || 10);
+      recalcComputedItems();
+      renderProperties();
+      // Depreciation changes the property's taxable result, which changes each owner's taxable
+      // income, their synthetic net-income row, and every total derived from it.
+      renderTaxSuper();
+      patchSyntheticIncomeRows();
+      patchIncomeGroupTotals();
+      renderCards(); renderDetail(); renderTotals();
+      renderProjectionOutputs();
+      persist();
+      return;
+    }
     if(e.target.classList.contains("prop-purchase-price") || e.target.classList.contains("prop-purchase-date")){
       // Full re-render (like prop-kind above), not a patch — Capital gain and the yield-on-cost
       // badge only exist in the DOM once purchasePrice is set, so a patch here could be patching

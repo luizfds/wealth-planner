@@ -1,6 +1,7 @@
 import { state } from "../state.js";
 import { STAMP_DUTY_BRACKETS, FHB_RULES, LMI_BANDS } from "../constants.js";
 import { periodsOf, sumField, sumFieldForScenario } from "./ledger.js";
+import { localDateStr } from "../lib/format.js";
 
 export function bracketDuty(brackets, price){
   // At exactly $0, no bracket's "price > b.from" matches (every table's first bracket starts
@@ -142,11 +143,72 @@ export function loanInterestMonthly(loan){
   return loanInterestMonthlyAtRate(loan, Number(loan.rate) || 0);
 }
 
+// ---------------- Depreciation ----------------
+//
+// Usually the largest deduction on an investment property, and the only one that isn't money
+// leaving your account — which is exactly why it was the biggest remaining hole. Interest and
+// expenses already flowed into gearing; a property claiming neither capital works nor plant was
+// understating its tax benefit by thousands a year.
+//
+// Two separate things, deliberately kept as two fields rather than one "depreciation" number:
+//
+//   - Capital works (Division 43): the BUILDING. 2.5% of the original construction cost, flat,
+//     for 40 years from completion. Not the purchase price — land isn't depreciable, and
+//     conflating the two is the single most common way this gets overstated.
+//   - Plant & equipment (Division 40): carpets, blinds, appliances, air conditioning. Declines
+//     each year rather than running flat, and since 2017 is only claimable on items you bought
+//     new (not on a second-hand residential property), which the UI says.
+//
+// Plant is modelled as a straight-line schedule over an effective life rather than diminishing
+// value, because the app has no per-item asset register and averaging across a pool is closer to
+// the truth than pretending to a precision it can't support.
+export var CAPITAL_WORKS_RATE = 0.025;
+export var CAPITAL_WORKS_YEARS = 40;
+
+// Years elapsed since construction, used to stop the 40-year capital-works clock. An unknown or
+// future date claims the full year — the conservative reading is the *other* way here (claiming
+// nothing), but a blank date on a property someone has flagged as having capital works almost
+// always means "I haven't filled this in yet", not "it's 41 years old".
+export function capitalWorksAnnual(property, todayStr){
+  var cost = Math.max(0, Number(property.constructionCost) || 0);
+  if(!cost) return 0;
+  var built = property.constructionDate;
+  if(built){
+    var years = (new Date((todayStr || localDateStr()) + "T00:00:00") - new Date(built + "T00:00:00")) / (365.25 * 86400000);
+    if(years >= CAPITAL_WORKS_YEARS) return 0;
+  }
+  return Math.round(cost * CAPITAL_WORKS_RATE * 100) / 100;
+}
+export function plantDepreciationAnnual(property){
+  var value = Math.max(0, Number(property.plantValue) || 0);
+  var life = Math.max(1, Number(property.plantEffectiveLife) || 10);
+  if(!value) return 0;
+  return Math.round((value / life) * 100) / 100;
+}
+export function propertyDepreciationAnnual(property, todayStr){
+  return Math.round((capitalWorksAnnual(property, todayStr) + plantDepreciationAnnual(property)) * 100) / 100;
+}
+
 export function propertyTaxDeductibleResultAnnual(property){
   var rentYearly = sumField(property.income, "yearly");
   var expenseYearly = sumField(property.expenses, "yearly");
   var loanInterestYearly = (property.loans || []).reduce(function(s, l){ return s + loanInterestMonthly(l) * 12; }, 0);
+  // Depreciation reduces the taxable result but never touches cash flow — it's the difference
+  // between what a property costs you and what it costs you after tax, and the reason a property
+  // can be cash-flow negative and still worth holding.
+  return rentYearly - expenseYearly - loanInterestYearly - propertyDepreciationAnnual(property);
+}
+// The same result WITHOUT depreciation — what actually moves through the bank account. Every
+// cash-flow figure in the app uses this; only the tax result uses the one above.
+export function propertyCashResultAnnual(property){
+  var rentYearly = sumField(property.income, "yearly");
+  var expenseYearly = sumField(property.expenses, "yearly");
+  var loanInterestYearly = (property.loans || []).reduce(function(s, l){ return s + loanInterestMonthly(l) * 12; }, 0);
   return rentYearly - expenseYearly - loanInterestYearly;
+}
+export function ipDepreciationAnnual(){
+  return state.properties.filter(function(p){ return p.kind === "IP"; })
+    .reduce(function(sum, p){ return sum + propertyDepreciationAnnual(p); }, 0);
 }
 
 export function ipNetResultAnnual(){

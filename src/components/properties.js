@@ -1,6 +1,7 @@
 import { state, persist } from "../state.js";
 import {
   propertyEquityToday, propertyGearingAnnual, propertyLoanRepaymentMonthly, loanRepaymentDisplay,
+  capitalWorksAnnual, plantDepreciationAnnual,
   propertyCapitalGain, propertyYieldOnCost, propertyLVR, propertiesTotalValue, propertiesTotalEquityToday,
   propertiesTotalMortgageBalance, propertiesNetCashFlowMonthly, propertiesWeightedGrossYield
 } from "../calc/property.js";
@@ -139,6 +140,31 @@ function acquisitionCostRowModernHtml(item, index, colorIdx){
 // it doubles as a real record of what was paid, not just a number. Always rendered (even with an
 // empty list) so there's somewhere obvious to add the first one — unlike Loans/Income/Expenses,
 // this section has no natural "hide until non-empty" moment since it's core to Capital gain.
+// Investment properties only: depreciation is a deduction against rental income, and a home you
+// live in doesn't have one. Rendering it on a PPOR would invite somebody to fill it in and then
+// wonder why nothing happened.
+function depreciationSectionHtml(p){
+  var capitalWorks = capitalWorksAnnual(p);
+  var plant = plantDepreciationAnnual(p);
+  var total = capitalWorks + plant;
+  return propertySectionHtml(p, "depreciation",
+    '<div class="property-section-title">Depreciation</div>' +
+      '<div class="property-section-total">' + fmtCurrency0.format(total) + '/yr</div>',
+    '<p class="ledger-note" style="margin-left:0">Usually the largest deduction on an investment property, and the only one that isn\'t money leaving your account — it reduces the taxable result without touching cash flow. A quantity surveyor\'s depreciation schedule is where these figures come from; entering guesses here produces a guess on your tax return.</p>' +
+    '<div class="calc-grid">' +
+      '<div class="calc-field" title="The original cost to BUILD, not what you paid for the property — land is not depreciable. Claimed at 2.5% a year for 40 years from completion."><label>Construction cost</label><input type="number" step="1000" min="0" class="prop-construction-cost" value="' + (Number(p.constructionCost) || 0) + '" placeholder="0"></div>' +
+      '<div class="calc-field" title="When the building was completed. The 2.5% capital works claim runs for 40 years from then; leave blank if unknown and the full year is claimed."><label>Built on</label><input type="date" class="prop-construction-date" value="' + escapeAttr(p.constructionDate || "") + '"></div>' +
+      '<div class="calc-field" title="Carpets, blinds, appliances, air conditioning. Since 2017 these are only claimable on items you bought new — not on a second-hand residential property."><label>Plant &amp; equipment</label><input type="number" step="500" min="0" class="prop-plant-value" value="' + (Number(p.plantValue) || 0) + '" placeholder="0"></div>' +
+      '<div class="calc-field" title="Averaged straight-line over this many years. A real schedule depreciates each item separately at its own rate; this app has no per-item register, so an average across the pool is closer to the truth than pretending to a precision it can\'t support."><label>Effective life (yrs)</label><input type="number" step="1" min="1" max="40" class="prop-plant-life" value="' + (Number(p.plantEffectiveLife) || 10) + '"></div>' +
+    '</div>' +
+    '<p class="ledger-note" style="margin-left:0">' +
+      (total > 0
+        ? "Capital works " + fmtCurrency0.format(capitalWorks) + "/yr + plant " + fmtCurrency0.format(plant) +
+          "/yr = <b>" + fmtCurrency0.format(total) + "/yr</b> off this property's taxable result. Cash flow is unchanged."
+        : "Nothing claimed yet — this property's taxable result is the same as its cash result.") +
+    '</p>');
+}
+
 function acquisitionCostsSectionHtml(p){
   var rowMeta = acquisitionCostRowMeta(p);
   var total = rowMeta.reduce(function(s, m){ return s + (Number(m.cost.amount) || 0); }, 0);
@@ -271,6 +297,7 @@ function propertyCardHtml(p, colorIdx){
       '</div>' +
       '<div class="prop-value-log"><button type="button" class="asset-log-btn" data-property-log="' + escapeAttr(p.id) + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart">Log</button>' + historyTrendHtml(p) + '</div>') +
     acquisitionCostsSectionHtml(p) +
+    (p.kind === "IP" ? depreciationSectionHtml(p) : "") +
     propertySectionHtml(p, "loans",
       '<div class="property-section-title">Loans</div>',
       '<div class="m-card" id="propLoanRows_' + escapeAttr(p.id) + '">' + modernLoanListHtml(p) + '</div>' +

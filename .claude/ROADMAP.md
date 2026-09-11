@@ -229,15 +229,62 @@ see `PROJECT_KNOWLEDGE.md` for why a source-level guard is the right shape here.
 
 ---
 
-## 4. `[~]` Income overrides per scenario
+## 4. `[x]` Income overrides per scenario — shipped v2.79.0
 
-`scenarioTotals()` calls `effectiveIncomeItems()` — the same income rows for every scenario. On the
-real backup all three scenarios differ only in housing rows (2 vs 5) and zero shared overrides. So
-none of these are reachable: one partner dropping to three days, six months off, the pay rise not
-arriving, selling the property.
+`scenarioTotals()` called `effectiveIncomeItems()` — the same income rows for every scenario. On
+the real backup all three scenarios differed only in housing rows (2 vs 5) and zero shared
+overrides, so none of these were reachable: one partner dropping to three days, six months off, the
+pay rise not arriving. The page was a housing comparison, not a what-if.
 
-The `scenarioOverrides` mechanism already on `state.shared` is the right shape — extend it to income
-rows. Then the page's framing moves from housing comparison back to what-if.
+**What shipped.** Income rows carry the same sparse `scenarioOverrides` map `state.shared` rows do,
+edited through the same "⇄ Vary" panel.
+
+### Why this wasn't just a copy of the expense mechanism
+
+**A Gross row's amount is an input to the tax engine, not a number you can vary at the end.** Change
+it and the marginal rate, the Medicare levy, the SG, the concessional cap and Division 293 all move
+with it. So the override is applied at the *bottom* of the chain — every read of a Gross row's
+amount goes through `resolveSharedAmount` — and `personSuperRows` / `personIncomeBreakdown` /
+`computePersonTax` all take an optional `opts` (`{scenario, includeRow}`). Omitted, each behaves
+exactly as before, which is what leaves the Income page, `calc/fire.js` and the tax panels alone.
+
+Measured: halving a $14,520.83/mo gross salary drops that scenario's income by **$4,532/mo, not the
+naive $7,260** — the brackets doing their job, which a net-side override could not have expressed.
+
+`scenarioIncomeRows()` is the single definition of "what does this scenario earn", used by
+`scenarioTotals`, `computeNetWorthSeries` and `calc/cashflow.js` alike. Storing a synthetic net row
+per person *per scenario* in `state.income` was rejected — N×M computed rows in the Income list, and
+those rows are a display artifact, not the source of truth for any total.
+
+`opts.includeRow` exists because `computeNetWorthSeries` honours `item.endDate` year by year and the
+filter has to reach **inside** the tax chain: a salary that ends in three years must stop being
+taxed, not just stop being counted.
+
+Verified byte-identical output (totals, 20-year series, 12-month cash flow, all three scenarios)
+against the previous implementation on the real backup with no overrides set.
+
+### Two pre-existing bugs fixed along the way
+
+- **Renaming or deleting a scenario only walked `state.shared`.** An income override would have been
+  silently orphaned: the map keeps the old key, `resolveSharedAmount` stops finding it, and the row
+  reverts to its default with nothing on screen to say why. Both paths now walk one
+  `overridableRows()` list — **add a third overridable array and this is the place to edit.**
+- **`selectScenario()` re-rendered only the Dashboard.** The Expenses budget list pulls in
+  `state.home[activeScenario]`, so switching scenarios left it showing the *previous* scenario's
+  housing rows — three where the new scenario has five — and with them the budget total, the
+  category charts and the Actual-vs-Planned panel. Confirmed on `main` before fixing. Every scenario
+  mutation now goes through `refreshScenarioDependentViews()`.
+
+### UI notes
+
+The "⇄ Vary" panel is generalised from `state.shared` to a `(section, idx)` pair, and refuses
+anything but `shared`/`income` **by construction** rather than by a check someone can forget —
+housing rows already belong to one scenario, property costs are global. Computed rows get no button
+at all, which matters more on Income (most of that list is computed) than it did on shared.
+
+A collapsed row that varies carries a **"⇄ $7,260.00 in Buy Sydney"** pill naming the active
+scenario's own figure. The list shows the *default* amount, so without it the Income page could read
+$14,520 while the scenario on screen used half that.
 
 ---
 

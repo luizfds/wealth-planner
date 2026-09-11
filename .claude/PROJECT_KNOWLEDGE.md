@@ -68,6 +68,38 @@ consequences worth knowing before touching any of this:
   monthly total use the full set. A computed line is real money but nobody logs a direct debit,
   so it would otherwise read "$0 of $3,510" forever.
 
+### Per-scenario amounts: which arrays, and what the active scenario re-renders (v2.79.0)
+
+Two arrays hold rows that can carry a `scenarioOverrides` map — **`state.shared` and
+`state.income`**. Housing rows already belong to one scenario and property costs are global, so
+neither is overridable, and `OVERRIDE_SECTIONS` in `components/expenses.js` names the two
+explicitly rather than routing through `getArrayForSection()`.
+
+**Income is not just another overridable list.** A Gross row's amount is an *input to the tax
+engine*: change it and the marginal rate, Medicare levy, SG, concessional cap and Division 293 all
+move with it. So the override is applied at the bottom of the chain, and the whole computation
+re-runs per scenario — `personSuperRows` / `personIncomeBreakdown` / `computePersonTax` each take an
+optional `opts` (`{scenario, includeRow}`) and behave exactly as before when it's omitted. Halving a
+$174k salary cuts that scenario's income by ~$4.5k/mo, not ~$7.3k; a net-side override could not
+have said that.
+
+`scenarioIncomeRows()` in `calc/tax.js` is the one definition of "what does this scenario earn"
+(`scenarioTotals`, `computeNetWorthSeries`, `calc/cashflow.js`). `effectiveIncomeItems()` is
+deliberately *not* scenario-aware — it's the baseline view the Income page shows.
+
+**Two traps, both of which were live bugs:**
+
+- **Adding a third overridable array means editing `overridableRows()` in `components/scenarios.js`**,
+  which rename and delete both walk. Miss it and a rename silently orphans every override on that
+  list: the map keeps the old key, `resolveSharedAmount` stops finding it, and rows revert to their
+  default amount with nothing on screen to explain it.
+- **Anything that reads `state.activeScenario` must be re-rendered by
+  `refreshScenarioDependentViews()`** (same file). `selectScenario()` used to refresh only the
+  Dashboard, which was fine when nothing else on screen depended on the active scenario. The
+  Expenses budget list does — `budgetLineSources()` pulls in `state.home[activeScenario]` — so
+  switching scenarios left it showing the previous scenario's housing rows, and with them the budget
+  total, the category charts and the Actual-vs-Planned panel.
+
 ### `homeLoanRow` means two different things, and the projection has to know which
 
 Every scenario's housing array has one row with `id: "homeLoanRow"`, labelled "Rent / Home Loan".
@@ -954,8 +986,8 @@ there first. Items 1 and 2 — the two **corrections** — have shipped (v2.76.0
 panel no longer counts super and the family home toward a number you can't draw 4% from, and the
 projection now reports in today's dollars, grows income, lets rows end, and charges a renting
 scenario its rent. What's left is **capability**: no spending view compares you against your own
-past (**done**, v2.78.0); scenarios can't vary income; then financial-year support, then tax
-(HECS first).
+past (**done**, v2.78.0); scenarios can't vary income (**done**, v2.79.0); then financial-year
+support, then tax (HECS first).
 
 (The service-worker registration bug found while building item 3 was fixed in v2.78.1 — see
 "Reaching a file next to index.html" above.)

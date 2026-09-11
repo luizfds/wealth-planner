@@ -1,5 +1,5 @@
 import { state } from "../state.js";
-import { AU_TAX_BRACKETS, MAX_SUPER_BASE, HELP_REPAYMENT_RATES } from "../constants.js";
+import { AU_TAX_BRACKETS, MAX_SUPER_BASE, HELP_REPAYMENT_RATES, MLS_TIERS, MLS_FAMILY_MULTIPLIER } from "../constants.js";
 import { periodsOf, resolveSharedAmount } from "./ledger.js";
 import { ipNetResultAnnual } from "./property.js";
 import { fmtCurrency0 } from "../lib/format.js";
@@ -26,6 +26,82 @@ export function medicareLevyAU(taxable){
   if(taxable <= lower) return 0;
   if(taxable <= upper) return (taxable - lower) * 0.10;
   return taxable * 0.02;
+}
+
+// ---------------- Medicare levy surcharge ----------------
+//
+// The levy you pay for NOT having private hospital cover. Modelled because the app has every input
+// the question needs — income, and whether you hold cover — and it's the one tax figure that's
+// directly actionable: "is private hospital cover worth it" is answerable by comparing the
+// surcharge against a policy premium, and until now the app couldn't do either side of that.
+//
+// Flat on the whole income like HELP, not marginal: crossing a tier costs the full step.
+export function mlsThresholds(family){
+  var mult = family ? MLS_FAMILY_MULTIPLIER : 1;
+  return MLS_TIERS.map(function(t){ return { from: t.from * mult, rate: t.rate, label: t.label }; });
+}
+export function mlsTierFor(surchargeIncome, family){
+  var income = Math.max(0, Number(surchargeIncome) || 0);
+  var tiers = mlsThresholds(family);
+  var current = tiers[0];
+  for(var i = 0; i < tiers.length; i++){
+    if(income >= tiers[i].from) current = tiers[i];
+    else break;
+  }
+  return current;
+}
+// hasCover short-circuits the whole thing: holding hospital cover means no surcharge at any income.
+export function medicareSurchargeAnnual(surchargeIncome, hasCover, family){
+  if(hasCover) return 0;
+  var income = Math.max(0, Number(surchargeIncome) || 0);
+  return Math.round(income * mlsTierFor(income, family).rate * 100) / 100;
+}
+// What the next tier would cost — the number that makes "should I get cover" answerable, since
+// crossing a tier is a step, not a slope.
+export function mlsNextTier(surchargeIncome, family){
+  var income = Math.max(0, Number(surchargeIncome) || 0);
+  var tiers = mlsThresholds(family);
+  for(var i = 0; i < tiers.length; i++){
+    if(tiers[i].from > income){
+      return {
+        at: tiers[i].from,
+        rate: tiers[i].rate,
+        away: tiers[i].from - income,
+        stepCost: Math.round((tiers[i].from * tiers[i].rate - income * mlsTierFor(income, family).rate) * 100) / 100
+      };
+    }
+  }
+  return null;
+}
+
+// One person's income for surcharge purposes, computed WITHOUT calling computePersonTax — which
+// would recurse, since computePersonTax needs the household total to pick a family tier.
+//
+// Deliberately a small duplicate of the taxable-income line in computePersonTax rather than a
+// shared helper: pulling that apart would mean threading five intermediate values through two
+// functions to save four lines, and this is the only other caller.
+function personSurchargeIncome(person, opts){
+  var inc = personIncomeBreakdown(person, opts);
+  var settings = personTaxSettings(person);
+  var people = getTaxPeople();
+  var ownershipPct = (state.tax.ipOwnership && state.tax.ipOwnership[person] != null)
+    ? Number(state.tax.ipOwnership[person])
+    : (people.length ? 100 / people.length : 0);
+  var sacrifice = Math.max(0, Number(settings.superSacrificeAnnual) || 0) + (inc.autoSacrifice || 0);
+  var taxable = Math.max(0, inc.baseGross - sacrifice + ipNetResultAnnual() * (ownershipPct / 100));
+  return Math.max(0, taxable + sacrifice);
+}
+// Combined surcharge income across everyone with a Gross row.
+//
+// This is what family thresholds are actually tested against: the ATO sets the *tier* from the
+// couple's combined income, then each spouse pays the surcharge on their own income at that tier.
+// Testing each person's income against the doubled threshold separately — the obvious reading, and
+// what this shipped with for about ten minutes — understates it badly: two people on $150k each are
+// a $300k household, comfortably in Tier 3, but neither one reaches the $194k family Tier 1 alone.
+export function householdSurchargeIncome(opts){
+  return getTaxPeople().reduce(function(sum, person){
+    return sum + personSurchargeIncome(person, opts);
+  }, 0);
 }
 
 // ---------------- HELP / HECS ----------------
@@ -288,10 +364,23 @@ export function computePersonTax(person, opts){
   // i.e. salary sacrificing does not reduce what you repay, and neither does negative gearing —
   // which is exactly the trap people are surprised by, and the reason to show the figure rather
   // than let them infer it from taxable income.
+  // Income for surcharge purposes: taxable income plus reportable super contributions, the same
+  // simplification Division 293 already uses here (see div293Income below) — it ignores reportable
+  // fringe benefits and net investment losses, which is stated in the UI rather than hidden.
+  var hasCover = !!state.tax.privateHospitalCover;
+  var isFamily = !!state.tax.familyThresholds;
   var helpBalance = Math.max(0, Number(settings.helpBalance) || 0);
   var repaymentIncome = Math.max(0, gross + Math.max(0, ipShare));
   var helpRepayment = helpRepaymentAnnual(repaymentIncome, helpBalance);
-  var totalTax = incomeTax + medicare;
+  // The surcharge IS a tax, unlike the HELP repayment below — so it belongs in totalTax and in the
+  // effective rate. Computed after sacrifice because surcharge income adds the sacrifice back.
+  var surchargeIncome = Math.max(0, taxable + sacrifice);
+  // The tier comes from the household's combined income when family thresholds apply; the rate is
+  // then charged on this person's own income. See householdSurchargeIncome() for why.
+  var tierIncome = isFamily ? householdSurchargeIncome(opts) : surchargeIncome;
+  var medicareSurcharge = hasCover ? 0
+    : Math.round(surchargeIncome * mlsTierFor(tierIncome, isFamily).rate * 100) / 100;
+  var totalTax = incomeTax + medicare + medicareSurcharge;
   // Part of take-home, not of "tax": it's a repayment of a debt, not a tax, and totalTax feeds the
   // effective-rate figure where lumping it in would overstate what the ATO keeps. But it does come
   // out of the same pay, so every downstream net figure has to see it.
@@ -305,6 +394,7 @@ export function computePersonTax(person, opts){
   // into the one blended figure used everywhere else in the app.
   var taxableWithoutIp = Math.max(0, gross - sacrifice);
   var payslipTakeHome = gross - sacrifice - incomeTaxAU(taxableWithoutIp) - medicareLevyAU(taxableWithoutIp) -
+    (hasCover ? 0 : Math.max(0, taxableWithoutIp + sacrifice) * mlsTierFor(tierIncome, isFamily).rate) -
     helpRepaymentAnnual(Math.max(0, gross), helpBalance);
   var ipTaxEffect = netTakeHome - payslipTakeHome;
   var sg = inc.sg;
@@ -328,6 +418,14 @@ export function computePersonTax(person, opts){
     incomeTax: incomeTax, medicare: medicare, totalTax: totalTax, netTakeHome: netTakeHome,
     payslipTakeHome: payslipTakeHome, ipTaxEffect: ipTaxEffect,
     effectiveRate: gross > 0 ? totalTax / gross : 0,
+    medicareSurcharge: medicareSurcharge, surchargeIncome: surchargeIncome, tierIncome: tierIncome,
+    hasPrivateCover: hasCover, familyThresholds: isFamily,
+    mlsTier: mlsTierFor(tierIncome, isFamily),
+    mlsNext: mlsNextTier(tierIncome, isFamily),
+    // What holding cover is worth, in the only unit that makes the decision: the surcharge you'd
+    // pay without it. Always computed, even when cover IS held, so the panel can say what it's
+    // saving you rather than only what it would cost.
+    mlsIfUncovered: Math.round(surchargeIncome * mlsTierFor(tierIncome, isFamily).rate * 100) / 100,
     helpBalance: helpBalance, helpRepayment: helpRepayment, repaymentIncome: repaymentIncome,
     helpRate: helpBalance > 0 ? helpRepaymentRate(repaymentIncome) : 0,
     helpNext: helpBalance > 0 ? helpNextThreshold(repaymentIncome) : null,

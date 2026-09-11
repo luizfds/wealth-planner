@@ -113,6 +113,23 @@ export var HELP_REPAYMENT_RATES = [
   { from: 159664, rate: 0.10 }
 ];
 
+// Medicare levy surcharge, 2024-25 singles thresholds — an extra levy on people WITHOUT private
+// hospital cover once income for surcharge purposes crosses the first tier. Same status as every
+// other table here: indexed annually, confirm against the ATO.
+//
+// Like HELP and unlike income tax, this is a flat rate on the WHOLE income, not marginal. Families
+// (and singles with dependants) get roughly doubled thresholds, +$1,500 per child after the first —
+// modelled as a household toggle rather than by asking for a dependants count, since the app has no
+// concept of children and a families/singles switch covers the decision people actually face.
+export var MLS_TIERS = [
+  { from: 0, rate: 0, label: "Base tier" },
+  { from: 97000, rate: 0.01, label: "Tier 1" },
+  { from: 113000, rate: 0.0125, label: "Tier 2" },
+  { from: 151000, rate: 0.015, label: "Tier 3" }
+];
+// The family thresholds are the singles ones doubled, which is how the ATO sets them.
+export var MLS_FAMILY_MULTIPLIER = 2;
+
 // Standard general (non-concession) transfer-duty marginal brackets.
 // Estimates only: state revenue offices update these periodically — confirm before settlement.
 export var STAMP_DUTY_BRACKETS = {

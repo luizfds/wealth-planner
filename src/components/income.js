@@ -462,8 +462,12 @@ export function renderTaxSuper(){
     return;
   }
   var ipResult = ipNetResultAnnual();
+  // Household-level, not per person: a hospital policy covers a household, and once you have a
+  // spouse the surcharge is assessed on family income against family thresholds.
   var html = '<div class="tax-global">' +
     '<div class="proj-field"><label>Super guarantee % p.a.</label><input type="number" min="0" max="30" step="0.1" id="taxSgRate" value="' + (Number(state.tax.sgRate) || 11.5) + '"></div>' +
+    '<div class="proj-field"><label class="m-checkbox-field" title="Private hospital cover (not extras-only) exempts you from the Medicare levy surcharge at any income."><input type="checkbox" id="taxPrivateCover"' + (state.tax.privateHospitalCover ? " checked" : "") + '> Private hospital cover</label></div>' +
+    '<div class="proj-field"><label class="m-checkbox-field" title="Couples and anyone with dependants are assessed against family thresholds — roughly double the singles ones (+$1,500 per child after the first, which this app doesn\'t model)."><input type="checkbox" id="taxFamilyThresholds"' + (state.tax.familyThresholds ? " checked" : "") + '> Family thresholds</label></div>' +
     '</div>';
   html += '<p class="ledger-note" style="margin:0 0 12px">Investment property result this year: <b style="font-family:\'IBM Plex Mono\',monospace">' + fmtCurrency0.format(ipResult) + '</b> (' + (ipResult < 0 ? "a loss — negatively geared, reduces taxable income" : "net rental profit — adds to taxable income") + '), split below by ownership share.</p>';
 
@@ -515,6 +519,10 @@ function taxPersonFrontBodyHtml(person, r){
     // figure and it isn't a tax — it's a debt repayment coming out of the same pay. The "next
     // threshold" line is the point: the rate applies to the whole income, so crossing one costs
     // real money in a way a marginal system never does.
+    // Always shown, in both directions: without cover it names the cost, with cover it names what
+    // the cover is saving — which is the only way the panel can answer "is a policy worth it",
+    // the question this app has every other input for.
+    '<div class="tax-cap-note tax-mls-note' + (r.medicareSurcharge > 0 ? " warn" : "") + '"' + (r.mlsIfUncovered > 0 ? '' : ' hidden') + ' title="Income for surcharge purposes is approximated as taxable income + your reportable super contributions, ignoring reportable fringe benefits and net investment losses — the same simplification Division 293 uses here.">' + mlsNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-help-note"' + (r.helpBalance > 0 ? '' : ' hidden') + ' title="Compulsory repayment, worked out as a flat percentage of your repayment income — which adds back salary sacrifice and any rental loss, so neither of those reduces it.">' + helpNoteText(r) + '</div>' +
     '<details class="tax-advanced" style="margin-top:12px"><summary>Adjust ownership &amp; sacrifice</summary>' +
       '<div class="tax-inputs-panel" style="margin-top:8px">' +
@@ -531,6 +539,24 @@ function taxPersonFrontBodyHtml(person, r){
         '</details>' +
       '</div>' +
     '</details>';
+}
+
+// Both directions of the surcharge in one sentence — see the note's own comment for why holding
+// cover still prints a figure.
+function mlsNoteText(r){
+  if(r.hasPrivateCover){
+    return "Medicare levy surcharge: none, because you hold private hospital cover. Without it you'd pay " +
+      fmtCurrency0.format(r.mlsIfUncovered) + "/yr at " + fmtCurrency0.format(r.surchargeIncome) +
+      " surcharge income (" + r.mlsTier.label + ") — that's what a policy has to beat to be worth it on tax alone.";
+  }
+  return "Medicare levy surcharge: " + fmtPercent1.format(r.mlsTier.rate) + " of " +
+    fmtCurrency0.format(r.surchargeIncome) + " surcharge income = " + fmtCurrency0.format(r.medicareSurcharge) +
+    "/yr (" + r.mlsTier.label + "), because you don't hold private hospital cover. A policy cheaper than that saves money outright." +
+    (r.mlsNext
+      ? " Next tier is " + fmtCurrency0.format(r.mlsNext.at) + " (" + fmtCurrency0.format(r.mlsNext.away) +
+        " away) — crossing it takes the rate to " + fmtPercent1.format(r.mlsNext.rate) +
+        " of the whole amount, about " + fmtCurrency0.format(r.mlsNext.stepCost) + " more a year."
+      : "");
 }
 
 // One builder for the HELP note, shared by the render above and patchAllTaxPersonOutputs below —
@@ -615,6 +641,12 @@ export function patchAllTaxPersonOutputs(){
     }
     var mscbNote = panel.querySelector(".tax-mscb-note");
     if(mscbNote) mscbNote.hidden = !r.superOverCap;
+    var mlsNote = panel.querySelector(".tax-mls-note");
+    if(mlsNote){
+      mlsNote.hidden = !(r.mlsIfUncovered > 0);
+      mlsNote.classList.toggle("warn", r.medicareSurcharge > 0);
+      mlsNote.textContent = mlsNoteText(r);
+    }
     var helpNote = panel.querySelector(".tax-help-note");
     if(helpNote){
       helpNote.hidden = !(r.helpBalance > 0);

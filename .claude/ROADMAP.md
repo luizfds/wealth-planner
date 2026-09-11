@@ -356,7 +356,7 @@ they affect:
 | `[ ]` Deductions | Nothing anywhere. Work-related expenses, donations, tax agent fee. Expense rows could carry a deductible flag and roll straight into a return. |
 | `[ ]` Dividends & franking | Shares are tracked by quantity and price; dividends and franking credits don't exist. |
 | `[ ]` Capital gains | Cost basis is stored, but there's no sale event and no 12-month CGT discount. |
-| `[ ]` Medicare levy surcharge | Not modelled, so the app can't answer whether private hospital cover is worth it — a question it has every other input for. |
+| `[x]` Medicare levy surcharge | **Shipped v2.82.0.** Household toggles for private hospital cover and family thresholds; flat-rate (not marginal) tiers, with the next tier and its step cost. Always states both directions — with cover it names what the cover is saving, so "is a policy worth it" is answerable. Family tiers are set by **combined** household income, then charged on each person's own. |
 | `[ ]` Property depreciation | Interest and expenses flow into gearing, but there's no capital works or plant schedule — usually the largest non-cash deduction on an investment property. |
 
 ---

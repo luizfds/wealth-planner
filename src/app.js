@@ -987,6 +987,10 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       else return;
     } else if(e.target.id === "taxSgRate"){
       state.tax.sgRate = parseFloat(e.target.value) || 0;
+    } else if(e.target.id === "taxPrivateCover"){
+      state.tax.privateHospitalCover = e.target.checked;
+    } else if(e.target.id === "taxFamilyThresholds"){
+      state.tax.familyThresholds = e.target.checked;
     } else return;
 
     recalcComputedItems();

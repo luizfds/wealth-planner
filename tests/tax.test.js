@@ -246,3 +246,108 @@ test("a person with no HELP settings behaves exactly as before", function(){
     assert.equal(t.helpNext, null, "no next-threshold nudge for someone with no debt");
   });
 });
+
+// ---------------- Medicare levy surcharge (v2.82.0) ----------------
+
+import { medicareSurchargeAnnual, mlsTierFor, mlsNextTier, mlsThresholds } from "../src/calc/tax.js";
+
+test("holding private hospital cover means no surcharge at any income", function(){
+  // The whole point of the levy: it's a charge for *not* holding cover.
+  assert.equal(medicareSurchargeAnnual(500000, true, false), 0);
+  assert.equal(medicareSurchargeAnnual(97000, true, false), 0);
+});
+
+test("the surcharge is flat on the whole income, not marginal", function(){
+  assert.equal(medicareSurchargeAnnual(96999, false, false), 0);
+  assert.equal(medicareSurchargeAnnual(97000, false, false), 970, "1% of all of it, not of the excess");
+  assert.equal(medicareSurchargeAnnual(113000, false, false), 1412.5);
+  assert.equal(medicareSurchargeAnnual(151000, false, false), 2265);
+});
+
+test("family thresholds are the singles ones doubled", function(){
+  assert.deepEqual(mlsThresholds(true).map(function(t){ return t.from; }), [0, 194000, 226000, 302000]);
+  // $150k: tier 3 as a single, below the first family threshold entirely.
+  assert.equal(mlsTierFor(150000, false).label, "Tier 2");
+  assert.equal(mlsTierFor(150000, true).label, "Base tier");
+  assert.equal(medicareSurchargeAnnual(150000, false, true), 0);
+});
+
+test("mlsNextTier names the step, because crossing one is not a slope", function(){
+  var next = mlsNextTier(96000, false);
+  assert.equal(next.at, 97000);
+  assert.equal(next.away, 1000);
+  assert.equal(next.stepCost, 970, "$1,000 more income costs $970, not $10");
+  assert.equal(mlsNextTier(500000, false), null);
+});
+
+test("the surcharge is a tax — it lands in totalTax and the effective rate", function(){
+  // Unlike the HELP repayment, which is a debt repayment and deliberately isn't.
+  withIncome([grossRow("Sam", 150000)], function(){
+    state.tax.privateHospitalCover = true;
+    var covered = computePersonTax("Sam");
+    state.tax.privateHospitalCover = false;
+    var uncovered = computePersonTax("Sam");
+    assert.equal(covered.medicareSurcharge, 0);
+    assert.ok(uncovered.medicareSurcharge > 0);
+    assert.ok(Math.abs((uncovered.totalTax - covered.totalTax) - uncovered.medicareSurcharge) < 0.01);
+    assert.ok(uncovered.effectiveRate > covered.effectiveRate, "and it does move the effective rate");
+    state.tax.privateHospitalCover = false;
+  });
+});
+
+test("surcharge income adds back salary sacrifice", function(){
+  // Sacrificing into super does not get you under a surcharge threshold — the same trap as HELP.
+  withIncome([grossRow("Sam", 110000)], function(){
+    state.tax.settings.Sam = { superSacrificeAnnual: 20000, concessionalCap: 30000, carryForward: 0, helpBalance: 0 };
+    state.tax.privateHospitalCover = false;
+    var t = computePersonTax("Sam");
+    assert.ok(t.taxable < 97000, "sacrifice took taxable income under the first threshold");
+    assert.ok(t.surchargeIncome >= 97000, "but not surcharge income");
+    assert.ok(t.medicareSurcharge > 0, "so the surcharge still applies");
+  });
+});
+
+test("mlsIfUncovered says what cover is worth even when it is held", function(){
+  // The panel has to be able to answer "is this policy worth it", which needs the number you'd
+  // pay without it — not just the zero you pay with it.
+  withIncome([grossRow("Sam", 150000)], function(){
+    state.tax.privateHospitalCover = true;
+    var t = computePersonTax("Sam");
+    assert.equal(t.medicareSurcharge, 0);
+    assert.ok(t.mlsIfUncovered > 0, "what you'd pay without cover: " + t.mlsIfUncovered);
+    state.tax.privateHospitalCover = false;
+  });
+});
+
+
+test("family thresholds set the tier from COMBINED income, then charge each person's own", function(){
+  // The bug this exists to prevent: testing each person's income against the doubled threshold
+  // separately. Two people on $150k each are a $300k household — comfortably Tier 3 — but neither
+  // reaches the $194k family Tier 1 alone, so the naive reading reports a $0 surcharge for a
+  // household that owes thousands.
+  withIncome([grossRow("Sam", 150000), grossRow("Alex", 150000)], function(){
+    state.tax.privateHospitalCover = false;
+    state.tax.familyThresholds = true;
+    state.tax.ipOwnership = {};
+    var sam = computePersonTax("Sam");
+    assert.equal(sam.tierIncome, 300000, "the tier is set by the household");
+    assert.equal(sam.surchargeIncome, 150000, "but the charge is on this person's own income");
+    // $300k is Tier 2 on family thresholds — Tier 3 starts at $302k, which is a good illustration
+    // of why the tier has to be read off the table rather than guessed at.
+    assert.equal(sam.mlsTier.label, "Tier 2");
+    assert.equal(sam.medicareSurcharge, 150000 * 0.0125);
+    // ...and the naive per-person reading would have charged nothing at all here.
+    assert.equal(medicareSurchargeAnnual(150000, false, true), 0, "$150k alone is below the family Tier 1");
+    state.tax.familyThresholds = false;
+  });
+});
+
+test("on singles thresholds the tier income is just this person's own", function(){
+  withIncome([grossRow("Sam", 150000), grossRow("Alex", 150000)], function(){
+    state.tax.privateHospitalCover = false;
+    state.tax.familyThresholds = false;
+    var sam = computePersonTax("Sam");
+    assert.equal(sam.tierIncome, sam.surchargeIncome);
+    assert.equal(sam.mlsTier.label, "Tier 2");
+  });
+});

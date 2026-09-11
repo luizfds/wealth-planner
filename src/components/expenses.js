@@ -1,6 +1,6 @@
 import { state, persist, genId } from "../state.js";
 import { CLASSES, FREQS, UNCATEGORISED } from "../constants.js";
-import { sumField, resolveSharedAmount, periodsOf, budgetCycleFor, transactionDisplayName, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, isOverdue, daysUntil, lastTransactionDateFor, reserveYearWindowFor, householdYearWindow, householdYearToDate, householdYearProgress, householdYearBasis, HOUSEHOLD_YEAR_BASES } from "../calc/ledger.js";
+import { sumField, sumFieldForScenario, resolveSharedAmount, periodsOf, budgetCycleFor, transactionDisplayName, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, isOverdue, daysUntil, lastTransactionDateFor, reserveYearWindowFor, householdYearWindow, householdYearToDate, householdYearProgress, householdYearBasis, HOUSEHOLD_YEAR_BASES } from "../calc/ledger.js";
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent0, fmtPercent1, localDateStr } from "../lib/format.js";
 import { spendingTrends, monthKeyLabel } from "../calc/trends.js";
@@ -85,7 +85,10 @@ function computeSharedGroups(){
   return sharedGroupOrder().map(function(key){
     var members = lines.filter(function(line){ return budgetGroupKeyOf(line.item) === key; });
     var items = members.map(function(line){ return line.item; });
-    return { key: key, members: members, items: items, monthly: sumField(items, "monthly") };
+    // Scenario-resolved, like scenarioTotals() and computeNetWorthSeries(). Raw amounts left the
+    // Expenses page quoting a different household cost than the Dashboard for the very same
+    // scenario, by the size of every override.
+    return { key: key, members: members, items: items, monthly: sumFieldForScenario(items, state.activeScenario, "monthly") };
   });
 }
 

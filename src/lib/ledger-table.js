@@ -1,5 +1,5 @@
 import { FREQS, CLASSES, MONTH_NAMES } from "../constants.js";
-import { periodsOf, RESERVE_YEAR_BASES } from "../calc/ledger.js";
+import { periodsOf, RESERVE_YEAR_BASES, resolveSharedAmount } from "../calc/ledger.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "./format.js";
 import { escapeAttr } from "./html.js";
 
@@ -127,9 +127,12 @@ function reserveYearFieldHtml(item){
 // differently. Past tense once the date has gone by, since a row that has already ended is still
 // in the list contributing to every "per month" figure on the page — that's the case worth
 // noticing.
+export function hasEnded(item){
+  return !!(item && item.endDate && item.endDate < todayStr());
+}
 export function endDateNoteHtml(item){
   if(!item || !item.endDate) return "";
-  var ended = item.endDate < todayStr();
+  var ended = hasEnded(item);
   return '<span class="row-end-note' + (ended ? " ended" : "") + '">' +
     (ended ? "Ended " : "Ends ") + escapeAttr(item.endDate) + '</span>';
 }
@@ -147,11 +150,15 @@ export function scenarioVaryNoteHtml(item, activeScenario){
   var names = Object.keys(overrides).filter(function(k){ return overrides[k] != null; });
   if(!names.length) return "";
   var here = overrides[activeScenario];
+  // Which figure the pill names flipped in v2.87.0, along with the row's headline. The row now
+  // shows what the ACTIVE scenario pays, so the pill's job is to name the default it's overriding
+  // — naming the scenario figure as well would just print the same number twice.
   var text = here != null
-    ? fmtCurrency2.format(here) + " in " + activeScenario
+    ? "default " + fmtCurrency2.format(item.amount)
     : "Varies in " + (names.length === 1 ? names[0] : names.length + " scenarios");
   return '<span class="row-vary-note" title="' + escapeAttr(
-    "This row's amount differs by scenario. The figure on the row is the default, used by any scenario without its own value.") +
+    "This row's amount differs by scenario. The figure shown is what " + (activeScenario || "the active scenario") +
+    " pays; the default applies to any scenario without its own value.") +
     '">⇄ ' + escapeAttr(text) + '</span>';
 }
 
@@ -184,7 +191,7 @@ export function modernRowSummaryHtml(opts){
       '<div class="m-row-name">' + escapeAttr(opts.name || "") + '</div>' +
       subs +
     '</div>' +
-    '<span class="m-row-amt" data-computed="amt">' + (opts.amountHtml || "") + '</span>' +
+    '<span class="m-row-amt' + (opts.ended ? " row-amt-ended" : "") + '" data-computed="amt">' + (opts.amountHtml || "") + '</span>' +
     (opts.computed ? "" : '<span class="m-row-chev" aria-hidden="true">✕</span>') +
   '</div>';
 }
@@ -223,7 +230,10 @@ export function modernRowShellHtml(section, idx, openState, summaryHtml, editHtm
 export function modernPlainRowHtml(item, idx, section, openState, opts){
   opts = opts || {};
   var isComputed = !!item.computed;
-  var monthly = periodsOf(item.amount, item.freq).monthly;
+  // The row's headline figure is what THIS scenario pays, so the list adds up to the card total
+  // above it (which is scenario-resolved). The edit panel's Amount field still edits the default —
+  // the "⇄" pill below names it, and the Vary dialog says so in as many words.
+  var monthly = periodsOf(resolveSharedAmount(item, opts.activeScenario), item.freq).monthly;
   var trendHtml = (opts.showLog && !isComputed) ? historyTrendHtml(item) : "";
   var summary = modernRowSummaryHtml({
     computed: isComputed,
@@ -235,6 +245,10 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
     // the list rather than in a second, parallel list further down the page.
     subLines: [isComputed && item.computedNote ? escapeAttr(item.computedNote) : "", trendHtml,
       endDateNoteHtml(item), scenarioVaryNoteHtml(item, opts.activeScenario), opts.extraSubLine || ""],
+    // An ended row is no longer in any total (sumField skips it), so its amount is struck through
+    // rather than silently reading as money still going out. The row stays in the list — you have
+    // to be able to see it to extend or delete it.
+    ended: hasEnded(item),
     amountHtml: fmtCurrency2.format(monthly) + "/mo"
   });
   if(isComputed){

@@ -11,7 +11,7 @@ import {
   decryptBackup, doExport, doShare, canShareFiles, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv, exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard, exportYearTransactionsCsv,
   exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv, exportAssetsImportTemplateCsv
 } from "./lib/backup.js";
-import { periodsOf, sumField, appendHistorySnapshot, transactionDisplayName } from "./calc/ledger.js";
+import { periodsOf, sumField, sumFieldForScenario, resolveSharedAmount, appendHistorySnapshot, transactionDisplayName } from "./calc/ledger.js";
 import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider, saleCapitalGain } from "./calc/tax.js";
 import { recalcComputedItems, scenarioTotals, totalNetWorthValue, totalDebtsValue } from "./calc/engine.js";
 import { renderCards, renderDashboardStats, renderDetail, setProjectionReference, logNetWorthSnapshot } from "./components/dashboard.js";
@@ -351,7 +351,8 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     document.getElementById("totalIncomeMonthly").textContent = fmtCurrency2.format(sumField(effectiveIncomeItems(), "monthly"));
     // Totals what the list actually shows — shared plus the active scenario's housing — not just
     // state.shared, or the header disagrees with the cards beneath it by the size of your rent.
-    document.getElementById("totalSharedMonthly").textContent = fmtCurrency2.format(sumField(budgetLineItems(), "monthly"));
+    // Scenario-resolved, matching the cards below it and every other total in the app.
+    document.getElementById("totalSharedMonthly").textContent = fmtCurrency2.format(sumFieldForScenario(budgetLineItems(), state.activeScenario, "monthly"));
     renderGlobalMetrics();
   }
 
@@ -476,7 +477,9 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     else return;
 
     if(e.target.classList.contains("f-amount") || e.target.classList.contains("f-freq")){
-      var p = periodsOf(item.amount, item.freq);
+      // Scenario-resolved, matching what the renderer puts there — otherwise editing the default
+      // on an overridden row would overwrite the headline with a figure this scenario doesn't pay.
+      var p = periodsOf(resolveSharedAmount(item, state.activeScenario), item.freq);
       var modernAmt = tr.querySelector('[data-computed="amt"]');
       if(modernAmt) modernAmt.textContent = fmtCurrency2.format(p.monthly) + "/mo";
     }

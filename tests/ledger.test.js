@@ -633,3 +633,41 @@ test("sumFieldActiveInYear resolves each amount through the caller's own resolve
   assert.ok(Math.abs(sumFieldActiveInYear(items, "monthly", 0, "2026-09-11", resolver) - 40) < 1e-9);
   assert.ok(Math.abs(sumFieldActiveInYear(items, "monthly", 0, "2026-09-11") - 100) < 1e-9, "no resolver = raw amount");
 });
+
+// ---------------- Ended rows stop counting (v2.87.0) ----------------
+// The bug: end dates shipped in v2.77.0 and were honoured by computeNetWorthSeries, but not by
+// sumField — so the Dashboard's "you spend $X/mo" and the projection's own year-1 figure
+// disagreed by the amount of every ended row, forever.
+
+test("sumField skips a row that has already ended", function(){
+  var items = [
+    { amount: 100, freq: "Monthly" },
+    { amount: 99, freq: "Monthly", endDate: "2020-01-01" }   // long over
+  ];
+  assert.ok(Math.abs(sumField(items, "monthly") - 100) < 1e-9);
+});
+
+test("sumField still counts a row that ends in the future, and one with no end date", function(){
+  var items = [
+    { amount: 100, freq: "Monthly", endDate: "2099-01-01" },
+    { amount: 50, freq: "Monthly" },
+    { amount: 25, freq: "Monthly", endDate: "" }
+  ];
+  assert.ok(Math.abs(sumField(items, "monthly") - 175) < 1e-9);
+});
+
+test("sumFieldForScenario skips ended rows too, and still resolves overrides", function(){
+  var items = [
+    { amount: 100, freq: "Monthly", scenarioOverrides: { Buy: 40 } },
+    { amount: 999, freq: "Monthly", endDate: "2020-01-01", scenarioOverrides: { Buy: 500 } }
+  ];
+  assert.ok(Math.abs(sumFieldForScenario(items, "Buy", "monthly") - 40) < 1e-9);
+  assert.ok(Math.abs(sumFieldForScenario(items, "Renting", "monthly") - 100) < 1e-9);
+});
+
+test("a row ending today still counts today", function(){
+  // isActiveOn is inclusive of the end date: the last day it applies is a day you still pay it.
+  var today = new Date();
+  var iso = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
+  assert.ok(Math.abs(sumField([{ amount: 10, freq: "Monthly", endDate: iso }], "monthly") - 10) < 1e-9);
+});

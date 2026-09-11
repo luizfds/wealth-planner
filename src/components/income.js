@@ -5,7 +5,7 @@ import { ipNetResultAnnual, ipDepreciationAnnual } from "../calc/property.js";
 import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax } from "../calc/tax.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
-import { optionsHtml, historyTrendHtml, timingFieldsHtml, endDateNoteHtml, scenarioVaryNoteHtml } from "../lib/ledger-table.js";
+import { optionsHtml, historyTrendHtml, timingFieldsHtml, endDateNoteHtml, scenarioVaryNoteHtml, hasEnded } from "../lib/ledger-table.js";
 import { parseCsv } from "../lib/backup.js";
 import { injectScenarioOverrideButtons } from "./expenses.js";
 
@@ -349,7 +349,7 @@ function modernIncomeRowHtml(item, idx, colorIdx){
       (function(){ var v = scenarioVaryNoteHtml(item, state.activeScenario); return v ? '<div class="m-row-sub">' + v + '</div>' : ""; })() +
     '</div>' +
     (isGrossRef ? '<span class="m-row-tag gross">Gross</span>' : "") +
-    '<span class="m-row-amt" data-computed="amt">' + fmtCurrency2.format(monthly) + '/mo</span>' +
+    '<span class="m-row-amt' + (hasEnded(item) ? " row-amt-ended" : "") + '" data-computed="amt">' + fmtCurrency2.format(monthly) + '/mo</span>' +
     (isComputed ? "" : '<span class="m-row-chev" aria-hidden="true">✕</span>') +
   '</div>';
   if(isComputed){

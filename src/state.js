@@ -59,6 +59,14 @@ export function normalizeShareAsset(a){
   if(a.symbol == null) a.symbol = "";
   if(a.person == null) a.person = "";
   if(a.priceUpdated == null) a.priceUpdated = "";
+  // Dividend fields (v2.84.0). Per-unit yearly rather than a total, so the figure survives buying
+  // or selling units — a total would silently become wrong the moment the holding changed size,
+  // which is exactly when nobody thinks to revisit it.
+  if(a.dividendPerUnit == null) a.dividendPerUnit = 0;
+  // 0-100. Australian companies pay tax at 30% before distributing, and a fully franked dividend
+  // carries a credit for that. Partially-franked and unfranked are both common (LICs, REITs,
+  // foreign-sourced income), so this is a percentage rather than a flag.
+  if(a.frankedPct == null) a.frankedPct = 100;
   a.amount = Math.round((Number(a.quantity) || 0) * (Number(a.price) || 0) * 100) / 100;
   return a;
 }
@@ -95,6 +103,16 @@ export function defaultState(){
     // rather than session-only because it's a stable way of looking at your own budget, and
     // resetting it on every load of a daily-use app would be its own small annoyance.
     budgetGroupBy: "type",
+    // Which twelve months the household thinks of as "a year" — "financial" (Jul-Jun) or
+    // "calendar". Defaults to financial: this is an Australian app, a tax return is a
+    // financial-year document, and most of what a household here calls "a year of" something
+    // (insurance, rates, the private-health rebate) runs Jul-Jun too.
+    //
+    // Deliberately NOT offering "rolling12" at household level, even though reserveYearWindow
+    // supports it per line: a rolling window is a way of budgeting one lumpy line, not a year
+    // anyone else recognises, and "what did we spend last year" has to mean something you could
+    // put in front of an accountant.
+    yearBasis: "financial",
     home: { "Current situation": defaultHomeBlock() },
     purchase: { "Current situation": defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", false) },
     invest: { "Current situation": defaultInvestConfig() },
@@ -118,7 +136,11 @@ export function defaultState(){
     projection: { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0, incomeGrowthRate: 3, realTerms: true },
     // Age now, target retirement age, and when super unlocks — see calc/fire.js.
     fire: { currentAge: null, retireAge: null, preservationAge: 60 },
-    tax: { sgRate: 12, ipOwnership: {}, settings: {} },
+    // privateHospitalCover / familyThresholds are household-level, not per person: the Medicare
+    // levy surcharge is assessed on a family basis once you have a spouse, and a policy covers a
+    // household. Modelled as a family/singles switch rather than a dependants count because the
+    // app has no concept of children and the switch covers the decision people actually face.
+    tax: { sgRate: 12, ipOwnership: {}, settings: {}, privateHospitalCover: false, familyThresholds: false },
     // 1 USD in AUD — the only cross-currency conversion this app needs, since MARKET_CURRENCY
     // only ever produces AUD or USD. Set via the Shares page's "Paste prices" box (pasting a
     // USDAUD row alongside your holdings, same GOOGLEFINANCE("CURRENCY:USDAUD") template
@@ -162,7 +184,16 @@ function applyTimingDefaults(item){
   // months ending today). Only meaningful when irregular is set, but stored unconditionally so
   // ticking that box never has to backfill a field. Defaults to "calendar", which is what every
   // reserve line was measured over before this was a choice — an existing save keeps its numbers.
-  if(!item.reserveYear) item.reserveYear = "calendar";
+  // "" means "follow the household default" (state.yearBasis) — see reserveYearWindowFor(). Left
+  // blank rather than stamped with a basis so a line created before the household preference
+  // existed starts following it, instead of being silently pinned to calendar years forever.
+  if(item.reserveYear == null) item.reserveYear = "";
+  // Work-related deduction fields (v2.83.0). deductible is the flag; deductiblePct is the
+  // work-related share, because the honest answer for a phone bill or a car is rarely 100%.
+  // deductiblePerson attributes the claim — only meaningful in a two-income household.
+  if(item.deductible == null) item.deductible = false;
+  if(item.deductiblePct == null) item.deductiblePct = 100;
+  if(item.deductiblePerson == null) item.deductiblePerson = "";
 }
 
 export function migrateState(s){
@@ -240,6 +271,11 @@ export function migrateState(s){
   // works on first load rather than presenting an empty manager. An existing (possibly emptied)
   // list is left exactly as the user left it — only a missing key seeds.
   if(s.budgetGroupBy !== "category") s.budgetGroupBy = "type";
+  // A save from before the household year existed gets the financial year — the app's new default
+  // — rather than being pinned to the calendar year its reserve lines happened to use. Those lines
+  // keep any basis the user chose explicitly; only ones left on the old implicit default follow
+  // the household now (see applyTimingDefaults).
+  if(s.yearBasis !== "calendar") s.yearBasis = "financial";
   if(!Array.isArray(s.categories)) s.categories = DEFAULT_CATEGORIES.slice();
   s.categories = s.categories.filter(function(name){ return typeof name === "string" && name.trim(); });
   // Every array the Budget tab lists, in the same order expenses.js's budgetLineSources() walks
@@ -318,6 +354,11 @@ export function migrateState(s){
   if(!s.tax.ipOwnership) s.tax.ipOwnership = {};
   if(!s.tax.settings) s.tax.settings = {};
   if(s.tax.sgRate == null) s.tax.sgRate = 11.5;
+  // Default false for both: assuming someone holds private hospital cover would silently zero a
+  // real cost, and assuming family thresholds would halve a real one. An unset save gets the
+  // conservative reading, and the toggles are right there on the card.
+  if(typeof s.tax.privateHospitalCover !== "boolean") s.tax.privateHospitalCover = false;
+  if(typeof s.tax.familyThresholds !== "boolean") s.tax.familyThresholds = false;
   if(!s.fx) s.fx = { usdAud: null, usdAudUpdated: "" };
   if(s.fx.usdAud === undefined) s.fx.usdAud = null;
   if(s.fx.usdAudUpdated == null) s.fx.usdAudUpdated = "";
@@ -373,6 +414,17 @@ export function migrateState(s){
       p.acquisitionCosts = p.acquisitionCosts > 0 ? [{ id: genId("ac"), what: "Acquisition costs", amount: p.acquisitionCosts }] : [];
     }
     if(!Array.isArray(p.acquisitionCosts)) p.acquisitionCosts = [];
+    // Depreciation (v2.86.0). Two schedules, kept separate because they are two different things
+    // with different rules — see calc/property.js.
+    //
+    // constructionCost is the original BUILD cost, not the purchase price: land isn't depreciable,
+    // and conflating the two is the commonest way capital works gets overstated. Defaults to 0
+    // (claim nothing) rather than guessing a share of the purchase price, because a wrong
+    // depreciation figure is a wrong tax return.
+    if(p.constructionCost == null) p.constructionCost = 0;
+    if(p.constructionDate == null) p.constructionDate = "";
+    if(p.plantValue == null) p.plantValue = 0;
+    if(p.plantEffectiveLife == null) p.plantEffectiveLife = 10;
     p.acquisitionCosts.forEach(function(c){
       if(c.id == null) c.id = genId("ac");
       if(c.what == null) c.what = "";

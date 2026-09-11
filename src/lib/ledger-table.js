@@ -1,5 +1,5 @@
 import { FREQS, CLASSES, MONTH_NAMES } from "../constants.js";
-import { periodsOf, RESERVE_YEAR_BASES } from "../calc/ledger.js";
+import { periodsOf, RESERVE_YEAR_BASES, resolveSharedAmount } from "../calc/ledger.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "./format.js";
 import { escapeAttr } from "./html.js";
 
@@ -52,6 +52,7 @@ export function timingFieldsHtml(item){
       '> No fixed timing (irregular) — a lumpy spend like Extras or property maintenance, budgeted as a smoothed reserve instead of expected every period</label></div>' +
     '<div class="m-edit-field"><label>Due month</label><select class="f-duemonth" title="For anything billed less often than monthly — which month it\'s actually due. Auto infers it from the last time you logged it.">' + monthOptions + '</select></div>' +
     endDateFieldHtml(item) +
+    deductionFieldsHtml(item) +
     reserveYearFieldHtml(item);
 }
 // An optional last date a row applies. Blank — the default, and what every row created before
@@ -69,6 +70,33 @@ function endDateFieldHtml(item){
   '</div>';
 }
 
+// Work-related deduction fields. Two, not one: the flag alone would claim 100% of a phone bill or
+// a car, which is almost never the honest answer, and a share field is what stops people keeping a
+// second set of numbers in a spreadsheet somewhere.
+//
+// The person select only appears with more than one person to choose between — in a single-income
+// household an unattributed row already belongs to the only person, and asking would be noise.
+// See calc/tax.js's deductionRows() for why an ambiguous row is deliberately claimed by nobody.
+function deductionFieldsHtml(item){
+  var people = deductionPeopleProvider ? deductionPeopleProvider() : [];
+  var personField = people.length > 1
+    ? '<div class="m-edit-field"><label>Claimed by</label><select class="f-deductperson" title="Whose tax return this deduction belongs on. Left unset in a two-income household it is claimed by nobody, rather than silently loaded onto one of you.">' +
+        '<option value=""' + (!(item.deductiblePerson || "") ? " selected" : "") + '>— Not set —</option>' +
+        optionsHtml(people, item.deductiblePerson || "") +
+      '</select></div>'
+    : "";
+  return '<div class="m-edit-field span2"><label class="m-checkbox-field"><input type="checkbox" class="f-deductible"' + (item.deductible ? " checked" : "") +
+      '> Work-related deduction — claimable on a tax return</label></div>' +
+    '<div class="m-edit-field f-deduct-extra"' + (item.deductible ? "" : " hidden") + '><label>Work-related %</label>' +
+      '<input type="number" min="0" max="100" step="5" class="f-deductpct" value="' + (item.deductiblePct == null ? 100 : item.deductiblePct) + '" title="How much of this is work-related. A phone bill or a car is rarely 100%.">' +
+    '</div>' +
+    (personField ? '<div class="f-deduct-extra"' + (item.deductible ? "" : " hidden") + ' style="display:contents">' + personField + '</div>' : "");
+}
+// Same registration shape as calc/tax.js's deductible-items provider, and for the same reason: the
+// person list comes from calc/tax.js's getTaxPeople(), and lib/ deliberately imports no calc module.
+var deductionPeopleProvider = null;
+export function setDeductionPeopleProvider(fn){ deductionPeopleProvider = fn; }
+
 // Only shown once "no fixed timing" is ticked, because that's the only case it changes anything:
 // a reserve line is the one thing compared against a whole year rather than a billing cycle, so
 // this is where "which year?" becomes a real question. Hidden rather than absent so ticking the
@@ -79,10 +107,15 @@ var RESERVE_YEAR_LABELS = [
   ["rolling12", "Rolling 12 months"]
 ];
 function reserveYearFieldHtml(item){
-  var current = RESERVE_YEAR_BASES.indexOf(item.reserveYear) !== -1 ? item.reserveYear : "calendar";
-  var options = RESERVE_YEAR_LABELS.map(function(pair){
-    return '<option value="' + pair[0] + '"' + (pair[0] === current ? " selected" : "") + '>' + pair[1] + '</option>';
-  }).join("");
+  // "" is a real, selectable choice, not an absence: it means "whatever the household uses"
+  // (Accounts → Preferences), so changing that preference moves every line that hasn't been given
+  // its own answer. It's first and default because that's what most lines want — a line only
+  // needs its own budget year when it genuinely differs from the household's.
+  var current = RESERVE_YEAR_BASES.indexOf(item.reserveYear) !== -1 ? item.reserveYear : "";
+  var options = '<option value=""' + (current === "" ? " selected" : "") + '>Follow my year (Accounts → Preferences)</option>' +
+    RESERVE_YEAR_LABELS.map(function(pair){
+      return '<option value="' + pair[0] + '"' + (pair[0] === current ? " selected" : "") + '>' + pair[1] + '</option>';
+    }).join("");
   return '<div class="m-edit-field f-reserveyear-field"' + (item.irregular ? "" : " hidden") + '>' +
     '<label>Budget year</label>' +
     '<select class="f-reserveyear" title="Which twelve months this reserve is measured over on the Spending tab. A travel or maintenance budget you think of in financial years shouldn\'t reset every 1 January.">' + options + '</select>' +
@@ -94,9 +127,12 @@ function reserveYearFieldHtml(item){
 // differently. Past tense once the date has gone by, since a row that has already ended is still
 // in the list contributing to every "per month" figure on the page — that's the case worth
 // noticing.
+export function hasEnded(item){
+  return !!(item && item.endDate && item.endDate < todayStr());
+}
 export function endDateNoteHtml(item){
   if(!item || !item.endDate) return "";
-  var ended = item.endDate < todayStr();
+  var ended = hasEnded(item);
   return '<span class="row-end-note' + (ended ? " ended" : "") + '">' +
     (ended ? "Ended " : "Ends ") + escapeAttr(item.endDate) + '</span>';
 }
@@ -114,11 +150,15 @@ export function scenarioVaryNoteHtml(item, activeScenario){
   var names = Object.keys(overrides).filter(function(k){ return overrides[k] != null; });
   if(!names.length) return "";
   var here = overrides[activeScenario];
+  // Which figure the pill names flipped in v2.87.0, along with the row's headline. The row now
+  // shows what the ACTIVE scenario pays, so the pill's job is to name the default it's overriding
+  // — naming the scenario figure as well would just print the same number twice.
   var text = here != null
-    ? fmtCurrency2.format(here) + " in " + activeScenario
+    ? "default " + fmtCurrency2.format(item.amount)
     : "Varies in " + (names.length === 1 ? names[0] : names.length + " scenarios");
   return '<span class="row-vary-note" title="' + escapeAttr(
-    "This row's amount differs by scenario. The figure on the row is the default, used by any scenario without its own value.") +
+    "This row's amount differs by scenario. The figure shown is what " + (activeScenario || "the active scenario") +
+    " pays; the default applies to any scenario without its own value.") +
     '">⇄ ' + escapeAttr(text) + '</span>';
 }
 
@@ -151,7 +191,7 @@ export function modernRowSummaryHtml(opts){
       '<div class="m-row-name">' + escapeAttr(opts.name || "") + '</div>' +
       subs +
     '</div>' +
-    '<span class="m-row-amt" data-computed="amt">' + (opts.amountHtml || "") + '</span>' +
+    '<span class="m-row-amt' + (opts.ended ? " row-amt-ended" : "") + '" data-computed="amt">' + (opts.amountHtml || "") + '</span>' +
     (opts.computed ? "" : '<span class="m-row-chev" aria-hidden="true">✕</span>') +
   '</div>';
 }
@@ -190,7 +230,10 @@ export function modernRowShellHtml(section, idx, openState, summaryHtml, editHtm
 export function modernPlainRowHtml(item, idx, section, openState, opts){
   opts = opts || {};
   var isComputed = !!item.computed;
-  var monthly = periodsOf(item.amount, item.freq).monthly;
+  // The row's headline figure is what THIS scenario pays, so the list adds up to the card total
+  // above it (which is scenario-resolved). The edit panel's Amount field still edits the default —
+  // the "⇄" pill below names it, and the Vary dialog says so in as many words.
+  var monthly = periodsOf(resolveSharedAmount(item, opts.activeScenario), item.freq).monthly;
   var trendHtml = (opts.showLog && !isComputed) ? historyTrendHtml(item) : "";
   var summary = modernRowSummaryHtml({
     computed: isComputed,
@@ -202,6 +245,10 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
     // the list rather than in a second, parallel list further down the page.
     subLines: [isComputed && item.computedNote ? escapeAttr(item.computedNote) : "", trendHtml,
       endDateNoteHtml(item), scenarioVaryNoteHtml(item, opts.activeScenario), opts.extraSubLine || ""],
+    // An ended row is no longer in any total (sumField skips it), so its amount is struck through
+    // rather than silently reading as money still going out. The row stays in the list — you have
+    // to be able to see it to extend or delete it.
+    ended: hasEnded(item),
     amountHtml: fmtCurrency2.format(monthly) + "/mo"
   });
   if(isComputed){

@@ -7,7 +7,8 @@ import { escapeAttr } from "../lib/html.js";
 import { optionsHtml, historyTrendHtml } from "../lib/ledger-table.js";
 import { renderLineChart, sparklineHtml, sparklinePlaceholderHtml } from "../lib/charts.js";
 import { showToast } from "../lib/toast.js";
-import { appendHistorySnapshot, daysUntil } from "../calc/ledger.js";
+import { appendHistorySnapshot, daysUntil, householdYearWindow, householdYearBasis } from "../calc/ledger.js";
+import { holdingDividend, saleCapitalGain } from "../calc/tax.js";
 import { renderProjectionOutputs } from "./projections.js";
 import { renderDashboardStats } from "./dashboard.js";
 import { parseCsv } from "../lib/backup.js";
@@ -44,7 +45,12 @@ function holdingWindowChange(item){
   } else {
     var targetStr;
     if(win.ytd){
-      targetStr = new Date().getFullYear() + "-01-01";
+      // The day *before* the year opened: the loop below takes the last priced entry on or before
+      // the target, and a price logged exactly on 1 July is this year's opening price, not the
+      // baseline the year's gain should be measured from.
+      var yearStart = new Date(householdYearWindow().start + "T00:00:00");
+      yearStart.setDate(yearStart.getDate() - 1);
+      targetStr = localDateStr(yearStart);
     } else {
       var target = new Date();
       target.setDate(target.getDate() - win.days);
@@ -61,7 +67,7 @@ function holdingWindowChange(item){
 }
 function windowFallbackHtml(){
   var win = SHARES_CHANGE_WINDOWS.find(function(w){ return w.key === sharesChangeWindow; });
-  var label = win ? win.label : "";
+  var label = win ? sharesWindowLabel(win) : "";
   return '<span class="calc-note" title="No price logged from at least ' + escapeAttr(label) + ' ago — paste updated prices or use Log to start tracking this.">— ' + escapeAttr(label) + '</span>';
 }
 function gainLossHtml(item){
@@ -71,6 +77,81 @@ function gainLossHtml(item){
   var arrow = g.gainDollar > 0 ? "▲" : (g.gainDollar < 0 ? "▼" : "–");
   return '<span class="asset-trend gain-cell ' + cls + '">' + arrow + ' ' + fmtCurrency0For(holdingCurrency(item)).format(Math.abs(g.gainDollar)) +
     ' (' + fmtPercent1.format(Math.abs(g.pct)) + ')</span>';
+}
+
+// Sales already recorded against this holding. Each states whether the discount applied and how
+// long it was held, because that's the one thing about a CGT event people misjudge — and once it's
+// recorded it's too late to act on, so the number has to be visible rather than inferred.
+function salesListHtml(item, idx){
+  var sales = Array.isArray(item.sales) ? item.sales : [];
+  if(!sales.length) return "";
+  return '<div class="sale-list">' + sales.map(function(sale, si){
+    var g = saleCapitalGain(sale);
+    var cls = g.isLoss ? "down" : "up";
+    return '<div class="sale-row">' +
+      '<span class="sale-date">' + escapeAttr(sale.date) + '</span>' +
+      '<span class="sale-detail">' + fmtQtyDisplay.format(Number(sale.units) || 0) + ' units · ' +
+        fmtCurrency0.format(Number(sale.proceeds) || 0) + ' less ' + fmtCurrency0.format(Number(sale.costBase) || 0) + ' cost base</span>' +
+      '<span class="asset-trend ' + cls + '">' + (g.isLoss ? "" : "+") + fmtCurrency0.format(g.raw) + '</span>' +
+      '<span class="sale-discount' + (g.discountApplied ? " on" : "") + '" title="' +
+        escapeAttr(g.heldDays + " days held. The 50% discount needs more than 12 months (366 days).") + '">' +
+        (g.isLoss ? "loss" : (g.discountApplied ? "−50% discount → " + fmtCurrency0.format(g.assessable) : "no discount")) + '</span>' +
+      '<button type="button" class="icon-btn" data-asset-sale-del="' + idx + ':' + si + '" aria-label="Delete this sale">✕</button>' +
+    '</div>';
+  }).join("") + '</div>';
+}
+
+// The franking credit and grossed-up figure for one holding, shown under the Franked % field —
+// because "$700 cash" and "$1,000 of taxable income with a $300 credit" are very different
+// statements and only the second one is what goes on a return.
+// Records a sale against a holding and reduces the units held — a sale that didn't change the
+// holding would leave the portfolio claiming units that are gone, which is worse than not
+// recording it at all.
+//
+// The cost base defaults to avgCost x units when left blank, which is right for the common case
+// and wrong for anyone who tracks parcels separately — hence a field rather than only the derived
+// figure.
+export function recordAssetSale(idx, input){
+  var item = state.assets[idx];
+  if(!item) return null;
+  var units = Math.max(0, Number(input.units) || 0);
+  var proceeds = Math.max(0, Number(input.proceeds) || 0);
+  if(!units || !proceeds) return { error: "Enter both the units sold and what you sold them for." };
+  var held = Math.max(0, Number(item.quantity) || 0);
+  if(units > held) return { error: "You only hold " + fmtQtyDisplay.format(held) + " units." };
+  var costBase = input.costBase !== "" && input.costBase != null
+    ? Math.max(0, Number(input.costBase) || 0)
+    : Math.round((item.avgCost != null ? item.avgCost : 0) * units * 100) / 100;
+  if(!Array.isArray(item.sales)) item.sales = [];
+  item.sales.push({
+    date: input.date || localDateStr(),
+    acquired: input.acquired || "",
+    units: units,
+    proceeds: proceeds,
+    costBase: costBase
+  });
+  item.sales.sort(function(a, b){ return (b.date || "").localeCompare(a.date || ""); });
+  item.quantity = Math.round((held - units) * 1e8) / 1e8;
+  item.amount = Math.round(item.quantity * (Number(item.price) || 0) * 100) / 100;
+  return { sale: item.sales[0], item: item };
+}
+export function deleteAssetSale(idx, saleIdx){
+  var item = state.assets[idx];
+  if(!item || !Array.isArray(item.sales)) return null;
+  var removed = item.sales.splice(saleIdx, 1)[0];
+  if(!removed) return null;
+  // Put the units back: deleting a sale has to undo what recording it did, or a mistyped sale
+  // permanently loses units from the portfolio.
+  item.quantity = Math.round(((Number(item.quantity) || 0) + (Number(removed.units) || 0)) * 1e8) / 1e8;
+  item.amount = Math.round(item.quantity * (Number(item.price) || 0) * 100) / 100;
+  return removed;
+}
+
+export function dividendNoteText(item){
+  var d = holdingDividend(item);
+  if(!d.cash) return "";
+  return fmtCurrency0.format(d.cash) + "/yr cash" +
+    (d.credit ? " + " + fmtCurrency0.format(d.credit) + " franking credit = " + fmtCurrency0.format(d.grossedUp) + " declared" : " (unfranked)");
 }
 
 // "as of 2026-08-31 · USD" (or just "USD" with no date yet) — always shown, not only once a
@@ -118,8 +199,10 @@ var SHARES_CHANGE_WINDOWS = [
   { key: "3m", label: "3M", days: 90 },
   { key: "6m", label: "6M", days: 182 },
   { key: "1y", label: "1Y", days: 365 },
-  // Not a fixed day-count like the ones above — the start of the current calendar year, whatever
-  // that date happens to be today.
+  // Not a fixed day-count like the ones above — the start of the household's current year
+  // (Accounts → Preferences), whatever date that happens to be. Labelled "FYTD" on the financial
+  // basis, because a share gain measured from 1 July is not the same number as one measured from
+  // 1 January and the picker shouldn't call them both "YTD".
   { key: "ytd", label: "YTD", ytd: true },
   // Whatever the earliest priced entry is, no matter how recent — the only window that can show
   // something with as little as two logged prices, regardless of how young the history is.
@@ -128,15 +211,20 @@ var SHARES_CHANGE_WINDOWS = [
 function priceChangeHtml(item){
   var c = holdingWindowChange(item);
   var win = SHARES_CHANGE_WINDOWS.find(function(w){ return w.key === sharesChangeWindow; });
-  var label = win ? win.label : "";
+  var label = win ? sharesWindowLabel(win) : "";
   if(!c) return windowFallbackHtml();
   var cls = c.pct > 0 ? "up" : (c.pct < 0 ? "down" : "");
   var arrow = c.pct > 0 ? "▲" : (c.pct < 0 ? "▼" : "–");
   return '<span class="asset-trend ' + cls + '" title="Since ' + escapeAttr(c.fromDate) + '">' + arrow + ' ' + fmtPercent1.format(Math.abs(c.pct)) + ' ' + escapeAttr(label) + '</span>';
 }
+// "YTD" on the calendar basis, "FYTD" on the financial one — see SHARES_CHANGE_WINDOWS.
+function sharesWindowLabel(w){
+  if(w.ytd && householdYearBasis() === "financial") return "FYTD";
+  return w.label;
+}
 function sharesChangeWindowHtml(){
   return '<div class="seg-control" id="sharesChangeWindow" role="group" aria-label="Price change window">' + SHARES_CHANGE_WINDOWS.map(function(w){
-    return '<button type="button" class="seg-option' + (sharesChangeWindow === w.key ? " active" : "") + '" aria-pressed="' + (sharesChangeWindow === w.key) + '" data-shares-change-window="' + escapeAttr(w.key) + '" title="Price change over the last ' + escapeAttr(w.label) + '">' + escapeAttr(w.label) + '</button>';
+    return '<button type="button" class="seg-option' + (sharesChangeWindow === w.key ? " active" : "") + '" aria-pressed="' + (sharesChangeWindow === w.key) + '" data-shares-change-window="' + escapeAttr(w.key) + '" title="Price change over the last ' + escapeAttr(w.label) + '">' + escapeAttr(sharesWindowLabel(w)) + '</button>';
   }).join("") + '</div>';
 }
 export function patchHoldingRow(tr, item){
@@ -284,6 +372,8 @@ function modernAssetRowHtml(item, idx, colorIdx){
       '<div class="m-edit-field span2"><label>Value</label><input type="number" step="100" min="0" class="a-amount" value="' + item.amount + '" aria-label="Asset value"></div>' +
       '<div class="m-edit-field"><label>Person</label><input type="text" class="a-person" list="personSuggestions" value="' + escapeAttr(item.person || "") + '" placeholder="Household" aria-label="Person"></div>' +
     '</div>' +
+    // Sales live behind a disclosure: most holdings have none, and a CGT form permanently open on
+    // every row would bury the fields people actually use daily.
     '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm asset-log-btn" data-asset-log="' + idx + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart below">Log</button><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete asset">Delete</button></div>' +
   '</div></div></div>';
   return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="assets" data-index="' + idx + '">' + summary + edit + '</div>';
@@ -404,7 +494,22 @@ function modernShareRowHtml(item, idx, colorIdx){
       '<div class="m-edit-field"><label>Market</label><select class="h-market">' + optionsHtml(SHARE_MARKETS, item.market || "ASX") + '</select></div>' +
       '<div class="m-edit-field"><label>Avg cost</label><input type="number" step="0.01" min="0" class="h-avgcost" value="' + (item.avgCost != null ? item.avgCost : "") + '" placeholder="—" aria-label="Average cost per share"></div>' +
       '<div class="m-edit-field"><label>Person</label><input type="text" class="h-person" list="personSuggestions" value="' + escapeAttr(item.person || "") + '" placeholder="Household" aria-label="Person"></div>' +
+      // Per-unit, not a yearly total: a total would silently become wrong the moment units are
+      // bought or sold, which is exactly when nobody thinks to revisit it.
+      '<div class="m-edit-field"><label>Dividend / unit /yr</label><input type="number" step="0.01" min="0" class="h-dividend" value="' + (Number(item.dividendPerUnit) || 0) + '" placeholder="0" title="Yearly distribution per share or unit. Multiplied by the quantity above, so it follows the holding if you buy or sell." aria-label="Yearly dividend per unit"></div>' +
+      '<div class="m-edit-field"><label>Franked %</label><input type="number" step="5" min="0" max="100" class="h-franked" value="' + (item.frankedPct == null ? 100 : item.frankedPct) + '" title="How much of the dividend carries a franking credit for company tax already paid. Fully franked is 100; LICs, REITs and foreign income are often less." aria-label="Franked percentage"><span class="computed-note h-div-note">' + dividendNoteText(item) + '</span></div>' +
     '</div>' +
+    '<details class="row-more-options"><summary>Record a sale (capital gains)</summary><div style="margin-top:8px">' +
+      '<div class="m-edit-grid">' +
+        '<div class="m-edit-field"><label>Units sold</label><input type="number" step="any" min="0" class="h-sale-units" placeholder="0" aria-label="Units sold"></div>' +
+        '<div class="m-edit-field"><label>Sold for (total)</label><input type="number" step="0.01" min="0" class="h-sale-proceeds" placeholder="0" title="Total proceeds, after brokerage" aria-label="Sale proceeds"></div>' +
+        '<div class="m-edit-field"><label>Sold on</label><input type="date" class="h-sale-date" value="' + localDateStr() + '" aria-label="Sale date"></div>' +
+        '<div class="m-edit-field"><label>Acquired on</label><input type="date" class="h-sale-acquired" title="When you bought these units. Held more than 12 months, an individual\'s gain is halved — and \"more than\" is exact: 12 months to the day does not qualify." aria-label="Acquisition date"></div>' +
+        '<div class="m-edit-field span2"><label>Cost base</label><input type="number" step="0.01" min="0" class="h-sale-costbase" placeholder="' + (item.avgCost != null ? "avg cost x units" : "0") + '" title="What the units cost you, including brokerage. Left blank it is worked out from the Avg cost above." aria-label="Cost base"></div>' +
+      '</div>' +
+      '<div class="m-edit-actions"><button type="button" class="btn btn-sm btn-primary" data-asset-sale="' + idx + '">Record sale</button></div>' +
+      salesListHtml(item, idx) +
+    '</div></details>' +
     '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm asset-log-btn" data-asset-log="' + idx + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart below">Log</button><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete holding">Delete</button></div>' +
   '</div></div></div>';
   return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="assets" data-index="' + idx + '">' + summary + edit + '</div>';
@@ -449,7 +554,7 @@ function sharesGainLossGlanceHtml(items){
   var s = sharesGainLossSummary(items);
   if(!s.trackedCount) return "";
   var win = SHARES_CHANGE_WINDOWS.find(function(w){ return w.key === sharesChangeWindow; });
-  var label = win ? win.label : "";
+  var label = win ? sharesWindowLabel(win) : "";
   var cls = s.gainDollar > 0.5 ? "up" : (s.gainDollar < -0.5 ? "down" : "");
   var arrow = s.gainDollar > 0.5 ? "▲" : (s.gainDollar < -0.5 ? "▼" : "–");
   return '<div class="shares-glance">' +

@@ -544,7 +544,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     }
     var varyBtn = e.target.closest("[data-vary-scenario]");
     if(varyBtn){
-      openScenarioOverridePanel(Number(varyBtn.getAttribute("data-vary-scenario")));
+      openScenarioOverridePanel(varyBtn.getAttribute("data-vary-section") || "shared", Number(varyBtn.getAttribute("data-vary-scenario")));
       return;
     }
     // "Record a pay change" (Income). Distinct from [data-log] below, which snapshots whatever is
@@ -1738,26 +1738,34 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   wireModernRowToggle("incomeGroups", modernIncomeRowOpen);
   wireModernRowToggle("sharedGroups", modernSharedRowOpen);
 
-  // ---------------- Shared expenses: per-scenario override panel ----------------
+  // ---------------- Per-scenario override panel (shared expenses and income) ----------------
+  // The panel carries its own section now, because the same dialog serves state.shared and
+  // state.income. An income change has to go through refreshAfterLedgerChange("income"), which
+  // re-runs recalcComputedItems() — a Gross row's override changes that person's tax, and so the
+  // synthetic net row and every total derived from it.
+  function overrideBackdropTarget(e){
+    var backdrop = e.target.closest("[data-override-backdrop]");
+    if(!backdrop) return null;
+    return { section: backdrop.getAttribute("data-override-section") || "shared", idx: Number(backdrop.getAttribute("data-override-idx")) };
+  }
   document.getElementById("scenarioOverrideRoot").addEventListener("click", function(e){
     if(e.target.closest("[data-override-close]") || e.target === e.target.closest("[data-override-backdrop]")){
       closeScenarioOverridePanel();
       return;
     }
-    var backdrop = e.target.closest("[data-override-backdrop]");
-    if(!backdrop) return;
-    var idx = Number(backdrop.getAttribute("data-override-idx"));
+    var target = overrideBackdropTarget(e);
+    if(!target) return;
     var resetBtn = e.target.closest("[data-override-reset]");
     if(resetBtn){
-      resetScenarioOverride(idx, resetBtn.getAttribute("data-override-reset"));
-      refreshAfterLedgerChange("shared");
+      resetScenarioOverride(target.section, target.idx, resetBtn.getAttribute("data-override-reset"));
+      refreshAfterLedgerChange(target.section);
       renderScenarioOverridePanel();
       return;
     }
     var useBtn = e.target.closest("[data-override-use-everywhere]");
     if(useBtn){
-      copyScenarioAmountToAll(idx, useBtn.getAttribute("data-override-use-everywhere"));
-      refreshAfterLedgerChange("shared");
+      copyScenarioAmountToAll(target.section, target.idx, useBtn.getAttribute("data-override-use-everywhere"));
+      refreshAfterLedgerChange(target.section);
       renderScenarioOverridePanel();
       return;
     }
@@ -1765,12 +1773,11 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   document.getElementById("scenarioOverrideRoot").addEventListener("change", function(e){
     var input = e.target.closest(".scen-override-input");
     if(!input) return;
-    var backdrop = e.target.closest("[data-override-backdrop]");
-    if(!backdrop) return;
-    var idx = Number(backdrop.getAttribute("data-override-idx"));
+    var target = overrideBackdropTarget(e);
+    if(!target) return;
     var scenarioName = input.getAttribute("data-override-scenario");
-    setScenarioOverride(idx, scenarioName, parseFloat(input.value) || 0);
-    refreshAfterLedgerChange("shared");
+    setScenarioOverride(target.section, target.idx, scenarioName, parseFloat(input.value) || 0);
+    refreshAfterLedgerChange(target.section);
     // Deferred to the next tick: this handler runs synchronously inside the input's own
     // 'change' dispatch, and rebuilding #scenarioOverrideRoot's innerHTML (an ancestor of the
     // input that's still mid-event) right now throws "the node to be removed is no longer a

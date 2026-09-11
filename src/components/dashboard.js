@@ -1,7 +1,7 @@
 import { state, persist } from "../state.js";
 import { sumField, sumByClassification, sumByAccount, safeDiv, resolveSharedAmount, nextDueDate, daysUntil, appendHistorySnapshot, lastTransactionDateFor } from "../calc/ledger.js";
 import { ipExpenseItemsForClassification } from "../calc/property.js";
-import { effectiveIncomeItems } from "../calc/tax.js";
+import { scenarioIncomeMonthly } from "../calc/tax.js";
 import { scenarioTotals, computeNetWorthSeries, totalNetWorthValue, runwayMonths, actualAssetGrowthLastMonth, staleAssets } from "../calc/engine.js";
 import { monthlyCashFlowForecast } from "../calc/cashflow.js";
 import { fireSettings, fireWealthSplit, simulateRetirementAt, earliestWorkableRetirementAge } from "../calc/fire.js";
@@ -195,7 +195,10 @@ export function renderDetail(){
       : item;
   });
   var combined = ipExpenseItemsForClassification().concat(sharedForScenario).concat(state.home[scenario]);
-  var incomeMonthly = sumField(effectiveIncomeItems(), "monthly");
+  // Scenario-resolved for the same reason the shared rows above are: this breakdown has to agree
+  // with scenarioTotals()/computeNetWorthSeries() for the scenario being shown, and income can now
+  // differ between them.
+  var incomeMonthly = scenarioIncomeMonthly({ scenario: scenario });
   var needs = sumByClassification(combined, "Needs", "monthly");
   var wants = sumByClassification(combined, "Wants", "monthly");
   var t = scenarioTotals(scenario);

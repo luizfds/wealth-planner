@@ -348,7 +348,7 @@ export function renderSharedGroups(){
       // Each row renders under its own source section, so a housing line's edits, deletes and
       // logs land in state.home[scenario] while a shared line's land in state.shared — no
       // special-casing anywhere downstream, since every handler already keys off data-section.
-      '<div class="m-rows">' + g.members.map(function(line){ return modernPlainRowHtml(line.item, line.idx, line.section, modernSharedRowOpen, {showClass:true, showDone:true, categories: state.categories, extraSubLine: budgetRowProgressHtml(line.item)}); }).join("") + '</div>' +
+      '<div class="m-rows">' + g.members.map(function(line){ return modernPlainRowHtml(line.item, line.idx, line.section, modernSharedRowOpen, {showClass:true, showDone:true, categories: state.categories, activeScenario: state.activeScenario, extraSubLine: budgetRowProgressHtml(line.item)}); }).join("") + '</div>' +
       '<button type="button" class="m-add-row" data-add="' + escapeAttr(addValue) + '">+ Add expense</button>' +
     '</div>';
   }).join("") + '</div>';
@@ -359,14 +359,21 @@ export function renderSharedGroups(){
 // same generic rowHtml()/modernPlainRowHtml() but have no scenarioOverrides concept, so this is
 // a post-render DOM patch scoped to #sharedGroups rather than a change to those shared
 // renderers (which would otherwise need to special-case every other section that reuses them).
-function injectScenarioOverrideButtons(){
-  document.querySelectorAll('#sharedGroups [data-section="shared"]').forEach(function(rowEl){
+export function injectScenarioOverrideButtons(containerId, section){
+  containerId = containerId || "sharedGroups";
+  section = section || "shared";
+  document.querySelectorAll('#' + containerId + ' [data-section="' + section + '"]').forEach(function(rowEl){
     var idx = rowEl.getAttribute("data-index");
+    var item = overrideItemAt(section, Number(idx));
+    // A computed row's amount isn't the user's to set in the first place (a synced home-loan
+    // repayment, a person's synthetic net income), so "vary it by scenario" is meaningless there.
+    // On Income that's most of what's in the list, so this matters more than it did on shared.
+    if(!item || item.computed || item.syntheticNetFor) return;
     var btn = document.createElement("button");
     btn.type = "button";
     btn.className = "btn btn-ghost btn-sm";
     btn.setAttribute("data-vary-scenario", idx);
-    var item = state.shared[Number(idx)];
+    btn.setAttribute("data-vary-section", section);
     var hasOverrides = !!(item && item.scenarioOverrides && Object.keys(item.scenarioOverrides).length);
     var varyLabel = hasOverrides ? "Varies by scenario — click to edit" : "Set a different amount for one or more scenarios";
     btn.title = varyLabel;
@@ -380,15 +387,39 @@ function injectScenarioOverrideButtons(){
   });
 }
 
-// Session-only (not persisted) — which state.shared index (if any) has its per-scenario
-// override panel open, mirrors homeBlockCollapsed/modernSharedRowOpen's pattern of session UI
-// state living as a plain exported var here, mutated from app.js's event handlers.
-export var scenarioOverrideOpenIdx = null;
+// The two lists whose rows can carry a per-scenario override. Kept as an explicit map rather than
+// reusing app.js's getArrayForSection() — that one routes across every section in the app,
+// including housing and property rows, and those *can't* vary by scenario (housing rows already
+// belong to one scenario; property costs are global). Naming the two here makes the panel refuse
+// anything else by construction rather than by a check someone can forget.
+var OVERRIDE_SECTIONS = {
+  shared: function(){ return state.shared; },
+  income: function(){ return state.income; }
+};
+function overrideItemAt(section, idx){
+  var get = OVERRIDE_SECTIONS[section];
+  var arr = get && get();
+  return arr ? arr[idx] : null;
+}
 
-function scenarioOverridePanelHtml(idx){
-  var item = state.shared[idx];
+// Session-only (not persisted) — which row (if any) has its per-scenario override panel open,
+// as {section, idx}; mirrors homeBlockCollapsed/modernSharedRowOpen's pattern of session UI state
+// living as a plain exported var here, mutated from app.js's event handlers.
+export var scenarioOverrideOpen = null;
+
+function scenarioOverridePanelHtml(section, idx){
+  var item = overrideItemAt(section, idx);
   if(!item) return "";
   var baseLabel = fmtCurrency2.format(item.amount) + " " + item.freq;
+  // Income needs a sentence expenses don't: on a Gross row the number being varied is pre-tax, and
+  // the consequence people expect ("so my take-home drops by the same amount") is wrong — tax,
+  // Medicare and super all move with it.
+  var isGross = section === "income" && item.incomeType === "Gross";
+  var incomeNote = section !== "income" ? "" :
+    '<p class="scen-override-note">' + (isGross
+      ? "This is a <b>pre-tax</b> amount, so each scenario\'s tax, Medicare levy and employer super are worked out again from the figure you set here — take-home won\'t move by the same amount you do."
+      : "This amount is already after tax, so it carries straight into each scenario\'s savings.") +
+    '</p>';
   var rows = state.scenarios.map(function(name){
     var isBaseline = name === state.baselineScenario;
     var hasOverride = !!(item.scenarioOverrides && item.scenarioOverrides[name] != null);
@@ -401,49 +432,51 @@ function scenarioOverridePanelHtml(idx){
       '<button type="button" class="btn btn-ghost btn-sm" data-override-use-everywhere="' + escapeAttr(name) + '" title="Set this amount for every scenario, including Current situation">Use everywhere</button>' +
     '</div>';
   }).join("");
-  return '<div class="scen-override-backdrop" data-override-backdrop data-override-idx="' + idx + '">' +
+  return '<div class="scen-override-backdrop" data-override-backdrop data-override-section="' + escapeAttr(section) + '" data-override-idx="' + idx + '">' +
     '<div class="scen-override-panel" role="dialog" aria-label="Vary &quot;' + escapeAttr(item.what) + '&quot; by scenario">' +
       '<div class="scen-override-head"><h4>Vary "' + escapeAttr(item.what) + '" by scenario</h4>' +
         '<button type="button" class="icon-btn" data-override-close aria-label="Close">✕</button></div>' +
-      '<p class="scen-override-note">Shared amount (used by any scenario without its own value below): <b>' + baseLabel + '</b></p>' +
+      '<p class="scen-override-note">' + (section === "income" ? "Default" : "Shared") + ' amount (used by any scenario without its own value below): <b>' + baseLabel + '</b></p>' +
+      incomeNote +
       '<div class="scen-override-rows">' + rows + '</div>' +
     '</div>' +
   '</div>';
 }
 
-export function openScenarioOverridePanel(idx){
-  scenarioOverrideOpenIdx = idx;
+export function openScenarioOverridePanel(section, idx){
+  scenarioOverrideOpen = { section: section, idx: idx };
   renderScenarioOverridePanel();
 }
 export function closeScenarioOverridePanel(){
-  scenarioOverrideOpenIdx = null;
+  scenarioOverrideOpen = null;
   var root = document.getElementById("scenarioOverrideRoot");
   if(root) root.innerHTML = "";
 }
 export function renderScenarioOverridePanel(){
   var root = document.getElementById("scenarioOverrideRoot");
   if(!root) return;
-  if(scenarioOverrideOpenIdx == null || !state.shared[scenarioOverrideOpenIdx]){
-    scenarioOverrideOpenIdx = null;
+  var open = scenarioOverrideOpen;
+  if(!open || !overrideItemAt(open.section, open.idx)){
+    scenarioOverrideOpen = null;
     root.innerHTML = "";
     return;
   }
-  root.innerHTML = scenarioOverridePanelHtml(scenarioOverrideOpenIdx);
+  root.innerHTML = scenarioOverridePanelHtml(open.section, open.idx);
 }
 
-export function setScenarioOverride(idx, scenarioName, amount){
-  var item = state.shared[idx];
+export function setScenarioOverride(section, idx, scenarioName, amount){
+  var item = overrideItemAt(section, idx);
   if(!item) return;
   if(!item.scenarioOverrides) item.scenarioOverrides = {};
   item.scenarioOverrides[scenarioName] = amount;
 }
-export function resetScenarioOverride(idx, scenarioName){
-  var item = state.shared[idx];
+export function resetScenarioOverride(section, idx, scenarioName){
+  var item = overrideItemAt(section, idx);
   if(!item || !item.scenarioOverrides) return;
   delete item.scenarioOverrides[scenarioName];
 }
-export function copyScenarioAmountToAll(idx, scenarioName){
-  var item = state.shared[idx];
+export function copyScenarioAmountToAll(section, idx, scenarioName){
+  var item = overrideItemAt(section, idx);
   if(!item) return;
   var value = resolveSharedAmount(item, scenarioName);
   item.amount = value;

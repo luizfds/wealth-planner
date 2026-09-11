@@ -229,7 +229,7 @@ see `PROJECT_KNOWLEDGE.md` for why a source-level guard is the right shape here.
 
 ---
 
-## 4. `[ ]` Income overrides per scenario
+## 4. `[~]` Income overrides per scenario
 
 `scenarioTotals()` calls `effectiveIncomeItems()` — the same income rows for every scenario. On the
 real backup all three scenarios differ only in housing rows (2 vs 5) and zero shared overrides. So

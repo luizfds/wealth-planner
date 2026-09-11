@@ -128,7 +128,11 @@ export function defaultState(){
     projection: { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0, incomeGrowthRate: 3, realTerms: true },
     // Age now, target retirement age, and when super unlocks — see calc/fire.js.
     fire: { currentAge: null, retireAge: null, preservationAge: 60 },
-    tax: { sgRate: 12, ipOwnership: {}, settings: {} },
+    // privateHospitalCover / familyThresholds are household-level, not per person: the Medicare
+    // levy surcharge is assessed on a family basis once you have a spouse, and a policy covers a
+    // household. Modelled as a family/singles switch rather than a dependants count because the
+    // app has no concept of children and the switch covers the decision people actually face.
+    tax: { sgRate: 12, ipOwnership: {}, settings: {}, privateHospitalCover: false, familyThresholds: false },
     // 1 USD in AUD — the only cross-currency conversion this app needs, since MARKET_CURRENCY
     // only ever produces AUD or USD. Set via the Shares page's "Paste prices" box (pasting a
     // USDAUD row alongside your holdings, same GOOGLEFINANCE("CURRENCY:USDAUD") template
@@ -336,6 +340,11 @@ export function migrateState(s){
   if(!s.tax.ipOwnership) s.tax.ipOwnership = {};
   if(!s.tax.settings) s.tax.settings = {};
   if(s.tax.sgRate == null) s.tax.sgRate = 11.5;
+  // Default false for both: assuming someone holds private hospital cover would silently zero a
+  // real cost, and assuming family thresholds would halve a real one. An unset save gets the
+  // conservative reading, and the toggles are right there on the card.
+  if(typeof s.tax.privateHospitalCover !== "boolean") s.tax.privateHospitalCover = false;
+  if(typeof s.tax.familyThresholds !== "boolean") s.tax.familyThresholds = false;
   if(!s.fx) s.fx = { usdAud: null, usdAudUpdated: "" };
   if(s.fx.usdAud === undefined) s.fx.usdAud = null;
   if(s.fx.usdAudUpdated == null) s.fx.usdAudUpdated = "";

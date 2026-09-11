@@ -105,3 +105,27 @@ test("the segment list still names every deduction computePersonTax produces", f
     assert.match(block[0], new RegExp('key: "' + key + '"'), "missing segment: " + key);
   });
 });
+
+test("no two waterfall segments share a colour", function(){
+  // series-color-5 (#008300) sat next to series-color-2 (#1baf7a) in the bar for one version:
+  // two greens, telling Medicare levy apart from a HELP repayment by eye. Nothing about the
+  // rendered output would fail without this — the bar draws perfectly well in one colour.
+  var src = readFileSync(new URL("../src/components/income.js", import.meta.url), "utf8");
+  var block = /var TAX_WATERFALL_SEGMENTS = \[[\s\S]*?\];/.exec(src)[0];
+  var classes = block.match(/colorClass: "series-color-\d"/g) || [];
+  assert.equal(classes.length, 6, "expected one colorClass per segment");
+  assert.equal(new Set(classes).size, classes.length, "duplicate colour: " + classes.join(", "));
+});
+
+test("every segment carries a short legend label that fits a 118px column", function(){
+  // The legend is a 118px-minimum auto-fit grid so it can hold two columns at 360px. `label` is
+  // the bar's tooltip and can stay long; `short` is what actually gets printed and ellipsised.
+  var src = readFileSync(new URL("../src/components/income.js", import.meta.url), "utf8");
+  var block = /var TAX_WATERFALL_SEGMENTS = \[[\s\S]*?\];/.exec(src)[0];
+  var shorts = (block.match(/short: "([^"]*)"/g) || []).map(function(s){ return s.slice(8, -1); });
+  assert.equal(shorts.length, 6, "every segment needs a `short`");
+  shorts.forEach(function(s){
+    // ~13 chars is what 118px holds at the legend's 10.5px uppercase with .04em tracking.
+    assert.ok(s.length <= 13, '"' + s + '" is too long for the legend column');
+  });
+});

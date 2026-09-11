@@ -420,13 +420,21 @@ export function patchIncomeSuperNotes(){
 //
 // taxWaterfallTotal() states what the segments add up to, and a unit test pins the identity. If you
 // add another deduction to computePersonTax, it belongs here too.
+// `label` is the full name, used for the bar's hover tooltip. `short` is what the legend prints:
+// at 390px the legend has ~282px to work with, so the two longest names are the difference between
+// a two-column legend and a five-row column of one item each. The short forms only ever sit
+// directly under the full-length "Medicare levy" line, which is what makes "Surcharge" readable.
+//
+// No two segments may share a hue. series-color-5 (#008300) was HELP's until it turned out to sit
+// next to Medicare levy's series-color-2 (#1baf7a) in the bar — two greens, indistinguishable at a
+// glance and worse for anyone with a green deficiency. series-color-6 (purple) is the free slot.
 var TAX_WATERFALL_SEGMENTS = [
-  { key: "nettakehome", label: "Net take-home", colorClass: "series-color-0" },
-  { key: "incometax", label: "Income tax", colorClass: "series-color-1" },
-  { key: "medicare", label: "Medicare levy", colorClass: "series-color-2" },
-  { key: "surcharge", label: "Medicare levy surcharge", colorClass: "series-color-4" },
-  { key: "help", label: "HELP/HECS repayment", colorClass: "series-color-5" },
-  { key: "sacrifice", label: "To super (sacrifice)", colorClass: "series-color-3" }
+  { key: "nettakehome", label: "Net take-home", short: "Net take-home", colorClass: "series-color-0" },
+  { key: "incometax", label: "Income tax", short: "Income tax", colorClass: "series-color-1" },
+  { key: "medicare", label: "Medicare levy", short: "Medicare levy", colorClass: "series-color-2" },
+  { key: "surcharge", label: "Medicare levy surcharge", short: "Surcharge", colorClass: "series-color-4" },
+  { key: "help", label: "HELP/HECS repayment", short: "HELP/HECS", colorClass: "series-color-6" },
+  { key: "sacrifice", label: "To super (sacrifice)", short: "To super", colorClass: "series-color-3" }
 ];
 export function taxWaterfallValues(r){
   return {
@@ -459,7 +467,7 @@ function renderTaxWaterfallHtml(r){
   // headline, and a missing headline reads as a broken card.
   var legend = TAX_WATERFALL_SEGMENTS.map(function(seg){
     var empty = seg.key !== "nettakehome" && !(values[seg.key] > 0);
-    return '<div class="tax-waterfall-item" data-seg-row="' + seg.key + '"' + (empty ? " hidden" : "") + '><span class="proj-swatch ' + seg.colorClass + '"></span><div class="tax-waterfall-item-text"><span class="tax-waterfall-item-label">' + seg.label + '</span><span class="tax-waterfall-item-value" data-seg-val="' + seg.key + '">' + fmtCurrency0.format(values[seg.key]) + '</span></div></div>';
+    return '<div class="tax-waterfall-item" data-seg-row="' + seg.key + '"' + (empty ? " hidden" : "") + '><span class="proj-swatch ' + seg.colorClass + '"></span><div class="tax-waterfall-item-text"><span class="tax-waterfall-item-label" title="' + escapeAttr(seg.label) + '">' + seg.short + '</span><span class="tax-waterfall-item-value" data-seg-val="' + seg.key + '">' + fmtCurrency0.format(values[seg.key]) + '</span></div></div>';
   }).join("");
   return '<div class="tax-waterfall-bar" data-waterfall-bar>' + bar + '</div><div class="tax-waterfall-legend">' + legend + '</div>';
 }

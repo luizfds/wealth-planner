@@ -281,6 +281,12 @@
             </summary>
             <div class="ledger-body">
               <p class="ledger-note" style="margin-left:0">Everything you plan to spend — housing, subscriptions, car, groceries and the rest — with what each is expected to cost and how often. Housing comes from the scenario you're currently in (<b id="budgetHousingScenario">—</b>), so switching scenarios on the Scenarios tab swaps it for that one's costs, and each investment property's costs come from the Properties tab.</p>
+              <!-- Rendered by renderPropertyExpensesSummary(). The Dashboard's 50/30/20 breakdown
+                   counts investment loan repayments and this total doesn't, so the two pages show
+                   figures that differ by exactly this amount. The card that explains why sits at
+                   the bottom of the page — 4,700px down on a phone — which is no use next to the
+                   number that raises the question. -->
+              <p class="ledger-note budget-loan-pointer" id="budgetLoanPointer" hidden style="margin-left:0"></p>
               <div id="expenseImportPreview" hidden></div>
               <p class="income-summary-line" id="sharedSummaryLine" style="display:none"></p>
               <div class="groupby" id="budgetGroupBy" hidden></div>

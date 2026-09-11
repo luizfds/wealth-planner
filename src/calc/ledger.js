@@ -335,6 +335,39 @@ export function budgetCycleFor(item, transactions, todayStr){
     dueThisMonth: cycleStart.getFullYear() === today.getFullYear() && cycleStart.getMonth() === today.getMonth()
   };
 }
+// ---------------- Rows that stop ----------------
+// Childcare that finishes in two years, a car loan with eighteen payments left, a fixed-term
+// allowance: until now every ledger row was projected forever, which over a 20-year horizon is a
+// large and completely silent distortion. An empty endDate means "no end", which is both the
+// default and the overwhelmingly common case.
+//
+// Deliberately a plain inclusive date comparison on ISO strings rather than Date arithmetic: the
+// dates involved are whole days, and string comparison can't drift on a DST boundary the way
+// parsing to a Date and comparing timestamps can.
+export function isActiveOn(item, dateStr){
+  if(!item || !item.endDate) return true;
+  return dateStr <= item.endDate;
+}
+// The same question asked in the projection's own terms — "is this row still running N years from
+// today?". Anchored on a passed-in today so the series is reproducible in tests.
+export function isActiveInYear(item, yearsFromNow, todayStr){
+  if(!item || !item.endDate) return true;
+  var base = todayStr ? new Date(todayStr + "T00:00:00") : new Date();
+  base.setHours(0, 0, 0, 0);
+  var at = new Date(base.getFullYear() + (Number(yearsFromNow) || 0), base.getMonth(), base.getDate());
+  return localDateStr(at) <= item.endDate;
+}
+// Sum only what is still running in a given projection year. Mirrors sumField's shape so callers
+// read the same way, and takes the per-item amount resolver as an argument because the shared
+// ledger needs scenario-resolved amounts while income does not.
+export function sumFieldActiveInYear(items, field, yearsFromNow, todayStr, amountFor){
+  return (items || []).reduce(function(sum, item){
+    if(!isActiveInYear(item, yearsFromNow, todayStr)) return sum;
+    var amount = amountFor ? amountFor(item) : item.amount;
+    return sum + periodsOf(amount, item.freq)[field];
+  }, 0);
+}
+
 // ---------------- Pay schedule ----------------
 // "When am I next paid?" — answerable per income row, and deliberately answered by a different
 // field per frequency, because the three families genuinely need different information:

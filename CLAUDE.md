@@ -8,6 +8,10 @@ For the full detail behind every point below — business-logic assumptions, the
 list with explanations, established UI patterns, and what's still pending — see
 [`.claude/PROJECT_KNOWLEDGE.md`](.claude/PROJECT_KNOWLEDGE.md). This file is the short version.
 
+**Before starting new work, read [`.claude/ROADMAP.md`](.claude/ROADMAP.md)** — the agreed build
+order, with a status marker per item. Flip an item to `[~]` in the *first* commit of the work, not
+the last, so two sessions can't pick up the same one.
+
 ## Architecture
 
 - `index.html` — all markup for every page/section (Dashboard, Income & Tax, Expenses, Assets,

@@ -21,8 +21,25 @@ export function periodsOf(amount, freq){
   var w = toWeekly(amount, freq);
   return { weekly:w, fortnightly:w*2, monthly:w*52/12, quarterly:w*13, yearly:w*52 };
 }
+// Both summers skip rows that have ENDED (item.endDate in the past — see isActiveOn below).
+//
+// Applied at the primitive rather than at each of the ~25 call sites, because every one of them
+// means the same thing: "what does this cost, or earn, per period *right now*". A row that
+// finished two years ago costs nothing, and before this it went on inflating monthly expenses, the
+// savings rate, the runway, the 50/30/20 bar and the Expenses header total forever.
+//
+// It also removed a straight contradiction: computeNetWorthSeries has honoured end dates since
+// v2.77.0, so the Dashboard's "you spend $X/mo" and the projection's own year-1 figure disagreed
+// by the amount of every ended row. Measured on the reference backup: $5,382/mo against $5,283.
+//
+// A row with no endDate — which is every row created before v2.77.0, and most since — is always
+// active, so nothing else changes.
 export function sumField(items, field){
-  return items.reduce(function(s,i){ return s + periodsOf(i.amount, i.freq)[field]; }, 0);
+  var today = localDateStr();
+  return items.reduce(function(s,i){
+    if(!isActiveOn(i, today)) return s;
+    return s + periodsOf(i.amount, i.freq)[field];
+  }, 0);
 }
 export function sumByClassification(items, cls, field){
   return items.filter(function(i){ return i.classification === cls; })
@@ -39,7 +56,11 @@ export function resolveSharedAmount(item, scenarioName){
   return (overrides && overrides[scenarioName] != null) ? overrides[scenarioName] : item.amount;
 }
 export function sumFieldForScenario(items, scenarioName, field){
-  return items.reduce(function(s, i){ return s + periodsOf(resolveSharedAmount(i, scenarioName), i.freq)[field]; }, 0);
+  var today = localDateStr();
+  return items.reduce(function(s, i){
+    if(!isActiveOn(i, today)) return s;
+    return s + periodsOf(resolveSharedAmount(i, scenarioName), i.freq)[field];
+  }, 0);
 }
 // Advances a date by one occurrence of the given ledger frequency. Month/year steps use
 // setMonth/setFullYear rather than a fixed day count, so e.g. a Monthly bill last paid on the

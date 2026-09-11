@@ -1,8 +1,8 @@
 import { state } from "../state.js";
 import { AU_TAX_BRACKETS, MAX_SUPER_BASE, HELP_REPAYMENT_RATES, MLS_TIERS, MLS_FAMILY_MULTIPLIER } from "../constants.js";
-import { periodsOf, resolveSharedAmount, householdYearWindow } from "./ledger.js";
+import { periodsOf, resolveSharedAmount, householdYearWindow, isActiveOn } from "./ledger.js";
 import { ipNetResultAnnual } from "./property.js";
-import { fmtCurrency0 } from "../lib/format.js";
+import { fmtCurrency0, localDateStr } from "../lib/format.js";
 
 export function incomeTaxAU(taxable){
   taxable = Math.max(0, Number(taxable) || 0);
@@ -199,6 +199,8 @@ export function deductionRows(items, person){
 }
 // The claimable amount of one row, per year: its annual cost times its work-related share.
 export function rowDeductionAnnual(item){
+  // An expense that has ended isn't being incurred, so there's nothing left to claim on it.
+  if(!isActiveOn(item, localDateStr())) return 0;
   var pct = item.deductiblePct == null ? 100 : Math.max(0, Math.min(100, Number(item.deductiblePct) || 0));
   return periodsOf(Number(item.amount) || 0, item.freq).yearly * (pct / 100);
 }
@@ -373,8 +375,14 @@ export function effectiveIncomeItems(){
 function rowAmountFor(row, opts){
   return resolveSharedAmount(row, opts && opts.scenario);
 }
+// Default: the row counts if it hasn't ended. A caller with its own idea of "when" — the
+// projection, asking about a specific future year — passes includeRow and wins outright.
+//
+// Without the default, an income row with a past end date went on being taxed and counted forever,
+// the same bug sumField had on the expense side.
 function rowIncluded(row, opts){
-  return !opts || !opts.includeRow || opts.includeRow(row);
+  if(opts && opts.includeRow) return opts.includeRow(row);
+  return isActiveOn(row, localDateStr());
 }
 
 // One scenario's spendable income as ledger-shaped rows — the single definition of "what does this

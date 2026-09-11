@@ -223,9 +223,32 @@ never frees up cash in month nine. A row that ends part-way through a month is c
 whole of it — the forecast's unit is a month, and dropping a cost the day it ends would understate
 the very month you still have to pay it in.
 
-Rows do **not** end anywhere else yet: the Spending tab, the budget totals and the CSV exports all
-still count an ended row at full value. That's why a collapsed row shows a red "Ended …" pill — it
-is still inflating every per-month figure on the page until it's deleted.
+**Ended rows stop counting everywhere (v2.87.0).** `sumField` and `sumFieldForScenario` skip them,
+which is the primitive ~25 call sites go through — so monthly expenses, the savings rate, the
+runway, the 50/30/20 bar and the Expenses header all drop an ended row together. Applied at the
+primitive because every caller means the same thing: *what does this cost, or earn, right now*.
+
+Until v2.87.0 only `computeNetWorthSeries` honoured end dates, so the Dashboard's "you spend $X/mo"
+and the projection's own year-1 figure disagreed by the amount of every ended row. The same default
+now applies in the tax chain (`rowIncluded`), so an ended income row stops being taxed and an ended
+expense stops being claimable.
+
+The row stays **in the list** — you have to see it to extend or delete it — with a red "Ended …"
+pill and its amount struck through, because otherwise the list visibly fails to add up to the card
+total above it with nothing saying why.
+
+### One scenario, one set of numbers (v2.87.0)
+
+Every "what does this cost" total resolves against `state.activeScenario`, including the ones on
+the Expenses page. `computeSharedGroups()` and the `#totalSharedMonthly` header used raw
+`item.amount`, so the Budget list quoted a different household cost than the Dashboard for the very
+same scenario, by the size of every override.
+
+A budget **row's headline figure is also scenario-resolved**, so the list adds up to the card total
+above it. The edit panel's Amount field still edits the *default* — the "⇄ default $X" pill names
+it, and the Vary dialog says so. Both the renderer and `onLedgerInput`'s live patch must use
+`resolveSharedAmount`; patching one and not the other overwrites the headline with a figure the
+scenario doesn't pay.
 
 ### Reaching a file next to index.html: always root-relative (v2.78.1)
 

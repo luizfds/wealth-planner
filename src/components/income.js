@@ -1,7 +1,7 @@
 import { state } from "../state.js";
 import { FREQS, INCOME_TYPES, SUPER_MODES, SACRIFICE_MODES, MAX_SUPER_BASE, MONTH_NAMES, sacrificeModeToLabel, sacrificeLabelToMode } from "../constants.js";
 import { periodsOf, sumField, nextPayDate, payScheduleKindFor, daysUntil, WEEKDAY_NAMES, householdYearWindow } from "../calc/ledger.js";
-import { ipNetResultAnnual, ipDepreciationAnnual } from "../calc/property.js";
+import { ipNetResultAnnual, ipDepreciationAnnual, ipOwnershipMismatches, propertyOwnershipTotal } from "../calc/property.js";
 import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax } from "../calc/tax.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
@@ -412,29 +412,68 @@ export function patchIncomeSuperNotes(){
   });
 }
 
+// The bar answers one question — everything that came in, and where it went — so the segments have
+// to be exhaustive or the answer is a lie. They were not: the Medicare levy surcharge (v2.82.0) and
+// the HELP repayment (v2.81.0) both came out of take-home and neither was ever added here, so the
+// bar and its legend left $23,198 of a $202,465 salary unaccounted for on the reference data. The
+// most-read figure on the page, quietly wrong for five versions.
+//
+// taxWaterfallTotal() states what the segments add up to, and a unit test pins the identity. If you
+// add another deduction to computePersonTax, it belongs here too.
+// `label` is the full name, used for the bar's hover tooltip. `short` is what the legend prints:
+// at 390px the legend has ~282px to work with, so the two longest names are the difference between
+// a two-column legend and a five-row column of one item each. The short forms only ever sit
+// directly under the full-length "Medicare levy" line, which is what makes "Surcharge" readable.
+//
+// No two segments may share a hue. series-color-5 (#008300) was HELP's until it turned out to sit
+// next to Medicare levy's series-color-2 (#1baf7a) in the bar — two greens, indistinguishable at a
+// glance and worse for anyone with a green deficiency. series-color-6 (purple) is the free slot.
 var TAX_WATERFALL_SEGMENTS = [
-  { key: "nettakehome", label: "Net take-home", colorClass: "series-color-0" },
-  { key: "incometax", label: "Income tax", colorClass: "series-color-1" },
-  { key: "medicare", label: "Medicare levy", colorClass: "series-color-2" },
-  { key: "sacrifice", label: "To super (sacrifice)", colorClass: "series-color-3" }
+  { key: "nettakehome", label: "Net take-home", short: "Net take-home", colorClass: "series-color-0" },
+  { key: "incometax", label: "Income tax", short: "Income tax", colorClass: "series-color-1" },
+  { key: "medicare", label: "Medicare levy", short: "Medicare levy", colorClass: "series-color-2" },
+  { key: "surcharge", label: "Medicare levy surcharge", short: "Surcharge", colorClass: "series-color-4" },
+  { key: "help", label: "HELP/HECS repayment", short: "HELP/HECS", colorClass: "series-color-6" },
+  { key: "sacrifice", label: "To super (sacrifice)", short: "To super", colorClass: "series-color-3" }
 ];
-function taxWaterfallValues(r){
-  return { nettakehome: Math.max(0, r.netTakeHome), incometax: Math.max(0, r.incomeTax), medicare: Math.max(0, r.medicare), sacrifice: Math.max(0, r.sacrifice) };
+export function taxWaterfallValues(r){
+  return {
+    nettakehome: Math.max(0, r.netTakeHome),
+    incometax: Math.max(0, r.incomeTax),
+    medicare: Math.max(0, r.medicare),
+    surcharge: Math.max(0, r.medicareSurcharge || 0),
+    help: Math.max(0, r.helpRepayment || 0),
+    sacrifice: Math.max(0, r.sacrifice)
+  };
+}
+// What the segments sum to: the salary package plus any dividend money, since net take-home
+// carries the dividend cash and the franking credit is settled through the tax bill. Stated rather
+// than implied, because "where did it go" is only meaningful against a named total.
+export function taxWaterfallTotal(r){
+  return Math.max(0, r.gross) + Math.max(0, r.dividendCash || 0) + Math.max(0, r.frankingCredit || 0);
+}
+function waterfallWhole(values){
+  return TAX_WATERFALL_SEGMENTS.reduce(function(sum, seg){ return sum + values[seg.key]; }, 0);
 }
 function renderTaxWaterfallHtml(r){
   var values = taxWaterfallValues(r);
-  var whole = values.nettakehome + values.incometax + values.medicare + values.sacrifice;
+  var whole = waterfallWhole(values);
   var bar = TAX_WATERFALL_SEGMENTS.filter(function(seg){ return values[seg.key] > 0; }).map(function(seg){
     return '<div class="tax-waterfall-seg ' + seg.colorClass + '" data-seg-bar="' + seg.key + '" style="flex:' + values[seg.key] + ' 1 0%" title="' + escapeAttr(seg.label) + ': ' + fmtCurrency0.format(values[seg.key]) + ' (' + fmtPercent1.format(whole > 0 ? values[seg.key] / whole : 0) + ')"></div>';
   }).join("");
+  // Zero rows are hidden, not omitted: six segments means most people would otherwise read two or
+  // three "$0" lines, but patchAllTaxPersonOutputs writes by data-seg-val and needs the element to
+  // still be there when a figure appears. Net take-home always shows, even at $0 — that's the
+  // headline, and a missing headline reads as a broken card.
   var legend = TAX_WATERFALL_SEGMENTS.map(function(seg){
-    return '<div class="tax-waterfall-item"><span class="proj-swatch ' + seg.colorClass + '"></span><div class="tax-waterfall-item-text"><span class="tax-waterfall-item-label">' + seg.label + '</span><span class="tax-waterfall-item-value" data-seg-val="' + seg.key + '">' + fmtCurrency0.format(values[seg.key]) + '</span></div></div>';
+    var empty = seg.key !== "nettakehome" && !(values[seg.key] > 0);
+    return '<div class="tax-waterfall-item" data-seg-row="' + seg.key + '"' + (empty ? " hidden" : "") + '><span class="proj-swatch ' + seg.colorClass + '"></span><div class="tax-waterfall-item-text"><span class="tax-waterfall-item-label" title="' + escapeAttr(seg.label) + '">' + seg.short + '</span><span class="tax-waterfall-item-value" data-seg-val="' + seg.key + '">' + fmtCurrency0.format(values[seg.key]) + '</span></div></div>';
   }).join("");
   return '<div class="tax-waterfall-bar" data-waterfall-bar>' + bar + '</div><div class="tax-waterfall-legend">' + legend + '</div>';
 }
 function patchTaxWaterfall(panel, r){
   var values = taxWaterfallValues(r);
-  var whole = values.nettakehome + values.incometax + values.medicare + values.sacrifice;
+  var whole = waterfallWhole(values);
   var barWrap = panel.querySelector("[data-waterfall-bar]");
   if(barWrap) barWrap.innerHTML = TAX_WATERFALL_SEGMENTS.filter(function(seg){ return values[seg.key] > 0; }).map(function(seg){
     return '<div class="tax-waterfall-seg ' + seg.colorClass + '" data-seg-bar="' + seg.key + '" style="flex:' + values[seg.key] + ' 1 0%" title="' + escapeAttr(seg.label) + ': ' + fmtCurrency0.format(values[seg.key]) + ' (' + fmtPercent1.format(whole > 0 ? values[seg.key] / whole : 0) + ')"></div>';
@@ -442,8 +481,26 @@ function patchTaxWaterfall(panel, r){
   TAX_WATERFALL_SEGMENTS.forEach(function(seg){
     var el = panel.querySelector('[data-seg-val="' + seg.key + '"]');
     if(el) el.textContent = fmtCurrency0.format(values[seg.key]);
+    var row = panel.querySelector('[data-seg-row="' + seg.key + '"]');
+    if(row) row.hidden = seg.key !== "nettakehome" && !(values[seg.key] > 0);
   });
 }
+// The shares on one property adding to 97% or 140% is not a rounding artifact — it means the
+// portfolio result reaching these cards is under- or over-claimed by that much, which is precisely
+// the failure the old single global percentage could never even surface (two people could each
+// enter 100% and the same loss was deducted twice, in silence). Nothing rescales: the fix belongs
+// on the property, and this says which one.
+function ipOwnershipWarningHtml(){
+  var bad = ipOwnershipMismatches();
+  if(!bad.length) return "";
+  return '<p class="tax-cap-note warn" style="margin:0 0 12px">Ownership doesn\'t add up to 100% on ' +
+    bad.map(function(p){
+      return '<b>' + escapeAttr(p.what || "an unnamed property") + '</b> (' + Math.round(propertyOwnershipTotal(p)) + '%)';
+    }).join(", ") +
+    ' — so the result below is ' + (propertyOwnershipTotal(bad[0]) > 100 ? "over" : "under") +
+    '-claimed against it. Fix it in that card\'s Ownership section on the Properties tab.</p>';
+}
+
 // Ownership/sacrifice sits tucked behind a disclosure instead of always-open, so the net
 // take-home number stays the headline — reuses computePersonTax, renderTaxWaterfallHtml, and
 // the existing taxSuperBody click/input handlers below verbatim; patchAllTaxPersonOutputs
@@ -472,10 +529,10 @@ export function renderTaxSuper(){
   // Depreciation is named separately because it's the part of the result that isn't cash — leaving
   // it folded into one figure is how people conclude a property "costs" more or less than it does.
   var ipDepreciation = ipDepreciationAnnual();
-  html += '<p class="ledger-note" style="margin:0 0 12px">Investment property result this year: <b style="font-family:\'IBM Plex Mono\',monospace">' + fmtCurrency0.format(ipResult) + '</b> (' + (ipResult < 0 ? "a loss — negatively geared, reduces taxable income" : "net rental profit — adds to taxable income") + '), split below by ownership share.' +
+  html += '<p class="ledger-note" style="margin:0 0 12px">Investment property result this year: <b style="font-family:\'IBM Plex Mono\',monospace">' + fmtCurrency0.format(ipResult) + '</b> (' + (ipResult < 0 ? "a loss — negatively geared, reduces taxable income" : "net rental profit — adds to taxable income") + '), split below by ownership share — set per property, on each card\'s <b>Ownership</b> section on the Properties tab.' +
     (ipDepreciation > 0
       ? ' Includes <b>' + fmtCurrency0.format(ipDepreciation) + '</b> of depreciation — a deduction that never leaves your bank account, so the cash result is that much better than the taxable one.'
-      : '') + '</p>';
+      : '') + '</p>' + ipOwnershipWarningHtml();
 
   html += people.map(function(person, pi){
     var r = computePersonTax(person);
@@ -533,10 +590,9 @@ function taxPersonFrontBodyHtml(person, r){
     '<div class="tax-cap-note tax-deduct-note"' + (r.deductions > 0 ? '' : ' hidden') + ' title="Taken from budget lines flagged as work-related on the Expenses page. They reduce taxable income, which also reduces the Medicare levy and can move you under a surcharge tier — but not your HELP repayment, which is worked out on gross income.">' + deductionsNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-mls-note' + (r.medicareSurcharge > 0 ? " warn" : "") + '"' + (r.mlsIfUncovered > 0 ? '' : ' hidden') + ' title="Income for surcharge purposes is approximated as taxable income + your reportable super contributions, ignoring reportable fringe benefits and net investment losses — the same simplification Division 293 uses here.">' + mlsNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-help-note"' + (r.helpBalance > 0 ? '' : ' hidden') + ' title="Compulsory repayment, worked out as a flat percentage of your repayment income — which adds back salary sacrifice and any rental loss, so neither of those reduces it.">' + helpNoteText(r) + '</div>' +
-    '<details class="tax-advanced" style="margin-top:12px"><summary>Adjust ownership &amp; sacrifice</summary>' +
+    '<details class="tax-advanced" style="margin-top:12px"><summary>Adjust HELP &amp; sacrifice</summary>' +
       '<div class="tax-inputs-panel" style="margin-top:8px">' +
         '<div class="tax-inputs">' +
-          '<div class="proj-field"><label>IP ownership %</label><input type="number" min="0" max="100" step="1" class="tax-ipshare" value="' + r.ownershipPct + '"></div>' +
           '<div class="proj-field"><label title="What you still owe on HELP/HECS (or any other study loan with the same repayment schedule). Leave at 0 if you have none. The compulsory repayment is worked out from this and withheld from take-home.">HELP/HECS owing $</label><input type="number" min="0" step="500" class="tax-help" value="' + settings.helpBalance + '"></div>' +
           '<div class="proj-field"><label title="Separate from the Cash / Sacrifice column on income rows above — use this for sacrifice not tied to a specific item">Manual sacrifice $/yr</label><input type="number" min="0" step="500" class="tax-sacrifice" value="' + settings.superSacrificeAnnual + '"><button type="button" class="calc-hint-link" style="margin-top:4px" data-tax-maxcap="' + pid + '" title="Fills your remaining concessional cap headroom this year with manual sacrifice (SG and any auto/bonus sacrifice already counted): sets manual sacrifice to ' + fmtCurrency0.format(Math.max(0, r.capAvailable - r.sg - r.autoSacrifice)) + '">Max out cap</button></div>' +
         '</div>' +

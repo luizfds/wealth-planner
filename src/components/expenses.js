@@ -525,6 +525,22 @@ export function renderPropertyExpensesSummary(){
   var total = ips.reduce(function(s, p){ return s + propertyLoanMonthly(p); }, 0);
   document.getElementById("propertyExpensesTotal").textContent = fmtCurrency0.format(total);
   modernWrap.innerHTML = propertyLoansModernHtml(ips);
+  renderBudgetLoanPointer(total);
+}
+
+// The forward reference from the budget total to the loan card below it. Without it the Expenses
+// page says the household spends $10,072/mo and the Dashboard's 50/30/20 bar says $14,613 — a
+// $4,541 disagreement on the same real data, with the explanation 4,700px further down the page.
+// Naming the amount here means the two figures reconcile on sight rather than after a scroll.
+function renderBudgetLoanPointer(total){
+  var el = document.getElementById("budgetLoanPointer");
+  if(!el) return;
+  el.hidden = !(total > 0);
+  if(!(total > 0)) return;
+  el.innerHTML = 'Not in this total: <b>' + fmtCurrency0.format(total) + '/mo</b> of investment loan ' +
+    'repayments, which are worked out from each loan rather than budgeted. The Dashboard counts them, ' +
+    'so its spending figure is that much higher. <button type="button" class="calc-hint-link" ' +
+    'id="budgetLoanPointerLink">See them below</button>';
 }
 
 // ---------------- Review expenses: one-at-a-time swipe/confirm flow ----------------

@@ -24,7 +24,7 @@ function resetState(){
   state.purchase = { Test: defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", false) };
   state.invest = { Test: defaultInvestConfig() };
   state.projection = { horizonYears: 5, investReturnRate: 0, propertyAppreciationRate: 0, inflationRate: 0, rateShockPct: 0 };
-  state.tax = { sgRate: 12, ipOwnership: {}, settings: {} };
+  state.tax = { sgRate: 12, settings: {} };
 }
 
 test("invest leg disabled: net worth series is unaffected (pure regression check)", function(){

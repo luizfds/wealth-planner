@@ -92,6 +92,13 @@
   .property-section:not(.is-collapsed) .property-section-toggle .ledger-caret{ transform: rotate(90deg); }
   .property-section.is-collapsed .property-section-head{ margin-bottom:0; }
   .property-section.is-collapsed .property-section-body{ display:none; }
+  /* The at-a-glance value in a section's header (Depreciation's $/yr, Ownership's total %) — it
+     existed in the markup before it existed here, so it was rendering as unstyled body text
+     wedged against the title. margin-left:auto pins it to the right edge of the head's flex row,
+     which is the only place it reads as a summary of the collapsed section rather than part of
+     the heading. */
+  .property-section-total{ margin-left:auto; font-family:"IBM Plex Mono", monospace; font-size:12px; font-variant-numeric: tabular-nums; color: var(--ink-soft); }
+  .property-section-total.is-warn{ color: var(--bad); font-weight:600; }
   .property-card .calc-outputs{ background: var(--paper-sunken); }
   .prop-pmfee-panel{
     background: var(--paper-sunken); border:1px solid var(--border); border-radius:9px; padding:12px 14px; margin: 0 0 14px;

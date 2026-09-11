@@ -1,6 +1,10 @@
 export var fmtCurrency0 = new Intl.NumberFormat("en-AU", {style:"currency", currency:"AUD", maximumFractionDigits:0});
 export var fmtCurrency2 = new Intl.NumberFormat("en-AU", {style:"currency", currency:"AUD", minimumFractionDigits:2, maximumFractionDigits:2});
 export var fmtPercent1 = new Intl.NumberFormat("en-AU", {style:"percent", maximumFractionDigits:1});
+// Whole percent, for a figure whose precision would be false. A month-on-month spending delta is
+// computed from a partial month scaled up to a whole one — "38%" is an honest read of that, "38.4%"
+// implies a decimal place the underlying number doesn't have.
+export var fmtPercent0 = new Intl.NumberFormat("en-AU", {style:"percent", maximumFractionDigits:0});
 export var fmtRunway = new Intl.NumberFormat("en-AU", {maximumFractionDigits:1, minimumFractionDigits:1});
 // For a *read-only* display of a holding quantity — a whole share count is left exactly as-is
 // (maximumFractionDigits never rounds the integer part, only caps decimals, so "50000" still

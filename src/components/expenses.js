@@ -2,7 +2,8 @@ import { state, persist, genId } from "../state.js";
 import { CLASSES, FREQS, UNCATEGORISED } from "../constants.js";
 import { sumField, resolveSharedAmount, periodsOf, budgetCycleFor, transactionDisplayName, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, isOverdue, daysUntil, lastTransactionDateFor, reserveYearWindowFor } from "../calc/ledger.js";
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
-import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
+import { fmtCurrency0, fmtCurrency2, fmtPercent0, fmtPercent1, localDateStr } from "../lib/format.js";
+import { spendingTrends, monthKeyLabel } from "../calc/trends.js";
 import { escapeAttr } from "../lib/html.js";
 import { modernPlainRowHtml, modernRowSummaryHtml, modernRowEditHtml, modernRowShellHtml, optionsHtml } from "../lib/ledger-table.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
@@ -1078,6 +1079,7 @@ function billedThisMonth(items){
 export function renderActualVsPlannedPanel(){
   renderExpenseReviewButton();
   renderSpendCategoryChart();
+  renderSpendingTrends();
   var el = document.getElementById("actualVsPlannedPanel");
   if(!el) return;
   // Only lines you can log against. A computed line always reads "$0 actual of $X planned" —
@@ -1368,6 +1370,206 @@ export function renderSpendCategoryChart(){
   el.innerHTML = html ? '<div class="cat-chart-title">Spent by category this month</div>' + html : "";
   el.hidden = !html;
 }
+// ---------------- Spending over time ----------------
+//
+// The one view in this app that compares you against *yourself* rather than against a number you
+// typed in. Everything else here answers "am I over budget this month"; this answers "is this
+// getting worse", which is the question daily logging is actually paying for.
+//
+// Built as bar strips rather than the wide category-by-month grid the plan called for. On a 390px
+// screen a six-column numeric table is a horizontal scroll you have to work at, and the shape of
+// a category over six months is exactly the sort of thing a chart says instantly and a row of
+// figures doesn't. The figures are still there, one <details> away, for anyone who wants them.
+
+// How many months of history the strip shows, and how many prior months the average is taken
+// over. Six reads well at 390px (six bars, six short labels) and gives the 3-month average three
+// clear months of runway behind it.
+var TRENDS_MONTHS = 6;
+var TRENDS_LOOKBACK = 3;
+// Below this, a category's window total isn't worth a row: a $4 line that doubled is a true
+// statement and a useless one. Deliberately on the six-month total, not on one month, so a
+// genuinely lumpy category (car rego once a year) still keeps its place.
+var TRENDS_MIN_SPEND = 50;
+// Below this many logged months, the panel shows the bars and the numbers but makes no comparison
+// claims — no deltas, no "up N months running".
+//
+// The reason is a limit no amount of arithmetic gets around: **the app cannot tell "spent more"
+// from "logged more thoroughly."** On the reference data August was logged mostly in its last
+// week and September mostly in its first, so even a same-days-of-the-month comparison reported
+// "515% more" — a statement about logging habits wearing the clothes of a statement about
+// spending. Two points can't distinguish a trend from a difference; three can start to. It also
+// matches what this panel exists to be able to say: "groceries have climbed three months running".
+var TRENDS_MIN_MONTHS_FOR_COMPARISON = 3;
+
+// "11th", "22nd", "3rd" — used in the like-for-like wording ("$1,500 by the 11th"), which is the
+// one phrase that tells the reader the comparison isn't against whole months.
+function ordinal(n){
+  var rem100 = n % 100;
+  if(rem100 >= 11 && rem100 <= 13) return n + "th";
+  var suffix = { 1: "st", 2: "nd", 3: "rd" }[n % 10];
+  return n + (suffix || "th");
+}
+function trendDeltaHtml(trend, opts){
+  opts = opts || {};
+  // Nothing spent this month. Distinguished from "new" because they look identical in the data
+  // (both have a null trend) and mean opposite things: a category you've just started spending
+  // in, versus one that's gone quiet — car rego, six months ago, and nothing since.
+  if(opts.current === 0){
+    return '<span class="trend-delta flat" title="Nothing logged against this category this month">none yet</span>';
+  }
+  if(!trend) return '<span class="trend-delta none" title="Not enough history yet to compare this against — it needs at least one earlier month with spend in it">new</span>';
+  var cls = trend.direction === "up" ? "up" : (trend.direction === "down" ? "down" : "flat");
+  var arrow = trend.direction === "up" ? "▲" : (trend.direction === "down" ? "▼" : "–");
+  var label = trend.direction === "flat" ? "level" : fmtPercent0.format(Math.abs(trend.deltaPct));
+  // "up" is bad here and "down" is good — this is spending, not net worth. Worth stating, since
+  // every other up/down pair in this app (asset trends, capital gain) means the opposite.
+  var through = trend.complete ? "" : " by the " + ordinal(trend.throughDay);
+  var title = "Spent " + fmtCurrency0.format(trend.current) + through +
+    (trend.lookback === 1
+      ? " against last month's " + fmtCurrency0.format(trend.average)
+      : " against a " + fmtCurrency0.format(trend.average) + " average over the previous " + trend.lookback + " months") +
+    through +
+    (trend.complete ? "" : " — same days of the month on both sides, so a month that isn't over yet still compares fairly");
+  return '<span class="trend-delta ' + cls + '" title="' + escapeAttr(title) + '">' + arrow + " " + escapeAttr(label) + '</span>' +
+    (opts.showBase && trend ? '<span class="trend-base">vs ' + fmtCurrency0.format(trend.average) + ' avg</span>' : "");
+}
+
+// One category's six months, as bars scaled to that category's own biggest month. Scaled per-row
+// rather than across the whole panel on purpose: this strip is there to show a *shape*, and
+// against a household's largest category every other row would be a flat line of nubs.
+function trendSparkHtml(row, months, monthProgress){
+  var max = Math.max.apply(null, row.values.concat([0]));
+  var lastIdx = months.length - 1;
+  return '<div class="trend-spark" role="img" aria-label="' + escapeAttr(row.category + " by month: " +
+      months.map(function(m, i){ return monthKeyLabel(m, months[lastIdx]) + " " + fmtCurrency0.format(row.values[i]); }).join(", ")) + '">' +
+    months.map(function(m, i){
+      var value = row.values[i];
+      // A zero month still gets a visible sliver, so the bar row reads as six months throughout
+      // rather than appearing to start late.
+      var pct = max > 0 ? Math.max(value > 0 ? 6 : 2, (value / max) * 100) : 2;
+      var partial = i === lastIdx && monthProgress < 1;
+      return '<div class="trend-bar' + (i === lastIdx ? " current" : "") + (partial ? " partial" : "") + '"' +
+          ' title="' + escapeAttr(monthKeyLabel(m, months[lastIdx]) + " · " + fmtCurrency0.format(value) +
+            (partial ? " so far" : "")) + '">' +
+        '<div class="trend-bar-track"><div class="trend-bar-fill" style="height:' + pct + '%"></div></div>' +
+        '<span class="trend-bar-label">' + escapeAttr(monthKeyLabel(m, months[lastIdx])) + '</span>' +
+      '</div>';
+    }).join("") +
+  '</div>';
+}
+
+// The "climbing three months running" callouts — the single sentence this whole section exists to
+// be able to say. Only streaks of 2+ qualify: one month up on the last is noise, and saying so
+// every month would train people to ignore the line.
+function trendAlertsHtml(rows){
+  var alerts = [];
+  rows.forEach(function(r){
+    if(r.risingStreak >= 2){
+      alerts.push({ cls: "up", text: r.category + " up " + r.risingStreak + " months running" });
+    } else if(r.fallingStreak >= 2){
+      alerts.push({ cls: "down", text: r.category + " down " + r.fallingStreak + " months running" });
+    }
+  });
+  if(!alerts.length) return "";
+  return '<div class="trend-alerts">' + alerts.map(function(a){
+    return '<span class="trend-alert ' + a.cls + '">' + escapeAttr(a.text) + '</span>';
+  }).join("") + '</div>';
+}
+
+function trendNumbersTableHtml(view){
+  var lastIdx = view.months.length - 1;
+  var head = "<tr><th>Category</th>" + view.months.map(function(m){
+    return "<th>" + escapeAttr(monthKeyLabel(m, view.months[lastIdx])) + "</th>";
+  }).join("") + "</tr>";
+  var body = view.rows.map(function(r){
+    return "<tr><td>" + escapeAttr(r.category) + "</td>" + r.values.map(function(v){
+      return "<td>" + fmtCurrency0.format(v) + "</td>";
+    }).join("") + "</tr>";
+  }).join("");
+  var totals = "<tr class=\"trend-total-row\"><td>Total</td>" + view.totals.map(function(v){
+    return "<td>" + fmtCurrency0.format(v) + "</td>";
+  }).join("") + "</tr>";
+  return '<div class="table-scroll"><table class="milestone-table trend-table"><thead>' + head +
+    '</thead><tbody>' + body + totals + '</tbody></table></div>';
+}
+
+export function renderSpendingTrends(){
+  var el = document.getElementById("spendingTrendsPanel");
+  if(!el) return;
+  var view = spendingTrends(state.transactions, {
+    months: TRENDS_MONTHS,
+    lookback: TRENDS_LOOKBACK,
+    minSpend: TRENDS_MIN_SPEND,
+    categoryFor: transactionCategory,
+    uncategorisedLabel: UNCATEGORISED
+  });
+  // One logged month is a list, not a trend. Say what's missing rather than drawing a chart of a
+  // single bar with a "new" pill against every row. view.monthsCovered is already trimmed to the
+  // months that were genuinely being logged, so this also catches "six months of history, five of
+  // them empty" — which is what every new user has.
+  if(view.monthsCovered < 2){
+    el.innerHTML = '<p class="ledger-note" style="margin:0">Once you have spending logged in two different months, this is where you\'ll see which categories are climbing and which are settling down.' +
+      (view.monthsCovered === 1 ? " One month in — keep logging." : "") + '</p>';
+    return;
+  }
+  var lastIdx = view.months.length - 1;
+  // "your $X average over the previous 3 months" is wrong when there are only two months of
+  // history — there the honest phrasing is "last month", and saying so is what stops the panel
+  // from implying a depth of history it doesn't have.
+  // Whether this panel is allowed to make comparison claims at all (see the constant's comment).
+  var comparing = view.monthsCovered >= TRENDS_MIN_MONTHS_FOR_COMPARISON;
+  var sameDays = view.complete ? "" : " by the " + ordinal(view.throughDay);
+  var spentSoFar = view.mtdTotals.length ? view.mtdTotals[view.mtdTotals.length - 1] : 0;
+  var baselinePhrase = view.lookback === 1
+    ? "the " + fmtCurrency0.format(view.totalsTrend ? view.totalsTrend.average : 0) + " you'd spent by then last month"
+    : "the " + fmtCurrency0.format(view.totalsTrend ? view.totalsTrend.average : 0) + " you'd typically spent by then over the previous " + view.lookback + " months";
+  var completeBaselinePhrase = view.lookback === 1
+    ? "last month's " + fmtCurrency0.format(view.totalsTrend ? view.totalsTrend.average : 0)
+    : "your " + fmtCurrency0.format(view.totalsTrend ? view.totalsTrend.average : 0) + " average over the previous " + view.lookback + " months";
+  var headline = (comparing && view.totalsTrend)
+    ? "You've spent <b>" + fmtCurrency0.format(view.totalsTrend.current) + "</b> this month" + sameDays + ", " +
+      (view.totalsTrend.direction === "flat"
+        ? "level with "
+        : "<b class=\"trend-word " + view.totalsTrend.direction + "\">" + fmtPercent0.format(Math.abs(view.totalsTrend.deltaPct)) + " " +
+          (view.totalsTrend.direction === "up" ? "more" : "less") + "</b> than ") +
+      (view.complete ? completeBaselinePhrase : baselinePhrase) + "."
+    : "You've spent <b>" + fmtCurrency0.format(spentSoFar) + "</b> this month" + sameDays + ".";
+  // Said once, plainly, instead of quietly omitting the deltas and leaving the reader to wonder.
+  var earlyDaysNote = comparing ? "" :
+    '<p class="ledger-note trend-partial-note" style="margin:0 0 10px">' + view.monthsCovered + ' months logged so far. The bars below show what you\'ve recorded; comparisons start at ' +
+    TRENDS_MIN_MONTHS_FOR_COMPARISON + ' months, because until then there\'s no way to tell a month you spent more from a month you simply logged more of.</p>';
+  // Said plainly whenever the window is shorter than asked for. Without this the panel shows two
+  // bars where it normally shows six and leaves the user to work out why.
+  var coverageNote = view.monthsCovered < view.monthsRequested
+    ? '<p class="ledger-note trend-partial-note" style="margin:0 0 10px">Showing ' + view.monthsCovered + ' months — that\'s as far back as your logging goes. It\'ll fill out to ' + view.monthsRequested + ' as you keep going.</p>'
+    : "";
+
+  var rowsHtml = view.rows.map(function(r){
+    return '<div class="trend-row">' +
+      '<div class="trend-row-head">' +
+        '<span class="trend-row-name">' + escapeAttr(r.category) + '</span>' +
+        // Month-to-date, not the whole-month figure, whenever the month is still running: this
+        // number and the delta beside it have to be the same number, and they'd differ for anyone
+        // who has logged a bill dated later this month.
+        '<span class="trend-row-amt" title="' + escapeAttr(view.complete ? "Spent this month" : "Spent so far this month — the figure the comparison beside it uses") + '">' +
+          fmtCurrency0.format(view.complete ? r.values[lastIdx] : r.mtdValues[lastIdx]) + '</span>' +
+        (comparing ? trendDeltaHtml(r.trend, { current: view.complete ? r.values[lastIdx] : r.mtdValues[lastIdx] }) : "") +
+      '</div>' +
+      trendSparkHtml(r, view.months, view.monthProgress) +
+    '</div>';
+  }).join("");
+
+  el.innerHTML =
+    '<p class="trend-headline">' + headline + '</p>' +
+    (comparing ? trendAlertsHtml(view.rows) : "") +
+    earlyDaysNote +
+    coverageNote +
+    (view.complete ? "" : '<p class="ledger-note trend-partial-note" style="margin:0 0 10px">' + view.throughDay + ' of ' + view.daysInMonth + ' days in, so this month\'s bar is still filling. Every comparison above counts only the same days of earlier months, never a whole one against a part-finished one.</p>') +
+    (rowsHtml ? '<div class="trend-rows">' + rowsHtml + '</div>'
+              : '<p class="ledger-note" style="margin:0">Nothing logged above ' + fmtCurrency0.format(TRENDS_MIN_SPEND) + ' over the last ' + TRENDS_MONTHS + ' months yet.</p>') +
+    (rowsHtml ? '<details class="trend-numbers"><summary>Show the numbers</summary>' + trendNumbersTableHtml(view) + '</details>' : "");
+}
+
 function accountRowHtml(a, idx){
   var nameInput = '<input type="text" class="acct-mgmt-name" data-acct-index="' + idx + '" value="' + escapeAttr(a.name || "") + '" placeholder="Account name" aria-label="Account name">';
   var typeSelect = '<select class="acct-mgmt-type" data-acct-index="' + idx + '" aria-label="Account type">' +

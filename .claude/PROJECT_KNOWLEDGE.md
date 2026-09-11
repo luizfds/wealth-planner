@@ -116,6 +116,40 @@ Rows do **not** end anywhere else yet: the Spending tab, the budget totals and t
 still count an ended row at full value. That's why a collapsed row shows a red "Ended …" pill — it
 is still inflating every per-month figure on the page until it's deleted.
 
+### Reaching a file next to index.html: always root-relative (v2.78.1)
+
+**Never write a document-relative URL in app code.** By the time any of it runs, `nav.js` has
+rewritten the address bar to the current route, so a relative URL resolves against *that*, not
+against `index.html`:
+
+| address bar | `"sw.js"` resolves to | |
+|---|---|---|
+| `/dashboard` | `/sw.js` | correct, by luck |
+| `/expenses/spending` | `/expenses/sw.js` | **404** |
+
+Use `appAssetUrl(file)` from `components/nav.js` (it's `BASE_PATH + "/" + file`, and `BASE_PATH`
+is `""` locally / `"/wealth-planner"` on Pages, so both come out root-relative).
+
+This shipped silently for a long time, and the way it hid is the lesson:
+
+- **One-segment routes resolve correctly.** Only the two-segment ones (`/expenses/*`,
+  `/assets/*`) broke, and only on a *fresh load* there — a shared link, a bookmark, or a plain
+  reload. Everyday clicking around never triggers it, because the document was loaded from the
+  root.
+- **Both sites had comments asserting they were fine** ("even from a pushState'd path"). The
+  comments were wrong; the code read as deliberate.
+- **Service worker script fetches don't surface in page-level request logging**, so Playwright's
+  `response` events saw nothing — only the console message "A bad HTTP response code (404) was
+  received when fetching the script" gave it away. (Same family as the `page.route` gotcha below.)
+
+Measured on a fresh load of `/expenses/spending`: **no service worker registered at all** (so no
+offline support), and "Check for updates" reported *"Couldn't read the deployed version"* every
+time. `tests/asset-urls.test.js` guards the spelling, since no runtime assertion would catch it
+being reintroduced in a file the tests don't exercise.
+
+`sw.js` itself was always correct — it uses `new URL("index.html", self.registration.scope)`,
+which is why the scope `appAssetUrl` produces has to stay the app root.
+
 ### Spending trends: what the transaction log can and cannot tell you (v2.78.0)
 
 `calc/trends.js` powers the Spending tab's "Spending over time" panel. The arithmetic is easy;
@@ -923,11 +957,8 @@ scenario its rent. What's left is **capability**: no spending view compares you 
 past (**done**, v2.78.0); scenarios can't vary income; then financial-year support, then tax
 (HECS first).
 
-**A live bug found while building item 3 and not yet fixed:** `navigator.serviceWorker.register("sw.js")`
-in `app.js` uses a relative URL, but `nav.js` has already rewritten the address bar to the restored
-route by the time it runs — so on any deep link (`/expenses/spending`) it resolves to
-`/expenses/sw.js` and 404s, and offline support silently never registers. Reproduces on `main`.
-Invisible to page-level request logging, because service worker script fetches don't surface there.
+(The service-worker registration bug found while building item 3 was fixed in v2.78.1 — see
+"Reaching a file next to index.html" above.)
 
 One thread deliberately left open from item 2: income rows have recorded pay changes since
 v2.74.0 (`item.history`), and nothing reads that history back to suggest an income growth rate.

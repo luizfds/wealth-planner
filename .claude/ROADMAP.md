@@ -361,7 +361,7 @@ they affect:
 
 ---
 
-## 7. `[~]` Bank CSV import — make logging cheap
+## 7. `[x]` Bank CSV import — shipped v2.91.0–v2.93.0
 
 **Problem.** Every figure on the Spending tab, and every claim the trends panel is allowed to make,
 depends on transactions having been logged by hand, one at a time. Item 3 shipped with a
@@ -386,6 +386,35 @@ The bank already has the data. Importing one statement replaces three months of 
 
 **How to verify.** Drive it with real bank-shaped files, not hand-written ideal ones: a headerless
 CommBank-style export, a Debit/Credit-split export, and the same file imported twice.
+
+**What shipped.** `calc/bank-import.js` (parse), `calc/import-rules.js` (learn),
+`components/bank-import.js` (review). 51 new tests, 312 total.
+
+**Measured, driving a 12-row headerless CommBank-shaped file against the reference backup:**
+
+| | Result |
+|---|---|
+| Rows → decisions | 12 transactions became **8 merchant groups**; Woolworths' three different store strings collapsed into one |
+| First import | 1 of 11 placed automatically (a "Spotify" budget line matching SPOTIFY P2B3C4) |
+| Same file again | "0 transactions to import. 11 already logged." No import button offered. |
+| A *different* statement afterwards | **3 of 3 placed automatically**, all badged "learned" — zero decisions |
+
+**Three things that turned out to matter more than the parsing:**
+
+- **Group by merchant, not by transaction.** A month is ~40 rows and ~12 merchants. Being asked
+  "where does WOOLWORTHS go" eight times is how a review screen gets abandoned halfway down.
+- **Don't re-render on assignment.** The obvious implementation moves a row from "Needs you" to
+  "Ready" the instant it's answered — reordering the list under the finger that just answered it.
+  `patchBankImportPanel()` updates the badge and counts in place and leaves the row alone.
+- **Learn from untouched suggestions too.** Confirming the import is confirming the suggestion, so
+  a name match the user never opened still becomes a rule. That's what makes coverage climb with
+  use instead of sitting wherever the budget line names happened to land it.
+
+**A trap, and the one bug that got through to the browser:** `merchantKey` lives in
+`import-rules.js`, not `bank-import.js`. Importing it from the wrong module passes `node --check`
+*and* the whole test suite — the tests import the calc modules directly and never load the
+component — and fails only when the page runs. Exactly the class of bug `CLAUDE.md` warns about.
+Driving the app is not optional here.
 
 ---
 

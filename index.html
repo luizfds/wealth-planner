@@ -330,6 +330,21 @@
               </div>
             </div>
           </details>
+          <details class="ledger" id="bankImportCard" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Import from your bank</h2></div>
+            </summary>
+            <div class="ledger-body">
+              <p class="ledger-note" style="margin-left:0">Export a CSV from your bank and drop it in here. One statement replaces a month of tapping — and the app remembers where each shop goes, so the next one is mostly already done.</p>
+              <!-- Rendered by renderBankImportPanel(). Nothing is written to state until the
+                   Import button inside this panel is pressed. -->
+              <div id="bankImportPanel" hidden></div>
+              <div class="ledger-footer">
+                <button class="btn btn-sm" id="bankImportPickBtn" title="Choose a CSV your bank exported — most banks have an 'export' or 'download transactions' option on the account page">Choose a bank CSV</button>
+              </div>
+              <input type="file" id="bankImportFile" accept=".csv,text/csv" hidden>
+            </div>
+          </details>
           <details class="ledger" open>
             <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Actual vs. planned</h2></div>

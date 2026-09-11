@@ -1546,6 +1546,16 @@ function trendNumbersTableHtml(view){
     '</thead><tbody>' + body + totals + '</tbody></table></div>';
 }
 
+// This panel's gate is a coverage gate, not a calendar one — it needs months that were genuinely
+// being logged, not months that have merely elapsed. Which means the fastest way past it isn't
+// waiting, it's importing: one bank export of last quarter satisfies it today. Worth saying here,
+// because the gate's own wording ("comparisons start at 3 months") reads like a waiting period.
+function trendsImportHintText(){
+  return ' A bank CSV covering those months gets you there today — <b>Import from your bank</b>, above.';
+}
+function trendsImportHintHtml(){
+  return '<p class="ledger-note" style="margin:8px 0 0">Already have the history at your bank? <b>Import from your bank</b> above takes a statement straight in, and remembers where each shop goes for next time.</p>';
+}
 export function renderSpendingTrends(){
   var el = document.getElementById("spendingTrendsPanel");
   if(!el) return;
@@ -1562,7 +1572,7 @@ export function renderSpendingTrends(){
   // them empty" — which is what every new user has.
   if(view.monthsCovered < 2){
     el.innerHTML = '<p class="ledger-note" style="margin:0">Once you have spending logged in two different months, this is where you\'ll see which categories are climbing and which are settling down.' +
-      (view.monthsCovered === 1 ? " One month in — keep logging." : "") + '</p>';
+      (view.monthsCovered === 1 ? " One month in — keep logging." : "") + '</p>' + trendsImportHintHtml();
     return;
   }
   var lastIdx = view.months.length - 1;
@@ -1590,7 +1600,8 @@ export function renderSpendingTrends(){
   // Said once, plainly, instead of quietly omitting the deltas and leaving the reader to wonder.
   var earlyDaysNote = comparing ? "" :
     '<p class="ledger-note trend-partial-note" style="margin:0 0 10px">' + view.monthsCovered + ' months logged so far. The bars below show what you\'ve recorded; comparisons start at ' +
-    TRENDS_MIN_MONTHS_FOR_COMPARISON + ' months, because until then there\'s no way to tell a month you spent more from a month you simply logged more of.</p>';
+    TRENDS_MIN_MONTHS_FOR_COMPARISON + ' months, because until then there\'s no way to tell a month you spent more from a month you simply logged more of.' +
+    trendsImportHintText() + '</p>';
   // Said plainly whenever the window is shorter than asked for. Without this the panel shows two
   // bars where it normally shows six and leaves the user to work out why.
   var coverageNote = view.monthsCovered < view.monthsRequested

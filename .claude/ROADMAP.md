@@ -24,7 +24,7 @@ from reading the code.
 
 ---
 
-## 1. `[ ]` Fix what the FI panel counts
+## 1. `[x]` Fix what the FI panel counts — shipped v2.76.0
 
 **Problem.** `renderFireProgress()` (`components/dashboard.js`) measures progress as
 `totalNetWorthValue()` against a 4%-rule target. That net worth is *everything you own*:
@@ -46,8 +46,32 @@ investment-property equity — and show super as a separate bar that unlocks at 
 gap between a target retirement age and preservation age is the whole planning problem; the app
 can't currently see it.
 
-**How to verify.** On the real backup, FI progress should fall well below 20.3%; a PPOR added to a
-Buy scenario must not move it; the super bar must show its own unlock year.
+**What shipped.** `calc/fire.js` — a pure module answering both questions rather than one: whether
+the pot will ever be big enough (the 4% rule the app already had) *and* whether you can reach
+preservation age on the money that isn't super. Two ages on the panel ("I'm 38 and want to stop
+working at 50") drive a year-by-year simulation in **today's dollars** — a real return, which
+sidesteps item 2a's nominal-vs-real mismatch for this panel entirely — with a timeline showing the
+saving years and the bridge years, coloured by whether the bridge survives.
+
+**Measured on the real backup:**
+
+| | Old panel | Now |
+|---|---:|---:|
+| Figure driving the headline | $559,607 (total net worth) | $369,111 accessible |
+| Super | counted in it | $179,806, shown separately as locked until 60 |
+| Vehicle + home equity | counted in it | $10,690, shown as excluded |
+
+At 38 targeting 50: passes, with a 10-year bridge costing $1,104,357. At 38 targeting 40: fails the
+bridge, and the panel names 50 as the earliest age that works.
+
+**A trap if you touch this:** `propertyEquityToday()` already folds in the offset balance and
+`liquidAssetsValue()` counts offsets too, so combining them double-counts every offset dollar.
+`fireWealthSplit()` uses `propertyIlliquidEquityToday()` for the property side for exactly this
+reason.
+
+**Deliberately still open:** only *investment* property equity counts as accessible — a PPOR is
+excluded on the grounds that selling it means buying or renting another. If downsizing should ever
+be modelled, that's the line to revisit.
 
 ---
 

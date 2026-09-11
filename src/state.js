@@ -111,6 +111,8 @@ export function defaultState(){
     // whatever cadence the user updates each item, not necessarily together or monthly.
     netWorthLog: [],
     projection: { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0 },
+    // Age now, target retirement age, and when super unlocks — see calc/fire.js.
+    fire: { currentAge: null, retireAge: null, preservationAge: 60 },
     tax: { sgRate: 12, ipOwnership: {}, settings: {} },
     // 1 USD in AUD — the only cross-currency conversion this app needs, since MARKET_CURRENCY
     // only ever produces AUD or USD. Set via the Shares page's "Paste prices" box (pasting a
@@ -283,6 +285,13 @@ export function migrateState(s){
     collect(s.shared);
     (s.properties || []).forEach(function(p){ collect(p.income); collect(p.expenses); });
   })();
+  // Ages for the FIRE bridge (calc/fire.js). null means "not told yet", which the panel reports as
+  // a prompt rather than inventing a plausible age — the whole point of the bridge view is that
+  // it's specific to when *you* want to stop working.
+  if(!s.fire) s.fire = {};
+  if(s.fire.currentAge === undefined) s.fire.currentAge = null;
+  if(s.fire.retireAge === undefined) s.fire.retireAge = null;
+  if(s.fire.preservationAge == null) s.fire.preservationAge = 60;
   if(s.projectionReference === undefined) s.projectionReference = null;
   if(!Array.isArray(s.netWorthLog)) s.netWorthLog = [];
   if(!Array.isArray(s.assets)) s.assets = [];

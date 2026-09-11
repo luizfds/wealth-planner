@@ -288,7 +288,7 @@ $14,520 while the scenario on screen used half that.
 
 ---
 
-## 5. `[ ]` Financial year as a first-class period
+## 5. `[~]` Financial year as a first-class period
 
 A tax return is a **financial-year** document. The app gained the concept only in v2.72.0, on
 reserve budgets, one line at a time (`reserveYearWindow` in `calc/ledger.js` already knows Jul–Jun

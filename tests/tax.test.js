@@ -166,3 +166,83 @@ test("effectiveIncomeItems stays the baseline view", function(){
     assert.equal(items[0].what, "Dividends");
   });
 });
+
+// ---------------- HELP / HECS (v2.81.0) ----------------
+
+import { helpRepaymentRate, helpRepaymentAnnual, helpNextThreshold } from "../src/calc/tax.js";
+
+test("the HELP rate is a flat percentage of the whole income, not marginal", function(){
+  // This is the thing people get wrong about it, and the reason the panel names the next
+  // threshold: at $54,435 you repay 1% of all of it, not 1% of the dollar above the threshold.
+  assert.equal(helpRepaymentRate(54434), 0);
+  assert.equal(helpRepaymentRate(54435), 0.01);
+  assert.ok(Math.abs(helpRepaymentAnnual(54435, 50000) - 544.35) < 0.01);
+  // One dollar of income either side of a threshold, and the repayment jumps by the whole band.
+  assert.equal(helpRepaymentAnnual(54434, 50000), 0);
+});
+
+test("the top band applies to everything above it", function(){
+  assert.equal(helpRepaymentRate(159664), 0.10);
+  assert.equal(helpRepaymentRate(1000000), 0.10);
+  assert.equal(helpRepaymentAnnual(200000, 999999), 20000);
+});
+
+test("no balance means no repayment, whatever the income", function(){
+  assert.equal(helpRepaymentAnnual(200000, 0), 0);
+  assert.equal(helpRepaymentAnnual(200000, null), 0);
+});
+
+test("a repayment never exceeds what's left owing", function(){
+  // The final year's repayment is whatever remains, not a full year's percentage — without this
+  // the app would go on "repaying" a debt that's already cleared.
+  assert.equal(helpRepaymentAnnual(200000, 500), 500);
+  assert.equal(helpRepaymentAnnual(200000, 25000), 20000, "and is not capped when the balance is larger");
+});
+
+test("helpNextThreshold names what crossing it actually costs", function(){
+  var next = helpNextThreshold(54000);
+  assert.equal(next.at, 54435);
+  assert.equal(next.away, 435);
+  // The cost is the jump in the whole-income repayment (1% of $54,435), not the rate difference.
+  assert.ok(Math.abs(next.stepCost - 544.35) < 0.01);
+  assert.equal(helpNextThreshold(200000), null, "nothing above the top band");
+});
+
+test("repayment income adds back salary sacrifice and ignores a rental loss", function(){
+  // The two traps: sacrificing into super does NOT reduce what you repay, and neither does
+  // negative gearing. Both reduce taxable income, so inferring the repayment from that figure
+  // understates it — which is exactly why this is computed and shown separately.
+  withIncome([grossRow("Sam", 120000)], function(){
+    state.tax.settings.Sam = { superSacrificeAnnual: 20000, concessionalCap: 30000, carryForward: 0, helpBalance: 50000 };
+    var t = computePersonTax("Sam");
+    assert.ok(t.taxable < 120000, "sacrifice reduced taxable income");
+    assert.equal(t.repaymentIncome, 120000, "but not repayment income");
+    assert.ok(Math.abs(t.helpRepayment - 120000 * helpRepaymentRate(120000)) < 0.01);
+  });
+});
+
+test("a HELP repayment comes out of take-home but is not counted as tax", function(){
+  // It's a debt repayment, not a tax: folding it into totalTax would overstate the effective rate.
+  // It still leaves the same pay, so every net figure downstream has to see it.
+  withIncome([grossRow("Sam", 120000)], function(){
+    state.tax.settings.Sam = { superSacrificeAnnual: 0, concessionalCap: 30000, carryForward: 0, helpBalance: 0 };
+    var without = computePersonTax("Sam");
+    state.tax.settings.Sam.helpBalance = 50000;
+    var withDebt = computePersonTax("Sam");
+    assert.equal(withDebt.totalTax, without.totalTax, "tax is unchanged");
+    assert.equal(withDebt.effectiveRate, without.effectiveRate, "and so is the effective tax rate");
+    assert.ok(Math.abs((without.netTakeHome - withDebt.netTakeHome) - withDebt.helpRepayment) < 0.01,
+      "take-home drops by exactly the repayment");
+    assert.equal(withDebt.helpBalanceAfter, 50000 - withDebt.helpRepayment);
+  });
+});
+
+test("a person with no HELP settings behaves exactly as before", function(){
+  withIncome([grossRow("Sam", 120000)], function(){
+    delete state.tax.settings.Sam;
+    var t = computePersonTax("Sam");
+    assert.equal(t.helpBalance, 0);
+    assert.equal(t.helpRepayment, 0);
+    assert.equal(t.helpNext, null, "no next-threshold nudge for someone with no debt");
+  });
+});

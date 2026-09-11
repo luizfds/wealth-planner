@@ -352,7 +352,7 @@ they affect:
 
 | Gap | Note |
 |---|---|
-| `[~]` HECS / HELP | No concept at all. A compulsory repayment is a real deduction from take-home, so every net figure is currently too high for anyone carrying a debt. **Do first** — it corrects numbers already on screen. |
+| `[x]` HECS / HELP | **Shipped v2.81.0.** Per-person balance on the Tax & super card; a flat-rate (not marginal) repayment withheld from take-home, with the next threshold and what crossing it costs. Repayment income adds back salary sacrifice and any rental loss, so neither reduces it. On the reference backup a $45k balance cuts household net savings **$8,727 → $7,040/mo**. |
 | `[ ]` Deductions | Nothing anywhere. Work-related expenses, donations, tax agent fee. Expense rows could carry a deductible flag and roll straight into a return. |
 | `[ ]` Dividends & franking | Shares are tracked by quantity and price; dividends and franking credits don't exist. |
 | `[ ]` Capital gains | Cost basis is stored, but there's no sale event and no 12-month CGT discount. |

@@ -1,5 +1,5 @@
 import { state } from "../state.js";
-import { AU_TAX_BRACKETS, MAX_SUPER_BASE } from "../constants.js";
+import { AU_TAX_BRACKETS, MAX_SUPER_BASE, HELP_REPAYMENT_RATES } from "../constants.js";
 import { periodsOf, resolveSharedAmount } from "./ledger.js";
 import { ipNetResultAnnual } from "./property.js";
 import { fmtCurrency0 } from "../lib/format.js";
@@ -26,6 +26,54 @@ export function medicareLevyAU(taxable){
   if(taxable <= lower) return 0;
   if(taxable <= upper) return (taxable - lower) * 0.10;
   return taxable * 0.02;
+}
+
+// ---------------- HELP / HECS ----------------
+//
+// A compulsory repayment is a real deduction from take-home, withheld from every pay like tax is.
+// Until this existed the app had no concept of it at all, so every net figure on every page —
+// take-home, savings rate, the projection, the FIRE bridge — was too high for anyone carrying a
+// debt. That's the reason this went first of the tax items: it corrects numbers already on screen
+// rather than adding a new one.
+//
+// The rate is a flat percentage of the WHOLE repayment income, not marginal (see
+// HELP_REPAYMENT_RATES). One dollar over a threshold costs the difference on every dollar you
+// earn, which is worth surfacing rather than burying.
+export function helpRepaymentRate(repaymentIncome){
+  var income = Math.max(0, Number(repaymentIncome) || 0);
+  var rate = 0;
+  for(var i = 0; i < HELP_REPAYMENT_RATES.length; i++){
+    if(income >= HELP_REPAYMENT_RATES[i].from) rate = HELP_REPAYMENT_RATES[i].rate;
+    else break;
+  }
+  return rate;
+}
+// The next threshold up and what crossing it costs — null once you're in the top band. The cost is
+// the jump in the whole-income repayment, not the rate difference, because that's the number that
+// actually leaves your account.
+export function helpNextThreshold(repaymentIncome){
+  var income = Math.max(0, Number(repaymentIncome) || 0);
+  for(var i = 0; i < HELP_REPAYMENT_RATES.length; i++){
+    var band = HELP_REPAYMENT_RATES[i];
+    if(band.from > income){
+      return {
+        at: band.from,
+        rate: band.rate,
+        away: band.from - income,
+        stepCost: Math.round((band.from * band.rate - income * helpRepaymentRate(income)) * 100) / 100
+      };
+    }
+  }
+  return null;
+}
+// What's actually repaid this year: the rate applied to repayment income, but never more than the
+// balance outstanding. The cap matters — a final year's repayment is whatever is left, not a full
+// year's percentage, and without it the app would keep "repaying" a debt that's already gone.
+export function helpRepaymentAnnual(repaymentIncome, balance){
+  var owed = Math.max(0, Number(balance) || 0);
+  if(!owed) return 0;
+  var raw = Math.max(0, Number(repaymentIncome) || 0) * helpRepaymentRate(repaymentIncome);
+  return Math.round(Math.min(raw, owed) * 100) / 100;
 }
 
 // Income rows that represent spendable money: every non-Gross row, which means the Net rows the
@@ -203,9 +251,14 @@ export function personIncomeBreakdown(person, opts){
 
 export function personTaxSettings(person){
   if(!state.tax.settings[person]){
-    state.tax.settings[person] = { superSacrificeAnnual: 0, concessionalCap: 30000, carryForward: 0 };
+    state.tax.settings[person] = { superSacrificeAnnual: 0, concessionalCap: 30000, carryForward: 0, helpBalance: 0 };
   }
-  return state.tax.settings[person];
+  // Back-fill for a settings object saved before a field existed, rather than only seeding on
+  // first creation — otherwise an existing person keeps `undefined` forever and every read has to
+  // guard for it.
+  var st = state.tax.settings[person];
+  if(st.helpBalance == null) st.helpBalance = 0;
+  return st;
 }
 
 export function computePersonTax(person, opts){
@@ -223,8 +276,26 @@ export function computePersonTax(person, opts){
   var taxable = Math.max(0, gross - sacrifice + ipShare);
   var incomeTax = incomeTaxAU(taxable);
   var medicare = medicareLevyAU(taxable);
+  // HELP repayment income is deliberately NOT taxable income. It adds back the two things the tax
+  // system lets you subtract but the repayment system doesn't: reportable super contributions
+  // (salary sacrifice) and a net investment loss. Working it through for this app's own terms:
+  //
+  //   taxable          = gross - sacrifice + ipShare
+  //   repaymentIncome  = taxable + sacrifice + max(0, -ipShare)
+  //                    = gross + ipShare + max(0, -ipShare)
+  //                    = gross + max(0, ipShare)
+  //
+  // i.e. salary sacrificing does not reduce what you repay, and neither does negative gearing —
+  // which is exactly the trap people are surprised by, and the reason to show the figure rather
+  // than let them infer it from taxable income.
+  var helpBalance = Math.max(0, Number(settings.helpBalance) || 0);
+  var repaymentIncome = Math.max(0, gross + Math.max(0, ipShare));
+  var helpRepayment = helpRepaymentAnnual(repaymentIncome, helpBalance);
   var totalTax = incomeTax + medicare;
-  var netTakeHome = gross - sacrifice - totalTax;
+  // Part of take-home, not of "tax": it's a repayment of a debt, not a tax, and totalTax feeds the
+  // effective-rate figure where lumping it in would overstate what the ATO keeps. But it does come
+  // out of the same pay, so every downstream net figure has to see it.
+  var netTakeHome = gross - sacrifice - totalTax - helpRepayment;
   // netTakeHome already folds in the property's tax effect evenly across the year — but a tax
   // refund from a negative-geared loss (or a bill from a positively-geared profit) doesn't
   // actually arrive that way unless the PAYG withholding was varied; by default it's a lump sum
@@ -233,7 +304,8 @@ export function computePersonTax(person, opts){
   // "how much am I really saving/paying" — surfaced in personBreakdownHtml, not folded silently
   // into the one blended figure used everywhere else in the app.
   var taxableWithoutIp = Math.max(0, gross - sacrifice);
-  var payslipTakeHome = gross - sacrifice - incomeTaxAU(taxableWithoutIp) - medicareLevyAU(taxableWithoutIp);
+  var payslipTakeHome = gross - sacrifice - incomeTaxAU(taxableWithoutIp) - medicareLevyAU(taxableWithoutIp) -
+    helpRepaymentAnnual(Math.max(0, gross), helpBalance);
   var ipTaxEffect = netTakeHome - payslipTakeHome;
   var sg = inc.sg;
   var totalConcessional = sg + sacrifice;
@@ -256,6 +328,10 @@ export function computePersonTax(person, opts){
     incomeTax: incomeTax, medicare: medicare, totalTax: totalTax, netTakeHome: netTakeHome,
     payslipTakeHome: payslipTakeHome, ipTaxEffect: ipTaxEffect,
     effectiveRate: gross > 0 ? totalTax / gross : 0,
+    helpBalance: helpBalance, helpRepayment: helpRepayment, repaymentIncome: repaymentIncome,
+    helpRate: helpBalance > 0 ? helpRepaymentRate(repaymentIncome) : 0,
+    helpNext: helpBalance > 0 ? helpNextThreshold(repaymentIncome) : null,
+    helpBalanceAfter: Math.max(0, helpBalance - helpRepayment),
     sg: sg, totalConcessional: totalConcessional, capAvailable: capAvailable, capExceeded: capExceeded,
     contributionsTax: contributionsTax, superNet: superNet, marginalRate: marginalRateAU(taxable),
     div293Income: div293Income, div293Tax: div293Tax, superOverCap: inc.superOverCap

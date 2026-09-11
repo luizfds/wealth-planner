@@ -983,6 +983,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       } else if(t.classList.contains("tax-sacrifice")) settings.superSacrificeAnnual = parseFloat(t.value) || 0;
       else if(t.classList.contains("tax-cap")) settings.concessionalCap = parseFloat(t.value) || 0;
       else if(t.classList.contains("tax-carryforward")) settings.carryForward = parseFloat(t.value) || 0;
+      else if(t.classList.contains("tax-help")) settings.helpBalance = Math.max(0, parseFloat(t.value) || 0);
       else return;
     } else if(e.target.id === "taxSgRate"){
       state.tax.sgRate = parseFloat(e.target.value) || 0;

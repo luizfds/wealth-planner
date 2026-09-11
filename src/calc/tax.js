@@ -1,6 +1,6 @@
 import { state } from "../state.js";
 import { AU_TAX_BRACKETS, MAX_SUPER_BASE, HELP_REPAYMENT_RATES, MLS_TIERS, MLS_FAMILY_MULTIPLIER } from "../constants.js";
-import { periodsOf, resolveSharedAmount } from "./ledger.js";
+import { periodsOf, resolveSharedAmount, householdYearWindow } from "./ledger.js";
 import { ipNetResultAnnual } from "./property.js";
 import { fmtCurrency0 } from "../lib/format.js";
 
@@ -26,6 +26,76 @@ export function medicareLevyAU(taxable){
   if(taxable <= lower) return 0;
   if(taxable <= upper) return (taxable - lower) * 0.10;
   return taxable * 0.02;
+}
+
+// ---------------- Capital gains ----------------
+//
+// Cost basis was stored (a holding's avgCost, a property's purchasePrice) but there was no sale
+// event, so the app could show an unrealised gain and had no way to say what realising it would
+// cost. That's the question people actually ask before selling, and the 12-month discount is why
+// the answer is rarely what they guess.
+//
+// A CGT event is recorded on the asset itself rather than as a separate ledger: {date, units,
+// proceeds, costBase, acquired} on `asset.sales[]`. Keeping it with the asset means a sale can't
+// be orphaned from the thing sold, and the asset already carries everything else about it.
+//
+// The discount is the whole point. Held more than 12 months, an individual's gain is halved before
+// tax. "More than", not "at least" — 12 months to the day doesn't qualify, and a sale one day early
+// costs half the discount, which is exactly the kind of thing worth being precise about.
+export var CGT_DISCOUNT = 0.5;
+export var CGT_DISCOUNT_MIN_DAYS = 366;
+
+export function heldDays(acquired, sold){
+  if(!acquired || !sold) return 0;
+  var a = new Date(acquired + "T00:00:00"), b = new Date(sold + "T00:00:00");
+  return Math.round((b - a) / 86400000);
+}
+export function qualifiesForCgtDiscount(acquired, sold){
+  return heldDays(acquired, sold) >= CGT_DISCOUNT_MIN_DAYS;
+}
+// One sale's capital gain picture. A capital LOSS never gets the discount — the discount only ever
+// applies to a gain, and halving a loss would understate a real offset.
+export function saleCapitalGain(sale){
+  var proceeds = Number(sale.proceeds) || 0;
+  var costBase = Number(sale.costBase) || 0;
+  var raw = Math.round((proceeds - costBase) * 100) / 100;
+  var discounted = qualifiesForCgtDiscount(sale.acquired, sale.date) && raw > 0;
+  return {
+    raw: raw,
+    isLoss: raw < 0,
+    discountApplied: discounted,
+    heldDays: heldDays(sale.acquired, sale.date),
+    // What actually goes into taxable income. Losses pass through whole; gains are halved only
+    // when the holding period qualifies.
+    assessable: Math.round((discounted ? raw * (1 - CGT_DISCOUNT) : raw) * 100) / 100
+  };
+}
+// Every sale recorded against this person's assets, within the window if one is given.
+//
+// Losses are netted against gains BEFORE the discount in the real rules; this applies the discount
+// per sale instead, which is the simplification the rest of this engine is built on and is stated
+// in the UI. It differs only when a discounted gain and a loss land in the same year.
+export function personCapitalGains(person, opts){
+  opts = opts || {};
+  var people = getTaxPeople();
+  var total = { assessable: 0, raw: 0, discounted: 0, sales: [] };
+  state.assets.forEach(function(a){
+    if(!Array.isArray(a.sales) || !a.sales.length) return;
+    if(a.person ? a.person !== person : people.length > 1) return;
+    a.sales.forEach(function(sale){
+      if(opts.from && sale.date < opts.from) return;
+      if(opts.to && sale.date > opts.to) return;
+      var g = saleCapitalGain(sale);
+      total.raw += g.raw;
+      total.assessable += g.assessable;
+      if(g.discountApplied) total.discounted += g.raw - g.assessable;
+      total.sales.push({ what: a.what, date: sale.date, gain: g });
+    });
+  });
+  total.raw = Math.round(total.raw * 100) / 100;
+  total.assessable = Math.round(total.assessable * 100) / 100;
+  total.discounted = Math.round(total.discounted * 100) / 100;
+  return total;
 }
 
 // ---------------- Dividends & franking credits ----------------
@@ -468,7 +538,12 @@ export function computePersonTax(person, opts){
   // Dividends enter taxable income GROSSED UP (cash + franking credit); the credit then comes off
   // the tax bill below. Adding only the cash would understate the income and overstate the benefit.
   var dividends = personDividends(person);
-  var taxable = Math.max(0, gross - sacrifice + ipShare - deductions + dividends.grossedUp);
+  // Capital gains within the household's year. Bounded to the year because a CGT event belongs to
+  // the year it happened in — unlike every other figure here, which is a rate, a sale is a
+  // one-off, and carrying last year's sale into this year's estimate would be plainly wrong.
+  var cgtWindow = householdYearWindow();
+  var capitalGains = personCapitalGains(person, { from: cgtWindow.start, to: cgtWindow.end });
+  var taxable = Math.max(0, gross - sacrifice + ipShare - deductions + dividends.grossedUp + capitalGains.assessable);
   var incomeTax = incomeTaxAU(taxable);
   var medicare = medicareLevyAU(taxable);
   // HELP repayment income is deliberately NOT taxable income. It adds back the two things the tax
@@ -540,6 +615,9 @@ export function computePersonTax(person, opts){
     gross: gross, packageTotal: inc.packageTotal, ipShare: ipShare, ownershipPct: ownershipPct,
     sacrifice: sacrifice, manualSacrifice: manualSacrifice, autoSacrifice: autoSacrifice, taxable: taxable,
     deductions: deductions,
+    capitalGains: capitalGains.assessable, capitalGainsRaw: capitalGains.raw,
+    capitalGainsDiscount: capitalGains.discounted, capitalGainSales: capitalGains.sales,
+    capitalGainsYear: cgtWindow.label,
     dividendCash: dividends.cash, frankingCredit: dividends.credit, dividendGrossedUp: dividends.grossedUp,
     // The number people actually want: what the dividend is worth after tax. Negative top-up above
     // a 30% marginal rate, positive refund below it.

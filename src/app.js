@@ -12,7 +12,7 @@ import {
   exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv, exportAssetsImportTemplateCsv
 } from "./lib/backup.js";
 import { periodsOf, sumField, appendHistorySnapshot, transactionDisplayName } from "./calc/ledger.js";
-import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider } from "./calc/tax.js";
+import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider, saleCapitalGain } from "./calc/tax.js";
 import { recalcComputedItems, scenarioTotals, totalNetWorthValue, totalDebtsValue } from "./calc/engine.js";
 import { renderCards, renderDashboardStats, renderDetail, setProjectionReference, logNetWorthSnapshot } from "./components/dashboard.js";
 import {
@@ -40,7 +40,8 @@ import {
   patchHoldingRow, patchVehicleRow, modernAssetRowOpen, patchAssetCategoryTotals,
   renderNetWorthPanel, renderAssets, logAssetSnapshot, applySharesPaste, logDebtSnapshot,
   patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter, renderAssetPersonSheet, assetPersonSheetOpen, setAssetPersonSheetOpen, setSharesGainFilter, setSharesSortMode, setSharesChangeWindow,
-  parseAssetsImportCsv, renderAssetsImportPreview, clearAssetsImportPreview, commitAssetsImport, dividendNoteText
+  parseAssetsImportCsv, renderAssetsImportPreview, clearAssetsImportPreview, commitAssetsImport, dividendNoteText,
+  recordAssetSale, deleteAssetSale
 } from "./components/assets.js";
 import {
   modernPropRowOpen, renderPropListModern, renderProperties, patchPropertyCardComputed,
@@ -1162,6 +1163,35 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       });
       return;
     }
+    var saleBtn = e.target.closest("[data-asset-sale]");
+    if(saleBtn){
+      var sIdx = Number(saleBtn.getAttribute("data-asset-sale"));
+      var sRow = saleBtn.closest('[data-section="assets"]');
+      var out = recordAssetSale(sIdx, {
+        units: sRow.querySelector(".h-sale-units").value,
+        proceeds: sRow.querySelector(".h-sale-proceeds").value,
+        date: sRow.querySelector(".h-sale-date").value,
+        acquired: sRow.querySelector(".h-sale-acquired").value,
+        costBase: sRow.querySelector(".h-sale-costbase").value
+      });
+      if(!out) return;
+      if(out.error){ showToast(out.error); return; }
+      var gain = saleCapitalGain(out.sale);
+      showToast(gain.isLoss
+        ? "Sale recorded — a " + fmtCurrency0.format(Math.abs(gain.raw)) + " capital loss"
+        : "Sale recorded — " + fmtCurrency0.format(gain.raw) + " gain" + (gain.discountApplied ? ", halved by the 12-month discount" : ", no discount (held " + gain.heldDays + " days)"));
+      afterAssetSaleChange();
+      return;
+    }
+    var saleDelBtn = e.target.closest("[data-asset-sale-del]");
+    if(saleDelBtn){
+      var parts = saleDelBtn.getAttribute("data-asset-sale-del").split(":");
+      if(deleteAssetSale(Number(parts[0]), Number(parts[1]))){
+        showToast("Sale removed — the units are back in the holding");
+        afterAssetSaleChange();
+      }
+      return;
+    }
     var logBtn = e.target.closest("[data-asset-log]");
     if(logBtn){ logAssetSnapshot(Number(logBtn.getAttribute("data-asset-log"))); return; }
     if(e.target.id === "sharesPasteApply") applySharesPaste();
@@ -1573,6 +1603,20 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   // pushes — after which the overlay's own close path went back a *page* instead of closing it.
   // nav.js calls this from showPage before it writes that entry; no history here, since it's
   // about to be rewritten anyway.
+  // A sale changes units held (so the portfolio and net worth), and an assessable gain changes
+  // taxable income (so the tax card and every net figure). Both halves, in one place, because
+  // forgetting either leaves the app visibly disagreeing with itself.
+  function afterAssetSaleChange(){
+    recalcComputedItems();
+    renderAssets();
+    renderTaxSuper();
+    patchSyntheticIncomeRows();
+    patchIncomeGroupTotals();
+    renderCards(); renderDetail(); renderTotals();
+    renderProjectionOutputs();
+    persist();
+  }
+
   // Two providers registered once at startup, both for the same reason: calc/ and lib/ can't import
   // a component, but the data they need (which budget lines exist, who the tax people are) is
   // assembled by one. See setDeductibleItemsProvider's own comment for why this beats threading the

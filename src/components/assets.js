@@ -8,7 +8,7 @@ import { optionsHtml, historyTrendHtml } from "../lib/ledger-table.js";
 import { renderLineChart, sparklineHtml, sparklinePlaceholderHtml } from "../lib/charts.js";
 import { showToast } from "../lib/toast.js";
 import { appendHistorySnapshot, daysUntil, householdYearWindow, householdYearBasis } from "../calc/ledger.js";
-import { holdingDividend } from "../calc/tax.js";
+import { holdingDividend, saleCapitalGain } from "../calc/tax.js";
 import { renderProjectionOutputs } from "./projections.js";
 import { renderDashboardStats } from "./dashboard.js";
 import { parseCsv } from "../lib/backup.js";
@@ -79,9 +79,74 @@ function gainLossHtml(item){
     ' (' + fmtPercent1.format(Math.abs(g.pct)) + ')</span>';
 }
 
+// Sales already recorded against this holding. Each states whether the discount applied and how
+// long it was held, because that's the one thing about a CGT event people misjudge — and once it's
+// recorded it's too late to act on, so the number has to be visible rather than inferred.
+function salesListHtml(item, idx){
+  var sales = Array.isArray(item.sales) ? item.sales : [];
+  if(!sales.length) return "";
+  return '<div class="sale-list">' + sales.map(function(sale, si){
+    var g = saleCapitalGain(sale);
+    var cls = g.isLoss ? "down" : "up";
+    return '<div class="sale-row">' +
+      '<span class="sale-date">' + escapeAttr(sale.date) + '</span>' +
+      '<span class="sale-detail">' + fmtQtyDisplay.format(Number(sale.units) || 0) + ' units · ' +
+        fmtCurrency0.format(Number(sale.proceeds) || 0) + ' less ' + fmtCurrency0.format(Number(sale.costBase) || 0) + ' cost base</span>' +
+      '<span class="asset-trend ' + cls + '">' + (g.isLoss ? "" : "+") + fmtCurrency0.format(g.raw) + '</span>' +
+      '<span class="sale-discount' + (g.discountApplied ? " on" : "") + '" title="' +
+        escapeAttr(g.heldDays + " days held. The 50% discount needs more than 12 months (366 days).") + '">' +
+        (g.isLoss ? "loss" : (g.discountApplied ? "−50% discount → " + fmtCurrency0.format(g.assessable) : "no discount")) + '</span>' +
+      '<button type="button" class="icon-btn" data-asset-sale-del="' + idx + ':' + si + '" aria-label="Delete this sale">✕</button>' +
+    '</div>';
+  }).join("") + '</div>';
+}
+
 // The franking credit and grossed-up figure for one holding, shown under the Franked % field —
 // because "$700 cash" and "$1,000 of taxable income with a $300 credit" are very different
 // statements and only the second one is what goes on a return.
+// Records a sale against a holding and reduces the units held — a sale that didn't change the
+// holding would leave the portfolio claiming units that are gone, which is worse than not
+// recording it at all.
+//
+// The cost base defaults to avgCost x units when left blank, which is right for the common case
+// and wrong for anyone who tracks parcels separately — hence a field rather than only the derived
+// figure.
+export function recordAssetSale(idx, input){
+  var item = state.assets[idx];
+  if(!item) return null;
+  var units = Math.max(0, Number(input.units) || 0);
+  var proceeds = Math.max(0, Number(input.proceeds) || 0);
+  if(!units || !proceeds) return { error: "Enter both the units sold and what you sold them for." };
+  var held = Math.max(0, Number(item.quantity) || 0);
+  if(units > held) return { error: "You only hold " + fmtQtyDisplay.format(held) + " units." };
+  var costBase = input.costBase !== "" && input.costBase != null
+    ? Math.max(0, Number(input.costBase) || 0)
+    : Math.round((item.avgCost != null ? item.avgCost : 0) * units * 100) / 100;
+  if(!Array.isArray(item.sales)) item.sales = [];
+  item.sales.push({
+    date: input.date || localDateStr(),
+    acquired: input.acquired || "",
+    units: units,
+    proceeds: proceeds,
+    costBase: costBase
+  });
+  item.sales.sort(function(a, b){ return (b.date || "").localeCompare(a.date || ""); });
+  item.quantity = Math.round((held - units) * 1e8) / 1e8;
+  item.amount = Math.round(item.quantity * (Number(item.price) || 0) * 100) / 100;
+  return { sale: item.sales[0], item: item };
+}
+export function deleteAssetSale(idx, saleIdx){
+  var item = state.assets[idx];
+  if(!item || !Array.isArray(item.sales)) return null;
+  var removed = item.sales.splice(saleIdx, 1)[0];
+  if(!removed) return null;
+  // Put the units back: deleting a sale has to undo what recording it did, or a mistyped sale
+  // permanently loses units from the portfolio.
+  item.quantity = Math.round(((Number(item.quantity) || 0) + (Number(removed.units) || 0)) * 1e8) / 1e8;
+  item.amount = Math.round(item.quantity * (Number(item.price) || 0) * 100) / 100;
+  return removed;
+}
+
 export function dividendNoteText(item){
   var d = holdingDividend(item);
   if(!d.cash) return "";
@@ -307,6 +372,8 @@ function modernAssetRowHtml(item, idx, colorIdx){
       '<div class="m-edit-field span2"><label>Value</label><input type="number" step="100" min="0" class="a-amount" value="' + item.amount + '" aria-label="Asset value"></div>' +
       '<div class="m-edit-field"><label>Person</label><input type="text" class="a-person" list="personSuggestions" value="' + escapeAttr(item.person || "") + '" placeholder="Household" aria-label="Person"></div>' +
     '</div>' +
+    // Sales live behind a disclosure: most holdings have none, and a CGT form permanently open on
+    // every row would bury the fields people actually use daily.
     '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm asset-log-btn" data-asset-log="' + idx + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart below">Log</button><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete asset">Delete</button></div>' +
   '</div></div></div>';
   return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="assets" data-index="' + idx + '">' + summary + edit + '</div>';
@@ -432,6 +499,17 @@ function modernShareRowHtml(item, idx, colorIdx){
       '<div class="m-edit-field"><label>Dividend / unit /yr</label><input type="number" step="0.01" min="0" class="h-dividend" value="' + (Number(item.dividendPerUnit) || 0) + '" placeholder="0" title="Yearly distribution per share or unit. Multiplied by the quantity above, so it follows the holding if you buy or sell." aria-label="Yearly dividend per unit"></div>' +
       '<div class="m-edit-field"><label>Franked %</label><input type="number" step="5" min="0" max="100" class="h-franked" value="' + (item.frankedPct == null ? 100 : item.frankedPct) + '" title="How much of the dividend carries a franking credit for company tax already paid. Fully franked is 100; LICs, REITs and foreign income are often less." aria-label="Franked percentage"><span class="computed-note h-div-note">' + dividendNoteText(item) + '</span></div>' +
     '</div>' +
+    '<details class="row-more-options"><summary>Record a sale (capital gains)</summary><div style="margin-top:8px">' +
+      '<div class="m-edit-grid">' +
+        '<div class="m-edit-field"><label>Units sold</label><input type="number" step="any" min="0" class="h-sale-units" placeholder="0" aria-label="Units sold"></div>' +
+        '<div class="m-edit-field"><label>Sold for (total)</label><input type="number" step="0.01" min="0" class="h-sale-proceeds" placeholder="0" title="Total proceeds, after brokerage" aria-label="Sale proceeds"></div>' +
+        '<div class="m-edit-field"><label>Sold on</label><input type="date" class="h-sale-date" value="' + localDateStr() + '" aria-label="Sale date"></div>' +
+        '<div class="m-edit-field"><label>Acquired on</label><input type="date" class="h-sale-acquired" title="When you bought these units. Held more than 12 months, an individual\'s gain is halved — and \"more than\" is exact: 12 months to the day does not qualify." aria-label="Acquisition date"></div>' +
+        '<div class="m-edit-field span2"><label>Cost base</label><input type="number" step="0.01" min="0" class="h-sale-costbase" placeholder="' + (item.avgCost != null ? "avg cost x units" : "0") + '" title="What the units cost you, including brokerage. Left blank it is worked out from the Avg cost above." aria-label="Cost base"></div>' +
+      '</div>' +
+      '<div class="m-edit-actions"><button type="button" class="btn btn-sm btn-primary" data-asset-sale="' + idx + '">Record sale</button></div>' +
+      salesListHtml(item, idx) +
+    '</div></details>' +
     '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm asset-log-btn" data-asset-log="' + idx + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart below">Log</button><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete holding">Delete</button></div>' +
   '</div></div></div>';
   return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="assets" data-index="' + idx + '">' + summary + edit + '</div>';

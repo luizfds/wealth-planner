@@ -522,6 +522,7 @@ function taxPersonFrontBodyHtml(person, r){
     // Always shown, in both directions: without cover it names the cost, with cover it names what
     // the cover is saving — which is the only way the panel can answer "is a policy worth it",
     // the question this app has every other input for.
+    '<div class="tax-cap-note tax-cgt-note"' + (r.capitalGainSales.length ? '' : ' hidden') + ' title="Recorded under \'Record a sale\' on a Shares holding. Held more than 12 months, an individual\'s gain is halved before tax.">' + capitalGainsNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-div-note"' + (r.dividendGrossedUp > 0 ? '' : ' hidden') + ' title="Taken from Shares holdings with a dividend per unit set on the Assets page. Australian franking credits are refundable, so a low-income holder can receive more than the company distributed.">' + dividendNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-deduct-note"' + (r.deductions > 0 ? '' : ' hidden') + ' title="Taken from budget lines flagged as work-related on the Expenses page. They reduce taxable income, which also reduces the Medicare levy and can move you under a surcharge tier — but not your HELP repayment, which is worked out on gross income.">' + deductionsNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-mls-note' + (r.medicareSurcharge > 0 ? " warn" : "") + '"' + (r.mlsIfUncovered > 0 ? '' : ' hidden') + ' title="Income for surcharge purposes is approximated as taxable income + your reportable super contributions, ignoring reportable fringe benefits and net investment losses — the same simplification Division 293 uses here.">' + mlsNoteText(r) + '</div>' +
@@ -541,6 +542,23 @@ function taxPersonFrontBodyHtml(person, r){
         '</details>' +
       '</div>' +
     '</details>';
+}
+
+// Capital gains for the household's year, with the discount named. Once a sale is recorded it's
+// too late to act on the holding period, so the figure has to be visible rather than inferred.
+function capitalGainsNoteText(r){
+  var loss = r.capitalGainsRaw < 0;
+  return "Capital gains (" + r.capitalGainsYear + "): " +
+    (loss
+      ? fmtCurrency0.format(Math.abs(r.capitalGainsRaw)) + " net capital loss from " + r.capitalGainSales.length +
+        " sale" + (r.capitalGainSales.length === 1 ? "" : "s") + ", offset against other gains."
+      : fmtCurrency0.format(r.capitalGainsRaw) + " gain from " + r.capitalGainSales.length + " sale" +
+        (r.capitalGainSales.length === 1 ? "" : "s") +
+        (r.capitalGainsDiscount > 0
+          ? ", less " + fmtCurrency0.format(r.capitalGainsDiscount) + " of 12-month discount"
+          : " with no 12-month discount") +
+        " = " + fmtCurrency0.format(r.capitalGains) + " added to taxable income.") +
+    " Each sale is discounted on its own holding period here; the ATO nets losses against gains before discounting, which differs only when both land in the same year.";
 }
 
 // Dividends, stated the way a return states them: grossed up, with the credit as an offset and
@@ -666,6 +684,11 @@ export function patchAllTaxPersonOutputs(){
     }
     var mscbNote = panel.querySelector(".tax-mscb-note");
     if(mscbNote) mscbNote.hidden = !r.superOverCap;
+    var cgtNote = panel.querySelector(".tax-cgt-note");
+    if(cgtNote){
+      cgtNote.hidden = !r.capitalGainSales.length;
+      cgtNote.textContent = capitalGainsNoteText(r);
+    }
     var divNote = panel.querySelector(".tax-div-note");
     if(divNote){
       divNote.hidden = !(r.dividendGrossedUp > 0);

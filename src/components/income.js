@@ -5,7 +5,7 @@ import { ipNetResultAnnual } from "../calc/property.js";
 import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax } from "../calc/tax.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
-import { optionsHtml, historyTrendHtml, timingFieldsHtml } from "../lib/ledger-table.js";
+import { optionsHtml, historyTrendHtml, timingFieldsHtml, endDateNoteHtml } from "../lib/ledger-table.js";
 import { parseCsv } from "../lib/backup.js";
 
 export function personBreakdownHtml(person){
@@ -340,6 +340,7 @@ function modernIncomeRowHtml(item, idx, colorIdx){
       (note ? '<div class="m-row-sub super-note">' + escapeAttr(note) + '</div>' : "") +
       (trendHtml ? '<div class="m-row-sub">' + trendHtml + '</div>' : "") +
       (isComputed ? "" : (function(){ var n = nextPayNoteHtml(item); return n ? '<div class="m-row-sub">' + n + '</div>' : ""; })()) +
+      (function(){ var e = endDateNoteHtml(item); return e ? '<div class="m-row-sub">' + e + '</div>' : ""; })() +
     '</div>' +
     (isGrossRef ? '<span class="m-row-tag gross">Gross</span>' : "") +
     '<span class="m-row-amt" data-computed="amt">' + fmtCurrency2.format(monthly) + '/mo</span>' +

@@ -8,11 +8,12 @@ export function renderProjectionOutputs(){
   var container = document.getElementById("projOutputs");
   if(!container) return;
   var horizon = Math.max(1, Number(state.projection.horizonYears) || 1);
+  var realTerms = state.projection.realTerms !== false;
   var series = state.scenarios.map(function(scenario, idx){
     return {
       label: scenario,
       colorClass: "series-color-" + (idx % 8),
-      points: computeNetWorthSeries(scenario, horizon)
+      points: computeNetWorthSeries(scenario, horizon, { realTerms: realTerms })
     };
   });
 
@@ -23,12 +24,16 @@ export function renderProjectionOutputs(){
       return { label: s.label, value: pt ? pt.y : 0 };
     }).sort(function(a, b){ return b.value - a.value; });
     var yrWord = horizon === 1 ? "year" : "years";
+    // Spelled out in the headline as well as on the control above it: this sentence is the one
+    // line most people read, and "$8,002,580 at year 20" means two very different things
+    // depending on which dollars it's in.
+    var basisWord = realTerms ? " in today's dollars" : " in future dollars";
     if(finals.length > 1){
       var margin = finals[0].value - finals[1].value;
       headlineEl.innerHTML = "In " + horizon + " " + yrWord + ", <b>" + escapeAttr(finals[0].label) + "</b> comes out ahead at <b>" +
-        fmtCurrency0.format(finals[0].value) + "</b> — " + fmtCurrency0.format(margin) + " more than " + escapeAttr(finals[1].label) + ".";
+        fmtCurrency0.format(finals[0].value) + "</b>" + basisWord + " — " + fmtCurrency0.format(margin) + " more than " + escapeAttr(finals[1].label) + ".";
     } else if(finals.length === 1){
-      headlineEl.innerHTML = "In " + horizon + " " + yrWord + ", <b>" + escapeAttr(finals[0].label) + "</b> reaches <b>" + fmtCurrency0.format(finals[0].value) + "</b>.";
+      headlineEl.innerHTML = "In " + horizon + " " + yrWord + ", <b>" + escapeAttr(finals[0].label) + "</b> reaches <b>" + fmtCurrency0.format(finals[0].value) + "</b>" + basisWord + ".";
     } else {
       headlineEl.innerHTML = "";
     }
@@ -38,7 +43,7 @@ export function renderProjectionOutputs(){
     height: 280,
     yFormat: function(v){ return fmtCurrency0.format(v); },
     xFormat: function(v){ return "Yr " + v; },
-    ariaLabel: "Net worth projection by scenario",
+    ariaLabel: "Net worth projection by scenario, in " + (realTerms ? "today's" : "future") + " dollars",
     interactiveLegend: true
   });
 

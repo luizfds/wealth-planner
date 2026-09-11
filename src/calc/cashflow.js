@@ -33,9 +33,19 @@ function toEntries(list, side, transactions){
   return list.map(function(item){
     return {
       what: item.what, side: side, amount: Number(item.amount) || 0, freq: item.freq,
+      endDate: item.endDate || "",
       dueMonth: resolvedDueMonth(item, transactions), bucket: classifyItem(item, transactions)
     };
   });
+}
+// Whether a row still applies in a given forecast month. A row that ends part-way through a month
+// is counted for the whole of it — the forecast's unit is a month, and dropping a cost the day it
+// ends would understate the very month you still have to pay it in. Comparing against the 1st
+// (rather than the last day) is what makes that happen.
+function entryActiveInMonth(entry, d){
+  if(!entry.endDate) return true;
+  var firstOfMonth = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-01";
+  return entry.endDate >= firstOfMonth;
 }
 // Gathers every ledger item that feeds cash flow for the given scenario — income (already netted
 // of tax via effectiveIncomeItems(), so Gross rows aren't double-counted against their own
@@ -71,41 +81,53 @@ function lumpyHitsMonth(entry, monthNum){
 export function monthlyCashFlowForecast(monthsAhead){
   monthsAhead = monthsAhead || 12;
   var entries = collectCashFlowEntries(state.activeScenario);
-  var baselineIncome = 0, baselineExpense = 0, reserveIncome = 0, reserveExpense = 0;
-  var lumpyEntries = [];
-  entries.forEach(function(e){
-    if(e.bucket === "lumpy"){ lumpyEntries.push(e); return; }
-    var m = monthlyEquivalent(e.amount, e.freq);
-    if(e.bucket === "reserve"){
-      if(e.side === "income") reserveIncome += m; else reserveExpense += m;
-    } else if(e.side === "income") baselineIncome += m; else baselineExpense += m;
-  });
-  // Loan repayments (this scenario's home loan is already in state.home[scenario] above as a
-  // regular row; investment-property loans are a separate, always-Monthly total scenarioTotals()
-  // also adds on top of ipExpensesMonthly()) are always Monthly and never lumpy/irregular, so
-  // they belong in the baseline as a straight addition rather than needing their own per-item
-  // "entry" — matches ipLoansMonthly()'s own existing scope exactly, so this forecast's baseline
-  // agrees with scenarioTotals()'s netMonthly rather than silently omitting a real cost.
-  baselineExpense += ipLoansMonthly();
-  var baselineNet = baselineIncome - baselineExpense + reserveIncome - reserveExpense;
+  var lumpyEntries = entries.filter(function(e){ return e.bucket === "lumpy"; });
+  var smoothEntries = entries.filter(function(e){ return e.bucket !== "lumpy"; });
+  // The smoothed side is summed per month rather than once up front, because a row with an end
+  // date stops contributing part-way through the horizon — childcare that finishes in eight
+  // months should visibly free up cash in month nine, which a single baseline figure can't show.
+  function smoothTotalsFor(d){
+    var t = { baselineIncome: 0, baselineExpense: 0, reserveIncome: 0, reserveExpense: 0 };
+    smoothEntries.forEach(function(e){
+      if(!entryActiveInMonth(e, d)) return;
+      var m = monthlyEquivalent(e.amount, e.freq);
+      if(e.bucket === "reserve"){
+        if(e.side === "income") t.reserveIncome += m; else t.reserveExpense += m;
+      } else if(e.side === "income") t.baselineIncome += m; else t.baselineExpense += m;
+    });
+    // Loan repayments (this scenario's home loan is already in state.home[scenario] above as a
+    // regular row; investment-property loans are a separate, always-Monthly total scenarioTotals()
+    // also adds on top of ipExpensesMonthly()) are always Monthly and never lumpy/irregular, so
+    // they belong in the baseline as a straight addition rather than needing their own per-item
+    // "entry" — matches ipLoansMonthly()'s own existing scope exactly, so this forecast's baseline
+    // agrees with scenarioTotals()'s netMonthly rather than silently omitting a real cost.
+    t.baselineExpense += ipLoansMonthly();
+    t.net = t.baselineIncome - t.baselineExpense + t.reserveIncome - t.reserveExpense;
+    return t;
+  }
   var today = new Date();
+  var firstMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  // The headline "baseline" figures stay this month's — they describe the situation now, which is
+  // what the panel labels them as; later months carry their own within each month's own net.
+  var firstTotals = smoothTotalsFor(firstMonth);
   var months = [];
   for(var i = 0; i < monthsAhead; i++){
     var d = new Date(today.getFullYear(), today.getMonth() + i, 1);
     var monthNum = d.getMonth() + 1;
-    var hitting = lumpyEntries.filter(function(e){ return lumpyHitsMonth(e, monthNum); });
+    var hitting = lumpyEntries.filter(function(e){ return entryActiveInMonth(e, d) && lumpyHitsMonth(e, monthNum); });
     var lumpyIncome = hitting.filter(function(e){ return e.side === "income"; }).reduce(function(s, e){ return s + e.amount; }, 0);
     var lumpyExpense = hitting.filter(function(e){ return e.side === "expense"; }).reduce(function(s, e){ return s + e.amount; }, 0);
+    var smooth = i === 0 ? firstTotals : smoothTotalsFor(d);
     months.push({
       year: d.getFullYear(), month: monthNum,
-      net: Math.round((baselineNet + lumpyIncome - lumpyExpense) * 100) / 100,
+      net: Math.round((smooth.net + lumpyIncome - lumpyExpense) * 100) / 100,
       items: hitting.map(function(e){ return { what: e.what, side: e.side, amount: e.amount }; })
     });
   }
   return {
-    baselineNet: Math.round(baselineNet * 100) / 100,
-    reserveIncome: Math.round(reserveIncome * 100) / 100,
-    reserveExpense: Math.round(reserveExpense * 100) / 100,
+    baselineNet: Math.round(firstTotals.net * 100) / 100,
+    reserveIncome: Math.round(firstTotals.reserveIncome * 100) / 100,
+    reserveExpense: Math.round(firstTotals.reserveExpense * 100) / 100,
     months: months
   };
 }

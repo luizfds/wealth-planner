@@ -309,6 +309,15 @@
   .m-row-dot{ width:7px; height:7px; border-radius:50%; background: var(--series-color); flex:none; }
   .m-row-name{ font-weight:600; font-size:13.5px; }
   .m-row-sub{ font-size:11px; color: var(--ink-soft); margin-top:1px; }
+  /* "Ends 2028-01-01" on a collapsed row. A pill rather than plain sub-text because it's the one
+     sub-line that changes what the row *means* rather than annotating its amount — and .ended
+     goes red because a line still sitting in the list after its end date is still inflating every
+     per-month total on the page until it's deleted. */
+  .row-end-note{
+    display:inline-block; padding:1px 7px; border-radius:100px; font-size:10.5px; font-weight:600;
+    background: var(--paper-sunken); color: var(--ink-soft);
+  }
+  .row-end-note.ended{ background: var(--bad-wash); color: var(--bad); }
   .m-row-tag{
     font-size:9.5px; text-transform:uppercase; letter-spacing:.04em; font-weight:700; padding:2px 7px; border-radius:100px;
     background: var(--paper-sunken); color: var(--ink-soft); flex:none;

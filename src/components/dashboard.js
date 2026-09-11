@@ -75,7 +75,7 @@ export function renderDashboardStats(){
   el.innerHTML =
     '<div class="stat-tile"><span>Total net worth today</span><b>' + fmtCurrency0.format(totalNetWorth) + '</b><small>across ' + itemCount + ' item' + (itemCount === 1 ? "" : "s") + '</small></div>' +
     '<div class="stat-tile"><span>' + escapeAttr(active) + ' — net savings</span><b' + (t.netMonthly < 0 ? ' style="color:var(--bad)"' : '') + '>' + fmtCurrency0.format(t.netMonthly) + '/mo</b><small>' + fmtPercent1.format(t.rate) + ' savings rate</small></div>' +
-    '<div class="stat-tile"><span>Projected net worth</span><b>' + fmtCurrency0.format(projected) + '</b><small>in ' + horizon + ' years, ' + escapeAttr(active) + '</small></div>' +
+    '<div class="stat-tile"><span>Projected net worth</span><b>' + fmtCurrency0.format(projected) + '</b><small>in ' + horizon + ' years, ' + escapeAttr(active) + ', ' + (state.projection.realTerms !== false ? "today's" : "future") + ' dollars</small></div>' +
     runwayTile +
     lastTile;
   renderStaleAssetsBanner();
@@ -338,7 +338,9 @@ export function setProjectionReference(){
     date: localDateStr(),
     scenario: scenario,
     horizonYears: horizon,
-    series: computeNetWorthSeries(scenario, horizon)
+    // Pinned nominal: this reference is graded against state.netWorthLog, which records real
+    // logged dollars. Deflating one side and not the other would make every check drift.
+    series: computeNetWorthSeries(scenario, horizon, { realTerms: false })
   };
   renderDashboardStats();
   persist();

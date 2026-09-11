@@ -215,10 +215,31 @@ export function ipExpenseItemsForClassification(){
   return items;
 }
 
-export function scenarioInflatableMonthly(scenario){
+// Which of a scenario's housing rows inflate each year in the projection — i.e. all of them
+// except the one the purchase calculator is already paying for.
+//
+// The homeLoanRow is the one row whose *meaning* depends on the scenario: with the purchase leg
+// switched on it's the mortgage, which computeNetWorthSeries() replaces with its own amortised
+// repayment (fixed in nominal terms, as a real loan is) and so must not also count here — double
+// counting the same housing cost. With the purchase leg off, the very same row is the rent, and
+// dropping it left the projection ignoring a renting household's single largest expense.
+//
+// That was a real, silent, and large error: on a household paying $810/week, the model assumed
+// $3,510/month more savings than the Dashboard's own net-savings tile showed for the same
+// scenario — and it flattered precisely the scenario the "comes out ahead" headline named.
+// Rent inflates, which is why it joins the inflatable set rather than fixedMonthly.
+export function scenarioInflatableHomeItems(scenario){
   var homeItems = state.home[scenario] || [];
-  var homeNonLoan = homeItems.filter(function(i){ return i.id !== "homeLoanRow"; });
-  return sumFieldForScenario(state.shared, scenario, "monthly") + sumField(homeNonLoan, "monthly");
+  var cfg = state.purchase[scenario];
+  var investCfg = state.invest[scenario];
+  // Same precedence as computeNetWorthSeries(): the invest leg wins if both are somehow on, and
+  // with it on there is no purchase repayment, so the row is a housing cost like any other.
+  var purchaseEnabled = !!(cfg && cfg.enabled) && !(investCfg && investCfg.enabled);
+  if(!purchaseEnabled) return homeItems.slice();
+  return homeItems.filter(function(i){ return i.id !== "homeLoanRow"; });
+}
+export function scenarioInflatableMonthly(scenario){
+  return sumFieldForScenario(state.shared, scenario, "monthly") + sumField(scenarioInflatableHomeItems(scenario), "monthly");
 }
 
 // Property equity is split into two pieces with very different liquidity:

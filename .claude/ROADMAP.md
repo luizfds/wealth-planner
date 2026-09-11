@@ -75,23 +75,22 @@ be modelled, that's the line to revisit.
 
 ---
 
-## 2. `[ ]` Make the projection honest about time
+## 2. `[~]` Make the projection honest about time
 
 Three related changes to one model (`computeNetWorthSeries` in `calc/engine.js`). Best done
 together — they interact, and two of them currently mask each other.
 
-### 2a. `[ ]` Inflate the FI target alongside the series
+### 2a. `[~]` Show the projection in today's dollars
 
-The series grows assets nominally and inflates expenses 3%/yr, but the FI target is computed once
-from *today's* expenses and never inflated — a nominal series measured against a real target.
+**Scope changed once item 1 shipped.** The original finding was a nominal series measured against
+an FI target frozen in today's dollars (year 9 reported vs year 12 like-for-like). Item 1 replaced
+that panel with a real-terms model, so *that* comparison is gone.
 
-Real data, Renting: target $2,760,893 crossed at **year 9** as reported, **year 12** once the
-target rises with the same 3% the model already applies to expenses.
+What remains is the other half: the Projections page and the Dashboard chart are still **nominal**,
+and nothing on either says so. "$8,002,580 at year 20" is in future dollars, which is not a number
+anyone can weigh against the expenses they typed in. Deflate to today's dollars.
 
-Either inflate the target or deflate the series to today's dollars. The second option also makes
-every figure on the Projections page something a person can hold in their head.
-
-### 2b. `[ ]` Add an income growth rate
+### 2b. `[~]` Add an income growth rate
 
 `incomeMonthly` is read **once, before the year loop**, and held flat for the whole horizon while
 expenses inflate. Real data: income $23,340/mo at 0%/yr against expenses $14,613/mo at 3%/yr — the
@@ -106,7 +105,7 @@ derives a suggested default from that history rather than only asking.
 > Shipping either alone will visibly move the headline in one direction. Ship both, and say so in
 > the PR.
 
-### 2c. `[ ]` Let ledger rows end
+### 2c. `[~]` Let ledger rows end
 
 No income or expense row has a start or end date, so childcare that finishes in two years and a car
 loan with eighteen payments left are both projected forever. Add an optional "until" date per row,

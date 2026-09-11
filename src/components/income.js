@@ -522,6 +522,7 @@ function taxPersonFrontBodyHtml(person, r){
     // Always shown, in both directions: without cover it names the cost, with cover it names what
     // the cover is saving — which is the only way the panel can answer "is a policy worth it",
     // the question this app has every other input for.
+    '<div class="tax-cap-note tax-deduct-note"' + (r.deductions > 0 ? '' : ' hidden') + ' title="Taken from budget lines flagged as work-related on the Expenses page. They reduce taxable income, which also reduces the Medicare levy and can move you under a surcharge tier — but not your HELP repayment, which is worked out on gross income.">' + deductionsNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-mls-note' + (r.medicareSurcharge > 0 ? " warn" : "") + '"' + (r.mlsIfUncovered > 0 ? '' : ' hidden') + ' title="Income for surcharge purposes is approximated as taxable income + your reportable super contributions, ignoring reportable fringe benefits and net investment losses — the same simplification Division 293 uses here.">' + mlsNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-help-note"' + (r.helpBalance > 0 ? '' : ' hidden') + ' title="Compulsory repayment, worked out as a flat percentage of your repayment income — which adds back salary sacrifice and any rental loss, so neither of those reduces it.">' + helpNoteText(r) + '</div>' +
     '<details class="tax-advanced" style="margin-top:12px"><summary>Adjust ownership &amp; sacrifice</summary>' +
@@ -539,6 +540,15 @@ function taxPersonFrontBodyHtml(person, r){
         '</details>' +
       '</div>' +
     '</details>';
+}
+
+// What the deductions are worth, not what they cost. "I claimed $2,000" and "I got $2,000 back"
+// is the most common confusion about deductions, so the note leads with the refund figure.
+function deductionsNoteText(r){
+  return "Work-related deductions: " + fmtCurrency0.format(r.deductions) + " claimed, worth about " +
+    fmtCurrency0.format(r.deductionsWorth) + " back at your " + fmtPercent1.format(r.marginalRate) +
+    " marginal rate — a deduction reduces the income you're taxed on, it isn't a refund of itself. " +
+    "Flag a budget line as work-related under More options on the Expenses page.";
 }
 
 // Both directions of the surcharge in one sentence — see the note's own comment for why holding
@@ -641,6 +651,11 @@ export function patchAllTaxPersonOutputs(){
     }
     var mscbNote = panel.querySelector(".tax-mscb-note");
     if(mscbNote) mscbNote.hidden = !r.superOverCap;
+    var deductNote = panel.querySelector(".tax-deduct-note");
+    if(deductNote){
+      deductNote.hidden = !(r.deductions > 0);
+      deductNote.textContent = deductionsNoteText(r);
+    }
     var mlsNote = panel.querySelector(".tax-mls-note");
     if(mlsNote){
       mlsNote.hidden = !(r.mlsIfUncovered > 0);

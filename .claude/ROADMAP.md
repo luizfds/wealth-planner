@@ -353,7 +353,7 @@ they affect:
 | Gap | Note |
 |---|---|
 | `[x]` HECS / HELP | **Shipped v2.81.0.** Per-person balance on the Tax & super card; a flat-rate (not marginal) repayment withheld from take-home, with the next threshold and what crossing it costs. Repayment income adds back salary sacrifice and any rental loss, so neither reduces it. On the reference backup a $45k balance cuts household net savings **$8,727 → $7,040/mo**. |
-| `[ ]` Deductions | Nothing anywhere. Work-related expenses, donations, tax agent fee. Expense rows could carry a deductible flag and roll straight into a return. |
+| `[x]` Deductions | **Shipped v2.83.0.** Any budget line can be flagged work-related, with a **share** (a phone bill is rarely 100%) and a person. Reduces taxable income, so it cascades into the levy and the MLS tier — but *not* HELP, which is worked out on gross. The panel leads with what the deduction is **worth** at the marginal rate, not what it cost. The year's transactions CSV carries the flag, share and claimant. |
 | `[ ]` Dividends & franking | Shares are tracked by quantity and price; dividends and franking credits don't exist. |
 | `[ ]` Capital gains | Cost basis is stored, but there's no sale event and no 12-month CGT discount. |
 | `[x]` Medicare levy surcharge | **Shipped v2.82.0.** Household toggles for private hospital cover and family thresholds; flat-rate (not marginal) tiers, with the next tier and its step cost. Always states both directions — with cover it names what the cover is saving, so "is a policy worth it" is answerable. Family tiers are set by **combined** household income, then charged on each person's own. |

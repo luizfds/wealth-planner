@@ -351,3 +351,88 @@ test("on singles thresholds the tier income is just this person's own", function
     assert.equal(sam.mlsTier.label, "Tier 2");
   });
 });
+
+// ---------------- Work-related deductions (v2.83.0) ----------------
+
+import { deductionRows, rowDeductionAnnual, personDeductionsAnnual } from "../src/calc/tax.js";
+
+function deductibleRow(what, amount, freq, extra){
+  return Object.assign({ what: what, amount: amount, freq: freq, deductible: true, deductiblePct: 100 }, extra || {});
+}
+
+test("a row's claim is its annual cost times its work-related share", function(){
+  // The share is the point: a phone bill is rarely 100% work, and a flag alone would either
+  // overstate the claim or push people to keep a second set of numbers elsewhere.
+  // Tolerance, not equality: a Monthly amount round-trips through weekly inside periodsOf().
+  assert.ok(Math.abs(rowDeductionAnnual(deductibleRow("Phone", 100, "Monthly", { deductiblePct: 40 })) - 480) < 1e-9);
+  assert.equal(rowDeductionAnnual(deductibleRow("Union fees", 600, "Yearly")), 600);
+  // Missing pct means the whole thing, which is what an un-edited flagged row should claim.
+  assert.equal(rowDeductionAnnual({ amount: 600, freq: "Yearly", deductible: true }), 600);
+});
+
+test("a claim share is clamped to 0-100", function(){
+  assert.equal(rowDeductionAnnual(deductibleRow("X", 1000, "Yearly", { deductiblePct: 150 })), 1000);
+  assert.equal(rowDeductionAnnual(deductibleRow("X", 1000, "Yearly", { deductiblePct: -20 })), 0);
+});
+
+test("an unattributed row belongs to the only person, and to nobody when there are two", function(){
+  // Silently loading an ambiguous claim onto whoever happens to be first would be worse than
+  // leaving it out — it's someone's tax return.
+  var rows = [deductibleRow("Laptop", 2000, "Yearly")];
+  withIncome([grossRow("Sam", 100000)], function(){
+    assert.equal(deductionRows(rows, "Sam").length, 1);
+  });
+  withIncome([grossRow("Sam", 100000), grossRow("Alex", 100000)], function(){
+    assert.equal(deductionRows(rows, "Sam").length, 0);
+    assert.equal(deductionRows(rows, "Alex").length, 0);
+    // ...until it's attributed.
+    var attributed = [deductibleRow("Laptop", 2000, "Yearly", { deductiblePerson: "Alex" })];
+    assert.equal(deductionRows(attributed, "Sam").length, 0);
+    assert.equal(deductionRows(attributed, "Alex").length, 1);
+  });
+});
+
+test("rows that aren't flagged are ignored entirely", function(){
+  var rows = [{ what: "Groceries", amount: 200, freq: "Weekly" }, deductibleRow("Union fees", 600, "Yearly")];
+  withIncome([grossRow("Sam", 100000)], function(){
+    assert.equal(personDeductionsAnnual("Sam", rows), 600);
+  });
+});
+
+test("deductions reduce taxable income, and cascade into the levy, the surcharge and HELP", function(){
+  // The cascade is why this is computed inside the tax chain rather than shown as a standalone
+  // "you could claim $X" note: surcharge income and repayment income are both built on taxable.
+  withIncome([grossRow("Sam", 100000)], function(){
+    state.tax.settings.Sam = { superSacrificeAnnual: 0, concessionalCap: 30000, carryForward: 0, helpBalance: 50000 };
+    state.tax.privateHospitalCover = false;
+    state.tax.familyThresholds = false;
+    var without = computePersonTax("Sam");
+    var withDeductions = computePersonTax("Sam", { deductibleItems: [deductibleRow("Tools", 8000, "Yearly")] });
+    assert.equal(withDeductions.deductions, 8000);
+    assert.equal(withDeductions.taxable, without.taxable - 8000);
+    assert.ok(withDeductions.incomeTax < without.incomeTax);
+    assert.ok(withDeductions.medicare < without.medicare, "the levy follows taxable income down");
+    assert.ok(withDeductions.surchargeIncome < without.surchargeIncome, "and so does surcharge income");
+    // HELP is the exception that proves the rule: repayment income is built on gross, not taxable,
+    // so a work deduction does NOT reduce what you repay.
+    assert.equal(withDeductions.helpRepayment, without.helpRepayment);
+  });
+});
+
+test("deductionsWorth is the tax saved, not the deduction", function(){
+  // "I claimed $2,000" and "I got $2,000 back" is the most common confusion about deductions, and
+  // the panel exists not to repeat it.
+  withIncome([grossRow("Sam", 100000)], function(){
+    state.tax.settings.Sam = { superSacrificeAnnual: 0, concessionalCap: 30000, carryForward: 0, helpBalance: 0 };
+    var t = computePersonTax("Sam", { deductibleItems: [deductibleRow("Tools", 2000, "Yearly")] });
+    assert.equal(t.deductions, 2000);
+    assert.ok(t.deductionsWorth < t.deductions, "worth less than it cost, always");
+    assert.ok(Math.abs(t.deductionsWorth - 2000 * 0.30) < 1, "at the 30% marginal rate: " + t.deductionsWorth);
+  });
+});
+
+test("no provider and no opts means no deductions, exactly as before", function(){
+  withIncome([grossRow("Sam", 100000)], function(){
+    assert.equal(computePersonTax("Sam").deductions, 0);
+  });
+});

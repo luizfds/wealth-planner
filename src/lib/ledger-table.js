@@ -101,6 +101,27 @@ export function endDateNoteHtml(item){
     (ended ? "Ended " : "Ends ") + escapeAttr(item.endDate) + '</span>';
 }
 
+// A row whose amount differs in some scenario looks identical to one that doesn't, and the list
+// it sits in shows the *default* amount — so without this the Income page can read $14,520 while
+// the scenario you're actually looking at uses half that, with nothing on screen to say so.
+//
+// Names the active scenario's own figure when it has one, since that's the number the Dashboard
+// and Projections are using right now; falls back to a plain "varies" when the active scenario
+// happens to be the one on the default.
+export function scenarioVaryNoteHtml(item, activeScenario){
+  var overrides = item && item.scenarioOverrides;
+  if(!overrides) return "";
+  var names = Object.keys(overrides).filter(function(k){ return overrides[k] != null; });
+  if(!names.length) return "";
+  var here = overrides[activeScenario];
+  var text = here != null
+    ? fmtCurrency2.format(here) + " in " + activeScenario
+    : "Varies in " + (names.length === 1 ? names[0] : names.length + " scenarios");
+  return '<span class="row-vary-note" title="' + escapeAttr(
+    "This row's amount differs by scenario. The figure on the row is the default, used by any scenario without its own value.") +
+    '">⇄ ' + escapeAttr(text) + '</span>';
+}
+
 export function optionsHtml(list, value){
   return list.map(function(o){ return '<option value="' + o + '"' + (o === value ? " selected" : "") + '>' + o + '</option>'; }).join("");
 }
@@ -179,7 +200,8 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
     // other subLines entry) — Expenses uses it for each budget line's own spent-this-month
     // progress bar, so the planned figure and what's actually gone against it read together in
     // the list rather than in a second, parallel list further down the page.
-    subLines: [isComputed && item.computedNote ? escapeAttr(item.computedNote) : "", trendHtml, endDateNoteHtml(item), opts.extraSubLine || ""],
+    subLines: [isComputed && item.computedNote ? escapeAttr(item.computedNote) : "", trendHtml,
+      endDateNoteHtml(item), scenarioVaryNoteHtml(item, opts.activeScenario), opts.extraSubLine || ""],
     amountHtml: fmtCurrency2.format(monthly) + "/mo"
   });
   if(isComputed){

@@ -1,6 +1,6 @@
 import { state } from "../state.js";
 import { periodsOf, resolveSharedAmount, resolvedDueMonth, freqStepMonths } from "./ledger.js";
-import { effectiveIncomeItems } from "./tax.js";
+import { scenarioIncomeRows } from "./tax.js";
 import { ipProperties, ipLoansMonthly } from "./property.js";
 
 // ---------------- 12-month cash flow forecast ----------------
@@ -48,11 +48,12 @@ function entryActiveInMonth(entry, d){
   return entry.endDate >= firstOfMonth;
 }
 // Gathers every ledger item that feeds cash flow for the given scenario — income (already netted
-// of tax via effectiveIncomeItems(), so Gross rows aren't double-counted against their own
-// synthetic net row), shared expenses (respecting any scenario override), this scenario's home
-// costs, and each investment property's own expenses (matching ipExpensesMonthly()'s scope).
-// Deliberately does NOT also walk each property's own p.income rows: effectiveIncomeItems()
-// already carries a synthetic "<property> — Rent" row per IP (always Monthly, recalculated from
+// of tax via scenarioIncomeRows(), so Gross rows aren't double-counted against their own
+// synthetic net row, and resolved against *this* scenario's overrides), shared expenses
+// (respecting any scenario override), this scenario's home costs, and each investment property's
+// own expenses (matching ipExpensesMonthly()'s scope).
+// Deliberately does NOT also walk each property's own p.income rows: the income rows
+// already carry a synthetic "<property> — Rent" row per IP (always Monthly, recalculated from
 // sumField(p.income, "monthly") by recalcComputedItems() — see calc/engine.js) which is what
 // every other total in this app treats as "the" rent figure; including the raw p.income rows
 // here too would double-count it. Loan repayments are always Monthly and never lumpy, so they're
@@ -63,7 +64,7 @@ function collectCashFlowEntries(scenario){
     var amt = resolveSharedAmount(item, scenario);
     return amt === item.amount ? item : Object.assign({}, item, { amount: amt });
   });
-  var entries = toEntries(effectiveIncomeItems(), "income", txns)
+  var entries = toEntries(scenarioIncomeRows({ scenario: scenario }), "income", txns)
     .concat(toEntries(sharedResolved, "expense", txns))
     .concat(toEntries(state.home[scenario] || [], "expense", txns));
   ipProperties().forEach(function(p){

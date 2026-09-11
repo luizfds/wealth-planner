@@ -1,6 +1,6 @@
 import { state } from "../state.js";
 import { AU_TAX_BRACKETS, MAX_SUPER_BASE } from "../constants.js";
-import { periodsOf } from "./ledger.js";
+import { periodsOf, resolveSharedAmount } from "./ledger.js";
 import { ipNetResultAnnual } from "./property.js";
 import { fmtCurrency0 } from "../lib/format.js";
 
@@ -28,8 +28,89 @@ export function medicareLevyAU(taxable){
   return taxable * 0.02;
 }
 
+// Income rows that represent spendable money: every non-Gross row, which means the Net rows the
+// user typed plus the synthetic "<person> — net" rows recalcComputedItems() derives from the Gross
+// ones. Gross rows are excluded so their pre-tax amount isn't counted alongside the net figure
+// already derived from it.
+//
+// **This is the baseline view only.** The synthetic rows are computed once, from each Gross row's
+// plain `amount`, so they can't see a per-scenario override. Anything that needs a particular
+// scenario's income must call scenarioIncomeMonthly() instead, which re-runs the tax chain against
+// that scenario's amounts. See its comment for why the synthetic rows aren't simply duplicated
+// per scenario.
 export function effectiveIncomeItems(){
   return state.income.filter(function(i){ return i.incomeType !== "Gross"; });
+}
+
+// ---------------- Per-scenario income ----------------
+//
+// An income row can carry the same sparse `scenarioOverrides` map that state.shared[] rows have
+// (see resolveSharedAmount) — "one partner drops to three days in the Buy scenario", "the pay rise
+// doesn't arrive", "six months off". Until this existed every scenario shared one income figure,
+// so the Scenarios page could only ever compare housing costs.
+//
+// Income is harder than an expense, because a Gross row's amount is an *input to the tax engine*,
+// not a number you can vary at the end: change it and the marginal rate, the Medicare levy, the
+// SG, the concessional cap and Division 293 all move with it. So the override is applied at the
+// bottom of the chain — every read of a Gross row's amount goes through resolveSharedAmount — and
+// the whole computation is re-run per scenario.
+//
+// The alternative, storing a synthetic net row per person *per scenario* in state.income, was
+// rejected: it would put N×M computed rows in the list on the Income page, and the synthetic rows
+// are a display artifact rather than the source of truth for any total.
+//
+// `opts.includeRow` lets a caller drop rows for reasons of its own — the projection uses it to
+// honour `endDate` year by year, and it has to reach inside the tax chain rather than filter
+// afterwards, or a salary that ends in three years would keep paying tax forever.
+// `opts` ({ scenario, includeRow }) is optional throughout the tax chain below. Omitted, every
+// function behaves exactly as it did before per-scenario income existed — the row's plain
+// `amount`, nothing filtered — which is what keeps the Income page, the FIRE module and the tax
+// panels working unchanged.
+function rowAmountFor(row, opts){
+  return resolveSharedAmount(row, opts && opts.scenario);
+}
+function rowIncluded(row, opts){
+  return !opts || !opts.includeRow || opts.includeRow(row);
+}
+
+// One scenario's spendable income as ledger-shaped rows — the single definition of "what does this
+// scenario earn", used both for the monthly total and by the cash-flow forecast, which needs the
+// rows themselves so it can place a quarterly bonus in the month it actually lands.
+//
+// Two kinds come back:
+//   - the non-Gross rows the user typed, scenario-resolved like any other ledger row. Returned as
+//     shallow copies when an override applies, never mutated in place — these are live state
+//     objects and a caller summing them must not be able to edit the user's data.
+//   - one synthetic Monthly row per person, carrying net take-home recomputed against *this*
+//     scenario's gross amounts. state.income's own synthetic rows are skipped here precisely
+//     because this recomputes what they hold; theirs is the baseline, this is per scenario.
+export function scenarioIncomeRows(opts){
+  var rows = [];
+  state.income.forEach(function(row){
+    if(row.incomeType === "Gross" || row.syntheticNetFor) return;
+    if(!rowIncluded(row, opts)) return;
+    var amount = rowAmountFor(row, opts);
+    rows.push(amount === row.amount ? row : Object.assign({}, row, { amount: amount }));
+  });
+  getTaxPeople().forEach(function(person){
+    var net = computePersonTax(person, opts).netTakeHome;
+    // Every person with a Gross row gets a row even at $0 — a scenario where somebody stops
+    // working is a real answer, and dropping the row would make it indistinguishable from a
+    // person who was never there.
+    rows.push({
+      what: person + " — net income",
+      amount: Math.round((net / 12) * 100) / 100,
+      freq: "Monthly",
+      computed: true,
+      syntheticNetFor: person
+    });
+  });
+  return rows;
+}
+export function scenarioIncomeMonthly(opts){
+  return scenarioIncomeRows(opts).reduce(function(sum, row){
+    return sum + periodsOf(row.amount, row.freq).monthly;
+  }, 0);
 }
 
 export function getTaxPeople(){
@@ -63,11 +144,13 @@ export function rowSuperSplitUncapped(annual, superMode, sgRate){
 // e.g. base salary + bonus). When the cap bites, every row's super shrinks proportionally to
 // its uncapped share, and "Included" rows give the freed-up amount back as cash (the package
 // total the user entered doesn't change, just how it splits).
-export function personSuperRows(person){
+export function personSuperRows(person, opts){
   var sgRate = (Number(state.tax.sgRate) || 11.5) / 100;
-  var rows = state.income.filter(function(i){ return i.incomeType === "Gross" && i.person === person; });
+  var rows = state.income.filter(function(i){
+    return i.incomeType === "Gross" && i.person === person && rowIncluded(i, opts);
+  });
   var uncapped = rows.map(function(row){
-    var annual = periodsOf(row.amount, row.freq).yearly;
+    var annual = periodsOf(rowAmountFor(row, opts), row.freq).yearly;
     return { row: row, annual: annual, split: rowSuperSplitUncapped(annual, row.superMode || "On top", sgRate) };
   });
   var ordinaryEarnings = uncapped.reduce(function(s, r){ return s + (r.split.superApplies ? r.split.cashPortion : 0); }, 0);
@@ -99,8 +182,8 @@ export function incomeRowSuperNote(item){
   return info.overCap ? (base + " (MSCB cap applied)") : base;
 }
 
-export function personIncomeBreakdown(person){
-  var info = personSuperRows(person);
+export function personIncomeBreakdown(person, opts){
+  var info = personSuperRows(person, opts);
   var baseGross = 0, sg = 0, packageTotal = 0, autoSacrifice = 0;
   info.rows.forEach(function(r){
     var row = r.row;
@@ -125,8 +208,8 @@ export function personTaxSettings(person){
   return state.tax.settings[person];
 }
 
-export function computePersonTax(person){
-  var inc = personIncomeBreakdown(person);
+export function computePersonTax(person, opts){
+  var inc = personIncomeBreakdown(person, opts);
   var gross = inc.baseGross;
   var settings = personTaxSettings(person);
   var people = getTaxPeople();

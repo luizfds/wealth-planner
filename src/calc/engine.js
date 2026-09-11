@@ -1,13 +1,13 @@
 import { state } from "../state.js";
 import { LIQUID_CATEGORIES, MARKET_CURRENCY, IP_CATEGORY } from "../constants.js";
-import { toWeekly, sumField, sumFieldForScenario, sumFieldActiveInYear, resolveSharedAmount } from "./ledger.js";
+import { toWeekly, sumField, sumFieldForScenario, sumFieldActiveInYear, isActiveInYear, resolveSharedAmount } from "./ledger.js";
 import {
   recalcPurchase, ipProperties, ipExpensesMonthly, ipLoansMonthly,
   shockedLoanRepaymentMonthly, scenarioInflatableHomeItems, calcStampDuty,
   calcLMI, calcRepaymentMonthly, purchaseActiveRate, loanBalanceAfterMonths,
   propertiesTotalEquityToday, propertiesOffsetTotal
 } from "./property.js";
-import { getTaxPeople, computePersonTax, effectiveIncomeItems } from "./tax.js";
+import { getTaxPeople, computePersonTax, scenarioIncomeMonthly } from "./tax.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
 
 // Every non-Shares asset, and every Shares holding on the ASX, is already AUD — the only
@@ -182,8 +182,14 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
   // Income and inflatable expenses are now summed per year rather than once, because a row can
   // stop (item.endDate). Both are computed from the same year index so a row that ends drops out
   // of both the series and the surplus on the same boundary.
+  // Scenario-resolved, and the end-date filter is handed *into* the tax chain rather than applied
+  // to its output: a salary that ends in three years has to stop being taxed, not just stop being
+  // counted, or the remaining income keeps paying tax on money nobody earns.
   function activeIncomeMonthlyAt(year){
-    return sumFieldActiveInYear(effectiveIncomeItems(), "monthly", year, todayStr);
+    return scenarioIncomeMonthly({
+      scenario: scenario,
+      includeRow: function(row){ return isActiveInYear(row, year, todayStr); }
+    });
   }
   function activeInflatableMonthlyAt(year){
     return sumFieldActiveInYear(state.shared, "monthly", year, todayStr, function(item){
@@ -321,7 +327,11 @@ export function recalcComputedItems(){
 }
 
 export function scenarioTotals(scenario){
-  var incomeMonthly = sumField(effectiveIncomeItems(), "monthly");
+  // Per-scenario: an income row can carry the same scenarioOverrides map a shared expense can, and
+  // a Gross row's override re-runs the whole tax computation (see scenarioIncomeMonthly). Before
+  // this, every scenario shared one income figure and the Scenarios page could only compare
+  // housing costs.
+  var incomeMonthly = scenarioIncomeMonthly({ scenario: scenario });
   var ipMonthly = ipExpensesMonthly() + ipLoansMonthly();
   var sharedMonthly = sumFieldForScenario(state.shared, scenario, "monthly");
   var homeMonthly = sumField(state.home[scenario], "monthly");

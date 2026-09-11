@@ -297,7 +297,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
         }];
       })() : [],
       projection: { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0, incomeGrowthRate: 3, realTerms: true },
-      tax: { sgRate: 12, ipOwnership: {}, settings: {} }
+      tax: { sgRate: 12, settings: {} }
     };
   }
 
@@ -925,7 +925,13 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     if(getTaxPeople().indexOf(name) !== -1){ showToast('"' + name + '" already exists'); return; }
     state.income.forEach(function(i){ if(i.person === oldName) i.person = name; });
     if(state.tax.settings[oldName]){ state.tax.settings[name] = state.tax.settings[oldName]; delete state.tax.settings[oldName]; }
-    if(state.tax.ipOwnership && state.tax.ipOwnership[oldName] != null){ state.tax.ipOwnership[name] = state.tax.ipOwnership[oldName]; delete state.tax.ipOwnership[oldName]; }
+    // Ownership shares live on each property now, so a rename has to walk them all — missing one
+    // would silently drop that person's share of that property to 0%.
+    state.properties.forEach(function(p){
+      if(!p.ownership || p.ownership[oldName] == null) return;
+      p.ownership[name] = p.ownership[oldName];
+      delete p.ownership[oldName];
+    });
     recalcComputedItems();
     rerenderTableFor("income");
     updatePersonSuggestions();
@@ -941,7 +947,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
     if(!confirm('Remove "' + name + '" from Tax & Super? Their income rows go back to Type "Net" (counted as-is, at face value) and keep their current amounts.')) return;
     state.income.forEach(function(i){ if(i.person === name){ i.incomeType = "Net"; i.person = ""; } });
     delete state.tax.settings[name];
-    if(state.tax.ipOwnership) delete state.tax.ipOwnership[name];
+    state.properties.forEach(function(p){ if(p.ownership) delete p.ownership[name]; });
     recalcComputedItems();
     rerenderTableFor("income");
     updatePersonSuggestions();
@@ -1003,10 +1009,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       var person = panel.getAttribute("data-tax-person");
       var settings = personTaxSettings(person);
       var t = e.target;
-      if(t.classList.contains("tax-ipshare")){
-        if(!state.tax.ipOwnership) state.tax.ipOwnership = {};
-        state.tax.ipOwnership[person] = parseFloat(t.value) || 0;
-      } else if(t.classList.contains("tax-sacrifice")) settings.superSacrificeAnnual = parseFloat(t.value) || 0;
+      if(t.classList.contains("tax-sacrifice")) settings.superSacrificeAnnual = parseFloat(t.value) || 0;
       else if(t.classList.contains("tax-cap")) settings.concessionalCap = parseFloat(t.value) || 0;
       else if(t.classList.contains("tax-carryforward")) settings.carryForward = parseFloat(t.value) || 0;
       else if(t.classList.contains("tax-help")) settings.helpBalance = Math.max(0, parseFloat(t.value) || 0);
@@ -1403,6 +1406,26 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
       persist();
       return;
     }
+    // Ownership %. On `change` (blur/Enter), not `input`, so a full card rebuild can't yank the
+    // field out from under someone mid-keystroke — same trade-off the depreciation fields below
+    // already make, and the section header total and the "doesn't add to 100%" warning both have
+    // to move with the value. A blank field means 0%, not "unset": leaving one person out is how
+    // you say a property is owned solely by the other, so it has to be expressible.
+    if(e.target.classList.contains("prop-ownership")){
+      var ownershipPerson = e.target.getAttribute("data-ownership-person");
+      if(!property.ownership) property.ownership = {};
+      property.ownership[ownershipPerson] = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
+      renderProperties();
+      // Same downstream set as depreciation: whose taxable income carries this property's result
+      // is exactly what just changed.
+      renderTaxSuper();
+      patchSyntheticIncomeRows();
+      patchIncomeGroupTotals();
+      renderCards(); renderDetail(); renderTotals();
+      renderProjectionOutputs();
+      persist();
+      return;
+    }
     // Depreciation. Full re-render for the same reason prop-purchase-price uses one: the section
     // prints a live "capital works + plant = $X/yr" summary and a section total in its header, and
     // both have to move together with the tax figures below.
@@ -1578,7 +1601,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   });
 
   document.getElementById("addPropertyBtn").addEventListener("click", function(){
-    state.properties.push({ id: genId("p"), what:"New property", kind:"IP", value:0, purchasePrice:null, purchaseDate:"", acquisitionCosts:[], history:[], pmFee:{percent:6, flat:5.5}, incomePaidFreq:"Monthly", sectionsCollapsed:{acquisition:true, loans:true, income:true, expenses:true}, loans:[], income:[], expenses:[] });
+    state.properties.push({ id: genId("p"), what:"New property", kind:"IP", value:0, purchasePrice:null, purchaseDate:"", acquisitionCosts:[], history:[], pmFee:{percent:6, flat:5.5}, incomePaidFreq:"Monthly", sectionsCollapsed:{acquisition:true, ownership:true, loans:true, income:true, expenses:true}, ownership:{}, loans:[], income:[], expenses:[] });
     recalcComputedItems();
     renderProperties();
     renderProjectionOutputs();
@@ -2819,6 +2842,16 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
   document.getElementById("budgetGroupBy").addEventListener("click", function(e){
     var groupByBtn = e.target.closest("[data-budget-groupby]");
     if(groupByBtn) setBudgetGroupBy(groupByBtn.getAttribute("data-budget-groupby"));
+  });
+  // The budget total's "See them below" link. Delegated off document because the pointer line is
+  // re-rendered by renderPropertyExpensesSummary() whenever a loan changes, so a listener bound to
+  // the element itself would be thrown away on the first edit.
+  document.addEventListener("click", function(e){
+    if(!e.target.closest("#budgetLoanPointerLink")) return;
+    var loanCard = document.getElementById("propertyExpensesCard");
+    if(!loanCard) return;
+    if(loanCard.tagName === "DETAILS") loanCard.open = true;
+    loanCard.scrollIntoView({ behavior: "smooth", block: "start" });
   });
   document.getElementById("expensesSubnav").addEventListener("click", function(e){
     var expensesSubBtn = e.target.closest("[data-expenses-sub]");

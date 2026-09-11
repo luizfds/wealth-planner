@@ -140,7 +140,7 @@ export function defaultState(){
     // levy surcharge is assessed on a family basis once you have a spouse, and a policy covers a
     // household. Modelled as a family/singles switch rather than a dependants count because the
     // app has no concept of children and the switch covers the decision people actually face.
-    tax: { sgRate: 12, ipOwnership: {}, settings: {}, privateHospitalCover: false, familyThresholds: false },
+    tax: { sgRate: 12, settings: {}, privateHospitalCover: false, familyThresholds: false },
     // 1 USD in AUD — the only cross-currency conversion this app needs, since MARKET_CURRENCY
     // only ever produces AUD or USD. Set via the Shares page's "Paste prices" box (pasting a
     // USDAUD row alongside your holdings, same GOOGLEFINANCE("CURRENCY:USDAUD") template
@@ -350,8 +350,7 @@ export function migrateState(s){
   // preserving an assumption nobody made. Called out in the release notes for that reason.
   if(s.projection.incomeGrowthRate == null) s.projection.incomeGrowthRate = s.projection.inflationRate != null ? s.projection.inflationRate : 3;
   if(s.projection.realTerms == null) s.projection.realTerms = true;
-  if(!s.tax) s.tax = { sgRate: 12, ipOwnership: {}, settings: {} };
-  if(!s.tax.ipOwnership) s.tax.ipOwnership = {};
+  if(!s.tax) s.tax = { sgRate: 12, settings: {} };
   if(!s.tax.settings) s.tax.settings = {};
   if(s.tax.sgRate == null) s.tax.sgRate = 11.5;
   // Default false for both: assuming someone holds private hospital cover would silently zero a
@@ -448,6 +447,17 @@ export function migrateState(s){
     if(!p.sectionsCollapsed || typeof p.sectionsCollapsed !== "object"){
       p.sectionsCollapsed = { acquisition: true, loans: true, income: true, expenses: true };
     }
+    // Who owns this property, as person -> percent. Seeded from the old single global
+    // state.tax.ipOwnership, which applied one split to the whole portfolio: with two investment
+    // properties owned differently there was no way to say so, and nothing ever checked that the
+    // percentages summed to 100 — two people could each claim 100% and the app would deduct the
+    // same negative-gearing loss twice, silently. An absent/empty map still means "split evenly
+    // between everyone with a Gross income row", exactly as before; see propertyOwnershipPct().
+    if(!p.ownership || typeof p.ownership !== "object" || Array.isArray(p.ownership)) p.ownership = {};
+    // Same reasoning as the all-collapsed default above: a card that grew a section shouldn't grow
+    // by a section's height on everyone's next load. Keyed off `in` rather than truthiness so
+    // deliberately expanding it and reloading doesn't re-collapse it.
+    if(!("ownership" in p.sectionsCollapsed)) p.sectionsCollapsed.ownership = true;
     p.loans.forEach(function(l){
       if(l.id == null) l.id = genId("l");
       if(l.repaymentMode !== "manual") l.repaymentMode = "auto";
@@ -460,6 +470,21 @@ export function migrateState(s){
       if(l.termYears == null) l.termYears = 30;
     });
   });
+
+  // The one-off half of the ownership migration above: copy the retired global split onto every
+  // investment property that doesn't carry one yet, so an existing save's tax figures don't move
+  // on the upgrade. Flagged rather than idempotent, so that later setting a property back to the
+  // even split isn't undone on the next load. The legacy key is dropped once it's been read —
+  // leaving it would give the app two sources of truth for the same number.
+  if(!s.ipOwnershipPerProperty && s.tax && s.tax.ipOwnership && Object.keys(s.tax.ipOwnership).length){
+    (s.properties || []).forEach(function(p){
+      if(p.kind !== "IP") return;
+      if(Object.keys(p.ownership || {}).length) return;
+      p.ownership = Object.assign({}, s.tax.ipOwnership);
+    });
+    s.ipOwnershipPerProperty = true;
+  }
+  if(s.tax) delete s.tax.ipOwnership;
 
   // One-off: give every existing investment-property cost the "Investment property" category, so
   // the Budget tab's Group-by-Category view and the spending charts have something meaningful to

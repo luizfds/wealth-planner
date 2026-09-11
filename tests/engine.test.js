@@ -24,13 +24,13 @@ function resetState(){
   state.purchase = { Test: defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", false) };
   state.invest = { Test: defaultInvestConfig() };
   state.projection = { horizonYears: 5, investReturnRate: 0, propertyAppreciationRate: 0, inflationRate: 0, rateShockPct: 0 };
-  state.tax = { sgRate: 12, ipOwnership: {}, settings: {} };
+  state.tax = { sgRate: 12, settings: {} };
 }
 
 test("invest leg disabled: net worth series is unaffected (pure regression check)", function(){
   resetState();
   var series = computeNetWorthSeries("Test", 2);
-  // $6000/mo income, no expenses, 0% portfolio growth => $***/yr accumulates in the generic
+  // $6000/mo income, no expenses, 0% portfolio growth => $72,000/yr accumulates in the generic
   // portfolio exactly as it always has, invest leg untouched.
   assert.ok(Math.abs(series[1].y - 72000) < 1e-6);
   assert.ok(Math.abs(series[2].y - 144000) < 1e-6);

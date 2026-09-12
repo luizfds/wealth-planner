@@ -159,7 +159,16 @@
      to feature-detect-hide the Share button in browsers without file-capable Web Share. */
   .btn[hidden]{ display:none; }
   .btn:hover{ border-color: var(--brass); }
-  .btn:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible, [tabindex]:focus-visible{
+  /* `button` and `summary` are in this list because of `all: unset`, which this codebase uses on 36
+     controls to strip the browser's button chrome — and which takes the focus outline with it. Each
+     of those rules has to put a ring back by hand, and eleven of them didn't: the entire mobile
+     bottom nav (.mobile-tab), the toast's Undo button, every "more" item in the mobile menu, the
+     per-row Log buttons, the Dashboard card links. A keyboard user could not see where they were.
+     Fixing it per-class would have left the next `all: unset` control with the same hole, so the
+     element selectors close it at the root. Specific rules still win — `.quick-fab:focus-visible`
+     is (0,2,0) against this rule's (0,1,1) — so the fab keeps its combined ring-plus-shadow. */
+  .btn:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible,
+  button:focus-visible, summary:focus-visible, [tabindex]:focus-visible{
     outline:none; box-shadow: var(--focus-ring);
   }
   .btn-primary{ background: var(--brass); border-color: var(--brass); color: #ffffff; }

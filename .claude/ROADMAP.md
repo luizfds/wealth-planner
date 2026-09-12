@@ -605,6 +605,47 @@ the axis labels rather than looking at them, and check the line's shape between 
 
 ---
 
+## 12. `[x]` Touch targets and accessible names — shipped v3.2.0
+
+Measured across all eight pages at 390px, counting only controls a user can actually see and reach:
+**261 under 40px tall against 53 at or above it.** On an app built mobile-first and used daily on a
+phone, 83% of the interactive surface was below comfortable thumb size.
+
+Two tiers, and they were not equally urgent. Failing WCAG 2.2 AA (2.5.8 wants 24x24 CSS px): the
+edit-panel checkboxes at 13px, `.proj-slider` at 16px — a range control whose entire grabbable
+height was 16px — `.proj-legend-item` and `.debt-what` at 21px, `.asset-log-btn` and
+`.home-setactive-btn` at 22px, `.prop-kind` at 23px. Passing AA but well short of the 44pt/48dp
+platform guidance: `.seg-option` at 26px (the time-range control shipped in items 10-11), `.btn` at
+27px and 35px, and every form field at 29-31px — `.f-what`, `.f-amount`, `.f-freq`, `.f-account`,
+the whole property and loan editing surface, the account manager.
+
+**What shipped.** Two sizes, set on the shared control rules rather than patched per page: 44px for
+something you tap on its own (`.btn`, `.m-add-row`, a checkbox's whole label row), 40px for controls
+that come in runs — form fields down an edit panel, segmented options, chips, icon buttons — where
+44 each would push a list well past a screenful for little gain. The slider keeps its 4px track and
+14px thumb; only the box around them grew. Checkboxes went 13px -> 22px, and because each `<input>`
+sits inside its `<label>`, the 44px row is the target (verified: clicking the label toggles it).
+
+Result: **261 -> 7**, and the 7 are deliberate. `.proj-legend-item` at 32px (a chart legend toggle,
+above AA, and 40px each would shove the chart down a row); `.calc-hint-link` at 24px (a link inside
+a sentence — WCAG 2.5.8 exempts targets in a block of text, because growing them vertically overlaps
+the lines around them); and the two 22px checkbox boxes, whose label rows are the real 44px target.
+
+**Also: 19 inputs had no accessible name** — the five Projections fields and the super-guarantee
+rate had visible `<label>` text with no `for`, and the per-person tax fields and per-property fields
+had none at all. A screen reader announced "edit text, blank". The singletons got `for`/`id`; the
+repeating ones got `aria-label` instead, since one id across several people or properties would
+collide. The tax fields name the person, so several in a row are tellable apart.
+
+**The cost, stated plainly.** Lists and edit panels are taller: on Projections the chart is pushed
+noticeably further down, and Properties and Accounts fit fewer rows per screen. 40px on dense fields
+rather than 44 was chosen to limit that.
+
+**How to verify.** Drive all eight pages at 390px and count controls under 40px that pass
+`checkVisibility()` — a before/after count is the acceptance test, not a visual impression.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

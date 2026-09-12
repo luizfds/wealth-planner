@@ -1383,8 +1383,8 @@ export function renderDebts(){
   }
   container.innerHTML = '<div class="m-rows">' + state.debts.map(function(d, idx){
     return '<div class="m-row computed" data-debt-index="' + idx + '"><div class="m-row-summary" style="cursor:default">' +
-      '<div style="flex:1 1 auto;min-width:0"><input type="text" class="debt-what" data-debt-index="' + idx + '" value="' + escapeAttr(d.what) + '" aria-label="Debt name" style="all:unset;width:100%;font:inherit;color:inherit">' + historyTrendHtml(d) + '</div>' +
-      '<input type="number" step="100" min="0" class="debt-balance" data-debt-index="' + idx + '" value="' + d.balance + '" aria-label="Balance" style="width:110px;text-align:right;font-family:\'IBM Plex Mono\',monospace;border:1px solid transparent;background:transparent;color:inherit;padding:5px 6px;border-radius:6px">' +
+      '<div style="flex:1 1 auto;min-width:0"><input type="text" class="debt-what" data-debt-index="' + idx + '" value="' + escapeAttr(d.what) + '" aria-label="Debt name" style="all:unset;box-sizing:border-box;width:100%;min-height:40px;font:inherit;color:inherit">' + historyTrendHtml(d) + '</div>' +
+      '<input type="number" step="100" min="0" class="debt-balance" data-debt-index="' + idx + '" value="' + d.balance + '" aria-label="Balance" style="width:110px;min-height:40px;text-align:right;font-family:\'IBM Plex Mono\',monospace;border:1px solid transparent;background:transparent;color:inherit;padding:5px 6px;border-radius:6px">' +
       '<button type="button" class="asset-log-btn" data-debt-log="' + idx + '" title="Snapshot the balance above with today\'s date">Log</button>' +
       '<button type="button" class="btn btn-ghost btn-sm row-del" data-debt-del="' + idx + '" aria-label="Delete debt">✕</button>' +
     '</div></div>';

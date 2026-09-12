@@ -13,7 +13,10 @@
   .asset-trend{ font-size:10.5px; margin-top:2px; padding-left:6px; }
   .asset-trend.up{ color: var(--good); }
   .asset-trend.down{ color: var(--bad); }
-  .asset-log-btn{ all:unset; cursor:pointer; color: var(--ink-soft); font-size:11px; padding:3px 6px; border-radius:5px; }
+  .asset-log-btn{
+    all:unset; cursor:pointer; color: var(--ink-soft); font-size:11px; padding:3px 6px; border-radius:5px;
+    display:inline-flex; align-items:center; justify-content:center; min-height:40px; min-width:40px;
+  }
   .asset-log-btn:hover{ background: var(--paper-sunken); color: var(--brass-strong); }
 
   /* ---------------- Share holding rows: sparkline + value block ---------------- */
@@ -91,6 +94,7 @@
     all:unset; box-sizing:border-box; padding:5px 10px; border-radius:100px;
     border:1px solid var(--border); background: var(--paper);
     font-size:11px; font-weight:500; color: var(--ink-soft); cursor:pointer; white-space:nowrap;
+    display:inline-flex; align-items:center; min-height:40px;
   }
   .chip:hover{ color: var(--ink); border-color: var(--brass); }
   .chip.active{ background: var(--brass-wash); border-color: var(--brass); color: var(--brass-strong); font-weight:600; }
@@ -107,6 +111,8 @@
   .seg-option{
     all:unset; box-sizing:border-box; padding:5px 9px; border-radius:6px; text-align:center;
     font-size:11px; font-weight:600; color: var(--ink-soft); cursor:pointer; white-space:nowrap;
+    /* all:unset clears display, so the flex centring has to be restated along with the height. */
+    display:inline-flex; align-items:center; justify-content:center; min-height:40px;
   }
   .seg-option:hover{ color: var(--ink); }
   /* Raised above the track — --paper-raised is lighter than --paper-sunken in both themes, so the

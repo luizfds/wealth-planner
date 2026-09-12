@@ -64,7 +64,7 @@
      target at once. */
   .card-controls{ display:flex; align-items:center; gap:6px; flex:none; }
   .icon-btn{
-    all:unset; box-sizing:border-box; cursor:pointer; width:32px; height:32px; border-radius:7px;
+    all:unset; box-sizing:border-box; cursor:pointer; width:40px; height:40px; border-radius:7px;
     display:flex; align-items:center; justify-content:center; color: var(--ink-soft); font-size:13px;
   }
   .icon-btn:hover{ background: var(--paper-sunken); color: var(--ink); }
@@ -87,7 +87,8 @@
   .card-bar-fill.neg{ background: var(--bad); }
   .card-stats{ display:flex; justify-content:space-between; font-size:11.5px; color: var(--ink-soft); }
   .card-edit-link{
-    all:unset; display:block; margin-top:10px; padding-top:9px; border-top:1px solid var(--border);
+    all:unset; display:flex; align-items:center; min-height:40px; margin-top:10px; padding-top:9px;
+    border-top:1px solid var(--border);
     font-size:11.5px; color: var(--brass-strong); cursor:pointer; text-align:left;
   }
   .card-edit-link:hover{ color: var(--brass); text-decoration:underline; }

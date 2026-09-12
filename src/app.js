@@ -2683,6 +2683,20 @@ import {
     reader.readAsText(file);
   });
 
+  // The skip link moves focus, not just the scroll position. An href="#id" alone scrolls a <div>
+  // into view and leaves focus where it was, so the very next Tab goes back to the nav item after
+  // the link — which is exactly the 22 stops the user was trying to skip. tabindex="-1" makes the
+  // container focusable without adding it to the tab order, and preventDefault keeps "#appContent"
+  // out of the URL, where nav.js's route parsing would have to reason about it.
+  document.querySelector(".skip-link").addEventListener("click", function(e){
+    e.preventDefault();
+    var target = document.getElementById("appContent");
+    if(!target) return;
+    target.setAttribute("tabindex", "-1");
+    target.focus({ preventScroll: true });
+    target.scrollIntoView({ block: "start" });
+  });
+
   document.getElementById("exportBtn").addEventListener("click", doExport);
   document.getElementById("exportLink2").addEventListener("click", doExport);
 
@@ -3092,7 +3106,19 @@ import {
     // Static copy, but rendered from the component that owns the parser it describes — see
     // renderBankImportHelp. Cheap enough to redo here rather than needing its own lifecycle.
     renderBankImportHelp();
+    // recalcComputedItems() rewrites the derived rows — a vehicle's declining-balance value, the
+    // synthetic net-income rows — against *today*. It has always run here and the result has never
+    // been persisted, so localStorage kept whatever those rows were when something was last edited:
+    // on the reference data the Income page showed $11,740.30/mo while storage still held
+    // $11,986.29 for the same row, and a vehicle a few days stale. The screen was right and the
+    // stored copy was behind it. Harmless day to day (it self-corrects on the next edit) but it
+    // means an exported backup and the browser's own copy could disagree, which is a bad property
+    // for the one file standing between this app and losing everything.
+    var beforeRecalc = JSON.stringify(state.income) + JSON.stringify(state.assets);
     recalcComputedItems();
+    // Only when it actually changed something: persist() on every render would write to
+    // localStorage on every page switch for no reason.
+    if(JSON.stringify(state.income) + JSON.stringify(state.assets) !== beforeRecalc) persist();
     renderIncomeGroups();
     renderProperties();
     renderSharedGroups();

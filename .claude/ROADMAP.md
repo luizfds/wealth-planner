@@ -763,6 +763,52 @@ should be listed.
 
 ---
 
+## 16. `[x]` Reachable by keyboard — shipped v3.6.0
+
+Three areas had never been driven: backup/restore round-trip, PWA offline, and keyboard navigation.
+**Two came back clean and needed no work**, which is worth recording so nobody re-audits them:
+
+- **Backup/restore is lossless.** Export -> clear -> import, compared key by key: 35 of 39 keys
+  byte-identical, 53 transactions in and out, net worth matching. The four that differ are all
+  correct — `lastBackupDate` restamped, `helpBalance: 0` seeded by migration, and two *computed*
+  rows recalculated to today.
+- **Offline works.** The service worker registers and activates, 45 files reach the cache, and a
+  reload with the network cut renders the full app with correct figures and no errors.
+
+**Keyboard had the defects.**
+
+1. **Eleven controls had no visible focus ring.** `all: unset` is used on 36 controls to strip the
+   browser's button chrome, and it takes the focus outline with it — each rule has to put a ring
+   back by hand, and eleven didn't: the entire mobile bottom nav (`.mobile-tab`), the toast's Undo
+   button, every mobile More item, the per-row Log buttons, the Dashboard card links,
+   `.row-breakdown-toggle`, `.qlog-amount`, `.notif-mark-all-btn`, `.home-setactive-btn`,
+   `.calc-hint-link`. A keyboard user could not see where they were.
+   Fixed at the root — `button` and `summary` joined the shared `:focus-visible` rule — rather than
+   per class, which would have left the next `all: unset` control with the same hole. Specific
+   rules still win on specificity: `.quick-fab:focus-visible` (0,2,0) keeps its combined
+   ring-plus-shadow over this rule's (0,1,1).
+2. **No skip link, 22 tab stops before content.** The whole sidebar nav then the toolbar, on every
+   page, every time. The link moves *focus*, not just scroll: an `href="#id"` alone scrolls a
+   `<div>` into view and leaves focus where it was, so the next Tab returns to the nav — exactly
+   what the user was trying to skip. `tabindex="-1"` makes the container focusable without joining
+   the tab order, and `preventDefault` keeps `#appContent` out of the URL where nav.js's route
+   parsing would have to reason about it.
+
+**Also, found while verifying the round trip:** `recalcComputedItems()` rewrites the derived rows
+(a vehicle's declining-balance value, the synthetic net-income rows) against today on every render,
+and the result was never persisted. On the reference data the Income page showed **$11,740.30/mo**
+while localStorage still held **$11,986.29** for the same row. The screen was right and the stored
+copy was behind it — harmless day to day, since it self-corrects on the next edit, but it meant an
+exported backup and the browser's own copy could disagree, which is a bad property for the one file
+standing between this app and losing everything. Now persisted, but only when the recalc actually
+changed something: `persist()` on every render would write on every page switch for nothing.
+
+**How to verify.** Tab once: the skip link is the first stop and slides into view. Enter: focus
+lands on `#appContent`, the URL stays clean, and the next Tab is inside the content rather than back
+in the nav. Then tab 30 stops and assert none has `boxShadow: none` with `outline: none`.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

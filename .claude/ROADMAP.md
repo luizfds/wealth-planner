@@ -576,7 +576,7 @@ totals against the page-header net worth.
 
 ---
 
-## 11. `[~]` Fix the line chart the way the stacked one was fixed — v3.1.0
+## 11. `[x]` Fix the line chart the way the stacked one was fixed — shipped v3.1.0
 
 Item 10 fixed `renderStackedAreaChart`. Its sibling `renderLineChart` — which draws "Net worth over
 time", every asset category's history, the shares history, total property value and the projections

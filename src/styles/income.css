@@ -98,3 +98,5 @@
   .pay-hist-delta{ flex:none; font-size:11px; color: var(--ink-soft); min-width:74px; text-align:right; }
   .pay-hist-delta.up{ color: var(--good); }
   .pay-hist-delta.down{ color: var(--bad); }
+  /* The "Adds up: …" derivation, now on the Breakdown side above the figures it explains. */
+  .rb-adds-up{ margin:0 0 10px; }

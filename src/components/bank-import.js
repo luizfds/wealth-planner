@@ -8,7 +8,7 @@
 import { state, persist } from "../state.js";
 import { parseCsv } from "../lib/backup.js";
 import { parseBankCsv, bankImportSummary } from "../calc/bank-import.js";
-import { applySuggestions, learnRule, coverageOf, merchantKey } from "../calc/import-rules.js";
+import { applySuggestions, learnRule, coverageOf, merchantKey, proposedLineFor, suggestedLineName, pruneRules } from "../calc/import-rules.js";
 import { fmtCurrency0, fmtCurrency2 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { loggableBudgetLineItems } from "./expenses.js";
@@ -89,6 +89,13 @@ function rebuildBankImport(parsed, fileName, rawRows, includePossibleDuplicates)
     // calc/bank-import.js for why this is a separate, weaker class of evidence.
     possibleDuplicates: suggested.filter(function(r){ return r.possibleDuplicate; }),
     includePossibleDuplicates: includeMaybes,
+    // Money in, grouped the same way spending is so it can be reviewed rather than merely counted.
+    // Every one of these starts unassigned and stays out of the import unless the user puts it
+    // somewhere: the app cannot tell a $220 refund from a $220 salary instalment from a transfer
+    // between your own accounts, and importing salary as negative spending would wreck every
+    // figure on the page. Assigning one to a budget line is the user saying "this is a refund".
+    creditGroups: groupRows(suggested.filter(function(r){ return r.direction === "credit" && !r.duplicate && !r.possibleDuplicate; }))
+      .map(function(g){ return Object.assign(g, { choice: { linkedExpenseId: null, category: "", account: "" }, source: null, isCredit: true }); }),
     credits: suggested.filter(function(r){ return r.direction === "credit" && !r.duplicate && !r.possibleDuplicate; })
   };
   return bankImport;
@@ -114,9 +121,30 @@ export function clearBankImport(){
 }
 
 // ---------------- Editing a group ----------------
+// The sentinel the "+ New budget line" option carries. A staged line, not a created one: the review
+// screen's promise is that nothing reaches state until Import is pressed, and a budget line written
+// the moment you picked it from a dropdown would strand a row in the app for anyone who then
+// cancels. commitBankImport() creates it for real.
+export var NEW_LINE_VALUE = "__new_budget_line__";
+// Spending and money-in groups share every control, so every lookup searches both. Keys can't
+// collide between them in practice, and a wrong hit would only mis-assign within one import.
+function findGroup(key){
+  if(!bankImport) return null;
+  return bankImport.groups.find(function(x){ return x.key === key; }) ||
+    bankImport.creditGroups.find(function(x){ return x.key === key; }) || null;
+}
 export function setBankImportGroupLine(key, expenseId){
-  var g = bankImport && bankImport.groups.find(function(x){ return x.key === key; });
+  var g = findGroup(key);
   if(!g) return;
+  if(expenseId === NEW_LINE_VALUE && !g.isCredit){
+    g.choice.newLine = proposedLineFor(g, bankImport.parsed.rows);
+    g.choice.linkedExpenseId = null;
+    g.choice.category = g.choice.newLine.category;
+    g.source = "chosen";
+    bankImport.coverage = coverageOfGroups(bankImport.groups);
+    return;
+  }
+  g.choice.newLine = null;
   g.choice.linkedExpenseId = expenseId || null;
   // Taking the line's category too, so assigning a line answers both questions at once — the
   // category select below it is for the one-offs that have no line to inherit from.
@@ -126,7 +154,7 @@ export function setBankImportGroupLine(key, expenseId){
   bankImport.coverage = coverageOfGroups(bankImport.groups);
 }
 export function setBankImportGroupCategory(key, category){
-  var g = bankImport && bankImport.groups.find(function(x){ return x.key === key; });
+  var g = findGroup(key);
   if(!g) return;
   g.choice.category = category || "";
   if(g.choice.linkedExpenseId || g.choice.category) g.source = "chosen";
@@ -138,9 +166,15 @@ function coverageOfGroups(groups){
   var total = 0, placed = 0;
   groups.forEach(function(g){
     total += g.rows.length;
-    if(g.choice.linkedExpenseId || (g.choice.category || "").trim()) placed += g.rows.length;
+    if(groupIsPlaced(g)) placed += g.rows.length;
   });
   return { total: total, placed: placed, fraction: total ? placed / total : 0 };
+}
+// One definition, used by the coverage count, the section split, the row's own marker and the
+// in-place patch. They disagreed the moment a fourth way to place a group (a pending new line) was
+// added, so there is only one of these now.
+function groupIsPlaced(g){
+  return !!(g.choice.linkedExpenseId || (g.choice.category || "").trim() || g.choice.newLine);
 }
 
 // ---------------- Render ----------------
@@ -202,8 +236,8 @@ function bankImportHeaderHtml(s){
 // decision. Everything else is there to be skimmed and confirmed.
 function bankImportGroupsHtml(){
   var lines = loggableBudgetLineItems();
-  var unplaced = bankImport.groups.filter(function(g){ return !g.choice.linkedExpenseId && !(g.choice.category || "").trim(); });
-  var placed = bankImport.groups.filter(function(g){ return g.choice.linkedExpenseId || (g.choice.category || "").trim(); });
+  var unplaced = bankImport.groups.filter(function(g){ return !groupIsPlaced(g); });
+  var placed = bankImport.groups.filter(groupIsPlaced);
   var html = "";
   // The counts carry a hook because rows don't move between these two sections when answered (see
   // patchBankImportPanel) — so without patching the numbers, "Needs you (7)" would still say 7
@@ -216,6 +250,12 @@ function bankImportGroupsHtml(){
     html += '<h4 class="bank-import-subhead">Ready (<span data-bank-count="placed">' + placed.length + '</span>)</h4>' +
       '<div class="m-card"><div class="m-rows">' + placed.map(function(g){ return groupRowHtml(g, lines); }).join("") + '</div></div>';
   }
+  if(bankImport.creditGroups.length){
+    html += '<h4 class="bank-import-subhead">Money in (' + bankImport.creditGroups.length + ')</h4>' +
+      '<p class="ledger-note" style="margin:0 0 8px">Left out unless you say otherwise — this app can\'t tell a refund from salary or a transfer. ' +
+      'Put one on a budget line and it imports as a refund, reducing what you spent on that line.</p>' +
+      '<div class="m-card"><div class="m-rows">' + bankImport.creditGroups.map(function(g){ return groupRowHtml(g, lines); }).join("") + '</div></div>';
+  }
   return html;
 }
 
@@ -223,19 +263,21 @@ function groupRowHtml(g, lines){
   var badge = g.source === "rule"
     ? '<span class="bank-import-badge is-rule" title="From a rule you taught this app on an earlier import">learned</span>'
     : (g.source === "name" ? '<span class="bank-import-badge" title="Matched to a budget line by name — worth a glance">guessed</span>' : "");
+  if(g.isCredit) badge = '<span class="bank-import-badge is-credit" title="Money in. Assign it to a budget line to import it as a refund against that line.">money in</span>';
   var countLabel = g.rows.length === 1 ? "1 transaction" : g.rows.length + " transactions";
-  var placed = !!(g.choice.linkedExpenseId || (g.choice.category || "").trim());
+  var placed = groupIsPlaced(g);
   return '<div class="m-row bank-import-group' + (placed ? "" : " is-unplaced") + '" data-bank-group="' + escapeAttr(g.key) + '">' +
     '<div class="m-row-summary" style="cursor:default">' +
       '<div style="flex:1 1 auto; min-width:0">' +
         '<div class="m-row-name">' + escapeAttr(g.label) + badge + '</div>' +
-        '<div class="m-row-sub">' + countLabel + ' · ' + fmtCurrency2.format(g.total) + '</div>' +
+        '<div class="m-row-sub">' + countLabel + ' · ' + (g.isCredit ? "+" : "") + fmtCurrency2.format(g.total) + '</div>' +
       '</div>' +
     '</div>' +
     '<div class="bank-import-assign">' +
       '<label class="bank-import-field"><span>Budget line</span>' +
         '<select class="bank-group-line" data-bank-group="' + escapeAttr(g.key) + '">' +
-          '<option value="">— not linked —</option>' +
+          '<option value="">' + (g.isCredit ? "— don\'t import —" : "— not linked —") + '</option>' +
+          (g.isCredit ? "" : '<option value="' + NEW_LINE_VALUE + '"' + (g.choice.newLine ? " selected" : "") + '>+ New line "' + escapeAttr(suggestedLineName(g.key)) + '"</option>') +
           lines.map(function(l){
             return '<option value="' + escapeAttr(l.id) + '"' + (l.id === g.choice.linkedExpenseId ? " selected" : "") + '>' + escapeAttr(l.what) + '</option>';
           }).join("") +
@@ -249,8 +291,22 @@ function groupRowHtml(g, lines){
           }).join("") +
         '</select>' +
       '</label>' +
+      newLineNoteHtml(g) +
     '</div>' +
   '</div>';
+}
+
+// The amount on a created line is derived, not typed, so the screen shows its working — the user is
+// about to plan against this figure, and "$138.70/mo" with no provenance is a number to distrust.
+// A part-month import is called out rather than corrected for: inflating a real total to cover days
+// the file doesn't contain would be inventing spending.
+function newLineNoteHtml(g){
+  if(!g.choice.newLine) return "";
+  var b = g.choice.newLine.basis;
+  return '<p class="ledger-note bank-import-newline" data-bank-newline="' + escapeAttr(g.key) + '">Creates a budget line <b>' +
+    escapeAttr(g.choice.newLine.what) + '</b> at <b>' + fmtCurrency2.format(g.choice.newLine.amount) + '/mo</b> — ' +
+    b.transactions + ' transaction' + (b.transactions === 1 ? "" : "s") + ' totalling ' + fmtCurrency2.format(b.total) +
+    ' over ' + b.months + ' month' + (b.months === 1 ? "" : "s") + ' of statement. Edit it on the Budget tab afterwards.</p>';
 }
 
 // Duplicates and credits are stated but not actionable: knowing 12 rows were already logged is
@@ -275,10 +331,7 @@ function bankImportAsideHtml(){
     bits.push(bankImport.duplicates.length + " row" + (bankImport.duplicates.length === 1 ? " was" : "s were") +
       " already logged and will be skipped");
   }
-  if(bankImport.credits.length){
-    bits.push(bankImport.credits.length + " money-in row" + (bankImport.credits.length === 1 ? "" : "s") +
-      " (refunds, salary) won't be imported — this list is spending");
-  }
+
   var errs = bankImport.parsed.errors;
   if(!bits.length && !errs.length) return maybeNote;
   return maybeNote + '<details class="tax-advanced bank-import-aside"><summary>What isn\'t being imported</summary>' +
@@ -289,8 +342,21 @@ function bankImportAsideHtml(){
     '</ul></details>';
 }
 
+// What the Import button will actually create: every spending row, plus the rows from any money-in
+// group the user has assigned. Counting only the spending groups meant a statement whose only new
+// rows were refunds offered no button at all — the second import of a file, where the spending is
+// all duplicates and the refund is the one thing left to do.
+export function importableCount(){
+  if(!bankImport) return 0;
+  return bankImport.coverage.total + assignedCreditRowCount();
+}
+function assignedCreditRowCount(){
+  return bankImport.creditGroups.reduce(function(n, g){
+    return n + ((g.choice.linkedExpenseId || (g.choice.category || "").trim()) ? g.rows.length : 0);
+  }, 0);
+}
 function bankImportActionsHtml(canImport){
-  var n = canImport ? bankImport.coverage.total : 0;
+  var n = canImport ? importableCount() : 0;
   return '<div class="bank-import-actions">' +
     (canImport && n ? '<button type="button" class="btn btn-sm btn-primary" id="bankImportConfirmBtn">Import ' + n + ' transaction' + (n === 1 ? "" : "s") + '</button>' : "") +
     '<button type="button" class="btn btn-sm btn-ghost" id="bankImportCancelBtn">Cancel</button>' +
@@ -305,12 +371,12 @@ export function patchBankImportPanel(groupKey){
   if(!bankImport) return;
   var panel = document.getElementById("bankImportPanel");
   if(!panel) return;
-  var g = bankImport.groups.find(function(x){ return x.key === groupKey; });
+  var g = findGroup(groupKey);
   var row = panel.querySelector('.bank-import-group[data-bank-group="' + cssEscape(groupKey) + '"]');
   if(g && row){
     var nameEl = row.querySelector(".m-row-name");
     var badge = nameEl && nameEl.querySelector(".bank-import-badge");
-    var placed = !!(g.choice.linkedExpenseId || (g.choice.category || "").trim());
+    var placed = groupIsPlaced(g);
     if(badge) badge.remove();
     if(placed){
       var span = document.createElement("span");
@@ -320,19 +386,29 @@ export function patchBankImportPanel(groupKey){
       if(nameEl) nameEl.appendChild(span);
     }
     row.classList.toggle("is-unplaced", !placed);
+    // The created-line note lives in groupRowHtml, which only runs on a full render — so without
+    // patching it here, picking "+ New line" showed no sign of what it was about to create. The
+    // amount on that line is derived rather than typed; showing its working is the point.
+    var existingNote = row.querySelector("[data-bank-newline]");
+    if(existingNote) existingNote.remove();
+    var noteHtml = newLineNoteHtml(g);
+    var assign = row.querySelector(".bank-import-assign");
+    if(noteHtml && assign) assign.insertAdjacentHTML("beforeend", noteHtml);
   }
   var cov = bankImport.coverage;
   var covEl = panel.querySelector("[data-bank-coverage]");
   if(covEl) covEl.textContent = cov.placed + " of " + cov.total + " ready" + (cov.placed < cov.total ? " — the rest are waiting on you." : ".");
   // The two section counts, recomputed off the live choices rather than off which section a row
   // happens to be sitting in — rows stay put, so the section is no longer the source of truth.
-  var stillUnplaced = bankImport.groups.filter(function(x){ return !x.choice.linkedExpenseId && !(x.choice.category || "").trim(); }).length;
+  var stillUnplaced = bankImport.groups.filter(function(x){ return !groupIsPlaced(x); }).length;
   var unplacedEl = panel.querySelector('[data-bank-count="unplaced"]');
   if(unplacedEl) unplacedEl.textContent = stillUnplaced;
   var placedEl = panel.querySelector('[data-bank-count="placed"]');
   if(placedEl) placedEl.textContent = bankImport.groups.length - stillUnplaced;
-  var confirmBtn = document.getElementById("bankImportConfirmBtn");
-  if(confirmBtn) confirmBtn.textContent = "Import " + cov.total + " transaction" + (cov.total === 1 ? "" : "s");
+  // Rebuilt rather than relabelled: assigning the first money-in group can take the count from 0,
+  // where no button was rendered at all, to 1.
+  var actions = panel.querySelector(".bank-import-actions");
+  if(actions) actions.outerHTML = bankImportActionsHtml(true);
 }
 // document.querySelector needs the merchant key escaped: it's derived from a bank's free text and
 // can legitimately contain characters that mean something in a selector.
@@ -345,15 +421,43 @@ function cssEscape(s){
 // Returns the ids created, so app.js can offer an undo that removes exactly these and nothing else
 // — the same shape the other bulk actions on this page use.
 export function commitBankImport(){
-  if(!bankImport) return { ids: [], learned: 0 };
+  if(!bankImport) return { ids: [], learned: 0, lineIds: [], linesCreated: 0 };
   var created = [];
+  var createdLineIds = [];
   var learned = 0;
-  bankImport.groups.forEach(function(g){
+  // Money-in groups the user assigned to a budget line are refunds, and import as negative
+  // transactions against it. An unassigned one is skipped, which is the default and the safe
+  // reading — importing salary as negative spending would wreck every figure on the page.
+  var refundGroups = bankImport.creditGroups.filter(function(g){ return !!g.choice.linkedExpenseId || !!(g.choice.category || "").trim(); });
+  refundGroups.forEach(function(g){ g.isRefund = true; });
+  bankImport.groups.concat(refundGroups).forEach(function(g){
+    // Staged budget lines become real here and nowhere earlier — see NEW_LINE_VALUE. Created
+    // before the transactions below so they have an id to link to, and pushed onto state.shared
+    // with an explicit id rather than waiting for migrateState to backfill one on the next load,
+    // which would be far too late for the rows about to reference it.
+    if(g.choice.newLine){
+      var line = {
+        id: genId("exp"),
+        what: g.choice.newLine.what,
+        classification: g.choice.newLine.classification || "Needs",
+        category: g.choice.newLine.category || "",
+        account: g.choice.account || "",
+        amount: g.choice.newLine.amount,
+        freq: g.choice.newLine.freq || "Monthly",
+        irregular: false,
+        dueMonth: null
+      };
+      state.shared.push(line);
+      createdLineIds.push(line.id);
+      g.choice.linkedExpenseId = line.id;
+      g.choice.newLine = null;
+    }
     g.rows.forEach(function(row){
       var t = {
         id: genId("t"),
         date: row.date,
-        amount: row.amount,
+        // Negative for a refund: money coming back reduces what this budget line cost you.
+        amount: g.isRefund ? -row.amount : row.amount,
         // The bank's own description is kept as the transaction's `what`. A linked transaction
         // normally leaves this blank and shows its budget line's name, but here it's the only
         // record of which of eight Woolworths trips this row was — and it's what makes a re-import
@@ -374,15 +478,28 @@ export function commitBankImport(){
     if(state.importRules.length > before) learned++;
   });
   persist();
-  return { ids: created, learned: learned, groups: bankImport.groups.length };
+  return { ids: created, learned: learned, groups: bankImport.groups.length,
+           lineIds: createdLineIds, linesCreated: createdLineIds.length,
+           refunds: refundGroups.reduce(function(n, g){ return n + g.rows.length; }, 0) };
 }
 
 // Undo: drop exactly the transactions this import created. Rules it taught are deliberately left
 // alone — they're a preference the user expressed, not part of the data being undone, and
 // re-importing the same file is the normal reason to undo.
-export function undoBankImport(ids){
+export function undoBankImport(ids, lineIds){
   var kill = {};
   (ids || []).forEach(function(id){ kill[id] = true; });
   state.transactions = state.transactions.filter(function(t){ return !kill[t.id]; });
+  // Budget lines the import created go back too. They only exist because of this import, so
+  // leaving them behind would turn "undo" into "undo the transactions and keep the clutter" — and
+  // unlike a rule, a stray budget line shows up in every total on the Budget tab.
+  if(lineIds && lineIds.length){
+    var killLines = {};
+    lineIds.forEach(function(id){ killLines[id] = true; });
+    state.shared = state.shared.filter(function(i){ return !killLines[i.id]; });
+    // Rules that pointed at them would otherwise file next month's spend against nothing — the
+    // same failure pruneRules() exists for.
+    state.importRules = pruneRules(state.importRules, loggableBudgetLineItems());
+  }
   persist();
 }

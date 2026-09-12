@@ -428,6 +428,61 @@ Driving the app is not optional here.
 
 ---
 
+## 8. `[x]` Finish what item 7 started — shipped v2.95.0–v2.97.0
+
+Three things item 7 measured and left standing.
+
+**a. The import can't create a budget line.** Importing 12 rows into an app with no budget set up
+placed **0 of 11** — all 8 merchant groups in "Needs you", and the only options in the dropdown were
+the seeded housing rows. So the importer works beautifully if you've already built a budget by hand
+and does almost nothing if you haven't. It already knows the merchant, the category you pick, and
+what you actually spend there, which is everything a budget line needs. Creating one from a group
+turns a single statement into a working budget — the onboarding path this app has never had.
+
+**b. Refunds are dropped.** Credits are parsed, counted and named in the review screen, then thrown
+away on import. Return a $220 jacket and your spending should fall $220; right now it can't, because
+a transaction has no way to be negative. The parser already identifies them — it's the model and
+the UI that don't accept them.
+
+**c. Mobile density, the half of the audit that didn't get fixed.** The Tax & super card is
+**1,828px** on an 844px viewport (v2.89.0 fixed the legend, not the stacked wall of prose notes
+below it), and the Expenses page is **4,852px**. Both measured at 390px against the real backup.
+
+**How to verify.** Same as item 7: drive it. For (a), a genuinely empty app — the case that
+motivated it. For (b), a statement containing a real refund, checking the category totals and the
+month rollup both move *down*. For (c), re-measure the same two numbers rather than eyeballing.
+
+**What shipped, measured at 390px against the real backup:**
+
+| | Before | After |
+|---|---:|---:|
+| Empty-app import, rows placed | 0 of 11 | 3 budget lines created, $1,890 / $240 / $138.70 per month |
+| Tax & super card | 1,863px | **1,514px** |
+| Expenses page | 4,958px | **2,100px** collapsed (4,973px expanded, one tap) |
+| A refunded $420 booking | unrepresentable | line nets $200 |
+
+**Three things worth knowing before touching this again:**
+
+- **The amount on a created budget line divides by the months the *import* covers**, not the
+  months that merchant appears in. Shopping somewhere in two of three imported months is still a
+  three-month average; the other reading overstates the line by half, and this figure becomes a
+  budget the user plans against.
+- **A credit is ambiguous and the app must not guess.** It cannot tell a $220 refund from a $220
+  salary instalment from a transfer between your own accounts. Money-in rows sit in their own
+  section, default to "don't import", and only become a (negative) transaction once assigned to a
+  budget line — which is the user saying "this is a refund".
+- **A proportional bar cannot draw a negative slice.** A category that nets negative inverts its
+  own width *and* shrinks the denominator, pushing every other slice past its true share — $300 +
+  $150 − $40 rendered as 110% of a 100% bar. `categoryChartHtml()` builds the bar from the positive
+  categories only; negatives stay in the legend.
+
+**A dev-server trap, not an app bug:** the app uses real paths (`/expenses/budget`), and
+`python3 -m http.server` has no SPA fallback, so reloading a deep link 404s locally. GitHub Pages
+(`404.html`) and the service worker both handle it. Navigate to `/index.html` in a test rather
+than calling `reload()`.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

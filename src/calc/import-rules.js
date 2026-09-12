@@ -19,6 +19,7 @@ import { normaliseDescription } from "./bank-import.js";
 //
 // Deliberately not a token *frequency* analysis across the file. That would handle a few more
 // cases and would also silently regroup a merchant the moment you import a different month.
+var TRAILING_NOISE = ["ref", "reference", "no", "num", "id", "inv", "invoice", "receipt", "au", "aus", "nsw", "vic", "qld", "wa", "sa", "tas", "nt", "act"];
 var NOISE_LEADERS = ["eftpos", "visa", "mastercard", "debit", "credit", "card", "purchase", "payment", "pos", "direct", "dd", "osko", "payid", "bpay", "tfr", "transfer", "withdrawal", "value", "date"];
 export function merchantKey(description){
   var norm = normaliseDescription(description);
@@ -32,6 +33,10 @@ export function merchantKey(description){
     if(/\d/.test(tokens[i])) break;
     out.push(tokens[i]);
   }
+  // Trailing bookkeeping words, dropped from the end for the same reason the rails are dropped from
+  // the front: "RENT PAYMENT REF 88213" should key on — and create a budget line called — "Rent
+  // Payment", not "Rent Payment Ref". Never the last one standing.
+  while(out.length > 1 && TRAILING_NOISE.indexOf(out[out.length - 1]) !== -1) out.pop();
   // Everything after the first token had a digit in it (a pure reference line) — fall back to the
   // first token so the row still has something to be keyed on.
   if(!out.length) out.push(tokens[0]);
@@ -176,4 +181,65 @@ export function coverageOf(rows){
   var byRule = rows.filter(function(r){ return r.suggestion && r.suggestion.source === "rule"; }).length;
   var byName = rows.filter(function(r){ return r.suggestion && r.suggestion.source === "name"; }).length;
   return { total: total, placed: byRule + byName, fraction: (byRule + byName) / total, byRule: byRule, byName: byName };
+}
+
+// ---------------- Turning a merchant into a budget line ----------------
+// The import already knows everything a budget line needs: who you paid, how often, and how much.
+// Before this, an import into an app with no budget placed 0 of 11 rows — every merchant landed in
+// "Needs you" with nothing in the dropdown to assign it to. Offering to create the line turns one
+// statement into a working budget, which is the onboarding path this app never had.
+
+// A merchant key is lowercase and stripped; a budget line is something you read in a list. Only
+// the first letter of each word — not a smart-casing attempt, because "BP" becoming "Bp" is a worse
+// failure than "Woolworths" being slightly over-formal, and the field is editable either way.
+export function suggestedLineName(key){
+  return (key || "").split(" ").filter(Boolean).map(function(word){
+    return word.charAt(0).toUpperCase() + word.slice(1);
+  }).join(" ");
+}
+
+// What this merchant costs per month, derived from the rows themselves rather than guessed.
+//
+// The denominator is the number of distinct calendar months the *import* touches, not the months
+// this merchant appears in: shopping at Woolworths in two of the three months you imported is still
+// a three-month average, and dividing by two would overstate it by half. Floor of 1, so a
+// single-month import returns that month's spend rather than dividing by zero.
+//
+// A part-month import understates the true monthly rate — 18 days of spending divided by one whole
+// month. That's stated in the UI rather than corrected for here: inflating a real figure to cover
+// days the file doesn't include would be inventing spending.
+export function monthlyRateFrom(rows, allRows){
+  var mine = rows || [];
+  if(!mine.length) return { amount: 0, months: 0, total: 0, transactions: 0 };
+  var total = mine.reduce(function(s, r){ return s + (Number(r.amount) || 0); }, 0);
+  var months = distinctMonths(allRows && allRows.length ? allRows : mine);
+  return {
+    amount: Math.round((total / Math.max(1, months)) * 100) / 100,
+    months: months,
+    total: Math.round(total * 100) / 100,
+    transactions: mine.length
+  };
+}
+function distinctMonths(rows){
+  var seen = {};
+  (rows || []).forEach(function(r){
+    if(r && typeof r.date === "string" && r.date.length >= 7) seen[r.date.slice(0, 7)] = true;
+  });
+  return Object.keys(seen).length;
+}
+
+// The whole proposal for one merchant group, ready to be shown and edited before anything is
+// written. Deliberately not applied here: the review screen's promise is that nothing reaches
+// state until Import is pressed, and a line created the moment you picked it from a dropdown would
+// break that for anyone who then cancels.
+export function proposedLineFor(group, allRows){
+  var rate = monthlyRateFrom(group && group.rows, allRows);
+  return {
+    what: suggestedLineName(group && group.key),
+    amount: rate.amount,
+    freq: "Monthly",
+    category: (group && group.choice && group.choice.category) || "",
+    classification: "Needs",
+    basis: rate
+  };
 }

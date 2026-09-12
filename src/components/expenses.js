@@ -313,6 +313,25 @@ function spentInCycle(item, cycle){
   return transactionsInRange(state.transactions, cycle.start, cycle.end)
     .reduce(function(sum, t){ return t.linkedExpenseId === item.id ? sum + (Number(t.amount) || 0) : sum; }, 0);
 }
+// A group is collapsed unless it has been explicitly opened. Reading "absent means collapsed"
+// rather than seeding every name on migration is what makes this work across the Type/Category
+// toggle — the two axes have entirely different group names, and a category created next month
+// has never been seen by any migration.
+export function isBudgetGroupCollapsed(key){
+  var map = state.budgetGroupsCollapsed || {};
+  return map[key] !== false;
+}
+export function toggleBudgetGroup(key){
+  if(!state.budgetGroupsCollapsed) state.budgetGroupsCollapsed = {};
+  state.budgetGroupsCollapsed[key] = !isBudgetGroupCollapsed(key);
+}
+export function setAllBudgetGroupsCollapsed(collapsed){
+  if(!state.budgetGroupsCollapsed) state.budgetGroupsCollapsed = {};
+  computeSharedGroups().forEach(function(g){ state.budgetGroupsCollapsed[g.key] = collapsed ? true : false; });
+}
+export function allBudgetGroupsCollapsed(){
+  return computeSharedGroups().every(function(g){ return isBudgetGroupCollapsed(g.key); });
+}
 export function renderSharedGroups(){
   // The overdue count depends on the budget lines and on what's been logged against them, so it's
   // refreshed from both of the renders that follow a change to either (see also
@@ -344,8 +363,16 @@ export function renderSharedGroups(){
       ? (g.key === UNCATEGORISED ? "m-avatar-neutral" : "m-avatar-series series-color-" + (gi % 8))
       : "m-avatar-" + classificationSwatchClass(g.key);
     var addValue = (byCategory && g.key === UNCATEGORISED) ? "shared" : addPrefix + g.key;
-    return '<div class="m-card">' +
-      '<div class="m-card-head"><span class="m-avatar ' + avatarClass + '">' + escapeAttr(initial) + '</span>' +
+    // Collapsed by default (see migrateState). A 37-line budget is 4,023px of rows on a 390px
+    // screen — you cannot reach Groceries without scrolling past thirty other things. Collapsed,
+    // the same budget is seven headers that each still state their own monthly total, so the shape
+    // of the spending is legible at a glance and the detail is one tap away. Same call, and the
+    // same reasoning, as defaulting a property card's sections closed.
+    var collapsed = isBudgetGroupCollapsed(g.key);
+    return '<div class="m-card' + (collapsed ? " is-collapsed" : "") + '">' +
+      '<div class="m-card-head" data-budget-group-toggle="' + escapeAttr(g.key) + '" role="button" tabindex="0" aria-expanded="' + (!collapsed) + '">' +
+      '<span class="icon-btn m-card-caret" aria-hidden="true"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg></span>' +
+      '<span class="m-avatar ' + avatarClass + '">' + escapeAttr(initial) + '</span>' +
       '<div class="m-card-name">' + escapeAttr(g.key) + '</div>' +
       '<div class="m-card-total">' + fmtCurrency0.format(g.monthly) + '<span>/mo</span></div></div>' +
       // Each row renders under its own source section, so a housing line's edits, deletes and
@@ -830,7 +857,7 @@ export function renderQuickLogSheet(){
       '<div class="review-head"><h4>Log spend</h4><button type="button" class="icon-btn" data-qlog-close aria-label="Close">✕</button></div>' +
       '<div class="qlog-amount-row">' +
         '<span class="qlog-currency" aria-hidden="true">$</span>' +
-        '<input type="number" step="0.01" min="0" inputmode="decimal" id="quickLogAmount" class="qlog-amount" placeholder="0.00" aria-label="Amount spent">' +
+        '<input type="number" step="0.01" inputmode="decimal" id="quickLogAmount" class="qlog-amount" placeholder="0.00" aria-label="Amount spent — negative for a refund">' +
       '</div>' +
       '<div class="qlog-section-label">What was it for?</div>' +
       quickLogChipsHtml() +
@@ -863,20 +890,34 @@ export function setBudgetGroupBy(value){
   renderBudgetGroupByToggle();
   persist();
 }
+// Rendered beside the Group-by toggle rather than in the card footer, because it acts on every
+// card at once and the toggle it sits next to is the other control that reshapes the whole list.
+export function budgetCollapseAllHtml(){
+  var all = allBudgetGroupsCollapsed();
+  return '<button type="button" class="btn btn-ghost btn-sm" id="budgetCollapseAllBtn">' +
+    (all ? "Expand all" : "Collapse all") + '</button>';
+}
 export function renderBudgetGroupByToggle(){
   var el = document.getElementById("budgetGroupBy");
   if(!el) return;
   // Hidden until there's a second way to slice the money: with no categories defined, "Group by"
   // offers a choice between one real grouping and a single "Uncategorised" pile.
   var anyCategorised = state.shared.some(function(item){ return (item.category || "").trim(); });
-  el.hidden = !anyCategorised;
-  if(!anyCategorised) return;
-  el.innerHTML = '<span class="groupby-label">Group by</span>' +
-    [["type", "Type"], ["category", "Category"]].map(function(pair){
-      var on = (state.budgetGroupBy === "category" ? "category" : "type") === pair[0];
-      return '<button type="button" class="groupby-option' + (on ? " is-selected" : "") + '"' +
-        ' data-budget-groupby="' + pair[0] + '" aria-pressed="' + (on ? "true" : "false") + '">' + pair[1] + '</button>';
-    }).join("");
+  // Expand/Collapse all applies whether or not there's a second axis to group by, so this row is
+  // shown whenever there is more than one card to act on — the Group-by half is what's conditional,
+  // not the row itself.
+  var groupCount = computeSharedGroups().length;
+  el.hidden = !anyCategorised && groupCount < 2;
+  if(el.hidden) return;
+  el.innerHTML = (anyCategorised
+    ? '<span class="groupby-label">Group by</span>' +
+      [["type", "Type"], ["category", "Category"]].map(function(pair){
+        var on = (state.budgetGroupBy === "category" ? "category" : "type") === pair[0];
+        return '<button type="button" class="groupby-option' + (on ? " is-selected" : "") + '"' +
+          ' data-budget-groupby="' + pair[0] + '" aria-pressed="' + (on ? "true" : "false") + '">' + pair[1] + '</button>';
+      }).join("")
+    : "") +
+    (groupCount > 1 ? '<span class="groupby-break" aria-hidden="true"></span>' + budgetCollapseAllHtml() : "");
 }
 export function setTransactionsShowAll(value){
   transactionsShowAll = value;
@@ -965,7 +1006,9 @@ function transactionDescriptionPlaceholder(t){
 function transactionRowHtml(t, idx){
   var dateInput = '<input type="date" class="tx-date" data-tx-index="' + idx + '" value="' + escapeAttr(t.date || "") + '" aria-label="Date">';
   var whatInput = '<input type="text" class="tx-what" data-tx-index="' + idx + '" value="' + escapeAttr(t.what || "") + '" placeholder="' + escapeAttr(transactionDescriptionPlaceholder(t)) + '" aria-label="Description (optional)" title="Optional — only worth filling in when the budget line\'s own name doesn\'t say enough (e.g. what the Miscellaneous spend actually was)">';
-  var amountInput = '<input type="number" step="0.01" min="0" class="tx-amount" data-tx-index="' + idx + '" value="' + t.amount + '" aria-label="Amount">';
+  // No min="0": a refund is a real transaction with a negative amount, and every sum downstream
+  // already reads `s + (Number(t.amount) || 0)` rather than clamping.
+  var amountInput = '<input type="number" step="0.01" class="tx-amount" data-tx-index="' + idx + '" value="' + t.amount + '" aria-label="Amount (negative for a refund)">';
   var linkSelect = '<select class="tx-link" data-tx-index="' + idx + '" aria-label="Linked expense" title="Pick a budget line to log this transaction against — fills in its description and amount for you, or leave it as One-off for spend that has no matching budget line">' + transactionLinkOptionsHtml(t.linkedExpenseId) + '</select>';
   var acctSelect = '<select class="tx-account" data-tx-index="' + idx + '" aria-label="Account">' + transactionAccountOptionsHtml(t.account || "") + '</select>';
   var summary = modernRowSummaryHtml({
@@ -1371,17 +1414,27 @@ export function categoryTotals(items, valueFor){
 export function categoryChartHtml(groups, unit, opts){
   opts = opts || {};
   if(groups.length < 2) return "";
-  var total = groups.reduce(function(sum, g){ return sum + g.monthly; }, 0);
+  // A category can net negative now that refunds are real transactions — return more than you
+  // bought in a month and Clothing is -$40. A proportional bar has no way to draw that: the
+  // segment inverts to a negative width and, because the negative shrinks the denominator, every
+  // other segment's percentage climbs past its true share and the bar overflows its track. So the
+  // bar is built from the positive categories only, and the negatives stay in the legend where a
+  // credit reads correctly as a credit.
+  var positives = groups.filter(function(g){ return g.monthly > 0; });
+  var total = positives.reduce(function(sum, g){ return sum + g.monthly; }, 0);
   if(total <= 0) return "";
-  var segs = groups.map(function(g, i){
+  var colorOf = {};
+  groups.forEach(function(g, i){ colorOf[g.key] = i % 8; });
+  var segs = positives.map(function(g){
     var pct = g.monthly / total;
-    return '<div class="rule-seg cat-seg series-color-' + (i % 8) + '" style="width:' + (pct * 100) + '%"' +
+    return '<div class="rule-seg cat-seg series-color-' + colorOf[g.key] + '" style="width:' + (pct * 100) + '%"' +
       ' title="' + escapeAttr(g.key) + ': ' + fmtCurrency0.format(g.monthly) + unit + ' (' + fmtPercent1.format(pct) + ')">' +
       (pct > 0.12 ? fmtPercent1.format(pct) : "") + '</div>';
   }).join("");
-  var legend = groups.map(function(g, i){
-    return '<div class="rule-legend-item"><span class="rule-swatch cat-seg series-color-' + (i % 8) + '"></span>' +
-      escapeAttr(g.key) + ' <b>' + fmtCurrency0.format(g.monthly) + '</b></div>';
+  var legend = groups.map(function(g){
+    return '<div class="rule-legend-item' + (g.monthly < 0 ? " is-credit" : "") + '"><span class="rule-swatch cat-seg series-color-' + colorOf[g.key] + '"></span>' +
+      escapeAttr(g.key) + ' <b>' + fmtCurrency0.format(g.monthly) + '</b>' +
+      (g.monthly < 0 ? ' <span class="cat-credit-tag" title="More came back than went out in this category — refunds outweighed spending">net refund</span>' : "") + '</div>';
   }).join("");
   var bar = opts.barless ? "" : '<div class="rule-bar">' + segs + '</div>';
   return '<div class="cat-chart' + (opts.barless ? " cat-chart-compact" : "") + '">' + bar + '<div class="rule-legend">' + legend + '</div></div>';

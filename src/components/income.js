@@ -14,7 +14,15 @@ export function personBreakdownHtml(person){
   var row = function(label, value, cls){
     return '<div class="rb-row' + (cls ? " " + cls : "") + '"><span class="rb-label">' + escapeAttr(label) + '</span><span class="rb-value">' + value + '</span></div>';
   };
-  var html = '<div class="row-breakdown-panel">';
+  // The two derivations that used to sit on the front of the card, where they cost 167px above the
+  // headline they were explaining. This panel is the place for "how was this arrived at".
+  var contributingRows = state.income.filter(function(i){ return i.incomeType === "Gross" && i.person === person; });
+  var rowsSummary = contributingRows.map(function(i){ return escapeAttr(i.what) + " " + fmtCurrency0.format(periodsOf(i.amount, i.freq).yearly) + "/yr"; }).join(" + ");
+  var html = "";
+  if(rowsSummary){
+    html += '<p class="calc-note rb-adds-up">Adds up: ' + rowsSummary + ' = <b>' + fmtCurrency0.format(r.packageTotal) + '/yr</b> total gross</p>';
+  }
+  html += '<div class="row-breakdown-panel">';
   html += row("Gross income (excl. super)", fmtCurrency0.format(r.gross) + "/yr");
   if(Math.abs(r.ipShare) > 0.5) html += row("IP share", (r.ipShare >= 0 ? "+" : "") + fmtCurrency0.format(r.ipShare) + "/yr");
   html += row("Taxable income", fmtCurrency0.format(r.taxable) + "/yr");
@@ -24,6 +32,12 @@ export function personBreakdownHtml(person){
   html += row("Net take-home", fmtCurrency0.format(r.netTakeHome) + "/yr", "rb-total");
   if(Math.abs(r.ipTaxEffect) > 0.5) html += row("Payslip take-home", fmtCurrency0.format(r.payslipTakeHome) + "/yr", "rb-secondary");
   html += '</div>';
+  if(Math.abs(r.packageTotal - r.gross) > 1){
+    html += '<p class="calc-note">Of that ' + fmtCurrency0.format(r.packageTotal) + ', ' + fmtCurrency0.format(r.packageTotal - r.gross) +
+      ' is super already included inside a row marked "Super: Included" — so tax and take-home are calculated on ' +
+      fmtCurrency0.format(r.gross) + ' base salary, not the full ' + fmtCurrency0.format(r.packageTotal) +
+      '. (Total super for the year, from every row, is in the cap line on the front of this card.)</p>';
+  }
   if(Math.abs(r.ipTaxEffect) > 0.5){
     var isBenefit = r.ipTaxEffect > 0;
     html += '<p class="calc-note rb-ip-note">' +
@@ -558,16 +572,15 @@ function taxPersonFrontBodyHtml(person, r){
   var settings = personTaxSettings(person);
   var pid = escapeAttr(person);
   var capPct = r.capAvailable > 0 ? Math.min(100, (r.totalConcessional / r.capAvailable) * 100) : 0;
-  var contributingRows = state.income.filter(function(i){ return i.incomeType === "Gross" && i.person === person; });
-  var rowsSummary = contributingRows.map(function(i){ return escapeAttr(i.what) + " " + fmtCurrency0.format(periodsOf(i.amount, i.freq).yearly) + "/yr"; }).join(" + ");
   var baseLabel = Math.abs(r.packageTotal - r.gross) > 1 ? "Base salary (excl. super) /yr" : "Total gross income /yr";
-  return (rowsSummary ? '<p class="tax-rows-summary">Adds up: ' + rowsSummary + ' = <b>' + fmtCurrency0.format(r.packageTotal) + '/yr</b> total gross</p>' : '') +
-    '<div class="tax-hero"><span class="tax-hero-label">Net take-home</span><div class="tax-hero-value"><span data-out="nettakehome">' + fmtCurrency0.format(r.netTakeHome) + '</span><small> /yr · <span data-out="nettakehomemo">' + fmtCurrency0.format(r.netTakeHome / 12) + '</span> /mo</small></div></div>' +
+  // "Adds up: …" and the super-inside-the-row note are *derivations* — they explain how a figure
+  // was arrived at, which is exactly what the Breakdown flip already exists for. Together they were
+  // 167px of the 841px this card takes on a 390px screen, sitting above the headline they explain.
+  // Moved, not deleted: nothing about the numbers is now unexplained, it's one tap away instead of
+  // permanently in the way.
+  return '<div class="tax-hero"><span class="tax-hero-label">Net take-home</span><div class="tax-hero-value"><span data-out="nettakehome">' + fmtCurrency0.format(r.netTakeHome) + '</span><small> /yr · <span data-out="nettakehomemo">' + fmtCurrency0.format(r.netTakeHome / 12) + '</span> /mo</small></div></div>' +
     '<div class="tax-waterfall">' + renderTaxWaterfallHtml(r) + '</div>' +
     '<p class="tax-secondary-line">' + baseLabel.replace(" /yr", "") + ' <b data-out="gross">' + fmtCurrency0.format(r.gross) + '</b> · IP share <b data-out="ipshare" class="' + (r.ipShare < 0 ? "neg" : "") + '">' + (r.ipShare >= 0 ? "+" : "") + fmtCurrency0.format(r.ipShare) + '</b> · Taxable income <b data-out="taxable">' + fmtCurrency0.format(r.taxable) + '</b> /yr</p>' +
-    (Math.abs(r.packageTotal - r.gross) > 1
-      ? '<p class="tax-package-note" data-out="packagenote" style="margin:-6px 0 12px">Of that ' + fmtCurrency0.format(r.packageTotal) + ', ' + fmtCurrency0.format(r.packageTotal - r.gross) + ' is super already included inside a row marked "Super: Included" — so tax and take-home are calculated on ' + fmtCurrency0.format(r.gross) + ' base salary, not the full ' + fmtCurrency0.format(r.packageTotal) + '. (Total super for the year, from every row, is in the cap line below.)</p>'
-      : '') +
     '<div class="tax-inputs-label">Concessional cap usage <span class="calc-help" title="Estimated from your inputs below — not something you set directly.">ⓘ</span></div>' +
     '<div class="cap-bar-track"><div class="cap-bar-fill' + (r.capExceeded > 0 ? " over" : "") + '" style="width:' + Math.min(100, capPct) + '%"></div></div>' +
     '<div class="tax-cap-note tax-cap-main' + (r.capExceeded > 0 ? " warn" : "") + '">' +
@@ -772,10 +785,8 @@ export function patchAllTaxPersonOutputs(){
       helpNote.hidden = !(r.helpBalance > 0);
       helpNote.textContent = helpNoteText(r);
     }
-    var pkgNote = panel.querySelector('[data-out="packagenote"]');
-    if(pkgNote && Math.abs(r.packageTotal - r.gross) > 1){
-      pkgNote.textContent = "Of that " + fmtCurrency0.format(r.packageTotal) + ", " + fmtCurrency0.format(r.packageTotal - r.gross) + " is super already included inside a row marked \"Super: Included\" — so tax and take-home are calculated on " + fmtCurrency0.format(r.gross) + " base salary, not the full " + fmtCurrency0.format(r.packageTotal) + ". (Total super for the year, from every row, is in the cap line below.)";
-    }
+    // No packagenote patch here any more: that note moved to the Breakdown side, which is rebuilt
+    // wholesale by personBreakdownHtml() every time the card is flipped rather than patched in place.
   });
   var ipNote = document.querySelector("#taxSuperBody .ledger-note b");
   if(ipNote) ipNote.textContent = fmtCurrency0.format(ipNetResultAnnual());

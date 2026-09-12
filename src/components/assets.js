@@ -8,7 +8,7 @@ import { optionsHtml, historyTrendHtml } from "../lib/ledger-table.js";
 import { renderLineChart, renderStackedAreaChart, sparklineHtml, sparklinePlaceholderHtml } from "../lib/charts.js";
 import { showToast } from "../lib/toast.js";
 import { appendHistorySnapshot, daysUntil, householdYearWindow, householdYearBasis } from "../calc/ledger.js";
-import { TIME_RANGES, rangeLabel, timeRangeControlHtml } from "../lib/timerange.js";
+import { TIME_RANGES, rangeLabel, rangeByKey, rangeStartDate, bestFitRange, timeRangeControlHtml } from "../lib/timerange.js";
 import { observationDates, categorySeries, trimUntracked, allocationSeries, valueOn } from "../calc/history.js";
 import { holdingDividend, saleCapitalGain } from "../calc/tax.js";
 import { renderProjectionOutputs } from "./projections.js";
@@ -938,18 +938,20 @@ var ALLOCATION_BUCKETS = [
   { key: "Property", colorClass: "series-color-6" },
   { key: "Other", colorClass: "series-color-3" }
 ];
-export function renderAllocationChart(){
-  var container = document.getElementById("allocationHistoryPanel");
-  if(!container) return;
-  var today = localDateStr();
-  var assetHistories = state.assets.map(function(a){ return a.history; });
-  var propHistories = state.properties.map(function(p){ return p.history; });
-  var logged = observationDates(assetHistories.concat(propHistories), []);
-  if(logged.length < 2){
-    container.innerHTML = '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">Log a value on at least two dates and the shape of your wealth — how much is super, shares, cash or property — appears here.</p>';
-    return;
-  }
-  var dates = observationDates(assetHistories.concat(propHistories), [today]);
+// Session-only, like every other range control in the app: which window the "how it shifted"
+// stack is showing. Not persisted — a filter is about the look you're having now, not a setting.
+// null until either the user picks one or the first render works one out from the data — see
+// bestFitRange(). Resolving it lazily rather than at load is what lets a chosen range stick: once
+// it holds a key, nothing recomputes it.
+var allocationRange = null;
+export function setAllocationRange(value){
+  allocationRange = rangeByKey(value) ? value : "all";
+  renderAllocationChart();
+}
+
+// The buckets as they stand today, as {key, colorClass, records}. Shared by both halves of the
+// panel so the bar and the stack can never disagree about what counts as what.
+function allocationBuckets(){
   // Property equity, not property value: the mortgage is not part of what you own, and a chart that
   // counts the whole house makes a heavily-geared portfolio look far more diversified than it is.
   var propertyRecords = state.properties.map(function(p){
@@ -961,40 +963,140 @@ export function renderAllocationChart(){
       current: Math.max(0, (Number(p.value) || 0) - loanNet)
     };
   });
-  var buckets = ALLOCATION_BUCKETS.map(function(b){
+  return ALLOCATION_BUCKETS.map(function(b){
     if(b.key === "Property") return Object.assign({}, b, { records: propertyRecords });
     var cats = b.key === "Other" ? ["Vehicle", "Other"] : [b.key];
     return Object.assign({}, b, {
+      // Converted to AUD, snapshots included: a US holding logs its value in USD, and a chart that
+      // mixes converted current amounts with unconverted history steps on the day the log ends.
       records: state.assets.filter(function(a){ return cats.indexOf(a.category) !== -1; })
-        .map(function(a){ return { history: a.history, current: a.amount }; })
+        .map(function(a){
+          return {
+            history: (a.history || []).map(function(h){ return { date: h.date, value: toAudAmount(a, h.value) }; }),
+            current: toAudAmount(a, a.amount)
+          };
+        })
     });
   }).filter(function(b){ return b.records.length; });
+}
 
-  var series = allocationSeries(buckets, dates, { today: today }).map(function(sr){
-    return Object.assign(sr, { points: trimUntracked(sr.points).length ? sr.points : sr.points });
-  });
+// Today's mix as a single composition bar. This is the question the section title actually asks,
+// and it needs no time axis to answer — which matters, because the stack below it is at the mercy
+// of how evenly the user has logged. On the reference data the whole composition exists inside the
+// last fortnight of a thirteen-month axis, so the stack was one flat slab and a 20px sliver; this
+// bar reads the same at any logging cadence, including none at all.
+export function todaysMixHtml(buckets, today){
+  var rows = buckets.map(function(b){
+    var y = categorySeries(b.records, [today], { today: today })[0].y;
+    return { key: b.key, colorClass: b.colorClass, y: Math.max(0, y) };
+  }).filter(function(r){ return r.y > 0; });
+  var whole = rows.reduce(function(sum, r){ return sum + r.y; }, 0);
+  if(whole <= 0 || !rows.length) return "";
+  // Largest first: the bar is read left to right, and "what dominates" is the point of it.
+  rows.sort(function(a, b){ return b.y - a.y; });
+  var segs = rows.map(function(r){
+    var share = r.y / whole;
+    return '<div class="rule-seg ' + r.colorClass + '" style="width:' + (share * 100) + '%" title="' +
+      escapeAttr(r.key) + ' ' + fmtCurrency0.format(r.y) + ' — ' + fmtPercent1.format(share) + ' of what you own">' +
+      // Only label a slice wide enough to hold the text; the legend below carries the rest.
+      (share >= 0.14 ? fmtPercent1.format(share) : "") + '</div>';
+  }).join("");
+  var legend = rows.map(function(r){
+    return '<div class="rule-legend-item"><span class="rule-swatch ' + r.colorClass + '"></span>' +
+      escapeAttr(r.key) + ' <b>' + fmtCurrency0.format(r.y) + '</b></div>';
+  }).join("");
+  return '<div class="alloc-today">' +
+    '<div class="cat-chart-title">What you own today — ' + fmtCurrency0.format(whole) + '</div>' +
+    '<div class="rule-bar">' + segs + '</div>' +
+    '<div class="rule-legend">' + legend + '</div>' +
+  '</div>';
+}
+
+export function renderAllocationChart(){
+  var container = document.getElementById("allocationHistoryPanel");
+  if(!container) return;
+  var today = localDateStr();
+  var buckets = allocationBuckets();
   container.innerHTML = "";
-  var chartDiv = document.createElement("div");
-  container.appendChild(chartDiv);
-  renderStackedAreaChart(chartDiv, series, {
-    height: 220,
-    yFormat: function(v){ return fmtCurrency0.format(v); },
-    xFormat: function(ms){ return new Date(ms).toLocaleDateString(undefined, { year: "numeric", month: "short" }); },
-    xTickCount: 5,
-    ariaLabel: "Where your wealth sits, over time"
-  });
-  // The mix as a sentence, because the shape of a stack is easier to see than to read off.
-  var lastTotals = series.map(function(sr){ return { key: sr.key, y: sr.points[sr.points.length - 1].y }; });
-  var whole = lastTotals.reduce(function(sum, x){ return sum + Math.max(0, x.y); }, 0);
-  if(whole > 0){
-    var biggest = lastTotals.slice().sort(function(a, b){ return b.y - a.y; })[0];
-    var note = document.createElement("p");
-    note.className = "ledger-note";
-    note.style.margin = "8px 0 0";
-    note.innerHTML = "Today " + escapeAttr(biggest.key) + " is <b>" + fmtPercent1.format(biggest.y / whole) +
-      "</b> of what you own. Property counts as equity — value minus what's still owed — not the whole house.";
-    container.appendChild(note);
+  if(!buckets.length){
+    container.innerHTML = '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">Add an asset or a property and the shape of your wealth — how much is super, shares, cash or property — appears here.</p>';
+    return;
   }
+
+  // Half one: today, always. It does not depend on having logged anything.
+  var mix = document.createElement("div");
+  mix.innerHTML = todaysMixHtml(buckets, today);
+  if(mix.firstChild) container.appendChild(mix.firstChild);
+
+  // Half two: how that mix got here. This one does need history.
+  var assetHistories = state.assets.map(function(a){ return a.history; });
+  var propHistories = state.properties.map(function(p){ return p.history; });
+  var logged = observationDates(assetHistories.concat(propHistories), []);
+  if(logged.length < 2){
+    var hint = document.createElement("p");
+    hint.className = "ledger-note";
+    hint.style.margin = "14px 0 0";
+    hint.textContent = "Log a value on at least two dates and the mix above gets a history — how it shifted, not just where it landed.";
+    container.appendChild(hint);
+    return;
+  }
+
+  if(allocationRange === null){
+    allocationRange = bestFitRange(logged, { today: today, yearStart: householdYearWindow().start });
+  }
+  var shift = document.createElement("div");
+  shift.className = "alloc-shift";
+  shift.innerHTML = '<div class="alloc-shift-head">' +
+    '<div class="cat-chart-title" style="margin:0">How the mix has shifted</div>' +
+    timeRangeControlHtml(allocationRange, "allocation-range", {
+      yearBasis: householdYearBasis(), ariaLabel: "Time range for the allocation history",
+      titlePrefix: "Show the last"
+    }) + '</div>';
+  container.appendChild(shift);
+
+  // Filter the observation dates to the chosen window rather than the records: valueOn() still
+  // reads the full history, so the first point in a short window carries forward what was true
+  // before it instead of starting the chart at zero.
+  var range = rangeByKey(allocationRange) || rangeByKey("all");
+  var from = rangeStartDate(range, { today: today, yearStart: householdYearWindow().start });
+  var dates = observationDates(assetHistories.concat(propHistories), [today])
+    .filter(function(d){ return from === null || d >= from || d === today; });
+  if(dates.length < 2){
+    var tooShort = document.createElement("p");
+    tooShort.className = "ledger-note";
+    tooShort.style.margin = "10px 0 0";
+    tooShort.textContent = "Nothing was logged in this window — only " + rangeLabel(range, householdYearBasis()) +
+      " of it, and one point is not a shift. Try a longer range.";
+    shift.appendChild(tooShort);
+    return;
+  }
+
+  var series = allocationSeries(buckets, dates, { today: today });
+  var chartDiv = document.createElement("div");
+  shift.appendChild(chartDiv);
+  // "Aug 2026 / Sep 2026" says almost nothing across a four-week window — inside a quarter the
+  // useful unit is the day, and across years it is the month. The axis follows the window it is
+  // actually drawing rather than one fixed format for all eight of them.
+  var spanDays = (new Date(dates[dates.length - 1] + "T00:00:00") - new Date(dates[0] + "T00:00:00")) / 86400000;
+  var xFormat = spanDays <= 100
+    ? function(ms){ return new Date(ms).toLocaleDateString(undefined, { day: "numeric", month: "short" }); }
+    : function(ms){ return new Date(ms).toLocaleDateString(undefined, { year: "numeric", month: "short" }); };
+  renderStackedAreaChart(chartDiv, series, {
+    height: 200,
+    yFormat: function(v){ return fmtCurrency0.format(v); },
+    xFormat: xFormat,
+    xTickCount: 4,
+    // No legend on the stack: the composition bar directly above it is keyed by the same colours
+    // for the same buckets, so a second legend is the same key printed twice.
+    legend: false,
+    ariaLabel: "How your mix of assets has shifted over time"
+  });
+  var note = document.createElement("p");
+  note.className = "ledger-note";
+  note.style.margin = "8px 0 0";
+  note.innerHTML = "Property counts as equity — value minus what's still owed — not the whole house. " +
+    "Debts you owe elsewhere aren't in this chart: it's what you own, not your net worth.";
+  shift.appendChild(note);
 }
 
 export function renderPortfolioHistoryChart(){
@@ -1006,6 +1108,9 @@ export function renderPortfolioHistoryChart(){
   });
   state.properties.forEach(function(p){
     (p.history || []).forEach(function(h){ dateSet[h.date] = true; });
+  });
+  (state.debts || []).forEach(function(d){
+    (d.history || []).forEach(function(h){ dateSet[h.date] = true; });
   });
   var dates = Object.keys(dateSet).sort();
   var today = localDateStr();
@@ -1040,6 +1145,15 @@ export function renderPortfolioHistoryChart(){
         return s + Math.max(0, (Number(l.balance) || 0) - (Number(l.offsetBalance) || 0));
       }, 0);
       return sum + valueAtDate(p.history, p.value, d) - loanNet;
+    }, 0);
+    // Debts too, or this chart is not net worth. It was $17,000 above the net-worth figure in the
+    // page header on the reference data — a credit-card limit the app knows about, tracks in
+    // totalNetWorthValue(), and this chart quietly left out while labelling itself "Net worth".
+    // Same rule as the properties above: only subtracted on dates the debt was actually tracked,
+    // so a debt logged once recently doesn't retroactively push a year of history downward.
+    total -= (state.debts || []).reduce(function(sum, dbt){
+      if(!hasValueAtDate(dbt.history, d)) return sum;
+      return sum + valueAtDate(dbt.history, dbt.balance, d);
     }, 0);
     return { x: new Date(d + "T00:00:00").getTime(), y: total, dateLabel: d };
   });

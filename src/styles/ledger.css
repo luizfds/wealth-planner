@@ -76,7 +76,12 @@
 
   /* 50/30/20 bar */
   .rule-bar{ position:relative; height: 34px; border-radius:8px; overflow:hidden; display:flex; background: var(--paper-sunken); margin-bottom: 10px; }
-  .rule-seg{ height:100%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; color:#fff; overflow:hidden; white-space:nowrap; }
+  /* Default to the cycling series palette. The four named variants below (.needs/.wants/.savings/
+     .na) and .cat-seg all set their own background and still win on specificity — but a segment
+     carrying only a `series-color-N` class used to get *no* background at all, because that class
+     sets `--series-color` and nothing else. The saved-vs-grown bar drew two zero-alpha segments
+     over an empty track for a whole release. */
+  .rule-seg{ height:100%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; color:#fff; overflow:hidden; white-space:nowrap; background: var(--series-color, transparent); }
   .rule-seg.needs{ background: #6b7a8f; }
   .rule-seg.wants{ background: var(--brass); }
   .rule-seg.savings{ background: var(--good); }
@@ -108,7 +113,9 @@
   .rule-legend{ display:flex; gap:16px; flex-wrap:wrap; font-size:12px; }
   .rule-legend-item{ display:flex; align-items:center; gap:6px; color: var(--ink-soft); }
   .rule-legend b{ color: var(--ink); font-weight:600; font-family:"IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
-  .rule-swatch{ width:9px; height:9px; border-radius:3px; flex:none; }
+  /* Same story as .rule-seg above: every legend swatch in the v2.99.0 charts computed to
+     rgba(0,0,0,0), so a stacked chart that encodes identity in colour alone had a colourless key. */
+  .rule-swatch{ width:9px; height:9px; border-radius:3px; flex:none; background: var(--series-color, transparent); }
   .rule-swatch.needs{ background:#6b7a8f; } .rule-swatch.wants{ background:var(--brass); } .rule-swatch.savings{ background:var(--good); } .rule-swatch.na{ background:var(--ink-soft); }
 
   /* account bars */

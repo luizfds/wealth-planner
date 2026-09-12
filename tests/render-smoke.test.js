@@ -4,8 +4,9 @@ import assert from "node:assert/strict";
 import { state } from "../src/state.js";
 import { modernPlainRowHtml, modernRowShellHtml, optionsHtml, historyTrendHtml } from "../src/lib/ledger-table.js";
 import { categoryChartHtml } from "../src/components/expenses.js";
+import { todaysMixHtml } from "../src/components/assets.js";
 import { sparklineHtml, sparklinePlaceholderHtml } from "../src/lib/charts.js";
-import { rangeByKey, rangeLabel, rangeStartDate, withinRange, timeRangeControlHtml } from "../src/lib/timerange.js";
+import { rangeByKey, rangeLabel, rangeStartDate, withinRange, bestFitRange, timeRangeControlHtml } from "../src/lib/timerange.js";
 
 // Why this file exists.
 //
@@ -104,6 +105,24 @@ test("categoryChartHtml handles one group, many groups, and a negative one", fun
   assert.equal(categoryChartHtml([], "/mo"), "");
 });
 
+test("todaysMixHtml builds the composition bar, and refuses to when there is nothing to divide", function(){
+  var buckets = [
+    { key: "Super", colorClass: "series-color-0", records: [{ history: [], current: 179806 }] },
+    { key: "Cash", colorClass: "series-color-2", records: [{ history: [], current: 1076 }] }
+  ];
+  var html = todaysMixHtml(buckets, "2026-09-12");
+  assert.ok(html.indexOf("rule-seg series-color-0") !== -1, "a series-coloured segment per bucket");
+  assert.ok(html.indexOf("rule-swatch series-color-2") !== -1, "and a matching legend swatch");
+  assert.ok(html.indexOf("width:-") === -1);
+  // A bucket holding nothing today is dropped rather than drawn as a zero-width sliver with a
+  // legend entry nobody can point at.
+  assert.ok(todaysMixHtml(buckets.concat([{ key: "Shares", colorClass: "series-color-1", records: [] }]), "2026-09-12")
+    .indexOf("series-color-1") === -1);
+  assert.equal(todaysMixHtml([], "2026-09-12"), "");
+  assert.equal(todaysMixHtml([{ key: "Cash", colorClass: "series-color-2", records: [{ history: [], current: 0 }] }], "2026-09-12"), "",
+    "nothing owned is not a pie chart of nothing");
+});
+
 test("the sparkline survives empty, single-point and flat histories", function(){
   // Every one of these is a real state of a new save: nothing logged, one snapshot, or a value that
   // hasn't moved. A divide-by-zero here draws a broken line rather than throwing, so "it didn't
@@ -157,6 +176,23 @@ test("withinRange keeps what's inside, drops what's outside, and drops undated r
   var all = withinRange(rows, rangeByKey("all"), { today: "2026-09-12" });
   assert.deepEqual(all.map(function(r){ return r.amount; }), [1, 2],
     "undated rows are dropped even by All — they have no place on a dated axis");
+});
+
+test("bestFitRange opens a chart where its observations actually are", function(){
+  var at = { today: "2026-09-12" };
+  // The reference data's shape: one super reading from July 2025, then a fortnight of daily share
+  // logs. "All" spends 95% of the x-axis on the period before anything but super was tracked.
+  var clustered = ["2025-07-31", "2026-08-31", "2026-09-07", "2026-09-08", "2026-09-09",
+                   "2026-09-10", "2026-09-11", "2026-09-12"];
+  assert.equal(bestFitRange(clustered, at), "1w", "six of eight points sit inside the last week");
+  // The ordinary case — a year of even monthly logs — has no window better than all of it.
+  var monthly = [];
+  for(var m = 0; m < 12; m++) monthly.push("2025-" + String(m + 1).padStart(2, "0") + "-01");
+  assert.equal(bestFitRange(monthly.concat(["2026-09-12"]), at), "all");
+  // Too few points to be framing anything.
+  assert.equal(bestFitRange(["2026-09-11", "2026-09-12"], at), "all");
+  assert.equal(bestFitRange([], at), "all");
+  assert.equal(bestFitRange(null, at), "all");
 });
 
 test("timeRangeControlHtml marks the selection and can omit windows", function(){

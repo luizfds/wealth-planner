@@ -332,6 +332,20 @@ export function setAllBudgetGroupsCollapsed(collapsed){
 export function allBudgetGroupsCollapsed(){
   return computeSharedGroups().every(function(g){ return isBudgetGroupCollapsed(g.key); });
 }
+// Opens whichever group card contains this budget line, so something arriving from outside the page
+// (cross-page search) can land on a row rather than on a closed card that happens to contain it.
+// Returns false when the line isn't in the list at all — an income row, a deleted line — so the
+// caller can skip the scroll rather than scrolling to nothing.
+export function revealBudgetLine(lineId){
+  if(!lineId) return false;
+  var group = computeSharedGroups().find(function(g){
+    return g.members.some(function(m){ return m.item && m.item.id === lineId; });
+  });
+  if(!group) return false;
+  if(!state.budgetGroupsCollapsed) state.budgetGroupsCollapsed = {};
+  state.budgetGroupsCollapsed[group.key] = false;
+  return true;
+}
 export function renderSharedGroups(){
   // The overdue count depends on the budget lines and on what's been logged against them, so it's
   // refreshed from both of the renders that follow a change to either (see also

@@ -33,7 +33,7 @@ import {
   renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, logExpenseTransaction,
   renderCategories, addCategory, deleteCategory, renameCategoryEverywhere,
   setBudgetGroupBy, renderBudgetGroupByToggle, budgetLineItems,
-  toggleBudgetGroup, setAllBudgetGroupsCollapsed, allBudgetGroupsCollapsed,
+  toggleBudgetGroup, setAllBudgetGroupsCollapsed, allBudgetGroupsCollapsed, revealBudgetLine,
   renderYearSpending, renderYearBasisPreference, setYearBasis, transactionCategory,
   parseExpensesImportCsv, renderExpensesImportPreview, clearExpensesImportPreview, commitExpensesImport,
   renderSpendCategoryChart, renderSpendingTrends
@@ -2116,12 +2116,28 @@ import {
     // was *before* opening search, not resurrect an empty search overlay in between.
     activeOverlayClose = null;
     showPage(result.page, { replace: true });
-    if(result.extra.sub) showAssetsSubpage(result.extra.sub, { replace: true });
-    if(result.extra.scrollToId){
+    // `sub` means different things per page: an Assets category, or one of the Expenses subtabs.
+    // Routed by page rather than by guessing from the value, so "budget" can never be mistaken for
+    // an asset category.
+    if(result.extra.sub){
+      if(result.page === "expenses") showExpensesSubpage(result.extra.sub, { replace: true });
+      else showAssetsSubpage(result.extra.sub, { replace: true });
+    }
+    // A budget line lives inside a group card that starts collapsed, so it has to be opened before
+    // there is anything on screen to scroll to. Without this the search lands on the page at scroll
+    // 0 with the row display:none — the result looks like it did nothing.
+    if(result.extra.lineId && revealBudgetLine(result.extra.lineId)){
+      renderSharedGroups();
+      renderBudgetGroupByToggle();
+      persist();
+    }
+    if(result.extra.scrollToId || result.extra.lineId){
       // Give showPage's own render + view-transition a moment to finish before scrolling —
       // scrolling to an element mid-transition can land at the wrong offset once it settles.
       setTimeout(function(){
-        var el = document.getElementById(result.extra.scrollToId);
+        var el = result.extra.scrollToId
+          ? document.getElementById(result.extra.scrollToId)
+          : document.querySelector('#sharedGroups [data-line-id="' + (window.CSS && window.CSS.escape ? window.CSS.escape(result.extra.lineId) : result.extra.lineId) + '"]');
         if(el) el.scrollIntoView({ block: "center", behavior: "smooth" });
       }, 200);
     }

@@ -76,3 +76,46 @@ test("searchApp finds a description-less transaction by its linked budget line's
     assert.equal(hit.label, "Groceries");
   });
 });
+
+// ---------------- A result has to be a destination, not just a page ----------------
+// "expenses" alone stopped being an answer once that page grew two subtabs and its budget groups
+// started collapsed: landing there without saying which subtab, and without opening the card the
+// row sits in, leaves the thing you searched for off-screen with nothing saying where it went.
+
+test("an Expense result names the Budget subtab and the line to reveal", function(){
+  withState({
+    shared: [{ id: "s1", what: "Groceries", amount: 430, freq: "Weekly" }],
+    home: {}, properties: [], transactions: [], income: [], assets: [], debts: [], accounts: []
+  }, function(){
+    var hit = searchApp("groceries").find(function(r){ return r.type === "Expense"; });
+    assert.ok(hit, "the budget line is found");
+    assert.equal(hit.page, "expenses");
+    assert.equal(hit.extra.sub, "budget");
+    assert.equal(hit.extra.lineId, "s1", "without the id there is no way to open the card it's in");
+  });
+});
+
+test("a Transaction result names the Spending subtab, which is where transactions are listed", function(){
+  withState({
+    shared: [{ id: "s1", what: "Groceries", amount: 430, freq: "Weekly" }],
+    home: {}, properties: [], income: [], assets: [], debts: [], accounts: [],
+    transactions: [{ id: "t1", date: "2026-08-31", amount: 119, what: "", linkedExpenseId: "s1" }]
+  }, function(){
+    var hit = searchApp("groceries").find(function(r){ return r.type === "Transaction"; });
+    assert.ok(hit, "the transaction is found by its linked line's name");
+    assert.equal(hit.extra.sub, "spending", "Budget doesn't list transactions at all");
+  });
+});
+
+test("an Asset result still routes by category — the shared `sub` key means two things", function(){
+  // `sub` is an Assets category on that page and an Expenses subtab on this one. A regression here
+  // would send someone searching for super to a subtab that doesn't exist.
+  withState({
+    shared: [], home: {}, properties: [], transactions: [], income: [], debts: [], accounts: [],
+    assets: [{ what: "Mariana's Super", category: "Super", amount: 63000 }]
+  }, function(){
+    var hit = searchApp("super").find(function(r){ return r.type === "Asset"; });
+    assert.equal(hit.page, "assets");
+    assert.equal(hit.extra.sub, "Super");
+  });
+});

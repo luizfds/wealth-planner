@@ -59,7 +59,7 @@ import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAs
 import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./components/search.js";
 import {
   startBankImport, reparseBankImportWith, clearBankImport,
-  setBankImportGroupLine, setBankImportGroupCategory, renderBankImportPanel, patchBankImportPanel,
+  setBankImportGroupLine, setBankImportGroupCategory, renderBankImportPanel, patchBankImportPanel, renderBankImportHelp,
   setIncludePossibleDuplicates, commitBankImport, undoBankImport
 } from "./components/bank-import.js";
 
@@ -3089,6 +3089,9 @@ import {
     document.getElementById("projRateShock").value = state.projection.rateShockPct;
     document.getElementById("projRateShockRange").value = state.projection.rateShockPct;
     syncProjBasisControl();
+    // Static copy, but rendered from the component that owns the parser it describes — see
+    // renderBankImportHelp. Cheap enough to redo here rather than needing its own lifecycle.
+    renderBankImportHelp();
     recalcComputedItems();
     renderIncomeGroups();
     renderProperties();

@@ -7,7 +7,7 @@
 // DOM event *registration* still lives in app.js, same as every other component here.
 import { state, persist } from "../state.js";
 import { parseCsv } from "../lib/backup.js";
-import { parseBankCsv, bankImportSummary } from "../calc/bank-import.js";
+import { parseBankCsv, bankImportSummary, parseDiagnosis } from "../calc/bank-import.js";
 import { applySuggestions, learnRule, coverageOf, merchantKey, proposedLineFor, suggestedLineName, pruneRules } from "../calc/import-rules.js";
 import { fmtCurrency0, fmtCurrency2 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
@@ -185,9 +185,7 @@ export function renderBankImportPanel(){
   panel.hidden = false;
   var s = bankImport.summary;
   if(!bankImport.parsed.headerOk){
-    panel.innerHTML =
-      '<p class="ledger-note bank-import-problem">Couldn\'t find a date column and an amount column in that file. Most banks\' "export as CSV" gives you both — if yours exports Excel or PDF, look for a CSV option in the same menu.</p>' +
-      bankImportActionsHtml(false);
+    panel.innerHTML = bankImportFailureHtml() + bankImportActionsHtml(false);
     return;
   }
   if(!bankImport.groups.length && !bankImport.duplicates.length && !bankImport.credits.length && !bankImport.possibleDuplicates.length){
@@ -201,6 +199,76 @@ export function renderBankImportPanel(){
     bankImportGroupsHtml() +
     bankImportAsideHtml() +
     bankImportActionsHtml(true);
+}
+
+// The help sits in the card from load, before any file is picked. Rendered rather than written
+// into index.html so the copy lives next to the parser it describes — the two drift apart the
+// moment a new header alias is added and nobody remembers the help text exists.
+export function renderBankImportHelp(){
+  var el = document.getElementById("bankImportHelp");
+  if(el) el.innerHTML = bankImportHelpHtml();
+}
+
+// Why that file couldn't be read, named rather than guessed.
+//
+// The old copy said "couldn't find a date column and an amount column" whatever was wrong, which is
+// misleading for the common case: a file with Merchant/Spend/Notes has a perfectly good amount
+// column and no date, and being told both are missing sends the reader looking for the wrong thing.
+// Showing the row the app actually read is the fastest way to see the mismatch — faster than any
+// rule about columns, because the reader recognises their own file.
+function bankImportFailureHtml(){
+  var d = parseDiagnosis(bankImport.parsed.columns);
+  var first = bankImport.parsed.firstRow || [];
+  var article = function(word){ return /^[aeiou]/i.test(word) ? "an " : "a "; };
+  var missing = d.missing.length === 2
+    ? "a date column or an amount column"
+    : article(d.missing[0]) + d.missing[0] + " column";
+  var found = !d.found.length ? ""
+    : d.found.length === 1
+      ? " It did find " + article(d.found[0]) + d.found[0] + " column."
+      : " It did find " + d.found.slice(0, -1).join(", ") + " and " + d.found[d.found.length - 1] + " columns.";
+  return '<p class="ledger-note bank-import-problem"><b>Couldn\'t find ' + missing + ' in that file.</b>' + found +
+      ' Most banks\' "export as CSV" includes a date and an amount — if yours exports Excel or PDF, look for a CSV option in the same menu.</p>' +
+    (first.length
+      ? '<p class="ledger-note bank-import-meta">The first row it read was: <code>' +
+        first.map(function(c){ return escapeAttr(String(c).slice(0, 22)); }).join(" · ") + '</code></p>'
+      : "") +
+    bankImportHelpHtml();
+}
+
+// What this actually accepts. Always available, not only after something goes wrong — the panel
+// otherwise says "export a CSV and drop it in here" and leaves the reader to find out by failing.
+// A <details> so it costs nothing when it isn't wanted.
+export function bankImportHelpHtml(){
+  return '<details class="bank-import-help">' +
+    '<summary>What this reads — no template needed</summary>' +
+    '<p>Drop in whatever your bank exports. There is no template to fill in: unlike the CSV imports on the other pages, this one works out your bank\'s own layout.</p>' +
+    '<ul>' +
+      '<li><b>Columns</b> — it matches the wording banks use: <i>date, transaction date, processed date</i> · <i>description, transaction details, narrative, particulars, merchant, payee</i> · <i>amount, value</i>, or separate <i>debit/credit</i> (<i>withdrawal, money out</i> / <i>deposit, money in</i>).</li>' +
+      '<li><b>No header row?</b> Fine — several banks export none. It works the columns out from the data instead.</li>' +
+      '<li><b>Dates</b> are read as DD/MM unless the file proves otherwise. The next screen says which way it read them and lets you flip it.</li>' +
+      '<li><b>Amounts</b> can be <code>$1,234.56</code>, <code>(1,234.56)</code> or <code>-1234.56</code>.</li>' +
+      '<li><b>Re-importing</b> an overlapping range is expected — anything already logged is detected and skipped.</li>' +
+    '</ul>' +
+  '</details>';
+}
+
+// The reasons rows were skipped. parseBankCsv has always collected these — row number and what
+// went wrong — and the panel has always thrown them away and shown a bare count. "3 rows couldn't
+// be read" is not something anyone can act on; "row 14: couldn't read \"Pending\" as a date" is.
+// Capped at three, because a file whose every row fails does not need forty copies of one sentence.
+function skippedReasonsHtml(){
+  var errs = (bankImport.parsed.errors || []);
+  if(!errs.length) return "";
+  var shown = errs.slice(0, 3).map(function(e){
+    return '<li>Row ' + e.row + ': ' + escapeAttr(e.reason) + '</li>';
+  }).join("");
+  var more = errs.length > 3 ? '<li>…and ' + (errs.length - 3) + ' more</li>' : "";
+  return '<details class="bank-import-help bank-import-skipped">' +
+    '<summary>Why ' + errs.length + ' row' + (errs.length === 1 ? " was" : "s were") + ' skipped</summary>' +
+    '<ul>' + shown + more + '</ul>' +
+    '<p>Skipped rows are usually a statement\'s own headings, a pending line with no date, or a total at the bottom — normally nothing you need.</p>' +
+  '</details>';
 }
 
 function bankImportHeaderHtml(s){
@@ -224,6 +292,7 @@ function bankImportHeaderHtml(s){
       (s.duplicates ? " " + s.duplicates + " already logged." : "") +
       (s.skipped ? " " + s.skipped + " row" + (s.skipped === 1 ? "" : "s") + " couldn't be read." : "") +
     '</p>' +
+    skippedReasonsHtml() +
     (range ? '<p class="ledger-note bank-import-meta">' + escapeAttr(range) + ' · dates read as <b>' + orderLabel + '</b> ' +
       '<button type="button" class="calc-hint-link" data-bank-date-order="' + otherOrder + '">read them the other way</button></p>' : "") +
     (s.hasFutureDates ? '<p class="tax-cap-note warn" style="margin:8px 0 0">Some of these dates are months in the future, which is what a back-to-front date order looks like. Worth checking before you import.</p>' : "") +

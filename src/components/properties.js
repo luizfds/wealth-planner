@@ -155,9 +155,9 @@ function depreciationSectionHtml(p){
     '<p class="ledger-note" style="margin-left:0">Usually the largest deduction on an investment property, and the only one that isn\'t money leaving your account — it reduces the taxable result without touching cash flow. A quantity surveyor\'s depreciation schedule is where these figures come from; entering guesses here produces a guess on your tax return.</p>' +
     '<div class="calc-grid">' +
       '<div class="calc-field" title="The original cost to BUILD, not what you paid for the property — land is not depreciable. Claimed at 2.5% a year for 40 years from completion."><label>Construction cost</label><input type="number" step="1000" min="0" class="prop-construction-cost" value="' + (Number(p.constructionCost) || 0) + '" placeholder="0"></div>' +
-      '<div class="calc-field" title="When the building was completed. The 2.5% capital works claim runs for 40 years from then; leave blank if unknown and the full year is claimed."><label>Built on</label><input type="date" class="prop-construction-date" value="' + escapeAttr(p.constructionDate || "") + '"></div>' +
+      '<div class="calc-field" title="When the building was completed. The 2.5% capital works claim runs for 40 years from then; leave blank if unknown and the full year is claimed."><label>Built on</label><input type="date" class="prop-construction-date" aria-label="Built on" value="' + escapeAttr(p.constructionDate || "") + '"></div>' +
       '<div class="calc-field" title="Carpets, blinds, appliances, air conditioning. Since 2017 these are only claimable on items you bought new — not on a second-hand residential property."><label>Plant &amp; equipment</label><input type="number" step="500" min="0" class="prop-plant-value" value="' + (Number(p.plantValue) || 0) + '" placeholder="0"></div>' +
-      '<div class="calc-field" title="Averaged straight-line over this many years. A real schedule depreciates each item separately at its own rate; this app has no per-item register, so an average across the pool is closer to the truth than pretending to a precision it can\'t support."><label>Effective life (yrs)</label><input type="number" step="1" min="1" max="40" class="prop-plant-life" value="' + (Number(p.plantEffectiveLife) || 10) + '"></div>' +
+      '<div class="calc-field" title="Averaged straight-line over this many years. A real schedule depreciates each item separately at its own rate; this app has no per-item register, so an average across the pool is closer to the truth than pretending to a precision it can\'t support."><label>Effective life (yrs)</label><input type="number" step="1" min="1" max="40" class="prop-plant-life" aria-label="Plant and equipment effective life in years" value="' + (Number(p.plantEffectiveLife) || 10) + '"></div>' +
     '</div>' +
     '<p class="ledger-note" style="margin-left:0">' +
       (total > 0
@@ -237,8 +237,8 @@ function propertyCardHtml(p, colorIdx){
   var hasPmFee = p.kind === "IP";
   var pmFeePanel = hasPmFee
     ? '<div class="proj-controls prop-pmfee-panel">' +
-        '<div class="proj-field" title="Applied to this property\'s Property Manager Fee expense row, worked out from its own rent — each property manager can charge a different rate"><label>PM fee % of rent</label><input type="number" min="0" max="100" step="0.1" class="prop-pmfee-percent" value="' + (Number(p.pmFee.percent) || 0) + '"></div>' +
-        '<div class="proj-field"><label>+ flat $/month</label><input type="number" min="0" step="0.5" class="prop-pmfee-flat" value="' + (Number(p.pmFee.flat) || 0) + '"></div>' +
+        '<div class="proj-field" title="Applied to this property\'s Property Manager Fee expense row, worked out from its own rent — each property manager can charge a different rate"><label>PM fee % of rent</label><input type="number" min="0" max="100" step="0.1" class="prop-pmfee-percent" aria-label="Property manager fee, % of rent" value="' + (Number(p.pmFee.percent) || 0) + '"></div>' +
+        '<div class="proj-field"><label>+ flat $/month</label><input type="number" min="0" step="0.5" class="prop-pmfee-flat" aria-label="Property manager flat fee per month" value="' + (Number(p.pmFee.flat) || 0) + '"></div>' +
       '</div>'
     : "";
   // Purely informational — the amount/frequency on each income row below is still the rate used
@@ -336,9 +336,9 @@ function propertyCardHtml(p, colorIdx){
     propertySectionHtml(p, "value",
       '<div class="property-section-title">Property value</div>',
       '<div class="calc-grid">' +
-        '<div class="calc-field"><label>Current value</label><input type="number" step="1000" min="0" class="prop-value" value="' + (Number(p.value) || 0) + '"></div>' +
+        '<div class="calc-field"><label>Current value</label><input type="number" step="1000" min="0" class="prop-value" aria-label="Current value" value="' + (Number(p.value) || 0) + '"></div>' +
         '<div class="calc-field" title="What you actually paid — separate from Current value above, and from the Log button\'s value-over-time history, which starts whenever this property was first added rather than the real purchase date. Powers Capital gain and the yield-on-cost badge above; leave blank if unknown."><label>Purchase price</label><input type="number" step="1000" min="0" class="prop-purchase-price" value="' + (p.purchasePrice != null ? p.purchasePrice : "") + '" placeholder="Unknown"></div>' +
-        '<div class="calc-field"><label>Purchase date</label><input type="date" class="prop-purchase-date" value="' + escapeAttr(p.purchaseDate || "") + '"></div>' +
+        '<div class="calc-field"><label>Purchase date</label><input type="date" class="prop-purchase-date" aria-label="Purchase date" value="' + escapeAttr(p.purchaseDate || "") + '"></div>' +
       '</div>' +
       '<div class="prop-value-log"><button type="button" class="asset-log-btn" data-property-log="' + escapeAttr(p.id) + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart">Log</button>' + historyTrendHtml(p) + '</div>') +
     acquisitionCostsSectionHtml(p) +

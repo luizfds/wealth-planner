@@ -536,7 +536,7 @@ export function renderTaxSuper(){
   // Household-level, not per person: a hospital policy covers a household, and once you have a
   // spouse the surcharge is assessed on family income against family thresholds.
   var html = '<div class="tax-global">' +
-    '<div class="proj-field"><label>Super guarantee % p.a.</label><input type="number" min="0" max="30" step="0.1" id="taxSgRate" value="' + (Number(state.tax.sgRate) || 11.5) + '"></div>' +
+    '<div class="proj-field"><label for="taxSgRate">Super guarantee % p.a.</label><input type="number" min="0" max="30" step="0.1" id="taxSgRate" value="' + (Number(state.tax.sgRate) || 11.5) + '"></div>' +
     '<div class="proj-field"><label class="m-checkbox-field" title="Private hospital cover (not extras-only) exempts you from the Medicare levy surcharge at any income."><input type="checkbox" id="taxPrivateCover"' + (state.tax.privateHospitalCover ? " checked" : "") + '> Private hospital cover</label></div>' +
     '<div class="proj-field"><label class="m-checkbox-field" title="Couples and anyone with dependants are assessed against family thresholds — roughly double the singles ones (+$1,500 per child after the first, which this app doesn\'t model)."><input type="checkbox" id="taxFamilyThresholds"' + (state.tax.familyThresholds ? " checked" : "") + '> Family thresholds</label></div>' +
     '</div>';
@@ -606,13 +606,13 @@ function taxPersonFrontBodyHtml(person, r){
     '<details class="tax-advanced" style="margin-top:12px"><summary>Adjust HELP &amp; sacrifice</summary>' +
       '<div class="tax-inputs-panel" style="margin-top:8px">' +
         '<div class="tax-inputs">' +
-          '<div class="proj-field"><label title="What you still owe on HELP/HECS (or any other study loan with the same repayment schedule). Leave at 0 if you have none. The compulsory repayment is worked out from this and withheld from take-home.">HELP/HECS owing $</label><input type="number" min="0" step="500" class="tax-help" value="' + settings.helpBalance + '"></div>' +
-          '<div class="proj-field"><label title="Separate from the Cash / Sacrifice column on income rows above — use this for sacrifice not tied to a specific item">Manual sacrifice $/yr</label><input type="number" min="0" step="500" class="tax-sacrifice" value="' + settings.superSacrificeAnnual + '"><button type="button" class="calc-hint-link" style="margin-top:4px" data-tax-maxcap="' + pid + '" title="Fills your remaining concessional cap headroom this year with manual sacrifice (SG and any auto/bonus sacrifice already counted): sets manual sacrifice to ' + fmtCurrency0.format(Math.max(0, r.capAvailable - r.sg - r.autoSacrifice)) + '">Max out cap</button></div>' +
+          '<div class="proj-field"><label title="What you still owe on HELP/HECS (or any other study loan with the same repayment schedule). Leave at 0 if you have none. The compulsory repayment is worked out from this and withheld from take-home.">HELP/HECS owing $</label><input type="number" min="0" step="500" class="tax-help" aria-label="HELP/HECS owing for ' + pid + '" value="' + settings.helpBalance + '"></div>' +
+          '<div class="proj-field"><label title="Separate from the Cash / Sacrifice column on income rows above — use this for sacrifice not tied to a specific item">Manual sacrifice $/yr</label><input type="number" min="0" step="500" class="tax-sacrifice" aria-label="Manual super sacrifice per year for ' + pid + '" value="' + settings.superSacrificeAnnual + '"><button type="button" class="calc-hint-link" style="margin-top:4px" data-tax-maxcap="' + pid + '" title="Fills your remaining concessional cap headroom this year with manual sacrifice (SG and any auto/bonus sacrifice already counted): sets manual sacrifice to ' + fmtCurrency0.format(Math.max(0, r.capAvailable - r.sg - r.autoSacrifice)) + '">Max out cap</button></div>' +
         '</div>' +
         '<details class="tax-advanced"><summary>Advanced — concessional cap &amp; carry-forward</summary>' +
           '<div class="tax-inputs">' +
-            '<div class="proj-field"><label>Concessional cap $/yr</label><input type="number" min="0" step="500" class="tax-cap" value="' + settings.concessionalCap + '"></div>' +
-            '<div class="proj-field"><label>Carry-forward available $</label><input type="number" min="0" step="500" class="tax-carryforward" value="' + settings.carryForward + '"></div>' +
+            '<div class="proj-field"><label>Concessional cap $/yr</label><input type="number" min="0" step="500" class="tax-cap" aria-label="Concessional cap per year for ' + pid + '" value="' + settings.concessionalCap + '"></div>' +
+            '<div class="proj-field"><label>Carry-forward available $</label><input type="number" min="0" step="500" class="tax-carryforward" aria-label="Carry-forward available for ' + pid + '" value="' + settings.carryForward + '"></div>' +
           '</div>' +
         '</details>' +
       '</div>' +

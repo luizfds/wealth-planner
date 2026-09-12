@@ -70,7 +70,7 @@
     all:unset; box-sizing:border-box; display:inline-flex; align-items:center; gap:6px;
     padding:6px 11px; border-radius:8px; border:1px solid var(--border);
     background: var(--paper-raised); color: var(--ink-soft); font-size:12px; cursor:pointer;
-    white-space:nowrap;
+    white-space:nowrap; min-height:40px;
   }
   .filter-chip b{ color: var(--ink); font-weight:600; }
   .filter-chip:hover{ border-color: var(--brass); }
@@ -88,7 +88,7 @@
      a phone there is no hover — three bare dots floating in whitespace don't read as a button. */
   .page-overflow-btn{
     all:unset; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center;
-    width:32px; height:32px; border-radius:8px; cursor:pointer;
+    width:40px; height:40px; border-radius:8px; cursor:pointer;
     border:1px solid var(--border); background: var(--paper-raised); color: var(--ink-soft);
     font-size:18px; line-height:1;
   }

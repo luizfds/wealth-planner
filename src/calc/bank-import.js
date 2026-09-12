@@ -192,6 +192,18 @@ export function detectColumns(rows){
 // bank statement actually distinguishes two transactions by. Two genuinely identical purchases on
 // one day (two $4.50 coffees) collapse into one key — so the count is per key, and a second
 // identical row only reads as a duplicate once the first has been matched.
+//
+// There is a second, quieter case, and it is the one that matters most: a transaction logged BY
+// HAND carries no description at all. logExpenseTransaction() leaves `what` blank on purpose, so
+// the row displays its budget line's name rather than a stale copy of it. That means the person
+// this whole feature is for — someone who has been logging by hand and is now importing instead —
+// would re-import every purchase they had already logged, and see their spending silently double
+// over the overlap.
+//
+// Matching those on date + amount alone is the only evidence available, and it is weaker evidence:
+// two unrelated $20 purchases on one day are not far-fetched. So they are flagged separately, as
+// `possibleDuplicate`, left out of the import by default, and counted out loud — the user decides,
+// rather than the app either double-counting in silence or dropping real spending in silence.
 export function normaliseDescription(s){
   return (s || "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
 }
@@ -218,9 +230,16 @@ export function parseBankCsv(rows, opts){
   var dateOrder = opts.dateOrder || detectDateOrder(data.map(function(r){ return r[columns.date]; }));
 
   var seen = Object.create(null);
+  var seenUndescribed = Object.create(null);
   (opts.existing || []).forEach(function(t){
-    var k = transactionKey(t.date, t.amount, t.what || t.importDescription || "");
-    seen[k] = (seen[k] || 0) + 1;
+    var described = normaliseDescription(t.what || "");
+    if(described){
+      var k = transactionKey(t.date, t.amount, t.what);
+      seen[k] = (seen[k] || 0) + 1;
+    } else {
+      var ku = transactionKey(t.date, t.amount, "");
+      seenUndescribed[ku] = (seenUndescribed[ku] || 0) + 1;
+    }
   });
 
   var out = [], errors = [];
@@ -237,14 +256,23 @@ export function parseBankCsv(rows, opts){
     var key = transactionKey(dateStr, signed, description);
     var duplicate = (seen[key] || 0) > 0;
     if(duplicate) seen[key]--;
-    else seen[key] = 0;
+    // Only ever a *possible* duplicate, and only when it isn't already a certain one — the
+    // undescribed pool is consumed per match for the same reason the described one is, so two
+    // hand-logged $20 rows on a day absorb two bank rows and a third stays new.
+    var possibleDuplicate = false;
+    if(!duplicate){
+      var undescribedKey = transactionKey(dateStr, signed, "");
+      possibleDuplicate = (seenUndescribed[undescribedKey] || 0) > 0;
+      if(possibleDuplicate) seenUndescribed[undescribedKey]--;
+    }
     out.push({
       row: rowNum,
       date: dateStr,
       amount: Math.abs(signed),
       direction: signed < 0 ? "debit" : "credit",
       description: description,
-      duplicate: duplicate
+      duplicate: duplicate,
+      possibleDuplicate: possibleDuplicate
     });
   });
   return { rows: out, errors: errors, columns: columns, dateOrder: dateOrder, headerOk: true };
@@ -276,14 +304,15 @@ function signedAmountFor(cells, columns){
 // date range, what got read, and how the dates were read, since that last one is the decision most
 // likely to be silently wrong and the user is the only one who can confirm it.
 export function bankImportSummary(parsed){
-  var spend = parsed.rows.filter(function(r){ return r.direction === "debit" && !r.duplicate; });
+  var spend = parsed.rows.filter(function(r){ return r.direction === "debit" && !r.duplicate && !r.possibleDuplicate; });
   var dates = parsed.rows.map(function(r){ return r.date; }).sort();
   return {
     total: parsed.rows.length,
     newSpend: spend.length,
     newSpendAmount: spend.reduce(function(s, r){ return s + r.amount; }, 0),
-    credits: parsed.rows.filter(function(r){ return r.direction === "credit" && !r.duplicate; }).length,
+    credits: parsed.rows.filter(function(r){ return r.direction === "credit" && !r.duplicate && !r.possibleDuplicate; }).length,
     duplicates: parsed.rows.filter(function(r){ return r.duplicate; }).length,
+    possibleDuplicates: parsed.rows.filter(function(r){ return r.possibleDuplicate; }).length,
     skipped: parsed.errors.length,
     firstDate: dates.length ? dates[0] : null,
     lastDate: dates.length ? dates[dates.length - 1] : null,

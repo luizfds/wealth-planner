@@ -214,3 +214,45 @@ test("the future-dates flag tolerates a few pending entries but catches a misrea
   var farOut = parseBankCsv(parseCsv(["Date,Description,Amount", "02/09/2099,COLES,-88.40"].join("\n")));
   assert.equal(bankImportSummary(farOut).hasFutureDates, true);
 });
+
+test("a purchase already logged BY HAND is not imported a second time", function(){
+  // The bug this exists to prevent, and the one that matters most: logExpenseTransaction() leaves
+  // `what` blank on purpose so a linked row shows its budget line's name. So the person this whole
+  // feature is for — someone who has been logging by hand and now imports instead — would
+  // re-import everything they'd already logged, and watch their spending silently double.
+  var handLogged = [{ id: "t1", date: "2026-09-02", amount: 45.20, what: "", linkedExpenseId: "e1" }];
+  var parsed = parseBankCsv(parseCsv('02/09/2026,-45.20,"WOOLWORTHS 1234 SYDNEY NS",1250.30'), { existing: handLogged });
+  assert.equal(parsed.rows[0].duplicate, false, "not a certain duplicate — the descriptions don't match");
+  assert.equal(parsed.rows[0].possibleDuplicate, true, "but the date and amount do, which is all the evidence there is");
+  assert.equal(bankImportSummary(parsed).newSpend, 0, "so it is not counted as new spending");
+  assert.equal(bankImportSummary(parsed).possibleDuplicates, 1);
+});
+
+test("a possible duplicate is consumed per match, not treated as a blanket rule", function(){
+  // Two hand-logged $20 rows on one day absorb two bank rows; a third is genuinely new.
+  var handLogged = [
+    { id: "t1", date: "2026-09-02", amount: 20, what: "" },
+    { id: "t2", date: "2026-09-02", amount: 20, what: "" }
+  ];
+  var parsed = parseBankCsv(parseCsv([
+    "02/09/2026,-20.00,SHOP A",
+    "02/09/2026,-20.00,SHOP B",
+    "02/09/2026,-20.00,SHOP C"
+  ].join("\n")), { existing: handLogged });
+  assert.deepEqual(parsed.rows.map(function(r){ return r.possibleDuplicate; }), [true, true, false]);
+});
+
+test("an exact duplicate is never also counted as a possible one", function(){
+  // Double-counting the same row in two buckets would overstate what's being skipped.
+  var existing = [{ id: "t1", date: "2026-09-02", amount: 45.20, what: "WOOLWORTHS 1234 SYDNEY NS" }];
+  var parsed = parseBankCsv(parseCsv('02/09/2026,-45.20,"WOOLWORTHS 1234 SYDNEY NS",1250.30'), { existing: existing });
+  assert.equal(parsed.rows[0].duplicate, true);
+  assert.equal(parsed.rows[0].possibleDuplicate, false);
+});
+
+test("a hand-logged row on a different day or amount doesn't suppress anything", function(){
+  var handLogged = [{ id: "t1", date: "2026-09-01", amount: 45.20, what: "" }];
+  var parsed = parseBankCsv(parseCsv('02/09/2026,-45.20,"WOOLWORTHS",1250.30'), { existing: handLogged });
+  assert.equal(parsed.rows[0].possibleDuplicate, false);
+  assert.equal(bankImportSummary(parsed).newSpend, 1);
+});

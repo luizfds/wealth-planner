@@ -84,7 +84,7 @@ function addDays(isoStr, days){
 
 // ---------------- Amounts ----------------
 // Bank exports wrap negatives in parentheses as often as they use a minus sign, and thousands
-// separators are routine. "$***" and "(1,234.56)" and "-1234.56" all have to land.
+// separators are routine. "$1,234.56" and "(1,234.56)" and "-1234.56" all have to land.
 export function parseBankAmount(raw){
   var s = (raw || "").trim();
   if(!s) return null;
@@ -190,7 +190,7 @@ export function detectColumns(rows){
 // Re-importing an overlapping date range is the normal case, not the edge case: you export "last
 // 3 months" every month. Keyed on date + amount + a normalised description, which is everything a
 // bank statement actually distinguishes two transactions by. Two genuinely identical purchases on
-// one day (two $*** coffees) collapse into one key — so the count is per key, and a second
+// one day (two $4.50 coffees) collapse into one key — so the count is per key, and a second
 // identical row only reads as a duplicate once the first has been matched.
 //
 // There is a second, quieter case, and it is the one that matters most: a transaction logged BY
@@ -201,7 +201,7 @@ export function detectColumns(rows){
 // over the overlap.
 //
 // Matching those on date + amount alone is the only evidence available, and it is weaker evidence:
-// two unrelated $*** purchases on one day are not far-fetched. So they are flagged separately, as
+// two unrelated $20 purchases on one day are not far-fetched. So they are flagged separately, as
 // `possibleDuplicate`, left out of the import by default, and counted out loud — the user decides,
 // rather than the app either double-counting in silence or dropping real spending in silence.
 export function normaliseDescription(s){
@@ -218,13 +218,36 @@ export function transactionKey(dateStr, amount, description){
 //
 // Credits (money in) are parsed and returned rather than dropped: a refund is a real thing to see
 // in a review screen, and deciding what to do with it is the caller's call, not the parser's.
+// What a file was missing, for a failure message that names it rather than guessing.
+//
+// "Couldn't find a date column and an amount column" is wrong half the time it is shown: a file
+// with Merchant/Spend/Notes has a perfectly good amount column and no date, and being told both
+// are missing sends the reader looking for the wrong thing. Returns the roles actually found and
+// the ones still needed, so the UI can say which.
+export function parseDiagnosis(columns){
+  columns = columns || {};
+  var hasDate = columns.date !== undefined;
+  var hasAmount = columns.amount !== undefined || columns.debit !== undefined || columns.credit !== undefined;
+  var found = [];
+  if(hasDate) found.push("date");
+  if(hasAmount) found.push("amount");
+  if(columns.description !== undefined) found.push("description");
+  var missing = [];
+  if(!hasDate) missing.push("date");
+  if(!hasAmount) missing.push("amount");
+  return { hasDate: hasDate, hasAmount: hasAmount, found: found, missing: missing, hadHeader: !!columns.hadHeader };
+}
+
 export function parseBankCsv(rows, opts){
   opts = opts || {};
   if(!rows || !rows.length) return { rows: [], errors: [], columns: {}, dateOrder: "DMY", headerOk: false };
   var columns = detectColumns(rows);
   var usable = columns.date !== undefined &&
     (columns.amount !== undefined || columns.debit !== undefined || columns.credit !== undefined);
-  if(!usable) return { rows: [], errors: [], columns: columns, dateOrder: "DMY", headerOk: false };
+  // firstRow travels with the failure: the fastest way for someone to see why their file wasn't
+  // read is to be shown the row the app read, rather than told a rule about columns.
+  if(!usable) return { rows: [], errors: [], columns: columns, dateOrder: "DMY", headerOk: false,
+    firstRow: (rows[0] || []).slice(0, 6) };
 
   var data = rows.slice(columns.hadHeader ? 1 : 0);
   var dateOrder = opts.dateOrder || detectDateOrder(data.map(function(r){ return r[columns.date]; }));
@@ -258,7 +281,7 @@ export function parseBankCsv(rows, opts){
     if(duplicate) seen[key]--;
     // Only ever a *possible* duplicate, and only when it isn't already a certain one — the
     // undescribed pool is consumed per match for the same reason the described one is, so two
-    // hand-logged $*** rows on a day absorb two bank rows and a third stays new.
+    // hand-logged $20 rows on a day absorb two bank rows and a third stays new.
     var possibleDuplicate = false;
     if(!duplicate){
       var undescribedKey = transactionKey(dateStr, signed, "");

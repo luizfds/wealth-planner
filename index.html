@@ -114,7 +114,7 @@
       <!-- The number lives in its own span because it is *parsed*, both out of this DOM and out of
            a freshly-fetched copy of this file, to decide whether a newer version is deployed. Left
            bare in the <p>, the "Check for updates" button beside it would end up inside the match. -->
-      <p class="app-version"><span class="app-version-num">v3.4.0</span> · <button type="button" class="link-btn" id="checkUpdatesLink">Check for updates</button></p>
+      <p class="app-version"><span class="app-version-num">v3.5.0</span> · <button type="button" class="link-btn" id="checkUpdatesLink">Check for updates</button></p>
     </div>
     <div class="mobile-header-right">
       <button type="button" class="icon-btn" id="mobileSearchBtn" aria-label="Search">
@@ -341,6 +341,10 @@
             </summary>
             <div class="ledger-body">
               <p class="ledger-note" style="margin-left:0">Export a CSV from your bank and drop it in here. One statement replaces a month of tapping — and the app remembers where each shop goes, so the next one is mostly already done.</p>
+              <!-- Filled by renderBankImportHelp() on load. Available before picking a file, not
+                   only after one fails to parse: the note above otherwise leaves the reader to
+                   find out what's accepted by being rejected. -->
+              <div id="bankImportHelp"></div>
               <!-- Rendered by renderBankImportPanel(). Nothing is written to state until the
                    Import button inside this panel is pressed. -->
               <div id="bankImportPanel" hidden></div>

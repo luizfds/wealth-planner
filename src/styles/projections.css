@@ -11,7 +11,7 @@
   .proj-field label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; }
   .proj-field input[type="number"]{
     border:1px solid var(--border); background: var(--paper-raised); color: var(--ink);
-    padding:6px 8px; border-radius:7px; font-size:13px; width:110px; text-align:right;
+    padding:6px 8px; border-radius:7px; font-size:13px; width:110px; text-align:right; min-height:40px;
   }
   .proj-field input[type="number"]:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); transition: border-color .18s ease, box-shadow .18s ease; }
   /* Properties' "Actually received" (prop-income-paid-freq) is the one .proj-field that holds a
@@ -22,11 +22,14 @@
      into a right-aligned number column). */
   .proj-field select{
     border:1px solid var(--border); background: var(--paper-raised); color: var(--ink);
-    padding:6px 8px; border-radius:7px; font-size:13px; font-family:inherit;
+    padding:6px 8px; border-radius:7px; font-size:13px; font-family:inherit; min-height:40px;
   }
   .proj-field select:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); transition: border-color .18s ease, box-shadow .18s ease; }
+  /* 16px was the whole control — track, thumb and every pixel you could grab. The track and thumb
+     are unchanged; only the box around them grows, so the slider looks the same and can actually
+     be caught with a thumb. */
   .proj-slider{
-    -webkit-appearance:none; appearance:none; width:110px; height:16px; margin:2px 0 0; background:transparent; cursor:pointer;
+    -webkit-appearance:none; appearance:none; width:110px; height:40px; margin:0; background:transparent; cursor:pointer;
   }
   .proj-slider::-webkit-slider-runnable-track{ height:4px; border-radius:100px; background: var(--border); }
   .proj-slider::-moz-range-track{ height:4px; border-radius:100px; background: var(--border); }
@@ -52,7 +55,7 @@
   .series-line{ fill:none; stroke: var(--series-color); stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
   .series-dot{ fill: var(--series-color); }
   .proj-legend{ display:flex; flex-wrap:wrap; gap:14px; margin-bottom:10px; font-size:12px; }
-  .proj-legend-item{ display:flex; align-items:center; gap:6px; color: var(--ink-soft); }
+  .proj-legend-item{ display:flex; align-items:center; gap:6px; color: var(--ink-soft); min-height:32px; }
   .proj-legend-item b{ color: var(--ink); font-weight:600; }
   .proj-swatch{ width:10px; height:10px; border-radius:3px; background: var(--series-color); flex:none; }
   .proj-legend-item-toggle{ cursor:pointer; border-radius:5px; padding:2px 6px; margin:-2px -6px; user-select:none; }

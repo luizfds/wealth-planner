@@ -139,10 +139,21 @@
   }
 
   button{ font: inherit; cursor: pointer; }
+  /* Touch targets.
+     ---------------
+     Measured across all eight pages at 390px before this pass: 261 visible, reachable controls
+     under 40px tall against 53 at or above it. This app is built mobile-first and used daily on a
+     phone, so the shared control rules now carry a min-height rather than leaving each control's
+     size to fall out of its padding.
+     Two sizes: 44px for something you tap on its own (a button, "+ Add row"), 40px for controls
+     that come in runs — form fields down an edit panel, segmented options, chips, icon buttons —
+     where 44 each would push a list well past a screenful for little gain. Inline links inside a
+     sentence are deliberately left alone: growing them vertically overlaps the lines above and
+     below, and WCAG 2.5.8 exempts targets in a block of text for exactly that reason. */
   .btn{
     border:1px solid var(--border); background: var(--paper-raised); color: var(--ink);
     padding: 7px 13px; border-radius: 8px; font-size: 13px; font-weight: 500;
-    display:inline-flex; align-items:center; gap:6px;
+    display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:44px;
   }
   /* [hidden] alone does nothing here — .btn already sets its own display (see CLAUDE.md) — used
      to feature-detect-hide the Share button in browsers without file-capable Web Share. */
@@ -155,7 +166,9 @@
   .btn-primary:hover{ background: var(--brass-strong); border-color: var(--brass-strong); }
   .btn-ghost{ background: transparent; border-color: transparent; color: var(--ink-soft); padding:7px 8px; }
   .btn-ghost:hover{ color: var(--bad); }
-  .btn-sm{ padding: 4px 9px; font-size: 12px; border-radius: 6px; }
+  /* Small only in its type and padding — a "small" button is still something you tap on purpose,
+     so it keeps a 40px box around its 12px label. */
+  .btn-sm{ padding: 4px 9px; font-size: 12px; border-radius: 6px; min-height:40px; }
   input[type="file"]{ display:none; }
 
   /* ---------------- Categorical series palette (validated: dataviz skill) ---------------- */

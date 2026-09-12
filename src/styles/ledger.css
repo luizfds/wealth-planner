@@ -104,6 +104,7 @@
   .groupby-option{
     all:unset; box-sizing:border-box; cursor:pointer; font-family:inherit; font-size:12px; font-weight:600;
     padding:5px 11px; border-radius:100px; color: var(--ink-soft); border:1px solid transparent;
+    display:inline-flex; align-items:center; min-height:40px;
   }
   .groupby-option:hover{ color: var(--ink); border-color: var(--border); }
   .groupby-option:focus-visible{ box-shadow: var(--focus-ring); outline:none; }
@@ -192,18 +193,19 @@
   .acct-mgmt-row .m-row-summary{ cursor:default; }
   .acct-mgmt-name, .cat-mgmt-name{
     flex:1 1 140px; min-width:100px; padding:5px 6px; border:1px solid var(--border); border-radius:6px;
-    background: var(--paper); color: var(--ink); font-family:inherit; font-size:13px;
+    background: var(--paper); color: var(--ink); font-family:inherit; font-size:13px; min-height:40px;
   }
   /* The "used by N lines" note next to a category's name. Lived in shell.css while its own row's
      styling lived here, which is how the input above came to be forgotten — kept together now. */
   .cat-mgmt-count{ font-size:11.5px; color: var(--ink-soft); white-space:nowrap; }
   .acct-mgmt-type{
     flex:1 1 200px; font-size:12.5px; padding:5px 6px; border:1px solid var(--border); border-radius:6px;
-    background: var(--paper); color: var(--ink); font-family:inherit;
+    background: var(--paper); color: var(--ink); font-family:inherit; min-height:40px;
   }
   .acct-mgmt-day{
     width:64px; flex:none; text-align:center; font-family:"IBM Plex Mono", monospace; font-size:13px;
     padding:5px 6px; border:1px solid var(--border); border-radius:6px; background: var(--paper); color: var(--ink);
+    min-height:40px;
   }
   .acct-mgmt-name:focus, .cat-mgmt-name:focus, .acct-mgmt-type:focus, .acct-mgmt-day:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
   .row-breakdown-toggle{
@@ -424,9 +426,12 @@
      weight, no uppercase) so a form scans as "these are the fields" first and "this one you can
      skip" second, rather than every label competing at the same visual weight. */
   .m-edit-field label .label-optional{ text-transform:none; letter-spacing:0; font-weight:500; opacity:.75; }
+  /* 40px, not the 29-31px that 6px of padding produced: these are the fields you actually fill in
+     on a phone, several in a row, and they were the single largest group of undersized controls in
+     the app. See the touch-target note in base.css. */
   .m-edit-field input, .m-edit-field select{
     width:100%; border:1px solid var(--border); background: var(--paper); color: var(--ink); border-radius:7px;
-    padding:6px 8px; font-size:13px; font-family:inherit;
+    padding:6px 8px; font-size:13px; font-family:inherit; min-height:40px;
   }
   /* Same "numbers are mono" rule every other amount on the page follows (the row summary this
      panel expands from is already mono) — font-family:inherit above is for the text/select
@@ -444,8 +449,14 @@
   .row-more-options summary{ cursor:pointer; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; padding:6px 0; user-select:none; }
   .row-more-options summary:hover{ color: var(--ink); }
   .row-more-options[open] summary{ margin-bottom:8px; }
-  .m-checkbox-field{ display:flex; align-items:center; gap:7px; font-size:12.5px; color: var(--ink); cursor:pointer; }
-  .m-checkbox-field input{ width:auto !important; }
+  /* The 13px browser-default checkbox was the smallest target in the app. The box grows to 22px
+     and the label row to 44px — and because the <input> sits inside its <label>, the whole row is
+     the target, which is the part that actually matters on a phone. */
+  .m-checkbox-field{
+    display:flex; align-items:center; gap:9px; font-size:12.5px; color: var(--ink); cursor:pointer;
+    min-height:44px;
+  }
+  .m-checkbox-field input{ width:22px !important; height:22px; min-height:0; flex:none; accent-color: var(--brass); }
   .m-edit-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:10px; }
   .m-row.computed .m-row-summary{ background: var(--brass-wash); cursor:default; }
   .m-row.computed .m-row-name{ color: var(--brass-strong); }
@@ -455,6 +466,7 @@
   .m-add-row{
     all:unset; box-sizing:border-box; display:flex; align-items:center; justify-content:center; gap:6px; width:100%;
     padding:10px; font-size:12.5px; font-weight:600; color: var(--ink-soft); cursor:pointer; border-top:1px dashed var(--border);
+    min-height:44px;
   }
   .m-add-row:hover{ color: var(--brass-strong); background: var(--paper-sunken); }
   .m-add-row:focus-visible{ box-shadow: inset 0 0 0 2px var(--brass); }

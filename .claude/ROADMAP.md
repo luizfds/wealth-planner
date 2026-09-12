@@ -428,6 +428,32 @@ Driving the app is not optional here.
 
 ---
 
+## 8. `[~]` Finish what item 7 started
+
+Three things item 7 measured and left standing.
+
+**a. The import can't create a budget line.** Importing 12 rows into an app with no budget set up
+placed **0 of 11** — all 8 merchant groups in "Needs you", and the only options in the dropdown were
+the seeded housing rows. So the importer works beautifully if you've already built a budget by hand
+and does almost nothing if you haven't. It already knows the merchant, the category you pick, and
+what you actually spend there, which is everything a budget line needs. Creating one from a group
+turns a single statement into a working budget — the onboarding path this app has never had.
+
+**b. Refunds are dropped.** Credits are parsed, counted and named in the review screen, then thrown
+away on import. Return a $220 jacket and your spending should fall $220; right now it can't, because
+a transaction has no way to be negative. The parser already identifies them — it's the model and
+the UI that don't accept them.
+
+**c. Mobile density, the half of the audit that didn't get fixed.** The Tax & super card is
+**1,828px** on an 844px viewport (v2.89.0 fixed the legend, not the stacked wall of prose notes
+below it), and the Expenses page is **4,852px**. Both measured at 390px against the real backup.
+
+**How to verify.** Same as item 7: drive it. For (a), a genuinely empty app — the case that
+motivated it. For (b), a statement containing a real refund, checking the category totals and the
+month rollup both move *down*. For (c), re-measure the same two numbers rather than eyeballing.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

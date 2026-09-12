@@ -13,7 +13,7 @@ import { escapeAttr } from "../lib/html.js";
 import { optionsHtml, modernPlainRowHtml, historyTrendHtml } from "../lib/ledger-table.js";
 import { showToast } from "../lib/toast.js";
 import { appendHistorySnapshot } from "../calc/ledger.js";
-import { renderLineChart, sparklineHtml, sparklinePlaceholderHtml } from "../lib/charts.js";
+import { renderLineChart, dateAxisFormat, sparklineHtml, sparklinePlaceholderHtml } from "../lib/charts.js";
 import { renderPropertyExpensesSummary } from "./expenses.js";
 import { renderProjectionOutputs } from "./projections.js";
 
@@ -461,9 +461,13 @@ export function renderPropertiesValueHistoryChart(){
   renderLineChart(chartDiv, [{ label: "Total property value", colorClass: "series-color-1", points: points }], {
     height: 220,
     yFormat: function(v){ return fmtCurrency0.format(v); },
-    xFormat: function(ms){ return new Date(ms).toLocaleDateString(undefined, { year: "numeric", month: "short" }); },
+    xFormat: dateAxisFormat(points),
     xTickCount: Math.min(7, Math.max(2, dates.length)),
     ariaLabel: "Total property value over time",
+    baseline: "auto",
+    // Logged valuations, so held until the next one — a diagonal between two revaluations draws a
+    // house appreciating day by day, which is not something anybody measured.
+    stepped: true,
     alwaysLegend: false
   });
 }

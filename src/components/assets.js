@@ -5,7 +5,7 @@ import { totalAssetsValue, totalNetWorthValue, totalDebtsValue, liquidAssetsValu
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, fmtCurrency0For, fmtCurrency2For, localDateStr, fmtQtyDisplay } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { optionsHtml, historyTrendHtml } from "../lib/ledger-table.js";
-import { renderLineChart, renderStackedAreaChart, sparklineHtml, sparklinePlaceholderHtml } from "../lib/charts.js";
+import { renderLineChart, renderStackedAreaChart, dateAxisFormat, sparklineHtml, sparklinePlaceholderHtml } from "../lib/charts.js";
 import { showToast } from "../lib/toast.js";
 import { appendHistorySnapshot, daysUntil, householdYearWindow, householdYearBasis } from "../calc/ledger.js";
 import { TIME_RANGES, rangeLabel, rangeByKey, rangeStartDate, bestFitRange, timeRangeControlHtml } from "../lib/timerange.js";
@@ -422,9 +422,12 @@ export function renderAssetCategoryHistoryChart(cat){
   renderLineChart(chartDiv, [{ label: cat, colorClass: "series-color-0", points: points }], {
     height: 200,
     yFormat: function(v){ return fmtCurrency0.format(v); },
-    xFormat: function(ms){ return new Date(ms).toLocaleDateString(undefined, { year: "numeric", month: "short" }); },
+    xFormat: dateAxisFormat(points),
     xTickCount: Math.min(6, Math.max(2, points.length)),
     ariaLabel: cat + " value over time",
+    baseline: "auto",
+    // Logged snapshots hold until the next reading; see the stepped note in charts.js.
+    stepped: true,
     alwaysLegend: false
   });
   var first = points[0], last = points[points.length - 1];
@@ -791,9 +794,11 @@ export function renderSharesHistoryChart(){
   renderLineChart(chartDiv, [{ label: "Shares value", colorClass: "series-color-2", points: points }], {
     height: 220,
     yFormat: function(v){ return fmtCurrency0.format(v); },
-    xFormat: function(ms){ return new Date(ms).toLocaleDateString(undefined, { year: "numeric", month: "short" }); },
+    xFormat: dateAxisFormat(points),
     xTickCount: Math.min(7, Math.max(2, dates.length)),
     ariaLabel: "Shares value over time",
+    baseline: "auto",
+    stepped: true,
     alwaysLegend: false
   });
 }
@@ -1077,14 +1082,10 @@ export function renderAllocationChart(){
   // "Aug 2026 / Sep 2026" says almost nothing across a four-week window — inside a quarter the
   // useful unit is the day, and across years it is the month. The axis follows the window it is
   // actually drawing rather than one fixed format for all eight of them.
-  var spanDays = (new Date(dates[dates.length - 1] + "T00:00:00") - new Date(dates[0] + "T00:00:00")) / 86400000;
-  var xFormat = spanDays <= 100
-    ? function(ms){ return new Date(ms).toLocaleDateString(undefined, { day: "numeric", month: "short" }); }
-    : function(ms){ return new Date(ms).toLocaleDateString(undefined, { year: "numeric", month: "short" }); };
   renderStackedAreaChart(chartDiv, series, {
     height: 200,
     yFormat: function(v){ return fmtCurrency0.format(v); },
-    xFormat: xFormat,
+    xFormat: dateAxisFormat(series[0].points),
     xTickCount: 4,
     // No legend on the stack: the composition bar directly above it is keyed by the same colours
     // for the same buckets, so a second legend is the same key printed twice.
@@ -1099,6 +1100,12 @@ export function renderAllocationChart(){
   shift.appendChild(note);
 }
 
+// Session-only, resolved from the data on first render — same contract as allocationRange.
+var portfolioRange = null;
+export function setPortfolioRange(value){
+  portfolioRange = rangeByKey(value) ? value : "all";
+  renderPortfolioHistoryChart();
+}
 export function renderPortfolioHistoryChart(){
   var container = document.getElementById("portfolioHistoryPanel");
   if(!container) return;
@@ -1159,15 +1166,49 @@ export function renderPortfolioHistoryChart(){
   });
 
   container.innerHTML = "";
+  // The same control the allocation chart gets, for the same reason: observations cluster, and a
+  // full-history axis spends most of its width on the stretch before anything was tracked.
+  if(portfolioRange === null){
+    portfolioRange = bestFitRange(dates.filter(function(d){ return d !== today; }),
+      { today: today, yearStart: householdYearWindow().start });
+  }
+  var range = rangeByKey(portfolioRange) || rangeByKey("all");
+  var from = rangeStartDate(range, { today: today, yearStart: householdYearWindow().start });
+  // Filtered after the points are built, not before: each point's value already carries forward
+  // everything logged before it, so a short window still opens at the right level rather than at
+  // zero. Today always survives, so the line always reaches the present.
+  var shown = points.filter(function(pt){ return from === null || pt.dateLabel >= from || pt.dateLabel === today; });
+
+  // No heading of its own — the section's <summary> already says "Net worth over time", and a
+  // second copy of it inside the panel is just noise.
+  var head = document.createElement("div");
+  head.className = "alloc-shift-head chart-head-bare";
+  head.innerHTML = timeRangeControlHtml(portfolioRange, "portfolio-range", {
+      yearBasis: householdYearBasis(), ariaLabel: "Time range for the net worth history",
+      titlePrefix: "Show the last"
+    });
+  container.appendChild(head);
+
+  if(shown.length < 2){
+    var tooShort = document.createElement("p");
+    tooShort.className = "ledger-note";
+    tooShort.style.margin = "10px 0 0";
+    tooShort.textContent = "Nothing was logged in this window — and one point is not a trend. Try a longer range.";
+    container.appendChild(tooShort);
+    return;
+  }
+
   var chartDiv = document.createElement("div");
   container.appendChild(chartDiv);
 
-  renderLineChart(chartDiv, [{ label: "Net worth", colorClass: "series-color-0", points: points }], {
+  renderLineChart(chartDiv, [{ label: "Net worth", colorClass: "series-color-0", points: shown }], {
     height: 220,
     yFormat: function(v){ return fmtCurrency0.format(v); },
-    xFormat: function(ms){ return new Date(ms).toLocaleDateString(undefined, { year: "numeric", month: "short" }); },
-    xTickCount: Math.min(7, Math.max(2, dates.length)),
+    xFormat: dateAxisFormat(shown),
+    xTickCount: Math.min(7, Math.max(2, shown.length)),
     ariaLabel: "Net worth over time",
+    baseline: "auto",
+    stepped: true,
     alwaysLegend: false
   });
 }

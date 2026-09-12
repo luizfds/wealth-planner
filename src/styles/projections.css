@@ -45,6 +45,9 @@
   .proj-grid{ stroke: var(--border); stroke-width:1; }
   .proj-zero{ stroke: var(--ink-soft); stroke-width:1.2; }
   .proj-axislabel{ fill: var(--ink-soft); font-size:10px; font-family:"IBM Plex Mono",monospace; }
+  /* Set when a chart's y-axis doesn't start at zero — quiet, but present, so the truncation is
+     stated rather than left for the reader to notice from the gridline figures. */
+  .chart-axis-note{ font-size:11px; color: var(--ink-soft); margin:6px 0 0; }
   .proj-crosshair{ stroke: var(--ink-soft); stroke-width:1; stroke-dasharray:3 3; }
   .series-line{ fill:none; stroke: var(--series-color); stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
   .series-dot{ fill: var(--series-color); }

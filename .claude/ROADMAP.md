@@ -646,7 +646,7 @@ rather than 44 was chosen to limit that.
 
 ---
 
-## 13. `[~]` The first five minutes — v3.3.0
+## 13. `[x]` The first five minutes — shipped v3.3.0
 
 Every audit so far has driven the app against a real exported backup. Nobody had ever driven it
 *empty*, which is how every user starts. The empty state itself turned out sound — every page

@@ -428,7 +428,7 @@ Driving the app is not optional here.
 
 ---
 
-## 8. `[~]` Finish what item 7 started
+## 8. `[x]` Finish what item 7 started — shipped v2.95.0–v2.97.0
 
 Three things item 7 measured and left standing.
 
@@ -451,6 +451,35 @@ below it), and the Expenses page is **4,852px**. Both measured at 390px against 
 **How to verify.** Same as item 7: drive it. For (a), a genuinely empty app — the case that
 motivated it. For (b), a statement containing a real refund, checking the category totals and the
 month rollup both move *down*. For (c), re-measure the same two numbers rather than eyeballing.
+
+**What shipped, measured at 390px against the real backup:**
+
+| | Before | After |
+|---|---:|---:|
+| Empty-app import, rows placed | 0 of 11 | 3 budget lines created, $1,890 / $240 / $138.70 per month |
+| Tax & super card | 1,863px | **1,514px** |
+| Expenses page | 4,958px | **2,100px** collapsed (4,973px expanded, one tap) |
+| A refunded $420 booking | unrepresentable | line nets $200 |
+
+**Three things worth knowing before touching this again:**
+
+- **The amount on a created budget line divides by the months the *import* covers**, not the
+  months that merchant appears in. Shopping somewhere in two of three imported months is still a
+  three-month average; the other reading overstates the line by half, and this figure becomes a
+  budget the user plans against.
+- **A credit is ambiguous and the app must not guess.** It cannot tell a $220 refund from a $220
+  salary instalment from a transfer between your own accounts. Money-in rows sit in their own
+  section, default to "don't import", and only become a (negative) transaction once assigned to a
+  budget line — which is the user saying "this is a refund".
+- **A proportional bar cannot draw a negative slice.** A category that nets negative inverts its
+  own width *and* shrinks the denominator, pushing every other slice past its true share — $300 +
+  $150 − $40 rendered as 110% of a 100% bar. `categoryChartHtml()` builds the bar from the positive
+  categories only; negatives stay in the legend.
+
+**A dev-server trap, not an app bug:** the app uses real paths (`/expenses/budget`), and
+`python3 -m http.server` has no SPA fallback, so reloading a deep link 404s locally. GitHub Pages
+(`404.html`) and the service worker both handle it. Navigate to `/index.html` in a test rather
+than calling `reload()`.
 
 ---
 

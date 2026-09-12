@@ -89,6 +89,8 @@ export function defaultState(){
     // account, hits}. Written only as a side effect of confirming an import — there is no rule
     // editor, because a rule you have to go and maintain is a rule you stop maintaining.
     importRules: [],
+    // Expenses → Budget: which group cards are collapsed, by group name. See migrateState.
+    budgetGroupsCollapsed: {},
     // Named money sources referenced by the free-text "account" field elsewhere (income, shared
     // expenses, property income/expenses, transactions). {id, name, type: "debit"|"credit",
     // statementStartDay}. type controls what the Accounts card shows/expects: a credit account
@@ -271,6 +273,13 @@ export function migrateState(s){
   // is reordered/added to elsewhere — an array index would silently point at the wrong row.
   s.shared.forEach(function(item){ if(!item.id) item.id = genId("exp"); applyTimingDefaults(item); });
   if(!Array.isArray(s.transactions)) s.transactions = [];
+  // Which budget groups on the Expenses tab are collapsed, keyed by group name. Persisted rather
+  // than session-only for the same reason a property card's sections are: a structural edit
+  // anywhere on the page rebuilds the whole list, which would otherwise reset every group to its
+  // default state mid-session.
+  if(!s.budgetGroupsCollapsed || typeof s.budgetGroupsCollapsed !== "object" || Array.isArray(s.budgetGroupsCollapsed)){
+    s.budgetGroupsCollapsed = {};
+  }
   if(!Array.isArray(s.importRules)) s.importRules = [];
   // A rule with no match string can never fire and would sit in a backup forever; one with neither
   // a line nor a category fires and files the row nowhere, which reads as the app forgetting.

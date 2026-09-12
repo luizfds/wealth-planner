@@ -27,6 +27,13 @@ scenario), `assets[]` (category field distinguishes Cash/Shares/Super/Vehicle/Ot
 `projection`, `tax` (super guarantee rate, per-person settings), `fire` (current age,
 target retirement age, preservation age — see `calc/fire.js`).
 
+`budgetGroupsCollapsed{}` is which Budget-tab group cards are collapsed, by group name. Absent
+means collapsed — read that way rather than seeded on migration, because the Type and Category axes
+have entirely different group names and a category created next month has never been seen by any
+migration. Collapsed is the default for the same reason a property card's sections are: 37 budget
+lines is 4,000px of rows on a 390px screen, and each collapsed card still states its own monthly
+total.
+
 `importRules[]` is `{id, match, linkedExpenseId, category, account, hits}` — what the bank-import
 review screen has been taught, written only as a side effect of confirming an import. There is
 deliberately no rule editor: a rule you have to go and maintain is a rule you stop maintaining.

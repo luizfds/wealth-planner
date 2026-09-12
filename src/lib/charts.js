@@ -46,6 +46,62 @@ export function sparklinePlaceholderHtml(width, height){
     '<line x1="2" y1="' + y + '" x2="' + (width - 2) + '" y2="' + y + '" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 3" stroke-linecap="round"/></svg>';
 }
 
+// The x-axis label format a dated chart should use, given how much time it spans.
+//
+// "Aug 2026 / Sep 2026" says almost nothing across a four-week window — inside a quarter the useful
+// unit is the day, and across years it is the month. Shared rather than written out at each call
+// site, because the four charts that need it were already drifting: the range controls make the
+// same chart span a day or a decade depending on which button is pressed.
+export function dateAxisFormat(points){
+  var pts = points || [];
+  var spanDays = pts.length > 1 ? (pts[pts.length - 1].x - pts[0].x) / 86400000 : 0;
+  var fmt = spanDays <= 100
+    ? { day: "numeric", month: "short" }
+    : { year: "numeric", month: "short" };
+  return function(ms){ return new Date(ms).toLocaleDateString(undefined, fmt); };
+}
+
+// ---------------- Shared sizing ----------------
+// Both full charts stretch to fill their container, and both used to be laid out in a nominal
+// 720-unit box regardless of the box they actually got. That distorts text in two different ways
+// depending on how the SVG scales: the stacked chart (preserveAspectRatio="none") squashed its
+// labels to 44% of their width, and the line chart (uniform scale, height:auto) shrank an 11px
+// font to 6px — unreadable on a phone. Measuring first makes the scale 1:1 in both.
+//
+// A container that isn't laid out yet measures 0 — which is the normal case, because the first
+// render of every chart happens inside renderAll() while its page is still display:none. The old
+// nominal width is the fallback, and observeWidth() below redraws once a real one exists.
+function measuredWidth(container, fallback){
+  var w = Math.round(container.getBoundingClientRect().width);
+  return w > 80 ? w : fallback;
+}
+// Redraw when the container's width changes by enough to matter: the hidden-page case above,
+// window resizes, and a collapsible ledger being reopened — in one place, rather than every caller
+// remembering to redraw on every event that changes a width.
+function observeWidth(container, drawnAt, redraw){
+  if(typeof ResizeObserver !== "function") return;
+  if(container._chartRO){ container._chartRO.disconnect(); container._chartRO = null; }
+  var ro = new ResizeObserver(function(entries){
+    var now = Math.round(entries[0].contentRect.width);
+    // >2px, or a redraw that nudges the width by a rounding error observes itself forever.
+    if(now > 80 && Math.abs(now - drawnAt) > 2){
+      ro.disconnect();
+      if(container._chartRO === ro) container._chartRO = null;
+      redraw();
+    }
+  });
+  ro.observe(container);
+  container._chartRO = ro;
+}
+// The left gutter has to hold the widest y label, which depends on the numbers *and* the caller's
+// formatter — a fixed 60 fits "$4,200" and clips "$664,908". Estimated rather than measured
+// (measuring means rendering, and the gutter decides where to render), at ~6.3px per character for
+// an 11px face, then capped so a chart of very large numbers still has a chart left in it.
+function gutterFor(labels, W, fontPx){
+  var widest = labels.reduce(function(m, l){ return Math.max(m, String(l).length); }, 0);
+  return Math.min(Math.round(W * 0.4), Math.max(34, Math.ceil(widest * ((fontPx || 11) * 0.575)) + 12));
+}
+
 export function renderLineChart(container, series, opts){
   opts = opts || {};
   container.innerHTML = "";
@@ -54,19 +110,46 @@ export function renderLineChart(container, series, opts){
     container.innerHTML = '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">' + (opts.emptyMessage || "Not enough data yet.") + '</p>';
     return;
   }
-  var W = 720, H = opts.height || 260;
-  var padL = 60, padR = 16, padT = 14, padB = 26;
-  var innerW = W - padL - padR, innerH = H - padT - padB;
+  var W = measuredWidth(container, 720), H = opts.height || 260;
+  observeWidth(container, W, function(){ renderLineChart(container, series, opts); });
+  var padR = 16, padT = 14, padB = 26;
 
   var xs = [], ys = [];
   validSeries.forEach(function(s){ s.points.forEach(function(p){ xs.push(p.x); ys.push(p.y); }); });
   var xMin = Math.min.apply(null, xs), xMax = Math.max.apply(null, xs);
   if(xMin === xMax) xMax = xMin + 1;
-  var yMin = Math.min(0, Math.min.apply(null, ys));
-  var yMax = Math.max.apply(null, ys);
+  var yLo = Math.min.apply(null, ys), yHi = Math.max.apply(null, ys);
+  var yMin = Math.min(0, yLo);
+  var yMax = yHi;
+  // opts.baseline === "auto": start the axis near the data instead of at zero.
+  //
+  // A zero baseline on a $560k net worth puts every real movement inside the top fifth of the
+  // chart — and once the range control lets you zoom to a week, that week is a flat line whatever
+  // happened in it. A line chart can honestly do this where a bar chart cannot: bars encode
+  // magnitude as length from zero, a line encodes it as position against a labelled axis, and
+  // every gridline here carries its own dollar figure.
+  //
+  // Zero still wins whenever the data is actually near it, or spans enough of its own magnitude
+  // that the zoom buys nothing — so an account growing from nothing keeps its true shape.
+  var truncated = false;
+  if(opts.baseline === "auto" && yLo > 0 && (yHi - yLo) < yHi * 0.4){
+    var span = (yHi - yLo) || Math.abs(yHi) * 0.02 || 1;
+    yMin = yLo - span * 0.25;
+    yMax = yHi + span * 0.25;
+    truncated = true;
+  }
   if(yMax === yMin) yMax = yMin + 1;
   var yPad = (yMax - yMin) * 0.08;
   yMax += yPad; if(yMin < 0) yMin -= yPad;
+
+  var ticks = 5;
+  var yLabels = [];
+  for(var li = 0; li <= ticks; li++){
+    var lv = yMin + (yMax - yMin) * li / ticks;
+    yLabels.push(opts.yFormat ? opts.yFormat(lv) : Math.round(lv));
+  }
+  var padL = gutterFor(yLabels, W, 10);
+  var innerW = W - padL - padR, innerH = H - padT - padB;
 
   function xScale(x){ return padL + (x - xMin) / (xMax - xMin) * innerW; }
   function yScale(y){ return padT + innerH - (y - yMin) / (yMax - yMin) * innerH; }
@@ -112,7 +195,6 @@ export function renderLineChart(container, series, opts){
 
   var svg = svgEl("svg", { viewBox: "0 0 " + W + " " + H, class: "proj-svg", role: "img", "aria-label": opts.ariaLabel || "Chart" });
 
-  var ticks = 5;
   for(var i = 0; i <= ticks; i++){
     var yVal = yMin + (yMax - yMin) * i / ticks;
     var yPix = yScale(yVal);
@@ -131,22 +213,57 @@ export function renderLineChart(container, series, opts){
   // repeated label rather than showing "Jul 2026" twice in a row with nothing distinguishing
   // them. Only checked against the *previous* tick, not all previous ticks, so a label is free
   // to legitimately recur later (e.g. a multi-year axis crossing back into "Q1" territory).
-  var lastXLabel = null;
+  var lastXLabel = null, lastXPix = -Infinity;
+  // Also drop any label that would land within a label's width of the previous one. Skipping only
+  // *identical* neighbours was enough while the canvas was a nominal 720 units wide, because the
+  // labels were being shrunk to 6px along with everything else. Now that they render at their
+  // real size, seven ticks across a 316px phone is about 36px apart — and "Aug 24" printed on top
+  // of "Aug 27" at both ends of the axis.
+  var minGap = Math.max(44, Math.round(W / 7));
   for(var ti = 0; ti < xTickCount; ti++){
     var xv = xMin + (xMax - xMin) * ti / (xTickCount - 1);
     var xPix = xScale(xv);
-    var xvLabel = (ti === 0) ? xMin : (ti === xTickCount - 1) ? xMax : Math.round(xv);
+    var isLast = ti === xTickCount - 1;
+    var xvLabel = (ti === 0) ? xMin : isLast ? xMax : Math.round(xv);
     var xText = opts.xFormat ? opts.xFormat(xvLabel) : xvLabel;
     if(xText === lastXLabel) continue;
-    lastXLabel = xText;
-    var anchor = ti === 0 ? "start" : (ti === xTickCount - 1 ? "end" : "middle");
+    // The last tick is the one label worth crowding for — it says where the line ends — so it
+    // evicts its neighbour rather than being dropped by it.
+    if(xPix - lastXPix < minGap){
+      if(!isLast) continue;
+      if(svg.lastChild && svg.lastChild.getAttribute && svg.lastChild.getAttribute("class") === "proj-axislabel"){
+        svg.removeChild(svg.lastChild);
+      }
+    }
+    lastXLabel = xText; lastXPix = xPix;
+    var anchor = ti === 0 ? "start" : (isLast ? "end" : "middle");
     var xlbl = svgEl("text", { x: xPix, y: H - 8, "text-anchor": anchor, class: "proj-axislabel" });
     xlbl.textContent = xText;
     svg.appendChild(xlbl);
   }
 
   validSeries.forEach(function(s, idx){
-    var d = s.points.map(function(p, pidx){ return (pidx === 0 ? "M" : "L") + xScale(p.x).toFixed(1) + "," + yScale(p.y).toFixed(1); }).join(" ");
+    // opts.stepped: hold each value until the next reading, instead of joining two observations
+    // with a diagonal.
+    //
+    // For *logged history* the diagonal is a claim nobody made. On the reference data the only
+    // observations were July 2025, August 2025, then nothing until August 2026 — and the line drew
+    // net worth climbing steadily from $166k to $650k across that year. What happened was flat
+    // super for twelve months and a jump in one week, when the property and shares were first
+    // entered into the app. A snapshot says "this was its value on this date, and it held until
+    // the next reading"; a step draws that, a diagonal invents a year of growth out of the gap.
+    //
+    // For a *projection* the diagonal is correct — a continuous model really does pass through
+    // every point between its samples. So it is per-series first, falling back to per-call: the
+    // projection-accuracy panel overlays exactly these two kinds on one pair of axes, a modelled
+    // line that should slope and a logged one that should step.
+    var stepped = s.stepped !== undefined ? s.stepped : opts.stepped;
+    var d = s.points.map(function(p, pidx){
+      var x = xScale(p.x).toFixed(1), y = yScale(p.y).toFixed(1);
+      if(pidx === 0) return "M" + x + "," + y;
+      if(!stepped) return "L" + x + "," + y;
+      return "L" + x + "," + yScale(s.points[pidx - 1].y).toFixed(1) + " L" + x + "," + y;
+    }).join(" ");
     svg.appendChild(svgEl("path", { d: d, class: "series-line " + s.colorClass, "data-series-idx": idx }));
     var last = s.points[s.points.length - 1];
     svg.appendChild(svgEl("circle", { cx: xScale(last.x), cy: yScale(last.y), r: 3.5, class: "series-dot " + s.colorClass, "data-series-idx": idx }));
@@ -163,6 +280,16 @@ export function renderLineChart(container, series, opts){
   wrap.appendChild(svg);
   wrap.appendChild(tooltip);
   container.appendChild(wrap);
+  // Say so when the axis doesn't start at zero. Every gridline carries its own figure, so the
+  // scale is readable — but a drop that runs most of the way down the panel reads as "nearly
+  // halved" at a glance, and it is worth one line to stop that glance being wrong.
+  if(truncated){
+    var axisNote = document.createElement("p");
+    axisNote.className = "chart-axis-note";
+    axisNote.textContent = "Zoomed in — the bottom of this chart is " +
+      (opts.yFormat ? opts.yFormat(yMin) : Math.round(yMin)) + ", not $0.";
+    container.appendChild(axisNote);
+  }
 
   function nearestIndexInPoints(points, xData){
     var best = 0, bestDist = Infinity;
@@ -231,36 +358,10 @@ export function renderStackedAreaChart(container, series, opts){
       (opts.emptyMessage || "Not enough logged history yet.") + '</p>';
     return;
   }
-  // The canvas is sized to the box it will actually occupy, not to a nominal 720.
-  //
-  // This chart stretches to fill its container with preserveAspectRatio="none", and a non-uniform
-  // stretch squashes the *glyphs* along with the geometry: at 316px wide, a 720-unit viewBox
-  // compressed every axis label to 44% of its proper width — "$664,908" rendered 23px wide and
-  // 13px tall, and overflowed the left edge into the bargain. Measuring first makes the scale 1:1,
-  // so text is drawn at the size it says it is. A container that isn't laid out yet (a hidden
-  // page) measures 0, and then the old nominal width is as good a guess as any.
-  var measured = Math.round(container.getBoundingClientRect().width);
-  var W = measured > 80 ? measured : 720;
+  // Sized to the box it will occupy, and redrawn once it has one — see measuredWidth/observeWidth.
+  var W = measuredWidth(container, 720);
+  observeWidth(container, W, function(){ renderStackedAreaChart(container, series, opts); });
   var H = opts.height || 240;
-  // …and drawn again once it has one. The first render of this chart happens inside renderAll(),
-  // while the Assets page is still display:none — so it measures 0, falls back to 720, and the
-  // user navigates to a chart that was laid out for a width it never had. Watching the container
-  // covers that, window resizes, and the ledger being collapsed and reopened, in one place,
-  // instead of every caller remembering to redraw on every event that changes a width.
-  if(typeof ResizeObserver === "function"){
-    if(container._stackRO){ container._stackRO.disconnect(); container._stackRO = null; }
-    var ro = new ResizeObserver(function(entries){
-      var now = Math.round(entries[0].contentRect.width);
-      // >2px, or a redraw that nudges the width by a rounding error observes itself forever.
-      if(now > 80 && Math.abs(now - W) > 2){
-        ro.disconnect();
-        if(container._stackRO === ro) container._stackRO = null;
-        renderStackedAreaChart(container, series, opts);
-      }
-    });
-    ro.observe(container);
-    container._stackRO = ro;
-  }
   var padR = 12, padT = 12, padB = 24;
   var n = live[0].points.length;
 
@@ -273,17 +374,13 @@ export function renderStackedAreaChart(container, series, opts){
   var yMax = stackTops.reduce(function(m, col){ return Math.max(m, col[col.length - 1]); }, 0);
   if(yMax <= 0) yMax = 1;
 
-  // The left gutter has to hold the widest y label, which depends on the numbers and the caller's
-  // formatter — a fixed 58 fits "$4,200" and clips "$664,908". Estimated rather than measured
-  // (measuring means rendering, and the gutter decides where to render), at ~6.3px per character
-  // for 11px digits, then capped so a chart of very large numbers still has a chart in it.
   var ticks = 4;
-  var widestLabel = 0;
+  var tickLabels = [];
   for(var w = 0; w <= ticks; w++){
     var wv = (yMax / ticks) * w;
-    widestLabel = Math.max(widestLabel, String(opts.yFormat ? opts.yFormat(wv) : Math.round(wv)).length);
+    tickLabels.push(opts.yFormat ? opts.yFormat(wv) : Math.round(wv));
   }
-  var padL = Math.min(Math.round(W * 0.4), Math.max(34, Math.ceil(widestLabel * 6.3) + 12));
+  var padL = gutterFor(tickLabels, W, 11);
   var innerW = W - padL - padR, innerH = H - padT - padB;
   var xs = live[0].points.map(function(p){ return p.x; });
   var xMin = Math.min.apply(null, xs), xMax = Math.max.apply(null, xs);

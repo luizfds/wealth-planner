@@ -2590,11 +2590,12 @@ import {
     refreshAfterBankImport();
     showUndoToast(
       "Imported " + result.ids.length + " transaction" + (result.ids.length === 1 ? "" : "s") +
+        (result.linesCreated ? " · " + result.linesCreated + " new budget line" + (result.linesCreated === 1 ? "" : "s") : "") +
         (result.learned ? " · learned " + result.learned + " shop" + (result.learned === 1 ? "" : "s") : ""),
       function(){
         // Rules the import taught are left in place on purpose — they're a preference, not part of
         // the data being undone, and re-importing the same file is the usual reason to undo.
-        undoBankImport(result.ids);
+        undoBankImport(result.ids, result.lineIds);
         refreshAfterBankImport();
       }
     );
@@ -2608,6 +2609,11 @@ import {
     renderSpendCategoryChart();
     renderSpendingTrends();
     renderYearSpending();
+    // An import can now create budget lines, which moves the planned side too — the Budget tab's
+    // list and totals, and every scenario figure derived from them.
+    renderSharedGroups();
+    renderCards(); renderDetail(); renderTotals();
+    renderProjectionOutputs();
   }
 
   // ---------------- Income: import from a spreadsheet ----------------

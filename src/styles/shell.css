@@ -136,7 +136,11 @@
   .global-metric-divider{ width:1px; height:14px; background: var(--border); }
   @media (max-width: 1080px){ .global-metrics{ order:1; width:100%; justify-content:flex-start; } }
   .app-content{ padding: 24px 28px 60px; width:100%; }
-  .app-page{ display:flex; flex-direction:column; gap:20px; }
+  /* Room under the last element for the floating controls to sit in. The fab and the scroll-to-top
+     button are fixed to the bottom-right, so on a page too short to scroll they land on top of
+     whatever is there — most visibly the last Dashboard card on a first run, where there is no
+     scroll room to move it clear. 96px clears the fab (52px + its 24px offset) with a margin. */
+  .app-page{ display:flex; flex-direction:column; gap:20px; padding-bottom:96px; }
   .app-page[hidden]{ display:none; }
   .page-intro{ color: var(--ink-soft); font-size:13.5px; max-width:70ch; margin:0; }
 

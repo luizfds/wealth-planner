@@ -27,10 +27,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <style>
-  .ob-wrap{ max-width:520px; margin:0 auto; padding:48px 20px 60px; }
+  /* 28px, not 48: every pixel above the fold is spent getting the CTAs into the first screen. */
+  .ob-wrap{ max-width:520px; margin:0 auto; padding:28px 20px 60px; }
   .ob-brand{ text-align:center; margin-bottom:8px; }
   .ob-brand .app-brand-name{ font-size:26px; justify-content:center; }
-  .ob-tagline{ text-align:center; color:var(--ink-soft); font-size:14px; margin:6px 0 32px; }
+  .ob-tagline{ text-align:center; color:var(--ink-soft); font-size:14px; margin:6px 0 20px; }
   .ob-card{
     background:var(--paper-raised); border:1px solid var(--border); border-radius:14px;
     padding:24px 22px; box-shadow:var(--shadow); margin-bottom:16px;
@@ -49,9 +50,16 @@
     display:flex; gap:10px; align-items:flex-start; font-size:12.5px; color:var(--ink-soft); line-height:1.55;
   }
   .ob-privacy .ob-icon{ background:var(--good-wash); color:var(--good); }
-  .ob-cta{ display:block; width:100%; text-align:center; text-decoration:none; margin-bottom:10px; }
-  .ob-alt{ text-align:center; font-size:12.5px; }
-  .ob-alt a{ color:var(--brass-strong); text-decoration:underline; text-underline-offset:2px; }
+  .ob-hero{ padding-bottom:18px; }
+  .ob-actions{ margin-top:20px; }
+  .ob-cta{ display:flex; width:100%; text-align:center; text-decoration:none; margin-bottom:10px; justify-content:center; }
+  .ob-alt{ text-align:center; font-size:12.5px; margin:14px 0 0; }
+  /* inline-block with real padding: this reads as a sentence but functions as the third way into
+     the app, and at 33px it was the last control in the app under the 40px floor. */
+  .ob-alt a{
+    color:var(--brass-strong); text-decoration:underline; text-underline-offset:2px;
+    display:inline-block; padding:10px 4px;
+  }
 </style>
 </head>
 <body>
@@ -61,13 +69,24 @@
     </div>
     <p class="ob-tagline">Budget · Property · Tax · Net worth — all in one place</p>
 
-    <div class="ob-card">
+    <!-- Pitch and both CTAs inside the first screen. This page used to run 1374px on an 844px
+         viewport with "Try it with sample data" at 1155px and "Start from scratch" at 1209px — so
+         the only two ways into the app were 1.4 screens down, and a first-time visitor had to
+         scroll on faith to find out there was a way in at all. The detail below is still worth
+         having for a stranger following a link; it just isn't the toll gate any more. -->
+    <div class="ob-card ob-hero">
       <h1>Renting vs. buying, side by side</h1>
-      <p>Set up your income and everyday expenses once, then compare as many scenarios as you like — keep renting, buy in one suburb vs. another, or invest instead of buying — and see how each one plays out for your savings rate and net worth over time.</p>
+      <p>Set up your income and everyday expenses once, then compare as many scenarios as you like — keep renting, buy in one suburb vs. another, or invest instead of buying.</p>
+      <div class="ob-actions">
+        <a class="ob-cta btn btn-primary" href="index.html?mock=1">Try it with sample data →</a>
+        <a class="ob-cta btn" href="index.html">Start from scratch →</a>
+      </div>
+      <p class="ob-alt">Importing a file someone shared with you? <a href="welcome.html">Go here instead →</a></p>
     </div>
 
     <div class="ob-card">
       <h1>What's inside</h1>
+      <p style="margin-bottom:18px">Every scenario is scored on the same income and expenses, so you can see how each one plays out for your savings rate and net worth over time.</p>
       <ul class="ob-sections">
         <li><span class="ob-icon">$</span><span><b>Income &amp; Tax</b><span>Enter gross or net pay — Australian income tax, Medicare levy and super are worked out for you.</span></span></li>
         <li><span class="ob-icon">☰</span><span><b>Expenses &amp; Accounts</b><span>Recurring budget lines plus real dated transactions, reconciled against what you planned.</span></span></li>
@@ -84,9 +103,6 @@
       </div>
     </div>
 
-    <a class="ob-cta btn btn-primary" href="index.html?mock=1">Try it with sample data →</a>
-    <a class="ob-cta btn" href="index.html">Start from scratch →</a>
-    <p class="ob-alt">Importing a file someone shared with you? <a href="welcome.html">Go here instead →</a></p>
   </div>
   <script>
     // Landing here at all means the auto-redirect that brought a first-time visitor here has

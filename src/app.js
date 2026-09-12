@@ -2749,12 +2749,29 @@ import {
     showToast("Cleared");
   });
 
-  document.getElementById("mockDataBtn").addEventListener("click", function(){
+  function loadSampleData(){
     if(!confirm("Fill in randomised sample data so you can try the tool? This replaces everything currently entered — export a backup first if you want to keep it.")) return;
     setState(migrateState(generateMockData()));
     renderAll();
     persist();
     showToast("Sample data generated");
+  }
+  document.getElementById("mockDataBtn").addEventListener("click", loadSampleData);
+
+  // The Dashboard's first-run actions. Same handler as the toolbar button above — the point of
+  // these is only that they are reachable on a phone, where that button isn't rendered at all.
+  document.getElementById("dashboardSetup").addEventListener("click", function(e){
+    if(e.target.closest("[data-dash-start]")){ loadSampleData(); return; }
+    var go = e.target.closest("[data-setup-go]");
+    if(go){ showPage(go.getAttribute("data-setup-go")); return; }
+    if(e.target.closest("[data-setup-dismiss]")){
+      // Remembered, not session-only: re-offering a dismissed checklist every morning in a
+      // daily-use app is its own small annoyance.
+      state.setupDismissed = true;
+      persist();
+      renderDashboardStats();
+      showToast("Setup checklist hidden");
+    }
   });
 
   function updateThemeButtonLabel(){

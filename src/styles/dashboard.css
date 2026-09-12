@@ -63,6 +63,38 @@
      shared fix: every .icon-btn instance across the app gets the larger, better-separated
      target at once. */
   .card-controls{ display:flex; align-items:center; gap:6px; flex:none; }
+  /* Stands in for the stat grid on a first run — see renderDashboardStats. #dashboardStats is a
+     grid, so without the span this lands in one 150px column and wraps to ten lines. */
+  .stat-empty{
+    grid-column: 1 / -1;
+    margin:0; padding:18px 20px; border:1px dashed var(--border); border-radius:14px;
+    color: var(--ink-soft); font-size:13px; line-height:1.6;
+  }
+
+  /* The setup panel. [hidden] needs the explicit override because these rules set display — see
+     CLAUDE.md. Deliberately quieter than a stat tile: it is scaffolding, and it goes away. */
+  .setup-panel{
+    display:block; background: var(--brass-wash); border:1px solid var(--border);
+    border-radius:14px; padding:16px 16px 14px;
+  }
+  .setup-panel[hidden]{ display:none; }
+  .setup-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+  .setup-head b{ font-size:14px; }
+  .setup-count{ font-size:12px; color: var(--ink-soft); margin-left:4px; white-space:nowrap; }
+  .setup-track{ height:5px; border-radius:100px; background: var(--paper-sunken); overflow:hidden; margin:10px 0 12px; }
+  .setup-fill{ height:100%; background: var(--brass); border-radius:inherit; transition: width .25s ease; }
+  .setup-next{ margin:0 0 12px; font-size:13px; line-height:1.5; }
+  .setup-next span{ color: var(--ink-soft); font-size:12.5px; }
+  .setup-actions{ display:flex; gap:10px; flex-wrap:wrap; }
+  .setup-actions .btn{ flex:1 1 auto; min-width:150px; }
+  /* What's left after the next step — visible so the size of the job is honest, but not a row of
+     five competing buttons. */
+  .setup-rest{
+    list-style:none; margin:12px 0 0; padding:0; display:flex; flex-direction:column; gap:5px;
+    font-size:12px; color: var(--ink-soft);
+  }
+  .setup-rest li::before{ content:"○ "; opacity:.65; }
+
   .icon-btn{
     all:unset; box-sizing:border-box; cursor:pointer; width:40px; height:40px; border-radius:7px;
     display:flex; align-items:center; justify-content:center; color: var(--ink-soft); font-size:13px;

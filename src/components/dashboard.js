@@ -395,7 +395,9 @@ function renderProjectionAccuracyPanel(){
     .map(function(h){ return { x: yearsSinceDate(h.date, ref.date), y: h.value }; });
   var series = [
     { label: "Reference — " + ref.scenario + " (set " + ref.date + ")", colorClass: "series-color-0", points: ref.series },
-    { label: "Actual net worth (logged)", colorClass: "series-color-2", points: actualPoints }
+    // Stepped: these are snapshots, and joining two of them with a diagonal would draw growth
+    // between the months nobody logged. The reference line above it is a model, so it slopes.
+    { label: "Actual net worth (logged)", colorClass: "series-color-2", points: actualPoints, stepped: true }
   ];
   panel.innerHTML =
     '<h3>Projection accuracy</h3>' +
@@ -554,6 +556,12 @@ export function renderContributionsGrowth(){
   var total = Math.abs(split.contributed) + Math.abs(split.growth);
   var pct = function(v){ return total > 0 ? (Math.abs(v) / total) * 100 : 0; };
   var growthNeg = split.growth < 0;
+  // "Markets took $91,361" was, on the reference data, the household revaluing its own house from
+  // $900k to $812k — over 0.4 months. The arithmetic was right and the word was wrong: this half
+  // of the split is every price change in the portfolio, and for most people the largest of those
+  // is a property valuation they typed in themselves, not a market that moved. "Revalued" names
+  // what the app can actually see. The tooltip and the note below say the rest.
+  var growthLabel = growthNeg ? "Assets revalued down" : "Assets grew";
   panel.innerHTML = '<h3>Saved vs grown <span style="font-weight:400;color:var(--ink-soft)">— since ' + escapeAttr(split.from) + '</span></h3>' +
     '<div class="fire-stat-row"><span>Net worth then</span><b>' + fmtCurrency0.format(split.start) + '</b></div>' +
     '<div class="fire-stat-row"><span>Net worth now</span><b>' + fmtCurrency0.format(split.end) + '</b></div>' +
@@ -561,11 +569,11 @@ export function renderContributionsGrowth(){
       (split.totalChange >= 0 ? "+" : "") + fmtCurrency0.format(split.totalChange) + '</b></div>' +
     '<div class="rule-bar" style="margin-top:10px">' +
       '<div class="rule-seg series-color-0" style="width:' + pct(split.contributed) + '%" title="Money you added: ' + fmtCurrency0.format(split.contributed) + '"></div>' +
-      '<div class="rule-seg series-color-3" style="width:' + pct(split.growth) + '%" title="' + (growthNeg ? "Lost to market movement: " : "Growth on what you own: ") + fmtCurrency0.format(Math.abs(split.growth)) + '"></div>' +
+      '<div class="rule-seg series-color-3" style="width:' + pct(split.growth) + '%" title="' + (growthNeg ? "Fall in what your assets are worth, your own revaluations included: " : "Rise in what your assets are worth: ") + fmtCurrency0.format(Math.abs(split.growth)) + '"></div>' +
     '</div>' +
     '<div class="rule-legend">' +
       '<div class="rule-legend-item"><span class="rule-swatch series-color-0"></span>You saved <b>' + fmtCurrency0.format(split.contributed) + '</b></div>' +
-      '<div class="rule-legend-item"><span class="rule-swatch series-color-3"></span>' + (growthNeg ? "Markets took" : "Assets grew") + ' <b>' + fmtCurrency0.format(Math.abs(split.growth)) + '</b></div>' +
+      '<div class="rule-legend-item"><span class="rule-swatch series-color-3"></span>' + growthLabel + ' <b>' + fmtCurrency0.format(Math.abs(split.growth)) + '</b></div>' +
     '</div>' +
     '<p class="fire-note">' +
       (split.droppedPoints
@@ -575,5 +583,7 @@ export function renderContributionsGrowth(){
         : "") +
       'Over ' + split.months.toFixed(1) + ' months. The saved half is this scenario\'s net savings rate — ' +
       fmtCurrency0.format(scenarioTotals(state.activeScenario).netMonthly) + '/mo — times the elapsed time; whatever the change doesn\'t account for is attributed to growth. ' +
-      'That makes growth a <b>remainder, not a measurement</b>: a month you underspent your budget lands in it too. Treat the direction as solid and the exact split as rough.</p>';
+      'That makes it a <b>remainder, not a measurement</b>: a month you underspent your budget lands in it, ' +
+      'and so does any valuation you revised yourself — re-entering what your house is worth shows up here as ' +
+      'the assets moving. Treat the direction as solid and the exact split as rough.</p>';
 }

@@ -5,7 +5,7 @@ import { state } from "../src/state.js";
 import { modernPlainRowHtml, modernRowShellHtml, optionsHtml, historyTrendHtml } from "../src/lib/ledger-table.js";
 import { categoryChartHtml } from "../src/components/expenses.js";
 import { todaysMixHtml } from "../src/components/assets.js";
-import { sparklineHtml, sparklinePlaceholderHtml } from "../src/lib/charts.js";
+import { sparklineHtml, sparklinePlaceholderHtml, dateAxisFormat } from "../src/lib/charts.js";
 import { rangeByKey, rangeLabel, rangeStartDate, withinRange, bestFitRange, timeRangeControlHtml } from "../src/lib/timerange.js";
 
 // Why this file exists.
@@ -176,6 +176,21 @@ test("withinRange keeps what's inside, drops what's outside, and drops undated r
   var all = withinRange(rows, rangeByKey("all"), { today: "2026-09-12" });
   assert.deepEqual(all.map(function(r){ return r.amount; }), [1, 2],
     "undated rows are dropped even by All — they have no place on a dated axis");
+});
+
+test("dateAxisFormat picks days inside a quarter and months beyond it", function(){
+  // "Aug 2026 / Sep 2026" is the whole axis of a four-week window, which is no axis at all — and
+  // the range controls mean one chart now spans a week or a decade depending on the button.
+  var day = 86400000;
+  var short_ = dateAxisFormat([{ x: Date.UTC(2026, 7, 24) }, { x: Date.UTC(2026, 8, 12) }]);
+  assert.ok(/\d/.test(short_(Date.UTC(2026, 8, 12))));
+  assert.ok(short_(Date.UTC(2026, 8, 12)).indexOf("2026") === -1, "a three-week span doesn't need the year");
+  var long_ = dateAxisFormat([{ x: Date.UTC(2025, 6, 31) }, { x: Date.UTC(2026, 8, 12) }]);
+  assert.ok(long_(Date.UTC(2026, 8, 12)).indexOf("2026") !== -1, "a 13-month span does");
+  // Exactly at the boundary, and with too few points to have a span at all.
+  assert.ok(dateAxisFormat([{ x: 0 }, { x: 100 * day }])(0).indexOf("1970") === -1, "100 days is still short");
+  assert.equal(typeof dateAxisFormat([])(0), "string");
+  assert.equal(typeof dateAxisFormat(null)(0), "string");
 });
 
 test("bestFitRange opens a chart where its observations actually are", function(){

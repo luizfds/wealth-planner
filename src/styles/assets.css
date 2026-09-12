@@ -157,3 +157,7 @@
     .alloc-shift-head{ display:block; }
     .alloc-shift-head .cat-chart-title{ margin-bottom:8px !important; }
   }
+  /* A range control with no heading beside it: right-aligned on desktop, and it keeps its own
+     bottom margin on mobile where the block rule above would otherwise leave it flush to the
+     chart. Placed after the media query so it wins on both — see CLAUDE.md on source order. */
+  .chart-head-bare{ justify-content:flex-end; margin-bottom:10px; }

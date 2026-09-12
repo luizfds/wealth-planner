@@ -58,9 +58,26 @@ export function renderDashboardStats(){
   if(!el || el.closest(".app-page").hidden) return;
   var isComparing = state.scenarios.length > 1;
   var introEl = document.getElementById("dashboardIntro");
+  // Both copies used to end 'click "Sample data" above'. On a phone there is nothing above: the
+  // desktop #mockDataBtn is hidden below 700px and the mobile one lives inside the closed More
+  // menu, so the sentence named a control the reader could not see — on this app's primary
+  // surface, at the one moment a new user most needs it. An empty dashboard shouldn't describe
+  // where a control lives anyway; it should offer the action, which the buttons below now do.
+  var nothingEntered = !state.assets.length && !state.properties.length &&
+    !state.income.length && !state.shared.length;
   if(introEl) introEl.textContent = isComparing
-    ? 'Compare renting against buying, scenario by scenario — keep any investment property in the mix across every option. Nothing here is pre-filled; add your own numbers or click "Sample data" above to try it out first.'
-    : 'Your household finances at a glance. Nothing here is pre-filled; add your own numbers or click "Sample data" above to try it out first — or add another scenario on the Scenarios tab if you want to compare renting against buying.';
+    ? 'Compare renting against buying, scenario by scenario — keep any investment property in the mix across every option.'
+    : (nothingEntered
+      ? 'Your household finances at a glance. Nothing is pre-filled — start with your income, or load sample data to see what a filled-in plan looks like.'
+      : 'Your household finances at a glance. Add another scenario on the Scenarios tab if you want to compare renting against buying.');
+  var emptyEl = document.getElementById("dashboardEmptyActions");
+  if(emptyEl){
+    emptyEl.hidden = !nothingEntered;
+    emptyEl.innerHTML = nothingEntered
+      ? '<button type="button" class="btn btn-primary" data-dash-start="income">Add your income →</button>' +
+        '<button type="button" class="btn" data-dash-start="sample">Load sample data</button>'
+      : "";
+  }
   var totalNetWorth = totalNetWorthValue();
   var itemCount = state.assets.length + state.properties.length;
   var active = state.activeScenario;

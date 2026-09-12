@@ -165,7 +165,10 @@
     <div class="app-content">
 
       <section class="app-page" id="page-dashboard">
-        <p class="page-intro" id="dashboardIntro">Compare renting against buying, scenario by scenario — keep any investment property in the mix across every option. Nothing here is pre-filled; add your own numbers or click "Sample data" above to try it out first.</p>
+        <p class="page-intro" id="dashboardIntro">Compare renting against buying, scenario by scenario — keep any investment property in the mix across every option.</p>
+        <!-- Populated (and hidden again) by renderDashboardStats: a first-run dashboard is a wall
+             of $0 with nothing to do, so it offers the two things worth doing instead. -->
+        <div class="dash-empty-actions" id="dashboardEmptyActions" hidden></div>
 
         <div class="stat-row" id="dashboardStats"></div>
         <button type="button" class="calc-hint-link" id="dashboardProjectionsLink" style="display:block;margin:4px 0 2px">See your long-term projection (all scenarios, 20 years out) →</button>

@@ -63,6 +63,12 @@
      shared fix: every .icon-btn instance across the app gets the larger, better-separated
      target at once. */
   .card-controls{ display:flex; align-items:center; gap:6px; flex:none; }
+  /* First-run actions on the Dashboard. [hidden] needs the explicit override because this rule
+     sets display — see CLAUDE.md. */
+  .dash-empty-actions{ display:flex; gap:10px; flex-wrap:wrap; margin:0 0 18px; }
+  .dash-empty-actions[hidden]{ display:none; }
+  .dash-empty-actions .btn{ flex:1 1 auto; min-width:150px; justify-content:center; }
+
   .icon-btn{
     all:unset; box-sizing:border-box; cursor:pointer; width:40px; height:40px; border-radius:7px;
     display:flex; align-items:center; justify-content:center; color: var(--ink-soft); font-size:13px;

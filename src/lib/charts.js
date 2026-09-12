@@ -231,9 +231,37 @@ export function renderStackedAreaChart(container, series, opts){
       (opts.emptyMessage || "Not enough logged history yet.") + '</p>';
     return;
   }
-  var W = 720, H = opts.height || 240;
-  var padL = 58, padR = 12, padT = 12, padB = 24;
-  var innerW = W - padL - padR, innerH = H - padT - padB;
+  // The canvas is sized to the box it will actually occupy, not to a nominal 720.
+  //
+  // This chart stretches to fill its container with preserveAspectRatio="none", and a non-uniform
+  // stretch squashes the *glyphs* along with the geometry: at 316px wide, a 720-unit viewBox
+  // compressed every axis label to 44% of its proper width — "$664,908" rendered 23px wide and
+  // 13px tall, and overflowed the left edge into the bargain. Measuring first makes the scale 1:1,
+  // so text is drawn at the size it says it is. A container that isn't laid out yet (a hidden
+  // page) measures 0, and then the old nominal width is as good a guess as any.
+  var measured = Math.round(container.getBoundingClientRect().width);
+  var W = measured > 80 ? measured : 720;
+  var H = opts.height || 240;
+  // …and drawn again once it has one. The first render of this chart happens inside renderAll(),
+  // while the Assets page is still display:none — so it measures 0, falls back to 720, and the
+  // user navigates to a chart that was laid out for a width it never had. Watching the container
+  // covers that, window resizes, and the ledger being collapsed and reopened, in one place,
+  // instead of every caller remembering to redraw on every event that changes a width.
+  if(typeof ResizeObserver === "function"){
+    if(container._stackRO){ container._stackRO.disconnect(); container._stackRO = null; }
+    var ro = new ResizeObserver(function(entries){
+      var now = Math.round(entries[0].contentRect.width);
+      // >2px, or a redraw that nudges the width by a rounding error observes itself forever.
+      if(now > 80 && Math.abs(now - W) > 2){
+        ro.disconnect();
+        if(container._stackRO === ro) container._stackRO = null;
+        renderStackedAreaChart(container, series, opts);
+      }
+    });
+    ro.observe(container);
+    container._stackRO = ro;
+  }
+  var padR = 12, padT = 12, padB = 24;
   var n = live[0].points.length;
 
   // Running totals per x, which is both the stack geometry and the y-scale.
@@ -244,6 +272,19 @@ export function renderStackedAreaChart(container, series, opts){
   }
   var yMax = stackTops.reduce(function(m, col){ return Math.max(m, col[col.length - 1]); }, 0);
   if(yMax <= 0) yMax = 1;
+
+  // The left gutter has to hold the widest y label, which depends on the numbers and the caller's
+  // formatter — a fixed 58 fits "$4,200" and clips "$664,908". Estimated rather than measured
+  // (measuring means rendering, and the gutter decides where to render), at ~6.3px per character
+  // for 11px digits, then capped so a chart of very large numbers still has a chart in it.
+  var ticks = 4;
+  var widestLabel = 0;
+  for(var w = 0; w <= ticks; w++){
+    var wv = (yMax / ticks) * w;
+    widestLabel = Math.max(widestLabel, String(opts.yFormat ? opts.yFormat(wv) : Math.round(wv)).length);
+  }
+  var padL = Math.min(Math.round(W * 0.4), Math.max(34, Math.ceil(widestLabel * 6.3) + 12));
+  var innerW = W - padL - padR, innerH = H - padT - padB;
   var xs = live[0].points.map(function(p){ return p.x; });
   var xMin = Math.min.apply(null, xs), xMax = Math.max.apply(null, xs);
   var xSpan = xMax - xMin || 1;
@@ -257,7 +298,6 @@ export function renderStackedAreaChart(container, series, opts){
   });
 
   // Recessive grid, drawn first so every band sits on top of it.
-  var ticks = 4;
   for(var g = 0; g <= ticks; g++){
     var gv = (yMax / ticks) * g;
     var gy = py(gv);
@@ -296,10 +336,15 @@ export function renderStackedAreaChart(container, series, opts){
     svg.appendChild(band);
     // The 2px surface-coloured separator the mark spec calls for: without it two adjacent bands of
     // similar lightness merge into one shape and the composition is unreadable.
+    //
+    // --paper-raised, not --paper: every chart in this app is drawn inside a `.ledger` or `.panel`
+    // card, and those are the raised surface. Stroking the *page* background made the separator
+    // invisible on white and a black hairline on dark — the one colour it must never be is
+    // "a colour", since the whole point is that it reads as a gap.
     if(si < live.length - 1){
       var sepTop = stepPairs(si, function(i){ return stackTops[i][si]; });
       svg.appendChild(svgEl("path", { d: "M" + sepTop.join(" L"), fill: "none",
-        stroke: "var(--paper)", "stroke-width": 2, "stroke-linejoin": "round" }));
+        stroke: "var(--paper-raised)", "stroke-width": 2, "stroke-linejoin": "round" }));
     }
   });
 
@@ -327,13 +372,21 @@ export function renderStackedAreaChart(container, series, opts){
   container.appendChild(svg);
 
   // A legend is not optional with two or more bands: a stacked chart encodes identity in colour
-  // alone, and the values in it also discharge the contrast warning on the lighter series.
+  // alone, and the values in it also discharge the contrast warning on the lighter series. The one
+  // exception, opts.legend === false, is for a caller that already shows the *same* key — same
+  // colours, same buckets — immediately above the chart.
+  if(opts.legend === false) return;
   var legend = document.createElement("div");
   legend.className = "rule-legend stack-legend";
+  // opts.legendValues === false: names only. The caller already shows each band's current value
+  // somewhere better — repeating it under the stack makes two sets of numbers that have to be
+  // compared to discover they are the same, which is the opposite of a key.
   legend.innerHTML = live.map(function(s){
     var last = s.points[s.points.length - 1];
+    var value = opts.legendValues === false ? "" :
+      ' <b>' + (opts.yFormat ? opts.yFormat(last.y) : Math.round(last.y)) + '</b>';
     return '<div class="rule-legend-item"><span class="rule-swatch ' + (s.colorClass || "") + '"></span>' +
-      escapeAttr(s.label || s.key) + ' <b>' + (opts.yFormat ? opts.yFormat(last.y) : Math.round(last.y)) + '</b></div>';
+      escapeAttr(s.label || s.key) + value + '</div>';
   }).join("");
   container.appendChild(legend);
 }

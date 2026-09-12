@@ -483,7 +483,7 @@ than calling `reload()`.
 
 ---
 
-## 9. `[x]` Look at your data over time — shipped v2.98.0–v3.0.0
+## 9. `[x]` Look at your data over time — shipped v2.98.0–v2.99.0
 
 Measured from the reference backup, the app captures far more history than it shows:
 
@@ -542,6 +542,37 @@ run against the real backup, found to be lying, and rebuilt. The arithmetic was 
 
 The lesson worth keeping: a chart is not verified by its tests passing. Each of these three
 produced correct numbers from correct inputs and still told a false story.
+
+---
+
+## 10. `[~]` Make the new charts readable — v3.0.0
+
+Found by driving v2.99.0's four charts against the real backup, in **both** colour schemes — the
+first pass had only ever been looked at in light mode.
+
+**What was wrong.**
+
+1. **Every legend swatch was invisible.** `.rule-swatch` and `.rule-seg` set a background only for
+   their four *named* variants (`.needs`, `.wants`, `.savings`, `.na`) and for `.cat-seg`. The new
+   charts pass `series-color-N`, which sets `--series-color` and nothing else — so all nine
+   swatches across the allocation, cash-flow and saved-vs-grown legends computed to
+   `rgba(0, 0, 0, 0)`, and the saved-vs-grown bar drew two zero-alpha segments over an empty
+   track. A stacked chart encodes identity in colour alone; its legend had no colour.
+2. **The band separators were the wrong colour in both schemes.** They stroke `var(--paper)` —
+   the page background — but every one of these charts sits inside a `.ledger` or `.panel` card,
+   which is `var(--paper-raised)`. Invisible on white, a black hairline on dark.
+3. **"Where your wealth sits" was 95% empty.** Thirteen months of x-axis for a dataset whose
+   composition only exists in its last fortnight: one flat blue slab, and the actual mix crushed
+   into a 20px sliver at the right edge.
+4. **Three different net-worth numbers on one screen.** "Net worth over time" and "Saved vs grown"
+   both label their total *net worth* while omitting `state.debts` — $576,367 against the
+   $559,604 in the page header, a $17,000 credit-card limit apart.
+5. **"Today" wasn't today.** `categorySeries()` took the last logged snapshot over the amount
+   currently typed in the app whenever any history existed, contradicting its own docstring.
+
+**How to verify.** Assets → Summary and Dashboard → Insights, at 390px, in light *and* dark:
+read `getComputedStyle(swatch).backgroundColor` rather than looking at it, and check the chart
+totals against the page-header net worth.
 
 ---
 

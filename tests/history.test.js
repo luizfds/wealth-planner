@@ -67,6 +67,32 @@ test("today counts what's typed in the app, even if Log was never pressed", func
   assert.equal(withToday[1].tracked, 1);
 });
 
+test("today reads the amount in the app, not the last thing that was logged", function(){
+  // A vehicle worth $10,696 in the table whose last snapshot says $10,731: the chart's right-hand
+  // edge used to show the snapshot, so it disagreed with the row directly above it. Anywhere
+  // *earlier* the snapshot is still the only honest answer — that part has not changed.
+  var records = [{ history: [{ date: "2026-08-28", value: 10731 }], current: 10696 }];
+  var series = categorySeries(records, ["2026-08-28", "2026-09-12"], { today: "2026-09-12" });
+  assert.equal(series[0].y, 10731, "an earlier date still reads the log");
+  assert.equal(series[1].y, 10696, "today reads the app");
+  assert.equal(series[1].tracked, 1);
+  // With no `today` passed, nothing is special about any date and every point reads the log.
+  assert.equal(categorySeries(records, ["2026-09-12"])[0].y, 10731);
+});
+
+test("a debt entered as a negative record pulls the series down to net worth", function(){
+  // How both "net worth" charts stopped disagreeing with the page header: the app's own
+  // totalNetWorthValue() subtracts state.debts, and the charts were $17,000 above it.
+  var records = [
+    { history: [{ date: "2026-08-31", value: 200000 }], current: 200000 },
+    { history: [{ date: "2026-08-31", value: -17000 }], current: -17000 }
+  ];
+  var series = categorySeries(records, ["2026-01-01", "2026-08-31"], { today: "2026-08-31" });
+  assert.equal(series[1].y, 183000);
+  assert.equal(series[0].y, 0, "before either was logged, neither counts — not the asset alone");
+  assert.equal(series[0].tracked, 0);
+});
+
 test("trimUntracked drops the leading run where nothing was known yet", function(){
   // Without this the chart opens with a flat line at $0 climbing out of nothing, which reads as a
   // portfolio that started from zero on a date it did not.

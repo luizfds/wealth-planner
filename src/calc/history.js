@@ -53,13 +53,15 @@ export function categorySeries(records, dates, opts){
   return (dates || []).map(function(d){
     var total = 0, tracked = 0;
     (records || []).forEach(function(r){
+      // Today is the one date where the app knows more than its own log: whatever is typed into
+      // the row right now *is* the present value, whether or not Log was ever pressed. Reading the
+      // last snapshot instead makes the chart's right-hand edge quietly stale — an asset edited
+      // but not logged showed its old figure, so the chart and the number in the table disagreed.
+      if(today && d === today && r.current != null){ total += Number(r.current) || 0; tracked++; return; }
       var v = valueOn(r.history, d);
-      if(v === null){
-        // No snapshot this early. The exception is today: whatever is typed in the app right now is
-        // a real current value even if the user has never pressed Log.
-        if(today && d === today && r.current != null){ total += Number(r.current) || 0; tracked++; }
-        return;
-      }
+      // No snapshot this early, and not today either: this record contributes nothing rather than
+      // zero, or a category total dips on the day a second holding was first logged.
+      if(v === null) return;
       total += v;
       tracked++;
     });

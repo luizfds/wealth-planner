@@ -2,7 +2,7 @@ import { state, persist } from "../state.js";
 import { sumField, sumByClassification, sumByAccount, safeDiv, resolveSharedAmount, nextDueDate, daysUntil, appendHistorySnapshot, lastTransactionDateFor } from "../calc/ledger.js";
 import { ipExpenseItemsForClassification } from "../calc/property.js";
 import { scenarioIncomeMonthly } from "../calc/tax.js";
-import { scenarioTotals, computeNetWorthSeries, totalNetWorthValue, runwayMonths, actualAssetGrowthLastMonth, staleAssets } from "../calc/engine.js";
+import { scenarioTotals, computeNetWorthSeries, totalNetWorthValue, runwayMonths, actualAssetGrowthLastMonth, staleAssets, toAudAmount } from "../calc/engine.js";
 import { monthlyCashFlowForecast } from "../calc/cashflow.js";
 import { fireSettings, fireWealthSplit, simulateRetirementAt, earliestWorkableRetirementAge } from "../calc/fire.js";
 import { MONTH_NAMES } from "../constants.js";
@@ -499,7 +499,8 @@ export function renderContributionsGrowth(){
   var panel = document.getElementById("contributionsGrowthPanel");
   if(!panel) return;
   var histories = state.assets.map(function(a){ return a.history; })
-    .concat(state.properties.map(function(p){ return p.history; }));
+    .concat(state.properties.map(function(p){ return p.history; }))
+    .concat((state.debts || []).map(function(d){ return d.history; }));
   var logged = observationDates(histories, []);
   if(logged.length < 2){
     panel.innerHTML = '<h3>Saved vs grown</h3>' +
@@ -507,7 +508,14 @@ export function renderContributionsGrowth(){
     return;
   }
   var today = localDateStr();
-  var records = state.assets.map(function(a){ return { history: a.history, current: a.amount }; })
+  var records = state.assets.map(function(a){
+    // In AUD, snapshots included — same reason as the allocation chart: this panel's "net worth
+    // now" has to be the same number as the one in the page header, and the header converts.
+    return {
+      history: (a.history || []).map(function(h){ return { date: h.date, value: toAudAmount(a, h.value) }; }),
+      current: toAudAmount(a, a.amount)
+    };
+  })
     .concat(state.properties.map(function(p){
       var loanNet = (p.loans || []).reduce(function(sum, l){
         return sum + Math.max(0, (Number(l.balance) || 0) - (Number(l.offsetBalance) || 0));
@@ -515,6 +523,15 @@ export function renderContributionsGrowth(){
       return {
         history: (p.history || []).map(function(h){ return { date: h.date, value: Math.max(0, (Number(h.value) || 0) - loanNet) }; }),
         current: Math.max(0, (Number(p.value) || 0) - loanNet)
+      };
+    }))
+    // Debts enter as negative records, so the series this panel calls "net worth" actually is one.
+    // Without them it read $17,000 above the header on the reference data, and a panel that
+    // disagrees with the number directly above it teaches you to trust neither.
+    .concat((state.debts || []).map(function(d){
+      return {
+        history: (d.history || []).map(function(h){ return { date: h.date, value: -(Number(h.value) || 0) }; }),
+        current: -(Number(d.balance) || 0)
       };
     }));
   var points = trimUntracked(categorySeries(records, observationDates(histories, [today]), { today: today }));

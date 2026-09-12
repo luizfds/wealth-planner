@@ -361,6 +361,73 @@ they affect:
 
 ---
 
+## 7. `[x]` Bank CSV import — shipped v2.91.0–v2.93.0
+
+**Problem.** Every figure on the Spending tab, and every claim the trends panel is allowed to make,
+depends on transactions having been logged by hand, one at a time. Item 3 shipped with a
+three-month coverage gate precisely because that's a burden most people don't sustain — the panel
+refuses to compare months it can see were only partly logged, which is honest but leaves the whole
+feature dark for a new user's first quarter.
+
+The bank already has the data. Importing one statement replaces three months of tapping.
+
+**What to build.** Three increments, one PR:
+
+- **a. A parser that survives real bank exports** (`calc/bank-import.js`). No two Australian banks
+  agree on a shape: some have no header row, some split Debit/Credit into two columns, some put
+  spending as a negative Amount. Dates are `DD/MM/YYYY` here and `03/04/2026` is 3 April — getting
+  that backwards silently moves a third of a year's spending into the wrong months. Duplicate
+  detection matters as much as parsing: re-importing an overlapping date range must not
+  double-count.
+- **b. Rules that learn** (`state.importRules[]`). "WOOLWORTHS 1234 SYDNEY NS" should become
+  Groceries once, not every month. The payoff isn't the first import, it's the second.
+- **c. The review-and-confirm UI**, mobile-first, on the Spending tab — and the trends empty state
+  pointing at it, since importing a year of history is now the fastest way past the coverage gate.
+
+**How to verify.** Drive it with real bank-shaped files, not hand-written ideal ones: a headerless
+CommBank-style export, a Debit/Credit-split export, and the same file imported twice.
+
+**What shipped.** `calc/bank-import.js` (parse), `calc/import-rules.js` (learn),
+`components/bank-import.js` (review). 51 new tests, 312 total.
+
+**Measured, driving a 12-row headerless CommBank-shaped file against the reference backup:**
+
+| | Result |
+|---|---|
+| Rows → decisions | 12 transactions became **8 merchant groups**; Woolworths' three different store strings collapsed into one |
+| First import | 1 of 11 placed automatically (a "Spotify" budget line matching SPOTIFY P2B3C4) |
+| Same file again | "0 transactions to import. 11 already logged." No import button offered. |
+| A *different* statement afterwards | **3 of 3 placed automatically**, all badged "learned" — zero decisions |
+
+**Three things that turned out to matter more than the parsing:**
+
+- **Group by merchant, not by transaction.** A month is ~40 rows and ~12 merchants. Being asked
+  "where does WOOLWORTHS go" eight times is how a review screen gets abandoned halfway down.
+- **Don't re-render on assignment.** The obvious implementation moves a row from "Needs you" to
+  "Ready" the instant it's answered — reordering the list under the finger that just answered it.
+  `patchBankImportPanel()` updates the badge and counts in place and leaves the row alone.
+- **Learn from untouched suggestions too.** Confirming the import is confirming the suggestion, so
+  a name match the user never opened still becomes a rule. That's what makes coverage climb with
+  use instead of sitting wherever the budget line names happened to land it.
+
+**The bug a review pass caught after shipping, worth knowing about before touching this again:**
+a transaction logged *by hand* carries no description — `logExpenseTransaction()` leaves `what`
+blank on purpose so the row shows its budget line's name. So duplicate detection, which keys on
+date + amount + description, saw nothing in common between a hand-logged purchase and the same
+purchase arriving in a statement. The person this feature is *for* — someone who has been logging
+by hand and is now importing instead — would have re-imported their whole overlap and watched their
+spending silently double. Those are now `possibleDuplicate`: matched on date + amount alone, which
+is weaker evidence, so they're excluded by default, counted out loud, and opt-in-able. Fixed in
+v2.94.0.
+
+**A trap, and the one bug that got through to the browser:** `merchantKey` lives in
+`import-rules.js`, not `bank-import.js`. Importing it from the wrong module passes `node --check`
+*and* the whole test suite — the tests import the calc modules directly and never load the
+component — and fails only when the page runs. Exactly the class of bug `CLAUDE.md` warns about.
+Driving the app is not optional here.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

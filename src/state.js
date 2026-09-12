@@ -85,6 +85,10 @@ export function defaultState(){
     // budgeted for it; unlinked (linkedExpenseId: null) covers a one-off that has no matching
     // budget line at all. See expenses.js's renderTransactions()/renderActualVsPlannedPanel().
     transactions: [],
+    // What the bank-import review screen has been taught: {id, match, linkedExpenseId, category,
+    // account, hits}. Written only as a side effect of confirming an import — there is no rule
+    // editor, because a rule you have to go and maintain is a rule you stop maintaining.
+    importRules: [],
     // Named money sources referenced by the free-text "account" field elsewhere (income, shared
     // expenses, property income/expenses, transactions). {id, name, type: "debit"|"credit",
     // statementStartDay}. type controls what the Accounts card shows/expects: a credit account
@@ -267,6 +271,12 @@ export function migrateState(s){
   // is reordered/added to elsewhere — an array index would silently point at the wrong row.
   s.shared.forEach(function(item){ if(!item.id) item.id = genId("exp"); applyTimingDefaults(item); });
   if(!Array.isArray(s.transactions)) s.transactions = [];
+  if(!Array.isArray(s.importRules)) s.importRules = [];
+  // A rule with no match string can never fire and would sit in a backup forever; one with neither
+  // a line nor a category fires and files the row nowhere, which reads as the app forgetting.
+  s.importRules = s.importRules.filter(function(r){
+    return r && typeof r.match === "string" && r.match.trim() && (r.linkedExpenseId || (r.category || "").trim());
+  });
   // Categories are a later addition, so an older save has none: seed the defaults so the feature
   // works on first load rather than presenting an empty manager. An existing (possibly emptied)
   // list is left exactly as the user left it — only a missing key seeds.

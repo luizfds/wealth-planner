@@ -683,6 +683,51 @@ rather than naming one.
 
 ---
 
+## 14. `[x]` A thread through the eight pages — shipped v3.4.0
+
+Five UI/UX suggestions were put up after item 13; the user asked for all five. **Two did not survive
+checking, and were dropped rather than built:**
+
+- *"The header shows $559,603 on one page and $559,604 on another."* It reads **$559,603 on all
+  eight**, measured. The two figures came from screenshots taken at different points in this
+  session's own chart work, not from disagreeing pages. There was no bug.
+- *"The ⋯ overflow menu is doing too much, with no grouping."* Each page's menu holds three related
+  CSV items under an explicit label ("Income import and export"), and the mobile More menu is
+  already divider-grouped into navigation / data / danger / about. Both were already fine.
+
+**What shipped.**
+
+1. **`lib/setup.js` + the Dashboard setup panel.** The app is eight independent pages and nothing
+   ever connected them: enter income and it says nothing about expenses. Every Dashboard figure is
+   derived from data spread across four tabs, so until all four have something in them the page is
+   a wall of zeroes with no hint which tab is the missing one. The panel names the five things its
+   own figures depend on — income, expenses, housing, what you own, a second scenario — shows
+   progress, and gives **one** button for the next step (five "do this" links is a chore; one is a
+   next move). Not a wizard: every page stays reachable in any order, and it dismisses for good via
+   a new persisted `setupDismissed`. Hides itself once all five are done.
+   The housing step deliberately tests "a home row with an amount > 0", not "a home block exists" —
+   `migrateState` seeds a block for every scenario, so the latter is true from first load and would
+   tick the step before the user typed anything.
+2. **The empty stat grid collapses.** Six tiles reading $0, $0/mo, $0 and an em-dash told a
+   first-time user nothing except that they had entered nothing — which the panel above now says,
+   with somewhere to go. One dashed card instead, spanning the grid (`grid-column: 1 / -1`, or it
+   lands in a 150px column and wraps to ten lines).
+3. **iOS no longer zooms on every field tap.** Safari zooms any text field under 16px and never
+   zooms back out, so every tap into an amount left the app scaled up until pinched back by hand.
+   16px at phone widths only, on text entry only — a `<select>` opens a picker, never triggers the
+   zoom, and forcing it would blow out the badge-styled dropdowns (`.prop-kind` is 10.5px uppercase
+   by design). `!important` is deliberate: every field is sized by its own component rule
+   (`.m-edit-field input`, `.calc-field input`, `.acct-mgmt-name`), and a class selector beats a
+   bare element one whatever the source order — the alternative is repeating it in a dozen rules the
+   next new field would forget to join.
+
+**How to verify.** From a cleared localStorage: the panel reads 0 of 5 and points at income; its CTA
+navigates; entering income moves it to 1 of 5 and points at expenses; loading sample data hides it
+and returns the five tiles; dismissing persists across a reload. Then count text-entry fields under
+16px at 390px — it should be zero, with selects excluded.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

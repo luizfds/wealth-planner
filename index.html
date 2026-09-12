@@ -166,9 +166,9 @@
 
       <section class="app-page" id="page-dashboard">
         <p class="page-intro" id="dashboardIntro">Compare renting against buying, scenario by scenario — keep any investment property in the mix across every option.</p>
-        <!-- Populated (and hidden again) by renderDashboardStats: a first-run dashboard is a wall
-             of $0 with nothing to do, so it offers the two things worth doing instead. -->
-        <div class="dash-empty-actions" id="dashboardEmptyActions" hidden></div>
+        <!-- Populated (and hidden again) by renderSetupPanel: what's still empty, and one link to
+             the next thing worth doing. Hides itself once every step is done or the user says so. -->
+        <div class="setup-panel" id="dashboardSetup" hidden></div>
 
         <div class="stat-row" id="dashboardStats"></div>
         <button type="button" class="calc-hint-link" id="dashboardProjectionsLink" style="display:block;margin:4px 0 2px">See your long-term projection (all scenarios, 20 years out) →</button>

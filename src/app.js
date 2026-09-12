@@ -33,6 +33,7 @@ import {
   renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, logExpenseTransaction,
   renderCategories, addCategory, deleteCategory, renameCategoryEverywhere,
   setBudgetGroupBy, renderBudgetGroupByToggle, budgetLineItems,
+  toggleBudgetGroup, setAllBudgetGroupsCollapsed, allBudgetGroupsCollapsed,
   renderYearSpending, renderYearBasisPreference, setYearBasis, transactionCategory,
   parseExpensesImportCsv, renderExpensesImportPreview, clearExpensesImportPreview, commitExpensesImport,
   renderSpendCategoryChart, renderSpendingTrends
@@ -2590,11 +2591,13 @@ import {
     refreshAfterBankImport();
     showUndoToast(
       "Imported " + result.ids.length + " transaction" + (result.ids.length === 1 ? "" : "s") +
+        (result.refunds ? " · " + result.refunds + " refund" + (result.refunds === 1 ? "" : "s") : "") +
+        (result.linesCreated ? " · " + result.linesCreated + " new budget line" + (result.linesCreated === 1 ? "" : "s") : "") +
         (result.learned ? " · learned " + result.learned + " shop" + (result.learned === 1 ? "" : "s") : ""),
       function(){
         // Rules the import taught are left in place on purpose — they're a preference, not part of
         // the data being undone, and re-importing the same file is the usual reason to undo.
-        undoBankImport(result.ids);
+        undoBankImport(result.ids, result.lineIds);
         refreshAfterBankImport();
       }
     );
@@ -2608,6 +2611,11 @@ import {
     renderSpendCategoryChart();
     renderSpendingTrends();
     renderYearSpending();
+    // An import can now create budget lines, which moves the planned side too — the Budget tab's
+    // list and totals, and every scenario figure derived from them.
+    renderSharedGroups();
+    renderCards(); renderDetail(); renderTotals();
+    renderProjectionOutputs();
   }
 
   // ---------------- Income: import from a spreadsheet ----------------
@@ -2924,7 +2932,32 @@ import {
   });
   document.getElementById("budgetGroupBy").addEventListener("click", function(e){
     var groupByBtn = e.target.closest("[data-budget-groupby]");
-    if(groupByBtn) setBudgetGroupBy(groupByBtn.getAttribute("data-budget-groupby"));
+    if(groupByBtn){ setBudgetGroupBy(groupByBtn.getAttribute("data-budget-groupby")); return; }
+    if(!e.target.closest("#budgetCollapseAllBtn")) return;
+    setAllBudgetGroupsCollapsed(!allBudgetGroupsCollapsed());
+    renderSharedGroups();
+    renderBudgetGroupByToggle();
+    persist();
+  });
+  // One group card's head. Delegated off #sharedGroups because the whole list is rebuilt whenever
+  // a budget line changes, so a listener bound to a head would be thrown away on the first edit.
+  document.getElementById("sharedGroups").addEventListener("click", function(e){
+    var head = e.target.closest("[data-budget-group-toggle]");
+    if(!head) return;
+    toggleBudgetGroup(head.getAttribute("data-budget-group-toggle"));
+    renderSharedGroups();
+    renderBudgetGroupByToggle();
+    persist();
+  });
+  document.getElementById("sharedGroups").addEventListener("keydown", function(e){
+    if(e.key !== "Enter" && e.key !== " ") return;
+    var head = e.target.closest("[data-budget-group-toggle]");
+    if(!head) return;
+    e.preventDefault();
+    toggleBudgetGroup(head.getAttribute("data-budget-group-toggle"));
+    renderSharedGroups();
+    renderBudgetGroupByToggle();
+    persist();
   });
   // The budget total's "See them below" link. Delegated off document because the pointer line is
   // re-rendered by renderPropertyExpensesSummary() whenever a loan changes, so a listener bound to

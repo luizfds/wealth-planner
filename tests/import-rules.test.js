@@ -3,7 +3,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   merchantKey, matchRule, matchBudgetLineByName, suggestFor, applySuggestions,
-  learnRule, pruneRules, coverageOf
+  learnRule, pruneRules, coverageOf,
+  suggestedLineName, monthlyRateFrom, proposedLineFor
 } from "../src/calc/import-rules.js";
 
 var LINES = [
@@ -142,4 +143,64 @@ test("coverage counts what the import placed without asking", function(){
 test("coverage of an empty import is 0, not NaN", function(){
   assert.equal(coverageOf([]).fraction, 0);
   assert.equal(coverageOf(null).fraction, 0);
+});
+
+// ---------------- Proposing a budget line from an import ----------------
+
+test("a merchant key becomes a readable budget line name", function(){
+  assert.equal(suggestedLineName("woolworths"), "Woolworths");
+  assert.equal(suggestedLineName("coles express"), "Coles Express");
+  assert.equal(suggestedLineName(""), "");
+});
+
+test("the monthly rate divides by the months the IMPORT covers, not the months the merchant does", function(){
+  // Shopping at Woolworths in two of the three months you imported is still a three-month average.
+  // Dividing by two would overstate it by half — and this figure becomes a budget line the user
+  // then plans against.
+  var mine = [
+    { date: "2026-07-04", amount: 100 },
+    { date: "2026-09-02", amount: 200 }
+  ];
+  var allRows = mine.concat([{ date: "2026-08-15", amount: 50 }]);
+  var rate = monthlyRateFrom(mine, allRows);
+  assert.equal(rate.months, 3);
+  assert.equal(rate.total, 300);
+  assert.equal(rate.amount, 100);
+  assert.equal(rate.transactions, 2);
+});
+
+test("a single-month import returns that month's spend, not a divide by zero", function(){
+  var rows = [{ date: "2026-09-02", amount: 45.20 }, { date: "2026-09-15", amount: 31.40 }];
+  var rate = monthlyRateFrom(rows, rows);
+  assert.equal(rate.months, 1);
+  assert.equal(rate.amount, 76.60);
+});
+
+test("an empty group proposes nothing rather than NaN", function(){
+  var rate = monthlyRateFrom([], []);
+  assert.equal(rate.amount, 0);
+  assert.equal(rate.months, 0);
+});
+
+test("a proposed line carries the basis, so the screen can show its working", function(){
+  // The amount is derived, not typed, so the user has to be able to see where it came from before
+  // accepting it as a budget they'll plan against.
+  var group = { key: "coles express", rows: [{ date: "2026-08-01", amount: 88.40 }], choice: { category: "Groceries" } };
+  var line = proposedLineFor(group, group.rows);
+  assert.equal(line.what, "Coles Express");
+  assert.equal(line.amount, 88.40);
+  assert.equal(line.freq, "Monthly");
+  assert.equal(line.category, "Groceries");
+  assert.equal(line.basis.transactions, 1);
+  assert.equal(line.basis.months, 1);
+});
+
+test("trailing bookkeeping words are dropped, so a created line isn't called 'Rent Payment Ref'", function(){
+  // Same reason leading rails are dropped: they name the paperwork, not the payee. This string
+  // becomes a budget line the user reads in a list, so it has to survive being looked at.
+  assert.equal(merchantKey("RENT PAYMENT REF 88213"), "rent payment");
+  assert.equal(merchantKey("WOOLWORTHS SYDNEY NSW"), "woolworths sydney");
+  assert.equal(suggestedLineName(merchantKey("RENT PAYMENT REF 88213")), "Rent Payment");
+  // Never the last one standing — a row whose whole description is one noise word still needs a key.
+  assert.equal(merchantKey("REF"), "ref");
 });

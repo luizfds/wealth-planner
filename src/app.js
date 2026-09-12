@@ -57,9 +57,9 @@ import {
 import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
 import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./components/search.js";
 import {
-  startBankImport, reparseBankImportWith, setBankImportRawRows, clearBankImport,
+  startBankImport, reparseBankImportWith, clearBankImport,
   setBankImportGroupLine, setBankImportGroupCategory, renderBankImportPanel, patchBankImportPanel,
-  commitBankImport, undoBankImport
+  setIncludePossibleDuplicates, commitBankImport, undoBankImport
 } from "./components/bank-import.js";
 
 (function(){
@@ -2547,10 +2547,9 @@ import {
     var reader = new FileReader();
     reader.onload = function(){
       var text = String(reader.result);
+      // startBankImport holds onto the parsed rows itself, so the date-order control can re-parse
+      // without the user having to find the file again.
       startBankImport(text, file.name);
-      // The raw rows are held so the date-order control can re-parse without the user having to
-      // find the file again — the one mistake in this flow worth being able to take back cheaply.
-      setBankImportRawRows(parseCsv(text));
       renderBankImportPanel();
       var card = document.getElementById("bankImportCard");
       if(card) card.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -2573,6 +2572,14 @@ import {
     var orderBtn = e.target.closest("[data-bank-date-order]");
     if(orderBtn){
       reparseBankImportWith(orderBtn.getAttribute("data-bank-date-order"));
+      renderBankImportPanel();
+      return;
+    }
+    // Folding the maybes in or out changes which rows exist, so this one does need a full render —
+    // unlike assigning a group, where re-rendering would move the row out from under the finger.
+    var maybesBtn = e.target.closest("[data-bank-maybes]");
+    if(maybesBtn){
+      setIncludePossibleDuplicates(maybesBtn.getAttribute("data-bank-maybes") === "1");
       renderBankImportPanel();
       return;
     }

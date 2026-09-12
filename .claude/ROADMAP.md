@@ -410,6 +410,16 @@ CommBank-style export, a Debit/Credit-split export, and the same file imported t
   a name match the user never opened still becomes a rule. That's what makes coverage climb with
   use instead of sitting wherever the budget line names happened to land it.
 
+**The bug a review pass caught after shipping, worth knowing about before touching this again:**
+a transaction logged *by hand* carries no description — `logExpenseTransaction()` leaves `what`
+blank on purpose so the row shows its budget line's name. So duplicate detection, which keys on
+date + amount + description, saw nothing in common between a hand-logged purchase and the same
+purchase arriving in a statement. The person this feature is *for* — someone who has been logging
+by hand and is now importing instead — would have re-imported their whole overlap and watched their
+spending silently double. Those are now `possibleDuplicate`: matched on date + amount alone, which
+is weaker evidence, so they're excluded by default, counted out loud, and opt-in-able. Fixed in
+v2.94.0.
+
 **A trap, and the one bug that got through to the browser:** `merchantKey` lives in
 `import-rules.js`, not `bank-import.js`. Importing it from the wrong module passes `node --check`
 *and* the whole test suite — the tests import the calc modules directly and never load the

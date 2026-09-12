@@ -56,7 +56,9 @@ function groupRows(rows){
 export function startBankImport(text, fileName){
   var rows = parseCsv(text);
   var parsed = parseBankCsv(rows, { existing: state.transactions });
-  return rebuildBankImport(parsed, fileName);
+  // Held here rather than handed back in by the caller: reparseBankImportWith() depends on it, and
+  // a caller that forgot the second call would leave the date-order control silently doing nothing.
+  return rebuildBankImport(parsed, fileName, rows);
 }
 // Re-parses with an explicit date order — what the "read as DD/MM · change" control calls. Kept
 // separate from startBankImport so the original file text has to be held onto, which it is: a
@@ -64,12 +66,16 @@ export function startBankImport(text, fileName){
 export function reparseBankImportWith(order){
   if(!bankImport) return null;
   var parsed = parseBankCsv(bankImport.rawRows, { existing: state.transactions, dateOrder: order });
-  return rebuildBankImport(parsed, bankImport.fileName, bankImport.rawRows);
+  return rebuildBankImport(parsed, bankImport.fileName, bankImport.rawRows, bankImport.includePossibleDuplicates);
 }
-function rebuildBankImport(parsed, fileName, rawRows){
+function rebuildBankImport(parsed, fileName, rawRows, includePossibleDuplicates){
   var lines = loggableBudgetLineItems();
   var suggested = applySuggestions(parsed.rows, state.importRules, lines);
-  var spend = suggested.filter(function(r){ return r.direction === "debit" && !r.duplicate; });
+  var includeMaybes = !!includePossibleDuplicates;
+  var spend = suggested.filter(function(r){
+    if(r.direction !== "debit" || r.duplicate) return false;
+    return includeMaybes || !r.possibleDuplicate;
+  });
   bankImport = {
     fileName: fileName || "",
     rawRows: rawRows || null,
@@ -78,11 +84,29 @@ function rebuildBankImport(parsed, fileName, rawRows){
     coverage: coverageOf(spend),
     groups: groupRows(spend),
     duplicates: suggested.filter(function(r){ return r.duplicate; }),
-    credits: suggested.filter(function(r){ return r.direction === "credit" && !r.duplicate; })
+    // Same date and amount as something already logged by hand, which carries no description to
+    // compare against. Left out unless asked for — see the duplicate-detection comment in
+    // calc/bank-import.js for why this is a separate, weaker class of evidence.
+    possibleDuplicates: suggested.filter(function(r){ return r.possibleDuplicate; }),
+    includePossibleDuplicates: includeMaybes,
+    credits: suggested.filter(function(r){ return r.direction === "credit" && !r.duplicate && !r.possibleDuplicate; })
   };
   return bankImport;
 }
-export function setBankImportRawRows(rows){ if(bankImport) bankImport.rawRows = rows; }
+// Re-buckets the same parse with the maybes folded in (or back out). Any group assignments made so
+// far are deliberately preserved: re-deciding where WOOLWORTHS goes because you ticked a checkbox
+// about something else would be its own small betrayal.
+export function setIncludePossibleDuplicates(include){
+  if(!bankImport) return null;
+  var previous = {};
+  bankImport.groups.forEach(function(g){ previous[g.key] = g.choice; });
+  var rebuilt = rebuildBankImport(bankImport.parsed, bankImport.fileName, bankImport.rawRows, include);
+  rebuilt.groups.forEach(function(g){
+    if(previous[g.key]){ g.choice = previous[g.key]; g.source = "chosen"; }
+  });
+  rebuilt.coverage = coverageOfGroups(rebuilt.groups);
+  return rebuilt;
+}
 export function clearBankImport(){
   bankImport = null;
   var panel = document.getElementById("bankImportPanel");
@@ -132,7 +156,7 @@ export function renderBankImportPanel(){
       bankImportActionsHtml(false);
     return;
   }
-  if(!bankImport.groups.length && !bankImport.duplicates.length && !bankImport.credits.length){
+  if(!bankImport.groups.length && !bankImport.duplicates.length && !bankImport.credits.length && !bankImport.possibleDuplicates.length){
     panel.innerHTML = '<p class="ledger-note bank-import-problem">Nothing importable in that file' +
       (s.skipped ? " — " + s.skipped + " row" + (s.skipped === 1 ? "" : "s") + " couldn't be read." : ".") + '</p>' +
       bankImportActionsHtml(false);
@@ -147,6 +171,11 @@ export function renderBankImportPanel(){
 
 function bankImportHeaderHtml(s){
   var cov = bankImport.coverage;
+  // Counted off the groups, not off summary.newSpend — the summary always excludes the possible
+  // duplicates, so once they're opted in the two would disagree and the header would contradict
+  // the button directly underneath it.
+  var count = cov.total;
+  var amount = bankImport.groups.reduce(function(sum, g){ return sum + g.total; }, 0);
   var range = s.firstDate && s.lastDate
     ? (s.firstDate === s.lastDate ? s.firstDate : s.firstDate + " → " + s.lastDate)
     : "";
@@ -156,8 +185,8 @@ function bankImportHeaderHtml(s){
   var orderLabel = s.dateOrder === "MDY" ? "MM/DD" : "DD/MM";
   var otherOrder = s.dateOrder === "MDY" ? "DMY" : "MDY";
   return '<div class="bank-import-head">' +
-    '<p class="ledger-note" style="margin:0"><b>' + s.newSpend + ' transaction' + (s.newSpend === 1 ? "" : "s") + '</b> to import' +
-      (s.newSpendAmount > 0 ? ", " + fmtCurrency0.format(s.newSpendAmount) + " in total" : "") + '.' +
+    '<p class="ledger-note" style="margin:0"><b>' + count + ' transaction' + (count === 1 ? "" : "s") + '</b> to import' +
+      (amount > 0 ? ", " + fmtCurrency0.format(amount) + " in total" : "") + '.' +
       (s.duplicates ? " " + s.duplicates + " already logged." : "") +
       (s.skipped ? " " + s.skipped + " row" + (s.skipped === 1 ? "" : "s") + " couldn't be read." : "") +
     '</p>' +
@@ -176,12 +205,15 @@ function bankImportGroupsHtml(){
   var unplaced = bankImport.groups.filter(function(g){ return !g.choice.linkedExpenseId && !(g.choice.category || "").trim(); });
   var placed = bankImport.groups.filter(function(g){ return g.choice.linkedExpenseId || (g.choice.category || "").trim(); });
   var html = "";
+  // The counts carry a hook because rows don't move between these two sections when answered (see
+  // patchBankImportPanel) — so without patching the numbers, "Needs you (7)" would still say 7
+  // after you'd dealt with two of them, which is worse than not showing a count at all.
   if(unplaced.length){
-    html += '<h4 class="bank-import-subhead">Needs you (' + unplaced.length + ')</h4>' +
+    html += '<h4 class="bank-import-subhead">Needs you (<span data-bank-count="unplaced">' + unplaced.length + '</span>)</h4>' +
       '<div class="m-card"><div class="m-rows">' + unplaced.map(function(g){ return groupRowHtml(g, lines); }).join("") + '</div></div>';
   }
   if(placed.length){
-    html += '<h4 class="bank-import-subhead">Ready (' + placed.length + ')</h4>' +
+    html += '<h4 class="bank-import-subhead">Ready (<span data-bank-count="placed">' + placed.length + '</span>)</h4>' +
       '<div class="m-card"><div class="m-rows">' + placed.map(function(g){ return groupRowHtml(g, lines); }).join("") + '</div></div>';
   }
   return html;
@@ -226,6 +258,18 @@ function groupRowHtml(g, lines){
 // doubled. Money in is named rather than silently dropped, because a refund landing in a spending
 // import would otherwise look like the file lost rows.
 function bankImportAsideHtml(){
+  var maybes = bankImport.possibleDuplicates.length;
+  // Above the fold, not tucked in the disclosure below: skipping rows the user actually spent is
+  // as wrong as importing rows they didn't, and only they can tell which this is.
+  var maybeNote = maybes
+    ? '<p class="tax-cap-note' + (bankImport.includePossibleDuplicates ? "" : " warn") + '" style="margin:12px 0 0">' +
+        maybes + ' row' + (maybes === 1 ? "" : "s") + ' match the date and amount of something you already logged by hand. ' +
+        'Hand-logged entries carry no shop name, so there\'s no way to be sure they\'re the same purchases — ' +
+        (bankImport.includePossibleDuplicates
+          ? 'they\'re being imported. <button type="button" class="calc-hint-link" data-bank-maybes="0">Leave them out</button>'
+          : 'they\'re being left out. <button type="button" class="calc-hint-link" data-bank-maybes="1">Import them anyway</button>') +
+      '</p>'
+    : "";
   var bits = [];
   if(bankImport.duplicates.length){
     bits.push(bankImport.duplicates.length + " row" + (bankImport.duplicates.length === 1 ? " was" : "s were") +
@@ -236,8 +280,8 @@ function bankImportAsideHtml(){
       " (refunds, salary) won't be imported — this list is spending");
   }
   var errs = bankImport.parsed.errors;
-  if(!bits.length && !errs.length) return "";
-  return '<details class="tax-advanced bank-import-aside"><summary>What isn\'t being imported</summary>' +
+  if(!bits.length && !errs.length) return maybeNote;
+  return maybeNote + '<details class="tax-advanced bank-import-aside"><summary>What isn\'t being imported</summary>' +
     '<ul class="bank-import-aside-list">' +
       bits.map(function(b){ return "<li>" + escapeAttr(b) + "</li>"; }).join("") +
       errs.slice(0, 8).map(function(e){ return "<li>Row " + e.row + ": " + escapeAttr(e.reason) + "</li>"; }).join("") +
@@ -280,6 +324,13 @@ export function patchBankImportPanel(groupKey){
   var cov = bankImport.coverage;
   var covEl = panel.querySelector("[data-bank-coverage]");
   if(covEl) covEl.textContent = cov.placed + " of " + cov.total + " ready" + (cov.placed < cov.total ? " — the rest are waiting on you." : ".");
+  // The two section counts, recomputed off the live choices rather than off which section a row
+  // happens to be sitting in — rows stay put, so the section is no longer the source of truth.
+  var stillUnplaced = bankImport.groups.filter(function(x){ return !x.choice.linkedExpenseId && !(x.choice.category || "").trim(); }).length;
+  var unplacedEl = panel.querySelector('[data-bank-count="unplaced"]');
+  if(unplacedEl) unplacedEl.textContent = stillUnplaced;
+  var placedEl = panel.querySelector('[data-bank-count="placed"]');
+  if(placedEl) placedEl.textContent = bankImport.groups.length - stillUnplaced;
   var confirmBtn = document.getElementById("bankImportConfirmBtn");
   if(confirmBtn) confirmBtn.textContent = "Import " + cov.total + " transaction" + (cov.total === 1 ? "" : "s");
 }

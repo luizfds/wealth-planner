@@ -133,3 +133,10 @@
     background: var(--paper-sunken); color: var(--ink-soft);
   }
   .sale-discount.on{ background: var(--good-wash); color: var(--good); }
+
+  /* Stacked-area bands. The 2px surface-coloured separator between bands is drawn in the SVG
+     itself (see renderStackedAreaChart) rather than here, because it has to follow the band's
+     own top edge, not a straight line. */
+  .stack-band{ opacity:.88; }
+  .stack-band:hover{ opacity:1; }
+  .stack-legend{ margin-top:10px; }

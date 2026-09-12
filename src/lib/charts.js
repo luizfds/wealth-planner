@@ -210,3 +210,130 @@ export function renderLineChart(container, series, opts){
     tooltip.classList.remove("show");
   });
 }
+
+// A stacked area chart, for showing composition over time — what a single net-worth line cannot
+// say: whether the mix is shifting.
+//
+// Deliberately not a variant of renderLineChart. A stacked chart answers a different question and
+// needs different rules: bands are filled rather than stroked, the y-axis is always the running
+// total rather than each series' own value, and the series order is fixed so a band can't swap
+// places with its neighbour between renders.
+//
+// `series` is [{ key, label, colorClass, points:[{x,y,dateLabel}] }], all sharing one x sequence.
+// Series order is bottom-to-top and is the caller's; colour travels with the series' own key, never
+// with its position, so a band that empties out doesn't hand its colour to the next one along.
+export function renderStackedAreaChart(container, series, opts){
+  opts = opts || {};
+  container.innerHTML = "";
+  var live = (series || []).filter(function(s){ return s.points && s.points.length; });
+  if(live.length < 1 || live[0].points.length < 2){
+    container.innerHTML = '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">' +
+      (opts.emptyMessage || "Not enough logged history yet.") + '</p>';
+    return;
+  }
+  var W = 720, H = opts.height || 240;
+  var padL = 58, padR = 12, padT = 12, padB = 24;
+  var innerW = W - padL - padR, innerH = H - padT - padB;
+  var n = live[0].points.length;
+
+  // Running totals per x, which is both the stack geometry and the y-scale.
+  var stackTops = [];
+  for(var i = 0; i < n; i++){
+    var running = 0;
+    stackTops.push(live.map(function(s){ running += Math.max(0, (s.points[i] && s.points[i].y) || 0); return running; }));
+  }
+  var yMax = stackTops.reduce(function(m, col){ return Math.max(m, col[col.length - 1]); }, 0);
+  if(yMax <= 0) yMax = 1;
+  var xs = live[0].points.map(function(p){ return p.x; });
+  var xMin = Math.min.apply(null, xs), xMax = Math.max.apply(null, xs);
+  var xSpan = xMax - xMin || 1;
+  var px = function(x){ return padL + ((x - xMin) / xSpan) * innerW; };
+  var py = function(v){ return padT + innerH - (v / yMax) * innerH; };
+
+  var svg = svgEl("svg", {
+    viewBox: "0 0 " + W + " " + H, width: "100%", height: String(H),
+    preserveAspectRatio: "none", role: "img",
+    "aria-label": opts.ariaLabel || "Composition over time"
+  });
+
+  // Recessive grid, drawn first so every band sits on top of it.
+  var ticks = 4;
+  for(var g = 0; g <= ticks; g++){
+    var gv = (yMax / ticks) * g;
+    var gy = py(gv);
+    svg.appendChild(svgEl("line", { x1: padL, y1: gy, x2: W - padR, y2: gy,
+      stroke: "var(--border)", "stroke-width": 1, "shape-rendering": "crispEdges" }));
+    var lbl = svgEl("text", { x: padL - 8, y: gy + 4, "text-anchor": "end",
+      fill: "var(--ink-soft)", "font-size": "11" });
+    lbl.textContent = opts.yFormat ? opts.yFormat(gv) : String(Math.round(gv));
+    svg.appendChild(lbl);
+  }
+
+  // Bands, bottom-up. Each is the area between the running total below it and its own.
+  // Stepped, never interpolated. A logged snapshot says "this was its value on this date, and it
+  // held until the next reading" — which is exactly what valueOn() computes. Joining two
+  // observations with a diagonal asserts something else entirely: on the reference data the
+  // property was first logged in August 2026, and a straight line back to July 2025 drew a house
+  // being gradually acquired over twelve months. A step says "nothing, then this", which is what
+  // actually happened.
+  var stepPairs = function(idx, valueFor){
+    var pts = [];
+    for(var i = 0; i < n; i++){
+      var x = px(live[0].points[i].x);
+      if(i > 0) pts.push(x + "," + py(valueFor(i - 1)));   // hold the previous value to here…
+      pts.push(x + "," + py(valueFor(i)));                  // …then step to this one
+    }
+    return pts;
+  };
+  live.forEach(function(s, si){
+    var top = stepPairs(si, function(i){ return stackTops[i][si]; });
+    var bottom = stepPairs(si, function(i){ return si === 0 ? 0 : stackTops[i][si - 1]; });
+    var d = "M" + top.join(" L") + " L" + bottom.reverse().join(" L") + " Z";
+    var band = svgEl("path", { d: d, class: "stack-band " + (s.colorClass || ""), fill: "var(--series-color)" });
+    var title = svgEl("title");
+    title.textContent = s.label || s.key;
+    band.appendChild(title);
+    svg.appendChild(band);
+    // The 2px surface-coloured separator the mark spec calls for: without it two adjacent bands of
+    // similar lightness merge into one shape and the composition is unreadable.
+    if(si < live.length - 1){
+      var sepTop = stepPairs(si, function(i){ return stackTops[i][si]; });
+      svg.appendChild(svgEl("path", { d: "M" + sepTop.join(" L"), fill: "none",
+        stroke: "var(--paper)", "stroke-width": 2, "stroke-linejoin": "round" }));
+    }
+  });
+
+  // Ticks spaced by *time*, not by array position. Observation dates cluster — a year of quarterly
+  // snapshots followed by a fortnight of daily ones — so picking every nth point put four labels
+  // inside the last centimetre, overprinted into a smear. Walking the time axis instead, and then
+  // dropping any label that would land within 56px of the previous one, keeps them readable
+  // however lumpy the logging was.
+  var xLabels = svgEl("g", {});
+  var labelCount = Math.max(2, Math.min(opts.xTickCount || 5, n));
+  var lastX = -Infinity, lastText = null;
+  for(var t = 0; t < labelCount; t++){
+    var atTime = xMin + (xSpan * (labelCount === 1 ? 0 : t / (labelCount - 1)));
+    var x = px(atTime);
+    var text = opts.xFormat ? opts.xFormat(atTime) : new Date(atTime).toISOString().slice(0, 10);
+    if(x - lastX < 56 || text === lastText) continue;
+    var anchor = t === 0 ? "start" : (t === labelCount - 1 ? "end" : "middle");
+    var tx = svgEl("text", { x: x, y: H - 6, "text-anchor": anchor,
+      fill: "var(--ink-soft)", "font-size": "11" });
+    tx.textContent = text;
+    xLabels.appendChild(tx);
+    lastX = x; lastText = text;
+  }
+  svg.appendChild(xLabels);
+  container.appendChild(svg);
+
+  // A legend is not optional with two or more bands: a stacked chart encodes identity in colour
+  // alone, and the values in it also discharge the contrast warning on the lighter series.
+  var legend = document.createElement("div");
+  legend.className = "rule-legend stack-legend";
+  legend.innerHTML = live.map(function(s){
+    var last = s.points[s.points.length - 1];
+    return '<div class="rule-legend-item"><span class="rule-swatch ' + (s.colorClass || "") + '"></span>' +
+      escapeAttr(s.label || s.key) + ' <b>' + (opts.yFormat ? opts.yFormat(last.y) : Math.round(last.y)) + '</b></div>';
+  }).join("");
+  container.appendChild(legend);
+}

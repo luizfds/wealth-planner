@@ -8,6 +8,7 @@ import { optionsHtml, historyTrendHtml } from "../lib/ledger-table.js";
 import { renderLineChart, sparklineHtml, sparklinePlaceholderHtml } from "../lib/charts.js";
 import { showToast } from "../lib/toast.js";
 import { appendHistorySnapshot, daysUntil, householdYearWindow, householdYearBasis } from "../calc/ledger.js";
+import { TIME_RANGES, rangeLabel, timeRangeControlHtml } from "../lib/timerange.js";
 import { holdingDividend, saleCapitalGain } from "../calc/tax.js";
 import { renderProjectionOutputs } from "./projections.js";
 import { renderDashboardStats } from "./dashboard.js";
@@ -192,22 +193,9 @@ export function setSharesChangeWindow(value){
   sharesChangeWindow = value;
   renderSharesSubpage();
 }
-var SHARES_CHANGE_WINDOWS = [
-  { key: "1d", label: "1D", days: 1 },
-  { key: "1w", label: "1W", days: 7 },
-  { key: "1m", label: "1M", days: 30 },
-  { key: "3m", label: "3M", days: 90 },
-  { key: "6m", label: "6M", days: 182 },
-  { key: "1y", label: "1Y", days: 365 },
-  // Not a fixed day-count like the ones above — the start of the household's current year
-  // (Accounts → Preferences), whatever date that happens to be. Labelled "FYTD" on the financial
-  // basis, because a share gain measured from 1 July is not the same number as one measured from
-  // 1 January and the picker shouldn't call them both "YTD".
-  { key: "ytd", label: "YTD", ytd: true },
-  // Whatever the earliest priced entry is, no matter how recent — the only window that can show
-  // something with as little as two logged prices, regardless of how young the history is.
-  { key: "all", label: "All", all: true }
-];
+// The eight windows now live in lib/timerange.js: a transaction list needs exactly the same set,
+// and two copies is how "6M" ends up quietly meaning two different things in one app.
+var SHARES_CHANGE_WINDOWS = TIME_RANGES;
 function priceChangeHtml(item){
   var c = holdingWindowChange(item);
   var win = SHARES_CHANGE_WINDOWS.find(function(w){ return w.key === sharesChangeWindow; });
@@ -219,13 +207,13 @@ function priceChangeHtml(item){
 }
 // "YTD" on the calendar basis, "FYTD" on the financial one — see SHARES_CHANGE_WINDOWS.
 function sharesWindowLabel(w){
-  if(w.ytd && householdYearBasis() === "financial") return "FYTD";
-  return w.label;
+  return rangeLabel(w, householdYearBasis());
 }
 function sharesChangeWindowHtml(){
-  return '<div class="seg-control" id="sharesChangeWindow" role="group" aria-label="Price change window">' + SHARES_CHANGE_WINDOWS.map(function(w){
-    return '<button type="button" class="seg-option' + (sharesChangeWindow === w.key ? " active" : "") + '" aria-pressed="' + (sharesChangeWindow === w.key) + '" data-shares-change-window="' + escapeAttr(w.key) + '" title="Price change over the last ' + escapeAttr(w.label) + '">' + escapeAttr(sharesWindowLabel(w)) + '</button>';
-  }).join("") + '</div>';
+  return timeRangeControlHtml(sharesChangeWindow, "shares-change-window", {
+    id: "sharesChangeWindow", ariaLabel: "Price change window",
+    yearBasis: householdYearBasis(), titlePrefix: "Price change over the last"
+  });
 }
 export function patchHoldingRow(tr, item){
   var qty = Number(item.quantity) || 0;

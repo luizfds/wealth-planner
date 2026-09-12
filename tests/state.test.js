@@ -210,3 +210,27 @@ test("migrateState leaves home ids it has already assigned alone", function(){
   var second = migrateState(JSON.parse(JSON.stringify(first)));
   assert.equal(second.home["Renting"][1].id, waterId, "re-running migration must not orphan transactions linked to it");
 });
+
+test("migrateState gives an old save an empty importRules and drops rules that can't work", function(){
+  var s = migrateState({
+    activeScenario: "Current situation",
+    scenarios: ["Current situation"],
+    home: { "Current situation": [] },
+    purchase: {},
+    importRules: [
+      { id: "r1", match: "woolworths", linkedExpenseId: "e1", category: "Groceries" },
+      { id: "r2", match: "", linkedExpenseId: "e2", category: "Subs" },
+      { id: "r3", match: "mystery", linkedExpenseId: null, category: "" },
+      null
+    ]
+  });
+  // A rule with no match string can never fire; one with neither a line nor a category fires and
+  // files the row nowhere, which reads as the app forgetting rather than never having been told.
+  assert.deepEqual(s.importRules.map(function(r){ return r.id; }), ["r1"]);
+
+  var fresh = migrateState({
+    activeScenario: "Current situation", scenarios: ["Current situation"],
+    home: { "Current situation": [] }, purchase: {}
+  });
+  assert.deepEqual(fresh.importRules, []);
+});

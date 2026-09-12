@@ -27,6 +27,14 @@ scenario), `assets[]` (category field distinguishes Cash/Shares/Super/Vehicle/Ot
 `projection`, `tax` (super guarantee rate, per-person settings), `fire` (current age,
 target retirement age, preservation age — see `calc/fire.js`).
 
+`importRules[]` is `{id, match, linkedExpenseId, category, account, hits}` — what the bank-import
+review screen has been taught, written only as a side effect of confirming an import. There is
+deliberately no rule editor: a rule you have to go and maintain is a rule you stop maintaining.
+`match` is a `merchantKey()` (see `calc/import-rules.js`), not a raw description — "WOOLWORTHS 1234
+SYDNEY NS" and "WOOLWORTHS 5567 NEWTOWN" are one merchant, and keying on the full string would make
+every store its own rule. Longest match wins, which is the only way a correction can override an
+earlier rough answer without a rule editor to visit.
+
 `ownership` is per property as of v2.90.0. It used to be one `tax.ipOwnership{person: pct}`
 applied to the *whole* portfolio's result, which meant two investment properties owned differently
 were unrepresentable, and nothing anywhere checked that the percentages summed to 100 — two people

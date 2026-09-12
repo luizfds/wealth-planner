@@ -114,7 +114,7 @@
       <!-- The number lives in its own span because it is *parsed*, both out of this DOM and out of
            a freshly-fetched copy of this file, to decide whether a newer version is deployed. Left
            bare in the <p>, the "Check for updates" button beside it would end up inside the match. -->
-      <p class="app-version"><span class="app-version-num">v2.90.0</span> · <button type="button" class="link-btn" id="checkUpdatesLink">Check for updates</button></p>
+      <p class="app-version"><span class="app-version-num">v2.94.0</span> · <button type="button" class="link-btn" id="checkUpdatesLink">Check for updates</button></p>
     </div>
     <div class="mobile-header-right">
       <button type="button" class="icon-btn" id="mobileSearchBtn" aria-label="Search">
@@ -328,6 +328,21 @@
                 <button class="btn btn-sm btn-primary" id="quickLogBtn" title="Log what you just spent in a couple of taps — amount, which budget line it came out of, done">+ Log spend</button>
                 <button class="btn btn-sm btn-ghost" id="addTransactionBtn" title="Add a transaction with every field available — link, description, amount, date and account">Add with full details</button>
               </div>
+            </div>
+          </details>
+          <details class="ledger" id="bankImportCard" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Import from your bank</h2></div>
+            </summary>
+            <div class="ledger-body">
+              <p class="ledger-note" style="margin-left:0">Export a CSV from your bank and drop it in here. One statement replaces a month of tapping — and the app remembers where each shop goes, so the next one is mostly already done.</p>
+              <!-- Rendered by renderBankImportPanel(). Nothing is written to state until the
+                   Import button inside this panel is pressed. -->
+              <div id="bankImportPanel" hidden></div>
+              <div class="ledger-footer">
+                <button class="btn btn-sm" id="bankImportPickBtn" title="Choose a CSV your bank exported — most banks have an 'export' or 'download transactions' option on the account page">Choose a bank CSV</button>
+              </div>
+              <input type="file" id="bankImportFile" accept=".csv,text/csv" hidden>
             </div>
           </details>
           <details class="ledger" open>

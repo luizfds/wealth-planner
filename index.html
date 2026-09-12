@@ -341,6 +341,10 @@
             </summary>
             <div class="ledger-body">
               <p class="ledger-note" style="margin-left:0">Export a CSV from your bank and drop it in here. One statement replaces a month of tapping — and the app remembers where each shop goes, so the next one is mostly already done.</p>
+              <!-- Filled by renderBankImportHelp() on load. Available before picking a file, not
+                   only after one fails to parse: the note above otherwise leaves the reader to
+                   find out what's accepted by being rejected. -->
+              <div id="bankImportHelp"></div>
               <!-- Rendered by renderBankImportPanel(). Nothing is written to state until the
                    Import button inside this panel is pressed. -->
               <div id="bankImportPanel" hidden></div>

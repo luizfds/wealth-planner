@@ -728,6 +728,41 @@ and returns the five tiles; dismissing persists across a reload. Then count text
 
 ---
 
+## 15. `[x]` Tell people what the bank import reads — shipped v3.5.0
+
+The feature's defining property is that there **is no template**: unlike the Income/Expenses/Assets
+CSV imports, which each offer an "Import template" button because they expect this app's own column
+layout, `parseBankCsv` works out the bank's layout instead — header aliases per role, column
+sniffing for the headerless exports (CommBank's), DD/MM unless the file proves otherwise, and
+`$1,234.56` / `(1,234.56)` / `-1234.56` all landing.
+
+None of which was written down anywhere a user could see. The card said "Export a CSV from your
+bank and drop it in here" and left the reader to discover the rest by being rejected.
+
+**What shipped.**
+
+1. **"What this reads — no template needed"**, a `<details>` in the card from load, before any file
+   is picked. Rendered from the component that owns the parser rather than written into
+   `index.html`, so the copy and the aliases it describes sit together — they drift apart the
+   moment someone adds a header alias and forgets the help text exists.
+2. **A failure message that names what was missing.** The old one said "Couldn't find a date column
+   and an amount column" whatever was wrong, which is misleading for the commonest failure: a file
+   with Merchant/Spend/Notes has a perfectly good amount column and no date, and being told both
+   are missing sends the reader looking for the wrong thing. New `parseDiagnosis()` separates found
+   from missing, and the panel also shows **the first row it read** — faster to recognise your own
+   file than to check it against a rule about columns.
+3. **Why rows were skipped.** `parseBankCsv` has always collected a row number and a reason for
+   every unreadable row, and the panel has always thrown them away and shown a bare count. "3 rows
+   couldn't be read" is not actionable; *"Row 3: Couldn't read \"Pending\" as a date"* is. Capped at
+   three, with a note that skipped rows are usually statement headings, pending lines or a total.
+
+**How to verify.** Spending tab: the help is present before picking a file. Feed it a
+Merchant/Spend/Notes file and the message should name only the date as missing and echo the header
+row. Feed it a file with a "Pending" date, a blank amount and a TOTAL line and all three reasons
+should be listed.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

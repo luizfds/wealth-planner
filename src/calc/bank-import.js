@@ -218,13 +218,36 @@ export function transactionKey(dateStr, amount, description){
 //
 // Credits (money in) are parsed and returned rather than dropped: a refund is a real thing to see
 // in a review screen, and deciding what to do with it is the caller's call, not the parser's.
+// What a file was missing, for a failure message that names it rather than guessing.
+//
+// "Couldn't find a date column and an amount column" is wrong half the time it is shown: a file
+// with Merchant/Spend/Notes has a perfectly good amount column and no date, and being told both
+// are missing sends the reader looking for the wrong thing. Returns the roles actually found and
+// the ones still needed, so the UI can say which.
+export function parseDiagnosis(columns){
+  columns = columns || {};
+  var hasDate = columns.date !== undefined;
+  var hasAmount = columns.amount !== undefined || columns.debit !== undefined || columns.credit !== undefined;
+  var found = [];
+  if(hasDate) found.push("date");
+  if(hasAmount) found.push("amount");
+  if(columns.description !== undefined) found.push("description");
+  var missing = [];
+  if(!hasDate) missing.push("date");
+  if(!hasAmount) missing.push("amount");
+  return { hasDate: hasDate, hasAmount: hasAmount, found: found, missing: missing, hadHeader: !!columns.hadHeader };
+}
+
 export function parseBankCsv(rows, opts){
   opts = opts || {};
   if(!rows || !rows.length) return { rows: [], errors: [], columns: {}, dateOrder: "DMY", headerOk: false };
   var columns = detectColumns(rows);
   var usable = columns.date !== undefined &&
     (columns.amount !== undefined || columns.debit !== undefined || columns.credit !== undefined);
-  if(!usable) return { rows: [], errors: [], columns: columns, dateOrder: "DMY", headerOk: false };
+  // firstRow travels with the failure: the fastest way for someone to see why their file wasn't
+  // read is to be shown the row the app read, rather than told a rule about columns.
+  if(!usable) return { rows: [], errors: [], columns: columns, dateOrder: "DMY", headerOk: false,
+    firstRow: (rows[0] || []).slice(0, 6) };
 
   var data = rows.slice(columns.hadHeader ? 1 : 0);
   var dateOrder = opts.dateOrder || detectDateOrder(data.map(function(r){ return r[columns.date]; }));

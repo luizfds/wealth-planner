@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   detectDateOrder, parseBankDate, parseBankAmount, looksLikeHeaderRow, detectColumns,
-  normaliseDescription, transactionKey, parseBankCsv, bankImportSummary
+  normaliseDescription, transactionKey, parseBankCsv, bankImportSummary, parseDiagnosis
 } from "../src/calc/bank-import.js";
 import { parseCsv } from "../src/lib/backup.js";
 
@@ -270,4 +270,39 @@ test("a credit is kept and labelled, not silently dropped", function(){
   assert.equal(credit.amount, 220, "carried as a positive magnitude; the direction says which way");
   assert.equal(bankImportSummary(parsed).credits, 1);
   assert.equal(bankImportSummary(parsed).newSpend, 1, "and it is not counted as spending");
+});
+
+// ---------------- Naming what a file was missing ----------------
+// "Couldn't find a date column and an amount column" was shown whatever was wrong, and is
+// misleading for the commonest failure: a file that has a fine amount column and no date.
+
+test("parseDiagnosis names what was missing and what was found", function(){
+  // Merchant,Spend,Notes — an amount column and a description, but nothing resembling a date.
+  var noDate = detectColumns([["Merchant", "Spend", "Notes"], ["Woolworths", "45.20", "groceries"]]);
+  var d = parseDiagnosis(noDate);
+  assert.deepEqual(d.missing, ["date"], "only the date is missing — saying 'and an amount' sends the reader the wrong way");
+  assert.ok(d.found.indexOf("amount") !== -1);
+  assert.equal(d.hasDate, false);
+  assert.equal(d.hasAmount, true);
+
+  // Both missing is still both.
+  var neither = parseDiagnosis({ hadHeader: true, description: 0 });
+  assert.deepEqual(neither.missing, ["date", "amount"]);
+  assert.deepEqual(neither.found, ["description"]);
+
+  // A separate debit column counts as having an amount — the file is usable.
+  assert.equal(parseDiagnosis({ date: 0, debit: 2 }).hasAmount, true);
+  assert.equal(parseDiagnosis({ date: 0, credit: 3 }).hasAmount, true);
+  assert.deepEqual(parseDiagnosis({ date: 0, debit: 2 }).missing, []);
+  assert.deepEqual(parseDiagnosis({}).missing, ["date", "amount"]);
+});
+
+test("an unreadable file hands back the row it read, for the reader to recognise", function(){
+  var parsed = parseBankCsv([["Merchant", "Spend", "Notes"], ["Woolworths", "45.20", "groceries"]], { existing: [] });
+  assert.equal(parsed.headerOk, false);
+  assert.deepEqual(parsed.firstRow, ["Merchant", "Spend", "Notes"],
+    "showing the row beats any rule about columns — the reader recognises their own file");
+  // Capped, so a 40-column export doesn't paste a wall of text into the panel.
+  var wide = parseBankCsv([["a","b","c","d","e","f","g","h"]], { existing: [] });
+  assert.equal(wide.firstRow.length, 6);
 });

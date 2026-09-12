@@ -5,6 +5,7 @@ import { state } from "../src/state.js";
 import { modernPlainRowHtml, modernRowShellHtml, optionsHtml, historyTrendHtml } from "../src/lib/ledger-table.js";
 import { categoryChartHtml } from "../src/components/expenses.js";
 import { sparklineHtml, sparklinePlaceholderHtml } from "../src/lib/charts.js";
+import { rangeByKey, rangeLabel, rangeStartDate, withinRange, timeRangeControlHtml } from "../src/lib/timerange.js";
 
 // Why this file exists.
 //
@@ -120,3 +121,48 @@ test("the sparkline survives empty, single-point and flat histories", function()
 // with document.createElement, so it cannot run in this runner. Stubbing a document for it would
 // buy a passing test and no real confidence — that one is verified by driving the app, which is
 // the right tool for a function whose whole job is touching the DOM.
+
+// ---------------- The shared time-range control ----------------
+
+test("rangeStartDate is unbounded for All and a real date for every fixed window", function(){
+  // null means "no lower bound", which callers must treat as unbounded rather than as today —
+  // reading it as a date would silently hide everything.
+  assert.equal(rangeStartDate(rangeByKey("all"), { today: "2026-09-12" }), null);
+  assert.equal(rangeStartDate(rangeByKey("1d"), { today: "2026-09-12" }), "2026-09-11");
+  assert.equal(rangeStartDate(rangeByKey("1m"), { today: "2026-09-12" }), "2026-08-13");
+  assert.equal(rangeStartDate(rangeByKey("1y"), { today: "2026-09-12" }), "2025-09-12");
+  // A window that crosses a month and a year boundary, which naive date arithmetic gets wrong.
+  assert.equal(rangeStartDate(rangeByKey("3m"), { today: "2026-01-15" }), "2025-10-17");
+});
+
+test("the YTD window starts at the household's own year, not January", function(){
+  // The household year is a preference — on the financial basis a "year to date" figure measured
+  // from 1 January is simply a different number, which is why the caller passes the boundary in.
+  assert.equal(rangeStartDate(rangeByKey("ytd"), { today: "2026-09-12", yearStart: "2026-07-01" }), "2026-07-01");
+  assert.equal(rangeLabel(rangeByKey("ytd"), "financial"), "FYTD");
+  assert.equal(rangeLabel(rangeByKey("ytd"), "calendar"), "YTD");
+});
+
+test("withinRange keeps what's inside, drops what's outside, and drops undated rows", function(){
+  var rows = [
+    { date: "2026-09-10", amount: 1 },
+    { date: "2026-01-02", amount: 2 },
+    { date: "", amount: 3 },
+    { amount: 4 }
+  ];
+  var recent = withinRange(rows, rangeByKey("1m"), { today: "2026-09-12" });
+  assert.deepEqual(recent.map(function(r){ return r.amount; }), [1]);
+  // A row that can't say when it happened cannot honestly appear under "the last 3 months" —
+  // but it must still survive "All", or it would be unreachable from the list entirely.
+  var all = withinRange(rows, rangeByKey("all"), { today: "2026-09-12" });
+  assert.deepEqual(all.map(function(r){ return r.amount; }), [1, 2],
+    "undated rows are dropped even by All — they have no place on a dated axis");
+});
+
+test("timeRangeControlHtml marks the selection and can omit windows", function(){
+  var html = timeRangeControlHtml("3m", "tx-range", { omit: ["1d", "1w"] });
+  assert.ok(html.indexOf('data-tx-range="3m"') !== -1);
+  assert.ok(html.indexOf('aria-pressed="true"') !== -1, "the active option is announced, not just coloured");
+  assert.ok(html.indexOf('data-tx-range="1d"') === -1, "omitted windows are absent, not disabled");
+  assert.ok(html.indexOf('data-tx-range="all"') !== -1);
+});

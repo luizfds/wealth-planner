@@ -27,7 +27,7 @@ import {
   openExpenseReview, closeExpenseReview, renderExpenseReviewPanel,
   logCurrentReviewCard, skipCurrentReviewCard, expenseReview,
   renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel,
-  setTransactionsShowAll, modernTransactionRowOpen, budgetRowTxnsOpen, transactionSummaryText,
+  setTransactionsShowAll, setTransactionsRange, modernTransactionRowOpen, budgetRowTxnsOpen, transactionSummaryText,
   openQuickLog, closeQuickLog, renderQuickLogSheet, setQuickLogLink, setQuickLogDateOpen,
   setQuickLogShowAllChips, submitQuickLog, quickLogContextText, quickLog,
   renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, logExpenseTransaction,
@@ -2151,6 +2151,13 @@ import {
   });
 
   // ---------------- Transactions: real dated spend, separate from the planned budget ----------------
+  // The Transactions time-range picker. Delegated off the card because renderTransactions()
+  // rebuilds the control itself on every change.
+  document.getElementById("transactionsTable").addEventListener("click", function(e){
+    var rangeBtn = e.target.closest("[data-tx-range]");
+    if(!rangeBtn) return;
+    setTransactionsRange(rangeBtn.getAttribute("data-tx-range"));
+  });
   document.getElementById("addTransactionBtn").addEventListener("click", function(){
     addTransaction();
     openNewRowModal("transactionsTable", "tx", state.transactions.length - 1, modernTransactionRowOpen);

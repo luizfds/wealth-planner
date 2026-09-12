@@ -545,7 +545,7 @@ produced correct numbers from correct inputs and still told a false story.
 
 ---
 
-## 10. `[~]` Make the new charts readable — v3.0.0
+## 10. `[x]` Make the new charts readable — shipped v3.0.0
 
 Found by driving v2.99.0's four charts against the real backup, in **both** colour schemes — the
 first pass had only ever been looked at in light mode.

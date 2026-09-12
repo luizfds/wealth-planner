@@ -789,8 +789,12 @@
      overrides loses to it on every viewport, mobile included (see CLAUDE.md). */
   @media (min-width: 640px){
     .bank-import-assign{ grid-template-columns:2fr 1fr; }
+    .bank-import-newline{ grid-column:1 / -1; }
   }
   /* A group still waiting on a decision. Marked on the row itself rather than only by which
      section it sits in, because assigning one no longer moves it between sections — see
      patchBankImportPanel(). */
   .bank-import-group.is-unplaced{ border-left:3px solid var(--brass-strong); }
+  /* The working behind a created line's derived amount. Indented under the two selects it belongs
+     to, and spanning both columns on desktop where they sit side by side. */
+  .bank-import-newline{ margin:2px 0 0; font-size:11.5px; }

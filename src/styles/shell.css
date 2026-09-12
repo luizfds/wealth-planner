@@ -140,6 +140,19 @@
      button are fixed to the bottom-right, so on a page too short to scroll they land on top of
      whatever is there — most visibly the last Dashboard card on a first run, where there is no
      scroll room to move it clear. 96px clears the fab (52px + its 24px offset) with a margin. */
+  /* Off-screen until focused, then pinned to the top-left over everything. Not display:none and
+     not visibility:hidden — either would take it out of the tab order entirely, which is the one
+     thing it must stay in. */
+  .skip-link{
+    position:fixed; top:-100px; left:12px; z-index:100;
+    background: var(--paper-raised); color: var(--brass-strong);
+    border:1px solid var(--brass); border-radius:8px;
+    padding:12px 16px; font-size:13px; font-weight:600; text-decoration:none;
+    min-height:44px; display:flex; align-items:center;
+    transition: top .12s ease;
+  }
+  .skip-link:focus, .skip-link:focus-visible{ top:12px; box-shadow: var(--focus-ring); }
+
   .app-page{ display:flex; flex-direction:column; gap:20px; padding-bottom:96px; }
   .app-page[hidden]{ display:none; }
   .page-intro{ color: var(--ink-soft); font-size:13.5px; max-width:70ch; margin:0; }

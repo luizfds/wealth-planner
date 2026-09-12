@@ -87,6 +87,11 @@
   </svg>
 </div>
 
+<!-- 22 tab stops stood between the top of the page and any content on it: the whole sidebar nav,
+     then the toolbar. Every page, every time. This is the standard escape — invisible until it has
+     focus, first in the tab order, and it moves focus into the content rather than only scrolling
+     there (see app.js's handler, which sets tabindex="-1" on the target first). -->
+<a class="skip-link" href="#appContent">Skip to page content</a>
 <div class="app-shell">
 
   <nav class="app-sidebar">
@@ -162,7 +167,7 @@
       </div>
     </header>
 
-    <div class="app-content">
+    <div class="app-content" id="appContent">
 
       <section class="app-page" id="page-dashboard">
         <p class="page-intro" id="dashboardIntro">Compare renting against buying, scenario by scenario — keep any investment property in the mix across every option.</p>

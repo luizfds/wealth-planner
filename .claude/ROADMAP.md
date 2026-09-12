@@ -646,6 +646,88 @@ rather than 44 was chosen to limit that.
 
 ---
 
+## 13. `[x]` The first five minutes — shipped v3.3.0
+
+Every audit so far has driven the app against a real exported backup. Nobody had ever driven it
+*empty*, which is how every user starts. The empty state itself turned out sound — every page
+renders, nothing shows NaN or undefined, and there are 1-12 empty-state notes per page — but the
+path into the app has real problems.
+
+1. **Both ways in are below the fold.** `onboarding.html` is 1374px tall on an 844px viewport.
+   "Try it with sample data" sits at 1155px and "Start from scratch" at 1209px, so a first-time
+   visitor must scroll 1.4 screens on faith before seeing any way to begin.
+2. **The dashboard tells phone users to click a button that isn't there.** The intro copy reads
+   'add your own numbers or click "Sample data" above'. Measured at 390px, `#mockDataBtn` computes
+   as hidden and the mobile equivalent is inside the closed More menu — also hidden. At 1280px the
+   button is visible (96x40). So the sentence is true on desktop and points at nothing on a phone,
+   which is this app's primary surface, at the one moment a new user most needs it.
+3. **`Go here instead ->` is 33px** with an empty `class` — inline-styled, so it slipped through
+   item 12's touch-target pass.
+4. **The empty projection chart draws a $0-$1 axis**, from renderLineChart's `yMax = yMin + 1`
+   degenerate-range guard leaking into the axis labels.
+5. **The FAB covers the last dashboard card** when the page is too short to scroll it clear.
+
+**The product call** (the user delegated it): keep the intro, stop it gating entry. A stranger
+following a link genuinely needs to know what this is — there are no accounts and no other
+explanation anywhere. What it must not do is hide both CTAs behind a scroll. It is a once-per-device
+screen (`hasSeenIntro`), so it should cost one glance: value proposition and both CTAs above the
+fold, the feature detail below for anyone who wants it.
+
+And for (2): don't fix the sentence. An empty dashboard should not describe where a control lives,
+it should offer the action. Real buttons in the empty state remove the broken reference entirely and
+are better on desktop too.
+
+**How to verify.** Load `onboarding.html` at 390x844 with a cleared localStorage and assert both
+CTAs have `top < 844`; then click through to an empty app and check the dashboard offers an action
+rather than naming one.
+
+---
+
+## 14. `[x]` A thread through the eight pages — shipped v3.4.0
+
+Five UI/UX suggestions were put up after item 13; the user asked for all five. **Two did not survive
+checking, and were dropped rather than built:**
+
+- *"The header shows $559,603 on one page and $559,604 on another."* It reads **$559,603 on all
+  eight**, measured. The two figures came from screenshots taken at different points in this
+  session's own chart work, not from disagreeing pages. There was no bug.
+- *"The ⋯ overflow menu is doing too much, with no grouping."* Each page's menu holds three related
+  CSV items under an explicit label ("Income import and export"), and the mobile More menu is
+  already divider-grouped into navigation / data / danger / about. Both were already fine.
+
+**What shipped.**
+
+1. **`lib/setup.js` + the Dashboard setup panel.** The app is eight independent pages and nothing
+   ever connected them: enter income and it says nothing about expenses. Every Dashboard figure is
+   derived from data spread across four tabs, so until all four have something in them the page is
+   a wall of zeroes with no hint which tab is the missing one. The panel names the five things its
+   own figures depend on — income, expenses, housing, what you own, a second scenario — shows
+   progress, and gives **one** button for the next step (five "do this" links is a chore; one is a
+   next move). Not a wizard: every page stays reachable in any order, and it dismisses for good via
+   a new persisted `setupDismissed`. Hides itself once all five are done.
+   The housing step deliberately tests "a home row with an amount > 0", not "a home block exists" —
+   `migrateState` seeds a block for every scenario, so the latter is true from first load and would
+   tick the step before the user typed anything.
+2. **The empty stat grid collapses.** Six tiles reading $0, $0/mo, $0 and an em-dash told a
+   first-time user nothing except that they had entered nothing — which the panel above now says,
+   with somewhere to go. One dashed card instead, spanning the grid (`grid-column: 1 / -1`, or it
+   lands in a 150px column and wraps to ten lines).
+3. **iOS no longer zooms on every field tap.** Safari zooms any text field under 16px and never
+   zooms back out, so every tap into an amount left the app scaled up until pinched back by hand.
+   16px at phone widths only, on text entry only — a `<select>` opens a picker, never triggers the
+   zoom, and forcing it would blow out the badge-styled dropdowns (`.prop-kind` is 10.5px uppercase
+   by design). `!important` is deliberate: every field is sized by its own component rule
+   (`.m-edit-field input`, `.calc-field input`, `.acct-mgmt-name`), and a class selector beats a
+   bare element one whatever the source order — the alternative is repeating it in a dozen rules the
+   next new field would forget to join.
+
+**How to verify.** From a cleared localStorage: the panel reads 0 of 5 and points at income; its CTA
+navigates; entering income moves it to 1 of 5 and points at expenses; loading sample data hides it
+and returns the five tiles; dismissing persists across a reload. Then count text-entry fields under
+16px at 390px — it should be zero, with selects excluded.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

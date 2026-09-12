@@ -109,6 +109,10 @@ export function defaultState(){
     // rather than session-only because it's a stable way of looking at your own budget, and
     // resetting it on every load of a daily-use app would be its own small annoyance.
     budgetGroupBy: "type",
+    // Whether the Dashboard's setup checklist has been dismissed for good. Persisted rather than
+    // session-only: it is a daily-use app, and re-offering a checklist the user has already waved
+    // away would be its own small annoyance. See lib/setup.js.
+    setupDismissed: false,
     // Which twelve months the household thinks of as "a year" — "financial" (Jul-Jun) or
     // "calendar". Defaults to financial: this is an Australian app, a tax return is a
     // financial-year document, and most of what a household here calls "a year of" something
@@ -290,6 +294,10 @@ export function migrateState(s){
   // works on first load rather than presenting an empty manager. An existing (possibly emptied)
   // list is left exactly as the user left it — only a missing key seeds.
   if(s.budgetGroupBy !== "category") s.budgetGroupBy = "type";
+  // A save from before the setup checklist existed has no preference either way. Left undefined it
+  // would be falsy and so behave correctly, but normalising keeps the exported backup honest about
+  // what the app stores.
+  s.setupDismissed = s.setupDismissed === true;
   // A save from before the household year existed gets the financial year — the app's new default
   // — rather than being pinned to the calendar year its reserve lines happened to use. Those lines
   // keep any basis the user chose explicitly; only ones left on the old implicit default follow

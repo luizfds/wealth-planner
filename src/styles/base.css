@@ -171,6 +171,24 @@
   .btn-sm{ padding: 4px 9px; font-size: 12px; border-radius: 6px; min-height:40px; }
   input[type="file"]{ display:none; }
 
+  /* iOS Safari zooms the whole page in on focusing any text field whose font-size is below 16px,
+     and does not zoom back out when the field blurs — so on a phone every tap into an amount left
+     the app scaled up until the user pinched it back out by hand. 16px only at phone widths: on a
+     desktop the app's 13px fields are the right size and there is no zoom behaviour to work around.
+     Text entry only, deliberately not <select>: a select opens a native picker rather than a
+     keyboard and never triggers the zoom, and forcing 16px on one would blow out the badge-styled
+     dropdowns (.prop-kind is 10.5px uppercase by design).
+     !important because every one of these fields is sized by its own component rule — .m-edit-field
+     input, .calc-field input, .acct-mgmt-name and friends — and a class selector beats a bare
+     element one whatever the source order. The alternative is repeating this in a dozen rules that
+     the next new field would forget to join. */
+  @media (max-width: 640px){
+    input[type="text"], input[type="number"], input[type="date"], input[type="search"],
+    input[type="email"], input[type="tel"], input[type="password"], input:not([type]), textarea{
+      font-size:16px !important;
+    }
+  }
+
   /* ---------------- Categorical series palette (validated: dataviz skill) ---------------- */
   .series-color-0{ --series-color:#2a78d6; } .series-color-1{ --series-color:#eb6834; }
   .series-color-2{ --series-color:#1baf7a; } .series-color-3{ --series-color:#eda100; }

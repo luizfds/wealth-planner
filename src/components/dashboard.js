@@ -1,4 +1,5 @@
 import { state, persist } from "../state.js";
+import { setupProgress, shouldShowSetup } from "../lib/setup.js";
 import { sumField, sumByClassification, sumByAccount, safeDiv, resolveSharedAmount, nextDueDate, daysUntil, appendHistorySnapshot, lastTransactionDateFor } from "../calc/ledger.js";
 import { ipExpenseItemsForClassification } from "../calc/property.js";
 import { scenarioIncomeMonthly } from "../calc/tax.js";
@@ -53,6 +54,39 @@ export function renderCards(){
   renderDashboardStats();
 }
 
+// The setup panel: what's still empty, and one link to the next thing worth doing.
+//
+// Eight independent pages, and nothing ever connected them — enter income and the app says nothing
+// about expenses. Every Dashboard figure is derived from data spread across four tabs, so until all
+// four have something in them the page is a wall of zeroes with no hint as to which tab is the
+// missing one. This is the thread through it. Not a wizard: every page stays reachable in any
+// order, and the whole thing dismisses for good.
+export function renderSetupPanel(nothingEntered){
+  var el = document.getElementById("dashboardSetup");
+  if(!el) return;
+  var show = shouldShowSetup(state);
+  el.hidden = !show;
+  if(!show){ el.innerHTML = ""; return; }
+  var p = setupProgress(state);
+  var pct = (p.done / p.total) * 100;
+  // The remaining steps, but only the next one gets a button. Five "do this" links is a chore;
+  // one is a next move, and the rest are there so you can see how much is left.
+  var rest = p.steps.filter(function(x){ return !x.done && x.key !== p.next.key; })
+    .map(function(x){ return '<li>' + escapeAttr(x.label) + '</li>'; }).join("");
+  el.innerHTML =
+    '<div class="setup-head">' +
+      '<div><b>Set up your plan</b> <span class="setup-count">' + p.done + ' of ' + p.total + ' done</span></div>' +
+      '<button type="button" class="icon-btn" data-setup-dismiss aria-label="Hide setup checklist" title="Hide this — you can still reach every page from the tabs">✕</button>' +
+    '</div>' +
+    '<div class="setup-track"><div class="setup-fill" style="width:' + pct + '%"></div></div>' +
+    '<p class="setup-next"><b>' + escapeAttr(p.next.label) + '</b><br><span>' + escapeAttr(p.next.hint) + '</span></p>' +
+    '<div class="setup-actions">' +
+      '<button type="button" class="btn btn-primary" data-setup-go="' + escapeAttr(p.next.page) + '">' + escapeAttr(p.next.label) + ' →</button>' +
+      (nothingEntered ? '<button type="button" class="btn" data-dash-start="sample">Load sample data</button>' : "") +
+    '</div>' +
+    (rest ? '<ul class="setup-rest">' + rest + '</ul>' : "");
+}
+
 export function renderDashboardStats(){
   var el = document.getElementById("dashboardStats");
   if(!el || el.closest(".app-page").hidden) return;
@@ -70,14 +104,7 @@ export function renderDashboardStats(){
     : (nothingEntered
       ? 'Your household finances at a glance. Nothing is pre-filled — start with your income, or load sample data to see what a filled-in plan looks like.'
       : 'Your household finances at a glance. Add another scenario on the Scenarios tab if you want to compare renting against buying.');
-  var emptyEl = document.getElementById("dashboardEmptyActions");
-  if(emptyEl){
-    emptyEl.hidden = !nothingEntered;
-    emptyEl.innerHTML = nothingEntered
-      ? '<button type="button" class="btn btn-primary" data-dash-start="income">Add your income →</button>' +
-        '<button type="button" class="btn" data-dash-start="sample">Load sample data</button>'
-      : "";
-  }
+  renderSetupPanel(nothingEntered);
   var totalNetWorth = totalNetWorthValue();
   var itemCount = state.assets.length + state.properties.length;
   var active = state.activeScenario;
@@ -91,6 +118,13 @@ export function renderDashboardStats(){
   var runway = runwayMonths(t.expensesMonthly);
   var runwayTile = '<div class="stat-tile" title="Liquid assets (cash + shares + property offset) ÷ ' + escapeAttr(active) + '\'s monthly expenses — how long you could cover costs with zero income. A common rule of thumb targets 3-6 months."><span>Runway</span><b>' +
     (runway == null ? "—" : fmtRunway.format(runway) + " mo") + '</b><small>liquid assets ÷ monthly expenses</small></div>';
+  // Six tiles reading $0, $0/mo, $0 and an em-dash tell a first-time user nothing except that
+  // they have entered nothing — which the setup panel above already says, with somewhere to go.
+  // The tiles earn their space once they have values in them.
+  if(nothingEntered){
+    el.innerHTML = '<p class="stat-empty">Your net worth, savings rate, projection and runway appear here once you\'ve entered your income, expenses and what you own.</p>';
+    return;
+  }
   el.innerHTML =
     '<div class="stat-tile"><span>Total net worth today</span><b>' + fmtCurrency0.format(totalNetWorth) + '</b><small>across ' + itemCount + ' item' + (itemCount === 1 ? "" : "s") + '</small></div>' +
     '<div class="stat-tile"><span>' + escapeAttr(active) + ' — net savings</span><b' + (t.netMonthly < 0 ? ' style="color:var(--bad)"' : '') + '>' + fmtCurrency0.format(t.netMonthly) + '/mo</b><small>' + fmtPercent1.format(t.rate) + ' savings rate</small></div>' +

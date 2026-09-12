@@ -6,7 +6,7 @@ import { transactionDisplayName } from "../calc/ledger.js";
 // call rebuilds the list fresh from `state`, which is fine at the sizes this app deals with (a
 // household's expenses/transactions/assets, not a database) and means results are never stale.
 // A household with months of transactions and a dozen-plus budget lines spread across Income,
-// Expenses, Assets and Properties otherwise has no way to find "that $*** charge" except knowing
+// Expenses, Assets and Properties otherwise has no way to find "that $85 charge" except knowing
 // which page to look on — this exists to remove that "which page was it on" step entirely.
 //
 // Each result carries enough to navigate there: `page` (and optionally `sub` for an Assets
@@ -36,13 +36,21 @@ export function searchApp(query){
     });
     return lines;
   }
+  // sub + lineId, because "expenses" alone is no longer a destination: the page has two subtabs and
+  // its budget groups start collapsed, so landing on it without both leaves the thing you searched
+  // for off-screen inside a closed card, with nothing saying where it went.
   budgetLines().forEach(function(item){
-    add("Expense", item.what, fmtCurrency0.format(Number(item.amount) || 0) + " " + (item.freq || "").toLowerCase(), "expenses");
+    add("Expense", item.what, fmtCurrency0.format(Number(item.amount) || 0) + " " + (item.freq || "").toLowerCase(),
+      "expenses", { sub: "budget", lineId: item.id });
   });
   (state.transactions || []).forEach(function(t){
     // Indexed by its display name, not t.what: a transaction logged against "Groceries" with no
     // description of its own is still expected to turn up when you search "groceries".
-    add("Transaction", transactionDisplayName(t, budgetLines()), (t.date || "") + " · " + fmtCurrency0.format(Number(t.amount) || 0), "expenses");
+    // Transactions are listed on the Spending subtab, not Budget — without naming it, searching a
+    // transaction took you to whichever subtab happened to be open, usually the one that doesn't
+    // list transactions at all.
+    add("Transaction", transactionDisplayName(t, budgetLines()), (t.date || "") + " · " + fmtCurrency0.format(Number(t.amount) || 0),
+      "expenses", { sub: "spending" });
   });
   (state.income || []).forEach(function(i){
     add("Income", i.what, (i.person ? i.person + " · " : "") + fmtCurrency0.format(Number(i.amount) || 0) + " " + (i.freq || "").toLowerCase(), "income");

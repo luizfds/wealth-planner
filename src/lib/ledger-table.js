@@ -209,15 +209,23 @@ export function modernRowEditHtml(fieldsHtml, actionsHtml, moreOptionsHtml){
 }
 // Ties a summary + edit panel to open/closed state and gives the row its data-section/data-index.
 // A computed row renders the summary only — there's nothing to edit, so no edit panel, no toggle.
+// data-section/data-index locate a row inside the array it was rendered from, which is what every
+// edit handler needs. data-line-id is the other question — "where on the page is *this* record" —
+// and is what lets something outside the list (cross-page search) find a row without knowing which
+// array or which group it ended up in. Emitted only when the item carries an id, so nothing changes
+// for the arrays whose rows are positional.
+function lineIdAttr(lineId){
+  return lineId ? ' data-line-id="' + escapeAttr(lineId) + '"' : "";
+}
 // extraClass lets a caller add its own marker class (e.g. Transactions' "tx-row") alongside "m-row".
 export function modernRowShellHtml(section, idx, openState, summaryHtml, editHtml, opts){
   opts = opts || {};
   var extra = (opts.extraClass ? " " + opts.extraClass : "") + (opts.primary ? " m-row-primary" : "");
   if(opts.computed){
-    return '<div class="m-row computed' + extra + '" data-section="' + escapeAttr(section) + '" data-index="' + idx + '">' + summaryHtml + '</div>';
+    return '<div class="m-row computed' + extra + '"' + lineIdAttr(opts.lineId) + ' data-section="' + escapeAttr(section) + '" data-index="' + idx + '">' + summaryHtml + '</div>';
   }
   var isOpen = !!openState[section + ":" + idx];
-  return '<div class="m-row' + (isOpen ? " open" : "") + extra + '" data-section="' + escapeAttr(section) + '" data-index="' + idx + '">' + summaryHtml + editHtml + '</div>';
+  return '<div class="m-row' + (isOpen ? " open" : "") + extra + '"' + lineIdAttr(opts.lineId) + ' data-section="' + escapeAttr(section) + '" data-index="' + idx + '">' + summaryHtml + editHtml + '</div>';
 }
 
 // Generic "name + amount, expands to a small field grid" row — used everywhere a ledger-table
@@ -252,7 +260,7 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
     amountHtml: fmtCurrency2.format(monthly) + "/mo"
   });
   if(isComputed){
-    return modernRowShellHtml(section, idx, openState, summary, "", { computed: true });
+    return modernRowShellHtml(section, idx, openState, summary, "", { computed: true, lineId: item.id });
   }
   // With a Classification field, Account gets its own full-width row below (matches Expenses);
   // without one, there's room for Amount/Frequency/Account to share a single row instead.
@@ -294,5 +302,5 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
   var doneButtonHtml = opts.showDone ? '<button type="button" class="btn btn-primary btn-sm" data-row-toggle>Done</button>' : '';
   var actionsHtml = doneButtonHtml + '<button type="button" class="btn btn-ghost btn-sm row-del" data-del="' + escapeAttr(section) + ':' + idx + '">Delete</button>';
   var edit = modernRowEditHtml(fieldsHtml, actionsHtml, moreOptionsHtml);
-  return modernRowShellHtml(section, idx, openState, summary, edit, { primary: opts.primaryId && item.id === opts.primaryId });
+  return modernRowShellHtml(section, idx, openState, summary, edit, { primary: opts.primaryId && item.id === opts.primaryId, lineId: item.id });
 }

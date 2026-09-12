@@ -150,9 +150,27 @@ not the bundled Chromium) is the standard way to drive/verify UI changes in this
 
 ## Testing conventions
 
-- No test framework — verification is done by actually driving the app (Playwright + real Chrome
-  against the http.server above), screenshotting, and reading the DOM/console. See
-  `.claude/PROJECT_KNOWLEDGE.md` for the exact working setup and scratchpad conventions.
+`npm test` runs Node's built-in runner over `tests/*.test.js`. No framework, no dependencies — that
+is deliberate, and any fix that needs jsdom or a bundler to be testable is the wrong fix.
+
+Three layers, and **knowing what each one cannot see is the whole point**:
+
+1. **`tests/*.test.js` over `calc/`** — the financial arithmetic. Deep coverage, and none of it
+   touches the DOM.
+2. **`tests/render-smoke.test.js`** — calls the pure HTML builders (`modernPlainRowHtml`,
+   `categoryChartHtml`, `sparklineHtml`, …) with fixture data and asserts they return markup.
+   It exists because **a fully green suite twice sat on top of a page that did not render at all**:
+   once from a function imported out of the wrong module, once from a variable referenced outside
+   its scope. Both passed `node --check`. Both passed every test. Both were found by opening a
+   browser. If you add a function that builds HTML from data, add it here.
+3. **Driving the app** (Playwright + real Chrome against the http.server above), screenshotting,
+   reading the DOM and console. Still the only thing that sees event wiring, CSS cascade, layout,
+   and anything reached through `document`.
+
+- **A green run is not evidence the app renders.** Nothing in layers 1–2 loads a component or
+  fires a listener. Any change to a component, a template or a stylesheet gets driven before it is
+  called done.
 - Prefer checking computed styles/behavior over eyeballing when a bug might be CSS-cascade-related
   — several real bugs in this project were only found via `getComputedStyle()` audits, not visual
-  inspection.
+  inspection. The same goes for geometry: measure `getBoundingClientRect()` rather than deciding
+  a bar or a tap target looks about right.

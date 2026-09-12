@@ -33,6 +33,7 @@ import {
   renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, logExpenseTransaction,
   renderCategories, addCategory, deleteCategory, renameCategoryEverywhere,
   setBudgetGroupBy, renderBudgetGroupByToggle, budgetLineItems,
+  toggleBudgetGroup, setAllBudgetGroupsCollapsed, allBudgetGroupsCollapsed,
   renderYearSpending, renderYearBasisPreference, setYearBasis, transactionCategory,
   parseExpensesImportCsv, renderExpensesImportPreview, clearExpensesImportPreview, commitExpensesImport,
   renderSpendCategoryChart, renderSpendingTrends
@@ -2931,7 +2932,32 @@ import {
   });
   document.getElementById("budgetGroupBy").addEventListener("click", function(e){
     var groupByBtn = e.target.closest("[data-budget-groupby]");
-    if(groupByBtn) setBudgetGroupBy(groupByBtn.getAttribute("data-budget-groupby"));
+    if(groupByBtn){ setBudgetGroupBy(groupByBtn.getAttribute("data-budget-groupby")); return; }
+    if(!e.target.closest("#budgetCollapseAllBtn")) return;
+    setAllBudgetGroupsCollapsed(!allBudgetGroupsCollapsed());
+    renderSharedGroups();
+    renderBudgetGroupByToggle();
+    persist();
+  });
+  // One group card's head. Delegated off #sharedGroups because the whole list is rebuilt whenever
+  // a budget line changes, so a listener bound to a head would be thrown away on the first edit.
+  document.getElementById("sharedGroups").addEventListener("click", function(e){
+    var head = e.target.closest("[data-budget-group-toggle]");
+    if(!head) return;
+    toggleBudgetGroup(head.getAttribute("data-budget-group-toggle"));
+    renderSharedGroups();
+    renderBudgetGroupByToggle();
+    persist();
+  });
+  document.getElementById("sharedGroups").addEventListener("keydown", function(e){
+    if(e.key !== "Enter" && e.key !== " ") return;
+    var head = e.target.closest("[data-budget-group-toggle]");
+    if(!head) return;
+    e.preventDefault();
+    toggleBudgetGroup(head.getAttribute("data-budget-group-toggle"));
+    renderSharedGroups();
+    renderBudgetGroupByToggle();
+    persist();
   });
   // The budget total's "See them below" link. Delegated off document because the pointer line is
   // re-rendered by renderPropertyExpensesSummary() whenever a loan changes, so a listener bound to

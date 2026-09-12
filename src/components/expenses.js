@@ -313,6 +313,25 @@ function spentInCycle(item, cycle){
   return transactionsInRange(state.transactions, cycle.start, cycle.end)
     .reduce(function(sum, t){ return t.linkedExpenseId === item.id ? sum + (Number(t.amount) || 0) : sum; }, 0);
 }
+// A group is collapsed unless it has been explicitly opened. Reading "absent means collapsed"
+// rather than seeding every name on migration is what makes this work across the Type/Category
+// toggle — the two axes have entirely different group names, and a category created next month
+// has never been seen by any migration.
+export function isBudgetGroupCollapsed(key){
+  var map = state.budgetGroupsCollapsed || {};
+  return map[key] !== false;
+}
+export function toggleBudgetGroup(key){
+  if(!state.budgetGroupsCollapsed) state.budgetGroupsCollapsed = {};
+  state.budgetGroupsCollapsed[key] = !isBudgetGroupCollapsed(key);
+}
+export function setAllBudgetGroupsCollapsed(collapsed){
+  if(!state.budgetGroupsCollapsed) state.budgetGroupsCollapsed = {};
+  computeSharedGroups().forEach(function(g){ state.budgetGroupsCollapsed[g.key] = collapsed ? true : false; });
+}
+export function allBudgetGroupsCollapsed(){
+  return computeSharedGroups().every(function(g){ return isBudgetGroupCollapsed(g.key); });
+}
 export function renderSharedGroups(){
   // The overdue count depends on the budget lines and on what's been logged against them, so it's
   // refreshed from both of the renders that follow a change to either (see also
@@ -344,8 +363,16 @@ export function renderSharedGroups(){
       ? (g.key === UNCATEGORISED ? "m-avatar-neutral" : "m-avatar-series series-color-" + (gi % 8))
       : "m-avatar-" + classificationSwatchClass(g.key);
     var addValue = (byCategory && g.key === UNCATEGORISED) ? "shared" : addPrefix + g.key;
-    return '<div class="m-card">' +
-      '<div class="m-card-head"><span class="m-avatar ' + avatarClass + '">' + escapeAttr(initial) + '</span>' +
+    // Collapsed by default (see migrateState). A 37-line budget is 4,023px of rows on a 390px
+    // screen — you cannot reach Groceries without scrolling past thirty other things. Collapsed,
+    // the same budget is seven headers that each still state their own monthly total, so the shape
+    // of the spending is legible at a glance and the detail is one tap away. Same call, and the
+    // same reasoning, as defaulting a property card's sections closed.
+    var collapsed = isBudgetGroupCollapsed(g.key);
+    return '<div class="m-card' + (collapsed ? " is-collapsed" : "") + '">' +
+      '<div class="m-card-head" data-budget-group-toggle="' + escapeAttr(g.key) + '" role="button" tabindex="0" aria-expanded="' + (!collapsed) + '">' +
+      '<span class="icon-btn m-card-caret" aria-hidden="true"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg></span>' +
+      '<span class="m-avatar ' + avatarClass + '">' + escapeAttr(initial) + '</span>' +
       '<div class="m-card-name">' + escapeAttr(g.key) + '</div>' +
       '<div class="m-card-total">' + fmtCurrency0.format(g.monthly) + '<span>/mo</span></div></div>' +
       // Each row renders under its own source section, so a housing line's edits, deletes and
@@ -863,20 +890,34 @@ export function setBudgetGroupBy(value){
   renderBudgetGroupByToggle();
   persist();
 }
+// Rendered beside the Group-by toggle rather than in the card footer, because it acts on every
+// card at once and the toggle it sits next to is the other control that reshapes the whole list.
+export function budgetCollapseAllHtml(){
+  var all = allBudgetGroupsCollapsed();
+  return '<button type="button" class="btn btn-ghost btn-sm" id="budgetCollapseAllBtn">' +
+    (all ? "Expand all" : "Collapse all") + '</button>';
+}
 export function renderBudgetGroupByToggle(){
   var el = document.getElementById("budgetGroupBy");
   if(!el) return;
   // Hidden until there's a second way to slice the money: with no categories defined, "Group by"
   // offers a choice between one real grouping and a single "Uncategorised" pile.
   var anyCategorised = state.shared.some(function(item){ return (item.category || "").trim(); });
-  el.hidden = !anyCategorised;
-  if(!anyCategorised) return;
-  el.innerHTML = '<span class="groupby-label">Group by</span>' +
-    [["type", "Type"], ["category", "Category"]].map(function(pair){
-      var on = (state.budgetGroupBy === "category" ? "category" : "type") === pair[0];
-      return '<button type="button" class="groupby-option' + (on ? " is-selected" : "") + '"' +
-        ' data-budget-groupby="' + pair[0] + '" aria-pressed="' + (on ? "true" : "false") + '">' + pair[1] + '</button>';
-    }).join("");
+  // Expand/Collapse all applies whether or not there's a second axis to group by, so this row is
+  // shown whenever there is more than one card to act on — the Group-by half is what's conditional,
+  // not the row itself.
+  var groupCount = computeSharedGroups().length;
+  el.hidden = !anyCategorised && groupCount < 2;
+  if(el.hidden) return;
+  el.innerHTML = (anyCategorised
+    ? '<span class="groupby-label">Group by</span>' +
+      [["type", "Type"], ["category", "Category"]].map(function(pair){
+        var on = (state.budgetGroupBy === "category" ? "category" : "type") === pair[0];
+        return '<button type="button" class="groupby-option' + (on ? " is-selected" : "") + '"' +
+          ' data-budget-groupby="' + pair[0] + '" aria-pressed="' + (on ? "true" : "false") + '">' + pair[1] + '</button>';
+      }).join("")
+    : "") +
+    (groupCount > 1 ? '<span class="groupby-break" aria-hidden="true"></span>' + budgetCollapseAllHtml() : "");
 }
 export function setTransactionsShowAll(value){
   transactionsShowAll = value;

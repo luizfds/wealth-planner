@@ -41,7 +41,7 @@ import {
 import {
   patchHoldingRow, patchVehicleRow, modernAssetRowOpen, patchAssetCategoryTotals,
   renderNetWorthPanel, renderAssets, logAssetSnapshot, applySharesPaste, logDebtSnapshot,
-  patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter, renderAssetPersonSheet, assetPersonSheetOpen, setAssetPersonSheetOpen, setSharesGainFilter, setSharesSortMode, setSharesChangeWindow,
+  patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter, renderAssetPersonSheet, assetPersonSheetOpen, setAssetPersonSheetOpen, setSharesGainFilter, setSharesSortMode, setSharesChangeWindow, setAllocationRange,
   parseAssetsImportCsv, renderAssetsImportPreview, clearAssetsImportPreview, commitAssetsImport, dividendNoteText,
   recordAssetSale, deleteAssetSale
 } from "./components/assets.js";
@@ -1286,6 +1286,8 @@ import {
     if(gainFilterBtn){ setSharesGainFilter(gainFilterBtn.getAttribute("data-shares-gain-filter")); return; }
     var changeWindowBtn = e.target.closest("[data-shares-change-window]");
     if(changeWindowBtn){ setSharesChangeWindow(changeWindowBtn.getAttribute("data-shares-change-window")); return; }
+    var allocRangeBtn = e.target.closest("[data-allocation-range]");
+    if(allocRangeBtn){ setAllocationRange(allocRangeBtn.getAttribute("data-allocation-range")); return; }
     if(e.target.closest("[data-set-projection-reference]")){ setProjectionReference(); return; }
     if(e.target.closest("[data-log-networth]")){ logNetWorthSnapshot(); return; }
     var debtLogBtn = e.target.closest("[data-debt-log]");

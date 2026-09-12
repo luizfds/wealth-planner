@@ -63,6 +63,30 @@ export function withinRange(records, range, opts){
   });
 }
 
+// Which window to open a chart on, given where its observations actually are.
+//
+// "All" is the honest default and a poor first impression: on the reference data thirteen months of
+// x-axis hold one flat band, because the whole composition was logged in the last fortnight — 95%
+// of the chart is the period before anything but super was tracked. Picking the shortest window
+// that still contains at least half the observations frames the data where the data is, and the
+// control is right there to widen it again.
+//
+// Returns "all" whenever no fixed window does better — including the ordinary case of a year of
+// evenly-spaced monthly logs, where half the points are simply older than 6M.
+export function bestFitRange(dates, opts){
+  var all = (dates || []).filter(Boolean);
+  if(all.length < 4) return "all";   // too few points for the framing to matter
+  var half = all.length / 2;
+  var fixed = TIME_RANGES.filter(function(r){ return !r.all && !r.ytd; });
+  for(var i = 0; i < fixed.length; i++){
+    var start = rangeStartDate(fixed[i], opts);
+    var inside = all.filter(function(d){ return d >= start; }).length;
+    // At least two points, or there is no shape to show however dense the window looks.
+    if(inside >= half && inside >= 2) return fixed[i].key;
+  }
+  return "all";
+}
+
 // The segmented control, as an HTML string. One markup definition so the two places that show it
 // can't drift apart visually — the caller supplies the data-attribute name its own click handler
 // listens for, since event registration lives in app.js per this project's convention.

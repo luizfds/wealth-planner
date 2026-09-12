@@ -140,3 +140,20 @@
   .stack-band{ opacity:.88; }
   .stack-band:hover{ opacity:1; }
   .stack-legend{ margin-top:10px; }
+
+  /* "Where your wealth sits": today's mix as a composition bar, then how it got there as a stack.
+     The bar comes first deliberately — it answers the section's question at any logging cadence,
+     while the stack below it is only as readable as the data is evenly spaced. */
+  .alloc-today .rule-bar{ margin-bottom:9px; }
+  .alloc-shift{ margin-top:20px; padding-top:16px; border-top:1px solid var(--border); }
+  .alloc-shift-head{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    flex-wrap:wrap; margin-bottom:10px;
+  }
+  /* Below ~430px the eight range buttons and the heading cannot share a line without the control
+     being squeezed into a scroll stub, so the heading takes its own row and the control gets the
+     full width to scroll within. */
+  @media (max-width: 430px){
+    .alloc-shift-head{ display:block; }
+    .alloc-shift-head .cat-chart-title{ margin-bottom:8px !important; }
+  }

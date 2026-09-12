@@ -256,3 +256,18 @@ test("a hand-logged row on a different day or amount doesn't suppress anything",
   assert.equal(parsed.rows[0].possibleDuplicate, false);
   assert.equal(bankImportSummary(parsed).newSpend, 1);
 });
+
+test("a credit is kept and labelled, not silently dropped", function(){
+  // The app can't tell a $220 refund from a $220 salary instalment, so the parser keeps both and
+  // lets the review screen ask. Dropping them in the parser would make that impossible.
+  var parsed = parseBankCsv(parseCsv([
+    "Date,Transaction Details,Debit,Credit,Balance",
+    "01/08/2026,COLES EXPRESS 5521,88.40,,4100.00",
+    "10/08/2026,REFUND QANTAS,,220.00,4320.00"
+  ].join("\n")));
+  var credit = parsed.rows.find(function(r){ return r.direction === "credit"; });
+  assert.ok(credit, "the credit survives the parse");
+  assert.equal(credit.amount, 220, "carried as a positive magnitude; the direction says which way");
+  assert.equal(bankImportSummary(parsed).credits, 1);
+  assert.equal(bankImportSummary(parsed).newSpend, 1, "and it is not counted as spending");
+});

@@ -830,7 +830,7 @@ export function renderQuickLogSheet(){
       '<div class="review-head"><h4>Log spend</h4><button type="button" class="icon-btn" data-qlog-close aria-label="Close">✕</button></div>' +
       '<div class="qlog-amount-row">' +
         '<span class="qlog-currency" aria-hidden="true">$</span>' +
-        '<input type="number" step="0.01" min="0" inputmode="decimal" id="quickLogAmount" class="qlog-amount" placeholder="0.00" aria-label="Amount spent">' +
+        '<input type="number" step="0.01" inputmode="decimal" id="quickLogAmount" class="qlog-amount" placeholder="0.00" aria-label="Amount spent — negative for a refund">' +
       '</div>' +
       '<div class="qlog-section-label">What was it for?</div>' +
       quickLogChipsHtml() +
@@ -965,7 +965,9 @@ function transactionDescriptionPlaceholder(t){
 function transactionRowHtml(t, idx){
   var dateInput = '<input type="date" class="tx-date" data-tx-index="' + idx + '" value="' + escapeAttr(t.date || "") + '" aria-label="Date">';
   var whatInput = '<input type="text" class="tx-what" data-tx-index="' + idx + '" value="' + escapeAttr(t.what || "") + '" placeholder="' + escapeAttr(transactionDescriptionPlaceholder(t)) + '" aria-label="Description (optional)" title="Optional — only worth filling in when the budget line\'s own name doesn\'t say enough (e.g. what the Miscellaneous spend actually was)">';
-  var amountInput = '<input type="number" step="0.01" min="0" class="tx-amount" data-tx-index="' + idx + '" value="' + t.amount + '" aria-label="Amount">';
+  // No min="0": a refund is a real transaction with a negative amount, and every sum downstream
+  // already reads `s + (Number(t.amount) || 0)` rather than clamping.
+  var amountInput = '<input type="number" step="0.01" class="tx-amount" data-tx-index="' + idx + '" value="' + t.amount + '" aria-label="Amount (negative for a refund)">';
   var linkSelect = '<select class="tx-link" data-tx-index="' + idx + '" aria-label="Linked expense" title="Pick a budget line to log this transaction against — fills in its description and amount for you, or leave it as One-off for spend that has no matching budget line">' + transactionLinkOptionsHtml(t.linkedExpenseId) + '</select>';
   var acctSelect = '<select class="tx-account" data-tx-index="' + idx + '" aria-label="Account">' + transactionAccountOptionsHtml(t.account || "") + '</select>';
   var summary = modernRowSummaryHtml({
@@ -1371,17 +1373,27 @@ export function categoryTotals(items, valueFor){
 export function categoryChartHtml(groups, unit, opts){
   opts = opts || {};
   if(groups.length < 2) return "";
-  var total = groups.reduce(function(sum, g){ return sum + g.monthly; }, 0);
+  // A category can net negative now that refunds are real transactions — return more than you
+  // bought in a month and Clothing is -$40. A proportional bar has no way to draw that: the
+  // segment inverts to a negative width and, because the negative shrinks the denominator, every
+  // other segment's percentage climbs past its true share and the bar overflows its track. So the
+  // bar is built from the positive categories only, and the negatives stay in the legend where a
+  // credit reads correctly as a credit.
+  var positives = groups.filter(function(g){ return g.monthly > 0; });
+  var total = positives.reduce(function(sum, g){ return sum + g.monthly; }, 0);
   if(total <= 0) return "";
-  var segs = groups.map(function(g, i){
+  var colorOf = {};
+  groups.forEach(function(g, i){ colorOf[g.key] = i % 8; });
+  var segs = positives.map(function(g){
     var pct = g.monthly / total;
-    return '<div class="rule-seg cat-seg series-color-' + (i % 8) + '" style="width:' + (pct * 100) + '%"' +
+    return '<div class="rule-seg cat-seg series-color-' + colorOf[g.key] + '" style="width:' + (pct * 100) + '%"' +
       ' title="' + escapeAttr(g.key) + ': ' + fmtCurrency0.format(g.monthly) + unit + ' (' + fmtPercent1.format(pct) + ')">' +
       (pct > 0.12 ? fmtPercent1.format(pct) : "") + '</div>';
   }).join("");
-  var legend = groups.map(function(g, i){
-    return '<div class="rule-legend-item"><span class="rule-swatch cat-seg series-color-' + (i % 8) + '"></span>' +
-      escapeAttr(g.key) + ' <b>' + fmtCurrency0.format(g.monthly) + '</b></div>';
+  var legend = groups.map(function(g){
+    return '<div class="rule-legend-item' + (g.monthly < 0 ? " is-credit" : "") + '"><span class="rule-swatch cat-seg series-color-' + colorOf[g.key] + '"></span>' +
+      escapeAttr(g.key) + ' <b>' + fmtCurrency0.format(g.monthly) + '</b>' +
+      (g.monthly < 0 ? ' <span class="cat-credit-tag" title="More came back than went out in this category — refunds outweighed spending">net refund</span>' : "") + '</div>';
   }).join("");
   var bar = opts.barless ? "" : '<div class="rule-bar">' + segs + '</div>';
   return '<div class="cat-chart' + (opts.barless ? " cat-chart-compact" : "") + '">' + bar + '<div class="rule-legend">' + legend + '</div></div>';

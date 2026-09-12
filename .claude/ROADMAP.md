@@ -646,6 +646,43 @@ rather than 44 was chosen to limit that.
 
 ---
 
+## 13. `[~]` The first five minutes — v3.3.0
+
+Every audit so far has driven the app against a real exported backup. Nobody had ever driven it
+*empty*, which is how every user starts. The empty state itself turned out sound — every page
+renders, nothing shows NaN or undefined, and there are 1-12 empty-state notes per page — but the
+path into the app has real problems.
+
+1. **Both ways in are below the fold.** `onboarding.html` is 1374px tall on an 844px viewport.
+   "Try it with sample data" sits at 1155px and "Start from scratch" at 1209px, so a first-time
+   visitor must scroll 1.4 screens on faith before seeing any way to begin.
+2. **The dashboard tells phone users to click a button that isn't there.** The intro copy reads
+   'add your own numbers or click "Sample data" above'. Measured at 390px, `#mockDataBtn` computes
+   as hidden and the mobile equivalent is inside the closed More menu — also hidden. At 1280px the
+   button is visible (96x40). So the sentence is true on desktop and points at nothing on a phone,
+   which is this app's primary surface, at the one moment a new user most needs it.
+3. **`Go here instead ->` is 33px** with an empty `class` — inline-styled, so it slipped through
+   item 12's touch-target pass.
+4. **The empty projection chart draws a $0-$1 axis**, from renderLineChart's `yMax = yMin + 1`
+   degenerate-range guard leaking into the axis labels.
+5. **The FAB covers the last dashboard card** when the page is too short to scroll it clear.
+
+**The product call** (the user delegated it): keep the intro, stop it gating entry. A stranger
+following a link genuinely needs to know what this is — there are no accounts and no other
+explanation anywhere. What it must not do is hide both CTAs behind a scroll. It is a once-per-device
+screen (`hasSeenIntro`), so it should cost one glance: value proposition and both CTAs above the
+fold, the feature detail below for anyone who wants it.
+
+And for (2): don't fix the sentence. An empty dashboard should not describe where a control lives,
+it should offer the action. Real buttons in the empty state remove the broken reference entirely and
+are better on desktop too.
+
+**How to verify.** Load `onboarding.html` at 390x844 with a cleared localStorage and assert both
+CTAs have `top < 844`; then click through to an empty app and check the dashboard offers an action
+rather than naming one.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

@@ -483,6 +483,68 @@ than calling `reload()`.
 
 ---
 
+## 9. `[x]` Look at your data over time — shipped v2.98.0–v3.0.0
+
+Measured from the reference backup, the app captures far more history than it shows:
+
+| | Holdings | With history | Points | Span |
+|---|---:|---:|---:|---|
+| **Super** | 2 | 2 | 7 | **2025-07-31 → 2026-08-31 (13 months)** |
+| Cash | 1 | 1 | 3 | 13 months |
+| Shares | 11 | 11 | 129 | 9 days |
+| Property | 1 | 1 | 3 | — |
+| Net worth log | — | — | 5 | — |
+| Vehicle | 1 | 0 | 0 | never logged |
+| Debts | 1 | 0 | 0 | never logged |
+
+Shares — nine days of history — has a dedicated chart *and* a 1D/1W/1M/3M/6M/1Y/YTD/All
+window picker. Super, with the longest history in the file, has a 56px row sparkline and a
+share of one combined net-worth line. Transactions have no time control at all: the list is
+the 10 most recent or all 53, with nothing in between, and every figure on the Spending tab
+is either this-month or this-year.
+
+**a. One time-range control, used in more than one place.** Extract the Shares window picker
+into a shared lib and put it on Transactions.
+
+**b. Value over time per asset category**, not just Shares — the same chart, driven by the
+category subpage you are already on.
+
+**c. Allocation over time.** A stacked area of Super / Shares / Cash / Property equity. A single
+net-worth line cannot answer "am I getting more property-heavy".
+
+**d. Income vs spending vs saved, by month.** 53 dated transactions and full income data exist;
+the Dashboard only ever shows one month.
+
+**e. Contributions vs growth.** Net worth rose — how much was money you added versus assets
+appreciating? The highest-insight chart in a wealth tracker, and the one most easily made
+dishonest, since the split is an inference and has to be labelled as one.
+
+**How to verify.** Drive it. Colour is computed, not eyeballed: every categorical subset goes
+through the dataviz validator before shipping (the existing 8-slot palette passes adjacent-pair,
+but each chart's own subset needs `--pairs all`).
+
+**What shipped, and the three things that only driving it caught.** All four charts were built,
+run against the real backup, found to be lying, and rebuilt. The arithmetic was never wrong.
+
+1. **"Kept $21,713/mo"** — the cash-flow panel subtracted *logged* spending from income. Logged
+   averaged $777/mo against a $14,613/mo budget (5%), so it was measuring how little had been
+   typed in and calling it thrift. The household keeps $8,339. `spendCoverage()` now gates the
+   savings claim at 80% coverage; below that the panel says what it has.
+2. **"$290,911 of growth"** — super and cash were logged from July 2025, shares and the property
+   only from August 2026, so ~$385,000 of that was assets that merely began being tracked.
+   `fullCoverageFrom()` opens the window only where every asset tracked now was already tracked,
+   and the panel names what it set aside.
+3. **A property acquired over twelve months** — the stacked bands were linearly interpolated, so
+   an asset first logged in August 2026 ramped smoothly from July 2025. Stepped now, which is
+   what `valueOn()` always meant. The x labels were also picked by array position and, because
+   observation dates cluster, overprinted four labels into a smear; they're spaced by time with a
+   56px minimum gap.
+
+The lesson worth keeping: a chart is not verified by its tests passing. Each of these three
+produced correct numbers from correct inputs and still told a false story.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

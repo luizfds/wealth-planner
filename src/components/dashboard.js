@@ -6,6 +6,8 @@ import { scenarioTotals, computeNetWorthSeries, totalNetWorthValue, runwayMonths
 import { monthlyCashFlowForecast } from "../calc/cashflow.js";
 import { fireSettings, fireWealthSplit, simulateRetirementAt, earliestWorkableRetirementAge } from "../calc/fire.js";
 import { MONTH_NAMES } from "../constants.js";
+import { monthKeysBack, monthKeyLabel } from "../calc/trends.js";
+import { observationDates, categorySeries, trimUntracked, contributionsVsGrowth, monthlyCashFlow, spendCoverage } from "../calc/history.js";
 import { fmtCurrency0, fmtPercent1, fmtRunway, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
@@ -83,6 +85,8 @@ export function renderDashboardStats(){
   renderUpcomingBillsPanel();
   renderCashFlowForecastPanel();
   renderProjectionAccuracyPanel();
+  renderMonthlyCashFlow();
+  renderContributionsGrowth();
 }
 
 // Every other total on this page (scenarioTotals, the cards above) smooths every item — Weekly
@@ -406,4 +410,153 @@ function renderProjectionAccuracyPanel(){
     alwaysLegend: true,
     emptyMessage: "Log your net worth at least once to see it plotted against the reference projection."
   });
+}
+
+// ---------------- Income vs spending vs saved, by month ----------------
+// Everything else on this page compares one month against a plan. This compares months against
+// each other, which is the only view that shows whether the plan is being kept.
+//
+// One axis, three series, all dollars — never a second y-scale. Spending comes from logged
+// transactions, so a month nobody logged reads as a month of heroic saving; `logged` is what lets
+// this panel refuse to draw that rather than flatter the user with their own missing data.
+export function renderMonthlyCashFlow(){
+  var panel = document.getElementById("monthlyCashFlowPanel");
+  if(!panel) return;
+  var months = monthKeysBack(6);
+  var income = scenarioIncomeMonthly({ scenario: state.activeScenario });
+  var rows = monthlyCashFlow(state.transactions, months, income);
+  var loggedRows = rows.filter(function(r){ return r.logged; });
+  if(loggedRows.length < 2){
+    panel.innerHTML = '<h3>Income vs spending</h3>' +
+      '<p class="fire-note">Once two different months have spending logged, this shows what came in, what went out and what was left — month by month rather than one month against a plan.</p>';
+    return;
+  }
+  // Only months that were actually logged are drawn. A gap in the middle is left as a gap rather
+  // than joined through, because a straight line across an unlogged month asserts a level of
+  // spending nobody recorded.
+  var maxV = loggedRows.reduce(function(m, r){ return Math.max(m, r.income, r.spent); }, 1);
+  var barsHtml = rows.map(function(r){
+    if(!r.logged){
+      return '<div class="cf-col cf-col-empty" title="' + escapeAttr(monthKeyLabel(r.month, months[months.length - 1])) + ' — nothing logged">' +
+        '<div class="cf-stack"><div class="cf-nolog">·</div></div>' +
+        '<span class="cf-label">' + escapeAttr(monthKeyLabel(r.month, months[months.length - 1])) + '</span></div>';
+    }
+    var h = function(v){ return Math.max(2, (Math.max(0, v) / maxV) * 100); };
+    return '<div class="cf-col" title="' + escapeAttr(monthKeyLabel(r.month, months[months.length - 1])) + ': in ' +
+        fmtCurrency0.format(r.income) + ', out ' + fmtCurrency0.format(r.spent) + ', left ' + fmtCurrency0.format(r.saved) + '">' +
+      '<div class="cf-stack">' +
+        '<div class="cf-bar cf-in series-color-2" style="height:' + h(r.income) + '%"></div>' +
+        '<div class="cf-bar cf-out series-color-1" style="height:' + h(r.spent) + '%"></div>' +
+      '</div>' +
+      '<span class="cf-label">' + escapeAttr(monthKeyLabel(r.month, months[months.length - 1])) + '</span></div>';
+  }).join("");
+  var avgLogged = loggedRows.reduce(function(sm, r){ return sm + r.spent; }, 0) / loggedRows.length;
+  var unlogged = rows.length - loggedRows.length;
+  // Logged spending is not total spending, and the gap is not small: on the reference data it was
+  // $777/mo logged against a $14,613/mo budget. Subtracting the logged figure from income and
+  // calling the remainder savings announced that this household kept $21,713/mo when it keeps
+  // $8,339 — a confident claim, wrong by $13,000 a month. So the savings line is earned rather
+  // than assumed: it appears only once logging actually covers the budget.
+  var coverage = spendCoverage(avgLogged, budgetedMonthlySpend());
+  var verdict = coverage.enough
+    ? 'Kept <b>' + fmtCurrency0.format(income - avgLogged) + '/mo</b> on average across the ' +
+      loggedRows.length + ' month' + (loggedRows.length === 1 ? "" : "s") + ' you logged.'
+    : 'These are the transactions you <b>logged</b>, not everything you spent — ' +
+      fmtCurrency0.format(avgLogged) + '/mo against a budget of ' + fmtCurrency0.format(coverage.budgeted) +
+      '/mo (' + fmtPercent1.format(coverage.fraction) + ' of it). The month-to-month shape is real; ' +
+      'the gap to income is not savings. Import a bank statement on the Expenses tab and this becomes ' +
+      'a savings figure.';
+  panel.innerHTML = '<h3>Income vs spending <span style="font-weight:400;color:var(--ink-soft)">— last 6 months</span></h3>' +
+    '<div class="cf-chart">' + barsHtml + '</div>' +
+    '<div class="rule-legend cf-legend">' +
+      '<div class="rule-legend-item"><span class="rule-swatch series-color-2"></span>In <b>' + fmtCurrency0.format(income) + '/mo</b></div>' +
+      '<div class="rule-legend-item"><span class="rule-swatch series-color-1"></span>Logged out <b>' + fmtCurrency0.format(avgLogged) + '/mo avg</b></div>' +
+    '</div>' +
+    '<p class="fire-note">' + verdict +
+      (unlogged ? " " + unlogged + " month" + (unlogged === 1 ? " is" : "s are") + " left blank rather than counted as zero spending." : "") + '</p>';
+}
+
+// What the household actually plans to spend each month — the denominator the logged transactions
+// are measured against. Reuses the same combined list the 50/30/20 panel builds, so "your budget"
+// means one thing on this page.
+function budgetedMonthlySpend(){
+  var scenario = state.activeScenario;
+  var sharedForScenario = state.shared.map(function(item){
+    return item.scenarioOverrides && item.scenarioOverrides[scenario] != null
+      ? Object.assign({}, item, { amount: resolveSharedAmount(item, scenario) })
+      : item;
+  });
+  var combined = ipExpenseItemsForClassification().concat(sharedForScenario).concat(state.home[scenario] || []);
+  return sumByClassification(combined, "Needs", "monthly") + sumByClassification(combined, "Wants", "monthly");
+}
+
+// ---------------- Contributions vs growth ----------------
+// The question a net-worth line can't answer: did this rise because you saved, or because what you
+// own went up? Usually the two differ by an order of magnitude, so even a loose split is worth
+// having — but the split is an *inference*, not a measurement, and this panel says so rather than
+// presenting it as a fact the app measured.
+export function renderContributionsGrowth(){
+  var panel = document.getElementById("contributionsGrowthPanel");
+  if(!panel) return;
+  var histories = state.assets.map(function(a){ return a.history; })
+    .concat(state.properties.map(function(p){ return p.history; }));
+  var logged = observationDates(histories, []);
+  if(logged.length < 2){
+    panel.innerHTML = '<h3>Saved vs grown</h3>' +
+      '<p class="fire-note">Log your assets on two different dates and this splits the change in your net worth into the part you saved and the part your assets did on their own.</p>';
+    return;
+  }
+  var today = localDateStr();
+  var records = state.assets.map(function(a){ return { history: a.history, current: a.amount }; })
+    .concat(state.properties.map(function(p){
+      var loanNet = (p.loans || []).reduce(function(sum, l){
+        return sum + Math.max(0, (Number(l.balance) || 0) - (Number(l.offsetBalance) || 0));
+      }, 0);
+      return {
+        history: (p.history || []).map(function(h){ return { date: h.date, value: Math.max(0, (Number(h.value) || 0) - loanNet) }; }),
+        current: Math.max(0, (Number(p.value) || 0) - loanNet)
+      };
+    }));
+  var points = trimUntracked(categorySeries(records, observationDates(histories, [today]), { today: today }));
+  var split = contributionsVsGrowth(points, scenarioTotals(state.activeScenario).netMonthly);
+  if(!split){
+    panel.innerHTML = '<h3>Saved vs grown</h3><p class="fire-note">Not enough logged history yet.</p>';
+    return;
+  }
+  // The window only opens once every asset you track now was already being tracked — see
+  // fullCoverageFrom(). Until there are two such dates there is nothing honest to say, and saying
+  // it anyway is how "I added my house to the app" gets reported as "my assets grew $360,000".
+  if(split.tooShort){
+    panel.innerHTML = '<h3>Saved vs grown</h3>' +
+      '<p class="fire-note">You started logging some assets on ' + escapeAttr(split.coverageFrom || "a later date") +
+      ', later than others (' + escapeAttr(split.earliest) + '). Comparing across that point would report ' +
+      'the assets you <em>added to the app</em> as growth. Log everything once more and this splits your ' +
+      'net-worth change into the part you saved and the part your assets did on their own.</p>';
+    return;
+  }
+  var total = Math.abs(split.contributed) + Math.abs(split.growth);
+  var pct = function(v){ return total > 0 ? (Math.abs(v) / total) * 100 : 0; };
+  var growthNeg = split.growth < 0;
+  panel.innerHTML = '<h3>Saved vs grown <span style="font-weight:400;color:var(--ink-soft)">— since ' + escapeAttr(split.from) + '</span></h3>' +
+    '<div class="fire-stat-row"><span>Net worth then</span><b>' + fmtCurrency0.format(split.start) + '</b></div>' +
+    '<div class="fire-stat-row"><span>Net worth now</span><b>' + fmtCurrency0.format(split.end) + '</b></div>' +
+    '<div class="fire-stat-row"><span>Change</span><b' + (split.totalChange < 0 ? ' style="color:var(--bad)"' : '') + '>' +
+      (split.totalChange >= 0 ? "+" : "") + fmtCurrency0.format(split.totalChange) + '</b></div>' +
+    '<div class="rule-bar" style="margin-top:10px">' +
+      '<div class="rule-seg series-color-0" style="width:' + pct(split.contributed) + '%" title="Money you added: ' + fmtCurrency0.format(split.contributed) + '"></div>' +
+      '<div class="rule-seg series-color-3" style="width:' + pct(split.growth) + '%" title="' + (growthNeg ? "Lost to market movement: " : "Growth on what you own: ") + fmtCurrency0.format(Math.abs(split.growth)) + '"></div>' +
+    '</div>' +
+    '<div class="rule-legend">' +
+      '<div class="rule-legend-item"><span class="rule-swatch series-color-0"></span>You saved <b>' + fmtCurrency0.format(split.contributed) + '</b></div>' +
+      '<div class="rule-legend-item"><span class="rule-swatch series-color-3"></span>' + (growthNeg ? "Markets took" : "Assets grew") + ' <b>' + fmtCurrency0.format(Math.abs(split.growth)) + '</b></div>' +
+    '</div>' +
+    '<p class="fire-note">' +
+      (split.droppedPoints
+        ? 'Measured from ' + escapeAttr(split.from) + ', not ' + escapeAttr(split.earliest) +
+          ': that is when everything you track now was already being tracked. Comparing across the ' +
+          'earlier gap would count assets you added to the app as growth. '
+        : "") +
+      'Over ' + split.months.toFixed(1) + ' months. The saved half is this scenario\'s net savings rate — ' +
+      fmtCurrency0.format(scenarioTotals(state.activeScenario).netMonthly) + '/mo — times the elapsed time; whatever the change doesn\'t account for is attributed to growth. ' +
+      'That makes growth a <b>remainder, not a measurement</b>: a month you underspent your budget lands in it too. Treat the direction as solid and the exact split as rough.</p>';
 }

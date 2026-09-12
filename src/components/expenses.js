@@ -5,6 +5,7 @@ import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent0, fmtPercent1, localDateStr } from "../lib/format.js";
 import { spendingTrends, monthKeyLabel } from "../calc/trends.js";
 import { escapeAttr } from "../lib/html.js";
+import { rangeByKey, withinRange, timeRangeControlHtml } from "../lib/timerange.js";
 import { modernPlainRowHtml, modernRowSummaryHtml, modernRowEditHtml, modernRowShellHtml, optionsHtml } from "../lib/ledger-table.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { parseCsv } from "../lib/backup.js";
@@ -331,6 +332,20 @@ export function setAllBudgetGroupsCollapsed(collapsed){
 }
 export function allBudgetGroupsCollapsed(){
   return computeSharedGroups().every(function(g){ return isBudgetGroupCollapsed(g.key); });
+}
+// Opens whichever group card contains this budget line, so something arriving from outside the page
+// (cross-page search) can land on a row rather than on a closed card that happens to contain it.
+// Returns false when the line isn't in the list at all — an income row, a deleted line — so the
+// caller can skip the scroll rather than scrolling to nothing.
+export function revealBudgetLine(lineId){
+  if(!lineId) return false;
+  var group = computeSharedGroups().find(function(g){
+    return g.members.some(function(m){ return m.item && m.item.id === lineId; });
+  });
+  if(!group) return false;
+  if(!state.budgetGroupsCollapsed) state.budgetGroupsCollapsed = {};
+  state.budgetGroupsCollapsed[group.key] = false;
+  return true;
 }
 export function renderSharedGroups(){
   // The overdue count depends on the budget lines and on what's been logged against them, so it's
@@ -1037,30 +1052,62 @@ function transactionRowHtml(t, idx){
   var edit = modernRowEditHtml(fieldsHtml, actionsHtml);
   return modernRowShellHtml("tx", idx, modernTransactionRowOpen, summary, edit, { extraClass: "tx-row" });
 }
+// Which slice of history the Transactions list shows. Session-only, matching the Shares picker it
+// shares a definition with: a time window is a thing you look through, not a setting you configure,
+// and one that persisted would have you wondering next week why half your spending is missing.
+export var transactionsRange = "3m";
+export function setTransactionsRange(value){
+  transactionsRange = rangeByKey(value) ? value : "3m";
+  transactionsShowAll = false; // a new window is a new list; "show all" was about the old one
+  renderTransactions();
+}
 export function renderTransactions(){
   var container = document.getElementById("transactionsTable");
   var totalEl = document.getElementById("totalTransactionsAmount");
   if(!container) return;
-  var total = state.transactions.reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0);
-  if(totalEl) totalEl.textContent = fmtCurrency0.format(total);
   if(!state.transactions.length){
+    if(totalEl) totalEl.textContent = fmtCurrency0.format(0);
     container.innerHTML = '<p class="ledger-note" style="margin:0">No transactions logged yet — add one below to start tracking actual spend against your budget, optionally linked to one of the expenses above.</p>';
+    return;
+  }
+  var range = rangeByKey(transactionsRange);
+  var inRange = withinRange(state.transactions, range, { yearStart: householdYearWindow().start });
+  // The total follows the window. A list that says "last 3 months" above a total for all time is
+  // the same class of mistake as the Expenses/Dashboard disagreement — two numbers on one card
+  // that answer different questions without saying so.
+  var total = inRange.reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0);
+  if(totalEl) totalEl.textContent = fmtCurrency0.format(total);
+
+  var controlHtml = timeRangeControlHtml(transactionsRange, "tx-range", {
+    id: "transactionsRange", ariaLabel: "Transaction date range",
+    yearBasis: householdYearBasis(), titlePrefix: "Show the last",
+    // 1D and 1W are real windows for a share price and near-useless for a spending list — most
+    // households don't spend every day, and an empty list reads as a bug.
+    omit: ["1d", "1w"]
+  });
+  if(!inRange.length){
+    container.innerHTML = controlHtml +
+      '<p class="ledger-note" style="margin:10px 0 0">Nothing logged in this window. ' +
+      (state.transactions.length + ' transaction' + (state.transactions.length === 1 ? " sits" : "s sit") + ' outside it — widen the range above.</p>');
     return;
   }
   // Newest first for review, but data-tx-index always keeps pointing at the item's real
   // position in state.transactions (not its position in this sorted display).
-  var sorted = state.transactions
-    .map(function(t, i){ return { t: t, i: i }; })
+  var indexOf = new Map(state.transactions.map(function(t, i){ return [t, i]; }));
+  var sorted = inRange
+    .map(function(t){ return { t: t, i: indexOf.get(t) }; })
     .sort(function(a, b){ return (b.t.date || "") < (a.t.date || "") ? -1 : ((b.t.date || "") > (a.t.date || "") ? 1 : 0); });
   var hasMore = sorted.length > TRANSACTIONS_RECENT_COUNT;
   var visible = (transactionsShowAll || !hasMore) ? sorted : sorted.slice(0, TRANSACTIONS_RECENT_COUNT);
   var rows = visible.map(function(x){ return transactionRowHtml(x.t, x.i); }).join("");
+  var countNote = '<p class="ledger-note tx-range-count" style="margin:8px 0 0">' +
+    sorted.length + ' transaction' + (sorted.length === 1 ? "" : "s") + ' · ' + fmtCurrency0.format(total) + '</p>';
   var toggleHtml = hasMore
     ? '<div class="ledger-footer"><button type="button" class="btn btn-sm btn-ghost" data-tx-show-all-toggle="' + (transactionsShowAll ? "0" : "1") + '">' +
-        (transactionsShowAll ? "Show recent only" : "Show all " + sorted.length + " transactions") +
+        (transactionsShowAll ? "Show recent only" : "Show all " + sorted.length + " in this range") +
       '</button></div>'
     : "";
-  container.innerHTML = '<div class="m-rows">' + rows + '</div>' + toggleHtml;
+  container.innerHTML = controlHtml + countNote + '<div class="m-rows">' + rows + '</div>' + toggleHtml;
 }
 export function addTransaction(){
   state.transactions.push({ id: genId("t"), date: localDateStr(), amount: 0, what: "", linkedExpenseId: null, account: "" });
@@ -1554,7 +1601,11 @@ function trendSparkHtml(row, months, monthProgress){
       // rather than appearing to start late.
       var pct = max > 0 ? Math.max(value > 0 ? 6 : 2, (value / max) * 100) : 2;
       var partial = i === lastIdx && monthProgress < 1;
-      return '<div class="trend-bar' + (i === lastIdx ? " current" : "") + (partial ? " partial" : "") + '"' +
+      // A month that netted negative — refunds outran spending — clamps to the same 2% sliver a
+      // month with nothing logged gets, so without its own class the two are indistinguishable and
+      // the one that's actually interesting reads as missing data.
+      var credit = value < 0;
+      return '<div class="trend-bar' + (i === lastIdx ? " current" : "") + (partial ? " partial" : "") + (credit ? " credit" : "") + '"' +
           ' title="' + escapeAttr(monthKeyLabel(m, months[lastIdx]) + " · " + fmtCurrency0.format(value) +
             (partial ? " so far" : "")) + '">' +
         '<div class="trend-bar-track"><div class="trend-bar-fill" style="height:' + pct + '%"></div></div>' +

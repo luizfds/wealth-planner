@@ -576,6 +576,35 @@ totals against the page-header net worth.
 
 ---
 
+## 11. `[~]` Fix the line chart the way the stacked one was fixed — v3.1.0
+
+Item 10 fixed `renderStackedAreaChart`. Its sibling `renderLineChart` — which draws "Net worth over
+time", every asset category's history, the shares history, total property value and the projections
+— still has the same defects, measured on merged main at 390px.
+
+1. **Every label renders 6px tall.** A nominal 720-unit viewBox scaled uniformly into a 316px box
+   paints an 11px font at 6px. Unreadable on a phone.
+2. **It interpolates straight across gaps nobody logged.** On the reference data the observations
+   are Jul 2025, Aug 2025, then nothing until Aug 2026 — and the line draws net worth climbing
+   smoothly from $166k to $650k across that year. What happened was flat super for twelve months
+   and a jump in one week, when the property and shares were first entered. This is the same
+   fabrication stepped geometry was introduced to stop in the stacked chart, and it is the same
+   class of error as the "$290,911 of growth" and "kept $21,713/mo" claims already gated: the app
+   asserting a shape that is an artifact of when logging started.
+   Stepping is right for *logged history* and wrong for *projections*, which are a continuous
+   model — so it is per-call, not global.
+3. **No time-range control**, so the same 95%-empty framing with no escape hatch.
+
+Plus, on the panel item 10 touched: **"Markets took $91,361"** is, on the reference data, the
+household's own revaluation of the house from $900k to $812k, over 0.4 months. The arithmetic is
+right; the word "markets" makes a manual valuation edit read as a crash.
+
+**How to verify.** Assets → Summary at 390px in both schemes: measure `getBoundingClientRect()` on
+the axis labels rather than looking at them, and check the line's shape between Aug 2025 and Aug
+2026 against what was actually logged.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

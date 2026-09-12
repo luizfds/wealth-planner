@@ -804,6 +804,24 @@
   .bank-import-assign{ display:grid; grid-template-columns:1fr; gap:8px; padding:0 12px 12px; }
   .bank-import-field{ display:flex; flex-direction:column; gap:3px; min-width:0; }
   .bank-import-field > span{ font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
+  /* "What this reads" / "Why N rows were skipped". A <details> so it costs nothing closed, and
+     quiet enough not to compete with the review list it sits above. */
+  .bank-import-help{ margin:10px 0 0; font-size:12px; color: var(--ink-soft); }
+  .bank-import-help > summary{
+    cursor:pointer; color: var(--brass-strong); font-weight:600; list-style:none;
+    display:inline-flex; align-items:center; gap:5px; min-height:40px;
+  }
+  .bank-import-help > summary::-webkit-details-marker{ display:none; }
+  .bank-import-help > summary::before{ content:"›"; display:inline-block; transition: transform .15s ease; }
+  .bank-import-help[open] > summary::before{ transform: rotate(90deg); }
+  .bank-import-help p{ margin:6px 0 0; line-height:1.6; }
+  .bank-import-help ul{ margin:8px 0 0; padding-left:18px; display:flex; flex-direction:column; gap:6px; line-height:1.55; }
+  .bank-import-help code{
+    font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:11.5px;
+    background: var(--paper-sunken); padding:1px 5px; border-radius:4px;
+  }
+  .bank-import-skipped > summary{ color: var(--ink-soft); }
+
   .bank-import-field select{ width:100%; }
   .bank-import-aside{ margin-top:14px; }
   .bank-import-aside-list{ margin:6px 0 0; padding-left:18px; font-size:12px; color: var(--ink-soft); }

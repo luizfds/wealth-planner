@@ -138,3 +138,17 @@
     text-align:center;
   }
   .fire-age-field input:focus-visible{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
+
+  /* ---------------- Income vs spending, by month ---------------- */
+  /* Two bars per month side by side rather than stacked: in and out are independent quantities,
+     and stacking them would draw a total that means nothing. One axis — both are dollars. */
+  .cf-chart{ display:flex; gap:6px; align-items:flex-end; margin:10px 0 0; }
+  .cf-col{ flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:center; gap:4px; }
+  .cf-stack{ display:flex; align-items:flex-end; gap:2px; height:76px; width:100%; justify-content:center; }
+  .cf-bar{ width:44%; border-radius:3px 3px 0 0; background: var(--series-color); }
+  .cf-label{ font-size:10px; color: var(--ink-soft); white-space:nowrap; }
+  /* A month nobody logged shows a dot, not a zero bar — an empty bar would read as a month of
+     spending nothing, which is exactly the false claim this panel exists to avoid. */
+  .cf-col-empty .cf-stack{ align-items:center; }
+  .cf-nolog{ color: var(--ink-soft); opacity:.5; font-size:16px; line-height:1; }
+  .cf-legend{ margin-top:10px; }

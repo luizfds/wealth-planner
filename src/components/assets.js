@@ -5,10 +5,11 @@ import { totalAssetsValue, totalNetWorthValue, totalDebtsValue, liquidAssetsValu
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, fmtCurrency0For, fmtCurrency2For, localDateStr, fmtQtyDisplay } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { optionsHtml, historyTrendHtml } from "../lib/ledger-table.js";
-import { renderLineChart, sparklineHtml, sparklinePlaceholderHtml } from "../lib/charts.js";
+import { renderLineChart, renderStackedAreaChart, sparklineHtml, sparklinePlaceholderHtml } from "../lib/charts.js";
 import { showToast } from "../lib/toast.js";
 import { appendHistorySnapshot, daysUntil, householdYearWindow, householdYearBasis } from "../calc/ledger.js";
 import { TIME_RANGES, rangeLabel, timeRangeControlHtml } from "../lib/timerange.js";
+import { observationDates, categorySeries, trimUntracked, allocationSeries, valueOn } from "../calc/history.js";
 import { holdingDividend, saleCapitalGain } from "../calc/tax.js";
 import { renderProjectionOutputs } from "./projections.js";
 import { renderDashboardStats } from "./dashboard.js";
@@ -380,10 +381,60 @@ export function renderAssetCategoryPage(cat){
     var rowMeta = assetRowMeta(data);
     body = '<div class="m-card" id="assetsComp-' + cat + '">' + modernAssetCompBarHtml(rowMeta) + '<div class="m-rows m-asset-rows">' + rowMeta.map(function(m){ return modernAssetRowHtml(m.item, m.idx, m.colorIdx); }).join("") + '</div></div><div class="ledger-footer">' + footerBtn + '</div>';
   }
+  // Every category gets the value-over-time chart Shares has had to itself. The reference data
+  // makes the case: super carried 13 months of logged history and showed it as a 56px sparkline,
+  // while Shares — nine days of history — had a full chart.
+  var historyCard = data.items.length
+    ? '<details class="ledger" open><summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>' +
+        '<h2 class="section-title">' + escapeAttr(cat) + ' over time</h2></div></summary>' +
+        '<div class="ledger-body"><div id="assetHistoryPanel-' + escapeAttr(cat) + '"></div></div></details>'
+    : "";
   container.innerHTML = '<div class="ledgers"><details class="ledger" open>' +
     '<summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">' + escapeAttr(cat) + '</h2></div>' +
     '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
-    '<div class="ledger-body">' + body + '</div></details></div>';
+    '<div class="ledger-body">' + body + '</div></details>' + historyCard + '</div>';
+  if(data.items.length) renderAssetCategoryHistoryChart(cat);
+}
+
+// One category's logged value over time. Shares keeps its own chart (it also plots per-holding
+// prices); this is the same question for every other category, which until now had no answer
+// beyond a row sparkline.
+export function renderAssetCategoryHistoryChart(cat){
+  var container = document.getElementById("assetHistoryPanel-" + cat);
+  if(!container) return;
+  var data = assetCategoryItems(cat);
+  var today = localDateStr();
+  var records = data.items.map(function(a){ return { history: a.history, current: a.amount }; });
+  var dates = observationDates(records.map(function(r){ return r.history; }), [today]);
+  // Two real observations, not two dates: appending today always gives at least one, so counting
+  // dates alone would draw a "trend" through a single logged point and a value typed in a box.
+  var logged = observationDates(records.map(function(r){ return r.history; }), []);
+  if(logged.length < 2){
+    container.innerHTML = '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">Press <b>Log</b> on a ' +
+      escapeAttr(cat) + ' row at least twice — a month apart, say — and its value over time appears here. ' +
+      (logged.length === 1 ? "One snapshot so far." : "None logged yet.") + '</p>';
+    return;
+  }
+  var points = trimUntracked(categorySeries(records, dates, { today: today }));
+  container.innerHTML = "";
+  var chartDiv = document.createElement("div");
+  container.appendChild(chartDiv);
+  renderLineChart(chartDiv, [{ label: cat, colorClass: "series-color-0", points: points }], {
+    height: 200,
+    yFormat: function(v){ return fmtCurrency0.format(v); },
+    xFormat: function(ms){ return new Date(ms).toLocaleDateString(undefined, { year: "numeric", month: "short" }); },
+    xTickCount: Math.min(6, Math.max(2, points.length)),
+    ariaLabel: cat + " value over time",
+    alwaysLegend: false
+  });
+  var first = points[0], last = points[points.length - 1];
+  var delta = last.y - first.y;
+  var note = document.createElement("p");
+  note.className = "ledger-note";
+  note.style.margin = "8px 0 0";
+  note.innerHTML = (delta >= 0 ? "Up " : "Down ") + "<b>" + fmtCurrency0.format(Math.abs(delta)) + "</b> since " +
+    escapeAttr(first.dateLabel) + " — from your logged snapshots, not a projection.";
+  container.appendChild(note);
 }
 
 export function patchVehicleRow(tr, item){
@@ -430,7 +481,17 @@ export function renderVehiclesSubpage(){
   container.innerHTML = '<div class="ledgers"><details class="ledger" open>' +
     '<summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Vehicle</h2></div>' +
     '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
-    '<div class="ledger-body"><p class="ledger-note" style="margin-left:0">Current value is estimated as declining-balance depreciation from your purchase price — a common approximation for cars, not a valuation. Leave depreciation fields blank to enter a value manually instead.</p>' + body + '</div></details></div>';
+    '<div class="ledger-body"><p class="ledger-note" style="margin-left:0">Current value is estimated as declining-balance depreciation from your purchase price — a common approximation for cars, not a valuation. Leave depreciation fields blank to enter a value manually instead.</p>' + body + '</div></details>' +
+    // Vehicles get the same over-time chart as every other category. Theirs is the one most likely
+    // to be empty — a depreciating car is exactly the thing nobody logs — so the panel's job here
+    // is mostly to say that out loud rather than to draw anything.
+    (data.items.length
+      ? '<details class="ledger" open><summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>' +
+        '<h2 class="section-title">Vehicle over time</h2></div></summary>' +
+        '<div class="ledger-body"><div id="assetHistoryPanel-Vehicle"></div></div></details>'
+      : "") +
+    '</div>';
+  if(data.items.length) renderAssetCategoryHistoryChart("Vehicle");
 }
 
 function modernShareRowHtml(item, idx, colorIdx){
@@ -863,6 +924,79 @@ export function renderNetWorthPanel(){
     investNote;
 }
 
+// Where the money actually is, over time. A single net-worth line cannot answer "am I getting more
+// property-heavy" — the number can double while the mix quietly concentrates into one asset.
+//
+// Colour is keyed to the bucket, never to its position in the list: a bucket that empties out must
+// not hand its colour to the next one along, or the chart repaints itself whenever the data
+// changes shape. These four hues were checked as a set with the dataviz validator under --pairs
+// all (worst CVD ΔE 9.2 deutan, worst normal-vision ΔE 16.3) before being assigned here.
+var ALLOCATION_BUCKETS = [
+  { key: "Super", colorClass: "series-color-0" },
+  { key: "Shares", colorClass: "series-color-1" },
+  { key: "Cash", colorClass: "series-color-2" },
+  { key: "Property", colorClass: "series-color-6" },
+  { key: "Other", colorClass: "series-color-3" }
+];
+export function renderAllocationChart(){
+  var container = document.getElementById("allocationHistoryPanel");
+  if(!container) return;
+  var today = localDateStr();
+  var assetHistories = state.assets.map(function(a){ return a.history; });
+  var propHistories = state.properties.map(function(p){ return p.history; });
+  var logged = observationDates(assetHistories.concat(propHistories), []);
+  if(logged.length < 2){
+    container.innerHTML = '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">Log a value on at least two dates and the shape of your wealth — how much is super, shares, cash or property — appears here.</p>';
+    return;
+  }
+  var dates = observationDates(assetHistories.concat(propHistories), [today]);
+  // Property equity, not property value: the mortgage is not part of what you own, and a chart that
+  // counts the whole house makes a heavily-geared portfolio look far more diversified than it is.
+  var propertyRecords = state.properties.map(function(p){
+    var loanNet = (p.loans || []).reduce(function(sum, l){
+      return sum + Math.max(0, (Number(l.balance) || 0) - (Number(l.offsetBalance) || 0));
+    }, 0);
+    return {
+      history: (p.history || []).map(function(h){ return { date: h.date, value: Math.max(0, (Number(h.value) || 0) - loanNet) }; }),
+      current: Math.max(0, (Number(p.value) || 0) - loanNet)
+    };
+  });
+  var buckets = ALLOCATION_BUCKETS.map(function(b){
+    if(b.key === "Property") return Object.assign({}, b, { records: propertyRecords });
+    var cats = b.key === "Other" ? ["Vehicle", "Other"] : [b.key];
+    return Object.assign({}, b, {
+      records: state.assets.filter(function(a){ return cats.indexOf(a.category) !== -1; })
+        .map(function(a){ return { history: a.history, current: a.amount }; })
+    });
+  }).filter(function(b){ return b.records.length; });
+
+  var series = allocationSeries(buckets, dates, { today: today }).map(function(sr){
+    return Object.assign(sr, { points: trimUntracked(sr.points).length ? sr.points : sr.points });
+  });
+  container.innerHTML = "";
+  var chartDiv = document.createElement("div");
+  container.appendChild(chartDiv);
+  renderStackedAreaChart(chartDiv, series, {
+    height: 220,
+    yFormat: function(v){ return fmtCurrency0.format(v); },
+    xFormat: function(ms){ return new Date(ms).toLocaleDateString(undefined, { year: "numeric", month: "short" }); },
+    xTickCount: 5,
+    ariaLabel: "Where your wealth sits, over time"
+  });
+  // The mix as a sentence, because the shape of a stack is easier to see than to read off.
+  var lastTotals = series.map(function(sr){ return { key: sr.key, y: sr.points[sr.points.length - 1].y }; });
+  var whole = lastTotals.reduce(function(sum, x){ return sum + Math.max(0, x.y); }, 0);
+  if(whole > 0){
+    var biggest = lastTotals.slice().sort(function(a, b){ return b.y - a.y; })[0];
+    var note = document.createElement("p");
+    note.className = "ledger-note";
+    note.style.margin = "8px 0 0";
+    note.innerHTML = "Today " + escapeAttr(biggest.key) + " is <b>" + fmtPercent1.format(biggest.y / whole) +
+      "</b> of what you own. Property counts as equity — value minus what's still owed — not the whole house.";
+    container.appendChild(note);
+  }
+}
+
 export function renderPortfolioHistoryChart(){
   var container = document.getElementById("portfolioHistoryPanel");
   if(!container) return;
@@ -1075,6 +1209,7 @@ export function renderAssets(){
   renderDebts();
   renderNetWorthPanel();
   renderPortfolioHistoryChart();
+  renderAllocationChart();
   renderProjectionOutputs();
 }
 

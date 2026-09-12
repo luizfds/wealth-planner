@@ -714,6 +714,10 @@
   }
   .trend-bar:hover .trend-bar-fill{ opacity:.75; }
   .trend-bar.current .trend-bar-fill{ opacity:1; }
+  /* A month that netted negative clamps to the same sliver a month with nothing logged gets, so
+     colour is the only thing left to tell them apart. Placed after .current so a negative current
+     month still reads as a credit rather than inheriting the plain full-opacity fill. */
+  .trend-bar.credit .trend-bar-fill{ background: var(--good); opacity:.9; }
   /* The current month is still filling. Striped rather than merely faded, so it doesn't read as
      a genuinely small month next to five whole ones. */
   .trend-bar.partial .trend-bar-fill{

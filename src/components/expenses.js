@@ -1568,7 +1568,11 @@ function trendSparkHtml(row, months, monthProgress){
       // rather than appearing to start late.
       var pct = max > 0 ? Math.max(value > 0 ? 6 : 2, (value / max) * 100) : 2;
       var partial = i === lastIdx && monthProgress < 1;
-      return '<div class="trend-bar' + (i === lastIdx ? " current" : "") + (partial ? " partial" : "") + '"' +
+      // A month that netted negative — refunds outran spending — clamps to the same 2% sliver a
+      // month with nothing logged gets, so without its own class the two are indistinguishable and
+      // the one that's actually interesting reads as missing data.
+      var credit = value < 0;
+      return '<div class="trend-bar' + (i === lastIdx ? " current" : "") + (partial ? " partial" : "") + (credit ? " credit" : "") + '"' +
           ' title="' + escapeAttr(monthKeyLabel(m, months[lastIdx]) + " · " + fmtCurrency0.format(value) +
             (partial ? " so far" : "")) + '">' +
         '<div class="trend-bar-track"><div class="trend-bar-fill" style="height:' + pct + '%"></div></div>' +

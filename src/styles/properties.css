@@ -87,7 +87,12 @@
      mobile. Mirrors the Scenarios page's .home-block collapse treatment (same caret-rotate,
      display:none body) under its own class names, since this is a different structural context
      (nested sections within one card, not top-level page blocks). */
-  .property-section-head{ display:flex; align-items:center; gap:6px; margin-bottom:10px; cursor:pointer; }
+  /* min-height, not padding alone: this row is the section's only collapse control and it measured
+     19px tall — a target you have to aim at with a fingertip. The padding is vertical-only so the
+     title still lines up with the section body's left edge, and negative side margins would fight
+     the card's own padding. 44px is the accessible floor for a touch target. */
+  .property-section-head{ display:flex; align-items:center; gap:6px; margin-bottom:10px; cursor:pointer;
+    min-height:44px; padding-block:4px; }
   .property-section-toggle{ width:18px; height:18px; margin-right:-2px; }
   .property-section:not(.is-collapsed) .property-section-toggle .ledger-caret{ transform: rotate(90deg); }
   .property-section.is-collapsed .property-section-head{ margin-bottom:0; }

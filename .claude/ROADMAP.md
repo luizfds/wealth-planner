@@ -483,7 +483,7 @@ than calling `reload()`.
 
 ---
 
-## 9. `[~]` Look at your data over time
+## 9. `[x]` Look at your data over time — shipped v2.98.0–v3.0.0
 
 Measured from the reference backup, the app captures far more history than it shows:
 
@@ -522,6 +522,26 @@ dishonest, since the split is an inference and has to be labelled as one.
 **How to verify.** Drive it. Colour is computed, not eyeballed: every categorical subset goes
 through the dataviz validator before shipping (the existing 8-slot palette passes adjacent-pair,
 but each chart's own subset needs `--pairs all`).
+
+**What shipped, and the three things that only driving it caught.** All four charts were built,
+run against the real backup, found to be lying, and rebuilt. The arithmetic was never wrong.
+
+1. **"Kept $21,713/mo"** — the cash-flow panel subtracted *logged* spending from income. Logged
+   averaged $777/mo against a $14,613/mo budget (5%), so it was measuring how little had been
+   typed in and calling it thrift. The household keeps $8,339. `spendCoverage()` now gates the
+   savings claim at 80% coverage; below that the panel says what it has.
+2. **"$290,911 of growth"** — super and cash were logged from July 2025, shares and the property
+   only from August 2026, so ~$385,000 of that was assets that merely began being tracked.
+   `fullCoverageFrom()` opens the window only where every asset tracked now was already tracked,
+   and the panel names what it set aside.
+3. **A property acquired over twelve months** — the stacked bands were linearly interpolated, so
+   an asset first logged in August 2026 ramped smoothly from July 2025. Stepped now, which is
+   what `valueOn()` always meant. The x labels were also picked by array position and, because
+   observation dates cluster, overprinted four labels into a smear; they're spaced by time with a
+   56px minimum gap.
+
+The lesson worth keeping: a chart is not verified by its tests passing. Each of these three
+produced correct numbers from correct inputs and still told a false story.
 
 ---
 

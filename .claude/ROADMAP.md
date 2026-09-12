@@ -483,6 +483,48 @@ than calling `reload()`.
 
 ---
 
+## 9. `[~]` Look at your data over time
+
+Measured from the reference backup, the app captures far more history than it shows:
+
+| | Holdings | With history | Points | Span |
+|---|---:|---:|---:|---|
+| **Super** | 2 | 2 | 7 | **2025-07-31 → 2026-08-31 (13 months)** |
+| Cash | 1 | 1 | 3 | 13 months |
+| Shares | 11 | 11 | 129 | 9 days |
+| Property | 1 | 1 | 3 | — |
+| Net worth log | — | — | 5 | — |
+| Vehicle | 1 | 0 | 0 | never logged |
+| Debts | 1 | 0 | 0 | never logged |
+
+Shares — nine days of history — has a dedicated chart *and* a 1D/1W/1M/3M/6M/1Y/YTD/All
+window picker. Super, with the longest history in the file, has a 56px row sparkline and a
+share of one combined net-worth line. Transactions have no time control at all: the list is
+the 10 most recent or all 53, with nothing in between, and every figure on the Spending tab
+is either this-month or this-year.
+
+**a. One time-range control, used in more than one place.** Extract the Shares window picker
+into a shared lib and put it on Transactions.
+
+**b. Value over time per asset category**, not just Shares — the same chart, driven by the
+category subpage you are already on.
+
+**c. Allocation over time.** A stacked area of Super / Shares / Cash / Property equity. A single
+net-worth line cannot answer "am I getting more property-heavy".
+
+**d. Income vs spending vs saved, by month.** 53 dated transactions and full income data exist;
+the Dashboard only ever shows one month.
+
+**e. Contributions vs growth.** Net worth rose — how much was money you added versus assets
+appreciating? The highest-insight chart in a wealth tracker, and the one most easily made
+dishonest, since the split is an inference and has to be labelled as one.
+
+**How to verify.** Drive it. Colour is computed, not eyeballed: every categorical subset goes
+through the dataviz validator before shipping (the existing 8-slot palette passes adjacent-pair,
+but each chart's own subset needs `--pairs all`).
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

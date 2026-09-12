@@ -44,7 +44,8 @@ export function renderProjectionOutputs(){
     yFormat: function(v){ return fmtCurrency0.format(v); },
     xFormat: function(v){ return "Yr " + v; },
     ariaLabel: "Net worth projection by scenario, in " + (realTerms ? "today's" : "future") + " dollars",
-    interactiveLegend: true
+    interactiveLegend: true,
+    emptyMessage: "Add your income and expenses and this projects every scenario's net worth forward from what you've entered."
   });
 
   var milestones = [0, 5, 10, 15, 20, horizon].filter(function(y, i, arr){ return y <= horizon && arr.indexOf(y) === i; }).sort(function(a,b){return a-b;});

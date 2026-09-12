@@ -138,7 +138,17 @@ export function renderLineChart(container, series, opts){
     yMax = yHi + span * 0.25;
     truncated = true;
   }
-  if(yMax === yMin) yMax = yMin + 1;
+  // An all-zero series has no range to draw. Nudging yMax by 1 keeps the arithmetic safe but puts
+  // "$0 / $1" on the axis of an empty projection, which reads as a portfolio of one dollar rather
+  // than as nothing entered yet — so the caller's empty message is the honest answer instead.
+  if(yMax === yMin){
+    if(yMax === 0){
+      container.innerHTML = '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">' +
+        (opts.emptyMessage || "Nothing to chart yet.") + '</p>';
+      return;
+    }
+    yMax = yMin + 1;
+  }
   var yPad = (yMax - yMin) * 0.08;
   yMax += yPad; if(yMin < 0) yMin -= yPad;
 

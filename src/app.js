@@ -2749,12 +2749,22 @@ import {
     showToast("Cleared");
   });
 
-  document.getElementById("mockDataBtn").addEventListener("click", function(){
+  function loadSampleData(){
     if(!confirm("Fill in randomised sample data so you can try the tool? This replaces everything currently entered — export a backup first if you want to keep it.")) return;
     setState(migrateState(generateMockData()));
     renderAll();
     persist();
     showToast("Sample data generated");
+  }
+  document.getElementById("mockDataBtn").addEventListener("click", loadSampleData);
+
+  // The Dashboard's first-run actions. Same handler as the toolbar button above — the point of
+  // these is only that they are reachable on a phone, where that button isn't rendered at all.
+  document.getElementById("dashboardEmptyActions").addEventListener("click", function(e){
+    var btn = e.target.closest("[data-dash-start]");
+    if(!btn) return;
+    if(btn.getAttribute("data-dash-start") === "sample"){ loadSampleData(); return; }
+    showPage("income");
   });
 
   function updateThemeButtonLabel(){

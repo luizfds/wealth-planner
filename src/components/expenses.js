@@ -1,6 +1,6 @@
 import { state, persist, genId } from "../state.js";
 import { CLASSES, FREQS, UNCATEGORISED } from "../constants.js";
-import { sumField, sumFieldForScenario, resolveSharedAmount, periodsOf, budgetCycleFor, transactionDisplayName, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, isOverdue, daysUntil, lastTransactionDateFor, reserveYearWindowFor, householdYearWindow, householdYearToDate, householdYearProgress, householdYearBasis, HOUSEHOLD_YEAR_BASES } from "../calc/ledger.js";
+import { sumField, sumFieldForScenario, resolveSharedAmount, periodsOf, budgetCycleFor, reserveCycleFor, transactionDisplayName, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, isOverdue, daysUntil, lastTransactionDateFor, reserveYearWindowFor, householdYearWindow, householdYearToDate, householdYearProgress, householdYearBasis, HOUSEHOLD_YEAR_BASES } from "../calc/ledger.js";
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent0, fmtPercent1, localDateStr } from "../lib/format.js";
 import { spendingTrends, monthKeyLabel } from "../calc/trends.js";
@@ -285,11 +285,13 @@ export var modernSharedRowOpen = {};
 // cash flow but wrong here — it made a payment that was exactly on plan render as 3x over in the
 // month it landed. Now it reads "$230 of $230 this quarter" and stays green for the whole cycle.
 //
-// Irregular items are still excluded: they're budgeted as a smoothed yearly reserve with no fixed
-// timing, so they have no billing cycle to compare against (same reasoning as the Actual vs.
-// planned panel's own split).
+// An irregular line gets a bar too, measured over its reserve year instead of a billing cycle —
+// see reserveCycleFor. It used to be skipped outright, on the grounds that it has no cycle to
+// compare against, which is true and was the wrong conclusion: 7 of this household's 34 lines then
+// had a silent gap where every other row has a bar, with the comparison available only in the
+// "Irregular / reserve budgets" panel further down and nothing on the row saying so. "No monthly
+// comparison is honest" does not mean no comparison is.
 function budgetRowProgressHtml(item){
-  if(item.irregular) return "";
   // A computed line can't be logged against (it's not a quick-log chip and never enters the
   // overdue queue), so its progress bar would sit at "$0 of $173" forever — a permanent red herring
   // on a row that is, in fact, always paid.
@@ -297,7 +299,7 @@ function budgetRowProgressHtml(item){
   // item.amount, not resolveSharedAmount(): the row's own headline "/mo" figure right next to this
   // is the un-overridden amount, as is the Actual vs. planned panel's, so reading the scenario
   // override here would make the two numbers on the same row disagree whenever one is set.
-  var cycle = budgetCycleFor(item, state.transactions);
+  var cycle = item.irregular ? reserveCycleFor(item) : budgetCycleFor(item, state.transactions);
   var target = Math.round(cycle.target * 100) / 100;
   if(target <= 0) return "";
   var spent = Math.round(spentInCycle(item, cycle) * 100) / 100;

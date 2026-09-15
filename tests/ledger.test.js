@@ -1,7 +1,7 @@
 import "./_env.js";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, isOverdue, daysUntil, appendHistorySnapshot, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, lastTransactionDateFor, transactionDisplayName, budgetCycleFor, freqStepMonths, lastKnownDateFor, resolvedDueMonth, reserveYearWindow, reserveYearWindowFor, householdYearWindow, nextPayDate, payScheduleKindFor } from "../src/calc/ledger.js";
+import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, isOverdue, daysUntil, appendHistorySnapshot, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, lastTransactionDateFor, transactionDisplayName, budgetCycleFor, reserveCycleFor, freqStepMonths, lastKnownDateFor, resolvedDueMonth, reserveYearWindow, reserveYearWindowFor, householdYearWindow, nextPayDate, payScheduleKindFor } from "../src/calc/ledger.js";
 
 test("toWeekly converts every frequency to a weekly figure", function(){
   assert.equal(toWeekly(100, "Weekly"), 100);
@@ -331,6 +331,40 @@ test("transactionsInRange filters inclusively on both ends", function(){
   var inRange = transactionsInRange(txns, "2026-08-15", "2026-09-14");
   assert.equal(inRange.length, 3);
   assert.equal(inRange.reduce(function(s, t){ return s + t.amount; }, 0), 9);
+});
+
+test("reserveCycleFor measures an irregular line over its own twelve months", function(){
+  // $20,000 of travel a year, spent whenever. There is no month it is "due" — that is what the
+  // irregular flag means — but the reserve year is a real window with a real answer in it.
+  var trips = { amount: 20000, freq: "Yearly", irregular: true, reserveYear: "calendar" };
+  var c = reserveCycleFor(trips, "2026-09-15");
+  assert.equal(c.target, 20000);
+  assert.equal(c.start, "2026-01-01");
+  assert.equal(c.end, "2026-12-31");
+  assert.equal(c.reserve, true);
+  // Never due this month: billedThisMonth() keys off exactly this, and a reserve is not a bill.
+  assert.equal(c.dueThisMonth, false);
+});
+
+test("a sub-yearly irregular line is annualised, not taken at face value", function(){
+  // "$300 a fortnight, no fixed timing" is a $7,800 yearly reserve — comparing spend against $300
+  // would read a normal year as 26x over budget.
+  var dateNight = { amount: 300, freq: "Fortnightly", irregular: true, reserveYear: "calendar" };
+  assert.equal(reserveCycleFor(dateNight, "2026-09-15").target, 7800);
+  var bootcamp = { amount: 60, freq: "Weekly", irregular: true, reserveYear: "financial" };
+  var b = reserveCycleFor(bootcamp, "2026-09-15");
+  assert.equal(b.target, 3120);
+  assert.equal(b.start, "2026-07-01", "the financial year, because the row asked for it");
+});
+
+test("a reserve year left unset follows the household, not a hard-coded January", function(){
+  // Three of the reference household's irregular lines carry reserveYear:"" — they should follow
+  // the household default rather than silently being measured over the calendar year.
+  var tolls = { amount: 300, freq: "Yearly", irregular: true, reserveYear: "" };
+  var c = reserveCycleFor(tolls, "2026-09-15");
+  assert.equal(typeof c.label, "string");
+  assert.ok(c.start < c.end);
+  assert.equal(c.target, 300);
 });
 
 test("budgetCycleFor keeps a calendar-month window for monthly lines", function(){

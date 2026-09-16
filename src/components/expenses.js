@@ -951,11 +951,24 @@ function transactionLinkOptionsHtml(selectedId){
     return '<option value="' + escapeAttr(item.id) + '"' + (item.id === selectedId ? " selected" : "") + '>' + escapeAttr(item.what) + '</option>';
   }).join("");
 }
-function transactionAccountOptionsHtml(selected){
+// Because deleteAccount() leaves the name on the rows that referenced it, a transaction can name an
+// account that is no longer in state.accounts. A <select> whose value matches none of its options
+// does not stay empty — the browser shows the *first* option, so the row would silently read
+// "— No account —" and the next edit to any other field would save that lie over a real fact.
+// (The ledger rows' own account fields are free-text inputs with a datalist, so they never had
+// this problem; this select is the only place that did.) Keeping an explicit option for the
+// missing name is what makes "the name survives a delete" true rather than merely intended.
+export function transactionAccountOptionsHtml(selected){
   var options = '<option value=""' + (!selected ? " selected" : "") + '>— No account —</option>';
-  return options + state.accounts.map(function(a){
+  var known = false;
+  options += state.accounts.map(function(a){
+    if(a.name === selected) known = true;
     return '<option value="' + escapeAttr(a.name) + '"' + (a.name === selected ? " selected" : "") + '>' + escapeAttr(a.name) + (a.type === "credit" ? " (credit)" : "") + '</option>';
   }).join("");
+  if(selected && !known){
+    options += '<option value="' + escapeAttr(selected) + '" selected>' + escapeAttr(selected) + ' (deleted)</option>';
+  }
+  return options;
 }
 // What the Review-expenses flow's logCurrentReviewCard() delegates to (the quick-log sheet builds
 // its own transaction inline, since it also has to handle the unlinked One-off case).
@@ -1892,34 +1905,46 @@ function everyAccountBearingArray(){
   });
   return arrays;
 }
-// Deleting an account never deletes what referenced it — those rows fall back to "no account",
-// the same way deleting a category leaves its budget lines uncategorised. Losing a label should
-// not lose data.
+// Counts what still names an account — what a delete is about to strand, and what a re-add with
+// the same spelling would pick back up.
+function rowsNamingAccount(name){
+  if(!name) return [];
+  return everyAccountBearingArray().reduce(function(acc, items){
+    return acc.concat(items.filter(function(row){ return (row.account || "") === name; }));
+  }, []);
+}
+// Deleting an account never deletes what referenced it, and — unlike deleting a category, which
+// blanks `item.category` — it deliberately **leaves the name in place**.
 //
-// Reporting the count is the point, not decoration: an account name is a *foreign key by string*,
-// so on a real household this quietly reached 93 rows and transactions at once, and took the whole
-// "this bill so far — by statement cycle" panel with it (that panel keys off the credit account's
-// own statement day, so with the account gone it renders nothing at all). A toast reading only
-// "Deleted account" gave no hint that any of that had happened.
+// The two are not the same kind of link. A category is a label the row owns: drop the label and
+// nothing true is lost. An account is a statement of fact about where money actually moved, so
+// blanking it destroys information the app cannot recover, and the row would go on claiming
+// "no account" long after the mistake. Because the link is by *name*, leaving it costs nothing and
+// buys the undo of last resort: re-add an account spelled the same way and all of it re-attaches
+// by itself, in a later session, after a reload, long past the undo toast.
+//
+// Reporting the count is the point, not decoration: on a real household this reached 93 rows and
+// transactions at once, and took the whole "this bill so far — by statement cycle" panel with it
+// (that panel keys off the credit account's own statement day, so with the account gone it renders
+// nothing at all). A toast reading only "Deleted account" gave no hint any of that had happened.
+//
+// The cost of keeping the names is that a row can name an account that no longer exists, and every
+// UI that offers accounts has to cope. The free-text `f-account` inputs on ledger rows already do
+// (they are plain text with a datalist). The transactions `<select>` is the one that could not:
+// see transactionAccountOptionsHtml.
 export function deleteAccount(idx){
   var removed = state.accounts[idx];
   if(!removed) return;
   var name = removed.name || "";
-  var orphaned = name
-    ? everyAccountBearingArray().reduce(function(acc, items){
-        return acc.concat(items.filter(function(row){ return (row.account || "") === name; }));
-      }, [])
-    : [];
+  var stranded = rowsNamingAccount(name).length;
   state.accounts.splice(idx, 1);
-  orphaned.forEach(function(row){ row.account = ""; });
   renderAccounts();
   renderTransactions();
   renderActualVsPlannedPanel();
   persist();
   showUndoToast('Deleted "' + (name || "account") + '"' +
-    (orphaned.length ? " — " + orphaned.length + " line" + (orphaned.length === 1 ? "" : "s") + " and transactions now have no account" : ""), function(){
+    (stranded ? " — " + stranded + " line" + (stranded === 1 ? "" : "s") + " still name it; re-add an account called \"" + name + "\" to relink them" : ""), function(){
     state.accounts.splice(Math.min(idx, state.accounts.length), 0, removed);
-    orphaned.forEach(function(row){ row.account = name; });
     renderAccounts();
     renderTransactions();
     renderActualVsPlannedPanel();

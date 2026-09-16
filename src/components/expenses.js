@@ -1877,16 +1877,57 @@ export function addAccount(){
   renderAccounts();
   persist();
 }
+// Every array whose rows carry an `account` name — the account-side twin of
+// everyCategorisableArray(), and for the same reason: renaming or deleting an account has to reach
+// rows that aren't on screen right now.
+//
+// The one both account helpers used to miss is **state.home** — one array per scenario, and its
+// rows carry accounts exactly like shared expenses do. On a real three-scenario household that was
+// 12 housing rows (Rent, Council Rates, Home Insurance, …) silently left pointing at an account
+// that had just been renamed out from under them. everyCategorisableArray() already included
+// state.home; the account side hand-listed its arrays and simply never did.
+//
+// state.transactions is in here too. Its rows are a different shape from a ledger item, but the
+// field is the same plain string, which is all either caller touches.
+function everyAccountBearingArray(){
+  var arrays = [state.income || [], state.shared || [], state.transactions || []];
+  Object.keys(state.home || {}).forEach(function(name){
+    if(Array.isArray(state.home[name])) arrays.push(state.home[name]);
+  });
+  (state.properties || []).forEach(function(p){
+    if(Array.isArray(p.income)) arrays.push(p.income);
+    if(Array.isArray(p.expenses)) arrays.push(p.expenses);
+  });
+  return arrays;
+}
+// Deleting an account never deletes what referenced it — those rows fall back to "no account",
+// the same way deleting a category leaves its budget lines uncategorised. Losing a label should
+// not lose data.
+//
+// Reporting the count is the point, not decoration: an account name is a *foreign key by string*,
+// so on a real household this quietly reached 93 rows and transactions at once, and took the whole
+// "this bill so far — by statement cycle" panel with it (that panel keys off the credit account's
+// own statement day, so with the account gone it renders nothing at all). A toast reading only
+// "Deleted account" gave no hint that any of that had happened.
 export function deleteAccount(idx){
   var removed = state.accounts[idx];
   if(!removed) return;
+  var name = removed.name || "";
+  var orphaned = name
+    ? everyAccountBearingArray().reduce(function(acc, items){
+        return acc.concat(items.filter(function(row){ return (row.account || "") === name; }));
+      }, [])
+    : [];
   state.accounts.splice(idx, 1);
+  orphaned.forEach(function(row){ row.account = ""; });
   renderAccounts();
   renderTransactions();
   renderActualVsPlannedPanel();
   persist();
-  showUndoToast("Deleted account", function(){
+  showUndoToast('Deleted "' + (name || "account") + '"' +
+    (orphaned.length ? " — " + orphaned.length + " line" + (orphaned.length === 1 ? "" : "s") + " and transactions now have no account" : ""), function(){
     state.accounts.splice(Math.min(idx, state.accounts.length), 0, removed);
+    orphaned.forEach(function(row){ row.account = name; });
     renderAccounts();
     renderTransactions();
     renderActualVsPlannedPanel();
@@ -1897,11 +1938,7 @@ export function deleteAccount(idx){
 // state.accounts[] and were never a foreign key, so nothing else keeps them in sync automatically.
 export function renameAccountEverywhere(oldName, newName){
   if(!oldName || oldName === newName) return;
-  function retarget(items){
-    (items || []).forEach(function(item){ if((item.account || "") === oldName) item.account = newName; });
-  }
-  retarget(state.income);
-  retarget(state.shared);
-  (state.properties || []).forEach(function(p){ retarget(p.income); retarget(p.expenses); });
-  state.transactions.forEach(function(t){ if((t.account || "") === oldName) t.account = newName; });
+  everyAccountBearingArray().forEach(function(items){
+    items.forEach(function(row){ if((row.account || "") === oldName) row.account = newName; });
+  });
 }

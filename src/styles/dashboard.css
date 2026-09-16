@@ -5,6 +5,27 @@
   #dashboardStats.stat-row{ grid-template-columns: repeat(4, minmax(180px,1fr)); }
   #dashboardStats.stat-row .stat-tile:first-child{ grid-column: span 2; background: linear-gradient(135deg, var(--brass-wash), var(--paper-raised)); }
   @media (max-width: 900px){ #dashboardStats.stat-row{ grid-template-columns: repeat(2, minmax(150px,1fr)); } #dashboardStats.stat-row .stat-tile:first-child{ grid-column: span 2; } }
+  /* `repeat(2, minmax(150px,1fr))` is a *fixed* two columns with a 150px floor, so it does not
+     collapse the way an auto-fit track would — two 150px tiles plus the 14px gap need 314px, and
+     a 320px phone only has 288px between the page gutters. The tiles ran off the right edge.
+     (This was invisible until the topbar stopped forcing the document to 368px wide; it was
+     overflowing into space another bug had already created.)
+     `grid-column: 1 / -1` rather than leaving the `span 2` above: on a one-column grid `span 2`
+     asks for a second column that isn't there, and the grid obligingly creates an implicit one —
+     which puts the overflow straight back. */
+     Dropping the floor to 0 keeps the two-column bento at 360px — the most common Android width —
+     rather than collapsing it and doubling how far you scroll; the tiles just get narrower, which
+     is what the `1fr` was always meant to do. Below 340px two columns stop being readable (a
+     seven-figure number at 21px does not fit beside its own padding and cannot wrap), so that is
+     where it genuinely goes single-column. */
+  @media (max-width: 380px){
+    #dashboardStats.stat-row{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .stat-tile{ padding:14px; }
+  }
+  @media (max-width: 340px){
+    #dashboardStats.stat-row{ grid-template-columns: 1fr; }
+    #dashboardStats.stat-row .stat-tile:first-child{ grid-column: 1 / -1; }
+  }
   .stat-tile{
     background: var(--paper-raised); border:1px solid var(--border); border-radius:14px; padding:16px 18px;
     box-shadow: var(--shadow); display:flex; flex-direction:column; gap:4px; transition: transform .18s ease, box-shadow .18s ease;

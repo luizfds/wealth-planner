@@ -1145,15 +1145,28 @@ export var budgetRowTxnsOpen = {};
 // data-tx-del/deleteTransaction expect, so this keeps {t, i} pairs the same way
 // renderTransactions() does, rather than returning bare transactions like sumTransactionsByExpense
 // does — that's fine for a sum, but this list needs a working Delete button on each row.
-function monthTransactionsForExpense(expenseId){
-  var monthStr = localDateStr().slice(0, 7);
+// Range-based rather than month-based because the two kinds of row in this panel are measured
+// over different windows: a regular line against its own billing cycle inside this month, an
+// irregular one against its whole reserve year (see reserveYearWindowFor). The drill-down has to
+// use the same window as the figure on the row it hangs off, or the transactions listed won't add
+// up to the "actual" they are supposed to explain.
+function rangeTransactionsForExpense(expenseId, startStr, endStr){
   var pairs = [];
   state.transactions.forEach(function(t, i){
-    if((t.date || "").slice(0, 7) !== monthStr) return;
+    var d = t.date || "";
+    if(d < startStr || d > endStr) return;
     var matches = expenseId === "__unlinked" ? !t.linkedExpenseId : t.linkedExpenseId === expenseId;
     if(matches) pairs.push({ t: t, i: i });
   });
   return pairs.sort(function(a, b){ return (b.t.date || "") < (a.t.date || "") ? -1 : ((b.t.date || "") > (a.t.date || "") ? 1 : 0); });
+}
+function monthTransactionsForExpense(expenseId){
+  var monthStr = localDateStr().slice(0, 7);
+  return rangeTransactionsForExpense(expenseId, monthStr + "-01", monthStr + "-31");
+}
+// Same caret markup on every expandable row in this panel — regular, irregular and Uncategorized.
+function budgetRowChevHtml(){
+  return '<svg class="budget-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>';
 }
 // The expand panel's own transaction rows — deliberately read-only (date/description/amount +
 // Delete) rather than the full editable tx-row shape from the Transactions list below: this is a
@@ -1179,7 +1192,7 @@ function budgetRowTxnListHtml(pairs){
 // year) and stays quiet the rest of the time. Rendered as its own section regardless of whether
 // anything's been logged this month, since it's answering a different question ("on track for
 // the year") than the month-by-month panel above it.
-function irregularBudgetSectionHtml(irregularItems){
+export function irregularBudgetSectionHtml(irregularItems){
   if(!irregularItems.length) return "";
   var rows = irregularItems.map(function(item){
     // Each line carries its own twelve months (see reserveYearWindowFor): a travel budget usually
@@ -1195,17 +1208,27 @@ function irregularBudgetSectionHtml(irregularItems){
     var remaining = plannedYear - actualYear;
     // The period now lives in the "planned <label>" half, so this half doesn't repeat it.
     var remainingLabel = remaining >= 0 ? (fmtCurrency0.format(remaining) + " left") : (fmtCurrency0.format(-remaining) + " over budget");
-    return '<div class="budget-row">' +
+    // Expandable on exactly the same terms as a regular row above, but over the row's own reserve
+    // year rather than this month — which is the whole reason these need it *more*, not less. A
+    // regular line's transactions are all in the current month, so the Transactions list below is
+    // a reasonable fallback for finding them; an irregular line's "actual" can be a single receipt
+    // from eleven months ago, and nothing else on the page will tell you which one it was.
+    var txnPairs = rangeTransactionsForExpense(item.id, win.start, win.end);
+    var isExpandable = txnPairs.length > 0;
+    var isOpen = isExpandable && !!budgetRowTxnsOpen[item.id];
+    return '<div class="budget-row' + (isExpandable ? " is-expandable" : "") + (isOpen ? " open" : "") + '"' +
+        (isExpandable ? ' data-budget-row-toggle="' + escapeAttr(item.id) + '" role="button" tabindex="0" aria-expanded="' + isOpen + '"' : '') + '>' +
       '<div class="acct-row"><span class="acct-name" title="' + escapeAttr(item.what) + '">' + escapeAttr(item.what) + '</span>' +
         '<span style="font-size:11px;color:var(--ink-soft)">' + fmtCurrency0.format(actualYear) + ' actual / ' + fmtCurrency0.format(plannedYear) + ' planned ' + escapeAttr(win.label) + ' — ' + remainingLabel + '</span>' +
-        '<span class="acct-amt"' + (color ? ' style="color:' + color + '"' : '') + '>' + (delta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(delta)) + '</span></div>' +
+        '<span class="acct-amt"' + (color ? ' style="color:' + color + '"' : '') + '>' + (delta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(delta)) + '</span>' + (isExpandable ? budgetRowChevHtml() : "") + '</div>' +
       '<div class="budget-bar-track"><div class="budget-bar-fill' + (delta > 0.5 ? " over" : "") + '" style="width:' + pct + '%"></div></div>' +
+      (isOpen ? budgetRowTxnListHtml(txnPairs) : '') +
     '</div>';
   }).join("");
   // No period in the heading any more — rows can each be on a different one, and a heading that
   // named only one of them would be wrong for the rest.
   return '<div style="margin-top:16px"><div class="fire-stat-row" style="margin-bottom:2px"><span>Irregular / reserve budgets</span></div>' +
-    '<p class="ledger-note" style="margin:0 0 8px">Marked "no fixed timing" — compared against a full year\'s budget instead of this month\'s, since these aren\'t expected on any particular schedule. Each line names the twelve months it\'s measured over; change that with "Budget year" on the row.</p>' +
+    '<p class="ledger-note" style="margin:0 0 8px">Marked "no fixed timing" — compared against a full year\'s budget instead of this month\'s, since these aren\'t expected on any particular schedule. Each line names the twelve months it\'s measured over; change that with "Budget year" on the row. Tap a line to see the transactions behind it.</p>' +
     rows + '</div>';
 }
 // What these budget lines actually put on this month's bills: every monthly (and sub-monthly) line
@@ -1304,7 +1327,7 @@ export function renderActualVsPlannedPanel(){
     var txnPairs = monthTransactionsForExpense(item.id);
     var isExpandable = txnPairs.length > 0;
     var isOpen = isExpandable && !!budgetRowTxnsOpen[item.id];
-    var chev = isExpandable ? '<svg class="budget-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>' : "";
+    var chev = isExpandable ? budgetRowChevHtml() : "";
     return '<div class="budget-row' + (isExpandable ? " is-expandable" : "") + (isOpen ? " open" : "") + '"' +
         (isExpandable ? ' data-budget-row-toggle="' + escapeAttr(item.id) + '" role="button" tabindex="0" aria-expanded="' + isOpen + '"' : '') + '>' +
       '<div class="acct-row"><span class="acct-name" title="' + escapeAttr(item.what) + '">' + escapeAttr(item.what) + '</span>' +
@@ -1317,7 +1340,7 @@ export function renderActualVsPlannedPanel(){
   var unlinkedTotal = byExpense.__unlinked || 0;
   var unlinkedPairs = unlinkedTotal ? monthTransactionsForExpense("__unlinked") : [];
   var unlinkedOpen = unlinkedPairs.length > 0 && !!budgetRowTxnsOpen.__unlinked;
-  var unlinkedChev = unlinkedPairs.length ? '<svg class="budget-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>' : "";
+  var unlinkedChev = unlinkedPairs.length ? budgetRowChevHtml() : "";
   var unlinkedRow = unlinkedTotal
     ? '<div class="budget-row' + (unlinkedPairs.length ? " is-expandable" : "") + (unlinkedOpen ? " open" : "") + '"' +
         (unlinkedPairs.length ? ' data-budget-row-toggle="__unlinked" role="button" tabindex="0" aria-expanded="' + unlinkedOpen + '"' : '') + '>' +

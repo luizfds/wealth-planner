@@ -377,6 +377,35 @@ function wholePeriodsInMonth(today, stepDays){
   var daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
   return Math.max(1, Math.floor(daysInMonth / stepDays));
 }
+// The same shape as budgetCycleFor, but for a line with no billing cycle at all.
+//
+// An item flagged "no fixed timing" is budgeted as a yearly reserve: $20,000 of travel, $1,000 of
+// car maintenance, spent whenever it's spent. budgetCycleFor can't describe that — there is no
+// month or quarter it is due in, which is exactly what the flag means — so the row's progress bar
+// used to be omitted entirely and the comparison lived only in the separate "Irregular / reserve
+// budgets" panel further down the page. That left 7 of this household's 34 lines with a silent gap
+// where every other row has a bar, and nothing on the row saying where the figure had gone.
+//
+// There *is* an honest window though, and the app already knows it: the line's own reserve year
+// (reserveYearWindowFor — calendar, financial, or the household default). Measured over that, "how
+// much of this year's travel budget is left" is a perfectly good question with a real answer.
+// Separate from budgetCycleFor rather than folded into it, because two of that function's callers
+// — the month rollup's billedThisMonth() and the Actual vs. planned row list — depend on it
+// meaning *this month's bills*, and a reserve year is not that.
+export function reserveCycleFor(item, todayStr){
+  var win = reserveYearWindowFor(item, todayStr);
+  return {
+    start: win.start,
+    end: win.end,
+    label: win.label,
+    target: periodsOf(Number(item.amount) || 0, item.freq).yearly,
+    // Never "due this month" — that is the property the month rollup keys off, and a reserve has
+    // no due month by definition.
+    dueThisMonth: false,
+    reserve: true
+  };
+}
+
 export function budgetCycleFor(item, transactions, todayStr){
   var today = todayStr ? new Date(todayStr + "T00:00:00") : new Date();
   today.setHours(0, 0, 0, 0);

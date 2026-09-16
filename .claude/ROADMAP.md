@@ -809,6 +809,52 @@ in the nav. Then tab 30 stops and assert none has `boxShadow: none` with `outlin
 
 ---
 
+## 17. `[x]` A bar on the irregular rows too — shipped v3.7.0
+
+Asked why "Work Related Costs", "Trips" and "Tolls" had no progress bar when every other budget row
+does. They are all flagged **"no fixed timing (irregular)"**, and `budgetRowProgressHtml()` opened
+with `if(item.irregular) return ""`.
+
+The reasoning was sound as far as it went: a row bar compares spend against *that line's billing
+cycle*, and an irregular line has no billing cycle — that is what the flag means. Judging $20,000 of
+annual travel against "this month" would render an on-plan holiday as several hundred percent over.
+
+But "no *monthly* comparison is honest" is not "no comparison is". Every one of these lines has a
+reserve year the app already resolves (`reserveYearWindowFor` — calendar, financial, or the
+household default), and "how much of this year's travel budget is left" has a real answer. Seven of
+this household's 34 lines had a silent gap where every other row has a bar, with the figure
+available only in the "Irregular / reserve budgets" panel further down and nothing on the row saying
+where it had gone.
+
+**What shipped.** `reserveCycleFor()` in `calc/ledger.js` — the same shape `budgetCycleFor` returns,
+but over the line's reserve year, with the amount annualised (`periodsOf().yearly`, so "$300 a
+fortnight, no fixed timing" is a $7,800 reserve rather than being compared against $300). Kept
+separate from `budgetCycleFor` rather than folded in, because two of that function's callers —
+`billedThisMonth()` and the Actual vs. planned row list — depend on it meaning *this month's bills*,
+and a reserve year is not that. `dueThisMonth: false` for the same reason.
+
+**Measured on the household's own data:**
+
+| Line | Before | After |
+|---|---|---|
+| Trips | *(no bar)* | $0 of $20,000 this year |
+| Work Related Costs | *(no bar)* | $170 of $1,000 FY26/27 |
+| Tolls | *(no bar)* | $47 of $300 FY26/27 |
+| Misc. | *(no bar)* | $631 of $1,000 this year |
+| Car Maintenance | *(no bar)* | $0 of $1,000 this year |
+| Bootcamp | *(no bar)* | $80 of $3,120 FY26/27 |
+| Date Night | *(no bar)* | $0 of $7,800 FY26/27 |
+
+Regular rows are untouched — Internet still reads "$0 of $99 this month", Gas "$230 of $230
+Aug-Oct", Groceries "$947 of $1,720 this month x4". The grouped panel stays as the overview.
+
+**How to verify.** Expenses -> Budget, expand every group, and read `.budget-progress-text` on each
+row: the seven irregular lines should name a year window, the rest a billing cycle. Note that a
+barless "Groceries" also matches a naive row query — that one is a *transaction* on the hidden
+Spending subtab, not a budget row.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

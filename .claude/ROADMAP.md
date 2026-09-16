@@ -855,6 +855,70 @@ Spending subtab, not a budget row.
 
 ---
 
+## 18. `[x]` The app scrolled sideways on a 360px phone — shipped v3.7.1
+
+Not from the audit — found by sweeping every page at 300/320/360/375/390/412/430/768/1280px and
+measuring `documentElement.scrollWidth` against `clientWidth`, rather than looking at screenshots.
+At 320px the document laid out **368px wide inside a 320px viewport**: every Dashboard tile was
+clipped and every page scrolled horizontally.
+
+Three separate causes, two of which were hiding the third.
+
+**1. The topbar metrics pill had a hard minimum that grew with your net worth.** `.global-metrics`
+is a nowrap flex row whose `b` values are `white-space:nowrap`, so its intrinsic width is both
+figures side by side: 352px at $559,431 / +$6,293/mo, **371px at seven figures**. So the breakpoint
+was not fixed — it moved as someone's net worth grew. Broken at ≤360px on the household's real
+data; at seven figures it also breaks a 375px iPhone SE. Now wraps onto two lines below 420px, and
+the divider goes with it (a vertical rule between two *stacked* items is a stray tick, and CSS
+cannot show it only when they sit side by side).
+
+**2. Three of the eight pages were unreachable on a 360px Android phone.** `.mobile-tab` is
+`flex:1 1 0`, but a flex item's `min-width` defaults to `auto` — its *min-content* width — so the
+six tabs never shrank, they overflowed their own `position:fixed` bar. "More" was clipped to "Mor"
+at 360px and gone entirely at 320px, and because the bar is fixed **you cannot scroll to it**.
+Scenarios, Projections and Accounts are reachable only through that menu.
+
+The fix is `min-width:44px` (not `0`) plus `flex:1 1 auto` (not `1 1 0`), and both halves matter:
+
+| | Result |
+|---|---|
+| `flex:1 1 0` + `min-width:0` | equal widths, so the longest label sets the requirement 6× over — 6 × 69px = 414px, truncating "Dashboard" at 412px, a width with room to spare |
+| `flex:1 1 auto` + `min-width:0` | full labels, but "More" sized to its own short word = a **34px** tap target, under item 12's 44px floor |
+| `flex:1 1 auto` + `min-width:44px` | full labels at every real phone width, every tab ≥44px |
+
+**3. The stat grid, which only became visible once (1) stopped masking it.** `#dashboardStats` uses
+`repeat(2, minmax(150px,1fr))` — a *fixed* two columns with a 150px floor, so it does not collapse
+the way an auto-fit track would. Two 150px tiles plus the 14px gap need 314px; a 320px phone has
+288px between the gutters. Dropping the floor to `minmax(0,1fr)` keeps the two-column bento at
+360px rather than doubling how far you scroll, and it goes single-column at ≤340px where a
+seven-figure number at 21px genuinely stops fitting beside its own padding.
+
+**The trap in (3):** `.stat-tile:first-child` carries `grid-column: span 2`. On a one-column grid
+`span 2` asks for a column that isn't there and the grid creates an **implicit** one — putting the
+overflow straight back. It has to be reset to `1 / -1`.
+
+**Measured, `scrollWidth - clientWidth` across all eight pages, at both the real figures and a
+seven-figure net worth:**
+
+| Width | Before | After |
+|---|---:|---:|
+| 300 | 30px | 0 |
+| 320 | 48px (67px at 7 figures) | 0 |
+| 360 | 8px (27px) | 0 |
+| 375 | 0 (12px) | 0 |
+| 390 – 1280 | 0 | 0 |
+
+Every width ≥421px is untouched: tile padding still `16px 18px`, the metrics pill still one row
+with its divider, the same tile column counts.
+
+**How to verify.** Measure, do not eyeball — this is exactly the class of bug a screenshot at 390px
+never shows. Load a backup, then at each width read `documentElement.scrollWidth` against
+`clientWidth` on all eight pages, and read each `.mobile-tab`'s rect plus whether its label's
+`scrollWidth` exceeds its `clientWidth`. Below 320px labels truncate with an ellipsis by design —
+that is the safety net, and every tab stays reachable and ≥44px.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

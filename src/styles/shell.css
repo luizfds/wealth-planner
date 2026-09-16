@@ -280,3 +280,45 @@
     position:fixed; inset:0; z-index:99; background: rgba(0,0,0,0.45);
   }
   #mRowBackdrop[hidden]{ display:none; }
+
+  /* ---------------- Very narrow phones (≤420px) ---------------- */
+  /* Below ~375px two separate things pushed content past the right edge of the screen, and both
+     got *worse* as the user's numbers got bigger — so the breakpoint wasn't fixed, it moved as
+     someone's net worth grew. Measured at 320px against a real backup: the document laid out
+     368px wide inside a 320px viewport, so every Dashboard tile was clipped and the whole app
+     scrolled sideways on every page.
+
+     1. `.global-metrics` is a nowrap flex row and its `b` values are `white-space:nowrap`, so the
+        pill has a hard intrinsic minimum that is the width of both figures side by side. At
+        $559,431 / +$6,293/mo that is 352px; at seven figures it is 371px, which overflows an
+        iPhone SE too. Wrapping the two metrics onto their own lines removes the floor entirely.
+        The divider goes with it — a vertical rule between two *stacked* items is just a stray
+        tick, and there is no CSS way to show it only when they sit side by side.
+
+     2. `.mobile-tab` is `flex:1 1 0` but a flex item's `min-width` defaults to `auto`, i.e. its
+        min-content width — so the six tabs never actually shrank, they overflowed their own
+        `position:fixed` bar. "More" was clipped to "Mor" at 360px and gone entirely at 320px,
+        and because the bar is fixed you cannot scroll to it: Scenarios, Projections and Accounts
+        are reachable *only* through that menu, so three of the eight pages became unreachable on
+        a 360px Android phone. A real `min-width` lets them shrink; the tighter pill padding (and the
+        smaller label below 360px) is what keeps all six labels legible in full rather than
+        truncated, and the ellipsis is the safety net for anything narrower still. */
+  @media (max-width: 420px){
+    .global-metrics{ flex-wrap:wrap; row-gap:2px; }
+    .global-metric-divider{ display:none; }
+
+    /* `flex:1 1 auto` rather than keeping the base rule's `1 1 0`: with a zero basis every tab is
+       forced to the *same* width, so the longest label ("Dashboard") sets the bar's requirement
+       six times over — 6 × 69px = 414px, which truncated it on phones wide enough to have no
+       problem at all. An `auto` basis sizes each tab to its own label first and only then shares
+       out what is left, which is what the bar looked like before it was allowed to shrink.
+       The floor is 44px rather than 0 to keep item 12's touch-target minimum: "More" is a short
+       word, and sizing it purely to its content gave it a 34px-wide tap target at 320px. Six 44px
+       tabs need 264px, so this still fits a 280px foldable cover screen with room to spare. */
+    .mobile-tab{ min-width:44px; flex:1 1 auto; }
+    .mobile-tab-pill{ min-width:0; max-width:100%; padding:7px 2px 6px; }
+    .mobile-tab-label{ max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  }
+  @media (max-width: 360px){
+    .mobile-tab-label{ font-size:10px; }
+  }

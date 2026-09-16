@@ -951,11 +951,24 @@ function transactionLinkOptionsHtml(selectedId){
     return '<option value="' + escapeAttr(item.id) + '"' + (item.id === selectedId ? " selected" : "") + '>' + escapeAttr(item.what) + '</option>';
   }).join("");
 }
-function transactionAccountOptionsHtml(selected){
+// Because deleteAccount() leaves the name on the rows that referenced it, a transaction can name an
+// account that is no longer in state.accounts. A <select> whose value matches none of its options
+// does not stay empty — the browser shows the *first* option, so the row would silently read
+// "— No account —" and the next edit to any other field would save that lie over a real fact.
+// (The ledger rows' own account fields are free-text inputs with a datalist, so they never had
+// this problem; this select is the only place that did.) Keeping an explicit option for the
+// missing name is what makes "the name survives a delete" true rather than merely intended.
+export function transactionAccountOptionsHtml(selected){
   var options = '<option value=""' + (!selected ? " selected" : "") + '>— No account —</option>';
-  return options + state.accounts.map(function(a){
+  var known = false;
+  options += state.accounts.map(function(a){
+    if(a.name === selected) known = true;
     return '<option value="' + escapeAttr(a.name) + '"' + (a.name === selected ? " selected" : "") + '>' + escapeAttr(a.name) + (a.type === "credit" ? " (credit)" : "") + '</option>';
   }).join("");
+  if(selected && !known){
+    options += '<option value="' + escapeAttr(selected) + '" selected>' + escapeAttr(selected) + ' (deleted)</option>';
+  }
+  return options;
 }
 // What the Review-expenses flow's logCurrentReviewCard() delegates to (the quick-log sheet builds
 // its own transaction inline, since it also has to handle the unlinked One-off case).
@@ -1168,6 +1181,53 @@ function monthTransactionsForExpense(expenseId){
 function budgetRowChevHtml(){
   return '<svg class="budget-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>';
 }
+// One row builder for both halves of this panel.
+//
+// These were two hand-written builders drifting side by side, and that split produced two
+// user-reported gaps in a row: the irregular rows had no progress bar at all until v3.7.0, and no
+// transaction drill-down until v3.8.0 — both times because a change was made to the regular
+// builder and the irregular one simply never got it. Nothing about a row's *markup* ever actually
+// depended on which kind of line it was.
+//
+// The only real difference is which window the line is judged over, and that was already solved in
+// the calc layer: budgetCycleFor() and reserveCycleFor() return the same
+// {start, end, label, target} shape, so `cycle` is the entire branch. Everything downstream —
+// what counts as spent, what the sub-line says, which transactions the drill-down lists — reads
+// off that one object.
+//
+// The one difference that is real and deliberate is kept, and now keys off data rather than which
+// function happened to build the row: a reserve line gets no green for being under budget.
+// Spending less than a *whole year's* travel allowance in February is not an achievement, it is
+// the normal state of affairs, and colouring it green every month would make the colour mean
+// nothing on the rows where being under really is good news.
+export function budgetComparisonRowHtml(item){
+  var cycle = item.irregular ? reserveCycleFor(item) : budgetCycleFor(item, state.transactions);
+  var planned = Math.round(cycle.target * 100) / 100;
+  var actual = Math.round(spentInCycle(item, cycle) * 100) / 100;
+  var delta = actual - planned;
+  var color = delta > 0.5 ? "var(--bad)" : (delta < -0.5 && !cycle.reserve ? "var(--good)" : "");
+  var pct = planned > 0 ? Math.min(100, (actual / planned) * 100) : (actual > 0 ? 100 : 0);
+  var remaining = planned - actual;
+  // The period lives in the "planned <label>" half, so this half doesn't repeat it.
+  var remainingLabel = remaining >= 0 ? (fmtCurrency0.format(remaining) + " left") : (fmtCurrency0.format(-remaining) + " over");
+  // Drilled over the row's own cycle, not the calendar month. That is what an irregular row needs
+  // (its spend can be one receipt from eleven months ago), and it quietly fixes the regular rows
+  // too: a quarterly line reading "$230 actual … Aug–Oct" used to open onto September alone, so
+  // the list you were shown did not add up to the figure it was sitting under.
+  var txnPairs = rangeTransactionsForExpense(item.id, cycle.start, cycle.end);
+  // Only worth expanding once something is actually logged against it — nothing to drill into
+  // otherwise, so a row with $0 actual stays a plain, non-interactive row.
+  var isExpandable = txnPairs.length > 0;
+  var isOpen = isExpandable && !!budgetRowTxnsOpen[item.id];
+  return '<div class="budget-row' + (isExpandable ? " is-expandable" : "") + (isOpen ? " open" : "") + '"' +
+      (isExpandable ? ' data-budget-row-toggle="' + escapeAttr(item.id) + '" role="button" tabindex="0" aria-expanded="' + isOpen + '"' : '') + '>' +
+    '<div class="acct-row"><span class="acct-name" title="' + escapeAttr(item.what) + '">' + escapeAttr(item.what) + '</span>' +
+      '<span style="font-size:11px;color:var(--ink-soft)">' + fmtCurrency0.format(actual) + ' actual / ' + fmtCurrency0.format(planned) + ' planned ' + escapeAttr(cycle.label) + ' — ' + remainingLabel + '</span>' +
+      '<span class="acct-amt"' + (color ? ' style="color:' + color + '"' : '') + '>' + (delta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(delta)) + '</span>' + (isExpandable ? budgetRowChevHtml() : "") + '</div>' +
+    '<div class="budget-bar-track"><div class="budget-bar-fill' + (delta > 0.5 ? " over" : "") + '" style="width:' + pct + '%"></div></div>' +
+    (isOpen ? budgetRowTxnListHtml(txnPairs) : '') +
+  '</div>';
+}
 // The expand panel's own transaction rows — deliberately read-only (date/description/amount +
 // Delete) rather than the full editable tx-row shape from the Transactions list below: this is a
 // "what's actually logged against this line" drill-down, not a second place to edit everything.
@@ -1194,37 +1254,7 @@ function budgetRowTxnListHtml(pairs){
 // the year") than the month-by-month panel above it.
 export function irregularBudgetSectionHtml(irregularItems){
   if(!irregularItems.length) return "";
-  var rows = irregularItems.map(function(item){
-    // Each line carries its own twelve months (see reserveYearWindowFor): a travel budget usually
-    // means the calendar year, an annual maintenance allowance often means the financial one, and
-    // a standing allowance is best read as "the last twelve months" rather than one that resets to
-    // zero every 1 January. So the window is resolved per row, not once for the section.
-    var win = reserveYearWindowFor(item);
-    var actualYear = Math.round((sumTransactionsByExpense(transactionsInRange(state.transactions, win.start, win.end))[item.id] || 0) * 100) / 100;
-    var plannedYear = Math.round(periodsOf(item.amount, item.freq).yearly * 100) / 100;
-    var delta = actualYear - plannedYear;
-    var color = delta > 0.5 ? "var(--bad)" : "";
-    var pct = plannedYear > 0 ? Math.min(100, (actualYear / plannedYear) * 100) : (actualYear > 0 ? 100 : 0);
-    var remaining = plannedYear - actualYear;
-    // The period now lives in the "planned <label>" half, so this half doesn't repeat it.
-    var remainingLabel = remaining >= 0 ? (fmtCurrency0.format(remaining) + " left") : (fmtCurrency0.format(-remaining) + " over budget");
-    // Expandable on exactly the same terms as a regular row above, but over the row's own reserve
-    // year rather than this month — which is the whole reason these need it *more*, not less. A
-    // regular line's transactions are all in the current month, so the Transactions list below is
-    // a reasonable fallback for finding them; an irregular line's "actual" can be a single receipt
-    // from eleven months ago, and nothing else on the page will tell you which one it was.
-    var txnPairs = rangeTransactionsForExpense(item.id, win.start, win.end);
-    var isExpandable = txnPairs.length > 0;
-    var isOpen = isExpandable && !!budgetRowTxnsOpen[item.id];
-    return '<div class="budget-row' + (isExpandable ? " is-expandable" : "") + (isOpen ? " open" : "") + '"' +
-        (isExpandable ? ' data-budget-row-toggle="' + escapeAttr(item.id) + '" role="button" tabindex="0" aria-expanded="' + isOpen + '"' : '') + '>' +
-      '<div class="acct-row"><span class="acct-name" title="' + escapeAttr(item.what) + '">' + escapeAttr(item.what) + '</span>' +
-        '<span style="font-size:11px;color:var(--ink-soft)">' + fmtCurrency0.format(actualYear) + ' actual / ' + fmtCurrency0.format(plannedYear) + ' planned ' + escapeAttr(win.label) + ' — ' + remainingLabel + '</span>' +
-        '<span class="acct-amt"' + (color ? ' style="color:' + color + '"' : '') + '>' + (delta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(delta)) + '</span>' + (isExpandable ? budgetRowChevHtml() : "") + '</div>' +
-      '<div class="budget-bar-track"><div class="budget-bar-fill' + (delta > 0.5 ? " over" : "") + '" style="width:' + pct + '%"></div></div>' +
-      (isOpen ? budgetRowTxnListHtml(txnPairs) : '') +
-    '</div>';
-  }).join("");
+  var rows = irregularItems.map(budgetComparisonRowHtml).join("");
   // No period in the heading any more — rows can each be on a different one, and a heading that
   // named only one of them would be wrong for the rest.
   return '<div style="margin-top:16px"><div class="fire-stat-row" style="margin-bottom:2px"><span>Irregular / reserve budgets</span></div>' +
@@ -1311,32 +1341,7 @@ export function renderActualVsPlannedPanel(){
   // the Budget tab doesn't already say, and burying the few rows that did move. What's left is
   // the one thing the Budget tab can't answer: where this month's money actually went.
   var spentItems = regularItems.filter(function(item){ return Math.round((byExpense[item.id] || 0) * 100) / 100 !== 0; });
-  var rows = spentItems.map(function(item){
-    // Same cycle-aware comparison as the budget rows: a quarterly line's planned figure here is
-    // the whole bill over its own window, not a third of it against one month.
-    var rowCycle = budgetCycleFor(item, state.transactions);
-    var planned = Math.round(rowCycle.target * 100) / 100;
-    var actual = Math.round(spentInCycle(item, rowCycle) * 100) / 100;
-    var delta = actual - planned;
-    var color = delta > 0.5 ? "var(--bad)" : (delta < -0.5 ? "var(--good)" : "");
-    var pct = planned > 0 ? Math.min(100, (actual / planned) * 100) : (actual > 0 ? 100 : 0);
-    var remaining = planned - actual;
-    var remainingLabel = remaining >= 0 ? (fmtCurrency0.format(remaining) + " left") : (fmtCurrency0.format(-remaining) + " over");
-    // Only worth expanding once there's actually a transaction logged against it this month —
-    // nothing to drill into otherwise, so a row with $0 actual stays a plain, non-interactive row.
-    var txnPairs = monthTransactionsForExpense(item.id);
-    var isExpandable = txnPairs.length > 0;
-    var isOpen = isExpandable && !!budgetRowTxnsOpen[item.id];
-    var chev = isExpandable ? budgetRowChevHtml() : "";
-    return '<div class="budget-row' + (isExpandable ? " is-expandable" : "") + (isOpen ? " open" : "") + '"' +
-        (isExpandable ? ' data-budget-row-toggle="' + escapeAttr(item.id) + '" role="button" tabindex="0" aria-expanded="' + isOpen + '"' : '') + '>' +
-      '<div class="acct-row"><span class="acct-name" title="' + escapeAttr(item.what) + '">' + escapeAttr(item.what) + '</span>' +
-        '<span style="font-size:11px;color:var(--ink-soft)">' + fmtCurrency0.format(actual) + ' actual / ' + fmtCurrency0.format(planned) + ' planned ' + escapeAttr(rowCycle.label) + ' — ' + remainingLabel + '</span>' +
-        '<span class="acct-amt"' + (color ? ' style="color:' + color + '"' : '') + '>' + (delta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(delta)) + '</span>' + chev + '</div>' +
-      '<div class="budget-bar-track"><div class="budget-bar-fill' + (delta > 0.5 ? " over" : "") + '" style="width:' + pct + '%"></div></div>' +
-      (isOpen ? budgetRowTxnListHtml(txnPairs) : '') +
-    '</div>';
-  }).join("");
+  var rows = spentItems.map(budgetComparisonRowHtml).join("");
   var unlinkedTotal = byExpense.__unlinked || 0;
   var unlinkedPairs = unlinkedTotal ? monthTransactionsForExpense("__unlinked") : [];
   var unlinkedOpen = unlinkedPairs.length > 0 && !!budgetRowTxnsOpen.__unlinked;
@@ -1877,15 +1882,68 @@ export function addAccount(){
   renderAccounts();
   persist();
 }
+// Every array whose rows carry an `account` name — the account-side twin of
+// everyCategorisableArray(), and for the same reason: renaming or deleting an account has to reach
+// rows that aren't on screen right now.
+//
+// The one both account helpers used to miss is **state.home** — one array per scenario, and its
+// rows carry accounts exactly like shared expenses do. On a real three-scenario household that was
+// 12 housing rows (Rent, Council Rates, Home Insurance, …) silently left pointing at an account
+// that had just been renamed out from under them. everyCategorisableArray() already included
+// state.home; the account side hand-listed its arrays and simply never did.
+//
+// state.transactions is in here too. Its rows are a different shape from a ledger item, but the
+// field is the same plain string, which is all either caller touches.
+function everyAccountBearingArray(){
+  var arrays = [state.income || [], state.shared || [], state.transactions || []];
+  Object.keys(state.home || {}).forEach(function(name){
+    if(Array.isArray(state.home[name])) arrays.push(state.home[name]);
+  });
+  (state.properties || []).forEach(function(p){
+    if(Array.isArray(p.income)) arrays.push(p.income);
+    if(Array.isArray(p.expenses)) arrays.push(p.expenses);
+  });
+  return arrays;
+}
+// Counts what still names an account — what a delete is about to strand, and what a re-add with
+// the same spelling would pick back up.
+function rowsNamingAccount(name){
+  if(!name) return [];
+  return everyAccountBearingArray().reduce(function(acc, items){
+    return acc.concat(items.filter(function(row){ return (row.account || "") === name; }));
+  }, []);
+}
+// Deleting an account never deletes what referenced it, and — unlike deleting a category, which
+// blanks `item.category` — it deliberately **leaves the name in place**.
+//
+// The two are not the same kind of link. A category is a label the row owns: drop the label and
+// nothing true is lost. An account is a statement of fact about where money actually moved, so
+// blanking it destroys information the app cannot recover, and the row would go on claiming
+// "no account" long after the mistake. Because the link is by *name*, leaving it costs nothing and
+// buys the undo of last resort: re-add an account spelled the same way and all of it re-attaches
+// by itself, in a later session, after a reload, long past the undo toast.
+//
+// Reporting the count is the point, not decoration: on a real household this reached 93 rows and
+// transactions at once, and took the whole "this bill so far — by statement cycle" panel with it
+// (that panel keys off the credit account's own statement day, so with the account gone it renders
+// nothing at all). A toast reading only "Deleted account" gave no hint any of that had happened.
+//
+// The cost of keeping the names is that a row can name an account that no longer exists, and every
+// UI that offers accounts has to cope. The free-text `f-account` inputs on ledger rows already do
+// (they are plain text with a datalist). The transactions `<select>` is the one that could not:
+// see transactionAccountOptionsHtml.
 export function deleteAccount(idx){
   var removed = state.accounts[idx];
   if(!removed) return;
+  var name = removed.name || "";
+  var stranded = rowsNamingAccount(name).length;
   state.accounts.splice(idx, 1);
   renderAccounts();
   renderTransactions();
   renderActualVsPlannedPanel();
   persist();
-  showUndoToast("Deleted account", function(){
+  showUndoToast('Deleted "' + (name || "account") + '"' +
+    (stranded ? " — " + stranded + " line" + (stranded === 1 ? "" : "s") + " still name it; re-add an account called \"" + name + "\" to relink them" : ""), function(){
     state.accounts.splice(Math.min(idx, state.accounts.length), 0, removed);
     renderAccounts();
     renderTransactions();
@@ -1897,11 +1955,7 @@ export function deleteAccount(idx){
 // state.accounts[] and were never a foreign key, so nothing else keeps them in sync automatically.
 export function renameAccountEverywhere(oldName, newName){
   if(!oldName || oldName === newName) return;
-  function retarget(items){
-    (items || []).forEach(function(item){ if((item.account || "") === oldName) item.account = newName; });
-  }
-  retarget(state.income);
-  retarget(state.shared);
-  (state.properties || []).forEach(function(p){ retarget(p.income); retarget(p.expenses); });
-  state.transactions.forEach(function(t){ if((t.account || "") === oldName) t.account = newName; });
+  everyAccountBearingArray().forEach(function(items){
+    items.forEach(function(row){ if((row.account || "") === oldName) row.account = newName; });
+  });
 }

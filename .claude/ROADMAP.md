@@ -963,6 +963,198 @@ those four tests fail if the toggle attributes or the year window come off.
 
 ---
 
+## 20. `[x]` Accounts were a foreign key nothing maintained — shipped v3.8.1
+
+From a full-app assessment (all 8 pages driven at 390px and 1280px with a real backup, plus the
+brand-new empty state, junk-data injection, and all three of the household's backups spanning two
+weeks of schema change). Almost everything came back clean — **zero** console or page errors
+anywhere, no `NaN`/`undefined`/`[object Object]` in any rendered page, and no breakage from
+negative amounts, `1e12`, zero, a missing `freq`, a future-dated transaction or a negative asset.
+
+What it did find was one root cause with two faces. **An account name is a foreign key by string** —
+nothing in the app stores an account *id* — so every rename or delete has to walk every array that
+carries one. `everyCategorisableArray()` does exactly that for categories, `state.home` included.
+The account side had no equivalent: it hand-listed its arrays, and both helpers missed the same one.
+
+### a. Renaming an account skipped every housing row
+
+`renameAccountEverywhere()` retargeted `state.income`, `state.shared`, the properties' income and
+expenses, and `state.transactions` — but not `state.home`, which is one array per scenario whose
+rows carry accounts just like shared expenses do.
+
+Measured by renaming "Macquarie" → "Macquarie Bank" through the UI on the real backup:
+
+| | Before | After (buggy) |
+|---|---|---|
+| shared rows | Macquarie ×4 | Macquarie Bank ×4 |
+| transactions | Macquarie ×4 | Macquarie Bank ×4 |
+| **housing rows** | **Macquarie ×10** | **Macquarie ×10 — dangling** |
+
+Ten rows across Buy Sydney and Buy Melbourne left pointing at a name that no longer existed, with
+no error and nothing on screen to show it.
+
+### b. Deleting an account orphaned everything, silently
+
+`deleteAccount()` spliced the account out and did nothing else — no reference sweep, and a toast
+reading only "Deleted account", which did not even name it. Deleting "Credit Card" on the real
+backup: **93 rows and transactions left dangling**, 64 of them transactions still claiming an
+account that was gone.
+
+The visible casualty is the statement-cycle panel, which keys off the credit account's own
+statement day — so with the account deleted it renders *nothing at all*:
+
+| | Before | After (buggy) |
+|---|---|---|
+| "This bill so far — by statement cycle" | Credit Card · 2026-09-08 – 2026-10-07 · 21 charges · **$1,370** | **section absent** |
+
+The toast now names both the account and the blast radius, and the references are **kept, not
+cleared** — see item 22, which revised this.
+
+**What shipped.** `everyAccountBearingArray()` — the account-side twin of
+`everyCategorisableArray()` — used by both helpers, so the two can no longer drift apart.
+
+**How to verify.** `tests/account-refs.test.js` pins the rename (remove `state.home` from the
+helper and two tests go red — checked). `deleteAccount` can't be unit-tested: it re-renders three
+panels and raises a toast, so it needs the browser. Drive it, delete an account with references,
+and read `state` back: nothing should still carry the deleted name, and the toast should say how
+many rows moved.
+
+**Still open from the same assessment, not fixed here:**
+- The bell can show the same budget line twice — once inside the grouped "N budget lines need a
+  fresh entry" and again as its own "Due" item. On the real backup that was Transport NSW and
+  Extras, so 2 of 7 notifications were repeats.
+- Irregular budget rows are still rendered by a hand-built path separate from the regular rows
+  (`irregularBudgetSectionHtml` vs the main row builder). That split has now produced two
+  user-reported gaps in a row — items 17 and 19. Converging the two builders is the fix that stops
+  a third.
+- `CLAUDE.md` says `src/app.js` is "~1,275 lines". It is **3,437**.
+
+---
+
+## 21. `[x]` The three loose ends from item 20's assessment — shipped v3.9.0
+
+All three were listed as "left open" on item 20 and then asked for together.
+
+### a. One line, one notification
+
+The bell showed the same budget line twice — inside "N budget lines need a fresh entry" *and* as
+its own "Due 2026-09-22 · $50". On the household's real data that was 2 of 7 notifications being
+repeats.
+
+They were never independent facts: not having logged the last one is *why* `nextDueDate()` has
+come around again. `dueBillPairs()` is now split out of `dueBillNotifications()` so the id set can
+be shared, and `reviewDueNotifications(alreadyBilled)` stays quiet about any line already spoken
+for. Two copies of "is this due soon" would have been how the two sources drifted back into
+disagreeing, so the predicate is not duplicated.
+
+**The trap, and why suppression alone would have been a regression:** dropping the line from the
+review group loses the "you are behind on logging" signal, which was the only thing carrying it.
+So it does not travel alone — the surviving due-bill notification now carries that fact:
+
+> Transport NSW — Due 2026-09-22 · $50 **— the one before this still isn't logged**
+
+with `severity: "bad"`. 7 notifications → 6, each line exactly once, and strictly *more*
+information than before.
+
+**A dead branch found on the way.** `dueBillNotifications()` computed `overdue = x.days < 0`, but
+`nextDueDate()` loops forward until it is on or after today, so `days` is never negative — the
+`"bad"` severity and the `"Overdue — was due …"` wording could not fire at all. The `behind` flag
+is measured with `isOverdue()` instead, which is what that branch was always reaching for.
+
+### b. One row builder for both kinds of budget line
+
+Regular and irregular rows in Actual vs. planned were two hand-written builders drifting side by
+side, and that split had produced two reported gaps in a row — no progress bar on irregular rows
+until item 17, no drill-down until item 19 — each time because a change landed on one builder and
+not the other.
+
+Nothing about the *markup* ever depended on the kind of line. The only real difference is which
+window it is judged over, and the calc layer already solved that: `budgetCycleFor()` and
+`reserveCycleFor()` return the same `{start, end, label, target}` shape. So `cycle` is the entire
+branch, and `budgetComparisonRowHtml(item)` serves both. The one deliberate difference is kept but
+now keys off data (`cycle.reserve`) rather than which function built the row: a reserve line gets
+no green for being under budget, because spending less than a *whole year's* travel allowance in
+February is the normal state of affairs, not an achievement.
+
+**This fixed a third, latent bug nobody had reported.** The drill-down now reads
+`cycle.start`–`cycle.end` instead of the calendar month, so a multi-month cycle finally adds up.
+Measured on a quarterly Gas line (cycle "Aug–Oct") carrying an August charge:
+
+| | Row says | Drill-down lists |
+|---|---|---|
+| before | $347 actual | 1 txn, **$230.01** — does not add up |
+| after | $347 actual | 2 txns, **$347.01** — reconciles |
+
+All 26 rows on the real backup were re-checked: every expandable row's listed transactions sum to
+its own "actual" figure. 0 mismatches.
+
+### c. CLAUDE.md had drifted
+
+It described an app that no longer exists. `src/lib/uimode.js` is **deleted**, and `state.uiMode`,
+`buildTable`/`rowHtml`, `refreshAllUiModePages()` and `syncUiModeToggle()` all went with Classic
+mode — yet the module map still listed `uimode` and the *first* entry under "A few things that
+will bite you" was a `state.uiMode` gotcha. Also corrected: `app.js` "~1,275 lines" (it is 3,437),
+"seven pages" (eight), and the `components/`, `calc/` and `lib/` lists, which were each missing
+several modules. The retired `state.uiMode` bullet is replaced with the account-name-as-foreign-key
+rule that item 20 turned up, which is a live hazard rather than a dead one.
+
+**How to verify.** `npm test` (380). The notification dedupe is pinned three ways — both due and
+behind → one notification carrying both; due but logged on time → no "behind" wording; behind but
+not yet due → still in the group. The row convergence is pinned by a quarterly line whose charge
+sits in the cycle but outside this month, and by the reserve-line green rule.
+
+---
+
+## 22. `[x]` A deleted account keeps its name on the rows that used it — shipped v3.9.1
+
+Item 20 made `deleteAccount()` clear every `row.account` that named the deleted account, mirroring
+`deleteCategory()`. That was raised as a judgement call at the time and the call went the other
+way: **keep the name**.
+
+The two links are not the same kind of thing. A category is a label the row owns — drop the label
+and nothing true is lost. An account is a statement of fact about *where money actually moved*, so
+blanking it destroys something the app cannot recover, and leaves the row claiming "no account"
+long after the mistake. And because the link is by name rather than id, keeping it costs nothing
+and buys the undo of last resort: re-add an account spelled the same way and everything re-attaches
+by itself — in a later session, after a reload, long past the undo toast.
+
+The toast says so rather than leaving it to be discovered:
+
+> Deleted "Credit Card" — 93 lines still name it; re-add an account called "Credit Card" to relink them
+
+### The part that makes it true rather than merely intended
+
+Keeping the name means a row can name an account that is not in `state.accounts`, and every control
+that offers accounts has to cope. The ledger rows' own `f-account` fields already did — they are
+free-text inputs backed by a datalist. The transactions `<select>` could not: **a `<select>` whose
+value matches none of its options does not render empty, it shows the first option**. So every
+transaction on the deleted account would have silently read "— No account —", and the next edit to
+any other field on that row would have saved that over a real fact — the very data loss this change
+exists to avoid. `transactionAccountOptionsHtml()` now emits an explicit `Credit Card (deleted)`
+option for an unrecognised name.
+
+### Measured, full round trip on the real backup
+
+| Step | Rows naming "Credit Card" | Statement-cycle panel |
+|---|---:|---|
+| before | 93 | Credit Card · 2026-09-08 – 2026-10-07 · 21 charges · **$1,370** |
+| after delete | **93 — kept** | gone |
+| after re-adding an account named "Credit Card" | **93** | still gone |
+| after setting it back to credit, statement day 8 | **93** | **21 charges · $1,370 — identical** |
+
+**The one thing a re-add does not restore** is the account's *own* settings — `type` and
+`statementStartDay` lived on the deleted record, so a re-added account comes back as a debit
+account and the statement panel stays away until it is set to credit again. The row links are what
+relink for free; the toast promises those and nothing more.
+
+**How to verify.** `transactionAccountOptionsHtml` is exported for `render-smoke` — three tests
+cover a missing name (kept, selected, marked `(deleted)`, and the empty option *not* selected), a
+known name (normal, no marker, credit still labelled), and nothing selected. `deleteAccount` still
+needs the browser: delete an account with references and confirm `row.account` is untouched and the
+toast names the count.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

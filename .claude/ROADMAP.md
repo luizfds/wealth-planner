@@ -1033,6 +1033,80 @@ many rows moved.
 
 ---
 
+## 21. `[x]` The three loose ends from item 20's assessment — shipped v3.9.0
+
+All three were listed as "left open" on item 20 and then asked for together.
+
+### a. One line, one notification
+
+The bell showed the same budget line twice — inside "N budget lines need a fresh entry" *and* as
+its own "Due 2026-09-22 · $50". On the household's real data that was 2 of 7 notifications being
+repeats.
+
+They were never independent facts: not having logged the last one is *why* `nextDueDate()` has
+come around again. `dueBillPairs()` is now split out of `dueBillNotifications()` so the id set can
+be shared, and `reviewDueNotifications(alreadyBilled)` stays quiet about any line already spoken
+for. Two copies of "is this due soon" would have been how the two sources drifted back into
+disagreeing, so the predicate is not duplicated.
+
+**The trap, and why suppression alone would have been a regression:** dropping the line from the
+review group loses the "you are behind on logging" signal, which was the only thing carrying it.
+So it does not travel alone — the surviving due-bill notification now carries that fact:
+
+> Transport NSW — Due 2026-09-22 · $50 **— the one before this still isn't logged**
+
+with `severity: "bad"`. 7 notifications → 6, each line exactly once, and strictly *more*
+information than before.
+
+**A dead branch found on the way.** `dueBillNotifications()` computed `overdue = x.days < 0`, but
+`nextDueDate()` loops forward until it is on or after today, so `days` is never negative — the
+`"bad"` severity and the `"Overdue — was due …"` wording could not fire at all. The `behind` flag
+is measured with `isOverdue()` instead, which is what that branch was always reaching for.
+
+### b. One row builder for both kinds of budget line
+
+Regular and irregular rows in Actual vs. planned were two hand-written builders drifting side by
+side, and that split had produced two reported gaps in a row — no progress bar on irregular rows
+until item 17, no drill-down until item 19 — each time because a change landed on one builder and
+not the other.
+
+Nothing about the *markup* ever depended on the kind of line. The only real difference is which
+window it is judged over, and the calc layer already solved that: `budgetCycleFor()` and
+`reserveCycleFor()` return the same `{start, end, label, target}` shape. So `cycle` is the entire
+branch, and `budgetComparisonRowHtml(item)` serves both. The one deliberate difference is kept but
+now keys off data (`cycle.reserve`) rather than which function built the row: a reserve line gets
+no green for being under budget, because spending less than a *whole year's* travel allowance in
+February is the normal state of affairs, not an achievement.
+
+**This fixed a third, latent bug nobody had reported.** The drill-down now reads
+`cycle.start`–`cycle.end` instead of the calendar month, so a multi-month cycle finally adds up.
+Measured on a quarterly Gas line (cycle "Aug–Oct") carrying an August charge:
+
+| | Row says | Drill-down lists |
+|---|---|---|
+| before | $347 actual | 1 txn, **$230.01** — does not add up |
+| after | $347 actual | 2 txns, **$347.01** — reconciles |
+
+All 26 rows on the real backup were re-checked: every expandable row's listed transactions sum to
+its own "actual" figure. 0 mismatches.
+
+### c. CLAUDE.md had drifted
+
+It described an app that no longer exists. `src/lib/uimode.js` is **deleted**, and `state.uiMode`,
+`buildTable`/`rowHtml`, `refreshAllUiModePages()` and `syncUiModeToggle()` all went with Classic
+mode — yet the module map still listed `uimode` and the *first* entry under "A few things that
+will bite you" was a `state.uiMode` gotcha. Also corrected: `app.js` "~1,275 lines" (it is 3,437),
+"seven pages" (eight), and the `components/`, `calc/` and `lib/` lists, which were each missing
+several modules. The retired `state.uiMode` bullet is replaced with the account-name-as-foreign-key
+rule that item 20 turned up, which is a live hazard rather than a dead one.
+
+**How to verify.** `npm test` (380). The notification dedupe is pinned three ways — both due and
+behind → one notification carrying both; due but logged on time → no "behind" wording; behind but
+not yet due → still in the group. The row convergence is pinned by a quarterly line whose charge
+sits in the cycle but outside this month, and by the reserve-line green rule.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

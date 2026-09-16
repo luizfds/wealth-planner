@@ -72,7 +72,10 @@ export function markAllNotificationsRead(notifications){
 // guard (not "logged recently enough for its own freq", which is reviewDueNotifications' job) —
 // it only silences the instant the log happens, not the genuine next-cycle reminder a few days
 // later.
-function dueBillNotifications(){
+// Split out from dueBillNotifications() so reviewDueNotifications() can be told which lines are
+// already spoken for without re-deriving the predicate — two copies of "is this due soon" is
+// exactly how the two sources would drift back into disagreeing about the same line.
+function dueBillPairs(){
   var today = todayStr();
   return state.shared
     .filter(function(item){ return !item.irregular; })
@@ -80,17 +83,36 @@ function dueBillNotifications(){
       var lastDate = lastTransactionDateFor(state.transactions, item.id);
       if(lastDate === today) return null;
       var due = nextDueDate(lastDate, item.freq);
-      return due ? { item: item, due: due, days: daysUntil(due) } : null;
+      // `behind` is the fact the review group used to carry for this line: a full period elapsed
+      // without anything being logged. It has to be measured with isOverdue(), *not* from `due`
+      // being in the past — nextDueDate() loops forward until it is on or after today, so it can
+      // never itself land in the past. The old `overdue = days < 0` test that stood here was
+      // therefore dead code: days is always >= 0, so the "bad" severity and the "Overdue — was
+      // due …" wording could not fire at all.
+      return due ? {
+        item: item,
+        due: due,
+        days: daysUntil(due),
+        behind: lastDate ? isOverdue(lastDate, item.freq) : false
+      } : null;
     })
-    .filter(function(x){ return x && x.days <= DUE_SOON_DAYS; })
+    .filter(function(x){ return x && x.days <= DUE_SOON_DAYS; });
+}
+function dueBillNotifications(pairs){
+  return (pairs || dueBillPairs())
     .map(function(x){
-      var overdue = x.days < 0;
       return {
+        // Deliberately keyed on the projected due date only. `behind` changes the wording, not
+        // which occurrence this is about, so folding it into the id would resurface an already
+        // dismissed notification the moment a line slipped a period.
         id: "duebill:" + x.item.id + ":" + x.due,
         type: "duebill",
-        severity: overdue ? "bad" : "warn",
+        severity: x.behind ? "bad" : "warn",
         title: x.item.what,
-        detail: (overdue ? "Overdue — was due " : "Due ") + x.due + " · " + fmtCurrency0.format(x.item.amount),
+        // Carrying "and you haven't logged the last one" here is what lets reviewDueNotifications()
+        // stay quiet about this line without the app losing that fact — see its comment.
+        detail: "Due " + x.due + " · " + fmtCurrency0.format(x.item.amount) +
+          (x.behind ? " — the one before this still isn't logged" : ""),
         date: x.due,
         page: "expenses"
       };
@@ -114,9 +136,27 @@ function dueBillNotifications(){
 // order doesn't matter) rather than each item's own id, so "mark read" stays read while that set
 // is unchanged and only resurfaces once it actually changes (an item newly falls due, or one
 // gets logged and drops out).
-function reviewDueNotifications(){
+// `alreadyBilled` is the set of item ids that dueBillNotifications() has already spoken for, and
+// leaving it out is how the same budget line ended up in the bell twice — once inside "N budget
+// lines need a fresh entry" and again as its own "Due 2026-09-22 · $50". On a real household that
+// was 2 of 7 notifications being repeats.
+//
+// The two are not independent facts. For a recurring line, "no transaction logged recently enough
+// for its own frequency" is *why* nextDueDate() has come around again — one underlying situation,
+// reported from two angles. The due-bill notification is the one that survives because it is
+// strictly more specific: it names the date and the amount, where the review group can only say
+// the line exists. Anything overdue for a fresh entry but not yet within DUE_SOON_DAYS still has
+// no due-bill notification, so it stays in the group and nothing is lost.
+//
+// Dropping the line from here would lose the "you are behind on logging" signal on its own, so it
+// does not travel alone: the surviving due-bill notification carries that fact in its own wording
+// and severity (see dueBillPairs' `behind`). Suppression without that would be a regression, not
+// a tidy-up.
+function reviewDueNotifications(alreadyBilled){
+  alreadyBilled = alreadyBilled || {};
   var due = state.shared.filter(function(item){
     if(item.irregular) return false;
+    if(alreadyBilled[item.id]) return false;
     var lastDate = lastTransactionDateFor(state.transactions, item.id);
     return lastDate ? isOverdue(lastDate, item.freq) : true;
   });
@@ -283,9 +323,14 @@ function backupReminderNotification(){
 // would be added here as a sibling function and merged into getNotifications() below, unchanged
 // everywhere else.
 export function getLocalNotifications(){
+  // Computed once and shared: the due-bill pairs decide both their own notifications and which
+  // lines reviewDueNotifications() must stay quiet about (see its comment).
+  var pairs = dueBillPairs();
+  var billed = {};
+  pairs.forEach(function(x){ billed[x.item.id] = true; });
   return [].concat(
-    dueBillNotifications(),
-    reviewDueNotifications(),
+    dueBillNotifications(pairs),
+    reviewDueNotifications(billed),
     staleAssetNotifications(),
     sharePricesNotifications(),
     backupReminderNotification(),

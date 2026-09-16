@@ -963,6 +963,76 @@ those four tests fail if the toggle attributes or the year window come off.
 
 ---
 
+## 20. `[x]` Accounts were a foreign key nothing maintained — shipped v3.8.1
+
+From a full-app assessment (all 8 pages driven at 390px and 1280px with a real backup, plus the
+brand-new empty state, junk-data injection, and all three of the household's backups spanning two
+weeks of schema change). Almost everything came back clean — **zero** console or page errors
+anywhere, no `NaN`/`undefined`/`[object Object]` in any rendered page, and no breakage from
+negative amounts, `1e12`, zero, a missing `freq`, a future-dated transaction or a negative asset.
+
+What it did find was one root cause with two faces. **An account name is a foreign key by string** —
+nothing in the app stores an account *id* — so every rename or delete has to walk every array that
+carries one. `everyCategorisableArray()` does exactly that for categories, `state.home` included.
+The account side had no equivalent: it hand-listed its arrays, and both helpers missed the same one.
+
+### a. Renaming an account skipped every housing row
+
+`renameAccountEverywhere()` retargeted `state.income`, `state.shared`, the properties' income and
+expenses, and `state.transactions` — but not `state.home`, which is one array per scenario whose
+rows carry accounts just like shared expenses do.
+
+Measured by renaming "Macquarie" → "Macquarie Bank" through the UI on the real backup:
+
+| | Before | After (buggy) |
+|---|---|---|
+| shared rows | Macquarie ×4 | Macquarie Bank ×4 |
+| transactions | Macquarie ×4 | Macquarie Bank ×4 |
+| **housing rows** | **Macquarie ×10** | **Macquarie ×10 — dangling** |
+
+Ten rows across Buy Sydney and Buy Melbourne left pointing at a name that no longer existed, with
+no error and nothing on screen to show it.
+
+### b. Deleting an account orphaned everything, silently
+
+`deleteAccount()` spliced the account out and did nothing else — no reference sweep, and a toast
+reading only "Deleted account", which did not even name it. Deleting "Credit Card" on the real
+backup: **93 rows and transactions left dangling**, 64 of them transactions still claiming an
+account that was gone.
+
+The visible casualty is the statement-cycle panel, which keys off the credit account's own
+statement day — so with the account deleted it renders *nothing at all*:
+
+| | Before | After (buggy) |
+|---|---|---|
+| "This bill so far — by statement cycle" | Credit Card · 2026-09-08 – 2026-10-07 · 21 charges · **$1,370** | **section absent** |
+
+Now it clears those references the way `deleteCategory()` already did, and the toast names both
+the account and the blast radius: *Deleted "Credit Card" — 93 lines and transactions now have no
+account*. Undo restores every one of them.
+
+**What shipped.** `everyAccountBearingArray()` — the account-side twin of
+`everyCategorisableArray()` — used by both helpers, so the two can no longer drift apart.
+Dangling references after a delete went 93 → **0**.
+
+**How to verify.** `tests/account-refs.test.js` pins the rename (remove `state.home` from the
+helper and two tests go red — checked). `deleteAccount` can't be unit-tested: it re-renders three
+panels and raises a toast, so it needs the browser. Drive it, delete an account with references,
+and read `state` back: nothing should still carry the deleted name, and the toast should say how
+many rows moved.
+
+**Still open from the same assessment, not fixed here:**
+- The bell can show the same budget line twice — once inside the grouped "N budget lines need a
+  fresh entry" and again as its own "Due" item. On the real backup that was Transport NSW and
+  Extras, so 2 of 7 notifications were repeats.
+- Irregular budget rows are still rendered by a hand-built path separate from the regular rows
+  (`irregularBudgetSectionHtml` vs the main row builder). That split has now produced two
+  user-reported gaps in a row — items 17 and 19. Converging the two builders is the fix that stops
+  a third.
+- `CLAUDE.md` says `src/app.js` is "~1,275 lines". It is **3,437**.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { state } from "../src/state.js";
 import { modernPlainRowHtml, modernRowShellHtml, optionsHtml, historyTrendHtml } from "../src/lib/ledger-table.js";
-import { categoryChartHtml, irregularBudgetSectionHtml } from "../src/components/expenses.js";
+import { categoryChartHtml, irregularBudgetSectionHtml, budgetComparisonRowHtml } from "../src/components/expenses.js";
 import { todaysMixHtml } from "../src/components/assets.js";
 import { sparklineHtml, sparklinePlaceholderHtml, dateAxisFormat } from "../src/lib/charts.js";
 import { rangeByKey, rangeLabel, rangeStartDate, withinRange, bestFitRange, timeRangeControlHtml } from "../src/lib/timerange.js";
@@ -276,5 +276,63 @@ test("an irregular row ignores spend outside its reserve year", () => {
   try {
     const html = irregularBudgetSectionHtml([reserveItem()]);
     assert.ok(!html.includes("data-budget-row-toggle"), "out-of-window spend should not make it expandable");
+  } finally { state.transactions = prev; }
+});
+
+// ---------------- One row builder for both kinds of budget line ----------------
+// Regular and irregular rows were two hand-written builders drifting side by side, and that split
+// produced two reported gaps in a row (no progress bar on irregular rows until v3.7.0, no
+// drill-down until v3.8.0) — each time because a change landed on one builder and not the other.
+// They share one now, with `cycle` as the only branch.
+
+// A quarterly line whose cycle opened two months ago, so "inside the cycle" and "inside this
+// calendar month" are genuinely different windows — which is the whole point of the drill-down
+// reading off cycle.start/end rather than the month.
+function quarterlyItem(){
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const cycleStart = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+  return { id: "q1", what: "Gas", amount: 230, freq: "Quarterly", irregular: false,
+           dueMonth: cycleStart.getMonth() + 1, classification: "Needs", category: "", history: [] };
+}
+function isoInMonthsBack(n, day){
+  const d = new Date(); d.setHours(0, 0, 0, 0);
+  return new Date(d.getFullYear(), d.getMonth() - n, day).toLocaleDateString("en-CA");
+}
+
+test("a multi-month cycle drills into its whole cycle, not just this month", () => {
+  const prev = state.transactions;
+  // One charge last month: inside the quarterly cycle, outside the calendar month. Counted in the
+  // row's "actual" either way, so listing only this month left the list not adding up to the
+  // figure sitting above it.
+  state.transactions = [{ id: "t1", date: isoInMonthsBack(1, 15), amount: 117, what: "Gas (last month)", linkedExpenseId: "q1" }];
+  try {
+    const html = budgetComparisonRowHtml(quarterlyItem());
+    assert.match(html, /is-expandable/, "a charge inside the cycle must make the row drillable");
+    assert.match(html, /data-budget-row-toggle="q1"/);
+  } finally { state.transactions = prev; }
+});
+
+test("a charge outside the cycle entirely does not make the row drillable", () => {
+  const prev = state.transactions;
+  state.transactions = [{ id: "t1", date: isoInMonthsBack(11, 15), amount: 117, what: "Ancient", linkedExpenseId: "q1" }];
+  try {
+    const html = budgetComparisonRowHtml(quarterlyItem());
+    assert.ok(!html.includes("data-budget-row-toggle"), "out-of-cycle spend is not this cycle's");
+  } finally { state.transactions = prev; }
+});
+
+test("under budget reads as good news on a regular line but not on a reserve line", () => {
+  const prev = state.transactions;
+  state.transactions = [];
+  try {
+    // Regular monthly line, nothing spent: genuinely under this month's bill, so green.
+    const regular = budgetComparisonRowHtml({ id: "r1", what: "Internet", amount: 99, freq: "Monthly",
+      irregular: false, classification: "Needs", category: "", history: [] });
+    assert.match(regular, /var\(--good\)/);
+    // Reserve line, nothing spent: being under a whole year's allowance is the normal state of
+    // affairs, not an achievement, so no green.
+    const reserve = budgetComparisonRowHtml({ id: "i1", what: "Trips", amount: 20000, freq: "Yearly",
+      irregular: true, classification: "Wants", category: "", history: [] });
+    assert.ok(!reserve.includes("var(--good)"), "a reserve line under budget is not good news");
   } finally { state.transactions = prev; }
 });

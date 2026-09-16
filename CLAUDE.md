@@ -26,36 +26,45 @@ the last, so two sessions can't pick up the same one.
   monolithic file did. Moving one `@import` line before another can silently flip such an
   override. Before reordering, re-run the cross-bucket conflict check described in
   `.claude/PROJECT_KNOWLEDGE.md`'s "Modularization progress" section.
-- `src/app.js` — the entry point (`<script type="module">`), ~1,275 lines (down from the original
-  4,618-line monolith). All seven pages' rendering/routing and export/import/backup have moved to
-  `src/components/`/`src/lib/backup.js`; what's left is DOM event wiring/registration, the
-  purchase-calculator glue, and cross-cutting dispatch helpers (`rerenderTableFor`,
-  `getArrayForSection`, `findProperty`, `updatePersonSuggestions`, `renderAll`,
-  `refreshAllUiModePages`) that route by a section-string key across every page and are expected
+- `src/app.js` — the entry point (`<script type="module">`), ~3,400 lines (down from the original
+  4,618-line monolith, then back up as features landed — it is the app's event-wiring layer, and
+  that grows with every new control). All eight pages' rendering/routing and export/import/backup
+  have moved to `src/components/`/`src/lib/backup.js`; what's left is DOM event
+  wiring/registration, the purchase-calculator glue, and cross-cutting dispatch helpers
+  (`rerenderTableFor`, `getArrayForSection`, `findProperty`, `updatePersonSuggestions`,
+  `renderAll`) that route by a section-string key across every page and are expected
   to stay here permanently — see "Modularization progress" in `.claude/PROJECT_KNOWLEDGE.md` for
   the full list of functions deliberately pinned to `app.js` for good, not just for now. Both the
   JS and CSS splits (see above) are now complete — the ES-modules migration is done.
 - `src/state.js` — `state` (the single source of truth), `defaultState()`, `migrateState()`
   (schema migration + safe defaults for old/partial saves), `persist()` (debounced localStorage
   write), `setStatus()`.
-- `src/calc/{ledger,property,tax,engine}.js` — pure financial math, no DOM access. `ledger.js`
+- `src/calc/{ledger,property,tax,engine,cashflow,fire,history,trends,bank-import,import-rules}.js` —
+  pure financial math and parsing, no DOM access. `ledger.js`
   (period conversions, sums), `property.js` (stamp duty, LMI, loan repayments, gearing, equity —
   `propertyEquityToday()` and friends), `tax.js` (AU income tax/Medicare, super contribution caps,
   Division 293), `engine.js` (net-worth projection series, `totalNetWorthValue()`, the "recompute
-  all derived/synthetic rows" pass).
-- `src/components/{dashboard,income,expenses,assets,properties,projections,scenarios,nav}.js` —
-  one file per page (plus `nav.js` for routing/page-switching), each exporting its functions for
+  all derived/synthetic rows" pass), `cashflow.js` (the smoothed/reserve split), `fire.js` (the
+  accessible-vs-super FI split and the bridge-to-preservation-age simulation), `history.js` and
+  `trends.js` (logged values over time, month-over-month spending), and
+  `bank-import.js`/`import-rules.js` (CSV parsing and merchant-name cleanup).
+- `src/components/{dashboard,income,expenses,assets,properties,projections,scenarios,nav,
+  bank-import,search}.js` — one file per page (plus `nav.js` for routing/page-switching, and
+  `bank-import.js`/`search.js` for the two cross-page flows), each exporting its functions for
   `app.js` to import and wire up. Not every function that "belongs" to a page lives in its
   component — `renameTaxPerson`/`removeTaxPerson` (Income) and `showAssetsSubpage` (Assets)
   turned out to be cross-cutting routing/dispatch code and stayed in `app.js`/moved to `nav.js`
   instead. DOM event *registration* (every `addEventListener` call) also stays in `app.js` for
   every component, `nav.js` included — only the callable render/patch/routing logic moved.
-- `src/constants.js`, `src/lib/{format,toast,html,uimode,ledger-table,charts,swipe}.js` — static data
-  tables and dependency-free utilities used across everything above: currency/percent formatters,
-  toasts, `escapeAttr`/`slug`, the global Classic/Modern toggle sync and period/column-visibility
-  sync, the generic Classic/Modern-mode row and `<table>` renderers
-  (`buildTable`/`rowHtml`/`modernPlainRowHtml`) shared by every ledger page, and the hand-rolled
-  SVG line chart (`renderLineChart`).
+- `src/constants.js`, `src/lib/{format,toast,html,ledger-table,charts,swipe,notifications,search,
+  setup,timerange,scroll-shadow}.js` — static data tables and dependency-free utilities used across
+  everything above: currency/percent formatters, toasts, `escapeAttr`/`slug`, the shared ledger row
+  renderers (`modernPlainRowHtml`/`modernRowShellHtml`/`timingFieldsHtml`) used by every ledger
+  page, the hand-rolled SVG charts (`renderLineChart`, `renderStackedAreaChart`), the local
+  notification layer, cross-page search, and the setup checklist.
+  **There is no Classic mode any more** — `lib/uimode.js`, `state.uiMode` and the `buildTable`/
+  `rowHtml` `<table>` renderers were all removed once every page went Modern-only. If you find a
+  reference to any of them anywhere, it is stale.
 - `src/lib/backup.js` — JSON backup export/import (with optional Web Crypto passphrase
   encryption) and per-section CSV export. `applyImportedBackupJson` stays in `app.js` since it
   calls the permanent-resident `renderAll()`.
@@ -115,9 +124,18 @@ not the bundled Chromium) is the standard way to drive/verify UI changes in this
 
 ## A few things that will bite you
 
-- **`state.uiMode` is one global setting**, not per-page, even though it affects five different
-  pages' rendering. Changing it anywhere must call `refreshAllUiModePages()` and
-  `syncUiModeToggle()` together, or other pages go stale.
+- **An account name is a foreign key by string, and nothing enforces it.** No row anywhere stores
+  an account *id* — `item.account` and `t.account` are plain names — so renaming or deleting an
+  account has to walk every array that carries one, `state.home` (one per scenario) included.
+  Both helpers live in `expenses.js` and both go through `everyAccountBearingArray()`; the
+  category side has its own twin, `everyCategorisableArray()`. Adding a new array of rows that
+  carries `account` or `category` means adding it to those, or renames silently orphan it.
+  **Deleting an account deliberately leaves the name on the rows** (unlike deleting a category,
+  which blanks it) — an account records where money actually moved, and keeping the name means
+  re-adding one spelled the same way relinks everything for free. The cost is that a row can name
+  an account that no longer exists, so anything offering a list of accounts must handle that: a
+  `<select>` whose value matches no option silently shows the *first* one, which is why
+  `transactionAccountOptionsHtml()` emits an explicit `… (deleted)` option.
 - **When extracting a component out of `app.js`, its session-only UI-state maps (e.g. Modern-row
   open/closed state) can be mutated from code still in `app.js`** (the generic
   `wireModernRowToggle` takes the map by reference). Forgetting to export one of these produces a

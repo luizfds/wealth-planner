@@ -130,6 +130,12 @@ not the bundled Chromium) is the standard way to drive/verify UI changes in this
   Both helpers live in `expenses.js` and both go through `everyAccountBearingArray()`; the
   category side has its own twin, `everyCategorisableArray()`. Adding a new array of rows that
   carries `account` or `category` means adding it to those, or renames silently orphan it.
+  **Deleting an account deliberately leaves the name on the rows** (unlike deleting a category,
+  which blanks it) — an account records where money actually moved, and keeping the name means
+  re-adding one spelled the same way relinks everything for free. The cost is that a row can name
+  an account that no longer exists, so anything offering a list of accounts must handle that: a
+  `<select>` whose value matches no option silently shows the *first* one, which is why
+  `transactionAccountOptionsHtml()` emits an explicit `… (deleted)` option.
 - **When extracting a component out of `app.js`, its session-only UI-state maps (e.g. Modern-row
   open/closed state) can be mutated from code still in `app.js`** (the generic
   `wireModernRowToggle` takes the map by reference). Forgetting to export one of these produces a

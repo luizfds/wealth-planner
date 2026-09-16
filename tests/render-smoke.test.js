@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { state } from "../src/state.js";
 import { modernPlainRowHtml, modernRowShellHtml, optionsHtml, historyTrendHtml } from "../src/lib/ledger-table.js";
-import { categoryChartHtml, irregularBudgetSectionHtml, budgetComparisonRowHtml } from "../src/components/expenses.js";
+import { categoryChartHtml, irregularBudgetSectionHtml, budgetComparisonRowHtml, transactionAccountOptionsHtml } from "../src/components/expenses.js";
 import { todaysMixHtml } from "../src/components/assets.js";
 import { sparklineHtml, sparklinePlaceholderHtml, dateAxisFormat } from "../src/lib/charts.js";
 import { rangeByKey, rangeLabel, rangeStartDate, withinRange, bestFitRange, timeRangeControlHtml } from "../src/lib/timerange.js";
@@ -335,4 +335,44 @@ test("under budget reads as good news on a regular line but not on a reserve lin
       irregular: true, classification: "Wants", category: "", history: [] });
     assert.ok(!reserve.includes("var(--good)"), "a reserve line under budget is not good news");
   } finally { state.transactions = prev; }
+});
+
+// ---------------- A deleted account's name survives on the rows that used it ----------------
+// deleteAccount() leaves `row.account` alone rather than blanking it: an account is a statement of
+// fact about where money moved, and because the link is by name, re-adding one spelled the same
+// way re-attaches everything by itself. The catch is that a row can then name an account that is
+// not in state.accounts, and a <select> whose value matches none of its options does not render
+// empty — the browser falls back to the *first* option, so the row would silently read
+// "— No account —" and the next edit would save that over a real fact.
+test("the account select keeps an option for a name that no longer exists", () => {
+  const prev = state.accounts;
+  state.accounts = [{ id: "a1", name: "Commbank", type: "debit" }];
+  try {
+    const html = transactionAccountOptionsHtml("Credit Card");
+    assert.match(html, /value="Credit Card" selected/, "the missing name must still be selectable");
+    assert.match(html, /Credit Card \(deleted\)/, "and must say why it is not in the list");
+    // The empty option must not be the selected one, or the row reads as unattributed.
+    assert.ok(!/<option value="" selected/.test(html), html);
+  } finally { state.accounts = prev; }
+});
+
+test("a known account selects normally, with no deleted marker", () => {
+  const prev = state.accounts;
+  state.accounts = [{ id: "a1", name: "Commbank", type: "debit" }, { id: "a2", name: "Amex", type: "credit" }];
+  try {
+    const html = transactionAccountOptionsHtml("Amex");
+    assert.match(html, /value="Amex" selected/);
+    assert.ok(!html.includes("(deleted)"), html);
+    assert.match(html, /Amex \(credit\)/, "a credit card still says so");
+  } finally { state.accounts = prev; }
+});
+
+test("no account selected leaves the empty option selected", () => {
+  const prev = state.accounts;
+  state.accounts = [{ id: "a1", name: "Commbank", type: "debit" }];
+  try {
+    const html = transactionAccountOptionsHtml("");
+    assert.match(html, /<option value="" selected/);
+    assert.ok(!html.includes("(deleted)"), html);
+  } finally { state.accounts = prev; }
 });

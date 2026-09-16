@@ -1007,13 +1007,11 @@ statement day — so with the account deleted it renders *nothing at all*:
 |---|---|---|
 | "This bill so far — by statement cycle" | Credit Card · 2026-09-08 – 2026-10-07 · 21 charges · **$1,370** | **section absent** |
 
-Now it clears those references the way `deleteCategory()` already did, and the toast names both
-the account and the blast radius: *Deleted "Credit Card" — 93 lines and transactions now have no
-account*. Undo restores every one of them.
+The toast now names both the account and the blast radius, and the references are **kept, not
+cleared** — see item 22, which revised this.
 
 **What shipped.** `everyAccountBearingArray()` — the account-side twin of
 `everyCategorisableArray()` — used by both helpers, so the two can no longer drift apart.
-Dangling references after a delete went 93 → **0**.
 
 **How to verify.** `tests/account-refs.test.js` pins the rename (remove `state.home` from the
 helper and two tests go red — checked). `deleteAccount` can't be unit-tested: it re-renders three
@@ -1104,6 +1102,56 @@ rule that item 20 turned up, which is a live hazard rather than a dead one.
 behind → one notification carrying both; due but logged on time → no "behind" wording; behind but
 not yet due → still in the group. The row convergence is pinned by a quarterly line whose charge
 sits in the cycle but outside this month, and by the reserve-line green rule.
+
+---
+
+## 22. `[x]` A deleted account keeps its name on the rows that used it — shipped v3.9.1
+
+Item 20 made `deleteAccount()` clear every `row.account` that named the deleted account, mirroring
+`deleteCategory()`. That was raised as a judgement call at the time and the call went the other
+way: **keep the name**.
+
+The two links are not the same kind of thing. A category is a label the row owns — drop the label
+and nothing true is lost. An account is a statement of fact about *where money actually moved*, so
+blanking it destroys something the app cannot recover, and leaves the row claiming "no account"
+long after the mistake. And because the link is by name rather than id, keeping it costs nothing
+and buys the undo of last resort: re-add an account spelled the same way and everything re-attaches
+by itself — in a later session, after a reload, long past the undo toast.
+
+The toast says so rather than leaving it to be discovered:
+
+> Deleted "Credit Card" — 93 lines still name it; re-add an account called "Credit Card" to relink them
+
+### The part that makes it true rather than merely intended
+
+Keeping the name means a row can name an account that is not in `state.accounts`, and every control
+that offers accounts has to cope. The ledger rows' own `f-account` fields already did — they are
+free-text inputs backed by a datalist. The transactions `<select>` could not: **a `<select>` whose
+value matches none of its options does not render empty, it shows the first option**. So every
+transaction on the deleted account would have silently read "— No account —", and the next edit to
+any other field on that row would have saved that over a real fact — the very data loss this change
+exists to avoid. `transactionAccountOptionsHtml()` now emits an explicit `Credit Card (deleted)`
+option for an unrecognised name.
+
+### Measured, full round trip on the real backup
+
+| Step | Rows naming "Credit Card" | Statement-cycle panel |
+|---|---:|---|
+| before | 93 | Credit Card · 2026-09-08 – 2026-10-07 · 21 charges · **$1,370** |
+| after delete | **93 — kept** | gone |
+| after re-adding an account named "Credit Card" | **93** | still gone |
+| after setting it back to credit, statement day 8 | **93** | **21 charges · $1,370 — identical** |
+
+**The one thing a re-add does not restore** is the account's *own* settings — `type` and
+`statementStartDay` lived on the deleted record, so a re-added account comes back as a debit
+account and the statement panel stays away until it is set to credit again. The row links are what
+relink for free; the toast promises those and nothing more.
+
+**How to verify.** `transactionAccountOptionsHtml` is exported for `render-smoke` — three tests
+cover a missing name (kept, selected, marked `(deleted)`, and the empty option *not* selected), a
+known name (normal, no marker, credit still labelled), and nothing selected. `deleteAccount` still
+needs the browser: delete an account with references and confirm `row.account` is untouched and the
+toast names the count.
 
 ---
 

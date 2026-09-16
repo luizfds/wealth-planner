@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { state } from "../src/state.js";
 import { modernPlainRowHtml, modernRowShellHtml, optionsHtml, historyTrendHtml } from "../src/lib/ledger-table.js";
-import { categoryChartHtml } from "../src/components/expenses.js";
+import { categoryChartHtml, irregularBudgetSectionHtml } from "../src/components/expenses.js";
 import { todaysMixHtml } from "../src/components/assets.js";
 import { sparklineHtml, sparklinePlaceholderHtml, dateAxisFormat } from "../src/lib/charts.js";
 import { rangeByKey, rangeLabel, rangeStartDate, withinRange, bestFitRange, timeRangeControlHtml } from "../src/lib/timerange.js";
@@ -216,4 +216,65 @@ test("timeRangeControlHtml marks the selection and can omit windows", function()
   assert.ok(html.indexOf('aria-pressed="true"') !== -1, "the active option is announced, not just coloured");
   assert.ok(html.indexOf('data-tx-range="1d"') === -1, "omitted windows are absent, not disabled");
   assert.ok(html.indexOf('data-tx-range="all"') !== -1);
+});
+
+// Actual vs. planned: an irregular (reserve) row is drillable, and over its own year.
+//
+// These rows rendered as a flat bar with no expander at all, so the transactions making up their
+// "actual" figure had nowhere to be seen — the one case where that matters most, since an
+// irregular line's spend can be a single receipt from eleven months ago rather than something
+// sitting in this month's Transactions list.
+//
+// The window is the row's reserve year, not the calendar month, so these use today's date, which
+// falls inside all three bases (calendar, financial, rolling12) whichever one a row is set to.
+function reserveItem(overrides){
+  return Object.assign({
+    id: "irr1", what: "Trips", classification: "Wants", category: "Travel",
+    account: "Everyday", amount: 20000, freq: "Yearly", irregular: true, history: []
+  }, overrides || {});
+}
+const TODAY_ISO = new Date().toLocaleDateString("en-CA");
+
+test("irregularBudgetSectionHtml renders a reserve row", () => {
+  const prev = state.transactions;
+  state.transactions = [];
+  try {
+    const html = irregularBudgetSectionHtml([reserveItem()]);
+    assert.match(html, /<div/);
+    assert.match(html, /Trips/);
+    assert.match(html, /budget-bar-fill/);
+  } finally { state.transactions = prev; }
+});
+
+test("an irregular row with spend in its reserve year is expandable", () => {
+  const prev = state.transactions;
+  state.transactions = [{ date: TODAY_ISO, amount: 1200, what: "Flights", linkedExpenseId: "irr1" }];
+  try {
+    const html = irregularBudgetSectionHtml([reserveItem()]);
+    assert.match(html, /data-budget-row-toggle="irr1"/);
+    assert.match(html, /is-expandable/);
+    assert.match(html, /aria-expanded="false"/);
+  } finally { state.transactions = prev; }
+});
+
+test("an irregular row with nothing logged stays a plain row", () => {
+  const prev = state.transactions;
+  // Linked to a different line, so this row's own reserve year is empty.
+  state.transactions = [{ date: TODAY_ISO, amount: 1200, what: "Flights", linkedExpenseId: "other" }];
+  try {
+    const html = irregularBudgetSectionHtml([reserveItem()]);
+    assert.ok(!html.includes("data-budget-row-toggle"), "should carry no toggle");
+    assert.ok(!html.includes("is-expandable"), "should not be marked expandable");
+  } finally { state.transactions = prev; }
+});
+
+test("an irregular row ignores spend outside its reserve year", () => {
+  const prev = state.transactions;
+  // Ten years back is outside every reserve-year basis.
+  const longAgo = String(Number(TODAY_ISO.slice(0, 4)) - 10) + TODAY_ISO.slice(4);
+  state.transactions = [{ date: longAgo, amount: 1200, what: "Flights", linkedExpenseId: "irr1" }];
+  try {
+    const html = irregularBudgetSectionHtml([reserveItem()]);
+    assert.ok(!html.includes("data-budget-row-toggle"), "out-of-window spend should not make it expandable");
+  } finally { state.transactions = prev; }
 });

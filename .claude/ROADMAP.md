@@ -919,6 +919,50 @@ that is the safety net, and every tab stays reachable and ≥44px.
 
 ---
 
+## 19. `[x]` Drill into an irregular row too — shipped v3.8.0
+
+The follow-up to item 17, reported the same way: *"Actual vs. planned — same issue, irregular
+expenses does not allow me to see all transactions underneath it."*
+
+Every regular row in that panel is tappable, expanding in place to list the transactions making up
+its "actual" figure. `irregularBudgetSectionHtml()` built its rows by hand and gave them none of
+it — no `data-budget-row-toggle`, no `role`/`tabindex`/`aria-expanded`, no caret, no list. The
+click handler in `app.js` was already fully generic (it keys off `data-budget-row-toggle` alone),
+so nothing was wrong with the wiring; those rows simply never carried the attributes.
+
+**The part that isn't just copying the regular row.** A regular row's "actual" is this month's
+spend, so its drill-down used `monthTransactionsForExpense()`. An irregular row's actual is
+measured over its **reserve year** (`reserveYearWindowFor`). Listing this month's transactions
+under a row whose figure covers twelve months would show a list that doesn't add up to the number
+directly above it — which is worse than showing nothing. So `monthTransactionsForExpense()` is now
+a thin wrapper over a range-based `rangeTransactionsForExpense(id, start, end)`, and each row
+passes its own window.
+
+That is also why these rows need the drill-down *more* than the regular ones: a regular line's
+transactions are all in the current month, so the Transactions list below is a workable fallback
+for finding them. An irregular line's actual can be one receipt from eleven months ago, and
+nothing else on the page will tell you which.
+
+**Measured on the household's own data** — listed transactions against the figure on the row:
+
+| Line | Row reads | Expanded |
+|---|---|---|
+| Work Related Costs | $170 actual, FY26/27 | 3 txns, $170.37 |
+| Misc. | $631 actual, this year | 7 txns, $631.49 |
+| Bootcamp | $80 actual, FY26/27 | 4 txns, $80.00 |
+| Tolls | $47 actual, FY26/27 | 1 txn, $46.83 |
+| Trips / Car Maintenance / Date Night / Property Maintenance | $0 actual | no caret — nothing to open |
+
+A `$0 actual` row stays plain and non-interactive, the same rule the regular rows already use.
+
+**How to verify.** Expenses → Spending → Actual vs. planned, scroll to "Irregular / reserve
+budgets", tap a line with spend against it. The transactions listed must sum to the row's own
+"actual" figure — if they sum to something smaller, the window has regressed to the calendar month.
+`irregularBudgetSectionHtml` is exported purely so `tests/render-smoke.test.js` can pin this;
+those four tests fail if the toggle attributes or the year window come off.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

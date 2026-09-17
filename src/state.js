@@ -418,6 +418,13 @@ export function migrateState(s){
     if(!Array.isArray(p.history)) p.history = [];
     if(p.kind !== "IP" && p.kind !== "PPOR") p.kind = "IP";
     if(p.value == null) p.value = 0;
+    // Land value and state, purely so land tax can be computed (calc/property.js). Both default to
+    // "unset" rather than a guess: land value is a specific figure off the council/valuer-general
+    // notice and is nothing like a fraction of market value you could infer, and a wrong state
+    // would silently apply the wrong scale. With either missing the property is simply left out of
+    // the land tax calculation, which is the honest answer — see landTaxableProperties().
+    if(p.landValue == null) p.landValue = 0;
+    if(p.state == null) p.state = "";
     // What was actually paid, and when — distinct from p.value (kept current via the Value
     // section's own Log button) and from p.history (a log of *current* value over time, which for
     // a property added to the app well after buying it starts from whatever day it was first

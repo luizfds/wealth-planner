@@ -4,9 +4,11 @@ import {
   capitalWorksAnnual, plantDepreciationAnnual,
   propertyCapitalGain, propertyYieldOnCost, propertyLVR, propertiesTotalValue, propertiesTotalEquityToday,
   propertiesTotalMortgageBalance, propertiesNetCashFlowMonthly, propertiesWeightedGrossYield,
-  propertyOwnershipPct, propertyOwnershipTotal, propertyTaxDeductibleResultAnnual
+  propertyOwnershipPct, propertyOwnershipTotal, propertyTaxDeductibleResultAnnual,
+  landTaxByState, totalLandTax
 } from "../calc/property.js";
 import { getTaxPeople } from "../calc/tax.js";
+import { LAND_TAX_STATES, LAND_TAX_YEAR } from "../constants.js";
 import { sumField } from "../calc/ledger.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
@@ -39,6 +41,56 @@ export var PROPERTY_SECTION_KEYS = ["value", "acquisition", "ownership", "deprec
 // default open/closed state; reading straight off the property object survives that rebuild same
 // as it did when this was a session-only map, but also survives a reload rather than resetting
 // every session to all-open.
+
+// Land value and state — the two inputs land tax needs, and nothing else uses. Kept in the Property
+// value section because that is where the figure comes from: land value is printed on the same
+// council/valuer-general notice as the valuation, and is a genuinely different number from market
+// value (it excludes the building), which is the mistake this panel most needs to prevent.
+//
+// Only investment properties get it. A principal home is exempt in every state this app covers, so
+// asking for its land value would imply a bill that will never arrive — the note says so instead,
+// because "why is there no land tax on my home?" is a fair question with a real answer.
+function landTaxFieldsHtml(p){
+  if(p.kind !== "IP"){
+    return '<p class="ledger-note" style="margin:6px 0 0">No land tax — your principal home is exempt in NSW, VIC and QLD. That exemption is also why buying a home to live in doesn\'t change the land tax on any investment property you hold.</p>';
+  }
+  var stateOpts = '<option value="">— Not set —</option>' + LAND_TAX_STATES.map(function(code){
+    return '<option value="' + code + '"' + (p.state === code ? " selected" : "") + '>' + code + '</option>';
+  }).join("") + '<option value="Other"' + (p.state === "Other" ? " selected" : "") + '>Other / not listed</option>';
+  return '<div class="calc-grid">' +
+    '<div class="calc-field" title="The state this property is in. Land tax is assessed per state on your combined holdings there, so this decides which scale applies and what it is aggregated with."><label>State</label>' +
+      '<select class="prop-state" aria-label="State">' + stateOpts + '</select></div>' +
+    '<div class="calc-field" title="Land value only — the site value from your council or valuer-general notice, NOT the market value of the property. It excludes the building, so it is usually well below Current value above."><label>Land value</label>' +
+      '<input type="number" step="1000" min="0" class="prop-land-value" aria-label="Land value" value="' + (Number(p.landValue) || 0) + '" placeholder="0"></div>' +
+  '</div>' +
+  landTaxNoteHtml(p);
+}
+// What this property's land value actually produces, said in full. The apportionment is the part
+// worth spelling out: a share of a joint assessment is not what the property would pay alone, and
+// a reader who does not know that will think the figure is wrong.
+function landTaxNoteHtml(p){
+  if(!p.state) return '<p class="ledger-note" style="margin:6px 0 0">Set a state and land value to work out land tax.</p>';
+  if(LAND_TAX_STATES.indexOf(p.state) === -1){
+    return '<p class="ledger-note" style="margin:6px 0 0">Land tax isn\'t calculated for "' + escapeAttr(p.state) + '" — only NSW, VIC and QLD have rate tables in this app. Add it as an ordinary expense row below if you know the amount.</p>';
+  }
+  if(!(Number(p.landValue) || 0)) return '<p class="ledger-note" style="margin:6px 0 0">Enter this property\'s land value to work out ' + escapeAttr(p.state) + ' land tax.</p>';
+  var group = landTaxByState().find(function(g){ return g.state === p.state; });
+  if(!group) return "";
+  var mine = group.properties.find(function(x){ return x.id === p.id; });
+  var others = group.properties.length - 1;
+  var lines = [];
+  if(group.tax <= 0){
+    lines.push(escapeAttr(p.state) + " land tax: nothing owing — " + fmtCurrency0.format(group.landValue) + " of land" + (others > 0 ? " across " + group.properties.length + " properties" : "") + " is under the threshold.");
+  } else {
+    lines.push(escapeAttr(p.state) + " land tax: " + fmtCurrency0.format(group.tax) + "/yr on " + fmtCurrency0.format(group.landValue) + " of land" + (others > 0 ? " across " + group.properties.length + " properties in " + escapeAttr(p.state) : "") + ".");
+    if(others > 0){
+      lines.push("This property's share is " + fmtCurrency0.format(mine ? mine.tax : 0) + "/yr (" + Math.round((mine ? mine.share : 0) * 100) + "% of the land value). It is one assessment on the combined total, so a share is not what this property would pay on its own.");
+    }
+  }
+  lines.push("Rates as at the " + LAND_TAX_YEAR + " land tax year, general rates for an individual — check with the state revenue office before relying on it.");
+  return '<p class="ledger-note" style="margin:6px 0 0">' + lines.join(" ") + '</p>';
+}
+
 function propertySectionHtml(property, sectionKey, titleHtml, bodyHtml){
   var isCollapsed = !!(property.sectionsCollapsed && property.sectionsCollapsed[sectionKey]);
   return '<div class="property-section' + (isCollapsed ? " is-collapsed" : "") + '">' +
@@ -340,6 +392,7 @@ function propertyCardHtml(p, colorIdx){
         '<div class="calc-field" title="What you actually paid — separate from Current value above, and from the Log button\'s value-over-time history, which starts whenever this property was first added rather than the real purchase date. Powers Capital gain and the yield-on-cost badge above; leave blank if unknown."><label>Purchase price</label><input type="number" step="1000" min="0" class="prop-purchase-price" value="' + (p.purchasePrice != null ? p.purchasePrice : "") + '" placeholder="Unknown"></div>' +
         '<div class="calc-field"><label>Purchase date</label><input type="date" class="prop-purchase-date" aria-label="Purchase date" value="' + escapeAttr(p.purchaseDate || "") + '"></div>' +
       '</div>' +
+      landTaxFieldsHtml(p) +
       '<div class="prop-value-log"><button type="button" class="asset-log-btn" data-property-log="' + escapeAttr(p.id) + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart">Log</button>' + historyTrendHtml(p) + '</div>') +
     acquisitionCostsSectionHtml(p) +
     (p.kind === "IP" ? ownershipSectionHtml(p) : "") +

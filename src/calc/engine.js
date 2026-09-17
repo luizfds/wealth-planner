@@ -5,7 +5,7 @@ import {
   recalcPurchase, ipProperties, ipExpensesMonthly, ipLoansMonthly,
   shockedLoanRepaymentMonthly, scenarioInflatableHomeItems, calcStampDuty,
   calcLMI, calcRepaymentMonthly, purchaseActiveRate, loanBalanceAfterMonths,
-  propertiesTotalEquityToday, propertiesOffsetTotal
+  propertiesTotalEquityToday, propertiesOffsetTotal, landTaxDetailForProperty
 } from "./property.js";
 import { getTaxPeople, computePersonTax, scenarioIncomeMonthly } from "./tax.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
@@ -258,6 +258,35 @@ export function recalcComputedItems(){
     pmFeeItem.amount = Math.round((rentWeekly * (pmPercent / 100) + pmFlatWeekly) * 100) / 100;
     pmFeeItem.freq = "Weekly";
     pmFeeItem.computedNote = "auto: " + pmPercent + "% of rent + $" + pmFlat.toFixed(2) + "/mo";
+
+    // Land tax, on the same computed-row footing as the PM fee above and for the same reason: it
+    // is derived from other fields, so typing it in by hand would go stale the moment land value
+    // or the portfolio changes. Unlike the PM fee it is not a function of *this* property alone —
+    // it is this property's apportioned share of one aggregated per-state assessment (see
+    // landTaxByState) — which is exactly why it cannot be a figure the user maintains per row.
+    //
+    // Yearly, because that is how it is assessed and how the notice arrives; every rollup in the
+    // app converts frequencies anyway, so this is the frequency that needs no explaining.
+    var landTaxItem = p.expenses.find(function(i){ return i.id === "landTaxAuto"; });
+    var landTaxDetail = landTaxDetailForProperty(p.id);
+    var landTax = Math.round((landTaxDetail ? landTaxDetail.tax : 0) * 100) / 100;
+    if(!landTaxItem){
+      // Only created once there is something to show. A $0 row on every property that has not had
+      // a land value entered yet would be five lines of noise across the Budget page saying
+      // nothing — and unlike the PM fee, most portfolios legitimately owe no land tax at all.
+      if(landTax <= 0) return;
+      landTaxItem = { id: "landTaxAuto", what: "Land Tax", classification: "Needs", category: IP_CATEGORY, account: "", amount: 0, freq: "Yearly", computed: true, computedNote: "" };
+      p.expenses.push(landTaxItem);
+    }
+    landTaxItem.amount = landTax;
+    landTaxItem.freq = "Yearly";
+    // Two different sentences, because the number means two different things. Alone, it is the tax
+    // on this property's land. Aggregated, it is a share of one combined assessment — and naming
+    // this property's own land value there would caption the figure with a value that, by itself,
+    // owes nothing at all.
+    landTaxItem.computedNote = landTaxDetail && landTaxDetail.groupCount > 1
+      ? "auto: share of " + p.state + " land tax on $" + Math.round(landTaxDetail.groupLandValue).toLocaleString("en-AU") + " combined land value across " + landTaxDetail.groupCount + " properties"
+      : "auto: " + p.state + " land tax on $" + Math.round(Number(p.landValue) || 0).toLocaleString("en-AU") + " land value";
   });
   state.scenarios.forEach(function(scenario){
     var cfg = state.purchase[scenario];

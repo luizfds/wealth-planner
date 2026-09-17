@@ -1458,6 +1458,18 @@ import {
       persist();
       return;
     }
+    if(e.target.classList.contains("prop-land-value") || e.target.classList.contains("prop-state")){
+      // Full re-render of every property, not a patch and not just this card: land tax is assessed
+      // on the *combined* land value of all this state's investment properties, so changing one
+      // property's land value or state changes what every other property in that state owes, and
+      // the explanatory note under each of them. recalcComputedItems() (called by renderAll's
+      // chain) is what turns that into each property's "Land Tax" expense row.
+      if(e.target.classList.contains("prop-land-value")) property.landValue = parseFloat(e.target.value) || 0;
+      else property.state = e.target.value;
+      renderAll();
+      persist();
+      return;
+    }
     if(e.target.classList.contains("prop-purchase-price") || e.target.classList.contains("prop-purchase-date")){
       // Full re-render (like prop-kind above), not a patch — Capital gain and the yield-on-cost
       // badge only exist in the DOM once purchasePrice is set, so a patch here could be patching

@@ -177,3 +177,61 @@ export var PERIODS = [
   {key:"quarterly", label:"Quarterly", hidden:true},
   {key:"yearly", label:"Yearly", hidden:false}
 ];
+
+// ---------------- Land tax ----------------
+// Land tax is the one recurring property cost this app can't treat as a flat bill you type in,
+// which is why it gets a table rather than a row. Four things make it different from rates or
+// strata:
+//   1. it's charged on **land value**, not the property's market value;
+//   2. it's assessed on your **aggregated** holdings per state, not per property — two $700k
+//      blocks in the same state are one $1.4m assessment, which can cost far more than twice one;
+//   3. there's a **tax-free threshold**, so most single holdings pay nothing at all;
+//   4. your **principal home is exempt** in all three states, so it only ever bites investments.
+// A flat typed-in figure gets all four wrong, and gets worse every year of a projection as land
+// value grows while the figure doesn't.
+//
+// **These rates are as at the 2025 land tax year and WILL go stale.** They are the same kind of
+// annually-revised figure as STAMP_DUTY_BRACKETS above — verify against Revenue NSW, the Victorian
+// SRO or the Queensland Revenue Office before relying on a number for a real decision. Each
+// bracket is {from, base, rate}: tax = base + rate x (landValue - from), applied to the bracket
+// the aggregated value falls in. `from` doubles as the tax-free threshold on the first bracket.
+//
+// Deliberately the *general* rates for an individual resident owner. Absentee/foreign surcharges,
+// trusts, companies, and the NSW premium-vs-general distinction for special trusts are all out of
+// scope — modelling them would need an ownership-structure field this app doesn't have, and
+// getting them subtly wrong is worse than plainly not offering them.
+export var LAND_TAX_YEAR = 2025;
+export var LAND_TAX_BRACKETS = {
+  // Revenue NSW: $100 + 1.6% above the general threshold, then a premium rate above $6,571,000.
+  // Thresholds were frozen at their 2024 values from the 2025 land tax year onward.
+  NSW: [
+    {from: 0, base: 0, rate: 0},
+    {from: 1075000, base: 100, rate: 0.016},
+    {from: 6571000, base: 88036, rate: 0.02}
+  ],
+  // Victorian SRO general rates. The threshold dropped to $50,000 from 1 Jan 2024 and the bottom
+  // brackets are flat dollar amounts (not marginal), which is why their `rate` is 0.
+  VIC: [
+    {from: 0, base: 0, rate: 0},
+    {from: 50000, base: 500, rate: 0},
+    {from: 100000, base: 975, rate: 0},
+    {from: 300000, base: 1350, rate: 0.003},
+    {from: 600000, base: 2250, rate: 0.006},
+    {from: 1000000, base: 4650, rate: 0.009},
+    {from: 1800000, base: 11850, rate: 0.0165},
+    {from: 3000000, base: 31650, rate: 0.0265}
+  ],
+  // Queensland Revenue Office, individuals (companies and trusts use a lower $350,000 threshold
+  // and a different scale — out of scope, see above).
+  QLD: [
+    {from: 0, base: 0, rate: 0},
+    {from: 600000, base: 500, rate: 0.01},
+    {from: 1000000, base: 4500, rate: 0.0165},
+    {from: 3000000, base: 37500, rate: 0.0125},
+    {from: 5000000, base: 62500, rate: 0.0175},
+    {from: 10000000, base: 150000, rate: 0.0225}
+  ]
+};
+// The states this app can actually compute land tax for. Anything else is "Other", which is
+// honest about not knowing rather than quietly using someone else's scale.
+export var LAND_TAX_STATES = ["NSW", "VIC", "QLD"];

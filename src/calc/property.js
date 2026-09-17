@@ -1,5 +1,5 @@
 import { state } from "../state.js";
-import { STAMP_DUTY_BRACKETS, FHB_RULES, LMI_BANDS } from "../constants.js";
+import { STAMP_DUTY_BRACKETS, FHB_RULES, LMI_BANDS, LAND_TAX_BRACKETS } from "../constants.js";
 import { periodsOf, sumField, sumFieldForScenario } from "./ledger.js";
 import { localDateStr } from "../lib/format.js";
 
@@ -402,4 +402,101 @@ export function propertiesWeightedGrossYield(){
   if(totalValue <= 0) return null;
   var totalRent = ips.reduce(function(s, p){ return s + sumField(p.income, "yearly"); }, 0);
   return totalRent / totalValue;
+}
+
+// ---------------- Land tax ----------------
+// See LAND_TAX_BRACKETS in constants.js for the tables, the year they're from, and what's
+// deliberately out of scope.
+
+// Land tax on one *aggregated* taxable land value, for one state. Returns 0 below the threshold
+// and null for a state with no table — null rather than 0 because "we don't have Tasmania's
+// scale" and "you owe nothing" are different answers, and showing the second when you mean the
+// first is exactly the kind of quiet wrong number this app tries not to produce.
+export function calcLandTax(stateCode, aggregatedLandValue){
+  var brackets = LAND_TAX_BRACKETS[stateCode];
+  if(!brackets) return null;
+  var value = Math.max(0, Number(aggregatedLandValue) || 0);
+  // Highest bracket whose floor the value reaches. Walking down rather than up so the first
+  // match is the right one without needing each bracket to carry its own upper bound.
+  var band = null;
+  for(var i = brackets.length - 1; i >= 0; i--){
+    if(value >= brackets[i].from){ band = brackets[i]; break; }
+  }
+  if(!band) return 0;
+  return Math.max(0, band.base + band.rate * (value - band.from));
+}
+
+// Which properties are actually assessed: investment properties only. A principal home is exempt
+// in NSW, VIC and QLD alike, so a PPOR neither pays land tax nor pushes the investments further up
+// the scale by being aggregated with them. That exemption is the single biggest reason a buy
+// scenario doesn't change this number — worth knowing when comparing rent against buy.
+export function landTaxableProperties(){
+  return (state.properties || []).filter(function(p){
+    return p.kind === "IP" && LAND_TAX_BRACKETS[p.state] && (Number(p.landValue) || 0) > 0;
+  });
+}
+
+// The whole picture, grouped the way the assessment actually arrives: one per state, on the sum of
+// that state's land values.
+//
+// `share` apportions each state's bill back to its individual properties by land value, which is
+// what lets a per-property expense row exist at all. The apportionment is presentational — the
+// liability is genuinely joint and genuinely non-linear, so a property's share is not what it
+// would pay standing alone. It's the only split that adds back up to the real total, which is the
+// property that matters for every rollup downstream.
+export function landTaxByState(){
+  var byState = {};
+  landTaxableProperties().forEach(function(p){
+    var s = p.state;
+    if(!byState[s]) byState[s] = { state: s, landValue: 0, properties: [] };
+    byState[s].landValue += Number(p.landValue) || 0;
+    byState[s].properties.push(p);
+  });
+  return Object.keys(byState).map(function(s){
+    var group = byState[s];
+    var tax = calcLandTax(s, group.landValue) || 0;
+    return {
+      state: s,
+      landValue: group.landValue,
+      tax: tax,
+      properties: group.properties.map(function(p){
+        var lv = Number(p.landValue) || 0;
+        var share = group.landValue > 0 ? lv / group.landValue : 0;
+        return { id: p.id, what: p.what, landValue: lv, share: share, tax: tax * share };
+      })
+    };
+  });
+}
+
+// One property's apportioned annual land tax, with the context needed to describe it honestly.
+// `tax` on its own is not self-explanatory once more than one property is aggregated: two $700k
+// NSW blocks each owe nothing alone but $2,650 each together, so a row captioned "land tax on
+// $700,000" would name a figure that is $0 by that description. Callers get the group's combined
+// value and count so they can say which of the two situations they are in.
+export function landTaxDetailForProperty(propertyId){
+  var detail = null;
+  landTaxByState().forEach(function(group){
+    group.properties.forEach(function(p){
+      if(p.id !== propertyId) return;
+      detail = {
+        state: group.state,
+        tax: p.tax,
+        share: p.share,
+        landValue: p.landValue,
+        groupLandValue: group.landValue,
+        groupCount: group.properties.length
+      };
+    });
+  });
+  return detail;
+}
+// One property's apportioned annual land tax.
+export function landTaxForProperty(propertyId){
+  var detail = landTaxDetailForProperty(propertyId);
+  return detail ? detail.tax : 0;
+}
+
+// Total annual land tax across every state, for the Properties page's portfolio summary.
+export function totalLandTax(){
+  return landTaxByState().reduce(function(sum, g){ return sum + g.tax; }, 0);
 }

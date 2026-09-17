@@ -1155,6 +1155,66 @@ toast names the count.
 
 ---
 
+## 23. `[x]` Land tax for NSW, VIC and QLD — shipped v3.10.0
+
+Asked whether the buy scenarios could simulate council rates, strata and land tax. The first two
+already worked and needed nothing: housing rows are seeded from `HOME_CATEGORIES` but **`+ Add cost`
+adds any row you like**, and those rows are inflated annually by the projection
+(`scenarioInflatableHomeItems`). Council Rates ships as a default row; strata is just another one.
+
+Land tax was the real gap, and the reason it could not be "add a row and type a number" is that it
+is the one recurring property cost that is not a flat bill:
+
+1. it is charged on **land value**, not market value;
+2. it is assessed on your **aggregated** holdings per state — two $700k blocks in NSW are one
+   $1.4m assessment;
+3. there is a **tax-free threshold**, so most single holdings owe nothing;
+4. your **principal home is exempt**, so it only ever bites investments.
+
+A typed figure gets all four wrong, and drifts further every projection year as land value grows
+while the number does not.
+
+**What shipped.** `LAND_TAX_BRACKETS` in `constants.js` (NSW / VIC / QLD, general rates for an
+individual resident, 2025 land tax year) plus `calcLandTax` / `landTaxByState` /
+`landTaxDetailForProperty` / `totalLandTax` in `calc/property.js`, and a computed `Land Tax` expense
+row per property built in `recalcComputedItems()` on the same footing as the Property Manager fee.
+Properties gained `state` and `landValue`; both default to unset, and a property missing either is
+left out rather than guessed at.
+
+### Three things worth knowing before touching this
+
+**Aggregation is the feature, not an implementation detail.** Two NSW properties at $700k of land
+each owe **$0 apiece standing alone** and **$5,300 together**. `landTaxByState()` groups by state
+and taxes the sum; each property's row carries an apportioned share (by land value) that adds back
+to exactly the real assessment. A share is deliberately *not* what that property would pay alone —
+the liability is genuinely joint and genuinely non-linear.
+
+**Which is why the row's caption changes shape.** Captioning an aggregated share with the
+property's own land value would name a figure that, by that description, is $0 — the first version
+did exactly that and read "auto: NSW land tax on $700,000 land value" above $2,650. It now says
+"share of NSW land tax on $1,400,000 combined land value across 2 properties" whenever more than
+one property is assessed together. `landTaxDetailForProperty()` exists only to make that sentence
+truthful.
+
+**`calcLandTax` returns `null`, not `0`, for a state with no table.** "We don't have Tasmania's
+scale" and "you owe nothing" are different answers and must not render the same.
+
+**Measured:** NSW $1,575,000 → $8,100/yr ( = $100 + 1.6% × $500,000), matching by hand and in the
+browser. PPOR with $2m of land → exempt, no row, and not aggregated with the investments. The row
+reaches the Budget page as a real line ($220.83/mo at a $2,650/yr share).
+
+**Deliberately out of scope:** absentee/foreign surcharges, trusts and companies (QLD companies use
+a different threshold and scale entirely), and NSW's special-trust premium treatment. All of them
+need an ownership-structure field the app does not have, and a subtly wrong number is worse than
+plainly not offering one.
+
+**These rates go stale every year** — same standing hazard as `STAMP_DUTY_BRACKETS`. The tests in
+`tests/land-tax.test.js` are worked from the published scales by hand, so they double as the record
+of what each bracket is meant to say: when a state revises its rates, they fail and name the
+bracket that moved.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

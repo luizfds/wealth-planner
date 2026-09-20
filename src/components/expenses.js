@@ -15,23 +15,27 @@ import { parseCsv } from "../lib/backup.js";
 // axes are deliberately different in kind: classification is a fixed four-value scale every line
 // has, category an open user-defined set most lines may not have yet — hence the "Uncategorised"
 // bucket, which has no equivalent on the type axis (there, "N/A" is a real choice).
-function budgetGroupKeyOf(item){
-  return state.budgetGroupBy === "category"
+// `axis` is optional and defaults to whatever the Budget tab is currently grouped by. It's a
+// parameter at all because the budget-line *pickers* want the category axis regardless of that
+// toggle (see loggableGroups) — a dropdown grouped Needs/Wants is two headings over forty
+// options, which is the scrolling problem the grouping was meant to solve.
+function budgetGroupKeyOf(item, axis){
+  return (axis || state.budgetGroupBy) === "category"
     ? ((item.category || "").trim() || UNCATEGORISED)
     : (item.classification || "N/A");
 }
 // Group order is the *stable* one — CLASSES order, or the user's own category list — not biggest
 // first. This is a list you edit: ordering it by amount would make cards jump around as you type
 // into them. The charts sort by size instead, because a chart is read, not edited.
-function sharedGroupOrder(){
+function sharedGroupOrder(axis){
   var lineItems = allBudgetLines().map(function(line){ return line.item; });
-  if(state.budgetGroupBy !== "category"){
+  if((axis || state.budgetGroupBy) !== "category"){
     return CLASSES.filter(function(cls){
       return lineItems.some(function(item){ return (item.classification || "N/A") === cls; });
     });
   }
   var used = {};
-  lineItems.forEach(function(item){ used[budgetGroupKeyOf(item)] = true; });
+  lineItems.forEach(function(item){ used[budgetGroupKeyOf(item, axis)] = true; });
   // Alphabetical rather than state.categories order. That array is insertion order — the sequence
   // categories happened to be created in, which carries no meaning for a reader and drifts further
   // from useful every time one is added. The Needs/Wants/Savings/N/A sequence above is left alone
@@ -88,16 +92,16 @@ function allBudgetLines(){
   });
   return lines;
 }
-function computeSharedGroups(){
+function computeSharedGroups(axis){
   var lines = allBudgetLines();
-  return sharedGroupOrder().map(function(key){
+  return sharedGroupOrder(axis).map(function(key){
     // Alphabetical within the group. These arrive in the order they were created, which after a
     // year of adding lines is no order at all — a Subscriptions group of eleven rows takes real
     // scanning to find "Spotify". Sorting by *name* is safe in a way sorting by amount is not
     // (see sharedGroupOrder): a card only moves when you rename it, not while you type into it.
     // localeCompare so "Café" sorts next to "Cafe" rather than after "Z", and numeric:true so
     // "Car 2" comes before "Car 10" instead of after it.
-    var members = lines.filter(function(line){ return budgetGroupKeyOf(line.item) === key; })
+    var members = lines.filter(function(line){ return budgetGroupKeyOf(line.item, axis) === key; })
       .sort(function(a, b){
         return String(a.item.what || "").localeCompare(String(b.item.what || ""), undefined, { sensitivity: "base", numeric: true });
       });
@@ -411,7 +415,7 @@ export function renderSharedGroups(){
       // Each row renders under its own source section, so a housing line's edits, deletes and
       // logs land in state.home[scenario] while a shared line's land in state.shared — no
       // special-casing anywhere downstream, since every handler already keys off data-section.
-      '<div class="m-rows">' + g.members.map(function(line){ return modernPlainRowHtml(line.item, line.idx, line.section, modernSharedRowOpen, {showClass:true, showDone:true, categories: state.categories, activeScenario: state.activeScenario, extraSubLine: budgetRowProgressHtml(line.item)}); }).join("") + '</div>' +
+      '<div class="m-rows">' + g.members.map(function(line){ return modernPlainRowHtml(line.item, line.idx, line.section, modernSharedRowOpen, {showClass:true, showDone:true, categories: sortedCategories(), activeScenario: state.activeScenario, extraSubLine: budgetRowProgressHtml(line.item)}); }).join("") + '</div>' +
       '<button type="button" class="m-add-row" data-add="' + escapeAttr(addValue) + '">+ Add expense</button>' +
     '</div>';
   }).join("") + '</div>';
@@ -751,18 +755,58 @@ export var quickLog = null;
 // household actually logs against week to week (which is what the recency ordering surfaces),
 // without turning the sheet into a scrolling list of every budget line.
 var QUICK_LOG_CHIP_COUNT = 8;
+// Folded for matching: lower-cased and accent-stripped, so "cafe" finds "Café" and the search
+// never depends on the user reproducing punctuation they can't see. Deliberately a plain
+// substring test rather than fuzzy matching — this list is dozens of items, not thousands, so
+// substring always finds it, and a fuzzy match that returns something unexpected on a
+// two-letter query costs more trust than the odd saved keystroke is worth.
+function foldForFilter(s){
+  var v = String(s == null ? "" : s);
+  if(v.normalize) v = v.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return v.toLowerCase();
+}
+// Everything ever typed into a transaction's description, grouped by the line it was logged
+// against. This is what makes the search survive the gap between how a budget is *named* and how
+// spending is *remembered*: the line is called "Rideshare & Taxi", the thing in your head is
+// "uber", and no amount of care naming budget lines closes that on its own. Once an Uber has
+// been logged against that line, its own history answers for it.
+function loggedTermsByExpense(){
+  var terms = {};
+  (state.transactions || []).forEach(function(t){
+    if(!t.linkedExpenseId || !t.what) return;
+    var folded = foldForFilter(t.what);
+    if(!terms[t.linkedExpenseId]) terms[t.linkedExpenseId] = [];
+    if(terms[t.linkedExpenseId].indexOf(folded) === -1) terms[t.linkedExpenseId].push(folded);
+  });
+  return terms;
+}
+// Matched against the category and type as well as the name, because "what was it for" is often
+// remembered as the bucket rather than the line: typing "sub" should surface every subscription,
+// not just a line with "sub" in its name. `loggedTerms` (optional) adds that line's own logged
+// descriptions to the haystack — see loggedTermsByExpense.
+export function lineMatchesFilter(item, needle, loggedTerms){
+  var q = foldForFilter(needle).trim();
+  if(!q) return true;
+  var hay = foldForFilter(item.what) + " " + foldForFilter(item.category || "") + " " + foldForFilter(item.classification || "");
+  if(loggedTerms && loggedTerms[item.id]) hay += " " + loggedTerms[item.id].join(" ");
+  return hay.indexOf(q) !== -1;
+}
 
 // Budget lines ordered by how recently something was logged against them, most recent first,
 // then everything never logged against in their existing order. Recency (rather than
 // alphabetical or biggest-budget-first) is what puts groceries and petrol under the thumb, since
 // the lines you log most often are by definition the ones you logged most recently.
-export function quickLogChipOrder(){
+function lastLoggedByExpense(){
   var lastByExpense = {};
   (state.transactions || []).forEach(function(t){
     if(!t.linkedExpenseId) return;
     var d = t.date || "";
     if(!lastByExpense[t.linkedExpenseId] || d > lastByExpense[t.linkedExpenseId]) lastByExpense[t.linkedExpenseId] = d;
   });
+  return lastByExpense;
+}
+export function quickLogChipOrder(){
+  var lastByExpense = lastLoggedByExpense();
   return loggableBudgetLineItems()
     .map(function(item, i){ return { item: item, i: i, last: lastByExpense[item.id] || "" }; })
     .sort(function(a, b){
@@ -772,7 +816,7 @@ export function quickLogChipOrder(){
     .map(function(x){ return x.item; });
 }
 export function openQuickLog(){
-  quickLog = { linkedId: null, dateOpen: false, showAllChips: false };
+  quickLog = { linkedId: null, dateOpen: false, showAllChips: false, chipFilter: "" };
   renderQuickLogSheet();
 }
 export function closeQuickLog(){
@@ -791,6 +835,15 @@ export function setQuickLogShowAllChips(value){
   if(!quickLog) return;
   quickLog.showAllChips = !!value;
   renderQuickLogSheet();
+}
+// Patched in place rather than re-rendered, for the same reason picking a chip is: a re-render
+// on every keystroke would rip the search field out from under the caret. Only the chip area is
+// rewritten — the input itself sits outside it and is never touched.
+export function setQuickLogChipFilter(value){
+  if(!quickLog) return;
+  quickLog.chipFilter = value || "";
+  var area = document.querySelector("[data-qlog-chip-area]");
+  if(area) area.outerHTML = quickLogChipsHtml();
 }
 export function setQuickLogDateOpen(value){
   if(!quickLog) return;
@@ -856,28 +909,57 @@ function quickLogCategoryHtml(item){
   if(item || !state.categories.length) return "";
   return '<div class="qlog-cat-row"><label class="qlog-cat-label" for="quickLogCategory">Category</label>' +
     '<select id="quickLogCategory" class="qlog-cat" aria-label="Category (optional)">' +
-      '<option value="">— None —</option>' + optionsHtml(state.categories, "") +
+      '<option value="">— None —</option>' + optionsHtml(sortedCategories(), "") +
     '</select></div>';
+}
+// Shown only once there are more lines than fit under the chip cap — below that every line is
+// already on screen and a search box would be a field to tab past for nothing. Rendered outside
+// the chip area so filtering can rewrite the chips without touching the input (see
+// setQuickLogChipFilter).
+function quickLogSearchHtml(){
+  if(quickLogChipOrder().length <= QUICK_LOG_CHIP_COUNT) return "";
+  return '<input type="search" id="quickLogSearch" class="qlog-search" value="' + escapeAttr(quickLog.chipFilter || "") + '"' +
+    ' placeholder="Search budget lines…" aria-label="Search budget lines" autocomplete="off">';
+}
+function quickLogChipHtml(item){
+  var selected = quickLog.linkedId === item.id;
+  return '<button type="button" class="qlog-chip' + (selected ? " is-selected" : "") + '" data-qlog-chip="' + escapeAttr(item.id) + '"' +
+    ' aria-pressed="' + (selected ? "true" : "false") + '">' + escapeAttr(item.what) + '</button>';
 }
 function quickLogChipsHtml(){
   var ordered = quickLogChipOrder();
+  var filter = (quickLog.chipFilter || "").trim();
   var hasMore = ordered.length > QUICK_LOG_CHIP_COUNT;
-  var shown = (quickLog.showAllChips || !hasMore) ? ordered : ordered.slice(0, QUICK_LOG_CHIP_COUNT);
-  var chips = shown.map(function(item){
-    var selected = quickLog.linkedId === item.id;
-    return '<button type="button" class="qlog-chip' + (selected ? " is-selected" : "") + '" data-qlog-chip="' + escapeAttr(item.id) + '"' +
-      ' aria-pressed="' + (selected ? "true" : "false") + '">' + escapeAttr(item.what) + '</button>';
-  }).join("");
+  var matched = 0;
+  var shown;
+  if(filter){
+    // No cap while filtering: the whole point of typing is to cut the list down, and a "More…"
+    // on top of a search result would be a second hurdle in front of the thing already found.
+    // The current selection stays in the list even when it doesn't match, so narrowing the
+    // search can never make what you already picked silently vanish off the sheet.
+    var loggedTerms = loggedTermsByExpense();
+    shown = ordered.filter(function(item){
+      if(lineMatchesFilter(item, filter, loggedTerms)){ matched++; return true; }
+      return item.id === quickLog.linkedId;
+    });
+  } else {
+    shown = (quickLog.showAllChips || !hasMore) ? ordered : ordered.slice(0, QUICK_LOG_CHIP_COUNT);
+  }
+  var chips = shown.map(quickLogChipHtml).join("");
   // "One-off" sits last, not first: it's the fallback for spend with no budget line, and putting
   // it under the thumb ahead of the real lines would make the easy path the one that doesn't
-  // actually feed actual-vs-planned.
+  // actually feed actual-vs-planned. It survives filtering — it's the answer to "nothing here
+  // matches what I just bought", which is exactly when a search comes up empty.
   var oneOffSelected = !quickLog.linkedId;
   chips += '<button type="button" class="qlog-chip qlog-chip-oneoff' + (oneOffSelected ? " is-selected" : "") + '" data-qlog-chip=""' +
     ' aria-pressed="' + (oneOffSelected ? "true" : "false") + '">One-off</button>';
-  if(hasMore && !quickLog.showAllChips){
+  if(!filter && hasMore && !quickLog.showAllChips){
     chips += '<button type="button" class="qlog-chip qlog-chip-more" data-qlog-more>More…</button>';
   }
-  return '<div class="qlog-chips">' + chips + '</div>';
+  var note = (filter && !matched)
+    ? '<p class="qlog-no-match">No budget line matches “' + escapeAttr(filter) + '” — log it as a one-off, or clear the search.</p>'
+    : "";
+  return '<div class="qlog-chip-area" data-qlog-chip-area>' + note + '<div class="qlog-chips">' + chips + '</div></div>';
 }
 function quickLogDateRowHtml(){
   var today = localDateStr();
@@ -914,6 +996,7 @@ export function renderQuickLogSheet(){
         '<input type="number" step="0.01" inputmode="decimal" id="quickLogAmount" class="qlog-amount" placeholder="0.00" aria-label="Amount spent — negative for a refund">' +
       '</div>' +
       '<div class="qlog-section-label">What was it for?</div>' +
+      quickLogSearchHtml() +
       quickLogChipsHtml() +
       '<p class="qlog-context">' + escapeAttr(quickLogContextText(item)) + '</p>' +
       '<input type="text" id="quickLogNote" class="qlog-note" placeholder="' + escapeAttr(item ? "Note (optional)" : "What was it? (optional)") + '" aria-label="Note (optional)">' +
@@ -983,11 +1066,77 @@ var TRANSACTIONS_RECENT_COUNT = 10;
 // "tx:<idx>" (idx is the transaction's real state.transactions[] position, stable across a
 // resort) so an in-progress edit stays open across the rebuild a date edit triggers.
 export var modernTransactionRowOpen = {};
-function transactionLinkOptionsHtml(selectedId){
-  var options = '<option value=""' + (!selectedId ? " selected" : "") + '>— One-off (not linked) —</option>';
-  return options + loggableBudgetLineItems().map(function(item){
-    return '<option value="' + escapeAttr(item.id) + '"' + (item.id === selectedId ? " selected" : "") + '>' + escapeAttr(item.what) + '</option>';
+// ---------------- Picking a budget line out of a long list ----------------
+//
+// Three places ask "which budget line is this?" — the transaction row's Linked-to select, the
+// bank-import screen's per-merchant select, and the quick-log sheet's chips. A household a year
+// in has forty-odd lines, and the two selects used to list every one of them flat, in *creation*
+// order, which after a year is no order at all: finding "Spotify" meant reading the whole list.
+//
+// So the selects take the Budget tab's own shape — the same axis the user grouped it by (Type or
+// Category), alphabetical within each group, via the very function that builds those cards. The
+// dropdown then matches the list they were just looking at, and <optgroup> gives a native select
+// (which on a phone is a full-screen wheel) headings to move between instead of one long run.
+var RECENT_LINE_COUNT = 5;
+function loggableGroups(){
+  var loggable = {};
+  loggableBudgetLineItems().forEach(function(item){ loggable[item.id] = true; });
+  // Category, not the Budget tab's current axis. Grouping a picker by Needs/Wants puts two
+  // headings in front of forty options and leaves the run under "Wants" as long as the flat list
+  // was; grouping by category turns the same list into sixteen groups of three, which is the
+  // whole point. Falls back to the type axis only when nothing is categorised, where category
+  // would be one "Uncategorised" heading over everything.
+  var anyCategorised = allBudgetLines().some(function(line){ return (line.item.category || "").trim(); });
+  return computeSharedGroups(anyCategorised ? "category" : "type")
+    .map(function(g){ return { key: g.key, items: g.items.filter(function(item){ return loggable[item.id]; }) }; })
+    .filter(function(g){ return g.items.length; });
+}
+// The handful of lines logged against most recently, repeated above the groups. Same reasoning as
+// the quick-log chips' recency ordering: the lines you log most often are by definition the ones
+// you logged most recently, so this is the everyday spend sitting at the top of the list instead
+// of being hunted for under "G". Listing an option twice is legal and the label is identical
+// either way — only one of the two copies ever carries `selected` (see below), so the select
+// still shows exactly one thing.
+function recentlyUsedLines(){
+  var lastByExpense = lastLoggedByExpense();
+  return quickLogChipOrder()
+    .filter(function(item){ return lastByExpense[item.id]; })
+    .slice(0, RECENT_LINE_COUNT);
+}
+export function budgetLineOptgroupsHtml(selectedId){
+  var groups = loggableGroups();
+  var total = groups.reduce(function(n, g){ return n + g.items.length; }, 0);
+  var seenSelected = false;
+  function optionHtml(item){
+    // First copy wins the `selected` attribute. Marking both would leave the browser to pick, and
+    // a select with two selected options is a different kind of bug in every engine.
+    var sel = !seenSelected && item.id === selectedId;
+    if(sel) seenSelected = true;
+    return '<option value="' + escapeAttr(item.id) + '"' + (sel ? " selected" : "") + '>' + escapeAttr(item.what) + '</option>';
+  }
+  var html = "";
+  // Below the chip cap the whole list fits on one screen, and a "Recently used" group repeating
+  // half of a six-line budget is noise rather than a shortcut.
+  if(total > QUICK_LOG_CHIP_COUNT){
+    var recent = recentlyUsedLines();
+    if(recent.length > 1) html += '<optgroup label="Recently used">' + recent.map(optionHtml).join("") + '</optgroup>';
+  }
+  return html + groups.map(function(g){
+    return '<optgroup label="' + escapeAttr(g.key) + '">' + g.items.map(optionHtml).join("") + '</optgroup>';
   }).join("");
+}
+// The categories offered when *picking* one, alphabetical — state.categories is insertion order,
+// which carries no meaning for a reader and drifts further from useful with every category added
+// (same reasoning as sharedGroupOrder's). Not used for the management list on the Accounts page:
+// that one is edited in place, and re-sorting it would move the row out from under the caret.
+export function sortedCategories(){
+  return (state.categories || []).slice().sort(function(a, b){
+    return String(a).localeCompare(String(b), undefined, { sensitivity: "base", numeric: true });
+  });
+}
+function transactionLinkOptionsHtml(selectedId){
+  return '<option value=""' + (!selectedId ? " selected" : "") + '>— One-off (not linked) —</option>' +
+    budgetLineOptgroupsHtml(selectedId);
 }
 // Because deleteAccount() leaves the name on the rows that referenced it, a transaction can name an
 // account that is no longer in state.accounts. A <select> whose value matches none of its options

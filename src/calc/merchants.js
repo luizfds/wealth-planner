@@ -60,7 +60,19 @@ export function merchantGroups(transactions){
     g.total += Number(t.amount) || 0;
     g.spellings[raw] = (g.spellings[raw] || 0) + 1;
   });
-  var grandTotal = order.reduce(function(sum, k){ return sum + byKey[k].total; }, 0);
+  // Share is measured against the *positive* spend only, not the net.
+  //
+  // A refund is a negative transaction (see the quick-log amount field), so a merchant can net out
+  // below zero — you returned the shoes this cycle and bought them in the last one. Dividing by the
+  // net total then produces nonsense: two merchants at +$100 and -$99 net to $1, giving shares of
+  // 10,000% and -9,900% and a bar rendered as `width:10000%`. Measured against positive spend
+  // instead, every share lands in [0, 1] whatever the refunds do.
+  //
+  // A net-negative merchant gets a share of 0, which is also the right answer for what this bar
+  // means: it shows which merchants are *eating* the line, and one that handed money back is not
+  // eating any of it. Its real (negative) total still shows in the amount column, because that
+  // money is real and the column is where money is reported.
+  var grandTotal = order.reduce(function(sum, k){ return sum + Math.max(0, byKey[k].total); }, 0);
   return order.map(function(k){
     var g = byKey[k];
     var best = "", bestN = -1;
@@ -72,7 +84,7 @@ export function merchantGroups(transactions){
       label: best,
       count: g.count,
       total: Math.round(g.total * 100) / 100,
-      share: grandTotal > 0 ? g.total / grandTotal : 0
+      share: grandTotal > 0 ? Math.max(0, g.total) / grandTotal : 0
     };
   }).sort(function(a, b){ return b.total - a.total; });
 }

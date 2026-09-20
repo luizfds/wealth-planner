@@ -1,6 +1,7 @@
 import { state, persist, genId } from "../state.js";
 import { CLASSES, FREQS, UNCATEGORISED } from "../constants.js";
 import { sumField, sumFieldForScenario, resolveSharedAmount, periodsOf, budgetCycleFor, reserveCycleFor, transactionDisplayName, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, isOverdue, daysUntil, lastTransactionDateFor, reserveYearWindowFor, householdYearWindow, householdYearToDate, householdYearProgress, householdYearBasis, HOUSEHOLD_YEAR_BASES } from "../calc/ledger.js";
+import { merchantGroups, worthShowingMerchants, recentMerchants } from "../calc/merchants.js";
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent0, fmtPercent1, localDateStr } from "../lib/format.js";
 import { spendingTrends, monthKeyLabel } from "../calc/trends.js";
@@ -815,6 +816,27 @@ export function submitQuickLog(amount, note, dateStr, category){
 // Shown only when nothing is linked: a transaction against a budget line already takes that
 // line's category, so offering a second one would invite them to disagree. A one-off has nothing
 // to inherit from, and without this every one-off would land in Uncategorised forever.
+
+// Tap-to-fill chips for the places you have recently spent on this line.
+//
+// Two jobs, and the second is the one that matters. The obvious one is speed: "Doordash" is eight
+// taps on a phone keyboard and this is one. The quieter one is *consistency* — typed by hand, the
+// same merchant arrives as "Leaf café", "Leaf Cafe" and "leaf cafe", and while merchantGroupKey()
+// folds those back together, every spelling it has to fold is a guess it might get wrong. A chip
+// reuses the exact string, so there is nothing to fold.
+//
+// Scoped to the chosen budget line, because the useful chips under "Eating Out" are the places you
+// eat. With no line chosen yet (a one-off), it falls back to whatever is most recent overall.
+function quickLogMerchantChipsHtml(item){
+  var recents = recentMerchants(state.transactions, item ? item.id : null, 5);
+  if(!recents.length) return "";
+  return '<div class="qlog-merchants" role="group" aria-label="Recent places">' +
+    recents.map(function(name){
+      return '<button type="button" class="qlog-merchant-chip" data-qlog-merchant="' + escapeAttr(name) + '" title="' + escapeAttr(name) + '">' + escapeAttr(name) + '</button>';
+    }).join("") +
+  '</div>';
+}
+
 function quickLogCategoryHtml(item){
   if(item || !state.categories.length) return "";
   return '<div class="qlog-cat-row"><label class="qlog-cat-label" for="quickLogCategory">Category</label>' +
@@ -880,6 +902,7 @@ export function renderQuickLogSheet(){
       quickLogChipsHtml() +
       '<p class="qlog-context">' + escapeAttr(quickLogContextText(item)) + '</p>' +
       '<input type="text" id="quickLogNote" class="qlog-note" placeholder="' + escapeAttr(item ? "Note (optional)" : "What was it? (optional)") + '" aria-label="Note (optional)">' +
+      quickLogMerchantChipsHtml(item) +
       quickLogCategoryHtml(item) +
       quickLogDateRowHtml() +
       '<button type="button" class="btn review-log-btn qlog-submit" data-qlog-submit>Log spend</button>' +
@@ -1233,6 +1256,40 @@ export function budgetComparisonRowHtml(item){
 // "what's actually logged against this line" drill-down, not a second place to edit everything.
 // data-tx-del reuses the exact same global delete handler the Transactions list already wires up
 // (app.js binds it on document, not scoped to #transactionsTable), so Delete here works for free.
+// Where the money in this line actually went, above the individual transactions.
+//
+// This is the answer to "how much am I spending at Amazon / on delivery / at cafés", and the
+// reason it lives *inside* a budget line rather than as a page-wide merchant chart: on a
+// well-named line like "Internet" every transaction is the same bill and a merchant chart would
+// only restate the line's own name. It earns its place exactly where a line is a catch-all — a
+// real household had five Amazon orders and a pair of shoes inside one "Misc." row, and nothing
+// anywhere said so.
+function budgetRowMerchantsHtml(pairs){
+  var groups = merchantGroups(pairs.map(function(p){ return p.t; }));
+  if(!worthShowingMerchants(groups, pairs.length)) return "";
+  // Capped, with the remainder folded into one honest "N others" row rather than dropped — a
+  // breakdown whose parts don't add up to the line's total is worse than no breakdown.
+  var TOP = 5;
+  var shown = groups.slice(0, TOP);
+  var rest = groups.slice(TOP);
+  var restTotal = rest.reduce(function(sum, g){ return sum + g.total; }, 0);
+  var restCount = rest.reduce(function(sum, g){ return sum + g.count; }, 0);
+  var rows = shown.map(function(g){
+    return '<div class="budget-row-merchant">' +
+      '<span class="budget-row-merchant-name" title="' + escapeAttr(g.label) + '">' + escapeAttr(g.label) + '</span>' +
+      '<span class="budget-row-merchant-bar"><span style="width:' + Math.round(g.share * 100) + '%"></span></span>' +
+      '<span class="budget-row-merchant-amt">' + fmtCurrency0.format(g.total) + (g.count > 1 ? ' <small>×' + g.count + '</small>' : '') + '</span>' +
+    '</div>';
+  }).join("");
+  if(rest.length){
+    rows += '<div class="budget-row-merchant">' +
+      '<span class="budget-row-merchant-name" style="font-style:italic">' + rest.length + ' other' + (rest.length === 1 ? "" : "s") + '</span>' +
+      '<span class="budget-row-merchant-bar"></span>' +
+      '<span class="budget-row-merchant-amt">' + fmtCurrency0.format(restTotal) + (restCount > 1 ? ' <small>×' + restCount + '</small>' : '') + '</span>' +
+    '</div>';
+  }
+  return '<div class="budget-row-merchants"><div class="budget-row-merchants-title">Where it went</div>' + rows + '</div>';
+}
 function budgetRowTxnListHtml(pairs){
   var rows = pairs.map(function(pair){
     return '<div class="budget-row-txn">' +
@@ -1242,7 +1299,7 @@ function budgetRowTxnListHtml(pairs){
       '<button type="button" class="btn btn-ghost btn-sm row-del" data-tx-del="' + pair.i + '" aria-label="Delete transaction">✕</button>' +
     '</div>';
   }).join("");
-  return '<div class="budget-row-txns">' + rows + '</div>';
+  return budgetRowMerchantsHtml(pairs) + '<div class="budget-row-txns">' + rows + '</div>';
 }
 // Items marked "no fixed timing" (Extras, property maintenance, etc.) are lumpy by nature — a
 // $0 actual most months is expected, not a budget miss. Comparing them against this month's

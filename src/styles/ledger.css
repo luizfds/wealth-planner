@@ -876,3 +876,52 @@
   .time-range-control{ overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
   .time-range-control::-webkit-scrollbar{ display:none; }
   .tx-range-count{ font-variant-numeric: tabular-nums; }
+
+  /* ---------------- "Where it went" — merchants inside a budget row ---------------- */
+  /* Sits above the individual transactions in an expanded budget row. The bar is a share of this
+     line's spend, not of its budget: the question this panel answers is "which of these is eating
+     the line", and a share-of-budget bar would answer a different one the row's own bar already
+     covers. */
+  .budget-row-merchants{ margin-top:8px; display:flex; flex-direction:column; gap:3px; }
+  .budget-row-merchants-title{
+    font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft);
+    font-weight:600; margin-bottom:2px;
+  }
+  .budget-row-merchant{ display:flex; align-items:center; gap:8px; font-size:12px; }
+  .budget-row-merchant-name{
+    flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    color: var(--ink);
+  }
+  /* Fixed-width so every bar shares one baseline and the rows read as a comparison rather than
+     as a set of unrelated widths. Shrinks first on a narrow phone, where the name and the amount
+     are what matter. */
+  .budget-row-merchant-bar{
+    flex:0 1 84px; min-width:28px; height:5px; border-radius:3px; background: var(--paper-sunken);
+    overflow:hidden;
+  }
+  .budget-row-merchant-bar > span{ display:block; height:100%; background: var(--brass); border-radius:3px; }
+  .budget-row-merchant-amt{
+    flex:none; font-family:"IBM Plex Mono", monospace; font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+  .budget-row-merchant-amt small{ color: var(--ink-soft); font-size:10.5px; }
+
+  /* Recent-merchant chips under the quick-log note field. Wraps rather than scrolls: five short
+     names fit two rows on a phone, and a horizontal scroller hides options behind a gesture
+     nobody performs on a field they were about to type into anyway. */
+  .qlog-merchants{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .qlog-merchant-chip{
+    all:unset; box-sizing:border-box; cursor:pointer;
+    padding:8px 12px; min-height:36px; display:inline-flex; align-items:center;
+    border:1px solid var(--border); border-radius:100px;
+    background: var(--paper-sunken); color: var(--ink-soft);
+    font-size:12.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    /* Capped so several chips share a row. A recent description can be a whole sentence
+       ("Booking.com (Trip to buy house in Melbourne)") which, uncapped, takes the full width of a
+       phone and turns a chip row into a list. Truncated text is fine here — the full string is on
+       the title attribute, and the chip only has to be recognisable, not complete. */
+    max-width:min(100%, 150px);
+  }
+  .qlog-merchant-chip:hover{ color: var(--ink); border-color: var(--brass); }
+  .qlog-merchant-chip:active{ background: var(--brass-wash); }
+  .qlog-merchant-chip:focus-visible{ outline:none; box-shadow: var(--focus-ring); }

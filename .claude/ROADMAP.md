@@ -1215,6 +1215,77 @@ bracket that moved.
 
 ---
 
+## 24. `[x]` Where the money in a line actually went — shipped v3.11.0
+
+Asked: *"I don't have a way of knowing how much I'm spending on things like Amazon, Uber Eats,
+DoorDash, cafés."* Measured on the household's own September logging, that was 14% of everything
+they had logged, invisible:
+
+| | | currently inside |
+|---|---:|---|
+| Amazon, 5 purchases in 13 days | $331.39 | *Misc.* |
+| Hoka shoes (Big W) | $297.09 | *Misc.* |
+| Cafés — Marina, Leaf ×2 | $248.16 | *Eating Out* |
+| DoorDash, 3 orders in 7 days | $203.69 | *Eating Out* |
+
+**An earlier read of this said merchant tracking wasn't worth building.** That was measured against
+an older export where 75% of descriptions merely restated the budget line they were linked to
+("Groceries" logged against *Groceries*). The newer data is genuinely different — real merchant
+names throughout — and the conclusion flipped. Worth remembering that the answer here is a property
+of how a household logs, not of the feature.
+
+**What shipped.** `calc/merchants.js` (`merchantGroupKey`, `merchantGroups`, `worthShowingMerchants`,
+`recentMerchants`), a "Where it went" breakdown inside an expanded budget row, and tap-to-fill
+recent-merchant chips in the quick-log sheet.
+
+### Why this is NOT import-rules.js's merchantKey()
+
+That function is tuned for bank export strings — it drops leading payment rails, stops at the first
+token containing a digit, caps at three tokens. Aggression that is right for
+`EFTPOS WOOLWORTHS 1234 SYDNEY NS` and wrong for anything a person typed: it turns
+`"Date Night / Eating Out"` into `"night eating out"`. Hand-typed text is already close to the
+merchant name, so `merchantGroupKey` only folds case and accents, drops a trailing `(...)`, and
+cuts at a slash. Nothing more: **under-grouping shows two rows where one would do, over-grouping
+reports a number that is wrong.** The first is a blemish, the second is a lie.
+
+### Why it lives inside a budget row, not as a page-wide chart
+
+On a well-named line like "Internet" every transaction is the same bill, and a merchant chart there
+would only restate the line's own name — which is exactly what made the page-wide version
+worthless on the older data. It earns its place on a *catch-all*: five Amazon orders and a pair of
+shoes inside one "Misc." row, with nothing anywhere saying so. Hence
+`worthShowingMerchants()` — at least 2 merchants and 3 transactions, or no panel.
+
+**Measured in the browser:** *Misc.* → Amazon $331 ×5 (41%), Hoka shoes $297 (37%), Misc. $172 ×2.
+*Eating Out* → DoorDash $204 ×3, Leaf café $145 ×2, Date Night $129 ×3, Marina Cafe $103,
+De'Assis $89, "3 others" $130. *Internet* → no panel, as intended. The capped list folds the
+remainder into one "N others" row rather than dropping it, because a breakdown whose parts don't
+add up to the line total is worse than no breakdown.
+
+### Follow-up (v3.11.1): an undescribed transaction was silently dropped
+
+`merchantGroups()` skipped any transaction with a blank description, so a line's breakdown could
+quietly stop adding up to the line's own total — the exact failure this module elsewhere goes out
+of its way to avoid, and invisible, since nothing on screen said a slice was missing. Found while
+clearing a misleading label off four real transactions, which would have made $312 of a $530 line
+disappear from its own breakdown.
+
+They get an explicit `(no description)` bucket now, which is also the honest label: the app does
+not know where that money went. The bucket does **not** count toward `worthShowingMerchants()` —
+one real merchant plus two unnamed transactions is not a breakdown, it is the line's total with a
+label on part of it. Verified across a real 40-line file: every breakdown's parts sum to its line.
+
+### The chips are a data-quality feature, not just a speed one
+
+Typed by hand the same merchant arrives as "Leaf café", "Leaf Cafe" and "leaf cafe". Every spelling
+`merchantGroupKey` has to fold is a guess it could get wrong; a chip reuses the exact string, so
+there is nothing to fold. They fill the note and return focus to the amount rather than submitting
+— a chip that logged on one tap would be an easy way to record a $0 spend by accident. Scoped to
+the chosen line, so "Eating Out" offers places you eat. Capped at 150px: a real recent description
+was "Booking.com (Trip to buy house in Melbourne)", which uncapped takes a whole phone row.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

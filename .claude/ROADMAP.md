@@ -1262,6 +1262,19 @@ De'Assis $89, "3 others" $130. *Internet* → no panel, as intended. The capped 
 remainder into one "N others" row rather than dropping it, because a breakdown whose parts don't
 add up to the line total is worse than no breakdown.
 
+### Follow-up (v3.11.1): an undescribed transaction was silently dropped
+
+`merchantGroups()` skipped any transaction with a blank description, so a line's breakdown could
+quietly stop adding up to the line's own total — the exact failure this module elsewhere goes out
+of its way to avoid, and invisible, since nothing on screen said a slice was missing. Found while
+clearing a misleading label off four real transactions, which would have made $312 of a $530 line
+disappear from its own breakdown.
+
+They get an explicit `(no description)` bucket now, which is also the honest label: the app does
+not know where that money went. The bucket does **not** count toward `worthShowingMerchants()` —
+one real merchant plus two unnamed transactions is not a breakdown, it is the line's total with a
+label on part of it. Verified across a real 40-line file: every breakdown's parts sum to its line.
+
 ### The chips are a data-quality feature, not just a speed one
 
 Typed by hand the same merchant arrives as "Leaf café", "Leaf Cafe" and "leaf cafe". Every spelling

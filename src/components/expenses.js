@@ -32,7 +32,13 @@ function sharedGroupOrder(){
   }
   var used = {};
   lineItems.forEach(function(item){ used[budgetGroupKeyOf(item)] = true; });
-  var order = state.categories.filter(function(name){ return used[name]; });
+  // Alphabetical rather than state.categories order. That array is insertion order — the sequence
+  // categories happened to be created in, which carries no meaning for a reader and drifts further
+  // from useful every time one is added. The Needs/Wants/Savings/N/A sequence above is left alone
+  // on purpose: that one *is* meaningful (needs before wants), and alphabetising it would open the
+  // list with "N/A".
+  var order = state.categories.filter(function(name){ return used[name]; })
+    .sort(function(a, b){ return String(a).localeCompare(String(b), undefined, { sensitivity: "base", numeric: true }); });
   // Uncategorised last: it's the leftovers, and putting it first would make an unstarted budget
   // look like one giant unnamed group standing in front of the real ones.
   if(used[UNCATEGORISED]) order.push(UNCATEGORISED);
@@ -85,7 +91,16 @@ function allBudgetLines(){
 function computeSharedGroups(){
   var lines = allBudgetLines();
   return sharedGroupOrder().map(function(key){
-    var members = lines.filter(function(line){ return budgetGroupKeyOf(line.item) === key; });
+    // Alphabetical within the group. These arrive in the order they were created, which after a
+    // year of adding lines is no order at all — a Subscriptions group of eleven rows takes real
+    // scanning to find "Spotify". Sorting by *name* is safe in a way sorting by amount is not
+    // (see sharedGroupOrder): a card only moves when you rename it, not while you type into it.
+    // localeCompare so "Café" sorts next to "Cafe" rather than after "Z", and numeric:true so
+    // "Car 2" comes before "Car 10" instead of after it.
+    var members = lines.filter(function(line){ return budgetGroupKeyOf(line.item) === key; })
+      .sort(function(a, b){
+        return String(a.item.what || "").localeCompare(String(b.item.what || ""), undefined, { sensitivity: "base", numeric: true });
+      });
     var items = members.map(function(line){ return line.item; });
     // Scenario-resolved, like scenarioTotals() and computeNetWorthSeries(). Raw amounts left the
     // Expenses page quoting a different household cost than the Dashboard for the very same

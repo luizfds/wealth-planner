@@ -1286,6 +1286,50 @@ was "Booking.com (Trip to buy house in Melbourne)", which uncapped takes a whole
 
 ---
 
+## 25. `[x]` Alphabetical budget lists, and refunds that don't break the bars — shipped v3.11.2
+
+Two questions in one turn: *"Can we order the needs, wants etc alphabetically?"* and *"How should
+I handle returns/refunds?"* The second turned out to be a bug report.
+
+### Alphabetical — but only where it means anything
+
+Budget lines within a group and the category list both arrived in **insertion order**: the sequence
+things happened to be created in, which carries no meaning and drifts further from useful with every
+addition. A real Subscriptions group of eleven rows took genuine scanning to find "Spotify". Both
+are sorted by name now (`localeCompare`, `sensitivity: "base"`, `numeric: true`, so "Café" sorts
+beside "Cafe" and "Car 2" precedes "Car 10").
+
+**The Needs / Wants / Savings / N/A sequence is deliberately left alone.** That order *is*
+meaningful — needs before wants — and alphabetising it would open the list with "N/A". The existing
+comment on `sharedGroupOrder()` warned against ordering by *amount* because cards would jump around
+as you type into them; sorting by name is safe in a way sorting by amount is not, since a card only
+moves when you rename it.
+
+### Refunds: supported all along, but they broke the merchant bars
+
+A refund is a negative transaction — the quick-log amount field says so, and bank import treats
+"money in" assigned to a line as a refund. But `merchantGroups()` computed each merchant's share
+against the group's **net** total, so a merchant that netted below zero (returned this cycle,
+bought last cycle) produced nonsense:
+
+| Line contents | Old share | Rendered |
+|---|---:|---|
+| Amazon +$100, Doordash −$99 | **10,000%** / −9,900% | `width:10000%` |
+| Amazon −$50, Hoka +$297 | 120% / −20% | `width:-20%` |
+
+Share is measured against **positive spend only** now, so every share lands in [0, 1] whatever the
+refunds do. A net-negative merchant gets a share of 0 — right for what the bar means, since it
+shows which merchants are *eating* the line and one that handed money back is not eating any of it
+— while its real negative total still shows in the amount column, because that money is real.
+
+**How to verify.** `tests/merchants.test.js` covers an ordinary refund, a net-negative merchant, a
+both-negative line and an all-zero line, asserting every share is finite and within range. The
+ordering is verified by driving the app: Subscriptions should read Costco → Crunchyroll → GMAIL →
+Google Play Storage → iCloud → Microsoft 365 → Prime → Prime Ad Free → Ring → Spotify → YouTube
+Premium (note iCloud sorting case-insensitively between Google and Microsoft).
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

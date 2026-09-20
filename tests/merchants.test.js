@@ -137,3 +137,39 @@ test("the unlabelled bucket does not count as a merchant for the show/hide decis
   ]);
   assert.equal(worthShowingMerchants(two, 3), true);
 });
+
+// ---------------- Refunds ----------------
+// A refund is a negative transaction (the quick-log amount field says so), which means a merchant
+// can net out below zero: the shoes went back this cycle and were bought in the last one.
+test("an ordinary refund just reduces that merchant's total", () => {
+  const g = merchantGroups([
+    { what: "Amazon", amount: 100 }, { what: "Amazon", amount: -30 }, { what: "Doordash", amount: 50 }
+  ]);
+  const amazon = g.find(x => x.label === "Amazon");
+  assert.equal(amazon.total, 70);
+  assert.equal(amazon.count, 2, "the refund is still a transaction that happened");
+});
+
+test("shares stay within 0-100% however the refunds fall", () => {
+  // Measured against net total these were 10,000% and -9,900%, rendering width:10000% on the bar.
+  const cases = [
+    [{ what: "Amazon", amount: 100 }, { what: "Doordash", amount: -99 }],
+    [{ what: "Amazon", amount: -50 }, { what: "Hoka", amount: 297 }],
+    [{ what: "Amazon", amount: -10 }, { what: "Hoka", amount: -20 }],
+    [{ what: "Amazon", amount: 0 }, { what: "Hoka", amount: 0 }]
+  ];
+  cases.forEach((tx, i) => {
+    merchantGroups(tx).forEach(g => {
+      assert.ok(g.share >= 0 && g.share <= 1, `case ${i}: share ${g.share} out of range for ${g.label}`);
+      assert.ok(Number.isFinite(g.share), `case ${i}: share not finite for ${g.label}`);
+    });
+  });
+});
+
+test("a merchant that net refunded gets no bar but keeps its real total", () => {
+  const g = merchantGroups([{ what: "Amazon", amount: -50 }, { what: "Hoka", amount: 297 }]);
+  const amazon = g.find(x => x.label === "Amazon");
+  assert.equal(amazon.share, 0, "handing money back is not eating the line");
+  assert.equal(amazon.total, -50, "but the money is real and still reported");
+  assert.equal(g.find(x => x.label === "Hoka").share, 1);
+});

@@ -16,6 +16,13 @@
      spend-by-account bars, colored per series) with no over-budget concept of its own. */
   .budget-row{ margin-bottom:9px; border-radius:8px; }
   .budget-row:last-child{ margin-bottom:0; }
+  /* A row only becomes a tap target once it has transactions to drill into, and most of them are
+     comfortably tall because they carry a progress bar under the figures. The exception is the
+     "Uncategorized (one-off)" row, which has no budget and therefore no bar: it rendered 18px
+     tall on a phone while still being tappable — a quarter of the 44px minimum, on a control with
+     no visual hint that it is smaller than its neighbours. min-height only ever grows the short
+     one; every other expandable row already clears it and is untouched. */
+  .budget-row.is-expandable{ min-height:44px; display:flex; flex-direction:column; justify-content:center; }
   .budget-row .acct-row{ margin-bottom:3px; }
   .budget-bar-track{ height:5px; border-radius:100px; background: var(--paper-sunken); overflow:hidden; }
   .budget-bar-fill{ height:100%; background: var(--good); border-radius:inherit; transition: width .3s ease; }
@@ -350,7 +357,20 @@
      in shell.css for why editing moved to a modal at all. */
   .m-row-edit{ display:grid; grid-template-rows:0fr; transition: grid-template-rows .22s ease; }
   .m-row.open .m-row-edit{ grid-template-rows:1fr; }
-  .m-row-edit-inner{ overflow:hidden; min-height:0; }
+  /* `visibility:hidden` is doing accessibility work here, not visual work — the 0fr grid row and
+     the overflow:hidden below already hide this content perfectly well *to the eye*.
+     What they do not do is take it out of the tab order. A clipped form is still a focusable form,
+     so every collapsed row was handing the keyboard its whole editor: name, class, category,
+     amount, frequency, account, More options, Vary, Done and **Delete**. Roughly ten invisible tab
+     stops per row, and on a real 46-line budget that is ~460 stops to get past the list, each one
+     including a Delete button for a row the user cannot see. `visibility:hidden` removes
+     descendants from the tab order and from the accessibility tree; `display:none` would too, but
+     it cannot be transitioned and would kill the open/close animation.
+     The delayed transition is what keeps that animation: opening flips to visible immediately
+     (delay 0), closing holds visibility until the .22s height animation has finished, so the
+     content does not blink out before the row has shut. */
+  .m-row-edit-inner{ overflow:hidden; min-height:0; visibility:hidden; transition: visibility 0s linear .22s; }
+  .m-row.open .m-row-edit-inner{ visibility:visible; transition-delay:0s; }
   .m-row-edit-pad{ padding:2px 16px 16px 40px; }
   /* An "open" row becomes its own centered modal card via position:fixed — real browsers render
      position:fixed relative to the viewport regardless of DOM nesting, so this works correctly no

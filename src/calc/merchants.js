@@ -34,6 +34,13 @@ export function merchantGroupKey(description){
   return s.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
 }
 
+// A transaction with no description still spent money. Dropping it would make the breakdown's
+// parts stop adding up to the line's own total — the exact failure this module otherwise goes out
+// of its way to avoid — and would do it invisibly, since nothing on screen would say a slice was
+// missing. It gets its own bucket instead, which is also the honest label: the app does not know
+// where that money went, and says so.
+export var UNLABELLED = "(no description)";
+
 // [{key, label, count, total, share}] sorted biggest spend first.
 //
 // `label` is the spelling the user themselves used most often for this merchant (ties broken by
@@ -44,9 +51,9 @@ export function merchantGroups(transactions){
   var order = [];
   (transactions || []).forEach(function(t){
     var raw = String((t && t.what) || "").trim();
-    if(!raw) return;
-    var key = merchantGroupKey(raw);
-    if(!key) return;
+    var key = raw ? merchantGroupKey(raw) : "";
+    // Both a blank description and one that normalises away to nothing ("---") land here.
+    if(!key){ key = "\u0000unlabelled"; raw = UNLABELLED; }
     if(!byKey[key]){ byKey[key] = { key: key, count: 0, total: 0, spellings: {} }; order.push(key); }
     var g = byKey[key];
     g.count++;
@@ -79,7 +86,11 @@ export function merchantGroups(transactions){
 export var MERCHANT_MIN_GROUPS = 2;
 export var MERCHANT_MIN_TRANSACTIONS = 3;
 export function worthShowingMerchants(groups, transactionCount){
-  return groups.length >= MERCHANT_MIN_GROUPS && transactionCount >= MERCHANT_MIN_TRANSACTIONS;
+  // The unlabelled bucket is not a merchant. A line with two unnamed transactions and one Amazon
+  // order has one merchant, not two, and "Amazon / (no description)" is not a breakdown worth
+  // opening — it is the line's own total with a label on part of it.
+  var named = (groups || []).filter(function(g){ return g.label !== UNLABELLED; });
+  return named.length >= MERCHANT_MIN_GROUPS && transactionCount >= MERCHANT_MIN_TRANSACTIONS;
 }
 
 // The merchants a person has actually used recently, newest first — what the quick-log sheet

@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { state } from "../src/state.js";
 import { modernPlainRowHtml, modernRowShellHtml, optionsHtml, historyTrendHtml } from "../src/lib/ledger-table.js";
-import { categoryChartHtml, irregularBudgetSectionHtml, budgetComparisonRowHtml, transactionAccountOptionsHtml } from "../src/components/expenses.js";
+import { categoryChartHtml, irregularBudgetSectionHtml, budgetComparisonRowHtml, transactionAccountOptionsHtml, budgetLineOptgroupsHtml, lineMatchesFilter, sortedCategories } from "../src/components/expenses.js";
 import { todaysMixHtml } from "../src/components/assets.js";
 import { sparklineHtml, sparklinePlaceholderHtml, dateAxisFormat } from "../src/lib/charts.js";
 import { rangeByKey, rangeLabel, rangeStartDate, withinRange, bestFitRange, timeRangeControlHtml } from "../src/lib/timerange.js";
@@ -375,4 +375,93 @@ test("no account selected leaves the empty option selected", () => {
     assert.match(html, /<option value="" selected/);
     assert.ok(!html.includes("(deleted)"), html);
   } finally { state.accounts = prev; }
+});
+
+// ---------------- Picking a budget line out of a long list ----------------
+// A year-old budget is forty-odd lines, and both selects that ask "which line is this?" used to
+// list every one of them flat and in creation order. These assert the shape that replaced it:
+// the Budget tab's own grouping, alphabetical inside each group, with the lines logged against
+// most recently repeated at the top. The duplicate-option assertion is the one that matters —
+// two options carrying `selected` is a different bug in every browser engine.
+function withBudget(lines, transactions, fn){
+  const prev = { shared: state.shared, home: state.home, properties: state.properties,
+    transactions: state.transactions, categories: state.categories, budgetGroupBy: state.budgetGroupBy };
+  state.shared = lines;
+  state.home = {};
+  state.properties = [];
+  state.transactions = transactions || [];
+  state.categories = ["Subscriptions", "Groceries", "Car"];
+  state.budgetGroupBy = "category";
+  try { return fn(); } finally { Object.assign(state, prev); }
+}
+function line(id, what, category){
+  return { id, what, category, classification: "Needs", amount: 10, freq: "Monthly" };
+}
+
+test("budget-line options are grouped by the Budget tab's own axis", () => {
+  const html = withBudget([line("e1", "Spotify", "Subscriptions"), line("e2", "Apples", "Groceries")],
+    [], () => budgetLineOptgroupsHtml(""));
+  assert.match(html, /<optgroup label="Subscriptions">/);
+  assert.match(html, /<optgroup label="Groceries">/);
+  assert.match(html, /value="e1"[^>]*>Spotify/);
+});
+
+test("lines sort alphabetically inside their group", () => {
+  const html = withBudget([line("e1", "Zoo pass", "Subscriptions"), line("e2", "Apple TV", "Subscriptions")],
+    [], () => budgetLineOptgroupsHtml(""));
+  assert.ok(html.indexOf("Apple TV") < html.indexOf("Zoo pass"), html);
+});
+
+test("exactly one option is marked selected, even when it is listed twice", () => {
+  // Nine lines so the list clears the cap that turns the "Recently used" group on, and two of
+  // them logged against so that group has something to hold.
+  const lines = [];
+  for(let i = 0; i < 9; i++) lines.push(line("e" + i, "Line " + i, "Subscriptions"));
+  const txns = [
+    { id: "t1", date: "2026-09-01", amount: 5, linkedExpenseId: "e3" },
+    { id: "t2", date: "2026-09-02", amount: 5, linkedExpenseId: "e4" }
+  ];
+  const html = withBudget(lines, txns, () => budgetLineOptgroupsHtml("e3"));
+  assert.match(html, /<optgroup label="Recently used">/);
+  assert.equal(html.split("Recently used").length - 1, 1, "one recents group, not one per category");
+  assert.equal((html.match(/ selected>/g) || []).length, 1, "a select may carry exactly one selected option");
+  // The line really is listed twice — that is the point of the recents group, not an accident.
+  assert.equal((html.match(/value="e3"/g) || []).length, 2, html);
+});
+
+test("a short budget gets no Recently used group", () => {
+  const html = withBudget([line("e1", "Spotify", "Subscriptions")],
+    [{ id: "t1", date: "2026-09-01", amount: 5, linkedExpenseId: "e1" }],
+    () => budgetLineOptgroupsHtml(""));
+  assert.ok(!html.includes("Recently used"), html);
+});
+
+// ---------------- The quick-log sheet's search ----------------
+test("the chip filter matches on name, category and type, folding accents", () => {
+  const item = { id: "e1", what: "Café mornings", category: "Eating out", classification: "Wants" };
+  assert.ok(lineMatchesFilter(item, "cafe"), "accent-folded");
+  assert.ok(lineMatchesFilter(item, "MORN"), "case-folded");
+  assert.ok(lineMatchesFilter(item, "eating"), "by category");
+  assert.ok(lineMatchesFilter(item, "wants"), "by type");
+  assert.ok(lineMatchesFilter(item, "   "), "a blank search hides nothing");
+  assert.ok(!lineMatchesFilter(item, "petrol"));
+});
+
+test("categories are offered alphabetically, whatever order they were created in", () => {
+  const prev = state.categories;
+  state.categories = ["Utilities", "Car", "eating out"];
+  try {
+    assert.deepEqual(sortedCategories(), ["Car", "eating out", "Utilities"]);
+    assert.deepEqual(state.categories, ["Utilities", "Car", "eating out"], "the stored order is left alone");
+  } finally { state.categories = prev; }
+});
+
+test("the filter also matches what has been logged against a line before", () => {
+  // The line is called "Rideshare & Taxi"; the word in the user's head is "uber". Once an Uber
+  // has been logged against it, the line's own history answers for the name it doesn't have.
+  const item = { id: "e9", what: "Rideshare & Taxi", category: "Transport", classification: "Wants" };
+  const logged = { e9: ["uber trip home", "13cabs"] };
+  assert.ok(!lineMatchesFilter(item, "uber"), "nothing in the name or category says uber");
+  assert.ok(lineMatchesFilter(item, "uber", logged), "but its history does");
+  assert.ok(!lineMatchesFilter(item, "lyft", logged));
 });

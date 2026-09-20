@@ -1330,6 +1330,64 @@ Premium (note iCloud sorting case-insensitively between Google and Microsoft).
 
 ---
 
+## 26. `[x]` Collapsed ledger rows were handing the keyboard their whole editor — shipped v3.11.3
+
+From an assessment of the Expenses page. Most of it came back clean: no horizontal overflow at
+390px or 1280px on either subtab, no `NaN`/`undefined` anywhere, no console or page errors, a
+tidy empty state on both subtabs for a brand-new user, and no layout damage from a 120-character
+budget line name. Two things were wrong, one of them badly.
+
+### a. Every collapsed row exposed its hidden edit form to the keyboard
+
+`.m-row-edit` collapses with the `grid-template-rows: 0fr → 1fr` technique and clips its content
+with `overflow:hidden`. That hides the form perfectly well **to the eye**. What it does not do is
+take it out of the tab order — a clipped form is still a focusable form.
+
+So every collapsed row handed the keyboard its entire editor: name, classification, category,
+amount, frequency, account, "More options", "⇄ Vary", **Done** and **Delete**. Roughly ten
+invisible tab stops per row, each set ending in a Delete button for a row the user cannot see.
+
+Measured by walking real `Tab` presses, then counting reachable controls inside collapsed rows
+across the app:
+
+| Page | Before | After |
+|---|---:|---:|
+| Expenses | **695** | 0 |
+| Income | 116 | 0 |
+| Scenarios | 24 | 0 |
+| Assets, Properties | 0 | 0 |
+| **Total** | **835** | **0** |
+
+The fix is `visibility:hidden` on `.m-row-edit-inner`, flipped to `visible` when the row opens.
+`visibility` is the right tool because it removes descendants from the tab order *and* the
+accessibility tree; `display:none` would too, but it cannot be transitioned and would kill the
+open/close animation. The `transition: visibility 0s linear .22s` with `transition-delay:0s` on
+the open state is what preserves it: opening reveals immediately, closing holds visibility until
+the height animation has finished so the content does not blink out early.
+
+One CSS rule, five pages — Income, Expenses, Assets, Properties and Scenarios all share
+`modernRowShellHtml`.
+
+**This is exactly the gap item 16 ("Reachable by keyboard", v3.6.0) could not see.** That pass
+checked that things *could* be reached. It never asked whether anything reachable *shouldn't* be.
+
+### b. The one tappable row that was 18px tall
+
+Rows in Actual vs. planned become tappable once they have transactions to drill into, and nearly
+all are comfortably tall because they carry a progress bar under the figures. "Uncategorized
+(one-off)" has no budget and therefore no bar: **18px tall on a phone, and still tappable** — a
+quarter of the 44px minimum, with no visual hint it was smaller than its neighbours.
+`min-height:44px` on `.budget-row.is-expandable` only ever grows the short one; the other 27 rows
+already cleared it. Shortest tappable row is now 44px, none under.
+
+**How to verify.** Neither is unit-testable — both are pure CSS cascade, which layers 1 and 2
+cannot see by construction. Drive it: press `Tab` repeatedly from the first budget group and
+confirm every stop is a `.m-row-summary` and never a field inside a closed row; then open a row
+and confirm its name field still takes focus, its Delete is still visible, and an edit still
+persists across a reload (it does — checked name and amount).
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

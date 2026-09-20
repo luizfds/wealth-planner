@@ -11,7 +11,7 @@ import { parseBankCsv, bankImportSummary, parseDiagnosis } from "../calc/bank-im
 import { applySuggestions, learnRule, coverageOf, merchantKey, proposedLineFor, suggestedLineName, pruneRules } from "../calc/import-rules.js";
 import { fmtCurrency0, fmtCurrency2 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
-import { loggableBudgetLineItems } from "./expenses.js";
+import { loggableBudgetLineItems, budgetLineOptgroupsHtml, sortedCategories } from "./expenses.js";
 
 // Session-only. Nothing here is persisted until commitBankImport() — a half-reviewed import that
 // survived a reload would be a pile of decisions the user has no memory of making.
@@ -304,7 +304,6 @@ function bankImportHeaderHtml(s){
 // Unplaced merchants first and in bold, because they're the only thing on this screen that needs a
 // decision. Everything else is there to be skimmed and confirmed.
 function bankImportGroupsHtml(){
-  var lines = loggableBudgetLineItems();
   var unplaced = bankImport.groups.filter(function(g){ return !groupIsPlaced(g); });
   var placed = bankImport.groups.filter(groupIsPlaced);
   var html = "";
@@ -313,22 +312,22 @@ function bankImportGroupsHtml(){
   // after you'd dealt with two of them, which is worse than not showing a count at all.
   if(unplaced.length){
     html += '<h4 class="bank-import-subhead">Needs you (<span data-bank-count="unplaced">' + unplaced.length + '</span>)</h4>' +
-      '<div class="m-card"><div class="m-rows">' + unplaced.map(function(g){ return groupRowHtml(g, lines); }).join("") + '</div></div>';
+      '<div class="m-card"><div class="m-rows">' + unplaced.map(function(g){ return groupRowHtml(g); }).join("") + '</div></div>';
   }
   if(placed.length){
     html += '<h4 class="bank-import-subhead">Ready (<span data-bank-count="placed">' + placed.length + '</span>)</h4>' +
-      '<div class="m-card"><div class="m-rows">' + placed.map(function(g){ return groupRowHtml(g, lines); }).join("") + '</div></div>';
+      '<div class="m-card"><div class="m-rows">' + placed.map(function(g){ return groupRowHtml(g); }).join("") + '</div></div>';
   }
   if(bankImport.creditGroups.length){
     html += '<h4 class="bank-import-subhead">Money in (' + bankImport.creditGroups.length + ')</h4>' +
       '<p class="ledger-note" style="margin:0 0 8px">Left out unless you say otherwise — this app can\'t tell a refund from salary or a transfer. ' +
       'Put one on a budget line and it imports as a refund, reducing what you spent on that line.</p>' +
-      '<div class="m-card"><div class="m-rows">' + bankImport.creditGroups.map(function(g){ return groupRowHtml(g, lines); }).join("") + '</div></div>';
+      '<div class="m-card"><div class="m-rows">' + bankImport.creditGroups.map(function(g){ return groupRowHtml(g); }).join("") + '</div></div>';
   }
   return html;
 }
 
-function groupRowHtml(g, lines){
+function groupRowHtml(g){
   var badge = g.source === "rule"
     ? '<span class="bank-import-badge is-rule" title="From a rule you taught this app on an earlier import">learned</span>'
     : (g.source === "name" ? '<span class="bank-import-badge" title="Matched to a budget line by name — worth a glance">guessed</span>' : "");
@@ -347,15 +346,13 @@ function groupRowHtml(g, lines){
         '<select class="bank-group-line" data-bank-group="' + escapeAttr(g.key) + '">' +
           '<option value="">' + (g.isCredit ? "— don\'t import —" : "— not linked —") + '</option>' +
           (g.isCredit ? "" : '<option value="' + NEW_LINE_VALUE + '"' + (g.choice.newLine ? " selected" : "") + '>+ New line "' + escapeAttr(suggestedLineName(g.key)) + '"</option>') +
-          lines.map(function(l){
-            return '<option value="' + escapeAttr(l.id) + '"' + (l.id === g.choice.linkedExpenseId ? " selected" : "") + '>' + escapeAttr(l.what) + '</option>';
-          }).join("") +
+          budgetLineOptgroupsHtml(g.choice.linkedExpenseId) +
         '</select>' +
       '</label>' +
       '<label class="bank-import-field"><span>Category</span>' +
         '<select class="bank-group-category" data-bank-group="' + escapeAttr(g.key) + '">' +
           '<option value="">— none —</option>' +
-          state.categories.map(function(c){
+          sortedCategories().map(function(c){
             return '<option value="' + escapeAttr(c) + '"' + (c === g.choice.category ? " selected" : "") + '>' + escapeAttr(c) + '</option>';
           }).join("") +
         '</select>' +

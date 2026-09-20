@@ -29,7 +29,7 @@ import {
   renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel,
   setTransactionsShowAll, setTransactionsRange, modernTransactionRowOpen, budgetRowTxnsOpen, transactionSummaryText,
   openQuickLog, closeQuickLog, renderQuickLogSheet, setQuickLogLink, setQuickLogDateOpen,
-  setQuickLogShowAllChips, submitQuickLog, quickLogContextText, quickLog,
+  setQuickLogShowAllChips, setQuickLogChipFilter, submitQuickLog, quickLogContextText, quickLog,
   renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, logExpenseTransaction,
   renderCategories, addCategory, deleteCategory, renameCategoryEverywhere,
   setBudgetGroupBy, renderBudgetGroupByToggle, budgetLineItems,
@@ -2111,10 +2111,27 @@ import {
     }
     if(e.target.closest("[data-qlog-submit]")){ performQuickLog(); return; }
   });
+  // Typing in the sheet's search box narrows the chips. Patched, not re-rendered (see
+  // setQuickLogChipFilter) — a re-render per keystroke would drop the caret out of the field
+  // being typed into, the same reason picking a chip patches in place.
+  document.getElementById("quickLogRoot").addEventListener("input", function(e){
+    if(e.target.id !== "quickLogSearch") return;
+    setQuickLogChipFilter(e.target.value);
+  });
   // Enter anywhere in the sheet logs it — on a phone that's the keyboard's own "go" key, so the
-  // whole flow can be amount, chip, go without ever reaching for the button.
+  // whole flow can be amount, chip, go without ever reaching for the button. The one exception is
+  // the search box, where Enter means "the thing I just searched for": it picks the top match, so
+  // a keyboard user can type three letters, press Enter and be on the right line without leaving
+  // the field to hunt for the chip.
   document.getElementById("quickLogRoot").addEventListener("keydown", function(e){
-    if(e.key === "Enter"){ e.preventDefault(); performQuickLog(); }
+    if(e.key !== "Enter") return;
+    e.preventDefault();
+    if(e.target.id === "quickLogSearch"){
+      var topMatch = document.querySelector(".qlog-chips [data-qlog-chip]");
+      if(topMatch) topMatch.click();
+      return;
+    }
+    performQuickLog();
   });
   document.addEventListener("keydown", function(e){
     if(e.key !== "Escape") return;

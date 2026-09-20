@@ -2087,6 +2087,20 @@ import {
       if(noteEl) noteEl.placeholder = linked ? "Note (optional)" : "What was it? (optional)";
       return;
     }
+    var merchantChip = e.target.closest("[data-qlog-merchant]");
+    if(merchantChip){
+      // Fills the note rather than submitting: the chip answers "where", the amount is still to
+      // type, and a chip that logged a transaction on one tap would be a very easy way to record
+      // a $0 spend by accident. Focus goes back to the amount, which is always the next thing.
+      var noteInput = document.getElementById("quickLogNote");
+      if(noteInput){
+        noteInput.value = merchantChip.getAttribute("data-qlog-merchant") || "";
+        noteInput.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      var amountInput = document.getElementById("quickLogAmount");
+      if(amountInput) amountInput.focus();
+      return;
+    }
     if(e.target.closest("[data-qlog-more]")){
       rerenderQuickLogPreservingInput(function(){ setQuickLogShowAllChips(true); });
       return;

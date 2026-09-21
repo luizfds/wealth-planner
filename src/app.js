@@ -1,6 +1,6 @@
 import { state, setState, storageAvailable, persist, setStatus, defaultState, defaultPurchaseConfig, defaultInvestConfig, migrateState, genId, normalizeShareAsset } from "./state.js";
 import { sacrificeModeToLabel, sacrificeLabelToMode, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, INVEST_LEG_TYPES } from "./constants.js";
-import { fmtCurrency0, fmtCurrency2, localDateStr } from "./lib/format.js";
+import { fmtCurrency0, fmtCurrency2, localDateStr, parseAmountInput } from "./lib/format.js";
 import { showToast, showUndoToast, showPersistentToast } from "./lib/toast.js";
 import { escapeAttr } from "./lib/html.js";
 import { getNotifications, unreadNotificationCount, markNotificationRead, markAllNotificationsRead } from "./lib/notifications.js";
@@ -29,7 +29,7 @@ import {
   renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel,
   setTransactionsShowAll, setTransactionsRange, modernTransactionRowOpen, budgetRowTxnsOpen, transactionSummaryText,
   openQuickLog, closeQuickLog, renderQuickLogSheet, setQuickLogLink, setQuickLogDateOpen,
-  setQuickLogShowAllChips, setQuickLogChipFilter, submitQuickLog, quickLogContextText, quickLog,
+  setQuickLogShowAllChips, setQuickLogChipFilter, setQuickLogSign, submitQuickLog, quickLogContextText, quickLog,
   renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, logExpenseTransaction,
   renderCategories, addCategory, deleteCategory, renameCategoryEverywhere,
   setBudgetGroupBy, renderBudgetGroupByToggle, budgetLineItems,
@@ -2036,7 +2036,13 @@ import {
     var amount = amountEl ? (parseFloat(amountEl.value) || 0) : 0;
     // A zero/blank amount is the one thing this sheet genuinely can't infer, so it's the only
     // thing it refuses — everything else has a sensible default (today, One-off, no note).
-    if(amount <= 0){
+    //
+    // This used to reject `amount <= 0`, which quietly made refunds impossible to log: a refund
+    // *is* a negative transaction here (see the Amount field's own note in transactionRowHtml),
+    // and every path that could produce one — typing a minus, pasting one in — died on this line
+    // with "Enter an amount first", which is not what was wrong. Magnitude is what has to be
+    // non-zero; the sign comes from the Spend/Refund toggle.
+    if(!amount){
       showToast("Enter an amount first.");
       if(amountEl) amountEl.focus();
       return;
@@ -2051,7 +2057,9 @@ import {
     // planned-budget side, so the actual-vs-planned bars need their own refresh to include the
     // transaction that was just recorded.
     renderActualVsPlannedPanel();
-    showToast("Logged " + fmtCurrency2.format(t.amount) + " to " + transactionDisplayName(t, budgetLineItems()));
+    showToast(t.amount < 0
+      ? "Logged a " + fmtCurrency2.format(Math.abs(t.amount)) + " refund against " + transactionDisplayName(t, budgetLineItems())
+      : "Logged " + fmtCurrency2.format(t.amount) + " to " + transactionDisplayName(t, budgetLineItems()));
   }
   var quickLogBtn = document.getElementById("quickLogBtn");
   if(quickLogBtn) quickLogBtn.addEventListener("click", openQuickLogSheet);
@@ -2101,6 +2109,11 @@ import {
       if(amountInput) amountInput.focus();
       return;
     }
+    var signBtn = e.target.closest("[data-qlog-sign]");
+    if(signBtn){
+      rerenderQuickLogPreservingInput(function(){ setQuickLogSign(Number(signBtn.getAttribute("data-qlog-sign"))); });
+      return;
+    }
     if(e.target.closest("[data-qlog-more]")){
       rerenderQuickLogPreservingInput(function(){ setQuickLogShowAllChips(true); });
       return;
@@ -2115,8 +2128,16 @@ import {
   // setQuickLogChipFilter) — a re-render per keystroke would drop the caret out of the field
   // being typed into, the same reason picking a chip patches in place.
   document.getElementById("quickLogRoot").addEventListener("input", function(e){
-    if(e.target.id !== "quickLogSearch") return;
-    setQuickLogChipFilter(e.target.value);
+    if(e.target.id === "quickLogSearch"){ setQuickLogChipFilter(e.target.value); return; }
+    // A desktop keyboard has a minus key, so a negative amount typed straight into the field is
+    // the natural thing to do there — and it must mean the same as tapping Refund, not quietly
+    // disagree with a toggle still reading "Spend". The magnitude stays in the field and the
+    // toggle carries the sign, which is the one rule this sheet has about the two of them.
+    if(e.target.id !== "quickLogAmount") return;
+    var typed = parseFloat(e.target.value);
+    if(!(typed < 0)) return;
+    e.target.value = String(Math.abs(typed));
+    rerenderQuickLogPreservingInput(function(){ setQuickLogSign(-1); });
   });
   // Enter anywhere in the sheet logs it — on a phone that's the keyboard's own "go" key, so the
   // whole flow can be amount, chip, go without ever reaching for the button. The one exception is
@@ -2215,6 +2236,49 @@ import {
     if(delTxBtn){ deleteTransaction(Number(delTxBtn.getAttribute("data-tx-del"))); return; }
     var txShowAllBtn = e.target.closest("[data-tx-show-all-toggle]");
     if(txShowAllBtn){ setTransactionsShowAll(txShowAllBtn.getAttribute("data-tx-show-all-toggle") === "1"); return; }
+    // Flip spend/refund on an existing transaction. Patched in place rather than re-rendered, for
+    // the same reason every other field in this row is: a re-render would collapse the row the
+    // user is still editing. The button's own label has to move with it, since it says what the
+    // *next* press will do.
+    var txSignBtn = e.target.closest("[data-tx-sign]");
+    if(txSignBtn){
+      var signIdx = Number(txSignBtn.getAttribute("data-tx-sign"));
+      var signT = state.transactions[signIdx];
+      if(!signT) return;
+      signT.amount = -(Number(signT.amount) || 0);
+      var signRow = txSignBtn.closest(".m-row");
+      var signField = signRow && signRow.querySelector(".tx-amount");
+      if(signField) signField.value = signT.amount;
+      var negative = signT.amount < 0;
+      txSignBtn.textContent = negative ? "+" : "\u2212";
+      txSignBtn.setAttribute("aria-label", negative ? "Currently a refund — make it a spend" : "Make this a refund");
+      var signAmountEl = signRow && signRow.querySelector(".m-row-amt");
+      if(signAmountEl) signAmountEl.textContent = fmtCurrency2.format(signT.amount);
+      var signTotalEl = document.getElementById("totalTransactionsAmount");
+      if(signTotalEl) signTotalEl.textContent = fmtCurrency0.format(state.transactions.reduce(function(s, x){ return s + (Number(x.amount) || 0); }, 0));
+      persist();
+      renderActualVsPlannedPanel();
+      return;
+    }
+  });
+  // Pasting an amount.
+  //
+  // An <input type="number"> silently reads back "" for anything that isn't a bare number literal
+  // — "-$24.99", "−24.99" (the Unicode minus a bank app or phone keyboard copies), "1,299.00",
+  // a stray trailing space \u2014 with no error and no badInput flag to test. The field looks right
+  // and `parseFloat(value) || 0` stores zero. Sanitising the clipboard text before it lands is
+  // the only place this is catchable, so that is what this does; anything already valid is left
+  // to the browser, caret behaviour and all.
+  document.addEventListener("paste", function(e){
+    var el = e.target;
+    if(!el || (el.id !== "quickLogAmount" && !(el.classList && el.classList.contains("tx-amount")))) return;
+    var text = (e.clipboardData && e.clipboardData.getData("text")) || "";
+    if(String(Number(text.trim())) === text.trim()) return;
+    var n = parseAmountInput(text);
+    if(n === null) return;
+    e.preventDefault();
+    el.value = String(n);
+    el.dispatchEvent(new Event("input", { bubbles: true }));
   });
 
   // Actual vs. planned: click a budget row (that has at least one transaction logged against it
@@ -2262,6 +2326,20 @@ import {
       t.amount = parseFloat(e.target.value) || 0;
       var totalEl = document.getElementById("totalTransactionsAmount");
       if(totalEl) totalEl.textContent = fmtCurrency0.format(state.transactions.reduce(function(s, x){ return s + (Number(x.amount) || 0); }, 0));
+      // The −/+ button says what the next press will do, so typing a minus by hand (or pasting
+      // one) has to move it too, or the row offers to "make this a refund" when it already is.
+      var signToggle = txRow && txRow.querySelector("[data-tx-sign]");
+      if(signToggle){
+        var isRefund = t.amount < 0;
+        signToggle.textContent = isRefund ? "+" : "\u2212";
+        signToggle.setAttribute("aria-label", isRefund ? "Currently a refund — make it a spend" : "Make this a refund");
+      }
+      // The collapsed row's own figure, which patchTransactionRowHeader doesn't cover (it owns the
+      // name and sub-line). Without this the header keeps the pre-edit amount until something
+      // else forces a full re-render — most visible when flipping a spend to a refund, where the
+      // sign in the header would disagree with the field right above it.
+      var amtEl = txRow && txRow.querySelector(".m-row-amt");
+      if(amtEl) amtEl.textContent = fmtCurrency2.format(t.amount);
     }
     else if(e.target.classList.contains("tx-link")){
       var linkedId = e.target.value || null;

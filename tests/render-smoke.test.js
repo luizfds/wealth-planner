@@ -6,6 +6,8 @@ import { modernPlainRowHtml, modernRowShellHtml, optionsHtml, historyTrendHtml }
 import { categoryChartHtml, irregularBudgetSectionHtml, budgetComparisonRowHtml, transactionAccountOptionsHtml, budgetLineOptgroupsHtml, lineMatchesFilter, sortedCategories } from "../src/components/expenses.js";
 import { todaysMixHtml } from "../src/components/assets.js";
 import { sparklineHtml, sparklinePlaceholderHtml, dateAxisFormat } from "../src/lib/charts.js";
+import { parseAmountInput } from "../src/lib/format.js";
+import { openQuickLog, closeQuickLog, setQuickLogSign, submitQuickLog } from "../src/components/expenses.js";
 import { rangeByKey, rangeLabel, rangeStartDate, withinRange, bestFitRange, timeRangeControlHtml } from "../src/lib/timerange.js";
 
 // Why this file exists.
@@ -464,4 +466,80 @@ test("the filter also matches what has been logged against a line before", () =>
   assert.ok(!lineMatchesFilter(item, "uber"), "nothing in the name or category says uber");
   assert.ok(lineMatchesFilter(item, "uber", logged), "but its history does");
   assert.ok(!lineMatchesFilter(item, "lyft", logged));
+});
+
+// ---------------- Pasting an amount ----------------
+// <input type="number"> reads back "" for anything that isn't a bare number literal, with no
+// badInput flag to check — so a pasted "-$24.99" or a Unicode-minus "−24.99" looks right on
+// screen and saves as 0. This parser runs on the clipboard text before it reaches the field.
+test("a pasted amount survives currency symbols, spaces, commas and a Unicode minus", () => {
+  assert.equal(parseAmountInput("-24.99"), -24.99);
+  assert.equal(parseAmountInput("−24.99"), -24.99, "U+2212, what most keyboards and bank apps emit");
+  assert.equal(parseAmountInput("-$24.99"), -24.99);
+  assert.equal(parseAmountInput("  -24.99 "), -24.99);
+  assert.equal(parseAmountInput("$1,299.00"), 1299);
+  assert.equal(parseAmountInput("(24.99)"), -24.99, "accounting notation for a credit");
+  assert.equal(parseAmountInput("+15"), 15);
+  assert.equal(parseAmountInput(".5"), 0.5);
+});
+
+test("a pasted amount that is not a number at all returns null, not zero", () => {
+  // null and 0 have to stay distinguishable: one means "leave the field alone", the other is a
+  // legitimate amount someone typed.
+  assert.equal(parseAmountInput("Hoka shoes"), null);
+  assert.equal(parseAmountInput(""), null);
+  assert.equal(parseAmountInput("   "), null);
+  assert.equal(parseAmountInput("12.3.4"), null);
+  assert.equal(parseAmountInput("0"), 0);
+});
+
+// ---------------- Logging a refund ----------------
+// A refund is an ordinary transaction with a negative amount — every sum downstream reads
+// `s + (Number(t.amount) || 0)` rather than clamping. What was missing was a way to *say* so from
+// a phone: `inputmode="decimal"` gets the decimal keypad, which on Android and iOS alike has no
+// minus key, so the sign has to come from a control rather than the keyboard.
+//
+// The sheet is normally driven through the DOM, so these stub just enough of document for
+// renderQuickLogSheet() to no-op. What they assert is the rule the sheet is built on: the field
+// carries the magnitude, the toggle carries the sign, and the two can never disagree.
+if(typeof globalThis.document === "undefined"){
+  globalThis.document = { getElementById: () => null, querySelector: () => null, querySelectorAll: () => [] };
+}
+
+test("the Refund toggle signs the amount, whatever the field holds", () => {
+  const prev = state.transactions;
+  state.transactions = [];
+  try {
+    openQuickLog();
+    setQuickLogSign(-1);
+    const t = submitQuickLog(129.99, "Hoka shoes", "2026-09-21", "");
+    assert.equal(t.amount, -129.99, "a refund is stored negative");
+    closeQuickLog();
+  } finally { state.transactions = prev; }
+});
+
+test("Spend is the default and stays positive", () => {
+  const prev = state.transactions;
+  state.transactions = [];
+  try {
+    openQuickLog();
+    const t = submitQuickLog(42.5, "", "2026-09-21", "");
+    assert.equal(t.amount, 42.5);
+    closeQuickLog();
+  } finally { state.transactions = prev; }
+});
+
+test("a negative typed into the field cannot disagree with the toggle", () => {
+  // Belt and braces for the desktop path: app.js rewrites a typed "-45.50" to "45.50" and flips
+  // the toggle, but even if a negative reached submitQuickLog directly, the magnitude is what is
+  // read — so "Spend" never records a refund and "Refund" never records it twice over.
+  const prev = state.transactions;
+  state.transactions = [];
+  try {
+    openQuickLog();
+    assert.equal(submitQuickLog(-45.5, "", "2026-09-21", "").amount, 45.5, "Spend means spend");
+    setQuickLogSign(-1);
+    assert.equal(submitQuickLog(-45.5, "", "2026-09-21", "").amount, -45.5, "and Refund means refund, once");
+    closeQuickLog();
+  } finally { state.transactions = prev; }
 });

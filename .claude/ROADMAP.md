@@ -1388,6 +1388,109 @@ persists across a reload (it does — checked name and amount).
 
 ---
 
+## 27. `[x]` Make picking a budget line a search, not a scroll — shipped v3.12.0
+
+A household a year in has forty-odd budget lines, and every place that asks "which line is this?"
+listed all of them flat and in creation order — which after a year is no order at all. Finding
+"Spotify" meant reading the list.
+
+**What shipped.** Three surfaces, one shape each: the transaction row's "Linked to" select and the
+bank-import screen's per-merchant select now emit `<optgroup>`s, grouped by category and
+alphabetical inside each group, built by the same `computeSharedGroups()` that builds the Budget
+tab's cards — deliberately the *category* axis regardless of the Budget tab's own Group-by toggle,
+since a Needs/Wants-grouped dropdown leaves the run under "Wants" as long as the flat list was.
+Both selects also repeat the five lines logged against most recently in a "Recently used" group at
+the top (suppressed on a budget short enough to fit on one screen). The quick-log sheet gets a
+search box above its chips, shown once the lines outgrow the eight-chip cap — filtering matches a
+line's name, category and type, and everything ever typed into a transaction logged against it, so
+"uber" finds a line called "Rideshare & Taxi". Enter in the box picks the top match. Also:
+categories are now offered alphabetically everywhere one is *picked* (state.categories is
+insertion order).
+
+**How to verify.** `tests/render-smoke.test.js` covers the optgroup grouping, alphabetical sort
+within a group, the single-`selected`-even-when-listed-twice rule, and the short-budget suppression.
+Drive the quick-log search box in the browser to confirm filtering patches in place without
+dropping the caret or the typed amount.
+
+---
+
+## 28. `[x]` Make logging a refund possible on a phone — shipped v3.13.0
+
+Reported from the Android install: the keyboard offers no way to type a negative amount, and
+pasting one in doesn't save. Two separate bugs sitting on top of each other.
+
+1. The quick-log sheet refused every negative amount outright (`amount <= 0` rejected a correctly
+   pasted `-129.99` with "Enter an amount first."). A refund is a real transaction with a negative
+   amount — every sum downstream already reads `s + (Number(t.amount) || 0)` rather than clamping —
+   so the guard now only rejects zero.
+2. There was no way to *enter* one: `inputmode="decimal"` gets the decimal keypad, which has no
+   minus key on Android or iOS. The quick-log sheet gained a Spend/Refund toggle under the amount,
+   and a transaction row gained a −/+ button beside its own Amount field; the toggle owns the sign,
+   the field owns the magnitude, so typing "-45.50" on a keyboard that has a minus flips the toggle
+   rather than disagreeing with it.
+3. Pasting was broken for a third reason: `<input type="number">` silently reads back an empty
+   string for anything that isn't a bare number literal (a leading "$", a thousands comma, the
+   Unicode minus a bank app copies) — no error, no `badInput` flag, just a stored zero.
+   `parseAmountInput()` (`lib/format.js`) normalises clipboard text before it reaches the field,
+   including accounting notation `(24.99)`.
+
+**What shipped.** The sign toggle (hidden on a fine pointer — a desktop keyboard already has a
+minus key), `parseAmountInput()`, a global paste handler for the quick-log and transaction amount
+fields, and a fix to the collapsed transaction row's own header figure on an amount edit (it was
+never patched, so flipping a spend to a refund left the header showing the old sign).
+
+**How to verify.** Verified in Chrome under Pixel 5 emulation: a refund logged entirely by thumb,
+no keyboard minus anywhere, moves a budget line's actual spend and its "left" figure by the right
+amount. 78 new `render-smoke` tests cover the toggle, the paste normalisation and the header patch.
+
+---
+
+## 29. Full app assessment (September 2026, post-v3.13.0) — nothing found
+
+Requested as an open-ended "assess for bugs and improvements." Recorded here, with nothing shipped,
+so the next session doesn't re-cover the same ground.
+
+**What was checked.**
+
+- **Every page and every subtab** (`.subnav-item` within each), at 390px and 1280px, against real
+  generated sample data (income, expenses, assets, properties, three scenarios): zero console
+  errors, zero page errors, zero `documentElement.scrollWidth` overflow, zero `NaN`/`undefined`/
+  `[object Object]`/`Infinity` anywhere in rendered text.
+- **The two most recently shipped features** (items 27 and 28, both under a week old at the time
+  and the least likely to have had a follow-up audit pass): drove the quick-log sheet end to end —
+  typed an amount, filtered chips by search, toggled Spend/Refund, picked a chip, submitted — and
+  confirmed the resulting `state.transactions` row was correctly signed, correctly linked, and
+  produced no console errors. Confirmed the amount and caret survive the sheet's in-place
+  re-renders (More, filter, sign toggle) exactly as the shipping commits claimed.
+- **Dark mode**, spot-checking the item-10 legend-swatch regression class (`getComputedStyle`
+  against real elements, not eyeballing): every swatch sampled on Assets → Summary had a real
+  computed background colour, none transparent.
+- **Backup export → clear → import round trip**, via the real UI (not a direct function call): the
+  only two `localStorage` keys that differed afterward were `lastBackupDate` (deliberately
+  restamped) and two synthetic/computed income rows gaining default field values `migrateState()`
+  fills in on import — the same class of harmless, self-correcting diff `PROJECT_KNOWLEDGE.md`
+  already documented from item 16's version of this test, just with more fields now that
+  Division 293, HECS, deductions and reserve-year scheduling all exist. No data loss, nothing a
+  user would see.
+- **Financial-math code review** of the areas with the most room for a subtle off-by-one: the FIRE
+  bridge simulation (`calc/fire.js`) — contribution/withdrawal ordering, the terminal bankruptcy
+  clamp, and the accessible/debt double-counting boundary with property equity; the capital-gains
+  discount's "more than 12 months" boundary (`CGT_DISCOUNT_MIN_DAYS = 366`, i.e. day 366 qualifies,
+  day 365 doesn't — correct); and land tax's per-property aggregation share. No defects found in
+  any of them.
+- **Keyboard/focus-visible** on the newest `all:unset` buttons (`.tx-sign`, `.qlog-sign-option`):
+  both carry their own explicit `:focus-visible` rule, so item 16's root-level fix wasn't
+  bypassed by anything shipped since.
+
+**The one documentation gap found and fixed here:** items 27 and 28 (v3.12.0, v3.13.0) had shipped
+without being added to this file — the exact kind of drift item 21c fixed once already. Recorded
+above.
+
+**Not re-covered:** anything already itemised 1-26 above, on the standing assumption that a shipped
+and verified fix stays fixed unless a later item says otherwise.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

@@ -19,7 +19,7 @@ export var fmtQtyDisplay = new Intl.NumberFormat("en-AU", {maximumFractionDigits
 // Every other figure in this app is implicitly AUD — the one place that's not true is a Shares
 // holding whose market is US or Crypto (see MARKET_CURRENCY in constants.js), where the price
 // came from a source quoting USD. en-AU's currency formatting already disambiguates a non-local
-// currency on its own ("US$1,234" vs a bare "$***" for AUD), so reusing Intl here — rather than
+// currency on its own ("US$1,234" vs a bare "$1,234" for AUD), so reusing Intl here — rather than
 // hand-appending a currency-code string — gets correct, locale-aware formatting for free. Cached
 // per currency code since a NumberFormat isn't free to construct.
 var currency0Cache = {};
@@ -53,4 +53,33 @@ export function localDateStr(d){
   var m = String(d.getMonth() + 1).padStart(2, "0");
   var day = String(d.getDate()).padStart(2, "0");
   return y + "-" + m + "-" + day;
+}
+
+// Everything a pasted amount can arrive as.
+//
+// `<input type="number">` reads back an *empty string* for anything that isn't a bare number
+// literal — a trailing space, a leading "$", a thousands comma, or the Unicode minus (U+2212)
+// that a copy out of a bank app or a phone keyboard produces instead of ASCII "-". There is no
+// error and no `badInput` flag to check: the field looks right on screen and `.value` is "", so
+// `parseFloat(value) || 0` quietly stores zero. That is what makes a pasted refund "not save".
+//
+// Normalising the clipboard text before it ever reaches the field is the only place this can be
+// caught, so this is the parser the paste handler uses. Returns null (not 0) when there is no
+// number in there at all — the caller needs to tell "they pasted rubbish, leave it alone" apart
+// from "they pasted a legitimate zero".
+export function parseAmountInput(raw){
+  var s = String(raw == null ? "" : raw).trim();
+  if(!s) return null;
+  // Accounting notation: (24.99) is how a spreadsheet and many statements write a credit.
+  var bracketed = /^\((.*)\)$/.exec(s);
+  if(bracketed){ s = "-" + bracketed[1]; }
+  s = s
+    .replace(/[−‒–—―]/g, "-")   // every dash that isn't ASCII "-"
+    .replace(/[\s ]/g, "")                          // spaces, including the non-breaking kind
+    .replace(/[$€£¥]/g, "")               // the currency symbols a copy tends to bring along
+    .replace(/,/g, "")                                   // thousands separators
+    .replace(/^\+/, "");
+  if(!/^-?\d*\.?\d+$/.test(s)) return null;
+  var n = parseFloat(s);
+  return isFinite(n) ? n : null;
 }

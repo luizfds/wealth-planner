@@ -589,7 +589,9 @@
   /* The amount is the headline, not a form field — it's the first thing typed and the number the
      whole sheet is about, so it gets display-size type and no box around it. */
   .qlog-amount-row{ display:flex; align-items:center; gap:6px; padding:4px 0 10px; }
-  .qlog-currency{ font-size:26px; font-weight:600; color: var(--ink-soft); }
+  /* flex:0 0 auto and nowrap because in refund mode this is two glyphs ("−$"), and as a plain
+     flex item it shrank and broke the sign onto its own line above the dollar sign. */
+  .qlog-currency{ flex:0 0 auto; white-space:nowrap; font-size:26px; font-weight:600; color: var(--ink-soft); }
   .qlog-amount{
     flex:1 1 auto; min-width:0; all:unset; box-sizing:border-box; width:100%;
     font-size:34px; font-weight:700; font-family:inherit; color: var(--ink); line-height:1.1;
@@ -599,6 +601,23 @@
      useless on touch — the keyboard is already numeric via inputmode. */
   .qlog-amount::-webkit-outer-spin-button, .qlog-amount::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
   .qlog-amount{ -moz-appearance:textfield; }
+  /* Spend / Refund. Two words rather than a ± glyph: "Refund" is the word someone has in mind
+     when a pair of shoes goes back, and it is also the only hint that this app can record one at
+     all. Sized for a thumb (44px is the tap target the rest of this app holds to), and sitting
+     under the amount rather than beside it so the amount keeps the full width of the sheet. */
+  .qlog-sign{ display:flex; gap:6px; margin:0 0 14px; }
+  .qlog-sign-option{
+    all:unset; box-sizing:border-box; cursor:pointer; font-family:inherit; font-size:13px; font-weight:600;
+    min-height:44px; display:flex; align-items:center; justify-content:center; padding:0 18px;
+    border-radius:100px; border:1px solid var(--border); background: var(--paper-sunken); color: var(--ink-soft);
+  }
+  .qlog-sign-option:hover{ border-color: var(--brass); color: var(--ink); }
+  .qlog-sign-option:focus-visible{ box-shadow: var(--focus-ring); outline:none; }
+  .qlog-sign-option.is-selected{ background: var(--brass); border-color: var(--brass); color:#fff; }
+  /* A refund is money coming back, so the confirm button stops being the "you spent this" green
+     and picks up the same brass the selected toggle uses — the button is the last thing looked at
+     before committing, and it should not read as an ordinary spend. */
+  .qlog-submit.is-refund{ background: var(--brass); border-color: var(--brass); }
   .qlog-section-label{ font-size:10px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:700; margin-bottom:7px; }
   /* Only rendered once the chips outgrow their cap — see quickLogSearchHtml. Deliberately quieter
      than the amount above it: it is a way *into* the chips, not a field the everyday log needs. */
@@ -635,6 +654,26 @@
     padding:8px 10px; border-radius:8px; font-size:14px; font-family:inherit;
   }
   .qlog-cat:focus{ outline:none; border-color: var(--brass); box-shadow: var(--focus-ring); }
+  /* The −/+ next to a transaction row's Amount. A phone's numeric keypad has no minus key, so
+     without this a refund cannot be entered on a phone at all — it is a control, not a garnish,
+     and it gets a real 44px tap target. */
+  .tx-amount-wrap{ display:flex; align-items:stretch; gap:6px; }
+  .tx-amount-wrap .tx-amount{ flex:1 1 auto; min-width:0; }
+  .tx-sign{
+    all:unset; box-sizing:border-box; cursor:pointer; font-family:inherit; font-size:16px; font-weight:700;
+    flex:0 0 auto; min-width:44px; min-height:44px; display:flex; align-items:center; justify-content:center;
+    border:1px solid var(--border); border-radius:8px; background: var(--paper-sunken); color: var(--ink-soft);
+  }
+  .tx-sign:hover{ border-color: var(--brass); color: var(--ink); }
+  .tx-sign:focus-visible{ box-shadow: var(--focus-ring); outline:none; }
+  /* Shown only where it is needed. A keyboard with a pointer attached has a minus key; a phone's
+     numeric keypad does not, which is the whole reason this button exists. It also costs real
+     room: Amount is one column of three in the desktop row editor, and a 44px button beside the
+     field left it too narrow to read a four-figure amount in. Placed after the base rules per the
+     "responsive override goes last" note in CLAUDE.md. */
+  @media (hover: hover) and (pointer: fine){
+    .tx-sign{ display:none; }
+  }
   .qlog-date-row{ display:flex; align-items:center; gap:8px; margin:10px 0 4px; }
   .qlog-date-label{ font-size:10px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:700; }
   .qlog-date{

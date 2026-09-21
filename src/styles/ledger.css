@@ -642,6 +642,12 @@
   .qlog-chip.is-selected{ background: var(--brass); border-color: var(--brass); color:#fff; }
   .qlog-chip-more, .qlog-chip-oneoff{ font-weight:500; }
   .qlog-context{ font-size:11.5px; color: var(--ink-soft); margin:9px 0 12px; }
+  /* Only rendered in Refund mode with a line picked — see quickLogRefundChipsHtml. Sits between
+     the context line and the note field, both of which already carry their own spacing against an
+     empty gap; without its own bottom margin the note field would sit flush against these chips
+     whenever they're shown, but not when they aren't (the same "which margin owns this gap"
+     collapse the ledger row shell works around elsewhere). */
+  .qlog-refund-chips{ margin:0 0 12px; }
   .qlog-note{
     box-sizing:border-box; width:100%; border:1px solid var(--border); background: var(--paper);
     color: var(--ink); padding:9px 10px; border-radius:8px; font-size:14px; font-family:inherit;

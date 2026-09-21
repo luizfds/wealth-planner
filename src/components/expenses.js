@@ -1,6 +1,6 @@
 import { state, persist, genId } from "../state.js";
 import { CLASSES, FREQS, UNCATEGORISED } from "../constants.js";
-import { sumField, sumFieldForScenario, resolveSharedAmount, periodsOf, budgetCycleFor, reserveCycleFor, transactionDisplayName, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, isOverdue, daysUntil, lastTransactionDateFor, reserveYearWindowFor, householdYearWindow, householdYearToDate, householdYearProgress, householdYearBasis, HOUSEHOLD_YEAR_BASES } from "../calc/ledger.js";
+import { sumField, sumFieldForScenario, resolveSharedAmount, periodsOf, budgetCycleFor, reserveCycleFor, transactionDisplayName, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, isOverdue, daysUntil, lastTransactionDateFor, refundableTransactions, reserveYearWindowFor, householdYearWindow, householdYearToDate, householdYearProgress, householdYearBasis, HOUSEHOLD_YEAR_BASES } from "../calc/ledger.js";
 import { merchantGroups, worthShowingMerchants, recentMerchants } from "../calc/merchants.js";
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent0, fmtPercent1, localDateStr } from "../lib/format.js";
@@ -816,7 +816,7 @@ export function quickLogChipOrder(){
     .map(function(x){ return x.item; });
 }
 export function openQuickLog(){
-  quickLog = { linkedId: null, dateOpen: false, showAllChips: false, chipFilter: "", sign: 1 };
+  quickLog = { linkedId: null, dateOpen: false, showAllChips: false, chipFilter: "", sign: 1, refundOf: null };
   renderQuickLogSheet();
 }
 export function closeQuickLog(){
@@ -830,6 +830,10 @@ export function closeQuickLog(){
 export function setQuickLogLink(id){
   if(!quickLog) return;
   quickLog.linkedId = id || null;
+  // The refund-candidate list (see refundableTransactions) is scoped to whichever line is picked
+  // — changing lines invalidates it, so a stale selection can't survive onto a different line's
+  // history and silently misattribute the refund.
+  quickLog.refundOf = null;
 }
 export function setQuickLogShowAllChips(value){
   if(!quickLog) return;
@@ -857,7 +861,19 @@ export function setQuickLogChipFilter(value){
 export function setQuickLogSign(sign){
   if(!quickLog) return;
   quickLog.sign = sign < 0 ? -1 : 1;
+  // "Which purchase does this undo" only means anything in Refund mode — dropping back to Spend
+  // and leaving a selection behind would tag an ordinary spend as refunding something.
+  if(quickLog.sign > 0) quickLog.refundOf = null;
   renderQuickLogSheet();
+}
+// Which past purchase (if any) this refund is undoing — see refundableTransactions() and the
+// `refundOf` field it feeds. A pointer only, never a commitment: tapping the same chip again
+// clears it, same as changing your mind about the sign or the line, because a mis-tap has to be
+// one tap to undo. Patched in place by app.js like every other chip here, so an amount already
+// typed survives the click.
+export function setQuickLogRefundOf(id){
+  if(!quickLog) return;
+  quickLog.refundOf = (quickLog.refundOf && quickLog.refundOf === id) ? null : (id || null);
 }
 export function setQuickLogDateOpen(value){
   if(!quickLog) return;
@@ -898,6 +914,10 @@ export function submitQuickLog(amount, note, dateStr, category){
     // (transactionCategory), so storing a copy here would go stale the moment the line is recategorised.
     category: item ? "" : (category || "")
   };
+  // Which purchase this undoes, if the user picked one from quickLogRefundChipsHtml's list —
+  // display/traceability only (see transactionSummaryText), never required, so guarded on Refund
+  // mode rather than trusted to have been cleared by every path that could get here.
+  if(quickLog.sign < 0 && quickLog.refundOf) t.refundOf = quickLog.refundOf;
   state.transactions.push(t);
   return t;
 }
@@ -925,6 +945,29 @@ function quickLogMerchantChipsHtml(item){
   '</div>';
 }
 
+// Refunding which purchase? Tap-to-fill chips over the recent positive-amount transactions on the
+// chosen line, shown only once the sheet is in Refund mode and a line is picked — see
+// refundableTransactions() for why a one-off gets no list at all. Exported (like
+// budgetLineOptgroupsHtml) so render-smoke can pin it without a DOM.
+//
+// A tap prefills the amount with what was actually paid (app.js) rather than leaving it to be
+// remembered, and tags the new transaction with `refundOf` so transactionSummaryText can show
+// what it undoes later. That link is never required to match the typed amount — a partial refund
+// or a hand-adjusted figure is still a real refund against a real purchase.
+export function quickLogRefundChipsHtml(item){
+  if(!quickLog || quickLog.sign >= 0 || !item) return "";
+  var candidates = refundableTransactions(state.transactions, item.id, 5);
+  if(!candidates.length) return "";
+  return '<div class="qlog-section-label">Refunding which purchase?</div>' +
+    '<div class="qlog-chips qlog-refund-chips" role="group" aria-label="Recent purchases on this line">' +
+      candidates.map(function(t){
+        var on = quickLog.refundOf === t.id;
+        var label = (t.date || "—") + " · " + fmtCurrency2.format(Number(t.amount) || 0);
+        return '<button type="button" class="qlog-chip qlog-refund-chip' + (on ? " is-selected" : "") + '" data-qlog-refund-of="' + escapeAttr(t.id) + '"' +
+          ' aria-pressed="' + (on ? "true" : "false") + '">' + escapeAttr(label) + '</button>';
+      }).join("") +
+    '</div>';
+}
 function quickLogCategoryHtml(item){
   if(item || !state.categories.length) return "";
   return '<div class="qlog-cat-row"><label class="qlog-cat-label" for="quickLogCategory">Category</label>' +
@@ -1040,6 +1083,7 @@ export function renderQuickLogSheet(){
       quickLogSearchHtml() +
       quickLogChipsHtml() +
       '<p class="qlog-context">' + escapeAttr(quickLogContextText(item)) + '</p>' +
+      quickLogRefundChipsHtml(item) +
       '<input type="text" id="quickLogNote" class="qlog-note" placeholder="' + escapeAttr(item ? "Note (optional)" : "What was it? (optional)") + '" aria-label="Note (optional)">' +
       quickLogMerchantChipsHtml(item) +
       quickLogCategoryHtml(item) +
@@ -1244,8 +1288,19 @@ export function transactionCategory(t){
   }
   return "";
 }
-// Summary sub-line for a collapsed row — date, what it's linked to (or "One-off"), and its
-// resolved account, so the closed row already answers "what is this" without expanding it.
+// What a refund undoes, read live from the original transaction it points at (via `refundOf`)
+// rather than a snapshot taken at log time — so if the original's own date or amount is later
+// corrected, this label stays honest instead of quietly going stale. Null whenever there's
+// nothing to say: no link was made, or the original it pointed at has since been deleted.
+function refundTargetLabel(t){
+  if(!t || !t.refundOf) return null;
+  var original = state.transactions.find(function(x){ return x.id === t.refundOf; });
+  if(!original) return null;
+  return "refund of " + (original.date || "—") + "'s " + fmtCurrency2.format(Number(original.amount) || 0);
+}
+// Summary sub-line for a collapsed row — date, what it's linked to (or "One-off"), its resolved
+// account, and (for a refund picked from quickLogRefundChipsHtml's list) which purchase it
+// undoes, so the closed row already answers "what is this" without expanding it.
 // Exported so app.js's live-input handlers can re-derive it to patch an open row's header text
 // (see the tx-what/tx-link/tx-account cases) instead of waiting for a full renderTransactions().
 export function transactionSummaryText(t){
@@ -1253,6 +1308,8 @@ export function transactionSummaryText(t){
   var acct = transactionAccount(t);
   var bits = [t.date || "—", linked ? linked.what : "One-off"];
   if(acct) bits.push(acct);
+  var refundLabel = refundTargetLabel(t);
+  if(refundLabel) bits.push(refundLabel);
   return bits.map(escapeAttr).join(" · ");
 }
 // The Description placeholder doubles as the "you don't have to fill this in" hint: for a linked

@@ -29,7 +29,7 @@ import {
   renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel,
   setTransactionsShowAll, setTransactionsRange, modernTransactionRowOpen, budgetRowTxnsOpen, transactionSummaryText,
   openQuickLog, closeQuickLog, renderQuickLogSheet, setQuickLogLink, setQuickLogDateOpen,
-  setQuickLogShowAllChips, setQuickLogChipFilter, setQuickLogSign, submitQuickLog, quickLogContextText, quickLog,
+  setQuickLogShowAllChips, setQuickLogChipFilter, setQuickLogSign, setQuickLogRefundOf, submitQuickLog, quickLogContextText, quickLog,
   renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, logExpenseTransaction,
   renderCategories, addCategory, deleteCategory, renameCategoryEverywhere,
   setBudgetGroupBy, renderBudgetGroupByToggle, budgetLineItems,
@@ -2107,6 +2107,24 @@ import {
       }
       var amountInput = document.getElementById("quickLogAmount");
       if(amountInput) amountInput.focus();
+      return;
+    }
+    var refundChip = e.target.closest("[data-qlog-refund-of]");
+    if(refundChip){
+      var refundId = refundChip.getAttribute("data-qlog-refund-of");
+      var refundTarget = state.transactions.find(function(x){ return x.id === refundId; });
+      var wasSelected = quickLog.refundOf === refundId;
+      rerenderQuickLogPreservingInput(function(){ setQuickLogRefundOf(refundId); renderQuickLogSheet(); });
+      // Prefill the amount with what was actually paid — the whole point of picking a purchase —
+      // unless the tap just deselected it, where leaving whatever is already typed alone is more
+      // useful than clearing it back to blank.
+      if(!wasSelected && refundTarget){
+        var refundAmountInput = document.getElementById("quickLogAmount");
+        if(refundAmountInput){
+          refundAmountInput.value = Math.abs(Number(refundTarget.amount) || 0);
+          refundAmountInput.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      }
       return;
     }
     var signBtn = e.target.closest("[data-qlog-sign]");

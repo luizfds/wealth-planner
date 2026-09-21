@@ -7,7 +7,7 @@ import { categoryChartHtml, irregularBudgetSectionHtml, budgetComparisonRowHtml,
 import { todaysMixHtml } from "../src/components/assets.js";
 import { sparklineHtml, sparklinePlaceholderHtml, dateAxisFormat } from "../src/lib/charts.js";
 import { parseAmountInput } from "../src/lib/format.js";
-import { openQuickLog, closeQuickLog, setQuickLogSign, submitQuickLog } from "../src/components/expenses.js";
+import { openQuickLog, closeQuickLog, setQuickLogLink, setQuickLogSign, setQuickLogRefundOf, submitQuickLog, quickLogRefundChipsHtml, transactionSummaryText, quickLog } from "../src/components/expenses.js";
 import { rangeByKey, rangeLabel, rangeStartDate, withinRange, bestFitRange, timeRangeControlHtml } from "../src/lib/timerange.js";
 
 // Why this file exists.
@@ -542,4 +542,101 @@ test("a negative typed into the field cannot disagree with the toggle", () => {
     assert.equal(submitQuickLog(-45.5, "", "2026-09-21", "").amount, -45.5, "and Refund means refund, once");
     closeQuickLog();
   } finally { state.transactions = prev; }
+});
+
+// ---------------- Refunding a specific past purchase ----------------
+// A refund being a signed transaction against a budget *line* is enough for every total in the
+// app to net out correctly, but it doesn't say which purchase came back — useful for its own sake
+// when a line has more than one similarly-priced thing on it. quickLogRefundChipsHtml offers the
+// line's recent purchases as tap-to-fill chips; picking one is purely a display/traceability link
+// (`refundOf`), never required.
+
+test("quickLogRefundChipsHtml lists a line's past purchases, newest first, only in Refund mode", () => {
+  const prevShared = state.shared, prevTxns = state.transactions;
+  state.shared = [{ id: "e1", what: "Clothes & Shoes", classification: "Wants", amount: 100, freq: "Monthly" }];
+  state.transactions = [
+    { id: "t1", date: "2026-08-01", amount: 89, linkedExpenseId: "e1" },
+    { id: "t2", date: "2026-09-03", amount: 129.99, linkedExpenseId: "e1" }
+  ];
+  try {
+    openQuickLog();
+    setQuickLogLink("e1");
+    const item = state.shared[0];
+    assert.equal(quickLogRefundChipsHtml(item), "", "Spend mode offers nothing to refund");
+    setQuickLogSign(-1);
+    const html = quickLogRefundChipsHtml(item);
+    assert.match(html, /Refunding which purchase/);
+    assert.match(html, /data-qlog-refund-of="t2"/);
+    assert.match(html, /data-qlog-refund-of="t1"/);
+    assert.ok(html.indexOf("t2") < html.indexOf("t1"), "the more recent purchase is listed first");
+    closeQuickLog();
+  } finally { state.shared = prevShared; state.transactions = prevTxns; }
+});
+
+test("quickLogRefundChipsHtml stays empty for a one-off, or a line never logged against", () => {
+  const prevShared = state.shared, prevTxns = state.transactions;
+  state.shared = [{ id: "e1", what: "Clothes & Shoes", classification: "Wants", amount: 100, freq: "Monthly" }];
+  state.transactions = [];
+  try {
+    openQuickLog();
+    setQuickLogSign(-1);
+    assert.equal(quickLogRefundChipsHtml(null), "", "no line — no bounded history to guess from");
+    setQuickLogLink("e1");
+    assert.equal(quickLogRefundChipsHtml(state.shared[0]), "", "line picked, but nothing on it yet");
+    closeQuickLog();
+  } finally { state.shared = prevShared; state.transactions = prevTxns; }
+});
+
+test("submitQuickLog tags a refund with the purchase it was told it undoes", () => {
+  const prevShared = state.shared, prevTxns = state.transactions;
+  state.shared = [{ id: "e1", what: "Clothes & Shoes", classification: "Wants", amount: 100, freq: "Monthly" }];
+  state.transactions = [{ id: "t1", date: "2026-09-03", amount: 129.99, linkedExpenseId: "e1" }];
+  try {
+    openQuickLog();
+    setQuickLogLink("e1");
+    setQuickLogSign(-1);
+    setQuickLogRefundOf("t1");
+    const refund = submitQuickLog(129.99, "", "2026-09-21", "");
+    assert.equal(refund.refundOf, "t1");
+    assert.match(transactionSummaryText(refund), /refund of 2026-09-03's \$129\.99/);
+    closeQuickLog();
+  } finally { state.shared = prevShared; state.transactions = prevTxns; }
+});
+
+test("submitQuickLog never tags a plain spend, whatever refundOf was last left holding", () => {
+  const prevShared = state.shared, prevTxns = state.transactions;
+  state.shared = [{ id: "e1", what: "Clothes & Shoes", classification: "Wants", amount: 100, freq: "Monthly" }];
+  state.transactions = [{ id: "t1", date: "2026-09-03", amount: 129.99, linkedExpenseId: "e1" }];
+  try {
+    openQuickLog();
+    setQuickLogLink("e1");
+    // setQuickLogSign(1) (Spend, the default) already clears refundOf on its own — this checks the
+    // rule is also enforced at the point it actually matters, rather than trusted to have run.
+    const spend = submitQuickLog(50, "", "2026-09-21", "");
+    assert.equal(spend.refundOf, undefined);
+    closeQuickLog();
+  } finally { state.shared = prevShared; state.transactions = prevTxns; }
+});
+
+test("setQuickLogRefundOf toggles off on a second tap of the same chip", () => {
+  openQuickLog();
+  setQuickLogSign(-1);
+  setQuickLogRefundOf("t1");
+  assert.equal(quickLog.refundOf, "t1");
+  setQuickLogRefundOf("t1");
+  assert.equal(quickLog.refundOf, null, "a second tap of the same chip undoes the link");
+  closeQuickLog();
+});
+
+test("transactionSummaryText says nothing extra when refundOf points at nothing (deleted, or never set)", () => {
+  assert.doesNotMatch(transactionSummaryText({ date: "2026-09-21", amount: -50 }), /refund of/);
+  const prevTxns = state.transactions;
+  state.transactions = [];
+  try {
+    assert.doesNotMatch(
+      transactionSummaryText({ date: "2026-09-21", amount: -50, refundOf: "gone" }),
+      /refund of/,
+      "a dangling refundOf (its target deleted) fails quietly rather than showing a broken label"
+    );
+  } finally { state.transactions = prevTxns; }
 });

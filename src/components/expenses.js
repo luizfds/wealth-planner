@@ -816,7 +816,7 @@ export function quickLogChipOrder(){
     .map(function(x){ return x.item; });
 }
 export function openQuickLog(){
-  quickLog = { linkedId: null, dateOpen: false, showAllChips: false, chipFilter: "" };
+  quickLog = { linkedId: null, dateOpen: false, showAllChips: false, chipFilter: "", sign: 1 };
   renderQuickLogSheet();
 }
 export function closeQuickLog(){
@@ -845,6 +845,20 @@ export function setQuickLogChipFilter(value){
   var area = document.querySelector("[data-qlog-chip-area]");
   if(area) area.outerHTML = quickLogChipsHtml();
 }
+// Spend or refund. This exists because a phone cannot type a minus sign: `inputmode="decimal"`
+// gets the decimal keypad, which on both Android and iOS has no "-" key at all, and pasting one
+// in fails for its own reasons (see parseAmountInput). A refund is an ordinary transaction with a
+// negative amount — every sum downstream already reads `s + (Number(t.amount) || 0)` rather than
+// clamping — so the only thing missing was a way to say so with a thumb.
+//
+// The toggle, not the field, owns the sign: the amount typed is always read as a magnitude and
+// signed from here. Typing "-" on a keyboard that has one flips the toggle instead (see app.js),
+// so the two can never disagree about what is being recorded.
+export function setQuickLogSign(sign){
+  if(!quickLog) return;
+  quickLog.sign = sign < 0 ? -1 : 1;
+  renderQuickLogSheet();
+}
 export function setQuickLogDateOpen(value){
   if(!quickLog) return;
   quickLog.dateOpen = !!value;
@@ -854,6 +868,11 @@ export function setQuickLogDateOpen(value){
 // already gone this month. It's the whole reason to pick a line before logging rather than
 // after — you find out you're at $120 of $200 *while* deciding, not on a report later.
 export function quickLogContextText(item){
+  if(quickLog && quickLog.sign < 0){
+    return item
+      ? "Recorded as a refund — it comes back off what you've spent on this line."
+      : "Recorded as a refund on a one-off — it comes back off this month's total.";
+  }
   if(!item) return "One-off spend — not counted against any budget line.";
   var spent = monthTransactionsForExpense(item.id).reduce(function(sum, pair){ return sum + (Number(pair.t.amount) || 0); }, 0);
   var planned = resolveSharedAmount(item, state.activeScenario);
@@ -870,7 +889,8 @@ export function submitQuickLog(amount, note, dateStr, category){
   var t = {
     id: genId("t"),
     date: dateStr || localDateStr(),
-    amount: Number(amount) || 0,
+    // Magnitude from the field, sign from the toggle — see setQuickLogSign.
+    amount: Math.abs(Number(amount) || 0) * (quickLog.sign < 0 ? -1 : 1),
     what: (note || "").trim(),
     linkedExpenseId: item ? item.id : null,
     account: item && item.account ? item.account : "",
@@ -925,6 +945,25 @@ function quickLogChipHtml(item){
   var selected = quickLog.linkedId === item.id;
   return '<button type="button" class="qlog-chip' + (selected ? " is-selected" : "") + '" data-qlog-chip="' + escapeAttr(item.id) + '"' +
     ' aria-pressed="' + (selected ? "true" : "false") + '">' + escapeAttr(item.what) + '</button>';
+}
+// The sign toggle sits under the amount rather than beside it: at 390px the amount field is the
+// full width of the sheet, and two pills squeezed in next to it would shrink the one thing this
+// sheet is built around. Two explicit words beat a "±" symbol here — "Refund" is what the user
+// is looking for when a pair of shoes goes back, and a sign glyph is not something anyone scans
+// for.
+function quickLogAmountRowHtml(){
+  var refund = quickLog.sign < 0;
+  return '<div class="qlog-amount-row">' +
+      '<span class="qlog-currency" aria-hidden="true">' + (refund ? "−$" : "$") + '</span>' +
+      '<input type="number" step="0.01" inputmode="decimal" id="quickLogAmount" class="qlog-amount" placeholder="0.00" aria-label="Amount' + (refund ? " refunded" : " spent") + '">' +
+    '</div>' +
+    '<div class="qlog-sign" role="group" aria-label="Spend or refund">' +
+      [[1, "Spend"], [-1, "Refund"]].map(function(pair){
+        var on = (refund ? -1 : 1) === pair[0];
+        return '<button type="button" class="qlog-sign-option' + (on ? " is-selected" : "") + '"' +
+          ' data-qlog-sign="' + pair[0] + '" aria-pressed="' + (on ? "true" : "false") + '">' + pair[1] + '</button>';
+      }).join("") +
+    '</div>';
 }
 function quickLogChipsHtml(){
   var ordered = quickLogChipOrder();
@@ -989,12 +1028,14 @@ export function renderQuickLogSheet(){
   }
   var item = quickLog.linkedId && budgetLineItems().find(function(i){ return i.id === quickLog.linkedId; });
   root.innerHTML = '<div class="review-backdrop" data-qlog-backdrop>' +
-    '<div class="review-panel qlog-panel" role="dialog" aria-label="Log spend">' +
-      '<div class="review-head"><h4>Log spend</h4><button type="button" class="icon-btn" data-qlog-close aria-label="Close">✕</button></div>' +
-      '<div class="qlog-amount-row">' +
-        '<span class="qlog-currency" aria-hidden="true">$</span>' +
-        '<input type="number" step="0.01" inputmode="decimal" id="quickLogAmount" class="qlog-amount" placeholder="0.00" aria-label="Amount spent — negative for a refund">' +
-      '</div>' +
+    // The heading follows the toggle. It is the first thing read on the way back to the sheet and
+    // the last thing read on the way out of it, and a sheet titled "Log spend" over a button that
+    // says "Log refund" is exactly the kind of small disagreement that makes someone stop and
+    // check whether the app understood them.
+    '<div class="review-panel qlog-panel" role="dialog" aria-label="' + (quickLog.sign < 0 ? "Log refund" : "Log spend") + '">' +
+      '<div class="review-head"><h4>' + (quickLog.sign < 0 ? "Log refund" : "Log spend") + '</h4>' +
+      '<button type="button" class="icon-btn" data-qlog-close aria-label="Close">✕</button></div>' +
+      quickLogAmountRowHtml() +
       '<div class="qlog-section-label">What was it for?</div>' +
       quickLogSearchHtml() +
       quickLogChipsHtml() +
@@ -1003,7 +1044,8 @@ export function renderQuickLogSheet(){
       quickLogMerchantChipsHtml(item) +
       quickLogCategoryHtml(item) +
       quickLogDateRowHtml() +
-      '<button type="button" class="btn review-log-btn qlog-submit" data-qlog-submit>Log spend</button>' +
+      '<button type="button" class="btn review-log-btn qlog-submit' + (quickLog.sign < 0 ? " is-refund" : "") + '" data-qlog-submit>' +
+        (quickLog.sign < 0 ? "Log refund" : "Log spend") + '</button>' +
     '</div></div>';
   var amountInput = document.getElementById("quickLogAmount");
   // Focus lands on the amount every time the sheet re-renders (a chip page change, expanding the
@@ -1225,7 +1267,15 @@ function transactionRowHtml(t, idx){
   var whatInput = '<input type="text" class="tx-what" data-tx-index="' + idx + '" value="' + escapeAttr(t.what || "") + '" placeholder="' + escapeAttr(transactionDescriptionPlaceholder(t)) + '" aria-label="Description (optional)" title="Optional — only worth filling in when the budget line\'s own name doesn\'t say enough (e.g. what the Miscellaneous spend actually was)">';
   // No min="0": a refund is a real transaction with a negative amount, and every sum downstream
   // already reads `s + (Number(t.amount) || 0)` rather than clamping.
-  var amountInput = '<input type="number" step="0.01" class="tx-amount" data-tx-index="' + idx + '" value="' + t.amount + '" aria-label="Amount (negative for a refund)">';
+  // The −/+ button is not decoration: a phone's numeric keypad has no minus key, so without it a
+  // refund cannot be entered on the surface this app is mostly used from. It flips the sign of
+  // whatever is in the field, which is also the only way to *undo* a refund with a thumb.
+  var amountInput = '<div class="tx-amount-wrap">' +
+    '<input type="number" step="0.01" class="tx-amount" data-tx-index="' + idx + '" value="' + t.amount + '" aria-label="Amount (negative for a refund)">' +
+    '<button type="button" class="tx-sign" data-tx-sign="' + idx + '" aria-label="' +
+      (Number(t.amount) < 0 ? "Currently a refund — make it a spend" : "Make this a refund") + '"' +
+      ' title="Switch between spend and refund">' + (Number(t.amount) < 0 ? "+" : "−") + '</button>' +
+  '</div>';
   var linkSelect = '<select class="tx-link" data-tx-index="' + idx + '" aria-label="Linked expense" title="Pick a budget line to log this transaction against — fills in its description and amount for you, or leave it as One-off for spend that has no matching budget line">' + transactionLinkOptionsHtml(t.linkedExpenseId) + '</select>';
   var acctSelect = '<select class="tx-account" data-tx-index="' + idx + '" aria-label="Account">' + transactionAccountOptionsHtml(t.account || "") + '</select>';
   var summary = modernRowSummaryHtml({

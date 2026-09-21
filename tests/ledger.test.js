@@ -1,7 +1,7 @@
 import "./_env.js";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, isOverdue, daysUntil, appendHistorySnapshot, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, lastTransactionDateFor, transactionDisplayName, budgetCycleFor, reserveCycleFor, freqStepMonths, lastKnownDateFor, resolvedDueMonth, reserveYearWindow, reserveYearWindowFor, householdYearWindow, nextPayDate, payScheduleKindFor } from "../src/calc/ledger.js";
+import { toWeekly, periodsOf, sumField, sumByClassification, safeDiv, sumByAccount, resolveSharedAmount, sumFieldForScenario, nextDueDate, isOverdue, daysUntil, appendHistorySnapshot, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, lastTransactionDateFor, refundableTransactions, transactionDisplayName, budgetCycleFor, reserveCycleFor, freqStepMonths, lastKnownDateFor, resolvedDueMonth, reserveYearWindow, reserveYearWindowFor, householdYearWindow, nextPayDate, payScheduleKindFor } from "../src/calc/ledger.js";
 
 test("toWeekly converts every frequency to a weekly figure", function(){
   assert.equal(toWeekly(100, "Weekly"), 100);
@@ -209,6 +209,29 @@ test("lastTransactionDateFor returns the most recent date linked to an expense i
   assert.equal(lastTransactionDateFor(txns, "exp1"), "2026-03-01");
   assert.equal(lastTransactionDateFor(txns, "exp2"), "2026-02-01");
   assert.equal(lastTransactionDateFor(txns, "exp3"), null);
+});
+
+test("refundableTransactions lists a line's past purchases newest first, refunds and other lines excluded", function(){
+  var txns = [
+    { id: "t1", date: "2026-01-05", amount: 129.99, linkedExpenseId: "exp1" },
+    { id: "t2", date: "2026-03-01", amount: 45.5, linkedExpenseId: "exp1" },
+    { id: "t3", date: "2026-02-14", amount: -20, linkedExpenseId: "exp1" },   // a refund itself — not a candidate
+    { id: "t4", date: "2026-06-01", amount: 99, linkedExpenseId: "exp2" }     // a different line
+  ];
+  var candidates = refundableTransactions(txns, "exp1");
+  assert.deepEqual(candidates.map(function(t){ return t.id; }), ["t2", "t1"]);
+});
+
+test("refundableTransactions returns nothing for a one-off (no line to bound the history)", function(){
+  var txns = [{ id: "t1", date: "2026-01-05", amount: 50, linkedExpenseId: null }];
+  assert.deepEqual(refundableTransactions(txns, null), []);
+});
+
+test("refundableTransactions respects its limit", function(){
+  var txns = [1, 2, 3, 4, 5, 6, 7].map(function(n){
+    return { id: "t" + n, date: "2026-01-0" + n, amount: 10, linkedExpenseId: "exp1" };
+  });
+  assert.equal(refundableTransactions(txns, "exp1", 3).length, 3);
 });
 
 test("transactionDisplayName prefers its own description, then the linked budget line's name", function(){

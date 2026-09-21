@@ -1491,6 +1491,45 @@ and verified fix stays fixed unless a later item says otherwise.
 
 ---
 
+## 30. `[x]` Let a refund point at the purchase it undoes — shipped v3.14.0
+
+Raised against item 28/29: a refund being a negative transaction against a budget *line* is
+enough for every total in the app to net out correctly, but doesn't say which purchase on that
+line actually came back — worth having once a line carries more than one similarly-priced thing
+(which pair of shoes, which Amazon order).
+
+**What shipped.** Toggling Refund with a budget line already picked offers that line's recent
+positive-amount transactions as tap-to-fill chips ("Refunding which purchase?"), the same shape as
+the existing merchant-name chips. Tapping one prefills the amount with what was actually paid and
+tags the new transaction with `refundOf`; the collapsed row then reads that back as "refund of
+`<date>`'s `<amount>`" — a live lookup against the original transaction, not a snapshot, so
+correcting the original's own date or amount later keeps the label honest rather than going stale.
+`refundableTransactions()` (`calc/ledger.js`) is the pure piece behind the chip list: newest-first,
+scoped to the one line, with refunds themselves excluded so a refund can never be offered as
+something to refund.
+
+**Deliberately just a pointer, never required or enforced** — the same restraint item 22 used for
+a deleted account's rows: a refund for something never logged (a gift, a bank correction) still
+works with nothing selected; the amount can still be hand-edited away from the matched figure
+after picking a candidate (a partial refund is a real refund); and the candidate list is only
+offered once a line is picked at all — a one-off has no bounded history to guess from, and
+guessing wrong would be worse than not offering a list. Tapping the same chip twice clears the
+link, same as changing the line or the sign back to Spend; `submitQuickLog` only ever attaches
+`refundOf` in Refund mode regardless of what `quickLog.refundOf` happens to be holding, rather
+than trusting every path that reaches it to have cleared it first.
+
+**How to verify.** `tests/ledger.test.js` pins `refundableTransactions()` (order, the line
+boundary, refunds excluded from their own candidate list, the limit). `tests/render-smoke.test.js`
+covers the chip HTML (Spend mode renders nothing, a one-off renders nothing, an unlogged line
+renders nothing), `submitQuickLog` tagging a refund and never a plain spend, and
+`transactionSummaryText` staying silent when `refundOf` points at nothing (never set, or its
+target since deleted). Driven end to end in Chrome at 390px: logging a spend, then a refund against
+it — the chip appears only in Refund mode, tapping it overwrites a hand-typed amount with the
+original's, tapping it again clears the link and leaves the field alone, and the submitted
+transaction carries `refundOf` with no console errors.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

@@ -162,6 +162,25 @@ export function lastTransactionDateFor(transactions, expenseId){
   });
   return latest;
 }
+// Candidate purchases a refund might be undoing — recent positive-amount transactions logged
+// against the same budget line, newest first. Offered as tap-to-fill chips in the quick-log
+// sheet's Refund mode (see `refundOf` on a transaction) so the amount doesn't have to be retyped
+// from memory and the two rows can be traced back to each other later.
+//
+// Deliberately scoped to a single line rather than offered for a one-off: without a line there is
+// no bounded history to pick from, only every transaction ever logged, and guessing which one a
+// refund undoes from that pile would be worse than not guessing. And deliberately just a pointer,
+// never enforced or required — a refund for something never logged (a gift, a bank correction)
+// still has to work with no candidate selected at all.
+export function refundableTransactions(transactions, linkedExpenseId, limit){
+  limit = limit || 5;
+  if(!linkedExpenseId) return [];
+  return (transactions || [])
+    .filter(function(t){ return t.linkedExpenseId === linkedExpenseId && (Number(t.amount) || 0) > 0; })
+    .slice()
+    .sort(function(a, b){ return String((b && b.date) || "").localeCompare(String((a && a.date) || "")); })
+    .slice(0, limit);
+}
 // The one place that decides what a transaction is *called* anywhere it's listed (its own row,
 // a budget line's drill-down, search results). A transaction's own description wins when it has
 // one, but descriptions are optional — most spend logged against a budget line needs no extra

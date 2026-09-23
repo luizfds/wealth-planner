@@ -1362,10 +1362,72 @@ export function renderAssets(){
   renderAssetCategoryPage("Other");
   renderAssetsSummary();
   renderDebts();
+  renderOffsetsSubpage();
   renderNetWorthPanel();
   renderPortfolioHistoryChart();
   renderAllocationChart();
   renderProjectionOutputs();
+}
+
+// ---------------- Offsets: a second place to see and edit loan.offsetBalance ----------------
+//
+// An offset account is real, spendable cash — liquidAssetsValue() already adds it in alongside
+// Cash and Shares — but the only place to see or change it lived three levels deep on the
+// Properties tab (a property, its Loans section, one specific loan's editor), despite being
+// exactly the kind of "what do I actually have" figure this page answers for everything else.
+//
+// Not a sixth ASSET_CATEGORIES entry: an offset balance isn't a thing you add or delete, it's a
+// number that already lives on a loan the Properties tab owns. This tab is a second window onto
+// that same field, not a second copy of it — every edit here writes straight back to the same
+// property.loans[i].offsetBalance the loan editor reads, and vice versa (see app.js's two
+// `.offset-balance-input`/`.loan-offset` handlers, which patch each other's DOM on every edit so
+// neither page can go stale behind the other). Which is also why this list has no "+Add": you
+// can't create an offset account independent of the loan it's attached to, only set its balance.
+function offsetRowHtml(property, loan, li, colorIdx){
+  var dot = '<span class="m-row-dot series-color-' + colorIdx + '" aria-hidden="true"></span>';
+  return '<div class="m-row computed"><div class="m-row-summary" style="cursor:default">' +
+    dot +
+    '<div style="flex:1 1 auto;min-width:0">' +
+      '<div class="m-row-name">' + escapeAttr(loan.what) + '</div>' +
+      '<div class="m-row-sub">' + escapeAttr(property.what) + '</div>' +
+    '</div>' +
+    '<input type="number" step="1000" min="0" class="offset-balance-input" data-offset-property="' + escapeAttr(property.id) + '" data-offset-loan="' + li + '"' +
+      ' value="' + (Number(loan.offsetBalance) || 0) + '" aria-label="Offset balance for ' + escapeAttr(loan.what) + ' on ' + escapeAttr(property.what) + '"' +
+      // flex:none: without it, this row's flex layout (dot + name/sub column + this input + the
+      // jump button, all inside a 390px phone) shrinks a fixed-width input below its own width:110
+      // once space is tight — the same trap .m-cost-row .row-del's own flex:none guards against.
+      ' style="width:110px;min-height:40px;flex:none;text-align:right;font-family:\'IBM Plex Mono\',monospace;border:1px solid transparent;background:transparent;color:inherit;padding:5px 6px;border-radius:6px">' +
+    '<button type="button" class="icon-btn" style="flex:none" data-jump-property="' + escapeAttr(property.id) + '" aria-label="View ' + escapeAttr(property.what) + ' on Properties" title="View on Properties">' +
+      '<svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 5h8v8"/><path d="M15 5L5 15"/></svg>' +
+    '</button>' +
+  '</div></div>';
+}
+export function renderOffsetsSubpage(){
+  var container = document.getElementById("assetsSub-Offsets");
+  if(!container) return;
+  var rows = [];
+  state.properties.forEach(function(p){
+    (p.loans || []).forEach(function(loan, li){ rows.push({ property: p, loan: loan, li: li }); });
+  });
+  var total = propertiesOffsetTotal();
+  var body = !rows.length
+    ? '<p class="ledger-note" style="margin:0">No property loans yet — add one on the Properties tab, and any offset account attached to it shows up here.</p>'
+    : '<p class="ledger-note" style="margin:0 0 12px">Editing here changes the same field the loan\'s own Properties card shows — this is just a second place to see and update it.</p>' +
+      '<div class="m-rows">' + rows.map(function(r, i){ return offsetRowHtml(r.property, r.loan, r.li, i % 8); }).join("") + '</div>';
+  container.innerHTML = '<div class="ledgers"><details class="ledger" open>' +
+    '<summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Offsets</h2></div>' +
+    '<div class="ledger-total">Total <b id="totalOffsetsAmount">' + fmtCurrency0.format(total) + '</b></div></summary>' +
+    '<div class="ledger-body">' + body + '</div></details></div>';
+}
+// Patches one row's balance in place (called from the Properties-side .loan-offset handler in
+// app.js, the mirror of patchPropertyCardComputed patching the other direction) plus the total —
+// without this, editing the offset from Properties would leave this tab showing a stale figure
+// until the next full renderAssets().
+export function patchOffsetsRow(propertyId, loanIdx, offsetBalance){
+  var input = document.querySelector('#assetsSub-Offsets [data-offset-property="' + CSS.escape(propertyId) + '"][data-offset-loan="' + loanIdx + '"]');
+  if(input && document.activeElement !== input) input.value = offsetBalance;
+  var totalEl = document.getElementById("totalOffsetsAmount");
+  if(totalEl) totalEl.textContent = fmtCurrency0.format(propertiesOffsetTotal());
 }
 
 // Deliberately not built on the generic ledger-table.js machinery — debts have a different

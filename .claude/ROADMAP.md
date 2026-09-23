@@ -1530,6 +1530,86 @@ transaction carries `refundOf` with no console errors.
 
 ---
 
+## 31. `[x]` An accidental "+ Add" tap no longer sticks — shipped v3.14.1
+
+Reported: tapping "+ Add" (an asset, an expense, a loan, …) by mistake and then just navigating
+away left a "New item"/$0 record behind. Every "+Add" button pushed straight into state and
+persisted immediately, before the row's modal even opened.
+
+**What shipped.** Every one of these flows already routes through one function to open the row as
+a modal (`openModernRow`) and one to close it (`closeActiveModernRowUI` — the single entry point
+for Done, Escape, a backdrop tap, the back button, and switching straight to another row).
+`openModernRow` now optionally takes the just-created item and snapshots it; `closeActiveModernRowUI`
+compares the live object against that snapshot on the way out and — only for a row opened via
+"+Add" — splices it back out, unpersisted, if nothing about it changed. Comparing against the
+*current* object rather than a "was anything typed" flag means typing something and undoing it
+back to the same defaults still discards, correctly — nothing about the row differs from one
+nobody touched.
+
+Covers assets, share holdings, vehicles, income, shared/housing/property expenses, property loans,
+and the Transactions page's "Add with full details". **Deliberately not covered:** debts and a
+property's acquisition costs, which use a simpler always-visible-row pattern with no open/close
+step to hook — a smaller, lower-risk gap left for later if it turns out to matter.
+
+**The trap, if you touch this again:** guarded by object identity, not just the row's index — if
+the user instead taps the row's own Delete button (which doesn't close the modal), the array has
+already shifted, and a later Escape/backdrop-close must not splice out whatever now happens to sit
+at the old index.
+
+**How to verify.** Not unit-testable — pure DOM/event wiring. Driven in Chrome across 10 scenarios:
+add + abandon via Done/Escape/backdrop for assets, expenses, income, a manual transaction and a
+property loan (all discarded); add + edit + Done (saved); an *existing* row opened and closed
+untouched (must survive — the one regression this could plausibly cause); explicit Delete on a
+fresh row followed by a further close (single removal, no double-splice, no crash).
+
+---
+
+## 32. `[x]` Manage property offset accounts from an Assets tab — shipped v3.15.0
+
+Asked: offset balances already count as liquid wealth everywhere in the app's math
+(`liquidAssetsValue()` adds them in alongside Cash and Shares), but the only place to see or change
+one lived three levels deep on the Properties tab — a property, its Loans section, one specific
+loan's editor. The loan editor's own Offset field tooltip already warned "Don't also add it as a
+separate Cash asset on the Assets tab, or it'll be counted twice", a sign this number needed
+somewhere more visible than it had.
+
+**What shipped.** A new "Offsets" tab on the Assets page, listing every property loan with its
+current offset balance and which property it belongs to. **Not** a sixth `ASSET_CATEGORIES` entry
+— an offset balance isn't a thing you add or delete, it's a number that already lives on a loan the
+Properties tab owns, so this list has no "+Add" and no Delete. Every row is a second window onto
+`property.loans[i].offsetBalance`, not a copy of it: editing here writes straight back to the same
+field, and a "View on Properties" button jumps to the loan's own card for anything beyond the
+balance (rate, term, repayment type).
+
+**The trap, if you touch this again:** both directions of the edit have to stay in sync without a
+page switch, and the two patch functions involved cover different halves of the same page.
+`patchPropertyCardComputed()` (existing) only patches *derived* figures on the Properties card —
+badges, sub-lines, headline amounts — never the raw `.loan-offset` input itself, since that field is
+normally the source of truth on that page and nothing else there ever needs to overwrite it. Editing
+from the new Offsets tab is the one case that does, so it patches `.loan-offset`'s value directly as
+well. The reverse direction needed the mirror: the existing `.loan-offset` handler now also patches
+this tab's row and running total (`patchOffsetsRow`), which `patchPropertyCardComputed` doesn't
+reach either. Both patches are guarded by `document.activeElement` so neither can fight someone
+actively typing into the other copy of the same field.
+
+**Also caught by measuring rather than eyeballing:** the row's fixed-width input and icon button
+(110px and 40px) shrank under flex layout on a 390px phone once nothing protected them — the same
+trap `.m-cost-row .row-del`'s own `flex:none` already exists to avoid. Fixed by giving both the same
+treatment; confirmed 40×40 via `getBoundingClientRect()`, not by looking at it.
+
+**Reused rather than special-cased:** the quick-action FAB's existing "no single obvious action on
+this page" fallback (already relied on by Projections) covers a tab with nothing to add, so no FAB
+changes were needed.
+
+**How to verify.** Not unit-testable — DOM rendering plus two-way live patching. Driven in Chrome at
+390px, light and dark: renders with real loans and with none; no horizontal overflow, including a
+synthetic long property/loan name; editing from either page updates both pages' figures and both
+running totals; the jump button reaches the right property card; Tab-key focus (not `page.focus()`,
+which doesn't reliably trigger `:focus-visible` the same way) shows a real ring on both the input and
+the jump button.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

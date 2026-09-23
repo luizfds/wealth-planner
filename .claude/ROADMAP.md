@@ -1530,6 +1530,40 @@ transaction carries `refundOf` with no console errors.
 
 ---
 
+## 31. `[x]` An accidental "+ Add" tap no longer sticks — shipped v3.14.1
+
+Reported: tapping "+ Add" (an asset, an expense, a loan, …) by mistake and then just navigating
+away left a "New item"/$0 record behind. Every "+Add" button pushed straight into state and
+persisted immediately, before the row's modal even opened.
+
+**What shipped.** Every one of these flows already routes through one function to open the row as
+a modal (`openModernRow`) and one to close it (`closeActiveModernRowUI` — the single entry point
+for Done, Escape, a backdrop tap, the back button, and switching straight to another row).
+`openModernRow` now optionally takes the just-created item and snapshots it; `closeActiveModernRowUI`
+compares the live object against that snapshot on the way out and — only for a row opened via
+"+Add" — splices it back out, unpersisted, if nothing about it changed. Comparing against the
+*current* object rather than a "was anything typed" flag means typing something and undoing it
+back to the same defaults still discards, correctly — nothing about the row differs from one
+nobody touched.
+
+Covers assets, share holdings, vehicles, income, shared/housing/property expenses, property loans,
+and the Transactions page's "Add with full details". **Deliberately not covered:** debts and a
+property's acquisition costs, which use a simpler always-visible-row pattern with no open/close
+step to hook — a smaller, lower-risk gap left for later if it turns out to matter.
+
+**The trap, if you touch this again:** guarded by object identity, not just the row's index — if
+the user instead taps the row's own Delete button (which doesn't close the modal), the array has
+already shifted, and a later Escape/backdrop-close must not splice out whatever now happens to sit
+at the old index.
+
+**How to verify.** Not unit-testable — pure DOM/event wiring. Driven in Chrome across 10 scenarios:
+add + abandon via Done/Escape/backdrop for assets, expenses, income, a manual transaction and a
+property loan (all discarded); add + edit + Done (saved); an *existing* row opened and closed
+untouched (must survive — the one regression this could plausibly cause); explicit Delete on a
+fresh row followed by a further close (single removal, no double-splice, no crash).
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

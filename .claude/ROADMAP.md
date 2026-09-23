@@ -1564,6 +1564,52 @@ fresh row followed by a further close (single removal, no double-splice, no cras
 
 ---
 
+## 32. `[x]` Manage property offset accounts from an Assets tab — shipped v3.15.0
+
+Asked: offset balances already count as liquid wealth everywhere in the app's math
+(`liquidAssetsValue()` adds them in alongside Cash and Shares), but the only place to see or change
+one lived three levels deep on the Properties tab — a property, its Loans section, one specific
+loan's editor. The loan editor's own Offset field tooltip already warned "Don't also add it as a
+separate Cash asset on the Assets tab, or it'll be counted twice", a sign this number needed
+somewhere more visible than it had.
+
+**What shipped.** A new "Offsets" tab on the Assets page, listing every property loan with its
+current offset balance and which property it belongs to. **Not** a sixth `ASSET_CATEGORIES` entry
+— an offset balance isn't a thing you add or delete, it's a number that already lives on a loan the
+Properties tab owns, so this list has no "+Add" and no Delete. Every row is a second window onto
+`property.loans[i].offsetBalance`, not a copy of it: editing here writes straight back to the same
+field, and a "View on Properties" button jumps to the loan's own card for anything beyond the
+balance (rate, term, repayment type).
+
+**The trap, if you touch this again:** both directions of the edit have to stay in sync without a
+page switch, and the two patch functions involved cover different halves of the same page.
+`patchPropertyCardComputed()` (existing) only patches *derived* figures on the Properties card —
+badges, sub-lines, headline amounts — never the raw `.loan-offset` input itself, since that field is
+normally the source of truth on that page and nothing else there ever needs to overwrite it. Editing
+from the new Offsets tab is the one case that does, so it patches `.loan-offset`'s value directly as
+well. The reverse direction needed the mirror: the existing `.loan-offset` handler now also patches
+this tab's row and running total (`patchOffsetsRow`), which `patchPropertyCardComputed` doesn't
+reach either. Both patches are guarded by `document.activeElement` so neither can fight someone
+actively typing into the other copy of the same field.
+
+**Also caught by measuring rather than eyeballing:** the row's fixed-width input and icon button
+(110px and 40px) shrank under flex layout on a 390px phone once nothing protected them — the same
+trap `.m-cost-row .row-del`'s own `flex:none` already exists to avoid. Fixed by giving both the same
+treatment; confirmed 40×40 via `getBoundingClientRect()`, not by looking at it.
+
+**Reused rather than special-cased:** the quick-action FAB's existing "no single obvious action on
+this page" fallback (already relied on by Projections) covers a tab with nothing to add, so no FAB
+changes were needed.
+
+**How to verify.** Not unit-testable — DOM rendering plus two-way live patching. Driven in Chrome at
+390px, light and dark: renders with real loans and with none; no horizontal overflow, including a
+synthetic long property/loan name; editing from either page updates both pages' figures and both
+running totals; the jump button reaches the right property card; Tab-key focus (not `page.focus()`,
+which doesn't reliably trigger `:focus-visible` the same way) shows a real ring on both the input and
+the jump button.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

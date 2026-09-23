@@ -43,7 +43,7 @@ import {
   renderNetWorthPanel, renderAssets, logAssetSnapshot, applySharesPaste, logDebtSnapshot,
   patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter, renderAssetPersonSheet, assetPersonSheetOpen, setAssetPersonSheetOpen, setSharesGainFilter, setSharesSortMode, setSharesChangeWindow, setAllocationRange, setPortfolioRange,
   parseAssetsImportCsv, renderAssetsImportPreview, clearAssetsImportPreview, commitAssetsImport, dividendNoteText,
-  recordAssetSale, deleteAssetSale
+  recordAssetSale, deleteAssetSale, renderAssetsSummary, patchOffsetsRow
 } from "./components/assets.js";
 import {
   modernPropRowOpen, renderPropListModern, renderProperties, patchPropertyCardComputed,
@@ -1338,6 +1338,43 @@ import {
     persist();
   });
 
+  // Assets → Offsets tab: the other half of the two-way sync with Properties' own .loan-offset
+  // field below — see patchOffsetsRow's comment and offsetRowHtml's in assets.js for why this
+  // writes straight back to the same property.loans[i].offsetBalance rather than a copy.
+  document.addEventListener("input", function(e){
+    if(!e.target.classList.contains("offset-balance-input")) return;
+    var property = findProperty(e.target.getAttribute("data-offset-property"));
+    var loanIdx = Number(e.target.getAttribute("data-offset-loan"));
+    var loan = property && property.loans[loanIdx];
+    if(!loan) return;
+    loan.offsetBalance = parseFloat(e.target.value) || 0;
+    patchOffsetsRow(property.id, loanIdx, loan.offsetBalance);
+    patchPropertyCardComputed(property);
+    // patchPropertyCardComputed only patches derived/computed figures, not the raw .loan-offset
+    // input itself — that field is normally the source of truth on the Properties page, so nothing
+    // else there ever needs to overwrite it. Editing from here is the one case that does, guarded
+    // by activeElement the same way patchOffsetsRow guards its own input (so this can never fight
+    // someone actively typing into the *other* copy of the same field at the same time).
+    var propCard = document.querySelector('.property-card[data-property-id="' + CSS.escape(property.id) + '"]');
+    var loanOffsetInput = propCard && propCard.querySelector('[data-loan-index="' + loanIdx + '"] .loan-offset');
+    if(loanOffsetInput && document.activeElement !== loanOffsetInput) loanOffsetInput.value = loan.offsetBalance;
+    renderAssetsSummary();
+    renderProjectionOutputs();
+    persist();
+  });
+  // Jump straight to the loan's own property card — Assets → Offsets doesn't duplicate the loan's
+  // other fields (balance, rate, term), so "I need to change more than the offset" has to be one
+  // tap from here rather than a dead end.
+  document.getElementById("assetsSub-Offsets").addEventListener("click", function(e){
+    var jumpBtn = e.target.closest("[data-jump-property]");
+    if(!jumpBtn) return;
+    var propId = jumpBtn.getAttribute("data-jump-property");
+    showPage("properties", { replace: true });
+    setTimeout(function(){
+      var target = document.getElementById("property-card-" + propId);
+      if(target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 200);
+  });
 
   document.getElementById("propertiesBody").addEventListener("keydown", function(e){
     if(e.key !== "Enter" && e.key !== " ") return;
@@ -1365,7 +1402,14 @@ import {
       else if(e.target.classList.contains("loan-rate")) loan.rate = parseFloat(e.target.value) || 0;
       else if(e.target.classList.contains("loan-term")) loan.termYears = parseFloat(e.target.value) || 0;
       else if(e.target.classList.contains("loan-manual-amount")) loan.manualRepaymentAmount = parseFloat(e.target.value) || 0;
-      else if(e.target.classList.contains("loan-offset")) loan.offsetBalance = parseFloat(e.target.value) || 0;
+      else if(e.target.classList.contains("loan-offset")){
+        loan.offsetBalance = parseFloat(e.target.value) || 0;
+        // The mirror of this file's own offset-balance-input handler — without it, editing the
+        // offset from here would leave the Assets → Offsets tab showing a stale figure until the
+        // next full renderAssets().
+        patchOffsetsRow(property.id, Number(loanTr.getAttribute("data-loan-index")), loan.offsetBalance);
+        renderAssetsSummary();
+      }
       else return;
       patchPropertyCardComputed(property);
       renderProjectionOutputs();

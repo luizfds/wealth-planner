@@ -1532,9 +1532,10 @@ import {
     if(addLoanBtn){
       var forProperty = findProperty(addLoanBtn.getAttribute("data-loan-add"));
       if(forProperty){
-        forProperty.loans.push({ id: genId("l"), what:"New loan", balance:0, rate:0, termYears:30, repaymentType:"PI", repaymentMode:"auto", manualRepaymentAmount:0, manualRepaymentFreq:"Monthly", offsetBalance:0 });
+        var newLoan = { id: genId("l"), what:"New loan", balance:0, rate:0, termYears:30, repaymentType:"PI", repaymentMode:"auto", manualRepaymentAmount:0, manualRepaymentFreq:"Monthly", offsetBalance:0 };
+        forProperty.loans.push(newLoan);
         renderProperties();
-        openNewRowModal("propertiesBody", "loan:" + forProperty.id, forProperty.loans.length - 1, modernPropRowOpen);
+        openNewRowModal("propertiesBody", "loan:" + forProperty.id, forProperty.loans.length - 1, modernPropRowOpen, newLoan);
         renderProjectionOutputs();
         persist();
       }
@@ -1740,14 +1741,57 @@ import {
   // swapping directly from one open row to another (see openModernRow's switchingRow case), where
   // touching history would mean an async round-trip through popstate for what should be an
   // instant swap.
+  // Removes a row created by "+ Add" and then closed untouched (see closeActiveModernRowUI) —
+  // the same splice-and-refresh every Delete button already does, minus the undo toast, since
+  // from the user's own side nothing was ever really added.
+  //
+  // Guarded by identity, not just bounds: if the row was instead removed by an explicit tap on its
+  // own Delete button (which doesn't itself close the modal — see the [data-del]/[data-asset-del]
+  // handlers), `activeModernRow.freshItem` is a detached object no longer in `arr` at all, and a
+  // later Escape/backdrop-close reaching this function must not splice out whatever now happens to
+  // sit at the old index.
+  function discardUneditedRow(section, idx, freshItem){
+    // getArrayForSection covers income/shared/home:/propinc:/propexp: — the three sections that
+    // add straight into state.assets, a property's own loans, and a manually-added transaction
+    // each live outside that helper's reach (see the matching "+Add" branches below), so they're
+    // resolved here on the same terms rather than widening what every *other* caller of
+    // getArrayForSection has to expect back.
+    var mLoan = section.indexOf("loan:") === 0 ? /^loan:(.+)$/.exec(section) : null;
+    var loanProperty = mLoan ? findProperty(mLoan[1]) : null;
+    var arr = section === "assets" ? state.assets
+      : section === "tx" ? state.transactions
+      : mLoan ? (loanProperty ? loanProperty.loans : null)
+      : getArrayForSection(section);
+    if(!arr || idx < 0 || idx >= arr.length || arr[idx] !== freshItem) return;
+    arr.splice(idx, 1);
+    if(section === "assets"){ renderAssets(); renderProjectionOutputs(); persist(); return; }
+    if(section === "tx"){ renderTransactions(); renderActualVsPlannedPanel(); persist(); return; }
+    if(mLoan){ renderProperties(); renderProjectionOutputs(); persist(); return; }
+    refreshAfterLedgerChange(section);
+  }
   function closeActiveModernRowUI(){
     if(!activeModernRow) return;
     var row = findModernRowElement(activeModernRow.section, activeModernRow.idx, activeModernRow.containerId);
     if(row) row.classList.remove("open");
     activeModernRow.openState[activeModernRow.key] = false;
     var wasBudgetRow = isBudgetListSection(activeModernRow.section);
+    // A row opened straight from "+ Add" (see openNewRowModal) carries the item it just created
+    // and a snapshot taken the instant it was pushed. Closing it — Done, tapping away, Escape, the
+    // backdrop, the back button, or switching straight to another row — without a single field
+    // having changed means the tap was accidental or abandoned, so it's discarded here rather than
+    // left behind as a "New item"/$0 record nobody asked for. Comparing against the *current*
+    // object (not a "was anything ever typed" flag) also means typing something and then
+    // undoing it back to the same defaults still discards — which is correct, since nothing about
+    // the row actually differs from one nobody touched.
+    var discardSection = null, discardIdx = -1, discardItem = null;
+    if(activeModernRow.freshItem && JSON.stringify(activeModernRow.freshItem) === activeModernRow.freshSnapshot){
+      discardSection = activeModernRow.section;
+      discardIdx = Number(activeModernRow.idx);
+      discardItem = activeModernRow.freshItem;
+    }
     activeModernRow = null;
     document.getElementById("mRowBackdrop").hidden = true;
+    if(discardSection){ discardUneditedRow(discardSection, discardIdx, discardItem); return; }
     // Recategorising is the one edit whose effect can't be patched in place: grouped by category
     // it moves the row into a different card, which means rebuilding the list — and doing that
     // while the modal is open would tear the row out from under the person editing it. So it's
@@ -1771,7 +1815,11 @@ import {
   // want the instant a blank "New item" field appears in front of you, but is an unwanted
   // surprise every time you tap an *existing* row just to glance at or adjust one of its fields.
   // Plain taps route through wireModernRowToggle's click handler below, which never passes it.
-  function openModernRow(row, openState, key, autoFocus){
+  //
+  // freshItem is likewise only ever passed by the "+Add" flow — the object just pushed into its
+  // array, so closeActiveModernRowUI can tell an abandoned add from an ordinary look-and-close on
+  // a row that already had real data in it (see discardUneditedRow).
+  function openModernRow(row, openState, key, autoFocus, freshItem){
     // Swapping directly from one open row to another re-uses the same history entry (replaceState)
     // rather than stacking a second one — the back button should undo "a row was open" once, not
     // once per row visited on the way to this one.
@@ -1792,7 +1840,15 @@ import {
     row.addEventListener("animationend", clearEntering, { once: true });
     setTimeout(clearEntering, 400);
     openState[key] = true;
-    activeModernRow = { section: row.getAttribute("data-section"), idx: row.getAttribute("data-index"), openState: openState, key: key, containerId: containerId };
+    activeModernRow = {
+      section: row.getAttribute("data-section"), idx: row.getAttribute("data-index"), openState: openState, key: key, containerId: containerId,
+      freshItem: freshItem || null,
+      // Taken here, not at push time — a fresh row can pick up a computed default (a vehicle's
+      // recalcComputedItems() stamps computed:false onto it) between being pushed and being opened,
+      // and the snapshot has to reflect the state the row is actually shown in, not the bare literal
+      // it was created with, or that stamp alone would read as "touched" on every unedited close.
+      freshSnapshot: freshItem ? JSON.stringify(freshItem) : null
+    };
     document.getElementById("mRowBackdrop").hidden = false;
     pushActiveOverlay(closeActiveModernRowUI, switchingRow);
     if(!autoFocus) return;
@@ -2246,7 +2302,8 @@ import {
   });
   document.getElementById("addTransactionBtn").addEventListener("click", function(){
     addTransaction();
-    openNewRowModal("transactionsTable", "tx", state.transactions.length - 1, modernTransactionRowOpen);
+    var newTx = state.transactions[state.transactions.length - 1];
+    openNewRowModal("transactionsTable", "tx", state.transactions.length - 1, modernTransactionRowOpen, newTx);
   });
   wireModernRowToggle("transactionsTable", modernTransactionRowOpen);
   document.addEventListener("click", function(e){
@@ -2592,10 +2649,13 @@ import {
   // Finds the row a just-pushed item rendered as and opens it as a modal immediately — matching
   // a native app's "tap + → the new entry's fields are already in front of you" flow, instead of
   // silently appending a collapsed row somewhere in the list that has to be found and tapped first.
-  function openNewRowModal(containerId, section, idx, openState){
+  //
+  // item is that same just-pushed object, threaded through to openModernRow so an accidental or
+  // abandoned "+Add" tap doesn't leave a "New item"/$0 row behind — see discardUneditedRow.
+  function openNewRowModal(containerId, section, idx, openState, item){
     var container = document.getElementById(containerId);
     var row = container && container.querySelector('[data-section="' + CSS.escape(section) + '"][data-index="' + idx + '"]');
-    if(row) openModernRow(row, openState, section + ":" + idx, true);
+    if(row) openModernRow(row, openState, section + ":" + idx, true, item);
   }
 
   document.addEventListener("click", function(e){
@@ -2619,24 +2679,27 @@ import {
     }
     if(section === "assets"){
       var assetCat = groupValue != null ? groupValue : "Cash";
-      state.assets.push({ what:"New asset", category: assetCat, amount:0 });
+      var newAsset = { what:"New asset", category: assetCat, amount:0 };
+      state.assets.push(newAsset);
       renderAssets();
-      openNewRowModal("assetsSub-" + assetCat, "assets", state.assets.length - 1, modernAssetRowOpen);
+      openNewRowModal("assetsSub-" + assetCat, "assets", state.assets.length - 1, modernAssetRowOpen, newAsset);
       persist();
       return;
     }
     if(section === "holding"){
-      state.assets.push({ what:"New holding", category:"Shares", symbol:"", market:"ASX", quantity:0, avgCost:null, price:0, priceUpdated:"", person: groupValue != null ? groupValue : "", amount:0 });
+      var newHolding = { what:"New holding", category:"Shares", symbol:"", market:"ASX", quantity:0, avgCost:null, price:0, priceUpdated:"", person: groupValue != null ? groupValue : "", amount:0 };
+      state.assets.push(newHolding);
       renderAssets();
-      openNewRowModal("assetsSub-Shares", "assets", state.assets.length - 1, modernAssetRowOpen);
+      openNewRowModal("assetsSub-Shares", "assets", state.assets.length - 1, modernAssetRowOpen, newHolding);
       persist();
       return;
     }
     if(section === "vehicle"){
-      state.assets.push({ what:"New vehicle", category:"Vehicle", purchasePrice:0, purchaseDate:"", depreciationRate:15, amount:0 });
+      var newVehicle = { what:"New vehicle", category:"Vehicle", purchasePrice:0, purchaseDate:"", depreciationRate:15, amount:0 };
+      state.assets.push(newVehicle);
       recalcComputedItems();
       renderAssets();
-      openNewRowModal("assetsSub-Vehicle", "assets", state.assets.length - 1, modernAssetRowOpen);
+      openNewRowModal("assetsSub-Vehicle", "assets", state.assets.length - 1, modernAssetRowOpen, newVehicle);
       persist();
       return;
     }
@@ -2652,10 +2715,10 @@ import {
     arr.push(newItem);
     var newIdx = arr.length - 1;
     rerenderTableFor(section);
-    if(section === "income") openNewRowModal("incomeGroups", "income", newIdx, modernIncomeRowOpen);
-    else if(section === "shared") openNewRowModal("sharedGroups", "shared", newIdx, modernSharedRowOpen);
-    else if(section.indexOf("propinc:") === 0 || section.indexOf("propexp:") === 0) openNewRowModal("propertiesBody", section, newIdx, modernPropRowOpen);
-    else if(section.indexOf("home:") === 0) openNewRowModal("homeBody", section, newIdx, modernHomeRowOpen);
+    if(section === "income") openNewRowModal("incomeGroups", "income", newIdx, modernIncomeRowOpen, newItem);
+    else if(section === "shared") openNewRowModal("sharedGroups", "shared", newIdx, modernSharedRowOpen, newItem);
+    else if(section.indexOf("propinc:") === 0 || section.indexOf("propexp:") === 0) openNewRowModal("propertiesBody", section, newIdx, modernPropRowOpen, newItem);
+    else if(section.indexOf("home:") === 0) openNewRowModal("homeBody", section, newIdx, modernHomeRowOpen, newItem);
     if(section.indexOf("propinc:") === 0){
       recalcComputedItems();
       rerenderTableFor("propexp:" + section.slice(8));

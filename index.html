@@ -52,9 +52,35 @@
 <link rel="apple-touch-startup-image" href="icons/splash/splash-1170x2532-dark.png" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: dark)">
 <link rel="apple-touch-startup-image" href="icons/splash/splash-1668x2388-light.png" media="(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) and (prefers-color-scheme: light)">
 <link rel="apple-touch-startup-image" href="icons/splash/splash-1668x2388-dark.png" media="(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) and (prefers-color-scheme: dark)">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- Google Fonts is the one thing this otherwise fully offline-capable app still reaches out for.
+     Loaded conditionally, not as a static <link>: every font-family stack in base.css already ends
+     in system-ui/sans-serif (or ui-monospace/monospace), so skipping this costs nothing visually,
+     and doing it unconditionally would mean a guaranteed-to-fail request on every offline load —
+     one the service worker's network-first fetch handler still has to attempt (and time out on,
+     which on a flaky-but-technically-connected network can take real seconds) before it can fall
+     back to nothing. navigator.onLine is a coarse signal (a captive portal can report "online"
+     with no real internet reaching fonts.googleapis.com) — this is a best-effort skip for the
+     common fully-offline case, not a guarantee, and errs toward attempting the request whenever
+     it isn't certain there's no network. Checked once, at load, not re-checked mid-session: coming
+     online later would mean swapping the font under content already rendered, which is a worse
+     surprise than just keeping the system font for that visit. -->
+<script>
+  try{
+    if(navigator.onLine){
+      ["https://fonts.googleapis.com", "https://fonts.gstatic.com"].forEach(function(origin, i){
+        var link = document.createElement("link");
+        link.rel = "preconnect";
+        link.href = origin;
+        if(i === 1) link.crossOrigin = "";
+        document.head.appendChild(link);
+      });
+      var fontsLink = document.createElement("link");
+      fontsLink.rel = "stylesheet";
+      fontsLink.href = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap";
+      document.head.appendChild(fontsLink);
+    }
+  }catch(e){}
+</script>
 
 <link rel="stylesheet" href="styles.css">
 

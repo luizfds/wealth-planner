@@ -1610,6 +1610,39 @@ the jump button.
 
 ---
 
+## 33. `[x]` Skip the Google Fonts request when offline — shipped v3.15.1
+
+Asked: could the app check for internet before trying to download anything, given it's otherwise
+fully static/offline-capable? The one thing it still reached out for unconditionally was Google
+Fonts — a static `<link rel="stylesheet">` in `<head>`, fired on every load including fully offline
+ones, where it's guaranteed to fail. The service worker's network-first fetch handler still had to
+attempt it (and time out, which on a flaky-but-connected network can take real seconds) before
+falling back to nothing, since this request was never cached to begin with.
+
+**What shipped.** The stylesheet link and its two preconnect hints are now injected from an inline
+script, only when `navigator.onLine` is true, in the same document position as the static tags they
+replace — so the online path behaves exactly as before (same request, same timing) and the offline
+path makes zero network attempts. Costs nothing visually either way: every font-family stack in
+`base.css` already ends in `system-ui`/`sans-serif` (or `ui-monospace`/`monospace`).
+
+**Deliberately not built:** a re-check mid-session (e.g. an `online` event listener that loads fonts
+once a connection returns). Swapping the font under content already rendered with the fallback would
+be a worse surprise than just keeping it for that visit — checked once, at load, and that's it.
+
+**The honest limit, stated up front rather than found later:** `navigator.onLine` is a coarse signal
+— a captive portal can report "online" with no real internet reaching `fonts.googleapis.com` — so
+this is a best-effort skip for the common fully-offline case (an installed PWA used on a plane or
+train), not a guarantee, and errs toward attempting the request whenever it isn't certain there's no
+network.
+
+**How to verify.** Not unit-testable — inline `<head>` script, no exported function. Driven in
+Chrome: online, the font link and both preconnects still inject and the same request fires; offline
+(`navigator.onLine` stubbed false via `addInitScript`), zero font-related requests fire, the app
+still renders correctly on the system-font fallback, and load finishes faster with nothing to wait
+on.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

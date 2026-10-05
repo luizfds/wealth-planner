@@ -32,6 +32,9 @@ export function renderCards(){
             '<span class="card-name"><span class="card-name-text">' + escapeAttr(scenario) + '</span>' + (isBaseline ? '<span class="home-baseline-badge" title="Your current, real-life situation">Current situation</span>' : "") + '</span>' +
             '<span class="card-controls">' +
               '<button type="button" class="icon-btn" data-rename="' + escapeAttr(scenario) + '" aria-label="Rename ' + escapeAttr(scenario) + '" title="Rename">✎</button>' +
+              '<button type="button" class="icon-btn" data-clone="' + escapeAttr(scenario) + '" aria-label="Clone ' + escapeAttr(scenario) + '" title="Clone — copy this scenario\'s home costs, purchase/invest setup and any overrides into a new one">' +
+                '<svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="7" width="9" height="9" rx="1.5"/><path d="M13 7V5a1.5 1.5 0 0 0-1.5-1.5H5A1.5 1.5 0 0 0 3.5 5v6.5A1.5 1.5 0 0 0 5 13h2"/></svg>' +
+              '</button>' +
               (canDelete && !isBaseline ? '<button type="button" class="icon-btn icon-del" data-delete="' + escapeAttr(scenario) + '" aria-label="Delete ' + escapeAttr(scenario) + '" title="Delete">✕</button>' : "") +
               '<span class="card-radio"></span>' +
             '</span>' +

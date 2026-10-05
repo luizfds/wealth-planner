@@ -1671,6 +1671,45 @@ selector even with `!important`, since `input[type="number"]` is more specific t
 
 ---
 
+## 35. `[x]` Clone a scenario — shipped v3.16.0
+
+Asked for directly: a way to copy a scenario rather than rebuilding its home costs, purchase
+calculator and invest leg by hand every time a what-if is a small variation on one already set up
+("what if Buy Sydney but with a 15% deposit instead of 20%").
+
+**What shipped.** `cloneScenario(sourceName)` in `scenarios.js` prompts for the copy's name
+(defaulting to "`<source>` copy"), then deep-copies `state.home`/`purchase`/`invest` for that
+scenario under the new name via `deepClone()` — a helper that already existed in `state.js` but had
+no caller until now. "Near-identical" has to include anything that currently makes the source
+scenario behave the way it does: a shared/income row varied specifically for it via the "⇄ Vary"
+panel is as much a part of that as its own home-cost rows, so any `scenarioOverrides` entry keyed to
+the source carries into the clone too — the same reasoning `renameScenario`/`deleteScenario` already
+use `overridableRows()` for.
+
+A "Clone" icon button sits next to Rename on both surfaces that already have it — the Scenarios
+page's own home-block header and the Dashboard's scenario cards — reusing the shared `icon-btn`
+class and the existing `onScenarioControlClick` handler both already route through, so no new
+click-wiring pattern was needed.
+
+**The trap, if you touch this again:** ids inside the copied home rows are left exactly as they
+were, not regenerated. `state.home` is keyed *by scenario name*, so every scenario already has its
+own `"homeLoanRow"` by design — that sentinel id is what lets `patchHomeLoanRowIfSynced()` find it
+regardless of which scenario it's looking at — and an id is only ever compared within one scenario's
+own array, never across scenarios. Regenerating ids on clone would have been the bug, not the fix.
+
+**Also decided:** the clone is inserted right after its source in `state.scenarios` (not appended to
+the end) and becomes the active scenario, matching `addScenario()`'s own "a newly-created scenario is
+what you want to look at next" call.
+
+**How to verify.** Not unit-testable — DOM wiring plus state mutation across several maps. Driven in
+Chrome: the clone's home/purchase/invest deep-equal the source but are separate objects (mutating the
+clone's home row left the source untouched); a `scenarioOverrides` entry on a shared-expense row
+carried to the clone while staying on the source; the clone lands immediately after its source and
+becomes active; both the Scenarios-page and Dashboard-card buttons work; no horizontal overflow at
+390px in light or dark; touch targets measured at 40×40; Tab-key focus shows a real ring.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

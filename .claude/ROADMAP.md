@@ -1643,6 +1643,34 @@ on.
 
 ---
 
+## 34. `[x]` Quick-log amount field was collapsing to ~17px on phones — shipped v3.15.2
+
+Reported: "Adding expenses - the money input looks odd, too narrow in height." Confirmed via
+`getComputedStyle`: `.qlog-amount` (the quick-log sheet's headline amount field) declares
+`font-size:34px`, but at phone widths base.css's iOS-zoom-prevention rule —
+`input[type="number"]{ font-size:16px !important }` — always won over it regardless of specificity,
+since `!important` beats a plain declaration outright. With no padding on this field, font-size is
+most of its box height, so losing that fight collapsed it from a 37px headline input to a ~17.6px
+sliver, not just smaller text.
+
+**What shipped.** `#quickLogAmount{ font-size:34px !important }`, in its own rule rather than folded
+into `.qlog-amount`: an id selector is specific enough to out-rank the attribute selector once both
+carry `!important` (id beats attribute+element on specificity alone), and this input's id is unique
+to it, unlike its class.
+
+**Checked while fixing it, worth knowing before adding another large phone-width input:** every other
+font-size above 16px in the stylesheets belongs to a `h1`/`b`/`span`/`div` — display text, never an
+`<input>` or `<textarea>` — so `.qlog-amount` was the only field the base.css rule was silently
+fighting. A future field that deliberately wants a phone-width font above 16px will hit the exact
+same collision and needs the same id-selector treatment (a class alone won't out-rank the attribute
+selector even with `!important`, since `input[type="number"]` is more specific than a bare class).
+
+**How to verify.** Not unit-testable — pure CSS cascade. Verified via `getComputedStyle` at 390px and
+1280px, light and dark, Spend and Refund mode: field height restored from 17.6px to 37.4px
+(font-size 34px), matching the intended design.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

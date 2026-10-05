@@ -594,8 +594,18 @@
   .qlog-currency{ flex:0 0 auto; white-space:nowrap; font-size:26px; font-weight:600; color: var(--ink-soft); }
   .qlog-amount{
     flex:1 1 auto; min-width:0; all:unset; box-sizing:border-box; width:100%;
-    font-size:34px; font-weight:700; font-family:inherit; color: var(--ink); line-height:1.1;
+    font-weight:700; font-family:inherit; color: var(--ink); line-height:1.1;
   }
+  /* font-size lives in its own rule, keyed to the id rather than the class, because base.css's
+     phone-width "bump every text field to (at least) 16px, so iOS Safari doesn't zoom on focus"
+     rule is !important — which always wins over a plain declaration whatever the specificity,
+     including this one, where the point was 34px headline text, not 16. With no padding on this
+     field, font-size is most of its box height, so losing that fight collapsed the quick-log
+     sheet's amount input to a ~17px sliver rather than merely shrinking its text. An id selector
+     is the one thing specific enough to out-rank that rule's attribute selector once both carry
+     !important (id beats attribute+element on specificity alone) — and this input's id
+     (quickLogAmount) is unique to it, unlike its class. */
+  #quickLogAmount{ font-size:34px !important; }
   .qlog-amount::placeholder{ color: var(--ink-soft); opacity:.45; }
   /* Chrome/Safari render number inputs with spinner arrows that crowd a field this size and are
      useless on touch — the keyboard is already numeric via inputmode. */

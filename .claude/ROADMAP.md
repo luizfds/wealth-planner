@@ -1643,6 +1643,73 @@ on.
 
 ---
 
+## 34. `[x]` Quick-log amount field was collapsing to ~17px on phones — shipped v3.15.2
+
+Reported: "Adding expenses - the money input looks odd, too narrow in height." Confirmed via
+`getComputedStyle`: `.qlog-amount` (the quick-log sheet's headline amount field) declares
+`font-size:34px`, but at phone widths base.css's iOS-zoom-prevention rule —
+`input[type="number"]{ font-size:16px !important }` — always won over it regardless of specificity,
+since `!important` beats a plain declaration outright. With no padding on this field, font-size is
+most of its box height, so losing that fight collapsed it from a 37px headline input to a ~17.6px
+sliver, not just smaller text.
+
+**What shipped.** `#quickLogAmount{ font-size:34px !important }`, in its own rule rather than folded
+into `.qlog-amount`: an id selector is specific enough to out-rank the attribute selector once both
+carry `!important` (id beats attribute+element on specificity alone), and this input's id is unique
+to it, unlike its class.
+
+**Checked while fixing it, worth knowing before adding another large phone-width input:** every other
+font-size above 16px in the stylesheets belongs to a `h1`/`b`/`span`/`div` — display text, never an
+`<input>` or `<textarea>` — so `.qlog-amount` was the only field the base.css rule was silently
+fighting. A future field that deliberately wants a phone-width font above 16px will hit the exact
+same collision and needs the same id-selector treatment (a class alone won't out-rank the attribute
+selector even with `!important`, since `input[type="number"]` is more specific than a bare class).
+
+**How to verify.** Not unit-testable — pure CSS cascade. Verified via `getComputedStyle` at 390px and
+1280px, light and dark, Spend and Refund mode: field height restored from 17.6px to 37.4px
+(font-size 34px), matching the intended design.
+
+---
+
+## 35. `[x]` Clone a scenario — shipped v3.16.0
+
+Asked for directly: a way to copy a scenario rather than rebuilding its home costs, purchase
+calculator and invest leg by hand every time a what-if is a small variation on one already set up
+("what if Buy Sydney but with a 15% deposit instead of 20%").
+
+**What shipped.** `cloneScenario(sourceName)` in `scenarios.js` prompts for the copy's name
+(defaulting to "`<source>` copy"), then deep-copies `state.home`/`purchase`/`invest` for that
+scenario under the new name via `deepClone()` — a helper that already existed in `state.js` but had
+no caller until now. "Near-identical" has to include anything that currently makes the source
+scenario behave the way it does: a shared/income row varied specifically for it via the "⇄ Vary"
+panel is as much a part of that as its own home-cost rows, so any `scenarioOverrides` entry keyed to
+the source carries into the clone too — the same reasoning `renameScenario`/`deleteScenario` already
+use `overridableRows()` for.
+
+A "Clone" icon button sits next to Rename on both surfaces that already have it — the Scenarios
+page's own home-block header and the Dashboard's scenario cards — reusing the shared `icon-btn`
+class and the existing `onScenarioControlClick` handler both already route through, so no new
+click-wiring pattern was needed.
+
+**The trap, if you touch this again:** ids inside the copied home rows are left exactly as they
+were, not regenerated. `state.home` is keyed *by scenario name*, so every scenario already has its
+own `"homeLoanRow"` by design — that sentinel id is what lets `patchHomeLoanRowIfSynced()` find it
+regardless of which scenario it's looking at — and an id is only ever compared within one scenario's
+own array, never across scenarios. Regenerating ids on clone would have been the bug, not the fix.
+
+**Also decided:** the clone is inserted right after its source in `state.scenarios` (not appended to
+the end) and becomes the active scenario, matching `addScenario()`'s own "a newly-created scenario is
+what you want to look at next" call.
+
+**How to verify.** Not unit-testable — DOM wiring plus state mutation across several maps. Driven in
+Chrome: the clone's home/purchase/invest deep-equal the source but are separate objects (mutating the
+clone's home row left the source untouched); a `scenarioOverrides` entry on a shared-expense row
+carried to the clone while staying on the source; the clone lands immediately after its source and
+becomes active; both the Scenarios-page and Dashboard-card buttons work; no horizontal overflow at
+390px in light or dark; touch targets measured at 40×40; Tab-key focus shows a real ring.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

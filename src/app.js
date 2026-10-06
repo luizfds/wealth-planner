@@ -51,7 +51,7 @@ import {
 } from "./components/properties.js";
 import { renderProjectionOutputs } from "./components/projections.js";
 import {
-  selectScenario, addScenario, renameScenario, deleteScenario, renderHomeBody, renderHomeListModern,
+  selectScenario, addScenario, renameScenario, cloneScenario, deleteScenario, renderHomeBody, renderHomeListModern,
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
   patchCalcOutputs, afterCalcChange, patchInvestOutputs
 } from "./components/scenarios.js";
@@ -2648,6 +2648,8 @@ import {
     // to be checked last or it would swallow clicks meant for the buttons nested inside it.
     var renameBtn = e.target.closest("[data-rename]");
     if(renameBtn){ renameScenario(renameBtn.getAttribute("data-rename")); return true; }
+    var cloneBtn = e.target.closest("[data-clone]");
+    if(cloneBtn){ cloneScenario(cloneBtn.getAttribute("data-clone")); return true; }
     var delBtn = e.target.closest("[data-delete]");
     if(delBtn){ deleteScenario(delBtn.getAttribute("data-delete")); return true; }
     if(e.target.closest("#addScenarioBtn") || e.target.closest("#addScenarioBtn2")){ addScenario(); return true; }

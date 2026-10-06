@@ -1,4 +1,4 @@
-import { state, persist, defaultHomeBlock, defaultPurchaseConfig, defaultInvestConfig } from "../state.js";
+import { state, persist, defaultHomeBlock, defaultPurchaseConfig, defaultInvestConfig, deepClone } from "../state.js";
 import { PURCHASE_STATE_CODES, STATE_GROWTH_RATES, INVEST_LEG_TYPES } from "../constants.js";
 import { recalcPurchase } from "../calc/property.js";
 import { recalcComputedItems, scenarioTotals } from "../calc/engine.js";
@@ -90,6 +90,46 @@ export function renameScenario(oldName){
   persist();
   refreshScenarioDependentViews();
   renderAssets();
+}
+
+// A near-identical starting point for a what-if, without rebuilding the purchase calculator,
+// the invest leg and every recurring-cost row by hand. "Near-identical" has to include anything
+// that currently makes the source scenario behave the way it does — a shared/income row varied
+// specifically for it (the "⇄ Vary" override) is as much a part of "how this scenario behaves" as
+// its own home-cost rows are, and a clone that silently dropped one would read differently from
+// the scenario it was just copied from, which defeats the point of cloning it.
+//
+// Ids inside the copied home/purchase rows are left exactly as they were (not regenerated):
+// state.home is keyed *by scenario name*, so "homeLoanRow" already exists once per scenario by
+// design — every scenario already shares that same sentinel id, which is what lets
+// patchHomeLoanRowIfSynced() and recalcComputedItems() find it regardless of which scenario they're
+// looking at. An id is only ever compared within one scenario's own array, never across scenarios,
+// so reusing them in the clone is the correct behaviour, not a collision.
+export function cloneScenario(sourceName){
+  if(state.scenarios.indexOf(sourceName) === -1) return;
+  var name = prompt('Name for the copy of "' + sourceName + '":', sourceName + " copy");
+  if(name === null) return;
+  name = name.trim();
+  if(!name) return;
+  if(state.scenarios.indexOf(name) !== -1){ showToast('A scenario named "' + name + '" already exists'); return; }
+  // Inserted right after the original rather than appended — a clone belongs next to the thing it
+  // was copied from, not at the end of a list that may already have several scenarios in it.
+  state.scenarios.splice(state.scenarios.indexOf(sourceName) + 1, 0, name);
+  state.home[name] = deepClone(state.home[sourceName] || []);
+  state.purchase[name] = deepClone(state.purchase[sourceName]);
+  state.invest[name] = deepClone(state.invest[sourceName]);
+  overridableRows().forEach(function(item){
+    if(item.scenarioOverrides && (sourceName in item.scenarioOverrides)){
+      item.scenarioOverrides[name] = item.scenarioOverrides[sourceName];
+    }
+  });
+  // Matches addScenario()'s own call: a newly-created scenario (cloned or blank) is what the user
+  // almost certainly wants to look at and start tweaking next, not whichever was active before.
+  state.activeScenario = name;
+  persist();
+  refreshScenarioDependentViews();
+  renderAssets();
+  showToast('Cloned "' + sourceName + '" as "' + name + '"');
 }
 
 export function deleteScenario(name){
@@ -190,6 +230,9 @@ export function renderHomeBody(){
           '<span class="home-block-total-label">Home cost</span>' +
           '<span class="home-block-total">' + fmtCurrency0.format(total) + ' / mo</span>' +
           '<button type="button" class="icon-btn" data-rename="' + escapeAttr(scenario) + '" aria-label="Rename ' + escapeAttr(scenario) + '" title="Rename">✎</button>' +
+          '<button type="button" class="icon-btn" data-clone="' + escapeAttr(scenario) + '" aria-label="Clone ' + escapeAttr(scenario) + '" title="Clone — copy this scenario\'s home costs, purchase/invest setup and any overrides into a new one">' +
+            '<svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="7" width="9" height="9" rx="1.5"/><path d="M13 7V5a1.5 1.5 0 0 0-1.5-1.5H5A1.5 1.5 0 0 0 3.5 5v6.5A1.5 1.5 0 0 0 5 13h2"/></svg>' +
+          '</button>' +
           (canDelete && !isBaseline ? '<button type="button" class="icon-btn icon-del" data-delete="' + escapeAttr(scenario) + '" aria-label="Delete ' + escapeAttr(scenario) + '" title="Delete">✕</button>' : "") +
         '</div>' +
       '</div>' +

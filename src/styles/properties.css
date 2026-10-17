@@ -216,6 +216,13 @@
   /* Two classes, so it beats the phone-width .m-cost-row grid below whatever the source order: that
      grid is shaped for name + amount + delete, and drops this row's second amount into a 14px slot. */
   .m-cost-row.dep-sched-row{ display:flex; }
+  /* "Move to borrowing costs" (v3.28.0): a quiet text button after the row; a row whose name looks
+     like a loan cost gets a tinted background and a louder button. */
+  .m-cost-row .acq-move{ flex:none; font-size:11.5px; white-space:nowrap; }
+  .m-cost-row.is-loan-cost{ background: var(--brass-wash, var(--paper-sunken)); border-radius:8px; padding-left:6px; padding-right:6px; }
+  .m-cost-row .acq-move.suggested{ color: var(--brass-strong); font-weight:600; }
+  .m-cost-row.has-move{ flex-wrap:wrap; }
+  .m-cost-row .acq-move.icon-only{ width:32px; padding:0; color: var(--ink-soft); }
 
   /* At mobile widths, cramming the dot + name input + amount input + delete button onto one
      flex row left the name illegibly clipped (confirmed via screenshot — every default cost
@@ -232,6 +239,9 @@
     .m-cost-row input.cc-what{ grid-area:name; width:100%; }
     .m-cost-row input.cc-amount{ grid-area:amount; justify-self:end; }
     .m-cost-row .row-del{ grid-area:del; }
+    .m-cost-row.has-move.is-loan-cost{ grid-template-areas:"dot name name" "dot amount del" "dot move move"; }
+    .m-cost-row.has-move:not(.is-loan-cost){ grid-template-columns:auto 1fr auto auto; grid-template-areas:"dot name name name" "dot amount move del"; }
+    .m-cost-row .acq-move{ grid-area:move; justify-self:start; white-space:normal; text-align:left; }
   }
 
   /* ---------------- Portfolio-wide overview (above the property card list) ---------------- */

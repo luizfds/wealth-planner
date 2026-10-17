@@ -700,3 +700,28 @@ test("the worksheet renders a card per person with its refund and document rows"
     assert.ok(evidenceItems(2025).some(function(i){ return /income statement — Acme/.test(i.text); }));
   } finally { Object.assign(state, keep); }
 });
+
+// v3.28.0 — moving a loan cost out of Acquisition costs.
+import { looksLikeLoanCost, moveAcquisitionCostToLoan } from "../src/components/properties.js";
+
+test("loan-cost names are picked out, purchase costs aren't", function(){
+  ["LMI", "Lenders mortgage insurance", "Mortgage registration", "Loan establishment fee", "Valuation fee", "Mortgage broker"].forEach(function(n){
+    assert.equal(looksLikeLoanCost(n), true, n);
+  });
+  ["Stamp duty", "Conveyancing", "Transfer registration", "Buyer's agent", "Building inspection"].forEach(function(n){
+    assert.equal(looksLikeLoanCost(n), false, n);
+  });
+});
+
+test("moving a cost puts it on the loan, dates the loan, and undoes cleanly", function(){
+  var p = { kind: "IP", purchaseDate: "2025-01-01", acquisitionCosts: [{ what: "Stamp duty", amount: ***REMOVED*** }, { what: "LMI", amount: ***REMOVED*** }],
+    loans: [{ what: "Lender", borrowingCosts: 350, settlementDate: "" }] };
+  var m = moveAcquisitionCostToLoan(p, 1);
+  assert.deepEqual(p.acquisitionCosts.map(function(c){ return c.what; }), ["Stamp duty"]);
+  assert.equal(p.loans[0].borrowingCosts, ***REMOVED***);
+  assert.equal(p.loans[0].settlementDate, "2025-01-01");
+  m.undo();
+  assert.equal(p.acquisitionCosts.length, 2);
+  assert.equal(p.loans[0].borrowingCosts, 350);
+  assert.equal(p.loans[0].settlementDate, "");
+});

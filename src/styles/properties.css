@@ -207,11 +207,15 @@
   .m-cost-row .row-del{ flex:none; }
   /* Quantity surveyor's schedule rows (v3.19.0): a year select and two amounts. Same borderless-
      until-focused inputs as the cost rows above, but two fixed amount columns rather than one, and
-     the year select takes the slack. 88px holds "$***" in the mono face at 13px. */
-  .dep-sched-row select.dep-sched-fy{ flex:1 1 auto; min-width:0; font-size:13px; font-family:inherit; color:var(--ink); background:transparent; border:1px solid transparent; border-radius:6px; padding:5px 2px; }
-  .dep-sched-row input{ flex:0 0 88px; min-width:0; border:1px solid transparent; background:transparent; color:var(--ink); text-align:right; font-size:13px; font-family:"IBM Plex Mono", monospace; padding:5px 6px; border-radius:6px; }
+     the year select keeps its natural width ("FY25/26" truncated to "FY1" at 390px otherwise) while
+     the two amounts share what's left. */
+  .dep-sched-row select.dep-sched-fy{ flex:0 0 auto; min-width:max-content; font-size:13px; font-family:inherit; color:var(--ink); background:transparent; border:1px solid transparent; border-radius:6px; padding:5px 2px; }
+  .dep-sched-row input{ flex:1 1 0; min-width:0; border:1px solid transparent; background:transparent; color:var(--ink); text-align:right; font-size:13px; font-family:"IBM Plex Mono", monospace; padding:5px 6px; border-radius:6px; }
   .dep-sched-row input:hover, .dep-sched-row select:hover{ border-color: var(--border); background: var(--paper-sunken); }
   .dep-sched-row input:focus, .dep-sched-row select:focus{ border-color: var(--brass); outline:none; background: var(--paper); box-shadow: var(--focus-ring); }
+  /* Two classes, so it beats the phone-width .m-cost-row grid below whatever the source order: that
+     grid is shaped for name + amount + delete, and drops this row's second amount into a 14px slot. */
+  .m-cost-row.dep-sched-row{ display:flex; }
 
   /* At mobile widths, cramming the dot + name input + amount input + delete button onto one
      flex row left the name illegibly clipped (confirmed via screenshot — every default cost

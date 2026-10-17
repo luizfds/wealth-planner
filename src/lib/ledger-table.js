@@ -1,4 +1,4 @@
-import { FREQS, CLASSES, MONTH_NAMES } from "../constants.js";
+import { FREQS, CLASSES, MONTH_NAMES, DEDUCTION_LABELS } from "../constants.js";
 import { periodsOf, RESERVE_YEAR_BASES, resolveSharedAmount } from "../calc/ledger.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "./format.js";
 import { escapeAttr } from "./html.js";
@@ -51,6 +51,7 @@ export function timingFieldsHtml(item){
   return '<div class="m-edit-field span2"><label class="m-checkbox-field"><input type="checkbox" class="f-irregular"' + (item.irregular ? " checked" : "") +
       '> No fixed timing (irregular) — a lumpy spend like Extras or property maintenance, budgeted as a smoothed reserve instead of expected every period</label></div>' +
     '<div class="m-edit-field"><label>Due month</label><select class="f-duemonth" title="For anything billed less often than monthly — which month it\'s actually due. Auto infers it from the last time you logged it.">' + monthOptions + '</select></div>' +
+    startDateFieldHtml(item) +
     endDateFieldHtml(item) +
     deductionFieldsHtml(item) +
     reserveYearFieldHtml(item);
@@ -63,6 +64,15 @@ export function timingFieldsHtml(item){
 //
 // Deliberately a plain date rather than a "months remaining" count: a count goes stale the day
 // after you type it, and this file is edited months apart.
+// The other end (v3.32.0). A cost or income that begins later — a new subscription from January,
+// childcare from next term — shouldn't count from today in every total, the projection and the
+// cash-flow forecast; and a year's figures count it from the day it starts.
+function startDateFieldHtml(item){
+  return '<div class="m-edit-field"><label>Starts (optional)</label>' +
+    '<input type="date" class="f-startdate" value="' + escapeAttr(item.startDate || "") + '"' +
+      ' title="The first date this line applies. Leave blank if it\'s already running. Totals, projections and the year\'s figures count it from this date.">' +
+  '</div>';
+}
 function endDateFieldHtml(item){
   return '<div class="m-edit-field"><label>Ends (optional)</label>' +
     '<input type="date" class="f-enddate" value="' + escapeAttr(item.endDate || "") + '"' +
@@ -86,11 +96,25 @@ function deductionFieldsHtml(item){
       '</select></div>'
     : "";
   return '<div class="m-edit-field span2"><label class="m-checkbox-field"><input type="checkbox" class="f-deductible"' + (item.deductible ? " checked" : "") +
-      '> Work-related deduction — claimable on a tax return</label></div>' +
-    '<div class="m-edit-field f-deduct-extra"' + (item.deductible ? "" : " hidden") + '><label>Work-related %</label>' +
-      '<input type="number" min="0" max="100" step="5" class="f-deductpct" value="' + (item.deductiblePct == null ? 100 : item.deductiblePct) + '" title="How much of this is work-related. A phone bill or a car is rarely 100%.">' +
+      '> Tax deduction — claimable on a tax return</label></div>' +
+    '<div class="m-edit-field f-deduct-extra"' + (item.deductible ? "" : " hidden") + '><label>Claimable %</label>' +
+      '<input type="number" min="0" max="100" step="5" class="f-deductpct" value="' + (item.deductiblePct == null ? 100 : item.deductiblePct) + '" title="How much of this is claimable — for a work expense, the work-related share. A phone bill or a car is rarely 100%.">' +
     '</div>' +
-    (personField ? '<div class="f-deduct-extra"' + (item.deductible ? "" : " hidden") + ' style="display:contents">' + personField + '</div>' : "");
+    (personField ? '<div class="f-deduct-extra"' + (item.deductible ? "" : " hidden") + ' style="display:contents">' + personField + '</div>' : "") +
+    // The claim's own dates, separate from "Ends": rent carries on after the home-office share of
+    // it stops being claimable (an employer starts providing an office), and a tax year counts only
+    // the days the claim covered. Blank = the whole year.
+    '<div class="m-edit-field f-deduct-extra"' + (item.deductible ? "" : " hidden") + '><label>Return label</label>' +
+      '<select class="f-deductlabel" aria-label="Tax return label" title="Where this goes on the return — the tax card totals claims by label, the way myTax asks for them.">' +
+        DEDUCTION_LABELS.map(function(d){ return '<option value="' + d.code + '"' + ((item.deductionLabel || "D5") === d.code ? " selected" : "") + '>' + d.label + '</option>'; }).join("") +
+      '</select>' +
+    '</div>' +
+    '<div class="m-edit-field f-deduct-extra"' + (item.deductible ? "" : " hidden") + '><label>Claim from</label>' +
+      '<input type="date" class="f-deductfrom" value="' + escapeAttr(item.deductibleFrom || "") + '" title="The first day this was claimable. Leave blank if it was claimable from before this tax year began." aria-label="Claimable from">' +
+    '</div>' +
+    '<div class="m-edit-field f-deduct-extra"' + (item.deductible ? "" : " hidden") + '><label>Claim until</label>' +
+      '<input type="date" class="f-deductuntil" value="' + escapeAttr(item.deductibleUntil || "") + '" title="The last day this was claimable, if the claim stopped while the expense carried on — e.g. home-office rent once an employer office became available. The tax year counts only the days in between." aria-label="Claimable until">' +
+    '</div>';
 }
 // Same registration shape as calc/tax.js's deductible-items provider, and for the same reason: the
 // person list comes from calc/tax.js's getTaxPeople(), and lib/ deliberately imports no calc module.
@@ -131,7 +155,12 @@ export function hasEnded(item){
   return !!(item && item.endDate && item.endDate < todayStr());
 }
 export function endDateNoteHtml(item){
-  if(!item || !item.endDate) return "";
+  if(!item) return "";
+  // A line that hasn't started yet says so — it's in the list but in none of the totals.
+  if(item.startDate && item.startDate > todayStr()){
+    return '<span class="row-end-note">Starts ' + escapeAttr(item.startDate) + (item.endDate ? ", ends " + escapeAttr(item.endDate) : "") + '</span>';
+  }
+  if(!item.endDate) return "";
   var ended = hasEnded(item);
   return '<span class="row-end-note' + (ended ? " ended" : "") + '">' +
     (ended ? "Ended " : "Ends ") + escapeAttr(item.endDate) + '</span>';

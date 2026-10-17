@@ -145,7 +145,7 @@
       <!-- The number lives in its own span because it is *parsed*, both out of this DOM and out of
            a freshly-fetched copy of this file, to decide whether a newer version is deployed. Left
            bare in the <p>, the "Check for updates" button beside it would end up inside the match. -->
-      <p class="app-version"><span class="app-version-num">v3.16.0</span> · <button type="button" class="link-btn" id="checkUpdatesLink">Check for updates</button></p>
+      <p class="app-version"><span class="app-version-num">v3.32.0</span> · <button type="button" class="link-btn" id="checkUpdatesLink">Check for updates</button></p>
     </div>
     <div class="mobile-header-right">
       <button type="button" class="icon-btn" id="mobileSearchBtn" aria-label="Search">
@@ -284,6 +284,17 @@
             <div class="ledger-body">
               <p class="ledger-note" style="margin-left:0">Estimated Australian resident income tax, Medicare levy, and concessional super — a full year at the rates shown, computed from any Income rows marked "Gross" above. Which twelve months that year is comes from Accounts &rarr; Preferences. A person appears here the moment one of their rows is marked Gross; use ✎ to rename or ✕ to remove them (their rows just go back to Type "Net"). Covers HELP/HECS, the Medicare levy surcharge, work-related deductions, dividends and franking, capital gains and property depreciation. Still an estimate — rates are indexed annually, Division 293 and surcharge income are approximated, and each capital gain is discounted on its own holding period rather than netted against losses first. Confirm real figures with your accountant.</p>
               <div id="taxSuperBody"></div>
+            </div>
+          </details>
+
+          <details class="ledger" id="taxYearLedger">
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Tax return worksheet</h2></div>
+              <div class="ledger-total">a year, in myTax's order</div>
+            </summary>
+            <div class="ledger-body">
+              <p class="ledger-note" style="margin-left:0">One financial year as a return asks for it. Type the year's documents in — income statements, interest, the agent's summary — and the worksheet uses them; anything left blank falls back to what the app already models, so it's useful straight away and exact once the papers are in.</p>
+              <div id="taxYearBody"></div>
             </div>
           </details>
         </div>

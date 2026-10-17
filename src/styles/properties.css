@@ -205,6 +205,24 @@
   .m-cost-row input.cc-what:hover, .m-cost-row input.cc-what:focus, .m-cost-row input.cc-amount:hover, .m-cost-row input.cc-amount:focus{ border-color: var(--border); background: var(--paper-sunken); }
   .m-cost-row input.cc-what:focus, .m-cost-row input.cc-amount:focus{ border-color: var(--brass); outline:none; background: var(--paper); box-shadow: var(--focus-ring); }
   .m-cost-row .row-del{ flex:none; }
+  /* Quantity surveyor's schedule rows (v3.19.0): a year select and two amounts. Same borderless-
+     until-focused inputs as the cost rows above, but two fixed amount columns rather than one, and
+     the year select keeps its natural width ("FY25/26" truncated to "FY1" at 390px otherwise) while
+     the two amounts share what's left. */
+  .dep-sched-row select.dep-sched-fy{ flex:0 0 auto; min-width:max-content; font-size:13px; font-family:inherit; color:var(--ink); background:transparent; border:1px solid transparent; border-radius:6px; padding:5px 2px; }
+  .dep-sched-row input{ flex:1 1 0; min-width:0; border:1px solid transparent; background:transparent; color:var(--ink); text-align:right; font-size:13px; font-family:"IBM Plex Mono", monospace; padding:5px 6px; border-radius:6px; }
+  .dep-sched-row input:hover, .dep-sched-row select:hover{ border-color: var(--border); background: var(--paper-sunken); }
+  .dep-sched-row input:focus, .dep-sched-row select:focus{ border-color: var(--brass); outline:none; background: var(--paper); box-shadow: var(--focus-ring); }
+  /* Two classes, so it beats the phone-width .m-cost-row grid below whatever the source order: that
+     grid is shaped for name + amount + delete, and drops this row's second amount into a 14px slot. */
+  .m-cost-row.dep-sched-row{ display:flex; }
+  /* "Move to borrowing costs" (v3.28.0): a quiet text button after the row; a row whose name looks
+     like a loan cost gets a tinted background and a louder button. */
+  .m-cost-row .acq-move{ flex:none; font-size:11.5px; white-space:nowrap; }
+  .m-cost-row.is-loan-cost{ background: var(--brass-wash, var(--paper-sunken)); border-radius:8px; padding-left:6px; padding-right:6px; }
+  .m-cost-row .acq-move.suggested{ color: var(--brass-strong); font-weight:600; }
+  .m-cost-row.has-move{ flex-wrap:wrap; }
+  .m-cost-row .acq-move.icon-only{ width:32px; padding:0; color: var(--ink-soft); }
 
   /* At mobile widths, cramming the dot + name input + amount input + delete button onto one
      flex row left the name illegibly clipped (confirmed via screenshot — every default cost
@@ -221,6 +239,9 @@
     .m-cost-row input.cc-what{ grid-area:name; width:100%; }
     .m-cost-row input.cc-amount{ grid-area:amount; justify-self:end; }
     .m-cost-row .row-del{ grid-area:del; }
+    .m-cost-row.has-move.is-loan-cost{ grid-template-areas:"dot name name" "dot amount del" "dot move move"; }
+    .m-cost-row.has-move:not(.is-loan-cost){ grid-template-columns:auto 1fr auto auto; grid-template-areas:"dot name name name" "dot amount move del"; }
+    .m-cost-row .acq-move{ grid-area:move; justify-self:start; white-space:normal; text-align:left; }
   }
 
   /* ---------------- Portfolio-wide overview (above the property card list) ---------------- */

@@ -100,3 +100,87 @@
   .pay-hist-delta.down{ color: var(--bad); }
   /* The "Adds up: …" derivation, now on the Breakdown side above the figures it explains. */
   .rb-adds-up{ margin:0 0 10px; }
+
+/* ---------------- Tax return worksheet (v3.26.0) ----------------
+   One card per person, rows of document figures that edit in place, and a worksheet column that
+   reads down in myTax's order. Amount columns are mono and right-aligned so a column of figures
+   can be checked against a statement by eye. */
+.ty-top{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+.ty-top label{ font-size:12px; font-weight:600; color:var(--ink-soft); }
+.ty-top select{ font:inherit; font-size:14px; font-weight:600; padding:6px 8px; border:1px solid var(--border); border-radius:8px; background:var(--paper); color:var(--ink); }
+.ty-person{ border:1px solid var(--border); border-radius:12px; padding:12px 14px; margin:12px 0; background:var(--paper-raised); }
+.ty-person-head{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
+.ty-person-head h3{ margin:0; font-size:16px; }
+.ty-refund{ display:flex; flex-direction:column; align-items:flex-end; }
+.ty-refund span{ font-size:11px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; font-weight:600; }
+.ty-refund b{ font-family:"IBM Plex Mono", monospace; font-size:20px; font-variant-numeric:tabular-nums; }
+.ty-refund.up b{ color:var(--good); }
+.ty-refund.down b{ color:var(--bad); }
+.ty-refund.muted{ font-size:12px; color:var(--ink-soft); }
+.ty-row{ display:grid; gap:6px; align-items:center; padding:3px 0; }
+.ty-row-is{ grid-template-columns: minmax(0,1.4fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,.8fr) 32px; }
+.ty-row-int{ grid-template-columns: minmax(0,1.6fr) minmax(0,1fr) minmax(0,.6fr) 32px; }
+.ty-row-ded{ grid-template-columns: 64px minmax(0,1.6fr) minmax(0,1fr) 32px; }
+.ty-head-row{ font-size:10.5px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-soft); }
+.ty-row input, .ty-row select, .ty-rent-in{ min-width:0; width:100%; font-size:13px; padding:6px; border:1px solid var(--border); border-radius:6px; background:var(--paper); color:var(--ink); font-family:inherit; }
+.ty-row input[type="number"], .ty-rent-in{ font-family:"IBM Plex Mono", monospace; text-align:right; }
+.ty-row .icon-btn{ width:32px; height:32px; }
+.ty-rent-grid{ display:flex; flex-direction:column; }
+.ty-rent-row{ display:grid; grid-template-columns: minmax(0,1fr) 120px; gap:8px; align-items:center; padding:3px 0; border-top:1px solid var(--border); font-size:13px; }
+.ty-rent-row.has-actual span{ font-weight:600; }
+.ty-rent-in::placeholder{ color:var(--ink-soft); opacity:.75; }
+.ty-ws{ margin:10px 0 4px; border-top:1px solid var(--border); }
+.ty-ws-section{ font-size:10.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-soft); margin:10px 0 2px; }
+.ty-ws-line{ display:flex; justify-content:space-between; gap:12px; font-size:13px; padding:2px 0; }
+.ty-ws-line span{ min-width:0; overflow-wrap:anywhere; }
+.ty-ws-line b{ font-family:"IBM Plex Mono", monospace; font-weight:500; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.ty-ws-line.strong b, .ty-ws-line.strong span{ font-weight:700; }
+.ty-cmp{ display:flex; flex-direction:column; font-size:12.5px; }
+.ty-cmp-row{ display:grid; grid-template-columns: minmax(0,1.5fr) repeat(3, minmax(0,1fr)); gap:6px; padding:3px 0; border-top:1px solid var(--border); }
+.ty-cmp-row > :not(:first-child){ text-align:right; font-family:"IBM Plex Mono", monospace; font-variant-numeric:tabular-nums; }
+.ty-cmp-row b.up{ color:var(--bad); }
+.ty-cmp-row b.down{ color:var(--good); }
+.ty-ev{ display:flex; gap:8px; align-items:flex-start; font-size:13px; padding:4px 0; }
+/* Phone width: four fields on one line cut "130687" to "13068". The payer takes the first line,
+   the three amounts and delete share the second — and the header row follows the same shape, so
+   its labels still sit over their columns. */
+@media (max-width:480px){
+  /* payer / gross · allowances · withheld · delete / RESC · RFBA */
+  .ty-row-is{ grid-template-columns: minmax(0,1fr) minmax(0,.8fr) minmax(0,1fr) 32px; row-gap:4px;
+    grid-template-areas: "payer payer payer payer" "gross allow withheld del" "resc rfba . ."; }
+  .ty-row-is > :nth-child(1){ grid-area: payer; }
+  .ty-row-is > :nth-child(2){ grid-area: gross; }
+  .ty-row-is > :nth-child(3){ grid-area: allow; }
+  .ty-row-is > :nth-child(4){ grid-area: withheld; }
+  .ty-row-is > :nth-child(5){ grid-area: resc; }
+  .ty-row-is > :nth-child(6){ grid-area: rfba; }
+  .ty-row-is > :nth-child(7){ grid-area: del; }
+  .ty-row-is:not(.ty-head-row){ padding-bottom:8px; border-bottom:1px solid var(--border); }
+}
+
+/* ---------------- Printing the worksheet (v3.31.0) ----------------
+   #printRoot is built at the top level only while printing (see app.js) and is the only thing
+   shown. Plain tables, black on white whatever the theme, one person per page. */
+#printRoot{ display:none; }
+@media print{
+  @page{ margin:15mm 14mm; }
+  body.printing-worksheet > *:not(#printRoot){ display:none !important; }
+  body.printing-worksheet{ background:#fff !important; }
+  body.printing-worksheet #printRoot{ display:block; color:#000; font:11pt/1.4 "Inter", system-ui, sans-serif; }
+  /* Every descendant, not just the root: table cells pick up the theme's --ink from base.css, which
+     in dark mode is near-white — invisible on paper (caught printing from a dark-mode browser). */
+  #printRoot, #printRoot *{ color:#000 !important; background:transparent !important; }
+  #printRoot .pr-page{ break-after:page; }
+  #printRoot .pr-page:last-child{ break-after:auto; }
+  #printRoot h2{ font-size:15pt; margin:0 0 6pt; }
+  #printRoot h3{ font-size:12pt; margin:12pt 0 4pt; }
+  #printRoot .pr-refund{ font-size:12pt; margin:0 0 8pt; }
+  #printRoot .pr-table{ width:100%; border-collapse:collapse; margin-bottom:6pt; }
+  #printRoot .pr-table td, #printRoot .pr-table th{ padding:2pt 4pt; border-bottom:0.5pt solid #bbb; text-align:left; vertical-align:top; }
+  #printRoot .pr-sec th{ font-size:8.5pt; text-transform:uppercase; letter-spacing:.05em; padding-top:8pt; border-bottom:1pt solid #000; }
+  #printRoot .pr-num{ text-align:right !important; font-family:"IBM Plex Mono", monospace; white-space:nowrap; }
+  #printRoot .pr-strong td{ font-weight:700; }
+  #printRoot tr{ break-inside:avoid; }
+  #printRoot .pr-ev{ padding-left:0; list-style:none; }
+  #printRoot .pr-foot{ margin-top:14pt; font-size:8.5pt; }
+}

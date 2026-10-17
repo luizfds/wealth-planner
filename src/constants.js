@@ -235,3 +235,73 @@ export var LAND_TAX_BRACKETS = {
 // The states this app can actually compute land tax for. Anything else is "Other", which is
 // honest about not knowing rather than quietly using someone else's scale.
 export var LAND_TAX_STATES = ["NSW", "VIC", "QLD"];
+
+// Deduction labels on the individual tax return / myTax (v3.24.0). A deductible budget line carries
+// one, so the year's claims can be totalled the way the return asks for them. D5 is the default
+// because it's where most things an employee buys for work land.
+export var DEDUCTION_LABELS = [
+  { code: "D1", label: "D1 Car expenses" },
+  { code: "D2", label: "D2 Travel" },
+  { code: "D3", label: "D3 Clothing, laundry, dry-cleaning" },
+  { code: "D4", label: "D4 Self-education" },
+  { code: "D5", label: "D5 Other work-related" },
+  { code: "D9", label: "D9 Gifts and donations" },
+  { code: "D10", label: "D10 Cost of managing tax affairs" },
+  { code: "D15", label: "D15 Other deductions (e.g. income protection)" }
+];
+// The ATO working-from-home fixed rate, per hour, by the year the financial year starts in. It
+// covers energy, internet, phone and stationery — those can't also be claimed separately. 67c for
+// FY22/23-FY23/24, 70c from FY24/25 (confirmed for FY25/26 on ato.gov.au). A year past the table
+// uses the latest rate, labelled as such where it's shown.
+export var WFH_FIXED_RATES = { 2022: 0.67, 2023: 0.67, 2024: 0.70, 2025: 0.70 };
+
+// ---------------- Tax tables by financial year (v3.25.0) ----------------
+//
+// Keyed by the calendar year the financial year starts in (2025 = FY25/26). Every figure below was
+// read off ato.gov.au in October 2026: individual rates (tax-rates-australian-residents), study
+// loan repayment thresholds, Medicare levy surcharge and private health insurance rebate tiers,
+// and the M1 Medicare levy low-income thresholds. A year not listed borrows the nearest one and is
+// flagged as assumed wherever it's shown — a table that silently goes stale is the failure this
+// replaces (AU_TAX_BRACKETS above is the FY24/25 table and was being used for every year).
+//
+// Shapes worth knowing:
+//   - help.kind "flat" (to FY24/25) charges one rate on the WHOLE repayment income; "marginal"
+//     (from FY25/26) charges each band's rate on the slice above it, plus 10% of the whole income
+//     above `wholeAbove`.
+//   - phi.periods split the year where the rebate percentage is re-indexed (1 April): `share` is
+//     the part of the year each covers, `rates` the rebate % for base/tier 1/2/3 by the age of the
+//     oldest person on the policy — u65, a65 (65-69), a70 (70 and over).
+//   - medicare.lower/upper are the singles low-income shade-in thresholds (10c per $ between).
+export var TAX_YEARS = {
+  2024: {
+    brackets: AU_TAX_BRACKETS,
+    medicare: { lower: 27222, upper: 34027 },
+    help: { kind: "flat", rates: HELP_REPAYMENT_RATES },
+    mls: { single: [97000, 113000, 151000] },
+    phi: { periods: [{ share: 0.75, rates: { u65: [24.608, 16.405, 8.202, 0], a65: [28.710, 20.507, 12.303, 0], a70: [32.812, 24.608, 16.405, 0] } }, { share: 0.25, rates: { u65: [24.288, 16.192, 8.095, 0], a65: [28.337, 20.240, 12.143, 0], a70: [32.385, 24.288, 16.192, 0] } }] }
+  },
+  2025: {
+    brackets: AU_TAX_BRACKETS,
+    medicare: { lower: 28011, upper: 35013 },
+    help: { kind: "marginal", bands: [{ over: 67000, base: 0, rate: 0.15 }, { over: 125000, base: 8700, rate: 0.17 }], wholeAbove: 179285, wholeRate: 0.10 },
+    mls: { single: [101000, 118000, 158000] },
+    phi: { periods: [{ share: 0.75, rates: { u65: [24.288, 16.192, 8.095, 0], a65: [28.337, 20.240, 12.143, 0], a70: [32.385, 24.288, 16.192, 0] } }, { share: 0.25, rates: { u65: [24.118, 16.079, 8.038, 0], a65: [28.139, 20.098, 12.058, 0], a70: [32.158, 24.118, 16.079, 0] } }] }
+  },
+  2026: {
+    // The 16% rate becomes 15% from 1 July 2026.
+    brackets: [
+      { from: 0, to: 18200, base: 0, rate: 0 },
+      { from: 18200, to: 45000, base: 0, rate: 0.15 },
+      { from: 45000, to: 135000, base: 4020, rate: 0.30 },
+      { from: 135000, to: 190000, base: 31020, rate: 0.37 },
+      { from: 190000, to: Infinity, base: 51370, rate: 0.45 }
+    ],
+    // FY26/27 low-income thresholds weren't on the ATO's M1 page yet; FY25/26's are carried.
+    medicare: { lower: 28011, upper: 35013, assumed: true },
+    help: { kind: "marginal", bands: [{ over: 69528, base: 0, rate: 0.15 }, { over: 129717, base: 9028, rate: 0.17 }], wholeAbove: 186050, wholeRate: 0.10 },
+    mls: { single: [105000, 123000, 164000] },
+    // Rates from 1 April 2027 aren't published until March 2027; the July rates are carried.
+    phi: { periods: [{ share: 0.75, rates: { u65: [24.118, 16.079, 8.038, 0], a65: [28.139, 20.098, 12.058, 0], a70: [32.158, 24.118, 16.079, 0] } }, { share: 0.25, rates: { u65: [24.118, 16.079, 8.038, 0], a65: [28.139, 20.098, 12.058, 0], a70: [32.158, 24.118, 16.079, 0] }, assumed: true }] }
+  }
+};
+export var MLS_RATES = [0, 0.01, 0.0125, 0.015];

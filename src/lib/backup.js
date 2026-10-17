@@ -320,7 +320,7 @@ var INCOME_CSV_HEADERS = ["What", "Person", "Type", "Amount", "Frequency", "Supe
 // linked budget line's, so exporting t.category alone would produce a column that's mostly empty
 // on exactly the rows a category matters for. The resolver is passed in by the caller because the
 // walk lives in components/expenses.js (lib/ can't import a component).
-var TRANSACTIONS_CSV_HEADERS = ["Date", "Description", "Amount", "Category", "Budget line", "Account", "Deductible", "Work-related %", "Claimed by"];
+var TRANSACTIONS_CSV_HEADERS = ["Date", "Description", "Amount", "Category", "Budget line", "Account", "Deductible", "Work-related %", "Claimed by", "Return label"];
 export function exportYearTransactionsCsv(opts){
   opts = opts || {};
   var win = householdYearToDate();
@@ -345,7 +345,8 @@ export function exportYearTransactionsCsv(opts){
       // only the person who spent the money can make, and that get lost otherwise.
       ded && ded.deductible ? "Yes" : "",
       ded && ded.deductible ? (ded.deductiblePct == null ? 100 : ded.deductiblePct) : "",
-      ded && ded.deductible ? (ded.deductiblePerson || "") : ""
+      ded && ded.deductible ? (ded.deductiblePerson || "") : "",
+      ded && ded.deductible ? (ded.deductionLabel || "D5") : ""
     ];
   });
   // The filename carries the period, because a folder of these is otherwise indistinguishable —

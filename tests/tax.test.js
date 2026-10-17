@@ -12,10 +12,11 @@ test("incomeTaxAU is $0 up to the tax-free threshold", function(){
 });
 
 test("incomeTaxAU applies each bracket's base + marginal rate at its boundaries", function(){
-  assert.ok(Math.abs(incomeTaxAU(45000) - 4288) < 1e-9);
-  assert.ok(Math.abs(incomeTaxAU(135000) - 31288) < 1e-9);
-  assert.ok(Math.abs(incomeTaxAU(190000) - 51638) < 1e-9);
-  assert.ok(Math.abs(incomeTaxAU(200000) - 56138) < 1e-9);
+  // FY24/25 (the 16% table, unchanged in FY25/26).
+  assert.ok(Math.abs(incomeTaxAU(45000, 2024) - 4288) < 1e-9);
+  assert.ok(Math.abs(incomeTaxAU(135000, 2024) - 31288) < 1e-9);
+  assert.ok(Math.abs(incomeTaxAU(190000, 2024) - 51638) < 1e-9);
+  assert.ok(Math.abs(incomeTaxAU(200000, 2024) - 56138) < 1e-9);
 });
 
 test("incomeTaxAU treats negative/non-numeric input as $0 taxable income", function(){
@@ -24,17 +25,19 @@ test("incomeTaxAU treats negative/non-numeric input as $0 taxable income", funct
 });
 
 test("marginalRateAU returns the rate for the bracket the income falls in", function(){
-  assert.equal(marginalRateAU(10000), 0);
-  assert.equal(marginalRateAU(30000), 0.16);
-  assert.equal(marginalRateAU(100000), 0.30);
-  assert.equal(marginalRateAU(160000), 0.37);
-  assert.equal(marginalRateAU(300000), 0.45);
+  assert.equal(marginalRateAU(10000, 2024), 0);
+  assert.equal(marginalRateAU(30000, 2024), 0.16);
+  assert.equal(marginalRateAU(100000, 2024), 0.30);
+  assert.equal(marginalRateAU(160000, 2024), 0.37);
+  assert.equal(marginalRateAU(300000, 2024), 0.45);
 });
 
 test("medicareLevyAU shades in between the low-income thresholds, then flat 2%", function(){
-  assert.equal(medicareLevyAU(20000), 0);
-  assert.ok(Math.abs(medicareLevyAU(30000) - 400) < 1e-9);
-  assert.ok(Math.abs(medicareLevyAU(40000) - 800) < 1e-9);
+  // FY24/25 singles thresholds from the ATO's M1 instructions: $27,222 and $34,027. (The table
+  // before v3.25.0 used approximate $26,000/$32,500 figures, which put $30,000 at $400.)
+  assert.equal(medicareLevyAU(20000, 2024), 0);
+  assert.ok(Math.abs(medicareLevyAU(30000, 2024) - 277.8) < 1e-9);
+  assert.ok(Math.abs(medicareLevyAU(40000, 2024) - 800) < 1e-9);
 });
 
 // ---------------- Per-scenario income (v2.79.0) ----------------
@@ -174,17 +177,18 @@ import { helpRepaymentRate, helpRepaymentAnnual, helpNextThreshold } from "../sr
 test("the HELP rate is a flat percentage of the whole income, not marginal", function(){
   // This is the thing people get wrong about it, and the reason the panel names the next
   // threshold: at $54,435 you repay 1% of all of it, not 1% of the dollar above the threshold.
-  assert.equal(helpRepaymentRate(54434), 0);
-  assert.equal(helpRepaymentRate(54435), 0.01);
-  assert.ok(Math.abs(helpRepaymentAnnual(54435, 50000) - 544.35) < 0.01);
+  // FY24/25, the last year of the flat system.
+  assert.equal(helpRepaymentRate(54434, 2024), 0);
+  assert.equal(helpRepaymentRate(54435, 2024), 0.01);
+  assert.ok(Math.abs(helpRepaymentAnnual(54435, 50000, 2024) - 544.35) < 0.01);
   // One dollar of income either side of a threshold, and the repayment jumps by the whole band.
-  assert.equal(helpRepaymentAnnual(54434, 50000), 0);
+  assert.equal(helpRepaymentAnnual(54434, 50000, 2024), 0);
 });
 
 test("the top band applies to everything above it", function(){
-  assert.equal(helpRepaymentRate(159664), 0.10);
-  assert.equal(helpRepaymentRate(1000000), 0.10);
-  assert.equal(helpRepaymentAnnual(200000, 999999), 20000);
+  assert.equal(helpRepaymentRate(159664, 2024), 0.10);
+  assert.equal(helpRepaymentRate(1000000, 2024), 0.10);
+  assert.equal(helpRepaymentAnnual(200000, 999999, 2024), 20000);
 });
 
 test("no balance means no repayment, whatever the income", function(){
@@ -200,12 +204,12 @@ test("a repayment never exceeds what's left owing", function(){
 });
 
 test("helpNextThreshold names what crossing it actually costs", function(){
-  var next = helpNextThreshold(54000);
+  var next = helpNextThreshold(54000, 2024);
   assert.equal(next.at, 54435);
   assert.equal(next.away, 435);
   // The cost is the jump in the whole-income repayment (1% of $54,435), not the rate difference.
   assert.ok(Math.abs(next.stepCost - 544.35) < 0.01);
-  assert.equal(helpNextThreshold(200000), null, "nothing above the top band");
+  assert.equal(helpNextThreshold(200000, 2024), null, "nothing above the top band");
 });
 
 test("repayment income adds back salary sacrifice and ignores a rental loss", function(){
@@ -214,10 +218,10 @@ test("repayment income adds back salary sacrifice and ignores a rental loss", fu
   // understates it — which is exactly why this is computed and shown separately.
   withIncome([grossRow("Sam", 120000)], function(){
     state.tax.settings.Sam = { superSacrificeAnnual: 20000, concessionalCap: 30000, carryForward: 0, helpBalance: 50000 };
-    var t = computePersonTax("Sam");
+    var t = computePersonTax("Sam", { fy: 2024 });
     assert.ok(t.taxable < 120000, "sacrifice reduced taxable income");
     assert.equal(t.repaymentIncome, 120000, "but not repayment income");
-    assert.ok(Math.abs(t.helpRepayment - 120000 * helpRepaymentRate(120000)) < 0.01);
+    assert.ok(Math.abs(t.helpRepayment - 120000 * helpRepaymentRate(120000, 2024)) < 0.01);
   });
 });
 
@@ -258,26 +262,27 @@ test("holding private hospital cover means no surcharge at any income", function
 });
 
 test("the surcharge is flat on the whole income, not marginal", function(){
-  assert.equal(medicareSurchargeAnnual(96999, false, false), 0);
-  assert.equal(medicareSurchargeAnnual(97000, false, false), 970, "1% of all of it, not of the excess");
-  assert.equal(medicareSurchargeAnnual(113000, false, false), 1412.5);
-  assert.equal(medicareSurchargeAnnual(151000, false, false), 2265);
+  // FY24/25: "$97,000 or less" is the base tier, so Tier 1 starts at $97,001.
+  assert.equal(medicareSurchargeAnnual(97000, false, false, 2024), 0);
+  assert.equal(medicareSurchargeAnnual(97001, false, false, 2024), 970.01, "1% of all of it, not of the excess");
+  assert.equal(medicareSurchargeAnnual(113001, false, false, 2024), 1412.51);
+  assert.equal(medicareSurchargeAnnual(151001, false, false, 2024), 2265.02);
 });
 
 test("family thresholds are the singles ones doubled", function(){
-  assert.deepEqual(mlsThresholds(true).map(function(t){ return t.from; }), [0, 194000, 226000, 302000]);
-  // $150k: tier 3 as a single, below the first family threshold entirely.
-  assert.equal(mlsTierFor(150000, false).label, "Tier 2");
-  assert.equal(mlsTierFor(150000, true).label, "Base tier");
-  assert.equal(medicareSurchargeAnnual(150000, false, true), 0);
+  assert.deepEqual(mlsThresholds(true, 2024).map(function(t){ return t.from; }), [0, 194000, 226000, 302000]);
+  // $150k: tier 2 as a single, below the first family threshold entirely.
+  assert.equal(mlsTierFor(150000, false, 2024).label, "Tier 2");
+  assert.equal(mlsTierFor(150000, true, 2024).label, "Base tier");
+  assert.equal(medicareSurchargeAnnual(150000, false, true, 2024), 0);
 });
 
 test("mlsNextTier names the step, because crossing one is not a slope", function(){
-  var next = mlsNextTier(96000, false);
-  assert.equal(next.at, 97000);
-  assert.equal(next.away, 1000);
-  assert.equal(next.stepCost, 970, "$1,000 more income costs $970, not $10");
-  assert.equal(mlsNextTier(500000, false), null);
+  var next = mlsNextTier(96000, false, 2024);
+  assert.equal(next.at, 97001);
+  assert.equal(next.away, 1001);
+  assert.equal(next.stepCost, 970.01, "$1,001 more income costs $970, not $10");
+  assert.equal(mlsNextTier(500000, false, 2024), null);
 });
 
 test("the surcharge is a tax — it lands in totalTax and the effective rate", function(){
@@ -518,8 +523,8 @@ test("grossed-up dividend income cascades into the Medicare levy surcharge", fun
     state.tax.privateHospitalCover = false;
     state.tax.familyThresholds = false;
     var before, after;
-    withAssets([], function(){ before = computePersonTax("Sam"); });
-    withAssets([holding("Sam", 10000, 0.7, 100)], function(){ after = computePersonTax("Sam"); });
+    withAssets([], function(){ before = computePersonTax("Sam", { fy: 2024 }); });
+    withAssets([holding("Sam", 10000, 0.7, 100)], function(){ after = computePersonTax("Sam", { fy: 2024 }); });
     assert.ok(after.medicareSurcharge > before.medicareSurcharge);
     assert.ok(Math.abs((after.medicareSurcharge - before.medicareSurcharge) - 100) < 1);
   });
@@ -639,4 +644,368 @@ test("an asset with no sales contributes nothing", function(){
       assert.equal(computePersonTax("Sam").capitalGains, 0);
     });
   });
+});
+
+// ---------------- Claims that stop or start partway through a tax year (v3.16.1) ----------------
+
+import { deductionYearFraction } from "../src/calc/tax.js";
+
+var FY2526 = { start: "2025-07-01", end: "2026-06-30", label: "FY25/26" };
+
+test("home-office rent claimable only until an employer office became available", function(){
+  // The real case this was written for: $720/wk rent, a 6.4% dedicated office, claimable from
+  // 1 July until the employer was acquired by one with a local office on 1 October 2025. The rent
+  // carried on — only the claim stopped — so it's deductibleUntil, not endDate.
+  // 92 of 365 days: $37,440 x 6.4% x 92/365 = $603.96, the figure lodged.
+  var rent = deductibleRow("Rent", 720, "Weekly", { deductiblePct: 6.4, deductibleUntil: "2025-09-30" });
+  assert.equal(Math.round(rowDeductionAnnual(rent, FY2526) * 100) / 100, 603.96);
+});
+
+test("a row that ended during the tax year still claims the part of the year it ran", function(){
+  // Before v3.16.1 this returned $0 the moment the end date passed — including when looking at the
+  // very year it ended in, which is the year anyone lodging would be looking at.
+  var sub = deductibleRow("Software", 1200, "Yearly", { endDate: "2025-12-31" });
+  // 1 Jul - 31 Dec 2025 is 184 of 365 days.
+  assert.ok(Math.abs(rowDeductionAnnual(sub, FY2526) - 1200 * 184 / 365) < 1e-9);
+});
+
+test("a row that ended before the tax year claims nothing in it", function(){
+  var sub = deductibleRow("Software", 1200, "Yearly", { endDate: "2025-06-30" });
+  assert.equal(rowDeductionAnnual(sub, FY2526), 0);
+});
+
+test("a claim that started partway through the year counts from that day", function(){
+  var row = deductibleRow("Course", 3650, "Yearly", { deductibleFrom: "2026-06-01" });
+  // 1-30 June is 30 days.
+  assert.ok(Math.abs(rowDeductionAnnual(row, FY2526) - 3650 * 30 / 365) < 1e-9);
+});
+
+test("the earlier of the expense's end and the claim's end wins", function(){
+  var row = { endDate: "2026-03-31", deductibleUntil: "2025-09-30" };
+  assert.equal(deductionYearFraction(row, FY2526), 92 / 365);
+  assert.equal(deductionYearFraction({ endDate: "2025-09-30", deductibleUntil: "2026-03-31" }, FY2526), 92 / 365);
+});
+
+test("a row with no dates claims the whole year, as before", function(){
+  assert.equal(deductionYearFraction({}, FY2526), 1);
+  assert.equal(rowDeductionAnnual(deductibleRow("Union fees", 600, "Yearly"), FY2526), 600);
+});
+
+test("a leap tax year is counted in its own 366 days", function(){
+  var FY2728 = { start: "2027-07-01", end: "2028-06-30" };
+  // 1 Jul - 31 Dec 2027 is 184 of the 366 days that include 29 Feb 2028.
+  assert.equal(deductionYearFraction({ deductibleUntil: "2027-12-31" }, FY2728), 184 / 366);
+});
+
+// ---------------- Purchase lots and per-parcel discount (v3.21.0) ----------------
+
+import { fifoParcels, lotsAverageCost, saleCapitalGain as saleGain } from "../src/calc/tax.js";
+
+// The real trades: six DroneShield buys July-October 2024 (Stake), all sold in two halves.
+function droLots(){
+  return [
+    { id: "a", date: "2024-07-23", units: 340, price: 1.485, brokerage: 3, soldUnits: 0 },
+    { id: "b", date: "2024-07-23", units: 440, price: 1.435, brokerage: 3, soldUnits: 0 },
+    { id: "c", date: "2024-08-09", units: 493, price: 1.055, brokerage: 3, soldUnits: 0 },
+    { id: "d", date: "2024-09-04", units: 800, price: 1.33, brokerage: 3, soldUnits: 0 },
+    { id: "e", date: "2024-10-23", units: 22, price: 1, brokerage: 3, soldUnits: 0 },
+    { id: "f", date: "2024-10-30", units: 535, price: 0.92, brokerage: 3, soldUnits: 0 }
+  ];
+}
+
+test("a FIFO sale uses the oldest parcels first, brokerage included in each parcel's cost", function(){
+  var asset = { lots: droLots() };
+  var first = fifoParcels(asset, 1315);
+  assert.deepEqual(first.parcels.map(function(p){ return [p.lotId, p.units]; }), [["a", 340], ["b", 440], ["c", 493], ["d", 42]]);
+  assert.equal(Math.round(first.parcels.reduce(function(s, p){ return s + p.costBase; }, 0) * 100) / 100, 1721.44);
+});
+
+test("the DroneShield sales: $6,691.56 and $1,096.86, every parcel discounted", function(){
+  var asset = { lots: droLots() };
+  var p1 = fifoParcels(asset, 1315).parcels;
+  var g1 = saleGain({ date: "2025-10-07", units: 1315, proceeds: 8413.00, parcels: p1 });
+  assert.equal(g1.raw, 6691.56);
+  assert.equal(g1.discountableGain, 6691.56);
+  assert.equal(g1.otherGain, 0);
+  // Mark them sold, as recordAssetSale does, and sell the rest.
+  p1.forEach(function(p){ var l = asset.lots.find(function(x){ return x.id === p.lotId; }); l.soldUnits += p.units; });
+  var p2 = fifoParcels(asset, 1315).parcels;
+  assert.deepEqual(p2.map(function(p){ return [p.lotId, p.units]; }), [["d", 758], ["e", 22], ["f", 535]]);
+  var g2 = saleGain({ date: "2025-11-19", units: 1315, proceeds: 2628.04, parcels: p2 });
+  assert.equal(g2.raw, 1096.86);
+  assert.equal(Math.round((g1.raw + g2.raw) * 100) / 100, 7788.42);
+  assert.equal(g2.parts.every(function(pt){ return pt.discountApplied; }), true);
+});
+
+test("the discount is decided parcel by parcel", function(){
+  // Had the October 2024 parcels gone in the 7 October 2025 sale, they'd be under 12 months old.
+  var parcels = [
+    { acquired: "2024-07-23", units: 100, costBase: 150 },
+    { acquired: "2024-10-30", units: 100, costBase: 92 }
+  ];
+  var g = saleGain({ date: "2025-10-07", units: 200, proceeds: 1280, parcels: parcels });
+  assert.deepEqual(g.parts.map(function(p){ return p.discountApplied; }), [true, false]);
+  assert.equal(g.discountableGain, 490);
+  assert.equal(g.otherGain, 548);
+  assert.equal(g.assessable, 245 + 548);
+});
+
+test("FIFO says so when the lots don't hold enough units", function(){
+  assert.ok(fifoParcels({ lots: [{ id: "x", date: "2025-01-01", units: 10, price: 1 }] }, 11).error);
+});
+
+test("average cost follows the unsold lots", function(){
+  var asset = { lots: [{ units: 100, price: 1, brokerage: 0, soldUnits: 100 }, { units: 100, price: 3, brokerage: 10, soldUnits: 0 }] };
+  assert.equal(lotsAverageCost(asset), 3.1);
+});
+
+// ---------------- Annual tax statements for ETFs (v3.22.0) ----------------
+
+import { personFundStatements, personDividends as personDivs, amitCostBaseAdjustmentPerUnit } from "../src/calc/tax.js";
+
+// The real FY25/26 statements: iShares S&P 500 (IVV) and S&P/ASX Div Opp ESG (IHD), 156 and 313 units.
+function etfAssets(){
+  return [
+    { category: "Shares", what: "IVV", person: "", quantity: 156, dividendPerUnit: 0.7, frankedPct: 0, taxStatements: [
+      { fy: 2025, u13: 0.04, c13: 0, q13: 0, h18: 52.48, discount18: 26.24, other18: 0, e20: 122.71, m20: 122.71, o20: 18.53, cash: 115.72, cbIncrease: 40.99, cbDecrease: 0, units: 156 }] },
+    { category: "Shares", what: "IHD", person: "", quantity: 313, dividendPerUnit: 0.7, frankedPct: 80, taxStatements: [
+      { fy: 2025, u13: 27.38, c13: 246.11, q13: 76.54, h18: 0, discount18: 0, other18: 0, e20: 8.71, m20: 8.71, o20: 0.47, cash: 211.46, cbIncrease: 0, cbDecrease: 6.27, units: 313 }] }
+  ];
+}
+function withEtfAssets(assets, body){
+  var saved = state.assets;
+  state.assets = assets;
+  try { withIncome([grossRow("Sam", 100000)], body); } finally { state.assets = saved; }
+}
+
+test("fund statements put each myTax label where it belongs", function(){
+  withEtfAssets(etfAssets(), function(){
+    var f = personFundStatements("Sam", { start: "2025-07-01", end: "2026-06-30" });
+    assert.equal(f.nonPrimary, 27.42);   // 13U
+    assert.equal(f.franked, 246.11);     // 13C
+    assert.equal(f.credit, 76.54);       // 13Q
+    assert.equal(f.foreign, 131.42);     // 20M
+    assert.equal(f.fito, 19);            // 20O, $18.53 + $0.47
+    assert.equal(f.capitalGainGross, 52.48);       // 18H
+    assert.equal(f.capitalGainDiscountable, 52.48);
+    assert.equal(f.capitalGainNet, 26.24);         // 18A
+    assert.equal(f.income, Math.round((27.42 + 246.11 + 76.54 + 131.42) * 100) / 100);
+    assert.deepEqual(f.funds, ["IVV", "IHD"]);
+  });
+});
+
+test("a year with a statement drops that holding's dividend estimate", function(){
+  withEtfAssets(etfAssets(), function(){
+    assert.equal(personDivs("Sam", { start: "2025-07-01", end: "2026-06-30" }).cash, 0);
+    // A year with no statement still uses the estimate.
+    assert.ok(personDivs("Sam", { start: "2026-07-01", end: "2027-06-30" }).cash > 0);
+  });
+});
+
+test("the AMIT cost base adjustment is spread per unit, for sales after the statement's year", function(){
+  var ivv = etfAssets()[0];
+  assert.equal(amitCostBaseAdjustmentPerUnit(ivv, "2026-06-30"), 0, "not until the year has closed");
+  assert.ok(Math.abs(amitCostBaseAdjustmentPerUnit(ivv, "2026-08-01") - 40.99 / 156) < 1e-12);
+  assert.ok(Math.abs(amitCostBaseAdjustmentPerUnit(etfAssets()[1], "2026-08-01") + 6.27 / 313) < 1e-12);
+});
+
+// ---------------- Capital losses netted before the discount, and carried forward (v3.23.0) ----------------
+
+function withSales(sales, priorLosses, body){
+  var saved = state.assets;
+  state.assets = [{ category: "Shares", what: "X", person: "", sales: sales }];
+  try {
+    withIncome([grossRow("Sam", 100000)], function(){
+      state.tax.settings.Sam = { capitalLossCarriedForward: priorLosses || 0 };
+      body();
+    });
+  } finally { state.assets = saved; }
+}
+var Y = { from: "2025-07-01", to: "2026-06-30" };
+
+test("losses come off undiscounted gains first, then the discount applies to what's left", function(){
+  // $10,000 discountable gain, $4,000 undiscounted gain, $5,000 loss. Losses clear the $4,000 first,
+  // $1,000 comes off the discountable gain, and the remaining $9,000 is halved: $4,500.
+  withSales([
+    { date: "2025-10-01", acquired: "2023-01-01", units: 1, proceeds: 20000, costBase: 10000 },
+    { date: "2025-11-01", acquired: "2025-08-01", units: 1, proceeds: 9000, costBase: 5000 },
+    { date: "2026-01-01", acquired: "2024-01-01", units: 1, proceeds: 1000, costBase: 6000 }
+  ], 0, function(){
+    var g = personCapitalGains("Sam", Y);
+    assert.equal(g.totalGains, 14000);
+    assert.equal(g.currentLosses, 5000);
+    assert.equal(g.discounted, 4500);
+    assert.equal(g.assessable, 4500);
+    assert.equal(g.lossCarriedForward, 0);
+  });
+});
+
+test("discounting each sale before netting understated the gain", function(){
+  // $10,000 discountable gain and a $4,000 loss. The return nets first: (10,000 - 4,000) / 2 =
+  // $3,000. The old per-sale approach halved the gain and then took the whole loss off it,
+  // 5,000 - 4,000 = $1,000 — counting the loss at full value against a gain only taxed at half.
+  withSales([
+    { date: "2025-10-01", acquired: "2023-01-01", units: 1, proceeds: 20000, costBase: 10000 },
+    { date: "2026-01-01", acquired: "2024-01-01", units: 1, proceeds: 1000, costBase: 5000 }
+  ], 0, function(){
+    assert.equal(personCapitalGains("Sam", Y).assessable, 3000);
+  });
+});
+
+test("carried-forward losses are used after this year's, and what's left carries on", function(){
+  withSales([{ date: "2025-10-01", acquired: "2023-01-01", units: 1, proceeds: 12000, costBase: 10000 }], 5000, function(){
+    var g = personCapitalGains("Sam", Y);
+    assert.equal(g.priorLossesApplied, 2000);
+    assert.equal(g.assessable, 0);
+    assert.equal(g.lossCarriedForward, 3000);
+  });
+});
+
+test("a net capital loss is never negative income", function(){
+  withSales([{ date: "2025-10-01", acquired: "2023-01-01", units: 1, proceeds: 1000, costBase: 9000 }], 0, function(){
+    var g = personCapitalGains("Sam", Y);
+    assert.equal(g.assessable, 0);
+    assert.equal(g.lossCarriedForward, 8000);
+  });
+});
+
+test("the real FY25/26 return: DRO $7,788.42 discountable + IVV $52.48 = 18H $7,840, 18A $3,920", function(){
+  withSales([
+    { date: "2025-10-07", acquired: "2024-07-23", units: 1315, proceeds: 8413.00, costBase: 1721.44 },
+    { date: "2025-11-19", acquired: "2024-09-04", units: 1315, proceeds: 2628.04, costBase: 1531.18 }
+  ], 0, function(){
+    var g = personCapitalGains("Sam", Object.assign({ funds: { capitalGainDiscountable: 52.48, capitalGainOther: 0 } }, Y));
+    assert.equal(Math.floor(g.totalGains), 7840);
+    assert.equal(Math.floor(g.assessable), 3920);
+  });
+});
+
+// ---------------- Deduction labels and the working-from-home fixed rate (v3.24.0) ----------------
+
+import { deductionsByLabel, wfhDeduction, wfhRateForFy, wfhOverlapRows } from "../src/calc/tax.js";
+
+test("claims are totalled by return label, unlabelled lines on D5", function(){
+  // The real FY25/26 return: D2 $2,388, D5 webcam $98, D10 $275, plus the Jul-Sep office rent.
+  var rows = [
+    deductibleRow("Work travel", 2388, "Yearly", { deductionLabel: "D2" }),
+    deductibleRow("Webcam", 98, "Yearly"),
+    deductibleRow("Tax agent", 275, "Yearly", { deductionLabel: "D10" }),
+    deductibleRow("Rent", 720, "Weekly", { deductiblePct: 6.4, deductibleUntil: "2025-09-30" })
+  ];
+  withIncome([grossRow("Sam", 170000)], function(){
+    var by = deductionsByLabel("Sam", rows, FY2526);
+    assert.equal(by.D2, 2388);
+    assert.equal(by.D10, 275);
+    assert.equal(by.D5, Math.round((98 + 603.96) * 100) / 100);
+  });
+});
+
+test("working from home: hours x the year's fixed rate", function(){
+  // 1,712 hours in FY25/26 at 70c = $1,198.40.
+  withIncome([grossRow("Sam", 170000)], function(){
+    state.tax.settings.Sam = { wfhHours: { 2025: 1712 } };
+    var w = wfhDeduction("Sam", FY2526);
+    assert.equal(w.amount, 1198.4);
+    assert.equal(w.assumed, false);
+    assert.equal(wfhDeduction("Sam", { start: "2026-07-01", end: "2027-06-30" }).amount, 0, "hours are a year's record");
+  });
+  assert.equal(wfhRateForFy(2023).rate, 0.67);
+  assert.deepEqual(wfhRateForFy(2030), { rate: 0.70, assumed: true });
+});
+
+test("lines the fixed rate already covers are picked out as possible double claims", function(){
+  var rows = [deductibleRow("NBN internet", 90, "Monthly"), deductibleRow("Mobile phone", 60, "Monthly"), deductibleRow("Webcam", 98, "Yearly")];
+  withIncome([grossRow("Sam", 170000)], function(){
+    assert.deepEqual(wfhOverlapRows("Sam", rows).map(function(r){ return r.what; }), ["NBN internet", "Mobile phone"]);
+  });
+});
+
+// ---------------- Tax tables by financial year (v3.25.0) ----------------
+
+import { taxTablesFor, phiRebateAdjustment, phiRebateRate, mlsTierIndex } from "../src/calc/tax.js";
+
+test("FY26/27 has the 15% rate; FY25/26 still 16%", function(){
+  assert.ok(Math.abs(incomeTaxAU(45000, 2026) - 4020) < 1e-9);
+  assert.ok(Math.abs(incomeTaxAU(200000, 2026) - (51370 + 4500)) < 1e-9);
+  // The real FY25/26 return: $164,229 taxable.
+  assert.ok(Math.abs(incomeTaxAU(164229, 2025) - 42102.73) < 0.005);
+  assert.equal(marginalRateAU(30000, 2026), 0.15);
+});
+
+test("a year past the newest table borrows it and says so", function(){
+  var t = taxTablesFor(2031);
+  assert.equal(t.assumed, true);
+  assert.equal(t.borrowedFrom, 2026);
+  assert.equal(taxTablesFor(2025).assumed, false);
+});
+
+test("HELP from FY25/26 is marginal: 15c over $67,000, then $8,700 + 17c over $125,000, then 10% of all", function(){
+  assert.equal(helpRepaymentAnnual(67000, 1e6, 2025), 0);
+  assert.equal(helpRepaymentAnnual(100000, 1e6, 2025), 4950);
+  assert.equal(helpRepaymentAnnual(150000, 1e6, 2025), 8700 + 4250);
+  assert.equal(helpRepaymentAnnual(200000, 1e6, 2025), 20000);
+  // Continuous at the top threshold, unlike the old flat bands.
+  assert.ok(Math.abs(helpRepaymentAnnual(179285, 1e6, 2025) - helpRepaymentAnnual(179286, 1e6, 2025)) < 1);
+  var next = helpNextThreshold(100000, 2025);
+  assert.equal(next.at, 125001);
+  assert.equal(next.marginal, true);
+  // FY26/27 thresholds.
+  assert.equal(helpRepaymentAnnual(129717, 1e6, 2026), Math.round((129717 - 69528) * 0.15 * 100) / 100);
+});
+
+test("surcharge tiers move each year", function(){
+  assert.equal(mlsTierFor(101000, false, 2025).label, "Base tier");
+  assert.equal(mlsTierFor(101001, false, 2025).label, "Tier 1");
+  assert.equal(mlsTierFor(160000, false, 2026).label, "Tier 2");
+  assert.equal(mlsTierIndex(278585, true, 2025), 2);
+});
+
+test("the private health rebate clawback: Tier 1 claimed, Tier 2 family income — the $105", function(){
+  // The real FY25/26 household: $164,229 + $114,356 (family Tier 2, $236,001-$316,000), Bupa
+  // premiums $1,297 each ($2,594 for the policy) with the rebate taken at Tier 1. myTax clawed
+  // back about $105 on each return.
+  withIncome([grossRow("Luiz", 164229), grossRow("Mariana", 114356)], function(){
+    state.tax.familyThresholds = true;
+    state.tax.privateHospitalCover = true;
+    state.tax.phiPremiums = 2594;
+    state.tax.phiTierClaimed = 1;
+    var a = phiRebateAdjustment({ fy: 2025 });
+    assert.equal(a.actualTier, 2);
+    assert.equal(a.claimedTier, 1);
+    assert.equal(Math.round(a.adjustment), 210);
+    // Split evenly between the two returns: about $105 each.
+    var luiz = computePersonTax("Luiz", { fy: 2025 });
+    assert.equal(Math.round(luiz.phiAdjustment), 105);
+  });
+  assert.ok(Math.abs(phiRebateRate(1, 2025) - (0.75 * 0.16192 + 0.25 * 0.16079)) < 1e-12);
+});
+
+// ---------------- Age-based private health rebate (v3.30.0) ----------------
+
+import { phiAgeBand, ageOnDate } from "../src/calc/tax.js";
+
+test("the rebate follows the oldest person's age at 1 July", function(){
+  assert.equal(ageOnDate("1960-07-02", "2025-07-01"), 64);
+  assert.equal(ageOnDate("1960-07-01", "2025-07-01"), 65);
+  withIncome([grossRow("A", 90000), grossRow("B", 40000)], function(){
+    assert.deepEqual(phiAgeBand(2025), { band: "u65", oldestAge: null, known: false });
+    state.tax.settings.A = { dateOfBirth: "1990-02-19" };
+    state.tax.settings.B = { dateOfBirth: "1958-03-01" };
+    assert.equal(phiAgeBand(2025).band, "a65");   // 67 on 1 July 2025
+    assert.equal(phiAgeBand(2028).band, "a70");   // 70 on 1 July 2028
+  });
+});
+
+test("65-69 rates are higher than under-65 at every tier but the top", function(){
+  // FY25/26, Tier 1: under 65 = 0.75 x 16.192% + 0.25 x 16.079%; 65-69 = 0.75 x 20.240% + 0.25 x 20.098%.
+  assert.ok(Math.abs(phiRebateRate(1, 2025, "a65") - (0.75 * 0.20240 + 0.25 * 0.20098)) < 1e-12);
+  assert.ok(phiRebateRate(1, 2025, "a65") > phiRebateRate(1, 2025, "u65"));
+  assert.equal(phiRebateRate(3, 2025, "a70"), 0);
+});
+
+test("a deduction can't be claimed before its line starts", function(){
+  var row = deductibleRow("Course", 3650, "Yearly", { startDate: "2026-06-01" });
+  assert.ok(Math.abs(rowDeductionAnnual(row, FY2526) - 3650 * 30 / 365) < 1e-9);
+  // The later of the line's start and the claim's own start wins.
+  assert.equal(deductionYearFraction({ startDate: "2026-06-01", deductibleFrom: "2026-06-16" }, FY2526), 15 / 365);
 });

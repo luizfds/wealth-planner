@@ -67,6 +67,10 @@ export function normalizeShareAsset(a){
   // carries a credit for that. Partially-franked and unfranked are both common (LICs, REITs,
   // foreign-sourced income), so this is a percentage rather than a flag.
   if(a.frankedPct == null) a.frankedPct = 100;
+  // Purchase lots (v3.21.0) — see calc/tax.js. Empty = no parcels kept; sales use Avg cost.
+  if(!Array.isArray(a.lots)) a.lots = [];
+  // Annual tax statements (v3.22.0) — see calc/tax.js personFundStatements().
+  if(!Array.isArray(a.taxStatements)) a.taxStatements = [];
   a.amount = Math.round((Number(a.quantity) || 0) * (Number(a.price) || 0) * 100) / 100;
   return a;
 }
@@ -187,6 +191,9 @@ function applyTimingDefaults(item){
   // When this row stops, if it ever does. "" means it runs forever, which is the default and the
   // common case — see calc/ledger.js's isActiveOn/isActiveInYear.
   if(item.endDate === undefined) item.endDate = "";
+  // When this row begins (v3.32.0), the other end of the same idea: "" means it was always running.
+  // A cost that starts next month shouldn't count from today, and a claim's year starts with it.
+  if(item.startDate === undefined) item.startDate = "";
   if(item.irregular == null) item.irregular = false;
   if(item.dueMonth === undefined) item.dueMonth = null;
   // Which twelve months an irregular (reserve) line is measured over on the Spending tab —
@@ -204,6 +211,12 @@ function applyTimingDefaults(item){
   if(item.deductible == null) item.deductible = false;
   if(item.deductiblePct == null) item.deductiblePct = 100;
   if(item.deductiblePerson == null) item.deductiblePerson = "";
+  // When the claim itself starts/stops, as distinct from the expense (endDate). Blank = the whole
+  // year. See calc/tax.js's deductionYearFraction() for why these can't just reuse endDate.
+  if(item.deductibleFrom == null) item.deductibleFrom = "";
+  if(item.deductibleUntil == null) item.deductibleUntil = "";
+  // The return label this claim goes on (v3.24.0) — see constants.js DEDUCTION_LABELS. Blank = D5.
+  if(item.deductionLabel == null) item.deductionLabel = "";
 }
 
 export function migrateState(s){
@@ -277,6 +290,8 @@ export function migrateState(s){
   // is reordered/added to elsewhere — an array index would silently point at the wrong row.
   s.shared.forEach(function(item){ if(!item.id) item.id = genId("exp"); applyTimingDefaults(item); });
   if(!Array.isArray(s.transactions)) s.transactions = [];
+  // The tax-year record (v3.26.0) — actuals per financial year, see calc/taxyear.js.
+  if(!s.taxYears || typeof s.taxYears !== "object" || Array.isArray(s.taxYears)) s.taxYears = {};
   // Which budget groups on the Expenses tab are collapsed, keyed by group name. Persisted rather
   // than session-only for the same reason a property card's sections are: a structural edit
   // anywhere on the page rebuilds the whole list, which would otherwise reset every group to its
@@ -384,6 +399,10 @@ export function migrateState(s){
   // real cost, and assuming family thresholds would halve a real one. An unset save gets the
   // conservative reading, and the toggles are right there on the card.
   if(typeof s.tax.privateHospitalCover !== "boolean") s.tax.privateHospitalCover = false;
+  // Private health rebate (v3.25.0): annual premiums before the rebate, and the tier the insurer
+  // applies (0-3, -1 = none taken up front). 0 premiums = not modelled.
+  if(s.tax.phiPremiums == null) s.tax.phiPremiums = 0;
+  if(s.tax.phiTierClaimed == null) s.tax.phiTierClaimed = 0;
   if(typeof s.tax.familyThresholds !== "boolean") s.tax.familyThresholds = false;
   if(!s.fx) s.fx = { usdAud: null, usdAudUpdated: "" };
   if(s.fx.usdAud === undefined) s.fx.usdAud = null;
@@ -458,6 +477,12 @@ export function migrateState(s){
     if(p.constructionDate == null) p.constructionDate = "";
     if(p.plantValue == null) p.plantValue = 0;
     if(p.plantEffectiveLife == null) p.plantEffectiveLife = 10;
+    // Second-hand plant (v3.18.0) — see calc/property.js plantIsClaimable(). Defaults to false so an
+    // existing save's figures don't move; the field's own note says when it applies.
+    if(p.plantSecondHand == null) p.plantSecondHand = false;
+    // A quantity surveyor's year-by-year table (v3.19.0): [{fy, capitalWorks, plant}], fy = the
+    // calendar year the financial year starts in. Empty = use the formula. See calc/property.js.
+    if(!Array.isArray(p.depreciationSchedule)) p.depreciationSchedule = [];
     p.acquisitionCosts.forEach(function(c){
       if(c.id == null) c.id = genId("ac");
       if(c.what == null) c.what = "";
@@ -502,6 +527,14 @@ export function migrateState(s){
       if(l.balance == null) l.balance = 0;
       if(l.rate == null) l.rate = 0;
       if(l.termYears == null) l.termYears = 30;
+      // Borrowing costs (v3.17.0) — see calc/property.js. settlementDate starts the five-year
+      // clock; borrowingTermYears is the loan's ORIGINAL term, only consulted when it's under five
+      // years (termYears above is what's left, which is a different number).
+      if(l.borrowingCosts == null) l.borrowingCosts = 0;
+      if(l.settlementDate == null) l.settlementDate = "";
+      if(l.borrowingTermYears == null) l.borrowingTermYears = 0;
+      // Paid out / refinanced on (v3.27.0): the undeducted borrowing costs are written off that year.
+      if(l.endedOn == null) l.endedOn = "";
     });
   });
 

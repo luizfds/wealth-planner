@@ -12,12 +12,15 @@ import {
   exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv, exportAssetsImportTemplateCsv, parseCsv
 } from "./lib/backup.js";
 import { periodsOf, sumField, sumFieldForScenario, resolveSharedAmount, appendHistorySnapshot, transactionDisplayName } from "./calc/ledger.js";
-import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider, saleCapitalGain } from "./calc/tax.js";
+import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider, saleCapitalGain, lotsUnitsAvailable } from "./calc/tax.js";
 import { recalcComputedItems, scenarioTotals, totalNetWorthValue, totalDebtsValue } from "./calc/engine.js";
+import { financialYearOf, fyLabel } from "./calc/property.js";
+import { renderTaxYear, setTaxYearSelected, taxYearAddRow, taxYearDeleteRow, taxYearRestoreRow, taxYearSetField, taxYearToggleEvidence, taxYearMarkLodged, worksheetText, taxYearSelected, taxYearPrintHtml } from "./components/taxyear.js";
+import { setRentalActual } from "./calc/taxyear.js";
 import { renderCards, renderDashboardStats, renderDetail, setProjectionReference, logNetWorthSnapshot } from "./components/dashboard.js";
 import {
   personBreakdownHtml, renderIncomeGroups, patchOpenRowBreakdowns, patchIncomeGroupTotals,
-  patchSyntheticIncomeRows, patchIncomeSuperNotes, renderTaxSuper, flipTaxCard, patchAllTaxPersonOutputs,
+  patchSyntheticIncomeRows, patchIncomeSuperNotes, renderTaxSuper, flipTaxCard, patchAllTaxPersonOutputs, patchPhiNote,
   modernIncomeRowOpen, parseIncomeImportCsv, renderIncomeImportPreview, clearIncomeImportPreview, commitIncomeImport
 } from "./components/income.js";
 import {
@@ -43,11 +46,11 @@ import {
   renderNetWorthPanel, renderAssets, logAssetSnapshot, applySharesPaste, logDebtSnapshot,
   patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter, renderAssetPersonSheet, assetPersonSheetOpen, setAssetPersonSheetOpen, setSharesGainFilter, setSharesSortMode, setSharesChangeWindow, setAllocationRange, setPortfolioRange,
   parseAssetsImportCsv, renderAssetsImportPreview, clearAssetsImportPreview, commitAssetsImport, dividendNoteText,
-  recordAssetSale, deleteAssetSale, renderAssetsSummary, patchOffsetsRow
+  recordAssetSale, deleteAssetSale, renderAssetsSummary, patchOffsetsRow, addAssetLot, syncAvgCostFromLots, lotsSectionHtml, lotsNoteText, addAssetStatement, statementsSectionHtml
 } from "./components/assets.js";
 import {
   modernPropRowOpen, renderPropListModern, renderProperties, patchPropertyCardComputed,
-  logPropertySnapshot, PROPERTY_SECTION_KEYS
+  logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan
 } from "./components/properties.js";
 import { renderProjectionOutputs } from "./components/projections.js";
 import {
@@ -468,6 +471,7 @@ import {
     }
     // structural: the collapsed row carries an "Ends …" note derived from this, and on the budget
     // pages an ended line is excluded from the projection — both need the row rebuilt, not patched.
+    else if(e.target.classList.contains("f-startdate")){ item.startDate = e.target.value || ""; structural = true; taxDeductionsChanged = !!item.deductible; }
     else if(e.target.classList.contains("f-enddate")){ item.endDate = e.target.value || ""; structural = true; }
     // Deduction fields. structural on the flag only: ticking it reveals the share/person fields,
     // which are already in the DOM hidden — revealed in place rather than by re-rendering the row
@@ -479,6 +483,9 @@ import {
     }
     else if(e.target.classList.contains("f-deductpct")){ item.deductiblePct = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)); taxDeductionsChanged = true; }
     else if(e.target.classList.contains("f-deductperson")){ item.deductiblePerson = e.target.value; taxDeductionsChanged = true; }
+    else if(e.target.classList.contains("f-deductlabel")){ item.deductionLabel = e.target.value; taxDeductionsChanged = true; }
+    else if(e.target.classList.contains("f-deductfrom")){ item.deductibleFrom = e.target.value || ""; taxDeductionsChanged = true; }
+    else if(e.target.classList.contains("f-deductuntil")){ item.deductibleUntil = e.target.value || ""; taxDeductionsChanged = true; }
     else if(e.target.classList.contains("f-duemonth")) item.dueMonth = e.target.value ? Number(e.target.value) : null;
     else if(e.target.classList.contains("f-reserveyear")) item.reserveYear = e.target.value;
     else return;
@@ -1020,6 +1027,12 @@ import {
       else if(t.classList.contains("tax-cap")) settings.concessionalCap = parseFloat(t.value) || 0;
       else if(t.classList.contains("tax-carryforward")) settings.carryForward = parseFloat(t.value) || 0;
       else if(t.classList.contains("tax-help")) settings.helpBalance = Math.max(0, parseFloat(t.value) || 0);
+      else if(t.classList.contains("tax-cgt-losses")) settings.capitalLossCarriedForward = Math.max(0, parseFloat(t.value) || 0);
+      else if(t.classList.contains("tax-dob")){ settings.dateOfBirth = t.value || ""; patchPhiNote(); }
+      else if(t.classList.contains("tax-wfh-hours")){
+        if(!settings.wfhHours) settings.wfhHours = {};
+        settings.wfhHours[t.getAttribute("data-fy")] = Math.max(0, parseFloat(t.value) || 0);
+      }
       else return;
     } else if(e.target.id === "taxSgRate"){
       state.tax.sgRate = parseFloat(e.target.value) || 0;
@@ -1027,6 +1040,10 @@ import {
       state.tax.privateHospitalCover = e.target.checked;
     } else if(e.target.id === "taxFamilyThresholds"){
       state.tax.familyThresholds = e.target.checked;
+    } else if(e.target.id === "taxPhiPremiums"){
+      state.tax.phiPremiums = Math.max(0, parseFloat(e.target.value) || 0);
+    } else if(e.target.id === "taxPhiTier"){
+      state.tax.phiTierClaimed = Number(e.target.value);
     } else return;
 
     recalcComputedItems();
@@ -1034,12 +1051,93 @@ import {
     patchIncomeGroupTotals();
     patchOpenRowBreakdowns();
     patchAllTaxPersonOutputs();
+    patchPhiNote();
     patchIncomeSuperNotes();
     renderCards();
     renderDetail();
     renderTotals();
     renderProjectionOutputs();
     persist();
+  });
+
+  // ---------------- Tax return worksheet ----------------
+  // Every edit re-runs the year's figures and re-renders the section. Inputs commit on "change"
+  // (blur / Enter / select), not per keystroke, so a re-render never takes focus mid-number.
+  function afterTaxYearEdit(){
+    renderTaxYear();
+    persist();
+  }
+  // Builds the static print copy at the top level, prints, and takes it away again. afterprint
+  // fires once the dialog closes, whatever the user chose.
+  function printTaxYear(){
+    var root = document.getElementById("printRoot");
+    if(!root){ root = document.createElement("div"); root.id = "printRoot"; document.body.appendChild(root); }
+    root.innerHTML = taxYearPrintHtml();
+    document.body.classList.add("printing-worksheet");
+    var done = function(){
+      document.body.classList.remove("printing-worksheet");
+      root.innerHTML = "";
+      window.removeEventListener("afterprint", done);
+    };
+    window.addEventListener("afterprint", done);
+    window.print();
+  }
+  var taxYearBody = document.getElementById("taxYearBody");
+  document.getElementById("taxYearLedger").addEventListener("toggle", function(){
+    if(document.getElementById("taxYearLedger").open) renderTaxYear();
+  });
+  taxYearBody.addEventListener("change", function(e){
+    var t = e.target;
+    if(t.id === "taxYearSelect"){ setTaxYearSelected(t.value); renderTaxYear(); return; }
+    if(t.hasAttribute("data-ty-evidence")){
+      taxYearToggleEvidence(t.getAttribute("data-ty-evidence"), t.checked);
+      var sum = t.closest("details").querySelector("summary");
+      var boxes = t.closest("details").querySelectorAll("[data-ty-evidence]");
+      var on = Array.prototype.filter.call(boxes, function(b){ return b.checked; }).length;
+      if(sum) sum.textContent = "Documents to keep (" + on + " of " + boxes.length + ")";
+      persist();
+      return;
+    }
+    if(t.hasAttribute("data-ty-rent")){
+      setRentalActual(taxYearSelected(), t.getAttribute("data-ty-rent"), t.getAttribute("data-ty-key"), t.value);
+      afterTaxYearEdit();
+      return;
+    }
+    if(t.hasAttribute("data-ty-kind")){
+      taxYearSetField(t.getAttribute("data-ty-kind"), t.getAttribute("data-ty-person"), Number(t.getAttribute("data-ty-index")), t.getAttribute("data-ty-key"), t.value);
+      afterTaxYearEdit();
+    }
+  });
+  taxYearBody.addEventListener("click", function(e){
+    var add = e.target.closest("[data-ty-add]");
+    if(add){
+      taxYearAddRow(add.getAttribute("data-ty-add"), add.getAttribute("data-ty-person"));
+      afterTaxYearEdit();
+      return;
+    }
+    var del = e.target.closest("[data-ty-del]");
+    if(del){
+      var kind = del.getAttribute("data-ty-del"), who = del.getAttribute("data-ty-person"), i = Number(del.getAttribute("data-ty-index"));
+      var removed = taxYearDeleteRow(kind, who, i);
+      afterTaxYearEdit();
+      if(removed) showUndoToast("Row deleted", function(){ taxYearRestoreRow(kind, who, i, removed); afterTaxYearEdit(); });
+      return;
+    }
+    var lodge = e.target.closest("[data-ty-lodge]");
+    if(lodge){
+      taxYearMarkLodged(lodge.getAttribute("data-ty-lodge"));
+      afterTaxYearEdit();
+      showToast("Saved as lodged — next year's worksheet will compare against it");
+      return;
+    }
+    if(e.target.closest("[data-ty-print]")){ printTaxYear(); return; }
+    var copy = e.target.closest("[data-ty-copy]");
+    if(copy){
+      var text = worksheetText(copy.getAttribute("data-ty-copy"));
+      try {
+        navigator.clipboard.writeText(text).then(function(){ showToast("Worksheet copied"); }, function(){ showToast("Couldn't copy — select the worksheet and copy it instead"); });
+      } catch(err){ showToast("Couldn't copy — select the worksheet and copy it instead"); }
+    }
   });
 
   document.getElementById("homeBody").addEventListener("input", onCalcInput);
@@ -1073,6 +1171,36 @@ import {
         else item.frankedPct = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
         var divNote = tr.querySelector(".h-div-note");
         if(divNote) divNote.textContent = dividendNoteText(item);
+        recalcComputedItems();
+        renderTaxSuper();
+        patchSyntheticIncomeRows();
+        patchIncomeGroupTotals();
+        renderCards(); renderDetail(); renderTotals();
+        renderProjectionOutputs();
+      }
+      // Purchase lots: edit in place. Avg cost follows the lots so the holding's gain figure agrees
+      // with them; the cost-base change doesn't move tax (only a recorded sale does), so no tax re-run.
+      else if(e.target.hasAttribute("data-lot-index")){
+        var lot = (item.lots || [])[Number(e.target.getAttribute("data-lot-index"))];
+        if(!lot) return;
+        if(e.target.classList.contains("lot-date")) lot.date = e.target.value;
+        else if(e.target.classList.contains("lot-units")) lot.units = Math.max(Number(lot.soldUnits) || 0, parseFloat(e.target.value) || 0);
+        else if(e.target.classList.contains("lot-price")) lot.price = Math.max(0, parseFloat(e.target.value) || 0);
+        else if(e.target.classList.contains("lot-brokerage")) lot.brokerage = Math.max(0, parseFloat(e.target.value) || 0);
+        syncAvgCostFromLots(item);
+        var lotsNote = tr.querySelector(".lots-note");
+        if(lotsNote) lotsNote.textContent = lotsNoteText(item);
+        var avgInput = tr.querySelector(".h-avgcost");
+        if(avgInput && document.activeElement !== avgInput) avgInput.value = item.avgCost != null ? item.avgCost : "";
+        patchHoldingRow(tr, item);
+        patchSharesGlance();
+      }
+      // A statement figure moves taxable income, so it re-runs the tax chain like a dividend edit.
+      else if(e.target.classList.contains("stmt-field") || e.target.classList.contains("stmt-fy")){
+        var st = (item.taxStatements || [])[Number(e.target.getAttribute("data-stmt-index"))];
+        if(!st) return;
+        if(e.target.classList.contains("stmt-fy")) st.fy = Number(e.target.value);
+        else st[e.target.getAttribute("data-stmt-key")] = parseFloat(e.target.value) || 0;
         recalcComputedItems();
         renderTaxSuper();
         patchSyntheticIncomeRows();
@@ -1173,6 +1301,48 @@ import {
         renderAssets();
         renderProjectionOutputs();
         persist();
+      });
+      return;
+    }
+    var stmtAddBtn = e.target.closest("[data-stmt-add]");
+    if(stmtAddBtn){
+      var stmtIdx = Number(stmtAddBtn.getAttribute("data-stmt-add"));
+      addAssetStatement(stmtIdx);
+      afterStatementListChange(stmtIdx);
+      return;
+    }
+    var stmtDelBtn = e.target.closest("[data-stmt-del]");
+    if(stmtDelBtn){
+      var stParts = stmtDelBtn.getAttribute("data-stmt-del").split(":");
+      var stItem = state.assets[Number(stParts[0])];
+      if(!stItem || !stItem.taxStatements) return;
+      var removedSt = stItem.taxStatements.splice(Number(stParts[1]), 1)[0];
+      afterStatementListChange(Number(stParts[0]));
+      showUndoToast("Statement deleted", function(){
+        stItem.taxStatements.splice(Math.min(Number(stParts[1]), stItem.taxStatements.length), 0, removedSt);
+        afterStatementListChange(Number(stParts[0]));
+      });
+      return;
+    }
+    var lotAddBtn = e.target.closest("[data-lot-add]");
+    if(lotAddBtn){
+      var lotIdx = Number(lotAddBtn.getAttribute("data-lot-add"));
+      addAssetLot(lotIdx);
+      afterLotListChange(lotIdx);
+      return;
+    }
+    var lotDelBtn = e.target.closest("[data-lot-del]");
+    if(lotDelBtn){
+      var lotParts = lotDelBtn.getAttribute("data-lot-del").split(":");
+      var lotItem = state.assets[Number(lotParts[0])];
+      if(!lotItem || !lotItem.lots) return;
+      var removedLot = lotItem.lots.splice(Number(lotParts[1]), 1)[0];
+      syncAvgCostFromLots(lotItem);
+      afterLotListChange(Number(lotParts[0]));
+      showUndoToast("Lot deleted", function(){
+        lotItem.lots.splice(Math.min(Number(lotParts[1]), lotItem.lots.length), 0, removedLot);
+        syncAvgCostFromLots(lotItem);
+        afterLotListChange(Number(lotParts[0]));
       });
       return;
     }
@@ -1384,6 +1554,19 @@ import {
     sectionToggleBtn.click();
   });
 
+  // Depreciation changes the property's taxable result, which changes each owner's taxable income,
+  // their synthetic net-income row, and every total derived from it — and the depreciation
+  // section prints a live summary, hence the full property re-render.
+  function refreshAfterDepreciationChange(){
+    recalcComputedItems();
+    renderProperties();
+    renderTaxSuper();
+    patchSyntheticIncomeRows();
+    patchIncomeGroupTotals();
+    renderCards(); renderDetail(); renderTotals();
+    renderProjectionOutputs();
+    persist();
+  }
   document.getElementById("propertiesBody").addEventListener("input", function(e){
     var card = e.target.closest("[data-property-id]");
     if(!card) return;
@@ -1402,6 +1585,19 @@ import {
       else if(e.target.classList.contains("loan-rate")) loan.rate = parseFloat(e.target.value) || 0;
       else if(e.target.classList.contains("loan-term")) loan.termYears = parseFloat(e.target.value) || 0;
       else if(e.target.classList.contains("loan-manual-amount")) loan.manualRepaymentAmount = parseFloat(e.target.value) || 0;
+      else if(e.target.classList.contains("loan-settled") || e.target.classList.contains("loan-borrowing") || e.target.classList.contains("loan-borrowing-term") || e.target.classList.contains("loan-ended")){
+        if(e.target.classList.contains("loan-settled")) loan.settlementDate = e.target.value || "";
+        else if(e.target.classList.contains("loan-ended")) loan.endedOn = e.target.value || "";
+        else if(e.target.classList.contains("loan-borrowing")) loan.borrowingCosts = Math.max(0, parseFloat(e.target.value) || 0);
+        else loan.borrowingTermYears = Math.max(0, parseFloat(e.target.value) || 0);
+        var borrowNote = loanTr.querySelector('[data-computed="borrow"]');
+        if(borrowNote) borrowNote.textContent = borrowingNoteText(loan);
+        // Moves taxable income, not cash: the tax card is what has to catch up.
+        recalcComputedItems();
+        renderTaxSuper();
+        patchSyntheticIncomeRows();
+        patchIncomeGroupTotals();
+      }
       else if(e.target.classList.contains("loan-offset")){
         loan.offsetBalance = parseFloat(e.target.value) || 0;
         // The mirror of this file's own offset-balance-input handler — without it, editing the
@@ -1481,25 +1677,30 @@ import {
       persist();
       return;
     }
+    // Quantity surveyor's schedule rows — same full re-render as the depreciation fields below, for
+    // the same reason: the section total and every owner's tax figures move with them.
+    if(e.target.hasAttribute("data-dep-sched-index")){
+      var schedRow = property.depreciationSchedule[Number(e.target.getAttribute("data-dep-sched-index"))];
+      if(!schedRow) return;
+      if(e.target.classList.contains("dep-sched-fy")) schedRow.fy = Number(e.target.value);
+      else if(e.target.classList.contains("dep-sched-cw")) schedRow.capitalWorks = Math.max(0, parseFloat(e.target.value) || 0);
+      else if(e.target.classList.contains("dep-sched-plant")) schedRow.plant = Math.max(0, parseFloat(e.target.value) || 0);
+      else return;
+      refreshAfterDepreciationChange();
+      return;
+    }
     // Depreciation. Full re-render for the same reason prop-purchase-price uses one: the section
     // prints a live "capital works + plant = $X/yr" summary and a section total in its header, and
     // both have to move together with the tax figures below.
     if(e.target.classList.contains("prop-construction-cost") || e.target.classList.contains("prop-construction-date") ||
-       e.target.classList.contains("prop-plant-value") || e.target.classList.contains("prop-plant-life")){
-      if(e.target.classList.contains("prop-construction-cost")) property.constructionCost = Math.max(0, parseFloat(e.target.value) || 0);
+       e.target.classList.contains("prop-plant-value") || e.target.classList.contains("prop-plant-life") ||
+       e.target.classList.contains("prop-plant-secondhand")){
+      if(e.target.classList.contains("prop-plant-secondhand")) property.plantSecondHand = e.target.checked;
+      else if(e.target.classList.contains("prop-construction-cost")) property.constructionCost = Math.max(0, parseFloat(e.target.value) || 0);
       else if(e.target.classList.contains("prop-construction-date")) property.constructionDate = e.target.value;
       else if(e.target.classList.contains("prop-plant-value")) property.plantValue = Math.max(0, parseFloat(e.target.value) || 0);
       else property.plantEffectiveLife = Math.max(1, parseFloat(e.target.value) || 10);
-      recalcComputedItems();
-      renderProperties();
-      // Depreciation changes the property's taxable result, which changes each owner's taxable
-      // income, their synthetic net-income row, and every total derived from it.
-      renderTaxSuper();
-      patchSyntheticIncomeRows();
-      patchIncomeGroupTotals();
-      renderCards(); renderDetail(); renderTotals();
-      renderProjectionOutputs();
-      persist();
+      refreshAfterDepreciationChange();
       return;
     }
     if(e.target.classList.contains("prop-land-value") || e.target.classList.contains("prop-state")){
@@ -1605,6 +1806,35 @@ import {
       }
       return;
     }
+    var addSchedBtn = e.target.closest("[data-dep-sched-add]");
+    if(addSchedBtn){
+      var schedProperty = findProperty(addSchedBtn.getAttribute("data-dep-sched-add"));
+      if(schedProperty){
+        var sched = schedProperty.depreciationSchedule;
+        // The year after the last one listed, which is how a report is read off top to bottom;
+        // the first row defaults to the year the property was bought.
+        var nextFy = sched.length ? Math.max.apply(null, sched.map(function(r){ return Number(r.fy) || 0; })) + 1
+          : financialYearOf(schedProperty.purchaseDate || localDateStr());
+        sched.push({ fy: nextFy, capitalWorks: 0, plant: 0 });
+        refreshAfterDepreciationChange();
+      }
+      return;
+    }
+    var delSchedBtn = e.target.closest("[data-dep-sched-del]");
+    if(delSchedBtn){
+      var schedCard = e.target.closest("[data-property-id]");
+      var schedProperty2 = schedCard ? findProperty(schedCard.getAttribute("data-property-id")) : null;
+      if(schedProperty2){
+        var si = Number(delSchedBtn.getAttribute("data-dep-sched-del"));
+        var removedRow = schedProperty2.depreciationSchedule.splice(si, 1)[0];
+        refreshAfterDepreciationChange();
+        showUndoToast("Deleted " + fyLabel(Number(removedRow.fy)) + " from the schedule", function(){
+          schedProperty2.depreciationSchedule.splice(Math.min(si, schedProperty2.depreciationSchedule.length), 0, removedRow);
+          refreshAfterDepreciationChange();
+        });
+      }
+      return;
+    }
     var addAcqCostBtn = e.target.closest("[data-acq-cost-add]");
     if(addAcqCostBtn){
       var acqCostProperty = findProperty(addAcqCostBtn.getAttribute("data-acq-cost-add"));
@@ -1612,6 +1842,22 @@ import {
         acqCostProperty.acquisitionCosts.push({ id: genId("ac"), what: "New cost", amount: 0 });
         renderProperties();
         persist();
+      }
+      return;
+    }
+    var moveAcqBtn = e.target.closest("[data-acq-cost-move]");
+    if(moveAcqBtn){
+      var moveCard = e.target.closest("[data-property-id]");
+      var moveProperty = moveCard ? findProperty(moveCard.getAttribute("data-property-id")) : null;
+      if(moveProperty){
+        var moved = moveAcquisitionCostToLoan(moveProperty, Number(moveAcqBtn.getAttribute("data-acq-cost-move")));
+        if(moved){
+          refreshAfterDepreciationChange();
+          showUndoToast('Moved "' + (moved.cost.what || "cost") + '" to ' + (moved.loan.what || "the loan") + "'s borrowing costs", function(){
+            moved.undo();
+            refreshAfterDepreciationChange();
+          });
+        }
       }
       return;
     }
@@ -1721,6 +1967,56 @@ import {
   // A sale changes units held (so the portfolio and net worth), and an assessable gain changes
   // taxable income (so the tax card and every net figure). Both halves, in one place, because
   // forgetting either leaves the app visibly disagreeing with itself.
+  // Adding or removing a lot rebuilds the holding's editor; the "Purchase lots" section is reopened
+  // afterwards so the row you just added is in front of you rather than behind a closed summary.
+  // Swaps just that section's markup rather than calling renderAssets(), which would close the
+  // holding's editor out from under the user mid-entry.
+  function afterLotListChange(idx){
+    var item = state.assets[idx];
+    var row = document.querySelector('.m-asset-rows [data-index="' + idx + '"]');
+    var lotsDetails = row && row.querySelector("details.lots-section");
+    if(item && lotsDetails){
+      var holder = document.createElement("div");
+      holder.innerHTML = lotsSectionHtml(item, idx);
+      var fresh = holder.firstElementChild;
+      fresh.open = true;
+      lotsDetails.replaceWith(fresh);
+      var avgInput = row.querySelector(".h-avgcost");
+      if(avgInput) avgInput.value = item.avgCost != null ? item.avgCost : "";
+      var hasLots = lotsUnitsAvailable(item) > 0;
+      var cbInput = row.querySelector(".h-sale-costbase");
+      if(cbInput) cbInput.placeholder = hasLots ? "from purchase lots" : (item.avgCost != null ? "avg cost x units" : "0");
+      var acqInput = row.querySelector(".h-sale-acquired");
+      if(acqInput){ if(hasLots) acqInput.placeholder = "from purchase lots"; else acqInput.removeAttribute("placeholder"); }
+      patchHoldingRow(row, item);
+      patchSharesGlance();
+    } else {
+      renderAssets();
+    }
+    persist();
+  }
+  // Same in-place swap as afterLotListChange, then the tax chain — a statement is taxable income.
+  function afterStatementListChange(idx){
+    var item = state.assets[idx];
+    var row = document.querySelector('.m-asset-rows [data-index="' + idx + '"]');
+    var sec = row && row.querySelector("details.stmts-section");
+    if(item && sec){
+      var holder = document.createElement("div");
+      holder.innerHTML = statementsSectionHtml(item, idx);
+      var fresh = holder.firstElementChild;
+      fresh.open = true;
+      sec.replaceWith(fresh);
+    } else {
+      renderAssets();
+    }
+    recalcComputedItems();
+    renderTaxSuper();
+    patchSyntheticIncomeRows();
+    patchIncomeGroupTotals();
+    renderCards(); renderDetail(); renderTotals();
+    renderProjectionOutputs();
+    persist();
+  }
   function afterAssetSaleChange(){
     recalcComputedItems();
     renderAssets();
@@ -3384,6 +3680,7 @@ import {
     updatePersonSuggestions();
     updateAccountSuggestions();
     renderTaxSuper();
+    renderTaxYear();
     renderNotifBadge();
   }
 

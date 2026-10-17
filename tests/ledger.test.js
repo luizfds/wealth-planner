@@ -728,3 +728,48 @@ test("a row ending today still counts today", function(){
   var iso = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
   assert.ok(Math.abs(sumField([{ amount: 10, freq: "Monthly", endDate: iso }], "monthly") - 10) < 1e-9);
 });
+
+// ---------------- Start dates and the financial year (v3.32.0) ----------------
+
+import { isActiveOn as activeOn, isActiveInYear as activeInYear, activeShareOfWindow, reserveCycleFor as reserveFor } from "../src/calc/ledger.js";
+
+test("a line that hasn't started isn't running yet", function(){
+  var row = { startDate: "2027-01-01" };
+  assert.equal(activeOn(row, "2026-12-31"), false);
+  assert.equal(activeOn(row, "2027-01-01"), true);
+  assert.equal(activeOn({ startDate: "2027-01-01", endDate: "2027-06-30" }, "2027-07-01"), false);
+});
+
+test("the projection picks a starting line up in the year it's running on today's date", function(){
+  var row = { startDate: "2026-11-01" };
+  assert.equal(activeInYear(row, 0, "2026-10-17"), false);
+  assert.equal(activeInYear(row, 1, "2026-10-17"), true);
+});
+
+test("a line's share of a window counts only its running days", function(){
+  // Starts 1 January, inside a July-June year: 181 of 365 days of FY25/26.
+  assert.equal(activeShareOfWindow({ startDate: "2026-01-01" }, "2025-07-01", "2026-06-30"), 181 / 365);
+  assert.equal(activeShareOfWindow({}, "2025-07-01", "2026-06-30"), 1);
+  assert.equal(activeShareOfWindow({ endDate: "2025-06-30" }, "2025-07-01", "2026-06-30"), 0);
+});
+
+test("a reserve line that starts mid-year targets only its share", function(){
+  var line = { amount: 1200, freq: "Yearly", irregular: true, reserveYear: "financial", startDate: "2026-01-01" };
+  var c = reserveFor(line, "2026-03-01");
+  assert.ok(Math.abs(c.target - 1200 * 181 / 365) < 1e-9);
+});
+
+import { plannedToDateByCategory } from "../src/calc/ledger.js";
+
+test("planned to date is each line's share of the whole year, counted from its own start", function(){
+  var items = [
+    { amount: 1200, freq: "Yearly", category: "Insurance" },
+    { amount: 100, freq: "Monthly", category: "Phone" },
+    { amount: 3650, freq: "Yearly", category: "Insurance", startDate: "2025-09-01" }
+  ];
+  // FY25/26 to 30 September: 92 of 365 days elapsed.
+  var p = plannedToDateByCategory(items, "2025-07-01", "2026-06-30", "2025-09-30", null, function(i){ return i.category; });
+  assert.ok(Math.abs(p.Insurance - (1200 * 92 / 365 + 3650 * 30 / 365)) < 1e-9);
+  // $100 a month round-trips through weekly: 100 x 12 / 52 x 52 = $1,200 a year.
+  assert.ok(Math.abs(p.Phone - 1200 * 92 / 365) < 1e-6);
+});

@@ -417,7 +417,9 @@ export function reserveCycleFor(item, todayStr){
     start: win.start,
     end: win.end,
     label: win.label,
-    target: periodsOf(Number(item.amount) || 0, item.freq).yearly,
+    // Pro-rated by the days the line runs inside its reserve year (v3.32.0): a $1,200 reserve that
+    // starts on 1 January targets $600 of a July-June year, not $1,200.
+    target: periodsOf(Number(item.amount) || 0, item.freq).yearly * activeShareOfWindow(item, win.start, win.end),
     // Never "due this month" — that is the property the month rollup keys off, and a reserve has
     // no due month by definition.
     dueThisMonth: false,
@@ -481,18 +483,51 @@ export function budgetCycleFor(item, transactions, todayStr){
 // Deliberately a plain inclusive date comparison on ISO strings rather than Date arithmetic: the
 // dates involved are whole days, and string comparison can't drift on a DST boundary the way
 // parsing to a Date and comparing timestamps can.
+// Whole-day arithmetic on ISO dates, done in UTC so a daylight-saving change inside the range can't
+// shave an hour off and round a day away. Tax apportionment (a deduction that stopped partway
+// through the year, borrowing costs spread over five years) is counted in days, and the ATO's own
+// calculators count them exactly — so these have to as well.
+export function isoDayNumber(iso){
+  var p = String(iso || "").split("-");
+  if(p.length !== 3) return NaN;
+  return Math.round(Date.UTC(Number(p[0]), Number(p[1]) - 1, Number(p[2])) / 86400000);
+}
+// Days shared by two inclusive date ranges, 0 when they don't meet. A blank bound means open-ended.
+export function overlapDaysInclusive(aStart, aEnd, bStart, bEnd){
+  var lo = Math.max(aStart ? isoDayNumber(aStart) : -Infinity, bStart ? isoDayNumber(bStart) : -Infinity);
+  var hi = Math.min(aEnd ? isoDayNumber(aEnd) : Infinity, bEnd ? isoDayNumber(bEnd) : Infinity);
+  if(!isFinite(lo) || !isFinite(hi)) return NaN;
+  return Math.max(0, hi - lo + 1);
+}
+
 export function isActiveOn(item, dateStr){
-  if(!item || !item.endDate) return true;
+  if(!item) return true;
+  // Not yet started (v3.32.0) counts the same as already ended: not a cost today.
+  if(item.startDate && dateStr < item.startDate) return false;
+  if(!item.endDate) return true;
   return dateStr <= item.endDate;
+}
+// Days a row was running inside an inclusive window, as a share of the window — the one way every
+// year-based figure turns a row's start/end dates into an amount (a reserve's target, the year's
+// planned spend, a claim). A row with neither date is the whole window.
+export function activeShareOfWindow(item, start, end){
+  var total = overlapDaysInclusive(start, end, start, end);
+  if(!(total > 0)) return 0;
+  var days = overlapDaysInclusive(start, end, (item && item.startDate) || start, (item && item.endDate) || end);
+  return days / total;
 }
 // The same question asked in the projection's own terms — "is this row still running N years from
 // today?". Anchored on a passed-in today so the series is reproducible in tests.
 export function isActiveInYear(item, yearsFromNow, todayStr){
-  if(!item || !item.endDate) return true;
+  if(!item || (!item.endDate && !item.startDate)) return true;
   var base = todayStr ? new Date(todayStr + "T00:00:00") : new Date();
   base.setHours(0, 0, 0, 0);
-  var at = new Date(base.getFullYear() + (Number(yearsFromNow) || 0), base.getMonth(), base.getDate());
-  return localDateStr(at) <= item.endDate;
+  var at = localDateStr(new Date(base.getFullYear() + (Number(yearsFromNow) || 0), base.getMonth(), base.getDate()));
+  // The same anchor date for both ends: a row is in projection year N if it's running on today's
+  // date N years on. A row starting next month joins the series from year 1, symmetrical with how
+  // a row ending next month leaves it.
+  if(item.startDate && at < item.startDate) return false;
+  return !item.endDate || at <= item.endDate;
 }
 // Sum only what is still running in a given projection year. Mirrors sumField's shape so callers
 // read the same way, and takes the per-item amount resolver as an argument because the shared
@@ -605,4 +640,26 @@ export function resolvedDueMonth(item, transactions){
   var d = new Date(last + "T00:00:00");
   if(isNaN(d.getTime())) return null;
   return d.getMonth() + 1;
+}
+
+// ---------------- Planned for the year to date (v3.32.0) ----------------
+//
+// What the budget says should have gone out between the start of the household year and `toDate`,
+// by category: each line's yearly amount times the share of the WHOLE year it was running in that
+// stretch. Not the share of the elapsed part — a full year's $1,200 of insurance, three months in,
+// is $296 planned so far, not $1,200 × (running days ÷ elapsed days). A line that starts or ends
+// part-way through counts only its own days. Lumpy bills are smoothed (a yearly bill paid in
+// August reads as over-plan until the year catches up), which the panel says.
+export function plannedToDateByCategory(items, fullStart, fullEnd, toDate, amountFor, categoryFor){
+  var fullDays = overlapDaysInclusive(fullStart, fullEnd, fullStart, fullEnd);
+  var out = {};
+  if(!(fullDays > 0)) return out;
+  (items || []).forEach(function(item){
+    var days = overlapDaysInclusive(fullStart, toDate, item.startDate || fullStart, item.endDate || fullEnd);
+    if(!(days > 0)) return;
+    var yearly = periodsOf(Number(amountFor ? amountFor(item) : item.amount) || 0, item.freq).yearly;
+    var cat = categoryFor(item);
+    out[cat] = (out[cat] || 0) + yearly * days / fullDays;
+  });
+  return out;
 }

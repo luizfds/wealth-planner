@@ -412,3 +412,154 @@ test("a PPOR never reaches the ownership split — it has no taxable result to s
     assert.equal(personIpResultAnnual("Sam", ["Sam", "Alex"]), 0);
   });
 });
+
+// ---------------- Borrowing costs (v3.17.0) ----------------
+
+import { borrowingCostsSchedule, borrowingCostsDeduction, propertyTaxDeductibleResultAnnual as taxResult } from "../src/calc/property.js";
+
+// A real loan: LMI $12,975.86 + a $350 lender settlement fee, settled 31 January 2025. Every figure
+// below is what the ATO's own deductible borrowing expenses calculator (v1.04) gives for it.
+var REAL_LOAN = { balance: 0, rate: 0, borrowingCosts: 13325.86, settlementDate: "2025-01-31" };
+
+test("borrowing costs over $100 are spread over five years by days, exactly as the ATO calculator does", function(){
+  var sched = borrowingCostsSchedule(REAL_LOAN);
+  assert.deepEqual(sched.map(function(r){ return r.fy; }), [2024, 2025, 2026, 2027, 2028, 2029]);
+  assert.deepEqual(sched.map(function(r){ return r.days; }), [151, 365, 365, 366, 365, 214]);
+  // The first year carries the cent lost to rounding, so the schedule adds back to what was paid.
+  assert.deepEqual(sched.map(function(r){ return r.amount; }), [1101.98, 2663.71, 2663.71, 2671.01, 2663.71, 1561.74]);
+  var sum = sched.reduce(function(s, r){ return s + r.amount; }, 0);
+  assert.equal(Math.round(sum * 100) / 100, 13325.86);
+});
+
+test("a financial-year window takes exactly that year's line", function(){
+  assert.equal(borrowingCostsDeduction(REAL_LOAN, { start: "2025-07-01", end: "2026-06-30" }), 2663.71);
+  assert.equal(borrowingCostsDeduction(REAL_LOAN, { start: "2030-07-01", end: "2031-06-30" }), 0);
+});
+
+test("$100 or less is deducted in full in the year it was paid", function(){
+  var small = { borrowingCosts: 100, settlementDate: "2025-01-31" };
+  assert.equal(borrowingCostsDeduction(small, { start: "2024-07-01", end: "2025-06-30" }), 100);
+  assert.equal(borrowingCostsDeduction(small, { start: "2025-07-01", end: "2026-06-30" }), 0);
+});
+
+test("a loan term shorter than five years shortens the spread", function(){
+  var short = { borrowingCosts: 3000, settlementDate: "2025-07-01", borrowingTermYears: 3 };
+  var sched = borrowingCostsSchedule(short);
+  assert.equal(sched.length, 3);
+  assert.equal(Math.round(sched.reduce(function(s, r){ return s + r.amount; }, 0) * 100) / 100, 3000);
+});
+
+test("nothing is spread without a settlement date to spread it from", function(){
+  assert.deepEqual(borrowingCostsSchedule({ borrowingCosts: 5000 }), []);
+  assert.deepEqual(borrowingCostsSchedule({ borrowingCosts: 0, settlementDate: "2025-01-31" }), []);
+});
+
+test("borrowing costs reduce the property's taxable result, not its cash result", function(){
+  var p = { kind: "IP", income: [], expenses: [], loans: [Object.assign({}, REAL_LOAN)] };
+  var without = { kind: "IP", income: [], expenses: [], loans: [{ balance: 0, rate: 0 }] };
+  var fy = borrowingCostsDeduction(REAL_LOAN);
+  assert.equal(Math.round((taxResult(without) - taxResult(p)) * 100) / 100, fy);
+});
+
+// ---------------- Second-hand plant (v3.18.0) ----------------
+
+import { plantIsClaimable } from "../src/calc/property.js";
+
+test("second-hand plant claims nothing, but keeps its value", function(){
+  // The real case: a QS report valued $15,453 of existing plant on a property bought in 2025. Not
+  // claimable by a second owner; the straight-line pool would have deducted ~$1,545 a year.
+  var p = { plantValue: 15453, plantEffectiveLife: 10, plantSecondHand: true };
+  assert.equal(plantIsClaimable(p), false);
+  assert.equal(plantDepreciationAnnual(p), 0);
+  assert.equal(p.plantValue, 15453);
+  assert.equal(plantDepreciationAnnual(Object.assign({}, p, { plantSecondHand: false })), 1545.3);
+});
+
+// ---------------- Depreciation for a year, and the QS schedule (v3.19.0) ----------------
+
+import { propertyDepreciationForFy, propertyDepreciationForWindow, fyLabel } from "../src/calc/property.js";
+
+test("a quantity surveyor's schedule is taken verbatim for the years it lists", function(){
+  // The real report: 1993 building $2,560 + 2023 renovation $819 = $3,379 a year, first year $1,398.
+  var p = { purchaseDate: "2025-01-31", plantSecondHand: true, depreciationSchedule: [
+    { fy: 2024, capitalWorks: 1398, plant: 0 }, { fy: 2025, capitalWorks: 3379, plant: 0 }, { fy: 2033, capitalWorks: 859, plant: 0 }
+  ] };
+  assert.deepEqual(propertyDepreciationForFy(p, 2024), { capitalWorks: 1398, plant: 0, source: "schedule" });
+  assert.equal(propertyDepreciationForWindow(p, { start: "2025-07-01", end: "2026-06-30" }).total, 3379);
+  assert.equal(propertyDepreciationForFy(p, 2033).capitalWorks, 859);
+});
+
+test("schedule plant is still zeroed when the plant was second-hand", function(){
+  var p = { plantSecondHand: true, depreciationSchedule: [{ fy: 2025, capitalWorks: 3000, plant: 1200 }] };
+  assert.equal(propertyDepreciationForFy(p, 2025).plant, 0);
+});
+
+test("without a schedule, the first year runs from the purchase date", function(){
+  // $135,232 of construction at 2.5% = $3,380.80 a year; bought 31 Jan 2025 = 151 of 365 days.
+  var p = { purchaseDate: "2025-01-31", constructionCost: 135232, constructionDate: "1993-06-01" };
+  assert.equal(propertyDepreciationForFy(p, 2024).capitalWorks, Math.round(3380.8 * 151 / 365 * 100) / 100);
+  assert.equal(propertyDepreciationForFy(p, 2025).capitalWorks, 3380.8);
+  assert.equal(propertyDepreciationForFy(p, 2023).capitalWorks, 0, "before it was bought");
+});
+
+test("the capital works year that crosses the 40th anniversary is pro-rated", function(){
+  // Completed 1 June 1993: the last claimable day is 31 May 2033. FY31/32 is whole, FY32/33 claims
+  // 1 Jul 2032 - 31 May 2033 (335 of 365 days), and FY33/34 claims nothing.
+  var p = { constructionCost: 100000, constructionDate: "1993-06-01" };
+  assert.equal(propertyDepreciationForFy(p, 2031).capitalWorks, 2500);
+  assert.equal(propertyDepreciationForFy(p, 2032).capitalWorks, Math.round(2500 * 335 / 365 * 100) / 100);
+  assert.equal(propertyDepreciationForFy(p, 2033).capitalWorks, 0);
+});
+
+test("a calendar-year window takes half of each financial year it straddles", function(){
+  var p = { depreciationSchedule: [{ fy: 2024, capitalWorks: 3650, plant: 0 }, { fy: 2025, capitalWorks: 7300, plant: 0 }] };
+  var cal = propertyDepreciationForWindow(p, { start: "2025-01-01", end: "2025-12-31" });
+  // 181 days of FY24/25 (Jan-Jun 2025) + 184 of FY25/26 (Jul-Dec 2025).
+  assert.equal(cal.capitalWorks, Math.round((3650 * 181 / 365 + 7300 * 184 / 365) * 100) / 100);
+  assert.equal(fyLabel(2025), "FY25/26");
+});
+
+// ---------------- Capital works off the CGT cost base (v3.20.0) ----------------
+
+import { capitalWorksClaimedToDate } from "../src/calc/property.js";
+
+test("capital works claimed since purchase come off the cost base", function(){
+  // Bought 31 Jan 2025 for $675,000 + $36,000 costs; QS schedule FY24/25 $1,398, FY25/26 $3,379,
+  // FY26/27 $3,379. On 31 Dec 2026: 1,398 + 3,379 + 3,379 x 184/365.
+  var p = { kind: "IP", value: 800000, purchasePrice: 675000, purchaseDate: "2025-01-31",
+    acquisitionCosts: [{ amount: 36000 }],
+    depreciationSchedule: [{ fy: 2024, capitalWorks: 1398 }, { fy: 2025, capitalWorks: 3379 }, { fy: 2026, capitalWorks: 3379 }] };
+  var claimed = Math.round((1398 + 3379 + 3379 * 184 / 365) * 100) / 100;
+  assert.equal(capitalWorksClaimedToDate(p, "2026-12-31"), claimed);
+  var g = propertyCapitalGain(p, "2026-12-31");
+  assert.equal(g.capitalWorksReduction, claimed);
+  assert.equal(Math.round(g.costBase * 100) / 100, Math.round((711000 - claimed) * 100) / 100);
+  assert.equal(Math.round(g.gain * 100) / 100, Math.round((800000 - 711000 + claimed) * 100) / 100);
+  // The growth percentage stays measured against what was actually paid.
+  assert.equal(g.pct, g.gain / 711000);
+});
+
+test("no reduction before 13 May 1997, or without a purchase date", function(){
+  var cw = { constructionCost: 100000, value: 500000, purchasePrice: 200000, acquisitionCosts: [] };
+  assert.equal(capitalWorksClaimedToDate(Object.assign({ purchaseDate: "1996-01-01" }, cw), "2026-01-01"), 0);
+  assert.equal(capitalWorksClaimedToDate(cw, "2026-01-01"), 0);
+});
+
+// ---------------- Borrowing costs written off on payout (v3.27.0) ----------------
+
+test("a loan paid out mid-spread deducts the rest in that financial year", function(){
+  // The real loan, refinanced on 1 March 2027: FY24/25-FY25/26 as scheduled, then FY26/27 takes
+  // everything left ($13,325.86 - $1,101.98 - $2,663.71), and nothing after.
+  var loan = Object.assign({}, REAL_LOAN, { endedOn: "2027-03-01" });
+  var sched = borrowingCostsSchedule(loan);
+  assert.deepEqual(sched.map(function(r){ return r.fy; }), [2024, 2025, 2026]);
+  assert.equal(sched[2].amount, Math.round((13325.86 - 1101.98 - 2663.71) * 100) / 100);
+  assert.equal(sched[2].writtenOff, true);
+  assert.equal(Math.round(sched.reduce(function(s, r){ return s + r.amount; }, 0) * 100) / 100, 13325.86);
+  assert.equal(borrowingCostsDeduction(loan, { start: "2027-07-01", end: "2028-06-30" }), 0);
+});
+
+test("a payout date after the spread has ended changes nothing", function(){
+  var loan = Object.assign({}, REAL_LOAN, { endedOn: "2031-01-01" });
+  assert.equal(borrowingCostsSchedule(loan).length, 6);
+});

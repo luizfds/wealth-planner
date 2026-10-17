@@ -867,6 +867,9 @@
   .year-cat-fill{ display:block; height:100%; background: var(--brass); border-radius:100px; }
   .year-cat-amt{ flex:none; font-family:"IBM Plex Mono", monospace; font-weight:600; min-width:72px; text-align:right; }
   .year-cat-pct{ flex:none; font-size:11px; color: var(--ink-soft); min-width:38px; text-align:right; }
+  /* v3.32.0: the bar is spent against planned; over plan turns the fill and the amount to --bad. */
+  .year-cat-row.over .year-cat-fill{ background: var(--bad); }
+  .year-cat-row.over .year-cat-amt{ color: var(--bad); }
 
   /* An ended row's amount: still shown (you have to see it to extend or delete the row) but
      struck through, because sumField no longer counts it in any total. Without this the list

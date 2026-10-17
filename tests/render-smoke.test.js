@@ -829,3 +829,18 @@ test("distributions received: rows, note and add button", async function(){
   assert.match(payoutsNoteText(item), /1 payment: \$***\.50 cash \+ \$***\.64 franking credits/);
   assert.match(payoutsSectionHtml({ payouts: [] }, 0), /Log each dividend/);
 });
+
+test("if you sold: inputs, the sums and each owner's share", async function(){
+  const { saleWhatIfHtml } = await import("../src/components/properties.js");
+  const html = saleWhatIfHtml({ id: "p1" }, { growthPct: 5, inputs: { date: "2027-06-30", price: "", agentPct: 2.5, otherCosts: 2500 },
+    result: { salePrice: 700000, sellingCosts: 20000, loanPayout: 400000, cashBeforeTax: 280000, paid: 457000, capitalWorksReduction: 12000,
+      gain: 235000, discount: true, fy: 2026, cashAfterTax: 240000,
+      owners: [{ name: "Alex", share: 0.7, gain: 164500, assessable: 82250, tax: 30000, loss: 0, cash: 166000 }, { name: "Sam", share: 0.3, gain: 70500, assessable: 35250, tax: 10000, loss: 0, cash: 74000 }] } });
+  assert.match(html, /data-sale-field="price" value="" placeholder="700000"/);
+  assert.match(html, /today's value grown at 5% a year/);
+  assert.match(html, /Less capital works claimed<\/span><b>−\$***/);
+  assert.match(html, /Alex <small>70%/);
+  assert.match(html, /Taxable, after the 50% discount<\/span><b>\$***/);
+  assert.match(html, /Total cash after tax<\/span><b>\$240,000/);
+  assert.match(html, /Taxed in FY26\/27/);
+});

@@ -220,6 +220,15 @@ function acquisitionCostRowModernHtml(item, index, colorIdx){
 // report; a year listed here is used as-is, and the formula fields above only fill the years it
 // doesn't list. The FY options run from the purchase year (or ten years back) to forty on, which
 // covers any report's horizon without a free-text year to mistype.
+// What the capital gain figure is measured against — a sentence, because "cost base" alone means
+// nothing to most people and the capital works reduction is the part that surprises them.
+export function capitalGainTitle(p, g){
+  if(!g) return "";
+  var base = "Current value minus your CGT cost base of " + fmtCurrency0.format(g.costBase) + " (what you paid plus acquisition costs";
+  if(g.capitalWorksReduction > 0) return base + ", less " + fmtCurrency0.format(g.capitalWorksReduction) + " of capital works claimed since purchase — those deductions come back as gain on sale). Before tax and the 50% discount.";
+  if(p.kind === "IP" && !p.purchaseDate) return base + "). Add the purchase date and capital works claimed since will come off it, as they do on sale.";
+  return base + "). Before tax and the 50% discount.";
+}
 function depreciationScheduleHtml(p){
   var rows = Array.isArray(p.depreciationSchedule) ? p.depreciationSchedule : [];
   var thisFy = financialYearOf(localDateStr());
@@ -406,7 +415,7 @@ function propertyCardHtml(p, colorIdx){
   if(capitalGain){
     allTiles.capitalgain = propertyStatTileHtml("capitalgain", "Capital gain",
       (capitalGain.gain >= 0 ? "+" : "") + fmtCurrency0.format(capitalGain.gain) + ' (' + (capitalGain.gain >= 0 ? "+" : "") + fmtPercent1.format(capitalGain.pct) + ')',
-      { title: "Current value minus what you paid", color: capitalGain.gain >= 0 ? "var(--good)" : "var(--bad)" });
+      { title: capitalGainTitle(p, capitalGain), color: capitalGain.gain >= 0 ? "var(--good)" : "var(--bad)" });
   }
   if(netCashFlowMonthly != null){
     allTiles.cashflow = propertyStatTileHtml("cashflow", "Net cash flow",
@@ -677,6 +686,8 @@ export function patchPropertyCardComputed(property){
     if(capitalGain){
       capitalGainOut.textContent = (capitalGain.gain >= 0 ? "+" : "") + fmtCurrency0.format(capitalGain.gain) + " (" + (capitalGain.gain >= 0 ? "+" : "") + fmtPercent1.format(capitalGain.pct) + ")";
       capitalGainOut.style.color = capitalGain.gain >= 0 ? "var(--good)" : "var(--bad)";
+      var capitalGainTile = capitalGainOut.closest(".calc-out");
+      if(capitalGainTile) capitalGainTile.title = capitalGainTitle(property, capitalGain);
     }
   }
   var acqCostsTotalOut = card.querySelector('[data-out="acqcoststotal"]');

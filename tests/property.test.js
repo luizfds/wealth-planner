@@ -518,3 +518,29 @@ test("a calendar-year window takes half of each financial year it straddles", fu
   assert.equal(cal.capitalWorks, Math.round((3650 * 181 / 365 + 7300 * 184 / 365) * 100) / 100);
   assert.equal(fyLabel(2025), "FY25/26");
 });
+
+// ---------------- Capital works off the CGT cost base (v3.20.0) ----------------
+
+import { capitalWorksClaimedToDate } from "../src/calc/property.js";
+
+test("capital works claimed since purchase come off the cost base", function(){
+  // Bought 31 Jan 2025 for $675,000 + $36,000 costs; QS schedule FY24/25 $1,398, FY25/26 $3,379,
+  // FY26/27 $3,379. On 31 Dec 2026: 1,398 + 3,379 + 3,379 x 184/365.
+  var p = { kind: "IP", value: 800000, purchasePrice: 675000, purchaseDate: "2025-01-31",
+    acquisitionCosts: [{ amount: 36000 }],
+    depreciationSchedule: [{ fy: 2024, capitalWorks: 1398 }, { fy: 2025, capitalWorks: 3379 }, { fy: 2026, capitalWorks: 3379 }] };
+  var claimed = Math.round((1398 + 3379 + 3379 * 184 / 365) * 100) / 100;
+  assert.equal(capitalWorksClaimedToDate(p, "2026-12-31"), claimed);
+  var g = propertyCapitalGain(p, "2026-12-31");
+  assert.equal(g.capitalWorksReduction, claimed);
+  assert.equal(Math.round(g.costBase * 100) / 100, Math.round((711000 - claimed) * 100) / 100);
+  assert.equal(Math.round(g.gain * 100) / 100, Math.round((800000 - 711000 + claimed) * 100) / 100);
+  // The growth percentage stays measured against what was actually paid.
+  assert.equal(g.pct, g.gain / 711000);
+});
+
+test("no reduction before 13 May 1997, or without a purchase date", function(){
+  var cw = { constructionCost: 100000, value: 500000, purchasePrice: 200000, acquisitionCosts: [] };
+  assert.equal(capitalWorksClaimedToDate(Object.assign({ purchaseDate: "1996-01-01" }, cw), "2026-01-01"), 0);
+  assert.equal(capitalWorksClaimedToDate(cw, "2026-01-01"), 0);
+});

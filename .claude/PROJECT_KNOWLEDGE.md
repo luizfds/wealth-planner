@@ -1208,3 +1208,15 @@ pushed to `origin`. Do this without being asked, every time.
   row's symbol is `IOZ@YYYY-MM-DD` or `IOZ@NOW` — `parseSharesPasteLine` strips a leading
   `XXX:` exchange prefix, which is why the separator is `@`, not `:`.
 - `state.goals` and `property.market` are new persisted shapes; `migrateState()` defaults them.
+
+### Money tools (v3.38.0–v3.42.0)
+
+- **Loans:** read a balance through `loanBalance(l)` and gate interest/repayments on
+  `loanPaidOut(l, date)`; `Number(l.balance)` directly ignores a payout date. `loanInterestMonthlyRaw`
+  is the one exception, for apportioning a past year.
+- New persisted shapes, all defaulted in `migrateState()` or optional: `asset.payouts`,
+  `property.saleWhatIf`, `loan.strategy`, `property.strategyLoan`, `tax.settings[p].topUpAmount`;
+  property sections `strategy` and `sale` collapsed by default.
+- **The repo is public.** Don't commit a household's real names, employers, addresses or a tax year
+  file; tests use placeholders.
+- CI: `scripts/smoke.mjs` is the first thing to run after any component, template or CSS change.

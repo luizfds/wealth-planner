@@ -130,6 +130,18 @@
      A compact ledger under the sale form: date, what was sold, the raw gain, and whether the
      12-month discount applied. The discount pill is the point — once a sale is recorded it's too
      late to act on the holding period, so it can't be something you have to work out. */
+  /* Purchase lots (v3.21.0): date + three amounts + delete on one grid, with a header row that
+     shares the same columns so a phone-width row doesn't need a label inside every cell. The date
+     column is fixed at the width Chrome needs for "dd/mm/yyyy" plus its picker icon; the amounts
+     share the rest. */
+  .lot-head, .lot-row{ display:grid; grid-template-columns: 124px minmax(0,.9fr) minmax(0,1.25fr) minmax(0,.85fr) 32px; gap:5px; align-items:center; }
+  .lot-head{ font-size:10.5px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-soft); padding:0 2px 4px; }
+  .lot-row{ padding:4px 0; border-top:1px solid var(--border); }
+  .lot-row input{ min-width:0; width:100%; font-size:13px; padding:6px 4px; border:1px solid var(--border); border-radius:6px; background:var(--paper); color:var(--ink); font-family:inherit; }
+  .lot-row input[type="number"]{ font-family:"IBM Plex Mono", monospace; text-align:right; }
+  .lot-row .icon-btn{ width:32px; height:32px; }
+  .lot-row .icon-btn[disabled]{ opacity:.35; cursor:not-allowed; }
+  .lot-sold{ grid-column: 2 / -1; font-size:11px; color:var(--ink-soft); }
   .sale-list{ display:flex; flex-direction:column; gap:2px; margin-top:10px; }
   .sale-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:11.5px; padding:5px 2px; border-top:1px solid var(--border); }
   .sale-date{ font-family:"IBM Plex Mono", monospace; color: var(--ink-soft); flex:none; }

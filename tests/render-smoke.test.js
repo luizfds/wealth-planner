@@ -656,3 +656,16 @@ test("the borrowing-costs note says what's deductible, or what's missing", funct
   assert.match(borrowingNoteText({ borrowingCosts: ***REMOVED***, settlementDate: "2025-01-01" }), /of \$***REMOVED***\.86 — spread to FY29\/30\./);
   assert.match(borrowingNoteText({ borrowingCosts: 80, settlementDate: "2025-01-01" }), /all in the year paid/);
 });
+
+// v3.21.0 — purchase lots.
+import { lotsSectionHtml, lotsNoteText } from "../src/components/assets.js";
+
+test("the purchase lots section renders its rows and a used lot can't be deleted", function(){
+  var item = { quantity: 100, lots: [{ id: "a", date: "2024-01-01", units: 100, price: 1.5, brokerage: 3, soldUnits: 40 }] };
+  var html = lotsSectionHtml(item, 0);
+  assert.match(html, /class="lot-date"[^>]*value="2024-01-01"/);
+  assert.match(html, /data-lot-del="0:0"[^>]*disabled/);
+  assert.match(html, /40 of 100 sold/);
+  assert.match(lotsNoteText(item), /60 unsold units across 1 lot — the holding shows 100/);
+  assert.match(lotsSectionHtml({ lots: [] }, 0), /\+ Add lot/);
+});

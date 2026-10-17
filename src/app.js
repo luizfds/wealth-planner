@@ -12,7 +12,7 @@ import {
   exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv, exportAssetsImportTemplateCsv, parseCsv
 } from "./lib/backup.js";
 import { periodsOf, sumField, sumFieldForScenario, resolveSharedAmount, appendHistorySnapshot, transactionDisplayName } from "./calc/ledger.js";
-import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider, saleCapitalGain } from "./calc/tax.js";
+import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider, saleCapitalGain, lotsUnitsAvailable } from "./calc/tax.js";
 import { recalcComputedItems, scenarioTotals, totalNetWorthValue, totalDebtsValue } from "./calc/engine.js";
 import { financialYearOf, fyLabel } from "./calc/property.js";
 import { renderCards, renderDashboardStats, renderDetail, setProjectionReference, logNetWorthSnapshot } from "./components/dashboard.js";
@@ -44,7 +44,7 @@ import {
   renderNetWorthPanel, renderAssets, logAssetSnapshot, applySharesPaste, logDebtSnapshot,
   patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter, renderAssetPersonSheet, assetPersonSheetOpen, setAssetPersonSheetOpen, setSharesGainFilter, setSharesSortMode, setSharesChangeWindow, setAllocationRange, setPortfolioRange,
   parseAssetsImportCsv, renderAssetsImportPreview, clearAssetsImportPreview, commitAssetsImport, dividendNoteText,
-  recordAssetSale, deleteAssetSale, renderAssetsSummary, patchOffsetsRow
+  recordAssetSale, deleteAssetSale, renderAssetsSummary, patchOffsetsRow, addAssetLot, syncAvgCostFromLots, lotsSectionHtml, lotsNoteText
 } from "./components/assets.js";
 import {
   modernPropRowOpen, renderPropListModern, renderProperties, patchPropertyCardComputed,
@@ -1083,6 +1083,23 @@ import {
         renderCards(); renderDetail(); renderTotals();
         renderProjectionOutputs();
       }
+      // Purchase lots: edit in place. Avg cost follows the lots so the holding's gain figure agrees
+      // with them; the cost-base change doesn't move tax (only a recorded sale does), so no tax re-run.
+      else if(e.target.hasAttribute("data-lot-index")){
+        var lot = (item.lots || [])[Number(e.target.getAttribute("data-lot-index"))];
+        if(!lot) return;
+        if(e.target.classList.contains("lot-date")) lot.date = e.target.value;
+        else if(e.target.classList.contains("lot-units")) lot.units = Math.max(Number(lot.soldUnits) || 0, parseFloat(e.target.value) || 0);
+        else if(e.target.classList.contains("lot-price")) lot.price = Math.max(0, parseFloat(e.target.value) || 0);
+        else if(e.target.classList.contains("lot-brokerage")) lot.brokerage = Math.max(0, parseFloat(e.target.value) || 0);
+        syncAvgCostFromLots(item);
+        var lotsNote = tr.querySelector(".lots-note");
+        if(lotsNote) lotsNote.textContent = lotsNoteText(item);
+        var avgInput = tr.querySelector(".h-avgcost");
+        if(avgInput && document.activeElement !== avgInput) avgInput.value = item.avgCost != null ? item.avgCost : "";
+        patchHoldingRow(tr, item);
+        patchSharesGlance();
+      }
       else if(e.target.classList.contains("h-avgcost")){
         item.avgCost = e.target.value === "" ? null : (parseFloat(e.target.value) || 0);
         patchHoldingRow(tr, item);
@@ -1176,6 +1193,28 @@ import {
         renderAssets();
         renderProjectionOutputs();
         persist();
+      });
+      return;
+    }
+    var lotAddBtn = e.target.closest("[data-lot-add]");
+    if(lotAddBtn){
+      var lotIdx = Number(lotAddBtn.getAttribute("data-lot-add"));
+      addAssetLot(lotIdx);
+      afterLotListChange(lotIdx);
+      return;
+    }
+    var lotDelBtn = e.target.closest("[data-lot-del]");
+    if(lotDelBtn){
+      var lotParts = lotDelBtn.getAttribute("data-lot-del").split(":");
+      var lotItem = state.assets[Number(lotParts[0])];
+      if(!lotItem || !lotItem.lots) return;
+      var removedLot = lotItem.lots.splice(Number(lotParts[1]), 1)[0];
+      syncAvgCostFromLots(lotItem);
+      afterLotListChange(Number(lotParts[0]));
+      showUndoToast("Lot deleted", function(){
+        lotItem.lots.splice(Math.min(Number(lotParts[1]), lotItem.lots.length), 0, removedLot);
+        syncAvgCostFromLots(lotItem);
+        afterLotListChange(Number(lotParts[0]));
       });
       return;
     }
@@ -1783,6 +1822,34 @@ import {
   // A sale changes units held (so the portfolio and net worth), and an assessable gain changes
   // taxable income (so the tax card and every net figure). Both halves, in one place, because
   // forgetting either leaves the app visibly disagreeing with itself.
+  // Adding or removing a lot rebuilds the holding's editor; the "Purchase lots" section is reopened
+  // afterwards so the row you just added is in front of you rather than behind a closed summary.
+  // Swaps just that section's markup rather than calling renderAssets(), which would close the
+  // holding's editor out from under the user mid-entry.
+  function afterLotListChange(idx){
+    var item = state.assets[idx];
+    var row = document.querySelector('.m-asset-rows [data-index="' + idx + '"]');
+    var lotsDetails = row && row.querySelector("details.lots-section");
+    if(item && lotsDetails){
+      var holder = document.createElement("div");
+      holder.innerHTML = lotsSectionHtml(item, idx);
+      var fresh = holder.firstElementChild;
+      fresh.open = true;
+      lotsDetails.replaceWith(fresh);
+      var avgInput = row.querySelector(".h-avgcost");
+      if(avgInput) avgInput.value = item.avgCost != null ? item.avgCost : "";
+      var hasLots = lotsUnitsAvailable(item) > 0;
+      var cbInput = row.querySelector(".h-sale-costbase");
+      if(cbInput) cbInput.placeholder = hasLots ? "from purchase lots" : (item.avgCost != null ? "avg cost x units" : "0");
+      var acqInput = row.querySelector(".h-sale-acquired");
+      if(acqInput){ if(hasLots) acqInput.placeholder = "from purchase lots"; else acqInput.removeAttribute("placeholder"); }
+      patchHoldingRow(row, item);
+      patchSharesGlance();
+    } else {
+      renderAssets();
+    }
+    persist();
+  }
   function afterAssetSaleChange(){
     recalcComputedItems();
     renderAssets();

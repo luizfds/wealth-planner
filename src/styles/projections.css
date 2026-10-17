@@ -71,3 +71,21 @@
   .milestone-table .proj-swatch{ display:inline-block; vertical-align:middle; margin-right:6px; }
   .milestone-table td{ text-align:right; font-family:"IBM Plex Mono",monospace; font-variant-numeric: tabular-nums; }
   .milestone-table tr:last-child td{ border-bottom:none; }
+
+  /* v3.34.0 — milestones and the CSV button. */
+  .proj-milestones{ margin-top:18px; }
+  .proj-ms-title{ font-size:14px; margin:0 0 8px; }
+  .proj-ms-title span{ font-weight:400; color: var(--ink-soft); font-size:12.5px; }
+  .proj-ms-table{ border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+  .proj-ms-row{ display:grid; grid-template-columns: minmax(110px,1.6fr) repeat(calc(var(--ms-cols) + 1), minmax(54px,1fr)); gap:8px; align-items:center; padding:8px 12px; font-size:12.5px; border-top:1px solid var(--border); font-variant-numeric: tabular-nums; }
+  .proj-ms-row:first-child{ border-top:0; }
+  .proj-ms-row > span:not(:first-child){ text-align:right; font-family:"IBM Plex Mono", monospace; }
+  .proj-ms-row i{ font-style:normal; color: var(--ink-soft); }
+  .proj-ms-head{ background: var(--paper-sunken); font-size:11px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; }
+  .proj-ms-head > span:not(:first-child){ font-family:inherit; }
+  .proj-ms-name{ display:flex; align-items:center; gap:6px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .proj-tools{ margin-top:12px; display:flex; justify-content:flex-end; }
+  @media (max-width: 700px){
+    .proj-ms-table{ overflow-x:auto; }
+    .proj-ms-row{ min-width: calc(120px + (var(--ms-cols) + 1) * 66px); }
+  }

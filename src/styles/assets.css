@@ -185,3 +185,9 @@
      bottom margin on mobile where the block rule above would otherwise leave it flush to the
      chart. Placed after the media query so it wins on both — see CLAUDE.md on source order. */
   .chart-head-bare{ justify-content:flex-end; margin-bottom:10px; }
+
+/* v3.32.1 — US$ counted as A$ with no rate set: visible above the list, not inside the paste tool. */
+.fx-warn{ margin:10px 0 14px; padding:10px 12px; border:1px solid var(--bad); border-left-width:4px; border-radius:10px; background:var(--bad-wash); font-size:13px; }
+.fx-warn p{ margin:0 0 8px; color:var(--ink); }
+.fx-warn-field{ display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--ink-soft); }
+.fx-warn-field input{ width:90px; min-height:36px; padding:4px 8px; border:1px solid var(--border); border-radius:8px; background:var(--paper); color:var(--ink); font:inherit; text-align:right; }

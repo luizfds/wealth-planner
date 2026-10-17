@@ -131,7 +131,7 @@
   .acct-row:last-child{ margin-bottom:0; }
   .acct-name{ color: var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .acct-track{ height:8px; border-radius:100px; background: var(--paper-sunken); overflow:hidden; }
-  .acct-fill{ height:100%; background: var(--series-color, var(--brass)); border-radius:inherit; }
+  .acct-fill{ display:block; height:100%; background: var(--series-color, var(--brass)); border-radius:inherit; }
   .acct-amt{ text-align:right; font-weight:500; }
 
   /* ---------------- Ledger tables ---------------- */
@@ -843,7 +843,7 @@
   .trend-table td, .trend-table th{ font-size:11.5px; }
   .trend-total-row td{ font-weight:700; border-top:1px solid var(--border); }
 
-  /* "⇄ $*** in Buy Sydney" on a collapsed row whose amount differs by scenario. Same pill
+  /* "⇄ $7,260 in Buy Sydney" on a collapsed row whose amount differs by scenario. Same pill
      vocabulary as .row-end-note above; brass rather than red, because varying by scenario is a
      deliberate modelling choice, not a problem to fix. */
   .row-vary-note{
@@ -1014,3 +1014,18 @@
   .qlog-merchant-chip:hover{ color: var(--ink); border-color: var(--brass); }
   .qlog-merchant-chip:active{ background: var(--brass-wash); }
   .qlog-merchant-chip:focus-visible{ outline:none; box-shadow: var(--focus-ring); }
+
+  /* v3.33.0 */
+  .pref-check{ display:flex; align-items:center; gap:10px; min-height:40px; font-size:14px; cursor:pointer; }
+  .pref-check input{ width:18px; height:18px; }
+
+  /* v3.33.0 — Insights cards sized to their own content: in a stretched row a two-line empty state
+     sat in a card as tall as the twelve-row forecast beside it. */
+  .detail-grid{ align-items:start; }
+  .forecast-row{ display:grid; grid-template-columns: 112px 1fr auto; align-items:baseline; gap:10px; padding:7px 0; border-top:1px solid var(--border); font-size:12.5px; }
+  .forecast-row:first-of-type{ border-top:0; }
+  .forecast-when{ font-weight:600; white-space:nowrap; }
+  .forecast-note{ font-size:11.5px; color: var(--ink-soft); min-width:0; }
+  .forecast-amt{ font-family:"IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; font-weight:600; white-space:nowrap; text-align:right; }
+  .forecast-amt small{ font-weight:400; color: var(--ink-soft); font-family: inherit; }
+  .forecast-row.is-steady .forecast-when{ font-weight:500; color: var(--ink-soft); }

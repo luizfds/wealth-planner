@@ -274,3 +274,8 @@
      on top of that gap instead of relying on it like every sibling here does. */
   .calc-note{ font-size:11px; color: var(--ink-soft); line-height:1.5; margin:0; }
   .calc-help{ color: var(--ink-soft); font-size:11px; }
+
+  /* v3.34.1 — More detail and Expand/Collapse all on one row. */
+  .property-card-tools{ display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin:10px 0 -4px; }
+  .property-card-tools > details{ flex:1 1 auto; min-width:0; margin:0; }
+  .property-card-tools .property-collapse-btn{ flex:none; }

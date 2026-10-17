@@ -210,3 +210,26 @@ export function spendCoverage(loggedMonthlyAvg, budgetedMonthly){
     enough: fraction >= 0.8
   };
 }
+
+// The first date on which every record held today had a value (v3.32.1) — the point from which a
+// net-worth line compares like with like. A record with no history at all only has today's value,
+// so it pushes the start to today. `records` is [{history, label}]; returns
+// { from, late: [labels whose first value came after the earliest observation], missing: [never logged] }.
+// The same reasoning as fullCoverageFrom above, for a chart that sums many records rather than a
+// pre-built series: without it the Assets chart read $*** for six weeks and then "grew" to $***
+// on the day the rest of the assets were first logged.
+export function coverageStart(records, today){
+  var firsts = (records || []).map(function(r){
+    var dates = (r.history || []).map(function(h){ return h && h.date; }).filter(Boolean).sort();
+    return { label: r.label, first: dates.length ? dates[0] : today, none: !dates.length };
+  });
+  if(!firsts.length) return { from: today, late: [], missing: [] };
+  var from = firsts.reduce(function(m, f){ return f.first > m ? f.first : m; }, firsts[0].first);
+  var earliest = firsts.reduce(function(m, f){ return f.first < m ? f.first : m; }, firsts[0].first);
+  return {
+    from: from,
+    late: earliest < from ? firsts.filter(function(f){ return f.first > earliest; }).map(function(f){ return f.label; }) : [],
+    // Never logged at all — the ones to log to get a line.
+    missing: firsts.filter(function(f){ return f.none; }).map(function(f){ return f.label; })
+  };
+}

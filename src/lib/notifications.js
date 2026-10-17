@@ -3,6 +3,9 @@ import { nextDueDate, daysUntil, lastTransactionDateFor, isOverdue, transactions
 import { staleAssets } from "../calc/engine.js";
 import { fmtCurrency0, localDateStr } from "./format.js";
 import { MARKET_CURRENCY } from "../constants.js";
+import { getTaxPeople, computePersonTax } from "../calc/tax.js";
+import { lodgementStatus, taxYearRecord } from "../calc/taxyear.js";
+import { fyLabel } from "../calc/property.js";
 
 // ---------------- Notifications: a small, backend-shaped layer over locally-computed alerts ----------------
 // This app has no backend (see CLAUDE.md) — every notification here is derived live from
@@ -138,7 +141,7 @@ function dueBillNotifications(pairs){
 // gets logged and drops out).
 // `alreadyBilled` is the set of item ids that dueBillNotifications() has already spoken for, and
 // leaving it out is how the same budget line ended up in the bell twice — once inside "N budget
-// lines need a fresh entry" and again as its own "Due 2026-09-22 · $***". On a real household that
+// lines need a fresh entry" and again as its own "Due 2026-09-22 · $50". On a real household that
 // was 2 of 7 notifications being repeats.
 //
 // The two are not independent facts. For a recurring line, "no transaction logged recently enough
@@ -188,8 +191,10 @@ function reviewDueNotifications(alreadyBilled){
 // file's own stale-asset notification below and the Dashboard's separate inline banner
 // (dashboard.js's renderStaleAssetsBanner), so the two surfaces can never drift out of sync on
 // how a stale asset's age gets worded, even though each wraps it in its own surrounding sentence.
-export function staleAssetNamesList(stale){
-  return stale.map(function(s){ return s.what + (s.days == null ? " (never logged)" : " (" + s.days + "d ago)"); }).join(", ");
+export function staleAssetNamesList(stale, max){
+  var shown = max && stale.length > max ? stale.slice(0, max) : stale;
+  var text = shown.map(function(s){ return (s.label || s.what) + (s.days == null ? " (never logged)" : " (" + s.days + "d ago)"); }).join(", ");
+  return shown.length < stale.length ? text + " and " + (stale.length - shown.length) + " more" : text;
 }
 // Assets not logged in 30+ days — assets have no stable id (see assets.js), so identity for a
 // single item falls back to its name (acceptable: the cost of a false "unread" after a rename is
@@ -319,6 +324,71 @@ function backupReminderNotification(){
   }];
 }
 
+// ---------------- Tax calendar (v3.34.0) ----------------
+// Three dates a household's tax year turns on, each a reminder only while it can still be acted on:
+//   May–June: concessional super room left before 30 June — a contribution after then counts
+//     toward next year's cap, not this one.
+//   July: the year just ended, with no worksheet started.
+//   October: the 31 October deadline, while the year isn't marked lodged.
+// Pure apart from `today`, so the calendar is testable: opts = { people: [{name, capRoom}],
+// worksheetStarted, lodged }.
+export function taxCalendarReminders(today, opts){
+  opts = opts || {};
+  var out = [];
+  var m = Number(String(today).slice(5, 7));
+  var st = lodgementStatus(today);
+  if(m === 5 || m === 6){
+    var fyEnding = st.fy + 1;
+    (opts.people || []).forEach(function(p){
+      if(!(p.capRoom >= 1000)) return;
+      out.push({
+        id: "cap:" + fyEnding + ":" + p.name, type: "tax", severity: "info",
+        title: p.name + ": " + fmtCurrency0.format(p.capRoom) + " of super cap left this year",
+        detail: "Concessional contributions (salary sacrifice, or a personal one you claim) count toward " + fyLabel(fyEnding) + "'s cap only if they reach the fund by 30 June.",
+        date: today, page: "income"
+      });
+    });
+  }
+  if(m === 7 && !opts.worksheetStarted){
+    out.push({
+      id: "tyopen:" + st.fy, type: "tax", severity: "info",
+      title: fyLabel(st.fy) + " is over — start the tax worksheet",
+      detail: "Income statements are usually ready in myGov by mid-July. Income & Tax → Tax return worksheet lists the documents to gather.",
+      date: today, page: "income"
+    });
+  }
+  if(m === 10 && st.inSeason && !opts.lodged){
+    var lastWeek = st.daysLeft <= 7;
+    out.push({
+      id: "tydue:" + st.fy + ":" + (lastWeek ? "week" : "month"), type: "tax", severity: lastWeek ? "bad" : "warn",
+      title: fyLabel(st.fy) + " tax return due 31 October — " + (st.daysLeft === 0 ? "today" : st.daysLeft + " day" + (st.daysLeft === 1 ? "" : "s") + " left"),
+      detail: "Lodging through a registered tax agent? They have later dates — mark the year lodged on the worksheet and this goes away.",
+      date: today, page: "income"
+    });
+  }
+  return out;
+}
+function taxCalendarNotifications(){
+  var people = getTaxPeople();
+  if(!people.length) return [];
+  var today = todayStr();
+  var st = lodgementStatus(today);
+  var rec = taxYearRecord(st.fy, false);
+  var m = Number(today.slice(5, 7));
+  return taxCalendarReminders(today, {
+    // Only worked out in May and June — computePersonTax per person is not free, and it's the
+    // only month pair that reads it.
+    people: (m === 5 || m === 6) ? people.map(function(name){
+      var r = computePersonTax(name);
+      return { name: name, capRoom: Math.max(0, (r.capAvailable || 0) - (r.totalConcessional || 0)) };
+    }) : [],
+    worksheetStarted: !!(rec && Object.keys(rec.people || {}).some(function(k){
+      var py = rec.people[k]; return py && (py.incomeStatements || []).length;
+    })),
+    lodged: !!(rec && people.every(function(p){ return rec.lodged && rec.lodged[p]; }))
+  });
+}
+
 // The one local source today — a future remote source (fetched notifications from a backend)
 // would be added here as a sibling function and merged into getNotifications() below, unchanged
 // everywhere else.
@@ -334,7 +404,8 @@ export function getLocalNotifications(){
     staleAssetNotifications(),
     sharePricesNotifications(),
     backupReminderNotification(),
-    budgetNotifications()
+    budgetNotifications(),
+    taxCalendarNotifications()
   );
 }
 

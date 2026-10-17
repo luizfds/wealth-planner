@@ -173,3 +173,26 @@ export function setRentalActual(fy, propertyId, key, value){
 export function rentalSchedules(fy){
   return ipProperties().map(function(p){ return { property: p, schedule: rentalSchedule(p, fy) }; });
 }
+
+// ---------------- Lodgement season (v3.34.0) ----------------
+//
+// Where today sits in the tax calendar, for the Dashboard's tax tile and the reminders. An
+// individual lodging their own return has until 31 October for the financial year that ended on
+// 30 June; a registered tax agent's clients get later dates, which this doesn't try to know.
+// `fy` is the year being lodged (2025 = FY25/26). Pure: takes today as "YYYY-MM-DD".
+export function lodgementStatus(today){
+  var y = Number(String(today).slice(0, 4)), m = Number(String(today).slice(5, 7));
+  var fyNow = m >= 7 ? y : y - 1;
+  // Jul–Dec: this calendar year's 31 October. Jan–Jun: the last one was the previous October's.
+  var due = (m >= 7 ? y : y - 1) + "-10-31";
+  var dayMs = 86400000;
+  var daysLeft = Math.round((Date.UTC(+due.slice(0, 4), 9, 31) - Date.UTC(y, m - 1, Number(String(today).slice(8, 10)))) / dayMs);
+  return {
+    fy: fyNow - 1,
+    due: due,
+    daysLeft: daysLeft,
+    // 1 July to 31 October: the return for the year just ended is the thing to be doing.
+    inSeason: m >= 7 && daysLeft >= 0,
+    afterDue: daysLeft < 0
+  };
+}

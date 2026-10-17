@@ -1181,3 +1181,18 @@ Every shipped change gets: (1) its own functional commit, (2) a separate "Bump v
 vX.Y.Z — reason" commit that updates `<p class="app-version">` in `index.html` (Minor for
 features/behavior changes, Patch for bug fixes), (3) an annotated git tag `vX.Y.Z`, (4) both
 pushed to `origin`. Do this without being asked, every time.
+
+
+### October 2026 assessment (v3.32.1–v3.34.1)
+
+- **Explanations are `.help`.** `lib/help.js` hides them and adds the ⓘ by MutationObserver. New
+  explanatory copy gets `class="ledger-note help"`; dynamic notes, warnings and empty states don't.
+- **Never append siblings into a chart's container.** `renderLineChart`/`renderStackedAreaChart`
+  redraw on width change (always once, since first render happens on a hidden page) and the redraw
+  empties the container. Give the chart its own child host — Projections lost its table this way.
+- **A bar fill must be a block.** `.acct-fill` was an inline `<span>` with a % width and drew
+  nothing for as long as it existed; a green test suite and a style-attribute check both missed it.
+  Measure `getBoundingClientRect().width`, not `style.width`.
+- **Net worth over time starts at full coverage** (`coverageStart`). Don't "fix" an empty chart by
+  summing whatever was logged — that is the bug item 53 removed.
+- `computeNetWorthSeries` points carry `investments`, `propertyEquity` and `debt` as well as `y`.

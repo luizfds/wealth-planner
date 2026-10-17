@@ -455,9 +455,11 @@ function propertyCardHtml(p, colorIdx){
     '</div>' +
     (lvrBadge || gearingBadge || yieldBadge ? '<div class="property-card-badges">' + lvrBadge + gearingBadge + yieldBadge + '</div>' : '') +
     '<div class="calc-outputs">' + primaryTiles + '</div>' +
-    (moreTiles ? '<details class="tax-advanced m-more-options property-stats-more"><summary>More detail</summary><div class="calc-outputs" style="margin-top:10px">' + moreTiles + '</div></details>' : '') +
-    '<div class="property-card-actions">' +
-      '<button type="button" class="btn btn-ghost btn-sm" data-prop-collapse-toggle="' + escapeAttr(p.id) + '">' + (allSectionsCollapsed ? "Expand all" : "Collapse all") + '</button>' +
+    // v3.34.1: More detail and Expand/Collapse all share one row — the button had a row of its own,
+    // right-aligned under an empty stretch, between the tiles and the first section.
+    '<div class="property-card-tools">' +
+      (moreTiles ? '<details class="tax-advanced m-more-options property-stats-more"><summary>More detail</summary><div class="calc-outputs" style="margin-top:10px">' + moreTiles + '</div></details>' : '<span></span>') +
+      '<button type="button" class="btn btn-ghost btn-sm property-collapse-btn" data-prop-collapse-toggle="' + escapeAttr(p.id) + '">' + (allSectionsCollapsed ? "Expand all" : "Collapse all") + '</button>' +
     '</div>' +
     propertySectionHtml(p, "value",
       '<div class="property-section-title">Property value</div>',

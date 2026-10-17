@@ -964,7 +964,7 @@ test("the private health rebate clawback: Tier 1 claimed, Tier 2 family income â
   // The real FY25/26 household: $164,229 + $114,356 (family Tier 2, $236,001-$316,000), Bupa
   // premiums $1,297 each ($2,594 for the policy) with the rebate taken at Tier 1. myTax clawed
   // back about $105 on each return.
-  withIncome([grossRow("Luiz", 164229), grossRow("Mariana", 114356)], function(){
+  withIncome([grossRow("Alex", 164229), grossRow("Sam", 114356)], function(){
     state.tax.familyThresholds = true;
     state.tax.privateHospitalCover = true;
     state.tax.phiPremiums = 2594;
@@ -974,8 +974,8 @@ test("the private health rebate clawback: Tier 1 claimed, Tier 2 family income â
     assert.equal(a.claimedTier, 1);
     assert.equal(Math.round(a.adjustment), 210);
     // Split evenly between the two returns: about $105 each.
-    var luiz = computePersonTax("Luiz", { fy: 2025 });
-    assert.equal(Math.round(luiz.phiAdjustment), 105);
+    var alex = computePersonTax("Alex", { fy: 2025 });
+    assert.equal(Math.round(alex.phiAdjustment), 105);
   });
   assert.ok(Math.abs(phiRebateRate(1, 2025) - (0.75 * 0.16192 + 0.25 * 0.16079)) < 1e-12);
 });

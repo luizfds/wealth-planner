@@ -112,7 +112,7 @@ test("an Asset result still routes by category — the shared `sub` key means tw
   // would send someone searching for super to a subtab that doesn't exist.
   withState({
     shared: [], home: {}, properties: [], transactions: [], income: [], debts: [], accounts: [],
-    assets: [{ what: "Mariana's Super", category: "Super", amount: 63000 }]
+    assets: [{ what: "Sam's Super", category: "Super", amount: 63000 }]
   }, function(){
     var hit = searchApp("super").find(function(r){ return r.type === "Asset"; });
     assert.equal(hit.page, "assets");

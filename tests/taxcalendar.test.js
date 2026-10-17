@@ -4,9 +4,9 @@ import assert from "node:assert/strict";
 const { taxCalendarReminders } = await import("../src/lib/notifications.js");
 
 test("tax calendar: June shows super cap room per person, over $1,000 only", () => {
-  const r = taxCalendarReminders("2027-06-10", { people: [{ name: "Luiz", capRoom: 8200 }, { name: "Mariana", capRoom: 400 }] });
+  const r = taxCalendarReminders("2027-06-10", { people: [{ name: "Alex", capRoom: 8200 }, { name: "Sam", capRoom: 400 }] });
   assert.equal(r.length, 1);
-  assert.equal(r[0].id, "cap:2026:Luiz");
+  assert.equal(r[0].id, "cap:2026:Alex");
   assert.match(r[0].title, /\$8,200 of super cap left/);
   assert.match(r[0].detail, /FY26\/27/);
 });

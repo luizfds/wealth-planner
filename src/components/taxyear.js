@@ -246,7 +246,8 @@ export function taxYearHtml(){
   var ticked = ev.filter(function(i){ return rec && rec.evidence[i.key]; }).length;
   return '<div class="ty-top"><label for="taxYearSelect">Financial year</label><select id="taxYearSelect">' + options.join("") + '</select>' +
       (taxTablesFor(fy).assumed ? '<span class="ledger-note warn" style="margin:0">' + fyLabel(fy) + ' rates are partly assumed.</span>' : '') +
-      '<button type="button" class="btn btn-sm btn-ghost" data-ty-print style="margin-left:auto">Print / save as PDF</button></div>' +
+      '<button type="button" class="btn btn-sm btn-ghost" data-ty-import style="margin-left:auto" title="Merge a tax year file — one year\'s income statements, interest, deductions, rental schedule and fund statements — into this plan, leaving everything else as it is">Import a year</button>' +
+      '<button type="button" class="btn btn-sm btn-ghost" data-ty-print>Print / save as PDF</button></div>' +
     rentHtml(fy) +
     people.map(function(person){ return personCardHtml(person, fy); }).join("") +
     '<details class="row-more-options ty-evidence"><summary>Documents to keep (' + ticked + ' of ' + ev.length + ')</summary>' +

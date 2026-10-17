@@ -377,7 +377,7 @@ export function propertyMarketHtml(d){
         (rentVerdict ? '<span class="pm-verdict ' + (c.rent.ratio >= 1 ? "good" : "low") + '">' + rentVerdict + '</span>' : '') + '</div>');
     }
     return '<div class="pm-prop"><div class="pm-head"><b>' + esc(p.name) + '</b>' +
-        marketInput(p.id, "suburb", m.suburb, { type: "text", placeholder: "Suburb, e.g. Redbank Plains QLD", label: "Suburb" }) + '</div>' +
+        marketInput(p.id, "suburb", m.suburb, { type: "text", placeholder: "Suburb, e.g. Springfield QLD", label: "Suburb" }) + '</div>' +
       '<div class="pm-cols"><span></span><span>Yours</span><span>Suburb median</span><span></span></div>' + rows.join("") +
       '<div class="pm-source">Source ' + marketInput(p.id, "source", m.source, { type: "text", placeholder: "CoreLogic, Domain…", label: "Where the suburb figures are from" }) +
         ' as of ' + marketInput(p.id, "asOf", m.asOf, { type: "month", label: "Month the suburb figures describe" }) + '</div>' +

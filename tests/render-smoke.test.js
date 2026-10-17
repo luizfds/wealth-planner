@@ -762,13 +762,13 @@ test("projection milestones: round amounts, loans gone, and who overtakes whom",
 test("benchmarks: how you compare, with and without an age", async function(){
   const { householdCompareHtml } = await import("../src/components/benchmarks.js");
   const html = householdCompareHtml({
-    people: [{ name: "Luiz", age: 37, super: 140000, hasSuper: true }, { name: "Mariana", age: null, super: 50000, hasSuper: true }],
+    people: [{ name: "Alex", age: 37, super: 140000, hasSuper: true }, { name: "Sam", age: null, super: 50000, hasSuper: true }],
     oldestAge: 37, netWorth: 600000, totalSuper: 190000, couple: true, savingsRate: 0.2,
     housing: { share: 0.25, ref: 0.199, tenure: "renters" }, scenario: "Renting"
   });
-  assert.match(html, /Luiz's super <small>age 37/);
+  assert.match(html, /Alex's super <small>age 37/);
   assert.match(html, /2\.1× the median for ages 35–39/);
-  assert.match(html, /Add Mariana's date of birth/);
+  assert.match(html, /Add Sam's date of birth/);
   assert.match(html, /\$730,000 ASFA says a couple/);
   assert.match(html, /the average household led by someone 35–39/);
   assert.match(html, /Australian households saved 6\.5%/);
@@ -808,11 +808,11 @@ test("benchmarks: targets with progress, statuses and the add form", async funct
 
 test("benchmarks: property against its suburb", async function(){
   const { propertyMarketHtml } = await import("../src/components/benchmarks.js");
-  const html = propertyMarketHtml({ properties: [{ id: "p1", name: "48 Henty Dr", kind: "IP", value: 630000, purchaseDate: "2025-03-01", hasPurchase: true,
-    mine: { growthPa: 0.08, yield: 0.041, rentWeekly: 500 }, market: { suburb: "Redbank Plains QLD", growthPa: 6.5, rentWeekly: 550 },
+  const html = propertyMarketHtml({ properties: [{ id: "p1", name: "1 Example St", kind: "IP", value: 630000, purchaseDate: "2025-03-01", hasPurchase: true,
+    mine: { growthPa: 0.08, yield: 0.041, rentWeekly: 500 }, market: { suburb: "Springfield QLD", growthPa: 6.5, rentWeekly: 550 },
     cmp: { growth: { mine: 0.08, market: 0.065, diff: 0.015 }, rent: { mine: 500, market: 550, ratio: 500 / 550 } } }] });
-  assert.match(html, /48 Henty Dr/);
-  assert.match(html, /value="Redbank Plains QLD"/);
+  assert.match(html, /1 Example St/);
+  assert.match(html, /value="Springfield QLD"/);
   assert.match(html, /ahead of the suburb by 1\.5% a year/);
   assert.match(html, /9\.1% below the median rent/);
   assert.match(html, /data-pm-field="yield" value=""/);
@@ -835,12 +835,23 @@ test("if you sold: inputs, the sums and each owner's share", async function(){
   const html = saleWhatIfHtml({ id: "p1" }, { growthPct: 5, inputs: { date: "2027-06-30", price: "", agentPct: 2.5, otherCosts: 2500 },
     result: { salePrice: 700000, sellingCosts: 20000, loanPayout: 400000, cashBeforeTax: 280000, paid: 457000, capitalWorksReduction: 12000,
       gain: 235000, discount: true, fy: 2026, cashAfterTax: 240000,
-      owners: [{ name: "Luiz", share: 0.7, gain: 164500, assessable: 82250, tax: 30000, loss: 0, cash: 166000 }, { name: "Mariana", share: 0.3, gain: 70500, assessable: 35250, tax: 10000, loss: 0, cash: 74000 }] } });
+      owners: [{ name: "Alex", share: 0.7, gain: 164500, assessable: 82250, tax: 30000, loss: 0, cash: 166000 }, { name: "Sam", share: 0.3, gain: 70500, assessable: 35250, tax: 10000, loss: 0, cash: 74000 }] } });
   assert.match(html, /data-sale-field="price" value="" placeholder="700000"/);
   assert.match(html, /today's value grown at 5% a year/);
   assert.match(html, /Less capital works claimed<\/span><b>−\$12,000/);
-  assert.match(html, /Luiz <small>70%/);
+  assert.match(html, /Alex <small>70%/);
   assert.match(html, /Taxable, after the 50% discount<\/span><b>\$82,250/);
   assert.match(html, /Total cash after tax<\/span><b>\$240,000/);
   assert.match(html, /Taxed in FY26\/27/);
+});
+
+test("the worksheet offers Import a year next to Print", async function(){
+  const { taxYearHtml, setTaxYearSelected } = await import("../src/components/taxyear.js");
+  var keep = { income: state.income, taxYears: state.taxYears, properties: state.properties, assets: state.assets };
+  try {
+    state.income = [{ what: "Pay", person: "Sam", incomeType: "Gross", amount: 100000, freq: "Yearly", superMode: "On top", sacrificeMode: "none" }];
+    state.properties = []; state.assets = []; state.taxYears = {};
+    setTaxYearSelected(2025);
+    assert.match(taxYearHtml(), /data-ty-import[^>]*>Import a year<\/button><button type="button" class="btn btn-sm btn-ghost" data-ty-print>/);
+  } finally { Object.assign(state, keep); }
 });

@@ -152,6 +152,7 @@ function loanRowModernHtml(loan, li, propId, colorIdx){
       '<div class="m-edit-field"><label>Settled on</label><input type="date" class="loan-settled" value="' + escapeAttr(loan.settlementDate || "") + '" title="The day the loan was drawn down. Starts the five-year clock for borrowing costs." aria-label="Loan settlement date"></div>' +
       '<div class="m-edit-field"><label>Borrowing costs</label><input type="number" step="1" min="0" class="loan-borrowing" value="' + (Number(loan.borrowingCosts) || 0) + '" title="LMI, the lender\'s establishment or settlement fee, mortgage registration, a lender-required valuation, a broker fee — costs of taking out the LOAN. Not stamp duty on the purchase or conveyancing: those go in Acquisition costs. Over $100 is deducted over five years, by days." aria-label="Borrowing costs"></div>' +
       '<div class="m-edit-field"><label>Original term (yrs)</label><input type="number" step="1" min="0" class="loan-borrowing-term" value="' + (Number(loan.borrowingTermYears) || "") + '" placeholder="30" title="Only matters if the loan was for less than five years — borrowing costs are then spread over the term instead." aria-label="Original loan term in years"></div>' +
+      '<div class="m-edit-field"><label>Paid out on</label><input type="date" class="loan-ended" value="' + escapeAttr(loan.endedOn || "") + '" title="If this loan was paid out or refinanced before its borrowing costs were fully deducted, the rest is deducted in that financial year." aria-label="Loan paid out or refinanced on"></div>' +
       '<div class="m-edit-field span3"><span class="computed-note" data-computed="borrow">' + borrowingNoteText(loan) + '</span></div>' +
       (loan.repaymentMode === "manual"
         ? '<div class="m-edit-field span3"><label>Manual repayment amount</label><input type="number" step="1" min="0" class="loan-manual-amount" value="' + (Number(loan.manualRepaymentAmount) || 0) + '" aria-label="Manual repayment amount"></div>'
@@ -171,6 +172,10 @@ export function borrowingNoteText(loan){
   var win = householdYearWindow();
   var now = borrowingCostsDeduction(loan, win);
   var last = sched[sched.length - 1];
+  if(last && last.writtenOff){
+    return "Deductible " + win.label + ": " + fmtCurrency2.format(now) + " of " + fmtCurrency2.format(total) +
+      " — paid out " + loan.endedOn + ", so the remaining " + fmtCurrency2.format(last.amount) + " is deducted in " + fyLabel(last.fy) + ".";
+  }
   return "Deductible " + win.label + ": " + fmtCurrency2.format(now) + " of " + fmtCurrency2.format(total) +
     (sched.length > 1 ? " — spread to FY" + String(last.fy % 100).padStart(2, "0") + "/" + String((last.fy + 1) % 100).padStart(2, "0") + "." : " — all in the year paid.");
 }

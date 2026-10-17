@@ -1567,8 +1567,9 @@ import {
       else if(e.target.classList.contains("loan-rate")) loan.rate = parseFloat(e.target.value) || 0;
       else if(e.target.classList.contains("loan-term")) loan.termYears = parseFloat(e.target.value) || 0;
       else if(e.target.classList.contains("loan-manual-amount")) loan.manualRepaymentAmount = parseFloat(e.target.value) || 0;
-      else if(e.target.classList.contains("loan-settled") || e.target.classList.contains("loan-borrowing") || e.target.classList.contains("loan-borrowing-term")){
+      else if(e.target.classList.contains("loan-settled") || e.target.classList.contains("loan-borrowing") || e.target.classList.contains("loan-borrowing-term") || e.target.classList.contains("loan-ended")){
         if(e.target.classList.contains("loan-settled")) loan.settlementDate = e.target.value || "";
+        else if(e.target.classList.contains("loan-ended")) loan.endedOn = e.target.value || "";
         else if(e.target.classList.contains("loan-borrowing")) loan.borrowingCosts = Math.max(0, parseFloat(e.target.value) || 0);
         else loan.borrowingTermYears = Math.max(0, parseFloat(e.target.value) || 0);
         var borrowNote = loanTr.querySelector('[data-computed="borrow"]');

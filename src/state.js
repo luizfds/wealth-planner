@@ -530,6 +530,8 @@ export function migrateState(s){
       if(l.borrowingCosts == null) l.borrowingCosts = 0;
       if(l.settlementDate == null) l.settlementDate = "";
       if(l.borrowingTermYears == null) l.borrowingTermYears = 0;
+      // Paid out / refinanced on (v3.27.0): the undeducted borrowing costs are written off that year.
+      if(l.endedOn == null) l.endedOn = "";
     });
   });
 

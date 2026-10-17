@@ -544,3 +544,22 @@ test("no reduction before 13 May 1997, or without a purchase date", function(){
   assert.equal(capitalWorksClaimedToDate(Object.assign({ purchaseDate: "1996-01-01" }, cw), "2026-01-01"), 0);
   assert.equal(capitalWorksClaimedToDate(cw, "2026-01-01"), 0);
 });
+
+// ---------------- Borrowing costs written off on payout (v3.27.0) ----------------
+
+test("a loan paid out mid-spread deducts the rest in that financial year", function(){
+  // The real loan, refinanced on 1 March 2027: FY24/25-FY25/26 as scheduled, then FY26/27 takes
+  // everything left ($***REMOVED*** - $***REMOVED*** - $***REMOVED***), and nothing after.
+  var loan = Object.assign({}, REAL_LOAN, { endedOn: "2027-03-01" });
+  var sched = borrowingCostsSchedule(loan);
+  assert.deepEqual(sched.map(function(r){ return r.fy; }), [2024, 2025, 2026]);
+  assert.equal(sched[2].amount, Math.round((***REMOVED*** - ***REMOVED*** - ***REMOVED***) * 100) / 100);
+  assert.equal(sched[2].writtenOff, true);
+  assert.equal(Math.round(sched.reduce(function(s, r){ return s + r.amount; }, 0) * 100) / 100, ***REMOVED***);
+  assert.equal(borrowingCostsDeduction(loan, { start: "2027-07-01", end: "2028-06-30" }), 0);
+});
+
+test("a payout date after the spread has ended changes nothing", function(){
+  var loan = Object.assign({}, REAL_LOAN, { endedOn: "2031-01-01" });
+  assert.equal(borrowingCostsSchedule(loan).length, 6);
+});

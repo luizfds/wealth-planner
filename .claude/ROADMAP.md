@@ -2007,10 +2007,34 @@ Asked for after PR #84: "what about adding benchmarks features?" — all four ki
 wanted. They share one place, Dashboard → Benchmarks (`components/benchmarks.js`), each section an
 HTML builder over a plain data object plus a gather function, registered in page order.
 
-## 67. `[~]` How you compare — published Australian figures for people your age
-## 68. `[~]` Your shares against an index and a fixed rate, same dollars on the same dates
-## 69. `[~]` Your own targets
-## 70. `[~]` Each property against its suburb
+## 67. `[x]` How you compare — shipped v3.35.0
+Super per person against the ATO median and average for their age band (30 June 2023, via ASFA's
+October 2025 paper); combined super against the ASFA Retirement Standard lump sums at 67 (March
+2026: comfortable $630k single / $730k couple, modest $110k / $120k); household net worth against
+the ABS 2019-20 mean for the oldest person's band (still the latest — no wealth outputs from the
+2023-24 survey); savings rate against the ABS household saving ratio (6.5%, June quarter 2026);
+housing cost share against ABS Housing Occupancy and Costs 2019-20 (renters 19.9%, mortgage
+15.5%). Tables in `constants.js` `BENCHMARKS`, each with source and period, printed under every
+row. **Refresh yearly** — the ASFA balances paper and Retirement Standard, and the national
+accounts saving ratio, all update; the ABS wealth table won't until a new survey.
+
+## 68. `[x]` Your shares against the market — shipped v3.35.0
+Lots and sales become dated cash flows (`calc/performance.js`). The same flows go into an
+ASX-listed ETF (IOZ default; VAS, IVV, VGS, NDQ, VDHG or any ASX code) and compound at a fixed
+rate (7% default); money-weighted returns (bisection XIRR) for all three. Index prices are per
+date, typed or pasted: `IOZ@2024-03-01` / `IOZ@NOW` rows, with GOOGLEFINANCE formulas in both the
+Shares price template and the tab's own copy button, routed by both paste boxes to
+`state.benchmark.prices[symbol]`. Price only on both sides — distributions aren't logged.
+Holdings without lots are listed as left out.
+
+## 69. `[x]` Your own targets — shipped v3.36.0
+`state.goals`, `calc/goals.js`: savings rate, emergency fund (months), super combined, net worth
+(optionally by a date — on track when the active scenario's projection reaches it), and a monthly
+cap per spending category paced through the month.
+
+## 70. `[x]` Each property against its suburb — shipped v3.37.0
+Growth a year since purchase (`cagr()`), gross yield and weekly rent against suburb medians typed
+in with source and month, on `property.market`. Nothing fetched.
 
 ---
 

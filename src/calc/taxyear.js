@@ -196,3 +196,92 @@ export function lodgementStatus(today){
     afterDue: daysLeft < 0
   };
 }
+
+// ---------------- Importing a year's figures (v3.40.0) ----------------
+//
+// A "tax year file" carries one financial year's documents — what a return was actually built
+// from — and merges into an existing plan without touching anything else (a full backup import
+// replaces everything). Shape:
+//   { kind: "wealth-planner-tax-year", version: 1, fy: 2025,
+//     people: { Name: { incomeStatements, interest, deductions, wfhHours, dateOfBirth } },
+//     rental: [{ match: "Example", lines: { rent: ***REMOVED***, ... } }],
+//     holdings: [{ symbol: "ETFB", person: "Name", taxStatement: {...}, sales: [...] }],
+//     markLodged: true }
+// People are matched by name, case-insensitively, or by first name either way round ("Alex" ↔
+// "Alex Morgan"). A rental entry goes to the investment property whose name contains `match`,
+// or the only one. A holding is matched by symbol (or name) and person; a sold-out holding that
+// isn't in the plan is added with quantity 0 so its sales count. Returns what went where.
+export var TAX_YEAR_FILE_KIND = "wealth-planner-tax-year";
+function firstWord(s){ return String(s || "").trim().toLowerCase().split(/\s+/)[0]; }
+export function matchPerson(name, people){
+  var n = String(name || "").trim().toLowerCase();
+  var exact = people.find(function(p){ return p.toLowerCase() === n; });
+  if(exact) return exact;
+  return people.find(function(p){ return firstWord(p) === firstWord(n); }) || null;
+}
+export function mergeTaxYearFile(data, people, opts){
+  opts = opts || {};
+  var genId = opts.genId || function(p){ return p + Math.random().toString(36).slice(2, 9); };
+  if(!data || data.kind !== TAX_YEAR_FILE_KIND) throw new Error("Not a tax year file");
+  var fy = Number(data.fy);
+  if(!(fy > 2000)) throw new Error("The file has no financial year");
+  var report = { fy: fy, people: [], unmatchedPeople: [], rental: [], statements: [], sales: [], addedHoldings: [], skipped: [] };
+  var nameMap = {};
+  Object.keys(data.people || {}).forEach(function(name){
+    var to = matchPerson(name, people);
+    if(!to){ report.unmatchedPeople.push(name); to = name; }
+    nameMap[name] = to;
+    var src = data.people[name];
+    var py = personYear(fy, to, true);
+    if(Array.isArray(src.incomeStatements)) py.incomeStatements = src.incomeStatements.map(function(r){ return Object.assign({ id: genId("is") }, r); });
+    if(Array.isArray(src.interest)) py.interest = src.interest.map(function(r){ return Object.assign({ id: genId("int") }, r); });
+    if(Array.isArray(src.deductions)) py.deductions = src.deductions.map(function(r){ return Object.assign({ id: genId("ded") }, r); });
+    if(!state.tax.settings) state.tax.settings = {};
+    var st = state.tax.settings[to] || (state.tax.settings[to] = {});
+    if(src.wfhHours != null){ if(!st.wfhHours || typeof st.wfhHours !== "object") st.wfhHours = {}; st.wfhHours[fy] = Number(src.wfhHours) || 0; }
+    if(src.dateOfBirth && !st.dateOfBirth) st.dateOfBirth = src.dateOfBirth;
+    report.people.push(name === to ? to : name + " → " + to);
+  });
+  var ips = state.properties.filter(function(p){ return p.kind === "IP"; });
+  (data.rental || []).forEach(function(r){
+    var m = String(r.match || "").toLowerCase();
+    var prop = (m && ips.find(function(p){ return String(p.what || "").toLowerCase().indexOf(m) !== -1; })) || (ips.length === 1 ? ips[0] : null);
+    if(!prop){ report.skipped.push("rental schedule for “" + (r.match || "?") + "” — no matching investment property"); return; }
+    Object.keys(r.lines || {}).forEach(function(k){ setRentalActual(fy, prop.id, k, r.lines[k]); });
+    if(r.ownership && Object.keys(r.ownership).length && !(prop.ownership && Object.keys(prop.ownership).length)){
+      prop.ownership = {};
+      Object.keys(r.ownership).forEach(function(n){ prop.ownership[nameMap[n] || n] = Number(r.ownership[n]) || 0; });
+    }
+    report.rental.push(prop.what || "investment property");
+  });
+  (data.holdings || []).forEach(function(h){
+    var person = h.person ? (nameMap[h.person] || matchPerson(h.person, people) || h.person) : "";
+    var sym = String(h.symbol || "").toUpperCase();
+    var holding = state.assets.find(function(a){
+      return a.category === "Shares" && (String(a.symbol || "").toUpperCase() === sym || String(a.what || "").toUpperCase() === sym) &&
+        (!person || !a.person || a.person === person);
+    });
+    if(!holding){
+      if(h.sales && h.sales.length && !h.taxStatement){
+        holding = { category: "Shares", what: h.name || sym, symbol: sym, market: h.market || "ASX", person: person, quantity: 0, price: 0, amount: 0,
+          lots: [], sales: [], payouts: [], taxStatements: [], history: [] };
+        state.assets.push(holding);
+        report.addedHoldings.push(sym + (person ? " (" + person + ")" : ""));
+      } else { report.skipped.push(sym + " tax statement — no " + sym + " holding" + (person ? " for " + person : "")); return; }
+    }
+    if(h.taxStatement){
+      if(!Array.isArray(holding.taxStatements)) holding.taxStatements = [];
+      holding.taxStatements = holding.taxStatements.filter(function(s){ return Number(s.fy) !== fy; });
+      holding.taxStatements.push(Object.assign({ fy: fy }, h.taxStatement));
+      report.statements.push(sym + (person ? " (" + person + ")" : ""));
+    }
+    (h.sales || []).forEach(function(sale){
+      if(!Array.isArray(holding.sales)) holding.sales = [];
+      var dup = holding.sales.some(function(s){ return s.date === sale.date && Number(s.units) === Number(sale.units) && Number(s.proceeds) === Number(sale.proceeds); });
+      if(dup) return;
+      holding.sales.push(Object.assign({}, sale));
+      report.sales.push(sym + " " + sale.date);
+    });
+  });
+  return report;
+}

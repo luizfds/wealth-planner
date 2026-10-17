@@ -47,13 +47,13 @@ function realHousehold(){
   alex.incomeStatements = [
     { payer: "Employer A", gross: ***REMOVED***, allowances: 66, withheld: ***REMOVED*** },
     { payer: "Employer B", gross: ***REMOVED***, allowances: 0, withheld: ***REMOVED*** }];
-  alex.interest = [{ account: "Bank One joint", gross: ***REMOVED***, sharePct: 50 }, { account: "ATO interest", gross: 0.90, sharePct: 100 }];
+  alex.interest = [{ account: "Joint savings", gross: ***REMOVED***, sharePct: 50 }, { account: "ATO interest", gross: 0.90, sharePct: 100 }];
   alex.deductions = [
     { label: "D2", what: "Work travel", amount: ***REMOVED*** }, { label: "D5", what: "Home office rent Jul-Sep", amount: ***REMOVED*** },
     { label: "D5", what: "Webcam", amount: 98 }, { label: "D5", what: "Depreciation", amount: ***REMOVED*** }, { label: "D10", what: "Tax agent", amount: 275 }];
   var sam = personYear(2025, "Sam", true);
   sam.incomeStatements = [{ payer: "Employer C", gross: ***REMOVED***, allowances: 0, withheld: ***REMOVED*** }];
-  sam.interest = [{ account: "Bank One savings", gross: ***REMOVED*** }, { account: "Bank One joint", gross: ***REMOVED***, sharePct: 50 }, { account: "Bank One", gross: ***REMOVED*** }, { account: "ATO interest", gross: ***REMOVED*** }];
+  sam.interest = [{ account: "Savings account", gross: ***REMOVED*** }, { account: "Joint savings", gross: ***REMOVED***, sharePct: 50 }, { account: "Bank account", gross: ***REMOVED*** }, { account: "ATO interest", gross: ***REMOVED*** }];
   sam.deductions = [{ label: "D5", what: "Depreciation", amount: ***REMOVED*** }];
   var lines = { rent: ***REMOVED***, otherIncome: ***REMOVED***, borrowing: ***REMOVED***, councilRates: ***REMOVED***, insurance: ***REMOVED***,
     interest: ***REMOVED***, pestControl: 420, agentFees: ***REMOVED***, repairs: 485, capitalWorks: ***REMOVED***, water: ***REMOVED***, other: 299,

@@ -844,3 +844,14 @@ test("if you sold: inputs, the sums and each owner's share", async function(){
   assert.match(html, /Total cash after tax<\/span><b>\$240,000/);
   assert.match(html, /Taxed in FY26\/27/);
 });
+
+test("the worksheet offers Import a year next to Print", async function(){
+  const { taxYearHtml, setTaxYearSelected } = await import("../src/components/taxyear.js");
+  var keep = { income: state.income, taxYears: state.taxYears, properties: state.properties, assets: state.assets };
+  try {
+    state.income = [{ what: "Pay", person: "Sam", incomeType: "Gross", amount: 100000, freq: "Yearly", superMode: "On top", sacrificeMode: "none" }];
+    state.properties = []; state.assets = []; state.taxYears = {};
+    setTaxYearSelected(2025);
+    assert.match(taxYearHtml(), /data-ty-import[^>]*>Import a year<\/button><button type="button" class="btn btn-sm btn-ghost" data-ty-print>/);
+  } finally { Object.assign(state, keep); }
+});

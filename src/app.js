@@ -16,8 +16,8 @@ import { periodsOf, sumField, sumFieldForScenario, resolveSharedAmount, appendHi
 import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider, saleCapitalGain, lotsUnitsAvailable } from "./calc/tax.js";
 import { recalcComputedItems, scenarioTotals, totalNetWorthValue, totalDebtsValue } from "./calc/engine.js";
 import { financialYearOf, fyLabel } from "./calc/property.js";
-import { renderTaxYear, setTaxYearSelected, taxYearAddRow, taxYearDeleteRow, taxYearRestoreRow, taxYearSetField, taxYearToggleEvidence, taxYearMarkLodged, worksheetText, taxYearSelected, taxYearPrintHtml } from "./components/taxyear.js";
-import { setRentalActual } from "./calc/taxyear.js";
+import { renderTaxYear, setTaxYearSelected, taxYearAddRow, taxYearDeleteRow, taxYearRestoreRow, taxYearSetField, taxYearToggleEvidence, taxYearMarkLodged, worksheetText, taxYearSelected, taxYearPrintHtml, lodgedSnapshot } from "./components/taxyear.js";
+import { setRentalActual, mergeTaxYearFile, matchPerson, taxYearRecord, TAX_YEAR_FILE_KIND } from "./calc/taxyear.js";
 import { renderCards, renderDashboardStats, renderDetail, setProjectionReference, logNetWorthSnapshot } from "./components/dashboard.js";
 import {
   personBreakdownHtml, renderIncomeGroups, patchOpenRowBreakdowns, patchIncomeGroupTotals,
@@ -1134,6 +1134,7 @@ import {
       return;
     }
     if(e.target.closest("[data-ty-print]")){ printTaxYear(); return; }
+    if(e.target.closest("[data-ty-import]")){ document.getElementById("taxYearImportFile").click(); return; }
     var copy = e.target.closest("[data-ty-copy]");
     if(copy){
       var text = worksheetText(copy.getAttribute("data-ty-copy"));
@@ -3344,9 +3345,57 @@ import {
     return !!(state.income.length || state.shared.length || state.assets.length ||
       state.properties.length || state.transactions.length || state.debts.length);
   }
+  // v3.40.0: a tax year file merges one year into the plan — see calc/taxyear.js mergeTaxYearFile().
+  function applyTaxYearFile(parsed){
+    var people = getTaxPeople();
+    var names = Object.keys(parsed.people || {});
+    if(!confirm("Merge " + fyLabel(Number(parsed.fy)) + " figures for " + (names.join(" and ") || "nobody") +
+      " into this plan? That year's income statements, interest, deductions and rental schedule are replaced by the file's; nothing else changes.")) return;
+    var report;
+    try{ report = mergeTaxYearFile(parsed, people, { genId: genId }); }
+    catch(err){ showToast(err.message || "That file couldn't be read"); return; }
+    if(parsed.markLodged){
+      var rec = taxYearRecord(report.fy, true);
+      Object.keys(parsed.people || {}).forEach(function(n){
+        var to = matchPerson(n, people) || n;
+        if(people.indexOf(to) !== -1) rec.lodged[to] = lodgedSnapshot(computePersonTax(to, { fy: report.fy }));
+      });
+    }
+    setTaxYearSelected(report.fy);
+    renderAll();
+    persist();
+    var bits = [];
+    if(report.people.length) bits.push("people: " + report.people.join(", "));
+    if(report.rental.length) bits.push("rent: " + report.rental.join(", "));
+    if(report.statements.length) bits.push("statements: " + report.statements.join(", "));
+    if(report.sales.length) bits.push("sales: " + report.sales.join(", "));
+    if(report.addedHoldings.length) bits.push("added sold-out holdings: " + report.addedHoldings.join(", "));
+    if(report.unmatchedPeople.length) bits.push("not in this plan yet (add a Gross income row for them): " + report.unmatchedPeople.join(", "));
+    if(report.skipped.length) bits.push("skipped: " + report.skipped.join("; "));
+    showPersistentToast(fyLabel(report.fy) + " imported — " + bits.join(" · "), "Open worksheet", function(){
+      showPage("income");
+      var ws = document.getElementById("taxYearLedger");
+      if(ws){ ws.open = true; renderTaxYear(); ws.scrollIntoView({ behavior: "smooth", block: "start" }); }
+    });
+  }
+  document.getElementById("taxYearImportFile").addEventListener("change", function(e){
+    var file = e.target.files[0];
+    e.target.value = "";
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      var parsed;
+      try{ parsed = JSON.parse(reader.result); }catch(err){ showToast("That file isn't JSON"); return; }
+      if(!parsed || parsed.kind !== TAX_YEAR_FILE_KIND){ showToast("That isn't a tax year file — a full backup goes through Import backup"); return; }
+      applyTaxYearFile(parsed);
+    };
+    reader.readAsText(file);
+  });
   function applyImportedBackupJson(jsonStr){
     try{
       var parsed = JSON.parse(jsonStr);
+      // A tax year file picked from the main Import merges instead of replacing everything.
+      if(parsed && parsed.kind === TAX_YEAR_FILE_KIND){ applyTaxYearFile(parsed); return; }
       if(!parsed || !parsed.income || !parsed.home) throw new Error("bad shape");
       if(hasRealUserData() && !confirm("You already have data in Wealth Planner on this device. Importing will replace it — this can't be undone unless you've exported a backup first. Continue?")) return;
       setState(migrateState(parsed));

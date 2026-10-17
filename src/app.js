@@ -10,7 +10,7 @@ import { initTableScrollShadows } from "./lib/scroll-shadow.js";
 import { setDeductionPeopleProvider } from "./lib/ledger-table.js";
 import {
   decryptBackup, doExport, doShare, canShareFiles, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv, exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard, exportYearTransactionsCsv,
-  exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv, exportAssetsImportTemplateCsv, parseCsv
+  exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv, exportAssetsImportTemplateCsv, parseCsv, exportProjectionCsv
 } from "./lib/backup.js";
 import { periodsOf, sumField, sumFieldForScenario, resolveSharedAmount, appendHistorySnapshot, transactionDisplayName } from "./calc/ledger.js";
 import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider, saleCapitalGain, lotsUnitsAvailable } from "./calc/tax.js";
@@ -53,7 +53,7 @@ import {
   modernPropRowOpen, renderPropListModern, renderProperties, patchPropertyCardComputed,
   logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan
 } from "./components/properties.js";
-import { renderProjectionOutputs } from "./components/projections.js";
+import { renderProjectionOutputs, projectionSeriesShown } from "./components/projections.js";
 import {
   selectScenario, addScenario, renameScenario, cloneScenario, deleteScenario, renderHomeBody, renderHomeListModern,
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
@@ -2994,9 +2994,13 @@ import {
       var tab = document.querySelector('[data-dashboard-sub="insights"]');
       if(tab){ tab.click(); tab.scrollIntoView({ behavior: "smooth", block: "start" }); }
     } else if(where === "taxyear"){
+      if(jump.getAttribute("data-tax-fy")) setTaxYearSelected(jump.getAttribute("data-tax-fy"));
       showPage("income");
       var ws = document.getElementById("taxYearLedger");
-      if(ws){ ws.open = true; setTimeout(function(){ ws.scrollIntoView({ behavior: "smooth", block: "start" }); }, 50); }
+      if(ws){
+        if(ws.open) renderTaxYear(); else ws.open = true;
+        setTimeout(function(){ ws.scrollIntoView({ behavior: "smooth", block: "start" }); }, 50);
+      }
     }
   });
   document.getElementById("homeBody").addEventListener("keydown", function(e){
@@ -3734,6 +3738,10 @@ import {
   // by the time this fires in the bubble phase every other handler for the same event
   // has already run and mutated state.
   document.addEventListener("input", renderGlobalMetrics);
+  // v3.34.0: the projection, every year, as a CSV.
+  document.addEventListener("click", function(e){
+    if(e.target.closest("#projCsvBtn")) exportProjectionCsv(projectionSeriesShown(), state.projection.realTerms !== false);
+  });
   // v3.32.1: the exchange rate typed into the Shares warning.
   document.addEventListener("change", function(e){
     if(!e.target.matches || !e.target.matches("[data-fx-usdaud]")) return;

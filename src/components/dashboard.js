@@ -1,8 +1,10 @@
 import { state, persist } from "../state.js";
 import { setupProgress, shouldShowSetup } from "../lib/setup.js";
 import { sumField, sumByClassification, sumByAccount, safeDiv, resolveSharedAmount, nextDueDate, daysUntil, appendHistorySnapshot, lastTransactionDateFor } from "../calc/ledger.js";
-import { ipExpenseItemsForClassification } from "../calc/property.js";
-import { scenarioIncomeMonthly } from "../calc/tax.js";
+import { ipExpenseItemsForClassification, fyLabel } from "../calc/property.js";
+import { scenarioIncomeMonthly, getTaxPeople, computePersonTax } from "../calc/tax.js";
+import { lodgementStatus, taxYearRecord } from "../calc/taxyear.js";
+import { evidenceItems } from "./taxyear.js";
 import { scenarioTotals, computeNetWorthSeries, totalNetWorthValue, runwayMonths, actualAssetGrowthLastMonth, staleAssets, toAudAmount } from "../calc/engine.js";
 import { monthlyCashFlowForecast } from "../calc/cashflow.js";
 import { fireSettings, fireWealthSplit, simulateRetirementAt, earliestWorkableRetirementAge } from "../calc/fire.js";
@@ -115,8 +117,40 @@ function fmtCompact(v){
   if(a >= 1e4) return (v < 0 ? "-" : "") + "$" + Math.round(a / 1e3) + "k";
   return fmtCurrency0.format(v);
 }
-// Filled in by item 64 (the tax year tile).
-function taxTileHtml(){ return ""; }
+// v3.34.0: the tax return, on the page everyone lands on. July to October it's the year just ended
+// — days to 31 October, the refund the worksheet expects, and how many of the year's documents are
+// ticked off. The rest of the year it's this year's running estimate. Opens the worksheet.
+function taxTileHtml(){
+  var people = getTaxPeople();
+  if(!people.length) return "";
+  var st = lodgementStatus(localDateStr());
+  var fy = st.inSeason ? st.fy : st.fy + 1;
+  var rec = taxYearRecord(fy, false);
+  var results = people.map(function(p){ return computePersonTax(p, { fy: fy }); });
+  var known = results.filter(function(r){ return r.refund != null; });
+  var refund = known.reduce(function(sum, r){ return sum + r.refund; }, 0);
+  var refundText = known.length
+    ? (refund >= 0 ? "est. refund " : "est. to pay ") + fmtCurrency0.format(Math.abs(refund)) + (known.length < people.length ? " (" + known.length + " of " + people.length + ")" : "")
+    : "add income statements for a refund estimate";
+  var label, big, small, urgent = false;
+  if(st.inSeason){
+    var lodged = rec && people.every(function(p){ return rec.lodged && rec.lodged[p]; });
+    var ev = evidenceItems(fy);
+    var ticked = ev.filter(function(i){ return rec && rec.evidence[i.key]; }).length;
+    label = fyLabel(fy) + " tax return";
+    big = lodged ? "Lodged" : (st.daysLeft === 0 ? "Due today" : st.daysLeft + " day" + (st.daysLeft === 1 ? "" : "s") + " left");
+    urgent = !lodged && st.daysLeft <= 14;
+    small = (lodged ? "" : "due 31 Oct · ") + refundText + (ev.length ? " · " + ticked + " of " + ev.length + " documents" : "");
+  } else {
+    var tax = results.reduce(function(sum, r){ return sum + r.totalTax; }, 0);
+    label = fyLabel(fy) + " tax so far";
+    big = known.length ? (refund >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(refund)) : fmtCurrency0.format(tax);
+    small = known.length ? (refund >= 0 ? "estimated refund" : "estimated to pay") : "estimated tax and levies for the year";
+  }
+  return '<button type="button" class="stat-tile stat-tile-link" data-dashboard-jump="taxyear" data-tax-fy="' + fy + '" title="Opens the tax return worksheet for ' + fyLabel(fy) + ' (Income & Tax)">' +
+    '<span>' + escapeAttr(label) + '</span><b' + (urgent ? ' style="color:var(--bad)"' : '') + '>' + escapeAttr(big) + '</b>' +
+    '<small>' + escapeAttr(small) + '</small></button>';
+}
 
 export function renderDashboardStats(){
   var el = document.getElementById("dashboardStats");

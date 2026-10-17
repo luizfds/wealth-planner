@@ -236,7 +236,20 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
     // as a plan: "$8,002,580 at year 20" can't be weighed against the expenses actually typed in,
     // because those are in today's money and that isn't. Deflating by the same inflation rate the
     // model already applies to expenses puts every figure on one scale.
-    points.push({ x: year, y: realTerms ? nominal / Math.pow(1 + inflationRate, year) : nominal });
+    // v3.34.0: the parts as well as the sum, on the same basis, for the Projections milestones and
+    // the year-by-year download. Charts only read x and y.
+    var deflate = realTerms ? Math.pow(1 + inflationRate, year) : 1;
+    var propertiesDebt = state.properties.reduce(function(sum, p){
+      return sum + (p.loans || []).reduce(function(s, l){
+        return s + Math.max(0, loanBalanceAfterMonths(l.balance, (Number(l.rate) || 0) + rateShockPts, l.termYears, year * 12, l.repaymentType) - (Number(l.offsetBalance) || 0));
+      }, 0);
+    }, 0);
+    points.push({
+      x: year, y: nominal / deflate,
+      investments: (portfolio + investBalance) / deflate,
+      propertyEquity: (homeEquity + propertiesEquitySum) / deflate,
+      debt: (loanBal + propertiesDebt) / deflate
+    });
   }
   return points;
 }

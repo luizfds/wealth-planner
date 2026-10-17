@@ -743,3 +743,18 @@ test("the print copy is plain tables, a page per person, with the checklist", fu
     assert.doesNotMatch(html, /<input/);
   } finally { Object.assign(state, keep); }
 });
+
+test("projection milestones: round amounts, loans gone, and who overtakes whom", async function(){
+  const { projectionMilestonesHtml } = await import("../src/components/projections.js");
+  const pts = (ys, debt) => ys.map((y, x) => ({ x, y, debt: debt[x] }));
+  const html = projectionMilestonesHtml([
+    { label: "Renting", colorClass: "series-color-0", points: pts([300000, 600000, 900000, 1200000], [0, 0, 0, 0]) },
+    { label: "Buy", colorClass: "series-color-1", points: pts([250000, 550000, 1000000, 1600000], [500000, 300000, 0, 0]) }
+  ], true);
+  assert.match(html, /Milestones/);
+  assert.match(html, /\$500k<\/span><span>\$1M<\/span><span>\$1\.5M/);
+  assert.match(html, /Buy<\/span><span>yr 1<\/span><span>yr 2<\/span><span>yr 3<\/span><span>yr 2<\/span>/);
+  assert.match(html, /<i>none<\/i>/);
+  assert.match(html, /<b>Buy<\/b> overtakes Renting in year 2/);
+  assert.equal(projectionMilestonesHtml([], true), "");
+});

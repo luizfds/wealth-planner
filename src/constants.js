@@ -269,7 +269,8 @@ export var WFH_FIXED_RATES = { 2022: 0.67, 2023: 0.67, 2024: 0.70, 2025: 0.70 };
 //     (from FY25/26) charges each band's rate on the slice above it, plus 10% of the whole income
 //     above `wholeAbove`.
 //   - phi.periods split the year where the rebate percentage is re-indexed (1 April): `share` is
-//     the part of the year each covers, `rates` the under-65 rebate % for base/tier 1/2/3.
+//     the part of the year each covers, `rates` the rebate % for base/tier 1/2/3 by the age of the
+//     oldest person on the policy — u65, a65 (65-69), a70 (70 and over).
 //   - medicare.lower/upper are the singles low-income shade-in thresholds (10c per $ between).
 export var TAX_YEARS = {
   2024: {
@@ -277,14 +278,14 @@ export var TAX_YEARS = {
     medicare: { lower: 27222, upper: 34027 },
     help: { kind: "flat", rates: HELP_REPAYMENT_RATES },
     mls: { single: [97000, 113000, 151000] },
-    phi: { periods: [{ share: 0.75, rates: [24.608, 16.405, 8.202, 0] }, { share: 0.25, rates: [24.288, 16.192, 8.095, 0] }] }
+    phi: { periods: [{ share: 0.75, rates: { u65: [24.608, 16.405, 8.202, 0], a65: [28.710, 20.507, 12.303, 0], a70: [32.812, 24.608, 16.405, 0] } }, { share: 0.25, rates: { u65: [24.288, 16.192, 8.095, 0], a65: [28.337, 20.240, 12.143, 0], a70: [32.385, 24.288, 16.192, 0] } }] }
   },
   2025: {
     brackets: AU_TAX_BRACKETS,
     medicare: { lower: 28011, upper: 35013 },
     help: { kind: "marginal", bands: [{ over: 67000, base: 0, rate: 0.15 }, { over: 125000, base: 8700, rate: 0.17 }], wholeAbove: 179285, wholeRate: 0.10 },
     mls: { single: [101000, 118000, 158000] },
-    phi: { periods: [{ share: 0.75, rates: [24.288, 16.192, 8.095, 0] }, { share: 0.25, rates: [24.118, 16.079, 8.038, 0] }] }
+    phi: { periods: [{ share: 0.75, rates: { u65: [24.288, 16.192, 8.095, 0], a65: [28.337, 20.240, 12.143, 0], a70: [32.385, 24.288, 16.192, 0] } }, { share: 0.25, rates: { u65: [24.118, 16.079, 8.038, 0], a65: [28.139, 20.098, 12.058, 0], a70: [32.158, 24.118, 16.079, 0] } }] }
   },
   2026: {
     // The 16% rate becomes 15% from 1 July 2026.
@@ -300,7 +301,7 @@ export var TAX_YEARS = {
     help: { kind: "marginal", bands: [{ over: 69528, base: 0, rate: 0.15 }, { over: 129717, base: 9028, rate: 0.17 }], wholeAbove: 186050, wholeRate: 0.10 },
     mls: { single: [105000, 123000, 164000] },
     // Rates from 1 April 2027 aren't published until March 2027; the July rates are carried.
-    phi: { periods: [{ share: 0.75, rates: [24.118, 16.079, 8.038, 0] }, { share: 0.25, rates: [24.118, 16.079, 8.038, 0], assumed: true }] }
+    phi: { periods: [{ share: 0.75, rates: { u65: [24.118, 16.079, 8.038, 0], a65: [28.139, 20.098, 12.058, 0], a70: [32.158, 24.118, 16.079, 0] } }, { share: 0.25, rates: { u65: [24.118, 16.079, 8.038, 0], a65: [28.139, 20.098, 12.058, 0], a70: [32.158, 24.118, 16.079, 0] }, assumed: true }] }
   }
 };
 export var MLS_RATES = [0, 0.01, 0.0125, 0.015];

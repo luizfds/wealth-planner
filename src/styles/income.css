@@ -157,3 +157,30 @@
   .ty-row-is > :nth-child(7){ grid-area: del; }
   .ty-row-is:not(.ty-head-row){ padding-bottom:8px; border-bottom:1px solid var(--border); }
 }
+
+/* ---------------- Printing the worksheet (v3.31.0) ----------------
+   #printRoot is built at the top level only while printing (see app.js) and is the only thing
+   shown. Plain tables, black on white whatever the theme, one person per page. */
+#printRoot{ display:none; }
+@media print{
+  @page{ margin:15mm 14mm; }
+  body.printing-worksheet > *:not(#printRoot){ display:none !important; }
+  body.printing-worksheet{ background:#fff !important; }
+  body.printing-worksheet #printRoot{ display:block; color:#000; font:11pt/1.4 "Inter", system-ui, sans-serif; }
+  /* Every descendant, not just the root: table cells pick up the theme's --ink from base.css, which
+     in dark mode is near-white — invisible on paper (caught printing from a dark-mode browser). */
+  #printRoot, #printRoot *{ color:#000 !important; background:transparent !important; }
+  #printRoot .pr-page{ break-after:page; }
+  #printRoot .pr-page:last-child{ break-after:auto; }
+  #printRoot h2{ font-size:15pt; margin:0 0 6pt; }
+  #printRoot h3{ font-size:12pt; margin:12pt 0 4pt; }
+  #printRoot .pr-refund{ font-size:12pt; margin:0 0 8pt; }
+  #printRoot .pr-table{ width:100%; border-collapse:collapse; margin-bottom:6pt; }
+  #printRoot .pr-table td, #printRoot .pr-table th{ padding:2pt 4pt; border-bottom:0.5pt solid #bbb; text-align:left; vertical-align:top; }
+  #printRoot .pr-sec th{ font-size:8.5pt; text-transform:uppercase; letter-spacing:.05em; padding-top:8pt; border-bottom:1pt solid #000; }
+  #printRoot .pr-num{ text-align:right !important; font-family:"IBM Plex Mono", monospace; white-space:nowrap; }
+  #printRoot .pr-strong td{ font-weight:700; }
+  #printRoot tr{ break-inside:avoid; }
+  #printRoot .pr-ev{ padding-left:0; list-style:none; }
+  #printRoot .pr-foot{ margin-top:14pt; font-size:8.5pt; }
+}

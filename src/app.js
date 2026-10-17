@@ -15,7 +15,7 @@ import { periodsOf, sumField, sumFieldForScenario, resolveSharedAmount, appendHi
 import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider, saleCapitalGain, lotsUnitsAvailable } from "./calc/tax.js";
 import { recalcComputedItems, scenarioTotals, totalNetWorthValue, totalDebtsValue } from "./calc/engine.js";
 import { financialYearOf, fyLabel } from "./calc/property.js";
-import { renderTaxYear, setTaxYearSelected, taxYearAddRow, taxYearDeleteRow, taxYearRestoreRow, taxYearSetField, taxYearToggleEvidence, taxYearMarkLodged, worksheetText, taxYearSelected } from "./components/taxyear.js";
+import { renderTaxYear, setTaxYearSelected, taxYearAddRow, taxYearDeleteRow, taxYearRestoreRow, taxYearSetField, taxYearToggleEvidence, taxYearMarkLodged, worksheetText, taxYearSelected, taxYearPrintHtml } from "./components/taxyear.js";
 import { setRentalActual } from "./calc/taxyear.js";
 import { renderCards, renderDashboardStats, renderDetail, setProjectionReference, logNetWorthSnapshot } from "./components/dashboard.js";
 import {
@@ -1066,6 +1066,21 @@ import {
     renderTaxYear();
     persist();
   }
+  // Builds the static print copy at the top level, prints, and takes it away again. afterprint
+  // fires once the dialog closes, whatever the user chose.
+  function printTaxYear(){
+    var root = document.getElementById("printRoot");
+    if(!root){ root = document.createElement("div"); root.id = "printRoot"; document.body.appendChild(root); }
+    root.innerHTML = taxYearPrintHtml();
+    document.body.classList.add("printing-worksheet");
+    var done = function(){
+      document.body.classList.remove("printing-worksheet");
+      root.innerHTML = "";
+      window.removeEventListener("afterprint", done);
+    };
+    window.addEventListener("afterprint", done);
+    window.print();
+  }
   var taxYearBody = document.getElementById("taxYearBody");
   document.getElementById("taxYearLedger").addEventListener("toggle", function(){
     if(document.getElementById("taxYearLedger").open) renderTaxYear();
@@ -1114,6 +1129,7 @@ import {
       showToast("Saved as lodged — next year's worksheet will compare against it");
       return;
     }
+    if(e.target.closest("[data-ty-print]")){ printTaxYear(); return; }
     var copy = e.target.closest("[data-ty-copy]");
     if(copy){
       var text = worksheetText(copy.getAttribute("data-ty-copy"));

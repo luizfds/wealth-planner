@@ -245,7 +245,8 @@ export function taxYearHtml(){
   var ev = evidenceItems(fy);
   var ticked = ev.filter(function(i){ return rec && rec.evidence[i.key]; }).length;
   return '<div class="ty-top"><label for="taxYearSelect">Financial year</label><select id="taxYearSelect">' + options.join("") + '</select>' +
-      (taxTablesFor(fy).assumed ? '<span class="ledger-note warn" style="margin:0">' + fyLabel(fy) + ' rates are partly assumed.</span>' : '') + '</div>' +
+      (taxTablesFor(fy).assumed ? '<span class="ledger-note warn" style="margin:0">' + fyLabel(fy) + ' rates are partly assumed.</span>' : '') +
+      '<button type="button" class="btn btn-sm btn-ghost" data-ty-print style="margin-left:auto">Print / save as PDF</button></div>' +
     rentHtml(fy) +
     people.map(function(person){ return personCardHtml(person, fy); }).join("") +
     '<details class="row-more-options ty-evidence"><summary>Documents to keep (' + ticked + ' of ' + ev.length + ')</summary>' +
@@ -296,4 +297,48 @@ export function worksheetText(person){
     out.push(l.label + ": " + money(l.value));
   });
   return out.join("\n");
+}
+
+// ---------------- Printing (v3.31.0) ----------------
+//
+// A static copy rather than the live form: inputs print as boxes with half-visible numbers and the
+// app's chrome (nav, header, FAB) would ride along. This builds plain tables from the same
+// worksheetLines/rentalSchedules the screen uses — one person per page, then the rental schedules
+// and the document checklist — and the print stylesheet shows only it (styles/income.css).
+function esc(t){ return escapeAttr(String(t == null ? "" : t)); }
+export function taxYearPrintHtml(){
+  var fy = taxYearSelected();
+  var people = getTaxPeople();
+  var rec = taxYearRecord(fy, false);
+  var pages = people.map(function(person){
+    var ws = worksheetLines(person, fy);
+    var py = personYear(fy, person, false) || { incomeStatements: [], interest: [], deductions: [] };
+    var rows = [], last = null;
+    ws.lines.forEach(function(l){
+      if(l.section !== last){ rows.push('<tr class="pr-sec"><th colspan="2">' + esc(l.section) + '</th></tr>'); last = l.section; }
+      rows.push('<tr' + (l.section === "Estimate" ? ' class="pr-strong"' : '') + '><td>' + esc(l.label) + '</td><td class="pr-num">' + money(l.value) + '</td></tr>');
+    });
+    var ded = py.deductions.length
+      ? '<h3>Deductions entered</h3><table class="pr-table"><tr><th>Label</th><th>What</th><th class="pr-num">Amount</th></tr>' +
+        py.deductions.map(function(d){ return '<tr><td>' + esc(d.label || "D5") + '</td><td>' + esc(d.what) + '</td><td class="pr-num">' + money(d.amount) + '</td></tr>'; }).join("") + '</table>'
+      : "";
+    return '<section class="pr-page"><h2>' + esc(person) + ' — ' + fyLabel(fy) + ' tax return worksheet</h2>' +
+      (ws.result.refund != null ? '<p class="pr-refund">' + (ws.result.refund >= 0 ? "Estimated refund " : "Estimated to pay ") + '<b>' + money(Math.abs(ws.result.refund)) + '</b></p>' : '') +
+      '<table class="pr-table">' + rows.join("") + '</table>' + ded + '</section>';
+  }).join("");
+  var rent = rentalSchedules(fy).map(function(x){
+    var sch = x.schedule;
+    return '<h3>' + esc(x.property.what || "Property") + ' — rental schedule (whole property)</h3><table class="pr-table">' +
+      sch.lines.filter(function(l){ return l.value; }).map(function(l){
+        return '<tr><td>' + esc(l.label) + (l.actual == null ? ' <i>(estimate)</i>' : '') + '</td><td class="pr-num">' + money(l.value) + '</td></tr>';
+      }).join("") +
+      '<tr class="pr-strong"><td>Net rent</td><td class="pr-num">' + money(sch.net) + '</td></tr></table>';
+  }).join("");
+  var ev = evidenceItems(fy).map(function(i){
+    return '<li>' + (rec && rec.evidence[i.key] ? "☑ " : "☐ ") + esc(i.text) + '</li>';
+  }).join("");
+  return pages +
+    '<section class="pr-page">' + (rent ? '<h2>Rental schedules — ' + fyLabel(fy) + '</h2>' + rent : '') +
+      '<h2>Documents to keep</h2><ul class="pr-ev">' + ev + '</ul>' +
+      '<p class="pr-foot">Prepared with Wealth Planner. Estimates where marked; check every figure against its document before lodging.</p></section>';
 }

@@ -67,6 +67,8 @@ export function normalizeShareAsset(a){
   // carries a credit for that. Partially-franked and unfranked are both common (LICs, REITs,
   // foreign-sourced income), so this is a percentage rather than a flag.
   if(a.frankedPct == null) a.frankedPct = 100;
+  // Purchase lots (v3.21.0) — see calc/tax.js. Empty = no parcels kept; sales use Avg cost.
+  if(!Array.isArray(a.lots)) a.lots = [];
   a.amount = Math.round((Number(a.quantity) || 0) * (Number(a.price) || 0) * 100) / 100;
   return a;
 }

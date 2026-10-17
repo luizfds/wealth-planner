@@ -1,4 +1,4 @@
-import { state, persist } from "../state.js";
+import { state, persist, genId } from "../state.js";
 import { ASSET_CATEGORIES, LIQUID_CATEGORIES, SHARE_MARKETS, MARKET_CURRENCY } from "../constants.js";
 import { propertiesOffsetTotal, propertiesIlliquidEquityToday, recalcPurchase } from "../calc/property.js";
 import { totalAssetsValue, totalNetWorthValue, totalDebtsValue, liquidAssetsValue, toAudAmount } from "../calc/engine.js";
@@ -10,7 +10,7 @@ import { showToast } from "../lib/toast.js";
 import { appendHistorySnapshot, daysUntil, householdYearWindow, householdYearBasis } from "../calc/ledger.js";
 import { TIME_RANGES, rangeLabel, rangeByKey, rangeStartDate, bestFitRange, timeRangeControlHtml } from "../lib/timerange.js";
 import { observationDates, categorySeries, trimUntracked, allocationSeries, valueOn } from "../calc/history.js";
-import { holdingDividend, saleCapitalGain } from "../calc/tax.js";
+import { holdingDividend, saleCapitalGain, fifoParcels, lotsUnitsAvailable, lotsAverageCost, lotRemainingUnits, lotCost } from "../calc/tax.js";
 import { renderProjectionOutputs } from "./projections.js";
 import { renderDashboardStats } from "./dashboard.js";
 import { parseCsv } from "../lib/backup.js";
@@ -93,7 +93,10 @@ function salesListHtml(item, idx){
     return '<div class="sale-row">' +
       '<span class="sale-date">' + escapeAttr(sale.date) + '</span>' +
       '<span class="sale-detail">' + fmtQtyDisplay.format(Number(sale.units) || 0) + ' units · ' +
-        fmtCurrency0.format(Number(sale.proceeds) || 0) + ' less ' + fmtCurrency0.format(Number(sale.costBase) || 0) + ' cost base</span>' +
+        fmtCurrency0.format(Number(sale.proceeds) || 0) + ' less ' + fmtCurrency0.format(Number(sale.costBase) || 0) + ' cost base' +
+        (g.parts.length > 1 ? ' · ' + g.parts.length + ' parcels (' + g.parts.map(function(pt){
+          return fmtQtyDisplay.format(pt.units) + ' from ' + (pt.acquired || "?") + (pt.raw > 0 ? (pt.discountApplied ? ", discounted" : ", not discounted") : ", loss");
+        }).join("; ") + ')' : '') + '</span>' +
       '<span class="asset-trend ' + cls + '">' + (g.isLoss ? "" : "+") + fmtCurrency0.format(g.raw) + '</span>' +
       '<span class="sale-discount' + (g.discountApplied ? " on" : "") + '" title="' +
         escapeAttr(g.heldDays + " days held. The 50% discount needs more than 12 months (366 days).") + '">' +
@@ -101,6 +104,52 @@ function salesListHtml(item, idx){
       '<button type="button" class="icon-btn" data-asset-sale-del="' + idx + ':' + si + '" aria-label="Delete this sale">✕</button>' +
     '</div>';
   }).join("") + '</div>';
+}
+
+// Purchase lots (v3.21.0) — see calc/tax.js. One row per buy, as it appears on the broker's
+// statement: date, units, price per unit, brokerage. A lot that sales have used shows how much of
+// it is gone, and its units can't be set below that. Kept in a collapsed section because most
+// holdings never need it: it matters on the day you sell part of something bought in several goes.
+export function lotsSectionHtml(item, idx){
+  var lots = Array.isArray(item.lots) ? item.lots : [];
+  var rows = lots.map(function(lot, li){
+    var sold = Number(lot.soldUnits) || 0;
+    return '<div class="lot-row" data-lot-index="' + li + '">' +
+      '<input type="date" class="lot-date" data-lot-index="' + li + '" value="' + escapeAttr(lot.date || "") + '" aria-label="Bought on">' +
+      '<input type="number" step="any" min="' + sold + '" class="lot-units" data-lot-index="' + li + '" value="' + (Number(lot.units) || 0) + '" aria-label="Units bought" title="Units bought' + (sold ? " — " + fmtQtyDisplay.format(sold) + " already sold" : "") + '">' +
+      '<input type="number" step="any" min="0" class="lot-price" data-lot-index="' + li + '" value="' + (Number(lot.price) || 0) + '" aria-label="Price per unit">' +
+      '<input type="number" step="0.01" min="0" class="lot-brokerage" data-lot-index="' + li + '" value="' + (Number(lot.brokerage) || 0) + '" aria-label="Brokerage" title="Brokerage and fees on the purchase — part of the cost base">' +
+      '<button type="button" class="icon-btn" data-lot-del="' + idx + ':' + li + '" aria-label="Delete this lot"' + (sold ? ' disabled title="Sales use this lot — delete those first"' : '') + '>✕</button>' +
+      (sold ? '<span class="lot-sold">' + fmtQtyDisplay.format(sold) + ' of ' + fmtQtyDisplay.format(Number(lot.units) || 0) + ' sold</span>' : '') +
+    '</div>';
+  }).join("");
+  var note = lotsNoteText(item);
+  return '<details class="row-more-options lots-section"><summary>Purchase lots' + (lots.length ? " (" + lots.length + ")" : "") + '</summary><div style="margin-top:8px">' +
+    (lots.length ? '<div class="lot-head" aria-hidden="true"><span>Bought on</span><span>Units</span><span>Price</span><span>Brokerage</span><span></span></div>' + rows : "") +
+    '<p class="ledger-note lots-note" style="margin-left:0">' + note + '</p>' +
+    '<button type="button" class="btn btn-sm btn-ghost" data-lot-add="' + idx + '">+ Add lot</button>' +
+  '</div></details>';
+}
+// Says whether the lots and the holding agree — they can drift (units bought before lots were
+// kept, a transfer in), and a sale beyond what the lots hold needs its cost base typed by hand.
+export function lotsNoteText(item){
+  var lots = Array.isArray(item.lots) ? item.lots : [];
+  if(!lots.length) return "Bought in more than one go? Add each purchase from your broker's statements, and sales will use the oldest first, discounting each parcel on its own date.";
+  var avail = lotsUnitsAvailable(item);
+  var held = Number(item.quantity) || 0;
+  return fmtQtyDisplay.format(avail) + " unsold units across " + lots.length + " lot" + (lots.length === 1 ? "" : "s") +
+    (Math.abs(avail - held) > 1e-6 ? " — the holding shows " + fmtQtyDisplay.format(held) + ", so a sale beyond the lots needs its cost base typed." : ". Sales use the oldest first.");
+}
+export function addAssetLot(idx){
+  var item = state.assets[idx];
+  if(!item) return;
+  if(!Array.isArray(item.lots)) item.lots = [];
+  item.lots.push({ id: genId("lot"), date: localDateStr(), units: 0, price: Number(item.price) || 0, brokerage: 0, soldUnits: 0 });
+}
+// Keeps Avg cost in step with the lots, so the holding's gain figure and the lots never disagree.
+export function syncAvgCostFromLots(item){
+  var avg = lotsAverageCost(item);
+  if(avg != null) item.avgCost = avg;
 }
 
 // The franking credit and grossed-up figure for one holding, shown under the Franked % field —
@@ -121,21 +170,34 @@ export function recordAssetSale(idx, input){
   if(!units || !proceeds) return { error: "Enter both the units sold and what you sold them for." };
   var held = Math.max(0, Number(item.quantity) || 0);
   if(units > held) return { error: "You only hold " + fmtQtyDisplay.format(held) + " units." };
-  var costBase = input.costBase !== "" && input.costBase != null
-    ? Math.max(0, Number(input.costBase) || 0)
-    : Math.round((item.avgCost != null ? item.avgCost : 0) * units * 100) / 100;
+  var manualCost = input.costBase !== "" && input.costBase != null;
+  var manualAcquired = !!input.acquired;
+  var sale = { date: input.date || localDateStr(), acquired: input.acquired || "", units: units, proceeds: proceeds, costBase: 0 };
+  // With purchase lots kept and neither field typed, the parcels decide both — first-in,
+  // first-out — and each parcel is discounted on its own date (calc/tax.js fifoParcels). Typing a
+  // cost base or a date is an explicit override and skips the lots, which is why both are optional.
+  if(!manualCost && !manualAcquired && lotsUnitsAvailable(item) > 0){
+    var fifo = fifoParcels(item, units);
+    if(fifo.error) return { error: fifo.error };
+    sale.parcels = fifo.parcels;
+    sale.costBase = Math.round(fifo.parcels.reduce(function(s, p){ return s + p.costBase; }, 0) * 100) / 100;
+    sale.acquired = fifo.parcels.length ? fifo.parcels[0].acquired : "";
+    fifo.parcels.forEach(function(p){
+      var lot = item.lots.find(function(l){ return l.id === p.lotId; });
+      if(lot) lot.soldUnits = Math.round(((Number(lot.soldUnits) || 0) + p.units) * 1e8) / 1e8;
+    });
+    item.avgCost = lotsAverageCost(item);
+  } else {
+    sale.costBase = manualCost
+      ? Math.max(0, Number(input.costBase) || 0)
+      : Math.round((item.avgCost != null ? item.avgCost : 0) * units * 100) / 100;
+  }
   if(!Array.isArray(item.sales)) item.sales = [];
-  item.sales.push({
-    date: input.date || localDateStr(),
-    acquired: input.acquired || "",
-    units: units,
-    proceeds: proceeds,
-    costBase: costBase
-  });
+  item.sales.push(sale);
   item.sales.sort(function(a, b){ return (b.date || "").localeCompare(a.date || ""); });
   item.quantity = Math.round((held - units) * 1e8) / 1e8;
   item.amount = Math.round(item.quantity * (Number(item.price) || 0) * 100) / 100;
-  return { sale: item.sales[0], item: item };
+  return { sale: sale, item: item };
 }
 export function deleteAssetSale(idx, saleIdx){
   var item = state.assets[idx];
@@ -144,6 +206,12 @@ export function deleteAssetSale(idx, saleIdx){
   if(!removed) return null;
   // Put the units back: deleting a sale has to undo what recording it did, or a mistyped sale
   // permanently loses units from the portfolio.
+  // ...and give the parcels it used back to their lots, or the next sale would skip them.
+  (removed.parcels || []).forEach(function(p){
+    var lot = (item.lots || []).find(function(l){ return l.id === p.lotId; });
+    if(lot) lot.soldUnits = Math.max(0, Math.round(((Number(lot.soldUnits) || 0) - p.units) * 1e8) / 1e8);
+  });
+  if(removed.parcels && removed.parcels.length) item.avgCost = lotsAverageCost(item);
   item.quantity = Math.round(((Number(item.quantity) || 0) + (Number(removed.units) || 0)) * 1e8) / 1e8;
   item.amount = Math.round(item.quantity * (Number(item.price) || 0) * 100) / 100;
   return removed;
@@ -551,13 +619,14 @@ function modernShareRowHtml(item, idx, colorIdx){
       '<div class="m-edit-field"><label>Dividend / unit /yr</label><input type="number" step="0.01" min="0" class="h-dividend" value="' + (Number(item.dividendPerUnit) || 0) + '" placeholder="0" title="Yearly distribution per share or unit. Multiplied by the quantity above, so it follows the holding if you buy or sell." aria-label="Yearly dividend per unit"></div>' +
       '<div class="m-edit-field"><label>Franked %</label><input type="number" step="5" min="0" max="100" class="h-franked" value="' + (item.frankedPct == null ? 100 : item.frankedPct) + '" title="How much of the dividend carries a franking credit for company tax already paid. Fully franked is 100; LICs, REITs and foreign income are often less." aria-label="Franked percentage"><span class="computed-note h-div-note">' + dividendNoteText(item) + '</span></div>' +
     '</div>' +
+    lotsSectionHtml(item, idx) +
     '<details class="row-more-options"><summary>Record a sale (capital gains)</summary><div style="margin-top:8px">' +
       '<div class="m-edit-grid">' +
         '<div class="m-edit-field"><label>Units sold</label><input type="number" step="any" min="0" class="h-sale-units" placeholder="0" aria-label="Units sold"></div>' +
         '<div class="m-edit-field"><label>Sold for (total)</label><input type="number" step="0.01" min="0" class="h-sale-proceeds" placeholder="0" title="Total proceeds, after brokerage" aria-label="Sale proceeds"></div>' +
         '<div class="m-edit-field"><label>Sold on</label><input type="date" class="h-sale-date" value="' + localDateStr() + '" aria-label="Sale date"></div>' +
-        '<div class="m-edit-field"><label>Acquired on</label><input type="date" class="h-sale-acquired" title="When you bought these units. Held more than 12 months, an individual\'s gain is halved — and \"more than\" is exact: 12 months to the day does not qualify." aria-label="Acquisition date"></div>' +
-        '<div class="m-edit-field span2"><label>Cost base</label><input type="number" step="0.01" min="0" class="h-sale-costbase" placeholder="' + (item.avgCost != null ? "avg cost x units" : "0") + '" title="What the units cost you, including brokerage. Left blank it is worked out from the Avg cost above." aria-label="Cost base"></div>' +
+        '<div class="m-edit-field"><label>Acquired on</label><input type="date" class="h-sale-acquired"' + (lotsUnitsAvailable(item) > 0 ? ' placeholder="from purchase lots"' : '') + ' title="When you bought these units. Held more than 12 months, an individual\'s gain is halved — and \"more than\" is exact: 12 months to the day does not qualify." aria-label="Acquisition date"></div>' +
+        '<div class="m-edit-field span2"><label>Cost base</label><input type="number" step="0.01" min="0" class="h-sale-costbase" placeholder="' + (lotsUnitsAvailable(item) > 0 ? "from purchase lots" : (item.avgCost != null ? "avg cost x units" : "0")) + '" title="What the units cost you, including brokerage. Left blank it is worked out from the Avg cost above." aria-label="Cost base"></div>' +
       '</div>' +
       '<div class="m-edit-actions"><button type="button" class="btn btn-sm btn-primary" data-asset-sale="' + idx + '">Record sale</button></div>' +
       salesListHtml(item, idx) +

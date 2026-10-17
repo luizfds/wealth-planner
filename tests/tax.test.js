@@ -691,3 +691,65 @@ test("a leap tax year is counted in its own 366 days", function(){
   // 1 Jul - 31 Dec 2027 is 184 of the 366 days that include 29 Feb 2028.
   assert.equal(deductionYearFraction({ deductibleUntil: "2027-12-31" }, FY2728), 184 / 366);
 });
+
+// ---------------- Purchase lots and per-parcel discount (v3.21.0) ----------------
+
+import { fifoParcels, lotsAverageCost, saleCapitalGain as saleGain } from "../src/calc/tax.js";
+
+// The real trades: six DroneShield buys July-October 2024 (Stake), all sold in two halves.
+function droLots(){
+  return [
+    { id: "a", date: "2024-07-23", units: 340, price: 1.485, brokerage: 3, soldUnits: 0 },
+    { id: "b", date: "2024-07-23", units: 440, price: 1.435, brokerage: 3, soldUnits: 0 },
+    { id: "c", date: "2024-08-09", units: 493, price: 1.055, brokerage: 3, soldUnits: 0 },
+    { id: "d", date: "2024-09-04", units: 800, price: 1.33, brokerage: 3, soldUnits: 0 },
+    { id: "e", date: "2024-10-23", units: 22, price: 1, brokerage: 3, soldUnits: 0 },
+    { id: "f", date: "2024-10-30", units: 535, price: 0.92, brokerage: 3, soldUnits: 0 }
+  ];
+}
+
+test("a FIFO sale uses the oldest parcels first, brokerage included in each parcel's cost", function(){
+  var asset = { lots: droLots() };
+  var first = fifoParcels(asset, 1315);
+  assert.deepEqual(first.parcels.map(function(p){ return [p.lotId, p.units]; }), [["a", 340], ["b", 440], ["c", 493], ["d", 42]]);
+  assert.equal(Math.round(first.parcels.reduce(function(s, p){ return s + p.costBase; }, 0) * 100) / 100, 1721.44);
+});
+
+test("the DroneShield sales: $6,691.56 and $1,096.86, every parcel discounted", function(){
+  var asset = { lots: droLots() };
+  var p1 = fifoParcels(asset, 1315).parcels;
+  var g1 = saleGain({ date: "2025-10-07", units: 1315, proceeds: 8413.00, parcels: p1 });
+  assert.equal(g1.raw, 6691.56);
+  assert.equal(g1.discountableGain, 6691.56);
+  assert.equal(g1.otherGain, 0);
+  // Mark them sold, as recordAssetSale does, and sell the rest.
+  p1.forEach(function(p){ var l = asset.lots.find(function(x){ return x.id === p.lotId; }); l.soldUnits += p.units; });
+  var p2 = fifoParcels(asset, 1315).parcels;
+  assert.deepEqual(p2.map(function(p){ return [p.lotId, p.units]; }), [["d", 758], ["e", 22], ["f", 535]]);
+  var g2 = saleGain({ date: "2025-11-19", units: 1315, proceeds: 2628.04, parcels: p2 });
+  assert.equal(g2.raw, 1096.86);
+  assert.equal(Math.round((g1.raw + g2.raw) * 100) / 100, 7788.42);
+  assert.equal(g2.parts.every(function(pt){ return pt.discountApplied; }), true);
+});
+
+test("the discount is decided parcel by parcel", function(){
+  // Had the October 2024 parcels gone in the 7 October 2025 sale, they'd be under 12 months old.
+  var parcels = [
+    { acquired: "2024-07-23", units: 100, costBase: 150 },
+    { acquired: "2024-10-30", units: 100, costBase: 92 }
+  ];
+  var g = saleGain({ date: "2025-10-07", units: 200, proceeds: 1280, parcels: parcels });
+  assert.deepEqual(g.parts.map(function(p){ return p.discountApplied; }), [true, false]);
+  assert.equal(g.discountableGain, 490);
+  assert.equal(g.otherGain, 548);
+  assert.equal(g.assessable, 245 + 548);
+});
+
+test("FIFO says so when the lots don't hold enough units", function(){
+  assert.ok(fifoParcels({ lots: [{ id: "x", date: "2025-01-01", units: 10, price: 1 }] }, 11).error);
+});
+
+test("average cost follows the unsold lots", function(){
+  var asset = { lots: [{ units: 100, price: 1, brokerage: 0, soldUnits: 100 }, { units: 100, price: 3, brokerage: 10, soldUnits: 0 }] };
+  assert.equal(lotsAverageCost(asset), 3.1);
+});

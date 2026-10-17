@@ -53,22 +53,105 @@ export function heldDays(acquired, sold){
 export function qualifiesForCgtDiscount(acquired, sold){
   return heldDays(acquired, sold) >= CGT_DISCOUNT_MIN_DAYS;
 }
+// ---------------- Purchase lots (parcels) ----------------
+//
+// A holding bought in several goes is several assets for CGT: each purchase (a "parcel") has its
+// own cost and its own acquisition date, and whether a sale gets the 12-month discount is decided
+// parcel by parcel. An average cost and one acquisition date can't say that — selling 2,630 units
+// bought across six trades between July and October 2024 needs to know which six trades, because
+// the October ones were under 12 months old at an October 2025 sale and the July ones weren't.
+//
+// asset.lots[] = {id, date, units, price, brokerage, soldUnits}. soldUnits is how many of this
+// parcel past sales have used up, so the next sale knows where to start. Sales match parcels
+// first-in, first-out — the order the ATO accepts by default when you can't identify the specific
+// shares sold, and the one that usually maximises the discount.
+function round2(n){ return Math.round(n * 100) / 100; }
+export function lotCost(lot){
+  return (Number(lot.units) || 0) * (Number(lot.price) || 0) + (Number(lot.brokerage) || 0);
+}
+export function lotRemainingUnits(lot){
+  return Math.max(0, Math.round(((Number(lot.units) || 0) - (Number(lot.soldUnits) || 0)) * 1e8) / 1e8);
+}
+function lotsOldestFirst(asset){
+  return (Array.isArray(asset && asset.lots) ? asset.lots : []).slice().sort(function(a, b){
+    return (a.date || "").localeCompare(b.date || "");
+  });
+}
+export function lotsUnitsAvailable(asset){
+  return lotsOldestFirst(asset).reduce(function(s, l){ return s + lotRemainingUnits(l); }, 0);
+}
+// The parcels a FIFO sale of `units` would use, without changing anything. Each parcel's cost is
+// its share of the lot's cost INCLUDING brokerage — brokerage on the purchase is part of the cost
+// base. Returns {parcels} or {error} when the lots don't hold that many units.
+export function fifoParcels(asset, units){
+  var need = Math.max(0, Number(units) || 0);
+  var parcels = [];
+  lotsOldestFirst(asset).forEach(function(lot){
+    if(need <= 1e-9) return;
+    var rem = lotRemainingUnits(lot);
+    if(rem <= 0) return;
+    var take = Math.min(rem, need);
+    parcels.push({ lotId: lot.id, acquired: lot.date || "", units: take,
+      costBase: round2(lotCost(lot) * take / (Number(lot.units) || 1)) });
+    need = Math.round((need - take) * 1e8) / 1e8;
+  });
+  if(need > 1e-9) return { error: "Your purchase lots only hold " + lotsUnitsAvailable(asset) + " unsold units.", parcels: parcels };
+  return { parcels: parcels };
+}
+// The remaining lots' cost per unit — what "Avg cost" means once lots are kept, so the holding's
+// gain/loss figure and the sale form's default stay consistent with the parcels.
+export function lotsAverageCost(asset){
+  var units = 0, cost = 0;
+  (Array.isArray(asset && asset.lots) ? asset.lots : []).forEach(function(l){
+    var rem = lotRemainingUnits(l);
+    if(!(rem > 0) || !(Number(l.units) > 0)) return;
+    units += rem;
+    cost += lotCost(l) * rem / Number(l.units);
+  });
+  return units > 0 ? Math.round(cost / units * 10000) / 10000 : null;
+}
+
 // One sale's capital gain picture. A capital LOSS never gets the discount — the discount only ever
 // applies to a gain, and halving a loss would understate a real offset.
+//
+// A sale with parcels is several CGT events in one: proceeds are shared across the parcels by
+// units, and each parcel's gain is discounted (or not) on its own acquisition date. Besides the
+// headline figures, every sale reports its gains split into discountable / not discountable and
+// its losses, which is what netting across a whole year needs (personCapitalGains).
 export function saleCapitalGain(sale){
   var proceeds = Number(sale.proceeds) || 0;
-  var costBase = Number(sale.costBase) || 0;
-  var raw = Math.round((proceeds - costBase) * 100) / 100;
-  var discounted = qualifiesForCgtDiscount(sale.acquired, sale.date) && raw > 0;
-  return {
-    raw: raw,
-    isLoss: raw < 0,
-    discountApplied: discounted,
-    heldDays: heldDays(sale.acquired, sale.date),
-    // What actually goes into taxable income. Losses pass through whole; gains are halved only
-    // when the holding period qualifies.
-    assessable: Math.round((discounted ? raw * (1 - CGT_DISCOUNT) : raw) * 100) / 100
-  };
+  var parts;
+  if(Array.isArray(sale.parcels) && sale.parcels.length){
+    var totalUnits = sale.parcels.reduce(function(s, p){ return s + (Number(p.units) || 0); }, 0) || 1;
+    var allocated = 0;
+    parts = sale.parcels.map(function(p, i){
+      // The last parcel takes whatever's left, so the parts add back to the proceeds to the cent.
+      var share = i === sale.parcels.length - 1 ? round2(proceeds - allocated) : round2(proceeds * (Number(p.units) || 0) / totalUnits);
+      allocated = round2(allocated + share);
+      return { acquired: p.acquired || "", units: Number(p.units) || 0, proceeds: share, costBase: Number(p.costBase) || 0 };
+    });
+  } else {
+    parts = [{ acquired: sale.acquired || "", units: Number(sale.units) || 0, proceeds: proceeds, costBase: Number(sale.costBase) || 0 }];
+  }
+  var out = { raw: 0, assessable: 0, discountableGain: 0, otherGain: 0, loss: 0, parts: [], heldDays: null, discountApplied: false };
+  parts.forEach(function(p){
+    var raw = round2(p.proceeds - p.costBase);
+    var days = heldDays(p.acquired, sale.date);
+    var disc = raw > 0 && qualifiesForCgtDiscount(p.acquired, sale.date);
+    out.raw = round2(out.raw + raw);
+    // What goes into taxable income for this sale on its own. Losses pass through whole; gains are
+    // halved only when the parcel's holding period qualifies.
+    out.assessable = round2(out.assessable + (disc ? raw * (1 - CGT_DISCOUNT) : raw));
+    if(raw > 0 && disc) out.discountableGain = round2(out.discountableGain + raw);
+    else if(raw > 0) out.otherGain = round2(out.otherGain + raw);
+    else out.loss = round2(out.loss - raw);
+    if(disc) out.discountApplied = true;
+    out.heldDays = out.heldDays == null ? days : Math.min(out.heldDays, days);
+    out.parts.push({ acquired: p.acquired, units: p.units, proceeds: p.proceeds, costBase: p.costBase, raw: raw, heldDays: days, discountApplied: disc });
+  });
+  out.isLoss = out.raw < 0;
+  if(out.heldDays == null) out.heldDays = 0;
+  return out;
 }
 // Every sale recorded against this person's assets, within the window if one is given.
 //

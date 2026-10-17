@@ -2038,6 +2038,19 @@ in with source and month, on `property.market`. Nothing fetched.
 
 ---
 
+## Money tools (October 2026)
+
+"Do all" of the six offered after PR #85.
+
+## 71. `[~]` Distributions received, as cash flows
+## 72. `[~]` What selling the investment property would leave you
+## 73. `[~]` Load the real FY25/26 return
+## 74. `[~]` Loan strategy tools, and paid-out loans that actually stop
+## 75. `[~]` Super top-up calculator
+## 76. `[~]` Checks on every pull request
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

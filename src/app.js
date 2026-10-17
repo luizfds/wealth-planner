@@ -44,7 +44,7 @@ import {
   renderNetWorthPanel, renderAssets, logAssetSnapshot, applySharesPaste, logDebtSnapshot,
   patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter, renderAssetPersonSheet, assetPersonSheetOpen, setAssetPersonSheetOpen, setSharesGainFilter, setSharesSortMode, setSharesChangeWindow, setAllocationRange, setPortfolioRange,
   parseAssetsImportCsv, renderAssetsImportPreview, clearAssetsImportPreview, commitAssetsImport, dividendNoteText,
-  recordAssetSale, deleteAssetSale, renderAssetsSummary, patchOffsetsRow, addAssetLot, syncAvgCostFromLots, lotsSectionHtml, lotsNoteText
+  recordAssetSale, deleteAssetSale, renderAssetsSummary, patchOffsetsRow, addAssetLot, syncAvgCostFromLots, lotsSectionHtml, lotsNoteText, addAssetStatement, statementsSectionHtml
 } from "./components/assets.js";
 import {
   modernPropRowOpen, renderPropListModern, renderProperties, patchPropertyCardComputed,
@@ -1100,6 +1100,19 @@ import {
         patchHoldingRow(tr, item);
         patchSharesGlance();
       }
+      // A statement figure moves taxable income, so it re-runs the tax chain like a dividend edit.
+      else if(e.target.classList.contains("stmt-field") || e.target.classList.contains("stmt-fy")){
+        var st = (item.taxStatements || [])[Number(e.target.getAttribute("data-stmt-index"))];
+        if(!st) return;
+        if(e.target.classList.contains("stmt-fy")) st.fy = Number(e.target.value);
+        else st[e.target.getAttribute("data-stmt-key")] = parseFloat(e.target.value) || 0;
+        recalcComputedItems();
+        renderTaxSuper();
+        patchSyntheticIncomeRows();
+        patchIncomeGroupTotals();
+        renderCards(); renderDetail(); renderTotals();
+        renderProjectionOutputs();
+      }
       else if(e.target.classList.contains("h-avgcost")){
         item.avgCost = e.target.value === "" ? null : (parseFloat(e.target.value) || 0);
         patchHoldingRow(tr, item);
@@ -1193,6 +1206,26 @@ import {
         renderAssets();
         renderProjectionOutputs();
         persist();
+      });
+      return;
+    }
+    var stmtAddBtn = e.target.closest("[data-stmt-add]");
+    if(stmtAddBtn){
+      var stmtIdx = Number(stmtAddBtn.getAttribute("data-stmt-add"));
+      addAssetStatement(stmtIdx);
+      afterStatementListChange(stmtIdx);
+      return;
+    }
+    var stmtDelBtn = e.target.closest("[data-stmt-del]");
+    if(stmtDelBtn){
+      var stParts = stmtDelBtn.getAttribute("data-stmt-del").split(":");
+      var stItem = state.assets[Number(stParts[0])];
+      if(!stItem || !stItem.taxStatements) return;
+      var removedSt = stItem.taxStatements.splice(Number(stParts[1]), 1)[0];
+      afterStatementListChange(Number(stParts[0]));
+      showUndoToast("Statement deleted", function(){
+        stItem.taxStatements.splice(Math.min(Number(stParts[1]), stItem.taxStatements.length), 0, removedSt);
+        afterStatementListChange(Number(stParts[0]));
       });
       return;
     }
@@ -1848,6 +1881,28 @@ import {
     } else {
       renderAssets();
     }
+    persist();
+  }
+  // Same in-place swap as afterLotListChange, then the tax chain — a statement is taxable income.
+  function afterStatementListChange(idx){
+    var item = state.assets[idx];
+    var row = document.querySelector('.m-asset-rows [data-index="' + idx + '"]');
+    var sec = row && row.querySelector("details.stmts-section");
+    if(item && sec){
+      var holder = document.createElement("div");
+      holder.innerHTML = statementsSectionHtml(item, idx);
+      var fresh = holder.firstElementChild;
+      fresh.open = true;
+      sec.replaceWith(fresh);
+    } else {
+      renderAssets();
+    }
+    recalcComputedItems();
+    renderTaxSuper();
+    patchSyntheticIncomeRows();
+    patchIncomeGroupTotals();
+    renderCards(); renderDetail(); renderTotals();
+    renderProjectionOutputs();
     persist();
   }
   function afterAssetSaleChange(){

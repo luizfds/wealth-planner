@@ -669,3 +669,14 @@ test("the purchase lots section renders its rows and a used lot can't be deleted
   assert.match(lotsNoteText(item), /60 unsold units across 1 lot — the holding shows 100/);
   assert.match(lotsSectionHtml({ lots: [] }, 0), /\+ Add lot/);
 });
+
+// v3.22.0 — annual tax statements.
+import { statementsSectionHtml } from "../src/components/assets.js";
+
+test("the annual tax statements section renders each statement's labelled fields", function(){
+  var html = statementsSectionHtml({ taxStatements: [{ fy: 2025, m20: ***REMOVED***, o20: ***REMOVED***, units: 156 }] }, 3);
+  assert.match(html, /20M Other net foreign income/);
+  assert.match(html, /data-stmt-key="m20" value="***REMOVED***"/);
+  assert.match(html, /data-stmt-del="3:0"/);
+  assert.match(statementsSectionHtml({ taxStatements: [] }, 0), /\+ Add statement/);
+});

@@ -1,7 +1,8 @@
 import { state } from "../state.js";
 import { AU_TAX_BRACKETS, MAX_SUPER_BASE, HELP_REPAYMENT_RATES, MLS_TIERS, MLS_FAMILY_MULTIPLIER, WFH_FIXED_RATES, TAX_YEARS, MLS_RATES } from "../constants.js";
 import { periodsOf, resolveSharedAmount, householdYearWindow, isActiveOn, overlapDaysInclusive } from "./ledger.js";
-import { ipNetResultAnnual, personIpResultAnnual } from "./property.js";
+import { ipNetResultAnnual, personIpResultAnnual, ipProperties, propertyOwnershipPct } from "./property.js";
+import { incomeStatementTotals, interestIncome, recordedDeductionsByLabel, rentalSchedule } from "./taxyear.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
 
 // ---------------- Which year's tables ----------------
@@ -602,6 +603,12 @@ export function phiRebateAdjustment(opts){
 // shared helper: pulling that apart would mean threading five intermediate values through two
 // functions to save four lines, and this is the only other caller.
 function personSurchargeIncome(person, opts){
+  // A named year: that year's actual taxable income (from its record), computed without the
+  // household-level pieces so it can't recurse back here.
+  if(opts && opts.fy != null && !opts._inner){
+    var r = computePersonTax(person, Object.assign({}, opts, { _inner: true }));
+    return Math.max(0, r.taxable + r.sacrifice);
+  }
   var inc = personIncomeBreakdown(person, opts);
   var settings = personTaxSettings(person);
   var people = getTaxPeople();
@@ -924,6 +931,28 @@ export function computePersonTax(person, opts){
     : householdYearWindow();
   var lineDeductions = deductibleItems ? personDeductionsAnnual(person, deductibleItems, taxYearWindow) : 0;
   var byLabel = deductibleItems ? deductionsByLabel(person, deductibleItems, taxYearWindow) : {};
+  // A named year (the worksheet) uses that year's record wherever one exists — see calc/taxyear.js.
+  // Each piece falls back to the model on its own, so a half-filled record is still a full answer.
+  var yearMode = opts && opts.fy != null;
+  var statements = yearMode ? incomeStatementTotals(fy, person) : null;
+  if(statements){
+    // An income statement's gross is already after salary sacrifice, so nothing comes off it again.
+    gross = statements.gross;
+    manualSacrifice = 0; autoSacrifice = 0; sacrifice = 0;
+  }
+  var interest = yearMode ? interestIncome(fy, person) : 0;
+  if(yearMode){
+    // The rent schedule for that year: actuals typed from the year's documents, the model for any
+    // line left blank, and that year's borrowing costs and depreciation rather than this year's.
+    ipShare = ipProperties().reduce(function(sum, p){
+      return sum + rentalSchedule(p, fy).net * (propertyOwnershipPct(p, person, people) / 100);
+    }, 0);
+  }
+  var recordedDeductions = yearMode ? recordedDeductionsByLabel(fy, person) : null;
+  if(recordedDeductions){
+    byLabel = Object.assign({}, recordedDeductions);
+    lineDeductions = Object.keys(recordedDeductions).reduce(function(s, k){ return s + recordedDeductions[k]; }, 0);
+  }
   var wfh = wfhDeduction(person, taxYearWindow);
   if(wfh.amount > 0) byLabel.D5 = Math.round(((byLabel.D5 || 0) + wfh.amount) * 100) / 100;
   var deductions = lineDeductions + wfh.amount;
@@ -941,7 +970,7 @@ export function computePersonTax(person, opts){
   var cgtWindow = taxYearWindow;
   var capitalGains = personCapitalGains(person, { from: cgtWindow.start, to: cgtWindow.end, funds: funds });
   var taxable = Math.max(0, gross - sacrifice + ipShare - deductions + dividends.grossedUp + funds.income +
-    capitalGains.assessable);
+    capitalGains.assessable + interest);
   var incomeTax = incomeTaxAU(taxable, fy);
   var medicare = medicareLevyAU(taxable, fy);
   // HELP repayment income is deliberately NOT taxable income. It adds back the two things the tax
@@ -969,7 +998,7 @@ export function computePersonTax(person, opts){
   var surchargeIncome = Math.max(0, taxable + sacrifice);
   // The tier comes from the household's combined income when family thresholds apply; the rate is
   // then charged on this person's own income. See householdSurchargeIncome() for why.
-  var tierIncome = isFamily ? householdSurchargeIncome(opts) : surchargeIncome;
+  var tierIncome = isFamily ? (opts && opts._inner ? surchargeIncome : householdSurchargeIncome(opts)) : surchargeIncome;
   var medicareSurcharge = hasCover ? 0
     : Math.round(surchargeIncome * mlsTierFor(tierIncome, isFamily, fy).rate * 100) / 100;
   // The franking credit is a REFUNDABLE offset in Australia — it can take the bill below zero and
@@ -981,7 +1010,7 @@ export function computePersonTax(person, opts){
   var fito = Math.min(funds.fito, Math.max(0, incomeTax + medicare));
   // Private health rebate adjustment: the household's figure, shared evenly between the people
   // filing (the ATO splits it by each person's share of the premiums, which the app doesn't keep).
-  var phi = phiRebateAdjustment({ fy: fy, scenario: opts && opts.scenario });
+  var phi = opts && opts._inner ? null : phiRebateAdjustment(yearMode ? { fy: fy } : { scenario: opts && opts.scenario });
   var phiShare = phi ? Math.round(phi.adjustment / Math.max(1, phi.family ? people.length : 1) * 100) / 100 : 0;
   var totalTax = incomeTax + medicare + medicareSurcharge - dividends.credit - funds.credit - fito + phiShare;
   // Part of take-home, not of "tax": it's a repayment of a debt, not a tax, and totalTax feeds the
@@ -1030,6 +1059,11 @@ export function computePersonTax(person, opts){
     dividendCash: dividends.cash, frankingCredit: dividends.credit, dividendGrossedUp: dividends.grossedUp,
     funds: funds, fundIncome: funds.income, fundFrankingCredit: funds.credit, fito: fito,
     fy: fy, taxTablesAssumed: taxTablesFor(fy).assumed, phi: phi, phiAdjustment: phiShare,
+    interestIncome: interest, incomeStatements: statements, ipShareForYear: ipShare,
+    // What comes back (positive) or is owed (negative) on assessment: tax withheld less the tax and
+    // levies, credits and offsets already netted in totalTax, and any compulsory HELP repayment.
+    // Only known once income statements give the withholding.
+    refund: statements ? Math.round((statements.withheld - totalTax - helpRepayment) * 100) / 100 : null,
     fundCapitalGain: funds.capitalGainNet,
     // The number people actually want: what the dividend is worth after tax. Negative top-up above
     // a 30% marginal rate, positive refund below it.

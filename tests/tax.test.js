@@ -962,19 +962,20 @@ test("surcharge tiers move each year", function(){
 
 test("the private health rebate clawback: Tier 1 claimed, Tier 2 family income — the $***", function(){
   // The real FY25/26 household: $***REMOVED*** + $***REMOVED*** (family Tier 2, $***-$***), Insurer
-  // premiums $***REMOVED*** with the rebate taken at Tier 1. myTax clawed back about $***.
+  // premiums $***REMOVED*** each ($***REMOVED*** for the policy) with the rebate taken at Tier 1. myTax clawed
+  // back about $*** on each return.
   withIncome([grossRow("Alex", ***REMOVED***), grossRow("Sam", ***REMOVED***)], function(){
     state.tax.familyThresholds = true;
     state.tax.privateHospitalCover = true;
-    state.tax.phiPremiums = 1297;
+    state.tax.phiPremiums = 2594;
     state.tax.phiTierClaimed = 1;
     var a = phiRebateAdjustment({ fy: 2025 });
     assert.equal(a.actualTier, 2);
     assert.equal(a.claimedTier, 1);
-    assert.equal(Math.round(a.adjustment), 105);
-    // Split evenly between the two returns.
+    assert.equal(Math.round(a.adjustment), 210);
+    // Split evenly between the two returns: about $*** each.
     var alex = computePersonTax("Alex", { fy: 2025 });
-    assert.equal(Math.round(alex.phiAdjustment * 2), 105);
+    assert.equal(Math.round(alex.phiAdjustment), 105);
   });
   assert.ok(Math.abs(phiRebateRate(1, 2025) - (0.75 * 0.16192 + 0.25 * 0.16079)) < 1e-12);
 });

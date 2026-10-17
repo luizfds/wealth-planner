@@ -15,6 +15,8 @@ import { periodsOf, sumField, sumFieldForScenario, resolveSharedAmount, appendHi
 import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider, saleCapitalGain, lotsUnitsAvailable } from "./calc/tax.js";
 import { recalcComputedItems, scenarioTotals, totalNetWorthValue, totalDebtsValue } from "./calc/engine.js";
 import { financialYearOf, fyLabel } from "./calc/property.js";
+import { renderTaxYear, setTaxYearSelected, taxYearAddRow, taxYearDeleteRow, taxYearRestoreRow, taxYearSetField, taxYearToggleEvidence, taxYearMarkLodged, worksheetText, taxYearSelected } from "./components/taxyear.js";
+import { setRentalActual } from "./calc/taxyear.js";
 import { renderCards, renderDashboardStats, renderDetail, setProjectionReference, logNetWorthSnapshot } from "./components/dashboard.js";
 import {
   personBreakdownHtml, renderIncomeGroups, patchOpenRowBreakdowns, patchIncomeGroupTotals,
@@ -1054,6 +1056,70 @@ import {
     renderTotals();
     renderProjectionOutputs();
     persist();
+  });
+
+  // ---------------- Tax return worksheet ----------------
+  // Every edit re-runs the year's figures and re-renders the section. Inputs commit on "change"
+  // (blur / Enter / select), not per keystroke, so a re-render never takes focus mid-number.
+  function afterTaxYearEdit(){
+    renderTaxYear();
+    persist();
+  }
+  var taxYearBody = document.getElementById("taxYearBody");
+  document.getElementById("taxYearLedger").addEventListener("toggle", function(){
+    if(document.getElementById("taxYearLedger").open) renderTaxYear();
+  });
+  taxYearBody.addEventListener("change", function(e){
+    var t = e.target;
+    if(t.id === "taxYearSelect"){ setTaxYearSelected(t.value); renderTaxYear(); return; }
+    if(t.hasAttribute("data-ty-evidence")){
+      taxYearToggleEvidence(t.getAttribute("data-ty-evidence"), t.checked);
+      var sum = t.closest("details").querySelector("summary");
+      var boxes = t.closest("details").querySelectorAll("[data-ty-evidence]");
+      var on = Array.prototype.filter.call(boxes, function(b){ return b.checked; }).length;
+      if(sum) sum.textContent = "Documents to keep (" + on + " of " + boxes.length + ")";
+      persist();
+      return;
+    }
+    if(t.hasAttribute("data-ty-rent")){
+      setRentalActual(taxYearSelected(), t.getAttribute("data-ty-rent"), t.getAttribute("data-ty-key"), t.value);
+      afterTaxYearEdit();
+      return;
+    }
+    if(t.hasAttribute("data-ty-kind")){
+      taxYearSetField(t.getAttribute("data-ty-kind"), t.getAttribute("data-ty-person"), Number(t.getAttribute("data-ty-index")), t.getAttribute("data-ty-key"), t.value);
+      afterTaxYearEdit();
+    }
+  });
+  taxYearBody.addEventListener("click", function(e){
+    var add = e.target.closest("[data-ty-add]");
+    if(add){
+      taxYearAddRow(add.getAttribute("data-ty-add"), add.getAttribute("data-ty-person"));
+      afterTaxYearEdit();
+      return;
+    }
+    var del = e.target.closest("[data-ty-del]");
+    if(del){
+      var kind = del.getAttribute("data-ty-del"), who = del.getAttribute("data-ty-person"), i = Number(del.getAttribute("data-ty-index"));
+      var removed = taxYearDeleteRow(kind, who, i);
+      afterTaxYearEdit();
+      if(removed) showUndoToast("Row deleted", function(){ taxYearRestoreRow(kind, who, i, removed); afterTaxYearEdit(); });
+      return;
+    }
+    var lodge = e.target.closest("[data-ty-lodge]");
+    if(lodge){
+      taxYearMarkLodged(lodge.getAttribute("data-ty-lodge"));
+      afterTaxYearEdit();
+      showToast("Saved as lodged — next year's worksheet will compare against it");
+      return;
+    }
+    var copy = e.target.closest("[data-ty-copy]");
+    if(copy){
+      var text = worksheetText(copy.getAttribute("data-ty-copy"));
+      try {
+        navigator.clipboard.writeText(text).then(function(){ showToast("Worksheet copied"); }, function(){ showToast("Couldn't copy — select the worksheet and copy it instead"); });
+      } catch(err){ showToast("Couldn't copy — select the worksheet and copy it instead"); }
+    }
   });
 
   document.getElementById("homeBody").addEventListener("input", onCalcInput);
@@ -3579,6 +3645,7 @@ import {
     updatePersonSuggestions();
     updateAccountSuggestions();
     renderTaxSuper();
+    renderTaxYear();
     renderNotifBadge();
   }
 

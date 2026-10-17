@@ -287,6 +287,8 @@ export function migrateState(s){
   // is reordered/added to elsewhere — an array index would silently point at the wrong row.
   s.shared.forEach(function(item){ if(!item.id) item.id = genId("exp"); applyTimingDefaults(item); });
   if(!Array.isArray(s.transactions)) s.transactions = [];
+  // The tax-year record (v3.26.0) — actuals per financial year, see calc/taxyear.js.
+  if(!s.taxYears || typeof s.taxYears !== "object" || Array.isArray(s.taxYears)) s.taxYears = {};
   // Which budget groups on the Expenses tab are collapsed, keyed by group name. Persisted rather
   // than session-only for the same reason a property card's sections are: a structural edit
   // anywhere on the page rebuilds the whole list, which would otherwise reset every group to its

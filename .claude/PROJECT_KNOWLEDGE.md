@@ -1196,3 +1196,15 @@ pushed to `origin`. Do this without being asked, every time.
 - **Net worth over time starts at full coverage** (`coverageStart`). Don't "fix" an empty chart by
   summing whatever was logged — that is the bug item 53 removed.
 - `computeNetWorthSeries` points carry `investments`, `propertyEquity` and `debt` as well as `y`.
+
+### Benchmarks (v3.35.0–v3.37.0)
+
+- Dashboard → Benchmarks is `components/benchmarks.js`: sections registered in page order with
+  `registerBenchmarkSection({id, title, sub, html})`, each an HTML builder over a plain data object
+  (render-smoke tested) plus a `gather…()` that reads state. One delegated change/click pair on
+  `#benchmarksBody` in `app.js` handles every control.
+- Published figures live in `constants.js` `BENCHMARKS` with source and period; the UI prints both.
+- Benchmark index prices: `state.benchmark.prices[symbol][date]`, plus `now`/`nowDate`. A pasted
+  row's symbol is `IOZ@YYYY-MM-DD` or `IOZ@NOW` — `parseSharesPasteLine` strips a leading
+  `XXX:` exchange prefix, which is why the separator is `@`, not `:`.
+- `state.goals` and `property.market` are new persisted shapes; `migrateState()` defaults them.

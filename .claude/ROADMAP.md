@@ -1901,6 +1901,56 @@ category for the household year.
 
 ---
 
+## App assessment (October 2026, post-v3.32.0)
+
+An open request after PR #83: "a full app assessment — all current features and the layout/UX/UI
+improved, new features welcome". Every page and subtab was driven at 390px and 1280px, light and
+dark, against generated sample data. There were zero page errors and zero sideways overflow, so
+everything below came from looking at the result rather than from the console.
+
+### Wrong or misleading
+
+## 53. `[~]` Net worth over time started from a partial total
+The Assets chart summed whatever had a value on each date. Before 17 Oct only three Shares holdings
+had history, so the line read ~$*** for six weeks and then leapt to $*** — a "growth" that was
+just the day logging began.
+
+## 54. `[~]` USD holdings were added as AUD with no rate set
+`toAudAmount()` passes USD through unconverted when `state.fx.usdAud` is empty (deliberately, so
+nothing is zeroed). Nothing said so: the Shares total, the 1D gain glance and net worth silently
+added US$2,170 as A$2,170.
+
+## 55. `[~]` "Property equity" meant two things
+Assets' tile excludes the offset (it's already in Liquid), Properties' tile includes it. Both were
+captioned "net of offset" and differed by exactly the offset balance.
+
+## 56. `[~]` Scenario names cut to "Buy …" on the Dashboard
+At 1280px each card spent its header on three icon buttons, leaving the name ~40px. The edit
+pencil also sat on top of the Current situation badge.
+
+## 57. `[~]` The floating buttons covered figures
+The + and back-to-top buttons are fixed over the content column's right edge, covering monthly
+totals and the FI card's values on both widths.
+
+## 58. `[~]` The stale-assets banner couldn't tell two people's super apart
+"Superannuation (never logged), Superannuation (never logged)".
+
+### Layout and UX
+
+## 59. `[~]` Explanations behind an ⓘ, not in front of the content
+## 60. `[~]` A consistent header toolbar; Sample data and Reset in a menu
+## 61. `[~]` Summary tiles that fit the screen
+## 62. `[~]` Insights cards sized to their content; steady forecast months collapsed
+## 63. `[~]` Smaller polish (empty N/A group, the Log button, one colour per asset class)
+
+### New
+
+## 64. `[~]` A "This tax year" card on the Dashboard
+## 65. `[~]` Projection milestones and a year-by-year table
+## 66. `[~]` Tax-time reminders
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

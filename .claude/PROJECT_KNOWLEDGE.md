@@ -175,6 +175,15 @@ what several inputs mean. Read this before touching any of it:
   its own markup (`afterLotListChange`, `afterStatementListChange`, `renderTaxYear` restoring
   `<details>` open state) — `renderAssets()` closes the row editor out from under the user.
 
+### Row start dates (v3.32.0)
+
+Every ledger row now has `startDate` beside `endDate`, and the two are read together everywhere:
+`isActiveOn` (today's totals), `isActiveInYear` (projection — same anchor date for both ends),
+`calc/cashflow.js` (a row counts for the month it starts and the month it ends), and
+`deductionYearFraction` (the claim starts at the later of the row's start and `deductibleFrom`).
+Anything new that asks "is this row running" must check both — `activeShareOfWindow()` is the
+helper for any figure measured over a window (reserve targets, planned-to-date).
+
 ### The household year (v2.80.0)
 
 `state.yearBasis` — `"financial"` (Jul–Jun, the default) or `"calendar"` — is the household's

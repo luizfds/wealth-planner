@@ -818,3 +818,14 @@ test("benchmarks: property against its suburb", async function(){
   assert.match(html, /data-pm-field="yield" value=""/);
   assert.match(propertyMarketHtml({ properties: [] }), /Add a property/);
 });
+
+test("distributions received: rows, note and add button", async function(){
+  const { payoutsSectionHtml, payoutsNoteText } = await import("../src/components/assets.js");
+  const item = { what: "ETFB", payouts: [{ date: "2026-01-15", cash: 120.5, credit: 51.64 }] };
+  const html = payoutsSectionHtml(item, 3);
+  assert.match(html, /Distributions received \(1\)/);
+  assert.match(html, /class="po-cash" data-payout-index="0" value="120.5"/);
+  assert.match(html, /data-payout-del="3:0"/);
+  assert.match(payoutsNoteText(item), /1 payment: \$***\.50 cash \+ \$***\.64 franking credits/);
+  assert.match(payoutsSectionHtml({ payouts: [] }, 0), /Log each dividend/);
+});

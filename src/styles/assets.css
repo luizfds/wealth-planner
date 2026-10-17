@@ -191,3 +191,7 @@
 .fx-warn p{ margin:0 0 8px; color:var(--ink); }
 .fx-warn-field{ display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--ink-soft); }
 .fx-warn-field input{ width:90px; min-height:36px; padding:4px 8px; border:1px solid var(--border); border-radius:8px; background:var(--paper); color:var(--ink); font:inherit; text-align:right; }
+
+  /* v3.38.0 — distributions received: date, cash, franking credit, delete. */
+  .lot-head.payout-row, .lot-row.payout-row{ grid-template-columns: 124px minmax(0,1fr) minmax(0,1fr) 32px; }
+  .lot-head.payout-row{ border-top:0; padding:0 2px 4px; }

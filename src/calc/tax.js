@@ -361,20 +361,52 @@ export function amitCostBaseAdjustmentPerUnit(asset, dateStr){
 // an unattributed deduction: it belongs to the only person, or to nobody when there are two.
 // A holding with an annual tax statement for the year is left out — the statement is the real
 // figure, and counting the estimate too would declare the same distribution twice.
-export function personDividends(person, win){
+// Distributions actually received (v3.38.0): asset.payouts = [{id, date, cash, credit}] — the cash
+// that landed and the franking credit on the statement. In a named year they replace the
+// per-unit estimate for that holding (a tax statement still wins: it has the labels); the rest of
+// the time a holding with no per-unit figure uses its last twelve months of payouts as the rate.
+export function payoutsBetween(asset, start, end){
+  return (Array.isArray(asset && asset.payouts) ? asset.payouts : []).filter(function(p){
+    return p && p.date && p.date >= start && p.date <= end;
+  }).reduce(function(acc, p){
+    acc.cash += Number(p.cash) || 0;
+    acc.credit += Number(p.credit) || 0;
+    acc.count++;
+    return acc;
+  }, { cash: 0, credit: 0, count: 0 });
+}
+function trailingYearPayouts(asset, todayIso){
+  var t = String(todayIso);
+  var start = (Number(t.slice(0, 4)) - 1) + t.slice(4);
+  return payoutsBetween(asset, start, t);
+}
+export function personDividends(person, win, opts){
+  opts = opts || {};
   var people = getTaxPeople();
+  var today = opts.today || localDateStr();
   return state.assets.filter(function(a){
-    if(a.category !== "Shares" || !(Number(a.dividendPerUnit) || 0)) return false;
+    if(a.category !== "Shares") return false;
     if(win && statementsTouching(a, win).length) return false;
+    if(!(Number(a.dividendPerUnit) || 0) && !(Array.isArray(a.payouts) && a.payouts.length)) return false;
     if(!a.person) return people.length <= 1;
     return a.person === person;
   }).reduce(function(acc, a){
-    var d = holdingDividend(a);
+    var d;
+    var actual = opts.yearMode && win ? payoutsBetween(a, win.start, win.end) : null;
+    if(actual && actual.count){
+      d = { cash: actual.cash, credit: actual.credit };
+      acc.actualCount += actual.count;
+    } else if(Number(a.dividendPerUnit) || 0){
+      d = holdingDividend(a);
+    } else {
+      var tr = trailingYearPayouts(a, today);
+      d = { cash: tr.cash, credit: tr.credit };
+    }
     acc.cash += d.cash;
     acc.credit += d.credit;
-    acc.grossedUp += d.grossedUp;
+    acc.grossedUp += Math.round((d.cash + d.credit) * 100) / 100;
     return acc;
-  }, { cash: 0, credit: 0, grossedUp: 0 });
+  }, { cash: 0, credit: 0, grossedUp: 0, actualCount: 0 });
 }
 
 // ---------------- Work-related deductions ----------------
@@ -984,7 +1016,7 @@ export function computePersonTax(person, opts){
   var wfhOverlap = wfh.amount > 0 && deductibleItems ? wfhOverlapRows(person, deductibleItems) : [];
   // Dividends enter taxable income GROSSED UP (cash + franking credit); the credit then comes off
   // the tax bill below. Adding only the cash would understate the income and overstate the benefit.
-  var dividends = personDividends(person, taxYearWindow);
+  var dividends = personDividends(person, taxYearWindow, { yearMode: yearMode });
   // Fund tax statements for the same year: their income labels go straight into taxable income,
   // their franking credit is refundable like a dividend's, and 20O foreign tax paid comes off the
   // bill as a (non-refundable) foreign income tax offset.

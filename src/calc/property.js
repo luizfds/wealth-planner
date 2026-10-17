@@ -372,6 +372,22 @@ export function borrowingCostsSchedule(loan){
   var residual = Math.round((total - rows.reduce(function(s, r){ return s + r.amount; }, 0)) * 100) / 100;
   if(residual > 0) rows[0].amount = Math.round((rows[0].amount + residual) * 100) / 100;
   else if(residual < 0) rows[rows.length - 1].amount = Math.round((rows[rows.length - 1].amount + residual) * 100) / 100;
+  // Paid out or refinanced before the spread finished: whatever hasn't been deducted yet is
+  // deductible in the financial year the loan ended, and nothing after (v3.27.0). The new loan's
+  // own costs start their own five years on the new loan.
+  var ended = loan.endedOn;
+  if(ended && !isNaN(isoDayNumber(ended)) && ended >= settled && ended < lastDay){
+    var endFy = financialYearOf(ended);
+    var before = rows.filter(function(r){ return r.fy < endFy; });
+    var claimed = before.reduce(function(s, r){ return s + r.amount; }, 0);
+    var last = rows.find(function(r){ return r.fy === endFy; });
+    if(last){
+      last.amount = Math.round((total - claimed) * 100) / 100;
+      last.writtenOff = true;
+      before.push(last);
+    }
+    rows = before;
+  }
   return rows;
 }
 // What's deductible in one window. A financial-year window lines up with one schedule row exactly;

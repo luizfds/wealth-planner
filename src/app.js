@@ -471,6 +471,7 @@ import {
     }
     // structural: the collapsed row carries an "Ends …" note derived from this, and on the budget
     // pages an ended line is excluded from the projection — both need the row rebuilt, not patched.
+    else if(e.target.classList.contains("f-startdate")){ item.startDate = e.target.value || ""; structural = true; taxDeductionsChanged = !!item.deductible; }
     else if(e.target.classList.contains("f-enddate")){ item.endDate = e.target.value || ""; structural = true; }
     // Deduction fields. structural on the flag only: ticking it reveals the share/person fields,
     // which are already in the DOM hidden — revealed in place rather than by re-rendering the row

@@ -1,6 +1,6 @@
 import { state, persist, genId } from "../state.js";
 import { CLASSES, FREQS, UNCATEGORISED } from "../constants.js";
-import { sumField, sumFieldForScenario, resolveSharedAmount, periodsOf, budgetCycleFor, reserveCycleFor, transactionDisplayName, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, isOverdue, daysUntil, lastTransactionDateFor, refundableTransactions, reserveYearWindowFor, householdYearWindow, householdYearToDate, householdYearProgress, householdYearBasis, HOUSEHOLD_YEAR_BASES } from "../calc/ledger.js";
+import { sumField, sumFieldForScenario, resolveSharedAmount, periodsOf, budgetCycleFor, reserveCycleFor, transactionDisplayName, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, plannedToDateByCategory, isOverdue, daysUntil, lastTransactionDateFor, refundableTransactions, reserveYearWindowFor, householdYearWindow, householdYearToDate, householdYearProgress, householdYearBasis, HOUSEHOLD_YEAR_BASES } from "../calc/ledger.js";
 import { merchantGroups, worthShowingMerchants, recentMerchants } from "../calc/merchants.js";
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent0, fmtPercent1, localDateStr } from "../lib/format.js";
@@ -2133,24 +2133,40 @@ export function renderYearSpending(){
   var groups = order.map(function(name){ return { key: name, monthly: byCategory[name] }; })
     .sort(function(a, b){ return b.monthly - a.monthly; });
 
+  // What the budget planned for the same stretch of the year (v3.32.0), by the same categories.
+  // Only lines you log against — a computed line (synced loan repayment, PM fee) is never logged,
+  // so planning it here would read as permanently under-spent.
+  var full = householdYearWindow();
+  var planned = plannedToDateByCategory(loggableBudgetLineItems(), full.start, full.end, win.end,
+    function(item){ return resolveSharedAmount(item, state.activeScenario); },
+    function(item){ return (item.category || "").trim() || UNCATEGORISED; });
+  var plannedTotal = Object.keys(planned).reduce(function(s, k){ return s + planned[k]; }, 0);
+  Object.keys(planned).forEach(function(k){ if(byCategory[k] == null && planned[k] >= 1) groups.push({ key: k, monthly: 0 }); });
+
   var progress = householdYearProgress();
   var headline = '<p class="trend-headline"><b>' + fmtCurrency0.format(total) + '</b> logged in ' +
     escapeAttr(win.label) + ', across ' + txns.length + ' transaction' + (txns.length === 1 ? "" : "s") +
+    (plannedTotal >= 1 ? ', against <b>' + fmtCurrency0.format(plannedTotal) + '</b> planned for the same stretch' : '') +
     (win.complete ? "." : " — " + fmtPercent0.format(progress) + " of the way through the year.") + '</p>';
 
+  // Each bar is spent against planned for that category — the over/under question a year view
+  // exists to answer — with the planned amount as the bar's full width and anything over it shown.
   var rows = groups.map(function(g){
-    var share = total > 0 ? g.monthly / total : 0;
-    return '<div class="year-cat-row">' +
+    var plan = planned[g.key] || 0;
+    var share = plan > 0 ? Math.min(1, g.monthly / plan) : (total > 0 ? g.monthly / total : 0);
+    var over = plan > 0 && g.monthly > plan * 1.005;
+    return '<div class="year-cat-row' + (over ? " over" : "") + '">' +
       '<span class="year-cat-name">' + escapeAttr(g.key) + '</span>' +
-      '<span class="year-cat-bar"><span class="year-cat-fill" style="width:' + (share * 100) + '%"></span></span>' +
+      '<span class="year-cat-bar" title="' + escapeAttr(plan > 0 ? fmtCurrency0.format(g.monthly) + " of " + fmtCurrency0.format(plan) + " planned so far" : "Not in the budget") + '"><span class="year-cat-fill" style="width:' + (share * 100) + '%"></span></span>' +
       '<span class="year-cat-amt">' + fmtCurrency0.format(g.monthly) + '</span>' +
-      '<span class="year-cat-pct">' + fmtPercent0.format(share) + '</span>' +
+      '<span class="year-cat-pct">' + (plan > 0 ? "of " + fmtCurrency0.format(plan) : "unplanned") + '</span>' +
     '</div>';
   }).join("");
 
   panel.innerHTML = headline +
-    (categoryChartHtml(groups, "") || "") +
-    '<div class="year-cat-rows">' + rows + '</div>';
+    (categoryChartHtml(groups.filter(function(g){ return g.monthly > 0; }), "") || "") +
+    '<div class="year-cat-rows">' + rows + '</div>' +
+    (plannedTotal >= 1 ? '<p class="ledger-note" style="margin:6px 0 0">Planned is each budget line\'s share of the year so far, from the day it starts to the day it ends. Bills that come once or twice a year are spread evenly, so one paid early reads as over plan until the year catches up.</p>' : '');
 }
 
 // Which twelve months the household counts as a year — rendered here rather than in app.js because

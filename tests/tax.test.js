@@ -1002,3 +1002,10 @@ test("65-69 rates are higher than under-65 at every tier but the top", function(
   assert.ok(phiRebateRate(1, 2025, "a65") > phiRebateRate(1, 2025, "u65"));
   assert.equal(phiRebateRate(3, 2025, "a70"), 0);
 });
+
+test("a deduction can't be claimed before its line starts", function(){
+  var row = deductibleRow("Course", 3650, "Yearly", { startDate: "2026-06-01" });
+  assert.ok(Math.abs(rowDeductionAnnual(row, FY2526) - 3650 * 30 / 365) < 1e-9);
+  // The later of the line's start and the claim's own start wins.
+  assert.equal(deductionYearFraction({ startDate: "2026-06-01", deductibleFrom: "2026-06-16" }, FY2526), 15 / 365);
+});

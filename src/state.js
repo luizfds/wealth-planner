@@ -69,6 +69,8 @@ export function normalizeShareAsset(a){
   if(a.frankedPct == null) a.frankedPct = 100;
   // Purchase lots (v3.21.0) — see calc/tax.js. Empty = no parcels kept; sales use Avg cost.
   if(!Array.isArray(a.lots)) a.lots = [];
+  // Annual tax statements (v3.22.0) — see calc/tax.js personFundStatements().
+  if(!Array.isArray(a.taxStatements)) a.taxStatements = [];
   a.amount = Math.round((Number(a.quantity) || 0) * (Number(a.price) || 0) * 100) / 100;
   return a;
 }

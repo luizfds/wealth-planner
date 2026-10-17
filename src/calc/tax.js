@@ -222,12 +222,86 @@ export function holdingDividend(asset){
     frankedPct: asset.frankedPct == null ? 100 : asset.frankedPct
   };
 }
+// ---------------- Annual tax statements (ETFs, managed funds) ----------------
+//
+// An ETF isn't a company paying a dividend. It's a trust passing through whatever it earned, and its
+// annual tax statement (an AMMA statement, under the attribution regime) splits that into the labels
+// myTax asks for: 13U non-primary production income, 13C franked distributions, 13Q franking
+// credits, 18H/18A capital gains the fund made, 20E/20M foreign income, 20O foreign tax already
+// paid — plus an AMIT cost base adjustment, which isn't income at all but changes the cost base of
+// the units. An S&P 500 ETF is almost all foreign income and fund capital gains; modelling it as
+// "dividend per unit, 100% franked" gets every one of those labels wrong.
+//
+// asset.taxStatements[] = {fy, u13, c13, q13, h18, discount18, other18, e20, m20, o20, cash,
+// cbIncrease, cbDecrease, units}. fy is the year the financial year starts in. Copied straight
+// from the statement; a year with a statement replaces that holding's dividend-per-unit estimate.
+function overlapFraction(fy, win){
+  if(!win) return 1;
+  var s = fy + "-07-01", e = (fy + 1) + "-06-30";
+  var shared = overlapDaysInclusive(s, e, win.start, win.end);
+  var fyDays = overlapDaysInclusive(s, e, s, e);
+  return fyDays > 0 ? shared / fyDays : 0;
+}
+function statementsTouching(asset, win){
+  return (Array.isArray(asset && asset.taxStatements) ? asset.taxStatements : []).filter(function(st){
+    return overlapFraction(Number(st.fy), win) > 0;
+  });
+}
+function holdingBelongsTo(a, person, people){
+  if(!a.person) return people.length <= 1;
+  return a.person === person;
+}
+// Everything this person's fund statements put on a return for the window.
+export function personFundStatements(person, win){
+  var people = getTaxPeople();
+  var out = { nonPrimary: 0, franked: 0, credit: 0, foreign: 0, fito: 0, cash: 0,
+    capitalGainGross: 0, capitalGainDiscountable: 0, capitalGainOther: 0, capitalGainNet: 0, funds: [] };
+  state.assets.forEach(function(a){
+    if(a.category !== "Shares" || !holdingBelongsTo(a, person, people)) return;
+    statementsTouching(a, win).forEach(function(st){
+      var f = overlapFraction(Number(st.fy), win);
+      var n = function(k){ return (Number(st[k]) || 0) * f; };
+      out.nonPrimary += n("u13");
+      out.franked += n("c13");
+      out.credit += n("q13");
+      out.foreign += n("m20");
+      out.fito += n("o20");
+      out.cash += n("cash");
+      out.capitalGainGross += n("h18");
+      // 18H is gross: a discounted gain appears in it grossed back up, so the discountable part is
+      // 18H less the "other method" gains, and it's halved again (or netted against losses) at the
+      // household level — exactly what myTax does with the two labels.
+      out.capitalGainOther += n("other18");
+      out.capitalGainDiscountable += Math.max(0, n("h18") - n("other18"));
+      out.capitalGainNet += n("discount18") + n("other18");
+      if(out.funds.indexOf(a.what) === -1) out.funds.push(a.what);
+    });
+  });
+  Object.keys(out).forEach(function(k){ if(typeof out[k] === "number") out[k] = Math.round(out[k] * 100) / 100; });
+  // What enters taxable income from the statement's income labels (capital gains go through CGT).
+  out.income = Math.round((out.nonPrimary + out.franked + out.credit + out.foreign) * 100) / 100;
+  return out;
+}
+// The AMIT cost base adjustment per unit accrued before `dateStr`: shortfall (increase) less excess
+// (decrease), each divided by the units held at that statement. A sale adds this to its cost base.
+export function amitCostBaseAdjustmentPerUnit(asset, dateStr){
+  return (Array.isArray(asset && asset.taxStatements) ? asset.taxStatements : []).reduce(function(sum, st){
+    var fyEnd = (Number(st.fy) + 1) + "-06-30";
+    var units = Number(st.units) || 0;
+    if(!(units > 0) || fyEnd >= (dateStr || "")) return sum;
+    return sum + ((Number(st.cbIncrease) || 0) - (Number(st.cbDecrease) || 0)) / units;
+  }, 0);
+}
+
 // Every Shares holding attributed to this person. An unattributed holding follows the same rule as
 // an unattributed deduction: it belongs to the only person, or to nobody when there are two.
-export function personDividends(person){
+// A holding with an annual tax statement for the year is left out — the statement is the real
+// figure, and counting the estimate too would declare the same distribution twice.
+export function personDividends(person, win){
   var people = getTaxPeople();
   return state.assets.filter(function(a){
     if(a.category !== "Shares" || !(Number(a.dividendPerUnit) || 0)) return false;
+    if(win && statementsTouching(a, win).length) return false;
     if(!a.person) return people.length <= 1;
     return a.person === person;
   }).reduce(function(acc, a){
@@ -653,13 +727,18 @@ export function computePersonTax(person, opts){
   var deductions = deductibleItems ? personDeductionsAnnual(person, deductibleItems, taxYearWindow) : 0;
   // Dividends enter taxable income GROSSED UP (cash + franking credit); the credit then comes off
   // the tax bill below. Adding only the cash would understate the income and overstate the benefit.
-  var dividends = personDividends(person);
+  var dividends = personDividends(person, taxYearWindow);
+  // Fund tax statements for the same year: their income labels go straight into taxable income,
+  // their franking credit is refundable like a dividend's, and 20O foreign tax paid comes off the
+  // bill as a (non-refundable) foreign income tax offset.
+  var funds = personFundStatements(person, taxYearWindow);
   // Capital gains within the household's year. Bounded to the year because a CGT event belongs to
   // the year it happened in — unlike every other figure here, which is a rate, a sale is a
   // one-off, and carrying last year's sale into this year's estimate would be plainly wrong.
   var cgtWindow = taxYearWindow;
   var capitalGains = personCapitalGains(person, { from: cgtWindow.start, to: cgtWindow.end });
-  var taxable = Math.max(0, gross - sacrifice + ipShare - deductions + dividends.grossedUp + capitalGains.assessable);
+  var taxable = Math.max(0, gross - sacrifice + ipShare - deductions + dividends.grossedUp + funds.income +
+    capitalGains.assessable + funds.capitalGainNet);
   var incomeTax = incomeTaxAU(taxable);
   var medicare = medicareLevyAU(taxable);
   // HELP repayment income is deliberately NOT taxable income. It adds back the two things the tax
@@ -693,13 +772,17 @@ export function computePersonTax(person, opts){
   // The franking credit is a REFUNDABLE offset in Australia — it can take the bill below zero and
   // be paid out, which is why this isn't clamped at 0. That's the case that matters most (a
   // low-income or retired shareholder), and clamping would quietly delete it.
-  var totalTax = incomeTax + medicare + medicareSurcharge - dividends.credit;
+  // Foreign income tax offset: credit for tax the fund already paid overseas. Non-refundable, so it
+  // can bring the income tax and levy to zero but not below. Under $1,000 it's claimed in full with
+  // no limit calculation — the case for any ordinary ETF holding.
+  var fito = Math.min(funds.fito, Math.max(0, incomeTax + medicare));
+  var totalTax = incomeTax + medicare + medicareSurcharge - dividends.credit - funds.credit - fito;
   // Part of take-home, not of "tax": it's a repayment of a debt, not a tax, and totalTax feeds the
   // effective-rate figure where lumping it in would overstate what the ATO keeps. But it does come
   // out of the same pay, so every downstream net figure has to see it.
   // The dividend CASH is real money arriving; the credit is settled through the tax bill above, so
   // adding the grossed-up figure here would count it twice.
-  var netTakeHome = gross - sacrifice - totalTax - helpRepayment + dividends.cash;
+  var netTakeHome = gross - sacrifice - totalTax - helpRepayment + dividends.cash + funds.cash;
   // netTakeHome already folds in the property's tax effect evenly across the year — but a tax
   // refund from a negative-geared loss (or a bill from a positively-geared profit) doesn't
   // actually arrive that way unless the PAYG withholding was varied; by default it's a lump sum
@@ -735,6 +818,8 @@ export function computePersonTax(person, opts){
     capitalGainsDiscount: capitalGains.discounted, capitalGainSales: capitalGains.sales,
     capitalGainsYear: cgtWindow.label,
     dividendCash: dividends.cash, frankingCredit: dividends.credit, dividendGrossedUp: dividends.grossedUp,
+    funds: funds, fundIncome: funds.income, fundFrankingCredit: funds.credit, fito: fito,
+    fundCapitalGain: funds.capitalGainNet,
     // The number people actually want: what the dividend is worth after tax. Negative top-up above
     // a 30% marginal rate, positive refund below it.
     dividendNet: Math.round((dividends.cash + dividends.credit - (dividends.grossedUp * marginalRateAU(taxable))) * 100) / 100,

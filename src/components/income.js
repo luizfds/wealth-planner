@@ -599,6 +599,7 @@ function taxPersonFrontBodyHtml(person, r){
     // the cover is saving — which is the only way the panel can answer "is a policy worth it",
     // the question this app has every other input for.
     '<div class="tax-cap-note tax-cgt-note"' + (r.capitalGainSales.length ? '' : ' hidden') + ' title="Recorded under \'Record a sale\' on a Shares holding. Held more than 12 months, an individual\'s gain is halved before tax.">' + capitalGainsNoteText(r) + '</div>' +
+    '<div class="tax-cap-note tax-fund-note"' + (r.funds && r.funds.funds.length ? '' : ' hidden') + ' title="From annual tax statements entered on Shares holdings (Assets page). The income labels go into taxable income as they are; capital gains go through the capital gains figure above.">' + fundsNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-div-note"' + (r.dividendGrossedUp > 0 ? '' : ' hidden') + ' title="Taken from Shares holdings with a dividend per unit set on the Assets page. Australian franking credits are refundable, so a low-income holder can receive more than the company distributed.">' + dividendNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-deduct-note"' + (r.deductions > 0 ? '' : ' hidden') + ' title="Taken from budget lines flagged as work-related on the Expenses page. They reduce taxable income, which also reduces the Medicare levy and can move you under a surcharge tier — but not your HELP repayment, which is worked out on gross income.">' + deductionsNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-mls-note' + (r.medicareSurcharge > 0 ? " warn" : "") + '"' + (r.mlsIfUncovered > 0 ? '' : ' hidden') + ' title="Income for surcharge purposes is approximated as taxable income + your reportable super contributions, ignoring reportable fringe benefits and net investment losses — the same simplification Division 293 uses here.">' + mlsNoteText(r) + '</div>' +
@@ -639,6 +640,15 @@ function capitalGainsNoteText(r){
 // Dividends, stated the way a return states them: grossed up, with the credit as an offset and
 // the after-tax result spelled out. Above a 30% marginal rate a fully franked dividend still costs
 // a top-up; below it the credit is refundable. Neither is obvious from the cash figure.
+// One sentence per person for what their fund statements add — income, credits, gains, offset.
+function fundsNoteText(r){
+  var f = r.funds;
+  if(!f || !f.funds.length) return "";
+  return "Fund statements (" + f.funds.join(", ") + "): " + fmtCurrency0.format(f.income - f.credit) + " income + " +
+    fmtCurrency0.format(f.credit) + " franking credits declared" +
+    (f.capitalGainGross > 0 ? ", " + fmtCurrency0.format(f.capitalGainGross) + " capital gains (" + fmtCurrency0.format(f.capitalGainNet) + " after the fund's discount)" : "") +
+    (r.fito > 0 ? ", and a " + fmtCurrency0.format(r.fito) + " foreign income tax offset" : "") + ".";
+}
 function dividendNoteText(r){
   var sign = r.dividendNet >= 0 ? "" : "-";
   return "Dividends: " + fmtCurrency0.format(r.dividendCash) + " cash + " +
@@ -759,6 +769,11 @@ export function patchAllTaxPersonOutputs(){
     }
     var mscbNote = panel.querySelector(".tax-mscb-note");
     if(mscbNote) mscbNote.hidden = !r.superOverCap;
+    var fundNote = panel.querySelector(".tax-fund-note");
+    if(fundNote){
+      fundNote.hidden = !(r.funds && r.funds.funds.length);
+      fundNote.textContent = fundsNoteText(r);
+    }
     var cgtNote = panel.querySelector(".tax-cgt-note");
     if(cgtNote){
       cgtNote.hidden = !r.capitalGainSales.length;

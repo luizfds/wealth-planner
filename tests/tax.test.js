@@ -753,3 +753,53 @@ test("average cost follows the unsold lots", function(){
   var asset = { lots: [{ units: 100, price: 1, brokerage: 0, soldUnits: 100 }, { units: 100, price: 3, brokerage: 10, soldUnits: 0 }] };
   assert.equal(lotsAverageCost(asset), 3.1);
 });
+
+// ---------------- Annual tax statements for ETFs (v3.22.0) ----------------
+
+import { personFundStatements, personDividends as personDivs, amitCostBaseAdjustmentPerUnit } from "../src/calc/tax.js";
+
+// The real FY25/26 statements: iShares S&P 500 (IVV) and S&P/ASX Div Opp ESG (IHD), 156 and 313 units.
+function etfAssets(){
+  return [
+    { category: "Shares", what: "IVV", person: "", quantity: 156, dividendPerUnit: 0.7, frankedPct: 0, taxStatements: [
+      { fy: 2025, u13: 0.04, c13: 0, q13: 0, h18: 52.48, discount18: 26.24, other18: 0, e20: 122.71, m20: 122.71, o20: 18.53, cash: 115.72, cbIncrease: 40.99, cbDecrease: 0, units: 156 }] },
+    { category: "Shares", what: "IHD", person: "", quantity: 313, dividendPerUnit: 0.7, frankedPct: 80, taxStatements: [
+      { fy: 2025, u13: 27.38, c13: 246.11, q13: 76.54, h18: 0, discount18: 0, other18: 0, e20: 8.71, m20: 8.71, o20: 0.47, cash: 211.46, cbIncrease: 0, cbDecrease: 6.27, units: 313 }] }
+  ];
+}
+function withEtfAssets(assets, body){
+  var saved = state.assets;
+  state.assets = assets;
+  try { withIncome([grossRow("Sam", 100000)], body); } finally { state.assets = saved; }
+}
+
+test("fund statements put each myTax label where it belongs", function(){
+  withEtfAssets(etfAssets(), function(){
+    var f = personFundStatements("Sam", { start: "2025-07-01", end: "2026-06-30" });
+    assert.equal(f.nonPrimary, 27.42);   // 13U
+    assert.equal(f.franked, 246.11);     // 13C
+    assert.equal(f.credit, 76.54);       // 13Q
+    assert.equal(f.foreign, 131.42);     // 20M
+    assert.equal(f.fito, 19);            // 20O, $18.53 + $0.47
+    assert.equal(f.capitalGainGross, 52.48);       // 18H
+    assert.equal(f.capitalGainDiscountable, 52.48);
+    assert.equal(f.capitalGainNet, 26.24);         // 18A
+    assert.equal(f.income, Math.round((27.42 + 246.11 + 76.54 + 131.42) * 100) / 100);
+    assert.deepEqual(f.funds, ["IVV", "IHD"]);
+  });
+});
+
+test("a year with a statement drops that holding's dividend estimate", function(){
+  withEtfAssets(etfAssets(), function(){
+    assert.equal(personDivs("Sam", { start: "2025-07-01", end: "2026-06-30" }).cash, 0);
+    // A year with no statement still uses the estimate.
+    assert.ok(personDivs("Sam", { start: "2026-07-01", end: "2027-06-30" }).cash > 0);
+  });
+});
+
+test("the AMIT cost base adjustment is spread per unit, for sales after the statement's year", function(){
+  var ivv = etfAssets()[0];
+  assert.equal(amitCostBaseAdjustmentPerUnit(ivv, "2026-06-30"), 0, "not until the year has closed");
+  assert.ok(Math.abs(amitCostBaseAdjustmentPerUnit(ivv, "2026-08-01") - 40.99 / 156) < 1e-12);
+  assert.ok(Math.abs(amitCostBaseAdjustmentPerUnit(etfAssets()[1], "2026-08-01") + 6.27 / 313) < 1e-12);
+});

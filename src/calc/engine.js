@@ -6,6 +6,7 @@ import {
   shockedLoanRepaymentMonthly, scenarioInflatableHomeItems, calcStampDuty,
   calcLMI, calcRepaymentMonthly, purchaseActiveRate, loanBalanceAfterMonths,
   propertiesTotalEquityToday, propertiesOffsetTotal, landTaxDetailForProperty
+  , loanPaidOut
 } from "./property.js";
 import { getTaxPeople, computePersonTax, scenarioIncomeMonthly } from "./tax.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
@@ -115,6 +116,9 @@ export function staleAssets(){
   return result;
 }
 
+function addYearsIso(iso, years){
+  return (Number(String(iso).slice(0, 4)) + years) + String(iso).slice(4);
+}
 export function computeNetWorthSeries(scenario, horizonYears, opts){
   var cfg = state.purchase[scenario];
   var investCfg = state.invest[scenario];
@@ -226,6 +230,8 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
     var propertiesEquitySum = state.properties.reduce(function(sum, p){
       var val = (Number(p.value) || 0) * Math.pow(1 + propRate, year);
       var loanNet = (p.loans || []).reduce(function(s, l){
+        // v3.41.0: nothing owed from the year a "Paid out on" date has passed.
+        if(loanPaidOut(l, addYearsIso(todayStr, year))) return s;
         var bal = loanBalanceAfterMonths(l.balance, (Number(l.rate) || 0) + rateShockPts, l.termYears, year * 12, l.repaymentType);
         return s + Math.max(0, bal - (Number(l.offsetBalance) || 0));
       }, 0);
@@ -241,6 +247,7 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
     var deflate = realTerms ? Math.pow(1 + inflationRate, year) : 1;
     var propertiesDebt = state.properties.reduce(function(sum, p){
       return sum + (p.loans || []).reduce(function(s, l){
+        if(loanPaidOut(l, addYearsIso(todayStr, year))) return s;
         return s + Math.max(0, loanBalanceAfterMonths(l.balance, (Number(l.rate) || 0) + rateShockPts, l.termYears, year * 12, l.repaymentType) - (Number(l.offsetBalance) || 0));
       }, 0);
     }, 0);

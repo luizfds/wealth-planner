@@ -1,7 +1,7 @@
 import { state } from "../state.js";
 import { periodsOf } from "./ledger.js";
 import {
-  ipProperties, loanInterestMonthly, borrowingCostsDeduction, propertyDepreciationForFy, fyWindow
+  ipProperties, loanInterestMonthly, loanInterestMonthlyRaw, borrowingCostsDeduction, propertyDepreciationForFy, fyWindow
 } from "./property.js";
 
 // ---------------- The tax-year record (v3.26.0) ----------------
@@ -140,8 +140,16 @@ export function rentalSchedule(property, fy){
     var key = rentLineForExpense(e.what);
     model[key] += periodsOf(Number(e.amount) || 0, e.freq).yearly;
   });
-  model.interest = (property.loans || []).reduce(function(s, l){ return s + loanInterestMonthly(l) * 12; }, 0);
   var win = fyWindow(fy);
+  // v3.41.0: a loan paid out partway through the year only charged interest up to then.
+  model.interest = (property.loans || []).reduce(function(s, l){
+    var share = 1;
+    if(l.endedOn){
+      if(l.endedOn < win.start) share = 0;
+      else if(l.endedOn <= win.end) share = (Date.parse(l.endedOn) - Date.parse(win.start)) / (Date.parse(win.end) - Date.parse(win.start) + 86400000);
+    }
+    return s + loanInterestMonthlyRaw(l) * 12 * share;
+  }, 0);
   model.borrowing = (property.loans || []).reduce(function(s, l){ return s + borrowingCostsDeduction(l, win); }, 0);
   var dep = propertyDepreciationForFy(property, fy);
   model.capitalWorks = dep.capitalWorks;

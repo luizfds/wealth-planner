@@ -855,3 +855,16 @@ test("the worksheet offers Import a year next to Print", async function(){
     assert.match(taxYearHtml(), /data-ty-import[^>]*>Import a year<\/button><button type="button" class="btn btn-sm btn-ghost" data-ty-print>/);
   } finally { Object.assign(state, keep); }
 });
+
+test("loan strategy: four cards with results, and the IP note", async function(){
+  const { loanStrategyHtml } = await import("../src/components/properties.js");
+  const html = loanStrategyHtml({ id: "p1", kind: "IP", loans: [{ what: "ING", balance: 400000, rate: 6.2, termYears: 25, repaymentType: "PI", offsetBalance: 0,
+    strategy: { extra: 300, offsetAdd: 20000, newRate: 6.7, refiRate: 5.8, refiCosts: 1500, cashback: 0 } }] });
+  assert.match(html, /a month · paid off in 25y 0m/);
+  assert.match(html, /sooner<\/b>, <b>\$[\d,]+<\/b> less interest/);
+  assert.match(html, /<b>\$1,240<\/b> a year less interest/);
+  assert.match(html, /Repayments up <b>\$1\d\d<\/b> a month/);
+  assert.match(html, /Pays back the \$1,500 net switching cost in <b>\d+ months?<\/b>/);
+  assert.match(html, /Offset keeps the options/);
+  assert.match(loanStrategyHtml({ id: "p", kind: "IP", loans: [] }), /Add a loan with a balance/);
+});

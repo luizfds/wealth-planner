@@ -51,7 +51,7 @@ import {
 } from "./components/assets.js";
 import {
   modernPropRowOpen, renderPropListModern, renderProperties, patchPropertyCardComputed,
-  logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan, setSaleWhatIfField, patchSaleWhatIf
+  logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan, setSaleWhatIfField, patchSaleWhatIf, setLoanStrategyField, patchLoanStrategy
 } from "./components/properties.js";
 import { renderProjectionOutputs, projectionSeriesShown } from "./components/projections.js";
 import { renderBenchmarks, setBenchmarkField, applyBenchmarkPaste, addGoal, setGoalField, removeGoal, setPropertyMarketField } from "./components/benchmarks.js";
@@ -3906,6 +3906,19 @@ import {
     }
   });
 
+  // v3.41.0: Loan strategy on a property card.
+  document.addEventListener("change", function(e){
+    if(!e.target.matches) return;
+    var host = e.target.closest("[data-strategy-property]");
+    if(!host) return;
+    var prop = findProperty(host.getAttribute("data-strategy-property"));
+    if(!prop) return;
+    if(e.target.matches("[data-strategy-pick]")){ prop.strategyLoan = Number(e.target.value) || 0; persist(); patchLoanStrategy(prop); return; }
+    if(e.target.matches("[data-strategy-field]")){
+      setLoanStrategyField(prop, Number(e.target.getAttribute("data-strategy-loan")), e.target.getAttribute("data-strategy-field"), e.target.value);
+      patchLoanStrategy(prop);
+    }
+  });
   // v3.39.0: "If you sold" on an investment property card.
   document.addEventListener("change", function(e){
     if(!e.target.matches || !e.target.matches("[data-sale-field]")) return;

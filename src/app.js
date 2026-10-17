@@ -18,7 +18,7 @@ import { financialYearOf, fyLabel } from "./calc/property.js";
 import { renderCards, renderDashboardStats, renderDetail, setProjectionReference, logNetWorthSnapshot } from "./components/dashboard.js";
 import {
   personBreakdownHtml, renderIncomeGroups, patchOpenRowBreakdowns, patchIncomeGroupTotals,
-  patchSyntheticIncomeRows, patchIncomeSuperNotes, renderTaxSuper, flipTaxCard, patchAllTaxPersonOutputs,
+  patchSyntheticIncomeRows, patchIncomeSuperNotes, renderTaxSuper, flipTaxCard, patchAllTaxPersonOutputs, patchPhiNote,
   modernIncomeRowOpen, parseIncomeImportCsv, renderIncomeImportPreview, clearIncomeImportPreview, commitIncomeImport
 } from "./components/income.js";
 import {
@@ -1036,6 +1036,10 @@ import {
       state.tax.privateHospitalCover = e.target.checked;
     } else if(e.target.id === "taxFamilyThresholds"){
       state.tax.familyThresholds = e.target.checked;
+    } else if(e.target.id === "taxPhiPremiums"){
+      state.tax.phiPremiums = Math.max(0, parseFloat(e.target.value) || 0);
+    } else if(e.target.id === "taxPhiTier"){
+      state.tax.phiTierClaimed = Number(e.target.value);
     } else return;
 
     recalcComputedItems();
@@ -1043,6 +1047,7 @@ import {
     patchIncomeGroupTotals();
     patchOpenRowBreakdowns();
     patchAllTaxPersonOutputs();
+    patchPhiNote();
     patchIncomeSuperNotes();
     renderCards();
     renderDetail();

@@ -12,10 +12,11 @@ test("incomeTaxAU is $0 up to the tax-free threshold", function(){
 });
 
 test("incomeTaxAU applies each bracket's base + marginal rate at its boundaries", function(){
-  assert.ok(Math.abs(incomeTaxAU(45000) - 4288) < 1e-9);
-  assert.ok(Math.abs(incomeTaxAU(135000) - 31288) < 1e-9);
-  assert.ok(Math.abs(incomeTaxAU(190000) - 51638) < 1e-9);
-  assert.ok(Math.abs(incomeTaxAU(200000) - 56138) < 1e-9);
+  // FY24/25 (the 16% table, unchanged in FY25/26).
+  assert.ok(Math.abs(incomeTaxAU(45000, 2024) - 4288) < 1e-9);
+  assert.ok(Math.abs(incomeTaxAU(135000, 2024) - 31288) < 1e-9);
+  assert.ok(Math.abs(incomeTaxAU(190000, 2024) - 51638) < 1e-9);
+  assert.ok(Math.abs(incomeTaxAU(200000, 2024) - 56138) < 1e-9);
 });
 
 test("incomeTaxAU treats negative/non-numeric input as $0 taxable income", function(){
@@ -24,17 +25,19 @@ test("incomeTaxAU treats negative/non-numeric input as $0 taxable income", funct
 });
 
 test("marginalRateAU returns the rate for the bracket the income falls in", function(){
-  assert.equal(marginalRateAU(10000), 0);
-  assert.equal(marginalRateAU(30000), 0.16);
-  assert.equal(marginalRateAU(100000), 0.30);
-  assert.equal(marginalRateAU(160000), 0.37);
-  assert.equal(marginalRateAU(300000), 0.45);
+  assert.equal(marginalRateAU(10000, 2024), 0);
+  assert.equal(marginalRateAU(30000, 2024), 0.16);
+  assert.equal(marginalRateAU(100000, 2024), 0.30);
+  assert.equal(marginalRateAU(160000, 2024), 0.37);
+  assert.equal(marginalRateAU(300000, 2024), 0.45);
 });
 
 test("medicareLevyAU shades in between the low-income thresholds, then flat 2%", function(){
-  assert.equal(medicareLevyAU(20000), 0);
-  assert.ok(Math.abs(medicareLevyAU(30000) - 400) < 1e-9);
-  assert.ok(Math.abs(medicareLevyAU(40000) - 800) < 1e-9);
+  // FY24/25 singles thresholds from the ATO's M1 instructions: $27,222 and $34,027. (The table
+  // before v3.25.0 used approximate $26,000/$32,500 figures, which put $30,000 at $400.)
+  assert.equal(medicareLevyAU(20000, 2024), 0);
+  assert.ok(Math.abs(medicareLevyAU(30000, 2024) - 277.8) < 1e-9);
+  assert.ok(Math.abs(medicareLevyAU(40000, 2024) - 800) < 1e-9);
 });
 
 // ---------------- Per-scenario income (v2.79.0) ----------------
@@ -174,17 +177,18 @@ import { helpRepaymentRate, helpRepaymentAnnual, helpNextThreshold } from "../sr
 test("the HELP rate is a flat percentage of the whole income, not marginal", function(){
   // This is the thing people get wrong about it, and the reason the panel names the next
   // threshold: at $54,435 you repay 1% of all of it, not 1% of the dollar above the threshold.
-  assert.equal(helpRepaymentRate(54434), 0);
-  assert.equal(helpRepaymentRate(54435), 0.01);
-  assert.ok(Math.abs(helpRepaymentAnnual(54435, 50000) - 544.35) < 0.01);
+  // FY24/25, the last year of the flat system.
+  assert.equal(helpRepaymentRate(54434, 2024), 0);
+  assert.equal(helpRepaymentRate(54435, 2024), 0.01);
+  assert.ok(Math.abs(helpRepaymentAnnual(54435, 50000, 2024) - 544.35) < 0.01);
   // One dollar of income either side of a threshold, and the repayment jumps by the whole band.
-  assert.equal(helpRepaymentAnnual(54434, 50000), 0);
+  assert.equal(helpRepaymentAnnual(54434, 50000, 2024), 0);
 });
 
 test("the top band applies to everything above it", function(){
-  assert.equal(helpRepaymentRate(159664), 0.10);
-  assert.equal(helpRepaymentRate(1000000), 0.10);
-  assert.equal(helpRepaymentAnnual(200000, 999999), 20000);
+  assert.equal(helpRepaymentRate(159664, 2024), 0.10);
+  assert.equal(helpRepaymentRate(1000000, 2024), 0.10);
+  assert.equal(helpRepaymentAnnual(200000, 999999, 2024), 20000);
 });
 
 test("no balance means no repayment, whatever the income", function(){
@@ -200,12 +204,12 @@ test("a repayment never exceeds what's left owing", function(){
 });
 
 test("helpNextThreshold names what crossing it actually costs", function(){
-  var next = helpNextThreshold(54000);
+  var next = helpNextThreshold(54000, 2024);
   assert.equal(next.at, 54435);
   assert.equal(next.away, 435);
   // The cost is the jump in the whole-income repayment (1% of $54,435), not the rate difference.
   assert.ok(Math.abs(next.stepCost - 544.35) < 0.01);
-  assert.equal(helpNextThreshold(200000), null, "nothing above the top band");
+  assert.equal(helpNextThreshold(200000, 2024), null, "nothing above the top band");
 });
 
 test("repayment income adds back salary sacrifice and ignores a rental loss", function(){
@@ -214,10 +218,10 @@ test("repayment income adds back salary sacrifice and ignores a rental loss", fu
   // understates it — which is exactly why this is computed and shown separately.
   withIncome([grossRow("Sam", 120000)], function(){
     state.tax.settings.Sam = { superSacrificeAnnual: 20000, concessionalCap: 30000, carryForward: 0, helpBalance: 50000 };
-    var t = computePersonTax("Sam");
+    var t = computePersonTax("Sam", { fy: 2024 });
     assert.ok(t.taxable < 120000, "sacrifice reduced taxable income");
     assert.equal(t.repaymentIncome, 120000, "but not repayment income");
-    assert.ok(Math.abs(t.helpRepayment - 120000 * helpRepaymentRate(120000)) < 0.01);
+    assert.ok(Math.abs(t.helpRepayment - 120000 * helpRepaymentRate(120000, 2024)) < 0.01);
   });
 });
 
@@ -258,26 +262,27 @@ test("holding private hospital cover means no surcharge at any income", function
 });
 
 test("the surcharge is flat on the whole income, not marginal", function(){
-  assert.equal(medicareSurchargeAnnual(96999, false, false), 0);
-  assert.equal(medicareSurchargeAnnual(97000, false, false), 970, "1% of all of it, not of the excess");
-  assert.equal(medicareSurchargeAnnual(113000, false, false), 1412.5);
-  assert.equal(medicareSurchargeAnnual(151000, false, false), 2265);
+  // FY24/25: "$97,000 or less" is the base tier, so Tier 1 starts at $97,001.
+  assert.equal(medicareSurchargeAnnual(97000, false, false, 2024), 0);
+  assert.equal(medicareSurchargeAnnual(97001, false, false, 2024), 970.01, "1% of all of it, not of the excess");
+  assert.equal(medicareSurchargeAnnual(113001, false, false, 2024), 1412.51);
+  assert.equal(medicareSurchargeAnnual(151001, false, false, 2024), 2265.02);
 });
 
 test("family thresholds are the singles ones doubled", function(){
-  assert.deepEqual(mlsThresholds(true).map(function(t){ return t.from; }), [0, 194000, 226000, 302000]);
-  // $150k: tier 3 as a single, below the first family threshold entirely.
-  assert.equal(mlsTierFor(150000, false).label, "Tier 2");
-  assert.equal(mlsTierFor(150000, true).label, "Base tier");
-  assert.equal(medicareSurchargeAnnual(150000, false, true), 0);
+  assert.deepEqual(mlsThresholds(true, 2024).map(function(t){ return t.from; }), [0, 194000, 226000, 302000]);
+  // $150k: tier 2 as a single, below the first family threshold entirely.
+  assert.equal(mlsTierFor(150000, false, 2024).label, "Tier 2");
+  assert.equal(mlsTierFor(150000, true, 2024).label, "Base tier");
+  assert.equal(medicareSurchargeAnnual(150000, false, true, 2024), 0);
 });
 
 test("mlsNextTier names the step, because crossing one is not a slope", function(){
-  var next = mlsNextTier(96000, false);
-  assert.equal(next.at, 97000);
-  assert.equal(next.away, 1000);
-  assert.equal(next.stepCost, 970, "$1,000 more income costs $970, not $10");
-  assert.equal(mlsNextTier(500000, false), null);
+  var next = mlsNextTier(96000, false, 2024);
+  assert.equal(next.at, 97001);
+  assert.equal(next.away, 1001);
+  assert.equal(next.stepCost, 970.01, "$1,001 more income costs $970, not $10");
+  assert.equal(mlsNextTier(500000, false, 2024), null);
 });
 
 test("the surcharge is a tax — it lands in totalTax and the effective rate", function(){
@@ -518,8 +523,8 @@ test("grossed-up dividend income cascades into the Medicare levy surcharge", fun
     state.tax.privateHospitalCover = false;
     state.tax.familyThresholds = false;
     var before, after;
-    withAssets([], function(){ before = computePersonTax("Sam"); });
-    withAssets([holding("Sam", 10000, 0.7, 100)], function(){ after = computePersonTax("Sam"); });
+    withAssets([], function(){ before = computePersonTax("Sam", { fy: 2024 }); });
+    withAssets([holding("Sam", 10000, 0.7, 100)], function(){ after = computePersonTax("Sam", { fy: 2024 }); });
     assert.ok(after.medicareSurcharge > before.medicareSurcharge);
     assert.ok(Math.abs((after.medicareSurcharge - before.medicareSurcharge) - 100) < 1);
   });
@@ -913,4 +918,63 @@ test("lines the fixed rate already covers are picked out as possible double clai
   withIncome([grossRow("Sam", 170000)], function(){
     assert.deepEqual(wfhOverlapRows("Sam", rows).map(function(r){ return r.what; }), ["NBN internet", "Mobile phone"]);
   });
+});
+
+// ---------------- Tax tables by financial year (v3.25.0) ----------------
+
+import { taxTablesFor, phiRebateAdjustment, phiRebateRate, mlsTierIndex } from "../src/calc/tax.js";
+
+test("FY26/27 has the 15% rate; FY25/26 still 16%", function(){
+  assert.ok(Math.abs(incomeTaxAU(45000, 2026) - 4020) < 1e-9);
+  assert.ok(Math.abs(incomeTaxAU(200000, 2026) - (51370 + 4500)) < 1e-9);
+  // The real FY25/26 return: $164,229 taxable.
+  assert.ok(Math.abs(incomeTaxAU(164229, 2025) - 42102.73) < 0.005);
+  assert.equal(marginalRateAU(30000, 2026), 0.15);
+});
+
+test("a year past the newest table borrows it and says so", function(){
+  var t = taxTablesFor(2031);
+  assert.equal(t.assumed, true);
+  assert.equal(t.borrowedFrom, 2026);
+  assert.equal(taxTablesFor(2025).assumed, false);
+});
+
+test("HELP from FY25/26 is marginal: 15c over $67,000, then $8,700 + 17c over $125,000, then 10% of all", function(){
+  assert.equal(helpRepaymentAnnual(67000, 1e6, 2025), 0);
+  assert.equal(helpRepaymentAnnual(100000, 1e6, 2025), 4950);
+  assert.equal(helpRepaymentAnnual(150000, 1e6, 2025), 8700 + 4250);
+  assert.equal(helpRepaymentAnnual(200000, 1e6, 2025), 20000);
+  // Continuous at the top threshold, unlike the old flat bands.
+  assert.ok(Math.abs(helpRepaymentAnnual(179285, 1e6, 2025) - helpRepaymentAnnual(179286, 1e6, 2025)) < 1);
+  var next = helpNextThreshold(100000, 2025);
+  assert.equal(next.at, 125001);
+  assert.equal(next.marginal, true);
+  // FY26/27 thresholds.
+  assert.equal(helpRepaymentAnnual(129717, 1e6, 2026), Math.round((129717 - 69528) * 0.15 * 100) / 100);
+});
+
+test("surcharge tiers move each year", function(){
+  assert.equal(mlsTierFor(101000, false, 2025).label, "Base tier");
+  assert.equal(mlsTierFor(101001, false, 2025).label, "Tier 1");
+  assert.equal(mlsTierFor(160000, false, 2026).label, "Tier 2");
+  assert.equal(mlsTierIndex(278585, true, 2025), 2);
+});
+
+test("the private health rebate clawback: Tier 1 claimed, Tier 2 family income — the $105", function(){
+  // The real FY25/26 household: $164,229 + $114,356 (family Tier 2, $236,001-$316,000), Bupa
+  // premiums $1,297 with the rebate taken at Tier 1. myTax clawed back about $105.
+  withIncome([grossRow("Luiz", 164229), grossRow("Mariana", 114356)], function(){
+    state.tax.familyThresholds = true;
+    state.tax.privateHospitalCover = true;
+    state.tax.phiPremiums = 1297;
+    state.tax.phiTierClaimed = 1;
+    var a = phiRebateAdjustment({ fy: 2025 });
+    assert.equal(a.actualTier, 2);
+    assert.equal(a.claimedTier, 1);
+    assert.equal(Math.round(a.adjustment), 105);
+    // Split evenly between the two returns.
+    var luiz = computePersonTax("Luiz", { fy: 2025 });
+    assert.equal(Math.round(luiz.phiAdjustment * 2), 105);
+  });
+  assert.ok(Math.abs(phiRebateRate(1, 2025) - (0.75 * 0.16192 + 0.25 * 0.16079)) < 1e-12);
 });

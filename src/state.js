@@ -462,6 +462,9 @@ export function migrateState(s){
     if(p.constructionDate == null) p.constructionDate = "";
     if(p.plantValue == null) p.plantValue = 0;
     if(p.plantEffectiveLife == null) p.plantEffectiveLife = 10;
+    // Second-hand plant (v3.18.0) — see calc/property.js plantIsClaimable(). Defaults to false so an
+    // existing save's figures don't move; the field's own note says when it applies.
+    if(p.plantSecondHand == null) p.plantSecondHand = false;
     p.acquisitionCosts.forEach(function(c){
       if(c.id == null) c.id = genId("ac");
       if(c.what == null) c.what = "";

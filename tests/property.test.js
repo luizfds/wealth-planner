@@ -460,3 +460,17 @@ test("borrowing costs reduce the property's taxable result, not its cash result"
   var fy = borrowingCostsDeduction(REAL_LOAN);
   assert.equal(Math.round((taxResult(without) - taxResult(p)) * 100) / 100, fy);
 });
+
+// ---------------- Second-hand plant (v3.18.0) ----------------
+
+import { plantIsClaimable } from "../src/calc/property.js";
+
+test("second-hand plant claims nothing, but keeps its value", function(){
+  // The real case: a QS report valued $15,453 of existing plant on a property bought in 2025. Not
+  // claimable by a second owner; the straight-line pool would have deducted ~$1,545 a year.
+  var p = { plantValue: 15453, plantEffectiveLife: 10, plantSecondHand: true };
+  assert.equal(plantIsClaimable(p), false);
+  assert.equal(plantDepreciationAnnual(p), 0);
+  assert.equal(p.plantValue, 15453);
+  assert.equal(plantDepreciationAnnual(Object.assign({}, p, { plantSecondHand: false })), 1545.3);
+});

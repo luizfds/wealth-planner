@@ -36,7 +36,7 @@ function rowsEditorHtml(kind, person, rows, cols, addLabel){
       var v = c.type === "text" ? escapeAttr(r[c.key] || "") : num(r[c.key]);
       return '<input class="ty-in" type="' + (c.type === "text" ? "text" : "number") + '"' + (c.type === "text" ? "" : ' step="0.01"') +
         ' data-ty-kind="' + kind + '" data-ty-person="' + escapeAttr(person) + '" data-ty-index="' + i + '" data-ty-key="' + c.key + '"' +
-        ' value="' + v + '" placeholder="' + escapeAttr(c.placeholder || "") + '" aria-label="' + escapeAttr(c.label) + '">';
+        ' value="' + v + '" placeholder="' + escapeAttr(c.placeholder || "") + '" aria-label="' + escapeAttr(c.aria || c.label) + '">';
     }).join("") +
     '<button type="button" class="icon-btn" data-ty-del="' + kind + '" data-ty-person="' + escapeAttr(person) + '" data-ty-index="' + i + '" aria-label="Delete">✕</button></div>';
   }).join("");
@@ -175,8 +175,11 @@ function personCardHtml(person, fy){
       rowsEditorHtml("is", person, py.incomeStatements, [
         { key: "payer", label: "Payer", type: "text", placeholder: "Employer" },
         { key: "gross", label: "Gross", placeholder: "0" },
-        { key: "allowances", label: "Allowances", placeholder: "0" },
-        { key: "withheld", label: "Withheld", placeholder: "0" }], "+ Add income statement") +
+        { key: "allowances", label: "Allow.", aria: "Allowances", placeholder: "0" },
+        { key: "withheld", label: "Withheld", placeholder: "0" },
+        { key: "resc", label: "RESC", placeholder: "0" },
+        { key: "rfba", label: "RFBA", placeholder: "0" }], "+ Add income statement") +
+      '<p class="ledger-note" style="margin-left:0">RESC is reportable employer super (salary sacrifice), RFBA reportable fringe benefits — both on the income statement. Neither is taxed as income, but both count toward the surcharge, rebate and HELP income tests.</p>' +
     '</details>' +
     '<details class="row-more-options"' + (py.interest.length ? " open" : "") + '><summary>Interest</summary>' +
       rowsEditorHtml("int", person, py.interest, [
@@ -253,7 +256,7 @@ export function taxYearHtml(){
 
 // ---------------- Edits ----------------
 var ROW_DEFAULTS = {
-  is: function(){ return { payer: "", gross: 0, allowances: 0, withheld: 0 }; },
+  is: function(){ return { payer: "", gross: 0, allowances: 0, withheld: 0, resc: 0, rfba: 0 }; },
   int: function(){ return { account: "", gross: 0, sharePct: 100 }; },
   ded: function(){ return { label: "D5", what: "", amount: 0 }; }
 };

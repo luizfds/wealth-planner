@@ -607,7 +607,7 @@ function personSurchargeIncome(person, opts){
   // household-level pieces so it can't recurse back here.
   if(opts && opts.fy != null && !opts._inner){
     var r = computePersonTax(person, Object.assign({}, opts, { _inner: true }));
-    return Math.max(0, r.taxable + r.sacrifice);
+    return Math.max(0, r.surchargeIncome);
   }
   var inc = personIncomeBreakdown(person, opts);
   var settings = personTaxSettings(person);
@@ -991,11 +991,21 @@ export function computePersonTax(person, opts){
   var hasCover = !!state.tax.privateHospitalCover;
   var isFamily = !!state.tax.familyThresholds;
   var helpBalance = Math.max(0, Number(settings.helpBalance) || 0);
-  var repaymentIncome = Math.max(0, gross + Math.max(0, ipShare));
+  // A named year with income statements knows the real income-test additions: reportable fringe
+  // benefits, reportable super contributions (RESC — salary sacrifice shows here) and any net
+  // investment loss, each added back to taxable income. That is the ATO's definition for the HELP
+  // repayment, the surcharge/rebate tiers and Division 293 alike (v3.29.0). The model keeps its
+  // simpler forms below, which say so in the UI.
+  var incomeTestAdditions = statements
+    ? statements.rfba + statements.resc + Math.max(0, -ipShare)
+    : null;
+  var repaymentIncome = incomeTestAdditions != null
+    ? Math.max(0, taxable + incomeTestAdditions)
+    : Math.max(0, gross + Math.max(0, ipShare));
   var helpRepayment = helpRepaymentAnnual(repaymentIncome, helpBalance, fy);
   // The surcharge IS a tax, unlike the HELP repayment below — so it belongs in totalTax and in the
   // effective rate. Computed after sacrifice because surcharge income adds the sacrifice back.
-  var surchargeIncome = Math.max(0, taxable + sacrifice);
+  var surchargeIncome = incomeTestAdditions != null ? Math.max(0, taxable + incomeTestAdditions) : Math.max(0, taxable + sacrifice);
   // The tier comes from the household's combined income when family thresholds apply; the rate is
   // then charged on this person's own income. See householdSurchargeIncome() for why.
   var tierIncome = isFamily ? (opts && opts._inner ? surchargeIncome : householdSurchargeIncome(opts)) : surchargeIncome;
@@ -1042,7 +1052,7 @@ export function computePersonTax(person, opts){
   // contributions, which covers the common case without modelling reportable fringe benefits
   // or net investment losses — consistent with the rest of this tax engine's stated scope.
   var lowTaxContributions = Math.min(totalConcessional, capAvailable);
-  var div293Income = taxable + lowTaxContributions;
+  var div293Income = taxable + lowTaxContributions + (statements ? statements.rfba + Math.max(0, -ipShare) : 0);
   var div293Threshold = 250000;
   var div293ExcessIncome = Math.max(0, div293Income - div293Threshold);
   var div293Tax = Math.min(lowTaxContributions, div293ExcessIncome) * 0.15;

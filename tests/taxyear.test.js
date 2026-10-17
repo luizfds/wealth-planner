@@ -75,7 +75,7 @@ test("the rental schedule: actuals typed from the year's documents, net -$***REM
 test("Alex FY25/26: every label as lodged", function(){
   withState(function(){
     realHousehold();
-    assert.deepEqual(incomeStatementTotals(2025, "Alex"), { gross: ***REMOVED***, withheld: ***REMOVED*** });
+    assert.deepEqual(incomeStatementTotals(2025, "Alex"), { gross: ***REMOVED***, withheld: ***REMOVED***, resc: 0, rfba: 0 });
     assert.equal(interestIncome(2025, "Alex"), ***REMOVED***);
     var r = computePersonTax("Alex", { fy: 2025 });
     assert.equal(Math.round(r.ipShareForYear * 100) / 100, -***REMOVED***);                 // Rent, 70%
@@ -132,5 +132,23 @@ test("without a record, a named year is the model", function(){
     assert.equal(r.incomeStatements, null);
     assert.equal(r.refund, null);
     assert.equal(r.interestIncome, 0);
+  });
+});
+
+test("income tests add back RESC, fringe benefits and a net investment loss (v3.29.0)", function(){
+  withState(function(){
+    realHousehold();
+    var alex = personYear(2025, "Alex", false);
+    alex.incomeStatements[0].resc = 10000;
+    alex.incomeStatements[0].rfba = 2000;
+    state.tax.settings.Alex.helpBalance = 50000;
+    var r = computePersonTax("Alex", { fy: 2025 });
+    // taxable + RFBA + RESC + the $***REMOVED*** rental loss
+    var expected = r.taxable + 2000 + 10000 + ***REMOVED***;
+    assert.ok(Math.abs(r.repaymentIncome - expected) < 0.01, "HELP income " + r.repaymentIncome);
+    assert.ok(Math.abs(r.surchargeIncome - expected) < 0.01, "surcharge income " + r.surchargeIncome);
+    // Not taxable income: the same taxable figure as without them.
+    alex.incomeStatements[0].resc = 0; alex.incomeStatements[0].rfba = 0;
+    assert.equal(Math.round(computePersonTax("Alex", { fy: 2025 }).taxable), Math.round(r.taxable));
   });
 });

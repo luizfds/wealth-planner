@@ -725,3 +725,21 @@ test("moving a cost puts it on the loan, dates the loan, and undoes cleanly", fu
   assert.equal(p.loans[0].borrowingCosts, 350);
   assert.equal(p.loans[0].settlementDate, "");
 });
+
+// v3.31.0 — the worksheet's print copy.
+import { taxYearPrintHtml } from "../src/components/taxyear.js";
+
+test("the print copy is plain tables, a page per person, with the checklist", function(){
+  var keep = { income: state.income, taxYears: state.taxYears, properties: state.properties, assets: state.assets };
+  try {
+    state.income = [{ what: "Pay", person: "Sam", incomeType: "Gross", amount: 100000, freq: "Yearly", superMode: "On top", sacrificeMode: "none" }];
+    state.properties = []; state.assets = []; state.taxYears = {};
+    setTaxYearSelected(2025);
+    personYear(2025, "Sam", true).incomeStatements = [{ payer: "Acme", gross: 100000, allowances: 0, withheld: 24000 }];
+    var html = taxYearPrintHtml();
+    assert.match(html, /<section class="pr-page"><h2>Sam — FY25\/26 tax return worksheet<\/h2>/);
+    assert.match(html, /Acme — tax withheld<\/td><td class="pr-num">\$24,000\.00/);
+    assert.match(html, /☐ Sam: income statement — Acme/);
+    assert.doesNotMatch(html, /<input/);
+  } finally { Object.assign(state, keep); }
+});

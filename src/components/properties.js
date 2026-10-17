@@ -228,11 +228,13 @@ function depreciationSectionHtml(p){
       '<div class="calc-field" title="The original cost to BUILD, not what you paid for the property — land is not depreciable. Claimed at 2.5% a year for 40 years from completion."><label>Construction cost</label><input type="number" step="1000" min="0" class="prop-construction-cost" value="' + (Number(p.constructionCost) || 0) + '" placeholder="0"></div>' +
       '<div class="calc-field" title="When the building was completed. The 2.5% capital works claim runs for 40 years from then; leave blank if unknown and the full year is claimed."><label>Built on</label><input type="date" class="prop-construction-date" aria-label="Built on" value="' + escapeAttr(p.constructionDate || "") + '"></div>' +
       '<div class="calc-field" title="Carpets, blinds, appliances, air conditioning. Since 2017 these are only claimable on items you bought new — not on a second-hand residential property."><label>Plant &amp; equipment</label><input type="number" step="500" min="0" class="prop-plant-value" value="' + (Number(p.plantValue) || 0) + '" placeholder="0"></div>' +
+      '<div class="calc-field" style="grid-column:1/-1"><label class="m-checkbox-field"><input type="checkbox" class="prop-plant-secondhand"' + (p.plantSecondHand ? " checked" : "") + '> Plant was already in the property when bought (second-hand)</label>' +
+        '<span class="computed-note">Bought under a contract after 9 May 2017? Then existing plant isn\'t claimable — your QS report still values it, for a capital loss when an item is replaced and for CGT on sale.</span></div>' +
       '<div class="calc-field" title="Averaged straight-line over this many years. A real schedule depreciates each item separately at its own rate; this app has no per-item register, so an average across the pool is closer to the truth than pretending to a precision it can\'t support."><label>Effective life (yrs)</label><input type="number" step="1" min="1" max="40" class="prop-plant-life" aria-label="Plant and equipment effective life in years" value="' + (Number(p.plantEffectiveLife) || 10) + '"></div>' +
     '</div>' +
     '<p class="ledger-note" style="margin-left:0">' +
       (total > 0
-        ? "Capital works " + fmtCurrency0.format(capitalWorks) + "/yr + plant " + fmtCurrency0.format(plant) +
+        ? "Capital works " + fmtCurrency0.format(capitalWorks) + "/yr + plant " + fmtCurrency0.format(plant) + (p.plantSecondHand && Number(p.plantValue) > 0 ? " (second-hand, not claimable)" : "") +
           "/yr = <b>" + fmtCurrency0.format(total) + "/yr</b> off this property's taxable result. Cash flow is unchanged."
         : "Nothing claimed yet — this property's taxable result is the same as its cash result.") +
     '</p>');

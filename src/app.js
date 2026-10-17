@@ -1499,8 +1499,10 @@ import {
     // prints a live "capital works + plant = $X/yr" summary and a section total in its header, and
     // both have to move together with the tax figures below.
     if(e.target.classList.contains("prop-construction-cost") || e.target.classList.contains("prop-construction-date") ||
-       e.target.classList.contains("prop-plant-value") || e.target.classList.contains("prop-plant-life")){
-      if(e.target.classList.contains("prop-construction-cost")) property.constructionCost = Math.max(0, parseFloat(e.target.value) || 0);
+       e.target.classList.contains("prop-plant-value") || e.target.classList.contains("prop-plant-life") ||
+       e.target.classList.contains("prop-plant-secondhand")){
+      if(e.target.classList.contains("prop-plant-secondhand")) property.plantSecondHand = e.target.checked;
+      else if(e.target.classList.contains("prop-construction-cost")) property.constructionCost = Math.max(0, parseFloat(e.target.value) || 0);
       else if(e.target.classList.contains("prop-construction-date")) property.constructionDate = e.target.value;
       else if(e.target.classList.contains("prop-plant-value")) property.plantValue = Math.max(0, parseFloat(e.target.value) || 0);
       else property.plantEffectiveLife = Math.max(1, parseFloat(e.target.value) || 10);

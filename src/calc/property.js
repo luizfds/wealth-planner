@@ -179,7 +179,19 @@ export function capitalWorksAnnual(property, todayStr){
   }
   return Math.round(cost * CAPITAL_WORKS_RATE * 100) / 100;
 }
+// Second-hand plant is not claimable. For residential property bought under a contract made after
+// 7:30pm on 9 May 2017, plant & equipment that was already in the property — previously used by
+// someone else — can't be depreciated by the new owner (s 40-27 ITAA 1997). That is most
+// investment properties bought since, and a quantity surveyor's report still values the items,
+// which is exactly how a figure that isn't claimable ends up typed into a field that claims it.
+//
+// The value is kept, not zeroed: scrapping or replacing an item gives a capital loss of its
+// remaining value, and it counts in the CGT calculation on sale.
+export function plantIsClaimable(property){
+  return !(property && property.plantSecondHand);
+}
 export function plantDepreciationAnnual(property){
+  if(!plantIsClaimable(property)) return 0;
   var value = Math.max(0, Number(property.plantValue) || 0);
   var life = Math.max(1, Number(property.plantEffectiveLife) || 10);
   if(!value) return 0;

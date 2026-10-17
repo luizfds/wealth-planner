@@ -868,3 +868,16 @@ test("loan strategy: four cards with results, and the IP note", async function()
   assert.match(html, /Offset keeps the options/);
   assert.match(loanStrategyHtml({ id: "p", kind: "IP", loans: [] }), /Add a loan with a balance/);
 });
+
+test("super top-up: the room as a placeholder, and the sums", async function(){
+  const { topUpHtml } = await import("../src/components/income.js");
+  const keep = state.tax;
+  try {
+    state.tax = Object.assign({}, keep || {}, { settings: { Sam: { topUpAmount: 0 } } });
+    const html = topUpHtml("Sam", { capAvailable: 30000, totalConcessional: 18000, taxable: 150000, div293Income: 168000, fy: 2026 });
+    assert.match(html, /placeholder="12000"/);
+    assert.match(html, /Contributing <b>\$12,000<\/b> and claiming it/);
+    assert.match(html, /lands in super after \$1,800 contributions tax/);
+    assert.match(topUpHtml("Sam", { capAvailable: 30000, totalConcessional: 30000, taxable: 1, fy: 2026 }), /class="tax-topup" hidden/);
+  } finally { state.tax = keep; }
+});

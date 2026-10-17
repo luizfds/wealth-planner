@@ -3,6 +3,11 @@ import { computeNetWorthSeries } from "../calc/engine.js";
 import { fmtCurrency0 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { renderLineChart } from "../lib/charts.js";
+import { firstYearAtLeast, debtFreeYear, leadChanges, milestoneAmounts } from "../calc/milestones.js";
+
+// Kept for the CSV button, which downloads exactly what's on screen.
+var lastSeries = [];
+export function projectionSeriesShown(){ return lastSeries; }
 
 export function renderProjectionOutputs(){
   var container = document.getElementById("projOutputs");
@@ -17,6 +22,7 @@ export function renderProjectionOutputs(){
     };
   });
 
+  lastSeries = series;
   var headlineEl = document.getElementById("projHeadline");
   if(headlineEl){
     var finals = series.map(function(s){
@@ -25,7 +31,7 @@ export function renderProjectionOutputs(){
     }).sort(function(a, b){ return b.value - a.value; });
     var yrWord = horizon === 1 ? "year" : "years";
     // Spelled out in the headline as well as on the control above it: this sentence is the one
-    // line most people read, and "$*** at year 20" means two very different things
+    // line most people read, and "$8,002,580 at year 20" means two very different things
     // depending on which dollars it's in.
     var basisWord = realTerms ? " in today's dollars" : " in future dollars";
     if(finals.length > 1){
@@ -39,7 +45,13 @@ export function renderProjectionOutputs(){
     }
   }
 
-  renderLineChart(container, series, {
+  // v3.34.0: the chart gets its own host. renderLineChart redraws itself when its container's width
+  // changes — which it always does once, because the first render happens while the page is hidden —
+  // and a redraw empties the container, so the milestone table appended beside it vanished.
+  container.innerHTML = "";
+  var chartHost = document.createElement("div");
+  container.appendChild(chartHost);
+  renderLineChart(chartHost, series, {
     height: 280,
     yFormat: function(v){ return fmtCurrency0.format(v); },
     xFormat: function(v){ return "Yr " + v; },
@@ -74,4 +86,42 @@ export function renderProjectionOutputs(){
   scrollWrap.style.marginTop = "16px";
   scrollWrap.appendChild(table);
   container.appendChild(scrollWrap);
+
+  var ms = document.createElement("div");
+  ms.className = "proj-milestones";
+  ms.innerHTML = projectionMilestonesHtml(series, realTerms);
+  container.insertBefore(ms, scrollWrap);
+
+  var tools = document.createElement("div");
+  tools.className = "proj-tools";
+  tools.innerHTML = '<button type="button" class="btn btn-sm btn-ghost" id="projCsvBtn" title="Every year of every scenario, with investments, property equity and loans owed — in the dollars shown above">⇩ Download every year (CSV)</button>';
+  container.appendChild(tools);
+}
+
+// What happens when, per scenario: the round numbers it reaches, when its loans are gone, and when
+// one scenario overtakes another. Exported for the render-smoke test.
+export function projectionMilestonesHtml(series, realTerms){
+  var shown = series.filter(function(s){ return s.points && s.points.length > 1; });
+  if(!shown.length) return "";
+  var amounts = milestoneAmounts(shown);
+  var fmtShort = function(v){ return v >= 1e6 ? "$" + (v / 1e6).toFixed(v % 1e6 ? 1 : 0) + "M" : "$" + Math.round(v / 1e3) + "k"; };
+  var head = '<div class="proj-ms-row proj-ms-head"><span>Scenario</span>' +
+    amounts.map(function(a){ return '<span>' + fmtShort(a) + '</span>'; }).join("") + '<span>Loans gone</span></div>';
+  var rows = shown.map(function(s){
+    var debtFree = debtFreeYear(s.points);
+    var hasDebt = s.points[0].debt > 1;
+    return '<div class="proj-ms-row"><span class="proj-ms-name"><span class="proj-swatch ' + s.colorClass + '"></span>' + escapeAttr(s.label) + '</span>' +
+      amounts.map(function(a){
+        var y = firstYearAtLeast(s.points, a);
+        return '<span>' + (y == null ? '<i>—</i>' : (y === 0 ? "now" : "yr " + y)) + '</span>';
+      }).join("") +
+      '<span>' + (!hasDebt ? '<i>none</i>' : (debtFree == null ? '<i>after yr ' + s.points[s.points.length - 1].x + '</i>' : "yr " + debtFree)) + '</span></div>';
+  }).join("");
+  var changes = leadChanges(shown);
+  var changeText = changes.length
+    ? changes.map(function(c){ return '<b>' + escapeAttr(c.leader) + '</b> overtakes ' + escapeAttr(c.behind) + ' in year ' + c.year; }).join("; ") + "."
+    : (shown.length > 1 ? "No scenario overtakes another within the horizon — the one in front today stays in front." : "");
+  return '<h3 class="proj-ms-title">Milestones <span>— first year net worth reaches each amount, ' + (realTerms ? "today's" : "future") + ' dollars</span></h3>' +
+    '<div class="proj-ms-table" style="--ms-cols:' + amounts.length + '">' + head + rows + '</div>' +
+    (changeText ? '<p class="ledger-note" style="margin:8px 0 0">' + changeText + '</p>' : '');
 }

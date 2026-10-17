@@ -502,3 +502,16 @@ export function exportPropertyLoansCsv(){
   });
   exportCsv("property-loans-" + isoDateStamp() + ".csv", headers, rows);
 }
+
+// v3.34.0: the projection, a row per year and scenario, with its parts — the numbers behind the
+// Projections chart for anyone who wants them in a spreadsheet.
+export function exportProjectionCsv(seriesList, realTerms){
+  var rows = [];
+  seriesList.forEach(function(s){
+    s.points.forEach(function(p){
+      rows.push([s.label, p.x, Math.round(p.y), Math.round(p.investments || 0), Math.round(p.propertyEquity || 0), Math.round(p.debt || 0)]);
+    });
+  });
+  exportCsv("projection-" + (realTerms ? "todays-dollars-" : "future-dollars-") + isoDateStamp() + ".csv",
+    ["Scenario", "Year", "Net worth", "Investments and super", "Property equity", "Loans owed"], rows);
+}

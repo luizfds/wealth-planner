@@ -1719,7 +1719,7 @@ per year, right now" — while a return needs **the year's actuals, each on its 
 below close that gap, quiet wrong numbers first. Every fixture quoted is from the real return, so
 each doubles as a test case with a known right answer.
 
-## 36. `[~]` Deductions that stop or start partway through a tax year
+## 36. `[x]` Deductions that stop or start partway through a tax year — shipped v3.16.1
 
 `rowDeductionAnnual()` returned $0 for any row whose `endDate` had passed — including for the tax
 year it ended in, which is the year anyone lodging is looking at — and had no way to say "the
@@ -1728,16 +1728,41 @@ available on 1 Oct 2025). Fix: pro-rate by days within the household year, and a
 `deductibleFrom`/`deductibleUntil`, separate from `endDate`. Fixture: $720/wk x 6.4% claimable to
 30 Sep 2025 = **$603.96** for FY25/26.
 
-## 37. `[~]` Borrowing costs on investment loans (the 5-year rule)
+**What shipped.** `deductionYearFraction(item, win)` in `calc/tax.js` — the days the claim covers
+within the window over the window's days, where the claim ends at the earlier of `endDate` and
+`deductibleUntil` — and `rowDeductionAnnual(item, win)` multiplies it in. `computePersonTax` passes
+the same household-year window it already used for capital gains. "Claim from"/"Claim until" sit
+with the other deduction fields under a row's More options. Day counts go through two new UTC
+helpers in `calc/ledger.js` (`isoDayNumber`, `overlapDaysInclusive`) so a daylight-saving change
+can't lose a day.
+
+**Still open:** budget rows have no start date, so a line *added* mid-year with no "Claim from"
+counts the whole year. **Measured:** in Chrome at 390px, light and dark, a $8,750 claim limited to
+1 Jul–30 Sep became $2,205 on the Income card (92/365); no overflow; fields 158×40.
+
+## 37. `[x]` Borrowing costs on investment loans (the 5-year rule) — shipped v3.17.0
 
 LMI, the lender's establishment/settlement fee and mortgage registration had nowhere to go. Typed
 into `acquisitionCosts` they inflated the CGT cost base *and* were never deducted. Fix:
 `loan.settlementDate` + `loan.borrowingCosts`, apportioned by days over 5 years or the loan term if
 shorter, exactly as the ATO's deductible borrowing expenses calculator does; $100 or less is
 deductible in full in the year incurred. Fixture: $13,325.86 (LMI $12,975.86 + $350 fee) settled
-31/01/2025 → FY24/25 $1,101.97 · FY25/26 $2,663.71 · FY26/27 $2,663.71 · FY27/28 $2,671.01 ·
+31/01/2025 → FY24/25 $1,101.98 · FY25/26 $2,663.71 · FY26/27 $2,663.71 · FY27/28 $2,671.01 ·
 FY28/29 $2,663.71 · FY29/30 $1,561.74 (1,826 days). Out of scope for now: writing off the remaining
 balance when a loan is refinanced or paid out early.
+
+**What shipped.** `borrowingCostsSchedule(loan)` / `borrowingCostsDeduction(loan, win)` in
+`calc/property.js`, following the ATO calculator (v1.04) line for line — including its rounding:
+each year rounded on its own, the residual cent into the first year (hence $1,101.98, not
+$1,101.97). `propertyTaxDeductibleResultAnnual` subtracts the year's share; the cash result is
+untouched. Loan editor: Settled on, Borrowing costs (one total), Original term (only consulted
+under five years — `termYears` is what's *left*), and a live note: "Deductible FY26/27: $2,663.71 of
+$13,325.86 — spread to FY29/30." **Measured:** on sample data each 50% owner's taxable income fell
+$1,332; persisted across reload; no overflow at 390px in light or dark.
+
+**Not done:** moving costs already typed into Acquisition costs. Nothing distinguishes an LMI row
+there from a stamp-duty row, and guessing would move someone's cost base; the field's tooltip says
+where each kind goes.
 
 ## 38. `[ ]` Second-hand plant & equipment isn't claimable
 

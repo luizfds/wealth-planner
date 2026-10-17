@@ -29,7 +29,7 @@ test("a merchant key drops a leading payment rail, which names the pipe not the 
 });
 
 test("a merchant key caps at three tokens — past that it's describing, not naming", function(){
-  assert.equal(merchantKey("SALARY ACME LIMITED PAYROLL"), "salary woolworths group");
+  assert.equal(merchantKey("SALARY ACME HOLDINGS LIMITED PAYROLL"), "salary acme holdings");
 });
 
 test("a description that is all reference codes still gets a key", function(){

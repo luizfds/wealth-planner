@@ -10,7 +10,7 @@ import { computePersonTax } from "../src/calc/tax.js";
 // The bar on the Tax & super card answers one question — everything that came in, and where it
 // went — so the segments have to be exhaustive or the answer is a lie. They weren't: the Medicare
 // levy surcharge (v2.82.0) and the HELP repayment (v2.81.0) both come out of take-home and neither
-// was ever added to the segment list, so the bar left $***REMOVED*** of a $***REMOVED*** salary unaccounted for.
+// was ever added to the segment list, so the bar left $18,350 of a $161,900 salary unaccounted for.
 // Quietly wrong for five versions, on the most-read figure in the app.
 //
 // components/income.js can't be imported here (it touches the DOM at module scope), so this pins

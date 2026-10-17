@@ -373,7 +373,7 @@ test("reserveCycleFor measures an irregular line over its own twelve months", fu
 });
 
 test("a sub-yearly irregular line is annualised, not taken at face value", function(){
-  // "$300 a fortnight, no fixed timing" is a $*** yearly reserve — comparing spend against $300
+  // "$300 a fortnight, no fixed timing" is a $7,800 yearly reserve — comparing spend against $300
   // would read a normal year as 26x over budget.
   var dateNight = { amount: 300, freq: "Fortnightly", irregular: true, reserveYear: "calendar" };
   assert.equal(reserveCycleFor(dateNight, "2026-09-15").target, 7800);
@@ -384,7 +384,7 @@ test("a sub-yearly irregular line is annualised, not taken at face value", funct
 });
 
 test("a reserve year left unset follows the household, not a hard-coded January", function(){
-  // Three of the reference household's irregular lines carry reserveYear:"" — they should follow
+  // Three of a test household's irregular lines carry reserveYear:"" — they should follow
   // the household default rather than silently being measured over the calendar year.
   var tolls = { amount: 300, freq: "Yearly", irregular: true, reserveYear: "" };
   var c = reserveCycleFor(tolls, "2026-09-15");
@@ -469,7 +469,7 @@ test("freqStepMonths knows how many months each frequency's cycle spans", functi
 });
 
 test("toWeekly and periodsOf handle Half-yearly", function(){
-  // 26 weeks to the half-year, so a $600 half-yearly bill is $100/mo and $***/yr.
+  // 26 weeks to the half-year, so a $600 half-yearly bill is $100/mo and $1,200/yr.
   assert.equal(toWeekly(600, "Half-yearly"), 600 / 26);
   var p = periodsOf(600, "Half-yearly");
   assert.equal(Math.round(p.monthly * 100) / 100, 100);
@@ -773,6 +773,6 @@ test("planned to date is each line's share of the whole year, counted from its o
   // FY25/26 to 30 September: 92 of 365 days elapsed.
   var p = plannedToDateByCategory(items, "2025-07-01", "2026-06-30", "2025-09-30", null, function(i){ return i.category; });
   assert.ok(Math.abs(p.Insurance - (1200 * 92 / 365 + 3650 * 30 / 365)) < 1e-9);
-  // $100 a month round-trips through weekly: 100 x 12 / 52 x 52 = $*** a year.
+  // $100 a month round-trips through weekly: 100 x 12 / 52 x 52 = $1,200 a year.
   assert.ok(Math.abs(p.Phone - 1200 * 92 / 365) < 1e-6);
 });

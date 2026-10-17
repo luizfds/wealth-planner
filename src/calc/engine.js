@@ -239,7 +239,7 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
     }, 0);
     var nominal = homeEquity + portfolio + investBalance + propertiesEquitySum;
     // Today's dollars by default. A nominal series is arithmetically fine and completely unusable
-    // as a plan: "$8,002,580 at year 20" can't be weighed against the expenses actually typed in,
+    // as a plan: "$6,379,600 at year 20" can't be weighed against the expenses actually typed in,
     // because those are in today's money and that isn't. Deflating by the same inflation rate the
     // model already applies to expenses puts every figure on one scale.
     // v3.34.0: the parts as well as the sum, on the same basis, for the Projections milestones and

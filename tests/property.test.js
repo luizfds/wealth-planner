@@ -128,9 +128,9 @@ test("propertyOffsetTotal/propertyIlliquidEquityToday/propertyEquityToday split 
 
 test("propertyGearingAnnual is annual rent minus annual expenses minus annual loan repayments", function(){
   var p = makeProperty({
-    income: [{ amount: 600, freq: "Weekly" }],   // $***/yr
+    income: [{ amount: 600, freq: "Weekly" }],   // $31,200/yr
     expenses: [{ amount: 3000, freq: "Yearly" }], // $3,000/yr
-    loans: [{ repaymentMode: "manual", manualRepaymentAmount: 2000, manualRepaymentFreq: "Monthly" }] // $***/yr
+    loans: [{ repaymentMode: "manual", manualRepaymentAmount: 2000, manualRepaymentFreq: "Monthly" }] // $24,000/yr
   });
   assert.ok(Math.abs(propertyGearingAnnual(p) - (31200 - 3000 - 24000)) < 1e-9);
 });
@@ -201,7 +201,7 @@ test("propertiesWeightedGrossYield is null with no IPs, and value-weighted (not 
   var prev = state.properties;
   state.properties = [makeProperty({ kind: "PPOR", income: [], value: 900000 })];
   assert.equal(propertiesWeightedGrossYield(), null);
-  // Property A: $1,000/wk ($***/yr) on $500k = 10.4% yield. Property B: $200/wk ($***/yr)
+  // Property A: $1,000/wk ($52,000/yr) on $500k = 10.4% yield. Property B: $200/wk ($10,400/yr)
   // on $1,000,000 = 1.04% yield. A simple average would be ~5.7%; weighted by value it should sit
   // much closer to B's low yield, since B's value dominates the pool.
   state.properties = [
@@ -417,27 +417,28 @@ test("a PPOR never reaches the ownership split — it has no taxable result to s
 
 import { borrowingCostsSchedule, borrowingCostsDeduction, propertyTaxDeductibleResultAnnual as taxResult } from "../src/calc/property.js";
 
-// A real loan: LMI $***REMOVED*** + a $*** lender settlement fee, settled 1 January 2025. Every figure
-// below is what the ATO's own deductible borrowing expenses calculator (v1.04) gives for it.
-var REAL_LOAN = { balance: 0, rate: 0, borrowingCosts: ***REMOVED***, settlementDate: "2025-01-01" };
+// An invented loan: $9,800 of borrowing costs, settled 15 November 2024. The day-count and the
+// rounding rule (the lost cent goes in year one) follow the ATO's deductible borrowing expenses
+// calculator, which this schedule was originally checked against.
+var EXAMPLE_LOAN = { balance: 0, rate: 0, borrowingCosts: 9800, settlementDate: "2024-11-15" };
 
 test("borrowing costs over $100 are spread over five years by days, exactly as the ATO calculator does", function(){
-  var sched = borrowingCostsSchedule(REAL_LOAN);
+  var sched = borrowingCostsSchedule(EXAMPLE_LOAN);
   assert.deepEqual(sched.map(function(r){ return r.fy; }), [2024, 2025, 2026, 2027, 2028, 2029]);
-  assert.deepEqual(sched.map(function(r){ return r.days; }), [151, 365, 365, 366, 365, 214]);
+  assert.deepEqual(sched.map(function(r){ return r.days; }), [228, 365, 365, 366, 365, 137]);
   // The first year carries the cent lost to rounding, so the schedule adds back to what was paid.
-  assert.deepEqual(sched.map(function(r){ return r.amount; }), [***REMOVED***, ***REMOVED***, ***REMOVED***, ***REMOVED***, ***REMOVED***, ***REMOVED***]);
+  assert.deepEqual(sched.map(function(r){ return r.amount; }), [1223.66, 1958.93, 1958.93, 1964.29, 1958.93, 735.26]);
   var sum = sched.reduce(function(s, r){ return s + r.amount; }, 0);
-  assert.equal(Math.round(sum * 100) / 100, ***REMOVED***);
+  assert.equal(Math.round(sum * 100) / 100, 9800);
 });
 
 test("a financial-year window takes exactly that year's line", function(){
-  assert.equal(borrowingCostsDeduction(REAL_LOAN, { start: "2025-07-01", end: "2026-06-30" }), ***REMOVED***);
-  assert.equal(borrowingCostsDeduction(REAL_LOAN, { start: "2030-07-01", end: "2031-06-30" }), 0);
+  assert.equal(borrowingCostsDeduction(EXAMPLE_LOAN, { start: "2025-07-01", end: "2026-06-30" }), 1958.93);
+  assert.equal(borrowingCostsDeduction(EXAMPLE_LOAN, { start: "2030-07-01", end: "2031-06-30" }), 0);
 });
 
 test("$100 or less is deducted in full in the year it was paid", function(){
-  var small = { borrowingCosts: 100, settlementDate: "2025-01-01" };
+  var small = { borrowingCosts: 100, settlementDate: "2024-11-15" };
   assert.equal(borrowingCostsDeduction(small, { start: "2024-07-01", end: "2025-06-30" }), 100);
   assert.equal(borrowingCostsDeduction(small, { start: "2025-07-01", end: "2026-06-30" }), 0);
 });
@@ -451,13 +452,13 @@ test("a loan term shorter than five years shortens the spread", function(){
 
 test("nothing is spread without a settlement date to spread it from", function(){
   assert.deepEqual(borrowingCostsSchedule({ borrowingCosts: 5000 }), []);
-  assert.deepEqual(borrowingCostsSchedule({ borrowingCosts: 0, settlementDate: "2025-01-01" }), []);
+  assert.deepEqual(borrowingCostsSchedule({ borrowingCosts: 0, settlementDate: "2024-11-15" }), []);
 });
 
 test("borrowing costs reduce the property's taxable result, not its cash result", function(){
-  var p = { kind: "IP", income: [], expenses: [], loans: [Object.assign({}, REAL_LOAN)] };
+  var p = { kind: "IP", income: [], expenses: [], loans: [Object.assign({}, EXAMPLE_LOAN)] };
   var without = { kind: "IP", income: [], expenses: [], loans: [{ balance: 0, rate: 0 }] };
-  var fy = borrowingCostsDeduction(REAL_LOAN);
+  var fy = borrowingCostsDeduction(EXAMPLE_LOAN);
   assert.equal(Math.round((taxResult(without) - taxResult(p)) * 100) / 100, fy);
 });
 
@@ -466,13 +467,13 @@ test("borrowing costs reduce the property's taxable result, not its cash result"
 import { plantIsClaimable } from "../src/calc/property.js";
 
 test("second-hand plant claims nothing, but keeps its value", function(){
-  // The real case: a QS report valued $***REMOVED*** of existing plant on a property bought in 2025. Not
-  // claimable by a second owner; the straight-line pool would have deducted ~$***REMOVED*** a year.
-  var p = { plantValue: ***REMOVED***, plantEffectiveLife: 10, plantSecondHand: true };
+  // A QS report values $12,600 of existing plant on a property bought second-hand. Not claimable by
+  // a second owner; the straight-line pool would have deducted $1,260 a year.
+  var p = { plantValue: 12600, plantEffectiveLife: 10, plantSecondHand: true };
   assert.equal(plantIsClaimable(p), false);
   assert.equal(plantDepreciationAnnual(p), 0);
-  assert.equal(p.plantValue, ***REMOVED***);
-  assert.equal(plantDepreciationAnnual(Object.assign({}, p, { plantSecondHand: false })), ***REMOVED***);
+  assert.equal(p.plantValue, 12600);
+  assert.equal(plantDepreciationAnnual(Object.assign({}, p, { plantSecondHand: false })), 1260);
 });
 
 // ---------------- Depreciation for a year, and the QS schedule (v3.19.0) ----------------
@@ -480,13 +481,13 @@ test("second-hand plant claims nothing, but keeps its value", function(){
 import { propertyDepreciationForFy, propertyDepreciationForWindow, fyLabel } from "../src/calc/property.js";
 
 test("a quantity surveyor's schedule is taken verbatim for the years it lists", function(){
-  // The real report: 1993 building $***REMOVED*** + 2023 renovation $*** = $***REMOVED*** a year, first year $***REMOVED***.
-  var p = { purchaseDate: "2025-01-01", plantSecondHand: true, depreciationSchedule: [
-    { fy: 2024, capitalWorks: ***REMOVED***, plant: 0 }, { fy: 2025, capitalWorks: ***REMOVED***, plant: 0 }, { fy: 2033, capitalWorks: 859, plant: 0 }
+  // An invented report: building $2,150 + renovation $750 = $2,900 a year, first year $1,810.
+  var p = { purchaseDate: "2024-11-15", plantSecondHand: true, depreciationSchedule: [
+    { fy: 2024, capitalWorks: 1810, plant: 0 }, { fy: 2025, capitalWorks: 2900, plant: 0 }, { fy: 2033, capitalWorks: 640, plant: 0 }
   ] };
-  assert.deepEqual(propertyDepreciationForFy(p, 2024), { capitalWorks: ***REMOVED***, plant: 0, source: "schedule" });
-  assert.equal(propertyDepreciationForWindow(p, { start: "2025-07-01", end: "2026-06-30" }).total, ***REMOVED***);
-  assert.equal(propertyDepreciationForFy(p, 2033).capitalWorks, 859);
+  assert.deepEqual(propertyDepreciationForFy(p, 2024), { capitalWorks: 1810, plant: 0, source: "schedule" });
+  assert.equal(propertyDepreciationForWindow(p, { start: "2025-07-01", end: "2026-06-30" }).total, 2900);
+  assert.equal(propertyDepreciationForFy(p, 2033).capitalWorks, 640);
 });
 
 test("schedule plant is still zeroed when the plant was second-hand", function(){
@@ -495,10 +496,10 @@ test("schedule plant is still zeroed when the plant was second-hand", function()
 });
 
 test("without a schedule, the first year runs from the purchase date", function(){
-  // $***REMOVED*** of construction at 2.5% = $***REMOVED*** a year; bought 1 Jan 2025 = 151 of 365 days.
-  var p = { purchaseDate: "2025-01-01", constructionCost: ***REMOVED***, constructionDate: "1993-06-01" };
-  assert.equal(propertyDepreciationForFy(p, 2024).capitalWorks, Math.round(***REMOVED*** * 151 / 365 * 100) / 100);
-  assert.equal(propertyDepreciationForFy(p, 2025).capitalWorks, ***REMOVED***);
+  // $118,000 of construction at 2.5% = $2,950 a year; bought 15 Nov 2024 = 228 of 365 days.
+  var p = { purchaseDate: "2024-11-15", constructionCost: 118000, constructionDate: "1993-06-01" };
+  assert.equal(propertyDepreciationForFy(p, 2024).capitalWorks, Math.round(2950 * 228 / 365 * 100) / 100);
+  assert.equal(propertyDepreciationForFy(p, 2025).capitalWorks, 2950);
   assert.equal(propertyDepreciationForFy(p, 2023).capitalWorks, 0, "before it was bought");
 });
 
@@ -524,19 +525,19 @@ test("a calendar-year window takes half of each financial year it straddles", fu
 import { capitalWorksClaimedToDate } from "../src/calc/property.js";
 
 test("capital works claimed since purchase come off the cost base", function(){
-  // Bought 1 Jan 2025 for $***REMOVED*** + $***REMOVED*** costs; QS schedule FY24/25 $***REMOVED***, FY25/26 $***REMOVED***,
-  // FY26/27 $***REMOVED***. On 31 Dec 2026: ***REMOVED*** + ***REMOVED*** + ***REMOVED*** x 184/365.
-  var p = { kind: "IP", value: 800000, purchasePrice: ***REMOVED***, purchaseDate: "2025-01-01",
-    acquisitionCosts: [{ amount: 36000 }],
-    depreciationSchedule: [{ fy: 2024, capitalWorks: ***REMOVED*** }, { fy: 2025, capitalWorks: ***REMOVED*** }, { fy: 2026, capitalWorks: ***REMOVED*** }] };
-  var claimed = Math.round((***REMOVED*** + ***REMOVED*** + ***REMOVED*** * 184 / 365) * 100) / 100;
+  // Bought 15 Nov 2024 for $540,000 + $29,000 costs; QS schedule FY24/25 $1,810, FY25/26 $2,900,
+  // FY26/27 $2,900. On 31 Dec 2026: 1,810 + 2,900 + 2,900 x 184/365.
+  var p = { kind: "IP", value: 650000, purchasePrice: 540000, purchaseDate: "2024-11-15",
+    acquisitionCosts: [{ amount: 29000 }],
+    depreciationSchedule: [{ fy: 2024, capitalWorks: 1810 }, { fy: 2025, capitalWorks: 2900 }, { fy: 2026, capitalWorks: 2900 }] };
+  var claimed = Math.round((1810 + 2900 + 2900 * 184 / 365) * 100) / 100;
   assert.equal(capitalWorksClaimedToDate(p, "2026-12-31"), claimed);
   var g = propertyCapitalGain(p, "2026-12-31");
   assert.equal(g.capitalWorksReduction, claimed);
-  assert.equal(Math.round(g.costBase * 100) / 100, Math.round((***REMOVED*** - claimed) * 100) / 100);
-  assert.equal(Math.round(g.gain * 100) / 100, Math.round((800000 - ***REMOVED*** + claimed) * 100) / 100);
+  assert.equal(Math.round(g.costBase * 100) / 100, Math.round((569000 - claimed) * 100) / 100);
+  assert.equal(Math.round(g.gain * 100) / 100, Math.round((650000 - 569000 + claimed) * 100) / 100);
   // The growth percentage stays measured against what was actually paid.
-  assert.equal(g.pct, g.gain / ***REMOVED***);
+  assert.equal(g.pct, g.gain / 569000);
 });
 
 test("no reduction before 13 May 1997, or without a purchase date", function(){
@@ -548,18 +549,18 @@ test("no reduction before 13 May 1997, or without a purchase date", function(){
 // ---------------- Borrowing costs written off on payout (v3.27.0) ----------------
 
 test("a loan paid out mid-spread deducts the rest in that financial year", function(){
-  // The real loan, refinanced on 1 March 2027: FY24/25-FY25/26 as scheduled, then FY26/27 takes
-  // everything left ($***REMOVED*** - $***REMOVED*** - $***REMOVED***), and nothing after.
-  var loan = Object.assign({}, REAL_LOAN, { endedOn: "2027-03-01" });
+  // The example loan, refinanced on 1 March 2027: FY24/25-FY25/26 as scheduled, then FY26/27 takes
+  // everything left ($9,800 - $1,223.66 - $1,958.93), and nothing after.
+  var loan = Object.assign({}, EXAMPLE_LOAN, { endedOn: "2027-03-01" });
   var sched = borrowingCostsSchedule(loan);
   assert.deepEqual(sched.map(function(r){ return r.fy; }), [2024, 2025, 2026]);
-  assert.equal(sched[2].amount, Math.round((***REMOVED*** - ***REMOVED*** - ***REMOVED***) * 100) / 100);
+  assert.equal(sched[2].amount, Math.round((9800 - 1223.66 - 1958.93) * 100) / 100);
   assert.equal(sched[2].writtenOff, true);
-  assert.equal(Math.round(sched.reduce(function(s, r){ return s + r.amount; }, 0) * 100) / 100, ***REMOVED***);
+  assert.equal(Math.round(sched.reduce(function(s, r){ return s + r.amount; }, 0) * 100) / 100, 9800);
   assert.equal(borrowingCostsDeduction(loan, { start: "2027-07-01", end: "2028-06-30" }), 0);
 });
 
 test("a payout date after the spread has ended changes nothing", function(){
-  var loan = Object.assign({}, REAL_LOAN, { endedOn: "2031-01-01" });
+  var loan = Object.assign({}, EXAMPLE_LOAN, { endedOn: "2031-01-01" });
   assert.equal(borrowingCostsSchedule(loan).length, 6);
 });

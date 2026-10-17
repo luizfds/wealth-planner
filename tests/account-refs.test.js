@@ -17,11 +17,11 @@ import { renameAccountEverywhere } from "../src/components/expenses.js";
 function seed(){
   state.income = [{ id: "i1", what: "Salary", account: "Bank One" }];
   state.shared = [{ id: "e1", what: "Groceries", account: "Bank One" },
-                  { id: "e2", what: "Power", account: "Lender" }];
+                  { id: "e2", what: "Power", account: "Bank Two" }];
   state.transactions = [{ id: "t1", date: "2026-09-01", amount: 10, account: "Bank One" },
-                        { id: "t2", date: "2026-09-02", amount: 20, account: "Lender" }];
+                        { id: "t2", date: "2026-09-02", amount: 20, account: "Bank Two" }];
   state.home = {
-    "Renting":   [{ id: "h1", what: "Rent", account: "Lender" }],
+    "Renting":   [{ id: "h1", what: "Rent", account: "Bank Two" }],
     "Buy Sydney":[{ id: "h2", what: "Rent / Home Loan", account: "Bank One" },
                   { id: "h3", what: "Council Rates", account: "Bank One" }]
   };
@@ -40,19 +40,19 @@ function countOf(name){
 test("renaming an account retargets housing rows in every scenario", () => {
   seed();
   assert.equal(countOf("Bank One"), 7);
-  renameAccountEverywhere("Bank One", "Bank One Bank");
+  renameAccountEverywhere("Bank One", "Bank One Savings");
   assert.equal(countOf("Bank One"), 0, "no row may still point at the old name");
-  assert.equal(countOf("Bank One Bank"), 7);
+  assert.equal(countOf("Bank One Savings"), 7);
   // The specific rows that used to be missed.
-  assert.equal(state.home["Buy Sydney"][0].account, "Bank One Bank");
-  assert.equal(state.home["Buy Sydney"][1].account, "Bank One Bank");
+  assert.equal(state.home["Buy Sydney"][0].account, "Bank One Savings");
+  assert.equal(state.home["Buy Sydney"][1].account, "Bank One Savings");
 });
 
 test("renaming an account leaves other accounts alone", () => {
   seed();
-  renameAccountEverywhere("Bank One", "Bank One Bank");
-  assert.equal(countOf("Lender"), 3);
-  assert.equal(state.home["Renting"][0].account, "Lender");
+  renameAccountEverywhere("Bank One", "Bank One Savings");
+  assert.equal(countOf("Bank Two"), 3);
+  assert.equal(state.home["Renting"][0].account, "Bank Two");
 });
 
 test("renaming to the same name, or from nothing, is a no-op", () => {
@@ -66,6 +66,6 @@ test("renaming to the same name, or from nothing, is a no-op", () => {
 test("renaming copes with a scenario that has no housing rows", () => {
   seed();
   state.home["Empty"] = [];
-  assert.doesNotThrow(() => renameAccountEverywhere("Bank One", "Bank One Bank"));
-  assert.equal(countOf("Bank One Bank"), 7);
+  assert.doesNotThrow(() => renameAccountEverywhere("Bank One", "Bank One Savings"));
+  assert.equal(countOf("Bank One Savings"), 7);
 });

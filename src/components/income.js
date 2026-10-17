@@ -431,7 +431,7 @@ export function patchIncomeSuperNotes(){
 // The bar answers one question — everything that came in, and where it went — so the segments have
 // to be exhaustive or the answer is a lie. They were not: the Medicare levy surcharge (v2.82.0) and
 // the HELP repayment (v2.81.0) both came out of take-home and neither was ever added here, so the
-// bar and its legend left $***REMOVED*** of a $***REMOVED*** salary unaccounted for on the reference data. The
+// bar and its legend left $18,350 of a $161,900 salary unaccounted for on a test household's data. The
 // most-read figure on the page, quietly wrong for five versions.
 //
 // taxWaterfallTotal() states what the segments add up to, and a unit test pins the identity. If you
@@ -544,7 +544,7 @@ export function renderTaxSuper(){
     '<div class="proj-field"><label for="taxPhiTier" title="The income tier you told your insurer — it sets the rebate taken off your premiums. Your return works out the right tier and adjusts the difference.">Rebate tier with insurer</label><select id="taxPhiTier">' +
       [["0", "Base tier"], ["1", "Tier 1"], ["2", "Tier 2"], ["3", "Tier 3"], ["-1", "No rebate taken"]].map(function(o){ return '<option value="' + o[0] + '"' + (String(state.tax.phiTierClaimed == null ? 0 : state.tax.phiTierClaimed) === o[0] ? " selected" : "") + '>' + o[1] + '</option>'; }).join("") +
     '</select></div>' +
-    '<div class="proj-field"><label class="m-checkbox-field" title="Couples and anyone with dependants are assessed against family thresholds — roughly double the singles ones (+$*** per child after the first, which this app doesn\'t model)."><input type="checkbox" id="taxFamilyThresholds"' + (state.tax.familyThresholds ? " checked" : "") + '> Family thresholds</label></div>' +
+    '<div class="proj-field"><label class="m-checkbox-field" title="Couples and anyone with dependants are assessed against family thresholds — roughly double the singles ones (+$1,500 per child after the first, which this app doesn\'t model)."><input type="checkbox" id="taxFamilyThresholds"' + (state.tax.familyThresholds ? " checked" : "") + '> Family thresholds</label></div>' +
     '</div>' +
     '<p class="ledger-note tax-phi-note" style="margin:0 0 8px">' + phiNoteText() + '</p>' +
     (taxTablesFor().assumed ? '<p class="ledger-note warn" style="margin:0 0 8px">' + householdYearWindow().label + ' rates aren\'t all published yet — this uses the latest year the app has (' + "FY" + String(taxTablesFor().borrowedFrom % 100).padStart(2, "0") + "/" + String((taxTablesFor().borrowedFrom + 1) % 100).padStart(2, "0") + ').</p>' : '');

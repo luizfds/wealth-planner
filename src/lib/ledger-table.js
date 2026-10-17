@@ -167,7 +167,7 @@ export function endDateNoteHtml(item){
 }
 
 // A row whose amount differs in some scenario looks identical to one that doesn't, and the list
-// it sits in shows the *default* amount — so without this the Income page can read $***REMOVED*** while
+// it sits in shows the *default* amount — so without this the Income page can read $11,500 while
 // the scenario you're actually looking at uses half that, with nothing on screen to say so.
 //
 // Names the active scenario's own figure when it has one, since that's the number the Dashboard

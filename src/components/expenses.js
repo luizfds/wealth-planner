@@ -117,7 +117,7 @@ export function patchSharedGroupTotals(){
   var groups = computeSharedGroups();
   // Matched by card name, not by position. Recategorising a row can create or empty a whole group,
   // so the freshly-computed list and the cards still on screen can differ in length and order —
-  // writing totals by index then puts Rent's $***REMOVED*** under "Groceries". A card whose group no
+  // writing totals by index then puts Rent's $2,780 under "Groceries". A card whose group no
   // longer exists is simply left alone until the next full render moves its rows.
   var byKey = {};
   groups.forEach(function(g){ byKey[g.key] = g; });
@@ -296,14 +296,14 @@ function sharedCompositionBarHtml(groups){
 // Session-only (not persisted) — mirrors modernIncomeRowOpen for the Expenses page's rows.
 export var modernSharedRowOpen = {};
 
-// Each budget line's own "how's this one going" line: a thin bar plus "$*** of $200 this month".
+// Each budget line's own "how's this one going" line: a thin bar plus "$120 of $200 this month".
 // This is what makes the Budget tab worth opening on any day other than set-up day — the planned
 // figure on its own never changes, so a list of planned figures is a list you stop reading.
 //
 // Compared over the window the line is actually billed in (budgetCycleFor), not a calendar month:
-// a $*** quarterly bill is smoothed to $***/mo everywhere else in the app, which is right for
+// a $230 quarterly bill is smoothed to $76.67/mo everywhere else in the app, which is right for
 // cash flow but wrong here — it made a payment that was exactly on plan render as 3x over in the
-// month it landed. Now it reads "$*** of $*** this quarter" and stays green for the whole cycle.
+// month it landed. Now it reads "$230 of $230 this quarter" and stays green for the whole cycle.
 //
 // An irregular line gets a bar too, measured over its reserve year instead of a billing cycle —
 // see reserveCycleFor. It used to be skipped outright, on the grounds that it has no cycle to
@@ -313,7 +313,7 @@ export var modernSharedRowOpen = {};
 // comparison is honest" does not mean no comparison is.
 function budgetRowProgressHtml(item){
   // A computed line can't be logged against (it's not a quick-log chip and never enters the
-  // overdue queue), so its progress bar would sit at "$0 of $***" forever — a permanent red herring
+  // overdue queue), so its progress bar would sit at "$0 of $150" forever — a permanent red herring
   // on a row that is, in fact, always paid.
   if(item.computed) return "";
   // item.amount, not resolveSharedAmount(): the row's own headline "/mo" figure right next to this
@@ -593,8 +593,8 @@ export function renderPropertyExpensesSummary(){
 }
 
 // The forward reference from the budget total to the loan card below it. Without it the Expenses
-// page says the household spends $***REMOVED***/mo and the Dashboard's 50/30/20 bar says $***REMOVED*** — a
-// $***REMOVED*** disagreement on the same real data, with the explanation 4,700px further down the page.
+// page says the household spends $7,980/mo and the Dashboard's 50/30/20 bar says $11,580 — a
+// $3,600 disagreement on the same data, with the explanation 4,700px further down the page.
 // Naming the amount here means the two figures reconcile on sight rather than after a scroll.
 function renderBudgetLoanPointer(total){
   var el = document.getElementById("budgetLoanPointer");
@@ -882,7 +882,7 @@ export function setQuickLogDateOpen(value){
 }
 // The reassurance line under the chips: what this line is budgeted at and how much of that has
 // already gone this month. It's the whole reason to pick a line before logging rather than
-// after — you find out you're at $*** of $200 *while* deciding, not on a report later.
+// after — you find out you're at $120 of $200 *while* deciding, not on a report later.
 export function quickLogContextText(item){
   if(quickLog && quickLog.sign < 0){
     return item
@@ -1506,7 +1506,7 @@ export function budgetComparisonRowHtml(item){
   var remainingLabel = remaining >= 0 ? (fmtCurrency0.format(remaining) + " left") : (fmtCurrency0.format(-remaining) + " over");
   // Drilled over the row's own cycle, not the calendar month. That is what an irregular row needs
   // (its spend can be one receipt from eleven months ago), and it quietly fixes the regular rows
-  // too: a quarterly line reading "$*** actual … Aug–Oct" used to open onto September alone, so
+  // too: a quarterly line reading "$230 actual … Aug–Oct" used to open onto September alone, so
   // the list you were shown did not add up to the figure it was sitting under.
   var txnPairs = rangeTransactionsForExpense(item.id, cycle.start, cycle.end);
   // Only worth expanding once something is actually logged against it — nothing to drill into
@@ -1533,7 +1533,7 @@ export function budgetComparisonRowHtml(item){
 // reason it lives *inside* a budget line rather than as a page-wide merchant chart: on a
 // well-named line like "Internet" every transaction is the same bill and a merchant chart would
 // only restate the line's own name. It earns its place exactly where a line is a catch-all — a
-// real household had five Amazon orders and a pair of shoes inside one "Misc." row, and nothing
+// household had five Amazon orders and a pair of shoes inside one "Misc." row, and nothing
 // anywhere said so.
 function budgetRowMerchantsHtml(pairs){
   var groups = merchantGroups(pairs.map(function(p){ return p.t; }));
@@ -1647,9 +1647,9 @@ export function renderActualVsPlannedPanel(){
   }
   // Rounded to cents before any comparison/formatting below — periodsOf()'s weekly-then-back
   // conversion leaves a float epsilon (e.g. 2.4900000000000007) that can land a genuinely-exact
-  // $*** delta a hair under the ">0.5" thresholds and, worse, make the displayed whole-dollar
+  // $0.50 delta a hair under the ">0.5" thresholds and, worse, make the displayed whole-dollar
   // "over"/"left" figure not match the difference between the whole-dollar actual/planned figures
-  // shown right next to it (e.g. "$*** actual / $*** planned — $0 over").
+  // shown right next to it (e.g. "$3 actual / $2 planned — $0 over").
   var plannedTotal = Math.round(billedThisMonth(regularItems) * 100) / 100;
   // The smoothed average is still the right long-run number (it's what drives cash flow and
   // projections), so it stays on screen as a reference — just no longer as the denominator a
@@ -1814,13 +1814,13 @@ export function categoryTotals(items, valueFor){
 // barless renders the legend alone. The Budget tab uses it because the composition bar directly
 // below already splits the same money by Needs/Wants — two stacked 100% bars, both labelled in
 // percentages, compete for the same glance and neither wins. What's genuinely new there is the
-// number ("Car $***/mo" across four separate lines), not another bar, so Budget gets the totals
+// number ("Car $250/mo" across four separate lines), not another bar, so Budget gets the totals
 // and Spending — where "where did it actually go" is the whole question — gets the full chart.
 export function categoryChartHtml(groups, unit, opts){
   opts = opts || {};
   if(groups.length < 2) return "";
   // A category can net negative now that refunds are real transactions — return more than you
-  // bought in a month and Clothing is -$***. A proportional bar has no way to draw that: the
+  // bought in a month and Clothing is -$40. A proportional bar has no way to draw that: the
   // segment inverts to a negative width and, because the negative shrinks the denominator, every
   // other segment's percentage climbs past its true share and the bar overflows its track. So the
   // bar is built from the positive categories only, and the negatives stay in the legend where a
@@ -1897,7 +1897,7 @@ export function renderSpendCategoryChart(){
 // clear months of runway behind it.
 var TRENDS_MONTHS = 6;
 var TRENDS_LOOKBACK = 3;
-// Below this, a category's window total isn't worth a row: a $*** line that doubled is a true
+// Below this, a category's window total isn't worth a row: a $4 line that doubled is a true
 // statement and a useless one. Deliberately on the six-month total, not on one month, so a
 // genuinely lumpy category (car rego once a year) still keeps its place.
 var TRENDS_MIN_SPEND = 50;
@@ -1905,14 +1905,14 @@ var TRENDS_MIN_SPEND = 50;
 // claims — no deltas, no "up N months running".
 //
 // The reason is a limit no amount of arithmetic gets around: **the app cannot tell "spent more"
-// from "logged more thoroughly."** On the reference data August was logged mostly in its last
+// from "logged more thoroughly."** On a test household's data August was logged mostly in its last
 // week and September mostly in its first, so even a same-days-of-the-month comparison reported
 // "515% more" — a statement about logging habits wearing the clothes of a statement about
 // spending. Two points can't distinguish a trend from a difference; three can start to. It also
 // matches what this panel exists to be able to say: "groceries have climbed three months running".
 var TRENDS_MIN_MONTHS_FOR_COMPARISON = 3;
 
-// "11th", "22nd", "3rd" — used in the like-for-like wording ("$*** by the 11th"), which is the
+// "11th", "22nd", "3rd" — used in the like-for-like wording ("$1,500 by the 11th"), which is the
 // one phrase that tells the reader the comparison isn't against whole months.
 function ordinal(n){
   var rem100 = n % 100;
@@ -2267,7 +2267,7 @@ function rowsNamingAccount(name){
 // buys the undo of last resort: re-add an account spelled the same way and all of it re-attaches
 // by itself, in a later session, after a reload, long past the undo toast.
 //
-// Reporting the count is the point, not decoration: on a real household this reached 93 rows and
+// Reporting the count is the point, not decoration: on one household this reached 93 rows and
 // transactions at once, and took the whole "this bill so far — by statement cycle" panel with it
 // (that panel keys off the credit account's own statement day, so with the account gone it renders
 // nothing at all). A toast reading only "Deleted account" gave no hint any of that had happened.

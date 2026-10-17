@@ -109,8 +109,8 @@ test("categoryChartHtml handles one group, many groups, and a negative one", fun
 
 test("todaysMixHtml builds the composition bar, and refuses to when there is nothing to divide", function(){
   var buckets = [
-    { key: "Super", colorClass: "series-color-0", records: [{ history: [], current: ***REMOVED*** }] },
-    { key: "Cash", colorClass: "series-color-2", records: [{ history: [], current: ***REMOVED*** }] }
+    { key: "Super", colorClass: "series-color-0", records: [{ history: [], current: 142300 }] },
+    { key: "Cash", colorClass: "series-color-2", records: [{ history: [], current: 2400 }] }
   ];
   var html = todaysMixHtml(buckets, "2026-09-12");
   assert.ok(html.indexOf("rule-seg series-color-0") !== -1, "a series-coloured segment per bucket");
@@ -197,7 +197,7 @@ test("dateAxisFormat picks days inside a quarter and months beyond it", function
 
 test("bestFitRange opens a chart where its observations actually are", function(){
   var at = { today: "2026-09-12" };
-  // The reference data's shape: one super reading from July 2025, then a fortnight of daily share
+  // A realistic shape: one super reading from July 2025, then a fortnight of daily share
   // logs. "All" spends 95% of the x-axis on the period before anything but super was tracked.
   var clustered = ["2025-07-31", "2026-08-31", "2026-09-07", "2026-09-08", "2026-09-09",
                    "2026-09-10", "2026-09-11", "2026-09-12"];
@@ -470,14 +470,14 @@ test("the filter also matches what has been logged against a line before", () =>
 
 // ---------------- Pasting an amount ----------------
 // <input type="number"> reads back "" for anything that isn't a bare number literal, with no
-// badInput flag to check — so a pasted "-$***" or a Unicode-minus "−24.99" looks right on
+// badInput flag to check — so a pasted "-$24.99" or a Unicode-minus "−24.99" looks right on
 // screen and saves as 0. This parser runs on the clipboard text before it reaches the field.
 test("a pasted amount survives currency symbols, spaces, commas and a Unicode minus", () => {
   assert.equal(parseAmountInput("-24.99"), -24.99);
   assert.equal(parseAmountInput("−24.99"), -24.99, "U+2212, what most keyboards and bank apps emit");
-  assert.equal(parseAmountInput("-$***"), -24.99);
+  assert.equal(parseAmountInput("-$24.99"), -24.99);
   assert.equal(parseAmountInput("  -24.99 "), -24.99);
-  assert.equal(parseAmountInput("$***"), 1299);
+  assert.equal(parseAmountInput("$1,299.00"), 1299);
   assert.equal(parseAmountInput("(24.99)"), -24.99, "accounting notation for a credit");
   assert.equal(parseAmountInput("+15"), 15);
   assert.equal(parseAmountInput(".5"), 0.5);
@@ -598,7 +598,7 @@ test("submitQuickLog tags a refund with the purchase it was told it undoes", () 
     setQuickLogRefundOf("t1");
     const refund = submitQuickLog(129.99, "", "2026-09-21", "");
     assert.equal(refund.refundOf, "t1");
-    assert.match(transactionSummaryText(refund), /refund of 2026-09-03's \$***\.99/);
+    assert.match(transactionSummaryText(refund), /refund of 2026-09-03's \$129\.99/);
     closeQuickLog();
   } finally { state.shared = prevShared; state.transactions = prevTxns; }
 });
@@ -652,18 +652,18 @@ test("a deductible row renders its claim-from/until fields", function(){
 
 test("the borrowing-costs note says what's deductible, or what's missing", function(){
   assert.match(borrowingNoteText({ borrowingCosts: 0 }), /five years/);
-  assert.match(borrowingNoteText({ borrowingCosts: ***REMOVED***, settlementDate: "" }), /settlement date/);
-  assert.match(borrowingNoteText({ borrowingCosts: ***REMOVED***, settlementDate: "2025-01-01" }), /of \$***REMOVED***\.86 — spread to FY29\/30\./);
-  assert.match(borrowingNoteText({ borrowingCosts: 80, settlementDate: "2025-01-01" }), /all in the year paid/);
+  assert.match(borrowingNoteText({ borrowingCosts: 9800, settlementDate: "" }), /settlement date/);
+  assert.match(borrowingNoteText({ borrowingCosts: 9800, settlementDate: "2024-11-15" }), /of \$9,800\.00 — spread to FY29\/30\./);
+  assert.match(borrowingNoteText({ borrowingCosts: 80, settlementDate: "2024-11-15" }), /all in the year paid/);
 });
 
 // v3.21.0 — purchase lots.
 import { lotsSectionHtml, lotsNoteText } from "../src/components/assets.js";
 
 test("the purchase lots section renders its rows and a used lot can't be deleted", function(){
-  var item = { quantity: 100, lots: [{ id: "a", date: "2024-01-01", units: 100, price: 1.5, brokerage: 3, soldUnits: 40 }] };
+  var item = { quantity: 100, lots: [{ id: "a", date: "2023-02-10", units: 100, price: 1.5, brokerage: 3, soldUnits: 40 }] };
   var html = lotsSectionHtml(item, 0);
-  assert.match(html, /class="lot-date"[^>]*value="2024-01-01"/);
+  assert.match(html, /class="lot-date"[^>]*value="2023-02-10"/);
   assert.match(html, /data-lot-del="0:0"[^>]*disabled/);
   assert.match(html, /40 of 100 sold/);
   assert.match(lotsNoteText(item), /60 unsold units across 1 lot — the holding shows 100/);
@@ -674,9 +674,9 @@ test("the purchase lots section renders its rows and a used lot can't be deleted
 import { statementsSectionHtml } from "../src/components/assets.js";
 
 test("the annual tax statements section renders each statement's labelled fields", function(){
-  var html = statementsSectionHtml({ taxStatements: [{ fy: 2025, m20: ***REMOVED***, o20: ***REMOVED***, units: 156 }] }, 3);
+  var html = statementsSectionHtml({ taxStatements: [{ fy: 2025, m20: 205.30, o20: 30.80, units: 210 }] }, 3);
   assert.match(html, /20M Other net foreign income/);
-  assert.match(html, /data-stmt-key="m20" value="***REMOVED***"/);
+  assert.match(html, /data-stmt-key="m20" value="205.3"/);
   assert.match(html, /data-stmt-del="3:0"/);
   assert.match(statementsSectionHtml({ taxStatements: [] }, 0), /\+ Add statement/);
 });
@@ -696,7 +696,7 @@ test("the worksheet renders a card per person with its refund and document rows"
     assert.match(html, /data-ty-card="Sam"/);
     assert.match(html, /Estimated (refund|to pay)/);
     assert.match(html, /data-ty-kind="is"[^>]*data-ty-key="payer"[^>]*value="Acme"/);
-    assert.match(worksheetText("Sam"), /Acme — tax withheld: \$***\.00/);
+    assert.match(worksheetText("Sam"), /Acme — tax withheld: \$24,000\.00/);
     assert.ok(evidenceItems(2025).some(function(i){ return /income statement — Acme/.test(i.text); }));
   } finally { Object.assign(state, keep); }
 });
@@ -714,12 +714,12 @@ test("loan-cost names are picked out, purchase costs aren't", function(){
 });
 
 test("moving a cost puts it on the loan, dates the loan, and undoes cleanly", function(){
-  var p = { kind: "IP", purchaseDate: "2025-01-01", acquisitionCosts: [{ what: "Stamp duty", amount: ***REMOVED*** }, { what: "LMI", amount: ***REMOVED*** }],
-    loans: [{ what: "Lender", borrowingCosts: 350, settlementDate: "" }] };
+  var p = { kind: "IP", purchaseDate: "2024-11-15", acquisitionCosts: [{ what: "Stamp duty", amount: 18400 }, { what: "LMI", amount: 9450 }],
+    loans: [{ what: "Home loan", borrowingCosts: 350, settlementDate: "" }] };
   var m = moveAcquisitionCostToLoan(p, 1);
   assert.deepEqual(p.acquisitionCosts.map(function(c){ return c.what; }), ["Stamp duty"]);
-  assert.equal(p.loans[0].borrowingCosts, ***REMOVED***);
-  assert.equal(p.loans[0].settlementDate, "2025-01-01");
+  assert.equal(p.loans[0].borrowingCosts, 9800);
+  assert.equal(p.loans[0].settlementDate, "2024-11-15");
   m.undo();
   assert.equal(p.acquisitionCosts.length, 2);
   assert.equal(p.loans[0].borrowingCosts, 350);
@@ -738,7 +738,7 @@ test("the print copy is plain tables, a page per person, with the checklist", fu
     personYear(2025, "Sam", true).incomeStatements = [{ payer: "Acme", gross: 100000, allowances: 0, withheld: 24000 }];
     var html = taxYearPrintHtml();
     assert.match(html, /<section class="pr-page"><h2>Sam — FY25\/26 tax return worksheet<\/h2>/);
-    assert.match(html, /Acme — tax withheld<\/td><td class="pr-num">\$***\.00/);
+    assert.match(html, /Acme — tax withheld<\/td><td class="pr-num">\$24,000\.00/);
     assert.match(html, /☐ Sam: income statement — Acme/);
     assert.doesNotMatch(html, /<input/);
   } finally { Object.assign(state, keep); }
@@ -752,7 +752,7 @@ test("projection milestones: round amounts, loans gone, and who overtakes whom",
     { label: "Buy", colorClass: "series-color-1", points: pts([250000, 550000, 1000000, 1600000], [500000, 300000, 0, 0]) }
   ], true);
   assert.match(html, /Milestones/);
-  assert.match(html, /\$500k<\/span><span>\$1M<\/span><span>\$***\.5M/);
+  assert.match(html, /\$500k<\/span><span>\$1M<\/span><span>\$1\.5M/);
   assert.match(html, /Buy<\/span><span>yr 1<\/span><span>yr 2<\/span><span>yr 3<\/span><span>yr 2<\/span>/);
   assert.match(html, /<i>none<\/i>/);
   assert.match(html, /<b>Buy<\/b> overtakes Renting in year 2/);
@@ -821,12 +821,12 @@ test("benchmarks: property against its suburb", async function(){
 
 test("distributions received: rows, note and add button", async function(){
   const { payoutsSectionHtml, payoutsNoteText } = await import("../src/components/assets.js");
-  const item = { what: "ETFB", payouts: [{ date: "2026-01-15", cash: 120.5, credit: 51.64 }] };
+  const item = { what: "VAS", payouts: [{ date: "2026-01-15", cash: 120.5, credit: 51.64 }] };
   const html = payoutsSectionHtml(item, 3);
   assert.match(html, /Distributions received \(1\)/);
   assert.match(html, /class="po-cash" data-payout-index="0" value="120.5"/);
   assert.match(html, /data-payout-del="3:0"/);
-  assert.match(payoutsNoteText(item), /1 payment: \$***\.50 cash \+ \$***\.64 franking credits/);
+  assert.match(payoutsNoteText(item), /1 payment: \$120\.50 cash \+ \$51\.64 franking credits/);
   assert.match(payoutsSectionHtml({ payouts: [] }, 0), /Log each dividend/);
 });
 
@@ -838,9 +838,9 @@ test("if you sold: inputs, the sums and each owner's share", async function(){
       owners: [{ name: "Alex", share: 0.7, gain: 164500, assessable: 82250, tax: 30000, loss: 0, cash: 166000 }, { name: "Sam", share: 0.3, gain: 70500, assessable: 35250, tax: 10000, loss: 0, cash: 74000 }] } });
   assert.match(html, /data-sale-field="price" value="" placeholder="700000"/);
   assert.match(html, /today's value grown at 5% a year/);
-  assert.match(html, /Less capital works claimed<\/span><b>−\$***/);
+  assert.match(html, /Less capital works claimed<\/span><b>−\$12,000/);
   assert.match(html, /Alex <small>70%/);
-  assert.match(html, /Taxable, after the 50% discount<\/span><b>\$***/);
+  assert.match(html, /Taxable, after the 50% discount<\/span><b>\$82,250/);
   assert.match(html, /Total cash after tax<\/span><b>\$240,000/);
   assert.match(html, /Taxed in FY26\/27/);
 });
@@ -858,13 +858,13 @@ test("the worksheet offers Import a year next to Print", async function(){
 
 test("loan strategy: four cards with results, and the IP note", async function(){
   const { loanStrategyHtml } = await import("../src/components/properties.js");
-  const html = loanStrategyHtml({ id: "p1", kind: "IP", loans: [{ what: "Lender", balance: 400000, rate: 6.2, termYears: 25, repaymentType: "PI", offsetBalance: 0,
+  const html = loanStrategyHtml({ id: "p1", kind: "IP", loans: [{ what: "Home loan", balance: 400000, rate: 6.2, termYears: 25, repaymentType: "PI", offsetBalance: 0,
     strategy: { extra: 300, offsetAdd: 20000, newRate: 6.7, refiRate: 5.8, refiCosts: 1500, cashback: 0 } }] });
   assert.match(html, /a month · paid off in 25y 0m/);
   assert.match(html, /sooner<\/b>, <b>\$[\d,]+<\/b> less interest/);
-  assert.match(html, /<b>\$***<\/b> a year less interest/);
-  assert.match(html, /Repayments up <b>\$***\d\d<\/b> a month/);
-  assert.match(html, /Pays back the \$*** net switching cost in <b>\d+ months?<\/b>/);
+  assert.match(html, /<b>\$1,240<\/b> a year less interest/);
+  assert.match(html, /Repayments up <b>\$1\d\d<\/b> a month/);
+  assert.match(html, /Pays back the \$1,500 net switching cost in <b>\d+ months?<\/b>/);
   assert.match(html, /Offset keeps the options/);
   assert.match(loanStrategyHtml({ id: "p", kind: "IP", loans: [] }), /Add a loan with a balance/);
 });
@@ -876,8 +876,8 @@ test("super top-up: the room as a placeholder, and the sums", async function(){
     state.tax = Object.assign({}, keep || {}, { settings: { Sam: { topUpAmount: 0 } } });
     const html = topUpHtml("Sam", { capAvailable: 30000, totalConcessional: 18000, taxable: 150000, div293Income: 168000, fy: 2026 });
     assert.match(html, /placeholder="12000"/);
-    assert.match(html, /Contributing <b>\$***<\/b> and claiming it/);
-    assert.match(html, /lands in super after \$*** contributions tax/);
+    assert.match(html, /Contributing <b>\$12,000<\/b> and claiming it/);
+    assert.match(html, /lands in super after \$1,800 contributions tax/);
     assert.match(topUpHtml("Sam", { capAvailable: 30000, totalConcessional: 30000, taxable: 1, fy: 2026 }), /class="tax-topup" hidden/);
   } finally { state.tax = keep; }
 });

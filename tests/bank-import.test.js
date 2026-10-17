@@ -15,7 +15,7 @@ var COMMBANK = [
   "02/09/2026,-45.20,\"WOOLWORTHS 1234 SYDNEY NS\",1250.30",
   "03/09/2026,-12.50,\"CAFE MILANO\",1237.80",
   "15/09/2026,-1890.00,\"RENT PAYMENT\",-652.20",
-  "16/09/2026,+4200.00,\"SALARY ACME\",3547.80"
+  "16/09/2026,+4200.00,\"SALARY ACME PTY LTD\",3547.80"
 ].join("\n");
 
 // A Debit/Credit-split export with a header, unsigned values in each column.
@@ -79,7 +79,7 @@ test("an impossible date is rejected rather than rolled forward", function(){
 test("parseBankAmount handles the three ways banks write a negative", function(){
   assert.equal(parseBankAmount("-1234.56"), -1234.56);
   assert.equal(parseBankAmount("(1,234.56)"), -1234.56);
-  assert.equal(parseBankAmount("$***"), 1234.56);
+  assert.equal(parseBankAmount("$1,234.56"), 1234.56);
   assert.equal(parseBankAmount("88.40"), 88.40);
   assert.equal(parseBankAmount(""), null);
   assert.equal(parseBankAmount("   "), null);
@@ -91,8 +91,8 @@ test("a signed Amount column keeps its own sign", function(){
   parsed.rows.forEach(function(r){ byDesc[r.description] = r; });
   assert.equal(byDesc["WOOLWORTHS 1234 SYDNEY NS"].direction, "debit");
   assert.equal(byDesc["WOOLWORTHS 1234 SYDNEY NS"].amount, 45.20);
-  assert.equal(byDesc["SALARY ACME"].direction, "credit", "+4200 is money in, not a $*** purchase");
-  assert.equal(byDesc["SALARY ACME"].amount, 4200);
+  assert.equal(byDesc["SALARY ACME PTY LTD"].direction, "credit", "+4200 is money in, not a $4,200 purchase");
+  assert.equal(byDesc["SALARY ACME PTY LTD"].amount, 4200);
 });
 
 test("a Debit/Credit pair takes its sign from the column, not the value", function(){
@@ -229,7 +229,7 @@ test("a purchase already logged BY HAND is not imported a second time", function
 });
 
 test("a possible duplicate is consumed per match, not treated as a blanket rule", function(){
-  // Two hand-logged $*** rows on one day absorb two bank rows; a third is genuinely new.
+  // Two hand-logged $20 rows on one day absorb two bank rows; a third is genuinely new.
   var handLogged = [
     { id: "t1", date: "2026-09-02", amount: 20, what: "" },
     { id: "t2", date: "2026-09-02", amount: 20, what: "" }
@@ -258,7 +258,7 @@ test("a hand-logged row on a different day or amount doesn't suppress anything",
 });
 
 test("a credit is kept and labelled, not silently dropped", function(){
-  // The app can't tell a $*** refund from a $*** salary instalment, so the parser keeps both and
+  // The app can't tell a $220 refund from a $220 salary instalment, so the parser keeps both and
   // lets the review screen ask. Dropping them in the parser would make that impossible.
   var parsed = parseBankCsv(parseCsv([
     "Date,Transaction Details,Debit,Credit,Balance",

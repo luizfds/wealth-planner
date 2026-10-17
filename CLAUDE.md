@@ -105,6 +105,30 @@ commit and a matching git tag:
 Do this for every shipped change, without being asked. This is a strong, explicit standing
 preference — not optional polish.
 
+## Never commit real personal data — this repo is public
+
+Nothing from a real person's finances or identity goes into this repository: not in code, tests,
+fixtures, comments, docs, commit messages or PR descriptions. That covers names, addresses,
+employers, banks and lenders, merchants and places, account / card / tax file numbers, salaries,
+balances, transactions, tax-return figures, purchase or settlement dates, ages and birthdays. It
+applies just as much when the data is the repo owner's own — a backup, a payslip or a lodged return
+shared during a session.
+
+- **Every test and fixture uses invented data, far from anything real.** Placeholder people
+  (Alex, Sam), "Employer A", "1 Example St", generic merchants (Fern Café, Bank One), and amounts
+  made up from scratch. Never scale, round or lightly alter a real figure — invent a new one.
+- **Verify against real data outside the repo.** Checking the engine against a real backup or a
+  lodged return is good practice; do it in a scratch directory, and report the result without the
+  figures ("every label matches", not the dollar amounts).
+- **Files made from someone's real data** (a tax year import file, a corrected backup) go to them
+  directly — never committed, never attached to a PR.
+- **Before every push, grep the diff** for names, places, employers and non-round amounts that
+  look like someone's real numbers. If in doubt, leave it out.
+
+Git history is public too. Removing something later means rewriting history and asking GitHub
+Support to purge cached pull-request commits, so getting this right before the push is the only
+cheap option.
+
 ## Always open a pull request for shipped work
 
 Pushing the branch is not the end of the job. Once a piece of work is complete and pushed, open a
@@ -185,6 +209,8 @@ Three layers, and **knowing what each one cannot see is the whole point**:
    reading the DOM and console. Still the only thing that sees event wiring, CSS cascade, layout,
    and anything reached through `document`.
 
+- **Fixtures are invented** — see "Never commit real personal data" above. A test that was checked
+  against a real return keeps its logic and gets made-up inputs, with expectations rebuilt by hand.
 - **CI (`.github/workflows/checks.yml`) runs `npm test` and `scripts/smoke.mjs` on every PR.** The
   smoke script opens every page and subtab headless at 390/1280px, light and dark, and fails on page
   or console errors, an empty page, sideways scroll, NaN/undefined text, or a %-width bar measuring

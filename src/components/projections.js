@@ -31,7 +31,7 @@ export function renderProjectionOutputs(){
     }).sort(function(a, b){ return b.value - a.value; });
     var yrWord = horizon === 1 ? "year" : "years";
     // Spelled out in the headline as well as on the control above it: this sentence is the one
-    // line most people read, and "$8,002,580 at year 20" means two very different things
+    // line most people read, and "$6,379,600 at year 20" means two very different things
     // depending on which dollars it's in.
     var basisWord = realTerms ? " in today's dollars" : " in future dollars";
     if(finals.length > 1){

@@ -163,7 +163,7 @@ import {
     { what:"CSL Limited", symbol:"CSL", market:"ASX", priceMin:180, priceMax:320 },
     { what:"BHP Group", symbol:"BHP", market:"ASX", priceMin:35, priceMax:55 },
     { what:"Commonwealth Bank", symbol:"CBA", market:"ASX", priceMin:90, priceMax:170 },
-    { what:"Employer A", symbol:"WOW", market:"ASX", priceMin:25, priceMax:42 },
+    { what:"Fortescue", symbol:"FMG", market:"ASX", priceMin:15, priceMax:25 },
     { what:"Telstra", symbol:"TLS", market:"ASX", priceMin:3.5, priceMax:5 },
     { what:"Wesfarmers", symbol:"WES", market:"ASX", priceMin:50, priceMax:85 },
     { what:"Vanguard Australian Shares ETF", symbol:"VAS", market:"ASX", priceMin:80, priceMax:110 },
@@ -2740,7 +2740,7 @@ import {
   // Pasting an amount.
   //
   // An <input type="number"> silently reads back "" for anything that isn't a bare number literal
-  // — "-$***", "−24.99" (the Unicode minus a bank app or phone keyboard copies), "1,299.00",
+  // — "-$24.99", "−24.99" (the Unicode minus a bank app or phone keyboard copies), "1,299.00",
   // a stray trailing space \u2014 with no error and no badInput flag to test. The field looks right
   // and `parseFloat(value) || 0` stores zero. Sanitising the clipboard text before it lands is
   // the only place this is catchable, so that is what this does; anything already valid is left
@@ -3785,8 +3785,8 @@ import {
     // recalcComputedItems() rewrites the derived rows — a vehicle's declining-balance value, the
     // synthetic net-income rows — against *today*. It has always run here and the result has never
     // been persisted, so localStorage kept whatever those rows were when something was last edited:
-    // on the reference data the Income page showed $***REMOVED***/mo while storage still held
-    // $***REMOVED*** for the same row, and a vehicle a few days stale. The screen was right and the
+    // on a test household's data the Income page showed $9,415.20/mo while storage still held
+    // $9,612.75 for the same row, and a vehicle a few days stale. The screen was right and the
     // stored copy was behind it. Harmless day to day (it self-corrects on the next edit) but it
     // means an exported backup and the browser's own copy could disagree, which is a bad property
     // for the one file standing between this app and losing everything.

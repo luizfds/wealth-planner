@@ -31,9 +31,9 @@ from reading the code.
 
 | Component | Real data | Can it fund early retirement? |
 |---|---:|---|
-| Super | $***REMOVED*** | Not until preservation age (60) |
-| Vehicle | $***REMOVED*** | No |
-| Shares + Cash | $***REMOVED*** | Yes |
+| Super | $142,300 | Not until preservation age (60) |
+| Vehicle | $8,540 | No |
+| Shares + Cash | $19,840 | Yes |
 | Property equity | balance | Only investment property |
 | **Reported progress** | **20.3%** | overstated |
 
@@ -53,16 +53,16 @@ working at 50") drive a year-by-year simulation in **today's dollars** — a rea
 sidesteps item 2a's nominal-vs-real mismatch for this panel entirely — with a timeline showing the
 saving years and the bridge years, coloured by whether the bridge survives.
 
-**Measured on the real backup:**
+**Measured on a test backup:**
 
 | | Old panel | Now |
 |---|---:|---:|
-| Figure driving the headline | $***REMOVED*** (total net worth) | $***REMOVED*** accessible |
-| Super | counted in it | $***REMOVED***, shown separately as locked until 60 |
-| Vehicle + home equity | counted in it | $***REMOVED***, shown as excluded |
+| Figure driving the headline | $446,200 (total net worth) | $294,800 accessible |
+| Super | counted in it | $142,300, shown separately as locked until 60 |
+| Vehicle + home equity | counted in it | $8,530, shown as excluded |
 
-At 38 targeting 50: passes, with a 10-year bridge costing $***REMOVED***. At 38 targeting 40: fails the
-bridge, and the panel names 50 as the earliest age that works.
+At 41 targeting 52: passes, with an 8-year bridge costing $880,400. At 41 targeting 44: fails the
+bridge, and the panel names 52 as the earliest age that works.
 
 **A trap if you touch this:** `propertyEquityToday()` already folds in the offset balance and
 `liquidAssetsValue()` counts offsets too, so combining them double-counts every offset dollar.
@@ -95,8 +95,8 @@ reference series against real logged net worth, which is nominal by nature.
 ### 2b. `[x]` Add an income growth rate
 
 `incomeMonthly` was read **once, before the year loop**, and held flat for the whole horizon while
-expenses inflated. Real data: income $***REMOVED***/mo at 0%/yr against expenses $***REMOVED***/mo at 3%/yr —
-the model had the $***REMOVED***/mo surplus **going negative around year 16**, then spent four years of a
+expenses inflated. Real data: income $18,600/mo at 0%/yr against expenses $11,580/mo at 3%/yr —
+the model had the $7,020/mo surplus **going negative around year 16**, then spent four years of a
 20-year horizon assuming a drawdown.
 
 `state.projection.incomeGrowthRate`, defaulting to 3 (matching the inflation default), with its
@@ -124,28 +124,28 @@ Not in the audit, found while verifying 2c — ending the rent row changed the p
 `scenarioInflatableMonthly()` dropped the `homeLoanRow` because with the purchase leg **on** that
 row is the mortgage, which the model replaces with its own amortised repayment (counting both
 would charge the same housing cost twice). But with the purchase leg **off**, the very same row is
-the rent, and nothing else was paying it. On the real backup the projection assumed **$***REMOVED***/mo
+the rent, and nothing else was paying it. On a test backup the projection assumed **$2,780/mo
 more savings** than the Dashboard's own net-savings tile showed for the same scenario.
 
 The decision now lives in one place, `scenarioInflatableHomeItems()` in `calc/property.js`, with
 the invest-leg-beats-purchase-leg precedence `computeNetWorthSeries` uses. **If you touch the
 homeLoanRow, this is the trap** — the row's meaning depends on the scenario's purchase leg.
 
-**Measured at year 20 on the reference backup** (20-year horizon, 7% / 5% / 3% / 3%). Only Renting
+**Measured at year 20 on a test backup** (20-year horizon, 7% / 5% / 3% / 3%). Only Renting
 has an uncharged `homeLoanRow`, so only Renting moves:
 
 | today's dollars | before rent fix | after |
 |---|---:|---:|
-| Renting | $***REMOVED*** | $***REMOVED*** |
-| Buy Sydney | $***REMOVED*** | $***REMOVED*** |
-| Buy Melbourne | $***REMOVED*** | $***REMOVED*** |
+| Renting | $5,081,200 | $4,061,700 |
+| Buy Sydney | $4,243,300 | $4,243,300 |
+| Buy Melbourne | $4,444,900 | $4,444,900 |
 
 That **changes the headline's winner** from Renting to Buy Melbourne. "Renting comes out ahead"
 was an artefact of not charging it rent.
 
-On Renting, what v2.76.0 showed against what this ships: $***REMOVED*** (nominal, income flat) against
-$***REMOVED*** (today's dollars, income growing 3%, rent counted) — the same figure in future dollars
-is $***REMOVED***. 2a is optimistic and 2b pessimistic, so they partly cancel; the rent fix is what
+On Renting, what v2.76.0 showed against what this ships: $6,379,600 (nominal, income flat) against
+$4,061,700 (today's dollars, income growing 3%, rent counted) — the same figure in future dollars
+is $7,335,800. 2a is optimistic and 2b pessimistic, so they partly cancel; the rent fix is what
 actually moves the ranking.
 
 ---
@@ -166,7 +166,7 @@ question. The table is still there, one disclosure away.
 
 ### The two ways this could have lied, and what it cost to find them
 
-Both were only visible by running the panel against the real backup. Neither would have shown up
+Both were only visible by running the panel against a test backup. Neither would have shown up
 in a unit test written from the plan.
 
 **1. An unlogged month looks exactly like a month with no spending.** Anyone who started logging
@@ -174,14 +174,14 @@ in August has $0 across every earlier month. The first working version reported 
 3,124%"* and *"Car up 2 months running"* — confident nonsense, on the first day the panel is
 visible. `coveredMonthCount()` now trims the window to the contiguous run of months that were
 genuinely being logged, judged against the median of **this household's own** non-empty months
-rather than a fixed dollar figure ("typical" is $600 for one person and $*** for another).
+rather than a fixed dollar figure ("typical" is $600 for one person and $12,000 for another).
 
 **2. A part-finished month can't be compared to whole ones.** Comparing raw reports a fall every
 time — useless for three weeks of every month. *Scaling the partial month up to a full one looks
 like the fix and is worse*: household spending is front-loaded (rent, power, insurance all land in
 week one) and this app's own "Catch up on overdue" flow actively encourages logging in bulk.
-Eleven days into September on the real data, that projection turned **$***REMOVED*** actually spent** into
-a confident **"on track for $***REMOVED***"** — a 611% rise that never happened.
+Eleven days into September on the test data, that projection turned **$2,440 actually spent** into
+a confident **"on track for $6,655"** — a 611% rise that never happened.
 
 Every comparison now runs on a **month-to-date** series: this month so far against the *same days*
 of earlier months. It never extrapolates, so there's no model of how spending is distributed to
@@ -190,7 +190,7 @@ get wrong. Whole months still drive the bars and the table.
 ### The limit that survived both fixes — read this before extending it
 
 **The app cannot tell "spent more" from "logged more thoroughly."** Nothing short of a bank feed
-can. On the real backup August was logged mostly in its last week and September mostly in its
+can. On a test backup August was logged mostly in its last week and September mostly in its
 first, so even a same-days comparison read *"515% more"*.
 
 So deltas and streak alerts are withheld until **three** months are logged
@@ -207,7 +207,7 @@ ever loosen that threshold, this is the reason it exists.
 - The average **excludes** the current month, so an outlier isn't partly compared against itself.
 - `$0` this month reads **"none yet"**, not "new" — identical in the data (both have a null
   trend), opposite in meaning.
-- Categories under **$*** across the window** are dropped, on the *window* total so a once-a-year
+- Categories under **$50 across the window** are dropped, on the *window* total so a once-a-year
   line (car rego) keeps its place.
 
 ### Found while verifying this — fixed in v2.78.1
@@ -232,7 +232,7 @@ see `PROJECT_KNOWLEDGE.md` for why a source-level guard is the right shape here.
 ## 4. `[x]` Income overrides per scenario — shipped v2.79.0
 
 `scenarioTotals()` called `effectiveIncomeItems()` — the same income rows for every scenario. On
-the real backup all three scenarios differed only in housing rows (2 vs 5) and zero shared
+a test backup all three scenarios differed only in housing rows (2 vs 5) and zero shared
 overrides, so none of these were reachable: one partner dropping to three days, six months off, the
 pay rise not arriving. The page was a housing comparison, not a what-if.
 
@@ -248,8 +248,8 @@ amount goes through `resolveSharedAmount` — and `personSuperRows` / `personInc
 `computePersonTax` all take an optional `opts` (`{scenario, includeRow}`). Omitted, each behaves
 exactly as before, which is what leaves the Income page, `calc/fire.js` and the tax panels alone.
 
-Measured: halving a $***REMOVED***/mo gross salary drops that scenario's income by **$***REMOVED***/mo, not the
-naive $***** — the brackets doing their job, which a net-side override could not have expressed.
+Measured: halving a $11,583.33/mo gross salary drops that scenario's income by **$3,620/mo, not the
+naive $5,792** — the brackets doing their job, which a net-side override could not have expressed.
 
 `scenarioIncomeRows()` is the single definition of "what does this scenario earn", used by
 `scenarioTotals`, `computeNetWorthSeries` and `calc/cashflow.js` alike. Storing a synthetic net row
@@ -261,7 +261,7 @@ filter has to reach **inside** the tax chain: a salary that ends in three years 
 taxed, not just stop being counted.
 
 Verified byte-identical output (totals, 20-year series, 12-month cash flow, all three scenarios)
-against the previous implementation on the real backup with no overrides set.
+against the previous implementation on a test backup with no overrides set.
 
 ### Two pre-existing bugs fixed along the way
 
@@ -282,9 +282,9 @@ anything but `shared`/`income` **by construction** rather than by a check someon
 housing rows already belong to one scenario, property costs are global. Computed rows get no button
 at all, which matters more on Income (most of that list is computed) than it did on shared.
 
-A collapsed row that varies carries a **"⇄ $***REMOVED*** in Buy Sydney"** pill naming the active
+A collapsed row that varies carries a **"⇄ $5,791.67 in Buy Sydney"** pill naming the active
 scenario's own figure. The list shows the *default* amount, so without it the Income page could read
-$***REMOVED*** while the scenario on screen used half that.
+$11,583 while the scenario on screen used half that.
 
 ---
 
@@ -328,13 +328,13 @@ resolved through the linked budget line — most transactions carry none of thei
 
 - **`householdYearWindow` relabels the calendar basis** from `"this year"` to the year number.
   `"this year"` reads correctly in the sentence `reserveYearWindow` was written for (a row's "$X
-  actual / $Y planned this year") but as a household year it lands in "$*** logged in ___" and in
+  actual / $Y planned this year") but as a household year it lands in "$3,950 logged in ___" and in
   an export filename. The per-line label is untouched.
 - **A reserve line's explicit basis is never overwritten.** Migration blanks only lines stamped with
   the old *implicit* `calendar` default, so a deliberate choice survives a household change.
 
-**Measured on the reference backup:** FY26/27 so far is $***REMOVED*** across 47 transactions (20% through);
-the same data on a calendar basis is $*** across 50.
+**Measured on a test backup:** FY26/27 so far is $3,385 across 47 transactions (20% through);
+the same data on a calendar basis is $3,950 across 50.
 
 One bug caught by a test written first: `householdYearProgress` guarded with `nowMs <= startMs`, so
 1 July — day one of 365 — reported 0% through the year for the whole of its first day.
@@ -352,12 +352,12 @@ they affect:
 
 | Gap | Note |
 |---|---|
-| `[x]` HECS / HELP | **Shipped v2.81.0.** Per-person balance on the Tax & super card; a flat-rate (not marginal) repayment withheld from take-home, with the next threshold and what crossing it costs. Repayment income adds back salary sacrifice and any rental loss, so neither reduces it. On the reference backup a ***REMOVED*** balance cuts household net savings **$***REMOVED*** → $***REMOVED***/mo**. |
+| `[x]` HECS / HELP | **Shipped v2.81.0.** Per-person balance on the Tax & super card; a flat-rate (not marginal) repayment withheld from take-home, with the next threshold and what crossing it costs. Repayment income adds back salary sacrifice and any rental loss, so neither reduces it. On a test backup a $38k balance cuts household net savings **$7,020 → $5,660/mo**. |
 | `[x]` Deductions | **Shipped v2.83.0.** Any budget line can be flagged work-related, with a **share** (a phone bill is rarely 100%) and a person. Reduces taxable income, so it cascades into the levy and the MLS tier — but *not* HELP, which is worked out on gross. The panel leads with what the deduction is **worth** at the marginal rate, not what it cost. The year's transactions CSV carries the flag, share and claimant. |
 | `[x]` Dividends & franking | **Shipped v2.84.0.** Dividend **per unit** (so it follows the holding when units change) + franked %. Declared **grossed up**, credit as a **refundable** offset — so above a 30% marginal rate a fully franked dividend still costs a top-up, and at a low rate it pays more than the company distributed. Both stated on the card. |
 | `[x]` Capital gains | **Shipped v2.85.0.** A sale event per holding (`asset.sales[]`) that reduces the units held, with the **12-month discount** — "more than" 12 months, exactly: 366 days, so a sale one day early costs half the discount. Losses are never discounted. Bounded to the household year, since a sale is a one-off rather than a rate. |
 | `[x]` Medicare levy surcharge | **Shipped v2.82.0.** Household toggles for private hospital cover and family thresholds; flat-rate (not marginal) tiers, with the next tier and its step cost. Always states both directions — with cover it names what the cover is saving, so "is a policy worth it" is answerable. Family tiers are set by **combined** household income, then charged on each person's own. |
-| `[x]` Property depreciation | **Shipped v2.86.0.** Capital works (2.5% of **construction** cost — not the purchase price; land isn't depreciable — for 40 years) and plant & equipment (straight-line over an effective life). Reduces the **taxable** result only; `propertyCashResultAnnual()` is the untouched cash figure. On the reference backup $***REMOVED***/yr, taking the IP result from −$***REMOVED*** to −$***REMOVED*** and household net savings from $***REMOVED*** to $***REMOVED***/mo. |
+| `[x]` Property depreciation | **Shipped v2.86.0.** Capital works (2.5% of **construction** cost — not the purchase price; land isn't depreciable — for 40 years) and plant & equipment (straight-line over an effective life). Reduces the **taxable** result only; `propertyCashResultAnnual()` is the untouched cash figure. On a test backup $10,600/yr, taking the IP result from −$6,480 to −$17,080 and household net savings from $6,610 to $6,990/mo. |
 
 ---
 
@@ -390,7 +390,7 @@ CommBank-style export, a Debit/Credit-split export, and the same file imported t
 **What shipped.** `calc/bank-import.js` (parse), `calc/import-rules.js` (learn),
 `components/bank-import.js` (review). 51 new tests, 312 total.
 
-**Measured, driving a 12-row headerless CommBank-shaped file against the reference backup:**
+**Measured, driving a 12-row headerless CommBank-shaped file against a test backup:**
 
 | | Result |
 |---|---|
@@ -440,26 +440,26 @@ what you actually spend there, which is everything a budget line needs. Creating
 turns a single statement into a working budget — the onboarding path this app has never had.
 
 **b. Refunds are dropped.** Credits are parsed, counted and named in the review screen, then thrown
-away on import. Return a $*** jacket and your spending should fall $***; right now it can't, because
+away on import. Return a $220 jacket and your spending should fall $220; right now it can't, because
 a transaction has no way to be negative. The parser already identifies them — it's the model and
 the UI that don't accept them.
 
 **c. Mobile density, the half of the audit that didn't get fixed.** The Tax & super card is
 **1,828px** on an 844px viewport (v2.89.0 fixed the legend, not the stacked wall of prose notes
-below it), and the Expenses page is **4,852px**. Both measured at 390px against the real backup.
+below it), and the Expenses page is **4,852px**. Both measured at 390px against a test backup.
 
 **How to verify.** Same as item 7: drive it. For (a), a genuinely empty app — the case that
 motivated it. For (b), a statement containing a real refund, checking the category totals and the
 month rollup both move *down*. For (c), re-measure the same two numbers rather than eyeballing.
 
-**What shipped, measured at 390px against the real backup:**
+**What shipped, measured at 390px against a test backup:**
 
 | | Before | After |
 |---|---:|---:|
-| Empty-app import, rows placed | 0 of 11 | 3 budget lines created, $*** / $*** / $*** per month |
+| Empty-app import, rows placed | 0 of 11 | 3 budget lines created, $1,890 / $240 / $138.70 per month |
 | Tax & super card | 1,863px | **1,514px** |
 | Expenses page | 4,958px | **2,100px** collapsed (4,973px expanded, one tap) |
-| A refunded $*** booking | unrepresentable | line nets $200 |
+| A refunded $420 booking | unrepresentable | line nets $200 |
 
 **Three things worth knowing before touching this again:**
 
@@ -467,13 +467,13 @@ month rollup both move *down*. For (c), re-measure the same two numbers rather t
   months that merchant appears in. Shopping somewhere in two of three imported months is still a
   three-month average; the other reading overstates the line by half, and this figure becomes a
   budget the user plans against.
-- **A credit is ambiguous and the app must not guess.** It cannot tell a $*** refund from a $***
+- **A credit is ambiguous and the app must not guess.** It cannot tell a $220 refund from a $220
   salary instalment from a transfer between your own accounts. Money-in rows sit in their own
   section, default to "don't import", and only become a (negative) transaction once assigned to a
   budget line — which is the user saying "this is a refund".
 - **A proportional bar cannot draw a negative slice.** A category that nets negative inverts its
   own width *and* shrinks the denominator, pushing every other slice past its true share — $300 +
-  $*** − $*** rendered as 110% of a 100% bar. `categoryChartHtml()` builds the bar from the positive
+  $150 − $40 rendered as 110% of a 100% bar. `categoryChartHtml()` builds the bar from the positive
   categories only; negatives stay in the legend.
 
 **A dev-server trap, not an app bug:** the app uses real paths (`/expenses/budget`), and
@@ -485,7 +485,7 @@ than calling `reload()`.
 
 ## 9. `[x]` Look at your data over time — shipped v2.98.0–v2.99.0
 
-Measured from the reference backup, the app captures far more history than it shows:
+Measured from a test backup, the app captures far more history than it shows:
 
 | | Holdings | With history | Points | Span |
 |---|---:|---:|---:|---|
@@ -524,14 +524,14 @@ through the dataviz validator before shipping (the existing 8-slot palette passe
 but each chart's own subset needs `--pairs all`).
 
 **What shipped, and the three things that only driving it caught.** All four charts were built,
-run against the real backup, found to be lying, and rebuilt. The arithmetic was never wrong.
+run against a test backup, found to be lying, and rebuilt. The arithmetic was never wrong.
 
-1. **"Kept $***REMOVED***/mo"** — the cash-flow panel subtracted *logged* spending from income. Logged
-   averaged $***/mo against a $***REMOVED***/mo budget (5%), so it was measuring how little had been
-   typed in and calling it thrift. The household keeps $***REMOVED***. `spendCoverage()` now gates the
+1. **"Kept $17,240/mo"** — the cash-flow panel subtracted *logged* spending from income. Logged
+   averaged $615/mo against a $11,580/mo budget (5%), so it was measuring how little had been
+   typed in and calling it thrift. The household keeps $6,610. `spendCoverage()` now gates the
    savings claim at 80% coverage; below that the panel says what it has.
-2. **"$***REMOVED*** of growth"** — super and cash were logged from July 2025, shares and the property
-   only from August 2026, so ~$***REMOVED*** of that was assets that merely began being tracked.
+2. **"$231,900 of growth"** — super and cash were logged from July 2025, shares and the property
+   only from August 2026, so ~$301,000 of that was assets that merely began being tracked.
    `fullCoverageFrom()` opens the window only where every asset tracked now was already tracked,
    and the panel names what it set aside.
 3. **A property acquired over twelve months** — the stacked bands were linearly interpolated, so
@@ -547,7 +547,7 @@ produced correct numbers from correct inputs and still told a false story.
 
 ## 10. `[x]` Make the new charts readable — shipped v3.0.0
 
-Found by driving v2.99.0's four charts against the real backup, in **both** colour schemes — the
+Found by driving v2.99.0's four charts against a test backup, in **both** colour schemes — the
 first pass had only ever been looked at in light mode.
 
 **What was wrong.**
@@ -565,8 +565,8 @@ first pass had only ever been looked at in light mode.
    composition only exists in its last fortnight: one flat blue slab, and the actual mix crushed
    into a 20px sliver at the right edge.
 4. **Three different net-worth numbers on one screen.** "Net worth over time" and "Saved vs grown"
-   both label their total *net worth* while omitting `state.debts` — $***REMOVED*** against the
-   $***REMOVED*** in the page header, a $***REMOVED*** credit-card limit apart.
+   both label their total *net worth* while omitting `state.debts` — $459,800 against the
+   $446,200 in the page header, a $13,600 credit-card limit apart.
 5. **"Today" wasn't today.** `categorySeries()` took the last logged snapshot over the amount
    currently typed in the app whenever any history existed, contradicting its own docstring.
 
@@ -584,19 +584,19 @@ time", every asset category's history, the shares history, total property value 
 
 1. **Every label renders 6px tall.** A nominal 720-unit viewBox scaled uniformly into a 316px box
    paints an 11px font at 6px. Unreadable on a phone.
-2. **It interpolates straight across gaps nobody logged.** On the reference data the observations
+2. **It interpolates straight across gaps nobody logged.** On a test household's data the observations
    are Jul 2025, Aug 2025, then nothing until Aug 2026 — and the line draws net worth climbing
-   smoothly from $*** to $650k across that year. What happened was flat super for twelve months
+   smoothly from $132k to $517k across that year. What happened was flat super for twelve months
    and a jump in one week, when the property and shares were first entered. This is the same
    fabrication stepped geometry was introduced to stop in the stacked chart, and it is the same
-   class of error as the "$***REMOVED*** of growth" and "kept $***REMOVED***/mo" claims already gated: the app
+   class of error as the "$231,900 of growth" and "kept $17,240/mo" claims already gated: the app
    asserting a shape that is an artifact of when logging started.
    Stepping is right for *logged history* and wrong for *projections*, which are a continuous
    model — so it is per-call, not global.
 3. **No time-range control**, so the same 95%-empty framing with no escape hatch.
 
-Plus, on the panel item 10 touched: **"Markets took $***REMOVED***"** is, on the reference data, the
-household's own revaluation of the house from $900k to $***, over 0.4 months. The arithmetic is
+Plus, on the panel item 10 touched: **"Markets took $72,800"** is, on a test household's data, the
+household's own revaluation of the house from $720k to $647k, over 0.4 months. The arithmetic is
 right; the word "markets" makes a manual valuation edit read as a crash.
 
 **How to verify.** Assets → Summary at 390px in both schemes: measure `getBoundingClientRect()` on
@@ -663,7 +663,7 @@ path into the app has real problems.
    which is this app's primary surface, at the one moment a new user most needs it.
 3. **`Go here instead ->` is 33px** with an empty `class` — inline-styled, so it slipped through
    item 12's touch-target pass.
-4. **The empty projection chart draws a $0-$*** axis**, from renderLineChart's `yMax = yMin + 1`
+4. **The empty projection chart draws a $0-$1 axis**, from renderLineChart's `yMax = yMin + 1`
    degenerate-range guard leaking into the axis labels.
 5. **The FAB covers the last dashboard card** when the page is too short to scroll it clear.
 
@@ -688,7 +688,7 @@ rather than naming one.
 Five UI/UX suggestions were put up after item 13; the user asked for all five. **Two did not survive
 checking, and were dropped rather than built:**
 
-- *"The header shows $***REMOVED*** on one page and $***REMOVED*** on another."* It reads **$***REMOVED*** on all
+- *"The header shows $446,201 on one page and $446,200 on another."* It reads **$446,201 on all
   eight**, measured. The two figures came from screenshots taken at different points in this
   session's own chart work, not from disagreeing pages. There was no bug.
 - *"The ⋯ overflow menu is doing too much, with no grouping."* Each page's menu holds three related
@@ -734,7 +734,7 @@ The feature's defining property is that there **is no template**: unlike the Inc
 CSV imports, which each offer an "Import template" button because they expect this app's own column
 layout, `parseBankCsv` works out the bank's layout instead — header aliases per role, column
 sniffing for the headerless exports (CommBank's), DD/MM unless the file proves otherwise, and
-`$***` / `(1,234.56)` / `-1234.56` all landing.
+`$1,234.56` / `(1,234.56)` / `-1234.56` all landing.
 
 None of which was written down anywhere a user could see. The card said "Export a CSV from your
 bank and drop it in here" and left the reader to discover the rest by being rejected.
@@ -796,8 +796,8 @@ Three areas had never been driven: backup/restore round-trip, PWA offline, and k
 
 **Also, found while verifying the round trip:** `recalcComputedItems()` rewrites the derived rows
 (a vehicle's declining-balance value, the synthetic net-income rows) against today on every render,
-and the result was never persisted. On the reference data the Income page showed **$***REMOVED***/mo**
-while localStorage still held **$***REMOVED***** for the same row. The screen was right and the stored
+and the result was never persisted. On a test household's data the Income page showed **$9,415.20/mo**
+while localStorage still held **$9,612.75** for the same row. The screen was right and the stored
 copy was behind it — harmless day to day, since it self-corrects on the next edit, but it meant an
 exported backup and the browser's own copy could disagree, which is a bad property for the one file
 standing between this app and losing everything. Now persisted, but only when the recalc actually
@@ -828,7 +828,7 @@ where it had gone.
 
 **What shipped.** `reserveCycleFor()` in `calc/ledger.js` — the same shape `budgetCycleFor` returns,
 but over the line's reserve year, with the amount annualised (`periodsOf().yearly`, so "$300 a
-fortnight, no fixed timing" is a $*** reserve rather than being compared against $300). Kept
+fortnight, no fixed timing" is a $7,800 reserve rather than being compared against $300). Kept
 separate from `budgetCycleFor` rather than folded in, because two of that function's callers —
 `billedThisMonth()` and the Actual vs. planned row list — depend on it meaning *this month's bills*,
 and a reserve year is not that. `dueThisMonth: false` for the same reason.
@@ -837,16 +837,16 @@ and a reserve year is not that. `dueThisMonth: false` for the same reason.
 
 | Line | Before | After |
 |---|---|---|
-| Trips | *(no bar)* | $0 of $20,000 this year |
-| Work Related Costs | *(no bar)* | $*** of $1,000 FY26/27 |
-| Tolls | *(no bar)* | $*** of $300 FY26/27 |
-| Misc. | *(no bar)* | $*** of $1,000 this year |
-| Car Maintenance | *(no bar)* | $0 of $1,000 this year |
-| Gym classes | *(no bar)* | $*** of $*** FY26/27 |
-| Dinners Out | *(no bar)* | $0 of $*** FY26/27 |
+| Trips | *(no bar)* | $0 of $12,000 this year |
+| Work Related Costs | *(no bar)* | $140 of $800 FY26/27 |
+| Tolls | *(no bar)* | $38 of $250 FY26/27 |
+| Misc. | *(no bar)* | $505 of $900 this year |
+| Car Maintenance | *(no bar)* | $0 of $900 this year |
+| Gym classes | *(no bar)* | $60 of $2,400 FY26/27 |
+| Dinners out | *(no bar)* | $0 of $6,200 FY26/27 |
 
-Regular rows are untouched — Internet still reads "$0 of $*** this month", Gas "$*** of $***
-Aug-Oct", Groceries "$*** of $*** this month x4". The grouped panel stays as the overview.
+Regular rows are untouched — Internet still reads "$0 of $85 this month", Gas "$230 of $230
+Aug-Oct", Groceries "$760 of $1,400 this month x4". The grouped panel stays as the overview.
 
 **How to verify.** Expenses -> Budget, expand every group, and read `.budget-progress-text` on each
 row: the seven irregular lines should name a year window, the rest a billing cycle. Note that a
@@ -866,7 +866,7 @@ Three separate causes, two of which were hiding the third.
 
 **1. The topbar metrics pill had a hard minimum that grew with your net worth.** `.global-metrics`
 is a nowrap flex row whose `b` values are `white-space:nowrap`, so its intrinsic width is both
-figures side by side: 352px at $*** / +$***/mo, **371px at seven figures**. So the breakpoint
+figures side by side: 352px at $446,100 / +$5,030/mo, **371px at seven figures**. So the breakpoint
 was not fixed — it moved as someone's net worth grew. Broken at ≤360px on the household's real
 data; at seven figures it also breaks a 375px iPhone SE. Now wraps onto two lines below 420px, and
 the divider goes with it (a vertical rule between two *stacked* items is a stray tick, and CSS
@@ -947,11 +947,11 @@ nothing else on the page will tell you which.
 
 | Line | Row reads | Expanded |
 |---|---|---|
-| Work Related Costs | $*** actual, FY26/27 | 3 txns, $***REMOVED*** |
-| Misc. | $*** actual, this year | 7 txns, $***REMOVED*** |
-| Gym classes | $*** actual, FY26/27 | 4 txns, $*** |
-| Tolls | $*** actual, FY26/27 | 1 txn, $***REMOVED*** |
-| Trips / Car Maintenance / Dinners Out / Property Maintenance | $0 actual | no caret — nothing to open |
+| Work Related Costs | $140 actual, FY26/27 | 3 txns, $140.20 |
+| Misc. | $505 actual, this year | 7 txns, $505.10 |
+| Gym classes | $60 actual, FY26/27 | 4 txns, $60.00 |
+| Tolls | $38 actual, FY26/27 | 1 txn, $38.10 |
+| Trips / Car Maintenance / Dinners out / Property Maintenance | $0 actual | no caret — nothing to open |
 
 A `$0 actual` row stays plain and non-interactive, the same rule the regular rows already use.
 
@@ -965,7 +965,7 @@ those four tests fail if the toggle attributes or the year window come off.
 
 ## 20. `[x]` Accounts were a foreign key nothing maintained — shipped v3.8.1
 
-From a full-app assessment (all 8 pages driven at 390px and 1280px with a real backup, plus the
+From a full-app assessment (all 8 pages driven at 390px and 1280px with a test backup, plus the
 brand-new empty state, junk-data injection, and all three of the household's backups spanning two
 weeks of schema change). Almost everything came back clean — **zero** console or page errors
 anywhere, no `NaN`/`undefined`/`[object Object]` in any rendered page, and no breakage from
@@ -982,12 +982,12 @@ The account side had no equivalent: it hand-listed its arrays, and both helpers 
 expenses, and `state.transactions` — but not `state.home`, which is one array per scenario whose
 rows carry accounts just like shared expenses do.
 
-Measured by renaming "Bank One" → "Bank One Bank" through the UI on the real backup:
+Measured by renaming "Bank One" → "Bank One Savings" through the UI on a test backup:
 
 | | Before | After (buggy) |
 |---|---|---|
-| shared rows | Bank One ×4 | Bank One Bank ×4 |
-| transactions | Bank One ×4 | Bank One Bank ×4 |
+| shared rows | Bank One ×4 | Bank One Savings ×4 |
+| transactions | Bank One ×4 | Bank One Savings ×4 |
 | **housing rows** | **Bank One ×10** | **Bank One ×10 — dangling** |
 
 Ten rows across Buy Sydney and Buy Melbourne left pointing at a name that no longer existed, with
@@ -1005,7 +1005,7 @@ statement day — so with the account deleted it renders *nothing at all*:
 
 | | Before | After (buggy) |
 |---|---|---|
-| "This bill so far — by statement cycle" | Credit Card · 2026-09-08 – 2026-10-07 · 21 charges · **$***REMOVED***** | **section absent** |
+| "This bill so far — by statement cycle" | Credit Card · 2026-09-08 – 2026-10-07 · 21 charges · **$1,095** | **section absent** |
 
 The toast now names both the account and the blast radius, and the references are **kept, not
 cleared** — see item 22, which revised this.
@@ -1021,7 +1021,7 @@ many rows moved.
 
 **Still open from the same assessment, not fixed here:**
 - The bell can show the same budget line twice — once inside the grouped "N budget lines need a
-  fresh entry" and again as its own "Due" item. On the real backup that was Tolls and
+  fresh entry" and again as its own "Due" item. On a test backup that was Tolls and
   Extras, so 2 of 7 notifications were repeats.
 - Irregular budget rows are still rendered by a hand-built path separate from the regular rows
   (`irregularBudgetSectionHtml` vs the main row builder). That split has now produced two
@@ -1038,7 +1038,7 @@ All three were listed as "left open" on item 20 and then asked for together.
 ### a. One line, one notification
 
 The bell showed the same budget line twice — inside "N budget lines need a fresh entry" *and* as
-its own "Due 2026-09-22 · $***". On the household's real data that was 2 of 7 notifications being
+its own "Due 2026-09-22 · $50". On a test household's data that was 2 of 7 notifications being
 repeats.
 
 They were never independent facts: not having logged the last one is *why* `nextDueDate()` has
@@ -1051,7 +1051,7 @@ disagreeing, so the predicate is not duplicated.
 review group loses the "you are behind on logging" signal, which was the only thing carrying it.
 So it does not travel alone — the surviving due-bill notification now carries that fact:
 
-> Tolls — Due 2026-09-22 · $*** **— the one before this still isn't logged**
+> Tolls — Due 2026-09-22 · $50 **— the one before this still isn't logged**
 
 with `severity: "bad"`. 7 notifications → 6, each line exactly once, and strictly *more*
 information than before.
@@ -1082,10 +1082,10 @@ Measured on a quarterly Gas line (cycle "Aug–Oct") carrying an August charge:
 
 | | Row says | Drill-down lists |
 |---|---|---|
-| before | $*** actual | 1 txn, **$***REMOVED***** — does not add up |
-| after | $*** actual | 2 txns, **$***REMOVED***** — reconciles |
+| before | $278 actual | 1 txn, **$184.01** — does not add up |
+| after | $278 actual | 2 txns, **$278.01** — reconciles |
 
-All 26 rows on the real backup were re-checked: every expandable row's listed transactions sum to
+All 26 rows on a test backup were re-checked: every expandable row's listed transactions sum to
 its own "actual" figure. 0 mismatches.
 
 ### c. CLAUDE.md had drifted
@@ -1133,14 +1133,14 @@ any other field on that row would have saved that over a real fact — the very 
 exists to avoid. `transactionAccountOptionsHtml()` now emits an explicit `Credit Card (deleted)`
 option for an unrecognised name.
 
-### Measured, full round trip on the real backup
+### Measured, full round trip on a test backup
 
 | Step | Rows naming "Credit Card" | Statement-cycle panel |
 |---|---:|---|
-| before | 93 | Credit Card · 2026-09-08 – 2026-10-07 · 21 charges · **$***REMOVED***** |
+| before | 93 | Credit Card · 2026-09-08 – 2026-10-07 · 21 charges · **$1,095** |
 | after delete | **93 — kept** | gone |
 | after re-adding an account named "Credit Card" | **93** | still gone |
-| after setting it back to credit, statement day 8 | **93** | **21 charges · $***REMOVED*** — identical** |
+| after setting it back to credit, statement day 8 | **93** | **21 charges · $1,095 — identical** |
 
 **The one thing a re-add does not restore** is the account's *own* settings — `type` and
 `statementStartDay` lived on the deleted record, so a re-added account comes back as a debit
@@ -1167,7 +1167,7 @@ is the one recurring property cost that is not a flat bill:
 
 1. it is charged on **land value**, not market value;
 2. it is assessed on your **aggregated** holdings per state — two $700k blocks in NSW are one
-   $***.4m assessment;
+   $1.4m assessment;
 3. there is a **tax-free threshold**, so most single holdings owe nothing;
 4. your **principal home is exempt**, so it only ever bites investments.
 
@@ -1184,14 +1184,14 @@ left out rather than guessed at.
 ### Three things worth knowing before touching this
 
 **Aggregation is the feature, not an implementation detail.** Two NSW properties at $700k of land
-each owe **$0 apiece standing alone** and **$*** together**. `landTaxByState()` groups by state
+each owe **$0 apiece standing alone** and **$5,300 together**. `landTaxByState()` groups by state
 and taxes the sum; each property's row carries an apportioned share (by land value) that adds back
 to exactly the real assessment. A share is deliberately *not* what that property would pay alone —
 the liability is genuinely joint and genuinely non-linear.
 
 **Which is why the row's caption changes shape.** Captioning an aggregated share with the
 property's own land value would name a figure that, by that description, is $0 — the first version
-did exactly that and read "auto: NSW land tax on $700,000 land value" above $***. It now says
+did exactly that and read "auto: NSW land tax on $700,000 land value" above $2,650. It now says
 "share of NSW land tax on $1,400,000 combined land value across 2 properties" whenever more than
 one property is assessed together. `landTaxDetailForProperty()` exists only to make that sentence
 truthful.
@@ -1199,9 +1199,9 @@ truthful.
 **`calcLandTax` returns `null`, not `0`, for a state with no table.** "We don't have Tasmania's
 scale" and "you owe nothing" are different answers and must not render the same.
 
-**Measured:** NSW $*** → $***/yr ( = $100 + 1.6% × $500,000), matching by hand and in the
+**Measured:** NSW $1,575,000 → $8,100/yr ( = $100 + 1.6% × $500,000), matching by hand and in the
 browser. PPOR with $2m of land → exempt, no row, and not aggregated with the investments. The row
-reaches the Budget page as a real line ($***/mo at a $***/yr share).
+reaches the Budget page as a real line ($220.83/mo at a $2,650/yr share).
 
 **Deliberately out of scope:** absentee/foreign surcharges, trusts and companies (QLD companies use
 a different threshold and scale entirely), and NSW's special-trust premium treatment. All of them
@@ -1223,10 +1223,10 @@ they had logged, invisible:
 
 | | | currently inside |
 |---|---:|---|
-| Amazon, 5 purchases in 13 days | $***REMOVED*** | *Misc.* |
-| Running shoes (Big W) | $***REMOVED*** | *Misc.* |
-| Cafés — Harbour, Fern ×2 | $***REMOVED*** | *Eating Out* |
-| DoorDash, 3 orders in 7 days | $***REMOVED*** | *Eating Out* |
+| Amazon, 5 purchases in 13 days | $265.10 | *Misc.* |
+| Running shoes (Kmart) | $237.70 | *Misc.* |
+| Cafés — Harbour, Fern ×2 | $198.50 | *Eating Out* |
+| DoorDash, 3 orders in 7 days | $163.00 | *Eating Out* |
 
 **An earlier read of this said merchant tracking wasn't worth building.** That was measured against
 an older export where 75% of descriptions merely restated the budget line they were linked to
@@ -1243,7 +1243,7 @@ recent-merchant chips in the quick-log sheet.
 That function is tuned for bank export strings — it drops leading payment rails, stops at the first
 token containing a digit, caps at three tokens. Aggression that is right for
 `EFTPOS WOOLWORTHS 1234 SYDNEY NS` and wrong for anything a person typed: it turns
-`"Dinners Out / Eating Out"` into `"night eating out"`. Hand-typed text is already close to the
+`"Dinners Out / Takeaway"` into `"out takeaway"`. Hand-typed text is already close to the
 merchant name, so `merchantGroupKey` only folds case and accents, drops a trailing `(...)`, and
 cuts at a slash. Nothing more: **under-grouping shows two rows where one would do, over-grouping
 reports a number that is wrong.** The first is a blemish, the second is a lie.
@@ -1256,9 +1256,9 @@ worthless on the older data. It earns its place on a *catch-all*: five Amazon or
 shoes inside one "Misc." row, with nothing anywhere saying so. Hence
 `worthShowingMerchants()` — at least 2 merchants and 3 transactions, or no panel.
 
-**Measured in the browser:** *Misc.* → Amazon $*** ×5 (41%), Running shoes $*** (37%), Misc. $*** ×2.
-*Eating Out* → DoorDash $*** ×3, Fern café $*** ×2, Dinners Out $*** ×3, Harbour Cafe $***,
-D'Arcy's $***, "3 others" $***. *Internet* → no panel, as intended. The capped list folds the
+**Measured in the browser:** *Misc.* → Amazon $265 ×5 (41%), running shoes $238 (37%), Misc. $138 ×2.
+*Eating Out* → DoorDash $163 ×3, Fern café $116 ×2, Dinners out $103 ×3, Harbour Cafe $82,
+D'Arcy's $71, "3 others" $104. *Internet* → no panel, as intended. The capped list folds the
 remainder into one "N others" row rather than dropping it, because a breakdown whose parts don't
 add up to the line total is worse than no breakdown.
 
@@ -1267,7 +1267,7 @@ add up to the line total is worse than no breakdown.
 `merchantGroups()` skipped any transaction with a blank description, so a line's breakdown could
 quietly stop adding up to the line's own total — the exact failure this module elsewhere goes out
 of its way to avoid, and invisible, since nothing on screen said a slice was missing. Found while
-clearing a misleading label off four real transactions, which would have made $*** of a $*** line
+clearing a misleading label off four real transactions, which would have made $250 of a $424 line
 disappear from its own breakdown.
 
 They get an explicit `(no description)` bucket now, which is also the honest label: the app does
@@ -1314,8 +1314,8 @@ bought last cycle) produced nonsense:
 
 | Line contents | Old share | Rendered |
 |---|---:|---|
-| Amazon +$100, Doordash −$*** | **10,000%** / −9,900% | `width:10000%` |
-| Amazon −$***, Sneakers +$*** | 120% / −20% | `width:-20%` |
+| Amazon +$100, Doordash −$99 | **10,000%** / −9,900% | `width:10000%` |
+| Amazon −$50, Sneakers +$180 | 138% / −38% | `width:-38%` |
 
 Share is measured against **positive spend only** now, so every share lands in [0, 1] whatever the
 refunds do. A net-negative merchant gets a share of 0 — right for what the bar means, since it
@@ -1725,8 +1725,8 @@ each doubles as a test case with a known right answer.
 year it ended in, which is the year anyone lodging is looking at — and had no way to say "the
 expense carries on but stopped being claimable" (home-office rent once an employer office became
 available on 1 Oct 2025). Fix: pro-rate by days within the household year, and add
-`deductibleFrom`/`deductibleUntil`, separate from `endDate`. Fixture: $***/wk x 6.4% claimable to
-30 Sep 2025 = **$***REMOVED***** for FY25/26.
+`deductibleFrom`/`deductibleUntil`, separate from `endDate`. Fixture: $610/wk x 8% claimable to
+30 Nov 2025 = **$1,063.71** for FY25/26.
 
 **What shipped.** `deductionYearFraction(item, win)` in `calc/tax.js` — the days the claim covers
 within the window over the window's days, where the claim ends at the earlier of `endDate` and
@@ -1737,8 +1737,8 @@ helpers in `calc/ledger.js` (`isoDayNumber`, `overlapDaysInclusive`) so a daylig
 can't lose a day.
 
 **Still open:** budget rows have no start date, so a line *added* mid-year with no "Claim from"
-counts the whole year. **Measured:** in Chrome at 390px, light and dark, a $*** claim limited to
-1 Jul–30 Sep became $*** on the Income card (92/365); no overflow; fields 158×40.
+counts the whole year. **Measured:** in Chrome at 390px, light and dark, a $8,750 claim limited to
+1 Jul–30 Sep became $2,205 on the Income card (92/365); no overflow; fields 158×40.
 
 ## 37. `[x]` Borrowing costs on investment loans (the 5-year rule) — shipped v3.17.0
 
@@ -1746,19 +1746,19 @@ LMI, the lender's establishment/settlement fee and mortgage registration had now
 into `acquisitionCosts` they inflated the CGT cost base *and* were never deducted. Fix:
 `loan.settlementDate` + `loan.borrowingCosts`, apportioned by days over 5 years or the loan term if
 shorter, exactly as the ATO's deductible borrowing expenses calculator does; $100 or less is
-deductible in full in the year incurred. Fixture: $***REMOVED*** (LMI $***REMOVED*** + $*** fee) settled
-01/01/2025 → FY24/25 $***REMOVED*** · FY25/26 $***REMOVED*** · FY26/27 $***REMOVED*** · FY27/28 $***REMOVED*** ·
-FY28/29 $***REMOVED*** · FY29/30 $***REMOVED*** (1,826 days). Out of scope for now: writing off the remaining
+deductible in full in the year incurred. Fixture (invented): $9,800 settled
+15/11/2024 → FY24/25 $1,223.66 · FY25/26 $1,958.93 · FY26/27 $1,958.93 · FY27/28 $1,964.29 ·
+FY28/29 $1,958.93 · FY29/30 $735.26 (1,826 days). Out of scope for now: writing off the remaining
 balance when a loan is refinanced or paid out early.
 
 **What shipped.** `borrowingCostsSchedule(loan)` / `borrowingCostsDeduction(loan, win)` in
 `calc/property.js`, following the ATO calculator (v1.04) line for line — including its rounding:
-each year rounded on its own, the residual cent into the first year (hence $***REMOVED***, not
-$***REMOVED***). `propertyTaxDeductibleResultAnnual` subtracts the year's share; the cash result is
+each year rounded on its own, the residual cent into the first year (hence $1,223.66, not
+$1,223.65). `propertyTaxDeductibleResultAnnual` subtracts the year's share; the cash result is
 untouched. Loan editor: Settled on, Borrowing costs (one total), Original term (only consulted
-under five years — `termYears` is what's *left*), and a live note: "Deductible FY26/27: $***REMOVED*** of
-$***REMOVED*** — spread to FY29/30." **Measured:** on sample data each 50% owner's taxable income fell
-$***; persisted across reload; no overflow at 390px in light or dark.
+under five years — `termYears` is what's *left*), and a live note: "Deductible FY26/27: $1,958.93 of
+$9,800 — spread to FY29/30." **Measured:** on sample data each 50% owner's taxable income fell
+$1,332; persisted across reload; no overflow at 390px in light or dark.
 
 **Not done:** moving costs already typed into Acquisition costs. Nothing distinguishes an LMI row
 there from a stamp-duty row, and guessing would move someone's cost base; the field's tooltip says
@@ -1768,7 +1768,7 @@ where each kind goes.
 
 `plantDepreciationAnnual()` claims `plantValue / life` unconditionally. For residential property
 bought second-hand under a contract after 9 May 2017 the claim is **$0** — the fixture's QS report
-values $***REMOVED*** of plant the owner may not claim, which this app would have deducted at ~$***REMOVED***/yr.
+values $12,600 of plant the owner may not claim, which this app would have deducted at ~$1,260/yr.
 Add a "bought new / second-hand" flag; keep the values (they become a capital loss on scrapping and
 feed CGT on sale).
 
@@ -1777,8 +1777,8 @@ feed CGT on sale).
 ## 39. `[x]` Capital works by component, from the QS schedule — shipped v3.19.0 (+ v3.20.1 layout fix)
 
 One `constructionCost` + `constructionDate` can't represent the fixture: original 1993 building
-($***REMOVED***/yr, ends FY33/34) plus a 2023 renovation ($***/yr), and the first year pro-rated from the
-purchase date (FY24/25 $***REMOVED***, not $***REMOVED***). Simplest correct shape: let the user enter the quantity
+($2,150/yr, ends FY33/34) plus a later renovation ($750/yr), and the first year pro-rated from the
+purchase date (FY24/25 $1,810, not $2,900). Simplest correct shape: let the user enter the quantity
 surveyor's year-by-year table (`depreciationSchedule: [{fy, capitalWorks, plant}]`), with the
 formula as the fallback when there's no report.
 
@@ -1794,18 +1794,18 @@ the cost base, so the gain on sale is understated.
 
 ## 41. `[x]` Share lots (parcels), and the discount per parcel — shipped v3.21.0
 
-A sale takes `avgCost x units` and one acquisition date. The fixture sold units in two sales
+A sale takes `avgCost x units` and one acquisition date. The fixture sold 3,000 units in two sales
 from **six** purchase lots; discount eligibility is per lot. Store `asset.lots[] = {date, units,
 price, brokerage}`, match sales FIFO by default (specific-ID optional). Fixture: FIFO gives cost
-bases $***REMOVED*** / $***REMOVED***, gains $***REMOVED*** / $***REMOVED*** = $***REMOVED***, all discounted.
+bases $2,947.78 / $2,681.72, gains $1,432.22 / $578.78 = $2,011.00, all discounted.
 
 **What shipped.** A "Purchase lots" section per holding (date, units, price, brokerage). A sale with no typed cost base or date uses `fifoParcels()`, stores `sale.parcels` and marks `lot.soldUnits`; deleting the sale gives them back. `saleCapitalGain()` works parcel by parcel and reports discountable / other / loss splits. Avg cost follows the unsold lots. Adding a lot swaps only that section's markup — `renderAssets()` would close the editor mid-entry.
 
 ## 42. `[x]` ETF / managed fund annual tax statements (AMIT) — shipped v3.22.0
 
 ETFs are modelled as dividend-per-unit + franked %. IVV's FY25/26 return was foreign income
-($***REMOVED***), a foreign income tax offset ($***REMOVED***), a fund-discounted capital gain (18H $***REMOVED*** /
-18A $***REMOVED***) and a cost base increase ($***REMOVED***). Add a per-fund, per-year statement record holding
+($205.30), a foreign income tax offset ($30.80), a fund-discounted capital gain (18H $88.40 /
+18A $44.20) and a cost base increase ($61.20). Add a per-fund, per-year statement record holding
 13U/13C/13Q/18H/18A/20E/20M/20O and the AMIT cost base adjustment, applied to the holding.
 
 **What shipped.** `asset.taxStatements[]` edited under "Annual tax statements" on a holding; `personFundStatements()` feeds taxable income (13U+13C+13Q+20M), refundable franking credits, a non-refundable FITO (20O) and fund gains into CGT; a statement year drops that holding's dividend estimate. AMIT adjustments (per unit held at 30 June) are added to a later sale's cost base. An unowned holding in a two-person household warns that it's on nobody's return.
@@ -1821,8 +1821,8 @@ non-discount gains, then discount gains, then the 50%. Add `capitalLossCarriedFo
 
 Tag each deductible line D1/D2/D3/D4/D5/D10; add the fixed-rate method as an hours log x the
 year's rate (70c in FY25/26) and warn when internet/phone/electricity lines are *also* flagged,
-since the rate covers them. Fixture: D2 $***REMOVED***, D5 $***REMOVED*** (WFH $***REMOVED*** + rent $***REMOVED*** +
-$*** + depreciation $***REMOVED***), D10 $***.
+since the rate covers them. Fixture (invented): D2 $1,450, D5 $140 + a $1,063.71 rent share, D10 $330; working from home
+1,240 h × 70c = $868.
 
 **What shipped.** `deductionLabel` per line (D1-D5, D9, D10, D15; blank = D5); `deductionsByLabel()`; `WFH_FIXED_RATES` and per-person, per-FY `wfhHours`; `wfhOverlapRows()` names internet/phone/energy/stationery lines also claimed. The deduction checkbox now says "Tax deduction" (D9/D10/D15 aren't work-related). The transactions CSV gains a Return label column.
 
@@ -1831,9 +1831,9 @@ $*** + depreciation $***REMOVED***), D10 $***.
 `AU_TAX_BRACKETS`, `HELP_REPAYMENT_RATES`, `MLS_TIERS` are all labelled 2024-25; FY26/27 has the
 16% rate at 15%. Key every table by FY and pick by the year being computed, so last year's return
 and next year's projection both work. Add the private health insurance rebate tier by combined
-family income — the fixture's $*** clawback was predictable.
+family income — the fixture's $126-each clawback was predictable.
 
-**What shipped.** `TAX_YEARS` in constants.js for FY24/25-FY26/27, every figure read off ato.gov.au in October 2026; `taxTablesFor(fy)` with `assumed`/`borrowedFrom` past the newest year (the tax card warns). HELP is marginal from FY25/26; surcharge tiers start a dollar above each published threshold ("$*** or less" is base). The old Medicare shade-in thresholds were approximate ($***/$***) — FY24/25's are $***/$***. Household premiums + the tier claimed with the insurer give `phiRebateAdjustment()`, split evenly across the two returns. **Every rate table goes stale each July** — add the next year's row when the ATO publishes it; the tests name the year they check.
+**What shipped.** `TAX_YEARS` in constants.js for FY24/25-FY26/27, every figure read off ato.gov.au in October 2026; `taxTablesFor(fy)` with `assumed`/`borrowedFrom` past the newest year (the tax card warns). HELP is marginal from FY25/26; surcharge tiers start a dollar above each published threshold ("$101,000 or less" is base). The old Medicare shade-in thresholds were approximate ($26,000/$32,500) — FY24/25's are $27,222/$34,027. Household premiums + the tier claimed with the insurer give `phiRebateAdjustment()`, split evenly across the two returns. **Every rate table goes stale each July** — add the next year's row when the ATO publishes it; the tests name the year they check.
 
 ## 46. `[x]` A tax-year record and a myTax worksheet — shipped v3.26.0
 
@@ -1844,7 +1844,7 @@ income / each expense line with total and own share, actual loan interest from t
 person laid out in myTax's order, an evidence checklist, a refund estimate (withheld − tax), and a
 "why it moved since last year" breakdown.
 
-**What shipped.** `calc/taxyear.js` (`state.taxYears[fy]`: income statements, interest with share, recorded deductions, per-property rental actuals, evidence ticks, lodged snapshots) and `components/taxyear.js` (the "Tax return worksheet" ledger on the Income page). `computePersonTax(person, {fy})` uses that year's record and rates, line by line falling back to the model, and returns `refund`. `tests/taxyear.test.js` rebuilds two real lodged returns: every label matches; Sam's taxable income lands $*** from myTax's, Alex's $*** above it (about the size of a $***REMOVED*** trust franking credit myTax's on-screen estimate appeared not to gross up — the engine follows the law and grosses it up). **Still open:** per-employer reportable super contributions, ages for the rebate (under-65 rates only), and a PDF/print layout.
+**What shipped.** `calc/taxyear.js` (`state.taxYears[fy]`: income statements, interest with share, recorded deductions, per-property rental actuals, evidence ticks, lodged snapshots) and `components/taxyear.js` (the "Tax return worksheet" ledger on the Income page). `computePersonTax(person, {fy})` uses that year's record and rates, line by line falling back to the model, and returns `refund`. The engine was checked label by label against a lodged return (myTax's on-screen estimate appeared not to gross up one trust franking credit; the engine follows the law and grosses it up). `tests/taxyear.test.js` now rebuilds two invented returns end to end, with taxable income rebuilt by hand from its parts. **Still open:** per-employer reportable super contributions, ages for the rebate (under-65 rates only), and a PDF/print layout.
 
 ## 47. `[x]` Borrowing costs: write off the rest on refinance or payout — shipped v3.27.0
 
@@ -1852,7 +1852,7 @@ A loan paid out or refinanced inside its five-year spread makes the undeducted b
 in that year. Add `loan.endedOn`; the schedule stops there and that financial year takes the rest.
 The replacement loan's own costs start their own schedule on the new loan.
 
-**What shipped.** "Paid out on" per loan; `borrowingCostsSchedule()` gives the payout year everything not yet claimed (flagged `writtenOff`) and stops. Fixture: refinanced 1 Mar 2027 → FY26/27 deducts $***REMOVED***. A payout date after the spread ends changes nothing. Interest and repayments on a paid-out loan are not stopped by this date — set the balance to 0 or delete the loan.
+**What shipped.** "Paid out on" per loan; `borrowingCostsSchedule()` gives the payout year everything not yet claimed (flagged `writtenOff`) and stops. Fixture: refinanced 1 Mar 2027 → FY26/27 deducts $6,617.41. A payout date after the spread ends changes nothing. Interest and repayments on a paid-out loan are not stopped by this date — set the balance to 0 or delete the loan.
 
 ## 48. `[x]` Reportable employer super and fringe benefits on income statements — shipped v3.29.0
 
@@ -1912,7 +1912,7 @@ everything below came from looking at the result rather than from the console.
 
 ## 53. `[x]` Net worth over time started from a partial total — shipped v3.32.1
 The Assets chart summed whatever had a value on each date. Before 17 Oct only three Shares holdings
-had history, so the line read ~$*** for six weeks and then leapt to $*** — a "growth" that was
+had history, so the line read ~$12k for six weeks and then leapt to $625k — a "growth" that was
 just the day logging began.
 
 ## 54. `[x]` USD holdings were added as AUD with no rate set — shipped v3.32.1
@@ -2090,6 +2090,6 @@ and the one-PR-per-coherent-piece rule, both of which apply to every item here.
 - **One item, one PR.** Sub-items (2a/2b/2c) may share a PR where they interact; say so in the body.
 - **Verify by driving the app**, not by reasoning about the code. This project has no test framework
   for UI; `npm test` covers `calc/` only. Several findings in the audit were only visible because
-  the app was run against real data.
+  the app was run against realistic data.
 - **Anything that changes a headline figure** gets the before-and-after in the PR body. These items
   move numbers the user has already read and formed expectations about.

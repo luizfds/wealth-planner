@@ -82,9 +82,9 @@ export function qualifiesForCgtDiscount(acquired, sold){
 //
 // A holding bought in several goes is several assets for CGT: each purchase (a "parcel") has its
 // own cost and its own acquisition date, and whether a sale gets the 12-month discount is decided
-// parcel by parcel. An average cost and one acquisition date can't say that — selling 2,630 units
-// bought across six trades between July and October 2024 needs to know which six trades, because
-// the October ones were under 12 months old at an October 2025 sale and the July ones weren't.
+// parcel by parcel. An average cost and one acquisition date can't say that — selling 3,000 units
+// bought across six trades over four months needs to know which trades, because at a sale a year
+// later the newest parcels can still be under 12 months old while the oldest aren't.
 //
 // asset.lots[] = {id, date, units, price, brokerage, soldUnits}. soldUnits is how many of this
 // parcel past sales have used up, so the next sale knows where to start. Sales match parcels
@@ -482,7 +482,7 @@ export function rowDeductionAnnual(item, win){
   var fraction = deductionYearFraction(item, win || householdYearWindow());
   return periodsOf(Number(item.amount) || 0, item.freq).yearly * (pct / 100) * fraction;
 }
-// The year's claims grouped by return label: {D2: ***REMOVED***, D5: ***REMOVED***, ...}. A row with no label is
+// The year's claims grouped by return label: {D2: 1450, D5: 1203.71, ...}. A row with no label is
 // D5, the label most employee claims belong on.
 export function deductionsByLabel(person, items, win){
   var out = {};
@@ -556,7 +556,7 @@ export function mlsThresholds(family, fy){
     { from: single[2] * mult, rate: MLS_RATES[3], label: "Tier 3" }
   ];
 }
-// The tables list each tier's top as "$*** or less", so a tier starts a dollar above the one
+// The tables list each tier's top as "$101,000 or less", so a tier starts a dollar above the one
 // before: income exactly at a threshold is still the lower tier.
 export function mlsTierFor(surchargeIncome, family, fy){
   var income = Math.max(0, Number(surchargeIncome) || 0);
@@ -679,7 +679,7 @@ function personSurchargeIncome(person, opts){
 // couple's combined income, then each spouse pays the surcharge on their own income at that tier.
 // Testing each person's income against the doubled threshold separately — the obvious reading, and
 // what this shipped with for about ten minutes — understates it badly: two people on $150k each are
-// a $300k household, comfortably in Tier 3, but neither one reaches the $*** family Tier 1 alone.
+// a $300k household, comfortably in Tier 3, but neither one reaches the $194k family Tier 1 alone.
 export function householdSurchargeIncome(opts){
   return getTaxPeople().reduce(function(sum, person){
     return sum + personSurchargeIncome(person, opts);
@@ -953,7 +953,7 @@ export function personTaxSettings(person){
   if(st.helpBalance == null) st.helpBalance = 0;
   // Net capital losses from earlier years (v3.23.0), as shown on last year's notice of assessment.
   if(st.capitalLossCarriedForward == null) st.capitalLossCarriedForward = 0;
-  // Hours worked from home, per financial year (v3.24.0): {2025: ***REMOVED***}. Keyed by year because the
+  // Hours worked from home, per financial year (v3.24.0): {2025: 1240}. Keyed by year because the
   // hours are a record of a year, not a rate that carries on.
   if(!st.wfhHours || typeof st.wfhHours !== "object") st.wfhHours = {};
   return st;

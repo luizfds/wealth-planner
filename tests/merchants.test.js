@@ -3,8 +3,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { merchantGroupKey, merchantGroups, worthShowingMerchants, recentMerchants, UNLABELLED } from "../src/calc/merchants.js";
 
-// The fixtures are real descriptions from a real household's Expenses page, because the whole
-// point of this module is that hand-typed text behaves nothing like a bank export string.
+// The fixtures are invented, but typed the way people actually type them — inconsistent case,
+// accents, brackets, slashes — because the whole point of this module is that hand-typed text
+// behaves nothing like a bank export string.
 
 test("case and accents group together", () => {
   assert.equal(merchantGroupKey("Fern café"), merchantGroupKey("Fern Café"));
@@ -14,11 +15,11 @@ test("case and accents group together", () => {
 
 test("a trailing bracket qualifies the purchase, it doesn't name the payee", () => {
   assert.equal(merchantGroupKey("Doordash (Chicken Shed)"), merchantGroupKey("Doordash"));
-  assert.equal(merchantGroupKey("Running shoes (Big W)"), "running shoes");
+  assert.equal(merchantGroupKey("Running shoes (Kmart)"), "running shoes");
 });
 
 test("a slash is two labels, not one name", () => {
-  assert.equal(merchantGroupKey("Dinners Out / Eating Out"), "date night");
+  assert.equal(merchantGroupKey("Dinners Out / Takeaway"), "dinners out");
 });
 
 test("distinct merchants stay distinct", () => {
@@ -49,22 +50,22 @@ test("undescribed transactions collapse into one bucket that still carries their
 
 test("groups total correctly and are sorted biggest spend first", () => {
   const groups = merchantGroups([
-    { what: "Amazon", amount: ***REMOVED*** },
-    { what: "Amazon", amount: ***REMOVED*** },
-    { what: "Doordash", amount: ***REMOVED*** },
-    { what: "Doordash (Chicken Shed)", amount: ***REMOVED*** },
-    { what: "Fern café", amount: ***REMOVED*** },
-    { what: "Fern Café", amount: ***REMOVED*** }
+    { what: "Amazon", amount: 40.00 },
+    { what: "Amazon", amount: 110.00 },
+    { what: "Doordash", amount: 30.00 },
+    { what: "Doordash (Chicken Shed)", amount: 62.00 },
+    { what: "Fern café", amount: 50.00 },
+    { what: "Fern Café", amount: 48.00 }
   ]);
   assert.equal(groups.length, 3);
   assert.equal(groups[0].label, "Amazon");
   assert.equal(groups[0].count, 2);
-  assert.equal(groups[0].total, ***REMOVED***);
-  // Fern ($***REMOVED*** + $***REMOVED*** = $***REMOVED***) outspends Doordash ($***REMOVED*** + $***REMOVED*** = $***REMOVED***).
+  assert.equal(groups[0].total, 150);
+  // Fern ($50 + $48 = $98) outspends Doordash ($30 + $62 = $92).
   assert.equal(groups[1].label, "Fern café");
-  assert.equal(groups[1].total, ***REMOVED***);
+  assert.equal(groups[1].total, 98);
   assert.equal(groups[2].label, "Doordash");
-  assert.equal(groups[2].total, ***REMOVED***);
+  assert.equal(groups[2].total, 92);
   // Shares add to 1.
   assert.ok(Math.abs(groups.reduce((s, g) => s + g.share, 0) - 1) < 1e-9);
 });
@@ -95,7 +96,7 @@ test("recent merchants are newest-first, de-duplicated, and scoped to their line
     { date: "2026-09-07", what: "", linkedExpenseId: "eat" }
   ];
   const eat = recentMerchants(tx, "eat");
-  assert.deepEqual(eat, ["Fern café", "Doordash (Chicken Shed)"]);  // the two Leaf spellings collapse
+  assert.deepEqual(eat, ["Fern café", "Doordash (Chicken Shed)"]);  // the two Fern spellings collapse
   assert.ok(!recentMerchants(tx, "eat").includes("Amazon"), "must not offer another line's merchants");
   assert.equal(recentMerchants(tx, null, 10).length, 3);
   assert.equal(recentMerchants(tx, "eat", 1).length, 1);
@@ -154,7 +155,7 @@ test("shares stay within 0-100% however the refunds fall", () => {
   // Measured against net total these were 10,000% and -9,900%, rendering width:10000% on the bar.
   const cases = [
     [{ what: "Amazon", amount: 100 }, { what: "Doordash", amount: -99 }],
-    [{ what: "Amazon", amount: -50 }, { what: "Sneakers", amount: 297 }],
+    [{ what: "Amazon", amount: -50 }, { what: "Sneakers", amount: 180 }],
     [{ what: "Amazon", amount: -10 }, { what: "Sneakers", amount: -20 }],
     [{ what: "Amazon", amount: 0 }, { what: "Sneakers", amount: 0 }]
   ];
@@ -167,7 +168,7 @@ test("shares stay within 0-100% however the refunds fall", () => {
 });
 
 test("a merchant that net refunded gets no bar but keeps its real total", () => {
-  const g = merchantGroups([{ what: "Amazon", amount: -50 }, { what: "Sneakers", amount: 297 }]);
+  const g = merchantGroups([{ what: "Amazon", amount: -50 }, { what: "Sneakers", amount: 180 }]);
   const amazon = g.find(x => x.label === "Amazon");
   assert.equal(amazon.share, 0, "handing money back is not eating the line");
   assert.equal(amazon.total, -50, "but the money is real and still reported");

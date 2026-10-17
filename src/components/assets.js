@@ -546,7 +546,7 @@ export function renderAssetCategoryPage(cat){
     var rowMeta = assetRowMeta(data);
     body = '<div class="m-card" id="assetsComp-' + cat + '">' + modernAssetCompBarHtml(rowMeta) + '<div class="m-rows m-asset-rows">' + rowMeta.map(function(m){ return modernAssetRowHtml(m.item, m.idx, m.colorIdx); }).join("") + '</div></div><div class="ledger-footer">' + footerBtn + '</div>';
   }
-  // Every category gets the value-over-time chart Shares has had to itself. The reference data
+  // Every category gets the value-over-time chart Shares has had to itself. A test household's data
   // makes the case: super carried 13 months of logged history and showed it as a 56px sparkline,
   // while Shares — nine days of history — had a full chart.
   var historyCard = data.items.length
@@ -1198,7 +1198,7 @@ function allocationBuckets(){
 
 // Today's mix as a single composition bar. This is the question the section title actually asks,
 // and it needs no time axis to answer — which matters, because the stack below it is at the mercy
-// of how evenly the user has logged. On the reference data the whole composition exists inside the
+// of how evenly the user has logged. On a test household's data the whole composition exists inside the
 // last fortnight of a thirteen-month axis, so the stack was one flat slab and a 20px sliver; this
 // bar reads the same at any logging cadence, including none at all.
 export function todaysMixHtml(buckets, today){
@@ -1368,8 +1368,8 @@ export function renderPortfolioHistoryChart(){
       }, 0);
       return sum + valueAtDate(p.history, p.value, d) - loanNet;
     }, 0);
-    // Debts too, or this chart is not net worth. It was $***REMOVED*** above the net-worth figure in the
-    // page header on the reference data — a credit-card limit the app knows about, tracks in
+    // Debts too, or this chart is not net worth. It was $12,500 above the net-worth figure in the
+    // page header on a test household's data — a credit-card limit the app knows about, tracks in
     // totalNetWorthValue(), and this chart quietly left out while labelling itself "Net worth".
     // Same rule as the properties above: only subtracted on dates the debt was actually tracked,
     // so a debt logged once recently doesn't retroactively push a year of history downward.

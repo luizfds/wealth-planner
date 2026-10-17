@@ -561,8 +561,8 @@ export function ipExpenseItemsForClassification(){
 // counting the same housing cost. With the purchase leg off, the very same row is the rent, and
 // dropping it left the projection ignoring a renting household's single largest expense.
 //
-// That was a real, silent, and large error: on a household paying $***/week, the model assumed
-// $***REMOVED***/month more savings than the Dashboard's own net-savings tile showed for the same
+// That was a real, silent, and large error: on a household paying $640/week, the model assumed
+// $2,780/month more savings than the Dashboard's own net-savings tile showed for the same
 // scenario — and it flattered precisely the scenario the "comes out ahead" headline named.
 // Rent inflates, which is why it joins the inflatable set rather than fixedMonthly.
 export function scenarioInflatableHomeItems(scenario){
@@ -706,7 +706,7 @@ export function landTaxByState(){
 
 // One property's apportioned annual land tax, with the context needed to describe it honestly.
 // `tax` on its own is not self-explanatory once more than one property is aggregated: two $700k
-// NSW blocks each owe nothing alone but $*** each together, so a row captioned "land tax on
+// NSW blocks each owe nothing alone but $2,650 each together, so a row captioned "land tax on
 // $700,000" would name a figure that is $0 by that description. Callers get the group's combined
 // value and count so they can say which of the two situations they are in.
 export function landTaxDetailForProperty(propertyId){

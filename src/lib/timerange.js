@@ -65,7 +65,7 @@ export function withinRange(records, range, opts){
 
 // Which window to open a chart on, given where its observations actually are.
 //
-// "All" is the honest default and a poor first impression: on the reference data thirteen months of
+// "All" is the honest default and a poor first impression: on a test household's data thirteen months of
 // x-axis hold one flat band, because the whole composition was logged in the last fortnight — 95%
 // of the chart is the period before anything but super was tracked. Picking the shortest window
 // that still contains at least half the observations frames the data where the data is, and the

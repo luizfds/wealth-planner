@@ -94,7 +94,7 @@ function observeWidth(container, drawnAt, redraw){
   container._chartRO = ro;
 }
 // The left gutter has to hold the widest y label, which depends on the numbers *and* the caller's
-// formatter — a fixed 60 fits "$***" and clips "$***REMOVED***". Estimated rather than measured
+// formatter — a fixed 60 fits "$4,200" and clips "$528,410". Estimated rather than measured
 // (measuring means rendering, and the gutter decides where to render), at ~6.3px per character for
 // an 11px face, then capped so a chart of very large numbers still has a chart left in it.
 function gutterFor(labels, W, fontPx){
@@ -123,7 +123,7 @@ export function renderLineChart(container, series, opts){
   var yMax = yHi;
   // opts.baseline === "auto": start the axis near the data instead of at zero.
   //
-  // A zero baseline on a $560k net worth puts every real movement inside the top fifth of the
+  // A zero baseline on a $445k net worth puts every real movement inside the top fifth of the
   // chart — and once the range control lets you zoom to a week, that week is a flat line whatever
   // happened in it. A line chart can honestly do this where a bar chart cannot: bars encode
   // magnitude as length from zero, a line encodes it as position against a labelled axis, and
@@ -139,7 +139,7 @@ export function renderLineChart(container, series, opts){
     truncated = true;
   }
   // An all-zero series has no range to draw. Nudging yMax by 1 keeps the arithmetic safe but puts
-  // "$0 / $***" on the axis of an empty projection, which reads as a portfolio of one dollar rather
+  // "$0 / $1" on the axis of an empty projection, which reads as a portfolio of one dollar rather
   // than as nothing entered yet — so the caller's empty message is the honest answer instead.
   if(yMax === yMin){
     if(yMax === 0){
@@ -256,9 +256,9 @@ export function renderLineChart(container, series, opts){
     // opts.stepped: hold each value until the next reading, instead of joining two observations
     // with a diagonal.
     //
-    // For *logged history* the diagonal is a claim nobody made. On the reference data the only
+    // For *logged history* the diagonal is a claim nobody made. On a test household's data the only
     // observations were July 2025, August 2025, then nothing until August 2026 — and the line drew
-    // net worth climbing steadily from $*** to $650k across that year. What happened was flat
+    // net worth climbing steadily from $132k to $517k across that year. What happened was flat
     // super for twelve months and a jump in one week, when the property and shares were first
     // entered into the app. A snapshot says "this was its value on this date, and it held until
     // the next reading"; a step draws that, a diagonal invents a year of growth out of the gap.
@@ -419,7 +419,7 @@ export function renderStackedAreaChart(container, series, opts){
   // Bands, bottom-up. Each is the area between the running total below it and its own.
   // Stepped, never interpolated. A logged snapshot says "this was its value on this date, and it
   // held until the next reading" — which is exactly what valueOn() computes. Joining two
-  // observations with a diagonal asserts something else entirely: on the reference data the
+  // observations with a diagonal asserts something else entirely: on a test household's data the
   // property was first logged in August 2026, and a straight line back to July 2025 drew a house
   // being gradually acquired over twelve months. A step says "nothing, then this", which is what
   // actually happened.

@@ -15,7 +15,7 @@ import {
 //     people: { [person]: { incomeStatements: [{id, payer, gross, allowances, withheld}],
 //                           interest: [{id, account, gross, sharePct}],
 //                           deductions: [{id, label, what, amount}] } },
-//     properties: { [propertyId]: { lines: { rent: ***REMOVED***, interest: ***REMOVED***, ... } } },
+//     properties: { [propertyId]: { lines: { rent: 26520, interest: 21840.25, ... } } },
 //     evidence: { [key]: true },
 //     lodged: { [person]: {figures snapshot} }
 //   }
@@ -212,8 +212,8 @@ export function lodgementStatus(today){
 // replaces everything). Shape:
 //   { kind: "wealth-planner-tax-year", version: 1, fy: 2025,
 //     people: { Name: { incomeStatements, interest, deductions, wfhHours, dateOfBirth } },
-//     rental: [{ match: "Example", lines: { rent: ***REMOVED***, ... } }],
-//     holdings: [{ symbol: "ETFB", person: "Name", taxStatement: {...}, sales: [...] }],
+//     rental: [{ match: "Example", lines: { rent: 26520, ... } }],
+//     holdings: [{ symbol: "VAS", person: "Name", taxStatement: {...}, sales: [...] }],
 //     markLodged: true }
 // People are matched by name, case-insensitively, or by first name either way round ("Alex" ↔
 // "Alex Morgan"). A rental entry goes to the investment property whose name contains `match`,

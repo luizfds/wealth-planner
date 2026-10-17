@@ -68,27 +68,27 @@ test("today counts what's typed in the app, even if Log was never pressed", func
 });
 
 test("today reads the amount in the app, not the last thing that was logged", function(){
-  // A vehicle worth $***REMOVED*** in the table whose last snapshot says $***REMOVED***: the chart's right-hand
+  // A vehicle worth $8,540 in the table whose last snapshot says $8,575: the chart's right-hand
   // edge used to show the snapshot, so it disagreed with the row directly above it. Anywhere
   // *earlier* the snapshot is still the only honest answer — that part has not changed.
-  var records = [{ history: [{ date: "2026-08-28", value: ***REMOVED*** }], current: ***REMOVED*** }];
+  var records = [{ history: [{ date: "2026-08-28", value: 8575 }], current: 8540 }];
   var series = categorySeries(records, ["2026-08-28", "2026-09-12"], { today: "2026-09-12" });
-  assert.equal(series[0].y, ***REMOVED***, "an earlier date still reads the log");
-  assert.equal(series[1].y, ***REMOVED***, "today reads the app");
+  assert.equal(series[0].y, 8575, "an earlier date still reads the log");
+  assert.equal(series[1].y, 8540, "today reads the app");
   assert.equal(series[1].tracked, 1);
   // With no `today` passed, nothing is special about any date and every point reads the log.
-  assert.equal(categorySeries(records, ["2026-09-12"])[0].y, ***REMOVED***);
+  assert.equal(categorySeries(records, ["2026-09-12"])[0].y, 8575);
 });
 
 test("a debt entered as a negative record pulls the series down to net worth", function(){
   // How both "net worth" charts stopped disagreeing with the page header: the app's own
-  // totalNetWorthValue() subtracts state.debts, and the charts were $***REMOVED*** above it.
+  // totalNetWorthValue() subtracts state.debts, and the charts were $12,500 above it.
   var records = [
     { history: [{ date: "2026-08-31", value: 200000 }], current: 200000 },
-    { history: [{ date: "2026-08-31", value: -17000 }], current: -17000 }
+    { history: [{ date: "2026-08-31", value: -12500 }], current: -12500 }
   ];
   var series = categorySeries(records, ["2026-01-01", "2026-08-31"], { today: "2026-08-31" });
-  assert.equal(series[1].y, ***REMOVED***);
+  assert.equal(series[1].y, 187500);
   assert.equal(series[0].y, 0, "before either was logged, neither counts — not the asset alone");
   assert.equal(series[0].tracked, 0);
 });
@@ -168,12 +168,12 @@ test("a refund reduces a month's spending rather than being ignored", function()
 });
 
 // ---------------- Two ways this module could have lied ----------------
-// Both of these were live on the reference data before being caught by driving the app. They are
-// here because the arithmetic was never wrong — the *framing* was, and only real data showed it.
+// Both of these were live on a test household's data before being caught by driving the app. They are
+// here because the arithmetic was never wrong — the *framing* was, and only realistic data showed it.
 
 test("the split only measures a span where the same assets were tracked at both ends", function(){
-  // The real failure: super and cash logged from July 2025, shares and property added August 2026.
-  // Measured from the earliest point, net worth "grew" $***REMOVED*** — about $***REMOVED*** of which was
+  // The failure: super and cash logged from July 2025, shares and property added August 2026.
+  // Measured from the earliest point, net worth "grew" $318,450 — about $301,000 of which was
   // assets that merely started being tracked. That is a fabrication, not a rounding error.
   var points = [
     { y: 170000, dateLabel: "2025-07-31", tracked: 3 },
@@ -182,9 +182,9 @@ test("the split only measures a span where the same assets were tracked at both 
     { y: 576000, dateLabel: "2026-09-12", tracked: 5 }
   ];
   assert.equal(fullCoverageFrom(points), 2, "coverage is only complete from the third point");
-  var split = contributionsVsGrowth(points, ***REMOVED***);
+  var split = contributionsVsGrowth(points, 6610);
   assert.equal(split.from, "2026-08-31", "not 2025-07-31");
-  assert.equal(split.totalChange, 16000, "the real like-for-like change, not $***REMOVED***");
+  assert.equal(split.totalChange, 16000, "the real like-for-like change, not $318,450");
   assert.equal(split.droppedPoints, 2, "and it says how much history it set aside");
   assert.equal(split.earliest, "2025-07-31", "so the panel can name what was left out");
 });
@@ -201,16 +201,16 @@ test("a window that only reaches full coverage at the very last point reports to
 });
 
 test("spendCoverage refuses a savings claim when barely anything was logged", function(){
-  // The real failure: logged spend averaged $***/mo against a $***REMOVED***/mo budget, and the panel
-  // announced the household kept $***REMOVED***/mo. It keeps $***REMOVED***. "Income minus what you logged" was
+  // The failure: logged spend averaged $615/mo against a $11,580/mo budget, and the panel
+  // announced the household kept $17,240/mo. It keeps $6,610. "Income minus what you logged" was
   // measuring how little had been typed in, and calling it thrift.
-  var thin = spendCoverage(777, ***REMOVED***);
+  var thin = spendCoverage(615, 11580);
   assert.ok(thin.fraction < 0.06);
   assert.equal(thin.enough, false, "no savings claim may be made from this");
 
-  var good = spendCoverage(13000, ***REMOVED***);
+  var good = spendCoverage(10300, 11580);
   assert.equal(good.enough, true);
   // No budget at all can't be divided by — and must not read as perfect coverage.
   assert.equal(spendCoverage(500, 0).enough, false);
-  assert.equal(spendCoverage(0, ***REMOVED***).enough, false);
+  assert.equal(spendCoverage(0, 11580).enough, false);
 });

@@ -180,7 +180,7 @@ test("spendingTrends assembles months, per-category series and column totals", f
 });
 
 test("spendingTrends drops categories below minSpend on the window total, not on one month", function(){
-  // A $*** category that doubled is a true statement and a useless one. But a lumpy category (car
+  // A $4 category that doubled is a true statement and a useless one. But a lumpy category (car
   // rego once a year) has $0 months and must still survive on its window total — coverage is
   // judged on the household's total, not per category, so a quiet category isn't a gap.
   var txns = [
@@ -216,8 +216,8 @@ test("a part-finished month is compared against the same days of prior months, n
 });
 
 test("bulk-logging early in the month does not manufacture a rise", function(){
-  // The real reference-data case that killed the previous approach. Eleven days in, big bills
-  // already paid: scaling day-11 spend to a full month turned $***REMOVED*** into "on track for $***REMOVED***",
+  // The case that killed the previous approach. Eleven days in, big bills
+  // already paid: scaling day-11 spend to a full month turned $2,440 into "on track for $6,655",
   // a 611% rise that never happened. Like-for-like compares it to the same eleven days.
   var txns = [
     txn("2026-08-01", 1200, "Rent"), txn("2026-08-03", 300, "Power"), txn("2026-08-25", 200, "Groceries"),
@@ -241,13 +241,13 @@ test("coveredMonthCount stops at the month before logging started", function(){
 });
 
 test("coveredMonthCount treats a barely-logged month as a gap, not as thin history", function(){
-  // $*** in a household whose typical month is $1,000 is somebody who logged one coffee and gave
+  // $40 in a household whose typical month is $1,000 is somebody who logged one coffee and gave
   // up — averaging against it would understate the baseline by an order of magnitude.
   assert.equal(coveredMonthCount([1000, 40, 900, 1000]), 2);
 });
 
 test("coverage is judged month-to-date, so a part-finished month is not mistaken for a gap", function(){
-  // Three days in, this household has logged $100 against $***-$*** by the third of each prior
+  // Three days in, this household has logged $100 against $90-$110 by the third of each prior
   // month. On a month-to-date footing that is plainly a logged month; measured against whole
   // months it would read as a gap and the panel would blank out for the first week of every month.
   assert.equal(coveredMonthCount([110, 90, 100, 100]), 4);
@@ -277,7 +277,7 @@ test("spendingTrends trims the window to the covered months and says so", functi
 });
 
 test("no unlogged month can ever inflate a trend or a streak", function(){
-  // The exact real-data case: four empty months, then two real ones. Without trimming this
+  // The case: four empty months, then two real ones. Without trimming this
   // reported groceries up thousands of percent and "climbing 2 months running".
   var txns = [
     txn("2026-08-04", 900, "Groceries"),

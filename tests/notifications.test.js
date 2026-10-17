@@ -80,7 +80,7 @@ test("getLocalNotifications still nudges a non-irregular item with the same neve
 // ---------------- One line, one notification ----------------
 // A recurring line that is both behind on logging and due within DUE_SOON_DAYS used to produce
 // two notifications: its own "Due <date> · $X" and a seat in the grouped "N budget lines need a
-// fresh entry". On the household's real data that was 2 of 7 notifications being repeats of lines
+// fresh entry". On a test household's data that was 2 of 7 notifications being repeats of lines
 // already listed. They were never independent facts — not having logged the last one is *why* the
 // next occurrence has come around — so the due-bill notification now carries both and the review
 // group stays quiet about that line.

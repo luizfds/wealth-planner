@@ -3,8 +3,8 @@
 // Deliberately NOT import-rules.js's merchantKey(). That one is tuned for bank export strings
 // ("EFTPOS WOOLWORTHS 1234 SYDNEY NS") and earns its aggression there — it drops leading payment
 // rails, stops at the first token containing a digit, and caps at three tokens. Run it over
-// something a person typed and it mangles: "Dinners Out / Eating Out" comes out as
-// "night eating out". The two inputs have nothing in common except being strings.
+// something a person typed and it mangles: "Dinners Out / Takeaway" comes out as
+// "out takeaway". The two inputs have nothing in common except being strings.
 //
 // What people actually type is already close to the merchant name. So the job here is only to
 // stop near-identical spellings from splitting into separate rows, and nothing more:
@@ -12,7 +12,7 @@
 //   "Fern café" / "Fern Café"          -> one merchant (case, accents)
 //   "Doordash" / "Doordash (Chicken Shed)" -> one merchant (the bracket says which restaurant,
 //                                          but the money went to DoorDash)
-//   "Dinners Out / Eating Out"           -> "Dinners Out" (a slash is someone writing two labels)
+//   "Dinners Out / Takeaway"            -> "Dinners Out" (a slash is someone writing two labels)
 //
 // Anything more clever — stemming, fuzzy distance, token frequency — would start merging things
 // the user meant to keep apart, and they have no way to correct it. Under-grouping shows two rows
@@ -64,7 +64,7 @@ export function merchantGroups(transactions){
   //
   // A refund is a negative transaction (see the quick-log amount field), so a merchant can net out
   // below zero — you returned the shoes this cycle and bought them in the last one. Dividing by the
-  // net total then produces nonsense: two merchants at +$100 and -$*** net to $***, giving shares of
+  // net total then produces nonsense: two merchants at +$100 and -$99 net to $1, giving shares of
   // 10,000% and -9,900% and a bar rendered as `width:10000%`. Measured against positive spend
   // instead, every share lands in [0, 1] whatever the refunds do.
   //

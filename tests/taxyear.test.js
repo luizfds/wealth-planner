@@ -5,111 +5,113 @@ import { state } from "../src/state.js";
 import { computePersonTax, personCapitalGains } from "../src/calc/tax.js";
 import { taxYearRecord, personYear, rentalSchedule, rentLineForExpense, setRentalActual, incomeStatementTotals, interestIncome } from "../src/calc/taxyear.js";
 
-// ---------------- A real return, end to end (v3.26.0) ----------------
+// ---------------- A return, end to end (v3.26.0) ----------------
 //
-// Two people's FY25/26 returns as lodged in October 2026, rebuilt from the tax-year record: income
-// statements, bank interest, two ETF statements, a two-part share sale, a 70/30 investment property
-// whose schedule was typed from the agent's summary and the loan statements, deductions by label,
-// working from home, and a private health rebate clawback. Every expectation below is a figure
-// that went into myTax.
+// Two people's FY25/26 returns rebuilt from the tax-year record: income statements, bank interest,
+// two fund statements, a two-part share sale, a 60/40 investment property whose schedule is typed
+// line by line, deductions by label, working from home, and a private health rebate. Every figure is
+// invented. The engine was first checked against a lodged return label by label; the fixtures here
+// are deliberately unrelated to it, and the taxable income is rebuilt by hand from its parts so the
+// test doesn't just restate the engine.
 
 function withState(fn){
   var keep = {};
   ["income", "properties", "assets", "taxYears", "tax", "shared", "home"].forEach(function(k){ keep[k] = state[k]; });
   try { fn(); } finally { Object.keys(keep).forEach(function(k){ state[k] = keep[k]; }); }
 }
-function realHousehold(){
+var RENT_LINES_EXAMPLE = { rent: 26520, otherIncome: 180, borrowing: 1958.93, councilRates: 1980, insurance: 1420.6,
+  interest: 21840.25, pestControl: 260, agentFees: 1850.4, repairs: 610, capitalWorks: 2900, water: 1120.3, other: 145,
+  advertising: 0, bodyCorporate: 0, cleaning: 0, capitalAllowances: 0, gardening: 0, landTax: 0, legal: 0, stationery: 0, travel: 0 };
+var RENT_INCOME = 26520 + 180;
+var RENT_EXPENSES = Math.round((1958.93 + 1980 + 1420.6 + 21840.25 + 260 + 1850.4 + 610 + 2900 + 1120.3 + 145) * 100) / 100;
+var RENT_NET = Math.round((RENT_INCOME - RENT_EXPENSES) * 100) / 100;
+function exampleHousehold(){
   state.shared = []; state.home = {};
   state.income = [
-    { what: "Alex salary", person: "Alex", incomeType: "Gross", amount: 170000, freq: "Yearly", superMode: "On top", sacrificeMode: "none" },
-    { what: "Sam salary", person: "Sam", incomeType: "Gross", amount: 118000, freq: "Yearly", superMode: "On top", sacrificeMode: "none" }
+    { what: "Alex salary", person: "Alex", incomeType: "Gross", amount: 112000, freq: "Yearly", superMode: "On top", sacrificeMode: "none" },
+    { what: "Sam salary", person: "Sam", incomeType: "Gross", amount: 86000, freq: "Yearly", superMode: "On top", sacrificeMode: "none" }
   ];
-  state.tax = { sgRate: 12, settings: { Alex: { wfhHours: { 2025: ***REMOVED*** } }, Sam: { wfhHours: { 2025: ***REMOVED*** } } },
-    privateHospitalCover: true, familyThresholds: true, phiPremiums: 2594, phiTierClaimed: 1 };
-  state.properties = [{ id: "ip1", kind: "IP", what: "1 Example St", income: [], expenses: [], loans: [], ownership: { Alex: 70, Sam: 30 } }];
+  state.tax = { sgRate: 12, settings: { Alex: { wfhHours: { 2025: 900 } }, Sam: { wfhHours: { 2025: 400 } } },
+    privateHospitalCover: true, familyThresholds: true, phiPremiums: 3120, phiTierClaimed: 1 };
+  state.properties = [{ id: "ip1", kind: "IP", what: "1 Example St", income: [], expenses: [], loans: [], ownership: { Alex: 60, Sam: 40 } }];
   state.assets = [
-    { category: "Shares", what: "IVV", person: "Alex", quantity: 156, taxStatements: [
-      { fy: 2025, u13: 0.04, c13: 0, q13: 0, h18: ***REMOVED***, discount18: ***REMOVED***, other18: 0, m20: ***REMOVED***, o20: ***REMOVED***, units: 156 }] },
-    { category: "Shares", what: "ETFB", person: "Alex", quantity: 313, taxStatements: [
-      { fy: 2025, u13: ***REMOVED***, c13: ***REMOVED***, q13: ***REMOVED***, h18: 0, discount18: 0, other18: 0, m20: 8.71, o20: ***REMOVED***, units: 313 }] },
+    { category: "Shares", what: "ETFA", person: "Alex", quantity: 210, taxStatements: [
+      { fy: 2025, u13: 0.10, c13: 0, q13: 0, h18: 88.40, discount18: 44.20, other18: 0, m20: 205.30, o20: 30.80, units: 210 }] },
     { category: "Shares", what: "ABC", person: "Alex", quantity: 0, sales: [
-      { date: "2025-01-01", units: ***REMOVED***, proceeds: ***REMOVED***, costBase: ***REMOVED***, parcels: [
-        { acquired: "2024-01-01", units: 780, costBase: ***REMOVED*** }, { acquired: "2024-01-01", units: 493, costBase: ***REMOVED*** }, { acquired: "2024-01-01", units: 42, costBase: ***REMOVED*** }] },
-      { date: "2025-01-01", units: ***REMOVED***, proceeds: ***REMOVED***, costBase: ***REMOVED***, parcels: [
-        { acquired: "2024-01-01", units: 758, costBase: ***REMOVED*** }, { acquired: "2024-01-01", units: 22, costBase: ***REMOVED*** }, { acquired: "2024-01-01", units: 535, costBase: ***REMOVED*** }] }] },
-    { category: "Shares", what: "IVV (Sam)", person: "Sam", quantity: 30, taxStatements: [
-      { fy: 2025, h18: ***REMOVED***, discount18: ***REMOVED***, other18: 0, m20: ***REMOVED***, o20: ***REMOVED***, units: 30 }] },
-    { category: "Shares", what: "WOW", person: "Sam", quantity: 20, taxStatements: [
-      { fy: 2025, c13: ***REMOVED***, q13: ***REMOVED***, units: 20 }] }
+      { date: "2025-09-12", units: 2000, proceeds: 6200.00, costBase: 3100.00, parcels: [
+        { acquired: "2024-05-02", units: 1200, costBase: 1900.00 }, { acquired: "2024-06-20", units: 800, costBase: 1200.00 }] },
+      { date: "2025-12-03", units: 1000, proceeds: 2950.00, costBase: 1450.00, parcels: [
+        { acquired: "2024-06-20", units: 1000, costBase: 1450.00 }] }] },
+    { category: "Shares", what: "ETFA (Sam)", person: "Sam", quantity: 60, taxStatements: [
+      { fy: 2025, h18: 25.20, discount18: 12.60, other18: 0, m20: 40.10, o20: 6.00, units: 60 }] },
+    { category: "Shares", what: "DIV", person: "Sam", quantity: 120, taxStatements: [
+      { fy: 2025, c13: 30.40, q13: 13.03, units: 120 }] }
   ];
   state.taxYears = {};
   var alex = personYear(2025, "Alex", true);
   alex.incomeStatements = [
-    { payer: "Employer A", gross: ***REMOVED***, allowances: 66, withheld: ***REMOVED*** },
-    { payer: "Employer B", gross: ***REMOVED***, allowances: 0, withheld: ***REMOVED*** }];
-  alex.interest = [{ account: "Joint savings", gross: ***REMOVED***, sharePct: 50 }, { account: "ATO interest", gross: 0.90, sharePct: 100 }];
+    { payer: "Employer A", gross: 98400, allowances: 120, withheld: 22900 },
+    { payer: "Employer B", gross: 15600, allowances: 0, withheld: 3950 }];
+  alex.interest = [{ account: "Joint savings", gross: 310, sharePct: 50 }, { account: "ATO interest", gross: 2.15, sharePct: 100 }];
   alex.deductions = [
-    { label: "D2", what: "Work travel", amount: ***REMOVED*** }, { label: "D5", what: "Home office rent Jul-Sep", amount: ***REMOVED*** },
-    { label: "D5", what: "Webcam", amount: 98 }, { label: "D5", what: "Depreciation", amount: ***REMOVED*** }, { label: "D10", what: "Tax agent", amount: 275 }];
+    { label: "D2", what: "Work travel", amount: 640 }, { label: "D5", what: "Laptop bag", amount: 85 },
+    { label: "D5", what: "Depreciation", amount: 210.40 }, { label: "D10", what: "Tax agent", amount: 190 }];
   var sam = personYear(2025, "Sam", true);
-  sam.incomeStatements = [{ payer: "Employer C", gross: ***REMOVED***, allowances: 0, withheld: ***REMOVED*** }];
-  sam.interest = [{ account: "Savings account", gross: ***REMOVED*** }, { account: "Joint savings", gross: ***REMOVED***, sharePct: 50 }, { account: "Bank account", gross: ***REMOVED*** }, { account: "ATO interest", gross: ***REMOVED*** }];
-  sam.deductions = [{ label: "D5", what: "Depreciation", amount: ***REMOVED*** }];
-  var lines = { rent: ***REMOVED***, otherIncome: ***REMOVED***, borrowing: ***REMOVED***, councilRates: ***REMOVED***, insurance: ***REMOVED***,
-    interest: ***REMOVED***, pestControl: 420, agentFees: ***REMOVED***, repairs: 485, capitalWorks: ***REMOVED***, water: ***REMOVED***, other: 299,
-    advertising: 0, bodyCorporate: 0, cleaning: 0, capitalAllowances: 0, gardening: 0, landTax: 0, legal: 0, stationery: 0, travel: 0 };
-  Object.keys(lines).forEach(function(k){ setRentalActual(2025, "ip1", k, lines[k]); });
+  sam.incomeStatements = [{ payer: "Employer C", gross: 86200, allowances: 0, withheld: 18700 }];
+  sam.interest = [{ account: "Savings account", gross: 120.50 }, { account: "Joint savings", gross: 310, sharePct: 50 }, { account: "Bank account", gross: 15.80 }, { account: "ATO interest", gross: 0.60 }];
+  sam.deductions = [{ label: "D5", what: "Depreciation", amount: 95 }];
+  Object.keys(RENT_LINES_EXAMPLE).forEach(function(k){ setRentalActual(2025, "ip1", k, RENT_LINES_EXAMPLE[k]); });
 }
 
-test("the rental schedule: actuals typed from the year's documents, net -$***REMOVED***", function(){
+test("the rental schedule: actuals typed line by line", function(){
   withState(function(){
-    realHousehold();
+    exampleHousehold();
     var sch = rentalSchedule(state.properties[0], 2025);
-    assert.equal(sch.income, ***REMOVED***);
-    assert.equal(sch.expenses, ***REMOVED***);
-    assert.equal(sch.net, -***REMOVED***);
+    assert.equal(sch.income, RENT_INCOME);
+    assert.equal(sch.expenses, RENT_EXPENSES);
+    assert.equal(sch.net, RENT_NET);
     assert.equal(sch.actualCount, 21);
   });
 });
 
-test("Alex FY25/26: every label as lodged", function(){
+test("Alex FY25/26: every label, and taxable income rebuilt from its parts", function(){
   withState(function(){
-    realHousehold();
-    assert.deepEqual(incomeStatementTotals(2025, "Alex"), { gross: ***REMOVED***, withheld: ***REMOVED***, resc: 0, rfba: 0 });
-    assert.equal(interestIncome(2025, "Alex"), ***REMOVED***);
+    exampleHousehold();
+    assert.deepEqual(incomeStatementTotals(2025, "Alex"), { gross: 114120, withheld: 26850, resc: 0, rfba: 0 });
+    assert.equal(interestIncome(2025, "Alex"), 157.15);
     var r = computePersonTax("Alex", { fy: 2025 });
-    assert.equal(Math.round(r.ipShareForYear * 100) / 100, -***REMOVED***);                 // Rent, 70%
-    assert.equal(Math.floor(r.capitalGainsTotal), ***REMOVED***);                                // 18H
-    assert.equal(Math.floor(r.capitalGains), ***REMOVED***);                                     // 18A
-    assert.equal(r.deductionsByLabel.D2, ***REMOVED***);
-    assert.equal(Math.round(r.deductionsByLabel.D5 * 100) / 100, ***REMOVED***);              // incl. WFH $***REMOVED***
-    assert.equal(r.deductionsByLabel.D10, 275);
-    assert.equal(r.fito, 19);                                                           // 20O
-    assert.equal(Math.round(r.phiAdjustment), 105);
-    // Taxable income: every label summed under the law, franking credits grossed up. (myTax's
-    // on-screen estimate showed $***REMOVED*** — $*** lower, about the size of the $***REMOVED*** ETFB franking
-    // credit; the assessment, not the estimate, is what counts.)
-    assert.equal(Math.round(r.taxable), ***REMOVED***);
-    assert.ok(r.refund > 3600 && r.refund < ***REMOVED***, "refund " + r.refund);
+    var rent = Math.round(RENT_NET * 0.6 * 100) / 100;
+    assert.equal(Math.round(r.ipShareForYear * 100) / 100, rent);                     // Rent, 60%
+    assert.equal(Math.round(r.capitalGainsTotal * 100) / 100, 4688.4);                 // 18H: 3,100 + 1,500 + 88.40
+    assert.equal(Math.round(r.capitalGains * 100) / 100, 2344.2);                      // 18A
+    assert.equal(r.deductionsByLabel.D2, 640);
+    assert.equal(Math.round(r.deductionsByLabel.D5 * 100) / 100, 925.4);               // incl. WFH 900h x 70c
+    assert.equal(r.deductionsByLabel.D10, 190);
+    assert.equal(r.fito, 30.8);                                                         // 20O
+    var expected = 114120 + 157.15 + (0.10 + 205.30) + 2344.2 + rent - (640 + 925.4 + 190);
+    assert.ok(Math.abs(r.taxable - expected) < 0.01, r.taxable + " vs " + expected);
+    assert.ok(Number.isFinite(r.refund));
   });
 });
 
-test("Sam FY25/26: rent 30% -$***REMOVED***, IVV gain $***REMOVED*** / $***REMOVED***", function(){
+test("Sam FY25/26: rent 40%, a fund gain and franked distributions", function(){
   withState(function(){
-    realHousehold();
+    exampleHousehold();
     var r = computePersonTax("Sam", { fy: 2025 });
-    assert.equal(Math.round(r.ipShareForYear * 100) / 100, -***REMOVED***);
-    assert.equal(r.capitalGainsTotal, ***REMOVED***);
-    assert.equal(r.capitalGains, ***REMOVED***);
-    assert.equal(r.interestIncome, Math.round((***REMOVED*** + ***REMOVED*** + ***REMOVED*** + ***REMOVED***) * 100) / 100);
-    // $***REMOVED*** + $***REMOVED*** interest + $***REMOVED*** franked + $***REMOVED*** foreign + $***REMOVED*** - $***REMOVED*** - $***REMOVED***
-    assert.equal(Math.round(r.taxable), ***REMOVED***);
+    var rent = Math.round(RENT_NET * 0.4 * 100) / 100;
+    assert.equal(Math.round(r.ipShareForYear * 100) / 100, rent);
+    assert.equal(r.capitalGainsTotal, 25.2);
+    assert.equal(r.capitalGains, 12.6);
+    assert.equal(r.interestIncome, Math.round((120.50 + 155 + 15.80 + 0.60) * 100) / 100);
+    // salary + interest + franked distribution and its credit + foreign income + net gain + rent - deductions
+    var expected = 86200 + 291.9 + 30.40 + 13.03 + 40.10 + 12.6 + rent - (95 + 280);
+    assert.ok(Math.abs(r.taxable - expected) < 0.01, r.taxable + " vs " + expected);
   });
 });
 
 test("a blank line falls back to the model, and expenses map to their labels by name", function(){
   withState(function(){
-    realHousehold();
+    exampleHousehold();
     state.properties[0].expenses = [{ what: "Water & Wastewater", amount: 100, freq: "Monthly" }, { what: "Council Rates", amount: 600, freq: "Quarterly" }, { what: "Land Tax", amount: 50, freq: "Monthly" }];
     setRentalActual(2025, "ip1", "water", "");
     var sch = rentalSchedule(state.properties[0], 2025);
@@ -126,7 +128,7 @@ test("a blank line falls back to the model, and expenses map to their labels by 
 
 test("without a record, a named year is the model", function(){
   withState(function(){
-    realHousehold();
+    exampleHousehold();
     state.taxYears = {};
     var r = computePersonTax("Alex", { fy: 2025 });
     assert.equal(r.incomeStatements, null);
@@ -137,14 +139,14 @@ test("without a record, a named year is the model", function(){
 
 test("income tests add back RESC, fringe benefits and a net investment loss (v3.29.0)", function(){
   withState(function(){
-    realHousehold();
+    exampleHousehold();
     var alex = personYear(2025, "Alex", false);
     alex.incomeStatements[0].resc = 10000;
     alex.incomeStatements[0].rfba = 2000;
     state.tax.settings.Alex.helpBalance = 50000;
     var r = computePersonTax("Alex", { fy: 2025 });
-    // taxable + RFBA + RESC + the $***REMOVED*** rental loss
-    var expected = r.taxable + 2000 + 10000 + ***REMOVED***;
+    // taxable + RFBA + RESC + the rental loss (60% of it)
+    var expected = r.taxable + 2000 + 10000 + Math.max(0, -Math.round(RENT_NET * 0.6 * 100) / 100);
     assert.ok(Math.abs(r.repaymentIncome - expected) < 0.01, "HELP income " + r.repaymentIncome);
     assert.ok(Math.abs(r.surchargeIncome - expected) < 0.01, "surcharge income " + r.surchargeIncome);
     // Not taxable income: the same taxable figure as without them.

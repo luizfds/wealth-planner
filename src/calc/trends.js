@@ -111,7 +111,7 @@ export function fallingStreak(values){
 // So the baseline is only ever taken over months the user was *actually logging in*. A month
 // counts as covered when its total spend is a meaningful fraction of a typical logged month —
 // measured against the median of this household's own non-empty months, not a fixed dollar
-// figure, because "typical" is $600 for one person and $*** for another.
+// figure, because "typical" is $600 for one person and $12,000 for another.
 //
 // Only the contiguous run ending at the current month counts. History from before you started is
 // not thin history, it's absent history, and a gap in the middle (a month you stopped logging)
@@ -153,8 +153,8 @@ export function coveredMonthCount(totals, opts){
 //   - Scaling the partial month up to a full one (current / fraction-of-month-elapsed) looks like
 //     the fix and is worse. Household spending is front-loaded — rent, electricity and insurance
 //     all land in the first week — and this app's own "Catch up on overdue" flow encourages
-//     logging in bulk. On the real reference data, 11 days into the month, that projection turned
-//     $***REMOVED*** actually spent into a confident "on track for $***REMOVED***", a 611% rise that never
+//     logging in bulk. On a test household's data, 11 days into the month, that projection turned
+//     $2,440 actually spent into a confident "on track for $6,655", a 611% rise that never
 //     happened.
 //
 // Truncating both sides to the same day needs no model of how spending is distributed, because it
@@ -213,7 +213,7 @@ export function daysInMonthOf(todayStr){
 //                 so a part-finished month is never measured against whole ones.
 // When today is the last day of the month the two coincide.
 //
-// `minSpend` drops categories too small to be worth a line of text — a $*** category that doubled is
+// `minSpend` drops categories too small to be worth a line of text — a $4 category that doubled is
 // a true statement and a useless one. Applied to the window total, not to a single month, so a
 // category that's only lumpy (car rego once a year) still keeps its place.
 //

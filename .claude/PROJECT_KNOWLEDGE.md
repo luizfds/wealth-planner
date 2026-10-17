@@ -92,7 +92,7 @@ consequences worth knowing before touching any of this:
   minus `computed` rows. Quick-log chips, the overdue queue, the transaction "link to" select,
   the Actual-vs-Planned panel and per-row progress bars all use it; the Budget tab's list and
   monthly total use the full set. A computed line is real money but nobody logs a direct debit,
-  so it would otherwise read "$0 of $***REMOVED***" forever.
+  so it would otherwise read "$0 of $2,780" forever.
 
 ### The tax engine: what's modelled, and the three rules that keep it honest (v2.81.0-v2.86.0)
 
@@ -199,7 +199,7 @@ on it, and `reserveYearWindowFor()` falls back to it when a line has no basis of
   and invisible on the row. A line the user set *explicitly* is never overwritten.
 - **`householdYearWindow` relabels the calendar basis** to the year number (`"2026"`), because
   `reserveYearWindow`'s `"this year"` only reads correctly in the one sentence it was written for
-  (a row's "$X actual / $Y planned this year"). As a household year the label lands in "$***
+  (a row's "$X actual / $Y planned this year"). As a household year the label lands in "$3,950
   logged in ___" and in export filenames.
 - **Year views are year-to-*date*.** `householdYearToDate()` cuts off at today and its
   `displayLabel` says "so far"; `householdYearProgress()` says how much of the year a figure
@@ -224,7 +224,7 @@ engine*: change it and the marginal rate, Medicare levy, SG, concessional cap an
 move with it. So the override is applied at the bottom of the chain, and the whole computation
 re-runs per scenario — `personSuperRows` / `personIncomeBreakdown` / `computePersonTax` each take an
 optional `opts` (`{scenario, includeRow}`) and behave exactly as before when it's omitted. Halving a
-***REMOVED*** salary cuts that scenario's income by ~$***/mo, not ~$***; a net-side override could not
+$139k salary cuts that scenario's income by ~$3.6k/mo, not ~$5.8k; a net-side override could not
 have said that.
 
 `scenarioIncomeRows()` in `calc/tax.js` is the one definition of "what does this scenario earn"
@@ -257,7 +257,7 @@ Which of those two it actually is depends on the scenario's **purchase leg**:
 Getting this wrong is **silent and large in both directions**: include it with the purchase leg on
 and the same housing cost is charged twice; exclude it with the leg off and a renting household's
 single largest expense vanishes from the projection. The second one was a real, shipped bug — on
-the reference backup the model assumed $***REMOVED***/mo more savings than the Dashboard's own
+a test backup the model assumed $2,780/mo more savings than the Dashboard's own
 net-savings tile showed for the same scenario, and it flattered precisely the scenario the "comes
 out ahead" headline named, which changed the headline's winner once fixed (v2.77.0).
 
@@ -353,11 +353,11 @@ which is why the scope `appAssetUrl` produces has to stay the app root.
 
 `calc/trends.js` powers the Spending tab's "Spending over time" panel. The arithmetic is easy;
 everything hard about it is about **not making claims the data can't support**. Three rules, all
-learned by running it against a real backup rather than by reasoning about the code:
+learned by running it against a test backup rather than by reasoning about the code:
 
 1. **An unlogged month is indistinguishable from a month with no spending.** Both are `$0`.
    Comparing against months from before the user started logging produced *"Groceries up 3,124%"*
-   on the reference data. `coveredMonthCount()` trims the window to the contiguous run of months
+   on a test household's data. `coveredMonthCount()` trims the window to the contiguous run of months
    that were genuinely being logged — thresholded against the median of *that household's own*
    non-empty months, never a fixed dollar figure.
 
@@ -365,13 +365,13 @@ learned by running it against a real backup rather than by reasoning about the c
    like a fall" is to scale it up by the fraction of the month elapsed. **Don't.** Household
    spending is front-loaded — rent, power and insurance all land in week one — and this app's own
    "Catch up on overdue" flow encourages logging in bulk. Eleven days into the month that turned
-   $***REMOVED*** into a confident "on track for $***REMOVED***". Instead every comparison runs on a
+   $2,440 into a confident "on track for $6,655". Instead every comparison runs on a
    **month-to-date** series: this month so far against the *same days* of earlier months
    (`spendByCategoryByMonth`'s `throughDay`). Whole months still drive the bars and the table, so
    the view carries two series per category — `values` (whole) and `mtdValues` (truncated).
 
 3. **The app cannot tell "spent more" from "logged more thoroughly."** Nothing short of a bank
-   feed can. On the reference backup August was logged mostly in its last week and September
+   feed can. On a test backup August was logged mostly in its last week and September
    mostly in its first, so even a same-days comparison read "515% more". Hence
    `TRENDS_MIN_MONTHS_FOR_COMPARISON = 3` in `components/expenses.js`: below three logged months
    the panel renders bars and numbers but **no deltas and no streak alerts**, and says why. Two

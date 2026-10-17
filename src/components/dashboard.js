@@ -370,7 +370,7 @@ export function renderDetail(){
 // Financial independence, as two questions rather than one — see calc/fire.js for why.
 //
 // The old version of this panel reported a single "progress %" of total net worth against a 4%
-// target. On real data that counted $***REMOVED*** of super (32% of the figure) and a car, and would
+// target. On a test household's data that counted $142,300 of super (32% of the figure) and a car, and would
 // have counted the family home the moment a Buy scenario was active. It answered "will the pot be
 // big enough?" while staying silent on "can you reach 60 on what isn't super?", which is the
 // question that actually decides whether an early retirement is possible.
@@ -584,10 +584,10 @@ export function renderMonthlyCashFlow(){
   }).join("");
   var avgLogged = loggedRows.reduce(function(sm, r){ return sm + r.spent; }, 0) / loggedRows.length;
   var unlogged = rows.length - loggedRows.length;
-  // Logged spending is not total spending, and the gap is not small: on the reference data it was
-  // $***/mo logged against a $***REMOVED***/mo budget. Subtracting the logged figure from income and
-  // calling the remainder savings announced that this household kept $***REMOVED***/mo when it keeps
-  // $***REMOVED*** — a confident claim, wrong by $***REMOVED*** a month. So the savings line is earned rather
+  // Logged spending is not total spending, and the gap is not small: on a test household's data it was
+  // $615/mo logged against a $11,580/mo budget. Subtracting the logged figure from income and
+  // calling the remainder savings announced that this household kept $17,240/mo when it keeps
+  // $6,610 — a confident claim, wrong by $10,600 a month. So the savings line is earned rather
   // than assumed: it appears only once logging actually covers the budget.
   var coverage = spendCoverage(avgLogged, budgetedMonthlySpend());
   var verdict = coverage.enough
@@ -658,7 +658,7 @@ export function renderContributionsGrowth(){
       };
     }))
     // Debts enter as negative records, so the series this panel calls "net worth" actually is one.
-    // Without them it read $***REMOVED*** above the header on the reference data, and a panel that
+    // Without them it read $12,500 above the header on a test household's data, and a panel that
     // disagrees with the number directly above it teaches you to trust neither.
     .concat((state.debts || []).map(function(d){
       return {
@@ -674,7 +674,7 @@ export function renderContributionsGrowth(){
   }
   // The window only opens once every asset you track now was already being tracked — see
   // fullCoverageFrom(). Until there are two such dates there is nothing honest to say, and saying
-  // it anyway is how "I added my house to the app" gets reported as "my assets grew $***REMOVED***".
+  // it anyway is how "I added my house to the app" gets reported as "my assets grew $290,000".
   if(split.tooShort){
     panel.innerHTML = '<h3>Saved vs grown</h3>' +
       '<p class="fire-note">You started logging some assets on ' + escapeAttr(split.coverageFrom || "a later date") +
@@ -686,8 +686,8 @@ export function renderContributionsGrowth(){
   var total = Math.abs(split.contributed) + Math.abs(split.growth);
   var pct = function(v){ return total > 0 ? (Math.abs(v) / total) * 100 : 0; };
   var growthNeg = split.growth < 0;
-  // "Markets took $***REMOVED***" was, on the reference data, the household revaluing its own house from
-  // $900k to $*** — over 0.4 months. The arithmetic was right and the word was wrong: this half
+  // "Markets took $72,800" was, on a test household's data, the household revaluing its own house from
+  // $720k to $647k — over 0.4 months. The arithmetic was right and the word was wrong: this half
   // of the split is every price change in the portfolio, and for most people the largest of those
   // is a property valuation they typed in themselves, not a market that moved. "Revalued" names
   // what the app can actually see. The tooltip and the note below say the rest.

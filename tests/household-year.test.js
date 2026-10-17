@@ -113,7 +113,7 @@ test("reserveYearWindow itself is unchanged and still takes an explicit basis", 
 
 test("the calendar household year is labelled with the year, not \"this year\"", function(){
   // reserveYearWindow's "this year" reads correctly in the sentence it was written for — a row's
-  // "$X actual / $Y planned this year". As a household year it lands in "$4,953 logged in ___"
+  // "$X actual / $Y planned this year". As a household year it lands in "$3,950 logged in ___"
   // and in an export filename, where it's clumsy and useless respectively.
   withBasis("calendar", function(){
     assert.equal(householdYearWindow("2026-09-11").label, "2026");

@@ -110,9 +110,9 @@ export function allocationSeries(buckets, dates, opts){
 // The first point at which every record that is tracked *now* was already tracked — i.e. where the
 // series starts comparing like with like.
 //
-// This is not a nicety. On the reference data, super and cash were logged from July 2025 while
+// This is not a nicety. On a test household's data, super and cash were logged from July 2025 while
 // shares and the property were only added in August 2026. Measured from the earliest point, net
-// worth "grew" $***REMOVED*** in 13 months, of which about $***REMOVED*** was assets that merely started being
+// worth "grew" $318,450 in 13 months, of which about $301,000 was assets that merely started being
 // tracked. Attributing that to growth is not a rounding error, it is a fabrication — so the window
 // starts where coverage is complete, even though that throws most of the history away.
 export function fullCoverageFrom(points){
@@ -190,8 +190,8 @@ export function monthlyCashFlow(transactions, monthKeys, monthlyIncome){
 // What fraction of the household's actual budget the logged transactions represent.
 //
 // The cash-flow panel's first version computed "saved = income − logged spending" and, on the
-// reference data, announced that the household kept $***REMOVED***/mo. It keeps $***REMOVED***. Logged spend
-// averaged $***/mo against a $***REMOVED***/mo budget — about 5% — so "income minus what you logged" was
+// test household's data, announced that the household kept $17,240/mo. It keeps $6,610. Logged spend
+// averaged $615/mo against a $11,580/mo budget — about 5% — so "income minus what you logged" was
 // measuring how little had been typed in, and calling it thrift.
 //
 // A savings claim is only honest when logging is close to complete. Below that, the panel can still
@@ -216,7 +216,7 @@ export function spendCoverage(loggedMonthlyAvg, budgetedMonthly){
 // so it pushes the start to today. `records` is [{history, label}]; returns
 // { from, late: [labels whose first value came after the earliest observation], missing: [never logged] }.
 // The same reasoning as fullCoverageFrom above, for a chart that sums many records rather than a
-// pre-built series: without it the Assets chart read $*** for six weeks and then "grew" to $***
+// pre-built series: without it the Assets chart read $12k for six weeks and then "grew" to $625k
 // on the day the rest of the assets were first logged.
 export function coverageStart(records, today){
   var firsts = (records || []).map(function(r){

@@ -290,13 +290,13 @@
   /* ---------------- Very narrow phones (≤420px) ---------------- */
   /* Below ~375px two separate things pushed content past the right edge of the screen, and both
      got *worse* as the user's numbers got bigger — so the breakpoint wasn't fixed, it moved as
-     someone's net worth grew. Measured at 320px against a real backup: the document laid out
+     someone's net worth grew. Measured at 320px against a test backup: the document laid out
      368px wide inside a 320px viewport, so every Dashboard tile was clipped and the whole app
      scrolled sideways on every page.
 
      1. `.global-metrics` is a nowrap flex row and its `b` values are `white-space:nowrap`, so the
         pill has a hard intrinsic minimum that is the width of both figures side by side. At
-        $*** / +$***/mo that is 352px; at seven figures it is 371px, which overflows an
+        $446,100 / +$5,030/mo that is 352px; at seven figures it is 371px, which overflows an
         iPhone SE too. Wrapping the two metrics onto their own lines removes the floor entirely.
         The divider goes with it — a vertical rule between two *stacked* items is just a stray
         tick, and there is no CSS way to show it only when they sit side by side.

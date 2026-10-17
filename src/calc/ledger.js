@@ -30,7 +30,7 @@ export function periodsOf(amount, freq){
 //
 // It also removed a straight contradiction: computeNetWorthSeries has honoured end dates since
 // v2.77.0, so the Dashboard's "you spend $X/mo" and the projection's own year-1 figure disagreed
-// by the amount of every ended row. Measured on the reference backup: $***REMOVED***/mo against $***REMOVED***.
+// by the amount of every ended row. Measured on a test backup: $4,310/mo against $4,232.
 //
 // A row with no endDate — which is every row created before v2.77.0, and most since — is always
 // active, so nothing else changes.
@@ -307,7 +307,7 @@ export function householdYearWindow(todayStr){
   var win = reserveYearWindow(householdYearBasis(), todayStr);
   // reserveYearWindow labels the calendar basis "this year", which reads correctly in the sentence
   // it was written for — a row's "$X actual / $Y planned this year". As a *household* year it's a
-  // noun, and lands in sentences like "$*** logged in ___" and "Export ___'s transactions",
+  // noun, and lands in sentences like "$3,950 logged in ___" and "Export ___'s transactions",
   // where "this year" is at best clumsy and in a filename is useless. The financial label ("FY26/27")
   // is already a noun, so only the calendar one needs rewriting.
   if(householdYearBasis() === "calendar") return { start: win.start, end: win.end, label: win.start.slice(0, 4) };
@@ -366,9 +366,9 @@ export function lastKnownDateFor(item, transactions){
 // calc/cashflow.js), so it falls back to being smoothed like a regular monthly cost instead.
 // ---------------- Billing cycles: comparing spend against the window it's actually billed in ----
 // The app converts every budget line to a smoothed $/mo (periodsOf) because that's the right
-// number for cash flow, net worth and projections — a $*** quarterly gas bill genuinely costs
-// $***/mo on average. But it's the wrong denominator for "am I on track right now": in the
-// month the bill actually lands you spend the whole $***, so comparing it against one month's
+// number for cash flow, net worth and projections — a $230 quarterly gas bill genuinely costs
+// $76.67/mo on average. But it's the wrong denominator for "am I on track right now": in the
+// month the bill actually lands you spend the whole $230, so comparing it against one month's
 // smoothed slice reports a line that's exactly on plan as 3x over budget.
 //
 // This returns the window a line is really billed over, so spend and budget can be compared like
@@ -377,7 +377,7 @@ export function lastKnownDateFor(item, transactions){
 //
 //   { start, end, label, target, dueThisMonth }
 //
-// target is what one cycle's worth costs (so a quarterly line's target is the full $***, not a
+// target is what one cycle's worth costs (so a quarterly line's target is the full $230, not a
 // third of it); dueThisMonth says whether this cycle's payment falls in the current calendar
 // month, which is what the month rollup needs to decide whose bill to expect.
 //
@@ -417,8 +417,8 @@ export function reserveCycleFor(item, todayStr){
     start: win.start,
     end: win.end,
     label: win.label,
-    // Pro-rated by the days the line runs inside its reserve year (v3.32.0): a $*** reserve that
-    // starts on 1 January targets $600 of a July-June year, not $***.
+    // Pro-rated by the days the line runs inside its reserve year (v3.32.0): a $1,200 reserve that
+    // starts on 1 January targets $600 of a July-June year, not $1,200.
     target: periodsOf(Number(item.amount) || 0, item.freq).yearly * activeShareOfWindow(item, win.start, win.end),
     // Never "due this month" — that is the property the month rollup keys off, and a reserve has
     // no due month by definition.
@@ -435,8 +435,8 @@ export function budgetCycleFor(item, transactions, todayStr){
   if(freq === "Weekly" || freq === "Fortnightly"){
     var win = monthWindow(today);
     var count = wholePeriodsInMonth(today, freq === "Weekly" ? 7 : 14);
-    // The count goes in the label because the target it produces ($*** x 4 = $1,000) deliberately
-    // differs from the smoothed "/mo" figure shown right beside it on the row ($***, i.e.
+    // The count goes in the label because the target it produces ($250 x 4 = $1,000) deliberately
+    // differs from the smoothed "/mo" figure shown right beside it on the row ($1,083.33, i.e.
     // x 52/12). Both are correct — one is this month's actual payments, the other the long-run
     // average — but two adjacent numbers that disagree read as a bug unless the row says why.
     return { start: win.start, end: win.end, label: "this month ×" + count, target: amount * count, dueThisMonth: true };
@@ -646,8 +646,8 @@ export function resolvedDueMonth(item, transactions){
 //
 // What the budget says should have gone out between the start of the household year and `toDate`,
 // by category: each line's yearly amount times the share of the WHOLE year it was running in that
-// stretch. Not the share of the elapsed part — a full year's $*** of insurance, three months in,
-// is $*** planned so far, not $*** × (running days ÷ elapsed days). A line that starts or ends
+// stretch. Not the share of the elapsed part — a full year's $1,200 of insurance, three months in,
+// is $296 planned so far, not $1,200 × (running days ÷ elapsed days). A line that starts or ends
 // part-way through counts only its own days. Lumpy bills are smoothed (a yearly bill paid in
 // August reads as over-plan until the year catches up), which the panel says.
 export function plannedToDateByCategory(items, fullStart, fullEnd, toDate, amountFor, categoryFor){

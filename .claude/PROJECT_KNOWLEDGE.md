@@ -145,6 +145,45 @@ component: `setDeductibleItemsProvider(budgetLineItems)` and
 Threading the list through every `computePersonTax` caller was the alternative, and a deduction
 silently vanishing wherever one caller forgot is the worst failure mode a tax figure has.
 
+### Tax years, tax tables and the worksheet (v3.16.1-v3.26.0)
+
+The tax engine used to compute one thing: "this year, at today's settings, as a rate". It now
+computes **a named financial year** as well — `computePersonTax(person, { fy })` — and that changes
+what several inputs mean. Read this before touching any of it:
+
+- **Two modes.** Without `opts.fy` it's the household's current year from the model (every net
+  figure in the app). With `opts.fy` it's that year's return: rates from `TAX_YEARS[fy]`, the
+  deduction/CGT/fund-statement window is that financial year, and `calc/taxyear.js`'s record
+  replaces the model wherever the user typed a document figure (income statements, interest,
+  recorded deductions, each rental schedule line). Every piece falls back on its own.
+- **Rates are per year** (`constants.js` `TAX_YEARS`). A year past the table borrows the newest and
+  says `assumed` — the tax card and worksheet both print that. Tests pin the year they check
+  (`incomeTaxAU(x, 2024)`, `computePersonTax(p, { fy: 2024 })`): an unpinned test silently changes
+  meaning every 1 July.
+- **Family income in year mode recurses carefully.** The surcharge/rebate tier needs both people's
+  taxable income for that year; `personSurchargeIncome()` gets it from an `_inner` call of
+  `computePersonTax` that skips the household-level pieces. Don't call `householdSurchargeIncome`
+  from inside an `_inner` call.
+- **Day-counted apportionment everywhere** (`isoDayNumber`, `overlapDaysInclusive` in ledger.js,
+  UTC): deductions claimable for part of a year, borrowing costs over five years, first-year
+  depreciation, AMIT/fund statements across a calendar-year window. Follow the ATO calculators'
+  rounding where one exists (borrowing costs: each year rounded, residual cent into year one).
+- **Capital gains are netted per person per year**, not per sale: `saleCapitalGain()` reports a
+  sale's discountable / other / loss parts; `personCapitalGains()` applies this year's then
+  brought-forward losses to other gains first, then halves what's left of the discountable ones.
+- **Purchase lots, statements and the worksheet edit in place.** Each of those sections swaps only
+  its own markup (`afterLotListChange`, `afterStatementListChange`, `renderTaxYear` restoring
+  `<details>` open state) — `renderAssets()` closes the row editor out from under the user.
+
+### Row start dates (v3.32.0)
+
+Every ledger row now has `startDate` beside `endDate`, and the two are read together everywhere:
+`isActiveOn` (today's totals), `isActiveInYear` (projection — same anchor date for both ends),
+`calc/cashflow.js` (a row counts for the month it starts and the month it ends), and
+`deductionYearFraction` (the claim starts at the later of the row's start and `deductibleFrom`).
+Anything new that asks "is this row running" must check both — `activeShareOfWindow()` is the
+helper for any figure measured over a window (reserve targets, planned-to-date).
+
 ### The household year (v2.80.0)
 
 `state.yearBasis` — `"financial"` (Jul–Jun, the default) or `"calendar"` — is the household's

@@ -1710,6 +1710,197 @@ becomes active; both the Scenarios-page and Dashboard-card buttons work; no hori
 
 ---
 
+## Tax return accuracy (October 2026 review)
+
+Found by lodging a real FY25/26 return (two owners of one QLD investment property, an ASX share
+sale, two iShares ETFs, crypto, a mid-year change of employer) and then reading this app against
+every figure that went into myTax. The app's tax engine estimates a **rate** — "what does this cost
+per year, right now" — while a return needs **the year's actuals, each on its ATO label**. The items
+below close that gap, quiet wrong numbers first. Every fixture quoted is from the real return, so
+each doubles as a test case with a known right answer.
+
+## 36. `[x]` Deductions that stop or start partway through a tax year — shipped v3.16.1
+
+`rowDeductionAnnual()` returned $0 for any row whose `endDate` had passed — including for the tax
+year it ended in, which is the year anyone lodging is looking at — and had no way to say "the
+expense carries on but stopped being claimable" (home-office rent once an employer office became
+available on 1 Oct 2025). Fix: pro-rate by days within the household year, and add
+`deductibleFrom`/`deductibleUntil`, separate from `endDate`. Fixture: $***/wk x 6.4% claimable to
+30 Sep 2025 = **$***REMOVED***** for FY25/26.
+
+**What shipped.** `deductionYearFraction(item, win)` in `calc/tax.js` — the days the claim covers
+within the window over the window's days, where the claim ends at the earlier of `endDate` and
+`deductibleUntil` — and `rowDeductionAnnual(item, win)` multiplies it in. `computePersonTax` passes
+the same household-year window it already used for capital gains. "Claim from"/"Claim until" sit
+with the other deduction fields under a row's More options. Day counts go through two new UTC
+helpers in `calc/ledger.js` (`isoDayNumber`, `overlapDaysInclusive`) so a daylight-saving change
+can't lose a day.
+
+**Still open:** budget rows have no start date, so a line *added* mid-year with no "Claim from"
+counts the whole year. **Measured:** in Chrome at 390px, light and dark, a $*** claim limited to
+1 Jul–30 Sep became $*** on the Income card (92/365); no overflow; fields 158×40.
+
+## 37. `[x]` Borrowing costs on investment loans (the 5-year rule) — shipped v3.17.0
+
+LMI, the lender's establishment/settlement fee and mortgage registration had nowhere to go. Typed
+into `acquisitionCosts` they inflated the CGT cost base *and* were never deducted. Fix:
+`loan.settlementDate` + `loan.borrowingCosts`, apportioned by days over 5 years or the loan term if
+shorter, exactly as the ATO's deductible borrowing expenses calculator does; $100 or less is
+deductible in full in the year incurred. Fixture: $***REMOVED*** (LMI $***REMOVED*** + $*** fee) settled
+01/01/2025 → FY24/25 $***REMOVED*** · FY25/26 $***REMOVED*** · FY26/27 $***REMOVED*** · FY27/28 $***REMOVED*** ·
+FY28/29 $***REMOVED*** · FY29/30 $***REMOVED*** (1,826 days). Out of scope for now: writing off the remaining
+balance when a loan is refinanced or paid out early.
+
+**What shipped.** `borrowingCostsSchedule(loan)` / `borrowingCostsDeduction(loan, win)` in
+`calc/property.js`, following the ATO calculator (v1.04) line for line — including its rounding:
+each year rounded on its own, the residual cent into the first year (hence $***REMOVED***, not
+$***REMOVED***). `propertyTaxDeductibleResultAnnual` subtracts the year's share; the cash result is
+untouched. Loan editor: Settled on, Borrowing costs (one total), Original term (only consulted
+under five years — `termYears` is what's *left*), and a live note: "Deductible FY26/27: $***REMOVED*** of
+$***REMOVED*** — spread to FY29/30." **Measured:** on sample data each 50% owner's taxable income fell
+$***; persisted across reload; no overflow at 390px in light or dark.
+
+**Not done:** moving costs already typed into Acquisition costs. Nothing distinguishes an LMI row
+there from a stamp-duty row, and guessing would move someone's cost base; the field's tooltip says
+where each kind goes.
+
+## 38. `[x]` Second-hand plant & equipment isn't claimable — shipped v3.18.0
+
+`plantDepreciationAnnual()` claims `plantValue / life` unconditionally. For residential property
+bought second-hand under a contract after 9 May 2017 the claim is **$0** — the fixture's QS report
+values $***REMOVED*** of plant the owner may not claim, which this app would have deducted at ~$***REMOVED***/yr.
+Add a "bought new / second-hand" flag; keep the values (they become a capital loss on scrapping and
+feed CGT on sale).
+
+**What shipped.** `plantSecondHand` per property and `plantIsClaimable()`; a checkbox in the Depreciation section with the 9 May 2017 rule spelled out. The value stays for capital losses and CGT. Default false, so no existing figure moves.
+
+## 39. `[x]` Capital works by component, from the QS schedule — shipped v3.19.0 (+ v3.20.1 layout fix)
+
+One `constructionCost` + `constructionDate` can't represent the fixture: original 1993 building
+($***REMOVED***/yr, ends FY33/34) plus a 2023 renovation ($***/yr), and the first year pro-rated from the
+purchase date (FY24/25 $***REMOVED***, not $***REMOVED***). Simplest correct shape: let the user enter the quantity
+surveyor's year-by-year table (`depreciationSchedule: [{fy, capitalWorks, plant}]`), with the
+formula as the fallback when there's no report.
+
+**What shipped.** `depreciationSchedule` rows (FY select, capital works, plant) under the Depreciation section; `propertyDepreciationForFy()` takes a listed year verbatim and otherwise pro-rates the formula by days from the purchase date and to the day before the 40th anniversary of completion; `propertyDepreciationForWindow()` weights financial years across a calendar-year window. The section now shows this year's claim, not a full-year rate. **v3.20.1:** the phone-width `.m-cost-row` grid squeezed the row's second amount to 14px — schedule rows stay flex (80/72/72px measured at 390px).
+
+## 40. `[x]` Property CGT cost base — shipped v3.20.0
+
+`propertyCostBase()` must subtract capital works deductions claimed (property acquired after
+13 May 1997) and must not include borrowing costs (item 37 gives them a home). Today it overstates
+the cost base, so the gain on sale is understated.
+
+**What shipped.** `capitalWorksClaimedToDate()` (whole years from purchase plus the elapsed share of this one; nothing before 13 May 1997 or without a purchase date) comes off `propertyCapitalGain()`'s cost base. The tile's title states the cost base and the reduction; the growth % stays against what was paid. Borrowing costs never enter `acquisitionCosts` now that item 37 gives them a field.
+
+## 41. `[x]` Share lots (parcels), and the discount per parcel — shipped v3.21.0
+
+A sale takes `avgCost x units` and one acquisition date. The fixture sold units in two sales
+from **six** purchase lots; discount eligibility is per lot. Store `asset.lots[] = {date, units,
+price, brokerage}`, match sales FIFO by default (specific-ID optional). Fixture: FIFO gives cost
+bases $***REMOVED*** / $***REMOVED***, gains $***REMOVED*** / $***REMOVED*** = $***REMOVED***, all discounted.
+
+**What shipped.** A "Purchase lots" section per holding (date, units, price, brokerage). A sale with no typed cost base or date uses `fifoParcels()`, stores `sale.parcels` and marks `lot.soldUnits`; deleting the sale gives them back. `saleCapitalGain()` works parcel by parcel and reports discountable / other / loss splits. Avg cost follows the unsold lots. Adding a lot swaps only that section's markup — `renderAssets()` would close the editor mid-entry.
+
+## 42. `[x]` ETF / managed fund annual tax statements (AMIT) — shipped v3.22.0
+
+ETFs are modelled as dividend-per-unit + franked %. IVV's FY25/26 return was foreign income
+($***REMOVED***), a foreign income tax offset ($***REMOVED***), a fund-discounted capital gain (18H $***REMOVED*** /
+18A $***REMOVED***) and a cost base increase ($***REMOVED***). Add a per-fund, per-year statement record holding
+13U/13C/13Q/18H/18A/20E/20M/20O and the AMIT cost base adjustment, applied to the holding.
+
+**What shipped.** `asset.taxStatements[]` edited under "Annual tax statements" on a holding; `personFundStatements()` feeds taxable income (13U+13C+13Q+20M), refundable franking credits, a non-refundable FITO (20O) and fund gains into CGT; a statement year drops that holding's dividend estimate. AMIT adjustments (per unit held at 30 June) are added to a later sale's cost base. An unowned holding in a two-person household warns that it's on nobody's return.
+
+## 43. `[x]` Capital losses: before the discount, and carried forward — shipped v3.23.0
+
+`personCapitalGains()` discounts per sale (documented simplification). Real order: losses against
+non-discount gains, then discount gains, then the 50%. Add `capitalLossCarriedForward` per person.
+
+**What shipped.** `personCapitalGains()` rewritten in the CGT schedule's order; returns 18H (`totalGains`), the net gain, losses applied (current and brought forward) and `lossCarriedForward`. "Capital losses b/f" per person on the tax card. Note the old per-sale approach *understated* gains when a loss met a discounted gain (it took the loss at full value against a half-taxed gain).
+
+## 44. `[x]` Deductions on their ATO labels, and the working-from-home method — shipped v3.24.0
+
+Tag each deductible line D1/D2/D3/D4/D5/D10; add the fixed-rate method as an hours log x the
+year's rate (70c in FY25/26) and warn when internet/phone/electricity lines are *also* flagged,
+since the rate covers them. Fixture: D2 $***REMOVED***, D5 $***REMOVED*** (WFH $***REMOVED*** + rent $***REMOVED*** +
+$*** + depreciation $***REMOVED***), D10 $***.
+
+**What shipped.** `deductionLabel` per line (D1-D5, D9, D10, D15; blank = D5); `deductionsByLabel()`; `WFH_FIXED_RATES` and per-person, per-FY `wfhHours`; `wfhOverlapRows()` names internet/phone/energy/stationery lines also claimed. The deduction checkbox now says "Tax deduction" (D9/D10/D15 aren't work-related). The transactions CSV gains a Return label column.
+
+## 45. `[x]` Tax tables per financial year — shipped v3.25.0
+
+`AU_TAX_BRACKETS`, `HELP_REPAYMENT_RATES`, `MLS_TIERS` are all labelled 2024-25; FY26/27 has the
+16% rate at 15%. Key every table by FY and pick by the year being computed, so last year's return
+and next year's projection both work. Add the private health insurance rebate tier by combined
+family income — the fixture's $*** clawback was predictable.
+
+**What shipped.** `TAX_YEARS` in constants.js for FY24/25-FY26/27, every figure read off ato.gov.au in October 2026; `taxTablesFor(fy)` with `assumed`/`borrowedFrom` past the newest year (the tax card warns). HELP is marginal from FY25/26; surcharge tiers start a dollar above each published threshold ("$*** or less" is base). The old Medicare shade-in thresholds were approximate ($***/$***) — FY24/25's are $***/$***. Household premiums + the tier claimed with the insurer give `phiRebateAdjustment()`, split evenly across the two returns. **Every rate table goes stale each July** — add the next year's row when the ATO publishes it; the tests name the year they check.
+
+## 46. `[x]` A tax-year record and a myTax worksheet — shipped v3.26.0
+
+Per person, per FY, **actuals**: income statements and PAYG withheld, interest per account with
+ownership share, the fund statements (42), the rental schedule split into rent / other rental
+income / each expense line with total and own share, actual loan interest from the statement
+(overriding the balance x rate estimate), CGT events, deductions by label. Output: one page per
+person laid out in myTax's order, an evidence checklist, a refund estimate (withheld − tax), and a
+"why it moved since last year" breakdown.
+
+**What shipped.** `calc/taxyear.js` (`state.taxYears[fy]`: income statements, interest with share, recorded deductions, per-property rental actuals, evidence ticks, lodged snapshots) and `components/taxyear.js` (the "Tax return worksheet" ledger on the Income page). `computePersonTax(person, {fy})` uses that year's record and rates, line by line falling back to the model, and returns `refund`. `tests/taxyear.test.js` rebuilds two real lodged returns: every label matches; Sam's taxable income lands $*** from myTax's, Alex's $*** above it (about the size of a $***REMOVED*** trust franking credit myTax's on-screen estimate appeared not to gross up — the engine follows the law and grosses it up). **Still open:** per-employer reportable super contributions, ages for the rebate (under-65 rates only), and a PDF/print layout.
+
+## 47. `[x]` Borrowing costs: write off the rest on refinance or payout — shipped v3.27.0
+
+A loan paid out or refinanced inside its five-year spread makes the undeducted balance deductible
+in that year. Add `loan.endedOn`; the schedule stops there and that financial year takes the rest.
+The replacement loan's own costs start their own schedule on the new loan.
+
+**What shipped.** "Paid out on" per loan; `borrowingCostsSchedule()` gives the payout year everything not yet claimed (flagged `writtenOff`) and stops. Fixture: refinanced 1 Mar 2027 → FY26/27 deducts $***REMOVED***. A payout date after the spread ends changes nothing. Interest and repayments on a paid-out loan are not stopped by this date — set the balance to 0 or delete the loan.
+
+## 48. `[x]` Reportable employer super and fringe benefits on income statements — shipped v3.29.0
+
+Income statements carry reportable employer super contributions (RESC) and reportable fringe
+benefits (RFBA). Neither is taxable income, but both count for the surcharge/rebate tiers, the
+HELP repayment income and Division 293. Add both fields to the worksheet's income statements and
+route them into those three figures for that year.
+
+**What shipped.** RESC and RFBA columns on worksheet income statements. With statements entered, HELP repayment income, surcharge/rebate income and Division 293 income are taxable income + RFBA + RESC + any net investment loss — the ATO's definition, and the first time the app adds a rental loss back for the surcharge. Model mode (no statements) keeps its simpler forms. Phone layout: payer / three amounts + delete / RESC · RFBA.
+
+## 49. `[x]` Print the worksheet — shipped v3.31.0
+
+A print stylesheet and a "Print / save as PDF" button: one person per page, every section expanded,
+no app chrome.
+
+**What shipped.** `taxYearPrintHtml()` builds a static copy into a top-level `#printRoot` only while printing; the print stylesheet hides every other body child. Verified by printing to PDF and rasterising: the first attempt was near-invisible from a dark-mode browser (table cells inherit the theme's light `--ink`) — every descendant is forced black.
+
+## 50. `[x]` Move borrowing costs out of Acquisition costs — shipped v3.28.0
+
+Costs typed into Acquisition costs before item 37 existed can't be told apart by the app. A
+"Move to loan's borrowing costs" button on each row, with rows whose names look like loan costs
+(LMI, mortgage registration, loan/application/establishment fee, valuation, broker) highlighted —
+nothing moves without a click, because moving one changes the CGT cost base.
+
+**What shipped.** `looksLikeLoanCost()` and `moveAcquisitionCostToLoan()` (adds to the earliest-settled loan, dates an undated loan from the purchase date, undo restores all three fields). Suggested rows: tinted, labelled button; others: a 32px ↪ icon with an aria-label, so stamp duty doesn't carry an invitation to move it.
+
+## 51. `[x]` Age-based private health rebate — shipped v3.30.0
+
+The rebate is higher when the oldest person on the policy is 65-69 or 70+. Add a date of birth per
+person; the rebate uses the oldest person's age at 1 July of the year. Rates from ato.gov.au for
+FY24/25-FY26/27.
+
+**What shipped.** `dateOfBirth` per person (tax card, Adjust); `phiAgeBand(fy)` from the oldest person's age at 1 July; `TAX_YEARS[fy].phi` rates per band (`u65`/`a65`/`a70`). With no dates the note says under-65 is assumed. Simplification: everyone with a tax card is taken to be on the policy, and the age is fixed for the year rather than switching on the birthday.
+
+## 52. `[x]` Budget lines in financial years — shipped v3.32.0
+
+Three gaps found auditing budget lines against the household year: a line can end but not START
+(so a cost beginning next month counts from today, everywhere); a reserve ("no fixed timing")
+line that starts or ends inside its reserve year still targets the full yearly amount; and the
+"this year so far" panel has actuals but nothing planned to compare them to. Add `startDate`,
+honoured everywhere `endDate` is (totals, projection, cash-flow forecast, deductions); pro-rate a
+reserve's target by its active days in the window; and show planned-to-date against actual per
+category for the household year.
+
+**What shipped.** `startDate` on every ledger row ("Starts (optional)" beside "Ends"), honoured by `isActiveOn`, `isActiveInYear` (same anchor date as the end), the cash-flow forecast (counts the month it starts in) and `deductionYearFraction` (the later of the line's start and the claim's); the row says "Starts …" until then. `activeShareOfWindow()` pro-rates a reserve line's target. `plannedToDateByCategory()` gives each category's planned spend for the year so far (share of the WHOLE year each line ran, so a yearly bill isn't front-loaded), shown against actual in This year so far, over-plan in --bad, with a note that lumpy bills are smoothed. **Not changed:** a non-reserve line's month target (`budgetCycleFor`) still ignores dates, and the projection's year 0 counts a line starting later in the year as not running (symmetry with end dates).
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

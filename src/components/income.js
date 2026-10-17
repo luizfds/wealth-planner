@@ -1,13 +1,14 @@
 import { state } from "../state.js";
 import { FREQS, INCOME_TYPES, SUPER_MODES, SACRIFICE_MODES, MAX_SUPER_BASE, MONTH_NAMES, sacrificeModeToLabel, sacrificeLabelToMode } from "../constants.js";
 import { periodsOf, sumField, nextPayDate, payScheduleKindFor, daysUntil, WEEKDAY_NAMES, householdYearWindow } from "../calc/ledger.js";
-import { ipNetResultAnnual, ipDepreciationAnnual, ipOwnershipMismatches, propertyOwnershipTotal } from "../calc/property.js";
-import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax } from "../calc/tax.js";
+import { ipNetResultAnnual, ipDepreciationAnnual, ipOwnershipMismatches, propertyOwnershipTotal, fyLabel } from "../calc/property.js";
+import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax, wfhRateForFy, phiRebateAdjustment, taxTablesFor } from "../calc/tax.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { optionsHtml, historyTrendHtml, timingFieldsHtml, endDateNoteHtml, scenarioVaryNoteHtml, hasEnded } from "../lib/ledger-table.js";
 import { parseCsv } from "../lib/backup.js";
 import { injectScenarioOverrideButtons } from "./expenses.js";
+import { renderTaxYear } from "./taxyear.js";
 
 export function personBreakdownHtml(person){
   var r = computePersonTax(person);
@@ -538,8 +539,14 @@ export function renderTaxSuper(){
   var html = '<div class="tax-global">' +
     '<div class="proj-field"><label for="taxSgRate">Super guarantee % p.a.</label><input type="number" min="0" max="30" step="0.1" id="taxSgRate" value="' + (Number(state.tax.sgRate) || 11.5) + '"></div>' +
     '<div class="proj-field"><label class="m-checkbox-field" title="Private hospital cover (not extras-only) exempts you from the Medicare levy surcharge at any income."><input type="checkbox" id="taxPrivateCover"' + (state.tax.privateHospitalCover ? " checked" : "") + '> Private hospital cover</label></div>' +
+    '<div class="proj-field"><label for="taxPhiPremiums" title="What your hospital and extras policies cost a year before the government rebate. The rebate is income-tested on the same tiers as the surcharge.">Premiums $/yr</label><input type="number" min="0" step="50" id="taxPhiPremiums" value="' + (Number(state.tax.phiPremiums) || 0) + '"></div>' +
+    '<div class="proj-field"><label for="taxPhiTier" title="The income tier you told your insurer — it sets the rebate taken off your premiums. Your return works out the right tier and adjusts the difference.">Rebate tier with insurer</label><select id="taxPhiTier">' +
+      [["0", "Base tier"], ["1", "Tier 1"], ["2", "Tier 2"], ["3", "Tier 3"], ["-1", "No rebate taken"]].map(function(o){ return '<option value="' + o[0] + '"' + (String(state.tax.phiTierClaimed == null ? 0 : state.tax.phiTierClaimed) === o[0] ? " selected" : "") + '>' + o[1] + '</option>'; }).join("") +
+    '</select></div>' +
     '<div class="proj-field"><label class="m-checkbox-field" title="Couples and anyone with dependants are assessed against family thresholds — roughly double the singles ones (+$*** per child after the first, which this app doesn\'t model)."><input type="checkbox" id="taxFamilyThresholds"' + (state.tax.familyThresholds ? " checked" : "") + '> Family thresholds</label></div>' +
-    '</div>';
+    '</div>' +
+    '<p class="ledger-note tax-phi-note" style="margin:0 0 8px">' + phiNoteText() + '</p>' +
+    (taxTablesFor().assumed ? '<p class="ledger-note warn" style="margin:0 0 8px">' + householdYearWindow().label + ' rates aren\'t all published yet — this uses the latest year the app has (' + "FY" + String(taxTablesFor().borrowedFrom % 100).padStart(2, "0") + "/" + String((taxTablesFor().borrowedFrom + 1) % 100).padStart(2, "0") + ').</p>' : '');
   // Depreciation is named separately because it's the part of the result that isn't cash — leaving
   // it folded into one figure is how people conclude a property "costs" more or less than it does.
   var ipDepreciation = ipDepreciationAnnual();
@@ -557,6 +564,12 @@ export function renderTaxSuper(){
     '</div>';
   }).join("");
   container.innerHTML = html;
+  refreshOpenTaxYear();
+}
+// The worksheet reads the same figures, so when it's open it follows every recalculation.
+function refreshOpenTaxYear(){
+  var ledger = document.getElementById("taxYearLedger");
+  if(ledger && ledger.open) renderTaxYear();
 }
 
 function taxPersonHeadHtml(person, r, pi){
@@ -598,15 +611,19 @@ function taxPersonFrontBodyHtml(person, r){
     // Always shown, in both directions: without cover it names the cost, with cover it names what
     // the cover is saving — which is the only way the panel can answer "is a policy worth it",
     // the question this app has every other input for.
-    '<div class="tax-cap-note tax-cgt-note"' + (r.capitalGainSales.length ? '' : ' hidden') + ' title="Recorded under \'Record a sale\' on a Shares holding. Held more than 12 months, an individual\'s gain is halved before tax.">' + capitalGainsNoteText(r) + '</div>' +
+    '<div class="tax-cap-note tax-cgt-note"' + (hasCapitalGainsActivity(r) ? '' : ' hidden') + ' title="Recorded under \'Record a sale\' on a Shares holding. Held more than 12 months, an individual\'s gain is halved before tax.">' + capitalGainsNoteText(r) + '</div>' +
+    '<div class="tax-cap-note tax-fund-note"' + (r.funds && r.funds.funds.length ? '' : ' hidden') + ' title="From annual tax statements entered on Shares holdings (Assets page). The income labels go into taxable income as they are; capital gains go through the capital gains figure above.">' + fundsNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-div-note"' + (r.dividendGrossedUp > 0 ? '' : ' hidden') + ' title="Taken from Shares holdings with a dividend per unit set on the Assets page. Australian franking credits are refundable, so a low-income holder can receive more than the company distributed.">' + dividendNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-deduct-note"' + (r.deductions > 0 ? '' : ' hidden') + ' title="Taken from budget lines flagged as work-related on the Expenses page. They reduce taxable income, which also reduces the Medicare levy and can move you under a surcharge tier — but not your HELP repayment, which is worked out on gross income.">' + deductionsNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-mls-note' + (r.medicareSurcharge > 0 ? " warn" : "") + '"' + (r.mlsIfUncovered > 0 ? '' : ' hidden') + ' title="Income for surcharge purposes is approximated as taxable income + your reportable super contributions, ignoring reportable fringe benefits and net investment losses — the same simplification Division 293 uses here.">' + mlsNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-help-note"' + (r.helpBalance > 0 ? '' : ' hidden') + ' title="Compulsory repayment, worked out as a flat percentage of your repayment income — which adds back salary sacrifice and any rental loss, so neither of those reduces it.">' + helpNoteText(r) + '</div>' +
-    '<details class="tax-advanced" style="margin-top:12px"><summary>Adjust HELP &amp; sacrifice</summary>' +
+    '<details class="tax-advanced" style="margin-top:12px"><summary>Adjust HELP, sacrifice, home hours &amp; capital losses</summary>' +
       '<div class="tax-inputs-panel" style="margin-top:8px">' +
         '<div class="tax-inputs">' +
           '<div class="proj-field"><label title="What you still owe on HELP/HECS (or any other study loan with the same repayment schedule). Leave at 0 if you have none. The compulsory repayment is worked out from this and withheld from take-home.">HELP/HECS owing $</label><input type="number" min="0" step="500" class="tax-help" aria-label="HELP/HECS owing for ' + pid + '" value="' + settings.helpBalance + '"></div>' +
+          wfhHoursFieldHtml(pid, settings) +
+          '<div class="proj-field"><label title="Used for the private health rebate, which is higher once the oldest person on the policy is 65 or 70. Nothing else uses it.">Date of birth</label><input type="date" class="tax-dob" aria-label="Date of birth for ' + pid + '" value="' + escapeAttr(settings.dateOfBirth || "") + '"></div>' +
+          '<div class="proj-field"><label title="Net capital losses from earlier years, as shown on your last notice of assessment. They come off this year\'s capital gains before the 50% discount; whatever isn\'t used carries on to next year.">Capital losses b/f $</label><input type="number" min="0" step="100" class="tax-cgt-losses" aria-label="Capital losses carried forward for ' + pid + '" value="' + (Number(settings.capitalLossCarriedForward) || 0) + '"></div>' +
           '<div class="proj-field"><label title="Separate from the Cash / Sacrifice column on income rows above — use this for sacrifice not tied to a specific item">Manual sacrifice $/yr</label><input type="number" min="0" step="500" class="tax-sacrifice" aria-label="Manual super sacrifice per year for ' + pid + '" value="' + settings.superSacrificeAnnual + '"><button type="button" class="calc-hint-link" style="margin-top:4px" data-tax-maxcap="' + pid + '" title="Fills your remaining concessional cap headroom this year with manual sacrifice (SG and any auto/bonus sacrifice already counted): sets manual sacrifice to ' + fmtCurrency0.format(Math.max(0, r.capAvailable - r.sg - r.autoSacrifice)) + '">Max out cap</button></div>' +
         '</div>' +
         '<details class="tax-advanced"><summary>Advanced — concessional cap &amp; carry-forward</summary>' +
@@ -619,26 +636,42 @@ function taxPersonFrontBodyHtml(person, r){
     '</details>';
 }
 
-// Capital gains for the household's year, with the discount named. Once a sale is recorded it's
-// too late to act on the holding period, so the figure has to be visible rather than inferred.
+// Capital gains for the household's year, netted as a return nets them: losses (this year's, then
+// carried-forward) off non-discounted gains first, then discounted ones, then the 50% discount.
+// Once a sale is recorded it's too late to act on the holding period, so every step is stated.
 function capitalGainsNoteText(r){
-  var loss = r.capitalGainsRaw < 0;
-  return "Capital gains (" + r.capitalGainsYear + "): " +
-    (loss
-      ? fmtCurrency0.format(Math.abs(r.capitalGainsRaw)) + " net capital loss from " + r.capitalGainSales.length +
-        " sale" + (r.capitalGainSales.length === 1 ? "" : "s") + ", offset against other gains."
-      : fmtCurrency0.format(r.capitalGainsRaw) + " gain from " + r.capitalGainSales.length + " sale" +
-        (r.capitalGainSales.length === 1 ? "" : "s") +
-        (r.capitalGainsDiscount > 0
-          ? ", less " + fmtCurrency0.format(r.capitalGainsDiscount) + " of 12-month discount"
-          : " with no 12-month discount") +
-        " = " + fmtCurrency0.format(r.capitalGains) + " added to taxable income.") +
-    " Each sale is discounted on its own holding period here; the ATO nets losses against gains before discounting, which differs only when both land in the same year.";
+  var parts = [];
+  var sources = [];
+  if(r.capitalGainSales.length) sources.push(r.capitalGainSales.length + " sale" + (r.capitalGainSales.length === 1 ? "" : "s"));
+  if(r.funds && r.funds.capitalGainGross > 0) sources.push("fund statements");
+  parts.push(fmtCurrency0.format(r.capitalGainsTotal) + " of gains" + (sources.length ? " from " + sources.join(" and ") : ""));
+  if(r.capitalLossesApplied > 0){
+    parts.push("less " + fmtCurrency0.format(r.capitalLossesApplied) + " of losses" +
+      (r.priorCapitalLossesApplied > 0 ? " (" + fmtCurrency0.format(r.priorCapitalLossesApplied) + " brought forward from earlier years)" : ""));
+  }
+  if(r.capitalGainsDiscount > 0) parts.push("less the 50% discount of " + fmtCurrency0.format(r.capitalGainsDiscount));
+  var text = "Capital gains (" + r.capitalGainsYear + "): " + parts.join(", ") + " = " + fmtCurrency0.format(r.capitalGains) + " added to taxable income.";
+  if(r.capitalLossCarriedForward > 0){
+    text += " " + fmtCurrency0.format(r.capitalLossCarriedForward) + " of capital losses carries forward to next year — capital losses only ever offset capital gains, never other income.";
+  }
+  return text;
+}
+function hasCapitalGainsActivity(r){
+  return r.capitalGainSales.length > 0 || (r.funds && r.funds.capitalGainGross > 0) || r.capitalLossCarriedForward > 0 || r.capitalLossesApplied > 0;
 }
 
 // Dividends, stated the way a return states them: grossed up, with the credit as an offset and
 // the after-tax result spelled out. Above a 30% marginal rate a fully franked dividend still costs
 // a top-up; below it the credit is refundable. Neither is obvious from the cash figure.
+// One sentence per person for what their fund statements add — income, credits, gains, offset.
+function fundsNoteText(r){
+  var f = r.funds;
+  if(!f || !f.funds.length) return "";
+  return "Fund statements (" + f.funds.join(", ") + "): " + fmtCurrency0.format(f.income - f.credit) + " income + " +
+    fmtCurrency0.format(f.credit) + " franking credits declared" +
+    (f.capitalGainGross > 0 ? ", " + fmtCurrency0.format(f.capitalGainGross) + " capital gains (" + fmtCurrency0.format(f.capitalGainNet) + " after the fund's discount)" : "") +
+    (r.fito > 0 ? ", and a " + fmtCurrency0.format(r.fito) + " foreign income tax offset" : "") + ".";
+}
 function dividendNoteText(r){
   var sign = r.dividendNet >= 0 ? "" : "-";
   return "Dividends: " + fmtCurrency0.format(r.dividendCash) + " cash + " +
@@ -653,10 +686,25 @@ function dividendNoteText(r){
 // What the deductions are worth, not what they cost. "I claimed $2,000" and "I got $2,000 back"
 // is the most common confusion about deductions, so the note leads with the refund figure.
 function deductionsNoteText(r){
-  return "Work-related deductions: " + fmtCurrency0.format(r.deductions) + " claimed, worth about " +
-    fmtCurrency0.format(r.deductionsWorth) + " back at your " + fmtPercent1.format(r.marginalRate) +
-    " marginal rate — a deduction reduces the income you're taxed on, it isn't a refund of itself. " +
-    "Flag a budget line as work-related under More options on the Expenses page.";
+  var labels = Object.keys(r.deductionsByLabel || {}).filter(function(k){ return r.deductionsByLabel[k] > 0; })
+    .sort(function(a, b){ return Number(a.slice(1)) - Number(b.slice(1)); });
+  return "Deductions: " + fmtCurrency0.format(r.deductions) + " claimed" +
+    (labels.length ? " (" + labels.map(function(k){ return k + " " + fmtCurrency0.format(r.deductionsByLabel[k]); }).join(", ") + ")" : "") +
+    ", worth about " + fmtCurrency0.format(r.deductionsWorth) + " back at your " + fmtPercent1.format(r.marginalRate) +
+    " marginal rate — a deduction reduces the income you're taxed on, it isn't a refund of itself." +
+    (r.wfh && r.wfh.amount > 0 ? " Includes working from home: " + Math.round(r.wfh.hours).toLocaleString("en-AU") + " hours x the fixed rate = " + fmtCurrency0.format(r.wfh.amount) + (r.wfh.assumed ? " (rate not yet published for this year — last year's used)" : "") + "." : "") +
+    (r.wfhOverlap && r.wfhOverlap.length ? " Check: " + r.wfhOverlap.join(", ") + (r.wfhOverlap.length === 1 ? " is" : " are") + " also flagged, but the fixed rate already covers energy, internet, phone and stationery." : "") +
+    " Flag a budget line as deductible under More options on the Expenses page.";
+}
+// Hours worked from home this financial year, for the fixed-rate method. Per year because the hours
+// are that year's record (a timesheet or diary); next year starts at zero.
+function wfhHoursFieldHtml(pid, settings){
+  var win = householdYearWindow();
+  var fy = Number(win.start.slice(5, 7)) >= 7 ? Number(win.start.slice(0, 4)) : Number(win.start.slice(0, 4)) - 1;
+  var r = wfhRateForFy(fy);
+  var hours = settings.wfhHours && settings.wfhHours[fy] != null ? settings.wfhHours[fy] : 0;
+  return '<div class="proj-field"><label title="Hours actually worked from home this financial year, from a timesheet, roster or diary kept as you go — an estimate isn\'t accepted. Claimed at ' + Math.round(r.rate * 100) + 'c an hour' + (r.assumed ? " (last published rate)" : "") + ', which covers energy, internet, phone and stationery.">Home hours ' + fyLabel(fy) + '</label>' +
+    '<input type="number" min="0" step="1" class="tax-wfh-hours" data-fy="' + fy + '" aria-label="Hours worked from home in ' + fyLabel(fy) + ' for ' + pid + '" value="' + hours + '"></div>';
 }
 
 // Both directions of the surcharge in one sentence — see the note's own comment for why holding
@@ -681,15 +729,43 @@ function mlsNoteText(r){
 // the two used to be written out twice for the cap and Division 293 notes, and keeping a third
 // pair in step by hand is how they drift.
 function helpNoteText(r){
-  return "HELP/HECS: " + fmtPercent1.format(r.helpRate) + " of " + fmtCurrency0.format(r.repaymentIncome) +
-    " repayment income = " + fmtCurrency0.format(r.helpRepayment) + "/yr, withheld from take-home above. " +
+  var marginal = r.helpNext ? r.helpNext.marginal : (r.repaymentIncome > 0 && r.fy >= 2025);
+  var head = marginal
+    ? "HELP/HECS: " + fmtCurrency0.format(r.helpRepayment) + "/yr on " + fmtCurrency0.format(r.repaymentIncome) +
+      " repayment income — marginal since FY25/26, " + fmtPercent1.format(r.helpRate) + " on your next dollar"
+    : "HELP/HECS: " + fmtPercent1.format(r.helpRate) + " of " + fmtCurrency0.format(r.repaymentIncome) +
+      " repayment income = " + fmtCurrency0.format(r.helpRepayment) + "/yr";
+  return head + ", withheld from take-home above. " +
     fmtCurrency0.format(r.helpBalance) + " owing" +
     (r.helpRepayment > 0 ? ", " + fmtCurrency0.format(r.helpBalanceAfter) + " after this year" : "") + "." +
     (r.helpNext
-      ? " Next threshold is " + fmtCurrency0.format(r.helpNext.at) + " (" + fmtCurrency0.format(r.helpNext.away) +
-        " away) — crossing it takes the rate to " + fmtPercent1.format(r.helpNext.rate) +
-        " of the whole amount, about " + fmtCurrency0.format(r.helpNext.stepCost) + " more a year."
+      ? (r.helpNext.marginal
+        ? " Next band starts at " + fmtCurrency0.format(r.helpNext.at) + " (" + fmtCurrency0.format(r.helpNext.away) + " away), where the rate on further income becomes " + fmtPercent1.format(r.helpNext.rate) + (r.helpNext.rate === 0.10 ? " of the whole amount" : "") + "."
+        : " Next threshold is " + fmtCurrency0.format(r.helpNext.at) + " (" + fmtCurrency0.format(r.helpNext.away) +
+          " away) — crossing it takes the rate to " + fmtPercent1.format(r.helpNext.rate) +
+          " of the whole amount, about " + fmtCurrency0.format(r.helpNext.stepCost) + " more a year.")
       : "");
+}
+
+// The household's private health rebate position for the year: which tier the combined income
+// lands in, which tier the insurer is applying, and what that difference does at tax time.
+function phiNoteText(){
+  var a = phiRebateAdjustment();
+  if(!a) return "Enter what your hospital and extras cover costs a year (before the rebate) to see whether your insurer is applying the right rebate tier.";
+  var names = ["the base tier", "Tier 1", "Tier 2", "Tier 3"];
+  var claimed = a.claimedTier < 0 ? "no rebate up front" : names[a.claimedTier];
+  var ageNote = a.ageKnown
+    ? (a.ageBand === "u65" ? "" : " Rates for the oldest person being " + (a.ageBand === "a70" ? "70 or over" : "65-69") + ".")
+    : " Assumes everyone on the policy is under 65 — add dates of birth (Adjust, on each card) if not.";
+  return phiNoteCore(a, names, claimed) + ageNote;
+}
+function phiNoteCore(a, names, claimed){
+  if(Math.abs(a.adjustment) < 1) return "Private health rebate: your " + (a.family ? "combined " : "") + "income of " + fmtCurrency0.format(a.income) + " is " + names[a.actualTier] + ", which is what your insurer applies — nothing to adjust at tax time.";
+  return "Private health rebate: your " + (a.family ? "combined " : "") + "income of " + fmtCurrency0.format(a.income) + " is " + names[a.actualTier] +
+    " (" + fmtCurrency0.format(a.entitled) + " rebate) but your insurer applies " + claimed + " (" + fmtCurrency0.format(a.received) + "). " +
+    (a.adjustment > 0
+      ? "About " + fmtCurrency0.format(a.adjustment) + " comes back off your refund at tax time — ask your insurer to change tier and it stops."
+      : "About " + fmtCurrency0.format(-a.adjustment) + " more comes back to you at tax time.");
 }
 
 // Session-only (not persisted) — which Tax & Super cards are showing the calculation
@@ -720,6 +796,10 @@ export function flipTaxCard(panel, person){
   }, 160);
 }
 
+export function patchPhiNote(){
+  var el = document.querySelector(".tax-phi-note");
+  if(el) el.textContent = phiNoteText();
+}
 export function patchAllTaxPersonOutputs(){
   document.querySelectorAll("[data-tax-person]").forEach(function(panel){
     var person = panel.getAttribute("data-tax-person");
@@ -759,9 +839,14 @@ export function patchAllTaxPersonOutputs(){
     }
     var mscbNote = panel.querySelector(".tax-mscb-note");
     if(mscbNote) mscbNote.hidden = !r.superOverCap;
+    var fundNote = panel.querySelector(".tax-fund-note");
+    if(fundNote){
+      fundNote.hidden = !(r.funds && r.funds.funds.length);
+      fundNote.textContent = fundsNoteText(r);
+    }
     var cgtNote = panel.querySelector(".tax-cgt-note");
     if(cgtNote){
-      cgtNote.hidden = !r.capitalGainSales.length;
+      cgtNote.hidden = !hasCapitalGainsActivity(r);
       cgtNote.textContent = capitalGainsNoteText(r);
     }
     var divNote = panel.querySelector(".tax-div-note");
@@ -790,4 +875,5 @@ export function patchAllTaxPersonOutputs(){
   });
   var ipNote = document.querySelector("#taxSuperBody .ledger-note b");
   if(ipNote) ipNote.textContent = fmtCurrency0.format(ipNetResultAnnual());
+  refreshOpenTaxYear();
 }

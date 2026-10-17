@@ -640,3 +640,106 @@ test("transactionSummaryText says nothing extra when refundOf points at nothing 
     );
   } finally { state.transactions = prevTxns; }
 });
+
+// v3.16.1 / v3.17.0 — the claim-date fields and the loan's borrowing-costs note.
+import { borrowingNoteText } from "../src/components/properties.js";
+
+test("a deductible row renders its claim-from/until fields", function(){
+  var html = modernPlainRowHtml({ id: "r1", what: "Rent", amount: 720, freq: "Weekly", deductible: true, deductiblePct: 6.4, deductibleUntil: "2025-09-30" }, 0, "shared", {}, {});
+  assert.match(html, /class="f-deductfrom"/);
+  assert.match(html, /class="f-deductuntil" value="2025-09-30"/);
+});
+
+test("the borrowing-costs note says what's deductible, or what's missing", function(){
+  assert.match(borrowingNoteText({ borrowingCosts: 0 }), /five years/);
+  assert.match(borrowingNoteText({ borrowingCosts: ***REMOVED***, settlementDate: "" }), /settlement date/);
+  assert.match(borrowingNoteText({ borrowingCosts: ***REMOVED***, settlementDate: "2025-01-01" }), /of \$***REMOVED***\.86 — spread to FY29\/30\./);
+  assert.match(borrowingNoteText({ borrowingCosts: 80, settlementDate: "2025-01-01" }), /all in the year paid/);
+});
+
+// v3.21.0 — purchase lots.
+import { lotsSectionHtml, lotsNoteText } from "../src/components/assets.js";
+
+test("the purchase lots section renders its rows and a used lot can't be deleted", function(){
+  var item = { quantity: 100, lots: [{ id: "a", date: "2024-01-01", units: 100, price: 1.5, brokerage: 3, soldUnits: 40 }] };
+  var html = lotsSectionHtml(item, 0);
+  assert.match(html, /class="lot-date"[^>]*value="2024-01-01"/);
+  assert.match(html, /data-lot-del="0:0"[^>]*disabled/);
+  assert.match(html, /40 of 100 sold/);
+  assert.match(lotsNoteText(item), /60 unsold units across 1 lot — the holding shows 100/);
+  assert.match(lotsSectionHtml({ lots: [] }, 0), /\+ Add lot/);
+});
+
+// v3.22.0 — annual tax statements.
+import { statementsSectionHtml } from "../src/components/assets.js";
+
+test("the annual tax statements section renders each statement's labelled fields", function(){
+  var html = statementsSectionHtml({ taxStatements: [{ fy: 2025, m20: ***REMOVED***, o20: ***REMOVED***, units: 156 }] }, 3);
+  assert.match(html, /20M Other net foreign income/);
+  assert.match(html, /data-stmt-key="m20" value="***REMOVED***"/);
+  assert.match(html, /data-stmt-del="3:0"/);
+  assert.match(statementsSectionHtml({ taxStatements: [] }, 0), /\+ Add statement/);
+});
+
+// v3.26.0 — the tax return worksheet.
+import { taxYearHtml, worksheetText, evidenceItems, setTaxYearSelected } from "../src/components/taxyear.js";
+import { personYear } from "../src/calc/taxyear.js";
+
+test("the worksheet renders a card per person with its refund and document rows", function(){
+  var keep = { income: state.income, taxYears: state.taxYears, properties: state.properties, assets: state.assets };
+  try {
+    state.income = [{ what: "Pay", person: "Sam", incomeType: "Gross", amount: 100000, freq: "Yearly", superMode: "On top", sacrificeMode: "none" }];
+    state.properties = []; state.assets = []; state.taxYears = {};
+    setTaxYearSelected(2025);
+    personYear(2025, "Sam", true).incomeStatements = [{ payer: "Acme", gross: 100000, allowances: 0, withheld: 24000 }];
+    var html = taxYearHtml();
+    assert.match(html, /data-ty-card="Sam"/);
+    assert.match(html, /Estimated (refund|to pay)/);
+    assert.match(html, /data-ty-kind="is"[^>]*data-ty-key="payer"[^>]*value="Acme"/);
+    assert.match(worksheetText("Sam"), /Acme — tax withheld: \$***\.00/);
+    assert.ok(evidenceItems(2025).some(function(i){ return /income statement — Acme/.test(i.text); }));
+  } finally { Object.assign(state, keep); }
+});
+
+// v3.28.0 — moving a loan cost out of Acquisition costs.
+import { looksLikeLoanCost, moveAcquisitionCostToLoan } from "../src/components/properties.js";
+
+test("loan-cost names are picked out, purchase costs aren't", function(){
+  ["LMI", "Lenders mortgage insurance", "Mortgage registration", "Loan establishment fee", "Valuation fee", "Mortgage broker"].forEach(function(n){
+    assert.equal(looksLikeLoanCost(n), true, n);
+  });
+  ["Stamp duty", "Conveyancing", "Transfer registration", "Buyer's agent", "Building inspection"].forEach(function(n){
+    assert.equal(looksLikeLoanCost(n), false, n);
+  });
+});
+
+test("moving a cost puts it on the loan, dates the loan, and undoes cleanly", function(){
+  var p = { kind: "IP", purchaseDate: "2025-01-01", acquisitionCosts: [{ what: "Stamp duty", amount: ***REMOVED*** }, { what: "LMI", amount: ***REMOVED*** }],
+    loans: [{ what: "Lender", borrowingCosts: 350, settlementDate: "" }] };
+  var m = moveAcquisitionCostToLoan(p, 1);
+  assert.deepEqual(p.acquisitionCosts.map(function(c){ return c.what; }), ["Stamp duty"]);
+  assert.equal(p.loans[0].borrowingCosts, ***REMOVED***);
+  assert.equal(p.loans[0].settlementDate, "2025-01-01");
+  m.undo();
+  assert.equal(p.acquisitionCosts.length, 2);
+  assert.equal(p.loans[0].borrowingCosts, 350);
+  assert.equal(p.loans[0].settlementDate, "");
+});
+
+// v3.31.0 — the worksheet's print copy.
+import { taxYearPrintHtml } from "../src/components/taxyear.js";
+
+test("the print copy is plain tables, a page per person, with the checklist", function(){
+  var keep = { income: state.income, taxYears: state.taxYears, properties: state.properties, assets: state.assets };
+  try {
+    state.income = [{ what: "Pay", person: "Sam", incomeType: "Gross", amount: 100000, freq: "Yearly", superMode: "On top", sacrificeMode: "none" }];
+    state.properties = []; state.assets = []; state.taxYears = {};
+    setTaxYearSelected(2025);
+    personYear(2025, "Sam", true).incomeStatements = [{ payer: "Acme", gross: 100000, allowances: 0, withheld: 24000 }];
+    var html = taxYearPrintHtml();
+    assert.match(html, /<section class="pr-page"><h2>Sam — FY25\/26 tax return worksheet<\/h2>/);
+    assert.match(html, /Acme — tax withheld<\/td><td class="pr-num">\$***\.00/);
+    assert.match(html, /☐ Sam: income statement — Acme/);
+    assert.doesNotMatch(html, /<input/);
+  } finally { Object.assign(state, keep); }
+});

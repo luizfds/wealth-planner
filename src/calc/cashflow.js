@@ -1,4 +1,5 @@
 import { state } from "../state.js";
+import { localDateStr } from "../lib/format.js";
 import { periodsOf, resolveSharedAmount, resolvedDueMonth, freqStepMonths } from "./ledger.js";
 import { scenarioIncomeRows } from "./tax.js";
 import { ipProperties, ipLoansMonthly } from "./property.js";
@@ -33,7 +34,7 @@ function toEntries(list, side, transactions){
   return list.map(function(item){
     return {
       what: item.what, side: side, amount: Number(item.amount) || 0, freq: item.freq,
-      endDate: item.endDate || "",
+      endDate: item.endDate || "", startDate: item.startDate || "",
       dueMonth: resolvedDueMonth(item, transactions), bucket: classifyItem(item, transactions)
     };
   });
@@ -43,8 +44,13 @@ function toEntries(list, side, transactions){
 // ends would understate the very month you still have to pay it in. Comparing against the 1st
 // (rather than the last day) is what makes that happen.
 function entryActiveInMonth(entry, d){
-  if(!entry.endDate) return true;
   var firstOfMonth = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-01";
+  // A row starting part-way through a month counts for that month too, by the same reasoning.
+  if(entry.startDate){
+    var lastOfMonth = localDateStr(new Date(d.getFullYear(), d.getMonth() + 1, 0));
+    if(entry.startDate > lastOfMonth) return false;
+  }
+  if(!entry.endDate) return true;
   return entry.endDate >= firstOfMonth;
 }
 // Gathers every ledger item that feeds cash flow for the given scenario — income (already netted

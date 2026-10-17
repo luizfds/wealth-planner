@@ -1,30 +1,55 @@
 import { state } from "../state.js";
-import { AU_TAX_BRACKETS, MAX_SUPER_BASE, HELP_REPAYMENT_RATES, MLS_TIERS, MLS_FAMILY_MULTIPLIER } from "../constants.js";
-import { periodsOf, resolveSharedAmount, householdYearWindow, isActiveOn } from "./ledger.js";
-import { ipNetResultAnnual, personIpResultAnnual } from "./property.js";
+import { AU_TAX_BRACKETS, MAX_SUPER_BASE, HELP_REPAYMENT_RATES, MLS_TIERS, MLS_FAMILY_MULTIPLIER, WFH_FIXED_RATES, TAX_YEARS, MLS_RATES } from "../constants.js";
+import { periodsOf, resolveSharedAmount, householdYearWindow, isActiveOn, overlapDaysInclusive } from "./ledger.js";
+import { ipNetResultAnnual, personIpResultAnnual, ipProperties, propertyOwnershipPct } from "./property.js";
+import { incomeStatementTotals, interestIncome, recordedDeductionsByLabel, rentalSchedule } from "./taxyear.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
 
-export function incomeTaxAU(taxable){
+// ---------------- Which year's tables ----------------
+//
+// Every rate below is read from TAX_YEARS for a financial year. The default is the household's
+// current year (householdYearWindow), so the tax card and every net figure use this year's rates;
+// computePersonTax takes opts.fy to work out another year — the tax-year worksheet does that for
+// the year being lodged. A year past the newest table borrows it and says so (`assumed`).
+export function fyOfDate(iso){
+  var y = Number(String(iso).slice(0, 4)), m = Number(String(iso).slice(5, 7));
+  return m >= 7 ? y : y - 1;
+}
+export function currentTaxFy(){
+  return fyOfDate(householdYearWindow().start);
+}
+export function taxTablesFor(fy){
+  if(fy == null) fy = currentTaxFy();
+  if(TAX_YEARS[fy]) return Object.assign({ fy: fy, assumed: false }, TAX_YEARS[fy]);
+  var years = Object.keys(TAX_YEARS).map(Number).sort(function(a, b){ return a - b; });
+  var use = fy < years[0] ? years[0] : years[years.length - 1];
+  return Object.assign({}, TAX_YEARS[use], { fy: fy, assumed: true, borrowedFrom: use });
+}
+
+export function incomeTaxAU(taxable, fy){
   taxable = Math.max(0, Number(taxable) || 0);
-  for(var i = 0; i < AU_TAX_BRACKETS.length; i++){
-    var b = AU_TAX_BRACKETS[i];
+  var brackets = taxTablesFor(fy).brackets;
+  for(var i = 0; i < brackets.length; i++){
+    var b = brackets[i];
     if(taxable <= b.to) return b.base + (taxable - b.from) * b.rate;
   }
   return 0;
 }
-export function marginalRateAU(taxable){
+export function marginalRateAU(taxable, fy){
   taxable = Math.max(0, Number(taxable) || 0);
-  for(var i = 0; i < AU_TAX_BRACKETS.length; i++){
-    if(taxable <= AU_TAX_BRACKETS[i].to) return AU_TAX_BRACKETS[i].rate;
+  var brackets = taxTablesFor(fy).brackets;
+  for(var i = 0; i < brackets.length; i++){
+    if(taxable <= brackets[i].to) return brackets[i].rate;
   }
-  return AU_TAX_BRACKETS[AU_TAX_BRACKETS.length - 1].rate;
+  return brackets[brackets.length - 1].rate;
 }
-// Medicare levy low-income shade-in — approximate current singles thresholds (also indexed yearly).
-export function medicareLevyAU(taxable){
+// Medicare levy with the singles low-income shade-in: nil to the lower threshold, 10c per dollar
+// above it until that equals 2%, then 2% of the whole income.
+export function medicareLevyAU(taxable, fy){
   taxable = Math.max(0, Number(taxable) || 0);
-  var lower = 26000, upper = 32500;
-  if(taxable <= lower) return 0;
-  if(taxable <= upper) return (taxable - lower) * 0.10;
+  var m = taxTablesFor(fy).medicare;
+  if(taxable <= m.lower) return 0;
+  if(taxable <= m.upper) return (taxable - m.lower) * 0.10;
   return taxable * 0.02;
 }
 
@@ -53,32 +78,125 @@ export function heldDays(acquired, sold){
 export function qualifiesForCgtDiscount(acquired, sold){
   return heldDays(acquired, sold) >= CGT_DISCOUNT_MIN_DAYS;
 }
+// ---------------- Purchase lots (parcels) ----------------
+//
+// A holding bought in several goes is several assets for CGT: each purchase (a "parcel") has its
+// own cost and its own acquisition date, and whether a sale gets the 12-month discount is decided
+// parcel by parcel. An average cost and one acquisition date can't say that — selling 2,630 units
+// bought across six trades between July and October 2024 needs to know which six trades, because
+// the October ones were under 12 months old at an October 2025 sale and the July ones weren't.
+//
+// asset.lots[] = {id, date, units, price, brokerage, soldUnits}. soldUnits is how many of this
+// parcel past sales have used up, so the next sale knows where to start. Sales match parcels
+// first-in, first-out — the order the ATO accepts by default when you can't identify the specific
+// shares sold, and the one that usually maximises the discount.
+function round2(n){ return Math.round(n * 100) / 100; }
+export function lotCost(lot){
+  return (Number(lot.units) || 0) * (Number(lot.price) || 0) + (Number(lot.brokerage) || 0);
+}
+export function lotRemainingUnits(lot){
+  return Math.max(0, Math.round(((Number(lot.units) || 0) - (Number(lot.soldUnits) || 0)) * 1e8) / 1e8);
+}
+function lotsOldestFirst(asset){
+  return (Array.isArray(asset && asset.lots) ? asset.lots : []).slice().sort(function(a, b){
+    return (a.date || "").localeCompare(b.date || "");
+  });
+}
+export function lotsUnitsAvailable(asset){
+  return lotsOldestFirst(asset).reduce(function(s, l){ return s + lotRemainingUnits(l); }, 0);
+}
+// The parcels a FIFO sale of `units` would use, without changing anything. Each parcel's cost is
+// its share of the lot's cost INCLUDING brokerage — brokerage on the purchase is part of the cost
+// base. Returns {parcels} or {error} when the lots don't hold that many units.
+export function fifoParcels(asset, units){
+  var need = Math.max(0, Number(units) || 0);
+  var parcels = [];
+  lotsOldestFirst(asset).forEach(function(lot){
+    if(need <= 1e-9) return;
+    var rem = lotRemainingUnits(lot);
+    if(rem <= 0) return;
+    var take = Math.min(rem, need);
+    parcels.push({ lotId: lot.id, acquired: lot.date || "", units: take,
+      costBase: round2(lotCost(lot) * take / (Number(lot.units) || 1)) });
+    need = Math.round((need - take) * 1e8) / 1e8;
+  });
+  if(need > 1e-9) return { error: "Your purchase lots only hold " + lotsUnitsAvailable(asset) + " unsold units.", parcels: parcels };
+  return { parcels: parcels };
+}
+// The remaining lots' cost per unit — what "Avg cost" means once lots are kept, so the holding's
+// gain/loss figure and the sale form's default stay consistent with the parcels.
+export function lotsAverageCost(asset){
+  var units = 0, cost = 0;
+  (Array.isArray(asset && asset.lots) ? asset.lots : []).forEach(function(l){
+    var rem = lotRemainingUnits(l);
+    if(!(rem > 0) || !(Number(l.units) > 0)) return;
+    units += rem;
+    cost += lotCost(l) * rem / Number(l.units);
+  });
+  return units > 0 ? Math.round(cost / units * 10000) / 10000 : null;
+}
+
 // One sale's capital gain picture. A capital LOSS never gets the discount — the discount only ever
 // applies to a gain, and halving a loss would understate a real offset.
+//
+// A sale with parcels is several CGT events in one: proceeds are shared across the parcels by
+// units, and each parcel's gain is discounted (or not) on its own acquisition date. Besides the
+// headline figures, every sale reports its gains split into discountable / not discountable and
+// its losses, which is what netting across a whole year needs (personCapitalGains).
 export function saleCapitalGain(sale){
   var proceeds = Number(sale.proceeds) || 0;
-  var costBase = Number(sale.costBase) || 0;
-  var raw = Math.round((proceeds - costBase) * 100) / 100;
-  var discounted = qualifiesForCgtDiscount(sale.acquired, sale.date) && raw > 0;
-  return {
-    raw: raw,
-    isLoss: raw < 0,
-    discountApplied: discounted,
-    heldDays: heldDays(sale.acquired, sale.date),
-    // What actually goes into taxable income. Losses pass through whole; gains are halved only
-    // when the holding period qualifies.
-    assessable: Math.round((discounted ? raw * (1 - CGT_DISCOUNT) : raw) * 100) / 100
-  };
+  var parts;
+  if(Array.isArray(sale.parcels) && sale.parcels.length){
+    var totalUnits = sale.parcels.reduce(function(s, p){ return s + (Number(p.units) || 0); }, 0) || 1;
+    var allocated = 0;
+    parts = sale.parcels.map(function(p, i){
+      // The last parcel takes whatever's left, so the parts add back to the proceeds to the cent.
+      var share = i === sale.parcels.length - 1 ? round2(proceeds - allocated) : round2(proceeds * (Number(p.units) || 0) / totalUnits);
+      allocated = round2(allocated + share);
+      return { acquired: p.acquired || "", units: Number(p.units) || 0, proceeds: share, costBase: Number(p.costBase) || 0 };
+    });
+  } else {
+    parts = [{ acquired: sale.acquired || "", units: Number(sale.units) || 0, proceeds: proceeds, costBase: Number(sale.costBase) || 0 }];
+  }
+  var out = { raw: 0, assessable: 0, discountableGain: 0, otherGain: 0, loss: 0, parts: [], heldDays: null, discountApplied: false };
+  parts.forEach(function(p){
+    var raw = round2(p.proceeds - p.costBase);
+    var days = heldDays(p.acquired, sale.date);
+    var disc = raw > 0 && qualifiesForCgtDiscount(p.acquired, sale.date);
+    out.raw = round2(out.raw + raw);
+    // What goes into taxable income for this sale on its own. Losses pass through whole; gains are
+    // halved only when the parcel's holding period qualifies.
+    out.assessable = round2(out.assessable + (disc ? raw * (1 - CGT_DISCOUNT) : raw));
+    if(raw > 0 && disc) out.discountableGain = round2(out.discountableGain + raw);
+    else if(raw > 0) out.otherGain = round2(out.otherGain + raw);
+    else out.loss = round2(out.loss - raw);
+    if(disc) out.discountApplied = true;
+    out.heldDays = out.heldDays == null ? days : Math.min(out.heldDays, days);
+    out.parts.push({ acquired: p.acquired, units: p.units, proceeds: p.proceeds, costBase: p.costBase, raw: raw, heldDays: days, discountApplied: disc });
+  });
+  out.isLoss = out.raw < 0;
+  if(out.heldDays == null) out.heldDays = 0;
+  return out;
 }
-// Every sale recorded against this person's assets, within the window if one is given.
+// The year's capital gains for one person, netted the way a return nets them (ATO method
+// statement, CGT schedule): every capital loss for the year — then losses carried forward from
+// earlier years — comes off gains that DON'T get the discount first, then off gains that do, and
+// only what's left of the discountable gains is halved. Doing it the other way round (discount each
+// sale, then subtract losses) wastes half of every loss set against a discounted gain.
 //
-// Losses are netted against gains BEFORE the discount in the real rules; this applies the discount
-// per sale instead, which is the simplification the rest of this engine is built on and is stated
-// in the UI. It differs only when a discounted gain and a loss land in the same year.
+// Gains come from recorded sales (split into discountable / not by each parcel's holding period)
+// and from fund tax statements (18H, of which "other method" isn't discountable). If losses are
+// bigger than gains, what's left is a net capital loss to carry forward — never deducted from
+// other income, and never discounted.
+//
+// opts: {from, to} bounds the sales, {funds} is the person's personFundStatements() for the same
+// window (passed in so computePersonTax doesn't work it out twice), {priorLosses} overrides the
+// carried-forward figure in the person's tax settings.
 export function personCapitalGains(person, opts){
   opts = opts || {};
   var people = getTaxPeople();
-  var total = { assessable: 0, raw: 0, discounted: 0, sales: [] };
+  var sales = [];
+  var discountable = 0, other = 0, losses = 0;
   state.assets.forEach(function(a){
     if(!Array.isArray(a.sales) || !a.sales.length) return;
     if(a.person ? a.person !== person : people.length > 1) return;
@@ -86,16 +204,45 @@ export function personCapitalGains(person, opts){
       if(opts.from && sale.date < opts.from) return;
       if(opts.to && sale.date > opts.to) return;
       var g = saleCapitalGain(sale);
-      total.raw += g.raw;
-      total.assessable += g.assessable;
-      if(g.discountApplied) total.discounted += g.raw - g.assessable;
-      total.sales.push({ what: a.what, date: sale.date, gain: g });
+      discountable += g.discountableGain;
+      other += g.otherGain;
+      losses += g.loss;
+      sales.push({ what: a.what, date: sale.date, gain: g });
     });
   });
-  total.raw = Math.round(total.raw * 100) / 100;
-  total.assessable = Math.round(total.assessable * 100) / 100;
-  total.discounted = Math.round(total.discounted * 100) / 100;
-  return total;
+  var f = opts.funds;
+  if(f){
+    discountable += f.capitalGainDiscountable;
+    other += f.capitalGainOther;
+  }
+  var settings = state.tax && state.tax.settings && state.tax.settings[person];
+  var prior = opts.priorLosses != null ? Math.max(0, Number(opts.priorLosses) || 0)
+    : Math.max(0, Number(settings && settings.capitalLossCarriedForward) || 0);
+  var totalGains = round2(discountable + other);
+  var available = losses + prior;
+  var offOther = Math.min(available, other);
+  available -= offOther;
+  var offDiscountable = Math.min(available, discountable);
+  available -= offDiscountable;
+  var discountableLeft = discountable - offDiscountable;
+  var discount = discountableLeft * CGT_DISCOUNT;
+  var net = round2((other - offOther) + discountableLeft - discount);
+  // Losses used: current-year losses first, then the prior ones, so what's carried forward out is
+  // whatever remains of either.
+  var used = offOther + offDiscountable;
+  return {
+    assessable: net,
+    // 18H on a return: the year's gains before losses and the discount.
+    totalGains: totalGains,
+    raw: round2(totalGains - losses),
+    discounted: round2(discount),
+    currentLosses: round2(losses),
+    priorLossesApplied: round2(Math.max(0, used - losses)),
+    lossCarriedForward: round2(available),
+    discountableGain: round2(discountable),
+    otherGain: round2(other),
+    sales: sales
+  };
 }
 
 // ---------------- Dividends & franking credits ----------------
@@ -139,12 +286,86 @@ export function holdingDividend(asset){
     frankedPct: asset.frankedPct == null ? 100 : asset.frankedPct
   };
 }
+// ---------------- Annual tax statements (ETFs, managed funds) ----------------
+//
+// An ETF isn't a company paying a dividend. It's a trust passing through whatever it earned, and its
+// annual tax statement (an AMMA statement, under the attribution regime) splits that into the labels
+// myTax asks for: 13U non-primary production income, 13C franked distributions, 13Q franking
+// credits, 18H/18A capital gains the fund made, 20E/20M foreign income, 20O foreign tax already
+// paid — plus an AMIT cost base adjustment, which isn't income at all but changes the cost base of
+// the units. An S&P 500 ETF is almost all foreign income and fund capital gains; modelling it as
+// "dividend per unit, 100% franked" gets every one of those labels wrong.
+//
+// asset.taxStatements[] = {fy, u13, c13, q13, h18, discount18, other18, e20, m20, o20, cash,
+// cbIncrease, cbDecrease, units}. fy is the year the financial year starts in. Copied straight
+// from the statement; a year with a statement replaces that holding's dividend-per-unit estimate.
+function overlapFraction(fy, win){
+  if(!win) return 1;
+  var s = fy + "-07-01", e = (fy + 1) + "-06-30";
+  var shared = overlapDaysInclusive(s, e, win.start, win.end);
+  var fyDays = overlapDaysInclusive(s, e, s, e);
+  return fyDays > 0 ? shared / fyDays : 0;
+}
+function statementsTouching(asset, win){
+  return (Array.isArray(asset && asset.taxStatements) ? asset.taxStatements : []).filter(function(st){
+    return overlapFraction(Number(st.fy), win) > 0;
+  });
+}
+function holdingBelongsTo(a, person, people){
+  if(!a.person) return people.length <= 1;
+  return a.person === person;
+}
+// Everything this person's fund statements put on a return for the window.
+export function personFundStatements(person, win){
+  var people = getTaxPeople();
+  var out = { nonPrimary: 0, franked: 0, credit: 0, foreign: 0, fito: 0, cash: 0,
+    capitalGainGross: 0, capitalGainDiscountable: 0, capitalGainOther: 0, capitalGainNet: 0, funds: [] };
+  state.assets.forEach(function(a){
+    if(a.category !== "Shares" || !holdingBelongsTo(a, person, people)) return;
+    statementsTouching(a, win).forEach(function(st){
+      var f = overlapFraction(Number(st.fy), win);
+      var n = function(k){ return (Number(st[k]) || 0) * f; };
+      out.nonPrimary += n("u13");
+      out.franked += n("c13");
+      out.credit += n("q13");
+      out.foreign += n("m20");
+      out.fito += n("o20");
+      out.cash += n("cash");
+      out.capitalGainGross += n("h18");
+      // 18H is gross: a discounted gain appears in it grossed back up, so the discountable part is
+      // 18H less the "other method" gains, and it's halved again (or netted against losses) at the
+      // household level — exactly what myTax does with the two labels.
+      out.capitalGainOther += n("other18");
+      out.capitalGainDiscountable += Math.max(0, n("h18") - n("other18"));
+      out.capitalGainNet += n("discount18") + n("other18");
+      if(out.funds.indexOf(a.what) === -1) out.funds.push(a.what);
+    });
+  });
+  Object.keys(out).forEach(function(k){ if(typeof out[k] === "number") out[k] = Math.round(out[k] * 100) / 100; });
+  // What enters taxable income from the statement's income labels (capital gains go through CGT).
+  out.income = Math.round((out.nonPrimary + out.franked + out.credit + out.foreign) * 100) / 100;
+  return out;
+}
+// The AMIT cost base adjustment per unit accrued before `dateStr`: shortfall (increase) less excess
+// (decrease), each divided by the units held at that statement. A sale adds this to its cost base.
+export function amitCostBaseAdjustmentPerUnit(asset, dateStr){
+  return (Array.isArray(asset && asset.taxStatements) ? asset.taxStatements : []).reduce(function(sum, st){
+    var fyEnd = (Number(st.fy) + 1) + "-06-30";
+    var units = Number(st.units) || 0;
+    if(!(units > 0) || fyEnd >= (dateStr || "")) return sum;
+    return sum + ((Number(st.cbIncrease) || 0) - (Number(st.cbDecrease) || 0)) / units;
+  }, 0);
+}
+
 // Every Shares holding attributed to this person. An unattributed holding follows the same rule as
 // an unattributed deduction: it belongs to the only person, or to nobody when there are two.
-export function personDividends(person){
+// A holding with an annual tax statement for the year is left out — the statement is the real
+// figure, and counting the estimate too would declare the same distribution twice.
+export function personDividends(person, win){
   var people = getTaxPeople();
   return state.assets.filter(function(a){
     if(a.category !== "Shares" || !(Number(a.dividendPerUnit) || 0)) return false;
+    if(win && statementsTouching(a, win).length) return false;
     if(!a.person) return people.length <= 1;
     return a.person === person;
   }).reduce(function(acc, a){
@@ -197,16 +418,91 @@ export function deductionRows(items, person){
     return i.deductiblePerson === person;
   });
 }
-// The claimable amount of one row, per year: its annual cost times its work-related share.
-export function rowDeductionAnnual(item){
-  // An expense that has ended isn't being incurred, so there's nothing left to claim on it.
-  if(!isActiveOn(item, localDateStr())) return 0;
-  var pct = item.deductiblePct == null ? 100 : Math.max(0, Math.min(100, Number(item.deductiblePct) || 0));
-  return periodsOf(Number(item.amount) || 0, item.freq).yearly * (pct / 100);
+// The share of a tax year a row was claimable for, 0-1.
+//
+// A tax return covers a year, and a claim can stop (or start) partway through it. Two different
+// reasons, so two different fields:
+//
+//   - endDate: the expense itself stopped (a subscription cancelled in March).
+//   - deductibleFrom / deductibleUntil: the expense carries on but stopped being CLAIMABLE — the
+//     home-office share of rent stops the day an employer starts providing an office, while the
+//     rent goes on being paid. Using endDate for that would stop the rent in every budget view.
+//
+// Before this, a row whose endDate had passed claimed $0 — including for the tax year it ended in,
+// which is the year someone is most likely to be lodging. A line that stopped on 30 September
+// claimed nothing for the July-September it was genuinely incurred.
+export function deductionYearFraction(item, win){
+  if(!win || !win.start || !win.end) return 1;
+  var yearDays = overlapDaysInclusive(win.start, win.end, win.start, win.end);
+  // The claim can't start before the expense does (v3.32.0): the later of the two.
+  var fromCandidates = [item && item.deductibleFrom, item && item.startDate].filter(Boolean).sort();
+  var from = fromCandidates.length ? fromCandidates[fromCandidates.length - 1] : "";
+  var untilCandidates = [item && item.endDate, item && item.deductibleUntil].filter(Boolean).sort();
+  var until = untilCandidates.length ? untilCandidates[0] : "";
+  var days = overlapDaysInclusive(win.start, win.end, from || win.start, until || win.end);
+  return yearDays > 0 ? days / yearDays : 0;
 }
-export function personDeductionsAnnual(person, items){
+// The claimable amount of one row for a tax year: its annual cost, times its work-related share,
+// times the part of the year it was claimable for. `win` defaults to the household's current year,
+// the same window computePersonTax() uses for capital gains.
+export function rowDeductionAnnual(item, win){
+  var pct = item.deductiblePct == null ? 100 : Math.max(0, Math.min(100, Number(item.deductiblePct) || 0));
+  var fraction = deductionYearFraction(item, win || householdYearWindow());
+  return periodsOf(Number(item.amount) || 0, item.freq).yearly * (pct / 100) * fraction;
+}
+// The year's claims grouped by return label: {D2: ***REMOVED***, D5: ***REMOVED***, ...}. A row with no label is
+// D5, the label most employee claims belong on.
+export function deductionsByLabel(person, items, win){
+  var out = {};
+  deductionRows(items, person).forEach(function(item){
+    var code = item.deductionLabel || "D5";
+    out[code] = (out[code] || 0) + rowDeductionAnnual(item, win);
+  });
+  Object.keys(out).forEach(function(k){ out[k] = Math.round(out[k] * 100) / 100; });
+  return out;
+}
+
+// ---------------- Working from home: the fixed-rate method ----------------
+//
+// The method nearly every employee uses: hours actually worked from home x a rate per hour that
+// covers energy, internet, phone and stationery. The hours are a record kept during the year (a
+// timesheet or diary — an estimate isn't accepted), so they're entered per financial year rather
+// than as a rate that rolls forward. The amount lands on D5.
+//
+// The rate covers those running costs, so a budget line for any of them that's ALSO flagged as a
+// deduction is a double claim; wfhOverlapRows() finds the likely ones by name so the card can say so.
+export function wfhRateForFy(fy){
+  if(WFH_FIXED_RATES[fy] != null) return { rate: WFH_FIXED_RATES[fy], assumed: false };
+  var years = Object.keys(WFH_FIXED_RATES).map(Number).sort(function(a, b){ return a - b; });
+  var latest = years[years.length - 1];
+  return { rate: WFH_FIXED_RATES[fy < years[0] ? years[0] : latest], assumed: true };
+}
+export function wfhDeduction(person, win){
+  var settings = state.tax && state.tax.settings && state.tax.settings[person];
+  var hoursMap = (settings && settings.wfhHours) || {};
+  var total = 0, hours = 0, assumed = false;
+  var fy0 = Number(String(win.start).slice(5, 7)) >= 7 ? Number(win.start.slice(0, 4)) : Number(win.start.slice(0, 4)) - 1;
+  var fy1 = Number(String(win.end).slice(5, 7)) >= 7 ? Number(win.end.slice(0, 4)) : Number(win.end.slice(0, 4)) - 1;
+  for(var fy = fy0; fy <= fy1; fy++){
+    var h = Math.max(0, Number(hoursMap[fy]) || 0);
+    if(!h) continue;
+    var r = wfhRateForFy(fy);
+    var f = overlapFraction(fy, win);
+    hours += h * f;
+    total += h * r.rate * f;
+    assumed = assumed || r.assumed;
+  }
+  return { hours: Math.round(hours * 100) / 100, amount: Math.round(total * 100) / 100, assumed: assumed };
+}
+var WFH_COVERED = /\b(internet|nbn|broadband|phone|mobile|telco|electric|electricity|energy|power bill|gas|stationery|printer|ink)\b/i;
+export function wfhOverlapRows(person, items){
+  return deductionRows(items, person).filter(function(i){
+    return WFH_COVERED.test(String(i.what || "")) || WFH_COVERED.test(String(i.category || ""));
+  });
+}
+export function personDeductionsAnnual(person, items, win){
   return deductionRows(items, person).reduce(function(sum, item){
-    return sum + rowDeductionAnnual(item);
+    return sum + rowDeductionAnnual(item, win);
   }, 0);
 }
 
@@ -218,42 +514,111 @@ export function personDeductionsAnnual(person, items){
 // surcharge against a policy premium, and until now the app couldn't do either side of that.
 //
 // Flat on the whole income like HELP, not marginal: crossing a tier costs the full step.
-export function mlsThresholds(family){
+export function mlsThresholds(family, fy){
+  var single = taxTablesFor(fy).mls.single;
   var mult = family ? MLS_FAMILY_MULTIPLIER : 1;
-  return MLS_TIERS.map(function(t){ return { from: t.from * mult, rate: t.rate, label: t.label }; });
+  return [
+    { from: 0, rate: MLS_RATES[0], label: "Base tier" },
+    { from: single[0] * mult, rate: MLS_RATES[1], label: "Tier 1" },
+    { from: single[1] * mult, rate: MLS_RATES[2], label: "Tier 2" },
+    { from: single[2] * mult, rate: MLS_RATES[3], label: "Tier 3" }
+  ];
 }
-export function mlsTierFor(surchargeIncome, family){
+// The tables list each tier's top as "$*** or less", so a tier starts a dollar above the one
+// before: income exactly at a threshold is still the lower tier.
+export function mlsTierFor(surchargeIncome, family, fy){
   var income = Math.max(0, Number(surchargeIncome) || 0);
-  var tiers = mlsThresholds(family);
+  var tiers = mlsThresholds(family, fy);
   var current = tiers[0];
-  for(var i = 0; i < tiers.length; i++){
-    if(income >= tiers[i].from) current = tiers[i];
+  for(var i = 1; i < tiers.length; i++){
+    if(income > tiers[i].from) current = tiers[i];
     else break;
   }
   return current;
 }
+export function mlsTierIndex(income, family, fy){
+  return ["Base tier", "Tier 1", "Tier 2", "Tier 3"].indexOf(mlsTierFor(income, family, fy).label);
+}
 // hasCover short-circuits the whole thing: holding hospital cover means no surcharge at any income.
-export function medicareSurchargeAnnual(surchargeIncome, hasCover, family){
+export function medicareSurchargeAnnual(surchargeIncome, hasCover, family, fy){
   if(hasCover) return 0;
   var income = Math.max(0, Number(surchargeIncome) || 0);
-  return Math.round(income * mlsTierFor(income, family).rate * 100) / 100;
+  return Math.round(income * mlsTierFor(income, family, fy).rate * 100) / 100;
 }
 // What the next tier would cost — the number that makes "should I get cover" answerable, since
 // crossing a tier is a step, not a slope.
-export function mlsNextTier(surchargeIncome, family){
+export function mlsNextTier(surchargeIncome, family, fy){
   var income = Math.max(0, Number(surchargeIncome) || 0);
-  var tiers = mlsThresholds(family);
-  for(var i = 0; i < tiers.length; i++){
-    if(tiers[i].from > income){
+  var tiers = mlsThresholds(family, fy);
+  for(var i = 1; i < tiers.length; i++){
+    if(tiers[i].from >= income){
+      var at = tiers[i].from + 1;
       return {
-        at: tiers[i].from,
+        at: at,
         rate: tiers[i].rate,
-        away: tiers[i].from - income,
-        stepCost: Math.round((tiers[i].from * tiers[i].rate - income * mlsTierFor(income, family).rate) * 100) / 100
+        away: at - income,
+        stepCost: Math.round((at * tiers[i].rate - income * mlsTierFor(income, family, fy).rate) * 100) / 100
       };
     }
   }
   return null;
+}
+
+// ---------------- Private health insurance rebate ----------------
+//
+// The rebate on hospital and extras premiums is income-tested on the same tiers as the surcharge
+// (family income for a family policy). Insurers apply it up front at whatever tier you told them;
+// the return then works out the tier you were actually in and claws back — or pays — the
+// difference. Tell the insurer one tier too low and the "refund" shrinks at tax time, which is
+// exactly the kind of surprise this app exists to take out of July.
+//
+// Modelled at household level: annual premiums the rebate applies to, and the tier claimed with
+// the insurer (-1 = no rebate taken up front). Under-65 rates only — the app has no ages.
+// ageBand: "u65" (default), "a65" (65-69) or "a70" (70 and over) — the oldest person covered.
+export function phiRebateRate(tierIndex, fy, ageBand){
+  if(tierIndex < 0) return 0;
+  var band = ageBand || "u65";
+  return taxTablesFor(fy).phi.periods.reduce(function(sum, p){ return sum + p.share * p.rates[band][tierIndex] / 100; }, 0);
+}
+// The age band of the oldest person with a date of birth, as at 1 July of the year (v3.30.0). The
+// rebate is set by the oldest person covered; the app takes everyone with a tax card to be on the
+// policy, and with no dates of birth assumes under 65 — and says so.
+export function ageOnDate(dob, onIso){
+  if(!dob) return null;
+  var b = String(dob).split("-").map(Number), o = String(onIso).split("-").map(Number);
+  var age = o[0] - b[0];
+  if(o[1] < b[1] || (o[1] === b[1] && o[2] < b[2])) age--;
+  return age;
+}
+export function phiAgeBand(fy){
+  var y = fy == null ? currentTaxFy() : fy;
+  var oldest = null;
+  getTaxPeople().forEach(function(person){
+    var st = state.tax && state.tax.settings && state.tax.settings[person];
+    var age = ageOnDate(st && st.dateOfBirth, y + "-07-01");
+    if(age != null && (oldest == null || age > oldest)) oldest = age;
+  });
+  return { band: oldest == null ? "u65" : oldest >= 70 ? "a70" : oldest >= 65 ? "a65" : "u65", oldestAge: oldest, known: oldest != null };
+}
+export function phiRebateAdjustment(opts){
+  opts = opts || {};
+  var premiums = Math.max(0, Number(state.tax && state.tax.phiPremiums) || 0);
+  if(!premiums) return null;
+  var fy = opts.fy;
+  var family = !!(state.tax && state.tax.familyThresholds);
+  var income = householdSurchargeIncome(opts);
+  var actualTier = mlsTierIndex(income, family, fy);
+  var claimed = state.tax.phiTierClaimed == null ? 0 : Number(state.tax.phiTierClaimed);
+  var age = phiAgeBand(fy);
+  var entitled = Math.round(premiums * phiRebateRate(actualTier, fy, age.band) * 100) / 100;
+  var received = Math.round(premiums * phiRebateRate(claimed, fy, age.band) * 100) / 100;
+  return {
+    premiums: premiums, actualTier: actualTier, claimedTier: claimed,
+    entitled: entitled, received: received,
+    // Positive = owed back at tax time (claimed too low a tier); negative = paid to you.
+    adjustment: Math.round((received - entitled) * 100) / 100,
+    income: income, family: family, ageBand: age.band, ageKnown: age.known
+  };
 }
 
 // One person's income for surcharge purposes, computed WITHOUT calling computePersonTax — which
@@ -263,6 +628,12 @@ export function mlsNextTier(surchargeIncome, family){
 // shared helper: pulling that apart would mean threading five intermediate values through two
 // functions to save four lines, and this is the only other caller.
 function personSurchargeIncome(person, opts){
+  // A named year: that year's actual taxable income (from its record), computed without the
+  // household-level pieces so it can't recurse back here.
+  if(opts && opts.fy != null && !opts._inner){
+    var r = computePersonTax(person, Object.assign({}, opts, { _inner: true }));
+    return Math.max(0, r.surchargeIncome);
+  }
   var inc = personIncomeBreakdown(person, opts);
   var settings = personTaxSettings(person);
   var people = getTaxPeople();
@@ -294,40 +665,69 @@ export function householdSurchargeIncome(opts){
 // The rate is a flat percentage of the WHOLE repayment income, not marginal (see
 // HELP_REPAYMENT_RATES). One dollar over a threshold costs the difference on every dollar you
 // earn, which is worth surfacing rather than burying.
-export function helpRepaymentRate(repaymentIncome){
-  var income = Math.max(0, Number(repaymentIncome) || 0);
-  var rate = 0;
-  for(var i = 0; i < HELP_REPAYMENT_RATES.length; i++){
-    if(income >= HELP_REPAYMENT_RATES[i].from) rate = HELP_REPAYMENT_RATES[i].rate;
-    else break;
-  }
-  return rate;
+// FY24/25 and earlier: one rate on the whole income. From FY25/26: marginal bands, plus 10% of the
+// whole income at the top. helpRepaymentRaw() is the one place that knows both shapes.
+function helpRepaymentRaw(income, fy){
+  var h = taxTablesFor(fy).help;
+  if(h.kind === "flat") return income * helpRepaymentRate(income, fy);
+  if(income > h.wholeAbove) return income * h.wholeRate;
+  var amt = 0;
+  h.bands.forEach(function(b){ if(income > b.over) amt = b.base + (income - b.over) * b.rate; });
+  return amt;
 }
-// The next threshold up and what crossing it costs — null once you're in the top band. The cost is
-// the jump in the whole-income repayment, not the rate difference, because that's the number that
-// actually leaves your account.
-export function helpNextThreshold(repaymentIncome){
+// The rate that applies to your NEXT dollar — under the flat system that's the whole-income rate,
+// under the marginal one it's the band's rate (or the 10% top rate).
+export function helpRepaymentRate(repaymentIncome, fy){
   var income = Math.max(0, Number(repaymentIncome) || 0);
-  for(var i = 0; i < HELP_REPAYMENT_RATES.length; i++){
-    var band = HELP_REPAYMENT_RATES[i];
-    if(band.from > income){
-      return {
-        at: band.from,
-        rate: band.rate,
-        away: band.from - income,
-        stepCost: Math.round((band.from * band.rate - income * helpRepaymentRate(income)) * 100) / 100
-      };
+  var h = taxTablesFor(fy).help;
+  if(h.kind === "flat"){
+    var rate = 0;
+    for(var i = 0; i < h.rates.length; i++){
+      if(income >= h.rates[i].from) rate = h.rates[i].rate;
+      else break;
+    }
+    return rate;
+  }
+  if(income > h.wholeAbove) return h.wholeRate;
+  var r = 0;
+  h.bands.forEach(function(b){ if(income > b.over) r = b.rate; });
+  return r;
+}
+// The next threshold up. Under the flat system crossing it is a step on every dollar (stepCost);
+// under the marginal one it only changes the rate on dollars above it, except the top threshold,
+// where 10% of the whole income takes over — still continuous, so stepCost is the change at that
+// point, close to nil. `marginal` tells the note which sentence to use.
+export function helpNextThreshold(repaymentIncome, fy){
+  var income = Math.max(0, Number(repaymentIncome) || 0);
+  var h = taxTablesFor(fy).help;
+  if(h.kind === "flat"){
+    for(var i = 0; i < h.rates.length; i++){
+      var band = h.rates[i];
+      if(band.from > income){
+        return {
+          at: band.from, rate: band.rate, away: band.from - income, marginal: false,
+          stepCost: Math.round((band.from * band.rate - income * helpRepaymentRate(income, fy)) * 100) / 100
+        };
+      }
+    }
+    return null;
+  }
+  var points = h.bands.map(function(b){ return { at: b.over + 1, rate: b.rate }; }).concat([{ at: h.wholeAbove + 1, rate: h.wholeRate }]);
+  for(var j = 0; j < points.length; j++){
+    if(points[j].at > income){
+      return { at: points[j].at, rate: points[j].rate, away: points[j].at - income, marginal: true,
+        stepCost: Math.round((helpRepaymentRaw(points[j].at, fy) - helpRepaymentRaw(income, fy)) * 100) / 100 };
     }
   }
   return null;
 }
-// What's actually repaid this year: the rate applied to repayment income, but never more than the
-// balance outstanding. The cap matters — a final year's repayment is whatever is left, not a full
-// year's percentage, and without it the app would keep "repaying" a debt that's already gone.
-export function helpRepaymentAnnual(repaymentIncome, balance){
+// What's actually repaid this year, never more than the balance outstanding. The cap matters — a
+// final year's repayment is whatever is left, not a full year's amount, and without it the app
+// would keep "repaying" a debt that's already gone.
+export function helpRepaymentAnnual(repaymentIncome, balance, fy){
   var owed = Math.max(0, Number(balance) || 0);
   if(!owed) return 0;
-  var raw = Math.max(0, Number(repaymentIncome) || 0) * helpRepaymentRate(repaymentIncome);
+  var raw = helpRepaymentRaw(Math.max(0, Number(repaymentIncome) || 0), fy);
   return Math.round(Math.min(raw, owed) * 100) / 100;
 }
 
@@ -512,13 +912,18 @@ export function personIncomeBreakdown(person, opts){
 
 export function personTaxSettings(person){
   if(!state.tax.settings[person]){
-    state.tax.settings[person] = { superSacrificeAnnual: 0, concessionalCap: 30000, carryForward: 0, helpBalance: 0 };
+    state.tax.settings[person] = { superSacrificeAnnual: 0, concessionalCap: 30000, carryForward: 0, helpBalance: 0, capitalLossCarriedForward: 0 };
   }
   // Back-fill for a settings object saved before a field existed, rather than only seeding on
   // first creation — otherwise an existing person keeps `undefined` forever and every read has to
   // guard for it.
   var st = state.tax.settings[person];
   if(st.helpBalance == null) st.helpBalance = 0;
+  // Net capital losses from earlier years (v3.23.0), as shown on last year's notice of assessment.
+  if(st.capitalLossCarriedForward == null) st.capitalLossCarriedForward = 0;
+  // Hours worked from home, per financial year (v3.24.0): {2025: ***REMOVED***}. Keyed by year because the
+  // hours are a record of a year, not a rate that carries on.
+  if(!st.wfhHours || typeof st.wfhHours !== "object") st.wfhHours = {};
   return st;
 }
 
@@ -541,18 +946,58 @@ export function computePersonTax(person, opts){
   // housing and every investment property — that's components/expenses.js's budgetLineItems(), and
   // calc/ can't import a component.
   var deductibleItems = deductibleItemsFor(opts);
-  var deductions = deductibleItems ? personDeductionsAnnual(person, deductibleItems) : 0;
+  // The same year the capital gains below are bounded to, so a claim that stopped partway through
+  // it counts for the part it covered — see deductionYearFraction().
+  // The year being computed: the household's current year unless opts.fy asks for another (the
+  // tax-year worksheet). Rates, the deduction window, CGT events and fund statements all follow it.
+  var fy = opts && opts.fy != null ? Number(opts.fy) : currentTaxFy();
+  var taxYearWindow = opts && opts.fy != null
+    ? { start: fy + "-07-01", end: (fy + 1) + "-06-30", label: "FY" + String(fy % 100).padStart(2, "0") + "/" + String((fy + 1) % 100).padStart(2, "0") }
+    : householdYearWindow();
+  var lineDeductions = deductibleItems ? personDeductionsAnnual(person, deductibleItems, taxYearWindow) : 0;
+  var byLabel = deductibleItems ? deductionsByLabel(person, deductibleItems, taxYearWindow) : {};
+  // A named year (the worksheet) uses that year's record wherever one exists — see calc/taxyear.js.
+  // Each piece falls back to the model on its own, so a half-filled record is still a full answer.
+  var yearMode = opts && opts.fy != null;
+  var statements = yearMode ? incomeStatementTotals(fy, person) : null;
+  if(statements){
+    // An income statement's gross is already after salary sacrifice, so nothing comes off it again.
+    gross = statements.gross;
+    manualSacrifice = 0; autoSacrifice = 0; sacrifice = 0;
+  }
+  var interest = yearMode ? interestIncome(fy, person) : 0;
+  if(yearMode){
+    // The rent schedule for that year: actuals typed from the year's documents, the model for any
+    // line left blank, and that year's borrowing costs and depreciation rather than this year's.
+    ipShare = ipProperties().reduce(function(sum, p){
+      return sum + rentalSchedule(p, fy).net * (propertyOwnershipPct(p, person, people) / 100);
+    }, 0);
+  }
+  var recordedDeductions = yearMode ? recordedDeductionsByLabel(fy, person) : null;
+  if(recordedDeductions){
+    byLabel = Object.assign({}, recordedDeductions);
+    lineDeductions = Object.keys(recordedDeductions).reduce(function(s, k){ return s + recordedDeductions[k]; }, 0);
+  }
+  var wfh = wfhDeduction(person, taxYearWindow);
+  if(wfh.amount > 0) byLabel.D5 = Math.round(((byLabel.D5 || 0) + wfh.amount) * 100) / 100;
+  var deductions = lineDeductions + wfh.amount;
+  var wfhOverlap = wfh.amount > 0 && deductibleItems ? wfhOverlapRows(person, deductibleItems) : [];
   // Dividends enter taxable income GROSSED UP (cash + franking credit); the credit then comes off
   // the tax bill below. Adding only the cash would understate the income and overstate the benefit.
-  var dividends = personDividends(person);
+  var dividends = personDividends(person, taxYearWindow);
+  // Fund tax statements for the same year: their income labels go straight into taxable income,
+  // their franking credit is refundable like a dividend's, and 20O foreign tax paid comes off the
+  // bill as a (non-refundable) foreign income tax offset.
+  var funds = personFundStatements(person, taxYearWindow);
   // Capital gains within the household's year. Bounded to the year because a CGT event belongs to
   // the year it happened in — unlike every other figure here, which is a rate, a sale is a
   // one-off, and carrying last year's sale into this year's estimate would be plainly wrong.
-  var cgtWindow = householdYearWindow();
-  var capitalGains = personCapitalGains(person, { from: cgtWindow.start, to: cgtWindow.end });
-  var taxable = Math.max(0, gross - sacrifice + ipShare - deductions + dividends.grossedUp + capitalGains.assessable);
-  var incomeTax = incomeTaxAU(taxable);
-  var medicare = medicareLevyAU(taxable);
+  var cgtWindow = taxYearWindow;
+  var capitalGains = personCapitalGains(person, { from: cgtWindow.start, to: cgtWindow.end, funds: funds });
+  var taxable = Math.max(0, gross - sacrifice + ipShare - deductions + dividends.grossedUp + funds.income +
+    capitalGains.assessable + interest);
+  var incomeTax = incomeTaxAU(taxable, fy);
+  var medicare = medicareLevyAU(taxable, fy);
   // HELP repayment income is deliberately NOT taxable income. It adds back the two things the tax
   // system lets you subtract but the repayment system doesn't: reportable super contributions
   // (salary sacrifice) and a net investment loss. Working it through for this app's own terms:
@@ -571,26 +1016,44 @@ export function computePersonTax(person, opts){
   var hasCover = !!state.tax.privateHospitalCover;
   var isFamily = !!state.tax.familyThresholds;
   var helpBalance = Math.max(0, Number(settings.helpBalance) || 0);
-  var repaymentIncome = Math.max(0, gross + Math.max(0, ipShare));
-  var helpRepayment = helpRepaymentAnnual(repaymentIncome, helpBalance);
+  // A named year with income statements knows the real income-test additions: reportable fringe
+  // benefits, reportable super contributions (RESC — salary sacrifice shows here) and any net
+  // investment loss, each added back to taxable income. That is the ATO's definition for the HELP
+  // repayment, the surcharge/rebate tiers and Division 293 alike (v3.29.0). The model keeps its
+  // simpler forms below, which say so in the UI.
+  var incomeTestAdditions = statements
+    ? statements.rfba + statements.resc + Math.max(0, -ipShare)
+    : null;
+  var repaymentIncome = incomeTestAdditions != null
+    ? Math.max(0, taxable + incomeTestAdditions)
+    : Math.max(0, gross + Math.max(0, ipShare));
+  var helpRepayment = helpRepaymentAnnual(repaymentIncome, helpBalance, fy);
   // The surcharge IS a tax, unlike the HELP repayment below — so it belongs in totalTax and in the
   // effective rate. Computed after sacrifice because surcharge income adds the sacrifice back.
-  var surchargeIncome = Math.max(0, taxable + sacrifice);
+  var surchargeIncome = incomeTestAdditions != null ? Math.max(0, taxable + incomeTestAdditions) : Math.max(0, taxable + sacrifice);
   // The tier comes from the household's combined income when family thresholds apply; the rate is
   // then charged on this person's own income. See householdSurchargeIncome() for why.
-  var tierIncome = isFamily ? householdSurchargeIncome(opts) : surchargeIncome;
+  var tierIncome = isFamily ? (opts && opts._inner ? surchargeIncome : householdSurchargeIncome(opts)) : surchargeIncome;
   var medicareSurcharge = hasCover ? 0
-    : Math.round(surchargeIncome * mlsTierFor(tierIncome, isFamily).rate * 100) / 100;
+    : Math.round(surchargeIncome * mlsTierFor(tierIncome, isFamily, fy).rate * 100) / 100;
   // The franking credit is a REFUNDABLE offset in Australia — it can take the bill below zero and
   // be paid out, which is why this isn't clamped at 0. That's the case that matters most (a
   // low-income or retired shareholder), and clamping would quietly delete it.
-  var totalTax = incomeTax + medicare + medicareSurcharge - dividends.credit;
+  // Foreign income tax offset: credit for tax the fund already paid overseas. Non-refundable, so it
+  // can bring the income tax and levy to zero but not below. Under $1,000 it's claimed in full with
+  // no limit calculation — the case for any ordinary ETF holding.
+  var fito = Math.min(funds.fito, Math.max(0, incomeTax + medicare));
+  // Private health rebate adjustment: the household's figure, shared evenly between the people
+  // filing (the ATO splits it by each person's share of the premiums, which the app doesn't keep).
+  var phi = opts && opts._inner ? null : phiRebateAdjustment(yearMode ? { fy: fy } : { scenario: opts && opts.scenario });
+  var phiShare = phi ? Math.round(phi.adjustment / Math.max(1, phi.family ? people.length : 1) * 100) / 100 : 0;
+  var totalTax = incomeTax + medicare + medicareSurcharge - dividends.credit - funds.credit - fito + phiShare;
   // Part of take-home, not of "tax": it's a repayment of a debt, not a tax, and totalTax feeds the
   // effective-rate figure where lumping it in would overstate what the ATO keeps. But it does come
   // out of the same pay, so every downstream net figure has to see it.
   // The dividend CASH is real money arriving; the credit is settled through the tax bill above, so
   // adding the grossed-up figure here would count it twice.
-  var netTakeHome = gross - sacrifice - totalTax - helpRepayment + dividends.cash;
+  var netTakeHome = gross - sacrifice - totalTax - helpRepayment + dividends.cash + funds.cash;
   // netTakeHome already folds in the property's tax effect evenly across the year — but a tax
   // refund from a negative-geared loss (or a bill from a positively-geared profit) doesn't
   // actually arrive that way unless the PAYG withholding was varied; by default it's a lump sum
@@ -599,9 +1062,9 @@ export function computePersonTax(person, opts){
   // "how much am I really saving/paying" — surfaced in personBreakdownHtml, not folded silently
   // into the one blended figure used everywhere else in the app.
   var taxableWithoutIp = Math.max(0, gross - sacrifice - deductions);
-  var payslipTakeHome = gross - sacrifice - incomeTaxAU(taxableWithoutIp) - medicareLevyAU(taxableWithoutIp) -
-    (hasCover ? 0 : Math.max(0, taxableWithoutIp + sacrifice) * mlsTierFor(tierIncome, isFamily).rate) -
-    helpRepaymentAnnual(Math.max(0, gross), helpBalance);
+  var payslipTakeHome = gross - sacrifice - incomeTaxAU(taxableWithoutIp, fy) - medicareLevyAU(taxableWithoutIp, fy) -
+    (hasCover ? 0 : Math.max(0, taxableWithoutIp + sacrifice) * mlsTierFor(tierIncome, isFamily, fy).rate) -
+    helpRepaymentAnnual(Math.max(0, gross), helpBalance, fy);
   var ipTaxEffect = netTakeHome - payslipTakeHome;
   var sg = inc.sg;
   var totalConcessional = sg + sacrifice;
@@ -614,42 +1077,53 @@ export function computePersonTax(person, opts){
   // contributions, which covers the common case without modelling reportable fringe benefits
   // or net investment losses — consistent with the rest of this tax engine's stated scope.
   var lowTaxContributions = Math.min(totalConcessional, capAvailable);
-  var div293Income = taxable + lowTaxContributions;
+  var div293Income = taxable + lowTaxContributions + (statements ? statements.rfba + Math.max(0, -ipShare) : 0);
   var div293Threshold = 250000;
   var div293ExcessIncome = Math.max(0, div293Income - div293Threshold);
   var div293Tax = Math.min(lowTaxContributions, div293ExcessIncome) * 0.15;
   return {
     gross: gross, packageTotal: inc.packageTotal, ipShare: ipShare, ownershipPct: ownershipPct,
     sacrifice: sacrifice, manualSacrifice: manualSacrifice, autoSacrifice: autoSacrifice, taxable: taxable,
-    deductions: deductions,
+    deductions: deductions, deductionsByLabel: byLabel, wfh: wfh,
+    wfhOverlap: wfhOverlap.map(function(i){ return i.what; }),
     capitalGains: capitalGains.assessable, capitalGainsRaw: capitalGains.raw,
     capitalGainsDiscount: capitalGains.discounted, capitalGainSales: capitalGains.sales,
+    capitalGainsTotal: capitalGains.totalGains, capitalLossesApplied: capitalGains.currentLosses + capitalGains.priorLossesApplied,
+    capitalLossCarriedForward: capitalGains.lossCarriedForward, priorCapitalLossesApplied: capitalGains.priorLossesApplied,
     capitalGainsYear: cgtWindow.label,
     dividendCash: dividends.cash, frankingCredit: dividends.credit, dividendGrossedUp: dividends.grossedUp,
+    funds: funds, fundIncome: funds.income, fundFrankingCredit: funds.credit, fito: fito,
+    fy: fy, taxTablesAssumed: taxTablesFor(fy).assumed, phi: phi, phiAdjustment: phiShare,
+    interestIncome: interest, incomeStatements: statements, ipShareForYear: ipShare,
+    // What comes back (positive) or is owed (negative) on assessment: tax withheld less the tax and
+    // levies, credits and offsets already netted in totalTax, and any compulsory HELP repayment.
+    // Only known once income statements give the withholding.
+    refund: statements ? Math.round((statements.withheld - totalTax - helpRepayment) * 100) / 100 : null,
+    fundCapitalGain: funds.capitalGainNet,
     // The number people actually want: what the dividend is worth after tax. Negative top-up above
     // a 30% marginal rate, positive refund below it.
-    dividendNet: Math.round((dividends.cash + dividends.credit - (dividends.grossedUp * marginalRateAU(taxable))) * 100) / 100,
+    dividendNet: Math.round((dividends.cash + dividends.credit - (dividends.grossedUp * marginalRateAU(taxable, fy))) * 100) / 100,
     // What the deductions are actually worth: tax saved at the marginal rate, not the deduction
     // itself. "I claimed $2,000" and "I got $2,000 back" is the single most common confusion about
     // deductions, and the panel exists to not repeat it.
-    deductionsWorth: Math.round(deductions * marginalRateAU(taxable + deductions) * 100) / 100,
+    deductionsWorth: Math.round(deductions * marginalRateAU(taxable + deductions, fy) * 100) / 100,
     incomeTax: incomeTax, medicare: medicare, totalTax: totalTax, netTakeHome: netTakeHome,
     payslipTakeHome: payslipTakeHome, ipTaxEffect: ipTaxEffect,
     effectiveRate: gross > 0 ? totalTax / gross : 0,
     medicareSurcharge: medicareSurcharge, surchargeIncome: surchargeIncome, tierIncome: tierIncome,
     hasPrivateCover: hasCover, familyThresholds: isFamily,
-    mlsTier: mlsTierFor(tierIncome, isFamily),
-    mlsNext: mlsNextTier(tierIncome, isFamily),
+    mlsTier: mlsTierFor(tierIncome, isFamily, fy),
+    mlsNext: mlsNextTier(tierIncome, isFamily, fy),
     // What holding cover is worth, in the only unit that makes the decision: the surcharge you'd
     // pay without it. Always computed, even when cover IS held, so the panel can say what it's
     // saving you rather than only what it would cost.
-    mlsIfUncovered: Math.round(surchargeIncome * mlsTierFor(tierIncome, isFamily).rate * 100) / 100,
+    mlsIfUncovered: Math.round(surchargeIncome * mlsTierFor(tierIncome, isFamily, fy).rate * 100) / 100,
     helpBalance: helpBalance, helpRepayment: helpRepayment, repaymentIncome: repaymentIncome,
-    helpRate: helpBalance > 0 ? helpRepaymentRate(repaymentIncome) : 0,
-    helpNext: helpBalance > 0 ? helpNextThreshold(repaymentIncome) : null,
+    helpRate: helpBalance > 0 ? helpRepaymentRate(repaymentIncome, fy) : 0,
+    helpNext: helpBalance > 0 ? helpNextThreshold(repaymentIncome, fy) : null,
     helpBalanceAfter: Math.max(0, helpBalance - helpRepayment),
     sg: sg, totalConcessional: totalConcessional, capAvailable: capAvailable, capExceeded: capExceeded,
-    contributionsTax: contributionsTax, superNet: superNet, marginalRate: marginalRateAU(taxable),
+    contributionsTax: contributionsTax, superNet: superNet, marginalRate: marginalRateAU(taxable, fy),
     div293Income: div293Income, div293Tax: div293Tax, superOverCap: inc.superOverCap
   };
 }

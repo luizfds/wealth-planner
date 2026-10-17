@@ -1,15 +1,15 @@
 import { state, persist } from "../state.js";
 import {
   propertyEquityToday, propertyGearingAnnual, propertyLoanRepaymentMonthly, loanRepaymentDisplay,
-  capitalWorksAnnual, plantDepreciationAnnual,
+  capitalWorksAnnual, plantDepreciationAnnual, propertyDepreciationForWindow, financialYearOf, fyLabel,
   propertyCapitalGain, propertyYieldOnCost, propertyLVR, propertiesTotalValue, propertiesTotalEquityToday,
   propertiesTotalMortgageBalance, propertiesNetCashFlowMonthly, propertiesWeightedGrossYield,
   propertyOwnershipPct, propertyOwnershipTotal, propertyTaxDeductibleResultAnnual,
-  landTaxByState, totalLandTax
+  landTaxByState, totalLandTax, borrowingCostsSchedule, borrowingCostsDeduction
 } from "../calc/property.js";
 import { getTaxPeople } from "../calc/tax.js";
 import { LAND_TAX_STATES, LAND_TAX_YEAR } from "../constants.js";
-import { sumField } from "../calc/ledger.js";
+import { sumField, householdYearWindow } from "../calc/ledger.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { optionsHtml, modernPlainRowHtml, historyTrendHtml } from "../lib/ledger-table.js";
@@ -147,6 +147,13 @@ function loanRowModernHtml(loan, li, propId, colorIdx){
       '<div class="m-edit-field"><label>Paid</label><select class="loan-repay-freq" aria-label="How often this loan is paid" title="For auto repayments this only changes how the amount is displayed (still calculated monthly) — for a manual repayment it\'s the frequency the amount you type in is actually paid at.">' + optionsHtml(PAYMENT_FREQS, disp.freq) + '</select></div>' +
       '<div class="m-edit-field"><label>Repayment</label><select class="loan-repay-mode" aria-label="Repayment mode">' + optionsHtml(["auto", "manual"], loan.repaymentMode) + '</select></div>' +
       '<div class="m-edit-field" title="Netted against this loan\'s balance for both equity and interest — this is the one place to enter it. Don\'t also add it as a separate Cash asset on the Assets tab, or it\'ll be counted twice."><label>Offset</label><input type="number" step="1000" min="0" class="loan-offset" value="' + (Number(loan.offsetBalance) || 0) + '" aria-label="Offset account balance"></div>' +
+      // Borrowing costs — see calc/property.js. A total, not a list: only the total enters the
+      // five-year rule, and this form is busy enough already.
+      '<div class="m-edit-field"><label>Settled on</label><input type="date" class="loan-settled" value="' + escapeAttr(loan.settlementDate || "") + '" title="The day the loan was drawn down. Starts the five-year clock for borrowing costs." aria-label="Loan settlement date"></div>' +
+      '<div class="m-edit-field"><label>Borrowing costs</label><input type="number" step="1" min="0" class="loan-borrowing" value="' + (Number(loan.borrowingCosts) || 0) + '" title="LMI, the lender\'s establishment or settlement fee, mortgage registration, a lender-required valuation, a broker fee — costs of taking out the LOAN. Not stamp duty on the purchase or conveyancing: those go in Acquisition costs. Over $100 is deducted over five years, by days." aria-label="Borrowing costs"></div>' +
+      '<div class="m-edit-field"><label>Original term (yrs)</label><input type="number" step="1" min="0" class="loan-borrowing-term" value="' + (Number(loan.borrowingTermYears) || "") + '" placeholder="30" title="Only matters if the loan was for less than five years — borrowing costs are then spread over the term instead." aria-label="Original loan term in years"></div>' +
+      '<div class="m-edit-field"><label>Paid out on</label><input type="date" class="loan-ended" value="' + escapeAttr(loan.endedOn || "") + '" title="If this loan was paid out or refinanced before its borrowing costs were fully deducted, the rest is deducted in that financial year." aria-label="Loan paid out or refinanced on"></div>' +
+      '<div class="m-edit-field span3"><span class="computed-note" data-computed="borrow">' + borrowingNoteText(loan) + '</span></div>' +
       (loan.repaymentMode === "manual"
         ? '<div class="m-edit-field span3"><label>Manual repayment amount</label><input type="number" step="1" min="0" class="loan-manual-amount" value="' + (Number(loan.manualRepaymentAmount) || 0) + '" aria-label="Manual repayment amount"></div>'
         : "") +
@@ -154,6 +161,23 @@ function loanRowModernHtml(loan, li, propId, colorIdx){
     '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm row-del" data-loan-del="' + li + '">Delete</button></div>' +
   '</div></div></div>';
   return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="' + escapeAttr(section) + '" data-index="' + li + '" data-loan-index="' + li + '">' + summary + edit + '</div>';
+}
+// One line under the borrowing-cost fields: what this year's return gets, out of what total, and
+// when the spread ends — the three things you need when the ATO calculator asks the same question.
+export function borrowingNoteText(loan){
+  var total = Number(loan.borrowingCosts) || 0;
+  if(!(total > 0)) return "Deducted over five years from settlement. Your lender's settlement letter or first loan statement lists them.";
+  if(!loan.settlementDate) return "Add the settlement date to spread these over five years.";
+  var sched = borrowingCostsSchedule(loan);
+  var win = householdYearWindow();
+  var now = borrowingCostsDeduction(loan, win);
+  var last = sched[sched.length - 1];
+  if(last && last.writtenOff){
+    return "Deductible " + win.label + ": " + fmtCurrency2.format(now) + " of " + fmtCurrency2.format(total) +
+      " — paid out " + loan.endedOn + ", so the remaining " + fmtCurrency2.format(last.amount) + " is deducted in " + fyLabel(last.fy) + ".";
+  }
+  return "Deductible " + win.label + ": " + fmtCurrency2.format(now) + " of " + fmtCurrency2.format(total) +
+    (sched.length > 1 ? " — spread to FY" + String(last.fy % 100).padStart(2, "0") + "/" + String((last.fy + 1) % 100).padStart(2, "0") + "." : " — all in the year paid.");
 }
 function modernLoanListHtml(p){
   var rowMeta = loanRowMeta(p);
@@ -182,12 +206,22 @@ function acquisitionCostCompBarHtml(rowMeta){
     return '<div class="m-comp-seg series-color-' + x.colorIdx + '" style="flex:' + x.amount + ' 1 0%" title="' + escapeAttr(x.cost.what) + ': ' + fmtCurrency0.format(x.amount) + ' (' + fmtPercent1.format(pct) + ')"></div>';
   }).join("") + '</div>';
 }
-function acquisitionCostRowModernHtml(item, index, colorIdx){
+// Names that usually mean a cost of the LOAN, not the purchase — from before item 37 gave
+// borrowing costs their own field, when Acquisition costs was the only place to put them. Only a
+// hint: nothing moves without a click, since moving a cost out of here changes the CGT cost base.
+var LOAN_COST_PATTERN = /\blmi\b|mortgage insurance|lenders?'? mortgage|mortgage reg|registration of mortgage|loan (fee|application|establishment)|establishment fee|application fee|settlement fee|valuation|broker/i;
+export function looksLikeLoanCost(what){ return LOAN_COST_PATTERN.test(String(what || "")); }
+function acquisitionCostRowModernHtml(item, index, colorIdx, p){
+  var canMove = p && p.kind === "IP" && (p.loans || []).length > 0;
+  var suggested = canMove && looksLikeLoanCost(item.what);
+  var moveBtn = canMove
+    ? '<button type="button" class="btn btn-ghost btn-sm acq-move' + (suggested ? " suggested" : " icon-only") + '" data-acq-cost-move="' + index + '"' + (suggested ? "" : ' aria-label="Move to the loan\'s borrowing costs"') + ' title="A cost of taking out the loan (LMI, lender fees, mortgage registration) isn\'t part of the purchase: it\'s deducted over five years instead, and doesn\'t go in the CGT cost base.">' + (suggested ? "Looks like a loan cost — move to borrowing costs" : '<span aria-hidden="true">↪</span>') + '</button>'
+    : "";
   var whatInput = '<input type="text" class="cc-what" data-acq-cost-index="' + index + '" value="' + escapeAttr(item.what) + '" placeholder="e.g. Stamp duty" aria-label="Acquisition cost description">';
   var amountInput = '<input type="number" step="100" min="0" class="cc-amount" data-acq-cost-index="' + index + '" value="' + (Number(item.amount) || 0) + '" aria-label="Amount">';
   var delBtn = '<button type="button" class="btn btn-ghost btn-sm row-del" data-acq-cost-del="' + index + '" aria-label="Delete acquisition cost">✕</button>';
-  return '<div class="cc-row m-cost-row" data-acq-cost-index="' + index + '">' +
-    '<span class="m-row-dot series-color-' + colorIdx + '" aria-hidden="true"></span>' + whatInput + amountInput + delBtn +
+  return '<div class="cc-row m-cost-row' + (canMove ? " has-move" : "") + (suggested ? " is-loan-cost" : "") + '" data-acq-cost-index="' + index + '">' +
+    '<span class="m-row-dot series-color-' + colorIdx + '" aria-hidden="true"></span>' + whatInput + amountInput + delBtn + moveBtn +
   '</div>';
 }
 // Stamp duty, legal, buyer's agent, inspection, etc. — itemized rather than a single lump sum, so
@@ -197,24 +231,64 @@ function acquisitionCostRowModernHtml(item, index, colorIdx){
 // Investment properties only: depreciation is a deduction against rental income, and a home you
 // live in doesn't have one. Rendering it on a PPOR would invite somebody to fill it in and then
 // wonder why nothing happened.
+// The quantity surveyor's year-by-year table. Each row is one financial year as printed in the
+// report; a year listed here is used as-is, and the formula fields above only fill the years it
+// doesn't list. The FY options run from the purchase year (or ten years back) to forty on, which
+// covers any report's horizon without a free-text year to mistype.
+// What the capital gain figure is measured against — a sentence, because "cost base" alone means
+// nothing to most people and the capital works reduction is the part that surprises them.
+export function capitalGainTitle(p, g){
+  if(!g) return "";
+  var base = "Current value minus your CGT cost base of " + fmtCurrency0.format(g.costBase) + " (what you paid plus acquisition costs";
+  if(g.capitalWorksReduction > 0) return base + ", less " + fmtCurrency0.format(g.capitalWorksReduction) + " of capital works claimed since purchase — those deductions come back as gain on sale). Before tax and the 50% discount.";
+  if(p.kind === "IP" && !p.purchaseDate) return base + "). Add the purchase date and capital works claimed since will come off it, as they do on sale.";
+  return base + "). Before tax and the 50% discount.";
+}
+function depreciationScheduleHtml(p){
+  var rows = Array.isArray(p.depreciationSchedule) ? p.depreciationSchedule : [];
+  var thisFy = financialYearOf(localDateStr());
+  var firstFy = p.purchaseDate ? financialYearOf(p.purchaseDate) : thisFy - 10;
+  var years = [];
+  for(var y = firstFy; y <= firstFy + 40; y++) years.push(y);
+  rows.forEach(function(r){ if(years.indexOf(Number(r.fy)) === -1) years.push(Number(r.fy)); });
+  years.sort(function(a, b){ return a - b; });
+  var rowsHtml = rows.map(function(r, i){
+    return '<div class="cc-row m-cost-row dep-sched-row" data-dep-sched-index="' + i + '">' +
+      '<select class="dep-sched-fy" data-dep-sched-index="' + i + '" aria-label="Financial year">' +
+        years.map(function(y){ return '<option value="' + y + '"' + (Number(r.fy) === y ? " selected" : "") + '>' + fyLabel(y) + '</option>'; }).join("") +
+      '</select>' +
+      '<input type="number" step="1" min="0" class="dep-sched-cw" data-dep-sched-index="' + i + '" value="' + (Number(r.capitalWorks) || 0) + '" aria-label="Capital works for ' + fyLabel(Number(r.fy)) + '" title="Capital works (Division 43) for this year, from the report">' +
+      '<input type="number" step="1" min="0" class="dep-sched-plant" data-dep-sched-index="' + i + '" value="' + (Number(r.plant) || 0) + '" aria-label="Plant and equipment for ' + fyLabel(Number(r.fy)) + '" title="Plant & equipment (Division 40) for this year, from the report">' +
+      '<button type="button" class="btn btn-ghost btn-sm row-del" data-dep-sched-del="' + i + '" aria-label="Delete ' + fyLabel(Number(r.fy)) + '">✕</button>' +
+    '</div>';
+  }).join("");
+  return '<div class="calc-costs-title" style="margin-top:14px">Quantity surveyor\'s schedule</div>' +
+    '<p class="ledger-note" style="margin-left:0">Year · capital works · plant, as printed in the report. A year listed here is used as-is; the fields above fill the years it doesn\'t list.</p>' +
+    (rows.length ? '<div class="m-card m-cost-rows">' + rowsHtml + '</div>' : "") +
+    '<button type="button" class="btn btn-sm btn-ghost" style="margin-top:8px" data-dep-sched-add="' + escapeAttr(p.id) + '">+ Add year</button>';
+}
 function depreciationSectionHtml(p){
-  var capitalWorks = capitalWorksAnnual(p);
-  var plant = plantDepreciationAnnual(p);
+  var thisYear = propertyDepreciationForWindow(p);
+  var capitalWorks = thisYear.capitalWorks;
+  var plant = thisYear.plant;
   var total = capitalWorks + plant;
   return propertySectionHtml(p, "depreciation",
     '<div class="property-section-title">Depreciation</div>' +
-      '<div class="property-section-total">' + fmtCurrency0.format(total) + '/yr</div>',
+      '<div class="property-section-total" title="' + escapeAttr(householdYearWindow().label) + '">' + fmtCurrency0.format(total) + '</div>',
     '<p class="ledger-note" style="margin-left:0">Usually the largest deduction on an investment property, and the only one that isn\'t money leaving your account — it reduces the taxable result without touching cash flow. A quantity surveyor\'s depreciation schedule is where these figures come from; entering guesses here produces a guess on your tax return.</p>' +
     '<div class="calc-grid">' +
       '<div class="calc-field" title="The original cost to BUILD, not what you paid for the property — land is not depreciable. Claimed at 2.5% a year for 40 years from completion."><label>Construction cost</label><input type="number" step="1000" min="0" class="prop-construction-cost" value="' + (Number(p.constructionCost) || 0) + '" placeholder="0"></div>' +
       '<div class="calc-field" title="When the building was completed. The 2.5% capital works claim runs for 40 years from then; leave blank if unknown and the full year is claimed."><label>Built on</label><input type="date" class="prop-construction-date" aria-label="Built on" value="' + escapeAttr(p.constructionDate || "") + '"></div>' +
       '<div class="calc-field" title="Carpets, blinds, appliances, air conditioning. Since 2017 these are only claimable on items you bought new — not on a second-hand residential property."><label>Plant &amp; equipment</label><input type="number" step="500" min="0" class="prop-plant-value" value="' + (Number(p.plantValue) || 0) + '" placeholder="0"></div>' +
+      '<div class="calc-field" style="grid-column:1/-1"><label class="m-checkbox-field"><input type="checkbox" class="prop-plant-secondhand"' + (p.plantSecondHand ? " checked" : "") + '> Plant was already in the property when bought (second-hand)</label>' +
+        '<span class="computed-note">Bought under a contract after 9 May 2017? Then existing plant isn\'t claimable — your QS report still values it, for a capital loss when an item is replaced and for CGT on sale.</span></div>' +
       '<div class="calc-field" title="Averaged straight-line over this many years. A real schedule depreciates each item separately at its own rate; this app has no per-item register, so an average across the pool is closer to the truth than pretending to a precision it can\'t support."><label>Effective life (yrs)</label><input type="number" step="1" min="1" max="40" class="prop-plant-life" aria-label="Plant and equipment effective life in years" value="' + (Number(p.plantEffectiveLife) || 10) + '"></div>' +
     '</div>' +
+    depreciationScheduleHtml(p) +
     '<p class="ledger-note" style="margin-left:0">' +
       (total > 0
-        ? "Capital works " + fmtCurrency0.format(capitalWorks) + "/yr + plant " + fmtCurrency0.format(plant) +
-          "/yr = <b>" + fmtCurrency0.format(total) + "/yr</b> off this property's taxable result. Cash flow is unchanged."
+        ? householdYearWindow().label + (thisYear.source === "schedule" ? " (from the schedule)" : "") + ": capital works " + fmtCurrency0.format(capitalWorks) + " + plant " + fmtCurrency0.format(plant) + (p.plantSecondHand && Number(p.plantValue) > 0 ? " (second-hand, not claimable)" : "") +
+          " = <b>" + fmtCurrency0.format(total) + "</b> off this property's taxable result. Cash flow is unchanged."
         : "Nothing claimed yet — this property's taxable result is the same as its cash result.") +
     '</p>');
 }
@@ -265,7 +339,7 @@ function ownershipSectionHtml(p){
 function acquisitionCostsSectionHtml(p){
   var rowMeta = acquisitionCostRowMeta(p);
   var total = rowMeta.reduce(function(s, m){ return s + (Number(m.cost.amount) || 0); }, 0);
-  var rowsHtml = rowMeta.map(function(m){ return acquisitionCostRowModernHtml(m.cost, m.i, m.colorIdx); }).join("");
+  var rowsHtml = rowMeta.map(function(m){ return acquisitionCostRowModernHtml(m.cost, m.i, m.colorIdx, p); }).join("");
   var titleHtml = '<div class="property-section-title">Acquisition costs <span data-out="acqcoststotal" style="font-weight:400;color:var(--ink-soft)">' + (total > 0 ? "— " + fmtCurrency0.format(total) + " total" : "") + '</span></div>';
   var bodyHtml =
     '<p class="ledger-note" style="margin-left:0">Stamp duty, legal/conveyancing, buyer\'s agent, building/pest inspection — itemize what you actually paid. Added to Purchase price above for Capital gain and yield-on-cost.</p>' +
@@ -356,7 +430,7 @@ function propertyCardHtml(p, colorIdx){
   if(capitalGain){
     allTiles.capitalgain = propertyStatTileHtml("capitalgain", "Capital gain",
       (capitalGain.gain >= 0 ? "+" : "") + fmtCurrency0.format(capitalGain.gain) + ' (' + (capitalGain.gain >= 0 ? "+" : "") + fmtPercent1.format(capitalGain.pct) + ')',
-      { title: "Current value minus what you paid", color: capitalGain.gain >= 0 ? "var(--good)" : "var(--bad)" });
+      { title: capitalGainTitle(p, capitalGain), color: capitalGain.gain >= 0 ? "var(--good)" : "var(--bad)" });
   }
   if(netCashFlowMonthly != null){
     allTiles.cashflow = propertyStatTileHtml("cashflow", "Net cash flow",
@@ -627,6 +701,8 @@ export function patchPropertyCardComputed(property){
     if(capitalGain){
       capitalGainOut.textContent = (capitalGain.gain >= 0 ? "+" : "") + fmtCurrency0.format(capitalGain.gain) + " (" + (capitalGain.gain >= 0 ? "+" : "") + fmtPercent1.format(capitalGain.pct) + ")";
       capitalGainOut.style.color = capitalGain.gain >= 0 ? "var(--good)" : "var(--bad)";
+      var capitalGainTile = capitalGainOut.closest(".calc-out");
+      if(capitalGainTile) capitalGainTile.title = capitalGainTitle(property, capitalGain);
     }
   }
   var acqCostsTotalOut = card.querySelector('[data-out="acqcoststotal"]');
@@ -650,4 +726,23 @@ export function logPropertySnapshot(id){
   renderProjectionOutputs();
   persist();
   showToast("Logged " + fmtCurrency0.format(num) + " for " + property.what + " (" + dateStr + ")");
+}
+
+// Moves one acquisition cost onto a loan's borrowing costs (v3.28.0). Goes to the only loan, or the
+// first one with an earlier settlement date when there are several — the toast names it, and undo
+// puts everything back. A loan with no settlement date takes the purchase date, which is when the
+// loan was almost always drawn; the five-year spread can't start without one.
+export function moveAcquisitionCostToLoan(p, index){
+  var cost = (p.acquisitionCosts || [])[index];
+  var loans = p.loans || [];
+  if(!cost || !loans.length) return null;
+  var loan = loans.slice().sort(function(a, b){ return (a.settlementDate || "9999").localeCompare(b.settlementDate || "9999"); })[0];
+  var before = { costs: p.acquisitionCosts.slice(), borrowing: Number(loan.borrowingCosts) || 0, settled: loan.settlementDate || "" };
+  p.acquisitionCosts.splice(index, 1);
+  loan.borrowingCosts = Math.round(((Number(loan.borrowingCosts) || 0) + (Number(cost.amount) || 0)) * 100) / 100;
+  if(!loan.settlementDate && p.purchaseDate) loan.settlementDate = p.purchaseDate;
+  return {
+    cost: cost, loan: loan,
+    undo: function(){ p.acquisitionCosts = before.costs; loan.borrowingCosts = before.borrowing; loan.settlementDate = before.settled; }
+  };
 }

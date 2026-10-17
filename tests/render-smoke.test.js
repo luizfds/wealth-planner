@@ -789,3 +789,19 @@ test("benchmarks: investments against an index, prices missing then present", as
   assert.match(done, /\$600 behind IOZ<\/b>/);
   assert.match(investmentsHtml(Object.assign({}, base, { flows: [] })), /Add purchase lots/);
 });
+
+test("benchmarks: targets with progress, statuses and the add form", async function(){
+  const { targetsHtml } = await import("../src/components/benchmarks.js");
+  const html = targetsHtml({ scenario: "Renting", categories: ["Dining", "Groceries"], goals: [
+    { goal: { kind: "savingsRate", target: 0.25 }, progress: { current: 0.2, target: 0.25, pct: 0.8, status: "behind" } },
+    { goal: { kind: "netWorth", target: 1000000, by: "2030-06-30" }, progress: { current: 500000, target: 1000000, pct: 0.5, status: "on-track", projected: 1100000 } },
+    { goal: { kind: "categorySpend", category: "Dining", target: 800 }, progress: { current: 900, target: 800, pct: 1.125, status: "over", pace: 400 } }
+  ]});
+  assert.match(html, /Savings rate<\/span><span class="goal-status ">Not yet/);
+  assert.match(html, /value="25" aria-label="Target %"/);
+  assert.match(html, /Renting projects \$1,100,000 by then/);
+  assert.match(html, /Dining <small>per month<\/small>/);
+  assert.match(html, /goal-status bad">Over/);
+  assert.match(html, /<option value="Groceries">Groceries<\/option>/);
+  assert.match(targetsHtml({ scenario: "R", categories: [], goals: [] }), /Set targets of your own/);
+});

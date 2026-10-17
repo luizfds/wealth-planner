@@ -12,7 +12,11 @@ import { scenarioTotals, totalNetWorthValue, toAudAmount } from "../calc/engine.
 import { periodsOf } from "../calc/ledger.js";
 import { superComparison, netWorthComparison, retirementComparison, housingComparison, relativeText } from "../calc/benchmarks.js";
 import { shareFlows, xirr, fixedRateValue, indexValue, priceDatesNeeded, benchmarkPriceOn, parseBenchmarkSymbol, setBenchmarkPrice } from "../calc/performance.js";
-import { persist } from "../state.js";
+import { persist, genId } from "../state.js";
+import { GOAL_KINDS, goalKindInfo, goalProgress, monthFraction } from "../calc/goals.js";
+import { computeNetWorthSeries, runwayMonths } from "../calc/engine.js";
+import { transactionsInMonth } from "../calc/ledger.js";
+import { transactionCategory } from "./expenses.js";
 import { fmtCurrency0, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 
@@ -233,6 +237,100 @@ export function setBenchmarkField(kind, key, value){
   persist();
 }
 
+// ---------------- Your own targets (item 69) ----------------
+export function gatherTargets(){
+  var today = localDateStr();
+  var active = state.activeScenario;
+  var t = scenarioTotals(active);
+  var cats = {};
+  transactionsInMonth(state.transactions, today.slice(0, 7)).forEach(function(tx){
+    var c = transactionCategory(tx);
+    if(c) cats[c] = (cats[c] || 0) + (Number(tx.amount) || 0);
+  });
+  var seriesCache = null;
+  var ctx = {
+    savingsRate: t.incomeMonthly > 0 ? t.rate : null,
+    netWorth: totalNetWorthValue(),
+    runwayMonths: runwayMonths(t.expensesMonthly),
+    superTotal: state.assets.filter(function(a){ return a.category === "Super"; }).reduce(function(s, a){ return s + toAudAmount(a, a.amount); }, 0),
+    categoryMonthToDate: cats,
+    monthFraction: monthFraction(today),
+    // The active scenario's projection, in today's dollars, at the end of the year containing the date.
+    projectedNetWorthAt: function(date){
+      var yrs = Math.max(0, Math.ceil((Date.parse(date) - Date.parse(today)) / (365.25 * 86400000)));
+      if(yrs > 60) return null;
+      if(!seriesCache || seriesCache.length <= yrs) seriesCache = computeNetWorthSeries(active, Math.max(1, yrs, 20), { realTerms: true });
+      var pt = seriesCache.find(function(p){ return p.x === yrs; });
+      return pt ? pt.y : null;
+    }
+  };
+  return {
+    goals: state.goals.map(function(g){ return { goal: g, progress: goalProgress(g, ctx) }; }),
+    categories: (state.categories || []).slice().sort(),
+    scenario: active
+  };
+}
+function goalValue(kind, v){
+  if(v == null) return "—";
+  if(kind === "savingsRate") return fmtPercent1.format(v);
+  if(kind === "emergencyFund") return (Math.round(v * 10) / 10) + " mo";
+  return fmtCurrency0.format(v);
+}
+var STATUS_TEXT = { met: "Met", "on-track": "On track", behind: "Not yet", within: "Within", "ahead-of-pace": "Ahead of pace", over: "Over", unknown: "No data yet", unset: "Set a target" };
+var STATUS_TONE = { met: "good", "on-track": "good", within: "good", behind: "", "ahead-of-pace": "low", over: "bad", unknown: "", unset: "" };
+export function targetsHtml(d){
+  var rows = d.goals.map(function(x, i){
+    var g = x.goal, p = x.progress, info = goalKindInfo(g.kind) || { label: g.kind, unit: "" };
+    var title = g.kind === "categorySpend" ? esc(g.category || "a category") + " <small>per month</small>" : esc(info.label);
+    var targetInput = g.kind === "savingsRate"
+      ? '<input type="number" step="1" min="0" max="100" data-goal-target="' + i + '" value="' + (g.target ? Math.round(g.target * 1000) / 10 : "") + '" aria-label="Target %"> %'
+      : (info.unit === "$" || info.unit === "$/mo" ? '$ <input type="number" step="any" min="0" data-goal-target="' + i + '" value="' + (g.target || "") + '" aria-label="Target">' :
+        '<input type="number" step="0.5" min="0" data-goal-target="' + i + '" value="' + (g.target || "") + '" aria-label="Target months"> months');
+    var lowerBetter = g.kind === "categorySpend";
+    var tone = STATUS_TONE[p.status] || "";
+    var extra = "";
+    if(g.kind === "netWorth") extra = ' <label class="goal-by">by <input type="date" data-goal-by="' + i + '" value="' + esc(g.by || "") + '"></label>' +
+      (p.projected != null ? '<span class="goal-note">' + esc(d.scenario) + ' projects ' + fmtCurrency0.format(p.projected) + ' by then</span>' : '');
+    if(lowerBetter && p.pace != null) extra = '<span class="goal-note">' + fmtCurrency0.format(p.pace) + ' would be on pace today</span>';
+    return '<div class="goal-row">' +
+      '<div class="goal-head"><span class="bm-row-title">' + title + '</span><span class="goal-status ' + tone + '">' + STATUS_TEXT[p.status] + '</span>' +
+        '<button type="button" class="icon-btn goal-del" data-goal-del="' + i + '" aria-label="Remove this target" title="Remove">✕</button></div>' +
+      '<div class="bm-bar"><span class="bm-fill ' + (tone || (lowerBetter ? "" : "")) + '" style="width:' + Math.max(0, Math.min(100, (p.pct || 0) * 100)).toFixed(1) + '%"></span>' +
+        (lowerBetter && p.pace != null && p.target > 0 ? '<span class="bm-tick" style="left:' + Math.min(100, p.pace / p.target * 100).toFixed(1) + '%" title="On pace"><i>pace</i></span>' : '') + '</div>' +
+      '<div class="goal-foot"><b>' + goalValue(g.kind, p.current) + '</b> of <span class="goal-target">' + targetInput + '</span>' + extra + '</div>' +
+    '</div>';
+  }).join("");
+  var kindOpts = GOAL_KINDS.map(function(k){ return '<option value="' + k.kind + '">' + esc(k.label) + '</option>'; }).join("");
+  var catOpts = d.categories.map(function(c){ return '<option value="' + esc(c) + '">' + esc(c) + '</option>'; }).join("");
+  return (rows || '<p class="fire-note">Set targets of your own — a savings rate, a net worth by a date, months of expenses in cash, super, or a monthly cap on a spending category — and see how far along each is.</p>') +
+    '<div class="goal-add"><select data-goal-kind aria-label="Kind of target">' + kindOpts + '</select>' +
+      '<select data-goal-category aria-label="Category" hidden>' + (catOpts || '<option value="">No categories yet</option>') + '</select>' +
+      '<button type="button" class="btn btn-sm" data-goal-add>+ Add target</button></div>';
+}
+export function addGoal(kind, category){
+  var info = goalKindInfo(kind);
+  if(!info) return;
+  var g = { id: genId("goal"), kind: kind, target: kind === "savingsRate" ? info.placeholder / 100 : info.placeholder };
+  if(kind === "categorySpend"){ if(!category) return false; g.category = category; }
+  state.goals.push(g);
+  persist();
+  return true;
+}
+export function setGoalField(i, field, value){
+  var g = state.goals[i];
+  if(!g) return;
+  if(field === "target"){
+    var v = Number(value);
+    g.target = !(v >= 0) || value === "" ? "" : (g.kind === "savingsRate" ? v / 100 : v);
+  } else if(field === "by") g.by = value || "";
+  persist();
+}
+export function removeGoal(i){
+  var g = state.goals.splice(i, 1)[0];
+  persist();
+  return g;
+}
+
 // ---------------- Render ----------------
 var SECTIONS = [];
 // Later sections register themselves here (investments, targets, property) so the page order is
@@ -243,6 +341,9 @@ registerBenchmarkSection({ id: "household", title: "How you compare", sub: "publ
 
 registerBenchmarkSection({ id: "investments", title: "Your shares against the market", sub: "the same dollars on the same dates",
   html: function(){ return investmentsHtml(gatherInvestments()); } });
+
+registerBenchmarkSection({ id: "targets", title: "Your targets", sub: "goals you set",
+  html: function(){ return targetsHtml(gatherTargets()); } });
 
 export function renderBenchmarks(){
   var el = document.getElementById("benchmarksBody");

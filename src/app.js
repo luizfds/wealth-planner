@@ -54,7 +54,7 @@ import {
   logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan
 } from "./components/properties.js";
 import { renderProjectionOutputs, projectionSeriesShown } from "./components/projections.js";
-import { renderBenchmarks, setBenchmarkField, applyBenchmarkPaste } from "./components/benchmarks.js";
+import { renderBenchmarks, setBenchmarkField, applyBenchmarkPaste, addGoal, setGoalField, removeGoal } from "./components/benchmarks.js";
 import { copyBenchmarkTemplateToClipboard } from "./lib/backup.js";
 import {
   selectScenario, addScenario, renameScenario, cloneScenario, deleteScenario, renderHomeBody, renderHomeListModern,
@@ -3753,6 +3753,15 @@ import {
     } else if(t.matches("[data-bm-other]")) setBenchmarkField("symbol", null, t.value);
     else if(t.matches("[data-bm-rate]")) setBenchmarkField("rate", null, t.value);
     else if(t.matches("[data-bm-price]")) setBenchmarkField("price", t.getAttribute("data-bm-price"), t.value);
+    // v3.36.0: targets.
+    else if(t.matches("[data-goal-kind]")){
+      var catSel = benchmarksBody.querySelector("[data-goal-category]");
+      if(catSel) catSel.hidden = t.value !== "categorySpend";
+      return;
+    }
+    else if(t.matches("[data-goal-category]")) return;
+    else if(t.matches("[data-goal-target]")) setGoalField(Number(t.getAttribute("data-goal-target")), "target", t.value);
+    else if(t.matches("[data-goal-by]")) setGoalField(Number(t.getAttribute("data-goal-by")), "by", t.value);
     else return;
     renderBenchmarks();
   });
@@ -3765,6 +3774,23 @@ import {
   }
   benchmarksBody.addEventListener("click", function(e){
     if(e.target.closest("[data-bm-copy]")){ copyBenchmarkTemplateToClipboard(); return; }
+    if(e.target.closest("[data-goal-add]")){
+      var kind = benchmarksBody.querySelector("[data-goal-kind]").value;
+      var cat = benchmarksBody.querySelector("[data-goal-category]").value;
+      if(addGoal(kind, cat) === false){ showToast("Add a category first (Accounts → Categories)"); return; }
+      renderBenchmarks();
+      var inputs = benchmarksBody.querySelectorAll("[data-goal-target]");
+      if(inputs.length){ inputs[inputs.length - 1].focus(); inputs[inputs.length - 1].select(); }
+      return;
+    }
+    var goalDel = e.target.closest("[data-goal-del]");
+    if(goalDel){
+      var idx = Number(goalDel.getAttribute("data-goal-del"));
+      var removed = removeGoal(idx);
+      renderBenchmarks();
+      if(removed) showUndoToast("Target removed", function(){ state.goals.splice(idx, 0, removed); persist(); renderBenchmarks(); });
+      return;
+    }
     if(e.target.closest("[data-bm-paste-apply]")){
       var area = benchmarksBody.querySelector("[data-bm-paste]");
       var n = applyBenchmarkPaste(area ? area.value : "");

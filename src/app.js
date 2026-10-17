@@ -50,7 +50,7 @@ import {
 } from "./components/assets.js";
 import {
   modernPropRowOpen, renderPropListModern, renderProperties, patchPropertyCardComputed,
-  logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText
+  logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan
 } from "./components/properties.js";
 import { renderProjectionOutputs } from "./components/projections.js";
 import {
@@ -1824,6 +1824,22 @@ import {
         acqCostProperty.acquisitionCosts.push({ id: genId("ac"), what: "New cost", amount: 0 });
         renderProperties();
         persist();
+      }
+      return;
+    }
+    var moveAcqBtn = e.target.closest("[data-acq-cost-move]");
+    if(moveAcqBtn){
+      var moveCard = e.target.closest("[data-property-id]");
+      var moveProperty = moveCard ? findProperty(moveCard.getAttribute("data-property-id")) : null;
+      if(moveProperty){
+        var moved = moveAcquisitionCostToLoan(moveProperty, Number(moveAcqBtn.getAttribute("data-acq-cost-move")));
+        if(moved){
+          refreshAfterDepreciationChange();
+          showUndoToast('Moved "' + (moved.cost.what || "cost") + '" to ' + (moved.loan.what || "the loan") + "'s borrowing costs", function(){
+            moved.undo();
+            refreshAfterDepreciationChange();
+          });
+        }
       }
       return;
     }

@@ -206,12 +206,22 @@ function acquisitionCostCompBarHtml(rowMeta){
     return '<div class="m-comp-seg series-color-' + x.colorIdx + '" style="flex:' + x.amount + ' 1 0%" title="' + escapeAttr(x.cost.what) + ': ' + fmtCurrency0.format(x.amount) + ' (' + fmtPercent1.format(pct) + ')"></div>';
   }).join("") + '</div>';
 }
-function acquisitionCostRowModernHtml(item, index, colorIdx){
+// Names that usually mean a cost of the LOAN, not the purchase — from before item 37 gave
+// borrowing costs their own field, when Acquisition costs was the only place to put them. Only a
+// hint: nothing moves without a click, since moving a cost out of here changes the CGT cost base.
+var LOAN_COST_PATTERN = /\blmi\b|mortgage insurance|lenders?'? mortgage|mortgage reg|registration of mortgage|loan (fee|application|establishment)|establishment fee|application fee|settlement fee|valuation|broker/i;
+export function looksLikeLoanCost(what){ return LOAN_COST_PATTERN.test(String(what || "")); }
+function acquisitionCostRowModernHtml(item, index, colorIdx, p){
+  var canMove = p && p.kind === "IP" && (p.loans || []).length > 0;
+  var suggested = canMove && looksLikeLoanCost(item.what);
+  var moveBtn = canMove
+    ? '<button type="button" class="btn btn-ghost btn-sm acq-move' + (suggested ? " suggested" : " icon-only") + '" data-acq-cost-move="' + index + '"' + (suggested ? "" : ' aria-label="Move to the loan\'s borrowing costs"') + ' title="A cost of taking out the loan (LMI, lender fees, mortgage registration) isn\'t part of the purchase: it\'s deducted over five years instead, and doesn\'t go in the CGT cost base.">' + (suggested ? "Looks like a loan cost — move to borrowing costs" : '<span aria-hidden="true">↪</span>') + '</button>'
+    : "";
   var whatInput = '<input type="text" class="cc-what" data-acq-cost-index="' + index + '" value="' + escapeAttr(item.what) + '" placeholder="e.g. Stamp duty" aria-label="Acquisition cost description">';
   var amountInput = '<input type="number" step="100" min="0" class="cc-amount" data-acq-cost-index="' + index + '" value="' + (Number(item.amount) || 0) + '" aria-label="Amount">';
   var delBtn = '<button type="button" class="btn btn-ghost btn-sm row-del" data-acq-cost-del="' + index + '" aria-label="Delete acquisition cost">✕</button>';
-  return '<div class="cc-row m-cost-row" data-acq-cost-index="' + index + '">' +
-    '<span class="m-row-dot series-color-' + colorIdx + '" aria-hidden="true"></span>' + whatInput + amountInput + delBtn +
+  return '<div class="cc-row m-cost-row' + (canMove ? " has-move" : "") + (suggested ? " is-loan-cost" : "") + '" data-acq-cost-index="' + index + '">' +
+    '<span class="m-row-dot series-color-' + colorIdx + '" aria-hidden="true"></span>' + whatInput + amountInput + delBtn + moveBtn +
   '</div>';
 }
 // Stamp duty, legal, buyer's agent, inspection, etc. — itemized rather than a single lump sum, so
@@ -329,7 +339,7 @@ function ownershipSectionHtml(p){
 function acquisitionCostsSectionHtml(p){
   var rowMeta = acquisitionCostRowMeta(p);
   var total = rowMeta.reduce(function(s, m){ return s + (Number(m.cost.amount) || 0); }, 0);
-  var rowsHtml = rowMeta.map(function(m){ return acquisitionCostRowModernHtml(m.cost, m.i, m.colorIdx); }).join("");
+  var rowsHtml = rowMeta.map(function(m){ return acquisitionCostRowModernHtml(m.cost, m.i, m.colorIdx, p); }).join("");
   var titleHtml = '<div class="property-section-title">Acquisition costs <span data-out="acqcoststotal" style="font-weight:400;color:var(--ink-soft)">' + (total > 0 ? "— " + fmtCurrency0.format(total) + " total" : "") + '</span></div>';
   var bodyHtml =
     '<p class="ledger-note" style="margin-left:0">Stamp duty, legal/conveyancing, buyer\'s agent, building/pest inspection — itemize what you actually paid. Added to Purchase price above for Capital gain and yield-on-cost.</p>' +
@@ -716,4 +726,23 @@ export function logPropertySnapshot(id){
   renderProjectionOutputs();
   persist();
   showToast("Logged " + fmtCurrency0.format(num) + " for " + property.what + " (" + dateStr + ")");
+}
+
+// Moves one acquisition cost onto a loan's borrowing costs (v3.28.0). Goes to the only loan, or the
+// first one with an earlier settlement date when there are several — the toast names it, and undo
+// puts everything back. A loan with no settlement date takes the purchase date, which is when the
+// loan was almost always drawn; the five-year spread can't start without one.
+export function moveAcquisitionCostToLoan(p, index){
+  var cost = (p.acquisitionCosts || [])[index];
+  var loans = p.loans || [];
+  if(!cost || !loans.length) return null;
+  var loan = loans.slice().sort(function(a, b){ return (a.settlementDate || "9999").localeCompare(b.settlementDate || "9999"); })[0];
+  var before = { costs: p.acquisitionCosts.slice(), borrowing: Number(loan.borrowingCosts) || 0, settled: loan.settlementDate || "" };
+  p.acquisitionCosts.splice(index, 1);
+  loan.borrowingCosts = Math.round(((Number(loan.borrowingCosts) || 0) + (Number(cost.amount) || 0)) * 100) / 100;
+  if(!loan.settlementDate && p.purchaseDate) loan.settlementDate = p.purchaseDate;
+  return {
+    cost: cost, loan: loan,
+    undo: function(){ p.acquisitionCosts = before.costs; loan.borrowingCosts = before.borrowing; loan.settlementDate = before.settled; }
+  };
 }

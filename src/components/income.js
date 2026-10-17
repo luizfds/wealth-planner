@@ -598,16 +598,17 @@ function taxPersonFrontBodyHtml(person, r){
     // Always shown, in both directions: without cover it names the cost, with cover it names what
     // the cover is saving — which is the only way the panel can answer "is a policy worth it",
     // the question this app has every other input for.
-    '<div class="tax-cap-note tax-cgt-note"' + (r.capitalGainSales.length ? '' : ' hidden') + ' title="Recorded under \'Record a sale\' on a Shares holding. Held more than 12 months, an individual\'s gain is halved before tax.">' + capitalGainsNoteText(r) + '</div>' +
+    '<div class="tax-cap-note tax-cgt-note"' + (hasCapitalGainsActivity(r) ? '' : ' hidden') + ' title="Recorded under \'Record a sale\' on a Shares holding. Held more than 12 months, an individual\'s gain is halved before tax.">' + capitalGainsNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-fund-note"' + (r.funds && r.funds.funds.length ? '' : ' hidden') + ' title="From annual tax statements entered on Shares holdings (Assets page). The income labels go into taxable income as they are; capital gains go through the capital gains figure above.">' + fundsNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-div-note"' + (r.dividendGrossedUp > 0 ? '' : ' hidden') + ' title="Taken from Shares holdings with a dividend per unit set on the Assets page. Australian franking credits are refundable, so a low-income holder can receive more than the company distributed.">' + dividendNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-deduct-note"' + (r.deductions > 0 ? '' : ' hidden') + ' title="Taken from budget lines flagged as work-related on the Expenses page. They reduce taxable income, which also reduces the Medicare levy and can move you under a surcharge tier — but not your HELP repayment, which is worked out on gross income.">' + deductionsNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-mls-note' + (r.medicareSurcharge > 0 ? " warn" : "") + '"' + (r.mlsIfUncovered > 0 ? '' : ' hidden') + ' title="Income for surcharge purposes is approximated as taxable income + your reportable super contributions, ignoring reportable fringe benefits and net investment losses — the same simplification Division 293 uses here.">' + mlsNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-help-note"' + (r.helpBalance > 0 ? '' : ' hidden') + ' title="Compulsory repayment, worked out as a flat percentage of your repayment income — which adds back salary sacrifice and any rental loss, so neither of those reduces it.">' + helpNoteText(r) + '</div>' +
-    '<details class="tax-advanced" style="margin-top:12px"><summary>Adjust HELP &amp; sacrifice</summary>' +
+    '<details class="tax-advanced" style="margin-top:12px"><summary>Adjust HELP, sacrifice &amp; capital losses</summary>' +
       '<div class="tax-inputs-panel" style="margin-top:8px">' +
         '<div class="tax-inputs">' +
           '<div class="proj-field"><label title="What you still owe on HELP/HECS (or any other study loan with the same repayment schedule). Leave at 0 if you have none. The compulsory repayment is worked out from this and withheld from take-home.">HELP/HECS owing $</label><input type="number" min="0" step="500" class="tax-help" aria-label="HELP/HECS owing for ' + pid + '" value="' + settings.helpBalance + '"></div>' +
+          '<div class="proj-field"><label title="Net capital losses from earlier years, as shown on your last notice of assessment. They come off this year\'s capital gains before the 50% discount; whatever isn\'t used carries on to next year.">Capital losses b/f $</label><input type="number" min="0" step="100" class="tax-cgt-losses" aria-label="Capital losses carried forward for ' + pid + '" value="' + (Number(settings.capitalLossCarriedForward) || 0) + '"></div>' +
           '<div class="proj-field"><label title="Separate from the Cash / Sacrifice column on income rows above — use this for sacrifice not tied to a specific item">Manual sacrifice $/yr</label><input type="number" min="0" step="500" class="tax-sacrifice" aria-label="Manual super sacrifice per year for ' + pid + '" value="' + settings.superSacrificeAnnual + '"><button type="button" class="calc-hint-link" style="margin-top:4px" data-tax-maxcap="' + pid + '" title="Fills your remaining concessional cap headroom this year with manual sacrifice (SG and any auto/bonus sacrifice already counted): sets manual sacrifice to ' + fmtCurrency0.format(Math.max(0, r.capAvailable - r.sg - r.autoSacrifice)) + '">Max out cap</button></div>' +
         '</div>' +
         '<details class="tax-advanced"><summary>Advanced — concessional cap &amp; carry-forward</summary>' +
@@ -620,21 +621,28 @@ function taxPersonFrontBodyHtml(person, r){
     '</details>';
 }
 
-// Capital gains for the household's year, with the discount named. Once a sale is recorded it's
-// too late to act on the holding period, so the figure has to be visible rather than inferred.
+// Capital gains for the household's year, netted as a return nets them: losses (this year's, then
+// carried-forward) off non-discounted gains first, then discounted ones, then the 50% discount.
+// Once a sale is recorded it's too late to act on the holding period, so every step is stated.
 function capitalGainsNoteText(r){
-  var loss = r.capitalGainsRaw < 0;
-  return "Capital gains (" + r.capitalGainsYear + "): " +
-    (loss
-      ? fmtCurrency0.format(Math.abs(r.capitalGainsRaw)) + " net capital loss from " + r.capitalGainSales.length +
-        " sale" + (r.capitalGainSales.length === 1 ? "" : "s") + ", offset against other gains."
-      : fmtCurrency0.format(r.capitalGainsRaw) + " gain from " + r.capitalGainSales.length + " sale" +
-        (r.capitalGainSales.length === 1 ? "" : "s") +
-        (r.capitalGainsDiscount > 0
-          ? ", less " + fmtCurrency0.format(r.capitalGainsDiscount) + " of 12-month discount"
-          : " with no 12-month discount") +
-        " = " + fmtCurrency0.format(r.capitalGains) + " added to taxable income.") +
-    " Each sale is discounted on its own holding period here; the ATO nets losses against gains before discounting, which differs only when both land in the same year.";
+  var parts = [];
+  var sources = [];
+  if(r.capitalGainSales.length) sources.push(r.capitalGainSales.length + " sale" + (r.capitalGainSales.length === 1 ? "" : "s"));
+  if(r.funds && r.funds.capitalGainGross > 0) sources.push("fund statements");
+  parts.push(fmtCurrency0.format(r.capitalGainsTotal) + " of gains" + (sources.length ? " from " + sources.join(" and ") : ""));
+  if(r.capitalLossesApplied > 0){
+    parts.push("less " + fmtCurrency0.format(r.capitalLossesApplied) + " of losses" +
+      (r.priorCapitalLossesApplied > 0 ? " (" + fmtCurrency0.format(r.priorCapitalLossesApplied) + " brought forward from earlier years)" : ""));
+  }
+  if(r.capitalGainsDiscount > 0) parts.push("less the 50% discount of " + fmtCurrency0.format(r.capitalGainsDiscount));
+  var text = "Capital gains (" + r.capitalGainsYear + "): " + parts.join(", ") + " = " + fmtCurrency0.format(r.capitalGains) + " added to taxable income.";
+  if(r.capitalLossCarriedForward > 0){
+    text += " " + fmtCurrency0.format(r.capitalLossCarriedForward) + " of capital losses carries forward to next year — capital losses only ever offset capital gains, never other income.";
+  }
+  return text;
+}
+function hasCapitalGainsActivity(r){
+  return r.capitalGainSales.length > 0 || (r.funds && r.funds.capitalGainGross > 0) || r.capitalLossCarriedForward > 0 || r.capitalLossesApplied > 0;
 }
 
 // Dividends, stated the way a return states them: grossed up, with the credit as an offset and
@@ -776,7 +784,7 @@ export function patchAllTaxPersonOutputs(){
     }
     var cgtNote = panel.querySelector(".tax-cgt-note");
     if(cgtNote){
-      cgtNote.hidden = !r.capitalGainSales.length;
+      cgtNote.hidden = !hasCapitalGainsActivity(r);
       cgtNote.textContent = capitalGainsNoteText(r);
     }
     var divNote = panel.querySelector(".tax-div-note");

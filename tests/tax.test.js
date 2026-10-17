@@ -803,3 +803,74 @@ test("the AMIT cost base adjustment is spread per unit, for sales after the stat
   assert.ok(Math.abs(amitCostBaseAdjustmentPerUnit(ivv, "2026-08-01") - ***REMOVED*** / 156) < 1e-12);
   assert.ok(Math.abs(amitCostBaseAdjustmentPerUnit(etfAssets()[1], "2026-08-01") + ***REMOVED*** / 313) < 1e-12);
 });
+
+// ---------------- Capital losses netted before the discount, and carried forward (v3.23.0) ----------------
+
+function withSales(sales, priorLosses, body){
+  var saved = state.assets;
+  state.assets = [{ category: "Shares", what: "X", person: "", sales: sales }];
+  try {
+    withIncome([grossRow("Sam", 100000)], function(){
+      state.tax.settings.Sam = { capitalLossCarriedForward: priorLosses || 0 };
+      body();
+    });
+  } finally { state.assets = saved; }
+}
+var Y = { from: "2025-07-01", to: "2026-06-30" };
+
+test("losses come off undiscounted gains first, then the discount applies to what's left", function(){
+  // $10,000 discountable gain, $4,000 undiscounted gain, $5,000 loss. Losses clear the $4,000 first,
+  // $1,000 comes off the discountable gain, and the remaining $9,000 is halved: $***.
+  withSales([
+    { date: "2025-10-01", acquired: "2023-01-01", units: 1, proceeds: 20000, costBase: 10000 },
+    { date: "2025-11-01", acquired: "2025-08-01", units: 1, proceeds: 9000, costBase: 5000 },
+    { date: "2026-01-01", acquired: "2024-01-01", units: 1, proceeds: 1000, costBase: 6000 }
+  ], 0, function(){
+    var g = personCapitalGains("Sam", Y);
+    assert.equal(g.totalGains, 14000);
+    assert.equal(g.currentLosses, 5000);
+    assert.equal(g.discounted, 4500);
+    assert.equal(g.assessable, 4500);
+    assert.equal(g.lossCarriedForward, 0);
+  });
+});
+
+test("discounting each sale before netting understated the gain", function(){
+  // $10,000 discountable gain and a $4,000 loss. The return nets first: (10,000 - 4,000) / 2 =
+  // $3,000. The old per-sale approach halved the gain and then took the whole loss off it,
+  // 5,000 - 4,000 = $1,000 — counting the loss at full value against a gain only taxed at half.
+  withSales([
+    { date: "2025-10-01", acquired: "2023-01-01", units: 1, proceeds: 20000, costBase: 10000 },
+    { date: "2026-01-01", acquired: "2024-01-01", units: 1, proceeds: 1000, costBase: 5000 }
+  ], 0, function(){
+    assert.equal(personCapitalGains("Sam", Y).assessable, 3000);
+  });
+});
+
+test("carried-forward losses are used after this year's, and what's left carries on", function(){
+  withSales([{ date: "2025-10-01", acquired: "2023-01-01", units: 1, proceeds: 12000, costBase: 10000 }], 5000, function(){
+    var g = personCapitalGains("Sam", Y);
+    assert.equal(g.priorLossesApplied, 2000);
+    assert.equal(g.assessable, 0);
+    assert.equal(g.lossCarriedForward, 3000);
+  });
+});
+
+test("a net capital loss is never negative income", function(){
+  withSales([{ date: "2025-10-01", acquired: "2023-01-01", units: 1, proceeds: 1000, costBase: 9000 }], 0, function(){
+    var g = personCapitalGains("Sam", Y);
+    assert.equal(g.assessable, 0);
+    assert.equal(g.lossCarriedForward, 8000);
+  });
+});
+
+test("the real FY25/26 return: ABC $***REMOVED*** discountable + IVV $***REMOVED*** = 18H $***REMOVED***, 18A $***REMOVED***", function(){
+  withSales([
+    { date: "2025-01-01", acquired: "2024-01-01", units: ***REMOVED***, proceeds: ***REMOVED***, costBase: ***REMOVED*** },
+    { date: "2025-01-01", acquired: "2024-01-01", units: ***REMOVED***, proceeds: ***REMOVED***, costBase: ***REMOVED*** }
+  ], 0, function(){
+    var g = personCapitalGains("Sam", Object.assign({ funds: { capitalGainDiscountable: ***REMOVED***, capitalGainOther: 0 } }, Y));
+    assert.equal(Math.floor(g.totalGains), ***REMOVED***);
+    assert.equal(Math.floor(g.assessable), ***REMOVED***);
+  });
+});

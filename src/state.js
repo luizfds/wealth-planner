@@ -164,6 +164,12 @@ export function defaultState(){
     // zeroed out) — this app has never fetched anything itself, and a portfolio with no USD
     // holdings needs no rate at all.
     fx: { usdAud: null, usdAudUpdated: "" },
+    // v3.35.0: the index your shares are compared with (Dashboard → Benchmarks), and the prices
+    // typed or pasted for it, per ticker: prices[symbol][date] = close on or before that date,
+    // prices[symbol].now / .nowDate = the latest.
+    benchmark: { symbol: "IOZ", fixedRate: 7, prices: {} },
+    // v3.36.0: your own targets — [{id, kind, target, category?, label?}].
+    goals: [],
     // Last time Export or Share produced a full backup — not touched by CSV/template exports
     // (those are partial, one-section-at-a-time, not a way to recover from data loss) or Import.
     // "" until the first one. Powers the backup-reminder notification (lib/notifications.js) —
@@ -405,6 +411,11 @@ export function migrateState(s){
   if(s.tax.phiTierClaimed == null) s.tax.phiTierClaimed = 0;
   if(typeof s.tax.familyThresholds !== "boolean") s.tax.familyThresholds = false;
   if(!s.fx) s.fx = { usdAud: null, usdAudUpdated: "" };
+  if(!s.benchmark || typeof s.benchmark !== "object") s.benchmark = { symbol: "IOZ", fixedRate: 7, prices: {} };
+  if(!s.benchmark.prices || typeof s.benchmark.prices !== "object") s.benchmark.prices = {};
+  if(s.benchmark.fixedRate == null || s.benchmark.fixedRate === "") s.benchmark.fixedRate = 7;
+  if(!s.benchmark.symbol) s.benchmark.symbol = "IOZ";
+  if(!Array.isArray(s.goals)) s.goals = [];
   if(s.fx.usdAud === undefined) s.fx.usdAud = null;
   if(s.fx.usdAudUpdated == null) s.fx.usdAudUpdated = "";
   if(s.lastBackupDate == null) s.lastBackupDate = "";

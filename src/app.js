@@ -54,6 +54,8 @@ import {
   logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan
 } from "./components/properties.js";
 import { renderProjectionOutputs, projectionSeriesShown } from "./components/projections.js";
+import { renderBenchmarks, setBenchmarkField, applyBenchmarkPaste, addGoal, setGoalField, removeGoal, setPropertyMarketField } from "./components/benchmarks.js";
+import { copyBenchmarkTemplateToClipboard } from "./lib/backup.js";
 import {
   selectScenario, addScenario, renameScenario, cloneScenario, deleteScenario, renderHomeBody, renderHomeListModern,
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
@@ -3536,6 +3538,7 @@ import {
     var btn = e.target.closest("[data-dashboard-sub]");
     if(!btn) return;
     showDashboardSubpage(btn.getAttribute("data-dashboard-sub"));
+    if(btn.getAttribute("data-dashboard-sub") === "benchmarks") renderBenchmarks();
   });
 
   // Swipe between Assets' Cash/Shares/Super/Vehicle/Other tabs on mobile — desktop already has
@@ -3698,6 +3701,7 @@ import {
     renderHomeBody();
     renderCards();
     renderDetail();
+    renderBenchmarks();
     renderTotals();
     renderAssets();
     updatePersonSuggestions();
@@ -3738,6 +3742,65 @@ import {
   // by the time this fires in the bubble phase every other handler for the same event
   // has already run and mutated state.
   document.addEventListener("input", renderGlobalMetrics);
+  // v3.35.0: Dashboard → Benchmarks controls. One delegated pair of listeners for every section;
+  // each change persists and re-renders the tab.
+  var benchmarksBody = document.getElementById("benchmarksBody");
+  benchmarksBody.addEventListener("change", function(e){
+    var t = e.target;
+    if(t.matches("[data-bm-symbol]")){
+      if(t.value === "__other"){ renderBenchmarksOther(); return; }
+      setBenchmarkField("symbol", null, t.value);
+    } else if(t.matches("[data-bm-other]")) setBenchmarkField("symbol", null, t.value);
+    else if(t.matches("[data-bm-rate]")) setBenchmarkField("rate", null, t.value);
+    else if(t.matches("[data-bm-price]")) setBenchmarkField("price", t.getAttribute("data-bm-price"), t.value);
+    // v3.36.0: targets.
+    else if(t.matches("[data-goal-kind]")){
+      var catSel = benchmarksBody.querySelector("[data-goal-category]");
+      if(catSel) catSel.hidden = t.value !== "categorySpend";
+      return;
+    }
+    else if(t.matches("[data-goal-category]")) return;
+    else if(t.matches("[data-goal-target]")) setGoalField(Number(t.getAttribute("data-goal-target")), "target", t.value);
+    else if(t.matches("[data-goal-by]")) setGoalField(Number(t.getAttribute("data-goal-by")), "by", t.value);
+    // v3.37.0: suburb figures.
+    else if(t.matches("[data-pm-field]")) setPropertyMarketField(t.getAttribute("data-pm-id"), t.getAttribute("data-pm-field"), t.value);
+    else return;
+    renderBenchmarks();
+  });
+  // "Other ASX code…": show the code field without changing the stored symbol until one is typed.
+  function renderBenchmarksOther(){
+    var sel = benchmarksBody.querySelector("[data-bm-symbol]");
+    if(!sel || benchmarksBody.querySelector("[data-bm-other]")) return;
+    sel.closest("label").insertAdjacentHTML("afterend", '<label>ASX code <input type="text" data-bm-other maxlength="8" style="width:80px;text-transform:uppercase" placeholder="A200"></label>');
+    benchmarksBody.querySelector("[data-bm-other]").focus();
+  }
+  benchmarksBody.addEventListener("click", function(e){
+    if(e.target.closest("[data-bm-copy]")){ copyBenchmarkTemplateToClipboard(); return; }
+    if(e.target.closest("[data-goal-add]")){
+      var kind = benchmarksBody.querySelector("[data-goal-kind]").value;
+      var cat = benchmarksBody.querySelector("[data-goal-category]").value;
+      if(addGoal(kind, cat) === false){ showToast("Add a category first (Accounts → Categories)"); return; }
+      renderBenchmarks();
+      var inputs = benchmarksBody.querySelectorAll("[data-goal-target]");
+      if(inputs.length){ inputs[inputs.length - 1].focus(); inputs[inputs.length - 1].select(); }
+      return;
+    }
+    var goalDel = e.target.closest("[data-goal-del]");
+    if(goalDel){
+      var idx = Number(goalDel.getAttribute("data-goal-del"));
+      var removed = removeGoal(idx);
+      renderBenchmarks();
+      if(removed) showUndoToast("Target removed", function(){ state.goals.splice(idx, 0, removed); persist(); renderBenchmarks(); });
+      return;
+    }
+    if(e.target.closest("[data-bm-paste-apply]")){
+      var area = benchmarksBody.querySelector("[data-bm-paste]");
+      var n = applyBenchmarkPaste(area ? area.value : "");
+      showToast(n ? n + " benchmark price" + (n === 1 ? "" : "s") + " saved" : "No benchmark rows found — each line needs a symbol like IOZ@2024-03-01 and a price");
+      if(n) renderBenchmarks();
+    }
+  });
+
   // v3.34.0: the projection, every year, as a CSV.
   document.addEventListener("click", function(e){
     if(e.target.closest("#projCsvBtn")) exportProjectionCsv(projectionSeriesShown(), state.projection.realTerms !== false);

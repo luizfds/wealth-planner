@@ -758,3 +758,63 @@ test("projection milestones: round amounts, loans gone, and who overtakes whom",
   assert.match(html, /<b>Buy<\/b> overtakes Renting in year 2/);
   assert.equal(projectionMilestonesHtml([], true), "");
 });
+
+test("benchmarks: how you compare, with and without an age", async function(){
+  const { householdCompareHtml } = await import("../src/components/benchmarks.js");
+  const html = householdCompareHtml({
+    people: [{ name: "Luiz", age: 37, super: 140000, hasSuper: true }, { name: "Mariana", age: null, super: 50000, hasSuper: true }],
+    oldestAge: 37, netWorth: 600000, totalSuper: 190000, couple: true, savingsRate: 0.2,
+    housing: { share: 0.25, ref: 0.199, tenure: "renters" }, scenario: "Renting"
+  });
+  assert.match(html, /Luiz's super <small>age 37/);
+  assert.match(html, /2\.1× the median for ages 35–39/);
+  assert.match(html, /Add Mariana's date of birth/);
+  assert.match(html, /\$730,000 ASFA says a couple/);
+  assert.match(html, /the average household led by someone 35–39/);
+  assert.match(html, /Australian households saved 6\.5%/);
+  assert.match(html, /Australian renters spent 19\.9%/);
+  assert.match(householdCompareHtml({ people: [], oldestAge: null, netWorth: 0, totalSuper: 0, couple: false, savingsRate: null, housing: null }), /Add income, super/);
+});
+
+test("benchmarks: investments against an index, prices missing then present", async function(){
+  const { investmentsHtml } = await import("../src/components/benchmarks.js");
+  const base = { symbol: "IOZ", today: "2026-10-18", flows: [{ date: "2024-01-02", amount: -10000 }], value: 12000, invested: 10000, withdrawn: 0,
+    included: ["VAS"], excluded: ["Old"], firstDate: "2024-01-02", myRate: 0.068, fixedRate: 0.07, fixedValue: 12100, dates: ["2024-01-02"], prices: {} };
+  const missing = investmentsHtml(Object.assign({}, base, { index: { missing: ["2024-01-02", "today"] }, indexRate: null }));
+  assert.match(missing, /IOZ prices — 2 of 2 still needed/);
+  assert.match(missing, /data-bm-price="2024-01-02"/);
+  assert.match(missing, /Not included \(no purchase lots\): Old/);
+  const done = investmentsHtml(Object.assign({}, base, { index: { value: 12600, units: 300 }, indexRate: 0.09, prices: { "2024-01-02": 33.3, now: 42 } }));
+  assert.match(done, /Same money in IOZ/);
+  assert.match(done, /\$600 behind IOZ<\/b>/);
+  assert.match(investmentsHtml(Object.assign({}, base, { flows: [] })), /Add purchase lots/);
+});
+
+test("benchmarks: targets with progress, statuses and the add form", async function(){
+  const { targetsHtml } = await import("../src/components/benchmarks.js");
+  const html = targetsHtml({ scenario: "Renting", categories: ["Dining", "Groceries"], goals: [
+    { goal: { kind: "savingsRate", target: 0.25 }, progress: { current: 0.2, target: 0.25, pct: 0.8, status: "behind" } },
+    { goal: { kind: "netWorth", target: 1000000, by: "2030-06-30" }, progress: { current: 500000, target: 1000000, pct: 0.5, status: "on-track", projected: 1100000 } },
+    { goal: { kind: "categorySpend", category: "Dining", target: 800 }, progress: { current: 900, target: 800, pct: 1.125, status: "over", pace: 400 } }
+  ]});
+  assert.match(html, /Savings rate<\/span><span class="goal-status ">Not yet/);
+  assert.match(html, /value="25" aria-label="Target %"/);
+  assert.match(html, /Renting projects \$1,100,000 by then/);
+  assert.match(html, /Dining <small>per month<\/small>/);
+  assert.match(html, /goal-status bad">Over/);
+  assert.match(html, /<option value="Groceries">Groceries<\/option>/);
+  assert.match(targetsHtml({ scenario: "R", categories: [], goals: [] }), /Set targets of your own/);
+});
+
+test("benchmarks: property against its suburb", async function(){
+  const { propertyMarketHtml } = await import("../src/components/benchmarks.js");
+  const html = propertyMarketHtml({ properties: [{ id: "p1", name: "48 Henty Dr", kind: "IP", value: 630000, purchaseDate: "2025-03-01", hasPurchase: true,
+    mine: { growthPa: 0.08, yield: 0.041, rentWeekly: 500 }, market: { suburb: "Redbank Plains QLD", growthPa: 6.5, rentWeekly: 550 },
+    cmp: { growth: { mine: 0.08, market: 0.065, diff: 0.015 }, rent: { mine: 500, market: 550, ratio: 500 / 550 } } }] });
+  assert.match(html, /48 Henty Dr/);
+  assert.match(html, /value="Redbank Plains QLD"/);
+  assert.match(html, /ahead of the suburb by 1\.5% a year/);
+  assert.match(html, /9\.1% below the median rent/);
+  assert.match(html, /data-pm-field="yield" value=""/);
+  assert.match(propertyMarketHtml({ properties: [] }), /Add a property/);
+});

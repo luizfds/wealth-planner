@@ -305,3 +305,52 @@ export var TAX_YEARS = {
   }
 };
 export var MLS_RATES = [0, 0.01, 0.0125, 0.015];
+
+// ---------------- Household benchmarks (v3.35.0) ----------------
+// Published Australian figures the Insights "How you compare" card measures against. Each carries
+// its source and the period it describes, and the card prints both — a comparison is only as good
+// as the date on it. Refresh once a year; ROADMAP item 67 lists where each comes from.
+export var BENCHMARKS = {
+  // ATO data via ASFA, "Superannuation account balances by age and gender" (October 2025),
+  // balances at 30 June 2023, people with a balance (nil balances excluded). All persons.
+  super: {
+    source: "ATO via ASFA, balances at 30 June 2023", url: "https://www.superannuation.asn.au/wp-content/uploads/2025/12/Account-Balances-Paper_v3-5.pdf",
+    bands: [
+      { from: 18, to: 24, median: 5170, average: 8614 },
+      { from: 25, to: 29, median: 19187, average: 25943 },
+      { from: 30, to: 34, median: 38525, average: 51190 },
+      { from: 35, to: 39, median: 65491, average: 86223 },
+      { from: 40, to: 44, median: 93351, average: 125332 },
+      { from: 45, to: 49, median: 121924, average: 170774 },
+      { from: 50, to: 54, median: 147857, average: 222491 },
+      { from: 55, to: 59, median: 169146, average: 281921 },
+      { from: 60, to: 64, median: 189618, average: 355451 },
+      { from: 65, to: 69, median: 208143, average: 420934 },
+      { from: 70, to: 74, median: 215009, average: 476268 },
+      { from: 75, to: 200, median: 182484, average: 492198 }
+    ]
+  },
+  // ABS, Household Income and Wealth, Australia, 2019-20 — still the latest: the ABS has said no
+  // wealth outputs will come from the 2023-24 survey. Mean net worth by age of the household's
+  // reference person; the overall median was $579,200 against a mean of $1,042,000.
+  netWorth: {
+    source: "ABS Household Income and Wealth, 2019-20 (mean, by age of reference person)",
+    url: "https://www.abs.gov.au/statistics/economy/finance/household-income-and-wealth-australia/latest-release",
+    overallMedian: 579200, overallMean: 1042000,
+    bands: [
+      { from: 15, to: 19, mean: 129000 }, { from: 20, to: 24, mean: 82000 }, { from: 25, to: 29, mean: 242000 },
+      { from: 30, to: 34, mean: 441000 }, { from: 35, to: 39, mean: 555000 }, { from: 40, to: 44, mean: 841000 },
+      { from: 45, to: 49, mean: 1055000 }, { from: 50, to: 54, mean: 1212000 }, { from: 55, to: 59, mean: 1453000 },
+      { from: 60, to: 64, mean: 1601000 }, { from: 65, to: 69, mean: 1835000 }, { from: 70, to: 74, mean: 1509000 },
+      { from: 75, to: 200, mean: 1167000 }
+    ]
+  },
+  // ABS, Australian National Accounts: National Income, Expenditure and Product, June 2026 —
+  // household saving as a share of disposable income, seasonally adjusted.
+  savingRatio: { value: 0.065, source: "ABS national accounts, June quarter 2026", url: "https://www.abs.gov.au/statistics/economy/national-accounts/australian-national-accounts-national-income-expenditure-and-product/latest-release" },
+  // ABS, Housing Occupancy and Costs, 2019-20 — housing costs as a share of gross household income.
+  housingShare: { renters: 0.199, mortgage: 0.155, all: 0.136, source: "ABS Housing Occupancy and Costs, 2019-20" },
+  // ASFA Retirement Standard (March 2026 update): lump sum at 67 for a comfortable / modest
+  // retirement, assuming you own your home.
+  retirement: { comfortable: { single: 630000, couple: 730000 }, modest: { single: 110000, couple: 120000 }, source: "ASFA Retirement Standard, March 2026", url: "https://www.superannuation.asn.au/" }
+};

@@ -758,3 +758,34 @@ test("projection milestones: round amounts, loans gone, and who overtakes whom",
   assert.match(html, /<b>Buy<\/b> overtakes Renting in year 2/);
   assert.equal(projectionMilestonesHtml([], true), "");
 });
+
+test("benchmarks: how you compare, with and without an age", async function(){
+  const { householdCompareHtml } = await import("../src/components/benchmarks.js");
+  const html = householdCompareHtml({
+    people: [{ name: "Luiz", age: 37, super: 140000, hasSuper: true }, { name: "Mariana", age: null, super: 50000, hasSuper: true }],
+    oldestAge: 37, netWorth: 600000, totalSuper: 190000, couple: true, savingsRate: 0.2,
+    housing: { share: 0.25, ref: 0.199, tenure: "renters" }, scenario: "Renting"
+  });
+  assert.match(html, /Luiz's super <small>age 37/);
+  assert.match(html, /2\.1× the median for ages 35–39/);
+  assert.match(html, /Add Mariana's date of birth/);
+  assert.match(html, /\$730,000 ASFA says a couple/);
+  assert.match(html, /the average household led by someone 35–39/);
+  assert.match(html, /Australian households saved 6\.5%/);
+  assert.match(html, /Australian renters spent 19\.9%/);
+  assert.match(householdCompareHtml({ people: [], oldestAge: null, netWorth: 0, totalSuper: 0, couple: false, savingsRate: null, housing: null }), /Add income, super/);
+});
+
+test("benchmarks: investments against an index, prices missing then present", async function(){
+  const { investmentsHtml } = await import("../src/components/benchmarks.js");
+  const base = { symbol: "IOZ", today: "2026-10-18", flows: [{ date: "2024-01-02", amount: -10000 }], value: 12000, invested: 10000, withdrawn: 0,
+    included: ["VAS"], excluded: ["Old"], firstDate: "2024-01-02", myRate: 0.068, fixedRate: 0.07, fixedValue: 12100, dates: ["2024-01-02"], prices: {} };
+  const missing = investmentsHtml(Object.assign({}, base, { index: { missing: ["2024-01-02", "today"] }, indexRate: null }));
+  assert.match(missing, /IOZ prices — 2 of 2 still needed/);
+  assert.match(missing, /data-bm-price="2024-01-02"/);
+  assert.match(missing, /Not included \(no purchase lots\): Old/);
+  const done = investmentsHtml(Object.assign({}, base, { index: { value: 12600, units: 300 }, indexRate: 0.09, prices: { "2024-01-02": 33.3, now: 42 } }));
+  assert.match(done, /Same money in IOZ/);
+  assert.match(done, /\$600 behind IOZ<\/b>/);
+  assert.match(investmentsHtml(Object.assign({}, base, { flows: [] })), /Add purchase lots/);
+});

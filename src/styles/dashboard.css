@@ -206,3 +206,10 @@
   .cf-col-empty .cf-stack{ align-items:center; }
   .cf-nolog{ color: var(--ink-soft); opacity:.5; font-size:16px; line-height:1; }
   .cf-legend{ margin-top:10px; }
+
+  /* v3.32.1 — one ⋯ instead of three icon buttons, so the scenario name gets the header. */
+  .card-overflow-btn{ width:32px; height:32px; font-size:16px; }
+  .card-overflow .page-overflow-menu{ top:36px; min-width:140px; }
+  .card-overflow .page-overflow-menu[hidden]{ display:none; }
+  .menu-danger{ color: var(--bad) !important; }
+  .card-name{ font-size:14px; }

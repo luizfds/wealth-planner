@@ -109,7 +109,8 @@ export function staleAssets(){
     var hist = a.history;
     var lastDate = hist && hist.length ? hist[hist.length - 1].date : null;
     var days = lastDate ? Math.floor((todayMs - new Date(lastDate + "T00:00:00").getTime()) / (24 * 60 * 60 * 1000)) : null;
-    if(days == null || days >= STALE_DAYS) result.push({ what: a.what, days: days });
+    // label (v3.32.1): two people's "Superannuation" were indistinguishable in the banner.
+    if(days == null || days >= STALE_DAYS) result.push({ what: a.what, label: a.person ? a.what + " — " + a.person : a.what, days: days });
   });
   return result;
 }

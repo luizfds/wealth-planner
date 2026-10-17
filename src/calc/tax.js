@@ -153,15 +153,25 @@ export function saleCapitalGain(sale){
   if(out.heldDays == null) out.heldDays = 0;
   return out;
 }
-// Every sale recorded against this person's assets, within the window if one is given.
+// The year's capital gains for one person, netted the way a return nets them (ATO method
+// statement, CGT schedule): every capital loss for the year — then losses carried forward from
+// earlier years — comes off gains that DON'T get the discount first, then off gains that do, and
+// only what's left of the discountable gains is halved. Doing it the other way round (discount each
+// sale, then subtract losses) wastes half of every loss set against a discounted gain.
 //
-// Losses are netted against gains BEFORE the discount in the real rules; this applies the discount
-// per sale instead, which is the simplification the rest of this engine is built on and is stated
-// in the UI. It differs only when a discounted gain and a loss land in the same year.
+// Gains come from recorded sales (split into discountable / not by each parcel's holding period)
+// and from fund tax statements (18H, of which "other method" isn't discountable). If losses are
+// bigger than gains, what's left is a net capital loss to carry forward — never deducted from
+// other income, and never discounted.
+//
+// opts: {from, to} bounds the sales, {funds} is the person's personFundStatements() for the same
+// window (passed in so computePersonTax doesn't work it out twice), {priorLosses} overrides the
+// carried-forward figure in the person's tax settings.
 export function personCapitalGains(person, opts){
   opts = opts || {};
   var people = getTaxPeople();
-  var total = { assessable: 0, raw: 0, discounted: 0, sales: [] };
+  var sales = [];
+  var discountable = 0, other = 0, losses = 0;
   state.assets.forEach(function(a){
     if(!Array.isArray(a.sales) || !a.sales.length) return;
     if(a.person ? a.person !== person : people.length > 1) return;
@@ -169,16 +179,45 @@ export function personCapitalGains(person, opts){
       if(opts.from && sale.date < opts.from) return;
       if(opts.to && sale.date > opts.to) return;
       var g = saleCapitalGain(sale);
-      total.raw += g.raw;
-      total.assessable += g.assessable;
-      if(g.discountApplied) total.discounted += g.raw - g.assessable;
-      total.sales.push({ what: a.what, date: sale.date, gain: g });
+      discountable += g.discountableGain;
+      other += g.otherGain;
+      losses += g.loss;
+      sales.push({ what: a.what, date: sale.date, gain: g });
     });
   });
-  total.raw = Math.round(total.raw * 100) / 100;
-  total.assessable = Math.round(total.assessable * 100) / 100;
-  total.discounted = Math.round(total.discounted * 100) / 100;
-  return total;
+  var f = opts.funds;
+  if(f){
+    discountable += f.capitalGainDiscountable;
+    other += f.capitalGainOther;
+  }
+  var settings = state.tax && state.tax.settings && state.tax.settings[person];
+  var prior = opts.priorLosses != null ? Math.max(0, Number(opts.priorLosses) || 0)
+    : Math.max(0, Number(settings && settings.capitalLossCarriedForward) || 0);
+  var totalGains = round2(discountable + other);
+  var available = losses + prior;
+  var offOther = Math.min(available, other);
+  available -= offOther;
+  var offDiscountable = Math.min(available, discountable);
+  available -= offDiscountable;
+  var discountableLeft = discountable - offDiscountable;
+  var discount = discountableLeft * CGT_DISCOUNT;
+  var net = round2((other - offOther) + discountableLeft - discount);
+  // Losses used: current-year losses first, then the prior ones, so what's carried forward out is
+  // whatever remains of either.
+  var used = offOther + offDiscountable;
+  return {
+    assessable: net,
+    // 18H on a return: the year's gains before losses and the discount.
+    totalGains: totalGains,
+    raw: round2(totalGains - losses),
+    discounted: round2(discount),
+    currentLosses: round2(losses),
+    priorLossesApplied: round2(Math.max(0, used - losses)),
+    lossCarriedForward: round2(available),
+    discountableGain: round2(discountable),
+    otherGain: round2(other),
+    sales: sales
+  };
 }
 
 // ---------------- Dividends & franking credits ----------------
@@ -692,13 +731,15 @@ export function personIncomeBreakdown(person, opts){
 
 export function personTaxSettings(person){
   if(!state.tax.settings[person]){
-    state.tax.settings[person] = { superSacrificeAnnual: 0, concessionalCap: 30000, carryForward: 0, helpBalance: 0 };
+    state.tax.settings[person] = { superSacrificeAnnual: 0, concessionalCap: 30000, carryForward: 0, helpBalance: 0, capitalLossCarriedForward: 0 };
   }
   // Back-fill for a settings object saved before a field existed, rather than only seeding on
   // first creation — otherwise an existing person keeps `undefined` forever and every read has to
   // guard for it.
   var st = state.tax.settings[person];
   if(st.helpBalance == null) st.helpBalance = 0;
+  // Net capital losses from earlier years (v3.23.0), as shown on last year's notice of assessment.
+  if(st.capitalLossCarriedForward == null) st.capitalLossCarriedForward = 0;
   return st;
 }
 
@@ -736,9 +777,9 @@ export function computePersonTax(person, opts){
   // the year it happened in — unlike every other figure here, which is a rate, a sale is a
   // one-off, and carrying last year's sale into this year's estimate would be plainly wrong.
   var cgtWindow = taxYearWindow;
-  var capitalGains = personCapitalGains(person, { from: cgtWindow.start, to: cgtWindow.end });
+  var capitalGains = personCapitalGains(person, { from: cgtWindow.start, to: cgtWindow.end, funds: funds });
   var taxable = Math.max(0, gross - sacrifice + ipShare - deductions + dividends.grossedUp + funds.income +
-    capitalGains.assessable + funds.capitalGainNet);
+    capitalGains.assessable);
   var incomeTax = incomeTaxAU(taxable);
   var medicare = medicareLevyAU(taxable);
   // HELP repayment income is deliberately NOT taxable income. It adds back the two things the tax
@@ -816,6 +857,8 @@ export function computePersonTax(person, opts){
     deductions: deductions,
     capitalGains: capitalGains.assessable, capitalGainsRaw: capitalGains.raw,
     capitalGainsDiscount: capitalGains.discounted, capitalGainSales: capitalGains.sales,
+    capitalGainsTotal: capitalGains.totalGains, capitalLossesApplied: capitalGains.currentLosses + capitalGains.priorLossesApplied,
+    capitalLossCarriedForward: capitalGains.lossCarriedForward, priorCapitalLossesApplied: capitalGains.priorLossesApplied,
     capitalGainsYear: cgtWindow.label,
     dividendCash: dividends.cash, frankingCredit: dividends.credit, dividendGrossedUp: dividends.grossedUp,
     funds: funds, fundIncome: funds.income, fundFrankingCredit: funds.credit, fito: fito,

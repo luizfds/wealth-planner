@@ -10,7 +10,8 @@ import { BENCHMARKS } from "../constants.js";
 import { getTaxPeople, computePersonTax, ageOnDate } from "../calc/tax.js";
 import { scenarioTotals, totalNetWorthValue, toAudAmount } from "../calc/engine.js";
 import { periodsOf } from "../calc/ledger.js";
-import { superComparison, netWorthComparison, retirementComparison, housingComparison, relativeText } from "../calc/benchmarks.js";
+import { superComparison, netWorthComparison, retirementComparison, housingComparison, relativeText, cagr, propertyMarketComparison } from "../calc/benchmarks.js";
+import { sumField } from "../calc/ledger.js";
 import { shareFlows, xirr, fixedRateValue, indexValue, priceDatesNeeded, benchmarkPriceOn, parseBenchmarkSymbol, setBenchmarkPrice } from "../calc/performance.js";
 import { persist, genId } from "../state.js";
 import { GOAL_KINDS, goalKindInfo, goalProgress, monthFraction } from "../calc/goals.js";
@@ -331,6 +332,65 @@ export function removeGoal(i){
   return g;
 }
 
+// ---------------- Property against its suburb (item 70) ----------------
+// The suburb figures are typed in from wherever you trust (CoreLogic, Domain, realestate.com.au
+// suburb profiles, your agent's appraisal) with where and when — the app never fetches them.
+export function gatherPropertyMarket(){
+  var today = localDateStr();
+  return { properties: state.properties.map(function(p){
+    var value = Number(p.value) || 0;
+    var rentYearly = p.kind === "IP" ? sumField(p.income || [], "yearly") : 0;
+    var mine = {
+      growthPa: cagr(p.purchasePrice, p.purchaseDate, value, today),
+      yield: p.kind === "IP" && value > 0 && rentYearly > 0 ? rentYearly / value : null,
+      rentWeekly: rentYearly / 52
+    };
+    return { id: p.id, name: p.what || "Property", kind: p.kind, value: value, purchaseDate: p.purchaseDate || "",
+      hasPurchase: Number(p.purchasePrice) > 0 && !!p.purchaseDate, mine: mine, market: p.market || {},
+      cmp: propertyMarketComparison(mine, p.market) };
+  }) };
+}
+function pp(v){ return v == null ? "—" : (v < 0 ? "−" : "") + fmtPercent1.format(Math.abs(v)); }
+function marketInput(id, field, value, attrs){
+  return '<input type="' + (attrs.type || "number") + '" data-pm-id="' + esc(id) + '" data-pm-field="' + field + '" value="' + esc(value == null ? "" : value) + '"' +
+    (attrs.step ? ' step="' + attrs.step + '"' : '') + (attrs.placeholder ? ' placeholder="' + esc(attrs.placeholder) + '"' : '') + ' aria-label="' + esc(attrs.label) + '">';
+}
+export function propertyMarketHtml(d){
+  if(!d.properties.length) return '<p class="fire-note">Add a property and this compares its growth, yield and rent with its suburb.</p>';
+  return d.properties.map(function(p){
+    var m = p.market, c = p.cmp, rows = [];
+    var growthVerdict = c.growth ? (c.growth.diff >= 0 ? "ahead of" : "behind") + " the suburb by " + pp(Math.abs(c.growth.diff)) + " a year" : "";
+    rows.push('<div class="pm-row"><span class="pm-label">Growth a year</span><span class="pm-mine">' + (p.hasPurchase ? pp(p.mine.growthPa) : '<i>add purchase price and date</i>') +
+      '</span><span class="pm-market">' + marketInput(p.id, "growthPa", m.growthPa, { step: "0.1", placeholder: "e.g. 6.5", label: "Suburb median growth % a year" }) + ' %</span>' +
+      (growthVerdict ? '<span class="pm-verdict ' + (c.growth.diff >= 0 ? "good" : "low") + '">' + growthVerdict + '</span>' : '') + '</div>');
+    if(p.kind === "IP"){
+      var yieldVerdict = c.yield ? (c.yield.diff >= 0 ? "above" : "below") + " the suburb by " + pp(Math.abs(c.yield.diff)) : "";
+      rows.push('<div class="pm-row"><span class="pm-label">Gross yield</span><span class="pm-mine">' + pp(p.mine.yield) +
+        '</span><span class="pm-market">' + marketInput(p.id, "yield", m.yield, { step: "0.1", placeholder: "e.g. 4.2", label: "Suburb median gross yield %" }) + ' %</span>' +
+        (yieldVerdict ? '<span class="pm-verdict ' + (c.yield.diff >= 0 ? "good" : "low") + '">' + yieldVerdict + '</span>' : '') + '</div>');
+      var rentVerdict = c.rent ? (c.rent.ratio >= 1 ? fmtPercent1.format(c.rent.ratio - 1) + " above" : fmtPercent1.format(1 - c.rent.ratio) + " below") + " the median rent" : "";
+      rows.push('<div class="pm-row"><span class="pm-label">Rent a week</span><span class="pm-mine">' + (p.mine.rentWeekly > 0 ? fmtCurrency0.format(p.mine.rentWeekly) : "—") +
+        '</span><span class="pm-market">$ ' + marketInput(p.id, "rentWeekly", m.rentWeekly, { step: "5", placeholder: "e.g. 580", label: "Suburb median weekly rent" }) + '</span>' +
+        (rentVerdict ? '<span class="pm-verdict ' + (c.rent.ratio >= 1 ? "good" : "low") + '">' + rentVerdict + '</span>' : '') + '</div>');
+    }
+    return '<div class="pm-prop"><div class="pm-head"><b>' + esc(p.name) + '</b>' +
+        marketInput(p.id, "suburb", m.suburb, { type: "text", placeholder: "Suburb, e.g. Springfield QLD", label: "Suburb" }) + '</div>' +
+      '<div class="pm-cols"><span></span><span>Yours</span><span>Suburb median</span><span></span></div>' + rows.join("") +
+      '<div class="pm-source">Source ' + marketInput(p.id, "source", m.source, { type: "text", placeholder: "CoreLogic, Domain…", label: "Where the suburb figures are from" }) +
+        ' as of ' + marketInput(p.id, "asOf", m.asOf, { type: "month", label: "Month the suburb figures describe" }) + '</div>' +
+      (p.hasPurchase ? '<p class="bm-source">Yours: from the purchase price on ' + esc(p.purchaseDate) + ' to today\'s value, compounded. Compare it with the suburb\'s rate over a similar stretch.</p>' : '') +
+    '</div>';
+  }).join("");
+}
+export function setPropertyMarketField(id, field, value){
+  var p = state.properties.find(function(x){ return x.id === id; });
+  if(!p) return;
+  if(!p.market || typeof p.market !== "object") p.market = {};
+  if(value === "" || value == null) delete p.market[field];
+  else p.market[field] = ["growthPa", "yield", "rentWeekly"].indexOf(field) !== -1 ? Number(value) : String(value);
+  persist();
+}
+
 // ---------------- Render ----------------
 var SECTIONS = [];
 // Later sections register themselves here (investments, targets, property) so the page order is
@@ -344,6 +404,9 @@ registerBenchmarkSection({ id: "investments", title: "Your shares against the ma
 
 registerBenchmarkSection({ id: "targets", title: "Your targets", sub: "goals you set",
   html: function(){ return targetsHtml(gatherTargets()); } });
+
+registerBenchmarkSection({ id: "property", title: "Property against its suburb", sub: "growth, yield and rent",
+  html: function(){ return propertyMarketHtml(gatherPropertyMarket()); } });
 
 export function renderBenchmarks(){
   var el = document.getElementById("benchmarksBody");

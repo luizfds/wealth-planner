@@ -805,3 +805,16 @@ test("benchmarks: targets with progress, statuses and the add form", async funct
   assert.match(html, /<option value="Groceries">Groceries<\/option>/);
   assert.match(targetsHtml({ scenario: "R", categories: [], goals: [] }), /Set targets of your own/);
 });
+
+test("benchmarks: property against its suburb", async function(){
+  const { propertyMarketHtml } = await import("../src/components/benchmarks.js");
+  const html = propertyMarketHtml({ properties: [{ id: "p1", name: "1 Example St", kind: "IP", value: 630000, purchaseDate: "2025-03-01", hasPurchase: true,
+    mine: { growthPa: 0.08, yield: 0.041, rentWeekly: 500 }, market: { suburb: "Springfield QLD", growthPa: 6.5, rentWeekly: 550 },
+    cmp: { growth: { mine: 0.08, market: 0.065, diff: 0.015 }, rent: { mine: 500, market: 550, ratio: 500 / 550 } } }] });
+  assert.match(html, /1 Example St/);
+  assert.match(html, /value="Springfield QLD"/);
+  assert.match(html, /ahead of the suburb by 1\.5% a year/);
+  assert.match(html, /9\.1% below the median rent/);
+  assert.match(html, /data-pm-field="yield" value=""/);
+  assert.match(propertyMarketHtml({ properties: [] }), /Add a property/);
+});

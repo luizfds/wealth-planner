@@ -113,12 +113,42 @@ function propertyCostBase(property){
 // Current value vs. what was actually paid — distinct from the property's own history[] (a log of
 // *current* value over time, which for a property added well after the actual purchase starts
 // from whatever day it was first logged, never the real purchase price).
-export function propertyCapitalGain(property){
+// Capital works deductions claimed since purchase come off the CGT cost base — for a property
+// acquired after 7:30pm on 13 May 1997 (s 110-45(1B) ITAA 1997). Every dollar of building
+// depreciation claimed is a dollar more capital gain on sale, so leaving it out understates the
+// gain by the whole sum of the deductions. Counted to `todayStr`: whole financial years from the
+// one the property was bought in, plus the elapsed share of the current one. Plant isn't part of
+// this — it's a separate asset with its own (Division 40) treatment.
+//
+// Needs a purchase date: without one there's no telling how many years have been claimed, and
+// guessing would move the gain by thousands, so it returns 0 and the card says why.
+export var CGT_CAPITAL_WORKS_REDUCTION_FROM = "1997-05-13";
+export function capitalWorksClaimedToDate(property, todayStr){
+  var bought = property && property.purchaseDate;
+  if(!bought || bought < CGT_CAPITAL_WORKS_REDUCTION_FROM) return 0;
+  var today = todayStr || localDateStr();
+  if(bought > today) return 0;
+  var total = 0;
+  for(var fy = financialYearOf(bought); fy <= financialYearOf(today); fy++){
+    var amt = propertyDepreciationForFy(property, fy).capitalWorks;
+    var w = fyWindow(fy);
+    if(today < w.end){
+      amt = amt * overlapDaysInclusive(w.start, today, w.start, today) / overlapDaysInclusive(w.start, w.end, w.start, w.end);
+    }
+    total += amt;
+  }
+  return Math.round(total * 100) / 100;
+}
+export function propertyCapitalGain(property, todayStr){
   var cost = propertyCostBase(property);
   if(cost == null) return null;
+  var reduction = capitalWorksClaimedToDate(property, todayStr);
+  var costBase = cost - reduction;
   var value = Number(property.value) || 0;
-  var gain = value - cost;
-  return { gain: gain, pct: gain / cost };
+  var gain = value - costBase;
+  // pct stays against what was actually paid: "how much has this grown" is a question about the
+  // money that went in, and a cost base shrunk by deductions would flatter it.
+  return { gain: gain, pct: gain / cost, costBase: costBase, capitalWorksReduction: reduction, paid: cost };
 }
 // Annual rent against what was paid, not against today's value (that's the existing gross-yield
 // badge) — a different question: "how is my original investment performing" vs. "would this be a

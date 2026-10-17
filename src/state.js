@@ -465,6 +465,9 @@ export function migrateState(s){
     // Second-hand plant (v3.18.0) — see calc/property.js plantIsClaimable(). Defaults to false so an
     // existing save's figures don't move; the field's own note says when it applies.
     if(p.plantSecondHand == null) p.plantSecondHand = false;
+    // A quantity surveyor's year-by-year table (v3.19.0): [{fy, capitalWorks, plant}], fy = the
+    // calendar year the financial year starts in. Empty = use the formula. See calc/property.js.
+    if(!Array.isArray(p.depreciationSchedule)) p.depreciationSchedule = [];
     p.acquisitionCosts.forEach(function(c){
       if(c.id == null) c.id = genId("ac");
       if(c.what == null) c.what = "";

@@ -1,7 +1,7 @@
 import { state, persist } from "../state.js";
 import {
   propertyEquityToday, propertyGearingAnnual, propertyLoanRepaymentMonthly, loanRepaymentDisplay,
-  capitalWorksAnnual, plantDepreciationAnnual,
+  capitalWorksAnnual, plantDepreciationAnnual, propertyDepreciationForWindow, financialYearOf, fyLabel,
   propertyCapitalGain, propertyYieldOnCost, propertyLVR, propertiesTotalValue, propertiesTotalEquityToday,
   propertiesTotalMortgageBalance, propertiesNetCashFlowMonthly, propertiesWeightedGrossYield,
   propertyOwnershipPct, propertyOwnershipTotal, propertyTaxDeductibleResultAnnual,
@@ -216,13 +216,41 @@ function acquisitionCostRowModernHtml(item, index, colorIdx){
 // Investment properties only: depreciation is a deduction against rental income, and a home you
 // live in doesn't have one. Rendering it on a PPOR would invite somebody to fill it in and then
 // wonder why nothing happened.
+// The quantity surveyor's year-by-year table. Each row is one financial year as printed in the
+// report; a year listed here is used as-is, and the formula fields above only fill the years it
+// doesn't list. The FY options run from the purchase year (or ten years back) to forty on, which
+// covers any report's horizon without a free-text year to mistype.
+function depreciationScheduleHtml(p){
+  var rows = Array.isArray(p.depreciationSchedule) ? p.depreciationSchedule : [];
+  var thisFy = financialYearOf(localDateStr());
+  var firstFy = p.purchaseDate ? financialYearOf(p.purchaseDate) : thisFy - 10;
+  var years = [];
+  for(var y = firstFy; y <= firstFy + 40; y++) years.push(y);
+  rows.forEach(function(r){ if(years.indexOf(Number(r.fy)) === -1) years.push(Number(r.fy)); });
+  years.sort(function(a, b){ return a - b; });
+  var rowsHtml = rows.map(function(r, i){
+    return '<div class="cc-row m-cost-row dep-sched-row" data-dep-sched-index="' + i + '">' +
+      '<select class="dep-sched-fy" data-dep-sched-index="' + i + '" aria-label="Financial year">' +
+        years.map(function(y){ return '<option value="' + y + '"' + (Number(r.fy) === y ? " selected" : "") + '>' + fyLabel(y) + '</option>'; }).join("") +
+      '</select>' +
+      '<input type="number" step="1" min="0" class="dep-sched-cw" data-dep-sched-index="' + i + '" value="' + (Number(r.capitalWorks) || 0) + '" aria-label="Capital works for ' + fyLabel(Number(r.fy)) + '" title="Capital works (Division 43) for this year, from the report">' +
+      '<input type="number" step="1" min="0" class="dep-sched-plant" data-dep-sched-index="' + i + '" value="' + (Number(r.plant) || 0) + '" aria-label="Plant and equipment for ' + fyLabel(Number(r.fy)) + '" title="Plant & equipment (Division 40) for this year, from the report">' +
+      '<button type="button" class="btn btn-ghost btn-sm row-del" data-dep-sched-del="' + i + '" aria-label="Delete ' + fyLabel(Number(r.fy)) + '">✕</button>' +
+    '</div>';
+  }).join("");
+  return '<div class="calc-costs-title" style="margin-top:14px">Quantity surveyor\'s schedule</div>' +
+    '<p class="ledger-note" style="margin-left:0">Year · capital works · plant, as printed in the report. A year listed here is used as-is; the fields above fill the years it doesn\'t list.</p>' +
+    (rows.length ? '<div class="m-card m-cost-rows">' + rowsHtml + '</div>' : "") +
+    '<button type="button" class="btn btn-sm btn-ghost" style="margin-top:8px" data-dep-sched-add="' + escapeAttr(p.id) + '">+ Add year</button>';
+}
 function depreciationSectionHtml(p){
-  var capitalWorks = capitalWorksAnnual(p);
-  var plant = plantDepreciationAnnual(p);
+  var thisYear = propertyDepreciationForWindow(p);
+  var capitalWorks = thisYear.capitalWorks;
+  var plant = thisYear.plant;
   var total = capitalWorks + plant;
   return propertySectionHtml(p, "depreciation",
     '<div class="property-section-title">Depreciation</div>' +
-      '<div class="property-section-total">' + fmtCurrency0.format(total) + '/yr</div>',
+      '<div class="property-section-total" title="' + escapeAttr(householdYearWindow().label) + '">' + fmtCurrency0.format(total) + '</div>',
     '<p class="ledger-note" style="margin-left:0">Usually the largest deduction on an investment property, and the only one that isn\'t money leaving your account — it reduces the taxable result without touching cash flow. A quantity surveyor\'s depreciation schedule is where these figures come from; entering guesses here produces a guess on your tax return.</p>' +
     '<div class="calc-grid">' +
       '<div class="calc-field" title="The original cost to BUILD, not what you paid for the property — land is not depreciable. Claimed at 2.5% a year for 40 years from completion."><label>Construction cost</label><input type="number" step="1000" min="0" class="prop-construction-cost" value="' + (Number(p.constructionCost) || 0) + '" placeholder="0"></div>' +
@@ -232,10 +260,11 @@ function depreciationSectionHtml(p){
         '<span class="computed-note">Bought under a contract after 9 May 2017? Then existing plant isn\'t claimable — your QS report still values it, for a capital loss when an item is replaced and for CGT on sale.</span></div>' +
       '<div class="calc-field" title="Averaged straight-line over this many years. A real schedule depreciates each item separately at its own rate; this app has no per-item register, so an average across the pool is closer to the truth than pretending to a precision it can\'t support."><label>Effective life (yrs)</label><input type="number" step="1" min="1" max="40" class="prop-plant-life" aria-label="Plant and equipment effective life in years" value="' + (Number(p.plantEffectiveLife) || 10) + '"></div>' +
     '</div>' +
+    depreciationScheduleHtml(p) +
     '<p class="ledger-note" style="margin-left:0">' +
       (total > 0
-        ? "Capital works " + fmtCurrency0.format(capitalWorks) + "/yr + plant " + fmtCurrency0.format(plant) + (p.plantSecondHand && Number(p.plantValue) > 0 ? " (second-hand, not claimable)" : "") +
-          "/yr = <b>" + fmtCurrency0.format(total) + "/yr</b> off this property's taxable result. Cash flow is unchanged."
+        ? householdYearWindow().label + (thisYear.source === "schedule" ? " (from the schedule)" : "") + ": capital works " + fmtCurrency0.format(capitalWorks) + " + plant " + fmtCurrency0.format(plant) + (p.plantSecondHand && Number(p.plantValue) > 0 ? " (second-hand, not claimable)" : "") +
+          " = <b>" + fmtCurrency0.format(total) + "</b> off this property's taxable result. Cash flow is unchanged."
         : "Nothing claimed yet — this property's taxable result is the same as its cash result.") +
     '</p>');
 }

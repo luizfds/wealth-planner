@@ -197,8 +197,90 @@ export function plantDepreciationAnnual(property){
   if(!value) return 0;
   return Math.round((value / life) * 100) / 100;
 }
+// ---------------- Depreciation for a year ----------------
+//
+// The two functions above are RATES — what a full year of ownership claims. A tax return needs what
+// a particular year actually claims, and the two differ in exactly the years people ask about:
+//
+//   - the first year, which only runs from the purchase date (a property bought on 31 January has
+//     151 days of FY24/25, not 365);
+//   - the year the 40-year capital works period ends;
+//   - any property with more than one building component — the original build and a later
+//     renovation each run their own 40 years from their own completion, so one constructionCost
+//     can't represent them.
+//
+// The last one has no good formula answer, and doesn't need one: a quantity surveyor's report
+// prints the claim for every year. So a property can carry that table (depreciationSchedule:
+// [{fy, capitalWorks, plant}], fy = the year the financial year starts in) and a year it lists is
+// taken from it verbatim. Years it doesn't list fall back to the formula, pro-rated by the days the
+// property was held and the capital works period was running.
+export function financialYearOf(iso){
+  var y = Number(String(iso).slice(0, 4)), m = Number(String(iso).slice(5, 7));
+  return m >= 7 ? y : y - 1;
+}
+export function fyLabel(fy){
+  return "FY" + String(fy % 100).padStart(2, "0") + "/" + String((fy + 1) % 100).padStart(2, "0");
+}
+export function fyWindow(fy){
+  return { start: fy + "-07-01", end: (fy + 1) + "-06-30", label: fyLabel(fy) };
+}
+function scheduleRowFor(property, fy){
+  var rows = Array.isArray(property && property.depreciationSchedule) ? property.depreciationSchedule : [];
+  for(var i = 0; i < rows.length; i++){ if(Number(rows[i].fy) === fy) return rows[i]; }
+  return null;
+}
+// One whole financial year's claim: { capitalWorks, plant, source }.
+export function propertyDepreciationForFy(property, fy){
+  var w = fyWindow(fy);
+  var row = scheduleRowFor(property, fy);
+  if(row){
+    return {
+      capitalWorks: Math.max(0, Number(row.capitalWorks) || 0),
+      plant: plantIsClaimable(property) ? Math.max(0, Number(row.plant) || 0) : 0,
+      source: "schedule"
+    };
+  }
+  var fyDays = overlapDaysInclusive(w.start, w.end, w.start, w.end);
+  var held = property && property.purchaseDate ? property.purchaseDate : "";
+  if(held && held > w.end) return { capitalWorks: 0, plant: 0, source: "formula" };
+  // Capital works runs 40 years from completion; the last claimable day is the day before the
+  // 40th anniversary. No construction date means no end, same as capitalWorksAnnual().
+  var cwRate = Math.round(Math.max(0, Number(property && property.constructionCost) || 0) * CAPITAL_WORKS_RATE * 100) / 100;
+  var cwLast = "";
+  if(property && property.constructionDate){
+    var p = property.constructionDate.split("-").map(Number);
+    cwLast = new Date(Date.UTC(p[0] + CAPITAL_WORKS_YEARS, p[1] - 1, p[2] - 1)).toISOString().slice(0, 10);
+  }
+  var cwDays = overlapDaysInclusive(w.start, w.end, held || w.start, cwLast || w.end);
+  var plantDays = overlapDaysInclusive(w.start, w.end, held || w.start, w.end);
+  return {
+    capitalWorks: Math.round(cwRate * cwDays / fyDays * 100) / 100,
+    plant: Math.round(plantDepreciationAnnual(property) * plantDays / fyDays * 100) / 100,
+    source: "formula"
+  };
+}
+// Any window: each financial year it touches, weighted by the days it shares with the window. A
+// financial-year window is exactly one year's claim; a calendar year is half of two.
+export function propertyDepreciationForWindow(property, win){
+  win = win || householdYearWindow();
+  var out = { capitalWorks: 0, plant: 0, source: "formula" };
+  for(var fy = financialYearOf(win.start); fy <= financialYearOf(win.end); fy++){
+    var w = fyWindow(fy);
+    var shared = overlapDaysInclusive(w.start, w.end, win.start, win.end);
+    var fyDays = overlapDaysInclusive(w.start, w.end, w.start, w.end);
+    var d = propertyDepreciationForFy(property, fy);
+    out.capitalWorks += d.capitalWorks * shared / fyDays;
+    out.plant += d.plant * shared / fyDays;
+    if(d.source === "schedule") out.source = "schedule";
+  }
+  out.capitalWorks = Math.round(out.capitalWorks * 100) / 100;
+  out.plant = Math.round(out.plant * 100) / 100;
+  out.total = Math.round((out.capitalWorks + out.plant) * 100) / 100;
+  return out;
+}
+// This year's claim — what the tax result uses. `todayStr` picks the year (tests pin it).
 export function propertyDepreciationAnnual(property, todayStr){
-  return Math.round((capitalWorksAnnual(property, todayStr) + plantDepreciationAnnual(property)) * 100) / 100;
+  return propertyDepreciationForWindow(property, householdYearWindow(todayStr)).total;
 }
 
 // ---------------- Borrowing costs ----------------
@@ -231,10 +313,6 @@ function addYearsIso(iso, years){
   // ATO's spreadsheet too.
   var d = new Date(Date.UTC(p[0] + years, p[1] - 1, p[2]));
   return d.toISOString().slice(0, 10);
-}
-function financialYearOf(iso){
-  var y = Number(iso.slice(0, 4)), m = Number(iso.slice(5, 7));
-  return m >= 7 ? y : y - 1;
 }
 // The whole schedule, one entry per Australian financial year: [{fy, start, end, days, amount}].
 // Empty when there's nothing to spread (no costs, or no settlement date to spread them from).

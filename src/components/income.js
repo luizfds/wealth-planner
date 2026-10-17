@@ -8,6 +8,7 @@ import { escapeAttr } from "../lib/html.js";
 import { optionsHtml, historyTrendHtml, timingFieldsHtml, endDateNoteHtml, scenarioVaryNoteHtml, hasEnded } from "../lib/ledger-table.js";
 import { parseCsv } from "../lib/backup.js";
 import { injectScenarioOverrideButtons } from "./expenses.js";
+import { renderTaxYear } from "./taxyear.js";
 
 export function personBreakdownHtml(person){
   var r = computePersonTax(person);
@@ -563,6 +564,12 @@ export function renderTaxSuper(){
     '</div>';
   }).join("");
   container.innerHTML = html;
+  refreshOpenTaxYear();
+}
+// The worksheet reads the same figures, so when it's open it follows every recalculation.
+function refreshOpenTaxYear(){
+  var ledger = document.getElementById("taxYearLedger");
+  if(ledger && ledger.open) renderTaxYear();
 }
 
 function taxPersonHeadHtml(person, r, pi){
@@ -861,4 +868,5 @@ export function patchAllTaxPersonOutputs(){
   });
   var ipNote = document.querySelector("#taxSuperBody .ledger-note b");
   if(ipNote) ipNote.textContent = fmtCurrency0.format(ipNetResultAnnual());
+  refreshOpenTaxYear();
 }

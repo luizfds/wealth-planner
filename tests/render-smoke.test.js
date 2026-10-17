@@ -680,3 +680,23 @@ test("the annual tax statements section renders each statement's labelled fields
   assert.match(html, /data-stmt-del="3:0"/);
   assert.match(statementsSectionHtml({ taxStatements: [] }, 0), /\+ Add statement/);
 });
+
+// v3.26.0 — the tax return worksheet.
+import { taxYearHtml, worksheetText, evidenceItems, setTaxYearSelected } from "../src/components/taxyear.js";
+import { personYear } from "../src/calc/taxyear.js";
+
+test("the worksheet renders a card per person with its refund and document rows", function(){
+  var keep = { income: state.income, taxYears: state.taxYears, properties: state.properties, assets: state.assets };
+  try {
+    state.income = [{ what: "Pay", person: "Sam", incomeType: "Gross", amount: 100000, freq: "Yearly", superMode: "On top", sacrificeMode: "none" }];
+    state.properties = []; state.assets = []; state.taxYears = {};
+    setTaxYearSelected(2025);
+    personYear(2025, "Sam", true).incomeStatements = [{ payer: "Acme", gross: 100000, allowances: 0, withheld: 24000 }];
+    var html = taxYearHtml();
+    assert.match(html, /data-ty-card="Sam"/);
+    assert.match(html, /Estimated (refund|to pay)/);
+    assert.match(html, /data-ty-kind="is"[^>]*data-ty-key="payer"[^>]*value="Acme"/);
+    assert.match(worksheetText("Sam"), /Acme — tax withheld: \$24,000\.00/);
+    assert.ok(evidenceItems(2025).some(function(i){ return /income statement — Acme/.test(i.text); }));
+  } finally { Object.assign(state, keep); }
+});

@@ -874,3 +874,43 @@ test("the real FY25/26 return: ABC $***REMOVED*** discountable + IVV $***REMOVED
     assert.equal(Math.floor(g.assessable), ***REMOVED***);
   });
 });
+
+// ---------------- Deduction labels and the working-from-home fixed rate (v3.24.0) ----------------
+
+import { deductionsByLabel, wfhDeduction, wfhRateForFy, wfhOverlapRows } from "../src/calc/tax.js";
+
+test("claims are totalled by return label, unlabelled lines on D5", function(){
+  // The real FY25/26 return: D2 $***REMOVED***, D5 webcam $***, D10 $***, plus the Jul-Sep office rent.
+  var rows = [
+    deductibleRow("Work travel", ***REMOVED***, "Yearly", { deductionLabel: "D2" }),
+    deductibleRow("Webcam", 98, "Yearly"),
+    deductibleRow("Tax agent", 275, "Yearly", { deductionLabel: "D10" }),
+    deductibleRow("Rent", 720, "Weekly", { deductiblePct: 6.4, deductibleUntil: "2025-09-30" })
+  ];
+  withIncome([grossRow("Sam", 170000)], function(){
+    var by = deductionsByLabel("Sam", rows, FY2526);
+    assert.equal(by.D2, ***REMOVED***);
+    assert.equal(by.D10, 275);
+    assert.equal(by.D5, Math.round((98 + ***REMOVED***) * 100) / 100);
+  });
+});
+
+test("working from home: hours x the year's fixed rate", function(){
+  // ***REMOVED*** hours in FY25/26 at 70c = $***REMOVED***.
+  withIncome([grossRow("Sam", 170000)], function(){
+    state.tax.settings.Sam = { wfhHours: { 2025: ***REMOVED*** } };
+    var w = wfhDeduction("Sam", FY2526);
+    assert.equal(w.amount, ***REMOVED***);
+    assert.equal(w.assumed, false);
+    assert.equal(wfhDeduction("Sam", { start: "2026-07-01", end: "2027-06-30" }).amount, 0, "hours are a year's record");
+  });
+  assert.equal(wfhRateForFy(2023).rate, 0.67);
+  assert.deepEqual(wfhRateForFy(2030), { rate: 0.70, assumed: true });
+});
+
+test("lines the fixed rate already covers are picked out as possible double claims", function(){
+  var rows = [deductibleRow("NBN internet", 90, "Monthly"), deductibleRow("Mobile phone", 60, "Monthly"), deductibleRow("Webcam", 98, "Yearly")];
+  withIncome([grossRow("Sam", 170000)], function(){
+    assert.deepEqual(wfhOverlapRows("Sam", rows).map(function(r){ return r.what; }), ["NBN internet", "Mobile phone"]);
+  });
+});

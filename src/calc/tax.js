@@ -1,5 +1,5 @@
 import { state } from "../state.js";
-import { AU_TAX_BRACKETS, MAX_SUPER_BASE, HELP_REPAYMENT_RATES, MLS_TIERS, MLS_FAMILY_MULTIPLIER } from "../constants.js";
+import { AU_TAX_BRACKETS, MAX_SUPER_BASE, HELP_REPAYMENT_RATES, MLS_TIERS, MLS_FAMILY_MULTIPLIER, WFH_FIXED_RATES } from "../constants.js";
 import { periodsOf, resolveSharedAmount, householdYearWindow, isActiveOn, overlapDaysInclusive } from "./ledger.js";
 import { ipNetResultAnnual, personIpResultAnnual } from "./property.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
@@ -423,6 +423,56 @@ export function rowDeductionAnnual(item, win){
   var fraction = deductionYearFraction(item, win || householdYearWindow());
   return periodsOf(Number(item.amount) || 0, item.freq).yearly * (pct / 100) * fraction;
 }
+// The year's claims grouped by return label: {D2: ***REMOVED***, D5: ***REMOVED***, ...}. A row with no label is
+// D5, the label most employee claims belong on.
+export function deductionsByLabel(person, items, win){
+  var out = {};
+  deductionRows(items, person).forEach(function(item){
+    var code = item.deductionLabel || "D5";
+    out[code] = (out[code] || 0) + rowDeductionAnnual(item, win);
+  });
+  Object.keys(out).forEach(function(k){ out[k] = Math.round(out[k] * 100) / 100; });
+  return out;
+}
+
+// ---------------- Working from home: the fixed-rate method ----------------
+//
+// The method nearly every employee uses: hours actually worked from home x a rate per hour that
+// covers energy, internet, phone and stationery. The hours are a record kept during the year (a
+// timesheet or diary — an estimate isn't accepted), so they're entered per financial year rather
+// than as a rate that rolls forward. The amount lands on D5.
+//
+// The rate covers those running costs, so a budget line for any of them that's ALSO flagged as a
+// deduction is a double claim; wfhOverlapRows() finds the likely ones by name so the card can say so.
+export function wfhRateForFy(fy){
+  if(WFH_FIXED_RATES[fy] != null) return { rate: WFH_FIXED_RATES[fy], assumed: false };
+  var years = Object.keys(WFH_FIXED_RATES).map(Number).sort(function(a, b){ return a - b; });
+  var latest = years[years.length - 1];
+  return { rate: WFH_FIXED_RATES[fy < years[0] ? years[0] : latest], assumed: true };
+}
+export function wfhDeduction(person, win){
+  var settings = state.tax && state.tax.settings && state.tax.settings[person];
+  var hoursMap = (settings && settings.wfhHours) || {};
+  var total = 0, hours = 0, assumed = false;
+  var fy0 = Number(String(win.start).slice(5, 7)) >= 7 ? Number(win.start.slice(0, 4)) : Number(win.start.slice(0, 4)) - 1;
+  var fy1 = Number(String(win.end).slice(5, 7)) >= 7 ? Number(win.end.slice(0, 4)) : Number(win.end.slice(0, 4)) - 1;
+  for(var fy = fy0; fy <= fy1; fy++){
+    var h = Math.max(0, Number(hoursMap[fy]) || 0);
+    if(!h) continue;
+    var r = wfhRateForFy(fy);
+    var f = overlapFraction(fy, win);
+    hours += h * f;
+    total += h * r.rate * f;
+    assumed = assumed || r.assumed;
+  }
+  return { hours: Math.round(hours * 100) / 100, amount: Math.round(total * 100) / 100, assumed: assumed };
+}
+var WFH_COVERED = /\b(internet|nbn|broadband|phone|mobile|telco|electric|electricity|energy|power bill|gas|stationery|printer|ink)\b/i;
+export function wfhOverlapRows(person, items){
+  return deductionRows(items, person).filter(function(i){
+    return WFH_COVERED.test(String(i.what || "")) || WFH_COVERED.test(String(i.category || ""));
+  });
+}
 export function personDeductionsAnnual(person, items, win){
   return deductionRows(items, person).reduce(function(sum, item){
     return sum + rowDeductionAnnual(item, win);
@@ -740,6 +790,9 @@ export function personTaxSettings(person){
   if(st.helpBalance == null) st.helpBalance = 0;
   // Net capital losses from earlier years (v3.23.0), as shown on last year's notice of assessment.
   if(st.capitalLossCarriedForward == null) st.capitalLossCarriedForward = 0;
+  // Hours worked from home, per financial year (v3.24.0): {2025: ***REMOVED***}. Keyed by year because the
+  // hours are a record of a year, not a rate that carries on.
+  if(!st.wfhHours || typeof st.wfhHours !== "object") st.wfhHours = {};
   return st;
 }
 
@@ -765,7 +818,12 @@ export function computePersonTax(person, opts){
   // The same year the capital gains below are bounded to, so a claim that stopped partway through
   // it counts for the part it covered — see deductionYearFraction().
   var taxYearWindow = householdYearWindow();
-  var deductions = deductibleItems ? personDeductionsAnnual(person, deductibleItems, taxYearWindow) : 0;
+  var lineDeductions = deductibleItems ? personDeductionsAnnual(person, deductibleItems, taxYearWindow) : 0;
+  var byLabel = deductibleItems ? deductionsByLabel(person, deductibleItems, taxYearWindow) : {};
+  var wfh = wfhDeduction(person, taxYearWindow);
+  if(wfh.amount > 0) byLabel.D5 = Math.round(((byLabel.D5 || 0) + wfh.amount) * 100) / 100;
+  var deductions = lineDeductions + wfh.amount;
+  var wfhOverlap = wfh.amount > 0 && deductibleItems ? wfhOverlapRows(person, deductibleItems) : [];
   // Dividends enter taxable income GROSSED UP (cash + franking credit); the credit then comes off
   // the tax bill below. Adding only the cash would understate the income and overstate the benefit.
   var dividends = personDividends(person, taxYearWindow);
@@ -854,7 +912,8 @@ export function computePersonTax(person, opts){
   return {
     gross: gross, packageTotal: inc.packageTotal, ipShare: ipShare, ownershipPct: ownershipPct,
     sacrifice: sacrifice, manualSacrifice: manualSacrifice, autoSacrifice: autoSacrifice, taxable: taxable,
-    deductions: deductions,
+    deductions: deductions, deductionsByLabel: byLabel, wfh: wfh,
+    wfhOverlap: wfhOverlap.map(function(i){ return i.what; }),
     capitalGains: capitalGains.assessable, capitalGainsRaw: capitalGains.raw,
     capitalGainsDiscount: capitalGains.discounted, capitalGainSales: capitalGains.sales,
     capitalGainsTotal: capitalGains.totalGains, capitalLossesApplied: capitalGains.currentLosses + capitalGains.priorLossesApplied,

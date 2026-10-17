@@ -235,3 +235,22 @@ export var LAND_TAX_BRACKETS = {
 // The states this app can actually compute land tax for. Anything else is "Other", which is
 // honest about not knowing rather than quietly using someone else's scale.
 export var LAND_TAX_STATES = ["NSW", "VIC", "QLD"];
+
+// Deduction labels on the individual tax return / myTax (v3.24.0). A deductible budget line carries
+// one, so the year's claims can be totalled the way the return asks for them. D5 is the default
+// because it's where most things an employee buys for work land.
+export var DEDUCTION_LABELS = [
+  { code: "D1", label: "D1 Car expenses" },
+  { code: "D2", label: "D2 Travel" },
+  { code: "D3", label: "D3 Clothing, laundry, dry-cleaning" },
+  { code: "D4", label: "D4 Self-education" },
+  { code: "D5", label: "D5 Other work-related" },
+  { code: "D9", label: "D9 Gifts and donations" },
+  { code: "D10", label: "D10 Cost of managing tax affairs" },
+  { code: "D15", label: "D15 Other deductions (e.g. income protection)" }
+];
+// The ATO working-from-home fixed rate, per hour, by the year the financial year starts in. It
+// covers energy, internet, phone and stationery — those can't also be claimed separately. 67c for
+// FY22/23-FY23/24, 70c from FY24/25 (confirmed for FY25/26 on ato.gov.au). A year past the table
+// uses the latest rate, labelled as such where it's shown.
+export var WFH_FIXED_RATES = { 2022: 0.67, 2023: 0.67, 2024: 0.70, 2025: 0.70 };

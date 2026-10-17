@@ -1,4 +1,4 @@
-import { FREQS, CLASSES, MONTH_NAMES } from "../constants.js";
+import { FREQS, CLASSES, MONTH_NAMES, DEDUCTION_LABELS } from "../constants.js";
 import { periodsOf, RESERVE_YEAR_BASES, resolveSharedAmount } from "../calc/ledger.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "./format.js";
 import { escapeAttr } from "./html.js";
@@ -86,14 +86,19 @@ function deductionFieldsHtml(item){
       '</select></div>'
     : "";
   return '<div class="m-edit-field span2"><label class="m-checkbox-field"><input type="checkbox" class="f-deductible"' + (item.deductible ? " checked" : "") +
-      '> Work-related deduction — claimable on a tax return</label></div>' +
-    '<div class="m-edit-field f-deduct-extra"' + (item.deductible ? "" : " hidden") + '><label>Work-related %</label>' +
-      '<input type="number" min="0" max="100" step="5" class="f-deductpct" value="' + (item.deductiblePct == null ? 100 : item.deductiblePct) + '" title="How much of this is work-related. A phone bill or a car is rarely 100%.">' +
+      '> Tax deduction — claimable on a tax return</label></div>' +
+    '<div class="m-edit-field f-deduct-extra"' + (item.deductible ? "" : " hidden") + '><label>Claimable %</label>' +
+      '<input type="number" min="0" max="100" step="5" class="f-deductpct" value="' + (item.deductiblePct == null ? 100 : item.deductiblePct) + '" title="How much of this is claimable — for a work expense, the work-related share. A phone bill or a car is rarely 100%.">' +
     '</div>' +
     (personField ? '<div class="f-deduct-extra"' + (item.deductible ? "" : " hidden") + ' style="display:contents">' + personField + '</div>' : "") +
     // The claim's own dates, separate from "Ends": rent carries on after the home-office share of
     // it stops being claimable (an employer starts providing an office), and a tax year counts only
     // the days the claim covered. Blank = the whole year.
+    '<div class="m-edit-field f-deduct-extra"' + (item.deductible ? "" : " hidden") + '><label>Return label</label>' +
+      '<select class="f-deductlabel" aria-label="Tax return label" title="Where this goes on the return — the tax card totals claims by label, the way myTax asks for them.">' +
+        DEDUCTION_LABELS.map(function(d){ return '<option value="' + d.code + '"' + ((item.deductionLabel || "D5") === d.code ? " selected" : "") + '>' + d.label + '</option>'; }).join("") +
+      '</select>' +
+    '</div>' +
     '<div class="m-edit-field f-deduct-extra"' + (item.deductible ? "" : " hidden") + '><label>Claim from</label>' +
       '<input type="date" class="f-deductfrom" value="' + escapeAttr(item.deductibleFrom || "") + '" title="The first day this was claimable. Leave blank if it was claimable from before this tax year began." aria-label="Claimable from">' +
     '</div>' +

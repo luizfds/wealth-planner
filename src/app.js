@@ -2,6 +2,7 @@ import { state, setState, storageAvailable, persist, setStatus, defaultState, de
 import { sacrificeModeToLabel, sacrificeLabelToMode, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, INVEST_LEG_TYPES } from "./constants.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr, parseAmountInput } from "./lib/format.js";
 import { showToast, showUndoToast, showPersistentToast } from "./lib/toast.js";
+import { initHelp, setShowHelp, showHelpPreference } from "./lib/help.js";
 import { escapeAttr } from "./lib/html.js";
 import { getNotifications, unreadNotificationCount, markNotificationRead, markAllNotificationsRead } from "./lib/notifications.js";
 import { onHorizontalSwipe } from "./lib/swipe.js";
@@ -2984,6 +2985,20 @@ import {
   // "More" tab (an occasional what-if page, not day-to-day data entry), so this is the one
   // one-tap bridge from the page everyone actually lands on first.
   document.getElementById("dashboardProjectionsLink").addEventListener("click", function(){ showPage("projections"); });
+  // v3.33.0: tiles that open the panel behind them (FI → Insights, tax year → the worksheet).
+  document.getElementById("dashboardStats").addEventListener("click", function(e){
+    var jump = e.target.closest("[data-dashboard-jump]");
+    if(!jump) return;
+    var where = jump.getAttribute("data-dashboard-jump");
+    if(where === "insights"){
+      var tab = document.querySelector('[data-dashboard-sub="insights"]');
+      if(tab){ tab.click(); tab.scrollIntoView({ behavior: "smooth", block: "start" }); }
+    } else if(where === "taxyear"){
+      showPage("income");
+      var ws = document.getElementById("taxYearLedger");
+      if(ws){ ws.open = true; setTimeout(function(){ ws.scrollIntoView({ behavior: "smooth", block: "start" }); }, 50); }
+    }
+  });
   document.getElementById("homeBody").addEventListener("keydown", function(e){
     if(e.key !== "Enter" && e.key !== " ") return;
     var collapseBtn = e.target.closest("[data-collapse-toggle]");
@@ -3724,6 +3739,13 @@ import {
     if(!e.target.matches || !e.target.matches("[data-fx-usdaud]")) return;
     if(setUsdAudRate(e.target.value)) showToast("Exchange rate set — US$ holdings now count at A$" + Number(e.target.value).toFixed(4));
   });
+  // v3.33.0: section explanations behind an ⓘ unless this device asks for them all.
+  initHelp();
+  var showHelpToggle = document.getElementById("showHelpToggle");
+  if(showHelpToggle){
+    showHelpToggle.checked = showHelpPreference();
+    showHelpToggle.addEventListener("change", function(){ setShowHelp(showHelpToggle.checked); });
+  }
   document.addEventListener("change", renderGlobalMetrics);
 
   renderAll();

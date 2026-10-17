@@ -118,7 +118,7 @@
 .ty-refund.down b{ color:var(--bad); }
 .ty-refund.muted{ font-size:12px; color:var(--ink-soft); }
 .ty-row{ display:grid; gap:6px; align-items:center; padding:3px 0; }
-.ty-row-is{ grid-template-columns: minmax(0,1.4fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,1fr) 32px; }
+.ty-row-is{ grid-template-columns: minmax(0,1.4fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,.8fr) 32px; }
 .ty-row-int{ grid-template-columns: minmax(0,1.6fr) minmax(0,1fr) minmax(0,.6fr) 32px; }
 .ty-row-ded{ grid-template-columns: 64px minmax(0,1.6fr) minmax(0,1fr) 32px; }
 .ty-head-row{ font-size:10.5px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-soft); }
@@ -145,7 +145,15 @@
    the three amounts and delete share the second — and the header row follows the same shape, so
    its labels still sit over their columns. */
 @media (max-width:480px){
-  .ty-row-is{ grid-template-columns: minmax(0,1fr) minmax(0,.8fr) minmax(0,1fr) 32px; row-gap:4px; }
-  .ty-row-is > :first-child{ grid-column: 1 / -1; }
+  /* payer / gross · allowances · withheld · delete / RESC · RFBA */
+  .ty-row-is{ grid-template-columns: minmax(0,1fr) minmax(0,.8fr) minmax(0,1fr) 32px; row-gap:4px;
+    grid-template-areas: "payer payer payer payer" "gross allow withheld del" "resc rfba . ."; }
+  .ty-row-is > :nth-child(1){ grid-area: payer; }
+  .ty-row-is > :nth-child(2){ grid-area: gross; }
+  .ty-row-is > :nth-child(3){ grid-area: allow; }
+  .ty-row-is > :nth-child(4){ grid-area: withheld; }
+  .ty-row-is > :nth-child(5){ grid-area: resc; }
+  .ty-row-is > :nth-child(6){ grid-area: rfba; }
+  .ty-row-is > :nth-child(7){ grid-area: del; }
   .ty-row-is:not(.ty-head-row){ padding-bottom:8px; border-bottom:1px solid var(--border); }
 }

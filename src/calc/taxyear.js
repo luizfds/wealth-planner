@@ -55,8 +55,12 @@ export function incomeStatementTotals(fy, person){
   return p.incomeStatements.reduce(function(acc, s){
     acc.gross += (Number(s.gross) || 0) + (Number(s.allowances) || 0);
     acc.withheld += Number(s.withheld) || 0;
+    // Reportable employer super contributions and reportable fringe benefits (v3.29.0): not taxable
+    // income, but both count in the income tests — see computePersonTax's year mode.
+    acc.resc += Number(s.resc) || 0;
+    acc.rfba += Number(s.rfba) || 0;
     return acc;
-  }, { gross: 0, withheld: 0 });
+  }, { gross: 0, withheld: 0, resc: 0, rfba: 0 });
 }
 // Gross interest times this person's share of each account — a joint account's interest is split
 // by ownership, the way the bank's report to the ATO does it.

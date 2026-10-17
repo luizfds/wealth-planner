@@ -30,3 +30,17 @@ test("housing: renters and mortgage reference shares", () => {
   assert.equal(housingComparison(30000, 150000, true).ref, 0.155);
   assert.equal(housingComparison(1, 0, true), null);
 });
+
+import { cagr, propertyMarketComparison } from "../src/calc/benchmarks.js";
+test("cagr: compound yearly growth, null for short spans or missing values", () => {
+  assert.ok(Math.abs(cagr(500000, "2020-01-01", 605000, "2022-01-01") - 0.1) < 0.001);
+  assert.equal(cagr(500000, "2026-01-01", 510000, "2026-02-01"), null);
+  assert.equal(cagr(0, "2020-01-01", 1, "2026-01-01"), null);
+});
+test("propertyMarketComparison: only what both sides have", () => {
+  const c = propertyMarketComparison({ growthPa: 0.08, yield: 0.045, rentWeekly: 620 }, { growthPa: "6.5", yield: "", rentWeekly: 600 });
+  assert.ok(Math.abs(c.growth.diff - 0.015) < 1e-9);
+  assert.equal(c.yield, undefined);
+  assert.ok(Math.abs(c.rent.ratio - 620 / 600) < 1e-9);
+  assert.deepEqual(propertyMarketComparison({ growthPa: null, yield: null, rentWeekly: 0 }, {}), {});
+});

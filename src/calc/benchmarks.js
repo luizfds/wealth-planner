@@ -43,3 +43,25 @@ export function housingComparison(homeYearly, grossYearly, buying){
   var ref = buying ? BENCHMARKS.housingShare.mortgage : BENCHMARKS.housingShare.renters;
   return { share: homeYearly / grossYearly, ref: ref, tenure: buying ? "owners with a mortgage" : "renters" };
 }
+
+// ---------------- Property against its suburb (v3.37.0) ----------------
+// Compound annual growth between two values and dates. null under ~3 months — a yearly rate from
+// a few weeks of change is noise blown up by the exponent.
+export function cagr(fromValue, fromDate, toValue, toDate){
+  var a = Number(fromValue), b = Number(toValue);
+  if(!(a > 0) || !(b > 0) || !fromDate || !toDate) return null;
+  var yrs = (Date.parse(toDate) - Date.parse(fromDate)) / (365.25 * 86400000);
+  if(!(yrs >= 0.25)) return null;
+  return Math.pow(b / a, 1 / yrs) - 1;
+}
+// One property's figures against what was typed for its suburb ({growthPa, yield, rentWeekly} as
+// percentages / dollars). Each comparison only when both sides exist.
+export function propertyMarketComparison(mine, market){
+  market = market || {};
+  var out = {};
+  var g = Number(market.growthPa), y = Number(market.yield), r = Number(market.rentWeekly);
+  if(mine.growthPa != null && market.growthPa !== "" && market.growthPa != null && isFinite(g)) out.growth = { mine: mine.growthPa, market: g / 100, diff: mine.growthPa - g / 100 };
+  if(mine.yield != null && market.yield !== "" && market.yield != null && y > 0) out.yield = { mine: mine.yield, market: y / 100, diff: mine.yield - y / 100 };
+  if(mine.rentWeekly > 0 && r > 0) out.rent = { mine: mine.rentWeekly, market: r, ratio: mine.rentWeekly / r };
+  return out;
+}

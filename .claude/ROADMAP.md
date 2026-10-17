@@ -1764,7 +1764,7 @@ $1,332; persisted across reload; no overflow at 390px in light or dark.
 there from a stamp-duty row, and guessing would move someone's cost base; the field's tooltip says
 where each kind goes.
 
-## 38. `[ ]` Second-hand plant & equipment isn't claimable
+## 38. `[x]` Second-hand plant & equipment isn't claimable — shipped v3.18.0
 
 `plantDepreciationAnnual()` claims `plantValue / life` unconditionally. For residential property
 bought second-hand under a contract after 9 May 2017 the claim is **$0** — the fixture's QS report
@@ -1772,7 +1772,9 @@ values $15,453 of plant the owner may not claim, which this app would have deduc
 Add a "bought new / second-hand" flag; keep the values (they become a capital loss on scrapping and
 feed CGT on sale).
 
-## 39. `[ ]` Capital works by component, from the QS schedule
+**What shipped.** `plantSecondHand` per property and `plantIsClaimable()`; a checkbox in the Depreciation section with the 9 May 2017 rule spelled out. The value stays for capital losses and CGT. Default false, so no existing figure moves.
+
+## 39. `[x]` Capital works by component, from the QS schedule — shipped v3.19.0 (+ v3.20.1 layout fix)
 
 One `constructionCost` + `constructionDate` can't represent the fixture: original 1993 building
 ($2,560/yr, ends FY33/34) plus a 2023 renovation ($819/yr), and the first year pro-rated from the
@@ -1780,46 +1782,60 @@ purchase date (FY24/25 $1,398, not $3,379). Simplest correct shape: let the user
 surveyor's year-by-year table (`depreciationSchedule: [{fy, capitalWorks, plant}]`), with the
 formula as the fallback when there's no report.
 
-## 40. `[ ]` Property CGT cost base
+**What shipped.** `depreciationSchedule` rows (FY select, capital works, plant) under the Depreciation section; `propertyDepreciationForFy()` takes a listed year verbatim and otherwise pro-rates the formula by days from the purchase date and to the day before the 40th anniversary of completion; `propertyDepreciationForWindow()` weights financial years across a calendar-year window. The section now shows this year's claim, not a full-year rate. **v3.20.1:** the phone-width `.m-cost-row` grid squeezed the row's second amount to 14px — schedule rows stay flex (80/72/72px measured at 390px).
+
+## 40. `[x]` Property CGT cost base — shipped v3.20.0
 
 `propertyCostBase()` must subtract capital works deductions claimed (property acquired after
 13 May 1997) and must not include borrowing costs (item 37 gives them a home). Today it overstates
 the cost base, so the gain on sale is understated.
 
-## 41. `[ ]` Share lots (parcels), and the discount per parcel
+**What shipped.** `capitalWorksClaimedToDate()` (whole years from purchase plus the elapsed share of this one; nothing before 13 May 1997 or without a purchase date) comes off `propertyCapitalGain()`'s cost base. The tile's title states the cost base and the reduction; the growth % stays against what was paid. Borrowing costs never enter `acquisitionCosts` now that item 37 gives them a field.
+
+## 41. `[x]` Share lots (parcels), and the discount per parcel — shipped v3.21.0
 
 A sale takes `avgCost x units` and one acquisition date. The fixture sold 2,630 DRO in two sales
 from **six** purchase lots; discount eligibility is per lot. Store `asset.lots[] = {date, units,
 price, brokerage}`, match sales FIFO by default (specific-ID optional). Fixture: FIFO gives cost
 bases $1,721.44 / $1,531.18, gains $6,691.56 / $1,096.86 = $7,788.42, all discounted.
 
-## 42. `[ ]` ETF / managed fund annual tax statements (AMIT)
+**What shipped.** A "Purchase lots" section per holding (date, units, price, brokerage). A sale with no typed cost base or date uses `fifoParcels()`, stores `sale.parcels` and marks `lot.soldUnits`; deleting the sale gives them back. `saleCapitalGain()` works parcel by parcel and reports discountable / other / loss splits. Avg cost follows the unsold lots. Adding a lot swaps only that section's markup — `renderAssets()` would close the editor mid-entry.
+
+## 42. `[x]` ETF / managed fund annual tax statements (AMIT) — shipped v3.22.0
 
 ETFs are modelled as dividend-per-unit + franked %. IVV's FY25/26 return was foreign income
 ($122.71), a foreign income tax offset ($18.53), a fund-discounted capital gain (18H $52.48 /
 18A $26.24) and a cost base increase ($40.99). Add a per-fund, per-year statement record holding
 13U/13C/13Q/18H/18A/20E/20M/20O and the AMIT cost base adjustment, applied to the holding.
 
-## 43. `[ ]` Capital losses: before the discount, and carried forward
+**What shipped.** `asset.taxStatements[]` edited under "Annual tax statements" on a holding; `personFundStatements()` feeds taxable income (13U+13C+13Q+20M), refundable franking credits, a non-refundable FITO (20O) and fund gains into CGT; a statement year drops that holding's dividend estimate. AMIT adjustments (per unit held at 30 June) are added to a later sale's cost base. An unowned holding in a two-person household warns that it's on nobody's return.
+
+## 43. `[x]` Capital losses: before the discount, and carried forward — shipped v3.23.0
 
 `personCapitalGains()` discounts per sale (documented simplification). Real order: losses against
 non-discount gains, then discount gains, then the 50%. Add `capitalLossCarriedForward` per person.
 
-## 44. `[ ]` Deductions on their ATO labels, and the working-from-home method
+**What shipped.** `personCapitalGains()` rewritten in the CGT schedule's order; returns 18H (`totalGains`), the net gain, losses applied (current and brought forward) and `lossCarriedForward`. "Capital losses b/f" per person on the tax card. Note the old per-sale approach *understated* gains when a loss met a discounted gain (it took the loss at full value against a half-taxed gain).
+
+## 44. `[x]` Deductions on their ATO labels, and the working-from-home method — shipped v3.24.0
 
 Tag each deductible line D1/D2/D3/D4/D5/D10; add the fixed-rate method as an hours log x the
 year's rate (70c in FY25/26) and warn when internet/phone/electricity lines are *also* flagged,
 since the rate covers them. Fixture: D2 $2,388, D5 $1,990.55 (WFH $1,198.40 + rent $603.96 +
 $98 + depreciation $90.19), D10 $275.
 
-## 45. `[ ]` Tax tables per financial year
+**What shipped.** `deductionLabel` per line (D1-D5, D9, D10, D15; blank = D5); `deductionsByLabel()`; `WFH_FIXED_RATES` and per-person, per-FY `wfhHours`; `wfhOverlapRows()` names internet/phone/energy/stationery lines also claimed. The deduction checkbox now says "Tax deduction" (D9/D10/D15 aren't work-related). The transactions CSV gains a Return label column.
+
+## 45. `[x]` Tax tables per financial year — shipped v3.25.0
 
 `AU_TAX_BRACKETS`, `HELP_REPAYMENT_RATES`, `MLS_TIERS` are all labelled 2024-25; FY26/27 has the
 16% rate at 15%. Key every table by FY and pick by the year being computed, so last year's return
 and next year's projection both work. Add the private health insurance rebate tier by combined
 family income — the fixture's $105 clawback was predictable.
 
-## 46. `[ ]` A tax-year record and a myTax worksheet
+**What shipped.** `TAX_YEARS` in constants.js for FY24/25-FY26/27, every figure read off ato.gov.au in October 2026; `taxTablesFor(fy)` with `assumed`/`borrowedFrom` past the newest year (the tax card warns). HELP is marginal from FY25/26; surcharge tiers start a dollar above each published threshold ("$101,000 or less" is base). The old Medicare shade-in thresholds were approximate ($26,000/$32,500) — FY24/25's are $27,222/$34,027. Household premiums + the tier claimed with the insurer give `phiRebateAdjustment()`, split evenly across the two returns. **Every rate table goes stale each July** — add the next year's row when the ATO publishes it; the tests name the year they check.
+
+## 46. `[x]` A tax-year record and a myTax worksheet — shipped v3.26.0
 
 Per person, per FY, **actuals**: income statements and PAYG withheld, interest per account with
 ownership share, the fund statements (42), the rental schedule split into rent / other rental
@@ -1827,6 +1843,8 @@ income / each expense line with total and own share, actual loan interest from t
 (overriding the balance x rate estimate), CGT events, deductions by label. Output: one page per
 person laid out in myTax's order, an evidence checklist, a refund estimate (withheld − tax), and a
 "why it moved since last year" breakdown.
+
+**What shipped.** `calc/taxyear.js` (`state.taxYears[fy]`: income statements, interest with share, recorded deductions, per-property rental actuals, evidence ticks, lodged snapshots) and `components/taxyear.js` (the "Tax return worksheet" ledger on the Income page). `computePersonTax(person, {fy})` uses that year's record and rates, line by line falling back to the model, and returns `refund`. `tests/taxyear.test.js` rebuilds two real lodged returns: every label matches; Mariana's taxable income lands $1 from myTax's, Luiz's $75 above it (about the size of a $76.54 trust franking credit myTax's on-screen estimate appeared not to gross up — the engine follows the law and grosses it up). **Still open:** per-employer reportable super contributions, ages for the rebate (under-65 rates only), and a PDF/print layout.
 
 ---
 

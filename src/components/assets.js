@@ -1,6 +1,6 @@
 import { state, persist, genId } from "../state.js";
 import { ASSET_CATEGORIES, LIQUID_CATEGORIES, SHARE_MARKETS, MARKET_CURRENCY } from "../constants.js";
-import { propertiesOffsetTotal, propertiesIlliquidEquityToday, recalcPurchase } from "../calc/property.js";
+import { propertiesOffsetTotal, propertiesIlliquidEquityToday, recalcPurchase, loanBalance } from "../calc/property.js";
 import { totalAssetsValue, totalNetWorthValue, totalDebtsValue, liquidAssetsValue, toAudAmount } from "../calc/engine.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, fmtCurrency0For, fmtCurrency2For, localDateStr, fmtQtyDisplay } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
@@ -1172,7 +1172,7 @@ function allocationBuckets(){
   // counts the whole house makes a heavily-geared portfolio look far more diversified than it is.
   var propertyRecords = state.properties.map(function(p){
     var loanNet = (p.loans || []).reduce(function(sum, l){
-      return sum + Math.max(0, (Number(l.balance) || 0) - (Number(l.offsetBalance) || 0));
+      return sum + Math.max(0, loanBalance(l) - (Number(l.offsetBalance) || 0));
     }, 0);
     return {
       history: (p.history || []).map(function(h){ return { date: h.date, value: Math.max(0, (Number(h.value) || 0) - loanNet) }; }),
@@ -1364,7 +1364,7 @@ export function renderPortfolioHistoryChart(){
     total += state.properties.reduce(function(sum, p){
       if(!hasValueAtDate(p.history, d)) return sum;
       var loanNet = (p.loans || []).reduce(function(s, l){
-        return s + Math.max(0, (Number(l.balance) || 0) - (Number(l.offsetBalance) || 0));
+        return s + Math.max(0, loanBalance(l) - (Number(l.offsetBalance) || 0));
       }, 0);
       return sum + valueAtDate(p.history, p.value, d) - loanNet;
     }, 0);

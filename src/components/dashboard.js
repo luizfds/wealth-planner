@@ -1,7 +1,7 @@
 import { state, persist } from "../state.js";
 import { setupProgress, shouldShowSetup } from "../lib/setup.js";
 import { sumField, sumByClassification, sumByAccount, safeDiv, resolveSharedAmount, nextDueDate, daysUntil, appendHistorySnapshot, lastTransactionDateFor } from "../calc/ledger.js";
-import { ipExpenseItemsForClassification, fyLabel } from "../calc/property.js";
+import { ipExpenseItemsForClassification, fyLabel, loanBalance } from "../calc/property.js";
 import { scenarioIncomeMonthly, getTaxPeople, computePersonTax } from "../calc/tax.js";
 import { lodgementStatus, taxYearRecord } from "../calc/taxyear.js";
 import { evidenceItems } from "./taxyear.js";
@@ -650,7 +650,7 @@ export function renderContributionsGrowth(){
   })
     .concat(state.properties.map(function(p){
       var loanNet = (p.loans || []).reduce(function(sum, l){
-        return sum + Math.max(0, (Number(l.balance) || 0) - (Number(l.offsetBalance) || 0));
+        return sum + Math.max(0, loanBalance(l) - (Number(l.offsetBalance) || 0));
       }, 0);
       return {
         history: (p.history || []).map(function(h){ return { date: h.date, value: Math.max(0, (Number(h.value) || 0) - loanNet) }; }),

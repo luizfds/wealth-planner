@@ -5,7 +5,7 @@
 // and acquisition costs, less the capital works claimed up to the sale (they come off the cost
 // base, s 110-45(1B)). Each owner takes their share of the gain, halves it if the property was
 // held more than twelve months, and pays tax on it at their own rates in the year of sale.
-import { propertyCostBase, capitalWorksClaimedToDate, loanBalanceAfterMonths } from "./property.js";
+import { propertyCostBase, capitalWorksClaimedToDate, loanBalanceAfterMonths, loanPaidOut } from "./property.js";
 import { incomeTaxAU, medicareLevyAU, fyOfDate } from "./tax.js";
 
 function daysBetween(a, b){ return (Date.parse(b) - Date.parse(a)) / 86400000; }
@@ -20,6 +20,7 @@ export function saleScenario(p, o){
   var agent = salePrice * (Number(o.agentPct) || 0) / 100;
   var selling = Math.round(agent + (Number(o.otherCosts) || 0));
   var loans = (p.loans || []).reduce(function(s, l){
+    if(loanPaidOut(l, o.saleDate)) return s;
     return s + loanBalanceAfterMonths(Number(l.balance) || 0, Number(l.rate) || 0, l.termYears, months, l.repaymentType);
   }, 0);
   loans = Math.round(loans);

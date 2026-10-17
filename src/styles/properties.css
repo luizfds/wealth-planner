@@ -295,3 +295,15 @@
   .sale-owner-name{ font-weight:600; font-size:13px; margin-bottom:2px; }
   .sale-owner-name small{ font-weight:400; color: var(--ink-soft); }
   .sale-line.sale-gap{ margin-top:14px; }
+
+  /* v3.41.0 — Loan strategy. */
+  .ls-pick{ display:inline-flex; gap:6px; align-items:center; font-size:12.5px; color: var(--ink-soft); margin-bottom:8px; }
+  .ls-pick select{ min-height:34px; border:1px solid var(--border); border-radius:8px; background: var(--paper); color: var(--ink); font:inherit; padding:3px 8px; }
+  .ls-base{ margin:0 0 10px; font-size:13px; }
+  .ls-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap:10px; }
+  .ls-card{ border:1px solid var(--border); border-radius:10px; padding:10px 12px; background: var(--paper); }
+  .ls-title{ font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); margin-bottom:6px; }
+  .ls-inputs{ display:flex; flex-wrap:wrap; gap:6px 10px; margin-bottom:8px; }
+  .ls-inputs label{ display:flex; flex-direction:column; gap:3px; font-size:11px; color: var(--ink-soft); flex:1 1 80px; }
+  .ls-inputs input{ min-height:34px; padding:3px 8px; border:1px solid var(--border); border-radius:8px; background: var(--paper-raised); color: var(--ink); font:inherit; font-size:13px; text-align:right; width:100%; box-sizing:border-box; }
+  .ls-body{ font-size:12.5px; line-height:1.5; }

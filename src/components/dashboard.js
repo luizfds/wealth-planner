@@ -95,6 +95,29 @@ export function renderSetupPanel(nothingEntered){
     (rest ? '<ul class="setup-rest">' + rest + '</ul>' : "");
 }
 
+// v3.33.0: FI progress up front. The Insights panel has the whole story (ages, the bridge to
+// preservation age); this is the one number — how far the money you could actually live on is
+// toward the 4%-rule target — so it isn't two taps away.
+function fiTileHtml(t){
+  var annual = (t.sharedMonthly + t.homeMonthly) * 12;
+  var target = annual * 25;
+  if(!(target > 0)) return "";
+  var split = fireWealthSplit();
+  var pct = Math.max(0, split.accessible) / target;
+  return '<button type="button" class="stat-tile stat-tile-link" data-dashboard-jump="insights" title="Money you could live on before preservation age (cash, shares, investment property equity, less debts) against 25× this scenario\'s yearly spending. Super is left out — it\'s locked until ' + fireSettings().preservationAge + '. Opens Insights.">' +
+    '<span>Financial independence</span><b>' + fmtPercent1.format(pct) + '</b>' +
+    '<span class="tile-meter" aria-hidden="true"><span style="width:' + Math.min(100, pct * 100).toFixed(1) + '%"></span></span>' +
+    '<small>' + fmtCompact(split.accessible) + ' of ' + fmtCompact(target) + ' · super not counted</small></button>';
+}
+function fmtCompact(v){
+  var a = Math.abs(v);
+  if(a >= 1e6) return (v < 0 ? "-" : "") + "$" + (a / 1e6).toFixed(a >= 1e7 ? 1 : 2) + "M";
+  if(a >= 1e4) return (v < 0 ? "-" : "") + "$" + Math.round(a / 1e3) + "k";
+  return fmtCurrency0.format(v);
+}
+// Filled in by item 64 (the tax year tile).
+function taxTileHtml(){ return ""; }
+
 export function renderDashboardStats(){
   var el = document.getElementById("dashboardStats");
   if(!el || el.closest(".app-page").hidden) return;
@@ -138,6 +161,8 @@ export function renderDashboardStats(){
     '<div class="stat-tile"><span>' + escapeAttr(active) + ' — net savings</span><b' + (t.netMonthly < 0 ? ' style="color:var(--bad)"' : '') + '>' + fmtCurrency0.format(t.netMonthly) + '/mo</b><small>' + fmtPercent1.format(t.rate) + ' savings rate</small></div>' +
     '<div class="stat-tile"><span>Projected net worth</span><b>' + fmtCurrency0.format(projected) + '</b><small>in ' + horizon + ' years, ' + escapeAttr(active) + ', ' + (state.projection.realTerms !== false ? "today's" : "future") + ' dollars</small></div>' +
     runwayTile +
+    fiTileHtml(t) +
+    taxTileHtml() +
     lastTile;
   renderStaleAssetsBanner();
   renderActualVsExpectedPanel(active, t);
@@ -163,15 +188,27 @@ function renderCashFlowForecastPanel(){
     return;
   }
   var forecast = monthlyCashFlowForecast(12);
-  var rows = forecast.months.map(function(m){
-    var label = MONTH_NAMES[m.month - 1] + " " + m.year;
-    var note = m.items.length
-      ? m.items.map(function(it){ return escapeAttr(it.what) + " " + (it.side === "income" ? "+" : "−") + fmtCurrency0.format(it.amount); }).join(", ")
-      : "steady month — no one-off items";
-    var color = m.net < -0.5 ? "var(--bad)" : (m.net > 0.5 ? "var(--good)" : "");
-    return '<div class="acct-row"><span class="acct-name">' + escapeAttr(label) + '</span>' +
-      '<span style="font-size:11px;color:var(--ink-soft)">' + note + '</span>' +
-      '<span class="acct-amt"' + (color ? ' style="color:' + color + '"' : '') + '>' + (m.net >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(m.net)) + '</span></div>';
+  // v3.33.0: a run of months with nothing landing in them is one row ("Oct – Jan · 4 steady
+  // months"), not twelve identical "steady month — no one-off items" lines with the months that
+  // actually differ buried among them.
+  var groups = [];
+  forecast.months.forEach(function(m){
+    var last = groups[groups.length - 1];
+    if(!m.items.length && last && last.steady && Math.round(last.net) === Math.round(m.net)) last.months.push(m);
+    else groups.push({ steady: !m.items.length, net: m.net, months: [m] });
+  });
+  var rows = groups.map(function(g){
+    var first = g.months[0], end = g.months[g.months.length - 1];
+    var label = MONTH_NAMES[first.month - 1].slice(0, 3) + " " + String(first.year).slice(2) +
+      (g.months.length > 1 ? " – " + MONTH_NAMES[end.month - 1].slice(0, 3) + " " + String(end.year).slice(2) : "");
+    var note = g.steady
+      ? (g.months.length > 1 ? g.months.length + " steady months" : "steady month")
+      : first.items.map(function(it){ return escapeAttr(it.what) + " " + (it.side === "income" ? "+" : "−") + fmtCurrency0.format(it.amount); }).join(", ");
+    var color = g.net < -0.5 ? "var(--bad)" : (g.net > 0.5 ? "var(--good)" : "");
+    return '<div class="forecast-row' + (g.steady ? " is-steady" : "") + '"><span class="forecast-when">' + escapeAttr(label) + '</span>' +
+      '<span class="forecast-note">' + note + '</span>' +
+      '<span class="forecast-amt"' + (color ? ' style="color:' + color + '"' : '') + '>' + (g.net >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(g.net)) +
+      (g.months.length > 1 ? '<small> each</small>' : '') + '</span></div>';
   }).join("");
   var reserveNote = (forecast.reserveIncome || forecast.reserveExpense)
     ? '<p class="fire-note">Includes ' + fmtCurrency0.format(Math.max(0, forecast.reserveExpense - forecast.reserveIncome)) + '/mo set aside for items marked "no fixed timing" (e.g. Extras, property maintenance) — spread evenly rather than expected on a specific date.</p>'

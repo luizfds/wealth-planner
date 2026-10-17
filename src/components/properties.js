@@ -275,7 +275,7 @@ function depreciationSectionHtml(p){
   return propertySectionHtml(p, "depreciation",
     '<div class="property-section-title">Depreciation</div>' +
       '<div class="property-section-total" title="' + escapeAttr(householdYearWindow().label) + '">' + fmtCurrency0.format(total) + '</div>',
-    '<p class="ledger-note" style="margin-left:0">Usually the largest deduction on an investment property, and the only one that isn\'t money leaving your account — it reduces the taxable result without touching cash flow. A quantity surveyor\'s depreciation schedule is where these figures come from; entering guesses here produces a guess on your tax return.</p>' +
+    '<p class="ledger-note help" style="margin-left:0">Usually the largest deduction on an investment property, and the only one that isn\'t money leaving your account — it reduces the taxable result without touching cash flow. A quantity surveyor\'s depreciation schedule is where these figures come from; entering guesses here produces a guess on your tax return.</p>' +
     '<div class="calc-grid">' +
       '<div class="calc-field" title="The original cost to BUILD, not what you paid for the property — land is not depreciable. Claimed at 2.5% a year for 40 years from completion."><label>Construction cost</label><input type="number" step="1000" min="0" class="prop-construction-cost" value="' + (Number(p.constructionCost) || 0) + '" placeholder="0"></div>' +
       '<div class="calc-field" title="When the building was completed. The 2.5% capital works claim runs for 40 years from then; leave blank if unknown and the full year is claimed."><label>Built on</label><input type="date" class="prop-construction-date" aria-label="Built on" value="' + escapeAttr(p.constructionDate || "") + '"></div>' +
@@ -467,7 +467,7 @@ function propertyCardHtml(p, colorIdx){
         '<div class="calc-field"><label>Purchase date</label><input type="date" class="prop-purchase-date" aria-label="Purchase date" value="' + escapeAttr(p.purchaseDate || "") + '"></div>' +
       '</div>' +
       landTaxFieldsHtml(p) +
-      '<div class="prop-value-log"><button type="button" class="asset-log-btn" data-property-log="' + escapeAttr(p.id) + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart">Log</button>' + historyTrendHtml(p) + '</div>') +
+      '<div class="prop-value-log"><button type="button" class="btn btn-sm" data-property-log="' + escapeAttr(p.id) + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart">Log today\'s value</button>' + historyTrendHtml(p) + '</div>') +
     acquisitionCostsSectionHtml(p) +
     (p.kind === "IP" ? ownershipSectionHtml(p) : "") +
     (p.kind === "IP" ? depreciationSectionHtml(p) : "") +

@@ -328,3 +328,9 @@
   @media (max-width: 360px){
     .mobile-tab-label{ font-size:10px; }
   }
+
+  /* v3.33.0 — the header toolbar: one style for every button, data actions in a menu. */
+  .page-overflow-menu .btn[hidden]{ display:none; }
+  .topbar-overflow .page-overflow-btn{ width:34px; height:34px; }
+  .topbar-overflow .page-overflow-menu{ top:40px; }
+  .menu-danger{ color: var(--bad) !important; }

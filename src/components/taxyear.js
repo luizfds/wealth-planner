@@ -179,7 +179,7 @@ function personCardHtml(person, fy){
         { key: "withheld", label: "Withheld", placeholder: "0" },
         { key: "resc", label: "RESC", placeholder: "0" },
         { key: "rfba", label: "RFBA", placeholder: "0" }], "+ Add income statement") +
-      '<p class="ledger-note" style="margin-left:0">RESC is reportable employer super (salary sacrifice), RFBA reportable fringe benefits — both on the income statement. Neither is taxed as income, but both count toward the surcharge, rebate and HELP income tests.</p>' +
+      '<p class="ledger-note help" style="margin-left:0">RESC is reportable employer super (salary sacrifice), RFBA reportable fringe benefits — both on the income statement. Neither is taxed as income, but both count toward the surcharge, rebate and HELP income tests.</p>' +
     '</details>' +
     '<details class="row-more-options"' + (py.interest.length ? " open" : "") + '><summary>Interest</summary>' +
       rowsEditorHtml("int", person, py.interest, [

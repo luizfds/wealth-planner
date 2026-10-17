@@ -615,7 +615,7 @@ export function renderVehiclesSubpage(){
   container.innerHTML = '<div class="ledgers"><details class="ledger" open>' +
     '<summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Vehicle</h2></div>' +
     '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
-    '<div class="ledger-body"><p class="ledger-note" style="margin-left:0">Current value is estimated as declining-balance depreciation from your purchase price — a common approximation for cars, not a valuation. Leave depreciation fields blank to enter a value manually instead.</p>' + body + '</div></details>' +
+    '<div class="ledger-body"><p class="ledger-note help" style="margin-left:0">Current value is estimated as declining-balance depreciation from your purchase price — a common approximation for cars, not a valuation. Leave depreciation fields blank to enter a value manually instead.</p>' + body + '</div></details>' +
     // Vehicles get the same over-time chart as every other category. Theirs is the one most likely
     // to be empty — a depreciating car is exactly the thing nobody logs — so the panel's job here
     // is mostly to say that out loud rather than to draw anything.
@@ -1111,10 +1111,12 @@ export function renderNetWorthPanel(){
 // changes shape. These four hues were checked as a set with the dataviz validator under --pairs
 // all (worst CVD ΔE 9.2 deutan, worst normal-vision ΔE 16.3) before being assigned here.
 var ALLOCATION_BUCKETS = [
-  { key: "Super", colorClass: "series-color-0" },
-  { key: "Shares", colorClass: "series-color-1" },
-  { key: "Cash", colorClass: "series-color-2" },
-  { key: "Property", colorClass: "series-color-6" },
+  // v3.33.0: the same colour per asset class as the Allocation bars above (ASSET_ALLOC_SEGMENTS) —
+  // Super was purple there and blue here, Property orange there and purple here.
+  { key: "Super", colorClass: "series-color-6" },
+  { key: "Shares", colorClass: "series-color-2" },
+  { key: "Cash", colorClass: "series-color-0" },
+  { key: "Property", colorClass: "series-color-1" },
   { key: "Other", colorClass: "series-color-3" }
 ];
 // Session-only, like every other range control in the app: which window the "how it shifted"
@@ -1606,7 +1608,7 @@ export function renderOffsetsSubpage(){
   var total = propertiesOffsetTotal();
   var body = !rows.length
     ? '<p class="ledger-note" style="margin:0">No property loans yet — add one on the Properties tab, and any offset account attached to it shows up here.</p>'
-    : '<p class="ledger-note" style="margin:0 0 12px">Editing here changes the same field the loan\'s own Properties card shows — this is just a second place to see and update it.</p>' +
+    : '<p class="ledger-note help" style="margin:0 0 12px">Editing here changes the same field the loan\'s own Properties card shows — this is just a second place to see and update it.</p>' +
       '<div class="m-rows">' + rows.map(function(r, i){ return offsetRowHtml(r.property, r.loan, r.li, i % 8); }).join("") + '</div>';
   container.innerHTML = '<div class="ledgers"><details class="ledger" open>' +
     '<summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Offsets</h2></div>' +
@@ -1641,7 +1643,7 @@ export function renderDebts(){
     return '<div class="m-row computed" data-debt-index="' + idx + '"><div class="m-row-summary" style="cursor:default">' +
       '<div style="flex:1 1 auto;min-width:0"><input type="text" class="debt-what" data-debt-index="' + idx + '" value="' + escapeAttr(d.what) + '" aria-label="Debt name" style="all:unset;box-sizing:border-box;width:100%;min-height:40px;font:inherit;color:inherit">' + historyTrendHtml(d) + '</div>' +
       '<input type="number" step="100" min="0" class="debt-balance" data-debt-index="' + idx + '" value="' + d.balance + '" aria-label="Balance" style="width:110px;min-height:40px;text-align:right;font-family:\'IBM Plex Mono\',monospace;border:1px solid transparent;background:transparent;color:inherit;padding:5px 6px;border-radius:6px">' +
-      '<button type="button" class="asset-log-btn" data-debt-log="' + idx + '" title="Snapshot the balance above with today\'s date">Log</button>' +
+      '<button type="button" class="btn btn-sm btn-ghost" data-debt-log="' + idx + '" title="Snapshot the balance above with today\'s date">Log</button>' +
       '<button type="button" class="btn btn-ghost btn-sm row-del" data-debt-del="' + idx + '" aria-label="Delete debt">✕</button>' +
     '</div></div>';
   }).join("") + '</div>';

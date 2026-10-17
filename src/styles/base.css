@@ -313,3 +313,18 @@
   .notif-item-body{ min-width:0; flex:1 1 auto; text-align:left; }
   .notif-item-title{ display:block; font-size:12.5px; font-weight:600; }
   .notif-item-detail{ display:block; font-size:11px; color: var(--ink-soft); margin-top:2px; }
+
+/* v3.33.0 — explanations behind an ⓘ (lib/help.js). */
+body.help-hidden .help{ display:none; }
+body.help-hidden details.help-open .help,
+body.help-hidden .help-btn-inline.help-open ~ .help{ display:block; }
+body:not(.help-hidden) .help-btn{ display:none; }
+.help-btn{
+  all:unset; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center;
+  width:28px; height:28px; margin-left:6px; border-radius:50%; cursor:pointer; color: var(--ink-soft);
+  vertical-align:middle; flex:none;
+}
+.help-btn:hover, .help-btn[aria-expanded="true"]{ color: var(--brass-strong); background: var(--brass-wash); }
+.help-btn:focus-visible{ box-shadow: var(--focus-ring); }
+.help-btn-inline{ display:inline-flex; margin:0 0 6px -4px; }
+body.help-hidden .help-btn-inline{ display:flex; }

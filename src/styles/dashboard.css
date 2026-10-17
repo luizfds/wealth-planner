@@ -213,3 +213,22 @@
   .card-overflow .page-overflow-menu[hidden]{ display:none; }
   .menu-danger{ color: var(--bad) !important; }
   .card-name{ font-size:14px; }
+
+  /* v3.33.0 — every summary row is two-up on a phone, not one tile per screen-width row. Properties'
+     five tiles took a full phone screen stacked one per row; the dashboard already did this. An odd
+     last tile spans the row rather than leaving a hole beside it. */
+  @media (max-width: 700px){
+    .stat-row{ grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px; }
+    .stat-row:not(#dashboardStats) > .stat-tile:last-child:nth-child(odd){ grid-column: 1 / -1; }
+    .stat-tile{ padding:13px 14px; }
+    .stat-tile b{ font-size:19px; }
+  }
+  @media (max-width: 340px){
+    .stat-row:not(#dashboardStats){ grid-template-columns: 1fr; }
+  }
+
+  /* v3.33.0 — a tile that opens the panel behind it. */
+  button.stat-tile{ font:inherit; color:inherit; text-align:left; cursor:pointer; width:100%; }
+  button.stat-tile:focus-visible{ outline:none; box-shadow: var(--focus-ring); }
+  .stat-tile .tile-meter{ display:block; height:5px; border-radius:100px; background: var(--paper-sunken); overflow:hidden; margin:4px 0 2px; }
+  .stat-tile .tile-meter > span{ display:block; height:100%; border-radius:inherit; background: var(--good); }

@@ -178,18 +178,20 @@
           <span class="notif-badge" hidden></span>
         </button>
         <span class="status-chip" id="statusChip"><span class="status-dot" id="statusDot"></span><span id="statusText">Saved</span></span>
-        <button class="btn btn-sm" id="themeToggleBtn" title="Cycle between following your system theme, always light, or always dark">Theme: System</button>
+        <button class="btn btn-sm btn-ghost" id="themeToggleBtn" title="Cycle between following your system theme, always light, or always dark">Theme: System</button>
         <input type="file" id="importFile" accept="application/json,.json,text/plain,.txt">
-        <span class="actions-group">
-          <button class="btn btn-sm" id="shareBtn" hidden title="Send your data to another device — opens your phone/computer's share sheet (AirDrop, Messages, email, etc.) with a password-protected file and instructions. You'll set a passphrase to share it separately with whoever's receiving it.">Share securely</button>
-          <button class="btn btn-sm" id="importBtn" title="Load a file from Share or Export">Import</button>
-          <button class="btn btn-sm btn-ghost" id="exportBtn" title="Save a backup file — same data as Share, but downloaded instead of sent, with an optional passphrase">Export</button>
-        </span>
-        <span class="actions-divider" aria-hidden="true"></span>
-        <span class="actions-group">
-          <button class="btn btn-sm btn-ghost" id="mockDataBtn" title="Replaces everything currently entered with randomised example numbers, so you can try the tool before entering your own">Sample data</button>
-          <button class="btn btn-sm btn-ghost" id="resetBtn" title="Clear everything back to a blank slate">Reset</button>
-        </span>
+        <button class="btn btn-sm btn-ghost" id="exportBtn" title="Save a backup file — same data as Share, but downloaded instead of sent, with an optional passphrase">Export backup</button>
+        <!-- v3.33.0: Import, Sample data and Reset behind one menu. Reset sat a few pixels from Export,
+             and Sample data replaces everything — neither belongs one stray click away. -->
+        <div class="page-overflow topbar-overflow">
+          <button type="button" class="page-overflow-btn" data-overflow-toggle aria-haspopup="true" aria-expanded="false" aria-label="More data actions" title="Import, share, sample data, reset">⋯</button>
+          <div class="page-overflow-menu" data-overflow-menu hidden>
+            <button class="btn btn-sm btn-ghost" id="shareBtn" hidden title="Send your data to another device — opens your phone/computer's share sheet (AirDrop, Messages, email, etc.) with a password-protected file and instructions. You'll set a passphrase to share it separately with whoever's receiving it.">Share securely</button>
+            <button class="btn btn-sm btn-ghost" id="importBtn" title="Load a file from Share or Export">Import backup</button>
+            <button class="btn btn-sm btn-ghost" id="mockDataBtn" title="Replaces everything currently entered with randomised example numbers, so you can try the tool before entering your own">Load sample data</button>
+            <button class="btn btn-sm btn-ghost menu-danger" id="resetBtn" title="Clear everything back to a blank slate">Reset everything…</button>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -266,7 +268,7 @@
               <div class="ledger-total">Monthly total <b id="totalIncomeMonthly">—</b></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note" style="margin-left:0">Enter a paycheck as-is (Type "Net") if that's what actually lands in your account, or mark it "Gross" and add a Person to have the Tax &amp; Super section below work out real take-home pay. Every row here applies to all your scenarios by default — use <b>⇄ Vary</b> on a row to give one scenario a different amount ("three days a week", "six months off", "the pay rise doesn't arrive"). The figures on this page are the default ones.</p>
+              <p class="ledger-note help" style="margin-left:0">Enter a paycheck as-is (Type "Net") if that's what actually lands in your account, or mark it "Gross" and add a Person to have the Tax &amp; Super section below work out real take-home pay. Every row here applies to all your scenarios by default — use <b>⇄ Vary</b> on a row to give one scenario a different amount ("three days a week", "six months off", "the pay rise doesn't arrive"). The figures on this page are the default ones.</p>
               <div id="incomeImportPreview" hidden></div>
               <p class="income-summary-line" id="incomeSummaryLine" style="display:none"></p>
               <div id="incomeGroups"></div>
@@ -282,7 +284,7 @@
               <div class="ledger-total" id="taxSuperPeriod">per person</div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note" style="margin-left:0">Estimated Australian resident income tax, Medicare levy, and concessional super — a full year at the rates shown, computed from any Income rows marked "Gross" above. Which twelve months that year is comes from Accounts &rarr; Preferences. A person appears here the moment one of their rows is marked Gross; use ✎ to rename or ✕ to remove them (their rows just go back to Type "Net"). Covers HELP/HECS, the Medicare levy surcharge, work-related deductions, dividends and franking, capital gains and property depreciation. Still an estimate — rates are indexed annually, Division 293 and surcharge income are approximated, and each capital gain is discounted on its own holding period rather than netted against losses first. Confirm real figures with your accountant.</p>
+              <p class="ledger-note help" style="margin-left:0">Estimated Australian resident income tax, Medicare levy, and concessional super — a full year at the rates shown, computed from any Income rows marked "Gross" above. Which twelve months that year is comes from Accounts &rarr; Preferences. A person appears here the moment one of their rows is marked Gross; use ✎ to rename or ✕ to remove them (their rows just go back to Type "Net"). Covers HELP/HECS, the Medicare levy surcharge, work-related deductions, dividends and franking, capital gains and property depreciation. Still an estimate — rates are indexed annually, Division 293 and surcharge income are approximated, and each capital gain is discounted on its own holding period rather than netted against losses first. Confirm real figures with your accountant.</p>
               <div id="taxSuperBody"></div>
             </div>
           </details>
@@ -293,7 +295,7 @@
               <div class="ledger-total">a year, in myTax's order</div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note" style="margin-left:0">One financial year as a return asks for it. Type the year's documents in — income statements, interest, the agent's summary — and the worksheet uses them; anything left blank falls back to what the app already models, so it's useful straight away and exact once the papers are in.</p>
+              <p class="ledger-note help" style="margin-left:0">One financial year as a return asks for it. Type the year's documents in — income statements, interest, the agent's summary — and the worksheet uses them; anything left blank falls back to what the app already models, so it's useful straight away and exact once the papers are in.</p>
               <div id="taxYearBody"></div>
             </div>
           </details>
@@ -327,7 +329,7 @@
               <div class="ledger-total">Monthly total <b id="totalSharedMonthly">—</b></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note" style="margin-left:0">Everything you plan to spend — housing, subscriptions, car, groceries and the rest — with what each is expected to cost and how often. Housing comes from the scenario you're currently in (<b id="budgetHousingScenario">—</b>), so switching scenarios on the Scenarios tab swaps it for that one's costs, and each investment property's costs come from the Properties tab.</p>
+              <p class="ledger-note help" style="margin-left:0">Everything you plan to spend — housing, subscriptions, car, groceries and the rest — with what each is expected to cost and how often. Housing comes from the scenario you're currently in (<b id="budgetHousingScenario">—</b>), so switching scenarios on the Scenarios tab swaps it for that one's costs, and each investment property's costs come from the Properties tab.</p>
               <!-- Rendered by renderPropertyExpensesSummary(). The Dashboard's 50/30/20 breakdown
                    counts investment loan repayments and this total doesn't, so the two pages show
                    figures that differ by exactly this amount. The card that explains why sits at
@@ -349,7 +351,7 @@
               <div class="ledger-total">Monthly total <b id="propertyExpensesTotal">—</b></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note" style="margin-left:0">Read-only, and not counted in the budget total above — a repayment is worked out from the loan's balance, rate and term rather than budgeted. Each property's other costs are listed as ordinary budget lines above. Edit either on the Properties tab.</p>
+              <p class="ledger-note help" style="margin-left:0">Read-only, and not counted in the budget total above — a repayment is worked out from the loan's balance, rate and term rather than budgeted. Each property's other costs are listed as ordinary budget lines above. Edit either on the Properties tab.</p>
               <div id="propertyExpensesModern"></div>
             </div>
           </details>
@@ -369,7 +371,7 @@
               <div class="ledger-total">Total <b id="totalTransactionsAmount">—</b></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note" style="margin-left:0"><b>+ Log spend</b> is the quick way in: type the amount, tap which budget line it came out of, done. The budget itself never moves — only this list does.</p>
+              <p class="ledger-note help" style="margin-left:0"><b>+ Log spend</b> is the quick way in: type the amount, tap which budget line it came out of, done. The budget itself never moves — only this list does.</p>
               <div id="transactionsTable"></div>
               <div class="ledger-footer">
                 <button class="btn btn-sm btn-primary" id="quickLogBtn" title="Log what you just spent in a couple of taps — amount, which budget line it came out of, done">+ Log spend</button>
@@ -382,7 +384,7 @@
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Import from your bank</h2></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note" style="margin-left:0">Export a CSV from your bank and drop it in here. One statement replaces a month of tapping — and the app remembers where each shop goes, so the next one is mostly already done.</p>
+              <p class="ledger-note help" style="margin-left:0">Export a CSV from your bank and drop it in here. One statement replaces a month of tapping — and the app remembers where each shop goes, so the next one is mostly already done.</p>
               <!-- Filled by renderBankImportHelp() on load. Available before picking a file, not
                    only after one fails to parse: the note above otherwise leaves the reader to
                    find out what's accepted by being rejected. -->
@@ -408,7 +410,7 @@
               <div class="ledger-total" id="yearSpendLabel"></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note" style="margin-left:0">Everything logged since your year began — the view a tax return, a yearly review or an insurance renewal is actually asked in. Change which twelve months this covers under Accounts → Preferences.</p>
+              <p class="ledger-note help" style="margin-left:0">Everything logged since your year began — the view a tax return, a yearly review or an insurance renewal is actually asked in. Change which twelve months this covers under Accounts → Preferences.</p>
               <div id="yearSpendPanel"></div>
               <div class="ledger-footer">
                 <button class="btn btn-sm" id="exportYearTransactionsBtn" title="Every transaction logged in this year, as a CSV — dated, categorised, and with the budget line each one was logged against">Export this year's transactions (CSV)</button>
@@ -421,7 +423,7 @@
               <div class="ledger-total">last 6 months</div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note" style="margin-left:0">Everything else on this page compares you against a number you set. This compares you against yourself — which categories are climbing, and which are settling down.</p>
+              <p class="ledger-note help" style="margin-left:0">Everything else on this page compares you against a number you set. This compares you against yourself — which categories are climbing, and which are settling down.</p>
               <div id="spendingTrendsPanel"></div>
             </div>
           </details>
@@ -445,7 +447,7 @@
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Accounts</h2></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note" style="margin-left:0">A debit/savings account has no due date — spending there just draws it down. A credit card has a statement cycle instead, so each transaction hits separately; set its cycle's start day (e.g. 15 for a 15th–14th cycle) so "Actual vs. planned" on the Expenses tab can total up the current bill.</p>
+              <p class="ledger-note help" style="margin-left:0">A debit/savings account has no due date — spending there just draws it down. A credit card has a statement cycle instead, so each transaction hits separately; set its cycle's start day (e.g. 15 for a 15th–14th cycle) so "Actual vs. planned" on the Expenses tab can total up the current bill.</p>
               <div id="accountsTable"></div>
               <div class="ledger-footer">
                 <button class="btn btn-sm" id="addAccountBtn">+ Add account</button>
@@ -464,7 +466,7 @@
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Categories</h2></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note" style="margin-left:0">Set a category on each budget line (Expenses → Budget) and the charts there show what you plan and actually spend per category. Categories work best coarse — one "Car" covering rego, insurance, fuel and servicing says more than four categories that each match a single line. Renaming one here updates every line using it; deleting one leaves those lines uncategorised rather than removing them.</p>
+              <p class="ledger-note help" style="margin-left:0">Set a category on each budget line (Expenses → Budget) and the charts there show what you plan and actually spend per category. Categories work best coarse — one "Car" covering rego, insurance, fuel and servicing says more than four categories that each match a single line. Renaming one here updates every line using it; deleting one leaves those lines uncategorised rather than removing them.</p>
               <div id="categoriesTable"></div>
               <div class="ledger-footer">
                 <button class="btn btn-sm" id="addCategoryBtn">+ Add category</button>
@@ -484,12 +486,21 @@
               <div class="ledger-total" id="yearBasisCurrent"></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note" style="margin-left:0">Which twelve months this app treats as "a year" — used by the year-to-date spending view, the transactions export, the share price "YTD" timeframe, and the tax estimate below Income. In Australia a tax return is a financial-year document, and so is most of what a household calls a year of something, so that's the default.</p>
+              <p class="ledger-note help" style="margin-left:0">Which twelve months this app treats as "a year" — used by the year-to-date spending view, the transactions export, the share price "YTD" timeframe, and the tax estimate below Income. In Australia a tax return is a financial-year document, and so is most of what a household calls a year of something, so that's the default.</p>
               <div class="seg-control" id="yearBasisControl" role="group" aria-label="Household year">
                 <button type="button" class="seg-option" data-year-basis="financial" title="1 July to 30 June — the Australian financial year, and what a tax return covers">Financial year (Jul–Jun)</button>
                 <button type="button" class="seg-option" data-year-basis="calendar" title="1 January to 31 December">Calendar year (Jan–Dec)</button>
               </div>
               <p class="ledger-note" style="margin-left:0;margin-top:12px" id="yearBasisNote"></p>
+            </div>
+          </details>
+          <details class="ledger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Explanations</h2></div>
+            </summary>
+            <div class="ledger-body">
+              <label class="pref-check"><input type="checkbox" id="showHelpToggle"> Show every section's explanation</label>
+              <p class="ledger-note" style="margin-left:0;margin-top:8px">Off, each section keeps its explanation behind the ⓘ next to its title. This is remembered on this device only.</p>
             </div>
           </details>
         </div>
@@ -515,7 +526,7 @@
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Equity vs debt</h2></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note" style="margin-left:0">What you actually own vs. what's still owed, added up across every property.</p>
+              <p class="ledger-note help" style="margin-left:0">What you actually own vs. what's still owed, added up across every property.</p>
               <div id="propertiesEquityDebtBar"></div>
             </div>
           </details>
@@ -584,7 +595,7 @@
                 <div class="ledger-total">Total <b id="totalDebtsAmount">—</b></div>
               </summary>
               <div class="ledger-body">
-                <p class="ledger-note" style="margin-left:0">Anything you owe outside a property loan — credit cards, personal loans, BNPL. Subtracted from your net worth as a flat balance (no interest/repayment modeling here — property loans have their own full amortisation on the Properties tab; don't duplicate them here).</p>
+                <p class="ledger-note help" style="margin-left:0">Anything you owe outside a property loan — credit cards, personal loans, BNPL. Subtracted from your net worth as a flat balance (no interest/repayment modeling here — property loans have their own full amortisation on the Properties tab; don't duplicate them here).</p>
                 <div id="debtsTable"></div>
                 <div class="ledger-footer"><button class="btn btn-sm" id="addDebtBtn">+ Add debt</button></div>
               </div>
@@ -594,7 +605,7 @@
                 <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Allocation</h2></div>
               </summary>
               <div class="ledger-body">
-                <p class="ledger-note" style="margin-left:0">Cash and Shares count as liquid funds against the upfront cost of buying — Super, Vehicle, Other, and property equity can't be accessed for a deposit.</p>
+                <p class="ledger-note help" style="margin-left:0">Cash and Shares count as liquid funds against the upfront cost of buying — Super, Vehicle, Other, and property equity can't be accessed for a deposit.</p>
                 <div id="assetsAllocation"></div>
               </div>
             </details>
@@ -615,7 +626,7 @@
                 <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Where your wealth sits</h2></div>
               </summary>
               <div class="ledger-body">
-                <p class="ledger-note" style="margin-left:0">Net worth can double while the mix quietly concentrates into one asset. This is the shape of it today — super, shares, cash and property equity — and how that shape has shifted.</p>
+                <p class="ledger-note help" style="margin-left:0">Net worth can double while the mix quietly concentrates into one asset. This is the shape of it today — super, shares, cash and property equity — and how that shape has shifted.</p>
                 <div id="allocationHistoryPanel"></div>
               </div>
             </details>
@@ -639,7 +650,7 @@
               <div class="ledger-total">net worth over time</div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note" style="margin-left:0">Projects each scenario's net worth forward: your home equity grows with the property and shrinks with the loan paydown, while your surplus savings (and existing portfolio) compound as investments. A scenario with its own "invest instead of buying" leg (Scenarios tab) compounds that money at its own growth rate instead. Living costs and housing costs inflate each year and your income grows at its own rate; a mortgage repayment is the one thing that stays fixed in nominal terms, as it is in reality. Any row given an "Ends" date stops counting from then on. All assumptions below are yours to set — treat the result as a "what if," not a forecast.</p>
+              <p class="ledger-note help" style="margin-left:0">Projects each scenario's net worth forward: your home equity grows with the property and shrinks with the loan paydown, while your surplus savings (and existing portfolio) compound as investments. A scenario with its own "invest instead of buying" leg (Scenarios tab) compounds that money at its own growth rate instead. Living costs and housing costs inflate each year and your income grows at its own rate; a mortgage repayment is the one thing that stays fixed in nominal terms, as it is in reality. Any row given an "Ends" date stops counting from then on. All assumptions below are yours to set — treat the result as a "what if," not a forecast.</p>
               <div class="proj-controls">
                 <div class="proj-field" title="How many years forward the chart and table below project."><label for="projHorizon">Horizon (years)</label><input type="number" min="1" max="50" step="1" id="projHorizon"></div>
                 <div class="proj-field" title="Annual growth rate applied to your surplus savings and existing non-property portfolio (Cash, Shares, Super, Other from the Assets page), compounded monthly. Doesn't apply to a scenario's own 'invest instead of buying' leg, which uses its own growth rate instead (Scenarios tab)."><label for="projInvestRate">Investment return % p.a.</label><input type="number" min="0" max="30" step="0.1" id="projInvestRate"><input type="range" class="proj-slider" min="0" max="30" step="0.1" id="projInvestRateRange" aria-label="Investment return % p.a. slider"></div>
@@ -714,8 +725,8 @@
     <button type="button" class="mobile-more-item" id="mobileImportBtn">Import backup</button>
     <button type="button" class="mobile-more-item" id="mobileExportBtn">Export backup</button>
     <div class="mobile-more-divider"></div>
-    <button type="button" class="mobile-more-item" id="mobileSampleDataBtn">Sample data</button>
-    <button type="button" class="mobile-more-item" id="mobileResetBtn">Reset</button>
+    <button type="button" class="mobile-more-item" id="mobileSampleDataBtn">Load sample data</button>
+    <button type="button" class="mobile-more-item menu-danger" id="mobileResetBtn">Reset everything…</button>
     <div class="mobile-more-divider"></div>
     <a class="mobile-more-item" href="https://github.com/luizfds/wealth-planner/issues/new" target="_blank" rel="noopener noreferrer">💡 Request a feature</a>
     <button type="button" class="mobile-more-item" id="mobileCheckUpdatesBtn">Check for updates</button>

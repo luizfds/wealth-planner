@@ -132,6 +132,39 @@ export function lotsSectionHtml(item, idx){
     '<button type="button" class="btn btn-sm btn-ghost" data-lot-add="' + idx + '">+ Add lot</button>' +
   '</div></details>';
 }
+// Distributions received (v3.38.0) — each payment as it landed: the cash and the franking credit
+// from the payment advice. In a named tax year they replace the per-unit estimate; the Benchmarks
+// tab counts them in a with-income return. See calc/tax.js personDividends().
+export function payoutsSectionHtml(item, idx){
+  var pays = Array.isArray(item.payouts) ? item.payouts : [];
+  var rows = pays.map(function(p, pi){
+    return '<div class="lot-row payout-row" data-payout-index="' + pi + '">' +
+      '<input type="date" class="po-date" data-payout-index="' + pi + '" value="' + escapeAttr(p.date || "") + '" aria-label="Paid on">' +
+      '<input type="number" step="0.01" min="0" class="po-cash" data-payout-index="' + pi + '" value="' + (Number(p.cash) || 0) + '" aria-label="Cash received">' +
+      '<input type="number" step="0.01" min="0" class="po-credit" data-payout-index="' + pi + '" value="' + (Number(p.credit) || 0) + '" aria-label="Franking credit" title="The franking credit on the payment advice — 0 for unfranked or foreign income">' +
+      '<button type="button" class="icon-btn" data-payout-del="' + idx + ':' + pi + '" aria-label="Delete this payment">✕</button>' +
+    '</div>';
+  }).join("");
+  return '<details class="row-more-options payouts-section"><summary>Distributions received' + (pays.length ? " (" + pays.length + ")" : "") + '</summary><div style="margin-top:8px">' +
+    (pays.length ? '<div class="lot-head payout-row" aria-hidden="true"><span>Paid on</span><span>Cash</span><span>Franking credit</span><span></span></div>' + rows : "") +
+    '<p class="ledger-note payouts-note" style="margin-left:0">' + payoutsNoteText(item) + '</p>' +
+    '<button type="button" class="btn btn-sm btn-ghost" data-payout-add="' + idx + '">+ Add payment</button>' +
+  '</div></details>';
+}
+export function payoutsNoteText(item){
+  var pays = Array.isArray(item.payouts) ? item.payouts : [];
+  if(!pays.length) return "Log each dividend or distribution from its payment advice. In a tax year with payments logged, they replace the per-unit estimate above — unless that year has an annual tax statement, which wins.";
+  var cash = pays.reduce(function(s, p){ return s + (Number(p.cash) || 0); }, 0);
+  var credit = pays.reduce(function(s, p){ return s + (Number(p.credit) || 0); }, 0);
+  return pays.length + " payment" + (pays.length === 1 ? "" : "s") + ": " + fmtCurrency2.format(cash) + " cash" + (credit ? " + " + fmtCurrency2.format(credit) + " franking credits" : "") + ".";
+}
+export function addAssetPayout(idx){
+  var item = state.assets[idx];
+  if(!item) return;
+  if(!Array.isArray(item.payouts)) item.payouts = [];
+  item.payouts.push({ id: genId("po"), date: localDateStr(), cash: 0, credit: 0 });
+}
+
 // Annual tax statements (v3.22.0) — see calc/tax.js personFundStatements(). One card per year,
 // fields labelled with the myTax label they come from so they can be copied straight off the
 // statement's "Part A" summary. Statement years replace the dividend-per-unit estimate.
@@ -684,6 +717,7 @@ function modernShareRowHtml(item, idx, colorIdx){
       '<div class="m-edit-field"><label>Franked %</label><input type="number" step="5" min="0" max="100" class="h-franked" value="' + (item.frankedPct == null ? 100 : item.frankedPct) + '" title="How much of the dividend carries a franking credit for company tax already paid. Fully franked is 100; LICs, REITs and foreign income are often less." aria-label="Franked percentage"><span class="computed-note h-div-note">' + dividendNoteText(item) + '</span></div>' +
     '</div>' +
     lotsSectionHtml(item, idx) +
+    payoutsSectionHtml(item, idx) +
     statementsSectionHtml(item, idx) +
     '<details class="row-more-options"><summary>Record a sale (capital gains)</summary><div style="margin-top:8px">' +
       '<div class="m-edit-grid">' +

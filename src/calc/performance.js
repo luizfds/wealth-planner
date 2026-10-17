@@ -12,7 +12,7 @@
 // Flows from Shares holdings that have purchase lots: buys negative (cost incl. brokerage), sales
 // positive (proceeds), AUD. `toAud(asset, amount)` converts a holding's native currency.
 export function shareFlows(assets, toAud){
-  var flows = [], value = 0, included = [], excluded = [];
+  var flows = [], payouts = [], value = 0, included = [], excluded = [];
   (assets || []).forEach(function(a){
     if(a.category !== "Shares") return;
     var lots = (a.lots || []).filter(function(l){ return l.date && Number(l.units) > 0; });
@@ -25,10 +25,17 @@ export function shareFlows(assets, toAud){
     (a.sales || []).forEach(function(s){
       if(s.date && Number(s.proceeds) > 0) flows.push({ date: s.date, amount: toAud(a, Number(s.proceeds)) });
     });
+    // Distributions received (v3.38.0), cash only — kept apart so the price-only comparison with the
+    // index stays like for like, and a with-income return can be worked out alongside it.
+    (a.payouts || []).forEach(function(p){
+      if(p.date && Number(p.cash) > 0) payouts.push({ date: p.date, amount: toAud(a, Number(p.cash)) });
+    });
     value += toAud(a, Number(a.amount) || 0);
   });
-  flows.sort(function(x, y){ return x.date < y.date ? -1 : x.date > y.date ? 1 : 0; });
-  return { flows: flows, value: value, included: included, excluded: excluded };
+  var byDate = function(x, y){ return x.date < y.date ? -1 : x.date > y.date ? 1 : 0; };
+  flows.sort(byDate);
+  payouts.sort(byDate);
+  return { flows: flows, payouts: payouts, value: value, included: included, excluded: excluded };
 }
 
 function years(from, to){

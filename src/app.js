@@ -47,7 +47,7 @@ import {
   renderNetWorthPanel, renderAssets, logAssetSnapshot, applySharesPaste, logDebtSnapshot, setUsdAudRate,
   patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter, renderAssetPersonSheet, assetPersonSheetOpen, setAssetPersonSheetOpen, setSharesGainFilter, setSharesSortMode, setSharesChangeWindow, setAllocationRange, setPortfolioRange,
   parseAssetsImportCsv, renderAssetsImportPreview, clearAssetsImportPreview, commitAssetsImport, dividendNoteText,
-  recordAssetSale, deleteAssetSale, renderAssetsSummary, patchOffsetsRow, addAssetLot, syncAvgCostFromLots, lotsSectionHtml, lotsNoteText, addAssetStatement, statementsSectionHtml
+  recordAssetSale, deleteAssetSale, renderAssetsSummary, patchOffsetsRow, addAssetLot, syncAvgCostFromLots, lotsSectionHtml, lotsNoteText, addAssetStatement, statementsSectionHtml, payoutsSectionHtml, payoutsNoteText, addAssetPayout
 } from "./components/assets.js";
 import {
   modernPropRowOpen, renderPropListModern, renderProperties, patchPropertyCardComputed,
@@ -1181,6 +1181,17 @@ import {
         renderCards(); renderDetail(); renderTotals();
         renderProjectionOutputs();
       }
+      // v3.38.0: distributions received — edit in place, then the tax chain (they're income).
+      else if(e.target.hasAttribute("data-payout-index")){
+        var po = (item.payouts || [])[Number(e.target.getAttribute("data-payout-index"))];
+        if(!po) return;
+        if(e.target.classList.contains("po-date")) po.date = e.target.value;
+        else if(e.target.classList.contains("po-cash")) po.cash = Math.max(0, parseFloat(e.target.value) || 0);
+        else if(e.target.classList.contains("po-credit")) po.credit = Math.max(0, parseFloat(e.target.value) || 0);
+        var poNote = tr.querySelector(".payouts-note");
+        if(poNote) poNote.textContent = payoutsNoteText(item);
+        afterPayoutChange();
+      }
       // Purchase lots: edit in place. Avg cost follows the lots so the holding's gain figure agrees
       // with them; the cost-base change doesn't move tax (only a recorded sale does), so no tax re-run.
       else if(e.target.hasAttribute("data-lot-index")){
@@ -1324,6 +1335,26 @@ import {
       showUndoToast("Statement deleted", function(){
         stItem.taxStatements.splice(Math.min(Number(stParts[1]), stItem.taxStatements.length), 0, removedSt);
         afterStatementListChange(Number(stParts[0]));
+      });
+      return;
+    }
+    var poAddBtn = e.target.closest("[data-payout-add]");
+    if(poAddBtn){
+      var poIdx = Number(poAddBtn.getAttribute("data-payout-add"));
+      addAssetPayout(poIdx);
+      afterPayoutListChange(poIdx);
+      return;
+    }
+    var poDelBtn = e.target.closest("[data-payout-del]");
+    if(poDelBtn){
+      var poParts = poDelBtn.getAttribute("data-payout-del").split(":");
+      var poItem = state.assets[Number(poParts[0])];
+      if(!poItem || !poItem.payouts) return;
+      var removedPo = poItem.payouts.splice(Number(poParts[1]), 1)[0];
+      afterPayoutListChange(Number(poParts[0]));
+      showUndoToast("Payment deleted", function(){
+        poItem.payouts.splice(Math.min(Number(poParts[1]), poItem.payouts.length), 0, removedPo);
+        afterPayoutListChange(Number(poParts[0]));
       });
       return;
     }
@@ -1996,6 +2027,31 @@ import {
     } else {
       renderAssets();
     }
+    persist();
+  }
+  // v3.38.0: the same in-place swap for distributions, then the tax chain.
+  function afterPayoutListChange(idx){
+    var item = state.assets[idx];
+    var row = document.querySelector('.m-asset-rows [data-index="' + idx + '"]');
+    var sec = row && row.querySelector("details.payouts-section");
+    if(item && sec){
+      var holder = document.createElement("div");
+      holder.innerHTML = payoutsSectionHtml(item, idx);
+      var fresh = holder.firstElementChild;
+      fresh.open = true;
+      sec.replaceWith(fresh);
+    } else {
+      renderAssets();
+    }
+    afterPayoutChange();
+  }
+  function afterPayoutChange(){
+    recalcComputedItems();
+    renderTaxSuper();
+    patchSyntheticIncomeRows();
+    patchIncomeGroupTotals();
+    renderCards(); renderDetail(); renderTotals();
+    renderProjectionOutputs();
     persist();
   }
   // Same in-place swap as afterLotListChange, then the tax chain — a statement is taxable income.

@@ -90,7 +90,16 @@ function deductionFieldsHtml(item){
     '<div class="m-edit-field f-deduct-extra"' + (item.deductible ? "" : " hidden") + '><label>Work-related %</label>' +
       '<input type="number" min="0" max="100" step="5" class="f-deductpct" value="' + (item.deductiblePct == null ? 100 : item.deductiblePct) + '" title="How much of this is work-related. A phone bill or a car is rarely 100%.">' +
     '</div>' +
-    (personField ? '<div class="f-deduct-extra"' + (item.deductible ? "" : " hidden") + ' style="display:contents">' + personField + '</div>' : "");
+    (personField ? '<div class="f-deduct-extra"' + (item.deductible ? "" : " hidden") + ' style="display:contents">' + personField + '</div>' : "") +
+    // The claim's own dates, separate from "Ends": rent carries on after the home-office share of
+    // it stops being claimable (an employer starts providing an office), and a tax year counts only
+    // the days the claim covered. Blank = the whole year.
+    '<div class="m-edit-field f-deduct-extra"' + (item.deductible ? "" : " hidden") + '><label>Claim from</label>' +
+      '<input type="date" class="f-deductfrom" value="' + escapeAttr(item.deductibleFrom || "") + '" title="The first day this was claimable. Leave blank if it was claimable from before this tax year began." aria-label="Claimable from">' +
+    '</div>' +
+    '<div class="m-edit-field f-deduct-extra"' + (item.deductible ? "" : " hidden") + '><label>Claim until</label>' +
+      '<input type="date" class="f-deductuntil" value="' + escapeAttr(item.deductibleUntil || "") + '" title="The last day this was claimable, if the claim stopped while the expense carried on — e.g. home-office rent once an employer office became available. The tax year counts only the days in between." aria-label="Claimable until">' +
+    '</div>';
 }
 // Same registration shape as calc/tax.js's deductible-items provider, and for the same reason: the
 // person list comes from calc/tax.js's getTaxPeople(), and lib/ deliberately imports no calc module.

@@ -204,6 +204,10 @@ function applyTimingDefaults(item){
   if(item.deductible == null) item.deductible = false;
   if(item.deductiblePct == null) item.deductiblePct = 100;
   if(item.deductiblePerson == null) item.deductiblePerson = "";
+  // When the claim itself starts/stops, as distinct from the expense (endDate). Blank = the whole
+  // year. See calc/tax.js's deductionYearFraction() for why these can't just reuse endDate.
+  if(item.deductibleFrom == null) item.deductibleFrom = "";
+  if(item.deductibleUntil == null) item.deductibleUntil = "";
 }
 
 export function migrateState(s){

@@ -1710,6 +1710,101 @@ becomes active; both the Scenarios-page and Dashboard-card buttons work; no hori
 
 ---
 
+## Tax return accuracy (October 2026 review)
+
+Found by lodging a real FY25/26 return (two owners of one QLD investment property, an ASX share
+sale, two iShares ETFs, crypto, a mid-year change of employer) and then reading this app against
+every figure that went into myTax. The app's tax engine estimates a **rate** — "what does this cost
+per year, right now" — while a return needs **the year's actuals, each on its ATO label**. The items
+below close that gap, quiet wrong numbers first. Every fixture quoted is from the real return, so
+each doubles as a test case with a known right answer.
+
+## 36. `[~]` Deductions that stop or start partway through a tax year
+
+`rowDeductionAnnual()` returned $0 for any row whose `endDate` had passed — including for the tax
+year it ended in, which is the year anyone lodging is looking at — and had no way to say "the
+expense carries on but stopped being claimable" (home-office rent once an employer office became
+available on 1 Oct 2025). Fix: pro-rate by days within the household year, and add
+`deductibleFrom`/`deductibleUntil`, separate from `endDate`. Fixture: $***/wk x 6.4% claimable to
+30 Sep 2025 = **$***REMOVED***** for FY25/26.
+
+## 37. `[~]` Borrowing costs on investment loans (the 5-year rule)
+
+LMI, the lender's establishment/settlement fee and mortgage registration had nowhere to go. Typed
+into `acquisitionCosts` they inflated the CGT cost base *and* were never deducted. Fix:
+`loan.settlementDate` + `loan.borrowingCosts`, apportioned by days over 5 years or the loan term if
+shorter, exactly as the ATO's deductible borrowing expenses calculator does; $100 or less is
+deductible in full in the year incurred. Fixture: $***REMOVED*** (LMI $***REMOVED*** + $*** fee) settled
+01/01/2025 → FY24/25 $***REMOVED*** · FY25/26 $***REMOVED*** · FY26/27 $***REMOVED*** · FY27/28 $***REMOVED*** ·
+FY28/29 $***REMOVED*** · FY29/30 $***REMOVED*** (1,826 days). Out of scope for now: writing off the remaining
+balance when a loan is refinanced or paid out early.
+
+## 38. `[ ]` Second-hand plant & equipment isn't claimable
+
+`plantDepreciationAnnual()` claims `plantValue / life` unconditionally. For residential property
+bought second-hand under a contract after 9 May 2017 the claim is **$0** — the fixture's QS report
+values $***REMOVED*** of plant the owner may not claim, which this app would have deducted at ~$***REMOVED***/yr.
+Add a "bought new / second-hand" flag; keep the values (they become a capital loss on scrapping and
+feed CGT on sale).
+
+## 39. `[ ]` Capital works by component, from the QS schedule
+
+One `constructionCost` + `constructionDate` can't represent the fixture: original 1993 building
+($***REMOVED***/yr, ends FY33/34) plus a 2023 renovation ($***/yr), and the first year pro-rated from the
+purchase date (FY24/25 $***REMOVED***, not $***REMOVED***). Simplest correct shape: let the user enter the quantity
+surveyor's year-by-year table (`depreciationSchedule: [{fy, capitalWorks, plant}]`), with the
+formula as the fallback when there's no report.
+
+## 40. `[ ]` Property CGT cost base
+
+`propertyCostBase()` must subtract capital works deductions claimed (property acquired after
+13 May 1997) and must not include borrowing costs (item 37 gives them a home). Today it overstates
+the cost base, so the gain on sale is understated.
+
+## 41. `[ ]` Share lots (parcels), and the discount per parcel
+
+A sale takes `avgCost x units` and one acquisition date. The fixture sold units in two sales
+from **six** purchase lots; discount eligibility is per lot. Store `asset.lots[] = {date, units,
+price, brokerage}`, match sales FIFO by default (specific-ID optional). Fixture: FIFO gives cost
+bases $***REMOVED*** / $***REMOVED***, gains $***REMOVED*** / $***REMOVED*** = $***REMOVED***, all discounted.
+
+## 42. `[ ]` ETF / managed fund annual tax statements (AMIT)
+
+ETFs are modelled as dividend-per-unit + franked %. IVV's FY25/26 return was foreign income
+($***REMOVED***), a foreign income tax offset ($***REMOVED***), a fund-discounted capital gain (18H $***REMOVED*** /
+18A $***REMOVED***) and a cost base increase ($***REMOVED***). Add a per-fund, per-year statement record holding
+13U/13C/13Q/18H/18A/20E/20M/20O and the AMIT cost base adjustment, applied to the holding.
+
+## 43. `[ ]` Capital losses: before the discount, and carried forward
+
+`personCapitalGains()` discounts per sale (documented simplification). Real order: losses against
+non-discount gains, then discount gains, then the 50%. Add `capitalLossCarriedForward` per person.
+
+## 44. `[ ]` Deductions on their ATO labels, and the working-from-home method
+
+Tag each deductible line D1/D2/D3/D4/D5/D10; add the fixed-rate method as an hours log x the
+year's rate (70c in FY25/26) and warn when internet/phone/electricity lines are *also* flagged,
+since the rate covers them. Fixture: D2 $***REMOVED***, D5 $***REMOVED*** (WFH $***REMOVED*** + rent $***REMOVED*** +
+$*** + depreciation $***REMOVED***), D10 $***.
+
+## 45. `[ ]` Tax tables per financial year
+
+`AU_TAX_BRACKETS`, `HELP_REPAYMENT_RATES`, `MLS_TIERS` are all labelled 2024-25; FY26/27 has the
+16% rate at 15%. Key every table by FY and pick by the year being computed, so last year's return
+and next year's projection both work. Add the private health insurance rebate tier by combined
+family income — the fixture's $*** clawback was predictable.
+
+## 46. `[ ]` A tax-year record and a myTax worksheet
+
+Per person, per FY, **actuals**: income statements and PAYG withheld, interest per account with
+ownership share, the fund statements (42), the rental schedule split into rent / other rental
+income / each expense line with total and own share, actual loan interest from the statement
+(overriding the balance x rate estimate), CGT events, deductions by label. Output: one page per
+person laid out in myTax's order, an evidence checklist, a refund estimate (withheld − tax), and a
+"why it moved since last year" breakdown.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

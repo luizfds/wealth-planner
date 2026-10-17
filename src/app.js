@@ -47,7 +47,7 @@ import {
 } from "./components/assets.js";
 import {
   modernPropRowOpen, renderPropListModern, renderProperties, patchPropertyCardComputed,
-  logPropertySnapshot, PROPERTY_SECTION_KEYS
+  logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText
 } from "./components/properties.js";
 import { renderProjectionOutputs } from "./components/projections.js";
 import {
@@ -1404,6 +1404,18 @@ import {
       else if(e.target.classList.contains("loan-rate")) loan.rate = parseFloat(e.target.value) || 0;
       else if(e.target.classList.contains("loan-term")) loan.termYears = parseFloat(e.target.value) || 0;
       else if(e.target.classList.contains("loan-manual-amount")) loan.manualRepaymentAmount = parseFloat(e.target.value) || 0;
+      else if(e.target.classList.contains("loan-settled") || e.target.classList.contains("loan-borrowing") || e.target.classList.contains("loan-borrowing-term")){
+        if(e.target.classList.contains("loan-settled")) loan.settlementDate = e.target.value || "";
+        else if(e.target.classList.contains("loan-borrowing")) loan.borrowingCosts = Math.max(0, parseFloat(e.target.value) || 0);
+        else loan.borrowingTermYears = Math.max(0, parseFloat(e.target.value) || 0);
+        var borrowNote = loanTr.querySelector('[data-computed="borrow"]');
+        if(borrowNote) borrowNote.textContent = borrowingNoteText(loan);
+        // Moves taxable income, not cash: the tax card is what has to catch up.
+        recalcComputedItems();
+        renderTaxSuper();
+        patchSyntheticIncomeRows();
+        patchIncomeGroupTotals();
+      }
       else if(e.target.classList.contains("loan-offset")){
         loan.offsetBalance = parseFloat(e.target.value) || 0;
         // The mirror of this file's own offset-balance-input handler — without it, editing the

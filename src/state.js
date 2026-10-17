@@ -506,6 +506,12 @@ export function migrateState(s){
       if(l.balance == null) l.balance = 0;
       if(l.rate == null) l.rate = 0;
       if(l.termYears == null) l.termYears = 30;
+      // Borrowing costs (v3.17.0) — see calc/property.js. settlementDate starts the five-year
+      // clock; borrowingTermYears is the loan's ORIGINAL term, only consulted when it's under five
+      // years (termYears above is what's left, which is a different number).
+      if(l.borrowingCosts == null) l.borrowingCosts = 0;
+      if(l.settlementDate == null) l.settlementDate = "";
+      if(l.borrowingTermYears == null) l.borrowingTermYears = 0;
     });
   });
 

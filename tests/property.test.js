@@ -412,3 +412,51 @@ test("a PPOR never reaches the ownership split — it has no taxable result to s
     assert.equal(personIpResultAnnual("Sam", ["Sam", "Alex"]), 0);
   });
 });
+
+// ---------------- Borrowing costs (v3.17.0) ----------------
+
+import { borrowingCostsSchedule, borrowingCostsDeduction, propertyTaxDeductibleResultAnnual as taxResult } from "../src/calc/property.js";
+
+// A real loan: LMI $12,975.86 + a $350 lender settlement fee, settled 31 January 2025. Every figure
+// below is what the ATO's own deductible borrowing expenses calculator (v1.04) gives for it.
+var REAL_LOAN = { balance: 0, rate: 0, borrowingCosts: 13325.86, settlementDate: "2025-01-31" };
+
+test("borrowing costs over $100 are spread over five years by days, exactly as the ATO calculator does", function(){
+  var sched = borrowingCostsSchedule(REAL_LOAN);
+  assert.deepEqual(sched.map(function(r){ return r.fy; }), [2024, 2025, 2026, 2027, 2028, 2029]);
+  assert.deepEqual(sched.map(function(r){ return r.days; }), [151, 365, 365, 366, 365, 214]);
+  // The first year carries the cent lost to rounding, so the schedule adds back to what was paid.
+  assert.deepEqual(sched.map(function(r){ return r.amount; }), [1101.98, 2663.71, 2663.71, 2671.01, 2663.71, 1561.74]);
+  var sum = sched.reduce(function(s, r){ return s + r.amount; }, 0);
+  assert.equal(Math.round(sum * 100) / 100, 13325.86);
+});
+
+test("a financial-year window takes exactly that year's line", function(){
+  assert.equal(borrowingCostsDeduction(REAL_LOAN, { start: "2025-07-01", end: "2026-06-30" }), 2663.71);
+  assert.equal(borrowingCostsDeduction(REAL_LOAN, { start: "2030-07-01", end: "2031-06-30" }), 0);
+});
+
+test("$100 or less is deducted in full in the year it was paid", function(){
+  var small = { borrowingCosts: 100, settlementDate: "2025-01-31" };
+  assert.equal(borrowingCostsDeduction(small, { start: "2024-07-01", end: "2025-06-30" }), 100);
+  assert.equal(borrowingCostsDeduction(small, { start: "2025-07-01", end: "2026-06-30" }), 0);
+});
+
+test("a loan term shorter than five years shortens the spread", function(){
+  var short = { borrowingCosts: 3000, settlementDate: "2025-07-01", borrowingTermYears: 3 };
+  var sched = borrowingCostsSchedule(short);
+  assert.equal(sched.length, 3);
+  assert.equal(Math.round(sched.reduce(function(s, r){ return s + r.amount; }, 0) * 100) / 100, 3000);
+});
+
+test("nothing is spread without a settlement date to spread it from", function(){
+  assert.deepEqual(borrowingCostsSchedule({ borrowingCosts: 5000 }), []);
+  assert.deepEqual(borrowingCostsSchedule({ borrowingCosts: 0, settlementDate: "2025-01-31" }), []);
+});
+
+test("borrowing costs reduce the property's taxable result, not its cash result", function(){
+  var p = { kind: "IP", income: [], expenses: [], loans: [Object.assign({}, REAL_LOAN)] };
+  var without = { kind: "IP", income: [], expenses: [], loans: [{ balance: 0, rate: 0 }] };
+  var fy = borrowingCostsDeduction(REAL_LOAN);
+  assert.equal(Math.round((taxResult(without) - taxResult(p)) * 100) / 100, fy);
+});

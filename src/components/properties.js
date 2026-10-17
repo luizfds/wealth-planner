@@ -5,11 +5,11 @@ import {
   propertyCapitalGain, propertyYieldOnCost, propertyLVR, propertiesTotalValue, propertiesTotalEquityToday,
   propertiesTotalMortgageBalance, propertiesNetCashFlowMonthly, propertiesWeightedGrossYield,
   propertyOwnershipPct, propertyOwnershipTotal, propertyTaxDeductibleResultAnnual,
-  landTaxByState, totalLandTax
+  landTaxByState, totalLandTax, borrowingCostsSchedule, borrowingCostsDeduction
 } from "../calc/property.js";
 import { getTaxPeople } from "../calc/tax.js";
 import { LAND_TAX_STATES, LAND_TAX_YEAR } from "../constants.js";
-import { sumField } from "../calc/ledger.js";
+import { sumField, householdYearWindow } from "../calc/ledger.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { optionsHtml, modernPlainRowHtml, historyTrendHtml } from "../lib/ledger-table.js";
@@ -147,6 +147,12 @@ function loanRowModernHtml(loan, li, propId, colorIdx){
       '<div class="m-edit-field"><label>Paid</label><select class="loan-repay-freq" aria-label="How often this loan is paid" title="For auto repayments this only changes how the amount is displayed (still calculated monthly) — for a manual repayment it\'s the frequency the amount you type in is actually paid at.">' + optionsHtml(PAYMENT_FREQS, disp.freq) + '</select></div>' +
       '<div class="m-edit-field"><label>Repayment</label><select class="loan-repay-mode" aria-label="Repayment mode">' + optionsHtml(["auto", "manual"], loan.repaymentMode) + '</select></div>' +
       '<div class="m-edit-field" title="Netted against this loan\'s balance for both equity and interest — this is the one place to enter it. Don\'t also add it as a separate Cash asset on the Assets tab, or it\'ll be counted twice."><label>Offset</label><input type="number" step="1000" min="0" class="loan-offset" value="' + (Number(loan.offsetBalance) || 0) + '" aria-label="Offset account balance"></div>' +
+      // Borrowing costs — see calc/property.js. A total, not a list: only the total enters the
+      // five-year rule, and this form is busy enough already.
+      '<div class="m-edit-field"><label>Settled on</label><input type="date" class="loan-settled" value="' + escapeAttr(loan.settlementDate || "") + '" title="The day the loan was drawn down. Starts the five-year clock for borrowing costs." aria-label="Loan settlement date"></div>' +
+      '<div class="m-edit-field"><label>Borrowing costs</label><input type="number" step="1" min="0" class="loan-borrowing" value="' + (Number(loan.borrowingCosts) || 0) + '" title="LMI, the lender\'s establishment or settlement fee, mortgage registration, a lender-required valuation, a broker fee — costs of taking out the LOAN. Not stamp duty on the purchase or conveyancing: those go in Acquisition costs. Over $100 is deducted over five years, by days." aria-label="Borrowing costs"></div>' +
+      '<div class="m-edit-field"><label>Original term (yrs)</label><input type="number" step="1" min="0" class="loan-borrowing-term" value="' + (Number(loan.borrowingTermYears) || "") + '" placeholder="30" title="Only matters if the loan was for less than five years — borrowing costs are then spread over the term instead." aria-label="Original loan term in years"></div>' +
+      '<div class="m-edit-field span3"><span class="computed-note" data-computed="borrow">' + borrowingNoteText(loan) + '</span></div>' +
       (loan.repaymentMode === "manual"
         ? '<div class="m-edit-field span3"><label>Manual repayment amount</label><input type="number" step="1" min="0" class="loan-manual-amount" value="' + (Number(loan.manualRepaymentAmount) || 0) + '" aria-label="Manual repayment amount"></div>'
         : "") +
@@ -154,6 +160,19 @@ function loanRowModernHtml(loan, li, propId, colorIdx){
     '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm row-del" data-loan-del="' + li + '">Delete</button></div>' +
   '</div></div></div>';
   return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="' + escapeAttr(section) + '" data-index="' + li + '" data-loan-index="' + li + '">' + summary + edit + '</div>';
+}
+// One line under the borrowing-cost fields: what this year's return gets, out of what total, and
+// when the spread ends — the three things you need when the ATO calculator asks the same question.
+export function borrowingNoteText(loan){
+  var total = Number(loan.borrowingCosts) || 0;
+  if(!(total > 0)) return "Deducted over five years from settlement. Your lender's settlement letter or first loan statement lists them.";
+  if(!loan.settlementDate) return "Add the settlement date to spread these over five years.";
+  var sched = borrowingCostsSchedule(loan);
+  var win = householdYearWindow();
+  var now = borrowingCostsDeduction(loan, win);
+  var last = sched[sched.length - 1];
+  return "Deductible " + win.label + ": " + fmtCurrency2.format(now) + " of " + fmtCurrency2.format(total) +
+    (sched.length > 1 ? " — spread to FY" + String(last.fy % 100).padStart(2, "0") + "/" + String((last.fy + 1) % 100).padStart(2, "0") + "." : " — all in the year paid.");
 }
 function modernLoanListHtml(p){
   var rowMeta = loanRowMeta(p);

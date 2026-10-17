@@ -1,6 +1,6 @@
 import { state } from "../state.js";
 import { STAMP_DUTY_BRACKETS, FHB_RULES, LMI_BANDS, LAND_TAX_BRACKETS } from "../constants.js";
-import { periodsOf, sumField, sumFieldForScenario } from "./ledger.js";
+import { periodsOf, sumField, sumFieldForScenario, isoDayNumber, overlapDaysInclusive, householdYearWindow } from "./ledger.js";
 import { localDateStr } from "../lib/format.js";
 
 export function bracketDuty(brackets, price){
@@ -189,6 +189,86 @@ export function propertyDepreciationAnnual(property, todayStr){
   return Math.round((capitalWorksAnnual(property, todayStr) + plantDepreciationAnnual(property)) * 100) / 100;
 }
 
+// ---------------- Borrowing costs ----------------
+//
+// LMI, the lender's establishment/settlement fee, mortgage registration, a valuation the lender
+// required, a broker's fee — the cost of taking the LOAN out, as distinct from the cost of buying
+// the PROPERTY. The difference matters both ways: purchase costs (stamp duty on the transfer,
+// conveyancing) go into the CGT cost base and are never deducted; borrowing costs are deducted and
+// never go into the cost base. Typed into acquisitionCosts — the only place they had — they did the
+// wrong thing on both counts.
+//
+// The ATO rule: more than $100 in total is deducted over five years from the day the loan was
+// taken out, or over the loan's term if that's shorter, apportioned by DAYS. $100 or less is
+// deducted in full in the year it was paid. This follows the ATO's own deductible borrowing
+// expenses calculator line for line — the period runs from settlement to the same date five years
+// later, each financial year gets total x its days / the period's days rounded to the cent, and the
+// cent or so lost to rounding goes into the first year (or comes off the last if rounding
+// overshot), so the schedule adds back to exactly what was paid.
+//
+// Stored as one total rather than an itemised list: only the total enters the rule, and the loan
+// editor is already the busiest form in the app. The lender's settlement letter or first loan
+// statement has the items. Not modelled yet: writing off what's left when the loan is refinanced
+// or paid out early (ROADMAP item 37).
+export var BORROWING_COSTS_YEARS = 5;
+export var BORROWING_COSTS_IMMEDIATE_LIMIT = 100;
+
+function addYearsIso(iso, years){
+  var p = iso.split("-").map(Number);
+  // Date.UTC rolls 29 Feb onto 1 Mar in a non-leap target year, which is what DATE() does in the
+  // ATO's spreadsheet too.
+  var d = new Date(Date.UTC(p[0] + years, p[1] - 1, p[2]));
+  return d.toISOString().slice(0, 10);
+}
+function financialYearOf(iso){
+  var y = Number(iso.slice(0, 4)), m = Number(iso.slice(5, 7));
+  return m >= 7 ? y : y - 1;
+}
+// The whole schedule, one entry per Australian financial year: [{fy, start, end, days, amount}].
+// Empty when there's nothing to spread (no costs, or no settlement date to spread them from).
+export function borrowingCostsSchedule(loan){
+  var total = Math.round((Number(loan && loan.borrowingCosts) || 0) * 100) / 100;
+  var settled = loan && loan.settlementDate;
+  if(!(total > 0) || !settled || isNaN(isoDayNumber(settled))) return [];
+  var fy0 = financialYearOf(settled);
+  if(total <= BORROWING_COSTS_IMMEDIATE_LIMIT){
+    return [{ fy: fy0, start: fy0 + "-07-01", end: (fy0 + 1) + "-06-30", days: 1, amount: total }];
+  }
+  var term = Number(loan.borrowingTermYears) || 0;
+  var years = term > 0 && term < BORROWING_COSTS_YEARS ? term : BORROWING_COSTS_YEARS;
+  // A whole number of years steps the calendar, like the ATO's DATE(year + n, month, day); a
+  // fractional term can't, so it's taken in average-length days.
+  var periodEndExcl = Math.round(years) === years
+    ? addYearsIso(settled, years)
+    : new Date((isoDayNumber(settled) + Math.round(years * 365.25)) * 86400000).toISOString().slice(0, 10);
+  var periodDays = isoDayNumber(periodEndExcl) - isoDayNumber(settled);
+  var lastDay = new Date((isoDayNumber(periodEndExcl) - 1) * 86400000).toISOString().slice(0, 10);
+  var rows = [];
+  for(var fy = fy0; fy <= financialYearOf(lastDay); fy++){
+    var start = fy + "-07-01", end = (fy + 1) + "-06-30";
+    var days = overlapDaysInclusive(start, end, settled, lastDay);
+    rows.push({ fy: fy, start: start, end: end, days: days, amount: Math.round(total * days / periodDays * 100) / 100 });
+  }
+  var residual = Math.round((total - rows.reduce(function(s, r){ return s + r.amount; }, 0)) * 100) / 100;
+  if(residual > 0) rows[0].amount = Math.round((rows[0].amount + residual) * 100) / 100;
+  else if(residual < 0) rows[rows.length - 1].amount = Math.round((rows[rows.length - 1].amount + residual) * 100) / 100;
+  return rows;
+}
+// What's deductible in one window. A financial-year window lines up with one schedule row exactly;
+// a calendar-year window (a household that thinks in calendar years) takes each financial year's
+// amount in proportion to the days it shares with the window.
+export function borrowingCostsDeduction(loan, win){
+  win = win || householdYearWindow();
+  return Math.round(borrowingCostsSchedule(loan).reduce(function(sum, r){
+    var shared = overlapDaysInclusive(r.start, r.end, win.start, win.end);
+    var fyDays = overlapDaysInclusive(r.start, r.end, r.start, r.end);
+    return sum + (shared >= fyDays ? r.amount : r.amount * shared / fyDays);
+  }, 0) * 100) / 100;
+}
+export function propertyBorrowingCostsDeduction(property, win){
+  return (property.loans || []).reduce(function(s, l){ return s + borrowingCostsDeduction(l, win); }, 0);
+}
+
 export function propertyTaxDeductibleResultAnnual(property){
   var rentYearly = sumField(property.income, "yearly");
   var expenseYearly = sumField(property.expenses, "yearly");
@@ -196,7 +276,9 @@ export function propertyTaxDeductibleResultAnnual(property){
   // Depreciation reduces the taxable result but never touches cash flow — it's the difference
   // between what a property costs you and what it costs you after tax, and the reason a property
   // can be cash-flow negative and still worth holding.
-  return rentYearly - expenseYearly - loanInterestYearly - propertyDepreciationAnnual(property);
+  // Borrowing costs are the same kind of thing: deducted over years, paid once at settlement.
+  return rentYearly - expenseYearly - loanInterestYearly - propertyDepreciationAnnual(property) -
+    propertyBorrowingCostsDeduction(property);
 }
 // The same result WITHOUT depreciation — what actually moves through the bank account. Every
 // cash-flow figure in the app uses this; only the tax result uses the one above.

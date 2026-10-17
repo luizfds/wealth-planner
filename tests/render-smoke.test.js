@@ -640,3 +640,19 @@ test("transactionSummaryText says nothing extra when refundOf points at nothing 
     );
   } finally { state.transactions = prevTxns; }
 });
+
+// v3.16.1 / v3.17.0 — the claim-date fields and the loan's borrowing-costs note.
+import { borrowingNoteText } from "../src/components/properties.js";
+
+test("a deductible row renders its claim-from/until fields", function(){
+  var html = modernPlainRowHtml({ id: "r1", what: "Rent", amount: 720, freq: "Weekly", deductible: true, deductiblePct: 6.4, deductibleUntil: "2025-09-30" }, 0, "shared", {}, {});
+  assert.match(html, /class="f-deductfrom"/);
+  assert.match(html, /class="f-deductuntil" value="2025-09-30"/);
+});
+
+test("the borrowing-costs note says what's deductible, or what's missing", function(){
+  assert.match(borrowingNoteText({ borrowingCosts: 0 }), /five years/);
+  assert.match(borrowingNoteText({ borrowingCosts: 13325.86, settlementDate: "" }), /settlement date/);
+  assert.match(borrowingNoteText({ borrowingCosts: 13325.86, settlementDate: "2025-01-31" }), /of \$13,325\.86 — spread to FY29\/30\./);
+  assert.match(borrowingNoteText({ borrowingCosts: 80, settlementDate: "2025-01-31" }), /all in the year paid/);
+});

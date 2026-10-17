@@ -1846,6 +1846,47 @@ person laid out in myTax's order, an evidence checklist, a refund estimate (with
 
 **What shipped.** `calc/taxyear.js` (`state.taxYears[fy]`: income statements, interest with share, recorded deductions, per-property rental actuals, evidence ticks, lodged snapshots) and `components/taxyear.js` (the "Tax return worksheet" ledger on the Income page). `computePersonTax(person, {fy})` uses that year's record and rates, line by line falling back to the model, and returns `refund`. `tests/taxyear.test.js` rebuilds two real lodged returns: every label matches; Mariana's taxable income lands $1 from myTax's, Luiz's $75 above it (about the size of a $76.54 trust franking credit myTax's on-screen estimate appeared not to gross up — the engine follows the law and grosses it up). **Still open:** per-employer reportable super contributions, ages for the rebate (under-65 rates only), and a PDF/print layout.
 
+## 47. `[~]` Borrowing costs: write off the rest on refinance or payout
+
+A loan paid out or refinanced inside its five-year spread makes the undeducted balance deductible
+in that year. Add `loan.endedOn`; the schedule stops there and that financial year takes the rest.
+The replacement loan's own costs start their own schedule on the new loan.
+
+## 48. `[~]` Reportable employer super and fringe benefits on income statements
+
+Income statements carry reportable employer super contributions (RESC) and reportable fringe
+benefits (RFBA). Neither is taxable income, but both count for the surcharge/rebate tiers, the
+HELP repayment income and Division 293. Add both fields to the worksheet's income statements and
+route them into those three figures for that year.
+
+## 49. `[~]` Print the worksheet
+
+A print stylesheet and a "Print / save as PDF" button: one person per page, every section expanded,
+no app chrome.
+
+## 50. `[~]` Move borrowing costs out of Acquisition costs
+
+Costs typed into Acquisition costs before item 37 existed can't be told apart by the app. A
+"Move to loan's borrowing costs" button on each row, with rows whose names look like loan costs
+(LMI, mortgage registration, loan/application/establishment fee, valuation, broker) highlighted —
+nothing moves without a click, because moving one changes the CGT cost base.
+
+## 51. `[~]` Age-based private health rebate
+
+The rebate is higher when the oldest person on the policy is 65-69 or 70+. Add a date of birth per
+person; the rebate uses the oldest person's age at 1 July of the year. Rates from ato.gov.au for
+FY24/25-FY26/27.
+
+## 52. `[~]` Budget lines in financial years
+
+Three gaps found auditing budget lines against the household year: a line can end but not START
+(so a cost beginning next month counts from today, everywhere); a reserve ("no fixed timing")
+line that starts or ends inside its reserve year still targets the full yearly amount; and the
+"this year so far" panel has actuals but nothing planned to compare them to. Add `startDate`,
+honoured everywhere `endDate` is (totals, projection, cash-flow forecast, deductions); pro-rate a
+reserve's target by its active days in the window; and show planned-to-date against actual per
+category for the household year.
+
 ---
 
 ## Conventions for whoever picks this up

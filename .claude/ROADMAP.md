@@ -2001,6 +2001,19 @@ June (over $1,000), "start the worksheet" in July until an income statement is e
 
 ---
 
+## Benchmarks (October 2026)
+
+Asked for after PR #84: "what about adding benchmarks features?" — all four kinds offered were
+wanted. They share one place, Dashboard → Benchmarks (`components/benchmarks.js`), each section an
+HTML builder over a plain data object plus a gather function, registered in page order.
+
+## 67. `[~]` How you compare — published Australian figures for people your age
+## 68. `[~]` Your shares against an index and a fixed rate, same dollars on the same dates
+## 69. `[~]` Your own targets
+## 70. `[~]` Each property against its suburb
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

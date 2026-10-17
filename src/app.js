@@ -2,6 +2,7 @@ import { state, setState, storageAvailable, persist, setStatus, defaultState, de
 import { sacrificeModeToLabel, sacrificeLabelToMode, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, INVEST_LEG_TYPES } from "./constants.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr, parseAmountInput } from "./lib/format.js";
 import { showToast, showUndoToast, showPersistentToast } from "./lib/toast.js";
+import { initHelp, setShowHelp, showHelpPreference } from "./lib/help.js";
 import { escapeAttr } from "./lib/html.js";
 import { getNotifications, unreadNotificationCount, markNotificationRead, markAllNotificationsRead } from "./lib/notifications.js";
 import { onHorizontalSwipe } from "./lib/swipe.js";
@@ -9,7 +10,7 @@ import { initTableScrollShadows } from "./lib/scroll-shadow.js";
 import { setDeductionPeopleProvider } from "./lib/ledger-table.js";
 import {
   decryptBackup, doExport, doShare, canShareFiles, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv, exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard, exportYearTransactionsCsv,
-  exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv, exportAssetsImportTemplateCsv, parseCsv
+  exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv, exportAssetsImportTemplateCsv, parseCsv, exportProjectionCsv
 } from "./lib/backup.js";
 import { periodsOf, sumField, sumFieldForScenario, resolveSharedAmount, appendHistorySnapshot, transactionDisplayName } from "./calc/ledger.js";
 import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider, saleCapitalGain, lotsUnitsAvailable } from "./calc/tax.js";
@@ -43,7 +44,7 @@ import {
 } from "./components/expenses.js";
 import {
   patchHoldingRow, patchVehicleRow, modernAssetRowOpen, patchAssetCategoryTotals,
-  renderNetWorthPanel, renderAssets, logAssetSnapshot, applySharesPaste, logDebtSnapshot,
+  renderNetWorthPanel, renderAssets, logAssetSnapshot, applySharesPaste, logDebtSnapshot, setUsdAudRate,
   patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter, renderAssetPersonSheet, assetPersonSheetOpen, setAssetPersonSheetOpen, setSharesGainFilter, setSharesSortMode, setSharesChangeWindow, setAllocationRange, setPortfolioRange,
   parseAssetsImportCsv, renderAssetsImportPreview, clearAssetsImportPreview, commitAssetsImport, dividendNoteText,
   recordAssetSale, deleteAssetSale, renderAssetsSummary, patchOffsetsRow, addAssetLot, syncAvgCostFromLots, lotsSectionHtml, lotsNoteText, addAssetStatement, statementsSectionHtml
@@ -52,7 +53,7 @@ import {
   modernPropRowOpen, renderPropListModern, renderProperties, patchPropertyCardComputed,
   logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan
 } from "./components/properties.js";
-import { renderProjectionOutputs } from "./components/projections.js";
+import { renderProjectionOutputs, projectionSeriesShown } from "./components/projections.js";
 import {
   selectScenario, addScenario, renameScenario, cloneScenario, deleteScenario, renderHomeBody, renderHomeListModern,
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
@@ -2965,13 +2966,17 @@ import {
 
   document.getElementById("cards").addEventListener("click", function(e){
     if(onScenarioControlClick(e)) return;
+    // The ⋯ menu's own toggle is handled by the page-wide overflow handler; opening it isn't a vote
+    // for this scenario.
+    if(e.target.closest(".card-overflow")) return;
     var cardSel = e.target.closest(".card-select");
     if(cardSel) selectScenario(cardSel.getAttribute("data-scenario"));
   });
   document.getElementById("cards").addEventListener("keydown", function(e){
     if(e.key !== "Enter" && e.key !== " ") return;
     var cardSel = e.target.closest(".card-select");
-    if(cardSel){ e.preventDefault(); selectScenario(cardSel.getAttribute("data-scenario")); }
+    // Only the card itself — Enter on a button inside it (the ⋯ menu) must reach that button.
+    if(cardSel && e.target === cardSel){ e.preventDefault(); selectScenario(cardSel.getAttribute("data-scenario")); }
   });
   document.getElementById("homeBody").addEventListener("click", onScenarioControlClick);
 
@@ -2980,6 +2985,24 @@ import {
   // "More" tab (an occasional what-if page, not day-to-day data entry), so this is the one
   // one-tap bridge from the page everyone actually lands on first.
   document.getElementById("dashboardProjectionsLink").addEventListener("click", function(){ showPage("projections"); });
+  // v3.33.0: tiles that open the panel behind them (FI → Insights, tax year → the worksheet).
+  document.getElementById("dashboardStats").addEventListener("click", function(e){
+    var jump = e.target.closest("[data-dashboard-jump]");
+    if(!jump) return;
+    var where = jump.getAttribute("data-dashboard-jump");
+    if(where === "insights"){
+      var tab = document.querySelector('[data-dashboard-sub="insights"]');
+      if(tab){ tab.click(); tab.scrollIntoView({ behavior: "smooth", block: "start" }); }
+    } else if(where === "taxyear"){
+      if(jump.getAttribute("data-tax-fy")) setTaxYearSelected(jump.getAttribute("data-tax-fy"));
+      showPage("income");
+      var ws = document.getElementById("taxYearLedger");
+      if(ws){
+        if(ws.open) renderTaxYear(); else ws.open = true;
+        setTimeout(function(){ ws.scrollIntoView({ behavior: "smooth", block: "start" }); }, 50);
+      }
+    }
+  });
   document.getElementById("homeBody").addEventListener("keydown", function(e){
     if(e.key !== "Enter" && e.key !== " ") return;
     var collapseBtn = e.target.closest("[data-collapse-toggle]");
@@ -3715,6 +3738,22 @@ import {
   // by the time this fires in the bubble phase every other handler for the same event
   // has already run and mutated state.
   document.addEventListener("input", renderGlobalMetrics);
+  // v3.34.0: the projection, every year, as a CSV.
+  document.addEventListener("click", function(e){
+    if(e.target.closest("#projCsvBtn")) exportProjectionCsv(projectionSeriesShown(), state.projection.realTerms !== false);
+  });
+  // v3.32.1: the exchange rate typed into the Shares warning.
+  document.addEventListener("change", function(e){
+    if(!e.target.matches || !e.target.matches("[data-fx-usdaud]")) return;
+    if(setUsdAudRate(e.target.value)) showToast("Exchange rate set — US$ holdings now count at A$" + Number(e.target.value).toFixed(4));
+  });
+  // v3.33.0: section explanations behind an ⓘ unless this device asks for them all.
+  initHelp();
+  var showHelpToggle = document.getElementById("showHelpToggle");
+  if(showHelpToggle){
+    showHelpToggle.checked = showHelpPreference();
+    showHelpToggle.addEventListener("change", function(){ setShowHelp(showHelpToggle.checked); });
+  }
   document.addEventListener("change", renderGlobalMetrics);
 
   renderAll();

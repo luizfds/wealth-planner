@@ -1,8 +1,10 @@
 import { state, persist } from "../state.js";
 import { setupProgress, shouldShowSetup } from "../lib/setup.js";
 import { sumField, sumByClassification, sumByAccount, safeDiv, resolveSharedAmount, nextDueDate, daysUntil, appendHistorySnapshot, lastTransactionDateFor } from "../calc/ledger.js";
-import { ipExpenseItemsForClassification } from "../calc/property.js";
-import { scenarioIncomeMonthly } from "../calc/tax.js";
+import { ipExpenseItemsForClassification, fyLabel } from "../calc/property.js";
+import { scenarioIncomeMonthly, getTaxPeople, computePersonTax } from "../calc/tax.js";
+import { lodgementStatus, taxYearRecord } from "../calc/taxyear.js";
+import { evidenceItems } from "./taxyear.js";
 import { scenarioTotals, computeNetWorthSeries, totalNetWorthValue, runwayMonths, actualAssetGrowthLastMonth, staleAssets, toAudAmount } from "../calc/engine.js";
 import { monthlyCashFlowForecast } from "../calc/cashflow.js";
 import { fireSettings, fireWealthSplit, simulateRetirementAt, earliestWorkableRetirementAge } from "../calc/fire.js";
@@ -31,11 +33,16 @@ export function renderCards(){
           '<div class="card-top">' +
             '<span class="card-name"><span class="card-name-text">' + escapeAttr(scenario) + '</span>' + (isBaseline ? '<span class="home-baseline-badge" title="Your current, real-life situation">Current situation</span>' : "") + '</span>' +
             '<span class="card-controls">' +
-              '<button type="button" class="icon-btn" data-rename="' + escapeAttr(scenario) + '" aria-label="Rename ' + escapeAttr(scenario) + '" title="Rename">✎</button>' +
-              '<button type="button" class="icon-btn" data-clone="' + escapeAttr(scenario) + '" aria-label="Clone ' + escapeAttr(scenario) + '" title="Clone — copy this scenario\'s home costs, purchase/invest setup and any overrides into a new one">' +
-                '<svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="7" width="9" height="9" rx="1.5"/><path d="M13 7V5a1.5 1.5 0 0 0-1.5-1.5H5A1.5 1.5 0 0 0 3.5 5v6.5A1.5 1.5 0 0 0 5 13h2"/></svg>' +
-              '</button>' +
-              (canDelete && !isBaseline ? '<button type="button" class="icon-btn icon-del" data-delete="' + escapeAttr(scenario) + '" aria-label="Delete ' + escapeAttr(scenario) + '" title="Delete">✕</button>' : "") +
+              // v3.32.1: rename/clone/delete moved behind one ⋯ — three icon buttons took ~150px of a
+              // ~200px header and cut every name but the first to "Buy …".
+              '<span class="page-overflow card-overflow">' +
+                '<button type="button" class="page-overflow-btn card-overflow-btn" data-overflow-toggle aria-haspopup="true" aria-expanded="false" aria-label="More for ' + escapeAttr(scenario) + '" title="Rename, clone or delete">⋯</button>' +
+                '<span class="page-overflow-menu" data-overflow-menu hidden>' +
+                  '<button type="button" class="btn btn-sm btn-ghost" data-rename="' + escapeAttr(scenario) + '">Rename</button>' +
+                  '<button type="button" class="btn btn-sm btn-ghost" data-clone="' + escapeAttr(scenario) + '" title="Copy this scenario\'s home costs, purchase/invest setup and any overrides into a new one">Clone</button>' +
+                  (canDelete && !isBaseline ? '<button type="button" class="btn btn-sm btn-ghost menu-danger" data-delete="' + escapeAttr(scenario) + '">Delete</button>' : "") +
+                '</span>' +
+              '</span>' +
               '<span class="card-radio"></span>' +
             '</span>' +
           '</div>' +
@@ -90,6 +97,61 @@ export function renderSetupPanel(nothingEntered){
     (rest ? '<ul class="setup-rest">' + rest + '</ul>' : "");
 }
 
+// v3.33.0: FI progress up front. The Insights panel has the whole story (ages, the bridge to
+// preservation age); this is the one number — how far the money you could actually live on is
+// toward the 4%-rule target — so it isn't two taps away.
+function fiTileHtml(t){
+  var annual = (t.sharedMonthly + t.homeMonthly) * 12;
+  var target = annual * 25;
+  if(!(target > 0)) return "";
+  var split = fireWealthSplit();
+  var pct = Math.max(0, split.accessible) / target;
+  return '<button type="button" class="stat-tile stat-tile-link" data-dashboard-jump="insights" title="Money you could live on before preservation age (cash, shares, investment property equity, less debts) against 25× this scenario\'s yearly spending. Super is left out — it\'s locked until ' + fireSettings().preservationAge + '. Opens Insights.">' +
+    '<span>Financial independence</span><b>' + fmtPercent1.format(pct) + '</b>' +
+    '<span class="tile-meter" aria-hidden="true"><span style="width:' + Math.min(100, pct * 100).toFixed(1) + '%"></span></span>' +
+    '<small>' + fmtCompact(split.accessible) + ' of ' + fmtCompact(target) + ' · super not counted</small></button>';
+}
+function fmtCompact(v){
+  var a = Math.abs(v);
+  if(a >= 1e6) return (v < 0 ? "-" : "") + "$" + (a / 1e6).toFixed(a >= 1e7 ? 1 : 2) + "M";
+  if(a >= 1e4) return (v < 0 ? "-" : "") + "$" + Math.round(a / 1e3) + "k";
+  return fmtCurrency0.format(v);
+}
+// v3.34.0: the tax return, on the page everyone lands on. July to October it's the year just ended
+// — days to 31 October, the refund the worksheet expects, and how many of the year's documents are
+// ticked off. The rest of the year it's this year's running estimate. Opens the worksheet.
+function taxTileHtml(){
+  var people = getTaxPeople();
+  if(!people.length) return "";
+  var st = lodgementStatus(localDateStr());
+  var fy = st.inSeason ? st.fy : st.fy + 1;
+  var rec = taxYearRecord(fy, false);
+  var results = people.map(function(p){ return computePersonTax(p, { fy: fy }); });
+  var known = results.filter(function(r){ return r.refund != null; });
+  var refund = known.reduce(function(sum, r){ return sum + r.refund; }, 0);
+  var refundText = known.length
+    ? (refund >= 0 ? "est. refund " : "est. to pay ") + fmtCurrency0.format(Math.abs(refund)) + (known.length < people.length ? " (" + known.length + " of " + people.length + ")" : "")
+    : "add income statements for a refund estimate";
+  var label, big, small, urgent = false;
+  if(st.inSeason){
+    var lodged = rec && people.every(function(p){ return rec.lodged && rec.lodged[p]; });
+    var ev = evidenceItems(fy);
+    var ticked = ev.filter(function(i){ return rec && rec.evidence[i.key]; }).length;
+    label = fyLabel(fy) + " tax return";
+    big = lodged ? "Lodged" : (st.daysLeft === 0 ? "Due today" : st.daysLeft + " day" + (st.daysLeft === 1 ? "" : "s") + " left");
+    urgent = !lodged && st.daysLeft <= 14;
+    small = (lodged ? "" : "due 31 Oct · ") + refundText + (ev.length ? " · " + ticked + " of " + ev.length + " documents" : "");
+  } else {
+    var tax = results.reduce(function(sum, r){ return sum + r.totalTax; }, 0);
+    label = fyLabel(fy) + " tax so far";
+    big = known.length ? (refund >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(refund)) : fmtCurrency0.format(tax);
+    small = known.length ? (refund >= 0 ? "estimated refund" : "estimated to pay") : "estimated tax and levies for the year";
+  }
+  return '<button type="button" class="stat-tile stat-tile-link" data-dashboard-jump="taxyear" data-tax-fy="' + fy + '" title="Opens the tax return worksheet for ' + fyLabel(fy) + ' (Income & Tax)">' +
+    '<span>' + escapeAttr(label) + '</span><b' + (urgent ? ' style="color:var(--bad)"' : '') + '>' + escapeAttr(big) + '</b>' +
+    '<small>' + escapeAttr(small) + '</small></button>';
+}
+
 export function renderDashboardStats(){
   var el = document.getElementById("dashboardStats");
   if(!el || el.closest(".app-page").hidden) return;
@@ -133,6 +195,8 @@ export function renderDashboardStats(){
     '<div class="stat-tile"><span>' + escapeAttr(active) + ' — net savings</span><b' + (t.netMonthly < 0 ? ' style="color:var(--bad)"' : '') + '>' + fmtCurrency0.format(t.netMonthly) + '/mo</b><small>' + fmtPercent1.format(t.rate) + ' savings rate</small></div>' +
     '<div class="stat-tile"><span>Projected net worth</span><b>' + fmtCurrency0.format(projected) + '</b><small>in ' + horizon + ' years, ' + escapeAttr(active) + ', ' + (state.projection.realTerms !== false ? "today's" : "future") + ' dollars</small></div>' +
     runwayTile +
+    fiTileHtml(t) +
+    taxTileHtml() +
     lastTile;
   renderStaleAssetsBanner();
   renderActualVsExpectedPanel(active, t);
@@ -158,15 +222,27 @@ function renderCashFlowForecastPanel(){
     return;
   }
   var forecast = monthlyCashFlowForecast(12);
-  var rows = forecast.months.map(function(m){
-    var label = MONTH_NAMES[m.month - 1] + " " + m.year;
-    var note = m.items.length
-      ? m.items.map(function(it){ return escapeAttr(it.what) + " " + (it.side === "income" ? "+" : "−") + fmtCurrency0.format(it.amount); }).join(", ")
-      : "steady month — no one-off items";
-    var color = m.net < -0.5 ? "var(--bad)" : (m.net > 0.5 ? "var(--good)" : "");
-    return '<div class="acct-row"><span class="acct-name">' + escapeAttr(label) + '</span>' +
-      '<span style="font-size:11px;color:var(--ink-soft)">' + note + '</span>' +
-      '<span class="acct-amt"' + (color ? ' style="color:' + color + '"' : '') + '>' + (m.net >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(m.net)) + '</span></div>';
+  // v3.33.0: a run of months with nothing landing in them is one row ("Oct – Jan · 4 steady
+  // months"), not twelve identical "steady month — no one-off items" lines with the months that
+  // actually differ buried among them.
+  var groups = [];
+  forecast.months.forEach(function(m){
+    var last = groups[groups.length - 1];
+    if(!m.items.length && last && last.steady && Math.round(last.net) === Math.round(m.net)) last.months.push(m);
+    else groups.push({ steady: !m.items.length, net: m.net, months: [m] });
+  });
+  var rows = groups.map(function(g){
+    var first = g.months[0], end = g.months[g.months.length - 1];
+    var label = MONTH_NAMES[first.month - 1].slice(0, 3) + " " + String(first.year).slice(2) +
+      (g.months.length > 1 ? " – " + MONTH_NAMES[end.month - 1].slice(0, 3) + " " + String(end.year).slice(2) : "");
+    var note = g.steady
+      ? (g.months.length > 1 ? g.months.length + " steady months" : "steady month")
+      : first.items.map(function(it){ return escapeAttr(it.what) + " " + (it.side === "income" ? "+" : "−") + fmtCurrency0.format(it.amount); }).join(", ");
+    var color = g.net < -0.5 ? "var(--bad)" : (g.net > 0.5 ? "var(--good)" : "");
+    return '<div class="forecast-row' + (g.steady ? " is-steady" : "") + '"><span class="forecast-when">' + escapeAttr(label) + '</span>' +
+      '<span class="forecast-note">' + note + '</span>' +
+      '<span class="forecast-amt"' + (color ? ' style="color:' + color + '"' : '') + '>' + (g.net >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(g.net)) +
+      (g.months.length > 1 ? '<small> each</small>' : '') + '</span></div>';
   }).join("");
   var reserveNote = (forecast.reserveIncome || forecast.reserveExpense)
     ? '<p class="fire-note">Includes ' + fmtCurrency0.format(Math.max(0, forecast.reserveExpense - forecast.reserveIncome)) + '/mo set aside for items marked "no fixed timing" (e.g. Extras, property maintenance) — spread evenly rather than expected on a specific date.</p>'
@@ -211,7 +287,7 @@ function renderStaleAssetsBanner(){
   if(!stale.length){ el.innerHTML = ""; return; }
   el.innerHTML =
     '<div class="stale-assets-note" title="Log a fresh value for each (Assets tab → Log) to keep net worth history and the Actual vs. expected panel accurate.">' +
-      '<span>⏱</span> ' + escapeAttr(stale.length + " asset" + (stale.length === 1 ? "" : "s") + " haven't been logged in 30+ days — " + staleAssetNamesList(stale)) +
+      '<span>⏱</span> ' + escapeAttr(stale.length + " asset" + (stale.length === 1 ? "" : "s") + " haven't been logged in 30+ days — " + staleAssetNamesList(stale, 3)) +
     '</div>';
 }
 

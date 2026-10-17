@@ -131,7 +131,10 @@ test("daysUntil is negative for a past date (overdue) and positive for a future 
 test("appendHistorySnapshot appends today's value and sorts by date", function(){
   var history = [{ date: "2024-01-01", value: 100 }];
   var dateStr = appendHistorySnapshot(history, 150);
-  assert.equal(dateStr, new Date().toISOString().slice(0, 10));
+  // The local date, not toISOString()'s UTC one: those differ for the first ten or eleven hours of
+  // every Sydney day, which is when this assertion used to fail.
+  var now = new Date();
+  assert.equal(dateStr, now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0"));
   assert.equal(history.length, 2);
   // Sorted ascending regardless of push order — "today" (whatever it is) sorts after 2024-01-01.
   assert.equal(history[history.length - 1].value, 150);

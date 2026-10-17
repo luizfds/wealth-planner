@@ -109,7 +109,8 @@ export function staleAssets(){
     var hist = a.history;
     var lastDate = hist && hist.length ? hist[hist.length - 1].date : null;
     var days = lastDate ? Math.floor((todayMs - new Date(lastDate + "T00:00:00").getTime()) / (24 * 60 * 60 * 1000)) : null;
-    if(days == null || days >= STALE_DAYS) result.push({ what: a.what, days: days });
+    // label (v3.32.1): two people's "Superannuation" were indistinguishable in the banner.
+    if(days == null || days >= STALE_DAYS) result.push({ what: a.what, label: a.person ? a.what + " — " + a.person : a.what, days: days });
   });
   return result;
 }
@@ -235,7 +236,20 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
     // as a plan: "$8,002,580 at year 20" can't be weighed against the expenses actually typed in,
     // because those are in today's money and that isn't. Deflating by the same inflation rate the
     // model already applies to expenses puts every figure on one scale.
-    points.push({ x: year, y: realTerms ? nominal / Math.pow(1 + inflationRate, year) : nominal });
+    // v3.34.0: the parts as well as the sum, on the same basis, for the Projections milestones and
+    // the year-by-year download. Charts only read x and y.
+    var deflate = realTerms ? Math.pow(1 + inflationRate, year) : 1;
+    var propertiesDebt = state.properties.reduce(function(sum, p){
+      return sum + (p.loans || []).reduce(function(s, l){
+        return s + Math.max(0, loanBalanceAfterMonths(l.balance, (Number(l.rate) || 0) + rateShockPts, l.termYears, year * 12, l.repaymentType) - (Number(l.offsetBalance) || 0));
+      }, 0);
+    }, 0);
+    points.push({
+      x: year, y: nominal / deflate,
+      investments: (portfolio + investBalance) / deflate,
+      propertyEquity: (homeEquity + propertiesEquitySum) / deflate,
+      debt: (loanBal + propertiesDebt) / deflate
+    });
   }
   return points;
 }

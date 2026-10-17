@@ -266,6 +266,12 @@
   @media (max-width: 880px){
     .quick-fab-wrap{ right:16px; bottom: calc(78px + env(safe-area-inset-bottom) + 14px); }
   }
+  /* v3.32.1 — on a desktop the fab sat over the content column's right edge, which is exactly
+     where every total is right-aligned (monthly totals, the FI card's figures). A gutter the width
+     of the fab keeps the column clear of it; a phone keeps the usual overlap, as every app does. */
+  @media (min-width: 881px){
+    .app-content{ padding-right: 92px; }
+  }
 
   /* ---------------- Modern-row edit modal backdrop ---------------- */
   /* Editing (or adding — see app.js's add handlers) any Modern-mode row used to expand its fields
@@ -322,3 +328,9 @@
   @media (max-width: 360px){
     .mobile-tab-label{ font-size:10px; }
   }
+
+  /* v3.33.0 — the header toolbar: one style for every button, data actions in a menu. */
+  .page-overflow-menu .btn[hidden]{ display:none; }
+  .topbar-overflow .page-overflow-btn{ width:34px; height:34px; }
+  .topbar-overflow .page-overflow-menu{ top:40px; }
+  .menu-danger{ color: var(--bad) !important; }

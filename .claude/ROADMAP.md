@@ -1901,6 +1901,106 @@ category for the household year.
 
 ---
 
+## App assessment (October 2026, post-v3.32.0)
+
+An open request after PR #83: "a full app assessment — all current features and the layout/UX/UI
+improved, new features welcome". Every page and subtab was driven at 390px and 1280px, light and
+dark, against generated sample data. There were zero page errors and zero sideways overflow, so
+everything below came from looking at the result rather than from the console.
+
+### Wrong or misleading
+
+## 53. `[x]` Net worth over time started from a partial total — shipped v3.32.1
+The Assets chart summed whatever had a value on each date. Before 17 Oct only three Shares holdings
+had history, so the line read ~$12k for six weeks and then leapt to $625k — a "growth" that was
+just the day logging began.
+
+## 54. `[x]` USD holdings were added as AUD with no rate set — shipped v3.32.1
+`toAudAmount()` passes USD through unconverted when `state.fx.usdAud` is empty (deliberately, so
+nothing is zeroed). Nothing said so: the Shares total, the 1D gain glance and net worth silently
+added US$2,170 as A$2,170.
+
+## 55. `[x]` "Property equity" meant two things — shipped v3.32.1
+Assets' tile excludes the offset (it's already in Liquid), Properties' tile includes it. Both were
+captioned "net of offset" and differed by exactly the offset balance.
+
+## 56. `[x]` Scenario names cut to "Buy …" on the Dashboard — shipped v3.32.1
+At 1280px each card spent its header on three icon buttons, leaving the name ~40px. The edit
+pencil also sat on top of the Current situation badge.
+
+## 57. `[x]` The floating buttons covered figures — shipped v3.32.1
+The + and back-to-top buttons are fixed over the content column's right edge, covering monthly
+totals and the FI card's values on both widths.
+
+## 58. `[x]` The stale-assets banner couldn't tell two people's super apart — shipped v3.32.1
+"Superannuation (never logged), Superannuation (never logged)".
+
+### Layout and UX
+
+## 53–58: what shipped (v3.32.1)
+
+- **53.** `coverageStart()` (`calc/history.js`) finds the first date every asset, property and debt
+  held today had a value; the net worth line and the mix chart start there and say what started
+  late. A record never logged pushes the start to today, and the empty state names what to log.
+  A blank row (no amount, no history) doesn't hold the chart back.
+- **54.** A red note above the Shares list, with a `1 USD = [ ] AUD` field (`setUsdAudRate()`), the
+  same two fields the price-sheet paste sets. The pass-through itself is unchanged, by design.
+- **55.** Assets: "N properties · offset counted in Liquid". Properties: "incl. $X in offset".
+- **56.** Rename / Clone / Delete behind a ⋯ on each card (the page-overflow pattern). Enter on the
+  card only selects it when the card itself has focus, so Enter on the ⋯ reaches the ⋯.
+- **57.** A 92px right gutter on `.app-content` above 880px. The secondary fab used an up-chevron,
+  which read as scroll-to-top; it is three dots now.
+- **58.** `staleAssets()` adds a `label` with the person; the banner lists three and "N more".
+
+## 59. `[x]` Explanations behind an ⓘ, not in front of the content — shipped v3.33.0
+Explanatory paragraphs carry class `help`. `lib/help.js` hides them (body class `help-hidden`)
+and puts an ⓘ in the nearest `<details>` summary, or inline before the paragraph when there is
+none, via a MutationObserver — renderers don't have to know. Accounts → Preferences →
+Explanations turns them all back on (per device, `wealthPlanner.showHelp`). Tag new explanations
+with `help`; leave dynamic notes and empty states untagged, they are content.
+
+## 60. `[x]` A consistent header toolbar; Sample data and Reset in a menu — shipped v3.33.0
+Search, notifications, status, Theme, Export backup, then a ⋯ with Share, Import backup, Load
+sample data and Reset everything… (red). Ids unchanged, so every handler and the mobile mirrors
+work as before. `.page-overflow-menu .btn[hidden]` needed its own rule (the CLAUDE.md gotcha).
+
+## 61. `[x]` Summary tiles that fit the screen — shipped v3.33.0
+Every `.stat-row` is two-up under 700px, an odd last tile spanning the row. The Dashboard gains a
+Financial independence tile (accessible money against 25× spending, super left out) that opens
+Insights.
+
+## 62. `[x]` Insights cards sized to their content; steady forecast months collapsed — shipped v3.33.0
+`.detail-grid{align-items:start}`. The forecast groups runs of item-free months with the same net
+into one row. **Found on the way:** the Monthly expenses by account bars had never drawn — the
+fill was an inline `<span>`, so its `width` did nothing. A whole-app scan for a %-width element
+measuring 0 inside a non-zero parent found no other case.
+
+## 63. `[x]` Smaller polish — shipped v3.33.0 / v3.34.1
+Asset classes keep one colour across Allocation and Where your wealth sits. The property Log
+button is a real button ("Log today's value"). More detail and Expand/Collapse all share a row on
+each property card (v3.34.1). The empty-looking "N/A $0" budget group was left alone: it holds real
+$0 rows (scenario housing lines not filled in).
+
+## 64. `[x]` A "This tax year" card on the Dashboard — shipped v3.34.0
+`lodgementStatus(today)` (`calc/taxyear.js`): Jul–Oct it is the year just ended (days to 31 Oct,
+the worksheet's refund estimate, documents ticked, "Lodged" once every person is); otherwise this
+year's running estimate. The tile opens the worksheet on that year.
+
+## 65. `[x]` Projection milestones and a year-by-year table — shipped v3.34.0
+`calc/milestones.js`: the first year each scenario reaches the next three round amounts above
+today, when its loans are gone, and who overtakes whom. A CSV of every year with investments,
+property equity and loans owed (points from `computeNetWorthSeries` now carry those parts).
+**Found on the way:** the existing milestone table under the chart was never visible — the chart
+redraws when its hidden page is first shown, and the redraw emptied the container the table had
+been appended to. The chart has its own host now.
+
+## 66. `[x]` Tax-time reminders — shipped v3.34.0
+`taxCalendarReminders(today, opts)` (`lib/notifications.js`): super cap room per person in May and
+June (over $1,000), "start the worksheet" in July until an income statement is entered, and the
+31 October countdown (warn, then bad in the last week) until the year is marked lodged.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

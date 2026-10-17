@@ -2,7 +2,7 @@ import { state, persist } from "../state.js";
 import {
   propertyEquityToday, propertyGearingAnnual, propertyLoanRepaymentMonthly, loanRepaymentDisplay,
   capitalWorksAnnual, plantDepreciationAnnual, propertyDepreciationForWindow, financialYearOf, fyLabel,
-  propertyCapitalGain, propertyYieldOnCost, propertyLVR, propertiesTotalValue, propertiesTotalEquityToday,
+  propertyCapitalGain, propertyYieldOnCost, propertyLVR, propertiesTotalValue, propertiesTotalEquityToday, propertiesOffsetTotal,
   propertiesTotalMortgageBalance, propertiesNetCashFlowMonthly, propertiesWeightedGrossYield,
   propertyOwnershipPct, propertyOwnershipTotal, propertyTaxDeductibleResultAnnual,
   landTaxByState, totalLandTax, borrowingCostsSchedule, borrowingCostsDeduction
@@ -275,7 +275,7 @@ function depreciationSectionHtml(p){
   return propertySectionHtml(p, "depreciation",
     '<div class="property-section-title">Depreciation</div>' +
       '<div class="property-section-total" title="' + escapeAttr(householdYearWindow().label) + '">' + fmtCurrency0.format(total) + '</div>',
-    '<p class="ledger-note" style="margin-left:0">Usually the largest deduction on an investment property, and the only one that isn\'t money leaving your account — it reduces the taxable result without touching cash flow. A quantity surveyor\'s depreciation schedule is where these figures come from; entering guesses here produces a guess on your tax return.</p>' +
+    '<p class="ledger-note help" style="margin-left:0">Usually the largest deduction on an investment property, and the only one that isn\'t money leaving your account — it reduces the taxable result without touching cash flow. A quantity surveyor\'s depreciation schedule is where these figures come from; entering guesses here produces a guess on your tax return.</p>' +
     '<div class="calc-grid">' +
       '<div class="calc-field" title="The original cost to BUILD, not what you paid for the property — land is not depreciable. Claimed at 2.5% a year for 40 years from completion."><label>Construction cost</label><input type="number" step="1000" min="0" class="prop-construction-cost" value="' + (Number(p.constructionCost) || 0) + '" placeholder="0"></div>' +
       '<div class="calc-field" title="When the building was completed. The 2.5% capital works claim runs for 40 years from then; leave blank if unknown and the full year is claimed."><label>Built on</label><input type="date" class="prop-construction-date" aria-label="Built on" value="' + escapeAttr(p.constructionDate || "") + '"></div>' +
@@ -455,9 +455,11 @@ function propertyCardHtml(p, colorIdx){
     '</div>' +
     (lvrBadge || gearingBadge || yieldBadge ? '<div class="property-card-badges">' + lvrBadge + gearingBadge + yieldBadge + '</div>' : '') +
     '<div class="calc-outputs">' + primaryTiles + '</div>' +
-    (moreTiles ? '<details class="tax-advanced m-more-options property-stats-more"><summary>More detail</summary><div class="calc-outputs" style="margin-top:10px">' + moreTiles + '</div></details>' : '') +
-    '<div class="property-card-actions">' +
-      '<button type="button" class="btn btn-ghost btn-sm" data-prop-collapse-toggle="' + escapeAttr(p.id) + '">' + (allSectionsCollapsed ? "Expand all" : "Collapse all") + '</button>' +
+    // v3.34.1: More detail and Expand/Collapse all share one row — the button had a row of its own,
+    // right-aligned under an empty stretch, between the tiles and the first section.
+    '<div class="property-card-tools">' +
+      (moreTiles ? '<details class="tax-advanced m-more-options property-stats-more"><summary>More detail</summary><div class="calc-outputs" style="margin-top:10px">' + moreTiles + '</div></details>' : '<span></span>') +
+      '<button type="button" class="btn btn-ghost btn-sm property-collapse-btn" data-prop-collapse-toggle="' + escapeAttr(p.id) + '">' + (allSectionsCollapsed ? "Expand all" : "Collapse all") + '</button>' +
     '</div>' +
     propertySectionHtml(p, "value",
       '<div class="property-section-title">Property value</div>',
@@ -467,7 +469,7 @@ function propertyCardHtml(p, colorIdx){
         '<div class="calc-field"><label>Purchase date</label><input type="date" class="prop-purchase-date" aria-label="Purchase date" value="' + escapeAttr(p.purchaseDate || "") + '"></div>' +
       '</div>' +
       landTaxFieldsHtml(p) +
-      '<div class="prop-value-log"><button type="button" class="asset-log-btn" data-property-log="' + escapeAttr(p.id) + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart">Log</button>' + historyTrendHtml(p) + '</div>') +
+      '<div class="prop-value-log"><button type="button" class="btn btn-sm" data-property-log="' + escapeAttr(p.id) + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart">Log today\'s value</button>' + historyTrendHtml(p) + '</div>') +
     acquisitionCostsSectionHtml(p) +
     (p.kind === "IP" ? ownershipSectionHtml(p) : "") +
     (p.kind === "IP" ? depreciationSectionHtml(p) : "") +
@@ -540,7 +542,7 @@ export function renderPropertiesSummary(){
       var weightedYield = propertiesWeightedGrossYield();
       statsEl.innerHTML =
         '<div class="stat-tile"><span>Total value</span><b>' + fmtCurrency0.format(propertiesTotalValue()) + '</b><small>across ' + state.properties.length + ' propert' + (state.properties.length === 1 ? "y" : "ies") + '</small></div>' +
-        '<div class="stat-tile" title="Value minus full loan balance, net of offset — matches each card\'s own Net equity tile, summed across the portfolio"><span>Total equity</span><b>' + fmtCurrency0.format(propertiesTotalEquityToday()) + '</b><small>net of offset</small></div>' +
+        '<div class="stat-tile" title="Value minus what\'s owed after the offset — matches each card\'s own Net equity tile, summed across the portfolio"><span>Total equity</span><b>' + fmtCurrency0.format(propertiesTotalEquityToday()) + '</b><small>' + (propertiesOffsetTotal() > 0 ? "incl. " + fmtCurrency0.format(propertiesOffsetTotal()) + " in offset" : "value less loans") + '</small></div>' +
         '<div class="stat-tile"><span>Total mortgage</span><b>' + fmtCurrency0.format(propertiesTotalMortgageBalance()) + '</b><small>across every loan</small></div>' +
         '<div class="stat-tile" title="Rent minus expenses and loan repayments, across every investment property"><span>Net cash flow</span><b style="color:' + (netCashFlow < 0 ? "var(--bad)" : "var(--good)") + '">' + (netCashFlow >= 0 ? "+" : "") + fmtCurrency0.format(netCashFlow) + '/mo</b><small>investment properties</small></div>' +
         '<div class="stat-tile" title="Annual rent ÷ value, weighted by each investment property\'s own value"><span>Avg gross yield</span><b>' + (weightedYield != null ? fmtPercent1.format(weightedYield) : "—") + '</b><small>investment properties</small></div>';

@@ -434,7 +434,9 @@ export function deductionRows(items, person){
 export function deductionYearFraction(item, win){
   if(!win || !win.start || !win.end) return 1;
   var yearDays = overlapDaysInclusive(win.start, win.end, win.start, win.end);
-  var from = item && item.deductibleFrom ? item.deductibleFrom : "";
+  // The claim can't start before the expense does (v3.32.0): the later of the two.
+  var fromCandidates = [item && item.deductibleFrom, item && item.startDate].filter(Boolean).sort();
+  var from = fromCandidates.length ? fromCandidates[fromCandidates.length - 1] : "";
   var untilCandidates = [item && item.endDate, item && item.deductibleUntil].filter(Boolean).sort();
   var until = untilCandidates.length ? untilCandidates[0] : "";
   var days = overlapDaysInclusive(win.start, win.end, from || win.start, until || win.end);

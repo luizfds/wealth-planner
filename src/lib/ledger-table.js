@@ -51,6 +51,7 @@ export function timingFieldsHtml(item){
   return '<div class="m-edit-field span2"><label class="m-checkbox-field"><input type="checkbox" class="f-irregular"' + (item.irregular ? " checked" : "") +
       '> No fixed timing (irregular) — a lumpy spend like Extras or property maintenance, budgeted as a smoothed reserve instead of expected every period</label></div>' +
     '<div class="m-edit-field"><label>Due month</label><select class="f-duemonth" title="For anything billed less often than monthly — which month it\'s actually due. Auto infers it from the last time you logged it.">' + monthOptions + '</select></div>' +
+    startDateFieldHtml(item) +
     endDateFieldHtml(item) +
     deductionFieldsHtml(item) +
     reserveYearFieldHtml(item);
@@ -63,6 +64,15 @@ export function timingFieldsHtml(item){
 //
 // Deliberately a plain date rather than a "months remaining" count: a count goes stale the day
 // after you type it, and this file is edited months apart.
+// The other end (v3.32.0). A cost or income that begins later — a new subscription from January,
+// childcare from next term — shouldn't count from today in every total, the projection and the
+// cash-flow forecast; and a year's figures count it from the day it starts.
+function startDateFieldHtml(item){
+  return '<div class="m-edit-field"><label>Starts (optional)</label>' +
+    '<input type="date" class="f-startdate" value="' + escapeAttr(item.startDate || "") + '"' +
+      ' title="The first date this line applies. Leave blank if it\'s already running. Totals, projections and the year\'s figures count it from this date.">' +
+  '</div>';
+}
 function endDateFieldHtml(item){
   return '<div class="m-edit-field"><label>Ends (optional)</label>' +
     '<input type="date" class="f-enddate" value="' + escapeAttr(item.endDate || "") + '"' +
@@ -145,7 +155,12 @@ export function hasEnded(item){
   return !!(item && item.endDate && item.endDate < todayStr());
 }
 export function endDateNoteHtml(item){
-  if(!item || !item.endDate) return "";
+  if(!item) return "";
+  // A line that hasn't started yet says so — it's in the list but in none of the totals.
+  if(item.startDate && item.startDate > todayStr()){
+    return '<span class="row-end-note">Starts ' + escapeAttr(item.startDate) + (item.endDate ? ", ends " + escapeAttr(item.endDate) : "") + '</span>';
+  }
+  if(!item.endDate) return "";
   var ended = hasEnded(item);
   return '<span class="row-end-note' + (ended ? " ended" : "") + '">' +
     (ended ? "Ended " : "Ends ") + escapeAttr(item.endDate) + '</span>';

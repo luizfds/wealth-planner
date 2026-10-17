@@ -191,6 +191,9 @@ function applyTimingDefaults(item){
   // When this row stops, if it ever does. "" means it runs forever, which is the default and the
   // common case — see calc/ledger.js's isActiveOn/isActiveInYear.
   if(item.endDate === undefined) item.endDate = "";
+  // When this row begins (v3.32.0), the other end of the same idea: "" means it was always running.
+  // A cost that starts next month shouldn't count from today, and a claim's year starts with it.
+  if(item.startDate === undefined) item.startDate = "";
   if(item.irregular == null) item.irregular = false;
   if(item.dueMonth === undefined) item.dueMonth = null;
   // Which twelve months an irregular (reserve) line is measured over on the Spending tab —

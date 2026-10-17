@@ -188,8 +188,10 @@ function reviewDueNotifications(alreadyBilled){
 // file's own stale-asset notification below and the Dashboard's separate inline banner
 // (dashboard.js's renderStaleAssetsBanner), so the two surfaces can never drift out of sync on
 // how a stale asset's age gets worded, even though each wraps it in its own surrounding sentence.
-export function staleAssetNamesList(stale){
-  return stale.map(function(s){ return s.what + (s.days == null ? " (never logged)" : " (" + s.days + "d ago)"); }).join(", ");
+export function staleAssetNamesList(stale, max){
+  var shown = max && stale.length > max ? stale.slice(0, max) : stale;
+  var text = shown.map(function(s){ return (s.label || s.what) + (s.days == null ? " (never logged)" : " (" + s.days + "d ago)"); }).join(", ");
+  return shown.length < stale.length ? text + " and " + (stale.length - shown.length) + " more" : text;
 }
 // Assets not logged in 30+ days — assets have no stable id (see assets.js), so identity for a
 // single item falls back to its name (acceptable: the cost of a false "unread" after a rename is

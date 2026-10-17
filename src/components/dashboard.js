@@ -31,11 +31,16 @@ export function renderCards(){
           '<div class="card-top">' +
             '<span class="card-name"><span class="card-name-text">' + escapeAttr(scenario) + '</span>' + (isBaseline ? '<span class="home-baseline-badge" title="Your current, real-life situation">Current situation</span>' : "") + '</span>' +
             '<span class="card-controls">' +
-              '<button type="button" class="icon-btn" data-rename="' + escapeAttr(scenario) + '" aria-label="Rename ' + escapeAttr(scenario) + '" title="Rename">✎</button>' +
-              '<button type="button" class="icon-btn" data-clone="' + escapeAttr(scenario) + '" aria-label="Clone ' + escapeAttr(scenario) + '" title="Clone — copy this scenario\'s home costs, purchase/invest setup and any overrides into a new one">' +
-                '<svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="7" width="9" height="9" rx="1.5"/><path d="M13 7V5a1.5 1.5 0 0 0-1.5-1.5H5A1.5 1.5 0 0 0 3.5 5v6.5A1.5 1.5 0 0 0 5 13h2"/></svg>' +
-              '</button>' +
-              (canDelete && !isBaseline ? '<button type="button" class="icon-btn icon-del" data-delete="' + escapeAttr(scenario) + '" aria-label="Delete ' + escapeAttr(scenario) + '" title="Delete">✕</button>' : "") +
+              // v3.32.1: rename/clone/delete moved behind one ⋯ — three icon buttons took ~150px of a
+              // ~200px header and cut every name but the first to "Buy …".
+              '<span class="page-overflow card-overflow">' +
+                '<button type="button" class="page-overflow-btn card-overflow-btn" data-overflow-toggle aria-haspopup="true" aria-expanded="false" aria-label="More for ' + escapeAttr(scenario) + '" title="Rename, clone or delete">⋯</button>' +
+                '<span class="page-overflow-menu" data-overflow-menu hidden>' +
+                  '<button type="button" class="btn btn-sm btn-ghost" data-rename="' + escapeAttr(scenario) + '">Rename</button>' +
+                  '<button type="button" class="btn btn-sm btn-ghost" data-clone="' + escapeAttr(scenario) + '" title="Copy this scenario\'s home costs, purchase/invest setup and any overrides into a new one">Clone</button>' +
+                  (canDelete && !isBaseline ? '<button type="button" class="btn btn-sm btn-ghost menu-danger" data-delete="' + escapeAttr(scenario) + '">Delete</button>' : "") +
+                '</span>' +
+              '</span>' +
               '<span class="card-radio"></span>' +
             '</span>' +
           '</div>' +
@@ -211,7 +216,7 @@ function renderStaleAssetsBanner(){
   if(!stale.length){ el.innerHTML = ""; return; }
   el.innerHTML =
     '<div class="stale-assets-note" title="Log a fresh value for each (Assets tab → Log) to keep net worth history and the Actual vs. expected panel accurate.">' +
-      '<span>⏱</span> ' + escapeAttr(stale.length + " asset" + (stale.length === 1 ? "" : "s") + " haven't been logged in 30+ days — " + staleAssetNamesList(stale)) +
+      '<span>⏱</span> ' + escapeAttr(stale.length + " asset" + (stale.length === 1 ? "" : "s") + " haven't been logged in 30+ days — " + staleAssetNamesList(stale, 3)) +
     '</div>';
 }
 

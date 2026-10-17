@@ -9,7 +9,7 @@ import { renderLineChart, renderStackedAreaChart, dateAxisFormat, sparklineHtml,
 import { showToast } from "../lib/toast.js";
 import { appendHistorySnapshot, daysUntil, householdYearWindow, householdYearBasis } from "../calc/ledger.js";
 import { TIME_RANGES, rangeLabel, rangeByKey, rangeStartDate, bestFitRange, timeRangeControlHtml } from "../lib/timerange.js";
-import { observationDates, categorySeries, trimUntracked, allocationSeries, valueOn } from "../calc/history.js";
+import { observationDates, categorySeries, trimUntracked, allocationSeries, valueOn, coverageStart } from "../calc/history.js";
 import { holdingDividend, saleCapitalGain, fifoParcels, lotsUnitsAvailable, lotsAverageCost, lotRemainingUnits, lotCost, amitCostBaseAdjustmentPerUnit, getTaxPeople } from "../calc/tax.js";
 import { financialYearOf, fyLabel } from "../calc/property.js";
 import { renderProjectionOutputs } from "./projections.js";
@@ -865,7 +865,14 @@ export function renderSharesSubpage(){
   var hasUsdHoldings = allData.items.some(function(a){ return (MARKET_CURRENCY[a.market] || "AUD") !== "AUD"; });
   var fxNote = !hasUsdHoldings ? "" : (state.fx && state.fx.usdAud
     ? '<p class="ledger-note" style="margin:8px 0"><b>USD → AUD:</b> 1 USD = ' + Number(state.fx.usdAud).toFixed(4) + ' AUD (as of ' + escapeAttr(state.fx.usdAudUpdated) + ') — used to convert your USD holdings into Net worth, Dashboard, and allocation totals. Re-paste the template below (it includes a conversion row) any time to refresh it.</p>'
-    : '<p class="ledger-note" style="margin:8px 0;color:var(--brass-strong)">You have USD-priced holdings but no USD → AUD rate set yet — Net worth, Dashboard, and allocation totals are currently adding their raw USD numbers in as if they were already AUD. Paste the template below (it now includes a conversion row) to fix this.</p>');
+    : '');
+  // v3.32.1: the no-rate warning used to live inside the collapsed paste tool, so the Shares total
+  // and net worth silently added US$ as A$. It now sits above the list, with a field to type the
+  // rate straight in rather than only through a pasted price sheet.
+  var fxWarn = hasUsdHoldings && !(state.fx && state.fx.usdAud)
+    ? '<div class="fx-warn" role="note"><p><b>US$ holdings are being counted as A$.</b> No exchange rate is set, so the total above, net worth and every allocation add US dollars as if they were Australian.</p>' +
+      '<label class="fx-warn-field">1 USD = <input type="number" inputmode="decimal" step="0.0001" min="0" placeholder="1.52" data-fx-usdaud aria-label="Australian dollars per US dollar"> AUD</label></div>'
+    : '';
   var pasteTool = allData.items.length
     ? '<details class="tax-advanced" style="margin:0 0 14px"><summary>Paste prices from Google Sheets</summary>' +
         '<p class="ledger-note" style="margin:8px 0">This app never fetches prices itself — nothing is sent anywhere. First time: "Copy to clipboard", then paste straight into an empty cell in a Google Sheet (or "Download" and import the file instead) — either way you get a live-price formula already written for every holding, crypto included, plus a USD → AUD exchange rate row if you hold anything priced in USD. Then copy its Symbol and Price columns and paste the two-column range below; matches your holdings by ticker symbol (case-insensitive), and the exchange rate row updates your USD → AUD conversion. After that, re-paste the same range any time to refresh prices.</p>' +
@@ -885,7 +892,7 @@ export function renderSharesSubpage(){
   container.innerHTML = '<div class="ledgers"><details class="ledger" open>' +
     '<summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Shares</h2></div>' +
     '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
-    '<div class="ledger-body"><div id="sharesGlance">' + sharesGainLossGlanceHtml(allData.items) + '</div>' + pasteTool + toolbar + body + '</div></details>' + historyPanel + '</div>';
+    '<div class="ledger-body"><div id="sharesGlance">' + sharesGainLossGlanceHtml(allData.items) + '</div>' + fxWarn + pasteTool + toolbar + body + '</div></details>' + historyPanel + '</div>';
   if(allData.items.length) renderSharesHistoryChart();
 }
 
@@ -934,6 +941,40 @@ export function renderSharesHistoryChart(){
     stepped: true,
     alwaysLegend: false
   });
+}
+
+// What the net worth line adds up, as {history, label} for coverageStart(): every asset, property
+// and debt that's actually held — a blank row added and never filled in doesn't hold the chart back.
+function netWorthRecords(){
+  var recs = [];
+  state.assets.forEach(function(a){
+    if(!(Number(a.amount) || 0) && !(a.history || []).length) return;
+    recs.push({ history: a.history, label: assetLabel(a) });
+  });
+  state.properties.forEach(function(p){ recs.push({ history: p.history, label: p.what || "a property" }); });
+  (state.debts || []).forEach(function(d){
+    if(!(Number(d.balance) || 0) && !(d.history || []).length) return;
+    recs.push({ history: d.history, label: d.what || "a debt", debt: true });
+  });
+  return recs;
+}
+// "Superannuation (Logan)" when more than one person could own it — the same name on two rows is
+// otherwise two indistinguishable entries in any list that names assets.
+export function assetLabel(a){
+  var name = a.what || a.symbol || a.category || "an asset";
+  return a.person ? name + " (" + a.person + ")" : name;
+}
+export function listSome(labels, max){
+  max = max || 3;
+  if(labels.length <= max) return labels.length === 1 ? labels[0] : labels.slice(0, -1).join(", ") + " and " + labels[labels.length - 1];
+  return labels.slice(0, max).join(", ") + " and " + (labels.length - max) + " more";
+}
+function coverageWaitText(late){
+  return "This line starts on the first day everything you hold today had a value — before that, a total leaves some of it out " +
+    "and the day it was first logged reads as growth. Still to log: " + listSome(late, 4) + ". Use Log on each, and the line starts from there.";
+}
+function fmtShortDate(d){
+  return new Date(d + "T00:00:00").toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
 }
 
 export function parseSharesPasteLine(line){
@@ -1001,7 +1042,7 @@ export function renderAssetsSummary(){
       '<div class="stat-tile"><span>Total net worth</span><b>' + fmtCurrency0.format(totalNetWorthValue()) + '</b><small>assets + property equity</small></div>' +
       '<div class="stat-tile" title="Cash + Shares + any property offset balances — real, spendable cash"><span>Liquid assets</span><b>' + fmtCurrency0.format(liquid) + '</b><small>Cash + Shares + Offset</small></div>' +
       '<div class="stat-tile"><span>Illiquid assets</span><b>' + fmtCurrency0.format(illiquid) + '</b><small>Super + Vehicle + Other</small></div>' +
-      '<div class="stat-tile" title="Value minus full loan balance, net of offset — only accessible by selling or refinancing"><span>Property equity</span><b>' + fmtCurrency0.format(propEquity) + '</b><small>across ' + state.properties.length + ' propert' + (state.properties.length === 1 ? "y" : "ies") + ', net of offset</small></div>';
+      '<div class="stat-tile" title="Value minus the full loan balance — only reachable by selling or refinancing. Offset balances are counted under Liquid instead, so this is the Properties tab\'s Total equity less them."><span>Property equity</span><b>' + fmtCurrency0.format(propEquity) + '</b><small>' + state.properties.length + ' propert' + (state.properties.length === 1 ? "y" : "ies") + (propertiesOffsetTotal() > 0 ? ' · offset counted in Liquid' : '') + '</small></div>';
   }
   var allocEl = document.getElementById("assetsAllocation");
   if(allocEl) allocEl.innerHTML = renderAssetAllocationHtml();
@@ -1197,13 +1238,17 @@ export function renderAllocationChart(){
   // before it instead of starting the chart at zero.
   var range = rangeByKey(allocationRange) || rangeByKey("all");
   var from = rangeStartDate(range, { today: today, yearStart: householdYearWindow().start });
+  // v3.32.1: same start as the net worth line — a mix that only holds part of the household
+  // shifts the day the rest is first logged, and that shift is bookkeeping, not your money moving.
+  var cov = coverageStart(netWorthRecords().filter(function(r){ return !r.debt; }), today);
   var dates = observationDates(assetHistories.concat(propHistories), [today])
-    .filter(function(d){ return from === null || d >= from || d === today; });
+    .filter(function(d){ return d === today || (d >= cov.from && (from === null || d >= from)); });
   if(dates.length < 2){
     var tooShort = document.createElement("p");
     tooShort.className = "ledger-note";
     tooShort.style.margin = "10px 0 0";
-    tooShort.textContent = "Nothing was logged in this window — only " + rangeLabel(range, householdYearBasis()) +
+    tooShort.textContent = cov.from === today && cov.missing.length ? coverageWaitText(cov.missing) :
+      "Nothing was logged in this window — only " + rangeLabel(range, householdYearBasis()) +
       " of it, and one point is not a shift. Try a longer range.";
     shift.appendChild(tooShort);
     return;
@@ -1307,10 +1352,16 @@ export function renderPortfolioHistoryChart(){
   }
   var range = rangeByKey(portfolioRange) || rangeByKey("all");
   var from = rangeStartDate(range, { today: today, yearStart: householdYearWindow().start });
+  // v3.32.1: nothing before the first date everything held today had a value. Earlier points sum
+  // only part of the household, so the step up on the day the rest was first logged read as growth.
+  var cov = coverageStart(netWorthRecords(), today);
   // Filtered after the points are built, not before: each point's value already carries forward
   // everything logged before it, so a short window still opens at the right level rather than at
   // zero. Today always survives, so the line always reaches the present.
-  var shown = points.filter(function(pt){ return from === null || pt.dateLabel >= from || pt.dateLabel === today; });
+  var shown = points.filter(function(pt){
+    if(pt.dateLabel === today) return true;
+    return pt.dateLabel >= cov.from && (from === null || pt.dateLabel >= from);
+  });
 
   // No heading of its own — the section's <summary> already says "Net worth over time", and a
   // second copy of it inside the panel is just noise.
@@ -1326,7 +1377,9 @@ export function renderPortfolioHistoryChart(){
     var tooShort = document.createElement("p");
     tooShort.className = "ledger-note";
     tooShort.style.margin = "10px 0 0";
-    tooShort.textContent = "Nothing was logged in this window — and one point is not a trend. Try a longer range.";
+    tooShort.textContent = cov.from === today && cov.missing.length && dates.length > 1
+      ? coverageWaitText(cov.missing)
+      : "Nothing was logged in this window — and one point is not a trend. Try a longer range.";
     container.appendChild(tooShort);
     return;
   }
@@ -1344,6 +1397,14 @@ export function renderPortfolioHistoryChart(){
     stepped: true,
     alwaysLegend: false
   });
+  if(cov.late.length){
+    var startNote = document.createElement("p");
+    startNote.className = "ledger-note";
+    startNote.style.margin = "8px 0 0";
+    startNote.textContent = "Starts " + fmtShortDate(cov.from) + ", the first day everything you hold today had a value. " +
+      "Before that, " + listSome(cov.late) + " hadn't been logged, so earlier totals would leave them out.";
+    container.appendChild(startNote);
+  }
 }
 
 // ---------------- Import assets from a spreadsheet ----------------
@@ -1674,4 +1735,17 @@ export function applySharesPaste(){
     (notFound.length ? " — no holding found for " + notFound.join(", ") : "") +
     (unparseable.length ? " — couldn't read a price for " + unparseable.join(", ") + " (check for #N/A or a blank cell in your sheet)" : "");
   showToast(msg);
+}
+
+// Typed straight into the Shares warning (v3.32.1) — the same two fields the price-sheet paste's
+// exchange-rate row sets, so either way ends in one place.
+export function setUsdAudRate(value){
+  var rate = Number(value);
+  if(!(rate > 0)) return false;
+  state.fx.usdAud = rate;
+  state.fx.usdAudUpdated = localDateStr();
+  renderAssets();
+  renderNetWorthPanel();
+  persist();
+  return true;
 }

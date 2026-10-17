@@ -2,7 +2,7 @@ import { state, persist } from "../state.js";
 import {
   propertyEquityToday, propertyGearingAnnual, propertyLoanRepaymentMonthly, loanRepaymentDisplay,
   capitalWorksAnnual, plantDepreciationAnnual, propertyDepreciationForWindow, financialYearOf, fyLabel,
-  propertyCapitalGain, propertyYieldOnCost, propertyLVR, propertiesTotalValue, propertiesTotalEquityToday,
+  propertyCapitalGain, propertyYieldOnCost, propertyLVR, propertiesTotalValue, propertiesTotalEquityToday, propertiesOffsetTotal,
   propertiesTotalMortgageBalance, propertiesNetCashFlowMonthly, propertiesWeightedGrossYield,
   propertyOwnershipPct, propertyOwnershipTotal, propertyTaxDeductibleResultAnnual,
   landTaxByState, totalLandTax, borrowingCostsSchedule, borrowingCostsDeduction
@@ -540,7 +540,7 @@ export function renderPropertiesSummary(){
       var weightedYield = propertiesWeightedGrossYield();
       statsEl.innerHTML =
         '<div class="stat-tile"><span>Total value</span><b>' + fmtCurrency0.format(propertiesTotalValue()) + '</b><small>across ' + state.properties.length + ' propert' + (state.properties.length === 1 ? "y" : "ies") + '</small></div>' +
-        '<div class="stat-tile" title="Value minus full loan balance, net of offset — matches each card\'s own Net equity tile, summed across the portfolio"><span>Total equity</span><b>' + fmtCurrency0.format(propertiesTotalEquityToday()) + '</b><small>net of offset</small></div>' +
+        '<div class="stat-tile" title="Value minus what\'s owed after the offset — matches each card\'s own Net equity tile, summed across the portfolio"><span>Total equity</span><b>' + fmtCurrency0.format(propertiesTotalEquityToday()) + '</b><small>' + (propertiesOffsetTotal() > 0 ? "incl. " + fmtCurrency0.format(propertiesOffsetTotal()) + " in offset" : "value less loans") + '</small></div>' +
         '<div class="stat-tile"><span>Total mortgage</span><b>' + fmtCurrency0.format(propertiesTotalMortgageBalance()) + '</b><small>across every loan</small></div>' +
         '<div class="stat-tile" title="Rent minus expenses and loan repayments, across every investment property"><span>Net cash flow</span><b style="color:' + (netCashFlow < 0 ? "var(--bad)" : "var(--good)") + '">' + (netCashFlow >= 0 ? "+" : "") + fmtCurrency0.format(netCashFlow) + '/mo</b><small>investment properties</small></div>' +
         '<div class="stat-tile" title="Annual rent ÷ value, weighted by each investment property\'s own value"><span>Avg gross yield</span><b>' + (weightedYield != null ? fmtPercent1.format(weightedYield) : "—") + '</b><small>investment properties</small></div>';

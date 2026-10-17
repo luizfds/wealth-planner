@@ -43,7 +43,7 @@ import {
 } from "./components/expenses.js";
 import {
   patchHoldingRow, patchVehicleRow, modernAssetRowOpen, patchAssetCategoryTotals,
-  renderNetWorthPanel, renderAssets, logAssetSnapshot, applySharesPaste, logDebtSnapshot,
+  renderNetWorthPanel, renderAssets, logAssetSnapshot, applySharesPaste, logDebtSnapshot, setUsdAudRate,
   patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter, renderAssetPersonSheet, assetPersonSheetOpen, setAssetPersonSheetOpen, setSharesGainFilter, setSharesSortMode, setSharesChangeWindow, setAllocationRange, setPortfolioRange,
   parseAssetsImportCsv, renderAssetsImportPreview, clearAssetsImportPreview, commitAssetsImport, dividendNoteText,
   recordAssetSale, deleteAssetSale, renderAssetsSummary, patchOffsetsRow, addAssetLot, syncAvgCostFromLots, lotsSectionHtml, lotsNoteText, addAssetStatement, statementsSectionHtml
@@ -2965,13 +2965,17 @@ import {
 
   document.getElementById("cards").addEventListener("click", function(e){
     if(onScenarioControlClick(e)) return;
+    // The ⋯ menu's own toggle is handled by the page-wide overflow handler; opening it isn't a vote
+    // for this scenario.
+    if(e.target.closest(".card-overflow")) return;
     var cardSel = e.target.closest(".card-select");
     if(cardSel) selectScenario(cardSel.getAttribute("data-scenario"));
   });
   document.getElementById("cards").addEventListener("keydown", function(e){
     if(e.key !== "Enter" && e.key !== " ") return;
     var cardSel = e.target.closest(".card-select");
-    if(cardSel){ e.preventDefault(); selectScenario(cardSel.getAttribute("data-scenario")); }
+    // Only the card itself — Enter on a button inside it (the ⋯ menu) must reach that button.
+    if(cardSel && e.target === cardSel){ e.preventDefault(); selectScenario(cardSel.getAttribute("data-scenario")); }
   });
   document.getElementById("homeBody").addEventListener("click", onScenarioControlClick);
 
@@ -3715,6 +3719,11 @@ import {
   // by the time this fires in the bubble phase every other handler for the same event
   // has already run and mutated state.
   document.addEventListener("input", renderGlobalMetrics);
+  // v3.32.1: the exchange rate typed into the Shares warning.
+  document.addEventListener("change", function(e){
+    if(!e.target.matches || !e.target.matches("[data-fx-usdaud]")) return;
+    if(setUsdAudRate(e.target.value)) showToast("Exchange rate set — US$ holdings now count at A$" + Number(e.target.value).toFixed(4));
+  });
   document.addEventListener("change", renderGlobalMetrics);
 
   renderAll();

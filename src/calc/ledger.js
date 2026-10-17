@@ -481,6 +481,23 @@ export function budgetCycleFor(item, transactions, todayStr){
 // Deliberately a plain inclusive date comparison on ISO strings rather than Date arithmetic: the
 // dates involved are whole days, and string comparison can't drift on a DST boundary the way
 // parsing to a Date and comparing timestamps can.
+// Whole-day arithmetic on ISO dates, done in UTC so a daylight-saving change inside the range can't
+// shave an hour off and round a day away. Tax apportionment (a deduction that stopped partway
+// through the year, borrowing costs spread over five years) is counted in days, and the ATO's own
+// calculators count them exactly — so these have to as well.
+export function isoDayNumber(iso){
+  var p = String(iso || "").split("-");
+  if(p.length !== 3) return NaN;
+  return Math.round(Date.UTC(Number(p[0]), Number(p[1]) - 1, Number(p[2])) / 86400000);
+}
+// Days shared by two inclusive date ranges, 0 when they don't meet. A blank bound means open-ended.
+export function overlapDaysInclusive(aStart, aEnd, bStart, bEnd){
+  var lo = Math.max(aStart ? isoDayNumber(aStart) : -Infinity, bStart ? isoDayNumber(bStart) : -Infinity);
+  var hi = Math.min(aEnd ? isoDayNumber(aEnd) : Infinity, bEnd ? isoDayNumber(bEnd) : Infinity);
+  if(!isFinite(lo) || !isFinite(hi)) return NaN;
+  return Math.max(0, hi - lo + 1);
+}
+
 export function isActiveOn(item, dateStr){
   if(!item || !item.endDate) return true;
   return dateStr <= item.endDate;

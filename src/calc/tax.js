@@ -1,6 +1,6 @@
 import { state } from "../state.js";
 import { AU_TAX_BRACKETS, MAX_SUPER_BASE, HELP_REPAYMENT_RATES, MLS_TIERS, MLS_FAMILY_MULTIPLIER } from "../constants.js";
-import { periodsOf, resolveSharedAmount, householdYearWindow, isActiveOn } from "./ledger.js";
+import { periodsOf, resolveSharedAmount, householdYearWindow, isActiveOn, overlapDaysInclusive } from "./ledger.js";
 import { ipNetResultAnnual, personIpResultAnnual } from "./property.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
 
@@ -197,16 +197,39 @@ export function deductionRows(items, person){
     return i.deductiblePerson === person;
   });
 }
-// The claimable amount of one row, per year: its annual cost times its work-related share.
-export function rowDeductionAnnual(item){
-  // An expense that has ended isn't being incurred, so there's nothing left to claim on it.
-  if(!isActiveOn(item, localDateStr())) return 0;
-  var pct = item.deductiblePct == null ? 100 : Math.max(0, Math.min(100, Number(item.deductiblePct) || 0));
-  return periodsOf(Number(item.amount) || 0, item.freq).yearly * (pct / 100);
+// The share of a tax year a row was claimable for, 0-1.
+//
+// A tax return covers a year, and a claim can stop (or start) partway through it. Two different
+// reasons, so two different fields:
+//
+//   - endDate: the expense itself stopped (a subscription cancelled in March).
+//   - deductibleFrom / deductibleUntil: the expense carries on but stopped being CLAIMABLE — the
+//     home-office share of rent stops the day an employer starts providing an office, while the
+//     rent goes on being paid. Using endDate for that would stop the rent in every budget view.
+//
+// Before this, a row whose endDate had passed claimed $0 — including for the tax year it ended in,
+// which is the year someone is most likely to be lodging. A line that stopped on 30 September
+// claimed nothing for the July-September it was genuinely incurred.
+export function deductionYearFraction(item, win){
+  if(!win || !win.start || !win.end) return 1;
+  var yearDays = overlapDaysInclusive(win.start, win.end, win.start, win.end);
+  var from = item && item.deductibleFrom ? item.deductibleFrom : "";
+  var untilCandidates = [item && item.endDate, item && item.deductibleUntil].filter(Boolean).sort();
+  var until = untilCandidates.length ? untilCandidates[0] : "";
+  var days = overlapDaysInclusive(win.start, win.end, from || win.start, until || win.end);
+  return yearDays > 0 ? days / yearDays : 0;
 }
-export function personDeductionsAnnual(person, items){
+// The claimable amount of one row for a tax year: its annual cost, times its work-related share,
+// times the part of the year it was claimable for. `win` defaults to the household's current year,
+// the same window computePersonTax() uses for capital gains.
+export function rowDeductionAnnual(item, win){
+  var pct = item.deductiblePct == null ? 100 : Math.max(0, Math.min(100, Number(item.deductiblePct) || 0));
+  var fraction = deductionYearFraction(item, win || householdYearWindow());
+  return periodsOf(Number(item.amount) || 0, item.freq).yearly * (pct / 100) * fraction;
+}
+export function personDeductionsAnnual(person, items, win){
   return deductionRows(items, person).reduce(function(sum, item){
-    return sum + rowDeductionAnnual(item);
+    return sum + rowDeductionAnnual(item, win);
   }, 0);
 }
 
@@ -541,14 +564,17 @@ export function computePersonTax(person, opts){
   // housing and every investment property — that's components/expenses.js's budgetLineItems(), and
   // calc/ can't import a component.
   var deductibleItems = deductibleItemsFor(opts);
-  var deductions = deductibleItems ? personDeductionsAnnual(person, deductibleItems) : 0;
+  // The same year the capital gains below are bounded to, so a claim that stopped partway through
+  // it counts for the part it covered — see deductionYearFraction().
+  var taxYearWindow = householdYearWindow();
+  var deductions = deductibleItems ? personDeductionsAnnual(person, deductibleItems, taxYearWindow) : 0;
   // Dividends enter taxable income GROSSED UP (cash + franking credit); the credit then comes off
   // the tax bill below. Adding only the cash would understate the income and overstate the benefit.
   var dividends = personDividends(person);
   // Capital gains within the household's year. Bounded to the year because a CGT event belongs to
   // the year it happened in — unlike every other figure here, which is a rate, a sale is a
   // one-off, and carrying last year's sale into this year's estimate would be plainly wrong.
-  var cgtWindow = householdYearWindow();
+  var cgtWindow = taxYearWindow;
   var capitalGains = personCapitalGains(person, { from: cgtWindow.start, to: cgtWindow.end });
   var taxable = Math.max(0, gross - sacrifice + ipShare - deductions + dividends.grossedUp + capitalGains.assessable);
   var incomeTax = incomeTaxAU(taxable);

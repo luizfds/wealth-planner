@@ -640,3 +640,54 @@ test("an asset with no sales contributes nothing", function(){
     });
   });
 });
+
+// ---------------- Claims that stop or start partway through a tax year (v3.16.1) ----------------
+
+import { deductionYearFraction } from "../src/calc/tax.js";
+
+var FY2526 = { start: "2025-07-01", end: "2026-06-30", label: "FY25/26" };
+
+test("home-office rent claimable only until an employer office became available", function(){
+  // The real case this was written for: $720/wk rent, a 6.4% dedicated office, claimable from
+  // 1 July until the employer was acquired by one with a local office on 1 October 2025. The rent
+  // carried on — only the claim stopped — so it's deductibleUntil, not endDate.
+  // 92 of 365 days: $37,440 x 6.4% x 92/365 = $603.96, the figure lodged.
+  var rent = deductibleRow("Rent", 720, "Weekly", { deductiblePct: 6.4, deductibleUntil: "2025-09-30" });
+  assert.equal(Math.round(rowDeductionAnnual(rent, FY2526) * 100) / 100, 603.96);
+});
+
+test("a row that ended during the tax year still claims the part of the year it ran", function(){
+  // Before v3.16.1 this returned $0 the moment the end date passed — including when looking at the
+  // very year it ended in, which is the year anyone lodging would be looking at.
+  var sub = deductibleRow("Software", 1200, "Yearly", { endDate: "2025-12-31" });
+  // 1 Jul - 31 Dec 2025 is 184 of 365 days.
+  assert.ok(Math.abs(rowDeductionAnnual(sub, FY2526) - 1200 * 184 / 365) < 1e-9);
+});
+
+test("a row that ended before the tax year claims nothing in it", function(){
+  var sub = deductibleRow("Software", 1200, "Yearly", { endDate: "2025-06-30" });
+  assert.equal(rowDeductionAnnual(sub, FY2526), 0);
+});
+
+test("a claim that started partway through the year counts from that day", function(){
+  var row = deductibleRow("Course", 3650, "Yearly", { deductibleFrom: "2026-06-01" });
+  // 1-30 June is 30 days.
+  assert.ok(Math.abs(rowDeductionAnnual(row, FY2526) - 3650 * 30 / 365) < 1e-9);
+});
+
+test("the earlier of the expense's end and the claim's end wins", function(){
+  var row = { endDate: "2026-03-31", deductibleUntil: "2025-09-30" };
+  assert.equal(deductionYearFraction(row, FY2526), 92 / 365);
+  assert.equal(deductionYearFraction({ endDate: "2025-09-30", deductibleUntil: "2026-03-31" }, FY2526), 92 / 365);
+});
+
+test("a row with no dates claims the whole year, as before", function(){
+  assert.equal(deductionYearFraction({}, FY2526), 1);
+  assert.equal(rowDeductionAnnual(deductibleRow("Union fees", 600, "Yearly"), FY2526), 600);
+});
+
+test("a leap tax year is counted in its own 366 days", function(){
+  var FY2728 = { start: "2027-07-01", end: "2028-06-30" };
+  // 1 Jul - 31 Dec 2027 is 184 of the 366 days that include 29 Feb 2028.
+  assert.equal(deductionYearFraction({ deductibleUntil: "2027-12-31" }, FY2728), 184 / 366);
+});

@@ -104,7 +104,7 @@ export function propertyGearingAnnual(property){
 // property added without one shows no capital gain/yield-on-cost figure at all rather than a
 // misleading number against a $0 cost base. Shared by both functions below so "cost" always means
 // the same thing in both places.
-function propertyCostBase(property){
+export function propertyCostBase(property){
   var price = Number(property.purchasePrice);
   if(!(price > 0)) return null;
   var costsTotal = (property.acquisitionCosts || []).reduce(function(s, c){ return s + (Number(c.amount) || 0); }, 0);

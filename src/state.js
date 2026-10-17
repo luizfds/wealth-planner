@@ -530,6 +530,7 @@ export function migrateState(s){
     // by a section's height on everyone's next load. Keyed off `in` rather than truthiness so
     // deliberately expanding it and reloading doesn't re-collapse it.
     if(!("ownership" in p.sectionsCollapsed)) p.sectionsCollapsed.ownership = true;
+    if(!("sale" in p.sectionsCollapsed)) p.sectionsCollapsed.sale = true;
     p.loans.forEach(function(l){
       if(l.id == null) l.id = genId("l");
       if(l.repaymentMode !== "manual") l.repaymentMode = "auto";

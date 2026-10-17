@@ -51,7 +51,7 @@ import {
 } from "./components/assets.js";
 import {
   modernPropRowOpen, renderPropListModern, renderProperties, patchPropertyCardComputed,
-  logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan
+  logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan, setSaleWhatIfField, patchSaleWhatIf
 } from "./components/properties.js";
 import { renderProjectionOutputs, projectionSeriesShown } from "./components/projections.js";
 import { renderBenchmarks, setBenchmarkField, applyBenchmarkPaste, addGoal, setGoalField, removeGoal, setPropertyMarketField } from "./components/benchmarks.js";
@@ -3857,6 +3857,15 @@ import {
     }
   });
 
+  // v3.39.0: "If you sold" on an investment property card.
+  document.addEventListener("change", function(e){
+    if(!e.target.matches || !e.target.matches("[data-sale-field]")) return;
+    var host = e.target.closest("[data-sale-property]");
+    var prop = host && findProperty(host.getAttribute("data-sale-property"));
+    if(!prop) return;
+    setSaleWhatIfField(prop, e.target.getAttribute("data-sale-field"), e.target.value);
+    patchSaleWhatIf(prop);
+  });
   // v3.34.0: the projection, every year, as a CSV.
   document.addEventListener("click", function(e){
     if(e.target.closest("#projCsvBtn")) exportProjectionCsv(projectionSeriesShown(), state.projection.realTerms !== false);

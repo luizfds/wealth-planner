@@ -7,7 +7,8 @@ import {
   propertyOwnershipPct, propertyOwnershipTotal, propertyTaxDeductibleResultAnnual,
   landTaxByState, totalLandTax, borrowingCostsSchedule, borrowingCostsDeduction
 } from "../calc/property.js";
-import { getTaxPeople } from "../calc/tax.js";
+import { getTaxPeople, computePersonTax } from "../calc/tax.js";
+import { saleScenario } from "../calc/sale.js";
 import { LAND_TAX_STATES, LAND_TAX_YEAR } from "../constants.js";
 import { sumField, householdYearWindow } from "../calc/ledger.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
@@ -29,7 +30,7 @@ var PAYMENT_FREQ_SUFFIX = { Weekly: "/wk", Fortnightly: "/fn", Monthly: "/mo" };
 
 // Which of a property's five sections (value/acquisition/loans/income/expenses) collapse-all/
 // expand-all should toggle — order here is also the display order, matching propertyCardHtml.
-export var PROPERTY_SECTION_KEYS = ["value", "acquisition", "ownership", "depreciation", "loans", "income", "expenses"];
+export var PROPERTY_SECTION_KEYS = ["value", "acquisition", "ownership", "depreciation", "loans", "income", "expenses", "sale"];
 // Wraps one section's already-built head/body HTML with the collapse toggle chrome — shared by
 // every .property-section below (Property value, Acquisition costs, Loans, Income, Expenses) so
 // they all get identical collapse behavior and a consistent title treatment, rather than five
@@ -303,6 +304,53 @@ function depreciationSectionHtml(p){
 // because it moves a taxable income, and someone with no taxable income to move has nothing to
 // carry. Empty (nobody has set a share) means an even split — the same default as before — and the
 // note says so rather than pre-filling numbers the user never chose.
+// "If you sold" (v3.39.0) — calc/sale.js saleScenario(). Inputs live on p.saleWhatIf so they
+// survive a re-render; nothing here changes the property itself.
+export function saleWhatIfData(p){
+  var w = p.saleWhatIf || {};
+  var today = localDateStr();
+  var people = getTaxPeople();
+  var owners = people.map(function(name){
+    return { name: name, pct: propertyOwnershipPct(p, name, people), taxable: computePersonTax(name).taxable };
+  }).filter(function(o){ return o.pct > 0; });
+  var saleDate = w.date || today;
+  return {
+    inputs: { date: saleDate, price: w.price || "", agentPct: w.agentPct == null ? 2.5 : w.agentPct, otherCosts: w.otherCosts == null ? 2500 : w.otherCosts },
+    result: saleScenario(p, { today: today, saleDate: saleDate < today ? today : saleDate, salePrice: w.price, growthPct: state.projection.propertyAppreciationRate,
+      agentPct: w.agentPct == null ? 2.5 : w.agentPct, otherCosts: w.otherCosts == null ? 2500 : w.otherCosts, owners: owners }),
+    growthPct: state.projection.propertyAppreciationRate
+  };
+}
+export function saleWhatIfHtml(p, d){
+  var r = d.result, i = d.inputs;
+  var line = function(label, v, cls){ return '<div class="sale-line' + (cls ? " " + cls : "") + '"><span>' + label + '</span><b>' + v + '</b></div>'; };
+  var money = function(v){ return v == null ? "—" : fmtCurrency0.format(v); };
+  var owners = r.owners.map(function(o){
+    return '<div class="sale-owner"><div class="sale-owner-name">' + escapeAttr(o.name) + ' <small>' + Math.round(o.share * 100) + '%</small></div>' +
+      line("Share of the gain", money(o.gain)) +
+      (o.loss ? line("Capital loss to carry forward", money(o.loss)) : line(r.discount ? "Taxable, after the 50% discount" : "Taxable (held under 12 months)", money(o.assessable))) +
+      line("Extra tax and Medicare", money(o.tax)) +
+      line("Cash in hand after tax", money(o.cash), "sale-total") + '</div>';
+  }).join("");
+  return '<div class="sale-inputs">' +
+      '<label>Sell on <input type="date" data-sale-field="date" value="' + escapeAttr(i.date) + '"></label>' +
+      '<label>Sale price <input type="number" step="1000" min="0" data-sale-field="price" value="' + escapeAttr(i.price) + '" placeholder="' + r.salePrice + '"></label>' +
+      '<label>Agent % <input type="number" step="0.1" min="0" max="10" data-sale-field="agentPct" value="' + i.agentPct + '"></label>' +
+      '<label>Other costs $ <input type="number" step="100" min="0" data-sale-field="otherCosts" value="' + i.otherCosts + '" title="Conveyancing, marketing, styling, any break costs"></label>' +
+    '</div>' +
+    (i.price ? '' : '<p class="ledger-note" style="margin:0 0 8px">Sale price left blank: today\'s value grown at ' + d.growthPct + '% a year (Projections) to the sale date.</p>') +
+    '<div class="sale-grid"><div class="sale-col">' +
+      line("Sale price", money(r.salePrice)) + line("Agent and selling costs", "−" + money(r.sellingCosts)) +
+      line("Loans paid out", "−" + money(r.loanPayout)) + line("Cash before tax", money(r.cashBeforeTax), "sale-total") +
+      line("Paid, with acquisition costs", money(r.paid), "sale-gap") +
+      (r.capitalWorksReduction ? line("Less capital works claimed", "−" + money(r.capitalWorksReduction)) : "") +
+      line("Capital gain", money(r.gain), "sale-total") +
+    '</div><div class="sale-col">' + (owners || '<p class="ledger-note">Set ownership above to split the gain between owners.</p>') +
+      (r.owners.length > 1 ? line("Total cash after tax", money(r.cashAfterTax), "sale-total sale-grand") : '') + '</div></div>' +
+    '<p class="ledger-note" style="margin:8px 0 0">' + (r.paid == null ? "Add the purchase price (Property value) for the capital gain. " : "") +
+      'Taxed in ' + fyLabel(r.fy) + ' on top of each owner\'s taxable income today — the year the rent stops, so if anything that\'s slightly high. A capital loss carries forward against future gains. An offset balance stays yours on top of this. An estimate: your accountant settles the real one.</p>';
+}
+
 function ownershipSectionHtml(p){
   var people = getTaxPeople();
   var total = propertyOwnershipTotal(p);
@@ -487,7 +535,24 @@ function propertyCardHtml(p, colorIdx){
       pmFeePanel +
       '<div class="m-card"><div class="m-rows" id="propExpRows_' + escapeAttr(p.id) + '">' + modernPropListHtml(p.expenses, "propexp:" + p.id, true) + '</div></div>' +
       '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="propexp:' + escapeAttr(p.id) + '">+ Add expense</button>') +
+    (p.kind === "IP" ? propertySectionHtml(p, "sale",
+      '<div class="property-section-title">If you sold</div>',
+      '<div class="sale-body" data-sale-property="' + escapeAttr(p.id) + '">' + saleWhatIfHtml(p, saleWhatIfData(p)) + '</div>') : "") +
   '</div>';
+}
+export function setSaleWhatIfField(p, field, value){
+  if(!p.saleWhatIf || typeof p.saleWhatIf !== "object") p.saleWhatIf = {};
+  if(value === "" || value == null) delete p.saleWhatIf[field];
+  else p.saleWhatIf[field] = field === "date" ? value : Number(value);
+  persist();
+}
+// Re-renders just the section body, so typing in one field doesn't rebuild the card.
+export function patchSaleWhatIf(p){
+  var el = document.querySelector('[data-sale-property="' + p.id + '"]');
+  if(!el) return;
+  var focused = document.activeElement && el.contains(document.activeElement) ? document.activeElement.getAttribute("data-sale-field") : null;
+  el.innerHTML = saleWhatIfHtml(p, saleWhatIfData(p));
+  if(focused){ var f = el.querySelector('[data-sale-field="' + focused + '"]'); if(f) f.focus(); }
 }
 
 // Session-only (not persisted) — mirrors modernIncomeRowOpen/modernSharedRowOpen, shared across

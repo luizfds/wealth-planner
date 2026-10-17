@@ -394,6 +394,10 @@ export function migrateState(s){
   // real cost, and assuming family thresholds would halve a real one. An unset save gets the
   // conservative reading, and the toggles are right there on the card.
   if(typeof s.tax.privateHospitalCover !== "boolean") s.tax.privateHospitalCover = false;
+  // Private health rebate (v3.25.0): annual premiums before the rebate, and the tier the insurer
+  // applies (0-3, -1 = none taken up front). 0 premiums = not modelled.
+  if(s.tax.phiPremiums == null) s.tax.phiPremiums = 0;
+  if(s.tax.phiTierClaimed == null) s.tax.phiTierClaimed = 0;
   if(typeof s.tax.familyThresholds !== "boolean") s.tax.familyThresholds = false;
   if(!s.fx) s.fx = { usdAud: null, usdAudUpdated: "" };
   if(s.fx.usdAud === undefined) s.fx.usdAud = null;

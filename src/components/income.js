@@ -2,7 +2,7 @@ import { state } from "../state.js";
 import { FREQS, INCOME_TYPES, SUPER_MODES, SACRIFICE_MODES, MAX_SUPER_BASE, MONTH_NAMES, sacrificeModeToLabel, sacrificeLabelToMode } from "../constants.js";
 import { periodsOf, sumField, nextPayDate, payScheduleKindFor, daysUntil, WEEKDAY_NAMES, householdYearWindow } from "../calc/ledger.js";
 import { ipNetResultAnnual, ipDepreciationAnnual, ipOwnershipMismatches, propertyOwnershipTotal, fyLabel } from "../calc/property.js";
-import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax, wfhRateForFy } from "../calc/tax.js";
+import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax, wfhRateForFy, phiRebateAdjustment, taxTablesFor } from "../calc/tax.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { optionsHtml, historyTrendHtml, timingFieldsHtml, endDateNoteHtml, scenarioVaryNoteHtml, hasEnded } from "../lib/ledger-table.js";
@@ -538,8 +538,14 @@ export function renderTaxSuper(){
   var html = '<div class="tax-global">' +
     '<div class="proj-field"><label for="taxSgRate">Super guarantee % p.a.</label><input type="number" min="0" max="30" step="0.1" id="taxSgRate" value="' + (Number(state.tax.sgRate) || 11.5) + '"></div>' +
     '<div class="proj-field"><label class="m-checkbox-field" title="Private hospital cover (not extras-only) exempts you from the Medicare levy surcharge at any income."><input type="checkbox" id="taxPrivateCover"' + (state.tax.privateHospitalCover ? " checked" : "") + '> Private hospital cover</label></div>' +
+    '<div class="proj-field"><label for="taxPhiPremiums" title="What your hospital and extras policies cost a year before the government rebate. The rebate is income-tested on the same tiers as the surcharge.">Premiums $/yr</label><input type="number" min="0" step="50" id="taxPhiPremiums" value="' + (Number(state.tax.phiPremiums) || 0) + '"></div>' +
+    '<div class="proj-field"><label for="taxPhiTier" title="The income tier you told your insurer — it sets the rebate taken off your premiums. Your return works out the right tier and adjusts the difference.">Rebate tier with insurer</label><select id="taxPhiTier">' +
+      [["0", "Base tier"], ["1", "Tier 1"], ["2", "Tier 2"], ["3", "Tier 3"], ["-1", "No rebate taken"]].map(function(o){ return '<option value="' + o[0] + '"' + (String(state.tax.phiTierClaimed == null ? 0 : state.tax.phiTierClaimed) === o[0] ? " selected" : "") + '>' + o[1] + '</option>'; }).join("") +
+    '</select></div>' +
     '<div class="proj-field"><label class="m-checkbox-field" title="Couples and anyone with dependants are assessed against family thresholds — roughly double the singles ones (+$*** per child after the first, which this app doesn\'t model)."><input type="checkbox" id="taxFamilyThresholds"' + (state.tax.familyThresholds ? " checked" : "") + '> Family thresholds</label></div>' +
-    '</div>';
+    '</div>' +
+    '<p class="ledger-note tax-phi-note" style="margin:0 0 8px">' + phiNoteText() + '</p>' +
+    (taxTablesFor().assumed ? '<p class="ledger-note warn" style="margin:0 0 8px">' + householdYearWindow().label + ' rates aren\'t all published yet — this uses the latest year the app has (' + "FY" + String(taxTablesFor().borrowedFrom % 100).padStart(2, "0") + "/" + String((taxTablesFor().borrowedFrom + 1) % 100).padStart(2, "0") + ').</p>' : '');
   // Depreciation is named separately because it's the part of the result that isn't cash — leaving
   // it folded into one figure is how people conclude a property "costs" more or less than it does.
   var ipDepreciation = ipDepreciationAnnual();
@@ -715,15 +721,37 @@ function mlsNoteText(r){
 // the two used to be written out twice for the cap and Division 293 notes, and keeping a third
 // pair in step by hand is how they drift.
 function helpNoteText(r){
-  return "HELP/HECS: " + fmtPercent1.format(r.helpRate) + " of " + fmtCurrency0.format(r.repaymentIncome) +
-    " repayment income = " + fmtCurrency0.format(r.helpRepayment) + "/yr, withheld from take-home above. " +
+  var marginal = r.helpNext ? r.helpNext.marginal : (r.repaymentIncome > 0 && r.fy >= 2025);
+  var head = marginal
+    ? "HELP/HECS: " + fmtCurrency0.format(r.helpRepayment) + "/yr on " + fmtCurrency0.format(r.repaymentIncome) +
+      " repayment income — marginal since FY25/26, " + fmtPercent1.format(r.helpRate) + " on your next dollar"
+    : "HELP/HECS: " + fmtPercent1.format(r.helpRate) + " of " + fmtCurrency0.format(r.repaymentIncome) +
+      " repayment income = " + fmtCurrency0.format(r.helpRepayment) + "/yr";
+  return head + ", withheld from take-home above. " +
     fmtCurrency0.format(r.helpBalance) + " owing" +
     (r.helpRepayment > 0 ? ", " + fmtCurrency0.format(r.helpBalanceAfter) + " after this year" : "") + "." +
     (r.helpNext
-      ? " Next threshold is " + fmtCurrency0.format(r.helpNext.at) + " (" + fmtCurrency0.format(r.helpNext.away) +
-        " away) — crossing it takes the rate to " + fmtPercent1.format(r.helpNext.rate) +
-        " of the whole amount, about " + fmtCurrency0.format(r.helpNext.stepCost) + " more a year."
+      ? (r.helpNext.marginal
+        ? " Next band starts at " + fmtCurrency0.format(r.helpNext.at) + " (" + fmtCurrency0.format(r.helpNext.away) + " away), where the rate on further income becomes " + fmtPercent1.format(r.helpNext.rate) + (r.helpNext.rate === 0.10 ? " of the whole amount" : "") + "."
+        : " Next threshold is " + fmtCurrency0.format(r.helpNext.at) + " (" + fmtCurrency0.format(r.helpNext.away) +
+          " away) — crossing it takes the rate to " + fmtPercent1.format(r.helpNext.rate) +
+          " of the whole amount, about " + fmtCurrency0.format(r.helpNext.stepCost) + " more a year.")
       : "");
+}
+
+// The household's private health rebate position for the year: which tier the combined income
+// lands in, which tier the insurer is applying, and what that difference does at tax time.
+function phiNoteText(){
+  var a = phiRebateAdjustment();
+  if(!a) return "Enter what your hospital and extras cover costs a year (before the rebate) to see whether your insurer is applying the right rebate tier.";
+  var names = ["the base tier", "Tier 1", "Tier 2", "Tier 3"];
+  var claimed = a.claimedTier < 0 ? "no rebate up front" : names[a.claimedTier];
+  if(Math.abs(a.adjustment) < 1) return "Private health rebate: your " + (a.family ? "combined " : "") + "income of " + fmtCurrency0.format(a.income) + " is " + names[a.actualTier] + ", which is what your insurer applies — nothing to adjust at tax time.";
+  return "Private health rebate: your " + (a.family ? "combined " : "") + "income of " + fmtCurrency0.format(a.income) + " is " + names[a.actualTier] +
+    " (" + fmtCurrency0.format(a.entitled) + " rebate) but your insurer applies " + claimed + " (" + fmtCurrency0.format(a.received) + "). " +
+    (a.adjustment > 0
+      ? "About " + fmtCurrency0.format(a.adjustment) + " comes back off your refund at tax time — ask your insurer to change tier and it stops."
+      : "About " + fmtCurrency0.format(-a.adjustment) + " more comes back to you at tax time.");
 }
 
 // Session-only (not persisted) — which Tax & Super cards are showing the calculation
@@ -754,6 +782,10 @@ export function flipTaxCard(panel, person){
   }, 160);
 }
 
+export function patchPhiNote(){
+  var el = document.querySelector(".tax-phi-note");
+  if(el) el.textContent = phiNoteText();
+}
 export function patchAllTaxPersonOutputs(){
   document.querySelectorAll("[data-tax-person]").forEach(function(panel){
     var person = panel.getAttribute("data-tax-person");

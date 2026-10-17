@@ -1,30 +1,54 @@
 import { state } from "../state.js";
-import { AU_TAX_BRACKETS, MAX_SUPER_BASE, HELP_REPAYMENT_RATES, MLS_TIERS, MLS_FAMILY_MULTIPLIER, WFH_FIXED_RATES } from "../constants.js";
+import { AU_TAX_BRACKETS, MAX_SUPER_BASE, HELP_REPAYMENT_RATES, MLS_TIERS, MLS_FAMILY_MULTIPLIER, WFH_FIXED_RATES, TAX_YEARS, MLS_RATES } from "../constants.js";
 import { periodsOf, resolveSharedAmount, householdYearWindow, isActiveOn, overlapDaysInclusive } from "./ledger.js";
 import { ipNetResultAnnual, personIpResultAnnual } from "./property.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
 
-export function incomeTaxAU(taxable){
+// ---------------- Which year's tables ----------------
+//
+// Every rate below is read from TAX_YEARS for a financial year. The default is the household's
+// current year (householdYearWindow), so the tax card and every net figure use this year's rates;
+// computePersonTax takes opts.fy to work out another year — the tax-year worksheet does that for
+// the year being lodged. A year past the newest table borrows it and says so (`assumed`).
+export function fyOfDate(iso){
+  var y = Number(String(iso).slice(0, 4)), m = Number(String(iso).slice(5, 7));
+  return m >= 7 ? y : y - 1;
+}
+export function currentTaxFy(){
+  return fyOfDate(householdYearWindow().start);
+}
+export function taxTablesFor(fy){
+  if(fy == null) fy = currentTaxFy();
+  if(TAX_YEARS[fy]) return Object.assign({ fy: fy, assumed: false }, TAX_YEARS[fy]);
+  var years = Object.keys(TAX_YEARS).map(Number).sort(function(a, b){ return a - b; });
+  var use = fy < years[0] ? years[0] : years[years.length - 1];
+  return Object.assign({}, TAX_YEARS[use], { fy: fy, assumed: true, borrowedFrom: use });
+}
+
+export function incomeTaxAU(taxable, fy){
   taxable = Math.max(0, Number(taxable) || 0);
-  for(var i = 0; i < AU_TAX_BRACKETS.length; i++){
-    var b = AU_TAX_BRACKETS[i];
+  var brackets = taxTablesFor(fy).brackets;
+  for(var i = 0; i < brackets.length; i++){
+    var b = brackets[i];
     if(taxable <= b.to) return b.base + (taxable - b.from) * b.rate;
   }
   return 0;
 }
-export function marginalRateAU(taxable){
+export function marginalRateAU(taxable, fy){
   taxable = Math.max(0, Number(taxable) || 0);
-  for(var i = 0; i < AU_TAX_BRACKETS.length; i++){
-    if(taxable <= AU_TAX_BRACKETS[i].to) return AU_TAX_BRACKETS[i].rate;
+  var brackets = taxTablesFor(fy).brackets;
+  for(var i = 0; i < brackets.length; i++){
+    if(taxable <= brackets[i].to) return brackets[i].rate;
   }
-  return AU_TAX_BRACKETS[AU_TAX_BRACKETS.length - 1].rate;
+  return brackets[brackets.length - 1].rate;
 }
-// Medicare levy low-income shade-in — approximate current singles thresholds (also indexed yearly).
-export function medicareLevyAU(taxable){
+// Medicare levy with the singles low-income shade-in: nil to the lower threshold, 10c per dollar
+// above it until that equals 2%, then 2% of the whole income.
+export function medicareLevyAU(taxable, fy){
   taxable = Math.max(0, Number(taxable) || 0);
-  var lower = 26000, upper = 32500;
-  if(taxable <= lower) return 0;
-  if(taxable <= upper) return (taxable - lower) * 0.10;
+  var m = taxTablesFor(fy).medicare;
+  if(taxable <= m.lower) return 0;
+  if(taxable <= m.upper) return (taxable - m.lower) * 0.10;
   return taxable * 0.02;
 }
 
@@ -487,42 +511,88 @@ export function personDeductionsAnnual(person, items, win){
 // surcharge against a policy premium, and until now the app couldn't do either side of that.
 //
 // Flat on the whole income like HELP, not marginal: crossing a tier costs the full step.
-export function mlsThresholds(family){
+export function mlsThresholds(family, fy){
+  var single = taxTablesFor(fy).mls.single;
   var mult = family ? MLS_FAMILY_MULTIPLIER : 1;
-  return MLS_TIERS.map(function(t){ return { from: t.from * mult, rate: t.rate, label: t.label }; });
+  return [
+    { from: 0, rate: MLS_RATES[0], label: "Base tier" },
+    { from: single[0] * mult, rate: MLS_RATES[1], label: "Tier 1" },
+    { from: single[1] * mult, rate: MLS_RATES[2], label: "Tier 2" },
+    { from: single[2] * mult, rate: MLS_RATES[3], label: "Tier 3" }
+  ];
 }
-export function mlsTierFor(surchargeIncome, family){
+// The tables list each tier's top as "$*** or less", so a tier starts a dollar above the one
+// before: income exactly at a threshold is still the lower tier.
+export function mlsTierFor(surchargeIncome, family, fy){
   var income = Math.max(0, Number(surchargeIncome) || 0);
-  var tiers = mlsThresholds(family);
+  var tiers = mlsThresholds(family, fy);
   var current = tiers[0];
-  for(var i = 0; i < tiers.length; i++){
-    if(income >= tiers[i].from) current = tiers[i];
+  for(var i = 1; i < tiers.length; i++){
+    if(income > tiers[i].from) current = tiers[i];
     else break;
   }
   return current;
 }
+export function mlsTierIndex(income, family, fy){
+  return ["Base tier", "Tier 1", "Tier 2", "Tier 3"].indexOf(mlsTierFor(income, family, fy).label);
+}
 // hasCover short-circuits the whole thing: holding hospital cover means no surcharge at any income.
-export function medicareSurchargeAnnual(surchargeIncome, hasCover, family){
+export function medicareSurchargeAnnual(surchargeIncome, hasCover, family, fy){
   if(hasCover) return 0;
   var income = Math.max(0, Number(surchargeIncome) || 0);
-  return Math.round(income * mlsTierFor(income, family).rate * 100) / 100;
+  return Math.round(income * mlsTierFor(income, family, fy).rate * 100) / 100;
 }
 // What the next tier would cost — the number that makes "should I get cover" answerable, since
 // crossing a tier is a step, not a slope.
-export function mlsNextTier(surchargeIncome, family){
+export function mlsNextTier(surchargeIncome, family, fy){
   var income = Math.max(0, Number(surchargeIncome) || 0);
-  var tiers = mlsThresholds(family);
-  for(var i = 0; i < tiers.length; i++){
-    if(tiers[i].from > income){
+  var tiers = mlsThresholds(family, fy);
+  for(var i = 1; i < tiers.length; i++){
+    if(tiers[i].from >= income){
+      var at = tiers[i].from + 1;
       return {
-        at: tiers[i].from,
+        at: at,
         rate: tiers[i].rate,
-        away: tiers[i].from - income,
-        stepCost: Math.round((tiers[i].from * tiers[i].rate - income * mlsTierFor(income, family).rate) * 100) / 100
+        away: at - income,
+        stepCost: Math.round((at * tiers[i].rate - income * mlsTierFor(income, family, fy).rate) * 100) / 100
       };
     }
   }
   return null;
+}
+
+// ---------------- Private health insurance rebate ----------------
+//
+// The rebate on hospital and extras premiums is income-tested on the same tiers as the surcharge
+// (family income for a family policy). Insurers apply it up front at whatever tier you told them;
+// the return then works out the tier you were actually in and claws back — or pays — the
+// difference. Tell the insurer one tier too low and the "refund" shrinks at tax time, which is
+// exactly the kind of surprise this app exists to take out of July.
+//
+// Modelled at household level: annual premiums the rebate applies to, and the tier claimed with
+// the insurer (-1 = no rebate taken up front). Under-65 rates only — the app has no ages.
+export function phiRebateRate(tierIndex, fy){
+  if(tierIndex < 0) return 0;
+  return taxTablesFor(fy).phi.periods.reduce(function(sum, p){ return sum + p.share * p.rates[tierIndex] / 100; }, 0);
+}
+export function phiRebateAdjustment(opts){
+  opts = opts || {};
+  var premiums = Math.max(0, Number(state.tax && state.tax.phiPremiums) || 0);
+  if(!premiums) return null;
+  var fy = opts.fy;
+  var family = !!(state.tax && state.tax.familyThresholds);
+  var income = householdSurchargeIncome(opts);
+  var actualTier = mlsTierIndex(income, family, fy);
+  var claimed = state.tax.phiTierClaimed == null ? 0 : Number(state.tax.phiTierClaimed);
+  var entitled = Math.round(premiums * phiRebateRate(actualTier, fy) * 100) / 100;
+  var received = Math.round(premiums * phiRebateRate(claimed, fy) * 100) / 100;
+  return {
+    premiums: premiums, actualTier: actualTier, claimedTier: claimed,
+    entitled: entitled, received: received,
+    // Positive = owed back at tax time (claimed too low a tier); negative = paid to you.
+    adjustment: Math.round((received - entitled) * 100) / 100,
+    income: income, family: family
+  };
 }
 
 // One person's income for surcharge purposes, computed WITHOUT calling computePersonTax — which
@@ -563,40 +633,69 @@ export function householdSurchargeIncome(opts){
 // The rate is a flat percentage of the WHOLE repayment income, not marginal (see
 // HELP_REPAYMENT_RATES). One dollar over a threshold costs the difference on every dollar you
 // earn, which is worth surfacing rather than burying.
-export function helpRepaymentRate(repaymentIncome){
-  var income = Math.max(0, Number(repaymentIncome) || 0);
-  var rate = 0;
-  for(var i = 0; i < HELP_REPAYMENT_RATES.length; i++){
-    if(income >= HELP_REPAYMENT_RATES[i].from) rate = HELP_REPAYMENT_RATES[i].rate;
-    else break;
-  }
-  return rate;
+// FY24/25 and earlier: one rate on the whole income. From FY25/26: marginal bands, plus 10% of the
+// whole income at the top. helpRepaymentRaw() is the one place that knows both shapes.
+function helpRepaymentRaw(income, fy){
+  var h = taxTablesFor(fy).help;
+  if(h.kind === "flat") return income * helpRepaymentRate(income, fy);
+  if(income > h.wholeAbove) return income * h.wholeRate;
+  var amt = 0;
+  h.bands.forEach(function(b){ if(income > b.over) amt = b.base + (income - b.over) * b.rate; });
+  return amt;
 }
-// The next threshold up and what crossing it costs — null once you're in the top band. The cost is
-// the jump in the whole-income repayment, not the rate difference, because that's the number that
-// actually leaves your account.
-export function helpNextThreshold(repaymentIncome){
+// The rate that applies to your NEXT dollar — under the flat system that's the whole-income rate,
+// under the marginal one it's the band's rate (or the 10% top rate).
+export function helpRepaymentRate(repaymentIncome, fy){
   var income = Math.max(0, Number(repaymentIncome) || 0);
-  for(var i = 0; i < HELP_REPAYMENT_RATES.length; i++){
-    var band = HELP_REPAYMENT_RATES[i];
-    if(band.from > income){
-      return {
-        at: band.from,
-        rate: band.rate,
-        away: band.from - income,
-        stepCost: Math.round((band.from * band.rate - income * helpRepaymentRate(income)) * 100) / 100
-      };
+  var h = taxTablesFor(fy).help;
+  if(h.kind === "flat"){
+    var rate = 0;
+    for(var i = 0; i < h.rates.length; i++){
+      if(income >= h.rates[i].from) rate = h.rates[i].rate;
+      else break;
+    }
+    return rate;
+  }
+  if(income > h.wholeAbove) return h.wholeRate;
+  var r = 0;
+  h.bands.forEach(function(b){ if(income > b.over) r = b.rate; });
+  return r;
+}
+// The next threshold up. Under the flat system crossing it is a step on every dollar (stepCost);
+// under the marginal one it only changes the rate on dollars above it, except the top threshold,
+// where 10% of the whole income takes over — still continuous, so stepCost is the change at that
+// point, close to nil. `marginal` tells the note which sentence to use.
+export function helpNextThreshold(repaymentIncome, fy){
+  var income = Math.max(0, Number(repaymentIncome) || 0);
+  var h = taxTablesFor(fy).help;
+  if(h.kind === "flat"){
+    for(var i = 0; i < h.rates.length; i++){
+      var band = h.rates[i];
+      if(band.from > income){
+        return {
+          at: band.from, rate: band.rate, away: band.from - income, marginal: false,
+          stepCost: Math.round((band.from * band.rate - income * helpRepaymentRate(income, fy)) * 100) / 100
+        };
+      }
+    }
+    return null;
+  }
+  var points = h.bands.map(function(b){ return { at: b.over + 1, rate: b.rate }; }).concat([{ at: h.wholeAbove + 1, rate: h.wholeRate }]);
+  for(var j = 0; j < points.length; j++){
+    if(points[j].at > income){
+      return { at: points[j].at, rate: points[j].rate, away: points[j].at - income, marginal: true,
+        stepCost: Math.round((helpRepaymentRaw(points[j].at, fy) - helpRepaymentRaw(income, fy)) * 100) / 100 };
     }
   }
   return null;
 }
-// What's actually repaid this year: the rate applied to repayment income, but never more than the
-// balance outstanding. The cap matters — a final year's repayment is whatever is left, not a full
-// year's percentage, and without it the app would keep "repaying" a debt that's already gone.
-export function helpRepaymentAnnual(repaymentIncome, balance){
+// What's actually repaid this year, never more than the balance outstanding. The cap matters — a
+// final year's repayment is whatever is left, not a full year's amount, and without it the app
+// would keep "repaying" a debt that's already gone.
+export function helpRepaymentAnnual(repaymentIncome, balance, fy){
   var owed = Math.max(0, Number(balance) || 0);
   if(!owed) return 0;
-  var raw = Math.max(0, Number(repaymentIncome) || 0) * helpRepaymentRate(repaymentIncome);
+  var raw = helpRepaymentRaw(Math.max(0, Number(repaymentIncome) || 0), fy);
   return Math.round(Math.min(raw, owed) * 100) / 100;
 }
 
@@ -817,7 +916,12 @@ export function computePersonTax(person, opts){
   var deductibleItems = deductibleItemsFor(opts);
   // The same year the capital gains below are bounded to, so a claim that stopped partway through
   // it counts for the part it covered — see deductionYearFraction().
-  var taxYearWindow = householdYearWindow();
+  // The year being computed: the household's current year unless opts.fy asks for another (the
+  // tax-year worksheet). Rates, the deduction window, CGT events and fund statements all follow it.
+  var fy = opts && opts.fy != null ? Number(opts.fy) : currentTaxFy();
+  var taxYearWindow = opts && opts.fy != null
+    ? { start: fy + "-07-01", end: (fy + 1) + "-06-30", label: "FY" + String(fy % 100).padStart(2, "0") + "/" + String((fy + 1) % 100).padStart(2, "0") }
+    : householdYearWindow();
   var lineDeductions = deductibleItems ? personDeductionsAnnual(person, deductibleItems, taxYearWindow) : 0;
   var byLabel = deductibleItems ? deductionsByLabel(person, deductibleItems, taxYearWindow) : {};
   var wfh = wfhDeduction(person, taxYearWindow);
@@ -838,8 +942,8 @@ export function computePersonTax(person, opts){
   var capitalGains = personCapitalGains(person, { from: cgtWindow.start, to: cgtWindow.end, funds: funds });
   var taxable = Math.max(0, gross - sacrifice + ipShare - deductions + dividends.grossedUp + funds.income +
     capitalGains.assessable);
-  var incomeTax = incomeTaxAU(taxable);
-  var medicare = medicareLevyAU(taxable);
+  var incomeTax = incomeTaxAU(taxable, fy);
+  var medicare = medicareLevyAU(taxable, fy);
   // HELP repayment income is deliberately NOT taxable income. It adds back the two things the tax
   // system lets you subtract but the repayment system doesn't: reportable super contributions
   // (salary sacrifice) and a net investment loss. Working it through for this app's own terms:
@@ -859,7 +963,7 @@ export function computePersonTax(person, opts){
   var isFamily = !!state.tax.familyThresholds;
   var helpBalance = Math.max(0, Number(settings.helpBalance) || 0);
   var repaymentIncome = Math.max(0, gross + Math.max(0, ipShare));
-  var helpRepayment = helpRepaymentAnnual(repaymentIncome, helpBalance);
+  var helpRepayment = helpRepaymentAnnual(repaymentIncome, helpBalance, fy);
   // The surcharge IS a tax, unlike the HELP repayment below — so it belongs in totalTax and in the
   // effective rate. Computed after sacrifice because surcharge income adds the sacrifice back.
   var surchargeIncome = Math.max(0, taxable + sacrifice);
@@ -867,7 +971,7 @@ export function computePersonTax(person, opts){
   // then charged on this person's own income. See householdSurchargeIncome() for why.
   var tierIncome = isFamily ? householdSurchargeIncome(opts) : surchargeIncome;
   var medicareSurcharge = hasCover ? 0
-    : Math.round(surchargeIncome * mlsTierFor(tierIncome, isFamily).rate * 100) / 100;
+    : Math.round(surchargeIncome * mlsTierFor(tierIncome, isFamily, fy).rate * 100) / 100;
   // The franking credit is a REFUNDABLE offset in Australia — it can take the bill below zero and
   // be paid out, which is why this isn't clamped at 0. That's the case that matters most (a
   // low-income or retired shareholder), and clamping would quietly delete it.
@@ -875,7 +979,11 @@ export function computePersonTax(person, opts){
   // can bring the income tax and levy to zero but not below. Under $1,000 it's claimed in full with
   // no limit calculation — the case for any ordinary ETF holding.
   var fito = Math.min(funds.fito, Math.max(0, incomeTax + medicare));
-  var totalTax = incomeTax + medicare + medicareSurcharge - dividends.credit - funds.credit - fito;
+  // Private health rebate adjustment: the household's figure, shared evenly between the people
+  // filing (the ATO splits it by each person's share of the premiums, which the app doesn't keep).
+  var phi = phiRebateAdjustment({ fy: fy, scenario: opts && opts.scenario });
+  var phiShare = phi ? Math.round(phi.adjustment / Math.max(1, phi.family ? people.length : 1) * 100) / 100 : 0;
+  var totalTax = incomeTax + medicare + medicareSurcharge - dividends.credit - funds.credit - fito + phiShare;
   // Part of take-home, not of "tax": it's a repayment of a debt, not a tax, and totalTax feeds the
   // effective-rate figure where lumping it in would overstate what the ATO keeps. But it does come
   // out of the same pay, so every downstream net figure has to see it.
@@ -890,9 +998,9 @@ export function computePersonTax(person, opts){
   // "how much am I really saving/paying" — surfaced in personBreakdownHtml, not folded silently
   // into the one blended figure used everywhere else in the app.
   var taxableWithoutIp = Math.max(0, gross - sacrifice - deductions);
-  var payslipTakeHome = gross - sacrifice - incomeTaxAU(taxableWithoutIp) - medicareLevyAU(taxableWithoutIp) -
-    (hasCover ? 0 : Math.max(0, taxableWithoutIp + sacrifice) * mlsTierFor(tierIncome, isFamily).rate) -
-    helpRepaymentAnnual(Math.max(0, gross), helpBalance);
+  var payslipTakeHome = gross - sacrifice - incomeTaxAU(taxableWithoutIp, fy) - medicareLevyAU(taxableWithoutIp, fy) -
+    (hasCover ? 0 : Math.max(0, taxableWithoutIp + sacrifice) * mlsTierFor(tierIncome, isFamily, fy).rate) -
+    helpRepaymentAnnual(Math.max(0, gross), helpBalance, fy);
   var ipTaxEffect = netTakeHome - payslipTakeHome;
   var sg = inc.sg;
   var totalConcessional = sg + sacrifice;
@@ -921,31 +1029,32 @@ export function computePersonTax(person, opts){
     capitalGainsYear: cgtWindow.label,
     dividendCash: dividends.cash, frankingCredit: dividends.credit, dividendGrossedUp: dividends.grossedUp,
     funds: funds, fundIncome: funds.income, fundFrankingCredit: funds.credit, fito: fito,
+    fy: fy, taxTablesAssumed: taxTablesFor(fy).assumed, phi: phi, phiAdjustment: phiShare,
     fundCapitalGain: funds.capitalGainNet,
     // The number people actually want: what the dividend is worth after tax. Negative top-up above
     // a 30% marginal rate, positive refund below it.
-    dividendNet: Math.round((dividends.cash + dividends.credit - (dividends.grossedUp * marginalRateAU(taxable))) * 100) / 100,
+    dividendNet: Math.round((dividends.cash + dividends.credit - (dividends.grossedUp * marginalRateAU(taxable, fy))) * 100) / 100,
     // What the deductions are actually worth: tax saved at the marginal rate, not the deduction
     // itself. "I claimed $2,000" and "I got $2,000 back" is the single most common confusion about
     // deductions, and the panel exists to not repeat it.
-    deductionsWorth: Math.round(deductions * marginalRateAU(taxable + deductions) * 100) / 100,
+    deductionsWorth: Math.round(deductions * marginalRateAU(taxable + deductions, fy) * 100) / 100,
     incomeTax: incomeTax, medicare: medicare, totalTax: totalTax, netTakeHome: netTakeHome,
     payslipTakeHome: payslipTakeHome, ipTaxEffect: ipTaxEffect,
     effectiveRate: gross > 0 ? totalTax / gross : 0,
     medicareSurcharge: medicareSurcharge, surchargeIncome: surchargeIncome, tierIncome: tierIncome,
     hasPrivateCover: hasCover, familyThresholds: isFamily,
-    mlsTier: mlsTierFor(tierIncome, isFamily),
-    mlsNext: mlsNextTier(tierIncome, isFamily),
+    mlsTier: mlsTierFor(tierIncome, isFamily, fy),
+    mlsNext: mlsNextTier(tierIncome, isFamily, fy),
     // What holding cover is worth, in the only unit that makes the decision: the surcharge you'd
     // pay without it. Always computed, even when cover IS held, so the panel can say what it's
     // saving you rather than only what it would cost.
-    mlsIfUncovered: Math.round(surchargeIncome * mlsTierFor(tierIncome, isFamily).rate * 100) / 100,
+    mlsIfUncovered: Math.round(surchargeIncome * mlsTierFor(tierIncome, isFamily, fy).rate * 100) / 100,
     helpBalance: helpBalance, helpRepayment: helpRepayment, repaymentIncome: repaymentIncome,
-    helpRate: helpBalance > 0 ? helpRepaymentRate(repaymentIncome) : 0,
-    helpNext: helpBalance > 0 ? helpNextThreshold(repaymentIncome) : null,
+    helpRate: helpBalance > 0 ? helpRepaymentRate(repaymentIncome, fy) : 0,
+    helpNext: helpBalance > 0 ? helpNextThreshold(repaymentIncome, fy) : null,
     helpBalanceAfter: Math.max(0, helpBalance - helpRepayment),
     sg: sg, totalConcessional: totalConcessional, capAvailable: capAvailable, capExceeded: capExceeded,
-    contributionsTax: contributionsTax, superNet: superNet, marginalRate: marginalRateAU(taxable),
+    contributionsTax: contributionsTax, superNet: superNet, marginalRate: marginalRateAU(taxable, fy),
     div293Income: div293Income, div293Tax: div293Tax, superOverCap: inc.superOverCap
   };
 }

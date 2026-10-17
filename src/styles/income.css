@@ -184,3 +184,12 @@
   #printRoot .pr-ev{ padding-left:0; list-style:none; }
   #printRoot .pr-foot{ margin-top:14pt; font-size:8.5pt; }
 }
+
+  /* v3.42.0 — super top-up before 30 June. */
+  .tax-topup{ margin:10px 0 4px; padding:10px 12px; border:1px dashed var(--border); border-radius:10px; }
+  .tax-topup[hidden]{ display:none; }
+  .tax-topup-field{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
+  .tax-topup-field span{ text-transform:none; font-weight:400; margin-left:auto; }
+  .tax-topup-amt{ width:120px; min-height:36px; padding:4px 8px; border:1px solid var(--border); border-radius:8px; background: var(--paper); color: var(--ink); font:inherit; font-size:14px; text-align:right; text-transform:none; letter-spacing:0; }
+  .tax-topup-out{ margin:8px 0 0; font-size:12.5px; line-height:1.5; }
+  .tax-topup-out .warn{ color: var(--bad); }

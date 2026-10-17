@@ -1031,6 +1031,7 @@ import {
       else if(t.classList.contains("tax-carryforward")) settings.carryForward = parseFloat(t.value) || 0;
       else if(t.classList.contains("tax-help")) settings.helpBalance = Math.max(0, parseFloat(t.value) || 0);
       else if(t.classList.contains("tax-cgt-losses")) settings.capitalLossCarriedForward = Math.max(0, parseFloat(t.value) || 0);
+      else if(t.classList.contains("tax-topup-amt")) settings.topUpAmount = Math.max(0, parseFloat(t.value) || 0);
       else if(t.classList.contains("tax-dob")){ settings.dateOfBirth = t.value || ""; patchPhiNote(); }
       else if(t.classList.contains("tax-wfh-hours")){
         if(!settings.wfhHours) settings.wfhHours = {};

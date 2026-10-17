@@ -16,8 +16,8 @@ import { periodsOf, sumField, sumFieldForScenario, resolveSharedAmount, appendHi
 import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider, saleCapitalGain, lotsUnitsAvailable } from "./calc/tax.js";
 import { recalcComputedItems, scenarioTotals, totalNetWorthValue, totalDebtsValue } from "./calc/engine.js";
 import { financialYearOf, fyLabel } from "./calc/property.js";
-import { renderTaxYear, setTaxYearSelected, taxYearAddRow, taxYearDeleteRow, taxYearRestoreRow, taxYearSetField, taxYearToggleEvidence, taxYearMarkLodged, worksheetText, taxYearSelected, taxYearPrintHtml } from "./components/taxyear.js";
-import { setRentalActual } from "./calc/taxyear.js";
+import { renderTaxYear, setTaxYearSelected, taxYearAddRow, taxYearDeleteRow, taxYearRestoreRow, taxYearSetField, taxYearToggleEvidence, taxYearMarkLodged, worksheetText, taxYearSelected, taxYearPrintHtml, lodgedSnapshot } from "./components/taxyear.js";
+import { setRentalActual, mergeTaxYearFile, matchPerson, taxYearRecord, TAX_YEAR_FILE_KIND } from "./calc/taxyear.js";
 import { renderCards, renderDashboardStats, renderDetail, setProjectionReference, logNetWorthSnapshot } from "./components/dashboard.js";
 import {
   personBreakdownHtml, renderIncomeGroups, patchOpenRowBreakdowns, patchIncomeGroupTotals,
@@ -47,11 +47,11 @@ import {
   renderNetWorthPanel, renderAssets, logAssetSnapshot, applySharesPaste, logDebtSnapshot, setUsdAudRate,
   patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter, renderAssetPersonSheet, assetPersonSheetOpen, setAssetPersonSheetOpen, setSharesGainFilter, setSharesSortMode, setSharesChangeWindow, setAllocationRange, setPortfolioRange,
   parseAssetsImportCsv, renderAssetsImportPreview, clearAssetsImportPreview, commitAssetsImport, dividendNoteText,
-  recordAssetSale, deleteAssetSale, renderAssetsSummary, patchOffsetsRow, addAssetLot, syncAvgCostFromLots, lotsSectionHtml, lotsNoteText, addAssetStatement, statementsSectionHtml
+  recordAssetSale, deleteAssetSale, renderAssetsSummary, patchOffsetsRow, addAssetLot, syncAvgCostFromLots, lotsSectionHtml, lotsNoteText, addAssetStatement, statementsSectionHtml, payoutsSectionHtml, payoutsNoteText, addAssetPayout
 } from "./components/assets.js";
 import {
   modernPropRowOpen, renderPropListModern, renderProperties, patchPropertyCardComputed,
-  logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan
+  logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan, setSaleWhatIfField, patchSaleWhatIf, setLoanStrategyField, patchLoanStrategy
 } from "./components/properties.js";
 import { renderProjectionOutputs, projectionSeriesShown } from "./components/projections.js";
 import { renderBenchmarks, setBenchmarkField, applyBenchmarkPaste, addGoal, setGoalField, removeGoal, setPropertyMarketField } from "./components/benchmarks.js";
@@ -1031,6 +1031,7 @@ import {
       else if(t.classList.contains("tax-carryforward")) settings.carryForward = parseFloat(t.value) || 0;
       else if(t.classList.contains("tax-help")) settings.helpBalance = Math.max(0, parseFloat(t.value) || 0);
       else if(t.classList.contains("tax-cgt-losses")) settings.capitalLossCarriedForward = Math.max(0, parseFloat(t.value) || 0);
+      else if(t.classList.contains("tax-topup-amt")) settings.topUpAmount = Math.max(0, parseFloat(t.value) || 0);
       else if(t.classList.contains("tax-dob")){ settings.dateOfBirth = t.value || ""; patchPhiNote(); }
       else if(t.classList.contains("tax-wfh-hours")){
         if(!settings.wfhHours) settings.wfhHours = {};
@@ -1134,6 +1135,7 @@ import {
       return;
     }
     if(e.target.closest("[data-ty-print]")){ printTaxYear(); return; }
+    if(e.target.closest("[data-ty-import]")){ document.getElementById("taxYearImportFile").click(); return; }
     var copy = e.target.closest("[data-ty-copy]");
     if(copy){
       var text = worksheetText(copy.getAttribute("data-ty-copy"));
@@ -1180,6 +1182,17 @@ import {
         patchIncomeGroupTotals();
         renderCards(); renderDetail(); renderTotals();
         renderProjectionOutputs();
+      }
+      // v3.38.0: distributions received — edit in place, then the tax chain (they're income).
+      else if(e.target.hasAttribute("data-payout-index")){
+        var po = (item.payouts || [])[Number(e.target.getAttribute("data-payout-index"))];
+        if(!po) return;
+        if(e.target.classList.contains("po-date")) po.date = e.target.value;
+        else if(e.target.classList.contains("po-cash")) po.cash = Math.max(0, parseFloat(e.target.value) || 0);
+        else if(e.target.classList.contains("po-credit")) po.credit = Math.max(0, parseFloat(e.target.value) || 0);
+        var poNote = tr.querySelector(".payouts-note");
+        if(poNote) poNote.textContent = payoutsNoteText(item);
+        afterPayoutChange();
       }
       // Purchase lots: edit in place. Avg cost follows the lots so the holding's gain figure agrees
       // with them; the cost-base change doesn't move tax (only a recorded sale does), so no tax re-run.
@@ -1324,6 +1337,26 @@ import {
       showUndoToast("Statement deleted", function(){
         stItem.taxStatements.splice(Math.min(Number(stParts[1]), stItem.taxStatements.length), 0, removedSt);
         afterStatementListChange(Number(stParts[0]));
+      });
+      return;
+    }
+    var poAddBtn = e.target.closest("[data-payout-add]");
+    if(poAddBtn){
+      var poIdx = Number(poAddBtn.getAttribute("data-payout-add"));
+      addAssetPayout(poIdx);
+      afterPayoutListChange(poIdx);
+      return;
+    }
+    var poDelBtn = e.target.closest("[data-payout-del]");
+    if(poDelBtn){
+      var poParts = poDelBtn.getAttribute("data-payout-del").split(":");
+      var poItem = state.assets[Number(poParts[0])];
+      if(!poItem || !poItem.payouts) return;
+      var removedPo = poItem.payouts.splice(Number(poParts[1]), 1)[0];
+      afterPayoutListChange(Number(poParts[0]));
+      showUndoToast("Payment deleted", function(){
+        poItem.payouts.splice(Math.min(Number(poParts[1]), poItem.payouts.length), 0, removedPo);
+        afterPayoutListChange(Number(poParts[0]));
       });
       return;
     }
@@ -1996,6 +2029,31 @@ import {
     } else {
       renderAssets();
     }
+    persist();
+  }
+  // v3.38.0: the same in-place swap for distributions, then the tax chain.
+  function afterPayoutListChange(idx){
+    var item = state.assets[idx];
+    var row = document.querySelector('.m-asset-rows [data-index="' + idx + '"]');
+    var sec = row && row.querySelector("details.payouts-section");
+    if(item && sec){
+      var holder = document.createElement("div");
+      holder.innerHTML = payoutsSectionHtml(item, idx);
+      var fresh = holder.firstElementChild;
+      fresh.open = true;
+      sec.replaceWith(fresh);
+    } else {
+      renderAssets();
+    }
+    afterPayoutChange();
+  }
+  function afterPayoutChange(){
+    recalcComputedItems();
+    renderTaxSuper();
+    patchSyntheticIncomeRows();
+    patchIncomeGroupTotals();
+    renderCards(); renderDetail(); renderTotals();
+    renderProjectionOutputs();
     persist();
   }
   // Same in-place swap as afterLotListChange, then the tax chain — a statement is taxable income.
@@ -3288,9 +3346,57 @@ import {
     return !!(state.income.length || state.shared.length || state.assets.length ||
       state.properties.length || state.transactions.length || state.debts.length);
   }
+  // v3.40.0: a tax year file merges one year into the plan — see calc/taxyear.js mergeTaxYearFile().
+  function applyTaxYearFile(parsed){
+    var people = getTaxPeople();
+    var names = Object.keys(parsed.people || {});
+    if(!confirm("Merge " + fyLabel(Number(parsed.fy)) + " figures for " + (names.join(" and ") || "nobody") +
+      " into this plan? That year's income statements, interest, deductions and rental schedule are replaced by the file's; nothing else changes.")) return;
+    var report;
+    try{ report = mergeTaxYearFile(parsed, people, { genId: genId }); }
+    catch(err){ showToast(err.message || "That file couldn't be read"); return; }
+    if(parsed.markLodged){
+      var rec = taxYearRecord(report.fy, true);
+      Object.keys(parsed.people || {}).forEach(function(n){
+        var to = matchPerson(n, people) || n;
+        if(people.indexOf(to) !== -1) rec.lodged[to] = lodgedSnapshot(computePersonTax(to, { fy: report.fy }));
+      });
+    }
+    setTaxYearSelected(report.fy);
+    renderAll();
+    persist();
+    var bits = [];
+    if(report.people.length) bits.push("people: " + report.people.join(", "));
+    if(report.rental.length) bits.push("rent: " + report.rental.join(", "));
+    if(report.statements.length) bits.push("statements: " + report.statements.join(", "));
+    if(report.sales.length) bits.push("sales: " + report.sales.join(", "));
+    if(report.addedHoldings.length) bits.push("added sold-out holdings: " + report.addedHoldings.join(", "));
+    if(report.unmatchedPeople.length) bits.push("not in this plan yet (add a Gross income row for them): " + report.unmatchedPeople.join(", "));
+    if(report.skipped.length) bits.push("skipped: " + report.skipped.join("; "));
+    showPersistentToast(fyLabel(report.fy) + " imported — " + bits.join(" · "), "Open worksheet", function(){
+      showPage("income");
+      var ws = document.getElementById("taxYearLedger");
+      if(ws){ ws.open = true; renderTaxYear(); ws.scrollIntoView({ behavior: "smooth", block: "start" }); }
+    });
+  }
+  document.getElementById("taxYearImportFile").addEventListener("change", function(e){
+    var file = e.target.files[0];
+    e.target.value = "";
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      var parsed;
+      try{ parsed = JSON.parse(reader.result); }catch(err){ showToast("That file isn't JSON"); return; }
+      if(!parsed || parsed.kind !== TAX_YEAR_FILE_KIND){ showToast("That isn't a tax year file — a full backup goes through Import backup"); return; }
+      applyTaxYearFile(parsed);
+    };
+    reader.readAsText(file);
+  });
   function applyImportedBackupJson(jsonStr){
     try{
       var parsed = JSON.parse(jsonStr);
+      // A tax year file picked from the main Import merges instead of replacing everything.
+      if(parsed && parsed.kind === TAX_YEAR_FILE_KIND){ applyTaxYearFile(parsed); return; }
       if(!parsed || !parsed.income || !parsed.home) throw new Error("bad shape");
       if(hasRealUserData() && !confirm("You already have data in Wealth Planner on this device. Importing will replace it — this can't be undone unless you've exported a backup first. Continue?")) return;
       setState(migrateState(parsed));
@@ -3801,6 +3907,28 @@ import {
     }
   });
 
+  // v3.41.0: Loan strategy on a property card.
+  document.addEventListener("change", function(e){
+    if(!e.target.matches) return;
+    var host = e.target.closest("[data-strategy-property]");
+    if(!host) return;
+    var prop = findProperty(host.getAttribute("data-strategy-property"));
+    if(!prop) return;
+    if(e.target.matches("[data-strategy-pick]")){ prop.strategyLoan = Number(e.target.value) || 0; persist(); patchLoanStrategy(prop); return; }
+    if(e.target.matches("[data-strategy-field]")){
+      setLoanStrategyField(prop, Number(e.target.getAttribute("data-strategy-loan")), e.target.getAttribute("data-strategy-field"), e.target.value);
+      patchLoanStrategy(prop);
+    }
+  });
+  // v3.39.0: "If you sold" on an investment property card.
+  document.addEventListener("change", function(e){
+    if(!e.target.matches || !e.target.matches("[data-sale-field]")) return;
+    var host = e.target.closest("[data-sale-property]");
+    var prop = host && findProperty(host.getAttribute("data-sale-property"));
+    if(!prop) return;
+    setSaleWhatIfField(prop, e.target.getAttribute("data-sale-field"), e.target.value);
+    patchSaleWhatIf(prop);
+  });
   // v3.34.0: the projection, every year, as a CSV.
   document.addEventListener("click", function(e){
     if(e.target.closest("#projCsvBtn")) exportProjectionCsv(projectionSeriesShown(), state.projection.realTerms !== false);

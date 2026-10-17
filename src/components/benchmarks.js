@@ -158,6 +158,8 @@ export function gatherInvestments(){
     symbol: sym, today: today, flows: sf.flows, value: sf.value, invested: invested, withdrawn: withdrawn,
     included: sf.included, excluded: sf.excluded, firstDate: sf.flows.length ? sf.flows[0].date : null,
     myRate: xirr(sf.flows, sf.value, today), fixedRate: rate,
+    payoutTotal: sf.payouts.reduce(function(s, f){ return s + f.amount; }, 0), payoutCount: sf.payouts.length,
+    myRateWithIncome: sf.payouts.length ? xirr(sf.flows.concat(sf.payouts).sort(function(x, y){ return x.date < y.date ? -1 : x.date > y.date ? 1 : 0; }), sf.value, today) : null,
     fixedValue: sf.flows.length ? fixedRateValue(sf.flows, rate, today) : null,
     index: idx, indexRate: idx && idx.value != null ? xirr(sf.flows, idx.value, today) : null,
     dates: priceDatesNeeded(sf.flows), prices: store
@@ -205,8 +207,9 @@ export function investmentsHtml(d){
   return controls +
     '<p class="bm-verdict">' + fmtCurrency0.format(d.invested) + ' put in since ' + esc(d.firstDate) + (d.withdrawn ? ', ' + fmtCurrency0.format(d.withdrawn) + ' taken out' : '') + ', worth ' + fmtCurrency0.format(d.value) + ' today.</p>' +
     '<div class="bm-perf">' + barHtml + '</div>' + verdict +
+    (d.payoutCount ? '<p class="bm-verdict">With the ' + d.payoutCount + ' distribution' + (d.payoutCount === 1 ? '' : 's') + ' you\'ve logged (' + fmtCurrency0.format(d.payoutTotal) + ' in cash), your return is <b>' + pctPa(d.myRateWithIncome) + '</b>. The index figure above is price only, so compare that one with your price-only ' + pctPa(d.myRate) + '.</p>' : '') +
     prices +
-    '<p class="bm-source">Money-weighted returns, price only — distributions aren\'t in either side.' +
+    '<p class="bm-source">Money-weighted returns. The bars are price only on both sides, so distributions don\'t tilt the comparison.' +
       (d.excluded.length ? ' Not included (no purchase lots): ' + esc(d.excluded.join(", ")) + '.' : '') + '</p>';
 }
 // The Benchmarks tab's own paste box: only benchmark rows, for the current symbol or any other.

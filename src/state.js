@@ -69,6 +69,8 @@ export function normalizeShareAsset(a){
   if(a.frankedPct == null) a.frankedPct = 100;
   // Purchase lots (v3.21.0) — see calc/tax.js. Empty = no parcels kept; sales use Avg cost.
   if(!Array.isArray(a.lots)) a.lots = [];
+  // v3.38.0: distributions received.
+  if(!Array.isArray(a.payouts)) a.payouts = [];
   // Annual tax statements (v3.22.0) — see calc/tax.js personFundStatements().
   if(!Array.isArray(a.taxStatements)) a.taxStatements = [];
   a.amount = Math.round((Number(a.quantity) || 0) * (Number(a.price) || 0) * 100) / 100;
@@ -528,6 +530,8 @@ export function migrateState(s){
     // by a section's height on everyone's next load. Keyed off `in` rather than truthiness so
     // deliberately expanding it and reloading doesn't re-collapse it.
     if(!("ownership" in p.sectionsCollapsed)) p.sectionsCollapsed.ownership = true;
+    if(!("sale" in p.sectionsCollapsed)) p.sectionsCollapsed.sale = true;
+    if(!("strategy" in p.sectionsCollapsed)) p.sectionsCollapsed.strategy = true;
     p.loans.forEach(function(l){
       if(l.id == null) l.id = genId("l");
       if(l.repaymentMode !== "manual") l.repaymentMode = "auto";

@@ -4,10 +4,12 @@ import {
   capitalWorksAnnual, plantDepreciationAnnual, propertyDepreciationForWindow, financialYearOf, fyLabel,
   propertyCapitalGain, propertyYieldOnCost, propertyLVR, propertiesTotalValue, propertiesTotalEquityToday, propertiesOffsetTotal,
   propertiesTotalMortgageBalance, propertiesNetCashFlowMonthly, propertiesWeightedGrossYield,
-  propertyOwnershipPct, propertyOwnershipTotal, propertyTaxDeductibleResultAnnual,
+  propertyOwnershipPct, propertyOwnershipTotal, propertyTaxDeductibleResultAnnual, loanBalance, loanPaidOut,
   landTaxByState, totalLandTax, borrowingCostsSchedule, borrowingCostsDeduction
 } from "../calc/property.js";
-import { getTaxPeople } from "../calc/tax.js";
+import { getTaxPeople, computePersonTax } from "../calc/tax.js";
+import { saleScenario } from "../calc/sale.js";
+import { loanStrategy } from "../calc/loanstrategy.js";
 import { LAND_TAX_STATES, LAND_TAX_YEAR } from "../constants.js";
 import { sumField, householdYearWindow } from "../calc/ledger.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
@@ -29,7 +31,7 @@ var PAYMENT_FREQ_SUFFIX = { Weekly: "/wk", Fortnightly: "/fn", Monthly: "/mo" };
 
 // Which of a property's five sections (value/acquisition/loans/income/expenses) collapse-all/
 // expand-all should toggle — order here is also the display order, matching propertyCardHtml.
-export var PROPERTY_SECTION_KEYS = ["value", "acquisition", "ownership", "depreciation", "loans", "income", "expenses"];
+export var PROPERTY_SECTION_KEYS = ["value", "acquisition", "ownership", "depreciation", "loans", "strategy", "income", "expenses", "sale"];
 // Wraps one section's already-built head/body HTML with the collapse toggle chrome — shared by
 // every .property-section below (Property value, Acquisition costs, Loans, Income, Expenses) so
 // they all get identical collapse behavior and a consistent title treatment, rather than five
@@ -112,7 +114,7 @@ function loanRowMeta(p){
   return (p.loans || []).map(function(loan, li){ return { loan: loan, li: li, colorIdx: li % 8 }; });
 }
 function modernLoanCompBarHtml(rowMeta){
-  var segs = rowMeta.map(function(m){ return { loan: m.loan, colorIdx: m.colorIdx, balance: Math.max(0, Number(m.loan.balance) || 0) }; })
+  var segs = rowMeta.map(function(m){ return { loan: m.loan, colorIdx: m.colorIdx, balance: Math.max(0, loanBalance(m.loan)) }; })
     .filter(function(x){ return x.balance > 0.5; });
   if(segs.length < 2) return "";
   var total = segs.reduce(function(s, x){ return s + x.balance; }, 0);
@@ -132,7 +134,7 @@ function loanRowModernHtml(loan, li, propId, colorIdx){
     dot +
     '<div style="flex:1 1 auto; min-width:0">' +
       '<div class="m-row-name">' + escapeAttr(loan.what) + '</div>' +
-      '<div class="m-row-sub" data-computed="sub">' + fmtCurrency0.format(Number(loan.balance) || 0) + ' balance · ' + rateDisplay + '% · ' + loan.repaymentType + " · paid " + disp.freq.toLowerCase() + (loan.repaymentMode === "manual" ? " (manual)" : "") + '</div>' +
+      '<div class="m-row-sub" data-computed="sub">' + (loanPaidOut(loan) ? 'paid out ' + escapeAttr(loan.endedOn) + ' · ' : '') + fmtCurrency0.format(Number(loan.balance) || 0) + ' balance · ' + rateDisplay + '% · ' + loan.repaymentType + " · paid " + disp.freq.toLowerCase() + (loan.repaymentMode === "manual" ? " (manual)" : "") + '</div>' +
     '</div>' +
     '<span class="m-row-amt" data-computed="amt">' + fmtCurrency2.format(disp.amount) + suffix + '</span>' +
     '<span class="m-row-chev" aria-hidden="true">✕</span>' +
@@ -303,6 +305,104 @@ function depreciationSectionHtml(p){
 // because it moves a taxable income, and someone with no taxable income to move has nothing to
 // carry. Empty (nobody has set a share) means an even split — the same default as before — and the
 // note says so rather than pre-filling numbers the user never chose.
+// Loan strategy (v3.41.0) — calc/loanstrategy.js. Inputs on loan.strategy; which loan, when there
+// are several, on p.strategyLoan.
+export function loanStrategyHtml(p){
+  var loans = (p.loans || []).filter(function(l){ return !loanPaidOut(l) && Number(l.balance) > 0; });
+  if(!loans.length) return '<p class="ledger-note" style="margin:0">Add a loan with a balance to try extra repayments, offset, a rate change or a refinance.</p>';
+  var li = Math.min(Number(p.strategyLoan) || 0, loans.length - 1);
+  var loan = loans[li];
+  var idx = p.loans.indexOf(loan);
+  var st = loan.strategy || {};
+  var r = loanStrategy(loan, st);
+  var money = function(v){ return fmtCurrency0.format(v); };
+  var yrs = function(m){ return m == null ? "never" : (Math.floor(m / 12) ? Math.floor(m / 12) + "y " : "") + (m % 12) + "m"; };
+  var input = function(key, label, attrs){
+    return '<label>' + label + ' <input type="number" data-strategy-field="' + key + '" data-strategy-loan="' + idx + '" value="' + escapeAttr(st[key] == null ? "" : st[key]) + '"' +
+      ' step="' + (attrs.step || "1") + '" min="0" placeholder="' + escapeAttr(attrs.placeholder || "") + '"></label>';
+  };
+  var card = function(title, inputs, body){ return '<div class="ls-card"><div class="ls-title">' + title + '</div><div class="ls-inputs">' + inputs + '</div><div class="ls-body">' + body + '</div></div>'; };
+  var picker = loans.length > 1 ? '<label class="ls-pick">Loan <select data-strategy-pick>' + loans.map(function(l, i){ return '<option value="' + i + '"' + (i === li ? " selected" : "") + '>' + escapeAttr(l.what || ("Loan " + (i + 1))) + '</option>'; }).join("") + '</select></label>' : '';
+  var baseLine = r.io ? "Interest only: " + money(r.repayment) + " a month, and the balance doesn't fall."
+    : money(r.repayment) + " a month · paid off in " + yrs(r.base.months) + " · " + money(r.base.interest) + " interest to go" + (Number(loan.offsetBalance) ? " (with today's offset)" : "") + ".";
+  var extraBody = r.io ? "An interest-only loan doesn't take extra repayments into its schedule — see offset."
+    : r.extra ? "Paid off <b>" + yrs(r.extra.monthsSaved) + " sooner</b>, <b>" + money(r.extra.interestSaved) + "</b> less interest." : "How much more a month?";
+  var offBody = r.offset ? "<b>" + money(r.offset.yearlySaved) + "</b> a year less interest" + (r.offset.monthsSaved != null ? ", paid off " + yrs(r.offset.monthsSaved) + " sooner if it stays there" : "") + "." : "Money you'd park in offset.";
+  var rateBody = r.rate ? "Repayments " + (r.rate.monthlyChange >= 0 ? "up " : "down ") + "<b>" + money(Math.abs(r.rate.monthlyChange)) + "</b> a month (" + money(Math.abs(r.rate.yearlyChange)) + " a year), to " + money(r.rate.repayment) + "." : "Try a rate.";
+  var refiBody = r.refi ? (r.refi.monthlySaving > 0
+      ? "<b>" + money(r.refi.monthlySaving) + "</b> a month less, about " + money(r.refi.firstYearInterestSaved) + " less interest in the first year. " +
+        (r.refi.breakEvenMonths === 0 ? "The cashback covers the switching costs from day one." : "Pays back the " + money(r.refi.netCosts) + " net switching cost in <b>" + r.refi.breakEvenMonths + " month" + (r.refi.breakEvenMonths === 1 ? "" : "s") + "</b>.")
+      : "Not cheaper: the new repayment is " + money(Math.abs(r.refi.monthlySaving)) + " a month more.") : "A rate you've been offered.";
+  return picker + '<p class="ls-base">' + baseLine + '</p><div class="ls-grid">' +
+    card("Extra repayments", input("extra", "$ a month", { step: "50", placeholder: "300" }), extraBody) +
+    card("More in offset", input("offsetAdd", "$", { step: "1000", placeholder: "20000" }), offBody) +
+    card("If the rate moves", input("newRate", "New rate %", { step: "0.05", placeholder: (Number(loan.rate) + 0.5).toFixed(2) }), rateBody) +
+    card("Refinance", input("refiRate", "Rate %", { step: "0.05", placeholder: "5.79" }) + input("refiCosts", "Costs $", { step: "50", placeholder: "800" }) + input("cashback", "Cashback $", { step: "500", placeholder: "2000" }), refiBody) +
+  '</div>' +
+  (p.kind === "IP" ? '<p class="ledger-note" style="margin:8px 0 0">On an investment loan, offset and extra repayments save the same interest while the money stays put — but money redrawn from extra repayments for anything private isn\'t deductible, while money taken back out of offset leaves the deductible loan intact. Offset keeps the options.</p>' : '');
+}
+export function setLoanStrategyField(p, loanIdx, field, value){
+  var loan = (p.loans || [])[loanIdx];
+  if(!loan) return;
+  if(!loan.strategy || typeof loan.strategy !== "object") loan.strategy = {};
+  if(value === "" || value == null) delete loan.strategy[field]; else loan.strategy[field] = Number(value);
+  persist();
+}
+export function patchLoanStrategy(p){
+  var el = document.querySelector('[data-strategy-property="' + p.id + '"]');
+  if(!el) return;
+  var focused = document.activeElement && el.contains(document.activeElement) ? document.activeElement.getAttribute("data-strategy-field") : null;
+  el.innerHTML = loanStrategyHtml(p);
+  if(focused){ var f = el.querySelector('[data-strategy-field="' + focused + '"]'); if(f) f.focus(); }
+}
+
+// "If you sold" (v3.39.0) — calc/sale.js saleScenario(). Inputs live on p.saleWhatIf so they
+// survive a re-render; nothing here changes the property itself.
+export function saleWhatIfData(p){
+  var w = p.saleWhatIf || {};
+  var today = localDateStr();
+  var people = getTaxPeople();
+  var owners = people.map(function(name){
+    return { name: name, pct: propertyOwnershipPct(p, name, people), taxable: computePersonTax(name).taxable };
+  }).filter(function(o){ return o.pct > 0; });
+  var saleDate = w.date || today;
+  return {
+    inputs: { date: saleDate, price: w.price || "", agentPct: w.agentPct == null ? 2.5 : w.agentPct, otherCosts: w.otherCosts == null ? 2500 : w.otherCosts },
+    result: saleScenario(p, { today: today, saleDate: saleDate < today ? today : saleDate, salePrice: w.price, growthPct: state.projection.propertyAppreciationRate,
+      agentPct: w.agentPct == null ? 2.5 : w.agentPct, otherCosts: w.otherCosts == null ? 2500 : w.otherCosts, owners: owners }),
+    growthPct: state.projection.propertyAppreciationRate
+  };
+}
+export function saleWhatIfHtml(p, d){
+  var r = d.result, i = d.inputs;
+  var line = function(label, v, cls){ return '<div class="sale-line' + (cls ? " " + cls : "") + '"><span>' + label + '</span><b>' + v + '</b></div>'; };
+  var money = function(v){ return v == null ? "—" : fmtCurrency0.format(v); };
+  var owners = r.owners.map(function(o){
+    return '<div class="sale-owner"><div class="sale-owner-name">' + escapeAttr(o.name) + ' <small>' + Math.round(o.share * 100) + '%</small></div>' +
+      line("Share of the gain", money(o.gain)) +
+      (o.loss ? line("Capital loss to carry forward", money(o.loss)) : line(r.discount ? "Taxable, after the 50% discount" : "Taxable (held under 12 months)", money(o.assessable))) +
+      line("Extra tax and Medicare", money(o.tax)) +
+      line("Cash in hand after tax", money(o.cash), "sale-total") + '</div>';
+  }).join("");
+  return '<div class="sale-inputs">' +
+      '<label>Sell on <input type="date" data-sale-field="date" value="' + escapeAttr(i.date) + '"></label>' +
+      '<label>Sale price <input type="number" step="1000" min="0" data-sale-field="price" value="' + escapeAttr(i.price) + '" placeholder="' + r.salePrice + '"></label>' +
+      '<label>Agent % <input type="number" step="0.1" min="0" max="10" data-sale-field="agentPct" value="' + i.agentPct + '"></label>' +
+      '<label>Other costs $ <input type="number" step="100" min="0" data-sale-field="otherCosts" value="' + i.otherCosts + '" title="Conveyancing, marketing, styling, any break costs"></label>' +
+    '</div>' +
+    (i.price ? '' : '<p class="ledger-note" style="margin:0 0 8px">Sale price left blank: today\'s value grown at ' + d.growthPct + '% a year (Projections) to the sale date.</p>') +
+    '<div class="sale-grid"><div class="sale-col">' +
+      line("Sale price", money(r.salePrice)) + line("Agent and selling costs", "−" + money(r.sellingCosts)) +
+      line("Loans paid out", "−" + money(r.loanPayout)) + line("Cash before tax", money(r.cashBeforeTax), "sale-total") +
+      line("Paid, with acquisition costs", money(r.paid), "sale-gap") +
+      (r.capitalWorksReduction ? line("Less capital works claimed", "−" + money(r.capitalWorksReduction)) : "") +
+      line("Capital gain", money(r.gain), "sale-total") +
+    '</div><div class="sale-col">' + (owners || '<p class="ledger-note">Set ownership above to split the gain between owners.</p>') +
+      (r.owners.length > 1 ? line("Total cash after tax", money(r.cashAfterTax), "sale-total sale-grand") : '') + '</div></div>' +
+    '<p class="ledger-note" style="margin:8px 0 0">' + (r.paid == null ? "Add the purchase price (Property value) for the capital gain. " : "") +
+      'Taxed in ' + fyLabel(r.fy) + ' on top of each owner\'s taxable income today — the year the rent stops, so if anything that\'s slightly high. A capital loss carries forward against future gains. An offset balance stays yours on top of this. An estimate: your accountant settles the real one.</p>';
+}
+
 function ownershipSectionHtml(p){
   var people = getTaxPeople();
   var total = propertyOwnershipTotal(p);
@@ -382,7 +482,7 @@ function propertyCardHtml(p, colorIdx){
   var gearingBadge = "";
   var yieldBadge = "";
   var lvrBadge = "";
-  var mortgageBalance = (p.loans || []).reduce(function(s, l){ return s + (Number(l.balance) || 0); }, 0);
+  var mortgageBalance = (p.loans || []).reduce(function(s, l){ return s + loanBalance(l); }, 0);
   // Unlike gearing/yield (IP-only — a PPOR has no rent to gear or yield on), LVR is meaningful for
   // any mortgaged property, so this isn't gated on p.kind. Flagged (brass/warning, same treatment
   // as negative gearing) above 80%, the threshold where a lender would charge LMI on any new
@@ -477,6 +577,9 @@ function propertyCardHtml(p, colorIdx){
       '<div class="property-section-title">Loans</div>',
       '<div class="m-card" id="propLoanRows_' + escapeAttr(p.id) + '">' + modernLoanListHtml(p) + '</div>' +
       '<button type="button" class="btn btn-sm btn-ghost" data-loan-add="' + escapeAttr(p.id) + '">+ Add loan</button>') +
+    ((p.loans || []).length ? propertySectionHtml(p, "strategy",
+      '<div class="property-section-title">Loan strategy</div>',
+      '<div class="ls-wrap" data-strategy-property="' + escapeAttr(p.id) + '">' + loanStrategyHtml(p) + '</div>') : "") +
     propertySectionHtml(p, "income",
       '<div class="property-section-title">Income</div>',
       incomePaidPanel +
@@ -487,7 +590,24 @@ function propertyCardHtml(p, colorIdx){
       pmFeePanel +
       '<div class="m-card"><div class="m-rows" id="propExpRows_' + escapeAttr(p.id) + '">' + modernPropListHtml(p.expenses, "propexp:" + p.id, true) + '</div></div>' +
       '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="propexp:' + escapeAttr(p.id) + '">+ Add expense</button>') +
+    (p.kind === "IP" ? propertySectionHtml(p, "sale",
+      '<div class="property-section-title">If you sold</div>',
+      '<div class="sale-body" data-sale-property="' + escapeAttr(p.id) + '">' + saleWhatIfHtml(p, saleWhatIfData(p)) + '</div>') : "") +
   '</div>';
+}
+export function setSaleWhatIfField(p, field, value){
+  if(!p.saleWhatIf || typeof p.saleWhatIf !== "object") p.saleWhatIf = {};
+  if(value === "" || value == null) delete p.saleWhatIf[field];
+  else p.saleWhatIf[field] = field === "date" ? value : Number(value);
+  persist();
+}
+// Re-renders just the section body, so typing in one field doesn't rebuild the card.
+export function patchSaleWhatIf(p){
+  var el = document.querySelector('[data-sale-property="' + p.id + '"]');
+  if(!el) return;
+  var focused = document.activeElement && el.contains(document.activeElement) ? document.activeElement.getAttribute("data-sale-field") : null;
+  el.innerHTML = saleWhatIfHtml(p, saleWhatIfData(p));
+  if(focused){ var f = el.querySelector('[data-sale-field="' + focused + '"]'); if(f) f.focus(); }
 }
 
 // Session-only (not persisted) — mirrors modernIncomeRowOpen/modernSharedRowOpen, shared across
@@ -637,7 +757,7 @@ export function patchPropertyCardComputed(property){
   var card = document.querySelector('.property-card[data-property-id="' + CSS.escape(property.id) + '"]');
   if(!card) return;
   var equity = propertyEquityToday(property);
-  var mortgageBalance = (property.loans || []).reduce(function(s, l){ return s + (Number(l.balance) || 0); }, 0);
+  var mortgageBalance = (property.loans || []).reduce(function(s, l){ return s + loanBalance(l); }, 0);
   var setOut = function(key, text, color){
     var el = card.querySelector('[data-out="' + key + '"]');
     if(el){ el.textContent = text; if(color) el.style.color = color; }
@@ -663,7 +783,7 @@ export function patchPropertyCardComputed(property){
     var sub = row.querySelector('[data-computed="sub"]');
     if(sub){
       var rateDisplay = Math.round((Number(loan.rate) || 0) * 100) / 100;
-      sub.textContent = fmtCurrency0.format(Number(loan.balance) || 0) + " balance · " + rateDisplay + "% · " + loan.repaymentType + " · paid " + disp.freq.toLowerCase() + (loan.repaymentMode === "manual" ? " (manual)" : "");
+      sub.textContent = (loanPaidOut(loan) ? "paid out " + loan.endedOn + " · " : "") + fmtCurrency0.format(Number(loan.balance) || 0) + " balance · " + rateDisplay + "% · " + loan.repaymentType + " · paid " + disp.freq.toLowerCase() + (loan.repaymentMode === "manual" ? " (manual)" : "");
     }
   });
   var loanBarWrap = card.querySelector('#propLoanRows_' + CSS.escape(property.id) + ' [data-comp-bar]');

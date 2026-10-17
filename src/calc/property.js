@@ -104,7 +104,7 @@ export function propertyGearingAnnual(property){
 // property added without one shows no capital gain/yield-on-cost figure at all rather than a
 // misleading number against a $0 cost base. Shared by both functions below so "cost" always means
 // the same thing in both places.
-function propertyCostBase(property){
+export function propertyCostBase(property){
   var price = Number(property.purchasePrice);
   if(!(price > 0)) return null;
   var costsTotal = (property.acquisitionCosts || []).reduce(function(s, c){ return s + (Number(c.amount) || 0); }, 0);
@@ -164,7 +164,23 @@ export function propertyYieldOnCost(property){
 // charged on — the same offset balance is also netted against the loan for equity purposes
 // (see propertyEquityToday), since offsetBalance is the single source of truth for that money.
 // Don't also enter it as a separate Cash asset, or it'll be counted twice.
+// A loan with a "Paid out on" date (v3.27.0) that has passed is gone (v3.41.0): no balance, no
+// interest, no repayments. Before this the date only finished off its borrowing costs, and the loan
+// kept charging interest and taking repayments until its balance was set to 0 by hand.
+export function loanPaidOut(loan, onDate){
+  return !!(loan && loan.endedOn && loan.endedOn <= (onDate || localDateStr()));
+}
+export function loanBalance(loan, onDate){
+  return loanPaidOut(loan, onDate) ? 0 : (Number(loan && loan.balance) || 0);
+}
+// Interest at today's balance and rate, whether or not the loan has since been paid out — for a
+// past year's model, which apportions it to the part of the year the loan was running.
+export function loanInterestMonthlyRaw(loan){
+  var interestBalance = Math.max(0, (Number(loan.balance) || 0) - (Number(loan.offsetBalance) || 0));
+  return interestBalance * (Number(loan.rate) || 0) / 100 / 12;
+}
 export function loanInterestMonthlyAtRate(loan, ratePts){
+  if(loanPaidOut(loan)) return 0;
   var interestBalance = Math.max(0, (Number(loan.balance) || 0) - (Number(loan.offsetBalance) || 0));
   var monthlyRate = ratePts / 100 / 12;
   return interestBalance * monthlyRate;
@@ -485,6 +501,7 @@ export function loanBalanceAfterMonths(principal, annualRatePct, termYears, mont
 }
 
 export function loanRepaymentMonthly(loan){
+  if(loanPaidOut(loan)) return 0;
   if(loan.repaymentMode === "manual") return periodsOf(Number(loan.manualRepaymentAmount) || 0, loan.manualRepaymentFreq || "Monthly").monthly;
   // An interest-only repayment IS the interest owed, so an offset (which reduces interest
   // charged) reduces it too. A P&I repayment is fixed by the bank regardless of any offset —
@@ -514,6 +531,7 @@ export function propertyLoanRepaymentMonthly(property){
 // Projection-only: applies the Rate Shock stress-test to a real loan's rate. Manual-repayment
 // loans have no rate to shock, so their entered figure is left as-is.
 export function shockedLoanRepaymentMonthly(loan, shockPts){
+  if(loanPaidOut(loan)) return 0;
   if(loan.repaymentMode === "manual") return periodsOf(Number(loan.manualRepaymentAmount) || 0, loan.manualRepaymentFreq || "Monthly").monthly;
   var shockedRate = (Number(loan.rate) || 0) + shockPts;
   if(loan.repaymentType === "IO") return loanInterestMonthlyAtRate(loan, shockedRate);
@@ -573,7 +591,7 @@ export function propertyOffsetTotal(property){
   return (property.loans || []).reduce(function(s, l){ return s + (Number(l.offsetBalance) || 0); }, 0);
 }
 export function propertyIlliquidEquityToday(property){
-  var loanTotal = (property.loans || []).reduce(function(s, l){ return s + (Number(l.balance) || 0); }, 0);
+  var loanTotal = (property.loans || []).reduce(function(s, l){ return s + loanBalance(l); }, 0);
   return (Number(property.value) || 0) - loanTotal;
 }
 export function propertyEquityToday(property){
@@ -586,7 +604,7 @@ export function propertyEquityToday(property){
 export function propertyLVR(property){
   var value = Number(property.value) || 0;
   if(value <= 0) return null;
-  var balance = (property.loans || []).reduce(function(s, l){ return s + (Number(l.balance) || 0); }, 0);
+  var balance = (property.loans || []).reduce(function(s, l){ return s + loanBalance(l); }, 0);
   return balance / value;
 }
 export function propertiesOffsetTotal(){
@@ -605,7 +623,7 @@ export function propertiesTotalValue(){
   return state.properties.reduce(function(s, p){ return s + (Number(p.value) || 0); }, 0);
 }
 export function propertiesTotalMortgageBalance(){
-  return state.properties.reduce(function(s, p){ return s + (p.loans || []).reduce(function(ss, l){ return ss + (Number(l.balance) || 0); }, 0); }, 0);
+  return state.properties.reduce(function(s, p){ return s + (p.loans || []).reduce(function(ss, l){ return ss + loanBalance(l); }, 0); }, 0);
 }
 // Only IPs contribute — a PPOR has no rent to be "cash flow", same scoping as ipProperties() above.
 export function propertiesNetCashFlowMonthly(){

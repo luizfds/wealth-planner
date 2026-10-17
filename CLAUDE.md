@@ -185,6 +185,11 @@ Three layers, and **knowing what each one cannot see is the whole point**:
    reading the DOM and console. Still the only thing that sees event wiring, CSS cascade, layout,
    and anything reached through `document`.
 
+- **CI (`.github/workflows/checks.yml`) runs `npm test` and `scripts/smoke.mjs` on every PR.** The
+  smoke script opens every page and subtab headless at 390/1280px, light and dark, and fails on page
+  or console errors, an empty page, sideways scroll, NaN/undefined text, or a %-width bar measuring
+  0. Run it locally with `npm i --no-save playwright && npx playwright install chromium && node
+  scripts/smoke.mjs`. It catches breakage, not layout taste — still look at what you changed.
 - **A green run is not evidence the app renders.** Nothing in layers 1–2 loads a component or
   fires a listener. Any change to a component, a template or a stylesheet gets driven before it is
   called done.

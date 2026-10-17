@@ -2038,6 +2038,50 @@ in with source and month, on `property.market`. Nothing fetched.
 
 ---
 
+## Money tools (October 2026)
+
+"Do all" of the six offered after PR #85.
+
+## 71. `[x]` Distributions received, as cash flows — shipped v3.38.0
+`asset.payouts[] = {date, cash, credit}` on each share holding. In a named tax year they replace
+the per-unit estimate (a tax statement still wins); with no per-unit figure, the last twelve months
+of payments are the rate (`payoutsBetween()`, `personDividends(person, win, {yearMode})`). The
+Benchmarks tab adds a with-income return beside the price-only comparison.
+
+## 72. `[x]` If you sold — shipped v3.39.0
+`calc/sale.js` `saleScenario()`: sale price (or today's value grown at the Projections rate),
+agent % and other costs, loans paid out at their scheduled balance, cost base less capital works
+claimed to the sale, the discount over twelve months, and each owner's share taxed as the extra
+tax and Medicare on today's taxable income in the sale year. Collapsed section on IP cards;
+inputs on `property.saleWhatIf`.
+
+## 73. `[x]` Load the real FY25/26 return — shipped v3.40.0
+A tax year file (`kind: "wealth-planner-tax-year"`) merges one year — income statements,
+interest, deductions, WFH hours, the rental schedule (matched by property name, ownership if
+unset), fund statements and sales (matched by symbol and person; a sold-out holding is added) —
+and can mark the year lodged. Worksheet → Import a year, or the main Import. `mergeTaxYearFile()`.
+The household's own FY25/26 file was handed over, not committed. Because the repo is public, the
+tests that rebuild that return now use placeholder names, employers and address (git history still
+has the originals).
+
+## 74. `[x]` Loan strategy, and paid-out loans that stop — shipped v3.41.0
+`loanPaidOut()` / `loanBalance()`: past its Paid out on date a loan has no balance, interest or
+repayments anywhere (equity, LVR, mortgage total, cash flow, projection from that year; a past
+year's model interest apportioned to the date). `calc/loanstrategy.js` runs the loan month by
+month for extra repayments, more offset, a rate change and a refinance break-even.
+
+## 75. `[x]` Super top-up calculator — shipped v3.42.0
+`calc/supertopup.js`: cap room (cap + carry-forward − SG − sacrifice), tax back at the marginal
+rate and Medicare, 15% contributions tax and any Division 293, out-of-pocket and net gain. On each
+tax card while there's room.
+
+## 76. `[x]` Checks on every pull request
+`.github/workflows/checks.yml`: `npm test`, and `scripts/smoke.mjs` — every page and subtab
+headless at 390/1280, light and dark; fails on page/console errors, an empty page, sideways scroll,
+NaN/undefined text, zero-width %-bars. Verified against a deliberately re-broken account bar.
+
+---
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

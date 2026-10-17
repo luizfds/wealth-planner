@@ -818,3 +818,66 @@ test("benchmarks: property against its suburb", async function(){
   assert.match(html, /data-pm-field="yield" value=""/);
   assert.match(propertyMarketHtml({ properties: [] }), /Add a property/);
 });
+
+test("distributions received: rows, note and add button", async function(){
+  const { payoutsSectionHtml, payoutsNoteText } = await import("../src/components/assets.js");
+  const item = { what: "ETFB", payouts: [{ date: "2026-01-15", cash: 120.5, credit: 51.64 }] };
+  const html = payoutsSectionHtml(item, 3);
+  assert.match(html, /Distributions received \(1\)/);
+  assert.match(html, /class="po-cash" data-payout-index="0" value="120.5"/);
+  assert.match(html, /data-payout-del="3:0"/);
+  assert.match(payoutsNoteText(item), /1 payment: \$***\.50 cash \+ \$***\.64 franking credits/);
+  assert.match(payoutsSectionHtml({ payouts: [] }, 0), /Log each dividend/);
+});
+
+test("if you sold: inputs, the sums and each owner's share", async function(){
+  const { saleWhatIfHtml } = await import("../src/components/properties.js");
+  const html = saleWhatIfHtml({ id: "p1" }, { growthPct: 5, inputs: { date: "2027-06-30", price: "", agentPct: 2.5, otherCosts: 2500 },
+    result: { salePrice: 700000, sellingCosts: 20000, loanPayout: 400000, cashBeforeTax: 280000, paid: 457000, capitalWorksReduction: 12000,
+      gain: 235000, discount: true, fy: 2026, cashAfterTax: 240000,
+      owners: [{ name: "Alex", share: 0.7, gain: 164500, assessable: 82250, tax: 30000, loss: 0, cash: 166000 }, { name: "Sam", share: 0.3, gain: 70500, assessable: 35250, tax: 10000, loss: 0, cash: 74000 }] } });
+  assert.match(html, /data-sale-field="price" value="" placeholder="700000"/);
+  assert.match(html, /today's value grown at 5% a year/);
+  assert.match(html, /Less capital works claimed<\/span><b>−\$***/);
+  assert.match(html, /Alex <small>70%/);
+  assert.match(html, /Taxable, after the 50% discount<\/span><b>\$***/);
+  assert.match(html, /Total cash after tax<\/span><b>\$240,000/);
+  assert.match(html, /Taxed in FY26\/27/);
+});
+
+test("the worksheet offers Import a year next to Print", async function(){
+  const { taxYearHtml, setTaxYearSelected } = await import("../src/components/taxyear.js");
+  var keep = { income: state.income, taxYears: state.taxYears, properties: state.properties, assets: state.assets };
+  try {
+    state.income = [{ what: "Pay", person: "Sam", incomeType: "Gross", amount: 100000, freq: "Yearly", superMode: "On top", sacrificeMode: "none" }];
+    state.properties = []; state.assets = []; state.taxYears = {};
+    setTaxYearSelected(2025);
+    assert.match(taxYearHtml(), /data-ty-import[^>]*>Import a year<\/button><button type="button" class="btn btn-sm btn-ghost" data-ty-print>/);
+  } finally { Object.assign(state, keep); }
+});
+
+test("loan strategy: four cards with results, and the IP note", async function(){
+  const { loanStrategyHtml } = await import("../src/components/properties.js");
+  const html = loanStrategyHtml({ id: "p1", kind: "IP", loans: [{ what: "Lender", balance: 400000, rate: 6.2, termYears: 25, repaymentType: "PI", offsetBalance: 0,
+    strategy: { extra: 300, offsetAdd: 20000, newRate: 6.7, refiRate: 5.8, refiCosts: 1500, cashback: 0 } }] });
+  assert.match(html, /a month · paid off in 25y 0m/);
+  assert.match(html, /sooner<\/b>, <b>\$[\d,]+<\/b> less interest/);
+  assert.match(html, /<b>\$***<\/b> a year less interest/);
+  assert.match(html, /Repayments up <b>\$***\d\d<\/b> a month/);
+  assert.match(html, /Pays back the \$*** net switching cost in <b>\d+ months?<\/b>/);
+  assert.match(html, /Offset keeps the options/);
+  assert.match(loanStrategyHtml({ id: "p", kind: "IP", loans: [] }), /Add a loan with a balance/);
+});
+
+test("super top-up: the room as a placeholder, and the sums", async function(){
+  const { topUpHtml } = await import("../src/components/income.js");
+  const keep = state.tax;
+  try {
+    state.tax = Object.assign({}, keep || {}, { settings: { Sam: { topUpAmount: 0 } } });
+    const html = topUpHtml("Sam", { capAvailable: 30000, totalConcessional: 18000, taxable: 150000, div293Income: 168000, fy: 2026 });
+    assert.match(html, /placeholder="12000"/);
+    assert.match(html, /Contributing <b>\$***<\/b> and claiming it/);
+    assert.match(html, /lands in super after \$*** contributions tax/);
+    assert.match(topUpHtml("Sam", { capAvailable: 30000, totalConcessional: 30000, taxable: 1, fy: 2026 }), /class="tax-topup" hidden/);
+  } finally { state.tax = keep; }
+});

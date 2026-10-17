@@ -145,7 +145,7 @@
       <!-- The number lives in its own span because it is *parsed*, both out of this DOM and out of
            a freshly-fetched copy of this file, to decide whether a newer version is deployed. Left
            bare in the <p>, the "Check for updates" button beside it would end up inside the match. -->
-      <p class="app-version"><span class="app-version-num">v3.37.0</span> · <button type="button" class="link-btn" id="checkUpdatesLink">Check for updates</button></p>
+      <p class="app-version"><span class="app-version-num">v3.42.0</span> · <button type="button" class="link-btn" id="checkUpdatesLink">Check for updates</button></p>
     </div>
     <div class="mobile-header-right">
       <button type="button" class="icon-btn" id="mobileSearchBtn" aria-label="Search">
@@ -302,6 +302,7 @@
             <div class="ledger-body">
               <p class="ledger-note help" style="margin-left:0">One financial year as a return asks for it. Type the year's documents in — income statements, interest, the agent's summary — and the worksheet uses them; anything left blank falls back to what the app already models, so it's useful straight away and exact once the papers are in.</p>
               <div id="taxYearBody"></div>
+              <input type="file" id="taxYearImportFile" accept="application/json,.json" hidden>
             </div>
           </details>
         </div>

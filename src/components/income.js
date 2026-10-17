@@ -2,7 +2,8 @@ import { state } from "../state.js";
 import { FREQS, INCOME_TYPES, SUPER_MODES, SACRIFICE_MODES, MAX_SUPER_BASE, MONTH_NAMES, sacrificeModeToLabel, sacrificeLabelToMode } from "../constants.js";
 import { periodsOf, sumField, nextPayDate, payScheduleKindFor, daysUntil, WEEKDAY_NAMES, householdYearWindow } from "../calc/ledger.js";
 import { ipNetResultAnnual, ipDepreciationAnnual, ipOwnershipMismatches, propertyOwnershipTotal, fyLabel } from "../calc/property.js";
-import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax, wfhRateForFy, phiRebateAdjustment, taxTablesFor } from "../calc/tax.js";
+import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax, wfhRateForFy, phiRebateAdjustment, taxTablesFor, currentTaxFy } from "../calc/tax.js";
+import { superTopUp } from "../calc/supertopup.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { optionsHtml, historyTrendHtml, timingFieldsHtml, endDateNoteHtml, scenarioVaryNoteHtml, hasEnded } from "../lib/ledger-table.js";
@@ -581,6 +582,26 @@ function taxPersonHeadHtml(person, r, pi){
     '</div>';
 }
 
+// Super top-up before 30 June (v3.42.0) — calc/supertopup.js. Shown while there's cap room left (or
+// an amount has been typed): what a personal deductible contribution would get back at tax time,
+// what lands in the fund, and what it really costs.
+export function topUpHtml(person, r){
+  var settings = personTaxSettings(person);
+  var amount = Number(settings.topUpAmount) || 0;
+  var room = Math.max(0, (r.capAvailable || 0) - (r.totalConcessional || 0));
+  if(room < 1 && !amount) return '<div class="tax-topup" hidden></div>';
+  var t = superTopUp(r, amount || room, r.fy != null ? r.fy : currentTaxFy());
+  var out = t.amount > 0
+    ? 'Contributing <b>' + fmtCurrency0.format(t.amount) + '</b> and claiming it: about <b>' + fmtCurrency0.format(t.taxSaved) + '</b> back at tax time, ' +
+      fmtCurrency0.format(t.superAdded) + ' lands in super after ' + fmtCurrency0.format(t.contributionsTax + t.div293) + ' contributions tax' + (t.div293 ? ' (incl. Division 293)' : '') +
+      ' — it costs you ' + fmtCurrency0.format(t.outOfPocket) + ' after the refund, ' + fmtCurrency0.format(t.netGain) + ' better off than taking it as pay.' +
+      (t.overRoom ? ' <span class="warn">' + fmtCurrency0.format(t.overRoom) + ' is over the cap and left out.</span>' : '') +
+      ' The fund must have it by 30 June, and you send it a notice of intent to claim before you lodge. It stays in super until preservation age.'
+    : 'No concessional cap room left this year.';
+  return '<div class="tax-topup"><label class="tax-topup-field">Top up super before 30 June <span>$</span><input type="number" min="0" step="500" class="tax-topup-amt" aria-label="Personal super contribution for ' + escapeAttr(person) + '" value="' + (amount || "") + '" placeholder="' + Math.round(room) + '"></label>' +
+    '<p class="tax-topup-out">' + out + '</p></div>';
+}
+
 function taxPersonFrontBodyHtml(person, r){
   var settings = personTaxSettings(person);
   var pid = escapeAttr(person);
@@ -603,6 +624,7 @@ function taxPersonFrontBodyHtml(person, r){
       ) +
     '</div>' +
     '<div class="tax-cap-note tax-div293-note warn"' + (r.div293Tax > 0.5 ? '' : ' hidden') + ' title="Simplified: income for surcharge purposes is approximated as taxable income + your within-cap concessional contributions, ignoring reportable fringe benefits and net investment losses. Check with your accountant.">Division 293: your income is over the $250,000 threshold, so an extra 15% applies to ' + fmtCurrency0.format(Math.min(r.totalConcessional, r.capAvailable)) + ' of low-tax super contributions — ' + fmtCurrency0.format(r.div293Tax) + '/yr, assessed separately by the ATO (not withheld from take-home above).</div>' +
+    topUpHtml(person, r) +
     '<div class="tax-cap-note tax-mscb-note"' + (r.superOverCap ? '' : ' hidden') + ' title="Employer super guarantee isn\'t compulsory on ordinary-time earnings above this threshold — indexed each financial year.">Your ordinary earnings are over the ' + fmtCurrency0.format(MAX_SUPER_BASE) + '/yr Maximum Super Contribution Base, so employer super isn\'t compulsory on the excess — SG above is capped accordingly.</div>' +
     // HELP is its own note rather than a line in the cap note above, because it isn't a super
     // figure and it isn't a tax — it's a debt repayment coming out of the same pay. The "next
@@ -831,6 +853,15 @@ export function patchAllTaxPersonOutputs(){
       note.textContent = r.capExceeded > 0
         ? ("Over cap by " + fmtCurrency0.format(r.capExceeded) + " — excess concessional contributions are taxed at your marginal rate, not just 15%. Check with your accountant.")
         : (fmtCurrency0.format(r.totalConcessional) + " of " + fmtCurrency0.format(r.capAvailable) + " concessional cap used (SG " + fmtCurrency0.format(r.sg) + (r.autoSacrifice > 0 ? " + bonus/income sacrifice " + fmtCurrency0.format(r.autoSacrifice) : "") + (r.manualSacrifice > 0 ? " + manual sacrifice " + fmtCurrency0.format(r.manualSacrifice) : "") + ") — super received net of 15% contributions tax: " + fmtCurrency0.format(r.superNet));
+    }
+    var topUp = panel.querySelector(".tax-topup");
+    if(topUp){
+      var fresh = document.createElement("div");
+      fresh.innerHTML = topUpHtml(panel.getAttribute("data-tax-person"), r);
+      var out = topUp.querySelector(".tax-topup-out"), freshOut = fresh.querySelector(".tax-topup-out");
+      if(out && freshOut) out.innerHTML = freshOut.innerHTML;
+      var amt = topUp.querySelector(".tax-topup-amt"), freshAmt = fresh.querySelector(".tax-topup-amt");
+      if(amt && freshAmt) amt.placeholder = freshAmt.placeholder;
     }
     var div293Note = panel.querySelector(".tax-div293-note");
     if(div293Note){

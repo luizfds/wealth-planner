@@ -1,0 +1,32 @@
+# Runs on every pull request and every push to main (v3.43.0).
+#   tests — the Node test suite (npm test), no dependencies.
+#   pages — scripts/smoke.mjs: every page and subtab in headless Chromium at 390px and 1280px,
+#           light and dark, failing on page errors, empty pages, sideways scroll, NaN/undefined
+#           text and bars that don't draw. Playwright is installed here only, never added to
+#           package.json — the app and its test suite stay dependency-free.
+name: Checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+  pages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save playwright@1.56.0
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/smoke.mjs

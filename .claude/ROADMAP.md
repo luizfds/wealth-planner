@@ -1846,38 +1846,48 @@ person laid out in myTax's order, an evidence checklist, a refund estimate (with
 
 **What shipped.** `calc/taxyear.js` (`state.taxYears[fy]`: income statements, interest with share, recorded deductions, per-property rental actuals, evidence ticks, lodged snapshots) and `components/taxyear.js` (the "Tax return worksheet" ledger on the Income page). `computePersonTax(person, {fy})` uses that year's record and rates, line by line falling back to the model, and returns `refund`. `tests/taxyear.test.js` rebuilds two real lodged returns: every label matches; Mariana's taxable income lands $1 from myTax's, Luiz's $75 above it (about the size of a $76.54 trust franking credit myTax's on-screen estimate appeared not to gross up — the engine follows the law and grosses it up). **Still open:** per-employer reportable super contributions, ages for the rebate (under-65 rates only), and a PDF/print layout.
 
-## 47. `[~]` Borrowing costs: write off the rest on refinance or payout
+## 47. `[x]` Borrowing costs: write off the rest on refinance or payout — shipped v3.27.0
 
 A loan paid out or refinanced inside its five-year spread makes the undeducted balance deductible
 in that year. Add `loan.endedOn`; the schedule stops there and that financial year takes the rest.
 The replacement loan's own costs start their own schedule on the new loan.
 
-## 48. `[~]` Reportable employer super and fringe benefits on income statements
+**What shipped.** "Paid out on" per loan; `borrowingCostsSchedule()` gives the payout year everything not yet claimed (flagged `writtenOff`) and stops. Fixture: refinanced 1 Mar 2027 → FY26/27 deducts $9,560.17. A payout date after the spread ends changes nothing. Interest and repayments on a paid-out loan are not stopped by this date — set the balance to 0 or delete the loan.
+
+## 48. `[x]` Reportable employer super and fringe benefits on income statements — shipped v3.29.0
 
 Income statements carry reportable employer super contributions (RESC) and reportable fringe
 benefits (RFBA). Neither is taxable income, but both count for the surcharge/rebate tiers, the
 HELP repayment income and Division 293. Add both fields to the worksheet's income statements and
 route them into those three figures for that year.
 
-## 49. `[~]` Print the worksheet
+**What shipped.** RESC and RFBA columns on worksheet income statements. With statements entered, HELP repayment income, surcharge/rebate income and Division 293 income are taxable income + RFBA + RESC + any net investment loss — the ATO's definition, and the first time the app adds a rental loss back for the surcharge. Model mode (no statements) keeps its simpler forms. Phone layout: payer / three amounts + delete / RESC · RFBA.
+
+## 49. `[x]` Print the worksheet — shipped v3.31.0
 
 A print stylesheet and a "Print / save as PDF" button: one person per page, every section expanded,
 no app chrome.
 
-## 50. `[~]` Move borrowing costs out of Acquisition costs
+**What shipped.** `taxYearPrintHtml()` builds a static copy into a top-level `#printRoot` only while printing; the print stylesheet hides every other body child. Verified by printing to PDF and rasterising: the first attempt was near-invisible from a dark-mode browser (table cells inherit the theme's light `--ink`) — every descendant is forced black.
+
+## 50. `[x]` Move borrowing costs out of Acquisition costs — shipped v3.28.0
 
 Costs typed into Acquisition costs before item 37 existed can't be told apart by the app. A
 "Move to loan's borrowing costs" button on each row, with rows whose names look like loan costs
 (LMI, mortgage registration, loan/application/establishment fee, valuation, broker) highlighted —
 nothing moves without a click, because moving one changes the CGT cost base.
 
-## 51. `[~]` Age-based private health rebate
+**What shipped.** `looksLikeLoanCost()` and `moveAcquisitionCostToLoan()` (adds to the earliest-settled loan, dates an undated loan from the purchase date, undo restores all three fields). Suggested rows: tinted, labelled button; others: a 32px ↪ icon with an aria-label, so stamp duty doesn't carry an invitation to move it.
+
+## 51. `[x]` Age-based private health rebate — shipped v3.30.0
 
 The rebate is higher when the oldest person on the policy is 65-69 or 70+. Add a date of birth per
 person; the rebate uses the oldest person's age at 1 July of the year. Rates from ato.gov.au for
 FY24/25-FY26/27.
 
-## 52. `[~]` Budget lines in financial years
+**What shipped.** `dateOfBirth` per person (tax card, Adjust); `phiAgeBand(fy)` from the oldest person's age at 1 July; `TAX_YEARS[fy].phi` rates per band (`u65`/`a65`/`a70`). With no dates the note says under-65 is assumed. Simplification: everyone with a tax card is taken to be on the policy, and the age is fixed for the year rather than switching on the birthday.
+
+## 52. `[x]` Budget lines in financial years — shipped v3.32.0
 
 Three gaps found auditing budget lines against the household year: a line can end but not START
 (so a cost beginning next month counts from today, everywhere); a reserve ("no fixed timing")
@@ -1886,6 +1896,8 @@ line that starts or ends inside its reserve year still targets the full yearly a
 honoured everywhere `endDate` is (totals, projection, cash-flow forecast, deductions); pro-rate a
 reserve's target by its active days in the window; and show planned-to-date against actual per
 category for the household year.
+
+**What shipped.** `startDate` on every ledger row ("Starts (optional)" beside "Ends"), honoured by `isActiveOn`, `isActiveInYear` (same anchor date as the end), the cash-flow forecast (counts the month it starts in) and `deductionYearFraction` (the later of the line's start and the claim's); the row says "Starts …" until then. `activeShareOfWindow()` pro-rates a reserve line's target. `plannedToDateByCategory()` gives each category's planned spend for the year so far (share of the WHOLE year each line ran, so a yearly bill isn't front-loaded), shown against actual in This year so far, over-plan in --bad, with a note that lumpy bills are smoothed. **Not changed:** a non-reserve line's month target (`budgetCycleFor`) still ignores dates, and the projection's year 0 counts a line starting later in the year as not running (symmetry with end dates).
 
 ---
 

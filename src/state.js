@@ -212,6 +212,8 @@ function applyTimingDefaults(item){
   // year. See calc/tax.js's deductionYearFraction() for why these can't just reuse endDate.
   if(item.deductibleFrom == null) item.deductibleFrom = "";
   if(item.deductibleUntil == null) item.deductibleUntil = "";
+  // The return label this claim goes on (v3.24.0) — see constants.js DEDUCTION_LABELS. Blank = D5.
+  if(item.deductionLabel == null) item.deductionLabel = "";
 }
 
 export function migrateState(s){

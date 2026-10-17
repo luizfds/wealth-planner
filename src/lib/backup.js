@@ -4,6 +4,8 @@ import { showToast, showPersistentToast } from "./toast.js";
 import { localDateStr } from "./format.js";
 import { ipProperties } from "../calc/property.js";
 import { transactionsInRange, householdYearToDate } from "../calc/ledger.js";
+import { shareFlows, priceDatesNeeded, benchmarkFormula } from "../calc/performance.js";
+import { toAudAmount } from "../calc/engine.js";
 
 function isoDateStamp(){
   var d = new Date();
@@ -437,6 +439,9 @@ function sharesPriceTemplateTable(){
   // state.fx.usdAud instead of trying to match it against a holding by ticker.
   var hasUsd = shares.some(function(a){ return (MARKET_CURRENCY[a.market] || "AUD") !== "AUD"; });
   if(hasUsd) rows.push(["USD → AUD exchange rate", "", "USDAUD", '=GOOGLEFINANCE("CURRENCY:USDAUD")']);
+  // v3.35.0: the benchmark index (Dashboard → Benchmarks) on each date you bought or sold, and
+  // today — "IOZ@2024-03-01" rows that applySharesPaste() routes to state.benchmark.
+  rows = rows.concat(benchmarkTemplateRows());
   return { headers: headers, rows: rows };
 }
 // The formula text (leading "=", embedded commas/quotes) round-trips correctly through CSV
@@ -514,4 +519,21 @@ export function exportProjectionCsv(seriesList, realTerms){
   });
   exportCsv("projection-" + (realTerms ? "todays-dollars-" : "future-dollars-") + isoDateStamp() + ".csv",
     ["Scenario", "Year", "Net worth", "Investments and super", "Property equity", "Loans owed"], rows);
+}
+
+export function benchmarkTemplateRows(){
+  var sym = (state.benchmark && state.benchmark.symbol) || "IOZ";
+  var dates = priceDatesNeeded(shareFlows(state.assets, toAudAmount).flows);
+  if(!dates.length) return [];
+  return dates.concat(["now"]).map(function(d){
+    return ["Benchmark " + sym + (d === "now" ? " today" : " close on or before " + d), "ASX", sym + "@" + (d === "now" ? "NOW" : d), benchmarkFormula(sym, d)];
+  });
+}
+// Just the benchmark rows, from the Benchmarks tab's own copy button.
+export function copyBenchmarkTemplateToClipboard(){
+  var rows = benchmarkTemplateRows();
+  if(!rows.length){ showToast("Add purchase lots to a holding first"); return; }
+  copyTextToClipboard(buildTsv(["What", "Market", "Symbol", "Price"], rows)).then(function(){
+    showToast("Copied — paste into Google Sheets, then copy the Symbol and Price columns back");
+  }).catch(function(){ showToast("Couldn't copy automatically"); });
 }

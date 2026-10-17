@@ -10,6 +10,7 @@ import { showToast } from "../lib/toast.js";
 import { appendHistorySnapshot, daysUntil, householdYearWindow, householdYearBasis } from "../calc/ledger.js";
 import { TIME_RANGES, rangeLabel, rangeByKey, rangeStartDate, bestFitRange, timeRangeControlHtml } from "../lib/timerange.js";
 import { observationDates, categorySeries, trimUntracked, allocationSeries, valueOn, coverageStart } from "../calc/history.js";
+import { parseBenchmarkSymbol, setBenchmarkPrice } from "../calc/performance.js";
 import { holdingDividend, saleCapitalGain, fifoParcels, lotsUnitsAvailable, lotsAverageCost, lotRemainingUnits, lotCost, amitCostBaseAdjustmentPerUnit, getTaxPeople } from "../calc/tax.js";
 import { financialYearOf, fyLabel } from "../calc/property.js";
 import { renderProjectionOutputs } from "./projections.js";
@@ -1685,7 +1686,7 @@ export function applySharesPaste(){
   var area = document.getElementById("sharesPasteArea");
   if(!area) return;
   var lines = area.value.split(/\r?\n/);
-  var updatedCount = 0, notFound = [], unparseable = [];
+  var updatedCount = 0, notFound = [], unparseable = [], benchCount = 0;
   var fxUpdated = false;
   var todayStr = localDateStr();
   lines.forEach(function(line){
@@ -1707,6 +1708,9 @@ export function applySharesPaste(){
     // USD-denominated holding to convert (see sharesPriceTemplateTable() in lib/backup.js).
     // Routes straight to state.fx instead of the symbol-match below, same paste box, same
     // GOOGLEFINANCE-formula-in/plain-number-out round trip as every share price on this page.
+    // v3.35.0: a benchmark index row ("IOZ@2024-03-01") — Dashboard → Benchmarks.
+    var bm = parseBenchmarkSymbol(parsed.symbol);
+    if(bm){ setBenchmarkPrice(state.benchmark, bm.symbol, bm.date, parsed.price, todayStr); benchCount++; return; }
     if(parsed.symbol === "USDAUD"){
       state.fx.usdAud = parsed.price;
       state.fx.usdAudUpdated = todayStr;
@@ -1734,6 +1738,7 @@ export function applySharesPaste(){
   persist();
   var msg = updatedCount + " price" + (updatedCount === 1 ? "" : "s") + " updated" +
     (fxUpdated ? " — USD/AUD rate refreshed" : "") +
+    (benchCount ? " — " + benchCount + " benchmark price" + (benchCount === 1 ? "" : "s") : "") +
     (notFound.length ? " — no holding found for " + notFound.join(", ") : "") +
     (unparseable.length ? " — couldn't read a price for " + unparseable.join(", ") + " (check for #N/A or a blank cell in your sheet)" : "");
   showToast(msg);

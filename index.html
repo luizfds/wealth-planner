@@ -215,10 +215,15 @@
         <div class="subnav" id="dashboardSubnav">
           <button type="button" class="subnav-item active" data-dashboard-sub="overview">Overview</button>
           <button type="button" class="subnav-item" data-dashboard-sub="insights">Insights</button>
+          <button type="button" class="subnav-item" data-dashboard-sub="benchmarks">Benchmarks</button>
         </div>
 
         <div class="dashboard-subpage" id="dashboardSub-overview">
           <div class="cards" id="cards" role="radiogroup" aria-label="Choose active scenario"></div>
+        </div>
+
+        <div class="dashboard-subpage" id="dashboardSub-benchmarks" hidden>
+          <div class="bm-grid" id="benchmarksBody"></div>
         </div>
 
         <div class="dashboard-subpage" id="dashboardSub-insights" hidden>

@@ -474,3 +474,47 @@ test("second-hand plant claims nothing, but keeps its value", function(){
   assert.equal(p.plantValue, 15453);
   assert.equal(plantDepreciationAnnual(Object.assign({}, p, { plantSecondHand: false })), 1545.3);
 });
+
+// ---------------- Depreciation for a year, and the QS schedule (v3.19.0) ----------------
+
+import { propertyDepreciationForFy, propertyDepreciationForWindow, fyLabel } from "../src/calc/property.js";
+
+test("a quantity surveyor's schedule is taken verbatim for the years it lists", function(){
+  // The real report: 1993 building $2,560 + 2023 renovation $819 = $3,379 a year, first year $1,398.
+  var p = { purchaseDate: "2025-01-31", plantSecondHand: true, depreciationSchedule: [
+    { fy: 2024, capitalWorks: 1398, plant: 0 }, { fy: 2025, capitalWorks: 3379, plant: 0 }, { fy: 2033, capitalWorks: 859, plant: 0 }
+  ] };
+  assert.deepEqual(propertyDepreciationForFy(p, 2024), { capitalWorks: 1398, plant: 0, source: "schedule" });
+  assert.equal(propertyDepreciationForWindow(p, { start: "2025-07-01", end: "2026-06-30" }).total, 3379);
+  assert.equal(propertyDepreciationForFy(p, 2033).capitalWorks, 859);
+});
+
+test("schedule plant is still zeroed when the plant was second-hand", function(){
+  var p = { plantSecondHand: true, depreciationSchedule: [{ fy: 2025, capitalWorks: 3000, plant: 1200 }] };
+  assert.equal(propertyDepreciationForFy(p, 2025).plant, 0);
+});
+
+test("without a schedule, the first year runs from the purchase date", function(){
+  // $135,232 of construction at 2.5% = $3,380.80 a year; bought 31 Jan 2025 = 151 of 365 days.
+  var p = { purchaseDate: "2025-01-31", constructionCost: 135232, constructionDate: "1993-06-01" };
+  assert.equal(propertyDepreciationForFy(p, 2024).capitalWorks, Math.round(3380.8 * 151 / 365 * 100) / 100);
+  assert.equal(propertyDepreciationForFy(p, 2025).capitalWorks, 3380.8);
+  assert.equal(propertyDepreciationForFy(p, 2023).capitalWorks, 0, "before it was bought");
+});
+
+test("the capital works year that crosses the 40th anniversary is pro-rated", function(){
+  // Completed 1 June 1993: the last claimable day is 31 May 2033. FY31/32 is whole, FY32/33 claims
+  // 1 Jul 2032 - 31 May 2033 (335 of 365 days), and FY33/34 claims nothing.
+  var p = { constructionCost: 100000, constructionDate: "1993-06-01" };
+  assert.equal(propertyDepreciationForFy(p, 2031).capitalWorks, 2500);
+  assert.equal(propertyDepreciationForFy(p, 2032).capitalWorks, Math.round(2500 * 335 / 365 * 100) / 100);
+  assert.equal(propertyDepreciationForFy(p, 2033).capitalWorks, 0);
+});
+
+test("a calendar-year window takes half of each financial year it straddles", function(){
+  var p = { depreciationSchedule: [{ fy: 2024, capitalWorks: 3650, plant: 0 }, { fy: 2025, capitalWorks: 7300, plant: 0 }] };
+  var cal = propertyDepreciationForWindow(p, { start: "2025-01-01", end: "2025-12-31" });
+  // 181 days of FY24/25 (Jan-Jun 2025) + 184 of FY25/26 (Jul-Dec 2025).
+  assert.equal(cal.capitalWorks, Math.round((3650 * 181 / 365 + 7300 * 184 / 365) * 100) / 100);
+  assert.equal(fyLabel(2025), "FY25/26");
+});

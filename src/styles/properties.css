@@ -205,6 +205,13 @@
   .m-cost-row input.cc-what:hover, .m-cost-row input.cc-what:focus, .m-cost-row input.cc-amount:hover, .m-cost-row input.cc-amount:focus{ border-color: var(--border); background: var(--paper-sunken); }
   .m-cost-row input.cc-what:focus, .m-cost-row input.cc-amount:focus{ border-color: var(--brass); outline:none; background: var(--paper); box-shadow: var(--focus-ring); }
   .m-cost-row .row-del{ flex:none; }
+  /* Quantity surveyor's schedule rows (v3.19.0): a year select and two amounts. Same borderless-
+     until-focused inputs as the cost rows above, but two fixed amount columns rather than one, and
+     the year select takes the slack. 88px holds "$12,345" in the mono face at 13px. */
+  .dep-sched-row select.dep-sched-fy{ flex:1 1 auto; min-width:0; font-size:13px; font-family:inherit; color:var(--ink); background:transparent; border:1px solid transparent; border-radius:6px; padding:5px 2px; }
+  .dep-sched-row input{ flex:0 0 88px; min-width:0; border:1px solid transparent; background:transparent; color:var(--ink); text-align:right; font-size:13px; font-family:"IBM Plex Mono", monospace; padding:5px 6px; border-radius:6px; }
+  .dep-sched-row input:hover, .dep-sched-row select:hover{ border-color: var(--border); background: var(--paper-sunken); }
+  .dep-sched-row input:focus, .dep-sched-row select:focus{ border-color: var(--brass); outline:none; background: var(--paper); box-shadow: var(--focus-ring); }
 
   /* At mobile widths, cramming the dot + name input + amount input + delete button onto one
      flex row left the name illegibly clipped (confirmed via screenshot — every default cost

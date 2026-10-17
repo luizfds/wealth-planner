@@ -14,6 +14,7 @@ import {
 import { periodsOf, sumField, sumFieldForScenario, resolveSharedAmount, appendHistorySnapshot, transactionDisplayName } from "./calc/ledger.js";
 import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider, saleCapitalGain } from "./calc/tax.js";
 import { recalcComputedItems, scenarioTotals, totalNetWorthValue, totalDebtsValue } from "./calc/engine.js";
+import { financialYearOf, fyLabel } from "./calc/property.js";
 import { renderCards, renderDashboardStats, renderDetail, setProjectionReference, logNetWorthSnapshot } from "./components/dashboard.js";
 import {
   personBreakdownHtml, renderIncomeGroups, patchOpenRowBreakdowns, patchIncomeGroupTotals,
@@ -1386,6 +1387,19 @@ import {
     sectionToggleBtn.click();
   });
 
+  // Depreciation changes the property's taxable result, which changes each owner's taxable income,
+  // their synthetic net-income row, and every total derived from it — and the depreciation
+  // section prints a live summary, hence the full property re-render.
+  function refreshAfterDepreciationChange(){
+    recalcComputedItems();
+    renderProperties();
+    renderTaxSuper();
+    patchSyntheticIncomeRows();
+    patchIncomeGroupTotals();
+    renderCards(); renderDetail(); renderTotals();
+    renderProjectionOutputs();
+    persist();
+  }
   document.getElementById("propertiesBody").addEventListener("input", function(e){
     var card = e.target.closest("[data-property-id]");
     if(!card) return;
@@ -1495,6 +1509,18 @@ import {
       persist();
       return;
     }
+    // Quantity surveyor's schedule rows — same full re-render as the depreciation fields below, for
+    // the same reason: the section total and every owner's tax figures move with them.
+    if(e.target.hasAttribute("data-dep-sched-index")){
+      var schedRow = property.depreciationSchedule[Number(e.target.getAttribute("data-dep-sched-index"))];
+      if(!schedRow) return;
+      if(e.target.classList.contains("dep-sched-fy")) schedRow.fy = Number(e.target.value);
+      else if(e.target.classList.contains("dep-sched-cw")) schedRow.capitalWorks = Math.max(0, parseFloat(e.target.value) || 0);
+      else if(e.target.classList.contains("dep-sched-plant")) schedRow.plant = Math.max(0, parseFloat(e.target.value) || 0);
+      else return;
+      refreshAfterDepreciationChange();
+      return;
+    }
     // Depreciation. Full re-render for the same reason prop-purchase-price uses one: the section
     // prints a live "capital works + plant = $X/yr" summary and a section total in its header, and
     // both have to move together with the tax figures below.
@@ -1506,16 +1532,7 @@ import {
       else if(e.target.classList.contains("prop-construction-date")) property.constructionDate = e.target.value;
       else if(e.target.classList.contains("prop-plant-value")) property.plantValue = Math.max(0, parseFloat(e.target.value) || 0);
       else property.plantEffectiveLife = Math.max(1, parseFloat(e.target.value) || 10);
-      recalcComputedItems();
-      renderProperties();
-      // Depreciation changes the property's taxable result, which changes each owner's taxable
-      // income, their synthetic net-income row, and every total derived from it.
-      renderTaxSuper();
-      patchSyntheticIncomeRows();
-      patchIncomeGroupTotals();
-      renderCards(); renderDetail(); renderTotals();
-      renderProjectionOutputs();
-      persist();
+      refreshAfterDepreciationChange();
       return;
     }
     if(e.target.classList.contains("prop-land-value") || e.target.classList.contains("prop-state")){
@@ -1617,6 +1634,35 @@ import {
           renderProperties();
           renderProjectionOutputs();
           persist();
+        });
+      }
+      return;
+    }
+    var addSchedBtn = e.target.closest("[data-dep-sched-add]");
+    if(addSchedBtn){
+      var schedProperty = findProperty(addSchedBtn.getAttribute("data-dep-sched-add"));
+      if(schedProperty){
+        var sched = schedProperty.depreciationSchedule;
+        // The year after the last one listed, which is how a report is read off top to bottom;
+        // the first row defaults to the year the property was bought.
+        var nextFy = sched.length ? Math.max.apply(null, sched.map(function(r){ return Number(r.fy) || 0; })) + 1
+          : financialYearOf(schedProperty.purchaseDate || localDateStr());
+        sched.push({ fy: nextFy, capitalWorks: 0, plant: 0 });
+        refreshAfterDepreciationChange();
+      }
+      return;
+    }
+    var delSchedBtn = e.target.closest("[data-dep-sched-del]");
+    if(delSchedBtn){
+      var schedCard = e.target.closest("[data-property-id]");
+      var schedProperty2 = schedCard ? findProperty(schedCard.getAttribute("data-property-id")) : null;
+      if(schedProperty2){
+        var si = Number(delSchedBtn.getAttribute("data-dep-sched-del"));
+        var removedRow = schedProperty2.depreciationSchedule.splice(si, 1)[0];
+        refreshAfterDepreciationChange();
+        showUndoToast("Deleted " + fyLabel(Number(removedRow.fy)) + " from the schedule", function(){
+          schedProperty2.depreciationSchedule.splice(Math.min(si, schedProperty2.depreciationSchedule.length), 0, removedRow);
+          refreshAfterDepreciationChange();
         });
       }
       return;

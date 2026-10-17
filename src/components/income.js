@@ -622,6 +622,7 @@ function taxPersonFrontBodyHtml(person, r){
         '<div class="tax-inputs">' +
           '<div class="proj-field"><label title="What you still owe on HELP/HECS (or any other study loan with the same repayment schedule). Leave at 0 if you have none. The compulsory repayment is worked out from this and withheld from take-home.">HELP/HECS owing $</label><input type="number" min="0" step="500" class="tax-help" aria-label="HELP/HECS owing for ' + pid + '" value="' + settings.helpBalance + '"></div>' +
           wfhHoursFieldHtml(pid, settings) +
+          '<div class="proj-field"><label title="Used for the private health rebate, which is higher once the oldest person on the policy is 65 or 70. Nothing else uses it.">Date of birth</label><input type="date" class="tax-dob" aria-label="Date of birth for ' + pid + '" value="' + escapeAttr(settings.dateOfBirth || "") + '"></div>' +
           '<div class="proj-field"><label title="Net capital losses from earlier years, as shown on your last notice of assessment. They come off this year\'s capital gains before the 50% discount; whatever isn\'t used carries on to next year.">Capital losses b/f $</label><input type="number" min="0" step="100" class="tax-cgt-losses" aria-label="Capital losses carried forward for ' + pid + '" value="' + (Number(settings.capitalLossCarriedForward) || 0) + '"></div>' +
           '<div class="proj-field"><label title="Separate from the Cash / Sacrifice column on income rows above — use this for sacrifice not tied to a specific item">Manual sacrifice $/yr</label><input type="number" min="0" step="500" class="tax-sacrifice" aria-label="Manual super sacrifice per year for ' + pid + '" value="' + settings.superSacrificeAnnual + '"><button type="button" class="calc-hint-link" style="margin-top:4px" data-tax-maxcap="' + pid + '" title="Fills your remaining concessional cap headroom this year with manual sacrifice (SG and any auto/bonus sacrifice already counted): sets manual sacrifice to ' + fmtCurrency0.format(Math.max(0, r.capAvailable - r.sg - r.autoSacrifice)) + '">Max out cap</button></div>' +
         '</div>' +
@@ -753,6 +754,12 @@ function phiNoteText(){
   if(!a) return "Enter what your hospital and extras cover costs a year (before the rebate) to see whether your insurer is applying the right rebate tier.";
   var names = ["the base tier", "Tier 1", "Tier 2", "Tier 3"];
   var claimed = a.claimedTier < 0 ? "no rebate up front" : names[a.claimedTier];
+  var ageNote = a.ageKnown
+    ? (a.ageBand === "u65" ? "" : " Rates for the oldest person being " + (a.ageBand === "a70" ? "70 or over" : "65-69") + ".")
+    : " Assumes everyone on the policy is under 65 — add dates of birth (Adjust, on each card) if not.";
+  return phiNoteCore(a, names, claimed) + ageNote;
+}
+function phiNoteCore(a, names, claimed){
   if(Math.abs(a.adjustment) < 1) return "Private health rebate: your " + (a.family ? "combined " : "") + "income of " + fmtCurrency0.format(a.income) + " is " + names[a.actualTier] + ", which is what your insurer applies — nothing to adjust at tax time.";
   return "Private health rebate: your " + (a.family ? "combined " : "") + "income of " + fmtCurrency0.format(a.income) + " is " + names[a.actualTier] +
     " (" + fmtCurrency0.format(a.entitled) + " rebate) but your insurer applies " + claimed + " (" + fmtCurrency0.format(a.received) + "). " +

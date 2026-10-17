@@ -979,3 +979,26 @@ test("the private health rebate clawback: Tier 1 claimed, Tier 2 family income â
   });
   assert.ok(Math.abs(phiRebateRate(1, 2025) - (0.75 * 0.16192 + 0.25 * 0.16079)) < 1e-12);
 });
+
+// ---------------- Age-based private health rebate (v3.30.0) ----------------
+
+import { phiAgeBand, ageOnDate } from "../src/calc/tax.js";
+
+test("the rebate follows the oldest person's age at 1 July", function(){
+  assert.equal(ageOnDate("1960-07-02", "2025-07-01"), 64);
+  assert.equal(ageOnDate("1960-07-01", "2025-07-01"), 65);
+  withIncome([grossRow("A", 90000), grossRow("B", 40000)], function(){
+    assert.deepEqual(phiAgeBand(2025), { band: "u65", oldestAge: null, known: false });
+    state.tax.settings.A = { dateOfBirth: "1990-02-19" };
+    state.tax.settings.B = { dateOfBirth: "1958-03-01" };
+    assert.equal(phiAgeBand(2025).band, "a65");   // 67 on 1 July 2025
+    assert.equal(phiAgeBand(2028).band, "a70");   // 70 on 1 July 2028
+  });
+});
+
+test("65-69 rates are higher than under-65 at every tier but the top", function(){
+  // FY25/26, Tier 1: under 65 = 0.75 x 16.192% + 0.25 x 16.079%; 65-69 = 0.75 x 20.240% + 0.25 x 20.098%.
+  assert.ok(Math.abs(phiRebateRate(1, 2025, "a65") - (0.75 * 0.20240 + 0.25 * 0.20098)) < 1e-12);
+  assert.ok(phiRebateRate(1, 2025, "a65") > phiRebateRate(1, 2025, "u65"));
+  assert.equal(phiRebateRate(3, 2025, "a70"), 0);
+});

@@ -572,9 +572,31 @@ export function mlsNextTier(surchargeIncome, family, fy){
 //
 // Modelled at household level: annual premiums the rebate applies to, and the tier claimed with
 // the insurer (-1 = no rebate taken up front). Under-65 rates only — the app has no ages.
-export function phiRebateRate(tierIndex, fy){
+// ageBand: "u65" (default), "a65" (65-69) or "a70" (70 and over) — the oldest person covered.
+export function phiRebateRate(tierIndex, fy, ageBand){
   if(tierIndex < 0) return 0;
-  return taxTablesFor(fy).phi.periods.reduce(function(sum, p){ return sum + p.share * p.rates[tierIndex] / 100; }, 0);
+  var band = ageBand || "u65";
+  return taxTablesFor(fy).phi.periods.reduce(function(sum, p){ return sum + p.share * p.rates[band][tierIndex] / 100; }, 0);
+}
+// The age band of the oldest person with a date of birth, as at 1 July of the year (v3.30.0). The
+// rebate is set by the oldest person covered; the app takes everyone with a tax card to be on the
+// policy, and with no dates of birth assumes under 65 — and says so.
+export function ageOnDate(dob, onIso){
+  if(!dob) return null;
+  var b = String(dob).split("-").map(Number), o = String(onIso).split("-").map(Number);
+  var age = o[0] - b[0];
+  if(o[1] < b[1] || (o[1] === b[1] && o[2] < b[2])) age--;
+  return age;
+}
+export function phiAgeBand(fy){
+  var y = fy == null ? currentTaxFy() : fy;
+  var oldest = null;
+  getTaxPeople().forEach(function(person){
+    var st = state.tax && state.tax.settings && state.tax.settings[person];
+    var age = ageOnDate(st && st.dateOfBirth, y + "-07-01");
+    if(age != null && (oldest == null || age > oldest)) oldest = age;
+  });
+  return { band: oldest == null ? "u65" : oldest >= 70 ? "a70" : oldest >= 65 ? "a65" : "u65", oldestAge: oldest, known: oldest != null };
 }
 export function phiRebateAdjustment(opts){
   opts = opts || {};
@@ -585,14 +607,15 @@ export function phiRebateAdjustment(opts){
   var income = householdSurchargeIncome(opts);
   var actualTier = mlsTierIndex(income, family, fy);
   var claimed = state.tax.phiTierClaimed == null ? 0 : Number(state.tax.phiTierClaimed);
-  var entitled = Math.round(premiums * phiRebateRate(actualTier, fy) * 100) / 100;
-  var received = Math.round(premiums * phiRebateRate(claimed, fy) * 100) / 100;
+  var age = phiAgeBand(fy);
+  var entitled = Math.round(premiums * phiRebateRate(actualTier, fy, age.band) * 100) / 100;
+  var received = Math.round(premiums * phiRebateRate(claimed, fy, age.band) * 100) / 100;
   return {
     premiums: premiums, actualTier: actualTier, claimedTier: claimed,
     entitled: entitled, received: received,
     // Positive = owed back at tax time (claimed too low a tier); negative = paid to you.
     adjustment: Math.round((received - entitled) * 100) / 100,
-    income: income, family: family
+    income: income, family: family, ageBand: age.band, ageKnown: age.known
   };
 }
 

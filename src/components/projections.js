@@ -4,6 +4,32 @@ import { fmtCurrency0 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { renderLineChart } from "../lib/charts.js";
 import { firstYearAtLeast, debtFreeYear, leadChanges, milestoneAmounts } from "../calc/milestones.js";
+import { actualRatios, MIN_MONTHS } from "../calc/actuals.js";
+import { fmtPercent1 } from "../lib/format.js";
+
+// Plan or actuals (v3.52.0): the control and the sentence that says what "actuals" means right now.
+export function projSourceHtml(a, source){
+  var useActuals = source === "actuals" && a.available;
+  var btn = function(v, label, title, disabled){
+    var on = (v === "actuals") === useActuals;
+    return '<button type="button" class="seg-option' + (on ? " active" : "") + '" data-proj-source="' + v + '" aria-pressed="' + on + '"' + (disabled ? ' disabled' : '') + ' title="' + escapeAttr(title) + '">' + label + '</button>';
+  };
+  var note;
+  if(!a.available){
+    note = "Actuals need " + MIN_MONTHS + " months of income received and spending logged" + (a.months ? " — " + a.months + " so far" : "") + ".";
+  } else {
+    var diff = a.incomeDeltaMonthly != null ? (a.incomeDeltaMonthly - a.spendDeltaMonthly)
+      : (a.incomeReceivedMonthly - a.spendLoggedMonthly) - (a.incomePlannedMonthly - a.spendPlannedMonthly);
+    note = "Over the last " + a.months + " months: income at " + fmtPercent1.format(a.incomeRatio) + " of plan (" + a.incomeLines + " line" + (a.incomeLines === 1 ? "" : "s") + "), spending at " +
+      fmtPercent1.format(a.spendRatio) + " (" + a.spendLines + " line" + (a.spendLines === 1 ? "" : "s") + " plus one-offs)." +
+      " That's " + (diff >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(diff)) + " a month " + (diff >= 0 ? "better" : "worse") + " than the plan on those lines." +
+      (useActuals ? " Only those lines move below; everything not logged stays as planned." : "");
+  }
+  return '<div class="seg-control" role="group" aria-label="Based on">' +
+      btn("plan", "Plan", "Every figure as planned on the Income and Expenses pages.") +
+      btn("actuals", "Actuals", "The plan, corrected by what's really been received and spent lately on the lines that have any logged.", !a.available) +
+    '</div><span class="proj-basis-note">' + escapeAttr(note) + '</span>';
+}
 
 // Kept for the CSV button, which downloads exactly what's on screen.
 var lastSeries = [];
@@ -23,6 +49,8 @@ export function renderProjectionOutputs(){
   });
 
   lastSeries = series;
+  var srcRow = document.getElementById("projSourceRow");
+  if(srcRow) srcRow.innerHTML = projSourceHtml(actualRatios(), state.projection.source);
   var headlineEl = document.getElementById("projHeadline");
   if(headlineEl){
     var finals = series.map(function(s){

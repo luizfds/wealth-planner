@@ -2088,8 +2088,9 @@ One PR for the set — they share the new Tax page and the links between them.
 ## 77. `[x]` Tax gets its own page — shipped v3.43.0
 Income keeps the income rows; a Tax page has This year (the estimate, super, sacrifice, top-up),
 Returns (the worksheet) and Documents (checklist, Import a year), at `/tax/<year|returns|documents>`.
-Opens on Returns 1 July–31 October, This year otherwise (`defaultTaxSub()`). Phone: under More,
-swapped into the tab bar in place of Assets during lodgement season (`syncMobileTaxSeason()`).
+Opens on Returns 1 July–31 October, This year otherwise (`defaultTaxSub()`). Phone: under More.
+(The seasonal swap into the tab bar in place of Assets was taken back out in v3.54.2 — Assets is
+opened far more often than Tax, even in lodgement season.)
 
 ## 78. `[x]` People, in one place — shipped v3.44.0
 Accounts → People: name, date of birth (age), HELP, concessional cap, carry-forward, capital losses
@@ -2137,6 +2138,40 @@ the rental schedule, not as budget lines (`householdBudgetLines()`).
 ## 85. `[x]` Data health — shipped v3.48.0
 `calc/health.js` `dataHealthChecks()` → Accounts → Checks, worst first, each with a way there; one
 bell notification while anything needs fixing.
+
+## Keeping itself up to date (October 2026)
+
+"Do all of them" after PR #87. One PR: each builds on the Received/Checks/Close-the-year work.
+
+## 86. `[x]` A monthly review — shipped v3.54.0
+Dashboard → Review (`calc/monthreview.js`): money in (Log into that month), card statements closed
+in the month against the typed statement total, Checks, and the month against the plan (reserve
+lines kept out and reported separately). `state.monthReviews[ym]`; a bell notification days 1–10
+until last month is marked reviewed.
+
+## 87. `[x]` Bank import learns income — shipped v3.49.0
+Rules carry `incomeTarget`; credits only take income rules, debits only spending rules
+(`suggestFor(…, direction)`); a learned group shows "learned · money in".
+
+## 88. `[x]` Projections from actuals — shipped v3.52.0
+Plan / Actuals on Projections (`state.projection.source`). `calc/actuals.js`: the plan plus the
+monthly differences measured on regular lines with evidence, each from its first logged month;
+lumpy lines left out; three months of each needed. The FI date uses the same corrections.
+
+## 89. `[x]` Before 30 June — shipped v3.51.0
+Tax → This year (`calc/junemoves.js`): super room, losses against this year's gains (re-run with
+the loss as a prior loss), prepaying deductible lines and investment-loan interest; real savings
+before timing ones; open by itself in May–June.
+
+## 90. `[x]` Mid-year withholding check — shipped v3.50.0
+Payslip date, gross and withheld so far on each tax card (`tax.settings[p].ytd`,
+`calc/withholding.js`): the rest of the year at the average rate so far, against the year's tax and
+HELP.
+
+## 91. `[x]` Interest rate changes on property loans — shipped v3.53.0
+`loan.rateHistory` [{date, rate}] via Record change; `loanRateOn()`, `loanInterestForWindow()` (the
+rental schedule's interest model runs across the rates that applied); history and the last change's
+effect on the loan; one notification per change in the last 60 days.
 
 ---
 

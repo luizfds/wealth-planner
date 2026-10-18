@@ -15,11 +15,13 @@ import {
 import { periodsOf, sumField, sumFieldForScenario, resolveSharedAmount, appendHistorySnapshot, transactionDisplayName } from "./calc/ledger.js";
 import { phiPremiumsAnnual, effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider, saleCapitalGain, lotsUnitsAvailable } from "./calc/tax.js";
 import { recalcComputedItems, scenarioTotals, totalNetWorthValue, totalDebtsValue } from "./calc/engine.js";
-import { financialYearOf, fyLabel } from "./calc/property.js";
+import { financialYearOf, fyLabel, recordRateChange, sortedRateHistory, loanRateOn } from "./calc/property.js";
 import { taxYearFillStatements, renderTaxYear, setTaxYearSelected, taxYearAddRow, taxYearDeleteRow, taxYearRestoreRow, taxYearSetField, taxYearToggleEvidence, taxYearMarkLodged, worksheetText, taxYearSelected, taxYearPrintHtml, lodgedSnapshot } from "./components/taxyear.js";
 import { renderPeople, setPersonField, peopleSummaryText } from "./components/people.js";
 import { renamePersonEverywhere, removePersonFromTax } from "./calc/people.js";
 import { renderHealth } from "./components/health.js";
+import { renderMonthReview, stepReviewMonth, reviewMonthShown, setReviewMonth } from "./components/monthreview.js";
+import { markReviewed, setStatementAmount, monthLabel, monthBounds } from "./calc/monthreview.js";
 import { logIncomeReceived, deleteIncomeReceived } from "./calc/received.js";
 import { renderReceived, toggleReceivedRow, receivedSheet, openReceivedSheet, closeReceivedSheet, setReceivedTarget, receivedSheetHtml } from "./components/received.js";
 import { applyRentalComparison, applyBudgetComparison, householdBudgetLines } from "./calc/closeyear.js";
@@ -27,7 +29,7 @@ import { setUseBudgetLines, setLineExcluded, RENT_EXPENSE_LINES, rentLineFor, se
 import { renderCards, renderDashboardStats, renderDetail, setProjectionReference, logNetWorthSnapshot } from "./components/dashboard.js";
 import {
   personBreakdownHtml, renderIncomeGroups, patchOpenRowBreakdowns, patchIncomeGroupTotals,
-  patchSyntheticIncomeRows, patchIncomeSuperNotes, renderTaxSuper, flipTaxCard, patchAllTaxPersonOutputs, patchPhiNote,
+  patchSyntheticIncomeRows, patchIncomeSuperNotes, renderTaxSuper, withholdingCheckText, flipTaxCard, patchAllTaxPersonOutputs, patchPhiNote,
   modernIncomeRowOpen, parseIncomeImportCsv, renderIncomeImportPreview, clearIncomeImportPreview, commitIncomeImport
 } from "./components/income.js";
 import {
@@ -67,7 +69,7 @@ import {
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
   patchCalcOutputs, afterCalcChange, patchInvestOutputs
 } from "./components/scenarios.js";
-import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, taxSubpage, syncMobileTaxSeason, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
+import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, taxSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
 import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./components/search.js";
 import {
   startBankImport, reparseBankImportWith, clearBankImport,
@@ -897,6 +899,14 @@ import {
     renderProjectionOutputs();
     persist();
   });
+  document.getElementById("projSourceRow").addEventListener("click", function(e){
+    var btn = e.target.closest("[data-proj-source]");
+    if(!btn || btn.disabled) return;
+    state.projection.source = btn.getAttribute("data-proj-source") === "actuals" ? "actuals" : "plan";
+    renderProjectionOutputs();
+    renderDetail();
+    persist();
+  });
   document.getElementById("projRateShock").addEventListener("input", function(e){
     state.projection.rateShockPct = Math.max(0, parseFloat(e.target.value) || 0);
     renderProjectionOutputs();
@@ -1074,6 +1084,15 @@ import {
       else if(t.classList.contains("tax-help")) settings.helpBalance = Math.max(0, parseFloat(t.value) || 0);
       else if(t.classList.contains("tax-cgt-losses")) settings.capitalLossCarriedForward = Math.max(0, parseFloat(t.value) || 0);
       else if(t.classList.contains("tax-topup-amt")) settings.topUpAmount = Math.max(0, parseFloat(t.value) || 0);
+      else if(t.classList.contains("tax-ytd-asof") || t.classList.contains("tax-ytd-gross") || t.classList.contains("tax-ytd-withheld")){
+        if(!settings.ytd || typeof settings.ytd !== "object") settings.ytd = {};
+        if(t.classList.contains("tax-ytd-asof")) settings.ytd.asOf = t.value || "";
+        else settings.ytd[t.classList.contains("tax-ytd-gross") ? "gross" : "withheld"] = Math.max(0, parseFloat(t.value) || 0);
+        var ytdOut = panel.querySelector(".tax-ytd-out");
+        if(ytdOut) ytdOut.innerHTML = withholdingCheckText(person);
+        persist();
+        return;
+      }
       else if(t.classList.contains("tax-dob")){ settings.dateOfBirth = t.value || ""; patchPhiNote(); }
       else if(t.classList.contains("tax-wfh-hours")){
         if(!settings.wfhHours) settings.wfhHours = {};
@@ -1943,6 +1962,33 @@ import {
       }
       return;
     }
+    // Rate changes (v3.53.0): recorded with their date; a past year's interest follows them.
+    var rateRec = e.target.closest("[data-rate-record]"), rateDel = e.target.closest("[data-rate-del]");
+    if(rateRec || rateDel){
+      var rCard = e.target.closest("[data-property-id]"), rRow = e.target.closest("[data-loan-index]");
+      var rProp = rCard && findProperty(rCard.getAttribute("data-property-id"));
+      var rLoan = rProp && rRow && rProp.loans[Number(rRow.getAttribute("data-loan-index"))];
+      if(!rLoan) return;
+      if(rateRec){
+        var newRate = parseFloat(rRow.querySelector(".loan-rate-new").value);
+        var onDate = rRow.querySelector(".loan-rate-date").value;
+        if(!(newRate > 0) || !onDate){ showToast("Type the new rate and the date it applies from"); return; }
+        recordRateChange(rLoan, onDate, newRate, localDateStr());
+      } else {
+        var hist = sortedRateHistory(rLoan);
+        hist.splice(Number(rateDel.getAttribute("data-rate-del")), 1);
+        rLoan.rateHistory = hist;
+        if(hist.length) rLoan.rate = loanRateOn(rLoan, localDateStr());
+      }
+      recalcComputedItems();
+      renderProperties();
+      renderTaxSuper();
+      patchSyntheticIncomeRows();
+      renderProjectionOutputs();
+      renderNotifBadge();
+      persist();
+      return;
+    }
     var delLoanBtn = e.target.closest("[data-loan-del]");
     if(delLoanBtn){
       var loanCard = e.target.closest("[data-property-id]");
@@ -2769,14 +2815,15 @@ import {
     var root = document.getElementById("receivedRoot");
     if(root) root.innerHTML = "";
   }
-  function openReceivedSheetFor(target){
-    openReceivedSheet(target);
+  function openReceivedSheetFor(target, date){
+    openReceivedSheet(target, date);
     renderReceivedSheet();
     pushActiveOverlay(closeReceivedSheetDom);
   }
   // A logged distribution is a holding's payout too, which moves its return and the year's tax.
   function afterReceivedChange(){
     renderReceived();
+    renderMonthReview();
     renderAssets();
     renderTaxSuper();
     persist();
@@ -3841,6 +3888,41 @@ import {
     if(!btn) return;
     showDashboardSubpage(btn.getAttribute("data-dashboard-sub"));
     if(btn.getAttribute("data-dashboard-sub") === "benchmarks") renderBenchmarks();
+    if(btn.getAttribute("data-dashboard-sub") === "review") renderMonthReview();
+  });
+  // Dashboard → Review (v3.54.0): every control in the four parts.
+  var monthReviewBody = document.getElementById("monthReviewBody");
+  monthReviewBody.addEventListener("click", function(e){
+    var step = e.target.closest("[data-mr-step]");
+    if(step && !step.disabled){ stepReviewMonth(Number(step.getAttribute("data-mr-step"))); renderMonthReview(); return; }
+    var log = e.target.closest("[data-mr-log]");
+    // Logged into the month under review: its last day, or today if that's still to come.
+    if(log){ var mEnd = monthBounds(reviewMonthShown()).end; openReceivedSheetFor(log.getAttribute("data-mr-log"), mEnd < localDateStr() ? mEnd : localDateStr()); return; }
+    var go = e.target.closest("[data-mr-go]");
+    if(go){
+      var where = go.getAttribute("data-mr-go");
+      if(where === "checks"){ showPage("accounts"); showAccountsSubpage("checks"); renderHealth(); }
+      else { showPage("expenses"); showExpensesSubpage("spending", { replace: true }); var card = document.getElementById("bankImportCard"); if(card){ card.open = true; setTimeout(function(){ card.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); } }
+      return;
+    }
+    var done = e.target.closest("[data-mr-done]");
+    if(done){
+      var ym = done.getAttribute("data-mr-done");
+      var was = !!(state.monthReviews[ym] && state.monthReviews[ym].done);
+      setReviewMonth(ym);
+      markReviewed(ym, !was, localDateStr());
+      persist();
+      renderMonthReview();
+      renderNotifBadge();
+      if(!was) showToast(monthLabel(ym) + " reviewed");
+    }
+  });
+  monthReviewBody.addEventListener("change", function(e){
+    var acct = e.target.getAttribute("data-mr-statement");
+    if(acct == null) return;
+    setStatementAmount(reviewMonthShown(), acct, e.target.value);
+    persist();
+    renderMonthReview();
   });
 
   // Swipe between Assets' Cash/Shares/Super/Vehicle/Other tabs on mobile — desktop already has
@@ -4016,6 +4098,7 @@ import {
     renderPeopleTab();
     renderReceived();
     renderHealth();
+    renderMonthReview();
     renderNotifBadge();
   }
 
@@ -4159,7 +4242,6 @@ import {
   showExpensesSubpage(initialExpensesSub, { skipUrl: initialPage !== "expenses", replace: true });
   // Same seeding for Tax, whose default tab depends on the time of year (nav.js defaultTaxSub).
   showTaxSubpage(initialTaxSub || taxSubpage(), { skipUrl: initialPage !== "tax", replace: true });
-  syncMobileTaxSeason();
 
   // onboarding.html's "Try it with sample data" link lands here with ?mock=1 — generate it
   // immediately (no confirm needed, unlike the header's own Sample data button: there's nothing
@@ -4275,6 +4357,7 @@ document.getElementById("notifPanelRoot").addEventListener("click", function(e){
     closeNotifPanel();
     showPage(item.getAttribute("data-notif-page"));
     var notifSub = item.getAttribute("data-notif-sub");
+    if(notifSub && item.getAttribute("data-notif-page") === "dashboard"){ showDashboardSubpage(notifSub); if(notifSub === "review") renderMonthReview(); }
     if(notifSub && item.getAttribute("data-notif-page") === "accounts"){ showAccountsSubpage(notifSub); if(notifSub === "checks") renderHealth(); }
   }
 });

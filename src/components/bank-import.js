@@ -96,7 +96,14 @@ function rebuildBankImport(parsed, fileName, rawRows, includePossibleDuplicates)
     // between your own accounts, and importing salary as negative spending would wreck every
     // figure on the page. Assigning one to a budget line is the user saying "this is a refund".
     creditGroups: groupRows(suggested.filter(function(r){ return r.direction === "credit" && !r.duplicate && !r.possibleDuplicate; }))
-      .map(function(g){ return Object.assign(g, { choice: { linkedExpenseId: null, category: "", account: "" }, source: null, isCredit: true }); }),
+      .map(function(g){
+        // A learned income rule (v3.49.0) places the group, if what it points at still exists;
+        // anything else starts unassigned, as before.
+        var learned = g.rows[0] && g.rows[0].suggestion && g.rows[0].suggestion.incomeTarget;
+        var live = learned && incomeTargets().some(function(t){ return t.key === learned; });
+        return Object.assign(g, { choice: { linkedExpenseId: null, category: "", account: live ? (g.rows[0].suggestion.account || "") : "", incomeTarget: live ? learned : null },
+          source: live ? "rule" : null, isCredit: true });
+      }),
     credits: suggested.filter(function(r){ return r.direction === "credit" && !r.duplicate && !r.possibleDuplicate; })
   };
   return bankImport;
@@ -353,7 +360,8 @@ function groupRowHtml(g){
   var badge = g.source === "rule"
     ? '<span class="bank-import-badge is-rule" title="From a rule you taught this app on an earlier import">learned</span>'
     : (g.source === "name" ? '<span class="bank-import-badge" title="Matched to a budget line by name — worth a glance">guessed</span>' : "");
-  if(g.isCredit) badge = '<span class="bank-import-badge is-credit" title="Money in. Assign it to an income line to log it as received, or to a budget line to import it as a refund against that line.">money in</span>';
+  if(g.isCredit && g.source === "rule") badge = '<span class="bank-import-badge is-rule" title="Matched to an income line by a rule you taught this app on an earlier import">learned · money in</span>';
+  else if(g.isCredit) badge = '<span class="bank-import-badge is-credit" title="Money in. Assign it to an income line to log it as received, or to a budget line to import it as a refund against that line.">money in</span>';
   var countLabel = g.rows.length === 1 ? "1 transaction" : g.rows.length + " transactions";
   var placed = groupIsPlaced(g);
   return '<div class="m-row bank-import-group' + (placed ? "" : " is-unplaced") + '" data-bank-group="' + escapeAttr(g.key) + '">' +
@@ -523,6 +531,10 @@ export function commitBankImport(){
       var rec = logIncomeReceived({ target: g.choice.incomeTarget, amount: row.amount, date: row.date, what: row.description || "", account: g.choice.account || "" });
       if(rec) receivedIds.push(rec.id);
     });
+    // Next month's credit from the same payer is placed without asking (v3.49.0).
+    var before = state.importRules.length;
+    learnRule(state.importRules, g.label, { incomeTarget: g.choice.incomeTarget, account: g.choice.account || "" }, function(){ return genId("rule"); });
+    if(state.importRules.length > before) learned++;
   });
   var refundGroups = bankImport.creditGroups.filter(function(g){ return !g.choice.incomeTarget && (!!g.choice.linkedExpenseId || !!(g.choice.category || "").trim()); });
   refundGroups.forEach(function(g){ g.isRefund = true; });

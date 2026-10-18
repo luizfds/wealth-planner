@@ -276,3 +276,21 @@
 .hc-go{ white-space:nowrap; }
 .hc-clear{ font-size:13.5px; color:var(--ink-soft); margin:0; }
 @media (max-width:480px){ .hc-item{ grid-template-columns:10px minmax(0,1fr); } .hc-go{ grid-column:2; justify-self:start; } }
+
+/* Tax → This year: payslip check (v3.50.0) */
+.tax-ytd{ margin-top:12px; border-top:1px solid var(--border); padding-top:10px; }
+.tax-ytd > summary{ font-size:13px; font-weight:650; cursor:pointer; color:var(--ink); }
+.tax-ytd-out{ font-size:13px; line-height:1.5; color:var(--ink-soft); margin:4px 0 0; }
+.tax-ytd-out b{ color:var(--ink); }
+.tax-ytd-out b.up{ color:var(--good, #1a8a5a); } .tax-ytd-out b.down{ color:var(--bad, #c0392b); }
+
+/* Tax → This year → Before 30 June (v3.51.0) */
+.jm-lead{ font-size:13px; color:var(--ink-soft); margin:0 0 10px; }
+.jm-lead b{ color:var(--ink); }
+.jm-person{ margin-bottom:14px; }
+.jm-person h4{ font-size:14px; margin:0 0 6px; }
+.jm-person h4 small{ font-weight:500; color:var(--ink-soft); font-size:12px; margin-left:6px; }
+.jm-move{ border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin-bottom:6px; background:var(--paper); }
+.jm-head{ display:flex; gap:10px; align-items:baseline; justify-content:space-between; flex-wrap:wrap; font-size:13.5px; }
+.jm-saves{ font-size:12.5px; font-weight:650; color:var(--good, #1a8a5a); white-space:nowrap; }
+.jm-move p{ font-size:12.5px; color:var(--ink-soft); margin:4px 0 0; line-height:1.45; }

@@ -1,7 +1,7 @@
 import { state } from "../state.js";
 import { periodsOf } from "./ledger.js";
 import {
-  ipProperties, loanInterestMonthly, loanInterestMonthlyRaw, borrowingCostsDeduction, propertyDepreciationForFy, fyWindow
+  ipProperties, loanInterestMonthly, loanInterestMonthlyRaw, loanInterestForWindow, borrowingCostsDeduction, propertyDepreciationForFy, fyWindow
 } from "./property.js";
 import { propertyClaimLines, rowDeductionAnnual } from "./claims.js";
 
@@ -234,13 +234,12 @@ export function rentalSchedule(property, fy){
     model[rentLineFor(i)] += rowDeductionAnnual(i, win);
   });
   // v3.41.0: a loan paid out partway through the year only charged interest up to then.
+  // v3.53.0: across the rates that applied that year (loan.rateHistory), up to any payout date.
   model.interest = (property.loans || []).reduce(function(s, l){
-    var share = 1;
-    if(l.endedOn){
-      if(l.endedOn < win.start) share = 0;
-      else if(l.endedOn <= win.end) share = (Date.parse(l.endedOn) - Date.parse(win.start)) / (Date.parse(win.end) - Date.parse(win.start) + 86400000);
-    }
-    return s + loanInterestMonthlyRaw(l) * 12 * share;
+    if(l.endedOn && l.endedOn < win.start) return s;
+    // Interest stops the day it's paid out: charged up to the day before.
+    var end = l.endedOn && l.endedOn <= win.end ? new Date(Date.parse(l.endedOn) - 86400000).toISOString().slice(0, 10) : win.end;
+    return s + loanInterestForWindow(l, win.start, end);
   }, 0);
   model.borrowing = (property.loans || []).reduce(function(s, l){ return s + borrowingCostsDeduction(l, win); }, 0);
   var dep = propertyDepreciationForFy(property, fy);

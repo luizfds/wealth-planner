@@ -5,7 +5,7 @@ import {
   propertyCapitalGain, propertyYieldOnCost, propertyLVR, propertiesTotalValue, propertiesTotalEquityToday, propertiesOffsetTotal,
   propertiesTotalMortgageBalance, propertiesNetCashFlowMonthly, propertiesWeightedGrossYield,
   propertyOwnershipPct, propertyOwnershipTotal, propertyTaxDeductibleResultAnnual, loanBalance, loanPaidOut,
-  landTaxByState, totalLandTax, borrowingCostsSchedule, borrowingCostsDeduction
+  landTaxByState, totalLandTax, borrowingCostsSchedule, borrowingCostsDeduction, sortedRateHistory, calcRepaymentMonthly
 } from "../calc/property.js";
 import { getTaxPeople, computePersonTax } from "../calc/tax.js";
 import { saleScenario } from "../calc/sale.js";
@@ -144,7 +144,7 @@ function loanRowModernHtml(loan, li, propId, colorIdx){
     '<div class="m-edit-grid">' +
       '<div class="m-edit-field span3"><label>What</label><input type="text" class="loan-what" value="' + escapeAttr(loan.what) + '" aria-label="Loan name"></div>' +
       '<div class="m-edit-field"><label>Balance</label><input type="number" step="1000" min="0" class="loan-balance" value="' + (Number(loan.balance) || 0) + '" aria-label="Loan balance"></div>' +
-      '<div class="m-edit-field"><label>Rate %</label><input type="number" step="0.01" min="0" class="loan-rate" value="' + rateDisplay + '" aria-label="Interest rate percent"></div>' +
+      '<div class="m-edit-field"><label>Rate %</label><input type="number" step="0.01" min="0" class="loan-rate" value="' + rateDisplay + '" aria-label="Interest rate percent" title="The rate now. To keep a record of a change (so past years\' interest follows it), use Record change below."></div>' +
       '<div class="m-edit-field"><label>Term (yrs)</label><input type="number" step="1" min="0" class="loan-term" value="' + (Number(loan.termYears) || 0) + '" aria-label="Term years remaining"></div>' +
       '<div class="m-edit-field"><label>Type</label><select class="loan-type" aria-label="Repayment type">' + optionsHtml(["PI", "IO"], loan.repaymentType) + '</select></div>' +
       '<div class="m-edit-field"><label>Paid</label><select class="loan-repay-freq" aria-label="How often this loan is paid" title="For auto repayments this only changes how the amount is displayed (still calculated monthly) — for a manual repayment it\'s the frequency the amount you type in is actually paid at.">' + optionsHtml(PAYMENT_FREQS, disp.freq) + '</select></div>' +
@@ -157,6 +157,7 @@ function loanRowModernHtml(loan, li, propId, colorIdx){
       '<div class="m-edit-field"><label>Original term (yrs)</label><input type="number" step="1" min="0" class="loan-borrowing-term" value="' + (Number(loan.borrowingTermYears) || "") + '" placeholder="30" title="Only matters if the loan was for less than five years — borrowing costs are then spread over the term instead." aria-label="Original loan term in years"></div>' +
       '<div class="m-edit-field"><label>Paid out on</label><input type="date" class="loan-ended" value="' + escapeAttr(loan.endedOn || "") + '" title="If this loan was paid out or refinanced before its borrowing costs were fully deducted, the rest is deducted in that financial year." aria-label="Loan paid out or refinanced on"></div>' +
       '<div class="m-edit-field span3"><span class="computed-note" data-computed="borrow">' + borrowingNoteText(loan) + '</span></div>' +
+      rateHistoryHtml(loan) +
       (loan.repaymentMode === "manual"
         ? '<div class="m-edit-field span3"><label>Manual repayment amount</label><input type="number" step="1" min="0" class="loan-manual-amount" value="' + (Number(loan.manualRepaymentAmount) || 0) + '" aria-label="Manual repayment amount"></div>'
         : "") +
@@ -164,6 +165,35 @@ function loanRowModernHtml(loan, li, propId, colorIdx){
     '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm row-del" data-loan-del="' + li + '">Delete</button></div>' +
   '</div></div></div>';
   return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="' + escapeAttr(section) + '" data-index="' + li + '" data-loan-index="' + li + '">' + summary + edit + '</div>';
+}
+// Rate history (v3.53.0) — calc/property.js. The rate field above is the rate now; recording a
+// change keeps when it moved, which a past year's interest and Close the year both read.
+export function rateHistoryHtml(loan, today){
+  today = today || localDateStr();
+  var hist = sortedRateHistory(loan);
+  var list = hist.map(function(h, i){
+    return '<span class="rh-item">' + (Math.round(Number(h.rate) * 100) / 100) + '% ' + (h.date ? 'from ' + escapeAttr(h.date) : 'at the start') +
+      '<button type="button" class="icon-btn" data-rate-del="' + i + '" aria-label="Remove this rate change">✕</button></span>';
+  }).join("");
+  return '<div class="m-edit-field span3 rh-wrap"><label>Rate changes</label>' +
+    (hist.length ? '<div class="rh-list">' + list + '</div>' + (rateChangeNote(loan) ? '<span class="computed-note">' + rateChangeNote(loan) + '</span>' : '') : '<span class="computed-note">No changes recorded. When the lender moves the rate, record it here with the date — past years\' interest then follows it.</span>') +
+    '<div class="rh-record"><input type="date" class="loan-rate-date" value="' + today + '" aria-label="Date the new rate applies from"><input type="number" step="0.01" min="0" class="loan-rate-new" placeholder="New rate %" aria-label="New rate percent">' +
+    '<button type="button" class="btn btn-sm btn-ghost" data-rate-record>Record change</button></div></div>';
+}
+// What the latest recorded change did: the repayment and a year's interest, before and after.
+export function rateChangeNote(loan){
+  var hist = sortedRateHistory(loan);
+  if(hist.length < 2) return "";
+  var cur = hist[hist.length - 1], prev = hist[hist.length - 2];
+  var pi = loan.repaymentType !== "IO";
+  var interestBal = Math.max(0, (Number(loan.balance) || 0) - (Number(loan.offsetBalance) || 0));
+  var repay = function(rate){ return pi ? calcRepaymentMonthly(loan.balance, rate, loan.termYears, loan.repaymentType) : interestBal * rate / 1200; };
+  var dRepay = repay(cur.rate) - repay(prev.rate);
+  var dInterest = interestBal * (Number(cur.rate) - Number(prev.rate)) / 100;
+  var up = dRepay >= 0;
+  return 'Last change' + (cur.date ? ' ' + escapeAttr(cur.date) : '') + ': ' + prev.rate + '% → ' + cur.rate + '% — repayment ' + fmtCurrency0.format(repay(prev.rate)) + ' → ' + fmtCurrency0.format(repay(cur.rate)) +
+    ' a month (' + (up ? '+' : '−') + fmtCurrency0.format(Math.abs(dRepay)) + '), about ' + fmtCurrency0.format(Math.abs(dInterest)) + ' ' + (dInterest >= 0 ? 'more' : 'less') + ' interest a year' +
+    (loan.repaymentMode === "manual" ? '. Your repayment is typed in — update it if the lender changed it.' : '.');
 }
 // One line under the borrowing-cost fields: what this year's return gets, out of what total, and
 // when the spread ends — the three things you need when the ATO calculator asks the same question.

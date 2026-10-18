@@ -997,3 +997,65 @@ test("Close the year and Checks render", async function(){
     assert.match(healthHtml([]), /every check passes/);
   } finally { Object.assign(state, keep); }
 });
+
+test("tax card: the payslip check asks, then answers", async function(){
+  const { withholdingCheckHtml, withholdingCheckText } = await import("../src/components/income.js");
+  const { currentTaxFy } = await import("../src/calc/tax.js");
+  var keep = { income: state.income, tax: state.tax, properties: state.properties, assets: state.assets, taxYears: state.taxYears };
+  try {
+    state.income = [{ id: "a", what: "Pay", person: "Sam", incomeType: "Gross", amount: 90000, freq: "Yearly", superMode: "On top" }];
+    state.properties = []; state.assets = []; state.taxYears = {};
+    state.tax = Object.assign({}, state.tax, { settings: { Sam: {} } });
+    assert.match(withholdingCheckHtml("Sam"), /class="tax-ytd-asof"/);
+    assert.match(withholdingCheckText("Sam"), /Type the year-to-date figures/);
+    var fy = currentTaxFy();
+    state.tax.settings.Sam.ytd = { asOf: fy + "-12-31", gross: 45000, withheld: 12000 };
+    assert.match(withholdingCheckText("Sam"), /withheld against <b>\$[\d,]+<\/b> of tax — heading for a <b class="up">\$[\d,]+ refund<\/b>/);
+    state.tax.settings.Sam.ytd = { asOf: (fy - 1) + "-12-31", gross: 45000, withheld: 12000 };
+    assert.match(withholdingCheckText("Sam"), /from outside FY/);
+  } finally { Object.assign(state, keep); }
+});
+
+test("Before 30 June lists each person's moves, or says there are none", async function(){
+  const { juneMovesHtml } = await import("../src/components/junemoves.js");
+  var keep = { income: state.income, assets: state.assets, properties: state.properties, taxYears: state.taxYears, tax: state.tax };
+  try {
+    state.income = [{ id: "p", what: "Pay", person: "Sam", incomeType: "Gross", amount: 120000, freq: "Yearly", superMode: "On top" }];
+    state.assets = []; state.properties = []; state.taxYears = {};
+    state.tax = Object.assign({}, state.tax, { sgRate: 12, settings: { Sam: { concessionalCap: 30000, carryForward: 0 } } });
+    var html = juneMovesHtml("2027-05-20");
+    assert.match(html, /<b>41 days<\/b> until FY26\/27 ends/);
+    assert.match(html, /class="jm-move jm-super"><div class="jm-head"><b>Super: \$15,600 of cap room left<\/b><span class="jm-saves">about \$[\d,]+ less tax/);
+    state.tax.settings.Sam.concessionalCap = 14400;
+    assert.match(juneMovesHtml("2027-05-20"), /Nothing worth doing this year/);
+  } finally { Object.assign(state, keep); }
+});
+
+test("Projections: Plan / Actuals control explains itself either way", async function(){
+  const { projSourceHtml } = await import("../src/components/projections.js");
+  var off = projSourceHtml({ available: false, months: 2 }, "actuals");
+  assert.match(off, /data-proj-source="plan" aria-pressed="true"/);
+  assert.match(off, /data-proj-source="actuals" aria-pressed="false" disabled/);
+  assert.match(off, /Actuals need 3 months of income received and spending logged — 2 so far/);
+  var on = projSourceHtml({ available: true, months: 4, incomeRatio: 0.96, spendRatio: 0.95, incomeLines: 1, spendLines: 1,
+    incomeReceivedMonthly: 4800, spendLoggedMonthly: 950, incomePlannedMonthly: 5000, spendPlannedMonthly: 1000 }, "actuals");
+  assert.match(on, /data-proj-source="actuals" aria-pressed="true"/);
+  assert.match(on, /income at 96% of plan \(1 line\), spending at 95% \(1 line plus one-offs\)\. That's −\$150 a month worse than the plan on those lines\. Only those lines move below/);
+});
+
+test("Dashboard → Review renders its four parts", async function(){
+  const { monthReviewHtml } = await import("../src/components/monthreview.js");
+  var keep = { income: state.income, incomeLog: state.incomeLog, transactions: state.transactions, accounts: state.accounts, monthReviews: state.monthReviews, properties: state.properties, assets: state.assets };
+  try {
+    state.income = [{ id: "t", what: "Tutoring", incomeType: "Net", amount: 300, freq: "Monthly" }];
+    state.incomeLog = []; state.transactions = []; state.properties = []; state.assets = []; state.monthReviews = {};
+    state.accounts = [{ name: "Card One", type: "credit", statementStartDay: 1 }];
+    var html = monthReviewHtml("2026-09", "2026-10-03");
+    assert.match(html, /<h2>September 2026<\/h2>/);
+    assert.match(html, /<span class="mr-num">1<\/span><h3>Money in<\/h3><span class="mr-status warn">1 not logged<\/span>/);
+    assert.match(html, /data-mr-log="income:t"/);
+    assert.match(html, /data-mr-statement="Card One"/);
+    assert.match(html, /<h3>The month against the plan<\/h3>/);
+    assert.match(html, /data-mr-done="2026-09">Mark September 2026 reviewed/);
+  } finally { Object.assign(state, keep); }
+});

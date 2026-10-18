@@ -49,9 +49,9 @@ export function receivedPanelHtml(monthStr){
 
 // ---------------- The sheet ----------------
 export var receivedSheet = null;
-export function openReceivedSheet(target){
+export function openReceivedSheet(target, date){
   var targets = incomeTargets();
-  receivedSheet = { target: target || (targets[0] && targets[0].key) || "" };
+  receivedSheet = { target: target || (targets[0] && targets[0].key) || "", date: date || "" };
 }
 export function closeReceivedSheet(){ receivedSheet = null; }
 export function setReceivedTarget(key){ if(receivedSheet) receivedSheet.target = key; }
@@ -75,7 +75,7 @@ export function receivedSheetHtml(){
       (cur && cur.kind === "rent" ? '<p class="qlog-context">What the agent paid you, after their fees.</p>' : '') +
       (cur && cur.kind === "payout" ? '<p class="qlog-context">Recorded as a payment on this holding — it counts toward its return and the tax year.</p>' : '') +
       '<input type="text" id="rcvNote" class="qlog-note" placeholder="Note (optional)" aria-label="Note (optional)">' +
-      '<div class="qlog-date-row"><label class="qlog-date-label" for="rcvDate">Date</label><input type="date" id="rcvDate" class="qlog-date" value="' + localDateStr() + '"></div>' +
+      '<div class="qlog-date-row"><label class="qlog-date-label" for="rcvDate">Date</label><input type="date" id="rcvDate" class="qlog-date" value="' + (receivedSheet.date || localDateStr()) + '"></div>' +
       '<button type="button" class="btn review-log-btn qlog-submit" data-rcv-submit' + (targets.length ? '' : ' disabled') + '>Log received</button>' +
     '</div></div>';
 }

@@ -7,6 +7,8 @@ import { getTaxPeople, computePersonTax } from "../calc/tax.js";
 import { lodgementStatus, taxYearRecord } from "../calc/taxyear.js";
 import { fyLabel } from "../calc/property.js";
 import { dataHealthChecks } from "../calc/health.js";
+import { sortedRateHistory, calcRepaymentMonthly } from "../calc/property.js";
+import { shiftMonth, monthLabel } from "../calc/monthreview.js";
 
 // ---------------- Notifications: a small, backend-shaped layer over locally-computed alerts ----------------
 // This app has no backend (see CLAUDE.md) — every notification here is derived live from
@@ -325,6 +327,45 @@ function backupReminderNotification(){
   }];
 }
 
+// ---------------- Monthly review (v3.54.0) ----------------
+// The first ten days of a month, until last month has been marked reviewed.
+function monthReviewNotification(){
+  if(!hasRealUserData()) return [];
+  var today = todayStr();
+  if(Number(today.slice(8, 10)) > 10) return [];
+  var last = shiftMonth(today.slice(0, 7), -1);
+  if(state.monthReviews && state.monthReviews[last] && state.monthReviews[last].done) return [];
+  return [{ id: "review:" + last, type: "review", severity: "info", title: monthLabel(last) + "'s review is ready",
+    detail: "Money in, card statements, checks and the month against the plan — Dashboard → Review.", date: today, page: "dashboard", sub: "review" }];
+}
+
+// ---------------- Loan rate changes (v3.53.0) ----------------
+// A recorded rate change in the last 60 days: one notification each, with the new repayment, so
+// the budget's loan line can be checked against it.
+function rateChangeNotifications(){
+  var today = todayStr();
+  var since = new Date(Date.parse(today) - 60 * 86400000).toISOString().slice(0, 10);
+  var out = [];
+  (state.properties || []).forEach(function(p){
+    (p.loans || []).forEach(function(l){
+      var hist = sortedRateHistory(l);
+      if(hist.length < 2) return;
+      var cur = hist[hist.length - 1], prev = hist[hist.length - 2];
+      if(!cur.date || cur.date < since || cur.date > today) return;
+      var repay = l.repaymentType === "IO"
+        ? Math.max(0, (Number(l.balance) || 0) - (Number(l.offsetBalance) || 0)) * cur.rate / 1200
+        : calcRepaymentMonthly(l.balance, cur.rate, l.termYears, l.repaymentType);
+      out.push({
+        id: "rate:" + (l.id || l.what) + ":" + cur.date, type: "loan", severity: Number(cur.rate) > Number(prev.rate) ? "warn" : "info",
+        title: (l.what || "A loan") + ": rate " + prev.rate + "% → " + cur.rate + "%",
+        detail: "From " + cur.date + ". Repayment about " + fmtCurrency0.format(repay) + " a month" + (l.repaymentMode === "manual" ? " — yours is typed in, so update it if the lender changed it" : "") + ".",
+        date: cur.date, page: "properties"
+      });
+    });
+  });
+  return out;
+}
+
 // ---------------- Data health (v3.48.0) ----------------
 // One notification for everything Accounts → Checks says needs fixing (the "to look at" items stay
 // on that tab). Its id carries which checks are failing, so fixing one and breaking another is a
@@ -424,6 +465,8 @@ export function getLocalNotifications(){
     backupReminderNotification(),
     budgetNotifications(),
     taxCalendarNotifications(),
+    rateChangeNotifications(),
+    monthReviewNotification(),
     dataHealthNotification()
   );
 }

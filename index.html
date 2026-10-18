@@ -146,7 +146,7 @@
       <!-- The number lives in its own span because it is *parsed*, both out of this DOM and out of
            a freshly-fetched copy of this file, to decide whether a newer version is deployed. Left
            bare in the <p>, the "Check for updates" button beside it would end up inside the match. -->
-      <p class="app-version"><span class="app-version-num">v3.48.0</span> · <button type="button" class="link-btn" id="checkUpdatesLink">Check for updates</button></p>
+      <p class="app-version"><span class="app-version-num">v3.54.2</span> · <button type="button" class="link-btn" id="checkUpdatesLink">Check for updates</button></p>
     </div>
     <div class="mobile-header-right">
       <button type="button" class="icon-btn" id="mobileSearchBtn" aria-label="Search">
@@ -217,10 +217,15 @@
           <button type="button" class="subnav-item active" data-dashboard-sub="overview">Overview</button>
           <button type="button" class="subnav-item" data-dashboard-sub="insights">Insights</button>
           <button type="button" class="subnav-item" data-dashboard-sub="benchmarks">Benchmarks</button>
+          <button type="button" class="subnav-item" data-dashboard-sub="review">Review</button>
         </div>
 
         <div class="dashboard-subpage" id="dashboardSub-overview">
           <div class="cards" id="cards" role="radiogroup" aria-label="Choose active scenario"></div>
+        </div>
+
+        <div class="dashboard-subpage" id="dashboardSub-review" hidden>
+          <div class="mr-wrap" id="monthReviewBody"></div>
         </div>
 
         <div class="dashboard-subpage" id="dashboardSub-benchmarks" hidden>
@@ -311,6 +316,16 @@
           <p class="page-intro">This year's tax and super as a plan — what each person keeps, and what moving money into super would do.</p>
         </div>
         <div class="ledgers">
+          <details class="ledger" id="juneMovesLedger">
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Before 30 June</h2></div>
+              <div class="ledger-total">what could still change this year's tax</div>
+            </summary>
+            <div class="ledger-body">
+              <p class="ledger-note help" style="margin-left:0">Super cap room, holdings sitting at a loss against gains already made, deductible costs that could be paid early, and prepaying investment-loan interest — each with what it's worth this year. Opens by itself in May and June.</p>
+              <div id="juneMovesBody"></div>
+            </div>
+          </details>
           <details class="ledger" open>
             <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Tax &amp; super</h2></div>
@@ -762,6 +777,7 @@
                 </div>
                 <span class="proj-basis-note" id="projBasisNote"></span>
               </div>
+              <div class="proj-basis-row" id="projSourceRow"></div>
               <p class="proj-headline" id="projHeadline"></p>
               <div id="projOutputs"></div>
             </div>
@@ -785,12 +801,6 @@
     <span class="mobile-tab-pill">
       <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13l5-5 3 3 6-6"/><path d="M13 5h4v4"/></svg>
       <span class="mobile-tab-label">Income</span>
-    </span>
-  </button>
-  <button type="button" class="mobile-tab" data-page="tax" id="mobileTabTax" hidden>
-    <span class="mobile-tab-pill">
-      <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h6l3 3v11H6z"/><path d="M12 3v3h3"/><path d="M8.5 10.5l3-3M8.6 7.6h.01M11.4 10.4h.01"/></svg>
-      <span class="mobile-tab-label">Tax</span>
     </span>
   </button>
   <button type="button" class="mobile-tab" data-page="expenses">
@@ -819,7 +829,6 @@
   </button>
   <div class="mobile-more-panel" id="mobileMorePanel" hidden>
     <button type="button" class="mobile-more-item" data-page="tax" id="mobileMoreTax">Tax</button>
-    <button type="button" class="mobile-more-item" data-page="assets" id="mobileMoreAssets" hidden>Assets</button>
     <button type="button" class="mobile-more-item" data-page="scenarios">Scenarios</button>
     <button type="button" class="mobile-more-item" data-page="projections">Projections</button>
     <button type="button" class="mobile-more-item" data-page="accounts">Accounts</button>

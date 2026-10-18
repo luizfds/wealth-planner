@@ -10,6 +10,7 @@ import {
 } from "./property.js";
 import { getTaxPeople, computePersonTax, scenarioIncomeMonthly } from "./tax.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
+import { projectionRatios } from "./actuals.js";
 
 // Every non-Shares asset, and every Shares holding on the ASX, is already AUD — the only
 // currency this app ever mixes in is USD (US-market and Crypto holdings, see MARKET_CURRENCY).
@@ -196,11 +197,14 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
       includeRow: function(row){ return isActiveInYear(row, year, todayStr); }
     });
   }
+  // v3.52.0: on "actuals", income and living costs carry the monthly differences measured on the
+  // lines that have been logged (calc/actuals.js); everything else stays as planned.
+  var ratios = (opts && opts.ratios) || projectionRatios();
   function activeInflatableMonthlyAt(year){
-    return sumFieldActiveInYear(state.shared, "monthly", year, todayStr, function(item){
+    return (sumFieldActiveInYear(state.shared, "monthly", year, todayStr, function(item){
         return resolveSharedAmount(item, scenario);
       }) +
-      sumFieldActiveInYear(scenarioInflatableHomeItems(scenario), "monthly", year, todayStr) +
+      sumFieldActiveInYear(scenarioInflatableHomeItems(scenario), "monthly", year, todayStr) + (ratios.spendDelta || 0)) +
       ipProperties().reduce(function(sum, p){
         return sum + sumFieldActiveInYear(p.expenses, "monthly", year, todayStr);
       }, 0);
@@ -210,7 +214,7 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
   for(var year = 0; year <= horizonYears; year++){
     if(year > 0){
       var inflatableThisYear = activeInflatableMonthlyAt(year) * Math.pow(1 + inflationRate, year);
-      var incomeThisYear = activeIncomeMonthlyAt(year) * Math.pow(1 + incomeGrowthRate, year);
+      var incomeThisYear = (activeIncomeMonthlyAt(year) + (ratios.incomeDelta || 0)) * Math.pow(1 + incomeGrowthRate, year);
       var savingsThisYear = incomeThisYear - fixedMonthly - inflatableThisYear;
       // "auto" mode redirects the scenario's own real monthly surplus into the invest leg's
       // growth rate instead of the generic portfolio rate — not an extra contribution on top of

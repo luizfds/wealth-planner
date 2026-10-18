@@ -76,7 +76,7 @@ import { rulesPageHtml, setRuleField, ruleIsEmpty, ruleTest } from "./components
 import { normaliseDescription } from "./calc/bank-import.js";
 import { openAccounts, balanceEditing } from "./components/accounts.js";
 import { renderHomeSummary } from "./components/home.js";
-import { dataHealthChecks } from "./calc/health.js";
+import { dataHealthChecks, dismissCheck } from "./calc/health.js";
 import { chooseFolder, backupToFolder, forgetFolder, maybeAutoBackup, setPasscode, clearPasscode, checkPasscode } from "./lib/safekeeping.js";
 import { renderSafekeeping } from "./components/safekeeping.js";
 import { goalsSectionHtml, goalOpen } from "./components/savegoals.js";
@@ -1187,6 +1187,19 @@ import {
   }
   // Checks → "Open …": straight to where the fix is.
   document.getElementById("healthBody").addEventListener("click", function(e){
+    // "Looks right" / "Show again" (v3.70.0)
+    var ok = e.target.closest("[data-hc-dismiss], [data-hc-undismiss]");
+    if(ok){
+      var id = ok.getAttribute("data-hc-dismiss") || ok.getAttribute("data-hc-undismiss");
+      var c = dataHealthChecks({ includeDismissed: true }).find(function(x){ return x.id === id; });
+      if(c){
+        var on = ok.hasAttribute("data-hc-dismiss");
+        dismissCheck(c, on);
+        persist(); renderHealth(); renderChecksBadge(); renderHomeSummary(); renderNotifBadge();
+        if(on) showUndoToast("Marked as looking right", function(){ dismissCheck(c, false); persist(); renderHealth(); renderChecksBadge(); renderHomeSummary(); renderNotifBadge(); });
+      }
+      return;
+    }
     var go = e.target.closest(".hc-go");
     if(!go) return;
     var page = go.getAttribute("data-hc-page"), sub = go.getAttribute("data-hc-sub"), fy = go.getAttribute("data-hc-fy");

@@ -15,7 +15,7 @@ import {
 import { periodsOf, sumField, sumFieldForScenario, resolveSharedAmount, appendHistorySnapshot, transactionDisplayName } from "./calc/ledger.js";
 import { phiPremiumsAnnual, effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider, saleCapitalGain, lotsUnitsAvailable } from "./calc/tax.js";
 import { recalcComputedItems, scenarioTotals, totalNetWorthValue, totalDebtsValue } from "./calc/engine.js";
-import { financialYearOf, fyLabel } from "./calc/property.js";
+import { financialYearOf, fyLabel, recordRateChange, sortedRateHistory, loanRateOn } from "./calc/property.js";
 import { taxYearFillStatements, renderTaxYear, setTaxYearSelected, taxYearAddRow, taxYearDeleteRow, taxYearRestoreRow, taxYearSetField, taxYearToggleEvidence, taxYearMarkLodged, worksheetText, taxYearSelected, taxYearPrintHtml, lodgedSnapshot } from "./components/taxyear.js";
 import { renderPeople, setPersonField, peopleSummaryText } from "./components/people.js";
 import { renamePersonEverywhere, removePersonFromTax } from "./calc/people.js";
@@ -1958,6 +1958,33 @@ import {
         renderProjectionOutputs();
         persist();
       }
+      return;
+    }
+    // Rate changes (v3.53.0): recorded with their date; a past year's interest follows them.
+    var rateRec = e.target.closest("[data-rate-record]"), rateDel = e.target.closest("[data-rate-del]");
+    if(rateRec || rateDel){
+      var rCard = e.target.closest("[data-property-id]"), rRow = e.target.closest("[data-loan-index]");
+      var rProp = rCard && findProperty(rCard.getAttribute("data-property-id"));
+      var rLoan = rProp && rRow && rProp.loans[Number(rRow.getAttribute("data-loan-index"))];
+      if(!rLoan) return;
+      if(rateRec){
+        var newRate = parseFloat(rRow.querySelector(".loan-rate-new").value);
+        var onDate = rRow.querySelector(".loan-rate-date").value;
+        if(!(newRate > 0) || !onDate){ showToast("Type the new rate and the date it applies from"); return; }
+        recordRateChange(rLoan, onDate, newRate, localDateStr());
+      } else {
+        var hist = sortedRateHistory(rLoan);
+        hist.splice(Number(rateDel.getAttribute("data-rate-del")), 1);
+        rLoan.rateHistory = hist;
+        if(hist.length) rLoan.rate = loanRateOn(rLoan, localDateStr());
+      }
+      recalcComputedItems();
+      renderProperties();
+      renderTaxSuper();
+      patchSyntheticIncomeRows();
+      renderProjectionOutputs();
+      renderNotifBadge();
+      persist();
       return;
     }
     var delLoanBtn = e.target.closest("[data-loan-del]");

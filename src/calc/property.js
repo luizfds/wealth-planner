@@ -190,6 +190,55 @@ export function loanInterestMonthly(loan){
   return loanInterestMonthlyAtRate(loan, Number(loan.rate) || 0);
 }
 
+// ---------------- Rate history (v3.53.0) ----------------
+//
+// loan.rate is the rate now. loan.rateHistory = [{date, rate}] records when it changed — the rate
+// from each date until the next — so a past year's interest can be worked out across the rates that
+// actually applied rather than at today's rate for the whole year. An entry with no date is "since
+// the start"; before the first dated entry the earliest known rate applies.
+export function sortedRateHistory(loan){
+  return (Array.isArray(loan && loan.rateHistory) ? loan.rateHistory : []).filter(function(h){ return h && h.rate != null; })
+    .slice().sort(function(a, b){ return (a.date || "") < (b.date || "") ? -1 : (a.date || "") > (b.date || "") ? 1 : 0; });
+}
+export function loanRateOn(loan, date){
+  var hist = sortedRateHistory(loan);
+  if(!hist.length) return Number(loan && loan.rate) || 0;
+  var r = Number(hist[0].rate) || 0;
+  hist.forEach(function(h){ if(!h.date || h.date <= date) r = Number(h.rate) || 0; });
+  return r;
+}
+// Records a change from `date`. The first change also records what the rate was before it, as of
+// settlement (or "since the start"), so the history has a beginning. Returns the previous rate.
+export function recordRateChange(loan, date, rate, today){
+  rate = Number(rate) || 0;
+  if(!Array.isArray(loan.rateHistory)) loan.rateHistory = [];
+  var before = loanRateOn(loan, date);
+  if(!loan.rateHistory.length) loan.rateHistory.push({ date: loan.settlementDate || "", rate: Number(loan.rate) || 0 });
+  var same = loan.rateHistory.find(function(h){ return h.date === date; });
+  if(same) same.rate = rate; else loan.rateHistory.push({ date: date, rate: rate });
+  loan.rateHistory = sortedRateHistory(loan);
+  loan.rate = loanRateOn(loan, today || localDateStr());
+  return before;
+}
+// Interest over [start, end] on today's interest balance, day by day at the rate on each day.
+// (The balance is today's — the app doesn't keep a balance history — which is the same
+// approximation the model has always made; the rates are what this fixes.)
+export function loanInterestForWindow(loan, start, end){
+  var interestBalance = Math.max(0, (Number(loan.balance) || 0) - (Number(loan.offsetBalance) || 0));
+  if(end < start || !interestBalance) return 0;
+  var hist = sortedRateHistory(loan);
+  var bounds = [start];
+  hist.forEach(function(h){ if(h.date && h.date > start && h.date <= end) bounds.push(h.date); });
+  var total = 0;
+  for(var i = 0; i < bounds.length; i++){
+    var segStart = bounds[i];
+    var segEnd = i + 1 < bounds.length ? new Date(Date.parse(bounds[i + 1]) - 86400000).toISOString().slice(0, 10) : end;
+    var days = Math.round((Date.parse(segEnd) - Date.parse(segStart)) / 86400000) + 1;
+    total += interestBalance * loanRateOn(loan, segStart) / 100 * days / 365;
+  }
+  return Math.round(total * 100) / 100;
+}
+
 // ---------------- Depreciation ----------------
 //
 // Usually the largest deduction on an investment property, and the only one that isn't money

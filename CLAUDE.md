@@ -14,8 +14,8 @@ the last, so two sessions can't pick up the same one.
 
 ## Architecture
 
-- `index.html` — all markup for every page/section (Dashboard, Income & Tax, Expenses, Assets,
-  Properties, Scenarios, Projections). Pages are `<section class="app-page" id="page-...">`,
+- `index.html` — all markup for every page/section (Dashboard, Income, Tax, Expenses, Accounts,
+  Assets, Properties, Scenarios, Projections). Pages are `<section class="app-page" id="page-...">`,
   shown/hidden via `showPage()`, not separate documents.
 - `styles.css` — just eight `@import` statements pulling in `src/styles/{base,shell,dashboard,
   ledger,income,properties,assets,projections}.css`, in that specific order. Light/dark theming is
@@ -39,7 +39,7 @@ the last, so two sessions can't pick up the same one.
 - `src/state.js` — `state` (the single source of truth), `defaultState()`, `migrateState()`
   (schema migration + safe defaults for old/partial saves), `persist()` (debounced localStorage
   write), `setStatus()`.
-- `src/calc/{ledger,property,tax,engine,cashflow,fire,history,trends,bank-import,import-rules}.js` —
+- `src/calc/{ledger,property,tax,engine,cashflow,fire,history,trends,bank-import,import-rules,claims,people,received,closeyear,health}.js` —
   pure financial math and parsing, no DOM access. `ledger.js`
   (period conversions, sums), `property.js` (stamp duty, LMI, loan repayments, gearing, equity —
   `propertyEquityToday()` and friends), `tax.js` (AU income tax/Medicare, super contribution caps,
@@ -47,9 +47,13 @@ the last, so two sessions can't pick up the same one.
   all derived/synthetic rows" pass), `cashflow.js` (the smoothed/reserve split), `fire.js` (the
   accessible-vs-super FI split and the bridge-to-preservation-age simulation), `history.js` and
   `trends.js` (logged values over time, month-over-month spending), and
-  `bank-import.js`/`import-rules.js` (CSV parsing and merchant-name cleanup).
-- `src/components/{dashboard,income,expenses,assets,properties,projections,scenarios,nav,
-  bank-import,search}.js` — one file per page (plus `nav.js` for routing/page-switching, and
+  `bank-import.js`/`import-rules.js` (CSV parsing and merchant-name cleanup), `claims.js` (what a
+  deductible line claims and against whom — a person or a property), `people.js` (renaming a person
+  everywhere they're named), `received.js` (income received, kept apart from spending
+  transactions), `closeyear.js` (a finished year's actuals into next year's plan) and `health.js`
+  (the Accounts → Checks consistency list).
+- `src/components/{dashboard,income,taxyear,expenses,assets,properties,projections,scenarios,nav,
+  bank-import,search,people,received,health}.js` — one file per page (plus `nav.js` for routing/page-switching, and
   `bank-import.js`/`search.js` for the two cross-page flows), each exporting its functions for
   `app.js` to import and wire up. Not every function that "belongs" to a page lives in its
   component — `renameTaxPerson`/`removeTaxPerson` (Income) and `showAssetsSubpage` (Assets)

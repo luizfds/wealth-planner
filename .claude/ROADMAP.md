@@ -2085,42 +2085,58 @@ NaN/undefined text, zero-width %-bars. Verified against a deliberately re-broken
 "Do it all" after a review of how budget lines, income, transactions and the tax worksheet relate.
 One PR for the set — they share the new Tax page and the links between them.
 
-## 77. `[~]` Tax gets its own page
-Income & Tax held three jobs. Income keeps the income rows; a Tax page gets This year (the
-estimate, super, sacrifice, top-up), Returns (worksheet, lodged history, year over year) and
-Documents (checklist, imports). Phone: under More, promoted to the tab bar from July to October.
+## 77. `[x]` Tax gets its own page — shipped v3.43.0
+Income keeps the income rows; a Tax page has This year (the estimate, super, sacrifice, top-up),
+Returns (the worksheet) and Documents (checklist, Import a year), at `/tax/<year|returns|documents>`.
+Opens on Returns 1 July–31 October, This year otherwise (`defaultTaxSub()`). Phone: under More,
+swapped into the tab bar in place of Assets during lodgement season (`syncMobileTaxSeason()`).
 
-## 78. `[~]` People, in one place
-A People tab on Accounts: each person's name (rename/remove across every row), date of birth,
-HELP balance, concessional cap and carry-forward, WFH hours per year. People still come from Gross
-income rows; the tab is where their details live.
+## 78. `[x]` People, in one place — shipped v3.44.0
+Accounts → People: name, date of birth (age), HELP, concessional cap, carry-forward, capital losses
+b/f, WFH hours for four years, and where each person is used. `calc/people.js`
+`renamePersonEverywhere()` now also moves holdings, every budget line's `deductiblePerson` and each
+tax year's records and lodged snapshots. + Add person makes a Gross income row. The tax card keeps
+only manual sacrifice and the top-up.
 
-## 79. `[~]` A budget line can belong to a property
-Claim against a person or an investment property. A line on a property is split by ownership,
-lands on that property's rental schedule and comes out of its cash flow, not the household's.
+## 79. `[x]` A budget line can belong to a property — shipped v3.45.0
+Claimed by lists investment properties (`item.claimProperty`). The line goes on that property's
+rental schedule and comes off its tax result (split by ownership) but stays in the household
+budget's cash flow, where it's paid from — not a personal deduction as well. `calc/claims.js`;
+the property card lists what's claimed against it.
 
-## 80. `[~]` Rental schedule line chosen, not guessed
-Each property expense picks the return line it goes on (default: today's name match).
+## 80. `[x]` Rental schedule line chosen, not guessed — shipped v3.45.0
+`item.rentLine` on property costs (Return line) and property claims; `rentLineFor()` falls back to
+the name guess. Property costs no longer offer the personal Tax deduction tick.
 
-## 81. `[~]` Income transactions
-A transaction can log against an income line or a property's rent. Actual vs planned covers
-income; a distribution logged against a holding becomes one of its payouts.
+## 81. `[x]` Income received — shipped v3.46.0
+`state.incomeLog` (`calc/received.js`), kept out of `state.transactions` so it can't count as
+negative spending. Targets: take-home per person (against their net row), Net rows, rent (less the
+computed agent fee), and holdings (written to `asset.payouts`). Income → Received shows actual vs
+planned (irregular lines over the year). Logged from the panel, the Log income quick action, or a
+bank import's money-in groups.
 
-## 82. `[~]` The worksheet pre-filled from the plan
-An income statement links to an income row: pay history is the expected gross and withholding is
-checked against the year's tax. Deductions merge line by line with the flagged budget lines
-instead of replacing them all.
+## 82. `[x]` The worksheet pre-filled from the plan — shipped v3.47.0
+An income statement can name its Gross row; `expectedGrossForYear()` follows pay history, start/end
+dates and super-included rows, and the worksheet says how far the statement is from it. Fill from
+income rows. Deductions merge line by line (`yearDeductions()`): flagged lines listed with a tick
+each, typed claims added; a year typed before this keeps "typed only" (`usesBudgetLines()`). The
+mid-year withholding check was left out: without year-to-date payslip figures the refund line
+already is that check.
 
-## 83. `[~]` Private health premiums from the budget line
-The tax settings read the premium from a budget line marked as the policy.
+## 83. `[x]` Private health premiums from the budget line — shipped v3.47.0
+`state.tax.phiLineId`; `phiPremiumsAnnual()` grosses the line (what you pay, after the insurer's
+rebate) back up at the claimed tier.
 
-## 84. `[~]` Close the year
-For a lodged year: plan against actual for every budget, rental and income line, and "Use these
-for next year" (old amounts kept in each row's history).
+## 84. `[x]` Close the year — shipped v3.48.0
+`calc/closeyear.js`. Tax → Returns, for a finished year: typed rental lines and logged budget lines
+against the plan; ticked lines set the rows (old amount kept in history), missing rental lines get
+a row, derived lines (interest, borrowing, depreciation, a computed fee) are shown only. Budget
+actuals scaled to a year only for weekly/fortnightly/monthly lines. Property costs are closed through
+the rental schedule, not as budget lines (`householdBudgetLines()`).
 
-## 85. `[~]` Data health
-One list of what's inconsistent: deductible lines with no person, a person but no flag, rows with
-no account or category, budget lines far from last year's actuals, likely duplicate costs.
+## 85. `[x]` Data health — shipped v3.48.0
+`calc/health.js` `dataHealthChecks()` → Accounts → Checks, worst first, each with a way there; one
+bell notification while anything needs fixing.
 
 ---
 

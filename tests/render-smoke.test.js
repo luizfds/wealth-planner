@@ -1209,3 +1209,12 @@ test("Plan → Retirement: asks for an age, then answers with levers and links",
     assert.match(html, /Super cap room this year/);
   } finally { state.fire = keep; }
 });
+
+test("First-run setup: every step renders and the last offers the import", async function(){
+  const { startFirstRun, firstRun, firstRunHtml } = await import("../src/components/firstrun.js");
+  startFirstRun();
+  firstRun.answers.people[0].name = "Alex";
+  var html = "";
+  for(var i = 0; i < 5; i++){ firstRun.step = i; html = firstRunHtml(); assert.match(html, /role="dialog"/); }
+  assert.match(html, /data-fr-finish="import"/);
+});

@@ -78,6 +78,8 @@ import { normaliseDescription } from "./calc/bank-import.js";
 import { openAccounts, balanceEditing } from "./components/accounts.js";
 import { renderHomeSummary } from "./components/home.js";
 import { dataHealthChecks, dismissCheck } from "./calc/health.js";
+import { applyFirstRun, shouldOfferFirstRun } from "./calc/firstrun.js";
+import { firstRun, startFirstRun, firstRunHtml } from "./components/firstrun.js";
 import { chooseFolder, backupToFolder, forgetFolder, maybeAutoBackup, setPasscode, clearPasscode, checkPasscode, newestFolderBackup, compareCopies } from "./lib/safekeeping.js";
 import { renderSafekeeping } from "./components/safekeeping.js";
 import { goalsSectionHtml, goalOpen } from "./components/savegoals.js";
@@ -4752,6 +4754,61 @@ import {
     }
     return maybeAutoBackup().then(function(res){ if(res && res.ok){ showToast("Weekly backup saved to " + res.folder); renderSafekeeping(); } });
   }).catch(function(){});
+
+  // ---------------- First-run setup (v3.74.0) ----------------
+  // Offered once to an empty app; also from Home's setup card ("Guided setup"). Answers are held in
+  // components/firstrun.js until Finish, so closing half-way writes nothing.
+  var firstRunRoot = document.getElementById("firstRunRoot");
+  function renderFirstRun(){ firstRunRoot.innerHTML = firstRun.open ? firstRunHtml() : ""; }
+  function openFirstRun(){
+    startFirstRun(); renderFirstRun();
+    pushActiveOverlay(closeFirstRunUi);
+    var f = firstRunRoot.querySelector("input"); if(f) f.focus();
+  }
+  function closeFirstRunUi(){
+    if(firstRun.open && !state.firstRunDone){ state.firstRunSkipped = true; persist(); }
+    firstRun.open = false; renderFirstRun();
+  }
+  function readFirstRunFields(){
+    firstRunRoot.querySelectorAll("[data-fr]").forEach(function(el){
+      var path = el.getAttribute("data-fr").split("."), o = firstRun.answers;
+      for(var i = 0; i < path.length - 1; i++) o = o[path[i]];
+      o[path[path.length - 1]] = el.value;
+    });
+  }
+  document.addEventListener("click", function(e){ if(e.target.closest("[data-firstrun-open]")) openFirstRun(); });
+  firstRunRoot.addEventListener("change", function(e){
+    if(e.target.matches("select[data-fr]")){ readFirstRunFields(); renderFirstRun(); }
+  });
+  firstRunRoot.addEventListener("click", function(e){
+    if(e.target.closest("[data-fr-close]") || e.target === e.target.closest("[data-fr-backdrop]")){ requestCloseActiveOverlay(); return; }
+    var a = firstRun.answers;
+    if(!a) return;
+    readFirstRunFields();
+    if(e.target.closest("[data-fr-add-person]")){ a.people.push({ name: "", age: "", pay: "", payFreq: "Yearly" }); renderFirstRun(); return; }
+    if(e.target.closest("[data-fr-add-acct]")){ a.accounts.push({ name: "", type: "savings", balance: "" }); renderFirstRun(); return; }
+    var del = e.target.closest("[data-fr-del-acct]");
+    if(del){ a.accounts.splice(Number(del.getAttribute("data-fr-del-acct")), 1); renderFirstRun(); return; }
+    if(e.target.closest("[data-fr-back]")){ firstRun.step = Math.max(0, firstRun.step - 1); renderFirstRun(); return; }
+    if(e.target.closest("[data-fr-next]")){ firstRun.step++; renderFirstRun(); var f = firstRunRoot.querySelector("input,select"); if(f) f.focus(); return; }
+    var fin = e.target.closest("[data-fr-finish]");
+    if(fin){
+      var made = applyFirstRun(a, localDateStr());
+      recalcComputedItems();
+      persist();
+      // Like a search result: the sheet's history entry is replaced by the destination, not popped.
+      firstRun.open = false; activeOverlayClose = null; renderFirstRun();
+      renderAll();
+      showToast("Set up: " + made.people + (made.people === 1 ? " person, " : " people, ") + made.accounts + (made.accounts === 1 ? " account, " : " accounts, ") + made.lines + " budget lines");
+      if(fin.getAttribute("data-fr-finish") === "import"){
+        showPage("expenses", { replace: true }); showExpensesSubpage("spending", { replace: true });
+        var card = document.getElementById("bankImportCard");
+        if(card){ card.open = true; setTimeout(function(){ card.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); }
+      } else showPage("dashboard", { replace: true });
+    }
+  });
+  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && firstRun.open) requestCloseActiveOverlay(); });
+  if(shouldOfferFirstRun()) setTimeout(openFirstRun, 300);
 
   // ---------------- Cash flow → Budget → Recurring payments (v3.66.0) ----------------
   function currentRecurring(){

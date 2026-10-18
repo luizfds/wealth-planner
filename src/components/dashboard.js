@@ -92,7 +92,7 @@ export function renderSetupPanel(nothingEntered){
     '<p class="setup-next"><b>' + escapeAttr(p.next.label) + '</b><br><span>' + escapeAttr(p.next.hint) + '</span></p>' +
     '<div class="setup-actions">' +
       '<button type="button" class="btn btn-primary" data-setup-go="' + escapeAttr(p.next.page) + '">' + escapeAttr(p.next.label) + ' →</button>' +
-      (nothingEntered ? '<button type="button" class="btn" data-dash-start="sample">Load sample data</button>' : "") +
+      (nothingEntered ? '<button type="button" class="btn" data-firstrun-open>Guided setup</button><button type="button" class="btn" data-dash-start="sample">Load sample data</button>' : "") +
     '</div>' +
     (rest ? '<ul class="setup-rest">' + rest + '</ul>' : "");
 }

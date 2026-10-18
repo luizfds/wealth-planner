@@ -2343,8 +2343,10 @@ saving, extra super after contributions tax) on calc/fire.js's bridge-then-4% si
 out each lever's worth in years; `components/retirement.js` shows the earliest workable age, the
 bridge and pot tests at the chosen age, "what changes it", and links to super cap room and goals.
 
-## 109. `[~]` First-run setup
+## 109. `[x]` First-run setup
 A guided setup for a new person: accounts, income, budget, first bank import.
+
+Shipped as v3.74.0: a five-step sheet offered once to an empty app (and from Home's setup card as "Guided setup") — people and age, accounts with balances (through the accounts model, so cards owe), pay before tax, rent or loan plus common monthly costs, then Finish or Finish and import a statement. Nothing is written until Finish; closing it marks it skipped. `calc/firstrun.js` (`applyFirstRun`, `shouldOfferFirstRun`), `components/firstrun.js`.
 
 ## 110. `[~]` Check-up on real data
 Go through a real backup page by page outside the repo; fix what's wrong in the app, hand data

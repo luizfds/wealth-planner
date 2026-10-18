@@ -31,7 +31,8 @@ export var REPORTS = [
   { key: "categories", label: "Spending by category" },
   { key: "networth", label: "Net worth statement" },
   { key: "property", label: "Property P&L" },
-  { key: "tax", label: "Tax summary" }
+  { key: "tax", label: "Tax summary" },
+  { key: "yearend", label: "Year-end pack" }
 ];
 
 export function cashflowReport(opts){

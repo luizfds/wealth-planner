@@ -2299,9 +2299,13 @@ Shipped as: an open account card draws its balance history (`accountChartPoints`
 present) feeds Today / A month ago / A year ago on the net worth statement, leaving a column's total
 blank when something held today wasn't recorded yet. Home's net worth card links to the chart.
 
-## 104. `[~]` Year-end pack
+## 104. `[x]` Year-end pack — shipped v3.68.0
 One place at 30 June: close the year, print the tax summary and property P&L together, and export
 the year's transactions and the documents checklist for an accountant.
+Shipped as: Reports → Year-end pack (`components/yearend.js`) for the period's financial year —
+steps (year over, months reviewed, close the year, documents kept, returns lodged) each linking to
+where it's done, and Print the pack (five statements, one per page), the year's transactions CSV
+and the documents checklist CSV.
 
 ## 105. `[~]` One number format
 Money looks the same everywhere: one font, whole dollars in summaries, cents only on individual

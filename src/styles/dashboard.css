@@ -433,3 +433,12 @@
 .home-goals{ border:1px solid var(--border); border-radius:14px; background:var(--paper-raised); padding:14px; margin:-4px 0 16px; display:flex; flex-direction:column; gap:8px; }
 .home-goals-list{ display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:8px; }
 .home-goals .sgl{ padding:8px 10px; }
+/* Year-end pack (v3.68.0) */
+.ye-steps{ list-style:none; margin:0 0 14px; padding:0; display:flex; flex-direction:column; }
+.ye-step{ display:grid; grid-template-columns: 28px minmax(0,1fr) auto; gap:10px; align-items:center; padding:10px 0; border-bottom:1px dashed var(--border); }
+.ye-step b{ display:block; font-size:14px; }
+.ye-step small{ font-size:12.5px; color:var(--ink-soft); }
+.ye-tick{ width:24px; height:24px; border-radius:50%; border:1.5px solid var(--border); display:inline-flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:var(--good); }
+.ye-step.done .ye-tick{ border-color:var(--good); background:var(--good-wash); }
+.ye-handoff{ display:flex; flex-direction:column; gap:8px; }
+.ye-actions{ display:flex; gap:8px; flex-wrap:wrap; }

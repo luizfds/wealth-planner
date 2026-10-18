@@ -85,6 +85,7 @@ import { unbudgetedRecurring, risingLines } from "./calc/recurring.js";
 import { recurringHtml, recurringDismissed } from "./components/recurring.js";
 import { renderReports, reportShown, reportPrintHtml, reportCsv } from "./components/reports.js";
 import { exportTableCsv } from "./lib/backup.js";
+import { yearEndPrintHtml, yearEndDocumentsCsv } from "./components/yearend.js";
 import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodButton, renderPeriodMenu } from "./components/period.js";
 import { selectedYearWindow, yearStartOf, householdYearBasis } from "./calc/ledger.js";
 import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, taxSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
@@ -4747,7 +4748,24 @@ import {
     var pick = e.target.closest("[data-report]");
     if(pick){ reportShown.key = pick.getAttribute("data-report"); renderReports(); return; }
     if(e.target.closest("[data-report-print]")){ printStatic(reportPrintHtml()); return; }
-    if(e.target.closest("[data-report-csv]")){ var c = reportCsv(); exportTableCsv(c.filename, c.headers, c.rows); }
+    if(e.target.closest("[data-report-csv]")){ var c = reportCsv(); exportTableCsv(c.filename, c.headers, c.rows); return; }
+    // Year-end pack (v3.68.0)
+    if(e.target.closest("[data-ye-print]")){ printStatic(yearEndPrintHtml()); return; }
+    if(e.target.closest("[data-ye-tx]")){ document.getElementById("exportYearTransactionsBtn").click(); return; }
+    if(e.target.closest("[data-ye-docs]")){ var d = yearEndDocumentsCsv(); exportTableCsv(d.filename, d.headers, d.rows); return; }
+    var go = e.target.closest("[data-ye-go]");
+    if(go){
+      var where = go.getAttribute("data-ye-go");
+      if(where === "review"){ showPage("dashboard"); showDashboardSubpage("review"); renderMonthReview(); return; }
+      showPage("tax");
+      showTaxSubpage(where === "documents" ? "documents" : "returns", { replace: true });
+      renderTaxYear();
+      if(where === "close"){
+        var close = document.querySelector("#taxYearBody .ty-close");
+        if(close){ close.open = true; setTimeout(function(){ close.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); }
+        else showToast("Close the year appears on Returns once the year is over");
+      }
+    }
   });
 
   // ---------------- Home (v3.58.0): the summary's links and to-dos ----------------

@@ -204,3 +204,33 @@ test("trailing bookkeeping words are dropped, so a created line isn't called 'Re
   // Never the last one standing — a row whose whole description is one noise word still needs a key.
   assert.equal(merchantKey("REF"), "ref");
 });
+
+// ---------------- Income rules (v3.49.0) ----------------
+import { suggestFor as suggestFor2, learnRule as learnRule2, pruneRules as pruneRules2 } from "../src/calc/import-rules.js";
+
+test("an income rule is learned from a credit and only ever matches credits", function(){
+  var rules = [];
+  learnRule2(rules, "ACME PTY LTD PAYROLL 0042", { incomeTarget: "net:Alex", account: "Bank One" }, function(){ return "r1"; });
+  assert.equal(rules.length, 1);
+  assert.equal(rules[0].incomeTarget, "net:Alex");
+  var credit = suggestFor2("ACME PTY LTD PAYROLL 0043", rules, [], "credit");
+  assert.equal(credit.source, "rule");
+  assert.equal(credit.incomeTarget, "net:Alex");
+  assert.equal(credit.account, "Bank One");
+  var debit = suggestFor2("ACME PTY LTD PAYROLL 0043", rules, [], "debit");
+  assert.equal(debit.incomeTarget, undefined);
+  assert.equal(debit.source, null);
+});
+
+test("a spending rule never places a credit; the same merchant can carry one of each", function(){
+  var rules = [];
+  learnRule2(rules, "ACME PTY LTD PAYROLL", { linkedExpenseId: "lineX" }, function(){ return "r1"; });
+  assert.equal(suggestFor2("ACME PTY LTD PAYROLL", rules, [], "credit").source, null);
+  learnRule2(rules, "ACME PTY LTD PAYROLL", { incomeTarget: "income:i2" }, function(){ return "r2"; });
+  assert.equal(rules.length, 2);
+  learnRule2(rules, "ACME PTY LTD PAYROLL", { incomeTarget: "income:i3" }, function(){ return "r3"; });
+  assert.equal(rules.length, 2, "re-teaching updates the income rule");
+  assert.equal(rules[1].incomeTarget, "income:i3");
+  assert.equal(rules[1].hits, 2);
+  assert.equal(pruneRules2(rules, []).length, 1, "the income rule survives a budget-line prune; the line rule goes");
+});

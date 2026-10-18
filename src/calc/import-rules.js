@@ -100,8 +100,18 @@ export function matchBudgetLineByName(description, budgetLines){
 // the user taught is shown as settled, a name match as a suggestion to glance at, and nothing at
 // all is left blank rather than guessed — an import that quietly files things in the wrong place
 // is worse than one that asks.
-export function suggestFor(description, rules, budgetLines){
-  var rule = matchRule(description, rules);
+//
+// v3.49.0: money in learns too. A rule can carry an `incomeTarget` (see calc/received.js) instead
+// of a budget line, and the two kinds never cross: a credit only ever takes an income rule, a debit
+// only a spending rule — a payroll credit from an employer that also has shops must not file the
+// groceries as salary, or the other way round.
+export function suggestFor(description, rules, budgetLines, direction){
+  var credit = direction === "credit";
+  var rule = matchRule(description, (rules || []).filter(function(r){ return credit ? !!r.incomeTarget : !r.incomeTarget; }));
+  if(rule && credit){
+    return { source: "rule", linkedExpenseId: null, category: "", account: rule.account || "", ruleId: rule.id || null, incomeTarget: rule.incomeTarget };
+  }
+  if(credit) return { source: null, linkedExpenseId: null, category: "", account: "", ruleId: null };
   if(rule){
     return {
       source: "rule",
@@ -122,7 +132,7 @@ export function suggestFor(description, rules, budgetLines){
 // screen renders from one pass rather than re-matching per row per render.
 export function applySuggestions(rows, rules, budgetLines){
   return (rows || []).map(function(row){
-    return Object.assign({}, row, { suggestion: suggestFor(row.description, rules, budgetLines) });
+    return Object.assign({}, row, { suggestion: suggestFor(row.description, rules, budgetLines, row.direction) });
   });
 }
 
@@ -139,8 +149,21 @@ export function learnRule(rules, description, choice, idFactory){
   if(!key) return rules;
   // Nothing to learn from a row the user left unassigned — and storing an empty rule would sit
   // there matching future rows and filing them nowhere, which looks like the app forgetting.
-  if(!choice || (!choice.linkedExpenseId && !(choice.category || "").trim())) return rules;
-  var existing = (rules || []).find(function(r){ return r.match === key; });
+  if(!choice || (!choice.linkedExpenseId && !(choice.category || "").trim() && !choice.incomeTarget)) return rules;
+  var income = !!choice.incomeTarget;
+  // Same merchant key, same direction: a credit and a debit from one name are two rules.
+  var existing = (rules || []).find(function(r){ return r.match === key && !!r.incomeTarget === income; });
+  if(existing && income){
+    existing.incomeTarget = choice.incomeTarget;
+    if(choice.account) existing.account = choice.account;
+    existing.hits = (existing.hits || 0) + 1;
+    return rules;
+  }
+  if(income){
+    rules.push({ id: idFactory ? idFactory() : "rule_in_" + key.replace(/\s+/g, "_"), match: key, incomeTarget: choice.incomeTarget,
+      linkedExpenseId: null, category: "", account: choice.account || "", hits: 1 });
+    return rules;
+  }
   if(existing){
     existing.linkedExpenseId = choice.linkedExpenseId || null;
     existing.category = choice.category || "";
@@ -166,6 +189,8 @@ export function pruneRules(rules, budgetLines){
   var live = {};
   (budgetLines || []).forEach(function(l){ if(l.id) live[l.id] = true; });
   return (rules || []).filter(function(rule){
+    // Income rules are checked against the income targets when they're applied (bank-import.js).
+    if(rule.incomeTarget) return true;
     if(!rule.linkedExpenseId) return !!(rule.category || "").trim();
     if(live[rule.linkedExpenseId]) return true;
     rule.linkedExpenseId = null;

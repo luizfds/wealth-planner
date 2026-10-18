@@ -2229,9 +2229,16 @@ edit, add, delete, test a description) and Cash flow → Bills (`calc/bills.js`:
 dates in the month from its last payment, paid/overdue, never-logged lines listed apart).
 
 
-## 97. `[~]` Property as tabs; investments additions
+## 97. `[x]` Property as tabs; investments additions — shipped v3.61.0
 A summary header and tabbed sections per property; portfolio performance, distribution history,
 super contributions per year.
+Shipped as: each property card keeps its summary tiles and gets tabs (Overview, Loans, Income &
+costs, and for an IP Tax and Sale) — every panel rendered, switching toggles `hidden`. The Tax tab
+leads with `propertyTaxResultBreakdown()` (the year's rental result line by line) and each owner's
+share with its rough tax effect. `calc/investments.js`: portfolio performance (cost, value, gain,
+distributions, realised, total return) and distributions by financial year on Investments → Shares;
+concessional contributions against each person's cap for the period's year on Investments → Super.
+
 
 ## 98. `[~]` Reports
 Monthly cash flow, category trends, net worth statement, property P&L, tax summary — following the

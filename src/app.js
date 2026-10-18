@@ -59,7 +59,7 @@ import {
 } from "./components/assets.js";
 import {
   modernPropRowOpen, renderPropListModern, renderProperties, patchPropertyCardComputed,
-  logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan, setSaleWhatIfField, patchSaleWhatIf, setLoanStrategyField, patchLoanStrategy
+  logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan, setSaleWhatIfField, patchSaleWhatIf, setLoanStrategyField, patchLoanStrategy, propertyTabs
 } from "./components/properties.js";
 import { renderProjectionOutputs, projectionSeriesShown } from "./components/projections.js";
 import { renderBenchmarks, setBenchmarkField, applyBenchmarkPaste, addGoal, setGoalField, removeGoal, setPropertyMarketField } from "./components/benchmarks.js";
@@ -1940,6 +1940,17 @@ import {
     }
   });
 
+  // A property's tabs (v3.61.0): every panel is already rendered, so switching is a visibility
+  // toggle — no re-render, nothing typed in another tab is lost.
+  document.getElementById("propertiesBody").addEventListener("click", function(e){
+    var tab = e.target.closest("[data-prop-tab]");
+    if(!tab) return;
+    var pid = tab.getAttribute("data-prop-tab"), key = tab.getAttribute("data-tab");
+    propertyTabs[pid] = key;
+    var card = tab.closest(".property-card");
+    card.querySelectorAll("[data-prop-tab]").forEach(function(b){ var on = b === tab; b.classList.toggle("active", on); b.setAttribute("aria-selected", on ? "true" : "false"); });
+    card.querySelectorAll("[data-prop-panel]").forEach(function(pn){ pn.hidden = pn.getAttribute("data-prop-panel") !== key; });
+  });
   document.getElementById("propertiesBody").addEventListener("click", function(e){
     var sectionToggleBtn = e.target.closest("[data-prop-section-toggle]");
     if(sectionToggleBtn){

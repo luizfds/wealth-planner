@@ -485,6 +485,20 @@ export function propertyTaxDeductibleResultAnnual(property){
   return rentYearly - expenseYearly - loanInterestYearly - propertyDepreciationAnnual(property) -
     propertyBorrowingCostsDeduction(property) - propertyClaimsAnnual(property.id);
 }
+// The same result line by line, for the property's Tax tab (v3.61.0). Sums to
+// propertyTaxDeductibleResultAnnual().
+export function propertyTaxResultBreakdown(property){
+  var rows = [
+    { key: "rent", label: "Rent", amount: sumField(property.income, "yearly") },
+    { key: "expenses", label: "Expenses", amount: -sumField(property.expenses, "yearly") },
+    { key: "interest", label: "Loan interest", amount: -(property.loans || []).reduce(function(s, l){ return s + loanInterestMonthly(l) * 12; }, 0) },
+    { key: "depreciation", label: "Depreciation", amount: -propertyDepreciationAnnual(property) },
+    { key: "borrowing", label: "Borrowing costs", amount: -propertyBorrowingCostsDeduction(property) },
+    { key: "claims", label: "Budget lines claimed here", amount: -propertyClaimsAnnual(property.id) }
+  ];
+  var net = rows.reduce(function(s, r){ return s + r.amount; }, 0);
+  return { rows: rows, net: net };
+}
 // The same result WITHOUT depreciation — what actually moves through the bank account. Every
 // cash-flow figure in the app uses this; only the tax result uses the one above.
 export function propertyCashResultAnnual(property){

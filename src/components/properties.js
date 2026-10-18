@@ -4,7 +4,7 @@ import {
   capitalWorksAnnual, plantDepreciationAnnual, propertyDepreciationForWindow, financialYearOf, fyLabel,
   propertyCapitalGain, propertyYieldOnCost, propertyLVR, propertiesTotalValue, propertiesTotalEquityToday, propertiesOffsetTotal,
   propertiesTotalMortgageBalance, propertiesNetCashFlowMonthly, propertiesWeightedGrossYield,
-  propertyOwnershipPct, propertyOwnershipTotal, propertyTaxDeductibleResultAnnual, loanBalance, loanPaidOut,
+  propertyOwnershipPct, propertyOwnershipTotal, propertyTaxDeductibleResultAnnual, propertyTaxResultBreakdown, loanBalance, loanPaidOut,
   landTaxByState, totalLandTax, borrowingCostsSchedule, borrowingCostsDeduction, sortedRateHistory, calcRepaymentMonthly
 } from "../calc/property.js";
 import { getTaxPeople, computePersonTax } from "../calc/tax.js";
@@ -489,6 +489,49 @@ function propertyStatTileHtml(key, label, valueHtml, opts){
   '</div>';
 }
 
+// ---------------- Tabs on a property (v3.61.0) ----------------
+// A property card had nine collapsible sections stacked one after another — value, purchase costs,
+// ownership, depreciation, loans, strategy, income, expenses, sale — so finding the loans meant
+// scrolling past the depreciation schedule. The summary stays on top; the rest is five tabs.
+// Session-only, per property.
+export var propertyTabs = {};
+export function propertyTabsFor(p){
+  var t = [{ key: "overview", label: "Overview" }, { key: "loans", label: "Loans" }, { key: "income", label: "Income & costs" }];
+  if(p.kind === "IP") t.push({ key: "tax", label: "Tax" }, { key: "sale", label: "Sale" });
+  return t;
+}
+export function propertyTabShown(p){
+  var k = propertyTabs[p.id];
+  return propertyTabsFor(p).some(function(t){ return t.key === k; }) ? k : "overview";
+}
+function propertyTabBarHtml(p, tabs, current){
+  return '<div class="subnav prop-tabs" role="tablist" aria-label="' + escapeAttr(p.what || "Property") + ' sections">' + tabs.map(function(t){
+    var on = t.key === current;
+    return '<button type="button" class="subnav-item' + (on ? " active" : "") + '" role="tab" aria-selected="' + on + '" data-prop-tab="' + escapeAttr(p.id) + '" data-tab="' + t.key + '">' + t.label + '</button>';
+  }).join("") + '</div>';
+}
+// The Tax tab's lead: this year's rental result line by line, then each owner's share and roughly
+// what it does to their tax.
+export function propertyTaxTabHtml(p){
+  var b = propertyTaxResultBreakdown(p);
+  var people = getTaxPeople();
+  var owners = people.map(function(person){
+    var pct = propertyOwnershipPct(p, person, people);
+    if(!pct) return "";
+    var share = b.net * pct / 100;
+    var rate = 0;
+    try { rate = (computePersonTax(person).marginalRate || 0) + 0.02; } catch(e){ rate = 0; }
+    return '<div class="ptx-row"><span>' + escapeAttr(person) + ' (' + pct + '%)</span><b>' + (share < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(share)) + '</b>' +
+      '<em>' + (share < 0 ? "about " + fmtCurrency0.format(Math.abs(share) * rate) + " less tax" : share > 0 ? "about " + fmtCurrency0.format(share * rate) + " more tax" : "") + '</em></div>';
+  }).join("");
+  return '<div class="ptx"><div class="property-section-title">' + escapeAttr(householdYearWindow().label) + ' rental result</div>' +
+    b.rows.filter(function(r){ return Math.abs(r.amount) >= 0.5; }).map(function(r){
+      return '<div class="ptx-row"><span>' + r.label + '</span><b>' + (r.amount < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(r.amount)) + '</b><em></em></div>';
+    }).join("") +
+    '<div class="ptx-row ptx-total"><span>' + (b.net < 0 ? "Net rental loss" : "Net rental income") + '</span><b>' + (b.net < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(b.net)) + '</b><em></em></div>' +
+    (owners ? '<div class="property-section-title" style="margin-top:10px">Each owner\'s share</div>' + owners : '') +
+    '<p class="ledger-note" style="margin:6px 0 0">From the plan for the year; Tax → Returns has the year as lodged. The tax effect is at each person\'s marginal rate plus Medicare.</p></div>';
+}
 function propertyCardHtml(p, colorIdx){
   var equity = propertyEquityToday(p);
   var hasPmFee = p.kind === "IP";
@@ -577,6 +620,9 @@ function propertyCardHtml(p, colorIdx){
   var moreTiles = Object.keys(allTiles).filter(function(k){ return primaryKeys.indexOf(k) === -1; }).map(function(k){ return allTiles[k]; }).join("");
 
   var allSectionsCollapsed = PROPERTY_SECTION_KEYS.every(function(k){ return !!(p.sectionsCollapsed && p.sectionsCollapsed[k]); });
+  var tabs = propertyTabsFor(p);
+  var current = propertyTabShown(p);
+  var panel = function(key, html){ return '<div class="prop-tab-panel" data-prop-panel="' + key + '"' + (key === current ? "" : " hidden") + ' role="tabpanel">' + html + '</div>'; };
 
   return '<div class="property-card series-color-' + (colorIdx % 8) + '" data-property-id="' + escapeAttr(p.id) + '" id="property-card-' + escapeAttr(p.id) + '">' +
     '<div class="property-card-head">' +
@@ -592,7 +638,8 @@ function propertyCardHtml(p, colorIdx){
       (moreTiles ? '<details class="tax-advanced m-more-options property-stats-more"><summary>More detail</summary><div class="calc-outputs" style="margin-top:10px">' + moreTiles + '</div></details>' : '<span></span>') +
       '<button type="button" class="btn btn-ghost btn-sm property-collapse-btn" data-prop-collapse-toggle="' + escapeAttr(p.id) + '">' + (allSectionsCollapsed ? "Expand all" : "Collapse all") + '</button>' +
     '</div>' +
-    propertySectionHtml(p, "value",
+    propertyTabBarHtml(p, tabs, current) +
+    panel("overview", propertySectionHtml(p, "value",
       '<div class="property-section-title">Property value</div>',
       '<div class="calc-grid">' +
         '<div class="calc-field"><label>Current value</label><input type="number" step="1000" min="0" class="prop-value" aria-label="Current value" value="' + (Number(p.value) || 0) + '"></div>' +
@@ -601,17 +648,16 @@ function propertyCardHtml(p, colorIdx){
       '</div>' +
       landTaxFieldsHtml(p) +
       '<div class="prop-value-log"><button type="button" class="btn btn-sm" data-property-log="' + escapeAttr(p.id) + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart">Log today\'s value</button>' + historyTrendHtml(p) + '</div>') +
-    acquisitionCostsSectionHtml(p) +
-    (p.kind === "IP" ? ownershipSectionHtml(p) : "") +
-    (p.kind === "IP" ? depreciationSectionHtml(p) : "") +
-    propertySectionHtml(p, "loans",
+    acquisitionCostsSectionHtml(p)  +
+    (p.kind === "IP" ? ownershipSectionHtml(p) : "") ) +
+    panel("loans", propertySectionHtml(p, "loans",
       '<div class="property-section-title">Loans</div>',
       '<div class="m-card" id="propLoanRows_' + escapeAttr(p.id) + '">' + modernLoanListHtml(p) + '</div>' +
       '<button type="button" class="btn btn-sm btn-ghost" data-loan-add="' + escapeAttr(p.id) + '">+ Add loan</button>') +
     ((p.loans || []).length ? propertySectionHtml(p, "strategy",
       '<div class="property-section-title">Loan strategy</div>',
-      '<div class="ls-wrap" data-strategy-property="' + escapeAttr(p.id) + '">' + loanStrategyHtml(p) + '</div>') : "") +
-    propertySectionHtml(p, "income",
+      '<div class="ls-wrap" data-strategy-property="' + escapeAttr(p.id) + '">' + loanStrategyHtml(p) + '</div>') : "")) +
+    panel("income", propertySectionHtml(p, "income",
       '<div class="property-section-title">Income</div>',
       incomePaidPanel +
       '<div class="m-card"><div class="m-rows" id="propIncomeRows_' + escapeAttr(p.id) + '">' + modernPropListHtml(p.income, "propinc:" + p.id, false) + '</div></div>' +
@@ -621,10 +667,11 @@ function propertyCardHtml(p, colorIdx){
       pmFeePanel +
       '<div class="m-card"><div class="m-rows" id="propExpRows_' + escapeAttr(p.id) + '">' + modernPropListHtml(p.expenses, "propexp:" + p.id, true) + '</div></div>' +
       '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="propexp:' + escapeAttr(p.id) + '">+ Add expense</button>' +
-      (p.kind === "IP" ? claimedHereHtml(p) : "")) +
-    (p.kind === "IP" ? propertySectionHtml(p, "sale",
+      (p.kind === "IP" ? claimedHereHtml(p) : ""))) +
+    (p.kind === "IP" ? panel("tax", propertyTaxTabHtml(p) + (p.kind === "IP" ? depreciationSectionHtml(p) : "")) : "") +
+    (p.kind === "IP" ? panel("sale", (p.kind === "IP" ? propertySectionHtml(p, "sale",
       '<div class="property-section-title">If you sold</div>',
-      '<div class="sale-body" data-sale-property="' + escapeAttr(p.id) + '">' + saleWhatIfHtml(p, saleWhatIfData(p)) + '</div>') : "") +
+      '<div class="sale-body" data-sale-property="' + escapeAttr(p.id) + '">' + saleWhatIfHtml(p, saleWhatIfData(p)) + '</div>') : "")) : "") +
   '</div>';
 }
 // Budget lines paid from the household budget but claimed against this property (v3.45.0). They're

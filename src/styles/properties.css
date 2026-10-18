@@ -314,3 +314,17 @@
 .rh-item .icon-btn{ min-width:24px; min-height:24px; }
 .rh-record{ display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; align-items:center; }
 .rh-record input{ flex:1 1 120px; min-width:0; }
+
+/* Tabs on a property card (v3.61.0) */
+.prop-tabs{ margin:12px 0 8px; }
+.prop-tab-panel[hidden]{ display:none; }
+.ptx{ border:1px solid var(--border); border-radius:12px; padding:12px; margin-bottom:12px; background: var(--paper); }
+.ptx-row{ display:grid; grid-template-columns: minmax(0,1fr) auto minmax(0,auto); gap:10px; font-size:13px; padding:4px 0; border-bottom:1px dashed var(--border); align-items:baseline; }
+.ptx-row b{ text-align:right; font-variant-numeric: tabular-nums; }
+.ptx-row em{ font-style:normal; font-size:12px; color: var(--ink-soft); text-align:right; }
+.ptx-total{ border-bottom:0; border-top:2px solid var(--ink); font-weight:700; margin-top:2px; }
+@media (max-width: 480px){
+  .ptx-row{ grid-template-columns: minmax(0,1fr) auto; }
+  .ptx-row em{ grid-column: 1 / -1; text-align:left; }
+  .ptx-row em:empty{ display:none; }
+}

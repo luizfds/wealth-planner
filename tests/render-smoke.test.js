@@ -1137,3 +1137,14 @@ test("Accounts page: grouped cards with balances, a card's available limit, and 
     assert.match(html, /<span>Owed on cards and loans<\/span><b class="owed">−\$9,700/);
   } finally { Object.assign(state, keep); }
 });
+
+test("property Tax tab: the year's rental result line by line, and each owner's share", async function(){
+  const { propertyTaxTabHtml, propertyTabsFor } = await import("../src/components/properties.js");
+  var p = { id: "p9", what: "1 Example St", kind: "IP", ownership: {}, income: [{ what: "Rent", amount: 2000, freq: "Monthly" }], expenses: [{ what: "Rates", amount: 2400, freq: "Yearly" }], loans: [] };
+  var html = propertyTaxTabHtml(p);
+  assert.match(html, /Rent<\/span><b>\$24,000/);
+  assert.match(html, /Expenses<\/span><b>−\$2,400/);
+  assert.match(html, /Net rental income<\/span><b>\$21,600/);
+  assert.deepEqual(propertyTabsFor(p).map(function(t){ return t.key; }), ["overview", "loans", "income", "tax", "sale"]);
+  assert.deepEqual(propertyTabsFor({ kind: "PPOR" }).map(function(t){ return t.key; }), ["overview", "loans", "income"]);
+});

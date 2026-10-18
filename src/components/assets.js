@@ -11,7 +11,9 @@ import { appendHistorySnapshot, daysUntil, householdYearWindow, householdYearBas
 import { TIME_RANGES, rangeLabel, rangeByKey, rangeStartDate, bestFitRange, timeRangeControlHtml } from "../lib/timerange.js";
 import { observationDates, categorySeries, trimUntracked, allocationSeries, valueOn, coverageStart } from "../calc/history.js";
 import { parseBenchmarkSymbol, setBenchmarkPrice } from "../calc/performance.js";
-import { holdingDividend, saleCapitalGain, fifoParcels, lotsUnitsAvailable, lotsAverageCost, lotRemainingUnits, lotCost, amitCostBaseAdjustmentPerUnit, getTaxPeople } from "../calc/tax.js";
+import { holdingDividend, saleCapitalGain, fifoParcels, lotsUnitsAvailable, lotsAverageCost, lotRemainingUnits, lotCost, amitCostBaseAdjustmentPerUnit, getTaxPeople, currentTaxFy } from "../calc/tax.js";
+import { portfolioPerformance, distributionHistory, superContributions } from "../calc/investments.js";
+import { performanceCardHtml, distributionsCardHtml, superContributionsCardHtml } from "./investments.js";
 import { financialYearOf, fyLabel } from "../calc/property.js";
 import { renderProjectionOutputs } from "./projections.js";
 import { renderDashboardStats } from "./dashboard.js";
@@ -554,7 +556,9 @@ export function renderAssetCategoryPage(cat){
         '<h2 class="section-title">' + escapeAttr(cat) + ' over time</h2></div></summary>' +
         '<div class="ledger-body"><div id="assetHistoryPanel-' + escapeAttr(cat) + '"></div></div></details>'
     : "";
-  container.innerHTML = '<div class="ledgers"><details class="ledger" open>' +
+  // v3.61.0: Super leads with this year's contributions against each person's cap.
+  var superCard = cat === "Super" ? superContributionsCardHtml(superContributions(currentTaxFy()), fyLabel(currentTaxFy())) : "";
+  container.innerHTML = '<div class="ledgers">' + superCard + '<details class="ledger" open>' +
     '<summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">' + escapeAttr(cat) + '</h2></div>' +
     '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
     '<div class="ledger-body">' + body + '</div></details>' + historyCard + '</div>';
@@ -927,7 +931,10 @@ export function renderSharesSubpage(){
   container.innerHTML = '<div class="ledgers"><details class="ledger" open>' +
     '<summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Shares</h2></div>' +
     '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
-    '<div class="ledger-body"><div id="sharesGlance">' + sharesGainLossGlanceHtml(allData.items) + '</div>' + fxWarn + pasteTool + toolbar + body + '</div></details>' + historyPanel + '</div>';
+    '<div class="ledger-body"><div id="sharesGlance">' + sharesGainLossGlanceHtml(allData.items) + '</div>' + fxWarn + pasteTool + toolbar + body + '</div></details>' +
+    // v3.61.0: the portfolio's performance and its distributions by year, over the same holdings.
+    (allData.items.length ? performanceCardHtml(portfolioPerformance(allData.items.map(function(a){ return a; }), householdYearWindow()), householdYearWindow().label) + distributionsCardHtml(distributionHistory(allData.items)) : "") +
+    historyPanel + '</div>';
   if(allData.items.length) renderSharesHistoryChart();
 }
 

@@ -77,7 +77,7 @@ import { normaliseDescription } from "./calc/bank-import.js";
 import { openAccounts, balanceEditing } from "./components/accounts.js";
 import { renderHomeSummary } from "./components/home.js";
 import { dataHealthChecks, dismissCheck } from "./calc/health.js";
-import { chooseFolder, backupToFolder, forgetFolder, maybeAutoBackup, setPasscode, clearPasscode, checkPasscode } from "./lib/safekeeping.js";
+import { chooseFolder, backupToFolder, forgetFolder, maybeAutoBackup, setPasscode, clearPasscode, checkPasscode, newestFolderBackup, compareCopies } from "./lib/safekeeping.js";
 import { renderSafekeeping } from "./components/safekeeping.js";
 import { goalsSectionHtml, goalOpen } from "./components/savegoals.js";
 import { addSavingsGoal } from "./calc/savegoals.js";
@@ -3981,7 +3981,18 @@ import {
       // A tax year file picked from the main Import merges instead of replacing everything.
       if(parsed && parsed.kind === TAX_YEAR_FILE_KIND){ applyTaxYearFile(parsed); return; }
       if(!parsed || !parsed.income || !parsed.home) throw new Error("bad shape");
-      if(hasRealUserData() && !confirm("You already have data in Wealth Planner on this device. Importing will replace it — this can't be undone unless you've exported a backup first. Continue?")) return;
+      // v3.71.0: say which copy is newer, so restoring on a second device can't quietly put an
+      // older copy over a newer one.
+      var when = function(iso){ try{ return new Date(iso).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); }catch(e){ return iso; } };
+      var cmp = compareCopies(parsed.savedAt);
+      if(hasRealUserData()){
+        var msg = cmp === "here"
+          ? "This backup is OLDER than what's on this device — it was last changed " + when(parsed.savedAt) + ", this device's copy " + when(state.savedAt) + ". Replace this device's newer copy with it?"
+          : cmp === "incoming"
+          ? "Replace this device's copy (last changed " + when(state.savedAt) + ") with this backup (last changed " + when(parsed.savedAt) + ")?"
+          : "You already have data in Wealth Planner on this device. Importing will replace it — this can't be undone unless you've exported a backup first. Continue?";
+        if(!confirm(msg)) return;
+      }
       setState(migrateState(parsed));
       renderAll();
       persist();
@@ -3990,25 +4001,22 @@ import {
       showToast("That file doesn't look like a valid backup");
     }
   }
+  // A backup's text, plain or encrypted — from a picked file or the backup folder (v3.71.0).
+  function importBackupText(raw){
+    var envelope;
+    try{ envelope = JSON.parse(raw); }catch(err){ showToast("That file doesn't look like a valid backup"); return; }
+    if(envelope && envelope.wealthPlannerEncrypted){
+      var passphrase = prompt("This backup is encrypted. Enter its passphrase to unlock it:");
+      if(passphrase == null) return;
+      decryptBackup(envelope, passphrase).then(function(plainStr){ applyImportedBackupJson(plainStr); })
+        .catch(function(){ showToast("Wrong passphrase, or this backup is corrupted."); });
+    } else applyImportedBackupJson(raw);
+  }
   document.getElementById("importFile").addEventListener("change", function(e){
     var file = e.target.files[0];
     if(!file) return;
     var reader = new FileReader();
-    reader.onload = function(){
-      var raw = reader.result, envelope;
-      try{ envelope = JSON.parse(raw); }catch(err){ showToast("That file doesn't look like a valid backup"); return; }
-      if(envelope && envelope.wealthPlannerEncrypted){
-        var passphrase = prompt("This backup is encrypted. Enter its passphrase to unlock it:");
-        if(passphrase == null) return;
-        decryptBackup(envelope, passphrase).then(function(plainStr){
-          applyImportedBackupJson(plainStr);
-        }).catch(function(){
-          showToast("Wrong passphrase, or this backup is corrupted.");
-        });
-      } else {
-        applyImportedBackupJson(raw);
-      }
-    };
+    reader.onload = function(){ importBackupText(reader.result); };
     reader.readAsText(file);
     e.target.value = "";
   });
@@ -4657,6 +4665,15 @@ import {
       return;
     }
     if(act === "folder-now"){ backupToFolder(true).then(folderResult).catch(function(){ showToast("Couldn't write the backup"); }); return; }
+    if(act === "folder-open"){
+      newestFolderBackup(true).then(function(r){
+        if(!r || r.permission === false){ showToast("The browser didn't allow reading the folder"); return; }
+        if(r.none){ showToast("No backups in " + r.folder + " yet"); return; }
+        importBackupText(r.text);
+      }).catch(function(){ showToast("Couldn't read the folder"); });
+      return;
+    }
+    if(act === "file-open"){ document.getElementById("importFile").click(); return; }
     if(act === "folder-stop"){ forgetFolder().then(function(){ showToast("Stopped backing up to the folder"); renderSafekeeping(); }); return; }
     if(act === "pass-set" || act === "pass-change"){ askNewPasscode().then(function(done){ if(done){ showToast("Passcode set"); renderSafekeeping(); } }); return; }
     if(act === "pass-off"){
@@ -4668,7 +4685,16 @@ import {
     if(act === "lock-now"){ try{ sessionStorage.removeItem("wealthPlanner.unlocked"); }catch(err){} showLock(); }
   });
   // A quiet weekly backup into the chosen folder, if the browser still allows it.
-  maybeAutoBackup().then(function(r){ if(r && r.ok){ showToast("Weekly backup saved to " + r.folder); renderSafekeeping(); } });
+  // v3.71.0: first, is there a newer copy from another device in the folder? Then offer it, and
+  // don't back up over the top of it until the person has chosen.
+  newestFolderBackup(false).then(function(r){
+    if(r && r.newerThanHere && !r.fromThisDevice && !r.none && r.permission !== false){
+      var when = new Date(r.savedAt).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+      showPersistentToast("A newer copy from another device (" + when + ") is in " + r.folder + ".", "Open it", function(){ importBackupText(r.text); });
+      return;
+    }
+    return maybeAutoBackup().then(function(res){ if(res && res.ok){ showToast("Weekly backup saved to " + res.folder); renderSafekeeping(); } });
+  }).catch(function(){});
 
   // ---------------- Cash flow → Budget → Recurring payments (v3.66.0) ----------------
   function currentRecurring(){

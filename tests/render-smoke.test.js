@@ -1159,7 +1159,8 @@ test("Keeping your data safe: backups, the folder option and the passcode", asyn
     assert.match(html, /data-sk="export"/);
     assert.match(html, /Needs Chrome or Edge/, "no folder API under Node");
     assert.match(html, /data-sk="pass-set">Set a passcode/);
-    assert.match(html, /doesn't encrypt/);
+    assert.match(html, /doesn.t encrypt/);
+    assert.match(html, /data-sk="file-open">Open a backup file/);
   } finally { state.lastBackupDate = keep; }
 });
 

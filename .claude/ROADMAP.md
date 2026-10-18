@@ -2315,9 +2315,15 @@ inline styles (a paste-in textarea keeps it), tabular figures on body, and the I
 page totals moved to whole dollars. Rule recorded in base.css: whole dollars for totals and
 summaries, cents for single items (a transaction, a budget line, a tax figure).
 
-## 106. `[~]` Using it on two devices
+## 106. `[x]` Using it on two devices — shipped v3.71.0
 Restore from the backup folder as well as write to it: open the newest backup there, with a warning
 when this device's copy is newer, so a phone and a laptop stay in step without emailing files.
+Shipped as: `state.savedAt`/`savedBy` stamped on every save (device id in localStorage); folder
+backups named with time and device so two devices never overwrite each other; `newestFolderBackup()`
+reads the folder (newest by savedAt) — on load it offers a newer copy from another device and holds
+the automatic backup; "Open the newest from the folder" and "Open a backup file" (phones, via the
+Files app); every restore says which copy changed last, and warns loudly before an older one
+replaces a newer.
 
 ## 107. `[~]` Property beyond the numbers
 Rent reviews and vacancy weeks (planned against actual), fixed-rate expiry dates with a "what if it

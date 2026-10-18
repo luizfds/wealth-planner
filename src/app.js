@@ -61,7 +61,7 @@ import {
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
   patchCalcOutputs, afterCalcChange, patchInvestOutputs
 } from "./components/scenarios.js";
-import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
+import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, taxSubpage, syncMobileTaxSeason, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
 import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./components/search.js";
 import {
   startBankImport, reparseBankImportWith, clearBankImport,
@@ -1087,18 +1087,16 @@ import {
     window.print();
   }
   var taxYearBody = document.getElementById("taxYearBody");
-  document.getElementById("taxYearLedger").addEventListener("toggle", function(){
-    if(document.getElementById("taxYearLedger").open) renderTaxYear();
-  });
-  taxYearBody.addEventListener("change", function(e){
+  var taxDocsBody = document.getElementById("taxDocsBody");
+  function onTaxYearChange(e){
     var t = e.target;
-    if(t.id === "taxYearSelect"){ setTaxYearSelected(t.value); renderTaxYear(); return; }
+    if(t.hasAttribute("data-ty-year")){ setTaxYearSelected(t.value); renderTaxYear(); return; }
     if(t.hasAttribute("data-ty-evidence")){
       taxYearToggleEvidence(t.getAttribute("data-ty-evidence"), t.checked);
-      var sum = t.closest("details").querySelector("summary");
-      var boxes = t.closest("details").querySelectorAll("[data-ty-evidence]");
+      var boxes = taxDocsBody.querySelectorAll("[data-ty-evidence]");
       var on = Array.prototype.filter.call(boxes, function(b){ return b.checked; }).length;
-      if(sum) sum.textContent = "Documents to keep (" + on + " of " + boxes.length + ")";
+      var count = taxDocsBody.querySelector(".ty-docs-count");
+      if(count) count.textContent = on + " of " + boxes.length;
       persist();
       return;
     }
@@ -1111,6 +1109,17 @@ import {
       taxYearSetField(t.getAttribute("data-ty-kind"), t.getAttribute("data-ty-person"), Number(t.getAttribute("data-ty-index")), t.getAttribute("data-ty-key"), t.value);
       afterTaxYearEdit();
     }
+  }
+  taxYearBody.addEventListener("change", onTaxYearChange);
+  taxDocsBody.addEventListener("change", onTaxYearChange);
+  taxDocsBody.addEventListener("click", function(e){
+    if(e.target.closest("[data-ty-import]")) document.getElementById("taxYearImportFile").click();
+  });
+  document.getElementById("taxSubnav").addEventListener("click", function(e){
+    var btn = e.target.closest("[data-tax-sub]");
+    if(!btn) return;
+    showTaxSubpage(btn.getAttribute("data-tax-sub"));
+    renderTaxYear();
   });
   taxYearBody.addEventListener("click", function(e){
     var add = e.target.closest("[data-ty-add]");
@@ -3055,12 +3064,9 @@ import {
       if(tab){ tab.click(); tab.scrollIntoView({ behavior: "smooth", block: "start" }); }
     } else if(where === "taxyear"){
       if(jump.getAttribute("data-tax-fy")) setTaxYearSelected(jump.getAttribute("data-tax-fy"));
-      showPage("income");
-      var ws = document.getElementById("taxYearLedger");
-      if(ws){
-        if(ws.open) renderTaxYear(); else ws.open = true;
-        setTimeout(function(){ ws.scrollIntoView({ behavior: "smooth", block: "start" }); }, 50);
-      }
+      showPage("tax");
+      showTaxSubpage("returns", { replace: true });
+      renderTaxYear();
     }
   });
   document.getElementById("homeBody").addEventListener("keydown", function(e){
@@ -3374,9 +3380,9 @@ import {
     if(report.unmatchedPeople.length) bits.push("not in this plan yet (add a Gross income row for them): " + report.unmatchedPeople.join(", "));
     if(report.skipped.length) bits.push("skipped: " + report.skipped.join("; "));
     showPersistentToast(fyLabel(report.fy) + " imported — " + bits.join(" · "), "Open worksheet", function(){
-      showPage("income");
-      var ws = document.getElementById("taxYearLedger");
-      if(ws){ ws.open = true; renderTaxYear(); ws.scrollIntoView({ behavior: "smooth", block: "start" }); }
+      showPage("tax");
+      showTaxSubpage("returns", { replace: true });
+      renderTaxYear();
     });
   }
   document.getElementById("taxYearImportFile").addEventListener("change", function(e){
@@ -3740,10 +3746,12 @@ import {
   var initialPage = "dashboard";
   var initialAssetsSub = "summary";
   var initialExpensesSub = "budget";
+  var initialTaxSub = null;
   if(routeFromUrl){
     initialPage = routeFromUrl.page;
     if(routeFromUrl.sub && routeFromUrl.page === "assets") initialAssetsSub = routeFromUrl.sub;
     if(routeFromUrl.sub && routeFromUrl.page === "expenses") initialExpensesSub = routeFromUrl.sub;
+    if(routeFromUrl.sub && routeFromUrl.page === "tax") initialTaxSub = routeFromUrl.sub;
   } else {
     try{ initialPage = localStorage.getItem(PAGE_KEY) || "dashboard"; }catch(e){}
   }
@@ -3764,6 +3772,7 @@ import {
     showPage(route.page, { skipUrl: true });
     if(route.page === "assets") showAssetsSubpage(route.sub || "summary", { skipUrl: true });
     if(route.page === "expenses") showExpensesSubpage(route.sub || "budget", { skipUrl: true });
+    if(route.page === "tax") showTaxSubpage(route.sub || taxSubpage(), { skipUrl: true });
   });
 
   function renderAll(){
@@ -3955,6 +3964,9 @@ import {
   // currentExpensesSub, which buildRoutePath needs to be correct the first time the user
   // navigates *to* Expenses from somewhere else.
   showExpensesSubpage(initialExpensesSub, { skipUrl: initialPage !== "expenses", replace: true });
+  // Same seeding for Tax, whose default tab depends on the time of year (nav.js defaultTaxSub).
+  showTaxSubpage(initialTaxSub || taxSubpage(), { skipUrl: initialPage !== "tax", replace: true });
+  syncMobileTaxSeason();
 
   // onboarding.html's "Try it with sample data" link lands here with ?mock=1 — generate it
   // immediately (no confirm needed, unlike the header's own Sample data button: there's nothing

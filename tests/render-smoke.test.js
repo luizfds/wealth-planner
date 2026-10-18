@@ -845,14 +845,19 @@ test("if you sold: inputs, the sums and each owner's share", async function(){
   assert.match(html, /Taxed in FY26\/27/);
 });
 
-test("the worksheet offers Import a year next to Print", async function(){
-  const { taxYearHtml, setTaxYearSelected } = await import("../src/components/taxyear.js");
+test("Returns offers Print; Documents offers Import a year and the checklist", async function(){
+  const { taxYearHtml, taxDocumentsHtml, setTaxYearSelected } = await import("../src/components/taxyear.js");
   var keep = { income: state.income, taxYears: state.taxYears, properties: state.properties, assets: state.assets };
   try {
     state.income = [{ what: "Pay", person: "Sam", incomeType: "Gross", amount: 100000, freq: "Yearly", superMode: "On top", sacrificeMode: "none" }];
     state.properties = []; state.assets = []; state.taxYears = {};
     setTaxYearSelected(2025);
-    assert.match(taxYearHtml(), /data-ty-import[^>]*>Import a year<\/button><button type="button" class="btn btn-sm btn-ghost" data-ty-print>/);
+    var ret = taxYearHtml(), docs = taxDocumentsHtml();
+    assert.match(ret, /data-ty-print[^>]*>Print \/ save as PDF/);
+    assert.doesNotMatch(ret, /data-ty-import/);
+    assert.match(docs, /data-ty-import[^>]*>Import a year<\/button>/);
+    assert.match(docs, /id="taxDocsYearSelect" data-ty-year/);
+    assert.match(docs, /To keep for FY25\/26 <span class="ty-docs-count">0 of 0<\/span>/);
   } finally { Object.assign(state, keep); }
 });
 

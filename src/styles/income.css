@@ -141,6 +141,10 @@
 .ty-cmp-row b.up{ color:var(--bad); }
 .ty-cmp-row b.down{ color:var(--good); }
 .ty-ev{ display:flex; gap:8px; align-items:flex-start; font-size:13px; padding:4px 0; }
+/* Tax → Documents (v3.43.0) */
+.ty-docs-head{ display:flex; align-items:baseline; gap:10px; font-size:14px; font-weight:650; margin:14px 0 6px; }
+.ty-docs-count{ font-size:12px; font-weight:600; color:var(--ink-soft); }
+.ty-evidence{ display:flex; flex-direction:column; gap:2px; margin-bottom:10px; }
 /* Phone width: four fields on one line cut "98400" to "9840". The payer takes the first line,
    the three amounts and delete share the second — and the header row follows the same shape, so
    its labels still sit over their columns. */

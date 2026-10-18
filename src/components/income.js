@@ -569,8 +569,8 @@ export function renderTaxSuper(){
 }
 // The worksheet reads the same figures, so when it's open it follows every recalculation.
 function refreshOpenTaxYear(){
-  var ledger = document.getElementById("taxYearLedger");
-  if(ledger && ledger.open) renderTaxYear();
+  var page = document.getElementById("page-tax");
+  if(page && !page.hidden) renderTaxYear();
 }
 
 function taxPersonHeadHtml(person, r, pi){

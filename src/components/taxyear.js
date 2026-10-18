@@ -225,35 +225,53 @@ function rentHtml(fy){
 }
 
 export function renderTaxYear(){
+  // Returns and Documents share the selected year; both are rendered together so switching tab
+  // never shows a stale year (v3.43.0).
   var el = document.getElementById("taxYearBody");
-  if(!el) return;
-  // Keep any open/closed sections as the user left them across the re-render.
-  var openState = Array.prototype.map.call(el.querySelectorAll("details"), function(d){ return d.open; });
-  el.innerHTML = taxYearHtml();
-  if(openState.length){
-    Array.prototype.forEach.call(el.querySelectorAll("details"), function(d, i){ if(i < openState.length) d.open = openState[i]; });
+  if(el){
+    // Keep any open/closed sections as the user left them across the re-render.
+    var openState = Array.prototype.map.call(el.querySelectorAll("details"), function(d){ return d.open; });
+    el.innerHTML = taxYearHtml();
+    if(openState.length){
+      Array.prototype.forEach.call(el.querySelectorAll("details"), function(d, i){ if(i < openState.length) d.open = openState[i]; });
+    }
   }
+  var docs = document.getElementById("taxDocsBody");
+  if(docs) docs.innerHTML = taxDocumentsHtml();
+}
+function yearSelectHtml(id, fy){
+  var thisFy = currentTaxFy();
+  var options = [];
+  for(var y = thisFy - 4; y <= thisFy; y++) options.push('<option value="' + y + '"' + (y === fy ? " selected" : "") + '>' + fyLabel(y) + (y === thisFy ? " (this year)" : "") + '</option>');
+  return '<label for="' + id + '">Financial year</label><select id="' + id + '" data-ty-year>' + options.join("") + '</select>';
 }
 export function taxYearHtml(){
   var people = getTaxPeople();
   if(!people.length) return '<p class="tax-empty">Add a Gross income row with a Person to start a worksheet.</p>';
   var fy = taxYearSelected();
-  var thisFy = currentTaxFy();
-  var options = [];
-  for(var y = thisFy - 4; y <= thisFy; y++) options.push('<option value="' + y + '"' + (y === fy ? " selected" : "") + '>' + fyLabel(y) + (y === thisFy ? " (this year)" : "") + '</option>');
+  return '<div class="ty-top">' + yearSelectHtml("taxYearSelect", fy) +
+      (taxTablesFor(fy).assumed ? '<span class="ledger-note warn" style="margin:0">' + fyLabel(fy) + ' rates are partly assumed.</span>' : '') +
+      '<button type="button" class="btn btn-sm btn-ghost" data-ty-print style="margin-left:auto">Print / save as PDF</button></div>' +
+    rentHtml(fy) +
+    people.map(function(person){ return personCardHtml(person, fy); }).join("");
+}
+// Documents (v3.43.0): the papers a year's return is built from, and the one-step import of a
+// whole year's figures — the checklist used to sit under the last person's card on the worksheet.
+export function taxDocumentsHtml(){
+  var people = getTaxPeople();
+  if(!people.length) return '<p class="tax-empty">Add a Gross income row with a Person to start a return.</p>';
+  var fy = taxYearSelected();
   var rec = taxYearRecord(fy, false);
   var ev = evidenceItems(fy);
   var ticked = ev.filter(function(i){ return rec && rec.evidence[i.key]; }).length;
-  return '<div class="ty-top"><label for="taxYearSelect">Financial year</label><select id="taxYearSelect">' + options.join("") + '</select>' +
-      (taxTablesFor(fy).assumed ? '<span class="ledger-note warn" style="margin:0">' + fyLabel(fy) + ' rates are partly assumed.</span>' : '') +
-      '<button type="button" class="btn btn-sm btn-ghost" data-ty-import style="margin-left:auto" title="Merge a tax year file — one year\'s income statements, interest, deductions, rental schedule and fund statements — into this plan, leaving everything else as it is">Import a year</button>' +
-      '<button type="button" class="btn btn-sm btn-ghost" data-ty-print>Print / save as PDF</button></div>' +
-    rentHtml(fy) +
-    people.map(function(person){ return personCardHtml(person, fy); }).join("") +
-    '<details class="row-more-options ty-evidence"><summary>Documents to keep (' + ticked + ' of ' + ev.length + ')</summary>' +
-      ev.map(function(i){ return '<label class="m-checkbox-field ty-ev"><input type="checkbox" data-ty-evidence="' + escapeAttr(i.key) + '"' + (rec && rec.evidence[i.key] ? " checked" : "") + '> ' + escapeAttr(i.text) + '</label>'; }).join("") +
-      '<p class="ledger-note" style="margin-left:0">Keep these for five years after lodging; purchase records for anything you still own until five years after you sell it.</p>' +
-    '</details>';
+  return '<div class="ty-top">' + yearSelectHtml("taxDocsYearSelect", fy) +
+      '<button type="button" class="btn btn-sm btn-ghost" data-ty-import style="margin-left:auto" title="Merge a tax year file — one year\'s income statements, interest, deductions, rental schedule and fund statements — into this plan, leaving everything else as it is">Import a year</button></div>' +
+    '<h3 class="ty-docs-head">To keep for ' + fyLabel(fy) + ' <span class="ty-docs-count">' + ticked + ' of ' + ev.length + '</span></h3>' +
+    (ev.length
+      ? '<div class="ty-evidence">' + ev.map(function(i){ return '<label class="m-checkbox-field ty-ev"><input type="checkbox" data-ty-evidence="' + escapeAttr(i.key) + '"' + (rec && rec.evidence[i.key] ? " checked" : "") + '> ' + escapeAttr(i.text) + '</label>'; }).join("") + '</div>'
+      : '<p class="ledger-note" style="margin-left:0">Nothing yet — the list grows from the year\'s income statements, holdings, sales and properties.</p>') +
+    '<p class="ledger-note" style="margin-left:0">Keep these for five years after lodging; purchase records for anything you still own until five years after you sell it.</p>' +
+    '<p class="ledger-note" style="margin-left:0"><b>Import a year</b> takes a tax year file — one year\'s income statements, interest, deductions, rental schedule and fund statements — and merges it in without touching anything else.</p>';
 }
 
 // ---------------- Edits ----------------

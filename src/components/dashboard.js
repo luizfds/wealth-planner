@@ -147,7 +147,7 @@ function taxTileHtml(){
     big = known.length ? (refund >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(refund)) : fmtCurrency0.format(tax);
     small = known.length ? (refund >= 0 ? "estimated refund" : "estimated to pay") : "estimated tax and levies for the year";
   }
-  return '<button type="button" class="stat-tile stat-tile-link" data-dashboard-jump="taxyear" data-tax-fy="' + fy + '" title="Opens the tax return worksheet for ' + fyLabel(fy) + ' (Income & Tax)">' +
+  return '<button type="button" class="stat-tile stat-tile-link" data-dashboard-jump="taxyear" data-tax-fy="' + fy + '" title="Opens the tax return worksheet for ' + fyLabel(fy) + ' (Tax → Returns)">' +
     '<span>' + escapeAttr(label) + '</span><b' + (urgent ? ' style="color:var(--bad)"' : '') + '>' + escapeAttr(big) + '</b>' +
     '<small>' + escapeAttr(small) + '</small></button>';
 }

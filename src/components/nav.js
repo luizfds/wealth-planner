@@ -1,11 +1,15 @@
 import { renderDashboardStats } from "./dashboard.js";
 import { closeScenarioOverridePanel } from "./expenses.js";
 import { escapeAttr } from "../lib/html.js";
+import { lodgementStatus } from "../calc/taxyear.js";
+import { renderTaxYear } from "./taxyear.js";
+import { localDateStr } from "../lib/format.js";
 
 // ---------------- Page navigation ----------------
 var PAGES = [
   { id: "dashboard", label: "Dashboard" },
-  { id: "income", label: "Income & Tax" },
+  { id: "income", label: "Income" },
+  { id: "tax", label: "Tax" },
   { id: "expenses", label: "Expenses" },
   { id: "accounts", label: "Accounts" },
   { id: "assets", label: "Assets" },
@@ -45,17 +49,27 @@ var currentAssetsSub = "summary";
 // are already lowercase route slugs, so they double as their own DOM ids and URL segments.
 var EXPENSES_SUBS = ["budget", "spending"];
 var currentExpensesSub = "budget";
+// Tax's three halves (v3.43.0): the year as a plan, past years as returns, and the papers behind
+// them. Deep-linkable like Expenses — "open the return" is worth a bookmark in October.
+var TAX_SUBS = ["year", "returns", "documents"];
+var currentTaxSub = null;
+// Between 1 July and 31 October the year just ended is the thing to be doing, so Tax opens on its
+// return; the rest of the year it opens on the plan.
+export function defaultTaxSub(){
+  return lodgementStatus(localDateStr()).inSeason ? "returns" : "year";
+}
 
 function buildRoutePath(pageId){
   var parts = [pageId];
   if(pageId === "assets") parts.push(ASSETS_SUB_TO_SLUG[currentAssetsSub] || "summary");
   if(pageId === "expenses") parts.push(currentExpensesSub);
+  if(pageId === "tax") parts.push(currentTaxSub || defaultTaxSub());
   return BASE_PATH + "/" + parts.join("/");
 }
 function syncUrl(pageId, replace){
   var path = buildRoutePath(pageId);
   if(location.pathname === path) return;
-  history[replace ? "replaceState" : "pushState"]({page: pageId, assetsSub: currentAssetsSub, expensesSub: currentExpensesSub}, "", path + location.search);
+  history[replace ? "replaceState" : "pushState"]({page: pageId, assetsSub: currentAssetsSub, expensesSub: currentExpensesSub, taxSub: currentTaxSub}, "", path + location.search);
 }
 export function parseRouteFromLocation(){
   var path = location.pathname;
@@ -69,13 +83,27 @@ export function parseRouteFromLocation(){
   var sub = null;
   if(page.id === "assets" && segs[1] && SLUG_TO_ASSETS_SUB[segs[1]]) sub = SLUG_TO_ASSETS_SUB[segs[1]];
   else if(page.id === "expenses" && segs[1] && EXPENSES_SUBS.indexOf(segs[1]) !== -1) sub = segs[1];
+  else if(page.id === "tax" && segs[1] && TAX_SUBS.indexOf(segs[1]) !== -1) sub = segs[1];
   return { page: page.id, sub: sub };
 }
 
 // Pages reachable directly from the mobile bottom tab bar; the rest live behind its "More"
 // tab. Scenarios/Projections are occasional "what-if" pages, unlike the four data-entry
 // pages above them, so the More tab's own active state also lights up for those two.
-var MOBILE_MORE_PAGES = ["accounts", "scenarios", "projections"];
+//
+// Tax lives behind More too, except from 1 July to 31 October, when it takes Assets' place in the
+// bar (v3.43.0) — lodging is what people open the app for then, and Assets moves into More.
+var MOBILE_MORE_PAGES = ["accounts", "scenarios", "projections", "tax"];
+export function syncMobileTaxSeason(today){
+  var inSeason = lodgementStatus(today || localDateStr()).inSeason;
+  var set = function(id, hidden){ var el = document.getElementById(id); if(el) el.hidden = hidden; };
+  set("mobileTabTax", !inSeason);
+  set("mobileMoreTax", inSeason);
+  set("mobileTabAssets", inSeason);
+  set("mobileMoreAssets", !inSeason);
+  MOBILE_MORE_PAGES = inSeason ? ["accounts", "scenarios", "projections", "assets"] : ["accounts", "scenarios", "projections", "tax"];
+  return inSeason;
+}
 
 // Plain-button pages: the page's own single, unambiguous "add" entry point. Income/Assets/
 // Scenarios are handled separately below (grouped by person/category/scenario, so there's no one
@@ -225,6 +253,9 @@ export function showPage(id, opts){
     if(navLabel) navLabel.textContent = page ? page.label : "Dashboard";
     try{ localStorage.setItem(PAGE_KEY, id); }catch(e){}
     if(id === "dashboard") renderDashboardStats();
+    // The worksheet only re-renders itself while visible (see income.js refreshOpenTaxYear), so
+    // arriving on Tax brings it up to date with whatever changed elsewhere in the meantime.
+    if(id === "tax") renderTaxYear();
     updateQuickFab(id);
     if(!opts.skipScroll) window.scrollTo(0, 0);
     if(!opts.skipUrl) syncUrl(id, !!opts.replace);
@@ -282,6 +313,20 @@ export function showAccountsSubpage(id){
   scrollActiveSubnavIntoView("accountsSubnav");
   updateQuickFab("accounts");
 }
+
+export function showTaxSubpage(id, opts){
+  opts = opts || {};
+  if(TAX_SUBS.indexOf(id) === -1) id = currentTaxSub || defaultTaxSub();
+  currentTaxSub = id;
+  document.querySelectorAll(".tax-subpage").forEach(function(el){ el.hidden = el.id !== "taxSub-" + id; });
+  document.querySelectorAll("#taxSubnav .subnav-item").forEach(function(btn){
+    btn.classList.toggle("active", btn.getAttribute("data-tax-sub") === id);
+  });
+  scrollActiveSubnavIntoView("taxSubnav");
+  updateQuickFab("tax");
+  if(!opts.skipUrl) syncUrl("tax", !!opts.replace);
+}
+export function taxSubpage(){ return currentTaxSub || defaultTaxSub(); }
 
 // Budget (what you plan to spend) vs. Spending (what you actually spent, logged against it) —
 // same pill-subnav + URL-sync pattern as showAssetsSubpage above, and deep-linkable for the same

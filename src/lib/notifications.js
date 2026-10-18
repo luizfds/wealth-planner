@@ -345,7 +345,7 @@ export function taxCalendarReminders(today, opts){
         id: "cap:" + fyEnding + ":" + p.name, type: "tax", severity: "info",
         title: p.name + ": " + fmtCurrency0.format(p.capRoom) + " of super cap left this year",
         detail: "Concessional contributions (salary sacrifice, or a personal one you claim) count toward " + fyLabel(fyEnding) + "'s cap only if they reach the fund by 30 June.",
-        date: today, page: "income"
+        date: today, page: "tax"
       });
     });
   }
@@ -353,8 +353,8 @@ export function taxCalendarReminders(today, opts){
     out.push({
       id: "tyopen:" + st.fy, type: "tax", severity: "info",
       title: fyLabel(st.fy) + " is over — start the tax worksheet",
-      detail: "Income statements are usually ready in myGov by mid-July. Income & Tax → Tax return worksheet lists the documents to gather.",
-      date: today, page: "income"
+      detail: "Income statements are usually ready in myGov by mid-July. Tax → Documents lists the papers to gather.",
+      date: today, page: "tax"
     });
   }
   if(m === 10 && st.inSeason && !opts.lodged){
@@ -363,7 +363,7 @@ export function taxCalendarReminders(today, opts){
       id: "tydue:" + st.fy + ":" + (lastWeek ? "week" : "month"), type: "tax", severity: lastWeek ? "bad" : "warn",
       title: fyLabel(st.fy) + " tax return due 31 October — " + (st.daysLeft === 0 ? "today" : st.daysLeft + " day" + (st.daysLeft === 1 ? "" : "s") + " left"),
       detail: "Lodging through a registered tax agent? They have later dates — mark the year lodged on the worksheet and this goes away.",
-      date: today, page: "income"
+      date: today, page: "tax"
     });
   }
   return out;

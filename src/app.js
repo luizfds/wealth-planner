@@ -19,8 +19,10 @@ import { financialYearOf, fyLabel } from "./calc/property.js";
 import { taxYearFillStatements, renderTaxYear, setTaxYearSelected, taxYearAddRow, taxYearDeleteRow, taxYearRestoreRow, taxYearSetField, taxYearToggleEvidence, taxYearMarkLodged, worksheetText, taxYearSelected, taxYearPrintHtml, lodgedSnapshot } from "./components/taxyear.js";
 import { renderPeople, setPersonField, peopleSummaryText } from "./components/people.js";
 import { renamePersonEverywhere, removePersonFromTax } from "./calc/people.js";
+import { renderHealth } from "./components/health.js";
 import { logIncomeReceived, deleteIncomeReceived } from "./calc/received.js";
 import { renderReceived, toggleReceivedRow, receivedSheet, openReceivedSheet, closeReceivedSheet, setReceivedTarget, receivedSheetHtml } from "./components/received.js";
+import { applyRentalComparison, applyBudgetComparison, householdBudgetLines } from "./calc/closeyear.js";
 import { setUseBudgetLines, setLineExcluded, RENT_EXPENSE_LINES, rentLineFor, setRentalActual, mergeTaxYearFile, matchPerson, taxYearRecord, TAX_YEAR_FILE_KIND } from "./calc/taxyear.js";
 import { renderCards, renderDashboardStats, renderDetail, setProjectionReference, logNetWorthSnapshot } from "./components/dashboard.js";
 import {
@@ -1120,6 +1122,53 @@ import {
     renderTaxYear();
     persist();
   }
+  // Close the year (v3.48.0): the ticked lines become the plan. Undo puts back exactly what was
+  // there — the rows' amounts and histories — so it's a snapshot rather than a reversed edit.
+  function closeYear(fy){
+    var body = document.getElementById("taxYearBody");
+    var rentPicks = {}, linePicks = [];
+    body.querySelectorAll("[data-cy-rent]:checked").forEach(function(b){
+      var pid = b.getAttribute("data-cy-rent");
+      (rentPicks[pid] = rentPicks[pid] || []).push(b.getAttribute("data-cy-key"));
+    });
+    body.querySelectorAll("[data-cy-line]:checked").forEach(function(b){ linePicks.push(b.getAttribute("data-cy-line")); });
+    if(!Object.keys(rentPicks).length && !linePicks.length){ showToast("Tick the lines to carry into the plan"); return; }
+    var before = JSON.stringify({ properties: state.properties, shared: state.shared, home: state.home });
+    var today = localDateStr();
+    var changed = 0;
+    Object.keys(rentPicks).forEach(function(pid){
+      var p = findProperty(pid);
+      if(p) changed += applyRentalComparison(p, fy, rentPicks[pid], today);
+    });
+    if(linePicks.length) changed += applyBudgetComparison(householdBudgetLines(budgetLineItems(), state.properties), state.transactions, fy, linePicks, today);
+    afterCloseYear();
+    showUndoToast(changed + " line" + (changed === 1 ? "" : "s") + " updated from " + fyLabel(fy), function(){
+      var snap = JSON.parse(before);
+      state.properties = snap.properties; state.shared = snap.shared; state.home = snap.home;
+      afterCloseYear();
+    });
+  }
+  // Checks → "Open …": straight to where the fix is.
+  document.getElementById("healthBody").addEventListener("click", function(e){
+    var go = e.target.closest(".hc-go");
+    if(!go) return;
+    var page = go.getAttribute("data-hc-page"), sub = go.getAttribute("data-hc-sub"), fy = go.getAttribute("data-hc-fy");
+    showPage(page);
+    if(page === "accounts" && sub){ showAccountsSubpage(sub); if(sub === "people") renderPeopleTab(); }
+    if(page === "expenses" && sub) showExpensesSubpage(sub, { replace: true });
+    if(page === "tax"){
+      if(fy) setTaxYearSelected(fy);
+      showTaxSubpage(sub || "returns", { replace: true });
+      renderTaxYear();
+      var close = document.querySelector("#taxYearBody .ty-close");
+      if(close){ close.open = true; setTimeout(function(){ close.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60); }
+    }
+  });
+  function afterCloseYear(){
+    recalcComputedItems();
+    renderAll();
+    persist();
+  }
   // Builds the static print copy at the top level, prints, and takes it away again. afterprint
   // fires once the dialog closes, whatever the user chose.
   function printTaxYear(){
@@ -1181,6 +1230,8 @@ import {
     renderTaxYear();
   });
   taxYearBody.addEventListener("click", function(e){
+    var cyApply = e.target.closest("[data-cy-apply]");
+    if(cyApply){ closeYear(Number(cyApply.getAttribute("data-cy-apply"))); return; }
     var fill = e.target.closest("[data-ty-fill]");
     if(fill){ taxYearFillStatements(fill.getAttribute("data-ty-fill")); afterTaxYearEdit(); return; }
     var add = e.target.closest("[data-ty-add]");
@@ -3060,6 +3111,7 @@ import {
     // in is both cheaper and more reliable than adding a renderCategories() to all of them.
     if(accountsSubId === "categories") renderCategories();
     if(accountsSubId === "people") renderPeopleTab();
+    if(accountsSubId === "checks") renderHealth();
     // Same reasoning as renderCategories() above: this tab is normally hidden, and its labels are
     // derived from today's date ("FY26/27 so far", "20% through it"), so they go stale on their
     // own without anything having changed.
@@ -3963,6 +4015,7 @@ import {
     renderTaxYear();
     renderPeopleTab();
     renderReceived();
+    renderHealth();
     renderNotifBadge();
   }
 
@@ -4152,7 +4205,7 @@ function closeNotifPanel(){
   document.querySelectorAll(".notif-bell-btn").forEach(function(btn){ btn.setAttribute("aria-expanded", "false"); });
 }
 function notifItemHtml(n){
-  return '<button type="button" class="notif-item' + (n.read ? "" : " is-unread") + '" data-notif-id="' + escapeAttr(n.id) + '" data-notif-page="' + escapeAttr(n.page) + '">' +
+  return '<button type="button" class="notif-item' + (n.read ? "" : " is-unread") + '" data-notif-id="' + escapeAttr(n.id) + '" data-notif-page="' + escapeAttr(n.page) + '"' + (n.sub ? ' data-notif-sub="' + escapeAttr(n.sub) + '"' : '') + '>' +
     '<span class="notif-dot ' + escapeAttr(n.severity) + '" aria-hidden="true"></span>' +
     '<span class="notif-item-body"><span class="notif-item-title">' + escapeAttr(n.title) + '</span><span class="notif-item-detail">' + escapeAttr(n.detail) + '</span></span>' +
   '</button>';
@@ -4221,6 +4274,8 @@ document.getElementById("notifPanelRoot").addEventListener("click", function(e){
     renderNotifBadge();
     closeNotifPanel();
     showPage(item.getAttribute("data-notif-page"));
+    var notifSub = item.getAttribute("data-notif-sub");
+    if(notifSub && item.getAttribute("data-notif-page") === "accounts"){ showAccountsSubpage(notifSub); if(notifSub === "checks") renderHealth(); }
   }
 });
 // Cheap enough to run on the same "tab regains focus" signal as the update checker below — local

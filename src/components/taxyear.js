@@ -2,6 +2,8 @@ import { state } from "../state.js";
 import { DEDUCTION_LABELS } from "../constants.js";
 import { getTaxPeople, computePersonTax, currentTaxFy, taxTablesFor, phiPremiumsAnnual, deductionRows } from "../calc/tax.js";
 import { claimItems } from "../calc/claims.js";
+import { rentalComparison, budgetComparison, householdBudgetLines } from "../calc/closeyear.js";
+import { localDateStr } from "../lib/format.js";
 import { fyLabel, ipProperties, propertyOwnershipPct } from "../calc/property.js";
 import { taxYearRecord, personYear, rentalSchedules, RENT_LINES, usesBudgetLines, budgetLineDeductions, expectedGrossForYear } from "../calc/taxyear.js";
 import { fmtCurrency0, fmtCurrency2 } from "../lib/format.js";
@@ -290,7 +292,43 @@ export function taxYearHtml(){
       (taxTablesFor(fy).assumed ? '<span class="ledger-note warn" style="margin:0">' + fyLabel(fy) + ' rates are partly assumed.</span>' : '') +
       '<button type="button" class="btn btn-sm btn-ghost" data-ty-print style="margin-left:auto">Print / save as PDF</button></div>' +
     rentHtml(fy) +
-    people.map(function(person){ return personCardHtml(person, fy); }).join("");
+    people.map(function(person){ return personCardHtml(person, fy); }).join("") +
+    closeYearHtml(fy);
+}
+// Close the year (v3.48.0) — calc/closeyear.js. Only for a year that's over: the plan for next year
+// starts from what happened. Lines that moved noticeably come pre-ticked.
+export function closeYearHtml(fy, today){
+  today = today || localDateStr();
+  if(fy >= currentTaxFy()) return "";
+  var money0 = function(n){ return fmtCurrency0.format(Number(n) || 0); };
+  var diffCell = function(d){ return '<span class="cy-diff ' + (Math.abs(d) < 1 ? "" : d > 0 ? "up" : "down") + '">' + (d > 0 ? "+" : d < 0 ? "−" : "") + money0(Math.abs(d)) + '</span>'; };
+  var sections = [];
+  ipProperties().forEach(function(p){
+    var rows = rentalComparison(p, fy);
+    if(!rows.length) return;
+    sections.push('<div class="cy-head">' + escapeAttr(p.what || "Property") + ' — rental schedule</div>' + rows.map(function(r){
+      var tick = r.action && Math.abs(r.diff) >= Math.max(50, Math.abs(r.planned) * 0.05);
+      return '<label class="cy-row' + (r.action ? "" : " is-fixed") + '">' +
+        (r.action ? '<input type="checkbox" data-cy-rent="' + escapeAttr(p.id) + '" data-cy-key="' + r.key + '"' + (tick ? " checked" : "") + '>' : '<span class="cy-nobox" title="Comes from the loans or the depreciation schedule, not a row you set">—</span>') +
+        '<span class="cy-name">' + escapeAttr(r.label) + (r.action === "add" ? ' <small>new row</small>' : '') + '</span>' +
+        '<span class="cy-num">' + money0(r.planned) + '</span><span class="cy-num">' + money0(r.actual) + '</span>' + diffCell(r.diff) + '</label>';
+    }).join(""));
+  });
+  var b = budgetComparison(householdBudgetLines(claimItems(), state.properties), state.transactions || [], fy, today);
+  if(b.rows.length){
+    sections.push('<div class="cy-head">Budget lines <small>' + (b.months < 12 ? 'logged over ' + b.months + ' month' + (b.months === 1 ? '' : 's') + ', scaled to a year' : 'a full year logged') + '</small></div>' +
+      b.rows.map(function(r){
+        var tick = r.off >= 0.15 && Math.abs(r.diff) >= 100;
+        return '<label class="cy-row"><input type="checkbox" data-cy-line="' + escapeAttr(r.id) + '"' + (tick ? " checked" : "") + '>' +
+          '<span class="cy-name">' + escapeAttr(r.what) + '</span><span class="cy-num">' + money0(r.planned) + '</span><span class="cy-num">' + money0(r.actual) + '</span>' + diffCell(r.diff) + '</label>';
+      }).join(""));
+  }
+  if(!sections.length) return '<details class="row-more-options ty-close"><summary>Close ' + fyLabel(fy) + '</summary><p class="ledger-note" style="margin-left:0">Type the year\'s rental figures above, or log transactions against the budget, and this compares them with the plan.</p></details>';
+  return '<details class="row-more-options ty-close"><summary>Close ' + fyLabel(fy) + ' — the plan against what happened</summary>' +
+    '<p class="ledger-note" style="margin-left:0">Ticked lines become next year\'s plan: each row is set to what the year actually came to (the old amount stays in its history). Rows a line\'s figure comes from are scaled together.</p>' +
+    '<div class="cy-cols" aria-hidden="true"><span></span><span></span><span>Planned</span><span>Actual</span><span>Change</span></div>' +
+    sections.join("") +
+    '<button type="button" class="btn btn-sm btn-primary" data-cy-apply="' + fy + '">Use the ticked lines as the plan</button></details>';
 }
 // Documents (v3.43.0): the papers a year's return is built from, and the one-step import of a
 // whole year's figures — the checklist used to sit under the last person's card on the worksheet.

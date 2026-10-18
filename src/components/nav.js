@@ -130,7 +130,7 @@ function accountsFabAction(){
   var showing = function(id){ var el = document.getElementById(id); return el && !el.hidden; };
   if(showing("accountsSub-categories")) return { label: "Add category", selector: "#addCategoryBtn" };
   if(showing("accountsSub-people")) return { label: "Add person", selector: "#addPersonBtn" };
-  if(showing("accountsSub-preferences")) return { label: null, selector: null };
+  if(showing("accountsSub-preferences") || showing("accountsSub-checks")) return { label: null, selector: null };
   return { label: "Add account", selector: "#addAccountBtn" };
 }
 var QUICK_FAB_GROUPED_PAGES = ["income", "assets", "scenarios"];
@@ -309,7 +309,7 @@ export function showAssetsSubpage(id, opts){
 // Accounts vs. Categories — the two registries this app asks you to maintain. Session-only, like
 // the Dashboard's own split and unlike Assets/Expenses: there's no reason to deep-link a settings
 // registry, and keeping it out of the URL keeps buildRoutePath to the two subpages worth sharing.
-var ACCOUNTS_SUBS = ["accounts", "people", "categories", "preferences"];
+var ACCOUNTS_SUBS = ["accounts", "people", "categories", "preferences", "checks"];
 export function showAccountsSubpage(id){
   if(ACCOUNTS_SUBS.indexOf(id) === -1) id = "accounts";
   document.querySelectorAll(".accounts-subpage").forEach(function(el){ el.hidden = el.id !== "accountsSub-" + id; });

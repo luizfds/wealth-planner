@@ -6,6 +6,7 @@ import { MARKET_CURRENCY } from "../constants.js";
 import { getTaxPeople, computePersonTax } from "../calc/tax.js";
 import { lodgementStatus, taxYearRecord } from "../calc/taxyear.js";
 import { fyLabel } from "../calc/property.js";
+import { dataHealthChecks } from "../calc/health.js";
 
 // ---------------- Notifications: a small, backend-shaped layer over locally-computed alerts ----------------
 // This app has no backend (see CLAUDE.md) — every notification here is derived live from
@@ -324,6 +325,23 @@ function backupReminderNotification(){
   }];
 }
 
+// ---------------- Data health (v3.48.0) ----------------
+// One notification for everything Accounts → Checks says needs fixing (the "to look at" items stay
+// on that tab). Its id carries which checks are failing, so fixing one and breaking another is a
+// new, unread notification rather than one already dismissed.
+function dataHealthNotification(){
+  if(!hasRealUserData()) return [];
+  var fix = dataHealthChecks().filter(function(c){ return c.severity !== "info"; });
+  if(!fix.length) return [];
+  return [{
+    id: "health:" + fix.map(function(c){ return c.id; }).sort().join(","),
+    type: "data", severity: fix.some(function(c){ return c.severity === "bad"; }) ? "warn" : "info",
+    title: fix.length === 1 ? fix[0].title : fix.length + " things in your data to fix",
+    detail: fix.length === 1 ? fix[0].detail : fix.slice(0, 2).map(function(c){ return c.title; }).join("; ") + (fix.length > 2 ? "; and more" : "") + ". Accounts → Checks lists them.",
+    date: todayStr(), page: "accounts", sub: "checks"
+  }];
+}
+
 // ---------------- Tax calendar (v3.34.0) ----------------
 // Three dates a household's tax year turns on, each a reminder only while it can still be acted on:
 //   May–June: concessional super room left before 30 June — a contribution after then counts
@@ -405,7 +423,8 @@ export function getLocalNotifications(){
     sharePricesNotifications(),
     backupReminderNotification(),
     budgetNotifications(),
-    taxCalendarNotifications()
+    taxCalendarNotifications(),
+    dataHealthNotification()
   );
 }
 

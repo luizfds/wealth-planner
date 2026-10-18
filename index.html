@@ -494,6 +494,7 @@
           <button type="button" class="subnav-item" data-accounts-sub="people">People</button>
           <button type="button" class="subnav-item" data-accounts-sub="categories">Categories</button>
           <button type="button" class="subnav-item" data-accounts-sub="preferences">Preferences</button>
+          <button type="button" class="subnav-item" data-accounts-sub="checks">Checks</button>
         </div>
         <div class="accounts-subpage" id="accountsSub-accounts">
         <div class="page-intro-row">
@@ -549,6 +550,23 @@
               <div class="ledger-footer">
                 <button class="btn btn-sm" id="addCategoryBtn">+ Add category</button>
               </div>
+            </div>
+          </details>
+        </div>
+        </div>
+        <div class="accounts-subpage" id="accountsSub-checks" hidden>
+        <div class="page-intro-row">
+          <p class="page-intro">Places where your data disagrees with itself — nothing breaks, but a figure somewhere is quietly wrong.</p>
+        </div>
+        <div class="ledgers">
+          <details class="ledger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Checks</h2></div>
+              <div class="ledger-total" id="healthSummary"></div>
+            </summary>
+            <div class="ledger-body">
+              <p class="ledger-note help" style="margin-left:0">Deductions that land on nobody's return, costs claimed twice or against a property that's gone, ownership that doesn't add to 100%, accounts and categories missing, likely duplicates, and plan lines far from what last year actually cost. Each one says where to fix it.</p>
+              <div id="healthBody"></div>
             </div>
           </details>
         </div>

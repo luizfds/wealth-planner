@@ -975,3 +975,25 @@ test("worksheet: statements link to an income row and are checked; deductions li
     assert.match(taxYearHtml(), /data-ty-fill="Sam"/);
   } finally { setDeductibleItemsProvider(null); Object.assign(state, keep); }
 });
+
+test("Close the year and Checks render", async function(){
+  const { closeYearHtml } = await import("../src/components/taxyear.js");
+  const { healthHtml, healthSummaryText } = await import("../src/components/health.js");
+  var keep = { properties: state.properties, taxYears: state.taxYears, transactions: state.transactions };
+  try {
+    state.properties = [{ id: "r1", what: "9 Sample Ave", kind: "IP", income: [{ what: "Rent", amount: 500, freq: "Weekly" }], expenses: [], loans: [] }];
+    state.taxYears = { 2024: { people: {}, evidence: {}, lodged: {}, properties: { r1: { lines: { rent: 27300 } } } } };
+    state.transactions = [];
+    var html = closeYearHtml(2024, "2026-10-18");
+    assert.match(html, /Close FY24\/25 — the plan against what happened/);
+    assert.match(html, /data-cy-rent="r1" data-cy-key="rent" checked>.*Rental income<\/span><span class="cy-num">\$26,000<\/span><span class="cy-num">\$27,300<\/span><span class="cy-diff up">\+\$1,300/);
+    assert.match(html, /data-cy-apply="2024"/);
+    assert.equal(closeYearHtml(2026, "2026-10-18"), "", "not for a year that isn't over");
+    var checks = [{ id: "x", severity: "bad", title: "One line claimed by nobody", detail: "“Laptop”", where: { page: "expenses", sub: "budget" } }, { id: "y", severity: "info", title: "Tip", detail: "d", where: {} }];
+    var h = healthHtml(checks);
+    assert.match(h, /class="hc-item hc-bad" data-hc-id="x"/);
+    assert.match(h, /data-hc-page="expenses" data-hc-sub="budget">Open the budget/);
+    assert.equal(healthSummaryText(checks), "1 to fix · 1 to look at");
+    assert.match(healthHtml([]), /every check passes/);
+  } finally { Object.assign(state, keep); }
+});

@@ -246,3 +246,33 @@
 .ty-line small{ color:var(--ink-soft); font-weight:600; }
 .ty-line b{ font-family:'IBM Plex Mono', monospace; font-weight:600; }
 .ty-sub-label{ font-size:12px; font-weight:650; color:var(--ink-soft); margin:8px 0 4px; text-transform:uppercase; letter-spacing:.03em; }
+
+/* Tax → Returns → Close the year (v3.48.0) */
+.ty-close{ margin-top:14px; }
+.cy-cols, .cy-row{ display:grid; grid-template-columns: 22px minmax(0,1fr) 84px 84px 84px; gap:8px; align-items:center; }
+.cy-cols{ font-size:11px; font-weight:650; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.03em; margin-top:8px; }
+.cy-cols span:nth-child(n+3), .cy-num, .cy-diff{ text-align:right; }
+.cy-head{ font-size:13px; font-weight:650; margin:12px 0 4px; }
+.cy-head small{ font-weight:500; color:var(--ink-soft); margin-left:6px; }
+.cy-row{ font-size:13px; padding:4px 0; border-bottom:1px solid var(--border); }
+.cy-row.is-fixed{ color:var(--ink-soft); }
+.cy-name small{ font-size:11px; font-weight:600; color:var(--brass-strong); }
+.cy-num, .cy-diff{ font-family:'IBM Plex Mono', monospace; font-size:12.5px; }
+.cy-diff.up{ color:var(--good, #1a8a5a); } .cy-diff.down{ color:var(--bad, #c0392b); }
+.cy-nobox{ text-align:center; color:var(--ink-soft); }
+.ty-close .btn{ margin-top:12px; }
+@media (max-width:480px){
+  .cy-cols, .cy-row{ grid-template-columns: 22px minmax(0,1fr) 64px 64px; }
+  .cy-cols span:nth-child(3), .cy-row > :nth-child(3){ display:none; }
+}
+
+/* ---------------- Accounts → Checks (v3.48.0) ---------------- */
+.hc-list{ display:flex; flex-direction:column; gap:8px; }
+.hc-item{ display:grid; grid-template-columns:10px minmax(0,1fr) auto; gap:10px; align-items:start; padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:var(--paper); }
+.hc-dot{ width:8px; height:8px; border-radius:50%; margin-top:6px; background:var(--ink-soft); }
+.hc-bad .hc-dot{ background:#d64545; } .hc-warn .hc-dot{ background:#eda100; } .hc-info .hc-dot{ background:#2a78d6; }
+.hc-title{ font-size:13.5px; font-weight:650; color:var(--ink); }
+.hc-detail{ font-size:12.5px; color:var(--ink-soft); margin:3px 0 0; line-height:1.45; }
+.hc-go{ white-space:nowrap; }
+.hc-clear{ font-size:13.5px; color:var(--ink-soft); margin:0; }
+@media (max-width:480px){ .hc-item{ grid-template-columns:10px minmax(0,1fr); } .hc-go{ grid-column:2; justify-self:start; } }

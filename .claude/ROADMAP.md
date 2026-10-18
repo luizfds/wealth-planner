@@ -2315,6 +2315,25 @@ inline styles (a paste-in textarea keeps it), tabular figures on body, and the I
 page totals moved to whole dollars. Rule recorded in base.css: whole dollars for totals and
 summaries, cents for single items (a transaction, a budget line, a tax figure).
 
+## 106. `[~]` Using it on two devices
+Restore from the backup folder as well as write to it: open the newest backup there, with a warning
+when this device's copy is newer, so a phone and a laptop stay in step without emailing files.
+
+## 107. `[~]` Property beyond the numbers
+Rent reviews and vacancy weeks (planned against actual), fixed-rate expiry dates with a "what if it
+rolls to X%" view, and insurance/strata/rates renewal dates feeding the bills calendar.
+
+## 108. `[~]` Retirement plan
+One Plan page joining financial independence, super against the cap, savings goals and
+projections: when can we stop working, and what changes it, with a few sliders.
+
+## 109. `[~]` First-run setup
+A guided setup for a new person: accounts, income, budget, first bank import.
+
+## 110. `[~]` Check-up on real data
+Go through a real backup page by page outside the repo; fix what's wrong in the app, hand data
+fixes back as a file.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

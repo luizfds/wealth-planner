@@ -1030,3 +1030,15 @@ test("Before 30 June lists each person's moves, or says there are none", async f
     assert.match(juneMovesHtml("2027-05-20"), /Nothing worth doing this year/);
   } finally { Object.assign(state, keep); }
 });
+
+test("Projections: Plan / Actuals control explains itself either way", async function(){
+  const { projSourceHtml } = await import("../src/components/projections.js");
+  var off = projSourceHtml({ available: false, months: 2 }, "actuals");
+  assert.match(off, /data-proj-source="plan" aria-pressed="true"/);
+  assert.match(off, /data-proj-source="actuals" aria-pressed="false" disabled/);
+  assert.match(off, /Actuals need 3 months of income received and spending logged — 2 so far/);
+  var on = projSourceHtml({ available: true, months: 4, incomeRatio: 0.96, spendRatio: 0.95, incomeLines: 1, spendLines: 1,
+    incomeReceivedMonthly: 4800, spendLoggedMonthly: 950, incomePlannedMonthly: 5000, spendPlannedMonthly: 1000 }, "actuals");
+  assert.match(on, /data-proj-source="actuals" aria-pressed="true"/);
+  assert.match(on, /income at 96% of plan \(1 line\), spending at 95% \(1 line plus one-offs\)\. That's −\$150 a month worse than the plan on those lines\. Only those lines move below/);
+});

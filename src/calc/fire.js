@@ -2,6 +2,7 @@ import { state } from "../state.js";
 import { toAudAmount, totalDebtsValue, totalNetWorthValue, liquidAssetsValue, scenarioTotals } from "./engine.js";
 import { propertyIlliquidEquityToday } from "./property.js";
 import { getTaxPeople, computePersonTax } from "./tax.js";
+import { projectionRatios } from "./actuals.js";
 
 // ---------------- Financial independence, the Australian way ----------------
 //
@@ -159,7 +160,11 @@ export function fireAnnualExpenses(scenario){
 // super is *not* in it — which is why super is contributed separately in the simulation above
 // rather than double-counted here.
 export function fireAnnualSavings(scenario){
-  return scenarioTotals(scenario || state.activeScenario).netMonthly * 12;
+  var t = scenarioTotals(scenario || state.activeScenario);
+  // v3.52.0: on "actuals", the same scaling the projection uses (calc/actuals.js).
+  var r = projectionRatios();
+  if(!r.actuals) return t.netMonthly * 12;
+  return (t.netMonthly + r.incomeDelta - r.spendDelta) * 12;
 }
 
 // The earliest age at which both tests pass. Returns null when no age up to the cap works, which

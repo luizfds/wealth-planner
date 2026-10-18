@@ -425,6 +425,7 @@ export function migrateState(s){
   if(!s.benchmark.symbol) s.benchmark.symbol = "IOZ";
   if(!Array.isArray(s.goals)) s.goals = [];
   if(!Array.isArray(s.incomeLog)) s.incomeLog = [];
+  if(s.projection && s.projection.source !== "actuals") s.projection.source = "plan";
   if(s.fx.usdAud === undefined) s.fx.usdAud = null;
   if(s.fx.usdAudUpdated == null) s.fx.usdAudUpdated = "";
   if(s.lastBackupDate == null) s.lastBackupDate = "";

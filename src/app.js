@@ -897,6 +897,14 @@ import {
     renderProjectionOutputs();
     persist();
   });
+  document.getElementById("projSourceRow").addEventListener("click", function(e){
+    var btn = e.target.closest("[data-proj-source]");
+    if(!btn || btn.disabled) return;
+    state.projection.source = btn.getAttribute("data-proj-source") === "actuals" ? "actuals" : "plan";
+    renderProjectionOutputs();
+    renderDetail();
+    persist();
+  });
   document.getElementById("projRateShock").addEventListener("input", function(e){
     state.projection.rateShockPct = Math.max(0, parseFloat(e.target.value) || 0);
     renderProjectionOutputs();

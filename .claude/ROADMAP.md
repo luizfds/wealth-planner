@@ -2240,9 +2240,15 @@ distributions, realised, total return) and distributions by financial year on In
 concessional contributions against each person's cap for the period's year on Investments → Super.
 
 
-## 98. `[~]` Reports
+## 98. `[x]` Reports — shipped v3.62.0
 Monthly cash flow, category trends, net worth statement, property P&L, tax summary — following the
 period selector, printable and exportable.
+Shipped as: a Reports page (nav between Plan and Settings) — `calc/reports.js` builds five
+same-shaped tables (monthly cash flow, spending by category × month, net worth statement that
+reconciles to `totalNetWorthValue()`, property P&L per IP, tax summary per person) over the
+header's period; `components/reports.js` renders them, prints through the shared #printRoot and
+downloads CSV via `exportTableCsv`.
+
 
 ## 99. `[~]` Polish
 One meaning per verb, one number format, empty states that say what's next, nav badges, backup

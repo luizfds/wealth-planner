@@ -36,6 +36,7 @@ const VIEWS = [
   ["properties", null, [null]],
   ["tax", "tax-sub", ["year", "returns", "documents"]],
   ["plan", "plan-sub", ["scenarios", "projections"]],
+  ["reports", "report", ["cashflow", "categories", "networth", "property", "tax"]],
   ["settings", "accounts-sub", ["people", "categories", "preferences", "rules", "checks"]]
 ];
 const failures = [];

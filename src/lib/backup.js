@@ -276,6 +276,8 @@ function exportCsv(filename, headers, rows){
   if(!rows.length){ showToast("Nothing to export yet"); return; }
   finishExport(buildCsv(headers, rows), filename, "text/csv", "CSV saved");
 }
+// Any table as a CSV (v3.62.0) — Reports' "Download CSV".
+export function exportTableCsv(filename, headers, rows){ exportCsv(filename, headers, rows); }
 // Inverse of csvCell()/buildCsv() above — a small state-machine parser rather than a naive
 // split(","), since a quoted field can itself contain commas, embedded newlines, or an escaped
 // ("") quote (all of which csvCell() produces on the way out, so a round-tripped export needs to

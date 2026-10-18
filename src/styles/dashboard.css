@@ -409,3 +409,23 @@
 .home-todo-btn.warn{ border-left-color:#d99a00; } .home-todo-btn.bad{ border-left-color:var(--bad); }
 .home-period-note{ margin:0 0 8px; font-size:12.5px; color:var(--brass-strong); }
 @media (max-width: 640px){ .home-grid{ grid-template-columns: 1fr; } }
+
+/* ---------------- Reports (v3.62.0) ---------------- */
+.rp-picker{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+.rp-sheet{ border:1px solid var(--border); border-radius:14px; background:var(--paper-raised); padding:16px; box-shadow:var(--shadow); }
+.rp-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+.rp-head h2{ margin:0; font-size:18px; }
+.rp-head span{ font-size:12.5px; color:var(--ink-soft); }
+.rp-actions{ display:flex; gap:6px; }
+.rp-scroll{ overflow-x:auto; }
+.rp-table{ width:100%; border-collapse:collapse; font-size:13px; }
+.rp-table th, .rp-table td{ padding:6px 8px; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap; }
+.rp-table thead th{ font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); }
+.rp-table tbody th{ font-weight:500; }
+.rp-table .num{ text-align:right; font-variant-numeric:tabular-nums; }
+.rp-table td.neg{ color:var(--bad); }
+.rp-table tr.total th, .rp-table tr.total td{ font-weight:700; border-top:2px solid var(--ink); }
+.rp-table tr.head th{ font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); padding-top:14px; }
+.rp-wide th:first-child{ position:sticky; left:0; background:var(--paper-raised); }
+.rp-note{ margin:10px 0 0 !important; }
+@media print{ #printRoot .rp-table{ width:100%; border-collapse:collapse; } #printRoot .rp-table th, #printRoot .rp-table td{ border-bottom:1px solid #999; padding:3pt 5pt; text-align:left; } #printRoot .rp-table .num{ text-align:right; } }

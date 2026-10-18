@@ -1,5 +1,6 @@
 import { renderDashboardStats } from "./dashboard.js";
 import { renderHomeSummary } from "./home.js";
+import { renderReports } from "./reports.js";
 import { closeScenarioOverridePanel } from "./expenses.js";
 import { escapeAttr } from "../lib/html.js";
 import { lodgementStatus } from "../calc/taxyear.js";
@@ -19,6 +20,7 @@ var PAGES = [
   { id: "properties", label: "Property" },
   { id: "tax", label: "Tax" },
   { id: "plan", label: "Plan" },
+  { id: "reports", label: "Reports" },
   { id: "settings", label: "Settings" }
 ];
 // Old page ids → [page, subpage]. Anything that still says showPage("income") — a notification, the
@@ -120,7 +122,7 @@ export function parseRouteFromLocation(){
 // bar that rearranges itself by the calendar costs more than the one tap it saves.
 // v3.57.0: the bar is the four everyday jobs — Home, Cash flow, Accounts, Investments — and the
 // rest (Property, Tax, Plan, Settings) sit behind More.
-var MOBILE_MORE_PAGES = ["properties", "tax", "plan", "settings"];
+var MOBILE_MORE_PAGES = ["properties", "tax", "plan", "reports", "settings"];
 
 
 // Plain-button pages: the page's own single, unambiguous "add" entry point. Income/Assets/
@@ -295,6 +297,7 @@ export function showPage(id, opts){
     if(navLabel) navLabel.textContent = page ? page.label : "Home";
     try{ localStorage.setItem(PAGE_KEY, id); }catch(e){}
     if(id === "dashboard"){ renderDashboardStats(); renderHomeSummary(); }
+    if(id === "reports") renderReports();
     // The worksheet only re-renders itself while visible (see income.js refreshOpenTaxYear), so
     // arriving on Tax brings it up to date with whatever changed elsewhere in the meantime.
     if(id === "tax") renderTaxYear();

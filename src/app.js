@@ -76,6 +76,8 @@ import { rulesPageHtml, setRuleField, ruleIsEmpty, ruleTest } from "./components
 import { normaliseDescription } from "./calc/bank-import.js";
 import { openAccounts, balanceEditing } from "./components/accounts.js";
 import { renderHomeSummary } from "./components/home.js";
+import { renderReports, reportShown, reportPrintHtml, reportCsv } from "./components/reports.js";
+import { exportTableCsv } from "./lib/backup.js";
 import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodButton, renderPeriodMenu } from "./components/period.js";
 import { selectedYearWindow, yearStartOf, householdYearBasis } from "./calc/ledger.js";
 import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, taxSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
@@ -1199,10 +1201,11 @@ import {
   }
   // Builds the static print copy at the top level, prints, and takes it away again. afterprint
   // fires once the dialog closes, whatever the user chose.
-  function printTaxYear(){
+  function printTaxYear(){ printStatic(taxYearPrintHtml()); }
+  function printStatic(html){
     var root = document.getElementById("printRoot");
     if(!root){ root = document.createElement("div"); root.id = "printRoot"; document.body.appendChild(root); }
-    root.innerHTML = taxYearPrintHtml();
+    root.innerHTML = html;
     document.body.classList.add("printing-worksheet");
     var done = function(){
       document.body.classList.remove("printing-worksheet");
@@ -4422,6 +4425,7 @@ import {
     renderNotifBadge();
     renderPeriodButton();
     renderHomeSummary();
+    renderReports();
   }
 
   if(!storageAvailable) setStatus(false, "Storage unavailable — export to keep changes");
@@ -4553,6 +4557,14 @@ import {
     showHelpToggle.addEventListener("change", function(){ setShowHelp(showHelpToggle.checked); });
   }
   document.addEventListener("change", renderGlobalMetrics);
+
+  // ---------------- Reports (v3.62.0) ----------------
+  document.getElementById("reportsBody").addEventListener("click", function(e){
+    var pick = e.target.closest("[data-report]");
+    if(pick){ reportShown.key = pick.getAttribute("data-report"); renderReports(); return; }
+    if(e.target.closest("[data-report-print]")){ printStatic(reportPrintHtml()); return; }
+    if(e.target.closest("[data-report-csv]")){ var c = reportCsv(); exportTableCsv(c.filename, c.headers, c.rows); }
+  });
 
   // ---------------- Home (v3.58.0): the summary's links and to-dos ----------------
   document.getElementById("homeSummary").addEventListener("click", function(e){

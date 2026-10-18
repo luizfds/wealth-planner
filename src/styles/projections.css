@@ -105,6 +105,8 @@
 .rt-check > div{ display:flex; justify-content:space-between; gap:10px; padding:6px 0; border-bottom:1px dashed var(--border); font-size:13px; }
 .rt-check > div b{ white-space:nowrap; }
 .rt-check > div.ok b{ color: var(--good); } .rt-check > div.bad b{ color: var(--bad); }
+/* v3.74.1: seven-figure amounts squeezed the label into a one-word column on a phone. */
+@media (max-width:480px){ .rt-check > div{ flex-direction:column; gap:2px; } }
 .rt-verdict{ margin:8px 0 0; font-weight:600; font-size:13.5px; }
 .rt-verdict.ok{ color: var(--good); } .rt-verdict.bad{ color: var(--bad); }
 .rt-levers{ margin-bottom:14px; }

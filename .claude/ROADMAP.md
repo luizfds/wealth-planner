@@ -2348,9 +2348,11 @@ A guided setup for a new person: accounts, income, budget, first bank import.
 
 Shipped as v3.74.0: a five-step sheet offered once to an empty app (and from Home's setup card as "Guided setup") — people and age, accounts with balances (through the accounts model, so cards owe), pay before tax, rent or loan plus common monthly costs, then Finish or Finish and import a statement. Nothing is written until Finish; closing it marks it skipped. `calc/firstrun.js` (`applyFirstRun`, `shouldOfferFirstRun`), `components/firstrun.js`.
 
-## 110. `[~]` Check-up on real data
+## 110. `[x]` Check-up on real data
 Go through a real backup page by page outside the repo; fix what's wrong in the app, hand data
 fixes back as a file.
+
+Done outside the repo against a real backup: every page and subtab at 390/1280px, no console errors, no NaN/undefined, no sideways scroll. One fix shipped as v3.74.1 — Plan → Retirement's check rows stack on a phone, since seven-figure amounts squeezed the label into a one-word column. The rest were data, not app, and went back to the owner directly.
 
 ## Conventions for whoever picks this up
 

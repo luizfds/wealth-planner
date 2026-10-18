@@ -46,7 +46,9 @@ export function applyRentalComparison(property, fy, keys, today){
     var list = c.key === "rent" ? property.income : property.expenses;
     if(c.action === "add"){
       var label = (RENT_LINES.find(function(l){ return l.key === c.key; }) || {}).label || "Other expenses";
-      list.push({ what: label, amount: round2(c.actual), freq: "Yearly", rentLine: c.key, classification: "Wants", category: "Investment property", account: "" });
+      // Paid from wherever the property's other costs are.
+      var acct = ((property.expenses || []).find(function(e){ return (e.account || "").trim(); }) || {}).account || "";
+      list.push({ what: label, amount: round2(c.actual), freq: "Yearly", rentLine: c.key, classification: "Wants", category: "Investment property", account: acct });
       changed++;
       return;
     }

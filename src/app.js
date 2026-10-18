@@ -27,7 +27,7 @@ import { setUseBudgetLines, setLineExcluded, RENT_EXPENSE_LINES, rentLineFor, se
 import { renderCards, renderDashboardStats, renderDetail, setProjectionReference, logNetWorthSnapshot } from "./components/dashboard.js";
 import {
   personBreakdownHtml, renderIncomeGroups, patchOpenRowBreakdowns, patchIncomeGroupTotals,
-  patchSyntheticIncomeRows, patchIncomeSuperNotes, renderTaxSuper, flipTaxCard, patchAllTaxPersonOutputs, patchPhiNote,
+  patchSyntheticIncomeRows, patchIncomeSuperNotes, renderTaxSuper, withholdingCheckText, flipTaxCard, patchAllTaxPersonOutputs, patchPhiNote,
   modernIncomeRowOpen, parseIncomeImportCsv, renderIncomeImportPreview, clearIncomeImportPreview, commitIncomeImport
 } from "./components/income.js";
 import {
@@ -1074,6 +1074,15 @@ import {
       else if(t.classList.contains("tax-help")) settings.helpBalance = Math.max(0, parseFloat(t.value) || 0);
       else if(t.classList.contains("tax-cgt-losses")) settings.capitalLossCarriedForward = Math.max(0, parseFloat(t.value) || 0);
       else if(t.classList.contains("tax-topup-amt")) settings.topUpAmount = Math.max(0, parseFloat(t.value) || 0);
+      else if(t.classList.contains("tax-ytd-asof") || t.classList.contains("tax-ytd-gross") || t.classList.contains("tax-ytd-withheld")){
+        if(!settings.ytd || typeof settings.ytd !== "object") settings.ytd = {};
+        if(t.classList.contains("tax-ytd-asof")) settings.ytd.asOf = t.value || "";
+        else settings.ytd[t.classList.contains("tax-ytd-gross") ? "gross" : "withheld"] = Math.max(0, parseFloat(t.value) || 0);
+        var ytdOut = panel.querySelector(".tax-ytd-out");
+        if(ytdOut) ytdOut.innerHTML = withholdingCheckText(person);
+        persist();
+        return;
+      }
       else if(t.classList.contains("tax-dob")){ settings.dateOfBirth = t.value || ""; patchPhiNote(); }
       else if(t.classList.contains("tax-wfh-hours")){
         if(!settings.wfhHours) settings.wfhHours = {};

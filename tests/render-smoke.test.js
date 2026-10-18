@@ -997,3 +997,21 @@ test("Close the year and Checks render", async function(){
     assert.match(healthHtml([]), /every check passes/);
   } finally { Object.assign(state, keep); }
 });
+
+test("tax card: the payslip check asks, then answers", async function(){
+  const { withholdingCheckHtml, withholdingCheckText } = await import("../src/components/income.js");
+  const { currentTaxFy } = await import("../src/calc/tax.js");
+  var keep = { income: state.income, tax: state.tax, properties: state.properties, assets: state.assets, taxYears: state.taxYears };
+  try {
+    state.income = [{ id: "a", what: "Pay", person: "Sam", incomeType: "Gross", amount: 90000, freq: "Yearly", superMode: "On top" }];
+    state.properties = []; state.assets = []; state.taxYears = {};
+    state.tax = Object.assign({}, state.tax, { settings: { Sam: {} } });
+    assert.match(withholdingCheckHtml("Sam"), /class="tax-ytd-asof"/);
+    assert.match(withholdingCheckText("Sam"), /Type the year-to-date figures/);
+    var fy = currentTaxFy();
+    state.tax.settings.Sam.ytd = { asOf: fy + "-12-31", gross: 45000, withheld: 12000 };
+    assert.match(withholdingCheckText("Sam"), /withheld against <b>\$[\d,]+<\/b> of tax — heading for a <b class="up">\$[\d,]+ refund<\/b>/);
+    state.tax.settings.Sam.ytd = { asOf: (fy - 1) + "-12-31", gross: 45000, withheld: 12000 };
+    assert.match(withholdingCheckText("Sam"), /from outside FY/);
+  } finally { Object.assign(state, keep); }
+});

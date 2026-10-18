@@ -4,6 +4,7 @@ import { periodsOf, sumField, nextPayDate, payScheduleKindFor, daysUntil, WEEKDA
 import { ipNetResultAnnual, ipDepreciationAnnual, ipOwnershipMismatches, propertyOwnershipTotal, fyLabel } from "../calc/property.js";
 import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax, wfhRateForFy, phiRebateAdjustment, taxTablesFor, currentTaxFy, phiPremiumsAnnual, phiLine } from "../calc/tax.js";
 import { claimItems } from "../calc/claims.js";
+import { projectWithholding } from "../calc/withholding.js";
 import { superTopUp } from "../calc/supertopup.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
@@ -583,6 +584,33 @@ function taxPersonHeadHtml(person, r, pi){
     '</div>';
 }
 
+// Mid-year withholding check (v3.50.0) — calc/withholding.js. Three figures off the latest
+// payslip; the answer is refund-or-bill for the year being earned now.
+export function withholdingCheckHtml(person){
+  var st = personTaxSettings(person);
+  var y = st.ytd || {};
+  var pid = escapeAttr(person);
+  return '<details class="tax-ytd"' + (y.asOf ? " open" : "") + '><summary>Refund or bill? Check against your latest payslip</summary>' +
+    '<div class="tax-inputs" style="margin-top:8px">' +
+      '<div class="proj-field"><label>Payslip date</label><input type="date" class="tax-ytd-asof" aria-label="Payslip period end for ' + pid + '" value="' + escapeAttr(y.asOf || "") + '"></div>' +
+      '<div class="proj-field"><label title="Year-to-date gross on the payslip, before tax — not counting super">Gross so far $</label><input type="number" min="0" step="100" class="tax-ytd-gross" aria-label="Year-to-date gross for ' + pid + '" value="' + (y.gross || "") + '"></div>' +
+      '<div class="proj-field"><label>Tax withheld so far $</label><input type="number" min="0" step="100" class="tax-ytd-withheld" aria-label="Year-to-date tax withheld for ' + pid + '" value="' + (y.withheld || "") + '"></div>' +
+    '</div><p class="tax-ytd-out">' + withholdingCheckText(person) + '</p></details>';
+}
+export function withholdingCheckText(person){
+  var fy = currentTaxFy();
+  var p = projectWithholding(personTaxSettings(person).ytd, computePersonTax(person, { fy: fy }), fy);
+  if(!p) return "Type the year-to-date figures from the latest payslip (every employer's, added together).";
+  if(p.stale) return "That payslip is from outside " + fyLabel(fy) + " — use one from this financial year.";
+  var big = Math.abs(p.outcome) >= 50;
+  return "At " + fmtPercent1.format(p.rate) + " withheld so far, the year comes to about <b>" + fmtCurrency0.format(p.projectedWithheld) + "</b> withheld against <b>" +
+    fmtCurrency0.format(p.tax) + "</b> of tax" + (personTaxSettings(person).helpBalance > 0 ? " and HELP" : "") + " — " +
+    (!big ? "<b>about even</b>." : p.outcome > 0 ? "heading for a <b class=\"up\">" + fmtCurrency0.format(p.outcome) + " refund</b>." : "heading for a <b class=\"down\">" + fmtCurrency0.format(-p.outcome) + " bill</b>" +
+      " — setting aside about " + fmtCurrency0.format(-p.outcome / Math.max(1, Math.round((1 - p.elapsed) * 12))) + " a month until 30 June covers it.") +
+    (p.aheadOfPlan ? ' <span class="warn">The payslip is already past the plan\'s gross for the year — update the income rows.</span>' : "") +
+    " Assumes the rest of the year is withheld at the same average rate; a bonus taxed at a flat rate moves it.";
+}
+
 // Super top-up before 30 June (v3.42.0) — calc/supertopup.js. Shown while there's cap room left (or
 // an amount has been typed): what a personal deductible contribution would get back at tax time,
 // what lands in the fund, and what it really costs.
@@ -626,6 +654,7 @@ function taxPersonFrontBodyHtml(person, r){
     '</div>' +
     '<div class="tax-cap-note tax-div293-note warn"' + (r.div293Tax > 0.5 ? '' : ' hidden') + ' title="Simplified: income for surcharge purposes is approximated as taxable income + your within-cap concessional contributions, ignoring reportable fringe benefits and net investment losses. Check with your accountant.">Division 293: your income is over the $250,000 threshold, so an extra 15% applies to ' + fmtCurrency0.format(Math.min(r.totalConcessional, r.capAvailable)) + ' of low-tax super contributions — ' + fmtCurrency0.format(r.div293Tax) + '/yr, assessed separately by the ATO (not withheld from take-home above).</div>' +
     topUpHtml(person, r) +
+    withholdingCheckHtml(person) +
     '<div class="tax-cap-note tax-mscb-note"' + (r.superOverCap ? '' : ' hidden') + ' title="Employer super guarantee isn\'t compulsory on ordinary-time earnings above this threshold — indexed each financial year.">Your ordinary earnings are over the ' + fmtCurrency0.format(MAX_SUPER_BASE) + '/yr Maximum Super Contribution Base, so employer super isn\'t compulsory on the excess — SG above is capped accordingly.</div>' +
     // HELP is its own note rather than a line in the cap note above, because it isn't a super
     // figure and it isn't a tax — it's a debt repayment coming out of the same pay. The "next

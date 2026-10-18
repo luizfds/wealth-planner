@@ -2173,6 +2173,43 @@ HELP.
 rental schedule's interest model runs across the rates that applied); history and the last change's
 effect on the loan; one notification per change in the last 60 days.
 
+## Professional structure (October 2026)
+
+From a full assessment: the features work but each page grew its own controls and its own copy of
+related data. "Let's do all of them" — one PR, a version per step.
+
+## 92. `[~]` One period selector, in the header
+Replaces six separate period controls (Preferences year basis, Transactions 1M–All, Shares range,
+the Tax year dropdown, Received's fixed month, Review's month stepper). Every page reads it. Plus a
+check for a debt that is a credit limit rather than an amount owed.
+
+## 93. `[~]` Accounts with balances
+Each account has a type (everyday, savings, credit card, offset, loan) and a balance with history.
+Cash assets, offsets and debts become account balances; an offset links to its loan.
+
+## 94. `[~]` Navigation by job
+Home, Cash flow, Accounts, Investments, Property, Tax, Plan, Reports, Settings.
+
+## 95. `[~]` Home, and Review as a guided flow
+Home: net worth, the period's money in and out, bills due, a to-do list. Review: one step at a
+time with progress, plain questions, first-time explanation, the summary last.
+
+## 96. `[~]` Cash flow
+One budget (income and expenses), one transaction list (money in and out) with filters, transfers
+between own accounts, splits, bulk edit, an import-rules editor, a bills calendar.
+
+## 97. `[~]` Property as tabs; investments additions
+A summary header and tabbed sections per property; portfolio performance, distribution history,
+super contributions per year.
+
+## 98. `[~]` Reports
+Monthly cash flow, category trends, net worth statement, property P&L, tax summary — following the
+period selector, printable and exportable.
+
+## 99. `[~]` Polish
+One meaning per verb, one number format, empty states that say what's next, nav badges, backup
+reminders and folder export, optional passcode.
+
 ---
 
 ## Conventions for whoever picks this up

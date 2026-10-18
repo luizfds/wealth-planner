@@ -84,6 +84,7 @@ import { goalsSectionHtml, goalOpen } from "./components/savegoals.js";
 import { addSavingsGoal } from "./calc/savegoals.js";
 import { unbudgetedRecurring, risingLines } from "./calc/recurring.js";
 import { recordRentReview } from "./calc/propertylife.js";
+import { retirementHtml, retireLevers } from "./components/retirement.js";
 import { recurringHtml, recurringDismissed } from "./components/recurring.js";
 import { renderReports, reportShown, reportPrintHtml, reportCsv } from "./components/reports.js";
 import { exportTableCsv } from "./lib/backup.js";
@@ -4534,6 +4535,7 @@ import {
     renderSafekeeping();
     renderSavingsGoals();
     renderRecurring();
+    renderRetirement();
   }
   // Settings carries the number of Checks that need fixing (v3.63.0), so they're seen without
   // opening the tab — on the sidebar, the More tab and its Settings item.
@@ -4792,6 +4794,42 @@ import {
       recalcComputedItems(); persist(); renderAll();
       showUndoToast((item.what || "Line") + " updated to " + fmtCurrency2.format(to), function(){ item.amount = was; recalcComputedItems(); persist(); renderAll(); });
     }
+  });
+
+  // ---------------- Plan → Retirement (v3.73.0) ----------------
+  function renderRetirement(){
+    var el = document.getElementById("retirementBody");
+    if(el) el.innerHTML = retirementHtml();
+  }
+  var retireBody = document.getElementById("retirementBody");
+  var RT_FMT = { retireAge: function(v){ return v; } };
+  retireBody.addEventListener("input", function(e){
+    var k = e.target.getAttribute("data-rt");
+    if(!k) return;
+    var out = retireBody.querySelector('[data-rt-out="' + k + '"]');
+    if(out) out.textContent = RT_FMT[k] ? RT_FMT[k](Number(e.target.value)) : fmtCurrency0.format(Number(e.target.value));
+  });
+  retireBody.addEventListener("change", function(e){
+    var k = e.target.getAttribute("data-rt");
+    if(k){
+      retireLevers[k] = Number(e.target.value);
+      renderRetirement();
+      var again = retireBody.querySelector('[data-rt="' + k + '"]');
+      if(again) again.focus();
+      return;
+    }
+    var fk = e.target.getAttribute("data-rt-fire");
+    if(fk){
+      if(!state.fire) state.fire = {};
+      state.fire[fk] = e.target.value === "" ? null : Number(e.target.value);
+      persist(); renderAll();
+    }
+  });
+  retireBody.addEventListener("click", function(e){
+    var g = e.target.closest("[data-rt-go]");
+    if(!g) return;
+    if(g.getAttribute("data-rt-go") === "super"){ showPage("assets"); showAssetsSubpage("Super", { replace: true }); }
+    else showPage("accounts");
   });
 
   // ---------------- Accounts → Savings goals (v3.65.0) ----------------

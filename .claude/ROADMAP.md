@@ -2335,9 +2335,13 @@ Income & costs tab a Rent panel (next review, record a review, vacancies). Budge
 day, so a renewal with a due month lands on the bills calendar before its first payment. Home
 to-dos for a rent review within 30 days and a fixed rate ending within 90.
 
-## 108. `[~]` Retirement plan
+## 108. `[x]` Retirement plan — shipped v3.73.0
 One Plan page joining financial independence, super against the cap, savings goals and
 projections: when can we stop working, and what changes it, with a few sliders.
+Shipped as: Plan → Retirement. `calc/retirement.js` puts levers (age, retirement spending, extra
+saving, extra super after contributions tax) on calc/fire.js's bridge-then-4% simulation and works
+out each lever's worth in years; `components/retirement.js` shows the earliest workable age, the
+bridge and pot tests at the chosen age, "what changes it", and links to super cap room and goals.
 
 ## 109. `[~]` First-run setup
 A guided setup for a new person: accounts, income, budget, first bank import.

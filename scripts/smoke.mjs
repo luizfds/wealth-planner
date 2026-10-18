@@ -35,7 +35,7 @@ const VIEWS = [
   ["assets", "assets-sub", ["summary", "Cash", "Shares", "Super", "Vehicle", "Other", "Offsets"]],
   ["properties", null, [null]],
   ["tax", "tax-sub", ["year", "returns", "documents"]],
-  ["plan", "plan-sub", ["scenarios", "projections"]],
+  ["plan", "plan-sub", ["scenarios", "projections", "retirement"]],
   ["reports", "report", ["cashflow", "categories", "networth", "property", "tax", "yearend"]],
   ["settings", "accounts-sub", ["people", "categories", "preferences", "rules", "checks"]]
 ];

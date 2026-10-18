@@ -1195,3 +1195,17 @@ test("Checks list: Looks right on each, and the hidden ones with Show again", as
   assert.match(html, /data-hc-undismiss="x2">Show again/);
   assert.match(healthHtml([], []), /Nothing to fix/);
 });
+
+test("Plan → Retirement: asks for an age, then answers with levers and links", async function(){
+  const { retirementHtml } = await import("../src/components/retirement.js");
+  var keep = state.fire;
+  try {
+    state.fire = { currentAge: null, retireAge: null, preservationAge: 60 };
+    assert.match(retirementHtml("2026-10-18"), /Type your age/);
+    state.fire = { currentAge: 40, retireAge: null, preservationAge: 60 };
+    var html = retirementHtml("2026-10-18");
+    assert.match(html, /What changes it/);
+    assert.match(html, /data-rt="retireAge"/);
+    assert.match(html, /Super cap room this year/);
+  } finally { state.fire = keep; }
+});

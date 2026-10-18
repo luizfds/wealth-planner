@@ -89,3 +89,32 @@
     .proj-ms-table{ overflow-x:auto; }
     .proj-ms-row{ min-width: calc(120px + (var(--ms-cols) + 1) * 66px); }
   }
+
+/* Plan → Retirement (v3.73.0) */
+.rt-head{ display:flex; flex-direction:column; gap:2px; padding:12px 14px; border-radius:12px; background: var(--good-wash); margin-bottom:14px; }
+.rt-head.warn{ background: var(--bad-wash); }
+.rt-head span{ font-size:13px; color: var(--ink-soft); }
+.rt-head b{ font-size:34px; line-height:1.1; }
+.rt-head small{ font-size:12.5px; color: var(--ink-soft); }
+.rt-sliders{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:12px 20px; margin-bottom:14px; }
+.rt-slider{ display:flex; flex-direction:column; gap:6px; font-size:13px; }
+.rt-slider span{ display:flex; justify-content:space-between; gap:8px; color: var(--ink-soft); }
+.rt-slider b{ color: var(--ink); }
+.rt-slider input{ width:100%; min-height:32px; accent-color: var(--brass); }
+.rt-check{ border:1px solid var(--border); border-radius:12px; padding:10px 12px; margin-bottom:14px; }
+.rt-check > div{ display:flex; justify-content:space-between; gap:10px; padding:6px 0; border-bottom:1px dashed var(--border); font-size:13px; }
+.rt-check > div b{ white-space:nowrap; }
+.rt-check > div.ok b{ color: var(--good); } .rt-check > div.bad b{ color: var(--bad); }
+.rt-verdict{ margin:8px 0 0; font-weight:600; font-size:13.5px; }
+.rt-verdict.ok{ color: var(--good); } .rt-verdict.bad{ color: var(--bad); }
+.rt-levers{ margin-bottom:14px; }
+.rt-lever{ display:flex; justify-content:space-between; gap:10px; padding:6px 0; border-bottom:1px dashed var(--border); font-size:13px; }
+.rt-links{ display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:10px; margin-bottom:12px; }
+.rt-links > div{ border:1px solid var(--border); border-radius:10px; padding:10px; display:flex; flex-direction:column; gap:3px; }
+.rt-links span{ font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
+.rt-links b{ font-size:16px; }
+.rt-links small{ font-size:12px; color: var(--ink-soft); }
+.rt-links .link-btn{ align-self:flex-start; background:none; border:0; padding:4px 0; color: var(--brass-strong); cursor:pointer; font-size:12.5px; }
+.rt-ages{ display:flex; gap:10px; flex-wrap:wrap; }
+.rt-ages .cf-filter{ width:140px; }
+@media (max-width: 640px){ .rt-sliders, .rt-links{ grid-template-columns: 1fr; } }

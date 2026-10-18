@@ -100,6 +100,9 @@ export function defaultState(){
     // account, hits}. Written only as a side effect of confirming an import — there is no rule
     // editor, because a rule you have to go and maintain is a rule you stop maintaining.
     importRules: [],
+    // Money moved between the household's own accounts (v3.59.0): {id, date, amount, from, to, what}.
+    // Never spending, so never in state.transactions — see calc/cashflowlist.js.
+    transfers: [],
     // Expenses → Budget: which group cards are collapsed, by group name. See migrateState.
     budgetGroupsCollapsed: {},
     // Named money sources referenced by the free-text "account" field elsewhere (income, shared
@@ -316,6 +319,9 @@ export function migrateState(s){
     s.budgetGroupsCollapsed = {};
   }
   if(!Array.isArray(s.importRules)) s.importRules = [];
+  if(!Array.isArray(s.transfers)) s.transfers = [];
+  s.transfers = s.transfers.filter(function(x){ return x && x.date && Number(x.amount); });
+  s.transfers.forEach(function(x){ if(!x.id) x.id = genId("x"); });
   // A rule with no match string can never fire and would sit in a backup forever; one with neither
   // a line nor a category fires and files the row nowhere, which reads as the app forgetting.
   s.importRules = s.importRules.filter(function(r){

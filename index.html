@@ -354,6 +354,16 @@
           </div>
         </div>
         <div class="ledgers">
+          <details class="ledger" id="budgetPlanCard" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Your month, planned</h2></div>
+              <div class="ledger-total">Left over <b id="budgetPlanNet">—</b></div>
+            </summary>
+            <div class="ledger-body">
+              <p class="ledger-note help" style="margin-left:0">Income and spending as one statement: what comes in, what each group of spending takes, and what's left after each — in <b id="budgetPlanScenario">—</b>. Income is after tax; change it on the Income tab.</p>
+              <div id="budgetPlanBody"></div>
+            </div>
+          </details>
           <details class="ledger" open>
             <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Household budget</h2></div>

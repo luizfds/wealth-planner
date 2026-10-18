@@ -39,7 +39,7 @@ import {
   openExpenseReview, closeExpenseReview, renderExpenseReviewPanel,
   logCurrentReviewCard, skipCurrentReviewCard, expenseReview,
   renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel,
-  setTransactionsShowAll, setTransactionsRange, modernTransactionRowOpen, budgetRowTxnsOpen, transactionSummaryText,
+  setTransactionsShowAll, setTransactionsRange, modernTransactionRowOpen, budgetRowTxnsOpen, transactionSummaryText, visibleSpendingIndices,
   openQuickLog, closeQuickLog, renderQuickLogSheet, setQuickLogLink, setQuickLogDateOpen,
   setQuickLogShowAllChips, setQuickLogChipFilter, setQuickLogSign, setQuickLogRefundOf, submitQuickLog, quickLogContextText, quickLog,
   renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, logExpenseTransaction,
@@ -69,7 +69,9 @@ import {
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
   patchCalcOutputs, afterCalcChange, patchInvestOutputs
 } from "./components/scenarios.js";
-import { ACCOUNT_TYPE_KEYS, accountSourceOptions, setAccountBalance, resolveLink } from "./calc/accounts.js";
+import { ACCOUNT_TYPE_KEYS, accountSourceOptions, setAccountBalance, resolveLink, accountBalance } from "./calc/accounts.js";
+import { addTransfer, deleteTransfer, splitTransaction, unsplit, bulkEditTransactions, bulkDeleteTransactions } from "./calc/cashflowlist.js";
+import { txFilters, txSelect, transferForm, splitEditing, resetTxFilters } from "./components/cashflow.js";
 import { openAccounts, balanceEditing } from "./components/accounts.js";
 import { renderHomeSummary } from "./components/home.js";
 import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodButton, renderPeriodMenu } from "./components/period.js";
@@ -2834,6 +2836,8 @@ import {
   // A logged distribution is a holding's payout too, which moves its return and the year's tax.
   function afterReceivedChange(){
     renderReceived();
+    renderTransactions();
+    renderHomeSummary();
     renderMonthReview();
     renderAssets();
     renderTaxSuper();
@@ -2950,8 +2954,155 @@ import {
   // rebuilds the control itself on every change.
   document.getElementById("transactionsTable").addEventListener("click", function(e){
     var rangeBtn = e.target.closest("[data-tx-range]");
-    if(!rangeBtn) return;
-    setTransactionsRange(rangeBtn.getAttribute("data-tx-range"));
+    if(rangeBtn){ setTransactionsRange(rangeBtn.getAttribute("data-tx-range")); return; }
+    onCashflowListClick(e);
+  });
+
+  // ---------------- Cash flow → Spending: filters, money in, transfers, splits, bulk edit (v3.59.0) ----------------
+  function afterTransactionsChange(){
+    renderTransactions();
+    renderActualVsPlannedPanel();
+    renderSharedGroups();
+    renderHomeSummary();
+    renderMonthReview();
+    persist();
+  }
+  function pickedIndices(){
+    return Object.keys(txSelect.picked).filter(function(k){ return txSelect.picked[k]; }).map(Number).filter(function(i){ return state.transactions[i]; });
+  }
+  function onCashflowListClick(e){
+    var b = e.target.closest("button");
+    if(!b || b.disabled) return;
+    if(b.hasAttribute("data-cf-dir")){ txFilters.direction = b.getAttribute("data-cf-dir"); setTransactionsShowAll(false); renderTransactions(); return; }
+    if(b.hasAttribute("data-cf-clear")){ resetTxFilters(); renderTransactions(); return; }
+    if(b.hasAttribute("data-cf-select")){ txSelect.on = !txSelect.on; txSelect.picked = {}; renderTransactions(); return; }
+    if(b.hasAttribute("data-cf-transfer")){ transferForm.open = true; renderTransactions(); var f = document.querySelector('#transactionsTable [data-tf="amount"]'); if(f) f.focus(); return; }
+    if(b.hasAttribute("data-tf-cancel")){ transferForm.open = false; renderTransactions(); return; }
+    if(b.hasAttribute("data-tf-save")){
+      var get = function(k){ var el = document.querySelector('#transactionsTable [data-tf="' + k + '"]'); return el ? (el.type === "checkbox" ? el.checked : el.value) : ""; };
+      var amt = Number(get("amount"));
+      if(!(amt > 0)){ showToast("Enter the amount moved"); return; }
+      if(!get("from") || get("from") === get("to")){ showToast("Pick two different accounts"); return; }
+      var rec = addTransfer({ date: get("date") || localDateStr(), amount: amt, from: get("from"), to: get("to"), what: get("what") });
+      var moved = [];
+      if(get("balances")){
+        [[rec.from, -1], [rec.to, 1]].forEach(function(pair){
+          var acct = state.accounts.find(function(a){ return a.name === pair[0]; });
+          if(!acct) return;
+          var bal = accountBalance(acct);
+          if(bal.balance == null) return;
+          // Money into a card or loan lowers what's owed; out of one raises it.
+          var delta = (bal.owed ? -pair[1] : pair[1]) * amt;
+          setAccountBalance(acct, bal.balance + delta, rec.date);
+          moved.push(acct.name);
+        });
+      }
+      transferForm.open = false;
+      renderAll();
+      persist();
+      showUndoToast("Transfer saved" + (moved.length ? " — " + moved.join(" and ") + " updated" : ""), function(){ deleteTransfer(rec.id); renderAll(); persist(); });
+      return;
+    }
+    if(b.hasAttribute("data-cf-del-transfer")){
+      var gone = deleteTransfer(b.getAttribute("data-cf-del-transfer"));
+      renderTransactions(); persist();
+      if(gone) showUndoToast("Transfer deleted (balances unchanged)", function(){ state.transfers.splice(gone.index, 0, gone.record); renderTransactions(); persist(); });
+      return;
+    }
+    if(b.hasAttribute("data-cf-del-in")){
+      var restore = deleteIncomeReceived(b.getAttribute("data-cf-del-in"));
+      afterReceivedChange();
+      if(restore) showUndoToast("Record deleted", function(){ restore(); afterReceivedChange(); });
+      return;
+    }
+    if(b.hasAttribute("data-cf-pick-all")){ visibleSpendingIndices().forEach(function(i){ txSelect.picked[i] = true; }); renderTransactions(); return; }
+    if(b.hasAttribute("data-cf-bulk-apply")){
+      var idxs = pickedIndices();
+      var lineSel = document.querySelector('#transactionsTable [data-cf-bulk="line"]').value;
+      var acctSel = document.querySelector('#transactionsTable [data-cf-bulk="account"]').value;
+      var changes = {};
+      if(lineSel !== "__keep") changes.linkedExpenseId = lineSel;
+      if(acctSel !== "__keep") changes.account = acctSel;
+      if(!Object.keys(changes).length){ showToast("Choose a line or an account to set"); return; }
+      var before = idxs.map(function(i){ return { i: i, t: Object.assign({}, state.transactions[i]) }; });
+      var n = bulkEditTransactions(idxs, changes);
+      txSelect.picked = {};
+      afterTransactionsChange();
+      showUndoToast("Updated " + n + " transaction" + (n === 1 ? "" : "s"), function(){ before.forEach(function(x){ state.transactions[x.i] = x.t; }); afterTransactionsChange(); });
+      return;
+    }
+    if(b.hasAttribute("data-cf-bulk-delete")){
+      var del = pickedIndices();
+      if(!del.length || !confirm("Delete " + del.length + " transaction" + (del.length === 1 ? "" : "s") + "?")) return;
+      var removed = bulkDeleteTransactions(del);
+      txSelect.picked = {};
+      afterTransactionsChange();
+      showUndoToast("Deleted " + removed.length, function(){ removed.forEach(function(x){ state.transactions.splice(x.index, 0, x.t); }); afterTransactionsChange(); });
+      return;
+    }
+    if(b.hasAttribute("data-cf-split-add")){ splitEditing.parts.push({ linkedExpenseId: null, amount: "" }); renderTransactions(); return; }
+    if(b.hasAttribute("data-cf-split-del")){ splitEditing.parts.splice(Number(b.getAttribute("data-cf-split-del")), 1); renderTransactions(); return; }
+    if(b.hasAttribute("data-cf-split-cancel")){ splitEditing.idx = null; splitEditing.parts = []; renderTransactions(); return; }
+    if(b.hasAttribute("data-cf-split-save")){
+      var made = splitTransaction(splitEditing.idx, splitEditing.parts);
+      splitEditing.idx = null; splitEditing.parts = [];
+      if(made){ afterTransactionsChange(); showToast("Split into " + made.length + " transactions"); }
+      return;
+    }
+  }
+  // Split / Merge live inside a transaction's edit area, which on a phone opens as a sheet — so these
+  // are delegated from the document rather than the list.
+  document.addEventListener("click", function(e){
+    var sp = e.target.closest("[data-tx-split]");
+    if(sp){
+      var idx = Number(sp.getAttribute("data-tx-split")), t = state.transactions[idx];
+      if(!t) return;
+      var half = Math.round((Number(t.amount) || 0) / 2 * 100) / 100;
+      splitEditing.idx = idx;
+      splitEditing.parts = [{ linkedExpenseId: t.linkedExpenseId || null, amount: half }, { linkedExpenseId: null, amount: Math.round(((Number(t.amount) || 0) - half) * 100) / 100 }];
+      closeActiveModernRow();
+      renderTransactions();
+      var ed = document.querySelector("#transactionsTable .cf-split");
+      if(ed) ed.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    var un = e.target.closest("[data-tx-unsplit]");
+    if(un){
+      var merged = unsplit(un.getAttribute("data-tx-unsplit"));
+      closeActiveModernRow();
+      if(merged){ afterTransactionsChange(); showToast("Merged back into one transaction — link it to a line"); }
+    }
+  });
+  var txTable = document.getElementById("transactionsTable");
+  txTable.addEventListener("change", function(e){
+    var t = e.target;
+    if(t.hasAttribute("data-cf-filter") && t.getAttribute("data-cf-filter") !== "text"){ txFilters[t.getAttribute("data-cf-filter")] = t.value; setTransactionsShowAll(false); renderTransactions(); return; }
+    if(t.hasAttribute("data-cf-pick")){ txSelect.picked[t.getAttribute("data-cf-pick")] = t.checked; renderTransactions(); return; }
+    if(t.hasAttribute("data-cf-split-line")){ splitEditing.parts[Number(t.getAttribute("data-cf-split-line"))].linkedExpenseId = t.value || null; return; }
+  });
+  var cfSearchTimer = null;
+  txTable.addEventListener("input", function(e){
+    var t = e.target;
+    if(t.getAttribute("data-cf-filter") === "text"){
+      txFilters.text = t.value;
+      clearTimeout(cfSearchTimer);
+      cfSearchTimer = setTimeout(function(){
+        var pos = t.selectionStart;
+        renderTransactions();
+        var again = document.querySelector('#transactionsTable [data-cf-filter="text"]');
+        if(again){ again.focus(); try{ again.setSelectionRange(pos, pos); }catch(err){} }
+      }, 200);
+      return;
+    }
+    if(t.hasAttribute("data-cf-split-amt")){
+      splitEditing.parts[Number(t.getAttribute("data-cf-split-amt"))].amount = t.value;
+      var tx = state.transactions[splitEditing.idx];
+      var placed = splitEditing.parts.reduce(function(s2, p){ return s2 + (Number(p.amount) || 0); }, 0);
+      var left = Math.round(((Number(tx && tx.amount) || 0) - placed) * 100) / 100;
+      var leftEl = document.querySelector("#transactionsTable .cf-split-left"), saveEl = document.querySelector("#transactionsTable [data-cf-split-save]");
+      if(leftEl){ leftEl.textContent = Math.abs(left) < 0.01 ? "All placed" : fmtCurrency2.format(Math.abs(left)) + (left > 0 ? " left to place" : " too much"); leftEl.classList.toggle("warn", Math.abs(left) >= 0.01); }
+      if(saveEl) saveEl.disabled = Math.abs(left) >= 0.01;
+    }
   });
   document.getElementById("addTransactionBtn").addEventListener("click", function(){
     addTransaction();

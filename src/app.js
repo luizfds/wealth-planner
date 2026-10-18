@@ -7,17 +7,23 @@ import { escapeAttr } from "./lib/html.js";
 import { getNotifications, unreadNotificationCount, markNotificationRead, markAllNotificationsRead } from "./lib/notifications.js";
 import { onHorizontalSwipe } from "./lib/swipe.js";
 import { initTableScrollShadows } from "./lib/scroll-shadow.js";
-import { setDeductionPeopleProvider } from "./lib/ledger-table.js";
+import { setDeductionPeopleProvider, setDeductionPropertiesProvider, setRentLinesProvider } from "./lib/ledger-table.js";
 import {
   decryptBackup, doExport, doShare, canShareFiles, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv, exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard, exportYearTransactionsCsv,
   exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv, exportAssetsImportTemplateCsv, parseCsv, exportProjectionCsv
 } from "./lib/backup.js";
 import { periodsOf, sumField, sumFieldForScenario, resolveSharedAmount, appendHistorySnapshot, transactionDisplayName } from "./calc/ledger.js";
-import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider, saleCapitalGain, lotsUnitsAvailable } from "./calc/tax.js";
+import { phiPremiumsAnnual, effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider, saleCapitalGain, lotsUnitsAvailable } from "./calc/tax.js";
 import { recalcComputedItems, scenarioTotals, totalNetWorthValue, totalDebtsValue } from "./calc/engine.js";
 import { financialYearOf, fyLabel } from "./calc/property.js";
-import { renderTaxYear, setTaxYearSelected, taxYearAddRow, taxYearDeleteRow, taxYearRestoreRow, taxYearSetField, taxYearToggleEvidence, taxYearMarkLodged, worksheetText, taxYearSelected, taxYearPrintHtml, lodgedSnapshot } from "./components/taxyear.js";
-import { setRentalActual, mergeTaxYearFile, matchPerson, taxYearRecord, TAX_YEAR_FILE_KIND } from "./calc/taxyear.js";
+import { taxYearFillStatements, renderTaxYear, setTaxYearSelected, taxYearAddRow, taxYearDeleteRow, taxYearRestoreRow, taxYearSetField, taxYearToggleEvidence, taxYearMarkLodged, worksheetText, taxYearSelected, taxYearPrintHtml, lodgedSnapshot } from "./components/taxyear.js";
+import { renderPeople, setPersonField, peopleSummaryText } from "./components/people.js";
+import { renamePersonEverywhere, removePersonFromTax } from "./calc/people.js";
+import { renderHealth } from "./components/health.js";
+import { logIncomeReceived, deleteIncomeReceived } from "./calc/received.js";
+import { renderReceived, toggleReceivedRow, receivedSheet, openReceivedSheet, closeReceivedSheet, setReceivedTarget, receivedSheetHtml } from "./components/received.js";
+import { applyRentalComparison, applyBudgetComparison, householdBudgetLines } from "./calc/closeyear.js";
+import { setUseBudgetLines, setLineExcluded, RENT_EXPENSE_LINES, rentLineFor, setRentalActual, mergeTaxYearFile, matchPerson, taxYearRecord, TAX_YEAR_FILE_KIND } from "./calc/taxyear.js";
 import { renderCards, renderDashboardStats, renderDetail, setProjectionReference, logNetWorthSnapshot } from "./components/dashboard.js";
 import {
   personBreakdownHtml, renderIncomeGroups, patchOpenRowBreakdowns, patchIncomeGroupTotals,
@@ -61,7 +67,7 @@ import {
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
   patchCalcOutputs, afterCalcChange, patchInvestOutputs
 } from "./components/scenarios.js";
-import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
+import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, taxSubpage, syncMobileTaxSeason, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
 import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./components/search.js";
 import {
   startBankImport, reparseBankImportWith, clearBankImport,
@@ -482,10 +488,19 @@ import {
     else if(e.target.classList.contains("f-deductible")){
       item.deductible = e.target.checked;
       tr.querySelectorAll(".f-deduct-extra").forEach(function(el){ el.hidden = !e.target.checked; });
+      syncClaimFields(tr, item);
       taxDeductionsChanged = true;
     }
     else if(e.target.classList.contains("f-deductpct")){ item.deductiblePct = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)); taxDeductionsChanged = true; }
-    else if(e.target.classList.contains("f-deductperson")){ item.deductiblePerson = e.target.value; taxDeductionsChanged = true; }
+    else if(e.target.classList.contains("f-deductperson")){
+      // "property:<id>" claims the line against an investment property instead (v3.45.0).
+      var claimVal = e.target.value || "";
+      if(claimVal.indexOf("property:") === 0){ item.claimProperty = claimVal.slice(9); item.deductiblePerson = ""; }
+      else { item.claimProperty = ""; item.deductiblePerson = claimVal; }
+      syncClaimFields(tr, item);
+      taxDeductionsChanged = true;
+    }
+    else if(e.target.classList.contains("f-rentline")){ item.rentLine = e.target.value; taxDeductionsChanged = true; }
     else if(e.target.classList.contains("f-deductlabel")){ item.deductionLabel = e.target.value; taxDeductionsChanged = true; }
     else if(e.target.classList.contains("f-deductfrom")){ item.deductibleFrom = e.target.value || ""; taxDeductionsChanged = true; }
     else if(e.target.classList.contains("f-deductuntil")){ item.deductibleUntil = e.target.value || ""; taxDeductionsChanged = true; }
@@ -934,53 +949,80 @@ import {
 
 
   // ---------------- Tax & super ----------------
-  function renameTaxPerson(oldName){
-    var name = prompt("Rename this person (updates every income row):", oldName);
+  // A line claimed against a property shows its rental schedule line; one claimed by a person, its
+  // return label (v3.45.0). Both are in the DOM; this picks which is visible.
+  function syncClaimFields(tr, item){
+    tr.querySelectorAll(".f-claim-prop").forEach(function(el){ el.hidden = !(item.deductible && item.claimProperty); });
+    tr.querySelectorAll(".f-claim-person").forEach(function(el){ el.hidden = !(item.deductible && !item.claimProperty); });
+  }
+  // People (v3.44.0): the rename and remove themselves live in calc/people.js, which walks every
+  // row and record that names a person; this is the refresh after either.
+  function afterPeopleChange(){
+    recalcComputedItems();
+    rerenderTableFor("income");
+    updatePersonSuggestions();
+    renderTaxSuper();
+    renderPeopleTab();
+    renderCards();
+    renderDetail();
+    renderTotals();
+    renderProjectionOutputs();
+    persist();
+  }
+  function renderPeopleTab(){
+    renderPeople();
+    var sum = document.getElementById("peopleSummary");
+    if(sum) sum.textContent = peopleSummaryText();
+  }
+  function renameTaxPerson(oldName, newName){
+    var res = renamePersonEverywhere(oldName, newName);
+    if(res.error){ showToast(res.error); renderPeopleTab(); return; }
+    if(res.changed) afterPeopleChange();
+  }
+  function removeTaxPerson(name){
+    if(!confirm('Remove "' + name + '" from tax? Their income rows go back to Type "Net" (counted as-is, at face value) and keep their current amounts; their date of birth, HELP and property shares are cleared.')) return;
+    removePersonFromTax(name);
+    afterPeopleChange();
+  }
+  function openPeopleTab(){
+    showPage("accounts");
+    showAccountsSubpage("people");
+    renderPeopleTab();
+  }
+  var peopleTable = document.getElementById("peopleTable");
+  peopleTable.addEventListener("change", function(e){
+    var t = e.target, person = t.getAttribute("data-pp-person");
+    if(!person) return;
+    if(t.classList.contains("pp-name")){ renameTaxPerson(person, t.value); return; }
+    var cls = ["pp-dob", "pp-help", "pp-cap", "pp-carry", "pp-losses", "pp-wfh"].find(function(c){ return t.classList.contains(c); });
+    if(!cls || !setPersonField(person, cls, t.value, t.getAttribute("data-fy"))) return;
+    afterPeopleChange();
+  });
+  peopleTable.addEventListener("click", function(e){
+    var rm = e.target.closest("[data-pp-remove]");
+    if(rm) removeTaxPerson(rm.getAttribute("data-pp-remove"));
+  });
+  document.getElementById("addPersonBtn").addEventListener("click", function(){
+    var name = prompt("Their name — they're added with a Gross income row you can fill in:");
     if(name === null) return;
     name = name.trim();
-    if(!name || name === oldName) return;
+    if(!name) return;
     if(getTaxPeople().indexOf(name) !== -1){ showToast('"' + name + '" already exists'); return; }
-    state.income.forEach(function(i){ if(i.person === oldName) i.person = name; });
-    if(state.tax.settings[oldName]){ state.tax.settings[name] = state.tax.settings[oldName]; delete state.tax.settings[oldName]; }
-    // Ownership shares live on each property now, so a rename has to walk them all — missing one
-    // would silently drop that person's share of that property to 0%.
-    state.properties.forEach(function(p){
-      if(!p.ownership || p.ownership[oldName] == null) return;
-      p.ownership[name] = p.ownership[oldName];
-      delete p.ownership[oldName];
-    });
-    recalcComputedItems();
-    rerenderTableFor("income");
-    updatePersonSuggestions();
-    renderTaxSuper();
-    renderCards();
-    renderDetail();
-    renderTotals();
-    renderProjectionOutputs();
-    persist();
-  }
-
-  function removeTaxPerson(name){
-    if(!confirm('Remove "' + name + '" from Tax & Super? Their income rows go back to Type "Net" (counted as-is, at face value) and keep their current amounts.')) return;
-    state.income.forEach(function(i){ if(i.person === name){ i.incomeType = "Net"; i.person = ""; } });
-    delete state.tax.settings[name];
-    state.properties.forEach(function(p){ if(p.ownership) delete p.ownership[name]; });
-    recalcComputedItems();
-    rerenderTableFor("income");
-    updatePersonSuggestions();
-    renderTaxSuper();
-    renderCards();
-    renderDetail();
-    renderTotals();
-    renderProjectionOutputs();
-    persist();
-  }
+    var row = { id: genId("inc"), what: name + "'s pay", classification: "", category: "", account: "", amount: 0, freq: "Yearly", person: name, incomeType: "Gross", superMode: "On top", sacrificeMode: "none", sacrificeValue: 0 };
+    state.income.push(row);
+    afterPeopleChange();
+    showPage("income");
+    // Deferred like runQuickAction's: the page's view transition has to settle before the row
+    // modal can open over it.
+    // indexOf, not length - 1: the recalculation above appends the new person's synthetic
+    // net-income row after theirs.
+    setTimeout(function(){ openNewRowModal("incomeGroups", "income", state.income.indexOf(row), modernIncomeRowOpen, row); }, 240);
+  });
+  document.addEventListener("click", function(e){
+    if(e.target.closest("[data-goto-people]")) openPeopleTab();
+  });
 
   document.getElementById("taxSuperBody").addEventListener("click", function(e){
-    var renameBtn = e.target.closest("[data-tax-rename]");
-    if(renameBtn){ renameTaxPerson(renameBtn.getAttribute("data-tax-rename")); return; }
-    var removeBtn = e.target.closest("[data-tax-remove]");
-    if(removeBtn){ removeTaxPerson(removeBtn.getAttribute("data-tax-remove")); return; }
     var flipBtn = e.target.closest("[data-tax-flip]");
     if(flipBtn){
       var flipPanel = flipBtn.closest("[data-tax-person]");
@@ -1048,6 +1090,15 @@ import {
       state.tax.phiPremiums = Math.max(0, parseFloat(e.target.value) || 0);
     } else if(e.target.id === "taxPhiTier"){
       state.tax.phiTierClaimed = Number(e.target.value);
+      var premEl = document.getElementById("taxPhiPremiums");
+      if(premEl && state.tax.phiLineId) premEl.value = phiPremiumsAnnual();
+    } else if(e.target.id === "taxPhiLine"){
+      state.tax.phiLineId = e.target.value || "";
+      var premInput = document.getElementById("taxPhiPremiums");
+      if(premInput){
+        premInput.disabled = !!state.tax.phiLineId;
+        premInput.value = state.tax.phiLineId ? phiPremiumsAnnual() : (Number(state.tax.phiPremiums) || 0);
+      }
     } else return;
 
     recalcComputedItems();
@@ -1071,6 +1122,53 @@ import {
     renderTaxYear();
     persist();
   }
+  // Close the year (v3.48.0): the ticked lines become the plan. Undo puts back exactly what was
+  // there — the rows' amounts and histories — so it's a snapshot rather than a reversed edit.
+  function closeYear(fy){
+    var body = document.getElementById("taxYearBody");
+    var rentPicks = {}, linePicks = [];
+    body.querySelectorAll("[data-cy-rent]:checked").forEach(function(b){
+      var pid = b.getAttribute("data-cy-rent");
+      (rentPicks[pid] = rentPicks[pid] || []).push(b.getAttribute("data-cy-key"));
+    });
+    body.querySelectorAll("[data-cy-line]:checked").forEach(function(b){ linePicks.push(b.getAttribute("data-cy-line")); });
+    if(!Object.keys(rentPicks).length && !linePicks.length){ showToast("Tick the lines to carry into the plan"); return; }
+    var before = JSON.stringify({ properties: state.properties, shared: state.shared, home: state.home });
+    var today = localDateStr();
+    var changed = 0;
+    Object.keys(rentPicks).forEach(function(pid){
+      var p = findProperty(pid);
+      if(p) changed += applyRentalComparison(p, fy, rentPicks[pid], today);
+    });
+    if(linePicks.length) changed += applyBudgetComparison(householdBudgetLines(budgetLineItems(), state.properties), state.transactions, fy, linePicks, today);
+    afterCloseYear();
+    showUndoToast(changed + " line" + (changed === 1 ? "" : "s") + " updated from " + fyLabel(fy), function(){
+      var snap = JSON.parse(before);
+      state.properties = snap.properties; state.shared = snap.shared; state.home = snap.home;
+      afterCloseYear();
+    });
+  }
+  // Checks → "Open …": straight to where the fix is.
+  document.getElementById("healthBody").addEventListener("click", function(e){
+    var go = e.target.closest(".hc-go");
+    if(!go) return;
+    var page = go.getAttribute("data-hc-page"), sub = go.getAttribute("data-hc-sub"), fy = go.getAttribute("data-hc-fy");
+    showPage(page);
+    if(page === "accounts" && sub){ showAccountsSubpage(sub); if(sub === "people") renderPeopleTab(); }
+    if(page === "expenses" && sub) showExpensesSubpage(sub, { replace: true });
+    if(page === "tax"){
+      if(fy) setTaxYearSelected(fy);
+      showTaxSubpage(sub || "returns", { replace: true });
+      renderTaxYear();
+      var close = document.querySelector("#taxYearBody .ty-close");
+      if(close){ close.open = true; setTimeout(function(){ close.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60); }
+    }
+  });
+  function afterCloseYear(){
+    recalcComputedItems();
+    renderAll();
+    persist();
+  }
   // Builds the static print copy at the top level, prints, and takes it away again. afterprint
   // fires once the dialog closes, whatever the user chose.
   function printTaxYear(){
@@ -1087,19 +1185,27 @@ import {
     window.print();
   }
   var taxYearBody = document.getElementById("taxYearBody");
-  document.getElementById("taxYearLedger").addEventListener("toggle", function(){
-    if(document.getElementById("taxYearLedger").open) renderTaxYear();
-  });
-  taxYearBody.addEventListener("change", function(e){
+  var taxDocsBody = document.getElementById("taxDocsBody");
+  function onTaxYearChange(e){
     var t = e.target;
-    if(t.id === "taxYearSelect"){ setTaxYearSelected(t.value); renderTaxYear(); return; }
+    if(t.hasAttribute("data-ty-year")){ setTaxYearSelected(t.value); renderTaxYear(); return; }
     if(t.hasAttribute("data-ty-evidence")){
       taxYearToggleEvidence(t.getAttribute("data-ty-evidence"), t.checked);
-      var sum = t.closest("details").querySelector("summary");
-      var boxes = t.closest("details").querySelectorAll("[data-ty-evidence]");
+      var boxes = taxDocsBody.querySelectorAll("[data-ty-evidence]");
       var on = Array.prototype.filter.call(boxes, function(b){ return b.checked; }).length;
-      if(sum) sum.textContent = "Documents to keep (" + on + " of " + boxes.length + ")";
+      var count = taxDocsBody.querySelector(".ty-docs-count");
+      if(count) count.textContent = on + " of " + boxes.length;
       persist();
+      return;
+    }
+    if(t.hasAttribute("data-ty-uselines")){
+      setUseBudgetLines(taxYearSelected(), t.getAttribute("data-ty-uselines"), t.checked);
+      afterTaxYearEdit();
+      return;
+    }
+    if(t.hasAttribute("data-ty-line")){
+      setLineExcluded(taxYearSelected(), t.getAttribute("data-ty-person"), t.getAttribute("data-ty-line"), !t.checked);
+      afterTaxYearEdit();
       return;
     }
     if(t.hasAttribute("data-ty-rent")){
@@ -1111,8 +1217,23 @@ import {
       taxYearSetField(t.getAttribute("data-ty-kind"), t.getAttribute("data-ty-person"), Number(t.getAttribute("data-ty-index")), t.getAttribute("data-ty-key"), t.value);
       afterTaxYearEdit();
     }
+  }
+  taxYearBody.addEventListener("change", onTaxYearChange);
+  taxDocsBody.addEventListener("change", onTaxYearChange);
+  taxDocsBody.addEventListener("click", function(e){
+    if(e.target.closest("[data-ty-import]")) document.getElementById("taxYearImportFile").click();
+  });
+  document.getElementById("taxSubnav").addEventListener("click", function(e){
+    var btn = e.target.closest("[data-tax-sub]");
+    if(!btn) return;
+    showTaxSubpage(btn.getAttribute("data-tax-sub"));
+    renderTaxYear();
   });
   taxYearBody.addEventListener("click", function(e){
+    var cyApply = e.target.closest("[data-cy-apply]");
+    if(cyApply){ closeYear(Number(cyApply.getAttribute("data-cy-apply"))); return; }
+    var fill = e.target.closest("[data-ty-fill]");
+    if(fill){ taxYearFillStatements(fill.getAttribute("data-ty-fill")); afterTaxYearEdit(); return; }
     var add = e.target.closest("[data-ty-add]");
     if(add){
       taxYearAddRow(add.getAttribute("data-ty-add"), add.getAttribute("data-ty-person"));
@@ -2095,6 +2216,8 @@ import {
   // list through every caller of computePersonTax.
   setDeductibleItemsProvider(budgetLineItems);
   setDeductionPeopleProvider(getTaxPeople);
+  setDeductionPropertiesProvider(function(){ return state.properties.filter(function(p){ return p.kind === "IP"; }).map(function(p){ return { id: p.id, what: p.what }; }); });
+  setRentLinesProvider(function(){ return { lines: RENT_EXPENSE_LINES, lineFor: rentLineFor }; });
   setOverlayCleanup(function(){
     if(!activeOverlayClose) return;
     var closeOverlay = activeOverlayClose;
@@ -2634,6 +2757,77 @@ import {
     if(document.querySelector("[data-qlog-backdrop]")) requestCloseActiveOverlay();
   });
 
+  // ---------------- Income → Received (v3.46.0) ----------------
+  function renderReceivedSheet(){
+    var root = document.getElementById("receivedRoot");
+    if(root) root.innerHTML = receivedSheetHtml();
+    var amt = document.getElementById("rcvAmount");
+    if(amt) amt.focus();
+  }
+  function closeReceivedSheetDom(){
+    closeReceivedSheet();
+    var root = document.getElementById("receivedRoot");
+    if(root) root.innerHTML = "";
+  }
+  function openReceivedSheetFor(target){
+    openReceivedSheet(target);
+    renderReceivedSheet();
+    pushActiveOverlay(closeReceivedSheetDom);
+  }
+  // A logged distribution is a holding's payout too, which moves its return and the year's tax.
+  function afterReceivedChange(){
+    renderReceived();
+    renderAssets();
+    renderTaxSuper();
+    persist();
+  }
+  document.getElementById("logReceivedBtn").addEventListener("click", function(){ openReceivedSheetFor(); });
+  document.getElementById("receivedBody").addEventListener("click", function(e){
+    var del = e.target.closest("[data-rcv-del]");
+    if(del){
+      var restore = deleteIncomeReceived(del.getAttribute("data-rcv-del"));
+      afterReceivedChange();
+      if(restore) showUndoToast("Record deleted", function(){ restore(); afterReceivedChange(); });
+      return;
+    }
+    var log = e.target.closest("[data-rcv-log]");
+    if(log){ openReceivedSheetFor(log.getAttribute("data-rcv-log")); return; }
+    var tog = e.target.closest("[data-rcv-toggle]");
+    if(tog){ toggleReceivedRow(tog.getAttribute("data-rcv-toggle")); renderReceived(); }
+  });
+  document.getElementById("receivedRoot").addEventListener("click", function(e){
+    if(e.target.closest("[data-rcv-close]") || e.target === e.target.closest("[data-rcv-backdrop]")){ requestCloseActiveOverlay(); return; }
+    var chip = e.target.closest("[data-rcv-chip]");
+    if(chip){
+      var amountEl = document.getElementById("rcvAmount"), noteEl = document.getElementById("rcvNote"), dateEl = document.getElementById("rcvDate");
+      var keep = [amountEl ? amountEl.value : "", noteEl ? noteEl.value : "", dateEl ? dateEl.value : ""];
+      setReceivedTarget(chip.getAttribute("data-rcv-chip"));
+      renderReceivedSheet();
+      document.getElementById("rcvAmount").value = keep[0];
+      document.getElementById("rcvNote").value = keep[1];
+      if(keep[2]) document.getElementById("rcvDate").value = keep[2];
+      return;
+    }
+    if(e.target.closest("[data-rcv-submit]")) submitReceived();
+  });
+  document.getElementById("receivedRoot").addEventListener("keydown", function(e){
+    if(e.key === "Enter" && (e.target.id === "rcvAmount" || e.target.id === "rcvNote")){ e.preventDefault(); submitReceived(); }
+  });
+  function submitReceived(){
+    if(!receivedSheet) return;
+    var amountEl = document.getElementById("rcvAmount");
+    var amount = parseAmountInput(amountEl.value || amountEl.placeholder);
+    if(!(amount > 0)){ amountEl.focus(); showToast("Type the amount that arrived"); return; }
+    var rec = logIncomeReceived({ target: receivedSheet.target, amount: amount, date: document.getElementById("rcvDate").value, what: document.getElementById("rcvNote").value });
+    if(!rec){ showToast("Pick what it was"); return; }
+    requestCloseActiveOverlay();
+    afterReceivedChange();
+    showUndoToast("Logged " + fmtCurrency2.format(amount) + " received", function(){ deleteIncomeReceived(rec.id); afterReceivedChange(); });
+  }
+  document.addEventListener("keydown", function(e){
+    if(e.key === "Escape" && document.querySelector("[data-rcv-backdrop]")) requestCloseActiveOverlay();
+  });
+
   // ---------------- Cross-page search ----------------
   function openSearchOverlay(){
     openSearch();
@@ -2916,6 +3110,8 @@ import {
     // normally-hidden tab, and none of which should have to know it exists. Recounting on the way
     // in is both cheaper and more reliable than adding a renderCategories() to all of them.
     if(accountsSubId === "categories") renderCategories();
+    if(accountsSubId === "people") renderPeopleTab();
+    if(accountsSubId === "checks") renderHealth();
     // Same reasoning as renderCategories() above: this tab is normally hidden, and its labels are
     // derived from today's date ("FY26/27 so far", "20% through it"), so they go stale on their
     // own without anything having changed.
@@ -3055,12 +3251,9 @@ import {
       if(tab){ tab.click(); tab.scrollIntoView({ behavior: "smooth", block: "start" }); }
     } else if(where === "taxyear"){
       if(jump.getAttribute("data-tax-fy")) setTaxYearSelected(jump.getAttribute("data-tax-fy"));
-      showPage("income");
-      var ws = document.getElementById("taxYearLedger");
-      if(ws){
-        if(ws.open) renderTaxYear(); else ws.open = true;
-        setTimeout(function(){ ws.scrollIntoView({ behavior: "smooth", block: "start" }); }, 50);
-      }
+      showPage("tax");
+      showTaxSubpage("returns", { replace: true });
+      renderTaxYear();
     }
   });
   document.getElementById("homeBody").addEventListener("keydown", function(e){
@@ -3136,7 +3329,7 @@ import {
     if(!arr) return;
     var showClass = section !== "income" && section.indexOf("propinc:") !== 0;
     var newItem = { what:"New item", classification: showClass ? (groupValue != null ? groupValue : "Needs") : "", category: addCategory, account:"", amount:0, freq:"Monthly" };
-    if(section === "income"){ newItem.person = groupValue != null ? groupValue : ""; newItem.incomeType = "Net"; }
+    if(section === "income"){ newItem.id = genId("inc"); newItem.person = groupValue != null ? groupValue : ""; newItem.incomeType = "Net"; }
     arr.push(newItem);
     var newIdx = arr.length - 1;
     rerenderTableFor(section);
@@ -3246,12 +3439,13 @@ import {
     showUndoToast(
       "Imported " + result.ids.length + " transaction" + (result.ids.length === 1 ? "" : "s") +
         (result.refunds ? " · " + result.refunds + " refund" + (result.refunds === 1 ? "" : "s") : "") +
+        (result.receivedIds && result.receivedIds.length ? " · " + result.receivedIds.length + " income received" : "") +
         (result.linesCreated ? " · " + result.linesCreated + " new budget line" + (result.linesCreated === 1 ? "" : "s") : "") +
         (result.learned ? " · learned " + result.learned + " shop" + (result.learned === 1 ? "" : "s") : ""),
       function(){
         // Rules the import taught are left in place on purpose — they're a preference, not part of
         // the data being undone, and re-importing the same file is the usual reason to undo.
-        undoBankImport(result.ids, result.lineIds);
+        undoBankImport(result.ids, result.lineIds, result.receivedIds);
         refreshAfterBankImport();
       }
     );
@@ -3260,6 +3454,7 @@ import {
   // once — which is the point, and also why this is one named function rather than a list repeated
   // at the import and undo call sites where the two could drift apart.
   function refreshAfterBankImport(){
+    renderReceived();
     renderTransactions();
     renderActualVsPlannedPanel();
     renderSpendCategoryChart();
@@ -3374,9 +3569,9 @@ import {
     if(report.unmatchedPeople.length) bits.push("not in this plan yet (add a Gross income row for them): " + report.unmatchedPeople.join(", "));
     if(report.skipped.length) bits.push("skipped: " + report.skipped.join("; "));
     showPersistentToast(fyLabel(report.fy) + " imported — " + bits.join(" · "), "Open worksheet", function(){
-      showPage("income");
-      var ws = document.getElementById("taxYearLedger");
-      if(ws){ ws.open = true; renderTaxYear(); ws.scrollIntoView({ behavior: "smooth", block: "start" }); }
+      showPage("tax");
+      showTaxSubpage("returns", { replace: true });
+      renderTaxYear();
     });
   }
   document.getElementById("taxYearImportFile").addEventListener("change", function(e){
@@ -3554,6 +3749,7 @@ import {
     if(action.page === "assets" && action.sub) showAssetsSubpage(action.sub, { replace: true });
     if(action.page === "expenses" && action.sub) showExpensesSubpage(action.sub, { replace: true });
     if(action.mode === "networth"){ logNetWorthSnapshot(); return; }
+    if(action.mode === "received"){ setTimeout(function(){ openReceivedSheetFor(); }, 240); return; }
     // Deferred for the same reason the search handler defers its scroll: showPage's render and
     // view transition have to settle before the target button exists in its final form.
     setTimeout(function(){
@@ -3740,10 +3936,12 @@ import {
   var initialPage = "dashboard";
   var initialAssetsSub = "summary";
   var initialExpensesSub = "budget";
+  var initialTaxSub = null;
   if(routeFromUrl){
     initialPage = routeFromUrl.page;
     if(routeFromUrl.sub && routeFromUrl.page === "assets") initialAssetsSub = routeFromUrl.sub;
     if(routeFromUrl.sub && routeFromUrl.page === "expenses") initialExpensesSub = routeFromUrl.sub;
+    if(routeFromUrl.sub && routeFromUrl.page === "tax") initialTaxSub = routeFromUrl.sub;
   } else {
     try{ initialPage = localStorage.getItem(PAGE_KEY) || "dashboard"; }catch(e){}
   }
@@ -3764,6 +3962,7 @@ import {
     showPage(route.page, { skipUrl: true });
     if(route.page === "assets") showAssetsSubpage(route.sub || "summary", { skipUrl: true });
     if(route.page === "expenses") showExpensesSubpage(route.sub || "budget", { skipUrl: true });
+    if(route.page === "tax") showTaxSubpage(route.sub || taxSubpage(), { skipUrl: true });
   });
 
   function renderAll(){
@@ -3814,6 +4013,9 @@ import {
     updateAccountSuggestions();
     renderTaxSuper();
     renderTaxYear();
+    renderPeopleTab();
+    renderReceived();
+    renderHealth();
     renderNotifBadge();
   }
 
@@ -3955,6 +4157,9 @@ import {
   // currentExpensesSub, which buildRoutePath needs to be correct the first time the user
   // navigates *to* Expenses from somewhere else.
   showExpensesSubpage(initialExpensesSub, { skipUrl: initialPage !== "expenses", replace: true });
+  // Same seeding for Tax, whose default tab depends on the time of year (nav.js defaultTaxSub).
+  showTaxSubpage(initialTaxSub || taxSubpage(), { skipUrl: initialPage !== "tax", replace: true });
+  syncMobileTaxSeason();
 
   // onboarding.html's "Try it with sample data" link lands here with ?mock=1 — generate it
   // immediately (no confirm needed, unlike the header's own Sample data button: there's nothing
@@ -4000,7 +4205,7 @@ function closeNotifPanel(){
   document.querySelectorAll(".notif-bell-btn").forEach(function(btn){ btn.setAttribute("aria-expanded", "false"); });
 }
 function notifItemHtml(n){
-  return '<button type="button" class="notif-item' + (n.read ? "" : " is-unread") + '" data-notif-id="' + escapeAttr(n.id) + '" data-notif-page="' + escapeAttr(n.page) + '">' +
+  return '<button type="button" class="notif-item' + (n.read ? "" : " is-unread") + '" data-notif-id="' + escapeAttr(n.id) + '" data-notif-page="' + escapeAttr(n.page) + '"' + (n.sub ? ' data-notif-sub="' + escapeAttr(n.sub) + '"' : '') + '>' +
     '<span class="notif-dot ' + escapeAttr(n.severity) + '" aria-hidden="true"></span>' +
     '<span class="notif-item-body"><span class="notif-item-title">' + escapeAttr(n.title) + '</span><span class="notif-item-detail">' + escapeAttr(n.detail) + '</span></span>' +
   '</button>';
@@ -4069,6 +4274,8 @@ document.getElementById("notifPanelRoot").addEventListener("click", function(e){
     renderNotifBadge();
     closeNotifPanel();
     showPage(item.getAttribute("data-notif-page"));
+    var notifSub = item.getAttribute("data-notif-sub");
+    if(notifSub && item.getAttribute("data-notif-page") === "accounts"){ showAccountsSubpage(notifSub); if(notifSub === "checks") renderHealth(); }
   }
 });
 // Cheap enough to run on the same "tab regains focus" signal as the update checker below — local

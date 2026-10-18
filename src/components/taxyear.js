@@ -1,8 +1,11 @@
 import { state } from "../state.js";
 import { DEDUCTION_LABELS } from "../constants.js";
-import { getTaxPeople, computePersonTax, currentTaxFy, taxTablesFor } from "../calc/tax.js";
+import { getTaxPeople, computePersonTax, currentTaxFy, taxTablesFor, phiPremiumsAnnual, deductionRows } from "../calc/tax.js";
+import { claimItems } from "../calc/claims.js";
+import { rentalComparison, budgetComparison, householdBudgetLines } from "../calc/closeyear.js";
+import { localDateStr } from "../lib/format.js";
 import { fyLabel, ipProperties, propertyOwnershipPct } from "../calc/property.js";
-import { taxYearRecord, personYear, rentalSchedules, RENT_LINES } from "../calc/taxyear.js";
+import { taxYearRecord, personYear, rentalSchedules, RENT_LINES, usesBudgetLines, budgetLineDeductions, expectedGrossForYear } from "../calc/taxyear.js";
 import { fmtCurrency0, fmtCurrency2 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 
@@ -32,6 +35,10 @@ function rowsEditorHtml(kind, person, rows, cols, addLabel){
       if(c.type === "label"){
         return '<select class="ty-in" data-ty-kind="' + kind + '" data-ty-person="' + escapeAttr(person) + '" data-ty-index="' + i + '" data-ty-key="label" aria-label="Return label">' +
           DEDUCTION_LABELS.map(function(d){ return '<option value="' + d.code + '"' + ((r.label || "D5") === d.code ? " selected" : "") + '>' + d.code + '</option>'; }).join("") + '</select>';
+      }
+      if(c.type === "incomeRow"){
+        return '<select class="ty-in" data-ty-kind="' + kind + '" data-ty-person="' + escapeAttr(person) + '" data-ty-index="' + i + '" data-ty-key="incomeId" aria-label="Income row this statement is for">' +
+          '<option value="">—</option>' + c.rows.map(function(row){ return '<option value="' + escapeAttr(row.id) + '"' + (r.incomeId === row.id ? " selected" : "") + '>' + escapeAttr(row.what || "Income") + '</option>'; }).join("") + '</select>';
       }
       var v = c.type === "text" ? escapeAttr(r[c.key] || "") : num(r[c.key]);
       return '<input class="ty-in" type="' + (c.type === "text" ? "text" : "number") + '"' + (c.type === "text" ? "" : ' step="0.01"') +
@@ -125,7 +132,7 @@ export function evidenceItems(fy){
     add("prop:" + p.id + ":qs", n + ": depreciation schedule");
     if((p.loans || []).some(function(l){ return Number(l.borrowingCosts) > 0; })) add("prop:" + p.id + ":borrow", n + ": loan settlement papers (borrowing costs)");
   });
-  if(Number(state.tax.phiPremiums) > 0) add("phi", "Private health insurance tax statement");
+  if(phiPremiumsAnnual(fy) > 0) add("phi", "Private health insurance tax statement");
   return items;
 }
 
@@ -156,6 +163,8 @@ function compareHtml(person, fy, r){
 
 function personCardHtml(person, fy){
   var py = personYear(fy, person, false) || { incomeStatements: [], interest: [], deductions: [] };
+  var grossRows = (state.income || []).filter(function(i){ return i.person === person && i.incomeType === "Gross" && i.id; });
+  var lineDeds = budgetLineDeductions(fy, person, deductionRows(claimItems(), person));
   var ws = worksheetLines(person, fy);
   var r = ws.result;
   var lodged = taxYearRecord(fy, false);
@@ -174,11 +183,14 @@ function personCardHtml(person, fy){
     '<details class="row-more-options" open><summary>Income statements</summary>' +
       rowsEditorHtml("is", person, py.incomeStatements, [
         { key: "payer", label: "Payer", type: "text", placeholder: "Employer" },
+        { key: "incomeId", label: "Row", type: "incomeRow", rows: grossRows },
         { key: "gross", label: "Gross", placeholder: "0" },
         { key: "allowances", label: "Allow.", aria: "Allowances", placeholder: "0" },
         { key: "withheld", label: "Withheld", placeholder: "0" },
         { key: "resc", label: "RESC", placeholder: "0" },
         { key: "rfba", label: "RFBA", placeholder: "0" }], "+ Add income statement") +
+      statementChecksHtml(py, grossRows, fy) +
+      (!py.incomeStatements.length && grossRows.length ? '<button type="button" class="btn btn-sm btn-ghost" data-ty-fill="' + escapeAttr(person) + '" title="One statement per Gross income row, with the gross its pay history says it paid this year — type the withholding from the real statement">Fill from income rows</button>' : '') +
       '<p class="ledger-note help" style="margin-left:0">RESC is reportable employer super (salary sacrifice), RFBA reportable fringe benefits — both on the income statement. Neither is taxed as income, but both count toward the surcharge, rebate and HELP income tests.</p>' +
     '</details>' +
     '<details class="row-more-options"' + (py.interest.length ? " open" : "") + '><summary>Interest</summary>' +
@@ -187,10 +199,9 @@ function personCardHtml(person, fy){
         { key: "gross", label: "Gross", placeholder: "0" },
         { key: "sharePct", label: "Your %", placeholder: "100" }], "+ Add account") +
     '</details>' +
-    '<details class="row-more-options"' + (py.deductions.length ? " open" : "") + '><summary>Deductions</summary>' +
-      '<p class="ledger-note" style="margin-left:0">' + (py.deductions.length
-        ? "These replace the budget-line deductions for " + fyLabel(fy) + ". Working-from-home hours still add to D5."
-        : "Blank uses the budget lines flagged deductible for " + fyLabel(fy) + ". Enter the year's actual claims here to replace them.") + '</p>' +
+    '<details class="row-more-options"' + (py.deductions.length || lineDeds.length ? " open" : "") + '><summary>Deductions</summary>' +
+      budgetLinesDeductionHtml(person, fy, py, lineDeds) +
+      '<div class="ty-sub-label">' + (lineDeds.length ? "Other claims for " : "Claims for ") + fyLabel(fy) + '</div>' +
       rowsEditorHtml("ded", person, py.deductions, [
         { key: "label", label: "Label", type: "label" },
         { key: "what", label: "What", type: "text", placeholder: "Description" },
@@ -203,6 +214,34 @@ function personCardHtml(person, fy){
       '<button type="button" class="btn btn-sm ' + (isLodged ? "btn-ghost" : "btn-primary") + '" data-ty-lodge="' + escapeAttr(person) + '">' + (isLodged ? "Lodged ✓ — update" : "Mark as lodged") + '</button>' +
     '</div>' +
   '</div>';
+}
+
+// Under the statements: for each one linked to an income row, what the row's pay history says it
+// should have paid (v3.47.0). A gap is usually a pay change not recorded on the row — or a typo.
+function statementChecksHtml(py, grossRows, fy){
+  var sg = Number(state.tax && state.tax.sgRate) || 0;
+  var notes = (py.incomeStatements || []).filter(function(st){ return st.incomeId; }).map(function(st){
+    var row = grossRows.find(function(r){ return r.id === st.incomeId; });
+    if(!row) return '<li>' + escapeAttr(st.payer || "Statement") + ': its income row has gone</li>';
+    var exp = expectedGrossForYear(row, fy, sg);
+    var got = (Number(st.gross) || 0) + (Number(st.allowances) || 0);
+    var d = got - exp;
+    return '<li>' + escapeAttr(st.payer || row.what) + ': the plan expected <b>' + fmtCurrency0.format(exp) + '</b> from ' + escapeAttr(row.what || "its row") +
+      (Math.abs(d) < Math.max(50, exp * 0.01) ? ' — matches' : ' — statement is ' + fmtCurrency0.format(Math.abs(d)) + (d > 0 ? ' higher' : ' lower')) + '</li>';
+  });
+  return notes.length ? '<ul class="ty-checks">' + notes.join("") + '</ul>' : '';
+}
+// The budget lines flagged deductible for this person, listed for the year with a tick each
+// (v3.47.0) — leave one out and the rest still count; typed claims below add to them.
+function budgetLinesDeductionHtml(person, fy, py, lines){
+  if(!lines.length) return '<p class="ledger-note" style="margin-left:0">No budget lines are flagged deductible for ' + escapeAttr(person) + ' — tick <b>Tax deduction</b> on a line (Expenses → Budget) and it shows here. Working-from-home hours add to D5.</p>';
+  var on = usesBudgetLines(personYear(fy, person, false));
+  return '<label class="m-checkbox-field ty-uselines"><input type="checkbox" data-ty-uselines="' + escapeAttr(person) + '"' + (on ? " checked" : "") + '> Use the budget lines flagged deductible</label>' +
+    '<div class="ty-lines' + (on ? "" : " is-off") + '">' + lines.map(function(l){
+      return '<label class="ty-line"><input type="checkbox" data-ty-line="' + escapeAttr(l.id) + '" data-ty-person="' + escapeAttr(person) + '"' + (l.excluded ? "" : " checked") + (on ? "" : " disabled") + '>' +
+        '<span>' + escapeAttr(l.what) + ' <small>' + escapeAttr(l.label) + '</small></span><b>' + money(l.amount) + '</b></label>';
+    }).join("") + '</div>' +
+    (on ? '' : '<p class="ledger-note" style="margin-left:0">Left out — this year uses only the claims typed below.</p>');
 }
 
 function rentHtml(fy){
@@ -225,35 +264,89 @@ function rentHtml(fy){
 }
 
 export function renderTaxYear(){
+  // Returns and Documents share the selected year; both are rendered together so switching tab
+  // never shows a stale year (v3.43.0).
   var el = document.getElementById("taxYearBody");
-  if(!el) return;
-  // Keep any open/closed sections as the user left them across the re-render.
-  var openState = Array.prototype.map.call(el.querySelectorAll("details"), function(d){ return d.open; });
-  el.innerHTML = taxYearHtml();
-  if(openState.length){
-    Array.prototype.forEach.call(el.querySelectorAll("details"), function(d, i){ if(i < openState.length) d.open = openState[i]; });
+  if(el){
+    // Keep any open/closed sections as the user left them across the re-render.
+    var openState = Array.prototype.map.call(el.querySelectorAll("details"), function(d){ return d.open; });
+    el.innerHTML = taxYearHtml();
+    if(openState.length){
+      Array.prototype.forEach.call(el.querySelectorAll("details"), function(d, i){ if(i < openState.length) d.open = openState[i]; });
+    }
   }
+  var docs = document.getElementById("taxDocsBody");
+  if(docs) docs.innerHTML = taxDocumentsHtml();
+}
+function yearSelectHtml(id, fy){
+  var thisFy = currentTaxFy();
+  var options = [];
+  for(var y = thisFy - 4; y <= thisFy; y++) options.push('<option value="' + y + '"' + (y === fy ? " selected" : "") + '>' + fyLabel(y) + (y === thisFy ? " (this year)" : "") + '</option>');
+  return '<label for="' + id + '">Financial year</label><select id="' + id + '" data-ty-year>' + options.join("") + '</select>';
 }
 export function taxYearHtml(){
   var people = getTaxPeople();
   if(!people.length) return '<p class="tax-empty">Add a Gross income row with a Person to start a worksheet.</p>';
   var fy = taxYearSelected();
-  var thisFy = currentTaxFy();
-  var options = [];
-  for(var y = thisFy - 4; y <= thisFy; y++) options.push('<option value="' + y + '"' + (y === fy ? " selected" : "") + '>' + fyLabel(y) + (y === thisFy ? " (this year)" : "") + '</option>');
+  return '<div class="ty-top">' + yearSelectHtml("taxYearSelect", fy) +
+      (taxTablesFor(fy).assumed ? '<span class="ledger-note warn" style="margin:0">' + fyLabel(fy) + ' rates are partly assumed.</span>' : '') +
+      '<button type="button" class="btn btn-sm btn-ghost" data-ty-print style="margin-left:auto">Print / save as PDF</button></div>' +
+    rentHtml(fy) +
+    people.map(function(person){ return personCardHtml(person, fy); }).join("") +
+    closeYearHtml(fy);
+}
+// Close the year (v3.48.0) — calc/closeyear.js. Only for a year that's over: the plan for next year
+// starts from what happened. Lines that moved noticeably come pre-ticked.
+export function closeYearHtml(fy, today){
+  today = today || localDateStr();
+  if(fy >= currentTaxFy()) return "";
+  var money0 = function(n){ return fmtCurrency0.format(Number(n) || 0); };
+  var diffCell = function(d){ return '<span class="cy-diff ' + (Math.abs(d) < 1 ? "" : d > 0 ? "up" : "down") + '">' + (d > 0 ? "+" : d < 0 ? "−" : "") + money0(Math.abs(d)) + '</span>'; };
+  var sections = [];
+  ipProperties().forEach(function(p){
+    var rows = rentalComparison(p, fy);
+    if(!rows.length) return;
+    sections.push('<div class="cy-head">' + escapeAttr(p.what || "Property") + ' — rental schedule</div>' + rows.map(function(r){
+      var tick = r.action && Math.abs(r.diff) >= Math.max(50, Math.abs(r.planned) * 0.05);
+      return '<label class="cy-row' + (r.action ? "" : " is-fixed") + '">' +
+        (r.action ? '<input type="checkbox" data-cy-rent="' + escapeAttr(p.id) + '" data-cy-key="' + r.key + '"' + (tick ? " checked" : "") + '>' : '<span class="cy-nobox" title="Comes from the loans or the depreciation schedule, not a row you set">—</span>') +
+        '<span class="cy-name">' + escapeAttr(r.label) + (r.action === "add" ? ' <small>new row</small>' : '') + '</span>' +
+        '<span class="cy-num">' + money0(r.planned) + '</span><span class="cy-num">' + money0(r.actual) + '</span>' + diffCell(r.diff) + '</label>';
+    }).join(""));
+  });
+  var b = budgetComparison(householdBudgetLines(claimItems(), state.properties), state.transactions || [], fy, today);
+  if(b.rows.length){
+    sections.push('<div class="cy-head">Budget lines <small>' + (b.months < 12 ? 'logged over ' + b.months + ' month' + (b.months === 1 ? '' : 's') + ', scaled to a year' : 'a full year logged') + '</small></div>' +
+      b.rows.map(function(r){
+        var tick = r.off >= 0.15 && Math.abs(r.diff) >= 100;
+        return '<label class="cy-row"><input type="checkbox" data-cy-line="' + escapeAttr(r.id) + '"' + (tick ? " checked" : "") + '>' +
+          '<span class="cy-name">' + escapeAttr(r.what) + '</span><span class="cy-num">' + money0(r.planned) + '</span><span class="cy-num">' + money0(r.actual) + '</span>' + diffCell(r.diff) + '</label>';
+      }).join(""));
+  }
+  if(!sections.length) return '<details class="row-more-options ty-close"><summary>Close ' + fyLabel(fy) + '</summary><p class="ledger-note" style="margin-left:0">Type the year\'s rental figures above, or log transactions against the budget, and this compares them with the plan.</p></details>';
+  return '<details class="row-more-options ty-close"><summary>Close ' + fyLabel(fy) + ' — the plan against what happened</summary>' +
+    '<p class="ledger-note" style="margin-left:0">Ticked lines become next year\'s plan: each row is set to what the year actually came to (the old amount stays in its history). Rows a line\'s figure comes from are scaled together.</p>' +
+    '<div class="cy-cols" aria-hidden="true"><span></span><span></span><span>Planned</span><span>Actual</span><span>Change</span></div>' +
+    sections.join("") +
+    '<button type="button" class="btn btn-sm btn-primary" data-cy-apply="' + fy + '">Use the ticked lines as the plan</button></details>';
+}
+// Documents (v3.43.0): the papers a year's return is built from, and the one-step import of a
+// whole year's figures — the checklist used to sit under the last person's card on the worksheet.
+export function taxDocumentsHtml(){
+  var people = getTaxPeople();
+  if(!people.length) return '<p class="tax-empty">Add a Gross income row with a Person to start a return.</p>';
+  var fy = taxYearSelected();
   var rec = taxYearRecord(fy, false);
   var ev = evidenceItems(fy);
   var ticked = ev.filter(function(i){ return rec && rec.evidence[i.key]; }).length;
-  return '<div class="ty-top"><label for="taxYearSelect">Financial year</label><select id="taxYearSelect">' + options.join("") + '</select>' +
-      (taxTablesFor(fy).assumed ? '<span class="ledger-note warn" style="margin:0">' + fyLabel(fy) + ' rates are partly assumed.</span>' : '') +
-      '<button type="button" class="btn btn-sm btn-ghost" data-ty-import style="margin-left:auto" title="Merge a tax year file — one year\'s income statements, interest, deductions, rental schedule and fund statements — into this plan, leaving everything else as it is">Import a year</button>' +
-      '<button type="button" class="btn btn-sm btn-ghost" data-ty-print>Print / save as PDF</button></div>' +
-    rentHtml(fy) +
-    people.map(function(person){ return personCardHtml(person, fy); }).join("") +
-    '<details class="row-more-options ty-evidence"><summary>Documents to keep (' + ticked + ' of ' + ev.length + ')</summary>' +
-      ev.map(function(i){ return '<label class="m-checkbox-field ty-ev"><input type="checkbox" data-ty-evidence="' + escapeAttr(i.key) + '"' + (rec && rec.evidence[i.key] ? " checked" : "") + '> ' + escapeAttr(i.text) + '</label>'; }).join("") +
-      '<p class="ledger-note" style="margin-left:0">Keep these for five years after lodging; purchase records for anything you still own until five years after you sell it.</p>' +
-    '</details>';
+  return '<div class="ty-top">' + yearSelectHtml("taxDocsYearSelect", fy) +
+      '<button type="button" class="btn btn-sm btn-ghost" data-ty-import style="margin-left:auto" title="Merge a tax year file — one year\'s income statements, interest, deductions, rental schedule and fund statements — into this plan, leaving everything else as it is">Import a year</button></div>' +
+    '<h3 class="ty-docs-head">To keep for ' + fyLabel(fy) + ' <span class="ty-docs-count">' + ticked + ' of ' + ev.length + '</span></h3>' +
+    (ev.length
+      ? '<div class="ty-evidence">' + ev.map(function(i){ return '<label class="m-checkbox-field ty-ev"><input type="checkbox" data-ty-evidence="' + escapeAttr(i.key) + '"' + (rec && rec.evidence[i.key] ? " checked" : "") + '> ' + escapeAttr(i.text) + '</label>'; }).join("") + '</div>'
+      : '<p class="ledger-note" style="margin-left:0">Nothing yet — the list grows from the year\'s income statements, holdings, sales and properties.</p>') +
+    '<p class="ledger-note" style="margin-left:0">Keep these for five years after lodging; purchase records for anything you still own until five years after you sell it.</p>' +
+    '<p class="ledger-note" style="margin-left:0"><b>Import a year</b> takes a tax year file — one year\'s income statements, interest, deductions, rental schedule and fund statements — and merges it in without touching anything else.</p>';
 }
 
 // ---------------- Edits ----------------
@@ -278,7 +371,17 @@ export function taxYearSetField(kind, person, index, key, value){
   var p = personYear(taxYearSelected(), person, true);
   var row = p[KIND_ARRAY[kind]][index];
   if(!row) return;
-  row[key] = (key === "payer" || key === "account" || key === "what" || key === "label") ? value : (parseFloat(value) || 0);
+  row[key] = (key === "payer" || key === "account" || key === "what" || key === "label" || key === "incomeId") ? value : (parseFloat(value) || 0);
+}
+// One statement per Gross income row, gross from its pay history; withholding left for the real
+// statement (v3.47.0).
+export function taxYearFillStatements(person){
+  var fy = taxYearSelected();
+  var py = personYear(fy, person, true);
+  var sg = Number(state.tax && state.tax.sgRate) || 0;
+  (state.income || []).filter(function(i){ return i.person === person && i.incomeType === "Gross" && i.id; }).forEach(function(row){
+    py.incomeStatements.push({ payer: row.what || "", incomeId: row.id, gross: Math.round(expectedGrossForYear(row, fy, sg)), allowances: 0, withheld: 0, resc: 0, rfba: 0 });
+  });
 }
 export function taxYearToggleEvidence(key, on){
   var rec = taxYearRecord(taxYearSelected(), true);

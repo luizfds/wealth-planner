@@ -2,6 +2,7 @@ import { state } from "../state.js";
 import { STAMP_DUTY_BRACKETS, FHB_RULES, LMI_BANDS, LAND_TAX_BRACKETS } from "../constants.js";
 import { periodsOf, sumField, sumFieldForScenario, isoDayNumber, overlapDaysInclusive, householdYearWindow } from "./ledger.js";
 import { localDateStr } from "../lib/format.js";
+import { propertyClaimsAnnual } from "./claims.js";
 
 export function bracketDuty(brackets, price){
   // At exactly $0, no bracket's "price > b.from" matches (every table's first bracket starts
@@ -429,8 +430,11 @@ export function propertyTaxDeductibleResultAnnual(property){
   // between what a property costs you and what it costs you after tax, and the reason a property
   // can be cash-flow negative and still worth holding.
   // Borrowing costs are the same kind of thing: deducted over years, paid once at settlement.
+  // Budget lines claimed against this property (v3.45.0) are deductions here but stay in the
+  // household budget's cash flow, where they're paid from — so they're in this result and not in
+  // propertyCashResultAnnual below.
   return rentYearly - expenseYearly - loanInterestYearly - propertyDepreciationAnnual(property) -
-    propertyBorrowingCostsDeduction(property);
+    propertyBorrowingCostsDeduction(property) - propertyClaimsAnnual(property.id);
 }
 // The same result WITHOUT depreciation — what actually moves through the bank account. Every
 // cash-flow figure in the app uses this; only the tax result uses the one above.

@@ -31,8 +31,9 @@ const base = "http://127.0.0.1:" + server.address().port;
 const VIEWS = [
   ["dashboard", "dashboard-sub", ["overview", "insights", "benchmarks"]],
   ["income", null, [null]],
+  ["tax", "tax-sub", ["year", "returns", "documents"]],
   ["expenses", "expenses-sub", ["budget", "spending"]],
-  ["accounts", "accounts-sub", ["accounts", "categories", "preferences"]],
+  ["accounts", "accounts-sub", ["accounts", "people", "categories", "preferences", "checks"]],
   ["assets", "assets-sub", ["summary", "Cash", "Shares", "Super", "Vehicle", "Other", "Offsets"]],
   ["properties", null, [null]],
   ["scenarios", null, [null]],

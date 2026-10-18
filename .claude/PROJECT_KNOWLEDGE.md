@@ -5,7 +5,7 @@ Deeper reference behind the root [`CLAUDE.md`](../CLAUDE.md). Read that first; c
 
 ## What the app is
 
-A single-page Australian personal finance / property tool. Pages: Dashboard, Income & Tax,
+A single-page Australian personal finance / property tool. Pages: Dashboard, Income, Tax,
 Expenses, Assets (Cash/Shares/Super/Vehicle/Other), Properties, Scenarios (rent-vs-buy, one
 purchase calculator per scenario), Projections. Everything lives in one `state` object, persisted
 to `localStorage` only — there is no server, no accounts, no sync between devices.
@@ -1220,3 +1220,28 @@ pushed to `origin`. Do this without being asked, every time.
 - **The repo is public.** Don't commit a household's real names, employers, addresses or a tax year
   file; tests use placeholders.
 - CI: `scripts/smoke.mjs` is the first thing to run after any component, template or CSS change.
+
+### Tax page, people and linked data (v3.43.0–v3.48.0)
+
+- **Pages:** Tax is its own page (`page-tax`, subs `year`/`returns`/`documents`, deep-linkable).
+  The worksheet re-renders only while Tax is visible; `showPage("tax")` renders it on arrival.
+  `syncMobileTaxSeason()` swaps Tax and Assets in the phone tab bar 1 Jul–31 Oct — both bar
+  buttons need `.mobile-tab[hidden]{display:none}` because `.mobile-tab` sets its own display.
+- **People:** a person is still "named on a Gross income row". Anything new that stores a person's
+  name must be added to `calc/people.js` `renamePersonEverywhere()` (and `personReferences()`), the
+  same contract as accounts and categories.
+- **Claims:** a deductible line is claimed by a person (`deductiblePerson`) *or* a property
+  (`claimProperty`), never both. `deductionRows()` skips property claims; `propertyClaimsAnnual()`
+  takes them off `propertyTaxDeductibleResultAnnual()` (not the cash result). The budget-line list
+  reaches calc/ through `setDeductibleItemsProvider`, which also feeds `calc/claims.js`.
+- **Rental lines:** use `rentLineFor(item)`, not `rentLineForExpense(what)`, so a chosen line wins.
+- **Money in** is `state.incomeLog`, never `state.transactions` (every spending figure sums that).
+  Holding payouts stay in `asset.payouts`; `logIncomeReceived` writes there for `payout:` targets.
+  Income rows get an id on load (`genId("inc")`) because receipts and statements link to it.
+- **Year deductions:** `yearDeductions()` = flagged lines (each excludable per year) + typed claims.
+  `usesBudgetLines(py)` defaults to "no typed claims yet" so pre-v3.47 years keep their lodged meaning.
+- **Close the year** writes amounts with the previous one kept in `history` (seeded at the closed
+  year's start when empty). Property costs are closed via the rental schedule only
+  (`householdBudgetLines()`), and a line fed by a computed row (the agent's fee) is never applied.
+- **Checks:** `calc/health.js` is the place to add a new consistency rule; the bell notification's
+  id is the sorted list of failing check ids.

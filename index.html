@@ -131,7 +131,8 @@
     </button>
     <div class="app-nav" id="appNav">
       <button type="button" class="nav-item" data-page="dashboard">Dashboard</button>
-      <button type="button" class="nav-item" data-page="income">Income &amp; Tax</button>
+      <button type="button" class="nav-item" data-page="income">Income</button>
+      <button type="button" class="nav-item" data-page="tax">Tax</button>
       <button type="button" class="nav-item" data-page="expenses">Expenses</button>
       <button type="button" class="nav-item" data-page="accounts">Accounts</button>
       <button type="button" class="nav-item" data-page="assets">Assets</button>
@@ -145,7 +146,7 @@
       <!-- The number lives in its own span because it is *parsed*, both out of this DOM and out of
            a freshly-fetched copy of this file, to decide whether a newer version is deployed. Left
            bare in the <p>, the "Check for updates" button beside it would end up inside the match. -->
-      <p class="app-version"><span class="app-version-num">v3.42.0</span> · <button type="button" class="link-btn" id="checkUpdatesLink">Check for updates</button></p>
+      <p class="app-version"><span class="app-version-num">v3.48.0</span> · <button type="button" class="link-btn" id="checkUpdatesLink">Check for updates</button></p>
     </div>
     <div class="mobile-header-right">
       <button type="button" class="icon-btn" id="mobileSearchBtn" aria-label="Search">
@@ -273,7 +274,7 @@
               <div class="ledger-total">Monthly total <b id="totalIncomeMonthly">—</b></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note help" style="margin-left:0">Enter a paycheck as-is (Type "Net") if that's what actually lands in your account, or mark it "Gross" and add a Person to have the Tax &amp; Super section below work out real take-home pay. Every row here applies to all your scenarios by default — use <b>⇄ Vary</b> on a row to give one scenario a different amount ("three days a week", "six months off", "the pay rise doesn't arrive"). The figures on this page are the default ones.</p>
+              <p class="ledger-note help" style="margin-left:0">Enter a paycheck as-is (Type "Net") if that's what actually lands in your account, or mark it "Gross" and add a Person to have the Tax page work out real take-home pay. Every row here applies to all your scenarios by default — use <b>⇄ Vary</b> on a row to give one scenario a different amount ("three days a week", "six months off", "the pay rise doesn't arrive"). The figures on this page are the default ones.</p>
               <div id="incomeImportPreview" hidden></div>
               <p class="income-summary-line" id="incomeSummaryLine" style="display:none"></p>
               <div id="incomeGroups"></div>
@@ -283,28 +284,78 @@
             </div>
           </details>
 
+          <details class="ledger" id="receivedLedger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Received</h2></div>
+              <div class="ledger-total">actual vs. planned</div>
+            </summary>
+            <div class="ledger-body">
+              <p class="ledger-note help" style="margin-left:0">What actually arrived, against the plan above. Take-home pay is judged against each person's after-tax net income; rent against what the agent pays after fees; a bonus or a distribution against the whole year rather than one month. A distribution logged here is also recorded on its holding, where it counts toward the holding's return and the tax year.</p>
+              <div id="receivedBody"></div>
+              <div class="ledger-footer">
+                <button class="btn btn-sm" id="logReceivedBtn">+ Log income received</button>
+              </div>
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <section class="app-page" id="page-tax" hidden>
+        <div class="subnav" id="taxSubnav">
+          <button type="button" class="subnav-item active" data-tax-sub="year">This year</button>
+          <button type="button" class="subnav-item" data-tax-sub="returns">Returns</button>
+          <button type="button" class="subnav-item" data-tax-sub="documents">Documents</button>
+        </div>
+        <div class="tax-subpage" id="taxSub-year">
+        <div class="page-intro-row">
+          <p class="page-intro">This year's tax and super as a plan — what each person keeps, and what moving money into super would do.</p>
+        </div>
+        <div class="ledgers">
           <details class="ledger" open>
             <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Tax &amp; super</h2></div>
               <div class="ledger-total" id="taxSuperPeriod">per person</div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note help" style="margin-left:0">Estimated Australian resident income tax, Medicare levy, and concessional super — a full year at the rates shown, computed from any Income rows marked "Gross" above. Which twelve months that year is comes from Accounts &rarr; Preferences. A person appears here the moment one of their rows is marked Gross; use ✎ to rename or ✕ to remove them (their rows just go back to Type "Net"). Covers HELP/HECS, the Medicare levy surcharge, work-related deductions, dividends and franking, capital gains and property depreciation. Still an estimate — rates are indexed annually, Division 293 and surcharge income are approximated, and each capital gain is discounted on its own holding period rather than netted against losses first. Confirm real figures with your accountant.</p>
+              <p class="ledger-note help" style="margin-left:0">Estimated Australian resident income tax, Medicare levy, and concessional super — a full year at the rates shown, computed from any Income rows marked "Gross". Which twelve months that year is comes from Accounts &rarr; Preferences. A person appears here the moment one of their rows is marked Gross; their details (date of birth, HELP, caps) live on Accounts → People. Covers HELP/HECS, the Medicare levy surcharge, work-related deductions, dividends and franking, capital gains and property depreciation. Still an estimate — rates are indexed annually, Division 293 and surcharge income are approximated, and each capital gain is discounted on its own holding period rather than netted against losses first. Confirm real figures with your accountant.</p>
               <div id="taxSuperBody"></div>
             </div>
           </details>
 
-          <details class="ledger" id="taxYearLedger">
+        </div>
+        </div>
+        <div class="tax-subpage" id="taxSub-returns" hidden>
+        <div class="page-intro-row">
+          <p class="page-intro">One financial year as a return asks for it, per person — and what moved since the last one you lodged.</p>
+        </div>
+        <div class="ledgers">
+          <details class="ledger" id="taxYearLedger" open>
             <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Tax return worksheet</h2></div>
               <div class="ledger-total">a year, in myTax's order</div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note help" style="margin-left:0">One financial year as a return asks for it. Type the year's documents in — income statements, interest, the agent's summary — and the worksheet uses them; anything left blank falls back to what the app already models, so it's useful straight away and exact once the papers are in.</p>
+              <p class="ledger-note help" style="margin-left:0">Type the year's documents in — income statements, interest, the agent's summary — and the worksheet uses them; anything left blank falls back to what the app already models, so it's useful straight away and exact once the papers are in.</p>
               <div id="taxYearBody"></div>
+            </div>
+          </details>
+        </div>
+        </div>
+        <div class="tax-subpage" id="taxSub-documents" hidden>
+        <div class="page-intro-row">
+          <p class="page-intro">What a year's return was built from — the papers to gather, and a whole year's figures brought in at once.</p>
+        </div>
+        <div class="ledgers">
+          <details class="ledger" id="taxDocsLedger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Documents</h2></div>
+            </summary>
+            <div class="ledger-body">
+              <div id="taxDocsBody"></div>
               <input type="file" id="taxYearImportFile" accept="application/json,.json" hidden>
             </div>
           </details>
+        </div>
         </div>
       </section>
 
@@ -440,8 +491,10 @@
       <section class="app-page" id="page-accounts" hidden>
         <div class="subnav" id="accountsSubnav">
           <button type="button" class="subnav-item active" data-accounts-sub="accounts">Accounts</button>
+          <button type="button" class="subnav-item" data-accounts-sub="people">People</button>
           <button type="button" class="subnav-item" data-accounts-sub="categories">Categories</button>
           <button type="button" class="subnav-item" data-accounts-sub="preferences">Preferences</button>
+          <button type="button" class="subnav-item" data-accounts-sub="checks">Checks</button>
         </div>
         <div class="accounts-subpage" id="accountsSub-accounts">
         <div class="page-intro-row">
@@ -457,6 +510,26 @@
               <div id="accountsTable"></div>
               <div class="ledger-footer">
                 <button class="btn btn-sm" id="addAccountBtn">+ Add account</button>
+              </div>
+            </div>
+          </details>
+        </div>
+        </div>
+        <div class="accounts-subpage" id="accountsSub-people" hidden>
+        <div class="page-intro-row">
+          <p class="page-intro">Who's in the household, and what the app needs to know about each of them.</p>
+        </div>
+        <div class="ledgers">
+          <details class="ledger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">People</h2></div>
+              <div class="ledger-total" id="peopleSummary"></div>
+            </summary>
+            <div class="ledger-body">
+              <p class="ledger-note help" style="margin-left:0">A person comes from an income row marked Gross that names them. Renaming someone here changes every income row, holding, property share, budget line and tax year that names them. Date of birth, HELP, super caps and home-office hours feed the Tax page, the private health rebate and Benchmarks.</p>
+              <div id="peopleTable"></div>
+              <div class="ledger-footer">
+                <button class="btn btn-sm" id="addPersonBtn">+ Add person</button>
               </div>
             </div>
           </details>
@@ -481,6 +554,23 @@
           </details>
         </div>
         </div>
+        <div class="accounts-subpage" id="accountsSub-checks" hidden>
+        <div class="page-intro-row">
+          <p class="page-intro">Places where your data disagrees with itself — nothing breaks, but a figure somewhere is quietly wrong.</p>
+        </div>
+        <div class="ledgers">
+          <details class="ledger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Checks</h2></div>
+              <div class="ledger-total" id="healthSummary"></div>
+            </summary>
+            <div class="ledger-body">
+              <p class="ledger-note help" style="margin-left:0">Deductions that land on nobody's return, costs claimed twice or against a property that's gone, ownership that doesn't add to 100%, accounts and categories missing, likely duplicates, and plan lines far from what last year actually cost. Each one says where to fix it.</p>
+              <div id="healthBody"></div>
+            </div>
+          </details>
+        </div>
+        </div>
         <div class="accounts-subpage" id="accountsSub-preferences" hidden>
         <div class="page-intro-row">
           <p class="page-intro">Settings that apply to your whole household, not to one account or one budget line.</p>
@@ -492,7 +582,7 @@
               <div class="ledger-total" id="yearBasisCurrent"></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note help" style="margin-left:0">Which twelve months this app treats as "a year" — used by the year-to-date spending view, the transactions export, the share price "YTD" timeframe, and the tax estimate below Income. In Australia a tax return is a financial-year document, and so is most of what a household calls a year of something, so that's the default.</p>
+              <p class="ledger-note help" style="margin-left:0">Which twelve months this app treats as "a year" — used by the year-to-date spending view, the transactions export, the share price "YTD" timeframe, and the tax estimate on the Tax page. In Australia a tax return is a financial-year document, and so is most of what a household calls a year of something, so that's the default.</p>
               <div class="seg-control" id="yearBasisControl" role="group" aria-label="Household year">
                 <button type="button" class="seg-option" data-year-basis="financial" title="1 July to 30 June — the Australian financial year, and what a tax return covers">Financial year (Jul–Jun)</button>
                 <button type="button" class="seg-option" data-year-basis="calendar" title="1 January to 31 December">Calendar year (Jan–Dec)</button>
@@ -697,13 +787,19 @@
       <span class="mobile-tab-label">Income</span>
     </span>
   </button>
+  <button type="button" class="mobile-tab" data-page="tax" id="mobileTabTax" hidden>
+    <span class="mobile-tab-pill">
+      <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h6l3 3v11H6z"/><path d="M12 3v3h3"/><path d="M8.5 10.5l3-3M8.6 7.6h.01M11.4 10.4h.01"/></svg>
+      <span class="mobile-tab-label">Tax</span>
+    </span>
+  </button>
   <button type="button" class="mobile-tab" data-page="expenses">
     <span class="mobile-tab-pill">
       <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h10v14l-2.5-1.5L10 17l-2.5-1.5L5 17z"/><path d="M7.5 7h5M7.5 10h5"/></svg>
       <span class="mobile-tab-label">Expenses</span>
     </span>
   </button>
-  <button type="button" class="mobile-tab" data-page="assets">
+  <button type="button" class="mobile-tab" data-page="assets" id="mobileTabAssets">
     <span class="mobile-tab-pill">
       <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3l7 4-7 4-7-4z"/><path d="M3 11l7 4 7-4"/><path d="M3 15l7 4 7-4"/></svg>
       <span class="mobile-tab-label">Assets</span>
@@ -722,6 +818,8 @@
     </span>
   </button>
   <div class="mobile-more-panel" id="mobileMorePanel" hidden>
+    <button type="button" class="mobile-more-item" data-page="tax" id="mobileMoreTax">Tax</button>
+    <button type="button" class="mobile-more-item" data-page="assets" id="mobileMoreAssets" hidden>Assets</button>
     <button type="button" class="mobile-more-item" data-page="scenarios">Scenarios</button>
     <button type="button" class="mobile-more-item" data-page="projections">Projections</button>
     <button type="button" class="mobile-more-item" data-page="accounts">Accounts</button>
@@ -753,6 +851,7 @@
 <div class="toast-wrap" id="toastWrap"></div>
 <div id="scenarioOverrideRoot"></div>
 <div id="quickLogRoot"></div>
+<div id="receivedRoot"></div>
 <div id="expenseReviewRoot"></div>
 <div id="assetPersonSheetRoot"></div>
 <div id="notifPanelRoot"></div>

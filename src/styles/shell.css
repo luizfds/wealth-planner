@@ -60,6 +60,9 @@
      the same explicit [hidden] override as the two above. */
   .accounts-subpage{ display:flex; flex-direction:column; gap:20px; }
   .accounts-subpage[hidden]{ display:none; }
+  /* Tax's three halves (v3.43.0) — This year / Returns / Documents. Same shape and override. */
+  .tax-subpage{ display:flex; flex-direction:column; gap:20px; }
+  .tax-subpage[hidden]{ display:none; }
   /* The Assets person filter used to be a second row of .subnav pills directly under the real
      subnav, told apart from it only by a border — so two rows competed to be "the tabs" and
      neither won. It's one control now, phrased as a sentence so it reads as *state* rather than
@@ -202,6 +205,9 @@
     .mobile-tab-label{ font-size:10.5px; font-weight:600; letter-spacing:.01em; }
     .mobile-tab:active .mobile-tab-pill{ background: var(--paper-sunken); }
     .mobile-tab.active .mobile-tab-pill{ color: var(--brass-strong); background: var(--brass-wash); }
+    /* Tax and Assets trade places in the bar during lodgement season (v3.43.0); .mobile-tab sets
+       its own display, so [hidden] needs saying again. */
+    .mobile-tab[hidden]{ display:none; }
     .mobile-more-panel{
       position:absolute; bottom:100%; right:6px; margin-bottom:8px; min-width:180px;
       max-height: calc(100vh - 140px); overflow-y:auto; overscroll-behavior: contain;

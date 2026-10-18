@@ -845,14 +845,19 @@ test("if you sold: inputs, the sums and each owner's share", async function(){
   assert.match(html, /Taxed in FY26\/27/);
 });
 
-test("the worksheet offers Import a year next to Print", async function(){
-  const { taxYearHtml, setTaxYearSelected } = await import("../src/components/taxyear.js");
+test("Returns offers Print; Documents offers Import a year and the checklist", async function(){
+  const { taxYearHtml, taxDocumentsHtml, setTaxYearSelected } = await import("../src/components/taxyear.js");
   var keep = { income: state.income, taxYears: state.taxYears, properties: state.properties, assets: state.assets };
   try {
     state.income = [{ what: "Pay", person: "Sam", incomeType: "Gross", amount: 100000, freq: "Yearly", superMode: "On top", sacrificeMode: "none" }];
     state.properties = []; state.assets = []; state.taxYears = {};
     setTaxYearSelected(2025);
-    assert.match(taxYearHtml(), /data-ty-import[^>]*>Import a year<\/button><button type="button" class="btn btn-sm btn-ghost" data-ty-print>/);
+    var ret = taxYearHtml(), docs = taxDocumentsHtml();
+    assert.match(ret, /data-ty-print[^>]*>Print \/ save as PDF/);
+    assert.doesNotMatch(ret, /data-ty-import/);
+    assert.match(docs, /data-ty-import[^>]*>Import a year<\/button>/);
+    assert.match(docs, /id="taxDocsYearSelect" data-ty-year/);
+    assert.match(docs, /To keep for FY25\/26 <span class="ty-docs-count">0 of 0<\/span>/);
   } finally { Object.assign(state, keep); }
 });
 
@@ -880,4 +885,115 @@ test("super top-up: the room as a placeholder, and the sums", async function(){
     assert.match(html, /lands in super after \$1,800 contributions tax/);
     assert.match(topUpHtml("Sam", { capAvailable: 30000, totalConcessional: 30000, taxable: 1, fy: 2026 }), /class="tax-topup" hidden/);
   } finally { state.tax = keep; }
+});
+
+test("People tab: a card per person with their details and where they're used", async function(){
+  const { peopleHtml } = await import("../src/components/people.js");
+  var keep = { income: state.income, tax: state.tax, properties: state.properties, assets: state.assets };
+  try {
+    state.income = [{ what: "Pay", person: "Sam", incomeType: "Gross", amount: 80000, freq: "Yearly" }];
+    state.tax = Object.assign({}, state.tax, { settings: { Sam: { dateOfBirth: "1990-06-02", helpBalance: 1200, concessionalCap: 30000, carryForward: 0, wfhHours: { 2025: 410 } } } });
+    state.properties = [{ id: "x", what: "2 Sample Rd", ownership: { Sam: 100 } }]; state.assets = [];
+    var html = peopleHtml("2026-10-18");
+    assert.match(html, /data-pp-card="Sam"/);
+    assert.match(html, /class="pp-age">36</);
+    assert.match(html, /1 income row · 100% of 2 Sample Rd/);
+    assert.match(html, /class="pp-in pp-help"[^>]*value="1200"/);
+    assert.match(html, /data-fy="2025"[^>]*value="410"/);
+    assert.match(html, /data-pp-remove="Sam"/);
+    state.income = [];
+    assert.match(peopleHtml("2026-10-18"), /Nobody yet/);
+  } finally { Object.assign(state, keep); }
+});
+
+test("rows: a property cost picks its return line; a budget line can be claimed against a property", async function(){
+  const lt = await import("../src/lib/ledger-table.js");
+  const { RENT_EXPENSE_LINES, rentLineFor } = await import("../src/calc/taxyear.js");
+  const { claimedHereHtml } = await import("../src/components/properties.js");
+  lt.setRentLinesProvider(function(){ return { lines: RENT_EXPENSE_LINES, lineFor: rentLineFor }; });
+  lt.setDeductionPeopleProvider(function(){ return ["Alex", "Sam"]; });
+  lt.setDeductionPropertiesProvider(function(){ return [{ id: "r1", what: "9 Sample Ave" }]; });
+  try {
+    var prop = lt.modernPlainRowHtml({ what: "Pest inspection", amount: 240, freq: "Yearly" }, 0, "propexp:r1", {}, { showClass: true });
+    assert.match(prop, /<label>Return line<\/label><select class="f-rentline"[^>]*>[\s\S]*<option value="pestControl" selected>Pest control/);
+    assert.doesNotMatch(prop, /f-deductible/, "no second, personal claim on a property's own cost");
+    var line = lt.modernPlainRowHtml({ what: "Landlord insurance", amount: 900, freq: "Yearly", deductible: true, claimProperty: "r1" }, 0, "shared", {}, { showClass: true });
+    assert.match(line, /<optgroup label="Investment property"><option value="property:r1" selected>9 Sample Ave<\/option>/);
+    assert.match(line, /class="m-edit-field f-deduct-extra f-claim-prop"><label>Rental schedule line/);
+    assert.match(line, /class="m-edit-field f-deduct-extra f-claim-person" hidden><label>Return label/);
+    var gone = lt.modernPlainRowHtml({ what: "Old", amount: 1, freq: "Yearly", deductible: true, claimProperty: "zz" }, 0, "shared", {}, {});
+    assert.match(gone, /value="property:zz" selected>\(deleted property\)/);
+    var note = claimedHereHtml({ id: "r1" }, [{ what: "Landlord insurance", amount: 900, freq: "Yearly", deductible: true, claimProperty: "r1" }]);
+    assert.match(note, /Also claimed here from your budget: <b>Landlord insurance<\/b> \$900\/yr/);
+    assert.equal(claimedHereHtml({ id: "r2" }, []), "");
+  } finally {
+    lt.setRentLinesProvider(null); lt.setDeductionPeopleProvider(null); lt.setDeductionPropertiesProvider(null);
+  }
+});
+
+test("Received: a row per target with its bar and status; the sheet offers every target", async function(){
+  const { receivedPanelHtml, openReceivedSheet, receivedSheetHtml, toggleReceivedRow, closeReceivedSheet } = await import("../src/components/received.js");
+  var keep = { income: state.income, properties: state.properties, assets: state.assets, incomeLog: state.incomeLog };
+  try {
+    state.income = [{ id: "i1", what: "Tutoring", incomeType: "Net", amount: 400, freq: "Monthly" }];
+    state.properties = []; state.assets = [];
+    state.incomeLog = [{ id: "in1", date: "2026-10-03", amount: 300, what: "Week 1-3", target: "income:i1" }];
+    var html = receivedPanelHtml("2026-10");
+    assert.match(html, /data-rcv-key="income:i1"/);
+    assert.match(html, /<b>\$300<\/b> of \$400/);
+    assert.match(html, /style="width:75\.0%"/);
+    assert.match(html, /−\$100 short/);
+    toggleReceivedRow("income:i1");
+    assert.match(receivedPanelHtml("2026-10"), /2026-10-03 · Week 1-3<\/span><b>\$300\.00<\/b>/);
+    toggleReceivedRow("income:i1");
+    openReceivedSheet("income:i1");
+    var sheet = receivedSheetHtml();
+    assert.match(sheet, /data-rcv-chip="income:i1" aria-pressed="true">Tutoring/);
+    assert.match(sheet, /placeholder="400\.00"/);
+    closeReceivedSheet();
+    state.income = [];
+    assert.match(receivedPanelHtml("2026-10"), /Add an income row/);
+  } finally { Object.assign(state, keep); }
+});
+
+test("worksheet: statements link to an income row and are checked; deductions listed line by line", async function(){
+  const { taxYearHtml, setTaxYearSelected } = await import("../src/components/taxyear.js");
+  const { setDeductibleItemsProvider } = await import("../src/calc/tax.js");
+  var keep = { income: state.income, taxYears: state.taxYears, properties: state.properties, assets: state.assets };
+  try {
+    state.income = [{ id: "p1", what: "Pay", person: "Sam", incomeType: "Gross", amount: 80000, freq: "Yearly", superMode: "On top" }];
+    state.properties = []; state.assets = [];
+    state.taxYears = { 2025: { people: { Sam: { incomeStatements: [{ payer: "Employer A", incomeId: "p1", gross: 78000, withheld: 15000 }], interest: [], deductions: [] } } } };
+    setDeductibleItemsProvider(function(){ return [{ id: "d1", what: "Union fees", amount: 520, freq: "Yearly", deductible: true, deductiblePerson: "Sam" }]; });
+    setTaxYearSelected(2025);
+    var html = taxYearHtml();
+    assert.match(html, /data-ty-key="incomeId"[^>]*>[\s\S]*?<option value="p1" selected>Pay<\/option>/);
+    assert.match(html, /Employer A: the plan expected <b>\$80,000<\/b> from Pay — statement is \$2,000 lower/);
+    assert.match(html, /data-ty-uselines="Sam" checked/);
+    assert.match(html, /data-ty-line="d1" data-ty-person="Sam" checked>.*Union fees <small>D5<\/small><\/span><b>\$520\.00<\/b>/);
+    state.taxYears = {};
+    assert.match(taxYearHtml(), /data-ty-fill="Sam"/);
+  } finally { setDeductibleItemsProvider(null); Object.assign(state, keep); }
+});
+
+test("Close the year and Checks render", async function(){
+  const { closeYearHtml } = await import("../src/components/taxyear.js");
+  const { healthHtml, healthSummaryText } = await import("../src/components/health.js");
+  var keep = { properties: state.properties, taxYears: state.taxYears, transactions: state.transactions };
+  try {
+    state.properties = [{ id: "r1", what: "9 Sample Ave", kind: "IP", income: [{ what: "Rent", amount: 500, freq: "Weekly" }], expenses: [], loans: [] }];
+    state.taxYears = { 2024: { people: {}, evidence: {}, lodged: {}, properties: { r1: { lines: { rent: 27300 } } } } };
+    state.transactions = [];
+    var html = closeYearHtml(2024, "2026-10-18");
+    assert.match(html, /Close FY24\/25 — the plan against what happened/);
+    assert.match(html, /data-cy-rent="r1" data-cy-key="rent" checked>.*Rental income<\/span><span class="cy-num">\$26,000<\/span><span class="cy-num">\$27,300<\/span><span class="cy-diff up">\+\$1,300/);
+    assert.match(html, /data-cy-apply="2024"/);
+    assert.equal(closeYearHtml(2026, "2026-10-18"), "", "not for a year that isn't over");
+    var checks = [{ id: "x", severity: "bad", title: "One line claimed by nobody", detail: "“Laptop”", where: { page: "expenses", sub: "budget" } }, { id: "y", severity: "info", title: "Tip", detail: "d", where: {} }];
+    var h = healthHtml(checks);
+    assert.match(h, /class="hc-item hc-bad" data-hc-id="x"/);
+    assert.match(h, /data-hc-page="expenses" data-hc-sub="budget">Open the budget/);
+    assert.equal(healthSummaryText(checks), "1 to fix · 1 to look at");
+    assert.match(healthHtml([]), /every check passes/);
+  } finally { Object.assign(state, keep); }
 });

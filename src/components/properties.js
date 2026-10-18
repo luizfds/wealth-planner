@@ -9,6 +9,7 @@ import {
 } from "../calc/property.js";
 import { getTaxPeople, computePersonTax } from "../calc/tax.js";
 import { saleScenario } from "../calc/sale.js";
+import { propertyClaimLines, rowDeductionAnnual } from "../calc/claims.js";
 import { loanStrategy } from "../calc/loanstrategy.js";
 import { LAND_TAX_STATES, LAND_TAX_YEAR } from "../constants.js";
 import { sumField, householdYearWindow } from "../calc/ledger.js";
@@ -589,11 +590,24 @@ function propertyCardHtml(p, colorIdx){
       '<div class="property-section-title">Expenses</div>',
       pmFeePanel +
       '<div class="m-card"><div class="m-rows" id="propExpRows_' + escapeAttr(p.id) + '">' + modernPropListHtml(p.expenses, "propexp:" + p.id, true) + '</div></div>' +
-      '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="propexp:' + escapeAttr(p.id) + '">+ Add expense</button>') +
+      '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="propexp:' + escapeAttr(p.id) + '">+ Add expense</button>' +
+      (p.kind === "IP" ? claimedHereHtml(p) : "")) +
     (p.kind === "IP" ? propertySectionHtml(p, "sale",
       '<div class="property-section-title">If you sold</div>',
       '<div class="sale-body" data-sale-property="' + escapeAttr(p.id) + '">' + saleWhatIfHtml(p, saleWhatIfData(p)) + '</div>') : "") +
   '</div>';
+}
+// Budget lines paid from the household budget but claimed against this property (v3.45.0). They're
+// on its rental schedule and in its tax result, not in its cash flow — this says so, so the card's
+// figures don't look like they've lost a cost.
+export function claimedHereHtml(p, items){
+  var lines = propertyClaimLines(p.id, items);
+  if(!lines.length) return "";
+  var total = lines.reduce(function(s, i){ return s + rowDeductionAnnual(i); }, 0);
+  return '<p class="ledger-note prop-claimed-here" style="margin:10px 0 0">Also claimed here from your budget: ' +
+    lines.map(function(i){ return '<b>' + escapeAttr(i.what || "Line") + '</b> ' + fmtCurrency0.format(rowDeductionAnnual(i)) + '/yr'; }).join(", ") +
+    (lines.length > 1 ? ' (' + fmtCurrency0.format(total) + ' in all)' : '') +
+    ' — on the rental schedule and in this property\'s tax result, paid from the household budget.</p>';
 }
 export function setSaleWhatIfField(p, field, value){
   if(!p.saleWhatIf || typeof p.saleWhatIf !== "object") p.saleWhatIf = {};

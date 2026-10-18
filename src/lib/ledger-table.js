@@ -44,7 +44,7 @@ export function historyTrendHtml(item){
 // surfaces can never drift apart on what these fields mean or how they're labeled. "Auto" (blank)
 // lets a less-than-monthly item's due month be inferred from the last time it was logged instead
 // of set explicitly.
-export function timingFieldsHtml(item){
+export function timingFieldsHtml(item, section){
   var monthOptions = '<option value="">Auto</option>' + MONTH_NAMES.map(function(m, i){
     return '<option value="' + (i + 1) + '"' + (item.dueMonth === i + 1 ? " selected" : "") + '>' + m + '</option>';
   }).join("");
@@ -53,7 +53,10 @@ export function timingFieldsHtml(item){
     '<div class="m-edit-field"><label>Due month</label><select class="f-duemonth" title="For anything billed less often than monthly — which month it\'s actually due. Auto infers it from the last time you logged it.">' + monthOptions + '</select></div>' +
     startDateFieldHtml(item) +
     endDateFieldHtml(item) +
-    deductionFieldsHtml(item) +
+    // An investment property's own cost is already on its rental schedule (the Return line field
+    // says which line), so offering to claim it again as a personal deduction would be a double
+    // claim (v3.45.0).
+    (String(section || "").indexOf("propexp:") === 0 ? "" : deductionFieldsHtml(item)) +
     reserveYearFieldHtml(item);
 }
 // An optional last date a row applies. Blank — the default, and what every row created before
@@ -89,12 +92,23 @@ function endDateFieldHtml(item){
 // See calc/tax.js's deductionRows() for why an ambiguous row is deliberately claimed by nobody.
 function deductionFieldsHtml(item){
   var people = deductionPeopleProvider ? deductionPeopleProvider() : [];
-  var personField = people.length > 1
-    ? '<div class="m-edit-field"><label>Claimed by</label><select class="f-deductperson" title="Whose tax return this deduction belongs on. Left unset in a two-income household it is claimed by nobody, rather than silently loaded onto one of you.">' +
-        '<option value=""' + (!(item.deductiblePerson || "") ? " selected" : "") + '>— Not set —</option>' +
-        optionsHtml(people, item.deductiblePerson || "") +
+  // v3.45.0: a line can be claimed against an investment property instead of a person — it then
+  // goes on that property's rental schedule (on the Return line chosen below) and reaches each
+  // owner through their share.
+  var props = deductionPropertiesProvider ? deductionPropertiesProvider() : [];
+  var onProperty = !!item.claimProperty;
+  var current = onProperty ? "property:" + item.claimProperty : (item.deductiblePerson || "");
+  var personField = people.length > 1 || props.length
+    ? '<div class="m-edit-field"><label>Claimed by</label><select class="f-deductperson" title="Whose return this goes on — a person\'s, or an investment property\'s rental schedule (split by ownership). Left unset in a two-income household it is claimed by nobody, rather than silently loaded onto one of you.">' +
+        (people.length > 1 || !people.length ? '<option value=""' + (!current ? " selected" : "") + '>— Not set —</option>' : '') +
+        optionsHtml(people, current) +
+        (props.length ? '<optgroup label="Investment property">' + props.map(function(p){
+          return '<option value="property:' + escapeAttr(p.id) + '"' + (current === "property:" + p.id ? " selected" : "") + '>' + escapeAttr(p.what || "Property") + '</option>';
+        }).join("") + '</optgroup>' : '') +
+        (onProperty && !props.some(function(p){ return p.id === item.claimProperty; }) ? '<option value="property:' + escapeAttr(item.claimProperty) + '" selected>(deleted property)</option>' : '') +
       '</select></div>'
     : "";
+  var rentLineField = '<div class="m-edit-field f-deduct-extra f-claim-prop"' + (item.deductible && onProperty ? "" : " hidden") + '><label>Rental schedule line</label>' + rentLineSelectHtml(item) + '</div>';
   return '<div class="m-edit-field span2"><label class="m-checkbox-field"><input type="checkbox" class="f-deductible"' + (item.deductible ? " checked" : "") +
       '> Tax deduction — claimable on a tax return</label></div>' +
     '<div class="m-edit-field f-deduct-extra"' + (item.deductible ? "" : " hidden") + '><label>Claimable %</label>' +
@@ -104,7 +118,8 @@ function deductionFieldsHtml(item){
     // The claim's own dates, separate from "Ends": rent carries on after the home-office share of
     // it stops being claimable (an employer starts providing an office), and a tax year counts only
     // the days the claim covered. Blank = the whole year.
-    '<div class="m-edit-field f-deduct-extra"' + (item.deductible ? "" : " hidden") + '><label>Return label</label>' +
+    rentLineField +
+    '<div class="m-edit-field f-deduct-extra f-claim-person"' + (item.deductible && !onProperty ? "" : " hidden") + '><label>Return label</label>' +
       '<select class="f-deductlabel" aria-label="Tax return label" title="Where this goes on the return — the tax card totals claims by label, the way myTax asks for them.">' +
         DEDUCTION_LABELS.map(function(d){ return '<option value="' + d.code + '"' + ((item.deductionLabel || "D5") === d.code ? " selected" : "") + '>' + d.label + '</option>'; }).join("") +
       '</select>' +
@@ -120,6 +135,19 @@ function deductionFieldsHtml(item){
 // person list comes from calc/tax.js's getTaxPeople(), and lib/ deliberately imports no calc module.
 var deductionPeopleProvider = null;
 export function setDeductionPeopleProvider(fn){ deductionPeopleProvider = fn; }
+// Investment properties a line can be claimed against, and the rental schedule's lines — same
+// provider pattern (v3.45.0): calc/property.js and calc/taxyear.js own them.
+var deductionPropertiesProvider = null;
+export function setDeductionPropertiesProvider(fn){ deductionPropertiesProvider = fn; }
+var rentLinesProvider = null;
+export function setRentLinesProvider(fn){ rentLinesProvider = fn; }
+function rentLineSelectHtml(item){
+  var rl = rentLinesProvider ? rentLinesProvider() : null;
+  if(!rl) return "";
+  var cur = rl.lineFor(item);
+  return '<select class="f-rentline" aria-label="Rental schedule line" title="Which line of the rental schedule (Tax → Returns) this goes on. Defaults to a guess from the name.">' +
+    rl.lines.map(function(l){ return '<option value="' + l.key + '"' + (l.key === cur ? " selected" : "") + '>' + escapeAttr(l.label) + '</option>'; }).join("") + '</select>';
+}
 
 // Only shown once "no fixed timing" is ticked, because that's the only case it changes anything:
 // a reserve line is the one thing compared against a whole year rather than a billing cycle, so
@@ -312,6 +340,9 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
   var logField = opts.showLog
     ? '<div class="m-edit-field span2"><label>Log</label>' + logControlsHtml(section, idx, item) + '</div>'
     : "";
+  var rentLineField = String(section || "").indexOf("propexp:") === 0 && rentLinesProvider
+    ? '<div class="m-edit-field"><label>Return line</label>' + rentLineSelectHtml(item) + '</div>'
+    : "";
   var fieldsHtml =
     '<div class="m-edit-field span3"><label>What</label><input type="text" class="f-what" value="' + escapeAttr(item.what) + '" aria-label="Item name"></div>' +
     classField +
@@ -319,8 +350,9 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
     '<div class="m-edit-field"><label>Amount</label><input type="number" step="0.01" min="0" class="f-amount" value="' + item.amount + '" aria-label="Amount"></div>' +
     '<div class="m-edit-field"><label>Frequency</label><select class="f-freq">' + optionsHtml(FREQS, item.freq) + '</select></div>' +
     accountField +
+    rentLineField +
     logField;
-  var moreOptionsHtml = '<details class="row-more-options"><summary>More options</summary><div class="m-edit-grid" style="margin-top:8px">' + timingFieldsHtml(item) + '</div></details>';
+  var moreOptionsHtml = '<details class="row-more-options"><summary>More options</summary><div class="m-edit-grid" style="margin-top:8px">' + timingFieldsHtml(item, section) + '</div></details>';
   // A visible "Done" (opts.showDone) — every field here already saves itself as you type, same as
   // any other row in the app, but on a full-screen mobile row editor there's otherwise nothing
   // that reads as "I'm finished, put this away" except the ✕ in the header, which reads more like

@@ -91,6 +91,9 @@ export function defaultState(){
     // budgeted for it; unlinked (linkedExpenseId: null) covers a one-off that has no matching
     // budget line at all. See expenses.js's renderTransactions()/renderActualVsPlannedPanel().
     transactions: [],
+    // Money received against an income line, a property's rent or (as payouts) a holding — see
+    // calc/received.js (v3.46.0). Kept apart from transactions, which are spending.
+    incomeLog: [],
     // What the bank-import review screen has been taught: {id, match, linkedExpenseId, category,
     // account, hits}. Written only as a side effect of confirming an import — there is no rule
     // editor, because a rule you have to go and maintain is a rule you stop maintaining.
@@ -231,6 +234,9 @@ export function migrateState(s){
   if(Array.isArray(s.income)){
     s.income.forEach(function(item){
       if(item.superMode == null) item.superMode = item.superIncluded ? "Included" : "On top";
+      // An id to log money received against (v3.46.0). The synthetic rows are rebuilt every
+      // recalculation and are found by syntheticNetFor/syntheticRentForProperty instead.
+      if(!item.id && !item.syntheticNetFor && !item.syntheticRentForProperty) item.id = genId("inc");
     });
   }
   if(!s.home) s.home = {};
@@ -418,6 +424,7 @@ export function migrateState(s){
   if(s.benchmark.fixedRate == null || s.benchmark.fixedRate === "") s.benchmark.fixedRate = 7;
   if(!s.benchmark.symbol) s.benchmark.symbol = "IOZ";
   if(!Array.isArray(s.goals)) s.goals = [];
+  if(!Array.isArray(s.incomeLog)) s.incomeLog = [];
   if(s.fx.usdAud === undefined) s.fx.usdAud = null;
   if(s.fx.usdAudUpdated == null) s.fx.usdAudUpdated = "";
   if(s.lastBackupDate == null) s.lastBackupDate = "";

@@ -12,6 +12,7 @@ import { applySuggestions, learnRule, coverageOf, merchantKey, proposedLineFor, 
 import { fmtCurrency0, fmtCurrency2 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { loggableBudgetLineItems, budgetLineOptgroupsHtml, sortedCategories } from "./expenses.js";
+import { incomeTargets, logIncomeReceived, deleteIncomeReceived } from "../calc/received.js";
 
 // Session-only. Nothing here is persisted until commitBankImport() — a half-reviewed import that
 // survived a reload would be a pile of decisions the user has no memory of making.
@@ -133,9 +134,22 @@ function findGroup(key){
   return bankImport.groups.find(function(x){ return x.key === key; }) ||
     bankImport.creditGroups.find(function(x){ return x.key === key; }) || null;
 }
+// Money in can also be income received (v3.46.0): pay, rent or a distribution, logged against its
+// income line rather than imported as a refund. The select carries "received:<target>".
+export var RECEIVED_PREFIX = "received:";
 export function setBankImportGroupLine(key, expenseId){
   var g = findGroup(key);
   if(!g) return;
+  g.choice.incomeTarget = null;
+  if(g.isCredit && expenseId && expenseId.indexOf(RECEIVED_PREFIX) === 0){
+    g.choice.incomeTarget = expenseId.slice(RECEIVED_PREFIX.length);
+    g.choice.linkedExpenseId = null;
+    g.choice.newLine = null;
+    g.choice.category = "";
+    g.source = "chosen";
+    bankImport.coverage = coverageOfGroups(bankImport.groups);
+    return;
+  }
   if(expenseId === NEW_LINE_VALUE && !g.isCredit){
     g.choice.newLine = proposedLineFor(g, bankImport.parsed.rows);
     g.choice.linkedExpenseId = null;
@@ -174,7 +188,15 @@ function coverageOfGroups(groups){
 // in-place patch. They disagreed the moment a fourth way to place a group (a pending new line) was
 // added, so there is only one of these now.
 function groupIsPlaced(g){
-  return !!(g.choice.linkedExpenseId || (g.choice.category || "").trim() || g.choice.newLine);
+  return !!(g.choice.linkedExpenseId || (g.choice.category || "").trim() || g.choice.newLine || g.choice.incomeTarget);
+}
+function receivedOptgroupHtml(g){
+  var targets = incomeTargets();
+  if(!targets.length) return "";
+  return '<optgroup label="Income received">' + targets.map(function(t){
+    var v = RECEIVED_PREFIX + t.key;
+    return '<option value="' + escapeAttr(v) + '"' + (g.choice.incomeTarget === t.key ? " selected" : "") + '>' + escapeAttr(t.label) + '</option>';
+  }).join("") + '</optgroup>';
 }
 
 // ---------------- Render ----------------
@@ -331,7 +353,7 @@ function groupRowHtml(g){
   var badge = g.source === "rule"
     ? '<span class="bank-import-badge is-rule" title="From a rule you taught this app on an earlier import">learned</span>'
     : (g.source === "name" ? '<span class="bank-import-badge" title="Matched to a budget line by name — worth a glance">guessed</span>' : "");
-  if(g.isCredit) badge = '<span class="bank-import-badge is-credit" title="Money in. Assign it to a budget line to import it as a refund against that line.">money in</span>';
+  if(g.isCredit) badge = '<span class="bank-import-badge is-credit" title="Money in. Assign it to an income line to log it as received, or to a budget line to import it as a refund against that line.">money in</span>';
   var countLabel = g.rows.length === 1 ? "1 transaction" : g.rows.length + " transactions";
   var placed = groupIsPlaced(g);
   return '<div class="m-row bank-import-group' + (placed ? "" : " is-unplaced") + '" data-bank-group="' + escapeAttr(g.key) + '">' +
@@ -346,6 +368,7 @@ function groupRowHtml(g){
         '<select class="bank-group-line" data-bank-group="' + escapeAttr(g.key) + '">' +
           '<option value="">' + (g.isCredit ? "— don\'t import —" : "— not linked —") + '</option>' +
           (g.isCredit ? "" : '<option value="' + NEW_LINE_VALUE + '"' + (g.choice.newLine ? " selected" : "") + '>+ New line "' + escapeAttr(suggestedLineName(g.key)) + '"</option>') +
+          (g.isCredit ? receivedOptgroupHtml(g) : "") +
           budgetLineOptgroupsHtml(g.choice.linkedExpenseId) +
         '</select>' +
       '</label>' +
@@ -418,7 +441,7 @@ export function importableCount(){
 }
 function assignedCreditRowCount(){
   return bankImport.creditGroups.reduce(function(n, g){
-    return n + ((g.choice.linkedExpenseId || (g.choice.category || "").trim()) ? g.rows.length : 0);
+    return n + (groupIsPlaced(g) ? g.rows.length : 0);
   }, 0);
 }
 function bankImportActionsHtml(canImport){
@@ -494,7 +517,14 @@ export function commitBankImport(){
   // Money-in groups the user assigned to a budget line are refunds, and import as negative
   // transactions against it. An unassigned one is skipped, which is the default and the safe
   // reading — importing salary as negative spending would wreck every figure on the page.
-  var refundGroups = bankImport.creditGroups.filter(function(g){ return !!g.choice.linkedExpenseId || !!(g.choice.category || "").trim(); });
+  var receivedIds = [];
+  bankImport.creditGroups.filter(function(g){ return !!g.choice.incomeTarget; }).forEach(function(g){
+    g.rows.forEach(function(row){
+      var rec = logIncomeReceived({ target: g.choice.incomeTarget, amount: row.amount, date: row.date, what: row.description || "", account: g.choice.account || "" });
+      if(rec) receivedIds.push(rec.id);
+    });
+  });
+  var refundGroups = bankImport.creditGroups.filter(function(g){ return !g.choice.incomeTarget && (!!g.choice.linkedExpenseId || !!(g.choice.category || "").trim()); });
   refundGroups.forEach(function(g){ g.isRefund = true; });
   bankImport.groups.concat(refundGroups).forEach(function(g){
     // Staged budget lines become real here and nowhere earlier — see NEW_LINE_VALUE. Created
@@ -545,14 +575,15 @@ export function commitBankImport(){
   });
   persist();
   return { ids: created, learned: learned, groups: bankImport.groups.length,
-           lineIds: createdLineIds, linesCreated: createdLineIds.length,
+           lineIds: createdLineIds, linesCreated: createdLineIds.length, receivedIds: receivedIds,
            refunds: refundGroups.reduce(function(n, g){ return n + g.rows.length; }, 0) };
 }
 
 // Undo: drop exactly the transactions this import created. Rules it taught are deliberately left
 // alone — they're a preference the user expressed, not part of the data being undone, and
 // re-importing the same file is the normal reason to undo.
-export function undoBankImport(ids, lineIds){
+export function undoBankImport(ids, lineIds, receivedIds){
+  (receivedIds || []).forEach(function(id){ deleteIncomeReceived(id); });
   var kill = {};
   (ids || []).forEach(function(id){ kill[id] = true; });
   state.transactions = state.transactions.filter(function(t){ return !kill[t.id]; });

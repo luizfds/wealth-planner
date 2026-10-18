@@ -19,6 +19,8 @@ import { financialYearOf, fyLabel } from "./calc/property.js";
 import { renderTaxYear, setTaxYearSelected, taxYearAddRow, taxYearDeleteRow, taxYearRestoreRow, taxYearSetField, taxYearToggleEvidence, taxYearMarkLodged, worksheetText, taxYearSelected, taxYearPrintHtml, lodgedSnapshot } from "./components/taxyear.js";
 import { renderPeople, setPersonField, peopleSummaryText } from "./components/people.js";
 import { renamePersonEverywhere, removePersonFromTax } from "./calc/people.js";
+import { logIncomeReceived, deleteIncomeReceived } from "./calc/received.js";
+import { renderReceived, toggleReceivedRow, receivedSheet, openReceivedSheet, closeReceivedSheet, setReceivedTarget, receivedSheetHtml } from "./components/received.js";
 import { RENT_EXPENSE_LINES, rentLineFor, setRentalActual, mergeTaxYearFile, matchPerson, taxYearRecord, TAX_YEAR_FILE_KIND } from "./calc/taxyear.js";
 import { renderCards, renderDashboardStats, renderDetail, setProjectionReference, logNetWorthSnapshot } from "./components/dashboard.js";
 import {
@@ -1004,7 +1006,7 @@ import {
     name = name.trim();
     if(!name) return;
     if(getTaxPeople().indexOf(name) !== -1){ showToast('"' + name + '" already exists'); return; }
-    var row = { what: name + "'s pay", classification: "", category: "", account: "", amount: 0, freq: "Yearly", person: name, incomeType: "Gross", superMode: "On top", sacrificeMode: "none", sacrificeValue: 0 };
+    var row = { id: genId("inc"), what: name + "'s pay", classification: "", category: "", account: "", amount: 0, freq: "Yearly", person: name, incomeType: "Gross", superMode: "On top", sacrificeMode: "none", sacrificeValue: 0 };
     state.income.push(row);
     afterPeopleChange();
     showPage("income");
@@ -2683,6 +2685,77 @@ import {
     if(document.querySelector("[data-qlog-backdrop]")) requestCloseActiveOverlay();
   });
 
+  // ---------------- Income → Received (v3.46.0) ----------------
+  function renderReceivedSheet(){
+    var root = document.getElementById("receivedRoot");
+    if(root) root.innerHTML = receivedSheetHtml();
+    var amt = document.getElementById("rcvAmount");
+    if(amt) amt.focus();
+  }
+  function closeReceivedSheetDom(){
+    closeReceivedSheet();
+    var root = document.getElementById("receivedRoot");
+    if(root) root.innerHTML = "";
+  }
+  function openReceivedSheetFor(target){
+    openReceivedSheet(target);
+    renderReceivedSheet();
+    pushActiveOverlay(closeReceivedSheetDom);
+  }
+  // A logged distribution is a holding's payout too, which moves its return and the year's tax.
+  function afterReceivedChange(){
+    renderReceived();
+    renderAssets();
+    renderTaxSuper();
+    persist();
+  }
+  document.getElementById("logReceivedBtn").addEventListener("click", function(){ openReceivedSheetFor(); });
+  document.getElementById("receivedBody").addEventListener("click", function(e){
+    var del = e.target.closest("[data-rcv-del]");
+    if(del){
+      var restore = deleteIncomeReceived(del.getAttribute("data-rcv-del"));
+      afterReceivedChange();
+      if(restore) showUndoToast("Record deleted", function(){ restore(); afterReceivedChange(); });
+      return;
+    }
+    var log = e.target.closest("[data-rcv-log]");
+    if(log){ openReceivedSheetFor(log.getAttribute("data-rcv-log")); return; }
+    var tog = e.target.closest("[data-rcv-toggle]");
+    if(tog){ toggleReceivedRow(tog.getAttribute("data-rcv-toggle")); renderReceived(); }
+  });
+  document.getElementById("receivedRoot").addEventListener("click", function(e){
+    if(e.target.closest("[data-rcv-close]") || e.target === e.target.closest("[data-rcv-backdrop]")){ requestCloseActiveOverlay(); return; }
+    var chip = e.target.closest("[data-rcv-chip]");
+    if(chip){
+      var amountEl = document.getElementById("rcvAmount"), noteEl = document.getElementById("rcvNote"), dateEl = document.getElementById("rcvDate");
+      var keep = [amountEl ? amountEl.value : "", noteEl ? noteEl.value : "", dateEl ? dateEl.value : ""];
+      setReceivedTarget(chip.getAttribute("data-rcv-chip"));
+      renderReceivedSheet();
+      document.getElementById("rcvAmount").value = keep[0];
+      document.getElementById("rcvNote").value = keep[1];
+      if(keep[2]) document.getElementById("rcvDate").value = keep[2];
+      return;
+    }
+    if(e.target.closest("[data-rcv-submit]")) submitReceived();
+  });
+  document.getElementById("receivedRoot").addEventListener("keydown", function(e){
+    if(e.key === "Enter" && (e.target.id === "rcvAmount" || e.target.id === "rcvNote")){ e.preventDefault(); submitReceived(); }
+  });
+  function submitReceived(){
+    if(!receivedSheet) return;
+    var amountEl = document.getElementById("rcvAmount");
+    var amount = parseAmountInput(amountEl.value || amountEl.placeholder);
+    if(!(amount > 0)){ amountEl.focus(); showToast("Type the amount that arrived"); return; }
+    var rec = logIncomeReceived({ target: receivedSheet.target, amount: amount, date: document.getElementById("rcvDate").value, what: document.getElementById("rcvNote").value });
+    if(!rec){ showToast("Pick what it was"); return; }
+    requestCloseActiveOverlay();
+    afterReceivedChange();
+    showUndoToast("Logged " + fmtCurrency2.format(amount) + " received", function(){ deleteIncomeReceived(rec.id); afterReceivedChange(); });
+  }
+  document.addEventListener("keydown", function(e){
+    if(e.key === "Escape" && document.querySelector("[data-rcv-backdrop]")) requestCloseActiveOverlay();
+  });
+
   // ---------------- Cross-page search ----------------
   function openSearchOverlay(){
     openSearch();
@@ -3183,7 +3256,7 @@ import {
     if(!arr) return;
     var showClass = section !== "income" && section.indexOf("propinc:") !== 0;
     var newItem = { what:"New item", classification: showClass ? (groupValue != null ? groupValue : "Needs") : "", category: addCategory, account:"", amount:0, freq:"Monthly" };
-    if(section === "income"){ newItem.person = groupValue != null ? groupValue : ""; newItem.incomeType = "Net"; }
+    if(section === "income"){ newItem.id = genId("inc"); newItem.person = groupValue != null ? groupValue : ""; newItem.incomeType = "Net"; }
     arr.push(newItem);
     var newIdx = arr.length - 1;
     rerenderTableFor(section);
@@ -3293,12 +3366,13 @@ import {
     showUndoToast(
       "Imported " + result.ids.length + " transaction" + (result.ids.length === 1 ? "" : "s") +
         (result.refunds ? " · " + result.refunds + " refund" + (result.refunds === 1 ? "" : "s") : "") +
+        (result.receivedIds && result.receivedIds.length ? " · " + result.receivedIds.length + " income received" : "") +
         (result.linesCreated ? " · " + result.linesCreated + " new budget line" + (result.linesCreated === 1 ? "" : "s") : "") +
         (result.learned ? " · learned " + result.learned + " shop" + (result.learned === 1 ? "" : "s") : ""),
       function(){
         // Rules the import taught are left in place on purpose — they're a preference, not part of
         // the data being undone, and re-importing the same file is the usual reason to undo.
-        undoBankImport(result.ids, result.lineIds);
+        undoBankImport(result.ids, result.lineIds, result.receivedIds);
         refreshAfterBankImport();
       }
     );
@@ -3307,6 +3381,7 @@ import {
   // once — which is the point, and also why this is one named function rather than a list repeated
   // at the import and undo call sites where the two could drift apart.
   function refreshAfterBankImport(){
+    renderReceived();
     renderTransactions();
     renderActualVsPlannedPanel();
     renderSpendCategoryChart();
@@ -3601,6 +3676,7 @@ import {
     if(action.page === "assets" && action.sub) showAssetsSubpage(action.sub, { replace: true });
     if(action.page === "expenses" && action.sub) showExpensesSubpage(action.sub, { replace: true });
     if(action.mode === "networth"){ logNetWorthSnapshot(); return; }
+    if(action.mode === "received"){ setTimeout(function(){ openReceivedSheetFor(); }, 240); return; }
     // Deferred for the same reason the search handler defers its scroll: showPage's render and
     // view transition have to settle before the target button exists in its final form.
     setTimeout(function(){
@@ -3865,6 +3941,7 @@ import {
     renderTaxSuper();
     renderTaxYear();
     renderPeopleTab();
+    renderReceived();
     renderNotifBadge();
   }
 

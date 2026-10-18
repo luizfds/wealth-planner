@@ -3,6 +3,7 @@ import { closeScenarioOverridePanel } from "./expenses.js";
 import { escapeAttr } from "../lib/html.js";
 import { lodgementStatus } from "../calc/taxyear.js";
 import { renderTaxYear } from "./taxyear.js";
+import { renderReceived } from "./received.js";
 import { localDateStr } from "../lib/format.js";
 
 // ---------------- Page navigation ----------------
@@ -143,6 +144,7 @@ var QUICK_FAB_GROUPED_PAGES = ["income", "assets", "scenarios"];
 export var QUICK_ACTIONS = [
   { label: "Log spend",     hint: "A real transaction against a budget line", page: "expenses",   sub: "spending", selector: "#quickLogBtn" },
   { label: "Add expense",   hint: "A new planned budget line",                page: "expenses",   sub: "budget",   selector: '[data-add="shared"]' },
+  { label: "Log income",    hint: "Pay, rent or a distribution that arrived", page: "income",     mode: "received" },
   // No selector on these three: Income and Assets build their add buttons per person/category
   // (data-add="income:<person>", "assets:Cash", "holding"), so the value isn't knowable from here.
   // They resolve to the first visible [data-add] on the destination page instead — the same way
@@ -258,6 +260,8 @@ export function showPage(id, opts){
     // The worksheet only re-renders itself while visible (see income.js refreshOpenTaxYear), so
     // arriving on Tax brings it up to date with whatever changed elsewhere in the meantime.
     if(id === "tax") renderTaxYear();
+    // Received is planned against the income rows, rent and holdings, which change elsewhere.
+    if(id === "income") renderReceived();
     updateQuickFab(id);
     if(!opts.skipScroll) window.scrollTo(0, 0);
     if(!opts.skipUrl) syncUrl(id, !!opts.replace);

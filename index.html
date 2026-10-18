@@ -284,6 +284,19 @@
             </div>
           </details>
 
+          <details class="ledger" id="receivedLedger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Received</h2></div>
+              <div class="ledger-total">actual vs. planned</div>
+            </summary>
+            <div class="ledger-body">
+              <p class="ledger-note help" style="margin-left:0">What actually arrived, against the plan above. Take-home pay is judged against each person's after-tax net income; rent against what the agent pays after fees; a bonus or a distribution against the whole year rather than one month. A distribution logged here is also recorded on its holding, where it counts toward the holding's return and the tax year.</p>
+              <div id="receivedBody"></div>
+              <div class="ledger-footer">
+                <button class="btn btn-sm" id="logReceivedBtn">+ Log income received</button>
+              </div>
+            </div>
+          </details>
         </div>
       </section>
 
@@ -820,6 +833,7 @@
 <div class="toast-wrap" id="toastWrap"></div>
 <div id="scenarioOverrideRoot"></div>
 <div id="quickLogRoot"></div>
+<div id="receivedRoot"></div>
 <div id="expenseReviewRoot"></div>
 <div id="assetPersonSheetRoot"></div>
 <div id="notifPanelRoot"></div>

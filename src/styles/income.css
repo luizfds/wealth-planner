@@ -213,3 +213,23 @@
 .pp-hours small{ font-weight:500; }
 .pp-hours input{ width:100%; box-sizing:border-box; }
 @media (max-width:520px){ .pp-hours-row{ grid-template-columns:repeat(2, minmax(0,1fr)); } }
+
+/* ---------------- Income → Received (v3.46.0) ---------------- */
+.rcv-list{ display:flex; flex-direction:column; gap:6px; }
+.rcv-row{ border:1px solid var(--border); border-radius:10px; background:var(--paper); }
+.rcv-summary{ all:unset; box-sizing:border-box; width:100%; cursor:pointer; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 12px; padding:10px 12px; align-items:center; }
+.rcv-summary:focus-visible{ outline:2px solid var(--brass-strong); outline-offset:-2px; border-radius:10px; }
+.rcv-name{ font-size:13.5px; font-weight:600; color:var(--ink); min-width:0; }
+.rcv-name small{ display:block; font-size:11.5px; font-weight:500; color:var(--ink-soft); }
+.rcv-figs{ font-size:13px; color:var(--ink-soft); white-space:nowrap; text-align:right; }
+.rcv-figs b{ color:var(--ink); font-family:'IBM Plex Mono', monospace; }
+.rcv-bar{ grid-column:1 / -1; display:block; height:6px; border-radius:3px; background:var(--paper-sunken); overflow:hidden; }
+.rcv-bar > span{ display:block; height:100%; background:var(--series-color, #1baf7a); background:#1baf7a; }
+.rcv-status{ grid-column:1 / -1; font-size:12px; font-weight:600; }
+.rcv-status.up{ color:var(--good, #1a8a5a); }
+.rcv-status.down{ color:var(--bad, #c0392b); }
+.rcv-status.muted{ color:var(--ink-soft); font-weight:500; }
+.rcv-detail{ padding:0 12px 10px; display:flex; flex-direction:column; gap:4px; }
+.rcv-item{ display:flex; align-items:center; gap:10px; font-size:13px; }
+.rcv-item span{ flex:1 1 auto; min-width:0; color:var(--ink-soft); }
+.rcv-item b{ font-family:'IBM Plex Mono', monospace; }

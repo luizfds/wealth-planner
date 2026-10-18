@@ -930,3 +930,28 @@ test("rows: a property cost picks its return line; a budget line can be claimed 
     lt.setRentLinesProvider(null); lt.setDeductionPeopleProvider(null); lt.setDeductionPropertiesProvider(null);
   }
 });
+
+test("Received: a row per target with its bar and status; the sheet offers every target", async function(){
+  const { receivedPanelHtml, openReceivedSheet, receivedSheetHtml, toggleReceivedRow, closeReceivedSheet } = await import("../src/components/received.js");
+  var keep = { income: state.income, properties: state.properties, assets: state.assets, incomeLog: state.incomeLog };
+  try {
+    state.income = [{ id: "i1", what: "Tutoring", incomeType: "Net", amount: 400, freq: "Monthly" }];
+    state.properties = []; state.assets = [];
+    state.incomeLog = [{ id: "in1", date: "2026-10-03", amount: 300, what: "Week 1-3", target: "income:i1" }];
+    var html = receivedPanelHtml("2026-10");
+    assert.match(html, /data-rcv-key="income:i1"/);
+    assert.match(html, /<b>\$300<\/b> of \$400/);
+    assert.match(html, /style="width:75\.0%"/);
+    assert.match(html, /−\$100 short/);
+    toggleReceivedRow("income:i1");
+    assert.match(receivedPanelHtml("2026-10"), /2026-10-03 · Week 1-3<\/span><b>\$300\.00<\/b>/);
+    toggleReceivedRow("income:i1");
+    openReceivedSheet("income:i1");
+    var sheet = receivedSheetHtml();
+    assert.match(sheet, /data-rcv-chip="income:i1" aria-pressed="true">Tutoring/);
+    assert.match(sheet, /placeholder="400\.00"/);
+    closeReceivedSheet();
+    state.income = [];
+    assert.match(receivedPanelHtml("2026-10"), /Add an income row/);
+  } finally { Object.assign(state, keep); }
+});

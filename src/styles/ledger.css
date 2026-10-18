@@ -1179,3 +1179,10 @@
     .bc-bill, .bc-more{ display:none; }
     .bc-dots{ display:flex; }
   }
+
+  /* Bank import: the statement's account and balance, transfers (v3.64.0) */
+  .bank-import-account{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 8px; font-size:13px; }
+  .bank-import-account select{ min-height:38px; padding:5px 8px; border:1px solid var(--border); border-radius:6px; background: var(--paper); color: var(--ink); font: inherit; }
+  .bank-import-balance{ display:flex; gap:8px; align-items:flex-start; font-size:13px; margin:0 0 8px; line-height:1.4; }
+  .bank-import-balance input{ margin-top:2px; }
+  .bank-import-badge.is-transfer{ background: var(--brass-wash); color: var(--brass-strong); }

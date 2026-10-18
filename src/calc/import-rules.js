@@ -107,7 +107,10 @@ export function matchBudgetLineByName(description, budgetLines){
 // groceries as salary, or the other way round.
 export function suggestFor(description, rules, budgetLines, direction){
   var credit = direction === "credit";
-  var rule = matchRule(description, (rules || []).filter(function(r){ return credit ? !!r.incomeTarget : !r.incomeTarget; }));
+  // A transfer rule (v3.64.0) wins for its own direction: "TRANSFER TO SAVINGS" is never spending.
+  var tRule = matchRule(description, (rules || []).filter(function(r){ return r.transferAccount && (r.transferDirection || "debit") === (credit ? "credit" : "debit"); }));
+  if(tRule) return { source: "rule", linkedExpenseId: null, category: "", account: "", ruleId: tRule.id || null, transferAccount: tRule.transferAccount };
+  var rule = matchRule(description, (rules || []).filter(function(r){ return !r.transferAccount && (credit ? !!r.incomeTarget : !r.incomeTarget); }));
   if(rule && credit){
     return { source: "rule", linkedExpenseId: null, category: "", account: rule.account || "", ruleId: rule.id || null, incomeTarget: rule.incomeTarget };
   }
@@ -149,10 +152,23 @@ export function learnRule(rules, description, choice, idFactory){
   if(!key) return rules;
   // Nothing to learn from a row the user left unassigned — and storing an empty rule would sit
   // there matching future rows and filing them nowhere, which looks like the app forgetting.
+  if(choice && choice.transferAccount){
+    var dir = choice.transferDirection || "debit";
+    var t = (rules || []).find(function(r){ return r.match === key && r.transferAccount && (r.transferDirection || "debit") === dir; });
+    if(t){ t.transferAccount = choice.transferAccount; t.hits = (t.hits || 0) + 1; return rules; }
+    // A transfer answer replaces a spending/income rule for the same words and direction.
+    for(var i = rules.length - 1; i >= 0; i--){
+      var r0 = rules[i];
+      if(r0.match === key && !r0.transferAccount && (!!r0.incomeTarget === (dir === "credit"))) rules.splice(i, 1);
+    }
+    rules.push({ id: idFactory ? idFactory() : "rule_x_" + key.replace(/\s+/g, "_"), match: key, transferAccount: choice.transferAccount, transferDirection: dir,
+      linkedExpenseId: null, category: "", account: "", hits: 1 });
+    return rules;
+  }
   if(!choice || (!choice.linkedExpenseId && !(choice.category || "").trim() && !choice.incomeTarget)) return rules;
   var income = !!choice.incomeTarget;
   // Same merchant key, same direction: a credit and a debit from one name are two rules.
-  var existing = (rules || []).find(function(r){ return r.match === key && !!r.incomeTarget === income; });
+  var existing = (rules || []).find(function(r){ return r.match === key && !r.transferAccount && !!r.incomeTarget === income; });
   if(existing && income){
     existing.incomeTarget = choice.incomeTarget;
     if(choice.account) existing.account = choice.account;
@@ -189,8 +205,9 @@ export function pruneRules(rules, budgetLines){
   var live = {};
   (budgetLines || []).forEach(function(l){ if(l.id) live[l.id] = true; });
   return (rules || []).filter(function(rule){
-    // Income rules are checked against the income targets when they're applied (bank-import.js).
-    if(rule.incomeTarget) return true;
+    // Income rules are checked against the income targets when they're applied (bank-import.js);
+    // transfer rules name an account, which outlives any budget line.
+    if(rule.incomeTarget || rule.transferAccount) return true;
     if(!rule.linkedExpenseId) return !!(rule.category || "").trim();
     if(live[rule.linkedExpenseId]) return true;
     rule.linkedExpenseId = null;
@@ -267,4 +284,36 @@ export function proposedLineFor(group, allRows){
     classification: "Needs",
     basis: rate
   };
+}
+
+// ---------------- Transfers between your own accounts (v3.64.0) ----------------
+// A guess at which of the household's other accounts a statement line moved money to or from:
+// another account named in the description ("TRANSFER TO BANK ONE SAVINGS"), else null. Words alone
+// ("TRANSFER", "PAYMENT THANK YOU") say it's probably a transfer without saying where, which is
+// `likely` — the review offers it as a transfer but leaves the account to the person.
+var TRANSFER_WORDS = /\b(transfer|tfr|xfer|internal|payment thank ?you|payment received|card payment|repayment|osko|pay ?anyone|to savings|from savings)\b/;
+export function detectTransfer(description, accountNames, statementAccount){
+  var norm = normaliseDescription(description);
+  if(!norm) return null;
+  var hit = null;
+  (accountNames || []).forEach(function(n){
+    if(!n || n === statementAccount) return;
+    var k = normaliseDescription(n);
+    if(k && (" " + norm + " ").indexOf(" " + k + " ") !== -1 && (!hit || k.length > normaliseDescription(hit).length)) hit = n;
+  });
+  if(hit) return { account: hit, likely: true };
+  return TRANSFER_WORDS.test(norm) ? { account: "", likely: true } : null;
+}
+// The balance the statement ends on: the running balance on its last row by date. Files run
+// newest-first as often as oldest-first, so for a tie on the last date the row nearest that end of
+// the file wins. Returns { date, balance } or null when the file has no balance column.
+export function closingBalance(rows){
+  var withBal = (rows || []).filter(function(r){ return r.balance != null && !isNaN(r.balance); });
+  if(!withBal.length) return null;
+  var newestFirst = withBal.length > 1 && withBal[0].date > withBal[withBal.length - 1].date;
+  var best = null;
+  withBal.forEach(function(r, i){
+    if(!best || r.date > best.date || (r.date === best.date && !newestFirst && i > best.i)) best = { date: r.date, balance: r.balance, i: i };
+  });
+  return { date: best.date, balance: best.balance };
 }

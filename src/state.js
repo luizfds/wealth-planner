@@ -326,7 +326,7 @@ export function migrateState(s){
   // A rule with no match string can never fire and would sit in a backup forever; one with neither
   // a line nor a category fires and files the row nowhere, which reads as the app forgetting.
   s.importRules = s.importRules.filter(function(r){
-    return r && typeof r.match === "string" && r.match.trim() && (r.linkedExpenseId || (r.category || "").trim() || r.incomeTarget);
+    return r && typeof r.match === "string" && r.match.trim() && (r.linkedExpenseId || (r.category || "").trim() || r.incomeTarget || r.transferAccount);
   });
   // Categories are a later addition, so an older save has none: seed the defaults so the feature
   // works on first load rather than presenting an empty manager. An existing (possibly emptied)

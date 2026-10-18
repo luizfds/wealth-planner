@@ -2265,10 +2265,14 @@ device, never in a backup — a lock screen, not encryption, and it says so). Mi
 lastFolderBackup).
 
 
-## 100. `[~]` Bank import that understands accounts
+## 100. `[x]` Bank import that understands accounts — shipped v3.64.0
 The import picks which account the statement is for, recognises payments between the household's
 own accounts as transfers (a card repayment, a top-up to savings) instead of spending, and can set
 that account's balance from the statement's closing balance.
+Shipped as: `bankImport.account` (guessed from the file name, else asked), `detectTransfer()` and
+transfer rules (`transferAccount` + `transferDirection`) in calc/import-rules.js, transfers written
+to `state.transfers` on import, `closingBalance()` from the parsed `balance` column (headerless files
+too) set through `setAccountBalance` with undo restoring the previous balance.
 
 ## 101. `[~]` Savings goals tied to accounts
 A goal (house deposit, emergency fund) follows real account balances, shows progress, what's needed

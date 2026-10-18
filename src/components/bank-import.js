@@ -8,7 +8,9 @@
 import { state, persist } from "../state.js";
 import { parseCsv } from "../lib/backup.js";
 import { parseBankCsv, bankImportSummary, parseDiagnosis } from "../calc/bank-import.js";
-import { applySuggestions, learnRule, coverageOf, merchantKey, proposedLineFor, suggestedLineName, pruneRules } from "../calc/import-rules.js";
+import { applySuggestions, learnRule, coverageOf, merchantKey, proposedLineFor, suggestedLineName, pruneRules, detectTransfer, closingBalance } from "../calc/import-rules.js";
+import { addTransfer, deleteTransfer } from "../calc/cashflowlist.js";
+import { accountBalance, setAccountBalance, isOwedType } from "../calc/accounts.js";
 import { fmtCurrency0, fmtCurrency2 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { loggableBudgetLineItems, budgetLineOptgroupsHtml, sortedCategories } from "./expenses.js";
@@ -38,7 +40,7 @@ function groupRows(rows){
         // the merchant's actual name rather than an abbreviation.
         label: row.description || "(no description)",
         rows: [], total: 0,
-        choice: { linkedExpenseId: row.suggestion.linkedExpenseId, category: row.suggestion.category, account: row.suggestion.account },
+        choice: { linkedExpenseId: row.suggestion.linkedExpenseId, category: row.suggestion.category, account: row.suggestion.account, transferAccount: row.suggestion.transferAccount || "" },
         source: row.suggestion.source
       };
       order.push(key);
@@ -69,8 +71,38 @@ export function reparseBankImportWith(order){
   var parsed = parseBankCsv(bankImport.rawRows, { existing: state.transactions, dateOrder: order });
   return rebuildBankImport(parsed, bankImport.fileName, bankImport.rawRows, bankImport.includePossibleDuplicates);
 }
+// Which account a statement is for (v3.64.0): one whose name appears in the file name, if exactly
+// one does — "Bank One savings 2026-09.csv" — else none, and the review asks.
+export function guessStatementAccount(fileName){
+  var f = " " + String(fileName || "").toLowerCase().replace(/[^a-z0-9]+/g, " ") + " ";
+  var hits = (state.accounts || []).filter(function(a){
+    var k = String(a.name || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    return k && f.indexOf(" " + k + " ") !== -1;
+  });
+  return hits.length === 1 ? hits[0].name : "";
+}
+// Transfer guesses for groups nothing else placed: another account named in the description is a
+// confident guess (pre-selected); transfer-ish words alone only get a "looks like a transfer" hint.
+function markTransfers(groups, statementAccount, isCredit){
+  var names = (state.accounts || []).map(function(a){ return a.name; });
+  groups.forEach(function(g){
+    if(g.choice.transferAccount){ g.source = g.source || "rule"; return; }
+    if(g.source === "rule" || g.choice.incomeTarget) return;
+    var t = detectTransfer(g.label, names, statementAccount);
+    if(!t) return;
+    g.transferHint = true;
+    if(t.account){
+      g.choice.transferAccount = t.account;
+      g.choice.linkedExpenseId = null; g.choice.category = ""; g.choice.newLine = null;
+      g.source = "transfer";
+    }
+  });
+  return groups;
+}
 function rebuildBankImport(parsed, fileName, rawRows, includePossibleDuplicates){
   var lines = loggableBudgetLineItems();
+  var keepAccount = bankImport && bankImport.fileName === (fileName || "") ? bankImport.account : null;
+  var statementAccount = keepAccount != null ? keepAccount : guessStatementAccount(fileName);
   var suggested = applySuggestions(parsed.rows, state.importRules, lines);
   var includeMaybes = !!includePossibleDuplicates;
   var spend = suggested.filter(function(r){
@@ -83,7 +115,11 @@ function rebuildBankImport(parsed, fileName, rawRows, includePossibleDuplicates)
     parsed: parsed,
     summary: bankImportSummary(parsed),
     coverage: coverageOf(spend),
-    groups: groupRows(spend),
+    groups: markTransfers(groupRows(spend), statementAccount, false),
+    // v3.64.0: the account this statement is for, its closing balance, and whether to set it.
+    account: statementAccount,
+    closing: closingBalance(parsed.rows),
+    setBalance: true,
     duplicates: suggested.filter(function(r){ return r.duplicate; }),
     // Same date and amount as something already logged by hand, which carries no description to
     // compare against. Left out unless asked for — see the duplicate-detection comment in
@@ -101,11 +137,14 @@ function rebuildBankImport(parsed, fileName, rawRows, includePossibleDuplicates)
         // anything else starts unassigned, as before.
         var learned = g.rows[0] && g.rows[0].suggestion && g.rows[0].suggestion.incomeTarget;
         var live = learned && incomeTargets().some(function(t){ return t.key === learned; });
-        return Object.assign(g, { choice: { linkedExpenseId: null, category: "", account: live ? (g.rows[0].suggestion.account || "") : "", incomeTarget: live ? learned : null },
-          source: live ? "rule" : null, isCredit: true });
+        var tAcct = g.rows[0] && g.rows[0].suggestion && g.rows[0].suggestion.transferAccount;
+        return Object.assign(g, { choice: { linkedExpenseId: null, category: "", account: live ? (g.rows[0].suggestion.account || "") : "", incomeTarget: live ? learned : null, transferAccount: tAcct || "" },
+          source: live || tAcct ? "rule" : null, isCredit: true });
       }),
     credits: suggested.filter(function(r){ return r.direction === "credit" && !r.duplicate && !r.possibleDuplicate; })
   };
+  markTransfers(bankImport.creditGroups, statementAccount, true);
+  bankImport.coverage = coverageOfGroups(bankImport.groups);
   return bankImport;
 }
 // Re-buckets the same parse with the maybes folded in (or back out). Any group assignments made so
@@ -144,10 +183,19 @@ function findGroup(key){
 // Money in can also be income received (v3.46.0): pay, rent or a distribution, logged against its
 // income line rather than imported as a refund. The select carries "received:<target>".
 export var RECEIVED_PREFIX = "received:";
+export var TRANSFER_PREFIX = "transfer:";
 export function setBankImportGroupLine(key, expenseId){
   var g = findGroup(key);
   if(!g) return;
   g.choice.incomeTarget = null;
+  g.choice.transferAccount = "";
+  if(expenseId && expenseId.indexOf(TRANSFER_PREFIX) === 0){
+    g.choice.transferAccount = expenseId.slice(TRANSFER_PREFIX.length);
+    g.choice.linkedExpenseId = null; g.choice.newLine = null; g.choice.category = "";
+    g.source = "chosen";
+    bankImport.coverage = coverageOfGroups(bankImport.groups);
+    return;
+  }
   if(g.isCredit && expenseId && expenseId.indexOf(RECEIVED_PREFIX) === 0){
     g.choice.incomeTarget = expenseId.slice(RECEIVED_PREFIX.length);
     g.choice.linkedExpenseId = null;
@@ -195,8 +243,24 @@ function coverageOfGroups(groups){
 // in-place patch. They disagreed the moment a fourth way to place a group (a pending new line) was
 // added, so there is only one of these now.
 function groupIsPlaced(g){
-  return !!(g.choice.linkedExpenseId || (g.choice.category || "").trim() || g.choice.newLine || g.choice.incomeTarget);
+  return !!(g.choice.linkedExpenseId || (g.choice.category || "").trim() || g.choice.newLine || g.choice.incomeTarget || g.choice.transferAccount);
 }
+// "Transfer to/from" one of your other accounts (v3.64.0) — never spending, never income.
+function transferOptgroupHtml(g){
+  var others = (state.accounts || []).filter(function(a){ return a.name && a.name !== bankImport.account; });
+  if(!others.length && !g.choice.transferAccount) return "";
+  var label = g.isCredit ? "Transfer from your account" : "Transfer to your account";
+  var opts = others.map(function(a){
+    var v = TRANSFER_PREFIX + a.name;
+    return '<option value="' + escapeAttr(v) + '"' + (g.choice.transferAccount === a.name ? " selected" : "") + '>' + escapeAttr(a.name) + '</option>';
+  }).join("");
+  if(g.choice.transferAccount && !others.some(function(a){ return a.name === g.choice.transferAccount; })){
+    opts += '<option value="' + escapeAttr(TRANSFER_PREFIX + g.choice.transferAccount) + '" selected>' + escapeAttr(g.choice.transferAccount) + '</option>';
+  }
+  return '<optgroup label="' + label + '">' + opts + '</optgroup>';
+}
+export function setStatementAccount(name){ if(bankImport){ bankImport.account = name || ""; markTransfers(bankImport.groups, bankImport.account); markTransfers(bankImport.creditGroups, bankImport.account); bankImport.coverage = coverageOfGroups(bankImport.groups); } }
+export function setStatementBalanceOn(on){ if(bankImport) bankImport.setBalance = !!on; }
 function receivedOptgroupHtml(g){
   var targets = incomeTargets();
   if(!targets.length) return "";
@@ -315,7 +379,22 @@ function bankImportHeaderHtml(s){
   // of the file into the wrong months and every figure downstream moves with it.
   var orderLabel = s.dateOrder === "MDY" ? "MM/DD" : "DD/MM";
   var otherOrder = s.dateOrder === "MDY" ? "DMY" : "MDY";
-  return '<div class="bank-import-head">' +
+  var acctOpts = '<option value="">— not sure —</option>' + (state.accounts || []).map(function(a){
+    return '<option value="' + escapeAttr(a.name) + '"' + (a.name === bankImport.account ? " selected" : "") + '>' + escapeAttr(a.name) + '</option>';
+  }).join("");
+  var cb = bankImport.closing, acct = (state.accounts || []).find(function(a){ return a.name === bankImport.account; });
+  var balLine = "";
+  if(cb && acct){
+    var owed = isOwedType(acct.type);
+    var shown = owed ? Math.abs(cb.balance) : cb.balance;
+    var now = accountBalance(acct).balance;
+    balLine = '<label class="bank-import-balance"><input type="checkbox" data-bank-setbalance' + (bankImport.setBalance ? " checked" : "") + '> Set ' + escapeAttr(acct.name) + '\'s ' + (owed ? "amount owed" : "balance") + ' to <b>' + fmtCurrency2.format(shown) + '</b>, the statement\'s closing balance on ' + escapeAttr(cb.date) +
+      (now != null ? ' <small>(now ' + fmtCurrency2.format(now) + ')</small>' : '') + '</label>';
+  } else if(cb){
+    balLine = '<p class="ledger-note bank-import-meta">The statement ends on a balance of ' + fmtCurrency2.format(cb.balance) + ' (' + escapeAttr(cb.date) + ') — pick its account above to record it.</p>';
+  }
+  var acctLine = '<label class="bank-import-account"><span>This statement is for</span><select data-bank-account aria-label="Which account this statement is for">' + acctOpts + '</select></label>';
+  return '<div class="bank-import-head">' + acctLine + balLine +
     '<p class="ledger-note" style="margin:0"><b>' + count + ' transaction' + (count === 1 ? "" : "s") + '</b> to import' +
       (amount > 0 ? ", " + fmtCurrency0.format(amount) + " in total" : "") + '.' +
       (s.duplicates ? " " + s.duplicates + " already logged." : "") +
@@ -360,7 +439,9 @@ function groupRowHtml(g){
   var badge = g.source === "rule"
     ? '<span class="bank-import-badge is-rule" title="From a rule you taught this app on an earlier import">learned</span>'
     : (g.source === "name" ? '<span class="bank-import-badge" title="Matched to a budget line by name — worth a glance">guessed</span>' : "");
-  if(g.isCredit && g.source === "rule") badge = '<span class="bank-import-badge is-rule" title="Matched to an income line by a rule you taught this app on an earlier import">learned · money in</span>';
+  if(g.choice.transferAccount) badge = '<span class="bank-import-badge is-transfer" title="Money moved between your own accounts — saved as a transfer, not spending or income">transfer</span>';
+  else if(g.transferHint) badge = '<span class="bank-import-badge is-transfer" title="Reads like a transfer between your own accounts. If it is, pick the account under Transfer.">looks like a transfer</span>';
+  else if(g.isCredit && g.source === "rule") badge = '<span class="bank-import-badge is-rule" title="Matched to an income line by a rule you taught this app on an earlier import">learned · money in</span>';
   else if(g.isCredit) badge = '<span class="bank-import-badge is-credit" title="Money in. Assign it to an income line to log it as received, or to a budget line to import it as a refund against that line.">money in</span>';
   var countLabel = g.rows.length === 1 ? "1 transaction" : g.rows.length + " transactions";
   var placed = groupIsPlaced(g);
@@ -372,11 +453,12 @@ function groupRowHtml(g){
       '</div>' +
     '</div>' +
     '<div class="bank-import-assign">' +
-      '<label class="bank-import-field"><span>Budget line</span>' +
+      '<label class="bank-import-field"><span>Goes to</span>' +
         '<select class="bank-group-line" data-bank-group="' + escapeAttr(g.key) + '">' +
           '<option value="">' + (g.isCredit ? "— don\'t import —" : "— not linked —") + '</option>' +
           (g.isCredit ? "" : '<option value="' + NEW_LINE_VALUE + '"' + (g.choice.newLine ? " selected" : "") + '>+ New line "' + escapeAttr(suggestedLineName(g.key)) + '"</option>') +
           (g.isCredit ? receivedOptgroupHtml(g) : "") +
+          transferOptgroupHtml(g) +
           budgetLineOptgroupsHtml(g.choice.linkedExpenseId) +
         '</select>' +
       '</label>' +
@@ -528,7 +610,7 @@ export function commitBankImport(){
   var receivedIds = [];
   bankImport.creditGroups.filter(function(g){ return !!g.choice.incomeTarget; }).forEach(function(g){
     g.rows.forEach(function(row){
-      var rec = logIncomeReceived({ target: g.choice.incomeTarget, amount: row.amount, date: row.date, what: row.description || "", account: g.choice.account || "" });
+      var rec = logIncomeReceived({ target: g.choice.incomeTarget, amount: row.amount, date: row.date, what: row.description || "", account: g.choice.account || bankImport.account || "" });
       if(rec) receivedIds.push(rec.id);
     });
     // Next month's credit from the same payer is placed without asking (v3.49.0).
@@ -536,9 +618,23 @@ export function commitBankImport(){
     learnRule(state.importRules, g.label, { incomeTarget: g.choice.incomeTarget, account: g.choice.account || "" }, function(){ return genId("rule"); });
     if(state.importRules.length > before) learned++;
   });
-  var refundGroups = bankImport.creditGroups.filter(function(g){ return !g.choice.incomeTarget && (!!g.choice.linkedExpenseId || !!(g.choice.category || "").trim()); });
+  // Transfers between your own accounts (v3.64.0): one transfer per row, out of the statement's
+  // account for money out, into it for money in. Never spending, never income.
+  var transferIds = [];
+  var stAcct = bankImport.account || "";
+  bankImport.groups.concat(bankImport.creditGroups).filter(function(g){ return !!g.choice.transferAccount; }).forEach(function(g){
+    g.rows.forEach(function(row){
+      var rec = addTransfer({ date: row.date, amount: row.amount, what: row.description || "",
+        from: g.isCredit ? g.choice.transferAccount : stAcct, to: g.isCredit ? stAcct : g.choice.transferAccount });
+      transferIds.push(rec.id);
+    });
+    var before = state.importRules.length;
+    learnRule(state.importRules, g.label, { transferAccount: g.choice.transferAccount, transferDirection: g.isCredit ? "credit" : "debit" }, function(){ return genId("rule"); });
+    if(state.importRules.length > before) learned++;
+  });
+  var refundGroups = bankImport.creditGroups.filter(function(g){ return !g.choice.transferAccount && !g.choice.incomeTarget && (!!g.choice.linkedExpenseId || !!(g.choice.category || "").trim()); });
   refundGroups.forEach(function(g){ g.isRefund = true; });
-  bankImport.groups.concat(refundGroups).forEach(function(g){
+  bankImport.groups.filter(function(g){ return !g.choice.transferAccount; }).concat(refundGroups).forEach(function(g){
     // Staged budget lines become real here and nowhere earlier — see NEW_LINE_VALUE. Created
     // before the transactions below so they have an id to link to, and pushed onto state.shared
     // with an explicit id rather than waiting for migrateState to backfill one on the next load,
@@ -572,7 +668,7 @@ export function commitBankImport(){
         // recognise this row as a duplicate.
         what: row.description || "",
         linkedExpenseId: g.choice.linkedExpenseId || null,
-        account: g.choice.account || "",
+        account: g.choice.account || bankImport.account || "",
         category: g.choice.linkedExpenseId ? "" : (g.choice.category || "")
       };
       state.transactions.push(t);
@@ -585,8 +681,16 @@ export function commitBankImport(){
     learnRule(state.importRules, g.label, g.choice, function(){ return genId("rule"); });
     if(state.importRules.length > before) learned++;
   });
+  // The statement's closing balance onto its account (v3.64.0), remembering what it was for undo.
+  var balanceSet = null;
+  var acctRec = (state.accounts || []).find(function(a){ return a.name === stAcct; });
+  if(acctRec && bankImport.closing && bankImport.setBalance){
+    var prev = accountBalance(acctRec);
+    var value = isOwedType(acctRec.type) ? Math.abs(bankImport.closing.balance) : bankImport.closing.balance;
+    if(setAccountBalance(acctRec, value, bankImport.closing.date)) balanceSet = { account: acctRec.name, value: value, prev: prev.balance, prevDate: prev.date, date: bankImport.closing.date };
+  }
   persist();
-  return { ids: created, learned: learned, groups: bankImport.groups.length,
+  return { ids: created, learned: learned, groups: bankImport.groups.length, transferIds: transferIds, balanceSet: balanceSet,
            lineIds: createdLineIds, linesCreated: createdLineIds.length, receivedIds: receivedIds,
            refunds: refundGroups.reduce(function(n, g){ return n + g.rows.length; }, 0) };
 }
@@ -594,8 +698,20 @@ export function commitBankImport(){
 // Undo: drop exactly the transactions this import created. Rules it taught are deliberately left
 // alone — they're a preference the user expressed, not part of the data being undone, and
 // re-importing the same file is the normal reason to undo.
-export function undoBankImport(ids, lineIds, receivedIds){
+export function undoBankImport(ids, lineIds, receivedIds, transferIds, balanceSet){
   (receivedIds || []).forEach(function(id){ deleteIncomeReceived(id); });
+  (transferIds || []).forEach(function(id){ deleteTransfer(id); });
+  // The balance goes back to what it was — or, if it had none, the snapshot this import added is removed.
+  if(balanceSet){
+    var a = (state.accounts || []).find(function(x){ return x.name === balanceSet.account; });
+    var b = a && accountBalance(a);
+    if(b && b.source){
+      var hist = b.history || [];
+      var k = hist.findIndex(function(h){ return h.date === balanceSet.date; });
+      if(k !== -1) hist.splice(k, 1);
+      if(balanceSet.prev != null) setAccountBalance(a, balanceSet.prev, balanceSet.prevDate || balanceSet.date);
+    }
+  }
   var kill = {};
   (ids || []).forEach(function(id){ kill[id] = true; });
   state.transactions = state.transactions.filter(function(t){ return !kill[t.id]; });

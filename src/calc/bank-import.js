@@ -182,6 +182,12 @@ export function detectColumns(rows){
     var numeric = scored.filter(function(s){ return s.c !== colOf.date && s.c !== colOf.description && s.amounts > 0; })
       .sort(function(a, b){ return b.amounts - a.amounts || a.c - b.c; });
     if(numeric.length) colOf.amount = numeric[0].c;
+    // And the balance is the numeric column after it (v3.64.0) — date, amount, description,
+    // balance is the usual headerless shape.
+    if(colOf.balance === undefined && colOf.amount !== undefined){
+      var after = numeric.filter(function(s){ return s.c > colOf.amount; });
+      if(after.length) colOf.balance = after[0].c;
+    }
   }
   return colOf;
 }
@@ -294,6 +300,9 @@ export function parseBankCsv(rows, opts){
       amount: Math.abs(signed),
       direction: signed < 0 ? "debit" : "credit",
       description: description,
+      // The bank's running balance, when the file has one (v3.64.0) — what sets an account's
+      // balance from its statement.
+      balance: columns.balance !== undefined ? parseBankAmount(cells[columns.balance]) : null,
       duplicate: duplicate,
       possibleDuplicate: possibleDuplicate
     });

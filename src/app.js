@@ -88,7 +88,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
 import {
   startBankImport, reparseBankImportWith, clearBankImport,
   setBankImportGroupLine, setBankImportGroupCategory, renderBankImportPanel, patchBankImportPanel, renderBankImportHelp,
-  setIncludePossibleDuplicates, commitBankImport, undoBankImport
+  setIncludePossibleDuplicates, commitBankImport, undoBankImport, setStatementAccount, setStatementBalanceOn
 } from "./components/bank-import.js";
 
 (function(){
@@ -3760,6 +3760,9 @@ import {
   // on a phone, which is how a review screen gets abandoned. The counts and badge update in place
   // and the row stays where it is until the next file is loaded.
   document.getElementById("bankImportPanel").addEventListener("change", function(e){
+    // The statement's account changes what counts as a transfer and whose balance it sets — a full render.
+    if(e.target.hasAttribute("data-bank-account")){ setStatementAccount(e.target.value); renderBankImportPanel(); return; }
+    if(e.target.hasAttribute("data-bank-setbalance")){ setStatementBalanceOn(e.target.checked); return; }
     var lineSel = e.target.closest(".bank-group-line");
     if(lineSel) setBankImportGroupLine(lineSel.getAttribute("data-bank-group"), lineSel.value);
     var catSel = e.target.closest(".bank-group-category");
@@ -3786,17 +3789,22 @@ import {
     var result = commitBankImport();
     clearBankImport();
     refreshAfterBankImport();
+    // Transfers and a statement balance reach Accounts, Home and net worth too.
+    if((result.transferIds && result.transferIds.length) || result.balanceSet) renderAll();
     showUndoToast(
       "Imported " + result.ids.length + " transaction" + (result.ids.length === 1 ? "" : "s") +
         (result.refunds ? " · " + result.refunds + " refund" + (result.refunds === 1 ? "" : "s") : "") +
         (result.receivedIds && result.receivedIds.length ? " · " + result.receivedIds.length + " income received" : "") +
+        (result.transferIds && result.transferIds.length ? " · " + result.transferIds.length + " transfer" + (result.transferIds.length === 1 ? "" : "s") : "") +
+        (result.balanceSet ? " · " + result.balanceSet.account + " balance updated" : "") +
         (result.linesCreated ? " · " + result.linesCreated + " new budget line" + (result.linesCreated === 1 ? "" : "s") : "") +
         (result.learned ? " · learned " + result.learned + " shop" + (result.learned === 1 ? "" : "s") : ""),
       function(){
         // Rules the import taught are left in place on purpose — they're a preference, not part of
         // the data being undone, and re-importing the same file is the usual reason to undo.
-        undoBankImport(result.ids, result.lineIds, result.receivedIds);
+        undoBankImport(result.ids, result.lineIds, result.receivedIds, result.transferIds, result.balanceSet);
         refreshAfterBankImport();
+        renderAll();
       }
     );
   });

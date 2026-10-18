@@ -1201,6 +1201,14 @@ import {
       if(close){ close.open = true; setTimeout(function(){ close.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60); }
     }
   });
+  // A loan's balance or offset edited on Property or Investments → Offsets is the same number the
+  // matching account shows (v3.56.0) — record it in that history too, so the account's chart, its
+  // savings-goal pace and the net worth comparison see the change wherever it was typed (v3.67.1).
+  // Same-day edits replace each other, so typing doesn't pile up snapshots.
+  function recordLoanSnapshot(loan, key, value){
+    if(!Array.isArray(loan[key])) loan[key] = [];
+    appendHistorySnapshot(loan[key], Math.round((Number(value) || 0) * 100) / 100, localDateStr());
+  }
   function afterCloseYear(){
     recalcComputedItems();
     renderAll();
@@ -1719,6 +1727,7 @@ import {
     var loan = property && property.loans[loanIdx];
     if(!loan) return;
     loan.offsetBalance = parseFloat(e.target.value) || 0;
+    recordLoanSnapshot(loan, "offsetHistory", loan.offsetBalance);
     patchOffsetsRow(property.id, loanIdx, loan.offsetBalance);
     patchPropertyCardComputed(property);
     // patchPropertyCardComputed only patches derived/computed figures, not the raw .loan-offset
@@ -1782,7 +1791,7 @@ import {
         var loanNameEl = loanTr.querySelector(".m-row-name");
         if(loanNameEl) loanNameEl.textContent = loan.what;
       }
-      else if(e.target.classList.contains("loan-balance")) loan.balance = parseFloat(e.target.value) || 0;
+      else if(e.target.classList.contains("loan-balance")){ loan.balance = parseFloat(e.target.value) || 0; recordLoanSnapshot(loan, "balanceHistory", loan.balance); }
       else if(e.target.classList.contains("loan-rate")) loan.rate = parseFloat(e.target.value) || 0;
       else if(e.target.classList.contains("loan-term")) loan.termYears = parseFloat(e.target.value) || 0;
       else if(e.target.classList.contains("loan-manual-amount")) loan.manualRepaymentAmount = parseFloat(e.target.value) || 0;
@@ -1801,6 +1810,7 @@ import {
       }
       else if(e.target.classList.contains("loan-offset")){
         loan.offsetBalance = parseFloat(e.target.value) || 0;
+        recordLoanSnapshot(loan, "offsetHistory", loan.offsetBalance);
         // The mirror of this file's own offset-balance-input handler — without it, editing the
         // offset from here would leave the Assets → Offsets tab showing a stale figure until the
         // next full renderAssets().

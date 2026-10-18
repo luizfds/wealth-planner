@@ -2162,6 +2162,11 @@ deductible costs worth paying before 30 June, prepaying investment-loan interest
 Year-to-date figures from the latest payslip project the year's withholding against the year's tax:
 heading for a refund or a bill.
 
+## 91. `[~]` Interest rate changes on property loans
+Asked mid-batch: a loan kept one rate, overwritten on edit. Each loan keeps dated rate changes; a
+past year's modelled interest runs across the rates that applied; the loan shows its history and
+what the last change did to the repayment; one notification per change.
+
 ---
 
 ## Conventions for whoever picks this up

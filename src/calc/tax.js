@@ -20,6 +20,11 @@ export function fyOfDate(iso){
 export function currentTaxFy(){
   return fyOfDate(householdYearWindow().start);
 }
+// The financial year today is in, whatever period is picked in the header — for the things that
+// are about now: Before 30 June, Checks' "last finished year", which years can be closed.
+export function todayTaxFy(today){
+  return fyOfDate(today || localDateStr());
+}
 export function taxTablesFor(fy){
   if(fy == null) fy = currentTaxFy();
   if(TAX_YEARS[fy]) return Object.assign({ fy: fy, assumed: false }, TAX_YEARS[fy]);

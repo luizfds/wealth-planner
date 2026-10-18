@@ -1,5 +1,5 @@
 import { state } from "../state.js";
-import { getTaxPeople, computePersonTax, personCapitalGains, personFundStatements, lotsAverageCost, deductionRows, rowDeductionAnnual, currentTaxFy } from "./tax.js";
+import { getTaxPeople, computePersonTax, personCapitalGains, personFundStatements, lotsAverageCost, deductionRows, rowDeductionAnnual, todayTaxFy } from "./tax.js";
 import { superTopUp } from "./supertopup.js";
 import { toAudAmount } from "./engine.js";
 import { ipProperties, propertyOwnershipPct, loanInterestMonthly, loanPaidOut, fyWindow } from "./property.js";
@@ -26,7 +26,7 @@ function round(n){ return Math.round(n); }
 
 export function juneMoves(person, today, items){
   items = items || claimItems();
-  var fy = currentTaxFy();
+  var fy = todayTaxFy(today);
   var w = fyWindow(fy);
   var r = computePersonTax(person, { fy: fy });
   var rate = (r.marginalRate || 0) + MEDICARE;

@@ -118,6 +118,7 @@
      focus, first in the tab order, and it moves focus into the content rather than only scrolling
      there (see app.js's handler, which sets tabindex="-1" on the target first). -->
 <a class="skip-link" href="#appContent">Skip to page content</a>
+<script>try{ if(localStorage.getItem("wealthPlanner.passcode") && !sessionStorage.getItem("wealthPlanner.unlocked")) document.documentElement.classList.add("is-locked"); }catch(e){}</script>
 <div class="app-shell">
 
   <nav class="app-sidebar">
@@ -130,15 +131,15 @@
       <svg class="nav-menu-chevron" width="10" height="10" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 2l3 3 3-3" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
     <div class="app-nav" id="appNav">
-      <button type="button" class="nav-item" data-page="dashboard">Dashboard</button>
-      <button type="button" class="nav-item" data-page="income">Income</button>
-      <button type="button" class="nav-item" data-page="tax">Tax</button>
-      <button type="button" class="nav-item" data-page="expenses">Expenses</button>
+      <button type="button" class="nav-item" data-page="dashboard">Home</button>
+      <button type="button" class="nav-item" data-page="expenses">Cash flow</button>
       <button type="button" class="nav-item" data-page="accounts">Accounts</button>
-      <button type="button" class="nav-item" data-page="assets">Assets</button>
-      <button type="button" class="nav-item" data-page="properties">Properties</button>
-      <button type="button" class="nav-item" data-page="scenarios">Scenarios</button>
-      <button type="button" class="nav-item" data-page="projections">Projections</button>
+      <button type="button" class="nav-item" data-page="assets">Investments</button>
+      <button type="button" class="nav-item" data-page="properties">Property</button>
+      <button type="button" class="nav-item" data-page="tax">Tax</button>
+      <button type="button" class="nav-item" data-page="plan">Plan</button>
+      <button type="button" class="nav-item" data-page="reports">Reports</button>
+      <button type="button" class="nav-item" data-page="settings">Settings <span class="nav-badge" data-checks-badge hidden></span></button>
     </div>
     <div class="app-sidebar-footer">
       <p class="app-sidebar-note">Stored only in this browser (<code>localStorage</code>) — nothing is sent anywhere. Clearing your browser data clears this too, so <button class="link-btn" id="exportLink2">Export</button> a backup now and then.</p>
@@ -146,7 +147,7 @@
       <!-- The number lives in its own span because it is *parsed*, both out of this DOM and out of
            a freshly-fetched copy of this file, to decide whether a newer version is deployed. Left
            bare in the <p>, the "Check for updates" button beside it would end up inside the match. -->
-      <p class="app-version"><span class="app-version-num">v3.54.2</span> · <button type="button" class="link-btn" id="checkUpdatesLink">Check for updates</button></p>
+      <p class="app-version"><span class="app-version-num">v3.63.0</span> · <button type="button" class="link-btn" id="checkUpdatesLink">Check for updates</button></p>
     </div>
     <div class="mobile-header-right">
       <button type="button" class="icon-btn" id="mobileSearchBtn" aria-label="Search">
@@ -164,6 +165,10 @@
     <header class="app-topbar">
       <div class="app-topbar-left">
         <h1 id="pageTitle">Dashboard</h1>
+        <div class="period-wrap">
+          <button type="button" class="period-btn" id="periodBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="periodMenu" aria-label="Period">—</button>
+          <div class="period-menu" id="periodMenu" role="dialog" aria-label="Choose the period" hidden></div>
+        </div>
         <div class="global-metrics" id="globalMetrics">
           <div class="global-metric"><span>Net worth</span><b id="globalNetWorth">—</b></div>
           <div class="global-metric-divider" aria-hidden="true"></div>
@@ -199,13 +204,12 @@
     <div class="app-content" id="appContent">
 
       <section class="app-page" id="page-dashboard">
-        <p class="page-intro" id="dashboardIntro">Compare renting against buying, scenario by scenario — keep any investment property in the mix across every option.</p>
+        <p class="page-intro" id="dashboardIntro">Your money at a glance — what you're worth, how the month is going, and what needs doing.</p>
         <!-- Populated (and hidden again) by renderSetupPanel: what's still empty, and one link to
              the next thing worth doing. Hides itself once every step is done or the user says so. -->
         <div class="setup-panel" id="dashboardSetup" hidden></div>
 
-        <div class="stat-row" id="dashboardStats"></div>
-        <button type="button" class="calc-hint-link" id="dashboardProjectionsLink" style="display:block;margin:4px 0 2px">See your long-term projection (all scenarios, 20 years out) →</button>
+        <div id="homeSummary"></div>
 
         <div id="staleAssetsBanner"></div>
 
@@ -214,13 +218,16 @@
              same way Assets already splits Summary/Cash/Shares/... means Insights' six cards stop
              adding to the scroll length of every single visit, not just the ones that want them. -->
         <div class="subnav" id="dashboardSubnav">
-          <button type="button" class="subnav-item active" data-dashboard-sub="overview">Overview</button>
+          <button type="button" class="subnav-item active" data-dashboard-sub="overview">Scenarios</button>
           <button type="button" class="subnav-item" data-dashboard-sub="insights">Insights</button>
           <button type="button" class="subnav-item" data-dashboard-sub="benchmarks">Benchmarks</button>
           <button type="button" class="subnav-item" data-dashboard-sub="review">Review</button>
         </div>
 
         <div class="dashboard-subpage" id="dashboardSub-overview">
+          <p class="page-intro" style="margin-top:0">Compare renting against buying, scenario by scenario — keep any investment property in the mix across every option.</p>
+          <div class="stat-row" id="dashboardStats"></div>
+          <button type="button" class="calc-hint-link" id="dashboardProjectionsLink" style="display:block;margin:4px 0 12px">See your long-term projection (all scenarios, 20 years out) →</button>
           <div class="cards" id="cards" role="radiogroup" aria-label="Choose active scenario"></div>
         </div>
 
@@ -257,53 +264,6 @@
         </div>
       </section>
 
-      <section class="app-page" id="page-income" hidden>
-        <div class="page-intro-row">
-          <p class="page-intro">Your household income, and what it's really worth after tax.</p>
-          <div class="page-intro-actions">
-            <div class="page-overflow">
-              <button type="button" class="page-overflow-btn" data-overflow-toggle aria-haspopup="true" aria-expanded="false" aria-label="Income import and export" title="Income import and export">⋯</button>
-              <div class="page-overflow-menu" data-overflow-menu hidden>
-              <button type="button" class="btn btn-sm btn-ghost" id="incomeExportCsvBtn" title="Download every income row as a CSV file">Export CSV</button>
-              <button type="button" class="btn btn-sm btn-ghost" id="incomeDownloadTemplateBtn" title="Download a blank CSV shaped for importing income back in">Import template</button>
-              <button type="button" class="btn btn-sm btn-ghost" id="incomeImportBtn" title="Add income rows from a CSV file shaped like the import template">Import CSV</button>
-              </div>
-            </div>
-            <input type="file" id="incomeImportFile" accept=".csv,text/csv" hidden>
-          </div>
-        </div>
-        <div class="ledgers">
-          <details class="ledger" open>
-            <summary>
-              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Income</h2></div>
-              <div class="ledger-total">Monthly total <b id="totalIncomeMonthly">—</b></div>
-            </summary>
-            <div class="ledger-body">
-              <p class="ledger-note help" style="margin-left:0">Enter a paycheck as-is (Type "Net") if that's what actually lands in your account, or mark it "Gross" and add a Person to have the Tax page work out real take-home pay. Every row here applies to all your scenarios by default — use <b>⇄ Vary</b> on a row to give one scenario a different amount ("three days a week", "six months off", "the pay rise doesn't arrive"). The figures on this page are the default ones.</p>
-              <div id="incomeImportPreview" hidden></div>
-              <p class="income-summary-line" id="incomeSummaryLine" style="display:none"></p>
-              <div id="incomeGroups"></div>
-              <div class="ledger-footer">
-                <button class="btn btn-sm" data-add="income">+ Add income</button>
-              </div>
-            </div>
-          </details>
-
-          <details class="ledger" id="receivedLedger" open>
-            <summary>
-              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Received</h2></div>
-              <div class="ledger-total">actual vs. planned</div>
-            </summary>
-            <div class="ledger-body">
-              <p class="ledger-note help" style="margin-left:0">What actually arrived, against the plan above. Take-home pay is judged against each person's after-tax net income; rent against what the agent pays after fees; a bonus or a distribution against the whole year rather than one month. A distribution logged here is also recorded on its holding, where it counts toward the holding's return and the tax year.</p>
-              <div id="receivedBody"></div>
-              <div class="ledger-footer">
-                <button class="btn btn-sm" id="logReceivedBtn">+ Log income received</button>
-              </div>
-            </div>
-          </details>
-        </div>
-      </section>
 
       <section class="app-page" id="page-tax" hidden>
         <div class="subnav" id="taxSubnav">
@@ -332,7 +292,7 @@
               <div class="ledger-total" id="taxSuperPeriod">per person</div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note help" style="margin-left:0">Estimated Australian resident income tax, Medicare levy, and concessional super — a full year at the rates shown, computed from any Income rows marked "Gross". Which twelve months that year is comes from Accounts &rarr; Preferences. A person appears here the moment one of their rows is marked Gross; their details (date of birth, HELP, caps) live on Accounts → People. Covers HELP/HECS, the Medicare levy surcharge, work-related deductions, dividends and franking, capital gains and property depreciation. Still an estimate — rates are indexed annually, Division 293 and surcharge income are approximated, and each capital gain is discounted on its own holding period rather than netted against losses first. Confirm real figures with your accountant.</p>
+              <p class="ledger-note help" style="margin-left:0">Estimated Australian resident income tax, Medicare levy, and concessional super — a full year at the rates shown, computed from any Income rows marked "Gross". Which twelve months that year is comes from Accounts &rarr; Preferences. A person appears here the moment one of their rows is marked Gross; their details (date of birth, HELP, caps) live on Settings → People. Covers HELP/HECS, the Medicare levy surcharge, work-related deductions, dividends and franking, capital gains and property depreciation. Still an estimate — rates are indexed annually, Division 293 and surcharge income are approximated, and each capital gain is discounted on its own holding period rather than netted against losses first. Confirm real figures with your accountant.</p>
               <div id="taxSuperBody"></div>
             </div>
           </details>
@@ -377,7 +337,9 @@
       <section class="app-page" id="page-expenses" hidden>
         <div class="subnav" id="expensesSubnav">
           <button type="button" class="subnav-item active" data-expenses-sub="budget">Budget</button>
+          <button type="button" class="subnav-item" data-expenses-sub="income">Income</button>
           <button type="button" class="subnav-item" data-expenses-sub="spending">Spending</button>
+          <button type="button" class="subnav-item" data-expenses-sub="bills">Bills</button>
         </div>
         <div class="expenses-subpage" id="expensesSub-budget">
         <div class="page-intro-row">
@@ -395,6 +357,16 @@
           </div>
         </div>
         <div class="ledgers">
+          <details class="ledger" id="budgetPlanCard" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Your month, planned</h2></div>
+              <div class="ledger-total">Left over <b id="budgetPlanNet">—</b></div>
+            </summary>
+            <div class="ledger-body">
+              <p class="ledger-note help" style="margin-left:0">Income and spending as one statement: what comes in, what each group of spending takes, and what's left after each — in <b id="budgetPlanScenario">—</b>. Income is after tax; change it on the Income tab.</p>
+              <div id="budgetPlanBody"></div>
+            </div>
+          </details>
           <details class="ledger" open>
             <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Household budget</h2></div>
@@ -482,7 +454,7 @@
               <div class="ledger-total" id="yearSpendLabel"></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note help" style="margin-left:0">Everything logged since your year began — the view a tax return, a yearly review or an insurance renewal is actually asked in. Change which twelve months this covers under Accounts → Preferences.</p>
+              <p class="ledger-note help" style="margin-left:0">Everything logged since your year began — the view a tax return, a yearly review or an insurance renewal is actually asked in. Change which twelve months this covers under Settings → Preferences.</p>
               <div id="yearSpendPanel"></div>
               <div class="ledger-footer">
                 <button class="btn btn-sm" id="exportYearTransactionsBtn" title="Every transaction logged in this year, as a CSV — dated, categorised, and with the budget line each one was logged against">Export this year's transactions (CSV)</button>
@@ -501,19 +473,72 @@
           </details>
         </div>
         </div>
+        <div class="expenses-subpage" id="expensesSub-bills" hidden>
+        <div class="page-intro-row">
+          <p class="page-intro">When each bill lands this month, from the last time it was paid — and which have been paid. Change the month with the period beside the page title.</p>
+        </div>
+        <div class="ledgers">
+          <details class="ledger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Bills calendar</h2></div>
+            </summary>
+            <div class="ledger-body"><div id="billsCalendar"></div></div>
+          </details>
+        </div>
+        </div>
+        <div class="expenses-subpage" id="expensesSub-income" hidden>
+        <div class="page-intro-row">
+          <p class="page-intro">Your household income, and what it's really worth after tax.</p>
+          <div class="page-intro-actions">
+            <div class="page-overflow">
+              <button type="button" class="page-overflow-btn" data-overflow-toggle aria-haspopup="true" aria-expanded="false" aria-label="Income import and export" title="Income import and export">⋯</button>
+              <div class="page-overflow-menu" data-overflow-menu hidden>
+              <button type="button" class="btn btn-sm btn-ghost" id="incomeExportCsvBtn" title="Download every income row as a CSV file">Export CSV</button>
+              <button type="button" class="btn btn-sm btn-ghost" id="incomeDownloadTemplateBtn" title="Download a blank CSV shaped for importing income back in">Import template</button>
+              <button type="button" class="btn btn-sm btn-ghost" id="incomeImportBtn" title="Add income rows from a CSV file shaped like the import template">Import CSV</button>
+              </div>
+            </div>
+            <input type="file" id="incomeImportFile" accept=".csv,text/csv" hidden>
+          </div>
+        </div>
+        <div class="ledgers">
+          <details class="ledger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Income</h2></div>
+              <div class="ledger-total">Monthly total <b id="totalIncomeMonthly">—</b></div>
+            </summary>
+            <div class="ledger-body">
+              <p class="ledger-note help" style="margin-left:0">Enter a paycheck as-is (Type "Net") if that's what actually lands in your account, or mark it "Gross" and add a Person to have the Tax page work out real take-home pay. Every row here applies to all your scenarios by default — use <b>⇄ Vary</b> on a row to give one scenario a different amount ("three days a week", "six months off", "the pay rise doesn't arrive"). The figures on this page are the default ones.</p>
+              <div id="incomeImportPreview" hidden></div>
+              <p class="income-summary-line" id="incomeSummaryLine" style="display:none"></p>
+              <div id="incomeGroups"></div>
+              <div class="ledger-footer">
+                <button class="btn btn-sm" data-add="income">+ Add income</button>
+              </div>
+            </div>
+          </details>
+
+          <details class="ledger" id="receivedLedger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Received</h2></div>
+              <div class="ledger-total">actual vs. planned</div>
+            </summary>
+            <div class="ledger-body">
+              <p class="ledger-note help" style="margin-left:0">What actually arrived, against the plan above. Take-home pay is judged against each person's after-tax net income; rent against what the agent pays after fees; a bonus or a distribution against the whole year rather than one month. A distribution logged here is also recorded on its holding, where it counts toward the holding's return and the tax year.</p>
+              <div id="receivedBody"></div>
+              <div class="ledger-footer">
+                <button class="btn btn-sm" id="logReceivedBtn">+ Log income received</button>
+              </div>
+            </div>
+          </details>
+        </div>
+        </div>
       </section>
 
       <section class="app-page" id="page-accounts" hidden>
-        <div class="subnav" id="accountsSubnav">
-          <button type="button" class="subnav-item active" data-accounts-sub="accounts">Accounts</button>
-          <button type="button" class="subnav-item" data-accounts-sub="people">People</button>
-          <button type="button" class="subnav-item" data-accounts-sub="categories">Categories</button>
-          <button type="button" class="subnav-item" data-accounts-sub="preferences">Preferences</button>
-          <button type="button" class="subnav-item" data-accounts-sub="checks">Checks</button>
-        </div>
         <div class="accounts-subpage" id="accountsSub-accounts">
         <div class="page-intro-row">
-          <p class="page-intro">Where your money actually moves through — used to group transactions into a credit card's statement cycle.</p>
+          <p class="page-intro">Every place your money sits — bank accounts, offsets, cards and loans — with what's in each. Tag spending with the account it came out of.</p>
         </div>
         <div class="ledgers">
           <details class="ledger" open>
@@ -521,7 +546,7 @@
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Accounts</h2></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note help" style="margin-left:0">A debit/savings account has no due date — spending there just draws it down. A credit card has a statement cycle instead, so each transaction hits separately; set its cycle's start day (e.g. 15 for a 15th–14th cycle) so "Actual vs. planned" on the Expenses tab can total up the current bill.</p>
+              <p class="ledger-note help" style="margin-left:0">Each account's balance is stored where net worth already reads it — a bank account's in Cash, an offset's on its loan, a card's or loan's in Debts — so updating it here updates everything. A credit card also has a statement cycle (set its start day, e.g. 15 for a 15th–14th cycle) and an optional limit, which only feeds "available" and never counts as owed.</p>
               <div id="accountsTable"></div>
               <div class="ledger-footer">
                 <button class="btn btn-sm" id="addAccountBtn">+ Add account</button>
@@ -530,7 +555,17 @@
           </details>
         </div>
         </div>
-        <div class="accounts-subpage" id="accountsSub-people" hidden>
+      </section>
+
+      <section class="app-page" id="page-settings" hidden>
+        <div class="subnav" id="accountsSubnav">
+          <button type="button" class="subnav-item active" data-accounts-sub="people">People</button>
+          <button type="button" class="subnav-item" data-accounts-sub="categories">Categories</button>
+          <button type="button" class="subnav-item" data-accounts-sub="preferences">Preferences</button>
+          <button type="button" class="subnav-item" data-accounts-sub="rules">Import rules</button>
+          <button type="button" class="subnav-item" data-accounts-sub="checks">Checks</button>
+        </div>
+        <div class="accounts-subpage" id="accountsSub-people">
         <div class="page-intro-row">
           <p class="page-intro">Who's in the household, and what the app needs to know about each of them.</p>
         </div>
@@ -560,11 +595,28 @@
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Categories</h2></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note help" style="margin-left:0">Set a category on each budget line (Expenses → Budget) and the charts there show what you plan and actually spend per category. Categories work best coarse — one "Car" covering rego, insurance, fuel and servicing says more than four categories that each match a single line. Renaming one here updates every line using it; deleting one leaves those lines uncategorised rather than removing them.</p>
+              <p class="ledger-note help" style="margin-left:0">Set a category on each budget line (Cash flow → Budget) and the charts there show what you plan and actually spend per category. Categories work best coarse — one "Car" covering rego, insurance, fuel and servicing says more than four categories that each match a single line. Renaming one here updates every line using it; deleting one leaves those lines uncategorised rather than removing them.</p>
               <div id="categoriesTable"></div>
               <div class="ledger-footer">
                 <button class="btn btn-sm" id="addCategoryBtn">+ Add category</button>
               </div>
+            </div>
+          </details>
+        </div>
+        </div>
+        <div class="accounts-subpage" id="accountsSub-rules" hidden>
+        <div class="page-intro-row">
+          <p class="page-intro">What the bank import has learned: which words in a statement line file it under which budget line. Fix a wrong one, or add one before an import.</p>
+        </div>
+        <div class="ledgers">
+          <details class="ledger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Import rules</h2></div>
+              <div class="ledger-total" id="rulesCount"></div>
+            </summary>
+            <div class="ledger-body">
+              <p class="ledger-note help" style="margin-left:0">A rule matches whole words anywhere in a statement line, ignoring case and punctuation; when two match, the longer one wins, so "fern cafe north" beats "fern cafe". Confirming a row in an import updates its rule.</p>
+              <div id="rulesBody"></div>
             </div>
           </details>
         </div>
@@ -593,11 +645,17 @@
         <div class="ledgers">
           <details class="ledger" open>
             <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Keeping your data safe</h2></div>
+            </summary>
+            <div class="ledger-body"><div id="safekeepingBody"></div></div>
+          </details>
+          <details class="ledger" open>
+            <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Your year</h2></div>
               <div class="ledger-total" id="yearBasisCurrent"></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note help" style="margin-left:0">Which twelve months this app treats as "a year" — used by the year-to-date spending view, the transactions export, the share price "YTD" timeframe, and the tax estimate on the Tax page. In Australia a tax return is a financial-year document, and so is most of what a household calls a year of something, so that's the default.</p>
+              <p class="ledger-note help" style="margin-left:0">Which twelve months this app treats as "a year" — the same choice as "Year runs" in the period menu beside the page title. Used by the year-to-date spending view, the transactions export, the share price "YTD" timeframe, and the tax estimate on the Tax page. In Australia a tax return is a financial-year document, and so is most of what a household calls a year of something, so that's the default.</p>
               <div class="seg-control" id="yearBasisControl" role="group" aria-label="Household year">
                 <button type="button" class="seg-option" data-year-basis="financial" title="1 July to 30 June — the Australian financial year, and what a tax return covers">Financial year (Jul–Jun)</button>
                 <button type="button" class="seg-option" data-year-basis="calendar" title="1 January to 31 December">Calendar year (Jan–Dec)</button>
@@ -653,22 +711,6 @@
         <button type="button" class="btn btn-sm" id="addPropertyBtn">+ Add property</button>
       </section>
 
-      <section class="app-page" id="page-scenarios" hidden>
-        <div class="page-intro-row">
-          <p class="page-intro">What each scenario costs to live in — rent or a home loan, plus a purchase calculator for anything you're buying.</p>
-        </div>
-        <div class="ledgers">
-          <details class="ledger" open>
-            <summary>
-              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Your home</h2></div>
-              <div class="ledger-total">edit each scenario</div>
-            </summary>
-            <div class="ledger-body">
-              <div id="homeBody"></div>
-            </div>
-          </details>
-        </div>
-      </section>
 
       <section class="app-page" id="page-assets" hidden>
         <div class="page-intro-row">
@@ -752,7 +794,35 @@
         <div class="assets-subpage" id="assetsSub-Offsets" hidden></div>
       </section>
 
-      <section class="app-page" id="page-projections" hidden>
+      <section class="app-page" id="page-reports" hidden>
+        <div class="page-intro-row">
+          <p class="page-intro">Statements for the period beside the page title — to read, print, or hand to an accountant as a CSV.</p>
+        </div>
+        <div id="reportsBody"></div>
+      </section>
+
+      <section class="app-page" id="page-plan" hidden>
+        <div class="subnav" id="planSubnav">
+          <button type="button" class="subnav-item active" data-plan-sub="scenarios">Scenarios</button>
+          <button type="button" class="subnav-item" data-plan-sub="projections">Projections</button>
+        </div>
+        <div class="plan-subpage" id="planSub-scenarios">
+        <div class="page-intro-row">
+          <p class="page-intro">What each scenario costs to live in — rent or a home loan, plus a purchase calculator for anything you're buying.</p>
+        </div>
+        <div class="ledgers">
+          <details class="ledger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Your home</h2></div>
+              <div class="ledger-total">edit each scenario</div>
+            </summary>
+            <div class="ledger-body">
+              <div id="homeBody"></div>
+            </div>
+          </details>
+        </div>
+        </div>
+        <div class="plan-subpage" id="planSub-projections" hidden>
         <p class="page-intro">Where each scenario's net worth could land years from now, under assumptions you control.</p>
         <div class="ledgers">
           <details class="ledger" open>
@@ -764,7 +834,7 @@
               <p class="ledger-note help" style="margin-left:0">Projects each scenario's net worth forward: your home equity grows with the property and shrinks with the loan paydown, while your surplus savings (and existing portfolio) compound as investments. A scenario with its own "invest instead of buying" leg (Scenarios tab) compounds that money at its own growth rate instead. Living costs and housing costs inflate each year and your income grows at its own rate; a mortgage repayment is the one thing that stays fixed in nominal terms, as it is in reality. Any row given an "Ends" date stops counting from then on. All assumptions below are yours to set — treat the result as a "what if," not a forecast.</p>
               <div class="proj-controls">
                 <div class="proj-field" title="How many years forward the chart and table below project."><label for="projHorizon">Horizon (years)</label><input type="number" min="1" max="50" step="1" id="projHorizon"></div>
-                <div class="proj-field" title="Annual growth rate applied to your surplus savings and existing non-property portfolio (Cash, Shares, Super, Other from the Assets page), compounded monthly. Doesn't apply to a scenario's own 'invest instead of buying' leg, which uses its own growth rate instead (Scenarios tab)."><label for="projInvestRate">Investment return % p.a.</label><input type="number" min="0" max="30" step="0.1" id="projInvestRate"><input type="range" class="proj-slider" min="0" max="30" step="0.1" id="projInvestRateRange" aria-label="Investment return % p.a. slider"></div>
+                <div class="proj-field" title="Annual growth rate applied to your surplus savings and existing non-property portfolio (Cash, Shares, Super, Other from Investments), compounded monthly. Doesn't apply to a scenario's own 'invest instead of buying' leg, which uses its own growth rate instead (Scenarios tab)."><label for="projInvestRate">Investment return % p.a.</label><input type="number" min="0" max="30" step="0.1" id="projInvestRate"><input type="range" class="proj-slider" min="0" max="30" step="0.1" id="projInvestRateRange" aria-label="Investment return % p.a. slider"></div>
                 <div class="proj-field" title="Annual growth rate applied to a scenario's home value (if buying) and every property tracked on the Properties tab. Reduces equity growth if negative."><label for="projPropertyRate">Property growth % p.a.</label><input type="number" min="-10" max="30" step="0.1" id="projPropertyRate"><input type="range" class="proj-slider" min="-10" max="30" step="0.1" id="projPropertyRateRange" aria-label="Property growth % p.a. slider"></div>
                 <div class="proj-field" title="Annual increase applied to living costs and housing costs — rent included. A mortgage repayment stays fixed in nominal terms, as it does in reality. This is also the rate used to deflate the figures when you're viewing today&#39;s dollars."><label for="projInflationRate">Inflation % p.a.</label><input type="number" min="0" max="15" step="0.1" id="projInflationRate"><input type="range" class="proj-slider" min="0" max="15" step="0.1" id="projInflationRateRange" aria-label="Inflation % p.a. slider"></div>
                 <div class="proj-field" title="Annual pay rises, applied to every income row. Until now income was held flat for the whole horizon while expenses inflated, which made the surplus shrink every year and eventually go negative — set this to at least the inflation rate for the surplus to hold its value."><label for="projIncomeGrowth">Income growth % p.a.</label><input type="number" min="0" max="15" step="0.1" id="projIncomeGrowth"><input type="range" class="proj-slider" min="0" max="15" step="0.1" id="projIncomeGrowthRange" aria-label="Income growth % p.a. slider"></div>
@@ -783,6 +853,7 @@
             </div>
           </details>
         </div>
+        </div>
       </section>
 
     </div>
@@ -790,48 +861,53 @@
 
 </div>
 
+<div class="lock-screen" id="lockScreen" hidden role="dialog" aria-modal="true" aria-labelledby="lockTitle">
+  <form class="lock-card" id="lockForm">
+    <h2 id="lockTitle">Wealth Planner is locked</h2>
+    <p>Enter your passcode to open it.</p>
+    <input type="password" id="lockInput" inputmode="numeric" autocomplete="current-password" aria-label="Passcode">
+    <p class="lock-error" id="lockError" hidden>That isn't it — try again.</p>
+    <button type="submit" class="btn btn-primary">Unlock</button>
+  </form>
+</div>
 <nav class="mobile-tabbar" id="mobileTabbar">
   <button type="button" class="mobile-tab" data-page="dashboard">
     <span class="mobile-tab-pill">
       <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="6" height="6" rx="1.5"/><rect x="11" y="3" width="6" height="6" rx="1.5"/><rect x="3" y="11" width="6" height="6" rx="1.5"/><rect x="11" y="11" width="6" height="6" rx="1.5"/></svg>
-      <span class="mobile-tab-label">Dashboard</span>
-    </span>
-  </button>
-  <button type="button" class="mobile-tab" data-page="income">
-    <span class="mobile-tab-pill">
-      <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13l5-5 3 3 6-6"/><path d="M13 5h4v4"/></svg>
-      <span class="mobile-tab-label">Income</span>
+      <span class="mobile-tab-label">Home</span>
     </span>
   </button>
   <button type="button" class="mobile-tab" data-page="expenses">
     <span class="mobile-tab-pill">
       <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h10v14l-2.5-1.5L10 17l-2.5-1.5L5 17z"/><path d="M7.5 7h5M7.5 10h5"/></svg>
-      <span class="mobile-tab-label">Expenses</span>
+      <span class="mobile-tab-label">Cash flow</span>
+    </span>
+  </button>
+  <button type="button" class="mobile-tab" data-page="accounts">
+    <span class="mobile-tab-pill">
+      <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="15" height="10.5" rx="2"/><path d="M2.5 8.5h15"/><path d="M5.5 12.5h3"/></svg>
+      <span class="mobile-tab-label">Accounts</span>
     </span>
   </button>
   <button type="button" class="mobile-tab" data-page="assets" id="mobileTabAssets">
     <span class="mobile-tab-pill">
       <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3l7 4-7 4-7-4z"/><path d="M3 11l7 4 7-4"/><path d="M3 15l7 4 7-4"/></svg>
-      <span class="mobile-tab-label">Assets</span>
-    </span>
-  </button>
-  <button type="button" class="mobile-tab" data-page="properties">
-    <span class="mobile-tab-pill">
-      <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l7-6 7 6"/><path d="M5 8v9h10V8"/><path d="M8 17v-5h4v5"/></svg>
-      <span class="mobile-tab-label">Properties</span>
+      <span class="mobile-tab-label">Investments</span>
     </span>
   </button>
   <button type="button" class="mobile-tab" id="mobileTabMore" aria-haspopup="true" aria-expanded="false">
     <span class="mobile-tab-pill">
       <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><circle cx="4" cy="10" r="1.6"/><circle cx="10" cy="10" r="1.6"/><circle cx="16" cy="10" r="1.6"/></svg>
       <span class="mobile-tab-label">More</span>
+      <span class="nav-badge nav-badge-dot" data-checks-badge hidden></span>
     </span>
   </button>
   <div class="mobile-more-panel" id="mobileMorePanel" hidden>
+    <button type="button" class="mobile-more-item" data-page="properties">Property</button>
     <button type="button" class="mobile-more-item" data-page="tax" id="mobileMoreTax">Tax</button>
-    <button type="button" class="mobile-more-item" data-page="scenarios">Scenarios</button>
-    <button type="button" class="mobile-more-item" data-page="projections">Projections</button>
-    <button type="button" class="mobile-more-item" data-page="accounts">Accounts</button>
+    <button type="button" class="mobile-more-item" data-page="plan">Plan</button>
+    <button type="button" class="mobile-more-item" data-page="reports">Reports</button>
+    <button type="button" class="mobile-more-item" data-page="settings">Settings <span class="nav-badge" data-checks-badge hidden></span></button>
     <div class="mobile-more-divider"></div>
     <button type="button" class="mobile-more-item" id="mobileThemeBtn">Theme: System</button>
     <button type="button" class="mobile-more-item" id="mobileShareBtn" hidden>Share securely</button>

@@ -198,7 +198,7 @@ export function transactionDisplayName(t, sharedList){
 // the current month so the "actual vs planned" panel means "this month" without the caller
 // having to know today's date itself.
 export function transactionsInMonth(transactions, monthStr){
-  monthStr = monthStr || localDateStr().slice(0, 7);
+  monthStr = monthStr || selectedMonth();
   return transactions.filter(function(t){ return (t.date || "").slice(0, 7) === monthStr; });
 }
 // Sums a set of transactions by the state.shared[] id they're linked to — an unlinked
@@ -282,7 +282,7 @@ export function reserveYearWindowFor(item, todayStr){
   // Australian app and, worse, was invisible: nothing on the row said which twelve months it was
   // being measured over unless you opened it.
   var basis = item && RESERVE_YEAR_BASES.indexOf(item.reserveYear) !== -1 ? item.reserveYear : householdYearBasis();
-  return reserveYearWindow(basis, todayStr);
+  return reserveYearWindow(basis, todayStr || periodAnchorDate());
 }
 
 // ---------------- The household's year ----------------
@@ -304,7 +304,7 @@ export function householdYearBasis(){
 // The household year containing todayStr — {start, end, label}, same shape reserveYearWindow
 // returns, so anything already rendering one of those can take this instead.
 export function householdYearWindow(todayStr){
-  var win = reserveYearWindow(householdYearBasis(), todayStr);
+  var win = reserveYearWindow(householdYearBasis(), todayStr || periodAnchorDate());
   // reserveYearWindow labels the calendar basis "this year", which reads correctly in the sentence
   // it was written for — a row's "$X actual / $Y planned this year". As a *household* year it's a
   // noun, and lands in sentences like "$3,950 logged in ___" and "Export ___'s transactions",
@@ -344,6 +344,103 @@ export function householdYearProgress(todayStr){
   if(nowMs < startMs) return 0;
   return (nowMs - startMs + 86400000) / (endMs - startMs + 86400000);
 }
+// ---------------- The selected period (v3.55.0) ----------------
+//
+// One choice in the header — a year, and optionally a month inside it — that every "this year" and
+// "this month" figure in the app follows: the budget, Actual vs planned, money received, the tax
+// estimate, Tax → Returns, depreciation, the transaction list. Before this there were six separate
+// period controls (the year basis buried in Preferences, a year dropdown on Returns, a range picker
+// on the transaction list, the Review's month arrows…), and nothing told you which one a figure
+// on another page was using.
+//
+// Session-only on purpose: opening the app always starts on today, so nobody logs this week's
+// spending while unknowingly looking at last year. components/period.js keeps it in sessionStorage
+// so a reload doesn't lose it. `year` is the year the household year *starts* in (2025 = FY25/26 on
+// the financial basis, 2025 on the calendar one); null means "the year containing today".
+var periodChoice = { year: null, month: "" };
+var FULL_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+export function periodSelection(){ return { year: periodChoice.year, month: periodChoice.month }; }
+export function setPeriod(year, month, todayStr){
+  var today = todayStr || localDateStr();
+  var nowStart = yearStartOf(householdYearBasis(), today);
+  var y = year == null || year === "" || isNaN(Number(year)) ? null : Math.min(Number(year), nowStart);
+  if(y === nowStart) y = null;
+  var win = yearWindowStarting(householdYearBasis(), y == null ? nowStart : y);
+  var m = /^\d{4}-\d{2}$/.test(month || "") && month >= win.start.slice(0, 7) && month <= win.end.slice(0, 7) && month <= today.slice(0, 7) ? month : "";
+  periodChoice = { year: y, month: m };
+  return periodSelection();
+}
+// The year a date falls in, as the year that household year starts in.
+export function yearStartOf(basis, iso){
+  var y = Number(String(iso).slice(0, 4)), m = Number(String(iso).slice(5, 7));
+  return basis === "calendar" ? y : (m >= 7 ? y : y - 1);
+}
+export function yearWindowStarting(basis, startYear){
+  if(basis === "calendar") return { start: startYear + "-01-01", end: startYear + "-12-31", label: String(startYear) };
+  return { start: startYear + "-07-01", end: (startYear + 1) + "-06-30",
+    label: "FY" + String(startYear % 100).padStart(2, "0") + "/" + String((startYear + 1) % 100).padStart(2, "0") };
+}
+// The selected year's window, whole (not cut at today).
+export function selectedYearWindow(todayStr){
+  var today = todayStr || localDateStr();
+  var basis = householdYearBasis();
+  return yearWindowStarting(basis, periodChoice.year == null ? yearStartOf(basis, today) : periodChoice.year);
+}
+// The month every "this month" figure is about: the one picked, else today's month in the current
+// year, else the last month of a past year.
+export function selectedMonth(todayStr){
+  var today = todayStr || localDateStr();
+  if(periodChoice.month) return periodChoice.month;
+  var win = selectedYearWindow(today);
+  return today >= win.start && today <= win.end ? today.slice(0, 7) : win.end.slice(0, 7);
+}
+function lastDayOf(ym){
+  var y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7));
+  return ym + "-" + String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, "0");
+}
+// A date to measure "as of" inside the selected month: today if it's this month, else its last day.
+export function monthAnchorDate(todayStr){
+  var today = todayStr || localDateStr();
+  var ym = selectedMonth(today);
+  return ym === today.slice(0, 7) ? today : lastDayOf(ym);
+}
+// A date inside the selected year, for anything that takes "the year containing this date".
+export function periodAnchorDate(todayStr){
+  var today = todayStr || localDateStr();
+  if(periodChoice.year == null && !periodChoice.month) return today;
+  var win = selectedYearWindow(today);
+  if(periodChoice.month) return monthAnchorDate(today);
+  return today >= win.start && today <= win.end ? today : win.end;
+}
+// True when nothing is picked — the app is showing today.
+export function isPeriodToday(){ return periodChoice.year == null && !periodChoice.month; }
+// How a month reads inside a sentence: "this month" for the current one, "in August 2026" otherwise.
+// An explicit todayStr from a caller (a test pinning the clock) means "this month" by definition.
+export function monthPhrase(ym, explicitToday){
+  if(explicitToday) return "this month";
+  if(ym === localDateStr().slice(0, 7)) return "this month";
+  return "in " + FULL_MONTHS[Number(ym.slice(5, 7)) - 1] + " " + ym.slice(0, 4);
+}
+// The header button's text: "FY26/27", or "FY26/27 · Aug" with a month picked.
+export function periodLabel(todayStr){
+  var win = selectedYearWindow(todayStr);
+  if(!periodChoice.month) return win.label;
+  return win.label + " · " + MONTH_NAMES[Number(periodChoice.month.slice(5, 7)) - 1];
+}
+// The years offered: from the earliest dated record (or three years back) to the current one.
+export function periodYearOptions(earliestIso, todayStr){
+  var today = todayStr || localDateStr();
+  var basis = householdYearBasis();
+  var now = yearStartOf(basis, today);
+  // Always the last few years too — a return is often lodged, amended or looked back on well
+  // after anything was logged for it.
+  var from = Math.min(earliestIso ? yearStartOf(basis, earliestIso) : now, now - 2);
+  from = Math.max(from, now - 15);
+  var out = [];
+  for(var y = now; y >= from; y--) out.push(Object.assign({ year: y, current: y === now }, yearWindowStarting(basis, y)));
+  return out;
+}
+
 // A ledger item's last-known "when did this actually happen" date, regardless of which of the
 // app's two logging mechanisms it uses — a plain value-history snapshot (income, home costs,
 // property income/expenses — see appendHistorySnapshot()) or a linked state.transactions[] entry
@@ -428,7 +525,8 @@ export function reserveCycleFor(item, todayStr){
 }
 
 export function budgetCycleFor(item, transactions, todayStr){
-  var today = todayStr ? new Date(todayStr + "T00:00:00") : new Date();
+  var today = new Date((todayStr || monthAnchorDate()) + "T00:00:00");
+  var phrase = monthPhrase(localDateStr(today).slice(0, 7), todayStr);
   today.setHours(0, 0, 0, 0);
   var amount = Number(item.amount) || 0;
   var freq = item.freq;
@@ -439,12 +537,12 @@ export function budgetCycleFor(item, transactions, todayStr){
     // differs from the smoothed "/mo" figure shown right beside it on the row ($1,083.33, i.e.
     // x 52/12). Both are correct — one is this month's actual payments, the other the long-run
     // average — but two adjacent numbers that disagree read as a bug unless the row says why.
-    return { start: win.start, end: win.end, label: "this month ×" + count, target: amount * count, dueThisMonth: true };
+    return { start: win.start, end: win.end, label: phrase + " ×" + count, target: amount * count, dueThisMonth: true };
   }
   var stepMonths = freqStepMonths(freq);
   if(stepMonths <= 1){
     var mwin = monthWindow(today);
-    return { start: mwin.start, end: mwin.end, label: "this month", target: amount, dueThisMonth: true };
+    return { start: mwin.start, end: mwin.end, label: phrase, target: amount, dueThisMonth: true };
   }
   // Anchor month: where the user said the bill lands (item.dueMonth), else inferred from the last
   // time it was logged. With neither, fall back to the calendar period containing today — no

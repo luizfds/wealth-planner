@@ -1,5 +1,5 @@
 import { state } from "../state.js";
-import { getTaxPeople, currentTaxFy } from "./tax.js";
+import { getTaxPeople, todayTaxFy } from "./tax.js";
 import { claimItems } from "./claims.js";
 import { ipProperties, propertyOwnershipTotal, fyLabel } from "./property.js";
 import { taxYearRecord } from "./taxyear.js";
@@ -30,6 +30,14 @@ export function dataHealthChecks(opts){
   var ipIds = ipProperties().map(function(p){ return p.id; });
   var out = [];
   var add = function(c){ out.push(c); };
+
+  // A card's limit typed in as a debt (v3.55.0). Net worth counts every debt row as money owed, so
+  // a $10,000 limit with $600 on the card understates net worth by $9,400. What's owed is the
+  // balance on the latest statement — the limit belongs on the card, not in Debts.
+  var limits = (state.debts || []).filter(function(d){ return /\blimit\b/i.test(d.what || "") && Number(d.balance) > 0; });
+  if(limits.length) add({ id: "debt-limit", severity: "warn", title: plural(limits.length, "debt") + " that look like a credit limit, not money owed",
+    detail: names(limits.map(function(d){ return d.what; })) + " — net worth counts the whole amount as owed. On Accounts, open the card, type the limit in its Limit field, and Update its balance to what it actually owes.",
+    where: { page: "accounts", sub: "accounts" } });
 
   // Deductions that land nowhere, or nowhere real.
   var unclaimed = items.filter(function(i){ return i.deductible && !i.claimProperty && !i.deductiblePerson && people.length > 1; });
@@ -102,7 +110,7 @@ export function dataHealthChecks(opts){
     detail: names(dupLines) + " — same name, amount and frequency as another line.", where: { page: "expenses", sub: "budget" } });
 
   // The plan against the last finished year.
-  var lastFy = currentTaxFy() - 1;
+  var lastFy = todayTaxFy(today) - 1;
   var b = budgetComparison(householdBudgetLines(items, state.properties), state.transactions || [], lastFy, today);
   var far = b.rows.filter(function(r){ return r.off >= 0.3 && Math.abs(r.diff) >= 200; });
   if(far.length) add({ id: "plan-budget:" + lastFy, severity: "warn", title: plural(far.length, "budget line") + " far from what " + fyLabel(lastFy) + " actually cost",

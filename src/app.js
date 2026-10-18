@@ -20,7 +20,7 @@ import { taxYearFillStatements, renderTaxYear, setTaxYearSelected, taxYearAddRow
 import { renderPeople, setPersonField, peopleSummaryText } from "./components/people.js";
 import { renamePersonEverywhere, removePersonFromTax } from "./calc/people.js";
 import { renderHealth } from "./components/health.js";
-import { renderMonthReview, stepReviewMonth, reviewMonthShown, setReviewMonth } from "./components/monthreview.js";
+import { renderMonthReview, stepReviewMonth, reviewMonthShown, setReviewMonth, setReviewStep, dismissReviewIntro } from "./components/monthreview.js";
 import { markReviewed, setStatementAmount, monthLabel, monthBounds } from "./calc/monthreview.js";
 import { logIncomeReceived, deleteIncomeReceived } from "./calc/received.js";
 import { renderReceived, toggleReceivedRow, receivedSheet, openReceivedSheet, closeReceivedSheet, setReceivedTarget, receivedSheetHtml } from "./components/received.js";
@@ -39,7 +39,7 @@ import {
   openExpenseReview, closeExpenseReview, renderExpenseReviewPanel,
   logCurrentReviewCard, skipCurrentReviewCard, expenseReview,
   renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel,
-  setTransactionsShowAll, setTransactionsRange, modernTransactionRowOpen, budgetRowTxnsOpen, transactionSummaryText,
+  setTransactionsShowAll, setTransactionsRange, modernTransactionRowOpen, budgetRowTxnsOpen, transactionSummaryText, visibleSpendingIndices,
   openQuickLog, closeQuickLog, renderQuickLogSheet, setQuickLogLink, setQuickLogDateOpen,
   setQuickLogShowAllChips, setQuickLogChipFilter, setQuickLogSign, setQuickLogRefundOf, submitQuickLog, quickLogContextText, quickLog,
   renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, logExpenseTransaction,
@@ -59,7 +59,7 @@ import {
 } from "./components/assets.js";
 import {
   modernPropRowOpen, renderPropListModern, renderProperties, patchPropertyCardComputed,
-  logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan, setSaleWhatIfField, patchSaleWhatIf, setLoanStrategyField, patchLoanStrategy
+  logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan, setSaleWhatIfField, patchSaleWhatIf, setLoanStrategyField, patchLoanStrategy, propertyTabs
 } from "./components/properties.js";
 import { renderProjectionOutputs, projectionSeriesShown } from "./components/projections.js";
 import { renderBenchmarks, setBenchmarkField, applyBenchmarkPaste, addGoal, setGoalField, removeGoal, setPropertyMarketField } from "./components/benchmarks.js";
@@ -69,7 +69,21 @@ import {
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
   patchCalcOutputs, afterCalcChange, patchInvestOutputs
 } from "./components/scenarios.js";
-import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, taxSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
+import { ACCOUNT_TYPE_KEYS, accountSourceOptions, setAccountBalance, resolveLink, accountBalance } from "./calc/accounts.js";
+import { addTransfer, deleteTransfer, splitTransaction, unsplit, bulkEditTransactions, bulkDeleteTransactions } from "./calc/cashflowlist.js";
+import { txFilters, txSelect, transferForm, splitEditing, resetTxFilters } from "./components/cashflow.js";
+import { rulesPageHtml, setRuleField, ruleIsEmpty, ruleTest } from "./components/rules.js";
+import { normaliseDescription } from "./calc/bank-import.js";
+import { openAccounts, balanceEditing } from "./components/accounts.js";
+import { renderHomeSummary } from "./components/home.js";
+import { dataHealthChecks } from "./calc/health.js";
+import { chooseFolder, backupToFolder, forgetFolder, maybeAutoBackup, setPasscode, clearPasscode, checkPasscode } from "./lib/safekeeping.js";
+import { renderSafekeeping } from "./components/safekeeping.js";
+import { renderReports, reportShown, reportPrintHtml, reportCsv } from "./components/reports.js";
+import { exportTableCsv } from "./lib/backup.js";
+import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodButton, renderPeriodMenu } from "./components/period.js";
+import { selectedYearWindow, yearStartOf, householdYearBasis } from "./calc/ledger.js";
+import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, taxSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
 import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./components/search.js";
 import {
   startBankImport, reparseBankImportWith, clearBankImport,
@@ -269,7 +283,7 @@ import {
       // Expenses tab) rather than silently leave the exact account named "Credit Card"
       // unconfigured for it.
       accounts: [
-        { id: genId("acct"), name: "Everyday Account", type: "debit", statementStartDay: 1 },
+        { id: genId("acct"), name: "Everyday Account", type: "everyday", statementStartDay: 1 },
         { id: genId("acct"), name: "Credit Card", type: "credit", statementStartDay: rndStep(1, 28, 1) }
       ],
       home: (function(){
@@ -995,7 +1009,6 @@ import {
     afterPeopleChange();
   }
   function openPeopleTab(){
-    showPage("accounts");
     showAccountsSubpage("people");
     renderPeopleTab();
   }
@@ -1172,9 +1185,10 @@ import {
     var go = e.target.closest(".hc-go");
     if(!go) return;
     var page = go.getAttribute("data-hc-page"), sub = go.getAttribute("data-hc-sub"), fy = go.getAttribute("data-hc-fy");
-    showPage(page);
     if(page === "accounts" && sub){ showAccountsSubpage(sub); if(sub === "people") renderPeopleTab(); }
+    else showPage(page);
     if(page === "expenses" && sub) showExpensesSubpage(sub, { replace: true });
+    if(page === "assets" && sub) showAssetsSubpage(sub, { replace: true });
     if(page === "tax"){
       if(fy) setTaxYearSelected(fy);
       showTaxSubpage(sub || "returns", { replace: true });
@@ -1190,10 +1204,11 @@ import {
   }
   // Builds the static print copy at the top level, prints, and takes it away again. afterprint
   // fires once the dialog closes, whatever the user chose.
-  function printTaxYear(){
+  function printTaxYear(){ printStatic(taxYearPrintHtml()); }
+  function printStatic(html){
     var root = document.getElementById("printRoot");
     if(!root){ root = document.createElement("div"); root.id = "printRoot"; document.body.appendChild(root); }
-    root.innerHTML = taxYearPrintHtml();
+    root.innerHTML = html;
     document.body.classList.add("printing-worksheet");
     var done = function(){
       document.body.classList.remove("printing-worksheet");
@@ -1207,7 +1222,6 @@ import {
   var taxDocsBody = document.getElementById("taxDocsBody");
   function onTaxYearChange(e){
     var t = e.target;
-    if(t.hasAttribute("data-ty-year")){ setTaxYearSelected(t.value); renderTaxYear(); return; }
     if(t.hasAttribute("data-ty-evidence")){
       taxYearToggleEvidence(t.getAttribute("data-ty-evidence"), t.checked);
       var boxes = taxDocsBody.querySelectorAll("[data-ty-evidence]");
@@ -1239,6 +1253,13 @@ import {
   }
   taxYearBody.addEventListener("change", onTaxYearChange);
   taxDocsBody.addEventListener("change", onTaxYearChange);
+  // "Open FY25/26" while the current year is still running: moves the whole app's period there.
+  [taxYearBody, taxDocsBody].forEach(function(body){
+    body.addEventListener("click", function(e){
+      var b = e.target.closest("button[data-ty-year]");
+      if(b) setTaxYearSelected(b.getAttribute("data-ty-year"));
+    });
+  });
   taxDocsBody.addEventListener("click", function(e){
     if(e.target.closest("[data-ty-import]")) document.getElementById("taxYearImportFile").click();
   });
@@ -1925,6 +1946,17 @@ import {
     }
   });
 
+  // A property's tabs (v3.61.0): every panel is already rendered, so switching is a visibility
+  // toggle — no re-render, nothing typed in another tab is lost.
+  document.getElementById("propertiesBody").addEventListener("click", function(e){
+    var tab = e.target.closest("[data-prop-tab]");
+    if(!tab) return;
+    var pid = tab.getAttribute("data-prop-tab"), key = tab.getAttribute("data-tab");
+    propertyTabs[pid] = key;
+    var card = tab.closest(".property-card");
+    card.querySelectorAll("[data-prop-tab]").forEach(function(b){ var on = b === tab; b.classList.toggle("active", on); b.setAttribute("aria-selected", on ? "true" : "false"); });
+    card.querySelectorAll("[data-prop-panel]").forEach(function(pn){ pn.hidden = pn.getAttribute("data-prop-panel") !== key; });
+  });
   document.getElementById("propertiesBody").addEventListener("click", function(e){
     var sectionToggleBtn = e.target.closest("[data-prop-section-toggle]");
     if(sectionToggleBtn){
@@ -2823,6 +2855,8 @@ import {
   // A logged distribution is a holding's payout too, which moves its return and the year's tax.
   function afterReceivedChange(){
     renderReceived();
+    renderTransactions();
+    renderHomeSummary();
     renderMonthReview();
     renderAssets();
     renderTaxSuper();
@@ -2939,8 +2973,155 @@ import {
   // rebuilds the control itself on every change.
   document.getElementById("transactionsTable").addEventListener("click", function(e){
     var rangeBtn = e.target.closest("[data-tx-range]");
-    if(!rangeBtn) return;
-    setTransactionsRange(rangeBtn.getAttribute("data-tx-range"));
+    if(rangeBtn){ setTransactionsRange(rangeBtn.getAttribute("data-tx-range")); return; }
+    onCashflowListClick(e);
+  });
+
+  // ---------------- Cash flow → Spending: filters, money in, transfers, splits, bulk edit (v3.59.0) ----------------
+  function afterTransactionsChange(){
+    renderTransactions();
+    renderActualVsPlannedPanel();
+    renderSharedGroups();
+    renderHomeSummary();
+    renderMonthReview();
+    persist();
+  }
+  function pickedIndices(){
+    return Object.keys(txSelect.picked).filter(function(k){ return txSelect.picked[k]; }).map(Number).filter(function(i){ return state.transactions[i]; });
+  }
+  function onCashflowListClick(e){
+    var b = e.target.closest("button");
+    if(!b || b.disabled) return;
+    if(b.hasAttribute("data-cf-dir")){ txFilters.direction = b.getAttribute("data-cf-dir"); setTransactionsShowAll(false); renderTransactions(); return; }
+    if(b.hasAttribute("data-cf-clear")){ resetTxFilters(); renderTransactions(); return; }
+    if(b.hasAttribute("data-cf-select")){ txSelect.on = !txSelect.on; txSelect.picked = {}; renderTransactions(); return; }
+    if(b.hasAttribute("data-cf-transfer")){ transferForm.open = true; renderTransactions(); var f = document.querySelector('#transactionsTable [data-tf="amount"]'); if(f) f.focus(); return; }
+    if(b.hasAttribute("data-tf-cancel")){ transferForm.open = false; renderTransactions(); return; }
+    if(b.hasAttribute("data-tf-save")){
+      var get = function(k){ var el = document.querySelector('#transactionsTable [data-tf="' + k + '"]'); return el ? (el.type === "checkbox" ? el.checked : el.value) : ""; };
+      var amt = Number(get("amount"));
+      if(!(amt > 0)){ showToast("Enter the amount moved"); return; }
+      if(!get("from") || get("from") === get("to")){ showToast("Pick two different accounts"); return; }
+      var rec = addTransfer({ date: get("date") || localDateStr(), amount: amt, from: get("from"), to: get("to"), what: get("what") });
+      var moved = [];
+      if(get("balances")){
+        [[rec.from, -1], [rec.to, 1]].forEach(function(pair){
+          var acct = state.accounts.find(function(a){ return a.name === pair[0]; });
+          if(!acct) return;
+          var bal = accountBalance(acct);
+          if(bal.balance == null) return;
+          // Money into a card or loan lowers what's owed; out of one raises it.
+          var delta = (bal.owed ? -pair[1] : pair[1]) * amt;
+          setAccountBalance(acct, bal.balance + delta, rec.date);
+          moved.push(acct.name);
+        });
+      }
+      transferForm.open = false;
+      renderAll();
+      persist();
+      showUndoToast("Transfer saved" + (moved.length ? " — " + moved.join(" and ") + " updated" : ""), function(){ deleteTransfer(rec.id); renderAll(); persist(); });
+      return;
+    }
+    if(b.hasAttribute("data-cf-del-transfer")){
+      var gone = deleteTransfer(b.getAttribute("data-cf-del-transfer"));
+      renderTransactions(); persist();
+      if(gone) showUndoToast("Transfer deleted (balances unchanged)", function(){ state.transfers.splice(gone.index, 0, gone.record); renderTransactions(); persist(); });
+      return;
+    }
+    if(b.hasAttribute("data-cf-del-in")){
+      var restore = deleteIncomeReceived(b.getAttribute("data-cf-del-in"));
+      afterReceivedChange();
+      if(restore) showUndoToast("Record deleted", function(){ restore(); afterReceivedChange(); });
+      return;
+    }
+    if(b.hasAttribute("data-cf-pick-all")){ visibleSpendingIndices().forEach(function(i){ txSelect.picked[i] = true; }); renderTransactions(); return; }
+    if(b.hasAttribute("data-cf-bulk-apply")){
+      var idxs = pickedIndices();
+      var lineSel = document.querySelector('#transactionsTable [data-cf-bulk="line"]').value;
+      var acctSel = document.querySelector('#transactionsTable [data-cf-bulk="account"]').value;
+      var changes = {};
+      if(lineSel !== "__keep") changes.linkedExpenseId = lineSel;
+      if(acctSel !== "__keep") changes.account = acctSel;
+      if(!Object.keys(changes).length){ showToast("Choose a line or an account to set"); return; }
+      var before = idxs.map(function(i){ return { i: i, t: Object.assign({}, state.transactions[i]) }; });
+      var n = bulkEditTransactions(idxs, changes);
+      txSelect.picked = {};
+      afterTransactionsChange();
+      showUndoToast("Updated " + n + " transaction" + (n === 1 ? "" : "s"), function(){ before.forEach(function(x){ state.transactions[x.i] = x.t; }); afterTransactionsChange(); });
+      return;
+    }
+    if(b.hasAttribute("data-cf-bulk-delete")){
+      var del = pickedIndices();
+      if(!del.length || !confirm("Delete " + del.length + " transaction" + (del.length === 1 ? "" : "s") + "?")) return;
+      var removed = bulkDeleteTransactions(del);
+      txSelect.picked = {};
+      afterTransactionsChange();
+      showUndoToast("Deleted " + removed.length, function(){ removed.forEach(function(x){ state.transactions.splice(x.index, 0, x.t); }); afterTransactionsChange(); });
+      return;
+    }
+    if(b.hasAttribute("data-cf-split-add")){ splitEditing.parts.push({ linkedExpenseId: null, amount: "" }); renderTransactions(); return; }
+    if(b.hasAttribute("data-cf-split-del")){ splitEditing.parts.splice(Number(b.getAttribute("data-cf-split-del")), 1); renderTransactions(); return; }
+    if(b.hasAttribute("data-cf-split-cancel")){ splitEditing.idx = null; splitEditing.parts = []; renderTransactions(); return; }
+    if(b.hasAttribute("data-cf-split-save")){
+      var made = splitTransaction(splitEditing.idx, splitEditing.parts);
+      splitEditing.idx = null; splitEditing.parts = [];
+      if(made){ afterTransactionsChange(); showToast("Split into " + made.length + " transactions"); }
+      return;
+    }
+  }
+  // Split / Merge live inside a transaction's edit area, which on a phone opens as a sheet — so these
+  // are delegated from the document rather than the list.
+  document.addEventListener("click", function(e){
+    var sp = e.target.closest("[data-tx-split]");
+    if(sp){
+      var idx = Number(sp.getAttribute("data-tx-split")), t = state.transactions[idx];
+      if(!t) return;
+      var half = Math.round((Number(t.amount) || 0) / 2 * 100) / 100;
+      splitEditing.idx = idx;
+      splitEditing.parts = [{ linkedExpenseId: t.linkedExpenseId || null, amount: half }, { linkedExpenseId: null, amount: Math.round(((Number(t.amount) || 0) - half) * 100) / 100 }];
+      closeActiveModernRow();
+      renderTransactions();
+      var ed = document.querySelector("#transactionsTable .cf-split");
+      if(ed) ed.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    var un = e.target.closest("[data-tx-unsplit]");
+    if(un){
+      var merged = unsplit(un.getAttribute("data-tx-unsplit"));
+      closeActiveModernRow();
+      if(merged){ afterTransactionsChange(); showToast("Merged back into one transaction — link it to a line"); }
+    }
+  });
+  var txTable = document.getElementById("transactionsTable");
+  txTable.addEventListener("change", function(e){
+    var t = e.target;
+    if(t.hasAttribute("data-cf-filter") && t.getAttribute("data-cf-filter") !== "text"){ txFilters[t.getAttribute("data-cf-filter")] = t.value; setTransactionsShowAll(false); renderTransactions(); return; }
+    if(t.hasAttribute("data-cf-pick")){ txSelect.picked[t.getAttribute("data-cf-pick")] = t.checked; renderTransactions(); return; }
+    if(t.hasAttribute("data-cf-split-line")){ splitEditing.parts[Number(t.getAttribute("data-cf-split-line"))].linkedExpenseId = t.value || null; return; }
+  });
+  var cfSearchTimer = null;
+  txTable.addEventListener("input", function(e){
+    var t = e.target;
+    if(t.getAttribute("data-cf-filter") === "text"){
+      txFilters.text = t.value;
+      clearTimeout(cfSearchTimer);
+      cfSearchTimer = setTimeout(function(){
+        var pos = t.selectionStart;
+        renderTransactions();
+        var again = document.querySelector('#transactionsTable [data-cf-filter="text"]');
+        if(again){ again.focus(); try{ again.setSelectionRange(pos, pos); }catch(err){} }
+      }, 200);
+      return;
+    }
+    if(t.hasAttribute("data-cf-split-amt")){
+      splitEditing.parts[Number(t.getAttribute("data-cf-split-amt"))].amount = t.value;
+      var tx = state.transactions[splitEditing.idx];
+      var placed = splitEditing.parts.reduce(function(s2, p){ return s2 + (Number(p.amount) || 0); }, 0);
+      var left = Math.round(((Number(tx && tx.amount) || 0) - placed) * 100) / 100;
+      var leftEl = document.querySelector("#transactionsTable .cf-split-left"), saveEl = document.querySelector("#transactionsTable [data-cf-split-save]");
+      if(leftEl){ leftEl.textContent = Math.abs(left) < 0.01 ? "All placed" : fmtCurrency2.format(Math.abs(left)) + (left > 0 ? " left to place" : " too much"); leftEl.classList.toggle("warn", Math.abs(left) >= 0.01); }
+      if(saveEl) saveEl.disabled = Math.abs(left) >= 0.01;
+    }
   });
   document.getElementById("addTransactionBtn").addEventListener("click", function(){
     addTransaction();
@@ -3111,10 +3292,58 @@ import {
   });
 
   // ---------------- Accounts: named money sources, used for credit-card statement cycles ----------------
-  document.getElementById("addAccountBtn").addEventListener("click", function(){ addAccount(); updateAccountSuggestions(); });
+  document.getElementById("addAccountBtn").addEventListener("click", function(){
+    addAccount();
+    updateAccountSuggestions();
+    var nameIn = document.querySelector("#accountsTable .acct-card.is-open:last-of-type .acct-mgmt-name") || document.querySelectorAll("#accountsTable .acct-mgmt-name");
+    if(nameIn && nameIn.length !== undefined) nameIn = nameIn[nameIn.length - 1];
+    if(nameIn) nameIn.focus();
+  });
+  // "Update balance" → Save: written to the record the balance lives in (calc/accounts.js), so net
+  // worth, runway and the projections move with it.
+  function saveAccountBalance(idx){
+    var a = state.accounts[idx];
+    var inp = document.querySelector('#accountsTable .acct-bal-input[data-acct-index="' + idx + '"]');
+    if(!a || !inp) return;
+    if(inp.value === "" || isNaN(Number(inp.value))){ inp.focus(); return; }
+    if(!setAccountBalance(a, inp.value)){ showToast("Pick the loan this offset sits against first"); return; }
+    delete balanceEditing[a.id];
+    renderAll();
+    persist();
+    showToast("Updated " + (a.name || "the account") + " to " + fmtCurrency0.format(Number(inp.value)));
+  }
+  document.getElementById("accountsTable").addEventListener("keydown", function(e){
+    if(e.key === "Enter" && e.target.classList.contains("acct-bal-input")){ e.preventDefault(); saveAccountBalance(Number(e.target.getAttribute("data-acct-index"))); }
+    if(e.key === "Escape" && e.target.classList.contains("acct-bal-input")){ var id = (state.accounts[Number(e.target.getAttribute("data-acct-index"))] || {}).id; delete balanceEditing[id]; renderAccounts(); }
+  });
   document.addEventListener("click", function(e){
     var delAcctBtn = e.target.closest("[data-acct-del]");
     if(delAcctBtn){ deleteAccount(Number(delAcctBtn.getAttribute("data-acct-del"))); updateAccountSuggestions(); return; }
+    var tog = e.target.closest("[data-acct-toggle]");
+    if(tog){ var tid = tog.getAttribute("data-acct-toggle"); openAccounts[tid] = !openAccounts[tid]; renderAccounts(); return; }
+    var balBtn = e.target.closest("[data-acct-bal]");
+    if(balBtn){
+      var bid = balBtn.getAttribute("data-acct-bal");
+      balanceEditing[bid] = true; renderAccounts();
+      var inp = document.querySelector('#accountsTable .acct-card[data-acct-index="' + state.accounts.findIndex(function(x){ return x.id === bid; }) + '"] .acct-bal-input');
+      if(inp){ inp.focus(); inp.select(); }
+      return;
+    }
+    var cancelBal = e.target.closest("[data-acct-bal-cancel]");
+    if(cancelBal){ delete balanceEditing[cancelBal.getAttribute("data-acct-bal-cancel")]; renderAccounts(); return; }
+    var saveBal = e.target.closest("[data-acct-bal-save]");
+    if(saveBal){ saveAccountBalance(Number(saveBal.getAttribute("data-acct-bal-save"))); return; }
+    var adopt = e.target.closest("[data-acct-adopt]");
+    if(adopt){
+      var link = adopt.getAttribute("data-acct-adopt");
+      var src = resolveLink(link);
+      state.accounts.push({ id: genId("acct"), name: src ? src.label.replace(/ — offset$/, " offset") : "Account", type: adopt.getAttribute("data-acct-adopt-type") || "savings", statementStartDay: 1, link: link });
+      updateAccountSuggestions();
+      renderAll();
+      persist();
+      showToast("Added " + (src ? src.label : "the account") + " to Accounts");
+      return;
+    }
   });
   document.addEventListener("input", function(e){
     if(!e.target.closest("#accountsTable")) return;
@@ -3129,7 +3358,9 @@ import {
       updateAccountSuggestions();
     }
     else if(e.target.classList.contains("acct-mgmt-type")){
-      a.type = e.target.value === "credit" ? "credit" : "debit";
+      a.type = ACCOUNT_TYPE_KEYS.indexOf(e.target.value) !== -1 ? e.target.value : "everyday";
+      // A link only makes sense for the kinds of record this type can draw from.
+      if(a.link && !accountSourceOptions(a).some(function(o){ return o.key === a.link; })) a.link = "";
       renderActualVsPlannedPanel();
       persist();
       // Deferred: showing/hiding the statement-day field means rebuilding #accountsTable, an
@@ -3141,17 +3372,88 @@ import {
     else if(e.target.classList.contains("acct-mgmt-day")){
       a.statementStartDay = Math.min(28, Math.max(1, parseInt(e.target.value, 10) || 1));
     }
+    else if(e.target.classList.contains("acct-mgmt-limit")){
+      var lim = e.target.value === "" ? null : Number(e.target.value);
+      if(lim == null || !(lim >= 0)) delete a.limit; else a.limit = lim;
+    }
+    else if(e.target.classList.contains("acct-mgmt-link")){
+      a.link = e.target.value;
+      persist();
+      setTimeout(function(){ renderAll(); }, 0);
+      return;
+    }
     else return;
     renderActualVsPlannedPanel();
     persist();
   });
 
   // ---------------- Categories: the spending rollup ----------------
+  document.getElementById("planSubnav").addEventListener("click", function(e){
+    var b = e.target.closest("[data-plan-sub]");
+    if(b) showPlanSubpage(b.getAttribute("data-plan-sub"));
+  });
+  // ---------------- Settings → Import rules (v3.60.0) ----------------
+  function renderRules(){
+    var el = document.getElementById("rulesBody");
+    if(el) el.innerHTML = rulesPageHtml(budgetLineItems());
+    var c = document.getElementById("rulesCount");
+    if(c) c.textContent = (state.importRules || []).length + " rule" + ((state.importRules || []).length === 1 ? "" : "s");
+  }
+  var rulesBody = document.getElementById("rulesBody");
+  rulesBody.addEventListener("change", function(e){
+    var t = e.target, i = t.getAttribute("data-rl-index");
+    if(i == null) return;
+    if(!setRuleField(Number(i), t.getAttribute("data-rl-key"), t.value)){ showToast("A rule needs some words to match"); renderRules(); return; }
+    var r = state.importRules[Number(i)];
+    persist();
+    renderRules();
+    if(r && ruleIsEmpty(r)) showToast("This rule now files nothing — give it a line or a category, or it's removed next time the app opens");
+  });
+  var rulesTestTimer = null;
+  rulesBody.addEventListener("input", function(e){
+    if(!e.target.hasAttribute("data-rl-test")) return;
+    ruleTest.text = e.target.value;
+    clearTimeout(rulesTestTimer);
+    rulesTestTimer = setTimeout(function(){
+      var pos = e.target.selectionStart;
+      renderRules();
+      var again = rulesBody.querySelector("[data-rl-test]");
+      if(again){ again.focus(); try{ again.setSelectionRange(pos, pos); }catch(err){} }
+    }, 180);
+  });
+  rulesBody.addEventListener("click", function(e){
+    var del = e.target.closest("[data-rl-del]");
+    if(del){
+      var i = Number(del.getAttribute("data-rl-del"));
+      var gone = state.importRules.splice(i, 1)[0];
+      persist(); renderRules();
+      if(gone) showUndoToast("Rule deleted", function(){ state.importRules.splice(i, 0, gone); persist(); renderRules(); });
+      return;
+    }
+    if(e.target.closest("[data-rl-add]")){
+      var m = rulesBody.querySelector('[data-rl-new="match"]').value, line = rulesBody.querySelector('[data-rl-new="line"]').value;
+      var key = normaliseDescription(m);
+      if(!key || !line){ showToast("Type the words to match and pick a line"); return; }
+      var existing = state.importRules.find(function(r){ return r.match === key && !r.incomeTarget; });
+      if(existing){ existing.linkedExpenseId = line; existing.category = ""; }
+      else state.importRules.push({ id: genId("rule"), match: key, linkedExpenseId: line, category: "", account: "", hits: 0 });
+      persist(); renderRules();
+      showToast(existing ? "Updated the rule for “" + key + "”" : "Added a rule for “" + key + "”");
+    }
+  });
+  function renderSettingsTab(id){
+    if(id === "rules") renderRules();
+    if(id === "categories") renderCategories();
+    if(id === "people") renderPeopleTab();
+    if(id === "checks") renderHealth();
+    if(id === "preferences") renderYearBasisPreference();
+  }
   document.getElementById("accountsSubnav").addEventListener("click", function(e){
     var accountsSubBtn = e.target.closest("[data-accounts-sub]");
     if(!accountsSubBtn) return;
     var accountsSubId = accountsSubBtn.getAttribute("data-accounts-sub");
     showAccountsSubpage(accountsSubId);
+    if(accountsSubId === "rules") renderRules();
     // Each category row carries a live "used by N lines" count, which goes stale every time a
     // budget line is added, deleted, recategorised or imported — none of which re-render this
     // normally-hidden tab, and none of which should have to know it exists. Recounting on the way
@@ -3168,6 +3470,7 @@ import {
     var btn = e.target.closest("[data-year-basis]");
     if(!btn) return;
     setYearBasis(btn.getAttribute("data-year-basis"));
+    applyPeriod(null, "");
     renderYearBasisPreference();
     // The household year reaches further than any other preference in this app: the year-to-date
     // spending panel, every reserve line that hasn't been given its own budget year (so the
@@ -3895,13 +4198,23 @@ import {
   monthReviewBody.addEventListener("click", function(e){
     var step = e.target.closest("[data-mr-step]");
     if(step && !step.disabled){ stepReviewMonth(Number(step.getAttribute("data-mr-step"))); renderMonthReview(); return; }
+    if(e.target.closest("[data-mr-intro-ok]")){ dismissReviewIntro(); renderMonthReview(); return; }
+    var to = e.target.closest("[data-mr-to]");
+    if(to){
+      setReviewStep(to.getAttribute("data-mr-to"));
+      renderMonthReview();
+      var card = monthReviewBody.querySelector(".mr-stepcard h3");
+      if(card){ card.setAttribute("tabindex", "-1"); card.focus({ preventScroll: true }); monthReviewBody.scrollIntoView({ behavior: "smooth", block: "nearest" }); }
+      return;
+    }
     var log = e.target.closest("[data-mr-log]");
     // Logged into the month under review: its last day, or today if that's still to come.
     if(log){ var mEnd = monthBounds(reviewMonthShown()).end; openReceivedSheetFor(log.getAttribute("data-mr-log"), mEnd < localDateStr() ? mEnd : localDateStr()); return; }
     var go = e.target.closest("[data-mr-go]");
     if(go){
       var where = go.getAttribute("data-mr-go");
-      if(where === "checks"){ showPage("accounts"); showAccountsSubpage("checks"); renderHealth(); }
+      if(where === "checks"){ showAccountsSubpage("checks"); renderHealth(); }
+      else if(where === "accounts"){ showPage("accounts"); }
       else { showPage("expenses"); showExpensesSubpage("spending", { replace: true }); var card = document.getElementById("bankImportCard"); if(card){ card.open = true; setTimeout(function(){ card.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); } }
       return;
     }
@@ -3988,7 +4301,7 @@ import {
   });
   // Same swipe-between-tabs affordance as Assets above, and same mobile-only guard: two tabs, so
   // a swipe simply stops at either end rather than wrapping.
-  var EXPENSES_SUB_ORDER = ["budget", "spending"];
+  var EXPENSES_SUB_ORDER = ["budget", "income", "spending", "bills"];
   function stepExpensesSubpage(step){
     if(!window.matchMedia("(max-width: 880px)").matches) return;
     var activeExpensesBtn = document.querySelector("#expensesSubnav .subnav-item.active");
@@ -4019,13 +4332,24 @@ import {
   var initialAssetsSub = "summary";
   var initialExpensesSub = "budget";
   var initialTaxSub = null;
+  var initialPlanSub = "scenarios";
+  var initialSettingsSub = null;
   if(routeFromUrl){
     initialPage = routeFromUrl.page;
     if(routeFromUrl.sub && routeFromUrl.page === "assets") initialAssetsSub = routeFromUrl.sub;
     if(routeFromUrl.sub && routeFromUrl.page === "expenses") initialExpensesSub = routeFromUrl.sub;
     if(routeFromUrl.sub && routeFromUrl.page === "tax") initialTaxSub = routeFromUrl.sub;
+    if(routeFromUrl.sub && routeFromUrl.page === "plan") initialPlanSub = routeFromUrl.sub;
+    if(routeFromUrl.page === "settings") initialSettingsSub = routeFromUrl.sub || "people";
   } else {
     try{ initialPage = localStorage.getItem(PAGE_KEY) || "dashboard"; }catch(e){}
+    // A page remembered from before v3.57.0 that is now a subpage.
+    var legacyPage = { income: ["expenses", "income"], scenarios: ["plan", "scenarios"], projections: ["plan", "projections"] }[initialPage];
+    if(legacyPage){
+      initialPage = legacyPage[0];
+      if(legacyPage[0] === "expenses") initialExpensesSub = legacyPage[1]; else initialPlanSub = legacyPage[1];
+    }
+    if(initialPage === "settings") initialSettingsSub = "people";
   }
 
   window.addEventListener("popstate", function(e){
@@ -4045,6 +4369,8 @@ import {
     if(route.page === "assets") showAssetsSubpage(route.sub || "summary", { skipUrl: true });
     if(route.page === "expenses") showExpensesSubpage(route.sub || "budget", { skipUrl: true });
     if(route.page === "tax") showTaxSubpage(route.sub || taxSubpage(), { skipUrl: true });
+    if(route.page === "plan") showPlanSubpage(route.sub || "scenarios", { skipUrl: true });
+    if(route.page === "settings") showAccountsSubpage(route.sub || "people", { skipUrl: true });
   });
 
   function renderAll(){
@@ -4100,6 +4426,22 @@ import {
     renderHealth();
     renderMonthReview();
     renderNotifBadge();
+    renderPeriodButton();
+    renderHomeSummary();
+    renderReports();
+    renderChecksBadge();
+    renderSafekeeping();
+  }
+  // Settings carries the number of Checks that need fixing (v3.63.0), so they're seen without
+  // opening the tab — on the sidebar, the More tab and its Settings item.
+  function renderChecksBadge(){
+    var n = 0;
+    try { n = dataHealthChecks({}).filter(function(c){ return c.severity !== "info"; }).length; } catch(e){ n = 0; }
+    document.querySelectorAll("[data-checks-badge]").forEach(function(el){
+      el.hidden = !n;
+      el.textContent = el.classList.contains("nav-badge-dot") ? "" : String(n);
+      el.setAttribute("aria-label", n + " check" + (n === 1 ? "" : "s") + " to fix");
+    });
   }
 
   if(!storageAvailable) setStatus(false, "Storage unavailable — export to keep changes");
@@ -4170,7 +4512,7 @@ import {
     if(e.target.closest("[data-goal-add]")){
       var kind = benchmarksBody.querySelector("[data-goal-kind]").value;
       var cat = benchmarksBody.querySelector("[data-goal-category]").value;
-      if(addGoal(kind, cat) === false){ showToast("Add a category first (Accounts → Categories)"); return; }
+      if(addGoal(kind, cat) === false){ showToast("Add a category first (Settings → Categories)"); return; }
       renderBenchmarks();
       var inputs = benchmarksBody.querySelectorAll("[data-goal-target]");
       if(inputs.length){ inputs[inputs.length - 1].focus(); inputs[inputs.length - 1].select(); }
@@ -4232,6 +4574,140 @@ import {
   }
   document.addEventListener("change", renderGlobalMetrics);
 
+  // ---------------- Safekeeping (v3.63.0): folder backups and the passcode ----------------
+  var lockScreen = document.getElementById("lockScreen");
+  function showLock(){
+    document.documentElement.classList.add("is-locked");
+    lockScreen.hidden = false;
+    document.getElementById("lockError").hidden = true;
+    var inp = document.getElementById("lockInput"); inp.value = ""; setTimeout(function(){ inp.focus(); }, 30);
+  }
+  function unlock(){
+    try{ sessionStorage.setItem("wealthPlanner.unlocked", "1"); }catch(e){}
+    document.documentElement.classList.remove("is-locked");
+    lockScreen.hidden = true;
+  }
+  document.getElementById("lockForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    checkPasscode(document.getElementById("lockInput").value).then(function(ok){
+      if(ok) unlock(); else { document.getElementById("lockError").hidden = false; document.getElementById("lockInput").select(); }
+    });
+  });
+  if(document.documentElement.classList.contains("is-locked")) showLock();
+  function askNewPasscode(){
+    var a = prompt("New passcode (at least 4 characters):");
+    if(a == null) return Promise.resolve(false);
+    if(a.length < 4){ showToast("A passcode needs at least 4 characters"); return Promise.resolve(false); }
+    var b = prompt("Type it again:");
+    if(b !== a){ if(b != null) showToast("They didn't match — nothing changed"); return Promise.resolve(false); }
+    return setPasscode(a).then(function(){ try{ sessionStorage.setItem("wealthPlanner.unlocked", "1"); }catch(e){} return true; });
+  }
+  function folderResult(r){
+    if(r.ok) showToast("Backed up to " + r.folder + " (" + r.name + ")");
+    else if(r.reason === "permission") showToast("The browser didn't allow writing to " + r.folder);
+    renderSafekeeping(); renderHomeSummary();
+  }
+  document.getElementById("safekeepingBody").addEventListener("click", function(e){
+    var b = e.target.closest("[data-sk]");
+    if(!b) return;
+    var act = b.getAttribute("data-sk");
+    if(act === "export"){ document.getElementById("exportBtn").click(); setTimeout(renderSafekeeping, 400); return; }
+    if(act === "folder-pick" || act === "folder-change"){
+      chooseFolder().then(function(){ return backupToFolder(true); }).then(folderResult).catch(function(err){ if(err && err.name !== "AbortError") showToast("Couldn't use that folder"); });
+      return;
+    }
+    if(act === "folder-now"){ backupToFolder(true).then(folderResult).catch(function(){ showToast("Couldn't write the backup"); }); return; }
+    if(act === "folder-stop"){ forgetFolder().then(function(){ showToast("Stopped backing up to the folder"); renderSafekeeping(); }); return; }
+    if(act === "pass-set" || act === "pass-change"){ askNewPasscode().then(function(done){ if(done){ showToast("Passcode set"); renderSafekeeping(); } }); return; }
+    if(act === "pass-off"){
+      var cur = prompt("Current passcode:");
+      if(cur == null) return;
+      checkPasscode(cur).then(function(ok){ if(!ok){ showToast("That isn't the passcode"); return; } clearPasscode(); showToast("Passcode off"); renderSafekeeping(); });
+      return;
+    }
+    if(act === "lock-now"){ try{ sessionStorage.removeItem("wealthPlanner.unlocked"); }catch(err){} showLock(); }
+  });
+  // A quiet weekly backup into the chosen folder, if the browser still allows it.
+  maybeAutoBackup().then(function(r){ if(r && r.ok){ showToast("Weekly backup saved to " + r.folder); renderSafekeeping(); } });
+
+  // ---------------- Reports (v3.62.0) ----------------
+  document.getElementById("reportsBody").addEventListener("click", function(e){
+    var pick = e.target.closest("[data-report]");
+    if(pick){ reportShown.key = pick.getAttribute("data-report"); renderReports(); return; }
+    if(e.target.closest("[data-report-print]")){ printStatic(reportPrintHtml()); return; }
+    if(e.target.closest("[data-report-csv]")){ var c = reportCsv(); exportTableCsv(c.filename, c.headers, c.rows); }
+  });
+
+  // ---------------- Home (v3.58.0): the summary's links and to-dos ----------------
+  document.getElementById("homeSummary").addEventListener("click", function(e){
+    var b = e.target.closest("[data-home-go]");
+    if(!b) return;
+    var go = b.getAttribute("data-home-go"), sub = b.getAttribute("data-home-sub"), fy = b.getAttribute("data-home-fy");
+    if(go === "backup"){ var exp = document.getElementById("exportBtn"); if(exp) exp.click(); return; }
+    if(go === "dashboard"){
+      showDashboardSubpage(sub || "overview");
+      if(sub === "review") renderMonthReview();
+      var sn = document.getElementById("dashboardSubnav");
+      if(sn) sn.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    if(go === "settings"){ showAccountsSubpage(sub || "people"); if(sub === "checks") renderHealth(); return; }
+    if(go === "tax"){ if(fy) setTaxYearSelected(fy); showPage("tax"); showTaxSubpage(sub || "returns", { replace: true }); renderTaxYear(); return; }
+    showPage(go);
+    if(go === "expenses" && sub) showExpensesSubpage(sub, { replace: true });
+  });
+
+  // ---------------- The period selector (v3.55.0) ----------------
+  // One year (and optionally a month) beside the page title that every page reads — see
+  // components/period.js. Choosing re-renders everything; the menu stays open so a year and then a
+  // month can be picked in one go.
+  loadPeriod();
+  setPeriodRerender(function(){ renderAll(); renderPeriodMenu(); });
+  var periodBtn = document.getElementById("periodBtn");
+  var periodMenu = document.getElementById("periodMenu");
+  function setPeriodMenuOpen(open){
+    periodMenu.hidden = !open;
+    periodBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    if(open){
+      renderPeriodMenu();
+      periodMenu.style.top = window.innerWidth <= 600 ? Math.round(periodBtn.getBoundingClientRect().bottom + 8) + "px" : "";
+      var first = periodMenu.querySelector(".period-chip.active, .seg-option.active");
+      if(first) first.focus();
+    }
+  }
+  periodBtn.addEventListener("click", function(){ setPeriodMenuOpen(periodMenu.hidden); });
+  periodMenu.addEventListener("click", function(e){
+    var b = e.target.closest("button");
+    if(!b || b.disabled) return;
+    if(b.hasAttribute("data-period-basis")){
+      if(b.getAttribute("data-period-basis") === householdYearBasis()) return;
+      setYearBasis(b.getAttribute("data-period-basis"));
+      // A year number means a different twelve months on the other basis — start again from today.
+      applyPeriod(null, "");
+    } else if(b.hasAttribute("data-period-year")){
+      applyPeriod(Number(b.getAttribute("data-period-year")), "");
+    } else if(b.hasAttribute("data-period-month")){
+      applyPeriod(yearStartOf(householdYearBasis(), selectedYearWindow().start), b.getAttribute("data-period-month"));
+    } else if(b.hasAttribute("data-period-today")){
+      applyPeriod(null, "");
+      setPeriodMenuOpen(false);
+      periodBtn.focus();
+      return;
+    }
+    var again = periodMenu.querySelector(b.hasAttribute("data-period-month") ? '[data-period-month="' + b.getAttribute("data-period-month") + '"]' : ".period-chip.active");
+    if(again) again.focus();
+  });
+  document.addEventListener("click", function(e){
+    if(periodMenu.hidden) return;
+    // A chip inside the menu is rebuilt by the re-render its own click causes, so by the time this
+    // runs it's detached and .closest() finds nothing — that's still a click inside.
+    if(!e.target.isConnected) return;
+    if(!e.target.closest(".period-wrap")) setPeriodMenuOpen(false);
+  });
+  document.addEventListener("keydown", function(e){
+    if(e.key === "Escape" && !periodMenu.hidden){ setPeriodMenuOpen(false); periodBtn.focus(); }
+  });
+
   renderAll();
   initTableScrollShadows();
   showPage(initialPage, { replace: true, skipScroll: true });
@@ -4242,6 +4718,8 @@ import {
   showExpensesSubpage(initialExpensesSub, { skipUrl: initialPage !== "expenses", replace: true });
   // Same seeding for Tax, whose default tab depends on the time of year (nav.js defaultTaxSub).
   showTaxSubpage(initialTaxSub || taxSubpage(), { skipUrl: initialPage !== "tax", replace: true });
+  showPlanSubpage(initialPlanSub, { skipUrl: initialPage !== "plan", replace: true });
+  if(initialSettingsSub){ showAccountsSubpage(initialSettingsSub, { replace: true }); renderSettingsTab(initialSettingsSub); }
 
   // onboarding.html's "Try it with sample data" link lands here with ?mock=1 — generate it
   // immediately (no confirm needed, unlike the header's own Sample data button: there's nothing

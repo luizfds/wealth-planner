@@ -1146,6 +1146,34 @@ const browser = await chromium.launch({
   guessing from a screenshot — this project's real bugs were consistently found that way, not by
   eyeballing (see the CSS gotchas in the root CLAUDE.md).
 
+## The professional structure (v3.55.0–v3.63.0, roadmap items 92–99)
+
+- **One period.** `calc/ledger.js` holds a session-only `{year, month}` (`setPeriod`,
+  `selectedYearWindow`, `selectedMonth`, `periodAnchorDate`, `monthAnchorDate`, `monthPhrase`);
+  `components/period.js` is the header button/menu and keeps it in sessionStorage. Every default
+  "this year/this month" follows it. Tax → Returns has no year dropdown any more: its year *is* the
+  period (`setTaxYearSelected` → `applyTaxYear`). Things about now pass today (`todayTaxFy`).
+- **Accounts hold balances by reference.** `account.link` = `asset:<id>` | `debt:<id>` |
+  `offset:<loanId>` | `loan:<loanId>`; the money stays in the record net worth already reads, so
+  nothing in the engine changed. Migration links by name once (`accountsLinked`), and gives Cash
+  assets and debts ids. A card's `limit` never counts; the `debt-limit` Check catches a limit
+  typed in as a debt.
+- **Navigation by job.** See CLAUDE.md for the page map. `showAccountsSubpage()` serves Settings
+  tabs too (the name stayed because callers ask for "accounts → checks").
+- **Cash flow.** `calc/cashflowlist.js` joins transactions, incomeLog and `state.transfers` for the
+  Spending list (filters, In/Out/Net). Transfers can move both linked balances. Splits are N
+  ordinary transactions with a shared `splitGroup`. Bills: `calc/bills.js` projects each regular
+  line from its last payment; "paid" = a payment within 6 days.
+- **Home** (`components/home.js`) and the guided **Review** (five steps, `setReviewStep`), **Reports**
+  (`calc/reports.js`, one table shape for render/print/CSV), **property tabs** (all panels rendered,
+  toggled by `hidden`), **investments** (`calc/investments.js`).
+- **Safekeeping** (`lib/safekeeping.js`): folder backups via the File System Access API (handle in
+  IndexedDB, weekly on load when permission is still granted); the passcode is a lock screen (an
+  inline script in index.html adds `html.is-locked` before anything paints), not encryption.
+- **Dev server gotcha:** a plain http.server can't serve deep links (`/settings/checks`) — the module
+  script 404s as HTML. Drive from `/index.html` (set `sessionStorage` `wealthPlanner.redirectPath`
+  to land on a route); GitHub Pages handles it through 404.html.
+
 ## Known pending work
 
 The agreed build order lives in [`ROADMAP.md`](ROADMAP.md), with a status marker per item — check

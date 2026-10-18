@@ -173,7 +173,7 @@ function reviewDueNotifications(alreadyBilled){
       type: "review",
       severity: "warn",
       title: due[0].what + " needs a fresh entry",
-      detail: "No recent transaction logged against this budget line — use Review expenses on the Expenses tab.",
+      detail: "No recent transaction logged against this budget line — use Review expenses on Cash flow.",
       date: todayStr(),
       page: "expenses"
     }];
@@ -185,7 +185,7 @@ function reviewDueNotifications(alreadyBilled){
     type: "review",
     severity: "warn",
     title: due.length + " budget lines need a fresh entry",
-    detail: names + (extraCount > 0 ? " and " + extraCount + " more" : "") + " — use Review expenses on the Expenses tab.",
+    detail: names + (extraCount > 0 ? " and " + extraCount + " more" : "") + " — use Review expenses on Cash flow.",
     date: todayStr(),
     page: "expenses"
   }];
@@ -276,7 +276,7 @@ function sharePricesNotifications(){
 // unrounded delta can sit a hair under the threshold from float error alone).
 function budgetNotifications(){
   var month = todayStr().slice(0, 7);
-  var monthTxns = transactionsInMonth(state.transactions);
+  var monthTxns = transactionsInMonth(state.transactions, month);
   var plannedTotal = Math.round(sumField(state.shared, "monthly") * 100) / 100;
   var actualTotal = Math.round(monthTxns.reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0) * 100) / 100;
   var delta = actualTotal - plannedTotal;
@@ -336,7 +336,7 @@ function monthReviewNotification(){
   var last = shiftMonth(today.slice(0, 7), -1);
   if(state.monthReviews && state.monthReviews[last] && state.monthReviews[last].done) return [];
   return [{ id: "review:" + last, type: "review", severity: "info", title: monthLabel(last) + "'s review is ready",
-    detail: "Money in, card statements, checks and the month against the plan — Dashboard → Review.", date: today, page: "dashboard", sub: "review" }];
+    detail: "Money in, card statements, checks and the month against the plan — Home → Review.", date: today, page: "dashboard", sub: "review" }];
 }
 
 // ---------------- Loan rate changes (v3.53.0) ----------------
@@ -378,7 +378,7 @@ function dataHealthNotification(){
     id: "health:" + fix.map(function(c){ return c.id; }).sort().join(","),
     type: "data", severity: fix.some(function(c){ return c.severity === "bad"; }) ? "warn" : "info",
     title: fix.length === 1 ? fix[0].title : fix.length + " things in your data to fix",
-    detail: fix.length === 1 ? fix[0].detail : fix.slice(0, 2).map(function(c){ return c.title; }).join("; ") + (fix.length > 2 ? "; and more" : "") + ". Accounts → Checks lists them.",
+    detail: fix.length === 1 ? fix[0].detail : fix.slice(0, 2).map(function(c){ return c.title; }).join("; ") + (fix.length > 2 ? "; and more" : "") + ". Settings → Checks lists them.",
     date: todayStr(), page: "accounts", sub: "checks"
   }];
 }

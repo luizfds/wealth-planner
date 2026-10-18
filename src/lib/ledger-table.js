@@ -19,7 +19,7 @@ function todayStr(){ return localDateStr(); }
 export function logControlsHtml(section, idx, item){
   return '<input type="date" class="log-date" value="' + todayStr() + '" aria-label="Date to log this amount under" title="Date to log this under — defaults to today, can be backdated">' +
     '<button type="button" class="asset-log-btn" data-log="' + escapeAttr(section) + ':' + idx + '"' +
-      ' title="Snapshot the amount above under the date to the left">Log</button>';
+      ' title="Record the amount above under the date to the left">Record change</button>';
 }
 
 // Shared by every "Log"-able row (assets, properties, debts, income, shared expenses) — a small
@@ -164,7 +164,7 @@ function reserveYearFieldHtml(item){
   // its own answer. It's first and default because that's what most lines want — a line only
   // needs its own budget year when it genuinely differs from the household's.
   var current = RESERVE_YEAR_BASES.indexOf(item.reserveYear) !== -1 ? item.reserveYear : "";
-  var options = '<option value=""' + (current === "" ? " selected" : "") + '>Follow my year (Accounts → Preferences)</option>' +
+  var options = '<option value=""' + (current === "" ? " selected" : "") + '>Follow my year (Settings → Preferences)</option>' +
     RESERVE_YEAR_LABELS.map(function(pair){
       return '<option value="' + pair[0] + '"' + (pair[0] === current ? " selected" : "") + '>' + pair[1] + '</option>';
     }).join("");
@@ -328,7 +328,7 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
   // this says where it goes. Only offered where the caller passes a category list (Expenses), and
   // only ever used for reporting — it never regroups the list the row lives in.
   var categoryField = opts.categories
-    ? '<div class="m-edit-field"><label>Category</label><select class="f-category" title="Groups this line with others like it for the spending charts — manage the list under Accounts → Categories">' +
+    ? '<div class="m-edit-field"><label>Category</label><select class="f-category" title="Groups this line with others like it for the spending charts — manage the list under Settings → Categories">' +
         '<option value=""' + (!(item.category || "") ? " selected" : "") + '>— None —</option>' +
         optionsHtml(opts.categories, item.category || "") +
       '</select></div>'
@@ -338,7 +338,7 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
   // at narrow widths (they'd wrap onto separate lines) — span2 fits them on one line and, for
   // every current caller, exactly fills out the row alongside whatever's next to it.
   var logField = opts.showLog
-    ? '<div class="m-edit-field span2"><label>Log</label>' + logControlsHtml(section, idx, item) + '</div>'
+    ? '<div class="m-edit-field span2"><label>Record a change</label>' + logControlsHtml(section, idx, item) + '</div>'
     : "";
   var rentLineField = String(section || "").indexOf("propexp:") === 0 && rentLinesProvider
     ? '<div class="m-edit-field"><label>Return line</label>' + rentLineSelectHtml(item) + '</div>'

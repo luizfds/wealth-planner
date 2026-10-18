@@ -85,7 +85,7 @@ export function householdCompareHtml(d){
     var c = superComparison(p.super, p.age);
     if(!c){
       out.push(row(esc(p.name) + "'s super", fmtCurrency0.format(p.super), "",
-        "Add " + esc(p.name) + "'s date of birth (Accounts → People) to compare with people the same age.", ""));
+        "Add " + esc(p.name) + "'s date of birth (Settings → People) to compare with people the same age.", ""));
       return;
     }
     out.push(row(esc(p.name) + "'s super <small>age " + p.age + "</small>", fmtCurrency0.format(p.super),

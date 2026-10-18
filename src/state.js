@@ -100,6 +100,9 @@ export function defaultState(){
     // account, hits}. Written only as a side effect of confirming an import — there is no rule
     // editor, because a rule you have to go and maintain is a rule you stop maintaining.
     importRules: [],
+    // Money moved between the household's own accounts (v3.59.0): {id, date, amount, from, to, what}.
+    // Never spending, so never in state.transactions — see calc/cashflowlist.js.
+    transfers: [],
     // Expenses → Budget: which group cards are collapsed, by group name. See migrateState.
     budgetGroupsCollapsed: {},
     // Named money sources referenced by the free-text "account" field elsewhere (income, shared
@@ -182,7 +185,8 @@ export function defaultState(){
     // "" until the first one. Powers the backup-reminder notification (lib/notifications.js) —
     // the only way this browser-only, no-backend app's data survives clearing site data or losing
     // the device.
-    lastBackupDate: ""
+    lastBackupDate: "",
+    lastFolderBackup: ""
   };
 }
 
@@ -316,6 +320,9 @@ export function migrateState(s){
     s.budgetGroupsCollapsed = {};
   }
   if(!Array.isArray(s.importRules)) s.importRules = [];
+  if(!Array.isArray(s.transfers)) s.transfers = [];
+  s.transfers = s.transfers.filter(function(x){ return x && x.date && Number(x.amount); });
+  s.transfers.forEach(function(x){ if(!x.id) x.id = genId("x"); });
   // A rule with no match string can never fire and would sit in a backup forever; one with neither
   // a line nor a category fires and files the row nowhere, which reads as the app forgetting.
   s.importRules = s.importRules.filter(function(r){
@@ -365,7 +372,6 @@ export function migrateState(s){
   if(!Array.isArray(s.accounts)) s.accounts = [];
   s.accounts.forEach(function(a){
     if(!a.id) a.id = genId("acct");
-    if(a.type !== "credit") a.type = "debit";
     if(a.statementStartDay == null) a.statementStartDay = 1;
   });
   // One-shot-per-load, idempotent: pick up every distinct account name already typed into an
@@ -379,7 +385,7 @@ export function migrateState(s){
         var name = (item.account || "").trim();
         if(name && !known[name]){
           known[name] = true;
-          s.accounts.push({ id: genId("acct"), name: name, type: "debit", statementStartDay: 1 });
+          s.accounts.push({ id: genId("acct"), name: name, type: "everyday", statementStartDay: 1 });
         }
       });
     }
@@ -387,6 +393,7 @@ export function migrateState(s){
     collect(s.shared);
     (s.properties || []).forEach(function(p){ collect(p.income); collect(p.expenses); });
   })();
+  migrateAccounts(s);
   // Ages for the FIRE bridge (calc/fire.js). null means "not told yet", which the panel reports as
   // a prompt rather than inventing a plausible age — the whole point of the bridge view is that
   // it's specific to when *you* want to stop working.
@@ -432,6 +439,8 @@ export function migrateState(s){
   if(s.fx.usdAud === undefined) s.fx.usdAud = null;
   if(s.fx.usdAudUpdated == null) s.fx.usdAudUpdated = "";
   if(s.lastBackupDate == null) s.lastBackupDate = "";
+  // The last automatic backup into a chosen folder (v3.63.0, lib/safekeeping.js).
+  if(s.lastFolderBackup == null) s.lastFolderBackup = "";
   (s.income || []).forEach(function(i){
     if(i.sacrificeMode == null) i.sacrificeMode = "none";
     if(i.sacrificeValue == null) i.sacrificeValue = 0;
@@ -681,4 +690,49 @@ export function setStatus(ok, text){
   // where .actions is hidden in favor of the bottom tab bar) can see save status.
   document.getElementById("mobileStatusDot").className = "status-dot" + (ok ? "" : " warn");
   document.getElementById("mobileStatusText").textContent = text;
+}
+
+// Mirrors calc/accounts.js resolveLink(), reduced to "is it still there".
+function linkExists(link, s){
+  var i = String(link).indexOf(":"), kind = link.slice(0, i), id = link.slice(i + 1);
+  if(kind === "asset") return (s.assets || []).some(function(a){ return a && a.category === "Cash" && a.id === id; });
+  if(kind === "debt") return (s.debts || []).some(function(d){ return d && d.id === id; });
+  if(kind === "offset" || kind === "loan") return (s.properties || []).some(function(p){ return (p.loans || []).some(function(l){ return l.id === id; }); });
+  return false;
+}
+// ---------------- Migration ----------------
+// Run from migrateState(). Gives Cash assets and debts the ids a link needs, maps the old
+// "debit" type to "everyday", and — once — joins each account to the record that's obviously its
+// balance: same name, or the account's name appearing as a whole word in the record's ("Bank One"
+// → "Sam's savings (Bank One)"), when exactly one record matches. Ambiguous ones are left for the
+// person to pick. Once, because unlinking an account afterwards has to stay unlinked.
+function migrateAccounts(s){
+  (s.assets || []).forEach(function(a){ if(a && a.category === "Cash" && !a.id) a.id = genId("as"); });
+  (s.debts || []).forEach(function(d){ if(d && !d.id) d.id = genId("debt"); });
+  (s.accounts || []).forEach(function(a){
+    if(["everyday", "savings", "offset", "credit", "loan"].indexOf(a.type) === -1) a.type = "everyday";
+    if(a.link && !linkExists(a.link, s)) a.link = "";
+    if(a.limit != null && !(Number(a.limit) >= 0)) delete a.limit;
+  });
+  if(s.accountsLinked) return;
+  s.accountsLinked = true;
+  var taken = {};
+  (s.accounts || []).forEach(function(a){ if(a.link) taken[a.link] = true; });
+  var norm = function(x){ return String(x || "").trim().toLowerCase(); };
+  var wordIn = function(needle, hay){
+    needle = norm(needle); hay = norm(hay);
+    if(!needle) return false;
+    var esc = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp("(^|[^a-z0-9])" + esc + "([^a-z0-9]|$)").test(hay);
+  };
+  (s.accounts || []).forEach(function(a){
+    if(a.link || !a.name) return;
+    var pool = a.type === "credit"
+      ? (s.debts || []).map(function(d){ return { key: "debt:" + d.id, name: d.what }; })
+      : (s.assets || []).filter(function(x){ return x && x.category === "Cash"; }).map(function(x){ return { key: "asset:" + x.id, name: x.what }; });
+    pool = pool.filter(function(p){ return !taken[p.key]; });
+    var exact = pool.filter(function(p){ return norm(p.name) === norm(a.name); });
+    var hits = exact.length ? exact : pool.filter(function(p){ return wordIn(a.name, p.name); });
+    if(hits.length === 1){ a.link = hits[0].key; taken[hits[0].key] = true; }
+  });
 }

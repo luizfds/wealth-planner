@@ -1,5 +1,5 @@
 import { state } from "../state.js";
-import { getTaxPeople, personTaxSettings, currentTaxFy, wfhRateForFy } from "../calc/tax.js";
+import { getTaxPeople, personTaxSettings, todayTaxFy, wfhRateForFy } from "../calc/tax.js";
 import { fyLabel } from "../calc/property.js";
 import { personReferences, ageOn } from "../calc/people.js";
 import { localDateStr } from "../lib/format.js";
@@ -34,7 +34,7 @@ export function personCardHtml(person, index, today){
   var st = personTaxSettings(person);
   var pid = escapeAttr(person);
   var age = ageOn(st.dateOfBirth, today);
-  var thisFy = currentTaxFy();
+  var thisFy = todayTaxFy(today);
   var hours = [];
   for(var fy = thisFy - 3; fy <= thisFy; fy++){
     var rate = wfhRateForFy(fy);
@@ -50,7 +50,7 @@ export function personCardHtml(person, index, today){
     '<p class="pp-uses">' + usesText(personReferences(person)) + '</p>' +
     '<div class="tax-inputs pp-fields">' +
       field("Date of birth", '<input type="date" class="pp-in pp-dob" data-pp-person="' + pid + '" aria-label="Date of birth for ' + pid + '" value="' + escapeAttr(st.dateOfBirth || "") + '">',
-        "Used for the private health rebate (higher from 65 and 70), preservation age, and comparing super and net worth with people the same age on Dashboard → Benchmarks.") +
+        "Used for the private health rebate (higher from 65 and 70), preservation age, and comparing super and net worth with people the same age on Home → Benchmarks.") +
       field("HELP/HECS owing $", numInput("pp-help", person, st.helpBalance, "HELP/HECS owing for " + person),
         "What's still owed on a study loan. The compulsory repayment is worked out from this and comes out of take-home.") +
       field("Concessional cap $/yr", numInput("pp-cap", person, st.concessionalCap, "Concessional cap per year for " + person)) +

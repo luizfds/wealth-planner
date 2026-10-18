@@ -14,9 +14,13 @@ the last, so two sessions can't pick up the same one.
 
 ## Architecture
 
-- `index.html` — all markup for every page/section (Dashboard, Income, Tax, Expenses, Accounts,
-  Assets, Properties, Scenarios, Projections). Pages are `<section class="app-page" id="page-...">`,
-  shown/hidden via `showPage()`, not separate documents.
+- `index.html` — all markup for every page/section. Since v3.57.0 the pages are organised by job:
+  Home (`page-dashboard`), Cash flow (`page-expenses`: Budget / Income / Spending / Bills),
+  Accounts, Investments (`page-assets`), Property (`page-properties`), Tax, Plan (`page-plan`:
+  Scenarios / Projections), Reports and Settings (`page-settings`: People / Categories /
+  Preferences / Import rules / Checks). Pages are `<section class="app-page" id="page-...">`,
+  shown/hidden via `showPage()`, not separate documents; old ids (`income`, `scenarios`,
+  `projections`) still work through `nav.js` ALIASES.
 - `styles.css` — just eight `@import` statements pulling in `src/styles/{base,shell,dashboard,
   ledger,income,properties,assets,projections}.css`, in that specific order. Light/dark theming is
   CSS custom properties + `prefers-color-scheme`, defined in `base.css`.
@@ -51,11 +55,15 @@ the last, so two sessions can't pick up the same one.
   deductible line claims and against whom — a person or a property), `people.js` (renaming a person
   everywhere they're named), `received.js` (income received, kept apart from spending
   transactions), `closeyear.js` (a finished year's actuals into next year's plan), `health.js`
-  (the Accounts → Checks consistency list), `withholding.js` (the payslip refund-or-bill check),
-  `junemoves.js` (Before 30 June), `actuals.js` (the plan corrected by what's been logged) and
-  `monthreview.js` (Dashboard → Review).
-- `src/components/{dashboard,income,taxyear,expenses,assets,properties,projections,scenarios,nav,
-  bank-import,search,people,received,health,junemoves,monthreview}.js` — one file per page (plus `nav.js` for routing/page-switching, and
+  (the Settings → Checks consistency list), `withholding.js` (the payslip refund-or-bill check),
+  `junemoves.js` (Before 30 June), `actuals.js` (the plan corrected by what's been logged),
+  `monthreview.js` (Home → Review), `accounts.js` (account types and balances, read and written
+  through `account.link` to the record that holds the money), `cashflowlist.js` (one list of money
+  in, out and transfers; splits; bulk edit), `bills.js` (the bills calendar), `investments.js`
+  (portfolio performance, distributions by year, super against the cap) and `reports.js`.
+- `src/components/{dashboard,home,income,taxyear,expenses,cashflow,accounts,assets,investments,
+  properties,projections,scenarios,reports,rules,period,safekeeping,nav,bank-import,search,people,
+  received,health,junemoves,monthreview}.js` — one file per page (plus `nav.js` for routing/page-switching, and
   `bank-import.js`/`search.js` for the two cross-page flows), each exporting its functions for
   `app.js` to import and wire up. Not every function that "belongs" to a page lives in its
   component — `renameTaxPerson`/`removeTaxPerson` (Income) and `showAssetsSubpage` (Assets)
@@ -63,7 +71,7 @@ the last, so two sessions can't pick up the same one.
   instead. DOM event *registration* (every `addEventListener` call) also stays in `app.js` for
   every component, `nav.js` included — only the callable render/patch/routing logic moved.
 - `src/constants.js`, `src/lib/{format,toast,html,ledger-table,charts,swipe,notifications,search,
-  setup,timerange,scroll-shadow}.js` — static data tables and dependency-free utilities used across
+  setup,timerange,scroll-shadow,safekeeping}.js` — static data tables and dependency-free utilities used across
   everything above: currency/percent formatters, toasts, `escapeAttr`/`slug`, the shared ledger row
   renderers (`modernPlainRowHtml`/`modernRowShellHtml`/`timingFieldsHtml`) used by every ledger
   page, the hand-rolled SVG charts (`renderLineChart`, `renderStackedAreaChart`), the local
@@ -154,6 +162,17 @@ not the bundled Chromium) is the standard way to drive/verify UI changes in this
 
 ## A few things that will bite you
 
+- **"This year" and "this month" are the header's period, not today.** `householdYearWindow()`,
+  `transactionsInMonth()`, `budgetCycleFor()` and friends default to the period picked beside the
+  page title (`calc/ledger.js` `selectedYearWindow`/`selectedMonth`/`periodAnchorDate`). Anything
+  that is genuinely about *now* — notifications, Before 30 June, Checks' last finished year, which
+  years can be closed — must pass today explicitly (`todayTaxFy()`, `localDateStr()`).
+- **`showPage()` applies inside a view transition, i.e. later.** Two navigations in one tick (e.g.
+  `showPage("accounts")` then `showAccountsSubpage("checks")`, which moves on to Settings) are
+  resolved by "newest wins" — `applyPageChange` bails if `currentPage` moved on. Don't remove that.
+- **Transfers and money received are never spending.** They live in `state.transfers` and
+  `state.incomeLog`; every spending total sums `state.transactions` only. A split is several
+  ordinary transactions sharing `splitGroup`, so totals need no special case.
 - **An account name is a foreign key by string, and nothing enforces it.** No row anywhere stores
   an account *id* — `item.account` and `t.account` are plain names — so renaming or deleting an
   account has to walk every array that carries one, `state.home` (one per scenario) included.

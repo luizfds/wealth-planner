@@ -164,11 +164,10 @@ export function renderDashboardStats(){
   // where a control lives anyway; it should offer the action, which the buttons below now do.
   var nothingEntered = !state.assets.length && !state.properties.length &&
     !state.income.length && !state.shared.length;
-  if(introEl) introEl.textContent = isComparing
-    ? 'Compare renting against buying, scenario by scenario — keep any investment property in the mix across every option.'
-    : (nothingEntered
-      ? 'Your household finances at a glance. Nothing is pre-filled — start with your income, or load sample data to see what a filled-in plan looks like.'
-      : 'Your household finances at a glance. Add another scenario on the Scenarios tab if you want to compare renting against buying.');
+  // v3.58.0: the scenario comparison moved down to its own tab, so the page's intro is about Home.
+  if(introEl) introEl.textContent = nothingEntered
+    ? "Your household finances at a glance. Nothing is pre-filled — start with your income, or load sample data to see what a filled-in plan looks like."
+    : "Your money at a glance — what you're worth, how the month is going, and what needs doing." + (isComparing ? "" : " Add a second scenario under Plan to compare renting against buying.");
   renderSetupPanel(nothingEntered);
   var totalNetWorth = totalNetWorthValue();
   var itemCount = state.assets.length + state.properties.length;
@@ -266,7 +265,7 @@ function renderUpcomingBillsPanel(){
   if(!upcoming.length){
     panel.innerHTML =
       '<h3>Upcoming bills</h3>' +
-      '<p class="fire-note">Log a transaction against a shared expense (Expenses tab) to see it projected here.</p>';
+      '<p class="fire-note">Log a transaction against a shared expense (Cash flow) to see it projected here.</p>';
     return;
   }
   var rows = upcoming.slice(0, 8).map(function(i){
@@ -286,7 +285,7 @@ function renderStaleAssetsBanner(){
   var stale = staleAssets();
   if(!stale.length){ el.innerHTML = ""; return; }
   el.innerHTML =
-    '<div class="stale-assets-note" title="Log a fresh value for each (Assets tab → Log) to keep net worth history and the Actual vs. expected panel accurate.">' +
+    '<div class="stale-assets-note" title="Record a fresh value for each (Investments → Record value) to keep net worth history and the Actual vs. expected panel accurate.">' +
       '<span>⏱</span> ' + escapeAttr(stale.length + " asset" + (stale.length === 1 ? "" : "s") + " haven't been logged in 30+ days — " + staleAssetNamesList(stale, 3)) +
     '</div>';
 }
@@ -302,7 +301,7 @@ function renderActualVsExpectedPanel(scenario, t){
   if(!actual.hasData){
     panel.innerHTML =
       '<h3>Actual vs. expected <span style="font-weight:400;color:var(--ink-soft)">— last 30 days</span></h3>' +
-      '<p class="fire-note">Log a value for at least one asset (Assets tab → Log) on two occasions ~a month apart to compare real growth against ' + escapeAttr(scenario) + '\'s expected monthly surplus.</p>';
+      '<p class="fire-note">Record a value for at least one asset (Investments → Record value) on two occasions ~a month apart to compare real growth against ' + escapeAttr(scenario) + '\'s expected monthly surplus.</p>';
     return;
   }
   var gap = actual.deltaSum - expected;
@@ -515,11 +514,11 @@ function renderProjectionAccuracyPanel(){
   if(!ref){
     panel.innerHTML =
       '<h3>Projection accuracy</h3>' +
-      '<p class="fire-note">Set a reference projection to start tracking how ' + escapeAttr(state.activeScenario) + '\'s projection holds up against reality over time. Once set, log your net worth roughly monthly ("Log net worth now" below) to build up the comparison.</p>' +
+      '<p class="fire-note">Set a reference projection to start tracking how ' + escapeAttr(state.activeScenario) + '\'s projection holds up against reality over time. Once set, log your net worth roughly monthly ("Record net worth now" below) to build up the comparison.</p>' +
       '<div class="fire-stat-row" style="justify-content:flex-start;gap:8px">' + setBtnHtml + '</div>';
     return;
   }
-  var logBtnHtml = '<button type="button" class="btn btn-sm btn-ghost" data-log-networth>Log net worth now</button>';
+  var logBtnHtml = '<button type="button" class="btn btn-sm btn-ghost" data-log-networth>Record net worth now</button>';
   var actualPoints = state.netWorthLog
     .filter(function(h){ return h.date >= ref.date; })
     .map(function(h){ return { x: yearsSinceDate(h.date, ref.date), y: h.value }; });
@@ -596,7 +595,7 @@ export function renderMonthlyCashFlow(){
     : 'These are the transactions you <b>logged</b>, not everything you spent — ' +
       fmtCurrency0.format(avgLogged) + '/mo against a budget of ' + fmtCurrency0.format(coverage.budgeted) +
       '/mo (' + fmtPercent1.format(coverage.fraction) + ' of it). The month-to-month shape is real; ' +
-      'the gap to income is not savings. Import a bank statement on the Expenses tab and this becomes ' +
+      'the gap to income is not savings. Import a bank statement on Cash flow and this becomes ' +
       'a savings figure.';
   panel.innerHTML = '<h3>Income vs spending <span style="font-weight:400;color:var(--ink-soft)">— last 6 months</span></h3>' +
     '<div class="cf-chart">' + barsHtml + '</div>' +

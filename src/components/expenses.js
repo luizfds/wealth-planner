@@ -1,12 +1,17 @@
 import { state, persist, genId } from "../state.js";
 import { CLASSES, FREQS, UNCATEGORISED } from "../constants.js";
-import { sumField, sumFieldForScenario, resolveSharedAmount, periodsOf, budgetCycleFor, reserveCycleFor, transactionDisplayName, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, plannedToDateByCategory, isOverdue, daysUntil, lastTransactionDateFor, refundableTransactions, reserveYearWindowFor, householdYearWindow, householdYearToDate, householdYearProgress, householdYearBasis, HOUSEHOLD_YEAR_BASES } from "../calc/ledger.js";
+import { sumField, sumFieldForScenario, resolveSharedAmount, periodsOf, budgetCycleFor, reserveCycleFor, transactionDisplayName, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, plannedToDateByCategory, isOverdue, daysUntil, lastTransactionDateFor, refundableTransactions, reserveYearWindowFor, householdYearWindow, householdYearToDate, householdYearProgress, householdYearBasis, HOUSEHOLD_YEAR_BASES, selectedMonth, monthPhrase, selectedYearWindow, isPeriodToday, monthAnchorDate } from "../calc/ledger.js";
 import { merchantGroups, worthShowingMerchants, recentMerchants } from "../calc/merchants.js";
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
+import { scenarioTotals } from "../calc/engine.js";
+import { billsForMonth } from "../calc/bills.js";
+import { scenarioIncomeRows } from "../calc/tax.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent0, fmtPercent1, localDateStr } from "../lib/format.js";
 import { spendingTrends, monthKeyLabel } from "../calc/trends.js";
 import { escapeAttr } from "../lib/html.js";
-import { rangeByKey, withinRange, timeRangeControlHtml } from "../lib/timerange.js";
+import { renderAccountsPage, openAccounts } from "./accounts.js";
+import { cashflowEntries, filterEntries, entryTotals } from "../calc/cashflowlist.js";
+import { budgetPlanHtml, billsCalendarHtml, txFilters, txSelect, transferForm, splitEditing, filterBarHtml, totalsLineHtml, inRowHtml, transferRowHtml, selectBoxHtml, bulkBarHtml, transferFormHtml, splitEditorHtml } from "./cashflow.js";
 import { modernPlainRowHtml, modernRowSummaryHtml, modernRowEditHtml, modernRowShellHtml, optionsHtml } from "../lib/ledger-table.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { parseCsv } from "../lib/backup.js";
@@ -369,11 +374,35 @@ export function revealBudgetLine(lineId){
   state.budgetGroupsCollapsed[group.key] = false;
   return true;
 }
+// Cash flow → Bills (v3.60.0) — calc/bills.js, laid out by components/cashflow.js.
+export function renderBillsCalendar(){
+  var el = typeof document !== "undefined" && document.getElementById("billsCalendar");
+  if(!el) return;
+  var ym = selectedMonth();
+  el.innerHTML = billsCalendarHtml(billsForMonth(loggableBudgetLineItems(), state.transactions, ym, localDateStr()), ym);
+}
+// "Your month, planned" (v3.59.0) — components/cashflow.js budgetPlanHtml.
+export function renderBudgetPlan(){
+  var el = typeof document !== "undefined" && document.getElementById("budgetPlanBody");
+  if(!el) return;
+  var scen = state.activeScenario;
+  var totals = scenarioTotals(scen);
+  var income = scenarioIncomeRows({ scenario: scen }).map(function(r){ return { label: r.what || "Income", monthly: periodsOf(Number(r.amount) || 0, r.freq).monthly }; });
+  var groups = computeSharedGroups().map(function(g){ return { label: g.key === "N/A" ? "Other" : g.key, monthly: g.monthly }; });
+  var grouped = groups.reduce(function(sum, g){ return sum + g.monthly; }, 0);
+  var other = totals.expensesMonthly - grouped;
+  el.innerHTML = budgetPlanHtml({ income: income, groups: groups, other: other > 0.5 ? other : 0, net: totals.netMonthly });
+  var netEl = document.getElementById("budgetPlanNet");
+  if(netEl){ netEl.textContent = (totals.netMonthly < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(totals.netMonthly)) + "/mo"; netEl.className = totals.netMonthly < 0 ? "neg" : ""; }
+  var scEl = document.getElementById("budgetPlanScenario");
+  if(scEl) scEl.textContent = scen;
+}
 export function renderSharedGroups(){
   // The overdue count depends on the budget lines and on what's been logged against them, so it's
   // refreshed from both of the renders that follow a change to either (see also
   // renderActualVsPlannedPanel) rather than from every call site that mutates them.
   renderExpenseReviewButton();
+  renderBudgetPlan();
   var container = document.getElementById("sharedGroups");
   if(!container) return;
   // Names the scenario the housing rows came from, so it's never a mystery why rent changed.
@@ -887,13 +916,13 @@ export function quickLogContextText(item){
   if(quickLog && quickLog.sign < 0){
     return item
       ? "Recorded as a refund — it comes back off what you've spent on this line."
-      : "Recorded as a refund on a one-off — it comes back off this month's total.";
+      : "Recorded as a refund on a one-off — it comes back off the month's total.";
   }
   if(!item) return "One-off spend — not counted against any budget line.";
   var spent = monthTransactionsForExpense(item.id).reduce(function(sum, pair){ return sum + (Number(pair.t.amount) || 0); }, 0);
   var planned = resolveSharedAmount(item, state.activeScenario);
   var monthlyPlanned = periodsOf(planned, item.freq).monthly;
-  return fmtCurrency0.format(spent) + " of " + fmtCurrency0.format(monthlyPlanned) + " logged this month";
+  return fmtCurrency0.format(spent) + " of " + fmtCurrency0.format(monthlyPlanned) + " logged " + monthPhrase(selectedMonth());
 }
 // Records the sheet's contents as a transaction. Mirrors logExpenseTransaction()'s contract —
 // the planned budget line is never touched, and the description stays empty unless the user
@@ -1147,7 +1176,7 @@ export function setTransactionsShowAll(value){
   transactionsShowAll = value;
   renderTransactions();
 }
-var TRANSACTIONS_RECENT_COUNT = 10;
+var TRANSACTIONS_RECENT_COUNT = 25;
 // Modern-mode open/closed state per row, same lifetime/shape as modernSharedRowOpen etc. — keyed
 // "tx:<idx>" (idx is the transaction's real state.transactions[] position, stable across a
 // resort) so an in-progress edit stays open across the rebuild a date edit triggers.
@@ -1236,7 +1265,7 @@ export function transactionAccountOptionsHtml(selected){
   var known = false;
   options += state.accounts.map(function(a){
     if(a.name === selected) known = true;
-    return '<option value="' + escapeAttr(a.name) + '"' + (a.name === selected ? " selected" : "") + '>' + escapeAttr(a.name) + (a.type === "credit" ? " (credit)" : "") + '</option>';
+    return '<option value="' + escapeAttr(a.name) + '"' + (a.name === selected ? " selected" : "") + '>' + escapeAttr(a.name) + (a.type === "credit" ? " (card)" : "") + '</option>';
   }).join("");
   if(selected && !known){
     options += '<option value="' + escapeAttr(selected) + '" selected>' + escapeAttr(selected) + ' (deleted)</option>';
@@ -1357,16 +1386,36 @@ function transactionRowHtml(t, idx){
   // re-uses wireModernRowToggle's existing "tap anything so-marked closes an open row" handling.
   var actionsHtml =
     '<button type="button" class="btn btn-primary btn-sm" data-row-toggle>Done</button>' +
+    // v3.59.0: one bank line paid for several things → that many transactions; or merge them back.
+    (t.splitGroup
+      ? '<button type="button" class="btn btn-ghost btn-sm" data-tx-unsplit="' + escapeAttr(t.splitGroup) + '">Merge split</button>'
+      : '<button type="button" class="btn btn-ghost btn-sm" data-tx-split="' + idx + '">Split</button>') +
     '<button type="button" class="btn btn-ghost btn-sm row-del" data-tx-del="' + idx + '">Delete</button>';
   var edit = modernRowEditHtml(fieldsHtml, actionsHtml);
-  return modernRowShellHtml("tx", idx, modernTransactionRowOpen, summary, edit, { extraClass: "tx-row" });
+  return modernRowShellHtml("tx", idx, modernTransactionRowOpen, summary, edit, { extraClass: "tx-row" + (t.splitGroup ? " is-split" : "") });
 }
 // Which slice of history the Transactions list shows. Session-only, matching the Shares picker it
 // shares a definition with: a time window is a thing you look through, not a setting you configure,
 // and one that persisted would have you wondering next week why half your spending is missing.
-export var transactionsRange = "3m";
+// Since v3.55.0 the window is the header's period rather than its own 1M/3M/6M picker: "Month" is
+// the selected month, "Year" the selected year, "All" everything.
+export var TX_SCOPES = [{ key: "month", label: "Month" }, { key: "year", label: "Year" }, { key: "all", label: "All" }];
+export var transactionsRange = "month";
+export function transactionScopeWindow(scope, todayStr){
+  if(scope === "all") return null;
+  if(scope === "year"){ var w = selectedYearWindow(todayStr); return { start: w.start, end: w.end, label: w.label }; }
+  var ym = selectedMonth(todayStr), y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7));
+  return { start: ym + "-01", end: ym + "-" + String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, "0"), label: monthPhrase(ym).replace(/^in /, "") };
+}
+export function transactionScopeControlHtml(scope){
+  return '<div class="seg-control time-range-control" id="transactionsRange" role="group" aria-label="Which transactions to show">' +
+    TX_SCOPES.map(function(r){
+      var on = scope === r.key;
+      return '<button type="button" class="seg-option' + (on ? " active" : "") + '" aria-pressed="' + on + '" data-tx-range="' + r.key + '">' + r.label + '</button>';
+    }).join("") + '</div>';
+}
 export function setTransactionsRange(value){
-  transactionsRange = rangeByKey(value) ? value : "3m";
+  transactionsRange = TX_SCOPES.some(function(r){ return r.key === value; }) ? value : "month";
   transactionsShowAll = false; // a new window is a new list; "show all" was about the old one
   renderTransactions();
 }
@@ -1374,49 +1423,54 @@ export function renderTransactions(){
   var container = document.getElementById("transactionsTable");
   var totalEl = document.getElementById("totalTransactionsAmount");
   if(!container) return;
-  if(!state.transactions.length){
+  var lines = budgetLineItems();
+  var all = cashflowEntries({ lines: lines, accountOf: transactionAccount, categoryOf: transactionCategory,
+    nameOf: function(t){ return transactionDisplayName(t, state.shared); } });
+  var top = (transferForm.open ? transferFormHtml() : "");
+  if(!all.length){
     if(totalEl) totalEl.textContent = fmtCurrency0.format(0);
-    container.innerHTML = '<p class="ledger-note" style="margin:0">No transactions logged yet — add one below to start tracking actual spend against your budget, optionally linked to one of the expenses above.</p>';
+    container.innerHTML = top + '<p class="ledger-note" style="margin:0">Nothing logged yet — log what you spend below (or import a bank statement), and money received on the Income tab; both show up here, together with transfers between your accounts.</p>' +
+      '<div class="cf-filter-actions" style="margin-top:8px"><button type="button" class="btn btn-sm btn-ghost" data-cf-transfer>+ Transfer</button></div>';
     return;
   }
-  var range = rangeByKey(transactionsRange);
-  var inRange = withinRange(state.transactions, range, { yearStart: householdYearWindow().start });
-  // The total follows the window. A list that says "last 3 months" above a total for all time is
-  // the same class of mistake as the Expenses/Dashboard disagreement — two numbers on one card
-  // that answer different questions without saying so.
-  var total = inRange.reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0);
-  if(totalEl) totalEl.textContent = fmtCurrency0.format(total);
-
-  var controlHtml = timeRangeControlHtml(transactionsRange, "tx-range", {
-    id: "transactionsRange", ariaLabel: "Transaction date range",
-    yearBasis: householdYearBasis(), titlePrefix: "Show the last",
-    // 1D and 1W are real windows for a share price and near-useless for a spending list — most
-    // households don't spend every day, and an empty list reads as a bug.
-    omit: ["1d", "1w"]
-  });
-  if(!inRange.length){
-    container.innerHTML = controlHtml +
-      '<p class="ledger-note" style="margin:10px 0 0">Nothing logged in this window. ' +
-      (state.transactions.length + ' transaction' + (state.transactions.length === 1 ? " sits" : "s sit") + ' outside it — widen the range above.</p>');
+  var win = transactionScopeWindow(transactionsRange);
+  var inScope = all.filter(function(e){ return !win || (e.date >= win.start && e.date <= win.end); });
+  var shown = filterEntries(inScope, txFilters);
+  var totals = entryTotals(shown);
+  // The header figure stays what it always was — spending — but now follows the filters too.
+  if(totalEl) totalEl.textContent = fmtCurrency0.format(totals.out);
+  var controlHtml = transactionScopeControlHtml(transactionsRange) + filterBarHtml(inScope, lines);
+  var bulk = txSelect.on ? bulkBarHtml(transactionLinkOptionsHtml(null), transactionAccountOptionsHtml("")) : "";
+  if(!shown.length){
+    container.innerHTML = top + controlHtml + bulk +
+      '<p class="ledger-note" style="margin:10px 0 0">' + (inScope.length ? "Nothing matches these filters." : "Nothing logged in " + escapeAttr(win ? win.label : "this window") + ". " +
+        all.length + (all.length === 1 ? " entry sits" : " entries sit") + " outside it — choose Year or All above, or another period in the header.") + '</p>';
     return;
   }
-  // Newest first for review, but data-tx-index always keeps pointing at the item's real
-  // position in state.transactions (not its position in this sorted display).
-  var indexOf = new Map(state.transactions.map(function(t, i){ return [t, i]; }));
-  var sorted = inRange
-    .map(function(t){ return { t: t, i: indexOf.get(t) }; })
-    .sort(function(a, b){ return (b.t.date || "") < (a.t.date || "") ? -1 : ((b.t.date || "") > (a.t.date || "") ? 1 : 0); });
-  var hasMore = sorted.length > TRANSACTIONS_RECENT_COUNT;
-  var visible = (transactionsShowAll || !hasMore) ? sorted : sorted.slice(0, TRANSACTIONS_RECENT_COUNT);
-  var rows = visible.map(function(x){ return transactionRowHtml(x.t, x.i); }).join("");
-  var countNote = '<p class="ledger-note tx-range-count" style="margin:8px 0 0">' +
-    sorted.length + ' transaction' + (sorted.length === 1 ? "" : "s") + ' · ' + fmtCurrency0.format(total) + '</p>';
+  var hasMore = shown.length > TRANSACTIONS_RECENT_COUNT;
+  var visible = (transactionsShowAll || !hasMore) ? shown : shown.slice(0, TRANSACTIONS_RECENT_COUNT);
+  var rows = visible.map(function(e){
+    if(e.kind === "in") return inRowHtml(e);
+    if(e.kind === "transfer") return transferRowHtml(e);
+    var t = state.transactions[e.ref];
+    var row = transactionRowHtml(t, e.ref);
+    if(txSelect.on) row = '<div class="cf-row-wrap">' + selectBoxHtml(e.ref) + row + '</div>';
+    if(splitEditing.idx === e.ref) row += splitEditorHtml(t, e.ref, function(id){ return transactionLinkOptionsHtml(id); });
+    return row;
+  }).join("");
   var toggleHtml = hasMore
     ? '<div class="ledger-footer"><button type="button" class="btn btn-sm btn-ghost" data-tx-show-all-toggle="' + (transactionsShowAll ? "0" : "1") + '">' +
-        (transactionsShowAll ? "Show recent only" : "Show all " + sorted.length + " in this range") +
+        (transactionsShowAll ? "Show recent only" : "Show all " + shown.length) +
       '</button></div>'
     : "";
-  container.innerHTML = controlHtml + countNote + '<div class="m-rows">' + rows + '</div>' + toggleHtml;
+  container.innerHTML = top + controlHtml + bulk + totalsLineHtml(totals, shown.length) + '<div class="m-rows">' + rows + '</div>' + toggleHtml;
+}
+// The entries currently on screen that are spending rows — what "Select all shown" picks.
+export function visibleSpendingIndices(){
+  var all = cashflowEntries({ lines: budgetLineItems(), accountOf: transactionAccount, categoryOf: transactionCategory });
+  var win = transactionScopeWindow(transactionsRange);
+  return filterEntries(all.filter(function(e){ return !win || (e.date >= win.start && e.date <= win.end); }), txFilters)
+    .filter(function(e){ return e.kind === "out"; }).map(function(e){ return e.ref; });
 }
 export function addTransaction(){
   state.transactions.push({ id: genId("t"), date: localDateStr(), amount: 0, what: "", linkedExpenseId: null, account: "" });
@@ -1468,7 +1522,7 @@ function rangeTransactionsForExpense(expenseId, startStr, endStr){
   return pairs.sort(function(a, b){ return (b.t.date || "") < (a.t.date || "") ? -1 : ((b.t.date || "") > (a.t.date || "") ? 1 : 0); });
 }
 function monthTransactionsForExpense(expenseId){
-  var monthStr = localDateStr().slice(0, 7);
+  var monthStr = selectedMonth();
   return rangeTransactionsForExpense(expenseId, monthStr + "-01", monthStr + "-31");
 }
 // Same caret markup on every expandable row in this panel — regular, irregular and Uncategorized.
@@ -1603,6 +1657,7 @@ function billedThisMonth(items){
 }
 export function renderActualVsPlannedPanel(){
   renderExpenseReviewButton();
+  renderBillsCalendar();
   renderSpendCategoryChart();
   renderSpendingTrends();
   renderYearSpending();
@@ -1640,8 +1695,9 @@ export function renderActualVsPlannedPanel(){
   // can be genuinely nonzero even with nothing logged today.
   if(!monthTxns.length){
     var plannedTotalEmpty = Math.round(billedThisMonth(regularItems) * 100) / 100;
+    var mpE = monthPhrase(selectedMonth());
     el.innerHTML =
-      '<p class="ledger-note" style="margin:0 0 12px">Nothing logged yet this month — ' + fmtCurrency0.format(plannedTotalEmpty) + ' is billed this month. Tap <b>+ Log spend</b> above and this fills in with where the month is actually going.</p>' +
+      '<p class="ledger-note" style="margin:0 0 12px">Nothing logged ' + (mpE === "this month" ? "yet this month" : mpE) + ' — ' + fmtCurrency0.format(plannedTotalEmpty) + ' is billed ' + mpE + '. Tap <b>+ Log spend</b> above and this fills in with where the month is actually going.</p>' +
       creditStatementCyclesHtml() + irregularSection;
     return;
   }
@@ -1682,10 +1738,11 @@ export function renderActualVsPlannedPanel(){
         (unlinkedOpen ? budgetRowTxnListHtml(unlinkedPairs) : '') +
       '</div>'
     : "";
+  var mp = monthPhrase(selectedMonth());
   el.innerHTML =
-    '<div class="fire-stat-row"><span>This month — spent vs. billed</span><b' + (overallColor ? ' style="color:' + overallColor + '"' : '') + '>' + fmtCurrency0.format(actualTotal) + ' / ' + fmtCurrency0.format(plannedTotal) + '</b></div>' +
+    '<div class="fire-stat-row"><span>' + (mp === "this month" ? "This month" : mp.slice(3)) + ' — spent vs. billed</span><b' + (overallColor ? ' style="color:' + overallColor + '"' : '') + '>' + fmtCurrency0.format(actualTotal) + ' / ' + fmtCurrency0.format(plannedTotal) + '</b></div>' +
     '<div class="fire-bar-track"><div class="fire-bar-fill' + (overallDelta > 0.5 ? " over" : "") + '" style="width:' + overallPct + '%"></div></div>' +
-    '<p class="fire-note" style="margin:2px 0 12px">' + (overallDelta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(overallDelta)) + (overallDelta > 0.5 ? " over what's billed this month." : overallDelta < -0.5 ? " under what's billed this month." : " right on what's billed this month.") + ' Smoothed average is ' + fmtCurrency0.format(smoothedMonthly) + '/mo.</p>' +
+    '<p class="fire-note" style="margin:2px 0 12px">' + (overallDelta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(overallDelta)) + (overallDelta > 0.5 ? " over what's billed " + mp + "." : overallDelta < -0.5 ? " under what's billed " + mp + "." : " right on what's billed " + mp + ".") + ' Smoothed average is ' + fmtCurrency0.format(smoothedMonthly) + '/mo.</p>' +
     '<div class="ledger-note" style="margin:0 0 6px">Where it went — tap a line for the individual transactions.</div>' +
     rows + unlinkedRow +
     creditStatementCyclesHtml() + irregularSection;
@@ -1699,7 +1756,7 @@ function creditStatementCyclesHtml(){
   var creditAccounts = state.accounts.filter(function(a){ return a.type === "credit"; });
   if(!creditAccounts.length) return "";
   var rows = creditAccounts.map(function(a){
-    var cycle = currentStatementCycle(a.statementStartDay || 1);
+    var cycle = currentStatementCycle(a.statementStartDay || 1, monthAnchorDate());
     var cycleTxns = transactionsInRange(state.transactions, cycle.start, cycle.end)
       .filter(function(t){ return transactionAccount(t) === a.name; });
     var total = cycleTxns.reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0);
@@ -1707,7 +1764,7 @@ function creditStatementCyclesHtml(){
       '<span style="font-size:11px;color:var(--ink-soft)">' + cycle.start + ' – ' + cycle.end + ' · ' + cycleTxns.length + ' charge' + (cycleTxns.length === 1 ? "" : "s") + '</span>' +
       '<span class="acct-amt">' + fmtCurrency0.format(total) + '</span></div>';
   }).join("");
-  return '<div style="margin-top:16px"><div class="fire-stat-row" style="margin-bottom:2px"><span>This bill so far — by statement cycle</span></div>' + rows + '</div>';
+  return '<div style="margin-top:16px"><div class="fire-stat-row" style="margin-bottom:2px"><span>' + (isPeriodToday() ? 'This bill so far' : 'The bill open on ' + monthAnchorDate()) + ' — by statement cycle</span></div>' + rows + '</div>';
 }
 
 // ---------------- Accounts: named money sources, used to group transactions into a credit card's statement cycle ----------------
@@ -1878,7 +1935,7 @@ export function renderSpendCategoryChart(){
   var groups = order.map(function(name){ return { key: name, monthly: byCategory[name] }; })
     .sort(function(a, b){ return b.monthly - a.monthly; });
   var html = categoryChartHtml(groups, "");
-  el.innerHTML = html ? '<div class="cat-chart-title">Spent by category this month</div>' + html : "";
+  el.innerHTML = html ? '<div class="cat-chart-title">Spent by category ' + monthPhrase(selectedMonth()) + '</div>' + html : "";
   el.hidden = !html;
 }
 // ---------------- Spending over time ----------------
@@ -2197,32 +2254,12 @@ export function setYearBasis(basis){
   persist();
 }
 
-function accountRowHtml(a, idx){
-  var nameInput = '<input type="text" class="acct-mgmt-name" data-acct-index="' + idx + '" value="' + escapeAttr(a.name || "") + '" placeholder="Account name" aria-label="Account name">';
-  var typeSelect = '<select class="acct-mgmt-type" data-acct-index="' + idx + '" aria-label="Account type">' +
-    '<option value="debit"' + (a.type !== "credit" ? " selected" : "") + '>Debit / savings — no due date</option>' +
-    '<option value="credit"' + (a.type === "credit" ? " selected" : "") + '>Credit card — has a statement cycle</option>' +
-    '</select>';
-  var dayInput = a.type === "credit"
-    ? '<input type="number" min="1" max="28" step="1" class="acct-mgmt-day" data-acct-index="' + idx + '" value="' + (a.statementStartDay || 1) + '" aria-label="Statement start day (1-28)">'
-    : "";
-  var delBtn = '<button type="button" class="btn btn-ghost btn-sm row-del" data-acct-del="' + idx + '" aria-label="Delete account">✕</button>';
-  return '<div class="m-row acct-mgmt-row" data-acct-index="' + idx + '">' +
-    '<div class="m-row-summary" style="cursor:default;flex-wrap:wrap;gap:8px">' + nameInput + typeSelect + dayInput + delBtn + '</div>' +
-  '</div>';
-}
-export function renderAccounts(){
-  var container = document.getElementById("accountsTable");
-  if(!container) return;
-  if(!state.accounts.length){
-    container.innerHTML = '<p class="ledger-note" style="margin:0">No accounts yet — add one below (e.g. your credit card) to group its transactions into a statement cycle.</p>';
-    return;
-  }
-  var rows = state.accounts.map(function(a, i){ return accountRowHtml(a, i); }).join("");
-  container.innerHTML = '<div class="m-rows">' + rows + '</div>';
-}
-export function addAccount(){
-  state.accounts.push({ id: genId("acct"), name: "", type: "debit", statementStartDay: 1 });
+// The page itself is components/accounts.js since v3.56.0 (balances, types, grouping).
+export function renderAccounts(){ renderAccountsPage(); }
+export function addAccount(type){
+  var a = { id: genId("acct"), name: "", type: type || "everyday", statementStartDay: 1, link: "" };
+  state.accounts.push(a);
+  openAccounts[a.id] = true;
   renderAccounts();
   persist();
 }
@@ -2239,7 +2276,9 @@ export function addAccount(){
 // state.transactions is in here too. Its rows are a different shape from a ledger item, but the
 // field is the same plain string, which is all either caller touches.
 function everyAccountBearingArray(){
-  var arrays = [state.income || [], state.shared || [], state.transactions || []];
+  // state.incomeLog carries an account too (money received, v3.46.0) — it was missing here until
+  // v3.59.0, so a rename left received pay on the old name.
+  var arrays = [state.income || [], state.shared || [], state.transactions || [], state.incomeLog || []];
   Object.keys(state.home || {}).forEach(function(name){
     if(Array.isArray(state.home[name])) arrays.push(state.home[name]);
   });
@@ -2301,5 +2340,10 @@ export function renameAccountEverywhere(oldName, newName){
   if(!oldName || oldName === newName) return;
   everyAccountBearingArray().forEach(function(items){
     items.forEach(function(row){ if((row.account || "") === oldName) row.account = newName; });
+  });
+  // Transfers name two accounts, in `from` and `to` (v3.59.0).
+  (state.transfers || []).forEach(function(x){
+    if(x.from === oldName) x.from = newName;
+    if(x.to === oldName) x.to = newName;
   });
 }

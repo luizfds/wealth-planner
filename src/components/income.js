@@ -666,9 +666,9 @@ function taxPersonFrontBodyHtml(person, r){
     // the cover is saving — which is the only way the panel can answer "is a policy worth it",
     // the question this app has every other input for.
     '<div class="tax-cap-note tax-cgt-note"' + (hasCapitalGainsActivity(r) ? '' : ' hidden') + ' title="Recorded under \'Record a sale\' on a Shares holding. Held more than 12 months, an individual\'s gain is halved before tax.">' + capitalGainsNoteText(r) + '</div>' +
-    '<div class="tax-cap-note tax-fund-note"' + (r.funds && r.funds.funds.length ? '' : ' hidden') + ' title="From annual tax statements entered on Shares holdings (Assets page). The income labels go into taxable income as they are; capital gains go through the capital gains figure above.">' + fundsNoteText(r) + '</div>' +
-    '<div class="tax-cap-note tax-div-note"' + (r.dividendGrossedUp > 0 ? '' : ' hidden') + ' title="Taken from Shares holdings with a dividend per unit set on the Assets page. Australian franking credits are refundable, so a low-income holder can receive more than the company distributed.">' + dividendNoteText(r) + '</div>' +
-    '<div class="tax-cap-note tax-deduct-note"' + (r.deductions > 0 ? '' : ' hidden') + ' title="Taken from budget lines flagged as work-related on the Expenses page. They reduce taxable income, which also reduces the Medicare levy and can move you under a surcharge tier — but not your HELP repayment, which is worked out on gross income.">' + deductionsNoteText(r) + '</div>' +
+    '<div class="tax-cap-note tax-fund-note"' + (r.funds && r.funds.funds.length ? '' : ' hidden') + ' title="From annual tax statements entered on Shares holdings (Investments). The income labels go into taxable income as they are; capital gains go through the capital gains figure above.">' + fundsNoteText(r) + '</div>' +
+    '<div class="tax-cap-note tax-div-note"' + (r.dividendGrossedUp > 0 ? '' : ' hidden') + ' title="Taken from Shares holdings with a dividend per unit set on Investments. Australian franking credits are refundable, so a low-income holder can receive more than the company distributed.">' + dividendNoteText(r) + '</div>' +
+    '<div class="tax-cap-note tax-deduct-note"' + (r.deductions > 0 ? '' : ' hidden') + ' title="Taken from budget lines flagged as work-related on Cash flow. They reduce taxable income, which also reduces the Medicare levy and can move you under a surcharge tier — but not your HELP repayment, which is worked out on gross income.">' + deductionsNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-mls-note' + (r.medicareSurcharge > 0 ? " warn" : "") + '"' + (r.mlsIfUncovered > 0 ? '' : ' hidden') + ' title="Income for surcharge purposes is approximated as taxable income + your reportable super contributions, ignoring reportable fringe benefits and net investment losses — the same simplification Division 293 uses here.">' + mlsNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-help-note"' + (r.helpBalance > 0 ? '' : ' hidden') + ' title="Compulsory repayment, worked out as a flat percentage of your repayment income — which adds back salary sacrifice and any rental loss, so neither of those reduces it.">' + helpNoteText(r) + '</div>' +
     // v3.44.0: the person's own details (date of birth, HELP, caps, carry-forward, losses, home
@@ -676,7 +676,7 @@ function taxPersonFrontBodyHtml(person, r){
     '<div class="tax-inputs pp-on-tax">' +
       '<div class="proj-field"><label title="Separate from the Cash / Sacrifice column on income rows — use this for sacrifice not tied to a specific item">Manual sacrifice $/yr</label><input type="number" min="0" step="500" class="tax-sacrifice" aria-label="Manual super sacrifice per year for ' + pid + '" value="' + settings.superSacrificeAnnual + '"><button type="button" class="calc-hint-link" style="margin-top:4px" data-tax-maxcap="' + pid + '" title="Fills your remaining concessional cap headroom this year with manual sacrifice (SG and any auto/bonus sacrifice already counted): sets manual sacrifice to ' + fmtCurrency0.format(Math.max(0, r.capAvailable - r.sg - r.autoSacrifice)) + '">Max out cap</button></div>' +
     '</div>' +
-    '<p class="ledger-note pp-link-note" style="margin:8px 0 0">Date of birth, HELP, super caps, capital losses and home hours: <button type="button" class="link-btn" data-goto-people="' + pid + '">Accounts → People</button></p>';
+    '<p class="ledger-note pp-link-note" style="margin:8px 0 0">Date of birth, HELP, super caps, capital losses and home hours: <button type="button" class="link-btn" data-goto-people="' + pid + '">Settings → People</button></p>';
 }
 
 // Capital gains for the household's year, netted as a return nets them: losses (this year's, then
@@ -737,7 +737,7 @@ function deductionsNoteText(r){
     " marginal rate — a deduction reduces the income you're taxed on, it isn't a refund of itself." +
     (r.wfh && r.wfh.amount > 0 ? " Includes working from home: " + Math.round(r.wfh.hours).toLocaleString("en-AU") + " hours x the fixed rate = " + fmtCurrency0.format(r.wfh.amount) + (r.wfh.assumed ? " (rate not yet published for this year — last year's used)" : "") + "." : "") +
     (r.wfhOverlap && r.wfhOverlap.length ? " Check: " + r.wfhOverlap.join(", ") + (r.wfhOverlap.length === 1 ? " is" : " are") + " also flagged, but the fixed rate already covers energy, internet, phone and stationery." : "") +
-    " Flag a budget line as deductible under More options on the Expenses page.";
+    " Flag a budget line as deductible under More options on Cash flow.";
 }
 // Both directions of the surcharge in one sentence — see the note's own comment for why holding
 // cover still prints a figure.
@@ -805,7 +805,7 @@ function phiNoteText(){
   var claimed = a.claimedTier < 0 ? "no rebate up front" : names[a.claimedTier];
   var ageNote = a.ageKnown
     ? (a.ageBand === "u65" ? "" : " Rates for the oldest person being " + (a.ageBand === "a70" ? "70 or over" : "65-69") + ".")
-    : " Assumes everyone on the policy is under 65 — add dates of birth (Accounts → People) if not.";
+    : " Assumes everyone on the policy is under 65 — add dates of birth (Settings → People) if not.";
   return phiNoteCore(a, names, claimed) + ageNote;
 }
 function phiNoteCore(a, names, claimed){

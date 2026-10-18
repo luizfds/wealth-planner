@@ -365,7 +365,7 @@ test("a known account selects normally, with no deleted marker", () => {
     const html = transactionAccountOptionsHtml("Amex");
     assert.match(html, /value="Amex" selected/);
     assert.ok(!html.includes("(deleted)"), html);
-    assert.match(html, /Amex \(credit\)/, "a credit card still says so");
+    assert.match(html, /Amex \(card\)/, "a credit card still says so");
   } finally { state.accounts = prev; }
 });
 
@@ -856,9 +856,9 @@ test("Returns offers Print; Documents offers Import a year and the checklist", a
     assert.match(ret, /data-ty-print[^>]*>Print \/ save as PDF/);
     assert.doesNotMatch(ret, /data-ty-import/);
     assert.match(docs, /data-ty-import[^>]*>Import a year<\/button>/);
-    assert.match(docs, /id="taxDocsYearSelect" data-ty-year/);
+    assert.match(docs, /class="ty-yearnote" id="taxDocsYearSelect"><b>FY25\/26<\/b>/);
     assert.match(docs, /To keep for FY25\/26 <span class="ty-docs-count">0 of 0<\/span>/);
-  } finally { Object.assign(state, keep); }
+  } finally { Object.assign(state, keep); (await import("../src/calc/ledger.js")).setPeriod(null, ""); }
 });
 
 test("loan strategy: four cards with results, and the IP note", async function(){
@@ -1043,19 +1043,122 @@ test("Projections: Plan / Actuals control explains itself either way", async fun
   assert.match(on, /income at 96% of plan \(1 line\), spending at 95% \(1 line plus one-offs\)\. That's −\$150 a month worse than the plan on those lines\. Only those lines move below/);
 });
 
-test("Dashboard → Review renders its four parts", async function(){
-  const { monthReviewHtml } = await import("../src/components/monthreview.js");
-  var keep = { income: state.income, incomeLog: state.incomeLog, transactions: state.transactions, accounts: state.accounts, monthReviews: state.monthReviews, properties: state.properties, assets: state.assets };
+test("Home → Review: a first-time intro, then one step at a time with progress", async function(){
+  const { monthReviewHtml, setReviewStep, dismissReviewIntro } = await import("../src/components/monthreview.js");
+  var keep = { income: state.income, incomeLog: state.incomeLog, transactions: state.transactions, accounts: state.accounts, monthReviews: state.monthReviews, properties: state.properties, assets: state.assets, debts: state.debts };
   try {
     state.income = [{ id: "t", what: "Tutoring", incomeType: "Net", amount: 300, freq: "Monthly" }];
-    state.incomeLog = []; state.transactions = []; state.properties = []; state.assets = []; state.monthReviews = {};
-    state.accounts = [{ name: "Card One", type: "credit", statementStartDay: 1 }];
+    state.incomeLog = []; state.transactions = []; state.properties = []; state.debts = []; state.monthReviews = {};
+    state.assets = [{ id: "c1", what: "Pot", category: "Cash", amount: 50, history: [{ date: "2026-09-10", value: 50 }] }];
+    state.accounts = [{ name: "Card One", type: "credit", statementStartDay: 1 }, { name: "Bank One", type: "savings", link: "asset:c1" }];
+    var intro = monthReviewHtml("2026-09", "2026-10-03");
+    assert.match(intro, /<h2>September 2026<\/h2>/);
+    assert.match(intro, /data-mr-intro-ok>Start the review/);
+    dismissReviewIntro();
     var html = monthReviewHtml("2026-09", "2026-10-03");
-    assert.match(html, /<h2>September 2026<\/h2>/);
-    assert.match(html, /<span class="mr-num">1<\/span><h3>Money in<\/h3><span class="mr-status warn">1 not logged<\/span>/);
+    assert.match(html, /Step 1 of 5<\/div><h3>Did the money you expected arrive\?<\/h3>/);
     assert.match(html, /data-mr-log="income:t"/);
-    assert.match(html, /data-mr-statement="Card One"/);
-    assert.match(html, /<h3>The month against the plan<\/h3>/);
-    assert.match(html, /data-mr-done="2026-09">Mark September 2026 reviewed/);
+    assert.match(html, /data-mr-to="1">Skip for now/);
+    setReviewStep(1);
+    assert.match(monthReviewHtml("2026-09", "2026-10-03"), /data-mr-statement="Card One"/);
+    setReviewStep(2);
+    var bal = monthReviewHtml("2026-09", "2026-10-03");
+    assert.match(bal, /1 balance was last updated before the month ended/);
+    assert.match(bal, /data-mr-go="accounts"/);
+    setReviewStep(4);
+    var sum = monthReviewHtml("2026-09", "2026-10-03");
+    assert.match(sum, /<h3>How did the month go\?<\/h3>/);
+    assert.match(sum, /data-mr-done="2026-09">Mark September 2026 reviewed/);
+    assert.match(sum, /class="mr-step-dot is-current is-todo" data-mr-to="4"/);
   } finally { Object.assign(state, keep); }
+});
+
+test("Home summary: net worth, the month, bills and to-dos", async function(){
+  const { homeSummaryHtml, upcomingBills } = await import("../src/components/home.js");
+  var keep = { netWorthLog: state.netWorthLog, transactions: state.transactions, lastBackupDate: state.lastBackupDate, monthReviews: state.monthReviews, income: state.income, incomeLog: state.incomeLog };
+  try {
+    state.netWorthLog = [{ date: "2026-08-01", value: 100000 }, { date: "2026-10-01", value: 104000 }];
+    state.transactions = [{ id: "x", date: "2026-09-20", amount: 80, linkedExpenseId: "e1" }];
+    state.income = []; state.incomeLog = []; state.monthReviews = {}; state.lastBackupDate = "";
+    var items = [{ id: "e1", what: "Phone", amount: 80, freq: "Monthly" }];
+    var bills = upcomingBills(items, state.transactions, "2026-10-14", 14);
+    assert.deepEqual(bills.map(function(b){ return b.what + "@" + b.due; }), ["Phone@2026-10-20"]);
+    var html = homeSummaryHtml("2026-10-14", { netWorth: 105000, items: items, todos: [{ text: "Review September 2026", go: "dashboard", sub: "review", tone: "warn" }] });
+    assert.match(html, /<b class="home-big">\$105,000<\/b>/);
+    assert.match(html, /\+\$5,000 since 1 Aug/);
+    assert.match(html, /Phone<\/span><em class="">20 Oct<\/em><b>\$80<\/b>/);
+    assert.match(html, /data-home-go="dashboard" data-home-sub="review">Review September 2026/);
+  } finally { Object.assign(state, keep); }
+});
+
+test("the period button and menu render the selected year and its months", async function(){
+  const { periodMenuHtml, periodButtonHtml } = await import("../src/components/period.js");
+  const { setPeriod } = await import("../src/calc/ledger.js");
+  var keep = state.yearBasis;
+  try {
+    state.yearBasis = "financial";
+    setPeriod(2023, "2023-09", "2025-03-10");
+    var btn = periodButtonHtml("2025-03-10");
+    assert.match(btn, /FY23\/24 · Sep/);
+    assert.match(btn, /not today/);
+    var menu = periodMenuHtml("2025-03-10", "2022-08-01");
+    assert.match(menu, /data-period-year="2024"[^>]*>FY24\/25 <small>now<\/small>/);
+    assert.match(menu, /class="period-chip active" aria-pressed="true" data-period-year="2023"/);
+    assert.match(menu, /data-period-year="2022"/);
+    assert.doesNotMatch(menu, /data-period-year="2021"/);
+    assert.match(periodMenuHtml("2025-03-10", null), /data-period-year="2022"/);
+    assert.match(menu, /class="period-chip active" data-period-month="2023-09"/);
+    assert.match(menu, /data-period-month="2024-06"/);
+    assert.match(menu, /data-period-today>Back to today/);
+    setPeriod(null, "", "2025-03-10");
+    assert.doesNotMatch(periodButtonHtml("2025-03-10"), /not today/);
+    assert.match(periodMenuHtml("2025-03-10", null), /data-period-month="2025-04" disabled/);
+  } finally { state.yearBasis = keep; setPeriod(null, ""); }
+});
+
+test("Accounts page: grouped cards with balances, a card's available limit, and loose balances", async function(){
+  const { accountsPageHtml, openAccounts } = await import("../src/components/accounts.js");
+  var keep = { accounts: state.accounts, assets: state.assets, debts: state.debts, properties: state.properties };
+  try {
+    state.assets = [{ id: "as1", what: "Savings pot", category: "Cash", amount: 4200, history: [{ date: "2026-09-01", value: 4000 }, { date: "2026-10-01", value: 4200 }] }];
+    state.debts = [{ id: "d1", what: "Card", balance: 700, history: [] }, { id: "d2", what: "Car loan", balance: 9000 }];
+    state.properties = [];
+    state.accounts = [{ id: "a1", name: "Bank One", type: "savings", link: "asset:as1" }, { id: "a2", name: "Fern Card", type: "credit", statementStartDay: 3, limit: 5000, link: "debt:d1" }, { id: "a3", name: "Spare", type: "everyday", link: "" }];
+    openAccounts.a2 = true;
+    var html = accountsPageHtml("2026-10-18");
+    assert.match(html, /Bank accounts/);
+    assert.match(html, /Credit cards/);
+    assert.match(html, /\$4,200/);
+    assert.match(html, /−\$700/);
+    assert.match(html, /\$4,300 of \$5,000 available/);
+    assert.match(html, /no balance/);
+    assert.match(html, /class="acct-mgmt-limit"[^>]*value="5000"/);
+    assert.match(html, /data-acct-adopt="debt:d2" data-acct-adopt-type="loan"/);
+    assert.match(html, /<span>Owed on cards and loans<\/span><b class="owed">−\$9,700/);
+  } finally { Object.assign(state, keep); }
+});
+
+test("property Tax tab: the year's rental result line by line, and each owner's share", async function(){
+  const { propertyTaxTabHtml, propertyTabsFor } = await import("../src/components/properties.js");
+  var p = { id: "p9", what: "1 Example St", kind: "IP", ownership: {}, income: [{ what: "Rent", amount: 2000, freq: "Monthly" }], expenses: [{ what: "Rates", amount: 2400, freq: "Yearly" }], loans: [] };
+  var html = propertyTaxTabHtml(p);
+  assert.match(html, /Rent<\/span><b>\$24,000/);
+  assert.match(html, /Expenses<\/span><b>−\$2,400/);
+  assert.match(html, /Net rental income<\/span><b>\$21,600/);
+  assert.deepEqual(propertyTabsFor(p).map(function(t){ return t.key; }), ["overview", "loans", "income", "tax", "sale"]);
+  assert.deepEqual(propertyTabsFor({ kind: "PPOR" }).map(function(t){ return t.key; }), ["overview", "loans", "income"]);
+});
+
+test("Keeping your data safe: backups, the folder option and the passcode", async function(){
+  const { safekeepingHtml } = await import("../src/components/safekeeping.js");
+  var keep = state.lastBackupDate;
+  try {
+    state.lastBackupDate = "2026-08-01";
+    var html = safekeepingHtml(null, "2026-10-18");
+    assert.match(html, /78 days ago, worth making a new one/);
+    assert.match(html, /data-sk="export"/);
+    assert.match(html, /Needs Chrome or Edge/, "no folder API under Node");
+    assert.match(html, /data-sk="pass-set">Set a passcode/);
+    assert.match(html, /doesn't encrypt/);
+  } finally { state.lastBackupDate = keep; }
 });

@@ -2173,7 +2173,97 @@ HELP.
 rental schedule's interest model runs across the rates that applied); history and the last change's
 effect on the loan; one notification per change in the last 60 days.
 
+## Professional structure (October 2026)
+
+From a full assessment: the features work but each page grew its own controls and its own copy of
+related data. "Let's do all of them" — one PR, a version per step.
+
+## 92. `[x]` One period selector, in the header — shipped v3.55.0
+Replaces six separate period controls (Preferences year basis, Transactions 1M–All, Shares range,
+the Tax year dropdown, Received's fixed month, Review's month stepper). Every page reads it. Plus a
+check for a debt that is a credit limit rather than an amount owed.
+Shipped as: a year (and optional month) button beside the page title; `calc/ledger.js` owns the
+selection (`selectedYearWindow`, `selectedMonth`, `periodAnchorDate`), and `householdYearWindow()`,
+the month defaults, reserve windows, Received, Returns/Documents, the transaction list
+(Month / Year / All) and the Review follow it. Session-only, so the app always opens on today. The
+share-price and chart ranges stayed — they're zoom levels on a chart, not the period being reported.
+
+## 93. `[x]` Accounts with balances — shipped v3.56.0
+Each account has a type (everyday, savings, credit card, offset, loan) and a balance with history.
+Cash assets, offsets and debts become account balances; an offset links to its loan.
+Shipped as: `account.link` points at the record that already holds the money ("asset:<id>",
+"debt:<id>", "offset:<loanId>", "loan:<loanId>") so net worth and the engine are untouched —
+`calc/accounts.js` reads and writes through it, `components/accounts.js` groups the page (bank
+accounts / cards / loans, plus "balances with no account yet"). A card's `limit` lives on the
+account and is never counted. Migration (state.js `migrateAccounts`) maps "debit" → "everyday",
+gives Cash assets and debts ids, and links by name once (`accountsLinked`).
+
+## 94. `[x]` Navigation by job — shipped v3.57.0
+Home, Cash flow, Accounts, Investments, Property, Tax, Plan, Reports, Settings.
+Shipped as: page ids kept where a page carried on (dashboard = Home, expenses = Cash flow, assets =
+Investments, properties = Property); Income moved into Cash flow as a subpage, Scenarios and
+Projections into a new Plan page, People/Categories/Preferences/Checks into a new Settings page.
+`nav.js` ALIASES send the old ids (and old URLs/remembered pages) to their new subpage, and
+showPage's deferred apply drops a navigation superseded in the same tick. Phone bar: Home, Cash
+flow, Accounts, Investments, More (Property, Tax, Plan, Settings). Reports lands with item 98.
+
+## 95. `[x]` Home, and Review as a guided flow — shipped v3.58.0
+Home: net worth, the period's money in and out, bills due, a to-do list. Review: one step at a
+time with progress, plain questions, first-time explanation, the summary last.
+Shipped as: `components/home.js` — four cards above the tabs (net worth with change and trend, the
+selected month's money in / out / kept, bills in the next two weeks, a to-do list linking to where
+each is done). The scenario comparison became the "Scenarios" tab. The Review is a five-step
+stepper (money in, card statements, balances, checks, the month against the plan) with step dots
+showing done / to do / nothing to do, Back / Next / Skip, and an explanation before the first one.
+
+
+## 96. `[x]` Cash flow — shipped v3.59.0–v3.60.0
+One budget (income and expenses), one transaction list (money in and out) with filters, transfers
+between own accounts, splits, bulk edit, an import-rules editor, a bills calendar.
+Shipped as: v3.59.0 — "Your month, planned" (income in, spending groups out, running total), the
+Spending list joins state.transactions, state.incomeLog and the new state.transfers
+(`calc/cashflowlist.js`; transfers are never spending) with direction/account/category/line/person/
+search filters and In/Out/Net totals; splits are ordinary transactions sharing `splitGroup`;
+Select → bulk re-link/re-account/delete. v3.60.0 — Settings → Import rules (`components/rules.js`:
+edit, add, delete, test a description) and Cash flow → Bills (`calc/bills.js`: each regular line's
+dates in the month from its last payment, paid/overdue, never-logged lines listed apart).
+
+
+## 97. `[x]` Property as tabs; investments additions — shipped v3.61.0
+A summary header and tabbed sections per property; portfolio performance, distribution history,
+super contributions per year.
+Shipped as: each property card keeps its summary tiles and gets tabs (Overview, Loans, Income &
+costs, and for an IP Tax and Sale) — every panel rendered, switching toggles `hidden`. The Tax tab
+leads with `propertyTaxResultBreakdown()` (the year's rental result line by line) and each owner's
+share with its rough tax effect. `calc/investments.js`: portfolio performance (cost, value, gain,
+distributions, realised, total return) and distributions by financial year on Investments → Shares;
+concessional contributions against each person's cap for the period's year on Investments → Super.
+
+
+## 98. `[x]` Reports — shipped v3.62.0
+Monthly cash flow, category trends, net worth statement, property P&L, tax summary — following the
+period selector, printable and exportable.
+Shipped as: a Reports page (nav between Plan and Settings) — `calc/reports.js` builds five
+same-shaped tables (monthly cash flow, spending by category × month, net worth statement that
+reconciles to `totalNetWorthValue()`, property P&L per IP, tax summary per person) over the
+header's period; `components/reports.js` renders them, prints through the shared #printRoot and
+downloads CSV via `exportTableCsv`.
+
+
+## 99. `[x]` Polish — shipped v3.63.0
+One meaning per verb, one number format, empty states that say what's next, nav badges, backup
+reminders and folder export, optional passcode.
+
 ---
+Shipped as: "Log" kept for money (spend, money received); values and balances say "Record value",
+"Update balance", "Record change". A Checks count on Settings (sidebar, More tab, More item).
+Settings → Preferences → Keeping your data safe (`lib/safekeeping.js`): last backup and Back up
+now, weekly automatic backups into a chosen folder (File System Access API, Chrome/Edge desktop;
+the handle kept in IndexedDB), and an optional passcode lock (salted SHA-256 in localStorage, per
+device, never in a backup — a lock screen, not encryption, and it says so). Migrations for items
+92–98 run in `migrateState` with no action needed (account types and links, transfers,
+lastFolderBackup).
+
 
 ## Conventions for whoever picks this up
 

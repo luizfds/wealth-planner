@@ -5,7 +5,7 @@ import { incomeTargets } from "../calc/received.js";
 import { escapeAttr } from "../lib/html.js";
 
 // ---------------- Settings → Import rules (v3.60.0) ----------------
-// The bank import learns a rule every time a row is confirmed ("WOOLWORTHS" → Groceries), and until
+// The bank import learns a rule every time a row is confirmed ("FERN CAFE" → Coffee), and until
 // now there was nowhere to see them, fix a wrong one or write one ahead of an import — a bad guess
 // accepted once kept filing the same merchant to the wrong line forever. This lists every rule
 // with what it does, lets each part be changed, and tests a description against the set.

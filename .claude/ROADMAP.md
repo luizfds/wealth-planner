@@ -2217,9 +2217,17 @@ stepper (money in, card statements, balances, checks, the month against the plan
 showing done / to do / nothing to do, Back / Next / Skip, and an explanation before the first one.
 
 
-## 96. `[~]` Cash flow
+## 96. `[x]` Cash flow — shipped v3.59.0–v3.60.0
 One budget (income and expenses), one transaction list (money in and out) with filters, transfers
 between own accounts, splits, bulk edit, an import-rules editor, a bills calendar.
+Shipped as: v3.59.0 — "Your month, planned" (income in, spending groups out, running total), the
+Spending list joins state.transactions, state.incomeLog and the new state.transfers
+(`calc/cashflowlist.js`; transfers are never spending) with direction/account/category/line/person/
+search filters and In/Out/Net totals; splits are ordinary transactions sharing `splitGroup`;
+Select → bulk re-link/re-account/delete. v3.60.0 — Settings → Import rules (`components/rules.js`:
+edit, add, delete, test a description) and Cash flow → Bills (`calc/bills.js`: each regular line's
+dates in the month from its last payment, paid/overdue, never-logged lines listed apart).
+
 
 ## 97. `[~]` Property as tabs; investments additions
 A summary header and tabbed sections per property; portfolio performance, distribution history,

@@ -337,6 +337,7 @@
           <button type="button" class="subnav-item active" data-expenses-sub="budget">Budget</button>
           <button type="button" class="subnav-item" data-expenses-sub="income">Income</button>
           <button type="button" class="subnav-item" data-expenses-sub="spending">Spending</button>
+          <button type="button" class="subnav-item" data-expenses-sub="bills">Bills</button>
         </div>
         <div class="expenses-subpage" id="expensesSub-budget">
         <div class="page-intro-row">
@@ -470,6 +471,19 @@
           </details>
         </div>
         </div>
+        <div class="expenses-subpage" id="expensesSub-bills" hidden>
+        <div class="page-intro-row">
+          <p class="page-intro">When each bill lands this month, from the last time it was paid — and which have been paid. Change the month with the period beside the page title.</p>
+        </div>
+        <div class="ledgers">
+          <details class="ledger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Bills calendar</h2></div>
+            </summary>
+            <div class="ledger-body"><div id="billsCalendar"></div></div>
+          </details>
+        </div>
+        </div>
         <div class="expenses-subpage" id="expensesSub-income" hidden>
         <div class="page-intro-row">
           <p class="page-intro">Your household income, and what it's really worth after tax.</p>
@@ -546,6 +560,7 @@
           <button type="button" class="subnav-item active" data-accounts-sub="people">People</button>
           <button type="button" class="subnav-item" data-accounts-sub="categories">Categories</button>
           <button type="button" class="subnav-item" data-accounts-sub="preferences">Preferences</button>
+          <button type="button" class="subnav-item" data-accounts-sub="rules">Import rules</button>
           <button type="button" class="subnav-item" data-accounts-sub="checks">Checks</button>
         </div>
         <div class="accounts-subpage" id="accountsSub-people">
@@ -583,6 +598,23 @@
               <div class="ledger-footer">
                 <button class="btn btn-sm" id="addCategoryBtn">+ Add category</button>
               </div>
+            </div>
+          </details>
+        </div>
+        </div>
+        <div class="accounts-subpage" id="accountsSub-rules" hidden>
+        <div class="page-intro-row">
+          <p class="page-intro">What the bank import has learned: which words in a statement line file it under which budget line. Fix a wrong one, or add one before an import.</p>
+        </div>
+        <div class="ledgers">
+          <details class="ledger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Import rules</h2></div>
+              <div class="ledger-total" id="rulesCount"></div>
+            </summary>
+            <div class="ledger-body">
+              <p class="ledger-note help" style="margin-left:0">A rule matches whole words anywhere in a statement line, ignoring case and punctuation; when two match, the longer one wins, so "fern cafe north" beats "fern cafe". Confirming a row in an import updates its rule.</p>
+              <div id="rulesBody"></div>
             </div>
           </details>
         </div>

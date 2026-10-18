@@ -141,3 +141,38 @@ export function budgetPlanHtml(opts){
   var net = opts.net != null ? opts.net : run;
   return html + '<div class="bp-row bp-total"><span>Left over each month</span><b></b><em class="' + (net < 0 ? "neg" : "pos") + '">' + (net < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(net)) + '</em></div>';
 }
+
+// ---------------- Cash flow → Bills (v3.60.0) ----------------
+// The selected month as a calendar (Monday first), each day with its bills — ticked when paid,
+// red when past and unpaid — and the same list underneath, which is what a phone mostly reads.
+var CAL_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+export function billsCalendarHtml(data, ym, today){
+  today = today || localDateStr();
+  var y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7));
+  var first = new Date(y, m - 1, 1), daysIn = new Date(y, m, 0).getDate();
+  var lead = (first.getDay() + 6) % 7;
+  var cells = [];
+  for(var i = 0; i < lead; i++) cells.push('<div class="bc-cell is-blank" aria-hidden="true"></div>');
+  for(var d = 1; d <= daysIn; d++){
+    var key = ym + "-" + String(d).padStart(2, "0");
+    var bills = data.days[key] || [];
+    cells.push('<div class="bc-cell' + (key === today ? " is-today" : "") + (bills.length ? " has-bills" : "") + '"><span class="bc-day">' + d + '</span>' +
+      bills.slice(0, 3).map(function(b){
+        return '<span class="bc-bill' + (b.paid ? " paid" : b.overdue ? " overdue" : "") + '" title="' + escapeAttr(b.what + " " + fmtCurrency0.format(b.amount) + (b.paid ? " — paid" : b.overdue ? " — not logged yet" : "")) + '">' +
+          escapeAttr(b.what) + '</span>';
+      }).join("") + (bills.length > 3 ? '<span class="bc-more">+' + (bills.length - 3) + '</span>' : '') +
+      (bills.length ? '<span class="bc-dots" aria-hidden="true">' + bills.map(function(b){ return '<i class="' + (b.paid ? "paid" : b.overdue ? "overdue" : "") + '"></i>'; }).join("") + '</span>' : '') + '</div>');
+  }
+  var head = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(function(n){ return '<div class="bc-head">' + n + '</div>'; }).join("");
+  var keys = Object.keys(data.days).sort();
+  var list = keys.length ? '<ul class="bc-list">' + keys.map(function(k){
+    return data.days[k].map(function(b){
+      return '<li class="' + (b.paid ? "paid" : b.overdue ? "overdue" : "") + '"><span class="bc-list-date">' + Number(k.slice(8, 10)) + ' ' + CAL_MONTHS[m - 1].slice(0, 3) + '</span><span class="bc-list-name">' + escapeAttr(b.what) + '</span>' +
+        '<span class="bc-list-state">' + (b.paid ? "paid ✓" : b.overdue ? "not logged" : k === today ? "today" : "due") + '</span><b>' + fmtCurrency0.format(b.amount) + '</b></li>';
+    }).join("");
+  }).join("") + '</ul>' : '<p class="ledger-note" style="margin:8px 0 0">No dated bills in ' + CAL_MONTHS[m - 1] + '. A bill gets a day once a payment has been logged against its budget line.</p>';
+  var undated = data.undated.length ? '<details class="bc-undated"><summary>' + data.undated.length + ' regular line' + (data.undated.length === 1 ? "" : "s") + ' with no payment logged yet, so no day</summary><p class="ledger-note" style="margin:4px 0">' +
+    data.undated.map(function(u){ return escapeAttr(u.what); }).join(", ") + '</p></details>' : '';
+  return '<div class="bc-summary"><b>' + CAL_MONTHS[m - 1] + ' ' + y + '</b><span>' + fmtCurrency0.format(data.paidTotal) + ' paid of ' + fmtCurrency0.format(data.total) + ' in dated bills</span></div>' +
+    '<div class="bc-grid" role="grid" aria-label="Bills in ' + CAL_MONTHS[m - 1] + '">' + head + cells.join("") + '</div>' + list + undated;
+}

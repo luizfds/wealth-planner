@@ -72,6 +72,8 @@ import {
 import { ACCOUNT_TYPE_KEYS, accountSourceOptions, setAccountBalance, resolveLink, accountBalance } from "./calc/accounts.js";
 import { addTransfer, deleteTransfer, splitTransaction, unsplit, bulkEditTransactions, bulkDeleteTransactions } from "./calc/cashflowlist.js";
 import { txFilters, txSelect, transferForm, splitEditing, resetTxFilters } from "./components/cashflow.js";
+import { rulesPageHtml, setRuleField, ruleIsEmpty, ruleTest } from "./components/rules.js";
+import { normaliseDescription } from "./calc/bank-import.js";
 import { openAccounts, balanceEditing } from "./components/accounts.js";
 import { renderHomeSummary } from "./components/home.js";
 import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodButton, renderPeriodMenu } from "./components/period.js";
@@ -3373,7 +3375,57 @@ import {
     var b = e.target.closest("[data-plan-sub]");
     if(b) showPlanSubpage(b.getAttribute("data-plan-sub"));
   });
+  // ---------------- Settings → Import rules (v3.60.0) ----------------
+  function renderRules(){
+    var el = document.getElementById("rulesBody");
+    if(el) el.innerHTML = rulesPageHtml(budgetLineItems());
+    var c = document.getElementById("rulesCount");
+    if(c) c.textContent = (state.importRules || []).length + " rule" + ((state.importRules || []).length === 1 ? "" : "s");
+  }
+  var rulesBody = document.getElementById("rulesBody");
+  rulesBody.addEventListener("change", function(e){
+    var t = e.target, i = t.getAttribute("data-rl-index");
+    if(i == null) return;
+    if(!setRuleField(Number(i), t.getAttribute("data-rl-key"), t.value)){ showToast("A rule needs some words to match"); renderRules(); return; }
+    var r = state.importRules[Number(i)];
+    persist();
+    renderRules();
+    if(r && ruleIsEmpty(r)) showToast("This rule now files nothing — give it a line or a category, or it's removed next time the app opens");
+  });
+  var rulesTestTimer = null;
+  rulesBody.addEventListener("input", function(e){
+    if(!e.target.hasAttribute("data-rl-test")) return;
+    ruleTest.text = e.target.value;
+    clearTimeout(rulesTestTimer);
+    rulesTestTimer = setTimeout(function(){
+      var pos = e.target.selectionStart;
+      renderRules();
+      var again = rulesBody.querySelector("[data-rl-test]");
+      if(again){ again.focus(); try{ again.setSelectionRange(pos, pos); }catch(err){} }
+    }, 180);
+  });
+  rulesBody.addEventListener("click", function(e){
+    var del = e.target.closest("[data-rl-del]");
+    if(del){
+      var i = Number(del.getAttribute("data-rl-del"));
+      var gone = state.importRules.splice(i, 1)[0];
+      persist(); renderRules();
+      if(gone) showUndoToast("Rule deleted", function(){ state.importRules.splice(i, 0, gone); persist(); renderRules(); });
+      return;
+    }
+    if(e.target.closest("[data-rl-add]")){
+      var m = rulesBody.querySelector('[data-rl-new="match"]').value, line = rulesBody.querySelector('[data-rl-new="line"]').value;
+      var key = normaliseDescription(m);
+      if(!key || !line){ showToast("Type the words to match and pick a line"); return; }
+      var existing = state.importRules.find(function(r){ return r.match === key && !r.incomeTarget; });
+      if(existing){ existing.linkedExpenseId = line; existing.category = ""; }
+      else state.importRules.push({ id: genId("rule"), match: key, linkedExpenseId: line, category: "", account: "", hits: 0 });
+      persist(); renderRules();
+      showToast(existing ? "Updated the rule for “" + key + "”" : "Added a rule for “" + key + "”");
+    }
+  });
   function renderSettingsTab(id){
+    if(id === "rules") renderRules();
     if(id === "categories") renderCategories();
     if(id === "people") renderPeopleTab();
     if(id === "checks") renderHealth();
@@ -3384,6 +3436,7 @@ import {
     if(!accountsSubBtn) return;
     var accountsSubId = accountsSubBtn.getAttribute("data-accounts-sub");
     showAccountsSubpage(accountsSubId);
+    if(accountsSubId === "rules") renderRules();
     // Each category row carries a live "used by N lines" count, which goes stale every time a
     // budget line is added, deleted, recategorised or imported — none of which re-render this
     // normally-hidden tab, and none of which should have to know it exists. Recounting on the way
@@ -4231,7 +4284,7 @@ import {
   });
   // Same swipe-between-tabs affordance as Assets above, and same mobile-only guard: two tabs, so
   // a swipe simply stops at either end rather than wrapping.
-  var EXPENSES_SUB_ORDER = ["budget", "income", "spending"];
+  var EXPENSES_SUB_ORDER = ["budget", "income", "spending", "bills"];
   function stepExpensesSubpage(step){
     if(!window.matchMedia("(max-width: 880px)").matches) return;
     var activeExpensesBtn = document.querySelector("#expensesSubnav .subnav-item.active");

@@ -60,7 +60,7 @@ var currentAssetsSub = "summary";
 // Expenses' own two halves — the planned budget and the real spend logged against it. Unlike
 // Assets' categories (whose ids are the user-facing category names and so need a slug map), these
 // are already lowercase route slugs, so they double as their own DOM ids and URL segments.
-var EXPENSES_SUBS = ["budget", "income", "spending"];
+var EXPENSES_SUBS = ["budget", "income", "spending", "bills"];
 var currentExpensesSub = "budget";
 // Tax's three halves (v3.43.0): the year as a plan, past years as returns, and the papers behind
 // them. Deep-linkable like Expenses — "open the return" is worth a bookmark in October.
@@ -69,7 +69,7 @@ var TAX_SUBS = ["year", "returns", "documents"];
 var PLAN_SUBS = ["scenarios", "projections"];
 var currentPlanSub = "scenarios";
 // Settings (v3.57.0): the registries and preferences that used to share the Accounts page.
-var SETTINGS_SUBS = ["people", "categories", "preferences", "checks"];
+var SETTINGS_SUBS = ["people", "categories", "preferences", "rules", "checks"];
 var currentSettingsSub = "people";
 var currentTaxSub = null;
 // Between 1 July and 31 October the year just ended is the thing to be doing, so Tax opens on its

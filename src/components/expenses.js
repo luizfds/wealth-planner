@@ -4,13 +4,14 @@ import { sumField, sumFieldForScenario, resolveSharedAmount, periodsOf, budgetCy
 import { merchantGroups, worthShowingMerchants, recentMerchants } from "../calc/merchants.js";
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
 import { scenarioTotals } from "../calc/engine.js";
+import { billsForMonth } from "../calc/bills.js";
 import { scenarioIncomeRows } from "../calc/tax.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent0, fmtPercent1, localDateStr } from "../lib/format.js";
 import { spendingTrends, monthKeyLabel } from "../calc/trends.js";
 import { escapeAttr } from "../lib/html.js";
 import { renderAccountsPage, openAccounts } from "./accounts.js";
 import { cashflowEntries, filterEntries, entryTotals } from "../calc/cashflowlist.js";
-import { budgetPlanHtml, txFilters, txSelect, transferForm, splitEditing, filterBarHtml, totalsLineHtml, inRowHtml, transferRowHtml, selectBoxHtml, bulkBarHtml, transferFormHtml, splitEditorHtml } from "./cashflow.js";
+import { budgetPlanHtml, billsCalendarHtml, txFilters, txSelect, transferForm, splitEditing, filterBarHtml, totalsLineHtml, inRowHtml, transferRowHtml, selectBoxHtml, bulkBarHtml, transferFormHtml, splitEditorHtml } from "./cashflow.js";
 import { modernPlainRowHtml, modernRowSummaryHtml, modernRowEditHtml, modernRowShellHtml, optionsHtml } from "../lib/ledger-table.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { parseCsv } from "../lib/backup.js";
@@ -372,6 +373,13 @@ export function revealBudgetLine(lineId){
   if(!state.budgetGroupsCollapsed) state.budgetGroupsCollapsed = {};
   state.budgetGroupsCollapsed[group.key] = false;
   return true;
+}
+// Cash flow → Bills (v3.60.0) — calc/bills.js, laid out by components/cashflow.js.
+export function renderBillsCalendar(){
+  var el = typeof document !== "undefined" && document.getElementById("billsCalendar");
+  if(!el) return;
+  var ym = selectedMonth();
+  el.innerHTML = billsCalendarHtml(billsForMonth(loggableBudgetLineItems(), state.transactions, ym, localDateStr()), ym);
 }
 // "Your month, planned" (v3.59.0) — components/cashflow.js budgetPlanHtml.
 export function renderBudgetPlan(){
@@ -1649,6 +1657,7 @@ function billedThisMonth(items){
 }
 export function renderActualVsPlannedPanel(){
   renderExpenseReviewButton();
+  renderBillsCalendar();
   renderSpendCategoryChart();
   renderSpendingTrends();
   renderYearSpending();

@@ -1132,3 +1132,50 @@
   .bp-total em{ color: var(--ink); font-size:15px; } .bp-total em.pos{ color: var(--good); }
   #budgetPlanNet.neg{ color: var(--bad); }
   @media (max-width: 420px){ .bp-head, .bp-row{ grid-template-columns: minmax(0,1fr) 84px 84px; gap:6px; } }
+
+  /* Settings → Import rules (v3.60.0) */
+  .rl-test{ display:flex; flex-direction:column; gap:4px; margin-bottom:12px; }
+  .rl-test-out{ margin:0; font-size:12.5px; color: var(--ink-soft); }
+  .rl-list{ display:flex; flex-direction:column; gap:8px; }
+  .rl-row{ display:grid; grid-template-columns: minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr) minmax(0,0.9fr) 36px 40px; gap:8px; align-items:end;
+    border:1px solid var(--border); border-radius:10px; padding:8px 10px; background: var(--paper-raised); }
+  .rl-row.is-hit{ border-color: var(--brass); box-shadow: var(--focus-ring); }
+  .rl-hits{ font-size:12px; color: var(--ink-soft); text-align:center; align-self:center; }
+  .rl-add{ margin-top:12px; display:flex; flex-direction:column; gap:6px; }
+  .rl-add-grid{ display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) auto; gap:8px; align-items:end; }
+  @media (max-width: 760px){
+    .rl-row{ grid-template-columns: 1fr 1fr; }
+    .rl-match{ grid-column: 1 / -1; }
+    .rl-add-grid{ grid-template-columns: 1fr; }
+  }
+
+  /* Cash flow → Bills (v3.60.0) */
+  .bc-summary{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
+  .bc-summary span{ font-size:12.5px; color: var(--ink-soft); }
+  .bc-grid{ display:grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap:4px; }
+  .bc-head{ font-size:10.5px; font-weight:600; text-transform:uppercase; color: var(--ink-soft); text-align:center; padding:2px 0; }
+  .bc-cell{ min-height:78px; border:1px solid var(--border); border-radius:8px; padding:4px; display:flex; flex-direction:column; gap:2px; min-width:0; background: var(--paper-raised); }
+  .bc-cell.is-blank{ border:0; background:none; }
+  .bc-cell.is-today{ border-color: var(--brass); box-shadow: inset 0 0 0 1px var(--brass); }
+  .bc-day{ font-size:11px; font-weight:600; color: var(--ink-soft); }
+  .bc-bill{ font-size:10.5px; line-height:1.25; padding:1px 4px; border-radius:4px; background: var(--brass-wash); color: var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .bc-bill.paid{ background: var(--good-wash); text-decoration: line-through; text-decoration-color: var(--good); }
+  .bc-bill.overdue{ background: var(--bad-wash); }
+  .bc-more{ font-size:10px; color: var(--ink-soft); }
+  .bc-dots{ display:none; gap:2px; flex-wrap:wrap; }
+  .bc-dots i{ width:6px; height:6px; border-radius:50%; background: var(--brass); }
+  .bc-dots i.paid{ background: var(--good); } .bc-dots i.overdue{ background: var(--bad); }
+  .bc-list{ list-style:none; margin:12px 0 0; padding:0; }
+  .bc-list li{ display:grid; grid-template-columns: 52px minmax(0,1fr) auto auto; gap:8px; align-items:baseline; font-size:13px; padding:6px 0; border-bottom:1px dashed var(--border); }
+  .bc-list-date{ font-size:12px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .bc-list-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .bc-list-state{ font-size:11.5px; color: var(--ink-soft); }
+  .bc-list li.paid .bc-list-state{ color: var(--good); } .bc-list li.overdue .bc-list-state{ color: var(--bad); font-weight:600; }
+  .bc-list b{ font-variant-numeric: tabular-nums; }
+  .bc-undated{ margin-top:10px; font-size:12.5px; }
+  .bc-undated summary{ cursor:pointer; color: var(--ink-soft); min-height:32px; }
+  @media (max-width: 640px){
+    .bc-cell{ min-height:44px; padding:3px; }
+    .bc-bill, .bc-more{ display:none; }
+    .bc-dots{ display:flex; }
+  }

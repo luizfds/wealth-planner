@@ -30,13 +30,13 @@ const base = "http://127.0.0.1:" + server.address().port;
 
 const VIEWS = [
   ["dashboard", "dashboard-sub", ["overview", "insights", "benchmarks", "review"]],
-  ["expenses", "expenses-sub", ["budget", "income", "spending"]],
+  ["expenses", "expenses-sub", ["budget", "income", "spending", "bills"]],
   ["accounts", null, [null]],
   ["assets", "assets-sub", ["summary", "Cash", "Shares", "Super", "Vehicle", "Other", "Offsets"]],
   ["properties", null, [null]],
   ["tax", "tax-sub", ["year", "returns", "documents"]],
   ["plan", "plan-sub", ["scenarios", "projections"]],
-  ["settings", "accounts-sub", ["people", "categories", "preferences", "checks"]]
+  ["settings", "accounts-sub", ["people", "categories", "preferences", "rules", "checks"]]
 ];
 const failures = [];
 const browser = await chromium.launch(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {});

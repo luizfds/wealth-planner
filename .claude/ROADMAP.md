@@ -2138,6 +2138,30 @@ the rental schedule, not as budget lines (`householdBudgetLines()`).
 `calc/health.js` `dataHealthChecks()` → Accounts → Checks, worst first, each with a way there; one
 bell notification while anything needs fixing.
 
+## Keeping itself up to date (October 2026)
+
+"Do all of them" after PR #87. One PR: each builds on the Received/Checks/Close-the-year work.
+
+## 86. `[~]` A monthly review
+One guided pass at the end of a month: money in logged against the plan, the card statement
+reconciled, new Checks cleared, and the month's actual vs plan in one place.
+
+## 87. `[~]` Bank import learns income
+A money-in group assigned to an income line teaches a rule, so next month's salary, rent and
+distributions match themselves.
+
+## 88. `[~]` Projections from actuals
+Once a few months of received income and logged spending exist, the projection and the FI date can
+run on the real savings rate, with the plan beside it.
+
+## 89. `[~]` Before 30 June: the moves that save tax
+A May–June panel: super room and what a top-up saves, shares at a loss against gains already made,
+deductible costs worth paying before 30 June, prepaying investment-loan interest.
+
+## 90. `[~]` Mid-year withholding check
+Year-to-date figures from the latest payslip project the year's withholding against the year's tax:
+heading for a refund or a bill.
+
 ---
 
 ## Conventions for whoever picks this up

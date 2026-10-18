@@ -104,7 +104,7 @@
      wedged against the title. margin-left:auto pins it to the right edge of the head's flex row,
      which is the only place it reads as a summary of the collapsed section rather than part of
      the heading. */
-  .property-section-total{ margin-left:auto; font-family:"IBM Plex Mono", monospace; font-size:12px; font-variant-numeric: tabular-nums; color: var(--ink-soft); }
+  .property-section-total{ margin-left:auto; font-family:var(--font-num); font-size:12px; font-variant-numeric: tabular-nums; color: var(--ink-soft); }
   .property-section-total.is-warn{ color: var(--bad); font-weight:600; }
   .property-card .calc-outputs{ background: var(--paper-sunken); }
   .prop-pmfee-panel{
@@ -112,7 +112,7 @@
   }
   .home-block-right{ display:flex; align-items:center; gap:8px; flex:none; }
   .home-block-total-label{ font-size:10px; text-transform:uppercase; letter-spacing:.03em; color: var(--ink-soft); white-space:nowrap; }
-  .home-block-total{ font-family:"IBM Plex Mono", monospace; font-size:12.5px; color: var(--ink-soft); white-space:nowrap; }
+  .home-block-total{ font-family:var(--font-num); font-size:12.5px; color: var(--ink-soft); white-space:nowrap; }
   /* Comparing several scenarios means several full purchase calculators on one page — collapsed
      cards keep just the header (name + total) visible so the page reads as a scannable list,
      matching the disclosure pattern the ledger sections use elsewhere. */
@@ -193,7 +193,7 @@
   }
   .calc-out{ display:flex; flex-direction:column; gap:2px; }
   .calc-out span{ font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
-  .calc-out b{ font-family:"IBM Plex Mono", monospace; font-size:15px; font-variant-numeric: tabular-nums; }
+  .calc-out b{ font-family:var(--font-num); font-size:15px; font-variant-numeric: tabular-nums; }
   .calc-out.emph b{ color: var(--brass-strong); font-size:17px; }
 
   .calc-costs-title{ font-size:11.5px; font-weight:600; color: var(--ink-soft); margin: 2px 0 -4px; }
@@ -201,7 +201,7 @@
   .m-cost-row{ display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid var(--border); }
   .m-cost-row:last-child{ border-bottom:none; }
   .m-cost-row input.cc-what{ flex:1 1 auto; min-width:0; border:1px solid transparent; background:transparent; color:var(--ink); font-size:13px; font-family:inherit; padding:5px 6px; border-radius:6px; }
-  .m-cost-row input.cc-amount{ flex:0 0 100px; min-width:0; border:1px solid transparent; background:transparent; color:var(--ink); text-align:right; font-size:13px; font-family:"IBM Plex Mono", monospace; padding:5px 6px; border-radius:6px; }
+  .m-cost-row input.cc-amount{ flex:0 0 100px; min-width:0; border:1px solid transparent; background:transparent; color:var(--ink); text-align:right; font-size:13px; font-family:var(--font-num); padding:5px 6px; border-radius:6px; }
   .m-cost-row input.cc-what:hover, .m-cost-row input.cc-what:focus, .m-cost-row input.cc-amount:hover, .m-cost-row input.cc-amount:focus{ border-color: var(--border); background: var(--paper-sunken); }
   .m-cost-row input.cc-what:focus, .m-cost-row input.cc-amount:focus{ border-color: var(--brass); outline:none; background: var(--paper); box-shadow: var(--focus-ring); }
   .m-cost-row .row-del{ flex:none; }
@@ -210,7 +210,7 @@
      the year select keeps its natural width ("FY25/26" truncated to "FY1" at 390px otherwise) while
      the two amounts share what's left. */
   .dep-sched-row select.dep-sched-fy{ flex:0 0 auto; min-width:max-content; font-size:13px; font-family:inherit; color:var(--ink); background:transparent; border:1px solid transparent; border-radius:6px; padding:5px 2px; }
-  .dep-sched-row input{ flex:1 1 0; min-width:0; border:1px solid transparent; background:transparent; color:var(--ink); text-align:right; font-size:13px; font-family:"IBM Plex Mono", monospace; padding:5px 6px; border-radius:6px; }
+  .dep-sched-row input{ flex:1 1 0; min-width:0; border:1px solid transparent; background:transparent; color:var(--ink); text-align:right; font-size:13px; font-family:var(--font-num); padding:5px 6px; border-radius:6px; }
   .dep-sched-row input:hover, .dep-sched-row select:hover{ border-color: var(--border); background: var(--paper-sunken); }
   .dep-sched-row input:focus, .dep-sched-row select:focus{ border-color: var(--brass); outline:none; background: var(--paper); box-shadow: var(--focus-ring); }
   /* Two classes, so it beats the phone-width .m-cost-row grid below whatever the source order: that
@@ -258,7 +258,7 @@
   .property-compare-row:hover{ background: var(--paper-sunken); border-color: var(--border); }
   .property-compare-row:focus-visible{ box-shadow: var(--focus-ring); }
   .property-compare-name{ flex:1 1 auto; min-width:0; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .property-compare-stat{ flex:none; color: var(--ink-soft); font-family:"IBM Plex Mono", monospace; font-size:11.5px; white-space:nowrap; }
+  .property-compare-stat{ flex:none; color: var(--ink-soft); font-family:var(--font-num); font-size:11.5px; white-space:nowrap; }
   /* Name + three stats all on one row runs out of space well before 480px — name gets its own
      full-width line, stats wrap freely on the line below, same "one item gets a full-width row"
      shape as the acquisition-costs mobile fix just above this in the file. */
@@ -287,7 +287,7 @@
   .sale-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:14px 24px; }
   @media (max-width: 700px){ .sale-grid{ grid-template-columns: 1fr; } }
   .sale-line{ display:flex; justify-content:space-between; gap:10px; font-size:12.5px; padding:3px 0; color: var(--ink-soft); }
-  .sale-line b{ color: var(--ink); font-family:"IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; font-weight:500; white-space:nowrap; }
+  .sale-line b{ color: var(--ink); font-family:var(--font-num); font-variant-numeric: tabular-nums; font-weight:500; white-space:nowrap; }
   .sale-line.sale-total{ border-top:1px solid var(--border); margin-top:2px; padding-top:6px; color: var(--ink); font-weight:600; }
   .sale-line.sale-total b{ font-weight:700; }
   .sale-grand{ font-size:14px; }

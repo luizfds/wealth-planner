@@ -1634,7 +1634,7 @@ function offsetRowHtml(property, loan, li, colorIdx){
       // flex:none: without it, this row's flex layout (dot + name/sub column + this input + the
       // jump button, all inside a 390px phone) shrinks a fixed-width input below its own width:110
       // once space is tight — the same trap .m-cost-row .row-del's own flex:none guards against.
-      ' style="width:110px;min-height:40px;flex:none;text-align:right;font-family:\'IBM Plex Mono\',monospace;border:1px solid transparent;background:transparent;color:inherit;padding:5px 6px;border-radius:6px">' +
+      ' style="width:110px;min-height:40px;flex:none;text-align:right;font-family:var(--font-num);border:1px solid transparent;background:transparent;color:inherit;padding:5px 6px;border-radius:6px">' +
     '<button type="button" class="icon-btn" style="flex:none" data-jump-property="' + escapeAttr(property.id) + '" aria-label="View ' + escapeAttr(property.what) + ' on Properties" title="View on Properties">' +
       '<svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 5h8v8"/><path d="M15 5L5 15"/></svg>' +
     '</button>' +
@@ -1684,7 +1684,7 @@ export function renderDebts(){
   container.innerHTML = '<div class="m-rows">' + state.debts.map(function(d, idx){
     return '<div class="m-row computed" data-debt-index="' + idx + '"><div class="m-row-summary" style="cursor:default">' +
       '<div style="flex:1 1 auto;min-width:0"><input type="text" class="debt-what" data-debt-index="' + idx + '" value="' + escapeAttr(d.what) + '" aria-label="Debt name" style="all:unset;box-sizing:border-box;width:100%;min-height:40px;font:inherit;color:inherit">' + historyTrendHtml(d) + '</div>' +
-      '<input type="number" step="100" min="0" class="debt-balance" data-debt-index="' + idx + '" value="' + d.balance + '" aria-label="Balance" style="width:110px;min-height:40px;text-align:right;font-family:\'IBM Plex Mono\',monospace;border:1px solid transparent;background:transparent;color:inherit;padding:5px 6px;border-radius:6px">' +
+      '<input type="number" step="100" min="0" class="debt-balance" data-debt-index="' + idx + '" value="' + d.balance + '" aria-label="Balance" style="width:110px;min-height:40px;text-align:right;font-family:var(--font-num);border:1px solid transparent;background:transparent;color:inherit;padding:5px 6px;border-radius:6px">' +
       '<button type="button" class="btn btn-sm btn-ghost" data-debt-log="' + idx + '" title="Record the balance above as of today">Update balance</button>' +
       '<button type="button" class="btn btn-ghost btn-sm row-del" data-debt-del="' + idx + '" aria-label="Delete debt">✕</button>' +
     '</div></div>';

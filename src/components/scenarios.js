@@ -285,7 +285,7 @@ function renderPurchasePanelHtml(scenario){
     }).join("");
     var modernCostsCompBar = modernCostCompBarHtml(costRowMeta(cfg));
     var stampDutyHtml = out.stampDuty === null
-      ? '<input type="number" step="1" min="0" class="calc-manual-stampduty" value="' + (Number(cfg.manualStampDuty) || 0) + '" style="width:100%;font-family:\'IBM Plex Mono\',monospace;font-size:15px;background:transparent;border:1px solid var(--border);border-radius:6px;padding:2px 4px;">'
+      ? '<input type="number" step="1" min="0" class="calc-manual-stampduty" value="' + (Number(cfg.manualStampDuty) || 0) + '" style="width:100%;font-family:var(--font-num);font-size:15px;background:transparent;border:1px solid var(--border);border-radius:6px;padding:2px 4px;">'
       : fmtCurrency0.format(out.stampDuty);
     body =
       '<div class="calc-body">' +

@@ -388,11 +388,11 @@ import {
 
 
   function renderTotals(){
-    document.getElementById("totalIncomeMonthly").textContent = fmtCurrency2.format(sumField(effectiveIncomeItems(), "monthly"));
+    document.getElementById("totalIncomeMonthly").textContent = fmtCurrency0.format(sumField(effectiveIncomeItems(), "monthly"));
     // Totals what the list actually shows — shared plus the active scenario's housing — not just
     // state.shared, or the header disagrees with the cards beneath it by the size of your rent.
     // Scenario-resolved, matching the cards below it and every other total in the app.
-    document.getElementById("totalSharedMonthly").textContent = fmtCurrency2.format(sumFieldForScenario(budgetLineItems(), state.activeScenario, "monthly"));
+    document.getElementById("totalSharedMonthly").textContent = fmtCurrency0.format(sumFieldForScenario(budgetLineItems(), state.activeScenario, "monthly"));
     renderGlobalMetrics();
   }
 

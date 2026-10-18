@@ -62,9 +62,9 @@
     display:flex; align-items:center; gap:8px; padding:6px 0; border-top:1px solid var(--border);
     font-size:12px; color: var(--ink-soft);
   }
-  .budget-row-txn-date{ flex:none; width:64px; font-family:"IBM Plex Mono", monospace; font-size:11px; }
+  .budget-row-txn-date{ flex:none; width:64px; font-family:var(--font-num); font-size:11px; }
   .budget-row-txn-what{ flex:1 1 auto; min-width:0; color: var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .budget-row-txn-amt{ flex:none; font-family:"IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; color: var(--ink); }
+  .budget-row-txn-amt{ flex:none; font-family:var(--font-num); font-variant-numeric: tabular-nums; color: var(--ink); }
   /* At mobile widths a 64px date column leaves too little room for description + amount + delete
      on one line — drop the date to its own line above, same "give the tight element more room"
      shape as this file's other mobile row fixes (properties.css's .m-cost-row, .property-compare-row). */
@@ -73,7 +73,7 @@
     .budget-row-txn-date{ width:auto; flex-basis:100%; }
   }
   .fire-stat-row{ display:flex; justify-content:space-between; align-items:baseline; font-size:12.5px; color: var(--ink-soft); margin-bottom:4px; }
-  .fire-stat-row b{ color: var(--ink); font-family:"IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; }
+  .fire-stat-row b{ color: var(--ink); font-family:var(--font-num); font-variant-numeric: tabular-nums; }
   .fire-note{ font-size:11.5px; color: var(--ink-soft); margin:8px 0 0; line-height:1.5; }
   .panel{
     background: var(--paper-raised); border:1px solid var(--border); border-radius: 14px;
@@ -120,7 +120,7 @@
   #spendCategoryChart[hidden]{ display:none; }
   .rule-legend{ display:flex; gap:16px; flex-wrap:wrap; font-size:12px; }
   .rule-legend-item{ display:flex; align-items:center; gap:6px; color: var(--ink-soft); }
-  .rule-legend b{ color: var(--ink); font-weight:600; font-family:"IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  .rule-legend b{ color: var(--ink); font-weight:600; font-family:var(--font-num); font-variant-numeric: tabular-nums; }
   /* Same story as .rule-seg above: every legend swatch in the v2.99.0 charts computed to
      rgba(0,0,0,0), so a stacked chart that encodes identity in colour alone had a colourless key. */
   .rule-swatch{ width:9px; height:9px; border-radius:3px; flex:none; background: var(--series-color, transparent); }
@@ -148,7 +148,7 @@
   .ledger-title .section-title{ margin:0; }
   .ledger-caret{ transition: transform .15s ease; color: var(--ink-soft); flex:none; }
   details[open] > summary .ledger-caret{ transform: rotate(90deg); }
-  .ledger-total{ font-family:"IBM Plex Mono", monospace; font-size: 13px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .ledger-total{ font-family:var(--font-num); font-size: 13px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
   .ledger-total b{ color: var(--ink); font-weight:600; }
   .ledger-note{ font-size:12px; color: var(--ink-soft); margin:0 20px 12px; }
   .ledger-body{ padding: 0 20px 18px; }
@@ -161,7 +161,7 @@
   }
   .import-preview-table td{ padding:6px 10px; border-bottom:1px solid var(--border); font-size:12.5px; white-space:nowrap; }
   .import-preview-table tr:last-child td{ border-bottom:none; }
-  .import-preview-table td.num, .import-preview-table th.num{ text-align:right; font-family:"IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; }
+  .import-preview-table td.num, .import-preview-table th.num{ text-align:right; font-family:var(--font-num); font-variant-numeric: tabular-nums; }
   .row-del{ opacity:0.5; padding:8px 11px; }
   .row-del:hover{ opacity:1; }
   .computed-note{ font-size: 10.5px; color: var(--ink-soft); display:block; margin-top:1px; }
@@ -210,7 +210,7 @@
     background: var(--paper); color: var(--ink); font-family:inherit; min-height:40px;
   }
   .acct-mgmt-day{
-    width:64px; flex:none; text-align:center; font-family:"IBM Plex Mono", monospace; font-size:13px;
+    width:64px; flex:none; text-align:center; font-family:var(--font-num); font-size:13px;
     padding:5px 6px; border:1px solid var(--border); border-radius:6px; background: var(--paper); color: var(--ink);
     min-height:40px;
   }
@@ -223,7 +223,7 @@
   tr.row-breakdown-row td{ background: var(--paper-raised); padding:14px 18px; }
   .row-breakdown-panel{ display:inline-grid; grid-template-columns: auto auto; gap:5px 28px; min-width:280px; }
   .row-breakdown-panel .rb-label{ font-size:12px; color: var(--ink-soft); }
-  .row-breakdown-panel .rb-value{ font-family:"IBM Plex Mono", monospace; font-size:13px; font-variant-numeric: tabular-nums; text-align:right; color: var(--ink); white-space:nowrap; }
+  .row-breakdown-panel .rb-value{ font-family:var(--font-num); font-size:13px; font-variant-numeric: tabular-nums; text-align:right; color: var(--ink); white-space:nowrap; }
   .row-breakdown-panel .rb-row.neg .rb-value{ color: var(--bad); }
   .row-breakdown-panel .rb-row.rb-total .rb-label, .row-breakdown-panel .rb-row.rb-total .rb-value{
     border-top:1px solid var(--border); margin-top:2px; padding-top:7px; font-weight:700; color: var(--brass-strong); font-size:14.5px;
@@ -309,7 +309,7 @@
   .m-card{ border:1px solid var(--border); border-radius:12px; background: var(--paper-sunken); overflow:hidden; }
   .m-card-head{ display:flex; align-items:center; gap:12px; padding:13px 16px; }
   .m-card-name{ font-weight:700; font-size:14px; flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .m-card-total{ font-family:"IBM Plex Mono", monospace; font-weight:700; font-size:14.5px; white-space:nowrap; }
+  .m-card-total{ font-family:var(--font-num); font-weight:700; font-size:14.5px; white-space:nowrap; }
   .m-card-total span{ font-size:11px; font-weight:500; color: var(--ink-soft); margin-left:2px; }
   .m-comp-bar{ display:flex; gap:2px; height:6px; border-radius:4px; overflow:hidden; margin:0 16px 12px; }
   .m-comp-seg{ background: var(--series-color); min-width:2px; }
@@ -339,7 +339,7 @@
     background: var(--paper-sunken); color: var(--ink-soft); flex:none;
   }
   .m-row-tag.gross{ background: var(--brass-wash); color: var(--brass-strong); }
-  .m-row-amt{ margin-left:auto; font-family:"IBM Plex Mono", monospace; font-weight:600; font-size:13.5px; white-space:nowrap; flex:none; }
+  .m-row-amt{ margin-left:auto; font-family:var(--font-num); font-weight:600; font-size:13.5px; white-space:nowrap; flex:none; }
   /* Hidden while collapsed — every row already reads as tappable on its own (name + amount,
      cursor:pointer, hover state) now that opening one pushes a full page/dialog rather than
      expanding in place, so a trailing "this expands" arrow was redundant clutter in the list.
@@ -456,7 +456,7 @@
   /* Same "numbers are mono" rule every other amount on the page follows (the row summary this
      panel expands from is already mono) — font-family:inherit above is for the text/select
      fields only; it was overriding the number input's mono by equal-specificity source order. */
-  .m-edit-field input[type="number"]{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  .m-edit-field input[type="number"]{ font-family:var(--font-num); font-variant-numeric: tabular-nums; }
   .m-edit-field input:focus, .m-edit-field select:focus{ outline:none; border-color: var(--brass); box-shadow: var(--focus-ring); }
   .m-edit-field .sacrifice-wrap{ display:flex; align-items:center; gap:4px; }
   .m-edit-field .sacrifice-wrap input{ flex: 0 0 64px; }
@@ -521,7 +521,7 @@
   .scen-override-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
   .scen-override-name{ flex:1 1 120px; min-width:0; font-size:12.5px; color: var(--ink); display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
   .scen-override-input{
-    width:100px; font-family:"IBM Plex Mono",monospace; font-size:13px; background: var(--paper);
+    width:100px; font-family:var(--font-num); font-size:13px; background: var(--paper);
     border:1px solid var(--border); border-radius:6px; padding:4px 6px; color: var(--ink);
   }
   .scen-override-input:focus-visible{ outline:none; box-shadow: var(--focus-ring); }
@@ -801,7 +801,7 @@
     font-size:12.5px; font-weight:600; color: var(--ink); flex:1 1 auto; min-width:0;
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
-  .trend-row-amt{ font-family:"IBM Plex Mono", monospace; font-size:12.5px; font-weight:600; flex:none; }
+  .trend-row-amt{ font-family:var(--font-num); font-size:12.5px; font-weight:600; flex:none; }
   .trend-delta{ flex:none; font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:100px; white-space:nowrap; }
   .trend-delta.up{ background: var(--bad-wash); color: var(--bad); }
   .trend-delta.down{ background: var(--good-wash); color: var(--good); }
@@ -865,7 +865,7 @@
      whatever the category names do. */
   .year-cat-bar{ flex:1 1 auto; min-width:32px; height:6px; border-radius:100px; background: var(--paper-sunken); overflow:hidden; }
   .year-cat-fill{ display:block; height:100%; background: var(--brass); border-radius:100px; }
-  .year-cat-amt{ flex:none; font-family:"IBM Plex Mono", monospace; font-weight:600; min-width:72px; text-align:right; }
+  .year-cat-amt{ flex:none; font-family:var(--font-num); font-weight:600; min-width:72px; text-align:right; }
   .year-cat-pct{ flex:none; font-size:11px; color: var(--ink-soft); min-width:38px; text-align:right; }
   /* v3.32.0: the bar is spent against planned; over plan turns the fill and the amount to --bad. */
   .year-cat-row.over .year-cat-fill{ background: var(--bad); }
@@ -906,7 +906,7 @@
   .bank-import-help p{ margin:6px 0 0; line-height:1.6; }
   .bank-import-help ul{ margin:8px 0 0; padding-left:18px; display:flex; flex-direction:column; gap:6px; line-height:1.55; }
   .bank-import-help code{
-    font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:11.5px;
+    font-family:var(--font-num); font-size:11.5px;
     background: var(--paper-sunken); padding:1px 5px; border-radius:4px;
   }
   .bank-import-skipped > summary{ color: var(--ink-soft); }
@@ -990,7 +990,7 @@
   }
   .budget-row-merchant-bar > span{ display:block; height:100%; background: var(--brass); border-radius:3px; }
   .budget-row-merchant-amt{
-    flex:none; font-family:"IBM Plex Mono", monospace; font-variant-numeric: tabular-nums;
+    flex:none; font-family:var(--font-num); font-variant-numeric: tabular-nums;
     color: var(--ink);
   }
   .budget-row-merchant-amt small{ color: var(--ink-soft); font-size:10.5px; }
@@ -1026,7 +1026,7 @@
   .forecast-row:first-of-type{ border-top:0; }
   .forecast-when{ font-weight:600; white-space:nowrap; }
   .forecast-note{ font-size:11.5px; color: var(--ink-soft); min-width:0; }
-  .forecast-amt{ font-family:"IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; font-weight:600; white-space:nowrap; text-align:right; }
+  .forecast-amt{ font-family:var(--font-num); font-variant-numeric: tabular-nums; font-weight:600; white-space:nowrap; text-align:right; }
   .forecast-amt small{ font-weight:400; color: var(--ink-soft); font-family: inherit; }
   .forecast-row.is-steady .forecast-when{ font-weight:500; color: var(--ink-soft); }
 

@@ -2307,9 +2307,13 @@ steps (year over, months reviewed, close the year, documents kept, returns lodge
 where it's done, and Print the pack (five statements, one per page), the year's transactions CSV
 and the documents checklist CSV.
 
-## 105. `[~]` One number format
+## 105. `[x]` One number format — shipped v3.69.0
 Money looks the same everywhere: one font, whole dollars in summaries, cents only on individual
 transactions and tax figures.
+Shipped as: a `--font-num` token (Inter) replacing every IBM Plex Mono figure in the stylesheets and
+inline styles (a paste-in textarea keeps it), tabular figures on body, and the Income and Budget
+page totals moved to whole dollars. Rule recorded in base.css: whole dollars for totals and
+summaries, cents for single items (a transaction, a budget line, a tax figure).
 
 ## Conventions for whoever picks this up
 

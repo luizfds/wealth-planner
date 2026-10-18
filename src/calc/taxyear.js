@@ -86,6 +86,86 @@ export function recordedDeductionsByLabel(fy, person){
   return out;
 }
 
+// The year's deductions, line by line (v3.47.0). Typed claims used to replace every budget line
+// flagged deductible; now each flagged line is listed for the year and can be left out on its own,
+// and typed claims add to whatever is left in. `rows` are this person's flagged lines (tax.js
+// deductionRows), passed in so this module needn't import tax.js.
+//
+// A year typed before this existed keeps meaning what it meant: with typed claims and no explicit
+// choice, the budget lines stay out (useBudgetLines defaults to "no typed claims yet").
+export function usesBudgetLines(py){
+  if(!py) return true;
+  return py.useBudgetLines == null ? !(py.deductions || []).length : !!py.useBudgetLines;
+}
+export function budgetLineDeductions(fy, person, rows){
+  var py = personYear(fy, person, false);
+  var excluded = (py && py.excludedLines) || [];
+  var win = fyWindow(fy);
+  return (rows || []).map(function(i){
+    return { id: i.id, what: i.what || "Line", label: i.deductionLabel || "D5", amount: Math.round(rowDeductionAnnual(i, win) * 100) / 100,
+      excluded: excluded.indexOf(i.id) !== -1 };
+  }).filter(function(l){ return l.amount > 0 || l.excluded; });
+}
+// null when the year has no record for this person — the model (the same budget lines) stands in.
+export function yearDeductions(fy, person, rows){
+  var py = personYear(fy, person, false);
+  if(!py) return null;
+  var byLabel = {};
+  var add = function(code, amt){ byLabel[code] = Math.round(((byLabel[code] || 0) + amt) * 100) / 100; };
+  var lines = usesBudgetLines(py) ? budgetLineDeductions(fy, person, rows) : [];
+  lines.forEach(function(l){ if(!l.excluded) add(l.label, l.amount); });
+  (py.deductions || []).forEach(function(d){ add(d.label || "D5", Number(d.amount) || 0); });
+  var total = Object.keys(byLabel).reduce(function(s, k){ return s + byLabel[k]; }, 0);
+  return { byLabel: byLabel, total: Math.round(total * 100) / 100, lines: lines, typed: (py.deductions || []).length };
+}
+export function setUseBudgetLines(fy, person, on){
+  personYear(fy, person, true).useBudgetLines = !!on;
+}
+export function setLineExcluded(fy, person, id, excluded){
+  var py = personYear(fy, person, true);
+  var list = Array.isArray(py.excludedLines) ? py.excludedLines : (py.excludedLines = []);
+  var i = list.indexOf(id);
+  if(excluded && i === -1) list.push(id);
+  if(!excluded && i !== -1) list.splice(i, 1);
+}
+
+// What an income row should have paid over a financial year (v3.47.0) — the "expected" beside an
+// income statement it's linked to. Follows the row's recorded pay changes (history: the amount from
+// each date) and its start and end dates, day by day. An income statement's gross leaves super out,
+// so a row whose amount includes super has it taken back off at the SG rate.
+export function expectedGrossForYear(row, fy, sgRatePct){
+  if(!row) return 0;
+  var win = fyWindow(fy);
+  var start = row.startDate && row.startDate > win.start ? row.startDate : win.start;
+  var end = row.endDate && row.endDate < win.end ? row.endDate : win.end;
+  if(end < start) return 0;
+  var hist = (row.history || []).filter(function(h){ return h && h.date; }).slice().sort(function(a, b){ return a.date < b.date ? -1 : 1; });
+  var days = function(a, b){ return Math.round((Date.parse(b) - Date.parse(a)) / 86400000) + 1; };
+  var yearDays = days(win.start, win.end);
+  var yearly = function(v){ return periodsOf(Number(v) || 0, row.freq).yearly; };
+  // Irregular yearly pay (a bonus) is paid once, not spread — it's in the year whole or not at all.
+  if(row.irregular && row.freq === "Yearly") return grossOf(row, yearly(row.amount), sgRatePct);
+  var total = 0;
+  if(!hist.length){
+    total = yearly(row.amount) * days(start, end) / yearDays;
+  } else {
+    // Segments between changes; before the first recorded change, the first recorded amount.
+    var cursor = start;
+    for(var k = 0; k <= hist.length; k++){
+      var segEnd = k < hist.length ? new Date(Date.parse(hist[k].date) - 86400000).toISOString().slice(0, 10) : end;
+      var value = k === 0 ? hist[0].value : hist[k - 1].value;
+      if(segEnd > end) segEnd = end;
+      if(segEnd >= cursor){ total += yearly(value) * days(cursor, segEnd) / yearDays; cursor = new Date(Date.parse(segEnd) + 86400000).toISOString().slice(0, 10); }
+      if(cursor > end) break;
+    }
+  }
+  return grossOf(row, total, sgRatePct);
+}
+function grossOf(row, amount, sgRatePct){
+  var g = row.superMode === "Included" ? amount / (1 + (Number(sgRatePct) || 0) / 100) : amount;
+  return Math.round(g * 100) / 100;
+}
+
 // ---------------- The rental schedule ----------------
 //
 // The rent section of a return, line by line in myTax's order. Each line has a MODEL value worked

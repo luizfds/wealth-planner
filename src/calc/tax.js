@@ -2,8 +2,8 @@ import { state } from "../state.js";
 import { AU_TAX_BRACKETS, MAX_SUPER_BASE, HELP_REPAYMENT_RATES, MLS_TIERS, MLS_FAMILY_MULTIPLIER, WFH_FIXED_RATES, TAX_YEARS, MLS_RATES } from "../constants.js";
 import { periodsOf, resolveSharedAmount, householdYearWindow, isActiveOn, overlapDaysInclusive } from "./ledger.js";
 import { ipNetResultAnnual, personIpResultAnnual, ipProperties, propertyOwnershipPct } from "./property.js";
-import { incomeStatementTotals, interestIncome, recordedDeductionsByLabel, rentalSchedule } from "./taxyear.js";
-import { deductionYearFraction, rowDeductionAnnual, setClaimItemsProvider } from "./claims.js";
+import { incomeStatementTotals, interestIncome, recordedDeductionsByLabel, rentalSchedule, yearDeductions } from "./taxyear.js";
+import { deductionYearFraction, rowDeductionAnnual, setClaimItemsProvider, claimItems } from "./claims.js";
 export { deductionYearFraction, rowDeductionAnnual };
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
 
@@ -607,9 +607,29 @@ export function phiAgeBand(fy){
   });
   return { band: oldest == null ? "u65" : oldest >= 70 ? "a70" : oldest >= 65 ? "a65" : "u65", oldestAge: oldest, known: oldest != null };
 }
+// What the policy costs a year before the rebate (v3.47.0). Typed, or — when a budget line is
+// marked as the policy — read from that line: a budget line is what you actually pay, which is
+// after the rebate your insurer applies, so it's grossed back up at the tier you claim with them.
+export function phiPremiumsAnnual(fy){
+  var lineId = state.tax && state.tax.phiLineId;
+  if(lineId){
+    var line = claimItems().find(function(i){ return i.id === lineId; });
+    if(line){
+      var paid = periodsOf(Number(line.amount) || 0, line.freq).yearly;
+      var claimed = state.tax.phiTierClaimed == null ? 0 : Number(state.tax.phiTierClaimed);
+      var rate = phiRebateRate(claimed, fy, phiAgeBand(fy).band);
+      return Math.round(paid / (1 - rate) * 100) / 100;
+    }
+  }
+  return Math.max(0, Number(state.tax && state.tax.phiPremiums) || 0);
+}
+export function phiLine(){
+  var lineId = state.tax && state.tax.phiLineId;
+  return lineId ? (claimItems().find(function(i){ return i.id === lineId; }) || null) : null;
+}
 export function phiRebateAdjustment(opts){
   opts = opts || {};
-  var premiums = Math.max(0, Number(state.tax && state.tax.phiPremiums) || 0);
+  var premiums = phiPremiumsAnnual(opts.fy);
   if(!premiums) return null;
   var fy = opts.fy;
   var family = !!(state.tax && state.tax.familyThresholds);
@@ -980,10 +1000,11 @@ export function computePersonTax(person, opts){
       return sum + rentalSchedule(p, fy).net * (propertyOwnershipPct(p, person, people) / 100);
     }, 0);
   }
-  var recordedDeductions = yearMode ? recordedDeductionsByLabel(fy, person) : null;
-  if(recordedDeductions){
-    byLabel = Object.assign({}, recordedDeductions);
-    lineDeductions = Object.keys(recordedDeductions).reduce(function(s, k){ return s + recordedDeductions[k]; }, 0);
+  // v3.47.0: the year's flagged budget lines, each of which can be left out, plus typed claims.
+  var yearDed = yearMode ? yearDeductions(fy, person, deductibleItems ? deductionRows(deductibleItems, person) : []) : null;
+  if(yearDed){
+    byLabel = Object.assign({}, yearDed.byLabel);
+    lineDeductions = yearDed.total;
   }
   var wfh = wfhDeduction(person, taxYearWindow);
   if(wfh.amount > 0) byLabel.D5 = Math.round(((byLabel.D5 || 0) + wfh.amount) * 100) / 100;

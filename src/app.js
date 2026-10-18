@@ -13,15 +13,15 @@ import {
   exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv, exportAssetsImportTemplateCsv, parseCsv, exportProjectionCsv
 } from "./lib/backup.js";
 import { periodsOf, sumField, sumFieldForScenario, resolveSharedAmount, appendHistorySnapshot, transactionDisplayName } from "./calc/ledger.js";
-import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider, saleCapitalGain, lotsUnitsAvailable } from "./calc/tax.js";
+import { phiPremiumsAnnual, effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider, saleCapitalGain, lotsUnitsAvailable } from "./calc/tax.js";
 import { recalcComputedItems, scenarioTotals, totalNetWorthValue, totalDebtsValue } from "./calc/engine.js";
 import { financialYearOf, fyLabel } from "./calc/property.js";
-import { renderTaxYear, setTaxYearSelected, taxYearAddRow, taxYearDeleteRow, taxYearRestoreRow, taxYearSetField, taxYearToggleEvidence, taxYearMarkLodged, worksheetText, taxYearSelected, taxYearPrintHtml, lodgedSnapshot } from "./components/taxyear.js";
+import { taxYearFillStatements, renderTaxYear, setTaxYearSelected, taxYearAddRow, taxYearDeleteRow, taxYearRestoreRow, taxYearSetField, taxYearToggleEvidence, taxYearMarkLodged, worksheetText, taxYearSelected, taxYearPrintHtml, lodgedSnapshot } from "./components/taxyear.js";
 import { renderPeople, setPersonField, peopleSummaryText } from "./components/people.js";
 import { renamePersonEverywhere, removePersonFromTax } from "./calc/people.js";
 import { logIncomeReceived, deleteIncomeReceived } from "./calc/received.js";
 import { renderReceived, toggleReceivedRow, receivedSheet, openReceivedSheet, closeReceivedSheet, setReceivedTarget, receivedSheetHtml } from "./components/received.js";
-import { RENT_EXPENSE_LINES, rentLineFor, setRentalActual, mergeTaxYearFile, matchPerson, taxYearRecord, TAX_YEAR_FILE_KIND } from "./calc/taxyear.js";
+import { setUseBudgetLines, setLineExcluded, RENT_EXPENSE_LINES, rentLineFor, setRentalActual, mergeTaxYearFile, matchPerson, taxYearRecord, TAX_YEAR_FILE_KIND } from "./calc/taxyear.js";
 import { renderCards, renderDashboardStats, renderDetail, setProjectionReference, logNetWorthSnapshot } from "./components/dashboard.js";
 import {
   personBreakdownHtml, renderIncomeGroups, patchOpenRowBreakdowns, patchIncomeGroupTotals,
@@ -1088,6 +1088,15 @@ import {
       state.tax.phiPremiums = Math.max(0, parseFloat(e.target.value) || 0);
     } else if(e.target.id === "taxPhiTier"){
       state.tax.phiTierClaimed = Number(e.target.value);
+      var premEl = document.getElementById("taxPhiPremiums");
+      if(premEl && state.tax.phiLineId) premEl.value = phiPremiumsAnnual();
+    } else if(e.target.id === "taxPhiLine"){
+      state.tax.phiLineId = e.target.value || "";
+      var premInput = document.getElementById("taxPhiPremiums");
+      if(premInput){
+        premInput.disabled = !!state.tax.phiLineId;
+        premInput.value = state.tax.phiLineId ? phiPremiumsAnnual() : (Number(state.tax.phiPremiums) || 0);
+      }
     } else return;
 
     recalcComputedItems();
@@ -1140,6 +1149,16 @@ import {
       persist();
       return;
     }
+    if(t.hasAttribute("data-ty-uselines")){
+      setUseBudgetLines(taxYearSelected(), t.getAttribute("data-ty-uselines"), t.checked);
+      afterTaxYearEdit();
+      return;
+    }
+    if(t.hasAttribute("data-ty-line")){
+      setLineExcluded(taxYearSelected(), t.getAttribute("data-ty-person"), t.getAttribute("data-ty-line"), !t.checked);
+      afterTaxYearEdit();
+      return;
+    }
     if(t.hasAttribute("data-ty-rent")){
       setRentalActual(taxYearSelected(), t.getAttribute("data-ty-rent"), t.getAttribute("data-ty-key"), t.value);
       afterTaxYearEdit();
@@ -1162,6 +1181,8 @@ import {
     renderTaxYear();
   });
   taxYearBody.addEventListener("click", function(e){
+    var fill = e.target.closest("[data-ty-fill]");
+    if(fill){ taxYearFillStatements(fill.getAttribute("data-ty-fill")); afterTaxYearEdit(); return; }
     var add = e.target.closest("[data-ty-add]");
     if(add){
       taxYearAddRow(add.getAttribute("data-ty-add"), add.getAttribute("data-ty-person"));

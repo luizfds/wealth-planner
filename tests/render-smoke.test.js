@@ -955,3 +955,23 @@ test("Received: a row per target with its bar and status; the sheet offers every
     assert.match(receivedPanelHtml("2026-10"), /Add an income row/);
   } finally { Object.assign(state, keep); }
 });
+
+test("worksheet: statements link to an income row and are checked; deductions listed line by line", async function(){
+  const { taxYearHtml, setTaxYearSelected } = await import("../src/components/taxyear.js");
+  const { setDeductibleItemsProvider } = await import("../src/calc/tax.js");
+  var keep = { income: state.income, taxYears: state.taxYears, properties: state.properties, assets: state.assets };
+  try {
+    state.income = [{ id: "p1", what: "Pay", person: "Sam", incomeType: "Gross", amount: 80000, freq: "Yearly", superMode: "On top" }];
+    state.properties = []; state.assets = [];
+    state.taxYears = { 2025: { people: { Sam: { incomeStatements: [{ payer: "Employer A", incomeId: "p1", gross: 78000, withheld: 15000 }], interest: [], deductions: [] } } } };
+    setDeductibleItemsProvider(function(){ return [{ id: "d1", what: "Union fees", amount: 520, freq: "Yearly", deductible: true, deductiblePerson: "Sam" }]; });
+    setTaxYearSelected(2025);
+    var html = taxYearHtml();
+    assert.match(html, /data-ty-key="incomeId"[^>]*>[\s\S]*?<option value="p1" selected>Pay<\/option>/);
+    assert.match(html, /Employer A: the plan expected <b>\$80,000<\/b> from Pay — statement is \$2,000 lower/);
+    assert.match(html, /data-ty-uselines="Sam" checked/);
+    assert.match(html, /data-ty-line="d1" data-ty-person="Sam" checked>.*Union fees <small>D5<\/small><\/span><b>\$520\.00<\/b>/);
+    state.taxYears = {};
+    assert.match(taxYearHtml(), /data-ty-fill="Sam"/);
+  } finally { setDeductibleItemsProvider(null); Object.assign(state, keep); }
+});

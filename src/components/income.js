@@ -2,7 +2,8 @@ import { state } from "../state.js";
 import { FREQS, INCOME_TYPES, SUPER_MODES, SACRIFICE_MODES, MAX_SUPER_BASE, MONTH_NAMES, sacrificeModeToLabel, sacrificeLabelToMode } from "../constants.js";
 import { periodsOf, sumField, nextPayDate, payScheduleKindFor, daysUntil, WEEKDAY_NAMES, householdYearWindow } from "../calc/ledger.js";
 import { ipNetResultAnnual, ipDepreciationAnnual, ipOwnershipMismatches, propertyOwnershipTotal, fyLabel } from "../calc/property.js";
-import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax, wfhRateForFy, phiRebateAdjustment, taxTablesFor, currentTaxFy } from "../calc/tax.js";
+import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax, wfhRateForFy, phiRebateAdjustment, taxTablesFor, currentTaxFy, phiPremiumsAnnual, phiLine } from "../calc/tax.js";
+import { claimItems } from "../calc/claims.js";
 import { superTopUp } from "../calc/supertopup.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
@@ -540,7 +541,7 @@ export function renderTaxSuper(){
   var html = '<div class="tax-global">' +
     '<div class="proj-field"><label for="taxSgRate">Super guarantee % p.a.</label><input type="number" min="0" max="30" step="0.1" id="taxSgRate" value="' + (Number(state.tax.sgRate) || 11.5) + '"></div>' +
     '<div class="proj-field"><label class="m-checkbox-field" title="Private hospital cover (not extras-only) exempts you from the Medicare levy surcharge at any income."><input type="checkbox" id="taxPrivateCover"' + (state.tax.privateHospitalCover ? " checked" : "") + '> Private hospital cover</label></div>' +
-    '<div class="proj-field"><label for="taxPhiPremiums" title="What your hospital and extras policies cost a year before the government rebate. The rebate is income-tested on the same tiers as the surcharge.">Premiums $/yr</label><input type="number" min="0" step="50" id="taxPhiPremiums" value="' + (Number(state.tax.phiPremiums) || 0) + '"></div>' +
+    phiPremiumFieldsHtml() +
     '<div class="proj-field"><label for="taxPhiTier" title="The income tier you told your insurer — it sets the rebate taken off your premiums. Your return works out the right tier and adjusts the difference.">Rebate tier with insurer</label><select id="taxPhiTier">' +
       [["0", "Base tier"], ["1", "Tier 1"], ["2", "Tier 2"], ["3", "Tier 3"], ["-1", "No rebate taken"]].map(function(o){ return '<option value="' + o[0] + '"' + (String(state.tax.phiTierClaimed == null ? 0 : state.tax.phiTierClaimed) === o[0] ? " selected" : "") + '>' + o[1] + '</option>'; }).join("") +
     '</select></div>' +
@@ -749,6 +750,23 @@ function helpNoteText(r){
 
 // The household's private health rebate position for the year: which tier the combined income
 // lands in, which tier the insurer is applying, and what that difference does at tax time.
+// Premiums typed, or read from the budget line that pays the policy (v3.47.0) — see
+// calc/tax.js phiPremiumsAnnual(). Lines that look like health cover are offered first.
+function phiPremiumFieldsHtml(){
+  var lines = claimItems().filter(function(i){ return i.id && !i.computed; });
+  var healthy = lines.filter(function(i){ return /health/i.test(i.category || "") || /health|hospital|extras|medical/i.test(i.what || ""); });
+  var others = lines.filter(function(i){ return healthy.indexOf(i) === -1; });
+  var cur = state.tax.phiLineId || "";
+  var line = phiLine();
+  var opt = function(i){ return '<option value="' + escapeAttr(i.id) + '"' + (i.id === cur ? " selected" : "") + '>' + escapeAttr(i.what || "Line") + '</option>'; };
+  return '<div class="proj-field"><label for="taxPhiLine" title="The budget line you pay the policy from. Its amount is after the rebate your insurer applies, so the premium is worked back up from it at the tier below.">Premiums from</label><select id="taxPhiLine">' +
+      '<option value="">Typed in</option>' +
+      (healthy.length ? '<optgroup label="Looks like health cover">' + healthy.map(opt).join("") + '</optgroup>' : '') +
+      (others.length ? '<optgroup label="Other budget lines">' + others.map(opt).join("") + '</optgroup>' : '') +
+      (cur && !line ? '<option value="' + escapeAttr(cur) + '" selected>(deleted line)</option>' : '') +
+    '</select></div>' +
+    '<div class="proj-field"><label for="taxPhiPremiums" title="What your hospital and extras policies cost a year before the government rebate. The rebate is income-tested on the same tiers as the surcharge.">Premiums $/yr</label><input type="number" min="0" step="50" id="taxPhiPremiums" value="' + (line ? phiPremiumsAnnual() : (Number(state.tax.phiPremiums) || 0)) + '"' + (line ? ' disabled title="Worked out from ' + escapeAttr(line.what || "the line") + '"' : '') + '></div>';
+}
 function phiNoteText(){
   var a = phiRebateAdjustment();
   if(!a) return "Enter what your hospital and extras cover costs a year (before the rebate) to see whether your insurer is applying the right rebate tier.";
@@ -756,7 +774,7 @@ function phiNoteText(){
   var claimed = a.claimedTier < 0 ? "no rebate up front" : names[a.claimedTier];
   var ageNote = a.ageKnown
     ? (a.ageBand === "u65" ? "" : " Rates for the oldest person being " + (a.ageBand === "a70" ? "70 or over" : "65-69") + ".")
-    : " Assumes everyone on the policy is under 65 — add dates of birth (Adjust, on each card) if not.";
+    : " Assumes everyone on the policy is under 65 — add dates of birth (Accounts → People) if not.";
   return phiNoteCore(a, names, claimed) + ageNote;
 }
 function phiNoteCore(a, names, claimed){

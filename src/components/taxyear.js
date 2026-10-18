@@ -1,8 +1,9 @@
 import { state } from "../state.js";
 import { DEDUCTION_LABELS } from "../constants.js";
-import { getTaxPeople, computePersonTax, currentTaxFy, taxTablesFor } from "../calc/tax.js";
+import { getTaxPeople, computePersonTax, currentTaxFy, taxTablesFor, phiPremiumsAnnual, deductionRows } from "../calc/tax.js";
+import { claimItems } from "../calc/claims.js";
 import { fyLabel, ipProperties, propertyOwnershipPct } from "../calc/property.js";
-import { taxYearRecord, personYear, rentalSchedules, RENT_LINES } from "../calc/taxyear.js";
+import { taxYearRecord, personYear, rentalSchedules, RENT_LINES, usesBudgetLines, budgetLineDeductions, expectedGrossForYear } from "../calc/taxyear.js";
 import { fmtCurrency0, fmtCurrency2 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 
@@ -32,6 +33,10 @@ function rowsEditorHtml(kind, person, rows, cols, addLabel){
       if(c.type === "label"){
         return '<select class="ty-in" data-ty-kind="' + kind + '" data-ty-person="' + escapeAttr(person) + '" data-ty-index="' + i + '" data-ty-key="label" aria-label="Return label">' +
           DEDUCTION_LABELS.map(function(d){ return '<option value="' + d.code + '"' + ((r.label || "D5") === d.code ? " selected" : "") + '>' + d.code + '</option>'; }).join("") + '</select>';
+      }
+      if(c.type === "incomeRow"){
+        return '<select class="ty-in" data-ty-kind="' + kind + '" data-ty-person="' + escapeAttr(person) + '" data-ty-index="' + i + '" data-ty-key="incomeId" aria-label="Income row this statement is for">' +
+          '<option value="">—</option>' + c.rows.map(function(row){ return '<option value="' + escapeAttr(row.id) + '"' + (r.incomeId === row.id ? " selected" : "") + '>' + escapeAttr(row.what || "Income") + '</option>'; }).join("") + '</select>';
       }
       var v = c.type === "text" ? escapeAttr(r[c.key] || "") : num(r[c.key]);
       return '<input class="ty-in" type="' + (c.type === "text" ? "text" : "number") + '"' + (c.type === "text" ? "" : ' step="0.01"') +
@@ -125,7 +130,7 @@ export function evidenceItems(fy){
     add("prop:" + p.id + ":qs", n + ": depreciation schedule");
     if((p.loans || []).some(function(l){ return Number(l.borrowingCosts) > 0; })) add("prop:" + p.id + ":borrow", n + ": loan settlement papers (borrowing costs)");
   });
-  if(Number(state.tax.phiPremiums) > 0) add("phi", "Private health insurance tax statement");
+  if(phiPremiumsAnnual(fy) > 0) add("phi", "Private health insurance tax statement");
   return items;
 }
 
@@ -156,6 +161,8 @@ function compareHtml(person, fy, r){
 
 function personCardHtml(person, fy){
   var py = personYear(fy, person, false) || { incomeStatements: [], interest: [], deductions: [] };
+  var grossRows = (state.income || []).filter(function(i){ return i.person === person && i.incomeType === "Gross" && i.id; });
+  var lineDeds = budgetLineDeductions(fy, person, deductionRows(claimItems(), person));
   var ws = worksheetLines(person, fy);
   var r = ws.result;
   var lodged = taxYearRecord(fy, false);
@@ -174,11 +181,14 @@ function personCardHtml(person, fy){
     '<details class="row-more-options" open><summary>Income statements</summary>' +
       rowsEditorHtml("is", person, py.incomeStatements, [
         { key: "payer", label: "Payer", type: "text", placeholder: "Employer" },
+        { key: "incomeId", label: "Row", type: "incomeRow", rows: grossRows },
         { key: "gross", label: "Gross", placeholder: "0" },
         { key: "allowances", label: "Allow.", aria: "Allowances", placeholder: "0" },
         { key: "withheld", label: "Withheld", placeholder: "0" },
         { key: "resc", label: "RESC", placeholder: "0" },
         { key: "rfba", label: "RFBA", placeholder: "0" }], "+ Add income statement") +
+      statementChecksHtml(py, grossRows, fy) +
+      (!py.incomeStatements.length && grossRows.length ? '<button type="button" class="btn btn-sm btn-ghost" data-ty-fill="' + escapeAttr(person) + '" title="One statement per Gross income row, with the gross its pay history says it paid this year — type the withholding from the real statement">Fill from income rows</button>' : '') +
       '<p class="ledger-note help" style="margin-left:0">RESC is reportable employer super (salary sacrifice), RFBA reportable fringe benefits — both on the income statement. Neither is taxed as income, but both count toward the surcharge, rebate and HELP income tests.</p>' +
     '</details>' +
     '<details class="row-more-options"' + (py.interest.length ? " open" : "") + '><summary>Interest</summary>' +
@@ -187,10 +197,9 @@ function personCardHtml(person, fy){
         { key: "gross", label: "Gross", placeholder: "0" },
         { key: "sharePct", label: "Your %", placeholder: "100" }], "+ Add account") +
     '</details>' +
-    '<details class="row-more-options"' + (py.deductions.length ? " open" : "") + '><summary>Deductions</summary>' +
-      '<p class="ledger-note" style="margin-left:0">' + (py.deductions.length
-        ? "These replace the budget-line deductions for " + fyLabel(fy) + ". Working-from-home hours still add to D5."
-        : "Blank uses the budget lines flagged deductible for " + fyLabel(fy) + ". Enter the year's actual claims here to replace them.") + '</p>' +
+    '<details class="row-more-options"' + (py.deductions.length || lineDeds.length ? " open" : "") + '><summary>Deductions</summary>' +
+      budgetLinesDeductionHtml(person, fy, py, lineDeds) +
+      '<div class="ty-sub-label">' + (lineDeds.length ? "Other claims for " : "Claims for ") + fyLabel(fy) + '</div>' +
       rowsEditorHtml("ded", person, py.deductions, [
         { key: "label", label: "Label", type: "label" },
         { key: "what", label: "What", type: "text", placeholder: "Description" },
@@ -203,6 +212,34 @@ function personCardHtml(person, fy){
       '<button type="button" class="btn btn-sm ' + (isLodged ? "btn-ghost" : "btn-primary") + '" data-ty-lodge="' + escapeAttr(person) + '">' + (isLodged ? "Lodged ✓ — update" : "Mark as lodged") + '</button>' +
     '</div>' +
   '</div>';
+}
+
+// Under the statements: for each one linked to an income row, what the row's pay history says it
+// should have paid (v3.47.0). A gap is usually a pay change not recorded on the row — or a typo.
+function statementChecksHtml(py, grossRows, fy){
+  var sg = Number(state.tax && state.tax.sgRate) || 0;
+  var notes = (py.incomeStatements || []).filter(function(st){ return st.incomeId; }).map(function(st){
+    var row = grossRows.find(function(r){ return r.id === st.incomeId; });
+    if(!row) return '<li>' + escapeAttr(st.payer || "Statement") + ': its income row has gone</li>';
+    var exp = expectedGrossForYear(row, fy, sg);
+    var got = (Number(st.gross) || 0) + (Number(st.allowances) || 0);
+    var d = got - exp;
+    return '<li>' + escapeAttr(st.payer || row.what) + ': the plan expected <b>' + fmtCurrency0.format(exp) + '</b> from ' + escapeAttr(row.what || "its row") +
+      (Math.abs(d) < Math.max(50, exp * 0.01) ? ' — matches' : ' — statement is ' + fmtCurrency0.format(Math.abs(d)) + (d > 0 ? ' higher' : ' lower')) + '</li>';
+  });
+  return notes.length ? '<ul class="ty-checks">' + notes.join("") + '</ul>' : '';
+}
+// The budget lines flagged deductible for this person, listed for the year with a tick each
+// (v3.47.0) — leave one out and the rest still count; typed claims below add to them.
+function budgetLinesDeductionHtml(person, fy, py, lines){
+  if(!lines.length) return '<p class="ledger-note" style="margin-left:0">No budget lines are flagged deductible for ' + escapeAttr(person) + ' — tick <b>Tax deduction</b> on a line (Expenses → Budget) and it shows here. Working-from-home hours add to D5.</p>';
+  var on = usesBudgetLines(personYear(fy, person, false));
+  return '<label class="m-checkbox-field ty-uselines"><input type="checkbox" data-ty-uselines="' + escapeAttr(person) + '"' + (on ? " checked" : "") + '> Use the budget lines flagged deductible</label>' +
+    '<div class="ty-lines' + (on ? "" : " is-off") + '">' + lines.map(function(l){
+      return '<label class="ty-line"><input type="checkbox" data-ty-line="' + escapeAttr(l.id) + '" data-ty-person="' + escapeAttr(person) + '"' + (l.excluded ? "" : " checked") + (on ? "" : " disabled") + '>' +
+        '<span>' + escapeAttr(l.what) + ' <small>' + escapeAttr(l.label) + '</small></span><b>' + money(l.amount) + '</b></label>';
+    }).join("") + '</div>' +
+    (on ? '' : '<p class="ledger-note" style="margin-left:0">Left out — this year uses only the claims typed below.</p>');
 }
 
 function rentHtml(fy){
@@ -296,7 +333,17 @@ export function taxYearSetField(kind, person, index, key, value){
   var p = personYear(taxYearSelected(), person, true);
   var row = p[KIND_ARRAY[kind]][index];
   if(!row) return;
-  row[key] = (key === "payer" || key === "account" || key === "what" || key === "label") ? value : (parseFloat(value) || 0);
+  row[key] = (key === "payer" || key === "account" || key === "what" || key === "label" || key === "incomeId") ? value : (parseFloat(value) || 0);
+}
+// One statement per Gross income row, gross from its pay history; withholding left for the real
+// statement (v3.47.0).
+export function taxYearFillStatements(person){
+  var fy = taxYearSelected();
+  var py = personYear(fy, person, true);
+  var sg = Number(state.tax && state.tax.sgRate) || 0;
+  (state.income || []).filter(function(i){ return i.person === person && i.incomeType === "Gross" && i.id; }).forEach(function(row){
+    py.incomeStatements.push({ payer: row.what || "", incomeId: row.id, gross: Math.round(expectedGrossForYear(row, fy, sg)), allowances: 0, withheld: 0, resc: 0, rfba: 0 });
+  });
 }
 export function taxYearToggleEvidence(key, on){
   var rec = taxYearRecord(taxYearSelected(), true);

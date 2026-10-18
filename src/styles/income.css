@@ -118,7 +118,7 @@
 .ty-refund.down b{ color:var(--bad); }
 .ty-refund.muted{ font-size:12px; color:var(--ink-soft); }
 .ty-row{ display:grid; gap:6px; align-items:center; padding:3px 0; }
-.ty-row-is{ grid-template-columns: minmax(0,1.4fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,.8fr) 32px; }
+.ty-row-is{ grid-template-columns: minmax(0,1.3fr) minmax(0,1.1fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,.8fr) 32px; }
 .ty-row-int{ grid-template-columns: minmax(0,1.6fr) minmax(0,1fr) minmax(0,.6fr) 32px; }
 .ty-row-ded{ grid-template-columns: 64px minmax(0,1.6fr) minmax(0,1fr) 32px; }
 .ty-head-row{ font-size:10.5px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-soft); }
@@ -149,16 +149,17 @@
    the three amounts and delete share the second — and the header row follows the same shape, so
    its labels still sit over their columns. */
 @media (max-width:480px){
-  /* payer / gross · allowances · withheld · delete / RESC · RFBA */
+  /* payer · row / gross · allowances · withheld · delete / RESC · RFBA (v3.47.0: + the income row) */
   .ty-row-is{ grid-template-columns: minmax(0,1fr) minmax(0,.8fr) minmax(0,1fr) 32px; row-gap:4px;
-    grid-template-areas: "payer payer payer payer" "gross allow withheld del" "resc rfba . ."; }
+    grid-template-areas: "payer payer row row" "gross allow withheld del" "resc rfba . ."; }
   .ty-row-is > :nth-child(1){ grid-area: payer; }
-  .ty-row-is > :nth-child(2){ grid-area: gross; }
-  .ty-row-is > :nth-child(3){ grid-area: allow; }
-  .ty-row-is > :nth-child(4){ grid-area: withheld; }
-  .ty-row-is > :nth-child(5){ grid-area: resc; }
-  .ty-row-is > :nth-child(6){ grid-area: rfba; }
-  .ty-row-is > :nth-child(7){ grid-area: del; }
+  .ty-row-is > :nth-child(2){ grid-area: row; }
+  .ty-row-is > :nth-child(3){ grid-area: gross; }
+  .ty-row-is > :nth-child(4){ grid-area: allow; }
+  .ty-row-is > :nth-child(5){ grid-area: withheld; }
+  .ty-row-is > :nth-child(6){ grid-area: resc; }
+  .ty-row-is > :nth-child(7){ grid-area: rfba; }
+  .ty-row-is > :nth-child(8){ grid-area: del; }
   .ty-row-is:not(.ty-head-row){ padding-bottom:8px; border-bottom:1px solid var(--border); }
 }
 
@@ -233,3 +234,15 @@
 .rcv-item{ display:flex; align-items:center; gap:10px; font-size:13px; }
 .rcv-item span{ flex:1 1 auto; min-width:0; color:var(--ink-soft); }
 .rcv-item b{ font-family:'IBM Plex Mono', monospace; }
+
+/* Worksheet: statements checked against the plan, deductions line by line (v3.47.0) */
+.ty-checks{ margin:6px 0 8px; padding-left:18px; font-size:12.5px; color:var(--ink-soft); }
+.ty-checks b{ color:var(--ink); }
+.ty-uselines{ margin:2px 0 6px; font-size:13px; }
+.ty-lines{ display:flex; flex-direction:column; gap:2px; margin-bottom:8px; }
+.ty-lines.is-off{ opacity:.55; }
+.ty-line{ display:flex; align-items:center; gap:8px; font-size:13px; padding:3px 0; }
+.ty-line span{ flex:1 1 auto; min-width:0; }
+.ty-line small{ color:var(--ink-soft); font-weight:600; }
+.ty-line b{ font-family:'IBM Plex Mono', monospace; font-weight:600; }
+.ty-sub-label{ font-size:12px; font-weight:650; color:var(--ink-soft); margin:8px 0 4px; text-transform:uppercase; letter-spacing:.03em; }

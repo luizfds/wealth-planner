@@ -8,6 +8,7 @@ import { lodgementStatus, taxYearRecord } from "../calc/taxyear.js";
 import { fyLabel } from "../calc/property.js";
 import { dataHealthChecks } from "../calc/health.js";
 import { sortedRateHistory, calcRepaymentMonthly } from "../calc/property.js";
+import { shiftMonth, monthLabel } from "../calc/monthreview.js";
 
 // ---------------- Notifications: a small, backend-shaped layer over locally-computed alerts ----------------
 // This app has no backend (see CLAUDE.md) — every notification here is derived live from
@@ -326,6 +327,18 @@ function backupReminderNotification(){
   }];
 }
 
+// ---------------- Monthly review (v3.54.0) ----------------
+// The first ten days of a month, until last month has been marked reviewed.
+function monthReviewNotification(){
+  if(!hasRealUserData()) return [];
+  var today = todayStr();
+  if(Number(today.slice(8, 10)) > 10) return [];
+  var last = shiftMonth(today.slice(0, 7), -1);
+  if(state.monthReviews && state.monthReviews[last] && state.monthReviews[last].done) return [];
+  return [{ id: "review:" + last, type: "review", severity: "info", title: monthLabel(last) + "'s review is ready",
+    detail: "Money in, card statements, checks and the month against the plan — Dashboard → Review.", date: today, page: "dashboard", sub: "review" }];
+}
+
 // ---------------- Loan rate changes (v3.53.0) ----------------
 // A recorded rate change in the last 60 days: one notification each, with the new repayment, so
 // the budget's loan line can be checked against it.
@@ -453,6 +466,7 @@ export function getLocalNotifications(){
     budgetNotifications(),
     taxCalendarNotifications(),
     rateChangeNotifications(),
+    monthReviewNotification(),
     dataHealthNotification()
   );
 }

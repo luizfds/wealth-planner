@@ -1042,3 +1042,20 @@ test("Projections: Plan / Actuals control explains itself either way", async fun
   assert.match(on, /data-proj-source="actuals" aria-pressed="true"/);
   assert.match(on, /income at 96% of plan \(1 line\), spending at 95% \(1 line plus one-offs\)\. That's −\$150 a month worse than the plan on those lines\. Only those lines move below/);
 });
+
+test("Dashboard → Review renders its four parts", async function(){
+  const { monthReviewHtml } = await import("../src/components/monthreview.js");
+  var keep = { income: state.income, incomeLog: state.incomeLog, transactions: state.transactions, accounts: state.accounts, monthReviews: state.monthReviews, properties: state.properties, assets: state.assets };
+  try {
+    state.income = [{ id: "t", what: "Tutoring", incomeType: "Net", amount: 300, freq: "Monthly" }];
+    state.incomeLog = []; state.transactions = []; state.properties = []; state.assets = []; state.monthReviews = {};
+    state.accounts = [{ name: "Card One", type: "credit", statementStartDay: 1 }];
+    var html = monthReviewHtml("2026-09", "2026-10-03");
+    assert.match(html, /<h2>September 2026<\/h2>/);
+    assert.match(html, /<span class="mr-num">1<\/span><h3>Money in<\/h3><span class="mr-status warn">1 not logged<\/span>/);
+    assert.match(html, /data-mr-log="income:t"/);
+    assert.match(html, /data-mr-statement="Card One"/);
+    assert.match(html, /<h3>The month against the plan<\/h3>/);
+    assert.match(html, /data-mr-done="2026-09">Mark September 2026 reviewed/);
+  } finally { Object.assign(state, keep); }
+});

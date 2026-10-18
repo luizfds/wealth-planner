@@ -20,6 +20,8 @@ import { taxYearFillStatements, renderTaxYear, setTaxYearSelected, taxYearAddRow
 import { renderPeople, setPersonField, peopleSummaryText } from "./components/people.js";
 import { renamePersonEverywhere, removePersonFromTax } from "./calc/people.js";
 import { renderHealth } from "./components/health.js";
+import { renderMonthReview, stepReviewMonth, reviewMonthShown, setReviewMonth } from "./components/monthreview.js";
+import { markReviewed, setStatementAmount, monthLabel, monthBounds } from "./calc/monthreview.js";
 import { logIncomeReceived, deleteIncomeReceived } from "./calc/received.js";
 import { renderReceived, toggleReceivedRow, receivedSheet, openReceivedSheet, closeReceivedSheet, setReceivedTarget, receivedSheetHtml } from "./components/received.js";
 import { applyRentalComparison, applyBudgetComparison, householdBudgetLines } from "./calc/closeyear.js";
@@ -2813,14 +2815,15 @@ import {
     var root = document.getElementById("receivedRoot");
     if(root) root.innerHTML = "";
   }
-  function openReceivedSheetFor(target){
-    openReceivedSheet(target);
+  function openReceivedSheetFor(target, date){
+    openReceivedSheet(target, date);
     renderReceivedSheet();
     pushActiveOverlay(closeReceivedSheetDom);
   }
   // A logged distribution is a holding's payout too, which moves its return and the year's tax.
   function afterReceivedChange(){
     renderReceived();
+    renderMonthReview();
     renderAssets();
     renderTaxSuper();
     persist();
@@ -3885,6 +3888,41 @@ import {
     if(!btn) return;
     showDashboardSubpage(btn.getAttribute("data-dashboard-sub"));
     if(btn.getAttribute("data-dashboard-sub") === "benchmarks") renderBenchmarks();
+    if(btn.getAttribute("data-dashboard-sub") === "review") renderMonthReview();
+  });
+  // Dashboard → Review (v3.54.0): every control in the four parts.
+  var monthReviewBody = document.getElementById("monthReviewBody");
+  monthReviewBody.addEventListener("click", function(e){
+    var step = e.target.closest("[data-mr-step]");
+    if(step && !step.disabled){ stepReviewMonth(Number(step.getAttribute("data-mr-step"))); renderMonthReview(); return; }
+    var log = e.target.closest("[data-mr-log]");
+    // Logged into the month under review: its last day, or today if that's still to come.
+    if(log){ var mEnd = monthBounds(reviewMonthShown()).end; openReceivedSheetFor(log.getAttribute("data-mr-log"), mEnd < localDateStr() ? mEnd : localDateStr()); return; }
+    var go = e.target.closest("[data-mr-go]");
+    if(go){
+      var where = go.getAttribute("data-mr-go");
+      if(where === "checks"){ showPage("accounts"); showAccountsSubpage("checks"); renderHealth(); }
+      else { showPage("expenses"); showExpensesSubpage("spending", { replace: true }); var card = document.getElementById("bankImportCard"); if(card){ card.open = true; setTimeout(function(){ card.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); } }
+      return;
+    }
+    var done = e.target.closest("[data-mr-done]");
+    if(done){
+      var ym = done.getAttribute("data-mr-done");
+      var was = !!(state.monthReviews[ym] && state.monthReviews[ym].done);
+      setReviewMonth(ym);
+      markReviewed(ym, !was, localDateStr());
+      persist();
+      renderMonthReview();
+      renderNotifBadge();
+      if(!was) showToast(monthLabel(ym) + " reviewed");
+    }
+  });
+  monthReviewBody.addEventListener("change", function(e){
+    var acct = e.target.getAttribute("data-mr-statement");
+    if(acct == null) return;
+    setStatementAmount(reviewMonthShown(), acct, e.target.value);
+    persist();
+    renderMonthReview();
   });
 
   // Swipe between Assets' Cash/Shares/Super/Vehicle/Other tabs on mobile — desktop already has
@@ -4060,6 +4098,7 @@ import {
     renderPeopleTab();
     renderReceived();
     renderHealth();
+    renderMonthReview();
     renderNotifBadge();
   }
 
@@ -4319,6 +4358,7 @@ document.getElementById("notifPanelRoot").addEventListener("click", function(e){
     closeNotifPanel();
     showPage(item.getAttribute("data-notif-page"));
     var notifSub = item.getAttribute("data-notif-sub");
+    if(notifSub && item.getAttribute("data-notif-page") === "dashboard"){ showDashboardSubpage(notifSub); if(notifSub === "review") renderMonthReview(); }
     if(notifSub && item.getAttribute("data-notif-page") === "accounts"){ showAccountsSubpage(notifSub); if(notifSub === "checks") renderHealth(); }
   }
 });

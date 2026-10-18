@@ -94,6 +94,8 @@ export function defaultState(){
     // Money received against an income line, a property's rent or (as payouts) a holding — see
     // calc/received.js (v3.46.0). Kept apart from transactions, which are spending.
     incomeLog: [],
+    // Dashboard → Review (v3.54.0): {ym: {statements: {account: amount}, done: date}}.
+    monthReviews: {},
     // What the bank-import review screen has been taught: {id, match, linkedExpenseId, category,
     // account, hits}. Written only as a side effect of confirming an import — there is no rule
     // editor, because a rule you have to go and maintain is a rule you stop maintaining.
@@ -425,6 +427,7 @@ export function migrateState(s){
   if(!s.benchmark.symbol) s.benchmark.symbol = "IOZ";
   if(!Array.isArray(s.goals)) s.goals = [];
   if(!Array.isArray(s.incomeLog)) s.incomeLog = [];
+  if(!s.monthReviews || typeof s.monthReviews !== "object" || Array.isArray(s.monthReviews)) s.monthReviews = {};
   if(s.projection && s.projection.source !== "actuals") s.projection.source = "plan";
   if(s.fx.usdAud === undefined) s.fx.usdAud = null;
   if(s.fx.usdAudUpdated == null) s.fx.usdAudUpdated = "";

@@ -886,3 +886,22 @@ test("super top-up: the room as a placeholder, and the sums", async function(){
     assert.match(topUpHtml("Sam", { capAvailable: 30000, totalConcessional: 30000, taxable: 1, fy: 2026 }), /class="tax-topup" hidden/);
   } finally { state.tax = keep; }
 });
+
+test("People tab: a card per person with their details and where they're used", async function(){
+  const { peopleHtml } = await import("../src/components/people.js");
+  var keep = { income: state.income, tax: state.tax, properties: state.properties, assets: state.assets };
+  try {
+    state.income = [{ what: "Pay", person: "Sam", incomeType: "Gross", amount: 80000, freq: "Yearly" }];
+    state.tax = Object.assign({}, state.tax, { settings: { Sam: { dateOfBirth: "1990-06-02", helpBalance: 1200, concessionalCap: 30000, carryForward: 0, wfhHours: { 2025: 410 } } } });
+    state.properties = [{ id: "x", what: "2 Sample Rd", ownership: { Sam: 100 } }]; state.assets = [];
+    var html = peopleHtml("2026-10-18");
+    assert.match(html, /data-pp-card="Sam"/);
+    assert.match(html, /class="pp-age">36</);
+    assert.match(html, /1 income row · 100% of 2 Sample Rd/);
+    assert.match(html, /class="pp-in pp-help"[^>]*value="1200"/);
+    assert.match(html, /data-fy="2025"[^>]*value="410"/);
+    assert.match(html, /data-pp-remove="Sam"/);
+    state.income = [];
+    assert.match(peopleHtml("2026-10-18"), /Nobody yet/);
+  } finally { Object.assign(state, keep); }
+});

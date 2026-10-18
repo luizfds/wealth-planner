@@ -17,6 +17,8 @@ import { effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax
 import { recalcComputedItems, scenarioTotals, totalNetWorthValue, totalDebtsValue } from "./calc/engine.js";
 import { financialYearOf, fyLabel } from "./calc/property.js";
 import { renderTaxYear, setTaxYearSelected, taxYearAddRow, taxYearDeleteRow, taxYearRestoreRow, taxYearSetField, taxYearToggleEvidence, taxYearMarkLodged, worksheetText, taxYearSelected, taxYearPrintHtml, lodgedSnapshot } from "./components/taxyear.js";
+import { renderPeople, setPersonField, peopleSummaryText } from "./components/people.js";
+import { renamePersonEverywhere, removePersonFromTax } from "./calc/people.js";
 import { setRentalActual, mergeTaxYearFile, matchPerson, taxYearRecord, TAX_YEAR_FILE_KIND } from "./calc/taxyear.js";
 import { renderCards, renderDashboardStats, renderDetail, setProjectionReference, logNetWorthSnapshot } from "./components/dashboard.js";
 import {
@@ -934,53 +936,74 @@ import {
 
 
   // ---------------- Tax & super ----------------
-  function renameTaxPerson(oldName){
-    var name = prompt("Rename this person (updates every income row):", oldName);
+  // People (v3.44.0): the rename and remove themselves live in calc/people.js, which walks every
+  // row and record that names a person; this is the refresh after either.
+  function afterPeopleChange(){
+    recalcComputedItems();
+    rerenderTableFor("income");
+    updatePersonSuggestions();
+    renderTaxSuper();
+    renderPeopleTab();
+    renderCards();
+    renderDetail();
+    renderTotals();
+    renderProjectionOutputs();
+    persist();
+  }
+  function renderPeopleTab(){
+    renderPeople();
+    var sum = document.getElementById("peopleSummary");
+    if(sum) sum.textContent = peopleSummaryText();
+  }
+  function renameTaxPerson(oldName, newName){
+    var res = renamePersonEverywhere(oldName, newName);
+    if(res.error){ showToast(res.error); renderPeopleTab(); return; }
+    if(res.changed) afterPeopleChange();
+  }
+  function removeTaxPerson(name){
+    if(!confirm('Remove "' + name + '" from tax? Their income rows go back to Type "Net" (counted as-is, at face value) and keep their current amounts; their date of birth, HELP and property shares are cleared.')) return;
+    removePersonFromTax(name);
+    afterPeopleChange();
+  }
+  function openPeopleTab(){
+    showPage("accounts");
+    showAccountsSubpage("people");
+    renderPeopleTab();
+  }
+  var peopleTable = document.getElementById("peopleTable");
+  peopleTable.addEventListener("change", function(e){
+    var t = e.target, person = t.getAttribute("data-pp-person");
+    if(!person) return;
+    if(t.classList.contains("pp-name")){ renameTaxPerson(person, t.value); return; }
+    var cls = ["pp-dob", "pp-help", "pp-cap", "pp-carry", "pp-losses", "pp-wfh"].find(function(c){ return t.classList.contains(c); });
+    if(!cls || !setPersonField(person, cls, t.value, t.getAttribute("data-fy"))) return;
+    afterPeopleChange();
+  });
+  peopleTable.addEventListener("click", function(e){
+    var rm = e.target.closest("[data-pp-remove]");
+    if(rm) removeTaxPerson(rm.getAttribute("data-pp-remove"));
+  });
+  document.getElementById("addPersonBtn").addEventListener("click", function(){
+    var name = prompt("Their name — they're added with a Gross income row you can fill in:");
     if(name === null) return;
     name = name.trim();
-    if(!name || name === oldName) return;
+    if(!name) return;
     if(getTaxPeople().indexOf(name) !== -1){ showToast('"' + name + '" already exists'); return; }
-    state.income.forEach(function(i){ if(i.person === oldName) i.person = name; });
-    if(state.tax.settings[oldName]){ state.tax.settings[name] = state.tax.settings[oldName]; delete state.tax.settings[oldName]; }
-    // Ownership shares live on each property now, so a rename has to walk them all — missing one
-    // would silently drop that person's share of that property to 0%.
-    state.properties.forEach(function(p){
-      if(!p.ownership || p.ownership[oldName] == null) return;
-      p.ownership[name] = p.ownership[oldName];
-      delete p.ownership[oldName];
-    });
-    recalcComputedItems();
-    rerenderTableFor("income");
-    updatePersonSuggestions();
-    renderTaxSuper();
-    renderCards();
-    renderDetail();
-    renderTotals();
-    renderProjectionOutputs();
-    persist();
-  }
-
-  function removeTaxPerson(name){
-    if(!confirm('Remove "' + name + '" from Tax & Super? Their income rows go back to Type "Net" (counted as-is, at face value) and keep their current amounts.')) return;
-    state.income.forEach(function(i){ if(i.person === name){ i.incomeType = "Net"; i.person = ""; } });
-    delete state.tax.settings[name];
-    state.properties.forEach(function(p){ if(p.ownership) delete p.ownership[name]; });
-    recalcComputedItems();
-    rerenderTableFor("income");
-    updatePersonSuggestions();
-    renderTaxSuper();
-    renderCards();
-    renderDetail();
-    renderTotals();
-    renderProjectionOutputs();
-    persist();
-  }
+    var row = { what: name + "'s pay", classification: "", category: "", account: "", amount: 0, freq: "Yearly", person: name, incomeType: "Gross", superMode: "On top", sacrificeMode: "none", sacrificeValue: 0 };
+    state.income.push(row);
+    afterPeopleChange();
+    showPage("income");
+    // Deferred like runQuickAction's: the page's view transition has to settle before the row
+    // modal can open over it.
+    // indexOf, not length - 1: the recalculation above appends the new person's synthetic
+    // net-income row after theirs.
+    setTimeout(function(){ openNewRowModal("incomeGroups", "income", state.income.indexOf(row), modernIncomeRowOpen, row); }, 240);
+  });
+  document.addEventListener("click", function(e){
+    if(e.target.closest("[data-goto-people]")) openPeopleTab();
+  });
 
   document.getElementById("taxSuperBody").addEventListener("click", function(e){
-    var renameBtn = e.target.closest("[data-tax-rename]");
-    if(renameBtn){ renameTaxPerson(renameBtn.getAttribute("data-tax-rename")); return; }
-    var removeBtn = e.target.closest("[data-tax-remove]");
-    if(removeBtn){ removeTaxPerson(removeBtn.getAttribute("data-tax-remove")); return; }
     var flipBtn = e.target.closest("[data-tax-flip]");
     if(flipBtn){
       var flipPanel = flipBtn.closest("[data-tax-person]");
@@ -2925,6 +2948,7 @@ import {
     // normally-hidden tab, and none of which should have to know it exists. Recounting on the way
     // in is both cheaper and more reliable than adding a renderCategories() to all of them.
     if(accountsSubId === "categories") renderCategories();
+    if(accountsSubId === "people") renderPeopleTab();
     // Same reasoning as renderCategories() above: this tab is normally hidden, and its labels are
     // derived from today's date ("FY26/27 so far", "20% through it"), so they go stale on their
     // own without anything having changed.
@@ -3823,6 +3847,7 @@ import {
     updateAccountSuggestions();
     renderTaxSuper();
     renderTaxYear();
+    renderPeopleTab();
     renderNotifBadge();
   }
 

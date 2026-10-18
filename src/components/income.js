@@ -576,7 +576,7 @@ function refreshOpenTaxYear(){
 function taxPersonHeadHtml(person, r, pi){
   var pid = escapeAttr(person);
   return '<div class="tax-person-head">' +
-      '<h4><span class="m-avatar series-color-' + (pi % 8) + '" style="width:24px;height:24px;font-size:11px;margin-right:8px">' + escapeAttr(person.charAt(0).toUpperCase()) + '</span>' + escapeAttr(person) + '<button type="button" class="icon-btn" data-tax-rename="' + pid + '" aria-label="Rename ' + pid + '" title="Rename this person (updates every income row)">✎</button><button type="button" class="icon-btn icon-del" data-tax-remove="' + pid + '" aria-label="Remove ' + pid + '" title="Remove this person from tax &amp; super (their income rows go back to Net)">✕</button></h4>' +
+      '<h4><span class="m-avatar series-color-' + (pi % 8) + '" style="width:24px;height:24px;font-size:11px;margin-right:8px">' + escapeAttr(person.charAt(0).toUpperCase()) + '</span>' + escapeAttr(person) + '</h4>' +
       '<span class="tax-marginal">Marginal rate ' + fmtPercent1.format(r.marginalRate) + ' · effective ' + fmtPercent1.format(r.effectiveRate) + '</span>' +
       '<button type="button" class="m-flip-btn" data-tax-flip="' + pid + '" aria-label="Flip ' + pid + '\'s card to see the calculation breakdown" title="Flip to see how this is calculated"><span aria-hidden="true">⇋</span> Breakdown</button>' +
     '</div>';
@@ -639,23 +639,12 @@ function taxPersonFrontBodyHtml(person, r){
     '<div class="tax-cap-note tax-deduct-note"' + (r.deductions > 0 ? '' : ' hidden') + ' title="Taken from budget lines flagged as work-related on the Expenses page. They reduce taxable income, which also reduces the Medicare levy and can move you under a surcharge tier — but not your HELP repayment, which is worked out on gross income.">' + deductionsNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-mls-note' + (r.medicareSurcharge > 0 ? " warn" : "") + '"' + (r.mlsIfUncovered > 0 ? '' : ' hidden') + ' title="Income for surcharge purposes is approximated as taxable income + your reportable super contributions, ignoring reportable fringe benefits and net investment losses — the same simplification Division 293 uses here.">' + mlsNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-help-note"' + (r.helpBalance > 0 ? '' : ' hidden') + ' title="Compulsory repayment, worked out as a flat percentage of your repayment income — which adds back salary sacrifice and any rental loss, so neither of those reduces it.">' + helpNoteText(r) + '</div>' +
-    '<details class="tax-advanced" style="margin-top:12px"><summary>Adjust HELP, sacrifice, home hours &amp; capital losses</summary>' +
-      '<div class="tax-inputs-panel" style="margin-top:8px">' +
-        '<div class="tax-inputs">' +
-          '<div class="proj-field"><label title="What you still owe on HELP/HECS (or any other study loan with the same repayment schedule). Leave at 0 if you have none. The compulsory repayment is worked out from this and withheld from take-home.">HELP/HECS owing $</label><input type="number" min="0" step="500" class="tax-help" aria-label="HELP/HECS owing for ' + pid + '" value="' + settings.helpBalance + '"></div>' +
-          wfhHoursFieldHtml(pid, settings) +
-          '<div class="proj-field"><label title="Used for the private health rebate (higher once the oldest person on the policy is 65 or 70) and to compare super and net worth with people your age on Dashboard → Benchmarks.">Date of birth</label><input type="date" class="tax-dob" aria-label="Date of birth for ' + pid + '" value="' + escapeAttr(settings.dateOfBirth || "") + '"></div>' +
-          '<div class="proj-field"><label title="Net capital losses from earlier years, as shown on your last notice of assessment. They come off this year\'s capital gains before the 50% discount; whatever isn\'t used carries on to next year.">Capital losses b/f $</label><input type="number" min="0" step="100" class="tax-cgt-losses" aria-label="Capital losses carried forward for ' + pid + '" value="' + (Number(settings.capitalLossCarriedForward) || 0) + '"></div>' +
-          '<div class="proj-field"><label title="Separate from the Cash / Sacrifice column on income rows above — use this for sacrifice not tied to a specific item">Manual sacrifice $/yr</label><input type="number" min="0" step="500" class="tax-sacrifice" aria-label="Manual super sacrifice per year for ' + pid + '" value="' + settings.superSacrificeAnnual + '"><button type="button" class="calc-hint-link" style="margin-top:4px" data-tax-maxcap="' + pid + '" title="Fills your remaining concessional cap headroom this year with manual sacrifice (SG and any auto/bonus sacrifice already counted): sets manual sacrifice to ' + fmtCurrency0.format(Math.max(0, r.capAvailable - r.sg - r.autoSacrifice)) + '">Max out cap</button></div>' +
-        '</div>' +
-        '<details class="tax-advanced"><summary>Advanced — concessional cap &amp; carry-forward</summary>' +
-          '<div class="tax-inputs">' +
-            '<div class="proj-field"><label>Concessional cap $/yr</label><input type="number" min="0" step="500" class="tax-cap" aria-label="Concessional cap per year for ' + pid + '" value="' + settings.concessionalCap + '"></div>' +
-            '<div class="proj-field"><label>Carry-forward available $</label><input type="number" min="0" step="500" class="tax-carryforward" aria-label="Carry-forward available for ' + pid + '" value="' + settings.carryForward + '"></div>' +
-          '</div>' +
-        '</details>' +
-      '</div>' +
-    '</details>';
+    // v3.44.0: the person's own details (date of birth, HELP, caps, carry-forward, losses, home
+    // hours) moved to Accounts → People. What stays is this year's choice: how much to sacrifice.
+    '<div class="tax-inputs pp-on-tax">' +
+      '<div class="proj-field"><label title="Separate from the Cash / Sacrifice column on income rows — use this for sacrifice not tied to a specific item">Manual sacrifice $/yr</label><input type="number" min="0" step="500" class="tax-sacrifice" aria-label="Manual super sacrifice per year for ' + pid + '" value="' + settings.superSacrificeAnnual + '"><button type="button" class="calc-hint-link" style="margin-top:4px" data-tax-maxcap="' + pid + '" title="Fills your remaining concessional cap headroom this year with manual sacrifice (SG and any auto/bonus sacrifice already counted): sets manual sacrifice to ' + fmtCurrency0.format(Math.max(0, r.capAvailable - r.sg - r.autoSacrifice)) + '">Max out cap</button></div>' +
+    '</div>' +
+    '<p class="ledger-note pp-link-note" style="margin:8px 0 0">Date of birth, HELP, super caps, capital losses and home hours: <button type="button" class="link-btn" data-goto-people="' + pid + '">Accounts → People</button></p>';
 }
 
 // Capital gains for the household's year, netted as a return nets them: losses (this year's, then
@@ -718,17 +707,6 @@ function deductionsNoteText(r){
     (r.wfhOverlap && r.wfhOverlap.length ? " Check: " + r.wfhOverlap.join(", ") + (r.wfhOverlap.length === 1 ? " is" : " are") + " also flagged, but the fixed rate already covers energy, internet, phone and stationery." : "") +
     " Flag a budget line as deductible under More options on the Expenses page.";
 }
-// Hours worked from home this financial year, for the fixed-rate method. Per year because the hours
-// are that year's record (a timesheet or diary); next year starts at zero.
-function wfhHoursFieldHtml(pid, settings){
-  var win = householdYearWindow();
-  var fy = Number(win.start.slice(5, 7)) >= 7 ? Number(win.start.slice(0, 4)) : Number(win.start.slice(0, 4)) - 1;
-  var r = wfhRateForFy(fy);
-  var hours = settings.wfhHours && settings.wfhHours[fy] != null ? settings.wfhHours[fy] : 0;
-  return '<div class="proj-field"><label title="Hours actually worked from home this financial year, from a timesheet, roster or diary kept as you go — an estimate isn\'t accepted. Claimed at ' + Math.round(r.rate * 100) + 'c an hour' + (r.assumed ? " (last published rate)" : "") + ', which covers energy, internet, phone and stationery.">Home hours ' + fyLabel(fy) + '</label>' +
-    '<input type="number" min="0" step="1" class="tax-wfh-hours" data-fy="' + fy + '" aria-label="Hours worked from home in ' + fyLabel(fy) + ' for ' + pid + '" value="' + hours + '"></div>';
-}
-
 // Both directions of the surcharge in one sentence — see the note's own comment for why holding
 // cover still prints a figure.
 function mlsNoteText(r){

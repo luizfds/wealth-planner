@@ -478,6 +478,7 @@
       <section class="app-page" id="page-accounts" hidden>
         <div class="subnav" id="accountsSubnav">
           <button type="button" class="subnav-item active" data-accounts-sub="accounts">Accounts</button>
+          <button type="button" class="subnav-item" data-accounts-sub="people">People</button>
           <button type="button" class="subnav-item" data-accounts-sub="categories">Categories</button>
           <button type="button" class="subnav-item" data-accounts-sub="preferences">Preferences</button>
         </div>
@@ -495,6 +496,26 @@
               <div id="accountsTable"></div>
               <div class="ledger-footer">
                 <button class="btn btn-sm" id="addAccountBtn">+ Add account</button>
+              </div>
+            </div>
+          </details>
+        </div>
+        </div>
+        <div class="accounts-subpage" id="accountsSub-people" hidden>
+        <div class="page-intro-row">
+          <p class="page-intro">Who's in the household, and what the app needs to know about each of them.</p>
+        </div>
+        <div class="ledgers">
+          <details class="ledger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">People</h2></div>
+              <div class="ledger-total" id="peopleSummary"></div>
+            </summary>
+            <div class="ledger-body">
+              <p class="ledger-note help" style="margin-left:0">A person comes from an income row marked Gross that names them. Renaming someone here changes every income row, holding, property share, budget line and tax year that names them. Date of birth, HELP, super caps and home-office hours feed the Tax page, the private health rebate and Benchmarks.</p>
+              <div id="peopleTable"></div>
+              <div class="ledger-footer">
+                <button class="btn btn-sm" id="addPersonBtn">+ Add person</button>
               </div>
             </div>
           </details>

@@ -197,3 +197,19 @@
   .tax-topup-amt{ width:120px; min-height:36px; padding:4px 8px; border:1px solid var(--border); border-radius:8px; background: var(--paper); color: var(--ink); font:inherit; font-size:14px; text-align:right; text-transform:none; letter-spacing:0; }
   .tax-topup-out{ margin:8px 0 0; font-size:12.5px; line-height:1.5; }
   .tax-topup-out .warn{ color: var(--bad); }
+
+/* ---------------- Accounts → People (v3.44.0) ---------------- */
+.pp-list{ display:flex; flex-direction:column; gap:14px; }
+.pp-card{ border:1px solid var(--border); border-radius:12px; padding:14px; background:var(--paper); }
+.pp-head{ display:flex; align-items:center; gap:10px; }
+.pp-head .m-avatar{ width:30px; height:30px; font-size:13px; flex:none; }
+.pp-name{ flex:1 1 auto; min-width:0; font:inherit; font-size:16px; font-weight:650; color:var(--ink); background:transparent; border:1px solid transparent; border-radius:8px; padding:6px 8px; }
+.pp-name:hover, .pp-name:focus{ border-color:var(--border); background:var(--paper-raised); outline:none; }
+.pp-age{ font-size:12px; font-weight:600; color:var(--ink-soft); white-space:nowrap; }
+.pp-age::after{ content:" yrs"; }
+.pp-uses{ font-size:12.5px; color:var(--ink-soft); margin:6px 0 12px; line-height:1.45; }
+.pp-hours-wrap{ margin-top:12px; }
+.pp-hours-row{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:8px; margin-top:6px; }
+.pp-hours small{ font-weight:500; }
+.pp-hours input{ width:100%; box-sizing:border-box; }
+@media (max-width:520px){ .pp-hours-row{ grid-template-columns:repeat(2, minmax(0,1fr)); } }

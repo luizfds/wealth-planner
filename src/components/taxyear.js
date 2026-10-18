@@ -234,7 +234,7 @@ function statementChecksHtml(py, grossRows, fy){
 // The budget lines flagged deductible for this person, listed for the year with a tick each
 // (v3.47.0) — leave one out and the rest still count; typed claims below add to them.
 function budgetLinesDeductionHtml(person, fy, py, lines){
-  if(!lines.length) return '<p class="ledger-note" style="margin-left:0">No budget lines are flagged deductible for ' + escapeAttr(person) + ' — tick <b>Tax deduction</b> on a line (Expenses → Budget) and it shows here. Working-from-home hours add to D5.</p>';
+  if(!lines.length) return '<p class="ledger-note" style="margin-left:0">No budget lines are flagged deductible for ' + escapeAttr(person) + ' — tick <b>Tax deduction</b> on a line (Cash flow → Budget) and it shows here. Working-from-home hours add to D5.</p>';
   var on = usesBudgetLines(personYear(fy, person, false));
   return '<label class="m-checkbox-field ty-uselines"><input type="checkbox" data-ty-uselines="' + escapeAttr(person) + '"' + (on ? " checked" : "") + '> Use the budget lines flagged deductible</label>' +
     '<div class="ty-lines' + (on ? "" : " is-off") + '">' + lines.map(function(l){

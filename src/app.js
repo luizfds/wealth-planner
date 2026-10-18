@@ -73,7 +73,7 @@ import { ACCOUNT_TYPE_KEYS, accountSourceOptions, setAccountBalance, resolveLink
 import { openAccounts, balanceEditing } from "./components/accounts.js";
 import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodButton, renderPeriodMenu } from "./components/period.js";
 import { selectedYearWindow, yearStartOf, householdYearBasis } from "./calc/ledger.js";
-import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, taxSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
+import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, taxSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
 import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./components/search.js";
 import {
   startBankImport, reparseBankImportWith, clearBankImport,
@@ -999,7 +999,6 @@ import {
     afterPeopleChange();
   }
   function openPeopleTab(){
-    showPage("accounts");
     showAccountsSubpage("people");
     renderPeopleTab();
   }
@@ -1176,8 +1175,8 @@ import {
     var go = e.target.closest(".hc-go");
     if(!go) return;
     var page = go.getAttribute("data-hc-page"), sub = go.getAttribute("data-hc-sub"), fy = go.getAttribute("data-hc-fy");
-    showPage(page);
     if(page === "accounts" && sub){ showAccountsSubpage(sub); if(sub === "people") renderPeopleTab(); }
+    else showPage(page);
     if(page === "expenses" && sub) showExpensesSubpage(sub, { replace: true });
     if(page === "assets" && sub) showAssetsSubpage(sub, { replace: true });
     if(page === "tax"){
@@ -3218,6 +3217,16 @@ import {
   });
 
   // ---------------- Categories: the spending rollup ----------------
+  document.getElementById("planSubnav").addEventListener("click", function(e){
+    var b = e.target.closest("[data-plan-sub]");
+    if(b) showPlanSubpage(b.getAttribute("data-plan-sub"));
+  });
+  function renderSettingsTab(id){
+    if(id === "categories") renderCategories();
+    if(id === "people") renderPeopleTab();
+    if(id === "checks") renderHealth();
+    if(id === "preferences") renderYearBasisPreference();
+  }
   document.getElementById("accountsSubnav").addEventListener("click", function(e){
     var accountsSubBtn = e.target.closest("[data-accounts-sub]");
     if(!accountsSubBtn) return;
@@ -3973,7 +3982,7 @@ import {
     var go = e.target.closest("[data-mr-go]");
     if(go){
       var where = go.getAttribute("data-mr-go");
-      if(where === "checks"){ showPage("accounts"); showAccountsSubpage("checks"); renderHealth(); }
+      if(where === "checks"){ showAccountsSubpage("checks"); renderHealth(); }
       else { showPage("expenses"); showExpensesSubpage("spending", { replace: true }); var card = document.getElementById("bankImportCard"); if(card){ card.open = true; setTimeout(function(){ card.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); } }
       return;
     }
@@ -4060,7 +4069,7 @@ import {
   });
   // Same swipe-between-tabs affordance as Assets above, and same mobile-only guard: two tabs, so
   // a swipe simply stops at either end rather than wrapping.
-  var EXPENSES_SUB_ORDER = ["budget", "spending"];
+  var EXPENSES_SUB_ORDER = ["budget", "income", "spending"];
   function stepExpensesSubpage(step){
     if(!window.matchMedia("(max-width: 880px)").matches) return;
     var activeExpensesBtn = document.querySelector("#expensesSubnav .subnav-item.active");
@@ -4091,13 +4100,24 @@ import {
   var initialAssetsSub = "summary";
   var initialExpensesSub = "budget";
   var initialTaxSub = null;
+  var initialPlanSub = "scenarios";
+  var initialSettingsSub = null;
   if(routeFromUrl){
     initialPage = routeFromUrl.page;
     if(routeFromUrl.sub && routeFromUrl.page === "assets") initialAssetsSub = routeFromUrl.sub;
     if(routeFromUrl.sub && routeFromUrl.page === "expenses") initialExpensesSub = routeFromUrl.sub;
     if(routeFromUrl.sub && routeFromUrl.page === "tax") initialTaxSub = routeFromUrl.sub;
+    if(routeFromUrl.sub && routeFromUrl.page === "plan") initialPlanSub = routeFromUrl.sub;
+    if(routeFromUrl.page === "settings") initialSettingsSub = routeFromUrl.sub || "people";
   } else {
     try{ initialPage = localStorage.getItem(PAGE_KEY) || "dashboard"; }catch(e){}
+    // A page remembered from before v3.57.0 that is now a subpage.
+    var legacyPage = { income: ["expenses", "income"], scenarios: ["plan", "scenarios"], projections: ["plan", "projections"] }[initialPage];
+    if(legacyPage){
+      initialPage = legacyPage[0];
+      if(legacyPage[0] === "expenses") initialExpensesSub = legacyPage[1]; else initialPlanSub = legacyPage[1];
+    }
+    if(initialPage === "settings") initialSettingsSub = "people";
   }
 
   window.addEventListener("popstate", function(e){
@@ -4117,6 +4137,8 @@ import {
     if(route.page === "assets") showAssetsSubpage(route.sub || "summary", { skipUrl: true });
     if(route.page === "expenses") showExpensesSubpage(route.sub || "budget", { skipUrl: true });
     if(route.page === "tax") showTaxSubpage(route.sub || taxSubpage(), { skipUrl: true });
+    if(route.page === "plan") showPlanSubpage(route.sub || "scenarios", { skipUrl: true });
+    if(route.page === "settings") showAccountsSubpage(route.sub || "people", { skipUrl: true });
   });
 
   function renderAll(){
@@ -4243,7 +4265,7 @@ import {
     if(e.target.closest("[data-goal-add]")){
       var kind = benchmarksBody.querySelector("[data-goal-kind]").value;
       var cat = benchmarksBody.querySelector("[data-goal-category]").value;
-      if(addGoal(kind, cat) === false){ showToast("Add a category first (Accounts → Categories)"); return; }
+      if(addGoal(kind, cat) === false){ showToast("Add a category first (Settings → Categories)"); return; }
       renderBenchmarks();
       var inputs = benchmarksBody.querySelectorAll("[data-goal-target]");
       if(inputs.length){ inputs[inputs.length - 1].focus(); inputs[inputs.length - 1].select(); }
@@ -4366,6 +4388,8 @@ import {
   showExpensesSubpage(initialExpensesSub, { skipUrl: initialPage !== "expenses", replace: true });
   // Same seeding for Tax, whose default tab depends on the time of year (nav.js defaultTaxSub).
   showTaxSubpage(initialTaxSub || taxSubpage(), { skipUrl: initialPage !== "tax", replace: true });
+  showPlanSubpage(initialPlanSub, { skipUrl: initialPage !== "plan", replace: true });
+  if(initialSettingsSub){ showAccountsSubpage(initialSettingsSub, { replace: true }); renderSettingsTab(initialSettingsSub); }
 
   // onboarding.html's "Try it with sample data" link lands here with ?mock=1 — generate it
   // immediately (no confirm needed, unlike the header's own Sample data button: there's nothing

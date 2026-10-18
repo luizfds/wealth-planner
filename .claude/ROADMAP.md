@@ -2198,8 +2198,14 @@ accounts / cards / loans, plus "balances with no account yet"). A card's `limit`
 account and is never counted. Migration (state.js `migrateAccounts`) maps "debit" → "everyday",
 gives Cash assets and debts ids, and links by name once (`accountsLinked`).
 
-## 94. `[~]` Navigation by job
+## 94. `[x]` Navigation by job — shipped v3.57.0
 Home, Cash flow, Accounts, Investments, Property, Tax, Plan, Reports, Settings.
+Shipped as: page ids kept where a page carried on (dashboard = Home, expenses = Cash flow, assets =
+Investments, properties = Property); Income moved into Cash flow as a subpage, Scenarios and
+Projections into a new Plan page, People/Categories/Preferences/Checks into a new Settings page.
+`nav.js` ALIASES send the old ids (and old URLs/remembered pages) to their new subpage, and
+showPage's deferred apply drops a navigation superseded in the same tick. Phone bar: Home, Cash
+flow, Accounts, Investments, More (Property, Tax, Plan, Settings). Reports lands with item 98.
 
 ## 95. `[~]` Home, and Review as a guided flow
 Home: net worth, the period's money in and out, bills due, a to-do list. Review: one step at a

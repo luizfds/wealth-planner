@@ -7,17 +7,28 @@ import { renderReceived } from "./received.js";
 import { localDateStr } from "../lib/format.js";
 
 // ---------------- Page navigation ----------------
+// Organised by job since v3.57.0 — what you're doing, not which kind of record it is. The ids are
+// the old ones where a page carried on (so saved links, localStorage and every data-page attribute
+// keep working); Income, Scenarios and Projections became subpages, reached through ALIASES.
 var PAGES = [
-  { id: "dashboard", label: "Dashboard" },
-  { id: "income", label: "Income" },
-  { id: "tax", label: "Tax" },
-  { id: "expenses", label: "Expenses" },
+  { id: "dashboard", label: "Home" },
+  { id: "expenses", label: "Cash flow" },
   { id: "accounts", label: "Accounts" },
-  { id: "assets", label: "Assets" },
-  { id: "properties", label: "Properties" },
-  { id: "scenarios", label: "Scenarios" },
-  { id: "projections", label: "Projections" }
+  { id: "assets", label: "Investments" },
+  { id: "properties", label: "Property" },
+  { id: "tax", label: "Tax" },
+  { id: "plan", label: "Plan" },
+  { id: "settings", label: "Settings" }
 ];
+// Old page ids → [page, subpage]. Anything that still says showPage("income") — a notification, the
+// setup checklist, a search result, an old bookmark — lands on the subpage that replaced it.
+var ALIASES = {
+  income: ["expenses", "income"],
+  scenarios: ["plan", "scenarios"],
+  projections: ["plan", "projections"]
+};
+var currentPage = null;
+export function currentPageId(){ return currentPage; }
 export var PAGE_KEY = "wealthPlanner.page";
 
 // Shareable URLs: /<page>[/<subpage>], e.g. /assets/shares or /expenses/spending. GitHub Pages
@@ -48,11 +59,17 @@ var currentAssetsSub = "summary";
 // Expenses' own two halves — the planned budget and the real spend logged against it. Unlike
 // Assets' categories (whose ids are the user-facing category names and so need a slug map), these
 // are already lowercase route slugs, so they double as their own DOM ids and URL segments.
-var EXPENSES_SUBS = ["budget", "spending"];
+var EXPENSES_SUBS = ["budget", "income", "spending"];
 var currentExpensesSub = "budget";
 // Tax's three halves (v3.43.0): the year as a plan, past years as returns, and the papers behind
 // them. Deep-linkable like Expenses — "open the return" is worth a bookmark in October.
 var TAX_SUBS = ["year", "returns", "documents"];
+// Plan (v3.57.0): the what-ifs — scenarios to live in, and where each leads.
+var PLAN_SUBS = ["scenarios", "projections"];
+var currentPlanSub = "scenarios";
+// Settings (v3.57.0): the registries and preferences that used to share the Accounts page.
+var SETTINGS_SUBS = ["people", "categories", "preferences", "checks"];
+var currentSettingsSub = "people";
 var currentTaxSub = null;
 // Between 1 July and 31 October the year just ended is the thing to be doing, so Tax opens on its
 // return; the rest of the year it opens on the plan.
@@ -65,12 +82,14 @@ function buildRoutePath(pageId){
   if(pageId === "assets") parts.push(ASSETS_SUB_TO_SLUG[currentAssetsSub] || "summary");
   if(pageId === "expenses") parts.push(currentExpensesSub);
   if(pageId === "tax") parts.push(currentTaxSub || defaultTaxSub());
+  if(pageId === "plan") parts.push(currentPlanSub);
+  if(pageId === "settings") parts.push(currentSettingsSub);
   return BASE_PATH + "/" + parts.join("/");
 }
 function syncUrl(pageId, replace){
   var path = buildRoutePath(pageId);
   if(location.pathname === path) return;
-  history[replace ? "replaceState" : "pushState"]({page: pageId, assetsSub: currentAssetsSub, expensesSub: currentExpensesSub, taxSub: currentTaxSub}, "", path + location.search);
+  history[replace ? "replaceState" : "pushState"]({page: pageId, assetsSub: currentAssetsSub, expensesSub: currentExpensesSub, taxSub: currentTaxSub, planSub: currentPlanSub, settingsSub: currentSettingsSub}, "", path + location.search);
 }
 export function parseRouteFromLocation(){
   var path = location.pathname;
@@ -79,12 +98,15 @@ export function parseRouteFromLocation(){
     try{ return decodeURIComponent(s).toLowerCase(); }catch(e){ return s.toLowerCase(); }
   });
   if(!segs.length) return null;
+  if(ALIASES[segs[0]]) return { page: ALIASES[segs[0]][0], sub: ALIASES[segs[0]][1] };
   var page = PAGES.find(function(p){ return p.id === segs[0]; });
   if(!page) return null;
   var sub = null;
   if(page.id === "assets" && segs[1] && SLUG_TO_ASSETS_SUB[segs[1]]) sub = SLUG_TO_ASSETS_SUB[segs[1]];
   else if(page.id === "expenses" && segs[1] && EXPENSES_SUBS.indexOf(segs[1]) !== -1) sub = segs[1];
   else if(page.id === "tax" && segs[1] && TAX_SUBS.indexOf(segs[1]) !== -1) sub = segs[1];
+  else if(page.id === "plan" && segs[1] && PLAN_SUBS.indexOf(segs[1]) !== -1) sub = segs[1];
+  else if(page.id === "settings" && segs[1] && SETTINGS_SUBS.indexOf(segs[1]) !== -1) sub = segs[1];
   return { page: page.id, sub: sub };
 }
 
@@ -95,7 +117,9 @@ export function parseRouteFromLocation(){
 // Tax lives behind More all year (v3.54.2): it took Assets' place in the bar from July to October
 // for a while, but Assets is opened far more often than Tax, even in lodgement season — and a tab
 // bar that rearranges itself by the calendar costs more than the one tap it saves.
-var MOBILE_MORE_PAGES = ["accounts", "scenarios", "projections", "tax"];
+// v3.57.0: the bar is the four everyday jobs — Home, Cash flow, Accounts, Investments — and the
+// rest (Property, Tax, Plan, Settings) sit behind More.
+var MOBILE_MORE_PAGES = ["properties", "tax", "plan", "settings"];
 
 
 // Plain-button pages: the page's own single, unambiguous "add" entry point. Income/Assets/
@@ -122,10 +146,20 @@ function accountsFabAction(){
   var showing = function(id){ var el = document.getElementById(id); return el && !el.hidden; };
   if(showing("accountsSub-categories")) return { label: "Add category", selector: "#addCategoryBtn" };
   if(showing("accountsSub-people")) return { label: "Add person", selector: "#addPersonBtn" };
-  if(showing("accountsSub-preferences") || showing("accountsSub-checks")) return { label: null, selector: null };
-  return { label: "Add account", selector: "#addAccountBtn" };
+  return { label: null, selector: null };
 }
-var QUICK_FAB_GROUPED_PAGES = ["income", "assets", "scenarios"];
+// The first visible [data-add] inside `rootId` — for pages whose add buttons are per group.
+function groupedFabTarget(rootId){
+  var section = document.getElementById(rootId);
+  var candidates = section ? section.querySelectorAll("[data-add]") : [];
+  var target = Array.prototype.find.call(candidates, function(el){ return el.offsetParent !== null; });
+  if(!target) return null;
+  // Re-found by this same attribute at click time (see app.js), not stored as an element reference
+  // — a re-render can replace the actual node before the button is tapped, but the data-add value
+  // itself stays stable for the same logical group.
+  return { label: (target.textContent || "").replace(/^\+\s*/, "").trim() || "Add",
+    selector: '[data-add="' + CSS.escape(target.getAttribute("data-add")) + '"]' };
+}
 // Every "add or log something" the app can do, in one list, reachable from any page via the fab's
 // chevron. The point is the cross-page case: the fab itself can only trigger what's already on
 // screen, so adding a share from the Dashboard meant navigating to Assets, switching to the Shares
@@ -173,28 +207,27 @@ export function updateQuickFab(pageId){
   var fab = document.getElementById("quickFab");
   if(!fab) return;
   var label = null, mode = null, selector = null;
+  var grouped = null;
   if(pageId === "dashboard"){
     label = "Log net worth now";
     mode = "networth";
   } else if(pageId === "accounts"){
-    var accountsAction = accountsFabAction();
-    label = accountsAction.label;
-    selector = accountsAction.selector;
+    label = "Add account"; selector = "#addAccountBtn";
+  } else if(pageId === "settings"){
+    var settingsAction = accountsFabAction();
+    label = settingsAction.label;
+    selector = settingsAction.selector;
+  } else if(pageId === "expenses" && currentExpensesSub === "income"){
+    grouped = groupedFabTarget("expensesSub-income");
+  } else if(pageId === "plan"){
+    if(currentPlanSub === "scenarios") grouped = groupedFabTarget("planSub-scenarios");
+  } else if(pageId === "assets"){
+    grouped = groupedFabTarget("page-assets");
   } else if(QUICK_FAB_BUTTON_PAGES[pageId]){
     label = QUICK_FAB_BUTTON_PAGES[pageId].label;
     selector = QUICK_FAB_BUTTON_PAGES[pageId].selector;
-  } else if(QUICK_FAB_GROUPED_PAGES.indexOf(pageId) !== -1){
-    var section = document.getElementById("page-" + pageId);
-    var candidates = section ? section.querySelectorAll("[data-add]") : [];
-    var target = Array.prototype.find.call(candidates, function(el){ return el.offsetParent !== null; });
-    if(target){
-      label = (target.textContent || "").replace(/^\+\s*/, "").trim() || "Add";
-      // Re-found by this same attribute at click time (see app.js), not stored as an element
-      // reference — a re-render can replace the actual node before the button is tapped, but the
-      // data-add value itself stays stable for the same logical group.
-      selector = '[data-add="' + CSS.escape(target.getAttribute("data-add")) + '"]';
-    }
   }
+  if(grouped){ label = grouped.label; selector = grouped.selector; }
   var more = document.getElementById("quickFabMore");
   // No single obvious action for this page (Projections): the big circle opens the quick-actions
   // menu instead of hiding, and the chevron stands down rather than duplicating it.
@@ -225,9 +258,21 @@ var overlayCleanup = null;
 export function setOverlayCleanup(fn){ overlayCleanup = fn; }
 export function showPage(id, opts){
   opts = opts || {};
+  if(ALIASES[id]){
+    var to = ALIASES[id];
+    showPage(to[0], opts);
+    if(to[0] === "expenses") showExpensesSubpage(to[1], { replace: true, skipUrl: opts.skipUrl });
+    if(to[0] === "plan") showPlanSubpage(to[1], { replace: true, skipUrl: opts.skipUrl });
+    return;
+  }
   if(!PAGES.some(function(p){ return p.id === id; })) id = "dashboard";
+  currentPage = id;
 
   function applyPageChange(){
+    // A view transition runs this later, so a second showPage() in the same tick (showPage("accounts")
+    // then showAccountsSubpage("checks"), which moves on to Settings) would otherwise land second
+    // and leave the first page's URL and title behind. The newest request wins.
+    if(currentPage !== id) return;
     // The per-scenario expense override panel (Expenses page) is a fixed-position overlay
     // appended outside any .app-page section, so it would otherwise stay visible on top of
     // whatever page the user navigates to next.
@@ -244,16 +289,16 @@ export function showPage(id, opts){
     var moreTab = document.getElementById("mobileTabMore");
     if(moreTab) moreTab.classList.toggle("active", MOBILE_MORE_PAGES.indexOf(id) !== -1);
     var page = PAGES.find(function(p){ return p.id === id; });
-    document.getElementById("pageTitle").textContent = page ? page.label : "Dashboard";
+    document.getElementById("pageTitle").textContent = page ? page.label : "Home";
     var navLabel = document.getElementById("navMenuCurrentLabel");
-    if(navLabel) navLabel.textContent = page ? page.label : "Dashboard";
+    if(navLabel) navLabel.textContent = page ? page.label : "Home";
     try{ localStorage.setItem(PAGE_KEY, id); }catch(e){}
     if(id === "dashboard") renderDashboardStats();
     // The worksheet only re-renders itself while visible (see income.js refreshOpenTaxYear), so
     // arriving on Tax brings it up to date with whatever changed elsewhere in the meantime.
     if(id === "tax") renderTaxYear();
     // Received is planned against the income rows, rent and holdings, which change elsewhere.
-    if(id === "income") renderReceived();
+    if(id === "expenses" && currentExpensesSub === "income") renderReceived();
     updateQuickFab(id);
     if(!opts.skipScroll) window.scrollTo(0, 0);
     if(!opts.skipUrl) syncUrl(id, !!opts.replace);
@@ -301,15 +346,40 @@ export function showAssetsSubpage(id, opts){
 // Accounts vs. Categories — the two registries this app asks you to maintain. Session-only, like
 // the Dashboard's own split and unlike Assets/Expenses: there's no reason to deep-link a settings
 // registry, and keeping it out of the URL keeps buildRoutePath to the two subpages worth sharing.
-var ACCOUNTS_SUBS = ["accounts", "people", "categories", "preferences", "checks"];
-export function showAccountsSubpage(id){
-  if(ACCOUNTS_SUBS.indexOf(id) === -1) id = "accounts";
-  document.querySelectorAll(".accounts-subpage").forEach(function(el){ el.hidden = el.id !== "accountsSub-" + id; });
+//
+// Since v3.57.0 Accounts is only the accounts; People, Categories, Preferences and Checks are
+// Settings. The name stayed because a dozen callers ask for "accounts → checks"; it now opens
+// whichever page holds that tab.
+export function showAccountsSubpage(id, opts){
+  opts = opts || {};
+  if(id === "accounts" || SETTINGS_SUBS.indexOf(id) === -1){
+    if(currentPage !== "accounts") showPage("accounts", opts);
+    return;
+  }
+  currentSettingsSub = id;
+  var arriving = currentPage !== "settings";
+  if(arriving) showPage("settings", Object.assign({}, opts, { skipUrl: true }));
+  document.querySelectorAll("#page-settings .accounts-subpage").forEach(function(el){ el.hidden = el.id !== "accountsSub-" + id; });
   document.querySelectorAll("#accountsSubnav .subnav-item").forEach(function(btn){
     btn.classList.toggle("active", btn.getAttribute("data-accounts-sub") === id);
   });
   scrollActiveSubnavIntoView("accountsSubnav");
-  updateQuickFab("accounts");
+  updateQuickFab("settings");
+  if(!opts.skipUrl) syncUrl("settings", !!opts.replace);
+}
+export function settingsSubpage(){ return currentSettingsSub; }
+
+export function showPlanSubpage(id, opts){
+  opts = opts || {};
+  if(PLAN_SUBS.indexOf(id) === -1) id = "scenarios";
+  currentPlanSub = id;
+  document.querySelectorAll(".plan-subpage").forEach(function(el){ el.hidden = el.id !== "planSub-" + id; });
+  document.querySelectorAll("#planSubnav .subnav-item").forEach(function(btn){
+    btn.classList.toggle("active", btn.getAttribute("data-plan-sub") === id);
+  });
+  scrollActiveSubnavIntoView("planSubnav");
+  updateQuickFab("plan");
+  if(!opts.skipUrl) syncUrl("plan", !!opts.replace);
 }
 
 export function showTaxSubpage(id, opts){
@@ -341,6 +411,7 @@ export function showExpensesSubpage(id, opts){
     btn.classList.toggle("active", btn.getAttribute("data-expenses-sub") === id);
   });
   scrollActiveSubnavIntoView("expensesSubnav");
+  if(id === "income") renderReceived();
   updateQuickFab("expenses");
   if(!opts.skipUrl) syncUrl("expenses", !!opts.replace);
 }

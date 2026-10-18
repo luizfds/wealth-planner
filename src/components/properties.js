@@ -443,7 +443,7 @@ function ownershipSectionHtml(p){
   if(!people.length){
     return propertySectionHtml(p, "ownership",
       '<div class="property-section-title">Ownership</div>',
-      '<p class="ledger-note" style="margin-left:0">Mark an Income row\'s Type as "Gross" and give it a Person on the Income tab, and they\'ll show up here to take a share of this property\'s result.</p>');
+      '<p class="ledger-note" style="margin-left:0">Mark an Income row\'s Type as "Gross" and give it a Person on Cash flow → Income, and they\'ll show up here to take a share of this property\'s result.</p>');
   }
   var rows = people.map(function(person){
     var pct = propertyOwnershipPct(p, person, people);
@@ -463,7 +463,7 @@ function ownershipSectionHtml(p){
     (offBy
       ? '<p class="tax-cap-note warn" style="margin:10px 0 0">These add to ' + Math.round(total) + '%, not 100% — ' +
         fmtCurrency0.format(Math.abs(result * (total - 100) / 100)) + '/yr of this property\'s result is being ' +
-        (total > 100 ? "claimed twice" : "claimed by nobody") + ' on the Income tab.</p>'
+        (total > 100 ? "claimed twice" : "claimed by nobody") + ' on Cash flow → Income.</p>'
       : '') );
 }
 

@@ -266,7 +266,7 @@ function renderUpcomingBillsPanel(){
   if(!upcoming.length){
     panel.innerHTML =
       '<h3>Upcoming bills</h3>' +
-      '<p class="fire-note">Log a transaction against a shared expense (Expenses tab) to see it projected here.</p>';
+      '<p class="fire-note">Log a transaction against a shared expense (Cash flow) to see it projected here.</p>';
     return;
   }
   var rows = upcoming.slice(0, 8).map(function(i){
@@ -596,7 +596,7 @@ export function renderMonthlyCashFlow(){
     : 'These are the transactions you <b>logged</b>, not everything you spent — ' +
       fmtCurrency0.format(avgLogged) + '/mo against a budget of ' + fmtCurrency0.format(coverage.budgeted) +
       '/mo (' + fmtPercent1.format(coverage.fraction) + ' of it). The month-to-month shape is real; ' +
-      'the gap to income is not savings. Import a bank statement on the Expenses tab and this becomes ' +
+      'the gap to income is not savings. Import a bank statement on Cash flow and this becomes ' +
       'a savings figure.';
   panel.innerHTML = '<h3>Income vs spending <span style="font-weight:400;color:var(--ink-soft)">— last 6 months</span></h3>' +
     '<div class="cf-chart">' + barsHtml + '</div>' +

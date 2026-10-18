@@ -164,7 +164,7 @@ function reserveYearFieldHtml(item){
   // its own answer. It's first and default because that's what most lines want — a line only
   // needs its own budget year when it genuinely differs from the household's.
   var current = RESERVE_YEAR_BASES.indexOf(item.reserveYear) !== -1 ? item.reserveYear : "";
-  var options = '<option value=""' + (current === "" ? " selected" : "") + '>Follow my year (Accounts → Preferences)</option>' +
+  var options = '<option value=""' + (current === "" ? " selected" : "") + '>Follow my year (Settings → Preferences)</option>' +
     RESERVE_YEAR_LABELS.map(function(pair){
       return '<option value="' + pair[0] + '"' + (pair[0] === current ? " selected" : "") + '>' + pair[1] + '</option>';
     }).join("");
@@ -328,7 +328,7 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
   // this says where it goes. Only offered where the caller passes a category list (Expenses), and
   // only ever used for reporting — it never regroups the list the row lives in.
   var categoryField = opts.categories
-    ? '<div class="m-edit-field"><label>Category</label><select class="f-category" title="Groups this line with others like it for the spending charts — manage the list under Accounts → Categories">' +
+    ? '<div class="m-edit-field"><label>Category</label><select class="f-category" title="Groups this line with others like it for the spending charts — manage the list under Settings → Categories">' +
         '<option value=""' + (!(item.category || "") ? " selected" : "") + '>— None —</option>' +
         optionsHtml(opts.categories, item.category || "") +
       '</select></div>'

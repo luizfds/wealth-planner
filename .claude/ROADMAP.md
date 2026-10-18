@@ -2142,30 +2142,35 @@ bell notification while anything needs fixing.
 
 "Do all of them" after PR #87. One PR: each builds on the Received/Checks/Close-the-year work.
 
-## 86. `[~]` A monthly review
-One guided pass at the end of a month: money in logged against the plan, the card statement
-reconciled, new Checks cleared, and the month's actual vs plan in one place.
+## 86. `[x]` A monthly review — shipped v3.54.0
+Dashboard → Review (`calc/monthreview.js`): money in (Log into that month), card statements closed
+in the month against the typed statement total, Checks, and the month against the plan (reserve
+lines kept out and reported separately). `state.monthReviews[ym]`; a bell notification days 1–10
+until last month is marked reviewed.
 
-## 87. `[~]` Bank import learns income
-A money-in group assigned to an income line teaches a rule, so next month's salary, rent and
-distributions match themselves.
+## 87. `[x]` Bank import learns income — shipped v3.49.0
+Rules carry `incomeTarget`; credits only take income rules, debits only spending rules
+(`suggestFor(…, direction)`); a learned group shows "learned · money in".
 
-## 88. `[~]` Projections from actuals
-Once a few months of received income and logged spending exist, the projection and the FI date can
-run on the real savings rate, with the plan beside it.
+## 88. `[x]` Projections from actuals — shipped v3.52.0
+Plan / Actuals on Projections (`state.projection.source`). `calc/actuals.js`: the plan plus the
+monthly differences measured on regular lines with evidence, each from its first logged month;
+lumpy lines left out; three months of each needed. The FI date uses the same corrections.
 
-## 89. `[~]` Before 30 June: the moves that save tax
-A May–June panel: super room and what a top-up saves, shares at a loss against gains already made,
-deductible costs worth paying before 30 June, prepaying investment-loan interest.
+## 89. `[x]` Before 30 June — shipped v3.51.0
+Tax → This year (`calc/junemoves.js`): super room, losses against this year's gains (re-run with
+the loss as a prior loss), prepaying deductible lines and investment-loan interest; real savings
+before timing ones; open by itself in May–June.
 
-## 90. `[~]` Mid-year withholding check
-Year-to-date figures from the latest payslip project the year's withholding against the year's tax:
-heading for a refund or a bill.
+## 90. `[x]` Mid-year withholding check — shipped v3.50.0
+Payslip date, gross and withheld so far on each tax card (`tax.settings[p].ytd`,
+`calc/withholding.js`): the rest of the year at the average rate so far, against the year's tax and
+HELP.
 
-## 91. `[~]` Interest rate changes on property loans
-Asked mid-batch: a loan kept one rate, overwritten on edit. Each loan keeps dated rate changes; a
-past year's modelled interest runs across the rates that applied; the loan shows its history and
-what the last change did to the repayment; one notification per change.
+## 91. `[x]` Interest rate changes on property loans — shipped v3.53.0
+`loan.rateHistory` [{date, rate}] via Record change; `loanRateOn()`, `loanInterestForWindow()` (the
+rental schedule's interest model runs across the rates that applied); history and the last change's
+effect on the loan; one notification per change in the last 60 days.
 
 ---
 

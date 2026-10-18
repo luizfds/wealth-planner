@@ -1245,3 +1245,17 @@ pushed to `origin`. Do this without being asked, every time.
   (`householdBudgetLines()`), and a line fed by a computed row (the agent's fee) is never applied.
 - **Checks:** `calc/health.js` is the place to add a new consistency rule; the bell notification's
   id is the sorted list of failing check ids.
+
+### Keeping itself up to date (v3.49.0–v3.54.0)
+
+- **Import rules are directional.** `rule.incomeTarget` = an income rule (credits only); otherwise a
+  spending rule (debits only). Validate an income rule's target against `incomeTargets()` when
+  applying it — the rule outlives the line it points at.
+- **Actuals never scale unlogged lines.** `calc/actuals.js` corrects the plan by measured
+  differences only; don't "simplify" it into a ratio over everything (that read an unlogged rent
+  as savings — the first version did exactly that).
+- **Loans:** `loan.rate` is the rate now; history is `loan.rateHistory`. Past-year interest goes
+  through `loanInterestForWindow()`; anything new that models a past period's interest should too.
+- New persisted shapes: `tax.settings[p].ytd`, `projection.source`, `monthReviews`,
+  `loan.rateHistory`, `rule.incomeTarget`.
+- The month review's "Log" dates the receipt into the month under review, not today.

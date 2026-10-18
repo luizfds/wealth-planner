@@ -1162,3 +1162,26 @@ test("Keeping your data safe: backups, the folder option and the passcode", asyn
     assert.match(html, /doesn't encrypt/);
   } finally { state.lastBackupDate = keep; }
 });
+
+test("year-end pack: the year's status steps and the hand-off buttons", async function(){
+  const { yearEndHtml, yearEndStatus } = await import("../src/components/yearend.js");
+  const { setPeriod } = await import("../src/calc/ledger.js");
+  var keep = { monthReviews: state.monthReviews, transactions: state.transactions, taxYears: state.taxYears, yearBasis: state.yearBasis };
+  try {
+    state.yearBasis = "financial";
+    state.monthReviews = { "2025-07": { done: "2025-08-02" }, "2025-08": { done: "2025-09-01" } };
+    state.transactions = [{ date: "2025-09-10", amount: 20 }, { date: "2026-08-01", amount: 5 }];
+    state.taxYears = {};
+    setPeriod(2025, "");
+    var st = yearEndStatus(2025, "2026-10-18");
+    assert.equal(st.over, true);
+    assert.equal(st.months, 12);
+    assert.equal(st.reviewed, 2);
+    assert.equal(st.transactions, 1);
+    var html = yearEndHtml("2026-10-18");
+    assert.match(html, /FY25\/26 is over/);
+    assert.match(html, /2 of 12 months marked reviewed/);
+    assert.match(html, /data-ye-print>Print the pack/);
+    assert.match(html, /Transactions \(CSV\) · 1/);
+  } finally { Object.assign(state, keep); setPeriod(null, ""); }
+});

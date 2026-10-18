@@ -39,7 +39,7 @@ import {
   openExpenseReview, closeExpenseReview, renderExpenseReviewPanel,
   logCurrentReviewCard, skipCurrentReviewCard, expenseReview,
   renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel,
-  setTransactionsShowAll, setTransactionsRange, modernTransactionRowOpen, budgetRowTxnsOpen, transactionSummaryText, visibleSpendingIndices,
+  setTransactionsShowAll, setTransactionsRange, modernTransactionRowOpen, budgetRowTxnsOpen, transactionSummaryText, visibleSpendingIndices, loggableBudgetLineItems,
   openQuickLog, closeQuickLog, renderQuickLogSheet, setQuickLogLink, setQuickLogDateOpen,
   setQuickLogShowAllChips, setQuickLogChipFilter, setQuickLogSign, setQuickLogRefundOf, submitQuickLog, quickLogContextText, quickLog,
   renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, logExpenseTransaction,
@@ -79,8 +79,13 @@ import { renderHomeSummary } from "./components/home.js";
 import { dataHealthChecks } from "./calc/health.js";
 import { chooseFolder, backupToFolder, forgetFolder, maybeAutoBackup, setPasscode, clearPasscode, checkPasscode } from "./lib/safekeeping.js";
 import { renderSafekeeping } from "./components/safekeeping.js";
+import { goalsSectionHtml, goalOpen } from "./components/savegoals.js";
+import { addSavingsGoal } from "./calc/savegoals.js";
+import { unbudgetedRecurring, risingLines } from "./calc/recurring.js";
+import { recurringHtml, recurringDismissed } from "./components/recurring.js";
 import { renderReports, reportShown, reportPrintHtml, reportCsv } from "./components/reports.js";
 import { exportTableCsv } from "./lib/backup.js";
+import { yearEndPrintHtml, yearEndDocumentsCsv } from "./components/yearend.js";
 import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodButton, renderPeriodMenu } from "./components/period.js";
 import { selectedYearWindow, yearStartOf, householdYearBasis } from "./calc/ledger.js";
 import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, taxSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
@@ -88,7 +93,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
 import {
   startBankImport, reparseBankImportWith, clearBankImport,
   setBankImportGroupLine, setBankImportGroupCategory, renderBankImportPanel, patchBankImportPanel, renderBankImportHelp,
-  setIncludePossibleDuplicates, commitBankImport, undoBankImport
+  setIncludePossibleDuplicates, commitBankImport, undoBankImport, setStatementAccount, setStatementBalanceOn
 } from "./components/bank-import.js";
 
 (function(){
@@ -383,11 +388,11 @@ import {
 
 
   function renderTotals(){
-    document.getElementById("totalIncomeMonthly").textContent = fmtCurrency2.format(sumField(effectiveIncomeItems(), "monthly"));
+    document.getElementById("totalIncomeMonthly").textContent = fmtCurrency0.format(sumField(effectiveIncomeItems(), "monthly"));
     // Totals what the list actually shows — shared plus the active scenario's housing — not just
     // state.shared, or the header disagrees with the cards beneath it by the size of your rent.
     // Scenario-resolved, matching the cards below it and every other total in the app.
-    document.getElementById("totalSharedMonthly").textContent = fmtCurrency2.format(sumFieldForScenario(budgetLineItems(), state.activeScenario, "monthly"));
+    document.getElementById("totalSharedMonthly").textContent = fmtCurrency0.format(sumFieldForScenario(budgetLineItems(), state.activeScenario, "monthly"));
     renderGlobalMetrics();
   }
 
@@ -1197,6 +1202,14 @@ import {
       if(close){ close.open = true; setTimeout(function(){ close.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60); }
     }
   });
+  // A loan's balance or offset edited on Property or Investments → Offsets is the same number the
+  // matching account shows (v3.56.0) — record it in that history too, so the account's chart, its
+  // savings-goal pace and the net worth comparison see the change wherever it was typed (v3.67.1).
+  // Same-day edits replace each other, so typing doesn't pile up snapshots.
+  function recordLoanSnapshot(loan, key, value){
+    if(!Array.isArray(loan[key])) loan[key] = [];
+    appendHistorySnapshot(loan[key], Math.round((Number(value) || 0) * 100) / 100, localDateStr());
+  }
   function afterCloseYear(){
     recalcComputedItems();
     renderAll();
@@ -1715,6 +1728,7 @@ import {
     var loan = property && property.loans[loanIdx];
     if(!loan) return;
     loan.offsetBalance = parseFloat(e.target.value) || 0;
+    recordLoanSnapshot(loan, "offsetHistory", loan.offsetBalance);
     patchOffsetsRow(property.id, loanIdx, loan.offsetBalance);
     patchPropertyCardComputed(property);
     // patchPropertyCardComputed only patches derived/computed figures, not the raw .loan-offset
@@ -1778,7 +1792,7 @@ import {
         var loanNameEl = loanTr.querySelector(".m-row-name");
         if(loanNameEl) loanNameEl.textContent = loan.what;
       }
-      else if(e.target.classList.contains("loan-balance")) loan.balance = parseFloat(e.target.value) || 0;
+      else if(e.target.classList.contains("loan-balance")){ loan.balance = parseFloat(e.target.value) || 0; recordLoanSnapshot(loan, "balanceHistory", loan.balance); }
       else if(e.target.classList.contains("loan-rate")) loan.rate = parseFloat(e.target.value) || 0;
       else if(e.target.classList.contains("loan-term")) loan.termYears = parseFloat(e.target.value) || 0;
       else if(e.target.classList.contains("loan-manual-amount")) loan.manualRepaymentAmount = parseFloat(e.target.value) || 0;
@@ -1797,6 +1811,7 @@ import {
       }
       else if(e.target.classList.contains("loan-offset")){
         loan.offsetBalance = parseFloat(e.target.value) || 0;
+        recordLoanSnapshot(loan, "offsetHistory", loan.offsetBalance);
         // The mirror of this file's own offset-balance-input handler — without it, editing the
         // offset from here would leave the Assets → Offsets tab showing a stale figure until the
         // next full renderAssets().
@@ -2979,6 +2994,7 @@ import {
 
   // ---------------- Cash flow → Spending: filters, money in, transfers, splits, bulk edit (v3.59.0) ----------------
   function afterTransactionsChange(){
+    renderRecurring();
     renderTransactions();
     renderActualVsPlannedPanel();
     renderSharedGroups();
@@ -3760,6 +3776,9 @@ import {
   // on a phone, which is how a review screen gets abandoned. The counts and badge update in place
   // and the row stays where it is until the next file is loaded.
   document.getElementById("bankImportPanel").addEventListener("change", function(e){
+    // The statement's account changes what counts as a transfer and whose balance it sets — a full render.
+    if(e.target.hasAttribute("data-bank-account")){ setStatementAccount(e.target.value); renderBankImportPanel(); return; }
+    if(e.target.hasAttribute("data-bank-setbalance")){ setStatementBalanceOn(e.target.checked); return; }
     var lineSel = e.target.closest(".bank-group-line");
     if(lineSel) setBankImportGroupLine(lineSel.getAttribute("data-bank-group"), lineSel.value);
     var catSel = e.target.closest(".bank-group-category");
@@ -3786,17 +3805,22 @@ import {
     var result = commitBankImport();
     clearBankImport();
     refreshAfterBankImport();
+    // Transfers and a statement balance reach Accounts, Home and net worth too.
+    if((result.transferIds && result.transferIds.length) || result.balanceSet) renderAll();
     showUndoToast(
       "Imported " + result.ids.length + " transaction" + (result.ids.length === 1 ? "" : "s") +
         (result.refunds ? " · " + result.refunds + " refund" + (result.refunds === 1 ? "" : "s") : "") +
         (result.receivedIds && result.receivedIds.length ? " · " + result.receivedIds.length + " income received" : "") +
+        (result.transferIds && result.transferIds.length ? " · " + result.transferIds.length + " transfer" + (result.transferIds.length === 1 ? "" : "s") : "") +
+        (result.balanceSet ? " · " + result.balanceSet.account + " balance updated" : "") +
         (result.linesCreated ? " · " + result.linesCreated + " new budget line" + (result.linesCreated === 1 ? "" : "s") : "") +
         (result.learned ? " · learned " + result.learned + " shop" + (result.learned === 1 ? "" : "s") : ""),
       function(){
         // Rules the import taught are left in place on purpose — they're a preference, not part of
         // the data being undone, and re-importing the same file is the usual reason to undo.
-        undoBankImport(result.ids, result.lineIds, result.receivedIds);
+        undoBankImport(result.ids, result.lineIds, result.receivedIds, result.transferIds, result.balanceSet);
         refreshAfterBankImport();
+        renderAll();
       }
     );
   });
@@ -3804,6 +3828,7 @@ import {
   // once — which is the point, and also why this is one named function rather than a list repeated
   // at the import and undo call sites where the two could drift apart.
   function refreshAfterBankImport(){
+    renderRecurring();
     renderReceived();
     renderTransactions();
     renderActualVsPlannedPanel();
@@ -4431,6 +4456,8 @@ import {
     renderReports();
     renderChecksBadge();
     renderSafekeeping();
+    renderSavingsGoals();
+    renderRecurring();
   }
   // Settings carries the number of Checks that need fixing (v3.63.0), so they're seen without
   // opening the tab — on the sidebar, the More tab and its Settings item.
@@ -4630,16 +4657,120 @@ import {
   // A quiet weekly backup into the chosen folder, if the browser still allows it.
   maybeAutoBackup().then(function(r){ if(r && r.ok){ showToast("Weekly backup saved to " + r.folder); renderSafekeeping(); } });
 
+  // ---------------- Cash flow → Budget → Recurring payments (v3.66.0) ----------------
+  function currentRecurring(){
+    return { u: unbudgetedRecurring(state.transactions, localDateStr()), r: risingLines(loggableBudgetLineItems(), state.transactions) };
+  }
+  function renderRecurring(){
+    var el = document.getElementById("recurringBody");
+    if(!el) return;
+    var c = currentRecurring();
+    el.innerHTML = recurringHtml(c.u, c.r);
+    var n = c.u.filter(function(x){ return !recurringDismissed.keys["u:" + x.key]; }).length + c.r.filter(function(x){ return !recurringDismissed.keys["r:" + x.id + ":" + x.recent]; }).length;
+    var cnt = document.getElementById("recurringCount");
+    if(cnt) cnt.textContent = n ? n + " to look at" : "";
+  }
+  document.getElementById("recurringBody").addEventListener("click", function(e){
+    var dis = e.target.closest("[data-rc-dismiss]");
+    if(dis){ recurringDismissed.keys[dis.getAttribute("data-rc-dismiss")] = true; renderRecurring(); return; }
+    var add = e.target.closest("[data-rc-add]");
+    if(add){
+      var x = currentRecurring().u.find(function(y){ return y.key === add.getAttribute("data-rc-add"); });
+      if(!x) return;
+      var lastTx = state.transactions[x.indices[x.indices.length - 1]] || {};
+      var line = { id: genId("exp"), what: x.name, classification: "Wants", category: x.category || "", account: lastTx.account || "", amount: x.amount, freq: x.freq, irregular: false, dueMonth: null };
+      state.shared.push(line);
+      x.indices.forEach(function(i){ if(state.transactions[i]){ state.transactions[i].linkedExpenseId = line.id; state.transactions[i].category = ""; } });
+      persist(); renderAll();
+      showUndoToast("Added " + line.what + " to the budget and linked " + x.count + " charges", function(){
+        x.indices.forEach(function(i){ if(state.transactions[i] && state.transactions[i].linkedExpenseId === line.id) state.transactions[i].linkedExpenseId = null; });
+        state.shared = state.shared.filter(function(l){ return l.id !== line.id; });
+        persist(); renderAll();
+      });
+      return;
+    }
+    var up = e.target.closest("[data-rc-update]");
+    if(up){
+      var item = loggableBudgetLineItems().find(function(l){ return l.id === up.getAttribute("data-rc-update"); });
+      if(!item) return;
+      var was = item.amount, to = Number(up.getAttribute("data-rc-to"));
+      item.amount = to;
+      recalcComputedItems(); persist(); renderAll();
+      showUndoToast((item.what || "Line") + " updated to " + fmtCurrency2.format(to), function(){ item.amount = was; recalcComputedItems(); persist(); renderAll(); });
+    }
+  });
+
+  // ---------------- Accounts → Savings goals (v3.65.0) ----------------
+  function renderSavingsGoals(){
+    var el = document.getElementById("savingsGoalsBody");
+    if(el) el.innerHTML = goalsSectionHtml(localDateStr(), scenarioTotals(state.activeScenario).netMonthly);
+  }
+  var goalsBody = document.getElementById("savingsGoalsBody");
+  goalsBody.addEventListener("click", function(e){
+    if(e.target.closest("[data-goal-add]")){
+      var g = addSavingsGoal({ name: "New goal", target: 0, accounts: state.accounts.filter(function(a){ return a.type === "savings"; }).map(function(a){ return a.name; }) });
+      goalOpen[g.id] = true;
+      persist(); renderSavingsGoals(); renderHomeSummary();
+      var nameIn = goalsBody.querySelector('.sgl.is-open [data-goal-field="name"]');
+      if(nameIn){ nameIn.focus(); nameIn.select(); }
+      return;
+    }
+    var tog = e.target.closest("[data-goal-toggle]");
+    if(tog){ var id = tog.getAttribute("data-goal-toggle"); goalOpen[id] = !goalOpen[id]; renderSavingsGoals(); return; }
+    var del = e.target.closest("[data-goal-del]");
+    if(del){
+      var i = Number(del.getAttribute("data-goal-del"));
+      var gone = state.savingsGoals.splice(i, 1)[0];
+      persist(); renderSavingsGoals(); renderHomeSummary();
+      if(gone) showUndoToast("Goal deleted", function(){ state.savingsGoals.splice(i, 0, gone); persist(); renderSavingsGoals(); renderHomeSummary(); });
+    }
+  });
+  goalsBody.addEventListener("change", function(e){
+    var t = e.target, i = t.getAttribute("data-goal-index");
+    if(i == null) return;
+    var g = state.savingsGoals[Number(i)];
+    if(!g) return;
+    if(t.hasAttribute("data-goal-acct")){
+      var n = t.getAttribute("data-goal-acct");
+      g.accounts = g.accounts.filter(function(x){ return x !== n; });
+      if(t.checked) g.accounts.push(n);
+    } else {
+      var f = t.getAttribute("data-goal-field");
+      if(f === "target") g.target = Math.max(0, Number(t.value) || 0);
+      else if(f === "by") g.by = t.value || "";
+      else if(f === "name") g.name = t.value.trim() || "Savings goal";
+    }
+    persist(); renderSavingsGoals(); renderHomeSummary();
+  });
+
   // ---------------- Reports (v3.62.0) ----------------
   document.getElementById("reportsBody").addEventListener("click", function(e){
     var pick = e.target.closest("[data-report]");
     if(pick){ reportShown.key = pick.getAttribute("data-report"); renderReports(); return; }
     if(e.target.closest("[data-report-print]")){ printStatic(reportPrintHtml()); return; }
-    if(e.target.closest("[data-report-csv]")){ var c = reportCsv(); exportTableCsv(c.filename, c.headers, c.rows); }
+    if(e.target.closest("[data-report-csv]")){ var c = reportCsv(); exportTableCsv(c.filename, c.headers, c.rows); return; }
+    // Year-end pack (v3.68.0)
+    if(e.target.closest("[data-ye-print]")){ printStatic(yearEndPrintHtml()); return; }
+    if(e.target.closest("[data-ye-tx]")){ document.getElementById("exportYearTransactionsBtn").click(); return; }
+    if(e.target.closest("[data-ye-docs]")){ var d = yearEndDocumentsCsv(); exportTableCsv(d.filename, d.headers, d.rows); return; }
+    var go = e.target.closest("[data-ye-go]");
+    if(go){
+      var where = go.getAttribute("data-ye-go");
+      if(where === "review"){ showPage("dashboard"); showDashboardSubpage("review"); renderMonthReview(); return; }
+      showPage("tax");
+      showTaxSubpage(where === "documents" ? "documents" : "returns", { replace: true });
+      renderTaxYear();
+      if(where === "close"){
+        var close = document.querySelector("#taxYearBody .ty-close");
+        if(close){ close.open = true; setTimeout(function(){ close.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); }
+        else showToast("Close the year appears on Returns once the year is over");
+      }
+    }
   });
 
   // ---------------- Home (v3.58.0): the summary's links and to-dos ----------------
   document.getElementById("homeSummary").addEventListener("click", function(e){
+    if(e.target.closest("[data-goal-go]")){ showPage("accounts"); return; }
     var b = e.target.closest("[data-home-go]");
     if(!b) return;
     var go = b.getAttribute("data-home-go"), sub = b.getAttribute("data-home-sub"), fy = b.getAttribute("data-home-fy");

@@ -2341,6 +2341,8 @@ export function renameAccountEverywhere(oldName, newName){
   everyAccountBearingArray().forEach(function(items){
     items.forEach(function(row){ if((row.account || "") === oldName) row.account = newName; });
   });
+  // Savings goals list the accounts they count (v3.65.0).
+  (state.savingsGoals || []).forEach(function(g){ g.accounts = (g.accounts || []).map(function(n){ return n === oldName ? newName : n; }); });
   // Transfers name two accounts, in `from` and `to` (v3.59.0).
   (state.transfers || []).forEach(function(x){
     if(x.from === oldName) x.from = newName;

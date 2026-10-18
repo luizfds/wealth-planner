@@ -21,6 +21,8 @@ the last, so two sessions can't pick up the same one.
   Preferences / Import rules / Checks). Pages are `<section class="app-page" id="page-...">`,
   shown/hidden via `showPage()`, not separate documents; old ids (`income`, `scenarios`,
   `projections`) still work through `nav.js` ALIASES.
+- **Numbers:** every figure uses `var(--font-num)` with tabular figures (base.css) — whole dollars in
+  totals and summaries, cents only on single items. Don't reintroduce a second number font.
 - `styles.css` — just eight `@import` statements pulling in `src/styles/{base,shell,dashboard,
   ledger,income,properties,assets,projections}.css`, in that specific order. Light/dark theming is
   CSS custom properties + `prefers-color-scheme`, defined in `base.css`.
@@ -60,10 +62,12 @@ the last, so two sessions can't pick up the same one.
   `monthreview.js` (Home → Review), `accounts.js` (account types and balances, read and written
   through `account.link` to the record that holds the money), `cashflowlist.js` (one list of money
   in, out and transfers; splits; bulk edit), `bills.js` (the bills calendar), `investments.js`
-  (portfolio performance, distributions by year, super against the cap) and `reports.js`.
+  (portfolio performance, distributions by year, super against the cap), `reports.js`,
+  `savegoals.js` (savings goals on account balances), `recurring.js` (repeating payees and rising
+  lines) and `nwhistory.js` (net worth on a past date).
 - `src/components/{dashboard,home,income,taxyear,expenses,cashflow,accounts,assets,investments,
-  properties,projections,scenarios,reports,rules,period,safekeeping,nav,bank-import,search,people,
-  received,health,junemoves,monthreview}.js` — one file per page (plus `nav.js` for routing/page-switching, and
+  properties,projections,scenarios,reports,rules,period,safekeeping,savegoals,recurring,yearend,nav,
+  bank-import,search,people,received,health,junemoves,monthreview}.js` — one file per page (plus `nav.js` for routing/page-switching, and
   `bank-import.js`/`search.js` for the two cross-page flows), each exporting its functions for
   `app.js` to import and wire up. Not every function that "belongs" to a page lives in its
   component — `renameTaxPerson`/`removeTaxPerson` (Income) and `showAssetsSubpage` (Assets)

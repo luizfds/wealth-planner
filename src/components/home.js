@@ -1,6 +1,8 @@
 import { state } from "../state.js";
 import { nextDueDate, lastTransactionDateFor, daysUntil, selectedMonth, monthPhrase, isPeriodToday } from "../calc/ledger.js";
-import { totalNetWorthValue } from "../calc/engine.js";
+import { totalNetWorthValue, scenarioTotals } from "../calc/engine.js";
+import { goalsOverview } from "../calc/savegoals.js";
+import { goalCardHtml } from "./savegoals.js";
 import { monthReview, reviewMonth, monthLabel } from "../calc/monthreview.js";
 import { dataHealthChecks } from "../calc/health.js";
 import { accountBalance } from "../calc/accounts.js";
@@ -67,7 +69,8 @@ export function homeSummaryHtml(today, opts){
   for(var i = log.length - 1; i >= 0; i--){ if(Math.round((Date.parse(today) - Date.parse(log[i].date)) / 86400000) >= 25){ prev = log[i]; break; } }
   var nwCard = '<div class="home-card home-nw"><span class="home-k">Net worth</span><b class="home-big">' + money(nw) + '</b>' +
     (prev ? '<small class="' + (nw - prev.value >= 0 ? "up" : "down") + '">' + signed(nw - prev.value) + ' since ' + shortDate(prev.date) + '</small>' : '<small>Record it now and then to see the trend</small>') +
-    '<span class="home-spark">' + sparklineHtml(log.slice(-12), { width: 120, height: 28 }) + '</span></div>';
+    '<span class="home-spark">' + sparklineHtml(log.slice(-12), { width: 120, height: 28 }) + '</span>' +
+    '<button type="button" class="link-btn home-link" data-home-go="assets">Net worth over time →</button></div>';
 
   var ym = selectedMonth(today);
   var r = monthReview(ym, { accountOf: transactionAccount, categoryOf: transactionCategory, today: today, items: opts.items });
@@ -98,9 +101,16 @@ export function homeSummaryHtml(today, opts){
     }).join("") + '</ul>' : '<p class="home-note">All done — nothing needs you right now.</p>') + '</div>';
 
   return (isPeriodToday() ? '' : '<p class="home-period-note">Showing ' + escapeAttr(r.label) + ' — net worth, bills and to-dos are always as of today.</p>') +
-    '<div class="home-grid">' + nwCard + monthCard + billsCard + todoCard + '</div>';
+    '<div class="home-grid">' + nwCard + monthCard + billsCard + todoCard + '</div>' + goalsStripHtml(today);
 }
 
+// Savings goals (v3.65.0): a strip under the cards, each its progress bar, linking to Accounts.
+function goalsStripHtml(today){
+  if(!(state.savingsGoals || []).length) return "";
+  var ov = goalsOverview(today, scenarioTotals(state.activeScenario).netMonthly);
+  return '<div class="home-goals"><span class="home-k">Goals</span><div class="home-goals-list">' + ov.goals.slice(0, 4).map(function(g, i){ return goalCardHtml(g, i, { compact: true }); }).join("") + '</div>' +
+    '<button type="button" class="link-btn home-link" data-home-go="accounts">All goals →</button></div>';
+}
 export function renderHomeSummary(){
   var el = typeof document !== "undefined" && document.getElementById("homeSummary");
   if(el) el.innerHTML = homeSummaryHtml();

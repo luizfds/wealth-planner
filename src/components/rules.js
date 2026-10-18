@@ -28,7 +28,7 @@ export function rulesPageHtml(lines){
   var hit = test ? matchRule(test, rules) : null;
   var testHtml = '<div class="rl-test"><label class="cf-filter"><span>Test a bank description</span><input type="text" data-rl-test value="' + escapeAttr(ruleTest.text) + '" placeholder="e.g. FERN CAFE 1234 SYDNEY"></label>' +
     '<p class="rl-test-out">' + (!test ? "Type a line from a statement to see which rule would file it."
-      : hit ? 'Matched by <b>“' + escapeAttr(hit.match) + '”</b> → ' + escapeAttr(hit.incomeTarget ? (incomeOpts.find(function(o){ return o.value === hit.incomeTarget; }) || { label: hit.incomeTarget }).label
+      : hit ? 'Matched by <b>“' + escapeAttr(hit.match) + '”</b> → ' + escapeAttr(hit.transferAccount ? "transfer with " + hit.transferAccount : hit.incomeTarget ? (incomeOpts.find(function(o){ return o.value === hit.incomeTarget; }) || { label: hit.incomeTarget }).label
         : hit.linkedExpenseId ? (lineOpts.find(function(o){ return o.value === hit.linkedExpenseId; }) || { label: "a deleted line" }).label : (hit.category || "nothing")) + '.'
       : 'No rule matches “' + escapeAttr(normaliseDescription(test)) + '” — the import would fall back to matching budget line names.') + '</p></div>';
   var addHtml = '<div class="rl-add"><b>Add a rule</b><div class="rl-add-grid">' +
@@ -40,9 +40,12 @@ export function rulesPageHtml(lines){
   }
   var rows = rules.map(function(r, i){
     var income = !!r.incomeTarget;
+    var transfer = !!r.transferAccount;
     return '<div class="rl-row' + (hit === r ? " is-hit" : "") + '">' +
       '<label class="cf-filter rl-match"><span>When the description has</span><input type="text" data-rl-index="' + i + '" data-rl-key="match" value="' + escapeAttr(r.match) + '" aria-label="Words to match"></label>' +
-      (income
+      (transfer
+        ? '<label class="cf-filter"><span>Transfer ' + ((r.transferDirection || "debit") === "credit" ? "from" : "to") + '</span><select data-rl-index="' + i + '" data-rl-key="transferAccount">' + optionList(acctOpts, r.transferAccount, "—") + '</select></label><span></span>'
+        : income
         ? '<label class="cf-filter"><span>Money in, for</span><select data-rl-index="' + i + '" data-rl-key="incomeTarget">' + optionList(incomeOpts, r.incomeTarget, "—") + '</select></label>'
         : '<label class="cf-filter"><span>File under line</span><select data-rl-index="' + i + '" data-rl-key="linkedExpenseId">' + optionList(lineOpts, r.linkedExpenseId || "", "— no line —") + '</select></label>' +
           '<label class="cf-filter"><span>or category</span><select data-rl-index="' + i + '" data-rl-key="category"' + (r.linkedExpenseId ? " disabled" : "") + '>' + optionList(catOpts, r.category || "", "—") + '</select></label>') +
@@ -60,9 +63,9 @@ export function setRuleField(i, key, value){
   if(!r) return false;
   if(key === "match"){ var m = normaliseDescription(value); if(!m) return false; r.match = m; return true; }
   if(key === "linkedExpenseId"){ r.linkedExpenseId = value || null; if(value) r.category = ""; return true; }
-  if(key === "category" || key === "account" || key === "incomeTarget"){ r[key] = value || ""; return true; }
+  if(key === "category" || key === "account" || key === "incomeTarget" || key === "transferAccount"){ r[key] = value || ""; return true; }
   return false;
 }
 // A rule with nothing to do (no line, category or income target) is dropped on the next load by
 // migrateState — say so rather than let it vanish.
-export function ruleIsEmpty(r){ return !r.linkedExpenseId && !(r.category || "").trim() && !r.incomeTarget; }
+export function ruleIsEmpty(r){ return !r.linkedExpenseId && !(r.category || "").trim() && !r.incomeTarget && !r.transferAccount; }

@@ -40,11 +40,21 @@ test("spending by category: a column per month, total and per-month average", fu
 
 test("net worth statement adds up to the app's net worth", function(){
   withState(function(){
+    state.assets[0].history = [{ date: "2026-07-01", value: 1500 }, { date: "2026-08-20", value: 2000 }];
     var r = netWorthReport({ today: "2026-08-20" });
-    var last = r.rows[r.rows.length - 1].cells;
-    assert.equal(last.item, "Net worth");
-    assert.equal(last.amount, 4500);
-    assert.ok(r.rows.some(function(x){ return x.cells.item === "Car loan" && x.cells.amount === -500; }));
+    var nw = r.rows.find(function(x){ return x.cells.item === "Net worth"; }).cells;
+    assert.equal(nw.now, 4500);
+    assert.equal(nw.month, null, "a month ago only the cash had been recorded — not comparable");
+    assert.equal(nw.year, null);
+    assert.ok(r.rows.some(function(x){ return x.cells.item === "Other debts" && x.cells.now === -500; }));
     assert.ok(!r.rows.some(function(x){ return /Adjustments/.test(x.cells.item); }));
+    assert.equal(r.rows[r.rows.length - 1].cells.month, null);
+    assert.match(r.note, /left blank rather than compared/);
+    state.assets[1].history = [{ date: "2025-01-01", value: 2500 }];
+    state.debts[0].history = [{ date: "2025-01-01", value: 800 }];
+    state.assets[0].history.unshift({ date: "2025-01-01", value: 300 });
+    var r2 = netWorthReport({ today: "2026-08-20" });
+    assert.equal(r2.rows.find(function(x){ return x.cells.item === "Net worth"; }).cells.year, 2000);
+    assert.equal(r2.rows[r2.rows.length - 1].cells.year, 2500);
   });
 });

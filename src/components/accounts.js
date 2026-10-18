@@ -1,7 +1,7 @@
 import { state } from "../state.js";
 import { ACCOUNT_TYPES, accountTypeLabel, accountSourceOptions, accountBalance, accountsOverview, isOwedType } from "../calc/accounts.js";
 import { currentStatementCycle } from "../calc/ledger.js";
-import { sparklineHtml } from "../lib/charts.js";
+import { sparklineHtml, renderLineChart, dateAxisFormat } from "../lib/charts.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 
@@ -67,6 +67,8 @@ export function accountRowHtml(a, idx, today){
     : '';
   var edit = open
     ? '<div class="acct-card-edit">' +
+        // v3.67.0: the balance over time, drawn after render (renderAccountCharts).
+        '<div class="acct-field-wide acct-chart" data-acct-chart="' + escapeAttr(a.id) + '"></div>' +
         '<label class="acct-field acct-field-wide"><span>Name</span><input type="text" class="acct-mgmt-name" data-acct-index="' + idx + '" value="' + escapeAttr(a.name || "") + '" placeholder="Account name" aria-label="Account name"></label>' +
         '<label class="acct-field"><span>Type</span><select class="acct-mgmt-type" data-acct-index="' + idx + '" aria-label="Account type">' +
           ACCOUNT_TYPES.map(function(t){ return '<option value="' + t.key + '"' + (a.type === t.key ? " selected" : "") + '>' + t.label + '</option>'; }).join("") + '</select></label>' +
@@ -111,5 +113,25 @@ export function accountsPageHtml(today){
 
 export function renderAccountsPage(){
   var el = typeof document !== "undefined" && document.getElementById("accountsTable");
-  if(el) el.innerHTML = accountsPageHtml();
+  if(el){ el.innerHTML = accountsPageHtml(); renderAccountCharts(el); }
+}
+// An account's recorded balances as chart points, carried to today. Owed balances stay positive —
+// the chart is "what it owes", read with the card's own label.
+export function accountChartPoints(a, today){
+  today = today || localDateStr();
+  var b = accountBalance(a);
+  var pts = (b.history || []).filter(function(h){ return h && h.date; }).map(function(h){ return { x: Date.parse(h.date + "T00:00:00"), y: Number(h.value) || 0, dateLabel: h.date }; });
+  if(b.balance != null && (!pts.length || pts[pts.length - 1].dateLabel < today)) pts.push({ x: Date.parse(today + "T00:00:00"), y: b.balance, dateLabel: today });
+  return pts;
+}
+function renderAccountCharts(root){
+  Array.prototype.forEach.call(root.querySelectorAll("[data-acct-chart]"), function(host){
+    var a = state.accounts.find(function(x){ return x.id === host.getAttribute("data-acct-chart"); });
+    if(!a) return;
+    var pts = accountChartPoints(a);
+    if(pts.length < 2){ host.innerHTML = '<p class="ledger-note" style="margin:0">Update the balance now and then and its history draws here.</p>'; return; }
+    renderLineChart(host, [{ label: a.name, colorClass: "series-color-0", points: pts }], {
+      height: 160, yFormat: function(v){ return fmtCurrency0.format(v); }, xFormat: dateAxisFormat(pts),
+      xTickCount: Math.min(5, pts.length), ariaLabel: (a.name || "Account") + " balance over time", baseline: "auto", stepped: true, alwaysLegend: false });
+  });
 }

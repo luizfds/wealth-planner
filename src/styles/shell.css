@@ -110,7 +110,7 @@
   .page-overflow-menu .btn{ justify-content:flex-start; text-align:left; width:100%; }
   .app-sidebar-footer{ margin-top:auto; display:flex; flex-direction:column; gap:14px; padding-top:14px; border-top:1px solid var(--border); }
   .app-sidebar-note{ font-size:10.5px; color: var(--ink-soft); line-height:1.5; }
-  .app-version{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:10px; color: var(--ink-soft); opacity:.65; margin:6px 0 0; }
+  .app-version{ font-family:var(--font-num); font-size:10px; color: var(--ink-soft); opacity:.65; margin:6px 0 0; }
   /* Sits inline after the version number, which is exactly where someone looks when wondering
      whether they're on the latest — so it inherits the version line's own muted treatment rather
      than becoming a third thing competing in the footer. */

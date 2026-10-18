@@ -97,3 +97,11 @@ test("migration: old types become everyday, ids are added, and accounts link by 
   var again = migrateState(s);
   assert.equal(again.accounts.find(function(a){ return a.name === "Bank One"; }).link, "", "an unlink stays unlinked");
 });
+
+test("an account's chart points carry its last balance to today", async function(){
+  const { accountChartPoints } = await import("../src/components/accounts.js");
+  withState(function(){
+    var pts = accountChartPoints({ id: "a", name: "Bank One", type: "savings", link: "asset:as1" }, "2026-03-01");
+    assert.deepEqual(pts.map(function(p){ return p.dateLabel + "=" + p.y; }), ["2026-01-10=4000", "2026-02-10=5000", "2026-03-01=5000"]);
+  });
+});

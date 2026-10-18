@@ -2265,6 +2265,56 @@ device, never in a backup — a lock screen, not encryption, and it says so). Mi
 lastFolderBackup).
 
 
+## 100. `[x]` Bank import that understands accounts — shipped v3.64.0
+The import picks which account the statement is for, recognises payments between the household's
+own accounts as transfers (a card repayment, a top-up to savings) instead of spending, and can set
+that account's balance from the statement's closing balance.
+Shipped as: `bankImport.account` (guessed from the file name, else asked), `detectTransfer()` and
+transfer rules (`transferAccount` + `transferDirection`) in calc/import-rules.js, transfers written
+to `state.transfers` on import, `closingBalance()` from the parsed `balance` column (headerless files
+too) set through `setAccountBalance` with undo restoring the previous balance.
+
+## 101. `[x]` Savings goals tied to accounts — shipped v3.65.0
+A goal (house deposit, emergency fund) follows real account balances, shows progress, what's needed
+per month to hit its date and whether the month's surplus covers it.
+Shipped as: `state.savingsGoals` (separate from the benchmark `state.goals`), `calc/savegoals.js`
+(balance from linked accounts, needed per month, pace from balance history over ~6 months,
+projected month, status), a Savings goals card on Accounts and a strip on Home. Account renames
+update goal accounts.
+
+## 102. `[x]` Recurring payments and subscriptions — shipped v3.66.0
+From logged/imported spending: payments that repeat but have no budget line (offer to add one), and
+lines whose real charge has risen (offer to update).
+Shipped as: `calc/recurring.js` — `cadenceOf()` (median gap within 25% of weekly…yearly, 70% of
+gaps agreeing), `unbudgetedRecurring()` (unlinked charges by merchant key, steady amounts, still
+active) and `risingLines()` (last three charges' median >5% and $2 over the line). A "Recurring
+payments" card on Cash flow → Budget with Add to budget (creates the line and links the charges) /
+Update to $X, both undoable; "Not now" hides one for the session.
+
+## 103. `[x]` Account and net worth history — shipped v3.67.0
+A chart per account from its recorded balances; net worth over time from the snapshots; the net
+worth report compares with a month and a year earlier.
+Shipped as: an open account card draws its balance history (`accountChartPoints`); `calc/nwhistory.js`
+`netWorthOn(date)` (same rules as the Investments chart, loans from their recorded balances where
+present) feeds Today / A month ago / A year ago on the net worth statement, leaving a column's total
+blank when something held today wasn't recorded yet. Home's net worth card links to the chart.
+
+## 104. `[x]` Year-end pack — shipped v3.68.0
+One place at 30 June: close the year, print the tax summary and property P&L together, and export
+the year's transactions and the documents checklist for an accountant.
+Shipped as: Reports → Year-end pack (`components/yearend.js`) for the period's financial year —
+steps (year over, months reviewed, close the year, documents kept, returns lodged) each linking to
+where it's done, and Print the pack (five statements, one per page), the year's transactions CSV
+and the documents checklist CSV.
+
+## 105. `[x]` One number format — shipped v3.69.0
+Money looks the same everywhere: one font, whole dollars in summaries, cents only on individual
+transactions and tax figures.
+Shipped as: a `--font-num` token (Inter) replacing every IBM Plex Mono figure in the stylesheets and
+inline styles (a paste-in textarea keeps it), tabular figures on body, and the Income and Budget
+page totals moved to whole dollars. Rule recorded in base.css: whole dollars for totals and
+summaries, cents for single items (a transaction, a budget line, a tax figure).
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

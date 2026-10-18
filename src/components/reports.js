@@ -1,5 +1,6 @@
 import { REPORTS, buildReport, reportCsvRows } from "../calc/reports.js";
 import { transactionCategory } from "./expenses.js";
+import { yearEndHtml } from "./yearend.js";
 import { fmtCurrency0 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 
@@ -23,6 +24,12 @@ export function reportTableHtml(rep){
     }).join("") + '</tbody></table></div>';
 }
 export function reportsPageHtml(opts){
+  var picker = '<div class="rp-picker" role="tablist" aria-label="Reports">' + REPORTS.map(function(r){
+      var on = r.key === reportShown.key;
+      return '<button type="button" class="period-chip' + (on ? " active" : "") + '" role="tab" aria-selected="' + on + '" data-report="' + r.key + '">' + r.label + '</button>';
+    }).join("") + '</div>';
+  // v3.68.0: the year-end pack is a checklist with hand-off buttons, not a table.
+  if(reportShown.key === "yearend") return picker + yearEndHtml();
   var rep = buildReport(reportShown.key, opts);
   return '<div class="rp-picker" role="tablist" aria-label="Reports">' + REPORTS.map(function(r){
       var on = r.key === reportShown.key;

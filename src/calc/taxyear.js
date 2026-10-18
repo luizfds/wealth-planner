@@ -3,6 +3,7 @@ import { periodsOf } from "./ledger.js";
 import {
   ipProperties, loanInterestMonthly, loanInterestMonthlyRaw, borrowingCostsDeduction, propertyDepreciationForFy, fyWindow
 } from "./property.js";
+import { propertyClaimLines, rowDeductionAnnual } from "./claims.js";
 
 // ---------------- The tax-year record (v3.26.0) ----------------
 //
@@ -123,6 +124,14 @@ var EXPENSE_MATCHERS = [
   ["legal", /legal|solicitor/i], ["repairs", /repair|mainten|plumb|electric/i], ["travel", /travel/i],
   ["stationery", /stationer|postage/i], ["councilRates", /council|\brates\b/i]
 ];
+// The return line a property expense goes on (v3.45.0): chosen on the row (`rentLine`), or guessed
+// from its name when it hasn't been — the guess is only ever the default.
+export var RENT_EXPENSE_LINES = RENT_LINES.filter(function(l){ return !l.income && ["borrowing", "capitalAllowances", "capitalWorks", "interest"].indexOf(l.key) === -1; });
+export function rentLineFor(item){
+  var chosen = item && item.rentLine;
+  if(chosen && RENT_LINES.some(function(l){ return l.key === chosen && !l.income; })) return chosen;
+  return rentLineForExpense(item && item.what);
+}
 export function rentLineForExpense(what){
   for(var i = 0; i < EXPENSE_MATCHERS.length; i++){
     if(EXPENSE_MATCHERS[i][1].test(String(what || ""))) return EXPENSE_MATCHERS[i][0];
@@ -137,10 +146,13 @@ export function rentalSchedule(property, fy){
   RENT_LINES.forEach(function(l){ model[l.key] = 0; });
   model.rent = yearly(property.income);
   (property.expenses || []).forEach(function(e){
-    var key = rentLineForExpense(e.what);
-    model[key] += periodsOf(Number(e.amount) || 0, e.freq).yearly;
+    model[rentLineFor(e)] += periodsOf(Number(e.amount) || 0, e.freq).yearly;
   });
   var win = fyWindow(fy);
+  // Household budget lines claimed against this property, for the part of this year they covered.
+  propertyClaimLines(property.id).forEach(function(i){
+    model[rentLineFor(i)] += rowDeductionAnnual(i, win);
+  });
   // v3.41.0: a loan paid out partway through the year only charged interest up to then.
   model.interest = (property.loans || []).reduce(function(s, l){
     var share = 1;

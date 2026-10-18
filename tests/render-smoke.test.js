@@ -905,3 +905,28 @@ test("People tab: a card per person with their details and where they're used", 
     assert.match(peopleHtml("2026-10-18"), /Nobody yet/);
   } finally { Object.assign(state, keep); }
 });
+
+test("rows: a property cost picks its return line; a budget line can be claimed against a property", async function(){
+  const lt = await import("../src/lib/ledger-table.js");
+  const { RENT_EXPENSE_LINES, rentLineFor } = await import("../src/calc/taxyear.js");
+  const { claimedHereHtml } = await import("../src/components/properties.js");
+  lt.setRentLinesProvider(function(){ return { lines: RENT_EXPENSE_LINES, lineFor: rentLineFor }; });
+  lt.setDeductionPeopleProvider(function(){ return ["Alex", "Sam"]; });
+  lt.setDeductionPropertiesProvider(function(){ return [{ id: "r1", what: "9 Sample Ave" }]; });
+  try {
+    var prop = lt.modernPlainRowHtml({ what: "Pest inspection", amount: 240, freq: "Yearly" }, 0, "propexp:r1", {}, { showClass: true });
+    assert.match(prop, /<label>Return line<\/label><select class="f-rentline"[^>]*>[\s\S]*<option value="pestControl" selected>Pest control/);
+    assert.doesNotMatch(prop, /f-deductible/, "no second, personal claim on a property's own cost");
+    var line = lt.modernPlainRowHtml({ what: "Landlord insurance", amount: 900, freq: "Yearly", deductible: true, claimProperty: "r1" }, 0, "shared", {}, { showClass: true });
+    assert.match(line, /<optgroup label="Investment property"><option value="property:r1" selected>9 Sample Ave<\/option>/);
+    assert.match(line, /class="m-edit-field f-deduct-extra f-claim-prop"><label>Rental schedule line/);
+    assert.match(line, /class="m-edit-field f-deduct-extra f-claim-person" hidden><label>Return label/);
+    var gone = lt.modernPlainRowHtml({ what: "Old", amount: 1, freq: "Yearly", deductible: true, claimProperty: "zz" }, 0, "shared", {}, {});
+    assert.match(gone, /value="property:zz" selected>\(deleted property\)/);
+    var note = claimedHereHtml({ id: "r1" }, [{ what: "Landlord insurance", amount: 900, freq: "Yearly", deductible: true, claimProperty: "r1" }]);
+    assert.match(note, /Also claimed here from your budget: <b>Landlord insurance<\/b> \$900\/yr/);
+    assert.equal(claimedHereHtml({ id: "r2" }, []), "");
+  } finally {
+    lt.setRentLinesProvider(null); lt.setDeductionPeopleProvider(null); lt.setDeductionPropertiesProvider(null);
+  }
+});

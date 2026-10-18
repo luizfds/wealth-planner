@@ -3,6 +3,8 @@ import { AU_TAX_BRACKETS, MAX_SUPER_BASE, HELP_REPAYMENT_RATES, MLS_TIERS, MLS_F
 import { periodsOf, resolveSharedAmount, householdYearWindow, isActiveOn, overlapDaysInclusive } from "./ledger.js";
 import { ipNetResultAnnual, personIpResultAnnual, ipProperties, propertyOwnershipPct } from "./property.js";
 import { incomeStatementTotals, interestIncome, recordedDeductionsByLabel, rentalSchedule } from "./taxyear.js";
+import { deductionYearFraction, rowDeductionAnnual, setClaimItemsProvider } from "./claims.js";
+export { deductionYearFraction, rowDeductionAnnual };
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
 
 // ---------------- Which year's tables ----------------
@@ -434,7 +436,7 @@ export function personDividends(person, win, opts){
 // Unset — which is how the unit tests run — means no deductions, so every existing test and every
 // caller behaves exactly as it did before this existed.
 var deductibleItemsProvider = null;
-export function setDeductibleItemsProvider(fn){ deductibleItemsProvider = fn; }
+export function setDeductibleItemsProvider(fn){ deductibleItemsProvider = fn; setClaimItemsProvider(fn); }
 function deductibleItemsFor(opts){
   if(opts && opts.deductibleItems) return opts.deductibleItems;
   return deductibleItemsProvider ? deductibleItemsProvider() : null;
@@ -443,6 +445,9 @@ function deductibleItemsFor(opts){
 export function deductionRows(items, person){
   return (items || []).filter(function(i){
     if(!i.deductible) return false;
+    // Claimed against an investment property (v3.45.0): it goes on that property's rental
+    // schedule and reaches each owner through their share, not as a personal deduction.
+    if(i.claimProperty) return false;
     // A row with no person attributed belongs to whoever is being computed only when there's
     // exactly one person — otherwise it's ambiguous and silently loading it onto the first person
     // would be worse than asking.
@@ -450,38 +455,8 @@ export function deductionRows(items, person){
     return i.deductiblePerson === person;
   });
 }
-// The share of a tax year a row was claimable for, 0-1.
-//
-// A tax return covers a year, and a claim can stop (or start) partway through it. Two different
-// reasons, so two different fields:
-//
-//   - endDate: the expense itself stopped (a subscription cancelled in March).
-//   - deductibleFrom / deductibleUntil: the expense carries on but stopped being CLAIMABLE — the
-//     home-office share of rent stops the day an employer starts providing an office, while the
-//     rent goes on being paid. Using endDate for that would stop the rent in every budget view.
-//
-// Before this, a row whose endDate had passed claimed $0 — including for the tax year it ended in,
-// which is the year someone is most likely to be lodging. A line that stopped on 30 September
-// claimed nothing for the July-September it was genuinely incurred.
-export function deductionYearFraction(item, win){
-  if(!win || !win.start || !win.end) return 1;
-  var yearDays = overlapDaysInclusive(win.start, win.end, win.start, win.end);
-  // The claim can't start before the expense does (v3.32.0): the later of the two.
-  var fromCandidates = [item && item.deductibleFrom, item && item.startDate].filter(Boolean).sort();
-  var from = fromCandidates.length ? fromCandidates[fromCandidates.length - 1] : "";
-  var untilCandidates = [item && item.endDate, item && item.deductibleUntil].filter(Boolean).sort();
-  var until = untilCandidates.length ? untilCandidates[0] : "";
-  var days = overlapDaysInclusive(win.start, win.end, from || win.start, until || win.end);
-  return yearDays > 0 ? days / yearDays : 0;
-}
-// The claimable amount of one row for a tax year: its annual cost, times its work-related share,
-// times the part of the year it was claimable for. `win` defaults to the household's current year,
-// the same window computePersonTax() uses for capital gains.
-export function rowDeductionAnnual(item, win){
-  var pct = item.deductiblePct == null ? 100 : Math.max(0, Math.min(100, Number(item.deductiblePct) || 0));
-  var fraction = deductionYearFraction(item, win || householdYearWindow());
-  return periodsOf(Number(item.amount) || 0, item.freq).yearly * (pct / 100) * fraction;
-}
+// deductionYearFraction() and rowDeductionAnnual() moved to calc/claims.js (v3.45.0) so the
+// property side can use them too; re-exported here for existing callers.
 // The year's claims grouped by return label: {D2: 1450, D5: 1203.71, ...}. A row with no label is
 // D5, the label most employee claims belong on.
 export function deductionsByLabel(person, items, win){

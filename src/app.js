@@ -7,7 +7,7 @@ import { escapeAttr } from "./lib/html.js";
 import { getNotifications, unreadNotificationCount, markNotificationRead, markAllNotificationsRead } from "./lib/notifications.js";
 import { onHorizontalSwipe } from "./lib/swipe.js";
 import { initTableScrollShadows } from "./lib/scroll-shadow.js";
-import { setDeductionPeopleProvider } from "./lib/ledger-table.js";
+import { setDeductionPeopleProvider, setDeductionPropertiesProvider, setRentLinesProvider } from "./lib/ledger-table.js";
 import {
   decryptBackup, doExport, doShare, canShareFiles, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv, exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard, exportYearTransactionsCsv,
   exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv, exportAssetsImportTemplateCsv, parseCsv, exportProjectionCsv
@@ -19,7 +19,7 @@ import { financialYearOf, fyLabel } from "./calc/property.js";
 import { renderTaxYear, setTaxYearSelected, taxYearAddRow, taxYearDeleteRow, taxYearRestoreRow, taxYearSetField, taxYearToggleEvidence, taxYearMarkLodged, worksheetText, taxYearSelected, taxYearPrintHtml, lodgedSnapshot } from "./components/taxyear.js";
 import { renderPeople, setPersonField, peopleSummaryText } from "./components/people.js";
 import { renamePersonEverywhere, removePersonFromTax } from "./calc/people.js";
-import { setRentalActual, mergeTaxYearFile, matchPerson, taxYearRecord, TAX_YEAR_FILE_KIND } from "./calc/taxyear.js";
+import { RENT_EXPENSE_LINES, rentLineFor, setRentalActual, mergeTaxYearFile, matchPerson, taxYearRecord, TAX_YEAR_FILE_KIND } from "./calc/taxyear.js";
 import { renderCards, renderDashboardStats, renderDetail, setProjectionReference, logNetWorthSnapshot } from "./components/dashboard.js";
 import {
   personBreakdownHtml, renderIncomeGroups, patchOpenRowBreakdowns, patchIncomeGroupTotals,
@@ -484,10 +484,19 @@ import {
     else if(e.target.classList.contains("f-deductible")){
       item.deductible = e.target.checked;
       tr.querySelectorAll(".f-deduct-extra").forEach(function(el){ el.hidden = !e.target.checked; });
+      syncClaimFields(tr, item);
       taxDeductionsChanged = true;
     }
     else if(e.target.classList.contains("f-deductpct")){ item.deductiblePct = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)); taxDeductionsChanged = true; }
-    else if(e.target.classList.contains("f-deductperson")){ item.deductiblePerson = e.target.value; taxDeductionsChanged = true; }
+    else if(e.target.classList.contains("f-deductperson")){
+      // "property:<id>" claims the line against an investment property instead (v3.45.0).
+      var claimVal = e.target.value || "";
+      if(claimVal.indexOf("property:") === 0){ item.claimProperty = claimVal.slice(9); item.deductiblePerson = ""; }
+      else { item.claimProperty = ""; item.deductiblePerson = claimVal; }
+      syncClaimFields(tr, item);
+      taxDeductionsChanged = true;
+    }
+    else if(e.target.classList.contains("f-rentline")){ item.rentLine = e.target.value; taxDeductionsChanged = true; }
     else if(e.target.classList.contains("f-deductlabel")){ item.deductionLabel = e.target.value; taxDeductionsChanged = true; }
     else if(e.target.classList.contains("f-deductfrom")){ item.deductibleFrom = e.target.value || ""; taxDeductionsChanged = true; }
     else if(e.target.classList.contains("f-deductuntil")){ item.deductibleUntil = e.target.value || ""; taxDeductionsChanged = true; }
@@ -936,6 +945,12 @@ import {
 
 
   // ---------------- Tax & super ----------------
+  // A line claimed against a property shows its rental schedule line; one claimed by a person, its
+  // return label (v3.45.0). Both are in the DOM; this picks which is visible.
+  function syncClaimFields(tr, item){
+    tr.querySelectorAll(".f-claim-prop").forEach(function(el){ el.hidden = !(item.deductible && item.claimProperty); });
+    tr.querySelectorAll(".f-claim-person").forEach(function(el){ el.hidden = !(item.deductible && !item.claimProperty); });
+  }
   // People (v3.44.0): the rename and remove themselves live in calc/people.js, which walks every
   // row and record that names a person; this is the refresh after either.
   function afterPeopleChange(){
@@ -2127,6 +2142,8 @@ import {
   // list through every caller of computePersonTax.
   setDeductibleItemsProvider(budgetLineItems);
   setDeductionPeopleProvider(getTaxPeople);
+  setDeductionPropertiesProvider(function(){ return state.properties.filter(function(p){ return p.kind === "IP"; }).map(function(p){ return { id: p.id, what: p.what }; }); });
+  setRentLinesProvider(function(){ return { lines: RENT_EXPENSE_LINES, lineFor: rentLineFor }; });
   setOverlayCleanup(function(){
     if(!activeOverlayClose) return;
     var closeOverlay = activeOverlayClose;

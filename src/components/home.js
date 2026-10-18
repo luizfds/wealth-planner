@@ -69,7 +69,8 @@ export function homeSummaryHtml(today, opts){
   for(var i = log.length - 1; i >= 0; i--){ if(Math.round((Date.parse(today) - Date.parse(log[i].date)) / 86400000) >= 25){ prev = log[i]; break; } }
   var nwCard = '<div class="home-card home-nw"><span class="home-k">Net worth</span><b class="home-big">' + money(nw) + '</b>' +
     (prev ? '<small class="' + (nw - prev.value >= 0 ? "up" : "down") + '">' + signed(nw - prev.value) + ' since ' + shortDate(prev.date) + '</small>' : '<small>Record it now and then to see the trend</small>') +
-    '<span class="home-spark">' + sparklineHtml(log.slice(-12), { width: 120, height: 28 }) + '</span></div>';
+    '<span class="home-spark">' + sparklineHtml(log.slice(-12), { width: 120, height: 28 }) + '</span>' +
+    '<button type="button" class="link-btn home-link" data-home-go="assets">Net worth over time →</button></div>';
 
   var ym = selectedMonth(today);
   var r = monthReview(ym, { accountOf: transactionAccount, categoryOf: transactionCategory, today: today, items: opts.items });

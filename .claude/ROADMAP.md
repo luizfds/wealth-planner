@@ -2291,9 +2291,13 @@ active) and `risingLines()` (last three charges' median >5% and $2 over the line
 payments" card on Cash flow → Budget with Add to budget (creates the line and links the charges) /
 Update to $X, both undoable; "Not now" hides one for the session.
 
-## 103. `[~]` Account and net worth history
+## 103. `[x]` Account and net worth history — shipped v3.67.0
 A chart per account from its recorded balances; net worth over time from the snapshots; the net
 worth report compares with a month and a year earlier.
+Shipped as: an open account card draws its balance history (`accountChartPoints`); `calc/nwhistory.js`
+`netWorthOn(date)` (same rules as the Investments chart, loans from their recorded balances where
+present) feeds Today / A month ago / A year ago on the net worth statement, leaving a column's total
+blank when something held today wasn't recorded yet. Home's net worth card links to the chart.
 
 ## 104. `[~]` Year-end pack
 One place at 30 June: close the year, print the tax summary and property P&L together, and export

@@ -4,6 +4,7 @@ import { getTaxPeople, computePersonTax, currentTaxFy } from "./tax.js";
 import { totalNetWorthValue, totalDebtsValue, toAudAmount } from "./engine.js";
 import { ipProperties, propertyTaxResultBreakdown, propertiesTotalValue, propertiesTotalMortgageBalance, propertiesOffsetTotal, fyLabel } from "./property.js";
 import { localDateStr } from "../lib/format.js";
+import { netWorthOn, shiftDate } from "./nwhistory.js";
 
 // ---------------- Reports (v3.62.0) ----------------
 //
@@ -88,28 +89,38 @@ export function categoryReport(opts){
 export function netWorthReport(opts){
   opts = opts || {};
   var today = opts.today || localDateStr();
-  var byCat = {};
-  (state.assets || []).forEach(function(a){ var c = a.category || "Other"; byCat[c] = (byCat[c] || 0) + toAudAmount(a, a.amount); });
+  // v3.67.0: today beside a month and a year earlier, from recorded history (calc/nwhistory.js).
+  var dates = [today, shiftDate(today, -1), shiftDate(today, -12)];
+  var snaps = dates.map(function(d){ return netWorthOn(d, today); });
+  var now = snaps[0];
+  var cats = {};
+  snaps.forEach(function(sn){ Object.keys(sn.parts.assets).forEach(function(c){ cats[c] = true; }); });
+  var col = function(fn){ var cells = {}; ["now", "month", "year"].forEach(function(k, i){ cells[k] = fn(snaps[i]); }); return cells; };
   var rows = [{ cls: "head", cells: { item: "What you own" } }];
-  var own = 0;
-  Object.keys(byCat).sort().forEach(function(c){ own += byCat[c]; rows.push({ cells: { item: c, amount: r2(byCat[c]) } }); });
-  var pv = propertiesTotalValue(), off = propertiesOffsetTotal();
-  if(pv) { own += pv; rows.push({ cells: { item: "Property", amount: r2(pv) } }); }
-  if(off){ own += off; rows.push({ cells: { item: "Offset accounts", amount: r2(off) } }); }
-  rows.push({ cls: "total", cells: { item: "Total owned", amount: r2(own) } });
+  Object.keys(cats).sort().forEach(function(c){
+    rows.push({ cells: Object.assign({ item: c }, col(function(sn){ return sn.parts.assets[c] != null ? r2(sn.parts.assets[c]) : null; })) });
+  });
+  if(now.parts.property) rows.push({ cells: Object.assign({ item: "Property" }, col(function(sn){ return r2(sn.parts.property); })) });
+  if(now.parts.offsets) rows.push({ cells: Object.assign({ item: "Offset accounts" }, col(function(sn){ return r2(sn.parts.offsets); })) });
+  rows.push({ cls: "total", cells: Object.assign({ item: "Total owned" }, col(function(sn){
+    return r2(Object.keys(sn.parts.assets).reduce(function(s, k){ return s + sn.parts.assets[k]; }, 0) + sn.parts.property + sn.parts.offsets); })) });
   rows.push({ cls: "head", cells: { item: "What you owe" } });
-  var owe = 0, loans = propertiesTotalMortgageBalance(), debts = totalDebtsValue();
-  if(loans){ owe += loans; rows.push({ cells: { item: "Property loans", amount: r2(-loans) } }); }
-  (state.debts || []).forEach(function(d){ if(Number(d.balance)) rows.push({ cells: { item: d.what || "Debt", amount: r2(-Number(d.balance)) } }); });
-  owe += debts;
-  rows.push({ cls: "total", cells: { item: "Total owed", amount: r2(-owe) } });
-  var net = totalNetWorthValue();
-  // Anything the engine counts differently from this list (an offset capped at its loan, say).
-  var diff = r2(net - (own - owe));
-  if(Math.abs(diff) >= 1) rows.push({ cells: { item: "Adjustments (offsets beyond their loan, etc.)", amount: diff } });
-  rows.push({ cls: "total", cells: { item: "Net worth", amount: r2(net) } });
-  return { key: "networth", title: "Net worth statement", subtitle: "as at " + today, columns: [{ key: "item", label: "" }, { key: "amount", label: "Amount", num: true }], rows: rows,
-    note: "Balances as last recorded on Accounts, Investments and Property." };
+  if(now.parts.loans) rows.push({ cells: Object.assign({ item: "Property loans" }, col(function(sn){ return r2(-sn.parts.loans); })) });
+  if(now.parts.debts) rows.push({ cells: Object.assign({ item: "Other debts" }, col(function(sn){ return r2(-sn.parts.debts); })) });
+  rows.push({ cls: "total", cells: Object.assign({ item: "Total owed" }, col(function(sn){ return r2(-(sn.parts.loans + sn.parts.debts)); })) });
+  var engineNow = totalNetWorthValue();
+  var diff = r2(engineNow - now.total);
+  if(Math.abs(diff) >= 1) rows.push({ cells: { item: "Adjustments (offsets beyond their loan, etc.)", now: diff } });
+  // A total that leaves out something held today isn't comparable — blank rather than a fake "change".
+  var cmp = function(sn){ return sn.partial.length ? null : sn.total; };
+  var chg = function(sn){ return sn.partial.length ? null : r2(engineNow - sn.total); };
+  rows.push({ cls: "total", cells: { item: "Net worth", now: r2(engineNow), month: cmp(snaps[1]), year: cmp(snaps[2]) } });
+  rows.push({ cells: { item: "Change to today", now: null, month: chg(snaps[1]), year: chg(snaps[2]) } });
+  var partial = snaps[2].partial.length ? snaps[2].partial : snaps[1].partial;
+  return { key: "networth", title: "Net worth statement", subtitle: "as at " + today,
+    columns: [{ key: "item", label: "" }, { key: "now", label: "Today", num: true }, { key: "month", label: "A month ago", num: true }, { key: "year", label: "A year ago", num: true }], rows: rows,
+    note: "Earlier columns use the last value recorded on or before each date; loans use their recorded balance where there is one, otherwise today's." +
+      (partial.length ? " Some of what you hold today wasn't recorded yet back then (" + partial.slice(0, 3).join(", ") + (partial.length > 3 ? " and " + (partial.length - 3) + " more" : "") + "), so those columns' totals are left blank rather than compared." : "") };
 }
 
 export function propertyReport(){

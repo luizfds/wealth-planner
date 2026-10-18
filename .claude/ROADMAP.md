@@ -2207,9 +2207,15 @@ Projections into a new Plan page, People/Categories/Preferences/Checks into a ne
 showPage's deferred apply drops a navigation superseded in the same tick. Phone bar: Home, Cash
 flow, Accounts, Investments, More (Property, Tax, Plan, Settings). Reports lands with item 98.
 
-## 95. `[~]` Home, and Review as a guided flow
+## 95. `[x]` Home, and Review as a guided flow — shipped v3.58.0
 Home: net worth, the period's money in and out, bills due, a to-do list. Review: one step at a
 time with progress, plain questions, first-time explanation, the summary last.
+Shipped as: `components/home.js` — four cards above the tabs (net worth with change and trend, the
+selected month's money in / out / kept, bills in the next two weeks, a to-do list linking to where
+each is done). The scenario comparison became the "Scenarios" tab. The Review is a five-step
+stepper (money in, card statements, balances, checks, the month against the plan) with step dots
+showing done / to do / nothing to do, Back / Next / Skip, and an explanation before the first one.
+
 
 ## 96. `[~]` Cash flow
 One budget (income and expenses), one transaction list (money in and out) with filters, transfers

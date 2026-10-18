@@ -1043,20 +1043,51 @@ test("Projections: Plan / Actuals control explains itself either way", async fun
   assert.match(on, /income at 96% of plan \(1 line\), spending at 95% \(1 line plus one-offs\)\. That's −\$150 a month worse than the plan on those lines\. Only those lines move below/);
 });
 
-test("Dashboard → Review renders its four parts", async function(){
-  const { monthReviewHtml } = await import("../src/components/monthreview.js");
-  var keep = { income: state.income, incomeLog: state.incomeLog, transactions: state.transactions, accounts: state.accounts, monthReviews: state.monthReviews, properties: state.properties, assets: state.assets };
+test("Home → Review: a first-time intro, then one step at a time with progress", async function(){
+  const { monthReviewHtml, setReviewStep, dismissReviewIntro } = await import("../src/components/monthreview.js");
+  var keep = { income: state.income, incomeLog: state.incomeLog, transactions: state.transactions, accounts: state.accounts, monthReviews: state.monthReviews, properties: state.properties, assets: state.assets, debts: state.debts };
   try {
     state.income = [{ id: "t", what: "Tutoring", incomeType: "Net", amount: 300, freq: "Monthly" }];
-    state.incomeLog = []; state.transactions = []; state.properties = []; state.assets = []; state.monthReviews = {};
-    state.accounts = [{ name: "Card One", type: "credit", statementStartDay: 1 }];
+    state.incomeLog = []; state.transactions = []; state.properties = []; state.debts = []; state.monthReviews = {};
+    state.assets = [{ id: "c1", what: "Pot", category: "Cash", amount: 50, history: [{ date: "2026-09-10", value: 50 }] }];
+    state.accounts = [{ name: "Card One", type: "credit", statementStartDay: 1 }, { name: "Bank One", type: "savings", link: "asset:c1" }];
+    var intro = monthReviewHtml("2026-09", "2026-10-03");
+    assert.match(intro, /<h2>September 2026<\/h2>/);
+    assert.match(intro, /data-mr-intro-ok>Start the review/);
+    dismissReviewIntro();
     var html = monthReviewHtml("2026-09", "2026-10-03");
-    assert.match(html, /<h2>September 2026<\/h2>/);
-    assert.match(html, /<span class="mr-num">1<\/span><h3>Money in<\/h3><span class="mr-status warn">1 not logged<\/span>/);
+    assert.match(html, /Step 1 of 5<\/div><h3>Did the money you expected arrive\?<\/h3>/);
     assert.match(html, /data-mr-log="income:t"/);
-    assert.match(html, /data-mr-statement="Card One"/);
-    assert.match(html, /<h3>The month against the plan<\/h3>/);
-    assert.match(html, /data-mr-done="2026-09">Mark September 2026 reviewed/);
+    assert.match(html, /data-mr-to="1">Skip for now/);
+    setReviewStep(1);
+    assert.match(monthReviewHtml("2026-09", "2026-10-03"), /data-mr-statement="Card One"/);
+    setReviewStep(2);
+    var bal = monthReviewHtml("2026-09", "2026-10-03");
+    assert.match(bal, /1 balance was last updated before the month ended/);
+    assert.match(bal, /data-mr-go="accounts"/);
+    setReviewStep(4);
+    var sum = monthReviewHtml("2026-09", "2026-10-03");
+    assert.match(sum, /<h3>How did the month go\?<\/h3>/);
+    assert.match(sum, /data-mr-done="2026-09">Mark September 2026 reviewed/);
+    assert.match(sum, /class="mr-step-dot is-current is-todo" data-mr-to="4"/);
+  } finally { Object.assign(state, keep); }
+});
+
+test("Home summary: net worth, the month, bills and to-dos", async function(){
+  const { homeSummaryHtml, upcomingBills } = await import("../src/components/home.js");
+  var keep = { netWorthLog: state.netWorthLog, transactions: state.transactions, lastBackupDate: state.lastBackupDate, monthReviews: state.monthReviews, income: state.income, incomeLog: state.incomeLog };
+  try {
+    state.netWorthLog = [{ date: "2026-08-01", value: 100000 }, { date: "2026-10-01", value: 104000 }];
+    state.transactions = [{ id: "x", date: "2026-09-20", amount: 80, linkedExpenseId: "e1" }];
+    state.income = []; state.incomeLog = []; state.monthReviews = {}; state.lastBackupDate = "";
+    var items = [{ id: "e1", what: "Phone", amount: 80, freq: "Monthly" }];
+    var bills = upcomingBills(items, state.transactions, "2026-10-14", 14);
+    assert.deepEqual(bills.map(function(b){ return b.what + "@" + b.due; }), ["Phone@2026-10-20"]);
+    var html = homeSummaryHtml("2026-10-14", { netWorth: 105000, items: items, todos: [{ text: "Review September 2026", go: "dashboard", sub: "review", tone: "warn" }] });
+    assert.match(html, /<b class="home-big">\$105,000<\/b>/);
+    assert.match(html, /\+\$5,000 since 1 Aug/);
+    assert.match(html, /Phone<\/span><em class="">20 Oct<\/em><b>\$80<\/b>/);
+    assert.match(html, /data-home-go="dashboard" data-home-sub="review">Review September 2026/);
   } finally { Object.assign(state, keep); }
 });
 

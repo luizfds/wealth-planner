@@ -164,11 +164,10 @@ export function renderDashboardStats(){
   // where a control lives anyway; it should offer the action, which the buttons below now do.
   var nothingEntered = !state.assets.length && !state.properties.length &&
     !state.income.length && !state.shared.length;
-  if(introEl) introEl.textContent = isComparing
-    ? 'Compare renting against buying, scenario by scenario — keep any investment property in the mix across every option.'
-    : (nothingEntered
-      ? 'Your household finances at a glance. Nothing is pre-filled — start with your income, or load sample data to see what a filled-in plan looks like.'
-      : 'Your household finances at a glance. Add another scenario on the Scenarios tab if you want to compare renting against buying.');
+  // v3.58.0: the scenario comparison moved down to its own tab, so the page's intro is about Home.
+  if(introEl) introEl.textContent = nothingEntered
+    ? "Your household finances at a glance. Nothing is pre-filled — start with your income, or load sample data to see what a filled-in plan looks like."
+    : "Your money at a glance — what you're worth, how the month is going, and what needs doing." + (isComparing ? "" : " Add a second scenario under Plan to compare renting against buying.");
   renderSetupPanel(nothingEntered);
   var totalNetWorth = totalNetWorthValue();
   var itemCount = state.assets.length + state.properties.length;

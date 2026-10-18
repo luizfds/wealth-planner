@@ -20,7 +20,7 @@ import { taxYearFillStatements, renderTaxYear, setTaxYearSelected, taxYearAddRow
 import { renderPeople, setPersonField, peopleSummaryText } from "./components/people.js";
 import { renamePersonEverywhere, removePersonFromTax } from "./calc/people.js";
 import { renderHealth } from "./components/health.js";
-import { renderMonthReview, stepReviewMonth, reviewMonthShown, setReviewMonth } from "./components/monthreview.js";
+import { renderMonthReview, stepReviewMonth, reviewMonthShown, setReviewMonth, setReviewStep, dismissReviewIntro } from "./components/monthreview.js";
 import { markReviewed, setStatementAmount, monthLabel, monthBounds } from "./calc/monthreview.js";
 import { logIncomeReceived, deleteIncomeReceived } from "./calc/received.js";
 import { renderReceived, toggleReceivedRow, receivedSheet, openReceivedSheet, closeReceivedSheet, setReceivedTarget, receivedSheetHtml } from "./components/received.js";
@@ -71,6 +71,7 @@ import {
 } from "./components/scenarios.js";
 import { ACCOUNT_TYPE_KEYS, accountSourceOptions, setAccountBalance, resolveLink } from "./calc/accounts.js";
 import { openAccounts, balanceEditing } from "./components/accounts.js";
+import { renderHomeSummary } from "./components/home.js";
 import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodButton, renderPeriodMenu } from "./components/period.js";
 import { selectedYearWindow, yearStartOf, householdYearBasis } from "./calc/ledger.js";
 import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, taxSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
@@ -3976,6 +3977,15 @@ import {
   monthReviewBody.addEventListener("click", function(e){
     var step = e.target.closest("[data-mr-step]");
     if(step && !step.disabled){ stepReviewMonth(Number(step.getAttribute("data-mr-step"))); renderMonthReview(); return; }
+    if(e.target.closest("[data-mr-intro-ok]")){ dismissReviewIntro(); renderMonthReview(); return; }
+    var to = e.target.closest("[data-mr-to]");
+    if(to){
+      setReviewStep(to.getAttribute("data-mr-to"));
+      renderMonthReview();
+      var card = monthReviewBody.querySelector(".mr-stepcard h3");
+      if(card){ card.setAttribute("tabindex", "-1"); card.focus({ preventScroll: true }); monthReviewBody.scrollIntoView({ behavior: "smooth", block: "nearest" }); }
+      return;
+    }
     var log = e.target.closest("[data-mr-log]");
     // Logged into the month under review: its last day, or today if that's still to come.
     if(log){ var mEnd = monthBounds(reviewMonthShown()).end; openReceivedSheetFor(log.getAttribute("data-mr-log"), mEnd < localDateStr() ? mEnd : localDateStr()); return; }
@@ -3983,6 +3993,7 @@ import {
     if(go){
       var where = go.getAttribute("data-mr-go");
       if(where === "checks"){ showAccountsSubpage("checks"); renderHealth(); }
+      else if(where === "accounts"){ showPage("accounts"); }
       else { showPage("expenses"); showExpensesSubpage("spending", { replace: true }); var card = document.getElementById("bankImportCard"); if(card){ card.open = true; setTimeout(function(){ card.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); } }
       return;
     }
@@ -4195,6 +4206,7 @@ import {
     renderMonthReview();
     renderNotifBadge();
     renderPeriodButton();
+    renderHomeSummary();
   }
 
   if(!storageAvailable) setStatus(false, "Storage unavailable — export to keep changes");
@@ -4326,6 +4338,25 @@ import {
     showHelpToggle.addEventListener("change", function(){ setShowHelp(showHelpToggle.checked); });
   }
   document.addEventListener("change", renderGlobalMetrics);
+
+  // ---------------- Home (v3.58.0): the summary's links and to-dos ----------------
+  document.getElementById("homeSummary").addEventListener("click", function(e){
+    var b = e.target.closest("[data-home-go]");
+    if(!b) return;
+    var go = b.getAttribute("data-home-go"), sub = b.getAttribute("data-home-sub"), fy = b.getAttribute("data-home-fy");
+    if(go === "backup"){ var exp = document.getElementById("exportBtn"); if(exp) exp.click(); return; }
+    if(go === "dashboard"){
+      showDashboardSubpage(sub || "overview");
+      if(sub === "review") renderMonthReview();
+      var sn = document.getElementById("dashboardSubnav");
+      if(sn) sn.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    if(go === "settings"){ showAccountsSubpage(sub || "people"); if(sub === "checks") renderHealth(); return; }
+    if(go === "tax"){ if(fy) setTaxYearSelected(fy); showPage("tax"); showTaxSubpage(sub || "returns", { replace: true }); renderTaxYear(); return; }
+    showPage(go);
+    if(go === "expenses" && sub) showExpensesSubpage(sub, { replace: true });
+  });
 
   // ---------------- The period selector (v3.55.0) ----------------
   // One year (and optionally a month) beside the page title that every page reads — see

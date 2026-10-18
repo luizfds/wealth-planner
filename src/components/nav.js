@@ -1,4 +1,5 @@
 import { renderDashboardStats } from "./dashboard.js";
+import { renderHomeSummary } from "./home.js";
 import { closeScenarioOverridePanel } from "./expenses.js";
 import { escapeAttr } from "../lib/html.js";
 import { lodgementStatus } from "../calc/taxyear.js";
@@ -293,7 +294,7 @@ export function showPage(id, opts){
     var navLabel = document.getElementById("navMenuCurrentLabel");
     if(navLabel) navLabel.textContent = page ? page.label : "Home";
     try{ localStorage.setItem(PAGE_KEY, id); }catch(e){}
-    if(id === "dashboard") renderDashboardStats();
+    if(id === "dashboard"){ renderDashboardStats(); renderHomeSummary(); }
     // The worksheet only re-renders itself while visible (see income.js refreshOpenTaxYear), so
     // arriving on Tax brings it up to date with whatever changed elsewhere in the meantime.
     if(id === "tax") renderTaxYear();

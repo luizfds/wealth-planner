@@ -2088,8 +2088,9 @@ One PR for the set — they share the new Tax page and the links between them.
 ## 77. `[x]` Tax gets its own page — shipped v3.43.0
 Income keeps the income rows; a Tax page has This year (the estimate, super, sacrifice, top-up),
 Returns (the worksheet) and Documents (checklist, Import a year), at `/tax/<year|returns|documents>`.
-Opens on Returns 1 July–31 October, This year otherwise (`defaultTaxSub()`). Phone: under More,
-swapped into the tab bar in place of Assets during lodgement season (`syncMobileTaxSeason()`).
+Opens on Returns 1 July–31 October, This year otherwise (`defaultTaxSub()`). Phone: under More.
+(The seasonal swap into the tab bar in place of Assets was taken back out in v3.54.2 — Assets is
+opened far more often than Tax, even in lodgement season.)
 
 ## 78. `[x]` People, in one place — shipped v3.44.0
 Accounts → People: name, date of birth (age), HELP, concessional cap, carry-forward, capital losses

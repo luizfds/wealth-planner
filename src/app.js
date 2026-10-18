@@ -69,7 +69,7 @@ import {
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
   patchCalcOutputs, afterCalcChange, patchInvestOutputs
 } from "./components/scenarios.js";
-import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, taxSubpage, syncMobileTaxSeason, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
+import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, taxSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
 import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./components/search.js";
 import {
   startBankImport, reparseBankImportWith, clearBankImport,
@@ -4242,7 +4242,6 @@ import {
   showExpensesSubpage(initialExpensesSub, { skipUrl: initialPage !== "expenses", replace: true });
   // Same seeding for Tax, whose default tab depends on the time of year (nav.js defaultTaxSub).
   showTaxSubpage(initialTaxSub || taxSubpage(), { skipUrl: initialPage !== "tax", replace: true });
-  syncMobileTaxSeason();
 
   // onboarding.html's "Try it with sample data" link lands here with ?mock=1 — generate it
   // immediately (no confirm needed, unlike the header's own Sample data button: there's nothing

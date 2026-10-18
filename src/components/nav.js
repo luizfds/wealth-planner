@@ -92,19 +92,11 @@ export function parseRouteFromLocation(){
 // tab. Scenarios/Projections are occasional "what-if" pages, unlike the four data-entry
 // pages above them, so the More tab's own active state also lights up for those two.
 //
-// Tax lives behind More too, except from 1 July to 31 October, when it takes Assets' place in the
-// bar (v3.43.0) — lodging is what people open the app for then, and Assets moves into More.
+// Tax lives behind More all year (v3.54.2): it took Assets' place in the bar from July to October
+// for a while, but Assets is opened far more often than Tax, even in lodgement season — and a tab
+// bar that rearranges itself by the calendar costs more than the one tap it saves.
 var MOBILE_MORE_PAGES = ["accounts", "scenarios", "projections", "tax"];
-export function syncMobileTaxSeason(today){
-  var inSeason = lodgementStatus(today || localDateStr()).inSeason;
-  var set = function(id, hidden){ var el = document.getElementById(id); if(el) el.hidden = hidden; };
-  set("mobileTabTax", !inSeason);
-  set("mobileMoreTax", inSeason);
-  set("mobileTabAssets", inSeason);
-  set("mobileMoreAssets", !inSeason);
-  MOBILE_MORE_PAGES = inSeason ? ["accounts", "scenarios", "projections", "assets"] : ["accounts", "scenarios", "projections", "tax"];
-  return inSeason;
-}
+
 
 // Plain-button pages: the page's own single, unambiguous "add" entry point. Income/Assets/
 // Scenarios are handled separately below (grouped by person/category/scenario, so there's no one

@@ -1015,3 +1015,18 @@ test("tax card: the payslip check asks, then answers", async function(){
     assert.match(withholdingCheckText("Sam"), /from outside FY/);
   } finally { Object.assign(state, keep); }
 });
+
+test("Before 30 June lists each person's moves, or says there are none", async function(){
+  const { juneMovesHtml } = await import("../src/components/junemoves.js");
+  var keep = { income: state.income, assets: state.assets, properties: state.properties, taxYears: state.taxYears, tax: state.tax };
+  try {
+    state.income = [{ id: "p", what: "Pay", person: "Sam", incomeType: "Gross", amount: 120000, freq: "Yearly", superMode: "On top" }];
+    state.assets = []; state.properties = []; state.taxYears = {};
+    state.tax = Object.assign({}, state.tax, { sgRate: 12, settings: { Sam: { concessionalCap: 30000, carryForward: 0 } } });
+    var html = juneMovesHtml("2027-05-20");
+    assert.match(html, /<b>41 days<\/b> until FY26\/27 ends/);
+    assert.match(html, /class="jm-move jm-super"><div class="jm-head"><b>Super: \$15,600 of cap room left<\/b><span class="jm-saves">about \$[\d,]+ less tax/);
+    state.tax.settings.Sam.concessionalCap = 14400;
+    assert.match(juneMovesHtml("2027-05-20"), /Nothing worth doing this year/);
+  } finally { Object.assign(state, keep); }
+});

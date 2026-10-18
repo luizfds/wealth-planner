@@ -5,6 +5,7 @@ import { ipNetResultAnnual, ipDepreciationAnnual, ipOwnershipMismatches, propert
 import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax, wfhRateForFy, phiRebateAdjustment, taxTablesFor, currentTaxFy, phiPremiumsAnnual, phiLine } from "../calc/tax.js";
 import { claimItems } from "../calc/claims.js";
 import { projectWithholding } from "../calc/withholding.js";
+import { renderJuneMoves } from "./junemoves.js";
 import { superTopUp } from "../calc/supertopup.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
@@ -567,6 +568,7 @@ export function renderTaxSuper(){
     '</div>';
   }).join("");
   container.innerHTML = html;
+  renderJuneMoves();
   refreshOpenTaxYear();
 }
 // The worksheet reads the same figures, so when it's open it follows every recalculation.

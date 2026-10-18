@@ -103,3 +103,24 @@ test("health: a debt named like a card limit is flagged; a real balance isn't", 
     assert.equal(dataHealthChecks({ items: [], today: "2026-10-18" }).some(function(x){ return x.id === "debt-limit"; }), false);
   });
 });
+
+test("health: the limit check stands down once the card has its limit and owes something else; Looks right hides a check until it changes", async function(){
+  const { dismissCheck } = await import("../src/calc/health.js");
+  withState(null, function(){
+    state.taxYears = {};
+    state.debts = [{ id: "d1", what: "Card limit", balance: 9000 }];
+    state.accounts = [{ name: "Fern Card", type: "credit", link: "debt:d1", limit: 9000 }];
+    var has = function(){ return dataHealthChecks({ items: [], today: "2026-10-18" }).some(function(x){ return x.id === "debt-limit"; }); };
+    assert.equal(has(), true, "owes exactly the limit: still flagged");
+    state.debts[0].balance = 640;
+    assert.equal(has(), false, "limit set, real balance owed");
+    state.accounts[0].limit = 0;
+    var c = dataHealthChecks({ items: [], today: "2026-10-18" }).find(function(x){ return x.id === "debt-limit"; });
+    dismissCheck(c, true);
+    assert.equal(has(), false, "dismissed");
+    assert.equal(dataHealthChecks({ items: [], today: "2026-10-18", includeDismissed: true }).find(function(x){ return x.id === "debt-limit"; }).dismissed, true);
+    state.debts.push({ id: "d2", what: "Other limit", balance: 50 });
+    assert.equal(has(), true, "something new: back again");
+    state.checksDismissed = {};
+  });
+});

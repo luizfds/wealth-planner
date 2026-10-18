@@ -1223,3 +1223,8 @@
   .rc-amt.up{ color: var(--bad); }
   .rc-actions{ display:flex; gap:6px; }
   @media (max-width: 560px){ .rc-row{ grid-template-columns: minmax(0,1fr) auto; } .rc-actions{ grid-column: 1 / -1; } }
+
+  /* Checks: Looks right (v3.70.0) */
+  .hc-ok{ flex:none; }
+  .hc-hidden{ margin-top:12px; font-size:13px; }
+  .hc-hidden summary{ cursor:pointer; color: var(--ink-soft); min-height:32px; }

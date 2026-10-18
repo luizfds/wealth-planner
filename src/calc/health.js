@@ -34,7 +34,13 @@ export function dataHealthChecks(opts){
   // A card's limit typed in as a debt (v3.55.0). Net worth counts every debt row as money owed, so
   // a $10,000 limit with $600 on the card understates net worth by $9,400. What's owed is the
   // balance on the latest statement — the limit belongs on the card, not in Debts.
-  var limits = (state.debts || []).filter(function(d){ return /\blimit\b/i.test(d.what || "") && Number(d.balance) > 0; });
+  // Handled (v3.70.0): a debt that's a credit card's balance, where the card has its limit set and
+  // what's owed isn't simply the limit again, is the fix this check asks for — the name can stay.
+  var handled = function(d){
+    var card = (state.accounts || []).find(function(a){ return a.type === "credit" && a.link === "debt:" + d.id; });
+    return !!(card && Number(card.limit) > 0 && Math.abs((Number(d.balance) || 0) - Number(card.limit)) >= 1);
+  };
+  var limits = (state.debts || []).filter(function(d){ return /\blimit\b/i.test(d.what || "") && Number(d.balance) > 0 && !handled(d); });
   if(limits.length) add({ id: "debt-limit", severity: "warn", title: plural(limits.length, "debt") + " that look like a credit limit, not money owed",
     detail: names(limits.map(function(d){ return d.what; })) + " — net worth counts the whole amount as owed. On Accounts, open the card, type the limit in its Limit field, and Update its balance to what it actually owes.",
     where: { page: "accounts", sub: "accounts" } });
@@ -126,5 +132,17 @@ export function dataHealthChecks(opts){
     });
   }
   var order = { bad: 0, warn: 1, info: 2 };
+  // "Looks right" (v3.70.0): a check the person has dismissed stays hidden while it says the same
+  // thing, and comes back the moment it finds something different (another row, a new amount).
+  var dismissed = state.checksDismissed || {};
+  if(!opts.includeDismissed) out = out.filter(function(c){ return dismissed[c.id] !== checkSignature(c); });
+  else out.forEach(function(c){ c.dismissed = dismissed[c.id] === checkSignature(c); });
   return out.sort(function(a, b2){ return order[a.severity] - order[b2.severity]; });
+}
+
+// What a dismissal is tied to: the check's title and detail, which name the rows and amounts.
+export function checkSignature(c){ return String(c.title || "") + "|" + String(c.detail || ""); }
+export function dismissCheck(c, on){
+  if(!state.checksDismissed || typeof state.checksDismissed !== "object") state.checksDismissed = {};
+  if(on) state.checksDismissed[c.id] = checkSignature(c); else delete state.checksDismissed[c.id];
 }

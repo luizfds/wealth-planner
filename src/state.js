@@ -435,6 +435,8 @@ export function migrateState(s){
   if(s.benchmark.fixedRate == null || s.benchmark.fixedRate === "") s.benchmark.fixedRate = 7;
   if(!s.benchmark.symbol) s.benchmark.symbol = "IOZ";
   if(!Array.isArray(s.goals)) s.goals = [];
+  // Checks marked "Looks right" (v3.70.0): {checkId: signature}.
+  if(!s.checksDismissed || typeof s.checksDismissed !== "object" || Array.isArray(s.checksDismissed)) s.checksDismissed = {};
   if(!Array.isArray(s.savingsGoals)) s.savingsGoals = [];
   s.savingsGoals = s.savingsGoals.filter(function(g){ return g && typeof g === "object"; });
   s.savingsGoals.forEach(function(g){ if(!g.id) g.id = genId("sg"); if(!Array.isArray(g.accounts)) g.accounts = []; g.target = Math.max(0, Number(g.target) || 0); });

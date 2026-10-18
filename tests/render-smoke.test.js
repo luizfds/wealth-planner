@@ -1185,3 +1185,12 @@ test("year-end pack: the year's status steps and the hand-off buttons", async fu
     assert.match(html, /Transactions \(CSV\) · 1/);
   } finally { Object.assign(state, keep); setPeriod(null, ""); }
 });
+
+test("Checks list: Looks right on each, and the hidden ones with Show again", async function(){
+  const { healthHtml } = await import("../src/components/health.js");
+  var html = healthHtml([{ id: "x1", severity: "warn", title: "Two lines look entered twice", detail: "“Gym”", where: { page: "expenses", sub: "budget" } }], [{ id: "x2", severity: "warn", title: "A card limit" }]);
+  assert.match(html, /data-hc-dismiss="x1">Looks right/);
+  assert.match(html, /1 marked “looks right”/);
+  assert.match(html, /data-hc-undismiss="x2">Show again/);
+  assert.match(healthHtml([], []), /Nothing to fix/);
+});

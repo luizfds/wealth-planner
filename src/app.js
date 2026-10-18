@@ -79,6 +79,8 @@ import { renderHomeSummary } from "./components/home.js";
 import { dataHealthChecks } from "./calc/health.js";
 import { chooseFolder, backupToFolder, forgetFolder, maybeAutoBackup, setPasscode, clearPasscode, checkPasscode } from "./lib/safekeeping.js";
 import { renderSafekeeping } from "./components/safekeeping.js";
+import { goalsSectionHtml, goalOpen } from "./components/savegoals.js";
+import { addSavingsGoal } from "./calc/savegoals.js";
 import { renderReports, reportShown, reportPrintHtml, reportCsv } from "./components/reports.js";
 import { exportTableCsv } from "./lib/backup.js";
 import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodButton, renderPeriodMenu } from "./components/period.js";
@@ -4439,6 +4441,7 @@ import {
     renderReports();
     renderChecksBadge();
     renderSafekeeping();
+    renderSavingsGoals();
   }
   // Settings carries the number of Checks that need fixing (v3.63.0), so they're seen without
   // opening the tab — on the sidebar, the More tab and its Settings item.
@@ -4638,6 +4641,49 @@ import {
   // A quiet weekly backup into the chosen folder, if the browser still allows it.
   maybeAutoBackup().then(function(r){ if(r && r.ok){ showToast("Weekly backup saved to " + r.folder); renderSafekeeping(); } });
 
+  // ---------------- Accounts → Savings goals (v3.65.0) ----------------
+  function renderSavingsGoals(){
+    var el = document.getElementById("savingsGoalsBody");
+    if(el) el.innerHTML = goalsSectionHtml(localDateStr(), scenarioTotals(state.activeScenario).netMonthly);
+  }
+  var goalsBody = document.getElementById("savingsGoalsBody");
+  goalsBody.addEventListener("click", function(e){
+    if(e.target.closest("[data-goal-add]")){
+      var g = addSavingsGoal({ name: "New goal", target: 0, accounts: state.accounts.filter(function(a){ return a.type === "savings"; }).map(function(a){ return a.name; }) });
+      goalOpen[g.id] = true;
+      persist(); renderSavingsGoals(); renderHomeSummary();
+      var nameIn = goalsBody.querySelector('.sgl.is-open [data-goal-field="name"]');
+      if(nameIn){ nameIn.focus(); nameIn.select(); }
+      return;
+    }
+    var tog = e.target.closest("[data-goal-toggle]");
+    if(tog){ var id = tog.getAttribute("data-goal-toggle"); goalOpen[id] = !goalOpen[id]; renderSavingsGoals(); return; }
+    var del = e.target.closest("[data-goal-del]");
+    if(del){
+      var i = Number(del.getAttribute("data-goal-del"));
+      var gone = state.savingsGoals.splice(i, 1)[0];
+      persist(); renderSavingsGoals(); renderHomeSummary();
+      if(gone) showUndoToast("Goal deleted", function(){ state.savingsGoals.splice(i, 0, gone); persist(); renderSavingsGoals(); renderHomeSummary(); });
+    }
+  });
+  goalsBody.addEventListener("change", function(e){
+    var t = e.target, i = t.getAttribute("data-goal-index");
+    if(i == null) return;
+    var g = state.savingsGoals[Number(i)];
+    if(!g) return;
+    if(t.hasAttribute("data-goal-acct")){
+      var n = t.getAttribute("data-goal-acct");
+      g.accounts = g.accounts.filter(function(x){ return x !== n; });
+      if(t.checked) g.accounts.push(n);
+    } else {
+      var f = t.getAttribute("data-goal-field");
+      if(f === "target") g.target = Math.max(0, Number(t.value) || 0);
+      else if(f === "by") g.by = t.value || "";
+      else if(f === "name") g.name = t.value.trim() || "Savings goal";
+    }
+    persist(); renderSavingsGoals(); renderHomeSummary();
+  });
+
   // ---------------- Reports (v3.62.0) ----------------
   document.getElementById("reportsBody").addEventListener("click", function(e){
     var pick = e.target.closest("[data-report]");
@@ -4648,6 +4694,7 @@ import {
 
   // ---------------- Home (v3.58.0): the summary's links and to-dos ----------------
   document.getElementById("homeSummary").addEventListener("click", function(e){
+    if(e.target.closest("[data-goal-go]")){ showPage("accounts"); return; }
     var b = e.target.closest("[data-home-go]");
     if(!b) return;
     var go = b.getAttribute("data-home-go"), sub = b.getAttribute("data-home-sub"), fy = b.getAttribute("data-home-fy");

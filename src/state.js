@@ -180,6 +180,8 @@ export function defaultState(){
     benchmark: { symbol: "IOZ", fixedRate: 7, prices: {} },
     // v3.36.0: your own targets — [{id, kind, target, category?, label?}].
     goals: [],
+    // Savings goals measured on account balances (v3.65.0, calc/savegoals.js).
+    savingsGoals: [],
     // Last time Export or Share produced a full backup — not touched by CSV/template exports
     // (those are partial, one-section-at-a-time, not a way to recover from data loss) or Import.
     // "" until the first one. Powers the backup-reminder notification (lib/notifications.js) —
@@ -433,6 +435,9 @@ export function migrateState(s){
   if(s.benchmark.fixedRate == null || s.benchmark.fixedRate === "") s.benchmark.fixedRate = 7;
   if(!s.benchmark.symbol) s.benchmark.symbol = "IOZ";
   if(!Array.isArray(s.goals)) s.goals = [];
+  if(!Array.isArray(s.savingsGoals)) s.savingsGoals = [];
+  s.savingsGoals = s.savingsGoals.filter(function(g){ return g && typeof g === "object"; });
+  s.savingsGoals.forEach(function(g){ if(!g.id) g.id = genId("sg"); if(!Array.isArray(g.accounts)) g.accounts = []; g.target = Math.max(0, Number(g.target) || 0); });
   if(!Array.isArray(s.incomeLog)) s.incomeLog = [];
   if(!s.monthReviews || typeof s.monthReviews !== "object" || Array.isArray(s.monthReviews)) s.monthReviews = {};
   if(s.projection && s.projection.source !== "actuals") s.projection.source = "plan";

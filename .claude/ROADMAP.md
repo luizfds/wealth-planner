@@ -2274,9 +2274,13 @@ transfer rules (`transferAccount` + `transferDirection`) in calc/import-rules.js
 to `state.transfers` on import, `closingBalance()` from the parsed `balance` column (headerless files
 too) set through `setAccountBalance` with undo restoring the previous balance.
 
-## 101. `[~]` Savings goals tied to accounts
+## 101. `[x]` Savings goals tied to accounts — shipped v3.65.0
 A goal (house deposit, emergency fund) follows real account balances, shows progress, what's needed
 per month to hit its date and whether the month's surplus covers it.
+Shipped as: `state.savingsGoals` (separate from the benchmark `state.goals`), `calc/savegoals.js`
+(balance from linked accounts, needed per month, pace from balance history over ~6 months,
+projected month, status), a Savings goals card on Accounts and a strip on Home. Account renames
+update goal accounts.
 
 ## 102. `[~]` Recurring payments and subscriptions
 From logged/imported spending: payments that repeat but have no budget line (offer to add one), and

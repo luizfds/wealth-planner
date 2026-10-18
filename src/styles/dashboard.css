@@ -429,3 +429,7 @@
 .rp-wide th:first-child{ position:sticky; left:0; background:var(--paper-raised); }
 .rp-note{ margin:10px 0 0 !important; }
 @media print{ #printRoot .rp-table{ width:100%; border-collapse:collapse; } #printRoot .rp-table th, #printRoot .rp-table td{ border-bottom:1px solid #999; padding:3pt 5pt; text-align:left; } #printRoot .rp-table .num{ text-align:right; } }
+/* Home → goals strip (v3.65.0) */
+.home-goals{ border:1px solid var(--border); border-radius:14px; background:var(--paper-raised); padding:14px; margin:-4px 0 16px; display:flex; flex-direction:column; gap:8px; }
+.home-goals-list{ display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:8px; }
+.home-goals .sgl{ padding:8px 10px; }

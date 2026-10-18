@@ -39,7 +39,7 @@ import {
   openExpenseReview, closeExpenseReview, renderExpenseReviewPanel,
   logCurrentReviewCard, skipCurrentReviewCard, expenseReview,
   renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel,
-  setTransactionsShowAll, setTransactionsRange, modernTransactionRowOpen, budgetRowTxnsOpen, transactionSummaryText, visibleSpendingIndices,
+  setTransactionsShowAll, setTransactionsRange, modernTransactionRowOpen, budgetRowTxnsOpen, transactionSummaryText, visibleSpendingIndices, loggableBudgetLineItems,
   openQuickLog, closeQuickLog, renderQuickLogSheet, setQuickLogLink, setQuickLogDateOpen,
   setQuickLogShowAllChips, setQuickLogChipFilter, setQuickLogSign, setQuickLogRefundOf, submitQuickLog, quickLogContextText, quickLog,
   renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, logExpenseTransaction,
@@ -81,6 +81,8 @@ import { chooseFolder, backupToFolder, forgetFolder, maybeAutoBackup, setPasscod
 import { renderSafekeeping } from "./components/safekeeping.js";
 import { goalsSectionHtml, goalOpen } from "./components/savegoals.js";
 import { addSavingsGoal } from "./calc/savegoals.js";
+import { unbudgetedRecurring, risingLines } from "./calc/recurring.js";
+import { recurringHtml, recurringDismissed } from "./components/recurring.js";
 import { renderReports, reportShown, reportPrintHtml, reportCsv } from "./components/reports.js";
 import { exportTableCsv } from "./lib/backup.js";
 import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodButton, renderPeriodMenu } from "./components/period.js";
@@ -2981,6 +2983,7 @@ import {
 
   // ---------------- Cash flow → Spending: filters, money in, transfers, splits, bulk edit (v3.59.0) ----------------
   function afterTransactionsChange(){
+    renderRecurring();
     renderTransactions();
     renderActualVsPlannedPanel();
     renderSharedGroups();
@@ -3814,6 +3817,7 @@ import {
   // once — which is the point, and also why this is one named function rather than a list repeated
   // at the import and undo call sites where the two could drift apart.
   function refreshAfterBankImport(){
+    renderRecurring();
     renderReceived();
     renderTransactions();
     renderActualVsPlannedPanel();
@@ -4442,6 +4446,7 @@ import {
     renderChecksBadge();
     renderSafekeeping();
     renderSavingsGoals();
+    renderRecurring();
   }
   // Settings carries the number of Checks that need fixing (v3.63.0), so they're seen without
   // opening the tab — on the sidebar, the More tab and its Settings item.
@@ -4640,6 +4645,49 @@ import {
   });
   // A quiet weekly backup into the chosen folder, if the browser still allows it.
   maybeAutoBackup().then(function(r){ if(r && r.ok){ showToast("Weekly backup saved to " + r.folder); renderSafekeeping(); } });
+
+  // ---------------- Cash flow → Budget → Recurring payments (v3.66.0) ----------------
+  function currentRecurring(){
+    return { u: unbudgetedRecurring(state.transactions, localDateStr()), r: risingLines(loggableBudgetLineItems(), state.transactions) };
+  }
+  function renderRecurring(){
+    var el = document.getElementById("recurringBody");
+    if(!el) return;
+    var c = currentRecurring();
+    el.innerHTML = recurringHtml(c.u, c.r);
+    var n = c.u.filter(function(x){ return !recurringDismissed.keys["u:" + x.key]; }).length + c.r.filter(function(x){ return !recurringDismissed.keys["r:" + x.id + ":" + x.recent]; }).length;
+    var cnt = document.getElementById("recurringCount");
+    if(cnt) cnt.textContent = n ? n + " to look at" : "";
+  }
+  document.getElementById("recurringBody").addEventListener("click", function(e){
+    var dis = e.target.closest("[data-rc-dismiss]");
+    if(dis){ recurringDismissed.keys[dis.getAttribute("data-rc-dismiss")] = true; renderRecurring(); return; }
+    var add = e.target.closest("[data-rc-add]");
+    if(add){
+      var x = currentRecurring().u.find(function(y){ return y.key === add.getAttribute("data-rc-add"); });
+      if(!x) return;
+      var lastTx = state.transactions[x.indices[x.indices.length - 1]] || {};
+      var line = { id: genId("exp"), what: x.name, classification: "Wants", category: x.category || "", account: lastTx.account || "", amount: x.amount, freq: x.freq, irregular: false, dueMonth: null };
+      state.shared.push(line);
+      x.indices.forEach(function(i){ if(state.transactions[i]){ state.transactions[i].linkedExpenseId = line.id; state.transactions[i].category = ""; } });
+      persist(); renderAll();
+      showUndoToast("Added " + line.what + " to the budget and linked " + x.count + " charges", function(){
+        x.indices.forEach(function(i){ if(state.transactions[i] && state.transactions[i].linkedExpenseId === line.id) state.transactions[i].linkedExpenseId = null; });
+        state.shared = state.shared.filter(function(l){ return l.id !== line.id; });
+        persist(); renderAll();
+      });
+      return;
+    }
+    var up = e.target.closest("[data-rc-update]");
+    if(up){
+      var item = loggableBudgetLineItems().find(function(l){ return l.id === up.getAttribute("data-rc-update"); });
+      if(!item) return;
+      var was = item.amount, to = Number(up.getAttribute("data-rc-to"));
+      item.amount = to;
+      recalcComputedItems(); persist(); renderAll();
+      showUndoToast((item.what || "Line") + " updated to " + fmtCurrency2.format(to), function(){ item.amount = was; recalcComputedItems(); persist(); renderAll(); });
+    }
+  });
 
   // ---------------- Accounts → Savings goals (v3.65.0) ----------------
   function renderSavingsGoals(){

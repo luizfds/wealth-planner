@@ -2282,9 +2282,14 @@ Shipped as: `state.savingsGoals` (separate from the benchmark `state.goals`), `c
 projected month, status), a Savings goals card on Accounts and a strip on Home. Account renames
 update goal accounts.
 
-## 102. `[~]` Recurring payments and subscriptions
+## 102. `[x]` Recurring payments and subscriptions — shipped v3.66.0
 From logged/imported spending: payments that repeat but have no budget line (offer to add one), and
 lines whose real charge has risen (offer to update).
+Shipped as: `calc/recurring.js` — `cadenceOf()` (median gap within 25% of weekly…yearly, 70% of
+gaps agreeing), `unbudgetedRecurring()` (unlinked charges by merchant key, steady amounts, still
+active) and `risingLines()` (last three charges' median >5% and $2 over the line). A "Recurring
+payments" card on Cash flow → Budget with Add to budget (creates the line and links the charges) /
+Update to $X, both undoable; "Not now" hides one for the session.
 
 ## 103. `[~]` Account and net worth history
 A chart per account from its recorded balances; net worth over time from the snapshots; the net

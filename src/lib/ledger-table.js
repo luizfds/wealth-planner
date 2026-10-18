@@ -51,6 +51,9 @@ export function timingFieldsHtml(item, section){
   return '<div class="m-edit-field span2"><label class="m-checkbox-field"><input type="checkbox" class="f-irregular"' + (item.irregular ? " checked" : "") +
       '> No fixed timing (irregular) — a lumpy spend like Extras or property maintenance, budgeted as a smoothed reserve instead of expected every period</label></div>' +
     '<div class="m-edit-field"><label>Due month</label><select class="f-duemonth" title="For anything billed less often than monthly — which month it\'s actually due. Auto infers it from the last time you logged it.">' + monthOptions + '</select></div>' +
+    // v3.72.0: with a month, a day puts a renewal (insurance, strata, rates) on the bills calendar
+    // before its first payment is ever logged.
+    '<div class="m-edit-field"><label>Due day</label><input type="number" min="1" max="31" step="1" class="f-dueday" value="' + (item.dueDay || "") + '" placeholder="1" title="Day of the month it\'s due. Used with Due month for the bills calendar until a payment is logged."></div>' +
     startDateFieldHtml(item) +
     endDateFieldHtml(item) +
     // An investment property's own cost is already on its rental schedule (the Return line field

@@ -54,6 +54,18 @@ export function homeTodos(today, opts){
     var lodged = rec && rec.lodged ? Object.keys(rec.lodged).length : 0;
     if(lodged < getTaxPeople().length) out.push({ text: "Lodge " + fyLabel(lodge.fy) + " — " + lodge.daysLeft + " days to 31 October", go: "tax", sub: "returns", tone: lodge.daysLeft <= 21 ? "bad" : "warn", fy: lodge.fy });
   }
+  // v3.72.0: a rent review coming up, and a fixed rate about to end.
+  (state.properties || []).forEach(function(p){
+    if(p.nextRentReview){
+      var dr = Math.round((Date.parse(p.nextRentReview) - Date.parse(today)) / 86400000);
+      if(dr <= 30) out.push({ text: (p.what || "Property") + ": rent review " + (dr < 0 ? "was due " + p.nextRentReview : dr === 0 ? "today" : "in " + dr + " days"), go: "properties", tone: dr < 0 ? "bad" : "warn" });
+    }
+    (p.loans || []).forEach(function(l){
+      if(!l.fixedUntil || l.endedOn) return;
+      var df = Math.round((Date.parse(l.fixedUntil) - Date.parse(today)) / 86400000);
+      if(df >= 0 && df <= 90) out.push({ text: (l.what || "A loan") + ": fixed rate ends in " + df + " days", go: "properties", tone: "warn" });
+    });
+  });
   var lastBackup = state.lastBackupDate;
   var backupAge = lastBackup ? Math.round((Date.parse(today) - Date.parse(lastBackup)) / 86400000) : null;
   if(backupAge == null || backupAge > 30) out.push({ text: lastBackup ? "Back up — the last was " + backupAge + " days ago" : "Make your first backup", go: "backup", tone: "warn" });

@@ -2325,9 +2325,15 @@ the automatic backup; "Open the newest from the folder" and "Open a backup file"
 Files app); every restore says which copy changed last, and warns loudly before an older one
 replaces a newer.
 
-## 107. `[~]` Property beyond the numbers
+## 107. `[x]` Property beyond the numbers — shipped v3.72.0
 Rent reviews and vacancy weeks (planned against actual), fixed-rate expiry dates with a "what if it
 rolls to X%" view, and insurance/strata/rates renewal dates feeding the bills calendar.
+Shipped as: `calc/propertylife.js` — `fixedRateView()` (balance at expiry, repayments at the rate
+after or a what-if), `rentSummary()` (expected with vacancies vs logged rent), `recordRentReview()`.
+Loans get Fixed until / Rate after; the Loans tab shows "When fixed rates end" with a what-if; the
+Income & costs tab a Rent panel (next review, record a review, vacancies). Budget lines get a Due
+day, so a renewal with a due month lands on the bills calendar before its first payment. Home
+to-dos for a rent review within 30 days and a fixed rate ending within 90.
 
 ## 108. `[~]` Retirement plan
 One Plan page joining financial independence, super against the cap, savings goals and

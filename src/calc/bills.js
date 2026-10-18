@@ -54,11 +54,17 @@ export function billsForMonth(items, transactions, ym, today){
   (items || []).forEach(function(i){
     if(!i.id || i.irregular || i.computed) return;
     var dates = (byLine[i.id] || []).slice().sort();
-    if(!dates.length){ undated.push({ id: i.id, what: i.what || "Bill", amount: Number(i.amount) || 0, freq: i.freq }); return; }
-    var anchor = dates[dates.length - 1];
+    var anchor, estimated = false;
+    if(dates.length) anchor = dates[dates.length - 1];
+    else if(i.dueMonth >= 1 && i.dueMonth <= 12 && freqStepMonths(i.freq) > 1){
+      // v3.72.0: a renewal with a due month (and day) gets its date before it's ever paid.
+      var dim = new Date(y, Number(i.dueMonth), 0).getDate();
+      anchor = y + "-" + String(i.dueMonth).padStart(2, "0") + "-" + String(Math.min(Number(i.dueDay) || 1, dim)).padStart(2, "0");
+      estimated = true;
+    } else { undated.push({ id: i.id, what: i.what || "Bill", amount: Number(i.amount) || 0, freq: i.freq }); return; }
     occurrencesBetween(anchor, i.freq, start, end).forEach(function(d){
       var paid = dates.some(function(x){ return Math.abs(daysBetween(x, d)) <= PAID_WINDOW_DAYS; });
-      var bill = { id: i.id, what: i.what || "Bill", amount: Number(i.amount) || 0, date: d, paid: paid, overdue: !paid && today && d < today };
+      var bill = { id: i.id, what: i.what || "Bill", amount: Number(i.amount) || 0, date: d, paid: paid, overdue: !paid && today && d < today, estimated: estimated };
       (days[d] = days[d] || []).push(bill);
       total += bill.amount;
       if(paid) paidTotal += bill.amount;

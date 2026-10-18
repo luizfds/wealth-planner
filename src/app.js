@@ -59,7 +59,8 @@ import {
 } from "./components/assets.js";
 import {
   modernPropRowOpen, renderPropListModern, renderProperties, patchPropertyCardComputed,
-  logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan, setSaleWhatIfField, patchSaleWhatIf, setLoanStrategyField, patchLoanStrategy, propertyTabs
+  logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan, setSaleWhatIfField, patchSaleWhatIf, setLoanStrategyField, patchLoanStrategy, propertyTabs,
+  fixedExpiryHtml, rentPanelHtml, fixedWhatIf
 } from "./components/properties.js";
 import { renderProjectionOutputs, projectionSeriesShown } from "./components/projections.js";
 import { renderBenchmarks, setBenchmarkField, applyBenchmarkPaste, addGoal, setGoalField, removeGoal, setPropertyMarketField } from "./components/benchmarks.js";
@@ -82,6 +83,7 @@ import { renderSafekeeping } from "./components/safekeeping.js";
 import { goalsSectionHtml, goalOpen } from "./components/savegoals.js";
 import { addSavingsGoal } from "./calc/savegoals.js";
 import { unbudgetedRecurring, risingLines } from "./calc/recurring.js";
+import { recordRentReview } from "./calc/propertylife.js";
 import { recurringHtml, recurringDismissed } from "./components/recurring.js";
 import { renderReports, reportShown, reportPrintHtml, reportCsv } from "./components/reports.js";
 import { exportTableCsv } from "./lib/backup.js";
@@ -526,6 +528,7 @@ import {
     else if(e.target.classList.contains("f-deductfrom")){ item.deductibleFrom = e.target.value || ""; taxDeductionsChanged = true; }
     else if(e.target.classList.contains("f-deductuntil")){ item.deductibleUntil = e.target.value || ""; taxDeductionsChanged = true; }
     else if(e.target.classList.contains("f-duemonth")) item.dueMonth = e.target.value ? Number(e.target.value) : null;
+    else if(e.target.classList.contains("f-dueday")){ var dd = parseInt(e.target.value, 10); item.dueDay = dd >= 1 && dd <= 31 ? dd : null; }
     else if(e.target.classList.contains("f-reserveyear")) item.reserveYear = e.target.value;
     else return;
 
@@ -1791,6 +1794,49 @@ import {
     renderProjectionOutputs();
     persist();
   }
+  // Fixed-rate what-if and the rent panel (v3.72.0).
+  document.getElementById("propertiesBody").addEventListener("input", function(e){
+    var wi = e.target.getAttribute("data-fixed-whatif");
+    if(wi == null) return;
+    fixedWhatIf[wi] = e.target.value === "" ? null : Number(e.target.value);
+    var c = e.target.closest("[data-property-id]"), prop = c && findProperty(c.getAttribute("data-property-id"));
+    var panel = c && c.querySelector("[data-fixed-panel]");
+    if(!prop || !panel) return;
+    var pos = e.target.selectionStart;
+    panel.innerHTML = fixedExpiryHtml(prop);
+    var again = panel.querySelector('[data-fixed-whatif="' + wi + '"]');
+    if(again){ again.focus(); try{ again.setSelectionRange(pos, pos); }catch(err){} }
+  });
+  document.getElementById("propertiesBody").addEventListener("change", function(e){
+    if(!e.target.hasAttribute("data-rent-next")) return;
+    var c = e.target.closest("[data-property-id]"), prop = c && findProperty(c.getAttribute("data-property-id"));
+    if(prop){ prop.nextRentReview = e.target.value || ""; persist(); renderAll(); }
+  });
+  document.getElementById("propertiesBody").addEventListener("click", function(e){
+    var c = e.target.closest("[data-property-id]"), prop = c && findProperty(c.getAttribute("data-property-id"));
+    if(!prop) return;
+    var rentPanel = function(){ var el = c.querySelector("[data-rent-panel]"); if(el) el.innerHTML = rentPanelHtml(prop); };
+    if(e.target.closest("[data-rent-review]")){
+      var v = c.querySelector("[data-rent-new]").value;
+      if(v === "" || isNaN(Number(v))){ showToast("Type the new rent"); return; }
+      var rev = recordRentReview(prop, localDateStr(), Number(v));
+      if(!rev) return;
+      if(prop.nextRentReview && prop.nextRentReview <= localDateStr()) prop.nextRentReview = "";
+      recalcComputedItems(); persist(); renderAll();
+      showUndoToast("Rent now " + fmtCurrency0.format(rev.to) + " " + String(rev.freq).toLowerCase(), function(){ prop.income[0].amount = rev.from; prop.rentReviews.pop(); recalcComputedItems(); persist(); renderAll(); });
+      return;
+    }
+    if(e.target.closest("[data-vac-add]")){
+      var from = c.querySelector("[data-vac-from]").value, to = c.querySelector("[data-vac-to]").value;
+      if(!from){ showToast("Pick the date it became vacant"); return; }
+      if(!Array.isArray(prop.vacancies)) prop.vacancies = [];
+      prop.vacancies.push({ from: from, to: to || "" });
+      persist(); rentPanel();
+      return;
+    }
+    var vd = e.target.closest("[data-vac-del]");
+    if(vd){ prop.vacancies.splice(Number(vd.getAttribute("data-vac-del")), 1); persist(); rentPanel(); }
+  });
   document.getElementById("propertiesBody").addEventListener("input", function(e){
     var card = e.target.closest("[data-property-id]");
     if(!card) return;
@@ -1804,6 +1850,15 @@ import {
         loan.what = e.target.value;
         var loanNameEl = loanTr.querySelector(".m-row-name");
         if(loanNameEl) loanNameEl.textContent = loan.what;
+      }
+      else if(e.target.classList.contains("loan-fixed-until") || e.target.classList.contains("loan-revert-rate")){
+        // v3.72.0: the fixed period's end and the rate after — only the "when fixed rates end" panel reads them.
+        if(e.target.classList.contains("loan-fixed-until")) loan.fixedUntil = e.target.value || "";
+        else loan.revertRate = e.target.value === "" ? null : Number(e.target.value);
+        var fxp = card.querySelector("[data-fixed-panel]");
+        if(fxp) fxp.innerHTML = fixedExpiryHtml(property);
+        persist();
+        return;
       }
       else if(e.target.classList.contains("loan-balance")){ loan.balance = parseFloat(e.target.value) || 0; recordLoanSnapshot(loan, "balanceHistory", loan.balance); }
       else if(e.target.classList.contains("loan-rate")) loan.rate = parseFloat(e.target.value) || 0;

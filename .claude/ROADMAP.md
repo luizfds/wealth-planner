@@ -2080,6 +2080,48 @@ tax card while there's room.
 headless at 390/1280, light and dark; fails on page/console errors, an empty page, sideways scroll,
 NaN/undefined text, zero-width %-bars. Verified against a deliberately re-broken account bar.
 
+## Tax page, people and linked data (October 2026)
+
+"Do it all" after a review of how budget lines, income, transactions and the tax worksheet relate.
+One PR for the set — they share the new Tax page and the links between them.
+
+## 77. `[~]` Tax gets its own page
+Income & Tax held three jobs. Income keeps the income rows; a Tax page gets This year (the
+estimate, super, sacrifice, top-up), Returns (worksheet, lodged history, year over year) and
+Documents (checklist, imports). Phone: under More, promoted to the tab bar from July to October.
+
+## 78. `[~]` People, in one place
+A People tab on Accounts: each person's name (rename/remove across every row), date of birth,
+HELP balance, concessional cap and carry-forward, WFH hours per year. People still come from Gross
+income rows; the tab is where their details live.
+
+## 79. `[~]` A budget line can belong to a property
+Claim against a person or an investment property. A line on a property is split by ownership,
+lands on that property's rental schedule and comes out of its cash flow, not the household's.
+
+## 80. `[~]` Rental schedule line chosen, not guessed
+Each property expense picks the return line it goes on (default: today's name match).
+
+## 81. `[~]` Income transactions
+A transaction can log against an income line or a property's rent. Actual vs planned covers
+income; a distribution logged against a holding becomes one of its payouts.
+
+## 82. `[~]` The worksheet pre-filled from the plan
+An income statement links to an income row: pay history is the expected gross and withholding is
+checked against the year's tax. Deductions merge line by line with the flagged budget lines
+instead of replacing them all.
+
+## 83. `[~]` Private health premiums from the budget line
+The tax settings read the premium from a budget line marked as the policy.
+
+## 84. `[~]` Close the year
+For a lodged year: plan against actual for every budget, rental and income line, and "Use these
+for next year" (old amounts kept in each row's history).
+
+## 85. `[~]` Data health
+One list of what's inconsistent: deductible lines with no person, a person but no flag, rows with
+no account or category, budget lines far from last year's actuals, likely duplicate costs.
+
 ---
 
 ## Conventions for whoever picks this up

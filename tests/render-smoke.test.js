@@ -856,9 +856,9 @@ test("Returns offers Print; Documents offers Import a year and the checklist", a
     assert.match(ret, /data-ty-print[^>]*>Print \/ save as PDF/);
     assert.doesNotMatch(ret, /data-ty-import/);
     assert.match(docs, /data-ty-import[^>]*>Import a year<\/button>/);
-    assert.match(docs, /id="taxDocsYearSelect" data-ty-year/);
+    assert.match(docs, /class="ty-yearnote" id="taxDocsYearSelect"><b>FY25\/26<\/b>/);
     assert.match(docs, /To keep for FY25\/26 <span class="ty-docs-count">0 of 0<\/span>/);
-  } finally { Object.assign(state, keep); }
+  } finally { Object.assign(state, keep); (await import("../src/calc/ledger.js")).setPeriod(null, ""); }
 });
 
 test("loan strategy: four cards with results, and the IP note", async function(){
@@ -1058,4 +1058,29 @@ test("Dashboard → Review renders its four parts", async function(){
     assert.match(html, /<h3>The month against the plan<\/h3>/);
     assert.match(html, /data-mr-done="2026-09">Mark September 2026 reviewed/);
   } finally { Object.assign(state, keep); }
+});
+
+test("the period button and menu render the selected year and its months", async function(){
+  const { periodMenuHtml, periodButtonHtml } = await import("../src/components/period.js");
+  const { setPeriod } = await import("../src/calc/ledger.js");
+  var keep = state.yearBasis;
+  try {
+    state.yearBasis = "financial";
+    setPeriod(2023, "2023-09", "2025-03-10");
+    var btn = periodButtonHtml("2025-03-10");
+    assert.match(btn, /FY23\/24 · Sep/);
+    assert.match(btn, /not today/);
+    var menu = periodMenuHtml("2025-03-10", "2022-08-01");
+    assert.match(menu, /data-period-year="2024"[^>]*>FY24\/25 <small>now<\/small>/);
+    assert.match(menu, /class="period-chip active" aria-pressed="true" data-period-year="2023"/);
+    assert.match(menu, /data-period-year="2022"/);
+    assert.doesNotMatch(menu, /data-period-year="2021"/);
+    assert.match(periodMenuHtml("2025-03-10", null), /data-period-year="2022"/);
+    assert.match(menu, /class="period-chip active" data-period-month="2023-09"/);
+    assert.match(menu, /data-period-month="2024-06"/);
+    assert.match(menu, /data-period-today>Back to today/);
+    setPeriod(null, "", "2025-03-10");
+    assert.doesNotMatch(periodButtonHtml("2025-03-10"), /not today/);
+    assert.match(periodMenuHtml("2025-03-10", null), /data-period-month="2025-04" disabled/);
+  } finally { state.yearBasis = keep; setPeriod(null, ""); }
 });

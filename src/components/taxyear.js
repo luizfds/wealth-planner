@@ -1,6 +1,6 @@
 import { state } from "../state.js";
 import { DEDUCTION_LABELS } from "../constants.js";
-import { getTaxPeople, computePersonTax, currentTaxFy, taxTablesFor, phiPremiumsAnnual, deductionRows } from "../calc/tax.js";
+import { getTaxPeople, computePersonTax, currentTaxFy, todayTaxFy, taxTablesFor, phiPremiumsAnnual, deductionRows } from "../calc/tax.js";
 import { claimItems } from "../calc/claims.js";
 import { rentalComparison, budgetComparison, householdBudgetLines } from "../calc/closeyear.js";
 import { localDateStr } from "../lib/format.js";
@@ -8,6 +8,7 @@ import { fyLabel, ipProperties, propertyOwnershipPct } from "../calc/property.js
 import { taxYearRecord, personYear, rentalSchedules, RENT_LINES, usesBudgetLines, budgetLineDeductions, expectedGrossForYear } from "../calc/taxyear.js";
 import { fmtCurrency0, fmtCurrency2 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
+import { applyTaxYear } from "./period.js";
 
 // ---------------- The tax return worksheet (v3.26.0) ----------------
 //
@@ -19,12 +20,11 @@ import { escapeAttr } from "../lib/html.js";
 //
 // The year shown is session-only and defaults to the last complete financial year — the one being
 // lodged between July and October.
-var selectedFy = null;
-export function taxYearSelected(){
-  if(selectedFy == null) selectedFy = currentTaxFy() - 1;
-  return selectedFy;
-}
-export function setTaxYearSelected(fy){ selectedFy = Number(fy); }
+//
+// Since v3.55.0 the year is the header's period, not a dropdown of its own: Returns, Documents and
+// every other page agree on which year they are showing.
+export function taxYearSelected(){ return currentTaxFy(); }
+export function setTaxYearSelected(fy){ if(Number(fy) !== currentTaxFy()) applyTaxYear(fy); }
 
 function money(n){ return fmtCurrency2.format(Number(n) || 0); }
 function num(v){ return v == null || v === "" ? "" : Number(v); }
@@ -278,11 +278,14 @@ export function renderTaxYear(){
   var docs = document.getElementById("taxDocsBody");
   if(docs) docs.innerHTML = taxDocumentsHtml();
 }
-function yearSelectHtml(id, fy){
-  var thisFy = currentTaxFy();
-  var options = [];
-  for(var y = thisFy - 4; y <= thisFy; y++) options.push('<option value="' + y + '"' + (y === fy ? " selected" : "") + '>' + fyLabel(y) + (y === thisFy ? " (this year)" : "") + '</option>');
-  return '<label for="' + id + '">Financial year</label><select id="' + id + '" data-ty-year>' + options.join("") + '</select>';
+// Which year this is, and — while it's still running — a one-tap way to the year being lodged.
+function yearSelectHtml(id, fy, today){
+  var nowFy = todayTaxFy(today);
+  var running = fy >= nowFy;
+  return '<div class="ty-yearnote" id="' + id + '"><b>' + fyLabel(fy) + '</b>' +
+    (running ? '<span class="ledger-note" style="margin:0">still running — figures so far, an estimate.</span>' +
+        '<button type="button" class="btn btn-sm btn-primary" data-ty-year="' + (nowFy - 1) + '">Open ' + fyLabel(nowFy - 1) + '</button>'
+      : '<span class="ledger-note" style="margin:0">change the year with the period beside the page title.</span>') + '</div>';
 }
 export function taxYearHtml(){
   var people = getTaxPeople();
@@ -299,7 +302,7 @@ export function taxYearHtml(){
 // starts from what happened. Lines that moved noticeably come pre-ticked.
 export function closeYearHtml(fy, today){
   today = today || localDateStr();
-  if(fy >= currentTaxFy()) return "";
+  if(fy >= todayTaxFy(today)) return "";
   var money0 = function(n){ return fmtCurrency0.format(Number(n) || 0); };
   var diffCell = function(d){ return '<span class="cy-diff ' + (Math.abs(d) < 1 ? "" : d > 0 ? "up" : "down") + '">' + (d > 0 ? "+" : d < 0 ? "−" : "") + money0(Math.abs(d)) + '</span>'; };
   var sections = [];

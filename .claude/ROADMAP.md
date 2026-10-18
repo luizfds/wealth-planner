@@ -2178,10 +2178,15 @@ effect on the loan; one notification per change in the last 60 days.
 From a full assessment: the features work but each page grew its own controls and its own copy of
 related data. "Let's do all of them" — one PR, a version per step.
 
-## 92. `[~]` One period selector, in the header
+## 92. `[x]` One period selector, in the header — shipped v3.55.0
 Replaces six separate period controls (Preferences year basis, Transactions 1M–All, Shares range,
 the Tax year dropdown, Received's fixed month, Review's month stepper). Every page reads it. Plus a
 check for a debt that is a credit limit rather than an amount owed.
+Shipped as: a year (and optional month) button beside the page title; `calc/ledger.js` owns the
+selection (`selectedYearWindow`, `selectedMonth`, `periodAnchorDate`), and `householdYearWindow()`,
+the month defaults, reserve windows, Received, Returns/Documents, the transaction list
+(Month / Year / All) and the Review follow it. Session-only, so the app always opens on today. The
+share-price and chart ranges stayed — they're zoom levels on a chart, not the period being reported.
 
 ## 93. `[~]` Accounts with balances
 Each account has a type (everyday, savings, credit card, offset, loan) and a balance with history.

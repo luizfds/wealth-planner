@@ -1,5 +1,5 @@
 import { state } from "../state.js";
-import { getTaxPeople, personTaxSettings, currentTaxFy, wfhRateForFy } from "../calc/tax.js";
+import { getTaxPeople, personTaxSettings, todayTaxFy, wfhRateForFy } from "../calc/tax.js";
 import { fyLabel } from "../calc/property.js";
 import { personReferences, ageOn } from "../calc/people.js";
 import { localDateStr } from "../lib/format.js";
@@ -34,7 +34,7 @@ export function personCardHtml(person, index, today){
   var st = personTaxSettings(person);
   var pid = escapeAttr(person);
   var age = ageOn(st.dateOfBirth, today);
-  var thisFy = currentTaxFy();
+  var thisFy = todayTaxFy(today);
   var hours = [];
   for(var fy = thisFy - 3; fy <= thisFy; fy++){
     var rate = wfhRateForFy(fy);

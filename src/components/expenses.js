@@ -1,12 +1,11 @@
 import { state, persist, genId } from "../state.js";
 import { CLASSES, FREQS, UNCATEGORISED } from "../constants.js";
-import { sumField, sumFieldForScenario, resolveSharedAmount, periodsOf, budgetCycleFor, reserveCycleFor, transactionDisplayName, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, plannedToDateByCategory, isOverdue, daysUntil, lastTransactionDateFor, refundableTransactions, reserveYearWindowFor, householdYearWindow, householdYearToDate, householdYearProgress, householdYearBasis, HOUSEHOLD_YEAR_BASES } from "../calc/ledger.js";
+import { sumField, sumFieldForScenario, resolveSharedAmount, periodsOf, budgetCycleFor, reserveCycleFor, transactionDisplayName, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, plannedToDateByCategory, isOverdue, daysUntil, lastTransactionDateFor, refundableTransactions, reserveYearWindowFor, householdYearWindow, householdYearToDate, householdYearProgress, householdYearBasis, HOUSEHOLD_YEAR_BASES, selectedMonth, monthPhrase, selectedYearWindow, isPeriodToday, monthAnchorDate } from "../calc/ledger.js";
 import { merchantGroups, worthShowingMerchants, recentMerchants } from "../calc/merchants.js";
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent0, fmtPercent1, localDateStr } from "../lib/format.js";
 import { spendingTrends, monthKeyLabel } from "../calc/trends.js";
 import { escapeAttr } from "../lib/html.js";
-import { rangeByKey, withinRange, timeRangeControlHtml } from "../lib/timerange.js";
 import { modernPlainRowHtml, modernRowSummaryHtml, modernRowEditHtml, modernRowShellHtml, optionsHtml } from "../lib/ledger-table.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { parseCsv } from "../lib/backup.js";
@@ -887,13 +886,13 @@ export function quickLogContextText(item){
   if(quickLog && quickLog.sign < 0){
     return item
       ? "Recorded as a refund — it comes back off what you've spent on this line."
-      : "Recorded as a refund on a one-off — it comes back off this month's total.";
+      : "Recorded as a refund on a one-off — it comes back off the month's total.";
   }
   if(!item) return "One-off spend — not counted against any budget line.";
   var spent = monthTransactionsForExpense(item.id).reduce(function(sum, pair){ return sum + (Number(pair.t.amount) || 0); }, 0);
   var planned = resolveSharedAmount(item, state.activeScenario);
   var monthlyPlanned = periodsOf(planned, item.freq).monthly;
-  return fmtCurrency0.format(spent) + " of " + fmtCurrency0.format(monthlyPlanned) + " logged this month";
+  return fmtCurrency0.format(spent) + " of " + fmtCurrency0.format(monthlyPlanned) + " logged " + monthPhrase(selectedMonth());
 }
 // Records the sheet's contents as a transaction. Mirrors logExpenseTransaction()'s contract —
 // the planned budget line is never touched, and the description stays empty unless the user
@@ -1364,9 +1363,25 @@ function transactionRowHtml(t, idx){
 // Which slice of history the Transactions list shows. Session-only, matching the Shares picker it
 // shares a definition with: a time window is a thing you look through, not a setting you configure,
 // and one that persisted would have you wondering next week why half your spending is missing.
-export var transactionsRange = "3m";
+// Since v3.55.0 the window is the header's period rather than its own 1M/3M/6M picker: "Month" is
+// the selected month, "Year" the selected year, "All" everything.
+export var TX_SCOPES = [{ key: "month", label: "Month" }, { key: "year", label: "Year" }, { key: "all", label: "All" }];
+export var transactionsRange = "month";
+export function transactionScopeWindow(scope, todayStr){
+  if(scope === "all") return null;
+  if(scope === "year"){ var w = selectedYearWindow(todayStr); return { start: w.start, end: w.end, label: w.label }; }
+  var ym = selectedMonth(todayStr), y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7));
+  return { start: ym + "-01", end: ym + "-" + String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, "0"), label: monthPhrase(ym).replace(/^in /, "") };
+}
+export function transactionScopeControlHtml(scope){
+  return '<div class="seg-control time-range-control" id="transactionsRange" role="group" aria-label="Which transactions to show">' +
+    TX_SCOPES.map(function(r){
+      var on = scope === r.key;
+      return '<button type="button" class="seg-option' + (on ? " active" : "") + '" aria-pressed="' + on + '" data-tx-range="' + r.key + '">' + r.label + '</button>';
+    }).join("") + '</div>';
+}
 export function setTransactionsRange(value){
-  transactionsRange = rangeByKey(value) ? value : "3m";
+  transactionsRange = TX_SCOPES.some(function(r){ return r.key === value; }) ? value : "month";
   transactionsShowAll = false; // a new window is a new list; "show all" was about the old one
   renderTransactions();
 }
@@ -1379,25 +1394,19 @@ export function renderTransactions(){
     container.innerHTML = '<p class="ledger-note" style="margin:0">No transactions logged yet — add one below to start tracking actual spend against your budget, optionally linked to one of the expenses above.</p>';
     return;
   }
-  var range = rangeByKey(transactionsRange);
-  var inRange = withinRange(state.transactions, range, { yearStart: householdYearWindow().start });
+  var win = transactionScopeWindow(transactionsRange);
+  var inRange = state.transactions.filter(function(t){ return !!t.date && (!win || (t.date >= win.start && t.date <= win.end)); });
   // The total follows the window. A list that says "last 3 months" above a total for all time is
   // the same class of mistake as the Expenses/Dashboard disagreement — two numbers on one card
   // that answer different questions without saying so.
   var total = inRange.reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0);
   if(totalEl) totalEl.textContent = fmtCurrency0.format(total);
 
-  var controlHtml = timeRangeControlHtml(transactionsRange, "tx-range", {
-    id: "transactionsRange", ariaLabel: "Transaction date range",
-    yearBasis: householdYearBasis(), titlePrefix: "Show the last",
-    // 1D and 1W are real windows for a share price and near-useless for a spending list — most
-    // households don't spend every day, and an empty list reads as a bug.
-    omit: ["1d", "1w"]
-  });
+  var controlHtml = transactionScopeControlHtml(transactionsRange);
   if(!inRange.length){
     container.innerHTML = controlHtml +
-      '<p class="ledger-note" style="margin:10px 0 0">Nothing logged in this window. ' +
-      (state.transactions.length + ' transaction' + (state.transactions.length === 1 ? " sits" : "s sit") + ' outside it — widen the range above.</p>');
+      '<p class="ledger-note" style="margin:10px 0 0">Nothing logged in ' + escapeAttr(win ? win.label : "this window") + '. ' +
+      (state.transactions.length + ' transaction' + (state.transactions.length === 1 ? " sits" : "s sit") + ' outside it — choose Year or All above, or another period in the header.</p>');
     return;
   }
   // Newest first for review, but data-tx-index always keeps pointing at the item's real
@@ -1468,7 +1477,7 @@ function rangeTransactionsForExpense(expenseId, startStr, endStr){
   return pairs.sort(function(a, b){ return (b.t.date || "") < (a.t.date || "") ? -1 : ((b.t.date || "") > (a.t.date || "") ? 1 : 0); });
 }
 function monthTransactionsForExpense(expenseId){
-  var monthStr = localDateStr().slice(0, 7);
+  var monthStr = selectedMonth();
   return rangeTransactionsForExpense(expenseId, monthStr + "-01", monthStr + "-31");
 }
 // Same caret markup on every expandable row in this panel — regular, irregular and Uncategorized.
@@ -1640,8 +1649,9 @@ export function renderActualVsPlannedPanel(){
   // can be genuinely nonzero even with nothing logged today.
   if(!monthTxns.length){
     var plannedTotalEmpty = Math.round(billedThisMonth(regularItems) * 100) / 100;
+    var mpE = monthPhrase(selectedMonth());
     el.innerHTML =
-      '<p class="ledger-note" style="margin:0 0 12px">Nothing logged yet this month — ' + fmtCurrency0.format(plannedTotalEmpty) + ' is billed this month. Tap <b>+ Log spend</b> above and this fills in with where the month is actually going.</p>' +
+      '<p class="ledger-note" style="margin:0 0 12px">Nothing logged ' + (mpE === "this month" ? "yet this month" : mpE) + ' — ' + fmtCurrency0.format(plannedTotalEmpty) + ' is billed ' + mpE + '. Tap <b>+ Log spend</b> above and this fills in with where the month is actually going.</p>' +
       creditStatementCyclesHtml() + irregularSection;
     return;
   }
@@ -1682,10 +1692,11 @@ export function renderActualVsPlannedPanel(){
         (unlinkedOpen ? budgetRowTxnListHtml(unlinkedPairs) : '') +
       '</div>'
     : "";
+  var mp = monthPhrase(selectedMonth());
   el.innerHTML =
-    '<div class="fire-stat-row"><span>This month — spent vs. billed</span><b' + (overallColor ? ' style="color:' + overallColor + '"' : '') + '>' + fmtCurrency0.format(actualTotal) + ' / ' + fmtCurrency0.format(plannedTotal) + '</b></div>' +
+    '<div class="fire-stat-row"><span>' + (mp === "this month" ? "This month" : mp.slice(3)) + ' — spent vs. billed</span><b' + (overallColor ? ' style="color:' + overallColor + '"' : '') + '>' + fmtCurrency0.format(actualTotal) + ' / ' + fmtCurrency0.format(plannedTotal) + '</b></div>' +
     '<div class="fire-bar-track"><div class="fire-bar-fill' + (overallDelta > 0.5 ? " over" : "") + '" style="width:' + overallPct + '%"></div></div>' +
-    '<p class="fire-note" style="margin:2px 0 12px">' + (overallDelta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(overallDelta)) + (overallDelta > 0.5 ? " over what's billed this month." : overallDelta < -0.5 ? " under what's billed this month." : " right on what's billed this month.") + ' Smoothed average is ' + fmtCurrency0.format(smoothedMonthly) + '/mo.</p>' +
+    '<p class="fire-note" style="margin:2px 0 12px">' + (overallDelta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(overallDelta)) + (overallDelta > 0.5 ? " over what's billed " + mp + "." : overallDelta < -0.5 ? " under what's billed " + mp + "." : " right on what's billed " + mp + ".") + ' Smoothed average is ' + fmtCurrency0.format(smoothedMonthly) + '/mo.</p>' +
     '<div class="ledger-note" style="margin:0 0 6px">Where it went — tap a line for the individual transactions.</div>' +
     rows + unlinkedRow +
     creditStatementCyclesHtml() + irregularSection;
@@ -1699,7 +1710,7 @@ function creditStatementCyclesHtml(){
   var creditAccounts = state.accounts.filter(function(a){ return a.type === "credit"; });
   if(!creditAccounts.length) return "";
   var rows = creditAccounts.map(function(a){
-    var cycle = currentStatementCycle(a.statementStartDay || 1);
+    var cycle = currentStatementCycle(a.statementStartDay || 1, monthAnchorDate());
     var cycleTxns = transactionsInRange(state.transactions, cycle.start, cycle.end)
       .filter(function(t){ return transactionAccount(t) === a.name; });
     var total = cycleTxns.reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0);
@@ -1707,7 +1718,7 @@ function creditStatementCyclesHtml(){
       '<span style="font-size:11px;color:var(--ink-soft)">' + cycle.start + ' – ' + cycle.end + ' · ' + cycleTxns.length + ' charge' + (cycleTxns.length === 1 ? "" : "s") + '</span>' +
       '<span class="acct-amt">' + fmtCurrency0.format(total) + '</span></div>';
   }).join("");
-  return '<div style="margin-top:16px"><div class="fire-stat-row" style="margin-bottom:2px"><span>This bill so far — by statement cycle</span></div>' + rows + '</div>';
+  return '<div style="margin-top:16px"><div class="fire-stat-row" style="margin-bottom:2px"><span>' + (isPeriodToday() ? 'This bill so far' : 'The bill open on ' + monthAnchorDate()) + ' — by statement cycle</span></div>' + rows + '</div>';
 }
 
 // ---------------- Accounts: named money sources, used to group transactions into a credit card's statement cycle ----------------
@@ -1878,7 +1889,7 @@ export function renderSpendCategoryChart(){
   var groups = order.map(function(name){ return { key: name, monthly: byCategory[name] }; })
     .sort(function(a, b){ return b.monthly - a.monthly; });
   var html = categoryChartHtml(groups, "");
-  el.innerHTML = html ? '<div class="cat-chart-title">Spent by category this month</div>' + html : "";
+  el.innerHTML = html ? '<div class="cat-chart-title">Spent by category ' + monthPhrase(selectedMonth()) + '</div>' + html : "";
   el.hidden = !html;
 }
 // ---------------- Spending over time ----------------

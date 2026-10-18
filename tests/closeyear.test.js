@@ -90,3 +90,16 @@ test("health: a clean household passes", function(){
     assert.deepEqual(dataHealthChecks({ items: [{ id: "a", what: "Rent", amount: 1, freq: "Monthly", account: "", category: "Housing" }], today: "2026-10-18" }).map(function(c){ return c.id; }), ["rows-noaccount"]);
   });
 });
+
+test("health: a debt named like a card limit is flagged; a real balance isn't", function(){
+  withState(null, function(){
+    state.taxYears = {};
+    state.debts = [{ what: "Card limit", balance: 8000 }, { what: "Car loan", balance: 5000 }, { what: "Limited partner loan", balance: 300 }];
+    var c = dataHealthChecks({ items: [], today: "2026-10-18" }).find(function(x){ return x.id === "debt-limit"; });
+    assert.ok(c);
+    assert.match(c.detail, /Card limit/);
+    assert.doesNotMatch(c.detail, /Car loan|Limited/);
+    state.debts = [{ what: "Card limit", balance: 0 }];
+    assert.equal(dataHealthChecks({ items: [], today: "2026-10-18" }).some(function(x){ return x.id === "debt-limit"; }), false);
+  });
+});

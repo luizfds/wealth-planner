@@ -1,5 +1,5 @@
 import { state, genId } from "../state.js";
-import { periodsOf, sumField, householdYearWindow } from "./ledger.js";
+import { periodsOf, sumField, householdYearWindow, selectedMonth, monthPhrase } from "./ledger.js";
 import { localDateStr } from "../lib/format.js";
 import { getTaxPeople } from "./tax.js";
 
@@ -53,7 +53,7 @@ export function incomeTargets(){
 
 function inWindow(date, start, end){ return !!date && date >= start && date <= end; }
 function monthBounds(monthStr){
-  monthStr = monthStr || localDateStr().slice(0, 7);
+  monthStr = monthStr || selectedMonth();
   var y = Number(monthStr.slice(0, 4)), m = Number(monthStr.slice(5, 7));
   var last = new Date(Date.UTC(y, m, 0)).getUTCDate();
   return { start: monthStr + "-01", end: monthStr + "-" + String(last).padStart(2, "0") };
@@ -75,6 +75,8 @@ export function receivedFor(key, start, end){
 // irregular one (a bonus, a distribution) on the household's year, because a month says nothing
 // about something paid twice a year.
 export function incomeActuals(monthStr){
+  var explicit = !!monthStr;
+  monthStr = monthStr || selectedMonth();
   var mb = monthBounds(monthStr);
   var yw = householdYearWindow();
   return incomeTargets().map(function(t){
@@ -82,7 +84,7 @@ export function incomeActuals(monthStr){
     var rows = receivedFor(t.key, win.start, win.end);
     var received = rows.reduce(function(s, r){ return s + (Number(r.amount) || 0); }, 0);
     var planned = t.irregular ? (t.yearly != null ? t.yearly : t.monthly * 12) : t.monthly;
-    return Object.assign({}, t, { period: t.irregular ? yw.label : "this month", planned: Math.round(planned * 100) / 100,
+    return Object.assign({}, t, { period: t.irregular ? yw.label : (explicit ? "this month" : monthPhrase(monthStr)), planned: Math.round(planned * 100) / 100,
       received: Math.round(received * 100) / 100, rows: rows });
   });
 }

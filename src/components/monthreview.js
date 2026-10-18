@@ -1,4 +1,5 @@
 import { monthReview, reviewMonth, shiftMonth } from "../calc/monthreview.js";
+import { periodSelection, isPeriodToday, selectedMonth } from "../calc/ledger.js";
 import { transactionAccount, transactionCategory } from "./expenses.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
@@ -7,7 +8,8 @@ import { escapeAttr } from "../lib/html.js";
 // calc/monthreview.js gathers the month; this lays it out as four numbered parts, each saying
 // what's done and what's missing, with a button to the place that fixes it.
 var shownMonth = null;
-export function reviewMonthShown(){ return shownMonth || reviewMonth(); }
+// A month picked in the header's period wins over the default (last month until it's reviewed).
+export function reviewMonthShown(){ return shownMonth || periodSelection().month || (isPeriodToday() ? reviewMonth() : selectedMonth()); }
 export function setReviewMonth(ym){ shownMonth = ym; }
 export function stepReviewMonth(n){ shownMonth = shiftMonth(reviewMonthShown(), n); }
 

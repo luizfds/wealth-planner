@@ -164,6 +164,10 @@
     <header class="app-topbar">
       <div class="app-topbar-left">
         <h1 id="pageTitle">Dashboard</h1>
+        <div class="period-wrap">
+          <button type="button" class="period-btn" id="periodBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="periodMenu" aria-label="Period">—</button>
+          <div class="period-menu" id="periodMenu" role="dialog" aria-label="Choose the period" hidden></div>
+        </div>
         <div class="global-metrics" id="globalMetrics">
           <div class="global-metric"><span>Net worth</span><b id="globalNetWorth">—</b></div>
           <div class="global-metric-divider" aria-hidden="true"></div>
@@ -597,7 +601,7 @@
               <div class="ledger-total" id="yearBasisCurrent"></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note help" style="margin-left:0">Which twelve months this app treats as "a year" — used by the year-to-date spending view, the transactions export, the share price "YTD" timeframe, and the tax estimate on the Tax page. In Australia a tax return is a financial-year document, and so is most of what a household calls a year of something, so that's the default.</p>
+              <p class="ledger-note help" style="margin-left:0">Which twelve months this app treats as "a year" — the same choice as "Year runs" in the period menu beside the page title. Used by the year-to-date spending view, the transactions export, the share price "YTD" timeframe, and the tax estimate on the Tax page. In Australia a tax return is a financial-year document, and so is most of what a household calls a year of something, so that's the default.</p>
               <div class="seg-control" id="yearBasisControl" role="group" aria-label="Household year">
                 <button type="button" class="seg-option" data-year-basis="financial" title="1 July to 30 June — the Australian financial year, and what a tax return covers">Financial year (Jul–Jun)</button>
                 <button type="button" class="seg-option" data-year-basis="calendar" title="1 January to 31 December">Calendar year (Jan–Dec)</button>

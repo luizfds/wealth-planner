@@ -276,7 +276,7 @@ function sharePricesNotifications(){
 // unrounded delta can sit a hair under the threshold from float error alone).
 function budgetNotifications(){
   var month = todayStr().slice(0, 7);
-  var monthTxns = transactionsInMonth(state.transactions);
+  var monthTxns = transactionsInMonth(state.transactions, month);
   var plannedTotal = Math.round(sumField(state.shared, "monthly") * 100) / 100;
   var actualTotal = Math.round(monthTxns.reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0) * 100) / 100;
   var delta = actualTotal - plannedTotal;

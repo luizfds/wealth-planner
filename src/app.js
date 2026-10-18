@@ -69,6 +69,8 @@ import {
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
   patchCalcOutputs, afterCalcChange, patchInvestOutputs
 } from "./components/scenarios.js";
+import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodButton, renderPeriodMenu } from "./components/period.js";
+import { selectedYearWindow, yearStartOf, householdYearBasis } from "./calc/ledger.js";
 import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, taxSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
 import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./components/search.js";
 import {
@@ -1175,6 +1177,7 @@ import {
     showPage(page);
     if(page === "accounts" && sub){ showAccountsSubpage(sub); if(sub === "people") renderPeopleTab(); }
     if(page === "expenses" && sub) showExpensesSubpage(sub, { replace: true });
+    if(page === "assets" && sub) showAssetsSubpage(sub, { replace: true });
     if(page === "tax"){
       if(fy) setTaxYearSelected(fy);
       showTaxSubpage(sub || "returns", { replace: true });
@@ -1207,7 +1210,6 @@ import {
   var taxDocsBody = document.getElementById("taxDocsBody");
   function onTaxYearChange(e){
     var t = e.target;
-    if(t.hasAttribute("data-ty-year")){ setTaxYearSelected(t.value); renderTaxYear(); return; }
     if(t.hasAttribute("data-ty-evidence")){
       taxYearToggleEvidence(t.getAttribute("data-ty-evidence"), t.checked);
       var boxes = taxDocsBody.querySelectorAll("[data-ty-evidence]");
@@ -1239,6 +1241,13 @@ import {
   }
   taxYearBody.addEventListener("change", onTaxYearChange);
   taxDocsBody.addEventListener("change", onTaxYearChange);
+  // "Open FY25/26" while the current year is still running: moves the whole app's period there.
+  [taxYearBody, taxDocsBody].forEach(function(body){
+    body.addEventListener("click", function(e){
+      var b = e.target.closest("button[data-ty-year]");
+      if(b) setTaxYearSelected(b.getAttribute("data-ty-year"));
+    });
+  });
   taxDocsBody.addEventListener("click", function(e){
     if(e.target.closest("[data-ty-import]")) document.getElementById("taxYearImportFile").click();
   });
@@ -3168,6 +3177,7 @@ import {
     var btn = e.target.closest("[data-year-basis]");
     if(!btn) return;
     setYearBasis(btn.getAttribute("data-year-basis"));
+    applyPeriod(null, "");
     renderYearBasisPreference();
     // The household year reaches further than any other preference in this app: the year-to-date
     // spending panel, every reserve line that hasn't been given its own budget year (so the
@@ -4100,6 +4110,7 @@ import {
     renderHealth();
     renderMonthReview();
     renderNotifBadge();
+    renderPeriodButton();
   }
 
   if(!storageAvailable) setStatus(false, "Storage unavailable — export to keep changes");
@@ -4231,6 +4242,57 @@ import {
     showHelpToggle.addEventListener("change", function(){ setShowHelp(showHelpToggle.checked); });
   }
   document.addEventListener("change", renderGlobalMetrics);
+
+  // ---------------- The period selector (v3.55.0) ----------------
+  // One year (and optionally a month) beside the page title that every page reads — see
+  // components/period.js. Choosing re-renders everything; the menu stays open so a year and then a
+  // month can be picked in one go.
+  loadPeriod();
+  setPeriodRerender(function(){ renderAll(); renderPeriodMenu(); });
+  var periodBtn = document.getElementById("periodBtn");
+  var periodMenu = document.getElementById("periodMenu");
+  function setPeriodMenuOpen(open){
+    periodMenu.hidden = !open;
+    periodBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    if(open){
+      renderPeriodMenu();
+      periodMenu.style.top = window.innerWidth <= 600 ? Math.round(periodBtn.getBoundingClientRect().bottom + 8) + "px" : "";
+      var first = periodMenu.querySelector(".period-chip.active, .seg-option.active");
+      if(first) first.focus();
+    }
+  }
+  periodBtn.addEventListener("click", function(){ setPeriodMenuOpen(periodMenu.hidden); });
+  periodMenu.addEventListener("click", function(e){
+    var b = e.target.closest("button");
+    if(!b || b.disabled) return;
+    if(b.hasAttribute("data-period-basis")){
+      if(b.getAttribute("data-period-basis") === householdYearBasis()) return;
+      setYearBasis(b.getAttribute("data-period-basis"));
+      // A year number means a different twelve months on the other basis — start again from today.
+      applyPeriod(null, "");
+    } else if(b.hasAttribute("data-period-year")){
+      applyPeriod(Number(b.getAttribute("data-period-year")), "");
+    } else if(b.hasAttribute("data-period-month")){
+      applyPeriod(yearStartOf(householdYearBasis(), selectedYearWindow().start), b.getAttribute("data-period-month"));
+    } else if(b.hasAttribute("data-period-today")){
+      applyPeriod(null, "");
+      setPeriodMenuOpen(false);
+      periodBtn.focus();
+      return;
+    }
+    var again = periodMenu.querySelector(b.hasAttribute("data-period-month") ? '[data-period-month="' + b.getAttribute("data-period-month") + '"]' : ".period-chip.active");
+    if(again) again.focus();
+  });
+  document.addEventListener("click", function(e){
+    if(periodMenu.hidden) return;
+    // A chip inside the menu is rebuilt by the re-render its own click causes, so by the time this
+    // runs it's detached and .closest() finds nothing — that's still a click inside.
+    if(!e.target.isConnected) return;
+    if(!e.target.closest(".period-wrap")) setPeriodMenuOpen(false);
+  });
+  document.addEventListener("keydown", function(e){
+    if(e.key === "Escape" && !periodMenu.hidden){ setPeriodMenuOpen(false); periodBtn.focus(); }
+  });
 
   renderAll();
   initTableScrollShadows();

@@ -2265,6 +2265,31 @@ device, never in a backup — a lock screen, not encryption, and it says so). Mi
 lastFolderBackup).
 
 
+## 100. `[~]` Bank import that understands accounts
+The import picks which account the statement is for, recognises payments between the household's
+own accounts as transfers (a card repayment, a top-up to savings) instead of spending, and can set
+that account's balance from the statement's closing balance.
+
+## 101. `[~]` Savings goals tied to accounts
+A goal (house deposit, emergency fund) follows real account balances, shows progress, what's needed
+per month to hit its date and whether the month's surplus covers it.
+
+## 102. `[~]` Recurring payments and subscriptions
+From logged/imported spending: payments that repeat but have no budget line (offer to add one), and
+lines whose real charge has risen (offer to update).
+
+## 103. `[~]` Account and net worth history
+A chart per account from its recorded balances; net worth over time from the snapshots; the net
+worth report compares with a month and a year earlier.
+
+## 104. `[~]` Year-end pack
+One place at 30 June: close the year, print the tax summary and property P&L together, and export
+the year's transactions and the documents checklist for an accountant.
+
+## 105. `[~]` One number format
+Money looks the same everywhere: one font, whole dollars in summaries, cents only on individual
+transactions and tax figures.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

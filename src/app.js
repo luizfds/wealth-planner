@@ -76,6 +76,9 @@ import { rulesPageHtml, setRuleField, ruleIsEmpty, ruleTest } from "./components
 import { normaliseDescription } from "./calc/bank-import.js";
 import { openAccounts, balanceEditing } from "./components/accounts.js";
 import { renderHomeSummary } from "./components/home.js";
+import { dataHealthChecks } from "./calc/health.js";
+import { chooseFolder, backupToFolder, forgetFolder, maybeAutoBackup, setPasscode, clearPasscode, checkPasscode } from "./lib/safekeeping.js";
+import { renderSafekeeping } from "./components/safekeeping.js";
 import { renderReports, reportShown, reportPrintHtml, reportCsv } from "./components/reports.js";
 import { exportTableCsv } from "./lib/backup.js";
 import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodButton, renderPeriodMenu } from "./components/period.js";
@@ -4426,6 +4429,19 @@ import {
     renderPeriodButton();
     renderHomeSummary();
     renderReports();
+    renderChecksBadge();
+    renderSafekeeping();
+  }
+  // Settings carries the number of Checks that need fixing (v3.63.0), so they're seen without
+  // opening the tab — on the sidebar, the More tab and its Settings item.
+  function renderChecksBadge(){
+    var n = 0;
+    try { n = dataHealthChecks({}).filter(function(c){ return c.severity !== "info"; }).length; } catch(e){ n = 0; }
+    document.querySelectorAll("[data-checks-badge]").forEach(function(el){
+      el.hidden = !n;
+      el.textContent = el.classList.contains("nav-badge-dot") ? "" : String(n);
+      el.setAttribute("aria-label", n + " check" + (n === 1 ? "" : "s") + " to fix");
+    });
   }
 
   if(!storageAvailable) setStatus(false, "Storage unavailable — export to keep changes");
@@ -4557,6 +4573,62 @@ import {
     showHelpToggle.addEventListener("change", function(){ setShowHelp(showHelpToggle.checked); });
   }
   document.addEventListener("change", renderGlobalMetrics);
+
+  // ---------------- Safekeeping (v3.63.0): folder backups and the passcode ----------------
+  var lockScreen = document.getElementById("lockScreen");
+  function showLock(){
+    document.documentElement.classList.add("is-locked");
+    lockScreen.hidden = false;
+    document.getElementById("lockError").hidden = true;
+    var inp = document.getElementById("lockInput"); inp.value = ""; setTimeout(function(){ inp.focus(); }, 30);
+  }
+  function unlock(){
+    try{ sessionStorage.setItem("wealthPlanner.unlocked", "1"); }catch(e){}
+    document.documentElement.classList.remove("is-locked");
+    lockScreen.hidden = true;
+  }
+  document.getElementById("lockForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    checkPasscode(document.getElementById("lockInput").value).then(function(ok){
+      if(ok) unlock(); else { document.getElementById("lockError").hidden = false; document.getElementById("lockInput").select(); }
+    });
+  });
+  if(document.documentElement.classList.contains("is-locked")) showLock();
+  function askNewPasscode(){
+    var a = prompt("New passcode (at least 4 characters):");
+    if(a == null) return Promise.resolve(false);
+    if(a.length < 4){ showToast("A passcode needs at least 4 characters"); return Promise.resolve(false); }
+    var b = prompt("Type it again:");
+    if(b !== a){ if(b != null) showToast("They didn't match — nothing changed"); return Promise.resolve(false); }
+    return setPasscode(a).then(function(){ try{ sessionStorage.setItem("wealthPlanner.unlocked", "1"); }catch(e){} return true; });
+  }
+  function folderResult(r){
+    if(r.ok) showToast("Backed up to " + r.folder + " (" + r.name + ")");
+    else if(r.reason === "permission") showToast("The browser didn't allow writing to " + r.folder);
+    renderSafekeeping(); renderHomeSummary();
+  }
+  document.getElementById("safekeepingBody").addEventListener("click", function(e){
+    var b = e.target.closest("[data-sk]");
+    if(!b) return;
+    var act = b.getAttribute("data-sk");
+    if(act === "export"){ document.getElementById("exportBtn").click(); setTimeout(renderSafekeeping, 400); return; }
+    if(act === "folder-pick" || act === "folder-change"){
+      chooseFolder().then(function(){ return backupToFolder(true); }).then(folderResult).catch(function(err){ if(err && err.name !== "AbortError") showToast("Couldn't use that folder"); });
+      return;
+    }
+    if(act === "folder-now"){ backupToFolder(true).then(folderResult).catch(function(){ showToast("Couldn't write the backup"); }); return; }
+    if(act === "folder-stop"){ forgetFolder().then(function(){ showToast("Stopped backing up to the folder"); renderSafekeeping(); }); return; }
+    if(act === "pass-set" || act === "pass-change"){ askNewPasscode().then(function(done){ if(done){ showToast("Passcode set"); renderSafekeeping(); } }); return; }
+    if(act === "pass-off"){
+      var cur = prompt("Current passcode:");
+      if(cur == null) return;
+      checkPasscode(cur).then(function(ok){ if(!ok){ showToast("That isn't the passcode"); return; } clearPasscode(); showToast("Passcode off"); renderSafekeeping(); });
+      return;
+    }
+    if(act === "lock-now"){ try{ sessionStorage.removeItem("wealthPlanner.unlocked"); }catch(err){} showLock(); }
+  });
+  // A quiet weekly backup into the chosen folder, if the browser still allows it.
+  maybeAutoBackup().then(function(r){ if(r && r.ok){ showToast("Weekly backup saved to " + r.folder); renderSafekeeping(); } });
 
   // ---------------- Reports (v3.62.0) ----------------
   document.getElementById("reportsBody").addEventListener("click", function(e){

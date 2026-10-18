@@ -530,7 +530,7 @@ function modernAssetRowHtml(item, idx, colorIdx){
     '</div>' +
     // Sales live behind a disclosure: most holdings have none, and a CGT form permanently open on
     // every row would bury the fields people actually use daily.
-    '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm asset-log-btn" data-asset-log="' + idx + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart below">Log</button><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete asset">Delete</button></div>' +
+    '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm asset-log-btn" data-asset-log="' + idx + '" title="Record the value above as of today, so it shows up in the portfolio-over-time chart below">Record value</button><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete asset">Delete</button></div>' +
   '</div></div></div>';
   return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="assets" data-index="' + idx + '">' + summary + edit + '</div>';
 }
@@ -579,7 +579,7 @@ export function renderAssetCategoryHistoryChart(cat){
   // dates alone would draw a "trend" through a single logged point and a value typed in a box.
   var logged = observationDates(records.map(function(r){ return r.history; }), []);
   if(logged.length < 2){
-    container.innerHTML = '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">Press <b>Log</b> on a ' +
+    container.innerHTML = '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">Press <b>Record value</b> on a ' +
       escapeAttr(cat) + ' row at least twice — a month apart, say — and its value over time appears here. ' +
       (logged.length === 1 ? "One snapshot so far." : "None logged yet.") + '</p>';
     return;
@@ -632,7 +632,7 @@ function modernVehicleRowHtml(item, idx, colorIdx){
       '<div class="m-edit-field"><label>Person</label><input type="text" class="v-person" list="personSuggestions" value="' + escapeAttr(item.person || "") + '" placeholder="Household" aria-label="Person"></div>' +
     '</div>' +
     '<p class="ledger-note v-value-cell" style="margin:8px 0 0">Current value <b>' + fmtCurrency0.format(Number(item.amount) || 0) + '</b>' + (item.computed ? '<span class="computed-note">auto</span>' : '<span class="computed-note">set price + date to auto-depreciate</span>') + '</p>' +
-    '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm asset-log-btn" data-asset-log="' + idx + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart below">Log</button><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete vehicle">Delete</button></div>' +
+    '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm asset-log-btn" data-asset-log="' + idx + '" title="Record the value above as of today, so it shows up in the portfolio-over-time chart below">Record value</button><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete vehicle">Delete</button></div>' +
   '</div></div></div>';
   return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="assets" data-index="' + idx + '">' + summary + edit + '</div>';
 }
@@ -734,7 +734,7 @@ function modernShareRowHtml(item, idx, colorIdx){
       '<div class="m-edit-actions"><button type="button" class="btn btn-sm btn-primary" data-asset-sale="' + idx + '">Record sale</button></div>' +
       salesListHtml(item, idx) +
     '</div></details>' +
-    '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm asset-log-btn" data-asset-log="' + idx + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart below">Log</button><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete holding">Delete</button></div>' +
+    '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm asset-log-btn" data-asset-log="' + idx + '" title="Record the value above as of today, so it shows up in the portfolio-over-time chart below">Record value</button><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete holding">Delete</button></div>' +
   '</div></div></div>';
   return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="assets" data-index="' + idx + '">' + summary + edit + '</div>';
 }
@@ -1685,7 +1685,7 @@ export function renderDebts(){
     return '<div class="m-row computed" data-debt-index="' + idx + '"><div class="m-row-summary" style="cursor:default">' +
       '<div style="flex:1 1 auto;min-width:0"><input type="text" class="debt-what" data-debt-index="' + idx + '" value="' + escapeAttr(d.what) + '" aria-label="Debt name" style="all:unset;box-sizing:border-box;width:100%;min-height:40px;font:inherit;color:inherit">' + historyTrendHtml(d) + '</div>' +
       '<input type="number" step="100" min="0" class="debt-balance" data-debt-index="' + idx + '" value="' + d.balance + '" aria-label="Balance" style="width:110px;min-height:40px;text-align:right;font-family:\'IBM Plex Mono\',monospace;border:1px solid transparent;background:transparent;color:inherit;padding:5px 6px;border-radius:6px">' +
-      '<button type="button" class="btn btn-sm btn-ghost" data-debt-log="' + idx + '" title="Snapshot the balance above with today\'s date">Log</button>' +
+      '<button type="button" class="btn btn-sm btn-ghost" data-debt-log="' + idx + '" title="Record the balance above as of today">Update balance</button>' +
       '<button type="button" class="btn btn-ghost btn-sm row-del" data-debt-del="' + idx + '" aria-label="Delete debt">✕</button>' +
     '</div></div>';
   }).join("") + '</div>';

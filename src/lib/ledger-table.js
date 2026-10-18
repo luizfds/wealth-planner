@@ -19,7 +19,7 @@ function todayStr(){ return localDateStr(); }
 export function logControlsHtml(section, idx, item){
   return '<input type="date" class="log-date" value="' + todayStr() + '" aria-label="Date to log this amount under" title="Date to log this under — defaults to today, can be backdated">' +
     '<button type="button" class="asset-log-btn" data-log="' + escapeAttr(section) + ':' + idx + '"' +
-      ' title="Snapshot the amount above under the date to the left">Log</button>';
+      ' title="Record the amount above under the date to the left">Record change</button>';
 }
 
 // Shared by every "Log"-able row (assets, properties, debts, income, shared expenses) — a small
@@ -338,7 +338,7 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
   // at narrow widths (they'd wrap onto separate lines) — span2 fits them on one line and, for
   // every current caller, exactly fills out the row alongside whatever's next to it.
   var logField = opts.showLog
-    ? '<div class="m-edit-field span2"><label>Log</label>' + logControlsHtml(section, idx, item) + '</div>'
+    ? '<div class="m-edit-field span2"><label>Record a change</label>' + logControlsHtml(section, idx, item) + '</div>'
     : "";
   var rentLineField = String(section || "").indexOf("propexp:") === 0 && rentLinesProvider
     ? '<div class="m-edit-field"><label>Return line</label>' + rentLineSelectHtml(item) + '</div>'

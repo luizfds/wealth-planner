@@ -1148,3 +1148,17 @@ test("property Tax tab: the year's rental result line by line, and each owner's 
   assert.deepEqual(propertyTabsFor(p).map(function(t){ return t.key; }), ["overview", "loans", "income", "tax", "sale"]);
   assert.deepEqual(propertyTabsFor({ kind: "PPOR" }).map(function(t){ return t.key; }), ["overview", "loans", "income"]);
 });
+
+test("Keeping your data safe: backups, the folder option and the passcode", async function(){
+  const { safekeepingHtml } = await import("../src/components/safekeeping.js");
+  var keep = state.lastBackupDate;
+  try {
+    state.lastBackupDate = "2026-08-01";
+    var html = safekeepingHtml(null, "2026-10-18");
+    assert.match(html, /78 days ago, worth making a new one/);
+    assert.match(html, /data-sk="export"/);
+    assert.match(html, /Needs Chrome or Edge/, "no folder API under Node");
+    assert.match(html, /data-sk="pass-set">Set a passcode/);
+    assert.match(html, /doesn't encrypt/);
+  } finally { state.lastBackupDate = keep; }
+});

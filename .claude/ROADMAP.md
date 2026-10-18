@@ -2250,11 +2250,20 @@ header's period; `components/reports.js` renders them, prints through the shared
 downloads CSV via `exportTableCsv`.
 
 
-## 99. `[~]` Polish
+## 99. `[x]` Polish — shipped v3.63.0
 One meaning per verb, one number format, empty states that say what's next, nav badges, backup
 reminders and folder export, optional passcode.
 
 ---
+Shipped as: "Log" kept for money (spend, money received); values and balances say "Record value",
+"Update balance", "Record change". A Checks count on Settings (sidebar, More tab, More item).
+Settings → Preferences → Keeping your data safe (`lib/safekeeping.js`): last backup and Back up
+now, weekly automatic backups into a chosen folder (File System Access API, Chrome/Edge desktop;
+the handle kept in IndexedDB), and an optional passcode lock (salted SHA-256 in localStorage, per
+device, never in a backup — a lock screen, not encryption, and it says so). Migrations for items
+92–98 run in `migrateState` with no action needed (account types and links, transfers,
+lastFolderBackup).
+
 
 ## Conventions for whoever picks this up
 

@@ -183,7 +183,7 @@ export var QUICK_ACTIONS = [
   { label: "Add cash",      hint: "A savings or offset balance",              page: "assets",     sub: "Cash" },
   { label: "Add property",  hint: "A home or investment property",            page: "properties", selector: "#addPropertyBtn" },
   { label: "Add account",   hint: "A bank or credit card account",            page: "accounts",   selector: "#addAccountBtn" },
-  { label: "Log net worth", hint: "Snapshot today's total",                   page: "dashboard",  mode: "networth" }
+  { label: "Record net worth", hint: "Snapshot today's total",                   page: "dashboard",  mode: "networth" }
 ];
 // Reuses the .review-backdrop/.review-panel sheet shell every other overlay in this app uses (see
 // ledger.css), so this inherits the bottom-anchored-on-mobile treatment and the shared backdrop
@@ -212,7 +212,7 @@ export function updateQuickFab(pageId){
   var label = null, mode = null, selector = null;
   var grouped = null;
   if(pageId === "dashboard"){
-    label = "Log net worth now";
+    label = "Record net worth now";
     mode = "networth";
   } else if(pageId === "accounts"){
     label = "Add account"; selector = "#addAccountBtn";

@@ -647,7 +647,7 @@ function propertyCardHtml(p, colorIdx){
         '<div class="calc-field"><label>Purchase date</label><input type="date" class="prop-purchase-date" aria-label="Purchase date" value="' + escapeAttr(p.purchaseDate || "") + '"></div>' +
       '</div>' +
       landTaxFieldsHtml(p) +
-      '<div class="prop-value-log"><button type="button" class="btn btn-sm" data-property-log="' + escapeAttr(p.id) + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart">Log today\'s value</button>' + historyTrendHtml(p) + '</div>') +
+      '<div class="prop-value-log"><button type="button" class="btn btn-sm" data-property-log="' + escapeAttr(p.id) + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart">Record today\'s value</button>' + historyTrendHtml(p) + '</div>') +
     acquisitionCostsSectionHtml(p)  +
     (p.kind === "IP" ? ownershipSectionHtml(p) : "") ) +
     panel("loans", propertySectionHtml(p, "loans",

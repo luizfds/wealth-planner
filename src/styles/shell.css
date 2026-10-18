@@ -379,3 +379,22 @@
   .topbar-overflow .page-overflow-btn{ width:34px; height:34px; }
   .topbar-overflow .page-overflow-menu{ top:40px; }
   .menu-danger{ color: var(--bad) !important; }
+  /* The Checks count on Settings (v3.63.0). */
+  .nav-badge{ display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; padding:0 5px; margin-left:6px; border-radius:9px;
+    background: var(--bad); color:#fff; font-size:11px; font-weight:700; vertical-align:middle; font-variant-numeric: tabular-nums; }
+  .nav-badge[hidden]{ display:none; }
+  .nav-badge-dot{ position:absolute; top:4px; right:calc(50% - 16px); min-width:8px; width:8px; height:8px; padding:0; margin:0; }
+  .mobile-tab-pill{ position:relative; }
+  /* Safekeeping and the lock screen (v3.63.0) */
+  .sk-block{ padding:10px 0; border-bottom:1px dashed var(--border); }
+  .sk-block:last-child{ border-bottom:0; }
+  .lock-screen{ position:fixed; inset:0; z-index:1000; background: var(--paper); display:flex; align-items:center; justify-content:center; padding:16px; }
+  .lock-screen[hidden]{ display:none; }
+  .lock-card{ width:min(360px, 100%); display:flex; flex-direction:column; gap:10px; text-align:center; }
+  .lock-card h2{ margin:0; font-size:20px; }
+  .lock-card p{ margin:0; color: var(--ink-soft); font-size:13.5px; }
+  .lock-card input{ min-height:48px; font-size:20px; text-align:center; letter-spacing:.3em; border:1px solid var(--border); border-radius:10px; background: var(--paper-raised); color: var(--ink); }
+  .lock-card input:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
+  .lock-error{ color: var(--bad) !important; }
+  .lock-error[hidden]{ display:none; }
+  html.is-locked .app-shell, html.is-locked .mobile-tabbar, html.is-locked .quick-fab-wrap, html.is-locked .toast-root{ visibility:hidden; }

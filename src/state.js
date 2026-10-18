@@ -185,7 +185,8 @@ export function defaultState(){
     // "" until the first one. Powers the backup-reminder notification (lib/notifications.js) —
     // the only way this browser-only, no-backend app's data survives clearing site data or losing
     // the device.
-    lastBackupDate: ""
+    lastBackupDate: "",
+    lastFolderBackup: ""
   };
 }
 
@@ -438,6 +439,8 @@ export function migrateState(s){
   if(s.fx.usdAud === undefined) s.fx.usdAud = null;
   if(s.fx.usdAudUpdated == null) s.fx.usdAudUpdated = "";
   if(s.lastBackupDate == null) s.lastBackupDate = "";
+  // The last automatic backup into a chosen folder (v3.63.0, lib/safekeeping.js).
+  if(s.lastFolderBackup == null) s.lastFolderBackup = "";
   (s.income || []).forEach(function(i){
     if(i.sacrificeMode == null) i.sacrificeMode = "none";
     if(i.sacrificeValue == null) i.sacrificeValue = 0;

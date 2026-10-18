@@ -285,7 +285,7 @@ function renderStaleAssetsBanner(){
   var stale = staleAssets();
   if(!stale.length){ el.innerHTML = ""; return; }
   el.innerHTML =
-    '<div class="stale-assets-note" title="Log a fresh value for each (Assets tab → Log) to keep net worth history and the Actual vs. expected panel accurate.">' +
+    '<div class="stale-assets-note" title="Record a fresh value for each (Investments → Record value) to keep net worth history and the Actual vs. expected panel accurate.">' +
       '<span>⏱</span> ' + escapeAttr(stale.length + " asset" + (stale.length === 1 ? "" : "s") + " haven't been logged in 30+ days — " + staleAssetNamesList(stale, 3)) +
     '</div>';
 }
@@ -301,7 +301,7 @@ function renderActualVsExpectedPanel(scenario, t){
   if(!actual.hasData){
     panel.innerHTML =
       '<h3>Actual vs. expected <span style="font-weight:400;color:var(--ink-soft)">— last 30 days</span></h3>' +
-      '<p class="fire-note">Log a value for at least one asset (Assets tab → Log) on two occasions ~a month apart to compare real growth against ' + escapeAttr(scenario) + '\'s expected monthly surplus.</p>';
+      '<p class="fire-note">Record a value for at least one asset (Investments → Record value) on two occasions ~a month apart to compare real growth against ' + escapeAttr(scenario) + '\'s expected monthly surplus.</p>';
     return;
   }
   var gap = actual.deltaSum - expected;
@@ -514,11 +514,11 @@ function renderProjectionAccuracyPanel(){
   if(!ref){
     panel.innerHTML =
       '<h3>Projection accuracy</h3>' +
-      '<p class="fire-note">Set a reference projection to start tracking how ' + escapeAttr(state.activeScenario) + '\'s projection holds up against reality over time. Once set, log your net worth roughly monthly ("Log net worth now" below) to build up the comparison.</p>' +
+      '<p class="fire-note">Set a reference projection to start tracking how ' + escapeAttr(state.activeScenario) + '\'s projection holds up against reality over time. Once set, log your net worth roughly monthly ("Record net worth now" below) to build up the comparison.</p>' +
       '<div class="fire-stat-row" style="justify-content:flex-start;gap:8px">' + setBtnHtml + '</div>';
     return;
   }
-  var logBtnHtml = '<button type="button" class="btn btn-sm btn-ghost" data-log-networth>Log net worth now</button>';
+  var logBtnHtml = '<button type="button" class="btn btn-sm btn-ghost" data-log-networth>Record net worth now</button>';
   var actualPoints = state.netWorthLog
     .filter(function(h){ return h.date >= ref.date; })
     .map(function(h){ return { x: yearsSinceDate(h.date, ref.date), y: h.value }; });

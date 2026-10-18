@@ -36,8 +36,8 @@ export function dataHealthChecks(opts){
   // balance on the latest statement — the limit belongs on the card, not in Debts.
   var limits = (state.debts || []).filter(function(d){ return /\blimit\b/i.test(d.what || "") && Number(d.balance) > 0; });
   if(limits.length) add({ id: "debt-limit", severity: "warn", title: plural(limits.length, "debt") + " that look like a credit limit, not money owed",
-    detail: names(limits.map(function(d){ return d.what; })) + " — net worth counts the whole amount as owed. Put what the card actually owes (the statement balance) there instead, or delete the row if it's paid off each month.",
-    where: { page: "assets", sub: "summary" } });
+    detail: names(limits.map(function(d){ return d.what; })) + " — net worth counts the whole amount as owed. On Accounts, open the card, type the limit in its Limit field, and Update its balance to what it actually owes.",
+    where: { page: "accounts", sub: "accounts" } });
 
   // Deductions that land nowhere, or nowhere real.
   var unclaimed = items.filter(function(i){ return i.deductible && !i.claimProperty && !i.deductiblePerson && people.length > 1; });

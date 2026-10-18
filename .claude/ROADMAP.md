@@ -2188,9 +2188,15 @@ the month defaults, reserve windows, Received, Returns/Documents, the transactio
 (Month / Year / All) and the Review follow it. Session-only, so the app always opens on today. The
 share-price and chart ranges stayed — they're zoom levels on a chart, not the period being reported.
 
-## 93. `[~]` Accounts with balances
+## 93. `[x]` Accounts with balances — shipped v3.56.0
 Each account has a type (everyday, savings, credit card, offset, loan) and a balance with history.
 Cash assets, offsets and debts become account balances; an offset links to its loan.
+Shipped as: `account.link` points at the record that already holds the money ("asset:<id>",
+"debt:<id>", "offset:<loanId>", "loan:<loanId>") so net worth and the engine are untouched —
+`calc/accounts.js` reads and writes through it, `components/accounts.js` groups the page (bank
+accounts / cards / loans, plus "balances with no account yet"). A card's `limit` lives on the
+account and is never counted. Migration (state.js `migrateAccounts`) maps "debit" → "everyday",
+gives Cash assets and debts ids, and links by name once (`accountsLinked`).
 
 ## 94. `[~]` Navigation by job
 Home, Cash flow, Accounts, Investments, Property, Tax, Plan, Reports, Settings.

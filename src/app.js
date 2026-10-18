@@ -69,6 +69,8 @@ import {
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
   patchCalcOutputs, afterCalcChange, patchInvestOutputs
 } from "./components/scenarios.js";
+import { ACCOUNT_TYPE_KEYS, accountSourceOptions, setAccountBalance, resolveLink } from "./calc/accounts.js";
+import { openAccounts, balanceEditing } from "./components/accounts.js";
 import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodButton, renderPeriodMenu } from "./components/period.js";
 import { selectedYearWindow, yearStartOf, householdYearBasis } from "./calc/ledger.js";
 import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, taxSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
@@ -271,7 +273,7 @@ import {
       // Expenses tab) rather than silently leave the exact account named "Credit Card"
       // unconfigured for it.
       accounts: [
-        { id: genId("acct"), name: "Everyday Account", type: "debit", statementStartDay: 1 },
+        { id: genId("acct"), name: "Everyday Account", type: "everyday", statementStartDay: 1 },
         { id: genId("acct"), name: "Credit Card", type: "credit", statementStartDay: rndStep(1, 28, 1) }
       ],
       home: (function(){
@@ -3120,10 +3122,58 @@ import {
   });
 
   // ---------------- Accounts: named money sources, used for credit-card statement cycles ----------------
-  document.getElementById("addAccountBtn").addEventListener("click", function(){ addAccount(); updateAccountSuggestions(); });
+  document.getElementById("addAccountBtn").addEventListener("click", function(){
+    addAccount();
+    updateAccountSuggestions();
+    var nameIn = document.querySelector("#accountsTable .acct-card.is-open:last-of-type .acct-mgmt-name") || document.querySelectorAll("#accountsTable .acct-mgmt-name");
+    if(nameIn && nameIn.length !== undefined) nameIn = nameIn[nameIn.length - 1];
+    if(nameIn) nameIn.focus();
+  });
+  // "Update balance" → Save: written to the record the balance lives in (calc/accounts.js), so net
+  // worth, runway and the projections move with it.
+  function saveAccountBalance(idx){
+    var a = state.accounts[idx];
+    var inp = document.querySelector('#accountsTable .acct-bal-input[data-acct-index="' + idx + '"]');
+    if(!a || !inp) return;
+    if(inp.value === "" || isNaN(Number(inp.value))){ inp.focus(); return; }
+    if(!setAccountBalance(a, inp.value)){ showToast("Pick the loan this offset sits against first"); return; }
+    delete balanceEditing[a.id];
+    renderAll();
+    persist();
+    showToast("Updated " + (a.name || "the account") + " to " + fmtCurrency0.format(Number(inp.value)));
+  }
+  document.getElementById("accountsTable").addEventListener("keydown", function(e){
+    if(e.key === "Enter" && e.target.classList.contains("acct-bal-input")){ e.preventDefault(); saveAccountBalance(Number(e.target.getAttribute("data-acct-index"))); }
+    if(e.key === "Escape" && e.target.classList.contains("acct-bal-input")){ var id = (state.accounts[Number(e.target.getAttribute("data-acct-index"))] || {}).id; delete balanceEditing[id]; renderAccounts(); }
+  });
   document.addEventListener("click", function(e){
     var delAcctBtn = e.target.closest("[data-acct-del]");
     if(delAcctBtn){ deleteAccount(Number(delAcctBtn.getAttribute("data-acct-del"))); updateAccountSuggestions(); return; }
+    var tog = e.target.closest("[data-acct-toggle]");
+    if(tog){ var tid = tog.getAttribute("data-acct-toggle"); openAccounts[tid] = !openAccounts[tid]; renderAccounts(); return; }
+    var balBtn = e.target.closest("[data-acct-bal]");
+    if(balBtn){
+      var bid = balBtn.getAttribute("data-acct-bal");
+      balanceEditing[bid] = true; renderAccounts();
+      var inp = document.querySelector('#accountsTable .acct-card[data-acct-index="' + state.accounts.findIndex(function(x){ return x.id === bid; }) + '"] .acct-bal-input');
+      if(inp){ inp.focus(); inp.select(); }
+      return;
+    }
+    var cancelBal = e.target.closest("[data-acct-bal-cancel]");
+    if(cancelBal){ delete balanceEditing[cancelBal.getAttribute("data-acct-bal-cancel")]; renderAccounts(); return; }
+    var saveBal = e.target.closest("[data-acct-bal-save]");
+    if(saveBal){ saveAccountBalance(Number(saveBal.getAttribute("data-acct-bal-save"))); return; }
+    var adopt = e.target.closest("[data-acct-adopt]");
+    if(adopt){
+      var link = adopt.getAttribute("data-acct-adopt");
+      var src = resolveLink(link);
+      state.accounts.push({ id: genId("acct"), name: src ? src.label.replace(/ — offset$/, " offset") : "Account", type: adopt.getAttribute("data-acct-adopt-type") || "savings", statementStartDay: 1, link: link });
+      updateAccountSuggestions();
+      renderAll();
+      persist();
+      showToast("Added " + (src ? src.label : "the account") + " to Accounts");
+      return;
+    }
   });
   document.addEventListener("input", function(e){
     if(!e.target.closest("#accountsTable")) return;
@@ -3138,7 +3188,9 @@ import {
       updateAccountSuggestions();
     }
     else if(e.target.classList.contains("acct-mgmt-type")){
-      a.type = e.target.value === "credit" ? "credit" : "debit";
+      a.type = ACCOUNT_TYPE_KEYS.indexOf(e.target.value) !== -1 ? e.target.value : "everyday";
+      // A link only makes sense for the kinds of record this type can draw from.
+      if(a.link && !accountSourceOptions(a).some(function(o){ return o.key === a.link; })) a.link = "";
       renderActualVsPlannedPanel();
       persist();
       // Deferred: showing/hiding the statement-day field means rebuilding #accountsTable, an
@@ -3149,6 +3201,16 @@ import {
     }
     else if(e.target.classList.contains("acct-mgmt-day")){
       a.statementStartDay = Math.min(28, Math.max(1, parseInt(e.target.value, 10) || 1));
+    }
+    else if(e.target.classList.contains("acct-mgmt-limit")){
+      var lim = e.target.value === "" ? null : Number(e.target.value);
+      if(lim == null || !(lim >= 0)) delete a.limit; else a.limit = lim;
+    }
+    else if(e.target.classList.contains("acct-mgmt-link")){
+      a.link = e.target.value;
+      persist();
+      setTimeout(function(){ renderAll(); }, 0);
+      return;
     }
     else return;
     renderActualVsPlannedPanel();

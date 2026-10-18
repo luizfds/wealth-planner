@@ -365,7 +365,7 @@ test("a known account selects normally, with no deleted marker", () => {
     const html = transactionAccountOptionsHtml("Amex");
     assert.match(html, /value="Amex" selected/);
     assert.ok(!html.includes("(deleted)"), html);
-    assert.match(html, /Amex \(credit\)/, "a credit card still says so");
+    assert.match(html, /Amex \(card\)/, "a credit card still says so");
   } finally { state.accounts = prev; }
 });
 
@@ -1083,4 +1083,26 @@ test("the period button and menu render the selected year and its months", async
     assert.doesNotMatch(periodButtonHtml("2025-03-10"), /not today/);
     assert.match(periodMenuHtml("2025-03-10", null), /data-period-month="2025-04" disabled/);
   } finally { state.yearBasis = keep; setPeriod(null, ""); }
+});
+
+test("Accounts page: grouped cards with balances, a card's available limit, and loose balances", async function(){
+  const { accountsPageHtml, openAccounts } = await import("../src/components/accounts.js");
+  var keep = { accounts: state.accounts, assets: state.assets, debts: state.debts, properties: state.properties };
+  try {
+    state.assets = [{ id: "as1", what: "Savings pot", category: "Cash", amount: 4200, history: [{ date: "2026-09-01", value: 4000 }, { date: "2026-10-01", value: 4200 }] }];
+    state.debts = [{ id: "d1", what: "Card", balance: 700, history: [] }, { id: "d2", what: "Car loan", balance: 9000 }];
+    state.properties = [];
+    state.accounts = [{ id: "a1", name: "Bank One", type: "savings", link: "asset:as1" }, { id: "a2", name: "Fern Card", type: "credit", statementStartDay: 3, limit: 5000, link: "debt:d1" }, { id: "a3", name: "Spare", type: "everyday", link: "" }];
+    openAccounts.a2 = true;
+    var html = accountsPageHtml("2026-10-18");
+    assert.match(html, /Bank accounts/);
+    assert.match(html, /Credit cards/);
+    assert.match(html, /\$4,200/);
+    assert.match(html, /−\$700/);
+    assert.match(html, /\$4,300 of \$5,000 available/);
+    assert.match(html, /no balance/);
+    assert.match(html, /class="acct-mgmt-limit"[^>]*value="5000"/);
+    assert.match(html, /data-acct-adopt="debt:d2" data-acct-adopt-type="loan"/);
+    assert.match(html, /<span>Owed on cards and loans<\/span><b class="owed">−\$9,700/);
+  } finally { Object.assign(state, keep); }
 });

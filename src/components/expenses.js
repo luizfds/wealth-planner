@@ -6,6 +6,7 @@ import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent0, fmtPercent1, localDateStr } from "../lib/format.js";
 import { spendingTrends, monthKeyLabel } from "../calc/trends.js";
 import { escapeAttr } from "../lib/html.js";
+import { renderAccountsPage, openAccounts } from "./accounts.js";
 import { modernPlainRowHtml, modernRowSummaryHtml, modernRowEditHtml, modernRowShellHtml, optionsHtml } from "../lib/ledger-table.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { parseCsv } from "../lib/backup.js";
@@ -1235,7 +1236,7 @@ export function transactionAccountOptionsHtml(selected){
   var known = false;
   options += state.accounts.map(function(a){
     if(a.name === selected) known = true;
-    return '<option value="' + escapeAttr(a.name) + '"' + (a.name === selected ? " selected" : "") + '>' + escapeAttr(a.name) + (a.type === "credit" ? " (credit)" : "") + '</option>';
+    return '<option value="' + escapeAttr(a.name) + '"' + (a.name === selected ? " selected" : "") + '>' + escapeAttr(a.name) + (a.type === "credit" ? " (card)" : "") + '</option>';
   }).join("");
   if(selected && !known){
     options += '<option value="' + escapeAttr(selected) + '" selected>' + escapeAttr(selected) + ' (deleted)</option>';
@@ -2208,32 +2209,12 @@ export function setYearBasis(basis){
   persist();
 }
 
-function accountRowHtml(a, idx){
-  var nameInput = '<input type="text" class="acct-mgmt-name" data-acct-index="' + idx + '" value="' + escapeAttr(a.name || "") + '" placeholder="Account name" aria-label="Account name">';
-  var typeSelect = '<select class="acct-mgmt-type" data-acct-index="' + idx + '" aria-label="Account type">' +
-    '<option value="debit"' + (a.type !== "credit" ? " selected" : "") + '>Debit / savings — no due date</option>' +
-    '<option value="credit"' + (a.type === "credit" ? " selected" : "") + '>Credit card — has a statement cycle</option>' +
-    '</select>';
-  var dayInput = a.type === "credit"
-    ? '<input type="number" min="1" max="28" step="1" class="acct-mgmt-day" data-acct-index="' + idx + '" value="' + (a.statementStartDay || 1) + '" aria-label="Statement start day (1-28)">'
-    : "";
-  var delBtn = '<button type="button" class="btn btn-ghost btn-sm row-del" data-acct-del="' + idx + '" aria-label="Delete account">✕</button>';
-  return '<div class="m-row acct-mgmt-row" data-acct-index="' + idx + '">' +
-    '<div class="m-row-summary" style="cursor:default;flex-wrap:wrap;gap:8px">' + nameInput + typeSelect + dayInput + delBtn + '</div>' +
-  '</div>';
-}
-export function renderAccounts(){
-  var container = document.getElementById("accountsTable");
-  if(!container) return;
-  if(!state.accounts.length){
-    container.innerHTML = '<p class="ledger-note" style="margin:0">No accounts yet — add one below (e.g. your credit card) to group its transactions into a statement cycle.</p>';
-    return;
-  }
-  var rows = state.accounts.map(function(a, i){ return accountRowHtml(a, i); }).join("");
-  container.innerHTML = '<div class="m-rows">' + rows + '</div>';
-}
-export function addAccount(){
-  state.accounts.push({ id: genId("acct"), name: "", type: "debit", statementStartDay: 1 });
+// The page itself is components/accounts.js since v3.56.0 (balances, types, grouping).
+export function renderAccounts(){ renderAccountsPage(); }
+export function addAccount(type){
+  var a = { id: genId("acct"), name: "", type: type || "everyday", statementStartDay: 1, link: "" };
+  state.accounts.push(a);
+  openAccounts[a.id] = true;
   renderAccounts();
   persist();
 }

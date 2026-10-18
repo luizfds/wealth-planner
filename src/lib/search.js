@@ -65,7 +65,7 @@ export function searchApp(query){
     add("Debt", d.what, fmtCurrency0.format(Number(d.balance) || 0), "assets", { sub: "summary" });
   });
   (state.accounts || []).forEach(function(a){
-    add("Account", a.name, a.type === "credit" ? "Credit card" : "Debit / savings", "accounts");
+    add("Account", a.name, ({ everyday: "Everyday account", savings: "Savings account", offset: "Offset account", credit: "Credit card", loan: "Loan" })[a.type] || "Account", "accounts");
   });
 
   return results;

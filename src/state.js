@@ -365,7 +365,6 @@ export function migrateState(s){
   if(!Array.isArray(s.accounts)) s.accounts = [];
   s.accounts.forEach(function(a){
     if(!a.id) a.id = genId("acct");
-    if(a.type !== "credit") a.type = "debit";
     if(a.statementStartDay == null) a.statementStartDay = 1;
   });
   // One-shot-per-load, idempotent: pick up every distinct account name already typed into an
@@ -379,7 +378,7 @@ export function migrateState(s){
         var name = (item.account || "").trim();
         if(name && !known[name]){
           known[name] = true;
-          s.accounts.push({ id: genId("acct"), name: name, type: "debit", statementStartDay: 1 });
+          s.accounts.push({ id: genId("acct"), name: name, type: "everyday", statementStartDay: 1 });
         }
       });
     }
@@ -387,6 +386,7 @@ export function migrateState(s){
     collect(s.shared);
     (s.properties || []).forEach(function(p){ collect(p.income); collect(p.expenses); });
   })();
+  migrateAccounts(s);
   // Ages for the FIRE bridge (calc/fire.js). null means "not told yet", which the panel reports as
   // a prompt rather than inventing a plausible age — the whole point of the bridge view is that
   // it's specific to when *you* want to stop working.
@@ -681,4 +681,49 @@ export function setStatus(ok, text){
   // where .actions is hidden in favor of the bottom tab bar) can see save status.
   document.getElementById("mobileStatusDot").className = "status-dot" + (ok ? "" : " warn");
   document.getElementById("mobileStatusText").textContent = text;
+}
+
+// Mirrors calc/accounts.js resolveLink(), reduced to "is it still there".
+function linkExists(link, s){
+  var i = String(link).indexOf(":"), kind = link.slice(0, i), id = link.slice(i + 1);
+  if(kind === "asset") return (s.assets || []).some(function(a){ return a && a.category === "Cash" && a.id === id; });
+  if(kind === "debt") return (s.debts || []).some(function(d){ return d && d.id === id; });
+  if(kind === "offset" || kind === "loan") return (s.properties || []).some(function(p){ return (p.loans || []).some(function(l){ return l.id === id; }); });
+  return false;
+}
+// ---------------- Migration ----------------
+// Run from migrateState(). Gives Cash assets and debts the ids a link needs, maps the old
+// "debit" type to "everyday", and — once — joins each account to the record that's obviously its
+// balance: same name, or the account's name appearing as a whole word in the record's ("Bank One"
+// → "Sam's savings (Bank One)"), when exactly one record matches. Ambiguous ones are left for the
+// person to pick. Once, because unlinking an account afterwards has to stay unlinked.
+function migrateAccounts(s){
+  (s.assets || []).forEach(function(a){ if(a && a.category === "Cash" && !a.id) a.id = genId("as"); });
+  (s.debts || []).forEach(function(d){ if(d && !d.id) d.id = genId("debt"); });
+  (s.accounts || []).forEach(function(a){
+    if(["everyday", "savings", "offset", "credit", "loan"].indexOf(a.type) === -1) a.type = "everyday";
+    if(a.link && !linkExists(a.link, s)) a.link = "";
+    if(a.limit != null && !(Number(a.limit) >= 0)) delete a.limit;
+  });
+  if(s.accountsLinked) return;
+  s.accountsLinked = true;
+  var taken = {};
+  (s.accounts || []).forEach(function(a){ if(a.link) taken[a.link] = true; });
+  var norm = function(x){ return String(x || "").trim().toLowerCase(); };
+  var wordIn = function(needle, hay){
+    needle = norm(needle); hay = norm(hay);
+    if(!needle) return false;
+    var esc = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp("(^|[^a-z0-9])" + esc + "([^a-z0-9]|$)").test(hay);
+  };
+  (s.accounts || []).forEach(function(a){
+    if(a.link || !a.name) return;
+    var pool = a.type === "credit"
+      ? (s.debts || []).map(function(d){ return { key: "debt:" + d.id, name: d.what }; })
+      : (s.assets || []).filter(function(x){ return x && x.category === "Cash"; }).map(function(x){ return { key: "asset:" + x.id, name: x.what }; });
+    pool = pool.filter(function(p){ return !taken[p.key]; });
+    var exact = pool.filter(function(p){ return norm(p.name) === norm(a.name); });
+    var hits = exact.length ? exact : pool.filter(function(p){ return wordIn(a.name, p.name); });
+    if(hits.length === 1){ a.link = hits[0].key; taken[hits[0].key] = true; }
+  });
 }

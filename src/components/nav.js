@@ -68,7 +68,7 @@ var currentExpensesSub = "budget";
 // them. Deep-linkable like Expenses — "open the return" is worth a bookmark in October.
 var TAX_SUBS = ["year", "returns", "documents"];
 // Plan (v3.57.0): the what-ifs — scenarios to live in, and where each leads.
-var PLAN_SUBS = ["scenarios", "projections"];
+var PLAN_SUBS = ["scenarios", "projections", "retirement"];
 var currentPlanSub = "scenarios";
 // Settings (v3.57.0): the registries and preferences that used to share the Accounts page.
 var SETTINGS_SUBS = ["people", "categories", "preferences", "rules", "checks"];

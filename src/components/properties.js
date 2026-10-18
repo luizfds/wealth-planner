@@ -13,6 +13,7 @@ import { propertyClaimLines, rowDeductionAnnual } from "../calc/claims.js";
 import { loanStrategy } from "../calc/loanstrategy.js";
 import { LAND_TAX_STATES, LAND_TAX_YEAR } from "../constants.js";
 import { sumField, householdYearWindow } from "../calc/ledger.js";
+import { fixedRateView, rentSummary } from "../calc/propertylife.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { optionsHtml, modernPlainRowHtml, historyTrendHtml } from "../lib/ledger-table.js";
@@ -135,7 +136,7 @@ function loanRowModernHtml(loan, li, propId, colorIdx){
     dot +
     '<div style="flex:1 1 auto; min-width:0">' +
       '<div class="m-row-name">' + escapeAttr(loan.what) + '</div>' +
-      '<div class="m-row-sub" data-computed="sub">' + (loanPaidOut(loan) ? 'paid out ' + escapeAttr(loan.endedOn) + ' · ' : '') + fmtCurrency0.format(Number(loan.balance) || 0) + ' balance · ' + rateDisplay + '% · ' + loan.repaymentType + " · paid " + disp.freq.toLowerCase() + (loan.repaymentMode === "manual" ? " (manual)" : "") + '</div>' +
+      '<div class="m-row-sub" data-computed="sub">' + (loanPaidOut(loan) ? 'paid out ' + escapeAttr(loan.endedOn) + ' · ' : '') + fmtCurrency0.format(Number(loan.balance) || 0) + ' balance · ' + rateDisplay + '% · ' + loan.repaymentType + " · paid " + disp.freq.toLowerCase() + (loan.repaymentMode === "manual" ? " (manual)" : "") + (loan.fixedUntil && loan.fixedUntil >= localDateStr() ? ' · fixed to ' + escapeAttr(loan.fixedUntil) : '') + '</div>' +
     '</div>' +
     '<span class="m-row-amt" data-computed="amt">' + fmtCurrency2.format(disp.amount) + suffix + '</span>' +
     '<span class="m-row-chev" aria-hidden="true">✕</span>' +
@@ -156,6 +157,9 @@ function loanRowModernHtml(loan, li, propId, colorIdx){
       '<div class="m-edit-field"><label>Borrowing costs</label><input type="number" step="1" min="0" class="loan-borrowing" value="' + (Number(loan.borrowingCosts) || 0) + '" title="LMI, the lender\'s establishment or settlement fee, mortgage registration, a lender-required valuation, a broker fee — costs of taking out the LOAN. Not stamp duty on the purchase or conveyancing: those go in Acquisition costs. Over $100 is deducted over five years, by days." aria-label="Borrowing costs"></div>' +
       '<div class="m-edit-field"><label>Original term (yrs)</label><input type="number" step="1" min="0" class="loan-borrowing-term" value="' + (Number(loan.borrowingTermYears) || "") + '" placeholder="30" title="Only matters if the loan was for less than five years — borrowing costs are then spread over the term instead." aria-label="Original loan term in years"></div>' +
       '<div class="m-edit-field"><label>Paid out on</label><input type="date" class="loan-ended" value="' + escapeAttr(loan.endedOn || "") + '" title="If this loan was paid out or refinanced before its borrowing costs were fully deducted, the rest is deducted in that financial year." aria-label="Loan paid out or refinanced on"></div>' +
+      // v3.72.0: a fixed rate's end, and the rate it rolls to.
+      '<div class="m-edit-field"><label>Fixed until</label><input type="date" class="loan-fixed-until" value="' + escapeAttr(loan.fixedUntil || "") + '" aria-label="Fixed rate ends on" title="Leave blank for a variable loan."></div>' +
+      '<div class="m-edit-field"><label>Rate after %</label><input type="number" step="0.01" min="0" class="loan-revert-rate" value="' + (loan.revertRate != null ? loan.revertRate : "") + '" placeholder="' + rateDisplay + '" aria-label="Rate after the fixed period" title="What the lender says it reverts to — check your loan statement. Blank uses today\'s rate."></div>' +
       '<div class="m-edit-field span3"><span class="computed-note" data-computed="borrow">' + borrowingNoteText(loan) + '</span></div>' +
       rateHistoryHtml(loan) +
       (loan.repaymentMode === "manual"
@@ -489,6 +493,48 @@ function propertyStatTileHtml(key, label, valueHtml, opts){
   '</div>';
 }
 
+// ---------------- Fixed rates and rent (v3.72.0) — calc/propertylife.js ----------------
+export var fixedWhatIf = {};
+var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function monthYear(iso){ return iso ? MON[Number(iso.slice(5, 7)) - 1] + " " + iso.slice(0, 4) : ""; }
+export function fixedExpiryHtml(p, today){
+  today = today || localDateStr();
+  var rows = (p.loans || []).map(function(l, li){
+    var key = p.id + ":" + li;
+    var v = fixedRateView(l, today, fixedWhatIf[key]);
+    if(!v) return "";
+    var up = v.change >= 0;
+    return '<div class="fx-row"><div class="fx-main"><b>' + escapeAttr(l.what || "Loan") + '</b> — fixed at ' + v.rateNow + '% until ' + escapeAttr(monthYear(v.fixedUntil)) + ' (' + (v.months < 1 ? "this month" : Math.round(v.months) + " months") + ').' +
+      '<small>Then at <b>' + v.rateAfter + '%</b>: repayments ' + fmtCurrency0.format(v.monthlyNow) + ' → <b>' + fmtCurrency0.format(v.monthlyAfter) + '/mo</b> <span class="' + (up ? "down" : "up") + '">(' + (up ? "+" : "−") + fmtCurrency0.format(Math.abs(v.change)) + ')</span>, interest about ' + fmtCurrency0.format(v.yearlyInterestAfter) + ' a year.</small></div>' +
+      '<label class="fx-whatif"><span>What if it rolls to</span><input type="number" step="0.05" min="0" data-fixed-whatif="' + escapeAttr(key) + '" value="' + (fixedWhatIf[key] != null ? fixedWhatIf[key] : "") + '" placeholder="' + v.rateAfter + '" aria-label="What-if rate for ' + escapeAttr(l.what || "loan") + '">%</label></div>';
+  }).join("");
+  return rows ? '<div class="fx"><div class="property-section-title">When fixed rates end</div>' + rows + '</div>' : "";
+}
+export function rentPanelHtml(p, today){
+  today = today || localDateStr();
+  var win = householdYearWindow();
+  var r = rentSummary(p, { start: win.start, end: today < win.end ? today : win.end }, state.incomeLog);
+  var reviews = r.reviews.slice(0, 3).map(function(rv){
+    return '<li>' + escapeAttr(rv.date) + ': ' + fmtCurrency0.format(rv.from) + ' → ' + fmtCurrency0.format(rv.to) + ' ' + escapeAttr(String(rv.freq || "").toLowerCase()) + (rv.change != null ? ' (' + (rv.change >= 0 ? "+" : "") + Math.round(rv.change * 1000) / 10 + '%)' : '') + '</li>';
+  }).join("");
+  var vac = (p.vacancies || []).map(function(v, i){
+    return '<li>' + escapeAttr(v.from) + ' – ' + escapeAttr(v.to || "now") + ' <button type="button" class="btn btn-ghost btn-sm" data-vac-del="' + i + '" aria-label="Remove this vacancy">✕</button></li>';
+  }).join("");
+  var row = (p.income || [])[0];
+  return '<div class="rentp"><div class="property-section-title">Rent — ' + escapeAttr(win.label) + (today < win.end ? ' so far' : '') + '</div>' +
+    '<div class="rentp-figs"><div><span>Expected</span><b>' + fmtCurrency0.format(r.expected) + '</b><small>' + (r.vacancyWeeks ? r.vacancyWeeks + ' weeks vacant' : 'no vacancy recorded') + '</small></div>' +
+      '<div><span>Received</span><b>' + fmtCurrency0.format(r.received) + '</b><small>logged as money in</small></div>' +
+      (r.received ? '<div><span>Difference</span><b class="' + (r.gap >= -1 ? "up" : "down") + '">' + (r.gap < 0 ? "−" : "+") + fmtCurrency0.format(Math.abs(r.gap)) + '</b><small>' + (r.gap < -1 ? "less than expected" : "on or above") + '</small></div></div>'
+        : '<div><span>Difference</span><b>—</b><small>log rent as it arrives (Cash flow → Income)</small></div></div>') +
+    '<div class="rentp-grid">' +
+      '<label class="cf-filter"><span>Next rent review</span><input type="date" data-rent-next value="' + escapeAttr(r.nextReview) + '"></label>' +
+      (row ? '<div class="rentp-review"><label class="cf-filter"><span>Record a review — new rent ' + escapeAttr(String(row.freq || "").toLowerCase()) + '</span><input type="number" min="0" step="1" data-rent-new placeholder="' + (Number(row.amount) || 0) + '"></label>' +
+        '<button type="button" class="btn btn-sm" data-rent-review>Record</button></div>' : '') +
+      '<div class="rentp-vac"><span class="cf-filter-l">Vacancies</span>' + (vac ? '<ul>' + vac + '</ul>' : '<p class="ledger-note" style="margin:0">None recorded.</p>') +
+        '<div class="rentp-vac-add"><input type="date" data-vac-from aria-label="Vacant from"><input type="date" data-vac-to aria-label="Vacant until (blank if still vacant)"><button type="button" class="btn btn-sm btn-ghost" data-vac-add>Add</button></div></div>' +
+    '</div>' + (reviews ? '<div class="rentp-reviews"><span class="cf-filter-l">Past reviews</span><ul>' + reviews + '</ul></div>' : '') + '</div>';
+}
+
 // ---------------- Tabs on a property (v3.61.0) ----------------
 // A property card had nine collapsible sections stacked one after another — value, purchase costs,
 // ownership, depreciation, loans, strategy, income, expenses, sale — so finding the loans meant
@@ -653,11 +699,12 @@ function propertyCardHtml(p, colorIdx){
     panel("loans", propertySectionHtml(p, "loans",
       '<div class="property-section-title">Loans</div>',
       '<div class="m-card" id="propLoanRows_' + escapeAttr(p.id) + '">' + modernLoanListHtml(p) + '</div>' +
-      '<button type="button" class="btn btn-sm btn-ghost" data-loan-add="' + escapeAttr(p.id) + '">+ Add loan</button>') +
+      '<button type="button" class="btn btn-sm btn-ghost" data-loan-add="' + escapeAttr(p.id) + '">+ Add loan</button>' +
+      '<div data-fixed-panel="' + escapeAttr(p.id) + '">' + fixedExpiryHtml(p) + '</div>') +
     ((p.loans || []).length ? propertySectionHtml(p, "strategy",
       '<div class="property-section-title">Loan strategy</div>',
       '<div class="ls-wrap" data-strategy-property="' + escapeAttr(p.id) + '">' + loanStrategyHtml(p) + '</div>') : "")) +
-    panel("income", propertySectionHtml(p, "income",
+    panel("income", (p.kind === "IP" ? '<div data-rent-panel="' + escapeAttr(p.id) + '">' + rentPanelHtml(p) + '</div>' : '') + propertySectionHtml(p, "income",
       '<div class="property-section-title">Income</div>',
       incomePaidPanel +
       '<div class="m-card"><div class="m-rows" id="propIncomeRows_' + escapeAttr(p.id) + '">' + modernPropListHtml(p.income, "propinc:" + p.id, false) + '</div></div>' +

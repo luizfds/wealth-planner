@@ -1159,7 +1159,8 @@ test("Keeping your data safe: backups, the folder option and the passcode", asyn
     assert.match(html, /data-sk="export"/);
     assert.match(html, /Needs Chrome or Edge/, "no folder API under Node");
     assert.match(html, /data-sk="pass-set">Set a passcode/);
-    assert.match(html, /doesn't encrypt/);
+    assert.match(html, /doesn.t encrypt/);
+    assert.match(html, /data-sk="file-open">Open a backup file/);
   } finally { state.lastBackupDate = keep; }
 });
 
@@ -1193,4 +1194,27 @@ test("Checks list: Looks right on each, and the hidden ones with Show again", as
   assert.match(html, /1 marked “looks right”/);
   assert.match(html, /data-hc-undismiss="x2">Show again/);
   assert.match(healthHtml([], []), /Nothing to fix/);
+});
+
+test("Plan → Retirement: asks for an age, then answers with levers and links", async function(){
+  const { retirementHtml } = await import("../src/components/retirement.js");
+  var keep = state.fire;
+  try {
+    state.fire = { currentAge: null, retireAge: null, preservationAge: 60 };
+    assert.match(retirementHtml("2026-10-18"), /Type your age/);
+    state.fire = { currentAge: 40, retireAge: null, preservationAge: 60 };
+    var html = retirementHtml("2026-10-18");
+    assert.match(html, /What changes it/);
+    assert.match(html, /data-rt="retireAge"/);
+    assert.match(html, /Super cap room this year/);
+  } finally { state.fire = keep; }
+});
+
+test("First-run setup: every step renders and the last offers the import", async function(){
+  const { startFirstRun, firstRun, firstRunHtml } = await import("../src/components/firstrun.js");
+  startFirstRun();
+  firstRun.answers.people[0].name = "Alex";
+  var html = "";
+  for(var i = 0; i < 5; i++){ firstRun.step = i; html = firstRunHtml(); assert.match(html, /role="dialog"/); }
+  assert.match(html, /data-fr-finish="import"/);
 });

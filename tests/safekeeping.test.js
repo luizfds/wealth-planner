@@ -17,3 +17,15 @@ test("a passcode is stored salted and hashed, and checks", async function(){
   clearPasscode();
   assert.equal(passcodeSet(), false);
 });
+
+test("which copy is newer, by savedAt", async function(){
+  const { compareCopies } = await import("../src/lib/safekeeping.js");
+  const { state } = await import("../src/state.js");
+  var keep = state.savedAt;
+  try {
+    state.savedAt = "2026-10-18T10:00:00.000Z";
+    assert.equal(compareCopies("2026-10-19T08:00:00.000Z"), "incoming");
+    assert.equal(compareCopies("2026-10-17T08:00:00.000Z"), "here");
+    assert.equal(compareCopies(undefined), "unknown");
+  } finally { state.savedAt = keep; }
+});

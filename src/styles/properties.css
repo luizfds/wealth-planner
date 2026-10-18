@@ -328,3 +328,27 @@
   .ptx-row em{ grid-column: 1 / -1; text-align:left; }
   .ptx-row em:empty{ display:none; }
 }
+
+/* Fixed rates and rent (v3.72.0) */
+.fx, .rentp{ border:1px solid var(--border); border-radius:12px; padding:12px; margin:10px 0; background: var(--paper); }
+.fx-row{ display:grid; grid-template-columns: minmax(0,1fr) auto; gap:10px; align-items:center; padding:6px 0; border-bottom:1px dashed var(--border); font-size:13px; }
+.fx-row:last-child{ border-bottom:0; }
+.fx-main small{ display:block; color: var(--ink-soft); font-size:12.5px; margin-top:2px; }
+.fx-main .up{ color: var(--good); } .fx-main .down{ color: var(--bad); }
+.fx-whatif{ display:flex; align-items:center; gap:6px; font-size:12px; color: var(--ink-soft); }
+.fx-whatif input{ width:80px; min-height:36px; padding:4px 6px; border:1px solid var(--border); border-radius:6px; background: var(--paper-raised); color: var(--ink); font: inherit; }
+.rentp-figs{ display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:8px; margin:6px 0 10px; }
+.rentp-figs > div{ display:flex; flex-direction:column; gap:1px; }
+.rentp-figs span, .cf-filter-l{ font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
+.rentp-figs b{ font-size:16px; }
+.rentp-figs b.up{ color: var(--good); } .rentp-figs b.down{ color: var(--bad); }
+.rentp-figs small{ font-size:11.5px; color: var(--ink-soft); }
+.rentp-grid{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px; align-items:end; }
+.rentp-review{ display:flex; gap:6px; align-items:flex-end; }
+.rentp-review .cf-filter{ flex:1 1 auto; }
+.rentp-vac{ grid-column: 1 / -1; }
+.rentp-vac ul, .rentp-reviews ul{ margin:4px 0; padding-left:18px; font-size:13px; }
+.rentp-vac-add{ display:flex; gap:6px; flex-wrap:wrap; margin-top:4px; }
+.rentp-vac-add input{ min-height:36px; padding:4px 6px; border:1px solid var(--border); border-radius:6px; background: var(--paper-raised); color: var(--ink); font: inherit; }
+.rentp-reviews{ margin-top:8px; }
+@media (max-width: 560px){ .fx-row{ grid-template-columns: 1fr; } .rentp-grid{ grid-template-columns: 1fr; } .rentp-figs{ grid-template-columns: 1fr 1fr; } }

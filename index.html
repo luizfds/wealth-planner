@@ -147,7 +147,7 @@
       <!-- The number lives in its own span because it is *parsed*, both out of this DOM and out of
            a freshly-fetched copy of this file, to decide whether a newer version is deployed. Left
            bare in the <p>, the "Check for updates" button beside it would end up inside the match. -->
-      <p class="app-version"><span class="app-version-num">v3.70.0</span> · <button type="button" class="link-btn" id="checkUpdatesLink">Check for updates</button></p>
+      <p class="app-version"><span class="app-version-num">v3.74.1</span> · <button type="button" class="link-btn" id="checkUpdatesLink">Check for updates</button></p>
     </div>
     <div class="mobile-header-right">
       <button type="button" class="icon-btn" id="mobileSearchBtn" aria-label="Search">
@@ -818,6 +818,12 @@
         <div class="subnav" id="planSubnav">
           <button type="button" class="subnav-item active" data-plan-sub="scenarios">Scenarios</button>
           <button type="button" class="subnav-item" data-plan-sub="projections">Projections</button>
+          <button type="button" class="subnav-item" data-plan-sub="retirement">Retirement</button>
+        </div>
+        <div class="plan-subpage" id="planSub-retirement" hidden>
+          <div class="page-intro-row"><p class="page-intro">When you could stop working, and what changes it — from the plan already in the app.</p></div>
+          <div class="ledgers"><details class="ledger" open><summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Retirement</h2></div></summary>
+            <div class="ledger-body"><div id="retirementBody"></div></div></details></div>
         </div>
         <div class="plan-subpage" id="planSub-scenarios">
         <div class="page-intro-row">
@@ -951,6 +957,7 @@
 <div id="quickLogRoot"></div>
 <div id="receivedRoot"></div>
 <div id="expenseReviewRoot"></div>
+<div id="firstRunRoot"></div>
 <div id="assetPersonSheetRoot"></div>
 <div id="notifPanelRoot"></div>
 <div id="searchRoot"></div>

@@ -59,7 +59,8 @@ import {
 } from "./components/assets.js";
 import {
   modernPropRowOpen, renderPropListModern, renderProperties, patchPropertyCardComputed,
-  logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan, setSaleWhatIfField, patchSaleWhatIf, setLoanStrategyField, patchLoanStrategy, propertyTabs
+  logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan, setSaleWhatIfField, patchSaleWhatIf, setLoanStrategyField, patchLoanStrategy, propertyTabs,
+  fixedExpiryHtml, rentPanelHtml, fixedWhatIf
 } from "./components/properties.js";
 import { renderProjectionOutputs, projectionSeriesShown } from "./components/projections.js";
 import { renderBenchmarks, setBenchmarkField, applyBenchmarkPaste, addGoal, setGoalField, removeGoal, setPropertyMarketField } from "./components/benchmarks.js";
@@ -77,11 +78,15 @@ import { normaliseDescription } from "./calc/bank-import.js";
 import { openAccounts, balanceEditing } from "./components/accounts.js";
 import { renderHomeSummary } from "./components/home.js";
 import { dataHealthChecks, dismissCheck } from "./calc/health.js";
-import { chooseFolder, backupToFolder, forgetFolder, maybeAutoBackup, setPasscode, clearPasscode, checkPasscode } from "./lib/safekeeping.js";
+import { applyFirstRun, shouldOfferFirstRun } from "./calc/firstrun.js";
+import { firstRun, startFirstRun, firstRunHtml } from "./components/firstrun.js";
+import { chooseFolder, backupToFolder, forgetFolder, maybeAutoBackup, setPasscode, clearPasscode, checkPasscode, newestFolderBackup, compareCopies } from "./lib/safekeeping.js";
 import { renderSafekeeping } from "./components/safekeeping.js";
 import { goalsSectionHtml, goalOpen } from "./components/savegoals.js";
 import { addSavingsGoal } from "./calc/savegoals.js";
 import { unbudgetedRecurring, risingLines } from "./calc/recurring.js";
+import { recordRentReview } from "./calc/propertylife.js";
+import { retirementHtml, retireLevers } from "./components/retirement.js";
 import { recurringHtml, recurringDismissed } from "./components/recurring.js";
 import { renderReports, reportShown, reportPrintHtml, reportCsv } from "./components/reports.js";
 import { exportTableCsv } from "./lib/backup.js";
@@ -526,6 +531,7 @@ import {
     else if(e.target.classList.contains("f-deductfrom")){ item.deductibleFrom = e.target.value || ""; taxDeductionsChanged = true; }
     else if(e.target.classList.contains("f-deductuntil")){ item.deductibleUntil = e.target.value || ""; taxDeductionsChanged = true; }
     else if(e.target.classList.contains("f-duemonth")) item.dueMonth = e.target.value ? Number(e.target.value) : null;
+    else if(e.target.classList.contains("f-dueday")){ var dd = parseInt(e.target.value, 10); item.dueDay = dd >= 1 && dd <= 31 ? dd : null; }
     else if(e.target.classList.contains("f-reserveyear")) item.reserveYear = e.target.value;
     else return;
 
@@ -1791,6 +1797,49 @@ import {
     renderProjectionOutputs();
     persist();
   }
+  // Fixed-rate what-if and the rent panel (v3.72.0).
+  document.getElementById("propertiesBody").addEventListener("input", function(e){
+    var wi = e.target.getAttribute("data-fixed-whatif");
+    if(wi == null) return;
+    fixedWhatIf[wi] = e.target.value === "" ? null : Number(e.target.value);
+    var c = e.target.closest("[data-property-id]"), prop = c && findProperty(c.getAttribute("data-property-id"));
+    var panel = c && c.querySelector("[data-fixed-panel]");
+    if(!prop || !panel) return;
+    var pos = e.target.selectionStart;
+    panel.innerHTML = fixedExpiryHtml(prop);
+    var again = panel.querySelector('[data-fixed-whatif="' + wi + '"]');
+    if(again){ again.focus(); try{ again.setSelectionRange(pos, pos); }catch(err){} }
+  });
+  document.getElementById("propertiesBody").addEventListener("change", function(e){
+    if(!e.target.hasAttribute("data-rent-next")) return;
+    var c = e.target.closest("[data-property-id]"), prop = c && findProperty(c.getAttribute("data-property-id"));
+    if(prop){ prop.nextRentReview = e.target.value || ""; persist(); renderAll(); }
+  });
+  document.getElementById("propertiesBody").addEventListener("click", function(e){
+    var c = e.target.closest("[data-property-id]"), prop = c && findProperty(c.getAttribute("data-property-id"));
+    if(!prop) return;
+    var rentPanel = function(){ var el = c.querySelector("[data-rent-panel]"); if(el) el.innerHTML = rentPanelHtml(prop); };
+    if(e.target.closest("[data-rent-review]")){
+      var v = c.querySelector("[data-rent-new]").value;
+      if(v === "" || isNaN(Number(v))){ showToast("Type the new rent"); return; }
+      var rev = recordRentReview(prop, localDateStr(), Number(v));
+      if(!rev) return;
+      if(prop.nextRentReview && prop.nextRentReview <= localDateStr()) prop.nextRentReview = "";
+      recalcComputedItems(); persist(); renderAll();
+      showUndoToast("Rent now " + fmtCurrency0.format(rev.to) + " " + String(rev.freq).toLowerCase(), function(){ prop.income[0].amount = rev.from; prop.rentReviews.pop(); recalcComputedItems(); persist(); renderAll(); });
+      return;
+    }
+    if(e.target.closest("[data-vac-add]")){
+      var from = c.querySelector("[data-vac-from]").value, to = c.querySelector("[data-vac-to]").value;
+      if(!from){ showToast("Pick the date it became vacant"); return; }
+      if(!Array.isArray(prop.vacancies)) prop.vacancies = [];
+      prop.vacancies.push({ from: from, to: to || "" });
+      persist(); rentPanel();
+      return;
+    }
+    var vd = e.target.closest("[data-vac-del]");
+    if(vd){ prop.vacancies.splice(Number(vd.getAttribute("data-vac-del")), 1); persist(); rentPanel(); }
+  });
   document.getElementById("propertiesBody").addEventListener("input", function(e){
     var card = e.target.closest("[data-property-id]");
     if(!card) return;
@@ -1804,6 +1853,15 @@ import {
         loan.what = e.target.value;
         var loanNameEl = loanTr.querySelector(".m-row-name");
         if(loanNameEl) loanNameEl.textContent = loan.what;
+      }
+      else if(e.target.classList.contains("loan-fixed-until") || e.target.classList.contains("loan-revert-rate")){
+        // v3.72.0: the fixed period's end and the rate after — only the "when fixed rates end" panel reads them.
+        if(e.target.classList.contains("loan-fixed-until")) loan.fixedUntil = e.target.value || "";
+        else loan.revertRate = e.target.value === "" ? null : Number(e.target.value);
+        var fxp = card.querySelector("[data-fixed-panel]");
+        if(fxp) fxp.innerHTML = fixedExpiryHtml(property);
+        persist();
+        return;
       }
       else if(e.target.classList.contains("loan-balance")){ loan.balance = parseFloat(e.target.value) || 0; recordLoanSnapshot(loan, "balanceHistory", loan.balance); }
       else if(e.target.classList.contains("loan-rate")) loan.rate = parseFloat(e.target.value) || 0;
@@ -3981,7 +4039,18 @@ import {
       // A tax year file picked from the main Import merges instead of replacing everything.
       if(parsed && parsed.kind === TAX_YEAR_FILE_KIND){ applyTaxYearFile(parsed); return; }
       if(!parsed || !parsed.income || !parsed.home) throw new Error("bad shape");
-      if(hasRealUserData() && !confirm("You already have data in Wealth Planner on this device. Importing will replace it — this can't be undone unless you've exported a backup first. Continue?")) return;
+      // v3.71.0: say which copy is newer, so restoring on a second device can't quietly put an
+      // older copy over a newer one.
+      var when = function(iso){ try{ return new Date(iso).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); }catch(e){ return iso; } };
+      var cmp = compareCopies(parsed.savedAt);
+      if(hasRealUserData()){
+        var msg = cmp === "here"
+          ? "This backup is OLDER than what's on this device — it was last changed " + when(parsed.savedAt) + ", this device's copy " + when(state.savedAt) + ". Replace this device's newer copy with it?"
+          : cmp === "incoming"
+          ? "Replace this device's copy (last changed " + when(state.savedAt) + ") with this backup (last changed " + when(parsed.savedAt) + ")?"
+          : "You already have data in Wealth Planner on this device. Importing will replace it — this can't be undone unless you've exported a backup first. Continue?";
+        if(!confirm(msg)) return;
+      }
       setState(migrateState(parsed));
       renderAll();
       persist();
@@ -3990,25 +4059,22 @@ import {
       showToast("That file doesn't look like a valid backup");
     }
   }
+  // A backup's text, plain or encrypted — from a picked file or the backup folder (v3.71.0).
+  function importBackupText(raw){
+    var envelope;
+    try{ envelope = JSON.parse(raw); }catch(err){ showToast("That file doesn't look like a valid backup"); return; }
+    if(envelope && envelope.wealthPlannerEncrypted){
+      var passphrase = prompt("This backup is encrypted. Enter its passphrase to unlock it:");
+      if(passphrase == null) return;
+      decryptBackup(envelope, passphrase).then(function(plainStr){ applyImportedBackupJson(plainStr); })
+        .catch(function(){ showToast("Wrong passphrase, or this backup is corrupted."); });
+    } else applyImportedBackupJson(raw);
+  }
   document.getElementById("importFile").addEventListener("change", function(e){
     var file = e.target.files[0];
     if(!file) return;
     var reader = new FileReader();
-    reader.onload = function(){
-      var raw = reader.result, envelope;
-      try{ envelope = JSON.parse(raw); }catch(err){ showToast("That file doesn't look like a valid backup"); return; }
-      if(envelope && envelope.wealthPlannerEncrypted){
-        var passphrase = prompt("This backup is encrypted. Enter its passphrase to unlock it:");
-        if(passphrase == null) return;
-        decryptBackup(envelope, passphrase).then(function(plainStr){
-          applyImportedBackupJson(plainStr);
-        }).catch(function(){
-          showToast("Wrong passphrase, or this backup is corrupted.");
-        });
-      } else {
-        applyImportedBackupJson(raw);
-      }
-    };
+    reader.onload = function(){ importBackupText(reader.result); };
     reader.readAsText(file);
     e.target.value = "";
   });
@@ -4471,6 +4537,7 @@ import {
     renderSafekeeping();
     renderSavingsGoals();
     renderRecurring();
+    renderRetirement();
   }
   // Settings carries the number of Checks that need fixing (v3.63.0), so they're seen without
   // opening the tab — on the sidebar, the More tab and its Settings item.
@@ -4657,6 +4724,15 @@ import {
       return;
     }
     if(act === "folder-now"){ backupToFolder(true).then(folderResult).catch(function(){ showToast("Couldn't write the backup"); }); return; }
+    if(act === "folder-open"){
+      newestFolderBackup(true).then(function(r){
+        if(!r || r.permission === false){ showToast("The browser didn't allow reading the folder"); return; }
+        if(r.none){ showToast("No backups in " + r.folder + " yet"); return; }
+        importBackupText(r.text);
+      }).catch(function(){ showToast("Couldn't read the folder"); });
+      return;
+    }
+    if(act === "file-open"){ document.getElementById("importFile").click(); return; }
     if(act === "folder-stop"){ forgetFolder().then(function(){ showToast("Stopped backing up to the folder"); renderSafekeeping(); }); return; }
     if(act === "pass-set" || act === "pass-change"){ askNewPasscode().then(function(done){ if(done){ showToast("Passcode set"); renderSafekeeping(); } }); return; }
     if(act === "pass-off"){
@@ -4668,7 +4744,71 @@ import {
     if(act === "lock-now"){ try{ sessionStorage.removeItem("wealthPlanner.unlocked"); }catch(err){} showLock(); }
   });
   // A quiet weekly backup into the chosen folder, if the browser still allows it.
-  maybeAutoBackup().then(function(r){ if(r && r.ok){ showToast("Weekly backup saved to " + r.folder); renderSafekeeping(); } });
+  // v3.71.0: first, is there a newer copy from another device in the folder? Then offer it, and
+  // don't back up over the top of it until the person has chosen.
+  newestFolderBackup(false).then(function(r){
+    if(r && r.newerThanHere && !r.fromThisDevice && !r.none && r.permission !== false){
+      var when = new Date(r.savedAt).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+      showPersistentToast("A newer copy from another device (" + when + ") is in " + r.folder + ".", "Open it", function(){ importBackupText(r.text); });
+      return;
+    }
+    return maybeAutoBackup().then(function(res){ if(res && res.ok){ showToast("Weekly backup saved to " + res.folder); renderSafekeeping(); } });
+  }).catch(function(){});
+
+  // ---------------- First-run setup (v3.74.0) ----------------
+  // Offered once to an empty app; also from Home's setup card ("Guided setup"). Answers are held in
+  // components/firstrun.js until Finish, so closing half-way writes nothing.
+  var firstRunRoot = document.getElementById("firstRunRoot");
+  function renderFirstRun(){ firstRunRoot.innerHTML = firstRun.open ? firstRunHtml() : ""; }
+  function openFirstRun(){
+    startFirstRun(); renderFirstRun();
+    pushActiveOverlay(closeFirstRunUi);
+    var f = firstRunRoot.querySelector("input"); if(f) f.focus();
+  }
+  function closeFirstRunUi(){
+    if(firstRun.open && !state.firstRunDone){ state.firstRunSkipped = true; persist(); }
+    firstRun.open = false; renderFirstRun();
+  }
+  function readFirstRunFields(){
+    firstRunRoot.querySelectorAll("[data-fr]").forEach(function(el){
+      var path = el.getAttribute("data-fr").split("."), o = firstRun.answers;
+      for(var i = 0; i < path.length - 1; i++) o = o[path[i]];
+      o[path[path.length - 1]] = el.value;
+    });
+  }
+  document.addEventListener("click", function(e){ if(e.target.closest("[data-firstrun-open]")) openFirstRun(); });
+  firstRunRoot.addEventListener("change", function(e){
+    if(e.target.matches("select[data-fr]")){ readFirstRunFields(); renderFirstRun(); }
+  });
+  firstRunRoot.addEventListener("click", function(e){
+    if(e.target.closest("[data-fr-close]") || e.target === e.target.closest("[data-fr-backdrop]")){ requestCloseActiveOverlay(); return; }
+    var a = firstRun.answers;
+    if(!a) return;
+    readFirstRunFields();
+    if(e.target.closest("[data-fr-add-person]")){ a.people.push({ name: "", age: "", pay: "", payFreq: "Yearly" }); renderFirstRun(); return; }
+    if(e.target.closest("[data-fr-add-acct]")){ a.accounts.push({ name: "", type: "savings", balance: "" }); renderFirstRun(); return; }
+    var del = e.target.closest("[data-fr-del-acct]");
+    if(del){ a.accounts.splice(Number(del.getAttribute("data-fr-del-acct")), 1); renderFirstRun(); return; }
+    if(e.target.closest("[data-fr-back]")){ firstRun.step = Math.max(0, firstRun.step - 1); renderFirstRun(); return; }
+    if(e.target.closest("[data-fr-next]")){ firstRun.step++; renderFirstRun(); var f = firstRunRoot.querySelector("input,select"); if(f) f.focus(); return; }
+    var fin = e.target.closest("[data-fr-finish]");
+    if(fin){
+      var made = applyFirstRun(a, localDateStr());
+      recalcComputedItems();
+      persist();
+      // Like a search result: the sheet's history entry is replaced by the destination, not popped.
+      firstRun.open = false; activeOverlayClose = null; renderFirstRun();
+      renderAll();
+      showToast("Set up: " + made.people + (made.people === 1 ? " person, " : " people, ") + made.accounts + (made.accounts === 1 ? " account, " : " accounts, ") + made.lines + " budget lines");
+      if(fin.getAttribute("data-fr-finish") === "import"){
+        showPage("expenses", { replace: true }); showExpensesSubpage("spending", { replace: true });
+        var card = document.getElementById("bankImportCard");
+        if(card){ card.open = true; setTimeout(function(){ card.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); }
+      } else showPage("dashboard", { replace: true });
+    }
+  });
+  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && firstRun.open) requestCloseActiveOverlay(); });
+  if(shouldOfferFirstRun()) setTimeout(openFirstRun, 300);
 
   // ---------------- Cash flow → Budget → Recurring payments (v3.66.0) ----------------
   function currentRecurring(){
@@ -4711,6 +4851,42 @@ import {
       recalcComputedItems(); persist(); renderAll();
       showUndoToast((item.what || "Line") + " updated to " + fmtCurrency2.format(to), function(){ item.amount = was; recalcComputedItems(); persist(); renderAll(); });
     }
+  });
+
+  // ---------------- Plan → Retirement (v3.73.0) ----------------
+  function renderRetirement(){
+    var el = document.getElementById("retirementBody");
+    if(el) el.innerHTML = retirementHtml();
+  }
+  var retireBody = document.getElementById("retirementBody");
+  var RT_FMT = { retireAge: function(v){ return v; } };
+  retireBody.addEventListener("input", function(e){
+    var k = e.target.getAttribute("data-rt");
+    if(!k) return;
+    var out = retireBody.querySelector('[data-rt-out="' + k + '"]');
+    if(out) out.textContent = RT_FMT[k] ? RT_FMT[k](Number(e.target.value)) : fmtCurrency0.format(Number(e.target.value));
+  });
+  retireBody.addEventListener("change", function(e){
+    var k = e.target.getAttribute("data-rt");
+    if(k){
+      retireLevers[k] = Number(e.target.value);
+      renderRetirement();
+      var again = retireBody.querySelector('[data-rt="' + k + '"]');
+      if(again) again.focus();
+      return;
+    }
+    var fk = e.target.getAttribute("data-rt-fire");
+    if(fk){
+      if(!state.fire) state.fire = {};
+      state.fire[fk] = e.target.value === "" ? null : Number(e.target.value);
+      persist(); renderAll();
+    }
+  });
+  retireBody.addEventListener("click", function(e){
+    var g = e.target.closest("[data-rt-go]");
+    if(!g) return;
+    if(g.getAttribute("data-rt-go") === "super"){ showPage("assets"); showAssetsSubpage("Super", { replace: true }); }
+    else showPage("accounts");
   });
 
   // ---------------- Accounts → Savings goals (v3.65.0) ----------------

@@ -15,7 +15,7 @@ export function safekeepingHtml(folderName, today){
     ? '<div class="sk-block"><b>Automatic backups to a folder</b><p class="ledger-note" style="margin:2px 0 8px">' +
         (folderName ? 'Saving a backup to <b>' + escapeAttr(folderName) + '</b> once a week when you open the app' + (state.lastFolderBackup ? " (last " + escapeAttr(state.lastFolderBackup) + ")" : "") + '. Pick a synced folder (Dropbox, OneDrive, iCloud Drive) and it\'s off this computer too. The browser may ask again for permission after a restart.'
           : 'Pick a folder and a backup is written there once a week, without you having to remember. A synced folder (Dropbox, OneDrive, iCloud Drive) keeps it off this computer too.') + '</p>' +
-        (folderName ? '<button type="button" class="btn btn-sm" data-sk="folder-now">Back up to the folder now</button> <button type="button" class="btn btn-sm btn-ghost" data-sk="folder-change">Change folder</button> <button type="button" class="btn btn-sm btn-ghost" data-sk="folder-stop">Stop</button>'
+        (folderName ? '<button type="button" class="btn btn-sm" data-sk="folder-now">Back up to the folder now</button> <button type="button" class="btn btn-sm btn-ghost" data-sk="folder-open">Open the newest from the folder</button> <button type="button" class="btn btn-sm btn-ghost" data-sk="folder-change">Change folder</button> <button type="button" class="btn btn-sm btn-ghost" data-sk="folder-stop">Stop</button>'
           : '<button type="button" class="btn btn-sm" data-sk="folder-pick">Choose a folder</button>') + '</div>'
     : '<div class="sk-block"><b>Automatic backups to a folder</b><p class="ledger-note" style="margin:2px 0 0">Needs Chrome or Edge on a computer — this browser can\'t write to a folder. Use Back up now instead.</p></div>';
   var lock = '<div class="sk-block"><b>Passcode</b><p class="ledger-note" style="margin:2px 0 8px">' +
@@ -23,7 +23,14 @@ export function safekeepingHtml(folderName, today){
     ' It keeps a casual look out on a shared computer; it doesn\'t encrypt what\'s stored in the browser. For that, use a passphrase on your backups.</p>' +
     (passcodeSet() ? '<button type="button" class="btn btn-sm btn-ghost" data-sk="pass-change">Change passcode</button> <button type="button" class="btn btn-sm btn-ghost" data-sk="pass-off">Turn off</button> <button type="button" class="btn btn-sm btn-ghost" data-sk="lock-now">Lock now</button>'
       : '<button type="button" class="btn btn-sm" data-sk="pass-set">Set a passcode</button>') + '</div>';
-  return backup + folder + lock;
+  // v3.71.0: two devices. A computer with the folder offers the newest copy in it (and says when
+  // another device's is newer, on opening); a phone opens the file from its Files app, where a
+  // synced Dropbox/OneDrive/iCloud folder shows up. Either way the newer copy is named before
+  // anything is replaced.
+  var twoDevices = '<div class="sk-block"><b>Using it on another device</b><p class="ledger-note" style="margin:2px 0 8px">Back up here, then open that backup on the other device — on a phone, from the Files app, where a synced folder shows up. ' +
+    'Before replacing anything the app says which copy changed last' + (state.savedAt ? ' (this one: ' + escapeAttr(new Date(state.savedAt).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })) + ')' : '') + '.</p>' +
+    '<button type="button" class="btn btn-sm btn-ghost" data-sk="file-open">Open a backup file</button></div>';
+  return backup + folder + twoDevices + lock;
 }
 export function renderSafekeeping(){
   var el = typeof document !== "undefined" && document.getElementById("safekeepingBody");

@@ -674,6 +674,14 @@ export function setState(newState){
 }
 
 var saveTimer = null;
+// A random id for this browser, kept in its own storage (never in a backup's meaning of "who").
+export function deviceId(){
+  try{
+    var id = localStorage.getItem("wealthPlanner.deviceId");
+    if(!id){ id = "dev" + Math.random().toString(36).slice(2, 10); localStorage.setItem("wealthPlanner.deviceId", id); }
+    return id;
+  }catch(e){ return "unknown"; }
+}
 export function persist(){
   if(!storageAvailable){
     setStatus(false, "Not saved — storage unavailable");
@@ -682,6 +690,10 @@ export function persist(){
   clearTimeout(saveTimer);
   saveTimer = setTimeout(function(){
     try{
+      // When and where this copy last changed (v3.71.0) — what tells a restore which of two
+      // devices' copies is newer.
+      state.savedAt = new Date().toISOString();
+      state.savedBy = deviceId();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       setStatus(true, "Saved " + new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}));
     }catch(e){

@@ -1,4 +1,4 @@
-import { state, persist } from "../state.js";
+import { state, persist, deviceId } from "../state.js";
 import { localDateStr } from "./format.js";
 
 // ---------------- Safekeeping (v3.63.0): backups to a folder, and a passcode ----------------
@@ -50,9 +50,15 @@ export function backupToFolder(interactive){
       return interactive ? handle.requestPermission(opts) : p;
     }).then(function(p){
       if(p !== "granted") return { ok: false, reason: "permission", folder: handle.name };
-      var name = "wealth-planner-backup-" + localDateStr() + ".json";
+      // Time and device in the name (v3.71.0): two devices backing up the same day must not
+      // overwrite each other's file.
+      var now = new Date();
+      var stamp = localDateStr() + "-" + String(now.getHours()).padStart(2, "0") + String(now.getMinutes()).padStart(2, "0");
+      var name = "wealth-planner-backup-" + stamp + "-" + deviceId().slice(-4) + ".json";
       state.lastBackupDate = localDateStr();
       state.lastFolderBackup = localDateStr();
+      if(!state.savedAt) state.savedAt = now.toISOString();
+      state.savedBy = deviceId();
       var body = JSON.stringify(state, null, 2);
       return handle.getFileHandle(name, { create: true }).then(function(fh){ return fh.createWritable(); })
         .then(function(w){ return w.write(body).then(function(){ return w.close(); }); })
@@ -84,4 +90,49 @@ export function checkPasscode(code){
   var p = readPass();
   if(!p) return Promise.resolve(true);
   return hashPasscode(code, p.salt).then(function(h){ return h === p.hash; });
+}
+
+// ---------------- Restoring from the folder (v3.71.0) ----------------
+// The newest backup in the chosen folder, read: { name, savedAt, savedBy, text, fromThisDevice,
+// newerThanHere }. "Newest" is by the savedAt inside the file (when that copy last changed), falling
+// back to the file's own modified time for backups made before savedAt existed.
+export function newestFolderBackup(interactive){
+  return savedFolder().then(function(handle){
+    if(!handle) return null;
+    var opts = { mode: "read" };
+    return handle.queryPermission(opts).then(function(p){ return p === "granted" ? p : (interactive ? handle.requestPermission(opts) : p); }).then(function(p){
+      if(p !== "granted") return { permission: false, folder: handle.name };
+      var files = [];
+      var it = handle.values();
+      function next(){
+        return it.next().then(function(r){
+          if(r.done) return files;
+          var e = r.value;
+          if(e.kind === "file" && /^wealth-planner-backup-.*\.json$/i.test(e.name)) files.push(e);
+          return next();
+        });
+      }
+      return next().then(function(list){
+        return Promise.all(list.map(function(fh){ return fh.getFile().then(function(f){ return { handle: fh, file: f }; }); }));
+      }).then(function(all){
+        if(!all.length) return { folder: handle.name, none: true };
+        all.sort(function(a, b){ return b.file.lastModified - a.file.lastModified; });
+        // Read the few most recent and pick by savedAt.
+        return Promise.all(all.slice(0, 5).map(function(x){ return x.file.text().then(function(t){ return { name: x.file.name, text: t, modified: x.file.lastModified }; }); })).then(function(read){
+          var parsed = read.map(function(r){
+            var j = null; try { j = JSON.parse(r.text); } catch(e){}
+            return { name: r.name, text: r.text, savedAt: (j && j.savedAt) || new Date(r.modified).toISOString(), savedBy: j && j.savedBy || "", encrypted: !!(j && j.wealthPlannerEncrypted) };
+          }).sort(function(a, b){ return a.savedAt < b.savedAt ? 1 : -1; });
+          var best = parsed[0];
+          return Object.assign(best, { folder: handle.name, fromThisDevice: best.savedBy === deviceId(),
+            newerThanHere: !state.savedAt || best.savedAt > state.savedAt });
+        });
+      });
+    });
+  });
+}
+// Which of two copies is newer, in words, for the confirm before a restore replaces this one.
+export function compareCopies(incomingSavedAt){
+  if(!incomingSavedAt || !state.savedAt) return "unknown";
+  return incomingSavedAt > state.savedAt ? "incoming" : incomingSavedAt < state.savedAt ? "here" : "same";
 }

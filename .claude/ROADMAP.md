@@ -2315,6 +2315,45 @@ inline styles (a paste-in textarea keeps it), tabular figures on body, and the I
 page totals moved to whole dollars. Rule recorded in base.css: whole dollars for totals and
 summaries, cents for single items (a transaction, a budget line, a tax figure).
 
+## 106. `[x]` Using it on two devices — shipped v3.71.0
+Restore from the backup folder as well as write to it: open the newest backup there, with a warning
+when this device's copy is newer, so a phone and a laptop stay in step without emailing files.
+Shipped as: `state.savedAt`/`savedBy` stamped on every save (device id in localStorage); folder
+backups named with time and device so two devices never overwrite each other; `newestFolderBackup()`
+reads the folder (newest by savedAt) — on load it offers a newer copy from another device and holds
+the automatic backup; "Open the newest from the folder" and "Open a backup file" (phones, via the
+Files app); every restore says which copy changed last, and warns loudly before an older one
+replaces a newer.
+
+## 107. `[x]` Property beyond the numbers — shipped v3.72.0
+Rent reviews and vacancy weeks (planned against actual), fixed-rate expiry dates with a "what if it
+rolls to X%" view, and insurance/strata/rates renewal dates feeding the bills calendar.
+Shipped as: `calc/propertylife.js` — `fixedRateView()` (balance at expiry, repayments at the rate
+after or a what-if), `rentSummary()` (expected with vacancies vs logged rent), `recordRentReview()`.
+Loans get Fixed until / Rate after; the Loans tab shows "When fixed rates end" with a what-if; the
+Income & costs tab a Rent panel (next review, record a review, vacancies). Budget lines get a Due
+day, so a renewal with a due month lands on the bills calendar before its first payment. Home
+to-dos for a rent review within 30 days and a fixed rate ending within 90.
+
+## 108. `[x]` Retirement plan — shipped v3.73.0
+One Plan page joining financial independence, super against the cap, savings goals and
+projections: when can we stop working, and what changes it, with a few sliders.
+Shipped as: Plan → Retirement. `calc/retirement.js` puts levers (age, retirement spending, extra
+saving, extra super after contributions tax) on calc/fire.js's bridge-then-4% simulation and works
+out each lever's worth in years; `components/retirement.js` shows the earliest workable age, the
+bridge and pot tests at the chosen age, "what changes it", and links to super cap room and goals.
+
+## 109. `[x]` First-run setup
+A guided setup for a new person: accounts, income, budget, first bank import.
+
+Shipped as v3.74.0: a five-step sheet offered once to an empty app (and from Home's setup card as "Guided setup") — people and age, accounts with balances (through the accounts model, so cards owe), pay before tax, rent or loan plus common monthly costs, then Finish or Finish and import a statement. Nothing is written until Finish; closing it marks it skipped. `calc/firstrun.js` (`applyFirstRun`, `shouldOfferFirstRun`), `components/firstrun.js`.
+
+## 110. `[x]` Check-up on real data
+Go through a real backup page by page outside the repo; fix what's wrong in the app, hand data
+fixes back as a file.
+
+Done outside the repo against a real backup: every page and subtab at 390/1280px, no console errors, no NaN/undefined, no sideways scroll. One fix shipped as v3.74.1 — Plan → Retirement's check rows stack on a phone, since seven-figure amounts squeezed the label into a one-word column. The rest were data, not app, and went back to the owner directly.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

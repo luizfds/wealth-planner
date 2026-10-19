@@ -2361,20 +2361,30 @@ template a weekly-close block per holding so history before the first logged pri
 
 Shipped as v3.75.0: Investments → Shares → Prices from Google Sheets. The template adds a weekly-close block per holding (from its first lot, or a chosen date); a sheet shared as "anyone with the link" (or a Publish-to-web CSV link) is read once a day on open. Backfill only fills weeks before a holding's first recorded price and never overwrites one. The service worker leaves Google Sheets requests alone so an offline copy can't be applied as today's prices. `calc/pricesheet.js`, `components/pricesheet.js`.
 
-## 112. `[~]` Updates never mix old and new script files
+## 112. `[x]` Updates never mix old and new script files
 A page can load new while one module is still an old cached copy (seen with the price template).
 
-## 113. `[~]` Statement import flags what was logged by hand
+Shipped as v3.76.0: `npm run stamp` writes an import map into index.html (every module → `?v=<version>`) and versions the stylesheet imports; tests/stamp.test.js fails if a bump forgets it.
+
+## 113. `[x]` Statement import flags what was logged by hand
 Same amount within a few days on the same account, whatever the description.
 
-## 114. `[~]` Card repayments as transfers
+Shipped as v3.77.0: any transaction with the same amount within 4 days (same account when both say) is a possible duplicate; the review lists what each matched.
+
+## 114. `[x]` Card repayments as transfers
 Payments to a card, on either statement, suggested as a transfer between the two accounts.
 
-## 115. `[~]` Trips as date ranges
+Shipped as v3.77.0: card payments recognised on both statements (the card's own "payment thank you", the bank's "… Cards" BPAY), payer from earlier transfers or the one card; BPAY/Pay Anyone receipts no longer collapse every bill into one merchant.
+
+## 115. `[x]` Trips as date ranges
 Spending inside a trip's dates files to the trip's line, on import and for what's already logged.
 
-## 116. `[~]` A property manager's statement in one step
+Shipped as v3.78.0: Cash flow → Spending → Trips. Import files trip-window spending to the trip's line (bills, home and property lines excepted; no rule learned); "Move N here" re-files what's logged.
+
+## 116. `[x]` A property manager's statement in one step
 Rent, fees, water and other costs from one statement entered together.
+
+Shipped as v3.79.0: Property → Income & costs → Log a property manager statement. Writes rent received (net) and bills paid from rent, keeps the statement, sums the year; warns if that rent was already logged.
 
 ## Conventions for whoever picks this up
 

@@ -1,8 +1,8 @@
 import { state, persist } from "../state.js";
 import { setupProgress, shouldShowSetup } from "../lib/setup.js";
-import { sumField, sumByClassification, sumByAccount, safeDiv, resolveSharedAmount, nextDueDate, daysUntil, appendHistorySnapshot, lastTransactionDateFor } from "../calc/ledger.js";
+import { sumField, sumByClassification, sumByAccount, safeDiv, resolveSharedAmount, nextDueDate, daysUntil, appendHistorySnapshot, lastTransactionDateFor, periodsOf } from "../calc/ledger.js";
 import { ipExpenseItemsForClassification, fyLabel, loanBalance } from "../calc/property.js";
-import { scenarioIncomeMonthly, getTaxPeople, computePersonTax } from "../calc/tax.js";
+import { scenarioIncomeMonthly, scenarioIncomeRows, getTaxPeople, computePersonTax } from "../calc/tax.js";
 import { lodgementStatus, taxYearRecord } from "../calc/taxyear.js";
 import { evidenceItems } from "./taxyear.js";
 import { scenarioTotals, computeNetWorthSeries, totalNetWorthValue, runwayMonths, actualAssetGrowthLastMonth, staleAssets, toAudAmount } from "../calc/engine.js";
@@ -554,7 +554,16 @@ export function renderMonthlyCashFlow(){
   var panel = document.getElementById("monthlyCashFlowPanel");
   if(!panel) return;
   var months = monthKeysBack(6);
-  var income = scenarioIncomeMonthly({ scenario: state.activeScenario });
+  // v3.80.0: regular income every month, each one-off in its month.
+  var incRows = scenarioIncomeRows({ scenario: state.activeScenario });
+  var income = function(key){
+    var mo = Number(key.slice(5, 7));
+    return incRows.reduce(function(t, r){
+      var y = periodsOf(Number(r.amount) || 0, r.freq);
+      if(r.oneOff || r.irregular) return r.dueMonth ? t + (Number(r.dueMonth) === mo ? y.yearly : 0) : t + y.monthly;
+      return t + y.monthly;
+    }, 0);
+  };
   var rows = monthlyCashFlow(state.transactions, months, income);
   var loggedRows = rows.filter(function(r){ return r.logged; });
   if(loggedRows.length < 2){

@@ -413,9 +413,12 @@ import {
     if(!netWorthEl || !cashFlowEl) return;
     netWorthEl.textContent = fmtCurrency0.format(totalNetWorthValue());
     var t = scenarioTotals(state.activeScenario);
-    cashFlowEl.textContent = (t.netMonthly >= 0 ? "+" : "") + fmtCurrency0.format(t.netMonthly) + "/mo";
-    cashFlowEl.classList.toggle("pos", t.netMonthly >= 0);
-    cashFlowEl.classList.toggle("neg", t.netMonthly < 0);
+    // v3.80.0: what a normal month leaves — bonuses arrive in their own month, not a twelfth a month.
+    var m = t.regularNetMonthly != null ? t.regularNetMonthly : t.netMonthly;
+    cashFlowEl.textContent = (m >= 0 ? "+" : "") + fmtCurrency0.format(m) + "/mo";
+    cashFlowEl.classList.toggle("pos", m >= 0);
+    cashFlowEl.classList.toggle("neg", m < 0);
+    cashFlowEl.title = t.oneOffYearly > 0.5 ? "A normal month. Plus " + fmtCurrency0.format(t.oneOffYearly) + " a year in bonuses, which land in their own month — " + fmtCurrency0.format(t.netMonthly) + "/mo averaged over the year." : "";
   }
 
   // Live-refresh the labels of every rendered transaction that takes its display name from a

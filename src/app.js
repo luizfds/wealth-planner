@@ -93,6 +93,8 @@ import { recordRentReview } from "./calc/propertylife.js";
 import { retirementHtml, retireLevers } from "./components/retirement.js";
 import { recurringHtml, recurringDismissed } from "./components/recurring.js";
 import { renderReports, reportShown, reportPrintHtml, reportCsv } from "./components/reports.js";
+import { monthDetailUi, shownMonth as mdShownMonth } from "./components/monthdetail.js";
+import { shiftMonth as mdShiftMonth } from "./calc/monthdetail.js";
 import { exportTableCsv } from "./lib/backup.js";
 import { yearEndPrintHtml, yearEndDocumentsCsv } from "./components/yearend.js";
 import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodButton, renderPeriodMenu } from "./components/period.js";
@@ -5059,6 +5061,13 @@ import {
   document.getElementById("reportsBody").addEventListener("click", function(e){
     var pick = e.target.closest("[data-report]");
     if(pick){ reportShown.key = pick.getAttribute("data-report"); renderReports(); return; }
+    // v3.81.0: Month in detail.
+    var mdOpen = e.target.closest("[data-md-open]");
+    if(mdOpen){ monthDetailUi.ym = mdOpen.getAttribute("data-md-open"); monthDetailUi.open = {}; reportShown.key = "month"; renderReports(); return; }
+    var mdStep = e.target.closest("[data-md-step]");
+    if(mdStep){ monthDetailUi.ym = mdShiftMonth(mdShownMonth(), Number(mdStep.getAttribute("data-md-step"))); monthDetailUi.open = {}; renderReports(); return; }
+    var mdCat = e.target.closest("[data-md-cat]");
+    if(mdCat){ var cn = mdCat.getAttribute("data-md-cat"); monthDetailUi.open[cn] = !monthDetailUi.open[cn]; renderReports(); return; }
     if(e.target.closest("[data-report-print]")){ printStatic(reportPrintHtml()); return; }
     if(e.target.closest("[data-report-csv]")){ var c = reportCsv(); exportTableCsv(c.filename, c.headers, c.rows); return; }
     // Year-end pack (v3.68.0)

@@ -1262,3 +1262,20 @@ test("Property → rent panel: the statement form and the year's statements", as
   assert.match(html, /data-as="waterRates"/);
   assert.doesNotMatch(html, /NaN|undefined/);
 });
+
+test("Reports → Month in detail renders a month and an empty one", async function(){
+  const { monthDetailHtml, monthDetailUi } = await import("../src/components/monthdetail.js");
+  var keep = { transactions: state.transactions, incomeLog: state.incomeLog };
+  try {
+    state.transactions = [{ id: "a", date: "2026-03-04", amount: 42, what: "Fern Cafe", linkedExpenseId: null, category: "Eating out" }];
+    state.incomeLog = [{ id: "i", date: "2026-03-25", amount: 3000, target: "net:Alex" }];
+    monthDetailUi.ym = "2026-03";
+    var html = monthDetailHtml();
+    assert.match(html, /March 2026/);
+    assert.match(html, /What was different/);
+    assert.match(html, /data-md-cat="Eating out"/);
+    assert.doesNotMatch(html, /NaN|undefined/);
+    monthDetailUi.ym = "2020-01";
+    assert.match(monthDetailHtml(), /Nothing logged for January 2020/);
+  } finally { Object.assign(state, keep); }
+});

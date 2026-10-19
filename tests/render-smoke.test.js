@@ -1279,3 +1279,11 @@ test("Reports → Month in detail renders a month and an empty one", async funct
     assert.match(monthDetailHtml(), /Nothing logged for January 2020/);
   } finally { Object.assign(state, keep); }
 });
+
+test("Reports → Net worth check builds a row per month", async function(){
+  const { buildReport } = await import("../src/calc/reports.js");
+  var rep = buildReport("nwcheck", { today: "2026-03-15" });
+  assert.equal(rep.rows.length, 12);
+  assert.equal(rep.rows[11].ym, "2026-03");
+  assert.match(rep.rows[11].cells.month, /so far/);
+});

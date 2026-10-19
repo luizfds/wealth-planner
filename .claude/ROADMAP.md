@@ -2400,10 +2400,12 @@ one-off income, trips, bills that didn't come — and the transactions behind ea
 
 Shipped as v3.81.0: Reports → Month in detail (and every month in Monthly cash flow links to it). `calc/monthdetail.js`: baseline = median of up to 6 earlier months with at least 10 transactions; findings ranked by dollars; regular-bill lines are never news by themselves; the running month is compared with a usual month up to the same day. `components/monthdetail.js`.
 
-## 119. `[~]` Did net worth add up?
+## 119. `[x]` Did net worth add up?
 Each month, what you kept (money in − out), plus value changes that aren't saving (investments,
 super, property and other assets), less loan interest, against how much net worth actually moved;
 the gap is what the logging or the balances don't explain.
+
+Shipped as v3.82.0: `calc/nwcheck.js` — compared like for like (only records held at both month ends; anything first recorded mid-month is listed, not counted), interest from what was owed less the offset at the rate then, "adds up" within 5% of money in (at least $500), and the cash-side balances with no record within a week of either end listed. Month in detail gains "Did net worth add up?"; Reports gains Net worth check (12 months, each linking to its month).
 
 ## Conventions for whoever picks this up
 

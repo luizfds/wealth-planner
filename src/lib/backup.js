@@ -433,7 +433,8 @@ function sharesPriceTemplateTable(){
   var shares = state.assets.filter(function(a){ return a.category === "Shares"; });
   var rows = shares.map(function(a){
     var ticker = googleFinanceTicker(a);
-    var formula = ticker ? '=GOOGLEFINANCE("' + ticker + '","price")' : "";
+    // Crypto pairs ("BTCUSD") take no attribute: GOOGLEFINANCE("BTCUSD","price") doesn't resolve.
+    var formula = !ticker ? "" : a.market === "Crypto" ? '=GOOGLEFINANCE("' + ticker + '")' : '=GOOGLEFINANCE("' + ticker + '","price")';
     return [a.what, a.market || "ASX", a.symbol || "", formula];
   });
   // Only worth including once there's an actual USD-denominated holding for it to convert — a

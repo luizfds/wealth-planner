@@ -2354,10 +2354,12 @@ fixes back as a file.
 
 Done outside the repo against a real backup: every page and subtab at 390/1280px, no console errors, no NaN/undefined, no sideways scroll. One fix shipped as v3.74.1 — Plan → Retirement's check rows stack on a phone, since seven-figure amounts squeezed the label into a one-word column. The rest were data, not app, and went back to the owner directly.
 
-## 111. `[~]` Share prices from a published Google Sheet, with backfill
+## 111. `[x]` Share prices from a published Google Sheet, with backfill
 Pasting prices is the only way they move, so a holding's history only grows when someone remembers.
 Read the price sheet's published link on load instead (prices, USD → AUD, benchmarks), and give the
 template a weekly-close block per holding so history before the first logged price is filled in.
+
+Shipped as v3.75.0: Investments → Shares → Prices from Google Sheets. The template adds a weekly-close block per holding (from its first lot, or a chosen date); a sheet shared as "anyone with the link" (or a Publish-to-web CSV link) is read once a day on open. Backfill only fills weeks before a holding's first recorded price and never overwrites one. The service worker leaves Google Sheets requests alone so an offline copy can't be applied as today's prices. `calc/pricesheet.js`, `components/pricesheet.js`.
 
 ## Conventions for whoever picks this up
 

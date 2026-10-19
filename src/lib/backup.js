@@ -6,6 +6,7 @@ import { ipProperties } from "../calc/property.js";
 import { transactionsInRange, householdYearToDate } from "../calc/ledger.js";
 import { shareFlows, priceDatesNeeded, benchmarkFormula } from "../calc/performance.js";
 import { toAudAmount } from "../calc/engine.js";
+import { backfillStart } from "../calc/pricesheet.js";
 
 function isoDateStamp(){
   var d = new Date();
@@ -538,4 +539,47 @@ export function copyBenchmarkTemplateToClipboard(){
   copyTextToClipboard(buildTsv(["What", "Market", "Symbol", "Price"], rows)).then(function(){
     showToast("Copied — paste into Google Sheets, then copy the Symbol and Price columns back");
   }).catch(function(){ showToast("Couldn't copy automatically"); });
+}
+
+// ---------------- The price sheet template (v3.75.0) ----------------
+// One block for the app to read on open (calc/pricesheet.js): Symbol | Price in A–B (the same rows
+// the paste template has always had), then two columns per holding from D onwards with its weekly
+// closes since its first purchase lot — or `fallbackFrom` for holdings with no lots — so history
+// from before the first logged price can be filled in. Dates come out as yyyy-mm-dd text.
+function historyFormula(a, from){
+  var t = googleFinanceTicker(a);
+  if(!t) return "";
+  var crypto = a.market === "Crypto";
+  var p = String(from).split("-");
+  var g = 'GOOGLEFINANCE("' + (crypto ? "CURRENCY:" + t : t) + '","' + (crypto ? "price" : "close") + '",DATE(' + Number(p[0]) + "," + Number(p[1]) + "," + Number(p[2]) + '),TODAY(),"WEEKLY")';
+  return '=IFERROR(LET(g,' + g + ',HSTACK(ARRAYFORMULA(TEXT(CHOOSECOLS(g,1),"yyyy-mm-dd")),CHOOSECOLS(g,2))),"no data")';
+}
+export function priceSheetGrid(fallbackFrom){
+  var t = sharesPriceTemplateTable();
+  var left = [["Symbol", "Price"]].concat(t.rows.map(function(r){ return [r[2], r[3]]; }));
+  var seen = {}, blocks = [];
+  state.assets.filter(function(a){ return a.category === "Shares" && (Number(a.quantity) > 0 || (a.lots || []).length); }).forEach(function(a){
+    var sym = (a.symbol || "").trim().toUpperCase();
+    if(!sym || seen[sym]) return;
+    seen[sym] = true;
+    var f = historyFormula(a, backfillStart(a, fallbackFrom));
+    if(f) blocks.push([sym, f]);
+  });
+  var height = Math.max(left.length, 2);
+  var grid = [];
+  for(var i = 0; i < height; i++){
+    var row = (left[i] || ["", ""]).slice();
+    if(blocks.length) row.push("");
+    blocks.forEach(function(b){ row.push(i === 0 ? b[0] : i === 1 ? b[1] : "", ""); });
+    grid.push(row);
+  }
+  return grid;
+}
+export function copyPriceSheetTemplate(fallbackFrom){
+  var grid = priceSheetGrid(fallbackFrom);
+  if(grid.length < 2){ showToast("Add a holding first"); return Promise.resolve(false); }
+  return copyTextToClipboard(grid.map(function(r){ return r.map(tsvCell).join("\t"); }).join("\r\n")).then(function(){
+    showToast("Copied — click cell A1 of an empty sheet and paste");
+    return true;
+  }).catch(function(){ showToast("Couldn't copy automatically"); return false; });
 }

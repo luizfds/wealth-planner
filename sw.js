@@ -51,6 +51,9 @@ self.addEventListener("message", function(event){
 
 self.addEventListener("fetch", function(event){
   if(event.request.method !== "GET") return;
+  // v3.75.0: the price sheet is read live or not at all. A cached copy served offline would be
+  // applied as today's prices, so Google Sheets requests go straight to the network, uncached.
+  if(/^https:\/\/docs\.google\.com\//.test(event.request.url)) return;
   var isNavigation = event.request.mode === "navigate";
   // fetch(event.request) alone still goes through the browser's own HTTP cache (a layer below
   // this one, governed by GitHub Pages' response headers) — so "network-first" could silently be

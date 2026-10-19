@@ -18,6 +18,8 @@ import { financialYearOf, fyLabel } from "../calc/property.js";
 import { renderProjectionOutputs } from "./projections.js";
 import { renderDashboardStats } from "./dashboard.js";
 import { parseCsv } from "../lib/backup.js";
+import { applyPrices } from "../calc/pricesheet.js";
+import { priceSheetCardHtml, priceSheetUi } from "./pricesheet.js";
 
 // Every other figure in this app is implicitly AUD; a Shares holding's price/value is only
 // sometimes that (ASX), and otherwise USD (US, Crypto) — see MARKET_CURRENCY. Used to pick the
@@ -912,16 +914,19 @@ export function renderSharesSubpage(){
     ? '<div class="fx-warn" role="note"><p><b>US$ holdings are being counted as A$.</b> No exchange rate is set, so the total above, net worth and every allocation add US dollars as if they were Australian.</p>' +
       '<label class="fx-warn-field">1 USD = <input type="number" inputmode="decimal" step="0.0001" min="0" placeholder="1.52" data-fx-usdaud aria-label="Australian dollars per US dollar"> AUD</label></div>'
     : '';
+  // v3.75.0: prices from a shared Google Sheet, read on open; the paste box stays as the manual way.
   var pasteTool = allData.items.length
-    ? '<details class="tax-advanced" style="margin:0 0 14px"><summary>Paste prices from Google Sheets</summary>' +
-        '<p class="ledger-note" style="margin:8px 0">This app never fetches prices itself — nothing is sent anywhere. First time: "Copy to clipboard", then paste straight into an empty cell in a Google Sheet (or "Download" and import the file instead) — either way you get a live-price formula already written for every holding, crypto included, plus a USD → AUD exchange rate row if you hold anything priced in USD. Then copy its Symbol and Price columns and paste the two-column range below; matches your holdings by ticker symbol (case-insensitive), and the exchange rate row updates your USD → AUD conversion. After that, re-paste the same range any time to refresh prices.</p>' +
-        fxNote +
+    ? '<details class="tax-advanced" style="margin:0 0 14px"' + (state.priceSheet && state.priceSheet.url && !priceSheetUi.open ? '' : ' open') + ' data-ps-panel><summary>Prices from Google Sheets</summary>' +
+        priceSheetCardHtml() + fxNote +
+        '<details class="ps-manual"><summary>Or paste prices by hand</summary>' +
+        '<p class="ledger-note" style="margin:8px 0">Copy the Symbol and Price columns from any sheet and paste the two-column range below. Matches holdings by ticker; a USDAUD row updates the exchange rate.</p>' +
         '<div style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap">' +
-          '<button type="button" class="btn btn-sm btn-ghost" id="sharesCopyPriceTemplateBtn" title="Copy the same table to your clipboard, ready to paste straight into a Google Sheets cell">⧉ Copy to clipboard</button>' +
-          '<button type="button" class="btn btn-sm btn-ghost" id="sharesExportPriceTemplateBtn" title="A CSV with every holding\'s symbol and a ready-made =GOOGLEFINANCE(...) formula — open it in Google Sheets to get live prices without writing the formulas yourself">⇩ Download price template</button>' +
+          '<button type="button" class="btn btn-sm btn-ghost" id="sharesCopyPriceTemplateBtn" title="Just the Symbol and Price list, with a GOOGLEFINANCE formula for each holding">⧉ Copy price list</button>' +
+          '<button type="button" class="btn btn-sm btn-ghost" id="sharesExportPriceTemplateBtn">⇩ Download price list</button>' +
         '</div>' +
-        '<textarea id="sharesPasteArea" rows="4" placeholder="CBA&#9;105.32&#10;BHP&#9;43.10" style="width:100%;box-sizing:border-box;font-family:&quot;IBM Plex Mono&quot;,monospace;font-size:12.5px;padding:8px;background:var(--paper-sunken);border:1px solid var(--border);border-radius:8px;color:var(--ink);resize:vertical"></textarea>' +
+        '<textarea id="sharesPasteArea" rows="4" placeholder="CBA&#9;105.32&#10;BHP&#9;43.10" style="width:100%;box-sizing:border-box;font-family:var(--font-num);font-size:12.5px;padding:8px;background:var(--paper-sunken);border:1px solid var(--border);border-radius:8px;color:var(--ink);resize:vertical"></textarea>' +
         '<div style="margin-top:8px"><button type="button" class="btn btn-sm" id="sharesPasteApply">Update prices</button></div>' +
+        '</details>' +
       '</details>'
     : "";
   var historyPanel = allData.items.length
@@ -1727,53 +1732,19 @@ export function applySharesPaste(){
   var area = document.getElementById("sharesPasteArea");
   if(!area) return;
   var lines = area.value.split(/\r?\n/);
-  var updatedCount = 0, notFound = [], unparseable = [], benchCount = 0;
-  var fxUpdated = false;
-  var todayStr = localDateStr();
+  var unparseable = [], prices = [];
   lines.forEach(function(line){
     var trimmed = line.trim();
     if(!trimmed) return;
     var parsed = parseSharesPasteLine(line);
-    if(!parsed){
-      // A non-blank line that failed to parse — most commonly a #N/A/#ERROR!/blank price cell
-      // (a GOOGLEFINANCE formula that briefly failed to resolve that ticker), which used to be
-      // dropped with zero feedback: the row's price silently never updated (and so neither did
-      // its sparkline/trend, which only move when history actually gets a new, different value)
-      // with nothing on screen explaining why. Best-effort the first token so the toast can name
-      // it, rather than leaving "why didn't GPRO update" a mystery.
-      var firstToken = trimmed.split(/\t+|,+|\s+/)[0];
-      if(firstToken) unparseable.push(firstToken.toUpperCase());
-      return;
-    }
-    // Not a holding at all — the exchange rate row the price template adds whenever there's a
-    // USD-denominated holding to convert (see sharesPriceTemplateTable() in lib/backup.js).
-    // Routes straight to state.fx instead of the symbol-match below, same paste box, same
-    // GOOGLEFINANCE-formula-in/plain-number-out round trip as every share price on this page.
-    // v3.35.0: a benchmark index row ("IOZ@2024-03-01") — Dashboard → Benchmarks.
-    var bm = parseBenchmarkSymbol(parsed.symbol);
-    if(bm){ setBenchmarkPrice(state.benchmark, bm.symbol, bm.date, parsed.price, todayStr); benchCount++; return; }
-    if(parsed.symbol === "USDAUD"){
-      state.fx.usdAud = parsed.price;
-      state.fx.usdAudUpdated = todayStr;
-      fxUpdated = true;
-      return;
-    }
-    var matches = state.assets.filter(function(a){ return a.category === "Shares" && (a.symbol || "").toUpperCase() === parsed.symbol; });
-    if(!matches.length){ notFound.push(parsed.symbol); return; }
-    matches.forEach(function(item){
-      item.price = parsed.price;
-      item.priceUpdated = todayStr;
-      item.amount = Math.round((Number(item.quantity) || 0) * parsed.price * 100) / 100;
-      // Same history snapshot the manual "Log" button records — without this, a pasted price
-      // update the value but the sparkline/trend note (both driven by item.history) stayed
-      // frozen until someone clicked Log on every row by hand.
-      if(!Array.isArray(item.history)) item.history = [];
-      var entryDate = appendHistorySnapshot(item.history, item.amount, todayStr);
-      var entry = item.history.find(function(h){ return h.date === entryDate; });
-      if(entry) entry.price = parsed.price;
-    });
-    updatedCount += matches.length;
+    // A #N/A/blank price cell (a GOOGLEFINANCE formula that hasn't resolved) — named in the toast
+    // rather than dropped silently.
+    if(!parsed){ var first = trimmed.split(/\t+|,+|\s+/)[0]; if(first) unparseable.push(first.toUpperCase()); return; }
+    prices.push(parsed);
   });
+  // v3.75.0: the same routine the Google Sheet read uses (calc/pricesheet.js applyPrices).
+  var res = applyPrices(state, prices, localDateStr());
+  var updatedCount = res.updated, notFound = res.notFound, fxUpdated = res.fxUpdated, benchCount = res.benchmarks;
   renderAssets();
   renderNetWorthPanel();
   persist();

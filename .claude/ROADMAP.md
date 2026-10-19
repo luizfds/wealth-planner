@@ -2386,6 +2386,11 @@ Rent, fees, water and other costs from one statement entered together.
 
 Shipped as v3.79.0: Property → Income & costs → Log a property manager statement. Writes rent received (net) and bills paid from rent, keeps the statement, sums the year; warns if that rent was already logged.
 
+## 117. `[~]` Bonuses and tax refunds land in their month
+A yearly bonus was folded into each person's monthly take-home, so pay looked short every month and
+far over in the bonus month, and the forecast spread it evenly. Split each irregular gross row's
+after-tax amount out of the monthly net; place it in its month; give refunds somewhere to be logged.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

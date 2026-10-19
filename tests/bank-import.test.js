@@ -306,3 +306,9 @@ test("an unreadable file hands back the row it read, for the reader to recognise
   var wide = parseBankCsv([["a","b","c","d","e","f","g","h"]], { existing: [] });
   assert.equal(wide.firstRow.length, 6);
 });
+
+test("a single Amount column with minus signs on some rows reads bare amounts as money in", function(){
+  var r = parseBankCsv([["Date", "Description", "Amount"], ["03/05/2026", "FERN CAFE", "-12.40"], ["04/05/2026", "PAYMENT THANK YOU", "300.00"], ["05/05/2026", "BANK ONE FEE", "$-2.00"]]);
+  assert.deepEqual(r.rows.map(function(x){ return x.direction; }), ["debit", "credit", "debit"]);
+  assert.equal(r.rows[1].amount, 300);
+});

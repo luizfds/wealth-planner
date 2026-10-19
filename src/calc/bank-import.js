@@ -257,6 +257,12 @@ export function parseBankCsv(rows, opts){
 
   var data = rows.slice(columns.hadHeader ? 1 : 0);
   var dateOrder = opts.dateOrder || detectDateOrder(data.map(function(r){ return r[columns.date]; }));
+  // v3.74.2: one Amount column where some rows carry a minus sign is a signed column — the bank
+  // marks spending with "-" and leaves money in bare ("-55.49", "6983.13"), as ING and several
+  // others export. Only a column with no signs anywhere is read as all spending.
+  if(columns.amount !== undefined){
+    columns.amountSigned = data.some(function(r){ var v = String((r && r[columns.amount]) || "").trim(); return /^\(.*\)$/.test(v) || /^-|-\$|\$-|^\+/.test(v); });
+  }
 
   var seen = Object.create(null);
   var seenUndescribed = Object.create(null);
@@ -329,7 +335,7 @@ function signedAmountFor(cells, columns){
   if(amount === null) return null;
   if(amount === 0) return 0;
   var wasSigned = /^\(.*\)$/.test(raw) || /[-+]/.test(raw);
-  return wasSigned ? amount : -Math.abs(amount);
+  return (wasSigned || columns.amountSigned) ? amount : -Math.abs(amount);
 }
 
 // Everything the parse found that's worth saying out loud before anyone commits anything — the

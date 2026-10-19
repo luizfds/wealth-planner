@@ -2393,6 +2393,11 @@ after-tax amount out of the monthly net; place it in its month; give refunds som
 
 Shipped as v3.80.0: `personOneOffSplit()` (tax.js) — each irregular Gross row's after-tax amount is take-home with it less take-home without it; the parts sum to the year's take-home, so yearly figures don't move. A synthetic yearly row per bonus (`syntheticOneOffFor`), "oneoff:<rowId>" and "refund:<person>" received targets (the refund planned at last finished year's estimate), the forecast places bonuses in their month, the header's Monthly cash shows a normal month (average in its tooltip), and Income vs spending puts each bonus in its month.
 
+## 118. `[~]` Month in detail
+Pick any past month: money in against money out, set against your own usual month (the median of
+the six before it), with what was different — categories that moved, one-off spends, new payees,
+one-off income, trips, bills that didn't come — and the transactions behind each.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

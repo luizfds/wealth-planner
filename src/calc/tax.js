@@ -828,25 +828,53 @@ function rowIncluded(row, opts){
 export function scenarioIncomeRows(opts){
   var rows = [];
   state.income.forEach(function(row){
-    if(row.incomeType === "Gross" || row.syntheticNetFor) return;
+    if(row.incomeType === "Gross" || row.syntheticNetFor || row.syntheticOneOffFor) return;
     if(!rowIncluded(row, opts)) return;
     var amount = rowAmountFor(row, opts);
     rows.push(amount === row.amount ? row : Object.assign({}, row, { amount: amount }));
   });
   getTaxPeople().forEach(function(person){
-    var net = computePersonTax(person, opts).netTakeHome;
+    var split = personOneOffSplit(person, opts);
     // Every person with a Gross row gets a row even at $0 — a scenario where somebody stops
     // working is a real answer, and dropping the row would make it indistinguishable from a
     // person who was never there.
     rows.push({
       what: person + " — net income",
-      amount: Math.round((net / 12) * 100) / 100,
+      amount: Math.round((split.regularNet / 12) * 100) / 100,
       freq: "Monthly",
       computed: true,
       syntheticNetFor: person
     });
+    // v3.80.0: each bonus after tax, once a year in its own month (see personOneOffSplit).
+    split.oneOffs.forEach(function(o){
+      rows.push({ what: (o.row.what || "Bonus") + " (after tax)", amount: o.net, freq: "Yearly", dueMonth: o.row.dueMonth || null,
+        computed: true, oneOff: true, syntheticOneOffFor: o.row.id || "", person: person });
+    });
   });
   return rows;
+}
+// ---------------- One-off income (v3.80.0) ----------------
+//
+// A bonus paid once a year is a Gross row marked irregular. Its tax isn't separable by itself —
+// it's taxed at the top of everything else — so its after-tax amount is the difference it makes:
+// take-home with it, less take-home without it. What's left is regular pay, the figure a monthly
+// payslip actually looks like. The parts add back up exactly to the full-year take-home, so yearly
+// totals (net worth, projections, the tax card) don't move; only where in the year the money lands.
+export function isOneOffIncome(row){ return !!(row && row.irregular && row.incomeType === "Gross"); }
+export function personOneOffSplit(person, opts){
+  var total = computePersonTax(person, opts).netTakeHome;
+  var base = opts && opts.includeRow ? opts.includeRow : function(r){ return isActiveOn(r, localDateStr()); };
+  var oneOffRows = state.income.filter(function(r){ return r.person === person && isOneOffIncome(r) && base(r) && periodsOf(rowAmountFor(r, opts), r.freq).yearly > 0; });
+  var oneOffs = oneOffRows.map(function(r){
+    var without = computePersonTax(person, Object.assign({}, opts || {}, { includeRow: function(x){ return x !== r && base(x); } })).netTakeHome;
+    return { row: r, net: Math.round((total - without) * 100) / 100 };
+  });
+  var regular = total - oneOffs.reduce(function(t, o){ return t + o.net; }, 0);
+  return { total: total, regularNet: regular, oneOffs: oneOffs };
+}
+// What's in a scenario's income that doesn't arrive monthly, as a yearly amount.
+export function scenarioOneOffYearly(opts){
+  return scenarioIncomeRows(opts).reduce(function(t, r){ return r.oneOff || r.irregular ? t + periodsOf(Number(r.amount) || 0, r.freq).yearly : t; }, 0);
 }
 export function scenarioIncomeMonthly(opts){
   return scenarioIncomeRows(opts).reduce(function(sum, row){

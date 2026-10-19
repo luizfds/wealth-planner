@@ -409,7 +409,7 @@ export function patchSyntheticIncomeRows(){
   var table = document.getElementById("incomeGroups");
   if(!table) return;
   state.income.forEach(function(item, idx){
-    if(!item.syntheticNetFor && !item.syntheticRentForProperty) return;
+    if(!item.syntheticNetFor && !item.syntheticRentForProperty && !item.syntheticOneOffFor) return;
     var tr = table.querySelector('[data-index="' + idx + '"]');
     if(!tr) return;
     var amountInput = tr.querySelector(".f-amount");

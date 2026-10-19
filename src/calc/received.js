@@ -1,7 +1,7 @@
 import { state, genId } from "../state.js";
 import { periodsOf, sumField, householdYearWindow, selectedMonth, monthPhrase } from "./ledger.js";
 import { localDateStr } from "../lib/format.js";
-import { getTaxPeople } from "./tax.js";
+import { getTaxPeople, computePersonTax, todayTaxFy } from "./tax.js";
 
 // ---------------- Income received (v3.46.0) ----------------
 //
@@ -18,6 +18,8 @@ import { getTaxPeople } from "./tax.js";
 //                    planned against their after-tax net income row, not the gross figures
 //   "income:<id>"    a Net income row, received as-is
 //   "rent:<propId>"  an investment property's rent, as the agent pays it (after their fees)
+//   "oneoff:<rowId>" a bonus after tax (v3.80.0), once a year — split out of "net:<person>"
+//   "refund:<person>" a tax refund (v3.80.0), planned at last finished year's estimate
 //   "payout:<i>"     a distribution on holding state.assets[i] — written to that holding's
 //                    payouts (v3.38.0), where it already counts toward the return and the tax year
 export function incomeTargets(){
@@ -26,6 +28,22 @@ export function incomeTargets(){
     var net = (state.income || []).find(function(i){ return i.syntheticNetFor === person; });
     out.push({ key: "net:" + person, label: person + " — take-home pay", kind: "net",
       monthly: net ? periodsOf(Number(net.amount) || 0, net.freq).monthly : 0, irregular: false });
+  });
+  // v3.80.0: each bonus after tax, and each person's tax refund — once a year, not monthly.
+  (state.income || []).forEach(function(i){
+    if(!i.syntheticOneOffFor) return;
+    var y = periodsOf(Number(i.amount) || 0, i.freq).yearly;
+    out.push({ key: "oneoff:" + i.syntheticOneOffFor, label: i.what || "Bonus — after tax", kind: "oneoff", monthly: y / 12, yearly: y, irregular: true, account: i.account || "" });
+  });
+  var lastFy = todayTaxFy() - 1;
+  getTaxPeople().forEach(function(person){
+    var est = null;
+    try { est = computePersonTax(person, { fy: lastFy }).refund; } catch(e){ est = null; }
+    var y = est != null && est > 0 ? Math.round(est * 100) / 100 : 0;
+    // Only when there's a refund to expect, or one already logged — not a standing $0 line.
+    var logged = (state.incomeLog || []).some(function(r){ return r.target === "refund:" + person; });
+    if(!(y > 0) && !logged) return;
+    out.push({ key: "refund:" + person, label: person + " — tax refund", kind: "refund", monthly: y / 12, yearly: y, irregular: true, estimated: est != null });
   });
   (state.income || []).forEach(function(i){
     if(i.computed || i.syntheticNetFor || i.syntheticRentForProperty || i.incomeType === "Gross" || !i.id) return;

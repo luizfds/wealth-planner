@@ -2386,6 +2386,13 @@ Rent, fees, water and other costs from one statement entered together.
 
 Shipped as v3.79.0: Property → Income & costs → Log a property manager statement. Writes rent received (net) and bills paid from rent, keeps the statement, sums the year; warns if that rent was already logged.
 
+## 117. `[x]` Bonuses and tax refunds land in their month
+A yearly bonus was folded into each person's monthly take-home, so pay looked short every month and
+far over in the bonus month, and the forecast spread it evenly. Split each irregular gross row's
+after-tax amount out of the monthly net; place it in its month; give refunds somewhere to be logged.
+
+Shipped as v3.80.0: `personOneOffSplit()` (tax.js) — each irregular Gross row's after-tax amount is take-home with it less take-home without it; the parts sum to the year's take-home, so yearly figures don't move. A synthetic yearly row per bonus (`syntheticOneOffFor`), "oneoff:<rowId>" and "refund:<person>" received targets (the refund planned at last finished year's estimate), the forecast places bonuses in their month, the header's Monthly cash shows a normal month (average in its tooltip), and Income vs spending puts each bonus in its month.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

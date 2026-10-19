@@ -176,7 +176,8 @@ export function monthlyCashFlow(transactions, monthKeys, monthlyIncome){
   });
   return (monthKeys || []).map(function(key){
     var spent = byMonth[key] || 0;
-    var income = Number(monthlyIncome) || 0;
+    // A number, or (v3.80.0) a function of the month — bonuses land in theirs.
+    var income = typeof monthlyIncome === "function" ? (Number(monthlyIncome(key)) || 0) : (Number(monthlyIncome) || 0);
     return {
       month: key,
       income: income,

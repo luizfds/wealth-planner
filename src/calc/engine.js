@@ -8,7 +8,7 @@ import {
   propertiesTotalEquityToday, propertiesOffsetTotal, landTaxDetailForProperty
   , loanPaidOut
 } from "./property.js";
-import { getTaxPeople, computePersonTax, scenarioIncomeMonthly } from "./tax.js";
+import { getTaxPeople, computePersonTax, scenarioIncomeMonthly, personOneOffSplit, scenarioOneOffYearly } from "./tax.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
 import { projectionRatios } from "./actuals.js";
 
@@ -330,23 +330,38 @@ export function recalcComputedItems(){
 
   var people = getTaxPeople();
   state.income = state.income.filter(function(i){ return !(i.syntheticNetFor && people.indexOf(i.syntheticNetFor) === -1); });
+  var liveOneOffs = {};
   people.forEach(function(person){
-    var result = computePersonTax(person);
-    var monthly = Math.round((result.netTakeHome / 12) * 100) / 100;
+    // v3.80.0: regular take-home only; each bonus gets its own yearly row below.
+    var split = personOneOffSplit(person);
+    var monthly = Math.round((split.regularNet / 12) * 100) / 100;
     var existing = state.income.find(function(i){ return i.syntheticNetFor === person; });
+    var note = "auto: " + person + "'s regular take-home after tax & super" + (split.oneOffs.length ? " — bonuses are counted separately, in their month" : "");
     if(existing){
       existing.amount = monthly;
       existing.freq = "Monthly";
       existing.computed = true;
-      existing.computedNote = "auto: " + person + "'s net income after tax & super sacrifice";
+      existing.computedNote = note;
     } else {
       state.income.push({
         syntheticNetFor: person, computed: true, what: person + " — Net income (after tax & super)",
         classification: "", account: "", incomeType: "Net", amount: monthly, freq: "Monthly",
-        computedNote: "auto: " + person + "'s net income after tax & super sacrifice"
+        computedNote: note
       });
     }
+    split.oneOffs.forEach(function(o){
+      var id = o.row.id;
+      if(!id) return;
+      liveOneOffs[id] = true;
+      var row = state.income.find(function(i){ return i.syntheticOneOffFor === id; });
+      var fields = { what: (o.row.what || "Bonus") + " — after tax", amount: o.net, freq: "Yearly", irregular: true, dueMonth: o.row.dueMonth || null,
+        computed: true, incomeType: "Net", person: person, account: o.row.account || "",
+        computedNote: "auto: " + (o.row.what || "this bonus") + " after tax, at " + person + "'s top rate — lands once a year" };
+      if(row) Object.assign(row, fields);
+      else state.income.push(Object.assign({ syntheticOneOffFor: id, classification: "" }, fields));
+    });
   });
+  state.income = state.income.filter(function(i){ return !i.syntheticOneOffFor || liveOneOffs[i.syntheticOneOffFor]; });
 
   var ipPropertyIds = state.properties.filter(function(p){ return p.kind === "IP"; }).map(function(p){ return p.id; });
   state.income = state.income.filter(function(i){ return !(i.syntheticRentForProperty && ipPropertyIds.indexOf(i.syntheticRentForProperty) === -1); });
@@ -391,10 +406,14 @@ export function scenarioTotals(scenario){
   var homeMonthly = sumField(state.home[scenario], "monthly");
   var expensesMonthly = ipMonthly + sharedMonthly + homeMonthly;
   var netMonthly = incomeMonthly - expensesMonthly;
+  // v3.80.0: what of that arrives once a year rather than monthly (bonuses), so the headline can
+  // say what a normal month leaves. netMonthly stays the year's average for projections.
+  var oneOffYearly = scenarioOneOffYearly({ scenario: scenario });
   return {
     incomeMonthly: incomeMonthly, ipMonthly: ipMonthly, sharedMonthly: sharedMonthly,
     homeMonthly: homeMonthly, expensesMonthly: expensesMonthly,
     netMonthly: netMonthly, netYearly: netMonthly * 12,
+    oneOffYearly: oneOffYearly, regularNetMonthly: netMonthly - oneOffYearly / 12,
     rate: incomeMonthly > 0 ? netMonthly / incomeMonthly : 0
   };
 }

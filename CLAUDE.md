@@ -117,6 +117,9 @@ commit and a matching git tag:
    freshly-fetched copy of the file, to detect a newer deployed version) — **Minor** (`v1.X.0`) for a new
    feature/behavior change, **Patch** (`v1.0.X`) for a bug fix — in a separate commit titled
    `Bump version to vX.Y.Z — <short reason>`.
+   In the same commit, run `npm run stamp`: it writes the version onto every module URL (an import
+   map in `index.html`) and the stylesheet imports, so a browser can never pair a new page with an
+   old cached module. `tests/stamp.test.js` fails if you forget.
 3. `git tag -a vX.Y.Z -m "<short reason>"`.
 4. Push both `main` and the tag.
 

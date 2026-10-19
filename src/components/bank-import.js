@@ -58,7 +58,7 @@ function groupRows(rows){
 // ---------------- Entry ----------------
 export function startBankImport(text, fileName){
   var rows = parseCsv(text);
-  var parsed = parseBankCsv(rows, { existing: state.transactions });
+  var parsed = parseBankCsv(rows, { existing: state.transactions, account: guessStatementAccount(fileName) });
   // Held here rather than handed back in by the caller: reparseBankImportWith() depends on it, and
   // a caller that forgot the second call would leave the date-order control silently doing nothing.
   return rebuildBankImport(parsed, fileName, rows);
@@ -68,7 +68,7 @@ export function startBankImport(text, fileName){
 // misread date order is the one mistake worth being able to undo without finding the file again.
 export function reparseBankImportWith(order){
   if(!bankImport) return null;
-  var parsed = parseBankCsv(bankImport.rawRows, { existing: state.transactions, dateOrder: order });
+  var parsed = parseBankCsv(bankImport.rawRows, { existing: state.transactions, dateOrder: order, account: bankImport.account });
   return rebuildBankImport(parsed, bankImport.fileName, bankImport.rawRows, bankImport.includePossibleDuplicates);
 }
 // Which account a statement is for (v3.64.0): one whose name appears in the file name, if exactly
@@ -88,7 +88,7 @@ function markTransfers(groups, statementAccount, isCredit){
   groups.forEach(function(g){
     if(g.choice.transferAccount){ g.source = g.source || "rule"; return; }
     if(g.source === "rule" || g.choice.incomeTarget) return;
-    var t = detectTransfer(g.label, names, statementAccount);
+    var t = detectTransfer(g.label, names, statementAccount, { accounts: state.accounts || [], transfers: state.transfers || [] });
     if(!t) return;
     g.transferHint = true;
     if(t.account){
@@ -496,14 +496,19 @@ function bankImportAsideHtml(){
   var maybes = bankImport.possibleDuplicates.length;
   // Above the fold, not tucked in the disclosure below: skipping rows the user actually spent is
   // as wrong as importing rows they didn't, and only they can tell which this is.
+  // v3.77.0: what each one matched, so "is this the same purchase?" can be answered by looking.
+  var shortDate = function(d){ var p = String(d || "").split("-"); return p.length === 3 ? Number(p[2]) + "/" + Number(p[1]) : d; };
+  var examples = bankImport.possibleDuplicates.slice(0, 6).map(function(r){
+    return '<li><span>' + escapeAttr(r.description || "(no description)") + ' · ' + shortDate(r.date) + '</span> <b>' + fmtCurrency2.format(r.amount) + '</b> ↔ <span>' +
+      escapeAttr(r.matched && r.matched.what ? r.matched.what : "logged by hand") + (r.matched ? ' · ' + shortDate(r.matched.date) : "") + '</span></li>';
+  }).join("");
   var maybeNote = maybes
-    ? '<p class="tax-cap-note' + (bankImport.includePossibleDuplicates ? "" : " warn") + '" style="margin:12px 0 0">' +
-        maybes + ' row' + (maybes === 1 ? "" : "s") + ' match the date and amount of something you already logged by hand. ' +
-        'Hand-logged entries carry no shop name, so there\'s no way to be sure they\'re the same purchases — ' +
+    ? '<div class="tax-cap-note' + (bankImport.includePossibleDuplicates ? "" : " warn") + '" style="margin:12px 0 0"><p style="margin:0">' +
+        maybes + ' row' + (maybes === 1 ? " looks" : "s look") + ' like something already in the app — the same amount, within a few days. ' +
         (bankImport.includePossibleDuplicates
-          ? 'they\'re being imported. <button type="button" class="calc-hint-link" data-bank-maybes="0">Leave them out</button>'
-          : 'they\'re being left out. <button type="button" class="calc-hint-link" data-bank-maybes="1">Import them anyway</button>') +
-      '</p>'
+          ? 'They\'re being imported. <button type="button" class="calc-hint-link" data-bank-maybes="0">Leave them out</button>'
+          : 'They\'re being left out. <button type="button" class="calc-hint-link" data-bank-maybes="1">Import them anyway</button>') +
+      '</p><ul class="bank-maybe-list">' + examples + (maybes > 6 ? '<li>…and ' + (maybes - 6) + ' more</li>' : '') + '</ul></div>'
     : "";
   var bits = [];
   if(bankImport.duplicates.length){

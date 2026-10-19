@@ -1247,3 +1247,5 @@
   .fr-foot{ display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:16px; flex-wrap:wrap; }
   .fr-finish{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
   @media (max-width:480px){ .fr-costs{ grid-template-columns: 1fr; } }
+  .bank-maybe-list{ margin:6px 0 0; padding-left:18px; font-size:12px; line-height:1.6; }
+  .bank-maybe-list b{ font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight:600; }

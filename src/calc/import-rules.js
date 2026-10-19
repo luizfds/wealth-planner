@@ -20,14 +20,24 @@ import { normaliseDescription } from "./bank-import.js";
 // Deliberately not a token *frequency* analysis across the file. That would handle a few more
 // cases and would also silently regroup a merchant the moment you import a different month.
 var TRAILING_NOISE = ["ref", "reference", "no", "num", "id", "inv", "invoice", "receipt", "au", "aus", "nsw", "vic", "qld", "wa", "sa", "tas", "nt", "act"];
-var NOISE_LEADERS = ["eftpos", "visa", "mastercard", "debit", "credit", "card", "purchase", "payment", "pos", "direct", "dd", "osko", "payid", "bpay", "tfr", "transfer", "withdrawal", "value", "date"];
+var NOISE_LEADERS = ["eftpos", "visa", "mastercard", "debit", "credit", "card", "purchase", "payment", "pos", "direct", "dd", "osko", "payid", "bpay", "tfr", "transfer", "withdrawal", "value", "date",
+  // v3.78.0: the rails some banks spell out ("BPAY Bill Payment - Receipt 100001 …", "Pay Anyone -
+  // Receipt 100002 123 …"), which put every bill under one key and filed council rates with the card.
+  "bill", "pay", "anyone", "internal", "deposit"];
 export function merchantKey(description){
   var norm = normaliseDescription(description);
   if(!norm) return "";
   var tokens = norm.split(" ");
   // A leading "EFTPOS DEBIT WOOLWORTHS..." names the rail, not the shop. Dropped only from the
   // front, and never all of them: "DIRECT DEBIT" on its own is the best name that row has.
-  while(tokens.length > 1 && NOISE_LEADERS.indexOf(tokens[0]) !== -1) tokens.shift();
+  var moved = true;
+  while(moved){
+    moved = false;
+    while(tokens.length > 1 && NOISE_LEADERS.indexOf(tokens[0]) !== -1){ tokens.shift(); moved = true; }
+    // "Receipt 100001" and a bare branch number are bookkeeping, not the payee.
+    if(tokens.length > 2 && tokens[0] === "receipt" && /^\d+$/.test(tokens[1])){ tokens.splice(0, 2); moved = true; }
+    while(tokens.length > 1 && /^\d+$/.test(tokens[0])){ tokens.shift(); moved = true; }
+  }
   var out = [];
   for(var i = 0; i < tokens.length && out.length < 3; i++){
     if(/\d/.test(tokens[i])) break;
@@ -291,8 +301,20 @@ export function proposedLineFor(group, allRows){
 // another account named in the description ("TRANSFER TO BANK ONE SAVINGS"), else null. Words alone
 // ("TRANSFER", "PAYMENT THANK YOU") say it's probably a transfer without saying where, which is
 // `likely` — the review offers it as a transfer but leaves the account to the person.
-var TRANSFER_WORDS = /\b(transfer|tfr|xfer|internal|payment thank ?you|payment received|card payment|repayment|osko|pay ?anyone|to savings|from savings)\b/;
-export function detectTransfer(description, accountNames, statementAccount){
+var TRANSFER_WORDS = /\b(transfer|tfr|xfer|internal|payment.{0,15}thank ?you|payment received|card payment|repayment|osko|pay ?anyone|to savings|from savings)\b/;
+// v3.78.0: paying a credit card, seen from either side. On the card's statement it's "PAYMENT -
+// BPAY - THANK YOU"; on the bank's it's "BPAY Bill Payment Bank One Cards …". Neither names an
+// account in the app, so these are matched by what they say, and the other account comes from the
+// account types (the household's one card) or from where earlier payments to this card came from.
+var CARD_PAID = /\b(payment.{0,15}thank ?you|payment received|autopay|direct debit payment|bpay payment|card payment)\b/;
+var PAYING_A_CARD = /\b(cards?|credit card|amex|mastercard)\b/;
+function usualPayer(card, transfers){
+  var count = {};
+  (transfers || []).forEach(function(t){ if(t && t.to === card && t.from) count[t.from] = (count[t.from] || 0) + 1; });
+  return Object.keys(count).sort(function(a, b){ return count[b] - count[a]; })[0] || "";
+}
+// ctx (optional): { accounts: [{ name, type }], transfers: state.transfers }.
+export function detectTransfer(description, accountNames, statementAccount, ctx){
   var norm = normaliseDescription(description);
   if(!norm) return null;
   var hit = null;
@@ -302,6 +324,15 @@ export function detectTransfer(description, accountNames, statementAccount){
     if(k && (" " + norm + " ").indexOf(" " + k + " ") !== -1 && (!hit || k.length > normaliseDescription(hit).length)) hit = n;
   });
   if(hit) return { account: hit, likely: true };
+  var accounts = (ctx && ctx.accounts) || [];
+  var here = accounts.find(function(a){ return a.name === statementAccount; });
+  if(here && here.type === "credit" && (CARD_PAID.test(norm) || TRANSFER_WORDS.test(norm))){
+    return { account: usualPayer(statementAccount, ctx.transfers), likely: true, cardPayment: true };
+  }
+  if((!here || here.type !== "credit") && PAYING_A_CARD.test(norm) && /\b(bpay|payment|repay|pay)\b/.test(norm)){
+    var cards = accounts.filter(function(a){ return a.type === "credit" && a.name !== statementAccount; });
+    return { account: cards.length === 1 ? cards[0].name : "", likely: true, cardPayment: true };
+  }
   return TRANSFER_WORDS.test(norm) ? { account: "", likely: true } : null;
 }
 // The balance the statement ends on: the running balance on its last row by date. Files run

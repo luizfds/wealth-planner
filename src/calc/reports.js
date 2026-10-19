@@ -32,6 +32,7 @@ export var REPORTS = [
   { key: "networth", label: "Net worth statement" },
   { key: "property", label: "Property P&L" },
   { key: "tax", label: "Tax summary" },
+  { key: "month", label: "Month in detail" },
   { key: "yearend", label: "Year-end pack" }
 ];
 
@@ -45,7 +46,7 @@ export function cashflowReport(opts){
     var inn = (state.incomeLog || []).filter(function(r){ return (r.date || "").slice(0, 7) === ym; }).reduce(function(s, r){ return s + (Number(r.amount) || 0); }, 0);
     var out = (state.transactions || []).filter(function(t){ return (t.date || "").slice(0, 7) === ym; }).reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0);
     running += inn - out; tin += inn; tout += out;
-    return { cells: { month: ymLabel(ym), in: r2(inn), out: r2(out), net: r2(inn - out), running: r2(running) } };
+    return { ym: ym, cells: { month: ymLabel(ym), in: r2(inn), out: r2(out), net: r2(inn - out), running: r2(running) } };
   });
   rows.push({ cls: "total", cells: { month: "Total", in: r2(tin), out: r2(tout), net: r2(tin - tout), running: r2(running) } });
   return { key: "cashflow", title: "Monthly cash flow", subtitle: win.label + (today < win.end ? " so far" : ""),

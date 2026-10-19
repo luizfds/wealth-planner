@@ -1,6 +1,7 @@
 import { REPORTS, buildReport, reportCsvRows } from "../calc/reports.js";
 import { transactionCategory } from "./expenses.js";
 import { yearEndHtml } from "./yearend.js";
+import { monthDetailHtml } from "./monthdetail.js";
 import { fmtCurrency0 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 
@@ -19,7 +20,9 @@ export function reportTableHtml(rep){
     rep.rows.map(function(r){
       return '<tr' + (r.cls ? ' class="' + r.cls + '"' : '') + '>' + rep.columns.map(function(c, i){
         var v = r.cells[c.key];
-        return (i === 0 ? '<th scope="row">' : '<td' + (c.num ? ' class="num' + (typeof v === "number" && v < 0 ? " neg" : "") + '"' : '') + '>') + cell(v, c.num) + (i === 0 ? '</th>' : '</td>');
+        // v3.81.0: a month row opens Month in detail.
+        var inner = i === 0 && r.ym ? '<button type="button" class="rp-month-link" data-md-open="' + r.ym + '" title="See this month in detail">' + cell(v, c.num) + '</button>' : cell(v, c.num);
+        return (i === 0 ? '<th scope="row">' : '<td' + (c.num ? ' class="num' + (typeof v === "number" && v < 0 ? " neg" : "") + '"' : '') + '>') + inner + (i === 0 ? '</th>' : '</td>');
       }).join("") + '</tr>';
     }).join("") + '</tbody></table></div>';
 }
@@ -30,6 +33,7 @@ export function reportsPageHtml(opts){
     }).join("") + '</div>';
   // v3.68.0: the year-end pack is a checklist with hand-off buttons, not a table.
   if(reportShown.key === "yearend") return picker + yearEndHtml();
+  if(reportShown.key === "month") return picker + monthDetailHtml();
   var rep = buildReport(reportShown.key, opts);
   return '<div class="rp-picker" role="tablist" aria-label="Reports">' + REPORTS.map(function(r){
       var on = r.key === reportShown.key;

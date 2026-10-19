@@ -84,7 +84,9 @@ export function readPriceSheet(text){
   grid.forEach(function(r, i){
     if(hasHead && i === 0) return;
     var sym = cleanSymbol(r[sc]);
-    if(!sym){ return; }
+    // Google's CSV endpoint drops a text header above a column of numbers, so "Symbol" can arrive
+    // without "Price" beside it — it's still the header row, not a holding with no price.
+    if(!sym || (i === 0 && sym === "SYMBOL")){ return; }
     var p = num(r[pc]);
     if(p == null || !(p > 0)){ unreadable.push(sym); return; }
     prices.push({ symbol: sym, price: p });

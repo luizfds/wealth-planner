@@ -30,6 +30,12 @@ test("the sheet reads as today's prices plus weekly closes per symbol", function
   assert.deepEqual(r.history.ZZZ[1], { date: "2025-01-10", close: 1100 });
 });
 
+test("a header row whose Price label was dropped still reads as the header", function(){
+  var r = readPriceSheet(SHEET.replace('"Symbol","Price"', '"Symbol",""'));
+  assert.equal(r.prices.length, 4);
+  assert.deepEqual(r.unreadable, ["QQQ"]);
+});
+
 test("the older four-column paste template reads too", function(){
   var r = readPriceSheet('What,Market,Symbol,Price\nFern Fund,ASX,FRN,4.20\nUS$,,USDAUD,1.55');
   assert.deepEqual(r.prices, [{ symbol: "FRN", price: 4.2 }, { symbol: "USDAUD", price: 1.55 }]);

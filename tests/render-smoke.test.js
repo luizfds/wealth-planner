@@ -1218,3 +1218,21 @@ test("First-run setup: every step renders and the last offers the import", async
   for(var i = 0; i < 5; i++){ firstRun.step = i; html = firstRunHtml(); assert.match(html, /role="dialog"/); }
   assert.match(html, /data-fr-finish="import"/);
 });
+
+test("Investments → Shares: the price sheet card and its template", async function(){
+  const { priceSheetCardHtml } = await import("../src/components/pricesheet.js");
+  const { priceSheetGrid } = await import("../src/lib/backup.js");
+  var keepA = state.assets, keepP = state.priceSheet;
+  try {
+    state.assets = [{ category: "Shares", what: "Fern Fund", symbol: "FRN", market: "ASX", quantity: 10, lots: [] }, { category: "Shares", what: "Coin", symbol: "BTC", market: "Crypto", quantity: 0.1 }];
+    state.priceSheet = { url: "https://docs.google.com/spreadsheets/d/abc/edit", lastRead: "", lastResult: { ok: true, at: "2026-02-01T00:00:00Z", updated: 2, backfilled: 10, backfilledHoldings: 2, notFound: [], unreadable: [] }, backfillFrom: "" };
+    var html = priceSheetCardHtml();
+    assert.match(html, /data-ps-copy/);
+    assert.match(html, /2 prices updated/);
+    var grid = priceSheetGrid("2024-02-01");
+    assert.deepEqual(grid[0].slice(0, 2), ["Symbol", "Price"]);
+    assert.equal(grid[0][3], "FRN");
+    assert.match(grid[1][3], /GOOGLEFINANCE\("ASX:FRN","close",DATE\(2024,2,1\),TODAY\(\),"WEEKLY"\)/);
+    assert.match(grid[1][5], /CURRENCY:BTCUSD","price"/);
+  } finally { state.assets = keepA; state.priceSheet = keepP; }
+});

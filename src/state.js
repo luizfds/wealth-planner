@@ -182,6 +182,8 @@ export function defaultState(){
     goals: [],
     // Savings goals measured on account balances (v3.65.0, calc/savegoals.js).
     savingsGoals: [],
+    // v3.75.0: the Google Sheet share prices are read from on open (calc/pricesheet.js).
+    priceSheet: { url: "", lastRead: "", lastResult: null, backfillFrom: "" },
     // Last time Export or Share produced a full backup — not touched by CSV/template exports
     // (those are partial, one-section-at-a-time, not a way to recover from data loss) or Import.
     // "" until the first one. Powers the backup-reminder notification (lib/notifications.js) —
@@ -438,6 +440,9 @@ export function migrateState(s){
   // Checks marked "Looks right" (v3.70.0): {checkId: signature}.
   if(!s.checksDismissed || typeof s.checksDismissed !== "object" || Array.isArray(s.checksDismissed)) s.checksDismissed = {};
   if(!Array.isArray(s.savingsGoals)) s.savingsGoals = [];
+  if(!s.priceSheet || typeof s.priceSheet !== "object") s.priceSheet = {};
+  ["url", "lastRead", "backfillFrom"].forEach(function(k){ if(typeof s.priceSheet[k] !== "string") s.priceSheet[k] = ""; });
+  if(s.priceSheet.lastResult === undefined) s.priceSheet.lastResult = null;
   s.savingsGoals = s.savingsGoals.filter(function(g){ return g && typeof g === "object"; });
   s.savingsGoals.forEach(function(g){ if(!g.id) g.id = genId("sg"); if(!Array.isArray(g.accounts)) g.accounts = []; g.target = Math.max(0, Number(g.target) || 0); });
   if(!Array.isArray(s.incomeLog)) s.incomeLog = [];

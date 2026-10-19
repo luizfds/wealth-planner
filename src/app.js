@@ -9,7 +9,7 @@ import { onHorizontalSwipe } from "./lib/swipe.js";
 import { initTableScrollShadows } from "./lib/scroll-shadow.js";
 import { setDeductionPeopleProvider, setDeductionPropertiesProvider, setRentLinesProvider } from "./lib/ledger-table.js";
 import {
-  decryptBackup, doExport, doShare, canShareFiles, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv, exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard, exportYearTransactionsCsv,
+  decryptBackup, doExport, doShare, canShareFiles, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv, exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard, copyPriceSheetTemplate, exportYearTransactionsCsv,
   exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv, exportAssetsImportTemplateCsv, parseCsv, exportProjectionCsv
 } from "./lib/backup.js";
 import { periodsOf, sumField, sumFieldForScenario, resolveSharedAmount, appendHistorySnapshot, transactionDisplayName } from "./calc/ledger.js";
@@ -79,6 +79,7 @@ import { openAccounts, balanceEditing } from "./components/accounts.js";
 import { renderHomeSummary } from "./components/home.js";
 import { dataHealthChecks, dismissCheck } from "./calc/health.js";
 import { applyFirstRun, shouldOfferFirstRun } from "./calc/firstrun.js";
+import { refreshPriceSheet, priceSheetDue, priceSheetResultText, defaultBackfillFrom, priceSheetUi } from "./components/pricesheet.js";
 import { firstRun, startFirstRun, firstRunHtml } from "./components/firstrun.js";
 import { chooseFolder, backupToFolder, forgetFolder, maybeAutoBackup, setPasscode, clearPasscode, checkPasscode, newestFolderBackup, compareCopies } from "./lib/safekeeping.js";
 import { renderSafekeeping } from "./components/safekeeping.js";
@@ -1607,6 +1608,25 @@ import {
     var logBtn = e.target.closest("[data-asset-log]");
     if(logBtn){ logAssetSnapshot(Number(logBtn.getAttribute("data-asset-log"))); return; }
     if(e.target.id === "sharesPasteApply") applySharesPaste();
+    // v3.75.0: prices from a Google Sheet.
+    if(e.target.closest("[data-ps-copy]")){
+      var fromEl = document.querySelector("[data-ps-from]");
+      copyPriceSheetTemplate((fromEl && fromEl.value) || state.priceSheet.backfillFrom || defaultBackfillFrom());
+      return;
+    }
+    if(e.target.closest("[data-ps-read]")){
+      var urlEl = document.querySelector("[data-ps-url]");
+      var url = urlEl ? urlEl.value.trim() : "";
+      if(!url){ showToast("Paste the sheet's link first"); return; }
+      state.priceSheet.url = url;
+      readPriceSheetNow(true);
+      return;
+    }
+    if(e.target.closest("[data-ps-forget]")){
+      state.priceSheet.url = ""; state.priceSheet.lastRead = ""; state.priceSheet.lastResult = null;
+      persist(); renderAssets(); showToast("Link forgotten — prices won't be read any more");
+      return;
+    }
     if(e.target.id === "sharesExportPriceTemplateBtn") exportSharesPriceTemplateCsv();
     if(e.target.id === "sharesCopyPriceTemplateBtn") copySharesPriceTemplateToClipboard();
     if(e.target.id === "expenseImportCancelBtn"){
@@ -4754,6 +4774,27 @@ import {
     }
     return maybeAutoBackup().then(function(res){ if(res && res.ok){ showToast("Weekly backup saved to " + res.folder); renderSafekeeping(); } });
   }).catch(function(){});
+
+  // ---------------- Share prices from a Google Sheet (v3.75.0) ----------------
+  // Read once a day on open when a link is set; "Read now" reads on demand. Either way the result
+  // line on Investments → Shares says what happened, and a failure never touches a price.
+  function readPriceSheetNow(manual){
+    var btn = document.querySelector("[data-ps-read]");
+    if(btn){ btn.disabled = true; btn.textContent = "Reading…"; }
+    return refreshPriceSheet().then(function(r){
+      recalcComputedItems();
+      renderAll();
+      if(manual || !r.ok || r.updated || r.backfilled) showToast(r.ok ? "Prices: " + priceSheetResultText(r) : r.reason);
+      return r;
+    });
+  }
+  document.addEventListener("toggle", function(e){
+    if(e.target.matches && e.target.matches("[data-ps-panel]")) priceSheetUi.open = e.target.open;
+  }, true);
+  document.addEventListener("change", function(e){
+    if(e.target.matches && e.target.matches("[data-ps-from]")){ state.priceSheet.backfillFrom = e.target.value || ""; persist(); }
+  });
+  if(priceSheetDue()) setTimeout(function(){ readPriceSheetNow(false); }, 800);
 
   // ---------------- First-run setup (v3.74.0) ----------------
   // Offered once to an empty app; also from Home's setup card ("Guided setup"). Answers are held in

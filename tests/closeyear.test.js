@@ -124,3 +124,16 @@ test("health: the limit check stands down once the card has its limit and owes s
     state.checksDismissed = {};
   });
 });
+
+test("months of logging count only the lines being compared", async function(){
+  const { budgetComparison } = await import("../src/calc/closeyear.js");
+  var items = [{ id: "cafe", what: "Coffee", amount: 10, freq: "Weekly" }];
+  var tx = [
+    { date: "2025-08-01", amount: 300, linkedExpenseId: "prop-water" },
+    { date: "2026-01-05", amount: 60, linkedExpenseId: "cafe" },
+    { date: "2026-06-20", amount: 60, linkedExpenseId: "cafe" }
+  ];
+  var c = budgetComparison(items, tx, 2025, "2026-10-01");
+  assert.equal(c.months, 6, "January to June, not from the property bill in August");
+  assert.equal(c.rows[0].actual, 240);
+});

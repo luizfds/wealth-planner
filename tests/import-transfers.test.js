@@ -36,3 +36,17 @@ test("transfer rules: learned per direction, suggested ahead of spending rules, 
   assert.equal(suggestFor("TRANSFER TO BANK ONE SAVINGS 99", rules, [], "credit").transferAccount, undefined);
   assert.equal(pruneRules(rules, []).some(function(r){ return r.transferAccount; }), true);
 });
+
+test("paying the card is a transfer, from either statement", function(){
+  var accounts = [{ name: "Bank One", type: "everyday" }, { name: "Fern Card", type: "credit" }, { name: "Saver", type: "savings" }];
+  var names = accounts.map(function(a){ return a.name; });
+  // On the card's statement: the payer is where earlier payments to it came from.
+  var onCard = detectTransfer("PAYMENT - BPAY - THANK YOU", names, "Fern Card", { accounts: accounts, transfers: [{ from: "Saver", to: "Fern Card" }, { from: "Bank One", to: "Fern Card" }, { from: "Bank One", to: "Fern Card" }] });
+  assert.deepEqual(onCard, { account: "Bank One", likely: true, cardPayment: true });
+  assert.equal(detectTransfer("PAYMENT-BPAY-THANK YOU", names, "Fern Card", { accounts: accounts, transfers: [] }).account, "", "no history: the person picks");
+  // On the bank's statement: the household's one card.
+  var onBank = detectTransfer("BPAY Bill Payment Westfield Cards 4111 Rewards", names, "Bank One", { accounts: accounts, transfers: [] });
+  assert.equal(onBank.account, "Fern Card");
+  // A purchase with "card" in it on the card itself isn't a payment.
+  assert.equal(detectTransfer("CARD FEE", names, "Fern Card", { accounts: accounts }), null);
+});

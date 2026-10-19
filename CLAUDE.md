@@ -63,7 +63,7 @@ the last, so two sessions can't pick up the same one.
   through `account.link` to the record that holds the money), `cashflowlist.js` (one list of money
   in, out and transfers; splits; bulk edit), `bills.js` (the bills calendar), `investments.js`
   (portfolio performance, distributions by year, super against the cap), `reports.js`,
-  `savegoals.js` (savings goals on account balances), `firstrun.js` (the first-run setup's answers into rows), `pricesheet.js` (share prices and weekly backfill read from a shared Google Sheet), `recurring.js` (repeating payees and rising
+  `savegoals.js` (savings goals on account balances), `firstrun.js` (the first-run setup's answers into rows), `pricesheet.js` (share prices and weekly backfill read from a shared Google Sheet), `trips.js` (spending in a trip's dates filed to its line), `agentstatement.js` (a property manager's statement in one step), `recurring.js` (repeating payees and rising
   lines) and `nwhistory.js` (net worth on a past date).
 - `src/components/{dashboard,home,income,taxyear,expenses,cashflow,accounts,assets,investments,
   properties,projections,scenarios,reports,rules,period,safekeeping,savegoals,recurring,yearend,nav,
@@ -117,6 +117,9 @@ commit and a matching git tag:
    freshly-fetched copy of the file, to detect a newer deployed version) — **Minor** (`v1.X.0`) for a new
    feature/behavior change, **Patch** (`v1.0.X`) for a bug fix — in a separate commit titled
    `Bump version to vX.Y.Z — <short reason>`.
+   In the same commit, run `npm run stamp`: it writes the version onto every module URL (an import
+   map in `index.html`) and the stylesheet imports, so a browser can never pair a new page with an
+   old cached module. `tests/stamp.test.js` fails if you forget.
 3. `git tag -a vX.Y.Z -m "<short reason>"`.
 4. Push both `main` and the tag.
 

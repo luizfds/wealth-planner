@@ -1238,3 +1238,27 @@ test("Investments → Shares: the price sheet card and its template", async func
     assert.equal(grid[1][1], '=GOOGLEFINANCE("ASX:FRN","price")');
   } finally { state.assets = keepA; state.priceSheet = keepP; }
 });
+
+test("Cash flow → Spending → Trips: the card lists trips and offers the move", async function(){
+  const { tripsCardHtml } = await import("../src/components/trips.js");
+  var keep = { trips: state.trips, shared: state.shared, transactions: state.transactions };
+  try {
+    state.shared = [{ id: "trips", what: "Trips", freq: "Yearly", irregular: true, amount: 1000 }, { id: "cafe", what: "Coffee", freq: "Weekly", irregular: true, amount: 20 }];
+    state.trips = [{ id: "t1", name: "Coast", from: "2026-03-10", to: "2026-03-13", lineId: "trips" }];
+    state.transactions = [{ id: "a", date: "2026-03-11", amount: 6, linkedExpenseId: "cafe" }];
+    var html = tripsCardHtml();
+    assert.match(html, /Coast/);
+    assert.match(html, /data-trip-move="t1"[^>]*>Move 1 here/);
+    assert.match(html, /data-trip-add/);
+  } finally { Object.assign(state, keep); }
+});
+
+test("Property → rent panel: the statement form and the year's statements", async function(){
+  const { rentPanelHtml } = await import("../src/components/properties.js");
+  var p = { id: "p1", what: "1 Example St", kind: "IP", income: [{ what: "Rent", amount: 500, freq: "Weekly" }], expenses: [{ id: "wr", what: "Water rates" }],
+    agentStatements: [{ id: "x", date: "2026-08-01", rent: 2000, water: 0, fees: 120, waterRates: 0, others: [], net: 1880, txIds: [] }] };
+  var html = rentPanelHtml(p, "2026-09-01");
+  assert.match(html, /Log a property manager statement/);
+  assert.match(html, /data-as="waterRates"/);
+  assert.doesNotMatch(html, /NaN|undefined/);
+});

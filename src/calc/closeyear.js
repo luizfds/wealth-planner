@@ -88,7 +88,12 @@ export function loggedMonths(transactions, fy, today){
 // nothing about whether its plan was right.
 export function budgetComparison(items, transactions, fy, today){
   var w = fyWindow(fy);
-  var months = loggedMonths(transactions, fy, today);
+  // v3.79.1: the months are counted from spending on these lines only. A property bill the agent
+  // paid in August says nothing about when the household started logging its own spending, and
+  // counting from it scaled every household line down.
+  var ids = {};
+  (items || []).forEach(function(i){ if(i.id) ids[i.id] = true; });
+  var months = loggedMonths((transactions || []).filter(function(t){ return ids[t.linkedExpenseId]; }), fy, today);
   var byLine = {};
   (transactions || []).forEach(function(t){
     if(!t.linkedExpenseId || !t.date || t.date < w.start || t.date > w.end) return;

@@ -250,8 +250,8 @@ test("an exact duplicate is never also counted as a possible one", function(){
   assert.equal(parsed.rows[0].possibleDuplicate, false);
 });
 
-test("a hand-logged row on a different day or amount doesn't suppress anything", function(){
-  var handLogged = [{ id: "t1", date: "2026-09-01", amount: 45.20, what: "" }];
+test("a hand-logged row well apart in date, or a different amount, doesn't suppress anything", function(){
+  var handLogged = [{ id: "t1", date: "2026-08-20", amount: 45.20, what: "" }, { id: "t2", date: "2026-09-02", amount: 45.10, what: "" }];
   var parsed = parseBankCsv(parseCsv('02/09/2026,-45.20,"WOOLWORTHS",1250.30'), { existing: handLogged });
   assert.equal(parsed.rows[0].possibleDuplicate, false);
   assert.equal(bankImportSummary(parsed).newSpend, 1);
@@ -311,4 +311,32 @@ test("a single Amount column with minus signs on some rows reads bare amounts as
   var r = parseBankCsv([["Date", "Description", "Amount"], ["03/05/2026", "FERN CAFE", "-12.40"], ["04/05/2026", "PAYMENT THANK YOU", "300.00"], ["05/05/2026", "BANK ONE FEE", "$-2.00"]]);
   assert.deepEqual(r.rows.map(function(x){ return x.direction; }), ["debit", "credit", "debit"]);
   assert.equal(r.rows[1].amount, 300);
+});
+
+test("something logged by hand under another name, a few days off, is a possible duplicate", function(){
+  var existing = [
+    { id: "a", date: "2026-03-03", amount: 47.50, what: "Fern delivery", account: "Card" },
+    { id: "b", date: "2026-03-10", amount: 12.00, what: "", account: "Bank One" },
+    { id: "c", date: "2026-03-20", amount: -30.00, what: "Refund", account: "Card" }
+  ];
+  var parsed = parseBankCsv(parseCsv([
+    "Date,Description,Amount",
+    "04/03/2026,PAYPAL *FERN DELIVERY 4029,-47.50",
+    "11/03/2026,FERN CAFE,-12.00",
+    "21/03/2026,CRED VOUCHER FERN,+30.00",
+    "28/03/2026,FERN CAFE,-47.50"
+  ].join("\n")), { existing: existing, account: "Card" });
+  var r = parsed.rows;
+  assert.equal(r[0].possibleDuplicate, true);
+  assert.deepEqual(r[0].matched, { date: "2026-03-03", what: "Fern delivery" });
+  assert.equal(r[1].possibleDuplicate, false, "logged on another account");
+  assert.equal(r[2].possibleDuplicate, true, "a refund matches a refund");
+  assert.equal(r[3].possibleDuplicate, false, "each logged entry absorbs one bank row only");
+});
+
+test("an exact match later in the file keeps its entry from a near match earlier", function(){
+  var existing = [{ id: "a", date: "2026-03-05", amount: 20, what: "FERN CAFE" }];
+  var parsed = parseBankCsv(parseCsv("Date,Description,Amount\n04/03/2026,BANK ONE ATM,-20.00\n05/03/2026,FERN CAFE,-20.00"), { existing: existing });
+  assert.equal(parsed.rows[1].duplicate, true);
+  assert.equal(parsed.rows[0].possibleDuplicate, false);
 });

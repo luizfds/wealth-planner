@@ -258,24 +258,30 @@ export function parseBankCsv(rows, opts){
   var data = rows.slice(columns.hadHeader ? 1 : 0);
   var dateOrder = opts.dateOrder || detectDateOrder(data.map(function(r){ return r[columns.date]; }));
   // v3.74.2: one Amount column where some rows carry a minus sign is a signed column — the bank
-  // marks spending with "-" and leaves money in bare ("-55.49", "6983.13"), as ING and several
+  // marks spending with "-" and leaves money in bare ("-12.40", "300.00"), as several banks
   // others export. Only a column with no signs anywhere is read as all spending.
   if(columns.amount !== undefined){
     columns.amountSigned = data.some(function(r){ var v = String((r && r[columns.amount]) || "").trim(); return /^\(.*\)$/.test(v) || /^-|-\$|\$-|^\+/.test(v); });
   }
 
-  var seen = Object.create(null);
-  var seenUndescribed = Object.create(null);
-  (opts.existing || []).forEach(function(t){
-    var described = normaliseDescription(t.what || "");
-    if(described){
-      var k = transactionKey(t.date, t.amount, t.what);
-      seen[k] = (seen[k] || 0) + 1;
-    } else {
-      var ku = transactionKey(t.date, t.amount, "");
-      seenUndescribed[ku] = (seenUndescribed[ku] || 0) + 1;
-    }
+  // Each transaction already in the app, used at most once: an exact match (same description),
+  // a hand-logged one with no description on the same day, or — v3.77.0 — anything with the same
+  // amount a few days either side, whatever it was called. That last one is the case that actually
+  // happens: "Fern delivery" logged by hand on the 3rd, "PAYPAL *FERN DELIVERY 1234" posted by
+  // the bank on the 4th. Only the first is certain; the other two are possible duplicates, left out
+  // by default and shown with what they matched so the person decides.
+  var pool = (opts.existing || []).map(function(t){
+    var amt = Number(t.amount) || 0;
+    return { described: !!normaliseDescription(t.what || ""), key: transactionKey(t.date, t.amount, t.what), ukey: transactionKey(t.date, t.amount, ""),
+      date: t.date || "", cents: Math.round(Math.abs(amt) * 100), spend: amt >= 0, account: t.account || "", what: t.what || "", used: false };
   });
+  function take(test){
+    var hit = pool.find(function(e){ return !e.used && test(e); });
+    if(hit) hit.used = true;
+    return hit || null;
+  }
+  var NEAR_DAYS = 4;
+  function daysApart(a, b){ return Math.abs(Math.round((Date.parse(a) - Date.parse(b)) / 86400000)); }
 
   var out = [], errors = [];
   data.forEach(function(cells, i){
@@ -289,16 +295,14 @@ export function parseBankCsv(rows, opts){
     if(signed === 0) return; // a $0 line is a statement artifact, not a transaction
     var description = (columns.description !== undefined ? (cells[columns.description] || "") : "").trim();
     var key = transactionKey(dateStr, signed, description);
-    var duplicate = (seen[key] || 0) > 0;
-    if(duplicate) seen[key]--;
-    // Only ever a *possible* duplicate, and only when it isn't already a certain one — the
-    // undescribed pool is consumed per match for the same reason the described one is, so two
-    // hand-logged $20 rows on a day absorb two bank rows and a third stays new.
-    var possibleDuplicate = false;
+    var duplicate = !!take(function(e){ return e.described && e.key === key; });
+    // Only ever a *possible* duplicate, and only when it isn't already a certain one — consumed per
+    // match, so two hand-logged $20 rows on a day absorb two bank rows and a third stays new.
+    var possibleDuplicate = false, matched = null;
     if(!duplicate){
-      var undescribedKey = transactionKey(dateStr, signed, "");
-      possibleDuplicate = (seenUndescribed[undescribedKey] || 0) > 0;
-      if(possibleDuplicate) seenUndescribed[undescribedKey]--;
+      var ukey = transactionKey(dateStr, signed, "");
+      matched = take(function(e){ return !e.described && e.ukey === ukey; });
+      possibleDuplicate = !!matched;
     }
     out.push({
       row: rowNum,
@@ -310,8 +314,21 @@ export function parseBankCsv(rows, opts){
       // balance from its statement.
       balance: columns.balance !== undefined ? parseBankAmount(cells[columns.balance]) : null,
       duplicate: duplicate,
-      possibleDuplicate: possibleDuplicate
+      possibleDuplicate: possibleDuplicate,
+      matched: matched ? { date: matched.date, what: matched.what } : null
     });
+  });
+  // The near pass runs after every exact match has had its pick, so a near match never takes the
+  // entry that belonged to an exact one later in the file. A row from another account isn't
+  // matched against this statement's rows when both say which account they're from.
+  out.forEach(function(r){
+    if(r.duplicate || r.possibleDuplicate) return;
+    var cents = Math.round(r.amount * 100), spend = r.direction === "debit";
+    var m = take(function(e){
+      return e.cents === cents && e.spend === spend && e.date && daysApart(e.date, r.date) <= NEAR_DAYS &&
+        !(opts.account && e.account && e.account !== opts.account);
+    });
+    if(m){ r.possibleDuplicate = true; r.matched = { date: m.date, what: m.what }; }
   });
   return { rows: out, errors: errors, columns: columns, dateOrder: dateOrder, headerOk: true };
 }

@@ -1252,3 +1252,13 @@ test("Cash flow → Spending → Trips: the card lists trips and offers the move
     assert.match(html, /data-trip-add/);
   } finally { Object.assign(state, keep); }
 });
+
+test("Property → rent panel: the statement form and the year's statements", async function(){
+  const { rentPanelHtml } = await import("../src/components/properties.js");
+  var p = { id: "p1", what: "1 Example St", kind: "IP", income: [{ what: "Rent", amount: 500, freq: "Weekly" }], expenses: [{ id: "wr", what: "Water rates" }],
+    agentStatements: [{ id: "x", date: "2026-08-01", rent: 2000, water: 0, fees: 120, waterRates: 0, others: [], net: 1880, txIds: [] }] };
+  var html = rentPanelHtml(p, "2026-09-01");
+  assert.match(html, /Log a property manager statement/);
+  assert.match(html, /data-as="waterRates"/);
+  assert.doesNotMatch(html, /NaN|undefined/);
+});

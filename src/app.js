@@ -60,7 +60,7 @@ import {
 import {
   modernPropRowOpen, renderPropListModern, renderProperties, patchPropertyCardComputed,
   logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan, setSaleWhatIfField, patchSaleWhatIf, setLoanStrategyField, patchLoanStrategy, propertyTabs,
-  fixedExpiryHtml, rentPanelHtml, fixedWhatIf
+  fixedExpiryHtml, rentPanelHtml, fixedWhatIf, agentStatementUi, agentStatementFormValues
 } from "./components/properties.js";
 import { renderProjectionOutputs, projectionSeriesShown } from "./components/projections.js";
 import { renderBenchmarks, setBenchmarkField, applyBenchmarkPaste, addGoal, setGoalField, removeGoal, setPropertyMarketField } from "./components/benchmarks.js";
@@ -80,6 +80,7 @@ import { renderHomeSummary } from "./components/home.js";
 import { dataHealthChecks, dismissCheck } from "./calc/health.js";
 import { applyFirstRun, shouldOfferFirstRun } from "./calc/firstrun.js";
 import { normaliseTrip, applyTripRefile } from "./calc/trips.js";
+import { logAgentStatement, removeAgentStatement, statementTotals } from "./calc/agentstatement.js";
 import { tripsCardHtml, tripPlan, tripProtectedLineIds } from "./components/trips.js";
 import { refreshPriceSheet, priceSheetDue, priceSheetResultText, defaultBackfillFrom, priceSheetUi } from "./components/pricesheet.js";
 import { firstRun, startFirstRun, firstRunHtml } from "./components/firstrun.js";
@@ -1860,8 +1861,40 @@ import {
       return;
     }
     var vd = e.target.closest("[data-vac-del]");
-    if(vd){ prop.vacancies.splice(Number(vd.getAttribute("data-vac-del")), 1); persist(); rentPanel(); }
+    if(vd){ prop.vacancies.splice(Number(vd.getAttribute("data-vac-del")), 1); persist(); rentPanel(); return; }
+    // v3.79.0: a property manager's statement in one step.
+    if(e.target.closest("[data-as-log]")){
+      var asPanel = e.target.closest("[data-as-panel]");
+      var vals = agentStatementFormValues(asPanel);
+      // Rent already logged by hand for this statement would count twice.
+      var net = statementTotals(vals).net, dayMs = 86400000;
+      var already = (state.incomeLog || []).find(function(r){ return r.target === "rent:" + prop.id && Math.abs((Number(r.amount) || 0) - net) < 0.01 && Math.abs(Date.parse(r.date) - Date.parse(vals.date)) <= 31 * dayMs; });
+      if(already && !confirm("Rent of " + fmtCurrency2.format(net) + " was already logged on " + already.date + ". Log this statement anyway? (Remove the earlier one on Cash flow → Income if it's the same payment.)")) return;
+      var rec = logAgentStatement(state, prop, vals);
+      if(!rec){ showToast("Type at least the rent collected"); return; }
+      agentStatementUi.open[prop.id] = true;
+      recalcComputedItems(); persist(); renderAll();
+      showUndoToast("Statement logged — " + fmtCurrency2.format(rec.net) + " to you" + (rec.txIds.length ? ", " + rec.txIds.length + " bill" + (rec.txIds.length === 1 ? "" : "s") + " paid from the rent" : ""), function(){
+        removeAgentStatement(state, prop, rec.id); recalcComputedItems(); persist(); renderAll();
+      });
+      return;
+    }
+    var asDel = e.target.closest("[data-as-del]");
+    if(asDel){
+      if(!confirm("Remove this statement and the rent and bills it logged?")) return;
+      removeAgentStatement(state, prop, asDel.getAttribute("data-as-del"));
+      agentStatementUi.open[prop.id] = true;
+      recalcComputedItems(); persist(); renderAll();
+    }
   });
+  document.getElementById("propertiesBody").addEventListener("input", function(e){
+    if(!e.target.matches || !e.target.matches("[data-as]")) return;
+    var asPanel = e.target.closest("[data-as-panel]"), out = asPanel && asPanel.querySelector("[data-as-net]");
+    if(out) out.textContent = fmtCurrency2.format(statementTotals(agentStatementFormValues(asPanel)).net);
+  });
+  document.getElementById("propertiesBody").addEventListener("toggle", function(e){
+    if(e.target.matches && e.target.matches("[data-as-panel]")) agentStatementUi.open[e.target.getAttribute("data-as-panel")] = e.target.open;
+  }, true);
   document.getElementById("propertiesBody").addEventListener("input", function(e){
     var card = e.target.closest("[data-property-id]");
     if(!card) return;

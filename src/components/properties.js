@@ -14,6 +14,7 @@ import { loanStrategy } from "../calc/loanstrategy.js";
 import { LAND_TAX_STATES, LAND_TAX_YEAR } from "../constants.js";
 import { sumField, householdYearWindow } from "../calc/ledger.js";
 import { fixedRateView, rentSummary } from "../calc/propertylife.js";
+import { statementTotals, statementsForFy, waterRatesLine } from "../calc/agentstatement.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { optionsHtml, modernPlainRowHtml, historyTrendHtml } from "../lib/ledger-table.js";
@@ -532,7 +533,45 @@ export function rentPanelHtml(p, today){
         '<button type="button" class="btn btn-sm" data-rent-review>Record</button></div>' : '') +
       '<div class="rentp-vac"><span class="cf-filter-l">Vacancies</span>' + (vac ? '<ul>' + vac + '</ul>' : '<p class="ledger-note" style="margin:0">None recorded.</p>') +
         '<div class="rentp-vac-add"><input type="date" data-vac-from aria-label="Vacant from"><input type="date" data-vac-to aria-label="Vacant until (blank if still vacant)"><button type="button" class="btn btn-sm btn-ghost" data-vac-add>Add</button></div></div>' +
-    '</div>' + (reviews ? '<div class="rentp-reviews"><span class="cf-filter-l">Past reviews</span><ul>' + reviews + '</ul></div>' : '') + '</div>';
+    '</div>' + (reviews ? '<div class="rentp-reviews"><span class="cf-filter-l">Past reviews</span><ul>' + reviews + '</ul></div>' : '') +
+    agentStatementHtml(p, win) + '</div>';
+}
+
+// v3.79.0: a property manager's monthly statement, entered once (calc/agentstatement.js).
+export var agentStatementUi = { open: {} };
+function agentStatementHtml(p, win){
+  var fy = financialYearOf(win.end < localDateStr() ? win.end : localDateStr());
+  var sum = statementsForFy(p, fy);
+  var costLines = (p.expenses || []).filter(function(e){ return !e.computed && e.id; });
+  var water = waterRatesLine(p);
+  var recent = (p.agentStatements || []).slice(-4).reverse().map(function(r){
+    return '<li><span>' + escapeAttr(r.date) + '</span> <span>rent ' + fmtCurrency0.format(r.rent) + (r.water ? ' + water ' + fmtCurrency0.format(r.water) : '') + ' · out ' + fmtCurrency0.format(statementTotals(r).moneyOut) + '</span> <b>' + fmtCurrency2.format(r.net) + '</b>' +
+      ' <button type="button" class="btn btn-ghost btn-sm" data-as-del="' + escapeAttr(r.id) + '" aria-label="Remove this statement">✕</button></li>';
+  }).join("");
+  var field = function(key, label, extra){ return '<label class="fr-field"><span>' + label + '</span><input type="number" inputmode="decimal" min="0" step="0.01" data-as="' + key + '"' + (extra || "") + '></label>'; };
+  var accounts = (state.accounts || []).map(function(a){ return a.name; });
+  var defAcct = (p.income && p.income[0] && p.income[0].account) || "";
+  return '<details class="agent-stmt"' + (agentStatementUi.open[p.id] ? ' open' : '') + ' data-as-panel="' + escapeAttr(p.id) + '"><summary>Log a property manager statement</summary>' +
+    '<p class="ledger-note">One statement in one go: what was collected, what was paid out of it, and what reached you. Rent received and any bills paid from the rent are logged for you.</p>' +
+    '<div class="agent-grid">' +
+      '<label class="fr-field"><span>Statement date</span><input type="date" data-as="date" value="' + escapeAttr(localDateStr()) + '"></label>' +
+      field("rent", "Rent collected $") + field("water", "Water usage recovered $") +
+      field("fees", "Management + statement fees $") + field("waterRates", "Water rates paid $", water ? '' : ' title="No water line on this property — it will be logged without one"') +
+      field("otherAmount", "Other cost paid $") +
+      '<label class="fr-field"><span>Other cost is for</span><select data-as="otherLine">' + costLines.map(function(e){ return '<option value="' + escapeAttr(e.id) + '">' + escapeAttr(e.what) + '</option>'; }).join("") + '</select></label>' +
+      '<label class="fr-field"><span>Paid into</span><select data-as="account"><option value="">—</option>' + accounts.map(function(a){ return '<option' + (a === defAcct ? ' selected' : '') + '>' + escapeAttr(a) + '</option>'; }).join("") + '</select></label>' +
+    '</div>' +
+    '<div class="agent-foot"><span>Paid to you <b data-as-net>$0.00</b></span><button type="button" class="btn btn-sm btn-primary" data-as-log>Log statement</button></div>' +
+    (sum.count ? '<p class="agent-sum">' + escapeAttr(fyLabel(fy)) + ' from ' + sum.count + ' statement' + (sum.count === 1 ? '' : 's') + ': rent ' + fmtCurrency0.format(sum.rent) + ' · water back ' + fmtCurrency0.format(sum.water) + ' · fees ' + fmtCurrency0.format(sum.fees) + ' · bills paid ' + fmtCurrency0.format(sum.waterRates + sum.other) + ' · to you ' + fmtCurrency0.format(sum.net) + '</p>' : '') +
+    (recent ? '<ul class="agent-list">' + recent + '</ul>' : '') +
+  '</details>';
+}
+// The live "paid to you" figure while the form is filled in.
+export function agentStatementFormValues(panel){
+  var v = function(k){ var el = panel.querySelector('[data-as="' + k + '"]'); return el ? el.value : ""; };
+  var others = Number(v("otherAmount")) > 0 ? [{ lineId: v("otherLine"), amount: Number(v("otherAmount")), what: "" }] : [];
+  return { date: v("date") || localDateStr(), rent: Number(v("rent")) || 0, water: Number(v("water")) || 0, fees: Number(v("fees")) || 0,
+    waterRates: Number(v("waterRates")) || 0, others: others, account: v("account") };
 }
 
 // ---------------- Tabs on a property (v3.61.0) ----------------

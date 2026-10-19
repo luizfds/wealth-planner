@@ -63,7 +63,7 @@ the last, so two sessions can't pick up the same one.
   through `account.link` to the record that holds the money), `cashflowlist.js` (one list of money
   in, out and transfers; splits; bulk edit), `bills.js` (the bills calendar), `investments.js`
   (portfolio performance, distributions by year, super against the cap), `reports.js`,
-  `savegoals.js` (savings goals on account balances), `firstrun.js` (the first-run setup's answers into rows), `pricesheet.js` (share prices and weekly backfill read from a shared Google Sheet), `trips.js` (spending in a trip's dates filed to its line), `agentstatement.js` (a property manager's statement in one step), `monthdetail.js` (a month against your own usual month), `recurring.js` (repeating payees and rising
+  `savegoals.js` (savings goals on account balances), `firstrun.js` (the first-run setup's answers into rows), `pricesheet.js` (share prices and weekly backfill read from a shared Google Sheet), `trips.js` (spending in a trip's dates filed to its line), `agentstatement.js` (a property manager's statement in one step), `monthdetail.js` (a month against your own usual month), `nwcheck.js` (whether what you kept explains how net worth moved), `recurring.js` (repeating payees and rising
   lines) and `nwhistory.js` (net worth on a past date).
 - `src/components/{dashboard,home,income,taxyear,expenses,cashflow,accounts,assets,investments,
   properties,projections,scenarios,reports,rules,period,safekeeping,savegoals,recurring,yearend,nav,

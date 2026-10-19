@@ -3,6 +3,7 @@ import { escapeAttr } from "../lib/html.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr } from "../lib/format.js";
 import { monthDetail, monthTrend, shiftMonth } from "../calc/monthdetail.js";
 import { ipLoansMonthly } from "../calc/property.js";
+import { netWorthCheck, gapReading } from "../calc/nwcheck.js";
 import { budgetLineItems, transactionCategory } from "./expenses.js";
 
 // ---------------- Reports → Month in detail (v3.81.0) ----------------
@@ -81,7 +82,20 @@ export function monthDetailHtml(){
     (d.loanMonthly ? '<p class="ledger-note md-loan">Not in money out: about ' + fmtCurrency0.format(d.loanMonthly) + ' a month of loan repayments go straight from the offset to the lender (part of it is paying the loan down).</p>' : '') +
     (d.partial ? '<p class="tax-cap-note warn">Only ' + f.count + ' transactions logged, against a usual ' + u.count + ' — this month looks only partly logged.</p>' : '') +
     (findings ? '<h3 class="md-h">What was different</h3><ul class="md-findings">' + findings + '</ul>' : '<h3 class="md-h">What was different</h3><p class="ledger-note">Nothing stands out — a usual month.</p>') +
+    nwCheckHtml(ym) +
     '<h3 class="md-h">By category <small>tap one to see its transactions</small></h3><ul class="md-cats">' + cats + '</ul>' +
     '<p class="ledger-note rp-note">' + escapeAttr(base) + ' Money in is what\'s been logged as received plus distributions; money out is logged spending with refunds netted. Transfers between your own accounts are in neither.</p>' +
   '</section>';
+}
+
+// v3.82.0: did net worth move the way the month's money says it should have?
+function nwCheckHtml(ym){
+  var c = netWorthCheck(ym, { today: localDateStr() });
+  var row = function(lbl, v, cls){ return '<li class="' + (cls || "") + '"><span>' + lbl + '</span><b>' + (v > 0 ? "+" : v < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(v)) + '</b></li>'; };
+  return '<h3 class="md-h">Did net worth add up?</h3><ul class="md-nw">' +
+    row("What you kept", c.kept) + row("Investments moved", c.invest) + row("Super (contributions and returns)", c.super) + row("Property and other assets", c.other) + row("Loan interest", -c.interest) +
+    row("Expected change", c.expectedChange, "sum") + row("Actual change", c.actualChange, "sum") + row("Gap", c.gap, "gap " + (c.addsUp ? "ok" : "off")) + '</ul>' +
+    '<p class="md-nw-read ' + (c.addsUp ? "ok" : "off") + '">' + escapeAttr(gapReading(c)) + '</p>' +
+    (c.stale.length ? '<p class="ledger-note">No balance recorded within a week of the month\'s start or end for: ' + escapeAttr(c.stale.join(", ")) + ' — if one moved, the gap may be its.</p>' : '') +
+    (c.started.length ? '<p class="ledger-note">First recorded this month, so not counted as a change: ' + escapeAttr(c.started.join(", ")) + '.</p>' : '');
 }

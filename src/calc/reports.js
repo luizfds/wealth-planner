@@ -5,6 +5,7 @@ import { totalNetWorthValue, totalDebtsValue, toAudAmount } from "./engine.js";
 import { ipProperties, propertyTaxResultBreakdown, propertiesTotalValue, propertiesTotalMortgageBalance, propertiesOffsetTotal, fyLabel } from "./property.js";
 import { localDateStr } from "../lib/format.js";
 import { netWorthOn, shiftDate } from "./nwhistory.js";
+import { netWorthChecks } from "./nwcheck.js";
 
 // ---------------- Reports (v3.62.0) ----------------
 //
@@ -33,6 +34,7 @@ export var REPORTS = [
   { key: "property", label: "Property P&L" },
   { key: "tax", label: "Tax summary" },
   { key: "month", label: "Month in detail" },
+  { key: "nwcheck", label: "Net worth check" },
   { key: "yearend", label: "Year-end pack" }
 ];
 
@@ -161,7 +163,25 @@ export function taxReport(opts){
     note: "From Tax → Returns' documents where they're entered, the plan otherwise. A refund needs the income statements' tax withheld." };
 }
 
+// v3.82.0: each of the last 12 months — did what you kept explain how net worth moved?
+export function netWorthCheckReport(opts){
+  opts = opts || {};
+  var today = opts.today || localDateStr();
+  var checks = netWorthChecks(today.slice(0, 7), 12, { today: today });
+  var rows = checks.map(function(c){
+    return { ym: c.ym, cls: c.addsUp ? "" : "flag", cells: { month: ymLabel(c.ym) + (c.inProgress ? " (so far)" : ""), kept: c.kept, invest: c.invest, super: c.super, other: c.other,
+      interest: -c.interest, expected: c.expectedChange, actual: c.actualChange, gap: c.gap } };
+  });
+  return { key: "nwcheck", title: "Net worth check", subtitle: "Last 12 months",
+    // The answer first (kept, expected, actual, gap) so a phone sees it without scrolling sideways.
+    columns: [{ key: "month", label: "Month" }, { key: "kept", label: "Kept", num: true }, { key: "expected", label: "Expected change", num: true },
+      { key: "actual", label: "Actual change", num: true }, { key: "gap", label: "Gap", num: true }, { key: "invest", label: "Investments", num: true },
+      { key: "super", label: "Super", num: true }, { key: "other", label: "Property & other", num: true }, { key: "interest", label: "Loan interest", num: true }],
+    rows: rows, wide: true,
+    note: "Kept is money in less money out. Investments, super, property and other assets are their recorded values moving; loan interest is worked out from what was owed less the offset. Expected is the sum; actual is how much net worth moved, counting only balances recorded at both ends of the month. A large gap usually means something wasn't logged, money moved to an account the app doesn't hold, or a balance was recorded late. Open a month for the detail." };
+}
 export function buildReport(key, opts){
+  if(key === "nwcheck") return netWorthCheckReport(opts);
   if(key === "categories") return categoryReport(opts);
   if(key === "networth") return netWorthReport(opts);
   if(key === "property") return propertyReport(opts);

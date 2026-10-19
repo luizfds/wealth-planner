@@ -157,3 +157,10 @@
 .md-tx b{ font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight:500; }
 @media (max-width:480px){ .md-tiles{ grid-template-columns: 1fr 1fr; } .md-tiles > div:last-child{ grid-column: 1 / -1; } .md-tiles b{ font-size:17px; } }
 .md-sofar{ text-align:center; margin:-6px 0 10px; } .md-none{ margin:4px 0 8px 10px; }
+.md-nw{ list-style:none; margin:0; padding:0; font-size:13px; }
+.md-nw li{ display:flex; justify-content:space-between; gap:10px; padding:5px 2px; border-bottom:1px dashed var(--border); }
+.md-nw b{ font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight:500; }
+.md-nw li.sum{ font-weight:600; } .md-nw li.sum b{ font-weight:700; }
+.md-nw li.gap.ok b{ color: var(--good); } .md-nw li.gap.off b{ color: var(--bad); }
+.md-nw-read{ font-size:12.5px; margin:6px 0; line-height:1.45; } .md-nw-read.off{ color: var(--ink); }
+.rp-table tr.flag td:nth-child(5){ color: var(--bad); font-weight:600; }

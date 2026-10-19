@@ -2354,6 +2354,11 @@ fixes back as a file.
 
 Done outside the repo against a real backup: every page and subtab at 390/1280px, no console errors, no NaN/undefined, no sideways scroll. One fix shipped as v3.74.1 — Plan → Retirement's check rows stack on a phone, since seven-figure amounts squeezed the label into a one-word column. The rest were data, not app, and went back to the owner directly.
 
+## 111. `[~]` Share prices from a published Google Sheet, with backfill
+Pasting prices is the only way they move, so a holding's history only grows when someone remembers.
+Read the price sheet's published link on load instead (prices, USD → AUD, benchmarks), and give the
+template a weekly-close block per holding so history before the first logged price is filled in.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

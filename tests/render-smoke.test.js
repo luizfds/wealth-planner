@@ -1234,5 +1234,7 @@ test("Investments → Shares: the price sheet card and its template", async func
     assert.equal(grid[0][3], "FRN");
     assert.match(grid[1][3], /GOOGLEFINANCE\("ASX:FRN","close",DATE\(2024,2,1\),TODAY\(\),"WEEKLY"\)/);
     assert.match(grid[1][5], /CURRENCY:BTCUSD","price"/);
+    assert.equal(grid[2][1], '=GOOGLEFINANCE("BTCUSD")', "a crypto price takes no attribute");
+    assert.equal(grid[1][1], '=GOOGLEFINANCE("ASX:FRN","price")');
   } finally { state.assets = keepA; state.priceSheet = keepP; }
 });

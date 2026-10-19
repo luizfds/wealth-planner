@@ -183,6 +183,8 @@ export function defaultState(){
     // Savings goals measured on account balances (v3.65.0, calc/savegoals.js).
     savingsGoals: [],
     // v3.75.0: the Google Sheet share prices are read from on open (calc/pricesheet.js).
+    // v3.78.0: trips as date ranges (calc/trips.js).
+    trips: [],
     priceSheet: { url: "", lastRead: "", lastResult: null, backfillFrom: "" },
     // Last time Export or Share produced a full backup — not touched by CSV/template exports
     // (those are partial, one-section-at-a-time, not a way to recover from data loss) or Import.
@@ -440,6 +442,8 @@ export function migrateState(s){
   // Checks marked "Looks right" (v3.70.0): {checkId: signature}.
   if(!s.checksDismissed || typeof s.checksDismissed !== "object" || Array.isArray(s.checksDismissed)) s.checksDismissed = {};
   if(!Array.isArray(s.savingsGoals)) s.savingsGoals = [];
+  if(!Array.isArray(s.trips)) s.trips = [];
+  s.trips = s.trips.filter(function(t){ return t && t.from; });
   if(!s.priceSheet || typeof s.priceSheet !== "object") s.priceSheet = {};
   ["url", "lastRead", "backfillFrom"].forEach(function(k){ if(typeof s.priceSheet[k] !== "string") s.priceSheet[k] = ""; });
   if(s.priceSheet.lastResult === undefined) s.priceSheet.lastResult = null;

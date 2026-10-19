@@ -21,7 +21,7 @@ import { normaliseDescription } from "./bank-import.js";
 // cases and would also silently regroup a merchant the moment you import a different month.
 var TRAILING_NOISE = ["ref", "reference", "no", "num", "id", "inv", "invoice", "receipt", "au", "aus", "nsw", "vic", "qld", "wa", "sa", "tas", "nt", "act"];
 var NOISE_LEADERS = ["eftpos", "visa", "mastercard", "debit", "credit", "card", "purchase", "payment", "pos", "direct", "dd", "osko", "payid", "bpay", "tfr", "transfer", "withdrawal", "value", "date",
-  // v3.78.0: the rails some banks spell out ("BPAY Bill Payment - Receipt 100001 …", "Pay Anyone -
+  // v3.77.0: the rails some banks spell out ("BPAY Bill Payment - Receipt 100001 …", "Pay Anyone -
   // Receipt 100002 123 …"), which put every bill under one key and filed council rates with the card.
   "bill", "pay", "anyone", "internal", "deposit"];
 export function merchantKey(description){
@@ -302,7 +302,7 @@ export function proposedLineFor(group, allRows){
 // ("TRANSFER", "PAYMENT THANK YOU") say it's probably a transfer without saying where, which is
 // `likely` — the review offers it as a transfer but leaves the account to the person.
 var TRANSFER_WORDS = /\b(transfer|tfr|xfer|internal|payment.{0,15}thank ?you|payment received|card payment|repayment|osko|pay ?anyone|to savings|from savings)\b/;
-// v3.78.0: paying a credit card, seen from either side. On the card's statement it's "PAYMENT -
+// v3.77.0: paying a credit card, seen from either side. On the card's statement it's "PAYMENT -
 // BPAY - THANK YOU"; on the bank's it's "BPAY Bill Payment Bank One Cards …". Neither names an
 // account in the app, so these are matched by what they say, and the other account comes from the
 // account types (the household's one card) or from where earlier payments to this card came from.

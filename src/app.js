@@ -79,6 +79,8 @@ import { openAccounts, balanceEditing } from "./components/accounts.js";
 import { renderHomeSummary } from "./components/home.js";
 import { dataHealthChecks, dismissCheck } from "./calc/health.js";
 import { applyFirstRun, shouldOfferFirstRun } from "./calc/firstrun.js";
+import { normaliseTrip, applyTripRefile } from "./calc/trips.js";
+import { tripsCardHtml, tripPlan, tripProtectedLineIds } from "./components/trips.js";
 import { refreshPriceSheet, priceSheetDue, priceSheetResultText, defaultBackfillFrom, priceSheetUi } from "./components/pricesheet.js";
 import { firstRun, startFirstRun, firstRunHtml } from "./components/firstrun.js";
 import { chooseFolder, backupToFolder, forgetFolder, maybeAutoBackup, setPasscode, clearPasscode, checkPasscode, newestFolderBackup, compareCopies } from "./lib/safekeeping.js";
@@ -3086,6 +3088,7 @@ import {
   // ---------------- Cash flow → Spending: filters, money in, transfers, splits, bulk edit (v3.59.0) ----------------
   function afterTransactionsChange(){
     renderRecurring();
+    renderTrips();
     renderTransactions();
     renderActualVsPlannedPanel();
     renderSharedGroups();
@@ -3920,6 +3923,7 @@ import {
   // at the import and undo call sites where the two could drift apart.
   function refreshAfterBankImport(){
     renderRecurring();
+    renderTrips();
     renderReceived();
     renderTransactions();
     renderActualVsPlannedPanel();
@@ -4557,6 +4561,7 @@ import {
     renderSafekeeping();
     renderSavingsGoals();
     renderRecurring();
+    renderTrips();
     renderRetirement();
   }
   // Settings carries the number of Checks that need fixing (v3.63.0), so they're seen without
@@ -4774,6 +4779,47 @@ import {
     }
     return maybeAutoBackup().then(function(res){ if(res && res.ok){ showToast("Weekly backup saved to " + res.folder); renderSafekeeping(); } });
   }).catch(function(){});
+
+  // ---------------- Cash flow → Spending → Trips (v3.78.0) ----------------
+  function renderTrips(){
+    var el = document.getElementById("tripsBody");
+    if(el) el.innerHTML = tripsCardHtml();
+  }
+  document.getElementById("tripsBody").addEventListener("click", function(e){
+    if(e.target.closest("[data-trip-add]")){
+      var q = function(sel){ var x = document.querySelector(sel); return x ? x.value : ""; };
+      var from = q("[data-trip-from]"), to = q("[data-trip-to]") || from, lineId = q("[data-trip-line]");
+      if(!from){ showToast("Pick the first day of the trip"); return; }
+      if(!lineId){ showToast("Pick the line its spending goes to"); return; }
+      var trip = normaliseTrip({ name: q("[data-trip-name]"), from: from, to: to, lineId: lineId }, function(){ return genId("trip"); });
+      state.trips.push(trip);
+      persist(); renderTrips();
+      var n = tripPlan(trip).length;
+      showToast("Trip added" + (n ? " — " + n + " transaction" + (n === 1 ? "" : "s") + " in those dates can be moved to it" : ""));
+      return;
+    }
+    var mv = e.target.closest("[data-trip-move]");
+    if(mv){
+      var t = state.trips.find(function(x){ return x.id === mv.getAttribute("data-trip-move"); });
+      if(!t) return;
+      var plan = tripPlan(t);
+      if(!plan.length) return;
+      if(!confirm("Move " + plan.length + " transaction" + (plan.length === 1 ? "" : "s") + " between " + t.from + " and " + t.to + " to this trip's line? Regular bills, rent and property costs stay where they are.")) return;
+      var moved = applyTripRefile(t, state.transactions, budgetLineItems(), tripProtectedLineIds());
+      persist(); afterTransactionsChange(); renderTrips();
+      showToast(moved + " moved to " + t.name);
+      return;
+    }
+    var del = e.target.closest("[data-trip-del]");
+    if(del){
+      var id = del.getAttribute("data-trip-del");
+      var trip2 = state.trips.find(function(x){ return x.id === id; });
+      if(!trip2 || !confirm("Remove the trip \u201c" + trip2.name + "\u201d? Transactions already moved to its line stay there.")) return;
+      state.trips = state.trips.filter(function(x){ return x.id !== id; });
+      persist(); renderTrips();
+    }
+  });
+  renderTrips();
 
   // ---------------- Share prices from a Google Sheet (v3.75.0) ----------------
   // Read once a day on open when a link is set; "Read now" reads on demand. Either way the result

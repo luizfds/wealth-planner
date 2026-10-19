@@ -1249,3 +1249,15 @@
   @media (max-width:480px){ .fr-costs{ grid-template-columns: 1fr; } }
   .bank-maybe-list{ margin:6px 0 0; padding-left:18px; font-size:12px; line-height:1.6; }
   .bank-maybe-list b{ font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight:600; }
+
+  /* ---------------- Trips (v3.78.0) ---------------- */
+  .trip-list{ list-style:none; margin:10px 0; padding:0; display:flex; flex-direction:column; }
+  .trip-row{ display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px 0; border-bottom:1px dashed var(--border); }
+  .trip-main{ display:flex; flex-direction:column; min-width:0; }
+  .trip-main span{ font-size:12px; color: var(--ink-soft); }
+  .trip-side{ display:flex; align-items:center; gap:8px; flex-shrink:0; }
+  .trip-spent{ font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+  .trip-add{ display:grid; grid-template-columns: 1.3fr 1fr 1fr 1.4fr auto; gap:8px; align-items:end; margin-top:10px; }
+  .trip-add select, .trip-add input{ width:100%; min-width:0; min-height:36px; }
+  .bank-import-badge.is-trip{ background: color-mix(in srgb, var(--brass) 18%, transparent); color: var(--brass-strong); }
+  @media (max-width:700px){ .trip-add{ grid-template-columns: 1fr 1fr; } .trip-add .fr-field:first-child, .trip-add .fr-field:last-of-type, .trip-add button{ grid-column: 1 / -1; } }

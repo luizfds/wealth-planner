@@ -15,6 +15,8 @@ import { fmtCurrency0, fmtCurrency2 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { loggableBudgetLineItems, budgetLineOptgroupsHtml, sortedCategories } from "./expenses.js";
 import { incomeTargets, logIncomeReceived, deleteIncomeReceived } from "../calc/received.js";
+import { tripOn, tripTakes } from "../calc/trips.js";
+import { tripProtectedLineIds } from "./trips.js";
 
 // Session-only. Nothing here is persisted until commitBankImport() — a half-reviewed import that
 // survived a reload would be a pile of decisions the user has no memory of making.
@@ -32,7 +34,7 @@ function genId(prefix){ return prefix + "_" + Math.random().toString(36).slice(2
 function groupRows(rows){
   var byKey = {}, order = [];
   rows.forEach(function(row){
-    var key = merchantKey(row.description) || "(no description)";
+    var key = (row.tripId ? "trip:" + row.tripId + ":" : "") + (merchantKey(row.description) || "(no description)");
     if(!byKey[key]){
       byKey[key] = {
         key: key,
@@ -41,7 +43,8 @@ function groupRows(rows){
         label: row.description || "(no description)",
         rows: [], total: 0,
         choice: { linkedExpenseId: row.suggestion.linkedExpenseId, category: row.suggestion.category, account: row.suggestion.account, transferAccount: row.suggestion.transferAccount || "" },
-        source: row.suggestion.source
+        source: row.suggestion.source,
+        tripId: row.tripId || null, tripName: row.tripName || ""
       };
       order.push(key);
     }
@@ -104,6 +107,19 @@ function rebuildBankImport(parsed, fileName, rawRows, includePossibleDuplicates)
   var keepAccount = bankImport && bankImport.fileName === (fileName || "") ? bankImport.account : null;
   var statementAccount = keepAccount != null ? keepAccount : guessStatementAccount(fileName);
   var suggested = applySuggestions(parsed.rows, state.importRules, lines);
+  // v3.78.0: spending inside a trip's dates goes to the trip's line, ahead of the merchant rules —
+  // except bills that happen to land on those days (see calc/trips.js tripTakes).
+  var protectedIds = tripProtectedLineIds();
+  suggested.forEach(function(r){
+    if(r.direction !== "debit") return;
+    var trip = tripOn(r.date, state.trips);
+    if(!trip || !trip.lineId || !lines.some(function(l){ return l.id === trip.lineId; })) return;
+    var current = r.suggestion && r.suggestion.linkedExpenseId ? lines.find(function(l){ return l.id === r.suggestion.linkedExpenseId; }) : null;
+    if(r.suggestion && r.suggestion.transferAccount) return;
+    if(!tripTakes(current, protectedIds)) return;
+    r.tripId = trip.id; r.tripName = trip.name;
+    r.suggestion = Object.assign({}, r.suggestion, { linkedExpenseId: trip.lineId, category: "", source: "trip" });
+  });
   var includeMaybes = !!includePossibleDuplicates;
   var spend = suggested.filter(function(r){
     if(r.direction !== "debit" || r.duplicate) return false;
@@ -439,7 +455,8 @@ function groupRowHtml(g){
   var badge = g.source === "rule"
     ? '<span class="bank-import-badge is-rule" title="From a rule you taught this app on an earlier import">learned</span>'
     : (g.source === "name" ? '<span class="bank-import-badge" title="Matched to a budget line by name — worth a glance">guessed</span>' : "");
-  if(g.choice.transferAccount) badge = '<span class="bank-import-badge is-transfer" title="Money moved between your own accounts — saved as a transfer, not spending or income">transfer</span>';
+  if(g.tripId && g.choice.linkedExpenseId) badge = '<span class="bank-import-badge is-trip" title="Inside the dates of a trip, so filed to the trip\'s line. Pick another line to file it elsewhere.">trip · ' + escapeAttr(g.tripName) + '</span>';
+  else if(g.choice.transferAccount) badge = '<span class="bank-import-badge is-transfer" title="Money moved between your own accounts — saved as a transfer, not spending or income">transfer</span>';
   else if(g.transferHint) badge = '<span class="bank-import-badge is-transfer" title="Reads like a transfer between your own accounts. If it is, pick the account under Transfer.">looks like a transfer</span>';
   else if(g.isCredit && g.source === "rule") badge = '<span class="bank-import-badge is-rule" title="Matched to an income line by a rule you taught this app on an earlier import">learned · money in</span>';
   else if(g.isCredit) badge = '<span class="bank-import-badge is-credit" title="Money in. Assign it to an income line to log it as received, or to a budget line to import it as a refund against that line.">money in</span>';
@@ -683,7 +700,8 @@ export function commitBankImport(){
     // teaches its rule — which turns next month's "guessed" into "learned" and makes the coverage
     // number climb with use rather than staying wherever the line names happened to land it.
     var before = state.importRules.length;
-    learnRule(state.importRules, g.label, g.choice, function(){ return genId("rule"); });
+    // A trip's rows say where the trip went, not where this merchant belongs — nothing to learn.
+    if(!g.tripId) learnRule(state.importRules, g.label, g.choice, function(){ return genId("rule"); });
     if(state.importRules.length > before) learned++;
   });
   // The statement's closing balance onto its account (v3.64.0), remembering what it was for undo.

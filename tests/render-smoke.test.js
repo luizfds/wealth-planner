@@ -1238,3 +1238,17 @@ test("Investments → Shares: the price sheet card and its template", async func
     assert.equal(grid[1][1], '=GOOGLEFINANCE("ASX:FRN","price")');
   } finally { state.assets = keepA; state.priceSheet = keepP; }
 });
+
+test("Cash flow → Spending → Trips: the card lists trips and offers the move", async function(){
+  const { tripsCardHtml } = await import("../src/components/trips.js");
+  var keep = { trips: state.trips, shared: state.shared, transactions: state.transactions };
+  try {
+    state.shared = [{ id: "trips", what: "Trips", freq: "Yearly", irregular: true, amount: 1000 }, { id: "cafe", what: "Coffee", freq: "Weekly", irregular: true, amount: 20 }];
+    state.trips = [{ id: "t1", name: "Coast", from: "2026-03-10", to: "2026-03-13", lineId: "trips" }];
+    state.transactions = [{ id: "a", date: "2026-03-11", amount: 6, linkedExpenseId: "cafe" }];
+    var html = tripsCardHtml();
+    assert.match(html, /Coast/);
+    assert.match(html, /data-trip-move="t1"[^>]*>Move 1 here/);
+    assert.match(html, /data-trip-add/);
+  } finally { Object.assign(state, keep); }
+});

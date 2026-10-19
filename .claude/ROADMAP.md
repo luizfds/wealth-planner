@@ -2361,6 +2361,21 @@ template a weekly-close block per holding so history before the first logged pri
 
 Shipped as v3.75.0: Investments → Shares → Prices from Google Sheets. The template adds a weekly-close block per holding (from its first lot, or a chosen date); a sheet shared as "anyone with the link" (or a Publish-to-web CSV link) is read once a day on open. Backfill only fills weeks before a holding's first recorded price and never overwrites one. The service worker leaves Google Sheets requests alone so an offline copy can't be applied as today's prices. `calc/pricesheet.js`, `components/pricesheet.js`.
 
+## 112. `[~]` Updates never mix old and new script files
+A page can load new while one module is still an old cached copy (seen with the price template).
+
+## 113. `[~]` Statement import flags what was logged by hand
+Same amount within a few days on the same account, whatever the description.
+
+## 114. `[~]` Card repayments as transfers
+Payments to a card, on either statement, suggested as a transfer between the two accounts.
+
+## 115. `[~]` Trips as date ranges
+Spending inside a trip's dates files to the trip's line, on import and for what's already logged.
+
+## 116. `[~]` A property manager's statement in one step
+Rent, fees, water and other costs from one statement entered together.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

@@ -8,6 +8,7 @@ import { monthFigures, shiftMonth } from "./monthdetail.js";
 import { totalNetWorthValue, toAudAmount } from "./engine.js";
 import { periodsOf } from "./ledger.js";
 import { localDateStr } from "../lib/format.js";
+import { trimReport } from "./trim.js";
 
 // ---------------- What the app notices (v3.98.0) ----------------
 //
@@ -213,6 +214,25 @@ export function adviceFor(opts){
       detail: "Three months running. " + (d.gap < 0 ? "Usually extra withholding (it comes back as a refund) or something taken from pay. " : "") + "Every projection and scenario uses the plan's figure until it's updated.",
       impactYearly: r0(d.gap * 12), go: { page: "expenses", sub: "income" } });
   });
+
+  // ---- v3.100.0: the plan carrying more than is spent, and what trimming would do to a purchase ----
+  var trim = null;
+  try { trim = trimReport({ today: today }); } catch(e){ trim = null; }
+  if(trim && trim.overYearly >= 1000){
+    add({ id: "plan-padding", area: "cashflow", kind: "opportunity", title: "The plan budgets " + money(trim.overYearly) + " a year more than you spend",
+      detail: trim.over.slice(0, 3).map(function(x){ return x.what + " (" + money(x.planned) + " budgeted, " + money(x.actual) + " spent)"; }).join(", ") + (trim.over.length > 3 ? " and " + (trim.over.length - 3) + " more" : "") +
+        ". Every scenario plans with these amounts, so each one looks about " + money(trim.overYearly / 12) + " a month worse than it is. Cash flow → Budget → Trim sets them to what you actually spend.",
+      impactYearly: null, go: { page: "expenses", sub: "budget" } });
+  }
+  if(trim && trim.flexibleYearly > 0){
+    buys.forEach(function(c){
+      if(!out.some(function(x){ return x.id === "buy-stress:" + c.scenario; })) return;
+      var half = trim.flexibleYearly / 24;
+      add({ id: "buy-lean:" + c.scenario, area: "plan", kind: "info", title: c.scenario + " run lean: about " + money(half) + "/mo more",
+        detail: "Halving the flexible lines (" + trim.flexible.slice(0, 3).map(function(f){ return f.what; }).join(", ") + (trim.flexible.length > 3 ? "…" : "") + ") in this scenario would leave about " + leaves(c.regularNetMonthly + half) + " in a normal month. Cash flow → Budget → Trim runs it lean without touching your budget.",
+        impactYearly: null, go: { page: "expenses", sub: "budget" } });
+    });
+  }
 
   var order = { risk: 0, opportunity: 1, info: 2, good: 3 };
   return out.sort(function(a, b){ return order[a.kind] - order[b.kind] || (Math.abs(b.impactYearly || 0) - Math.abs(a.impactYearly || 0)); });

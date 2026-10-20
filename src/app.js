@@ -93,6 +93,8 @@ import { unbudgetedRecurring, risingLines, catchAllSuggestions } from "./calc/re
 import { learnRule } from "./calc/import-rules.js";
 import { pdfLines } from "./lib/pdftext.js";
 import { renderAdvice, adviceUi } from "./components/advice.js";
+import { renderTrim, trimUi, trimScenario } from "./components/trim.js";
+import { setLeanLevel, leanLevel, trimReport } from "./calc/trim.js";
 import { adviceFor } from "./calc/advice.js";
 import { householdSummary } from "./calc/aisummary.js";
 import { askUi, setAiKey, setAiModel, askClaude, setLastReview, copyPrompt } from "./components/askclaude.js";
@@ -4713,6 +4715,54 @@ import {
     }
   });
 
+  // ---------------- Cash flow → Budget → Trim (v3.100.0) ----------------
+  var trimBody = document.getElementById("trimBody");
+  function afterTrimChange(){ recalcComputedItems(); persist(); renderAll(); }
+  trimBody.addEventListener("click", function(e){
+    var one = e.target.closest("[data-trim-set]");
+    if(one){
+      var line = state.shared.find(function(l){ return l.id === one.getAttribute("data-trim-set"); });
+      if(!line) return;
+      var was = line.amount;
+      line.amount = Number(one.getAttribute("data-trim-to")) || 0;
+      afterTrimChange();
+      showUndoToast((line.what || "Line") + " set to what you spend", function(){ line.amount = was; afterTrimChange(); });
+      return;
+    }
+    if(e.target.closest("[data-trim-set-all]")){
+      var rep = trimReport({ today: localDateStr() });
+      var before = rep.over.map(function(x){ var l = state.shared.find(function(y){ return y.id === x.id; }); return l ? { l: l, was: l.amount, to: x.suggested } : null; }).filter(Boolean);
+      before.forEach(function(b){ b.l.amount = b.to; });
+      afterTrimChange();
+      showUndoToast(before.length + " lines set to what you spend — " + fmtCurrency0.format(rep.overYearly) + "/yr out of the plan", function(){ before.forEach(function(b){ b.l.amount = b.was; }); afterTrimChange(); });
+      return;
+    }
+    var lv = e.target.closest("[data-trim-level]");
+    if(lv){
+      var ln = state.shared.find(function(l){ return l.id === lv.getAttribute("data-trim-line"); });
+      if(!ln) return;
+      setLeanLevel(ln, trimScenario(), lv.getAttribute("data-trim-level"));
+      afterTrimChange();
+      return;
+    }
+    if(e.target.closest("[data-trim-clear]")){
+      var sc = trimScenario();
+      state.shared.forEach(function(l){ var k = leanLevel(l, sc); if(k === "half" || k === "pause") setLeanLevel(l, sc, "keep"); });
+      afterTrimChange();
+    }
+  });
+  trimBody.addEventListener("change", function(e){
+    if(e.target.matches("[data-trim-scenario]")){ trimUi.scenario = e.target.value; renderTrim(); return; }
+    if(e.target.matches("[data-trim-flex]")){
+      var l = state.shared.find(function(x){ return x.id === e.target.getAttribute("data-trim-flex"); });
+      if(!l) return;
+      l.flexible = !!e.target.checked;
+      trimUi.markOpen = true;
+      persist(); renderTrim(); renderAdvice();
+    }
+  });
+  trimBody.addEventListener("toggle", function(e){ if(e.target.matches && e.target.matches("[data-trim-mark]")) trimUi.markOpen = e.target.open; }, true);
+
   function renderAll(){
     document.getElementById("projHorizon").value = state.projection.horizonYears;
     document.getElementById("projInvestRate").value = state.projection.investReturnRate;
@@ -4773,6 +4823,7 @@ import {
     renderSafekeeping();
     renderSavingsGoals();
     renderAdvice();
+    renderTrim();
     renderRecurring();
     renderTrips();
     renderRetirement();

@@ -95,8 +95,8 @@ var KINDS = [
   { name: "Alcohol", category: "Eating out", re: /\b(bws|dan murphy|liquorland|first choice|vintage cellars|liquor|bottle ?shop|cellars?)\b/ },
   { name: "Home & garden", category: "Home", re: /\b(bunnings|ikea|mitre ?10|amart|fantastic furniture|freedom|harvey norman|temple ?& ?webster|officeworks)\b/ },
   { name: "Household", category: "Shopping", re: /\b(kmart|big w|target|daiso|spotlight|the reject shop|myer|david jones)\b/ },
-  { name: "Pharmacy", category: "Health", re: /\b(chemist|cwh|priceline|pharmacy|aph|terrywhite|amcal)\b/ },
-  { name: "Kids & play", category: "Kids", re: /\b(iplay|timezone|kids|playground|toy|lego)\b/ }
+  { name: "Pharmacy", category: "Health", re: /\b(chemist|cwh|priceline|pharmacy|terrywhite|amcal)\b/ },
+  { name: "Kids & play", category: "Kids", re: /\b(timezone|kids|playground|toy|lego)\b/ }
 ];
 function kindOf(key){ return KINDS.find(function(k){ return k.re.test(key); }) || null; }
 

@@ -2446,8 +2446,10 @@ A notification a few days before a card's repayment, with the amount from the cl
 
 Shipped as v3.89.0: `lib/notifications.js` `cardPaymentReminders` — 0–5 days ahead (warn from a day out), and up to 7 days after with nothing logged; opens Cash flow → Bills.
 
-## 127. `[~]` Rule suggestions for catch-all lines
+## 127. `[x]` Rule suggestions for catch-all lines
 Payees that repeat inside Misc-type lines are suggested as an import rule or their own line.
+
+Shipped as v3.90.0: `calc/recurring.js` `catchAllSuggestions` — lines named misc/extras/other/sundry/general; payees of one kind grouped (alcohol, home & garden, household, pharmacy, kids & play); ≥3 purchases and ≥$100 in the last year. Cash flow → Budget → Recurring payments: "Make it a line" (or "Move to" an existing line of that name) moves the purchases and learns an import rule per payee; undoable.
 
 ## 128. `[~]` Broker trade import
 A broker's trade history CSV (CommSec, Stake, or any file with date, code, buy/sell, units and price) into each holding's purchase lots and sales.

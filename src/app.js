@@ -89,10 +89,11 @@ import { chooseFolder, backupToFolder, forgetFolder, maybeAutoBackup, setPasscod
 import { renderSafekeeping } from "./components/safekeeping.js";
 import { goalsSectionHtml, goalOpen } from "./components/savegoals.js";
 import { addSavingsGoal } from "./calc/savegoals.js";
-import { unbudgetedRecurring, risingLines } from "./calc/recurring.js";
+import { unbudgetedRecurring, risingLines, catchAllSuggestions } from "./calc/recurring.js";
+import { learnRule } from "./calc/import-rules.js";
 import { recordRentReview } from "./calc/propertylife.js";
 import { retirementHtml, retireLevers } from "./components/retirement.js";
-import { recurringHtml, recurringDismissed } from "./components/recurring.js";
+import { recurringHtml, recurringDismissed, catchAllShown } from "./components/recurring.js";
 import { renderReports, reportShown, reportPrintHtml, reportCsv } from "./components/reports.js";
 import { monthDetailUi, shownMonth as mdShownMonth } from "./components/monthdetail.js";
 import { shiftMonth as mdShiftMonth } from "./calc/monthdetail.js";
@@ -4975,14 +4976,15 @@ import {
 
   // ---------------- Cash flow → Budget → Recurring payments (v3.66.0) ----------------
   function currentRecurring(){
-    return { u: unbudgetedRecurring(state.transactions, localDateStr()), r: risingLines(loggableBudgetLineItems(), state.transactions) };
+    return { u: unbudgetedRecurring(state.transactions, localDateStr()), r: risingLines(loggableBudgetLineItems(), state.transactions),
+      c: catchAllSuggestions(loggableBudgetLineItems(), state.transactions, localDateStr()) };
   }
   function renderRecurring(){
     var el = document.getElementById("recurringBody");
     if(!el) return;
     var c = currentRecurring();
-    el.innerHTML = recurringHtml(c.u, c.r);
-    var n = c.u.filter(function(x){ return !recurringDismissed.keys["u:" + x.key]; }).length + c.r.filter(function(x){ return !recurringDismissed.keys["r:" + x.id + ":" + x.recent]; }).length;
+    el.innerHTML = recurringHtml(c.u, c.r, c.c);
+    var n = c.u.filter(function(x){ return !recurringDismissed.keys["u:" + x.key]; }).length + c.r.filter(function(x){ return !recurringDismissed.keys["r:" + x.id + ":" + x.recent]; }).length + catchAllShown(c.c);
     var cnt = document.getElementById("recurringCount");
     if(cnt) cnt.textContent = n ? n + " to look at" : "";
   }
@@ -5001,6 +5003,33 @@ import {
       showUndoToast("Added " + line.what + " to the budget and linked " + x.count + " charges", function(){
         x.indices.forEach(function(i){ if(state.transactions[i] && state.transactions[i].linkedExpenseId === line.id) state.transactions[i].linkedExpenseId = null; });
         state.shared = state.shared.filter(function(l){ return l.id !== line.id; });
+        persist(); renderAll();
+      });
+      return;
+    }
+    var split = e.target.closest("[data-rc-split]");
+    if(split){
+      var sg = currentRecurring().c.find(function(y){ return y.id === split.getAttribute("data-rc-split"); });
+      if(!sg) return;
+      var from = loggableBudgetLineItems().find(function(l){ return l.id === sg.lineId; }) || {};
+      var target = sg.existingLineId, created = null;
+      if(!target){
+        var cats = (state.categories || []).map(function(c){ return typeof c === "string" ? c : c && c.name; });
+        var lastT = state.transactions[sg.indices[sg.indices.length - 1]] || {};
+        created = { id: genId("exp"), what: sg.name, classification: "Wants", category: sg.category && cats.indexOf(sg.category) !== -1 ? sg.category : (from.category || ""),
+          account: lastT.account || from.account || "", amount: Math.round(sg.monthly), freq: "Monthly", irregular: false, dueMonth: null };
+        state.shared.push(created);
+        target = created.id;
+      }
+      var rulesBefore = JSON.parse(JSON.stringify(state.importRules || []));
+      sg.indices.forEach(function(i){ if(state.transactions[i]) state.transactions[i].linkedExpenseId = target; });
+      if(!state.importRules) state.importRules = [];
+      sg.keys.forEach(function(k){ learnRule(state.importRules, k, { linkedExpenseId: target }, function(){ return genId("rule"); }); });
+      persist(); renderAll();
+      showUndoToast("Moved " + sg.count + " purchases to " + (created ? created.what : sg.existingWhat) + " — future imports go there too", function(){
+        sg.indices.forEach(function(i){ if(state.transactions[i] && state.transactions[i].linkedExpenseId === target) state.transactions[i].linkedExpenseId = sg.lineId; });
+        if(created) state.shared = state.shared.filter(function(l){ return l.id !== created.id; });
+        state.importRules = rulesBefore;
         persist(); renderAll();
       });
       return;

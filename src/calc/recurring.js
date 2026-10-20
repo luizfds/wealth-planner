@@ -81,3 +81,53 @@ export function risingLines(lines, transactions){
   });
   return out.sort(function(a, b){ return b.extraMonthly - a.extraMonthly; });
 }
+
+// ---------------- What's hiding in a catch-all line (v3.90.0) ----------------
+//
+// "Misc." and "Extras" end up holding a real share of spending, and a line that holds everything
+// says nothing about any of it. The same payees come up again and again inside them — the hardware
+// store, the bottle shop — and each of those is a line waiting to be named. Payees of one kind are
+// grouped (three bottle shops are one "Alcohol" line, not three), and each group is offered as its
+// own line, or as a move to a line that already exists with that name. Pure.
+var CATCH_ALL = /\b(misc|miscellaneous|extras?|other|sundr(y|ies)|general|uncategori[sz]ed)\b/i;
+export function isCatchAllLine(line){ return !!(line && CATCH_ALL.test(String(line.what || ""))); }
+var KINDS = [
+  { name: "Alcohol", category: "Eating out", re: /\b(bws|dan murphy|liquorland|first choice|vintage cellars|liquor|bottle ?shop|cellars?)\b/ },
+  { name: "Home & garden", category: "Home", re: /\b(bunnings|ikea|mitre ?10|amart|fantastic furniture|freedom|harvey norman|temple ?& ?webster|officeworks)\b/ },
+  { name: "Household", category: "Shopping", re: /\b(kmart|big w|target|daiso|spotlight|the reject shop|myer|david jones)\b/ },
+  { name: "Pharmacy", category: "Health", re: /\b(chemist|cwh|priceline|pharmacy|aph|terrywhite|amcal)\b/ },
+  { name: "Kids & play", category: "Kids", re: /\b(iplay|timezone|kids|playground|toy|lego)\b/ }
+];
+function kindOf(key){ return KINDS.find(function(k){ return k.re.test(key); }) || null; }
+
+export function catchAllSuggestions(lines, transactions, today, opts){
+  opts = opts || {};
+  var minCount = opts.minCount || 3, minTotal = opts.minTotal || 100;
+  var since = String(Number(String(today).slice(0, 4)) - 1) + String(today).slice(4);
+  var others = (lines || []).filter(function(l){ return l && l.id && !isCatchAllLine(l); });
+  var out = [];
+  (lines || []).filter(isCatchAllLine).forEach(function(line){
+    var groups = {};
+    (transactions || []).forEach(function(t, i){
+      if(!t || t.linkedExpenseId !== line.id || !t.date || t.date <= since) return;
+      var key = merchantKey(t.what || "");
+      if(!key) return;
+      var k = kindOf(key);
+      var gk = k ? "kind:" + k.name : "m:" + key;
+      var g = groups[gk] || (groups[gk] = { name: k ? k.name : suggestedLineName(key), category: k ? k.category : "", keys: [], indices: [], total: 0 });
+      if(g.keys.indexOf(key) === -1) g.keys.push(key);
+      g.indices.push(i);
+      g.total += Number(t.amount) || 0;
+    });
+    Object.keys(groups).forEach(function(gk){
+      var g = groups[gk];
+      if(g.indices.length < minCount || g.total < minTotal) return;
+      var lower = g.name.toLowerCase();
+      var existing = others.find(function(l){ return String(l.what || "").trim().toLowerCase() === lower; }) || null;
+      out.push({ id: line.id + "|" + gk, lineId: line.id, lineWhat: line.what || "", name: g.name, category: g.category, keys: g.keys,
+        indices: g.indices, count: g.indices.length, total: round(g.total), monthly: round(g.total / 12),
+        existingLineId: existing ? existing.id : null, existingWhat: existing ? existing.what : "" });
+    });
+  });
+  return out.sort(function(a, b){ return b.total - a.total; });
+}

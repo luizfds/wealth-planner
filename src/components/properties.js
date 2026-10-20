@@ -555,6 +555,7 @@ function agentStatementHtml(p, win){
   var defAcct = (p.income && p.income[0] && p.income[0].account) || "";
   return '<details class="agent-stmt"' + (agentStatementUi.open[p.id] ? ' open' : '') + ' data-as-panel="' + escapeAttr(p.id) + '"><summary>Log a property manager statement</summary>' +
     '<p class="ledger-note">One statement in one go: what was collected, what was paid out of it, and what reached you. Rent received and any bills paid from the rent are logged for you.</p>' +
+    '<p class="agent-pdf"><label class="btn btn-sm btn-ghost">Fill from the statement PDF<input type="file" accept=".pdf,application/pdf" data-as-pdf hidden></label></p>' +
     '<div class="agent-grid">' +
       '<label class="fr-field"><span>Statement date</span><input type="date" data-as="date" value="' + escapeAttr(localDateStr()) + '"></label>' +
       field("rent", "Rent collected $") + field("water", "Water usage recovered $") +

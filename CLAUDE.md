@@ -64,7 +64,9 @@ the last, so two sessions can't pick up the same one.
   in, out and transfers; splits; bulk edit), `bills.js` (the bills calendar), `investments.js`
   (portfolio performance, distributions by year, super against the cap), `reports.js`,
   `savegoals.js` (savings goals on account balances), `firstrun.js` (the first-run setup's answers into rows), `pricesheet.js` (share prices and weekly backfill read from a shared Google Sheet), `trips.js` (spending in a trip's dates filed to its line), `agentstatement.js` (a property manager's statement in one step), `monthdetail.js` (a month against your own usual month), `nwcheck.js` (whether what you kept explains how net worth moved), `recurring.js` (repeating payees and rising
-  lines) and `nwhistory.js` (net worth on a past date).
+  lines; what's hiding in a catch-all line), `nwhistory.js` (net worth on a past date), `takehome.js` (pay
+  received against the plan), `canbuy.js` (Plan → Can we buy?), `brokertrades.js` (a broker's trade
+  history into lots) and `pdfstatement.js` (a PDF bank, card or property manager statement into rows).
 - `src/components/{dashboard,home,income,taxyear,expenses,cashflow,accounts,assets,investments,
   properties,projections,scenarios,reports,rules,period,safekeeping,savegoals,recurring,yearend,nav,
   bank-import,search,people,received,health,junemoves,monthreview}.js` — one file per page (plus `nav.js` for routing/page-switching, and
@@ -86,6 +88,9 @@ the last, so two sessions can't pick up the same one.
 - `src/lib/backup.js` — JSON backup export/import (with optional Web Crypto passphrase
   encryption) and per-section CSV export. `applyImportedBackupJson` stays in `app.js` since it
   calls the permanent-resident `renderAll()`.
+- `vendor/pdfjs/` — pdf.js (Apache-2.0, its LICENSE alongside), vendored rather than loaded from a CDN so PDF
+  import works offline and never depends on a third-party host. Loaded only when a PDF is chosen
+  (`src/lib/pdftext.js`); outside `src/`, so `npm run stamp` leaves it alone.
 - `manifest.webmanifest`, `sw.js`, `icons/` — installable PWA support. The manifest's
   `start_url`/`scope` are `"."` (relative to the manifest's own URL) rather than an absolute
   path, so the same file works unmodified from both local dev (served at root) and GitHub Pages

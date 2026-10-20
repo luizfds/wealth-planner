@@ -91,6 +91,8 @@ import { goalsSectionHtml, goalOpen } from "./components/savegoals.js";
 import { addSavingsGoal } from "./calc/savegoals.js";
 import { unbudgetedRecurring, risingLines, catchAllSuggestions } from "./calc/recurring.js";
 import { learnRule } from "./calc/import-rules.js";
+import { pdfLines } from "./lib/pdftext.js";
+import { statementFromLines, statementCsv, agentStatementFromLines } from "./calc/pdfstatement.js";
 import { tradesUi, readTradesText, currentTradePlan } from "./components/brokertrades.js";
 import { applyTrades } from "./calc/brokertrades.js";
 import { recordRentReview } from "./calc/propertylife.js";
@@ -1895,6 +1897,35 @@ import {
       agentStatementUi.open[prop.id] = true;
       recalcComputedItems(); persist(); renderAll();
     }
+  });
+  // v3.92.0: fill the statement form from the manager's PDF; the person checks it and logs it.
+  document.getElementById("propertiesBody").addEventListener("change", function(e){
+    if(!e.target.matches || !e.target.matches("[data-as-pdf]")) return;
+    var file = e.target.files && e.target.files[0];
+    var asPanel = e.target.closest("[data-as-panel]");
+    e.target.value = "";
+    if(!file || !asPanel) return;
+    showToast("Reading the statement…");
+    file.arrayBuffer().then(function(buf){ return pdfLines(new Uint8Array(buf)); }).then(function(lines){
+      var r = agentStatementFromLines(lines);
+      if(!(r.rent > 0)){ showToast("Couldn't find the rent in that PDF — type it in"); return; }
+      var set = function(k, v){ var el = asPanel.querySelector('[data-as="' + k + '"]'); if(el) el.value = v; };
+      if(r.date) set("date", r.date);
+      set("rent", r.rent || ""); set("water", r.water || ""); set("fees", r.fees || ""); set("waterRates", r.waterRates || "");
+      var other = r.others.reduce(function(t, o){ return t + o.amount; }, 0);
+      set("otherAmount", other ? Math.round(other * 100) / 100 : "");
+      var sel = asPanel.querySelector('[data-as="otherLine"]');
+      if(sel && r.others.length){
+        var want = r.others[0].what.toLowerCase();
+        var hit = Array.prototype.find.call(sel.options, function(o){ return want.indexOf(o.text.toLowerCase().split(" ")[0]) !== -1; });
+        if(hit) sel.value = hit.value;
+      }
+      var out = asPanel.querySelector("[data-as-net]"), net = statementTotals(agentStatementFormValues(asPanel)).net;
+      if(out) out.textContent = fmtCurrency2.format(net);
+      showToast(r.received != null && Math.abs(net - r.received) >= 0.01
+        ? "Filled — but it adds to " + fmtCurrency2.format(net) + ", the statement says " + fmtCurrency2.format(r.received) + ". Check it before logging."
+        : "Filled from the statement" + (r.others.length ? " (other: " + r.others.map(function(o){ return o.what; }).join(", ") + ")" : "") + " — check it, then Log statement");
+    }).catch(function(){ showToast("Couldn't read that PDF"); });
   });
   document.getElementById("propertiesBody").addEventListener("input", function(e){
     if(!e.target.matches || !e.target.matches("[data-as]")) return;
@@ -3906,6 +3937,19 @@ import {
     var file = e.target.files[0];
     e.target.value = "";
     if(!file) return;
+    // v3.92.0: a PDF statement is read into the same CSV the import already understands.
+    if(/\.pdf$/i.test(file.name) || file.type === "application/pdf"){
+      showToast("Reading the PDF…");
+      file.arrayBuffer().then(function(buf){ return pdfLines(new Uint8Array(buf)); }).then(function(lines){
+        var st = statementFromLines(lines);
+        if(!st.rows.length){ showToast("Couldn't find transactions in that PDF — a CSV export from your bank will work"); return; }
+        startBankImport(statementCsv(st.rows), file.name);
+        renderBankImportPanel();
+        var card = document.getElementById("bankImportCard");
+        if(card) card.scrollIntoView({ behavior: "smooth", block: "start" });
+      }).catch(function(){ showToast("Couldn't read that PDF"); });
+      return;
+    }
     var reader = new FileReader();
     reader.onload = function(){
       var text = String(reader.result);

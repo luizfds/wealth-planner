@@ -2456,8 +2456,10 @@ A broker's trade history CSV (CommSec, Stake, or any file with date, code, buy/s
 
 Shipped as v3.91.0: `calc/brokertrades.js` — `parseTrades` (CommSec Details "B 100 IVV @ 41.25" with brokerage from Debit/Credit; otherwise header-matched columns, a negative quantity reads as a sell), `planTrades` (per code: which holding — a choice when several share a symbol, or leave out; skips trades already there; says when the lots won't match the units held), `applyTrades` (buys → lots; sells → FIFO sales by date, units held untouched). Investments → Shares → Import trades from your broker; undoable.
 
-## 129. `[~]` PDF statement import
+## 129. `[x]` PDF statement import
 Bank, card and property manager statements read from the PDF in the browser, into the same import flow as a CSV.
+
+Shipped as v3.92.0: pdf.js vendored under `vendor/pdfjs/` (Apache-2.0, loaded only when a PDF is chosen); `lib/pdftext.js` rebuilds positioned lines; `calc/pdfstatement.js` `statementFromLines` (header columns matched by right edge; a transaction starts with a date in the date column and takes up to three lines below; yearless dates from a month heading or the statement's range, nearest the previous row; opening/closing/brought-forward lines skipped; a margin note glued to the date is split off) → `statementCsv` → the normal bank import. `agentStatementFromLines` fills Property → Log a property manager statement from the manager's PDF (Money In/Money Out columns; the form is filled, not logged). Checked outside the repo against real ING, CommBank, Macquarie and card statements: every running balance chains, and the card matched an earlier parse row for row.
 
 ## 130. `[~]` Share a statement to the app
 Installed on a phone, the app is a share target: a statement shared from a banking app opens in the import screen.

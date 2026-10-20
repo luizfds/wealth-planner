@@ -2421,6 +2421,33 @@ no payment for a while is asked about once instead. The card payment says what i
 
 Shipped as v3.84.0: `billsForMonth` skips lines ended before the month or not yet started, and drops dates outside `isActiveOn`; a line with no end date whose last payment is more than 2.5 periods + 7 days before today drops its later dates and is listed under "Stopped?" with "It ended then" (sets `endDate` to the last payment). `cardPaymentsForMonth` takes `kindOf` and splits the cycle's charges into bills, spending budgets and other.
 
+## 122. `[~]` Loan purpose: claim only the deductible share
+What a loan's money was used for decides whether its interest is deductible, not the property that secures it. Each loan records the share used to invest; Tax claims only that share of the interest, and a split drawn for your own home stops counting.
+
+## 123. `[~]` Checks for missing deductions
+Settings → Checks flags deductions the data says are being missed: a post-1987 build with no construction cost and no depreciation schedule, borrowing costs not entered, a split with no purpose.
+
+## 124. `[~]` Update the plan from pay received
+When the pay logged for a person has sat clearly above or below the plan for three months, offer to set the plan to what's actually arriving.
+
+## 125. `[~]` Can we buy?
+For each Buy scenario: the deposit taken from the offsets, stamp duty (no first-home concessions once a property is owned), the investment-loan interest that rises when the offset empties, and the new monthly position.
+
+## 126. `[~]` Card payment reminder
+A notification a few days before a card's repayment, with the amount from the closed statement cycle.
+
+## 127. `[~]` Rule suggestions for catch-all lines
+Payees that repeat inside Misc-type lines are suggested as an import rule or their own line.
+
+## 128. `[~]` Broker trade import
+A broker's trade history CSV (CommSec, Stake, or any file with date, code, buy/sell, units and price) into each holding's purchase lots and sales.
+
+## 129. `[~]` PDF statement import
+Bank, card and property manager statements read from the PDF in the browser, into the same import flow as a CSV.
+
+## 130. `[~]` Share a statement to the app
+Installed on a phone, the app is a share target: a statement shared from a banking app opens in the import screen.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

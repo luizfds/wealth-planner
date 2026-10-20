@@ -2441,8 +2441,10 @@ For each Buy scenario: the deposit taken from the offsets, stamp duty (no first-
 
 Shipped as v3.88.0: `calc/canbuy.js` — cash drawn from Cash assets, then own-savings offsets (cheapest loan first), then an offset on a loan settled after the purchase ("borrowed money": its extra interest isn't deductible if spent on a home); tax back at each owner's marginal rate + Medicare on the deductible part; a normal month from `scenarioTotals().regularNetMonthly` against the first non-buying scenario; flags first home buyer ticked while owning. Plan → Scenarios → Can we buy?.
 
-## 126. `[~]` Card payment reminder
+## 126. `[x]` Card payment reminder
 A notification a few days before a card's repayment, with the amount from the closed statement cycle.
+
+Shipped as v3.89.0: `lib/notifications.js` `cardPaymentReminders` — 0–5 days ahead (warn from a day out), and up to 7 days after with nothing logged; opens Cash flow → Bills.
 
 ## 127. `[~]` Rule suggestions for catch-all lines
 Payees that repeat inside Misc-type lines are suggested as an import rule or their own line.

@@ -5327,6 +5327,7 @@ document.getElementById("notifPanelRoot").addEventListener("click", function(e){
     var notifSub = item.getAttribute("data-notif-sub");
     if(notifSub && item.getAttribute("data-notif-page") === "dashboard"){ showDashboardSubpage(notifSub); if(notifSub === "review") renderMonthReview(); }
     if(notifSub && item.getAttribute("data-notif-page") === "accounts"){ showAccountsSubpage(notifSub); if(notifSub === "checks") renderHealth(); }
+    if(notifSub && item.getAttribute("data-notif-page") === "expenses") showExpensesSubpage(notifSub, { replace: true });
   }
 });
 // Cheap enough to run on the same "tab regains focus" signal as the update checker below — local

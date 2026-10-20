@@ -13,7 +13,7 @@ import {
   exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv, exportAssetsImportTemplateCsv, parseCsv, exportProjectionCsv
 } from "./lib/backup.js";
 import { periodsOf, sumField, sumFieldForScenario, resolveSharedAmount, appendHistorySnapshot, transactionDisplayName } from "./calc/ledger.js";
-import { phiPremiumsAnnual, effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider, saleCapitalGain, lotsUnitsAvailable } from "./calc/tax.js";
+import { phiPremiumsAnnual, effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider, saleCapitalGain, lotsUnitsAvailable, takeHomeAdjust } from "./calc/tax.js";
 import { recalcComputedItems, scenarioTotals, totalNetWorthValue, totalDebtsValue } from "./calc/engine.js";
 import { financialYearOf, fyLabel, recordRateChange, sortedRateHistory, loanRateOn } from "./calc/property.js";
 import { taxYearFillStatements, renderTaxYear, setTaxYearSelected, taxYearAddRow, taxYearDeleteRow, taxYearRestoreRow, taxYearSetField, taxYearToggleEvidence, taxYearMarkLodged, worksheetText, taxYearSelected, taxYearPrintHtml, lodgedSnapshot } from "./components/taxyear.js";
@@ -23,6 +23,7 @@ import { renderHealth } from "./components/health.js";
 import { renderMonthReview, stepReviewMonth, reviewMonthShown, setReviewMonth, setReviewStep, dismissReviewIntro } from "./components/monthreview.js";
 import { markReviewed, setStatementAmount, monthLabel, monthBounds } from "./calc/monthreview.js";
 import { logIncomeReceived, deleteIncomeReceived } from "./calc/received.js";
+import { setTakeHomeAdjust } from "./calc/takehome.js";
 import { renderReceived, toggleReceivedRow, receivedSheet, openReceivedSheet, closeReceivedSheet, setReceivedTarget, receivedSheetHtml } from "./components/received.js";
 import { applyRentalComparison, applyBudgetComparison, householdBudgetLines } from "./calc/closeyear.js";
 import { setUseBudgetLines, setLineExcluded, RENT_EXPENSE_LINES, rentLineFor, setRentalActual, mergeTaxYearFile, matchPerson, taxYearRecord, TAX_YEAR_FILE_KIND } from "./calc/taxyear.js";
@@ -88,10 +89,15 @@ import { chooseFolder, backupToFolder, forgetFolder, maybeAutoBackup, setPasscod
 import { renderSafekeeping } from "./components/safekeeping.js";
 import { goalsSectionHtml, goalOpen } from "./components/savegoals.js";
 import { addSavingsGoal } from "./calc/savegoals.js";
-import { unbudgetedRecurring, risingLines } from "./calc/recurring.js";
+import { unbudgetedRecurring, risingLines, catchAllSuggestions } from "./calc/recurring.js";
+import { learnRule } from "./calc/import-rules.js";
+import { pdfLines } from "./lib/pdftext.js";
+import { statementFromLines, statementCsv, agentStatementFromLines } from "./calc/pdfstatement.js";
+import { tradesUi, readTradesText, currentTradePlan } from "./components/brokertrades.js";
+import { applyTrades } from "./calc/brokertrades.js";
 import { recordRentReview } from "./calc/propertylife.js";
 import { retirementHtml, retireLevers } from "./components/retirement.js";
-import { recurringHtml, recurringDismissed } from "./components/recurring.js";
+import { recurringHtml, recurringDismissed, catchAllShown } from "./components/recurring.js";
 import { renderReports, reportShown, reportPrintHtml, reportCsv } from "./components/reports.js";
 import { monthDetailUi, shownMonth as mdShownMonth } from "./components/monthdetail.js";
 import { shiftMonth as mdShiftMonth } from "./calc/monthdetail.js";
@@ -1892,6 +1898,35 @@ import {
       recalcComputedItems(); persist(); renderAll();
     }
   });
+  // v3.92.0: fill the statement form from the manager's PDF; the person checks it and logs it.
+  document.getElementById("propertiesBody").addEventListener("change", function(e){
+    if(!e.target.matches || !e.target.matches("[data-as-pdf]")) return;
+    var file = e.target.files && e.target.files[0];
+    var asPanel = e.target.closest("[data-as-panel]");
+    e.target.value = "";
+    if(!file || !asPanel) return;
+    showToast("Reading the statement…");
+    file.arrayBuffer().then(function(buf){ return pdfLines(new Uint8Array(buf)); }).then(function(lines){
+      var r = agentStatementFromLines(lines);
+      if(!(r.rent > 0)){ showToast("Couldn't find the rent in that PDF — type it in"); return; }
+      var set = function(k, v){ var el = asPanel.querySelector('[data-as="' + k + '"]'); if(el) el.value = v; };
+      if(r.date) set("date", r.date);
+      set("rent", r.rent || ""); set("water", r.water || ""); set("fees", r.fees || ""); set("waterRates", r.waterRates || "");
+      var other = r.others.reduce(function(t, o){ return t + o.amount; }, 0);
+      set("otherAmount", other ? Math.round(other * 100) / 100 : "");
+      var sel = asPanel.querySelector('[data-as="otherLine"]');
+      if(sel && r.others.length){
+        var want = r.others[0].what.toLowerCase();
+        var hit = Array.prototype.find.call(sel.options, function(o){ return want.indexOf(o.text.toLowerCase().split(" ")[0]) !== -1; });
+        if(hit) sel.value = hit.value;
+      }
+      var out = asPanel.querySelector("[data-as-net]"), net = statementTotals(agentStatementFormValues(asPanel)).net;
+      if(out) out.textContent = fmtCurrency2.format(net);
+      showToast(r.received != null && Math.abs(net - r.received) >= 0.01
+        ? "Filled — but it adds to " + fmtCurrency2.format(net) + ", the statement says " + fmtCurrency2.format(r.received) + ". Check it before logging."
+        : "Filled from the statement" + (r.others.length ? " (other: " + r.others.map(function(o){ return o.what; }).join(", ") + ")" : "") + " — check it, then Log statement");
+    }).catch(function(){ showToast("Couldn't read that PDF"); });
+  });
   document.getElementById("propertiesBody").addEventListener("input", function(e){
     if(!e.target.matches || !e.target.matches("[data-as]")) return;
     var asPanel = e.target.closest("[data-as-panel]"), out = asPanel && asPanel.querySelector("[data-as-net]");
@@ -1927,8 +1962,12 @@ import {
       else if(e.target.classList.contains("loan-rate")) loan.rate = parseFloat(e.target.value) || 0;
       else if(e.target.classList.contains("loan-term")) loan.termYears = parseFloat(e.target.value) || 0;
       else if(e.target.classList.contains("loan-manual-amount")) loan.manualRepaymentAmount = parseFloat(e.target.value) || 0;
-      else if(e.target.classList.contains("loan-settled") || e.target.classList.contains("loan-borrowing") || e.target.classList.contains("loan-borrowing-term") || e.target.classList.contains("loan-ended")){
+      else if(e.target.classList.contains("loan-settled") || e.target.classList.contains("loan-borrowing") || e.target.classList.contains("loan-borrowing-term") || e.target.classList.contains("loan-ended") || e.target.classList.contains("loan-invest-pct")){
         if(e.target.classList.contains("loan-settled")) loan.settlementDate = e.target.value || "";
+        else if(e.target.classList.contains("loan-invest-pct")){
+          if(e.target.value === "") delete loan.investPct;
+          else loan.investPct = Math.min(100, Math.max(0, parseFloat(e.target.value) || 0));
+        }
         else if(e.target.classList.contains("loan-ended")) loan.endedOn = e.target.value || "";
         else if(e.target.classList.contains("loan-borrowing")) loan.borrowingCosts = Math.max(0, parseFloat(e.target.value) || 0);
         else loan.borrowingTermYears = Math.max(0, parseFloat(e.target.value) || 0);
@@ -3017,6 +3056,14 @@ import {
       if(restore) showUndoToast("Record deleted", function(){ restore(); afterReceivedChange(); });
       return;
     }
+    var th = e.target.closest("[data-th-apply]");
+    if(th){
+      var who = th.getAttribute("data-th-apply"), before = takeHomeAdjust(who);
+      setTakeHomeAdjust(who, Number(th.getAttribute("data-th-value")) || 0);
+      renderAll(); persist();
+      showUndoToast(Number(th.getAttribute("data-th-value")) ? who + "'s take-home planned at what lands" : who + "'s take-home back to the tax estimate", function(){ setTakeHomeAdjust(who, before); renderAll(); persist(); });
+      return;
+    }
     var log = e.target.closest("[data-rcv-log]");
     if(log){ openReceivedSheetFor(log.getAttribute("data-rcv-log")); return; }
     var tog = e.target.closest("[data-rcv-toggle]");
@@ -3890,6 +3937,43 @@ import {
     var file = e.target.files[0];
     e.target.value = "";
     if(!file) return;
+    importBankFile(file);
+  });
+  // v3.93.0: a statement shared to the installed app from a banking app. sw.js parks the file in
+  // its own cache and opens the app with ?shared=1; it's picked up once and the cache cleared.
+  (function pickUpSharedStatement(){
+    if(!/[?&]shared=1\b/.test(location.search) || typeof caches === "undefined") return;
+    var key = new URL("shared-statement", new URL(appAssetUrl("sw.js"), location.href)).href;
+    try { history.replaceState(history.state, "", location.pathname + location.hash); } catch(e){}
+    caches.open("wealth-planner-share").then(function(cache){
+      return cache.match(key).then(function(res){
+        if(!res) return;
+        var name = decodeURIComponent(res.headers.get("X-File-Name") || "statement");
+        var type = res.headers.get("Content-Type") || "";
+        return res.blob().then(function(blob){
+          cache.delete(key);
+          showPage("expenses");
+          showExpensesSubpage("spending", { replace: true });
+          importBankFile(new File([blob], name, { type: type }));
+        });
+      });
+    }).catch(function(){});
+  })();
+  // One way in for a statement file, whether chosen here or shared to the app (v3.93.0).
+  function importBankFile(file){
+    // v3.92.0: a PDF statement is read into the same CSV the import already understands.
+    if(/\.pdf$/i.test(file.name) || file.type === "application/pdf"){
+      showToast("Reading the PDF…");
+      file.arrayBuffer().then(function(buf){ return pdfLines(new Uint8Array(buf)); }).then(function(lines){
+        var st = statementFromLines(lines);
+        if(!st.rows.length){ showToast("Couldn't find transactions in that PDF — a CSV export from your bank will work"); return; }
+        startBankImport(statementCsv(st.rows), file.name);
+        renderBankImportPanel();
+        var card = document.getElementById("bankImportCard");
+        if(card) card.scrollIntoView({ behavior: "smooth", block: "start" });
+      }).catch(function(){ showToast("Couldn't read that PDF"); });
+      return;
+    }
     var reader = new FileReader();
     reader.onload = function(){
       var text = String(reader.result);
@@ -3902,7 +3986,7 @@ import {
     };
     reader.onerror = function(){ showToast("Couldn't read that file"); };
     reader.readAsText(file);
-  });
+  }
   // Patched, not re-rendered. A full renderBankImportPanel() here would move the row the user just
   // touched out of "Needs you" and into "Ready" — reordering the list under their finger mid-review,
   // on a phone, which is how a review screen gets abandoned. The counts and badge update in place
@@ -4962,14 +5046,15 @@ import {
 
   // ---------------- Cash flow → Budget → Recurring payments (v3.66.0) ----------------
   function currentRecurring(){
-    return { u: unbudgetedRecurring(state.transactions, localDateStr()), r: risingLines(loggableBudgetLineItems(), state.transactions) };
+    return { u: unbudgetedRecurring(state.transactions, localDateStr()), r: risingLines(loggableBudgetLineItems(), state.transactions),
+      c: catchAllSuggestions(loggableBudgetLineItems(), state.transactions, localDateStr()) };
   }
   function renderRecurring(){
     var el = document.getElementById("recurringBody");
     if(!el) return;
     var c = currentRecurring();
-    el.innerHTML = recurringHtml(c.u, c.r);
-    var n = c.u.filter(function(x){ return !recurringDismissed.keys["u:" + x.key]; }).length + c.r.filter(function(x){ return !recurringDismissed.keys["r:" + x.id + ":" + x.recent]; }).length;
+    el.innerHTML = recurringHtml(c.u, c.r, c.c);
+    var n = c.u.filter(function(x){ return !recurringDismissed.keys["u:" + x.key]; }).length + c.r.filter(function(x){ return !recurringDismissed.keys["r:" + x.id + ":" + x.recent]; }).length + catchAllShown(c.c);
     var cnt = document.getElementById("recurringCount");
     if(cnt) cnt.textContent = n ? n + " to look at" : "";
   }
@@ -4992,6 +5077,33 @@ import {
       });
       return;
     }
+    var split = e.target.closest("[data-rc-split]");
+    if(split){
+      var sg = currentRecurring().c.find(function(y){ return y.id === split.getAttribute("data-rc-split"); });
+      if(!sg) return;
+      var from = loggableBudgetLineItems().find(function(l){ return l.id === sg.lineId; }) || {};
+      var target = sg.existingLineId, created = null;
+      if(!target){
+        var cats = (state.categories || []).map(function(c){ return typeof c === "string" ? c : c && c.name; });
+        var lastT = state.transactions[sg.indices[sg.indices.length - 1]] || {};
+        created = { id: genId("exp"), what: sg.name, classification: "Wants", category: sg.category && cats.indexOf(sg.category) !== -1 ? sg.category : (from.category || ""),
+          account: lastT.account || from.account || "", amount: Math.round(sg.monthly), freq: "Monthly", irregular: false, dueMonth: null };
+        state.shared.push(created);
+        target = created.id;
+      }
+      var rulesBefore = JSON.parse(JSON.stringify(state.importRules || []));
+      sg.indices.forEach(function(i){ if(state.transactions[i]) state.transactions[i].linkedExpenseId = target; });
+      if(!state.importRules) state.importRules = [];
+      sg.keys.forEach(function(k){ learnRule(state.importRules, k, { linkedExpenseId: target }, function(){ return genId("rule"); }); });
+      persist(); renderAll();
+      showUndoToast("Moved " + sg.count + " purchases to " + (created ? created.what : sg.existingWhat) + " — future imports go there too", function(){
+        sg.indices.forEach(function(i){ if(state.transactions[i] && state.transactions[i].linkedExpenseId === target) state.transactions[i].linkedExpenseId = sg.lineId; });
+        if(created) state.shared = state.shared.filter(function(l){ return l.id !== created.id; });
+        state.importRules = rulesBefore;
+        persist(); renderAll();
+      });
+      return;
+    }
     var up = e.target.closest("[data-rc-update]");
     if(up){
       var item = loggableBudgetLineItems().find(function(l){ return l.id === up.getAttribute("data-rc-update"); });
@@ -5000,6 +5112,47 @@ import {
       item.amount = to;
       recalcComputedItems(); persist(); renderAll();
       showUndoToast((item.what || "Line") + " updated to " + fmtCurrency2.format(to), function(){ item.amount = was; recalcComputedItems(); persist(); renderAll(); });
+    }
+  });
+
+  // ---------------- Investments → Shares → Import trades (v3.91.0) ----------------
+  function afterTradesRead(parsed){
+    tradesUi.open = true;
+    renderAssets();
+    if(!parsed.trades.length) showToast("No trades found in that file");
+  }
+  document.addEventListener("change", function(e){
+    if(!e.target.matches) return;
+    if(e.target.matches("[data-tr-file]")){
+      var f = e.target.files && e.target.files[0];
+      if(!f) return;
+      f.text().then(function(t){ afterTradesRead(readTradesText(t)); });
+      return;
+    }
+    if(e.target.matches("[data-tr-pick]")){ tradesUi.choice[e.target.getAttribute("data-tr-pick")] = e.target.value === "skip" ? "skip" : Number(e.target.value); renderAssets(); return; }
+    if(e.target.matches("[data-tr-skip]")){ if(e.target.checked) tradesUi.choice[e.target.getAttribute("data-tr-skip")] = "skip"; else delete tradesUi.choice[e.target.getAttribute("data-tr-skip")]; renderAssets(); return; }
+  });
+  document.addEventListener("toggle", function(e){
+    if(e.target.matches && e.target.matches("[data-tr-panel]")) tradesUi.open = e.target.open;
+  }, true);
+  document.addEventListener("click", function(e){
+    if(!e.target.closest) return;
+    if(e.target.closest("[data-tr-read]")){
+      var ta = document.querySelector("[data-tr-text]");
+      if(!ta || !ta.value.trim()){ showToast("Choose a CSV or paste one first"); return; }
+      afterTradesRead(readTradesText(ta.value));
+      return;
+    }
+    if(e.target.closest("[data-tr-apply]")){
+      var before = JSON.stringify(state.assets);
+      var res = applyTrades(state.assets, currentTradePlan(), function(){ return genId("lot"); });
+      tradesUi.parsed = null; tradesUi.choice = {};
+      persist(); renderAll();
+      showUndoToast("Added " + res.lots + " purchase lot" + (res.lots === 1 ? "" : "s") + (res.sales ? " and " + res.sales + " sale" + (res.sales === 1 ? "" : "s") : ""), function(){
+        var restored = JSON.parse(before);
+        state.assets.splice.apply(state.assets, [0, state.assets.length].concat(restored));
+        persist(); renderAll();
+      });
     }
   });
 
@@ -5314,6 +5467,7 @@ document.getElementById("notifPanelRoot").addEventListener("click", function(e){
     var notifSub = item.getAttribute("data-notif-sub");
     if(notifSub && item.getAttribute("data-notif-page") === "dashboard"){ showDashboardSubpage(notifSub); if(notifSub === "review") renderMonthReview(); }
     if(notifSub && item.getAttribute("data-notif-page") === "accounts"){ showAccountsSubpage(notifSub); if(notifSub === "checks") renderHealth(); }
+    if(notifSub && item.getAttribute("data-notif-page") === "expenses") showExpensesSubpage(notifSub, { replace: true });
   }
 });
 // Cheap enough to run on the same "tab regains focus" signal as the update checker below — local

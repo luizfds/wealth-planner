@@ -2421,6 +2421,51 @@ no payment for a while is asked about once instead. The card payment says what i
 
 Shipped as v3.84.0: `billsForMonth` skips lines ended before the month or not yet started, and drops dates outside `isActiveOn`; a line with no end date whose last payment is more than 2.5 periods + 7 days before today drops its later dates and is listed under "Stopped?" with "It ended then" (sets `endDate` to the last payment). `cardPaymentsForMonth` takes `kindOf` and splits the cycle's charges into bills, spending budgets and other.
 
+## 122. `[x]` Loan purpose: claim only the deductible share
+What a loan's money was used for decides whether its interest is deductible, not the property that secures it. Each loan records the share used to invest; Tax claims only that share of the interest, and a split drawn for your own home stops counting.
+
+Shipped as v3.85.0: `loan.investPct` (blank = 100), `loanInvestShare`/`loanDeductibleInterestMonthly` in `calc/property.js`; the tax result, its breakdown, a past year's rental schedule (`taxyear.js`) and Before 30 June claim only that share; the cash result still pays all of it. Loan editor: "Used to invest %".
+
+## 123. `[x]` Checks for missing deductions
+Settings → Checks flags deductions the data says are being missed: a post-1987 build with no construction cost and no depreciation schedule, borrowing costs not entered, a split with no purpose.
+
+Shipped as v3.86.0 in `calc/health.js`: `dep-missing:<property>` (no schedule rows, no construction cost, built after 15 Sep 1987 or date unknown), `loan-purpose:<property>:<loan>` (settled after the purchase, `investPct` unset), `loan-borrowing:<property>:<loan>` (info; loans from the purchase with no borrowing costs). All dismissable as usual.
+
+## 124. `[x]` Update the plan from pay received
+When the pay logged for a person has sat clearly above or below the plan for three months, offer to set the plan to what's actually arriving.
+
+Shipped as v3.87.0: `calc/takehome.js` `takeHomeDrift` (the last three whole months all logged and all beyond max($150, 4%) the same way); `tax.settings[person].takeHomeAdjust` ($/mo) is added to the regular take-home row (engine recalc and `scenarioIncomeRows`), the tax figures untouched. Cash flow → Income shows the card with "Plan take-home at $X/mo", and "Use the tax estimate" to undo; Checks lists it.
+
+## 125. `[x]` Can we buy?
+For each Buy scenario: the deposit taken from the offsets, stamp duty (no first-home concessions once a property is owned), the investment-loan interest that rises when the offset empties, and the new monthly position.
+
+Shipped as v3.88.0: `calc/canbuy.js` — cash drawn from Cash assets, then own-savings offsets (cheapest loan first), then an offset on a loan settled after the purchase ("borrowed money": its extra interest isn't deductible if spent on a home); tax back at each owner's marginal rate + Medicare on the deductible part; a normal month from `scenarioTotals().regularNetMonthly` against the first non-buying scenario; flags first home buyer ticked while owning. Plan → Scenarios → Can we buy?.
+
+## 126. `[x]` Card payment reminder
+A notification a few days before a card's repayment, with the amount from the closed statement cycle.
+
+Shipped as v3.89.0: `lib/notifications.js` `cardPaymentReminders` — 0–5 days ahead (warn from a day out), and up to 7 days after with nothing logged; opens Cash flow → Bills.
+
+## 127. `[x]` Rule suggestions for catch-all lines
+Payees that repeat inside Misc-type lines are suggested as an import rule or their own line.
+
+Shipped as v3.90.0: `calc/recurring.js` `catchAllSuggestions` — lines named misc/extras/other/sundry/general; payees of one kind grouped (alcohol, home & garden, household, pharmacy, kids & play); ≥3 purchases and ≥$100 in the last year. Cash flow → Budget → Recurring payments: "Make it a line" (or "Move to" an existing line of that name) moves the purchases and learns an import rule per payee; undoable.
+
+## 128. `[x]` Broker trade import
+A broker's trade history CSV (CommSec, Stake, or any file with date, code, buy/sell, units and price) into each holding's purchase lots and sales.
+
+Shipped as v3.91.0: `calc/brokertrades.js` — `parseTrades` (CommSec Details "B 100 IVV @ 41.25" with brokerage from Debit/Credit; otherwise header-matched columns, a negative quantity reads as a sell), `planTrades` (per code: which holding — a choice when several share a symbol, or leave out; skips trades already there; says when the lots won't match the units held), `applyTrades` (buys → lots; sells → FIFO sales by date, units held untouched). Investments → Shares → Import trades from your broker; undoable.
+
+## 129. `[x]` PDF statement import
+Bank, card and property manager statements read from the PDF in the browser, into the same import flow as a CSV.
+
+Shipped as v3.92.0: pdf.js vendored under `vendor/pdfjs/` (Apache-2.0, loaded only when a PDF is chosen); `lib/pdftext.js` rebuilds positioned lines; `calc/pdfstatement.js` `statementFromLines` (header columns matched by right edge; a transaction starts with a date in the date column and takes up to three lines below; yearless dates from a month heading or the statement's range, nearest the previous row; opening/closing/brought-forward lines skipped; a margin note glued to the date is split off) → `statementCsv` → the normal bank import. `agentStatementFromLines` fills Property → Log a property manager statement from the manager's PDF (Money In/Money Out columns; the form is filled, not logged). Checked outside the repo against real bank, card and property-manager statements: every running balance chains, and a card listing matched an earlier parse row for row.
+
+## 130. `[x]` Share a statement to the app
+Installed on a phone, the app is a share target: a statement shared from a banking app opens in the import screen.
+
+Shipped as v3.93.0: `manifest.webmanifest` `share_target` (POST multipart, file field `statement`: CSV, PDF, text) → `sw.js` parks the file in the `wealth-planner-share` cache (kept across activations) and redirects to `./?shared=1` → `app.js` picks it up once into `importBankFile()` (the same path as choosing a file: PDF or CSV) on Cash flow → Spending. Supported where the platform has share targets for installed web apps (Android Chrome, ChromeOS); not iOS.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

@@ -186,6 +186,20 @@ export function loanInterestMonthlyAtRate(loan, ratePts){
   var monthlyRate = ratePts / 100 / 12;
   return interestBalance * monthlyRate;
 }
+// ---------------- What a loan's money was used for (v3.85.0) ----------------
+//
+// Interest is deductible for what the borrowed money was USED for, not for the property that
+// secures it. A split drawn against the rental and spent on your own home's deposit is secured by
+// the rental and still not deductible. loan.investPct is the share used to invest (the rental,
+// shares); blank means all of it, which is what every loan entered before this assumed.
+export function loanInvestShare(loan){
+  var v = loan ? loan.investPct : null;
+  if(v === "" || v == null || isNaN(Number(v))) return 1;
+  return Math.min(100, Math.max(0, Number(v))) / 100;
+}
+export function loanDeductibleInterestMonthly(loan){
+  return loanInterestMonthly(loan) * loanInvestShare(loan);
+}
 export function loanInterestMonthly(loan){
   return loanInterestMonthlyAtRate(loan, Number(loan.rate) || 0);
 }
@@ -474,7 +488,7 @@ export function propertyBorrowingCostsDeduction(property, win){
 export function propertyTaxDeductibleResultAnnual(property){
   var rentYearly = sumField(property.income, "yearly");
   var expenseYearly = sumField(property.expenses, "yearly");
-  var loanInterestYearly = (property.loans || []).reduce(function(s, l){ return s + loanInterestMonthly(l) * 12; }, 0);
+  var loanInterestYearly = (property.loans || []).reduce(function(s, l){ return s + loanDeductibleInterestMonthly(l) * 12; }, 0);
   // Depreciation reduces the taxable result but never touches cash flow — it's the difference
   // between what a property costs you and what it costs you after tax, and the reason a property
   // can be cash-flow negative and still worth holding.
@@ -491,7 +505,7 @@ export function propertyTaxResultBreakdown(property){
   var rows = [
     { key: "rent", label: "Rent", amount: sumField(property.income, "yearly") },
     { key: "expenses", label: "Expenses", amount: -sumField(property.expenses, "yearly") },
-    { key: "interest", label: "Loan interest", amount: -(property.loans || []).reduce(function(s, l){ return s + loanInterestMonthly(l) * 12; }, 0) },
+    { key: "interest", label: (property.loans || []).some(function(l){ return loanInvestShare(l) < 1; }) ? "Loan interest (the share used to invest)" : "Loan interest", amount: -(property.loans || []).reduce(function(s, l){ return s + loanDeductibleInterestMonthly(l) * 12; }, 0) },
     { key: "depreciation", label: "Depreciation", amount: -propertyDepreciationAnnual(property) },
     { key: "borrowing", label: "Borrowing costs", amount: -propertyBorrowingCostsDeduction(property) },
     { key: "claims", label: "Budget lines claimed here", amount: -propertyClaimsAnnual(property.id) }

@@ -8,7 +8,7 @@ import {
   propertiesTotalEquityToday, propertiesOffsetTotal, landTaxDetailForProperty
   , loanPaidOut
 } from "./property.js";
-import { getTaxPeople, computePersonTax, scenarioIncomeMonthly, personOneOffSplit, scenarioOneOffYearly } from "./tax.js";
+import { getTaxPeople, computePersonTax, scenarioIncomeMonthly, personOneOffSplit, scenarioOneOffYearly, takeHomeAdjust } from "./tax.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
 import { projectionRatios } from "./actuals.js";
 
@@ -334,9 +334,11 @@ export function recalcComputedItems(){
   people.forEach(function(person){
     // v3.80.0: regular take-home only; each bonus gets its own yearly row below.
     var split = personOneOffSplit(person);
-    var monthly = Math.round((split.regularNet / 12) * 100) / 100;
+    var adj = takeHomeAdjust(person);
+    var monthly = Math.round((split.regularNet / 12 + adj) * 100) / 100;
     var existing = state.income.find(function(i){ return i.syntheticNetFor === person; });
-    var note = "auto: " + person + "'s regular take-home after tax & super" + (split.oneOffs.length ? " — bonuses are counted separately, in their month" : "");
+    var note = "auto: " + person + "'s regular take-home after tax & super" + (split.oneOffs.length ? " — bonuses are counted separately, in their month" : "") +
+      (adj ? " — set to what actually lands, " + (adj < 0 ? "−" : "+") + "$" + Math.round(Math.abs(adj)).toLocaleString("en-AU") + "/mo against the tax estimate" : "");
     if(existing){
       existing.amount = monthly;
       existing.freq = "Monthly";

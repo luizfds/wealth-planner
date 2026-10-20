@@ -12,7 +12,7 @@ self.addEventListener("install", function(event){
 self.addEventListener("activate", function(event){
   event.waitUntil(
     caches.keys().then(function(names){
-      return Promise.all(names.filter(function(n){ return n !== CACHE_NAME; }).map(function(n){ return caches.delete(n); }));
+      return Promise.all(names.filter(function(n){ return n !== CACHE_NAME && n !== "wealth-planner-share"; }).map(function(n){ return caches.delete(n); }));
     }).then(function(){ return self.clients.claim(); })
   );
 });
@@ -47,6 +47,25 @@ self.addEventListener("message", function(event){
       .then(function(){ reply(true); })
       .catch(function(){ reply(false); })
   );
+});
+
+// v3.93.0: a statement shared to the installed app from a banking app (the manifest's
+// share_target) arrives here as a POST. The file is parked in its own cache and the app opened on
+// the import screen, which picks it up — nothing leaves the device.
+var SHARE_CACHE = "wealth-planner-share";
+var SHARE_KEY = new URL("shared-statement", self.registration.scope).href;
+self.addEventListener("fetch", function(event){
+  if(event.request.method !== "POST" || !/\/share-target\/?$/.test(new URL(event.request.url).pathname)) return;
+  event.respondWith(event.request.formData().then(function(form){
+    var file = form.get("statement");
+    var done = Promise.resolve();
+    if(file && typeof file !== "string"){
+      done = caches.open(SHARE_CACHE).then(function(cache){
+        return cache.put(SHARE_KEY, new Response(file, { headers: { "Content-Type": file.type || "application/octet-stream", "X-File-Name": encodeURIComponent(file.name || "statement") } }));
+      });
+    }
+    return done.then(function(){ return Response.redirect(new URL("./?shared=1", self.registration.scope).href, 303); });
+  }).catch(function(){ return Response.redirect(new URL("./", self.registration.scope).href, 303); }));
 });
 
 self.addEventListener("fetch", function(event){

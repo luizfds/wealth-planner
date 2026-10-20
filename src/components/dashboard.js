@@ -591,6 +591,9 @@ export function renderMonthlyCashFlow(){
       '<span class="cf-label">' + escapeAttr(monthKeyLabel(r.month, months[months.length - 1])) + '</span></div>';
   }).join("");
   var avgLogged = loggedRows.reduce(function(sm, r){ return sm + r.spent; }, 0) / loggedRows.length;
+  // income is a function of the month since v3.80.0 (bonuses land in theirs): the legend and the
+  // "kept" line read its average over the months drawn, not the function itself.
+  var avgIn = loggedRows.reduce(function(sm, r){ return sm + (Number(r.income) || 0); }, 0) / loggedRows.length;
   var unlogged = rows.length - loggedRows.length;
   // Logged spending is not total spending, and the gap is not small: on a test household's data it was
   // $615/mo logged against a $11,580/mo budget. Subtracting the logged figure from income and
@@ -599,7 +602,7 @@ export function renderMonthlyCashFlow(){
   // than assumed: it appears only once logging actually covers the budget.
   var coverage = spendCoverage(avgLogged, budgetedMonthlySpend());
   var verdict = coverage.enough
-    ? 'Kept <b>' + fmtCurrency0.format(income - avgLogged) + '/mo</b> on average across the ' +
+    ? 'Kept <b>' + fmtCurrency0.format(avgIn - avgLogged) + '/mo</b> on average across the ' +
       loggedRows.length + ' month' + (loggedRows.length === 1 ? "" : "s") + ' you logged.'
     : 'These are the transactions you <b>logged</b>, not everything you spent — ' +
       fmtCurrency0.format(avgLogged) + '/mo against a budget of ' + fmtCurrency0.format(coverage.budgeted) +
@@ -609,7 +612,7 @@ export function renderMonthlyCashFlow(){
   panel.innerHTML = '<h3>Income vs spending <span style="font-weight:400;color:var(--ink-soft)">— last 6 months</span></h3>' +
     '<div class="cf-chart">' + barsHtml + '</div>' +
     '<div class="rule-legend cf-legend">' +
-      '<div class="rule-legend-item"><span class="rule-swatch series-color-2"></span>In <b>' + fmtCurrency0.format(income) + '/mo</b></div>' +
+      '<div class="rule-legend-item"><span class="rule-swatch series-color-2"></span>In <b>' + fmtCurrency0.format(avgIn) + '/mo</b></div>' +
       '<div class="rule-legend-item"><span class="rule-swatch series-color-1"></span>Logged out <b>' + fmtCurrency0.format(avgLogged) + '/mo avg</b></div>' +
     '</div>' +
     '<p class="fire-note">' + verdict +

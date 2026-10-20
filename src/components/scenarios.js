@@ -11,6 +11,7 @@ import { renderCards, renderDetail } from "./dashboard.js";
 import { renderAssets } from "./assets.js";
 import { renderSharedGroups, renderActualVsPlannedPanel } from "./expenses.js";
 import { renderIncomeGroups } from "./income.js";
+import { renderCanBuy } from "./canbuy.js";
 
 export function selectScenario(name){
   if(state.activeScenario === name) return;
@@ -248,6 +249,7 @@ export function renderHomeBody(){
       '</div>';
   }).join("") +
   '<button type="button" class="add-scenario-row" id="addScenarioBtn2"><span class="add-plus" style="font-size:16px">+</span> Add another scenario</button>';
+  renderCanBuy();
 }
 
 // Every acquisition cost gets a color, cycling the same 8-color series used everywhere else —
@@ -454,6 +456,7 @@ export function patchCalcOutputs(panel, scenario){
 
 export function afterCalcChange(scenario){
   recalcComputedItems();
+  renderCanBuy();
   renderCards();
   renderDetail();
   renderHomeBodyTotalsOnly();

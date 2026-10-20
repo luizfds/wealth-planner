@@ -194,3 +194,20 @@ test("the card payment says what it pays for: bills, spending budgets and the re
   assert.equal(p.amount, 117.5);
   assert.deepEqual(p.split, { bills: 30, spending: 75, other: 12.5 });
 });
+
+// ---------------- v3.89.0: card payment reminders ----------------
+import { cardPaymentReminders } from "../src/lib/notifications.js";
+test("a card payment is announced a few days ahead, and nudged if it goes unlogged", function(){
+  var accounts = [{ name: "Card", type: "credit", statementStartDay: 12 }];
+  var transfers = [{ to: "Card", date: "2026-08-27", amount: 610 }];
+  var tx = [{ date: "2026-09-20", amount: 300, account: "Card" }, { date: "2026-10-02", amount: 45, account: "Card" }];
+  var soon = cardPaymentReminders(accounts, tx, transfers, "2026-10-24");
+  assert.equal(soon.length, 1);
+  assert.match(soon[0].title, /Card payment due in 3 days — about \$345/);
+  assert.equal(soon[0].sub, "bills");
+  assert.equal(cardPaymentReminders(accounts, tx, transfers, "2026-10-15").length, 0, "too early");
+  var late = cardPaymentReminders(accounts, tx, transfers, "2026-10-30");
+  assert.match(late[0].title, /not logged/);
+  transfers.push({ to: "Card", date: "2026-10-27", amount: 345 });
+  assert.equal(cardPaymentReminders(accounts, tx, transfers, "2026-10-30").length, 0, "paid");
+});

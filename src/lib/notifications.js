@@ -9,6 +9,7 @@ import { fyLabel } from "../calc/property.js";
 import { dataHealthChecks } from "../calc/health.js";
 import { sortedRateHistory, calcRepaymentMonthly } from "../calc/property.js";
 import { shiftMonth, monthLabel } from "../calc/monthreview.js";
+import { cardPaymentsForMonth } from "../calc/bills.js";
 
 // ---------------- Notifications: a small, backend-shaped layer over locally-computed alerts ----------------
 // This app has no backend (see CLAUDE.md) — every notification here is derived live from
@@ -366,6 +367,39 @@ function rateChangeNotifications(){
   return out;
 }
 
+// ---------------- Card repayments (v3.89.0) ----------------
+// A few days before a card's repayment (its day read from the repayments logged as transfers), the
+// amount the closed statement cycle charged; after the day with nothing logged, a nudge to log it.
+// Pure apart from its arguments: accounts, transactions, transfers, today.
+export function cardPaymentReminders(accounts, transactions, transfers, today){
+  var out = [];
+  var ym = String(today).slice(0, 7);
+  var months = [shiftMonth(ym, -1), ym, shiftMonth(ym, 1)];
+  months.forEach(function(m){
+    cardPaymentsForMonth(accounts, transactions, transfers, m, today).forEach(function(p){
+      if(p.paid || !(p.amount > 0)) return;
+      var days = Math.round((Date.parse(p.date) - Date.parse(today)) / 86400000);
+      if(days >= 0 && days <= 5) out.push({
+        id: "cardpay:" + p.card + ":" + p.date, type: "bill", severity: days <= 1 ? "warn" : "info",
+        title: p.card + " payment " + (days === 0 ? "due today" : days === 1 ? "due tomorrow" : "due in " + days + " days") + " — about " + fmtCurrency0.format(p.amount),
+        detail: "What was charged " + p.cycle.start + " to " + p.cycle.end + ". Log the repayment as a transfer to the card once it's paid.",
+        date: p.date, page: "expenses", sub: "bills"
+      });
+      else if(days < 0 && days >= -7) out.push({
+        id: "cardpay:" + p.card + ":" + p.date + ":late", type: "bill", severity: "warn",
+        title: p.card + " payment not logged — due " + p.date,
+        detail: "About " + fmtCurrency0.format(p.amount) + ". If it's been paid, log it as a transfer to the card (or import the statement); if not, it's overdue.",
+        date: p.date, page: "expenses", sub: "bills"
+      });
+    });
+  });
+  return out;
+}
+function cardPaymentNotifications(){
+  if(!(state.accounts || []).some(function(a){ return a.type === "credit"; })) return [];
+  return cardPaymentReminders(state.accounts, state.transactions, state.transfers, todayStr());
+}
+
 // ---------------- Data health (v3.48.0) ----------------
 // One notification for everything Accounts → Checks says needs fixing (the "to look at" items stay
 // on that tab). Its id carries which checks are failing, so fixing one and breaking another is a
@@ -466,6 +500,7 @@ export function getLocalNotifications(){
     budgetNotifications(),
     taxCalendarNotifications(),
     rateChangeNotifications(),
+    cardPaymentNotifications(),
     monthReviewNotification(),
     dataHealthNotification()
   );

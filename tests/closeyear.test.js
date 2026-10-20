@@ -87,6 +87,7 @@ test("health: unclaimed and double-claimed deductions, ownership, ghost accounts
 test("health: a clean household passes", function(){
   withState(null, function(){
     state.taxYears = {};
+    state.properties[0].constructionCost = 150000;
     assert.deepEqual(dataHealthChecks({ items: [{ id: "a", what: "Rent", amount: 1, freq: "Monthly", account: "", category: "Housing" }], today: "2026-10-18" }).map(function(c){ return c.id; }), ["rows-noaccount"]);
   });
 });
@@ -136,4 +137,27 @@ test("months of logging count only the lines being compared", async function(){
   var c = budgetComparison(items, tx, 2025, "2026-10-01");
   assert.equal(c.months, 6, "January to June, not from the property bill in August");
   assert.equal(c.rows[0].actual, 240);
+});
+
+test("health (v3.86.0): building depreciation, a later split's purpose, borrowing costs", function(){
+  withState(null, function(){
+    state.taxYears = {};
+    var p = state.properties[0];
+    p.constructionDate = "2004-03-01"; p.purchaseDate = "2023-02-10";
+    p.loans = [
+      { id: "m", what: "Loan A", balance: 400000, settlementDate: "2023-02-10", borrowingCosts: 0 },
+      { id: "s", what: "Loan B", balance: 90000, settlementDate: "2025-06-01" }
+    ];
+    var ids = dataHealthChecks({ items: [], today: "2026-10-18" }).map(function(c){ return c.id; });
+    ["dep-missing:r1", "loan-purpose:r1:s", "loan-borrowing:r1:m"].forEach(function(id){ assert.ok(ids.indexOf(id) !== -1, id + " in " + ids.join(",")); });
+    assert.equal(ids.indexOf("loan-borrowing:r1:s"), -1, "a later split is asked about its purpose, not its costs");
+    // Answered: a schedule, a purpose, the costs.
+    p.depreciationSchedule = [{ fy: 2025, capitalWorks: 2100, plant: 0 }];
+    p.loans[1].investPct = 0; p.loans[0].borrowingCosts = 1800;
+    ids = dataHealthChecks({ items: [], today: "2026-10-18" }).map(function(c){ return c.id; });
+    assert.ok(!ids.some(function(id){ return /^(dep-missing|loan-)/.test(id); }), ids.join(","));
+    // Built before September 1987: nothing to claim, nothing to flag.
+    p.depreciationSchedule = []; p.constructionDate = "1979-05-01";
+    assert.equal(dataHealthChecks({ items: [], today: "2026-10-18" }).filter(function(c){ return c.id === "dep-missing:r1"; }).length, 0);
+  });
 });

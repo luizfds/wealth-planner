@@ -20,6 +20,7 @@ import { renderDashboardStats } from "./dashboard.js";
 import { parseCsv } from "../lib/backup.js";
 import { applyPrices } from "../calc/pricesheet.js";
 import { priceSheetCardHtml, priceSheetUi } from "./pricesheet.js";
+import { tradesCardHtml } from "./brokertrades.js";
 
 // Every other figure in this app is implicitly AUD; a Shares holding's price/value is only
 // sometimes that (ASX), and otherwise USD (US, Crypto) — see MARKET_CURRENCY. Used to pick the
@@ -936,7 +937,7 @@ export function renderSharesSubpage(){
   container.innerHTML = '<div class="ledgers"><details class="ledger" open>' +
     '<summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Shares</h2></div>' +
     '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
-    '<div class="ledger-body"><div id="sharesGlance">' + sharesGainLossGlanceHtml(allData.items) + '</div>' + fxWarn + pasteTool + toolbar + body + '</div></details>' +
+    '<div class="ledger-body"><div id="sharesGlance">' + sharesGainLossGlanceHtml(allData.items) + '</div>' + fxWarn + pasteTool + (allData.items.length ? tradesCardHtml() : '') + toolbar + body + '</div></details>' +
     // v3.61.0: the portfolio's performance and its distributions by year, over the same holdings.
     (allData.items.length ? performanceCardHtml(portfolioPerformance(allData.items.map(function(a){ return a; }), householdYearWindow()), householdYearWindow().label) + distributionsCardHtml(distributionHistory(allData.items)) : "") +
     historyPanel + '</div>';

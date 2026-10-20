@@ -337,7 +337,7 @@ function bankImportFailureHtml(){
       ? " It did find " + article(d.found[0]) + d.found[0] + " column."
       : " It did find " + d.found.slice(0, -1).join(", ") + " and " + d.found[d.found.length - 1] + " columns.";
   return '<p class="ledger-note bank-import-problem"><b>Couldn\'t find ' + missing + ' in that file.</b>' + found +
-      ' Most banks\' "export as CSV" includes a date and an amount — if yours exports Excel or PDF, look for a CSV option in the same menu.</p>' +
+      ' Most banks\' "export as CSV" includes a date and an amount. A PDF statement works too — for an old statement, a closed account or a card that only gives PDFs.</p>' +
     (first.length
       ? '<p class="ledger-note bank-import-meta">The first row it read was: <code>' +
         first.map(function(c){ return escapeAttr(String(c).slice(0, 22)); }).join(" · ") + '</code></p>'

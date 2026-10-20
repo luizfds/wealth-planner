@@ -1,4 +1,6 @@
 import { incomeActuals, incomeTargets } from "../calc/received.js";
+import { takeHomeDrifts } from "../calc/takehome.js";
+import { getTaxPeople, takeHomeAdjust } from "../calc/tax.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 
@@ -21,7 +23,7 @@ export function receivedPanelHtml(monthStr){
   var rows = incomeActuals(monthStr).filter(function(r){ return r.kind !== "payout" || r.planned > 0 || r.rows.length; });
   if(!rows.length) return '<p class="ledger-note" style="margin:0">Add an income row, a rental property or a holding and you can log what actually arrives against it.</p>';
   var anyLogged = rows.some(function(r){ return r.rows.length; });
-  return (anyLogged ? "" : '<p class="ledger-note" style="margin:0 0 10px">Nothing logged yet. Each time pay, rent or a distribution lands, log it here — or assign the money-in rows of a bank import — and this shows it against the plan.</p>') +
+  return takeHomeHtml(localDateStr()) + (anyLogged ? "" : '<p class="ledger-note" style="margin:0 0 10px">Nothing logged yet. Each time pay, rent or a distribution lands, log it here — or assign the money-in rows of a bank import — and this shows it against the plan.</p>') +
     '<div class="rcv-list">' + rows.map(function(r){
       var pct = r.planned > 0 ? Math.min(100, r.received / r.planned * 100) : (r.received > 0 ? 100 : 0);
       var diff = r.received - r.planned;
@@ -45,6 +47,27 @@ export function receivedPanelHtml(monthStr){
           '<button type="button" class="btn btn-sm btn-ghost" data-rcv-log="' + escapeAttr(r.key) + '">+ Log ' + escapeAttr(r.kind === "payout" ? "a distribution" : r.kind === "rent" ? "rent" : "pay") + '</button></div>' : '') +
       '</div>';
     }).join("") + '</div>';
+}
+
+// v3.87.0: take-home that has sat off the plan for three months, and any adjustment in force.
+var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+export function takeHomeHtml(today){
+  var drifts = takeHomeDrifts(today);
+  var out = drifts.map(function(d){
+    var below = d.gap < 0;
+    return '<div class="th-card" data-th-person="' + escapeAttr(d.person) + '"><p><b>' + escapeAttr(d.person) + '\'s take-home has landed about ' + fmtCurrency0.format(Math.abs(d.gap)) + '/mo ' + (below ? "below" : "above") + ' the plan</b> for three months — ' +
+      d.months.map(function(m){ return MON[Number(m.ym.slice(5, 7)) - 1] + ' ' + fmtCurrency0.format(m.received); }).join(", ") + ' against ' + fmtCurrency0.format(d.plan) + '.</p>' +
+      '<p class="ledger-note">' + (below ? "Usually extra tax withheld (it comes back as a refund), salary sacrifice, or a share plan taken from pay. " : "Usually a pay rise the gross figure doesn't have yet — if so, update the salary row instead. ") +
+      'Planning with what actually lands keeps cash flow and projections honest; the tax figures still come from gross pay.</p>' +
+      '<button type="button" class="btn btn-sm" data-th-apply="' + escapeAttr(d.person) + '" data-th-value="' + d.suggestedAdjust + '">Plan take-home at ' + fmtCurrency0.format(d.actual) + '/mo</button></div>';
+  }).join("");
+  var set = getTaxPeople().filter(function(p){ return takeHomeAdjust(p) && !drifts.some(function(d){ return d.person === p; }); });
+  out += set.map(function(p){
+    var adj = takeHomeAdjust(p);
+    return '<p class="ledger-note th-set">' + escapeAttr(p) + '\'s take-home is planned at what lands, ' + fmtCurrency0.format(Math.abs(adj)) + '/mo ' + (adj < 0 ? "below" : "above") + ' the tax estimate. ' +
+      '<button type="button" class="link-btn" data-th-apply="' + escapeAttr(p) + '" data-th-value="0">Use the tax estimate</button></p>';
+  }).join("");
+  return out;
 }
 
 // ---------------- The sheet ----------------

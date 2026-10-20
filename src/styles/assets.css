@@ -258,3 +258,28 @@
 .tr-none{ color: var(--ink-soft); }
 .tr-problem{ margin:4px 0 0; font-size:12px; color: var(--bad); }
 @media (max-width: 520px){ .tr-row{ grid-template-columns: 52px minmax(0,1fr); } .tr-new{ grid-column: 1 / -1; text-align:left; } }
+
+/* v3.94.0: Accounts → Emergency fund */
+.ef-seg{ margin:0 0 12px; }
+.ef-head{ display:flex; justify-content:space-between; align-items:flex-end; gap:10px 16px; flex-wrap:wrap; }
+.ef-head > div:first-child{ display:flex; flex-direction:column; }
+.ef-label{ font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
+.ef-target{ font-family: var(--font-num); font-size:28px; line-height:1.15; }
+.ef-head small{ font-size:12.5px; color: var(--ink-soft); }
+.ef-alts{ display:flex; gap:12px; flex-wrap:wrap; font-size:12.5px; color: var(--ink-soft); }
+.ef-alts b{ font-family: var(--font-num); color: var(--ink); }
+.ef-bar{ height:8px; border-radius:4px; background: var(--border); overflow:hidden; margin:12px 0 6px; }
+.ef-bar i{ display:block; height:100%; background: var(--brass); }
+.ef-bar i.ok{ background: var(--good); }
+.ef-status{ margin:0 0 12px; font-size:13px; }
+.ef-status.ok{ color: var(--good); }
+.ef-sub{ font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); margin:12px 0 4px; }
+.ef-people ul, .ef-groups, .ef-lines ul{ list-style:none; margin:0; padding:0; }
+.ef-people li{ font-size:13px; line-height:1.45; padding:3px 0; }
+.ef-groups li, .ef-lines li{ display:flex; justify-content:space-between; gap:10px; font-size:13px; padding:4px 0; border-bottom:1px dashed var(--border); }
+.ef-groups b, .ef-lines b{ font-family: var(--font-num); white-space:nowrap; }
+.ef-lines{ margin-top:8px; font-size:13px; }
+.ef-lines summary{ cursor:pointer; color: var(--ink-soft); min-height:32px; }
+.ef-lines li small{ display:block; font-size:11.5px; color: var(--ink-soft); }
+.ef-note{ margin:10px 0 8px; }
+.ef-actions{ margin-top:6px; }

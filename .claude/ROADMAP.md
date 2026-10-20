@@ -2466,6 +2466,12 @@ Installed on a phone, the app is a share target: a statement shared from a banki
 
 Shipped as v3.93.0: `manifest.webmanifest` `share_target` (POST multipart, file field `statement`: CSV, PDF, text) → `sw.js` parks the file in the `wealth-planner-share` cache (kept across activations) and redirects to `./?shared=1` → `app.js` picks it up once into `importBankFile()` (the same path as choosing a file: PDF or CSV) on Cash flow → Spending. Supported where the platform has share targets for installed web apps (Android Chrome, ChromeOS); not iOS.
 
+## 131. `[x]` Emergency fund
+How much to keep aside for 3, 6 or 12 months without pay, sized on essentials only (Needs lines,
+the home, what the investment property costs beyond its rent), against cash and offsets.
+
+Shipped as v3.94.0: `calc/emergency.js` `emergencyFund` — Needs lines (scenario-resolved) + the active scenario's home lines not marked Wants + each IP's costs and repayments beyond its rent; a line counts at max(plan, the last 12 months' actual) once 6+ months are logged; available = Cash assets + offsets (shares left out); per person, what the others' take-home leaves to find if that one's pay stopped. `state.emergency.months` (3/6/12, default 6). Accounts → Emergency fund, with "Track it as a savings goal".
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

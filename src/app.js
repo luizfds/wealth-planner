@@ -92,6 +92,8 @@ import { addSavingsGoal } from "./calc/savegoals.js";
 import { unbudgetedRecurring, risingLines, catchAllSuggestions } from "./calc/recurring.js";
 import { learnRule } from "./calc/import-rules.js";
 import { pdfLines } from "./lib/pdftext.js";
+import { emergencyFund } from "./calc/emergency.js";
+import { renderEmergencyFund, existingEmergencyGoal } from "./components/emergency.js";
 import { statementFromLines, statementCsv, agentStatementFromLines } from "./calc/pdfstatement.js";
 import { tradesUi, readTradesText, currentTradePlan } from "./components/brokertrades.js";
 import { applyTrades } from "./calc/brokertrades.js";
@@ -5196,7 +5198,32 @@ import {
   function renderSavingsGoals(){
     var el = document.getElementById("savingsGoalsBody");
     if(el) el.innerHTML = goalsSectionHtml(localDateStr(), scenarioTotals(state.activeScenario).netMonthly);
+    renderEmergencyFund();
   }
+  // ---------------- Accounts → Emergency fund (v3.94.0) ----------------
+  document.getElementById("emergencyBody").addEventListener("click", function(e){
+    var m = e.target.closest("[data-ef-months]");
+    if(m){
+      if(!state.emergency) state.emergency = {};
+      state.emergency.months = Number(m.getAttribute("data-ef-months"));
+      persist(); renderEmergencyFund();
+      return;
+    }
+    if(e.target.closest("[data-ef-goal]")){
+      var f = emergencyFund();
+      var g = existingEmergencyGoal();
+      if(g){ var was = g.target; g.target = f.target; persist(); renderSavingsGoals(); renderHomeSummary();
+        showUndoToast(g.name + " set to " + fmtCurrency0.format(f.target), function(){ g.target = was; persist(); renderSavingsGoals(); renderHomeSummary(); });
+        return; }
+      var accts = state.accounts.filter(function(a){ return a.type === "savings" || a.type === "offset"; }).map(function(a){ return a.name; });
+      var ng = addSavingsGoal({ name: "Emergency fund", target: f.target, accounts: accts });
+      goalOpen[ng.id] = true;
+      persist(); renderSavingsGoals(); renderHomeSummary();
+      showUndoToast("Emergency fund goal added — on " + (accts.length ? accts.join(", ") : "no accounts yet; tick them on the goal"), function(){
+        state.savingsGoals = state.savingsGoals.filter(function(x){ return x.id !== ng.id; }); persist(); renderSavingsGoals(); renderHomeSummary();
+      });
+    }
+  });
   var goalsBody = document.getElementById("savingsGoalsBody");
   goalsBody.addEventListener("click", function(e){
     if(e.target.closest("[data-goal-add]")){

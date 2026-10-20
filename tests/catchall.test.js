@@ -35,3 +35,19 @@ test("repeating payees inside one are offered as their own line; one kind groupe
   assert.match(html, /Move to Home &amp; garden|Move to Home & garden/);
   assert.match(html, /data-rc-split="m\|kind:Alcohol">Make it a line/);
 });
+
+// v3.95.0: each recurring row's transactions, collapsed until asked for.
+import { recurringOpen } from "../src/components/recurring.js";
+test("a recurring row carries its transactions, hidden until opened", function(){
+  var tx = [{ what: "BUNNINGS 9921", amount: 140, date: "2026-01-09", account: "Bank One" }, { what: "BUNNINGS 9921", amount: 62, date: "2026-05-02" }];
+  var row = [{ id: "m|kind:Home & garden", lineId: "m", lineWhat: "Misc.", name: "Home & garden", keys: ["bunnings"], indices: [0, 1], count: 2, total: 202, monthly: 16.83, existingLineId: null }];
+  var closed = recurringHtml([], [], row, tx);
+  assert.match(closed, /<details class="rc-tx" data-rc-tx="c:m\|kind:Home &amp; garden"><summary>Show 2 transactions<\/summary><\/details>/);
+  recurringOpen.keys["c:m|kind:Home & garden"] = true;
+  var open = recurringHtml([], [], row, tx);
+  assert.match(open, /Hide 2 transactions/);
+  assert.ok(open.indexOf("2 May 26") < open.indexOf("9 Jan 26"), "newest first");
+  assert.match(open, /Bank One/);
+  assert.match(open, /\$202 in all/);
+  delete recurringOpen.keys["c:m|kind:Home & garden"];
+});

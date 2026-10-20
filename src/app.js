@@ -91,6 +91,8 @@ import { goalsSectionHtml, goalOpen } from "./components/savegoals.js";
 import { addSavingsGoal } from "./calc/savegoals.js";
 import { unbudgetedRecurring, risingLines, catchAllSuggestions } from "./calc/recurring.js";
 import { learnRule } from "./calc/import-rules.js";
+import { tradesUi, readTradesText, currentTradePlan } from "./components/brokertrades.js";
+import { applyTrades } from "./calc/brokertrades.js";
 import { recordRentReview } from "./calc/propertylife.js";
 import { retirementHtml, retireLevers } from "./components/retirement.js";
 import { recurringHtml, recurringDismissed, catchAllShown } from "./components/recurring.js";
@@ -5042,6 +5044,47 @@ import {
       item.amount = to;
       recalcComputedItems(); persist(); renderAll();
       showUndoToast((item.what || "Line") + " updated to " + fmtCurrency2.format(to), function(){ item.amount = was; recalcComputedItems(); persist(); renderAll(); });
+    }
+  });
+
+  // ---------------- Investments → Shares → Import trades (v3.91.0) ----------------
+  function afterTradesRead(parsed){
+    tradesUi.open = true;
+    renderAssets();
+    if(!parsed.trades.length) showToast("No trades found in that file");
+  }
+  document.addEventListener("change", function(e){
+    if(!e.target.matches) return;
+    if(e.target.matches("[data-tr-file]")){
+      var f = e.target.files && e.target.files[0];
+      if(!f) return;
+      f.text().then(function(t){ afterTradesRead(readTradesText(t)); });
+      return;
+    }
+    if(e.target.matches("[data-tr-pick]")){ tradesUi.choice[e.target.getAttribute("data-tr-pick")] = e.target.value === "skip" ? "skip" : Number(e.target.value); renderAssets(); return; }
+    if(e.target.matches("[data-tr-skip]")){ if(e.target.checked) tradesUi.choice[e.target.getAttribute("data-tr-skip")] = "skip"; else delete tradesUi.choice[e.target.getAttribute("data-tr-skip")]; renderAssets(); return; }
+  });
+  document.addEventListener("toggle", function(e){
+    if(e.target.matches && e.target.matches("[data-tr-panel]")) tradesUi.open = e.target.open;
+  }, true);
+  document.addEventListener("click", function(e){
+    if(!e.target.closest) return;
+    if(e.target.closest("[data-tr-read]")){
+      var ta = document.querySelector("[data-tr-text]");
+      if(!ta || !ta.value.trim()){ showToast("Choose a CSV or paste one first"); return; }
+      afterTradesRead(readTradesText(ta.value));
+      return;
+    }
+    if(e.target.closest("[data-tr-apply]")){
+      var before = JSON.stringify(state.assets);
+      var res = applyTrades(state.assets, currentTradePlan(), function(){ return genId("lot"); });
+      tradesUi.parsed = null; tradesUi.choice = {};
+      persist(); renderAll();
+      showUndoToast("Added " + res.lots + " purchase lot" + (res.lots === 1 ? "" : "s") + (res.sales ? " and " + res.sales + " sale" + (res.sales === 1 ? "" : "s") : ""), function(){
+        var restored = JSON.parse(before);
+        state.assets.splice.apply(state.assets, [0, state.assets.length].concat(restored));
+        persist(); renderAll();
+      });
     }
   });
 

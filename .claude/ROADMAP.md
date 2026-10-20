@@ -2451,8 +2451,10 @@ Payees that repeat inside Misc-type lines are suggested as an import rule or the
 
 Shipped as v3.90.0: `calc/recurring.js` `catchAllSuggestions` — lines named misc/extras/other/sundry/general; payees of one kind grouped (alcohol, home & garden, household, pharmacy, kids & play); ≥3 purchases and ≥$100 in the last year. Cash flow → Budget → Recurring payments: "Make it a line" (or "Move to" an existing line of that name) moves the purchases and learns an import rule per payee; undoable.
 
-## 128. `[~]` Broker trade import
+## 128. `[x]` Broker trade import
 A broker's trade history CSV (CommSec, Stake, or any file with date, code, buy/sell, units and price) into each holding's purchase lots and sales.
+
+Shipped as v3.91.0: `calc/brokertrades.js` — `parseTrades` (CommSec Details "B 100 IVV @ 41.25" with brokerage from Debit/Credit; otherwise header-matched columns, a negative quantity reads as a sell), `planTrades` (per code: which holding — a choice when several share a symbol, or leave out; skips trades already there; says when the lots won't match the units held), `applyTrades` (buys → lots; sells → FIFO sales by date, units held untouched). Investments → Shares → Import trades from your broker; undoable.
 
 ## 129. `[~]` PDF statement import
 Bank, card and property manager statements read from the PDF in the browser, into the same import flow as a CSV.

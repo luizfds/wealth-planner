@@ -2415,6 +2415,10 @@ credit card are grouped under the card repayment, which is what actually leaves 
 
 Shipped as v3.83.0: `calc/bills.js` `inferredLineKind` (last 12 months of payments: ≥2.5 a period of varying size, or a spread ≥35% with >1.3 a period or an uneven rhythm, is spending; quarterly-and-longer lines need ≥2 a period) with `line.billKind` overriding; a bill's card is the account of its latest payment; `cardRepaymentDay` is the median day of the last six transfers to the card; `cycleFor`/`repaymentFor` from `statementStartDay`; `cardPaymentsForMonth` is the logged repayment or, until then, the closed cycle's charges. Cash flow → Bills: what leaves the accounts, card bills under the card, spending budgets as bars, and a per-line Auto/Bill/Spending select.
 
+## 121. `[~]` Bills calendar: ended and stopped bills; what the card payment pays for
+A line's end date was ignored, so a cancelled membership showed as overdue every week. A bill with
+no payment for a while is asked about once instead. The card payment says what it covers.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

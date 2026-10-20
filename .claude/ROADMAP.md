@@ -2436,8 +2436,10 @@ When the pay logged for a person has sat clearly above or below the plan for thr
 
 Shipped as v3.87.0: `calc/takehome.js` `takeHomeDrift` (the last three whole months all logged and all beyond max($150, 4%) the same way); `tax.settings[person].takeHomeAdjust` ($/mo) is added to the regular take-home row (engine recalc and `scenarioIncomeRows`), the tax figures untouched. Cash flow → Income shows the card with "Plan take-home at $X/mo", and "Use the tax estimate" to undo; Checks lists it.
 
-## 125. `[~]` Can we buy?
+## 125. `[x]` Can we buy?
 For each Buy scenario: the deposit taken from the offsets, stamp duty (no first-home concessions once a property is owned), the investment-loan interest that rises when the offset empties, and the new monthly position.
+
+Shipped as v3.88.0: `calc/canbuy.js` — cash drawn from Cash assets, then own-savings offsets (cheapest loan first), then an offset on a loan settled after the purchase ("borrowed money": its extra interest isn't deductible if spent on a home); tax back at each owner's marginal rate + Medicare on the deductible part; a normal month from `scenarioTotals().regularNetMonthly` against the first non-buying scenario; flags first home buyer ticked while owning. Plan → Scenarios → Can we buy?.
 
 ## 126. `[~]` Card payment reminder
 A notification a few days before a card's repayment, with the amount from the closed statement cycle.

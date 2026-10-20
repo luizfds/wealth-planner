@@ -164,3 +164,24 @@
 .md-nw li.gap.ok b{ color: var(--good); } .md-nw li.gap.off b{ color: var(--bad); }
 .md-nw-read{ font-size:12.5px; margin:6px 0; line-height:1.45; } .md-nw-read.off{ color: var(--ink); }
 .rp-table tr.flag td:nth-child(5){ color: var(--bad); font-weight:600; }
+
+/* v3.88.0: Plan → Scenarios → Can we buy? */
+.cb-now{ margin:0 0 10px; }
+.cb-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:12px; }
+.cb-card{ border:1px solid var(--border); border-radius:10px; padding:12px; background: var(--paper-raised); font-size:13px; min-width:0; }
+.cb-title{ display:flex; justify-content:space-between; gap:8px; align-items:baseline; flex-wrap:wrap; margin-bottom:6px; }
+.cb-title span{ color: var(--ink-soft); font-family: var(--font-num); }
+.cb-verdict{ font-weight:600; padding:6px 8px; border-radius:6px; margin:0 0 8px; }
+.cb-verdict.ok{ background: var(--good-wash); color: var(--good); }
+.cb-verdict.no{ background: var(--bad-wash); color: var(--bad); }
+.cb-row{ display:flex; justify-content:space-between; gap:8px; padding:3px 0; align-items:baseline; }
+.cb-row b{ font-family: var(--font-num); white-space:nowrap; }
+.cb-row b.neg{ color: var(--bad); }
+.cb-sub{ color: var(--ink-soft); font-size:12px; padding-top:0; }
+.cb-from{ margin:4px 0; color: var(--ink-soft); font-size:12px; }
+.cb-from ul{ list-style:none; margin:2px 0 0; padding:0; }
+.cb-from li{ display:flex; justify-content:space-between; gap:8px; color: var(--ink); font-size:12.5px; }
+.cb-from li b{ font-family: var(--font-num); }
+.cb-from em{ font-style:normal; font-size:10.5px; color: var(--bad); border:1px solid currentColor; border-radius:3px; padding:0 3px; margin-left:4px; }
+.cb-warn{ margin:6px 0; padding:6px 8px; border-radius:6px; background: var(--bad-wash); font-size:12px; line-height:1.4; }
+.cb-note{ margin:2px 0 6px; font-size:11.5px; }

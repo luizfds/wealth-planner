@@ -3937,6 +3937,30 @@ import {
     var file = e.target.files[0];
     e.target.value = "";
     if(!file) return;
+    importBankFile(file);
+  });
+  // v3.93.0: a statement shared to the installed app from a banking app. sw.js parks the file in
+  // its own cache and opens the app with ?shared=1; it's picked up once and the cache cleared.
+  (function pickUpSharedStatement(){
+    if(!/[?&]shared=1\b/.test(location.search) || typeof caches === "undefined") return;
+    var key = new URL("shared-statement", new URL(appAssetUrl("sw.js"), location.href)).href;
+    try { history.replaceState(history.state, "", location.pathname + location.hash); } catch(e){}
+    caches.open("wealth-planner-share").then(function(cache){
+      return cache.match(key).then(function(res){
+        if(!res) return;
+        var name = decodeURIComponent(res.headers.get("X-File-Name") || "statement");
+        var type = res.headers.get("Content-Type") || "";
+        return res.blob().then(function(blob){
+          cache.delete(key);
+          showPage("expenses");
+          showExpensesSubpage("spending", { replace: true });
+          importBankFile(new File([blob], name, { type: type }));
+        });
+      });
+    }).catch(function(){});
+  })();
+  // One way in for a statement file, whether chosen here or shared to the app (v3.93.0).
+  function importBankFile(file){
     // v3.92.0: a PDF statement is read into the same CSV the import already understands.
     if(/\.pdf$/i.test(file.name) || file.type === "application/pdf"){
       showToast("Reading the PDF…");
@@ -3962,7 +3986,7 @@ import {
     };
     reader.onerror = function(){ showToast("Couldn't read that file"); };
     reader.readAsText(file);
-  });
+  }
   // Patched, not re-rendered. A full renderBankImportPanel() here would move the row the user just
   // touched out of "Needs you" and into "Ready" — reordering the list under their finger mid-review,
   // on a phone, which is how a review screen gets abandoned. The counts and badge update in place

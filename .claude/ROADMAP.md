@@ -2461,8 +2461,10 @@ Bank, card and property manager statements read from the PDF in the browser, int
 
 Shipped as v3.92.0: pdf.js vendored under `vendor/pdfjs/` (Apache-2.0, loaded only when a PDF is chosen); `lib/pdftext.js` rebuilds positioned lines; `calc/pdfstatement.js` `statementFromLines` (header columns matched by right edge; a transaction starts with a date in the date column and takes up to three lines below; yearless dates from a month heading or the statement's range, nearest the previous row; opening/closing/brought-forward lines skipped; a margin note glued to the date is split off) → `statementCsv` → the normal bank import. `agentStatementFromLines` fills Property → Log a property manager statement from the manager's PDF (Money In/Money Out columns; the form is filled, not logged). Checked outside the repo against real ING, CommBank, Macquarie and card statements: every running balance chains, and the card matched an earlier parse row for row.
 
-## 130. `[~]` Share a statement to the app
+## 130. `[x]` Share a statement to the app
 Installed on a phone, the app is a share target: a statement shared from a banking app opens in the import screen.
+
+Shipped as v3.93.0: `manifest.webmanifest` `share_target` (POST multipart, file field `statement`: CSV, PDF, text) → `sw.js` parks the file in the `wealth-planner-share` cache (kept across activations) and redirects to `./?shared=1` → `app.js` picks it up once into `importBankFile()` (the same path as choosing a file: PDF or CSV) on Cash flow → Spending. Supported where the platform has share targets for installed web apps (Android Chrome, ChromeOS); not iOS.
 
 ## Conventions for whoever picks this up
 

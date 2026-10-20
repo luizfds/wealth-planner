@@ -58,3 +58,104 @@ test("import rules: list, test a description, edit a field", function(){
     assert.equal(state.importRules[0].category, "", "a line replaces a category");
   } finally { Object.assign(state, keep); ruleTest.text = ""; }
 });
+
+// ---------------- v3.83.0: bills vs spending budgets; card bills on the card payment ----------------
+import { lineKind, inferredLineKind, cycleFor, repaymentFor, cardRepaymentDay, cardPaymentsForMonth } from "../src/calc/bills.js";
+
+function weeklyShop(){
+  // Three to five supermarket trips a week, all different amounts.
+  var out = [], amts = [12.4, 87.9, 33.15, 140.2, 6.8];
+  for(var d = 1; d <= 120; d++){
+    if(d % 2 === 0 || d % 7 === 3){
+      var dt = new Date(2026, 4, d);
+      out.push({ date: dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0") + "-" + String(dt.getDate()).padStart(2, "0"), amount: amts[d % 5] });
+    }
+  }
+  return out;
+}
+function monthly(day, amounts, account){
+  return amounts.map(function(a, i){ return { date: "2026-" + String(3 + i).padStart(2, "0") + "-" + String(day).padStart(2, "0"), amount: a, account: account }; });
+}
+
+test("many varying purchases make a spending budget; a steady one a period stays a bill", function(){
+  assert.equal(inferredLineKind({ freq: "Weekly" }, weeklyShop()), "spending");
+  assert.equal(inferredLineKind({ freq: "Monthly" }, monthly(14, [19, 19, 19, 19, 19])), "bill");
+  // Power varies a lot with the season but lands on the same day each month: still a bill.
+  assert.equal(inferredLineKind({ freq: "Monthly" }, monthly(3, [90, 210, 160, 70, 240, 120])), "bill");
+  // A pet budget: weekly line, scattered trips of very different size.
+  var pet = [["2026-05-02", 18], ["2026-05-13", 64], ["2026-05-16", 9.5], ["2026-06-04", 120], ["2026-06-25", 22], ["2026-07-01", 7]].map(function(x){ return { date: x[0], amount: x[1] }; });
+  assert.equal(inferredLineKind({ freq: "Weekly" }, pet), "spending");
+  // Two memberships billed the same day each week: many payments, but identical amounts.
+  var gym = [];
+  for(var w = 0; w < 10; w++){ var d = new Date(2026, 6, 1 + w * 7); var s = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); gym.push({ date: s, amount: 16 }, { date: s, amount: 16 }); }
+  assert.equal(inferredLineKind({ freq: "Weekly" }, gym), "bill");
+  assert.equal(inferredLineKind({ freq: "Weekly" }, weeklyShop().slice(0, 2)), "bill", "too little logged to judge");
+  assert.equal(lineKind({ freq: "Weekly", billKind: "bill" }, weeklyShop()), "bill", "the person's choice wins");
+  assert.equal(lineKind({ freq: "Monthly", billKind: "spending" }, monthly(14, [19, 19, 19])), "spending");
+});
+
+test("a charge's statement cycle and the repayment that pays it", function(){
+  assert.deepEqual(cycleFor("2026-10-05", 12), { start: "2026-09-12", end: "2026-10-11" });
+  assert.deepEqual(cycleFor("2026-10-12", 12), { start: "2026-10-12", end: "2026-11-11" });
+  assert.deepEqual(cycleFor("2026-03-01", 1), { start: "2026-03-01", end: "2026-03-31" });
+  assert.equal(repaymentFor("2026-10-05", 12, 27), "2026-10-27");
+  assert.equal(repaymentFor("2026-10-14", 12, 27), "2026-11-27");
+  assert.equal(repaymentFor("2026-10-14", 12, 3), "2026-12-03", "closes 11 Nov, next 3rd after that");
+  var tr = [{ to: "Card", date: "2026-07-26", amount: 900 }, { to: "Card", date: "2026-08-28", amount: 800 }, { to: "Card", date: "2026-09-27", amount: 700 }, { to: "Savings", date: "2026-09-02", amount: 50 }];
+  assert.equal(cardRepaymentDay({ name: "Card" }, tr), 27);
+  assert.equal(cardRepaymentDay({ name: "Other" }, tr), null);
+});
+
+test("the month's card payment: what the closed cycle charged, or the repayment once logged", function(){
+  var accounts = [{ name: "Everyday", type: "everyday" }, { name: "Card", type: "credit", statementStartDay: 12 }];
+  var transfers = [{ to: "Card", date: "2026-08-27", amount: 610 }, { to: "Card", date: "2026-09-27", amount: 540 }];
+  var tx = [
+    { date: "2026-09-15", amount: 100, account: "Card" }, { date: "2026-10-06", amount: 45.5, account: "Card" },
+    { date: "2026-10-13", amount: 999, account: "Card" }, { date: "2026-09-12", amount: 70, account: "Everyday" }
+  ];
+  var oct = cardPaymentsForMonth(accounts, tx, transfers, "2026-10", "2026-10-15");
+  assert.equal(oct.length, 1);
+  assert.equal(oct[0].date, "2026-10-27");
+  assert.deepEqual(oct[0].cycle, { start: "2026-09-12", end: "2026-10-11" });
+  assert.equal(oct[0].amount, 145.5);
+  assert.equal(oct[0].paid, false);
+  var sep = cardPaymentsForMonth(accounts, tx, transfers, "2026-09", "2026-10-15");
+  assert.equal(sep[0].paid, true);
+  assert.equal(sep[0].amount, 540);
+});
+
+test("the calendar: spending budgets off the days, card bills grouped under the card payment", function(){
+  var items = [
+    { id: "ph", what: "Phone", amount: 40, freq: "Monthly" },
+    { id: "pw", what: "Power", amount: 150, freq: "Monthly" },
+    { id: "gr", what: "Groceries", amount: 200, freq: "Weekly" }
+  ];
+  var tx = monthly(14, [40, 40, 40, 40, 40, 40, 40], "Card").map(function(t){ t.linkedExpenseId = "ph"; return t; })
+    .concat(monthly(3, [120, 180, 90, 150, 140, 160, 130], "Everyday").map(function(t){ t.linkedExpenseId = "pw"; return t; }))
+    .concat(weeklyShop().map(function(t){ t.linkedExpenseId = "gr"; t.account = "Card"; return t; }));
+  var accounts = [{ name: "Everyday", type: "everyday" }, { name: "Card", type: "credit", statementStartDay: 12 }];
+  var transfers = [{ to: "Card", date: "2026-08-27", amount: 610 }, { to: "Card", date: "2026-09-27", amount: 540 }];
+  var r = billsForMonth(items, tx, "2026-09", "2026-09-30", { accounts: accounts, transfers: transfers });
+  assert.deepEqual(r.spending.map(function(s){ return s.what; }), ["Groceries"]);
+  assert.equal(r.spending[0].budget, Math.round(200 * 52 / 12 * 100) / 100);
+  assert.ok(!Object.keys(r.days).some(function(k){ return r.days[k].some(function(b){ return b.what === "Groceries"; }); }));
+  assert.equal(r.days["2026-09-14"][0].card, "Card");
+  assert.equal(r.days["2026-09-14"][0].payOn, "2026-10-27", "charged in the cycle that closes 11 Oct");
+  assert.equal(r.days["2026-09-03"][0].card, "");
+  assert.equal(r.directTotal, 150);
+  assert.equal(r.cardTotal, 40);
+  assert.equal(r.cardPayments[0].amount, 540);
+  var html = billsCalendarHtml(r, "2026-09", "2026-09-30");
+  assert.match(html, /bc-bill card-pay paid/);
+  assert.match(html, /bc-bill on-card paid" title="Phone \$40 on the Card, paid with the 27 Oct repayment/);
+  assert.match(html, /From your accounts/);
+  assert.match(html, /On the Card/);
+  assert.match(html, /Spending budgets in September/);
+  assert.match(html, /\$690 leaves your accounts: \$150 in bills, \$540 card payment/);
+  assert.match(html, /data-bc-kind="gr"[^>]*>.*?<option value="" selected>Auto \(spending\)/);
+});
+
+test("a quarterly bill paid whenever the invoice arrives is still a bill", function(){
+  var water = [["2025-11-27", 96], ["2026-03-11", 231], ["2026-04-29", 205], ["2026-06-03", 131], ["2026-08-25", 104]].map(function(x){ return { date: x[0], amount: x[1] }; });
+  assert.equal(inferredLineKind({ freq: "Quarterly" }, water), "bill");
+});

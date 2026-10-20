@@ -1174,6 +1174,32 @@
   .bc-list b{ font-variant-numeric: tabular-nums; }
   .bc-undated{ margin-top:10px; font-size:12.5px; }
   .bc-undated summary{ cursor:pointer; color: var(--ink-soft); min-height:32px; }
+  /* v3.83.0: card bills go out with the card payment; spending budgets aren't bills */
+  .bc-bill.card-pay{ background: var(--ink); color: var(--paper); font-weight:600; }
+  .bc-bill.card-pay.paid{ background: var(--good); color: var(--paper); text-decoration:none; }
+  .bc-bill.on-card{ background:none; border:1px dashed var(--border); color: var(--ink-soft); }
+  .bc-bill.on-card.paid{ background:none; }
+  .bc-dots i.card-pay{ background: var(--ink); border-radius:2px; }
+  .bc-dots i.on-card{ background:none; box-shadow: inset 0 0 0 1px var(--ink-soft); }
+  .bc-sec{ margin:16px 0 0; font-size:13px; font-weight:600; display:flex; flex-wrap:wrap; gap:4px 8px; align-items:baseline; }
+  .bc-sec span{ font-weight:400; font-size:12px; color: var(--ink-soft); }
+  .bc-list.is-card li{ color: var(--ink-soft); }
+  .bc-list.is-card li b{ color: var(--ink); }
+  .bc-list-name small{ display:block; font-size:11.5px; color: var(--ink-soft); white-space:normal; }
+  .bc-card-tag{ display:inline-block; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.03em; padding:0 4px; margin-right:6px; border-radius:3px; background: var(--ink); color: var(--paper); vertical-align:1px; }
+  .bc-list b, .bc-spend b{ font-family: var(--font-num); }
+  .bc-spend{ list-style:none; margin:6px 0 0; padding:0; }
+  .bc-spend li{ display:grid; grid-template-columns: minmax(0,1fr) auto; gap:2px 8px; align-items:baseline; font-size:13px; padding:6px 0; }
+  .bc-spend li b small{ font-weight:400; color: var(--ink-soft); font-size:12px; }
+  .bc-spend-bar{ grid-column: 1 / -1; height:5px; border-radius:3px; background: var(--border); overflow:hidden; }
+  .bc-spend-bar i{ display:block; height:100%; background: var(--brass); }
+  .bc-spend li.over .bc-spend-bar i{ background: var(--bad); }
+  .bc-kinds{ margin-top:10px; font-size:12.5px; }
+  .bc-kinds summary{ cursor:pointer; color: var(--ink-soft); min-height:32px; }
+  .bc-kinds ul{ list-style:none; margin:0; padding:0; }
+  .bc-kinds li{ display:flex; justify-content:space-between; align-items:center; gap:8px; padding:3px 0; border-bottom:1px dashed var(--border); }
+  .bc-kinds li span{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .bc-kinds select{ min-height:36px; padding:4px 6px; border:1px solid var(--border); border-radius:6px; background: var(--paper); color: var(--ink); font: inherit; flex-shrink:0; }
   @media (max-width: 640px){
     .bc-cell{ min-height:44px; padding:3px; }
     .bc-bill, .bc-more{ display:none; }

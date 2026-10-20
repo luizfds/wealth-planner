@@ -2407,6 +2407,12 @@ the gap is what the logging or the balances don't explain.
 
 Shipped as v3.82.0: `calc/nwcheck.js` — compared like for like (only records held at both month ends; anything first recorded mid-month is listed, not counted), interest from what was owed less the offset at the rate then, "adds up" within 5% of money in (at least $500), and the cash-side balances with no record within a week of either end listed. Month in detail gains "Did net worth add up?"; Reports gains Net worth check (12 months, each linking to its month).
 
+## 120. `[~]` Bills calendar: bills, not spending; card bills on the card payment
+The calendar treated every regular line as a bill, so a weekly groceries budget showed four times
+a month. A line is a bill when its payments come about once a period; a spending budget is many
+varying purchases — told apart from what's logged, with a per-line override. Bills charged to a
+credit card are grouped under the card repayment, which is what actually leaves the bank.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

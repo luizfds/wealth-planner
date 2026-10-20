@@ -4717,6 +4717,18 @@ import {
     var kinds = document.querySelector("#billsCalendar .bc-kinds");
     if(kinds) kinds.open = true;
   });
+  // v3.84.0: a bill that stopped being paid — end it at its last payment.
+  document.addEventListener("click", function(e){
+    var btn = e.target.closest && e.target.closest("[data-bc-end]");
+    if(!btn) return;
+    var id = btn.getAttribute("data-bc-end");
+    var line = loggableBudgetLineItems().find(function(i){ return i.id === id; });
+    if(!line) return;
+    line.endDate = btn.getAttribute("data-bc-end-date");
+    persist();
+    renderBillsCalendar();
+    showToast((line.what || "Line") + " ended " + line.endDate);
+  });
   // v3.41.0: Loan strategy on a property card.
   document.addEventListener("change", function(e){
     if(!e.target.matches) return;

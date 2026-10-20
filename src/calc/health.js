@@ -71,6 +71,33 @@ export function dataHealthChecks(opts){
       detail: "Each owner's share of its rent and costs is taken from these — they should add to 100%.", where: { page: "properties" } });
   });
 
+  // Deductions the data says are being missed (v3.86.0).
+  ipProperties().forEach(function(p){
+    var name = p.what || "A property";
+    // Building depreciation: anything whose construction began after 15 Sep 1987 is written off at
+    // 2.5% a year. With no construction cost and no schedule from a report, nothing is claimed.
+    var hasSchedule = Array.isArray(p.depreciationSchedule) && p.depreciationSchedule.some(function(r){ return (Number(r.capitalWorks) || 0) + (Number(r.plant) || 0) > 0; });
+    var built = String(p.constructionDate || "");
+    if(!hasSchedule && !(Number(p.constructionCost) > 0) && (!built || built >= "1987-09-16")) add({ id: "dep-missing:" + p.id, severity: "warn",
+      title: name + ": no building depreciation claimed",
+      detail: (built ? "Built " + built.slice(0, 4) + ", after September 1987, so its construction cost is written off at 2.5% a year — " : "If it was built after September 1987, its construction cost is written off at 2.5% a year — ") +
+        "but there's no construction cost or depreciation schedule. A quantity surveyor's report (itself deductible) gives both; enter its year-by-year table on the property.",
+      where: { page: "properties" } });
+    (p.loans || []).forEach(function(l){
+      if(l.endedOn && l.endedOn <= today) return;
+      var lname = l.what || "A loan";
+      // A split or top-up drawn after the purchase: what it paid for decides the deduction.
+      if(p.purchaseDate && l.settlementDate && l.settlementDate > p.purchaseDate && (l.investPct == null || l.investPct === "")) add({ id: "loan-purpose:" + p.id + ":" + (l.id || lname), severity: "warn",
+        title: lname + ": what was it used for?",
+        detail: "Drawn " + l.settlementDate + ", after " + name + " was bought. Its interest is deductible only for the share used to invest (the rental, shares) — not for your own home's deposit, a car or living costs, even though " + name + " secures it. Set Used to invest % on the loan; blank counts all of it.",
+        where: { page: "properties" } });
+      if(!(Number(l.borrowingCosts) > 0) && Number(l.balance) > 0 && !(p.purchaseDate && l.settlementDate && l.settlementDate > p.purchaseDate)) add({ id: "loan-borrowing:" + p.id + ":" + (l.id || lname), severity: "info",
+        title: lname + ": no borrowing costs entered",
+        detail: "LMI, the lender's establishment fee, mortgage registration and a lender's valuation are deducted over five years. The settlement statement lists them — mark this as looking right if there were none.",
+        where: { page: "properties" } });
+    });
+  });
+
   // People.
   var noDob = people.filter(function(p){ return !(state.tax && state.tax.settings && state.tax.settings[p] && state.tax.settings[p].dateOfBirth); });
   if(noDob.length) add({ id: "people-dob", severity: "info", title: names(noDob) + " without a date of birth",

@@ -2426,8 +2426,10 @@ What a loan's money was used for decides whether its interest is deductible, not
 
 Shipped as v3.85.0: `loan.investPct` (blank = 100), `loanInvestShare`/`loanDeductibleInterestMonthly` in `calc/property.js`; the tax result, its breakdown, a past year's rental schedule (`taxyear.js`) and Before 30 June claim only that share; the cash result still pays all of it. Loan editor: "Used to invest %".
 
-## 123. `[~]` Checks for missing deductions
+## 123. `[x]` Checks for missing deductions
 Settings → Checks flags deductions the data says are being missed: a post-1987 build with no construction cost and no depreciation schedule, borrowing costs not entered, a split with no purpose.
+
+Shipped as v3.86.0 in `calc/health.js`: `dep-missing:<property>` (no schedule rows, no construction cost, built after 15 Sep 1987 or date unknown), `loan-purpose:<property>:<loan>` (settled after the purchase, `investPct` unset), `loan-borrowing:<property>:<loan>` (info; loans from the purchase with no borrowing costs). All dismissable as usual.
 
 ## 124. `[~]` Update the plan from pay received
 When the pay logged for a person has sat clearly above or below the plan for three months, offer to set the plan to what's actually arriving.

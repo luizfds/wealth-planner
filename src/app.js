@@ -92,6 +92,10 @@ import { addSavingsGoal } from "./calc/savegoals.js";
 import { unbudgetedRecurring, risingLines, catchAllSuggestions } from "./calc/recurring.js";
 import { learnRule } from "./calc/import-rules.js";
 import { pdfLines } from "./lib/pdftext.js";
+import { renderAdvice, adviceUi } from "./components/advice.js";
+import { adviceFor } from "./calc/advice.js";
+import { householdSummary } from "./calc/aisummary.js";
+import { askUi, setAiKey, setAiModel, askClaude, setLastReview } from "./components/askclaude.js";
 import { emergencyFund } from "./calc/emergency.js";
 import { renderEmergencyFund, existingEmergencyGoal } from "./components/emergency.js";
 import { statementFromLines, statementCsv, agentStatementFromLines } from "./calc/pdfstatement.js";
@@ -4627,6 +4631,59 @@ import {
     if(route.page === "settings") showAccountsSubpage(route.sub || "people", { skipUrl: true });
   });
 
+  // ---------------- What the app notices + Ask Claude (v3.98.0) ----------------
+  document.addEventListener("toggle", function(e){
+    if(e.target.matches && e.target.matches("[data-adv-id]")) adviceUi.open[e.target.getAttribute("data-adv-id")] = e.target.open;
+  }, true);
+  document.addEventListener("change", function(e){
+    if(e.target.matches && e.target.matches("[data-ai-model]")) setAiModel(e.target.value);
+  });
+  document.addEventListener("input", function(e){
+    if(e.target.matches && e.target.matches("[data-ai-q]")) askUi.question = e.target.value;
+  });
+  document.addEventListener("click", function(e){
+    if(!e.target.closest) return;
+    var go = e.target.closest("[data-adv-go]");
+    if(go){
+      var pg = go.getAttribute("data-adv-go"), sub = go.getAttribute("data-adv-sub");
+      showPage(pg);
+      if(sub){
+        if(pg === "dashboard") showDashboardSubpage(sub);
+        else if(pg === "expenses") showExpensesSubpage(sub, { replace: true });
+        else if(pg === "plan") showPlanSubpage(sub, { replace: true });
+        else if(pg === "assets") showAssetsSubpage(sub, { replace: true });
+      }
+      return;
+    }
+    if(e.target.closest("[data-ai-save-key]")){
+      var k = document.querySelector("[data-ai-key]");
+      var v = k ? k.value.trim() : "";
+      if(!/^sk-ant-/.test(v)){ showToast("That doesn't look like an Anthropic API key (they start sk-ant-)"); return; }
+      setAiKey(v); renderAdvice(); showToast("Key saved in this browser only");
+      return;
+    }
+    if(e.target.closest("[data-ai-forget]")){ setAiKey(""); askUi.preview = ""; renderAdvice(); showToast("Key removed from this browser"); return; }
+    if(e.target.closest("[data-ai-preview]")){
+      askUi.preview = askUi.preview ? "" : householdSummary(adviceFor({ today: localDateStr() }), { today: localDateStr() });
+      renderAdvice();
+      return;
+    }
+    if(e.target.closest("[data-ai-ask]")){
+      if(askUi.busy) return;
+      var q = askUi.question.trim();
+      var summary = householdSummary(adviceFor({ today: localDateStr() }), { today: localDateStr() });
+      askUi.busy = true; askUi.error = ""; renderAdvice();
+      askClaude(summary, q).then(function(text){
+        setLastReview({ at: localDateStr(), question: q, text: text });
+        askUi.busy = false; askUi.preview = ""; renderAdvice();
+      }).catch(function(err){
+        askUi.busy = false;
+        askUi.error = "Couldn't get a review: " + (err && err.message ? err.message : "no connection") + ".";
+        renderAdvice();
+      });
+    }
+  });
+
   function renderAll(){
     document.getElementById("projHorizon").value = state.projection.horizonYears;
     document.getElementById("projInvestRate").value = state.projection.investReturnRate;
@@ -4686,6 +4743,7 @@ import {
     renderChecksBadge();
     renderSafekeeping();
     renderSavingsGoals();
+    renderAdvice();
     renderRecurring();
     renderTrips();
     renderRetirement();

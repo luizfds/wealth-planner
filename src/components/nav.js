@@ -6,6 +6,7 @@ import { escapeAttr } from "../lib/html.js";
 import { lodgementStatus } from "../calc/taxyear.js";
 import { renderTaxYear } from "./taxyear.js";
 import { renderReceived } from "./received.js";
+import { renderAdvice } from "./advice.js";
 import { localDateStr } from "../lib/format.js";
 
 // ---------------- Page navigation ----------------
@@ -298,6 +299,8 @@ export function showPage(id, opts){
     try{ localStorage.setItem(PAGE_KEY, id); }catch(e){}
     if(id === "dashboard"){ renderDashboardStats(); renderHomeSummary(); }
     if(id === "reports") renderReports();
+    // v3.98.0: each page's "The app notices" strip reads figures changed on other pages.
+    renderAdvice();
     // The worksheet only re-renders itself while visible (see income.js refreshOpenTaxYear), so
     // arriving on Tax brings it up to date with whatever changed elsewhere in the meantime.
     if(id === "tax") renderTaxYear();

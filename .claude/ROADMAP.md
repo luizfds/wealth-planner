@@ -2474,6 +2474,11 @@ the home, what the investment property costs beyond its rent), against cash and 
 
 Shipped as v3.94.0: `calc/emergency.js` `emergencyFund` — Needs lines (scenario-resolved) + the active scenario's home lines not marked Wants + each IP's costs and repayments beyond its rent; a line counts at max(plan, the last 12 months' actual) once 6+ months are logged; available = Cash assets + offsets (shares left out); per person, what the others' take-home leaves to find if that one's pay stopped. `state.emergency.months` (3/6/12, default 6). Accounts → Emergency fund, with "Track it as a savings goal".
 
+## 132. `[x]` What the app notices, and Ask Claude
+The analysis an adviser would do, from the app's own data: rules that read purchases, loan structure, tax, super, spending and investments and say what they found with a dollar figure, on the page each belongs to and together on Home → Insights; plus an optional written review from Claude using the person's own API key, with the household anonymised and the text previewable before anything is sent.
+
+Shipped as v3.98.0: `calc/advice.js` `adviceFor` — rules for a purchase that leaves little room (with pay as it lands and rates +2 points), borrowed money in a deposit, moving cash to a home loan's offset after buying, a PAYG withholding variation for the rental's loss, concessional super room, concentration in property, tiny holdings, the savings rate, Wants share of spending, the emergency fund and pay off the plan; each {area, kind, impactYearly, go}. `components/advice.js`: Home → Insights "What the app notices" and a strip on Scenarios, Budget, Income, Tax, Investments and Accounts. `calc/aisummary.js` builds the anonymised summary (people → Partner A/B, property, loans, scenarios and accounts → labels, holdings → tickers) and maps labels back for display; `components/askclaude.js` keeps the key in localStorage only (never in state or backups), previews the exact text, and calls the Messages API from the browser.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

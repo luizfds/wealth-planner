@@ -1927,8 +1927,12 @@ import {
       else if(e.target.classList.contains("loan-rate")) loan.rate = parseFloat(e.target.value) || 0;
       else if(e.target.classList.contains("loan-term")) loan.termYears = parseFloat(e.target.value) || 0;
       else if(e.target.classList.contains("loan-manual-amount")) loan.manualRepaymentAmount = parseFloat(e.target.value) || 0;
-      else if(e.target.classList.contains("loan-settled") || e.target.classList.contains("loan-borrowing") || e.target.classList.contains("loan-borrowing-term") || e.target.classList.contains("loan-ended")){
+      else if(e.target.classList.contains("loan-settled") || e.target.classList.contains("loan-borrowing") || e.target.classList.contains("loan-borrowing-term") || e.target.classList.contains("loan-ended") || e.target.classList.contains("loan-invest-pct")){
         if(e.target.classList.contains("loan-settled")) loan.settlementDate = e.target.value || "";
+        else if(e.target.classList.contains("loan-invest-pct")){
+          if(e.target.value === "") delete loan.investPct;
+          else loan.investPct = Math.min(100, Math.max(0, parseFloat(e.target.value) || 0));
+        }
         else if(e.target.classList.contains("loan-ended")) loan.endedOn = e.target.value || "";
         else if(e.target.classList.contains("loan-borrowing")) loan.borrowingCosts = Math.max(0, parseFloat(e.target.value) || 0);
         else loan.borrowingTermYears = Math.max(0, parseFloat(e.target.value) || 0);

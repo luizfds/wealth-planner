@@ -1,7 +1,7 @@
 import { state } from "../state.js";
 import { periodsOf } from "./ledger.js";
 import {
-  ipProperties, loanInterestMonthly, loanInterestMonthlyRaw, loanInterestForWindow, borrowingCostsDeduction, propertyDepreciationForFy, fyWindow
+  ipProperties, loanInterestMonthly, loanInterestMonthlyRaw, loanInterestForWindow, loanInvestShare, borrowingCostsDeduction, propertyDepreciationForFy, fyWindow
 } from "./property.js";
 import { propertyClaimLines, rowDeductionAnnual } from "./claims.js";
 
@@ -239,7 +239,8 @@ export function rentalSchedule(property, fy){
     if(l.endedOn && l.endedOn < win.start) return s;
     // Interest stops the day it's paid out: charged up to the day before.
     var end = l.endedOn && l.endedOn <= win.end ? new Date(Date.parse(l.endedOn) - 86400000).toISOString().slice(0, 10) : win.end;
-    return s + loanInterestForWindow(l, win.start, end);
+    // v3.85.0: only the share of the loan's money used to invest.
+    return s + loanInterestForWindow(l, win.start, end) * loanInvestShare(l);
   }, 0);
   model.borrowing = (property.loans || []).reduce(function(s, l){ return s + borrowingCostsDeduction(l, win); }, 0);
   var dep = propertyDepreciationForFy(property, fy);

@@ -2,7 +2,7 @@ import { state } from "../state.js";
 import { getTaxPeople, computePersonTax, personCapitalGains, personFundStatements, lotsAverageCost, deductionRows, rowDeductionAnnual, todayTaxFy } from "./tax.js";
 import { superTopUp } from "./supertopup.js";
 import { toAudAmount } from "./engine.js";
-import { ipProperties, propertyOwnershipPct, loanInterestMonthly, loanPaidOut, fyWindow } from "./property.js";
+import { ipProperties, propertyOwnershipPct, loanDeductibleInterestMonthly, loanPaidOut, fyWindow } from "./property.js";
 import { claimItems } from "./claims.js";
 
 // ---------------- Before 30 June: the moves that save tax (v3.51.0) ----------------
@@ -78,7 +78,7 @@ export function juneMoves(person, today, items){
   ipProperties().forEach(function(p){
     var pct = propertyOwnershipPct(p, person, people);
     if(!pct) return;
-    var yearly = (p.loans || []).reduce(function(s, l){ return s + (loanPaidOut(l, w.end) ? 0 : loanInterestMonthly(l) * 12); }, 0) * pct / 100;
+    var yearly = (p.loans || []).reduce(function(s, l){ return s + (loanPaidOut(l, w.end) ? 0 : loanDeductibleInterestMonthly(l) * 12); }, 0) * pct / 100;
     if(yearly < 500) return;
     moves.push({ kind: "interest", title: "Prepay interest: " + (p.what || "investment loan") + " (your " + pct + "%)", amount: round(yearly), saves: round(yearly * rate),
       detail: "Paying up to twelve months of interest in advance before 30 June brings about $" + round(yearly).toLocaleString("en-AU") + " of deductions into this year for your share. Lenders usually only allow it on a fixed-rate loan, it takes the cash now, and the saving is timing — worth it mainly when this year's income (a bonus, a sale) is unusually high." });

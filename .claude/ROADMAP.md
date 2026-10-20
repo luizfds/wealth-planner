@@ -2421,8 +2421,10 @@ no payment for a while is asked about once instead. The card payment says what i
 
 Shipped as v3.84.0: `billsForMonth` skips lines ended before the month or not yet started, and drops dates outside `isActiveOn`; a line with no end date whose last payment is more than 2.5 periods + 7 days before today drops its later dates and is listed under "Stopped?" with "It ended then" (sets `endDate` to the last payment). `cardPaymentsForMonth` takes `kindOf` and splits the cycle's charges into bills, spending budgets and other.
 
-## 122. `[~]` Loan purpose: claim only the deductible share
+## 122. `[x]` Loan purpose: claim only the deductible share
 What a loan's money was used for decides whether its interest is deductible, not the property that secures it. Each loan records the share used to invest; Tax claims only that share of the interest, and a split drawn for your own home stops counting.
+
+Shipped as v3.85.0: `loan.investPct` (blank = 100), `loanInvestShare`/`loanDeductibleInterestMonthly` in `calc/property.js`; the tax result, its breakdown, a past year's rental schedule (`taxyear.js`) and Before 30 June claim only that share; the cash result still pays all of it. Loan editor: "Used to invest %".
 
 ## 123. `[~]` Checks for missing deductions
 Settings → Checks flags deductions the data says are being missed: a post-1987 build with no construction cost and no depreciation schedule, borrowing costs not entered, a split with no purpose.

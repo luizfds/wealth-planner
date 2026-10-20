@@ -13,7 +13,7 @@ import {
   exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv, exportAssetsImportTemplateCsv, parseCsv, exportProjectionCsv
 } from "./lib/backup.js";
 import { periodsOf, sumField, sumFieldForScenario, resolveSharedAmount, appendHistorySnapshot, transactionDisplayName } from "./calc/ledger.js";
-import { phiPremiumsAnnual, effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider, saleCapitalGain, lotsUnitsAvailable } from "./calc/tax.js";
+import { phiPremiumsAnnual, effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider, saleCapitalGain, lotsUnitsAvailable, takeHomeAdjust } from "./calc/tax.js";
 import { recalcComputedItems, scenarioTotals, totalNetWorthValue, totalDebtsValue } from "./calc/engine.js";
 import { financialYearOf, fyLabel, recordRateChange, sortedRateHistory, loanRateOn } from "./calc/property.js";
 import { taxYearFillStatements, renderTaxYear, setTaxYearSelected, taxYearAddRow, taxYearDeleteRow, taxYearRestoreRow, taxYearSetField, taxYearToggleEvidence, taxYearMarkLodged, worksheetText, taxYearSelected, taxYearPrintHtml, lodgedSnapshot } from "./components/taxyear.js";
@@ -23,6 +23,7 @@ import { renderHealth } from "./components/health.js";
 import { renderMonthReview, stepReviewMonth, reviewMonthShown, setReviewMonth, setReviewStep, dismissReviewIntro } from "./components/monthreview.js";
 import { markReviewed, setStatementAmount, monthLabel, monthBounds } from "./calc/monthreview.js";
 import { logIncomeReceived, deleteIncomeReceived } from "./calc/received.js";
+import { setTakeHomeAdjust } from "./calc/takehome.js";
 import { renderReceived, toggleReceivedRow, receivedSheet, openReceivedSheet, closeReceivedSheet, setReceivedTarget, receivedSheetHtml } from "./components/received.js";
 import { applyRentalComparison, applyBudgetComparison, householdBudgetLines } from "./calc/closeyear.js";
 import { setUseBudgetLines, setLineExcluded, RENT_EXPENSE_LINES, rentLineFor, setRentalActual, mergeTaxYearFile, matchPerson, taxYearRecord, TAX_YEAR_FILE_KIND } from "./calc/taxyear.js";
@@ -3019,6 +3020,14 @@ import {
       var restore = deleteIncomeReceived(del.getAttribute("data-rcv-del"));
       afterReceivedChange();
       if(restore) showUndoToast("Record deleted", function(){ restore(); afterReceivedChange(); });
+      return;
+    }
+    var th = e.target.closest("[data-th-apply]");
+    if(th){
+      var who = th.getAttribute("data-th-apply"), before = takeHomeAdjust(who);
+      setTakeHomeAdjust(who, Number(th.getAttribute("data-th-value")) || 0);
+      renderAll(); persist();
+      showUndoToast(Number(th.getAttribute("data-th-value")) ? who + "'s take-home planned at what lands" : who + "'s take-home back to the tax estimate", function(){ setTakeHomeAdjust(who, before); renderAll(); persist(); });
       return;
     }
     var log = e.target.closest("[data-rcv-log]");

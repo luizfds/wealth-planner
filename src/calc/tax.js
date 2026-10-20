@@ -840,7 +840,7 @@ export function scenarioIncomeRows(opts){
     // person who was never there.
     rows.push({
       what: person + " — net income",
-      amount: Math.round((split.regularNet / 12) * 100) / 100,
+      amount: Math.round((split.regularNet / 12 + takeHomeAdjust(person)) * 100) / 100,
       freq: "Monthly",
       computed: true,
       syntheticNetFor: person
@@ -853,6 +853,19 @@ export function scenarioIncomeRows(opts){
   });
   return rows;
 }
+// ---------------- What actually lands (v3.87.0) ----------------
+//
+// Take-home is worked out from gross pay and the tax tables, and real pay can sit a steady amount
+// off it: extra withholding (which comes back as a refund), salary sacrifice, a share plan or an
+// after-tax deduction taken before the money lands. tax.settings[person].takeHomeAdjust is that
+// difference per month, applied to the regular take-home only — cash flow and projections follow
+// what arrives; the tax figures still come from gross.
+export function takeHomeAdjust(person){
+  var s = state.tax && state.tax.settings && state.tax.settings[person];
+  var v = Number(s && s.takeHomeAdjust);
+  return isFinite(v) ? v : 0;
+}
+
 // ---------------- One-off income (v3.80.0) ----------------
 //
 // A bonus paid once a year is a Gross row marked irregular. Its tax isn't separable by itself —

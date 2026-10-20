@@ -2431,8 +2431,10 @@ Settings → Checks flags deductions the data says are being missed: a post-1987
 
 Shipped as v3.86.0 in `calc/health.js`: `dep-missing:<property>` (no schedule rows, no construction cost, built after 15 Sep 1987 or date unknown), `loan-purpose:<property>:<loan>` (settled after the purchase, `investPct` unset), `loan-borrowing:<property>:<loan>` (info; loans from the purchase with no borrowing costs). All dismissable as usual.
 
-## 124. `[~]` Update the plan from pay received
+## 124. `[x]` Update the plan from pay received
 When the pay logged for a person has sat clearly above or below the plan for three months, offer to set the plan to what's actually arriving.
+
+Shipped as v3.87.0: `calc/takehome.js` `takeHomeDrift` (the last three whole months all logged and all beyond max($150, 4%) the same way); `tax.settings[person].takeHomeAdjust` ($/mo) is added to the regular take-home row (engine recalc and `scenarioIncomeRows`), the tax figures untouched. Cash flow → Income shows the card with "Plan take-home at $X/mo", and "Use the tax estimate" to undo; Checks lists it.
 
 ## 125. `[~]` Can we buy?
 For each Buy scenario: the deposit taken from the offsets, stamp duty (no first-home concessions once a property is owned), the investment-loan interest that rises when the offset empties, and the new monthly position.

@@ -5,6 +5,7 @@ import { ipProperties, propertyOwnershipTotal, fyLabel } from "./property.js";
 import { taxYearRecord } from "./taxyear.js";
 import { budgetComparison, rentalComparison, householdBudgetLines } from "./closeyear.js";
 import { localDateStr } from "../lib/format.js";
+import { takeHomeDrifts } from "./takehome.js";
 
 // ---------------- Data health (v3.48.0) ----------------
 //
@@ -96,6 +97,13 @@ export function dataHealthChecks(opts){
         detail: "LMI, the lender's establishment fee, mortgage registration and a lender's valuation are deducted over five years. The settlement statement lists them — mark this as looking right if there were none.",
         where: { page: "properties" } });
     });
+  });
+
+  // Take-home off the plan three months running (v3.87.0).
+  takeHomeDrifts(today).forEach(function(d){
+    add({ id: "takehome:" + d.person, severity: "warn", title: d.person + "'s pay is landing " + (d.gap < 0 ? "below" : "above") + " the plan",
+      detail: "About $" + Math.round(Math.abs(d.gap)).toLocaleString("en-AU") + "/mo " + (d.gap < 0 ? "less" : "more") + " than planned for three months. Cash flow → Income can plan with what actually lands.",
+      where: { page: "expenses", sub: "income" } });
   });
 
   // People.

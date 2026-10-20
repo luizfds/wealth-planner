@@ -129,6 +129,9 @@ export function holdingsFor(assets, code){
   (assets || []).forEach(function(a, i){ if(a && a.category === "Shares" && String(a.symbol || "").toUpperCase() === code) out.push(i); });
   return out;
 }
+// A holding's units are often typed to four decimals while the broker keeps eight (fractional US
+// shares): within half a ten-thousandth, the lots and the holding agree.
+var UNIT_TOL = 0.00005;
 function sameLot(l, t){ return l.date === t.date && Math.abs((Number(l.units) || 0) - t.units) < 1e-6 && Math.abs((Number(l.price) || 0) - t.price) < 0.0005; }
 function sameSale(s, t){ return s.date === t.date && Math.abs((Number(s.units) || 0) - t.units) < 1e-6; }
 
@@ -158,7 +161,7 @@ export function planTrades(assets, trades, choice){
     var held = a ? Number(a.quantity) || 0 : 0;
     var problem = !hs.length ? "No holding with this code — add it on Shares first, or leave it out."
       : after < -1e-6 ? "Sells more than the file and the lots ever bought — an earlier buy is missing."
-      : a && Math.abs(after - held) > 1e-6 ? "After this the lots hold " + after + " units; the holding shows " + held + "." : "";
+      : a && Math.abs(after - held) > UNIT_TOL ? "After this the lots hold " + after + " units; the holding shows " + held + "." : "";
     return { code: code, holdings: hs, target: target, buys: list.filter(function(t){ return t.side === "buy"; }).length, sells: list.filter(function(t){ return t.side === "sell"; }).length,
       newBuys: newBuys, newSales: newSales, linkSales: newBuys.length ? unlinked : [], lotsAfter: after, held: held, problem: problem };
   });
@@ -221,7 +224,7 @@ export function applyTrades(assets, plan, idFactory){
     // bought elsewhere keeps the average it had, which covers all of its units.
     var unsold = a.lots.reduce(function(s, l){ return s + lotRemainingUnits(l); }, 0);
     var avg = lotsAverageCost(a);
-    if(avg != null && Math.abs(unsold - (Number(a.quantity) || 0)) < 1e-6) a.avgCost = avg;
+    if(avg != null && Math.abs(unsold - (Number(a.quantity) || 0)) <= UNIT_TOL) a.avgCost = avg;
   });
   return { lots: lotsAdded, sales: salesAdded, linked: linked };
 }

@@ -129,3 +129,12 @@ test("a sale already recorded uses up the lots the file brings, instead of being
   assert.equal(assets[0].sales[0].costBase, 378, "the recorded cost base stands");
   assert.equal(planTrades(assets, trades)[0].newBuys.length, 0, "reading it again adds nothing");
 });
+
+test("a holding typed to four decimals agrees with lots kept to eight", function(){
+  var assets = [{ category: "Shares", what: "XYZ", symbol: "XYZ", quantity: 4.3125 }];
+  var trades = [{ date: "2025-05-01", code: "XYZ", side: "buy", units: 4, price: 9.5, brokerage: 0 }, { date: "2025-05-01", code: "XYZ", side: "buy", units: 0.31248, price: 9.5, brokerage: 3 }];
+  var plan = planTrades(assets, trades);
+  assert.equal(plan[0].problem, "");
+  applyTrades(assets, plan, function(){ return "L" + Math.random(); });
+  assert.ok(assets[0].avgCost > 9.5, "avg cost follows the lots");
+});

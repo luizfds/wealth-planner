@@ -13,6 +13,7 @@ import { loggableBudgetLineItems, transactionAccount, transactionCategory } from
 import { sparklineHtml } from "../lib/charts.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
+import { upcomingBills as calendarUpcoming } from "../calc/bills.js";
 
 // ---------------- Home (v3.58.0) ----------------
 // The first screen answers four things before anything else: what we're worth, how the month is
@@ -23,15 +24,11 @@ function shortDate(iso){ return Number(iso.slice(8, 10)) + " " + MONTHS[Number(i
 function money(n){ return fmtCurrency0.format(Number(n) || 0); }
 function signed(n){ return (n < 0 ? "−" : "+") + fmtCurrency0.format(Math.abs(n)); }
 
-// Bills expected in the next `days` days (and any overdue), from each line's last logged payment.
+// Bills expected in the next `days` days (and unpaid ones from the last week) — v3.94.1: the bills
+// calendar's own reading (calc/bills.js upcomingBills), so ended lines, spending budgets, bills on
+// a card and bills that stopped aren't flagged here while the calendar leaves them out.
 export function upcomingBills(items, transactions, today, days){
-  var horizon = days == null ? 14 : days;
-  return (items || []).filter(function(i){ return !i.irregular && i.id; }).map(function(i){
-    var last = lastTransactionDateFor(transactions || [], i.id);
-    var due = nextDueDate(last, i.freq, today);
-    return due ? { what: i.what || "Bill", due: due, days: daysUntil(due, today), amount: Number(i.amount) || 0 } : null;
-  }).filter(function(b){ return b && b.days <= horizon; })
-    .sort(function(a, b){ return a.due < b.due ? -1 : a.due > b.due ? 1 : 0; });
+  return calendarUpcoming(items, transactions, today, days, { accounts: state.accounts, transfers: state.transfers });
 }
 
 // The to-do list: each { text, go, sub?, tone } where `go` is a page and `sub` its tab.

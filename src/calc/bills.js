@@ -219,3 +219,47 @@ export function billsForMonth(items, transactions, ym, today, opts){
   return { start: start, end: end, days: days, undated: undated, spending: spending, cardPayments: cardPayments, kinds: kinds, stopped: stopped,
     total: r2(total), paidTotal: r2(paidTotal), cardTotal: r2(cardTotal), directTotal: r2(total - cardTotal) };
 }
+
+// ---------------- Bills coming up, for Home and the bell (v3.94.1) ----------------
+//
+// Home's "Bills — next 2 weeks", the dashboard's upcoming panel and the due-bill notifications each
+// projected every regular line forward from its last payment on their own, so they kept flagging
+// what the calendar had learnt to leave out: an ended line (a cancelled membership), a spending
+// budget (groceries are not due on a day), a bill charged to the card (it goes out with the card
+// payment), a bill that stopped being paid. They read the calendar's own month now, so the four
+// can't disagree: bills paid from an account and each card's repayment, unpaid, from a week ago to
+// `days` ahead. Pure apart from its arguments.
+function ymOf(iso){ return iso.slice(0, 7); }
+export function upcomingBills(items, transactions, today, days, opts){
+  var horizon = days == null ? 14 : days;
+  var from = addDays(today, -7), to = addDays(today, horizon);
+  var months = [ymOf(from), ymOf(today), ymOf(to)].filter(function(m, i, a){ return a.indexOf(m) === i; });
+  var out = [];
+  months.forEach(function(m){
+    var r = billsForMonth(items, transactions, m, today, opts);
+    Object.keys(r.days).forEach(function(d){
+      if(d < from || d > to) return;
+      r.days[d].forEach(function(b){
+        if(b.paid || b.card) return;
+        out.push({ id: b.id, what: b.what, due: d, days: daysBetween(d, today), amount: b.amount, overdue: d < today, estimated: !!b.estimated });
+      });
+    });
+    r.cardPayments.forEach(function(p){
+      if(p.paid || p.date < from || p.date > to || !(p.amount > 0)) return;
+      out.push({ id: "card:" + p.card, what: p.card + " payment", due: p.date, days: daysBetween(p.date, today), amount: p.amount, overdue: p.date < today, card: true });
+    });
+  });
+  return out.sort(function(a, b){ return a.due < b.due ? -1 : a.due > b.due ? 1 : b.amount - a.amount; });
+}
+// Why a line isn't a bill to chase today: "ended", "spending", "stopped" — or "bill" when it is.
+export function billLineStatus(item, transactions, today){
+  if(!item || !isActiveOn(item, today)) return "ended";
+  var logged = (transactions || []).filter(function(t){ return t.linkedExpenseId === item.id && t.date; })
+    .sort(function(a, b){ return a.date < b.date ? -1 : 1; });
+  if(lineKind(item, logged) === "spending") return "spending";
+  if(logged.length && !item.endDate){
+    var last = logged[logged.length - 1].date;
+    if(today > addDays(last, Math.round((PERIOD_DAYS[item.freq] || 30.44) * 2.5) + 7)) return "stopped";
+  }
+  return "bill";
+}

@@ -9,7 +9,7 @@ import { fyLabel } from "../calc/property.js";
 import { dataHealthChecks } from "../calc/health.js";
 import { sortedRateHistory, calcRepaymentMonthly } from "../calc/property.js";
 import { shiftMonth, monthLabel } from "../calc/monthreview.js";
-import { cardPaymentsForMonth } from "../calc/bills.js";
+import { cardPaymentsForMonth, upcomingBills, billLineStatus } from "../calc/bills.js";
 
 // ---------------- Notifications: a small, backend-shaped layer over locally-computed alerts ----------------
 // This app has no backend (see CLAUDE.md) — every notification here is derived live from
@@ -83,27 +83,22 @@ export function markAllNotificationsRead(notifications){
 // already spoken for without re-deriving the predicate — two copies of "is this due soon" is
 // exactly how the two sources would drift back into disagreeing about the same line.
 function dueBillPairs(){
+  // v3.94.1: the bills calendar's reading (calc/bills.js upcomingBills), so a cancelled line, a
+  // spending budget or a bill on a card is never "due" here. Card repayments have their own
+  // reminder (cardPaymentReminders) and are left to it.
   var today = todayStr();
-  return state.shared
-    .filter(function(item){ return !item.irregular; })
-    .map(function(item){
-      var lastDate = lastTransactionDateFor(state.transactions, item.id);
-      if(lastDate === today) return null;
-      var due = nextDueDate(lastDate, item.freq);
-      // `behind` is the fact the review group used to carry for this line: a full period elapsed
-      // without anything being logged. It has to be measured with isOverdue(), *not* from `due`
-      // being in the past — nextDueDate() loops forward until it is on or after today, so it can
-      // never itself land in the past. The old `overdue = days < 0` test that stood here was
-      // therefore dead code: days is always >= 0, so the "bad" severity and the "Overdue — was
-      // due …" wording could not fire at all.
-      return due ? {
-        item: item,
-        due: due,
-        days: daysUntil(due),
-        behind: lastDate ? isOverdue(lastDate, item.freq) : false
-      } : null;
-    })
-    .filter(function(x){ return x && x.days <= DUE_SOON_DAYS; });
+  var byId = {};
+  state.shared.forEach(function(i){ if(i.id) byId[i.id] = i; });
+  return upcomingBills(state.shared, state.transactions, today, DUE_SOON_DAYS, { accounts: state.accounts, transfers: state.transfers })
+    .filter(function(b){ return !b.card && byId[b.id] && b.days >= -7; })
+    // One per line: the next date it's due, and whether an earlier one went unlogged.
+    .reduce(function(acc, b){
+      var x = acc.find(function(y){ return y.item.id === b.id; });
+      if(!x) acc.push(x = { item: byId[b.id], due: b.due, days: b.days, behind: false });
+      if(b.overdue) x.behind = true;
+      if(x.days < 0 && b.days >= 0){ x.due = b.due; x.days = b.days; }
+      return acc;
+    }, []);
 }
 function dueBillNotifications(pairs){
   return (pairs || dueBillPairs())
@@ -161,9 +156,12 @@ function dueBillNotifications(pairs){
 // a tidy-up.
 function reviewDueNotifications(alreadyBilled){
   alreadyBilled = alreadyBilled || {};
+  var today0 = todayStr();
   var due = state.shared.filter(function(item){
     if(item.irregular) return false;
     if(alreadyBilled[item.id]) return false;
+    // v3.94.1: an ended line, a spending budget or a bill that stopped isn't waiting for an entry.
+    if(billLineStatus(item, state.transactions, today0) !== "bill") return false;
     var lastDate = lastTransactionDateFor(state.transactions, item.id);
     return lastDate ? isOverdue(lastDate, item.freq) : true;
   });

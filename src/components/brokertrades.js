@@ -7,9 +7,13 @@ import { escapeAttr } from "../lib/html.js";
 export var tradesUi = { open: false, parsed: null, choice: {} };
 
 export function readTradesText(text){
-  tradesUi.parsed = parseTrades(text);
+  return useParsedTrades(parseTrades(text));
+}
+// v3.96.0: what several files (or a spreadsheet's sheets) held, together.
+export function useParsedTrades(parsed){
+  tradesUi.parsed = parsed;
   tradesUi.choice = {};
-  return tradesUi.parsed;
+  return parsed;
 }
 export function currentTradePlan(){
   return tradesUi.parsed ? planTrades(state.assets, tradesUi.parsed.trades, tradesUi.choice) : [];
@@ -18,8 +22,8 @@ export function currentTradePlan(){
 export function tradesCardHtml(){
   var parsed = tradesUi.parsed;
   return '<details class="tax-advanced tr-card" style="margin:0 0 14px"' + (tradesUi.open ? ' open' : '') + ' data-tr-panel><summary>Import trades from your broker</summary>' +
-    '<p class="ledger-note" style="margin:8px 0">Your broker\'s trade history as a CSV — CommSec\'s Transactions export, or any file with a date, code, buy/sell, units and price (Stake, SelfWealth, Pearler, your own sheet). Each buy becomes a purchase lot; each sell a recorded sale from the oldest lots first. Units held aren\'t changed, and reading the same file twice adds nothing.</p>' +
-    '<div class="tr-inputs"><label class="btn btn-sm">Choose CSV<input type="file" accept=".csv,text/csv,text/plain" data-tr-file hidden></label>' +
+    '<p class="ledger-note" style="margin:8px 0">Your broker\'s trade history — CommSec\'s Transactions CSV, Stake\'s Investment Activity report (.xlsx, one per financial year: choose them all at once), or any file with a date, code, buy/sell, units and price. Each buy becomes a purchase lot; each sell a recorded sale from the oldest lots first. Units held aren\'t changed, and reading the same file twice adds nothing.</p>' +
+    '<div class="tr-inputs"><label class="btn btn-sm">Choose CSV or Excel<input type="file" accept=".csv,text/csv,text/plain,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple data-tr-file hidden></label>' +
     '<span class="ledger-note">or paste it:</span></div>' +
     '<textarea class="tr-text" rows="3" data-tr-text placeholder="Date,Code,Side,Quantity,Price,Brokerage" aria-label="Paste trades CSV"></textarea>' +
     '<div><button type="button" class="btn btn-sm" data-tr-read>Read trades</button></div>' +

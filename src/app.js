@@ -95,8 +95,10 @@ import { pdfLines } from "./lib/pdftext.js";
 import { emergencyFund } from "./calc/emergency.js";
 import { renderEmergencyFund, existingEmergencyGoal } from "./components/emergency.js";
 import { statementFromLines, statementCsv, agentStatementFromLines } from "./calc/pdfstatement.js";
-import { tradesUi, readTradesText, currentTradePlan } from "./components/brokertrades.js";
-import { applyTrades } from "./calc/brokertrades.js";
+import { tradesUi, readTradesText, useParsedTrades, currentTradePlan } from "./components/brokertrades.js";
+import { applyTrades, parseTradeSheets } from "./calc/brokertrades.js";
+import { readXlsx } from "./lib/xlsx.js";
+import { parseCsvGrid } from "./calc/pricesheet.js";
 import { recordRentReview } from "./calc/propertylife.js";
 import { retirementHtml, retireLevers } from "./components/retirement.js";
 import { recurringHtml, recurringDismissed, recurringOpen, catchAllShown } from "./components/recurring.js";
@@ -5134,9 +5136,17 @@ import {
   document.addEventListener("change", function(e){
     if(!e.target.matches) return;
     if(e.target.matches("[data-tr-file]")){
-      var f = e.target.files && e.target.files[0];
-      if(!f) return;
-      f.text().then(function(t){ afterTradesRead(readTradesText(t)); });
+      // v3.96.0: CSV or Excel, and several at once (a broker report per financial year).
+      var files = Array.prototype.slice.call(e.target.files || []);
+      e.target.value = "";
+      if(!files.length) return;
+      Promise.all(files.map(function(f){
+        return /\.xlsx$/i.test(f.name)
+          ? f.arrayBuffer().then(readXlsx).then(function(sheets){ return sheets.map(function(x){ return x.grid; }); })
+          : f.text().then(function(t){ return [parseCsvGrid(t)]; });
+      })).then(function(lists){
+        afterTradesRead(useParsedTrades(parseTradeSheets([].concat.apply([], lists))));
+      }).catch(function(){ showToast("Couldn't read that file"); });
       return;
     }
     if(e.target.matches("[data-tr-pick]")){ tradesUi.choice[e.target.getAttribute("data-tr-pick")] = e.target.value === "skip" ? "skip" : Number(e.target.value); renderAssets(); return; }
@@ -5158,7 +5168,7 @@ import {
       var res = applyTrades(state.assets, currentTradePlan(), function(){ return genId("lot"); });
       tradesUi.parsed = null; tradesUi.choice = {};
       persist(); renderAll();
-      showUndoToast("Added " + res.lots + " purchase lot" + (res.lots === 1 ? "" : "s") + (res.sales ? " and " + res.sales + " sale" + (res.sales === 1 ? "" : "s") : ""), function(){
+      showUndoToast("Added " + res.lots + " purchase lot" + (res.lots === 1 ? "" : "s") + (res.sales ? " and " + res.sales + " sale" + (res.sales === 1 ? "" : "s") : "") + (res.linked ? "; " + res.linked + " recorded sale" + (res.linked === 1 ? "" : "s") + " tied to the lots" : ""), function(){
         var restored = JSON.parse(before);
         state.assets.splice.apply(state.assets, [0, state.assets.length].concat(restored));
         persist(); renderAll();

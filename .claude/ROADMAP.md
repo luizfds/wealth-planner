@@ -2456,6 +2456,8 @@ A broker's trade history CSV (CommSec, Stake, or any file with date, code, buy/s
 
 Shipped as v3.91.0: `calc/brokertrades.js` — `parseTrades` (CommSec Details "B 100 IVV @ 41.25" with brokerage from Debit/Credit; otherwise header-matched columns, a negative quantity reads as a sell), `planTrades` (per code: which holding — a choice when several share a symbol, or leave out; skips trades already there; says when the lots won't match the units held), `applyTrades` (buys → lots; sells → FIFO sales by date, units held untouched). Investments → Shares → Import trades from your broker; undoable.
 
+v3.96.0: `lib/xlsx.js` reads an .xlsx (zip directory + DecompressionStream, every sheet) so Stake's Investment Activity reports import directly, several files at once; a GST column is added to brokerage; a sale already recorded whose parcels aren't tied to a lot uses up the lots the file brings (its recorded cost base stands) instead of being counted twice; avg cost follows the lots only when they cover every unit held.
+
 ## 129. `[x]` PDF statement import
 Bank, card and property manager statements read from the PDF in the browser, into the same import flow as a CSV.
 

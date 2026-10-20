@@ -1194,6 +1194,9 @@
   .bc-spend-bar{ grid-column: 1 / -1; height:5px; border-radius:3px; background: var(--border); overflow:hidden; }
   .bc-spend-bar i{ display:block; height:100%; background: var(--brass); }
   .bc-spend li.over .bc-spend-bar i{ background: var(--bad); }
+  .bc-stopped{ list-style:none; margin:6px 0 0; padding:0; }
+  .bc-stopped li{ display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:13px; padding:4px 0; border-bottom:1px dashed var(--border); }
+  .bc-stopped .bc-end{ min-height:36px; flex-shrink:0; }
   .bc-kinds{ margin-top:10px; font-size:12.5px; }
   .bc-kinds summary{ cursor:pointer; color: var(--ink-soft); min-height:32px; }
   .bc-kinds ul{ list-style:none; margin:0; padding:0; }

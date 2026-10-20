@@ -1,4 +1,4 @@
-import { freqStepMonths, periodsOf } from "./ledger.js";
+import { freqStepMonths, periodsOf, isActiveOn } from "./ledger.js";
 
 // ---------------- The bills calendar (v3.60.0) ----------------
 //
@@ -119,7 +119,9 @@ export function repaymentFor(date, startDay, payDay){
 }
 // The repayments due in a month for each credit card: { card, date, amount, paid, estimated,
 // cycle: {start,end}, charges }.
-export function cardPaymentsForMonth(accounts, transactions, transfers, ym, today){
+// kindOf(lineId) → "bill" | "spending" | null splits the charges: everything on the card goes out
+// in the one repayment, bills and groceries and one-offs alike.
+export function cardPaymentsForMonth(accounts, transactions, transfers, ym, today, kindOf){
   var out = [];
   (accounts || []).filter(function(a){ return a && a.type === "credit" && a.name; }).forEach(function(card){
     var payDay = cardRepaymentDay(card, transfers);
@@ -129,10 +131,17 @@ export function cardPaymentsForMonth(accounts, transactions, transfers, ym, toda
     // The cycle this repayment settles: the one that closed most recently before it.
     var cycle = cycleFor(addDays(date, -1), card.statementStartDay);
     if(cycle.end >= date) cycle = cycleFor(addDays(cycle.start, -1), card.statementStartDay);
-    var charges = (transactions || []).reduce(function(s, t){ return t.account === card.name && t.date >= cycle.start && t.date <= cycle.end ? s + (Number(t.amount) || 0) : s; }, 0);
+    var split = { bill: 0, spending: 0, other: 0 };
+    var charges = (transactions || []).reduce(function(s, t){
+      if(t.account !== card.name || !(t.date >= cycle.start && t.date <= cycle.end)) return s;
+      var k = kindOf && t.linkedExpenseId ? kindOf(t.linkedExpenseId) : null;
+      split[k === "bill" || k === "spending" ? k : "other"] += Number(t.amount) || 0;
+      return s + (Number(t.amount) || 0);
+    }, 0);
     var paid = paidTx.reduce(function(s, t){ return s + Number(t.amount); }, 0);
     out.push({ card: card.name, date: date, payDay: payDay, cycle: cycle,
       charges: Math.round(charges * 100) / 100,
+      split: { bills: Math.round(split.bill * 100) / 100, spending: Math.round(split.spending * 100) / 100, other: Math.round(split.other * 100) / 100 },
       amount: Math.round((paidTx.length ? paid : charges) * 100) / 100,
       paid: paidTx.length > 0, overdue: !paidTx.length && !!today && date < today,
       // Charges still being made: the cycle hasn't closed yet, so this is "so far".
@@ -154,11 +163,14 @@ export function billsForMonth(items, transactions, ym, today, opts){
   (transactions || []).forEach(function(t){ if(t.linkedExpenseId && t.date) (byLine[t.linkedExpenseId] = byLine[t.linkedExpenseId] || []).push(t); });
   var cards = {};
   (opts.accounts || []).forEach(function(a){ if(a && a.type === "credit" && a.name) cards[a.name] = { card: a, payDay: cardRepaymentDay(a, opts.transfers) }; });
-  var days = {}, undated = [], spending = [], kinds = [], total = 0, paidTotal = 0, cardTotal = 0;
+  var days = {}, undated = [], spending = [], kinds = [], stopped = [], kindById = {}, total = 0, paidTotal = 0, cardTotal = 0;
   (items || []).forEach(function(i){
     if(!i.id || i.irregular || i.computed) return;
+    // Ended before the month began, or not started by its end: not this month's business.
+    if((i.endDate && i.endDate < start) || (i.startDate && i.startDate > end)) return;
     var logged = (byLine[i.id] || []).slice().sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
     var kind = lineKind(i, logged);
+    kindById[i.id] = kind;
     kinds.push({ id: i.id, what: i.what || "Line", kind: kind, setting: i.billKind === "bill" || i.billKind === "spending" ? i.billKind : "", auto: inferredLineKind(i, logged) });
     if(kind === "spending"){
       var spent = logged.reduce(function(s, t){ return t.date >= start && t.date <= end ? s + (Number(t.amount) || 0) : s; }, 0);
@@ -176,7 +188,16 @@ export function billsForMonth(items, transactions, ym, today, opts){
       anchor = y + "-" + String(i.dueMonth).padStart(2, "0") + "-" + String(Math.min(Number(i.dueDay) || 1, dim)).padStart(2, "0");
       estimated = true;
     } else { undated.push({ id: i.id, what: i.what || "Bill", amount: Number(i.amount) || 0, freq: i.freq, overridden: !!i.billKind }); return; }
+    // A bill that stopped being paid (a cancelled membership) without an end date: once today is
+    // well past two and a half periods since the last payment, its later dates are noise, not
+    // overdue bills. Listed once as "stopped?" with the last payment, to end it there.
+    var quietAfter = null;
+    if(dates.length && today && !i.endDate){
+      var q = addDays(anchor, Math.round((PERIOD_DAYS[i.freq] || 30.44) * 2.5) + 7);
+      if(today > q){ quietAfter = q; if(end >= q) stopped.push({ id: i.id, what: i.what || "Bill", last: anchor }); }
+    }
     occurrencesBetween(anchor, i.freq, start, end).forEach(function(d){
+      if(!isActiveOn(i, d) || (quietAfter && d > quietAfter)) return;
       var paid = dates.some(function(x){ return Math.abs(daysBetween(x, d)) <= PAID_WINDOW_DAYS; });
       var bill = { id: i.id, what: i.what || "Bill", amount: Number(i.amount) || 0, date: d, paid: paid, overdue: !paid && today && d < today, estimated: estimated, overridden: !!i.billKind,
         card: onCard ? lastAcct : "", payOn: onCard && onCard.payDay ? repaymentFor(d, onCard.card.statementStartDay, onCard.payDay) : "" };
@@ -188,9 +209,13 @@ export function billsForMonth(items, transactions, ym, today, opts){
   });
   Object.keys(days).forEach(function(d){ days[d].sort(function(a, b){ return b.amount - a.amount; }); });
   spending.sort(function(a, b){ return b.budget - a.budget; });
-  var cardPayments = opts.accounts ? cardPaymentsForMonth(opts.accounts, transactions, opts.transfers, ym, today) : [];
+  // Lines outside this month still classify card charges (an ended line's last charges, say).
+  (items || []).forEach(function(i){
+    if(i.id && !kindById[i.id] && !i.irregular && !i.computed) kindById[i.id] = lineKind(i, byLine[i.id] || []);
+  });
+  var cardPayments = opts.accounts ? cardPaymentsForMonth(opts.accounts, transactions, opts.transfers, ym, today, function(id){ return kindById[id] || null; }) : [];
   var r2 = function(n){ return Math.round(n * 100) / 100; };
   kinds.sort(function(a, b){ return a.what.localeCompare(b.what); });
-  return { start: start, end: end, days: days, undated: undated, spending: spending, cardPayments: cardPayments, kinds: kinds,
+  return { start: start, end: end, days: days, undated: undated, spending: spending, cardPayments: cardPayments, kinds: kinds, stopped: stopped,
     total: r2(total), paidTotal: r2(paidTotal), cardTotal: r2(cardTotal), directTotal: r2(total - cardTotal) };
 }

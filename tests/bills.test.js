@@ -149,7 +149,7 @@ test("the calendar: spending budgets off the days, card bills grouped under the 
   assert.match(html, /bc-bill card-pay paid/);
   assert.match(html, /bc-bill on-card paid" title="Phone \$40 on the Card, paid with the 27 Oct repayment/);
   assert.match(html, /From your accounts/);
-  assert.match(html, /On the Card/);
+  assert.match(html, /Bills on the Card/);
   assert.match(html, /Spending budgets in September/);
   assert.match(html, /\$690 leaves your accounts: \$150 in bills, \$540 card payment/);
   assert.match(html, /data-bc-kind="gr"[^>]*>.*?<option value="" selected>Auto \(spending\)/);
@@ -158,4 +158,39 @@ test("the calendar: spending budgets off the days, card bills grouped under the 
 test("a quarterly bill paid whenever the invoice arrives is still a bill", function(){
   var water = [["2025-11-27", 96], ["2026-03-11", 231], ["2026-04-29", 205], ["2026-06-03", 131], ["2026-08-25", 104]].map(function(x){ return { date: x[0], amount: x[1] }; });
   assert.equal(inferredLineKind({ freq: "Quarterly" }, water), "bill");
+});
+
+// ---------------- v3.84.0: ended and stopped bills; everything on the card in one payment ----------------
+test("an ended line leaves the calendar; one that stopped being paid is asked about once", function(){
+  var gymPays = [];
+  for(var w = 0; w < 8; w++){ var d = new Date(2026, 1, 3 + w * 7); gymPays.push({ linkedExpenseId: "g", date: d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"), amount: 21 }); }
+  // last payment 24 Mar 2026
+  var items = [{ id: "g", what: "Gym", amount: 21, freq: "Weekly" }];
+  var r = billsForMonth(items, gymPays, "2026-10", "2026-10-18");
+  assert.deepEqual(Object.keys(r.days), [], "no weekly overdue gym in October");
+  assert.deepEqual(r.stopped, [{ id: "g", what: "Gym", last: "2026-03-24" }]);
+  assert.match(billsCalendarHtml(r, "2026-10", "2026-10-18"), /data-bc-end="g" data-bc-end-date="2026-03-24"/);
+  // March, when it was still being paid, is unchanged.
+  assert.ok(billsForMonth(items, gymPays, "2026-03", "2026-10-18").days["2026-03-24"][0].paid);
+  // Given an end date, it's simply gone — not asked about.
+  items[0].endDate = "2026-03-24";
+  var ended = billsForMonth(items, gymPays, "2026-10", "2026-10-18");
+  assert.deepEqual(ended.stopped, []);
+  assert.deepEqual(ended.kinds, []);
+  // An end date mid-month keeps the dates up to it.
+  items[0].endDate = "2026-03-12";
+  assert.deepEqual(Object.keys(billsForMonth(items, gymPays, "2026-03", "2026-10-18").days), ["2026-03-03", "2026-03-10"]);
+});
+
+test("the card payment says what it pays for: bills, spending budgets and the rest", function(){
+  var accounts = [{ name: "Card", type: "credit", statementStartDay: 12 }];
+  var transfers = [{ to: "Card", date: "2026-08-27", amount: 610 }];
+  var tx = [
+    { date: "2026-09-15", amount: 30, account: "Card", linkedExpenseId: "b" },
+    { date: "2026-09-20", amount: 75, account: "Card", linkedExpenseId: "s" },
+    { date: "2026-09-22", amount: 12.5, account: "Card" }
+  ];
+  var p = cardPaymentsForMonth(accounts, tx, transfers, "2026-10", "2026-10-15", function(id){ return id === "b" ? "bill" : id === "s" ? "spending" : null; })[0];
+  assert.equal(p.amount, 117.5);
+  assert.deepEqual(p.split, { bills: 30, spending: 75, other: 12.5 });
 });

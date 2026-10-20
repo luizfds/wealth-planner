@@ -178,7 +178,13 @@ export function billsCalendarHtml(data, ym, today){
   }
   var direct = all.filter(function(b){ return !b.card; }).map(function(b){ return { date: b.date, html: row(b.date, escapeAttr(b.what), "", st(b), b.amount) }; })
     .concat(pays.map(function(p){
-      var sub = 'Charges ' + short(p.cycle.start) + ' – ' + short(p.cycle.end) + (p.paid ? '' : p.open ? ', so far' : '');
+      var parts = [];
+      if(p.split){
+        if(p.split.bills) parts.push(fmtCurrency0.format(p.split.bills) + ' bills');
+        if(p.split.spending) parts.push(fmtCurrency0.format(p.split.spending) + ' spending budgets');
+        if(p.split.other) parts.push(fmtCurrency0.format(p.split.other) + ' other');
+      }
+      var sub = 'Everything charged ' + short(p.cycle.start) + ' – ' + short(p.cycle.end) + (p.paid ? '' : p.open ? ', so far' : '') + (parts.length ? ': ' + parts.join(' · ') : '');
       return { date: p.date, html: row(p.date, '<span class="bc-card-tag">Card</span>' + escapeAttr(p.card) + ' payment', sub, st(p), p.amount) };
     }))
     .sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
@@ -189,7 +195,7 @@ export function billsCalendarHtml(data, ym, today){
   cardsUsed.forEach(function(c){
     var bills = onCard.filter(function(b){ return b.card === c; });
     var sum = bills.reduce(function(s, b){ return s + b.amount; }, 0);
-    list += '<h4 class="bc-sec">On the ' + escapeAttr(c) + ' <span>' + fmtCurrency0.format(sum) + ' — goes out with the card payment, not on its own</span></h4><ul class="bc-list is-card">' +
+    list += '<h4 class="bc-sec">Bills on the ' + escapeAttr(c) + ' <span>' + fmtCurrency0.format(sum) + ' — charged here, paid together with everything else on the card</span></h4><ul class="bc-list is-card">' +
       bills.map(function(b){ return row(b.date, escapeAttr(b.what), b.payOn ? 'with the ' + short(b.payOn) + ' payment' : '', st(b), b.amount); }).join("") + '</ul>';
   });
   if(!list) list = '<p class="ledger-note" style="margin:8px 0 0">No dated bills in ' + mon + '. A bill gets a day once a payment has been logged against its budget line.</p>';
@@ -199,6 +205,11 @@ export function billsCalendarHtml(data, ym, today){
       var over = sp.budget > 0 && sp.spent > sp.budget;
       return '<li' + (over ? ' class="over"' : '') + '><span class="bc-list-name">' + escapeAttr(sp.what) + '</span><b>' + fmtCurrency0.format(sp.spent) + ' <small>of ' + fmtCurrency0.format(sp.budget) + '</small></b>' +
         '<span class="bc-spend-bar" aria-hidden="true"><i style="width:' + pct + '%"></i></span></li>';
+    }).join("") + '</ul>' : '';
+  var stopped = (data.stopped || []).length ? '<h4 class="bc-sec">Stopped? <span>no payment for a while, so left off the calendar</span></h4><ul class="bc-stopped">' +
+    data.stopped.map(function(sp){
+      return '<li><span class="bc-list-name">' + escapeAttr(sp.what) + '<small>Last paid ' + short(sp.last) + ' ' + sp.last.slice(0, 4) + '</small></span>' +
+        '<button type="button" class="link-btn bc-end" data-bc-end="' + escapeAttr(sp.id) + '" data-bc-end-date="' + escapeAttr(sp.last) + '">It ended then</button></li>';
     }).join("") + '</ul>' : '';
   var undated = data.undated.length ? '<details class="bc-undated"><summary>' + data.undated.length + ' regular line' + (data.undated.length === 1 ? "" : "s") + ' with no payment logged yet, so no day</summary><p class="ledger-note" style="margin:4px 0">' +
     data.undated.map(function(u){ return escapeAttr(u.what); }).join(", ") + '</p></details>' : '';
@@ -215,5 +226,5 @@ export function billsCalendarHtml(data, ym, today){
     ? fmtCurrency0.format(leaves) + ' leaves your accounts: ' + fmtCurrency0.format(data.directTotal) + ' in bills, ' + fmtCurrency0.format(cardOut) + ' card payment' + (pays.length === 1 ? '' : 's')
     : fmtCurrency0.format(data.paidTotal) + ' paid of ' + fmtCurrency0.format(data.total) + ' in dated bills';
   return '<div class="bc-summary"><b>' + mon + ' ' + y + '</b><span>' + summary + '</span></div>' +
-    '<div class="bc-grid" role="grid" aria-label="Bills in ' + mon + '">' + head + cells.join("") + '</div>' + list + spend + undated + kinds;
+    '<div class="bc-grid" role="grid" aria-label="Bills in ' + mon + '">' + head + cells.join("") + '</div>' + list + spend + stopped + undated + kinds;
 }

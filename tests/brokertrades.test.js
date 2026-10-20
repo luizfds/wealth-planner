@@ -138,3 +138,30 @@ test("a holding typed to four decimals agrees with lots kept to eight", function
   applyTrades(assets, plan, function(){ return "L" + Math.random(); });
   assert.ok(assets[0].avgCost > 9.5, "avg cost follows the lots");
 });
+
+test("a crypto exchange's order history: coins, the rate before the fee, the fee in dollars", function(){
+  var csv = '"Transaction Date","Type","Market","Amount","Rate inc. fee","Rate ex. fee","Fee","Fee AUD (inc GST)","GST AUD","Total AUD","Total (inc GST)"\n' +
+    '14/02/2026 09:10 AM,Buy,XYZ/AUD,0.01,50500,50000,5 AUD,5.00,0.45,505.00,505.00 AUD\n' +
+    '20/06/2025 03:00 PM,Sell,ABC/AUD,2.5,9.9,10,0.25 AUD,0.25,0.02,24.75,24.75 AUD\n';
+  var r = parseTrades(csv);
+  assert.equal(r.format, "crypto exchange");
+  assert.deepEqual(r.trades.map(function(t){ return [t.date, t.code, t.side, t.units, t.price, t.brokerage]; }),
+    [["2025-06-20", "ABC", "sell", 2.5, 10, 0.25], ["2026-02-14", "XYZ", "buy", 0.01, 50000, 5]]);
+});
+
+test("a sale can only use what was bought before it; any shortfall is said out loud", function(){
+  var assets = [{ category: "Shares", what: "XYZ", symbol: "XYZ", quantity: 0.5 }];
+  var trades = [
+    { date: "2024-04-01", code: "XYZ", side: "buy", units: 0.3, price: 100, brokerage: 1 },
+    { date: "2024-09-30", code: "XYZ", side: "sell", units: 0.31, price: 120, brokerage: 1 },
+    { date: "2026-02-01", code: "XYZ", side: "buy", units: 0.5, price: 150, brokerage: 2 }
+  ];
+  var plan = planTrades(assets, trades);
+  assert.equal(plan[0].lotsAfter, 0.5, "the later buy is untouched by the earlier sale");
+  assert.equal(plan[0].short, 0.01);
+  assert.match(plan[0].problem, /0\.01 more units than had been bought before it/);
+  applyTrades(assets, plan, function(){ return "L" + Math.random(); });
+  assert.equal(assets[0].sales[0].parcels.length, 1);
+  assert.equal(assets[0].lots[1].soldUnits, 0);
+  assert.ok(Math.abs(assets[0].avgCost - (0.5 * 150 + 2) / 0.5) < 0.001);
+});

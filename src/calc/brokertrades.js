@@ -32,7 +32,7 @@ function num(v){
   return isNaN(n) ? null : (neg ? -n : n);
 }
 export function cleanCode(v){
-  return String(v || "").trim().toUpperCase().replace(/^(ASX|NYSE|NASDAQ|CXA|CHIA)[:.\s]+/, "").replace(/[.:](AX|ASX|AU|US)$/, "").replace(/\s.*$/, "");
+  return String(v || "").trim().toUpperCase().replace(/\s*\/\s*(AUD|USD|USDT|USDC)$/, "").replace(/^(ASX|NYSE|NASDAQ|CXA|CHIA)[:.\s]+/, "").replace(/[.:](AX|ASX|AU|US)$/, "").replace(/\s.*$/, "");
 }
 function sideOf(v){
   var s = String(v || "").trim().toLowerCase();
@@ -46,7 +46,7 @@ function r2(n){ return Math.round(n * 100) / 100; }
 
 var COLS = {
   date: /^(trade ?date|date|settlement ?date|time|date ?\/ ?time|executed|execution ?date|transaction ?date)$/,
-  code: /^(code|symbol|ticker|security|stock|instrument|asx ?code|stock ?code|security ?code)$/,
+  code: /^(code|symbol|ticker|security|stock|instrument|asx ?code|stock ?code|security ?code|market|coin|asset)$/,
   side: /^(side|type|action|buy ?\/ ?sell|transaction ?type|order ?type|direction|trade ?type)$/,
   units: /^(quantity|units|qty|shares|volume|no\.? ?of ?units|number ?of ?shares|filled ?quantity)$/,
   price: /^(price|unit ?price|avg\.? ?price|average ?price|execution ?price|effective ?price|fill ?price|trade ?price|price ?\(?\$?\)?)$/,
@@ -54,6 +54,9 @@ var COLS = {
   gst: /^(gst|gst ?\(?\$?\)?|tax on fees)$/,
   value: /^(value|amount|consideration|total|net ?amount|trade ?value|gross ?amount|total ?value)$/,
   details: /^(details|description|narrative)$/,
+  // v3.97.0: a crypto exchange's order history (CoinSpot's): Amount is the coins, the rate before
+  // its fee is the price, and the fee in dollars already includes its GST.
+  rateEx: /^rate ex\.? ?fee$/, feeAud: /^fee aud/,
   debit: /^debit/, credit: /^credit/
 };
 function headerIndex(row){
@@ -86,11 +89,12 @@ export function parseTradesGrid(rawGrid){
   var hi = -1, idx = null;
   for(var i = 0; i < Math.min(grid.length, 15); i++){
     var t = headerIndex(grid[i]);
-    if(t.date != null && (t.details != null || (t.code != null && t.units != null))){ hi = i; idx = t; break; }
+    if(t.date != null && (t.details != null || (t.code != null && (t.units != null || (t.rateEx != null && t.value != null))))){ hi = i; idx = t; break; }
   }
   if(hi === -1) return { trades: [], skipped: grid.length, format: null };
   var trades = [], skipped = 0;
   var commsec = idx.details != null && idx.code == null;
+  if(idx.rateEx != null){ idx.units = idx.value; idx.value = null; idx.price = idx.rateEx; idx.fee = idx.feeAud != null ? idx.feeAud : idx.fee; idx.gst = null; }
   grid.slice(hi + 1).forEach(function(r){
     var date = tradeDate(r[idx.date]);
     if(!date){ skipped++; return; }
@@ -120,7 +124,7 @@ export function parseTradesGrid(rawGrid){
     trades.push({ date: date, code: code, side: sd, units: u, price: Math.round(p * 1e6) / 1e6, brokerage: r2(fe) });
   });
   trades.sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : a.side === "buy" ? -1 : 1; });
-  return { trades: trades, skipped: skipped, format: commsec ? "CommSec" : "columns" };
+  return { trades: trades, skipped: skipped, format: commsec ? "CommSec" : idx.rateEx != null ? "crypto exchange" : "columns" };
 }
 
 // The holdings a code could mean: shares holdings with that symbol, in the order they're listed.
@@ -155,15 +159,27 @@ export function planTrades(assets, trades, choice){
     // A sale already recorded (typed in, or from a tax return) whose parcels aren't tied to any lot
     // hasn't used up a lot yet: the buys read now are what it sold, so it counts against them.
     var unlinked = sales.filter(function(sa){ return list.some(function(t){ return t.side === "sell" && sameSale(sa, t); }) && !(sa.parcels || []).some(function(pc){ return pc.lotId && lots.some(function(l){ return l.id === pc.lotId; }); }); });
-    var bought = lots.reduce(function(s, l){ return s + lotRemainingUnits(l); }, 0) + newBuys.reduce(function(s, t){ return s + t.units; }, 0);
-    var sold = newSales.reduce(function(s, t){ return s + t.units; }, 0) + (newBuys.length ? unlinked.reduce(function(s, sa){ return s + (Number(sa.units) || 0); }, 0) : 0);
-    var after = Math.round((bought - sold) * 1e6) / 1e6;
+    // In date order, as applyTrades will do it: a sale can only use what was bought before it.
+    var pool = lots.filter(function(l){ return lotRemainingUnits(l) > 0; }).map(function(l){ return { date: l.date || "", left: lotRemainingUnits(l) }; })
+      .concat(newBuys.map(function(t){ return { date: t.date, left: t.units }; }));
+    var outs = newSales.map(function(t){ return { date: t.date, units: t.units }; })
+      .concat(newBuys.length ? unlinked.map(function(sa){ return { date: sa.date || "", units: Number(sa.units) || 0 }; }) : []);
+    pool.sort(function(x, y){ return x.date < y.date ? -1 : x.date > y.date ? 1 : 0; });
+    outs.sort(function(x, y){ return x.date < y.date ? -1 : x.date > y.date ? 1 : 0; });
+    var short = 0;
+    outs.forEach(function(o){
+      var need = o.units;
+      pool.forEach(function(lp){ if(need <= 1e-12 || lp.date > o.date || lp.left <= 0) return; var take = Math.min(lp.left, need); lp.left -= take; need -= take; });
+      short += Math.max(0, need);
+    });
+    var after = Math.round(pool.reduce(function(s, lp){ return s + lp.left; }, 0) * 1e6) / 1e6;
+    short = Math.round(short * 1e8) / 1e8;
     var held = a ? Number(a.quantity) || 0 : 0;
     var problem = !hs.length ? "No holding with this code — add it on Shares first, or leave it out."
-      : after < -1e-6 ? "Sells more than the file and the lots ever bought — an earlier buy is missing."
+      : short > UNIT_TOL ? "A sale used " + short + " more units than had been bought before it — something bought or transferred in isn't in this file, so that part of the sale has no cost base."
       : a && Math.abs(after - held) > UNIT_TOL ? "After this the lots hold " + after + " units; the holding shows " + held + "." : "";
     return { code: code, holdings: hs, target: target, buys: list.filter(function(t){ return t.side === "buy"; }).length, sells: list.filter(function(t){ return t.side === "sell"; }).length,
-      newBuys: newBuys, newSales: newSales, linkSales: newBuys.length ? unlinked : [], lotsAfter: after, held: held, problem: problem };
+      newBuys: newBuys, newSales: newSales, linkSales: newBuys.length ? unlinked : [], lotsAfter: after, short: short, held: held, problem: problem };
   });
 }
 
@@ -172,7 +188,7 @@ export function planTrades(assets, trades, choice){
 export function applyTrades(assets, plan, idFactory){
   var lotsAdded = 0, salesAdded = 0, linked = 0;
   plan.forEach(function(p){
-    if(p.target == null || p.lotsAfter < -1e-6) return;
+    if(p.target == null) return;
     var a = assets[p.target];
     if(!a) return;
     if(!Array.isArray(a.lots)) a.lots = [];

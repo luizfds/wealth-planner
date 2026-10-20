@@ -163,7 +163,7 @@ export function billsCalendarHtml(data, ym, today){
     var key = ym + "-" + String(d).padStart(2, "0");
     // The card repayment first: it's the money actually leaving the bank that day.
     var chips = (payOn[key] || []).map(function(p){ return { what: p.card + " payment", amount: p.amount, cls: "card-pay " + st(p), title: p.card + " payment " + fmtCurrency0.format(p.amount) + (p.paid ? " — paid" : p.overdue ? " — not logged yet" : "") }; })
-      .concat((data.days[key] || []).map(function(b){ return { what: b.what, amount: b.amount, cls: (b.card ? "on-card " : "") + st(b), title: b.what + " " + fmtCurrency0.format(b.amount) + (b.card ? " on the " + b.card + (b.payOn ? ", paid with the " + short(b.payOn) + " repayment" : "") : "") + (b.paid ? " — paid" : b.overdue ? " — not logged yet" : "") }; }));
+      .concat((data.days[key] || []).map(function(b){ return { what: b.what, amount: b.amount, cls: (b.card ? "on-card " : "") + (b.agent ? "by-agent " : "") + st(b), title: b.what + " " + fmtCurrency0.format(b.amount) + (b.card ? " on the " + b.card + (b.payOn ? ", paid with the " + short(b.payOn) + " repayment" : "") : "") + (b.agent ? " — paid by " + b.agent + " from the rent" : "") + (b.paid ? " — paid" : b.overdue ? " — not logged yet" : "") }; }));
     cells.push('<div class="bc-cell' + (key === today ? " is-today" : "") + (chips.length ? " has-bills" : "") + '"><span class="bc-day">' + d + '</span>' +
       chips.slice(0, 3).map(function(c){ return '<span class="bc-bill ' + c.cls.trim() + '" title="' + escapeAttr(c.title) + '">' + escapeAttr(c.what) + '</span>'; }).join("") +
       (chips.length > 3 ? '<span class="bc-more">+' + (chips.length - 3) + '</span>' : '') +
@@ -176,7 +176,7 @@ export function billsCalendarHtml(data, ym, today){
     return '<li class="' + st + '"><span class="bc-list-date">' + short(date) + '</span><span class="bc-list-name">' + name + (sub ? '<small>' + sub + '</small>' : '') + '</span>' +
       '<span class="bc-list-state">' + (st === "paid" ? "paid ✓" : st === "overdue" ? "not logged" : date === today ? "today" : "due") + '</span><b>' + fmtCurrency0.format(amount) + '</b></li>';
   }
-  var direct = all.filter(function(b){ return !b.card; }).map(function(b){ return { date: b.date, html: row(b.date, escapeAttr(b.what), "", st(b), b.amount) }; })
+  var direct = all.filter(function(b){ return !b.card && !b.agent; }).map(function(b){ return { date: b.date, html: row(b.date, escapeAttr(b.what), "", st(b), b.amount) }; })
     .concat(pays.map(function(p){
       var parts = [];
       if(p.split){
@@ -198,6 +198,16 @@ export function billsCalendarHtml(data, ym, today){
     list += '<h4 class="bc-sec">Bills on the ' + escapeAttr(c) + ' <span>' + fmtCurrency0.format(sum) + ' — charged here, paid together with everything else on the card</span></h4><ul class="bc-list is-card">' +
       bills.map(function(b){ return row(b.date, escapeAttr(b.what), b.payOn ? 'with the ' + short(b.payOn) + ' payment' : '', st(b), b.amount); }).join("") + '</ul>';
   });
+  // v3.101.0: what the property manager pays out of the rent — on the statement, not a debit.
+  var byAgent = all.filter(function(b){ return b.agent; });
+  if(byAgent.length){
+    var agentSum = byAgent.reduce(function(s, b){ return s + b.amount; }, 0);
+    list += '<h4 class="bc-sec">Paid by the property manager <span>' + fmtCurrency0.format(agentSum) + ' — taken out of the rent, so nothing leaves your accounts</span></h4><ul class="bc-list is-agent">' +
+      byAgent.map(function(b){
+        return '<li class="' + (b.paid ? "paid" : "") + '"><span class="bc-list-date">' + short(b.date) + '</span><span class="bc-list-name">' + escapeAttr(b.what) + '<small>' + escapeAttr(b.agent) + '</small></span>' +
+          '<span class="bc-list-state">' + (b.paid ? "paid ✓" : "from rent") + '</span><b>' + fmtCurrency0.format(b.amount) + '</b></li>';
+      }).join("") + '</ul>';
+  }
   if(!list) list = '<p class="ledger-note" style="margin:8px 0 0">No dated bills in ' + mon + '. A bill gets a day once a payment has been logged against its budget line.</p>';
   var spend = (data.spending || []).length ? '<h4 class="bc-sec">Spending budgets in ' + mon + ' <span>not bills — many purchases, so no day</span></h4><ul class="bc-spend">' +
     data.spending.map(function(sp){

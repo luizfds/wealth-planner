@@ -1,5 +1,5 @@
 import { state } from "../state.js";
-import { ACCOUNT_TYPES, accountTypeLabel, accountSourceOptions, accountBalance, accountsOverview, isOwedType } from "../calc/accounts.js";
+import { ACCOUNT_TYPES, accountTypeLabel, accountSourceOptions, accountBalance, accountsOverview, isOwedType, isAgentType } from "../calc/accounts.js";
 import { currentStatementCycle } from "../calc/ledger.js";
 import { sparklineHtml, renderLineChart, dateAxisFormat } from "../lib/charts.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr } from "../lib/format.js";
@@ -16,7 +16,8 @@ export var balanceEditing = {};
 var GROUPS = [
   { key: "cash", title: "Bank accounts", types: ["everyday", "savings", "offset"] },
   { key: "cards", title: "Credit cards", types: ["credit"] },
-  { key: "loans", title: "Loans", types: ["loan"] }
+  { key: "loans", title: "Loans", types: ["loan"] },
+  { key: "agents", title: "Property managers", types: ["agent"] }
 ];
 var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 function shortDate(iso){ return iso ? Number(iso.slice(8, 10)) + " " + MONTHS[Number(iso.slice(5, 7)) - 1] + (iso.slice(0, 4) !== localDateStr().slice(0, 4) ? " " + iso.slice(0, 4) : "") : ""; }
@@ -24,6 +25,11 @@ function daysSince(iso, today){ return iso ? Math.round((Date.parse(today) - Dat
 
 function sourceSelectHtml(a, idx){
   var opts = accountSourceOptions(a);
+  if(isAgentType(a.type)){
+    return '<label class="acct-field acct-field-wide"><span>Manages</span><select class="acct-mgmt-link" data-acct-index="' + idx + '">' +
+      '<option value="">— pick the property —</option>' +
+      opts.map(function(o){ return '<option value="' + escapeAttr(o.key) + '"' + (a.link === o.key ? " selected" : "") + '>' + escapeAttr(o.label) + (o.usedBy ? " (also on " + escapeAttr(o.usedBy) + ")" : "") + '</option>'; }).join("") + '</select></label>';
+  }
   var none = a.type === "offset" ? "— pick the loan it offsets —" : isOwedType(a.type) ? "Nothing yet — the first balance adds a debt" : "Nothing yet — the first balance adds it to Cash";
   return '<label class="acct-field acct-field-wide"><span>Balance comes from</span><select class="acct-mgmt-link" data-acct-index="' + idx + '">' +
     '<option value="">' + escapeAttr(none) + '</option>' +
@@ -38,11 +44,15 @@ export function accountRowHtml(a, idx, today){
   var open = !!openAccounts[a.id];
   var editing = !!balanceEditing[a.id];
   var owed = bal.owed;
-  var amount = bal.balance == null
+  var agent = isAgentType(a.type);
+  var amount = agent
+    ? '<span class="acct-bal muted">pays from the rent</span>'
+    : bal.balance == null
     ? '<span class="acct-bal muted">no balance</span>'
     : '<span class="acct-bal' + (owed && bal.balance > 0 ? " owed" : "") + '">' + (owed && bal.balance > 0 ? "−" : "") + fmtCurrency0.format(Math.abs(bal.balance)) + '</span>';
   var age = daysSince(bal.date, today);
   var sub = [accountTypeLabel(a.type)];
+  if(agent && bal.source) sub.push(bal.source.label);
   if(bal.date) sub.push("updated " + shortDate(bal.date));
   if(a.type === "credit"){
     var c = currentStatementCycle(a.statementStartDay || 1, today);
@@ -50,7 +60,7 @@ export function accountRowHtml(a, idx, today){
     if(Number(a.limit) > 0) sub.push(fmtCurrency0.format(Math.max(0, Number(a.limit) - (bal.balance || 0))) + " of " + fmtCurrency0.format(Number(a.limit)) + " available");
   }
   var stale = bal.balance != null && age != null && age > 35;
-  var actions = editing ? '' : '<button type="button" class="btn btn-sm btn-ghost acct-card-update" data-acct-bal="' + escapeAttr(a.id) + '"' +
+  var actions = editing || agent ? '' : '<button type="button" class="btn btn-sm btn-ghost acct-card-update" data-acct-bal="' + escapeAttr(a.id) + '"' +
         (a.type === "offset" && !bal.source ? ' disabled title="Pick the loan it offsets first"' : '') + ' aria-label="Update ' + escapeAttr(a.name || "account") + ' balance">Update</button>';
   var summary = '<div class="acct-card-main">' +
       '<button type="button" class="acct-card-toggle" data-acct-toggle="' + escapeAttr(a.id) + '" aria-expanded="' + open + '">' +
@@ -80,6 +90,7 @@ export function accountRowHtml(a, idx, today){
         '<p class="ledger-note acct-field-wide" style="margin:0">' + (a.type === "credit"
           ? "The limit is only for “available” — what counts against net worth is what the card owes."
           : a.type === "offset" ? "An offset's balance is the one on its loan — it lowers the interest that loan charges."
+          : agent ? "The bills the agent pays out of the rent — on a statement — are tagged with this account, so they never show as a debit to chase or money leaving your accounts. It has no balance of its own."
           : bal.source ? "Stored on " + escapeAttr(bal.source.label) + " — the same figure net worth and the projections use." : "Spending tagged with this account still works without a balance.") + '</p>' +
         '<div class="acct-field-wide acct-card-del"><button type="button" class="btn btn-ghost btn-sm row-del" data-acct-del="' + idx + '" aria-label="Delete account">Delete account</button></div>' +
       '</div>'

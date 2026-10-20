@@ -1,5 +1,6 @@
 import { genId } from "../state.js";
 import { financialYearOf } from "./property.js";
+import { agentAccountFor } from "./accounts.js";
 
 // ---------------- A property manager's statement in one step (v3.79.0) ----------------
 //
@@ -47,8 +48,11 @@ export function logAgentStatement(st, p, s){
   var bills = [];
   if(rec.waterRates > 0) bills.push({ lineId: water ? water.id : "", amount: rec.waterRates, what: "Water rates (paid by agent)" });
   rec.others.forEach(function(o){ bills.push({ lineId: o.lineId, amount: o.amount, what: (o.what || "Paid by agent") }); });
+  // v3.101.0: tagged with the property manager's account when there is one, so the bills read as
+  // paid from the rent — not a direct debit to chase, not money leaving the household's accounts.
+  var agent = agentAccountFor(st, p.id);
   bills.forEach(function(b){
-    var tx = { id: genId("t"), date: s.date, amount: b.amount, what: b.what, linkedExpenseId: b.lineId || null, account: "", category: b.lineId ? "" : "Investment property" };
+    var tx = { id: genId("t"), date: s.date, amount: b.amount, what: b.what, linkedExpenseId: b.lineId || null, account: agent ? agent.name : "", category: b.lineId ? "" : "Investment property" };
     st.transactions.push(tx);
     rec.txIds.push(tx.id);
   });
@@ -56,6 +60,21 @@ export function logAgentStatement(st, p, s){
   p.agentStatements.push(rec);
   p.agentStatements.sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
   return rec;
+}
+
+// Bills logged from statements before a property manager account existed carry no account. Gives
+// them the property's agent account now. Returns how many it filled. Only blanks are touched — a
+// bill someone re-tagged by hand keeps what they chose.
+export function fillAgentAccount(st){
+  var n = 0;
+  (st.properties || []).forEach(function(p){
+    var agent = agentAccountFor(st, p.id);
+    if(!agent) return;
+    var ids = {};
+    (p.agentStatements || []).forEach(function(r){ (r.txIds || []).forEach(function(id){ ids[id] = true; }); });
+    (st.transactions || []).forEach(function(t){ if(ids[t.id] && !t.account){ t.account = agent.name; n++; } });
+  });
+  return n;
 }
 
 // Takes a statement back out, with everything it wrote.

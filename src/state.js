@@ -726,6 +726,7 @@ function linkExists(link, s){
   if(kind === "asset") return (s.assets || []).some(function(a){ return a && a.category === "Cash" && a.id === id; });
   if(kind === "debt") return (s.debts || []).some(function(d){ return d && d.id === id; });
   if(kind === "offset" || kind === "loan") return (s.properties || []).some(function(p){ return (p.loans || []).some(function(l){ return l.id === id; }); });
+  if(kind === "property") return (s.properties || []).some(function(p){ return p && p.id === id; });
   return false;
 }
 // ---------------- Migration ----------------
@@ -738,7 +739,7 @@ function migrateAccounts(s){
   (s.assets || []).forEach(function(a){ if(a && a.category === "Cash" && !a.id) a.id = genId("as"); });
   (s.debts || []).forEach(function(d){ if(d && !d.id) d.id = genId("debt"); });
   (s.accounts || []).forEach(function(a){
-    if(["everyday", "savings", "offset", "credit", "loan"].indexOf(a.type) === -1) a.type = "everyday";
+    if(["everyday", "savings", "offset", "credit", "loan", "agent"].indexOf(a.type) === -1) a.type = "everyday";
     if(a.link && !linkExists(a.link, s)) a.link = "";
     if(a.limit != null && !(Number(a.limit) >= 0)) delete a.limit;
   });
@@ -754,7 +755,7 @@ function migrateAccounts(s){
     return new RegExp("(^|[^a-z0-9])" + esc + "([^a-z0-9]|$)").test(hay);
   };
   (s.accounts || []).forEach(function(a){
-    if(a.link || !a.name) return;
+    if(a.link || !a.name || a.type === "agent") return;
     var pool = a.type === "credit"
       ? (s.debts || []).map(function(d){ return { key: "debt:" + d.id, name: d.what }; })
       : (s.assets || []).filter(function(x){ return x && x.category === "Cash"; }).map(function(x){ return { key: "asset:" + x.id, name: x.what }; });

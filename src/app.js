@@ -81,7 +81,7 @@ import { renderHomeSummary } from "./components/home.js";
 import { dataHealthChecks, dismissCheck } from "./calc/health.js";
 import { applyFirstRun, shouldOfferFirstRun } from "./calc/firstrun.js";
 import { normaliseTrip, applyTripRefile } from "./calc/trips.js";
-import { logAgentStatement, removeAgentStatement, statementTotals } from "./calc/agentstatement.js";
+import { logAgentStatement, removeAgentStatement, statementTotals, fillAgentAccount } from "./calc/agentstatement.js";
 import { tripsCardHtml, tripPlan, tripProtectedLineIds } from "./components/trips.js";
 import { refreshPriceSheet, priceSheetDue, priceSheetResultText, defaultBackfillFrom, priceSheetUi } from "./components/pricesheet.js";
 import { firstRun, startFirstRun, firstRunHtml } from "./components/firstrun.js";
@@ -3566,6 +3566,12 @@ import {
       a.type = ACCOUNT_TYPE_KEYS.indexOf(e.target.value) !== -1 ? e.target.value : "everyday";
       // A link only makes sense for the kinds of record this type can draw from.
       if(a.link && !accountSourceOptions(a).some(function(o){ return o.key === a.link; })) a.link = "";
+      // v3.101.0: a property manager's account picks up the statement bills logged before it existed.
+      if(a.type === "agent"){
+        if(!a.link && (state.properties || []).length === 1 && state.properties[0].id) a.link = "property:" + state.properties[0].id;
+        var filled = fillAgentAccount(state);
+        if(filled) showToast(filled + " bill" + (filled === 1 ? "" : "s") + " from statements now on " + (a.name || "this account"));
+      }
       renderActualVsPlannedPanel();
       persist();
       // Deferred: showing/hiding the statement-day field means rebuilding #accountsTable, an
@@ -3583,6 +3589,7 @@ import {
     }
     else if(e.target.classList.contains("acct-mgmt-link")){
       a.link = e.target.value;
+      if(a.type === "agent") fillAgentAccount(state);
       persist();
       setTimeout(function(){ renderAll(); }, 0);
       return;

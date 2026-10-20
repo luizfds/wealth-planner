@@ -152,7 +152,8 @@ export function cardPaymentsForMonth(accounts, transactions, transfers, ym, toda
 
 // { days: { "YYYY-MM-DD": [bill] }, undated: [line], spending: [line], cardPayments: [payment],
 //   total, paidTotal, directTotal, cardTotal } for one month.
-// bill: { id, what, amount, date, paid, overdue, estimated, card, payOn }. card: the credit card it's
+// bill: { id, what, amount, date, paid, overdue, estimated, card, payOn, agent }. agent: the property
+// manager account that pays it out of the rent (never overdue, never upcoming). card: the credit card it's
 // charged to (from its latest payment), payOn: that card's repayment the charge goes out with.
 // opts: { accounts, transfers } — without them nothing is grouped on a card.
 export function billsForMonth(items, transactions, ym, today, opts){
@@ -163,7 +164,10 @@ export function billsForMonth(items, transactions, ym, today, opts){
   (transactions || []).forEach(function(t){ if(t.linkedExpenseId && t.date) (byLine[t.linkedExpenseId] = byLine[t.linkedExpenseId] || []).push(t); });
   var cards = {};
   (opts.accounts || []).forEach(function(a){ if(a && a.type === "credit" && a.name) cards[a.name] = { card: a, payDay: cardRepaymentDay(a, opts.transfers) }; });
-  var days = {}, undated = [], spending = [], kinds = [], stopped = [], kindById = {}, total = 0, paidTotal = 0, cardTotal = 0;
+  // v3.101.0: bills a property manager pays out of the rent — never a debit from the household.
+  var agents = {};
+  (opts.accounts || []).forEach(function(a){ if(a && a.type === "agent" && a.name) agents[a.name] = true; });
+  var days = {}, undated = [], spending = [], kinds = [], stopped = [], kindById = {}, total = 0, paidTotal = 0, cardTotal = 0, agentTotal = 0;
   (items || []).forEach(function(i){
     if(!i.id || i.irregular || i.computed) return;
     // Ended before the month began, or not started by its end: not this month's business.
@@ -180,6 +184,7 @@ export function billsForMonth(items, transactions, ym, today, opts){
     var dates = logged.map(function(t){ return t.date; });
     var lastAcct = logged.length ? logged[logged.length - 1].account : (i.account || "");
     var onCard = cards[lastAcct] || null;
+    var byAgent = !!agents[lastAcct];
     var anchor, estimated = false;
     if(dates.length) anchor = dates[dates.length - 1];
     else if(i.dueMonth >= 1 && i.dueMonth <= 12 && freqStepMonths(i.freq) > 1){
@@ -199,11 +204,13 @@ export function billsForMonth(items, transactions, ym, today, opts){
     occurrencesBetween(anchor, i.freq, start, end).forEach(function(d){
       if(!isActiveOn(i, d) || (quietAfter && d > quietAfter)) return;
       var paid = dates.some(function(x){ return Math.abs(daysBetween(x, d)) <= PAID_WINDOW_DAYS; });
-      var bill = { id: i.id, what: i.what || "Bill", amount: Number(i.amount) || 0, date: d, paid: paid, overdue: !paid && today && d < today, estimated: estimated, overridden: !!i.billKind,
-        card: onCard ? lastAcct : "", payOn: onCard && onCard.payDay ? repaymentFor(d, onCard.card.statementStartDay, onCard.payDay) : "" };
+      var bill = { id: i.id, what: i.what || "Bill", amount: Number(i.amount) || 0, date: d, paid: paid, overdue: !byAgent && !paid && today && d < today, estimated: estimated, overridden: !!i.billKind,
+        card: onCard ? lastAcct : "", payOn: onCard && onCard.payDay ? repaymentFor(d, onCard.card.statementStartDay, onCard.payDay) : "",
+        agent: byAgent ? lastAcct : "" };
       (days[d] = days[d] || []).push(bill);
       total += bill.amount;
       if(bill.card) cardTotal += bill.amount;
+      if(bill.agent) agentTotal += bill.amount;
       if(paid) paidTotal += bill.amount;
     });
   });
@@ -217,7 +224,7 @@ export function billsForMonth(items, transactions, ym, today, opts){
   var r2 = function(n){ return Math.round(n * 100) / 100; };
   kinds.sort(function(a, b){ return a.what.localeCompare(b.what); });
   return { start: start, end: end, days: days, undated: undated, spending: spending, cardPayments: cardPayments, kinds: kinds, stopped: stopped,
-    total: r2(total), paidTotal: r2(paidTotal), cardTotal: r2(cardTotal), directTotal: r2(total - cardTotal) };
+    total: r2(total), paidTotal: r2(paidTotal), cardTotal: r2(cardTotal), agentTotal: r2(agentTotal), directTotal: r2(total - cardTotal - agentTotal) };
 }
 
 // ---------------- Bills coming up, for Home and the bell (v3.94.1) ----------------
@@ -240,7 +247,7 @@ export function upcomingBills(items, transactions, today, days, opts){
     Object.keys(r.days).forEach(function(d){
       if(d < from || d > to) return;
       r.days[d].forEach(function(b){
-        if(b.paid || b.card) return;
+        if(b.paid || b.card || b.agent) return;
         out.push({ id: b.id, what: b.what, due: d, days: daysBetween(d, today), amount: b.amount, overdue: d < today, estimated: !!b.estimated });
       });
     });

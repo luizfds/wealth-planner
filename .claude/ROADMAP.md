@@ -2486,6 +2486,9 @@ Lines budgeted well above what's spent (they make every scenario look worse), th
 
 Shipped as v3.100.0: `calc/trim.js` — `trimReport` (lines ≥$300/yr and 25% over their last-12-months actual once 6 months are logged; flexible lines — `line.flexible`, else irregular Wants; similar subscriptions by family), `setLeanLevel`/`leanLevel` (keep/half/pause per scenario through `scenarioOverrides`, the budget untouched), `leanEffect`. Cash flow → Budget → Trim; What the app notices gains plan-padding and buy-lean findings.
 
+## 134. `[~]` Property manager accounts
+Bills the agent pays out of the rent (water rates, repairs) were logged with no account, so nothing could tell them from a direct debit: the bills calendar listed them under "From your accounts" and could flag them overdue.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

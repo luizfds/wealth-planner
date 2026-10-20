@@ -1300,3 +1300,27 @@
   .trip-add select, .trip-add input{ width:100%; min-width:0; min-height:36px; }
   .bank-import-badge.is-trip{ background: color-mix(in srgb, var(--brass) 18%, transparent); color: var(--brass-strong); }
   @media (max-width:700px){ .trip-add{ grid-template-columns: 1fr 1fr; } .trip-add .fr-field:first-child, .trip-add .fr-field:last-of-type, .trip-add button{ grid-column: 1 / -1; } }
+
+  /* v3.100.0: Cash flow → Budget → Trim */
+  .tr-note{ margin:0 0 6px; }
+  .tr-all{ margin:8px 0 4px; }
+  .tr-scen{ display:flex; align-items:center; gap:8px; font-size:13px; margin:2px 0 8px; }
+  .tr-scen select{ min-height:36px; border:1px solid var(--border); border-radius:6px; background: var(--paper); color: var(--ink); font: inherit; max-width:100%; }
+  .tr-flex{ list-style:none; margin:0; padding:0; }
+  .tr-flex li{ display:flex; justify-content:space-between; align-items:center; gap:10px; padding:6px 0; border-bottom:1px dashed var(--border); font-size:13px; }
+  .tr-flex-name{ min-width:0; display:flex; flex-direction:column; }
+  .tr-flex-name small{ font-size:11.5px; color: var(--ink-soft); }
+  .tr-seg{ flex-shrink:0; }
+  .tr-seg .seg-option{ min-height:32px; padding:4px 10px; font-size:12.5px; }
+  .tr-effect{ margin:10px 0 4px; padding:10px 12px; border-radius:8px; background: var(--paper-raised); border:1px solid var(--border); font-size:13px; }
+  .tr-effect > div{ display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; align-items:baseline; }
+  .tr-effect b{ font-family: var(--font-num); font-size:15px; }
+  .tr-effect small{ display:inline-block; margin-top:4px; color: var(--ink-soft); font-size:12px; }
+  .tr-effect .tr-buy{ display:block; }
+  .tr-dupes{ list-style:none; margin:0; padding:0; font-size:13px; }
+  .tr-dupes li{ padding:4px 0; }
+  .tr-mark{ margin-top:12px; font-size:13px; }
+  .tr-mark summary{ cursor:pointer; color: var(--ink-soft); min-height:32px; }
+  .tr-mark ul{ list-style:none; margin:0; padding:0; columns: 2 220px; }
+  .tr-mark li{ display:flex; justify-content:space-between; gap:8px; padding:3px 0; break-inside:avoid; }
+  .tr-mark li small{ color: var(--ink-soft); white-space:nowrap; }

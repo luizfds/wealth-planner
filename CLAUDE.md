@@ -67,7 +67,8 @@ the last, so two sessions can't pick up the same one.
   lines; what's hiding in a catch-all line), `nwhistory.js` (net worth on a past date), `takehome.js` (pay
   received against the plan), `canbuy.js` (Plan → Can we buy?), `brokertrades.js` (a broker's trade
   history into lots), `pdfstatement.js` (a PDF bank, card or property manager statement into rows),
-  `emergency.js` (an emergency fund sized on essentials), `advice.js` (what the app notices) and
+  `emergency.js` (an emergency fund sized on essentials), `trim.js` (padding in the plan, flexible
+  lines, lean scenarios), `advice.js` (what the app notices) and
   `aisummary.js` (the anonymised summary behind Ask Claude).
 - `src/components/{dashboard,home,income,taxyear,expenses,cashflow,accounts,assets,investments,
   properties,projections,scenarios,reports,rules,period,safekeeping,savegoals,recurring,yearend,nav,

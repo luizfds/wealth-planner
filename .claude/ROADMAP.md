@@ -2481,6 +2481,11 @@ Shipped as v3.98.0: `calc/advice.js` `adviceFor` — rules for a purchase that l
 
 v3.99.0: Copy for any AI — `copyPrompt` puts the instructions, a standard answer layout (`REVIEW_FORMAT`: In short, Priorities, Buying, Tax and super, Debt and cash, Spending, Investments, Protection, Questions) and the anonymised summary in one paste for any assistant; the answer is pasted back, saved on the device and shown like a Claude review, labels mapped back to names. No key needed.
 
+## 133. `[x]` Trim: padding in the plan, flexible lines, lean scenarios
+Lines budgeted well above what's spent (they make every scenario look worse), the lines that could be paused or cut, and a scenario run lean to see what that does to a purchase.
+
+Shipped as v3.100.0: `calc/trim.js` — `trimReport` (lines ≥$300/yr and 25% over their last-12-months actual once 6 months are logged; flexible lines — `line.flexible`, else irregular Wants; similar subscriptions by family), `setLeanLevel`/`leanLevel` (keep/half/pause per scenario through `scenarioOverrides`, the budget untouched), `leanEffect`. Cash flow → Budget → Trim; What the app notices gains plan-padding and buy-lean findings.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

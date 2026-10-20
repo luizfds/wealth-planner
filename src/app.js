@@ -39,7 +39,7 @@ import {
   openExpenseReview, closeExpenseReview, renderExpenseReviewPanel,
   logCurrentReviewCard, skipCurrentReviewCard, expenseReview,
   renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel,
-  setTransactionsShowAll, setTransactionsRange, modernTransactionRowOpen, budgetRowTxnsOpen, transactionSummaryText, visibleSpendingIndices, loggableBudgetLineItems,
+  setTransactionsShowAll, setTransactionsRange, modernTransactionRowOpen, budgetRowTxnsOpen, transactionSummaryText, visibleSpendingIndices, loggableBudgetLineItems, renderBillsCalendar,
   openQuickLog, closeQuickLog, renderQuickLogSheet, setQuickLogLink, setQuickLogDateOpen,
   setQuickLogShowAllChips, setQuickLogChipFilter, setQuickLogSign, setQuickLogRefundOf, submitQuickLog, quickLogContextText, quickLog,
   renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, logExpenseTransaction,
@@ -4704,6 +4704,19 @@ import {
     }
   });
 
+  // v3.83.0: Bills calendar — a line is a bill or a spending budget (auto, or set here).
+  document.addEventListener("change", function(e){
+    if(!e.target.matches || !e.target.matches("[data-bc-kind]")) return;
+    var id = e.target.getAttribute("data-bc-kind");
+    var line = loggableBudgetLineItems().find(function(i){ return i.id === id; });
+    if(!line) return;
+    if(e.target.value === "bill" || e.target.value === "spending") line.billKind = e.target.value;
+    else delete line.billKind;
+    persist();
+    renderBillsCalendar();
+    var kinds = document.querySelector("#billsCalendar .bc-kinds");
+    if(kinds) kinds.open = true;
+  });
   // v3.41.0: Loan strategy on a property card.
   document.addEventListener("change", function(e){
     if(!e.target.matches) return;

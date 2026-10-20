@@ -1,4 +1,4 @@
-import { freqStepMonths } from "./ledger.js";
+import { freqStepMonths, periodsOf } from "./ledger.js";
 
 // ---------------- The bills calendar (v3.60.0) ----------------
 //
@@ -43,17 +43,131 @@ export function occurrencesBetween(anchor, freq, start, end){
   return out;
 }
 
-// { days: { "YYYY-MM-DD": [bill] }, undated: [line], total, paidTotal } for one month.
-// bill: { id, what, amount, date, paid, overdue }. items: regular budget lines; today for "overdue".
-export function billsForMonth(items, transactions, ym, today){
+// ---------------- A bill, or a spending budget? (v3.83.0) ----------------
+//
+// Every regular line used to be a bill, so a weekly groceries budget sat on the calendar four times
+// a month as if it were a direct debit. What's logged tells them apart: a bill is about one payment
+// a period, on a steady rhythm or for a steady amount (the electricity varies but comes monthly; the
+// gym comes twice a week but is always the same). A spending budget is many purchases of varying
+// size — groceries, petrol, the pet, online shopping. line.billKind ("bill" | "spending") overrides.
+var PERIOD_DAYS = { Weekly: 7, Fortnightly: 14, Monthly: 30.44, Quarterly: 91.31, "Half-yearly": 182.62, Yearly: 365.25 };
+export function lineKindFeatures(payments, freq){
+  var pays = (payments || []).filter(function(p){ return p.date && Number(p.amount) > 0; }).sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+  if(!pays.length) return null;
+  // The last twelve months of it: an old habit isn't today's line.
+  var last = pays[pays.length - 1].date;
+  var from = String(Number(last.slice(0, 4)) - 1) + last.slice(4);
+  pays = pays.filter(function(p){ return p.date > from; });
+  var per = PERIOD_DAYS[freq] || 30.44;
+  var span = daysBetween(pays[pays.length - 1].date, pays[0].date);
+  var gaps = [];
+  for(var i = 1; i < pays.length; i++) gaps.push(daysBetween(pays[i].date, pays[i - 1].date));
+  var regular = gaps.length ? gaps.filter(function(g){ return Math.abs(g - per) <= Math.max(3, per * 0.2); }).length / gaps.length : 1;
+  var amts = pays.map(function(p){ return Number(p.amount); });
+  var mean = amts.reduce(function(s, a){ return s + a; }, 0) / amts.length;
+  var sd = Math.sqrt(amts.reduce(function(s, a){ return s + (a - mean) * (a - mean); }, 0) / amts.length);
+  return { count: pays.length, perPeriod: pays.length / (span / per + 1), regular: regular, spread: mean ? sd / mean : 0 };
+}
+export function lineKind(line, payments){
+  if(line && (line.billKind === "bill" || line.billKind === "spending")) return line.billKind;
+  return inferredLineKind(line, payments);
+}
+export function inferredLineKind(line, payments){
+  var f = lineKindFeatures(payments, line && line.freq);
+  if(!f || f.count < 3) return "bill";
+  if(f.perPeriod >= 2.5 && f.spread >= 0.2) return "spending";
+  // A quarterly or yearly line is paid when the invoice comes, which wanders — an uneven rhythm
+  // there is still one bill a period. Only several payments a period make it spending.
+  if(freqStepMonths(line && line.freq) >= 3) return f.perPeriod >= 2 && f.spread >= 0.35 ? "spending" : "bill";
+  if(f.spread >= 0.35 && (f.perPeriod > 1.3 || f.regular < 0.8)) return "spending";
+  return "bill";
+}
+
+// ---------------- Card bills on the card repayment (v3.83.0) ----------------
+//
+// A bill charged to a credit card doesn't leave the bank on its own day: it goes out with the card
+// repayment. The repayment day is read from the repayments already logged as transfers to the card
+// (the most common day of the month); the amount, until it's been paid, is what was charged in the
+// statement cycle that closed before it (cycle from account.statementStartDay).
+function clampDay(ym, day){
+  var y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7));
+  var dim = new Date(y, m, 0).getDate();
+  return ym + "-" + String(Math.min(day, dim)).padStart(2, "0");
+}
+function addMonths(ym, n){ var d = new Date(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)) - 1 + n, 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }
+function addDays(isoStr, n){ var d = parse(isoStr); d.setDate(d.getDate() + n); return iso(d); }
+export function cardRepaymentDay(card, transfers){
+  var days = (transfers || []).filter(function(t){ return t.to === card.name && t.date && Number(t.amount) > 0; })
+    .sort(function(a, b){ return a.date < b.date ? 1 : -1; }).slice(0, 6).map(function(t){ return Number(t.date.slice(8, 10)); });
+  if(!days.length) return null;
+  days.sort(function(a, b){ return a - b; });
+  return days[Math.floor((days.length - 1) / 2)];
+}
+// The statement cycle a charge on `date` falls in, given the cycle's start day: { start, end }.
+export function cycleFor(date, startDay){
+  startDay = Math.min(28, Math.max(1, Number(startDay) || 1));
+  var ym = date.slice(0, 7);
+  var start = Number(date.slice(8, 10)) >= startDay ? clampDay(ym, startDay) : clampDay(addMonths(ym, -1), startDay);
+  var end = addDays(clampDay(addMonths(start.slice(0, 7), 1), startDay), -1);
+  return { start: start, end: end };
+}
+// The repayment that pays a charge made on `date`: the first repayment day after its cycle closes.
+export function repaymentFor(date, startDay, payDay){
+  var end = cycleFor(date, startDay).end;
+  var ym = end.slice(0, 7), d = clampDay(ym, payDay);
+  return d > end ? d : clampDay(addMonths(ym, 1), payDay);
+}
+// The repayments due in a month for each credit card: { card, date, amount, paid, estimated,
+// cycle: {start,end}, charges }.
+export function cardPaymentsForMonth(accounts, transactions, transfers, ym, today){
+  var out = [];
+  (accounts || []).filter(function(a){ return a && a.type === "credit" && a.name; }).forEach(function(card){
+    var payDay = cardRepaymentDay(card, transfers);
+    if(!payDay) return;
+    var date = clampDay(ym, payDay);
+    var paidTx = (transfers || []).filter(function(t){ return t.to === card.name && t.date && Math.abs(daysBetween(t.date, date)) <= PAID_WINDOW_DAYS; });
+    // The cycle this repayment settles: the one that closed most recently before it.
+    var cycle = cycleFor(addDays(date, -1), card.statementStartDay);
+    if(cycle.end >= date) cycle = cycleFor(addDays(cycle.start, -1), card.statementStartDay);
+    var charges = (transactions || []).reduce(function(s, t){ return t.account === card.name && t.date >= cycle.start && t.date <= cycle.end ? s + (Number(t.amount) || 0) : s; }, 0);
+    var paid = paidTx.reduce(function(s, t){ return s + Number(t.amount); }, 0);
+    out.push({ card: card.name, date: date, payDay: payDay, cycle: cycle,
+      charges: Math.round(charges * 100) / 100,
+      amount: Math.round((paidTx.length ? paid : charges) * 100) / 100,
+      paid: paidTx.length > 0, overdue: !paidTx.length && !!today && date < today,
+      // Charges still being made: the cycle hasn't closed yet, so this is "so far".
+      open: !!today && cycle.end >= today });
+  });
+  return out;
+}
+
+// { days: { "YYYY-MM-DD": [bill] }, undated: [line], spending: [line], cardPayments: [payment],
+//   total, paidTotal, directTotal, cardTotal } for one month.
+// bill: { id, what, amount, date, paid, overdue, estimated, card, payOn }. card: the credit card it's
+// charged to (from its latest payment), payOn: that card's repayment the charge goes out with.
+// opts: { accounts, transfers } — without them nothing is grouped on a card.
+export function billsForMonth(items, transactions, ym, today, opts){
+  opts = opts || {};
   var y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7));
   var start = ym + "-01", end = ym + "-" + String(new Date(y, m, 0).getDate()).padStart(2, "0");
   var byLine = {};
-  (transactions || []).forEach(function(t){ if(t.linkedExpenseId && t.date) (byLine[t.linkedExpenseId] = byLine[t.linkedExpenseId] || []).push(t.date); });
-  var days = {}, undated = [], total = 0, paidTotal = 0;
+  (transactions || []).forEach(function(t){ if(t.linkedExpenseId && t.date) (byLine[t.linkedExpenseId] = byLine[t.linkedExpenseId] || []).push(t); });
+  var cards = {};
+  (opts.accounts || []).forEach(function(a){ if(a && a.type === "credit" && a.name) cards[a.name] = { card: a, payDay: cardRepaymentDay(a, opts.transfers) }; });
+  var days = {}, undated = [], spending = [], kinds = [], total = 0, paidTotal = 0, cardTotal = 0;
   (items || []).forEach(function(i){
     if(!i.id || i.irregular || i.computed) return;
-    var dates = (byLine[i.id] || []).slice().sort();
+    var logged = (byLine[i.id] || []).slice().sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+    var kind = lineKind(i, logged);
+    kinds.push({ id: i.id, what: i.what || "Line", kind: kind, setting: i.billKind === "bill" || i.billKind === "spending" ? i.billKind : "", auto: inferredLineKind(i, logged) });
+    if(kind === "spending"){
+      var spent = logged.reduce(function(s, t){ return t.date >= start && t.date <= end ? s + (Number(t.amount) || 0) : s; }, 0);
+      spending.push({ id: i.id, what: i.what || "Spending", budget: Math.round(periodsOf(i.amount, i.freq).monthly * 100) / 100, spent: Math.round(spent * 100) / 100, overridden: !!i.billKind });
+      return;
+    }
+    var dates = logged.map(function(t){ return t.date; });
+    var lastAcct = logged.length ? logged[logged.length - 1].account : (i.account || "");
+    var onCard = cards[lastAcct] || null;
     var anchor, estimated = false;
     if(dates.length) anchor = dates[dates.length - 1];
     else if(i.dueMonth >= 1 && i.dueMonth <= 12 && freqStepMonths(i.freq) > 1){
@@ -61,15 +175,22 @@ export function billsForMonth(items, transactions, ym, today){
       var dim = new Date(y, Number(i.dueMonth), 0).getDate();
       anchor = y + "-" + String(i.dueMonth).padStart(2, "0") + "-" + String(Math.min(Number(i.dueDay) || 1, dim)).padStart(2, "0");
       estimated = true;
-    } else { undated.push({ id: i.id, what: i.what || "Bill", amount: Number(i.amount) || 0, freq: i.freq }); return; }
+    } else { undated.push({ id: i.id, what: i.what || "Bill", amount: Number(i.amount) || 0, freq: i.freq, overridden: !!i.billKind }); return; }
     occurrencesBetween(anchor, i.freq, start, end).forEach(function(d){
       var paid = dates.some(function(x){ return Math.abs(daysBetween(x, d)) <= PAID_WINDOW_DAYS; });
-      var bill = { id: i.id, what: i.what || "Bill", amount: Number(i.amount) || 0, date: d, paid: paid, overdue: !paid && today && d < today, estimated: estimated };
+      var bill = { id: i.id, what: i.what || "Bill", amount: Number(i.amount) || 0, date: d, paid: paid, overdue: !paid && today && d < today, estimated: estimated, overridden: !!i.billKind,
+        card: onCard ? lastAcct : "", payOn: onCard && onCard.payDay ? repaymentFor(d, onCard.card.statementStartDay, onCard.payDay) : "" };
       (days[d] = days[d] || []).push(bill);
       total += bill.amount;
+      if(bill.card) cardTotal += bill.amount;
       if(paid) paidTotal += bill.amount;
     });
   });
   Object.keys(days).forEach(function(d){ days[d].sort(function(a, b){ return b.amount - a.amount; }); });
-  return { start: start, end: end, days: days, undated: undated, total: Math.round(total * 100) / 100, paidTotal: Math.round(paidTotal * 100) / 100 };
+  spending.sort(function(a, b){ return b.budget - a.budget; });
+  var cardPayments = opts.accounts ? cardPaymentsForMonth(opts.accounts, transactions, opts.transfers, ym, today) : [];
+  var r2 = function(n){ return Math.round(n * 100) / 100; };
+  kinds.sort(function(a, b){ return a.what.localeCompare(b.what); });
+  return { start: start, end: end, days: days, undated: undated, spending: spending, cardPayments: cardPayments, kinds: kinds,
+    total: r2(total), paidTotal: r2(paidTotal), cardTotal: r2(cardTotal), directTotal: r2(total - cardTotal) };
 }

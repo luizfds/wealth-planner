@@ -149,30 +149,71 @@ var CAL_MONTHS = ["January", "February", "March", "April", "May", "June", "July"
 export function billsCalendarHtml(data, ym, today){
   today = today || localDateStr();
   var y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7));
+  var mon = CAL_MONTHS[m - 1];
+  function short(iso){ return Number(iso.slice(8, 10)) + ' ' + CAL_MONTHS[Number(iso.slice(5, 7)) - 1].slice(0, 3); }
+  function st(b){ return b.paid ? "paid" : b.overdue ? "overdue" : ""; }
+  var pays = data.cardPayments || [];
+  var payOn = {};
+  pays.forEach(function(p){ (payOn[p.date] = payOn[p.date] || []).push(p); });
   var first = new Date(y, m - 1, 1), daysIn = new Date(y, m, 0).getDate();
   var lead = (first.getDay() + 6) % 7;
   var cells = [];
   for(var i = 0; i < lead; i++) cells.push('<div class="bc-cell is-blank" aria-hidden="true"></div>');
   for(var d = 1; d <= daysIn; d++){
     var key = ym + "-" + String(d).padStart(2, "0");
-    var bills = data.days[key] || [];
-    cells.push('<div class="bc-cell' + (key === today ? " is-today" : "") + (bills.length ? " has-bills" : "") + '"><span class="bc-day">' + d + '</span>' +
-      bills.slice(0, 3).map(function(b){
-        return '<span class="bc-bill' + (b.paid ? " paid" : b.overdue ? " overdue" : "") + '" title="' + escapeAttr(b.what + " " + fmtCurrency0.format(b.amount) + (b.paid ? " — paid" : b.overdue ? " — not logged yet" : "")) + '">' +
-          escapeAttr(b.what) + '</span>';
-      }).join("") + (bills.length > 3 ? '<span class="bc-more">+' + (bills.length - 3) + '</span>' : '') +
-      (bills.length ? '<span class="bc-dots" aria-hidden="true">' + bills.map(function(b){ return '<i class="' + (b.paid ? "paid" : b.overdue ? "overdue" : "") + '"></i>'; }).join("") + '</span>' : '') + '</div>');
+    // The card repayment first: it's the money actually leaving the bank that day.
+    var chips = (payOn[key] || []).map(function(p){ return { what: p.card + " payment", amount: p.amount, cls: "card-pay " + st(p), title: p.card + " payment " + fmtCurrency0.format(p.amount) + (p.paid ? " — paid" : p.overdue ? " — not logged yet" : "") }; })
+      .concat((data.days[key] || []).map(function(b){ return { what: b.what, amount: b.amount, cls: (b.card ? "on-card " : "") + st(b), title: b.what + " " + fmtCurrency0.format(b.amount) + (b.card ? " on the " + b.card + (b.payOn ? ", paid with the " + short(b.payOn) + " repayment" : "") : "") + (b.paid ? " — paid" : b.overdue ? " — not logged yet" : "") }; }));
+    cells.push('<div class="bc-cell' + (key === today ? " is-today" : "") + (chips.length ? " has-bills" : "") + '"><span class="bc-day">' + d + '</span>' +
+      chips.slice(0, 3).map(function(c){ return '<span class="bc-bill ' + c.cls.trim() + '" title="' + escapeAttr(c.title) + '">' + escapeAttr(c.what) + '</span>'; }).join("") +
+      (chips.length > 3 ? '<span class="bc-more">+' + (chips.length - 3) + '</span>' : '') +
+      (chips.length ? '<span class="bc-dots" aria-hidden="true">' + chips.map(function(c){ return '<i class="' + c.cls.trim() + '"></i>'; }).join("") + '</span>' : '') + '</div>');
   }
   var head = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(function(n){ return '<div class="bc-head">' + n + '</div>'; }).join("");
-  var keys = Object.keys(data.days).sort();
-  var list = keys.length ? '<ul class="bc-list">' + keys.map(function(k){
-    return data.days[k].map(function(b){
-      return '<li class="' + (b.paid ? "paid" : b.overdue ? "overdue" : "") + '"><span class="bc-list-date">' + Number(k.slice(8, 10)) + ' ' + CAL_MONTHS[m - 1].slice(0, 3) + '</span><span class="bc-list-name">' + escapeAttr(b.what) + '</span>' +
-        '<span class="bc-list-state">' + (b.paid ? "paid ✓" : b.overdue ? "not logged" : k === today ? "today" : "due") + '</span><b>' + fmtCurrency0.format(b.amount) + '</b></li>';
-    }).join("");
-  }).join("") + '</ul>' : '<p class="ledger-note" style="margin:8px 0 0">No dated bills in ' + CAL_MONTHS[m - 1] + '. A bill gets a day once a payment has been logged against its budget line.</p>';
+  var all = [];
+  Object.keys(data.days).sort().forEach(function(k){ data.days[k].forEach(function(b){ all.push(b); }); });
+  function row(date, name, sub, st, amount){
+    return '<li class="' + st + '"><span class="bc-list-date">' + short(date) + '</span><span class="bc-list-name">' + name + (sub ? '<small>' + sub + '</small>' : '') + '</span>' +
+      '<span class="bc-list-state">' + (st === "paid" ? "paid ✓" : st === "overdue" ? "not logged" : date === today ? "today" : "due") + '</span><b>' + fmtCurrency0.format(amount) + '</b></li>';
+  }
+  var direct = all.filter(function(b){ return !b.card; }).map(function(b){ return { date: b.date, html: row(b.date, escapeAttr(b.what), "", st(b), b.amount) }; })
+    .concat(pays.map(function(p){
+      var sub = 'Charges ' + short(p.cycle.start) + ' – ' + short(p.cycle.end) + (p.paid ? '' : p.open ? ', so far' : '');
+      return { date: p.date, html: row(p.date, '<span class="bc-card-tag">Card</span>' + escapeAttr(p.card) + ' payment', sub, st(p), p.amount) };
+    }))
+    .sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+  var onCard = all.filter(function(b){ return b.card; });
+  var cardsUsed = onCard.map(function(b){ return b.card; }).filter(function(c, i, arr){ return arr.indexOf(c) === i; });
+  var list = '';
+  if(direct.length) list += '<h4 class="bc-sec">From your accounts</h4><ul class="bc-list">' + direct.map(function(x){ return x.html; }).join("") + '</ul>';
+  cardsUsed.forEach(function(c){
+    var bills = onCard.filter(function(b){ return b.card === c; });
+    var sum = bills.reduce(function(s, b){ return s + b.amount; }, 0);
+    list += '<h4 class="bc-sec">On the ' + escapeAttr(c) + ' <span>' + fmtCurrency0.format(sum) + ' — goes out with the card payment, not on its own</span></h4><ul class="bc-list is-card">' +
+      bills.map(function(b){ return row(b.date, escapeAttr(b.what), b.payOn ? 'with the ' + short(b.payOn) + ' payment' : '', st(b), b.amount); }).join("") + '</ul>';
+  });
+  if(!list) list = '<p class="ledger-note" style="margin:8px 0 0">No dated bills in ' + mon + '. A bill gets a day once a payment has been logged against its budget line.</p>';
+  var spend = (data.spending || []).length ? '<h4 class="bc-sec">Spending budgets in ' + mon + ' <span>not bills — many purchases, so no day</span></h4><ul class="bc-spend">' +
+    data.spending.map(function(sp){
+      var pct = sp.budget > 0 ? Math.min(100, Math.round(sp.spent / sp.budget * 100)) : 0;
+      var over = sp.budget > 0 && sp.spent > sp.budget;
+      return '<li' + (over ? ' class="over"' : '') + '><span class="bc-list-name">' + escapeAttr(sp.what) + '</span><b>' + fmtCurrency0.format(sp.spent) + ' <small>of ' + fmtCurrency0.format(sp.budget) + '</small></b>' +
+        '<span class="bc-spend-bar" aria-hidden="true"><i style="width:' + pct + '%"></i></span></li>';
+    }).join("") + '</ul>' : '';
   var undated = data.undated.length ? '<details class="bc-undated"><summary>' + data.undated.length + ' regular line' + (data.undated.length === 1 ? "" : "s") + ' with no payment logged yet, so no day</summary><p class="ledger-note" style="margin:4px 0">' +
     data.undated.map(function(u){ return escapeAttr(u.what); }).join(", ") + '</p></details>' : '';
-  return '<div class="bc-summary"><b>' + CAL_MONTHS[m - 1] + ' ' + y + '</b><span>' + fmtCurrency0.format(data.paidTotal) + ' paid of ' + fmtCurrency0.format(data.total) + ' in dated bills</span></div>' +
-    '<div class="bc-grid" role="grid" aria-label="Bills in ' + CAL_MONTHS[m - 1] + '">' + head + cells.join("") + '</div>' + list + undated;
+  var kinds = (data.kinds || []).length ? '<details class="bc-kinds"><summary>Bill or spending budget? Change how a line is treated</summary><p class="ledger-note" style="margin:4px 0 6px">Worked out from what\'s logged: about one payment a period is a bill; many purchases of varying size is a spending budget.</p><ul>' +
+    data.kinds.map(function(k){
+      return '<li><span>' + escapeAttr(k.what) + '</span><select class="bc-kind" data-bc-kind="' + escapeAttr(k.id) + '" aria-label="' + escapeAttr(k.what) + ' — bill or spending budget">' +
+        '<option value=""' + (!k.setting ? ' selected' : '') + '>Auto (' + (k.auto === "spending" ? "spending" : "bill") + ')</option>' +
+        '<option value="bill"' + (k.setting === "bill" ? ' selected' : '') + '>Bill</option>' +
+        '<option value="spending"' + (k.setting === "spending" ? ' selected' : '') + '>Spending budget</option></select></li>';
+    }).join("") + '</ul></details>' : '';
+  var cardOut = pays.reduce(function(s, p){ return s + p.amount; }, 0);
+  var leaves = (data.directTotal != null ? data.directTotal : data.total) + cardOut;
+  var summary = pays.length
+    ? fmtCurrency0.format(leaves) + ' leaves your accounts: ' + fmtCurrency0.format(data.directTotal) + ' in bills, ' + fmtCurrency0.format(cardOut) + ' card payment' + (pays.length === 1 ? '' : 's')
+    : fmtCurrency0.format(data.paidTotal) + ' paid of ' + fmtCurrency0.format(data.total) + ' in dated bills';
+  return '<div class="bc-summary"><b>' + mon + ' ' + y + '</b><span>' + summary + '</span></div>' +
+    '<div class="bc-grid" role="grid" aria-label="Bills in ' + mon + '">' + head + cells.join("") + '</div>' + list + spend + undated + kinds;
 }

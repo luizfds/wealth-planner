@@ -379,7 +379,7 @@ export function renderBillsCalendar(){
   var el = typeof document !== "undefined" && document.getElementById("billsCalendar");
   if(!el) return;
   var ym = selectedMonth();
-  el.innerHTML = billsCalendarHtml(billsForMonth(loggableBudgetLineItems(), state.transactions, ym, localDateStr()), ym);
+  el.innerHTML = billsCalendarHtml(billsForMonth(loggableBudgetLineItems(), state.transactions, ym, localDateStr(), { accounts: state.accounts, transfers: state.transfers }), ym);
 }
 // "Your month, planned" (v3.59.0) — components/cashflow.js budgetPlanHtml.
 export function renderBudgetPlan(){

@@ -2407,11 +2407,13 @@ the gap is what the logging or the balances don't explain.
 
 Shipped as v3.82.0: `calc/nwcheck.js` — compared like for like (only records held at both month ends; anything first recorded mid-month is listed, not counted), interest from what was owed less the offset at the rate then, "adds up" within 5% of money in (at least $500), and the cash-side balances with no record within a week of either end listed. Month in detail gains "Did net worth add up?"; Reports gains Net worth check (12 months, each linking to its month).
 
-## 120. `[~]` Bills calendar: bills, not spending; card bills on the card payment
+## 120. `[x]` Bills calendar: bills, not spending; card bills on the card payment
 The calendar treated every regular line as a bill, so a weekly groceries budget showed four times
 a month. A line is a bill when its payments come about once a period; a spending budget is many
 varying purchases — told apart from what's logged, with a per-line override. Bills charged to a
 credit card are grouped under the card repayment, which is what actually leaves the bank.
+
+Shipped as v3.83.0: `calc/bills.js` `inferredLineKind` (last 12 months of payments: ≥2.5 a period of varying size, or a spread ≥35% with >1.3 a period or an uneven rhythm, is spending; quarterly-and-longer lines need ≥2 a period) with `line.billKind` overriding; a bill's card is the account of its latest payment; `cardRepaymentDay` is the median day of the last six transfers to the card; `cycleFor`/`repaymentFor` from `statementStartDay`; `cardPaymentsForMonth` is the logged repayment or, until then, the closed cycle's charges. Cash flow → Bills: what leaves the accounts, card bills under the card, spending budgets as bars, and a per-line Auto/Bill/Spending select.
 
 ## Conventions for whoever picks this up
 

@@ -2479,6 +2479,8 @@ The analysis an adviser would do, from the app's own data: rules that read purch
 
 Shipped as v3.98.0: `calc/advice.js` `adviceFor` — rules for a purchase that leaves little room (with pay as it lands and rates +2 points), borrowed money in a deposit, moving cash to a home loan's offset after buying, a PAYG withholding variation for the rental's loss, concessional super room, concentration in property, tiny holdings, the savings rate, Wants share of spending, the emergency fund and pay off the plan; each {area, kind, impactYearly, go}. `components/advice.js`: Home → Insights "What the app notices" and a strip on Scenarios, Budget, Income, Tax, Investments and Accounts. `calc/aisummary.js` builds the anonymised summary (people → Partner A/B, property, loans, scenarios and accounts → labels, holdings → tickers) and maps labels back for display; `components/askclaude.js` keeps the key in localStorage only (never in state or backups), previews the exact text, and calls the Messages API from the browser.
 
+v3.99.0: Copy for any AI — `copyPrompt` puts the instructions, a standard answer layout (`REVIEW_FORMAT`: In short, Priorities, Buying, Tax and super, Debt and cash, Spending, Investments, Protection, Questions) and the anonymised summary in one paste for any assistant; the answer is pasted back, saved on the device and shown like a Claude review, labels mapped back to names. No key needed.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

@@ -6,7 +6,7 @@ import { recalcComputedItems } from "../src/calc/engine.js";
 import { adviceFor } from "../src/calc/advice.js";
 import { householdSummary, anonymiser, deanonymiser } from "../src/calc/aisummary.js";
 import { adviceHomeHtml, adviceStripHtml } from "../src/components/advice.js";
-import { reviewHtml, askBody, SYSTEM_PROMPT } from "../src/components/askclaude.js";
+import { reviewHtml, askBody, SYSTEM_PROMPT, copyPrompt, REVIEW_FORMAT, askClaudeHtml, askUi } from "../src/components/askclaude.js";
 
 // What the app notices (v3.98.0), invented household.
 function withHousehold(fn){
@@ -74,4 +74,18 @@ test("the review request and the answer's rendering", function(){
   assert.match(b.messages[0].content, /SUMMARY[\s\S]*THEIR QUESTION\nShould we buy\?/);
   var h = reviewHtml("## Buying\n- **Cash** is fine\n- rates <b>\n\nPlain line");
   assert.match(h, /<h4>Buying<\/h4><ul><li><b>Cash<\/b> is fine<\/li><li>rates &lt;b><\/li><\/ul><p>Plain line<\/p>/);
+});
+
+test("the prompt for any AI: how to answer, in the standard layout, then the figures and the question", function(){
+  var t = copyPrompt("SUMMARY LINES", "Sydney or Melbourne?");
+  assert.ok(t.indexOf("HOW TO ANSWER") < t.indexOf("MY FINANCES") && t.indexOf("MY FINANCES") < t.indexOf("MY QUESTION"));
+  assert.ok(t.indexOf(REVIEW_FORMAT) !== -1, "the standard headings travel with it");
+  assert.match(t, /use those labels exactly as written/);
+  assert.match(t, /## Priorities/);
+  assert.ok(copyPrompt("S", "").indexOf("MY QUESTION") === -1);
+  askUi.pasteOpen = true;
+  var h = askClaudeHtml();
+  assert.match(h, /data-ai-copy>Copy for any AI/);
+  assert.match(h, /data-ai-paste/);
+  askUi.pasteOpen = false;
 });

@@ -95,7 +95,7 @@ import { pdfLines } from "./lib/pdftext.js";
 import { renderAdvice, adviceUi } from "./components/advice.js";
 import { adviceFor } from "./calc/advice.js";
 import { householdSummary } from "./calc/aisummary.js";
-import { askUi, setAiKey, setAiModel, askClaude, setLastReview } from "./components/askclaude.js";
+import { askUi, setAiKey, setAiModel, askClaude, setLastReview, copyPrompt } from "./components/askclaude.js";
 import { emergencyFund } from "./calc/emergency.js";
 import { renderEmergencyFund, existingEmergencyGoal } from "./components/emergency.js";
 import { statementFromLines, statementCsv, agentStatementFromLines } from "./calc/pdfstatement.js";
@@ -4664,8 +4664,37 @@ import {
     }
     if(e.target.closest("[data-ai-forget]")){ setAiKey(""); askUi.preview = ""; renderAdvice(); showToast("Key removed from this browser"); return; }
     if(e.target.closest("[data-ai-preview]")){
-      askUi.preview = askUi.preview ? "" : householdSummary(adviceFor({ today: localDateStr() }), { today: localDateStr() });
+      askUi.preview = askUi.preview ? "" : copyPrompt(householdSummary(adviceFor({ today: localDateStr() }), { today: localDateStr() }), askUi.question.trim());
       renderAdvice();
+      return;
+    }
+    // v3.99.0: the prompt for any assistant, to the clipboard; the answer pasted back.
+    if(e.target.closest("[data-ai-copy]")){
+      var text = copyPrompt(householdSummary(adviceFor({ today: localDateStr() }), { today: localDateStr() }), askUi.question.trim());
+      var fallback = function(){
+        var ta = document.createElement("textarea");
+        ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.select();
+        var ok = false; try { ok = document.execCommand("copy"); } catch(err){}
+        document.body.removeChild(ta);
+        return ok;
+      };
+      var done = function(ok){
+        askUi.pasteOpen = true; renderAdvice();
+        showToast(ok ? "Copied — paste it into any AI, then paste its answer back here" : "Couldn't copy — open the preview and copy it from there");
+      };
+      if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function(){ done(true); }, function(){ done(fallback()); });
+      else done(fallback());
+      return;
+    }
+    if(e.target.closest("[data-ai-paste-toggle]")){ askUi.pasteOpen = !askUi.pasteOpen; renderAdvice(); return; }
+    if(e.target.closest("[data-ai-save-paste]")){
+      var pa = document.querySelector("[data-ai-paste]"), src = document.querySelector("[data-ai-source]");
+      var answer = pa ? pa.value.trim() : "";
+      if(answer.length < 40){ showToast("Paste the assistant's whole answer first"); return; }
+      setLastReview({ at: localDateStr(), question: askUi.question.trim(), text: answer, source: src ? src.value.trim().slice(0, 40) : "" });
+      askUi.pasteOpen = false; askUi.preview = ""; renderAdvice();
+      showToast("Answer saved on this device");
       return;
     }
     if(e.target.closest("[data-ai-ask]")){

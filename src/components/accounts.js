@@ -78,7 +78,7 @@ export function accountRowHtml(a, idx, today){
   var edit = open
     ? '<div class="acct-card-edit">' +
         // v3.67.0: the balance over time, drawn after render (renderAccountCharts).
-        '<div class="acct-field-wide acct-chart" data-acct-chart="' + escapeAttr(a.id) + '"></div>' +
+        (agent ? '' : '<div class="acct-field-wide acct-chart" data-acct-chart="' + escapeAttr(a.id) + '"></div>') +
         '<label class="acct-field acct-field-wide"><span>Name</span><input type="text" class="acct-mgmt-name" data-acct-index="' + idx + '" value="' + escapeAttr(a.name || "") + '" placeholder="Account name" aria-label="Account name"></label>' +
         '<label class="acct-field"><span>Type</span><select class="acct-mgmt-type" data-acct-index="' + idx + '" aria-label="Account type">' +
           ACCOUNT_TYPES.map(function(t){ return '<option value="' + t.key + '"' + (a.type === t.key ? " selected" : "") + '>' + t.label + '</option>'; }).join("") + '</select></label>' +

@@ -51,6 +51,7 @@ var COLS = {
   units: /^(quantity|units|qty|shares|volume|no\.? ?of ?units|number ?of ?shares|filled ?quantity)$/,
   price: /^(price|unit ?price|avg\.? ?price|average ?price|execution ?price|effective ?price|fill ?price|trade ?price|price ?\(?\$?\)?)$/,
   fee: /^(brokerage|fee|fees|commission|brokerage ?\(?\$?\)?|brokerage ?\+ ?gst|fees ?\(?\$?\)?)$/,
+  gst: /^(gst|gst ?\(?\$?\)?|tax on fees)$/,
   value: /^(value|amount|consideration|total|net ?amount|trade ?value|gross ?amount|total ?value)$/,
   details: /^(details|description|narrative)$/,
   debit: /^debit/, credit: /^credit/
@@ -65,8 +66,23 @@ function headerIndex(row){
 }
 
 // { trades: [{date, code, side, units, price, brokerage}], skipped: n, format }
-export function parseTrades(text){
-  var grid = parseCsvGrid(text).filter(function(r){ return r.some(function(c){ return String(c).trim(); }); });
+export function parseTrades(text){ return parseTradesGrid(parseCsvGrid(text)); }
+// Several tables at once (a spreadsheet's sheets: Stake puts ASX and US trades on separate ones).
+export function parseTradeSheets(grids){
+  var all = { trades: [], skipped: 0, format: null };
+  (grids || []).forEach(function(g){
+    var r = parseTradesGrid(g);
+    if(!r.format) return;
+    all.trades = all.trades.concat(r.trades);
+    all.skipped += r.skipped;
+    all.format = all.format || r.format;
+  });
+  all.trades.sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : a.side === "buy" ? -1 : 1; });
+  return all;
+}
+export function parseTradesGrid(rawGrid){
+  var grid = (rawGrid || []).map(function(r){ return (r || []).map(function(c){ return c == null ? "" : String(c); }); })
+    .filter(function(r){ return r.some(function(c){ return String(c).trim(); }); });
   var hi = -1, idx = null;
   for(var i = 0; i < Math.min(grid.length, 15); i++){
     var t = headerIndex(grid[i]);
@@ -99,7 +115,8 @@ export function parseTrades(text){
     u = u == null ? null : Math.abs(u);
     if(p == null && val != null && u) p = Math.abs(val) / u;
     if(!code || !sd || !(u > 0) || !(p > 0)){ skipped++; return; }
-    var fe = idx.fee != null ? Math.abs(num(r[idx.fee]) || 0) : 0;
+    // Brokerage is a cost base item with its GST: a separate GST column (Stake's) is added to it.
+    var fe = (idx.fee != null ? Math.abs(num(r[idx.fee]) || 0) : 0) + (idx.gst != null ? Math.abs(num(r[idx.gst]) || 0) : 0);
     trades.push({ date: date, code: code, side: sd, units: u, price: Math.round(p * 1e6) / 1e6, brokerage: r2(fe) });
   });
   trades.sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : a.side === "buy" ? -1 : 1; });
@@ -132,22 +149,25 @@ export function planTrades(assets, trades, choice){
     var sales = a && Array.isArray(a.sales) ? a.sales : [];
     var newBuys = list.filter(function(t){ return t.side === "buy" && !lots.some(function(l){ return sameLot(l, t); }); });
     var newSales = list.filter(function(t){ return t.side === "sell" && !sales.some(function(s){ return sameSale(s, t); }); });
+    // A sale already recorded (typed in, or from a tax return) whose parcels aren't tied to any lot
+    // hasn't used up a lot yet: the buys read now are what it sold, so it counts against them.
+    var unlinked = sales.filter(function(sa){ return list.some(function(t){ return t.side === "sell" && sameSale(sa, t); }) && !(sa.parcels || []).some(function(pc){ return pc.lotId && lots.some(function(l){ return l.id === pc.lotId; }); }); });
     var bought = lots.reduce(function(s, l){ return s + lotRemainingUnits(l); }, 0) + newBuys.reduce(function(s, t){ return s + t.units; }, 0);
-    var sold = newSales.reduce(function(s, t){ return s + t.units; }, 0);
+    var sold = newSales.reduce(function(s, t){ return s + t.units; }, 0) + (newBuys.length ? unlinked.reduce(function(s, sa){ return s + (Number(sa.units) || 0); }, 0) : 0);
     var after = Math.round((bought - sold) * 1e6) / 1e6;
     var held = a ? Number(a.quantity) || 0 : 0;
     var problem = !hs.length ? "No holding with this code — add it on Shares first, or leave it out."
       : after < -1e-6 ? "Sells more than the file and the lots ever bought — an earlier buy is missing."
       : a && Math.abs(after - held) > 1e-6 ? "After this the lots hold " + after + " units; the holding shows " + held + "." : "";
     return { code: code, holdings: hs, target: target, buys: list.filter(function(t){ return t.side === "buy"; }).length, sells: list.filter(function(t){ return t.side === "sell"; }).length,
-      newBuys: newBuys, newSales: newSales, lotsAfter: after, held: held, problem: problem };
+      newBuys: newBuys, newSales: newSales, linkSales: newBuys.length ? unlinked : [], lotsAfter: after, held: held, problem: problem };
   });
 }
 
 // Writes a plan's new lots and sales onto the holdings. Sales take FIFO from the lots as they stood
 // on the sale date; the units held aren't changed. Returns { lots, sales }.
 export function applyTrades(assets, plan, idFactory){
-  var lotsAdded = 0, salesAdded = 0;
+  var lotsAdded = 0, salesAdded = 0, linked = 0;
   plan.forEach(function(p){
     if(p.target == null || p.lotsAfter < -1e-6) return;
     var a = assets[p.target];
@@ -159,6 +179,26 @@ export function applyTrades(assets, plan, idFactory){
       lotsAdded++;
     });
     a.lots.sort(function(x, y){ return (x.date || "").localeCompare(y.date || ""); });
+    // Sales already there: use up the lots they sold, oldest first, and tie each parcel to its lot.
+    (p.linkSales || []).slice().sort(function(x, y){ return (x.date || "").localeCompare(y.date || ""); }).forEach(function(sa){
+      var need = Number(sa.units) || 0;
+      var hadParcels = Array.isArray(sa.parcels) && sa.parcels.length;
+      var parcels = [];
+      a.lots.forEach(function(l){
+        if(need <= 1e-9 || !l.date || l.date > sa.date) return;
+        var rem = lotRemainingUnits(l);
+        if(rem <= 0) return;
+        var take = Math.min(rem, need);
+        var cost = ((Number(l.units) || 0) * (Number(l.price) || 0) + (Number(l.brokerage) || 0)) * take / (Number(l.units) || 1);
+        parcels.push({ lotId: l.id, acquired: l.date, units: take, costBase: r2(cost) });
+        l.soldUnits = Math.round(((Number(l.soldUnits) || 0) + take) * 1e8) / 1e8;
+        need = Math.round((need - take) * 1e8) / 1e8;
+      });
+      // The recorded cost base stands (it may be what was lodged); only the link to the lots is new.
+      if(!hadParcels){ sa.parcels = parcels; sa.costBase = r2(parcels.reduce(function(s, x){ return s + x.costBase; }, 0)); if(parcels.length) sa.acquired = parcels[0].acquired; }
+      else sa.parcels.forEach(function(pc){ var m = parcels.find(function(x){ return x.acquired === pc.acquired && !x.used; }); if(m){ pc.lotId = m.lotId; m.used = true; } });
+      linked++;
+    });
     p.newSales.forEach(function(t){
       var need = t.units, parcels = [];
       a.lots.forEach(function(l){
@@ -177,8 +217,11 @@ export function applyTrades(assets, plan, idFactory){
       salesAdded++;
     });
     a.sales.sort(function(x, y){ return (y.date || "").localeCompare(x.date || ""); });
+    // Avg cost follows the lots only when they account for every unit held — a holding partly
+    // bought elsewhere keeps the average it had, which covers all of its units.
+    var unsold = a.lots.reduce(function(s, l){ return s + lotRemainingUnits(l); }, 0);
     var avg = lotsAverageCost(a);
-    if(avg != null) a.avgCost = avg;
+    if(avg != null && Math.abs(unsold - (Number(a.quantity) || 0)) < 1e-6) a.avgCost = avg;
   });
-  return { lots: lotsAdded, sales: salesAdded };
+  return { lots: lotsAdded, sales: salesAdded, linked: linked };
 }

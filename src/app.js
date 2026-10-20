@@ -99,7 +99,7 @@ import { tradesUi, readTradesText, currentTradePlan } from "./components/brokert
 import { applyTrades } from "./calc/brokertrades.js";
 import { recordRentReview } from "./calc/propertylife.js";
 import { retirementHtml, retireLevers } from "./components/retirement.js";
-import { recurringHtml, recurringDismissed, catchAllShown } from "./components/recurring.js";
+import { recurringHtml, recurringDismissed, recurringOpen, catchAllShown } from "./components/recurring.js";
 import { renderReports, reportShown, reportPrintHtml, reportCsv } from "./components/reports.js";
 import { monthDetailUi, shownMonth as mdShownMonth } from "./components/monthdetail.js";
 import { shiftMonth as mdShiftMonth } from "./calc/monthdetail.js";
@@ -5055,11 +5055,19 @@ import {
     var el = document.getElementById("recurringBody");
     if(!el) return;
     var c = currentRecurring();
-    el.innerHTML = recurringHtml(c.u, c.r, c.c);
+    el.innerHTML = recurringHtml(c.u, c.r, c.c, state.transactions);
     var n = c.u.filter(function(x){ return !recurringDismissed.keys["u:" + x.key]; }).length + c.r.filter(function(x){ return !recurringDismissed.keys["r:" + x.id + ":" + x.recent]; }).length + catchAllShown(c.c);
     var cnt = document.getElementById("recurringCount");
     if(cnt) cnt.textContent = n ? n + " to look at" : "";
   }
+  // v3.95.0: a row's transactions, built only when opened.
+  document.getElementById("recurringBody").addEventListener("toggle", function(e){
+    if(!e.target.matches || !e.target.matches("[data-rc-tx]")) return;
+    var k = e.target.getAttribute("data-rc-tx");
+    if(!!recurringOpen.keys[k] === e.target.open) return;
+    recurringOpen.keys[k] = e.target.open;
+    renderRecurring();
+  }, true);
   document.getElementById("recurringBody").addEventListener("click", function(e){
     var dis = e.target.closest("[data-rc-dismiss]");
     if(dis){ recurringDismissed.keys[dis.getAttribute("data-rc-dismiss")] = true; renderRecurring(); return; }

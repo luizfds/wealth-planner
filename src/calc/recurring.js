@@ -63,11 +63,12 @@ export function unbudgetedRecurring(transactions, today){
 // Lines whose last three charges (median) run more than 5% and $2 above the budgeted amount.
 export function risingLines(lines, transactions){
   var byLine = {};
-  (transactions || []).forEach(function(t){ if(t && t.linkedExpenseId && Number(t.amount) > 0 && t.date) (byLine[t.linkedExpenseId] = byLine[t.linkedExpenseId] || []).push(t); });
+  (transactions || []).forEach(function(t, i){ if(t && t.linkedExpenseId && Number(t.amount) > 0 && t.date) (byLine[t.linkedExpenseId] = byLine[t.linkedExpenseId] || []).push({ t: t, i: i }); });
   var out = [];
   (lines || []).forEach(function(l){
     if(!l.id || l.irregular || l.computed) return;
-    var tx = (byLine[l.id] || []).slice().sort(function(a, b){ return a.date < b.date ? -1 : 1; });
+    var pairs = (byLine[l.id] || []).slice().sort(function(a, b){ return a.t.date < b.t.date ? -1 : 1; });
+    var tx = pairs.map(function(p){ return p.t; });
     if(tx.length < 2) return;
     // A line paid in pieces (groceries, fuel) isn't a single charge to compare against its amount.
     if(!cadenceOf(tx.map(function(t){ return t.date; })) && tx.length >= 3) return;
@@ -76,7 +77,8 @@ export function risingLines(lines, transactions){
     if(planned > 0 && recent > planned * 1.05 && recent - planned >= 2){
       var earlier = tx.length > 3 ? median(tx.slice(0, -3).map(function(t){ return Number(t.amount); })) : null;
       out.push({ id: l.id, what: l.what || "Budget line", freq: l.freq, planned: round(planned), recent: round(recent), since: tx[tx.length - 1].date,
-        earlier: earlier == null ? null : round(earlier), extraMonthly: round(periodsOf(recent - planned, l.freq).monthly) });
+        earlier: earlier == null ? null : round(earlier), extraMonthly: round(periodsOf(recent - planned, l.freq).monthly),
+        indices: pairs.map(function(p){ return p.i; }) });
     }
   });
   return out.sort(function(a, b){ return b.extraMonthly - a.extraMonthly; });

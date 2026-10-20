@@ -1265,7 +1265,7 @@ export function transactionAccountOptionsHtml(selected){
   var known = false;
   options += state.accounts.map(function(a){
     if(a.name === selected) known = true;
-    return '<option value="' + escapeAttr(a.name) + '"' + (a.name === selected ? " selected" : "") + '>' + escapeAttr(a.name) + (a.type === "credit" ? " (card)" : "") + '</option>';
+    return '<option value="' + escapeAttr(a.name) + '"' + (a.name === selected ? " selected" : "") + '>' + escapeAttr(a.name) + (a.type === "credit" ? " (card)" : a.type === "agent" ? " (agent)" : "") + '</option>';
   }).join("");
   if(selected && !known){
     options += '<option value="' + escapeAttr(selected) + '" selected>' + escapeAttr(selected) + ' (deleted)</option>';

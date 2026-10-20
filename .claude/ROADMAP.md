@@ -2486,6 +2486,14 @@ Lines budgeted well above what's spent (they make every scenario look worse), th
 
 Shipped as v3.100.0: `calc/trim.js` — `trimReport` (lines ≥$300/yr and 25% over their last-12-months actual once 6 months are logged; flexible lines — `line.flexible`, else irregular Wants; similar subscriptions by family), `setLeanLevel`/`leanLevel` (keep/half/pause per scenario through `scenarioOverrides`, the budget untouched), `leanEffect`. Cash flow → Budget → Trim; What the app notices gains plan-padding and buy-lean findings.
 
+## 134. `[x]` Property manager accounts
+Bills the agent pays out of the rent (water rates, repairs) were logged with no account, so nothing could tell them from a direct debit: the bills calendar listed them under "From your accounts" and could flag them overdue.
+
+Shipped as v3.101.0: account type `agent` ("Property manager") linked `property:<id>`, no balance (`accountBalance` returns null,
+`setAccountBalance` refuses). `logAgentStatement` tags statement bills with `agentAccountFor(st, propId)`; `fillAgentAccount`
+backfills blank ones when the account is set up. `billsForMonth` marks a line whose latest payment is on an agent account
+`agent` — its own calendar group, never overdue, out of `upcomingBills` and `directTotal`.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

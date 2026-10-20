@@ -12,6 +12,7 @@ import { MONTH_NAMES } from "../constants.js";
 import { monthKeysBack, monthKeyLabel } from "../calc/trends.js";
 import { observationDates, categorySeries, trimUntracked, contributionsVsGrowth, monthlyCashFlow, spendCoverage } from "../calc/history.js";
 import { fmtCurrency0, fmtPercent1, fmtRunway, localDateStr } from "../lib/format.js";
+import { upcomingBills as calendarUpcoming } from "../calc/bills.js";
 import { escapeAttr } from "../lib/html.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { renderLineChart } from "../lib/charts.js";
@@ -258,10 +259,8 @@ function renderCashFlowForecastPanel(){
 function renderUpcomingBillsPanel(){
   var panel = document.getElementById("upcomingBillsPanel");
   if(!panel) return;
-  var upcoming = state.shared
-    .map(function(i){ return { what: i.what, due: nextDueDate(lastTransactionDateFor(state.transactions, i.id), i.freq), amount: i.amount, freq: i.freq }; })
-    .filter(function(i){ return i.due; })
-    .sort(function(a, b){ return a.due < b.due ? -1 : (a.due > b.due ? 1 : 0); });
+  // v3.94.1: the bills calendar's reading — see calc/bills.js upcomingBills.
+  var upcoming = calendarUpcoming(state.shared, state.transactions, localDateStr(), 31, { accounts: state.accounts, transfers: state.transfers });
   if(!upcoming.length){
     panel.innerHTML =
       '<h3>Upcoming bills</h3>' +
@@ -269,7 +268,7 @@ function renderUpcomingBillsPanel(){
     return;
   }
   var rows = upcoming.slice(0, 8).map(function(i){
-    var days = daysUntil(i.due);
+    var days = i.days;
     var label = days < 0 ? ("overdue " + Math.abs(days) + "d") : (days === 0 ? "today" : "in " + days + "d");
     var cls = days < 0 ? "due-overdue" : (days <= 7 ? "due-soon" : "");
     return '<div class="fire-stat-row"><span>' + escapeAttr(i.what) + ' <span class="due-note ' + cls + '" style="display:inline">(' + label + ')</span></span><b>' + fmtCurrency0.format(i.amount) + '</b></div>';

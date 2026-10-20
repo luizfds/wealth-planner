@@ -211,3 +211,28 @@ test("a card payment is announced a few days ahead, and nudged if it goes unlogg
   transfers.push({ to: "Card", date: "2026-10-27", amount: 345 });
   assert.equal(cardPaymentReminders(accounts, tx, transfers, "2026-10-30").length, 0, "paid");
 });
+
+// ---------------- v3.94.1: Home and the bell read the calendar ----------------
+import { upcomingBills, billLineStatus } from "../src/calc/bills.js";
+test("upcoming bills leave out ended lines, spending budgets, bills on a card and bills that stopped", function(){
+  var items = [
+    { id: "net", what: "Internet", amount: 70, freq: "Monthly" },
+    { id: "gym", what: "Gym", amount: 21, freq: "Weekly", endDate: "2026-03-24" },
+    { id: "old", what: "Old club", amount: 30, freq: "Monthly" },
+    { id: "ph", what: "Phone", amount: 40, freq: "Monthly" },
+    { id: "gr", what: "Groceries", amount: 200, freq: "Weekly" }
+  ];
+  var tx = monthly(29, [70, 70, 70, 70, 70, 70, 70], "Everyday").map(function(t){ t.linkedExpenseId = "net"; return t; })
+    .concat(monthly(14, [40, 40, 40, 40, 40, 40, 40], "Card").map(function(t){ t.linkedExpenseId = "ph"; return t; }))
+    .concat(weeklyShop().map(function(t){ t.linkedExpenseId = "gr"; t.account = "Card"; return t; }))
+    .concat([{ linkedExpenseId: "gym", date: "2026-03-17", amount: 21 }, { linkedExpenseId: "gym", date: "2026-03-24", amount: 21 }])
+    .concat([{ linkedExpenseId: "old", date: "2026-04-05", amount: 30 }, { linkedExpenseId: "old", date: "2026-05-05", amount: 30 }]);
+  var accounts = [{ name: "Everyday", type: "everyday" }, { name: "Card", type: "credit", statementStartDay: 12 }];
+  var transfers = [{ to: "Card", date: "2026-08-27", amount: 610 }, { to: "Card", date: "2026-09-27", amount: 540 }];
+  var up = upcomingBills(items, tx, "2026-10-20", 14, { accounts: accounts, transfers: transfers });
+  assert.deepEqual(up.map(function(b){ return b.what + "@" + b.due; }), ["Card payment@2026-10-27", "Internet@2026-10-29"]);
+  assert.equal(billLineStatus(items[1], tx, "2026-10-20"), "ended");
+  assert.equal(billLineStatus(items[2], tx, "2026-10-20"), "stopped");
+  assert.equal(billLineStatus(items[4], tx, "2026-10-20"), "spending");
+  assert.equal(billLineStatus(items[0], tx, "2026-10-20"), "bill");
+});

@@ -23,7 +23,11 @@ var TRAILING_NOISE = ["ref", "reference", "no", "num", "id", "inv", "invoice", "
 var NOISE_LEADERS = ["eftpos", "visa", "mastercard", "debit", "credit", "card", "purchase", "payment", "pos", "direct", "dd", "osko", "payid", "bpay", "tfr", "transfer", "withdrawal", "value", "date",
   // v3.77.0: the rails some banks spell out ("BPAY Bill Payment - Receipt 100001 …", "Pay Anyone -
   // Receipt 100002 123 …"), which put every bill under one key and filed council rates with the card.
-  "bill", "pay", "anyone", "internal", "deposit"];
+  "bill", "pay", "anyone", "internal", "deposit",
+  // v3.110.0: card-payment processors in front of the shop's own name ("SQ *FERN CAFE", "PAYPAL
+  // *STREAMBOX", "SP SHOP NAME") — the shop is who you paid, the processor is how. Keyed on the
+  // processor, every café on Square was one rule, filed wherever the first one went.
+  "sq", "square", "paypal", "pypl", "sumup", "zettle", "izettle", "lsp", "tst", "sp", "smp", "ezi", "stripe", "tyro"];
 export function merchantKey(description){
   var norm = normaliseDescription(description);
   if(!norm) return "";
@@ -53,6 +57,56 @@ export function merchantKey(description){
   return out.join(" ");
 }
 
+// ---------------- Generalising (v3.110.0) ----------------
+// A key keeps up to three words, and the third is very often the suburb: one chain in two suburbs
+// was two rules, and on a real backup most learnt rules had matched exactly once. When two rules of
+// the same kind file to the same place and start with the same words, those shared words are the
+// merchant — one rule for both, and for the next branch too. Never a bare common word: "the" on
+// its own would claim every "The …" shop.
+var GENERIC = ["the", "a", "an", "and", "of", "at", "in", "on", "st", "mr", "mrs", "ms", "my", "new", "big", "best", "city", "north", "south", "east", "west",
+  "shop", "store", "cafe", "market", "online", "service", "services", "group", "pty", "ltd", "co"];
+export function commonMerchant(a, b){
+  var x = String(a || "").split(" "), y = String(b || "").split(" ");
+  var out = [];
+  for(var i = 0; i < x.length && i < y.length && x[i] === y[i]; i++) out.push(x[i]);
+  if(!out.length) return "";
+  if(out.length === 1 && (GENERIC.indexOf(out[0]) !== -1 || NOISE_LEADERS.indexOf(out[0]) !== -1 || out[0].length < 5)) return "";
+  return out.join(" ");
+}
+function ruleKind(r){ return r.transferAccount ? "x:" + (r.transferDirection || "debit") + ":" + r.transferAccount : r.incomeTarget ? "i:" + r.incomeTarget : "s:" + (r.linkedExpenseId || "") + "|" + (r.category || "") + "|" + (r.account || ""); }
+// Merges every pair of rules that file to the same place and share a merchant, until none are left.
+// Returns { rules, merges: [{ into, from: [matches] }] } — rules is a new array; the merged rule keeps
+// the first one's id and the summed hits. Pure.
+export function mergeSimilarRules(rules){
+  var list = (rules || []).map(function(r){ return Object.assign({}, r); });
+  var merges = [];
+  var changed = true;
+  while(changed){
+    changed = false;
+    outer: for(var i = 0; i < list.length; i++){
+      for(var j = i + 1; j < list.length; j++){
+        if(ruleKind(list[i]) !== ruleKind(list[j])) continue;
+        var m = commonMerchant(list[i].match, list[j].match);
+        if(!m) continue;
+        // A shorter rule elsewhere that files somewhere else and is the same words would now tie —
+        // leave those two alone rather than guess.
+        if(list.some(function(r, k){ return k !== i && k !== j && r.match === m && ruleKind(r) !== ruleKind(list[i]); })) continue;
+        var rec = merges.find(function(g){ return g.into === list[i].match || g.into === list[j].match; });
+        var from = [list[i].match, list[j].match];
+        list[i].hits = (list[i].hits || 0) + (list[j].hits || 0);
+        if(m !== list[i].match || m !== list[j].match) list[i].starts = true;
+        list[i].match = m;
+        list.splice(j, 1);
+        if(rec){ rec.into = m; from.forEach(function(f){ if(rec.from.indexOf(f) === -1 && f !== m) rec.from.push(f); }); }
+        else merges.push({ into: m, from: from.filter(function(f, k){ return from.indexOf(f) === k; }) });
+        changed = true;
+        break outer;
+      }
+    }
+  }
+  return { rules: list, merges: merges };
+}
+
 // ---------------- Matching ----------------
 // A rule matches when its key is a whole-word prefix-or-contained run of the description's
 // normalised text. Longest match wins, so a specific rule ("woolworths petrol") beats the general
@@ -65,7 +119,17 @@ export function matchRule(description, rules){
   (rules || []).forEach(function(rule){
     var key = (rule.match || "").trim();
     if(!key) return;
-    if(!containsWholeWords(norm, key)) return;
+    // A merged rule (v3.110.0) is shorter than anything it was learnt from, so it only claims a
+    // description whose merchant *starts* with it — "fern cafe" files FERN CAFE GLEBE, not a
+    // statement line that happens to mention a fern cafe further along.
+    // Either the merchant key or the description itself — rules learnt before v3.110.0 kept a
+    // processor's "sq …" in front, which today's merchantKey drops.
+    if(rule.starts){
+      var mk = merchantKey(description);
+      var leads = function(s){ return s === key || s.indexOf(key + " ") === 0; };
+      if(!leads(mk) && !leads(norm)) return;
+    }
+    else if(!containsWholeWords(norm, key)) return;
     if(!best || key.length > (best.match || "").length) best = rule;
   });
   return best;
@@ -188,7 +252,7 @@ export function learnRule(rules, description, choice, idFactory){
   if(income){
     rules.push({ id: idFactory ? idFactory() : "rule_in_" + key.replace(/\s+/g, "_"), match: key, incomeTarget: choice.incomeTarget,
       linkedExpenseId: null, category: "", account: choice.account || "", hits: 1 });
-    return rules;
+    return generaliseLatest(rules);
   }
   if(existing){
     existing.linkedExpenseId = choice.linkedExpenseId || null;
@@ -205,6 +269,24 @@ export function learnRule(rules, description, choice, idFactory){
     account: choice.account || "",
     hits: 1
   });
+  return generaliseLatest(rules);
+}
+// v3.110.0: the rule just learnt, merged with one already filing to the same place under the same
+// merchant ("fern cafe ultimo" + "fern cafe newtown" → "fern cafe"). In place, so callers holding
+// state.importRules see it.
+function generaliseLatest(rules){
+  var n = rules[rules.length - 1];
+  for(var i = 0; i < rules.length - 1; i++){
+    var r = rules[i];
+    if(ruleKind(r) !== ruleKind(n)) continue;
+    var m = commonMerchant(r.match, n.match);
+    if(!m) continue;
+    if(rules.some(function(o){ return o !== r && o !== n && o.match === m && ruleKind(o) !== ruleKind(n); })) continue;
+    if(m !== r.match || m !== n.match) r.starts = true;
+    r.match = m; r.hits = (r.hits || 0) + (n.hits || 0);
+    rules.pop();
+    return rules;
+  }
   return rules;
 }
 

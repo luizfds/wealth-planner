@@ -92,7 +92,7 @@ import { renderSafekeeping } from "./components/safekeeping.js";
 import { goalsSectionHtml, goalOpen } from "./components/savegoals.js";
 import { addSavingsGoal } from "./calc/savegoals.js";
 import { unbudgetedRecurring, risingLines, catchAllSuggestions } from "./calc/recurring.js";
-import { learnRule } from "./calc/import-rules.js";
+import { learnRule, mergeSimilarRules } from "./calc/import-rules.js";
 import { pdfLines } from "./lib/pdftext.js";
 import { renderAdvice, adviceUi } from "./components/advice.js";
 import { renderTrim, trimUi, trimScenario } from "./components/trim.js";
@@ -3462,6 +3462,14 @@ import {
     }, 180);
   });
   rulesBody.addEventListener("click", function(e){
+    if(e.target.closest("[data-rl-merge]")){
+      var before = state.importRules.slice().map(function(r){ return Object.assign({}, r); });
+      var res = mergeSimilarRules(state.importRules);
+      state.importRules = res.rules;
+      persist(); renderRules();
+      showUndoToast("Merged " + (before.length - res.rules.length) + " rules", function(){ state.importRules = before; persist(); renderRules(); });
+      return;
+    }
     if(e.target.closest("[data-rl-more]")){ ruleView.shown = (ruleView.shown || RULES_PAGE) + RULES_PAGE; renderRules(); return; }
     var del = e.target.closest("[data-rl-del]");
     if(del){

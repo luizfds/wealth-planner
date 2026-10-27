@@ -38,7 +38,8 @@ export function refreshAutoPrices(){
     var file = r[0], weekly = r[1], cg = r[2], fx = r[3];
     var prices = [], res = { ok: true, at: new Date().toISOString(), updated: 0, missing: [], fx: false, backfilled: 0, problems: [] };
     if(file){
-      if(file.ok){ var fp = filePricesFor(file.value, state.assets); prices = prices.concat(fp.prices); res.missing = fp.missing; res.fileDate = file.value.updated || null; }
+      if(file.ok && file.value && file.value.updated){ var fp = filePricesFor(file.value, state.assets); prices = prices.concat(fp.prices); res.missing = fp.missing; res.fileDate = file.value.updated; }
+      else if(file.ok) res.problems.push("the price file hasn't been published yet");
       else res.problems.push("the app's price file couldn't be read");
     }
     if(cg){

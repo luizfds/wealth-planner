@@ -2676,10 +2676,23 @@ a property's summary adds the estimate once its value is 90+ days old. Net worth
 (same open decision as item 142). On a real backup (outside the repo) the banner, which had flagged a super fund
 and a car, is gone.
 
-## 145. `[~]` Share prices with no setup
+## 145. `[x]` Share prices with no setup
 A scheduled GitHub Action writes a daily price file for a fixed broad list (ASX 200, common ETFs, a short
 US list) to the Pages site; the app reads it before falling back to the user's own Sheet. **Never a list
 built from anyone's holdings** — the repo is public.
+
+Shipped as v3.132.0 and v3.133.0. Once a day on open (`components/autoprices.js`, `calc/autoprices.js`, on by
+default, each source can be turned off on Investments → Shares → Prices): ASX and US holdings from the app's own
+`prices/latest.json` (weekly closes from `prices/weekly.json` fill in history before the first recorded value),
+crypto from CoinGecko (only the coins' ids are sent; common tickers mapped, or the CoinGecko id as the symbol) and
+USD → AUD from Frankfurter (ECB rates; only the pair is sent). The person's own Google Sheet, when set, is read
+afterwards and wins; it's now "for anything the above doesn't cover". The file is written each weekday at 22:31 UTC
+by `.github/workflows/prices.yml` running `scripts/prices/fetch.mjs` over `prices/universe.json` (315 ASX shares and
+ETFs, 90 US): Stooq weekly CSV for US, Twelve Data weekly series for ASX (needs the `TWELVE_DATA_KEY` secret; free
+plan, paced at 8 a minute), five years kept, a failed ticker keeping its last price for up to ten days. The push
+checks ignore `prices/**`. Not verified against the live services from the build environment (they're unreachable
+there); the parsers are tested on their documented formats and the whole run on mocked answers.
+
 
 ## 146. `[x]` A budget from history
 After 3+ months imported, propose budget lines (amount, frequency, Needs/Wants, account) from what was

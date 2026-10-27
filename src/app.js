@@ -113,7 +113,7 @@ import { parseCsvGrid } from "./calc/pricesheet.js";
 import { recordRentReview } from "./calc/propertylife.js";
 import { retirementHtml, retireLevers } from "./components/retirement.js";
 import { recurringHtml, recurringDismissed, recurringOpen, catchAllShown } from "./components/recurring.js";
-import { renderReports, reportShown, reportPrintHtml, reportCsv } from "./components/reports.js";
+import { renderReports, reportShown, reportPrintHtml, reportCsv, reportFrame } from "./components/reports.js";
 import { monthDetailUi, shownMonth as mdShownMonth } from "./components/monthdetail.js";
 import { shiftMonth as mdShiftMonth } from "./calc/monthdetail.js";
 import { exportTableCsv } from "./lib/backup.js";
@@ -5367,9 +5367,21 @@ import {
   });
 
   // ---------------- Reports (v3.62.0) ----------------
+  // v3.118.0: the frame — period, comparison, grouping.
+  document.getElementById("reportsBody").addEventListener("change", function(e){
+    var k = e.target.getAttribute && e.target.getAttribute("data-rf");
+    if(!k) return;
+    reportFrame[k] = e.target.value;
+    if(k === "group" || k === "range") reportFrame.open = {};
+    if(k === "range" && e.target.value === "custom" && !reportFrame.from){ var t0 = localDateStr(); reportFrame.to = t0; reportFrame.from = (Number(t0.slice(0, 4)) - 1) + t0.slice(4); }
+    renderReports();
+  });
   document.getElementById("reportsBody").addEventListener("click", function(e){
     var pick = e.target.closest("[data-report]");
     if(pick){ reportShown.key = pick.getAttribute("data-report"); renderReports(); return; }
+    // v3.118.0: a group row opens (or closes) the transactions behind it.
+    var drill = e.target.closest("[data-rf-drill]");
+    if(drill){ var dk = drill.getAttribute("data-rf-drill"); reportFrame.open[dk] = !reportFrame.open[dk]; renderReports(); return; }
     // v3.81.0: Month in detail.
     var mdOpen = e.target.closest("[data-md-open]");
     if(mdOpen){ monthDetailUi.ym = mdOpen.getAttribute("data-md-open"); monthDetailUi.open = {}; reportShown.key = "month"; renderReports(); return; }

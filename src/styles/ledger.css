@@ -1185,6 +1185,23 @@
   .txg-ro td.muted{ font-style:italic; }
   .txg-in td.num{ color: var(--good); }
   @media (max-width:720px){ .tx-view-toggle{ display:none; } }
+  /* v3.118.0: the report frame, charts and drill-down. */
+  .rf-bar{ display:flex; gap:10px; flex-wrap:wrap; align-items:end; margin:10px 0; }
+  .rc{ margin:6px 0 12px; }
+  .rc svg{ width:100%; height:auto; display:block; }
+  .rc-label{ fill: var(--ink-soft); font-size:11px; font-family: var(--font-num); }
+  .rc-val{ fill: var(--ink); font-size:11px; font-family: var(--font-num); font-weight:600; }
+  .rc-bar, .rc-a{ fill: var(--brass); }
+  .rc-b{ fill: #e07a5f; }
+  .rc-tick{ stroke: var(--ink); stroke-width:2; }
+  .rc-axis{ stroke: var(--border); }
+  .rc figcaption{ font-size:11.5px; color: var(--ink-soft); display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+  .rc-key-bar, .rc-key-a{ display:inline-block; width:10px; height:10px; border-radius:2px; background: var(--brass); }
+  .rc-key-b{ display:inline-block; width:10px; height:10px; border-radius:2px; background:#e07a5f; margin-left:8px; }
+  .rc-key-tick{ display:inline-block; width:2px; height:12px; background: var(--ink); margin-left:8px; }
+  .rp-drill{ margin:10px 0; padding:8px 10px; border:1px solid var(--border); border-radius:10px; }
+  .rp-drill-head{ display:flex; gap:8px; align-items:center; justify-content:space-between; font-size:13px; margin-bottom:6px; }
+  .rp-table tr.compare td, .rp-table tr.compare th{ color: var(--ink-soft); font-style:italic; }
   .list-all-btn{ margin:8px 0 4px; }
   .rl-tools{ display:flex; gap:10px; flex-wrap:wrap; align-items:end; margin:4px 0 12px; }
   .rl-find{ flex:1 1 240px; }

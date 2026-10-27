@@ -2777,12 +2777,24 @@ Review. Old ids keep working through `nav.js` ALIASES.
 
 ### Phase D — reports
 
-## 153. `[~]` One report frame
+## 153. `[x]` One report frame
 Range (month, quarter, FY, calendar year, last 12 months, custom), compare to (previous period, same period
 last year, budget), group by (category, group, merchant, account, person, property), a chart over every
 table, and any figure clicks through to its transactions. Existing eight reports move onto it. Today a
 report can only show the header's FY, so a household with over a year of data can't see its last 12 months
 in one view.
+
+Shipped as v3.118.0: `calc/reportframe.js` — `RANGES` (the header's year, last 12 months, calendar year, quarter,
+month, custom dates), `COMPARES` (the period before, the same dates a year earlier, the budget), `GROUPS`
+(category, Needs/Wants, budget line, merchant, account, person), `rangeWindow`, `compareWindow`, `monthsIn` (any
+window, not only twelve months), `spendingByGroup`, `change`. `lib/reportcharts.js` `reportChartHtml` — inline SVG
+"bars" (one per group, a tick for the comparison) and "columns" (in/out per month), so charts print. Reports gain a
+frame bar (`components/reports.js` `reportFrame`, session-only): Monthly cash flow (range + compare row + columns
+chart), Spending (range, compare incl. budget for category/needs-wants/line/account, group by, bars chart; a row
+opens its transactions), Net worth statement (as at the window's end). Property P&L, Tax summary, Net worth check,
+Month in detail and Year-end pack keep their own periods. Driven on a real backup (outside the repo): last 12 months
+across two financial years, every grouping, budget and year-earlier comparisons, drill-down, no errors.
+
 
 ## 154. `[~]` Cash flow Sankey and household income statement
 Gross pay → tax / super / take-home → Needs / Wants / saved / invested, for a month or a year; and the

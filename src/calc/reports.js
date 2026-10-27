@@ -6,6 +6,7 @@ import { ipProperties, propertyTaxResultBreakdown, propertiesTotalValue, propert
 import { localDateStr, fmtDate } from "../lib/format.js";
 import { netWorthOn, shiftDate } from "./nwhistory.js";
 import { netWorthChecks } from "./nwcheck.js";
+import { monthsIn, spendingByGroup, change } from "./reportframe.js";
 
 // ---------------- Reports (v3.62.0) ----------------
 //
@@ -16,20 +17,13 @@ import { netWorthChecks } from "./nwcheck.js";
 // the renderer formats them, the CSV keeps them raw.
 var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 function r2(n){ return Math.round((Number(n) || 0) * 100) / 100; }
-function monthsOf(win, today){
-  var out = [], y = Number(win.start.slice(0, 4)), m = Number(win.start.slice(5, 7)) - 1;
-  for(var i = 0; i < 12; i++){
-    var ym = (y + Math.floor((m + i) / 12)) + "-" + String((m + i) % 12 + 1).padStart(2, "0");
-    if(ym > today.slice(0, 7)) break;
-    out.push(ym);
-  }
-  return out;
-}
+// v3.118.0: any window the report frame picks (calc/reportframe.js), not only twelve months.
+function monthsOf(win, today){ return monthsIn(win, today); }
 function ymLabel(ym){ return MONTHS[Number(ym.slice(5, 7)) - 1] + " " + ym.slice(2, 4); }
 
 export var REPORTS = [
   { key: "cashflow", label: "Monthly cash flow" },
-  { key: "categories", label: "Spending by category" },
+  { key: "categories", label: "Spending" },
   { key: "networth", label: "Net worth statement" },
   { key: "property", label: "Property P&L" },
   { key: "tax", label: "Tax summary" },
@@ -51,7 +45,14 @@ export function cashflowReport(opts){
     return { ym: ym, cells: { month: ymLabel(ym), in: r2(inn), out: r2(out), net: r2(inn - out), running: r2(running) } };
   });
   rows.push({ cls: "total", cells: { month: "Total", in: r2(tin), out: r2(tout), net: r2(tin - tout), running: r2(running) } });
-  return { key: "cashflow", title: "Monthly cash flow", subtitle: win.label + (today < win.end ? " so far" : ""),
+  // v3.118.0: the same totals over the comparison window, when the frame asks for one.
+  if(opts.cmpWin){
+    var cin = (state.incomeLog || []).filter(function(r){ return r.date >= opts.cmpWin.start && r.date <= opts.cmpWin.end; }).reduce(function(s, r){ return s + (Number(r.amount) || 0); }, 0);
+    var cout = (state.transactions || []).filter(function(t){ return t.date >= opts.cmpWin.start && t.date <= opts.cmpWin.end; }).reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0);
+    rows.push({ cls: "compare", cells: { month: "Compared: " + opts.cmpWin.label, in: r2(cin), out: r2(cout), net: r2(cin - cout), running: null } });
+  }
+  var chart = { type: "columns", series: ["Money in", "Money out"], items: rows.filter(function(r){ return r.ym; }).map(function(r){ return { label: r.cells.month, a: r.cells.in, b: r.cells.out, ym: r.ym }; }) };
+  return { key: "cashflow", chart: chart, frame: { range: true, compare: true }, title: "Monthly cash flow", subtitle: win.label + (today < win.end ? " so far" : ""),
     columns: [{ key: "month", label: "Month" }, { key: "in", label: "Money in", num: true }, { key: "out", label: "Money out", num: true }, { key: "net", label: "Net", num: true }, { key: "running", label: "Running", num: true }],
     rows: rows, note: "Money in is what's been logged as received; money out is logged spending. Transfers between your own accounts aren't in either." };
 }
@@ -60,7 +61,8 @@ export function categoryReport(opts){
   opts = opts || {};
   var today = opts.today || localDateStr();
   var win = opts.win || selectedYearWindow(today);
-  var categoryOf = opts.categoryOf || function(t){ return t.category || ""; };
+  // v3.118.0: grouped however the frame says (category by default), compared, charted, drillable.
+  var categoryOf = opts.groupOf || opts.categoryOf || function(t){ return t.category || ""; };
   var months = monthsOf(win, today);
   var grid = {}, colTotals = {};
   (state.transactions || []).forEach(function(t){
@@ -85,14 +87,26 @@ export function categoryReport(opts){
   var tot = { cat: "Total" }, all = 0;
   months.forEach(function(ym){ tot[ym] = r2(colTotals[ym] || 0); all += colTotals[ym] || 0; });
   tot.total = r2(all); tot.avg = r2(months.length ? all / months.length : 0);
+  var cmp = opts.compareTotals || (opts.cmpWin ? spendingByGroup(state.transactions, opts.cmpWin, function(t){ return categoryOf(t) || "Uncategorised"; }) : null);
+  if(cmp){
+    columns.push({ key: "cmp", label: opts.compareLabel || "Compared", num: true }, { key: "chg", label: "Change", num: true });
+    rows.forEach(function(r){ var v = cmp[r.cells.cat] || 0; r.cells.cmp = r2(v); r.cells.chg = change(r.cells.total, v).diff; });
+    var cmpAll = Object.keys(cmp).reduce(function(s, k){ return s + cmp[k]; }, 0);
+    tot.cmp = r2(cmpAll); tot.chg = change(tot.total, cmpAll).diff;
+  }
+  rows.forEach(function(r){ r.drill = r.cells.cat; });
   rows.push({ cls: "total", cells: tot });
-  return { key: "categories", title: "Spending by category", subtitle: win.label + (today < win.end ? " so far" : ""), columns: columns, rows: rows, wide: true,
-    note: "Logged spending, by the category of each transaction or of the budget line it was logged against." };
+  var chart = { type: "bars", compareLabel: cmp ? (opts.compareLabel || "Compared") : null,
+    items: cats.slice(0, 12).map(function(x){ return { label: x.c, value: r2(x.total), compare: cmp ? r2(cmp[x.c] || 0) : null }; }) };
+  return { key: "categories", chart: chart, frame: { range: true, compare: true, group: true }, title: "Spending" + (opts.groupLabel ? " by " + opts.groupLabel.toLowerCase() : " by category"),
+    subtitle: win.label + (today < win.end ? " so far" : "") + (cmp ? " · compared with " + (opts.compareLabel || "") : ""), columns: columns, rows: rows, wide: true,
+    note: "Logged spending. Open a row to see its transactions." };
 }
 
 export function netWorthReport(opts){
   opts = opts || {};
-  var today = opts.today || localDateStr();
+  // v3.118.0: as at the end of the frame's window, if that's already past.
+  var today = opts.win && opts.win.end < (opts.today || localDateStr()) ? opts.win.end : (opts.today || localDateStr());
   // v3.67.0: today beside a month and a year earlier, from recorded history (calc/nwhistory.js).
   var dates = [today, shiftDate(today, -1), shiftDate(today, -12)];
   var snaps = dates.map(function(d){ return netWorthOn(d, today); });
@@ -124,7 +138,7 @@ export function netWorthReport(opts){
   rows.push({ cls: "total", cells: { item: "Net worth", now: r2(engineNow), month: cmp(snaps[1]), year: cmp(snaps[2]) } });
   rows.push({ cells: { item: "Change to today", now: null, month: chg(snaps[1]), year: chg(snaps[2]) } });
   var partial = snaps[2].partial.length ? snaps[2].partial : snaps[1].partial;
-  return { key: "networth", title: "Net worth statement", subtitle: "as at " + fmtDate(today, { year: true }),
+  return { key: "networth", frame: { range: true }, title: "Net worth statement", subtitle: "as at " + fmtDate(today, { year: true }),
     columns: [{ key: "item", label: "" }, { key: "now", label: "Today", num: true }, { key: "month", label: "A month ago", num: true }, { key: "year", label: "A year ago", num: true }], rows: rows,
     note: "Earlier columns use the last value recorded on or before each date; loans use their recorded balance where there is one, otherwise today's." +
       (partial.length ? " Some of what you hold today wasn't recorded yet back then (" + partial.slice(0, 3).join(", ") + (partial.length > 3 ? " and " + (partial.length - 3) + " more" : "") + "), so those columns' totals are left blank rather than compared." : "") };

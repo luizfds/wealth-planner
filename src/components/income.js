@@ -9,7 +9,7 @@ import { renderJuneMoves } from "./junemoves.js";
 import { superTopUp } from "../calc/supertopup.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr, fmtDate } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
-import { optionsHtml, historyTrendHtml, timingFieldsHtml, endDateNoteHtml, scenarioVaryNoteHtml, hasEnded } from "../lib/ledger-table.js";
+import { optionsHtml, historyTrendHtml, timingFieldsHtml, endDateNoteHtml, scenarioVaryNoteHtml, hasEnded, rowEditSlot } from "../lib/ledger-table.js";
 import { parseCsv } from "../lib/backup.js";
 import { injectScenarioOverrideButtons } from "./expenses.js";
 import { renderTaxYear } from "./taxyear.js";
@@ -402,7 +402,7 @@ function modernIncomeRowHtml(item, idx, colorIdx){
       '<button type="button" class="btn btn-ghost btn-sm row-del" data-del="income:' + idx + '">Delete</button>' +
     '</div>' +
   '</div></div></div>';
-  return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="income" data-index="' + idx + '">' + summary + edit + '</div>';
+  return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="income" data-index="' + idx + '">' + summary + rowEditSlot(isOpen, edit) + '</div>';
 }
 
 export function patchSyntheticIncomeRows(){

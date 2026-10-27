@@ -2600,9 +2600,19 @@ re-renders so the summary shows the edit; a new property opens in editing. Holdi
 item 151's detail pages.
 
 
-## 140. `[ ]` Render edit forms on open
+## 140. `[x]` Render edit forms on open
 Collapsed rows stop pre-rendering their editor (936 controls on Cash flow with sample data; well over 1,500
 with a real year of data). Build the form the first time a row opens.
+
+Shipped as v3.108.0: `lib/ledger-table.js` `rowEditSlot(isOpen, editHtml)` puts a closed row's form in a
+`<template class="m-row-edit-tpl">` (inert: not laid out, focusable or matched by querySelectorAll, gone with
+the row); `materializeRowEdit(row)` unpacks it at the top of `openModernRow`. Used by the shared row shell
+(budget lines, transactions) and the income, asset (three kinds) and loan rows. The string is still built —
+the saving is DOM, not CPU. One caller patched closed rows' fields (`patchLinkedTransactionNames`); it now
+reaches into the template. Form controls across every page: demo 1,859 → 616 (−67%); a real backup (outside
+the repo) 3,524 → 970 (−72%). Driven: budget line, transaction, income, holding and loan rows open with every
+field and close; "+ Add" opens the new row with focus in it.
+
 
 ## 141. `[ ]` Long lists show the top, not everything
 With a real year of data, Cash flow → Spending runs to several screen-heights on a desktop (Actual vs

@@ -4,7 +4,7 @@ import { propertiesOffsetTotal, propertiesIlliquidEquityToday, recalcPurchase, l
 import { totalAssetsValue, totalNetWorthValue, totalDebtsValue, liquidAssetsValue, toAudAmount } from "../calc/engine.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, fmtCurrency0For, fmtCurrency2For, localDateStr, fmtDate, fmtQtyDisplay } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
-import { optionsHtml, historyTrendHtml } from "../lib/ledger-table.js";
+import { optionsHtml, historyTrendHtml, rowEditSlot } from "../lib/ledger-table.js";
 import { renderLineChart, renderStackedAreaChart, dateAxisFormat, sparklineHtml, sparklinePlaceholderHtml } from "../lib/charts.js";
 import { showToast } from "../lib/toast.js";
 import { appendHistorySnapshot, daysUntil, householdYearWindow, householdYearBasis } from "../calc/ledger.js";
@@ -535,7 +535,7 @@ function modernAssetRowHtml(item, idx, colorIdx){
     // every row would bury the fields people actually use daily.
     '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm asset-log-btn" data-asset-log="' + idx + '" title="Record the value above as of today, so it shows up in the portfolio-over-time chart below">Record value</button><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete asset">Delete</button></div>' +
   '</div></div></div>';
-  return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="assets" data-index="' + idx + '">' + summary + edit + '</div>';
+  return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="assets" data-index="' + idx + '">' + summary + rowEditSlot(isOpen, edit) + '</div>';
 }
 
 export function renderAssetCategoryPage(cat){
@@ -637,7 +637,7 @@ function modernVehicleRowHtml(item, idx, colorIdx){
     '<p class="ledger-note v-value-cell" style="margin:8px 0 0">Current value <b>' + fmtCurrency0.format(Number(item.amount) || 0) + '</b>' + (item.computed ? '<span class="computed-note">auto</span>' : '<span class="computed-note">set price + date to auto-depreciate</span>') + '</p>' +
     '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm asset-log-btn" data-asset-log="' + idx + '" title="Record the value above as of today, so it shows up in the portfolio-over-time chart below">Record value</button><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete vehicle">Delete</button></div>' +
   '</div></div></div>';
-  return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="assets" data-index="' + idx + '">' + summary + edit + '</div>';
+  return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="assets" data-index="' + idx + '">' + summary + rowEditSlot(isOpen, edit) + '</div>';
 }
 
 export function renderVehiclesSubpage(){
@@ -739,7 +739,7 @@ function modernShareRowHtml(item, idx, colorIdx){
     '</div></details>' +
     '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm asset-log-btn" data-asset-log="' + idx + '" title="Record the value above as of today, so it shows up in the portfolio-over-time chart below">Record value</button><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete holding">Delete</button></div>' +
   '</div></div></div>';
-  return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="assets" data-index="' + idx + '">' + summary + edit + '</div>';
+  return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="assets" data-index="' + idx + '">' + summary + rowEditSlot(isOpen, edit) + '</div>';
 }
 
 // Aggregates gain/loss over the selected Change window across a set of holdings (whatever's

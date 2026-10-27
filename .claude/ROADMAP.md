@@ -2600,7 +2600,7 @@ re-renders so the summary shows the edit; a new property opens in editing. Holdi
 item 151's detail pages.
 
 
-## 140. `[ ]` Render edit forms on open
+## 140. `[~]` Render edit forms on open
 Collapsed rows stop pre-rendering their editor (936 controls on Cash flow with sample data; well over 1,500
 with a real year of data). Build the form the first time a row opens.
 

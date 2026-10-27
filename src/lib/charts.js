@@ -132,10 +132,15 @@ export function renderLineChart(container, series, opts){
   // Zero still wins whenever the data is actually near it, or spans enough of its own magnitude
   // that the zoom buys nothing — so an account growing from nothing keeps its true shape.
   var truncated = false;
+  //
+  // v3.103.0: but never zoom past about a tenth of the value. Fitted tightly to the data, a property
+  // revalued 3% lower fell the full height of the panel and read as a crash. The window is now at
+  // least 10% of the top value, centred on the data, so a small move looks small.
   if(opts.baseline === "auto" && yLo > 0 && (yHi - yLo) < yHi * 0.4){
-    var span = (yHi - yLo) || Math.abs(yHi) * 0.02 || 1;
-    yMin = yLo - span * 0.25;
-    yMax = yHi + span * 0.25;
+    var span = Math.max(yHi - yLo, Math.abs(yHi) * 0.1) || 1;
+    var mid = (yHi + yLo) / 2;
+    yMin = mid - span * 0.75;
+    yMax = mid + span * 0.75;
     truncated = true;
   }
   // An all-zero series has no range to draw. Nudging yMax by 1 keeps the arithmetic safe but puts
@@ -190,10 +195,7 @@ export function renderLineChart(container, series, opts){
           var isHidden = !!hiddenIdx[idx];
           item.classList.toggle("is-hidden", isHidden);
           item.setAttribute("aria-pressed", isHidden ? "false" : "true");
-          var line = svg.querySelector('[data-series-idx="' + idx + '"].series-line');
-          var dot = svg.querySelector('[data-series-idx="' + idx + '"].series-dot');
-          if(line) line.style.display = isHidden ? "none" : "";
-          if(dot) dot.style.display = isHidden ? "none" : "";
+          svg.querySelectorAll('[data-series-idx="' + idx + '"]').forEach(function(el){ el.style.display = isHidden ? "none" : ""; });
         };
         item.addEventListener("click", toggle);
         item.addEventListener("keydown", function(e){ if(e.key === "Enter" || e.key === " "){ e.preventDefault(); toggle(); } });
@@ -275,6 +277,13 @@ export function renderLineChart(container, series, opts){
       return "L" + x + "," + yScale(s.points[pidx - 1].y).toFixed(1) + " L" + x + "," + y;
     }).join(" ");
     svg.appendChild(svgEl("path", { d: d, class: "series-line " + s.colorClass, "data-series-idx": idx }));
+    // v3.103.0: a stepped line of a few hand-logged readings marks each reading, so three values
+    // read as three values rather than as a trend drawn between them.
+    if(stepped && s.points.length <= 24){
+      s.points.slice(0, -1).forEach(function(p){
+        svg.appendChild(svgEl("circle", { cx: xScale(p.x), cy: yScale(p.y), r: 2.5, class: "series-pt " + s.colorClass, "data-series-idx": idx }));
+      });
+    }
     var last = s.points[s.points.length - 1];
     svg.appendChild(svgEl("circle", { cx: xScale(last.x), cy: yScale(last.y), r: 3.5, class: "series-dot " + s.colorClass, "data-series-idx": idx }));
   });

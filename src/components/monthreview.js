@@ -68,7 +68,7 @@ export function monthReviewHtml(ym, today){
 
   if(!introDismissed && !anyReviewDone()){
     return head + '<div class="mr-intro"><h3>A monthly check-in, about ten minutes</h3>' +
-      '<p>Once a month, go through last month in five short steps: the pay and rent that arrived, your card statements, account balances, anything the app thinks is off, and then how the month went against the plan.</p>' +
+      '<p class="help">Once a month, go through last month in five short steps: the pay and rent that arrived, your card statements, account balances, anything the app thinks is off, and then how the month went against the plan.</p>' +
       '<p>Each step says what\'s missing and takes you to where it\'s fixed. Nothing is required — skip a step whenever it doesn\'t apply. The figures on Home, the budget and your tax estimate are only as good as what\'s logged, and this is the habit that keeps them right.</p>' +
       '<button type="button" class="btn btn-primary" data-mr-intro-ok>Start the review</button></div>';
   }

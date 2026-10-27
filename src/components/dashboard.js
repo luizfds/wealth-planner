@@ -171,6 +171,8 @@ export function renderDashboardStats(){
   var nothingEntered = !state.assets.length && !state.properties.length &&
     !state.income.length && !state.shared.length;
   // v3.58.0: the scenario comparison moved down to its own tab, so the page's intro is about Home.
+  // v3.106.0: the intro is help (behind the ⓘ) once there's data; on an empty app it's the instruction.
+  if(introEl) introEl.classList.toggle("help", !nothingEntered);
   if(introEl) introEl.textContent = nothingEntered
     ? "Your household finances at a glance. Nothing is pre-filled — start with your income, or load sample data to see what a filled-in plan looks like."
     : "Your money at a glance — what you're worth, how the month is going, and what needs doing." + (isComparing ? "" : " Add a second scenario under Plan to compare renting against buying.");
@@ -250,10 +252,10 @@ function renderCashFlowForecastPanel(){
       (g.months.length > 1 ? '<small> each</small>' : '') + '</span></div>';
   }).join("");
   var reserveNote = (forecast.reserveIncome || forecast.reserveExpense)
-    ? '<p class="fire-note">Includes ' + fmtCurrency0.format(Math.max(0, forecast.reserveExpense - forecast.reserveIncome)) + '/mo set aside for items marked "no fixed timing" (e.g. Extras, property maintenance) — spread evenly rather than expected on a specific date.</p>'
+    ? '<p class="fire-note help">Includes ' + fmtCurrency0.format(Math.max(0, forecast.reserveExpense - forecast.reserveIncome)) + '/mo set aside for items marked "no fixed timing" (e.g. Extras, property maintenance) — spread evenly rather than expected on a specific date.</p>'
     : '';
   panel.innerHTML = '<h3>12-month cash flow forecast <span style="font-weight:400;color:var(--ink-soft)">— ' + escapeAttr(state.activeScenario) + '</span></h3>' +
-    '<p class="fire-note" style="margin-bottom:10px">Steady baseline ' + fmtCurrency0.format(forecast.baselineNet) + '/mo, adjusted below for annual/quarterly items landing in their actual month.</p>' +
+    '<p class="fire-note help" style="margin-bottom:10px">Steady baseline ' + fmtCurrency0.format(forecast.baselineNet) + '/mo, adjusted below for annual/quarterly items landing in their actual month.</p>' +
     rows + reserveNote;
 }
 
@@ -315,7 +317,7 @@ function renderActualVsExpectedPanel(scenario, t){
     '<div class="fire-stat-row"><span>Actual asset growth</span><b' + (actual.deltaSum < 0 ? ' style="color:var(--bad)"' : '') + '>' + fmtCurrency0.format(actual.deltaSum) + '</b></div>' +
     '<div class="fire-stat-row"><span>' + escapeAttr(scenario) + ' expected surplus</span><b>' + fmtCurrency0.format(expected) + '/mo</b></div>' +
     '<div class="fire-stat-row"><span>Gap</span><b' + (gap < 0 ? ' style="color:var(--bad)"' : ' style="color:var(--good)"') + '>' + fmtCurrency0.format(Math.abs(gap)) + " " + gapWord + " plan</b></div>" +
-    '<p class="fire-note">Based on ' + actual.trackedCount + ' asset' + (actual.trackedCount === 1 ? "" : "s") + ' with a logged value from ~30 days ago and a current one. Doesn\'t include properties (no monthly re-valuation) or assets without an old-enough snapshot — log values regularly for a fuller picture.</p>';
+    '<p class="fire-note help">Based on ' + actual.trackedCount + ' asset' + (actual.trackedCount === 1 ? "" : "s") + ' with a logged value from ~30 days ago and a current one. Doesn\'t include properties (no monthly re-valuation) or assets without an old-enough snapshot — log values regularly for a fuller picture.</p>';
 }
 
 // ---------------- Rendering: 50/30/20 + accounts ----------------

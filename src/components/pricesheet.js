@@ -84,7 +84,7 @@ export function priceSheetCardHtml(){
     ? '<p class="ps-status ' + (r && !r.ok ? "bad" : "") + '">' + (r ? "<b>" + (r.ok ? "Read " : "Tried ") + escapeAttr(when) + ":</b> " + escapeAttr(priceSheetResultText(r)) : "Not read yet.") + '</p>'
     : "";
   return '<div class="ps-card">' +
-    '<p class="ledger-note">Prices come from a Google Sheet you keep, read each day you open the app. Only the sheet is read — no price service is asked anything, and nothing about your holdings is sent.</p>' +
+    '<p class="ledger-note help">Prices come from a Google Sheet you keep, read each day you open the app. Only the sheet is read — no price service is asked anything, and nothing about your holdings is sent.</p>' +
     '<ol class="ps-steps">' +
       '<li><b>Make the sheet.</b> Copy the template and paste it into cell A1 of an empty Google Sheet. It has a live price for each holding, plus weekly prices back to its first purchase — or, for a holding with no purchase lots, back to ' +
         '<input type="date" class="ps-from" data-ps-from value="' + escapeAttr(from) + '" aria-label="Fill in prices back to">' + '.' +
@@ -95,6 +95,6 @@ export function priceSheetCardHtml(){
         '<button type="button" class="btn btn-sm btn-primary" data-ps-read>' + (sh.url ? "Read now" : "Save and read") + '</button>' +
         (sh.url ? '<button type="button" class="btn btn-sm btn-ghost" data-ps-forget>Forget link</button>' : '') + '</div></li>' +
     '</ol>' + status +
-    '<p class="ledger-note ps-note">Holdings without purchase lots are filled in as if you held today\'s units the whole time. Add lots (open a holding → Purchase lots) and copy the template again for exact figures. Prices you\'ve already recorded are never changed — only weeks before the first one are filled in.</p>' +
+    '<p class="ledger-note ps-note help">Holdings without purchase lots are filled in as if you held today\'s units the whole time. Add lots (open a holding → Purchase lots) and copy the template again for exact figures. Prices you\'ve already recorded are never changed — only weeks before the first one are filled in.</p>' +
   '</div>';
 }

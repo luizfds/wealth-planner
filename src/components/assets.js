@@ -1072,7 +1072,7 @@ function renderAssetAllocationHtml(){
   var illiquidSegs = ASSET_ALLOC_SEGMENTS.filter(function(seg){ return !seg.liquid; });
   var liquidTotal = liquidSegs.reduce(function(s, seg){ return s + Math.max(0, values[seg.key]); }, 0);
   var illiquidTotal = illiquidSegs.reduce(function(s, seg){ return s + Math.max(0, values[seg.key]); }, 0);
-  if(liquidTotal + illiquidTotal <= 0) return '<p class="ledger-note" style="margin:0">Add some assets or properties to see your allocation.</p>';
+  if(liquidTotal + illiquidTotal <= 0) return '<p class="ledger-note section-empty" style="margin:0">Add some assets or properties to see your allocation.</p>';
   return '<div class="tax-inputs-label">Liquid — ' + fmtCurrency0.format(liquidTotal) + '</div>' + allocBarHtml(liquidSegs, values) +
     '<div class="tax-inputs-label" style="margin-top:16px">Illiquid — ' + fmtCurrency0.format(illiquidTotal) + '</div>' + allocBarHtml(illiquidSegs, values);
 }
@@ -1147,7 +1147,7 @@ export function renderNetWorthPanel(){
       '</tr></thead>' +
       '<tbody>' + rows + '</tbody>' +
     '</table></div>' +
-    '<p class="calc-note" style="margin-top:10px">Net worth after purchase = current total assets minus stamp duty, LMI and other acquisition costs. The deposit itself just moves from cash into home equity, so it doesn\'t change net worth on its own.</p>' +
+    '<p class="calc-note help" style="margin-top:10px">Net worth after purchase = current total assets minus stamp duty, LMI and other acquisition costs. The deposit itself just moves from cash into home equity, so it doesn\'t change net worth on its own.</p>' +
     investNote;
 }
 
@@ -1248,7 +1248,7 @@ export function renderAllocationChart(){
   var buckets = allocationBuckets();
   container.innerHTML = "";
   if(!buckets.length){
-    container.innerHTML = '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">Add an asset or a property and the shape of your wealth — how much is super, shares, cash or property — appears here.</p>';
+    container.innerHTML = '<p class="section-empty" style="color:var(--ink-soft);font-size:12.5px;margin:0">Add an asset or a property and the shape of your wealth — how much is super, shares, cash or property — appears here.</p>';
     return;
   }
 
@@ -1321,7 +1321,7 @@ export function renderAllocationChart(){
     ariaLabel: "How your mix of assets has shifted over time"
   });
   var note = document.createElement("p");
-  note.className = "ledger-note";
+  note.className = "ledger-note help";
   note.style.margin = "8px 0 0";
   note.innerHTML = "Property counts as equity — value minus what's still owed — not the whole house. " +
     "Debts you owe elsewhere aren't in this chart: it's what you own, not your net worth.";
@@ -1352,7 +1352,7 @@ export function renderPortfolioHistoryChart(){
   if(dates.indexOf(today) === -1) dates.push(today);
 
   if(dates.length < 2){
-    container.innerHTML = '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">Log a value for at least one asset (click "Log" in the table above) to start tracking your net worth over time.</p>';
+    container.innerHTML = '<p class="section-empty" style="color:var(--ink-soft);font-size:12.5px;margin:0">Log a value for at least one asset (click "Log" in the table above) to start tracking your net worth over time.</p>';
     return;
   }
 
@@ -1449,7 +1449,7 @@ export function renderPortfolioHistoryChart(){
   });
   if(cov.late.length){
     var startNote = document.createElement("p");
-    startNote.className = "ledger-note";
+    startNote.className = "ledger-note help";
     startNote.style.margin = "8px 0 0";
     startNote.textContent = "Starts " + fmtShortDate(cov.from) + ", the first day everything you hold today had a value. " +
       "Before that, " + listSome(cov.late) + " hadn't been logged, so earlier totals would leave them out.";

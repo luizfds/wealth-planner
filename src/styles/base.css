@@ -321,6 +321,9 @@
   .notif-item-detail{ display:block; font-size:11px; color: var(--ink-soft); margin-top:2px; }
 
 /* v3.33.0 — explanations behind an ⓘ (lib/help.js). */
+/* v3.106.0: a section with nothing in it yet says so once, on the page's own empty line — not as a
+   card of its own. Renderers mark their "nothing yet" paragraph .section-empty; the card goes. */
+details.ledger:has(.section-empty){ display:none; }
 body.help-hidden .help{ display:none; }
 body.help-hidden details.help-open .help,
 body.help-hidden .help-btn-inline.help-open ~ .help{ display:block; }

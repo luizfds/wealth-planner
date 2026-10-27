@@ -238,3 +238,44 @@ export function billsCalendarHtml(data, ym, today){
   return '<div class="bc-summary"><b>' + mon + ' ' + y + '</b><span>' + summary + '</span></div>' +
     '<div class="bc-grid" role="grid" aria-label="Bills in ' + mon + '">' + head + cells.join("") + '</div>' + list + spend + stopped + undated + kinds;
 }
+
+// ---------------- The transaction table (v3.117.0) ----------------
+// On a wide screen the list can be a table: every spending row's date, description, line, account and
+// amount editable in place, Tab across and on; money in and transfers listed read-only beside them; a
+// row at the top to type a new one and press Enter. The cells carry the same tx-* classes and
+// data-tx-index as the row's own form, so the handlers that already save those save these.
+export var txGrid = { on: false };
+try { txGrid.on = typeof localStorage !== "undefined" && localStorage.getItem("wealthPlanner.txGrid") === "1"; } catch(e){}
+export function setTxGrid(on){ txGrid.on = !!on; try { localStorage.setItem("wealthPlanner.txGrid", on ? "1" : "0"); } catch(e){} }
+export function txViewToggleHtml(){
+  return '<div class="seg tx-view-toggle" role="group" aria-label="Show transactions as">' +
+    '<button type="button" class="seg-option' + (txGrid.on ? '' : ' active') + '" data-tx-view="list" aria-pressed="' + !txGrid.on + '">List</button>' +
+    '<button type="button" class="seg-option' + (txGrid.on ? ' active' : '') + '" data-tx-view="table" aria-pressed="' + txGrid.on + '">Table</button></div>';
+}
+// entries: cashflowEntries rows; opts: { transactions, lineOptions(id), accountOptions(name), today, picking }
+export function txGridHtml(entries, opts){
+  var esc = escapeAttr;
+  var head = '<thead><tr>' + (opts.picking ? '<th class="txg-pick"></th>' : '') + '<th>Date</th><th>Description</th><th>Line</th><th>Account</th><th class="num">Amount</th></tr></thead>';
+  var newRow = '<tr class="txg-new">' + (opts.picking ? '<td></td>' : '') +
+    '<td><input type="date" class="txg-new-date" value="' + esc(opts.today) + '" aria-label="New transaction date"></td>' +
+    '<td><input type="text" class="txg-new-what" placeholder="New: what was it?" aria-label="New transaction description"></td>' +
+    '<td><select class="txg-new-link" aria-label="New transaction budget line">' + opts.lineOptions(null) + '</select></td>' +
+    '<td><select class="txg-new-account" aria-label="New transaction account">' + opts.accountOptions("") + '</select></td>' +
+    '<td class="num"><input type="number" step="0.01" class="txg-new-amount" placeholder="0.00" aria-label="New transaction amount" title="Enter to add"></td></tr>';
+  var rows = entries.map(function(e){
+    if(e.kind !== "out"){
+      var sign = e.kind === "in" ? "+" : "";
+      return '<tr class="txg-ro txg-' + e.kind + '">' + (opts.picking ? '<td></td>' : '') + '<td>' + esc(fmtDate(e.date)) + '</td><td>' + esc(e.label) + '</td><td class="muted">' + (e.kind === "in" ? "money in" : "transfer") + '</td>' +
+        '<td class="muted">' + esc(e.kind === "transfer" ? (e.account || "?") + " → " + (e.toAccount || "?") : (e.account || "")) + '</td><td class="num">' + sign + fmtCurrency2.format(e.amount) + '</td></tr>';
+    }
+    var t = opts.transactions[e.ref], i = e.ref;
+    return '<tr class="txg-row" data-index="' + i + '">' +
+      (opts.picking ? '<td class="txg-pick">' + selectBoxHtml(i) + '</td>' : '') +
+      '<td><input type="date" class="tx-date" data-tx-index="' + i + '" value="' + esc(t.date || "") + '" aria-label="Date"></td>' +
+      '<td><input type="text" class="tx-what" data-tx-index="' + i + '" value="' + esc(t.what || "") + '" placeholder="' + esc(e.label) + '" aria-label="Description"></td>' +
+      '<td><select class="tx-link" data-tx-index="' + i + '" aria-label="Budget line">' + opts.lineOptions(t.linkedExpenseId) + '</select></td>' +
+      '<td><select class="tx-account" data-tx-index="' + i + '" aria-label="Account">' + opts.accountOptions(t.account || "") + '</select></td>' +
+      '<td class="num"><input type="number" step="0.01" class="tx-amount" data-tx-index="' + i + '" value="' + (Number(t.amount) || 0) + '" aria-label="Amount"></td></tr>';
+  }).join("");
+  return '<div class="txg-wrap"><table class="tx-grid">' + head + '<tbody>' + newRow + rows + '</tbody></table></div>';
+}

@@ -45,7 +45,8 @@ export function firstRunHtml(){
         '<label class="fr-field"><span>Per</span><select data-fr="housing.freq">' + ["Weekly", "Fortnightly", "Monthly"].map(function(f){ return '<option' + (h.freq === f ? " selected" : "") + '>' + f + '</option>'; }).join("") + '</select></label></div>' +
       '<div class="fr-costs">' + a.costs.map(function(c, i){ return field(escapeAttr(c.what) + " — a month $", 'data-fr="costs.' + i + '.amount"', c.amount, "number"); }).join("") + '</div>';
   } else {
-    body = '<p class="fr-lede">That\'s the plan. To see what you actually spend, export a CSV from your bank (most have "Export" or "Download transactions") and import it on Cash flow → Spending — the app learns your shops as you go.</p>' +
+    // v3.117.0: statements are the main path — three months of them and the budget builds itself.
+    body = '<p class="fr-lede">The quickest way in: download your last three months of statements (CSV or PDF — most banks have "Export" or "Download transactions") and import them. Well-known shops file themselves, the budget is proposed from what you actually spent (Cash flow → Budget), and a payslip on Tax fills in pay and tax so far.</p>' +
       '<p class="ledger-note">After that, a monthly review on Home keeps it current in about ten minutes.</p>';
   }
   var last = st === STEPS.length - 1;
@@ -54,6 +55,6 @@ export function firstRunHtml(){
     '<div class="fr-progress" aria-hidden="true">' + STEPS.map(function(_, i){ return '<i class="' + (i <= st ? "on" : "") + '"></i>'; }).join("") + '</div>' +
     '<div class="fr-step-k">Step ' + (st + 1) + ' of ' + STEPS.length + '</div>' + body +
     '<div class="fr-foot">' + (st > 0 ? '<button type="button" class="btn btn-ghost" data-fr-back>Back</button>' : '<span></span>') +
-      (last ? '<div class="fr-finish"><button type="button" class="btn btn-ghost" data-fr-finish="import">Finish and import a statement</button><button type="button" class="btn btn-primary" data-fr-finish="home">Finish</button></div>'
+      (last ? '<div class="fr-finish"><button type="button" class="btn btn-ghost" data-fr-finish="home">Finish</button><button type="button" class="btn btn-primary" data-fr-finish="import">Finish and import statements</button></div>'
         : '<button type="button" class="btn btn-primary" data-fr-next>Next</button>') + '</div></div></div>';
 }

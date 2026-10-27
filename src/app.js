@@ -75,7 +75,7 @@ import {
 } from "./components/scenarios.js";
 import { ACCOUNT_TYPE_KEYS, accountSourceOptions, setAccountBalance, resolveLink, accountBalance } from "./calc/accounts.js";
 import { addTransfer, deleteTransfer, splitTransaction, unsplit, bulkEditTransactions, bulkDeleteTransactions } from "./calc/cashflowlist.js";
-import { txFilters, txSelect, transferForm, splitEditing, resetTxFilters } from "./components/cashflow.js";
+import { txFilters, txSelect, transferForm, splitEditing, resetTxFilters, setTxGrid } from "./components/cashflow.js";
 import { rulesPageHtml, setRuleField, ruleIsEmpty, ruleTest, ruleView, RULES_PAGE } from "./components/rules.js";
 import { normaliseDescription } from "./calc/bank-import.js";
 import { openAccounts, balanceEditing } from "./components/accounts.js";
@@ -3293,6 +3293,45 @@ import {
     persist();
   });
 
+  // ---------------- The transaction table (v3.117.0) ----------------
+  document.addEventListener("click", function(e){
+    var v = e.target.closest("[data-tx-view]");
+    if(!v) return;
+    setTxGrid(v.getAttribute("data-tx-view") === "table");
+    renderTransactions();
+  });
+  // Narrowed past a phone's width (or widened back), the table and the list swap.
+  var txGridWide = window.innerWidth > 720, txGridTimer = null;
+  window.addEventListener("resize", function(){
+    clearTimeout(txGridTimer);
+    txGridTimer = setTimeout(function(){ var w = window.innerWidth > 720; if(w !== txGridWide){ txGridWide = w; renderTransactions(); } }, 200);
+  });
+  document.addEventListener("keydown", function(e){
+    if(e.key !== "Enter" || !e.target.closest || !e.target.closest(".tx-grid")) return;
+    var newRow = e.target.closest(".txg-new");
+    if(newRow){
+      e.preventDefault();
+      var val = function(c){ var el = newRow.querySelector(c); return el ? el.value : ""; };
+      var link = val(".txg-new-link") || null;
+      var line = link && budgetLineItems().find(function(i){ return i.id === link; });
+      var amount = parseFloat(val(".txg-new-amount"));
+      if(!(amount || 0) && line) amount = Number(line.amount) || 0;
+      if(!(amount || 0) && !val(".txg-new-what").trim()){ showToast("Type an amount, or pick a line"); return; }
+      state.transactions.push({ id: genId("t"), date: val(".txg-new-date") || localDateStr(), what: val(".txg-new-what").trim(), linkedExpenseId: link,
+        account: val(".txg-new-account") || (line && line.account) || "", amount: amount || 0 });
+      persist(); renderTransactions(); renderActualVsPlannedPanel();
+      var again = document.querySelector("#transactionsTable .txg-new-what");
+      if(again) again.focus();
+      return;
+    }
+    // Enter in a cell moves down the column, the way a spreadsheet does.
+    var cell = e.target.closest("td"), row = e.target.closest("tr");
+    if(!cell || !row || !row.nextElementSibling) return;
+    e.preventDefault();
+    var next = row.nextElementSibling.children[cell.cellIndex];
+    var input = next && next.querySelector("input, select");
+    if(input) input.focus();
+  });
   // ---------------- Accounts: named money sources, used for credit-card statement cycles ----------------
   document.getElementById("addAccountBtn").addEventListener("click", function(){
     addAccount();

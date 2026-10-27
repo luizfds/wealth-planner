@@ -2748,9 +2748,19 @@ salary row by more than 2%, "Set <row> to $X <frequency>" (undoable). Driven wit
 text. The PDF path is the statement import's, not separately exercised with a real payslip PDF.
 
 
-## 150. `[~]` A transaction grid
+## 150. `[x]` A transaction grid
 Keyboard-first entry and multi-select editing in a table layout on wide screens; cards stay on phones.
 First run offers "drop in three statements and a payslip" as the main path.
+
+Shipped as v3.117.0: `components/cashflow.js` `txGridHtml` — Cash flow → Spending gets a List / Table switch
+(remembered on the device; hidden at ≤720px, where the list is always used, re-rendered on crossing that width).
+The table has every spending row's date, description, line, account and amount editable in place, with the same
+`tx-*` classes and `data-tx-index` as the row form, so the existing handlers save them; money in and transfers sit
+read-only beside them; Enter moves down a column; an entry row at the top adds a transaction on Enter (amount from
+the line when only a line is picked) and returns focus to itself; select mode adds the checkbox column for the
+existing bulk bar. First-run's last step leads with "Finish and import statements". Driven on the demo: an edit
+saves, Enter moves down, a new row is added, the table fits, phone width falls back to the list.
+
 
 ### Phase C — one thing, one place
 

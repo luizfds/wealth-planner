@@ -1339,3 +1339,19 @@ test("rulesShown finds by words or line, and sorts by use, newest or A–Z", () 
   assert.deepEqual(rulesShown(rules, label, { q: "eating", sort: "used" }).map(x => x.i), [0]);
   assert.deepEqual(rulesShown(rules, label, { q: "credit", sort: "used" }).map(x => x.i), [2]);
 });
+
+// v3.117.0: the transaction table.
+import { txGridHtml } from "../src/components/cashflow.js";
+test("txGridHtml puts editable spending rows, read-only money in and an entry row in one table", () => {
+  const tx = [{ date: "2026-10-01", what: "", amount: 42.5, linkedExpenseId: "g", account: "Card" }];
+  const html = txGridHtml([
+    { kind: "out", ref: 0, date: "2026-10-01", label: "Groceries", amount: 42.5 },
+    { kind: "in", date: "2026-10-02", label: "Pay", amount: 1000, account: "Everyday" }
+  ], { transactions: tx, lineOptions: id => '<option value="g"' + (id === "g" ? " selected" : "") + '>Groceries</option>', accountOptions: a => '<option>' + a + '</option>', today: "2026-10-05", picking: true });
+  assert.match(html, /<tr class="txg-new">/);
+  assert.match(html, /class="tx-amount" data-tx-index="0" value="42.5"/);
+  assert.match(html, /placeholder="Groceries"/);
+  assert.match(html, /txg-ro txg-in.*\+\$1,000\.00/s);
+  assert.match(html, /data-cf-pick="0"/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+});

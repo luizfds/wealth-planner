@@ -2921,9 +2921,21 @@ Retirement page has your age. Checked in a headless browser at 390 and 1280px: e
 and ages draw, saved, removable, no errors.
 
 
-## 162. `[~]` Retirement drawdown and the Age Pension
+## 162. `[x]` Retirement drawdown and the Age Pension
 Account-based pension drawdown with minimum rates and tax, and the Age Pension under the assets and income
 tests, in Plan → Retirement.
+
+Shipped as v3.127.0: Plan → Retirement gains "After you stop" (`calc/agepension.js`), year by year in today's dollars
+from the chosen age to 95: money outside super is spent first while super is locked; from preservation age super is
+an account-based pension paying at least its minimum by age (4% under 65, 5%, 6%, 7%, 9%, 11%, 14% from 95), tax-free,
+with anything not needed saved again outside super; from 67 the Age Pension pays first, for a couple or a single
+person, homeowner or not, under the assets test ($3 a fortnight per $1,000 over the free area, the home excluded) and
+the income test (financial assets deemed at 0.75% / 2.75%, 50c per dollar over the free area), whichever pays less —
+rates from 20 September 2025, thresholds from 1 July 2025, held flat in today's dollars. A table at the ages that
+matter (stopping, preservation, 67, then every five years) shows the pot, the super minimum, the Age Pension and the
+income; a sentence says whether spending lasts to 95, when the pension starts and what share of spending it carries;
+super above the $2m transfer balance cap is flagged. Checked on the demo and a real backup (outside the repo).
+
 
 ### Phase F — platform
 

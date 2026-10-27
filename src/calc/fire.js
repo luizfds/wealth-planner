@@ -122,7 +122,7 @@ export function simulateRetirementAt(retireAge, opts){
     accessible = accessible * (1 + rAt(age)) + annualSavings;
     superValue = superValue * (1 + rAt(age)) + superContrib;
   }
-  var accessibleAtRetire = accessible;
+  var accessibleAtRetire = accessible, superAtRetire = superValue;
 
   // Phase 2 — the bridge. Living off accessible wealth alone; super keeps growing, untouched.
   var bridgeYears = Math.max(0, preservationAge - retireAge);
@@ -154,6 +154,7 @@ export function simulateRetirementAt(retireAge, opts){
     retireAge: retireAge,
     bridgeYears: bridgeYears,
     accessibleAtRetire: accessibleAtRetire,
+    superAtRetire: superAtRetire,
     bridgeNeeded: annualExpenses * bridgeYears,
     bridgeSurvives: bridgeSurvives,
     accessibleAtPreservation: accessible,

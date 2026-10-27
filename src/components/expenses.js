@@ -1642,7 +1642,12 @@ function budgetRowTxnListHtml(pairs){
 // the year") than the month-by-month panel above it.
 export function irregularBudgetSectionHtml(irregularItems){
   if(!irregularItems.length) return "";
-  var rows = irregularItems.map(budgetComparisonRowHtml).join("");
+  var cappedIrr = capList(irregularItems.map(function(item){
+    var cycle = reserveCycleFor(item), spent = spentInCycle(item, cycle);
+    return { item: item, size: Math.max(spent, cycle.target), over: spent - cycle.target };
+  }), LIST_CAP, listsShowAll.irr);
+  var rows = cappedIrr.shown.map(function(x){ return budgetComparisonRowHtml(x.item); }).join("") +
+    showAllButtonHtml("irr", cappedIrr.hidden, listsShowAll.irr && irregularItems.length > LIST_CAP + 2);
   // No period in the heading any more — rows can each be on a different one, and a heading that
   // named only one of them would be wrong for the rest.
   return '<div style="margin-top:16px"><div class="fire-stat-row" style="margin-bottom:2px"><span>Irregular / reserve budgets</span></div>' +
@@ -1655,6 +1660,25 @@ export function irregularBudgetSectionHtml(irregularItems){
 // months and under-states the month a quarterly bill lands, which is what made an on-plan payment
 // read as a budget miss. It does mean the headline moves month to month, which is the point: real
 // bills do.
+// v3.109.0: long lists show what needs a look first and stop at a handful. entries: [{ over, size }]
+// (anything else carried along); over > 0 means past its plan by that much. Over-plan entries come
+// first, most over first, then the rest by size. Returns { shown, hidden } — hidden is a count.
+export var LIST_CAP = 8;
+export var listsShowAll = {};
+export function capList(entries, n, showAll){
+  var ranked = (entries || []).slice().sort(function(a, b){
+    var ao = a.over > 0.5, bo = b.over > 0.5;
+    if(ao !== bo) return ao ? -1 : 1;
+    return ao ? b.over - a.over : b.size - a.size;
+  });
+  if(showAll || ranked.length <= n + 2) return { shown: ranked, hidden: 0 };
+  return { shown: ranked.slice(0, n), hidden: ranked.length - n };
+}
+function showAllButtonHtml(key, hidden, open){
+  if(open) return '<button type="button" class="btn btn-sm btn-ghost list-all-btn" data-list-all="' + key + '">Show fewer</button>';
+  return hidden ? '<button type="button" class="btn btn-sm btn-ghost list-all-btn" data-list-all="' + key + '">Show all (' + hidden + ' more)</button>' : '';
+}
+
 function billedThisMonth(items){
   return items.reduce(function(sum, item){
     var cycle = budgetCycleFor(item, state.transactions);
@@ -1731,7 +1755,12 @@ export function renderActualVsPlannedPanel(){
   // the Budget tab doesn't already say, and burying the few rows that did move. What's left is
   // the one thing the Budget tab can't answer: where this month's money actually went.
   var spentItems = regularItems.filter(function(item){ return Math.round((byExpense[item.id] || 0) * 100) / 100 !== 0; });
-  var rows = spentItems.map(budgetComparisonRowHtml).join("");
+  var capped = capList(spentItems.map(function(item){
+    var spent = byExpense[item.id] || 0;
+    return { item: item, size: Math.abs(spent), over: spent - billedThisMonth([item]) };
+  }), LIST_CAP, listsShowAll.avp);
+  var rows = capped.shown.map(function(x){ return budgetComparisonRowHtml(x.item); }).join("") +
+    showAllButtonHtml("avp", capped.hidden, listsShowAll.avp && spentItems.length > LIST_CAP + 2);
   var unlinkedTotal = byExpense.__unlinked || 0;
   var unlinkedPairs = unlinkedTotal ? monthTransactionsForExpense("__unlinked") : [];
   var unlinkedOpen = unlinkedPairs.length > 0 && !!budgetRowTxnsOpen.__unlinked;
@@ -2133,7 +2162,9 @@ export function renderSpendingTrends(){
     ? '<p class="ledger-note trend-partial-note" style="margin:0 0 10px">Showing ' + view.monthsCovered + ' months — that\'s as far back as your logging goes. It\'ll fill out to ' + view.monthsRequested + ' as you keep going.</p>'
     : "";
 
-  var rowsHtml = view.rows.map(function(r){
+  // v3.109.0: the biggest categories over the window first, capped like the lists above.
+  var cappedTrend = capList(view.rows.map(function(r){ return { r: r, over: 0, size: r.values.reduce(function(s, v){ return s + (Number(v) || 0); }, 0) }; }), LIST_CAP, listsShowAll.trend);
+  var rowsHtml = cappedTrend.shown.map(function(x){ return x.r; }).map(function(r){
     return '<div class="trend-row">' +
       '<div class="trend-row-head">' +
         '<span class="trend-row-name">' + escapeAttr(r.category) + '</span>' +
@@ -2147,6 +2178,7 @@ export function renderSpendingTrends(){
       trendSparkHtml(r, view.months, view.monthProgress) +
     '</div>';
   }).join("");
+  var trendMoreHtml = showAllButtonHtml("trend", cappedTrend.hidden, listsShowAll.trend && view.rows.length > LIST_CAP + 2);
 
   el.innerHTML =
     '<p class="trend-headline">' + headline + '</p>' +
@@ -2154,7 +2186,7 @@ export function renderSpendingTrends(){
     earlyDaysNote +
     coverageNote +
     (view.complete ? "" : '<p class="ledger-note trend-partial-note help" style="margin:0 0 10px">' + view.throughDay + ' of ' + view.daysInMonth + ' days in, so this month\'s bar is still filling. Every comparison above counts only the same days of earlier months, never a whole one against a part-finished one.</p>') +
-    (rowsHtml ? '<div class="trend-rows">' + rowsHtml + '</div>'
+    (rowsHtml ? '<div class="trend-rows">' + rowsHtml + '</div>' + trendMoreHtml
               : '<p class="ledger-note" style="margin:0">Nothing logged above ' + fmtCurrency0.format(TRENDS_MIN_SPEND) + ' over the last ' + TRENDS_MONTHS + ' months yet.</p>') +
     (rowsHtml ? '<details class="trend-numbers"><summary>Show the numbers</summary>' + trendNumbersTableHtml(view) + '</details>' : "");
 }
@@ -2214,7 +2246,8 @@ export function renderYearSpending(){
 
   // Each bar is spent against planned for that category — the over/under question a year view
   // exists to answer — with the planned amount as the bar's full width and anything over it shown.
-  var rows = groups.map(function(g){
+  var cappedYear = capList(groups.map(function(g){ return { g: g, size: g.monthly, over: (planned[g.key] || 0) > 0 ? g.monthly - planned[g.key] * 1.005 : 0 }; }), LIST_CAP, listsShowAll.ytd);
+  var rows = cappedYear.shown.map(function(x){ return x.g; }).map(function(g){
     var plan = planned[g.key] || 0;
     var share = plan > 0 ? Math.min(1, g.monthly / plan) : (total > 0 ? g.monthly / total : 0);
     var over = plan > 0 && g.monthly > plan * 1.005;
@@ -2224,7 +2257,7 @@ export function renderYearSpending(){
       '<span class="year-cat-amt">' + fmtCurrency0.format(g.monthly) + '</span>' +
       '<span class="year-cat-pct">' + (plan > 0 ? "of " + fmtCurrency0.format(plan) : "unplanned") + '</span>' +
     '</div>';
-  }).join("");
+  }).join("") + showAllButtonHtml("ytd", cappedYear.hidden, listsShowAll.ytd && groups.length > LIST_CAP + 2);
 
   panel.innerHTML = headline +
     (categoryChartHtml(groups.filter(function(g){ return g.monthly > 0; }), "") || "") +

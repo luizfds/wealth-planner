@@ -50,7 +50,8 @@ import {
   toggleBudgetGroup, setAllBudgetGroupsCollapsed, allBudgetGroupsCollapsed, revealBudgetLine,
   renderYearSpending, renderYearBasisPreference, setYearBasis, transactionCategory,
   parseExpensesImportCsv, renderExpensesImportPreview, clearExpensesImportPreview, commitExpensesImport,
-  renderSpendCategoryChart, renderSpendingTrends
+  renderSpendCategoryChart, renderSpendingTrends,
+  listsShowAll,
 } from "./components/expenses.js";
 import {
   patchHoldingRow, patchVehicleRow, modernAssetRowOpen, patchAssetCategoryTotals,
@@ -75,7 +76,7 @@ import {
 import { ACCOUNT_TYPE_KEYS, accountSourceOptions, setAccountBalance, resolveLink, accountBalance } from "./calc/accounts.js";
 import { addTransfer, deleteTransfer, splitTransaction, unsplit, bulkEditTransactions, bulkDeleteTransactions } from "./calc/cashflowlist.js";
 import { txFilters, txSelect, transferForm, splitEditing, resetTxFilters } from "./components/cashflow.js";
-import { rulesPageHtml, setRuleField, ruleIsEmpty, ruleTest } from "./components/rules.js";
+import { rulesPageHtml, setRuleField, ruleIsEmpty, ruleTest, ruleView, RULES_PAGE } from "./components/rules.js";
 import { normaliseDescription } from "./calc/bank-import.js";
 import { openAccounts, balanceEditing } from "./components/accounts.js";
 import { renderHomeSummary } from "./components/home.js";
@@ -3416,6 +3417,17 @@ import {
     var b = e.target.closest("[data-plan-sub]");
     if(b) showPlanSubpage(b.getAttribute("data-plan-sub"));
   });
+  // v3.109.0: "Show all" / "Show fewer" under a capped list (Actual vs. planned, This year so far).
+  document.addEventListener("click", function(e){
+    var b = e.target.closest("[data-list-all]");
+    if(!b) return;
+    var key = b.getAttribute("data-list-all");
+    listsShowAll[key] = !listsShowAll[key];
+    if(key === "avp") renderActualVsPlannedPanel();
+    if(key === "ytd") renderYearSpending();
+    if(key === "irr") renderActualVsPlannedPanel();
+    if(key === "trend") renderSpendingTrends();
+  });
   // ---------------- Settings → Import rules (v3.60.0) ----------------
   function renderRules(){
     var el = document.getElementById("rulesBody");
@@ -3425,6 +3437,7 @@ import {
   }
   var rulesBody = document.getElementById("rulesBody");
   rulesBody.addEventListener("change", function(e){
+    if(e.target.hasAttribute("data-rl-sort")){ ruleView.sort = e.target.value; ruleView.shown = RULES_PAGE; renderRules(); return; }
     var t = e.target, i = t.getAttribute("data-rl-index");
     if(i == null) return;
     if(!setRuleField(Number(i), t.getAttribute("data-rl-key"), t.value)){ showToast("A rule needs some words to match"); renderRules(); return; }
@@ -3435,17 +3448,21 @@ import {
   });
   var rulesTestTimer = null;
   rulesBody.addEventListener("input", function(e){
-    if(!e.target.hasAttribute("data-rl-test")) return;
-    ruleTest.text = e.target.value;
+    var finding = e.target.hasAttribute("data-rl-find");
+    if(!finding && !e.target.hasAttribute("data-rl-test")) return;
+    if(finding){ ruleView.q = e.target.value; ruleView.shown = RULES_PAGE; }
+    else ruleTest.text = e.target.value;
+    var which = finding ? "[data-rl-find]" : "[data-rl-test]";
     clearTimeout(rulesTestTimer);
     rulesTestTimer = setTimeout(function(){
       var pos = e.target.selectionStart;
       renderRules();
-      var again = rulesBody.querySelector("[data-rl-test]");
+      var again = rulesBody.querySelector(which);
       if(again){ again.focus(); try{ again.setSelectionRange(pos, pos); }catch(err){} }
     }, 180);
   });
   rulesBody.addEventListener("click", function(e){
+    if(e.target.closest("[data-rl-more]")){ ruleView.shown = (ruleView.shown || RULES_PAGE) + RULES_PAGE; renderRules(); return; }
     var del = e.target.closest("[data-rl-del]");
     if(del){
       var i = Number(del.getAttribute("data-rl-del"));

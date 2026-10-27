@@ -2587,7 +2587,7 @@ subtab: 16,948 → 10,226 characters (−40%); on an empty app 8,741 → 7,909. 
 paragraph carries `.section-empty` and `details.ledger:has(.section-empty)` hides the card, so an empty
 Property page is one line and one button. Sidebar: the app icon's mark beside the name instead of a coloured W.
 
-## 139b. `[ ]` Things you own as a summary, with Edit
+## 139b. `[~]` Things you own as a summary, with Edit
 A property's Overview opens as a wall of input fields. Show the property as a read-only summary first (value,
 purchase, loans, rent, costs, yield) with an Edit button that opens today's fields; same for a holding and an
 account when item 151's detail pages land.

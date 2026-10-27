@@ -1,5 +1,6 @@
 import { state } from "../state.js";
-import { ACCOUNT_TYPES, accountTypeLabel, accountSourceOptions, accountBalance, accountsOverview, isOwedType, isAgentType } from "../calc/accounts.js";
+import { ACCOUNT_TYPES, accountTypeLabel, accountSourceOptions, accountBalance, accountsOverview, isOwedType, isAgentType, rolledBalance } from "../calc/accounts.js";
+import { transactionAccount } from "./expenses.js";
 import { currentStatementCycle } from "../calc/ledger.js";
 import { sparklineHtml, renderLineChart, dateAxisFormat } from "../lib/charts.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr } from "../lib/format.js";
@@ -41,6 +42,8 @@ function sourceSelectHtml(a, idx){
 export function accountRowHtml(a, idx, today){
   today = today || localDateStr();
   var bal = accountBalance(a);
+  var rolled = rolledBalance(a, { today: today, accountOf: transactionAccount });
+  if(rolled.count) bal = Object.assign({}, bal, { balance: rolled.balance });
   var open = !!openAccounts[a.id];
   var editing = !!balanceEditing[a.id];
   var owed = bal.owed;
@@ -53,7 +56,8 @@ export function accountRowHtml(a, idx, today){
   var age = daysSince(bal.date, today);
   var sub = [accountTypeLabel(a.type)];
   if(agent && bal.source) sub.push(bal.source.label);
-  if(bal.date) sub.push("updated " + shortDate(bal.date));
+  // v3.112.0: "18 Oct balance + 19 since" when what's been logged since has moved it.
+  if(bal.date) sub.push(rolled.count ? shortDate(bal.date) + " balance + " + rolled.count + " since" : "updated " + shortDate(bal.date));
   if(a.type === "credit"){
     var c = currentStatementCycle(a.statementStartDay || 1, today);
     sub.push("cycle " + shortDate(c.start) + "–" + shortDate(c.end));
@@ -103,7 +107,7 @@ export function accountsPageHtml(today){
   if(!state.accounts.length && !accountsOverview().loose.length){
     return '<p class="ledger-note" style="margin:0">No accounts yet. Add your everyday account, savings, cards and loans — each with its balance — and tag spending with the account it came out of.</p>';
   }
-  var ov = accountsOverview();
+  var ov = accountsOverview({ accountOf: transactionAccount });
   var head = '<div class="acct-totals"><div><span>Cash held</span><b>' + fmtCurrency0.format(ov.held) + '</b></div>' +
     '<div><span>Owed on cards and loans</span><b class="' + (ov.owed > 0 ? "owed" : "") + '">' + (ov.owed > 0 ? "−" : "") + fmtCurrency0.format(ov.owed) + '</b></div></div>';
   var groups = GROUPS.map(function(g){

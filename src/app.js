@@ -96,6 +96,8 @@ import { learnRule, mergeSimilarRules } from "./calc/import-rules.js";
 import { pdfLines } from "./lib/pdftext.js";
 import { renderAdvice, adviceUi } from "./components/advice.js";
 import { renderTrim, trimUi, trimScenario } from "./components/trim.js";
+import { proposeBudget, applyBudgetProposals } from "./calc/budgetfromhistory.js";
+import { budgetFromHistoryHtml, historyBudgetUi } from "./components/budgethistory.js";
 import { setLeanLevel, leanLevel, trimReport } from "./calc/trim.js";
 import { adviceFor } from "./calc/advice.js";
 import { householdSummary } from "./calc/aisummary.js";
@@ -2976,6 +2978,7 @@ import {
   // ---------------- Cash flow → Spending: filters, money in, transfers, splits, bulk edit (v3.59.0) ----------------
   function afterTransactionsChange(){
     renderRecurring();
+    renderBudgetFromHistory();
     renderTrips();
     renderTransactions();
     renderActualVsPlannedPanel();
@@ -3879,6 +3882,7 @@ import {
   // at the import and undo call sites where the two could drift apart.
   function refreshAfterBankImport(){
     renderRecurring();
+    renderBudgetFromHistory();
     renderTrips();
     renderReceived();
     renderTransactions();
@@ -4649,6 +4653,7 @@ import {
     renderAdvice();
     renderTrim();
     renderRecurring();
+    renderBudgetFromHistory();
     renderTrips();
     renderRetirement();
   }
@@ -5015,6 +5020,37 @@ import {
     return { u: unbudgetedRecurring(state.transactions, localDateStr()), r: risingLines(loggableBudgetLineItems(), state.transactions),
       c: catchAllSuggestions(loggableBudgetLineItems(), state.transactions, localDateStr()) };
   }
+  // v3.115.0: Budget → Build from what you've spent.
+  function currentHistoryBudget(){ return proposeBudget(state.transactions, budgetLineItems(), localDateStr()); }
+  function renderBudgetFromHistory(){
+    var el = document.getElementById("historyBudgetBody");
+    if(!el) return;
+    var r = currentHistoryBudget();
+    el.innerHTML = budgetFromHistoryHtml(r);
+    var cnt = document.getElementById("historyBudgetCount");
+    if(cnt) cnt.textContent = r.ready && r.proposals.length ? r.proposals.length + " to add" : "";
+  }
+  document.getElementById("historyBudgetBody").addEventListener("change", function(e){
+    var k = e.target.getAttribute && e.target.getAttribute("data-bh-key");
+    if(k == null) return;
+    if(e.target.checked) delete historyBudgetUi.off[k]; else historyBudgetUi.off[k] = true;
+    renderBudgetFromHistory();
+  });
+  document.getElementById("historyBudgetBody").addEventListener("click", function(e){
+    if(!e.target.closest("[data-bh-apply]")) return;
+    var chosen = currentHistoryBudget().proposals.filter(function(p){ return !historyBudgetUi.off[p.key]; });
+    if(!chosen.length) return;
+    var before = { shared: state.shared.length, tx: state.transactions.map(function(t){ return [t.linkedExpenseId, t.category]; }) };
+    var made = applyBudgetProposals(state, chosen, function(){ return genId("exp"); });
+    refreshAfterLedgerChange("shared");
+    renderBudgetFromHistory();
+    showUndoToast("Added " + made.length + " budget line" + (made.length === 1 ? "" : "s"), function(){
+      state.shared.splice(before.shared, made.length);
+      state.transactions.forEach(function(t, i){ if(before.tx[i]){ t.linkedExpenseId = before.tx[i][0]; t.category = before.tx[i][1]; } });
+      refreshAfterLedgerChange("shared");
+      renderBudgetFromHistory();
+    });
+  });
   function renderRecurring(){
     var el = document.getElementById("recurringBody");
     if(!el) return;
@@ -5031,6 +5067,7 @@ import {
     if(!!recurringOpen.keys[k] === e.target.open) return;
     recurringOpen.keys[k] = e.target.open;
     renderRecurring();
+    renderBudgetFromHistory();
   }, true);
   document.getElementById("recurringBody").addEventListener("click", function(e){
     var dis = e.target.closest("[data-rc-dismiss]");

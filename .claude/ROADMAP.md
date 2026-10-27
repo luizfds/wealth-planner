@@ -2682,7 +2682,7 @@ A scheduled GitHub Action writes a daily price file for a fixed broad list (ASX 
 US list) to the Pages site; the app reads it before falling back to the user's own Sheet. **Never a list
 built from anyone's holdings** — the repo is public.
 
-## 146. `[~]` A budget from history
+## 146. `[x]` A budget from history
 After 3+ months imported, propose budget lines (amount, frequency, Needs/Wants, account) from what was
 spent, using `calc/recurring.js`; accept all, or line by line.
 
@@ -2723,6 +2723,16 @@ Measured: merging the backup's rules 109 → 97, no past transaction changes lin
 Replaying the whole history from no rules: 412 asks vs 438 before, 975 filed right vs 959, but 66 filed wrong
 vs 56 — fewer questions, slightly more to correct. Offering "all <merchant>" as a choice wasn't built: merging
 happens only when both answers already agree.
+
+Shipped as v3.115.0: `calc/budgetfromhistory.js` `proposeBudget(transactions, lines, today)` — spending of the
+last 12 months on no live line, once 3 months are logged: subscription-steady payees (`cadenceOf`, within 5% or
+$2 four times in five) get their own line at their usual amount and rhythm; everyday spending is grouped by
+category (the known-merchant category from item 147, else the transaction's) into one monthly-average line per
+category not already budgeted; an uncategorised merchant costing $300+ a year gets its own; the rest is summarised
+as left out. `applyBudgetProposals` adds the lines and links their transactions (undoable). Budget tab → "Build
+from what you've spent" (hidden when there's nothing to propose). Simulated on a real backup (outside the repo) as
+a household with no budget: 35 lines (12 steady, 18 categories, 5 merchants) covering its actual spending, against
+the 46 it built by hand; 3 small one-offs left out.
 
 
 ## 149. `[~]` Payslip import

@@ -2839,10 +2839,24 @@ date its discount starts. The demo's ETFs now pay distributions. Checked on the 
 repo): all three draw, no NaN, no errors.
 
 
-## 157. `[~]` Property, debt and super reports
+## 157. `[x]` Property, debt and super reports
 Property: gross/net yield, after-tax cash flow, equity growth, total return per property per year. Debt:
 balances, interest by year, deductible share, payoff dates. Super: contributions against caps by year,
 carry-forward room, balance history.
+
+Shipped as v3.122.0: three reports from `calc/assetreports.js`. Property returns (`propertyReturns`) — per property:
+value, paid with costs, loans, equity with offsets, LVR; a year at today's rates (rent, expenses, gross and net
+yield, cash after interest, after repayments, the tax effect at the owners' marginal rates, cash after repayments
+and tax); the last 12 months' value and equity growth and total return (growth + cash after interest + tax); growth a
+year since purchase; value at each 30 June from the logged history. Loans and debts (`debtSchedule`) — each loan and
+debt: owed now and a year ago (logged balances), rate, repayment, interest this year so far and last year across the
+recorded rate changes, the deductible share, and the month it's paid off at today's repayment and offset
+(`loanPayoff`; "Interest only" or "Not at this rate" otherwise). Super — per person, concessional contributions
+(employer, sacrifice and personal) against the cap, room left or over, balance at each 30 June; earlier years only
+while the balance was tracked (before that the tax model would replay today's plan), and the unused room in the
+years shown, blank once the balance passed $500,000. Checked on the demo and a real backup (outside the repo): all
+three draw, no NaN, no errors.
+
 
 ## 158. `[~]` Lender pack and year in review
 A printable one-page 12-month summary of income, spending, assets and liabilities for a refinance or

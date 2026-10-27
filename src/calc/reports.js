@@ -10,6 +10,10 @@ import { monthsIn, spendingByGroup, change } from "./reportframe.js";
 import { incomeTargets } from "./received.js";
 import { periodsOf } from "./ledger.js";
 import { holdingReturns, distributionYears, cgtParcels } from "./investreports.js";
+import { propertyReturns, debtSchedule } from "./assetreports.js";
+import { superContributions } from "./investments.js";
+import { valueOn } from "./history.js";
+import { fyWindow, financialYearOf } from "./property.js";
 
 // ---------------- Reports (v3.62.0) ----------------
 //
@@ -36,6 +40,9 @@ export var REPORTS = [
   { key: "dividends", label: "Distributions" },
   { key: "cgt", label: "Capital gains" },
   { key: "property", label: "Property P&L" },
+  { key: "propreturns", label: "Property returns" },
+  { key: "debts", label: "Loans and debts" },
+  { key: "super", label: "Super" },
   { key: "tax", label: "Tax summary" },
   { key: "month", label: "Month in detail" },
   { key: "nwcheck", label: "Net worth check" },
@@ -442,7 +449,106 @@ export function cgtReport(opts){
       "The net capital gain is before any loss carried in from earlier years and leaves out gains in managed funds' annual statements. Still-held parcels are sorted by when their discount starts — waiting past that date halves the tax on a gain." };
 }
 
+// ---------------- Property returns, loans and debts, super (v3.122.0) ----------------
+// The owners' marginal rate on a property's result: each owner's share at their rate, or an even
+// split across the household when no ownership is recorded.
+function ownersMarginalRate(p){
+  var people = getTaxPeople(), rates = {};
+  people.forEach(function(n){ try { rates[n] = Number(computePersonTax(n).marginalRate) || 0; } catch(e){ rates[n] = 0; } });
+  var map = p.ownership || {}, keys = Object.keys(map);
+  if(!keys.length) return people.length ? people.reduce(function(s, n){ return s + rates[n]; }, 0) / people.length : 0;
+  return keys.reduce(function(s, n){ return s + (Number(map[n]) || 0) / 100 * (rates[n] || 0); }, 0);
+}
+export function propertyReturnsReport(opts){
+  opts = opts || {};
+  var today = opts.today || localDateStr();
+  var ps = propertyReturns(state.properties, { today: today, rateOf: ownersMarginalRate });
+  var cols = [{ key: "line", label: "" }].concat(ps.map(function(p){ return { key: p.id, label: p.name, num: true }; }));
+  var pctRow = function(label, k){ var c = { line: label }; ps.forEach(function(p){ c[p.id] = p[k] == null ? null : Math.round(p[k] * 1000) / 10; }); return { cls: "pct", cells: c }; };
+  var row = function(label, k, cls){ var c = { line: label }; ps.forEach(function(p){ c[p.id] = p[k]; }); return { cls: cls, cells: c }; };
+  var ips = ps.some(function(p){ return p.ip; });
+  var rows = [row("Value", "value"), row("Paid, with costs", "cost"), row("Loans", "loans"), row("Equity (with offsets)", "equity"), pctRow("Loan to value %", "lvr")];
+  if(ips) rows = rows.concat([{ cls: "head", cells: { line: "A year at today's rates" } }, row("Rent", "rent"), row("Expenses", "expenses"),
+    pctRow("Gross yield %", "grossYield"), pctRow("Net yield %", "netYield"),
+    row("Cash after interest", "beforeRepay"), row("Cash after repayments", "afterRepay"), row("Tax effect", "taxEffect"), row("Cash after repayments and tax", "afterTax", "total")]);
+  rows = rows.concat([{ cls: "head", cells: { line: "The last 12 months" } }, row("Value growth", "growth"), row("Equity growth", "equityGrowth"),
+    row("Total return (growth, cash after interest, tax)", "totalReturn", "total"), pctRow("Growth a year since purchase %", "growthPa")]);
+  var fys = {};
+  ps.forEach(function(p){ p.years.forEach(function(y){ fys[y.fy] = y.label; }); });
+  var fyKeys = Object.keys(fys).map(Number).sort();
+  if(fyKeys.length > 1){
+    rows.push({ cls: "head", cells: { line: "Value at 30 June" } });
+    fyKeys.forEach(function(fy){
+      var c = { line: fys[fy] };
+      ps.forEach(function(p){ var y = p.years.find(function(x){ return x.fy === fy; }); c[p.id] = y ? y.value : null; });
+      rows.push({ cells: c });
+    });
+  }
+  return { key: "propreturns", title: "Property returns", subtitle: fmtDate(today, { year: true }), columns: cols, rows: ps.length ? rows : [], wide: ps.length > 3,
+    note: "The year's figures are the plan at today's rent, expenses and rates. Cash after interest leaves the principal out — paying it down is saving, not a cost. " +
+      "The tax effect is the property's deductible result (with depreciation) at its owners' marginal rates: a loss is tax back. " +
+      "Growth uses the values you've logged; the latest 30 June is the value now if this year isn't over." };
+}
+export function debtsReport(opts){
+  opts = opts || {};
+  var today = opts.today || localDateStr();
+  var d = debtSchedule(state.properties, state.debts, { today: today });
+  var rows = d.rows.map(function(x){
+    return { cells: { name: x.name, balance: x.balance, then: x.then, rate: x.rate == null ? "" : (Math.round(x.rate * 100) / 100) + "%", monthly: x.monthly,
+      thisYear: x.interestThisYear, lastYear: x.interestLastYear, deductible: x.deductibleLastYear,
+      payoff: x.interestOnly ? "Interest only" : x.payoff ? fmtDate(x.payoff, { year: true }).replace(/^\d+ /, "") : x.kind === "debt" ? "" : "Not at this rate" } };
+  });
+  if(rows.length > 1){
+    var sum = function(k){ return r2(d.rows.reduce(function(s, x){ return s + (x[k] || 0); }, 0)); };
+    var anyThen = d.rows.some(function(x){ return x.then != null; });
+    rows.push({ cls: "total", cells: { name: "Total", balance: sum("balance"), then: anyThen ? r2(d.rows.reduce(function(s, x){ return s + (x.then != null ? x.then : x.balance); }, 0)) : null,
+      monthly: sum("monthly"), thisYear: sum("interestThisYear"), lastYear: sum("interestLastYear"), deductible: sum("deductibleLastYear") } });
+  }
+  return { key: "debts", title: "Loans and debts", subtitle: fmtDate(today, { year: true }),
+    columns: [{ key: "name", label: "" }, { key: "balance", label: "Owed now", num: true }, { key: "then", label: "A year ago", num: true }, { key: "rate", label: "Rate" },
+      { key: "monthly", label: "Repayment a month", num: true }, { key: "thisYear", label: "Interest " + d.thisLabel + " so far", num: true },
+      { key: "lastYear", label: "Interest " + d.lastLabel, num: true }, { key: "deductible", label: "Deductible " + d.lastLabel, num: true }, { key: "payoff", label: "Paid off" }],
+    rows: rows, wide: true,
+    note: "Interest is worked out from today's balance and offset across the rates each loan has recorded, so an earlier year is an estimate. " +
+      "Deductible is the investment share of an investment property's loan. Paid off is at today's repayment and offset. A year ago uses the balances you've logged; a debt without a logged balance then is counted at today's in the total." };
+}
+export function superReport(opts){
+  opts = opts || {};
+  var today = opts.today || localDateStr();
+  var fy = financialYearOf(today);
+  var people = getTaxPeople();
+  var rows = [];
+  people.forEach(function(person){
+    var accounts = (state.assets || []).filter(function(a){ return a.category === "Super" && (a.person || "") === person; });
+    rows.push({ cls: "head", cells: { fy: person } });
+    var balAt = function(at){ return accounts.reduce(function(s, a){ var v = valueOn(a.history, at); return v == null ? s : (s == null ? 0 : s) + v; }, null); };
+    var unused = 0, lastBal = null;
+    for(var y = fy - 5; y <= fy; y++){
+      var end = fyWindow(y).end, at = end < today ? end : today;
+      var bal = y === fy ? (accounts.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0) || balAt(at)) : balAt(at);
+      // Before the last finished year, only years the super was being tracked in — earlier than that
+      // the tax model would just be today's plan replayed.
+      if(y < fy - 1 && bal == null) continue;
+      var c = superContributions(y).find(function(x){ return x.person === person; });
+      if(!c) continue;
+      if(y < fy) unused += c.room; else lastBal = balAt(fyWindow(y - 1).end);
+      rows.push({ cells: { fy: fyWindow(y).label + (y === fy ? " (planned)" : ""), sg: c.sg, other: c.other, total: c.total, cap: c.cap, room: c.over ? -c.over : c.room, balance: bal } });
+    }
+    rows.push({ cls: "total", cells: { fy: "Unused in the earlier years shown", room: lastBal != null && lastBal >= 500000 ? null : r2(unused) } });
+  });
+  return { key: "super", title: "Super", subtitle: "Concessional contributions against the cap, and balances", wide: true,
+    columns: [{ key: "fy", label: "" }, { key: "sg", label: "Employer", num: true }, { key: "other", label: "Salary sacrifice and personal", num: true }, { key: "total", label: "Concessional", num: true },
+      { key: "cap", label: "Cap", num: true }, { key: "room", label: "Room left (−over)", num: true }, { key: "balance", label: "Balance at 30 June", num: true }],
+    rows: rows,
+    note: "Contributions are the tax model's for each year: the plan with whatever pay was logged as received. Years before the last finished one show only while their balance was being tracked. " +
+      "The cap includes any carry-forward set on the Tax page. Unused cap from the five years before can be carried forward while the total super balance was under $500,000 on the 30 June before — the last row adds up the unused room in the years shown (blank when the balance was over). " +
+      "Balances are the last value logged on or before each 30 June; this year's is today's." };
+}
+
 export function buildReport(key, opts){
+  if(key === "propreturns") return propertyReturnsReport(opts);
+  if(key === "debts") return debtsReport(opts);
+  if(key === "super") return superReport(opts);
   if(key === "invest") return investReturnsReport(opts);
   if(key === "dividends") return distributionsReport(opts);
   if(key === "cgt") return cgtReport(opts);

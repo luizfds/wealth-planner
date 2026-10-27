@@ -2557,7 +2557,7 @@ figures. Settings → Checks is all clear on it. The random generator and its po
 names) are gone from `app.js`. Not included: a lodged tax year — the FY return still shows as to do.
 
 
-## 138. `[ ]` Polish pass
+## 138. `[~]` Polish pass
 Round axis ticks (`$3M`, not `$2,911,689`); one date format in the UI (no ISO dates); Checks' "Looks right"
 button laid out beside its text; the net worth statement leaves a column's total blank when not every item
 has a value then; no "N/A" budget group card; Theme and Export backup off the header into the ⋯ menu.

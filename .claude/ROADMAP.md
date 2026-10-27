@@ -2494,6 +2494,175 @@ Shipped as v3.101.0: account type `agent` ("Property manager") linked `property:
 backfills blank ones when the account is set up. `billsForMonth` marks a line whose latest payment is on an agent account
 `agent` — its own calendar group, never overdue, out of `upcomingBills` and `directTotal`.
 
+## Professional grade (late October 2026 assessment)
+
+From [`ASSESSMENT-2026-10.md`](ASSESSMENT-2026-10.md) — every page driven at v3.101.0 and compared with
+PocketSmith, Frollo, Sharesight, Monarch, ProjectionLab and Copilot. The calculations are ahead of all of
+them on AU tax, super and property; what's behind is the first impression, how much has to be typed, one
+thing living in several places, and reports. Phases are in order; items inside a phase can go in any order.
+Nothing here may send data off the device — "type less" comes from deriving, estimating and importing, not
+bank feeds.
+
+### Phase A — first impression
+
+## 135. `[ ]` The headline follows the current situation
+The header's Monthly cash (every page) is `scenarioTotals(state.activeScenario)` — whichever scenario is
+*selected*, so picking a Buy scenario to look at it changes the household's headline to a what-if. Found on
+a real backup where the selected scenario wasn't the current one. It is also a different figure from the
+same scenario's card (a normal month vs averaged with bonuses) with nothing on screen saying so. Header,
+Home and goal dates read the current-situation scenario; the selected one is labelled as a what-if
+wherever it's shown; one definition of "monthly", the other in a tooltip.
+
+## 136. `[ ]` Trend lines that agree with their numbers
+Home's net worth card says "+X since <date>" (today's live figure against the last log) beside a sparkline
+of logged points only, which can fall — green text, red falling line. Value histories logged by hand a few
+times (property, super) draw as steps and zoom in to the range, so one revaluation looks like a crash. Add
+today's figure as the last point; draw sparse logs as marked points; zoom with a visible baseline.
+
+## 137. `[ ]` A full, fixed demo household
+`loadSampleData()` is random (a property 60% of the time) and has no transactions, balances or money
+received, so the demo shows `$0` almost everywhere and Reports are empty. Build one deterministic,
+invented household: two people, a home loan and an investment property with a statement history, 18 months
+of transactions and income received, account balances with history, holdings with lots, a closed tax year.
+Every page and report should look in use. Test: every Reports table has a non-zero total on sample data.
+
+## 138. `[ ]` Polish pass
+Round axis ticks (`$3M`, not `$2,911,689`); one date format in the UI (no ISO dates); Checks' "Looks right"
+button laid out beside its text; the net worth statement leaves a column's total blank when not every item
+has a value then; no "N/A" budget group card; Theme and Export backup off the header into the ⋯ menu.
+Measure with `getBoundingClientRect`, per the usual rule.
+
+## 139. `[ ]` Less prose, clearer hierarchy
+Page intros and card paragraphs behind ⓘ (item 59's pattern); each page gets a fixed layout — headline
+figures, one main chart, one main list — with secondary panels collapsed or moved to detail pages (item
+151). Empty states become one line and one button. A simple logo mark. Things you own read as a summary
+first, with an Edit button — today a property's Overview is a wall of input fields.
+
+## 140. `[ ]` Render edit forms on open
+Collapsed rows stop pre-rendering their editor (936 controls on Cash flow with sample data; well over 1,500
+with a real year of data). Build the form the first time a row opens.
+
+## 141. `[ ]` Long lists show the top, not everything
+With a real year of data, Cash flow → Spending runs to several screen-heights on a desktop (Actual vs
+planned and This year so far list every line), and Settings → Import rules is one unsearchable list
+tens of thousands of pixels tall on a phone. Show the lines that matter (over, under, biggest) with
+"Show all"; give rules search, sort by last used and paging.
+
+### Phase B — type less
+
+## 142. `[ ]` Balances from statements
+An imported statement's closing balance sets the account's balance on that date; imported transactions
+roll it forward until the next one. Manual "Update" stays for accounts with no statements.
+
+## 143. `[ ]` Bills post themselves
+A planned bill on its due date becomes a pending transaction; an import that matches it replaces it;
+otherwise one tap (or "Confirm all") makes it real. "Catch up on 17 overdue" becomes "17 to confirm".
+Pending rows count in forecasts, not in spending totals.
+
+## 144. `[ ]` Estimates between logs
+Super = last balance + SG from pay + assumed return; property = last value indexed by growth (or the suburb
+benchmark); vehicle = depreciation. Shown dated and tagged "estimated" until a real figure is logged. The
+stale-assets banner only asks when an estimate is old *and* a real figure is due (a super statement period).
+
+## 145. `[ ]` Share prices with no setup
+A scheduled GitHub Action writes a daily price file for a fixed broad list (ASX 200, common ETFs, a short
+US list) to the Pages site; the app reads it before falling back to the user's own Sheet. **Never a list
+built from anyone's holdings** — the repo is public.
+
+## 146. `[ ]` A budget from history
+After 3+ months imported, propose budget lines (amount, frequency, Needs/Wants, account) from what was
+spent, using `calc/recurring.js`; accept all, or line by line.
+
+## 147. `[ ]` Common Australian merchants pre-categorised, and clean names
+A built-in map of large public brands (supermarkets, fuel, telcos, utilities, insurers, transport) to
+categories, applied before learnt rules, so a first import is mostly categorised. Lists show a cleaned
+merchant name (store numbers, suburbs and card refs stripped, as `import-rules.js` already does for
+matching) with the bank's text underneath — on real data about one transaction in seven still shows raw
+bank text.
+
+## 148. `[ ]` Rules that generalise
+On a real backup most learnt import rules had matched exactly once: a rule is learnt per exact
+description, so each new store of the same chain teaches another. Match on the cleaned merchant key, offer
+"all <merchant>" when a second variant appears, and merge duplicate rules.
+
+## 149. `[ ]` Payslip import
+A payslip PDF → gross, tax withheld, super, sacrifice and YTD, into income lines and the withholding check.
+
+## 150. `[ ]` A transaction grid
+Keyboard-first entry and multi-select editing in a table layout on wide screens; cards stay on phones.
+First run offers "drop in three statements and a payslip" as the main path.
+
+### Phase C — one thing, one place
+
+## 151. `[ ]` A detail page for every thing
+Account, holding, property, loan, budget line, merchant, person: one route each, with history chart,
+transactions, related items and the edit form. Every list links to it; search lands on it.
+
+## 152. `[ ]` Navigation by what you own
+Accounts + Investments + Property become **Net worth** (one list grouped Cash · Investments · Super ·
+Property · Debts, each to its detail page); debts in one place (cards, personal loans, property loans);
+Scenarios only in Plan (Home links to it); a **Goals** tab in Plan for savings goals, emergency fund, FI and
+Can we buy?; person tax settings move from Settings → People to Tax; Checks moves to Home's to-do and
+Review. Old ids keep working through `nav.js` ALIASES.
+
+### Phase D — reports
+
+## 153. `[ ]` One report frame
+Range (month, quarter, FY, calendar year, last 12 months, custom), compare to (previous period, same period
+last year, budget), group by (category, group, merchant, account, person, property), a chart over every
+table, and any figure clicks through to its transactions. Existing eight reports move onto it. Today a
+report can only show the header's FY, so a household with over a year of data can't see its last 12 months
+in one view.
+
+## 154. `[ ]` Cash flow Sankey and household income statement
+Gross pay → tax / super / take-home → Needs / Wants / saved / invested, for a month or a year; and the
+year month by month with a budget column and savings rate.
+
+## 155. `[ ]` Budget vs actual and spending trends
+Lines × months variance heat map; 12/24-month trends with year-on-year per category and merchant.
+
+## 156. `[ ]` Investment performance, income and CGT
+Per holding and total: capital gain, income, currency, annualised return, against a benchmark;
+distributions and franking by FY; realised and unrealised CGT by parcel with the discount.
+
+## 157. `[ ]` Property, debt and super reports
+Property: gross/net yield, after-tax cash flow, equity growth, total return per property per year. Debt:
+balances, interest by year, deductible share, payoff dates. Super: contributions against caps by year,
+carry-forward room, balance history.
+
+## 158. `[ ]` Lender pack and year in review
+A printable one-page 12-month summary of income, spending, assets and liabilities for a refinance or
+purchase; a narrative one-pager each 30 June.
+
+## 159. `[ ]` Saved reports and a proper printout
+Pin a report with its settings; print with a title block, household, period, page breaks and charts.
+
+### Phase E — planning depth
+
+## 160. `[ ]` A range of outcomes
+Historical-sequence (or Monte Carlo) runs: a 10th–90th band on the projection and a probability on the FI
+and retirement answers.
+
+## 161. `[ ]` Life events on a timeline
+Children, career breaks, a sale, a downsizer contribution — dated events that change income, spending or
+assets, shown on the projection; an age axis instead of "Yr 7".
+
+## 162. `[ ]` Retirement drawdown and the Age Pension
+Account-based pension drawdown with minimum rates and tax, and the Age Pension under the assets and income
+tests, in Plan → Retirement.
+
+### Phase F — platform
+
+## 163. `[ ]` Optional encrypted sync to your own drive
+Client-side-encrypted state to the user's own cloud drive, building on item 106's folder backups, so a
+cleared browser is no longer data loss. Off by default; nothing readable leaves the device.
+
+## 164. `[ ]` Screenshot comparison in CI
+`scripts/smoke.mjs` saves each page and subtab; a PR shows what changed visually.
+
+## 165. `[ ]` CLAUDE.md and PROJECT_KNOWLEDGE.md brought up to date
+`app.js` is 5,801 lines, not ~3,400; the page list and IA change with item 152.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

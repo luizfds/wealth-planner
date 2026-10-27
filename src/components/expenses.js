@@ -1646,7 +1646,7 @@ export function irregularBudgetSectionHtml(irregularItems){
   // No period in the heading any more — rows can each be on a different one, and a heading that
   // named only one of them would be wrong for the rest.
   return '<div style="margin-top:16px"><div class="fire-stat-row" style="margin-bottom:2px"><span>Irregular / reserve budgets</span></div>' +
-    '<p class="ledger-note" style="margin:0 0 8px">Marked "no fixed timing" — compared against a full year\'s budget instead of this month\'s, since these aren\'t expected on any particular schedule. Each line names the twelve months it\'s measured over; change that with "Budget year" on the row. Tap a line to see the transactions behind it.</p>' +
+    '<p class="ledger-note help" style="margin:0 0 8px">Marked "no fixed timing" — compared against a full year\'s budget instead of this month\'s, since these aren\'t expected on any particular schedule. Each line names the twelve months it\'s measured over; change that with "Budget year" on the row. Tap a line to see the transactions behind it.</p>' +
     rows + '</div>';
 }
 // What these budget lines actually put on this month's bills: every monthly (and sub-monthly) line
@@ -2096,7 +2096,7 @@ export function renderSpendingTrends(){
   // months that were genuinely being logged, so this also catches "six months of history, five of
   // them empty" — which is what every new user has.
   if(view.monthsCovered < 2){
-    el.innerHTML = '<p class="ledger-note" style="margin:0">Once you have spending logged in two different months, this is where you\'ll see which categories are climbing and which are settling down.' +
+    el.innerHTML = '<p class="ledger-note section-empty" style="margin:0">Once you have spending logged in two different months, this is where you\'ll see which categories are climbing and which are settling down.' +
       (view.monthsCovered === 1 ? " One month in — keep logging." : "") + '</p>' + trendsImportHintHtml();
     return;
   }
@@ -2124,7 +2124,7 @@ export function renderSpendingTrends(){
     : "You've spent <b>" + fmtCurrency0.format(spentSoFar) + "</b> this month" + sameDays + ".";
   // Said once, plainly, instead of quietly omitting the deltas and leaving the reader to wonder.
   var earlyDaysNote = comparing ? "" :
-    '<p class="ledger-note trend-partial-note" style="margin:0 0 10px">' + view.monthsCovered + ' months logged so far. The bars below show what you\'ve recorded; comparisons start at ' +
+    '<p class="ledger-note trend-partial-note help" style="margin:0 0 10px">' + view.monthsCovered + ' months logged so far. The bars below show what you\'ve recorded; comparisons start at ' +
     TRENDS_MIN_MONTHS_FOR_COMPARISON + ' months, because until then there\'s no way to tell a month you spent more from a month you simply logged more of.' +
     trendsImportHintText() + '</p>';
   // Said plainly whenever the window is shorter than asked for. Without this the panel shows two
@@ -2153,7 +2153,7 @@ export function renderSpendingTrends(){
     (comparing ? trendAlertsHtml(view.rows) : "") +
     earlyDaysNote +
     coverageNote +
-    (view.complete ? "" : '<p class="ledger-note trend-partial-note" style="margin:0 0 10px">' + view.throughDay + ' of ' + view.daysInMonth + ' days in, so this month\'s bar is still filling. Every comparison above counts only the same days of earlier months, never a whole one against a part-finished one.</p>') +
+    (view.complete ? "" : '<p class="ledger-note trend-partial-note help" style="margin:0 0 10px">' + view.throughDay + ' of ' + view.daysInMonth + ' days in, so this month\'s bar is still filling. Every comparison above counts only the same days of earlier months, never a whole one against a part-finished one.</p>') +
     (rowsHtml ? '<div class="trend-rows">' + rowsHtml + '</div>'
               : '<p class="ledger-note" style="margin:0">Nothing logged above ' + fmtCurrency0.format(TRENDS_MIN_SPEND) + ' over the last ' + TRENDS_MONTHS + ' months yet.</p>') +
     (rowsHtml ? '<details class="trend-numbers"><summary>Show the numbers</summary>' + trendNumbersTableHtml(view) + '</details>' : "");
@@ -2178,7 +2178,7 @@ export function renderYearSpending(){
 
   var txns = transactionsInRange(state.transactions, win.start, win.end);
   if(!txns.length){
-    panel.innerHTML = '<p class="ledger-note" style="margin:0">Nothing logged in ' + escapeAttr(win.label) +
+    panel.innerHTML = '<p class="ledger-note section-empty" style="margin:0">Nothing logged in ' + escapeAttr(win.label) +
       ' yet. Spending you log on this tab shows up here, grouped by category.</p>';
     return;
   }
@@ -2229,7 +2229,7 @@ export function renderYearSpending(){
   panel.innerHTML = headline +
     (categoryChartHtml(groups.filter(function(g){ return g.monthly > 0; }), "") || "") +
     '<div class="year-cat-rows">' + rows + '</div>' +
-    (plannedTotal >= 1 ? '<p class="ledger-note" style="margin:6px 0 0">Planned is each budget line\'s share of the year so far, from the day it starts to the day it ends. Bills that come once or twice a year are spread evenly, so one paid early reads as over plan until the year catches up.</p>' : '');
+    (plannedTotal >= 1 ? '<p class="ledger-note help" style="margin:6px 0 0">Planned is each budget line\'s share of the year so far, from the day it starts to the day it ends. Bills that come once or twice a year are spread evenly, so one paid early reads as over plan until the year catches up.</p>' : '');
 }
 
 // Which twelve months the household counts as a year — rendered here rather than in app.js because

@@ -123,7 +123,7 @@
 
   <nav class="app-sidebar">
     <div class="app-brand">
-      <div class="app-brand-name"><span class="app-brand-mark">W</span>ealth Planner</div>
+      <div class="app-brand-name"><svg class="app-brand-mark" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="6" fill="currentColor"/><path d="M5.6 8l3 8.2 3.4-6.4 3.4 6.4 3-8.2" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Wealth Planner</div>
       <div class="app-brand-tag">Budget · Property · Tax · Net worth</div>
     </div>
     <button type="button" class="nav-menu-toggle" id="navMenuToggle" aria-haspopup="true" aria-expanded="false" aria-controls="appNav">
@@ -227,7 +227,7 @@
         </div>
 
         <div class="dashboard-subpage" id="dashboardSub-overview">
-          <p class="page-intro" style="margin-top:0">Compare renting against buying, scenario by scenario — keep any investment property in the mix across every option.</p>
+          <p class="page-intro help" style="margin-top:0">Compare renting against buying, scenario by scenario — keep any investment property in the mix across every option.</p>
           <div class="stat-row" id="dashboardStats"></div>
           <button type="button" class="calc-hint-link" id="dashboardProjectionsLink" style="display:block;margin:4px 0 12px">See your long-term projection (all scenarios, 20 years out) →</button>
           <div class="cards" id="cards" role="radiogroup" aria-label="Choose active scenario"></div>
@@ -277,7 +277,7 @@
         <div id="adviceStrip-tax"></div>
         <div class="tax-subpage" id="taxSub-year">
         <div class="page-intro-row">
-          <p class="page-intro">This year's tax and super as a plan — what each person keeps, and what moving money into super would do.</p>
+          <p class="page-intro help">This year's tax and super as a plan — what each person keeps, and what moving money into super would do.</p>
         </div>
         <div class="ledgers">
           <details class="ledger" id="juneMovesLedger">
@@ -305,7 +305,7 @@
         </div>
         <div class="tax-subpage" id="taxSub-returns" hidden>
         <div class="page-intro-row">
-          <p class="page-intro">One financial year as a return asks for it, per person — and what moved since the last one you lodged.</p>
+          <p class="page-intro help">One financial year as a return asks for it, per person — and what moved since the last one you lodged.</p>
         </div>
         <div class="ledgers">
           <details class="ledger" id="taxYearLedger" open>
@@ -322,7 +322,7 @@
         </div>
         <div class="tax-subpage" id="taxSub-documents" hidden>
         <div class="page-intro-row">
-          <p class="page-intro">What a year's return was built from — the papers to gather, and a whole year's figures brought in at once.</p>
+          <p class="page-intro help">What a year's return was built from — the papers to gather, and a whole year's figures brought in at once.</p>
         </div>
         <div class="ledgers">
           <details class="ledger" id="taxDocsLedger" open>
@@ -348,7 +348,7 @@
         <div class="expenses-subpage" id="expensesSub-budget">
         <div id="adviceStrip-cashflow"></div>
         <div class="page-intro-row">
-          <p class="page-intro">Everything the household plans to spend, in one list — and what's actually been spent against it.</p>
+          <p class="page-intro help">Everything the household plans to spend, in one list — and what's actually been spent against it.</p>
           <div class="page-intro-actions">
             <div class="page-overflow">
               <button type="button" class="page-overflow-btn" data-overflow-toggle aria-haspopup="true" aria-expanded="false" aria-label="Expenses import and export" title="Expenses import and export">⋯</button>
@@ -422,7 +422,7 @@
         </div>
         <div class="expenses-subpage" id="expensesSub-spending" hidden>
         <div class="page-intro-row">
-          <p class="page-intro">What you actually spent. Log it here and the Budget tab becomes a live picture of the month.</p>
+          <p class="page-intro help">What you actually spent. Log it here and the Budget tab becomes a live picture of the month.</p>
           <div class="page-intro-actions">
             <button type="button" class="btn btn-sm review-cta" id="reviewExpensesBtn" hidden title="Go through budget lines that are overdue (or never logged) one at a time and record what you actually spent">Catch up</button>
           </div>
@@ -500,7 +500,7 @@
         </div>
         <div class="expenses-subpage" id="expensesSub-bills" hidden>
         <div class="page-intro-row">
-          <p class="page-intro">When each bill lands this month, from the last time it was paid — and which have been paid. Change the month with the period beside the page title.</p>
+          <p class="page-intro help">When each bill lands this month, from the last time it was paid — and which have been paid. Change the month with the period beside the page title.</p>
         </div>
         <div class="ledgers">
           <details class="ledger" open>
@@ -514,7 +514,7 @@
         <div class="expenses-subpage" id="expensesSub-income" hidden>
         <div id="adviceStrip-income"></div>
         <div class="page-intro-row">
-          <p class="page-intro">Your household income, and what it's really worth after tax.</p>
+          <p class="page-intro help">Your household income, and what it's really worth after tax.</p>
           <div class="page-intro-actions">
             <div class="page-overflow">
               <button type="button" class="page-overflow-btn" data-overflow-toggle aria-haspopup="true" aria-expanded="false" aria-label="Income import and export" title="Income import and export">⋯</button>
@@ -565,7 +565,7 @@
         <div class="accounts-subpage" id="accountsSub-accounts">
         <div id="adviceStrip-accounts"></div>
         <div class="page-intro-row">
-          <p class="page-intro">Every place your money sits — bank accounts, offsets, cards and loans — with what's in each. Tag spending with the account it came out of.</p>
+          <p class="page-intro help">Every place your money sits — bank accounts, offsets, cards and loans — with what's in each. Tag spending with the account it came out of.</p>
         </div>
         <div class="ledgers">
           <details class="ledger" open>
@@ -607,7 +607,7 @@
         </div>
         <div class="accounts-subpage" id="accountsSub-people">
         <div class="page-intro-row">
-          <p class="page-intro">Who's in the household, and what the app needs to know about each of them.</p>
+          <p class="page-intro help">Who's in the household, and what the app needs to know about each of them.</p>
         </div>
         <div class="ledgers">
           <details class="ledger" open>
@@ -627,7 +627,7 @@
         </div>
         <div class="accounts-subpage" id="accountsSub-categories" hidden>
         <div class="page-intro-row">
-          <p class="page-intro">How spending is grouped for the charts — a category should cover several budget lines, not restate one.</p>
+          <p class="page-intro help">How spending is grouped for the charts — a category should cover several budget lines, not restate one.</p>
         </div>
         <div class="ledgers">
           <details class="ledger" open>
@@ -646,7 +646,7 @@
         </div>
         <div class="accounts-subpage" id="accountsSub-rules" hidden>
         <div class="page-intro-row">
-          <p class="page-intro">What the bank import has learned: which words in a statement line file it under which budget line. Fix a wrong one, or add one before an import.</p>
+          <p class="page-intro help">What the bank import has learned: which words in a statement line file it under which budget line. Fix a wrong one, or add one before an import.</p>
         </div>
         <div class="ledgers">
           <details class="ledger" open>
@@ -663,7 +663,7 @@
         </div>
         <div class="accounts-subpage" id="accountsSub-checks" hidden>
         <div class="page-intro-row">
-          <p class="page-intro">Places where your data disagrees with itself — nothing breaks, but a figure somewhere is quietly wrong.</p>
+          <p class="page-intro help">Places where your data disagrees with itself — nothing breaks, but a figure somewhere is quietly wrong.</p>
         </div>
         <div class="ledgers">
           <details class="ledger" open>
@@ -680,7 +680,7 @@
         </div>
         <div class="accounts-subpage" id="accountsSub-preferences" hidden>
         <div class="page-intro-row">
-          <p class="page-intro">Settings that apply to your whole household, not to one account or one budget line.</p>
+          <p class="page-intro help">Settings that apply to your whole household, not to one account or one budget line.</p>
         </div>
         <div class="ledgers">
           <details class="ledger" open>
@@ -718,7 +718,7 @@
 
       <section class="app-page" id="page-properties" hidden>
         <div class="page-intro-row">
-          <p class="page-intro">What you actually own — value, loans, and the rent/expenses tied to each property.</p>
+          <p class="page-intro help">What you actually own — value, loans, and the rent/expenses tied to each property.</p>
           <div class="page-intro-actions">
             <div class="page-overflow">
               <button type="button" class="page-overflow-btn" data-overflow-toggle aria-haspopup="true" aria-expanded="false" aria-label="Properties export" title="Properties export">⋯</button>
@@ -754,7 +754,7 @@
 
       <section class="app-page" id="page-assets" hidden>
         <div class="page-intro-row">
-          <p class="page-intro">What you own today, tracked over time, and what buying would do to your net worth.</p>
+          <p class="page-intro help">What you own today, tracked over time, and what buying would do to your net worth.</p>
           <div class="page-intro-actions">
             <div class="page-overflow">
               <button type="button" class="page-overflow-btn" data-overflow-toggle aria-haspopup="true" aria-expanded="false" aria-label="Assets import and export" title="Assets import and export">⋯</button>
@@ -837,7 +837,7 @@
 
       <section class="app-page" id="page-reports" hidden>
         <div class="page-intro-row">
-          <p class="page-intro">Statements for the period beside the page title — to read, print, or hand to an accountant as a CSV.</p>
+          <p class="page-intro help">Statements for the period beside the page title — to read, print, or hand to an accountant as a CSV.</p>
         </div>
         <div id="reportsBody"></div>
       </section>
@@ -849,14 +849,14 @@
           <button type="button" class="subnav-item" data-plan-sub="retirement">Retirement</button>
         </div>
         <div class="plan-subpage" id="planSub-retirement" hidden>
-          <div class="page-intro-row"><p class="page-intro">When you could stop working, and what changes it — from the plan already in the app.</p></div>
+          <div class="page-intro-row"><p class="page-intro help">When you could stop working, and what changes it — from the plan already in the app.</p></div>
           <div class="ledgers"><details class="ledger" open><summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Retirement</h2></div></summary>
             <div class="ledger-body"><div id="retirementBody"></div></div></details></div>
         </div>
         <div class="plan-subpage" id="planSub-scenarios">
         <div id="adviceStrip-plan"></div>
         <div class="page-intro-row">
-          <p class="page-intro">What each scenario costs to live in — rent or a home loan, plus a purchase calculator for anything you're buying.</p>
+          <p class="page-intro help">What each scenario costs to live in — rent or a home loan, plus a purchase calculator for anything you're buying.</p>
         </div>
         <div class="ledgers">
           <details class="ledger" open>
@@ -871,7 +871,7 @@
         </div>
         </div>
         <div class="plan-subpage" id="planSub-projections" hidden>
-        <p class="page-intro">Where each scenario's net worth could land years from now, under assumptions you control.</p>
+        <p class="page-intro help">Where each scenario's net worth could land years from now, under assumptions you control.</p>
         <div class="ledgers">
           <details class="ledger" open>
             <summary>

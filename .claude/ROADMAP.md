@@ -2573,11 +2573,25 @@ blank when the snapshot is partial. Budget: the N/A group is labelled "Other" an
 legend. Export backup and Theme moved into the header's ⋯ menu.
 
 
-## 139. `[~]` Less prose, clearer hierarchy
+## 139. `[x]` Less prose, clearer hierarchy
 Page intros and card paragraphs behind ⓘ (item 59's pattern); each page gets a fixed layout — headline
 figures, one main chart, one main list — with secondary panels collapsed or moved to detail pages (item
 151). Empty states become one line and one button. A simple logo mark. Things you own read as a summary
 first, with an Edit button — today a property's Overview is a wall of input fields.
+
+Shipped as v3.106.0 (everything but the last sentence, which is now 139b): the 20 static page intros carry
+`.help` (behind an ⓘ, or shown with Settings → Preferences → Explanations); Home's stays visible while the app
+is empty, where it is the instruction. Seventeen card notes that explain how a figure is worked out rather than
+state one also went behind the ⓘ. Measured on the demo at 390px, visible paragraph text across every page and
+subtab: 16,948 → 10,226 characters (−40%); on an empty app 8,741 → 7,909. Empty cards: a "nothing yet"
+paragraph carries `.section-empty` and `details.ledger:has(.section-empty)` hides the card, so an empty
+Property page is one line and one button. Sidebar: the app icon's mark beside the name instead of a coloured W.
+
+## 139b. `[ ]` Things you own as a summary, with Edit
+A property's Overview opens as a wall of input fields. Show the property as a read-only summary first (value,
+purchase, loans, rent, costs, yield) with an Edit button that opens today's fields; same for a holding and an
+account when item 151's detail pages land.
+
 
 ## 140. `[ ]` Render edit forms on open
 Collapsed rows stop pre-rendering their editor (936 controls on Cash flow with sample data; well over 1,500

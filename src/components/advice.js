@@ -37,7 +37,7 @@ export function adviceHomeHtml(items){
     ? '<div class="adv-list">' + items.map(function(a){ return card(a, true); }).join("") + '</div>'
     : '<p class="ledger-note">Nothing to say yet — this fills in as income, spending, loans and scenarios are entered.</p>';
   return '<div class="panel adv-panel"><h3>What the app notices</h3>' +
-    '<p class="ledger-note adv-note">Read from your own figures, worked out here in the browser. Observations to weigh, not financial advice — the ones about tax and loans are worth taking to your accountant.</p>' +
+    '<p class="ledger-note adv-note help">Read from your own figures, worked out here in the browser. Observations to weigh, not financial advice — the ones about tax and loans are worth taking to your accountant.</p>' +
     body + askClaudeHtml() + '</div>';
 }
 export function adviceStripHtml(items, area){

@@ -822,7 +822,7 @@ function propertiesEquityDebtBarHtml(){
     { key: "Debt", value: propertiesTotalMortgageBalance(), colorClass: "series-color-7" }
   ];
   var visible = segs.filter(function(s){ return s.value > 0; });
-  if(!visible.length) return '<p class="ledger-note" style="margin:0">Add a property to see this.</p>';
+  if(!visible.length) return '<p class="ledger-note section-empty" style="margin:0">Add a property to see this.</p>';
   var whole = visible.reduce(function(s, x){ return s + x.value; }, 0);
   var bar = visible.map(function(s){
     return '<div class="tax-waterfall-seg ' + s.colorClass + '" style="flex:' + s.value + ' 1 0%" title="' + s.key + ': ' + fmtCurrency0.format(s.value) + ' (' + fmtPercent1.format(whole > 0 ? s.value / whole : 0) + ')"></div>';
@@ -869,7 +869,7 @@ export function renderPropertiesValueHistoryChart(){
   if(dates.indexOf(today) === -1) dates.push(today);
 
   if(dates.length < 2){
-    container.innerHTML = '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">Log a value for at least one property (the "Log" button under Property value) on two occasions to start tracking total property value over time.</p>';
+    container.innerHTML = '<p class="section-empty" style="color:var(--ink-soft);font-size:12.5px;margin:0">Log a value for at least one property (the "Log" button under Property value) on two occasions to start tracking total property value over time.</p>';
     return;
   }
 

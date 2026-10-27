@@ -2505,7 +2505,7 @@ bank feeds.
 
 ### Phase A — first impression
 
-## 135. `[ ]` The headline follows the current situation
+## 135. `[~]` The headline follows the current situation
 The header's Monthly cash (every page) is `scenarioTotals(state.activeScenario)` — whichever scenario is
 *selected*, so picking a Buy scenario to look at it changes the household's headline to a what-if. Found on
 a real backup where the selected scenario wasn't the current one. It is also a different figure from the

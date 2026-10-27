@@ -66,3 +66,47 @@ test("the income statement: money in by kind, spending by Needs/Wants, kept and 
     assert.match(reportChartHtml(f.chart), /class="sk-band/);
   } finally { Object.assign(state, keep); }
 });
+
+import { budgetActualReport, trendsReport } from "../src/calc/reports.js";
+test("budget vs actual: a month-by-month variance per line, shaded, lumpy lines judged on their total", (t) => {
+  const keep = state.transactions; t.after(() => { state.transactions = keep; });
+  state.transactions = [
+    { id: "a", date: "2026-08-03", amount: 650, linkedExpenseId: "food" },
+    { id: "b", date: "2026-09-04", amount: 480, linkedExpenseId: "food" },
+    { id: "c", date: "2026-09-20", amount: 900, linkedExpenseId: "car" }
+  ];
+  var lines = [
+    { id: "food", what: "Groceries", amount: 500, freq: "Monthly" },
+    { id: "car", what: "Car rego", amount: 800, freq: "Yearly" },
+    { id: "gone", what: "Nothing logged", amount: 0, freq: "Monthly" }
+  ];
+  var r = budgetActualReport({ today: "2026-09-30", win: { start: "2026-08-01", end: "2026-09-30", label: "Aug–Sep" }, budgetLines: lines });
+  assert.equal(r.rows.length, 3);
+  var food = r.rows.find(function(x){ return x.cells.line === "Groceries"; });
+  assert.equal(food.cells["2026-08"], 150); assert.equal(food.heat["2026-08"], 2);
+  assert.equal(food.cells["2026-09"], -20); assert.equal(food.heat["2026-09"], 0);
+  assert.equal(food.cells.diff, 130);
+  var car = r.rows.find(function(x){ return x.cells.line === "Car rego"; });
+  assert.ok(car.lumpy); assert.equal(car.cells["2026-09"], 900); assert.equal(car.heat["2026-09"], undefined);
+  assert.equal(car.cells.plan, 133.33); assert.equal(car.heat.diff, 3);
+  assert.equal(r.rows[0].cells.line, "Car rego"); // biggest difference first
+  assert.equal(r.rows[2].cls, "total"); assert.equal(r.rows[2].cells.actual, 2030);
+});
+test("year on year: the last 12 months against the 12 before, by group", (t) => {
+  const keep = state.transactions; t.after(() => { state.transactions = keep; });
+  state.transactions = [
+    { date: "2026-03-01", amount: 300, category: "Eating out" },
+    { date: "2025-03-01", amount: 200, category: "Eating out" },
+    { date: "2026-05-01", amount: 90, category: "Pets" }
+  ];
+  var thin = trendsReport({ today: "2026-09-15" });
+  assert.equal(thin.rows[0].cells.pct, null); assert.match(thin.note, /Only 1 of the 12/);
+  for(let m = 10; m <= 21; m++){ const d = new Date(2024, m - 1, 10); state.transactions.push({ date: d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-10", amount: 0, category: "Pets" }); }
+  var r = trendsReport({ today: "2026-09-15" });
+  var eat = r.rows.find(function(x){ return x.cells.cat === "Eating out"; });
+  assert.equal(eat.cells.cur, 300); assert.equal(eat.cells.prev, 200); assert.equal(eat.cells.chg, 100); assert.equal(eat.cells.pct, 50);
+  var pets = r.rows.find(function(x){ return x.cells.cat === "Pets"; });
+  assert.equal(pets.cells.pct, null);
+  assert.equal(r.rows[r.rows.length - 1].cells.cur, 390);
+  assert.equal(r.chart.items.length, 2);
+});

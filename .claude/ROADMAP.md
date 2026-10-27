@@ -2810,8 +2810,18 @@ Needs, Wants, other spending and kept, each source shared across the uses in pro
 real backup (outside the repo) for the last 12 months: both draw, no NaN, no errors.
 
 
-## 155. `[~]` Budget vs actual and spending trends
+## 155. `[x]` Budget vs actual and spending trends
 Lines × months variance heat map; 12/24-month trends with year-on-year per category and merchant.
+
+Shipped as v3.120.0: two reports on the frame. Budget vs actual (`budgetActualReport`) — every budget line against
+its plan month by month, each cell spent less planned and shaded red over / green under (heat −3..3, against the
+larger of the monthly plan and $20); lines billed quarterly, half-yearly or yearly, or with no fixed timing, show what
+was spent each month unshaded and are judged on their total; Spent, Planned and Over columns, biggest differences
+first. Year on year (`trendsReport`) — the last 12 months against the 12 before by the frame's grouping (category,
+merchant, account…), with a bars chart and the prior year's marks; the percentage is left out when fewer than 10 of
+the earlier 12 months were logged, since it would mostly measure when logging began. Checked on the demo and a real
+backup (outside the repo): both draw, no NaN, no sideways scroll, no errors.
+
 
 ## 156. `[~]` Investment performance, income and CGT
 Per holding and total: capital gain, income, currency, annualised return, against a benchmark;

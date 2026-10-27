@@ -1202,6 +1202,8 @@
   .sk-band{ fill:none; stroke: var(--brass); stroke-opacity:.28; }
   .sk-band.sk-tax{ stroke:#e07a5f; } .sk-band.sk-super{ stroke:#7b61ff; } .sk-band.sk-kept{ stroke: var(--good); stroke-opacity:.4; }
   .sk-node{ fill: var(--brass); } .sk-node.sk-tax{ fill:#e07a5f; } .sk-node.sk-super{ fill:#7b61ff; } .sk-node.sk-kept{ fill: var(--good); } .sk-node.sk-drawn{ fill: var(--bad); }
+  .rp-table td.heat-p1{ background: rgba(214,69,69,.10); } .rp-table td.heat-p2{ background: rgba(214,69,69,.22); } .rp-table td.heat-p3{ background: rgba(214,69,69,.38); }
+  .rp-table td.heat-n1{ background: rgba(23,163,98,.10); } .rp-table td.heat-n2{ background: rgba(23,163,98,.20); } .rp-table td.heat-n3{ background: rgba(23,163,98,.32); }
   .rp-drill{ margin:10px 0; padding:8px 10px; border:1px solid var(--border); border-radius:10px; }
   .rp-drill-head{ display:flex; gap:8px; align-items:center; justify-content:space-between; font-size:13px; margin-bottom:6px; }
   .rp-table tr.compare td, .rp-table tr.compare th{ color: var(--ink-soft); font-style:italic; }

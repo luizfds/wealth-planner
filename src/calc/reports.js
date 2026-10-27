@@ -28,6 +28,8 @@ export var REPORTS = [
   { key: "categories", label: "Spending" },
   { key: "income", label: "Income statement" },
   { key: "flow", label: "Where the money goes" },
+  { key: "budget", label: "Budget vs actual" },
+  { key: "trends", label: "Year on year" },
   { key: "networth", label: "Net worth statement" },
   { key: "property", label: "Property P&L" },
   { key: "tax", label: "Tax summary" },
@@ -293,7 +295,85 @@ export function moneyFlowReport(opts){
       "; spending is logged transactions by their line's Needs or Wants. Other money in is rent, distributions, refunds and the rest logged as received." };
 }
 
+// ---------------- Budget vs actual, and year on year (v3.120.0) ----------------
+// Every budget line against its plan, month by month: each cell the month's variance, shaded by how far
+// over or under (heat −3..3). A line planned less often than monthly, or marked "no fixed timing", is
+// lumpy month to month, so its months show what was spent unshaded and only its total is judged.
+function heatOf(diff, plan){ var base = Math.max(20, Math.abs(plan)); var x = diff / base; return x > 0.5 ? 3 : x > 0.2 ? 2 : x > 0.05 ? 1 : x < -0.5 ? -3 : x < -0.2 ? -2 : x < -0.05 ? -1 : 0; }
+export function budgetActualReport(opts){
+  opts = opts || {};
+  var today = opts.today || localDateStr();
+  var win = opts.win || selectedYearWindow(today);
+  var months = monthsOf(win, today);
+  var lines = (opts.budgetLines || []).filter(function(l){ return l.id && !l.computed; });
+  var byLine = {};
+  (state.transactions || []).forEach(function(t){
+    if(!t.linkedExpenseId || !t.date || t.date < win.start || t.date > win.end) return;
+    var ym = t.date.slice(0, 7);
+    var g = byLine[t.linkedExpenseId] = byLine[t.linkedExpenseId] || {};
+    g[ym] = (g[ym] || 0) + (Number(t.amount) || 0);
+  });
+  var rows = lines.map(function(l){
+    var monthly = periodsOf(Number(l.amount) || 0, l.freq).monthly;
+    var lumpy = !!l.irregular || ["Quarterly", "Half-yearly", "Yearly"].indexOf(l.freq) !== -1;
+    var cells = { line: l.what || "Line" }, heat = {}, actual = 0;
+    months.forEach(function(ym){
+      var a = (byLine[l.id] || {})[ym] || 0; actual += a;
+      if(lumpy){ cells[ym] = r2(a); return; }
+      cells[ym] = r2(a - monthly); heat[ym] = heatOf(a - monthly, monthly);
+    });
+    var plan = monthly * months.length;
+    cells.actual = r2(actual); cells.plan = r2(plan); cells.diff = r2(actual - plan); heat.diff = heatOf(actual - plan, plan);
+    return { cells: cells, heat: heat, lumpy: lumpy, abs: Math.abs(actual - plan) };
+  }).filter(function(r){ return r.cells.actual || r.cells.plan; }).sort(function(a, b){ return b.abs - a.abs; });
+  var tot = { line: "Total" }, ta = 0, tp = 0;
+  rows.forEach(function(r){ ta += r.cells.actual; tp += r.cells.plan; });
+  tot.actual = r2(ta); tot.plan = r2(tp); tot.diff = r2(ta - tp);
+  rows.push({ cls: "total", cells: tot });
+  return { key: "budget", frame: { range: true }, title: "Budget vs actual", subtitle: win.label + (today < win.end ? " so far" : ""),
+    columns: [{ key: "line", label: "Line" }].concat(months.map(function(ym){ return { key: ym, label: ymLabel(ym), num: true }; }))
+      .concat([{ key: "actual", label: "Spent", num: true }, { key: "plan", label: "Planned", num: true }, { key: "diff", label: "Over (−under)", num: true }]),
+    rows: rows, wide: true, heat: true,
+    note: "Each month: spent less planned, red over and green under. Lines billed quarterly or yearly, or with no fixed timing, show what was spent each month unshaded and are judged on their total. Biggest differences first." };
+}
+
+// The last 12 months against the 12 before, by the frame's grouping, and the merchants that moved most.
+export function trendsReport(opts){
+  opts = opts || {};
+  var today = opts.today || localDateStr();
+  var groupOf = opts.groupOf || opts.categoryOf || function(t){ return t.category || "Uncategorised"; };
+  var t0 = new Date(Number(today.slice(0, 4)), Number(today.slice(5, 7)) - 1, 1);
+  var iso = function(d){ return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+  var curStart = iso(new Date(t0.getFullYear(), t0.getMonth() - 11, 1));
+  var prevStart = iso(new Date(t0.getFullYear(), t0.getMonth() - 23, 1)), prevEnd = iso(new Date(t0.getFullYear(), t0.getMonth() - 11, 0));
+  var cur = spendingByGroup(state.transactions, { start: curStart, end: today }, groupOf);
+  var prev = spendingByGroup(state.transactions, { start: prevStart, end: prevEnd }, groupOf);
+  var keys = Object.keys(Object.assign({}, cur, prev));
+  // A percentage against a year that was barely logged (the app started part-way through it) is noise.
+  var logged = {};
+  (state.transactions || []).forEach(function(t){ if(t && t.date && t.date >= prevStart && t.date <= prevEnd) logged[t.date.slice(0, 7)] = true; });
+  var prevMonths = Object.keys(logged).length, full = prevMonths >= 10;
+  var pctOf = function(c){ return !full || c.pct == null ? null : Math.round(c.pct * 1000) / 10; };
+  var rows = keys.map(function(k){
+    var c = change(cur[k] || 0, prev[k] || 0);
+    return { drill: null, cells: { cat: k, cur: r2(cur[k] || 0), prev: r2(prev[k] || 0), chg: c.diff, pct: pctOf(c) } };
+  }).sort(function(a, b){ return b.cells.cur - a.cells.cur; });
+  var hasPrev = Object.keys(prev).length > 0;
+  var tc = keys.reduce(function(s, k){ return s + (cur[k] || 0); }, 0), tp = keys.reduce(function(s, k){ return s + (prev[k] || 0); }, 0);
+  var tch = change(tc, tp);
+  rows.push({ cls: "total", cells: { cat: "Total", cur: r2(tc), prev: r2(tp), chg: tch.diff, pct: pctOf(tch) } });
+  return { key: "trends", frame: { group: true }, title: "Year on year" + (opts.groupLabel ? " by " + opts.groupLabel.toLowerCase() : ""), subtitle: "The last 12 months against the 12 before",
+    columns: [{ key: "cat", label: "" }, { key: "cur", label: "Last 12 months", num: true }, { key: "prev", label: "The 12 before", num: true }, { key: "chg", label: "Change", num: true }, { key: "pct", label: "Change %", num: true, pct: true }],
+    rows: rows,
+    chart: { type: "bars", compareLabel: hasPrev ? "the 12 before" : null, items: rows.filter(function(r){ return !r.cls; }).slice(0, 12).map(function(r){ return { label: r.cells.cat, value: r.cells.cur, compare: hasPrev ? r.cells.prev : null }; }) },
+    note: !hasPrev ? "Nothing logged in the 12 months before these yet, so there's nothing to compare against."
+      : full ? "Logged spending. A category that's new to the app reads as a rise."
+      : "Only " + prevMonths + " of the 12 months before were logged, so the change is shown in dollars but not as a percentage — it would mostly measure when logging began." };
+}
+
 export function buildReport(key, opts){
+  if(key === "budget") return budgetActualReport(opts);
+  if(key === "trends") return trendsReport(opts);
   if(key === "income") return incomeStatementReport(opts);
   if(key === "flow") return moneyFlowReport(opts);
   if(key === "nwcheck") return netWorthCheckReport(opts);

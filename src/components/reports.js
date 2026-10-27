@@ -99,8 +99,10 @@ export function reportTableHtml(rep){
         var v = r.cells[c.key];
         // v3.81.0: a month row opens Month in detail; v3.118.0: a group row opens its transactions.
         var inner = i === 0 && r.ym ? '<button type="button" class="rp-month-link" data-md-open="' + r.ym + '" title="See this month in detail">' + cell(v, c.num) + '</button>'
-          : i === 0 && r.drill ? '<button type="button" class="rp-month-link" data-rf-drill="' + escapeAttr(r.drill) + '" aria-expanded="' + !!reportFrame.open[r.drill] + '" title="See the transactions">' + cell(v, c.num) + '</button>' : (r.cls === "pct" && c.num ? pctCell(v) : cell(v, c.num));
-        return (i === 0 ? '<th scope="row">' : '<td' + (c.num ? ' class="num' + (typeof v === "number" && v < 0 ? " neg" : "") + '"' : '') + '>') + inner + (i === 0 ? '</th>' : '</td>');
+          : i === 0 && r.drill ? '<button type="button" class="rp-month-link" data-rf-drill="' + escapeAttr(r.drill) + '" aria-expanded="' + !!reportFrame.open[r.drill] + '" title="See the transactions">' + cell(v, c.num) + '</button>' : ((r.cls === "pct" || c.pct) && c.num ? pctCell(v) : cell(v, c.num));
+        // v3.120.0: a heat-map cell (Budget vs actual) carries its shade.
+        var heat = r.heat && r.heat[c.key] ? " heat" + (r.heat[c.key] > 0 ? "-p" : "-n") + Math.abs(r.heat[c.key]) : "";
+        return (i === 0 ? '<th scope="row">' : '<td' + (c.num ? ' class="num' + (typeof v === "number" && v < 0 ? " neg" : "") + heat + '"' : '') + '>') + inner + (i === 0 ? '</th>' : '</td>');
       }).join("") + '</tr>';
     }).join("") + '</tbody></table></div>';
 }

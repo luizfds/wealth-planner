@@ -270,3 +270,32 @@ export function billLineStatus(item, transactions, today){
   }
   return "bill";
 }
+
+// v3.113.0: the bills that have fallen due and not been logged — what "Catch up" offers to
+// confirm in one go. Bills paid from an account only: a bill on a card arrives with the card's
+// statement, and one the property manager pays with theirs. From up to `back` days ago (default 62)
+// to today; a missed monthly bill appears once per month it was missed. Each: { id, what, due, amount,
+// estimated }, oldest first.
+export function billsToConfirm(items, transactions, today, opts){
+  opts = opts || {};
+  var from = addDays(today, -(opts.back || 62));
+  var months = [];
+  for(var m = ymOf(from); m <= ymOf(today); m = ymOf(addDays(m + "-28", 7))) months.push(m);
+  // Not before a line's first logged payment: the calendar projects a bill backwards from it, but
+  // months before you started tracking it aren't bills you missed.
+  var first = {};
+  (transactions || []).forEach(function(t){ if(t.linkedExpenseId && t.date && (!first[t.linkedExpenseId] || t.date < first[t.linkedExpenseId])) first[t.linkedExpenseId] = t.date; });
+  var out = [];
+  months.forEach(function(ym){
+    var r = billsForMonth(items, transactions, ym, today, opts);
+    Object.keys(r.days).forEach(function(d){
+      if(d < from || d > today) return;
+      r.days[d].forEach(function(b){
+        if(b.paid || b.card || b.agent || !(b.amount > 0)) return;
+        if(first[b.id] && d < first[b.id]) return;
+        out.push({ id: b.id, what: b.what, due: d, amount: b.amount, estimated: !!b.estimated });
+      });
+    });
+  });
+  return out.sort(function(a, b){ return a.due < b.due ? -1 : a.due > b.due ? 1 : 0; });
+}

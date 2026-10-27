@@ -548,6 +548,21 @@
     box-shadow: 0 16px 48px rgba(0,0,0,0.3); padding:16px;
   }
   .review-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+  /* v3.113.0: bills to confirm — one list, confirmed together. */
+  .review-panel-wide{ max-width:560px; }
+  .bc-confirm-list{ display:flex; flex-direction:column; border:1px solid var(--border); border-radius:10px; overflow:hidden; margin-bottom:12px; }
+  .bc-confirm-row{ display:grid; grid-template-columns:24px minmax(0,1fr) 140px 110px; gap:10px; align-items:center; padding:8px 10px; border-bottom:1px solid var(--border); cursor:pointer; }
+  .bc-confirm-row:last-child{ border-bottom:0; }
+  .bc-confirm-check{ width:18px; height:18px; }
+  .bc-confirm-name{ font-size:13.5px; font-weight:600; color: var(--ink); min-width:0; overflow:hidden; text-overflow:ellipsis; }
+  .bc-confirm-name small{ display:block; font-weight:400; font-size:12px; color: var(--ink-soft); }
+  .bc-confirm-amt{ display:flex; align-items:center; gap:4px; color: var(--ink-soft); }
+  .bc-confirm-amt input, .bc-confirm-date{ width:100%; min-width:0; }
+  @media (max-width:480px){
+    .bc-confirm-row{ grid-template-columns:24px minmax(0,1fr) 96px; }
+    .bc-confirm-date{ grid-column:2; grid-row:2; }
+    .bc-confirm-amt{ grid-column:3; grid-row:1 / span 2; }
+  }
   .review-head h4{ margin:0; font-size:14.5px; color: var(--ink); }
   .review-progress{ font-size:12px; color: var(--ink-soft); font-weight:600; }
   .review-card{

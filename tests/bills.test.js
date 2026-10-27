@@ -2,7 +2,7 @@ import "./_env.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { state } from "../src/state.js";
-import { occurrencesBetween, billsForMonth } from "../src/calc/bills.js";
+import { occurrencesBetween, billsForMonth, billsToConfirm } from "../src/calc/bills.js";
 import { billsCalendarHtml } from "../src/components/cashflow.js";
 import { rulesPageHtml, setRuleField, ruleTest } from "../src/components/rules.js";
 
@@ -235,4 +235,22 @@ test("upcoming bills leave out ended lines, spending budgets, bills on a card an
   assert.equal(billLineStatus(items[2], tx, "2026-10-20"), "stopped");
   assert.equal(billLineStatus(items[4], tx, "2026-10-20"), "spending");
   assert.equal(billLineStatus(items[0], tx, "2026-10-20"), "bill");
+});
+
+test("bills to confirm: fallen due, not logged, paid from an account — oldest first, once per missed month", function(){
+  var items = [
+    { id: "p", what: "Power", amount: 150, freq: "Monthly", account: "Everyday" },
+    { id: "n", what: "Phone", amount: 50, freq: "Monthly", account: "Everyday" },
+    { id: "s", what: "Streaming", amount: 20, freq: "Monthly", account: "Card" }
+  ];
+  var tx = [
+    { linkedExpenseId: "p", date: "2026-08-09", amount: 150, account: "Everyday" },
+    { linkedExpenseId: "n", date: "2026-09-14", amount: 50, account: "Everyday" }, { linkedExpenseId: "n", date: "2026-10-14", amount: 50, account: "Everyday" },
+    { linkedExpenseId: "s", date: "2026-09-06", amount: 20, account: "Card" }
+  ];
+  var r = billsToConfirm(items, tx, "2026-10-20", { accounts: [{ name: "Everyday", type: "everyday" }, { name: "Card", type: "credit" }] });
+  assert.deepEqual(r.map(function(b){ return b.what + " " + b.due; }), ["Power 2026-09-09", "Power 2026-10-09"], "phone is paid; streaming comes with the card's statement");
+  assert.equal(r[0].amount, 150);
+  var early = tx.filter(function(t){ return t.date <= "2026-08-20"; });
+  assert.deepEqual(billsToConfirm(items, early, "2026-08-20", { accounts: [] }).map(function(b){ return b.what; }), [], "paid this month, and nothing before the first payment counts as missed");
 });

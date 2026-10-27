@@ -3,8 +3,8 @@ import { CLASSES, FREQS, UNCATEGORISED } from "../constants.js";
 import { sumField, sumFieldForScenario, resolveSharedAmount, periodsOf, budgetCycleFor, reserveCycleFor, transactionDisplayName, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, plannedToDateByCategory, isOverdue, daysUntil, lastTransactionDateFor, refundableTransactions, reserveYearWindowFor, householdYearWindow, householdYearToDate, householdYearProgress, householdYearBasis, HOUSEHOLD_YEAR_BASES, selectedMonth, monthPhrase, selectedYearWindow, isPeriodToday, monthAnchorDate } from "../calc/ledger.js";
 import { merchantGroups, worthShowingMerchants, recentMerchants } from "../calc/merchants.js";
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
-import { scenarioTotals } from "../calc/engine.js";
-import { billsForMonth } from "../calc/bills.js";
+import { scenarioTotals, currentScenario } from "../calc/engine.js";
+import { billsForMonth, billsToConfirm } from "../calc/bills.js";
 import { scenarioIncomeRows } from "../calc/tax.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent0, fmtPercent1, localDateStr, fmtDate } from "../lib/format.js";
 import { spendingTrends, monthKeyLabel } from "../calc/trends.js";
@@ -658,57 +658,26 @@ export var expenseReview = null;
 // lives on state.transactions[], not a field on the budget line itself. lastTransactionDateFor()
 // reads that back out.
 //
-// "Needs review" means overdue against its own frequency — no transaction ever recorded at all,
-// or a full period has elapsed since the most recent one (isOverdue(), not nextDueDate(): that
-// always projects forward to the next occurrence on/after today, so it can never itself land in
-// the past — useless for "is this actually overdue"). An expense with a recent-enough transaction
-// has nothing to review, so it's left out rather than re-shown every time.
-function isDueForReview(item){
-  if(item.irregular) return false;
-  var lastDate = lastTransactionDateFor(state.transactions, item.id);
-  if(!lastDate) return true;
-  return isOverdue(lastDate, item.freq);
+// v3.113.0: Catch up is the bills that have fallen due and not been logged (calc/bills.js
+// billsToConfirm), each with its expected date and amount, confirmed together — not every line
+// overdue against its own frequency one card at a time, which put the weekly groceries in the same
+// queue as the electricity bill and asked for an amount and a date each time. A bill on a card or
+// paid by the property manager comes in with its statement, so it isn't offered. When a statement
+// later brings the same payment in, the import flags the hand-logged one (item 113).
+function billsDue(){
+  return billsToConfirm(loggableBudgetLineItems(currentScenario()), state.transactions, localDateStr(), { accounts: state.accounts, transfers: state.transfers });
 }
-// Explains *why* a card is in the review queue — distinct from ledger-table.js's
-// dueDateNoteHtml(), which projects the next upcoming date and would misleadingly read as
-// "due in Xd" for an item that's actually already overdue (nextDueDate always rolls forward
-// past today, see isDueForReview() above).
-function reviewDueNoteHtml(item){
-  var lastDate = lastTransactionDateFor(state.transactions, item.id);
-  if(!lastDate) return '<span class="due-note due-unset">No transaction logged yet</span>';
-  var daysAgo = -daysUntil(lastDate);
-  return '<span class="due-note due-overdue">Last transaction ' + escapeAttr(lastDate) + ' (' + daysAgo + 'd ago) — overdue for a new ' + escapeAttr(item.freq) + ' entry</span>';
-}
-// The Spending tab's "Catch up" button only earns its place when there's actually something to
-// catch up on, so it's hidden at zero and carries the count otherwise — a standing, honest
-// answer to "am I behind on logging?" instead of a button that has to be pressed to find out
-// (which is what the old always-visible "Review expenses" was).
 export function renderExpenseReviewButton(){
   var btn = document.getElementById("reviewExpensesBtn");
   if(!btn) return;
-  var dueCount = loggableBudgetLineItems().reduce(function(n, item){ return n + (isDueForReview(item) ? 1 : 0); }, 0);
-  btn.hidden = dueCount === 0;
-  btn.textContent = "Catch up on " + dueCount + " overdue";
-}
-export function reviewQueueItem(){
-  if(!expenseReview) return null;
-  var id = expenseReview.queue[expenseReview.pos];
-  if(id == null) return null;
-  return budgetLineItems().find(function(i){ return i.id === id; }) || null;
+  var n = billsDue().length;
+  btn.hidden = n === 0;
+  btn.textContent = n + " bill" + (n === 1 ? "" : "s") + " to confirm";
 }
 export function openExpenseReview(){
-  var lines = loggableBudgetLineItems();
-  if(!lines.length){
-    showToast("No expenses to review yet — add one on this page first.");
-    return;
-  }
-  var due = [];
-  lines.forEach(function(item){ if(isDueForReview(item)) due.push(item.id); });
-  if(!due.length){
-    showToast("Nothing due for review — every expense has been logged recently enough.");
-    return;
-  }
-  expenseReview = { queue: due, pos: 0, reviewedCount: 0 };
+  var due = billsDue();
+  if(!due.length){ showToast("Nothing to confirm — every bill that's fallen due has been logged."); return; }
+  expenseReview = { bills: due.map(function(b, i){ return Object.assign({ key: i, checked: true }, b); }), confirmed: null };
   renderExpenseReviewPanel();
 }
 export function closeExpenseReview(){
@@ -716,61 +685,49 @@ export function closeExpenseReview(){
   var root = document.getElementById("expenseReviewRoot");
   if(root) root.innerHTML = "";
 }
-// Records the (possibly edited) amount/date for the currently-shown expense as a transaction and
-// advances the queue. Deliberately does NOT touch item.amount — the planned budget stays exactly
-// as planned regardless of what was actually spent this time; edit the row's own Amount field
-// directly (always available, independent of this flow) if the plan itself needs to change.
-// Caller (app.js) is responsible for the cross-cutting refresh afterward (totals, projections,
-// persist) — same split as the scenario-override panel's mutation helpers.
-export function logCurrentReviewCard(amount, dateStr){
-  if(!expenseReview) return;
-  var item = reviewQueueItem();
-  if(!item) return;
-  logExpenseTransaction(item, amount, dateStr);
-  expenseReview.reviewedCount++;
-  expenseReview.pos++;
-}
-export function skipCurrentReviewCard(){
-  if(!expenseReview) return;
-  expenseReview.pos++;
-}
-function reviewCardHtml(item){
-  var todayStr = localDateStr();
-  return '<div class="review-card-badge ' + classificationSwatchClass(item.classification || "N/A") + '">' + escapeAttr(item.classification || "N/A") + '</div>' +
-    '<div class="review-card-name">' + escapeAttr(item.what) + '</div>' +
-    '<div class="review-card-freq">Budgeted ' + fmtCurrency2.format(item.amount) + ' / ' + item.freq + '</div>' +
-    reviewDueNoteHtml(item) +
-    '<div class="review-card-fields">' +
-      '<div class="m-edit-field"><label>Amount spent</label><input type="number" step="0.01" min="0" class="review-amount" value="' + item.amount + '" aria-label="Amount actually spent"></div>' +
-      '<div class="m-edit-field"><label>Date</label><input type="date" class="review-date" value="' + todayStr + '" aria-label="Date to log under"></div>' +
-    '</div>';
+// Logs the ticked bills at the amounts and dates in the panel. values: [{ key, checked, amount, date }].
+// Returns how many were logged. Caller refreshes and persists. Never touches a line's planned amount.
+export function confirmReviewBills(values){
+  if(!expenseReview) return 0;
+  var items = budgetLineItems(currentScenario());
+  var n = 0;
+  (values || []).forEach(function(v){
+    var b = expenseReview.bills.find(function(x){ return x.key === v.key; });
+    var item = b && items.find(function(i){ return i.id === b.id; });
+    if(!b || !item || !v.checked) return;
+    var amount = Number(v.amount);
+    logExpenseTransaction(item, amount > 0 ? amount : b.amount, v.date || b.due);
+    n++;
+  });
+  expenseReview.confirmed = n;
+  return n;
 }
 export function renderExpenseReviewPanel(){
   var root = document.getElementById("expenseReviewRoot");
   if(!root) return;
   if(!expenseReview){ root.innerHTML = ""; return; }
-  var total = expenseReview.queue.length;
-  if(expenseReview.pos >= total){
-    root.innerHTML = '<div class="review-backdrop" data-review-backdrop>' +
-      '<div class="review-panel" role="dialog" aria-label="Expense review complete">' +
-        '<div class="review-head"><h4>All done!</h4><button type="button" class="icon-btn" data-review-close aria-label="Close">✕</button></div>' +
-        '<p class="review-complete-note">Logged ' + expenseReview.reviewedCount + ' of ' + total + ' expense' + (total === 1 ? "" : "s") + '.</p>' +
-        '<button type="button" class="btn btn-sm" data-review-close>Close</button>' +
-      '</div></div>';
+  var head = function(title){ return '<div class="review-head"><h4>' + title + '</h4><button type="button" class="icon-btn" data-review-close aria-label="Close">✕</button></div>'; };
+  if(expenseReview.confirmed != null){
+    root.innerHTML = '<div class="review-backdrop" data-review-backdrop><div class="review-panel" role="dialog" aria-label="Bills confirmed">' + head("Done") +
+      '<p class="review-complete-note">Logged ' + expenseReview.confirmed + ' bill' + (expenseReview.confirmed === 1 ? '' : 's') + '. When a statement brings the same payment in, the import points out the one logged here.</p>' +
+      '<button type="button" class="btn btn-sm" data-review-close>Close</button></div></div>';
     return;
   }
-  var item = reviewQueueItem();
-  if(!item){ expenseReview.pos++; renderExpenseReviewPanel(); return; }
-  root.innerHTML = '<div class="review-backdrop" data-review-backdrop>' +
-    '<div class="review-panel" role="dialog" aria-label="Review expenses">' +
-      '<div class="review-head"><span class="review-progress">' + (expenseReview.pos + 1) + ' of ' + total + '</span><button type="button" class="icon-btn" data-review-close aria-label="Close">✕</button></div>' +
-      '<div class="review-card">' + reviewCardHtml(item) + '</div>' +
-      '<div class="review-actions">' +
-        '<button type="button" class="btn review-skip-btn" data-review-skip>✕ Skip</button>' +
-        '<button type="button" class="btn review-log-btn" data-review-log>✓ Log</button>' +
-      '</div>' +
-      '<p class="review-hint">Swipe the card left to skip, right to log — or use the buttons.</p>' +
-    '</div></div>';
+  var bills = expenseReview.bills;
+  var rows = bills.map(function(b){
+    return '<label class="bc-confirm-row" data-confirm-key="' + b.key + '">' +
+      '<input type="checkbox" class="bc-confirm-check"' + (b.checked ? ' checked' : '') + ' aria-label="Confirm ' + escapeAttr(b.what) + '">' +
+      '<span class="bc-confirm-name">' + escapeAttr(b.what) + '<small>due ' + escapeAttr(fmtDate(b.due)) + (b.estimated ? ' · expected' : '') + '</small></span>' +
+      '<input type="date" class="bc-confirm-date" value="' + escapeAttr(b.due) + '" aria-label="Date paid">' +
+      '<span class="bc-confirm-amt"><span aria-hidden="true">$</span><input type="number" step="0.01" min="0" class="bc-confirm-amount" value="' + b.amount + '" aria-label="Amount paid"></span>' +
+    '</label>';
+  }).join("");
+  root.innerHTML = '<div class="review-backdrop" data-review-backdrop><div class="review-panel review-panel-wide" role="dialog" aria-label="Bills to confirm">' +
+    head(bills.length + " bill" + (bills.length === 1 ? "" : "s") + " to confirm") +
+    '<p class="review-hint" style="margin:0 0 10px">Fallen due and not logged yet, at the amount planned. Change an amount or date if it was different; untick any that wasn\'t paid.</p>' +
+    '<div class="bc-confirm-list">' + rows + '</div>' +
+    '<div class="review-actions"><button type="button" class="btn btn-primary" data-review-confirm>Confirm ' + bills.filter(function(b){ return b.checked; }).length + '</button></div>' +
+  '</div></div>';
 }
 
 // ---------------- Quick log: the one-tap "I just spent money" sheet ----------------

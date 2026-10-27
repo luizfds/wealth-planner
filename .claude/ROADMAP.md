@@ -2663,7 +2663,7 @@ button is hidden where it used to show a count. **Still open:** `lib/notificatio
 still groups "lines that need a fresh entry" on the old per-frequency test.
 
 
-## 144. `[ ]` Estimates between logs
+## 144. `[~]` Estimates between logs
 Super = last balance + SG from pay + assumed return; property = last value indexed by growth (or the suburb
 benchmark); vehicle = depreciation. Shown dated and tagged "estimated" until a real figure is logged. The
 stale-assets banner only asks when an estimate is old *and* a real figure is due (a super statement period).
@@ -2673,7 +2673,7 @@ A scheduled GitHub Action writes a daily price file for a fixed broad list (ASX 
 US list) to the Pages site; the app reads it before falling back to the user's own Sheet. **Never a list
 built from anyone's holdings** — the repo is public.
 
-## 146. `[ ]` A budget from history
+## 146. `[~]` A budget from history
 After 3+ months imported, propose budget lines (amount, frequency, Needs/Wants, account) from what was
 spent, using `calc/recurring.js`; accept all, or line by line.
 
@@ -2716,20 +2716,20 @@ vs 56 — fewer questions, slightly more to correct. Offering "all <merchant>" a
 happens only when both answers already agree.
 
 
-## 149. `[ ]` Payslip import
+## 149. `[~]` Payslip import
 A payslip PDF → gross, tax withheld, super, sacrifice and YTD, into income lines and the withholding check.
 
-## 150. `[ ]` A transaction grid
+## 150. `[~]` A transaction grid
 Keyboard-first entry and multi-select editing in a table layout on wide screens; cards stay on phones.
 First run offers "drop in three statements and a payslip" as the main path.
 
 ### Phase C — one thing, one place
 
-## 151. `[ ]` A detail page for every thing
+## 151. `[~]` A detail page for every thing
 Account, holding, property, loan, budget line, merchant, person: one route each, with history chart,
 transactions, related items and the edit form. Every list links to it; search lands on it.
 
-## 152. `[ ]` Navigation by what you own
+## 152. `[~]` Navigation by what you own
 Accounts + Investments + Property become **Net worth** (one list grouped Cash · Investments · Super ·
 Property · Debts, each to its detail page); debts in one place (cards, personal loans, property loans);
 Scenarios only in Plan (Home links to it); a **Goals** tab in Plan for savings goals, emergency fund, FI and
@@ -2738,47 +2738,47 @@ Review. Old ids keep working through `nav.js` ALIASES.
 
 ### Phase D — reports
 
-## 153. `[ ]` One report frame
+## 153. `[~]` One report frame
 Range (month, quarter, FY, calendar year, last 12 months, custom), compare to (previous period, same period
 last year, budget), group by (category, group, merchant, account, person, property), a chart over every
 table, and any figure clicks through to its transactions. Existing eight reports move onto it. Today a
 report can only show the header's FY, so a household with over a year of data can't see its last 12 months
 in one view.
 
-## 154. `[ ]` Cash flow Sankey and household income statement
+## 154. `[~]` Cash flow Sankey and household income statement
 Gross pay → tax / super / take-home → Needs / Wants / saved / invested, for a month or a year; and the
 year month by month with a budget column and savings rate.
 
-## 155. `[ ]` Budget vs actual and spending trends
+## 155. `[~]` Budget vs actual and spending trends
 Lines × months variance heat map; 12/24-month trends with year-on-year per category and merchant.
 
-## 156. `[ ]` Investment performance, income and CGT
+## 156. `[~]` Investment performance, income and CGT
 Per holding and total: capital gain, income, currency, annualised return, against a benchmark;
 distributions and franking by FY; realised and unrealised CGT by parcel with the discount.
 
-## 157. `[ ]` Property, debt and super reports
+## 157. `[~]` Property, debt and super reports
 Property: gross/net yield, after-tax cash flow, equity growth, total return per property per year. Debt:
 balances, interest by year, deductible share, payoff dates. Super: contributions against caps by year,
 carry-forward room, balance history.
 
-## 158. `[ ]` Lender pack and year in review
+## 158. `[~]` Lender pack and year in review
 A printable one-page 12-month summary of income, spending, assets and liabilities for a refinance or
 purchase; a narrative one-pager each 30 June.
 
-## 159. `[ ]` Saved reports and a proper printout
+## 159. `[~]` Saved reports and a proper printout
 Pin a report with its settings; print with a title block, household, period, page breaks and charts.
 
 ### Phase E — planning depth
 
-## 160. `[ ]` A range of outcomes
+## 160. `[~]` A range of outcomes
 Historical-sequence (or Monte Carlo) runs: a 10th–90th band on the projection and a probability on the FI
 and retirement answers.
 
-## 161. `[ ]` Life events on a timeline
+## 161. `[~]` Life events on a timeline
 Children, career breaks, a sale, a downsizer contribution — dated events that change income, spending or
 assets, shown on the projection; an age axis instead of "Yr 7".
 
-## 162. `[ ]` Retirement drawdown and the Age Pension
+## 162. `[~]` Retirement drawdown and the Age Pension
 Account-based pension drawdown with minimum rates and tax, and the Age Pension under the assets and income
 tests, in Plan → Retirement.
 
@@ -2788,10 +2788,10 @@ tests, in Plan → Retirement.
 Client-side-encrypted state to the user's own cloud drive, building on item 106's folder backups, so a
 cleared browser is no longer data loss. Off by default; nothing readable leaves the device.
 
-## 164. `[ ]` Screenshot comparison in CI
+## 164. `[~]` Screenshot comparison in CI
 `scripts/smoke.mjs` saves each page and subtab; a PR shows what changed visually.
 
-## 165. `[ ]` CLAUDE.md and PROJECT_KNOWLEDGE.md brought up to date
+## 165. `[~]` CLAUDE.md and PROJECT_KNOWLEDGE.md brought up to date
 `app.js` is 5,801 lines, not ~3,400; the page list and IA change with item 152.
 
 ## Conventions for whoever picks this up

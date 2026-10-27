@@ -2676,7 +2676,7 @@ a property's summary adds the estimate once its value is 90+ days old. Net worth
 (same open decision as item 142). On a real backup (outside the repo) the banner, which had flagged a super fund
 and a car, is gone.
 
-## 145. `[ ]` Share prices with no setup
+## 145. `[~]` Share prices with no setup
 A scheduled GitHub Action writes a daily price file for a fixed broad list (ASX 200, common ETFs, a short
 US list) to the Pages site; the app reads it before falling back to the user's own Sheet. **Never a list
 built from anyone's holdings** — the repo is public.
@@ -2964,7 +2964,7 @@ super above the $2m transfer balance cap is flagged. Checked on the demo and a r
 
 ### Phase F — platform
 
-## 163. `[ ]` Optional encrypted sync to your own drive
+## 163. `[~]` Optional encrypted sync to your own drive
 Client-side-encrypted state to the user's own cloud drive, building on item 106's folder backups, so a
 cleared browser is no longer data loss. Off by default; nothing readable leaves the device.
 
@@ -2990,6 +2990,11 @@ redirects), app.js is ~5,800 lines, the new calc modules are listed, and the scr
 "a new view goes in the smoke script's VIEWS". PROJECT_KNOWLEDGE.md gains a section on what items 135–165 leave for
 the next person: the report frame contract, projection paths and life events, detail pages and `goToPlace()`, the
 Net worth group, the Can we buy? container that never existed, the Age Pension rates' date, and the local-only tags.
+
+## 166. `[~]` Net worth on what's been logged since
+The headline net worth reads each account's balance rolled forward by the transactions logged since it
+was recorded (item 142's `rolledBalance`), and shows "about $X including estimates" (item 144's super and
+property estimates) as a second line rather than folding guesses into the headline.
 
 ## Conventions for whoever picks this up
 

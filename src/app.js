@@ -86,6 +86,7 @@ import { normaliseTrip, applyTripRefile } from "./calc/trips.js";
 import { logAgentStatement, removeAgentStatement, statementTotals, fillAgentAccount } from "./calc/agentstatement.js";
 import { tripsCardHtml, tripPlan, tripProtectedLineIds } from "./components/trips.js";
 import { refreshPriceSheet, priceSheetDue, priceSheetResultText, defaultBackfillFrom, priceSheetUi } from "./components/pricesheet.js";
+import { refreshAutoPrices, autoPricesNeeded, autoPricesResultText } from "./components/autoprices.js";
 import { firstRun, startFirstRun, firstRunHtml } from "./components/firstrun.js";
 import { chooseFolder, backupToFolder, forgetFolder, maybeAutoBackup, setPasscode, clearPasscode, checkPasscode, newestFolderBackup, compareCopies } from "./lib/safekeeping.js";
 import { renderSafekeeping } from "./components/safekeeping.js";
@@ -5124,7 +5125,29 @@ import {
   document.addEventListener("change", function(e){
     if(e.target.matches && e.target.matches("[data-ps-from]")){ state.priceSheet.backfillFrom = e.target.value || ""; persist(); }
   });
-  if(priceSheetDue()) setTimeout(function(){ readPriceSheetNow(false); }, 800);
+  // v3.132.0: automatic prices first, then the person's own Sheet (which wins where both price a holding).
+  function readAutoPricesNow(manual){
+    var btn = document.querySelector("[data-ap-read]");
+    if(btn){ btn.disabled = true; btn.textContent = "Updating…"; }
+    return refreshAutoPrices().then(function(r){
+      recalcComputedItems();
+      renderAll();
+      if(manual || !r.ok) showToast("Prices: " + autoPricesResultText(r));
+      return r;
+    });
+  }
+  document.addEventListener("change", function(e){
+    var k = e.target.getAttribute && e.target.getAttribute("data-ap");
+    if(!k) return;
+    state.autoPrices[k] = !!e.target.checked;
+    if(k === "on" && e.target.checked) state.autoPrices.lastRead = "";
+    persist(); renderAll();
+  });
+  document.addEventListener("click", function(e){ if(e.target.closest && e.target.closest("[data-ap-read]")) readAutoPricesNow(true); });
+  setTimeout(function(){
+    var first = autoPricesNeeded() && state.assets.some(function(a){ return a.category === "Shares" && a.symbol; }) ? readAutoPricesNow(false) : Promise.resolve();
+    first.then(function(){ if(priceSheetDue()) return readPriceSheetNow(false); });
+  }, 800);
 
   // ---------------- First-run setup (v3.74.0) ----------------
   // Offered once to an empty app; also from Home's setup card ("Guided setup"). Answers are held in

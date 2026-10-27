@@ -2614,7 +2614,7 @@ the repo) 3,524 → 970 (−72%). Driven: budget line, transaction, income, hold
 field and close; "+ Add" opens the new row with focus in it.
 
 
-## 141. `[ ]` Long lists show the top, not everything
+## 141. `[~]` Long lists show the top, not everything
 With a real year of data, Cash flow → Spending runs to several screen-heights on a desktop (Actual vs
 planned and This year so far list every line), and Settings → Import rules is one unsearchable list
 tens of thousands of pixels tall on a phone. Show the lines that matter (over, under, biggest) with

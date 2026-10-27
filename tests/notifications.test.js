@@ -141,3 +141,17 @@ test("a line behind but not yet due soon stays in the review group", function(){
       assert.match(review.title, /Council Rates/);
     });
 });
+
+// v3.131.0: the review nudge agrees with the list it sends you to.
+test("a bill paid from a card isn't nagged for an entry — Review expenses doesn't list it either", function(){
+  var prevAcc = state.accounts;
+  state.accounts = [{ id: "c1", name: "Card One", type: "credit" }];
+  try {
+    withShared(
+      [{ id: "exp1", what: "Streaming", amount: 20, freq: "Monthly", irregular: false, account: "Card One" }],
+      [{ id: "t1", date: daysAgo(45), amount: 20, linkedExpenseId: "exp1", account: "Card One" }],
+      function(){
+        assert.equal(findReviewNotification(getLocalNotifications()), undefined);
+      });
+  } finally { state.accounts = prevAcc; }
+});

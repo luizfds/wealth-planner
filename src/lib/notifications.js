@@ -9,7 +9,7 @@ import { fyLabel } from "../calc/property.js";
 import { dataHealthChecks } from "../calc/health.js";
 import { sortedRateHistory, calcRepaymentMonthly } from "../calc/property.js";
 import { shiftMonth, monthLabel } from "../calc/monthreview.js";
-import { cardPaymentsForMonth, upcomingBills, billLineStatus } from "../calc/bills.js";
+import { cardPaymentsForMonth, upcomingBills, billLineStatus, billsToConfirm } from "../calc/bills.js";
 
 // ---------------- Notifications: a small, backend-shaped layer over locally-computed alerts ----------------
 // This app has no backend (see CLAUDE.md) — every notification here is derived live from
@@ -157,13 +157,20 @@ function dueBillNotifications(pairs){
 function reviewDueNotifications(alreadyBilled){
   alreadyBilled = alreadyBilled || {};
   var today0 = todayStr();
+  // v3.131.0: a line that has been logged before is waiting for an entry exactly when Review
+  // expenses would list a bill to confirm for it (calc/bills.js billsToConfirm) — its expected
+  // dates, its day of the month, paid from a card or by the property manager — rather than by a
+  // plain "last entry older than its frequency" test that disagreed with the list the notification
+  // sends you to. A line never logged has no expected date yet, so it still asks for a first entry.
+  var toConfirm = {};
+  billsToConfirm(state.shared, state.transactions, today0, { accounts: state.accounts, transfers: state.transfers }).forEach(function(b){ toConfirm[b.id] = true; });
   var due = state.shared.filter(function(item){
     if(item.irregular) return false;
     if(alreadyBilled[item.id]) return false;
     // v3.94.1: an ended line, a spending budget or a bill that stopped isn't waiting for an entry.
     if(billLineStatus(item, state.transactions, today0) !== "bill") return false;
     var lastDate = lastTransactionDateFor(state.transactions, item.id);
-    return lastDate ? isOverdue(lastDate, item.freq) : true;
+    return lastDate ? !!toConfirm[item.id] : true;
   });
   if(!due.length) return [];
   if(due.length === 1){

@@ -2337,7 +2337,9 @@ import {
   // a component, but the data they need (which budget lines exist, who the tax people are) is
   // assembled by one. See setDeductibleItemsProvider's own comment for why this beats threading the
   // list through every caller of computePersonTax.
-  setDeductibleItemsProvider(budgetLineItems);
+  // v3.131.0: the household's own budget — the current scenario's — whichever what-if is being looked
+  // at. A tax estimate is about the year you're actually living; it moved with the scenario picker.
+  setDeductibleItemsProvider(function(){ return budgetLineItems(currentScenario()); });
   setDeductionPeopleProvider(getTaxPeople);
   setDeductionPropertiesProvider(function(){ return state.properties.filter(function(p){ return p.kind === "IP"; }).map(function(p){ return { id: p.id, what: p.what }; }); });
   setRentLinesProvider(function(){ return { lines: RENT_EXPENSE_LINES, lineFor: rentLineFor }; });

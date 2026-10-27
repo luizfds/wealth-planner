@@ -2631,7 +2631,7 @@ Import rules 9,646 → 2,804px and 29,165 → 7,636px. The transaction list keep
 
 ### Phase B — type less
 
-## 142. `[ ]` Balances from statements
+## 142. `[~]` Balances from statements
 An imported statement's closing balance sets the account's balance on that date; imported transactions
 roll it forward until the next one. Manual "Update" stays for accounts with no statements.
 

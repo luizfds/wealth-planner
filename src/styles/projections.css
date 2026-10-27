@@ -52,6 +52,12 @@
      stated rather than left for the reader to notice from the gridline figures. */
   .chart-axis-note{ font-size:11px; color: var(--ink-soft); margin:6px 0 0; }
   .proj-crosshair{ stroke: var(--ink-soft); stroke-width:1; stroke-dasharray:3 3; }
+  .rt-odds{ display:grid; grid-template-columns:1fr auto; gap:2px 12px; align-items:baseline; padding:12px 14px; border-radius:12px; border:1px solid var(--border); margin:10px 0; }
+  .rt-odds b{ font-size:22px; font-family: var(--font-num); }
+  .rt-odds small{ grid-column:1 / -1; color: var(--ink-soft); font-size:13px; line-height:1.45; }
+  .rt-odds.ok b{ color: var(--good); } .rt-odds.mid b{ color: var(--warn, #b7791f); } .rt-odds.bad b{ color: var(--bad); }
+  .proj-band{ fill: var(--series-color); opacity:.14; stroke:none; }
+  .proj-range-line{ display:block; margin-top:4px; font-size:13.5px; color: var(--ink-soft); }
   .series-line{ fill:none; stroke: var(--series-color); stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
   .series-dot{ fill: var(--series-color); }
   .series-pt{ fill: var(--paper-raised); stroke: var(--series-color); stroke-width:1.5; }

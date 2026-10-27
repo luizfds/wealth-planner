@@ -112,11 +112,15 @@ export function simulateRetirementAt(retireAge, opts){
 
   var accessible = split.accessible;
   var superValue = split.superValue;
+  // v3.125.0: opts.returns — one real return per year from now — replaces the steady rate, for the
+  // range of outcomes (calc/outcomes.js).
+  var path = opts.returns;
+  var rAt = function(age){ var k = age - currentAge; return path && path[k] != null ? path[k] : r; };
 
   // Phase 1 — still working.
   for(var age = currentAge; age < retireAge; age++){
-    accessible = accessible * (1 + r) + annualSavings;
-    superValue = superValue * (1 + r) + superContrib;
+    accessible = accessible * (1 + rAt(age)) + annualSavings;
+    superValue = superValue * (1 + rAt(age)) + superContrib;
   }
   var accessibleAtRetire = accessible;
 
@@ -124,15 +128,28 @@ export function simulateRetirementAt(retireAge, opts){
   var bridgeYears = Math.max(0, preservationAge - retireAge);
   var bridgeSurvives = true;
   for(var y = 0; y < bridgeYears; y++){
+    var ry = rAt(retireAge + y);
     accessible = accessible - annualExpenses;
     if(accessible < 0){ bridgeSurvives = false; accessible = 0; }
-    accessible = accessible * (1 + r);
-    superValue = superValue * (1 + r);
+    accessible = accessible * (1 + ry);
+    superValue = superValue * (1 + ry);
   }
 
   // Phase 3 — super unlocks and the whole pot has to sustain the 4% draw.
   var potAtPreservation = accessible + superValue;
   var targetFI = annualExpenses * 25;
+  // v3.125.0: with opts.toAge, also spend the pot down year by year to that age — the test a run of
+  // uneven returns is judged by, since the 4% rule is itself a summary of such runs.
+  var lastsTo = null;
+  if(opts.toAge != null){
+    var pot = potAtPreservation, from = Math.max(retireAge, preservationAge);
+    lastsTo = opts.toAge;
+    for(var a2 = from; a2 < opts.toAge; a2++){
+      pot -= annualExpenses;
+      if(pot < 0){ lastsTo = a2; break; }
+      pot *= 1 + rAt(a2);
+    }
+  }
   return {
     retireAge: retireAge,
     bridgeYears: bridgeYears,
@@ -144,6 +161,7 @@ export function simulateRetirementAt(retireAge, opts){
     potAtPreservation: potAtPreservation,
     targetFI: targetFI,
     potSustains: potAtPreservation >= targetFI,
+    lastsTo: lastsTo,
     passes: bridgeSurvives && potAtPreservation >= targetFI
   };
 }

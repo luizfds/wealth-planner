@@ -158,7 +158,7 @@ export function defaultState(){
     // which is what the projection did implicitly until now — quietly has the surplus shrinking
     // every year and turning negative partway through the horizon.
     // realTerms shows the series in today's dollars rather than future ones.
-    projection: { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0, incomeGrowthRate: 3, realTerms: true },
+    projection: { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0, incomeGrowthRate: 3, realTerms: true, investVolatility: 12, propertyVolatility: 6 },
     // Age now, target retirement age, and when super unlocks — see calc/fire.js.
     fire: { currentAge: null, retireAge: null, preservationAge: 60 },
     // privateHospitalCover / familyThresholds are household-level, not per person: the Medicare
@@ -425,6 +425,9 @@ export function migrateState(s){
   // preserving an assumption nobody made. Called out in the release notes for that reason.
   if(s.projection.incomeGrowthRate == null) s.projection.incomeGrowthRate = s.projection.inflationRate != null ? s.projection.inflationRate : 3;
   if(s.projection.realTerms == null) s.projection.realTerms = true;
+  // v3.125.0: how unevenly returns arrive, for the range of outcomes (calc/outcomes.js).
+  if(s.projection.investVolatility == null || s.projection.investVolatility === "") s.projection.investVolatility = 12;
+  if(s.projection.propertyVolatility == null || s.projection.propertyVolatility === "") s.projection.propertyVolatility = 6;
   if(!s.tax) s.tax = { sgRate: 12, settings: {} };
   if(!s.tax.settings) s.tax.settings = {};
   if(s.tax.sgRate == null) s.tax.sgRate = 11.5;

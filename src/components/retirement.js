@@ -6,6 +6,7 @@ import { currentTaxFy } from "../calc/tax.js";
 import { scenarioTotals, currentScenario } from "../calc/engine.js";
 import { fmtCurrency0, fmtPercent0, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
+import { retirementOdds, ageForOdds, LIVE_TO } from "../calc/outcomes.js";
 
 // ---------------- Plan → Retirement (v3.73.0) ----------------
 // One page for "when can we stop working, and what changes it": the answer up top, the levers as
@@ -41,6 +42,14 @@ export function retirementHtml(today){
       '<b>' + (run.bridgeYears ? money(run.accessibleAtRetire) + " of " + money(run.bridgeNeeded) + " needed" : "✓") + '</b></div>' +
     '<div class="' + (run.potSustains ? "ok" : "bad") + '"><span>From ' + inp.preservationAge + ': everything has to sustain a 4% draw</span><b>' + money(run.potAtPreservation) + ' of ' + money(run.targetFI) + '</b></div>' +
     '<p class="rt-verdict ' + (run.passes ? "ok" : "bad") + '">' + (run.passes ? "Stopping at " + run.retireAge + " works on these numbers." : "Stopping at " + run.retireAge + " doesn't work yet" + (run.bridgeSurvives ? " — the pot at " + inp.preservationAge + " falls short." : " — the money outside super runs out before " + inp.preservationAge + ".")) + '</p></div>' : '';
+  // v3.125.0: the same plan with returns that rise and fall — how often it lasts, and the age that
+  // makes it 9 in 10.
+  var odds = run ? retirementOdds(plan.age, inp, { projection: state.projection }) : null;
+  var safeAge = odds ? ageForOdds(inp, 0.9, { projection: state.projection }) : null;
+  var oddsHtml = odds ? '<div class="rt-odds ' + (odds.chance >= 0.9 ? "ok" : odds.chance >= 0.7 ? "mid" : "bad") + '"><span>With returns that rise and fall</span>' +
+    '<b>' + Math.round(odds.chance * 100) + '%</b><small>of ' + odds.runs.toLocaleString("en-AU") + ' runs of stopping at ' + plan.age + ' last to ' + LIVE_TO +
+    (odds.chance < 0.995 ? '; in the worst tenth the money runs out by ' + odds.worstTenthLastsTo : '') + '. ' +
+    (safeAge != null ? (safeAge <= plan.age ? 'At ' + plan.age + ' the odds are already 9 in 10 or better.' : 'For 9 in 10, stop at ' + safeAge + '.') : 'Not 9 in 10 by 75 on these numbers.') + '</small></div>' : '';
   var lev = '<div class="rt-levers"><div class="property-section-title">What changes it</div>' + plan.levers.map(function(l){
     return '<div class="rt-lever"><span>' + l.label + '</span><b>' + (l.age == null ? "—" : l.years > 0 ? l.years + " year" + (l.years === 1 ? "" : "s") + " sooner (" + l.age + ")" : "no change") + '</b></div>';
   }).join("") + '</div>';
@@ -51,6 +60,6 @@ export function retirementHtml(today){
     '<div><span>Super cap room this year</span><b>' + money(room) + '</b><small>' + (room > 0 ? "Concessional room left across " + sc.length + " " + (sc.length === 1 ? "person" : "people") + " — the “extra into super” lever, before tax." : "Caps are used.") + '</small><button type="button" class="link-btn" data-rt-go="super">Super →</button></div>' +
     '<div><span>Savings goals</span><b>' + go.goals.length + '</b><small>' + (go.neededMonthly ? money(go.neededMonthly) + "/mo going to goals comes out of what's saved for retirement." : "None taking from the monthly surplus.") + '</small><button type="button" class="link-btn" data-rt-go="goals">Goals →</button></div>' +
     '<div><span>Progress to the 4% number</span><b>' + (plan.progress != null ? fmtPercent0.format(Math.min(1, plan.progress)) : "—") + '</b><small>' + money(inp.split.accessible + inp.split.superValue) + ' of ' + money(plan.fiNumber) + ' (super and accessible money; your home doesn\'t count).</small></div></div>';
-  return headline + sliders + check + lev + links + ages +
-    '<p class="ledger-note" style="margin:8px 0 0">In today\'s dollars at a real return of ' + (Math.round(inp.realReturn * 1000) / 10) + '% (Plan → Projections sets the rates). A guide, not advice: it assumes a steady return and spending, and the 4% rule.</p>';
+  return headline + sliders + check + oddsHtml + lev + links + ages +
+    '<p class="ledger-note" style="margin:8px 0 0">In today\'s dollars at a real return of ' + (Math.round(inp.realReturn * 1000) / 10) + '% (Plan → Projections sets the rates). A guide, not advice: the checks above assume a steady return, spending and the 4% rule; the odds draw each year\'s return around that rate, ' + (Number(state.projection.investVolatility != null ? state.projection.investVolatility : 12)) + '% up or down typically (Plan → Projections), and spend the same each year to ' + LIVE_TO + '.</p>';
 }

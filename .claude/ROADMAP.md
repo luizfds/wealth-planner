@@ -2889,9 +2889,22 @@ opening, unpinning and printing to PDF in a headless browser.
 
 ### Phase E — planning depth
 
-## 160. `[~]` A range of outcomes
+## 160. `[x]` A range of outcomes
 Historical-sequence (or Monte Carlo) runs: a 10th–90th band on the projection and a probability on the FI
 and retirement answers.
+
+Shipped as v3.125.0: Monte Carlo runs (`calc/outcomes.js`), from a fixed seed so the result doesn't shift on every
+redraw. Returns are lognormal around the rates on Plan → Projections with a spread set beside them ("Investment ups
+and downs", default 12%; "Property ups and downs", default 6% — `state.projection.investVolatility` /
+`propertyVolatility`, migrated in). Projections: 300 runs of the scenario being looked at
+(`computeNetWorthSeries` now takes a per-year `investReturns` / `propertyReturns` path and a `cache` of the per-year
+income and costs, so a run costs little), the 10th–90th percentile shaded behind the lines (`renderLineChart`
+`opts.band`), and a sentence under the headline: 8 in 10 runs end between $X and $Y, half above $Z. Retirement:
+`simulateRetirementAt` takes a real-return path and an age to spend down to; 1,000 runs give the share in which
+stopping at the chosen age bridges to preservation and lasts to 95, where the worst tenth runs out, and the age for 9
+in 10 (`retirementOdds`, `ageForOdds`). On the demo, the steady plan says 50 works; the runs give it about even odds
+and put 9 in 10 at 56. Checked on the demo and a real backup (outside the repo): band drawn, odds shown, no errors.
+
 
 ## 161. `[~]` Life events on a timeline
 Children, career breaks, a sale, a downsizer contribution — dated events that change income, spending or

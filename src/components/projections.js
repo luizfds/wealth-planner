@@ -1,5 +1,6 @@
 import { state } from "../state.js";
-import { computeNetWorthSeries } from "../calc/engine.js";
+import { computeNetWorthSeries, currentScenario } from "../calc/engine.js";
+import { projectionBands } from "../calc/outcomes.js";
 import { fmtCurrency0 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { renderLineChart } from "../lib/charts.js";
@@ -49,6 +50,11 @@ export function renderProjectionOutputs(){
   });
 
   lastSeries = series;
+  // v3.125.0: the range around one scenario — the one being looked at — from runs with uneven returns.
+  var bandScenario = state.scenarios.indexOf(state.activeScenario) !== -1 ? state.activeScenario : currentScenario();
+  var bandIdx = state.scenarios.indexOf(bandScenario);
+  var bands = bandIdx !== -1 ? projectionBands(bandScenario, horizon, { realTerms: realTerms, projection: state.projection }) : null;
+  var spread = bands && bands.hi[horizon] && bands.hi[horizon].y - bands.lo[horizon].y > 1 ? bands : null;
   var srcRow = document.getElementById("projSourceRow");
   if(srcRow) srcRow.innerHTML = projSourceHtml(actualRatios(), state.projection.source);
   var headlineEl = document.getElementById("projHeadline");
@@ -71,6 +77,10 @@ export function renderProjectionOutputs(){
     } else {
       headlineEl.innerHTML = "";
     }
+    if(spread){
+      headlineEl.innerHTML += ' <span class="proj-range-line">With returns that rise and fall, 8 in 10 of ' + spread.runs + ' runs of ' + escapeAttr(bandScenario) + ' end between <b>' +
+        fmtCurrency0.format(spread.lo[horizon].y) + '</b> and <b>' + fmtCurrency0.format(spread.hi[horizon].y) + '</b> (the shading); half end above ' + fmtCurrency0.format(spread.mid[horizon].y) + '.</span>';
+    }
   }
 
   // v3.34.0: the chart gets its own host. renderLineChart redraws itself when its container's width
@@ -85,6 +95,7 @@ export function renderProjectionOutputs(){
     xFormat: function(v){ return "Yr " + v; },
     ariaLabel: "Net worth projection by scenario, in " + (realTerms ? "today's" : "future") + " dollars",
     interactiveLegend: true,
+    band: spread ? { lo: spread.lo, hi: spread.hi, colorClass: "series-color-" + (bandIdx % 8) } : null,
     emptyMessage: "Add your income and expenses and this projects every scenario's net worth forward from what you've entered."
   });
 

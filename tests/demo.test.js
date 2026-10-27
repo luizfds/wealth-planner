@@ -57,3 +57,19 @@ test("every report has something in it", function(){
     });
   });
 });
+
+import { projectionBands } from "../src/calc/outcomes.js";
+import { computeNetWorthSeries, currentScenario } from "../src/calc/engine.js";
+test("the projection's range: the 10th–90th band holds the steady line, widening with the years", function(){
+  withDemo(function(){
+    var sc = currentScenario();
+    var b = projectionBands(sc, 20, { runs: 120, realTerms: true, projection: state.projection });
+    var steady = computeNetWorthSeries(sc, 20, { realTerms: true });
+    assert.equal(b.lo.length, 21);
+    assert.equal(Math.round(b.lo[0].y), Math.round(steady[0].y)); // today is known
+    [5, 10, 20].forEach(function(y){ assert.ok(b.lo[y].y < steady[y].y && steady[y].y < b.hi[y].y, "year " + y); });
+    assert.ok(b.hi[20].y - b.lo[20].y > b.hi[5].y - b.lo[5].y);
+    // The cached runs leave the steady answer alone.
+    assert.deepEqual(computeNetWorthSeries(sc, 20, { realTerms: true }), steady);
+  });
+});

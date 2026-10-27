@@ -783,6 +783,16 @@ import {
   pairSlider("projInflationRate", "projInflationRateRange");
   pairSlider("projIncomeGrowth", "projIncomeGrowthRange");
   pairSlider("projRateShock", "projRateShockRange");
+  pairSlider("projInvestVol", "projInvestVolRange");
+  pairSlider("projPropertyVol", "projPropertyVolRange");
+  // v3.125.0: the spread of returns behind the shaded range.
+  ["projInvestVol", "projPropertyVol"].forEach(function(id){
+    document.getElementById(id).addEventListener("input", function(e){
+      state.projection[id === "projInvestVol" ? "investVolatility" : "propertyVolatility"] = Math.max(0, parseFloat(e.target.value) || 0);
+      renderProjectionOutputs(); renderRetirement();
+      persist();
+    });
+  });
 
   // Both halves of the basis control in one place: the segmented button's pressed state, and the
   // sentence next to it that says what the choice actually means. Called on load and on every
@@ -4690,6 +4700,10 @@ import {
     document.getElementById("projIncomeGrowthRange").value = state.projection.incomeGrowthRate;
     document.getElementById("projRateShock").value = state.projection.rateShockPct;
     document.getElementById("projRateShockRange").value = state.projection.rateShockPct;
+    document.getElementById("projInvestVol").value = state.projection.investVolatility;
+    document.getElementById("projInvestVolRange").value = state.projection.investVolatility;
+    document.getElementById("projPropertyVol").value = state.projection.propertyVolatility;
+    document.getElementById("projPropertyVolRange").value = state.projection.propertyVolatility;
     syncProjBasisControl();
     // Static copy, but rendered from the component that owns the parser it describes — see
     // renderBankImportHelp. Cheap enough to redo here rather than needing its own lifecycle.

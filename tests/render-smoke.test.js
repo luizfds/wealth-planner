@@ -1305,3 +1305,15 @@ test("propertySummaryHtml summarises a property, and skips what isn't known", ()
   assert.match(bare, /not recorded yet/);
   assert.doesNotMatch(bare, /<dt>Loans<\/dt>|<dt>Rent<\/dt>|NaN|undefined/);
 });
+
+// v3.108.0: a closed row carries its form in a <template>; an open row has it inline.
+import { modernPlainRowHtml as plainRow } from "../src/lib/ledger-table.js";
+test("a closed row's edit form is a template until the row opens", () => {
+  const item = { id: "l1", what: "Groceries", amount: 120, freq: "Weekly", classification: "Needs" };
+  const closed = plainRow(item, 0, "shared", {}, { showClass: true });
+  assert.match(closed, /<template class="m-row-edit-tpl"><div class="m-row-edit">/);
+  assert.match(closed, /class="f-amount"/, "the form is still there, inert, for when it opens");
+  const open = plainRow(item, 0, "shared", { "shared:0": true }, { showClass: true });
+  assert.doesNotMatch(open, /<template/);
+  assert.match(open, /<div class="m-row open"[^>]*>.*<div class="m-row-edit">/s);
+});

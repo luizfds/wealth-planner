@@ -17,7 +17,7 @@ import { fixedRateView, rentSummary } from "../calc/propertylife.js";
 import { statementTotals, statementsForFy, waterRatesLine } from "../calc/agentstatement.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr, fmtDate } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
-import { optionsHtml, modernPlainRowHtml, historyTrendHtml } from "../lib/ledger-table.js";
+import { optionsHtml, modernPlainRowHtml, historyTrendHtml, rowEditSlot } from "../lib/ledger-table.js";
 import { showToast } from "../lib/toast.js";
 import { appendHistorySnapshot } from "../calc/ledger.js";
 import { renderLineChart, dateAxisFormat, sparklineHtml, sparklinePlaceholderHtml } from "../lib/charts.js";
@@ -171,7 +171,7 @@ function loanRowModernHtml(loan, li, propId, colorIdx){
     '</div>' +
     '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm row-del" data-loan-del="' + li + '">Delete</button></div>' +
   '</div></div></div>';
-  return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="' + escapeAttr(section) + '" data-index="' + li + '" data-loan-index="' + li + '">' + summary + edit + '</div>';
+  return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="' + escapeAttr(section) + '" data-index="' + li + '" data-loan-index="' + li + '">' + summary + rowEditSlot(isOpen, edit) + '</div>';
 }
 // Rate history (v3.53.0) — calc/property.js. The rate field above is the rate now; recording a
 // change keeps when it moved, which a past year's interest and Close the year both read.

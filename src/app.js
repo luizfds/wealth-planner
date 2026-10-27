@@ -7,7 +7,7 @@ import { escapeAttr } from "./lib/html.js";
 import { getNotifications, unreadNotificationCount, markNotificationRead, markAllNotificationsRead } from "./lib/notifications.js";
 import { onHorizontalSwipe } from "./lib/swipe.js";
 import { initTableScrollShadows } from "./lib/scroll-shadow.js";
-import { setDeductionPeopleProvider, setDeductionPropertiesProvider, setRentLinesProvider } from "./lib/ledger-table.js";
+import { setDeductionPeopleProvider, setDeductionPropertiesProvider, setRentLinesProvider, materializeRowEdit } from "./lib/ledger-table.js";
 import {
   decryptBackup, doExport, doShare, canShareFiles, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv, exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard, copyPriceSheetTemplate, exportYearTransactionsCsv,
   exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv, exportAssetsImportTemplateCsv, parseCsv, exportProjectionCsv
@@ -241,7 +241,9 @@ import {
     container.querySelectorAll(".m-row[data-section='tx']").forEach(function(row){
       var t = state.transactions[Number(row.getAttribute("data-index"))];
       if(!t || t.linkedExpenseId !== item.id) return;
-      var whatField = row.querySelector(".tx-what");
+      // A closed row's form is still in its <template> (v3.108.0) — patch it there.
+      var tpl = row.querySelector(":scope > template.m-row-edit-tpl");
+      var whatField = row.querySelector(".tx-what") || (tpl && tpl.content.querySelector(".tx-what"));
       if(whatField) whatField.placeholder = item.what || "Optional note";
       if((t.what || "").trim()) return;
       var nameEl = row.querySelector(".m-row-name");
@@ -2435,6 +2437,7 @@ import {
     var containerId = containerIdForRow(row);
     var switchingRow = !!activeModernRow && (activeModernRow.key !== key || activeModernRow.containerId !== containerId);
     if(switchingRow) closeActiveModernRowUI();
+    materializeRowEdit(row);
     row.classList.add("open");
     // .is-entering is what actually carries the slide-in/fade-in animation (see ledger.css) — a
     // transient marker so a container re-render that recreates an already-open row doesn't replay

@@ -277,6 +277,19 @@ export function modernRowEditHtml(fieldsHtml, actionsHtml, moreOptionsHtml){
 function lineIdAttr(lineId){
   return lineId ? ' data-line-id="' + escapeAttr(lineId) + '"' : "";
 }
+// v3.108.0: a closed row's edit form goes in a <template>. Its content isn't laid out, focusable or
+// found by querySelectorAll, and goes when the row does — a page of closed rows no longer carries
+// every row's form (Cash flow had well over 1,500 controls with a year of data). openModernRow()
+// unpacks it with materializeRowEdit() before the row opens; a row rendered open gets it inline.
+export function rowEditSlot(isOpen, editHtml){
+  if(!editHtml) return "";
+  return isOpen ? editHtml : '<template class="m-row-edit-tpl">' + editHtml + '</template>';
+}
+export function materializeRowEdit(row){
+  var t = row && row.querySelector(":scope > template.m-row-edit-tpl");
+  if(t) t.replaceWith(t.content);
+}
+
 // extraClass lets a caller add its own marker class (e.g. Transactions' "tx-row") alongside "m-row".
 export function modernRowShellHtml(section, idx, openState, summaryHtml, editHtml, opts){
   opts = opts || {};
@@ -285,7 +298,7 @@ export function modernRowShellHtml(section, idx, openState, summaryHtml, editHtm
     return '<div class="m-row computed' + extra + '"' + lineIdAttr(opts.lineId) + ' data-section="' + escapeAttr(section) + '" data-index="' + idx + '">' + summaryHtml + '</div>';
   }
   var isOpen = !!openState[section + ":" + idx];
-  return '<div class="m-row' + (isOpen ? " open" : "") + extra + '"' + lineIdAttr(opts.lineId) + ' data-section="' + escapeAttr(section) + '" data-index="' + idx + '">' + summaryHtml + editHtml + '</div>';
+  return '<div class="m-row' + (isOpen ? " open" : "") + extra + '"' + lineIdAttr(opts.lineId) + ' data-section="' + escapeAttr(section) + '" data-index="' + idx + '">' + summaryHtml + rowEditSlot(isOpen, editHtml) + '</div>';
 }
 
 // Generic "name + amount, expands to a small field grid" row — used everywhere a ledger-table

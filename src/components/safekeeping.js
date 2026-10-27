@@ -1,6 +1,7 @@
 import { state } from "../state.js";
 import { folderBackupSupported, savedFolder, passcodeSet } from "../lib/safekeeping.js";
-import { syncLocal } from "../lib/foldersync.js";
+import { syncLocal, syncVia } from "../lib/foldersync.js";
+import { appKey, dropboxConnected, keyIsBuiltIn, redirectUri } from "../lib/dropbox.js";
 import { escapeAttr } from "../lib/html.js";
 import { localDateStr, fmtDate } from "../lib/format.js";
 
@@ -32,13 +33,25 @@ export function safekeepingHtml(folderName, today){
     'Before replacing anything the app says which copy changed last' + (state.savedAt ? ' (this one: ' + escapeAttr(new Date(state.savedAt).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })) + ')' : '') + '.</p>' +
     '<button type="button" class="btn btn-sm btn-ghost" data-sk="file-open">Open a backup file</button></div>';
   // v3.134.0: keeping devices in step through the same folder (item 163, the first way).
-  var sl = syncLocal();
-  var sync = folderBackupSupported() ? '<div class="sk-block"><b>Keep your computers in sync</b><p class="ledger-note" style="margin:2px 0 8px">' +
-      (sl.on ? 'On' + (folderName ? ' — through <b>' + escapeAttr(folderName) + '</b>' : '') + '. A few seconds after each change this computer writes an encrypted copy there; opening the app on another computer with the same folder loads it. If both changed since they last synced, you choose which to keep — they\'re never merged.' +
-          (sl.lastAt ? ' Last synced ' + escapeAttr(new Date(sl.lastAt).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })) + '.' : '')
-        : 'Point the folder above at Dropbox, OneDrive or iCloud Drive on each computer, turn this on with the same passphrase on each, and they keep one copy between them. The copy in the folder is encrypted with your passphrase — the cloud only ever stores scrambled data, and the passphrase isn\'t stored anywhere. Computers only: a phone\'s browser can\'t keep a folder.') + '</p>' +
-      (sl.on ? '<button type="button" class="btn btn-sm" data-sk="sync-now">Sync now</button> <button type="button" class="btn btn-sm btn-ghost" data-sk="sync-off">Turn off</button>'
-        : '<button type="button" class="btn btn-sm" data-sk="sync-on">' + (folderName ? 'Turn on sync' : 'Choose a folder and turn on sync') + '</button>') + '</div>' : '';
+  // v3.136.0: or through Dropbox (the second way), which works on a phone too.
+  var sl = syncLocal(), via = syncVia();
+  var when = sl.lastAt ? ' Last synced ' + escapeAttr(new Date(sl.lastAt).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })) + '.' : '';
+  var sync;
+  if(sl.on){
+    sync = '<div class="sk-block"><b>Keep your devices in sync</b><p class="ledger-note" style="margin:2px 0 8px">On — through <b>' + (via === "dropbox" ? "Dropbox" : escapeAttr(folderName || "the folder")) + '</b>. ' +
+      'A few seconds after each change this device writes an encrypted copy there; opening the app on another device ' + (via === "dropbox" ? "connected to the same Dropbox" : "with the same folder") + ' loads it. If both changed since they last synced, you choose which to keep — they\'re never merged.' + when + '</p>' +
+      '<button type="button" class="btn btn-sm" data-sk="sync-now">Sync now</button> <button type="button" class="btn btn-sm btn-ghost" data-sk="sync-off">Turn off</button></div>';
+  } else {
+    var key = appKey(), connected = dropboxConnected();
+    var dbx = '<div class="sk-way"><b>Through Dropbox</b> <small>— computers and phones</small><p class="ledger-note" style="margin:2px 0 8px">The app gets its own folder in your Dropbox (Apps → Wealth Planner) and nothing else. What it stores there is encrypted with your passphrase.</p>' +
+      (!key ? '<p class="ledger-note" style="margin:0 0 6px">This copy of the app has no Dropbox app key yet. Create one in the Dropbox App Console (Scoped access, App folder, permissions files.content.read and files.content.write, redirect URI <code>' + escapeAttr(redirectUri()) + '</code>) and paste its App key here:</p>' +
+          '<label class="sk-key"><input type="text" data-dbx-key placeholder="App key" aria-label="Dropbox app key" autocomplete="off" spellcheck="false"> <button type="button" class="btn btn-sm" data-sk="dbx-key">Save key</button></label>'
+        : connected ? '<button type="button" class="btn btn-sm" data-sk="dbx-pass">Set the passphrase and turn on</button> <button type="button" class="btn btn-sm btn-ghost" data-sk="dbx-disconnect">Disconnect Dropbox</button>'
+        : '<button type="button" class="btn btn-sm" data-sk="dbx-connect">Connect Dropbox</button>' + (keyIsBuiltIn() ? '' : ' <button type="button" class="btn btn-sm btn-ghost" data-sk="dbx-key-forget">Change app key</button>')) + '</div>';
+    var fld = folderBackupSupported() ? '<div class="sk-way"><b>Through a synced folder</b> <small>— computers only</small><p class="ledger-note" style="margin:2px 0 8px">Point the folder above at Dropbox, OneDrive or iCloud Drive on each computer and turn this on with the same passphrase on each.</p>' +
+      '<button type="button" class="btn btn-sm btn-ghost" data-sk="sync-on">' + (folderName ? 'Turn on sync through ' + escapeAttr(folderName) : 'Choose a folder and turn on sync') + '</button></div>' : '';
+    sync = '<div class="sk-block"><b>Keep your devices in sync</b><p class="ledger-note" style="margin:2px 0 8px">One copy shared between your devices, encrypted with a passphrase you choose — the cloud only ever stores scrambled data, and the passphrase isn\'t stored anywhere. Use the same passphrase on each device.</p>' + dbx + fld + '</div>';
+  }
   return backup + folder + sync + twoDevices + lock;
 }
 export function renderSafekeeping(){

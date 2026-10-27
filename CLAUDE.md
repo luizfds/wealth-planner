@@ -107,6 +107,9 @@ the last, so two sessions can't pick up the same one.
 - `vendor/pdfjs/` — pdf.js (Apache-2.0, its LICENSE alongside), vendored rather than loaded from a CDN so PDF
   import works offline and never depends on a third-party host. Loaded only when a PDF is chosen
   (`src/lib/pdftext.js`); outside `src/`, so `npm run stamp` leaves it alone.
+- `src/lib/foldersync.js` + `src/lib/dropbox.js` — sync between devices (v3.134.0/v3.136.0): one encrypted file
+  (`calc/syncfile.js` decides load / write / ask), written through the chosen backup folder or the app's Dropbox
+  folder (OAuth PKCE, `DROPBOX_APP_KEY`). Per-device sync memory and tokens live in localStorage, never in `state`.
 - `prices/` — the daily price file (v3.133.0): `universe.json` is a fixed public ticker list (never add
   one because someone holds it — the repo is public), and `latest.json`/`weekly.json` are rewritten each
   weekday by `.github/workflows/prices.yml` (`scripts/prices/fetch.mjs`: Stooq for US, Twelve Data for

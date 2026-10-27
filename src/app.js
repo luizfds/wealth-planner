@@ -92,6 +92,7 @@ import { refreshAutoPrices, autoPricesNeeded, autoPricesResultText } from "./com
 import { firstRun, startFirstRun, firstRunHtml } from "./components/firstrun.js";
 import { chooseFolder, backupToFolder, forgetFolder, maybeAutoBackup, setPasscode, clearPasscode, checkPasscode, newestFolderBackup, compareCopies, savedFolder } from "./lib/safekeeping.js";
 import { syncOn, unlockSync, syncNow, pulled, markChanged, stopSync } from "./lib/foldersync.js";
+import { setAppKey, connectDropbox, finishDropboxRedirect, disconnectDropbox } from "./lib/dropbox.js";
 import { renderSafekeeping } from "./components/safekeeping.js";
 import { goalsSectionHtml, goalOpen } from "./components/savegoals.js";
 import { addSavingsGoal } from "./calc/savegoals.js";
@@ -5054,7 +5055,7 @@ import {
       savedFolder().then(function(h){ return h ? h : chooseFolder(); }).then(function(){
         var pass = prompt("A passphrase for the synced copy. Use the same one on each computer — it isn't stored anywhere, so keep it somewhere safe:");
         if(!pass) return;
-        return unlockSync(pass, true).then(function(r){
+        return unlockSync(pass, true, "folder").then(function(r){
           if(!r.ok){ showToast(r.reason === "wrong-passphrase" ? "That passphrase doesn't open the copy already in the folder" : "Couldn't use the folder"); return; }
           if(!r.existing){
             var again = prompt("Type the passphrase again:");
@@ -5068,7 +5069,13 @@ import {
       return;
     }
     if(act === "sync-now"){ runSync({ interactive: true, manual: true }); return; }
-    if(act === "sync-off"){ if(confirm("Stop syncing on this computer? The copy in the folder stays.")) stopSync().then(function(){ showToast("Sync off on this computer"); renderSafekeeping(); }); return; }
+    // v3.136.0: through Dropbox.
+    if(act === "dbx-key"){ var ki = document.querySelector("[data-dbx-key]"); var kv = ki && ki.value.trim(); if(!kv){ showToast("Paste the app key first"); return; } setAppKey(kv); renderSafekeeping(); return; }
+    if(act === "dbx-key-forget"){ setAppKey(""); renderSafekeeping(); return; }
+    if(act === "dbx-connect"){ connectDropbox().catch(function(){ showToast("Couldn't start the Dropbox sign-in"); }); return; }
+    if(act === "dbx-disconnect"){ disconnectDropbox().then(function(){ showToast("Dropbox disconnected"); renderSafekeeping(); }); return; }
+    if(act === "dbx-pass"){ dropboxPassphrase(); return; }
+    if(act === "sync-off"){ if(confirm("Stop syncing on this device? The synced copy stays where it is.")) stopSync().then(function(){ showToast("Sync off on this device"); renderSafekeeping(); }); return; }
     if(act === "folder-stop"){ forgetFolder().then(function(){ showToast("Stopped backing up to the folder"); renderSafekeeping(); }); return; }
     if(act === "pass-set" || act === "pass-change"){ askNewPasscode().then(function(done){ if(done){ showToast("Passcode set"); renderSafekeeping(); } }); return; }
     if(act === "pass-off"){
@@ -5080,6 +5087,21 @@ import {
     if(act === "lock-now"){ try{ sessionStorage.removeItem("wealthPlanner.unlocked"); }catch(err){} showLock(); }
   });
   // ---------------- Sync through the folder (v3.134.0) — lib/foldersync.js ----------------
+  // v3.136.0: Dropbox's passphrase step, after connecting (or on a new device).
+  function dropboxPassphrase(){
+    var pass = prompt("The passphrase for the synced copy. Use the same one on each device — it isn't stored anywhere, so keep it somewhere safe:");
+    if(!pass) return Promise.resolve();
+    return unlockSync(pass, true, "dropbox").then(function(r){
+      if(!r.ok){ showToast(r.reason === "wrong-passphrase" ? "That passphrase doesn't open the copy already in Dropbox" : r.reason === "not-connected" ? "Connect Dropbox first" : "Couldn't reach Dropbox"); return; }
+      if(!r.existing){
+        var again = prompt("Type the passphrase again:");
+        if(again !== pass){ stopSync(); showToast("The passphrases didn't match — sync is off"); renderSafekeeping(); return; }
+      }
+      showToast(r.existing ? "Sync on — checking the copy in Dropbox" : "Sync on");
+      renderSafekeeping();
+      return runSync({ interactive: true });
+    }).catch(function(){ showToast("Couldn't reach Dropbox"); });
+  }
   function whenText(iso){ try{ return new Date(iso).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); }catch(e){ return iso || ""; } }
   var syncBusy = false, syncTimer = null;
   function runSync(opts){
@@ -5092,14 +5114,15 @@ import {
         try { setState(migrateState(JSON.parse(r.text))); } catch(e){ showToast("The synced copy couldn't be read"); return r; }
         pulled(r.rev);
         recalcComputedItems(); renderAll(); persist();
-        showToast("Loaded the newer copy from the folder (" + whenText(r.savedAt) + ")");
+        showToast("Loaded the newer copy from " + r.folder + " (" + whenText(r.savedAt) + ")");
       } else if(r.status === "pushed"){ if(opts.manual) showToast("Synced"); renderSafekeeping(); }
       else if(r.status === "same"){ if(opts.manual) showToast("Already in sync"); }
       else if(r.status === "paused") showPersistentToast("Sync is paused until the browser is allowed to use " + r.folder + " again.", "Allow", function(){ runSync({ interactive: true }); });
+      else if(r.status === "not-connected") showPersistentToast("Sync needs Dropbox connecting again on this device.", "Connect", function(){ connectDropbox(); });
       else if(r.status === "locked") showPersistentToast("Sync needs its passphrase on this computer.", "Type it", function(){ var p = prompt("Sync passphrase:"); if(p) unlockSync(p, true).then(function(u){ if(u.ok) runSync({ interactive: true }); else showToast("That passphrase doesn't open the synced copy"); }); });
       else if(r.status === "other-key") showPersistentToast("The copy in " + r.folder + " was started again with a different passphrase (" + whenText(r.savedAt) + ").", "Type it", function(){ var p = prompt("That copy's passphrase:"); if(p) unlockSync(p, true).then(function(u){ if(u.ok) runSync({ interactive: true }); else showToast("That passphrase doesn't open it"); }); });
-      else if(r.status === "conflict") showPersistentToast("This computer and " + (r.fromThisDevice ? "an earlier session here" : "another one") + " both changed since they last synced (the folder's copy: " + whenText(r.savedAt) + ").", "Choose", function(){
-        var load = confirm("Load the folder's copy (" + whenText(r.savedAt) + ")?\n\nOK — load it; this computer's changes since the last sync are replaced.\nCancel — keep this computer's copy and write it to the folder instead.");
+      else if(r.status === "conflict") showPersistentToast("This device and " + (r.fromThisDevice ? "an earlier session here" : "another one") + " both changed since they last synced (the copy in " + r.folder + ": " + whenText(r.savedAt) + ").", "Choose", function(){
+        var load = confirm("Load the copy in " + r.folder + " (" + whenText(r.savedAt) + ")?\n\nOK — load it; this device's changes since the last sync are replaced.\nCancel — keep this device's copy and write it there instead.");
         runSync({ interactive: true, manual: true, force: load ? "pull" : "push" });
       });
       return r;
@@ -5117,7 +5140,17 @@ import {
   // v3.134.0: with sync on, the encrypted sync copy does both jobs — no unencrypted weekly file.
   // Before the day's price check (below), so a copy changed elsewhere is loaded before this device
   // makes changes of its own.
-  var initialSync = syncOn() ? runSync({}) : Promise.resolve();
+  // v3.136.0: back from Dropbox's sign-in first — then straight to the passphrase.
+  var initialSync = finishDropboxRedirect().then(function(r){
+    if(r && r.connected){
+      showAccountsSubpage("preferences"); renderSafekeeping();
+      if(!syncOn()) showPersistentToast("Dropbox connected. Set the passphrase to start syncing.", "Set it", dropboxPassphrase);
+      else return runSync({ interactive: true });
+      return;
+    }
+    if(r && !r.connected) showToast(r.reason === "access_denied" ? "Dropbox wasn't connected" : "Couldn't connect Dropbox");
+    return syncOn() ? runSync({}) : null;
+  }).catch(function(){});
   if(!syncOn()) newestFolderBackup(false).then(function(r){
     if(r && r.newerThanHere && !r.fromThisDevice && !r.none && r.permission !== false){
       var when = new Date(r.savedAt).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });

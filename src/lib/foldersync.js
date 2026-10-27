@@ -2,6 +2,7 @@ import { state, deviceId } from "../state.js";
 import { savedFolder, idb } from "./safekeeping.js";
 import { deriveBackupKey, bufToBase64, base64ToBuf } from "./backup.js";
 import { SYNC_FILE, syncDecision, makeEnvelope, readEnvelope, contentHash } from "../calc/syncfile.js";
+import { dropboxConnected, readDropbox, writeDropbox, disconnectDropbox } from "./dropbox.js";
 
 // ---------------- Sync through a synced folder (v3.134.0) — calc/syncfile.js has the rules ----------------
 // The file and the crypto. The key is derived from the passphrase (PBKDF2, the same as encrypted
@@ -23,14 +24,34 @@ function permitted(handle, interactive){
   var opts = { mode: "readwrite" };
   return handle.queryPermission(opts).then(function(p){ return p === "granted" ? p : (interactive ? handle.requestPermission(opts) : p); });
 }
-function readFile(handle){
-  return handle.getFileHandle(SYNC_FILE).then(function(fh){ return fh.getFile(); }).then(function(f){ return f.text(); })
-    .then(readEnvelope).catch(function(){ return null; });
-}
-function writeFile(handle, envelope){
-  return handle.getFileHandle(SYNC_FILE, { create: true }).then(function(fh){ return fh.createWritable(); })
-    .then(function(w){ return w.write(JSON.stringify(envelope)).then(function(){ return w.close(); }); });
-}
+
+// ---- Where the file lives (v3.136.0) ----
+// A transport opens (or says why it can't), reads the envelope (with its own revision, if it keeps
+// one) and writes it. The folder is the first way; Dropbox the second.
+var FOLDER = {
+  open: function(interactive){
+    return savedFolder().then(function(handle){
+      if(!handle) return { ok: false, status: "no-folder" };
+      return permitted(handle, interactive).then(function(p){ return p === "granted" ? { ok: true, label: handle.name, handle: handle } : { ok: false, status: "paused", label: handle.name }; });
+    });
+  },
+  read: function(o){
+    return o.handle.getFileHandle(SYNC_FILE).then(function(fh){ return fh.getFile(); }).then(function(f){ return f.text(); })
+      .then(function(t){ return { env: readEnvelope(t), rev: null }; }).catch(function(){ return { env: null, rev: null }; });
+  },
+  write: function(o, text){
+    return o.handle.getFileHandle(SYNC_FILE, { create: true }).then(function(fh){ return fh.createWritable(); })
+      .then(function(w){ return w.write(text).then(function(){ return w.close(); }); });
+  }
+};
+var DROPBOX = {
+  open: function(){ return Promise.resolve(dropboxConnected() ? { ok: true, label: "Dropbox" } : { ok: false, status: "not-connected", label: "Dropbox" }); },
+  read: function(){ return readDropbox().then(function(r){ return r ? { env: readEnvelope(r.text), rev: r.rev } : { env: null, rev: null }; }); },
+  write: function(o, text, rev){ return writeDropbox(text, rev); }
+};
+export function syncVia(){ return syncLocal().via === "dropbox" ? "dropbox" : "folder"; }
+function transport(via){ return (via || syncVia()) === "dropbox" ? DROPBOX : FOLDER; }
+
 function encrypt(keyRec, text){
   var iv = crypto.getRandomValues(new Uint8Array(12));
   return crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, keyRec.key, new TextEncoder().encode(text)).then(function(buf){
@@ -42,22 +63,25 @@ function decrypt(keyRec, env){
     .then(function(buf){ return new TextDecoder().decode(buf); });
 }
 
-// Turning it on (or on a new device): the passphrase becomes this device's key. If the folder already
-// holds a sync file, the passphrase has to open it. Resolves { ok, reason }.
-export function unlockSync(passphrase, interactive){
-  return savedFolder().then(function(handle){
-    if(!handle) return { ok: false, reason: "no-folder" };
-    return permitted(handle, interactive).then(function(p){
-      if(p !== "granted") return { ok: false, reason: "permission" };
-      return readFile(handle).then(function(env){
-        var salt = env ? env.salt : bufToBase64(crypto.getRandomValues(new Uint8Array(16)));
-        return deriveBackupKey(passphrase, new Uint8Array(base64ToBuf(salt))).then(function(key){
-          var rec = { key: key, salt: salt };
-          var check = env ? decrypt(rec, env).then(function(){ return true; }, function(){ return false; }) : Promise.resolve(true);
-          return check.then(function(ok){
-            if(!ok) return { ok: false, reason: "wrong-passphrase" };
-            return putKey(rec).then(function(){ setSyncLocal({ on: true }); return { ok: true, existing: !!env }; });
-          });
+// Turning it on (or on a new device): the passphrase becomes this device's key. If the folder (or
+// Dropbox) already holds a sync file, the passphrase has to open it. `via` is "folder" or "dropbox".
+// Resolves { ok, reason, existing }.
+export function unlockSync(passphrase, interactive, via){
+  via = via || syncVia();
+  var t = transport(via);
+  return t.open(interactive).then(function(o){
+    if(!o.ok) return { ok: false, reason: o.status === "no-folder" ? "no-folder" : o.status === "not-connected" ? "not-connected" : "permission" };
+    return t.read(o).then(function(r){
+      var env = r.env;
+      var salt = env ? env.salt : bufToBase64(crypto.getRandomValues(new Uint8Array(16)));
+      return deriveBackupKey(passphrase, new Uint8Array(base64ToBuf(salt))).then(function(key){
+        var rec = { key: key, salt: salt };
+        var check = env ? decrypt(rec, env).then(function(){ return true; }, function(){ return false; }) : Promise.resolve(true);
+        return check.then(function(ok){
+          if(!ok) return { ok: false, reason: "wrong-passphrase" };
+          // A different way than before starts this device afresh against what's there.
+          var was = syncLocal();
+          return putKey(rec).then(function(){ setSyncLocal(was.via === via ? { on: true, via: via } : { on: true, via: via, base: 0, dirty: false, hash: null }); return { ok: true, existing: !!env }; });
         });
       });
     });
@@ -65,38 +89,40 @@ export function unlockSync(passphrase, interactive){
 }
 
 // One round. opts.interactive may ask for folder permission (needs a click); opts.force "push" or
-// "pull" settles a conflict. Resolves { status, … }: "no-folder" | "paused" | "locked" | "same" |
-// "pushed" | "pull" (with `text`, the decrypted state, and `rev` — the caller applies it, then calls
-// pulled(rev)) | "conflict" (with the file's savedAt/savedBy) | "other-key" (the file was started
-// again with another passphrase).
-export function syncNow(opts){
+// "pull" settles a conflict. Resolves { status, folder (where: a folder's name or "Dropbox"), … }:
+// "no-folder" | "paused" | "not-connected" | "locked" | "same" | "pushed" | "pull" (with `text`, the
+// decrypted state, and `rev` — the caller applies it, then calls pulled(rev)) | "conflict" (with the
+// file's savedAt/savedBy) | "other-key" (the file was started again with another passphrase).
+// A Dropbox write that lost a race to another device reads again, once.
+export function syncNow(opts, retried){
   opts = opts || {};
   var local = syncLocal();
   if(!local.on) return Promise.resolve({ status: "off" });
-  return savedFolder().then(function(handle){
-    if(!handle) return { status: "no-folder" };
-    return permitted(handle, !!opts.interactive).then(function(p){
-      if(p !== "granted") return { status: "paused", folder: handle.name };
-      return getKey().then(function(keyRec){
-        if(!keyRec) return { status: "locked", folder: handle.name };
-        return readFile(handle).then(function(env){
-          if(env && env.salt !== keyRec.salt) return { status: "other-key", folder: handle.name, savedAt: env.savedAt, savedBy: env.savedBy };
-          var d = opts.force || syncDecision(local, env);
-          if(d === "same") return { status: "same", folder: handle.name, rev: local.base };
-          if(d === "conflict") return { status: "conflict", folder: handle.name, savedAt: env.savedAt, savedBy: env.savedBy, fromThisDevice: env.savedBy === deviceId() };
-          if(d === "pull") return decrypt(keyRec, env).then(function(text){ return { status: "pull", folder: handle.name, text: text, rev: Number(env.rev) || 0, savedAt: env.savedAt }; });
-          var rev = Math.max(env ? Number(env.rev) || 0 : 0, Number(local.base) || 0) + 1;
-          var meta = { rev: rev, savedAt: new Date().toISOString(), savedBy: deviceId() };
-          return encrypt(keyRec, JSON.stringify(state)).then(function(c){ return writeFile(handle, makeEnvelope(meta, c)); }).then(function(){
-            setSyncLocal({ base: rev, dirty: false, hash: contentHash(state), lastAt: meta.savedAt });
-            return { status: "pushed", folder: handle.name, rev: rev };
-          });
+  var t = transport();
+  return t.open(!!opts.interactive).then(function(o){
+    if(!o.ok) return { status: o.status, folder: o.label };
+    return getKey().then(function(keyRec){
+      if(!keyRec) return { status: "locked", folder: o.label };
+      return t.read(o).then(function(r){
+        var env = r.env;
+        if(env && env.salt !== keyRec.salt) return { status: "other-key", folder: o.label, savedAt: env.savedAt, savedBy: env.savedBy };
+        var d = opts.force || syncDecision(local, env);
+        if(d === "same") return { status: "same", folder: o.label, rev: local.base };
+        if(d === "conflict") return { status: "conflict", folder: o.label, savedAt: env.savedAt, savedBy: env.savedBy, fromThisDevice: env.savedBy === deviceId() };
+        if(d === "pull") return decrypt(keyRec, env).then(function(text){ return { status: "pull", folder: o.label, text: text, rev: Number(env.rev) || 0, savedAt: env.savedAt }; });
+        var rev = Math.max(env ? Number(env.rev) || 0 : 0, Number(local.base) || 0) + 1;
+        var meta = { rev: rev, savedAt: new Date().toISOString(), savedBy: deviceId() };
+        return encrypt(keyRec, JSON.stringify(state)).then(function(c){ return t.write(o, JSON.stringify(makeEnvelope(meta, c)), r.rev); }).then(function(){
+          setSyncLocal({ base: rev, dirty: false, hash: contentHash(state), lastAt: meta.savedAt });
+          return { status: "pushed", folder: o.label, rev: rev };
+        }, function(e){
+          if(e && e.message === "conflict" && !retried) return syncNow(Object.assign({}, opts, { force: null }), true);
+          throw e;
         });
       });
     });
-  });
+  }).catch(function(e){ if(e && e.message === "not-connected") return { status: "not-connected", folder: "Dropbox" }; throw e; });
 }
-// After the caller has applied a pulled copy.
 // After the caller has applied a pulled copy (and migrated it): this content is where the device now is.
 export function pulled(rev){ setSyncLocal({ base: rev, dirty: false, hash: contentHash(state), lastAt: new Date().toISOString() }); }
 // Called after each save: this device has changes to send only when the content differs from what it
@@ -108,4 +134,8 @@ export function markChanged(){
   if(dirty !== !!l.dirty) setSyncLocal({ dirty: dirty });
   return dirty;
 }
-export function stopSync(){ setSyncLocal({ on: false, base: 0, dirty: false }); return forgetSyncKey(); }
+export function stopSync(){
+  var via = syncVia();
+  setSyncLocal({ on: false, base: 0, dirty: false, hash: null });
+  return forgetSyncKey().then(function(){ return via === "dropbox" ? disconnectDropbox() : null; });
+}

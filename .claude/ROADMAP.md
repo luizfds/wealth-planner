@@ -2977,7 +2977,7 @@ super above the $2m transfer balance cap is flagged. Checked on the demo and a r
 
 ### Phase F — platform
 
-## 163. `[~]` Optional encrypted sync to your own drive
+## 163. `[x]` Optional encrypted sync to your own drive
 Client-side-encrypted state to the user's own cloud drive, building on item 106's folder backups, so a
 cleared browser is no longer data loss. Off by default; nothing readable leaves the device.
 
@@ -2992,7 +2992,14 @@ never synced meeting a file) → the person chooses which to keep. "Changed" is 
 leaving out save stamps and price-check bookkeeping), so opening the app doesn't count. With sync on, the
 unencrypted weekly folder backup stops. Checked by two headless browsers passing the file between them: encrypted
 at rest, loaded on the other, a change there carried back, a wrong passphrase refused. Computers only (Chrome, Edge).
-**Still to decide:** Dropbox (option 2) for phones and real cloud sync — waiting on the app key.
+Second way shipped as v3.136.0 — through Dropbox (`lib/dropbox.js`), for phones as well as computers: sign-in
+with OAuth PKCE (no secret, no server), access to the app's own folder only, the same encrypted file (the sync core
+in `lib/foldersync.js` now writes through a "transport": the folder or Dropbox). Writes use Dropbox's own revision,
+so a write that lost a race to another device fails and the round reads again. Tokens are per device in
+localStorage and revoked on Turn off. The app key isn't secret: `DROPBOX_APP_KEY` in `lib/dropbox.js` is the one to
+set once the site is registered; until then Settings takes a key pasted per device. Checked against a mocked Dropbox
+with two browsers (one at phone width): connect, passphrase, encrypted upload, loaded on the other, a change carried
+back, and a lost race retried.
 
 ## 164. `[x]` Screenshot comparison in CI
 `scripts/smoke.mjs` saves each page and subtab; a PR shows what changed visually.

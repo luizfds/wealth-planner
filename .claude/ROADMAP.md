@@ -2783,12 +2783,27 @@ redirect. Checked at 390 and 1280px on the demo and a real backup (outside the r
 draws a negative column. The edit forms themselves stay where they are rather than being duplicated here.
 
 
-## 152. `[~]` Navigation by what you own
+## 152. `[x]` Navigation by what you own
 Accounts + Investments + Property become **Net worth** (one list grouped Cash · Investments · Super ·
 Property · Debts, each to its detail page); debts in one place (cards, personal loans, property loans);
 Scenarios only in Plan (Home links to it); a **Goals** tab in Plan for savings goals, emergency fund, FI and
 Can we buy?; person tax settings move from Settings → People to Tax; Checks moves to Home's to-do and
 Review. Old ids keep working through `nav.js` ALIASES.
+
+Shipped as v3.129.0. **Net worth** replaces Accounts, Investments and Property in the menu: an overview
+(`calc/networthlist.js`, `components/networth.js`) lists everything owned and owed in one place — Cash (offsets
+included) · Investments · Super · Property · Other things · Debts (cards, personal loans and property loans
+together) — with group totals, a bar of what makes up what you own, and every row opening its detail page; its total
+is the header's net worth. One rail of tabs (Overview · Accounts · Investments · Property) sits on all four pages, and
+the menu entry stays lit on each. On a phone the bar is Home · Cash flow · Net worth · Plan · More (Tax, Reports,
+Settings). Home's first tab is Overview; the scenario cards moved to Plan → Scenarios, with a link from Home. Plan
+gains **Goals**: the emergency fund and savings goals (from Accounts), Can we buy? — which had no place on the page
+and so had never rendered — and where financial independence stands, linking to Retirement. People (the facts the
+tax estimate runs on) moved from Settings to Tax → People; Checks moved to Home → Review, and its badge to Home.
+Every old name still lands: `showAccountsSubpage("people"|"checks")`, `/settings/people`, `/settings/checks`. The
+smoke check covers the new pages and tabs and every report. Checked at 390 and 1280px on the demo and a real backup
+(outside the repo).
+
 
 ### Phase D — reports
 

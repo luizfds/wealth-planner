@@ -131,15 +131,13 @@
       <svg class="nav-menu-chevron" width="10" height="10" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 2l3 3 3-3" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
     <div class="app-nav" id="appNav">
-      <button type="button" class="nav-item" data-page="dashboard">Home</button>
+      <button type="button" class="nav-item" data-page="dashboard">Home <span class="nav-badge" data-checks-badge hidden></span></button>
       <button type="button" class="nav-item" data-page="expenses">Cash flow</button>
-      <button type="button" class="nav-item" data-page="accounts">Accounts</button>
-      <button type="button" class="nav-item" data-page="assets">Investments</button>
-      <button type="button" class="nav-item" data-page="properties">Property</button>
+      <button type="button" class="nav-item" data-page="networth">Net worth</button>
       <button type="button" class="nav-item" data-page="tax">Tax</button>
       <button type="button" class="nav-item" data-page="plan">Plan</button>
       <button type="button" class="nav-item" data-page="reports">Reports</button>
-      <button type="button" class="nav-item" data-page="settings">Settings <span class="nav-badge" data-checks-badge hidden></span></button>
+      <button type="button" class="nav-item" data-page="settings">Settings</button>
     </div>
     <div class="app-sidebar-footer">
       <p class="app-sidebar-note">Stored only in this browser (<code>localStorage</code>) — nothing is sent anywhere. Clearing your browser data clears this too, so <button class="link-btn" id="exportLink2">Export</button> a backup now and then.</p>
@@ -220,21 +218,36 @@
              same way Assets already splits Summary/Cash/Shares/... means Insights' six cards stop
              adding to the scroll length of every single visit, not just the ones that want them. -->
         <div class="subnav" id="dashboardSubnav">
-          <button type="button" class="subnav-item active" data-dashboard-sub="overview">Scenarios</button>
+          <button type="button" class="subnav-item active" data-dashboard-sub="overview">Overview</button>
           <button type="button" class="subnav-item" data-dashboard-sub="insights">Insights</button>
           <button type="button" class="subnav-item" data-dashboard-sub="benchmarks">Benchmarks</button>
           <button type="button" class="subnav-item" data-dashboard-sub="review">Review</button>
         </div>
 
         <div class="dashboard-subpage" id="dashboardSub-overview">
-          <p class="page-intro help" style="margin-top:0">Compare renting against buying, scenario by scenario — keep any investment property in the mix across every option.</p>
+          <p class="page-intro help" style="margin-top:0">Where you stand under the scenario you're looking at — switch scenarios, or compare them, in Plan.</p>
           <div class="stat-row" id="dashboardStats"></div>
           <button type="button" class="calc-hint-link" id="dashboardProjectionsLink" style="display:block;margin:4px 0 12px">See your long-term projection (all scenarios, 20 years out) →</button>
-          <div class="cards" id="cards" role="radiogroup" aria-label="Choose active scenario"></div>
+          <button type="button" class="calc-hint-link" data-adv-go="plan" data-adv-sub="scenarios" style="display:block;margin:0 0 12px">Compare scenarios side by side in Plan →</button>
         </div>
 
         <div class="dashboard-subpage" id="dashboardSub-review" hidden>
           <div class="mr-wrap" id="monthReviewBody"></div>
+          <!-- v3.129.0: Checks moved here from Settings — fixing what disagrees is part of the review. -->
+          <div id="checksCard">
+        <div class="ledgers">
+          <details class="ledger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Checks</h2></div>
+              <div class="ledger-total" id="healthSummary"></div>
+            </summary>
+            <div class="ledger-body">
+              <p class="ledger-note help" style="margin-left:0">Deductions that land on nobody's return, costs claimed twice or against a property that's gone, ownership that doesn't add to 100%, accounts and categories missing, likely duplicates, and plan lines far from what last year actually cost. Each one says where to fix it.</p>
+              <div id="healthBody"></div>
+            </div>
+          </details>
+        </div>
+          </div>
         </div>
 
         <div class="dashboard-subpage" id="dashboardSub-benchmarks" hidden>
@@ -273,6 +286,7 @@
           <button type="button" class="subnav-item active" data-tax-sub="year">This year</button>
           <button type="button" class="subnav-item" data-tax-sub="returns">Returns</button>
           <button type="button" class="subnav-item" data-tax-sub="documents">Documents</button>
+          <button type="button" class="subnav-item" data-tax-sub="people">People</button>
         </div>
         <div id="adviceStrip-tax"></div>
         <div class="tax-subpage" id="taxSub-year">
@@ -332,6 +346,26 @@
             <div class="ledger-body">
               <div id="taxDocsBody"></div>
               <input type="file" id="taxYearImportFile" accept="application/json,.json" hidden>
+            </div>
+          </details>
+        </div>
+        </div>
+        <div class="tax-subpage" id="taxSub-people" hidden>
+        <div class="page-intro-row">
+          <p class="page-intro help">Who's in the household, and what the tax estimate needs to know about each of them — date of birth, study debt, super caps, losses and hours worked from home.</p>
+        </div>
+        <div class="ledgers">
+          <details class="ledger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">People</h2></div>
+              <div class="ledger-total" id="peopleSummary"></div>
+            </summary>
+            <div class="ledger-body">
+              <p class="ledger-note help" style="margin-left:0">A person comes from an income row marked Gross that names them. Renaming someone here changes every income row, holding, property share, budget line and tax year that names them. Date of birth, HELP, super caps and home-office hours feed the Tax page, the private health rebate and Benchmarks.</p>
+              <div id="peopleTable"></div>
+              <div class="ledger-footer">
+                <button class="btn btn-sm" id="addPersonBtn">+ Add person</button>
+              </div>
             </div>
           </details>
         </div>
@@ -569,6 +603,12 @@
       </section>
 
       <section class="app-page" id="page-accounts" hidden>
+        <div class="subnav nw-rail" aria-label="Net worth">
+          <button type="button" class="subnav-item nw-rail-item" data-page="networth">Overview</button>
+          <button type="button" class="subnav-item nw-rail-item active" data-page="accounts">Accounts</button>
+          <button type="button" class="subnav-item nw-rail-item" data-page="assets">Investments</button>
+          <button type="button" class="subnav-item nw-rail-item" data-page="properties">Property</button>
+        </div>
         <div class="accounts-subpage" id="accountsSub-accounts">
         <div id="adviceStrip-accounts"></div>
         <div class="page-intro-row">
@@ -587,52 +627,17 @@
               </div>
             </div>
           </details>
-          <details class="ledger" open>
-            <summary>
-              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Emergency fund</h2></div>
-              <div class="ledger-total">essentials, 3 to 12 months</div>
-            </summary>
-            <div class="ledger-body"><div id="emergencyBody"></div></div>
-          </details>
-          <details class="ledger" open>
-            <summary>
-              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Savings goals</h2></div>
-            </summary>
-            <div class="ledger-body"><div id="savingsGoalsBody"></div></div>
-          </details>
         </div>
         </div>
       </section>
 
       <section class="app-page" id="page-settings" hidden>
         <div class="subnav" id="accountsSubnav">
-          <button type="button" class="subnav-item active" data-accounts-sub="people">People</button>
-          <button type="button" class="subnav-item" data-accounts-sub="categories">Categories</button>
+          <button type="button" class="subnav-item active" data-accounts-sub="categories">Categories</button>
           <button type="button" class="subnav-item" data-accounts-sub="preferences">Preferences</button>
           <button type="button" class="subnav-item" data-accounts-sub="rules">Import rules</button>
-          <button type="button" class="subnav-item" data-accounts-sub="checks">Checks</button>
         </div>
-        <div class="accounts-subpage" id="accountsSub-people">
-        <div class="page-intro-row">
-          <p class="page-intro help">Who's in the household, and what the app needs to know about each of them.</p>
-        </div>
-        <div class="ledgers">
-          <details class="ledger" open>
-            <summary>
-              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">People</h2></div>
-              <div class="ledger-total" id="peopleSummary"></div>
-            </summary>
-            <div class="ledger-body">
-              <p class="ledger-note help" style="margin-left:0">A person comes from an income row marked Gross that names them. Renaming someone here changes every income row, holding, property share, budget line and tax year that names them. Date of birth, HELP, super caps and home-office hours feed the Tax page, the private health rebate and Benchmarks.</p>
-              <div id="peopleTable"></div>
-              <div class="ledger-footer">
-                <button class="btn btn-sm" id="addPersonBtn">+ Add person</button>
-              </div>
-            </div>
-          </details>
-        </div>
-        </div>
-        <div class="accounts-subpage" id="accountsSub-categories" hidden>
+        <div class="accounts-subpage" id="accountsSub-categories">
         <div class="page-intro-row">
           <p class="page-intro help">How spending is grouped for the charts — a category should cover several budget lines, not restate one.</p>
         </div>
@@ -664,23 +669,6 @@
             <div class="ledger-body">
               <p class="ledger-note help" style="margin-left:0">A rule matches whole words anywhere in a statement line, ignoring case and punctuation; when two match, the longer one wins, so "fern cafe north" beats "fern cafe". Confirming a row in an import updates its rule.</p>
               <div id="rulesBody"></div>
-            </div>
-          </details>
-        </div>
-        </div>
-        <div class="accounts-subpage" id="accountsSub-checks" hidden>
-        <div class="page-intro-row">
-          <p class="page-intro help">Places where your data disagrees with itself — nothing breaks, but a figure somewhere is quietly wrong.</p>
-        </div>
-        <div class="ledgers">
-          <details class="ledger" open>
-            <summary>
-              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Checks</h2></div>
-              <div class="ledger-total" id="healthSummary"></div>
-            </summary>
-            <div class="ledger-body">
-              <p class="ledger-note help" style="margin-left:0">Deductions that land on nobody's return, costs claimed twice or against a property that's gone, ownership that doesn't add to 100%, accounts and categories missing, likely duplicates, and plan lines far from what last year actually cost. Each one says where to fix it.</p>
-              <div id="healthBody"></div>
             </div>
           </details>
         </div>
@@ -724,6 +712,12 @@
       </section>
 
       <section class="app-page" id="page-properties" hidden>
+        <div class="subnav nw-rail" aria-label="Net worth">
+          <button type="button" class="subnav-item nw-rail-item" data-page="networth">Overview</button>
+          <button type="button" class="subnav-item nw-rail-item" data-page="accounts">Accounts</button>
+          <button type="button" class="subnav-item nw-rail-item" data-page="assets">Investments</button>
+          <button type="button" class="subnav-item nw-rail-item active" data-page="properties">Property</button>
+        </div>
         <div class="page-intro-row">
           <p class="page-intro help">What you actually own — value, loans, and the rent/expenses tied to each property.</p>
           <div class="page-intro-actions">
@@ -760,6 +754,12 @@
 
 
       <section class="app-page" id="page-assets" hidden>
+        <div class="subnav nw-rail" aria-label="Net worth">
+          <button type="button" class="subnav-item nw-rail-item" data-page="networth">Overview</button>
+          <button type="button" class="subnav-item nw-rail-item" data-page="accounts">Accounts</button>
+          <button type="button" class="subnav-item nw-rail-item active" data-page="assets">Investments</button>
+          <button type="button" class="subnav-item nw-rail-item" data-page="properties">Property</button>
+        </div>
         <div class="page-intro-row">
           <p class="page-intro help">What you own today, tracked over time, and what buying would do to your net worth.</p>
           <div class="page-intro-actions">
@@ -842,6 +842,16 @@
         <div class="assets-subpage" id="assetsSub-Offsets" hidden></div>
       </section>
 
+      <section class="app-page" id="page-networth" hidden>
+        <div class="subnav nw-rail" aria-label="Net worth">
+          <button type="button" class="subnav-item nw-rail-item active" data-page="networth">Overview</button>
+          <button type="button" class="subnav-item nw-rail-item" data-page="accounts">Accounts</button>
+          <button type="button" class="subnav-item nw-rail-item" data-page="assets">Investments</button>
+          <button type="button" class="subnav-item nw-rail-item" data-page="properties">Property</button>
+        </div>
+        <p class="page-intro help">Everything you own and owe in one list — open any of it for its history and detail, or use the tabs above to update balances, holdings and property.</p>
+        <div id="netWorthBody" class="nw-page"></div>
+      </section>
       <section class="app-page" id="page-detail" hidden>
         <div id="detailBody" class="dt-page"></div>
       </section>
@@ -856,7 +866,39 @@
         <div class="subnav" id="planSubnav">
           <button type="button" class="subnav-item active" data-plan-sub="scenarios">Scenarios</button>
           <button type="button" class="subnav-item" data-plan-sub="projections">Projections</button>
+          <button type="button" class="subnav-item" data-plan-sub="goals">Goals</button>
           <button type="button" class="subnav-item" data-plan-sub="retirement">Retirement</button>
+        </div>
+        <div class="plan-subpage" id="planSub-goals" hidden>
+          <div class="page-intro-row"><p class="page-intro help">What you're saving toward — a safety net, the things on the list, a purchase, and the point where work becomes optional.</p></div>
+          <div class="ledgers">
+          <details class="ledger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Emergency fund</h2></div>
+              <div class="ledger-total">essentials, 3 to 12 months</div>
+            </summary>
+            <div class="ledger-body"><div id="emergencyBody"></div></div>
+          </details>
+          <details class="ledger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Savings goals</h2></div>
+            </summary>
+            <div class="ledger-body"><div id="savingsGoalsBody"></div></div>
+          </details>
+          <details class="ledger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Can we buy?</h2></div>
+              <div class="ledger-total">each purchase scenario</div>
+            </summary>
+            <div class="ledger-body"><div id="canBuyBody"></div></div>
+          </details>
+          <details class="ledger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Financial independence</h2></div>
+            </summary>
+            <div class="ledger-body"><div id="goalsFireBody"></div></div>
+          </details>
+          </div>
         </div>
         <div class="plan-subpage" id="planSub-retirement" hidden>
           <div class="page-intro-row"><p class="page-intro help">When you could stop working, and what changes it — from the plan already in the app.</p></div>
@@ -865,6 +907,7 @@
         </div>
         <div class="plan-subpage" id="planSub-scenarios">
         <div id="adviceStrip-plan"></div>
+        <div class="cards" id="cards" role="radiogroup" aria-label="Choose active scenario"></div>
         <div class="page-intro-row">
           <p class="page-intro help">What each scenario costs to live in — rent or a home loan, plus a purchase calculator for anything you're buying.</p>
         </div>
@@ -936,6 +979,7 @@
     <span class="mobile-tab-pill">
       <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="6" height="6" rx="1.5"/><rect x="11" y="3" width="6" height="6" rx="1.5"/><rect x="3" y="11" width="6" height="6" rx="1.5"/><rect x="11" y="11" width="6" height="6" rx="1.5"/></svg>
       <span class="mobile-tab-label">Home</span>
+      <span class="nav-badge nav-badge-dot" data-checks-badge hidden></span>
     </span>
   </button>
   <button type="button" class="mobile-tab" data-page="expenses">
@@ -944,31 +988,28 @@
       <span class="mobile-tab-label">Cash flow</span>
     </span>
   </button>
-  <button type="button" class="mobile-tab" data-page="accounts">
+  <button type="button" class="mobile-tab" data-page="networth">
     <span class="mobile-tab-pill">
-      <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="15" height="10.5" rx="2"/><path d="M2.5 8.5h15"/><path d="M5.5 12.5h3"/></svg>
-      <span class="mobile-tab-label">Accounts</span>
+      <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="15" height="10.5" rx="2"/><path d="M2.5 8.5h15"/><path d="M13 12h2"/></svg>
+      <span class="mobile-tab-label">Net worth</span>
     </span>
   </button>
-  <button type="button" class="mobile-tab" data-page="assets" id="mobileTabAssets">
+  <button type="button" class="mobile-tab" data-page="plan">
     <span class="mobile-tab-pill">
-      <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3l7 4-7 4-7-4z"/><path d="M3 11l7 4 7-4"/><path d="M3 15l7 4 7-4"/></svg>
-      <span class="mobile-tab-label">Investments</span>
+      <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 16l4.5-5 3 3L17 6"/><path d="M13 6h4v4"/></svg>
+      <span class="mobile-tab-label">Plan</span>
     </span>
   </button>
   <button type="button" class="mobile-tab" id="mobileTabMore" aria-haspopup="true" aria-expanded="false">
     <span class="mobile-tab-pill">
       <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><circle cx="4" cy="10" r="1.6"/><circle cx="10" cy="10" r="1.6"/><circle cx="16" cy="10" r="1.6"/></svg>
       <span class="mobile-tab-label">More</span>
-      <span class="nav-badge nav-badge-dot" data-checks-badge hidden></span>
     </span>
   </button>
   <div class="mobile-more-panel" id="mobileMorePanel" hidden>
-    <button type="button" class="mobile-more-item" data-page="properties">Property</button>
     <button type="button" class="mobile-more-item" data-page="tax" id="mobileMoreTax">Tax</button>
-    <button type="button" class="mobile-more-item" data-page="plan">Plan</button>
     <button type="button" class="mobile-more-item" data-page="reports">Reports</button>
-    <button type="button" class="mobile-more-item" data-page="settings">Settings <span class="nav-badge" data-checks-badge hidden></span></button>
+    <button type="button" class="mobile-more-item" data-page="settings">Settings</button>
     <div class="mobile-more-divider"></div>
     <button type="button" class="mobile-more-item" id="mobileThemeBtn">Theme: System</button>
     <button type="button" class="mobile-more-item" id="mobileShareBtn" hidden>Share securely</button>
@@ -1048,6 +1089,7 @@
   "./src/calc/milestones.js": "./src/calc/milestones.js?v=3.128.0",
   "./src/calc/monthdetail.js": "./src/calc/monthdetail.js?v=3.128.0",
   "./src/calc/monthreview.js": "./src/calc/monthreview.js?v=3.128.0",
+  "./src/calc/networthlist.js": "./src/calc/networthlist.js?v=3.128.0",
   "./src/calc/nwcheck.js": "./src/calc/nwcheck.js?v=3.128.0",
   "./src/calc/nwhistory.js": "./src/calc/nwhistory.js?v=3.128.0",
   "./src/calc/outcomes.js": "./src/calc/outcomes.js?v=3.128.0",
@@ -1097,6 +1139,7 @@
   "./src/components/monthdetail.js": "./src/components/monthdetail.js?v=3.128.0",
   "./src/components/monthreview.js": "./src/components/monthreview.js?v=3.128.0",
   "./src/components/nav.js": "./src/components/nav.js?v=3.128.0",
+  "./src/components/networth.js": "./src/components/networth.js?v=3.128.0",
   "./src/components/people.js": "./src/components/people.js?v=3.128.0",
   "./src/components/period.js": "./src/components/period.js?v=3.128.0",
   "./src/components/pricesheet.js": "./src/components/pricesheet.js?v=3.128.0",

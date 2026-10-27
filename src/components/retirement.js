@@ -92,3 +92,14 @@ function drawdownHtml(plan, run){
     '<p class="ledger-note" style="margin:6px 0 0">From ' + di.preservationAge + ' super is an account-based pension: earnings untaxed, payments tax-free, and at least the minimum paid out each year (what isn\'t needed is saved again outside super). ' +
     'The Age Pension is for ' + (di.couple ? 'a couple' : 'a single person') + (di.homeowner ? ' who own their home' : ' who rent') + ', from ' + AGE_PENSION_AGE + ', at the rates from ' + PENSION_RATES_FROM + ' held in today\'s dollars; the home isn\'t counted, everything else is, with financial assets deemed to earn the set rates.' + cap + '</p></div>';
 }
+
+// v3.129.0: Plan → Goals' line on financial independence — the 4% number and the earliest age, with
+// the way to Retirement for the rest.
+export function goalsFireHtml(){
+  var plan = retirementPlan(retireLevers);
+  if(plan.needsAge) return '<p class="ledger-note" style="margin:0">Type your age on Plan → Retirement to see when work could become optional.</p><button type="button" class="calc-hint-link" data-plan-sub-go="retirement">Retirement →</button>';
+  var inp = plan.inputs;
+  return '<div class="rt-links"><div><span>The 4% number</span><b>' + money(plan.fiNumber) + '</b><small>25 years of ' + money(inp.annualExpenses) + ' a year.</small></div>' +
+    '<div><span>Progress</span><b>' + (plan.progress != null ? fmtPercent0.format(Math.min(1, plan.progress)) : "—") + '</b><small>Super and accessible money; your home doesn\'t count.</small></div>' +
+    '<div><span>Earliest age</span><b>' + (plan.earliest != null ? plan.earliest : "—") + '</b><small>' + (plan.earliest != null ? "On these numbers." : "Not before 75 on these numbers.") + '</small><button type="button" class="calc-hint-link" data-plan-sub-go="retirement">Retirement →</button></div></div>';
+}

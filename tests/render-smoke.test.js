@@ -1368,3 +1368,15 @@ test("life events: the empty list and a filled one", () => {
     assert.equal((h.match(/data-le-field="years"/g) || []).length, 1); // a one-off has no length
   } finally { state.lifeEvents = keep; }
 });
+
+import { netWorthPageHtml } from "../src/components/networth.js";
+test("net worth page: groups with their totals, each row to its detail page", () => {
+  const keep = { a: state.assets, p: state.properties, d: state.debts };
+  try {
+    state.assets = [{ id: "a1", what: "Savings", category: "Cash", amount: 20000 }]; state.properties = []; state.debts = [{ id: "d1", what: "Card", balance: 500 }];
+    const h = netWorthPageHtml();
+    assert.match(h, /nw-group/); assert.match(h, /data-detail="asset" data-detail-id="a1"/); assert.match(h, /data-detail="debt"/);
+    state.assets = []; state.debts = [];
+    assert.match(netWorthPageHtml(), /Nothing here yet/);
+  } finally { state.assets = keep.a; state.properties = keep.p; state.debts = keep.d; }
+});

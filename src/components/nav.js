@@ -9,6 +9,7 @@ import { renderReceived } from "./received.js";
 import { renderAdvice } from "./advice.js";
 import { localDateStr } from "../lib/format.js";
 import { detailTarget, renderDetailPage } from "./detail.js";
+import { renderNetWorthPage } from "./networth.js";
 
 // ---------------- Page navigation ----------------
 // Organised by job since v3.57.0 — what you're doing, not which kind of record it is. The ids are
@@ -17,6 +18,8 @@ import { detailTarget, renderDetailPage } from "./detail.js";
 var PAGES = [
   { id: "dashboard", label: "Home" },
   { id: "expenses", label: "Cash flow" },
+  // v3.129.0: one Net worth entry; its overview and these three sit under one rail of tabs.
+  { id: "networth", label: "Net worth" },
   { id: "accounts", label: "Accounts" },
   { id: "assets", label: "Investments" },
   { id: "properties", label: "Property" },
@@ -70,13 +73,16 @@ var EXPENSES_SUBS = ["budget", "income", "spending", "bills"];
 var currentExpensesSub = "budget";
 // Tax's three halves (v3.43.0): the year as a plan, past years as returns, and the papers behind
 // them. Deep-linkable like Expenses — "open the return" is worth a bookmark in October.
-var TAX_SUBS = ["year", "returns", "documents"];
+var TAX_SUBS = ["year", "returns", "documents", "people"];
 // Plan (v3.57.0): the what-ifs — scenarios to live in, and where each leads.
-var PLAN_SUBS = ["scenarios", "projections", "retirement"];
+var PLAN_SUBS = ["scenarios", "projections", "goals", "retirement"];
 var currentPlanSub = "scenarios";
 // Settings (v3.57.0): the registries and preferences that used to share the Accounts page.
-var SETTINGS_SUBS = ["people", "categories", "preferences", "rules", "checks"];
-var currentSettingsSub = "people";
+// v3.129.0: People moved to Tax (they're the facts the tax estimate runs on) and Checks to Home →
+// Review; showAccountsSubpage still answers to both names and takes you there.
+var SETTINGS_SUBS = ["categories", "preferences", "rules"];
+var MOVED_SETTINGS = { people: ["tax", "people"], checks: ["dashboard", "review"] };
+var currentSettingsSub = "categories";
 var currentTaxSub = null;
 // Between 1 July and 31 October the year just ended is the thing to be doing, so Tax opens on its
 // return; the rest of the year it opens on the plan.
@@ -121,6 +127,7 @@ export function parseRouteFromLocation(){
   else if(page.id === "tax" && segs[1] && TAX_SUBS.indexOf(segs[1]) !== -1) sub = segs[1];
   else if(page.id === "plan" && segs[1] && PLAN_SUBS.indexOf(segs[1]) !== -1) sub = segs[1];
   else if(page.id === "settings" && segs[1] && SETTINGS_SUBS.indexOf(segs[1]) !== -1) sub = segs[1];
+  else if(page.id === "settings" && segs[1] && MOVED_SETTINGS[segs[1]]) return { page: MOVED_SETTINGS[segs[1]][0], sub: MOVED_SETTINGS[segs[1]][1] };
   return { page: page.id, sub: sub };
 }
 
@@ -133,7 +140,9 @@ export function parseRouteFromLocation(){
 // bar that rearranges itself by the calendar costs more than the one tap it saves.
 // v3.57.0: the bar is the four everyday jobs — Home, Cash flow, Accounts, Investments — and the
 // rest (Property, Tax, Plan, Settings) sit behind More.
-var MOBILE_MORE_PAGES = ["properties", "tax", "plan", "reports", "settings"];
+var MOBILE_MORE_PAGES = ["tax", "reports", "settings"];
+// v3.129.0: the pages under Net worth — its nav entry and tab stay lit on each of them.
+var NETWORTH_GROUP = ["networth", "accounts", "assets", "properties"];
 
 
 // Plain-button pages: the page's own single, unambiguous "add" entry point. Income/Assets/
@@ -292,24 +301,28 @@ export function showPage(id, opts){
     // whatever page the user navigates to next.
     closeScenarioOverridePanel();
     if(overlayCleanup) overlayCleanup();
+    var navId = NETWORTH_GROUP.indexOf(id) !== -1 ? "networth" : id;
     PAGES.forEach(function(p){
       var section = document.getElementById("page-" + p.id);
       if(section) section.hidden = (p.id !== id);
       document.querySelectorAll('.nav-item[data-page="' + p.id + '"], .mobile-tab[data-page="' + p.id + '"], .mobile-more-item[data-page="' + p.id + '"]').forEach(function(navBtn){
-        navBtn.classList.toggle("active", p.id === id);
-        if(p.id === id) navBtn.setAttribute("aria-current", "page"); else navBtn.removeAttribute("aria-current");
+        navBtn.classList.toggle("active", p.id === navId);
+        if(p.id === navId) navBtn.setAttribute("aria-current", "page"); else navBtn.removeAttribute("aria-current");
       });
     });
+    document.querySelectorAll(".nw-rail-item").forEach(function(b){ b.classList.toggle("active", b.getAttribute("data-page") === id); });
     var moreTab = document.getElementById("mobileTabMore");
     if(moreTab) moreTab.classList.toggle("active", MOBILE_MORE_PAGES.indexOf(id) !== -1);
     var page = PAGES.find(function(p){ return p.id === id; });
     document.getElementById("pageTitle").textContent = page ? page.label : "Home";
     var navLabel = document.getElementById("navMenuCurrentLabel");
     if(navLabel) navLabel.textContent = page ? page.label : "Home";
-    try{ localStorage.setItem(PAGE_KEY, id); }catch(e){}
+    // A detail page needs its target, which a later visit won't have.
+    if(id !== "detail") try{ localStorage.setItem(PAGE_KEY, id); }catch(e){}
     if(id === "dashboard"){ renderDashboardStats(); renderHomeSummary(); }
     if(id === "reports") renderReports();
     if(id === "detail") renderDetailPage();
+    if(id === "networth") renderNetWorthPage();
     // v3.98.0: each page's "The app notices" strip reads figures changed on other pages.
     renderAdvice();
     // The worksheet only re-renders itself while visible (see income.js refreshOpenTaxYear), so
@@ -370,6 +383,13 @@ export function showAssetsSubpage(id, opts){
 // whichever page holds that tab.
 export function showAccountsSubpage(id, opts){
   opts = opts || {};
+  if(MOVED_SETTINGS[id]){
+    var to = MOVED_SETTINGS[id];
+    showPage(to[0], opts);
+    if(to[0] === "tax") showTaxSubpage(to[1], { replace: true, skipUrl: opts.skipUrl });
+    else { showDashboardSubpage(to[1]); setTimeout(function(){ var c = document.getElementById("checksCard"); if(c && c.scrollIntoView) c.scrollIntoView({ block: "start", behavior: "smooth" }); }, 250); }
+    return;
+  }
   if(id === "accounts" || SETTINGS_SUBS.indexOf(id) === -1){
     if(currentPage !== "accounts") showPage("accounts", opts);
     return;

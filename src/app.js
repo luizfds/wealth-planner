@@ -115,6 +115,8 @@ import { retirementHtml, retireLevers } from "./components/retirement.js";
 import { recurringHtml, recurringDismissed, recurringOpen, catchAllShown } from "./components/recurring.js";
 import { lifeEventsHtml, addLifeEvent, setLifeEventField, removeLifeEvent } from "./components/lifeevents.js";
 import { detailTarget, detailView } from "./components/detail.js";
+import { renderCanBuy } from "./components/canbuy.js";
+import { goalsFireHtml } from "./components/retirement.js";
 import { renderReports, reportShown, reportPrintHtml, reportCsv, reportFrame, pinReport, openSavedReport, unpinReport } from "./components/reports.js";
 import { monthDetailUi, shownMonth as mdShownMonth } from "./components/monthdetail.js";
 import { shiftMonth as mdShiftMonth } from "./calc/monthdetail.js";
@@ -1155,6 +1157,7 @@ import {
     var btn = e.target.closest("[data-tax-sub]");
     if(!btn) return;
     showTaxSubpage(btn.getAttribute("data-tax-sub"));
+    if(btn.getAttribute("data-tax-sub") === "people") renderPeopleTab();
     renderTaxYear();
   });
   taxYearBody.addEventListener("click", function(e){
@@ -3492,7 +3495,17 @@ import {
   // ---------------- Categories: the spending rollup ----------------
   document.getElementById("planSubnav").addEventListener("click", function(e){
     var b = e.target.closest("[data-plan-sub]");
-    if(b) showPlanSubpage(b.getAttribute("data-plan-sub"));
+    if(b){ showPlanSubpage(b.getAttribute("data-plan-sub")); if(b.getAttribute("data-plan-sub") === "goals") renderGoalsTab(); }
+  });
+  // v3.129.0: Plan → Goals — the emergency fund and savings goals (from Accounts), Can we buy? and
+  // where financial independence stands.
+  function renderGoalsTab(){ renderSavingsGoals(); renderCanBuy(); var f = document.getElementById("goalsFireBody"); if(f) f.innerHTML = goalsFireHtml(); }
+  // The rail over Net worth, Accounts, Investments and Property.
+  document.addEventListener("click", function(e){
+    var r = e.target.closest && e.target.closest(".nw-rail-item");
+    if(r) showPage(r.getAttribute("data-page"));
+    var pg = e.target.closest && e.target.closest("[data-plan-sub-go]");
+    if(pg){ showPage("plan"); showPlanSubpage(pg.getAttribute("data-plan-sub-go"), { replace: true }); if(pg.getAttribute("data-plan-sub-go") === "retirement") renderRetirement(); }
   });
   // v3.109.0: "Show all" / "Show fewer" under a capped list (Actual vs. planned, This year so far).
   document.addEventListener("click", function(e){
@@ -4420,7 +4433,7 @@ import {
     if(!btn) return;
     showDashboardSubpage(btn.getAttribute("data-dashboard-sub"));
     if(btn.getAttribute("data-dashboard-sub") === "benchmarks") renderBenchmarks();
-    if(btn.getAttribute("data-dashboard-sub") === "review") renderMonthReview();
+    if(btn.getAttribute("data-dashboard-sub") === "review"){ renderMonthReview(); renderHealth(); }
   });
   // Dashboard → Review (v3.54.0): every control in the four parts.
   var monthReviewBody = document.getElementById("monthReviewBody");
@@ -4570,7 +4583,7 @@ import {
     if(routeFromUrl.sub && routeFromUrl.page === "expenses") initialExpensesSub = routeFromUrl.sub;
     if(routeFromUrl.sub && routeFromUrl.page === "tax") initialTaxSub = routeFromUrl.sub;
     if(routeFromUrl.sub && routeFromUrl.page === "plan") initialPlanSub = routeFromUrl.sub;
-    if(routeFromUrl.page === "settings") initialSettingsSub = routeFromUrl.sub || "people";
+    if(routeFromUrl.page === "settings") initialSettingsSub = routeFromUrl.sub || "categories";
   } else {
     try{ initialPage = localStorage.getItem(PAGE_KEY) || "dashboard"; }catch(e){}
     // A page remembered from before v3.57.0 that is now a subpage.
@@ -4579,7 +4592,7 @@ import {
       initialPage = legacyPage[0];
       if(legacyPage[0] === "expenses") initialExpensesSub = legacyPage[1]; else initialPlanSub = legacyPage[1];
     }
-    if(initialPage === "settings") initialSettingsSub = "people";
+    if(initialPage === "settings") initialSettingsSub = "categories";
   }
 
   window.addEventListener("popstate", function(e){
@@ -4601,7 +4614,9 @@ import {
     if(route.page === "expenses") showExpensesSubpage(route.sub || "budget", { skipUrl: true });
     if(route.page === "tax") showTaxSubpage(route.sub || taxSubpage(), { skipUrl: true });
     if(route.page === "plan") showPlanSubpage(route.sub || "scenarios", { skipUrl: true });
-    if(route.page === "settings") showAccountsSubpage(route.sub || "people", { skipUrl: true });
+    if(route.page === "settings") showAccountsSubpage(route.sub || "categories", { skipUrl: true });
+    if(route.page === "tax" && route.sub === "people") renderPeopleTab();
+    if(route.page === "dashboard" && route.sub){ showDashboardSubpage(route.sub); if(route.sub === "review"){ renderMonthReview(); renderHealth(); } }
   });
 
   // ---------------- What the app notices + Ask Claude (v3.98.0) ----------------
@@ -4798,6 +4813,7 @@ import {
     renderChecksBadge();
     renderSafekeeping();
     renderSavingsGoals();
+    var goalsFire = document.getElementById("goalsFireBody"); if(goalsFire) goalsFire.innerHTML = goalsFireHtml();
     renderAdvice();
     renderTrim();
     renderRecurring();
@@ -5356,7 +5372,7 @@ import {
     var g = e.target.closest("[data-rt-go]");
     if(!g) return;
     if(g.getAttribute("data-rt-go") === "super"){ showPage("assets"); showAssetsSubpage("Super", { replace: true }); }
-    else showPage("accounts");
+    else { showPage("plan"); showPlanSubpage("goals", { replace: true }); renderGoalsTab(); }
   });
 
   // ---------------- Accounts → Savings goals (v3.65.0) ----------------
@@ -5491,7 +5507,7 @@ import {
       if(sn) sn.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
-    if(go === "settings"){ showAccountsSubpage(sub || "people"); if(sub === "checks") renderHealth(); return; }
+    if(go === "settings"){ showAccountsSubpage(sub || "categories"); if(sub === "checks") renderHealth(); if(sub === "people") renderPeopleTab(); return; }
     if(go === "tax"){ if(fy) setTaxYearSelected(fy); showPage("tax"); showTaxSubpage(sub || "returns", { replace: true }); renderTaxYear(); return; }
     showPage(go);
     if(go === "expenses" && sub) showExpensesSubpage(sub, { replace: true });
@@ -5560,6 +5576,9 @@ import {
   showTaxSubpage(initialTaxSub || taxSubpage(), { skipUrl: initialPage !== "tax", replace: true });
   showPlanSubpage(initialPlanSub, { skipUrl: initialPage !== "plan", replace: true });
   if(initialSettingsSub){ showAccountsSubpage(initialSettingsSub, { replace: true }); renderSettingsTab(initialSettingsSub); }
+  if(initialPage === "tax" && initialTaxSub === "people") renderPeopleTab();
+  if(initialPage === "plan" && initialPlanSub === "goals") renderGoalsTab();
+  if(initialPage === "dashboard" && routeFromUrl && routeFromUrl.sub){ showDashboardSubpage(routeFromUrl.sub); if(routeFromUrl.sub === "review"){ renderMonthReview(); renderHealth(); } }
 
   // onboarding.html's "Try it with sample data" link lands here with ?mock=1 — generate it
   // immediately (no confirm needed, unlike the header's own Sample data button: there's nothing

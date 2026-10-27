@@ -2654,7 +2654,7 @@ built from anyone's holdings** — the repo is public.
 After 3+ months imported, propose budget lines (amount, frequency, Needs/Wants, account) from what was
 spent, using `calc/recurring.js`; accept all, or line by line.
 
-## 147. `[ ]` Common Australian merchants pre-categorised, and clean names
+## 147. `[~]` Common Australian merchants pre-categorised, and clean names
 A built-in map of large public brands (supermarkets, fuel, telcos, utilities, insurers, transport) to
 categories, applied before learnt rules, so a first import is mostly categorised. Lists show a cleaned
 merchant name (store numbers, suburbs and card refs stripped, as `import-rules.js` already does for

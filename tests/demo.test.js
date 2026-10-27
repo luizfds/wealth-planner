@@ -73,3 +73,16 @@ test("the projection's range: the 10th–90th band holds the steady line, wideni
     assert.deepEqual(computeNetWorthSeries(sc, 20, { realTerms: true }), steady);
   });
 });
+
+test("life events move the projection by what they cost, inflated to their years", function(){
+  withDemo(function(){
+    var sc = currentScenario();
+    var base = computeNetWorthSeries(sc, 10, { realTerms: false, events: [] });
+    var inherit = computeNetWorthSeries(sc, 10, { realTerms: false, events: [{ kind: "lump", year: Number(TODAY_YEAR()) + 2, amount: 100000 }] });
+    assert.equal(Math.round(inherit[2].y - base[2].y), 0); // not yet
+    assert.ok(inherit[3].y - base[3].y > 100000); // landed at the start of year 3, inflated and grown a year
+    var child = computeNetWorthSeries(sc, 10, { realTerms: false, events: [{ kind: "child", year: Number(TODAY_YEAR()), years: 18, amount: 12000 }] });
+    assert.ok(base[10].y - child[10].y > 120000);
+  });
+});
+function TODAY_YEAR(){ return new Date().getFullYear(); }

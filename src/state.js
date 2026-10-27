@@ -143,6 +143,7 @@ export function defaultState(){
     assets: [],
     debts: [],
     savedReports: [],
+    lifeEvents: [],
     properties: [],
     // A frozen copy of a past projection, graded against real logged net worth over time — see
     // dashboard.js's setProjectionReference()/renderProjectionAccuracyPanel(). null until the
@@ -314,6 +315,10 @@ export function migrateState(s){
   // v3.124.0: reports pinned with their settings — { id, name, key, frame: { range, from, to, compare, group } }.
   if(!Array.isArray(s.savedReports)) s.savedReports = [];
   s.savedReports = s.savedReports.filter(function(r){ return r && r.key; });
+  // v3.126.0: life events on the projection — { id, kind, what, year, years, amount } (calc/lifeevents.js).
+  if(!Array.isArray(s.lifeEvents)) s.lifeEvents = [];
+  s.lifeEvents = s.lifeEvents.filter(function(e){ return e && e.kind; });
+  s.lifeEvents.forEach(function(e){ if(!e.id) e.id = genId("ev"); });
   s.debts.forEach(function(d){ if(d.balance == null) d.balance = 0; });
   if(!Array.isArray(s.shared)) s.shared = [];
   // A stable id so a transaction (see below) can still find the right expense after this array

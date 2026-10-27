@@ -1,7 +1,9 @@
 import { state } from "../state.js";
 import { computeNetWorthSeries, currentScenario } from "../calc/engine.js";
 import { projectionBands } from "../calc/outcomes.js";
-import { fmtCurrency0 } from "../lib/format.js";
+import { eventMarkers } from "../calc/lifeevents.js";
+import { fireSettings } from "../calc/fire.js";
+import { fmtCurrency0, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { renderLineChart } from "../lib/charts.js";
 import { firstYearAtLeast, debtFreeYear, leadChanges, milestoneAmounts } from "../calc/milestones.js";
@@ -92,7 +94,9 @@ export function renderProjectionOutputs(){
   renderLineChart(chartHost, series, {
     height: 280,
     yFormat: function(v){ return fmtCurrency0.format(v); },
-    xFormat: function(v){ return "Yr " + v; },
+    // v3.126.0: ages, once the Retirement page knows yours.
+    xFormat: function(v){ var a = fireSettings().currentAge; return a != null ? "Age " + (a + v) : "Yr " + v; },
+    markers: eventMarkers(state.lifeEvents, Number(localDateStr().slice(0, 4)), horizon),
     ariaLabel: "Net worth projection by scenario, in " + (realTerms ? "today's" : "future") + " dollars",
     interactiveLegend: true,
     band: spread ? { lo: spread.lo, hi: spread.hi, colorClass: "series-color-" + (bandIdx % 8) } : null,

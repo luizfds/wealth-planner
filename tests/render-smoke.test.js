@@ -1355,3 +1355,16 @@ test("txGridHtml puts editable spending rows, read-only money in and an entry ro
   assert.match(html, /data-cf-pick="0"/);
   assert.doesNotMatch(html, /undefined|NaN/);
 });
+
+import { lifeEventsHtml } from "../src/components/lifeevents.js";
+test("life events: the empty list and a filled one", () => {
+  const keep = state.lifeEvents;
+  try {
+    state.lifeEvents = [];
+    assert.match(lifeEventsHtml("2026-10-27"), /Nothing dated yet/);
+    state.lifeEvents = [{ id: "e1", kind: "child", what: "Baby", year: 2028, years: 18, amount: 15000 }, { id: "e2", kind: "lump", what: "Sale", year: 2030, amount: 50000 }];
+    const h = lifeEventsHtml("2026-10-27");
+    assert.match(h, /data-le-id="e1"/); assert.match(h, /value="Baby"/);
+    assert.equal((h.match(/data-le-field="years"/g) || []).length, 1); // a one-off has no length
+  } finally { state.lifeEvents = keep; }
+});

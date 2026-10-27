@@ -113,6 +113,7 @@ import { parseCsvGrid } from "./calc/pricesheet.js";
 import { recordRentReview } from "./calc/propertylife.js";
 import { retirementHtml, retireLevers } from "./components/retirement.js";
 import { recurringHtml, recurringDismissed, recurringOpen, catchAllShown } from "./components/recurring.js";
+import { lifeEventsHtml, addLifeEvent, setLifeEventField, removeLifeEvent } from "./components/lifeevents.js";
 import { renderReports, reportShown, reportPrintHtml, reportCsv, reportFrame, pinReport, openSavedReport, unpinReport } from "./components/reports.js";
 import { monthDetailUi, shownMonth as mdShownMonth } from "./components/monthdetail.js";
 import { shiftMonth as mdShiftMonth } from "./calc/monthdetail.js";
@@ -783,6 +784,26 @@ import {
   pairSlider("projInflationRate", "projInflationRateRange");
   pairSlider("projIncomeGrowth", "projIncomeGrowthRange");
   pairSlider("projRateShock", "projRateShockRange");
+  // v3.126.0: life events under the projection's assumptions.
+  function renderLifeEvents(){ var el = document.getElementById("lifeEventsBody"); if(el) el.innerHTML = lifeEventsHtml(); }
+  var leBody = document.getElementById("lifeEventsBody");
+  leBody.addEventListener("click", function(e){
+    var add = e.target.closest("[data-le-add]");
+    if(add){ var ev = addLifeEvent(add.getAttribute("data-le-add")); persist(); renderLifeEvents(); renderProjectionOutputs();
+      var f = leBody.querySelector('[data-le-id="' + ev.id + '"] [data-le-field="what"]'); if(f){ f.focus(); f.select(); } return; }
+    var rm = e.target.closest("[data-le-remove]");
+    if(rm){ removeLifeEvent(rm.getAttribute("data-le-remove")); persist(); renderLifeEvents(); renderProjectionOutputs(); }
+  });
+  leBody.addEventListener("change", function(e){
+    var k = e.target.getAttribute("data-le-field"), row = e.target.closest("[data-le-id]");
+    if(!k || !row) return;
+    if(setLifeEventField(row.getAttribute("data-le-id"), k, e.target.value)){
+      persist(); renderProjectionOutputs();
+      // Re-sorted by year — after this event finishes, since a click elsewhere can fire this change
+      // (on the blur) in the middle of its own redraw.
+      if(k === "year") setTimeout(renderLifeEvents, 0);
+    }
+  });
   pairSlider("projInvestVol", "projInvestVolRange");
   pairSlider("projPropertyVol", "projPropertyVolRange");
   // v3.125.0: the spread of returns behind the shaded range.
@@ -4700,6 +4721,7 @@ import {
     document.getElementById("projIncomeGrowthRange").value = state.projection.incomeGrowthRate;
     document.getElementById("projRateShock").value = state.projection.rateShockPct;
     document.getElementById("projRateShockRange").value = state.projection.rateShockPct;
+    renderLifeEvents();
     document.getElementById("projInvestVol").value = state.projection.investVolatility;
     document.getElementById("projInvestVolRange").value = state.projection.investVolatility;
     document.getElementById("projPropertyVol").value = state.projection.propertyVolatility;

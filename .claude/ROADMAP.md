@@ -2906,9 +2906,20 @@ in 10 (`retirementOdds`, `ageForOdds`). On the demo, the steady plan says 50 wor
 and put 9 in 10 at 56. Checked on the demo and a real backup (outside the repo): band drawn, odds shown, no errors.
 
 
-## 161. `[~]` Life events on a timeline
+## 161. `[x]` Life events on a timeline
 Children, career breaks, a sale, a downsizer contribution — dated events that change income, spending or
 assets, shown on the projection; an age axis instead of "Yr 7".
+
+Shipped as v3.126.0: `state.lifeEvents` (`calc/lifeevents.js`) — a child (a yearly cost for some years), a career
+break (income down by a yearly amount), a cost for some years (or, negative, a saving), and a one-off amount in or out
+(a sale's proceeds, an inheritance, a downsizer, a big purchase), each dated by calendar year, in today's dollars, for
+every scenario. `computeNetWorthSeries` takes them off (or adds them to) each year's savings inflated to that year,
+and adds a one-off at the start of its year; the range of outcomes carries them too. Plan → Projections gets a Life
+events card (add by kind, edit what / from / for years / amount, remove; the age each starts at once your age is
+known); the chart marks each with a dashed line and its name, and its axis reads "Age 45" instead of "Yr 7" when the
+Retirement page has your age. Checked in a headless browser at 390 and 1280px: events change the headline, markers
+and ages draw, saved, removable, no errors.
+
 
 ## 162. `[~]` Retirement drawdown and the Age Pension
 Account-based pension drawdown with minimum rates and tax, and the Age Pension under the assets and income

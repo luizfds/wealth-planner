@@ -12,6 +12,7 @@ import { getTaxPeople, computePersonTax, scenarioIncomeMonthly, personOneOffSpli
 import { fmtCurrency0, localDateStr, fmtDate } from "../lib/format.js";
 import { dueAfterDays } from "./estimates.js";
 import { projectionRatios } from "./actuals.js";
+import { eventEffects } from "./lifeevents.js";
 
 // Every non-Shares asset, and every Shares holding on the ASX, is already AUD — the only
 // currency this app ever mixes in is USD (US-market and Crypto holdings, see MARKET_CURRENCY).
@@ -220,6 +221,8 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
   // the steady rates for that year, and opts.cache keeps the per-year income and costs (which don't
   // depend on returns, and are the slow part) between runs.
   var investPath = opts && opts.investReturns, propPath = opts && opts.propertyReturns, cache = opts && opts.cache;
+  // v3.126.0: life events (calc/lifeevents.js), in today's dollars, inflated to the year they land.
+  var events = opts && opts.events ? opts.events : (state.lifeEvents || []), thisYear = Number(todayStr.slice(0, 4));
   var propFactor = 1;
   var points = [];
   for(var year = 0; year <= horizonYears; year++){
@@ -230,7 +233,9 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
       var inflatableThisYear = yc.inflatable * Math.pow(1 + inflationRate, year);
       var incomeThisYear = (yc.income + (ratios.incomeDelta || 0)) * Math.pow(1 + incomeGrowthRate, year);
       if(investPath && investPath[year] != null) monthlyInvestRate = Math.pow(1 + investPath[year], 1 / 12) - 1;
-      var savingsThisYear = incomeThisYear - fixedMonthly - inflatableThisYear;
+      var ev = events.length ? eventEffects(events, year, thisYear) : null;
+      var savingsThisYear = incomeThisYear - fixedMonthly - inflatableThisYear - (ev ? ev.yearly / 12 * Math.pow(1 + inflationRate, year) : 0);
+      if(ev && ev.lump) portfolio += ev.lump * Math.pow(1 + inflationRate, year);
       // "auto" mode redirects the scenario's own real monthly surplus into the invest leg's
       // growth rate instead of the generic portfolio rate — not an extra contribution on top of
       // it, which would double-count the same money. "manual" pins a fixed figure instead, and

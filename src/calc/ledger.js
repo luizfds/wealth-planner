@@ -4,6 +4,7 @@ import { MONTH_NAMES } from "../constants.js";
 // Needed for householdYearBasis() below — the one thing in this module that reads a preference
 // rather than taking everything it needs as an argument.
 import { state } from "../state.js";
+import { cleanMerchantName } from "./merchantbook.js";
 
 export function toWeekly(amount, freq){
   amount = Number(amount) || 0;
@@ -189,7 +190,9 @@ export function refundableTransactions(transactions, linkedExpenseId, limit){
 // time, also means renaming a budget line renames its whole logged history with it.
 export function transactionDisplayName(t, sharedList){
   var own = (t.what || "").trim();
-  if(own) return own;
+  // v3.111.0: bank text ("SQ *FERN CAFE 4029 ULTIMO") shown as the merchant ("Fern Cafe"); what
+  // someone typed, as typed. The transaction keeps the bank's text.
+  if(own) return cleanMerchantName(own);
   var linked = t.linkedExpenseId && (sharedList || []).find(function(i){ return i.id === t.linkedExpenseId; });
   if(linked && linked.what) return linked.what;
   return "Transaction";

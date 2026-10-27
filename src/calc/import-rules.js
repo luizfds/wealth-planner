@@ -8,6 +8,7 @@
 //
 // Pure: no DOM, no state writes. The caller owns state.importRules[] and passes it in.
 import { normaliseDescription } from "./bank-import.js";
+import { knownMerchant } from "./merchantbook.js";
 
 // The part of a bank's description that identifies *who you paid*, with the noise dropped.
 //
@@ -179,7 +180,19 @@ export function matchBudgetLineByName(description, budgetLines){
 // of a budget line, and the two kinds never cross: a credit only ever takes an income rule, a debit
 // only a spending rule — a payroll credit from an employer that also has shops must not file the
 // groceries as salary, or the other way round.
-export function suggestFor(description, rules, budgetLines, direction){
+// v3.111.0: last, a well-known brand (calc/merchantbook.js) — onto your one line in its category,
+// else the category itself if you have it. opts.categories is your category list.
+function knownSuggestion(description, budgetLines, opts){
+  var k = knownMerchant(description);
+  if(!k) return null;
+  var cat = k.category.toLowerCase();
+  var inCat = (budgetLines || []).filter(function(l){ return !l.computed && String(l.category || "").trim().toLowerCase() === cat; });
+  if(inCat.length === 1) return { source: "known", linkedExpenseId: inCat[0].id || null, category: inCat[0].category || "", account: inCat[0].account || "", ruleId: null, known: k.name };
+  var has = (opts && opts.categories || []).find(function(c){ return String(c).toLowerCase() === cat; });
+  if(has) return { source: "known", linkedExpenseId: null, category: has, account: "", ruleId: null, known: k.name };
+  return null;
+}
+export function suggestFor(description, rules, budgetLines, direction, opts){
   var credit = direction === "credit";
   // A transfer rule (v3.64.0) wins for its own direction: "TRANSFER TO SAVINGS" is never spending.
   var tRule = matchRule(description, (rules || []).filter(function(r){ return r.transferAccount && (r.transferDirection || "debit") === (credit ? "credit" : "debit"); }));
@@ -202,14 +215,16 @@ export function suggestFor(description, rules, budgetLines, direction){
   if(line){
     return { source: "name", linkedExpenseId: line.id || null, category: line.category || "", account: line.account || "", ruleId: null };
   }
+  var known = knownSuggestion(description, budgetLines, opts);
+  if(known) return known;
   return { source: null, linkedExpenseId: null, category: "", account: "", ruleId: null };
 }
 
 // Annotates parsed rows in place-ish (returns new objects) with their suggestion, so the review
 // screen renders from one pass rather than re-matching per row per render.
-export function applySuggestions(rows, rules, budgetLines){
+export function applySuggestions(rows, rules, budgetLines, opts){
   return (rows || []).map(function(row){
-    return Object.assign({}, row, { suggestion: suggestFor(row.description, rules, budgetLines, row.direction) });
+    return Object.assign({}, row, { suggestion: suggestFor(row.description, rules, budgetLines, row.direction, opts) });
   });
 }
 
@@ -311,10 +326,11 @@ export function pruneRules(rules, budgetLines){
 // this feature is earning its keep, and what the review screen leads with.
 export function coverageOf(rows){
   var total = (rows || []).length;
-  if(!total) return { total: 0, placed: 0, fraction: 0, byRule: 0, byName: 0 };
+  if(!total) return { total: 0, placed: 0, fraction: 0, byRule: 0, byName: 0, byKnown: 0 };
   var byRule = rows.filter(function(r){ return r.suggestion && r.suggestion.source === "rule"; }).length;
   var byName = rows.filter(function(r){ return r.suggestion && r.suggestion.source === "name"; }).length;
-  return { total: total, placed: byRule + byName, fraction: (byRule + byName) / total, byRule: byRule, byName: byName };
+  var byKnown = rows.filter(function(r){ return r.suggestion && r.suggestion.source === "known"; }).length;
+  return { total: total, placed: byRule + byName + byKnown, fraction: (byRule + byName + byKnown) / total, byRule: byRule, byName: byName, byKnown: byKnown };
 }
 
 // ---------------- Turning a merchant into a budget line ----------------

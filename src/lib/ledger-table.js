@@ -248,7 +248,7 @@ export function modernRowSummaryHtml(opts){
   return '<div class="m-row-summary"' + (opts.computed ? ' style="cursor:default"' : ' role="button" tabindex="0" data-row-toggle') + '>' +
     dot +
     '<div style="flex:1 1 auto; min-width:0">' +
-      '<div class="m-row-name">' + escapeAttr(opts.name || "") + '</div>' +
+      '<div class="m-row-name"' + (opts.nameTitle ? ' title="' + escapeAttr(opts.nameTitle) + '"' : '') + '>' + escapeAttr(opts.name || "") + '</div>' +
       subs +
     '</div>' +
     '<span class="m-row-amt' + (opts.ended ? " row-amt-ended" : "") + '" data-computed="amt">' + (opts.amountHtml || "") + '</span>' +

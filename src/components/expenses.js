@@ -1372,6 +1372,8 @@ function transactionRowHtml(t, idx){
   var acctSelect = '<select class="tx-account" data-tx-index="' + idx + '" aria-label="Account">' + transactionAccountOptionsHtml(t.account || "") + '</select>';
   var summary = modernRowSummaryHtml({
     name: transactionDisplayName(t, state.shared),
+    // v3.111.0: the bank's own text, when the name shown is a cleaned-up version of it.
+    nameTitle: (t.what || "").trim() && transactionDisplayName(t, state.shared) !== t.what.trim() ? t.what.trim() : "",
     subLines: [transactionSummaryText(t)],
     amountHtml: fmtCurrency2.format(Number(t.amount) || 0)
   });

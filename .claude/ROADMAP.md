@@ -2573,7 +2573,7 @@ blank when the snapshot is partial. Budget: the N/A group is labelled "Other" an
 legend. Export backup and Theme moved into the header's ⋯ menu.
 
 
-## 139. `[ ]` Less prose, clearer hierarchy
+## 139. `[~]` Less prose, clearer hierarchy
 Page intros and card paragraphs behind ⓘ (item 59's pattern); each page gets a fixed layout — headline
 figures, one main chart, one main list — with secondary panels collapsed or moved to detail pages (item
 151). Empty states become one line and one button. A simple logo mark. Things you own read as a summary

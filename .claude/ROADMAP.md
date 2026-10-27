@@ -2661,7 +2661,7 @@ merchant name (store numbers, suburbs and card refs stripped, as `import-rules.j
 matching) with the bank's text underneath — on real data about one transaction in seven still shows raw
 bank text.
 
-## 148. `[ ]` Rules that generalise
+## 148. `[~]` Rules that generalise
 On a real backup most learnt import rules had matched exactly once: a rule is learnt per exact
 description, so each new store of the same chain teaches another. Match on the cleaned merchant key, offer
 "all <merchant>" when a second variant appears, and merge duplicate rules.

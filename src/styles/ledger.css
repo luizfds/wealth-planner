@@ -1206,6 +1206,7 @@
   .rp-table td.heat-n1{ background: rgba(23,163,98,.10); } .rp-table td.heat-n2{ background: rgba(23,163,98,.20); } .rp-table td.heat-n3{ background: rgba(23,163,98,.32); }
   .rp-table tr.sub th{ padding-left:18px; font-weight:400; }
   .rp-table tr.head td{ font-weight:600; padding-top:14px; }
+  .rp-story{ margin:4px 0 16px; padding-left:20px; display:grid; gap:6px; font-size:15px; line-height:1.5; }
   .rp-drill{ margin:10px 0; padding:8px 10px; border:1px solid var(--border); border-radius:10px; }
   .rp-drill-head{ display:flex; gap:8px; align-items:center; justify-content:space-between; font-size:13px; margin-bottom:6px; }
   .rp-table tr.compare td, .rp-table tr.compare th{ color: var(--ink-soft); font-style:italic; }

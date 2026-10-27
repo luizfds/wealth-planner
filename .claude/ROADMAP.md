@@ -2858,9 +2858,21 @@ years shown, blank once the balance passed $500,000. Checked on the demo and a r
 three draw, no NaN, no errors.
 
 
-## 158. `[~]` Lender pack and year in review
+## 158. `[x]` Lender pack and year in review
 A printable one-page 12-month summary of income, spending, assets and liabilities for a refinance or
 purchase; a narrative one-pager each 30 June.
+
+Shipped as v3.123.0: two reports. Lender pack (`lenderPackReport`) — one page for a refinance or purchase: the last
+12 whole months' income (salary before tax from the plan, and every kind of money received), living expenses split
+into essentials and discretionary, loan repayments as commitments, then assets and liabilities today and the net
+position (which matches the header's net worth); a year and a month column. Year in review (`yearInReviewReport`) —
+the last finished financial year (or the header's year, once it's over) in sentences: net worth start to end, money
+in, spent and the share kept, the three biggest categories and the biggest rise and fall on the year before (only
+when that year was logged for 10+ months), distributions and franking, net capital gain, concessional super against
+the cap, each property's revaluation and its loan's paydown; with the figures beside the year before. A report can
+now lead with sentences (`rep.narrative`, `.rp-story`), on screen and printed. Checked on the demo and a real backup
+(outside the repo): both draw, no NaN, no errors.
+
 
 ## 159. `[~]` Saved reports and a proper printout
 Pin a report with its settings; print with a title block, household, period, page breaks and charts.

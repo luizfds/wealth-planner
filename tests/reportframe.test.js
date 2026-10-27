@@ -110,3 +110,34 @@ test("year on year: the last 12 months against the 12 before, by group", (t) => 
   assert.equal(r.rows[r.rows.length - 1].cells.cur, 390);
   assert.equal(r.chart.items.length, 2);
 });
+
+import { lenderPackReport, yearInReviewReport } from "../src/calc/reports.js";
+test("the lender pack: 12 whole months of income and spending, commitments, and what's owned and owed", (t) => {
+  const keep = { tx: state.transactions, log: state.incomeLog, as: state.assets, pr: state.properties, de: state.debts };
+  t.after(() => { state.transactions = keep.tx; state.incomeLog = keep.log; state.assets = keep.as; state.properties = keep.pr; state.debts = keep.de; });
+  state.transactions = [{ date: "2026-05-02", amount: 1200 }, { date: "2026-10-02", amount: 999 }];
+  state.incomeLog = [{ date: "2026-06-15", amount: 6000, target: "other" }];
+  state.assets = [{ what: "Savings", category: "Cash", amount: 20000 }];
+  state.properties = []; state.debts = [{ what: "Card", balance: 500 }];
+  const r = lenderPackReport({ today: "2026-10-20" });
+  const cell = (item) => r.rows.find(x => x.cells.item === item);
+  assert.equal(cell("Received in the 12 months").cells.year, 6000);
+  assert.equal(cell("Living expenses").cells.year, 1200); // October isn't a whole month yet
+  assert.equal(cell("Living expenses").cells.month, 100);
+  assert.equal(cell("Total assets").cells.year, 20000); assert.equal(cell("Total liabilities").cells.year, 500);
+  assert.equal(cell("Net position").cells.year, 19500);
+  assert.match(r.subtitle, /30 Sep 2026/);
+});
+test("the year in review tells the last finished year in sentences", (t) => {
+  const keep = { tx: state.transactions, log: state.incomeLog, as: state.assets, pr: state.properties, de: state.debts };
+  t.after(() => { state.transactions = keep.tx; state.incomeLog = keep.log; state.assets = keep.as; state.properties = keep.pr; state.debts = keep.de; });
+  state.transactions = [{ date: "2026-02-02", amount: 4000, category: "Travel" }, { date: "2026-03-02", amount: 1000, category: "Groceries" }];
+  state.incomeLog = [{ date: "2026-01-15", amount: 10000, target: "other" }];
+  state.assets = [{ what: "Savings", category: "Cash", amount: 30000, history: [{ date: "2025-06-01", value: 20000 }, { date: "2026-06-30", value: 25000 }] }];
+  state.properties = []; state.debts = [];
+  const r = yearInReviewReport({ today: "2026-10-20" });
+  assert.match(r.subtitle, /FY25\/26/);
+  assert.match(r.narrative[0], /from \$20,000 to \$25,000 — up \$5,000/);
+  assert.match(r.narrative[1], /50% of what came in was kept/);
+  assert.match(r.narrative[2], /travel \(\$4,000\) and groceries/);
+});

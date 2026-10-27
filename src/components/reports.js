@@ -49,7 +49,7 @@ export function reportOpts(today){
   var win = rangeWindow(f.range, today, { yearWin: selectedYearWindow(today), from: f.from, to: f.to });
   var groupOf = groupFn(f.group);
   var o = { today: today, win: win, categoryOf: transactionCategory, groupOf: groupOf, groupLabel: (GROUPS.find(function(g){ return g.key === f.group; }) || {}).label,
-    classOf: groupFn("class"), budgetLines: budgetLineItems() };
+    classOf: groupFn("class"), budgetLines: budgetLineItems(), yearWin: selectedYearWindow(today) };
   if(f.compare === "budget"){
     var b = budgetByGroup(f.group, win, today);
     if(b){ o.compareTotals = b; o.compareLabel = "budget"; }
@@ -106,6 +106,8 @@ export function reportTableHtml(rep){
       }).join("") + '</tr>';
     }).join("") + '</tbody></table></div>';
 }
+// v3.123.0: a report told in sentences (Year in review) leads with them.
+function storyHtml(rep){ return rep.narrative && rep.narrative.length ? '<ul class="rp-story">' + rep.narrative.map(function(s){ return '<li>' + escapeAttr(s) + '</li>'; }).join("") + '</ul>' : ""; }
 export function reportsPageHtml(opts){
   var picker = '<div class="rp-picker" role="tablist" aria-label="Reports">' + REPORTS.map(function(r){
       var on = r.key === reportShown.key;
@@ -118,7 +120,7 @@ export function reportsPageHtml(opts){
   return picker + frameControlsHtml(rep) +
     '<section class="rp-sheet" id="reportSheet"><div class="rp-head"><div><h2>' + escapeAttr(rep.title) + '</h2><span>' + escapeAttr(rep.subtitle) + '</span></div>' +
       '<div class="rp-actions"><button type="button" class="btn btn-sm btn-ghost" data-report-print>Print / PDF</button><button type="button" class="btn btn-sm btn-ghost" data-report-csv>Download CSV</button></div></div>' +
-      reportChartHtml(rep.chart) + reportTableHtml(rep) + drillHtml(rep, opts) + (rep.note ? '<p class="ledger-note rp-note">' + escapeAttr(rep.note) + '</p>' : '') + '</section>';
+      storyHtml(rep) + reportChartHtml(rep.chart) + reportTableHtml(rep) + drillHtml(rep, opts) + (rep.note ? '<p class="ledger-note rp-note">' + escapeAttr(rep.note) + '</p>' : '') + '</section>';
 }
 export function renderReports(){
   var el = typeof document !== "undefined" && document.getElementById("reportsBody");
@@ -128,7 +130,7 @@ export function renderReports(){
 export function reportPrintHtml(){
   var opts = reportOpts();
   var rep = buildReport(reportShown.key, opts);
-  return '<div class="pr-page"><h2>' + escapeAttr(rep.title) + '</h2><p>' + escapeAttr(rep.subtitle) + '</p>' + reportChartHtml(rep.chart) + reportTableHtml(rep) + drillHtml(rep, opts) + (rep.note ? '<p>' + escapeAttr(rep.note) + '</p>' : '') + '</div>';
+  return '<div class="pr-page"><h2>' + escapeAttr(rep.title) + '</h2><p>' + escapeAttr(rep.subtitle) + '</p>' + storyHtml(rep) + reportChartHtml(rep.chart) + reportTableHtml(rep) + drillHtml(rep, opts) + (rep.note ? '<p>' + escapeAttr(rep.note) + '</p>' : '') + '</div>';
 }
 export function reportCsv(){
   var rep = buildReport(reportShown.key, reportOpts());

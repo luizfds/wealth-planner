@@ -13,7 +13,7 @@ import { holdingReturns, distributionYears, cgtParcels } from "./investreports.j
 import { propertyReturns, debtSchedule } from "./assetreports.js";
 import { superContributions } from "./investments.js";
 import { valueOn } from "./history.js";
-import { fyWindow, financialYearOf } from "./property.js";
+import { fyWindow, financialYearOf, loanRepaymentMonthly, loanBalance } from "./property.js";
 
 // ---------------- Reports (v3.62.0) ----------------
 //
@@ -46,6 +46,8 @@ export var REPORTS = [
   { key: "tax", label: "Tax summary" },
   { key: "month", label: "Month in detail" },
   { key: "nwcheck", label: "Net worth check" },
+  { key: "lender", label: "Lender pack" },
+  { key: "review", label: "Year in review" },
   { key: "yearend", label: "Year-end pack" }
 ];
 
@@ -545,7 +547,117 @@ export function superReport(opts){
       "Balances are the last value logged on or before each 30 June; this year's is today's." };
 }
 
+// ---------------- Lender pack and year in review (v3.123.0) ----------------
+// What a broker asks for before a refinance or a purchase, on one page: the last 12 months' income
+// and spending, the commitments, and what's owned and owed today.
+export function lenderPackReport(opts){
+  opts = opts || {};
+  var today = opts.today || localDateStr();
+  var t = new Date(Number(today.slice(0, 4)), Number(today.slice(5, 7)) - 1, 1);
+  var from = new Date(t.getFullYear(), t.getMonth() - 12, 1), to = new Date(t.getFullYear(), t.getMonth(), 0);
+  var iso = function(d){ return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+  var win = { start: iso(from), end: iso(to) }; // the last 12 whole months
+  var classOf = opts.classOf || function(){ return "Other"; };
+  var rows = [], row = function(item, year, month, cls){ rows.push({ cls: cls, cells: { item: item, year: year == null ? null : r2(year), month: month == null ? null : r2(month) } }); };
+  rows.push({ cls: "head", cells: { item: "Income" } });
+  getTaxPeople().forEach(function(person){
+    var gross = (state.income || []).filter(function(i){ return i.incomeType === "Gross" && i.person === person && !i.computed; })
+      .reduce(function(s, i){ return s + periodsOf(Number(i.amount) || 0, i.freq).yearly; }, 0);
+    if(gross) row(person + " — salary before tax (plan)", gross, gross / 12);
+  });
+  var labels = {}, got = {};
+  try { incomeTargets().forEach(function(x){ labels[x.key] = x.label; }); } catch(e){}
+  (state.incomeLog || []).forEach(function(r){ if(r.date >= win.start && r.date <= win.end){ var k = r.target || "other"; got[k] = (got[k] || 0) + (Number(r.amount) || 0); } });
+  var tin = 0;
+  Object.keys(got).sort(function(a, b){ return got[b] - got[a]; }).forEach(function(k){ tin += got[k]; row((labels[k] || (inKind(k) === "rent" ? "Rent" : "Other income")) + " — received", got[k], got[k] / 12); });
+  row("Received in the 12 months", tin, tin / 12, "total");
+  rows.push({ cls: "head", cells: { item: "Spending" } });
+  var sp = { Needs: 0, Wants: 0, Other: 0 };
+  (state.transactions || []).forEach(function(x){ if(x.date >= win.start && x.date <= win.end) sp[classKey(classOf(x))] += Number(x.amount) || 0; });
+  row("Essentials (needs)", sp.Needs, sp.Needs / 12); row("Discretionary (wants)", sp.Wants, sp.Wants / 12);
+  if(sp.Other) row("Other spending", sp.Other, sp.Other / 12);
+  var spent = sp.Needs + sp.Wants + sp.Other;
+  row("Living expenses", spent, spent / 12, "total");
+  rows.push({ cls: "head", cells: { item: "Commitments" } });
+  var commit = 0;
+  (state.properties || []).forEach(function(p){ (p.loans || []).forEach(function(l, i){ var m = loanRepaymentMonthly(l); if(!m) return; commit += m; row((p.what || "Property") + ((p.loans || []).length > 1 ? " — loan " + (i + 1) : "") + " repayment", m * 12, m); }); });
+  row("Loan repayments", commit * 12, commit, "total");
+  rows.push({ cls: "head", cells: { item: "Assets today" } });
+  var assets = 0, owed = 0, byCat = {};
+  (state.assets || []).forEach(function(a){ var c = a.category || "Other"; byCat[c] = (byCat[c] || 0) + toAudAmount(a, Number(a.amount) || 0); });
+  Object.keys(byCat).sort().forEach(function(c){ if(!byCat[c]) return; assets += byCat[c]; row(c, byCat[c], null); });
+  (state.properties || []).forEach(function(p){ assets += Number(p.value) || 0; row(p.what || "Property", Number(p.value) || 0, null); });
+  var offsets = (state.properties || []).reduce(function(s, p){ return s + (p.loans || []).reduce(function(ss, l){ return ss + Math.min(Number(l.offsetBalance) || 0, loanBalance(l)); }, 0); }, 0);
+  if(offsets){ assets += offsets; row("Offset accounts", offsets, null); }
+  row("Total assets", assets, null, "total");
+  rows.push({ cls: "head", cells: { item: "Liabilities today" } });
+  (state.properties || []).forEach(function(p){ (p.loans || []).forEach(function(l, i){ var b = loanBalance(l); if(b){ owed += b; row((p.what || "Property") + ((p.loans || []).length > 1 ? " — loan " + (i + 1) : "") + " loan", b, null); } }); });
+  (state.debts || []).forEach(function(d){ if(Number(d.balance)){ owed += Number(d.balance); row(d.what || "Debt", Number(d.balance), null); } });
+  row("Total liabilities", owed, null, "total");
+  row("Net position", assets - owed, null, "total");
+  return { key: "lender", title: "Lender pack", subtitle: "12 months to " + fmtDate(win.end, { year: true }) + " · balances at " + fmtDate(today, { year: true }),
+    columns: [{ key: "item", label: "" }, { key: "year", label: "12 months / balance", num: true }, { key: "month", label: "A month", num: true }], rows: rows,
+    note: "Income received and spending are what's been logged in the last 12 whole months; salary before tax is the plan. Living expenses leave out loan repayments, which are listed as commitments. " +
+      "Card limits aren't recorded here — a lender will ask for them. Balances are the latest you've logged." };
+}
+
+// The last finished financial year in a few sentences, and the figures behind them.
+export function yearInReviewReport(opts){
+  opts = opts || {};
+  var today = opts.today || localDateStr();
+  var fy = financialYearOf(today) - 1;
+  var hw = opts.yearWin;
+  if(hw && hw.end < today) fy = financialYearOf(hw.start);
+  var w = fyWindow(fy), pw = fyWindow(fy - 1);
+  var money = function(v){ return (v < 0 ? "−" : "") + "$" + Math.round(Math.abs(v)).toLocaleString("en-AU"); };
+  var story = [], rows = [], row = function(item, v, prev, cls){ rows.push({ cls: cls, cells: { item: item, v: v == null ? null : r2(v), prev: prev == null ? null : r2(prev), chg: v == null || prev == null ? null : r2(v - prev) } }); };
+  var dayBefore = function(iso){ var d = new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)) - 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+  var a = netWorthOn(dayBefore(w.start), today), b = netWorthOn(w.end, today);
+  if(!a.partial.length && !b.partial.length){
+    story.push("Net worth went from " + money(a.total) + " to " + money(b.total) + " — " + (b.total >= a.total ? "up " : "down ") + money(Math.abs(b.total - a.total)) + ".");
+    row("Net worth at 30 June", b.total, a.total, "total");
+  } else if(!b.partial.length) row("Net worth at 30 June", b.total, null, "total");
+  var sumIn = function(win){ return (state.incomeLog || []).reduce(function(s, r){ return r.date >= win.start && r.date <= win.end ? s + (Number(r.amount) || 0) : s; }, 0); };
+  var sumOut = function(win){ return (state.transactions || []).reduce(function(s, t){ return t.date >= win.start && t.date <= win.end ? s + (Number(t.amount) || 0) : s; }, 0); };
+  var tin = sumIn(w), tout = sumOut(w), pin = sumIn(pw), pout = sumOut(pw);
+  if(tin || tout){
+    story.push(money(tin) + " came in and " + money(tout) + " was spent" + (tin > 0 ? ", so " + Math.round((tin - tout) / tin * 100) + "% of what came in was kept" : "") + ".");
+    row("Money in", tin, pin || null); row("Spent", tout, pout || null); row("Kept", tin - tout, pin || pout ? pin - pout : null, "total");
+  }
+  var groupOf = opts.categoryOf || function(t){ return t.category || "Uncategorised"; };
+  var cur = spendingByGroup(state.transactions, w, groupOf), prev = spendingByGroup(state.transactions, pw, groupOf);
+  var top = Object.keys(cur).sort(function(x, y){ return cur[y] - cur[x]; }).slice(0, 3);
+  var said = top.map(function(k){ return k.toLowerCase() + " (" + money(cur[k]) + ")"; });
+  if(said.length) story.push("The most went on " + (said.length > 1 ? said.slice(0, -1).join(", ") + " and " + said[said.length - 1] : said[0]) + ".");
+  var prevMonths = {};
+  (state.transactions || []).forEach(function(t){ if(t.date >= pw.start && t.date <= pw.end) prevMonths[t.date.slice(0, 7)] = true; });
+  if(Object.keys(prevMonths).length >= 10){
+    var moves = Object.keys(cur).map(function(k){ return { k: k, d: cur[k] - (prev[k] || 0) }; }).filter(function(m){ return prev[m.k] > 0; }).sort(function(x, y){ return y.d - x.d; });
+    if(moves.length && moves[0].d > 200) story.push("The biggest rise on the year before was " + moves[0].k.toLowerCase() + ", up " + money(moves[0].d) + (moves.length > 1 && moves[moves.length - 1].d < -200 ? "; the biggest fall " + moves[moves.length - 1].k.toLowerCase() + ", down " + money(-moves[moves.length - 1].d) : "") + ".");
+  }
+  var dist = distributionYears(state.assets, toAudAmount).find(function(y){ return y.fy === fy; });
+  if(dist){ story.push("Investments paid " + money(dist.cash) + " in distributions" + (dist.credit ? " with " + money(dist.credit) + " of franking credits" : "") + "."); row("Distributions with franking", dist.total, null); }
+  var cg = cgtParcels(state.assets, { today: today, toAud: toAudAmount }).realised.find(function(y){ return y.fy === fy; });
+  if(cg){ story.push("Shares sold made a net capital gain of " + money(cg.net.net) + " after the discount."); row("Net capital gain", cg.net.net, null); }
+  var sup = superContributions(fy).filter(function(c){ return c.total > 0; });
+  if(sup.length){ story.push("Concessional super: " + sup.map(function(c){ return c.person + " " + money(c.total) + (c.room > 0 ? " (" + money(c.room) + " of the cap unused)" : c.over > 0 ? " (" + money(c.over) + " over the cap)" : "") ; }).join(", ") + "."); }
+  (state.properties || []).forEach(function(p){
+    var s = valueOn(p.history, dayBefore(w.start)), e = valueOn(p.history, w.end);
+    if(s != null && e != null && s !== e){ story.push((p.what || "The property") + " was valued " + (e > s ? "up " : "down ") + money(Math.abs(e - s)) + " over the year, to " + money(e) + "."); row((p.what || "Property") + " value", e, s); }
+    (p.loans || []).forEach(function(l){
+      var ls = valueOn(l.balanceHistory, dayBefore(w.start)), le = valueOn(l.balanceHistory, w.end);
+      if(ls != null && le != null && ls > le) story.push("Its loan came down " + money(ls - le) + ", to " + money(le) + ".");
+    });
+  });
+  if(!story.length) story.push("Nothing was logged in " + w.label + " to look back on yet.");
+  return { key: "review", title: "Year in review", subtitle: w.label + " · 1 July " + fy + " to 30 June " + (fy + 1), narrative: story,
+    columns: [{ key: "item", label: "" }, { key: "v", label: w.label, num: true }, { key: "prev", label: pw.label, num: true }, { key: "chg", label: "Change", num: true }], rows: rows,
+    note: "From what's been logged. The year before shows only where it was logged too. Pick a finished year in the header to look back on that one." };
+}
+
 export function buildReport(key, opts){
+  if(key === "lender") return lenderPackReport(opts);
+  if(key === "review") return yearInReviewReport(opts);
   if(key === "propreturns") return propertyReturnsReport(opts);
   if(key === "debts") return debtsReport(opts);
   if(key === "super") return superReport(opts);

@@ -1,7 +1,7 @@
 import { state } from "../state.js";
 import { nextDueDate, daysUntil, lastTransactionDateFor, isOverdue, transactionsInMonth, sumField } from "../calc/ledger.js";
 import { staleAssets } from "../calc/engine.js";
-import { fmtCurrency0, localDateStr } from "./format.js";
+import { fmtCurrency0, localDateStr, fmtDate } from "./format.js";
 import { MARKET_CURRENCY } from "../constants.js";
 import { getTaxPeople, computePersonTax } from "../calc/tax.js";
 import { lodgementStatus, taxYearRecord } from "../calc/taxyear.js";
@@ -357,7 +357,7 @@ function rateChangeNotifications(){
       out.push({
         id: "rate:" + (l.id || l.what) + ":" + cur.date, type: "loan", severity: Number(cur.rate) > Number(prev.rate) ? "warn" : "info",
         title: (l.what || "A loan") + ": rate " + prev.rate + "% → " + cur.rate + "%",
-        detail: "From " + cur.date + ". Repayment about " + fmtCurrency0.format(repay) + " a month" + (l.repaymentMode === "manual" ? " — yours is typed in, so update it if the lender changed it" : "") + ".",
+        detail: "From " + fmtDate(cur.date) + ". Repayment about " + fmtCurrency0.format(repay) + " a month" + (l.repaymentMode === "manual" ? " — yours is typed in, so update it if the lender changed it" : "") + ".",
         date: cur.date, page: "properties"
       });
     });
@@ -380,7 +380,7 @@ export function cardPaymentReminders(accounts, transactions, transfers, today){
       if(days >= 0 && days <= 5) out.push({
         id: "cardpay:" + p.card + ":" + p.date, type: "bill", severity: days <= 1 ? "warn" : "info",
         title: p.card + " payment " + (days === 0 ? "due today" : days === 1 ? "due tomorrow" : "due in " + days + " days") + " — about " + fmtCurrency0.format(p.amount),
-        detail: "What was charged " + p.cycle.start + " to " + p.cycle.end + ". Log the repayment as a transfer to the card once it's paid.",
+        detail: "What was charged " + fmtDate(p.cycle.start) + " to " + fmtDate(p.cycle.end) + ". Log the repayment as a transfer to the card once it's paid.",
         date: p.date, page: "expenses", sub: "bills"
       });
       else if(days < 0 && days >= -7) out.push({

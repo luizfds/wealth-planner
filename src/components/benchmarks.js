@@ -18,7 +18,7 @@ import { GOAL_KINDS, goalKindInfo, goalProgress, monthFraction } from "../calc/g
 import { computeNetWorthSeries, runwayMonths } from "../calc/engine.js";
 import { transactionsInMonth } from "../calc/ledger.js";
 import { transactionCategory } from "./expenses.js";
-import { fmtCurrency0, fmtPercent1, localDateStr } from "../lib/format.js";
+import { fmtCurrency0, fmtPercent1, localDateStr, fmtDate } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 
 function esc(t){ return escapeAttr(String(t == null ? "" : t)); }
@@ -199,13 +199,13 @@ export function investmentsHtml(d){
     '<p class="ledger-note" style="margin:8px 0">The close on each date you bought or sold, and today. Type them, or copy the Google Sheets formulas, paste them into a sheet, and paste the Symbol and Price columns back below.</p>' +
     '<div class="bm-price-grid">' + d.dates.concat(["now"]).map(function(dt){
       var v = d.prices[dt];
-      return '<label><span>' + (dt === "now" ? "Today" + (d.prices.nowDate ? " (" + esc(d.prices.nowDate) + ")" : "") : esc(dt)) + '</span><input type="number" step="0.01" min="0" data-bm-price="' + dt + '" value="' + (v > 0 ? v : "") + '" placeholder="price"></label>';
+      return '<label><span>' + (dt === "now" ? "Today" + (d.prices.nowDate ? " (" + esc(fmtDate(d.prices.nowDate)) + ")" : "") : esc(fmtDate(dt))) + '</span><input type="number" step="0.01" min="0" data-bm-price="' + dt + '" value="' + (v > 0 ? v : "") + '" placeholder="price"></label>';
     }).join("") + '</div>' +
     '<div class="bm-paste"><button type="button" class="btn btn-sm btn-ghost" data-bm-copy>⧉ Copy Google Sheets formulas</button>' +
     '<textarea data-bm-paste rows="3" placeholder="' + esc(d.symbol) + '@2024-03-01&#9;31.42"></textarea>' +
     '<button type="button" class="btn btn-sm" data-bm-paste-apply>Use pasted prices</button></div></details>';
   return controls +
-    '<p class="bm-verdict">' + fmtCurrency0.format(d.invested) + ' put in since ' + esc(d.firstDate) + (d.withdrawn ? ', ' + fmtCurrency0.format(d.withdrawn) + ' taken out' : '') + ', worth ' + fmtCurrency0.format(d.value) + ' today.</p>' +
+    '<p class="bm-verdict">' + fmtCurrency0.format(d.invested) + ' put in since ' + esc(fmtDate(d.firstDate)) + (d.withdrawn ? ', ' + fmtCurrency0.format(d.withdrawn) + ' taken out' : '') + ', worth ' + fmtCurrency0.format(d.value) + ' today.</p>' +
     '<div class="bm-perf">' + barHtml + '</div>' + verdict +
     (d.payoutCount ? '<p class="bm-verdict">With the ' + d.payoutCount + ' distribution' + (d.payoutCount === 1 ? '' : 's') + ' you\'ve logged (' + fmtCurrency0.format(d.payoutTotal) + ' in cash), your return is <b>' + pctPa(d.myRateWithIncome) + '</b>. The index figure above is price only, so compare that one with your price-only ' + pctPa(d.myRate) + '.</p>' : '') +
     prices +
@@ -381,7 +381,7 @@ export function propertyMarketHtml(d){
       '<div class="pm-cols"><span></span><span>Yours</span><span>Suburb median</span><span></span></div>' + rows.join("") +
       '<div class="pm-source">Source ' + marketInput(p.id, "source", m.source, { type: "text", placeholder: "CoreLogic, Domain…", label: "Where the suburb figures are from" }) +
         ' as of ' + marketInput(p.id, "asOf", m.asOf, { type: "month", label: "Month the suburb figures describe" }) + '</div>' +
-      (p.hasPurchase ? '<p class="bm-source">Yours: from the purchase price on ' + esc(p.purchaseDate) + ' to today\'s value, compounded. Compare it with the suburb\'s rate over a similar stretch.</p>' : '') +
+      (p.hasPurchase ? '<p class="bm-source">Yours: from the purchase price on ' + esc(fmtDate(p.purchaseDate)) + ' to today\'s value, compounded. Compare it with the suburb\'s rate over a similar stretch.</p>' : '') +
     '</div>';
   }).join("");
 }

@@ -102,6 +102,18 @@ function gutterFor(labels, W, fontPx){
   return Math.min(Math.round(W * 0.4), Math.max(34, Math.ceil(widest * ((fontPx || 11) * 0.575)) + 12));
 }
 
+// Round gridlines (v3.105.0): a step of 1, 2, 2.5 or 5 × a power of ten, and an axis that starts and
+// ends on one, so the labels read $500k / $1M / $1.5M rather than $582,338 / $1,164,676. Pure.
+export function niceScale(lo, hi, maxTicks){
+  maxTicks = maxTicks || 5;
+  if(!(hi > lo)) return { min: lo, max: hi, step: 1, ticks: 1 };
+  var raw = (hi - lo) / maxTicks;
+  var mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  var step = [1, 2, 2.5, 5, 10].map(function(m){ return m * mag; }).find(function(st){ return st >= raw; });
+  var min = Math.floor(lo / step + 1e-9) * step, max = Math.ceil(hi / step - 1e-9) * step;
+  return { min: min, max: max, step: step, ticks: Math.max(1, Math.round((max - min) / step)) };
+}
+
 export function renderLineChart(container, series, opts){
   opts = opts || {};
   container.innerHTML = "";
@@ -156,8 +168,10 @@ export function renderLineChart(container, series, opts){
   }
   var yPad = (yMax - yMin) * 0.08;
   yMax += yPad; if(yMin < 0) yMin -= yPad;
+  var nice = niceScale(yMin, yMax, 5);
+  yMin = nice.min; yMax = nice.max;
 
-  var ticks = 5;
+  var ticks = nice.ticks;
   var yLabels = [];
   for(var li = 0; li <= ticks; li++){
     var lv = yMin + (yMax - yMin) * li / ticks;
@@ -392,8 +406,10 @@ export function renderStackedAreaChart(container, series, opts){
   }
   var yMax = stackTops.reduce(function(m, col){ return Math.max(m, col[col.length - 1]); }, 0);
   if(yMax <= 0) yMax = 1;
+  var niceStack = niceScale(0, yMax, 4);
+  yMax = niceStack.max;
 
-  var ticks = 4;
+  var ticks = niceStack.ticks;
   var tickLabels = [];
   for(var w = 0; w <= ticks; w++){
     var wv = (yMax / ticks) * w;

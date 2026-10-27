@@ -2557,11 +2557,21 @@ figures. Settings → Checks is all clear on it. The random generator and its po
 names) are gone from `app.js`. Not included: a lodged tax year — the FY return still shows as to do.
 
 
-## 138. `[~]` Polish pass
+## 138. `[x]` Polish pass
 Round axis ticks (`$3M`, not `$2,911,689`); one date format in the UI (no ISO dates); Checks' "Looks right"
 button laid out beside its text; the net worth statement leaves a column's total blank when not every item
 has a value then; no "N/A" budget group card; Theme and Export backup off the header into the ⋯ menu.
 Measure with `getBoundingClientRect`, per the usual rule.
+
+Shipped as v3.105.0: `lib/charts.js` `niceScale()` — gridlines on 1/2/2.5/5 × 10ⁿ steps, line and stacked charts.
+`lib/format.js` `fmtDate()` ("26 Oct", the year when it isn't this one) on every date shown as text; checked by
+scanning every page's rendered text for YYYY-MM-DD with the demo and with a real backup (outside the repo) —
+none left (date inputs keep the browser's own format). Checks: both buttons in one `.hc-actions` cell (they
+were two children of a three-column grid, so "Looks right" wrapped into the dot column); measured 84×40 beside
+its partner at 1280px, below the text at 390px. Net worth statement: an earlier column's Total owned/owed is
+blank when the snapshot is partial. Budget: the N/A group is labelled "Other" and $0 groups leave the bar's
+legend. Export backup and Theme moved into the header's ⋯ menu.
+
 
 ## 139. `[ ]` Less prose, clearer hierarchy
 Page intros and card paragraphs behind ⓘ (item 59's pattern); each page gets a fixed layout — headline

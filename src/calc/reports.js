@@ -3,7 +3,7 @@ import { selectedYearWindow } from "./ledger.js";
 import { getTaxPeople, computePersonTax, currentTaxFy } from "./tax.js";
 import { totalNetWorthValue, totalDebtsValue, toAudAmount } from "./engine.js";
 import { ipProperties, propertyTaxResultBreakdown, propertiesTotalValue, propertiesTotalMortgageBalance, propertiesOffsetTotal, fyLabel } from "./property.js";
-import { localDateStr } from "../lib/format.js";
+import { localDateStr, fmtDate } from "../lib/format.js";
 import { netWorthOn, shiftDate } from "./nwhistory.js";
 import { netWorthChecks } from "./nwcheck.js";
 
@@ -100,18 +100,21 @@ export function netWorthReport(opts){
   var cats = {};
   snaps.forEach(function(sn){ Object.keys(sn.parts.assets).forEach(function(c){ cats[c] = true; }); });
   var col = function(fn){ var cells = {}; ["now", "month", "year"].forEach(function(k, i){ cells[k] = fn(snaps[i]); }); return cells; };
+  // v3.105.0: a total for an earlier date that leaves out something held today isn't a total — blank,
+  // like the net worth line below, rather than printed beside today's as if comparable.
+  var totalCol = function(fn){ return col(function(sn){ return sn !== now && sn.partial.length ? null : fn(sn); }); };
   var rows = [{ cls: "head", cells: { item: "What you own" } }];
   Object.keys(cats).sort().forEach(function(c){
     rows.push({ cells: Object.assign({ item: c }, col(function(sn){ return sn.parts.assets[c] != null ? r2(sn.parts.assets[c]) : null; })) });
   });
   if(now.parts.property) rows.push({ cells: Object.assign({ item: "Property" }, col(function(sn){ return r2(sn.parts.property); })) });
   if(now.parts.offsets) rows.push({ cells: Object.assign({ item: "Offset accounts" }, col(function(sn){ return r2(sn.parts.offsets); })) });
-  rows.push({ cls: "total", cells: Object.assign({ item: "Total owned" }, col(function(sn){
+  rows.push({ cls: "total", cells: Object.assign({ item: "Total owned" }, totalCol(function(sn){
     return r2(Object.keys(sn.parts.assets).reduce(function(s, k){ return s + sn.parts.assets[k]; }, 0) + sn.parts.property + sn.parts.offsets); })) });
   rows.push({ cls: "head", cells: { item: "What you owe" } });
   if(now.parts.loans) rows.push({ cells: Object.assign({ item: "Property loans" }, col(function(sn){ return r2(-sn.parts.loans); })) });
   if(now.parts.debts) rows.push({ cells: Object.assign({ item: "Other debts" }, col(function(sn){ return r2(-sn.parts.debts); })) });
-  rows.push({ cls: "total", cells: Object.assign({ item: "Total owed" }, col(function(sn){ return r2(-(sn.parts.loans + sn.parts.debts)); })) });
+  rows.push({ cls: "total", cells: Object.assign({ item: "Total owed" }, totalCol(function(sn){ return r2(-(sn.parts.loans + sn.parts.debts)); })) });
   var engineNow = totalNetWorthValue();
   var diff = r2(engineNow - now.total);
   if(Math.abs(diff) >= 1) rows.push({ cells: { item: "Adjustments (offsets beyond their loan, etc.)", now: diff } });
@@ -121,7 +124,7 @@ export function netWorthReport(opts){
   rows.push({ cls: "total", cells: { item: "Net worth", now: r2(engineNow), month: cmp(snaps[1]), year: cmp(snaps[2]) } });
   rows.push({ cells: { item: "Change to today", now: null, month: chg(snaps[1]), year: chg(snaps[2]) } });
   var partial = snaps[2].partial.length ? snaps[2].partial : snaps[1].partial;
-  return { key: "networth", title: "Net worth statement", subtitle: "as at " + today,
+  return { key: "networth", title: "Net worth statement", subtitle: "as at " + fmtDate(today, { year: true }),
     columns: [{ key: "item", label: "" }, { key: "now", label: "Today", num: true }, { key: "month", label: "A month ago", num: true }, { key: "year", label: "A year ago", num: true }], rows: rows,
     note: "Earlier columns use the last value recorded on or before each date; loans use their recorded balance where there is one, otherwise today's." +
       (partial.length ? " Some of what you hold today wasn't recorded yet back then (" + partial.slice(0, 3).join(", ") + (partial.length > 3 ? " and " + (partial.length - 3) + " more" : "") + "), so those columns' totals are left blank rather than compared." : "") };

@@ -1,6 +1,6 @@
 import { FREQS, CLASSES, MONTH_NAMES, DEDUCTION_LABELS } from "../constants.js";
 import { periodsOf, RESERVE_YEAR_BASES, resolveSharedAmount } from "../calc/ledger.js";
-import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "./format.js";
+import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr, fmtDate } from "./format.js";
 import { escapeAttr } from "./html.js";
 
 function todayStr(){ return localDateStr(); }
@@ -35,7 +35,7 @@ export function historyTrendHtml(item){
   var cls = delta > 0 ? "up" : (delta < 0 ? "down" : "");
   var arrow = delta > 0 ? "▲" : (delta < 0 ? "▼" : "–");
   return '<div class="asset-trend ' + cls + '">' + arrow + ' ' + fmtCurrency0.format(Math.abs(delta)) +
-    ' (' + fmtPercent1.format(Math.abs(pct)) + ') since ' + escapeAttr(prev.date) + '</div>';
+    ' (' + fmtPercent1.format(Math.abs(pct)) + ') since ' + escapeAttr(fmtDate(prev.date)) + '</div>';
 }
 
 // The fields behind every row's timing (see state.js's
@@ -194,7 +194,7 @@ export function endDateNoteHtml(item){
   if(!item.endDate) return "";
   var ended = hasEnded(item);
   return '<span class="row-end-note' + (ended ? " ended" : "") + '">' +
-    (ended ? "Ended " : "Ends ") + escapeAttr(item.endDate) + '</span>';
+    (ended ? "Ended " : "Ends ") + escapeAttr(fmtDate(item.endDate)) + '</span>';
 }
 
 // A row whose amount differs in some scenario looks identical to one that doesn't, and the list

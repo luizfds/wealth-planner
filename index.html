@@ -184,14 +184,16 @@
           <span class="notif-badge" hidden></span>
         </button>
         <span class="status-chip" id="statusChip"><span class="status-dot" id="statusDot"></span><span id="statusText">Saved</span></span>
-        <button class="btn btn-sm btn-ghost" id="themeToggleBtn" title="Cycle between following your system theme, always light, or always dark">Theme: System</button>
         <input type="file" id="importFile" accept="application/json,.json,text/plain,.txt">
-        <button class="btn btn-sm btn-ghost" id="exportBtn" title="Save a backup file — same data as Share, but downloaded instead of sent, with an optional passphrase">Export backup</button>
         <!-- v3.33.0: Import, Sample data and Reset behind one menu. Reset sat a few pixels from Export,
              and Sample data replaces everything — neither belongs one stray click away. -->
+        <!-- v3.105.0: Export backup and Theme moved in too — set once, not used every visit, and they
+             took the header's width from the page's own title and figures. -->
         <div class="page-overflow topbar-overflow">
-          <button type="button" class="page-overflow-btn" data-overflow-toggle aria-haspopup="true" aria-expanded="false" aria-label="More data actions" title="Import, share, sample data, reset">⋯</button>
+          <button type="button" class="page-overflow-btn" data-overflow-toggle aria-haspopup="true" aria-expanded="false" aria-label="More: backup, theme and data" title="Export, import, theme, sample data, reset">⋯</button>
           <div class="page-overflow-menu" data-overflow-menu hidden>
+            <button class="btn btn-sm btn-ghost" id="exportBtn" title="Save a backup file — same data as Share, but downloaded instead of sent, with an optional passphrase">Export backup</button>
+            <button class="btn btn-sm btn-ghost" id="themeToggleBtn" title="Cycle between following your system theme, always light, or always dark">Theme: System</button>
             <button class="btn btn-sm btn-ghost" id="shareBtn" hidden title="Send your data to another device — opens your phone/computer's share sheet (AirDrop, Messages, email, etc.) with a password-protected file and instructions. You'll set a passphrase to share it separately with whoever's receiving it.">Share securely</button>
             <button class="btn btn-sm btn-ghost" id="importBtn" title="Load a file from Share or Export">Import backup</button>
             <button class="btn btn-sm btn-ghost" id="mockDataBtn" title="Replaces everything currently entered with a sample household, so you can try the tool before entering your own">Load sample data</button>

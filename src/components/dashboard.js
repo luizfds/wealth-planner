@@ -11,7 +11,7 @@ import { fireSettings, fireWealthSplit, simulateRetirementAt, earliestWorkableRe
 import { MONTH_NAMES } from "../constants.js";
 import { monthKeysBack, monthKeyLabel } from "../calc/trends.js";
 import { observationDates, categorySeries, trimUntracked, contributionsVsGrowth, monthlyCashFlow, spendCoverage } from "../calc/history.js";
-import { fmtCurrency0, fmtPercent1, fmtRunway, localDateStr } from "../lib/format.js";
+import { fmtCurrency0, fmtPercent1, fmtRunway, localDateStr, fmtDate } from "../lib/format.js";
 import { upcomingBills as calendarUpcoming } from "../calc/bills.js";
 import { escapeAttr } from "../lib/html.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
@@ -527,14 +527,14 @@ function renderProjectionAccuracyPanel(){
     .filter(function(h){ return h.date >= ref.date; })
     .map(function(h){ return { x: yearsSinceDate(h.date, ref.date), y: h.value }; });
   var series = [
-    { label: "Reference — " + ref.scenario + " (set " + ref.date + ")", colorClass: "series-color-0", points: ref.series },
+    { label: "Reference — " + ref.scenario + " (set " + fmtDate(ref.date) + ")", colorClass: "series-color-0", points: ref.series },
     // Stepped: these are snapshots, and joining two of them with a diagonal would draw growth
     // between the months nobody logged. The reference line above it is a model, so it slopes.
     { label: "Actual net worth (logged)", colorClass: "series-color-2", points: actualPoints, stepped: true }
   ];
   panel.innerHTML =
     '<h3>Projection accuracy</h3>' +
-    '<p class="fire-note">Grading against the ' + escapeAttr(ref.scenario) + ' projection frozen on ' + escapeAttr(ref.date) + '. Log your net worth roughly monthly to fill in the actual line.</p>' +
+    '<p class="fire-note">Grading against the ' + escapeAttr(ref.scenario) + ' projection frozen on ' + escapeAttr(fmtDate(ref.date)) + '. Log your net worth roughly monthly to fill in the actual line.</p>' +
     '<div id="projAccuracyChartHost"></div>' +
     '<div class="fire-stat-row" style="justify-content:flex-start;gap:8px">' + logBtnHtml + setBtnHtml + '</div>';
   renderLineChart(document.getElementById("projAccuracyChartHost"), series, {
@@ -707,7 +707,7 @@ export function renderContributionsGrowth(){
   // is a property valuation they typed in themselves, not a market that moved. "Revalued" names
   // what the app can actually see. The tooltip and the note below say the rest.
   var growthLabel = growthNeg ? "Assets revalued down" : "Assets grew";
-  panel.innerHTML = '<h3>Saved vs grown <span style="font-weight:400;color:var(--ink-soft)">— since ' + escapeAttr(split.from) + '</span></h3>' +
+  panel.innerHTML = '<h3>Saved vs grown <span style="font-weight:400;color:var(--ink-soft)">— since ' + escapeAttr(fmtDate(split.from)) + '</span></h3>' +
     '<div class="fire-stat-row"><span>Net worth then</span><b>' + fmtCurrency0.format(split.start) + '</b></div>' +
     '<div class="fire-stat-row"><span>Net worth now</span><b>' + fmtCurrency0.format(split.end) + '</b></div>' +
     '<div class="fire-stat-row"><span>Change</span><b' + (split.totalChange < 0 ? ' style="color:var(--bad)"' : '') + '>' +
@@ -722,7 +722,7 @@ export function renderContributionsGrowth(){
     '</div>' +
     '<p class="fire-note">' +
       (split.droppedPoints
-        ? 'Measured from ' + escapeAttr(split.from) + ', not ' + escapeAttr(split.earliest) +
+        ? 'Measured from ' + escapeAttr(fmtDate(split.from)) + ', not ' + escapeAttr(fmtDate(split.earliest)) +
           ': that is when everything you track now was already being tracked. Comparing across the ' +
           'earlier gap would count assets you added to the app as growth. '
         : "") +

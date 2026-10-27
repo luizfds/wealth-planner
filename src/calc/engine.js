@@ -9,7 +9,7 @@ import {
   , loanPaidOut
 } from "./property.js";
 import { getTaxPeople, computePersonTax, scenarioIncomeMonthly, personOneOffSplit, scenarioOneOffYearly, takeHomeAdjust } from "./tax.js";
-import { fmtCurrency0, localDateStr } from "../lib/format.js";
+import { fmtCurrency0, localDateStr, fmtDate } from "../lib/format.js";
 import { projectionRatios } from "./actuals.js";
 
 // Every non-Shares asset, and every Shares holding on the ASX, is already AUD — the only
@@ -393,7 +393,7 @@ export function recalcComputedItems(){
     var years = Math.max(0, (Date.now() - new Date(a.purchaseDate + "T00:00:00").getTime()) / (365.25 * 24 * 60 * 60 * 1000));
     a.amount = Math.max(0, Math.round(price * Math.pow(1 - rate / 100, years)));
     a.computed = true;
-    a.computedNote = "auto: " + rate + "%/yr declining balance from " + fmtCurrency0.format(price) + " (" + a.purchaseDate + ")";
+    a.computedNote = "auto: " + rate + "%/yr declining balance from " + fmtCurrency0.format(price) + " (" + fmtDate(a.purchaseDate) + ")";
   });
 }
 

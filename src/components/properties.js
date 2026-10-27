@@ -15,7 +15,7 @@ import { LAND_TAX_STATES, LAND_TAX_YEAR } from "../constants.js";
 import { sumField, householdYearWindow } from "../calc/ledger.js";
 import { fixedRateView, rentSummary } from "../calc/propertylife.js";
 import { statementTotals, statementsForFy, waterRatesLine } from "../calc/agentstatement.js";
-import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
+import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr, fmtDate } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { optionsHtml, modernPlainRowHtml, historyTrendHtml } from "../lib/ledger-table.js";
 import { showToast } from "../lib/toast.js";
@@ -521,7 +521,7 @@ export function rentPanelHtml(p, today){
     return '<li>' + escapeAttr(rv.date) + ': ' + fmtCurrency0.format(rv.from) + ' → ' + fmtCurrency0.format(rv.to) + ' ' + escapeAttr(String(rv.freq || "").toLowerCase()) + (rv.change != null ? ' (' + (rv.change >= 0 ? "+" : "") + Math.round(rv.change * 1000) / 10 + '%)' : '') + '</li>';
   }).join("");
   var vac = (p.vacancies || []).map(function(v, i){
-    return '<li>' + escapeAttr(v.from) + ' – ' + escapeAttr(v.to || "now") + ' <button type="button" class="btn btn-ghost btn-sm" data-vac-del="' + i + '" aria-label="Remove this vacancy">✕</button></li>';
+    return '<li>' + escapeAttr(fmtDate(v.from)) + ' – ' + escapeAttr(v.to ? fmtDate(v.to) : "now") + ' <button type="button" class="btn btn-ghost btn-sm" data-vac-del="' + i + '" aria-label="Remove this vacancy">✕</button></li>';
   }).join("");
   var row = (p.income || [])[0];
   return '<div class="rentp"><div class="property-section-title">Rent — ' + escapeAttr(win.label) + (today < win.end ? ' so far' : '') + '</div>' +

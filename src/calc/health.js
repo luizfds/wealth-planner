@@ -4,7 +4,7 @@ import { claimItems } from "./claims.js";
 import { ipProperties, propertyOwnershipTotal, fyLabel } from "./property.js";
 import { taxYearRecord } from "./taxyear.js";
 import { budgetComparison, rentalComparison, householdBudgetLines } from "./closeyear.js";
-import { localDateStr } from "../lib/format.js";
+import { localDateStr, fmtDate } from "../lib/format.js";
 import { takeHomeDrifts } from "./takehome.js";
 
 // ---------------- Data health (v3.48.0) ----------------
@@ -90,7 +90,7 @@ export function dataHealthChecks(opts){
       // A split or top-up drawn after the purchase: what it paid for decides the deduction.
       if(p.purchaseDate && l.settlementDate && l.settlementDate > p.purchaseDate && (l.investPct == null || l.investPct === "")) add({ id: "loan-purpose:" + p.id + ":" + (l.id || lname), severity: "warn",
         title: lname + ": what was it used for?",
-        detail: "Drawn " + l.settlementDate + ", after " + name + " was bought. Its interest is deductible only for the share used to invest (the rental, shares) — not for your own home's deposit, a car or living costs, even though " + name + " secures it. Set Used to invest % on the loan; blank counts all of it.",
+        detail: "Drawn " + fmtDate(l.settlementDate) + ", after " + name + " was bought. Its interest is deductible only for the share used to invest (the rental, shares) — not for your own home's deposit, a car or living costs, even though " + name + " secures it. Set Used to invest % on the loan; blank counts all of it.",
         where: { page: "properties" } });
       if(!(Number(l.borrowingCosts) > 0) && Number(l.balance) > 0 && !(p.purchaseDate && l.settlementDate && l.settlementDate > p.purchaseDate)) add({ id: "loan-borrowing:" + p.id + ":" + (l.id || lname), severity: "info",
         title: lname + ": no borrowing costs entered",

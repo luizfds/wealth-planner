@@ -22,8 +22,12 @@ export function healthHtml(checks, hidden){
     return '<div class="hc-item hc-' + c.severity + '" data-hc-id="' + escapeAttr(c.id) + '">' +
       '<span class="hc-dot" aria-hidden="true"></span>' +
       '<div class="hc-body"><div class="hc-title">' + escapeAttr(c.title) + '</div><p class="hc-detail">' + escapeAttr(c.detail) + '</p></div>' +
+      // v3.105.0: both buttons in one cell — as two grid children the second wrapped into the 10px
+      // dot column on its own row.
+      '<div class="hc-actions">' +
       (w.page ? '<button type="button" class="btn btn-sm btn-ghost hc-go" data-hc-page="' + escapeAttr(w.page) + '"' + (w.sub ? ' data-hc-sub="' + escapeAttr(w.sub) + '"' : '') + (w.fy != null ? ' data-hc-fy="' + w.fy + '"' : '') + '>' + (WHERE_LABEL[w.page] || "Open") + '</button>' : '') +
       '<button type="button" class="btn btn-sm btn-ghost hc-ok" data-hc-dismiss="' + escapeAttr(c.id) + '">Looks right</button>' +
+      '</div>' +
     '</div>';
   }).join("") + '</div>' + hiddenHtml;
 }

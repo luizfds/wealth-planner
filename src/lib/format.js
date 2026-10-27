@@ -55,6 +55,16 @@ export function localDateStr(d){
   return y + "-" + m + "-" + day;
 }
 
+// One way to show a date (v3.105.0): "26 Oct", with the year when it isn't this one ("26 Oct 2025"),
+// or always with opts.year. Anything that isn't a YYYY-MM-DD date comes back as it was.
+var SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+export function fmtDate(iso, opts){
+  if(typeof iso !== "string" || !/^\d{4}-\d{2}-\d{2}/.test(iso)) return iso == null ? "" : String(iso);
+  var y = iso.slice(0, 4);
+  var withYear = (opts && opts.year) || y !== localDateStr().slice(0, 4);
+  return Number(iso.slice(8, 10)) + " " + SHORT_MONTHS[Number(iso.slice(5, 7)) - 1] + (withYear ? " " + y : "");
+}
+
 // Everything a pasted amount can arrive as.
 //
 // `<input type="number">` reads back an *empty string* for anything that isn't a bare number

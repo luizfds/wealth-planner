@@ -1,7 +1,7 @@
 import { state } from "../state.js";
 import { filterChoices } from "../calc/cashflowlist.js";
 import { incomeTargets } from "../calc/received.js";
-import { fmtCurrency0, fmtCurrency2, localDateStr } from "../lib/format.js";
+import { fmtCurrency0, fmtCurrency2, localDateStr, fmtDate } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 
 // ---------------- Cash flow → Spending: the unified list's controls (v3.59.0) ----------------
@@ -59,14 +59,14 @@ export function totalsLineHtml(t, count){
 export function inRowHtml(e){
   return '<div class="m-row cf-row cf-in"><div class="m-row-summary cf-row-summary">' +
     '<span class="cf-kind in" aria-hidden="true">↓</span>' +
-    '<div class="cf-row-main"><div class="m-row-name">' + escapeAttr(e.label) + '</div><div class="m-row-sub">' + escapeAttr(e.date) + (e.account ? ' · ' + escapeAttr(e.account) : '') + ' · money in</div></div>' +
+    '<div class="cf-row-main"><div class="m-row-name">' + escapeAttr(e.label) + '</div><div class="m-row-sub">' + escapeAttr(fmtDate(e.date)) + (e.account ? ' · ' + escapeAttr(e.account) : '') + ' · money in</div></div>' +
     '<div class="m-row-amt cf-amt in">+' + fmtCurrency2.format(e.amount) + '</div>' +
     '<button type="button" class="btn btn-ghost btn-sm cf-row-del" data-cf-del-in="' + escapeAttr(e.ref) + '" aria-label="Delete this money-in record">✕</button></div></div>';
 }
 export function transferRowHtml(e){
   return '<div class="m-row cf-row cf-transfer"><div class="m-row-summary cf-row-summary">' +
     '<span class="cf-kind transfer" aria-hidden="true">⇄</span>' +
-    '<div class="cf-row-main"><div class="m-row-name">' + escapeAttr(e.label) + '</div><div class="m-row-sub">' + escapeAttr(e.date) + ' · ' + escapeAttr(e.account || "?") + ' → ' + escapeAttr(e.toAccount || "?") + '</div></div>' +
+    '<div class="cf-row-main"><div class="m-row-name">' + escapeAttr(e.label) + '</div><div class="m-row-sub">' + escapeAttr(fmtDate(e.date)) + ' · ' + escapeAttr(e.account || "?") + ' → ' + escapeAttr(e.toAccount || "?") + '</div></div>' +
     '<div class="m-row-amt cf-amt">' + fmtCurrency2.format(e.amount) + '</div>' +
     '<button type="button" class="btn btn-ghost btn-sm cf-row-del" data-cf-del-transfer="' + escapeAttr(e.ref) + '" aria-label="Delete this transfer">✕</button></div></div>';
 }

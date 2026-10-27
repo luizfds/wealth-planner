@@ -22,7 +22,8 @@ import { renamePersonEverywhere, removePersonFromTax } from "./calc/people.js";
 import { renderHealth } from "./components/health.js";
 import { renderMonthReview, stepReviewMonth, reviewMonthShown, setReviewMonth, setReviewStep, dismissReviewIntro } from "./components/monthreview.js";
 import { markReviewed, setStatementAmount, monthLabel, monthBounds } from "./calc/monthreview.js";
-import { logIncomeReceived, deleteIncomeReceived } from "./calc/received.js";
+import { logIncomeReceived, deleteIncomeReceived, incomeTargets } from "./calc/received.js";
+import { demoHousehold, demoReceipts } from "./calc/demo.js";
 import { setTakeHomeAdjust } from "./calc/takehome.js";
 import { renderReceived, toggleReceivedRow, receivedSheet, openReceivedSheet, closeReceivedSheet, setReceivedTarget, receivedSheetHtml } from "./components/received.js";
 import { applyRentalComparison, applyBudgetComparison, householdBudgetLines } from "./calc/closeyear.js";
@@ -137,235 +138,13 @@ import {
   }
   applyTheme(getThemePref());
 
-  function rndBetween(min, max){ return Math.random() * (max - min) + min; }
-  function rndStep(min, max, step){ return Math.round(rndBetween(min, max) / step) * step; }
-
-  // A few backdated snapshots ending exactly at today's real value, so a fresh "Sample data"
-  // holding shows a sparkline immediately instead of the empty history every holding actually
-  // starts with (the sparkline needs 2+ logged points, which nobody has on day one) — the whole
-  // point of sample data is to show what the feature looks like once it's in use.
-  function syntheticPriceHistory(qty, currentPrice){
-    var days = [-45, -30, -15, -7, -2, 0];
-    var driftPct = rndBetween(-0.18, 0.22);
-    return days.map(function(d, i){
-      var dt = new Date();
-      dt.setDate(dt.getDate() + d);
-      var progress = i / (days.length - 1);
-      var histPrice = i === days.length - 1 ? currentPrice : currentPrice * (1 - driftPct * (1 - progress));
-      histPrice = Math.round(histPrice * 100) / 100;
-      // The per-unit price, not just the total value below — holdingWindowChange() (Change/
-      // Gain-Loss on the Shares page) compares price to price for a given lookback window and
-      // ignores any entry missing this field, the same way a real Log/paste-prices entry would.
-      // Without it, every mock share holding showed "— 1D"/"— 1W"/etc. for both Change and
-      // Gain/Loss no matter which window was picked — sample data is the one first-touch a new
-      // visitor gets, and it should actually demonstrate the feature.
-      return { date: localDateStr(dt), value: Math.round(qty * histPrice * 100) / 100, price: histPrice };
-    });
-  }
-  function rndPick(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
-  function rndInt(min, max){ return Math.floor(rndBetween(min, max + 1)); }
-  // Distinct random picks (no repeats) — used to choose a varying-size, varying-membership
-  // subset of a larger pool (which expenses/holdings appear this time), not just varying amounts
-  // on an always-identical fixed list.
-  function rndPickN(arr, n){
-    var pool = arr.slice();
-    var out = [];
-    n = Math.min(n, pool.length);
-    for(var i = 0; i < n; i++){ out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]); }
-    return out;
-  }
-
-  // A pool for each category (expenses/shares/vehicles/employers/...), with a *varying-size,
-  // varying-membership* random subset picked each run — not just randomized amounts on an
-  // always-identical fixed list. Household size itself varies too (1 or 2 people), which cuts
-  // through everything below: income, super, and how share holdings get attributed by person.
-  var MOCK_NAMES = ["Alex","Jordan","Sam","Taylor","Morgan","Casey","Riley","Jamie","Charlie","Sydney","Harper","Quinn","Avery","Rowan","Skyler","Dakota","Reese","Emerson","Finley","Hayden","Kai","Logan","Micah","Parker","Sage","Drew","Elliot","Frankie"];
-  var MOCK_EMPLOYERS = ["Woolworths","Coles","Commonwealth Bank","Telstra","Qantas","Atlassian","Canva","BHP","Rio Tinto","Westpac","NAB","ANZ","Officeworks","JB Hi-Fi","Bunnings","Deloitte","PwC","KPMG","EY","Optus","Woodside","Suncorp"];
-  var MOCK_CITIES = ["Sydney","Melbourne","Brisbane","Perth","Adelaide","Hobart","Canberra","Gold Coast"];
-  var MOCK_EXPENSE_POOL = [
-    { what:"Internet", classification:"Needs", freq:"Monthly", min:60, max:120, step:5 },
-    { what:"Electricity", classification:"Needs", freq:"Monthly", min:120, max:280, step:5 },
-    { what:"Gas", classification:"Needs", freq:"Quarterly", min:80, max:220, step:5 },
-    { what:"Mobile Phones", classification:"Needs", freq:"Monthly", min:40, max:120, step:5 },
-    { what:"Health Insurance", classification:"Needs", freq:"Monthly", min:100, max:260, step:5 },
-    { what:"Streaming Subscriptions", classification:"Wants", freq:"Monthly", min:20, max:60, step:1 },
-    { what:"Gym Membership", classification:"Wants", freq:"Fortnightly", min:40, max:100, step:5 },
-    { what:"Car Insurance", classification:"Needs", freq:"Monthly", min:80, max:200, step:5 },
-    { what:"Car Rego", classification:"Needs", freq:"Yearly", min:400, max:900, step:10 },
-    { what:"Petrol", classification:"Needs", freq:"Monthly", min:100, max:250, step:5 },
-    { what:"Groceries", classification:"Needs", freq:"Weekly", min:150, max:350, step:5 },
-    { what:"Public Transport", classification:"Needs", freq:"Weekly", min:20, max:60, step:5 },
-    { what:"Eating Out", classification:"Wants", freq:"Fortnightly", min:80, max:250, step:5 },
-    { what:"Trips / Travel", classification:"Wants", freq:"Yearly", min:3000, max:20000, step:500 },
-    { what:"Pets", classification:"Wants", freq:"Weekly", min:30, max:120, step:5 },
-    { what:"Miscellaneous", classification:"Wants", freq:"Yearly", min:500, max:2000, step:50 },
-    { what:"Childcare", classification:"Needs", freq:"Weekly", min:100, max:400, step:10 },
-    { what:"Private School Fees", classification:"Needs", freq:"Yearly", min:5000, max:25000, step:500 },
-    { what:"Home & Contents Insurance", classification:"Needs", freq:"Yearly", min:600, max:1800, step:50 },
-    { what:"Life Insurance", classification:"Needs", freq:"Monthly", min:40, max:200, step:5 },
-    { what:"Charity Donations", classification:"Wants", freq:"Monthly", min:20, max:150, step:5 },
-    { what:"Clothing & Shoes", classification:"Wants", freq:"Monthly", min:50, max:300, step:10 },
-    { what:"Haircuts / Grooming", classification:"Wants", freq:"Monthly", min:30, max:150, step:5 },
-    { what:"Parking", classification:"Needs", freq:"Monthly", min:50, max:250, step:5 },
-    { what:"Tolls", classification:"Needs", freq:"Monthly", min:20, max:150, step:5 },
-    { what:"Home Cleaning", classification:"Wants", freq:"Fortnightly", min:80, max:220, step:10 },
-    { what:"Music Lessons", classification:"Wants", freq:"Monthly", min:40, max:150, step:5 }
-  ];
-  // priceMin/priceMax are per-unit; US/Crypto tickers are USD (see MARKET_CURRENCY, constants.js)
-  // just like a real holding under those markets would be.
-  var MOCK_SHARE_UNIVERSE = [
-    { what:"CSL Limited", symbol:"CSL", market:"ASX", priceMin:180, priceMax:320 },
-    { what:"BHP Group", symbol:"BHP", market:"ASX", priceMin:35, priceMax:55 },
-    { what:"Commonwealth Bank", symbol:"CBA", market:"ASX", priceMin:90, priceMax:170 },
-    { what:"Fortescue", symbol:"FMG", market:"ASX", priceMin:15, priceMax:25 },
-    { what:"Telstra", symbol:"TLS", market:"ASX", priceMin:3.5, priceMax:5 },
-    { what:"Wesfarmers", symbol:"WES", market:"ASX", priceMin:50, priceMax:85 },
-    { what:"Vanguard Australian Shares ETF", symbol:"VAS", market:"ASX", priceMin:80, priceMax:110 },
-    { what:"iShares Core S&P 500 ETF", symbol:"IVV", market:"ASX", priceMin:50, priceMax:75 },
-    { what:"Apple Inc", symbol:"AAPL", market:"US", priceMin:140, priceMax:260 },
-    { what:"Microsoft Corp", symbol:"MSFT", market:"US", priceMin:300, priceMax:470 },
-    { what:"Amazon.com Inc", symbol:"AMZN", market:"US", priceMin:100, priceMax:220 },
-    { what:"Alphabet Inc", symbol:"GOOGL", market:"US", priceMin:100, priceMax:200 },
-    { what:"NVIDIA Corp", symbol:"NVDA", market:"US", priceMin:60, priceMax:150 },
-    { what:"Tesla Inc", symbol:"TSLA", market:"US", priceMin:150, priceMax:350 }
-  ];
-  var MOCK_VEHICLES = ["Toyota Corolla","Mazda 3","Tesla Model 3","Ford Ranger","Hyundai i30","Mitsubishi ASX","Subaru Outback","Kia Sportage"];
-
-  function generateMockData(){
-    var numPeople = rndPick([1, 2]);
-    var personA = rndPick(MOCK_NAMES);
-    var personB = numPeople === 2 ? rndPick(MOCK_NAMES.filter(function(n){ return n !== personA; })) : null;
-    var cityA = rndPick(MOCK_CITIES);
-    var cityB = rndPick(MOCK_CITIES.filter(function(c){ return c !== cityA; }));
-    var scenarios = ["Renting", "Buy " + cityA, "Buy " + cityB];
-
-    function incomeForPerson(person, idPrefix){
-      var employer = rndPick(MOCK_EMPLOYERS);
-      var items = [
-        { id: idPrefix + "Salary", what: person + "'s Salary (" + employer + ")", classification:"", account:"Everyday Account", person: person, incomeType:"Gross", amount: rndStep(4500, 13000, 50), freq:"Monthly" }
-      ];
-      if(Math.random() < 0.55){
-        var hasSacrifice = Math.random() < 0.4;
-        items.push({ what: person + "'s Bonus", classification:"", account:"Everyday Account", person: person, incomeType:"Gross", amount: rndStep(1500, 20000, 500), freq:"Yearly", sacrificeMode: hasSacrifice ? "percent" : "none", sacrificeValue: hasSacrifice ? rndStep(10, 50, 10) : 0 });
-      }
-      if(Math.random() < 0.25){
-        items.push({ what: person + "'s Side Income", classification:"", account:"Everyday Account", person: person, incomeType:"Net", amount: rndStep(200, 2000, 50), freq:"Monthly" });
-      }
-      return items;
-    }
-    var income = incomeForPerson(personA, "mockIncomeA").concat(personB ? incomeForPerson(personB, "mockIncomeB") : []);
-
-    var chosenExpenses = rndPickN(MOCK_EXPENSE_POOL, rndInt(12, MOCK_EXPENSE_POOL.length));
-    var shared = chosenExpenses.map(function(e){
-      return { what: e.what, classification: e.classification, account: rndPick(["Everyday Account", "Credit Card"]), amount: rndStep(e.min, e.max, e.step), freq: e.freq };
-    });
-
-    var homeCats = function(rentAmt, rentFreq, acct, insurance, council, water, maintenance){
-      return [
-        { id:"homeLoanRow", what:"Rent / Home Loan", classification:"Needs", account: acct, amount: rentAmt, freq: rentFreq },
-        { what:"Home Insurance", classification: insurance ? "Needs" : "N/A", account: insurance ? acct : "", amount: insurance || 0, freq:"Yearly" },
-        { what:"Council Rates", classification: council ? "Needs" : "N/A", account: council ? acct : "", amount: council || 0, freq:"Monthly" },
-        { what:"Water & Wastewater", classification:"Needs", account: acct, amount: water, freq: council ? "Monthly" : "Quarterly" },
-        { what:"Property Maintenance", classification: maintenance ? "Needs" : "N/A", account: maintenance ? acct : "", amount: maintenance || 0, freq:"Yearly" }
-      ];
-    };
-
-    var rentWeekly = rndStep(450, 900, 10);
-    var priceA = rndStep(650000, 1800000, 5000);
-    var priceB = rndStep(500000, 1400000, 5000);
-
-    var chosenShares = rndPickN(MOCK_SHARE_UNIVERSE, rndInt(2, 5));
-    var shareHoldings = chosenShares.map(function(s){
-      var isUs = s.market === "US";
-      var qty = isUs ? rndStep(2, 40, 1) : rndStep(10, 300, 5);
-      var priceStep = isUs ? 1 : 0.5;
-      var price = rndStep(s.priceMin, s.priceMax, priceStep);
-      var cost = rndStep(price * 0.7, price * 1.15, priceStep);
-      var person = personB ? rndPick([personA, personB, ""]) : personA;
-      return { what: s.what, category:"Shares", symbol: s.symbol, market: s.market, quantity: qty, avgCost: cost, price: price, priceUpdated:"", person: person, amount: Math.round(qty * price * 100) / 100, history: syntheticPriceHistory(qty, price) };
-    });
-    if(Math.random() < 0.3){
-      var btcQty = Math.round(rndBetween(0.001, 0.05) * 1e8) / 1e8;
-      var btcPrice = rndStep(60000, 130000, 500);
-      shareHoldings.push({ what:"Bitcoin", category:"Shares", symbol:"BTC", market:"Crypto", quantity: btcQty, avgCost: rndStep(btcPrice * 0.7, btcPrice * 1.3, 500), price: btcPrice, priceUpdated:"", person: personA, amount: Math.round(btcQty * btcPrice * 100) / 100, history: syntheticPriceHistory(btcQty, btcPrice) });
-    }
-
-    var assets = [{ what:"Cash Savings", category:"Cash", amount: rndStep(3000, 90000, 500) }].concat(shareHoldings);
-    assets.push({ what:"Superannuation", category:"Super", person: personA, amount: rndStep(15000, 250000, 500) });
-    if(personB) assets.push({ what:"Superannuation", category:"Super", person: personB, amount: rndStep(15000, 250000, 500) });
-    if(Math.random() < 0.5){
-      var vehiclePrice = rndStep(15000, 60000, 500);
-      assets.push({ what: rndPick(MOCK_VEHICLES), category:"Vehicle", purchasePrice: vehiclePrice, purchaseDate: "202" + rndInt(1, 4) + "-0" + rndInt(1, 9) + "-01", depreciationRate: rndStep(8, 15, 1), amount: Math.round(vehiclePrice * 0.65), computed:true, computedNote:"auto: declining balance" });
-    }
-
-    return {
-      activeScenario: "Renting",
-      scenarios: scenarios,
-      baselineScenario: "Renting",
-      showAllPeriods: false,
-      income: income,
-      ip: [],
-      shared: shared,
-      // Explicit, not left to migrateState()'s seedAccountsFromUsage() fallback — that seeder
-      // only knows account *names* already typed into an Account field (from shared/income
-      // above, both of which randomly use "Credit Card" as a label) and has no way to tell a
-      // credit card apart from a debit account by name alone, so it always defaults type
-      // "debit". Sample data is the one first-touch a new visitor gets, and it should actually
-      // demonstrate the credit-card statement-cycle grouping ("Actual vs. planned" on the
-      // Expenses tab) rather than silently leave the exact account named "Credit Card"
-      // unconfigured for it.
-      accounts: [
-        { id: genId("acct"), name: "Everyday Account", type: "everyday", statementStartDay: 1 },
-        { id: genId("acct"), name: "Credit Card", type: "credit", statementStartDay: rndStep(1, 28, 1) }
-      ],
-      home: (function(){
-        var h = {};
-        h["Renting"] = homeCats(rentWeekly, "Weekly", "Everyday Account", 0, 0, rndStep(30, 60, 1), 0);
-        h[scenarios[1]] = homeCats(rndStep(2000, 7500, 50), "Monthly", "Everyday Account", rndStep(1200, 2500, 50), rndStep(150, 350, 10), rndStep(150, 250, 10), rndStep(1000, 3000, 100));
-        h[scenarios[2]] = homeCats(rndStep(1500, 5500, 50), "Monthly", "Everyday Account", rndStep(1200, 2500, 50), rndStep(150, 350, 10), rndStep(90, 200, 10), rndStep(1000, 3000, 100));
-        return h;
-      })(),
-      purchase: (function(){
-        var p = {};
-        p["Renting"] = defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", false);
-        p[scenarios[1]] = defaultPurchaseConfig(priceA, 20, rndStep(5.5, 7, 0.25), 30, rndPick(["NSW","VIC","Other"]), true);
-        p[scenarios[2]] = defaultPurchaseConfig(priceB, 20, rndStep(5.5, 7, 0.25), 30, rndPick(["NSW","VIC","Other"]), true);
-        return p;
-      })(),
-      assets: assets,
-      properties: Math.random() < 0.6 ? (function(){
-        var ipValue = rndStep(500000, 900000, 5000);
-        var ipLoanBalance = Math.round(ipValue * rndBetween(0.6, 0.8));
-        var ipRentWeekly = rndStep(450, 750, 10);
-        var ipPurchasePrice = Math.round(ipValue * rndBetween(0.65, 0.9));
-        var ipPurchaseDate = "20" + rndInt(15, 21) + "-0" + rndInt(1, 9) + "-01";
-        var ipAcquisitionCosts = [
-          { id: genId("ac"), what: "Stamp duty", amount: Math.round(ipPurchasePrice * rndBetween(0.03, 0.05)) },
-          { id: genId("ac"), what: "Legal / conveyancing", amount: rndStep(1200, 2500, 100) },
-          { id: genId("ac"), what: "Building & pest inspection", amount: rndStep(400, 800, 50) }
-        ];
-        return [{
-          id: genId("p"), what: rndStep(1, 99, 1) + " Example St", kind: "IP", value: ipValue,
-          purchasePrice: ipPurchasePrice, purchaseDate: ipPurchaseDate, acquisitionCosts: ipAcquisitionCosts, history: [],
-          pmFee: { percent: rndStep(5, 8, 0.5), flat: rndStep(0, 8, 0.5) }, incomePaidFreq: "Monthly",
-          loans: [{
-            id: genId("l"), what: "Investment Loan", balance: ipLoanBalance, rate: rndStep(5.8, 6.8, 0.05), termYears: 27,
-            repaymentType: "PI", repaymentMode: "auto", manualRepaymentAmount: 0, manualRepaymentFreq: "Monthly",
-            offsetBalance: rndStep(0, 15000, 500)
-          }],
-          income: [{ what: "Rent", account: "Everyday Account", amount: ipRentWeekly, freq: "Weekly", classification: "" }],
-          expenses: [
-            { what: "Building Insurance", classification: "Needs", account: "Everyday Account", amount: rndStep(800, 1800, 50), freq: "Yearly" },
-            { what: "Council Rates", classification: "Needs", account: "Everyday Account", amount: rndStep(400, 900, 25), freq: "Quarterly" },
-            { what: "Water Rates", classification: "Needs", account: "Everyday Account", amount: rndStep(200, 400, 10), freq: "Quarterly" },
-            { what: "Property Maintenance", classification: "Needs", account: "Everyday Account", amount: rndStep(1000, 3000, 100), freq: "Yearly" },
-            { id: "pmFee6", what: "Property Manager Fee", classification: "Needs", account: "Everyday Account", amount: 0, freq: "Weekly", computed: true, computedNote: "" }
-          ]
-        }];
-      })() : [],
-      projection: { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0, incomeGrowthRate: 3, realTerms: true },
-      tax: { sgRate: 12, settings: {} }
-    };
+  // Sample data (v3.104.0): one fixed, invented household with about eighteen months of history —
+  // calc/demo.js. Pay and rent received are added once recalc has made the take-home rows.
+  function buildDemoState(){
+    var today = localDateStr();
+    setState(migrateState(demoHousehold(today)));
+    recalcComputedItems();
+    demoReceipts(state, today, incomeTargets());
   }
 
   // ---------------- Rendering: cards ----------------
@@ -4265,8 +4044,8 @@ import {
   });
 
   function loadSampleData(){
-    if(!confirm("Fill in randomised sample data so you can try the tool? This replaces everything currently entered — export a backup first if you want to keep it.")) return;
-    setState(migrateState(generateMockData()));
+    if(!confirm("Fill in a sample household so you can try the tool? This replaces everything currently entered — export a backup first if you want to keep it.")) return;
+    buildDemoState();
     renderAll();
     persist();
     showToast("Sample data generated");
@@ -5560,7 +5339,7 @@ import {
   // to lose landing here for the first time) and strip the query param via replaceState so a
   // later reload or bookmark of this URL doesn't keep re-rolling random data.
   if(new URLSearchParams(location.search).get("mock") === "1"){
-    setState(migrateState(generateMockData()));
+    buildDemoState();
     renderAll();
     persist();
     showToast("Sample data generated");

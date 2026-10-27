@@ -2823,9 +2823,21 @@ the earlier 12 months were logged, since it would mostly measure when logging be
 backup (outside the repo): both draw, no NaN, no sideways scroll, no errors.
 
 
-## 156. `[~]` Investment performance, income and CGT
+## 156. `[x]` Investment performance, income and CGT
 Per holding and total: capital gain, income, currency, annualised return, against a benchmark;
 distributions and franking by FY; realised and unrealised CGT by parcel with the discount.
+
+Shipped as v3.121.0: three reports from `calc/investreports.js`. Investment returns (`holdingReturns`) — per holding
+and in total: cost still held (lots with brokerage), value, unrealised, income (distributions with franking),
+realised, total return, a money-weighted yearly rate with cash income and a price-only one, beside the benchmark on
+the same dollars and dates (the index from Investments → Performance when its prices are loaded, else the fixed
+rate) and how far ahead; USD holdings shown as such and converted. Distributions (`distributionYears`) — cash and
+franking credits by financial year, holding by holding, with a columns chart. Capital gains (`cgtParcels`) — every
+parcel sold, by financial year, with the 12-month discount and the year's net capital gain (losses off undiscounted
+gains first, then halved; any loss carried); every parcel still held with what it would make if sold today and the
+date its discount starts. The demo's ETFs now pay distributions. Checked on the demo and a real backup (outside the
+repo): all three draw, no NaN, no errors.
+
 
 ## 157. `[~]` Property, debt and super reports
 Property: gross/net yield, after-tax cash flow, equity growth, total return per property per year. Debt:

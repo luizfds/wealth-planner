@@ -9,6 +9,7 @@ import { netWorthChecks } from "./nwcheck.js";
 import { monthsIn, spendingByGroup, change } from "./reportframe.js";
 import { incomeTargets } from "./received.js";
 import { periodsOf } from "./ledger.js";
+import { holdingReturns, distributionYears, cgtParcels } from "./investreports.js";
 
 // ---------------- Reports (v3.62.0) ----------------
 //
@@ -31,6 +32,9 @@ export var REPORTS = [
   { key: "budget", label: "Budget vs actual" },
   { key: "trends", label: "Year on year" },
   { key: "networth", label: "Net worth statement" },
+  { key: "invest", label: "Investment returns" },
+  { key: "dividends", label: "Distributions" },
+  { key: "cgt", label: "Capital gains" },
   { key: "property", label: "Property P&L" },
   { key: "tax", label: "Tax summary" },
   { key: "month", label: "Month in detail" },
@@ -371,7 +375,77 @@ export function trendsReport(opts){
       : "Only " + prevMonths + " of the 12 months before were logged, so the change is shown in dollars but not as a percentage — it would mostly measure when logging began." };
 }
 
+// ---------------- Investments: returns, distributions, capital gains (v3.121.0) ----------------
+function pct1(r){ return r == null ? null : Math.round(r * 1000) / 10; }
+export function investReturnsReport(opts){
+  opts = opts || {};
+  var today = opts.today || localDateStr();
+  var h = holdingReturns(state.assets, { today: today, toAud: toAudAmount, benchmark: state.benchmark });
+  var row = function(r, cls){ return { cls: cls, cells: { name: r.name + (r.currency && r.currency !== "AUD" ? " (" + r.currency + ")" : ""), cost: r.cost, value: r.value, gain: r.gain, income: r.income, realised: r.realised, total: r.total,
+    annual: pct1(r.annual), price: pct1(r.priceOnly), bench: pct1(r.bench), ahead: r.priceOnly != null && r.bench != null ? pct1(r.priceOnly - r.bench) : null } }; };
+  var rows = h.rows.map(function(r){ return row(r); });
+  if(rows.length) rows.push(row(Object.assign({ name: "Total", priceOnly: null }, h.total), "total"));
+  var benchName = h.total.benchKind === "fixed" ? "a fixed " + pct1(h.fixedRate) + "% a year" : h.total.benchKind;
+  return { key: "invest", title: "Investment returns", subtitle: "Each holding, against " + benchName,
+    columns: [{ key: "name", label: "Holding" }, { key: "cost", label: "Cost", num: true }, { key: "value", label: "Value", num: true }, { key: "gain", label: "Unrealised", num: true },
+      { key: "income", label: "Income", num: true }, { key: "realised", label: "Realised", num: true }, { key: "total", label: "Total return", num: true },
+      { key: "annual", label: "A year, with income %", num: true, pct: true }, { key: "price", label: "A year, price %", num: true, pct: true },
+      { key: "bench", label: "Benchmark %", num: true, pct: true }, { key: "ahead", label: "Ahead by", num: true, pct: true }],
+    rows: rows, wide: true,
+    chart: rows.length ? { type: "bars", compareLabel: null, items: h.rows.slice(0, 12).map(function(r){ return { label: r.name, value: r.total }; }) } : null,
+    note: "Cost is what's still held, at its purchase price with brokerage. Income is distributions with their franking credits; realised is sales less their cost base. " +
+      "The yearly returns are money-weighted — the rate that turns every buy, sale and (for the first) cash distribution into today's value. The benchmark is the same dollars on the same dates " +
+      (h.total.benchKind === "fixed" ? "compounded at the fixed rate set on Investments → Performance (load the index's prices there to compare with " + (h.symbol || "an index") + " instead)" : "put into " + h.total.benchKind + ", price only") +
+      ", so \"Ahead by\" compares it with the price-only rate. Holdings without purchase lots have no dates to go on and show no yearly rate. US holdings are converted at today's rate." };
+}
+export function distributionsReport(opts){
+  var years = distributionYears(state.assets, toAudAmount);
+  var rows = [];
+  years.forEach(function(y){
+    rows.push({ cls: "head", cells: { name: y.label, cash: y.cash, credit: y.credit, total: y.total } });
+    y.holdings.forEach(function(h){ rows.push({ cls: "sub", cells: { name: h.name, cash: h.cash, credit: h.credit, total: h.total } }); });
+  });
+  var chrono = years.slice().reverse();
+  return { key: "dividends", title: "Distributions and franking", subtitle: years.length ? "By financial year" : "",
+    columns: [{ key: "name", label: "" }, { key: "cash", label: "Cash", num: true }, { key: "credit", label: "Franking credits", num: true }, { key: "total", label: "Total", num: true }],
+    rows: rows,
+    chart: years.length > 1 ? { type: "columns", series: ["Cash", "Franking credits"], items: chrono.map(function(y){ return { label: y.label, a: y.cash, b: y.credit }; }) } : null,
+    note: "Distributions logged on each holding, by the date paid. Franking credits are income for tax too — the total is what goes on the return before any foreign income or capital gains in the annual statement." };
+}
+export function cgtReport(opts){
+  opts = opts || {};
+  var today = opts.today || localDateStr();
+  var c = cgtParcels(state.assets, { today: today, toAud: toAudAmount });
+  var units = function(u){ return String(Math.round(u * 10000) / 10000); };
+  var day = function(d){ return fmtDate(d, { year: true }); };
+  // The discount only ever applies to a gain.
+  var discCell = function(p){ return p.gain == null || p.gain <= 0 ? "—" : p.discount ? "Yes" : "No"; };
+  var rows = [];
+  c.realised.forEach(function(y){
+    rows.push({ cls: "head", cells: { name: "Sold in " + y.label } });
+    y.parcels.forEach(function(p){ rows.push({ cells: { name: p.name, acquired: day(p.acquired), when: day(p.sold), units: units(p.units), amount: p.proceeds, cost: p.cost, gain: p.gain, disc: discCell(p), taxable: p.taxable } }); });
+    rows.push({ cls: "total", cells: { name: "Net capital gain, " + y.label, gain: r2(y.net.gains - y.net.losses), taxable: y.net.net } });
+    if(y.net.carriedLoss) rows.push({ cells: { name: "Loss carried forward", taxable: -y.net.carriedLoss } });
+  });
+  if(c.unrealised.length){
+    rows.push({ cls: "head", cells: { name: "Still held — if sold today" } });
+    c.unrealised.forEach(function(p){ rows.push({ cells: { name: p.name, acquired: day(p.acquired), when: p.discount ? "Now" : day(p.discountFrom), units: units(p.units), amount: p.value, cost: p.cost, gain: p.gain, disc: discCell(p), taxable: p.taxable } }); });
+    var t = c.unrealised.reduce(function(s, p){ s.v += p.value || 0; s.c += p.cost; s.g += p.gain || 0; s.t += p.taxable || 0; return s; }, { v: 0, c: 0, g: 0, t: 0 });
+    rows.push({ cls: "total", cells: { name: "Unrealised", amount: r2(t.v), cost: r2(t.c), gain: r2(t.g), taxable: r2(t.t) } });
+  }
+  return { key: "cgt", title: "Capital gains", subtitle: "Parcel by parcel, with the 12-month discount",
+    columns: [{ key: "name", label: "Holding" }, { key: "acquired", label: "Bought" }, { key: "when", label: "Sold / discount from" }, { key: "units", label: "Units" },
+      { key: "amount", label: "Proceeds / value", num: true }, { key: "cost", label: "Cost base", num: true }, { key: "gain", label: "Gain", num: true },
+      { key: "disc", label: "Discount" }, { key: "taxable", label: "Taxable", num: true }],
+    rows: rows, wide: true,
+    note: "Parcels sold first-in, first-out unless a sale records its own. A parcel held over 12 months has half its gain taxed (individuals); losses come off undiscounted gains first. " +
+      "The net capital gain is before any loss carried in from earlier years and leaves out gains in managed funds' annual statements. Still-held parcels are sorted by when their discount starts — waiting past that date halves the tax on a gain." };
+}
+
 export function buildReport(key, opts){
+  if(key === "invest") return investReturnsReport(opts);
+  if(key === "dividends") return distributionsReport(opts);
+  if(key === "cgt") return cgtReport(opts);
   if(key === "budget") return budgetActualReport(opts);
   if(key === "trends") return trendsReport(opts);
   if(key === "income") return incomeStatementReport(opts);

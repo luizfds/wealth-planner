@@ -125,7 +125,7 @@ export function demoHousehold(today){
 
   // Shares: a broad Australian ETF bought in three lots, and a global one in two.
   function priceAt(base, drift, i){ return r2(base * Math.pow(1 + drift, i) * (1 + Math.sin(i * 0.9) * 0.025)); }
-  function holding(id, what, symbol, base, drift, buys){
+  function holding(id, what, symbol, base, drift, buys, dist){
     var hist = snapDates.map(function(d, i){
       var units = buys.filter(function(b){ return b.i <= i; }).reduce(function(s, b){ return s + b.units; }, 0);
       var price = priceAt(base, drift, i);
@@ -136,11 +136,18 @@ export function demoHousehold(today){
     return { id: id, what: what, category: "Shares", symbol: symbol, market: "ASX", person: "",
       quantity: units, price: price, priceUpdated: today, amount: r2(units * price),
       lots: buys.map(function(b, k){ return { id: id + "-lot" + k, date: snapDates[b.i], units: b.units, price: priceAt(base, drift, b.i), brokerage: 9.5, soldUnits: 0 }; }),
-      sales: [], payouts: [], taxStatements: [], history: hist };
+      sales: [], taxStatements: [], history: hist,
+      // Distributions at the end of each paying month, on the units held then (v3.121.0).
+      payouts: snapDates.slice(0, -1).map(function(d, i){
+        var held = buys.filter(function(b){ return b.i <= i; }).reduce(function(s, b){ return s + b.units; }, 0);
+        if(!held || dist.months.indexOf(d.slice(5, 7)) === -1) return null;
+        var cash = r2(held * dist.perUnit);
+        return { id: id + "-pay" + i, date: d, cash: cash, credit: r2(cash * dist.franked * 30 / 70) };
+      }).filter(Boolean) };
   }
   var shares = [
-    holding("demo-vas", "Vanguard Australian Shares ETF", "VAS", 96, 0.006, [{ i: 0, units: 120 }, { i: 6, units: 80 }, { i: 12, units: 60 }]),
-    holding("demo-ivv", "iShares S&P 500 ETF", "IVV", 58, 0.009, [{ i: 2, units: 150 }, { i: 10, units: 100 }])
+    holding("demo-vas", "Vanguard Australian Shares ETF", "VAS", 96, 0.006, [{ i: 0, units: 120 }, { i: 6, units: 80 }, { i: 12, units: 60 }], { months: ["03", "06", "09", "12"], perUnit: 0.85, franked: 0.7 }),
+    holding("demo-ivv", "iShares S&P 500 ETF", "IVV", 58, 0.009, [{ i: 2, units: 150 }, { i: 10, units: 100 }], { months: ["06", "12"], perUnit: 0.32, franked: 0 })
   ];
 
   var last = function(h){ return h[h.length - 1].value; };

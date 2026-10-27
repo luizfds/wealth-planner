@@ -33,18 +33,21 @@ export function reportChartHtml(chart){
   if(chart.type === "columns"){
     var cols = chart.items;
     var mx = Math.max.apply(null, cols.map(function(c){ return Math.max(c.a || 0, c.b || 0); }).concat([1]));
-    var W2 = 640, H2 = 160, pad = 18, slot = (W2 - pad) / cols.length, bw = Math.max(2, Math.min(18, slot / 2 - 3));
+    // v3.128.0: one series (a detail page's month by month) draws one wider column per slot.
+    var single = chart.series.length < 2;
+    var W2 = 640, H2 = 160, pad = 18, slot = (W2 - pad) / cols.length, bw = Math.max(2, Math.min(single ? 30 : 18, single ? slot - 8 : slot / 2 - 3));
     var bars = cols.map(function(c, i){
       var x = pad + i * slot + slot / 2;
-      var ha = (c.a || 0) / mx * (H2 - 34), hb = (c.b || 0) / mx * (H2 - 34);
+      // A month that's net negative (refunds outweigh spending) draws nothing rather than a negative rect.
+      var ha = Math.max(0, (c.a || 0) / mx * (H2 - 34)), hb = Math.max(0, (c.b || 0) / mx * (H2 - 34));
       var showLabel = cols.length <= 13 || i % Math.ceil(cols.length / 12) === 0;
-      return '<rect x="' + (x - bw - 1) + '" y="' + (H2 - 20 - ha) + '" width="' + bw + '" height="' + ha + '" class="rc-a"><title>' + escapeAttr(c.label + " — " + chart.series[0] + ": " + fmtCurrency0.format(c.a || 0)) + '</title></rect>' +
-        '<rect x="' + (x + 1) + '" y="' + (H2 - 20 - hb) + '" width="' + bw + '" height="' + hb + '" class="rc-b"><title>' + escapeAttr(c.label + " — " + chart.series[1] + ": " + fmtCurrency0.format(c.b || 0)) + '</title></rect>' +
+      return '<rect x="' + (single ? x - bw / 2 : x - bw - 1) + '" y="' + (H2 - 20 - ha) + '" width="' + bw + '" height="' + ha + '" class="rc-a"><title>' + escapeAttr(c.label + " — " + chart.series[0] + ": " + fmtCurrency0.format(c.a || 0)) + '</title></rect>' +
+        (single ? '' : '<rect x="' + (x + 1) + '" y="' + (H2 - 20 - hb) + '" width="' + bw + '" height="' + hb + '" class="rc-b"><title>' + escapeAttr(c.label + " — " + chart.series[1] + ": " + fmtCurrency0.format(c.b || 0)) + '</title></rect>') +
         (showLabel ? '<text x="' + x + '" y="' + (H2 - 6) + '" text-anchor="middle" class="rc-label">' + escapeAttr(c.label) + '</text>' : '');
     }).join("");
     return '<figure class="rc"><svg viewBox="0 0 ' + W2 + ' ' + H2 + '" role="img" aria-label="Chart of the report"><line x1="' + pad + '" x2="' + W2 + '" y1="' + (H2 - 20) + '" y2="' + (H2 - 20) + '" class="rc-axis"/>' + bars +
       '<text x="' + pad + '" y="10" class="rc-label">' + compact(mx) + '</text></svg>' +
-      '<figcaption><span class="rc-key-a"></span>' + escapeAttr(chart.series[0]) + ' <span class="rc-key-b"></span>' + escapeAttr(chart.series[1]) + '</figcaption></figure>';
+      (single ? '</figure>' : '<figcaption><span class="rc-key-a"></span>' + escapeAttr(chart.series[0]) + ' <span class="rc-key-b"></span>' + escapeAttr(chart.series[1]) + '</figcaption></figure>');
   }
   if(chart.type === "sankey") return sankeyHtml(chart);
   return "";

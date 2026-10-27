@@ -1234,6 +1234,25 @@
     #printRoot .rp-table td[class*=heat-]{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
     #printRoot .pr-report .rp-wide{ font-size:8pt; }
   }
+  /* v3.128.0: detail pages, and the links to them in lists. */
+  .detail-link:not(.btn){ all:unset; cursor:pointer; color:inherit; font:inherit; text-decoration: underline; text-decoration-color: transparent; text-underline-offset:3px; transition: text-decoration-color .15s; }
+  .detail-link:not(.btn):hover, .detail-link:not(.btn):focus-visible{ text-decoration-color: currentColor; }
+  .detail-link:focus-visible{ outline:2px solid var(--brass); outline-offset:2px; border-radius:3px; }
+  .dt-page{ max-width:980px; }
+  .dt-head{ display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 14px; margin-bottom:12px; }
+  .dt-head h2{ margin:0; font-size:26px; flex:1 1 auto; }
+  .dt-back{ all:unset; cursor:pointer; flex-basis:100%; color: var(--brass-strong); font-size:13.5px; font-weight:600; }
+  .dt-back:focus-visible{ outline:2px solid var(--brass); outline-offset:2px; border-radius:3px; }
+  .dt-sec .rc{ max-width:720px; }
+  .dt-kicker{ flex-basis:100%; font-size:11px; font-weight:650; text-transform:uppercase; letter-spacing:.05em; color: var(--ink-soft); }
+  .dt-chart{ margin:4px 0 14px; }
+  .dt-facts{ display:grid; grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); gap:10px; margin:0 0 16px; }
+  .dt-facts div{ padding:10px 12px; border:1px solid var(--border); border-radius:10px; background: var(--paper-raised); }
+  .dt-facts dt{ font-size:11.5px; color: var(--ink-soft); margin-bottom:3px; }
+  .dt-facts dd{ margin:0; font-family: var(--font-num); font-weight:600; font-size:15.5px; }
+  .dt-sec{ margin:18px 0; } .dt-sec h3{ font-size:15px; margin:0 0 8px; }
+  .dt-list{ margin:0; padding-left:18px; display:grid; gap:5px; }
+  .dt-tx .detail-link{ text-decoration-color: color-mix(in srgb, currentColor 30%, transparent); }
   .rp-drill{ margin:10px 0; padding:8px 10px; border:1px solid var(--border); border-radius:10px; }
   .rp-drill-head{ display:flex; gap:8px; align-items:center; justify-content:space-between; font-size:13px; margin-bottom:6px; }
   .rp-table tr.compare td, .rp-table tr.compare th{ color: var(--ink-soft); font-style:italic; }

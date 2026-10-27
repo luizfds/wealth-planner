@@ -8,6 +8,7 @@ import { renderTaxYear } from "./taxyear.js";
 import { renderReceived } from "./received.js";
 import { renderAdvice } from "./advice.js";
 import { localDateStr } from "../lib/format.js";
+import { detailTarget, renderDetailPage } from "./detail.js";
 
 // ---------------- Page navigation ----------------
 // Organised by job since v3.57.0 — what you're doing, not which kind of record it is. The ids are
@@ -22,7 +23,9 @@ var PAGES = [
   { id: "tax", label: "Tax" },
   { id: "plan", label: "Plan" },
   { id: "reports", label: "Reports" },
-  { id: "settings", label: "Settings" }
+  { id: "settings", label: "Settings" },
+  // v3.128.0: one page for any single thing — /detail/<kind>/<id>. In no menu; lists link to it.
+  { id: "detail", label: "Details" }
 ];
 // Old page ids → [page, subpage]. Anything that still says showPage("income") — a notification, the
 // setup checklist, a search result, an old bookmark — lands on the subpage that replaced it.
@@ -88,6 +91,7 @@ function buildRoutePath(pageId){
   if(pageId === "tax") parts.push(currentTaxSub || defaultTaxSub());
   if(pageId === "plan") parts.push(currentPlanSub);
   if(pageId === "settings") parts.push(currentSettingsSub);
+  if(pageId === "detail" && detailTarget.kind) parts.push(detailTarget.kind, encodeURIComponent(detailTarget.id));
   return BASE_PATH + "/" + parts.join("/");
 }
 function syncUrl(pageId, replace){
@@ -102,6 +106,12 @@ export function parseRouteFromLocation(){
     try{ return decodeURIComponent(s).toLowerCase(); }catch(e){ return s.toLowerCase(); }
   });
   if(!segs.length) return null;
+  // A detail page's id keeps its case (a person's name).
+  if(segs[0] === "detail"){
+    var raw = path.split("/").filter(Boolean);
+    var did = raw[2] ? (function(){ try{ return decodeURIComponent(raw[2]); }catch(e){ return raw[2]; } })() : null;
+    return did ? { page: "detail", sub: null, detail: { kind: segs[1], id: did } } : { page: "dashboard", sub: null };
+  }
   if(ALIASES[segs[0]]) return { page: ALIASES[segs[0]][0], sub: ALIASES[segs[0]][1] };
   var page = PAGES.find(function(p){ return p.id === segs[0]; });
   if(!page) return null;
@@ -299,6 +309,7 @@ export function showPage(id, opts){
     try{ localStorage.setItem(PAGE_KEY, id); }catch(e){}
     if(id === "dashboard"){ renderDashboardStats(); renderHomeSummary(); }
     if(id === "reports") renderReports();
+    if(id === "detail") renderDetailPage();
     // v3.98.0: each page's "The app notices" strip reads figures changed on other pages.
     renderAdvice();
     // The worksheet only re-renders itself while visible (see income.js refreshOpenTaxYear), so

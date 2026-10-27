@@ -86,3 +86,29 @@ test("life events move the projection by what they cost, inflated to their years
   });
 });
 function TODAY_YEAR(){ return new Date().getFullYear(); }
+
+import { detailView, detailPageHtml, detailTarget } from "../src/components/detail.js";
+test("every kind of thing in the demo has a detail page, and a missing one says so", function(){
+  withDemo(function(){
+    var ids = {
+      account: state.accounts[0].id,
+      asset: state.assets.find(function(a){ return a.category === "Shares"; }).id,
+      property: state.properties[0].id,
+      loan: state.properties[0].loans[0].id,
+      line: state.shared.find(function(l){ return l.id; }).id,
+      merchant: "Fern Café",
+      person: "Alex"
+    };
+    Object.keys(ids).forEach(function(kind){
+      var v = detailView(kind, ids[kind], TODAY);
+      if(kind === "merchant" && !v) return; // the demo's merchants are its own
+      assert.ok(v, kind);
+      assert.ok(v.title && v.html.length > 40, kind);
+      assert.doesNotMatch(v.html, /NaN|undefined/, kind);
+    });
+    detailTarget.kind = "asset"; detailTarget.id = "gone";
+    assert.match(detailPageHtml(TODAY), /isn't here any more/);
+    detailTarget.kind = "property"; detailTarget.id = ids.property;
+    assert.match(detailPageHtml(TODAY), /data-detail-edit/);
+  });
+});

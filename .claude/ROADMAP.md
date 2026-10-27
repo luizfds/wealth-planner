@@ -2764,9 +2764,24 @@ saves, Enter moves down, a new row is added, the table fits, phone width falls b
 
 ### Phase C — one thing, one place
 
-## 151. `[~]` A detail page for every thing
+## 151. `[x]` A detail page for every thing
 Account, holding, property, loan, budget line, merchant, person: one route each, with history chart,
 transactions, related items and the edit form. Every list links to it; search lands on it.
+
+Shipped as v3.128.0: a Details page (`components/detail.js`, route `/detail/<kind>/<id>`, in no menu) for an account,
+a holding (any asset), a property, a loan, a debt, a budget line, a merchant and a person: what it is as a row of
+figures, its value or balance history drawn (stepped, from what's been logged), and what's behind it — an account's
+spending month by month, its transactions and transfers, and the record its balance comes from; a holding's returns,
+purchase lots, distributions by year and sales; a property's yields, growth, loans and owners; a loan's interest by
+year, deductible share and payoff; a budget line's plan against the last 12 months, month by month, with its
+transactions; a merchant's spending, the categories and lines it's filed under; a person's tax, income, super and
+property shares. Each links on to the others, and "Edit on …" goes to its edit form where it lives (page, subtab,
+row scrolled to). Search lands on it for holdings, properties, loans, debts, accounts, budget lines and people (new
+in search); accounts (a Details button), property cards and holding names link to it; a merchant in any detail
+page's transactions links to the merchant. Every asset now has an id (migrated). Deep links work through the 404
+redirect. Checked at 390 and 1280px on the demo and a real backup (outside the repo); a refund-heavy month no longer
+draws a negative column. The edit forms themselves stay where they are rather than being duplicated here.
+
 
 ## 152. `[~]` Navigation by what you own
 Accounts + Investments + Property become **Net worth** (one list grouped Cash · Investments · Super ·

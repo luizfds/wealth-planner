@@ -114,6 +114,7 @@ import { recordRentReview } from "./calc/propertylife.js";
 import { retirementHtml, retireLevers } from "./components/retirement.js";
 import { recurringHtml, recurringDismissed, recurringOpen, catchAllShown } from "./components/recurring.js";
 import { lifeEventsHtml, addLifeEvent, setLifeEventField, removeLifeEvent } from "./components/lifeevents.js";
+import { detailTarget, detailView } from "./components/detail.js";
 import { renderReports, reportShown, reportPrintHtml, reportCsv, reportFrame, pinReport, openSavedReport, unpinReport } from "./components/reports.js";
 import { monthDetailUi, shownMonth as mdShownMonth } from "./components/monthdetail.js";
 import { shiftMonth as mdShiftMonth } from "./calc/monthdetail.js";
@@ -2963,33 +2964,55 @@ import {
     // {replace:true}) instead of popped: pressing back from there should land wherever the user
     // was *before* opening search, not resurrect an empty search overlay in between.
     activeOverlayClose = null;
-    showPage(result.page, { replace: true });
+    // v3.128.0: a thing with a page of its own lands there.
+    if(result.extra.detail){ openDetail(result.extra.detail.kind, result.extra.detail.id, { replace: true }); return; }
+    goToPlace(result.page, result.extra, { replace: true });
+  });
+  // A place in the app: a page, a subtab, and a row to open and scroll to. Search results and a
+  // detail page's "Edit on …" both go through here.
+  function goToPlace(page, extra, opts){
+    extra = extra || {};
+    showPage(page, { replace: !!(opts && opts.replace) });
     // `sub` means different things per page: an Assets category, or one of the Expenses subtabs.
     // Routed by page rather than by guessing from the value, so "budget" can never be mistaken for
     // an asset category.
-    if(result.extra.sub){
-      if(result.page === "expenses") showExpensesSubpage(result.extra.sub, { replace: true });
-      else showAssetsSubpage(result.extra.sub, { replace: true });
+    if(extra.sub){
+      if(page === "expenses") showExpensesSubpage(extra.sub, { replace: true });
+      else if(page === "assets") showAssetsSubpage(extra.sub, { replace: true });
     }
     // A budget line lives inside a group card that starts collapsed, so it has to be opened before
     // there is anything on screen to scroll to. Without this the search lands on the page at scroll
     // 0 with the row display:none — the result looks like it did nothing.
-    if(result.extra.lineId && revealBudgetLine(result.extra.lineId)){
+    if(extra.lineId && revealBudgetLine(extra.lineId)){
       renderSharedGroups();
       renderBudgetGroupByToggle();
       persist();
     }
-    if(result.extra.scrollToId || result.extra.lineId){
+    if(extra.scrollToId || extra.lineId){
       // Give showPage's own render + view-transition a moment to finish before scrolling —
       // scrolling to an element mid-transition can land at the wrong offset once it settles.
       setTimeout(function(){
-        var el = result.extra.scrollToId
-          ? document.getElementById(result.extra.scrollToId)
-          : document.querySelector('#sharedGroups [data-line-id="' + (window.CSS && window.CSS.escape ? window.CSS.escape(result.extra.lineId) : result.extra.lineId) + '"]');
+        var el = extra.scrollToId
+          ? document.getElementById(extra.scrollToId)
+          : document.querySelector('#sharedGroups [data-line-id="' + (window.CSS && window.CSS.escape ? window.CSS.escape(extra.lineId) : extra.lineId) + '"]');
         if(el) el.scrollIntoView({ block: "center", behavior: "smooth" });
       }, 200);
     }
-  });
+  }
+  // ---------------- Detail pages (v3.128.0) ----------------
+  function openDetail(kind, id, opts){
+    detailTarget.kind = kind; detailTarget.id = id;
+    showPage("detail", { replace: !!(opts && opts.replace) });
+  }
+  document.addEventListener("click", function(e){
+    var link = e.target.closest("[data-detail]");
+    if(link){ e.preventDefault(); e.stopPropagation(); openDetail(link.getAttribute("data-detail"), link.getAttribute("data-detail-id")); return; }
+    if(e.target.closest("[data-detail-back]")){ if(history.length > 1) history.back(); else showPage("dashboard"); return; }
+    if(e.target.closest("[data-detail-edit]")){
+      var v = detailView(detailTarget.kind, detailTarget.id);
+      if(v && v.edit) goToPlace(v.edit.to.page, v.edit.to);
+    }
+  }, true);
   document.getElementById("searchRoot").addEventListener("input", function(e){
     if(e.target.id === "searchInput") setSearchQuery(e.target.value);
   });
@@ -4542,6 +4565,7 @@ import {
   var initialSettingsSub = null;
   if(routeFromUrl){
     initialPage = routeFromUrl.page;
+    if(routeFromUrl.detail){ detailTarget.kind = routeFromUrl.detail.kind; detailTarget.id = routeFromUrl.detail.id; }
     if(routeFromUrl.sub && routeFromUrl.page === "assets") initialAssetsSub = routeFromUrl.sub;
     if(routeFromUrl.sub && routeFromUrl.page === "expenses") initialExpensesSub = routeFromUrl.sub;
     if(routeFromUrl.sub && routeFromUrl.page === "tax") initialTaxSub = routeFromUrl.sub;
@@ -4571,6 +4595,7 @@ import {
       return;
     }
     var route = parseRouteFromLocation() || { page: "dashboard", sub: null };
+    if(route.page === "detail" && route.detail){ detailTarget.kind = route.detail.kind; detailTarget.id = route.detail.id; }
     showPage(route.page, { skipUrl: true });
     if(route.page === "assets") showAssetsSubpage(route.sub || "summary", { skipUrl: true });
     if(route.page === "expenses") showExpensesSubpage(route.sub || "budget", { skipUrl: true });

@@ -748,7 +748,8 @@ function linkExists(link, s){
 // → "Sam's savings (Bank One)"), when exactly one record matches. Ambiguous ones are left for the
 // person to pick. Once, because unlinking an account afterwards has to stay unlinked.
 function migrateAccounts(s){
-  (s.assets || []).forEach(function(a){ if(a && a.category === "Cash" && !a.id) a.id = genId("as"); });
+  // v3.128.0: every holding, not only cash, so each has a detail page to link to.
+  (s.assets || []).forEach(function(a){ if(a && !a.id) a.id = genId("as"); });
   (s.debts || []).forEach(function(d){ if(d && !d.id) d.id = genId("debt"); });
   (s.accounts || []).forEach(function(a){
     if(["everyday", "savings", "offset", "credit", "loan", "agent"].indexOf(a.type) === -1) a.type = "everyday";

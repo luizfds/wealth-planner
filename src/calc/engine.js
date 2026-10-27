@@ -397,6 +397,14 @@ export function recalcComputedItems(){
   });
 }
 
+// The household as it is now — the scenario marked Current situation. Selecting another scenario to
+// study it must not change figures that describe today (the header, Home, goal dates, the emergency
+// fund); those read this, and only scenario comparisons read state.activeScenario.
+export function currentScenario(){
+  var b = state.baselineScenario;
+  return b && (state.scenarios || []).indexOf(b) !== -1 ? b : state.activeScenario;
+}
+
 export function scenarioTotals(scenario){
   // Per-scenario: an income row can carry the same scenarioOverrides map a shared expense can, and
   // a Gross row's override re-runs the whole tax computation (see scenarioIncomeMonthly). Before

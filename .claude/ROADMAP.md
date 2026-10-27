@@ -2505,13 +2505,24 @@ bank feeds.
 
 ### Phase A — first impression
 
-## 135. `[~]` The headline follows the current situation
+## 135. `[x]` The headline follows the current situation
 The header's Monthly cash (every page) is `scenarioTotals(state.activeScenario)` — whichever scenario is
 *selected*, so picking a Buy scenario to look at it changes the household's headline to a what-if. Found on
 a real backup where the selected scenario wasn't the current one. It is also a different figure from the
 same scenario's card (a normal month vs averaged with bonuses) with nothing on screen saying so. Header,
 Home and goal dates read the current-situation scenario; the selected one is labelled as a what-if
 wherever it's shown; one definition of "monthly", the other in a tooltip.
+
+Shipped as v3.102.0: `calc/engine.js` `currentScenario()` (the baseline, else the selected one). The header's
+Monthly cash, Home's This month (planned) and bills, goal dates (Home, Accounts, Retirement) and the emergency
+fund read it; `budgetLineItems(scenario)`/`loggableBudgetLineItems(scenario)` take one. The header tooltip names
+the selected scenario and what it would leave when it isn't the current one, and is redrawn on selection.
+Scenario cards and the Scenarios net-savings tile show a normal month (as the header does), the year carrying
+bonuses ("incl. $X bonuses"); the tile says "(what-if)" when it isn't the current situation. Left as is on
+purpose: the Budget page and Insights still follow the selected scenario and say so. **Still open:** tax
+deductions read `budgetLineItems()` (the selected scenario's home lines) through `setDeductibleItemsProvider`,
+so a deductible home line can differ by which scenario is selected.
+
 
 ## 136. `[ ]` Trend lines that agree with their numbers
 Home's net worth card says "+X since <date>" (today's live figure against the last log) beside a sparkline

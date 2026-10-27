@@ -3,7 +3,7 @@ import { retirementPlan } from "../calc/retirement.js";
 import { superContributions } from "../calc/investments.js";
 import { goalsOverview } from "../calc/savegoals.js";
 import { currentTaxFy } from "../calc/tax.js";
-import { scenarioTotals } from "../calc/engine.js";
+import { scenarioTotals, currentScenario } from "../calc/engine.js";
 import { fmtCurrency0, fmtPercent0, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 
@@ -46,7 +46,7 @@ export function retirementHtml(today){
   }).join("") + '</div>';
   var sc = superContributions(currentTaxFy());
   var room = sc.reduce(function(s, r){ return s + r.room; }, 0);
-  var go = goalsOverview(today, scenarioTotals(state.activeScenario).netMonthly);
+  var go = goalsOverview(today, scenarioTotals(currentScenario()).netMonthly);
   var links = '<div class="rt-links">' +
     '<div><span>Super cap room this year</span><b>' + money(room) + '</b><small>' + (room > 0 ? "Concessional room left across " + sc.length + " " + (sc.length === 1 ? "person" : "people") + " — the “extra into super” lever, before tax." : "Caps are used.") + '</small><button type="button" class="link-btn" data-rt-go="super">Super →</button></div>' +
     '<div><span>Savings goals</span><b>' + go.goals.length + '</b><small>' + (go.neededMonthly ? money(go.neededMonthly) + "/mo going to goals comes out of what's saved for retirement." : "None taking from the monthly surplus.") + '</small><button type="button" class="link-btn" data-rt-go="goals">Goals →</button></div>' +

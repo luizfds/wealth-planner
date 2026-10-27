@@ -1,7 +1,7 @@
 import { state } from "../state.js";
 import { periodsOf, resolveSharedAmount, isActiveOn, sumField } from "./ledger.js";
 import { ipProperties, loanRepaymentMonthly, propertiesOffsetTotal, loanPaidOut } from "./property.js";
-import { toAudAmount } from "./engine.js";
+import { toAudAmount, currentScenario } from "./engine.js";
 import { scenarioIncomeRows } from "./tax.js";
 import { localDateStr } from "../lib/format.js";
 
@@ -51,7 +51,7 @@ export function isEssential(line){ return !!line && line.classification === "Nee
 export function emergencyFund(opts){
   opts = opts || {};
   var today = opts.today || localDateStr();
-  var scenario = opts.scenario || state.activeScenario;
+  var scenario = opts.scenario || currentScenario();
   var months = opts.months || emergencyMonthsChoice();
   var logged = loggedByLine(state.transactions, today);
   var useActual = logged.months >= 6;

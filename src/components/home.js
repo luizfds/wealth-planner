@@ -1,6 +1,6 @@
 import { state } from "../state.js";
 import { nextDueDate, lastTransactionDateFor, daysUntil, selectedMonth, monthPhrase, isPeriodToday } from "../calc/ledger.js";
-import { totalNetWorthValue, scenarioTotals } from "../calc/engine.js";
+import { totalNetWorthValue, scenarioTotals, currentScenario } from "../calc/engine.js";
 import { goalsOverview } from "../calc/savegoals.js";
 import { goalCardHtml } from "./savegoals.js";
 import { monthReview, reviewMonth, monthLabel } from "../calc/monthreview.js";
@@ -9,7 +9,7 @@ import { accountBalance } from "../calc/accounts.js";
 import { lodgementStatus, taxYearRecord } from "../calc/taxyear.js";
 import { getTaxPeople } from "../calc/tax.js";
 import { fyLabel } from "../calc/property.js";
-import { loggableBudgetLineItems, transactionAccount, transactionCategory } from "./expenses.js";
+import { budgetLineItems, loggableBudgetLineItems, transactionAccount, transactionCategory } from "./expenses.js";
 import { sparklineHtml } from "../lib/charts.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
@@ -82,7 +82,8 @@ export function homeSummaryHtml(today, opts){
     '<button type="button" class="link-btn home-link" data-home-go="assets">Net worth over time →</button></div>';
 
   var ym = selectedMonth(today);
-  var r = monthReview(ym, { accountOf: transactionAccount, categoryOf: transactionCategory, today: today, items: opts.items });
+  // Planned against the household as it is (Current situation), not whichever scenario is selected.
+  var r = monthReview(ym, { accountOf: transactionAccount, categoryOf: transactionCategory, today: today, items: opts.items || budgetLineItems(currentScenario()) });
   var saved = r.incomeReceived - r.spent;
   var mp = monthPhrase(ym);
   var monthCard = '<div class="home-card home-month"><span class="home-k">' + (mp === "this month" ? "This month" : escapeAttr(r.label)) + '</span>' +
@@ -95,7 +96,7 @@ export function homeSummaryHtml(today, opts){
     (r.missingIncome ? '<p class="home-note">' + r.missingIncome + ' income line' + (r.missingIncome === 1 ? " hasn't" : "s haven't") + ' been logged ' + escapeAttr(mp) + '.</p>' : '') +
     '<button type="button" class="link-btn home-link" data-home-go="expenses" data-home-sub="spending">See spending →</button></div>';
 
-  var bills = upcomingBills(opts.items || loggableBudgetLineItems(), state.transactions, today, 14);
+  var bills = upcomingBills(opts.items || loggableBudgetLineItems(currentScenario()), state.transactions, today, 14);
   var billsCard = '<div class="home-card home-bills"><span class="home-k">Bills — next 2 weeks</span>' +
     (bills.length ? '<ul class="home-list">' + bills.slice(0, 5).map(function(b){
       var when = b.days < 0 ? "overdue " + Math.abs(b.days) + "d" : b.days === 0 ? "today" : b.days === 1 ? "tomorrow" : shortDate(b.due);
@@ -116,7 +117,7 @@ export function homeSummaryHtml(today, opts){
 // Savings goals (v3.65.0): a strip under the cards, each its progress bar, linking to Accounts.
 function goalsStripHtml(today){
   if(!(state.savingsGoals || []).length) return "";
-  var ov = goalsOverview(today, scenarioTotals(state.activeScenario).netMonthly);
+  var ov = goalsOverview(today, scenarioTotals(currentScenario()).netMonthly);
   return '<div class="home-goals"><span class="home-k">Goals</span><div class="home-goals-list">' + ov.goals.slice(0, 4).map(function(g, i){ return goalCardHtml(g, i, { compact: true }); }).join("") + '</div>' +
     '<button type="button" class="link-btn home-link" data-home-go="accounts">All goals →</button></div>';
 }

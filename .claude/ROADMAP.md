@@ -2997,7 +2997,7 @@ with OAuth PKCE (no secret, no server), access to the app's own folder only, the
 in `lib/foldersync.js` now writes through a "transport": the folder or Dropbox). Writes use Dropbox's own revision,
 so a write that lost a race to another device fails and the round reads again. Tokens are per device in
 localStorage and revoked on Turn off. The app key isn't secret: `DROPBOX_APP_KEY` in `lib/dropbox.js` is the one to
-set once the site is registered; until then Settings takes a key pasted per device. Checked against a mocked Dropbox
+set once the site is registered; until then Settings takes a key pasted per device. (Set in v3.136.1: the site's registered key is built in, so devices just Connect.) Checked against a mocked Dropbox
 with two browsers (one at phone width): connect, passphrase, encrypted upload, loaded on the other, a change carried
 back, and a lost race retried.
 

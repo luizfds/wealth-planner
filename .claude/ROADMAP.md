@@ -2524,7 +2524,7 @@ deductions read `budgetLineItems()` (the selected scenario's home lines) through
 so a deductible home line can differ by which scenario is selected.
 
 
-## 136. `[ ]` Trend lines that agree with their numbers
+## 136. `[~]` Trend lines that agree with their numbers
 Home's net worth card says "+X since <date>" (today's live figure against the last log) beside a sparkline
 of logged points only, which can fall — green text, red falling line. Value histories logged by hand a few
 times (property, super) draw as steps and zoom in to the range, so one revaluation looks like a crash. Add

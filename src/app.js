@@ -14,7 +14,7 @@ import {
 } from "./lib/backup.js";
 import { periodsOf, sumField, sumFieldForScenario, resolveSharedAmount, appendHistorySnapshot, transactionDisplayName } from "./calc/ledger.js";
 import { phiPremiumsAnnual, effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider, saleCapitalGain, lotsUnitsAvailable, takeHomeAdjust } from "./calc/tax.js";
-import { recalcComputedItems, scenarioTotals, totalNetWorthValue, totalDebtsValue } from "./calc/engine.js";
+import { recalcComputedItems, scenarioTotals, currentScenario, totalNetWorthValue, totalDebtsValue } from "./calc/engine.js";
 import { financialYearOf, fyLabel, recordRateChange, sortedRateHistory, loanRateOn } from "./calc/property.js";
 import { taxYearFillStatements, renderTaxYear, setTaxYearSelected, taxYearAddRow, taxYearDeleteRow, taxYearRestoreRow, taxYearSetField, taxYearToggleEvidence, taxYearMarkLodged, worksheetText, taxYearSelected, taxYearPrintHtml, lodgedSnapshot } from "./components/taxyear.js";
 import { renderPeople, setPersonField, peopleSummaryText } from "./components/people.js";
@@ -423,6 +423,10 @@ import {
     renderGlobalMetrics();
   }
 
+  // Selecting a scenario re-renders the pages that follow it; the header follows the Current situation
+  // (v3.102.0), but its tooltip names the selected what-if, so it's redrawn too.
+  function chooseScenario(name){ selectScenario(name); renderGlobalMetrics(); }
+
   // Sticky header figures — always visible regardless of which tab is open, so a change
   // made three tabs deep is immediately reflected in the two numbers that matter most.
   function renderGlobalMetrics(){
@@ -430,13 +434,23 @@ import {
     var cashFlowEl = document.getElementById("globalCashFlow");
     if(!netWorthEl || !cashFlowEl) return;
     netWorthEl.textContent = fmtCurrency0.format(totalNetWorthValue());
-    var t = scenarioTotals(state.activeScenario);
+    // v3.102.0: the household as it is (Current situation), not the scenario selected for a look —
+    // picking a Buy scenario on Plan used to turn this headline, on every page, into a what-if.
+    var cur = currentScenario();
+    var t = scenarioTotals(cur);
     // v3.80.0: what a normal month leaves — bonuses arrive in their own month, not a twelfth a month.
     var m = t.regularNetMonthly != null ? t.regularNetMonthly : t.netMonthly;
     cashFlowEl.textContent = (m >= 0 ? "+" : "") + fmtCurrency0.format(m) + "/mo";
     cashFlowEl.classList.toggle("pos", m >= 0);
     cashFlowEl.classList.toggle("neg", m < 0);
-    cashFlowEl.title = t.oneOffYearly > 0.5 ? "A normal month. Plus " + fmtCurrency0.format(t.oneOffYearly) + " a year in bonuses, which land in their own month — " + fmtCurrency0.format(t.netMonthly) + "/mo averaged over the year." : "";
+    var tip = "What a normal month leaves in " + cur + ".";
+    if(t.oneOffYearly > 0.5) tip += " Plus " + fmtCurrency0.format(t.oneOffYearly) + " a year in bonuses, which land in their own month.";
+    if(state.activeScenario && state.activeScenario !== cur){
+      var a = scenarioTotals(state.activeScenario);
+      var am = a.regularNetMonthly != null ? a.regularNetMonthly : a.netMonthly;
+      tip += " " + state.activeScenario + " (selected on Plan) would leave " + fmtCurrency0.format(am) + "/mo.";
+    }
+    cashFlowEl.title = tip;
   }
 
   // Live-refresh the labels of every rendered transaction that takes its display name from a
@@ -3769,9 +3783,9 @@ import {
     if(delBtn){ deleteScenario(delBtn.getAttribute("data-delete")); return true; }
     if(e.target.closest("#addScenarioBtn") || e.target.closest("#addScenarioBtn2")){ addScenario(); return true; }
     var editBtn = e.target.closest("[data-edit-scenario]");
-    if(editBtn){ selectScenario(editBtn.getAttribute("data-edit-scenario")); showPage("scenarios"); return true; }
+    if(editBtn){ chooseScenario(editBtn.getAttribute("data-edit-scenario")); showPage("scenarios"); return true; }
     var setActiveBtn = e.target.closest("[data-edit-scenario2]");
-    if(setActiveBtn){ selectScenario(setActiveBtn.getAttribute("data-edit-scenario2")); return true; }
+    if(setActiveBtn){ chooseScenario(setActiveBtn.getAttribute("data-edit-scenario2")); return true; }
     var collapseBtn = e.target.closest("[data-collapse-toggle]");
     if(collapseBtn){
       var cs = collapseBtn.getAttribute("data-collapse-toggle");
@@ -3788,13 +3802,13 @@ import {
     // for this scenario.
     if(e.target.closest(".card-overflow")) return;
     var cardSel = e.target.closest(".card-select");
-    if(cardSel) selectScenario(cardSel.getAttribute("data-scenario"));
+    if(cardSel) chooseScenario(cardSel.getAttribute("data-scenario"));
   });
   document.getElementById("cards").addEventListener("keydown", function(e){
     if(e.key !== "Enter" && e.key !== " ") return;
     var cardSel = e.target.closest(".card-select");
     // Only the card itself — Enter on a button inside it (the ⋯ menu) must reach that button.
-    if(cardSel && e.target === cardSel){ e.preventDefault(); selectScenario(cardSel.getAttribute("data-scenario")); }
+    if(cardSel && e.target === cardSel){ e.preventDefault(); chooseScenario(cardSel.getAttribute("data-scenario")); }
   });
   document.getElementById("homeBody").addEventListener("click", onScenarioControlClick);
 
@@ -5360,7 +5374,7 @@ import {
   // ---------------- Accounts → Savings goals (v3.65.0) ----------------
   function renderSavingsGoals(){
     var el = document.getElementById("savingsGoalsBody");
-    if(el) el.innerHTML = goalsSectionHtml(localDateStr(), scenarioTotals(state.activeScenario).netMonthly);
+    if(el) el.innerHTML = goalsSectionHtml(localDateStr(), scenarioTotals(currentScenario()).netMonthly);
     renderEmergencyFund();
   }
   // ---------------- Accounts → Emergency fund (v3.94.0) ----------------

@@ -5,7 +5,7 @@ import { ipExpenseItemsForClassification, fyLabel, loanBalance } from "../calc/p
 import { scenarioIncomeMonthly, scenarioIncomeRows, getTaxPeople, computePersonTax } from "../calc/tax.js";
 import { lodgementStatus, taxYearRecord } from "../calc/taxyear.js";
 import { evidenceItems } from "./taxyear.js";
-import { scenarioTotals, computeNetWorthSeries, totalNetWorthValue, runwayMonths, actualAssetGrowthLastMonth, staleAssets, toAudAmount } from "../calc/engine.js";
+import { scenarioTotals, currentScenario, computeNetWorthSeries, totalNetWorthValue, runwayMonths, actualAssetGrowthLastMonth, staleAssets, toAudAmount } from "../calc/engine.js";
 import { monthlyCashFlowForecast } from "../calc/cashflow.js";
 import { fireSettings, fireWealthSplit, simulateRetirementAt, earliestWorkableRetirementAge } from "../calc/fire.js";
 import { MONTH_NAMES } from "../constants.js";
@@ -17,6 +17,9 @@ import { escapeAttr } from "../lib/html.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { renderLineChart } from "../lib/charts.js";
 import { staleAssetNamesList } from "../lib/notifications.js";
+
+// What a normal month leaves: bonuses land in their own month, so they're in the year, not each month.
+function regularOf(t){ return t.regularNetMonthly != null ? t.regularNetMonthly : t.netMonthly; }
 
 export function renderCards(){
   var el = document.getElementById("cards");
@@ -48,8 +51,10 @@ export function renderCards(){
             '</span>' +
           '</div>' +
           '<div>' +
-            '<div class="card-savings' + (t.netMonthly < 0 ? " neg" : "") + '">' + fmtCurrency0.format(t.netMonthly) + '<span style="font-size:13px;font-weight:400;color:var(--ink-soft)"> /mo</span></div>' +
-            '<div class="card-sub">' + fmtCurrency0.format(t.netYearly) + ' / year net savings</div>' +
+            // v3.102.0: /mo is a normal month — the same figure as the header — and the year carries
+            // the bonuses, so the two never disagree without saying why.
+            '<div class="card-savings' + (regularOf(t) < 0 ? " neg" : "") + '">' + fmtCurrency0.format(regularOf(t)) + '<span style="font-size:13px;font-weight:400;color:var(--ink-soft)"> /mo</span></div>' +
+            '<div class="card-sub">' + fmtCurrency0.format(t.netYearly) + ' / year net savings' + (t.oneOffYearly > 0.5 ? ', incl. ' + fmtCurrency0.format(t.oneOffYearly) + ' bonuses' : '') + '</div>' +
           '</div>' +
           '<div class="card-bar-track"><div class="card-bar-fill' + (t.rate < 0 ? " neg" : "") + '" style="width:' + Math.min(100, Math.abs(t.rate) / maxAbsRate * 100) + '%"></div></div>' +
           '<div class="card-stats"><span>Savings rate</span><b>' + fmtPercent1.format(t.rate) + '</b></div>' +
@@ -192,7 +197,7 @@ export function renderDashboardStats(){
   }
   el.innerHTML =
     '<div class="stat-tile"><span>Total net worth today</span><b>' + fmtCurrency0.format(totalNetWorth) + '</b><small>across ' + itemCount + ' item' + (itemCount === 1 ? "" : "s") + '</small></div>' +
-    '<div class="stat-tile"><span>' + escapeAttr(active) + ' — net savings</span><b' + (t.netMonthly < 0 ? ' style="color:var(--bad)"' : '') + '>' + fmtCurrency0.format(t.netMonthly) + '/mo</b><small>' + fmtPercent1.format(t.rate) + ' savings rate</small></div>' +
+    '<div class="stat-tile"><span>' + escapeAttr(active) + (active !== currentScenario() ? ' (what-if)' : '') + ' — net savings</span><b' + (regularOf(t) < 0 ? ' style="color:var(--bad)"' : '') + '>' + fmtCurrency0.format(regularOf(t)) + '/mo</b><small>' + fmtPercent1.format(t.rate) + ' savings rate' + (t.oneOffYearly > 0.5 ? ' · a normal month' : '') + '</small></div>' +
     '<div class="stat-tile"><span>Projected net worth</span><b>' + fmtCurrency0.format(projected) + '</b><small>in ' + horizon + ' years, ' + escapeAttr(active) + ', ' + (state.projection.realTerms !== false ? "today's" : "future") + ' dollars</small></div>' +
     runwayTile +
     fiTileHtml(t) +

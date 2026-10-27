@@ -80,10 +80,11 @@ function sharedGroupOrder(axis){
 // Loan repayments are deliberately not lines: they're derived from balance/rate/term rather than
 // budgeted, so there's nothing to edit and nothing to fall behind on logging. They keep their own
 // summary card below the list instead.
-function budgetLineSources(){
+function budgetLineSources(scenario){
+  scenario = scenario || state.activeScenario;
   var sources = [{ section: "shared", items: state.shared }];
-  var homeItems = state.home[state.activeScenario];
-  if(homeItems && homeItems.length) sources.push({ section: "home:" + state.activeScenario, items: homeItems });
+  var homeItems = state.home[scenario];
+  if(homeItems && homeItems.length) sources.push({ section: "home:" + scenario, items: homeItems });
   ipProperties().forEach(function(p){
     if(p.expenses && p.expenses.length) sources.push({ section: "propexp:" + p.id, items: p.expenses });
   });
@@ -1907,8 +1908,8 @@ export function categoryChartHtml(groups, unit, opts){
 // Every budget line the Budget tab lists — shared plus the active scenario's housing. Exported so
 // the actual-vs-planned panel totals exactly what the list shows, rather than the two disagreeing
 // about whether rent counts.
-export function budgetLineItems(){
-  return budgetLineSources().reduce(function(acc, source){ return acc.concat(source.items); }, []);
+export function budgetLineItems(scenario){
+  return budgetLineSources(scenario).reduce(function(acc, source){ return acc.concat(source.items); }, []);
 }
 // The subset you can actually log spend against. A computed line (a synced home-loan repayment, a
 // property manager fee worked out from the rent) is a real cost and stays in the list and in the
@@ -1916,8 +1917,8 @@ export function budgetLineItems(){
 // offering it as a quick-log chip or queuing it under "Catch up on overdue" is asking for a
 // confirmation of something the app already knows. Same rows exportExpensesCsv() skips, same
 // reason.
-export function loggableBudgetLineItems(){
-  return budgetLineItems().filter(function(item){ return !item.computed; });
+export function loggableBudgetLineItems(scenario){
+  return budgetLineItems(scenario).filter(function(item){ return !item.computed; });
 }
 export function renderSpendCategoryChart(){
   var el = document.getElementById("spendCategoryChart");

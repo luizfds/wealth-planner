@@ -18,6 +18,7 @@ import { statementTotals, statementsForFy, waterRatesLine } from "../calc/agents
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr, fmtDate } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { optionsHtml, modernPlainRowHtml, historyTrendHtml, rowEditSlot } from "../lib/ledger-table.js";
+import { propertyEstimate } from "../calc/estimates.js";
 import { showToast } from "../lib/toast.js";
 import { appendHistorySnapshot } from "../calc/ledger.js";
 import { renderLineChart, dateAxisFormat, sparklineHtml, sparklinePlaceholderHtml } from "../lib/charts.js";
@@ -609,6 +610,9 @@ export function propertySummaryHtml(p){
   var costsYear = sumField(p.expenses || [], "yearly");
   var owners = p.kind === "IP" ? getTaxPeople().map(function(person){ var pct = propertyOwnershipPct(p, person, getTaxPeople()); return pct ? person + " " + Math.round(pct) + "%" : ""; }).filter(Boolean).join(" · ") : "";
   var yieldGross = p.kind === "IP" && value > 0 && rentYear > 0 ? rentYear / value : null;
+  // v3.114.0: a value last recorded a while ago, grown at the projection's rate — marked as an estimate.
+  var est = propertyEstimate(p, localDateStr());
+  if(est && est.days >= 90 && Math.abs(est.value - value) >= 1000) valueSub += " · ≈ " + fmtCurrency0.format(est.value) + " today at " + est.ratePct + "% a year (estimate)";
   return '<dl class="prop-summary">' +
     row("Value", fmtCurrency0.format(value), valueSub) +
     row("Bought", bought, acq > 0 ? fmtCurrency0.format(acq) + " in purchase costs" : "") +

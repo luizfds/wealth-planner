@@ -10,6 +10,7 @@ import {
 } from "./property.js";
 import { getTaxPeople, computePersonTax, scenarioIncomeMonthly, personOneOffSplit, scenarioOneOffYearly, takeHomeAdjust } from "./tax.js";
 import { fmtCurrency0, localDateStr, fmtDate } from "../lib/format.js";
+import { dueAfterDays } from "./estimates.js";
 import { projectionRatios } from "./actuals.js";
 
 // Every non-Shares asset, and every Shares holding on the ASX, is already AUD — the only
@@ -103,16 +104,20 @@ export function actualAssetGrowthLastMonth(){
 // Assets whose logged value is stale (>=30 days old) or that have never been logged at all —
 // a nudge, not an error: the app has no way to push a notification when it's closed (no
 // backend), so this only surfaces on load/whenever the Dashboard re-renders.
+// v3.114.0: due on each kind's own rhythm (calc/estimates.js DUE_DAYS) — super about twice a year, a
+// car valued from its price never — not every asset every 30 days.
 export function staleAssets(){
   var todayMs = Date.now();
-  var STALE_DAYS = 30;
+  var today = localDateStr();
   var result = [];
   state.assets.forEach(function(a){
+    var due = dueAfterDays(a, today);
+    if(due == null) return;
     var hist = a.history;
     var lastDate = hist && hist.length ? hist[hist.length - 1].date : null;
     var days = lastDate ? Math.floor((todayMs - new Date(lastDate + "T00:00:00").getTime()) / (24 * 60 * 60 * 1000)) : null;
     // label (v3.32.1): two people's "Superannuation" were indistinguishable in the banner.
-    if(days == null || days >= STALE_DAYS) result.push({ what: a.what, label: a.person ? a.what + " — " + a.person : a.what, days: days });
+    if(days == null || days >= due) result.push({ what: a.what, label: a.person ? a.what + " — " + a.person : a.what, days: days });
   });
   return result;
 }

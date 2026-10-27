@@ -2663,10 +2663,19 @@ button is hidden where it used to show a count. **Still open:** `lib/notificatio
 still groups "lines that need a fresh entry" on the old per-frequency test.
 
 
-## 144. `[~]` Estimates between logs
+## 144. `[x]` Estimates between logs
 Super = last balance + SG from pay + assumed return; property = last value indexed by growth (or the suburb
 benchmark); vehicle = depreciation. Shown dated and tagged "estimated" until a real figure is logged. The
 stale-assets banner only asks when an estimate is old *and* a real figure is due (a super statement period).
+
+Shipped as v3.114.0: `calc/estimates.js` — `superEstimate` (last statement + employer super since, after the 15%
+contributions tax, + growth at the projection's return), `propertyEstimate` (last recorded value grown at the
+projection's rate, to the thousand), `dueAfterDays` (Super 190, Cash/Shares 35, Other 120 days; never for a
+computed vehicle or shares priced from the sheet in the last week). `staleAssets` uses it, and the banner reads
+"due a fresh value". Super rows show "≈ $X today, estimated from $Y on <date>" once a statement is a month old;
+a property's summary adds the estimate once its value is 90+ days old. Net worth still uses recorded values
+(same open decision as item 142). On a real backup (outside the repo) the banner, which had flagged a super fund
+and a car, is gone.
 
 ## 145. `[ ]` Share prices with no setup
 A scheduled GitHub Action writes a daily price file for a fixed broad list (ASX 200, common ETFs, a short

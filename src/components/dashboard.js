@@ -292,7 +292,7 @@ function renderStaleAssetsBanner(){
   if(!stale.length){ el.innerHTML = ""; return; }
   el.innerHTML =
     '<div class="stale-assets-note" title="Record a fresh value for each (Investments → Record value) to keep net worth history and the Actual vs. expected panel accurate.">' +
-      '<span>⏱</span> ' + escapeAttr(stale.length + " asset" + (stale.length === 1 ? "" : "s") + " haven't been logged in 30+ days — " + staleAssetNamesList(stale, 3)) +
+      '<span>⏱</span> ' + escapeAttr(stale.length === 1 ? "Due a fresh value — " : stale.length + " assets are due a fresh value — ") + escapeAttr(staleAssetNamesList(stale, 3)) +
     '</div>';
 }
 

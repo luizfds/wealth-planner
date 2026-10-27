@@ -8,6 +8,7 @@ import { projectWithholding } from "../calc/withholding.js";
 import { renderJuneMoves } from "./junemoves.js";
 import { superTopUp } from "../calc/supertopup.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr, fmtDate } from "../lib/format.js";
+import { payFrequency } from "../calc/payslip.js";
 import { escapeAttr } from "../lib/html.js";
 import { optionsHtml, historyTrendHtml, timingFieldsHtml, endDateNoteHtml, scenarioVaryNoteHtml, hasEnded, rowEditSlot } from "../lib/ledger-table.js";
 import { parseCsv } from "../lib/backup.js";
@@ -588,6 +589,39 @@ function taxPersonHeadHtml(person, r, pi){
 
 // Mid-year withholding check (v3.50.0) — calc/withholding.js. Three figures off the latest
 // payslip; the answer is refund-or-bill for the year being earned now.
+// v3.116.0: a payslip read into the check (calc/payslip.js). Session-only: the last one read, per person.
+export var payslipRead = {};
+// The person's main salary row: their Gross income row with the largest amount.
+export function salaryRowFor(person){
+  return (state.income || []).filter(function(i){ return i.person === person && i.incomeType === "Gross" && !i.computed && !i.irregular; })
+    .sort(function(a, b){ return periodsOf(Number(b.amount) || 0, b.freq).yearly - periodsOf(Number(a.amount) || 0, a.freq).yearly; })[0] || null;
+}
+function payslipReadHtml(person){
+  var pid = escapeAttr(person);
+  var p = payslipRead[person];
+  var out = '<div class="slip-read"><label class="btn btn-sm btn-ghost slip-pick">Read a payslip (PDF)<input type="file" accept=".pdf,application/pdf" data-slip-file="' + pid + '" hidden></label>' +
+    '<details class="slip-paste"><summary>or paste its text</summary><textarea rows="5" data-slip-text="' + pid + '" placeholder="Copy everything on the payslip and paste it here"></textarea>' +
+    '<button type="button" class="btn btn-sm" data-slip-read="' + pid + '">Read it</button></details>';
+  if(!p) return out + '</div>';
+  if(p.error) return out + '<p class="slip-out warn">' + escapeAttr(p.error) + '</p></div>';
+  var money = function(v){ return v == null ? "—" : fmtCurrency2.format(v); };
+  var freq = payFrequency(p);
+  out += '<div class="slip-out"><b>Read from the payslip' + (p.periodEnd ? ' for the period to ' + escapeAttr(fmtDate(p.periodEnd, { year: true })) : '') + ':</b>' +
+    '<span>Gross ' + money(p.gross) + (p.ytd.gross != null ? ' (' + money(p.ytd.gross) + ' this year)' : '') + '</span>' +
+    '<span>Tax ' + money(p.tax) + (p.ytd.tax != null ? ' (' + money(p.ytd.tax) + ')' : '') + '</span>' +
+    (p.super != null ? '<span>Super ' + money(p.super) + '</span>' : '') +
+    (p.sacrifice != null ? '<span>Salary sacrifice ' + money(p.sacrifice) + '</span>' : '') +
+    (p.net != null ? '<span>Net ' + money(p.net) + '</span>' : '') + '</div>';
+  var actions = [];
+  if(p.ytd.gross != null && p.ytd.tax != null && p.periodEnd) actions.push('<button type="button" class="btn btn-sm btn-primary" data-slip-use="' + pid + '">Use the year-to-date figures</button>');
+  else out += '<p class="slip-out">' + (p.periodEnd ? "No year-to-date column found" : "No period dates found") + ' — type the figures above.</p>';
+  var row = salaryRowFor(person);
+  if(row && freq && p.gross > 0){
+    var planned = periodsOf(Number(row.amount) || 0, row.freq).yearly, read = periodsOf(p.gross, freq).yearly;
+    if(Math.abs(read - planned) > Math.max(100, planned * 0.02)) actions.push('<button type="button" class="btn btn-sm" data-slip-salary="' + pid + '">Set “' + escapeAttr(row.what || "salary") + '” to ' + fmtCurrency2.format(p.gross) + ' ' + freq.toLowerCase() + '</button>');
+  }
+  return out + (actions.length ? '<div class="slip-actions">' + actions.join("") + '</div>' : '') + '</div>';
+}
 export function withholdingCheckHtml(person){
   var st = personTaxSettings(person);
   var y = st.ytd || {};
@@ -597,7 +631,7 @@ export function withholdingCheckHtml(person){
       '<div class="proj-field"><label>Payslip date</label><input type="date" class="tax-ytd-asof" aria-label="Payslip period end for ' + pid + '" value="' + escapeAttr(y.asOf || "") + '"></div>' +
       '<div class="proj-field"><label title="Year-to-date gross on the payslip, before tax — not counting super">Gross so far $</label><input type="number" min="0" step="100" class="tax-ytd-gross" aria-label="Year-to-date gross for ' + pid + '" value="' + (y.gross || "") + '"></div>' +
       '<div class="proj-field"><label>Tax withheld so far $</label><input type="number" min="0" step="100" class="tax-ytd-withheld" aria-label="Year-to-date tax withheld for ' + pid + '" value="' + (y.withheld || "") + '"></div>' +
-    '</div><p class="tax-ytd-out">' + withholdingCheckText(person) + '</p></details>';
+    '</div><p class="tax-ytd-out">' + withholdingCheckText(person) + '</p>' + payslipReadHtml(person) + '</details>';
 }
 export function withholdingCheckText(person){
   var fy = currentTaxFy();

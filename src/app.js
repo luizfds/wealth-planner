@@ -31,7 +31,7 @@ import { setUseBudgetLines, setLineExcluded, RENT_EXPENSE_LINES, rentLineFor, se
 import { renderCards, renderDashboardStats, renderDetail, setProjectionReference, logNetWorthSnapshot } from "./components/dashboard.js";
 import {
   personBreakdownHtml, renderIncomeGroups, patchOpenRowBreakdowns, patchIncomeGroupTotals,
-  patchSyntheticIncomeRows, patchIncomeSuperNotes, renderTaxSuper, withholdingCheckText, flipTaxCard, patchAllTaxPersonOutputs, patchPhiNote,
+  patchSyntheticIncomeRows, patchIncomeSuperNotes, renderTaxSuper, withholdingCheckText, withholdingCheckHtml, payslipRead, salaryRowFor, flipTaxCard, patchAllTaxPersonOutputs, patchPhiNote,
   modernIncomeRowOpen, parseIncomeImportCsv, renderIncomeImportPreview, clearIncomeImportPreview, commitIncomeImport
 } from "./components/income.js";
 import {
@@ -94,6 +94,7 @@ import { addSavingsGoal } from "./calc/savegoals.js";
 import { unbudgetedRecurring, risingLines, catchAllSuggestions } from "./calc/recurring.js";
 import { learnRule, mergeSimilarRules } from "./calc/import-rules.js";
 import { pdfLines } from "./lib/pdftext.js";
+import { parsePayslip, payFrequency } from "./calc/payslip.js";
 import { renderAdvice, adviceUi } from "./components/advice.js";
 import { renderTrim, trimUi, trimScenario } from "./components/trim.js";
 import { proposeBudget, applyBudgetProposals } from "./calc/budgetfromhistory.js";
@@ -3410,6 +3411,53 @@ import {
     if(key === "ytd") renderYearSpending();
     if(key === "irr") renderActualVsPlannedPanel();
     if(key === "trend") renderSpendingTrends();
+  });
+  // ---------------- A payslip, read (v3.116.0) ----------------
+  function redrawPayslipPanel(person){
+    var host = [].find.call(document.querySelectorAll("[data-tax-person]"), function(el){ return el.getAttribute("data-tax-person") === person; });
+    var d = host && host.querySelector(".tax-ytd");
+    if(d){ d.outerHTML = withholdingCheckHtml(person); var again = host.querySelector(".tax-ytd"); if(again) again.open = true; }
+  }
+  function readPayslipLines(person, lines){
+    var r = parsePayslip(lines);
+    payslipRead[person] = r.found.length ? r : { error: "Nothing in that reads like a payslip — no Gross, Tax or Net lines with amounts." };
+    redrawPayslipPanel(person);
+  }
+  document.addEventListener("change", function(e){
+    var person = e.target.getAttribute && e.target.getAttribute("data-slip-file");
+    if(person == null || !e.target.files || !e.target.files[0]) return;
+    var file = e.target.files[0];
+    file.arrayBuffer().then(function(buf){ return pdfLines(new Uint8Array(buf)); }).then(function(lines){
+      readPayslipLines(person, lines.map(function(l){ return l.cells.map(function(c){ return c.s; }).join("   "); }));
+    }).catch(function(){ payslipRead[person] = { error: "That PDF couldn't be read. Paste its text instead." }; redrawPayslipPanel(person); });
+  });
+  document.addEventListener("click", function(e){
+    var read = e.target.closest("[data-slip-read]");
+    if(read){
+      var p0 = read.getAttribute("data-slip-read");
+      var ta = read.closest(".slip-paste").querySelector("textarea");
+      readPayslipLines(p0, String(ta.value || "").split(/\r?\n/));
+      return;
+    }
+    var use = e.target.closest("[data-slip-use]");
+    if(use){
+      var p1 = use.getAttribute("data-slip-use"), r1 = payslipRead[p1];
+      if(!r1 || r1.error) return;
+      var st1 = personTaxSettings(p1);
+      st1.ytd = { asOf: r1.periodEnd, gross: r1.ytd.gross, withheld: r1.ytd.tax };
+      persist(); redrawPayslipPanel(p1);
+      showToast("Year-to-date figures set from the payslip");
+      return;
+    }
+    var sal = e.target.closest("[data-slip-salary]");
+    if(sal){
+      var p2 = sal.getAttribute("data-slip-salary"), r2 = payslipRead[p2], row = salaryRowFor(p2), freq = payFrequency(r2 || {});
+      if(!r2 || !row || !freq) return;
+      var was = { amount: row.amount, freq: row.freq };
+      row.amount = r2.gross; row.freq = freq;
+      persist(); renderAll();
+      showUndoToast("Salary set from the payslip", function(){ row.amount = was.amount; row.freq = was.freq; persist(); renderAll(); });
+    }
   });
   // ---------------- Settings → Import rules (v3.60.0) ----------------
   function renderRules(){

@@ -2735,8 +2735,18 @@ a household with no budget: 35 lines (12 steady, 18 categories, 5 merchants) cov
 the 46 it built by hand; 3 small one-offs left out.
 
 
-## 149. `[~]` Payslip import
+## 149. `[x]` Payslip import
 A payslip PDF → gross, tax withheld, super, sacrifice and YTD, into income lines and the withholding check.
+
+Shipped as v3.116.0: `calc/payslip.js` `parsePayslip(lines)` — each line matched by the label that comes first on
+it (Gross, Tax/PAYG, Net, Super, Salary sacrifice); of its amounts the first is this pay and the last, when there
+are two or more, year to date; period and pay dates read from the text after their own labels (several on one
+line); anything not found stays null. `payFrequency` from the period's length. Tax → This year → each person's
+"Refund or bill?" panel: Read a payslip (PDF, through the same `pdfLines` as statements) or paste its text; shows
+what was read; "Use the year-to-date figures" fills the withholding check; when this pay differs from the plan's
+salary row by more than 2%, "Set <row> to $X <frequency>" (undoable). Driven with an invented payslip pasted as
+text. The PDF path is the statement import's, not separately exercised with a real payslip PDF.
+
 
 ## 150. `[~]` A transaction grid
 Keyboard-first entry and multi-select editing in a table layout on wide screens; cards stay on phones.

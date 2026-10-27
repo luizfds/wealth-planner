@@ -1161,6 +1161,12 @@
   .bh-name small, .bh-amt small{ display:block; font-weight:400; font-size:12px; color: var(--ink-soft); }
   .bh-amt{ text-align:right; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight:600; }
   .bh-actions{ display:flex; gap:12px; align-items:center; margin-top:10px; }
+  .slip-read{ margin-top:10px; display:flex; flex-direction:column; gap:8px; }
+  .slip-pick{ align-self:flex-start; cursor:pointer; }
+  .slip-paste textarea{ width:100%; margin:6px 0; font-family: var(--font-num); font-size:12px; }
+  .slip-out{ margin:0; font-size:12.5px; color: var(--ink); display:flex; flex-wrap:wrap; gap:4px 12px; }
+  .slip-out b{ flex-basis:100%; }
+  .slip-actions{ display:flex; gap:8px; flex-wrap:wrap; }
   .list-all-btn{ margin:8px 0 4px; }
   .rl-tools{ display:flex; gap:10px; flex-wrap:wrap; align-items:end; margin:4px 0 12px; }
   .rl-find{ flex:1 1 240px; }

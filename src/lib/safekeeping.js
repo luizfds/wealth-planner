@@ -19,7 +19,7 @@ var WEEK = 7;
 
 export function folderBackupSupported(){ return typeof window !== "undefined" && typeof window.showDirectoryPicker === "function" && typeof indexedDB !== "undefined"; }
 
-function idb(mode, fn){
+export function idb(mode, fn){
   return new Promise(function(resolve, reject){
     var req = indexedDB.open(DB, 1);
     req.onupgradeneeded = function(){ req.result.createObjectStore(STORE); };

@@ -2676,10 +2676,23 @@ a property's summary adds the estimate once its value is 90+ days old. Net worth
 (same open decision as item 142). On a real backup (outside the repo) the banner, which had flagged a super fund
 and a car, is gone.
 
-## 145. `[ ]` Share prices with no setup
+## 145. `[x]` Share prices with no setup
 A scheduled GitHub Action writes a daily price file for a fixed broad list (ASX 200, common ETFs, a short
 US list) to the Pages site; the app reads it before falling back to the user's own Sheet. **Never a list
 built from anyone's holdings** — the repo is public.
+
+Shipped as v3.132.0 and v3.133.0. Once a day on open (`components/autoprices.js`, `calc/autoprices.js`, on by
+default, each source can be turned off on Investments → Shares → Prices): ASX and US holdings from the app's own
+`prices/latest.json` (weekly closes from `prices/weekly.json` fill in history before the first recorded value),
+crypto from CoinGecko (only the coins' ids are sent; common tickers mapped, or the CoinGecko id as the symbol) and
+USD → AUD from Frankfurter (ECB rates; only the pair is sent). The person's own Google Sheet, when set, is read
+afterwards and wins; it's now "for anything the above doesn't cover". The file is written each weekday at 22:31 UTC
+by `.github/workflows/prices.yml` running `scripts/prices/fetch.mjs` over `prices/universe.json` (315 ASX shares and
+ETFs, 90 US): Stooq weekly CSV for US, Twelve Data weekly series for ASX (needs the `TWELVE_DATA_KEY` secret; free
+plan, paced at 8 a minute), five years kept, a failed ticker keeping its last price for up to ten days. The push
+checks ignore `prices/**`. Not verified against the live services from the build environment (they're unreachable
+there); the parsers are tested on their documented formats and the whole run on mocked answers.
+
 
 ## 146. `[x]` A budget from history
 After 3+ months imported, propose budget lines (amount, frequency, Needs/Wants, account) from what was
@@ -2964,9 +2977,22 @@ super above the $2m transfer balance cap is flagged. Checked on the demo and a r
 
 ### Phase F — platform
 
-## 163. `[ ]` Optional encrypted sync to your own drive
+## 163. `[~]` Optional encrypted sync to your own drive
 Client-side-encrypted state to the user's own cloud drive, building on item 106's folder backups, so a
 cleared browser is no longer data loss. Off by default; nothing readable leaves the device.
+
+First way shipped as v3.134.0 — sync through a synced folder (`calc/syncfile.js`, `lib/foldersync.js`, Settings →
+Preferences → Keep your computers in sync): one `wealth-planner-sync.json` in the backup folder, always AES-GCM
+encrypted with a key from the passphrase (PBKDF2, the file's own salt, so the same passphrase opens it on every
+computer; the key is kept per device in IndexedDB as a non-extractable CryptoKey, the passphrase nowhere). Only the
+revision, time and device are readable. Rewritten 8 seconds after a change and when the tab is hidden; read on
+opening, before the day's price check. One copy is the truth: same revision and no change here → nothing; a newer
+file and no change here → loaded; a change here → written as the next revision; both changed (or a computer that has
+never synced meeting a file) → the person chooses which to keep. "Changed" is the content, not every save (a hash
+leaving out save stamps and price-check bookkeeping), so opening the app doesn't count. With sync on, the
+unencrypted weekly folder backup stops. Checked by two headless browsers passing the file between them: encrypted
+at rest, loaded on the other, a change there carried back, a wrong passphrase refused. Computers only (Chrome, Edge).
+**Still to decide:** Dropbox (option 2) for phones and real cloud sync — waiting on the app key.
 
 ## 164. `[x]` Screenshot comparison in CI
 `scripts/smoke.mjs` saves each page and subtab; a PR shows what changed visually.
@@ -2990,6 +3016,23 @@ redirects), app.js is ~5,800 lines, the new calc modules are listed, and the scr
 "a new view goes in the smoke script's VIEWS". PROJECT_KNOWLEDGE.md gains a section on what items 135–165 leave for
 the next person: the report frame contract, projection paths and life events, detail pages and `goToPlace()`, the
 Net worth group, the Can we buy? container that never existed, the Age Pension rates' date, and the local-only tags.
+
+## 166. `[x]` Net worth on what's been logged since
+The headline net worth reads each account's balance rolled forward by the transactions logged since it
+was recorded (item 142's `rolledBalance`), and shows "about $X including estimates" (item 144's super and
+property estimates) as a second line rather than folding guesses into the headline.
+
+Shipped as v3.135.0. `loggedSinceRecorded()` (calc/accounts.js) is, for every account, what's been logged
+against it since its balance was recorded — spending, money received, transfers, with a line's default account
+counting (the app registers `transactionAccount`) — signed as it moves net worth, by the record it belongs to.
+`totalNetWorthValue()` adds it, so the header, Home and the Net worth overview (whose rows carry it too) all read
+the rolled-forward figure, and the projection starts from it. Nothing is written back: the records keep the recorded
+balance. `estimatesUplift()` (calc/estimates.js) gives super a month or more past its figure and a property 90 days
+or more past its value; the Net worth overview shows "about $X with estimates for …" under the headline, never in
+it. On the demo the headline moved by a couple of dollars (its balances are recorded today); on a real backup
+(outside the repo) the header, the Home tile and the overview agree, the groups add up to it, and the estimates
+line appears.
+
 
 ## Conventions for whoever picks this up
 

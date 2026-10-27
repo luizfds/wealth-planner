@@ -1380,3 +1380,16 @@ test("net worth page: groups with their totals, each row to its detail page", ()
     assert.match(netWorthPageHtml(), /Nothing here yet/);
   } finally { state.assets = keep.a; state.properties = keep.p; state.debts = keep.d; }
 });
+
+import { autoPricesCardHtml, autoPricesResultText } from "../src/components/autoprices.js";
+test("the automatic prices card, before and after a read", () => {
+  const keep = state.autoPrices;
+  try {
+    state.autoPrices = { on: true, crypto: true, fx: true, lastRead: "", lastResult: null };
+    assert.match(autoPricesCardHtml(), /data-ap="crypto"/); assert.match(autoPricesCardHtml(), /Not read yet/);
+    state.autoPrices.lastResult = { ok: true, at: "2026-10-27T00:00:00Z", updated: 3, fx: true, missing: ["ZZZ"], problems: [], fileDate: "2026-10-24" };
+    assert.match(autoPricesResultText(state.autoPrices.lastResult), /3 prices updated \(closes of 2026-10-24\) · USD → AUD refreshed · not in the price file: ZZZ/);
+    state.autoPrices.on = false;
+    assert.doesNotMatch(autoPricesCardHtml(), /data-ap="crypto"/);
+  } finally { state.autoPrices = keep; }
+});

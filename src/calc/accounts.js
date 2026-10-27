@@ -146,6 +146,31 @@ export function rolledBalance(account, opts){
   return out;
 }
 
+// ---- Net worth on what's been logged since (v3.135.0, item 166) ----
+// Each account's balance moves with everything logged against it since its balance was recorded
+// (rolledBalance). The records net worth reads still hold the recorded figure, so this is the
+// difference, by record ("asset:<id>", "debt:<id>", "offset:<loanId>"), signed as it moves net
+// worth: spending on a card adds to what's owed, so it takes net worth down. calc/ can't import a
+// component, so the app registers how a transaction names its account (a line's default account
+// counts) — unset, t.account.
+var accountOfProvider = null;
+export function setAccountOfProvider(fn){ accountOfProvider = fn; }
+export function loggedSinceRecorded(today){
+  var s = state;
+  var byRecord = {}, total = 0;
+  (s.accounts || []).forEach(function(a){
+    var r = rolledBalance(a, { today: today, accountOf: accountOfProvider || undefined });
+    if(!r.count || !r.moved) return;
+    var src = resolveLink(a.link, s);
+    if(!src || !src.record || !src.record.id) return;
+    var delta = isOwedType(a.type) ? -r.moved : r.moved;
+    var key = src.kind + ":" + src.record.id;
+    byRecord[key] = Math.round(((byRecord[key] || 0) + delta) * 100) / 100;
+    total += delta;
+  });
+  return { byRecord: byRecord, total: Math.round(total * 100) / 100 };
+}
+
 // Records a balance on the account's source, creating one first if it has none: a Cash asset for an
 // everyday or savings account, a debt for a card or a loan. An offset needs a loan to sit against,
 // so it can't be created here — returns false and the caller says so.

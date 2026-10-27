@@ -1261,6 +1261,7 @@
   .nw-head span{ font-size:11.5px; font-weight:650; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
   .nw-head b{ font-family: var(--font-num); font-size:24px; }
   .nw-head div:first-child b{ font-size:30px; }
+  .nw-est{ font-size:12.5px; color: var(--ink-soft); max-width:340px; }
   .nw-bar{ display:flex; height:10px; border-radius:6px; overflow:hidden; margin:0 0 18px; background: var(--paper-sunken); }
   .nw-bar span{ display:block; height:100%; background: var(--series-color); }
   .nw-group{ margin:0 0 16px; border:1px solid var(--border); border-radius:12px; background: var(--paper-raised); overflow:hidden; }

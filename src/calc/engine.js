@@ -13,6 +13,7 @@ import { fmtCurrency0, localDateStr, fmtDate } from "../lib/format.js";
 import { dueAfterDays } from "./estimates.js";
 import { projectionRatios } from "./actuals.js";
 import { eventEffects } from "./lifeevents.js";
+import { loggedSinceRecorded } from "./accounts.js";
 
 // Every non-Shares asset, and every Shares holding on the ASX, is already AUD — the only
 // currency this app ever mixes in is USD (US-market and Crypto holdings, see MARKET_CURRENCY).
@@ -48,8 +49,9 @@ export function totalDebtsValue(){
   return state.debts.reduce(function(s, d){ return s + (Number(d.balance) || 0); }, 0);
 }
 
+// v3.135.0 (item 166): with what's been logged against each account since its balance was recorded.
 export function totalNetWorthValue(){
-  return totalAssetsValue() + propertiesTotalEquityToday() - totalDebtsValue();
+  return totalAssetsValue() + propertiesTotalEquityToday() - totalDebtsValue() + loggedSinceRecorded().total;
 }
 
 // Cash + Shares (readily spendable) plus any property offset balances — the same definition
@@ -153,7 +155,7 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
   // Debts have no growth/repayment schedule of their own (see totalDebtsValue()) — folded into
   // the starting portfolio balance as a flat reduction, same treatment as any other liquid
   // asset/liability that isn't a property loan or the purchase/invest leg's own math.
-  var nonPropertyAssets = totalAssetsValue() - totalDebtsValue();
+  var nonPropertyAssets = totalAssetsValue() - totalDebtsValue() + loggedSinceRecorded().total;
 
   var price = purchaseEnabled ? Math.max(0, Number(cfg.price) || 0) : 0;
   var depositAmt = purchaseEnabled ? price * (Math.max(0, Math.min(100, Number(cfg.depositPct) || 0)) / 100) : 0;

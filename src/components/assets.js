@@ -24,6 +24,7 @@ import { renderDashboardStats } from "./dashboard.js";
 import { parseCsv } from "../lib/backup.js";
 import { applyPrices } from "../calc/pricesheet.js";
 import { priceSheetCardHtml, priceSheetUi } from "./pricesheet.js";
+import { autoPricesCardHtml } from "./autoprices.js";
 import { tradesCardHtml } from "./brokertrades.js";
 
 // Every other figure in this app is implicitly AUD; a Shares holding's price/value is only
@@ -928,9 +929,13 @@ export function renderSharesSubpage(){
       '<label class="fx-warn-field">1 USD = <input type="number" inputmode="decimal" step="0.0001" min="0" placeholder="1.52" data-fx-usdaud aria-label="Australian dollars per US dollar"> AUD</label></div>'
     : '';
   // v3.75.0: prices from a shared Google Sheet, read on open; the paste box stays as the manual way.
+  // v3.132.0: automatic prices come first; the Sheet is for whatever they don't cover.
+  var ap = state.autoPrices || {}, apr = ap.lastResult;
+  var apSettled = ap.on !== false && apr && apr.ok && !(apr.missing && apr.missing.length);
   var pasteTool = allData.items.length
-    ? '<details class="tax-advanced" style="margin:0 0 14px"' + (state.priceSheet && state.priceSheet.url && !priceSheetUi.open ? '' : ' open') + ' data-ps-panel><summary>Prices from Google Sheets</summary>' +
-        priceSheetCardHtml() + fxNote +
+    ? '<details class="tax-advanced" style="margin:0 0 14px"' + (apSettled && !priceSheetUi.open ? '' : ' open') + ' data-ps-panel><summary>Prices</summary>' +
+        autoPricesCardHtml() + fxNote +
+        '<details class="ps-manual"' + (state.priceSheet && state.priceSheet.url ? ' open' : '') + '><summary>Your own Google Sheet — for anything the above doesn\'t cover</summary>' + priceSheetCardHtml() + '</details>' +
         '<details class="ps-manual"><summary>Or paste prices by hand</summary>' +
         '<p class="ledger-note" style="margin:8px 0">Copy the Symbol and Price columns from any sheet and paste the two-column range below. Matches holdings by ticker; a USDAUD row updates the exchange rate.</p>' +
         '<div style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap">' +

@@ -23,17 +23,17 @@ function isoDateStamp(){
 // app — this only protects the exported *file* if it ends up somewhere less trusted
 // than this browser (cloud sync, email, a shared drive). Forgetting the passphrase
 // means the backup is unrecoverable; there's no reset path by design.
-function bufToBase64(buf){
+export function bufToBase64(buf){
   var bytes = new Uint8Array(buf), binary = "";
   for(var i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
   return btoa(binary);
 }
-function base64ToBuf(b64){
+export function base64ToBuf(b64){
   var binary = atob(b64), bytes = new Uint8Array(binary.length);
   for(var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return bytes.buffer;
 }
-function deriveBackupKey(passphrase, saltBytes){
+export function deriveBackupKey(passphrase, saltBytes){
   var enc = new TextEncoder();
   return crypto.subtle.importKey("raw", enc.encode(passphrase), {name: "PBKDF2"}, false, ["deriveKey"])
     .then(function(keyMaterial){

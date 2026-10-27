@@ -188,6 +188,8 @@ export function defaultState(){
     // v3.78.0: trips as date ranges (calc/trips.js).
     trips: [],
     priceSheet: { url: "", lastRead: "", lastResult: null, backfillFrom: "" },
+    // v3.132.0: prices with no setup (calc/autoprices.js).
+    autoPrices: { on: true, crypto: true, fx: true, lastRead: "", lastResult: null },
     // Last time Export or Share produced a full backup — not touched by CSV/template exports
     // (those are partial, one-section-at-a-time, not a way to recover from data loss) or Import.
     // "" until the first one. Powers the backup-reminder notification (lib/notifications.js) —
@@ -459,6 +461,10 @@ export function migrateState(s){
   if(!s.priceSheet || typeof s.priceSheet !== "object") s.priceSheet = {};
   ["url", "lastRead", "backfillFrom"].forEach(function(k){ if(typeof s.priceSheet[k] !== "string") s.priceSheet[k] = ""; });
   if(s.priceSheet.lastResult === undefined) s.priceSheet.lastResult = null;
+  if(!s.autoPrices || typeof s.autoPrices !== "object") s.autoPrices = {};
+  ["on", "crypto", "fx"].forEach(function(k){ if(typeof s.autoPrices[k] !== "boolean") s.autoPrices[k] = true; });
+  if(typeof s.autoPrices.lastRead !== "string") s.autoPrices.lastRead = "";
+  if(s.autoPrices.lastResult === undefined) s.autoPrices.lastResult = null;
   s.savingsGoals = s.savingsGoals.filter(function(g){ return g && typeof g === "object"; });
   s.savingsGoals.forEach(function(g){ if(!g.id) g.id = genId("sg"); if(!Array.isArray(g.accounts)) g.accounts = []; g.target = Math.max(0, Number(g.target) || 0); });
   if(!Array.isArray(s.incomeLog)) s.incomeLog = [];
@@ -703,6 +709,9 @@ export function deviceId(){
     return id;
   }catch(e){ return "unknown"; }
 }
+// v3.134.0: told after each save reaches storage (folder sync marks itself as having changes).
+var afterSave = [];
+export function onSaved(fn){ afterSave.push(fn); }
 export function persist(){
   if(!storageAvailable){
     setStatus(false, "Not saved — storage unavailable");
@@ -717,6 +726,7 @@ export function persist(){
       state.savedBy = deviceId();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       setStatus(true, "Saved " + new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}));
+      afterSave.forEach(function(fn){ try { fn(); } catch(err){} });
     }catch(e){
       storageAvailable = false;
       setStatus(false, "Not saved — storage unavailable");

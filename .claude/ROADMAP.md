@@ -2628,7 +2628,6 @@ Newest first / A–Z (rules don't record when they were last used — newest sta
 Measured on a real backup (outside the repo): Spending 6,724 → 5,112px at 1280 and 10,134 → 7,158px at 390;
 Import rules 9,646 → 2,804px and 29,165 → 7,636px. The transaction list keeps its 25 most recent.
 
-
 ### Phase B — type less
 
 ## 142. `[x]` Balances from statements
@@ -2761,7 +2760,6 @@ the line when only a line is picked) and returns focus to itself; select mode ad
 existing bulk bar. First-run's last step leads with "Finish and import statements". Driven on the demo: an edit
 saves, Enter moves down, a new row is added, the table fits, phone width falls back to the list.
 
-
 ### Phase C — one thing, one place
 
 ## 151. `[x]` A detail page for every thing
@@ -2803,7 +2801,6 @@ tax estimate runs on) moved from Settings to Tax → People; Checks moved to Hom
 Every old name still lands: `showAccountsSubpage("people"|"checks")`, `/settings/people`, `/settings/checks`. The
 smoke check covers the new pages and tabs and every report. Checked at 390 and 1280px on the demo and a real backup
 (outside the repo).
-
 
 ### Phase D — reports
 
@@ -2916,7 +2913,6 @@ period, the date printed and the app version — repeats the table header on eve
 whole, prints the heat map's shading, and shrinks wide month-by-month tables to fit. Checked by pinning, reloading,
 opening, unpinning and printing to PDF in a headless browser.
 
-
 ### Phase E — planning depth
 
 ## 160. `[x]` A range of outcomes
@@ -2966,7 +2962,6 @@ matter (stopping, preservation, 67, then every five years) shows the pot, the su
 income; a sentence says whether spending lasts to 95, when the pension starts and what share of spending it carries;
 super above the $2m transfer balance cap is flagged. Checked on the demo and a real backup (outside the repo).
 
-
 ### Phase F — platform
 
 ## 163. `[ ]` Optional encrypted sync to your own drive
@@ -2986,8 +2981,15 @@ gone) and an `index.html` with base, PR and the difference marked in red side by
 job summary and the pictures uploaded as the "screens" artifact. Informational — it never fails the check.
 
 
-## 165. `[~]` CLAUDE.md and PROJECT_KNOWLEDGE.md brought up to date
+## 165. `[x]` CLAUDE.md and PROJECT_KNOWLEDGE.md brought up to date
 `app.js` is 5,801 lines, not ~3,400; the page list and IA change with item 152.
+
+Done alongside v3.131.0 (docs only, no version of its own): CLAUDE.md's page map is the one after item 152 (Net
+worth over four pages, Plan → Goals, Tax → People, Checks in Home → Review, the Details page and the moved-settings
+redirects), app.js is ~5,800 lines, the new calc modules are listed, and the screenshot job is described along with
+"a new view goes in the smoke script's VIEWS". PROJECT_KNOWLEDGE.md gains a section on what items 135–165 leave for
+the next person: the report frame contract, projection paths and life events, detail pages and `goToPlace()`, the
+Net worth group, the Can we buy? container that never existed, the Age Pension rates' date, and the local-only tags.
 
 ## Conventions for whoever picks this up
 

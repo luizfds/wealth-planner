@@ -1159,7 +1159,8 @@ const browser = await chromium.launch({
   assets and debts ids. A card's `limit` never counts; the `debt-limit` Check catches a limit
   typed in as a debt.
 - **Navigation by job.** See CLAUDE.md for the page map. `showAccountsSubpage()` serves Settings
-  tabs too (the name stayed because callers ask for "accounts → checks").
+  tabs too (the name stayed because callers ask for "accounts → checks"); since v3.129.0 it sends
+  "people" to Tax → People and "checks" to Home → Review.
 - **Cash flow.** `calc/cashflowlist.js` joins transactions, incomeLog and `state.transfers` for the
   Spending list (filters, In/Out/Net). Transfers can move both linked balances. Splits are N
   ordinary transactions with a shared `splitGroup`. Bills: `calc/bills.js` projects each regular
@@ -1287,3 +1288,31 @@ pushed to `origin`. Do this without being asked, every time.
 - New persisted shapes: `tax.settings[p].ytd`, `projection.source`, `monthReviews`,
   `loan.rateHistory`, `rule.incomeTarget`.
 - The month review's "Log" dates the receipt into the month under review, not today.
+
+### The October 2026 roadmap (v3.113.0–v3.131.0, items 135–165)
+
+- **One report frame.** Every report reads `reportOpts()` (components/reports.js): `win` from
+  `rangeWindow(range)`, an optional `cmpWin` / `compareTotals`, and `groupOf(t)` for the chosen
+  grouping. A new report declares `frame: { range, compare, group }` for the controls it honours and
+  is added to `REPORTS` (with its `group` for the picker) and `buildReport`. Reports may lead with
+  `narrative` sentences, shade cells with `heat`, and draw `chart` through `lib/reportcharts.js`
+  (bars, columns — one or two series, negatives clamp to 0 — and sankey). Pinned reports are
+  `state.savedReports` ({ key, frame }).
+- **Projection paths.** `computeNetWorthSeries` takes `investReturns[year]` / `propertyReturns[year]`
+  and a `cache` (per-year income and costs, the slow part) — `calc/outcomes.js` runs it 300 times
+  from a fixed seed. Life events (`state.lifeEvents`) apply in every run and every scenario, in
+  today's dollars. `simulateRetirementAt` takes a real-return path and `toAge`; `retirementOdds`
+  judges a run by lasting to 95, not by the 4% rule.
+- **Detail pages.** `detailView(kind, id)` returns `{ title, kicker, html, history, edit }`; `edit.to`
+  goes through app.js `goToPlace()` (the same path search results use). Lists link with
+  `detailLinkHtml()` — never inside another `<button>` (the parser splits them), so the Accounts card
+  has a separate Details button. Every asset now has an id (migrated) so each has a page.
+- **Net worth group.** `NETWORTH_GROUP` in nav.js keeps the menu entry lit on Accounts / Investments /
+  Property; their shared `.nw-rail` is plain markup in each section. The overview's total must equal
+  `totalNetWorthValue()` (offsets as cash, unclamped; paid-out loans owe nothing).
+- **Can we buy?** had no container in index.html from v3.88.0 until v3.129.0 — `renderCanBuy()` ran
+  and found nothing. When a component renders into an id, grep index.html for the id.
+- **Age Pension rates** (`calc/agepension.js`) are from 20 September 2025, thresholds 1 July 2025,
+  held flat in today's dollars; update them together and say the date on screen.
+- **Tags:** pushes of tags from these sessions were refused (403); tags from v3.75.2 on exist only in
+  the session that made them.

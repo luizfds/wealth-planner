@@ -44,3 +44,25 @@ test("spending grouped any way, compared, charted, drillable", () => {
     assert.match(reportChartHtml(cf.chart), /Money in/);
   } finally { state.transactions = keep; }
 });
+
+// v3.119.0: income statement and where the money goes.
+import { incomeStatementReport, moneyFlowReport } from "../src/calc/reports.js";
+test("the income statement: money in by kind, spending by Needs/Wants, kept and the savings rate, with the plan", () => {
+  const keep = { transactions: state.transactions, incomeLog: state.incomeLog };
+  try {
+    state.incomeLog = [{ date: "2026-08-15", amount: 5000, target: "net:Alex" }, { date: "2026-08-08", amount: 2000, target: "rent:p1" }];
+    state.transactions = [{ date: "2026-08-03", amount: 3000, cls: "Needs" }, { date: "2026-08-20", amount: 1000, cls: "Wants" }];
+    const win = { start: "2026-08-01", end: "2026-08-31", label: "Aug" };
+    const r = incomeStatementReport({ win, today: "2026-09-01", classOf: t => t.cls, budgetLines: [{ amount: 1500, freq: "Monthly", classification: "Needs" }] });
+    const v = k => r.rows.find(x => x.cells.line === k).cells.total;
+    assert.deepEqual([v("Pay received"), v("Rent"), v("Total in"), v("Needs"), v("Wants"), v("Kept"), v("Savings rate")], [5000, 2000, 7000, 3000, 1000, 3000, 42.9]);
+    assert.equal(r.rows.find(x => x.cells.line === "Needs").cells.plan, 1500);
+    const f = moneyFlowReport({ win, today: "2026-09-01", classOf: t => t.cls });
+    const node = id => f.chart.nodes.find(n => n.id === id);
+    assert.equal(node("take").value, 5000, "take-home is the pay actually received");
+    assert.equal(node("kept").value, 3000);
+    const into = id => f.chart.links.filter(l => l.to === id).reduce((s, l) => s + l.value, 0);
+    assert.ok(Math.abs(into("Needs") - 3000) < 0.01 && Math.abs(into("kept") - 3000) < 0.01, "what comes in is what goes out");
+    assert.match(reportChartHtml(f.chart), /class="sk-band/);
+  } finally { Object.assign(state, keep); }
+});

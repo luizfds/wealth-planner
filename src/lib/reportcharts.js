@@ -12,7 +12,9 @@ function compact(v){
   return (v < 0 ? "−" : "") + fmtCurrency0.format(a);
 }
 export function reportChartHtml(chart){
-  if(!chart || !chart.items || !chart.items.length) return "";
+  if(!chart) return "";
+  if(chart.type === "sankey") return sankeyHtml(chart);
+  if(!chart.items || !chart.items.length) return "";
   if(chart.type === "bars"){
     var items = chart.items.filter(function(x){ return x.value > 0 || (x.compare || 0) > 0; });
     if(!items.length) return "";
@@ -44,5 +46,41 @@ export function reportChartHtml(chart){
       '<text x="' + pad + '" y="10" class="rc-label">' + compact(mx) + '</text></svg>' +
       '<figcaption><span class="rc-key-a"></span>' + escapeAttr(chart.series[0]) + ' <span class="rc-key-b"></span>' + escapeAttr(chart.series[1]) + '</figcaption></figure>';
   }
+  if(chart.type === "sankey") return sankeyHtml(chart);
   return "";
+}
+
+// v3.119.0: three columns of nodes, each sized by its value, joined by bands sized by what flows.
+function sankeyHtml(chart){
+  var nodes = chart.nodes || [], links = chart.links || [];
+  if(!nodes.length || !links.length) return "";
+  var W = 640, H = 300, nodeW = 12, gap = 10, top = 8;
+  var cols = [0, 1, 2].map(function(c){ return nodes.filter(function(n){ return n.col === c; }); });
+  var colTotals = cols.map(function(c){ return c.reduce(function(s, n){ return s + n.value; }, 0); });
+  var maxTotal = Math.max.apply(null, colTotals.concat([1]));
+  var maxN = Math.max.apply(null, cols.map(function(c){ return c.length; }));
+  var k = (H - top * 2 - gap * (maxN - 1)) / maxTotal;
+  var xs = [150, 330, 500];
+  var pos = {};
+  cols.forEach(function(c, ci){
+    var y = top;
+    c.forEach(function(n){ var h = Math.max(1, n.value * k); pos[n.id] = { x: xs[ci], y: y, h: h, outY: y, inY: y, n: n }; y += h + gap; });
+  });
+  var bands = links.map(function(l){
+    var a = pos[l.from], b = pos[l.to];
+    if(!a || !b) return "";
+    var h = Math.max(0.5, l.value * k);
+    var y0 = a.outY + h / 2, y1 = b.inY + h / 2;
+    a.outY += h; b.inY += h;
+    var x0 = a.x + nodeW, x1 = b.x, mx = (x0 + x1) / 2;
+    return '<path d="M' + x0 + ',' + y0.toFixed(1) + ' C' + mx + ',' + y0.toFixed(1) + ' ' + mx + ',' + y1.toFixed(1) + ' ' + x1 + ',' + y1.toFixed(1) + '" class="sk-band sk-' + escapeAttr(l.to) + '" stroke-width="' + h.toFixed(1) + '"><title>' +
+      escapeAttr(a.n.label + " → " + b.n.label + ": " + fmtCurrency0.format(l.value)) + '</title></path>';
+  }).join("");
+  var rects = Object.keys(pos).map(function(id){
+    var p = pos[id], left = p.n.col === 0;
+    return '<rect x="' + p.x + '" y="' + p.y.toFixed(1) + '" width="' + nodeW + '" height="' + p.h.toFixed(1) + '" class="sk-node sk-' + escapeAttr(id) + '"/>' +
+      '<text x="' + (left ? p.x - 6 : p.x + nodeW + 6) + '" y="' + (p.y + p.h / 2 - 2).toFixed(1) + '" text-anchor="' + (left ? "end" : "start") + '" class="rc-val">' + escapeAttr(p.n.label) + '</text>' +
+      '<text x="' + (left ? p.x - 6 : p.x + nodeW + 6) + '" y="' + (p.y + p.h / 2 + 11).toFixed(1) + '" text-anchor="' + (left ? "end" : "start") + '" class="rc-label">' + compact(p.n.value) + '</text>';
+  }).join("");
+  return '<figure class="rc"><svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Where the money goes">' + bands + rects + '</svg></figure>';
 }

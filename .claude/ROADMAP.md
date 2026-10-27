@@ -2796,9 +2796,19 @@ Month in detail and Year-end pack keep their own periods. Driven on a real backu
 across two financial years, every grouping, budget and year-earlier comparisons, drill-down, no errors.
 
 
-## 154. `[~]` Cash flow Sankey and household income statement
+## 154. `[x]` Cash flow Sankey and household income statement
 Gross pay → tax / super / take-home → Needs / Wants / saved / invested, for a month or a year; and the
 year month by month with a budget column and savings rate.
+
+Shipped as v3.119.0: two reports on the frame. Income statement (`incomeStatementReport`) — pay received, rent and
+other money in (by the income log's target), spending by its line's Needs / Wants / other, total in and out, kept
+and the savings rate, month by month with a Total and a Plan column (expected income + the budget for the same
+months), in/out columns chart. Where the money goes (`moneyFlowReport`) — a Sankey (`lib/reportcharts.js`
+`sankeyHtml`, inline SVG): pay with the employer's super into tax, super and take-home (tax and super from the plan,
+scaled to the pay actually logged as received), then take-home, other money in and anything drawn from savings into
+Needs, Wants, other spending and kept, each source shared across the uses in proportion. Checked on the demo and a
+real backup (outside the repo) for the last 12 months: both draw, no NaN, no errors.
+
 
 ## 155. `[~]` Budget vs actual and spending trends
 Lines × months variance heat map; 12/24-month trends with year-on-year per category and merchant.

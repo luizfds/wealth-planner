@@ -7,6 +7,8 @@ import { localDateStr, fmtDate } from "../lib/format.js";
 import { netWorthOn, shiftDate } from "./nwhistory.js";
 import { netWorthChecks } from "./nwcheck.js";
 import { monthsIn, spendingByGroup, change } from "./reportframe.js";
+import { incomeTargets } from "./received.js";
+import { periodsOf } from "./ledger.js";
 
 // ---------------- Reports (v3.62.0) ----------------
 //
@@ -24,6 +26,8 @@ function ymLabel(ym){ return MONTHS[Number(ym.slice(5, 7)) - 1] + " " + ym.slice
 export var REPORTS = [
   { key: "cashflow", label: "Monthly cash flow" },
   { key: "categories", label: "Spending" },
+  { key: "income", label: "Income statement" },
+  { key: "flow", label: "Where the money goes" },
   { key: "networth", label: "Net worth statement" },
   { key: "property", label: "Property P&L" },
   { key: "tax", label: "Tax summary" },
@@ -197,7 +201,101 @@ export function netWorthCheckReport(opts){
     rows: rows, wide: true,
     note: "Kept is money in less money out. Investments, super, property and other assets are their recorded values moving; loan interest is worked out from what was owed less the offset. Expected is the sum; actual is how much net worth moved, counting only balances recorded at both ends of the month. A large gap usually means something wasn't logged, money moved to an account the app doesn't hold, or a balance was recorded late. Open a month for the detail." };
 }
+// ---------------- Income statement and where the money goes (v3.119.0) ----------------
+// Money in by kind (pay, rent, other), spending by Needs / Wants / other, what was kept and the
+// savings rate — month by month over the frame's window, with the plan for the same months beside
+// it. opts.classOf(t) gives a transaction's Needs/Wants/Other; opts.budgetLines the plan's lines.
+function inKind(target){ var k = String(target || "").split(":")[0]; return k === "net" || k === "oneoff" ? "pay" : k === "rent" ? "rent" : "other"; }
+function classKey(c){ return c === "Needs" || c === "Wants" ? c : "Other"; }
+export function incomeStatementReport(opts){
+  opts = opts || {};
+  var today = opts.today || localDateStr();
+  var win = opts.win || selectedYearWindow(today);
+  var months = monthsOf(win, today);
+  var classOf = opts.classOf || function(){ return "Other"; };
+  var grid = {};
+  months.forEach(function(ym){ grid[ym] = { pay: 0, rent: 0, other: 0, Needs: 0, Wants: 0, Other: 0 }; });
+  (state.incomeLog || []).forEach(function(r){ var g = grid[(r.date || "").slice(0, 7)]; if(g && r.date >= win.start && r.date <= win.end) g[inKind(r.target)] += Number(r.amount) || 0; });
+  (state.transactions || []).forEach(function(t){ var g = grid[(t.date || "").slice(0, 7)]; if(g && t.date >= win.start && t.date <= win.end) g[classKey(classOf(t))] += Number(t.amount) || 0; });
+  // The plan for the same number of months.
+  var plan = { pay: 0, rent: 0, other: 0, Needs: 0, Wants: 0, Other: 0 };
+  try { incomeTargets().forEach(function(t){ plan[inKind(t.key)] += (Number(t.monthly) || 0) * months.length; }); } catch(e){}
+  (opts.budgetLines || []).forEach(function(l){ plan[classKey(l.classification)] += periodsOf(Number(l.amount) || 0, l.freq).monthly * months.length; });
+  var lines = [
+    ["pay", "Pay received"], ["rent", "Rent"], ["other", "Other money in"], ["in", "Total in", "total"],
+    ["Needs", "Needs"], ["Wants", "Wants"], ["Other", "Other spending"], ["out", "Total out", "total"],
+    ["kept", "Kept", "total"], ["rate", "Savings rate", "pct"]
+  ];
+  var calc = function(g){
+    var tin = g.pay + g.rent + g.other, tout = g.Needs + g.Wants + g.Other;
+    return Object.assign({ in: tin, out: tout, kept: tin - tout, rate: tin > 0 ? (tin - tout) / tin : null }, g);
+  };
+  var cols = months.map(function(ym){ return calc(grid[ym]); });
+  var total = calc(months.reduce(function(acc, ym){ Object.keys(acc).forEach(function(k){ acc[k] += grid[ym][k]; }); return acc; }, { pay: 0, rent: 0, other: 0, Needs: 0, Wants: 0, Other: 0 }));
+  var planned = calc(plan);
+  var rows = lines.map(function(l){
+    var cells = { line: l[1] };
+    var val = function(c){ return l[0] === "rate" ? (c.rate == null ? null : Math.round(c.rate * 1000) / 10) : r2(c[l[0]]); };
+    months.forEach(function(ym, i){ cells[ym] = val(cols[i]); });
+    cells.total = val(total); cells.plan = val(planned);
+    return { cls: l[2] === "total" ? "total" : l[2] === "pct" ? "pct" : "", cells: cells };
+  });
+  return { key: "income", frame: { range: true }, title: "Income statement", subtitle: win.label + (today < win.end ? " so far" : ""),
+    columns: [{ key: "line", label: "" }].concat(months.map(function(ym){ return { key: ym, label: ymLabel(ym), num: true }; }))
+      .concat([{ key: "total", label: "Total", num: true }, { key: "plan", label: "Plan", num: true }]),
+    rows: rows, wide: true,
+    chart: { type: "columns", series: ["Money in", "Money out"], items: months.map(function(ym, i){ return { label: ymLabel(ym), a: r2(cols[i].in), b: r2(cols[i].out), ym: ym }; }) },
+    note: "Money in is what's been logged as received; spending is logged transactions, by their budget line's Needs or Wants. Savings rate is kept ÷ money in, in %. Plan is the budget and the expected income for the same number of months." };
+}
+
+// Pay (with the employer's super) into tax, super and take-home; take-home and other money in into
+// Needs, Wants, other spending and what was kept. Tax and super come from the plan for the window's
+// months, scaled to the pay actually received when some has been logged; spending as logged.
+export function moneyFlowReport(opts){
+  opts = opts || {};
+  var today = opts.today || localDateStr();
+  var win = opts.win || selectedYearWindow(today);
+  var scale = monthsOf(win, today).length / 12;
+  var classOf = opts.classOf || function(){ return "Other"; };
+  var gross = 0, sg = 0, sac = 0, tax = 0, planTake = 0;
+  getTaxPeople().forEach(function(p){
+    try { var r = computePersonTax(p); gross += r.gross || 0; sg += r.sg || 0; sac += r.sacrifice || 0; tax += (r.totalTax || 0) + (r.helpRepayment || 0); planTake += r.netTakeHome || 0; } catch(e){}
+  });
+  var recPay = 0, other = 0;
+  (state.incomeLog || []).forEach(function(r){ if(r.date >= win.start && r.date <= win.end){ if(inKind(r.target) === "pay") recPay += Number(r.amount) || 0; else other += Number(r.amount) || 0; } });
+  var takePlan = planTake * scale;
+  var k = recPay > 0 && takePlan > 0 ? recPay / takePlan : 1;
+  var take = recPay > 0 ? recPay : takePlan;
+  var taxV = tax * scale * k, superV = (sg + sac) * scale * k, pay = take + taxV + superV;
+  var spend = { Needs: 0, Wants: 0, Other: 0 };
+  (state.transactions || []).forEach(function(t){ if(t.date >= win.start && t.date <= win.end) spend[classKey(classOf(t))] += Number(t.amount) || 0; });
+  var available = take + other, spent = spend.Needs + spend.Wants + spend.Other;
+  var kept = available - spent, drawn = kept < 0 ? -kept : 0;
+  var nodes = [
+    { id: "pay", label: "Pay, with super", col: 0, value: pay },
+    { id: "tax", label: "Tax", col: 1, value: taxV }, { id: "super", label: "Super", col: 1, value: superV }, { id: "take", label: "Take-home", col: 1, value: take },
+    { id: "other", label: "Other money in", col: 1, value: other }, { id: "drawn", label: "Drawn from savings", col: 1, value: drawn },
+    { id: "Needs", label: "Needs", col: 2, value: spend.Needs }, { id: "Wants", label: "Wants", col: 2, value: spend.Wants },
+    { id: "Other", label: "Other spending", col: 2, value: spend.Other }, { id: "kept", label: "Kept", col: 2, value: Math.max(0, kept) }
+  ].filter(function(n){ return n.value > 0.5; });
+  var links = [{ from: "pay", to: "tax", value: taxV }, { from: "pay", to: "super", value: superV }, { from: "pay", to: "take", value: take }];
+  var uses = ["Needs", "Wants", "Other", "kept"].map(function(id){ return { id: id, value: id === "kept" ? Math.max(0, kept) : spend[id] }; }).filter(function(u){ return u.value > 0.5; });
+  var useTotal = uses.reduce(function(s, u){ return s + u.value; }, 0);
+  [["take", take], ["other", other], ["drawn", drawn]].forEach(function(src){
+    if(!(src[1] > 0.5) || !(useTotal > 0)) return;
+    uses.forEach(function(u){ links.push({ from: src[0], to: u.id, value: src[1] * u.value / useTotal }); });
+  });
+  links = links.filter(function(l){ return l.value > 0.5; });
+  var rows = nodes.map(function(n){ return { cls: n.id === "pay" || n.id === "take" || n.id === "kept" ? "total" : "", cells: { line: n.label, value: r2(n.value) } }; });
+  return { key: "flow", frame: { range: true }, title: "Where the money goes", subtitle: win.label + (today < win.end ? " so far" : ""),
+    chart: { type: "sankey", nodes: nodes, links: links }, columns: [{ key: "line", label: "" }, { key: "value", label: "Amount", num: true }], rows: rows,
+    note: "Tax and super are the plan's for these months" + (recPay > 0 ? ", scaled to the pay actually received" : "") + "; take-home is " + (recPay > 0 ? "what was logged as received" : "the plan's") +
+      "; spending is logged transactions by their line's Needs or Wants. Other money in is rent, distributions, refunds and the rest logged as received." };
+}
+
 export function buildReport(key, opts){
+  if(key === "income") return incomeStatementReport(opts);
+  if(key === "flow") return moneyFlowReport(opts);
   if(key === "nwcheck") return netWorthCheckReport(opts);
   if(key === "categories") return categoryReport(opts);
   if(key === "networth") return netWorthReport(opts);

@@ -48,7 +48,8 @@ export function reportOpts(today){
   var f = reportFrame;
   var win = rangeWindow(f.range, today, { yearWin: selectedYearWindow(today), from: f.from, to: f.to });
   var groupOf = groupFn(f.group);
-  var o = { today: today, win: win, categoryOf: transactionCategory, groupOf: groupOf, groupLabel: (GROUPS.find(function(g){ return g.key === f.group; }) || {}).label };
+  var o = { today: today, win: win, categoryOf: transactionCategory, groupOf: groupOf, groupLabel: (GROUPS.find(function(g){ return g.key === f.group; }) || {}).label,
+    classOf: groupFn("class"), budgetLines: budgetLineItems() };
   if(f.compare === "budget"){
     var b = budgetByGroup(f.group, win, today);
     if(b){ o.compareTotals = b; o.compareLabel = "budget"; }
@@ -89,6 +90,7 @@ function cell(v, num){
   if(!num) return escapeAttr(v);
   return (v < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(v));
 }
+function pctCell(v){ return v == null || v === "" ? "" : (Math.round(v * 10) / 10) + "%"; }
 export function reportTableHtml(rep){
   if(!rep.rows.length) return '<p class="ledger-note" style="margin:0">Nothing to report yet for this one.</p>';
   return '<div class="rp-scroll"><table class="rp-table' + (rep.wide ? " rp-wide" : "") + '"><thead><tr>' + rep.columns.map(function(c){ return '<th' + (c.num ? ' class="num"' : '') + ' scope="col">' + escapeAttr(c.label) + '</th>'; }).join("") + '</tr></thead><tbody>' +
@@ -97,7 +99,7 @@ export function reportTableHtml(rep){
         var v = r.cells[c.key];
         // v3.81.0: a month row opens Month in detail; v3.118.0: a group row opens its transactions.
         var inner = i === 0 && r.ym ? '<button type="button" class="rp-month-link" data-md-open="' + r.ym + '" title="See this month in detail">' + cell(v, c.num) + '</button>'
-          : i === 0 && r.drill ? '<button type="button" class="rp-month-link" data-rf-drill="' + escapeAttr(r.drill) + '" aria-expanded="' + !!reportFrame.open[r.drill] + '" title="See the transactions">' + cell(v, c.num) + '</button>' : cell(v, c.num);
+          : i === 0 && r.drill ? '<button type="button" class="rp-month-link" data-rf-drill="' + escapeAttr(r.drill) + '" aria-expanded="' + !!reportFrame.open[r.drill] + '" title="See the transactions">' + cell(v, c.num) + '</button>' : (r.cls === "pct" && c.num ? pctCell(v) : cell(v, c.num));
         return (i === 0 ? '<th scope="row">' : '<td' + (c.num ? ' class="num' + (typeof v === "number" && v < 0 ? " neg" : "") + '"' : '') + '>') + inner + (i === 0 ? '</th>' : '</td>');
       }).join("") + '</tr>';
     }).join("") + '</tbody></table></div>';

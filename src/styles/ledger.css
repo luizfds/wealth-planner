@@ -1199,6 +1199,9 @@
   .rc-key-bar, .rc-key-a{ display:inline-block; width:10px; height:10px; border-radius:2px; background: var(--brass); }
   .rc-key-b{ display:inline-block; width:10px; height:10px; border-radius:2px; background:#e07a5f; margin-left:8px; }
   .rc-key-tick{ display:inline-block; width:2px; height:12px; background: var(--ink); margin-left:8px; }
+  .sk-band{ fill:none; stroke: var(--brass); stroke-opacity:.28; }
+  .sk-band.sk-tax{ stroke:#e07a5f; } .sk-band.sk-super{ stroke:#7b61ff; } .sk-band.sk-kept{ stroke: var(--good); stroke-opacity:.4; }
+  .sk-node{ fill: var(--brass); } .sk-node.sk-tax{ fill:#e07a5f; } .sk-node.sk-super{ fill:#7b61ff; } .sk-node.sk-kept{ fill: var(--good); } .sk-node.sk-drawn{ fill: var(--bad); }
   .rp-drill{ margin:10px 0; padding:8px 10px; border:1px solid var(--border); border-radius:10px; }
   .rp-drill-head{ display:flex; gap:8px; align-items:center; justify-content:space-between; font-size:13px; margin-bottom:6px; }
   .rp-table tr.compare td, .rp-table tr.compare th{ color: var(--ink-soft); font-style:italic; }

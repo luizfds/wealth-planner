@@ -2540,12 +2540,22 @@ than 10% across its readings — the chart was honest; the 10% floor matters for
 Round axis ticks are still item 138.
 
 
-## 137. `[ ]` A full, fixed demo household
+## 137. `[x]` A full, fixed demo household
 `loadSampleData()` is random (a property 60% of the time) and has no transactions, balances or money
 received, so the demo shows `$0` almost everywhere and Reports are empty. Build one deterministic,
 invented household: two people, a home loan and an investment property with a statement history, 18 months
 of transactions and income received, account balances with history, holdings with lots, a closed tax year.
 Every page and report should look in use. Test: every Reports table has a non-zero total on sample data.
+
+Shipped as v3.104.0: `calc/demo.js` — `demoHousehold(today)` (a seeded generator; same household on every load,
+dates counted back from today) and `demoReceipts(state, today, incomeTargets())` (pay, a September bonus and
+rent received, run after recalc has made the take-home rows). Alex and Sam (Employer A/B), renting with two
+Buy scenarios, 18 budget lines with invented merchants, eighteen months of spending, card repayments and
+monthly savings transfers, five accounts linked to their balances, two ETFs in lots, two super funds, a car,
+1 Example St (IO loan with offset, borrowing costs, quarterly revaluations) and a net worth log from the same
+figures. Settings → Checks is all clear on it. The random generator and its pools (which used real employer
+names) are gone from `app.js`. Not included: a lodged tax year — the FY return still shows as to do.
+
 
 ## 138. `[ ]` Polish pass
 Round axis ticks (`$3M`, not `$2,911,689`); one date format in the UI (no ISO dates); Checks' "Looks right"

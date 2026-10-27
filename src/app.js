@@ -39,7 +39,7 @@ import {
   openScenarioOverridePanel, closeScenarioOverridePanel, renderScenarioOverridePanel,
   setScenarioOverride, resetScenarioOverride, copyScenarioAmountToAll,
   openExpenseReview, closeExpenseReview, renderExpenseReviewPanel,
-  logCurrentReviewCard, skipCurrentReviewCard, expenseReview,
+  confirmReviewBills, expenseReview,
   renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel,
   setTransactionsShowAll, setTransactionsRange, modernTransactionRowOpen, budgetRowTxnsOpen, transactionSummaryText, visibleSpendingIndices, loggableBudgetLineItems, renderBillsCalendar,
   openQuickLog, closeQuickLog, renderQuickLogSheet, setQuickLogLink, setQuickLogDateOpen,
@@ -2619,36 +2619,15 @@ import {
     if(document.querySelector("[data-override-backdrop]")) closeScenarioOverridePanel();
   });
 
-  // ---------------- Review expenses: one-at-a-time swipe/confirm flow ----------------
-  // A brief slide-out + fade before advancing to the next card — skipped for
-  // prefers-reduced-motion, matching the flip-card pattern on Tax & Super.
-  function animateReviewCard(direction, callback){
-    var card = document.querySelector(".review-card");
-    if(!card || (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches)){
-      callback();
-      return;
-    }
-    card.classList.add("swipe-out-" + direction);
-    setTimeout(callback, 200);
-  }
-  function performReviewSkip(){
-    if(!expenseReview || expenseReview.pos >= expenseReview.queue.length) return;
-    animateReviewCard("left", function(){
-      skipCurrentReviewCard();
-      renderExpenseReviewPanel();
+  // ---------------- Bills to confirm (v3.113.0) ----------------
+  function performReviewConfirm(){
+    var values = [].map.call(document.querySelectorAll("#expenseReviewRoot [data-confirm-key]"), function(row){
+      return { key: Number(row.getAttribute("data-confirm-key")), checked: row.querySelector(".bc-confirm-check").checked,
+        amount: parseFloat(row.querySelector(".bc-confirm-amount").value), date: row.querySelector(".bc-confirm-date").value };
     });
-  }
-  function performReviewLog(){
-    if(!expenseReview || expenseReview.pos >= expenseReview.queue.length) return;
-    var amountInput = document.querySelector(".review-amount");
-    var dateInput = document.querySelector(".review-date");
-    var amount = amountInput ? (parseFloat(amountInput.value) || 0) : 0;
-    var dateStr = (dateInput && dateInput.value) || undefined;
-    animateReviewCard("right", function(){
-      logCurrentReviewCard(amount, dateStr);
-      refreshAfterLedgerChange("shared");
-      renderExpenseReviewPanel();
-    });
+    var n = confirmReviewBills(values);
+    if(n) refreshAfterLedgerChange("shared");
+    renderExpenseReviewPanel();
   }
   var reviewBtn = document.getElementById("reviewExpensesBtn");
   if(reviewBtn) reviewBtn.addEventListener("click", function(){
@@ -2662,16 +2641,17 @@ import {
       requestCloseActiveOverlay();
       return;
     }
-    if(e.target.closest("[data-review-skip]")){ performReviewSkip(); return; }
-    if(e.target.closest("[data-review-log]")){ performReviewLog(); return; }
+    if(e.target.closest("[data-review-confirm]")){ performReviewConfirm(); return; }
   });
   document.addEventListener("keydown", function(e){
     if(e.key !== "Escape") return;
     if(document.querySelector("[data-review-backdrop]")) requestCloseActiveOverlay();
   });
-  onHorizontalSwipe(document.getElementById("expenseReviewRoot"), {
-    onSwipeLeft: performReviewSkip,
-    onSwipeRight: performReviewLog
+  // The Confirm button counts the ticked bills as they're ticked.
+  document.getElementById("expenseReviewRoot").addEventListener("change", function(e){
+    if(!e.target.classList.contains("bc-confirm-check")) return;
+    var btn = document.querySelector("[data-review-confirm]");
+    if(btn) btn.textContent = "Confirm " + document.querySelectorAll("#expenseReviewRoot .bc-confirm-check:checked").length;
   });
 
   // ---------------- Quick log ----------------

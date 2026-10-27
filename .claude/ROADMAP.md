@@ -2646,10 +2646,22 @@ changes a headline figure and is left for a decision. Checked on a real backup (
 19 purchases since its statement and an everyday account with 2 now show today's figure.
 
 
-## 143. `[~]` Bills post themselves
+## 143. `[x]` Bills post themselves
 A planned bill on its due date becomes a pending transaction; an import that matches it replaces it;
 otherwise one tap (or "Confirm all") makes it real. "Catch up on 17 overdue" becomes "17 to confirm".
 Pending rows count in forecasts, not in spending totals.
+
+Shipped as v3.113.0, not as pending transactions: a pending row would have had to be kept out of every spending
+total in the app, and the import already flags a hand-logged entry when a statement brings the same payment (item
+113). Instead: `calc/bills.js` `billsToConfirm(items, transactions, today, { accounts, transfers })` — the bills
+calendar's own unpaid occurrences from up to 62 days ago to today, paid from an account (a card's or the
+manager's come with their statements), never before the line's first logged payment, once per missed month.
+"Catch up on N overdue" (every line overdue against its frequency, groceries included, one card at a time with
+an amount and date to type) became "N bills to confirm": one list, each ticked at its expected date and planned
+amount, editable, Confirm all. On a real backup (outside the repo) and the demo nothing is outstanding, so the
+button is hidden where it used to show a count. **Still open:** `lib/notifications.js` `reviewDueNotifications`
+still groups "lines that need a fresh entry" on the old per-frequency test.
+
 
 ## 144. `[ ]` Estimates between logs
 Super = last balance + SG from pay + assumed return; property = last value indexed by growth (or the suburb

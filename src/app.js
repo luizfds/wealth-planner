@@ -15,6 +15,7 @@ import {
 import { periodsOf, sumField, sumFieldForScenario, resolveSharedAmount, appendHistorySnapshot, transactionDisplayName } from "./calc/ledger.js";
 import { phiPremiumsAnnual, effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider, saleCapitalGain, lotsUnitsAvailable, takeHomeAdjust } from "./calc/tax.js";
 import { recalcComputedItems, scenarioTotals, currentScenario, totalNetWorthValue, totalDebtsValue } from "./calc/engine.js";
+import { setAccountOfProvider } from "./calc/accounts.js";
 import { financialYearOf, fyLabel, recordRateChange, sortedRateHistory, loanRateOn } from "./calc/property.js";
 import { taxYearFillStatements, renderTaxYear, setTaxYearSelected, taxYearAddRow, taxYearDeleteRow, taxYearRestoreRow, taxYearSetField, taxYearToggleEvidence, taxYearMarkLodged, worksheetText, taxYearSelected, taxYearPrintHtml, lodgedSnapshot } from "./components/taxyear.js";
 import { renderPeople, setPersonField, peopleSummaryText } from "./components/people.js";
@@ -52,6 +53,7 @@ import {
   parseExpensesImportCsv, renderExpensesImportPreview, clearExpensesImportPreview, commitExpensesImport,
   renderSpendCategoryChart, renderSpendingTrends,
   listsShowAll,
+  transactionAccount
 } from "./components/expenses.js";
 import {
   patchHoldingRow, patchVehicleRow, modernAssetRowOpen, patchAssetCategoryTotals,
@@ -2342,6 +2344,9 @@ import {
   // v3.131.0: the household's own budget — the current scenario's — whichever what-if is being looked
   // at. A tax estimate is about the year you're actually living; it moved with the scenario picker.
   setDeductibleItemsProvider(function(){ return budgetLineItems(currentScenario()); });
+  // v3.135.0: net worth rolls each account forward by what's logged against it (a line's default
+  // account counts, as on the Accounts page).
+  setAccountOfProvider(transactionAccount);
   setDeductionPeopleProvider(getTaxPeople);
   setDeductionPropertiesProvider(function(){ return state.properties.filter(function(p){ return p.kind === "IP"; }).map(function(p){ return { id: p.id, what: p.what }; }); });
   setRentLinesProvider(function(){ return { lines: RENT_EXPENSE_LINES, lineFor: rentLineFor }; });

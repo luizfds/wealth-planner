@@ -8,12 +8,16 @@
 // header's net worth. Pure apart from reading state through the passed-in helpers.
 
 // st: state. toAud(asset, amount). Returns { groups: [{ key, label, rows: [{ kind, id, name, sub, value }], total }], total }.
-export function netWorthList(st, toAud){
+// adjust: { "asset:<id>": n, "debt:<id>": n, "offset:<loanId>": n } — what's been logged on each
+// account since its balance was recorded (calc/accounts.js loggedSinceRecorded), added to its row.
+export function netWorthList(st, toAud, adjust){
   toAud = toAud || function(a, v){ return v; };
+  adjust = adjust || {};
+  var adj = function(key){ return Number(adjust[key]) || 0; };
   var G = { cash: [], invest: [], super: [], property: [], other: [], debts: [] };
   (st.assets || []).forEach(function(a){
     if(!a) return;
-    var v = toAud(a, Number(a.amount) || 0), c = a.category || "Other";
+    var v = toAud(a, Number(a.amount) || 0) + adj("asset:" + a.id), c = a.category || "Other";
     var row = { kind: "asset", id: a.id, name: a.what || a.symbol || c, sub: [c === "Shares" && a.symbol ? a.symbol : null, a.person || null].filter(Boolean).join(" · "), value: v };
     if(c === "Cash") G.cash.push(row);
     else if(c === "Shares") G.invest.push(row);
@@ -25,14 +29,14 @@ export function netWorthList(st, toAud){
     (p.loans || []).forEach(function(l, i){
       // As the header's net worth counts them: a paid-out loan owes nothing; an offset is cash.
       var paid = l.endedOn && l.endedOn <= new Date().toISOString().slice(0, 10);
-      var bal = paid ? 0 : Number(l.balance) || 0, off = Number(l.offsetBalance) || 0;
+      var bal = paid ? 0 : Number(l.balance) || 0, off = (Number(l.offsetBalance) || 0) + adj("offset:" + l.id);
       if(off) G.cash.push({ kind: "loan", id: l.id, name: (p.what || "Property") + " offset", sub: "Offset", value: off });
       if(bal) G.debts.push({ kind: "loan", id: l.id, name: l.what || (p.what || "Property") + " loan" + ((p.loans || []).length > 1 ? " " + (i + 1) : ""), sub: "Property loan", value: -bal });
     });
   });
   (st.debts || []).forEach(function(d){
-    var b = Number(d.balance) || 0;
-    if(b) G.debts.push({ kind: "debt", id: d.id, name: d.what || "Debt", sub: "Card or personal loan", value: -b });
+    var b = Number(d.balance) || 0, v = -b + adj("debt:" + d.id);
+    if(v) G.debts.push({ kind: "debt", id: d.id, name: d.what || "Debt", sub: "Card or personal loan", value: v });
   });
   var LABELS = { cash: "Cash", invest: "Investments", super: "Super", property: "Property", other: "Other things", debts: "Debts" };
   var groups = Object.keys(LABELS).map(function(k){

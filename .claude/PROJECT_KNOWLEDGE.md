@@ -1316,3 +1316,11 @@ pushed to `origin`. Do this without being asked, every time.
   held flat in today's dollars; update them together and say the date on screen.
 - **Tags:** pushes of tags from these sessions were refused (403); tags from v3.75.2 on exist only in
   the session that made them.
+- **Net worth is recorded balances plus what's been logged since (v3.135.0).** `totalNetWorthValue()`
+  adds `loggedSinceRecorded().total` (calc/accounts.js), and the projection starts from the same figure.
+  The records still hold the recorded balance — the difference is computed, never written back.
+  Estimates (`estimatesUplift`) are only ever a second line beside the headline.
+- **Prices and sync (v3.132.0–v3.134.0):** automatic prices run on open *after* the folder sync check
+  (`initialSync`), so a copy changed on another computer is loaded before this one changes prices.
+  Sync's "changed here" is `contentHash(state)`, which ignores save stamps and price-check bookkeeping —
+  add any new bookkeeping-only field to its VOLATILE list or every open will look like an edit.

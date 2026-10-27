@@ -3017,10 +3017,22 @@ redirects), app.js is ~5,800 lines, the new calc modules are listed, and the scr
 the next person: the report frame contract, projection paths and life events, detail pages and `goToPlace()`, the
 Net worth group, the Can we buy? container that never existed, the Age Pension rates' date, and the local-only tags.
 
-## 166. `[~]` Net worth on what's been logged since
+## 166. `[x]` Net worth on what's been logged since
 The headline net worth reads each account's balance rolled forward by the transactions logged since it
 was recorded (item 142's `rolledBalance`), and shows "about $X including estimates" (item 144's super and
 property estimates) as a second line rather than folding guesses into the headline.
+
+Shipped as v3.135.0. `loggedSinceRecorded()` (calc/accounts.js) is, for every account, what's been logged
+against it since its balance was recorded — spending, money received, transfers, with a line's default account
+counting (the app registers `transactionAccount`) — signed as it moves net worth, by the record it belongs to.
+`totalNetWorthValue()` adds it, so the header, Home and the Net worth overview (whose rows carry it too) all read
+the rolled-forward figure, and the projection starts from it. Nothing is written back: the records keep the recorded
+balance. `estimatesUplift()` (calc/estimates.js) gives super a month or more past its figure and a property 90 days
+or more past its value; the Net worth overview shows "about $X with estimates for …" under the headline, never in
+it. On the demo the headline moved by a couple of dollars (its balances are recorded today); on a real backup
+(outside the repo) the header, the Home tile and the overview agree, the groups add up to it, and the estimates
+line appears.
+
 
 ## Conventions for whoever picks this up
 

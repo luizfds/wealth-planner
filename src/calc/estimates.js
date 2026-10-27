@@ -53,3 +53,22 @@ export function propertyEstimate(p, today, opts){
   var value = (Number(last.value) || 0) * Math.pow(1 + ratePct / 100, days / 365.25);
   return { value: Math.round(value / 1000) * 1000, from: { date: last.date, value: Number(last.value) || 0 }, days: days, ratePct: ratePct };
 }
+
+// v3.135.0 (item 166): what net worth would be with the estimates — super a month or more past its
+// last figure, a property 90 days or more past its last value. Kept out of the headline and shown
+// beside it: { total (the difference), items: [{ name, recorded, estimate, from }] }.
+export function estimatesUplift(st, today){
+  var items = [];
+  (st.assets || []).forEach(function(a){
+    if(a.category !== "Super") return;
+    var e = superEstimate(a, today);
+    if(!e || e.days < 30) return;
+    items.push({ name: a.what || "Super", recorded: Number(a.amount) || 0, estimate: e.value, from: e.from.date });
+  });
+  (st.properties || []).forEach(function(p){
+    var e = propertyEstimate(p, today);
+    if(!e || e.days < 90) return;
+    items.push({ name: p.what || "Property", recorded: Number(p.value) || 0, estimate: e.value, from: e.from.date });
+  });
+  return { total: Math.round(items.reduce(function(s, i){ return s + i.estimate - i.recorded; }, 0)), items: items };
+}

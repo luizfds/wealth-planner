@@ -141,3 +141,14 @@ test("the year in review tells the last finished year in sentences", (t) => {
   assert.match(r.narrative[1], /50% of what came in was kept/);
   assert.match(r.narrative[2], /travel \(\$4,000\) and groceries/);
 });
+
+import { savedReportName } from "../src/components/reports.js";
+import { migrateState } from "../src/state.js";
+test("a pinned report is named for what it shows, and old saves get an empty list", () => {
+  assert.equal(savedReportName({ title: "Spending by merchant", frame: { range: true, compare: true, group: true } }, { range: "l12", compare: "lastyear", group: "merchant" }),
+    "Spending · Last 12 months · by merchant · against the same period last year");
+  assert.equal(savedReportName({ title: "Lender pack" }, { range: "l12", compare: "none", group: "category" }), "Lender pack");
+  const s = migrateState({ savedReports: [{ key: "budget", name: "x" }, null, { name: "no key" }] });
+  assert.deepEqual(s.savedReports.map(r => r.key), ["budget"]);
+  assert.deepEqual(migrateState({}).savedReports, []);
+});

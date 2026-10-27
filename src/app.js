@@ -113,7 +113,7 @@ import { parseCsvGrid } from "./calc/pricesheet.js";
 import { recordRentReview } from "./calc/propertylife.js";
 import { retirementHtml, retireLevers } from "./components/retirement.js";
 import { recurringHtml, recurringDismissed, recurringOpen, catchAllShown } from "./components/recurring.js";
-import { renderReports, reportShown, reportPrintHtml, reportCsv, reportFrame } from "./components/reports.js";
+import { renderReports, reportShown, reportPrintHtml, reportCsv, reportFrame, pinReport, openSavedReport, unpinReport } from "./components/reports.js";
 import { monthDetailUi, shownMonth as mdShownMonth } from "./components/monthdetail.js";
 import { shiftMonth as mdShiftMonth } from "./calc/monthdetail.js";
 import { exportTableCsv } from "./lib/backup.js";
@@ -5379,6 +5379,12 @@ import {
   document.getElementById("reportsBody").addEventListener("click", function(e){
     var pick = e.target.closest("[data-report]");
     if(pick){ reportShown.key = pick.getAttribute("data-report"); renderReports(); return; }
+    // v3.124.0: pinned reports.
+    var saved = e.target.closest("[data-report-saved]");
+    if(saved){ if(openSavedReport(saved.getAttribute("data-report-saved"))) renderReports(); return; }
+    var unpin = e.target.closest("[data-report-unpin]");
+    if(unpin){ unpinReport(unpin.getAttribute("data-report-unpin")); persist(); renderReports(); return; }
+    if(e.target.closest("[data-report-pin]")){ var pinned = pinReport(); if(pinned){ persist(); showToast("Pinned: " + pinned.name); } else showToast("Already pinned."); renderReports(); return; }
     // v3.118.0: a group row opens (or closes) the transactions behind it.
     var drill = e.target.closest("[data-rf-drill]");
     if(drill){ var dk = drill.getAttribute("data-rf-drill"); reportFrame.open[dk] = !reportFrame.open[dk]; renderReports(); return; }

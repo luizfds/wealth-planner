@@ -2874,8 +2874,18 @@ now lead with sentences (`rep.narrative`, `.rp-story`), on screen and printed. C
 (outside the repo): both draw, no NaN, no errors.
 
 
-## 159. `[~]` Saved reports and a proper printout
+## 159. `[x]` Saved reports and a proper printout
 Pin a report with its settings; print with a title block, household, period, page breaks and charts.
+
+Shipped as v3.124.0: the picker of twenty reports is in three labelled groups (Money in and out / What you own and
+owe / Tax and the year). Pin keeps the report on screen with its frame (period, custom dates, comparison, grouping)
+as a chip above the picker, named for what it shows ("Spending · Last 12 months · by merchant"), stored in
+`state.savedReports` (in backups; old saves migrate to an empty list); a pinned chip opens it with those settings, ×
+unpins, pinning the same view twice says so. The printout opens with a title block — the household, the report, its
+period, the date printed and the app version — repeats the table header on every page, keeps charts and sentences
+whole, prints the heat map's shading, and shrinks wide month-by-month tables to fit. Checked by pinning, reloading,
+opening, unpinning and printing to PDF in a headless browser.
+
 
 ### Phase E — planning depth
 

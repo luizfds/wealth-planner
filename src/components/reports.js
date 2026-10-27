@@ -1,5 +1,6 @@
 import { state } from "../state.js";
-import { REPORTS, buildReport, reportCsvRows } from "../calc/reports.js";
+import { REPORTS, REPORT_GROUPS, buildReport, reportCsvRows } from "../calc/reports.js";
+import { getTaxPeople } from "../calc/tax.js";
 import { transactionCategory, transactionAccount, budgetLineItems } from "./expenses.js";
 import { RANGES, COMPARES, GROUPS, rangeWindow, compareWindow, monthsIn } from "../calc/reportframe.js";
 import { selectedYearWindow, periodsOf, transactionDisplayName } from "../calc/ledger.js";
@@ -108,18 +109,61 @@ export function reportTableHtml(rep){
 }
 // v3.123.0: a report told in sentences (Year in review) leads with them.
 function storyHtml(rep){ return rep.narrative && rep.narrative.length ? '<ul class="rp-story">' + rep.narrative.map(function(s){ return '<li>' + escapeAttr(s) + '</li>'; }).join("") + '</ul>' : ""; }
-export function reportsPageHtml(opts){
-  var picker = '<div class="rp-picker" role="tablist" aria-label="Reports">' + REPORTS.map(function(r){
+// ---------------- Pinned reports (v3.124.0) ----------------
+// A report kept with its frame, named for what it shows: "Spending · Last 12 months · by merchant".
+function labelOf(list, key){ var x = list.find(function(i){ return i.key === key; }); return x ? x.label : key; }
+export function savedReportName(rep, frame){
+  var fr = rep.frame || {}, parts = [rep.title.replace(/ by .*$/, "")];
+  if(fr.range) parts.push(frame.range === "custom" ? rangeWindow("custom", localDateStr(), { from: frame.from, to: frame.to }).label : labelOf(RANGES, frame.range));
+  if(fr.group) parts.push("by " + labelOf(GROUPS, frame.group).toLowerCase());
+  if(fr.compare && frame.compare !== "none") parts.push("against " + labelOf(COMPARES, frame.compare).toLowerCase());
+  return parts.join(" · ");
+}
+export function pinReport(){
+  var rep = buildReport(reportShown.key, reportOpts());
+  var frame = { range: reportFrame.range, from: reportFrame.from, to: reportFrame.to, compare: reportFrame.compare, group: reportFrame.group };
+  var name = savedReportName(rep, frame);
+  if(state.savedReports.some(function(r){ return r.name === name && r.key === reportShown.key; })) return null;
+  var saved = { id: "rp" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: name, key: reportShown.key, frame: frame };
+  state.savedReports.push(saved);
+  return saved;
+}
+export function openSavedReport(id){
+  var r = state.savedReports.find(function(x){ return x.id === id; });
+  if(!r) return false;
+  reportShown.key = r.key;
+  Object.assign(reportFrame, { range: "period", from: "", to: "", compare: "none", group: "category" }, r.frame || {}, { open: {} });
+  return true;
+}
+export function unpinReport(id){ state.savedReports = state.savedReports.filter(function(x){ return x.id !== id; }); }
+function pickerHtml(){
+  var pins = (state.savedReports || []).length ? '<div class="rp-group rp-pins"><span class="rp-group-label">Pinned</span><div class="rp-chips">' + state.savedReports.map(function(r){
+      return '<span class="rp-pin"><button type="button" class="period-chip" data-report-saved="' + escapeAttr(r.id) + '">' + escapeAttr(r.name) + '</button>' +
+        '<button type="button" class="rp-unpin" data-report-unpin="' + escapeAttr(r.id) + '" aria-label="Unpin ' + escapeAttr(r.name) + '" title="Unpin">×</button></span>';
+    }).join("") + '</div></div>' : '';
+  return pins + '<div class="rp-picker" role="tablist" aria-label="Reports">' + REPORT_GROUPS.map(function(g){
+    return '<div class="rp-group"><span class="rp-group-label">' + escapeAttr(g.label) + '</span><div class="rp-chips">' + REPORTS.filter(function(r){ return r.group === g.key; }).map(function(r){
       var on = r.key === reportShown.key;
       return '<button type="button" class="period-chip' + (on ? " active" : "") + '" role="tab" aria-selected="' + on + '" data-report="' + r.key + '">' + r.label + '</button>';
-    }).join("") + '</div>';
+    }).join("") + '</div></div>';
+  }).join("") + '</div>';
+}
+// v3.124.0: what a printout opens with — whose it is, what it is, for when, and when it was printed.
+function householdName(){ var p = getTaxPeople(); return p.length ? p.slice(0, -1).join(", ") + (p.length > 1 ? " and " : "") + p[p.length - 1] : "Household"; }
+function printTitleHtml(rep){
+  var v = typeof document !== "undefined" && document.querySelector(".app-version-num");
+  return '<header class="pr-title"><p class="pr-who">' + escapeAttr(householdName()) + '</p><h1>' + escapeAttr(rep.title) + '</h1>' +
+    '<p>' + escapeAttr(rep.subtitle || "") + '</p><p class="pr-when">Printed ' + escapeAttr(fmtDate(localDateStr(), { year: true })) + (v ? ' · Wealth Planner ' + escapeAttr(v.textContent) : '') + '</p></header>';
+}
+export function reportsPageHtml(opts){
+  var picker = pickerHtml();
   // v3.68.0: the year-end pack is a checklist with hand-off buttons, not a table.
   if(reportShown.key === "yearend") return picker + yearEndHtml();
   if(reportShown.key === "month") return picker + monthDetailHtml();
   var rep = buildReport(reportShown.key, opts);
   return picker + frameControlsHtml(rep) +
     '<section class="rp-sheet" id="reportSheet"><div class="rp-head"><div><h2>' + escapeAttr(rep.title) + '</h2><span>' + escapeAttr(rep.subtitle) + '</span></div>' +
-      '<div class="rp-actions"><button type="button" class="btn btn-sm btn-ghost" data-report-print>Print / PDF</button><button type="button" class="btn btn-sm btn-ghost" data-report-csv>Download CSV</button></div></div>' +
+      '<div class="rp-actions"><button type="button" class="btn btn-sm btn-ghost" data-report-pin title="Keep this report with its settings above the list">Pin</button><button type="button" class="btn btn-sm btn-ghost" data-report-print>Print / PDF</button><button type="button" class="btn btn-sm btn-ghost" data-report-csv>Download CSV</button></div></div>' +
       storyHtml(rep) + reportChartHtml(rep.chart) + reportTableHtml(rep) + drillHtml(rep, opts) + (rep.note ? '<p class="ledger-note rp-note">' + escapeAttr(rep.note) + '</p>' : '') + '</section>';
 }
 export function renderReports(){
@@ -130,7 +174,7 @@ export function renderReports(){
 export function reportPrintHtml(){
   var opts = reportOpts();
   var rep = buildReport(reportShown.key, opts);
-  return '<div class="pr-page"><h2>' + escapeAttr(rep.title) + '</h2><p>' + escapeAttr(rep.subtitle) + '</p>' + storyHtml(rep) + reportChartHtml(rep.chart) + reportTableHtml(rep) + drillHtml(rep, opts) + (rep.note ? '<p>' + escapeAttr(rep.note) + '</p>' : '') + '</div>';
+  return '<div class="pr-page pr-report">' + printTitleHtml(rep) + storyHtml(rep) + reportChartHtml(rep.chart) + reportTableHtml(rep) + drillHtml(rep, opts) + (rep.note ? '<p>' + escapeAttr(rep.note) + '</p>' : '') + '</div>';
 }
 export function reportCsv(){
   var rep = buildReport(reportShown.key, reportOpts());

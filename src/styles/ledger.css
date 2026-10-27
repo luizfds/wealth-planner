@@ -1207,6 +1207,33 @@
   .rp-table tr.sub th{ padding-left:18px; font-weight:400; }
   .rp-table tr.head td{ font-weight:600; padding-top:14px; }
   .rp-story{ margin:4px 0 16px; padding-left:20px; display:grid; gap:6px; font-size:15px; line-height:1.5; }
+  /* v3.124.0: the picker in groups, pinned reports, and the printout's title block. */
+  .rp-picker{ display:grid; gap:8px; margin-bottom:14px; }
+  .rp-group{ display:grid; grid-template-columns:170px 1fr; gap:6px; align-items:start; }
+  .rp-group-label{ padding-top:9px; }
+  .rp-chips{ display:flex; flex-wrap:wrap; gap:6px; }
+  .rp-pins{ margin-bottom:10px; }
+  .rp-group-label{ font-size:11px; font-weight:650; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
+  .rp-pin{ display:inline-flex; align-items:center; }
+  .rp-unpin{ border:0; background:none; color: var(--ink-soft); font-size:16px; line-height:1; padding:4px 6px; cursor:pointer; min-height:32px; }
+  .rp-unpin:hover{ color: var(--ink); }
+  @media (max-width:720px){ .rp-group{ grid-template-columns:1fr; } .rp-group-label{ padding-top:4px; } }
+  @media print{
+    #printRoot .pr-title{ border-bottom:1.5pt solid #000; margin-bottom:10pt; padding-bottom:6pt; }
+    #printRoot .pr-title h1{ font-size:18pt; margin:2pt 0; }
+    #printRoot .pr-title p{ margin:0; }
+    #printRoot .pr-who{ font-size:9pt; text-transform:uppercase; letter-spacing:.06em; }
+    #printRoot .pr-when{ font-size:8.5pt; margin-top:2pt !important; }
+    #printRoot .rp-table thead{ display:table-header-group; }
+    #printRoot .rp-table tr.head th{ padding-top:8pt; }
+    #printRoot .rp-scroll{ overflow:visible; }
+    #printRoot .rc, #printRoot .rp-story{ break-inside:avoid; }
+    #printRoot .rc svg{ max-height:220pt; }
+    #printRoot .rp-table td.heat-p1{ background:#f8dede !important; } #printRoot .rp-table td.heat-p2{ background:#f0bcbc !important; } #printRoot .rp-table td.heat-p3{ background:#e59595 !important; }
+    #printRoot .rp-table td.heat-n1{ background:#ddf3e7 !important; } #printRoot .rp-table td.heat-n2{ background:#bfe8d1 !important; } #printRoot .rp-table td.heat-n3{ background:#9bdab7 !important; }
+    #printRoot .rp-table td[class*=heat-]{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    #printRoot .pr-report .rp-wide{ font-size:8pt; }
+  }
   .rp-drill{ margin:10px 0; padding:8px 10px; border:1px solid var(--border); border-radius:10px; }
   .rp-drill-head{ display:flex; gap:8px; align-items:center; justify-content:space-between; font-size:13px; margin-bottom:6px; }
   .rp-table tr.compare td, .rp-table tr.compare th{ color: var(--ink-soft); font-style:italic; }

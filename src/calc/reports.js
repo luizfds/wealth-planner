@@ -28,27 +28,33 @@ function r2(n){ return Math.round((Number(n) || 0) * 100) / 100; }
 function monthsOf(win, today){ return monthsIn(win, today); }
 function ymLabel(ym){ return MONTHS[Number(ym.slice(5, 7)) - 1] + " " + ym.slice(2, 4); }
 
+// v3.124.0: in groups, so a picker of twenty reads as three short rows.
+export var REPORT_GROUPS = [
+  { key: "money", label: "Money in and out" },
+  { key: "own", label: "What you own and owe" },
+  { key: "year", label: "Tax and the year" }
+];
 export var REPORTS = [
-  { key: "cashflow", label: "Monthly cash flow" },
-  { key: "categories", label: "Spending" },
-  { key: "income", label: "Income statement" },
-  { key: "flow", label: "Where the money goes" },
-  { key: "budget", label: "Budget vs actual" },
-  { key: "trends", label: "Year on year" },
-  { key: "networth", label: "Net worth statement" },
-  { key: "invest", label: "Investment returns" },
-  { key: "dividends", label: "Distributions" },
-  { key: "cgt", label: "Capital gains" },
-  { key: "property", label: "Property P&L" },
-  { key: "propreturns", label: "Property returns" },
-  { key: "debts", label: "Loans and debts" },
-  { key: "super", label: "Super" },
-  { key: "tax", label: "Tax summary" },
-  { key: "month", label: "Month in detail" },
-  { key: "nwcheck", label: "Net worth check" },
-  { key: "lender", label: "Lender pack" },
-  { key: "review", label: "Year in review" },
-  { key: "yearend", label: "Year-end pack" }
+  { key: "cashflow", label: "Monthly cash flow", group: "money" },
+  { key: "categories", label: "Spending", group: "money" },
+  { key: "income", label: "Income statement", group: "money" },
+  { key: "flow", label: "Where the money goes", group: "money" },
+  { key: "budget", label: "Budget vs actual", group: "money" },
+  { key: "trends", label: "Year on year", group: "money" },
+  { key: "month", label: "Month in detail", group: "money" },
+  { key: "networth", label: "Net worth statement", group: "own" },
+  { key: "nwcheck", label: "Net worth check", group: "own" },
+  { key: "invest", label: "Investment returns", group: "own" },
+  { key: "dividends", label: "Distributions", group: "own" },
+  { key: "cgt", label: "Capital gains", group: "own" },
+  { key: "propreturns", label: "Property returns", group: "own" },
+  { key: "property", label: "Property P&L", group: "own" },
+  { key: "debts", label: "Loans and debts", group: "own" },
+  { key: "super", label: "Super", group: "own" },
+  { key: "tax", label: "Tax summary", group: "year" },
+  { key: "review", label: "Year in review", group: "year" },
+  { key: "lender", label: "Lender pack", group: "year" },
+  { key: "yearend", label: "Year-end pack", group: "year" }
 ];
 
 export function cashflowReport(opts){

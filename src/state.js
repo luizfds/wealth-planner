@@ -142,6 +142,7 @@ export function defaultState(){
     invest: { "Current situation": defaultInvestConfig() },
     assets: [],
     debts: [],
+    savedReports: [],
     properties: [],
     // A frozen copy of a past projection, graded against real logged net worth over time — see
     // dashboard.js's setProjectionReference()/renderProjectionAccuracyPanel(). null until the
@@ -310,6 +311,9 @@ export function migrateState(s){
     if(icfg.enabled && s.purchase[name]) s.purchase[name].enabled = false;
   });
   if(!Array.isArray(s.debts)) s.debts = [];
+  // v3.124.0: reports pinned with their settings — { id, name, key, frame: { range, from, to, compare, group } }.
+  if(!Array.isArray(s.savedReports)) s.savedReports = [];
+  s.savedReports = s.savedReports.filter(function(r){ return r && r.key; });
   s.debts.forEach(function(d){ if(d.balance == null) d.balance = 0; });
   if(!Array.isArray(s.shared)) s.shared = [];
   // A stable id so a transaction (see below) can still find the right expense after this array

@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {
   valueOn, trackedOn, observationDates, categorySeries, trimUntracked,
   allocationSeries, contributionsVsGrowth, monthsBetween, monthlyCashFlow,
-  fullCoverageFrom, spendCoverage
+  fullCoverageFrom, spendCoverage, trendToToday
 } from "../src/calc/history.js";
 
 // The whole module exists to enforce one rule: never draw a value that wasn't logged. Most of these
@@ -213,4 +213,15 @@ test("spendCoverage refuses a savings claim when barely anything was logged", fu
   // No budget at all can't be divided by — and must not read as perfect coverage.
   assert.equal(spendCoverage(500, 0).enough, false);
   assert.equal(spendCoverage(0, 11580).enough, false);
+});
+
+test("trendToToday ends at today's figure and measures the change from where the line starts", function(){
+  var log = [{ date: "2026-03-01", value: 100000 }, { date: "2026-05-01", value: 90000 }, { date: "2026-06-01", value: 95000 }];
+  var t = trendToToday(log, 120000, "2026-07-01", 12);
+  assert.deepEqual(t.points.map(function(p){ return p.value; }), [100000, 90000, 95000, 120000]);
+  assert.equal(t.from.date, "2026-03-01");
+  assert.equal(t.change, 20000, "up, matching a line that ends higher than it starts");
+  assert.equal(trendToToday([], 5, "2026-07-01"), null);
+  assert.equal(trendToToday([{ date: "2026-07-01", value: 1 }], 5, "2026-07-01"), null, "today's own log doesn't count twice");
+  assert.equal(trendToToday(log, 1, "2026-07-01", 3).points.length, 3, "keeps the last max-1 logs plus today");
 });

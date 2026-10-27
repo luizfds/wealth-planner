@@ -234,3 +234,17 @@ export function coverageStart(records, today){
     missing: firsts.filter(function(f){ return f.none; }).map(function(f){ return f.label; })
   };
 }
+
+// v3.103.0: a short trend that ends at today's figure — for a sparkline and the change printed beside
+// it, so the two describe the same window. Logged values only would end at the last log, and a
+// "since" figure measured from a different point could be green beside a line that falls.
+// log: [{date, value}]; returns { points, from, change } or null with nothing logged before today.
+export function trendToToday(log, current, today, max){
+  max = max || 12;
+  var pts = (log || []).filter(function(h){ return h && h.date && h.date < today; })
+    .slice().sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; })
+    .slice(-(max - 1)).map(function(h){ return { date: h.date, value: Number(h.value) || 0 }; });
+  if(!pts.length) return null;
+  pts.push({ date: today, value: current });
+  return { points: pts, from: pts[0], change: current - pts[0].value };
+}

@@ -54,6 +54,7 @@
   .proj-crosshair{ stroke: var(--ink-soft); stroke-width:1; stroke-dasharray:3 3; }
   .series-line{ fill:none; stroke: var(--series-color); stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
   .series-dot{ fill: var(--series-color); }
+  .series-pt{ fill: var(--paper-raised); stroke: var(--series-color); stroke-width:1.5; }
   .proj-legend{ display:flex; flex-wrap:wrap; gap:14px; margin-bottom:10px; font-size:12px; }
   .proj-legend-item{ display:flex; align-items:center; gap:6px; color: var(--ink-soft); min-height:32px; }
   .proj-legend-item b{ color: var(--ink); font-weight:600; }

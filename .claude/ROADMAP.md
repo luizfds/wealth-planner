@@ -2524,11 +2524,21 @@ deductions read `budgetLineItems()` (the selected scenario's home lines) through
 so a deductible home line can differ by which scenario is selected.
 
 
-## 136. `[~]` Trend lines that agree with their numbers
+## 136. `[x]` Trend lines that agree with their numbers
 Home's net worth card says "+X since <date>" (today's live figure against the last log) beside a sparkline
 of logged points only, which can fall — green text, red falling line. Value histories logged by hand a few
 times (property, super) draw as steps and zoom in to the range, so one revaluation looks like a crash. Add
 today's figure as the last point; draw sparse logs as marked points; zoom with a visible baseline.
+
+Shipped as v3.103.0: `calc/history.js` `trendToToday(log, current, today, max)` — the last logs before today
+plus today's figure; Home's net worth card draws that and prints the change from its first point, so the
+text and the line always agree. `renderLineChart`: a stepped series of ≤24 points marks each reading
+(`.series-pt`); the `baseline: "auto"` zoom spans at least 10% of the top value, centred on the data, so a
+3% move uses about a fifth of the height instead of all of it; the legend toggle hides every element of a
+series. Correction to the problem above: on re-check, the real backup's property chart showed a fall of more
+than 10% across its readings — the chart was honest; the 10% floor matters for genuinely small moves.
+Round axis ticks are still item 138.
+
 
 ## 137. `[ ]` A full, fixed demo household
 `loadSampleData()` is random (a property 60% of the time) and has no transactions, balances or money

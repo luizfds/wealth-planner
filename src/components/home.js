@@ -11,6 +11,7 @@ import { getTaxPeople } from "../calc/tax.js";
 import { fyLabel } from "../calc/property.js";
 import { budgetLineItems, loggableBudgetLineItems, transactionAccount, transactionCategory } from "./expenses.js";
 import { sparklineHtml } from "../lib/charts.js";
+import { trendToToday } from "../calc/history.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { upcomingBills as calendarUpcoming } from "../calc/bills.js";
@@ -73,12 +74,12 @@ export function homeSummaryHtml(today, opts){
   today = today || localDateStr();
   opts = opts || {};
   var nw = opts.netWorth != null ? opts.netWorth : totalNetWorthValue();
-  var log = (state.netWorthLog || []).filter(function(h){ return h && h.date; });
-  var prev = null;
-  for(var i = log.length - 1; i >= 0; i--){ if(Math.round((Date.parse(today) - Date.parse(log[i].date)) / 86400000) >= 25){ prev = log[i]; break; } }
+  // v3.103.0: the line ends at today's figure and the change is measured from where the line starts,
+  // so the text and the line can't disagree.
+  var trend = trendToToday(state.netWorthLog, nw, today, 12);
   var nwCard = '<div class="home-card home-nw"><span class="home-k">Net worth</span><b class="home-big">' + money(nw) + '</b>' +
-    (prev ? '<small class="' + (nw - prev.value >= 0 ? "up" : "down") + '">' + signed(nw - prev.value) + ' since ' + shortDate(prev.date) + '</small>' : '<small>Record it now and then to see the trend</small>') +
-    '<span class="home-spark">' + sparklineHtml(log.slice(-12), { width: 120, height: 28 }) + '</span>' +
+    (trend ? '<small class="' + (trend.change >= 0 ? "up" : "down") + '">' + signed(trend.change) + ' since ' + shortDate(trend.from.date) + '</small>' : '<small>Record it now and then to see the trend</small>') +
+    '<span class="home-spark">' + (trend ? sparklineHtml(trend.points, { width: 120, height: 28 }) : "") + '</span>' +
     '<button type="button" class="link-btn home-link" data-home-go="assets">Net worth over time →</button></div>';
 
   var ym = selectedMonth(today);

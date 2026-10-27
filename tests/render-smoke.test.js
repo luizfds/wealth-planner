@@ -1287,3 +1287,21 @@ test("Reports → Net worth check builds a row per month", async function(){
   assert.equal(rep.rows[11].ym, "2026-03");
   assert.match(rep.rows[11].cells.month, /so far/);
 });
+
+// v3.107.0: a property's Overview reads as a summary first.
+import { propertySummaryHtml } from "../src/components/properties.js";
+test("propertySummaryHtml summarises a property, and skips what isn't known", () => {
+  const ip = { id: "p1", what: "1 Example St", kind: "IP", value: 600000, purchasePrice: 500000, purchaseDate: "2022-03-01", landValue: 250000, state: "QLD",
+    history: [{ date: "2026-01-31", value: 590000 }, { date: "2026-04-30", value: 600000 }], acquisitionCosts: [{ amount: 18000 }],
+    loans: [{ what: "Loan A", balance: 400000, rate: 6, termYears: 30, repaymentType: "IO", offsetBalance: 20000 }],
+    income: [{ amount: 520, freq: "Weekly" }], expenses: [{ amount: 2000, freq: "Yearly" }], pmFee: { percent: 0, flat: 0 }, ownership: {} };
+  const html = propertySummaryHtml(ip);
+  assert.match(html, /<dt>Value<\/dt><dd>\$600,000/);
+  assert.match(html, /up \$10,000 since/);
+  assert.match(html, /\$400,000 owed/);
+  assert.match(html, /\$520\/wk/);
+  assert.doesNotMatch(html, /NaN|undefined/);
+  const bare = propertySummaryHtml({ id: "p2", what: "Home", kind: "PPOR", value: 0, history: [], loans: [], income: [], expenses: [] });
+  assert.match(bare, /not recorded yet/);
+  assert.doesNotMatch(bare, /<dt>Loans<\/dt>|<dt>Rent<\/dt>|NaN|undefined/);
+});

@@ -2587,10 +2587,17 @@ subtab: 16,948 → 10,226 characters (−40%); on an empty app 8,741 → 7,909. 
 paragraph carries `.section-empty` and `details.ledger:has(.section-empty)` hides the card, so an empty
 Property page is one line and one button. Sidebar: the app icon's mark beside the name instead of a coloured W.
 
-## 139b. `[ ]` Things you own as a summary, with Edit
+## 139b. `[x]` Things you own as a summary, with Edit
 A property's Overview opens as a wall of input fields. Show the property as a read-only summary first (value,
 purchase, loans, rent, costs, yield) with an Edit button that opens today's fields; same for a holding and an
 account when item 151's detail pages land.
+
+Shipped as v3.107.0 for properties: `propertySummaryHtml(p)` — value (and its last recorded change), bought,
+land, loans (balance, rate, type, offset, repayments), rent and gross yield, costs, owners — on the Overview tab
+with "Edit details"; the header shows the name and an Investment/Home pill. Both views are rendered and the
+card's `is-editing` class picks one (`propertyEditing`, session-only), so nothing typed is lost; Done
+re-renders so the summary shows the edit; a new property opens in editing. Holdings and accounts wait for
+item 151's detail pages.
 
 
 ## 140. `[ ]` Render edit forms on open

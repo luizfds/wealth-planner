@@ -78,6 +78,18 @@
   .property-card-head{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
   .property-card-head h4{ margin:0; flex:1 1 auto; min-width:0; font-size:14px; font-weight:600; display:flex; align-items:center; gap:8px; }
   .property-card-head h4 input, .property-card-head h4 select{ min-width:0; }
+  /* v3.107.0: reading first, fields on Edit details. Both are rendered; the card's class picks one. */
+  .property-card:not(.is-editing) .prop-edit, .property-card.is-editing .prop-read{ display:none !important; }
+  .prop-name{ font-size:16px; font-weight:650; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .prop-kind-pill{ font-size:11px; font-weight:600; color: var(--ink-soft); background: var(--paper-sunken); border-radius:999px; padding:2px 8px; flex:none; }
+  .prop-summary{ display:grid; grid-template-columns:minmax(0,1fr); margin:4px 0 14px; }
+  .ps-row{ display:grid; grid-template-columns:120px minmax(0,1fr); gap:12px; padding:9px 0; border-bottom:1px solid var(--border); }
+  .ps-row:last-child{ border-bottom:0; }
+  .ps-row dt{ color: var(--ink-soft); font-size:13px; }
+  .ps-row dd{ margin:0; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight:600; font-size:14px; }
+  .ps-row dd small{ display:block; font-family: inherit; font-weight:400; font-size:12px; color: var(--ink-soft); margin-top:2px; }
+  .prop-edit-bar{ display:flex; justify-content:flex-end; margin-bottom:8px; }
+  @media (max-width:480px){ .ps-row{ grid-template-columns:88px minmax(0,1fr); } }
   .property-del-btn{ flex:none; }
   .property-card-badges{ display:flex; flex-wrap:wrap; gap:6px; row-gap:6px; margin-bottom:12px; }
   .property-card-actions{ display:flex; justify-content:flex-end; margin:10px 0 -6px; }

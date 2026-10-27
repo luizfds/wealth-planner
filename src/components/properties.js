@@ -583,6 +583,42 @@ export function agentStatementFormValues(panel){
 // scrolling past the depreciation schedule. The summary stays on top; the rest is five tabs.
 // Session-only, per property.
 export var propertyTabs = {};
+// v3.107.0: a property reads as a summary first; "Edit details" shows the fields. Session-only, like
+// the tab, so a card you were editing stays open across re-renders in the same visit.
+export var propertyEditing = {};
+
+// The Overview tab's read-only view: what you'd want to know about the property at a glance, each
+// line from the same calc functions the tiles and the tax tab use.
+export function propertySummaryHtml(p){
+  var row = function(k, v, sub){ return v ? '<div class="ps-row"><dt>' + k + '</dt><dd>' + v + (sub ? '<small>' + sub + '</small>' : '') + '</dd></div>' : ''; };
+  var value = Number(p.value) || 0;
+  var hist = (p.history || []).filter(function(h){ return h && h.date; });
+  var last = hist.length ? hist[hist.length - 1] : null;
+  var prev = hist.length > 1 ? hist[hist.length - 2] : null;
+  var valueSub = last && Math.abs((Number(last.value) || 0) - value) >= 1 ? "last recorded " + fmtCurrency0.format(Number(last.value) || 0) + " on " + fmtDate(last.date)
+    : last ? "recorded " + fmtDate(last.date) + (prev ? ", " + (last.value >= prev.value ? "up " : "down ") + fmtCurrency0.format(Math.abs(last.value - prev.value)) + " since " + fmtDate(prev.date) : "") : "not recorded yet";
+  var bought = p.purchasePrice != null && p.purchasePrice !== "" ? fmtCurrency0.format(Number(p.purchasePrice) || 0) + (p.purchaseDate ? " on " + fmtDate(p.purchaseDate, { year: true }) : "") : (p.purchaseDate ? fmtDate(p.purchaseDate, { year: true }) : "");
+  var acq = (p.acquisitionCosts || []).reduce(function(s, c){ return s + (Number(c.amount) || 0); }, 0);
+  var live = (p.loans || []).filter(function(l){ return !loanPaidOut(l); });
+  var owed = live.reduce(function(s, l){ return s + loanBalance(l); }, 0);
+  var offset = live.reduce(function(s, l){ return s + (Number(l.offsetBalance) || 0); }, 0);
+  var loansText = live.length ? fmtCurrency0.format(owed) + " owed" + (live.length > 1 ? " across " + live.length + " loans" : "") : "";
+  var loansSub = live.length ? live.map(function(l){ return (l.what || "Loan") + " " + (Number(l.rate) || 0) + "% " + (l.repaymentType === "IO" ? "interest only" : "P&I"); }).join(" · ") +
+    (offset > 0 ? " · " + fmtCurrency0.format(offset) + " in offset" : "") + " · " + fmtCurrency0.format(propertyLoanRepaymentMonthly(p)) + "/mo repayments" : "";
+  var rentYear = sumField(p.income || [], "yearly");
+  var costsYear = sumField(p.expenses || [], "yearly");
+  var owners = p.kind === "IP" ? getTaxPeople().map(function(person){ var pct = propertyOwnershipPct(p, person, getTaxPeople()); return pct ? person + " " + Math.round(pct) + "%" : ""; }).filter(Boolean).join(" · ") : "";
+  var yieldGross = p.kind === "IP" && value > 0 && rentYear > 0 ? rentYear / value : null;
+  return '<dl class="prop-summary">' +
+    row("Value", fmtCurrency0.format(value), valueSub) +
+    row("Bought", bought, acq > 0 ? fmtCurrency0.format(acq) + " in purchase costs" : "") +
+    row("Land", Number(p.landValue) > 0 ? fmtCurrency0.format(Number(p.landValue)) : "", p.state || "") +
+    row("Loans", loansText, loansSub) +
+    (p.kind === "IP" ? row("Rent", rentYear > 0 ? fmtCurrency0.format(rentYear / 52) + "/wk" : "", yieldGross != null ? fmtPercent1.format(yieldGross) + " gross yield" : "") : "") +
+    row("Costs", costsYear > 0 ? fmtCurrency0.format(costsYear) + "/yr" : "", (p.expenses || []).length + " line" + ((p.expenses || []).length === 1 ? "" : "s") + " on Income & costs") +
+    row("Owners", owners, "") +
+  '</dl>';
+}
 export function propertyTabsFor(p){
   var t = [{ key: "overview", label: "Overview" }, { key: "loans", label: "Loans" }, { key: "income", label: "Income & costs" }];
   if(p.kind === "IP") t.push({ key: "tax", label: "Tax" }, { key: "sale", label: "Sale" });
@@ -712,9 +748,11 @@ function propertyCardHtml(p, colorIdx){
   var current = propertyTabShown(p);
   var panel = function(key, html){ return '<div class="prop-tab-panel" data-prop-panel="' + key + '"' + (key === current ? "" : " hidden") + ' role="tabpanel">' + html + '</div>'; };
 
-  return '<div class="property-card series-color-' + (colorIdx % 8) + '" data-property-id="' + escapeAttr(p.id) + '" id="property-card-' + escapeAttr(p.id) + '">' +
+  var editing = !!propertyEditing[p.id];
+  return '<div class="property-card series-color-' + (colorIdx % 8) + (editing ? " is-editing" : "") + '" data-property-id="' + escapeAttr(p.id) + '" id="property-card-' + escapeAttr(p.id) + '">' +
     '<div class="property-card-head">' +
-      '<h4><input type="text" class="prop-what" value="' + escapeAttr(p.what) + '" aria-label="Property name">' +
+      '<h4 class="prop-read"><span class="prop-name">' + escapeAttr(p.what || "Property") + '</span><span class="prop-kind-pill">' + (p.kind === "IP" ? "Investment" : "Home") + '</span></h4>' +
+      '<h4 class="prop-edit"><input type="text" class="prop-what" value="' + escapeAttr(p.what) + '" aria-label="Property name">' +
       '<select class="prop-kind" aria-label="Property kind">' + optionsHtml(["IP", "PPOR"], p.kind) + '</select></h4>' +
       '<button type="button" class="btn btn-ghost btn-sm row-del property-del-btn" data-property-del="' + escapeAttr(p.id) + '" aria-label="Delete property">✕</button>' +
     '</div>' +
@@ -727,7 +765,10 @@ function propertyCardHtml(p, colorIdx){
       '<button type="button" class="btn btn-ghost btn-sm property-collapse-btn" data-prop-collapse-toggle="' + escapeAttr(p.id) + '">' + (allSectionsCollapsed ? "Expand all" : "Collapse all") + '</button>' +
     '</div>' +
     propertyTabBarHtml(p, tabs, current) +
-    panel("overview", propertySectionHtml(p, "value",
+    panel("overview", '<div class="prop-read">' + propertySummaryHtml(p) +
+      '<button type="button" class="btn btn-sm" data-prop-edit="' + escapeAttr(p.id) + '">Edit details</button></div>' +
+      '<div class="prop-edit"><div class="prop-edit-bar"><button type="button" class="btn btn-sm" data-prop-edit-done="' + escapeAttr(p.id) + '">Done</button></div>' +
+      propertySectionHtml(p, "value",
       '<div class="property-section-title">Property value</div>',
       '<div class="calc-grid">' +
         '<div class="calc-field"><label>Current value</label><input type="number" step="1000" min="0" class="prop-value" aria-label="Current value" value="' + (Number(p.value) || 0) + '"></div>' +
@@ -737,7 +778,7 @@ function propertyCardHtml(p, colorIdx){
       landTaxFieldsHtml(p) +
       '<div class="prop-value-log"><button type="button" class="btn btn-sm" data-property-log="' + escapeAttr(p.id) + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart">Record today\'s value</button>' + historyTrendHtml(p) + '</div>') +
     acquisitionCostsSectionHtml(p)  +
-    (p.kind === "IP" ? ownershipSectionHtml(p) : "") ) +
+    (p.kind === "IP" ? ownershipSectionHtml(p) : "") + '</div>') +
     panel("loans", propertySectionHtml(p, "loans",
       '<div class="property-section-title">Loans</div>',
       '<div class="m-card" id="propLoanRows_' + escapeAttr(p.id) + '">' + modernLoanListHtml(p) + '</div>' +

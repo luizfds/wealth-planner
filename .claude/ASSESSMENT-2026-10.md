@@ -3,7 +3,7 @@
 What it would take for the app to feel like a professional product rather than a capable
 spreadsheet. Made by driving every page and subtab with sample data, at 1280px and 390px, and
 comparing against well-known personal-finance apps. The build order that comes out of this is
-items 135–161 in [`ROADMAP.md`](ROADMAP.md), under "Professional grade".
+items 135–165 in [`ROADMAP.md`](ROADMAP.md), under "Professional grade".
 
 The short version: **the app already does more than nearly anything it would be compared with on
 Australian tax, super and property. It loses on everything around that: what you see first, how
@@ -172,6 +172,38 @@ the **Age Pension** (no reference to it anywhere today), and an **age axis** rat
 - **CLAUDE.md has drifted**: it says `app.js` is ~3,400 lines; it is 5,801.
 - **No visual regression check.** CI catches errors and overflow, not "this looks wrong". Saved
   screenshots of each page compared on every PR would have caught the Checks button.
+
+## 7. On a real household's data
+
+The same pass was repeated against a real exported backup — over a year of imported transactions,
+an investment property with loans and manager statements, a share portfolio with lots, two lodged tax
+years — loaded in a scratch copy, outside the repo. No figures from it are recorded here. Nothing errored
+and no NaN/undefined appeared. It confirmed the sections above and added these (items 135, 136, 141, 147,
+148 and 153 in the roadmap):
+
+- **The headline follows the selected scenario.** The header's Monthly cash, on every page, is the
+  *selected* scenario's figure. Selecting a Buy scenario to study it turns the household's headline into
+  a what-if. It also differs from the same scenario's card (a normal month vs one averaged with bonuses)
+  with nothing on screen to say why.
+- **Trend lines disagree with their numbers.** Home's net worth card printed a rise "since" the last log
+  beside a sparkline that fell, because the sparkline leaves out today's figure. The property value
+  chart drew three hand-logged values as steps on a zoomed axis, so one revaluation read as a crash.
+- **Rules are learnt one store at a time.** Most learnt import rules had matched exactly once. A rule is
+  keyed on the exact bank description, so every new branch of the same chain is another rule to teach.
+  This is the clearest measure of "too much input" found.
+- **Raw bank text in the lists.** About one transaction in seven still shows the bank's description,
+  store numbers and suburb included.
+- **Pages grow with the data.** Cash flow → Spending ran to several screen-heights on a desktop, and
+  Settings → Import rules to tens of thousands of pixels on a phone, because every list shows every row.
+  Cash flow built well over 1,500 form controls.
+- **Reports stop at the FY boundary.** With more than a year of data there is no way to see the last 12
+  months in one report.
+- **Things you own are forms.** A property's Overview opens as input fields, not as a summary with an
+  Edit button.
+
+What held up well: every transaction was tied to a budget line, share prices were current, and the
+tax, property and scenario figures were consistent from page to page. The data was well maintained.
+That is what makes the amount of upkeep it takes the main finding.
 
 ---
 

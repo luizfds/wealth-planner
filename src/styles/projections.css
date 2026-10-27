@@ -52,6 +52,28 @@
      stated rather than left for the reader to notice from the gridline figures. */
   .chart-axis-note{ font-size:11px; color: var(--ink-soft); margin:6px 0 0; }
   .proj-crosshair{ stroke: var(--ink-soft); stroke-width:1; stroke-dasharray:3 3; }
+  .rt-draw{ margin:14px 0; }
+  .rt-draw-say{ margin:4px 0 8px; font-weight:600; } .rt-draw-say.ok{ color: var(--good); } .rt-draw-say.bad{ color: var(--bad); }
+  .rt-draw-table small{ color: var(--ink-soft); font-size:11px; }
+  .rt-draw-table tr.rt-short td{ color: var(--bad); }
+  .rt-odds{ display:grid; grid-template-columns:1fr auto; gap:2px 12px; align-items:baseline; padding:12px 14px; border-radius:12px; border:1px solid var(--border); margin:10px 0; }
+  .rt-odds b{ font-size:22px; font-family: var(--font-num); }
+  .rt-odds small{ grid-column:1 / -1; color: var(--ink-soft); font-size:13px; line-height:1.45; }
+  .rt-odds.ok b{ color: var(--good); } .rt-odds.mid b{ color: var(--warn, #b7791f); } .rt-odds.bad b{ color: var(--bad); }
+  .le-card{ margin:14px 0 6px; padding:12px 14px; border:1px solid var(--border); border-radius:12px; }
+  .le-row{ display:flex; flex-wrap:wrap; gap:8px 10px; align-items:end; padding:8px 0; border-bottom:1px solid var(--border); }
+  .le-row:last-of-type{ border-bottom:0; }
+  .le-kind{ flex:0 0 120px; font-weight:600; font-size:13.5px; padding-bottom:9px; }
+  .le-row input[type=text]{ width:170px; } .le-year input, .le-num input{ width:84px; } .le-amt input{ width:120px; }
+  .le-year small{ display:block; font-size:11px; color: var(--ink-soft); }
+  .le-remove{ margin-left:auto; }
+  .le-add{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:8px; }
+  .le-add > span{ font-size:12px; color: var(--ink-soft); margin-right:4px; }
+  @media (max-width:720px){ .le-kind{ flex-basis:100%; padding-bottom:0; } .le-row input[type=text]{ width:100%; } .le-row .cf-filter:first-of-type{ flex:1 1 100%; } }
+  .proj-marker{ stroke: var(--ink-soft); stroke-width:1; stroke-dasharray:3 3; opacity:.7; }
+  .proj-marker-label{ fill: var(--ink-soft); font-size:11px; }
+  .proj-band{ fill: var(--series-color); opacity:.14; stroke:none; }
+  .proj-range-line{ display:block; margin-top:4px; font-size:13.5px; color: var(--ink-soft); }
   .series-line{ fill:none; stroke: var(--series-color); stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
   .series-dot{ fill: var(--series-color); }
   .series-pt{ fill: var(--paper-raised); stroke: var(--series-color); stroke-width:1.5; }

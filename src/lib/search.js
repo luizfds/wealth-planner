@@ -41,7 +41,7 @@ export function searchApp(query){
   // for off-screen inside a closed card, with nothing saying where it went.
   budgetLines().forEach(function(item){
     add("Expense", item.what, fmtCurrency0.format(Number(item.amount) || 0) + " " + (item.freq || "").toLowerCase(),
-      "expenses", { sub: "budget", lineId: item.id });
+      "expenses", item.id ? { sub: "budget", lineId: item.id, detail: { kind: "line", id: item.id } } : { sub: "budget", lineId: item.id });
   });
   (state.transactions || []).forEach(function(t){
     // Indexed by its display name, not t.what: a transaction logged against "Groceries" with no
@@ -56,16 +56,26 @@ export function searchApp(query){
     add("Income", i.what, (i.person ? i.person + " · " : "") + fmtCurrency0.format(Number(i.amount) || 0) + " " + (i.freq || "").toLowerCase(), "income");
   });
   (state.assets || []).forEach(function(a){
-    add("Asset", a.what, (a.category || "") + " · " + fmtCurrency0.format(Number(a.amount) || 0), "assets", { sub: a.category });
+    add("Asset", a.what, (a.category || "") + " · " + fmtCurrency0.format(Number(a.amount) || 0), "assets", a.id ? { sub: a.category, detail: { kind: "asset", id: a.id } } : { sub: a.category });
   });
   (state.properties || []).forEach(function(p){
-    add("Property", p.what, (p.kind || "") + " · " + fmtCurrency0.format(Number(p.value) || 0), "properties", { scrollToId: "property-card-" + p.id });
+    add("Property", p.what, (p.kind || "") + " · " + fmtCurrency0.format(Number(p.value) || 0), "properties", { scrollToId: "property-card-" + p.id, detail: { kind: "property", id: p.id } });
+    (p.loans || []).forEach(function(l, i){
+      if(l.id) add("Loan", l.what || (p.what || "Property") + " loan" + ((p.loans || []).length > 1 ? " " + (i + 1) : ""), fmtCurrency0.format(Number(l.balance) || 0) + " owed", "properties", { detail: { kind: "loan", id: l.id } });
+    });
   });
   (state.debts || []).forEach(function(d){
-    add("Debt", d.what, fmtCurrency0.format(Number(d.balance) || 0), "assets", { sub: "summary" });
+    add("Debt", d.what, fmtCurrency0.format(Number(d.balance) || 0), "assets", d.id ? { sub: "summary", detail: { kind: "debt", id: d.id } } : { sub: "summary" });
   });
   (state.accounts || []).forEach(function(a){
-    add("Account", a.name, ({ everyday: "Everyday account", savings: "Savings account", offset: "Offset account", credit: "Credit card", loan: "Loan" })[a.type] || "Account", "accounts");
+    add("Account", a.name, ({ everyday: "Everyday account", savings: "Savings account", offset: "Offset account", credit: "Credit card", loan: "Loan" })[a.type] || "Account", "accounts", a.id ? { detail: { kind: "account", id: a.id } } : {});
+  });
+  // v3.128.0: the people, each to their own page.
+  var seen = {};
+  (state.income || []).forEach(function(i){
+    if(i.incomeType !== "Gross" || !i.person || seen[i.person]) return;
+    seen[i.person] = true;
+    add("Person", i.person, "Income, tax and super", "tax", { detail: { kind: "person", id: i.person } });
   });
 
   return results;

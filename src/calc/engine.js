@@ -10,7 +10,9 @@ import {
 } from "./property.js";
 import { getTaxPeople, computePersonTax, scenarioIncomeMonthly, personOneOffSplit, scenarioOneOffYearly, takeHomeAdjust } from "./tax.js";
 import { fmtCurrency0, localDateStr, fmtDate } from "../lib/format.js";
+import { dueAfterDays } from "./estimates.js";
 import { projectionRatios } from "./actuals.js";
+import { eventEffects } from "./lifeevents.js";
 
 // Every non-Shares asset, and every Shares holding on the ASX, is already AUD — the only
 // currency this app ever mixes in is USD (US-market and Crypto holdings, see MARKET_CURRENCY).
@@ -103,16 +105,20 @@ export function actualAssetGrowthLastMonth(){
 // Assets whose logged value is stale (>=30 days old) or that have never been logged at all —
 // a nudge, not an error: the app has no way to push a notification when it's closed (no
 // backend), so this only surfaces on load/whenever the Dashboard re-renders.
+// v3.114.0: due on each kind's own rhythm (calc/estimates.js DUE_DAYS) — super about twice a year, a
+// car valued from its price never — not every asset every 30 days.
 export function staleAssets(){
   var todayMs = Date.now();
-  var STALE_DAYS = 30;
+  var today = localDateStr();
   var result = [];
   state.assets.forEach(function(a){
+    var due = dueAfterDays(a, today);
+    if(due == null) return;
     var hist = a.history;
     var lastDate = hist && hist.length ? hist[hist.length - 1].date : null;
     var days = lastDate ? Math.floor((todayMs - new Date(lastDate + "T00:00:00").getTime()) / (24 * 60 * 60 * 1000)) : null;
     // label (v3.32.1): two people's "Superannuation" were indistinguishable in the banner.
-    if(days == null || days >= STALE_DAYS) result.push({ what: a.what, label: a.person ? a.what + " — " + a.person : a.what, days: days });
+    if(days == null || days >= due) result.push({ what: a.what, label: a.person ? a.what + " — " + a.person : a.what, days: days });
   });
   return result;
 }
@@ -210,12 +216,26 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
       }, 0);
   }
 
+  // v3.125.0: a range of outcomes runs this hundreds of times with a different sequence of returns
+  // each time (calc/outcomes.js) — opts.investReturns[year] and opts.propertyReturns[year] replace
+  // the steady rates for that year, and opts.cache keeps the per-year income and costs (which don't
+  // depend on returns, and are the slow part) between runs.
+  var investPath = opts && opts.investReturns, propPath = opts && opts.propertyReturns, cache = opts && opts.cache;
+  // v3.126.0: life events (calc/lifeevents.js), in today's dollars, inflated to the year they land.
+  var events = opts && opts.events ? opts.events : (state.lifeEvents || []), thisYear = Number(todayStr.slice(0, 4));
+  var propFactor = 1;
   var points = [];
   for(var year = 0; year <= horizonYears; year++){
+    if(year > 0 && propPath) propFactor *= 1 + (propPath[year] != null ? propPath[year] : propRate);
     if(year > 0){
-      var inflatableThisYear = activeInflatableMonthlyAt(year) * Math.pow(1 + inflationRate, year);
-      var incomeThisYear = (activeIncomeMonthlyAt(year) + (ratios.incomeDelta || 0)) * Math.pow(1 + incomeGrowthRate, year);
-      var savingsThisYear = incomeThisYear - fixedMonthly - inflatableThisYear;
+      var yc = cache && cache[year];
+      if(!yc){ yc = { inflatable: activeInflatableMonthlyAt(year), income: activeIncomeMonthlyAt(year) }; if(cache) cache[year] = yc; }
+      var inflatableThisYear = yc.inflatable * Math.pow(1 + inflationRate, year);
+      var incomeThisYear = (yc.income + (ratios.incomeDelta || 0)) * Math.pow(1 + incomeGrowthRate, year);
+      if(investPath && investPath[year] != null) monthlyInvestRate = Math.pow(1 + investPath[year], 1 / 12) - 1;
+      var ev = events.length ? eventEffects(events, year, thisYear) : null;
+      var savingsThisYear = incomeThisYear - fixedMonthly - inflatableThisYear - (ev ? ev.yearly / 12 * Math.pow(1 + inflationRate, year) : 0);
+      if(ev && ev.lump) portfolio += ev.lump * Math.pow(1 + inflationRate, year);
       // "auto" mode redirects the scenario's own real monthly surplus into the invest leg's
       // growth rate instead of the generic portfolio rate — not an extra contribution on top of
       // it, which would double-count the same money. "manual" pins a fixed figure instead, and
@@ -228,11 +248,12 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
         if(investEnabled) investBalance = investBalance * (1 + investGrowthMonthly) + investContribThisYear;
       }
     }
-    var homeValue = price * Math.pow(1 + homePropRate, year);
+    var propGrowth = propPath ? propFactor : Math.pow(1 + propRate, year);
+    var homeValue = price * (propPath ? propFactor * Math.pow((1 + homePropRate) / (1 + propRate), year) : Math.pow(1 + homePropRate, year));
     var loanBal = purchaseEnabled ? loanBalanceAfterMonths(loanAmount0, rate, term, year * 12, cfg.repaymentType) : 0;
     var homeEquity = purchaseEnabled ? (homeValue - loanBal) : 0;
     var propertiesEquitySum = state.properties.reduce(function(sum, p){
-      var val = (Number(p.value) || 0) * Math.pow(1 + propRate, year);
+      var val = (Number(p.value) || 0) * propGrowth;
       var loanNet = (p.loans || []).reduce(function(s, l){
         // v3.41.0: nothing owed from the year a "Paid out on" date has passed.
         if(loanPaidOut(l, addYearsIso(todayStr, year))) return s;

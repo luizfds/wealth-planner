@@ -4,7 +4,11 @@ import { propertiesOffsetTotal, propertiesIlliquidEquityToday, recalcPurchase, l
 import { totalAssetsValue, totalNetWorthValue, totalDebtsValue, liquidAssetsValue, toAudAmount } from "../calc/engine.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, fmtCurrency0For, fmtCurrency2For, localDateStr, fmtDate, fmtQtyDisplay } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
+import { detailLinkHtml } from "./detail.js";
+// v3.128.0: a holding's name opens its own page.
+function nameLink(item){ return item.id ? detailLinkHtml("asset", item.id, item.what || "Holding") : escapeAttr(item.what); }
 import { optionsHtml, historyTrendHtml, rowEditSlot } from "../lib/ledger-table.js";
+import { superEstimate } from "../calc/estimates.js";
 import { renderLineChart, renderStackedAreaChart, dateAxisFormat, sparklineHtml, sparklinePlaceholderHtml } from "../lib/charts.js";
 import { showToast } from "../lib/toast.js";
 import { appendHistorySnapshot, daysUntil, householdYearWindow, householdYearBasis } from "../calc/ledger.js";
@@ -515,12 +519,20 @@ function modernAssetCompBarHtml(rowMeta){
     return '<div class="m-comp-seg series-color-' + x.colorIdx + '" style="flex:' + x.amount + ' 1 0%" title="' + escapeAttr(x.item.what) + ': ' + fmtCurrency0.format(x.amount) + ' (' + fmtPercent1.format(pct) + ')"></div>';
   }).join("") + '</div>';
 }
+// v3.114.0: super between statements — roughly where it stands today, marked as an estimate.
+export function superEstimateSubHtml(item, today){
+  if(item.category !== "Super") return "";
+  var est = superEstimate(item, today || localDateStr());
+  if(!est || est.days < 30) return "";
+  return '<div class="m-row-sub est-note" title="From the last statement, plus employer super since (after the 15% contributions tax) and growth at the projection\'s return. Replace it with the real figure when the next statement comes.">≈ ' +
+    fmtCurrency0.format(est.value) + ' today, estimated from ' + fmtCurrency0.format(est.from.value) + ' on ' + escapeAttr(fmtDate(est.from.date)) + '</div>';
+}
 function modernAssetRowHtml(item, idx, colorIdx){
   var isOpen = !!modernAssetRowOpen[idx];
   var dot = colorIdx != null ? '<span class="m-row-dot series-color-' + colorIdx + '" aria-hidden="true"></span>' : "";
   var summary = '<div class="m-row-summary" role="button" tabindex="0" data-row-toggle>' +
     dot +
-    '<div style="flex:1 1 auto; min-width:0"><div class="m-row-name">' + escapeAttr(item.what) + '</div></div>' +
+    '<div style="flex:1 1 auto; min-width:0"><div class="m-row-name">' + nameLink(item) + '</div>' + superEstimateSubHtml(item) + '</div>' +
     '<span class="m-row-amt" data-computed="amt">' + fmtCurrency0.format(Number(item.amount) || 0) + '</span>' +
     '<span class="m-row-chev" aria-hidden="true">✕</span>' +
   '</div>';
@@ -622,7 +634,7 @@ function modernVehicleRowHtml(item, idx, colorIdx){
   var dot = colorIdx != null ? '<span class="m-row-dot series-color-' + colorIdx + '" aria-hidden="true"></span>' : "";
   var summary = '<div class="m-row-summary" role="button" tabindex="0" data-row-toggle>' +
     dot +
-    '<div style="flex:1 1 auto; min-width:0"><div class="m-row-name">' + escapeAttr(item.what) + '</div></div>' +
+    '<div style="flex:1 1 auto; min-width:0"><div class="m-row-name">' + nameLink(item) + '</div></div>' +
     '<span class="m-row-amt" data-computed="amt">' + fmtCurrency0.format(Number(item.amount) || 0) + '</span>' +
     '<span class="m-row-chev" aria-hidden="true">✕</span>' +
   '</div>';
@@ -689,8 +701,8 @@ function modernShareRowHtml(item, idx, colorIdx){
   // weight, for a holding with no symbol set.
   var symbolText = (item.symbol || "").trim();
   var titleHtml = symbolText
-    ? '<span class="m-row-name">' + escapeAttr(symbolText) + '</span><span class="m-row-name-secondary">' + escapeAttr(item.what) + '</span>'
-    : '<span class="m-row-name">' + escapeAttr(item.what) + '</span>';
+    ? '<span class="m-row-name">' + (item.id ? detailLinkHtml("asset", item.id, symbolText) : escapeAttr(symbolText)) + '</span><span class="m-row-name-secondary">' + escapeAttr(item.what) + '</span>'
+    : '<span class="m-row-name">' + nameLink(item) + '</span>';
   var summary = '<div class="m-row-summary" role="button" tabindex="0" data-row-toggle>' +
     avatar +
     '<div class="m-row-share-name">' +

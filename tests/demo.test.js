@@ -57,3 +57,58 @@ test("every report has something in it", function(){
     });
   });
 });
+
+import { projectionBands } from "../src/calc/outcomes.js";
+import { computeNetWorthSeries, currentScenario } from "../src/calc/engine.js";
+test("the projection's range: the 10th–90th band holds the steady line, widening with the years", function(){
+  withDemo(function(){
+    var sc = currentScenario();
+    var b = projectionBands(sc, 20, { runs: 120, realTerms: true, projection: state.projection });
+    var steady = computeNetWorthSeries(sc, 20, { realTerms: true });
+    assert.equal(b.lo.length, 21);
+    assert.equal(Math.round(b.lo[0].y), Math.round(steady[0].y)); // today is known
+    [5, 10, 20].forEach(function(y){ assert.ok(b.lo[y].y < steady[y].y && steady[y].y < b.hi[y].y, "year " + y); });
+    assert.ok(b.hi[20].y - b.lo[20].y > b.hi[5].y - b.lo[5].y);
+    // The cached runs leave the steady answer alone.
+    assert.deepEqual(computeNetWorthSeries(sc, 20, { realTerms: true }), steady);
+  });
+});
+
+test("life events move the projection by what they cost, inflated to their years", function(){
+  withDemo(function(){
+    var sc = currentScenario();
+    var base = computeNetWorthSeries(sc, 10, { realTerms: false, events: [] });
+    var inherit = computeNetWorthSeries(sc, 10, { realTerms: false, events: [{ kind: "lump", year: Number(TODAY_YEAR()) + 2, amount: 100000 }] });
+    assert.equal(Math.round(inherit[2].y - base[2].y), 0); // not yet
+    assert.ok(inherit[3].y - base[3].y > 100000); // landed at the start of year 3, inflated and grown a year
+    var child = computeNetWorthSeries(sc, 10, { realTerms: false, events: [{ kind: "child", year: Number(TODAY_YEAR()), years: 18, amount: 12000 }] });
+    assert.ok(base[10].y - child[10].y > 120000);
+  });
+});
+function TODAY_YEAR(){ return new Date().getFullYear(); }
+
+import { detailView, detailPageHtml, detailTarget } from "../src/components/detail.js";
+test("every kind of thing in the demo has a detail page, and a missing one says so", function(){
+  withDemo(function(){
+    var ids = {
+      account: state.accounts[0].id,
+      asset: state.assets.find(function(a){ return a.category === "Shares"; }).id,
+      property: state.properties[0].id,
+      loan: state.properties[0].loans[0].id,
+      line: state.shared.find(function(l){ return l.id; }).id,
+      merchant: "Fern Café",
+      person: "Alex"
+    };
+    Object.keys(ids).forEach(function(kind){
+      var v = detailView(kind, ids[kind], TODAY);
+      if(kind === "merchant" && !v) return; // the demo's merchants are its own
+      assert.ok(v, kind);
+      assert.ok(v.title && v.html.length > 40, kind);
+      assert.doesNotMatch(v.html, /NaN|undefined/, kind);
+    });
+    detailTarget.kind = "asset"; detailTarget.id = "gone";
+    assert.match(detailPageHtml(TODAY), /isn't here any more/);
+    detailTarget.kind = "property"; detailTarget.id = ids.property;
+    assert.match(detailPageHtml(TODAY), /data-detail-edit/);
+  });
+});

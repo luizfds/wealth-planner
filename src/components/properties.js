@@ -17,7 +17,9 @@ import { fixedRateView, rentSummary } from "../calc/propertylife.js";
 import { statementTotals, statementsForFy, waterRatesLine } from "../calc/agentstatement.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr, fmtDate } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
+import { detailLinkHtml } from "./detail.js";
 import { optionsHtml, modernPlainRowHtml, historyTrendHtml, rowEditSlot } from "../lib/ledger-table.js";
+import { propertyEstimate } from "../calc/estimates.js";
 import { showToast } from "../lib/toast.js";
 import { appendHistorySnapshot } from "../calc/ledger.js";
 import { renderLineChart, dateAxisFormat, sparklineHtml, sparklinePlaceholderHtml } from "../lib/charts.js";
@@ -609,6 +611,9 @@ export function propertySummaryHtml(p){
   var costsYear = sumField(p.expenses || [], "yearly");
   var owners = p.kind === "IP" ? getTaxPeople().map(function(person){ var pct = propertyOwnershipPct(p, person, getTaxPeople()); return pct ? person + " " + Math.round(pct) + "%" : ""; }).filter(Boolean).join(" · ") : "";
   var yieldGross = p.kind === "IP" && value > 0 && rentYear > 0 ? rentYear / value : null;
+  // v3.114.0: a value last recorded a while ago, grown at the projection's rate — marked as an estimate.
+  var est = propertyEstimate(p, localDateStr());
+  if(est && est.days >= 90 && Math.abs(est.value - value) >= 1000) valueSub += " · ≈ " + fmtCurrency0.format(est.value) + " today at " + est.ratePct + "% a year (estimate)";
   return '<dl class="prop-summary">' +
     row("Value", fmtCurrency0.format(value), valueSub) +
     row("Bought", bought, acq > 0 ? fmtCurrency0.format(acq) + " in purchase costs" : "") +
@@ -751,7 +756,7 @@ function propertyCardHtml(p, colorIdx){
   var editing = !!propertyEditing[p.id];
   return '<div class="property-card series-color-' + (colorIdx % 8) + (editing ? " is-editing" : "") + '" data-property-id="' + escapeAttr(p.id) + '" id="property-card-' + escapeAttr(p.id) + '">' +
     '<div class="property-card-head">' +
-      '<h4 class="prop-read"><span class="prop-name">' + escapeAttr(p.what || "Property") + '</span><span class="prop-kind-pill">' + (p.kind === "IP" ? "Investment" : "Home") + '</span></h4>' +
+      '<h4 class="prop-read"><span class="prop-name">' + (p.id ? detailLinkHtml("property", p.id, p.what || "Property") : escapeAttr(p.what || "Property")) + '</span><span class="prop-kind-pill">' + (p.kind === "IP" ? "Investment" : "Home") + '</span></h4>' +
       '<h4 class="prop-edit"><input type="text" class="prop-what" value="' + escapeAttr(p.what) + '" aria-label="Property name">' +
       '<select class="prop-kind" aria-label="Property kind">' + optionsHtml(["IP", "PPOR"], p.kind) + '</select></h4>' +
       '<button type="button" class="btn btn-ghost btn-sm row-del property-del-btn" data-property-del="' + escapeAttr(p.id) + '" aria-label="Delete property">✕</button>' +

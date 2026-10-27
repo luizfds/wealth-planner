@@ -2628,7 +2628,6 @@ Newest first / A–Z (rules don't record when they were last used — newest sta
 Measured on a real backup (outside the repo): Spending 6,724 → 5,112px at 1280 and 10,134 → 7,158px at 390;
 Import rules 9,646 → 2,804px and 29,165 → 7,636px. The transaction list keeps its 25 most recent.
 
-
 ### Phase B — type less
 
 ## 142. `[x]` Balances from statements
@@ -2663,17 +2662,26 @@ button is hidden where it used to show a count. **Still open:** `lib/notificatio
 still groups "lines that need a fresh entry" on the old per-frequency test.
 
 
-## 144. `[ ]` Estimates between logs
+## 144. `[x]` Estimates between logs
 Super = last balance + SG from pay + assumed return; property = last value indexed by growth (or the suburb
 benchmark); vehicle = depreciation. Shown dated and tagged "estimated" until a real figure is logged. The
 stale-assets banner only asks when an estimate is old *and* a real figure is due (a super statement period).
+
+Shipped as v3.114.0: `calc/estimates.js` — `superEstimate` (last statement + employer super since, after the 15%
+contributions tax, + growth at the projection's return), `propertyEstimate` (last recorded value grown at the
+projection's rate, to the thousand), `dueAfterDays` (Super 190, Cash/Shares 35, Other 120 days; never for a
+computed vehicle or shares priced from the sheet in the last week). `staleAssets` uses it, and the banner reads
+"due a fresh value". Super rows show "≈ $X today, estimated from $Y on <date>" once a statement is a month old;
+a property's summary adds the estimate once its value is 90+ days old. Net worth still uses recorded values
+(same open decision as item 142). On a real backup (outside the repo) the banner, which had flagged a super fund
+and a car, is gone.
 
 ## 145. `[ ]` Share prices with no setup
 A scheduled GitHub Action writes a daily price file for a fixed broad list (ASX 200, common ETFs, a short
 US list) to the Pages site; the app reads it before falling back to the user's own Sheet. **Never a list
 built from anyone's holdings** — the repo is public.
 
-## 146. `[ ]` A budget from history
+## 146. `[x]` A budget from history
 After 3+ months imported, propose budget lines (amount, frequency, Needs/Wants, account) from what was
 spent, using `calc/recurring.js`; accept all, or line by line.
 
@@ -2715,72 +2723,244 @@ Replaying the whole history from no rules: 412 asks vs 438 before, 975 filed rig
 vs 56 — fewer questions, slightly more to correct. Offering "all <merchant>" as a choice wasn't built: merging
 happens only when both answers already agree.
 
+Shipped as v3.115.0: `calc/budgetfromhistory.js` `proposeBudget(transactions, lines, today)` — spending of the
+last 12 months on no live line, once 3 months are logged: subscription-steady payees (`cadenceOf`, within 5% or
+$2 four times in five) get their own line at their usual amount and rhythm; everyday spending is grouped by
+category (the known-merchant category from item 147, else the transaction's) into one monthly-average line per
+category not already budgeted; an uncategorised merchant costing $300+ a year gets its own; the rest is summarised
+as left out. `applyBudgetProposals` adds the lines and links their transactions (undoable). Budget tab → "Build
+from what you've spent" (hidden when there's nothing to propose). Simulated on a real backup (outside the repo) as
+a household with no budget: 35 lines (12 steady, 18 categories, 5 merchants) covering its actual spending, against
+the 46 it built by hand; 3 small one-offs left out.
 
-## 149. `[ ]` Payslip import
+
+## 149. `[x]` Payslip import
 A payslip PDF → gross, tax withheld, super, sacrifice and YTD, into income lines and the withholding check.
 
-## 150. `[ ]` A transaction grid
+Shipped as v3.116.0: `calc/payslip.js` `parsePayslip(lines)` — each line matched by the label that comes first on
+it (Gross, Tax/PAYG, Net, Super, Salary sacrifice); of its amounts the first is this pay and the last, when there
+are two or more, year to date; period and pay dates read from the text after their own labels (several on one
+line); anything not found stays null. `payFrequency` from the period's length. Tax → This year → each person's
+"Refund or bill?" panel: Read a payslip (PDF, through the same `pdfLines` as statements) or paste its text; shows
+what was read; "Use the year-to-date figures" fills the withholding check; when this pay differs from the plan's
+salary row by more than 2%, "Set <row> to $X <frequency>" (undoable). Driven with an invented payslip pasted as
+text. The PDF path is the statement import's, not separately exercised with a real payslip PDF.
+
+
+## 150. `[x]` A transaction grid
 Keyboard-first entry and multi-select editing in a table layout on wide screens; cards stay on phones.
 First run offers "drop in three statements and a payslip" as the main path.
 
+Shipped as v3.117.0: `components/cashflow.js` `txGridHtml` — Cash flow → Spending gets a List / Table switch
+(remembered on the device; hidden at ≤720px, where the list is always used, re-rendered on crossing that width).
+The table has every spending row's date, description, line, account and amount editable in place, with the same
+`tx-*` classes and `data-tx-index` as the row form, so the existing handlers save them; money in and transfers sit
+read-only beside them; Enter moves down a column; an entry row at the top adds a transaction on Enter (amount from
+the line when only a line is picked) and returns focus to itself; select mode adds the checkbox column for the
+existing bulk bar. First-run's last step leads with "Finish and import statements". Driven on the demo: an edit
+saves, Enter moves down, a new row is added, the table fits, phone width falls back to the list.
+
 ### Phase C — one thing, one place
 
-## 151. `[ ]` A detail page for every thing
+## 151. `[x]` A detail page for every thing
 Account, holding, property, loan, budget line, merchant, person: one route each, with history chart,
 transactions, related items and the edit form. Every list links to it; search lands on it.
 
-## 152. `[ ]` Navigation by what you own
+Shipped as v3.128.0: a Details page (`components/detail.js`, route `/detail/<kind>/<id>`, in no menu) for an account,
+a holding (any asset), a property, a loan, a debt, a budget line, a merchant and a person: what it is as a row of
+figures, its value or balance history drawn (stepped, from what's been logged), and what's behind it — an account's
+spending month by month, its transactions and transfers, and the record its balance comes from; a holding's returns,
+purchase lots, distributions by year and sales; a property's yields, growth, loans and owners; a loan's interest by
+year, deductible share and payoff; a budget line's plan against the last 12 months, month by month, with its
+transactions; a merchant's spending, the categories and lines it's filed under; a person's tax, income, super and
+property shares. Each links on to the others, and "Edit on …" goes to its edit form where it lives (page, subtab,
+row scrolled to). Search lands on it for holdings, properties, loans, debts, accounts, budget lines and people (new
+in search); accounts (a Details button), property cards and holding names link to it; a merchant in any detail
+page's transactions links to the merchant. Every asset now has an id (migrated). Deep links work through the 404
+redirect. Checked at 390 and 1280px on the demo and a real backup (outside the repo); a refund-heavy month no longer
+draws a negative column. The edit forms themselves stay where they are rather than being duplicated here.
+
+
+## 152. `[x]` Navigation by what you own
 Accounts + Investments + Property become **Net worth** (one list grouped Cash · Investments · Super ·
 Property · Debts, each to its detail page); debts in one place (cards, personal loans, property loans);
 Scenarios only in Plan (Home links to it); a **Goals** tab in Plan for savings goals, emergency fund, FI and
 Can we buy?; person tax settings move from Settings → People to Tax; Checks moves to Home's to-do and
 Review. Old ids keep working through `nav.js` ALIASES.
 
+Shipped as v3.129.0. **Net worth** replaces Accounts, Investments and Property in the menu: an overview
+(`calc/networthlist.js`, `components/networth.js`) lists everything owned and owed in one place — Cash (offsets
+included) · Investments · Super · Property · Other things · Debts (cards, personal loans and property loans
+together) — with group totals, a bar of what makes up what you own, and every row opening its detail page; its total
+is the header's net worth. One rail of tabs (Overview · Accounts · Investments · Property) sits on all four pages, and
+the menu entry stays lit on each. On a phone the bar is Home · Cash flow · Net worth · Plan · More (Tax, Reports,
+Settings). Home's first tab is Overview; the scenario cards moved to Plan → Scenarios, with a link from Home. Plan
+gains **Goals**: the emergency fund and savings goals (from Accounts), Can we buy? — which had no place on the page
+and so had never rendered — and where financial independence stands, linking to Retirement. People (the facts the
+tax estimate runs on) moved from Settings to Tax → People; Checks moved to Home → Review, and its badge to Home.
+Every old name still lands: `showAccountsSubpage("people"|"checks")`, `/settings/people`, `/settings/checks`. The
+smoke check covers the new pages and tabs and every report. Checked at 390 and 1280px on the demo and a real backup
+(outside the repo).
+
 ### Phase D — reports
 
-## 153. `[ ]` One report frame
+## 153. `[x]` One report frame
 Range (month, quarter, FY, calendar year, last 12 months, custom), compare to (previous period, same period
 last year, budget), group by (category, group, merchant, account, person, property), a chart over every
 table, and any figure clicks through to its transactions. Existing eight reports move onto it. Today a
 report can only show the header's FY, so a household with over a year of data can't see its last 12 months
 in one view.
 
-## 154. `[ ]` Cash flow Sankey and household income statement
+Shipped as v3.118.0: `calc/reportframe.js` — `RANGES` (the header's year, last 12 months, calendar year, quarter,
+month, custom dates), `COMPARES` (the period before, the same dates a year earlier, the budget), `GROUPS`
+(category, Needs/Wants, budget line, merchant, account, person), `rangeWindow`, `compareWindow`, `monthsIn` (any
+window, not only twelve months), `spendingByGroup`, `change`. `lib/reportcharts.js` `reportChartHtml` — inline SVG
+"bars" (one per group, a tick for the comparison) and "columns" (in/out per month), so charts print. Reports gain a
+frame bar (`components/reports.js` `reportFrame`, session-only): Monthly cash flow (range + compare row + columns
+chart), Spending (range, compare incl. budget for category/needs-wants/line/account, group by, bars chart; a row
+opens its transactions), Net worth statement (as at the window's end). Property P&L, Tax summary, Net worth check,
+Month in detail and Year-end pack keep their own periods. Driven on a real backup (outside the repo): last 12 months
+across two financial years, every grouping, budget and year-earlier comparisons, drill-down, no errors.
+
+
+## 154. `[x]` Cash flow Sankey and household income statement
 Gross pay → tax / super / take-home → Needs / Wants / saved / invested, for a month or a year; and the
 year month by month with a budget column and savings rate.
 
-## 155. `[ ]` Budget vs actual and spending trends
+Shipped as v3.119.0: two reports on the frame. Income statement (`incomeStatementReport`) — pay received, rent and
+other money in (by the income log's target), spending by its line's Needs / Wants / other, total in and out, kept
+and the savings rate, month by month with a Total and a Plan column (expected income + the budget for the same
+months), in/out columns chart. Where the money goes (`moneyFlowReport`) — a Sankey (`lib/reportcharts.js`
+`sankeyHtml`, inline SVG): pay with the employer's super into tax, super and take-home (tax and super from the plan,
+scaled to the pay actually logged as received), then take-home, other money in and anything drawn from savings into
+Needs, Wants, other spending and kept, each source shared across the uses in proportion. Checked on the demo and a
+real backup (outside the repo) for the last 12 months: both draw, no NaN, no errors.
+
+
+## 155. `[x]` Budget vs actual and spending trends
 Lines × months variance heat map; 12/24-month trends with year-on-year per category and merchant.
 
-## 156. `[ ]` Investment performance, income and CGT
+Shipped as v3.120.0: two reports on the frame. Budget vs actual (`budgetActualReport`) — every budget line against
+its plan month by month, each cell spent less planned and shaded red over / green under (heat −3..3, against the
+larger of the monthly plan and $20); lines billed quarterly, half-yearly or yearly, or with no fixed timing, show what
+was spent each month unshaded and are judged on their total; Spent, Planned and Over columns, biggest differences
+first. Year on year (`trendsReport`) — the last 12 months against the 12 before by the frame's grouping (category,
+merchant, account…), with a bars chart and the prior year's marks; the percentage is left out when fewer than 10 of
+the earlier 12 months were logged, since it would mostly measure when logging began. Checked on the demo and a real
+backup (outside the repo): both draw, no NaN, no sideways scroll, no errors.
+
+
+## 156. `[x]` Investment performance, income and CGT
 Per holding and total: capital gain, income, currency, annualised return, against a benchmark;
 distributions and franking by FY; realised and unrealised CGT by parcel with the discount.
 
-## 157. `[ ]` Property, debt and super reports
+Shipped as v3.121.0: three reports from `calc/investreports.js`. Investment returns (`holdingReturns`) — per holding
+and in total: cost still held (lots with brokerage), value, unrealised, income (distributions with franking),
+realised, total return, a money-weighted yearly rate with cash income and a price-only one, beside the benchmark on
+the same dollars and dates (the index from Investments → Performance when its prices are loaded, else the fixed
+rate) and how far ahead; USD holdings shown as such and converted. Distributions (`distributionYears`) — cash and
+franking credits by financial year, holding by holding, with a columns chart. Capital gains (`cgtParcels`) — every
+parcel sold, by financial year, with the 12-month discount and the year's net capital gain (losses off undiscounted
+gains first, then halved; any loss carried); every parcel still held with what it would make if sold today and the
+date its discount starts. The demo's ETFs now pay distributions. Checked on the demo and a real backup (outside the
+repo): all three draw, no NaN, no errors.
+
+
+## 157. `[x]` Property, debt and super reports
 Property: gross/net yield, after-tax cash flow, equity growth, total return per property per year. Debt:
 balances, interest by year, deductible share, payoff dates. Super: contributions against caps by year,
 carry-forward room, balance history.
 
-## 158. `[ ]` Lender pack and year in review
+Shipped as v3.122.0: three reports from `calc/assetreports.js`. Property returns (`propertyReturns`) — per property:
+value, paid with costs, loans, equity with offsets, LVR; a year at today's rates (rent, expenses, gross and net
+yield, cash after interest, after repayments, the tax effect at the owners' marginal rates, cash after repayments
+and tax); the last 12 months' value and equity growth and total return (growth + cash after interest + tax); growth a
+year since purchase; value at each 30 June from the logged history. Loans and debts (`debtSchedule`) — each loan and
+debt: owed now and a year ago (logged balances), rate, repayment, interest this year so far and last year across the
+recorded rate changes, the deductible share, and the month it's paid off at today's repayment and offset
+(`loanPayoff`; "Interest only" or "Not at this rate" otherwise). Super — per person, concessional contributions
+(employer, sacrifice and personal) against the cap, room left or over, balance at each 30 June; earlier years only
+while the balance was tracked (before that the tax model would replay today's plan), and the unused room in the
+years shown, blank once the balance passed $500,000. Checked on the demo and a real backup (outside the repo): all
+three draw, no NaN, no errors.
+
+
+## 158. `[x]` Lender pack and year in review
 A printable one-page 12-month summary of income, spending, assets and liabilities for a refinance or
 purchase; a narrative one-pager each 30 June.
 
-## 159. `[ ]` Saved reports and a proper printout
+Shipped as v3.123.0: two reports. Lender pack (`lenderPackReport`) — one page for a refinance or purchase: the last
+12 whole months' income (salary before tax from the plan, and every kind of money received), living expenses split
+into essentials and discretionary, loan repayments as commitments, then assets and liabilities today and the net
+position (which matches the header's net worth); a year and a month column. Year in review (`yearInReviewReport`) —
+the last finished financial year (or the header's year, once it's over) in sentences: net worth start to end, money
+in, spent and the share kept, the three biggest categories and the biggest rise and fall on the year before (only
+when that year was logged for 10+ months), distributions and franking, net capital gain, concessional super against
+the cap, each property's revaluation and its loan's paydown; with the figures beside the year before. A report can
+now lead with sentences (`rep.narrative`, `.rp-story`), on screen and printed. Checked on the demo and a real backup
+(outside the repo): both draw, no NaN, no errors.
+
+
+## 159. `[x]` Saved reports and a proper printout
 Pin a report with its settings; print with a title block, household, period, page breaks and charts.
+
+Shipped as v3.124.0: the picker of twenty reports is in three labelled groups (Money in and out / What you own and
+owe / Tax and the year). Pin keeps the report on screen with its frame (period, custom dates, comparison, grouping)
+as a chip above the picker, named for what it shows ("Spending · Last 12 months · by merchant"), stored in
+`state.savedReports` (in backups; old saves migrate to an empty list); a pinned chip opens it with those settings, ×
+unpins, pinning the same view twice says so. The printout opens with a title block — the household, the report, its
+period, the date printed and the app version — repeats the table header on every page, keeps charts and sentences
+whole, prints the heat map's shading, and shrinks wide month-by-month tables to fit. Checked by pinning, reloading,
+opening, unpinning and printing to PDF in a headless browser.
 
 ### Phase E — planning depth
 
-## 160. `[ ]` A range of outcomes
+## 160. `[x]` A range of outcomes
 Historical-sequence (or Monte Carlo) runs: a 10th–90th band on the projection and a probability on the FI
 and retirement answers.
 
-## 161. `[ ]` Life events on a timeline
+Shipped as v3.125.0: Monte Carlo runs (`calc/outcomes.js`), from a fixed seed so the result doesn't shift on every
+redraw. Returns are lognormal around the rates on Plan → Projections with a spread set beside them ("Investment ups
+and downs", default 12%; "Property ups and downs", default 6% — `state.projection.investVolatility` /
+`propertyVolatility`, migrated in). Projections: 300 runs of the scenario being looked at
+(`computeNetWorthSeries` now takes a per-year `investReturns` / `propertyReturns` path and a `cache` of the per-year
+income and costs, so a run costs little), the 10th–90th percentile shaded behind the lines (`renderLineChart`
+`opts.band`), and a sentence under the headline: 8 in 10 runs end between $X and $Y, half above $Z. Retirement:
+`simulateRetirementAt` takes a real-return path and an age to spend down to; 1,000 runs give the share in which
+stopping at the chosen age bridges to preservation and lasts to 95, where the worst tenth runs out, and the age for 9
+in 10 (`retirementOdds`, `ageForOdds`). On the demo, the steady plan says 50 works; the runs give it about even odds
+and put 9 in 10 at 56. Checked on the demo and a real backup (outside the repo): band drawn, odds shown, no errors.
+
+
+## 161. `[x]` Life events on a timeline
 Children, career breaks, a sale, a downsizer contribution — dated events that change income, spending or
 assets, shown on the projection; an age axis instead of "Yr 7".
 
-## 162. `[ ]` Retirement drawdown and the Age Pension
+Shipped as v3.126.0: `state.lifeEvents` (`calc/lifeevents.js`) — a child (a yearly cost for some years), a career
+break (income down by a yearly amount), a cost for some years (or, negative, a saving), and a one-off amount in or out
+(a sale's proceeds, an inheritance, a downsizer, a big purchase), each dated by calendar year, in today's dollars, for
+every scenario. `computeNetWorthSeries` takes them off (or adds them to) each year's savings inflated to that year,
+and adds a one-off at the start of its year; the range of outcomes carries them too. Plan → Projections gets a Life
+events card (add by kind, edit what / from / for years / amount, remove; the age each starts at once your age is
+known); the chart marks each with a dashed line and its name, and its axis reads "Age 45" instead of "Yr 7" when the
+Retirement page has your age. Checked in a headless browser at 390 and 1280px: events change the headline, markers
+and ages draw, saved, removable, no errors.
+
+
+## 162. `[x]` Retirement drawdown and the Age Pension
 Account-based pension drawdown with minimum rates and tax, and the Age Pension under the assets and income
 tests, in Plan → Retirement.
+
+Shipped as v3.127.0: Plan → Retirement gains "After you stop" (`calc/agepension.js`), year by year in today's dollars
+from the chosen age to 95: money outside super is spent first while super is locked; from preservation age super is
+an account-based pension paying at least its minimum by age (4% under 65, 5%, 6%, 7%, 9%, 11%, 14% from 95), tax-free,
+with anything not needed saved again outside super; from 67 the Age Pension pays first, for a couple or a single
+person, homeowner or not, under the assets test ($3 a fortnight per $1,000 over the free area, the home excluded) and
+the income test (financial assets deemed at 0.75% / 2.75%, 50c per dollar over the free area), whichever pays less —
+rates from 20 September 2025, thresholds from 1 July 2025, held flat in today's dollars. A table at the ages that
+matter (stopping, preservation, 67, then every five years) shows the pot, the super minimum, the Age Pension and the
+income; a sentence says whether spending lasts to 95, when the pension starts and what share of spending it carries;
+super above the $2m transfer balance cap is flagged. Checked on the demo and a real backup (outside the repo).
 
 ### Phase F — platform
 
@@ -2788,11 +2968,28 @@ tests, in Plan → Retirement.
 Client-side-encrypted state to the user's own cloud drive, building on item 106's folder backups, so a
 cleared browser is no longer data loss. Off by default; nothing readable leaves the device.
 
-## 164. `[ ]` Screenshot comparison in CI
+## 164. `[x]` Screenshot comparison in CI
 `scripts/smoke.mjs` saves each page and subtab; a PR shows what changed visually.
 
-## 165. `[ ]` CLAUDE.md and PROJECT_KNOWLEDGE.md brought up to date
+Shipped as v3.130.0: `scripts/smoke.mjs` takes `SHOTS_DIR` (save a full-page screenshot of every view, light, at
+390 and 1280px, with the clock fixed so the same code takes the same pictures — two runs of this branch compared
+98 views and found 0 changed) and `SMOKE_ROOT` (serve another checkout); in that mode a view the checkout lacks is
+skipped and failures are noted rather than fatal. `scripts/shotdiff.mjs` compares two folders of screenshots pixel by
+pixel in headless Chromium (no image library), and writes a `summary.md` (views changed, by share of pixels, new and
+gone) and an `index.html` with base, PR and the difference marked in red side by side. The Checks workflow gains a
+`screens` job on pull requests: base and head photographed with the PR's script, compared, the summary added to the
+job summary and the pictures uploaded as the "screens" artifact. Informational — it never fails the check.
+
+
+## 165. `[x]` CLAUDE.md and PROJECT_KNOWLEDGE.md brought up to date
 `app.js` is 5,801 lines, not ~3,400; the page list and IA change with item 152.
+
+Done alongside v3.131.0 (docs only, no version of its own): CLAUDE.md's page map is the one after item 152 (Net
+worth over four pages, Plan → Goals, Tax → People, Checks in Home → Review, the Details page and the moved-settings
+redirects), app.js is ~5,800 lines, the new calc modules are listed, and the screenshot job is described along with
+"a new view goes in the smoke script's VIEWS". PROJECT_KNOWLEDGE.md gains a section on what items 135–165 leave for
+the next person: the report frame contract, projection paths and life events, detail pages and `goToPlace()`, the
+Net worth group, the Can we buy? container that never existed, the Age Pension rates' date, and the local-only tags.
 
 ## Conventions for whoever picks this up
 

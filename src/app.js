@@ -31,7 +31,7 @@ import { setUseBudgetLines, setLineExcluded, RENT_EXPENSE_LINES, rentLineFor, se
 import { renderCards, renderDashboardStats, renderDetail, setProjectionReference, logNetWorthSnapshot } from "./components/dashboard.js";
 import {
   personBreakdownHtml, renderIncomeGroups, patchOpenRowBreakdowns, patchIncomeGroupTotals,
-  patchSyntheticIncomeRows, patchIncomeSuperNotes, renderTaxSuper, withholdingCheckText, flipTaxCard, patchAllTaxPersonOutputs, patchPhiNote,
+  patchSyntheticIncomeRows, patchIncomeSuperNotes, renderTaxSuper, withholdingCheckText, withholdingCheckHtml, payslipRead, salaryRowFor, flipTaxCard, patchAllTaxPersonOutputs, patchPhiNote,
   modernIncomeRowOpen, parseIncomeImportCsv, renderIncomeImportPreview, clearIncomeImportPreview, commitIncomeImport
 } from "./components/income.js";
 import {
@@ -75,7 +75,7 @@ import {
 } from "./components/scenarios.js";
 import { ACCOUNT_TYPE_KEYS, accountSourceOptions, setAccountBalance, resolveLink, accountBalance } from "./calc/accounts.js";
 import { addTransfer, deleteTransfer, splitTransaction, unsplit, bulkEditTransactions, bulkDeleteTransactions } from "./calc/cashflowlist.js";
-import { txFilters, txSelect, transferForm, splitEditing, resetTxFilters } from "./components/cashflow.js";
+import { txFilters, txSelect, transferForm, splitEditing, resetTxFilters, setTxGrid } from "./components/cashflow.js";
 import { rulesPageHtml, setRuleField, ruleIsEmpty, ruleTest, ruleView, RULES_PAGE } from "./components/rules.js";
 import { normaliseDescription } from "./calc/bank-import.js";
 import { openAccounts, balanceEditing } from "./components/accounts.js";
@@ -94,8 +94,11 @@ import { addSavingsGoal } from "./calc/savegoals.js";
 import { unbudgetedRecurring, risingLines, catchAllSuggestions } from "./calc/recurring.js";
 import { learnRule, mergeSimilarRules } from "./calc/import-rules.js";
 import { pdfLines } from "./lib/pdftext.js";
+import { parsePayslip, payFrequency } from "./calc/payslip.js";
 import { renderAdvice, adviceUi } from "./components/advice.js";
 import { renderTrim, trimUi, trimScenario } from "./components/trim.js";
+import { proposeBudget, applyBudgetProposals } from "./calc/budgetfromhistory.js";
+import { budgetFromHistoryHtml, historyBudgetUi } from "./components/budgethistory.js";
 import { setLeanLevel, leanLevel, trimReport } from "./calc/trim.js";
 import { adviceFor } from "./calc/advice.js";
 import { householdSummary } from "./calc/aisummary.js";
@@ -110,7 +113,11 @@ import { parseCsvGrid } from "./calc/pricesheet.js";
 import { recordRentReview } from "./calc/propertylife.js";
 import { retirementHtml, retireLevers } from "./components/retirement.js";
 import { recurringHtml, recurringDismissed, recurringOpen, catchAllShown } from "./components/recurring.js";
-import { renderReports, reportShown, reportPrintHtml, reportCsv } from "./components/reports.js";
+import { lifeEventsHtml, addLifeEvent, setLifeEventField, removeLifeEvent } from "./components/lifeevents.js";
+import { detailTarget, detailView } from "./components/detail.js";
+import { renderCanBuy } from "./components/canbuy.js";
+import { goalsFireHtml } from "./components/retirement.js";
+import { renderReports, reportShown, reportPrintHtml, reportCsv, reportFrame, pinReport, openSavedReport, unpinReport } from "./components/reports.js";
 import { monthDetailUi, shownMonth as mdShownMonth } from "./components/monthdetail.js";
 import { shiftMonth as mdShiftMonth } from "./calc/monthdetail.js";
 import { exportTableCsv } from "./lib/backup.js";
@@ -780,6 +787,36 @@ import {
   pairSlider("projInflationRate", "projInflationRateRange");
   pairSlider("projIncomeGrowth", "projIncomeGrowthRange");
   pairSlider("projRateShock", "projRateShockRange");
+  // v3.126.0: life events under the projection's assumptions.
+  function renderLifeEvents(){ var el = document.getElementById("lifeEventsBody"); if(el) el.innerHTML = lifeEventsHtml(); }
+  var leBody = document.getElementById("lifeEventsBody");
+  leBody.addEventListener("click", function(e){
+    var add = e.target.closest("[data-le-add]");
+    if(add){ var ev = addLifeEvent(add.getAttribute("data-le-add")); persist(); renderLifeEvents(); renderProjectionOutputs();
+      var f = leBody.querySelector('[data-le-id="' + ev.id + '"] [data-le-field="what"]'); if(f){ f.focus(); f.select(); } return; }
+    var rm = e.target.closest("[data-le-remove]");
+    if(rm){ removeLifeEvent(rm.getAttribute("data-le-remove")); persist(); renderLifeEvents(); renderProjectionOutputs(); }
+  });
+  leBody.addEventListener("change", function(e){
+    var k = e.target.getAttribute("data-le-field"), row = e.target.closest("[data-le-id]");
+    if(!k || !row) return;
+    if(setLifeEventField(row.getAttribute("data-le-id"), k, e.target.value)){
+      persist(); renderProjectionOutputs();
+      // Re-sorted by year — after this event finishes, since a click elsewhere can fire this change
+      // (on the blur) in the middle of its own redraw.
+      if(k === "year") setTimeout(renderLifeEvents, 0);
+    }
+  });
+  pairSlider("projInvestVol", "projInvestVolRange");
+  pairSlider("projPropertyVol", "projPropertyVolRange");
+  // v3.125.0: the spread of returns behind the shaded range.
+  ["projInvestVol", "projPropertyVol"].forEach(function(id){
+    document.getElementById(id).addEventListener("input", function(e){
+      state.projection[id === "projInvestVol" ? "investVolatility" : "propertyVolatility"] = Math.max(0, parseFloat(e.target.value) || 0);
+      renderProjectionOutputs(); renderRetirement();
+      persist();
+    });
+  });
 
   // Both halves of the basis control in one place: the segmented button's pressed state, and the
   // sentence next to it that says what the choice actually means. Called on load and on every
@@ -1120,6 +1157,7 @@ import {
     var btn = e.target.closest("[data-tax-sub]");
     if(!btn) return;
     showTaxSubpage(btn.getAttribute("data-tax-sub"));
+    if(btn.getAttribute("data-tax-sub") === "people") renderPeopleTab();
     renderTaxYear();
   });
   taxYearBody.addEventListener("click", function(e){
@@ -2299,7 +2337,9 @@ import {
   // a component, but the data they need (which budget lines exist, who the tax people are) is
   // assembled by one. See setDeductibleItemsProvider's own comment for why this beats threading the
   // list through every caller of computePersonTax.
-  setDeductibleItemsProvider(budgetLineItems);
+  // v3.131.0: the household's own budget — the current scenario's — whichever what-if is being looked
+  // at. A tax estimate is about the year you're actually living; it moved with the scenario picker.
+  setDeductibleItemsProvider(function(){ return budgetLineItems(currentScenario()); });
   setDeductionPeopleProvider(getTaxPeople);
   setDeductionPropertiesProvider(function(){ return state.properties.filter(function(p){ return p.kind === "IP"; }).map(function(p){ return { id: p.id, what: p.what }; }); });
   setRentLinesProvider(function(){ return { lines: RENT_EXPENSE_LINES, lineFor: rentLineFor }; });
@@ -2929,33 +2969,55 @@ import {
     // {replace:true}) instead of popped: pressing back from there should land wherever the user
     // was *before* opening search, not resurrect an empty search overlay in between.
     activeOverlayClose = null;
-    showPage(result.page, { replace: true });
+    // v3.128.0: a thing with a page of its own lands there.
+    if(result.extra.detail){ openDetail(result.extra.detail.kind, result.extra.detail.id, { replace: true }); return; }
+    goToPlace(result.page, result.extra, { replace: true });
+  });
+  // A place in the app: a page, a subtab, and a row to open and scroll to. Search results and a
+  // detail page's "Edit on …" both go through here.
+  function goToPlace(page, extra, opts){
+    extra = extra || {};
+    showPage(page, { replace: !!(opts && opts.replace) });
     // `sub` means different things per page: an Assets category, or one of the Expenses subtabs.
     // Routed by page rather than by guessing from the value, so "budget" can never be mistaken for
     // an asset category.
-    if(result.extra.sub){
-      if(result.page === "expenses") showExpensesSubpage(result.extra.sub, { replace: true });
-      else showAssetsSubpage(result.extra.sub, { replace: true });
+    if(extra.sub){
+      if(page === "expenses") showExpensesSubpage(extra.sub, { replace: true });
+      else if(page === "assets") showAssetsSubpage(extra.sub, { replace: true });
     }
     // A budget line lives inside a group card that starts collapsed, so it has to be opened before
     // there is anything on screen to scroll to. Without this the search lands on the page at scroll
     // 0 with the row display:none — the result looks like it did nothing.
-    if(result.extra.lineId && revealBudgetLine(result.extra.lineId)){
+    if(extra.lineId && revealBudgetLine(extra.lineId)){
       renderSharedGroups();
       renderBudgetGroupByToggle();
       persist();
     }
-    if(result.extra.scrollToId || result.extra.lineId){
+    if(extra.scrollToId || extra.lineId){
       // Give showPage's own render + view-transition a moment to finish before scrolling —
       // scrolling to an element mid-transition can land at the wrong offset once it settles.
       setTimeout(function(){
-        var el = result.extra.scrollToId
-          ? document.getElementById(result.extra.scrollToId)
-          : document.querySelector('#sharedGroups [data-line-id="' + (window.CSS && window.CSS.escape ? window.CSS.escape(result.extra.lineId) : result.extra.lineId) + '"]');
+        var el = extra.scrollToId
+          ? document.getElementById(extra.scrollToId)
+          : document.querySelector('#sharedGroups [data-line-id="' + (window.CSS && window.CSS.escape ? window.CSS.escape(extra.lineId) : extra.lineId) + '"]');
         if(el) el.scrollIntoView({ block: "center", behavior: "smooth" });
       }, 200);
     }
-  });
+  }
+  // ---------------- Detail pages (v3.128.0) ----------------
+  function openDetail(kind, id, opts){
+    detailTarget.kind = kind; detailTarget.id = id;
+    showPage("detail", { replace: !!(opts && opts.replace) });
+  }
+  document.addEventListener("click", function(e){
+    var link = e.target.closest("[data-detail]");
+    if(link){ e.preventDefault(); e.stopPropagation(); openDetail(link.getAttribute("data-detail"), link.getAttribute("data-detail-id")); return; }
+    if(e.target.closest("[data-detail-back]")){ if(history.length > 1) history.back(); else showPage("dashboard"); return; }
+    if(e.target.closest("[data-detail-edit]")){
+      var v = detailView(detailTarget.kind, detailTarget.id);
+      if(v && v.edit) goToPlace(v.edit.to.page, v.edit.to);
+    }
+  }, true);
   document.getElementById("searchRoot").addEventListener("input", function(e){
     if(e.target.id === "searchInput") setSearchQuery(e.target.value);
   });
@@ -2976,6 +3038,7 @@ import {
   // ---------------- Cash flow → Spending: filters, money in, transfers, splits, bulk edit (v3.59.0) ----------------
   function afterTransactionsChange(){
     renderRecurring();
+    renderBudgetFromHistory();
     renderTrips();
     renderTransactions();
     renderActualVsPlannedPanel();
@@ -3289,6 +3352,45 @@ import {
     persist();
   });
 
+  // ---------------- The transaction table (v3.117.0) ----------------
+  document.addEventListener("click", function(e){
+    var v = e.target.closest("[data-tx-view]");
+    if(!v) return;
+    setTxGrid(v.getAttribute("data-tx-view") === "table");
+    renderTransactions();
+  });
+  // Narrowed past a phone's width (or widened back), the table and the list swap.
+  var txGridWide = window.innerWidth > 720, txGridTimer = null;
+  window.addEventListener("resize", function(){
+    clearTimeout(txGridTimer);
+    txGridTimer = setTimeout(function(){ var w = window.innerWidth > 720; if(w !== txGridWide){ txGridWide = w; renderTransactions(); } }, 200);
+  });
+  document.addEventListener("keydown", function(e){
+    if(e.key !== "Enter" || !e.target.closest || !e.target.closest(".tx-grid")) return;
+    var newRow = e.target.closest(".txg-new");
+    if(newRow){
+      e.preventDefault();
+      var val = function(c){ var el = newRow.querySelector(c); return el ? el.value : ""; };
+      var link = val(".txg-new-link") || null;
+      var line = link && budgetLineItems().find(function(i){ return i.id === link; });
+      var amount = parseFloat(val(".txg-new-amount"));
+      if(!(amount || 0) && line) amount = Number(line.amount) || 0;
+      if(!(amount || 0) && !val(".txg-new-what").trim()){ showToast("Type an amount, or pick a line"); return; }
+      state.transactions.push({ id: genId("t"), date: val(".txg-new-date") || localDateStr(), what: val(".txg-new-what").trim(), linkedExpenseId: link,
+        account: val(".txg-new-account") || (line && line.account) || "", amount: amount || 0 });
+      persist(); renderTransactions(); renderActualVsPlannedPanel();
+      var again = document.querySelector("#transactionsTable .txg-new-what");
+      if(again) again.focus();
+      return;
+    }
+    // Enter in a cell moves down the column, the way a spreadsheet does.
+    var cell = e.target.closest("td"), row = e.target.closest("tr");
+    if(!cell || !row || !row.nextElementSibling) return;
+    e.preventDefault();
+    var next = row.nextElementSibling.children[cell.cellIndex];
+    var input = next && next.querySelector("input, select");
+    if(input) input.focus();
+  });
   // ---------------- Accounts: named money sources, used for credit-card statement cycles ----------------
   document.getElementById("addAccountBtn").addEventListener("click", function(){
     addAccount();
@@ -3395,7 +3497,17 @@ import {
   // ---------------- Categories: the spending rollup ----------------
   document.getElementById("planSubnav").addEventListener("click", function(e){
     var b = e.target.closest("[data-plan-sub]");
-    if(b) showPlanSubpage(b.getAttribute("data-plan-sub"));
+    if(b){ showPlanSubpage(b.getAttribute("data-plan-sub")); if(b.getAttribute("data-plan-sub") === "goals") renderGoalsTab(); }
+  });
+  // v3.129.0: Plan → Goals — the emergency fund and savings goals (from Accounts), Can we buy? and
+  // where financial independence stands.
+  function renderGoalsTab(){ renderSavingsGoals(); renderCanBuy(); var f = document.getElementById("goalsFireBody"); if(f) f.innerHTML = goalsFireHtml(); }
+  // The rail over Net worth, Accounts, Investments and Property.
+  document.addEventListener("click", function(e){
+    var r = e.target.closest && e.target.closest(".nw-rail-item");
+    if(r) showPage(r.getAttribute("data-page"));
+    var pg = e.target.closest && e.target.closest("[data-plan-sub-go]");
+    if(pg){ showPage("plan"); showPlanSubpage(pg.getAttribute("data-plan-sub-go"), { replace: true }); if(pg.getAttribute("data-plan-sub-go") === "retirement") renderRetirement(); }
   });
   // v3.109.0: "Show all" / "Show fewer" under a capped list (Actual vs. planned, This year so far).
   document.addEventListener("click", function(e){
@@ -3407,6 +3519,53 @@ import {
     if(key === "ytd") renderYearSpending();
     if(key === "irr") renderActualVsPlannedPanel();
     if(key === "trend") renderSpendingTrends();
+  });
+  // ---------------- A payslip, read (v3.116.0) ----------------
+  function redrawPayslipPanel(person){
+    var host = [].find.call(document.querySelectorAll("[data-tax-person]"), function(el){ return el.getAttribute("data-tax-person") === person; });
+    var d = host && host.querySelector(".tax-ytd");
+    if(d){ d.outerHTML = withholdingCheckHtml(person); var again = host.querySelector(".tax-ytd"); if(again) again.open = true; }
+  }
+  function readPayslipLines(person, lines){
+    var r = parsePayslip(lines);
+    payslipRead[person] = r.found.length ? r : { error: "Nothing in that reads like a payslip — no Gross, Tax or Net lines with amounts." };
+    redrawPayslipPanel(person);
+  }
+  document.addEventListener("change", function(e){
+    var person = e.target.getAttribute && e.target.getAttribute("data-slip-file");
+    if(person == null || !e.target.files || !e.target.files[0]) return;
+    var file = e.target.files[0];
+    file.arrayBuffer().then(function(buf){ return pdfLines(new Uint8Array(buf)); }).then(function(lines){
+      readPayslipLines(person, lines.map(function(l){ return l.cells.map(function(c){ return c.s; }).join("   "); }));
+    }).catch(function(){ payslipRead[person] = { error: "That PDF couldn't be read. Paste its text instead." }; redrawPayslipPanel(person); });
+  });
+  document.addEventListener("click", function(e){
+    var read = e.target.closest("[data-slip-read]");
+    if(read){
+      var p0 = read.getAttribute("data-slip-read");
+      var ta = read.closest(".slip-paste").querySelector("textarea");
+      readPayslipLines(p0, String(ta.value || "").split(/\r?\n/));
+      return;
+    }
+    var use = e.target.closest("[data-slip-use]");
+    if(use){
+      var p1 = use.getAttribute("data-slip-use"), r1 = payslipRead[p1];
+      if(!r1 || r1.error) return;
+      var st1 = personTaxSettings(p1);
+      st1.ytd = { asOf: r1.periodEnd, gross: r1.ytd.gross, withheld: r1.ytd.tax };
+      persist(); redrawPayslipPanel(p1);
+      showToast("Year-to-date figures set from the payslip");
+      return;
+    }
+    var sal = e.target.closest("[data-slip-salary]");
+    if(sal){
+      var p2 = sal.getAttribute("data-slip-salary"), r2 = payslipRead[p2], row = salaryRowFor(p2), freq = payFrequency(r2 || {});
+      if(!r2 || !row || !freq) return;
+      var was = { amount: row.amount, freq: row.freq };
+      row.amount = r2.gross; row.freq = freq;
+      persist(); renderAll();
+      showUndoToast("Salary set from the payslip", function(){ row.amount = was.amount; row.freq = was.freq; persist(); renderAll(); });
+    }
   });
   // ---------------- Settings → Import rules (v3.60.0) ----------------
   function renderRules(){
@@ -3879,6 +4038,7 @@ import {
   // at the import and undo call sites where the two could drift apart.
   function refreshAfterBankImport(){
     renderRecurring();
+    renderBudgetFromHistory();
     renderTrips();
     renderReceived();
     renderTransactions();
@@ -4275,7 +4435,7 @@ import {
     if(!btn) return;
     showDashboardSubpage(btn.getAttribute("data-dashboard-sub"));
     if(btn.getAttribute("data-dashboard-sub") === "benchmarks") renderBenchmarks();
-    if(btn.getAttribute("data-dashboard-sub") === "review") renderMonthReview();
+    if(btn.getAttribute("data-dashboard-sub") === "review"){ renderMonthReview(); renderHealth(); }
   });
   // Dashboard → Review (v3.54.0): every control in the four parts.
   var monthReviewBody = document.getElementById("monthReviewBody");
@@ -4420,11 +4580,12 @@ import {
   var initialSettingsSub = null;
   if(routeFromUrl){
     initialPage = routeFromUrl.page;
+    if(routeFromUrl.detail){ detailTarget.kind = routeFromUrl.detail.kind; detailTarget.id = routeFromUrl.detail.id; }
     if(routeFromUrl.sub && routeFromUrl.page === "assets") initialAssetsSub = routeFromUrl.sub;
     if(routeFromUrl.sub && routeFromUrl.page === "expenses") initialExpensesSub = routeFromUrl.sub;
     if(routeFromUrl.sub && routeFromUrl.page === "tax") initialTaxSub = routeFromUrl.sub;
     if(routeFromUrl.sub && routeFromUrl.page === "plan") initialPlanSub = routeFromUrl.sub;
-    if(routeFromUrl.page === "settings") initialSettingsSub = routeFromUrl.sub || "people";
+    if(routeFromUrl.page === "settings") initialSettingsSub = routeFromUrl.sub || "categories";
   } else {
     try{ initialPage = localStorage.getItem(PAGE_KEY) || "dashboard"; }catch(e){}
     // A page remembered from before v3.57.0 that is now a subpage.
@@ -4433,7 +4594,7 @@ import {
       initialPage = legacyPage[0];
       if(legacyPage[0] === "expenses") initialExpensesSub = legacyPage[1]; else initialPlanSub = legacyPage[1];
     }
-    if(initialPage === "settings") initialSettingsSub = "people";
+    if(initialPage === "settings") initialSettingsSub = "categories";
   }
 
   window.addEventListener("popstate", function(e){
@@ -4449,12 +4610,15 @@ import {
       return;
     }
     var route = parseRouteFromLocation() || { page: "dashboard", sub: null };
+    if(route.page === "detail" && route.detail){ detailTarget.kind = route.detail.kind; detailTarget.id = route.detail.id; }
     showPage(route.page, { skipUrl: true });
     if(route.page === "assets") showAssetsSubpage(route.sub || "summary", { skipUrl: true });
     if(route.page === "expenses") showExpensesSubpage(route.sub || "budget", { skipUrl: true });
     if(route.page === "tax") showTaxSubpage(route.sub || taxSubpage(), { skipUrl: true });
     if(route.page === "plan") showPlanSubpage(route.sub || "scenarios", { skipUrl: true });
-    if(route.page === "settings") showAccountsSubpage(route.sub || "people", { skipUrl: true });
+    if(route.page === "settings") showAccountsSubpage(route.sub || "categories", { skipUrl: true });
+    if(route.page === "tax" && route.sub === "people") renderPeopleTab();
+    if(route.page === "dashboard" && route.sub){ showDashboardSubpage(route.sub); if(route.sub === "review"){ renderMonthReview(); renderHealth(); } }
   });
 
   // ---------------- What the app notices + Ask Claude (v3.98.0) ----------------
@@ -4599,6 +4763,11 @@ import {
     document.getElementById("projIncomeGrowthRange").value = state.projection.incomeGrowthRate;
     document.getElementById("projRateShock").value = state.projection.rateShockPct;
     document.getElementById("projRateShockRange").value = state.projection.rateShockPct;
+    renderLifeEvents();
+    document.getElementById("projInvestVol").value = state.projection.investVolatility;
+    document.getElementById("projInvestVolRange").value = state.projection.investVolatility;
+    document.getElementById("projPropertyVol").value = state.projection.propertyVolatility;
+    document.getElementById("projPropertyVolRange").value = state.projection.propertyVolatility;
     syncProjBasisControl();
     // Static copy, but rendered from the component that owns the parser it describes — see
     // renderBankImportHelp. Cheap enough to redo here rather than needing its own lifecycle.
@@ -4646,9 +4815,11 @@ import {
     renderChecksBadge();
     renderSafekeeping();
     renderSavingsGoals();
+    var goalsFire = document.getElementById("goalsFireBody"); if(goalsFire) goalsFire.innerHTML = goalsFireHtml();
     renderAdvice();
     renderTrim();
     renderRecurring();
+    renderBudgetFromHistory();
     renderTrips();
     renderRetirement();
   }
@@ -5015,6 +5186,37 @@ import {
     return { u: unbudgetedRecurring(state.transactions, localDateStr()), r: risingLines(loggableBudgetLineItems(), state.transactions),
       c: catchAllSuggestions(loggableBudgetLineItems(), state.transactions, localDateStr()) };
   }
+  // v3.115.0: Budget → Build from what you've spent.
+  function currentHistoryBudget(){ return proposeBudget(state.transactions, budgetLineItems(), localDateStr()); }
+  function renderBudgetFromHistory(){
+    var el = document.getElementById("historyBudgetBody");
+    if(!el) return;
+    var r = currentHistoryBudget();
+    el.innerHTML = budgetFromHistoryHtml(r);
+    var cnt = document.getElementById("historyBudgetCount");
+    if(cnt) cnt.textContent = r.ready && r.proposals.length ? r.proposals.length + " to add" : "";
+  }
+  document.getElementById("historyBudgetBody").addEventListener("change", function(e){
+    var k = e.target.getAttribute && e.target.getAttribute("data-bh-key");
+    if(k == null) return;
+    if(e.target.checked) delete historyBudgetUi.off[k]; else historyBudgetUi.off[k] = true;
+    renderBudgetFromHistory();
+  });
+  document.getElementById("historyBudgetBody").addEventListener("click", function(e){
+    if(!e.target.closest("[data-bh-apply]")) return;
+    var chosen = currentHistoryBudget().proposals.filter(function(p){ return !historyBudgetUi.off[p.key]; });
+    if(!chosen.length) return;
+    var before = { shared: state.shared.length, tx: state.transactions.map(function(t){ return [t.linkedExpenseId, t.category]; }) };
+    var made = applyBudgetProposals(state, chosen, function(){ return genId("exp"); });
+    refreshAfterLedgerChange("shared");
+    renderBudgetFromHistory();
+    showUndoToast("Added " + made.length + " budget line" + (made.length === 1 ? "" : "s"), function(){
+      state.shared.splice(before.shared, made.length);
+      state.transactions.forEach(function(t, i){ if(before.tx[i]){ t.linkedExpenseId = before.tx[i][0]; t.category = before.tx[i][1]; } });
+      refreshAfterLedgerChange("shared");
+      renderBudgetFromHistory();
+    });
+  });
   function renderRecurring(){
     var el = document.getElementById("recurringBody");
     if(!el) return;
@@ -5031,6 +5233,7 @@ import {
     if(!!recurringOpen.keys[k] === e.target.open) return;
     recurringOpen.keys[k] = e.target.open;
     renderRecurring();
+    renderBudgetFromHistory();
   }, true);
   document.getElementById("recurringBody").addEventListener("click", function(e){
     var dis = e.target.closest("[data-rc-dismiss]");
@@ -5171,7 +5374,7 @@ import {
     var g = e.target.closest("[data-rt-go]");
     if(!g) return;
     if(g.getAttribute("data-rt-go") === "super"){ showPage("assets"); showAssetsSubpage("Super", { replace: true }); }
-    else showPage("accounts");
+    else { showPage("plan"); showPlanSubpage("goals", { replace: true }); renderGoalsTab(); }
   });
 
   // ---------------- Accounts → Savings goals (v3.65.0) ----------------
@@ -5243,9 +5446,27 @@ import {
   });
 
   // ---------------- Reports (v3.62.0) ----------------
+  // v3.118.0: the frame — period, comparison, grouping.
+  document.getElementById("reportsBody").addEventListener("change", function(e){
+    var k = e.target.getAttribute && e.target.getAttribute("data-rf");
+    if(!k) return;
+    reportFrame[k] = e.target.value;
+    if(k === "group" || k === "range") reportFrame.open = {};
+    if(k === "range" && e.target.value === "custom" && !reportFrame.from){ var t0 = localDateStr(); reportFrame.to = t0; reportFrame.from = (Number(t0.slice(0, 4)) - 1) + t0.slice(4); }
+    renderReports();
+  });
   document.getElementById("reportsBody").addEventListener("click", function(e){
     var pick = e.target.closest("[data-report]");
     if(pick){ reportShown.key = pick.getAttribute("data-report"); renderReports(); return; }
+    // v3.124.0: pinned reports.
+    var saved = e.target.closest("[data-report-saved]");
+    if(saved){ if(openSavedReport(saved.getAttribute("data-report-saved"))) renderReports(); return; }
+    var unpin = e.target.closest("[data-report-unpin]");
+    if(unpin){ unpinReport(unpin.getAttribute("data-report-unpin")); persist(); renderReports(); return; }
+    if(e.target.closest("[data-report-pin]")){ var pinned = pinReport(); if(pinned){ persist(); showToast("Pinned: " + pinned.name); } else showToast("Already pinned."); renderReports(); return; }
+    // v3.118.0: a group row opens (or closes) the transactions behind it.
+    var drill = e.target.closest("[data-rf-drill]");
+    if(drill){ var dk = drill.getAttribute("data-rf-drill"); reportFrame.open[dk] = !reportFrame.open[dk]; renderReports(); return; }
     // v3.81.0: Month in detail.
     var mdOpen = e.target.closest("[data-md-open]");
     if(mdOpen){ monthDetailUi.ym = mdOpen.getAttribute("data-md-open"); monthDetailUi.open = {}; reportShown.key = "month"; renderReports(); return; }
@@ -5288,7 +5509,7 @@ import {
       if(sn) sn.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
-    if(go === "settings"){ showAccountsSubpage(sub || "people"); if(sub === "checks") renderHealth(); return; }
+    if(go === "settings"){ showAccountsSubpage(sub || "categories"); if(sub === "checks") renderHealth(); if(sub === "people") renderPeopleTab(); return; }
     if(go === "tax"){ if(fy) setTaxYearSelected(fy); showPage("tax"); showTaxSubpage(sub || "returns", { replace: true }); renderTaxYear(); return; }
     showPage(go);
     if(go === "expenses" && sub) showExpensesSubpage(sub, { replace: true });
@@ -5357,6 +5578,9 @@ import {
   showTaxSubpage(initialTaxSub || taxSubpage(), { skipUrl: initialPage !== "tax", replace: true });
   showPlanSubpage(initialPlanSub, { skipUrl: initialPage !== "plan", replace: true });
   if(initialSettingsSub){ showAccountsSubpage(initialSettingsSub, { replace: true }); renderSettingsTab(initialSettingsSub); }
+  if(initialPage === "tax" && initialTaxSub === "people") renderPeopleTab();
+  if(initialPage === "plan" && initialPlanSub === "goals") renderGoalsTab();
+  if(initialPage === "dashboard" && routeFromUrl && routeFromUrl.sub){ showDashboardSubpage(routeFromUrl.sub); if(routeFromUrl.sub === "review"){ renderMonthReview(); renderHealth(); } }
 
   // onboarding.html's "Try it with sample data" link lands here with ?mock=1 — generate it
   // immediately (no confirm needed, unlike the header's own Sample data button: there's nothing

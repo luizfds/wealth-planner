@@ -4,6 +4,7 @@
 #           light and dark, failing on page errors, empty pages, sideways scroll, NaN/undefined
 #           text and bars that don't draw. Playwright is installed here only, never added to
 #           package.json — the app and its test suite stay dependency-free.
+#   screens — pull requests only: the base branch and the PR photographed and compared (below).
 name: Checks
 on:
   pull_request:
@@ -30,3 +31,40 @@ jobs:
       - run: npm install --no-save playwright@1.56.0
       - run: npx playwright install --with-deps chromium
       - run: node scripts/smoke.mjs
+  # v3.130.0: what a pull request changes on screen. The same smoke script photographs every view of
+  # the base branch and of the PR (light, 390px and 1280px, at a fixed date and time so identical code
+  # gives identical pictures), scripts/shotdiff.mjs compares them pixel by pixel, and the changed views
+  # go in the job summary and, side by side with the difference marked, in the "screens" artifact.
+  # Informational: a visual change never fails the check.
+  screens:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: head
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save playwright@1.56.0
+        working-directory: head
+      - run: npx playwright install --with-deps chromium
+        working-directory: head
+      - name: Photograph the base branch
+        run: SMOKE_ROOT=../base SHOTS_DIR=../shots/base node scripts/smoke.mjs
+        working-directory: head
+      - name: Photograph this pull request
+        run: SHOTS_DIR=../shots/head node scripts/smoke.mjs
+        working-directory: head
+      - name: Compare
+        run: node scripts/shotdiff.mjs ../shots/base ../shots/head ../shots/diff && cat ../shots/diff/summary.md >> "$GITHUB_STEP_SUMMARY"
+        working-directory: head
+      - uses: actions/upload-artifact@v4
+        with:
+          name: screens
+          path: shots/diff
+          retention-days: 14

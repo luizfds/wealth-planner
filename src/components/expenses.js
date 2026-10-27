@@ -11,7 +11,7 @@ import { spendingTrends, monthKeyLabel } from "../calc/trends.js";
 import { escapeAttr } from "../lib/html.js";
 import { renderAccountsPage, openAccounts } from "./accounts.js";
 import { cashflowEntries, filterEntries, entryTotals } from "../calc/cashflowlist.js";
-import { budgetPlanHtml, billsCalendarHtml, txFilters, txSelect, transferForm, splitEditing, filterBarHtml, totalsLineHtml, inRowHtml, transferRowHtml, selectBoxHtml, bulkBarHtml, transferFormHtml, splitEditorHtml } from "./cashflow.js";
+import { txGrid, txGridHtml, txViewToggleHtml, budgetPlanHtml, billsCalendarHtml, txFilters, txSelect, transferForm, splitEditing, filterBarHtml, totalsLineHtml, inRowHtml, transferRowHtml, selectBoxHtml, bulkBarHtml, transferFormHtml, splitEditorHtml } from "./cashflow.js";
 import { modernPlainRowHtml, modernRowSummaryHtml, modernRowEditHtml, modernRowShellHtml, optionsHtml } from "../lib/ledger-table.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { parseCsv } from "../lib/backup.js";
@@ -1404,7 +1404,7 @@ export function renderTransactions(){
   var totals = entryTotals(shown);
   // The header figure stays what it always was — spending — but now follows the filters too.
   if(totalEl) totalEl.textContent = fmtCurrency0.format(totals.out);
-  var controlHtml = transactionScopeControlHtml(transactionsRange) + filterBarHtml(inScope, lines);
+  var controlHtml = '<div class="tx-controls-row">' + transactionScopeControlHtml(transactionsRange) + txViewToggleHtml() + '</div>' + filterBarHtml(inScope, lines);
   var bulk = txSelect.on ? bulkBarHtml(transactionLinkOptionsHtml(null), transactionAccountOptionsHtml("")) : "";
   if(!shown.length){
     container.innerHTML = top + controlHtml + bulk +
@@ -1414,6 +1414,13 @@ export function renderTransactions(){
   }
   var hasMore = shown.length > TRANSACTIONS_RECENT_COUNT;
   var visible = (transactionsShowAll || !hasMore) ? shown : shown.slice(0, TRANSACTIONS_RECENT_COUNT);
+  // v3.117.0: the table, on a wide screen when chosen.
+  if(txGrid.on && (typeof window === "undefined" || window.innerWidth > 720)){
+    container.innerHTML = top + controlHtml + bulk + totalsLineHtml(totals, shown.length) +
+      txGridHtml(visible, { transactions: state.transactions, lineOptions: transactionLinkOptionsHtml, accountOptions: transactionAccountOptionsHtml, today: localDateStr(), picking: txSelect.on }) +
+      (hasMore ? '<div class="ledger-footer"><button type="button" class="btn btn-sm btn-ghost" data-tx-show-all-toggle="' + (transactionsShowAll ? "0" : "1") + '">' + (transactionsShowAll ? "Show recent only" : "Show all " + shown.length) + '</button></div>' : '');
+    return;
+  }
   var rows = visible.map(function(e){
     if(e.kind === "in") return inRowHtml(e);
     if(e.kind === "transfer") return transferRowHtml(e);

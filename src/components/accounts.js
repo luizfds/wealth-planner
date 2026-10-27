@@ -5,6 +5,7 @@ import { currentStatementCycle } from "../calc/ledger.js";
 import { sparklineHtml, renderLineChart, dateAxisFormat } from "../lib/charts.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
+import { detailLinkHtml } from "./detail.js";
 
 // ---------------- Accounts → Accounts (v3.56.0) ----------------
 // Every place money sits, grouped the way a bank app groups them — cash, cards, loans — each with
@@ -64,8 +65,9 @@ export function accountRowHtml(a, idx, today){
     if(Number(a.limit) > 0) sub.push(fmtCurrency0.format(Math.max(0, Number(a.limit) - (bal.balance || 0))) + " of " + fmtCurrency0.format(Number(a.limit)) + " available");
   }
   var stale = bal.balance != null && age != null && age > 35;
-  var actions = editing || agent ? '' : '<button type="button" class="btn btn-sm btn-ghost acct-card-update" data-acct-bal="' + escapeAttr(a.id) + '"' +
-        (a.type === "offset" && !bal.source ? ' disabled title="Pick the loan it offsets first"' : '') + ' aria-label="Update ' + escapeAttr(a.name || "account") + ' balance">Update</button>';
+  // v3.128.0: its own page — beside the toggle, since a button can't sit inside another.
+  var actions = (a.id && !editing ? detailLinkHtml("account", a.id, "Details", "acct-card-detail btn btn-sm btn-ghost") : '') + (editing || agent ? '' : '<button type="button" class="btn btn-sm btn-ghost acct-card-update" data-acct-bal="' + escapeAttr(a.id) + '"' +
+        (a.type === "offset" && !bal.source ? ' disabled title="Pick the loan it offsets first"' : '') + ' aria-label="Update ' + escapeAttr(a.name || "account") + ' balance">Update</button>');
   var summary = '<div class="acct-card-main">' +
       '<button type="button" class="acct-card-toggle" data-acct-toggle="' + escapeAttr(a.id) + '" aria-expanded="' + open + '">' +
         '<span class="acct-card-name">' + escapeAttr(a.name || "Unnamed account") + '</span>' +

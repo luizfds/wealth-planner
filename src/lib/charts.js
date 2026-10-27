@@ -128,6 +128,10 @@ export function renderLineChart(container, series, opts){
 
   var xs = [], ys = [];
   validSeries.forEach(function(s){ s.points.forEach(function(p){ xs.push(p.x); ys.push(p.y); }); });
+  // v3.125.0: opts.band = { lo, hi, colorClass } — a shaded range (the 10th–90th percentile of the
+  // projection) drawn behind the lines, and counted in the axis so it never runs off the panel.
+  var band = opts.band && opts.band.lo && opts.band.lo.length ? opts.band : null;
+  if(band) band.lo.concat(band.hi).forEach(function(p){ if(p.y != null && isFinite(p.y)){ xs.push(p.x); ys.push(p.y); } });
   var xMin = Math.min.apply(null, xs), xMax = Math.max.apply(null, xs);
   if(xMin === xMax) xMax = xMin + 1;
   var yLo = Math.min.apply(null, ys), yHi = Math.max.apply(null, ys);
@@ -268,6 +272,21 @@ export function renderLineChart(container, series, opts){
     svg.appendChild(xlbl);
   }
 
+  if(band){
+    var bd = band.hi.map(function(p, i){ return (i ? "L" : "M") + xScale(p.x).toFixed(1) + "," + yScale(p.y).toFixed(1); }).join(" ") + " " +
+      band.lo.slice().reverse().map(function(p){ return "L" + xScale(p.x).toFixed(1) + "," + yScale(p.y).toFixed(1); }).join(" ") + " Z";
+    svg.appendChild(svgEl("path", { d: bd, class: "proj-band " + (band.colorClass || "series-color-0") }));
+  }
+  // v3.126.0: opts.markers = [{ x, label }] — a dashed line and a short label at each (life events).
+  (opts.markers || []).forEach(function(m, mi){
+    if(m.x < xMin || m.x > xMax) return;
+    var mx = xScale(m.x);
+    svg.appendChild(svgEl("line", { x1: mx, x2: mx, y1: padT, y2: H - padB, class: "proj-marker" }));
+    var ml = svgEl("text", { x: mx + 4, y: padT + 10 + (mi % 3) * 13, class: "proj-marker-label", "text-anchor": mx > W - 120 ? "end" : "start" });
+    if(mx > W - 120) ml.setAttribute("x", mx - 4);
+    ml.textContent = m.label.length > 18 ? m.label.slice(0, 17) + "…" : m.label;
+    svg.appendChild(ml);
+  });
   validSeries.forEach(function(s, idx){
     // opts.stepped: hold each value until the next reading, instead of joining two observations
     // with a diagonal.

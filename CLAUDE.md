@@ -14,13 +14,18 @@ the last, so two sessions can't pick up the same one.
 
 ## Architecture
 
-- `index.html` — all markup for every page/section. Since v3.57.0 the pages are organised by job:
-  Home (`page-dashboard`), Cash flow (`page-expenses`: Budget / Income / Spending / Bills),
-  Accounts, Investments (`page-assets`), Property (`page-properties`), Tax, Plan (`page-plan`:
-  Scenarios / Projections), Reports and Settings (`page-settings`: People / Categories /
-  Preferences / Import rules / Checks). Pages are `<section class="app-page" id="page-...">`,
-  shown/hidden via `showPage()`, not separate documents; old ids (`income`, `scenarios`,
-  `projections`) still work through `nav.js` ALIASES.
+- `index.html` — all markup for every page/section. Since v3.57.0 the pages are organised by job,
+  and since v3.129.0 by what you own: Home (`page-dashboard`: Overview / Insights / Benchmarks /
+  Review — Checks sit in Review), Cash flow (`page-expenses`: Budget / Income / Spending / Bills),
+  **Net worth** — one menu entry over four pages sharing a rail of tabs: the overview
+  (`page-networth`), Accounts, Investments (`page-assets`) and Property (`page-properties`) — Tax
+  (Year / Returns / Documents / People), Plan (`page-plan`: Scenarios — the scenario cards live here
+  — / Projections / Goals / Retirement), Reports, Settings (`page-settings`: Categories / Preferences /
+  Import rules) and a Details page (`page-detail`, `/detail/<kind>/<id>`, in no menu) for any one
+  thing. Pages are `<section class="app-page" id="page-...">`, shown/hidden via `showPage()`, not
+  separate documents; old ids (`income`, `scenarios`, `projections`) still work through `nav.js`
+  ALIASES, and `showAccountsSubpage("people"|"checks")` and `/settings/people|checks` land where
+  those tabs moved (`MOVED_SETTINGS`).
 - **Numbers:** every figure uses `var(--font-num)` with tabular figures (base.css) — whole dollars in
   totals and summaries, cents only on single items. Don't reintroduce a second number font.
 - `styles.css` — just eight `@import` statements pulling in `src/styles/{base,shell,dashboard,
@@ -32,7 +37,7 @@ the last, so two sessions can't pick up the same one.
   monolithic file did. Moving one `@import` line before another can silently flip such an
   override. Before reordering, re-run the cross-bucket conflict check described in
   `.claude/PROJECT_KNOWLEDGE.md`'s "Modularization progress" section.
-- `src/app.js` — the entry point (`<script type="module">`), ~3,400 lines (down from the original
+- `src/app.js` — the entry point (`<script type="module">`), ~5,800 lines (down from the original
   4,618-line monolith, then back up as features landed — it is the app's event-wiring layer, and
   that grows with every new control). All eight pages' rendering/routing and export/import/backup
   have moved to `src/components/`/`src/lib/backup.js`; what's left is DOM event
@@ -68,11 +73,19 @@ the last, so two sessions can't pick up the same one.
   received against the plan), `canbuy.js` (Plan → Can we buy?), `brokertrades.js` (a broker's trade
   history into lots), `pdfstatement.js` (a PDF bank, card or property manager statement into rows),
   `emergency.js` (an emergency fund sized on essentials), `trim.js` (padding in the plan, flexible
-  lines, lean scenarios), `advice.js` (what the app notices) and
-  `aisummary.js` (the anonymised summary behind Ask Claude).
+  lines, lean scenarios), `advice.js` (what the app notices),
+  `aisummary.js` (the anonymised summary behind Ask Claude), and from the October 2026 roadmap
+  (items 135–165): `estimates.js` (a super or property value between logs), `merchantbook.js`
+  (well-known merchants), `budgetfromhistory.js` (a budget proposed from spending), `payslip.js`
+  (a payslip's text read), `reportframe.js` (the shared period / comparison / grouping every report
+  reads), `investreports.js` (returns by holding, distributions, CGT parcels), `assetreports.js`
+  (property returns, the loan schedule and payoff), `outcomes.js` (Monte Carlo bands and retirement
+  odds), `lifeevents.js` (dated events on the projection), `agepension.js` (account-based pension
+  drawdown and the Age Pension) and `networthlist.js` (everything owned and owed in one list).
 - `src/components/{dashboard,home,income,taxyear,expenses,cashflow,accounts,assets,investments,
   properties,projections,scenarios,reports,rules,period,safekeeping,savegoals,recurring,yearend,nav,
-  bank-import,search,people,received,health,junemoves,monthreview}.js` — one file per page (plus `nav.js` for routing/page-switching, and
+  bank-import,search,people,received,health,junemoves,monthreview,retirement,networth,detail,
+  lifeevents,budgethistory,…}.js` — one file per page or card (plus `nav.js` for routing/page-switching, and
   `bank-import.js`/`search.js` for the two cross-page flows), each exporting its functions for
   `app.js` to import and wire up. Not every function that "belongs" to a page lives in its
   component — `renameTaxPerson`/`removeTaxPerson` (Income) and `showAssetsSubpage` (Assets)
@@ -256,6 +269,11 @@ Three layers, and **knowing what each one cannot see is the whole point**:
   or console errors, an empty page, sideways scroll, NaN/undefined text, or a %-width bar measuring
   0. Run it locally with `npm i --no-save playwright && npx playwright install chromium && node
   scripts/smoke.mjs`. It catches breakage, not layout taste — still look at what you changed.
+  Adding a page, subtab or report means adding it to the smoke script's `VIEWS`.
+- **Screens (v3.130.0):** on a pull request the `screens` job runs the same script with `SHOTS_DIR`
+  (a full-page picture of every view, light, 390/1280px, clock fixed) against the base branch
+  (`SMOKE_ROOT`) and the PR, and `scripts/shotdiff.mjs` lists what changed in the job summary and the
+  "screens" artifact. Informational only — read it, it never fails.
 - **A green run is not evidence the app renders.** Nothing in layers 1–2 loads a component or
   fires a listener. Any change to a component, a template or a stylesheet gets driven before it is
   called done.

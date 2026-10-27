@@ -1339,3 +1339,44 @@ test("rulesShown finds by words or line, and sorts by use, newest or A–Z", () 
   assert.deepEqual(rulesShown(rules, label, { q: "eating", sort: "used" }).map(x => x.i), [0]);
   assert.deepEqual(rulesShown(rules, label, { q: "credit", sort: "used" }).map(x => x.i), [2]);
 });
+
+// v3.117.0: the transaction table.
+import { txGridHtml } from "../src/components/cashflow.js";
+test("txGridHtml puts editable spending rows, read-only money in and an entry row in one table", () => {
+  const tx = [{ date: "2026-10-01", what: "", amount: 42.5, linkedExpenseId: "g", account: "Card" }];
+  const html = txGridHtml([
+    { kind: "out", ref: 0, date: "2026-10-01", label: "Groceries", amount: 42.5 },
+    { kind: "in", date: "2026-10-02", label: "Pay", amount: 1000, account: "Everyday" }
+  ], { transactions: tx, lineOptions: id => '<option value="g"' + (id === "g" ? " selected" : "") + '>Groceries</option>', accountOptions: a => '<option>' + a + '</option>', today: "2026-10-05", picking: true });
+  assert.match(html, /<tr class="txg-new">/);
+  assert.match(html, /class="tx-amount" data-tx-index="0" value="42.5"/);
+  assert.match(html, /placeholder="Groceries"/);
+  assert.match(html, /txg-ro txg-in.*\+\$1,000\.00/s);
+  assert.match(html, /data-cf-pick="0"/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+});
+
+import { lifeEventsHtml } from "../src/components/lifeevents.js";
+test("life events: the empty list and a filled one", () => {
+  const keep = state.lifeEvents;
+  try {
+    state.lifeEvents = [];
+    assert.match(lifeEventsHtml("2026-10-27"), /Nothing dated yet/);
+    state.lifeEvents = [{ id: "e1", kind: "child", what: "Baby", year: 2028, years: 18, amount: 15000 }, { id: "e2", kind: "lump", what: "Sale", year: 2030, amount: 50000 }];
+    const h = lifeEventsHtml("2026-10-27");
+    assert.match(h, /data-le-id="e1"/); assert.match(h, /value="Baby"/);
+    assert.equal((h.match(/data-le-field="years"/g) || []).length, 1); // a one-off has no length
+  } finally { state.lifeEvents = keep; }
+});
+
+import { netWorthPageHtml } from "../src/components/networth.js";
+test("net worth page: groups with their totals, each row to its detail page", () => {
+  const keep = { a: state.assets, p: state.properties, d: state.debts };
+  try {
+    state.assets = [{ id: "a1", what: "Savings", category: "Cash", amount: 20000 }]; state.properties = []; state.debts = [{ id: "d1", what: "Card", balance: 500 }];
+    const h = netWorthPageHtml();
+    assert.match(h, /nw-group/); assert.match(h, /data-detail="asset" data-detail-id="a1"/); assert.match(h, /data-detail="debt"/);
+    state.assets = []; state.debts = [];
+    assert.match(netWorthPageHtml(), /Nothing here yet/);
+  } finally { state.assets = keep.a; state.properties = keep.p; state.debts = keep.d; }
+});

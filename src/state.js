@@ -142,6 +142,8 @@ export function defaultState(){
     invest: { "Current situation": defaultInvestConfig() },
     assets: [],
     debts: [],
+    savedReports: [],
+    lifeEvents: [],
     properties: [],
     // A frozen copy of a past projection, graded against real logged net worth over time — see
     // dashboard.js's setProjectionReference()/renderProjectionAccuracyPanel(). null until the
@@ -157,7 +159,7 @@ export function defaultState(){
     // which is what the projection did implicitly until now — quietly has the surplus shrinking
     // every year and turning negative partway through the horizon.
     // realTerms shows the series in today's dollars rather than future ones.
-    projection: { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0, incomeGrowthRate: 3, realTerms: true },
+    projection: { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0, incomeGrowthRate: 3, realTerms: true, investVolatility: 12, propertyVolatility: 6 },
     // Age now, target retirement age, and when super unlocks — see calc/fire.js.
     fire: { currentAge: null, retireAge: null, preservationAge: 60 },
     // privateHospitalCover / familyThresholds are household-level, not per person: the Medicare
@@ -310,6 +312,13 @@ export function migrateState(s){
     if(icfg.enabled && s.purchase[name]) s.purchase[name].enabled = false;
   });
   if(!Array.isArray(s.debts)) s.debts = [];
+  // v3.124.0: reports pinned with their settings — { id, name, key, frame: { range, from, to, compare, group } }.
+  if(!Array.isArray(s.savedReports)) s.savedReports = [];
+  s.savedReports = s.savedReports.filter(function(r){ return r && r.key; });
+  // v3.126.0: life events on the projection — { id, kind, what, year, years, amount } (calc/lifeevents.js).
+  if(!Array.isArray(s.lifeEvents)) s.lifeEvents = [];
+  s.lifeEvents = s.lifeEvents.filter(function(e){ return e && e.kind; });
+  s.lifeEvents.forEach(function(e){ if(!e.id) e.id = genId("ev"); });
   s.debts.forEach(function(d){ if(d.balance == null) d.balance = 0; });
   if(!Array.isArray(s.shared)) s.shared = [];
   // A stable id so a transaction (see below) can still find the right expense after this array
@@ -421,6 +430,9 @@ export function migrateState(s){
   // preserving an assumption nobody made. Called out in the release notes for that reason.
   if(s.projection.incomeGrowthRate == null) s.projection.incomeGrowthRate = s.projection.inflationRate != null ? s.projection.inflationRate : 3;
   if(s.projection.realTerms == null) s.projection.realTerms = true;
+  // v3.125.0: how unevenly returns arrive, for the range of outcomes (calc/outcomes.js).
+  if(s.projection.investVolatility == null || s.projection.investVolatility === "") s.projection.investVolatility = 12;
+  if(s.projection.propertyVolatility == null || s.projection.propertyVolatility === "") s.projection.propertyVolatility = 6;
   if(!s.tax) s.tax = { sgRate: 12, settings: {} };
   if(!s.tax.settings) s.tax.settings = {};
   if(s.tax.sgRate == null) s.tax.sgRate = 11.5;
@@ -736,7 +748,8 @@ function linkExists(link, s){
 // → "Sam's savings (Bank One)"), when exactly one record matches. Ambiguous ones are left for the
 // person to pick. Once, because unlinking an account afterwards has to stay unlinked.
 function migrateAccounts(s){
-  (s.assets || []).forEach(function(a){ if(a && a.category === "Cash" && !a.id) a.id = genId("as"); });
+  // v3.128.0: every holding, not only cash, so each has a detail page to link to.
+  (s.assets || []).forEach(function(a){ if(a && !a.id) a.id = genId("as"); });
   (s.debts || []).forEach(function(d){ if(d && !d.id) d.id = genId("debt"); });
   (s.accounts || []).forEach(function(a){
     if(["everyday", "savings", "offset", "credit", "loan", "agent"].indexOf(a.type) === -1) a.type = "everyday";

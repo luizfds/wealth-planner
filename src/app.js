@@ -61,7 +61,7 @@ import {
 } from "./components/assets.js";
 import {
   modernPropRowOpen, renderPropListModern, renderProperties, patchPropertyCardComputed,
-  logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan, setSaleWhatIfField, patchSaleWhatIf, setLoanStrategyField, patchLoanStrategy, propertyTabs,
+  logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan, setSaleWhatIfField, patchSaleWhatIf, setLoanStrategyField, patchLoanStrategy, propertyTabs, propertyEditing,
   fixedExpiryHtml, rentPanelHtml, fixedWhatIf, agentStatementUi, agentStatementFormValues
 } from "./components/properties.js";
 import { renderProjectionOutputs, projectionSeriesShown } from "./components/projections.js";
@@ -1934,6 +1934,20 @@ import {
     }
   });
 
+  // v3.107.0: Edit details / Done on a property's Overview. Both views are rendered; the card's class
+  // picks one, so nothing typed is lost. Done re-renders so the summary shows what was just edited.
+  document.getElementById("propertiesBody").addEventListener("click", function(e){
+    var edit = e.target.closest("[data-prop-edit]"), done = e.target.closest("[data-prop-edit-done]");
+    if(!edit && !done) return;
+    var pid = (edit || done).getAttribute(edit ? "data-prop-edit" : "data-prop-edit-done");
+    propertyEditing[pid] = !!edit;
+    if(edit){
+      var card = edit.closest(".property-card");
+      card.classList.add("is-editing");
+      var first = card.querySelector('.prop-edit input');
+      if(first) first.focus();
+    } else renderProperties();
+  });
   // A property's tabs (v3.61.0): every panel is already rendered, so switching is a visibility
   // toggle — no re-render, nothing typed in another tab is lost.
   document.getElementById("propertiesBody").addEventListener("click", function(e){
@@ -2138,7 +2152,9 @@ import {
   });
 
   document.getElementById("addPropertyBtn").addEventListener("click", function(){
-    state.properties.push({ id: genId("p"), what:"New property", kind:"IP", value:0, purchasePrice:null, purchaseDate:"", acquisitionCosts:[], history:[], pmFee:{percent:6, flat:5.5}, incomePaidFreq:"Monthly", sectionsCollapsed:{acquisition:true, ownership:true, loans:true, income:true, expenses:true}, ownership:{}, loans:[], income:[], expenses:[] });
+    var newPropId = genId("p");
+    propertyEditing[newPropId] = true; // a new property has nothing to summarise yet — open its fields
+    state.properties.push({ id: newPropId, what:"New property", kind:"IP", value:0, purchasePrice:null, purchaseDate:"", acquisitionCosts:[], history:[], pmFee:{percent:6, flat:5.5}, incomePaidFreq:"Monthly", sectionsCollapsed:{acquisition:true, ownership:true, loans:true, income:true, expenses:true}, ownership:{}, loans:[], income:[], expenses:[] });
     recalcComputedItems();
     renderProperties();
     renderProjectionOutputs();

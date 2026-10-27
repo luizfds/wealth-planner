@@ -2973,8 +2973,18 @@ super above the $2m transfer balance cap is flagged. Checked on the demo and a r
 Client-side-encrypted state to the user's own cloud drive, building on item 106's folder backups, so a
 cleared browser is no longer data loss. Off by default; nothing readable leaves the device.
 
-## 164. `[~]` Screenshot comparison in CI
+## 164. `[x]` Screenshot comparison in CI
 `scripts/smoke.mjs` saves each page and subtab; a PR shows what changed visually.
+
+Shipped as v3.130.0: `scripts/smoke.mjs` takes `SHOTS_DIR` (save a full-page screenshot of every view, light, at
+390 and 1280px, with the clock fixed so the same code takes the same pictures — two runs of this branch compared
+98 views and found 0 changed) and `SMOKE_ROOT` (serve another checkout); in that mode a view the checkout lacks is
+skipped and failures are noted rather than fatal. `scripts/shotdiff.mjs` compares two folders of screenshots pixel by
+pixel in headless Chromium (no image library), and writes a `summary.md` (views changed, by share of pixels, new and
+gone) and an `index.html` with base, PR and the difference marked in red side by side. The Checks workflow gains a
+`screens` job on pull requests: base and head photographed with the PR's script, compared, the summary added to the
+job summary and the pictures uploaded as the "screens" artifact. Informational — it never fails the check.
+
 
 ## 165. `[~]` CLAUDE.md and PROJECT_KNOWLEDGE.md brought up to date
 `app.js` is 5,801 lines, not ~3,400; the page list and IA change with item 152.

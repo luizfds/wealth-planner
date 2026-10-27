@@ -15,7 +15,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+// v3.130.0: SMOKE_ROOT serves another checkout (the PR's base, for screenshot comparison), and
+// SHOTS_DIR saves a full-page screenshot of every view in light mode, at a fixed date and time so
+// two runs of the same code take the same pictures. In that mode a view the checkout doesn't have
+// is skipped rather than failed, and failures don't fail the run — scripts/shotdiff.mjs reports.
+const root = process.env.SMOKE_ROOT ? path.resolve(process.env.SMOKE_ROOT) : path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const SHOTS = process.env.SHOTS_DIR ? path.resolve(process.env.SHOTS_DIR) : null;
+if(SHOTS) fs.mkdirSync(SHOTS, { recursive: true });
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json",
   ".webmanifest": "application/manifest+json", ".png": "image/png", ".svg": "image/svg+xml", ".ico": "image/x-icon" };
 const server = http.createServer((req, res) => {
@@ -43,11 +49,12 @@ const VIEWS = [
 ];
 const failures = [];
 const browser = await chromium.launch(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {});
-for (const [scheme, width] of [["light", 390], ["light", 1280], ["dark", 390], ["dark", 1280]]) {
+for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["light", 390], ["light", 1280], ["dark", 390], ["dark", 1280]]) {
   const ctx = await browser.newContext({ viewport: { width, height: 844 }, colorScheme: scheme });
   await ctx.addInitScript(() => localStorage.setItem("wealthPlanner.hasSeenIntro", "1"));
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
   const page = await ctx.newPage();
+  if(SHOTS) await page.clock.setFixedTime(new Date("2026-10-27T10:00:00"));
   const errors = [];
   page.on("pageerror", e => errors.push("page error: " + e.message));
   page.on("console", m => { if(m.type() === "error" && !/Failed to load resource/.test(m.text())) errors.push("console: " + m.text()); });
@@ -56,10 +63,15 @@ for (const [scheme, width] of [["light", 390], ["light", 1280], ["dark", 390], [
   await page.waitForTimeout(800);
   // Open every collapsible section so its contents render and get measured too.
   for (const [pg, attr, subs] of VIEWS) {
-    await page.evaluate(p => document.querySelector('[data-page="' + p + '"]').click(), pg);
+    const hasPage = await page.evaluate(p => { const b = document.querySelector('[data-page="' + p + '"]'); if(b) b.click(); return !!b; }, pg);
+    if(!hasPage && SHOTS) continue;
     await page.waitForTimeout(250);
     for (const sub of subs) {
-      if(sub) { await page.evaluate(([a, s]) => document.querySelector('[data-' + a + '="' + s + '"]').click(), [attr, sub]); await page.waitForTimeout(250); }
+      if(sub) {
+        const hasSub = await page.evaluate(([a, s]) => { const b = document.querySelector('[data-' + a + '="' + s + '"]'); if(b) b.click(); return !!b; }, [attr, sub]);
+        if(!hasSub && SHOTS) continue;
+        await page.waitForTimeout(250);
+      }
       await page.evaluate(() => document.querySelectorAll(".app-page:not([hidden]) details").forEach(d => { d.open = true; }));
       await page.waitForTimeout(250);
       const where = scheme + " " + width + "px " + pg + (sub ? "/" + sub : "");
@@ -76,12 +88,20 @@ for (const [scheme, width] of [["light", 390], ["light", 1280], ["dark", 390], [
       if(r.bad.length) failures.push(where + ": text shows " + r.bad.join(", "));
       if(r.zeroBars.length) failures.push(where + ": bars that don't draw: " + [...new Set(r.zeroBars)].join(", "));
       errors.splice(0).forEach(e => failures.push(where + ": " + e));
+      if(SHOTS){
+        await page.evaluate(() => document.querySelectorAll("#toastWrap .toast").forEach(t => t.remove()));
+        await page.screenshot({ path: path.join(SHOTS, width + "-" + pg + (sub ? "-" + sub : "") + ".png"), fullPage: true, animations: "disabled" });
+      }
     }
   }
   await ctx.close();
 }
 await browser.close();
 server.close();
+if(failures.length && SHOTS){
+  console.log("Screenshots saved; " + failures.length + " smoke failure(s) noted but not failed in screenshot mode.");
+  process.exit(0);
+}
 if(failures.length){
   console.error("Smoke check failed:\n  " + failures.join("\n  "));
   process.exit(1);

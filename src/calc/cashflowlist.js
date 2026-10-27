@@ -1,5 +1,6 @@
 import { state, genId } from "../state.js";
 import { incomeTargets } from "./received.js";
+import { cleanMerchantName } from "./merchantbook.js";
 
 // ---------------- One list of money in, out and between accounts (v3.59.0) ----------------
 //
@@ -40,7 +41,7 @@ export function cashflowEntries(opts){
       var row = (state.income || []).find(function(x){ return "income:" + x.id === r.target; });
       person = row ? row.person || "" : "";
     }
-    out.push({ kind: "in", key: "i:" + r.id, date: r.date, amount: Number(r.amount) || 0, label: r.what || (tg ? tg.label : "Money in"),
+    out.push({ kind: "in", key: "i:" + r.id, date: r.date, amount: Number(r.amount) || 0, label: r.what ? cleanMerchantName(r.what) : (tg ? tg.label : "Money in"),
       account: r.account || (tg && tg.account) || "", category: "Income", lineId: r.target || "", person: person, splitGroup: "", ref: r.id });
   });
   (state.transfers || []).forEach(function(x){

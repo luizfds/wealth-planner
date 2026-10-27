@@ -8,6 +8,7 @@
 import { state, persist } from "../state.js";
 import { parseCsv } from "../lib/backup.js";
 import { parseBankCsv, bankImportSummary, parseDiagnosis } from "../calc/bank-import.js";
+import { cleanMerchantName } from "../calc/merchantbook.js";
 import { applySuggestions, learnRule, coverageOf, merchantKey, proposedLineFor, suggestedLineName, pruneRules, detectTransfer, closingBalance } from "../calc/import-rules.js";
 import { addTransfer, deleteTransfer } from "../calc/cashflowlist.js";
 import { accountBalance, setAccountBalance, isOwedType } from "../calc/accounts.js";
@@ -106,7 +107,7 @@ function rebuildBankImport(parsed, fileName, rawRows, includePossibleDuplicates)
   var lines = loggableBudgetLineItems();
   var keepAccount = bankImport && bankImport.fileName === (fileName || "") ? bankImport.account : null;
   var statementAccount = keepAccount != null ? keepAccount : guessStatementAccount(fileName);
-  var suggested = applySuggestions(parsed.rows, state.importRules, lines);
+  var suggested = applySuggestions(parsed.rows, state.importRules, lines, { categories: state.categories });
   // v3.78.0: spending inside a trip's dates goes to the trip's line, ahead of the merchant rules —
   // except bills that happen to land on those days (see calc/trips.js tripTakes).
   var protectedIds = tripProtectedLineIds();
@@ -454,7 +455,8 @@ function bankImportGroupsHtml(){
 function groupRowHtml(g){
   var badge = g.source === "rule"
     ? '<span class="bank-import-badge is-rule" title="From a rule you taught this app on an earlier import">learned</span>'
-    : (g.source === "name" ? '<span class="bank-import-badge" title="Matched to a budget line by name — worth a glance">guessed</span>' : "");
+    : g.source === "name" ? '<span class="bank-import-badge" title="Matched to a budget line by name — worth a glance">guessed</span>'
+    : g.source === "known" ? '<span class="bank-import-badge" title="A well-known business, filed where that kind of spending usually goes — worth a glance">known shop</span>' : "";
   if(g.tripId && g.choice.linkedExpenseId) badge = '<span class="bank-import-badge is-trip" title="Inside the dates of a trip, so filed to the trip\'s line. Pick another line to file it elsewhere.">trip · ' + escapeAttr(g.tripName) + '</span>';
   else if(g.choice.transferAccount) badge = '<span class="bank-import-badge is-transfer" title="Money moved between your own accounts — saved as a transfer, not spending or income">transfer</span>';
   else if(g.transferHint) badge = '<span class="bank-import-badge is-transfer" title="Reads like a transfer between your own accounts. If it is, pick the account under Transfer.">looks like a transfer</span>';
@@ -465,7 +467,9 @@ function groupRowHtml(g){
   return '<div class="m-row bank-import-group' + (placed ? "" : " is-unplaced") + '" data-bank-group="' + escapeAttr(g.key) + '">' +
     '<div class="m-row-summary" style="cursor:default">' +
       '<div style="flex:1 1 auto; min-width:0">' +
-        '<div class="m-row-name">' + escapeAttr(g.label) + badge + '</div>' +
+        // v3.111.0: the merchant, with the bank's own text underneath.
+        '<div class="m-row-name">' + escapeAttr(cleanMerchantName(g.label)) + badge + '</div>' +
+        (cleanMerchantName(g.label) !== g.label ? '<div class="m-row-sub bank-import-raw">' + escapeAttr(g.label) + '</div>' : '') +
         '<div class="m-row-sub">' + countLabel + ' · ' + (g.isCredit ? "+" : "") + fmtCurrency2.format(g.total) + '</div>' +
       '</div>' +
     '</div>' +

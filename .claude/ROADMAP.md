@@ -2654,12 +2654,25 @@ built from anyone's holdings** — the repo is public.
 After 3+ months imported, propose budget lines (amount, frequency, Needs/Wants, account) from what was
 spent, using `calc/recurring.js`; accept all, or line by line.
 
-## 147. `[~]` Common Australian merchants pre-categorised, and clean names
+## 147. `[x]` Common Australian merchants pre-categorised, and clean names
 A built-in map of large public brands (supermarkets, fuel, telcos, utilities, insurers, transport) to
 categories, applied before learnt rules, so a first import is mostly categorised. Lists show a cleaned
 merchant name (store numbers, suburbs and card refs stripped, as `import-rules.js` already does for
 matching) with the bank's text underneath — on real data about one transaction in seven still shows raw
 bank text.
+
+Shipped as v3.111.0: `calc/merchantbook.js` — `KNOWN_MERCHANTS` (about 120 large public brands → a default
+category; short keys only where the merchant starts, longest key wins), `knownMerchant()`, `cleanMerchantName()`
+(a known brand by its name; bank text — all capitals, a 4+ digit run or a `*` — cut to its merchant words in title
+case; typed names untouched). `suggestFor` falls back to a known brand after rules and line names: your one line
+in that category, else the category itself if you have it, else nothing; source "known", badge "known shop",
+counted in coverage. Lists show the clean name (transactions, money in, the import review with the bank's text
+underneath; the row's tooltip and its Description field keep the bank's text). Measured on a real backup (outside
+the repo): a first import with no rules leaves 931 rows unsuggested instead of 1,355; of the 424 newly suggested,
+364 match where they were actually filed (86%) — the rest are the household's own category choices (a "Home"
+category for hardware and homewares). Bank-text names shown: 972 → 37. (The assessment's "one in seven" used a
+narrower test for raw text.)
+
 
 ## 148. `[x]` Rules that generalise
 On a real backup most learnt import rules had matched exactly once: a rule is learnt per exact

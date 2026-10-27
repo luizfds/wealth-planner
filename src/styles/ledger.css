@@ -1137,6 +1137,8 @@
   .rl-test{ display:flex; flex-direction:column; gap:4px; margin-bottom:12px; }
   .rl-test-out{ margin:0; font-size:12.5px; color: var(--ink-soft); }
   .rl-list{ display:flex; flex-direction:column; gap:8px; }
+  .rl-merge{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; padding:10px 12px; margin:0 0 12px; border:1px solid var(--border); border-radius:10px; background: var(--paper-sunken); }
+  .rl-merge p{ margin:0; flex:1 1 320px; font-size:13px; }
   .list-all-btn{ margin:8px 0 4px; }
   .rl-tools{ display:flex; gap:10px; flex-wrap:wrap; align-items:end; margin:4px 0 12px; }
   .rl-find{ flex:1 1 240px; }

@@ -2661,10 +2661,24 @@ merchant name (store numbers, suburbs and card refs stripped, as `import-rules.j
 matching) with the bank's text underneath — on real data about one transaction in seven still shows raw
 bank text.
 
-## 148. `[ ]` Rules that generalise
+## 148. `[x]` Rules that generalise
 On a real backup most learnt import rules had matched exactly once: a rule is learnt per exact
 description, so each new store of the same chain teaches another. Match on the cleaned merchant key, offer
 "all <merchant>" when a second variant appears, and merge duplicate rules.
+
+Shipped as v3.110.0 in `calc/import-rules.js`. Measured on a real backup first (outside the repo): the store
+number was never the problem — 85 of 109 keys were three words, the third usually the suburb, and payment
+processors (Square, PayPal) put many shops under one key. So: processors join the dropped leaders
+(`merchantKey`); `commonMerchant(a, b)` — shared leading words, never one common or short (<5) word;
+`learnRule` merges the new rule into one filing to the same place under the same merchant;
+`mergeSimilarRules(rules)` does the same for existing rules (Settings → Import rules → "Merge similar rules",
+undoable). A merged rule is `starts: true` — it only claims a description whose merchant (or the description
+itself) starts with it; without that, one rule that had shrunk to a common word misfiled 55 rows in replay.
+Measured: merging the backup's rules 109 → 97, no past transaction changes line, 15 more filed by a rule.
+Replaying the whole history from no rules: 412 asks vs 438 before, 975 filed right vs 959, but 66 filed wrong
+vs 56 — fewer questions, slightly more to correct. Offering "all <merchant>" as a choice wasn't built: merging
+happens only when both answers already agree.
+
 
 ## 149. `[ ]` Payslip import
 A payslip PDF → gross, tax withheld, super, sacrifice and YTD, into income lines and the withholding check.

@@ -234,3 +234,59 @@ test("a spending rule never places a credit; the same merchant can carry one of 
   assert.equal(rules[1].hits, 2);
   assert.equal(pruneRules2(rules, []).length, 1, "the income rule survives a budget-line prune; the line rule goes");
 });
+
+// v3.110.0: rules that generalise. Invented merchants.
+import { commonMerchant, mergeSimilarRules } from "../src/calc/import-rules.js";
+
+test("a payment processor in front of the shop's name isn't the merchant", () => {
+  assert.equal(merchantKey("SQ *FERN CAFE Ultimo"), "fern cafe ultimo");
+  assert.equal(merchantKey("PAYPAL *STREAMBOX 4029357733"), "streambox");
+  assert.equal(merchantKey("PAYPAL"), "paypal", "never the only word");
+});
+
+test("commonMerchant: the shared leading words, never a bare common word", () => {
+  assert.equal(commonMerchant("fern cafe ultimo", "fern cafe newtown"), "fern cafe");
+  assert.equal(commonMerchant("bright energy", "bright energy"), "bright energy");
+  assert.equal(commonMerchant("the corner deli", "the gift shop"), "", "'the' alone is not a merchant");
+  assert.equal(commonMerchant("harbour noodles city", "harbour view"), "harbour");
+  assert.equal(commonMerchant("bank st butcher", "bank one"), "", "one short word is too common to trust on its own");
+});
+
+test("mergeSimilarRules joins rules filing to the same place, and leaves different answers apart", () => {
+  const rules = [
+    { id: "a", match: "fern cafe ultimo", linkedExpenseId: "eat", category: "", account: "", hits: 1 },
+    { id: "b", match: "fern cafe newtown", linkedExpenseId: "eat", category: "", account: "", hits: 2 },
+    { id: "c", match: "roadside fuel north", linkedExpenseId: "fuel", category: "", account: "", hits: 1 },
+    { id: "d", match: "roadside fuel cafe", linkedExpenseId: "eat", category: "", account: "", hits: 1 },
+    { id: "e", match: "bright energy", linkedExpenseId: "power", category: "", account: "", hits: 1 },
+    { id: "f", match: "bright energy", linkedExpenseId: "power", category: "", account: "", hits: 3 }
+  ];
+  const out = mergeSimilarRules(rules);
+  const by = Object.fromEntries(out.rules.map(r => [r.match, r]));
+  assert.equal(by["fern cafe"].hits, 3);
+  assert.equal(by["fern cafe"].id, "a");
+  assert.ok(by["roadside fuel north"] && by["roadside fuel cafe"], "same words, different lines: kept apart");
+  assert.equal(by["bright energy"].hits, 4, "duplicates merged");
+  assert.equal(out.rules.length, 4);
+  assert.equal(rules[0].match, "fern cafe ultimo", "the input isn't changed");
+  assert.equal(matchRule("FERN CAFE GLEBE 2037", out.rules).linkedExpenseId, "eat", "and the next branch is filed too");
+});
+
+test("learning a second branch of the same merchant makes one rule for both", () => {
+  const rules = [];
+  learnRule(rules, "FERN CAFE ULTIMO 2007", { linkedExpenseId: "eat" });
+  learnRule(rules, "FERN CAFE NEWTOWN 2042", { linkedExpenseId: "eat" });
+  assert.deepEqual(rules.map(r => r.match), ["fern cafe"]);
+  assert.equal(rules[0].hits, 2);
+  learnRule(rules, "FERN CAFE GLEBE 2037", { linkedExpenseId: "coffee" });
+  assert.equal(rules.length, 2, "a different answer for one branch stays its own rule");
+  assert.equal(matchRule("FERN CAFE GLEBE 2037", rules).linkedExpenseId, "coffee");
+  assert.equal(matchRule("FERN CAFE ULTIMO 2007", rules).linkedExpenseId, "eat");
+});
+
+test("a merged rule only claims a description whose merchant starts with it", () => {
+  const rules = [{ match: "fern cafe", starts: true, linkedExpenseId: "eat" }];
+  assert.equal(matchRule("FERN CAFE GLEBE 2037", rules).linkedExpenseId, "eat");
+  assert.equal(matchRule("SQ *FERN CAFE GLEBE", rules).linkedExpenseId, "eat", "after a processor too");
+  assert.equal(matchRule("GIFT VOUCHER FERN CAFE", rules), null, "not the same words further along");
+});

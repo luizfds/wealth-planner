@@ -1,5 +1,5 @@
 import { state } from "../state.js";
-import { matchRule } from "../calc/import-rules.js";
+import { matchRule, mergeSimilarRules } from "../calc/import-rules.js";
 import { normaliseDescription } from "../calc/bank-import.js";
 import { incomeTargets } from "../calc/received.js";
 import { escapeAttr } from "../lib/html.js";
@@ -88,7 +88,16 @@ export function rulesPageHtml(lines){
       '<span class="rl-hits" title="Times this rule has been confirmed">' + (r.hits || 0) + '×</span>' +
       '<button type="button" class="btn btn-ghost btn-sm" data-rl-del="' + i + '" aria-label="Delete rule ' + escapeAttr(r.match) + '">✕</button></div>';
   }).join("");
-  return testHtml + toolsHtml + '<div class="rl-list">' + rows + '</div>' + moreHtml + addHtml;
+  // v3.110.0: rules learnt before they generalised — one per branch — offered as one per merchant.
+  var merge = mergeSimilarRules(rules);
+  var saved = rules.length - merge.rules.length;
+  var mergeHtml = saved > 0
+    ? '<div class="rl-merge"><p><b>' + saved + ' rule' + (saved === 1 ? '' : 's') + ' can go.</b> ' + merge.merges.length + ' merchant' + (merge.merges.length === 1 ? ' has' : 's have') +
+      ' several rules filing to the same place — one per branch or suburb. Merged, each is one rule, and the next branch is filed too' +
+      (merge.merges[0] ? ' (e.g. “' + escapeAttr(merge.merges[0].from.slice(0, 2).join("” and “")) + '” become “' + escapeAttr(merge.merges[0].into) + '”)' : '') + '.</p>' +
+      '<button type="button" class="btn btn-sm btn-primary" data-rl-merge>Merge similar rules</button></div>'
+    : '';
+  return testHtml + mergeHtml + toolsHtml + '<div class="rl-list">' + rows + '</div>' + moreHtml + addHtml;
 }
 
 // Applies one edited field. A match is stored the way descriptions are compared (lower case, no

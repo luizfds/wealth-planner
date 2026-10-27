@@ -1317,3 +1317,25 @@ test("a closed row's edit form is a template until the row opens", () => {
   assert.doesNotMatch(open, /<template/);
   assert.match(open, /<div class="m-row open"[^>]*>.*<div class="m-row-edit">/s);
 });
+
+// v3.109.0: long lists put what's over plan first and stop at a handful.
+import { capList } from "../src/components/expenses.js";
+import { rulesShown } from "../src/components/rules.js";
+test("capList: over-plan first, most over first, then by size; capped unless shown in full", () => {
+  const e = [{ k: "a", size: 50, over: 0 }, { k: "b", size: 10, over: 30 }, { k: "c", size: 90, over: -5 }, { k: "d", size: 20, over: 80 }];
+  for (let i = 0; i < 10; i++) e.push({ k: "x" + i, size: i, over: 0 });
+  const r = capList(e, 3, false);
+  assert.deepEqual(r.shown.map(x => x.k), ["d", "b", "c"]);
+  assert.equal(r.hidden, e.length - 3);
+  assert.equal(capList(e, 3, true).hidden, 0);
+  assert.equal(capList(e.slice(0, 5), 3, false).hidden, 0, "two over the cap isn't worth a button");
+});
+test("rulesShown finds by words or line, and sorts by use, newest or A–Z", () => {
+  const rules = [{ match: "fern cafe", hits: 2, linkedExpenseId: "l1" }, { match: "bright energy", hits: 9 }, { match: "acme", hits: 0, account: "Credit Card" }];
+  const label = r => r.linkedExpenseId === "l1" ? "Eating out" : "";
+  assert.deepEqual(rulesShown(rules, label, { q: "", sort: "used" }).map(x => x.i), [1, 0, 2]);
+  assert.deepEqual(rulesShown(rules, label, { q: "", sort: "new" }).map(x => x.i), [2, 1, 0]);
+  assert.deepEqual(rulesShown(rules, label, { q: "", sort: "az" }).map(x => x.r.match), ["acme", "bright energy", "fern cafe"]);
+  assert.deepEqual(rulesShown(rules, label, { q: "eating", sort: "used" }).map(x => x.i), [0]);
+  assert.deepEqual(rulesShown(rules, label, { q: "credit", sort: "used" }).map(x => x.i), [2]);
+});

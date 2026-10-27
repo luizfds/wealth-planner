@@ -2614,11 +2614,20 @@ the repo) 3,524 → 970 (−72%). Driven: budget line, transaction, income, hold
 field and close; "+ Add" opens the new row with focus in it.
 
 
-## 141. `[ ]` Long lists show the top, not everything
+## 141. `[x]` Long lists show the top, not everything
 With a real year of data, Cash flow → Spending runs to several screen-heights on a desktop (Actual vs
 planned and This year so far list every line), and Settings → Import rules is one unsearchable list
 tens of thousands of pixels tall on a phone. Show the lines that matter (over, under, biggest) with
 "Show all"; give rules search, sort by last used and paging.
+
+Shipped as v3.109.0: `components/expenses.js` `capList(entries, n, showAll)` — over-plan first (most over
+first), then by size; 8 shown, "Show all (N more)" / "Show fewer" (session-only `listsShowAll`), no button when
+it would hide two or fewer. Applied to Actual vs. planned, its irregular/reserve list, This year so far and
+Spending over time. Import rules: `rulesShown()` finds by words, line, category or account; sorts Most used /
+Newest first / A–Z (rules don't record when they were last used — newest stands in); pages 25 at a time.
+Measured on a real backup (outside the repo): Spending 6,724 → 5,112px at 1280 and 10,134 → 7,158px at 390;
+Import rules 9,646 → 2,804px and 29,165 → 7,636px. The transaction list keeps its 25 most recent.
+
 
 ### Phase B — type less
 

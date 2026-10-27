@@ -6,7 +6,7 @@ import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
 import { scenarioTotals } from "../calc/engine.js";
 import { billsForMonth } from "../calc/bills.js";
 import { scenarioIncomeRows } from "../calc/tax.js";
-import { fmtCurrency0, fmtCurrency2, fmtPercent0, fmtPercent1, localDateStr } from "../lib/format.js";
+import { fmtCurrency0, fmtCurrency2, fmtPercent0, fmtPercent1, localDateStr, fmtDate } from "../lib/format.js";
 import { spendingTrends, monthKeyLabel } from "../calc/trends.js";
 import { escapeAttr } from "../lib/html.js";
 import { renderAccountsPage, openAccounts } from "./accounts.js";
@@ -286,15 +286,20 @@ function classificationSwatchClass(cls){
   return "na";
 }
 
+// v3.105.0: "N/A" is the stored value, not a heading — it reads as missing data. "Other", as in Your month, planned.
+function groupLabel(key){ return key === "N/A" ? "Other" : key; }
+
 function sharedCompositionBarHtml(groups){
+  // A $0 group has no slice and no business in the legend.
+  groups = groups.filter(function(g){ return g.monthly > 0.5; });
   var total = groups.reduce(function(s, g){ return s + g.monthly; }, 0);
   if(total <= 0 || groups.length < 2) return "";
   var segs = groups.map(function(g){
     var pct = g.monthly / total;
-    return '<div class="rule-seg ' + classificationSwatchClass(g.key) + '" style="width:' + (pct * 100) + '%" title="' + escapeAttr(g.key) + ': ' + fmtCurrency0.format(g.monthly) + '/mo (' + fmtPercent1.format(pct) + ')">' + (pct > 0.1 ? fmtPercent1.format(pct) : "") + '</div>';
+    return '<div class="rule-seg ' + classificationSwatchClass(g.key) + '" style="width:' + (pct * 100) + '%" title="' + escapeAttr(groupLabel(g.key)) + ': ' + fmtCurrency0.format(g.monthly) + '/mo (' + fmtPercent1.format(pct) + ')">' + (pct > 0.1 ? fmtPercent1.format(pct) : "") + '</div>';
   }).join("");
   var legend = groups.map(function(g){
-    return '<div class="rule-legend-item"><span class="rule-swatch ' + classificationSwatchClass(g.key) + '"></span>' + escapeAttr(g.key) + ' <b>' + fmtCurrency0.format(g.monthly) + '</b></div>';
+    return '<div class="rule-legend-item"><span class="rule-swatch ' + classificationSwatchClass(g.key) + '"></span>' + escapeAttr(groupLabel(g.key)) + ' <b>' + fmtCurrency0.format(g.monthly) + '</b></div>';
   }).join("");
   return '<div data-shared-comp-bar><div class="rule-bar">' + segs + '</div><div class="rule-legend" style="margin-bottom:16px">' + legend + '</div></div>';
 }
@@ -440,7 +445,7 @@ export function renderSharedGroups(){
       '<div class="m-card-head" data-budget-group-toggle="' + escapeAttr(g.key) + '" role="button" tabindex="0" aria-expanded="' + (!collapsed) + '">' +
       '<span class="icon-btn m-card-caret" aria-hidden="true"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg></span>' +
       '<span class="m-avatar ' + avatarClass + '">' + escapeAttr(initial) + '</span>' +
-      '<div class="m-card-name">' + escapeAttr(g.key) + '</div>' +
+      '<div class="m-card-name">' + escapeAttr(groupLabel(g.key)) + '</div>' +
       '<div class="m-card-total">' + fmtCurrency0.format(g.monthly) + '<span>/mo</span></div></div>' +
       // Each row renders under its own source section, so a housing line's edits, deletes and
       // logs land in state.home[scenario] while a shared line's land in state.shared — no
@@ -992,7 +997,7 @@ export function quickLogRefundChipsHtml(item){
     '<div class="qlog-chips qlog-refund-chips" role="group" aria-label="Recent purchases on this line">' +
       candidates.map(function(t){
         var on = quickLog.refundOf === t.id;
-        var label = (t.date || "—") + " · " + fmtCurrency2.format(Number(t.amount) || 0);
+        var label = (t.date ? fmtDate(t.date) : "—") + " · " + fmtCurrency2.format(Number(t.amount) || 0);
         return '<button type="button" class="qlog-chip qlog-refund-chip' + (on ? " is-selected" : "") + '" data-qlog-refund-of="' + escapeAttr(t.id) + '"' +
           ' aria-pressed="' + (on ? "true" : "false") + '">' + escapeAttr(label) + '</button>';
       }).join("") +
@@ -1336,7 +1341,7 @@ function refundTargetLabel(t){
 export function transactionSummaryText(t){
   var linked = t.linkedExpenseId && budgetLineItems().find(function(i){ return i.id === t.linkedExpenseId; });
   var acct = transactionAccount(t);
-  var bits = [t.date || "—", linked ? linked.what : "One-off"];
+  var bits = [t.date ? fmtDate(t.date) : "—", linked ? linked.what : "One-off"];
   if(acct) bits.push(acct);
   var refundLabel = refundTargetLabel(t);
   if(refundLabel) bits.push(refundLabel);
@@ -1762,7 +1767,7 @@ function creditStatementCyclesHtml(){
       .filter(function(t){ return transactionAccount(t) === a.name; });
     var total = cycleTxns.reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0);
     return '<div class="acct-row"><span class="acct-name" title="' + escapeAttr(a.name) + '">' + escapeAttr(a.name) + '</span>' +
-      '<span style="font-size:11px;color:var(--ink-soft)">' + cycle.start + ' – ' + cycle.end + ' · ' + cycleTxns.length + ' charge' + (cycleTxns.length === 1 ? "" : "s") + '</span>' +
+      '<span style="font-size:11px;color:var(--ink-soft)">' + fmtDate(cycle.start) + ' – ' + fmtDate(cycle.end) + ' · ' + cycleTxns.length + ' charge' + (cycleTxns.length === 1 ? "" : "s") + '</span>' +
       '<span class="acct-amt">' + fmtCurrency0.format(total) + '</span></div>';
   }).join("");
   return '<div style="margin-top:16px"><div class="fire-stat-row" style="margin-bottom:2px"><span>' + (isPeriodToday() ? 'This bill so far' : 'The bill open on ' + monthAnchorDate()) + ' — by statement cycle</span></div>' + rows + '</div>';
@@ -2244,7 +2249,7 @@ export function renderYearBasisPreference(){
   if(current) current.textContent = win.label;
   var note = document.getElementById("yearBasisNote");
   if(note){
-    note.textContent = "Right now that's " + win.label + ": " + win.start + " to " + householdYearWindow().end +
+    note.textContent = "Right now that's " + win.label + ": " + fmtDate(win.start, { year: true }) + " to " + fmtDate(householdYearWindow().end, { year: true }) +
       (win.complete ? "." : ", and you're " + fmtPercent0.format(householdYearProgress()) + " through it.") +
       " Budget lines marked \"no fixed timing\" follow this unless you give one its own budget year.";
   }

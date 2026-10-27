@@ -2,7 +2,7 @@ import { state, persist, genId } from "../state.js";
 import { ASSET_CATEGORIES, LIQUID_CATEGORIES, SHARE_MARKETS, MARKET_CURRENCY } from "../constants.js";
 import { propertiesOffsetTotal, propertiesIlliquidEquityToday, recalcPurchase, loanBalance } from "../calc/property.js";
 import { totalAssetsValue, totalNetWorthValue, totalDebtsValue, liquidAssetsValue, toAudAmount } from "../calc/engine.js";
-import { fmtCurrency0, fmtCurrency2, fmtPercent1, fmtCurrency0For, fmtCurrency2For, localDateStr, fmtQtyDisplay } from "../lib/format.js";
+import { fmtCurrency0, fmtCurrency2, fmtPercent1, fmtCurrency0For, fmtCurrency2For, localDateStr, fmtDate, fmtQtyDisplay } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { optionsHtml, historyTrendHtml } from "../lib/ledger-table.js";
 import { renderLineChart, renderStackedAreaChart, dateAxisFormat, sparklineHtml, sparklinePlaceholderHtml } from "../lib/charts.js";
@@ -98,11 +98,11 @@ function salesListHtml(item, idx){
     var g = saleCapitalGain(sale);
     var cls = g.isLoss ? "down" : "up";
     return '<div class="sale-row">' +
-      '<span class="sale-date">' + escapeAttr(sale.date) + '</span>' +
+      '<span class="sale-date">' + escapeAttr(fmtDate(sale.date)) + '</span>' +
       '<span class="sale-detail">' + fmtQtyDisplay.format(Number(sale.units) || 0) + ' units · ' +
         fmtCurrency0.format(Number(sale.proceeds) || 0) + ' less ' + fmtCurrency0.format(Number(sale.costBase) || 0) + ' cost base' +
         (g.parts.length > 1 ? ' · ' + g.parts.length + ' parcels (' + g.parts.map(function(pt){
-          return fmtQtyDisplay.format(pt.units) + ' from ' + (pt.acquired || "?") + (pt.raw > 0 ? (pt.discountApplied ? ", discounted" : ", not discounted") : ", loss");
+          return fmtQtyDisplay.format(pt.units) + ' from ' + (pt.acquired ? fmtDate(pt.acquired) : "?") + (pt.raw > 0 ? (pt.discountApplied ? ", discounted" : ", not discounted") : ", loss");
         }).join("; ") + ')' : '') + '</span>' +
       '<span class="asset-trend ' + cls + '">' + (g.isLoss ? "" : "+") + fmtCurrency0.format(g.raw) + '</span>' +
       '<span class="sale-discount' + (g.discountApplied ? " on" : "") + '" title="' +
@@ -330,7 +330,7 @@ export function dividendNoteText(item){
 // price has been pasted/logged, so the currency is visible from the moment a holding is added.
 function priceNoteText(item){
   var currency = holdingCurrency(item);
-  return item.priceUpdated ? ("as of " + item.priceUpdated + " · " + currency) : currency;
+  return item.priceUpdated ? ("as of " + fmtDate(item.priceUpdated) + " · " + currency) : currency;
 }
 
 // A week is generous for a share/crypto price (these move daily) but short enough that it only
@@ -608,7 +608,7 @@ export function renderAssetCategoryHistoryChart(cat){
   note.className = "ledger-note";
   note.style.margin = "8px 0 0";
   note.innerHTML = (delta >= 0 ? "Up " : "Down ") + "<b>" + fmtCurrency0.format(Math.abs(delta)) + "</b> since " +
-    escapeAttr(first.dateLabel) + " — from your logged snapshots, not a projection.";
+    escapeAttr(fmtDate(first.dateLabel)) + " — from your logged snapshots, not a projection.";
   container.appendChild(note);
 }
 
@@ -906,7 +906,7 @@ export function renderSharesSubpage(){
   // numbers in as if they were already AUD — see toAudAmount() in calc/engine.js).
   var hasUsdHoldings = allData.items.some(function(a){ return (MARKET_CURRENCY[a.market] || "AUD") !== "AUD"; });
   var fxNote = !hasUsdHoldings ? "" : (state.fx && state.fx.usdAud
-    ? '<p class="ledger-note" style="margin:8px 0"><b>USD → AUD:</b> 1 USD = ' + Number(state.fx.usdAud).toFixed(4) + ' AUD (as of ' + escapeAttr(state.fx.usdAudUpdated) + ') — used to convert your USD holdings into Net worth, Dashboard, and allocation totals. Re-paste the template below (it includes a conversion row) any time to refresh it.</p>'
+    ? '<p class="ledger-note" style="margin:8px 0"><b>USD → AUD:</b> 1 USD = ' + Number(state.fx.usdAud).toFixed(4) + ' AUD (as of ' + escapeAttr(fmtDate(state.fx.usdAudUpdated)) + ') — used to convert your USD holdings into Net worth, Dashboard, and allocation totals. Re-paste the template below (it includes a conversion row) any time to refresh it.</p>'
     : '');
   // v3.32.1: the no-rate warning used to live inside the collapsed paste tool, so the Shares total
   // and net worth silently added US$ as A$. It now sits above the list, with a field to type the
@@ -1527,7 +1527,7 @@ export function parseAssetsImportCsv(text){
 }
 function assetsImportRowDetail(item){
   if(item.category === "Shares") return item.quantity + " @ " + fmtCurrency2.format(item.price) + (item.market ? " (" + item.market + ")" : "");
-  if(item.category === "Vehicle") return fmtCurrency0.format(item.purchasePrice) + " purchase price, " + item.depreciationRate + "%/yr" + (item.purchaseDate ? " from " + item.purchaseDate : "");
+  if(item.category === "Vehicle") return fmtCurrency0.format(item.purchasePrice) + " purchase price, " + item.depreciationRate + "%/yr" + (item.purchaseDate ? " from " + fmtDate(item.purchaseDate) : "");
   return fmtCurrency2.format(item.amount);
 }
 export function renderAssetsImportPreview(parsed){

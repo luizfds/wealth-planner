@@ -7,7 +7,7 @@ import { claimItems } from "../calc/claims.js";
 import { projectWithholding } from "../calc/withholding.js";
 import { renderJuneMoves } from "./junemoves.js";
 import { superTopUp } from "../calc/supertopup.js";
-import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
+import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr, fmtDate } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { optionsHtml, historyTrendHtml, timingFieldsHtml, endDateNoteHtml, scenarioVaryNoteHtml, hasEnded } from "../lib/ledger-table.js";
 import { parseCsv } from "../lib/backup.js";
@@ -344,7 +344,7 @@ function payHistoryHtml(item){
       '<span class="pay-hist-delta ' + (delta > 0 ? "up" : (delta < 0 ? "down" : "")) + '">' +
         (delta > 0 ? "▲" : (delta < 0 ? "▼" : "–")) + " " + fmtCurrency0.format(Math.abs(delta)) +
       '</span>';
-    return '<div class="pay-hist-row"><span class="pay-hist-date">' + escapeAttr(entry.date) + '</span>' +
+    return '<div class="pay-hist-row"><span class="pay-hist-date">' + escapeAttr(fmtDate(entry.date)) + '</span>' +
       '<span class="pay-hist-value">' + fmtCurrency2.format(entry.value) + '</span>' + deltaHtml + '</div>';
   }).join("");
   var more = hist.length > 8 ? '<p class="ledger-note" style="margin:6px 0 0">and ' + (hist.length - 8) + ' earlier</p>' : "";

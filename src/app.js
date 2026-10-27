@@ -1,6 +1,6 @@
 import { state, setState, storageAvailable, persist, setStatus, defaultState, defaultPurchaseConfig, defaultInvestConfig, migrateState, genId, normalizeShareAsset } from "./state.js";
 import { sacrificeModeToLabel, sacrificeLabelToMode, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, INVEST_LEG_TYPES } from "./constants.js";
-import { fmtCurrency0, fmtCurrency2, localDateStr, parseAmountInput } from "./lib/format.js";
+import { fmtCurrency0, fmtCurrency2, localDateStr, fmtDate, parseAmountInput } from "./lib/format.js";
 import { showToast, showUndoToast, showPersistentToast } from "./lib/toast.js";
 import { initHelp, setShowHelp, showHelpPreference } from "./lib/help.js";
 import { escapeAttr } from "./lib/html.js";
@@ -484,9 +484,9 @@ import {
       persist();
       var move = newAmount - previousAmount;
       showToast(move === 0
-        ? pItem.what + " recorded at " + fmtCurrency0.format(newAmount) + " from " + recordedOn
+        ? pItem.what + " recorded at " + fmtCurrency0.format(newAmount) + " from " + fmtDate(recordedOn)
         : pItem.what + " " + (move > 0 ? "up" : "down") + " " + fmtCurrency0.format(Math.abs(move)) +
-          " to " + fmtCurrency0.format(newAmount) + " from " + recordedOn);
+          " to " + fmtCurrency0.format(newAmount) + " from " + fmtDate(recordedOn));
       return;
     }
     var logBtn2 = e.target.closest("[data-log]");

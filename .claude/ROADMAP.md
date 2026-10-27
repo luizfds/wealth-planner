@@ -2646,7 +2646,7 @@ changes a headline figure and is left for a decision. Checked on a real backup (
 19 purchases since its statement and an everyday account with 2 now show today's figure.
 
 
-## 143. `[ ]` Bills post themselves
+## 143. `[~]` Bills post themselves
 A planned bill on its due date becomes a pending transaction; an import that matches it replaces it;
 otherwise one tap (or "Confirm all") makes it real. "Catch up on 17 overdue" becomes "17 to confirm".
 Pending rows count in forecasts, not in spending totals.

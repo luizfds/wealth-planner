@@ -2631,9 +2631,20 @@ Import rules 9,646 → 2,804px and 29,165 → 7,636px. The transaction list keep
 
 ### Phase B — type less
 
-## 142. `[ ]` Balances from statements
+## 142. `[x]` Balances from statements
 An imported statement's closing balance sets the account's balance on that date; imported transactions
 roll it forward until the next one. Manual "Update" stays for accounts with no statements.
+
+Shipped as v3.112.0. The first half was already there: v3.64.0 sets an account's balance from a statement's
+closing balance (`closingBalance`), and PDF statements carry their Balance column through `statementCsv`. New:
+`calc/accounts.js` `rolledBalance(account, { today, accountOf })` — the last recorded balance plus what's been
+logged against the account since (spending and refunds, money received, transfers in and out; a card or debt
+owes, so spending adds and a repayment subtracts). Loans and property-manager accounts stay as recorded. The
+Accounts page shows it ("18 Oct balance + 19 since"), prefills Update with it, works "available" on a card from
+it, and `accountsOverview` totals use it. Net worth still reads the recorded balances — rolling those forward
+changes a headline figure and is left for a decision. Checked on a real backup (outside the repo): a card with
+19 purchases since its statement and an everyday account with 2 now show today's figure.
+
 
 ## 143. `[ ]` Bills post themselves
 A planned bill on its due date becomes a pending transaction; an import that matches it replaces it;

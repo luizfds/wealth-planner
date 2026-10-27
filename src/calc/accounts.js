@@ -118,6 +118,34 @@ export function accountBalance(account){
   return { balance: valueOf(src), owed: isOwedType(account.type), date: h.length ? h[h.length - 1].date : null, history: h, source: src };
 }
 
+// v3.112.0: the balance today, from the last one recorded (a statement's closing balance, or typed)
+// plus everything logged against the account since — spending and refunds, money received, transfers
+// in and out. A card or loan owes: spending adds to it, a repayment takes it down. Loans are left as
+// recorded (their repayments go straight to the lender, not through logged transactions), and so is an
+// account with nothing recorded yet. opts.accountOf(t) names a transaction's account (default
+// t.account); opts.today bounds what counts.
+// { balance, recorded, date, moved, count }
+export function rolledBalance(account, opts){
+  opts = opts || {};
+  var b = accountBalance(account);
+  var out = { balance: b.balance, recorded: b.balance, date: b.date, moved: 0, count: 0 };
+  if(b.balance == null || !b.date || !b.source || b.source.kind === "loan" || b.source.kind === "property") return out;
+  var name = account.name, today = opts.today || localDateStr(), since = b.date;
+  var accountOf = opts.accountOf || function(t){ return t.account || ""; };
+  var inWindow = function(d){ return d && d > since && d <= today; };
+  var net = 0;
+  (state.transactions || []).forEach(function(t){ if(inWindow(t.date) && accountOf(t) === name){ net -= Number(t.amount) || 0; out.count++; } });
+  (state.incomeLog || []).forEach(function(r){ if(inWindow(r.date) && r.account === name){ net += Number(r.amount) || 0; out.count++; } });
+  (state.transfers || []).forEach(function(x){
+    if(!inWindow(x.date)) return;
+    if(x.to === name){ net += Number(x.amount) || 0; out.count++; }
+    if(x.from === name){ net -= Number(x.amount) || 0; out.count++; }
+  });
+  out.moved = Math.round((b.owed ? -net : net) * 100) / 100;
+  out.balance = Math.round((b.balance + out.moved) * 100) / 100;
+  return out;
+}
+
 // Records a balance on the account's source, creating one first if it has none: a Cash asset for an
 // everyday or savings account, a debt for a card or a loan. An offset needs a loan to sit against,
 // so it can't be created here — returns false and the caller says so.
@@ -150,8 +178,14 @@ export function setAccountBalance(account, value, dateStr){
 
 // Every balance the household has, whether or not an account is attached to it — so the Accounts
 // page can say "cash held" and "owed" in full, and list what still has no account.
-export function accountsOverview(){
-  var accounts = (state.accounts || []).map(function(a){ return { account: a, bal: accountBalance(a) }; });
+export function accountsOverview(opts){
+  var accounts = (state.accounts || []).map(function(a){
+    var bal = accountBalance(a);
+    // v3.112.0: today's balance, rolled forward from the last recorded one.
+    var rolled = rolledBalance(a, opts);
+    if(rolled.count) bal = Object.assign({}, bal, { balance: rolled.balance });
+    return { account: a, bal: bal, rolled: rolled };
+  });
   var linked = {};
   accounts.forEach(function(x){ if(x.bal.source) linked[x.account.link] = true; });
   var loose = [];

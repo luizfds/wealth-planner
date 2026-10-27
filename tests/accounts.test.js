@@ -105,3 +105,33 @@ test("an account's chart points carry its last balance to today", async function
     assert.deepEqual(pts.map(function(p){ return p.dateLabel + "=" + p.y; }), ["2026-01-10=4000", "2026-02-10=5000", "2026-03-01=5000"]);
   });
 });
+
+// v3.112.0: a balance rolled forward from the last one recorded. Invented figures.
+import { rolledBalance } from "../src/calc/accounts.js";
+test("rolledBalance adds what's been logged since the last recorded balance", () => {
+  const keep = { assets: state.assets, debts: state.debts, accounts: state.accounts, transactions: state.transactions, incomeLog: state.incomeLog, transfers: state.transfers, properties: state.properties };
+  try {
+    state.properties = [];
+    state.assets = [{ id: "a1", what: "Everyday", category: "Cash", amount: 1000, history: [{ date: "2026-10-01", value: 1000 }] }];
+    state.debts = [{ id: "d1", what: "Card", balance: 300, history: [{ date: "2026-10-05", value: 300 }] }];
+    const everyday = { name: "Everyday", type: "everyday", link: "asset:a1" };
+    const card = { name: "Card", type: "credit", link: "debt:d1" };
+    state.accounts = [everyday, card];
+    state.transactions = [
+      { date: "2026-09-30", amount: 50, account: "Everyday" },   // before the balance: already in it
+      { date: "2026-10-03", amount: 120, account: "Everyday" },
+      { date: "2026-10-04", amount: -20, account: "Everyday" },  // a refund
+      { date: "2026-10-08", amount: 80, account: "Card" },
+      { date: "2026-10-30", amount: 999, account: "Everyday" }   // after today
+    ];
+    state.incomeLog = [{ date: "2026-10-15", amount: 2500, account: "Everyday" }];
+    state.transfers = [{ date: "2026-10-20", amount: 300, from: "Everyday", to: "Card" }];
+    const e = rolledBalance(everyday, { today: "2026-10-25" });
+    assert.deepEqual([e.recorded, e.balance, e.count], [1000, 1000 - 120 + 20 + 2500 - 300, 4]);
+    const c = rolledBalance(card, { today: "2026-10-25" });
+    assert.deepEqual([c.recorded, c.balance, c.count], [300, 300 + 80 - 300, 2], "a card owes: spending adds, the repayment takes it down");
+    state.transactions = []; state.incomeLog = []; state.transfers = [];
+    assert.equal(rolledBalance(everyday, { today: "2026-10-25" }).count, 0);
+    assert.equal(rolledBalance({ name: "None", type: "everyday", link: "" }).balance, null);
+  } finally { Object.assign(state, keep); }
+});

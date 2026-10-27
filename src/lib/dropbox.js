@@ -10,7 +10,7 @@
 // site is registered with; until it's set, Settings lets you paste your own key from the Dropbox App
 // Console, kept on this device. This device's tokens are kept in localStorage: an access token that
 // lasts hours and a refresh token, both only usable with this app's key, revoked on Disconnect.
-export var DROPBOX_APP_KEY = "";
+export var DROPBOX_APP_KEY = "zgcb95kaqz9ial4";
 var KEY_LS = "wealthPlanner.dropboxKey", TOKENS_LS = "wealthPlanner.dropbox", PKCE_SS = "wealthPlanner.dropboxPkce";
 var PATH = "/wealth-planner-sync.json";
 

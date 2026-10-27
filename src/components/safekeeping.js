@@ -43,7 +43,7 @@ export function safekeepingHtml(folderName, today){
       '<button type="button" class="btn btn-sm" data-sk="sync-now">Sync now</button> <button type="button" class="btn btn-sm btn-ghost" data-sk="sync-off">Turn off</button></div>';
   } else {
     var key = appKey(), connected = dropboxConnected();
-    var dbx = '<div class="sk-way"><b>Through Dropbox</b> <small>— computers and phones</small><p class="ledger-note" style="margin:2px 0 8px">The app gets its own folder in your Dropbox (Apps → Wealth Planner) and nothing else. What it stores there is encrypted with your passphrase.</p>' +
+    var dbx = '<div class="sk-way"><b>Through Dropbox</b> <small>— computers and phones</small><p class="ledger-note" style="margin:2px 0 8px">The app gets its own folder in your Dropbox (under Apps, named after the Dropbox app) and nothing else. What it stores there is encrypted with your passphrase.</p>' +
       (!key ? '<p class="ledger-note" style="margin:0 0 6px">This copy of the app has no Dropbox app key yet. Create one in the Dropbox App Console (Scoped access, App folder, permissions files.content.read and files.content.write, redirect URI <code>' + escapeAttr(redirectUri()) + '</code>) and paste its App key here:</p>' +
           '<label class="sk-key"><input type="text" data-dbx-key placeholder="App key" aria-label="Dropbox app key" autocomplete="off" spellcheck="false"> <button type="button" class="btn btn-sm" data-sk="dbx-key">Save key</button></label>'
         : connected ? '<button type="button" class="btn btn-sm" data-sk="dbx-pass">Set the passphrase and turn on</button> <button type="button" class="btn btn-sm btn-ghost" data-sk="dbx-disconnect">Disconnect Dropbox</button>'

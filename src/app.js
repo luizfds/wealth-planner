@@ -1,4 +1,4 @@
-import { state, setState, storageAvailable, persist, setStatus, defaultState, defaultPurchaseConfig, defaultInvestConfig, migrateState, genId, normalizeShareAsset } from "./state.js";
+import { state, setState, storageAvailable, persist, setStatus, defaultState, defaultPurchaseConfig, defaultInvestConfig, migrateState, genId, normalizeShareAsset, onSaved } from "./state.js";
 import { sacrificeModeToLabel, sacrificeLabelToMode, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, INVEST_LEG_TYPES } from "./constants.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr, fmtDate, parseAmountInput } from "./lib/format.js";
 import { showToast, showUndoToast, showPersistentToast } from "./lib/toast.js";
@@ -88,7 +88,8 @@ import { tripsCardHtml, tripPlan, tripProtectedLineIds } from "./components/trip
 import { refreshPriceSheet, priceSheetDue, priceSheetResultText, defaultBackfillFrom, priceSheetUi } from "./components/pricesheet.js";
 import { refreshAutoPrices, autoPricesNeeded, autoPricesResultText } from "./components/autoprices.js";
 import { firstRun, startFirstRun, firstRunHtml } from "./components/firstrun.js";
-import { chooseFolder, backupToFolder, forgetFolder, maybeAutoBackup, setPasscode, clearPasscode, checkPasscode, newestFolderBackup, compareCopies } from "./lib/safekeeping.js";
+import { chooseFolder, backupToFolder, forgetFolder, maybeAutoBackup, setPasscode, clearPasscode, checkPasscode, newestFolderBackup, compareCopies, savedFolder } from "./lib/safekeeping.js";
+import { syncOn, unlockSync, syncNow, pulled, markChanged, stopSync } from "./lib/foldersync.js";
 import { renderSafekeeping } from "./components/safekeeping.js";
 import { goalsSectionHtml, goalOpen } from "./components/savegoals.js";
 import { addSavingsGoal } from "./calc/savegoals.js";
@@ -5043,6 +5044,26 @@ import {
       return;
     }
     if(act === "file-open"){ document.getElementById("importFile").click(); return; }
+    // v3.134.0: sync through the folder.
+    if(act === "sync-on"){
+      savedFolder().then(function(h){ return h ? h : chooseFolder(); }).then(function(){
+        var pass = prompt("A passphrase for the synced copy. Use the same one on each computer — it isn't stored anywhere, so keep it somewhere safe:");
+        if(!pass) return;
+        return unlockSync(pass, true).then(function(r){
+          if(!r.ok){ showToast(r.reason === "wrong-passphrase" ? "That passphrase doesn't open the copy already in the folder" : "Couldn't use the folder"); return; }
+          if(!r.existing){
+            var again = prompt("Type the passphrase again:");
+            if(again !== pass){ stopSync(); showToast("The passphrases didn't match — sync is off"); renderSafekeeping(); return; }
+          }
+          showToast(r.existing ? "Sync on — checking the copy in the folder" : "Sync on");
+          renderSafekeeping();
+          return runSync({ interactive: true });
+        });
+      }).catch(function(err){ if(err && err.name !== "AbortError") showToast("Couldn't turn on sync"); });
+      return;
+    }
+    if(act === "sync-now"){ runSync({ interactive: true, manual: true }); return; }
+    if(act === "sync-off"){ if(confirm("Stop syncing on this computer? The copy in the folder stays.")) stopSync().then(function(){ showToast("Sync off on this computer"); renderSafekeeping(); }); return; }
     if(act === "folder-stop"){ forgetFolder().then(function(){ showToast("Stopped backing up to the folder"); renderSafekeeping(); }); return; }
     if(act === "pass-set" || act === "pass-change"){ askNewPasscode().then(function(done){ if(done){ showToast("Passcode set"); renderSafekeeping(); } }); return; }
     if(act === "pass-off"){
@@ -5053,10 +5074,46 @@ import {
     }
     if(act === "lock-now"){ try{ sessionStorage.removeItem("wealthPlanner.unlocked"); }catch(err){} showLock(); }
   });
+  // ---------------- Sync through the folder (v3.134.0) — lib/foldersync.js ----------------
+  function whenText(iso){ try{ return new Date(iso).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); }catch(e){ return iso || ""; } }
+  var syncBusy = false, syncTimer = null;
+  function runSync(opts){
+    opts = opts || {};
+    if(syncBusy) return Promise.resolve();
+    syncBusy = true;
+    return syncNow(opts).then(function(r){
+      syncBusy = false;
+      if(r.status === "pull"){
+        try { setState(migrateState(JSON.parse(r.text))); } catch(e){ showToast("The synced copy couldn't be read"); return r; }
+        pulled(r.rev);
+        recalcComputedItems(); renderAll(); persist();
+        showToast("Loaded the newer copy from the folder (" + whenText(r.savedAt) + ")");
+      } else if(r.status === "pushed"){ if(opts.manual) showToast("Synced"); renderSafekeeping(); }
+      else if(r.status === "same"){ if(opts.manual) showToast("Already in sync"); }
+      else if(r.status === "paused") showPersistentToast("Sync is paused until the browser is allowed to use " + r.folder + " again.", "Allow", function(){ runSync({ interactive: true }); });
+      else if(r.status === "locked") showPersistentToast("Sync needs its passphrase on this computer.", "Type it", function(){ var p = prompt("Sync passphrase:"); if(p) unlockSync(p, true).then(function(u){ if(u.ok) runSync({ interactive: true }); else showToast("That passphrase doesn't open the synced copy"); }); });
+      else if(r.status === "other-key") showPersistentToast("The copy in " + r.folder + " was started again with a different passphrase (" + whenText(r.savedAt) + ").", "Type it", function(){ var p = prompt("That copy's passphrase:"); if(p) unlockSync(p, true).then(function(u){ if(u.ok) runSync({ interactive: true }); else showToast("That passphrase doesn't open it"); }); });
+      else if(r.status === "conflict") showPersistentToast("This computer and " + (r.fromThisDevice ? "an earlier session here" : "another one") + " both changed since they last synced (the folder's copy: " + whenText(r.savedAt) + ").", "Choose", function(){
+        var load = confirm("Load the folder's copy (" + whenText(r.savedAt) + ")?\n\nOK — load it; this computer's changes since the last sync are replaced.\nCancel — keep this computer's copy and write it to the folder instead.");
+        runSync({ interactive: true, manual: true, force: load ? "pull" : "push" });
+      });
+      return r;
+    }).catch(function(){ syncBusy = false; if(opts.manual) showToast("Sync couldn't reach the folder"); });
+  }
+  onSaved(function(){
+    if(!markChanged()) return;
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(function(){ runSync({}); }, 8000);
+  });
+  document.addEventListener("visibilitychange", function(){ if(document.visibilityState === "hidden" && syncOn()){ clearTimeout(syncTimer); runSync({}); } });
   // A quiet weekly backup into the chosen folder, if the browser still allows it.
   // v3.71.0: first, is there a newer copy from another device in the folder? Then offer it, and
   // don't back up over the top of it until the person has chosen.
-  newestFolderBackup(false).then(function(r){
+  // v3.134.0: with sync on, the encrypted sync copy does both jobs — no unencrypted weekly file.
+  // Before the day's price check (below), so a copy changed elsewhere is loaded before this device
+  // makes changes of its own.
+  var initialSync = syncOn() ? runSync({}) : Promise.resolve();
+  if(!syncOn()) newestFolderBackup(false).then(function(r){
     if(r && r.newerThanHere && !r.fromThisDevice && !r.none && r.permission !== false){
       var when = new Date(r.savedAt).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
       showPersistentToast("A newer copy from another device (" + when + ") is in " + r.folder + ".", "Open it", function(){ importBackupText(r.text); });
@@ -5144,10 +5201,10 @@ import {
     persist(); renderAll();
   });
   document.addEventListener("click", function(e){ if(e.target.closest && e.target.closest("[data-ap-read]")) readAutoPricesNow(true); });
-  setTimeout(function(){
+  setTimeout(function(){ (typeof initialSync !== "undefined" ? initialSync : Promise.resolve()).then(function(){
     var first = autoPricesNeeded() && state.assets.some(function(a){ return a.category === "Shares" && a.symbol; }) ? readAutoPricesNow(false) : Promise.resolve();
     first.then(function(){ if(priceSheetDue()) return readPriceSheetNow(false); });
-  }, 800);
+  }); }, 800);
 
   // ---------------- First-run setup (v3.74.0) ----------------
   // Offered once to an empty app; also from Home's setup card ("Guided setup"). Answers are held in

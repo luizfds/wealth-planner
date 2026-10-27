@@ -2981,6 +2981,19 @@ super above the $2m transfer balance cap is flagged. Checked on the demo and a r
 Client-side-encrypted state to the user's own cloud drive, building on item 106's folder backups, so a
 cleared browser is no longer data loss. Off by default; nothing readable leaves the device.
 
+First way shipped as v3.134.0 — sync through a synced folder (`calc/syncfile.js`, `lib/foldersync.js`, Settings →
+Preferences → Keep your computers in sync): one `wealth-planner-sync.json` in the backup folder, always AES-GCM
+encrypted with a key from the passphrase (PBKDF2, the file's own salt, so the same passphrase opens it on every
+computer; the key is kept per device in IndexedDB as a non-extractable CryptoKey, the passphrase nowhere). Only the
+revision, time and device are readable. Rewritten 8 seconds after a change and when the tab is hidden; read on
+opening, before the day's price check. One copy is the truth: same revision and no change here → nothing; a newer
+file and no change here → loaded; a change here → written as the next revision; both changed (or a computer that has
+never synced meeting a file) → the person chooses which to keep. "Changed" is the content, not every save (a hash
+leaving out save stamps and price-check bookkeeping), so opening the app doesn't count. With sync on, the
+unencrypted weekly folder backup stops. Checked by two headless browsers passing the file between them: encrypted
+at rest, loaded on the other, a change there carried back, a wrong passphrase refused. Computers only (Chrome, Edge).
+**Still to decide:** Dropbox (option 2) for phones and real cloud sync — waiting on the app key.
+
 ## 164. `[x]` Screenshot comparison in CI
 `scripts/smoke.mjs` saves each page and subtab; a PR shows what changed visually.
 

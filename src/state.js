@@ -709,6 +709,9 @@ export function deviceId(){
     return id;
   }catch(e){ return "unknown"; }
 }
+// v3.134.0: told after each save reaches storage (folder sync marks itself as having changes).
+var afterSave = [];
+export function onSaved(fn){ afterSave.push(fn); }
 export function persist(){
   if(!storageAvailable){
     setStatus(false, "Not saved — storage unavailable");
@@ -723,6 +726,7 @@ export function persist(){
       state.savedBy = deviceId();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       setStatus(true, "Saved " + new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}));
+      afterSave.forEach(function(fn){ try { fn(); } catch(err){} });
     }catch(e){
       storageAvailable = false;
       setStatus(false, "Not saved — storage unavailable");

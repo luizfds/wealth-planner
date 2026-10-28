@@ -9,6 +9,9 @@
 // there's genuinely more to see in that direction. Without this, an overflowing table on desktop
 // had no visual cue at all that its rightmost columns (Date/Log/Delete, in the Income table's
 // case) were clipped rather than simply absent.
+// v3.144.1: tab rails (`.subnav`) too — on a phone a rail's tabs can run past the edge with the last
+// visible one ending exactly there, so nothing looks cut (shell.css fades them by these classes).
+var SCROLLERS = ".table-scroll, .subnav";
 export function initTableScrollShadows(root){
   root = root || document.body;
   var scheduled = false;
@@ -20,7 +23,7 @@ export function initTableScrollShadows(root){
   }
   function updateAll(){
     scheduled = false;
-    root.querySelectorAll(".table-scroll").forEach(updateEdges);
+    root.querySelectorAll(SCROLLERS).forEach(updateEdges);
   }
   function scheduleUpdate(){
     if(scheduled) return;
@@ -33,12 +36,15 @@ export function initTableScrollShadows(root){
   // across dozens of call sites, so anything attached to today's table element would go stale
   // the instant it re-renders.
   document.addEventListener("scroll", function(e){
-    if(e.target && e.target.classList && e.target.classList.contains("table-scroll")) updateEdges(e.target);
+    if(e.target && e.target.matches && e.target.matches(SCROLLERS)) updateEdges(e.target);
   }, true);
   window.addEventListener("resize", scheduleUpdate);
   // Same reasoning as the scroll listener: a MutationObserver survives re-renders that a
   // per-element ResizeObserver wouldn't. rAF-batched so a burst of renders (e.g. several fields
   // recomputing off one keystroke) collapses into a single pass.
-  new MutationObserver(scheduleUpdate).observe(root, { childList: true, subtree: true });
+  // v3.144.1: and a page or tab being shown (its `hidden` or class changing) — a rail measures zero
+  // wide while its page is hidden. toggle() to the state a class already has writes nothing, so
+  // updateEdges can't set itself off.
+  new MutationObserver(scheduleUpdate).observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden", "class"] });
   updateAll();
 }

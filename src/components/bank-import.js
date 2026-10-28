@@ -18,6 +18,7 @@ import { loggableBudgetLineItems, budgetLineOptgroupsHtml, sortedCategories } fr
 import { incomeTargets, logIncomeReceived, deleteIncomeReceived } from "../calc/received.js";
 import { tripOn, tripTakes } from "../calc/trips.js";
 import { tripProtectedLineIds } from "./trips.js";
+import { INBOX_DIR, inboxMessage } from "../calc/inbox.js";
 
 // Session-only. Nothing here is persisted until commitBankImport() — a half-reviewed import that
 // survived a reload would be a pile of decisions the user has no memory of making.
@@ -317,6 +318,29 @@ export function renderBankImportPanel(){
 export function renderBankImportHelp(){
   var el = document.getElementById("bankImportHelp");
   if(el) el.innerHTML = bankImportHelpHtml();
+}
+
+// v3.142.0 (item 181): statements waiting in the Statements folder, or where to put them.
+// files: lib/inbox.js listInbox(); places: the names of where it looked ("Dropbox", a folder's name).
+// current: the one under review now, if it came from there.
+export function inboxNoteHtml(files, places, current){
+  files = files || []; places = places || [];
+  if(current){
+    var rest = files.filter(function(f){ return f !== current; }).length;
+    return '<div class="bank-inbox"><p>Reviewing <b>' + escapeAttr(current.name) + '</b> from ' + escapeAttr(current.label) + ' → ' + INBOX_DIR + '.' +
+      (rest ? ' ' + (rest === 1 ? 'One more is' : rest + ' more are') + ' waiting after it.' : '') + '</p></div>';
+  }
+  if(!files.length){
+    if(!places.length) return "";
+    return '<p class="ledger-note help bank-inbox-hint" style="margin-left:0">Or drop statements into the <b>' + INBOX_DIR + '</b> folder in ' + places.map(escapeAttr).join(" or ") +
+      ' — from any device — and they\'re picked up next time the app opens.</p>';
+  }
+  var where = files[0].label === "Dropbox" ? "Dropbox" : files[0].label;
+  var names = files.slice(0, 3).map(function(f){ return '<li>' + escapeAttr(f.name) + (f.label && f.label !== where ? ' <small>(' + escapeAttr(f.label) + ')</small>' : '') + '</li>'; }).join("") +
+    (files.length > 3 ? '<li><small>and ' + (files.length - 3) + ' more</small></li>' : '');
+  return '<div class="bank-inbox"><p><b>' + escapeAttr(inboxMessage(files.length, where + " → " + INBOX_DIR)) + '.</b> Each one goes through the same rules as a file you choose, and moves to ' +
+    INBOX_DIR + '/Imported once it\'s in.</p><ul>' + names + '</ul>' +
+    '<button type="button" class="btn btn-sm btn-primary" data-inbox-next>' + (files.length === 1 ? "Review it" : "Review the oldest") + '</button></div>';
 }
 
 // Why that file couldn't be read, named rather than guessed.

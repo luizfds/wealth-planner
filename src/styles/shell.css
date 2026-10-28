@@ -458,3 +458,25 @@ body[data-current-page="dashboard"] .global-metrics{ display:none; }
   .app-topbar.is-compact .period-wrap, .app-topbar.is-compact .page-help-btn, .app-topbar.is-compact .page-actions-slot{ display:none; }
 }
 .avatar-menu a.avatar-item{ text-decoration:none; color: var(--ink); }
+/* v3.143.0: when two devices changed the same thing, one choice each. */
+.merge-dialog{ max-width:min(520px, calc(100vw - 32px)); max-height:min(80vh, 640px); overflow:auto; }
+.merge-list{ display:grid; gap:10px; margin:0 0 14px; }
+.merge-item{ border:1px solid var(--border); border-radius:10px; padding:8px 10px 10px; margin:0; min-width:0; }
+.merge-item legend{ font-size:12.5px; font-weight:600; padding:0 4px; overflow-wrap:anywhere; }
+.merge-opt{ display:flex; gap:8px; align-items:flex-start; padding:6px 2px; font-size:13.5px; cursor:pointer; min-height:40px; }
+.merge-opt input{ margin-top:3px; }
+.merge-opt span{ display:flex; flex-direction:column; min-width:0; overflow-wrap:anywhere; }
+.merge-opt small{ color: var(--ink-soft); font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+.merge-actions{ display:flex; justify-content:flex-end; gap:8px; }
+/* v3.144.1 (item 183): the phone header's small buttons — ⓘ, ⋯, the period, the bell, the avatar —
+   keep their look but take a tap 6px further out each way (a 28px ⓘ becomes a 40px target, the
+   34px avatar 46px). An invisible ::after does the catching; none of them use ::after already. */
+@media (max-width: 880px){
+  .app-topbar :is(.page-help-btn, .page-overflow-btn, .period-btn, .notif-bell-btn, .avatar-btn){ position:relative; }
+  .app-topbar :is(.page-help-btn, .page-overflow-btn, .period-btn, .notif-bell-btn, .avatar-btn)::after{ content:""; position:absolute; inset:-6px; }
+  /* A rail of tabs with more past the edge fades out there — the half-cut tab alone says nothing
+     when one happens to end right at the edge (lib/scroll-shadow.js sets the classes, by scroll). */
+  .subnav.can-scroll-right{ -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent); }
+  .subnav.can-scroll-left{ -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 44px), transparent); }
+  .subnav.can-scroll-left.can-scroll-right{ -webkit-mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent); }
+}

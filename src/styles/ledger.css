@@ -929,6 +929,11 @@
     background: var(--paper-sunken); padding:1px 5px; border-radius:4px;
   }
   .bank-import-skipped > summary{ color: var(--ink-soft); }
+  /* v3.142.0: statements waiting in the Statements folder. */
+  #bankInboxNote[hidden]{ display:none; }
+  .bank-inbox{ margin:10px 0 12px; padding:10px 12px; border-radius:10px; background: var(--paper-raised); border:1px solid var(--border); font-size:13px; }
+  .bank-inbox p{ margin:0; line-height:1.5; }
+  .bank-inbox ul{ margin:6px 0 8px; padding-left:18px; font-size:12px; color: var(--ink-soft); overflow-wrap:anywhere; }
 
   .bank-import-field select{ width:100%; }
   .bank-import-aside{ margin-top:14px; }
@@ -1149,6 +1154,9 @@
   .cf-tf-grid{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:8px; }
   .cf-tf-wide{ grid-column: 1 / -1; }
   .cf-tf-check{ display:flex; gap:8px; align-items:center; font-size:13px; }
+  /* v3.144.0: a card repayment from a loan, another card, or not its direct-debit account. */
+  .cf-tf-hint{ margin:0; font-size:12.5px; color: var(--warn-ink); }
+  .cf-tf-hint[hidden]{ display:none; }
   .cf-tf-actions, .cf-split-foot{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
   .cf-split-row{ display:grid; grid-template-columns: minmax(0,1fr) 120px 40px; gap:8px; align-items:center; }
   .cf-split-left{ font-size:12.5px; color: var(--good-ink); margin-right:auto; }

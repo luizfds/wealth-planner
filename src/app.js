@@ -78,7 +78,7 @@ import {
 } from "./components/scenarios.js";
 import { ACCOUNT_TYPE_KEYS, accountSourceOptions, setAccountBalance, resolveLink, accountBalance } from "./calc/accounts.js";
 import { addTransfer, deleteTransfer, splitTransaction, unsplit, bulkEditTransactions, bulkDeleteTransactions } from "./calc/cashflowlist.js";
-import { txFilters, txSelect, transferForm, splitEditing, resetTxFilters, setTxGrid, txFilterPanel } from "./components/cashflow.js";
+import { txFilters, txSelect, transferForm, splitEditing, resetTxFilters, setTxGrid, txFilterPanel, transferHint } from "./components/cashflow.js";
 import { rulesPageHtml, setRuleField, ruleIsEmpty, ruleTest, ruleView, RULES_PAGE } from "./components/rules.js";
 import { normaliseDescription } from "./calc/bank-import.js";
 import { openAccounts, balanceEditing } from "./components/accounts.js";
@@ -92,8 +92,10 @@ import { refreshPriceSheet, priceSheetDue, priceSheetResultText, defaultBackfill
 import { refreshAutoPrices, autoPricesNeeded, autoPricesResultText } from "./components/autoprices.js";
 import { firstRun, startFirstRun, firstRunHtml } from "./components/firstrun.js";
 import { chooseFolder, backupToFolder, forgetFolder, maybeAutoBackup, setPasscode, clearPasscode, checkPasscode, newestFolderBackup, compareCopies, savedFolder } from "./lib/safekeeping.js";
-import { syncOn, unlockSync, syncNow, pulled, markChanged, stopSync } from "./lib/foldersync.js";
-import { setAppKey, connectDropbox, finishDropboxRedirect, disconnectDropbox } from "./lib/dropbox.js";
+import { syncOn, unlockSync, syncNow, pulled, merged as syncMerged, markChanged, stopSync } from "./lib/foldersync.js";
+import { mergeStates } from "./calc/syncmerge.js";
+import { mergeDialogHtml } from "./components/syncmerge.js";
+import { setAppKey, connectDropbox, finishDropboxRedirect, disconnectDropbox, dropboxConnected } from "./lib/dropbox.js";
 import { renderSafekeeping } from "./components/safekeeping.js";
 import { goalsSectionHtml, goalOpen } from "./components/savegoals.js";
 import { addSavingsGoal } from "./calc/savegoals.js";
@@ -128,6 +130,7 @@ import { goalsFireHtml } from "./components/retirement.js";
 import { renderReports, reportShown, reportPrintHtml, reportCsv, reportFrame, pinReport, openSavedReport, unpinReport } from "./components/reports.js";
 import { monthDetailUi, shownMonth as mdShownMonth } from "./components/monthdetail.js";
 import { shiftMonth as mdShiftMonth } from "./calc/monthdetail.js";
+import { cardPaymentsForMonth, oddCardRepayments, usualCardSource } from "./calc/bills.js";
 import { exportTableCsv } from "./lib/backup.js";
 import { yearEndPrintHtml, yearEndDocumentsCsv } from "./components/yearend.js";
 import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodButton, renderPeriodMenu } from "./components/period.js";
@@ -137,8 +140,10 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
 import {
   startBankImport, reparseBankImportWith, clearBankImport,
   setBankImportGroupLine, setBankImportGroupCategory, renderBankImportPanel, patchBankImportPanel, renderBankImportHelp,
-  setIncludePossibleDuplicates, commitBankImport, undoBankImport, setStatementAccount, setStatementBalanceOn
+  setIncludePossibleDuplicates, commitBankImport, undoBankImport, setStatementAccount, setStatementBalanceOn, inboxNoteHtml
 } from "./components/bank-import.js";
+import { listInbox, readInboxFile, markInboxFileImported } from "./lib/inbox.js";
+import { inboxMessage } from "./calc/inbox.js";
 
 (function(){
   "use strict";
@@ -1082,6 +1087,18 @@ import {
         dismissCheck(c, on);
         persist(); renderHealth(); renderChecksBadge(); renderHomeSummary(); renderNotifBadge();
         if(on) showUndoToast("Marked as looking right", function(){ dismissCheck(c, false); persist(); renderHealth(); renderChecksBadge(); renderHomeSummary(); renderNotifBadge(); });
+      }
+      return;
+    }
+    // v3.144.0: a check that can fix itself.
+    var fix = e.target.closest("[data-hc-fix]");
+    if(fix){
+      if(fix.getAttribute("data-hc-fix") === "card-from"){
+        var was = [];
+        oddCardRepayments(state.accounts, state.transfers).forEach(function(o){ if(o.usual){ was.push([o.transfer, o.transfer.from]); o.transfer.from = o.usual; } });
+        var redo = function(){ persist(); renderAll(); renderHealth(); renderChecksBadge(); renderNotifBadge(); };
+        redo();
+        showUndoToast(was.length + " repayment" + (was.length === 1 ? "" : "s") + " moved to " + (was[0] ? was[0][0].from : "the usual account"), function(){ was.forEach(function(w){ w[0].from = w[1]; }); redo(); });
       }
       return;
     }
@@ -3053,6 +3070,16 @@ import {
   // ---------------- Transactions: real dated spend, separate from the planned budget ----------------
   // The Transactions time-range picker. Delegated off the card because renderTransactions()
   // rebuilds the control itself on every change.
+  // v3.144.0: the transfer form's word about a card repayment's From, as the accounts are picked.
+  document.getElementById("transactionsTable").addEventListener("change", function(e){
+    var k = e.target.getAttribute && e.target.getAttribute("data-tf");
+    if(k !== "from" && k !== "to") return;
+    var q = function(x){ var el = document.querySelector('#transactionsTable [data-tf="' + x + '"]'); return el ? el.value : ""; };
+    var hintEl = document.querySelector("#transactionsTable [data-tf-hint]");
+    if(!hintEl) return;
+    var text = transferHint(q("from"), q("to"), state.accounts, state.transfers);
+    hintEl.textContent = text; hintEl.hidden = !text;
+  });
   document.getElementById("transactionsTable").addEventListener("click", function(e){
     var rangeBtn = e.target.closest("[data-tx-range]");
     if(rangeBtn){ setTransactionsRange(rangeBtn.getAttribute("data-tx-range")); return; }
@@ -3090,13 +3117,14 @@ import {
       if(!(amt > 0)){ showToast("Enter the amount moved"); return; }
       if(!get("from") || get("from") === get("to")){ showToast("Pick two different accounts"); return; }
       var rec = addTransfer({ date: get("date") || localDateStr(), amount: amt, from: get("from"), to: get("to"), what: get("what") });
-      var moved = [];
+      var moved = [], before = [];
       if(get("balances")){
         [[rec.from, -1], [rec.to, 1]].forEach(function(pair){
           var acct = state.accounts.find(function(a){ return a.name === pair[0]; });
           if(!acct) return;
           var bal = accountBalance(acct);
           if(bal.balance == null) return;
+          before.push([acct, bal.balance]);
           // Money into a card or loan lowers what's owed; out of one raises it.
           var delta = (bal.owed ? -pair[1] : pair[1]) * amt;
           setAccountBalance(acct, bal.balance + delta, rec.date);
@@ -3106,7 +3134,12 @@ import {
       transferForm.open = false;
       renderAll();
       persist();
-      showUndoToast("Transfer saved" + (moved.length ? " — " + moved.join(" and ") + " updated" : ""), function(){ deleteTransfer(rec.id); renderAll(); persist(); });
+      // v3.144.0: undo puts the balances back too, not just the transfer.
+      showUndoToast("Transfer saved" + (moved.length ? " — " + moved.join(" and ") + " updated" : ""), function(){
+        deleteTransfer(rec.id);
+        before.forEach(function(b){ setAccountBalance(b[0], b[1], rec.date); });
+        renderAll(); persist();
+      });
       return;
     }
     if(b.hasAttribute("data-cf-del-transfer")){
@@ -3980,7 +4013,9 @@ import {
     }).catch(function(){});
   })();
   // One way in for a statement file, whether chosen here or shared to the app (v3.93.0).
-  function importBankFile(file){
+  function importBankFile(file, fromInbox){
+    inbox.current = fromInbox || null;
+    renderInbox();
     // v3.92.0: a PDF statement is read into the same CSV the import already understands.
     if(/\.pdf$/i.test(file.name) || file.type === "application/pdf"){
       showToast("Reading the PDF…");
@@ -4036,10 +4071,11 @@ import {
       renderBankImportPanel();
       return;
     }
-    if(e.target.closest("#bankImportCancelBtn")){ clearBankImport(); return; }
+    if(e.target.closest("#bankImportCancelBtn")){ clearBankImport(); inbox.current = null; renderInbox(); return; }
     if(!e.target.closest("#bankImportConfirmBtn")) return;
     var result = commitBankImport();
     clearBankImport();
+    if(inbox.current) inboxFileDone(inbox.current);
     refreshAfterBankImport();
     // Transfers and a statement balance reach Accounts, Home and net worth too.
     if((result.transferIds && result.transferIds.length) || result.balanceSet) renderAll();
@@ -4060,6 +4096,51 @@ import {
       }
     );
   });
+  // ---------------- Statements from a folder (v3.142.0, item 181) ----------------
+  // What's waiting in Statements (Dropbox, or the backup folder) is listed once the app has opened
+  // and synced; each goes through importBankFile like a chosen file, and moves to Statements/Imported
+  // once confirmed. Cancelling leaves it where it is, for next time.
+  var inbox = { files: [], places: [], current: null };
+  function inboxPlaces(){
+    var p = [];
+    if(dropboxConnected()) p.push("your Dropbox app folder");
+    return savedFolder().then(function(h){ if(h) p.push("the backup folder (" + h.name + ")"); return p; }).catch(function(){ return p; });
+  }
+  function renderInbox(){
+    var el = document.getElementById("bankInboxNote");
+    if(!el) return;
+    var html = inboxNoteHtml(inbox.files, inbox.places, inbox.current);
+    el.innerHTML = html;
+    el.hidden = !html;
+  }
+  function checkInbox(announce){
+    return Promise.all([listInbox(), inboxPlaces()]).then(function(r){
+      inbox.files = r[0]; inbox.places = r[1];
+      renderInbox();
+      if(announce && inbox.files.length) showPersistentToast(inboxMessage(inbox.files.length, inbox.files[0].label) + ".", "Review", openNextInbox);
+    }).catch(function(){});
+  }
+  function openNextInbox(){
+    var f = inbox.files[0];
+    if(!f) return;
+    showPage("expenses");
+    showExpensesSubpage("spending");
+    showToast("Opening " + f.name + "…");
+    readInboxFile(f).then(function(file){ importBankFile(file, f); }).catch(function(){ showToast("Couldn't open " + f.name + " — try again in a moment"); });
+  }
+  function inboxFileDone(f){
+    inbox.current = null;
+    inbox.files = inbox.files.filter(function(x){ return x !== f; });
+    renderInbox();
+    markInboxFileImported(f).catch(function(){ showToast("Imported, but " + f.name + " couldn't be moved to Imported — move it yourself so it isn't offered again"); });
+    if(inbox.files.length) setTimeout(function(){
+      showPersistentToast(inboxMessage(inbox.files.length, inbox.files[0].label) + ".", "Next", openNextInbox);
+    }, 4500);
+  }
+  document.getElementById("bankInboxNote").addEventListener("click", function(e){
+    if(e.target.closest("[data-inbox-next]")) openNextInbox();
+  });
+
   // Every panel on the Spending tab reads state.transactions, and an import moves all of them at
   // once — which is the point, and also why this is one named function rather than a list repeated
   // at the import and undo call sites where the two could drift apart.
@@ -4358,6 +4439,7 @@ import {
     if(action.page === "expenses" && action.sub) showExpensesSubpage(action.sub, { replace: true });
     if(action.mode === "networth"){ logNetWorthSnapshot(); return; }
     if(action.mode === "received"){ setTimeout(function(){ openReceivedSheetFor(); }, 240); return; }
+    if(action.mode === "paycard"){ setTimeout(openPayCard, 240); return; }
     // Deferred for the same reason the search handler defers its scroll: showPage's render and
     // view transition have to settle before the target button exists in its final form.
     setTimeout(function(){
@@ -4366,6 +4448,29 @@ import {
         : firstVisibleAddButton(action.page);
       if(target) target.click();
     }, 240);
+  }
+  // v3.141.0 (item 180): the transfer form, filled in for the card's next repayment — the card (the
+  // first, if there are several), the account it's paid from (its direct debit, else an everyday
+  // account) and the payment the bills calendar expects, the soonest unpaid one from last month on.
+  function openPayCard(){
+    var card = (state.accounts || []).find(function(a){ return a.type === "credit" && a.name; });
+    // v3.144.0: the direct-debit account, else where its other repayments came from, else everyday.
+    var from = (card && usualCardSource(card, state.accounts, state.transfers)) || ((state.accounts || []).find(function(a){ return a.type === "everyday" && a.name; }) || {}).name;
+    var amount = 0, today = localDateStr();
+    if(card){
+      var ym = today.slice(0, 7), months = [mdShiftMonth(ym, -1), ym, mdShiftMonth(ym, 1)];
+      for(var i = 0; i < months.length && !amount; i++){
+        var due = cardPaymentsForMonth(state.accounts, state.transactions, state.transfers, months[i], today).find(function(p){ return p.card === card.name && (!p.paid || p.assumed) && p.amount > 0; });
+        if(due) amount = due.amount;
+      }
+    }
+    transferForm.open = true;
+    transferForm.preset = { from: from || "", to: card ? card.name : "", amount: amount, what: card ? card.name + " repayment" : "" };
+    renderTransactions();
+    transferForm.preset = null;
+    var f = document.querySelector('#transactionsTable [data-tf="amount"]');
+    if(f){ f.scrollIntoView({ block: "center" }); f.focus(); }
+    if(!card) showToast("No credit card yet — add one under Net worth → Accounts");
   }
   // Income and Assets name their add buttons after the group they belong to (a person, an asset
   // category), so a quick action can't carry a fixed selector for them — it takes whichever one is
@@ -5143,12 +5248,50 @@ import {
       else if(r.status === "not-connected") showPersistentToast("Sync needs Dropbox connecting again on this device.", "Connect", function(){ connectDropbox(); });
       else if(r.status === "locked") showPersistentToast("Sync needs its passphrase on this computer.", "Type it", function(){ var p = prompt("Sync passphrase:"); if(p) unlockSync(p, true).then(function(u){ if(u.ok) runSync({ interactive: true }); else showToast("That passphrase doesn't open the synced copy"); }); });
       else if(r.status === "other-key") showPersistentToast("The copy in " + r.folder + " was started again with a different passphrase (" + whenText(r.savedAt) + ").", "Type it", function(){ var p = prompt("That copy's passphrase:"); if(p) unlockSync(p, true).then(function(u){ if(u.ok) runSync({ interactive: true }); else showToast("That passphrase doesn't open it"); }); });
+      else if(r.status === "conflict" && r.text && r.base && !opts.force) mergeSync(r);
       else if(r.status === "conflict") showPersistentToast("This device and " + (r.fromThisDevice ? "an earlier session here" : "another one") + " both changed since they last synced (the copy in " + r.folder + ": " + whenText(r.savedAt) + ").", "Choose", function(){
         var load = confirm("Load the copy in " + r.folder + " (" + whenText(r.savedAt) + ")?\n\nOK — load it; this device's changes since the last sync are replaced.\nCancel — keep this device's copy and write it there instead.");
         runSync({ interactive: true, manual: true, force: load ? "pull" : "push" });
       });
       return r;
     }).catch(function(){ syncBusy = false; if(opts.manual) showToast("Sync couldn't reach the folder"); });
+  }
+  // v3.143.0 (item 182): both devices changed since they last synced — combine them. Everything
+  // changed on one side only is taken from that side; only the same thing changed both ways is asked,
+  // one choice each. Without the agreed copy (synced last on an older version) it's still a choice.
+  var mergeAskedAt = 0;
+  function mergeSync(r){
+    var base, theirs;
+    try { base = JSON.parse(r.base); theirs = migrateState(JSON.parse(r.text)); } catch(e){ showToast("The synced copy couldn't be read"); return; }
+    var theirsText = JSON.stringify(theirs);
+    // This device's copy as it is when combined — edits made while the question waited included.
+    var ours = function(){ return JSON.parse(JSON.stringify(state)); };
+    var apply = function(res){
+      mergeAskedAt = 0;
+      try { setState(migrateState(res.merged)); } catch(e){ showToast("Couldn't combine the two copies"); return; }
+      recalcComputedItems(); renderAll(); persist();
+      syncMerged(r.rev, theirsText).then(function(){ runSync({}); });
+      var n = res.fromTheirs;
+      showToast("Combined with the copy in " + r.folder + (n ? " — " + n + " change" + (n === 1 ? "" : "s") + " from there" : ""));
+    };
+    var first = mergeStates(base, ours(), JSON.parse(theirsText));
+    if(!first.conflicts.length){ apply(first); return; }
+    // Asked already and not answered yet: the next save's sync doesn't ask again for a while.
+    if(Date.now() - mergeAskedAt < 10 * 60 * 1000) return;
+    mergeAskedAt = Date.now();
+    showPersistentToast("This device and " + (r.fromThisDevice ? "an earlier session here" : "another one") + " both changed " +
+      (first.conflicts.length === 1 ? "the same thing" : first.conflicts.length + " of the same things") + ". Everything else combines by itself.", "Choose", function(){
+      var d = document.getElementById("mergeDialog");
+      if(!d){ d = document.createElement("dialog"); d.id = "mergeDialog"; d.className = "shortcuts-dialog merge-dialog"; d.setAttribute("aria-label", "Combine two copies"); document.body.appendChild(d); }
+      d.innerHTML = mergeDialogHtml(first.conflicts, r.folder, whenText(r.savedAt));
+      d.onclose = function(){
+        if(d.returnValue !== "ok") return;
+        var choices = {};
+        d.querySelectorAll("input[data-merge-id]:checked").forEach(function(i){ choices[i.getAttribute("data-merge-id")] = i.value; });
+        apply(mergeStates(base, ours(), JSON.parse(theirsText), choices));
+      };
+      d.showModal();
+    });
   }
   // v3.139.0 (item 171): net worth keeps its own history — the day's figure as the app saves,
   // thinned as it ages. Recorded after a save, so it rides along with the next one.
@@ -5185,6 +5328,8 @@ import {
     if(r && !r.connected) showToast(r.reason === "access_denied" ? "Dropbox wasn't connected" : "Couldn't connect Dropbox");
     return syncOn() ? runSync({}) : null;
   }).catch(function(){});
+  // v3.142.0 (item 181): then the statements waiting in the Statements folder.
+  initialSync.then(function(){ return checkInbox(true); });
   if(!syncOn()) newestFolderBackup(false).then(function(r){
     if(r && r.newerThanHere && !r.fromThisDevice && !r.none && r.permission !== false){
       var when = new Date(r.savedAt).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });

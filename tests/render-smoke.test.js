@@ -1395,3 +1395,65 @@ test("the automatic prices card, before and after a read", () => {
     assert.doesNotMatch(autoPricesCardHtml(), /data-ap="crypto"/);
   } finally { state.autoPrices = keep; }
 });
+
+test("the transfer form opens filled in for a card repayment", async function(){
+  const { transferFormHtml, transferForm } = await import("../src/components/cashflow.js");
+  var keep = state.accounts;
+  try {
+    state.accounts = [{ name: "Everyday", type: "everyday" }, { name: "Card A", type: "credit" }];
+    transferForm.preset = { from: "Everyday", to: "Card A", amount: 321.5, what: "Card A repayment" };
+    var html = transferFormHtml("2026-10-28");
+    assert.match(html, /data-tf="from">[^]*?<option value="Everyday" selected>/);
+    assert.match(html, /data-tf="to">[^]*?<option value="Card A" selected>/);
+    assert.match(html, /data-tf="amount"[^>]*value="321.5"/);
+    transferForm.preset = null;
+    assert.doesNotMatch(transferFormHtml("2026-10-28"), / selected>/);
+  } finally { state.accounts = keep; transferForm.preset = null; }
+});
+
+test("statements waiting in the Statements folder are listed, or where to put them", async function(){
+  const { inboxNoteHtml } = await import("../src/components/bank-import.js");
+  assert.equal(inboxNoteHtml([], []), "");
+  assert.match(inboxNoteHtml([], ["your Dropbox app folder"]), /Statements<\/b> folder in your Dropbox app folder/);
+  var files = [1, 2, 3, 4].map(function(i){ return { name: "Bank One " + i + ".csv", label: "Dropbox" }; });
+  var html = inboxNoteHtml(files, ["your Dropbox app folder"]);
+  assert.match(html, /4 statements are waiting in Dropbox → Statements/);
+  assert.match(html, /and 1 more/);
+  assert.match(html, /data-inbox-next/);
+  assert.match(inboxNoteHtml(files.slice(0, 1), []), /Review it/);
+});
+
+test("the statement under review is named, not offered again", async function(){
+  const { inboxNoteHtml } = await import("../src/components/bank-import.js");
+  var files = [{ name: "a.csv", label: "Dropbox" }, { name: "b.csv", label: "Dropbox" }];
+  var html = inboxNoteHtml(files, [], files[0]);
+  assert.match(html, /Reviewing <b>a.csv<\/b>/);
+  assert.match(html, /One more is waiting/);
+  assert.doesNotMatch(html, /data-inbox-next/);
+});
+
+test("the merge question lists each thing changed on both devices, this device's ticked", async function(){
+  const { mergeDialogHtml } = await import("../src/components/syncmerge.js");
+  const html = mergeDialogHtml([
+    { id: "accounts/id:a1/balance", top: "accounts", row: { name: "Everyday" }, field: "balance", ours: 150, theirs: 175 },
+    { id: "transactions/id:t2", top: "transactions", row: { what: "Fern Café", amount: 7 }, field: null, ours: { what: "Fern Café", amount: 7 }, theirs: undefined }
+  ], "Dropbox");
+  assert.match(html, /2 things/);
+  assert.match(html, /Accounts · Everyday · balance/);
+  assert.match(html, /value="ours" data-merge-id="accounts\/id:a1\/balance" checked/);
+  assert.match(html, /Deleted/);
+  assert.match(html, /data-merge-ok/);
+});
+
+test("transfer accounts come grouped by kind, and a card paid from a loan gets a word", async function(){
+  const { transferAccountOptionsHtml, transferHint } = await import("../src/components/cashflow.js");
+  const accounts = [{ name: "Home loan", type: "loan" }, { name: "Home loan offset", type: "offset" }, { name: "Card A", type: "credit", autoPayFrom: "Home loan offset" }, { name: "Everyday", type: "everyday" }];
+  const html = transferAccountOptionsHtml(accounts, "Home loan offset");
+  assert.match(html, /<optgroup label="Everyday & savings"><option value="Everyday">/);
+  assert.match(html, /<optgroup label="Offsets"><option value="Home loan offset" selected>/);
+  assert.match(html, /<optgroup label="Loans"><option value="Home loan">/);
+  assert.match(transferHint("Home loan", "Card A", accounts, []), /That's a loan[^]*usually paid from Home loan offset/);
+  assert.match(transferHint("Everyday", "Card A", accounts, []), /direct debit from Home loan offset/);
+  assert.equal(transferHint("Home loan offset", "Card A", accounts, []), "");
+  assert.equal(transferHint("Everyday", "Home loan offset", accounts, []), "");
+});

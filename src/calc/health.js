@@ -6,6 +6,7 @@ import { taxYearRecord } from "./taxyear.js";
 import { budgetComparison, rentalComparison, householdBudgetLines } from "./closeyear.js";
 import { localDateStr, fmtDate } from "../lib/format.js";
 import { takeHomeDrifts } from "./takehome.js";
+import { oddCardRepayments } from "./bills.js";
 
 // ---------------- Data health (v3.48.0) ----------------
 //
@@ -65,6 +66,21 @@ export function dataHealthChecks(opts){
   if(dupOther.length) add({ id: "dup-names", severity: "info", title: plural(dupOther.length, "name") + " shared by two things",
     detail: names(dupOther) + " — they read as one in Net worth and the reports. A name that says which is which helps.",
     where: { page: "networth" } });
+
+  // v3.144.0: a card repayment logged from a loan or another card — usually the wrong account picked.
+  // `fix` moves it to the account the card is usually paid from (app.js data-hc-fix).
+  var odd = oddCardRepayments(state.accounts, state.transfers);
+  if(odd.length){
+    var usual = odd[0].usual;
+    var fixable = odd.filter(function(o){ return o.usual; });
+    add({ id: "card-from-loan:" + odd.map(function(o){ return o.transfer.id; }).join(","), severity: "warn",
+      title: plural(odd.length, "card repayment") + " logged from a " + (odd.every(function(o){ return o.fromType === "credit"; }) ? "card" : "loan"),
+      detail: odd.slice(0, 3).map(function(o){ return fmtDate(o.transfer.date) + " to " + o.card + " from " + o.transfer.from; }).join("; ") + (odd.length > 3 ? " and " + (odd.length - 3) + " more" : "") +
+        " — that reads as borrowing more to pay the card." + (usual ? " Other repayments come from " + usual + "." : "") +
+        " If the balances were moved when it was saved, check both accounts' balances on Accounts afterwards.",
+      where: { page: "expenses", sub: "spending", label: "Open Spending" },
+      fix: fixable.length ? { label: fixable.every(function(o){ return o.usual === usual; }) ? "Change to " + usual : "Change to the usual accounts", kind: "card-from" } : null });
+  }
 
   // Deductions that land nowhere, or nowhere real.
   var unclaimed = items.filter(function(i){ return i.deductible && !i.claimProperty && !i.deductiblePerson && people.length > 1; });

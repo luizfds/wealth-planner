@@ -305,3 +305,27 @@ export function billsToConfirm(items, transactions, today, opts){
   });
   return out.sort(function(a, b){ return a.due < b.due ? -1 : a.due > b.due ? 1 : 0; });
 }
+
+// ---------------- Card repayments from the wrong kind of account (v3.144.0) ----------------
+// A repayment logged from a loan or another card: almost always the wrong account picked (an offset
+// and its loan often share most of a name), and it reads as borrowing more to pay the card. `usual` is
+// what it most likely came from: the card's direct-debit account, else where its other repayments came from.
+var NOT_A_SOURCE = { loan: 1, credit: 1 };
+export function usualCardSource(card, accounts, transfers){
+  if(card.autoPayFrom) return card.autoPayFrom;
+  var typeOf = {}; (accounts || []).forEach(function(a){ typeOf[a.name] = a.type; });
+  var counts = {};
+  (transfers || []).forEach(function(t){ if(t.to === card.name && t.from && typeOf[t.from] && !NOT_A_SOURCE[typeOf[t.from]]) counts[t.from] = (counts[t.from] || 0) + 1; });
+  var best = Object.keys(counts).sort(function(a, b){ return counts[b] - counts[a]; })[0];
+  return best || "";
+}
+export function oddCardRepayments(accounts, transfers){
+  var byName = {}; (accounts || []).forEach(function(a){ byName[a.name] = a; });
+  return (transfers || []).filter(function(t){
+    var to = byName[t.to], from = byName[t.from];
+    return to && to.type === "credit" && from && NOT_A_SOURCE[from.type];
+  }).map(function(t){
+    var card = byName[t.to];
+    return { transfer: t, card: card.name, fromType: byName[t.from].type, usual: usualCardSource(card, accounts, transfers) };
+  });
+}

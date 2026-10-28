@@ -40,7 +40,7 @@ export function safekeepingHtml(folderName, today){
   var sync;
   if(sl.on){
     sync = '<div class="sk-block"><b>Keep your devices in sync</b><p class="ledger-note" style="margin:2px 0 8px">On — through <b>' + (via === "dropbox" ? "Dropbox" : escapeAttr(folderName || "the folder")) + '</b>. ' +
-      'A few seconds after each change this device writes an encrypted copy there; opening the app on another device ' + (via === "dropbox" ? "connected to the same Dropbox" : "with the same folder") + ' loads it. If both changed since they last synced, you choose which to keep — they\'re never merged.' + when + '</p>' +
+      'A few seconds after each change this device writes an encrypted copy there; opening the app on another device ' + (via === "dropbox" ? "connected to the same Dropbox" : "with the same folder") + ' loads it. If both changed since they last synced, the two are combined — you\'re only asked about something changed on both.' + when + '</p>' +
       '<button type="button" class="btn btn-sm" data-sk="sync-now">Sync now</button> <button type="button" class="btn btn-sm btn-ghost" data-sk="sync-off">Turn off</button></div>';
   } else {
     var key = appKey(), connected = dropboxConnected();

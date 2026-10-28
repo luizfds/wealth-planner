@@ -3,14 +3,14 @@
 // Item 163, the first way: the folder backups already write to a folder the person picked, and a
 // Dropbox, OneDrive or iCloud Drive folder carries it to their other computers. Sync keeps one file
 // there, wealth-planner-sync.json, always encrypted, rewritten shortly after each change; each device
-// reads it on opening. One copy is the truth — two devices' edits are never merged:
+// reads it on opening. One copy is the truth (since v3.143.0 a conflict is merged — calc/syncmerge.js):
 //
 //   the file carries `rev` (a counter) and, in the clear, when and by which device it was written;
 //   each device remembers `base`, the rev it last wrote or loaded, and whether it has changed since.
 //   file rev == base, nothing changed here since  → nothing to do
 //   file rev == base, changed here since          → write ours (rev + 1)
 //   file rev  > base, nothing changed here since  → load theirs
-//   file rev  > base, changed here too            → ask which to keep
+//   file rev  > base, changed here too            → conflict: merge (or, with no agreed copy, ask)
 //   no file yet                                   → write ours
 // Pure: the envelope's shape and that decision. lib/foldersync.js does the files and the crypto.
 

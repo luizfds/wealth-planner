@@ -19,6 +19,11 @@ export function syncOn(){ return !!syncLocal().on; }
 function getKey(){ return idb("readonly", function(s){ return s.get(KEY_ID); }).catch(function(){ return null; }); }
 function putKey(rec){ return idb("readwrite", function(s){ return s.put(rec, KEY_ID); }); }
 export function forgetSyncKey(){ return idb("readwrite", function(s){ return s.delete(KEY_ID); }).catch(function(){}); }
+// v3.143.0 (item 182): the copy this device and the file last agreed on — what a merge measures
+// both sides' changes from. Plain JSON in this device's IndexedDB, like the data in localStorage.
+var BASE_ID = "syncBase";
+function putBase(text){ return idb("readwrite", function(s){ return s.put(text, BASE_ID); }).catch(function(){}); }
+function getBase(){ return idb("readonly", function(s){ return s.get(BASE_ID); }).catch(function(){ return null; }); }
 
 function permitted(handle, interactive){
   var opts = { mode: "readwrite" };
@@ -108,12 +113,18 @@ export function syncNow(opts, retried){
         if(env && env.salt !== keyRec.salt) return { status: "other-key", folder: o.label, savedAt: env.savedAt, savedBy: env.savedBy };
         var d = opts.force || syncDecision(local, env);
         if(d === "same") return { status: "same", folder: o.label, rev: local.base };
-        if(d === "conflict") return { status: "conflict", folder: o.label, savedAt: env.savedAt, savedBy: env.savedBy, fromThisDevice: env.savedBy === deviceId() };
+        // v3.143.0: with the agreed copy and theirs, the caller can merge rather than ask.
+        if(d === "conflict") return Promise.all([decrypt(keyRec, env).catch(function(){ return null; }), getBase()]).then(function(x){
+          return { status: "conflict", folder: o.label, savedAt: env.savedAt, savedBy: env.savedBy, fromThisDevice: env.savedBy === deviceId(),
+            text: x[0], base: x[1] || null, rev: Number(env.rev) || 0 };
+        });
         if(d === "pull") return decrypt(keyRec, env).then(function(text){ return { status: "pull", folder: o.label, text: text, rev: Number(env.rev) || 0, savedAt: env.savedAt }; });
         var rev = Math.max(env ? Number(env.rev) || 0 : 0, Number(local.base) || 0) + 1;
         var meta = { rev: rev, savedAt: new Date().toISOString(), savedBy: deviceId() };
-        return encrypt(keyRec, JSON.stringify(state)).then(function(c){ return t.write(o, JSON.stringify(makeEnvelope(meta, c)), r.rev); }).then(function(){
+        var plain = JSON.stringify(state);
+        return encrypt(keyRec, plain).then(function(c){ return t.write(o, JSON.stringify(makeEnvelope(meta, c)), r.rev); }).then(function(){
           setSyncLocal({ base: rev, dirty: false, hash: contentHash(state), lastAt: meta.savedAt });
+          putBase(plain);
           return { status: "pushed", folder: o.label, rev: rev };
         }, function(e){
           if(e && e.message === "conflict" && !retried) return syncNow(Object.assign({}, opts, { force: null }), true);
@@ -124,7 +135,10 @@ export function syncNow(opts, retried){
   }).catch(function(e){ if(e && e.message === "not-connected") return { status: "not-connected", folder: "Dropbox" }; throw e; });
 }
 // After the caller has applied a pulled copy (and migrated it): this content is where the device now is.
-export function pulled(rev){ setSyncLocal({ base: rev, dirty: false, hash: contentHash(state), lastAt: new Date().toISOString() }); }
+export function pulled(rev){ setSyncLocal({ base: rev, dirty: false, hash: contentHash(state), lastAt: new Date().toISOString() }); putBase(JSON.stringify(state)); }
+// v3.143.0: after the caller has merged the file's copy (rev, `theirs` as loaded) into this device's:
+// that copy is the new agreed one, and the merged result is a change to send.
+export function merged(rev, theirsText){ setSyncLocal({ base: rev, dirty: true, hash: null }); return putBase(theirsText); }
 // Called after each save: this device has changes to send only when the content differs from what it
 // last sent or loaded — not every save is an edit.
 export function markChanged(){

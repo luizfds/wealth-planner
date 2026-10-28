@@ -193,6 +193,8 @@ export var QUICK_ACTIONS = [
   { label: "Log spend",     hint: "A real transaction against a budget line", page: "expenses",   sub: "spending", selector: "#quickLogBtn" },
   { label: "Add expense",   hint: "A new planned budget line",                page: "expenses",   sub: "budget",   selector: '[data-add="shared"]' },
   { label: "Log income",    hint: "Pay, rent or a distribution that arrived", page: "income",     mode: "received" },
+  // v3.141.0: a card repayment is a transfer — this opens the form with the card and its payment in.
+  { label: "Pay a card",    hint: "A repayment from an account to a credit card", page: "expenses", sub: "spending", mode: "paycard" },
   // No selector on these three: Income and Assets build their add buttons per person/category
   // (data-add="income:<person>", "assets:Cash", "holding"), so the value isn't knowable from here.
   // They resolve to the first visible [data-add] on the destination page instead — the same way

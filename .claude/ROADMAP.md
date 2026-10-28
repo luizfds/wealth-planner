@@ -3168,6 +3168,57 @@ Check for updates. Its initial is the first person's; its dot replaces the saved
 navigation step taps the Tax and Net worth tabs and avatar → Reports.
 
 
+### Phase H — less to do by hand (October 2026)
+
+## 180. `[x]` Pay a card from the + button
+A card repayment is a transfer, but the quick-add menu had no way in: it was Spending → + Transfer, with both
+accounts to pick. "Pay a card" opens the transfer form with the card (or the only card) as To, and From as the card's
+direct-debit account or the everyday account.
+
+Shipped as v3.141.0. Quick actions → Pay a card opens Cash flow → Spending with the transfer form filled in: To the first
+credit card, From its direct-debit account (item 170) or the first everyday account, the amount the bills calendar
+expects (the soonest unpaid repayment from last month on) and a note. `transferForm.preset` carries it for one render.
+
+
+## 181. `[x]` Statements from the Dropbox folder
+Drop a bank, card or property-manager statement (CSV or PDF) into the app's Dropbox folder, from any device; the
+app picks it up on open, runs it through the importer and its rules, and asks only about rows it can't place.
+
+Shipped as v3.142.0. A `Statements` folder — in the app's Dropbox folder (made the first time it's listed) and inside
+the backup folder when the browser still has permission for it — is listed once the app has opened and synced
+(`lib/inbox.js`, rules in `calc/inbox.js`). Anything waiting gets a toast and a note in Spending → Import from your
+bank; each file, oldest first, goes through the same `importBankFile` as a chosen one (rules, transfers, duplicate
+check), and moves to `Statements/Imported` once confirmed. Cancelling leaves it for next time. With nothing waiting,
+the card says where to drop one.
+
+
+## 182. `[x]` Merge, not choose, when two devices both changed
+When two devices both edited since they last synced, the app made you keep one copy. Combine what doesn't
+overlap — rows added, removed or changed on one side only — and ask only about a row changed on both.
+
+Shipped as v3.143.0. Each write or load of the sync file keeps that copy in IndexedDB as the one both sides agreed on;
+on a conflict, `lib/foldersync.js` hands back the file's copy and that one, and `calc/syncmerge.js` merges three ways:
+rows by `id` (by `date` for the net worth log, by content for the few with neither), settings field by field. A change on
+one side only is taken; the same thing changed both ways goes into one dialog, a choice each, this device's ticked. View
+settings stay per device, the app's own bookkeeping (prices, automatic net worth points, computed rows) never asks,
+and "last done" dates take the later one. A device whose last sync was before this version has no agreed copy yet, so
+its first conflict is still the old choice. Checked on a real backup (outside the repo): nothing to ask when nothing
+changed, separate edits combined, about 0.1s.
+
+
+## 183. `[x]` A review on the new layout
+The phone header, avatar menu and bottom bar, against a real household (outside the repo), at phone and desktop width.
+
+Done as v3.144.1, on a real household's backup outside the repo, at 390 and 1280px: twelve views, the scrolled header
+and the avatar menu, with sideways scroll, controls past the edge, small tap targets, clipped labels and NaN text
+measured rather than eyeballed. No sideways scroll, no console errors; the avatar menu fits; the header goes slim once
+scrolled. Fixed: on a phone the header's ⓘ, ⋯, period, bell and avatar were 28–34px targets — each now catches a tap
+6px further out (an invisible `::after`), looking the same; and a rail of tabs with more past the edge (Investments,
+Property) fades there, by scroll position (`lib/scroll-shadow.js` now watches `.subnav` too), since a tab ending right at
+the edge looked like the end of the list. The same review found a card repayment logged from a loan — v3.144.0's
+grouped account list, warning and Check.
+
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

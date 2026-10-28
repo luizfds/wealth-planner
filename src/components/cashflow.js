@@ -28,27 +28,44 @@ export function lineLabeler(lines){
   return function(id){ return names[id] || id; };
 }
 
+// v3.138.0: one row — search, a Filters button carrying how many are on, Select and + Transfer. The
+// four dropdowns open under it on request, and while they're closed each filter that's on shows as
+// a chip that clears it. On a phone the first transaction is now on the first screen. The
+// direction (All / Spending / Money in / Transfers) sits with the Month / Year / All control above.
+export var txFilterPanel = { open: false };
+var FILTER_KEYS = [["account", "Account"], ["category", "Category"], ["line", "Line"], ["person", "Person"]];
+export function directionControlHtml(){
+  var dirs = [["all", "All"], ["out", "Spending"], ["in", "Money in"], ["transfer", "Transfers"]];
+  return '<div class="seg-control cf-dir" role="group" aria-label="Show">' + dirs.map(function(d){
+    var on = txFilters.direction === d[0];
+    return '<button type="button" class="seg-option' + (on ? " active" : "") + '" aria-pressed="' + on + '" data-cf-dir="' + d[0] + '">' + d[1] + '</button>';
+  }).join("") + '</div>';
+}
 export function filterBarHtml(entries, lines){
   var ch = filterChoices(entries);
   var labelOf = lineLabeler(lines);
-  var dirs = [["all", "All"], ["out", "Spending"], ["in", "Money in"], ["transfer", "Transfers"]];
+  var on = FILTER_KEYS.filter(function(k){ return txFilters[k[0]]; });
+  var chips = !txFilterPanel.open && on.length ? '<div class="cf-chips">' + on.map(function(k){
+    var v = txFilters[k[0]], shown = k[0] === "line" ? labelOf(v) : v;
+    return '<button type="button" class="cf-chip" data-cf-chip-clear="' + k[0] + '" aria-label="' + escapeAttr("Remove filter " + k[1] + ": " + shown) + '">' + k[1] + ': <b>' + escapeAttr(shown) + '</b> <span aria-hidden="true">✕</span></button>';
+  }).join("") + '</div>' : '';
   return '<div class="cf-filters">' +
-    '<div class="seg-control cf-dir" role="group" aria-label="Show">' + dirs.map(function(d){
-      var on = txFilters.direction === d[0];
-      return '<button type="button" class="seg-option' + (on ? " active" : "") + '" aria-pressed="' + on + '" data-cf-dir="' + d[0] + '">' + d[1] + '</button>';
-    }).join("") + '</div>' +
-    '<div class="cf-filter-row">' +
-      '<label class="cf-filter cf-search"><span>Search</span><input type="search" data-cf-filter="text" value="' + escapeAttr(txFilters.text) + '" placeholder="Name or account" aria-label="Search transactions"></label>' +
+    '<div class="cf-toolbar">' +
+      '<input type="search" class="cf-search-input" data-cf-filter="text" value="' + escapeAttr(txFilters.text) + '" placeholder="Search name or account" aria-label="Search transactions">' +
+      '<button type="button" class="btn btn-sm btn-ghost cf-more-btn" data-cf-panel aria-expanded="' + txFilterPanel.open + '" aria-controls="cfFilterRow">Filters' + (on.length ? ' <span class="cf-badge">' + on.length + '</span>' : '') + '</button>' +
+      '<span class="cf-filter-actions">' +
+        (txFiltersActive() ? '<button type="button" class="btn btn-sm btn-ghost" data-cf-clear>Clear</button>' : '') +
+        '<button type="button" class="btn btn-sm btn-ghost" data-cf-select aria-pressed="' + txSelect.on + '">' + (txSelect.on ? "Done selecting" : "Select") + '</button>' +
+        '<button type="button" class="btn btn-sm btn-ghost" data-cf-transfer>+ Transfer</button>' +
+      '</span>' +
+    '</div>' +
+    (txFilterPanel.open ? '<div class="cf-filter-row" id="cfFilterRow">' +
       selectHtml("account", "Account", ch.accounts, txFilters.account) +
       selectHtml("category", "Category", ch.categories, txFilters.category) +
       selectHtml("line", "Line", ch.lines, txFilters.line, labelOf) +
       (ch.people.length ? selectHtml("person", "Person", ch.people, txFilters.person) : '') +
-    '</div>' +
-    '<div class="cf-filter-actions">' +
-      (txFiltersActive() ? '<button type="button" class="btn btn-sm btn-ghost" data-cf-clear>Clear filters</button>' : '') +
-      '<button type="button" class="btn btn-sm btn-ghost" data-cf-select aria-pressed="' + txSelect.on + '">' + (txSelect.on ? "Done selecting" : "Select") + '</button>' +
-      '<button type="button" class="btn btn-sm btn-ghost" data-cf-transfer>+ Transfer</button>' +
-    '</div></div>';
+    '</div>' : '') + chips +
+  '</div>';
 }
 
 export function totalsLineHtml(t, count){
@@ -56,19 +73,30 @@ export function totalsLineHtml(t, count){
     '<span>Net <b class="' + (t.net >= 0 ? "in" : "out") + '">' + (t.net < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(t.net)) + '</b></span><span class="cf-count">' + count + ' entr' + (count === 1 ? "y" : "ies") + '</span></p>';
 }
 
+var BIN = '<svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h12M8 6V4h4v2M6 6l1 10h6l1-10"/></svg>';
+// v3.138.0: the list reads by day — a header per date, so the rows under it needn't repeat it.
+// "Today" and "Yesterday" by name; the year only when it isn't this one.
+export function dayHeaderHtml(date, today){
+  today = today || localDateStr();
+  var y = new Date(Date.parse(today + "T00:00:00Z") - 86400000).toISOString().slice(0, 10);
+  var d = new Date(date + "T00:00:00");
+  var label = date === today ? "Today" : date === y ? "Yesterday" :
+    d.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", year: date.slice(0, 4) === today.slice(0, 4) ? undefined : "numeric" }).replace(",", "");
+  return '<h4 class="cf-day">' + escapeAttr(label) + '</h4>';
+}
 export function inRowHtml(e){
   return '<div class="m-row cf-row cf-in"><div class="m-row-summary cf-row-summary">' +
     '<span class="cf-kind in" aria-hidden="true">↓</span>' +
-    '<div class="cf-row-main"><div class="m-row-name">' + escapeAttr(e.label) + '</div><div class="m-row-sub">' + escapeAttr(fmtDate(e.date)) + (e.account ? ' · ' + escapeAttr(e.account) : '') + ' · money in</div></div>' +
+    '<div class="cf-row-main"><div class="m-row-name">' + escapeAttr(e.label) + '</div><div class="m-row-sub">' + (e.account ? escapeAttr(e.account) + ' · ' : '') + 'money in</div></div>' +
     '<div class="m-row-amt cf-amt in">+' + fmtCurrency2.format(e.amount) + '</div>' +
-    '<button type="button" class="btn btn-ghost btn-sm cf-row-del" data-cf-del-in="' + escapeAttr(e.ref) + '" aria-label="Delete this money-in record">✕</button></div></div>';
+    '<button type="button" class="btn btn-ghost btn-sm cf-row-del" data-cf-del-in="' + escapeAttr(e.ref) + '" aria-label="Delete this money-in record" title="Delete">' + BIN + '</button></div></div>';
 }
 export function transferRowHtml(e){
   return '<div class="m-row cf-row cf-transfer"><div class="m-row-summary cf-row-summary">' +
     '<span class="cf-kind transfer" aria-hidden="true">⇄</span>' +
-    '<div class="cf-row-main"><div class="m-row-name">' + escapeAttr(e.label) + '</div><div class="m-row-sub">' + escapeAttr(fmtDate(e.date)) + ' · ' + escapeAttr(e.account || "?") + ' → ' + escapeAttr(e.toAccount || "?") + '</div></div>' +
+    '<div class="cf-row-main"><div class="m-row-name">' + escapeAttr(e.label) + '</div><div class="m-row-sub">' + escapeAttr(e.account || "?") + ' → ' + escapeAttr(e.toAccount || "?") + '</div></div>' +
     '<div class="m-row-amt cf-amt">' + fmtCurrency2.format(e.amount) + '</div>' +
-    '<button type="button" class="btn btn-ghost btn-sm cf-row-del" data-cf-del-transfer="' + escapeAttr(e.ref) + '" aria-label="Delete this transfer">✕</button></div></div>';
+    '<button type="button" class="btn btn-ghost btn-sm cf-row-del" data-cf-del-transfer="' + escapeAttr(e.ref) + '" aria-label="Delete this transfer" title="Delete">' + BIN + '</button></div></div>';
 }
 // A checkbox in front of a spending row while selecting.
 export function selectBoxHtml(idx){

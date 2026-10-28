@@ -1100,6 +1100,20 @@
   .cf-filter select, .cf-filter input, .cf-split select, .cf-split input{ min-height:38px; padding:5px 8px; border:1px solid var(--border); border-radius:6px; background: var(--paper); color: var(--ink); font: inherit; font-size:13px; min-width:0; width:100%; box-sizing:border-box; }
   .cf-filter select:focus, .cf-filter input:focus, .cf-split select:focus, .cf-split input:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
   .cf-filter-actions{ display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+  /* v3.138.0: search, Filters, Select and + Transfer on one row; the dropdowns open under it. */
+  .cf-toolbar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .cf-search-input{ flex:1 1 220px; min-width:0; min-height:38px; padding:5px 10px; border:1px solid var(--border); border-radius:8px; background: var(--paper); color: var(--ink); font: inherit; font-size:13.5px; box-sizing:border-box; }
+  .cf-search-input:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
+  .cf-toolbar .cf-filter-actions{ margin-left:auto; }
+  .cf-more-btn[aria-expanded="true"]{ background: var(--brass-wash); color: var(--brass-strong); }
+  .cf-badge{ display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; padding:0 5px; margin-left:4px; border-radius:9px; background: var(--brass); color:#fff; font-size:11px; font-weight:700; box-sizing:border-box; }
+  .cf-chips{ display:flex; gap:6px; flex-wrap:wrap; }
+  .cf-chip{ all:unset; box-sizing:border-box; display:inline-flex; align-items:center; gap:4px; min-height:30px; padding:4px 10px; border-radius:15px; background: var(--brass-wash); color: var(--ink); font-size:12.5px; cursor:pointer; }
+  .cf-chip b{ font-weight:600; }
+  .cf-chip span{ color: var(--ink-soft); margin-left:2px; }
+  .cf-chip:hover span{ color: var(--bad); }
+  .cf-chip:focus-visible{ box-shadow: var(--focus-ring); }
+  .tx-controls-left{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
   .cf-totals{ display:flex; gap:14px; flex-wrap:wrap; font-size:12.5px; color: var(--ink-soft); margin:6px 0 8px; }
   .cf-totals b{ color: var(--ink); font-variant-numeric: tabular-nums; }
   .cf-totals b.in{ color: var(--good); } .cf-totals b.out{ color: var(--bad); }
@@ -1111,7 +1125,12 @@
   .cf-kind.transfer{ background: var(--brass-wash); color: var(--brass-strong); }
   .cf-amt{ white-space:nowrap; font-variant-numeric: tabular-nums; }
   .cf-amt.in{ color: var(--good); }
-  .cf-row-del{ flex:none; }
+  .cf-row-del{ flex:none; color: var(--ink-soft); }
+  .cf-row-del:hover{ color: var(--bad); }
+  /* v3.138.0: with a mouse the bin shows on the row you're on; a touch screen always shows it. */
+  @media (hover: hover) and (pointer: fine){ .cf-row .cf-row-del{ opacity:0; } .cf-row:hover .cf-row-del, .cf-row .cf-row-del:focus-visible{ opacity:1; } }
+  .cf-day{ margin:14px 0 2px; padding:0 2px 4px; font-size:11.5px; font-weight:650; text-transform:uppercase; letter-spacing:.05em; color: var(--ink-soft); border-bottom:1px solid var(--border); }
+  .m-rows > .cf-day:first-child{ margin-top:4px; }
   .cf-row-wrap{ display:flex; align-items:flex-start; gap:6px; }
   .cf-row-wrap > .m-row{ flex:1 1 auto; min-width:0; }
   .cf-pick{ flex:none; display:flex; align-items:center; justify-content:center; width:36px; min-height:44px; cursor:pointer; }
@@ -1137,7 +1156,7 @@
   .bp-head{ font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); text-align:right; }
   .bp-sec{ font-size:11px; font-weight:650; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); margin:10px 0 2px; }
   .bp-row{ font-size:13px; padding:5px 0; border-bottom:1px dashed var(--border); }
-  .bp-row span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .bp-row span{ overflow-wrap:anywhere; }
   .bp-row b, .bp-row em{ text-align:right; font-variant-numeric: tabular-nums; white-space:nowrap; }
   .bp-row b{ font-weight:600; }
   .bp-row.in b{ color: var(--good); }
@@ -1262,7 +1281,9 @@
   .nw-head b{ font-family: var(--font-num); font-size:24px; }
   .nw-head div:first-child b{ font-size:30px; }
   .nw-est{ font-size:12.5px; color: var(--ink-soft); max-width:340px; }
-  .nw-bar{ display:flex; height:10px; border-radius:6px; overflow:hidden; margin:0 0 18px; background: var(--paper-sunken); }
+  .nw-bar{ display:flex; height:10px; border-radius:6px; overflow:hidden; margin:0 0 8px; background: var(--paper-sunken); }
+  .nw-legend{ list-style:none; display:flex; flex-wrap:wrap; gap:4px 16px; margin:0 0 18px; padding:0; font-size:12.5px; color: var(--ink-soft); }
+  .nw-legend b{ font-family: var(--font-num); font-weight:600; color: var(--ink); }
   .nw-bar span{ display:block; height:100%; background: var(--series-color); }
   .nw-group{ margin:0 0 16px; border:1px solid var(--border); border-radius:12px; background: var(--paper-raised); overflow:hidden; }
   .nw-group h3{ display:flex; justify-content:space-between; margin:0; padding:10px 14px; font-size:13px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); border-bottom:1px solid var(--border); }

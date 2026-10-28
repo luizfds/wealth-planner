@@ -2,9 +2,12 @@
   /* Bento: the first tile (net worth) reads as the hero module, spanning two columns
      on wider screens; the rest fall in as evenly-sized supporting tiles. */
   .stat-row{ display:grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap:14px; }
-  #dashboardStats.stat-row{ grid-template-columns: repeat(4, minmax(180px,1fr)); }
-  #dashboardStats.stat-row .stat-tile:first-child{ grid-column: span 2; background: linear-gradient(135deg, var(--brass-wash), var(--paper-raised)); }
-  @media (max-width: 900px){ #dashboardStats.stat-row{ grid-template-columns: repeat(2, minmax(150px,1fr)); } #dashboardStats.stat-row .stat-tile:first-child{ grid-column: span 2; } }
+  /* v3.138.0: net worth left these tiles (Home's first card says it), so they're five or six — three
+     a row, and with five the first takes two cells, so no row ends in a hole. */
+  #dashboardStats.stat-row{ grid-template-columns: repeat(3, minmax(180px,1fr)); }
+  #dashboardStats.stat-row .stat-tile:first-child{ background: linear-gradient(135deg, var(--brass-wash), var(--paper-raised)); }
+  #dashboardStats.stat-row .stat-tile:first-child:nth-last-child(5){ grid-column: span 2; }
+  @media (max-width: 900px){ #dashboardStats.stat-row{ grid-template-columns: repeat(2, minmax(150px,1fr)); } }
   /* `repeat(2, minmax(150px,1fr))` is a *fixed* two columns with a 150px floor, so it does not
      collapse the way an auto-fit track would — two 150px tiles plus the 14px gap need 314px, and
      a 320px phone only has 288px between the page gutters. The tiles ran off the right edge.
@@ -379,7 +382,7 @@
 
 /* ---------------- Home (v3.58.0) ---------------- */
 .home-grid{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:12px; margin:0 0 16px; }
-@media (min-width: 1180px){ .home-grid{ grid-template-columns: 1fr 1.4fr 1fr 1fr; } }
+@media (min-width: 1180px){ .home-grid{ grid-template-columns: 1fr 1.4fr 1.2fr 0.85fr; } }
 .home-card{ border:1px solid var(--border); border-radius:14px; background:var(--paper-raised); padding:14px; display:flex; flex-direction:column; gap:6px; min-width:0; box-shadow:var(--shadow); }
 .home-k{ font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); }
 .home-big{ font-size:24px; font-weight:700; font-variant-numeric:tabular-nums; letter-spacing:-0.01em; }

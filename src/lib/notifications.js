@@ -417,7 +417,7 @@ function dataHealthNotification(){
     id: "health:" + fix.map(function(c){ return c.id; }).sort().join(","),
     type: "data", severity: fix.some(function(c){ return c.severity === "bad"; }) ? "warn" : "info",
     title: fix.length === 1 ? fix[0].title : fix.length + " things in your data to fix",
-    detail: fix.length === 1 ? fix[0].detail : fix.slice(0, 2).map(function(c){ return c.title; }).join("; ") + (fix.length > 2 ? "; and more" : "") + ". Settings → Checks lists them.",
+    detail: fix.length === 1 ? fix[0].detail : fix.slice(0, 2).map(function(c){ return c.title; }).join("; ") + (fix.length > 2 ? "; and more" : "") + ". Home → Review lists them.",
     date: todayStr(), page: "accounts", sub: "checks"
   }];
 }

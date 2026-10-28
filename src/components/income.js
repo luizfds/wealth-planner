@@ -710,7 +710,7 @@ function taxPersonFrontBodyHtml(person, r){
     '<div class="tax-inputs pp-on-tax">' +
       '<div class="proj-field"><label title="Separate from the Cash / Sacrifice column on income rows — use this for sacrifice not tied to a specific item">Manual sacrifice $/yr</label><input type="number" min="0" step="500" class="tax-sacrifice" aria-label="Manual super sacrifice per year for ' + pid + '" value="' + settings.superSacrificeAnnual + '"><button type="button" class="calc-hint-link" style="margin-top:4px" data-tax-maxcap="' + pid + '" title="Fills your remaining concessional cap headroom this year with manual sacrifice (SG and any auto/bonus sacrifice already counted): sets manual sacrifice to ' + fmtCurrency0.format(Math.max(0, r.capAvailable - r.sg - r.autoSacrifice)) + '">Max out cap</button></div>' +
     '</div>' +
-    '<p class="ledger-note pp-link-note" style="margin:8px 0 0">Date of birth, HELP, super caps, capital losses and home hours: <button type="button" class="link-btn" data-goto-people="' + pid + '">Settings → People</button></p>';
+    '<p class="ledger-note pp-link-note" style="margin:8px 0 0">Date of birth, HELP, super caps, capital losses and home hours: <button type="button" class="link-btn" data-goto-people="' + pid + '">Tax → People</button></p>';
 }
 
 // Capital gains for the household's year, netted as a return nets them: losses (this year's, then
@@ -839,7 +839,7 @@ function phiNoteText(){
   var claimed = a.claimedTier < 0 ? "no rebate up front" : names[a.claimedTier];
   var ageNote = a.ageKnown
     ? (a.ageBand === "u65" ? "" : " Rates for the oldest person being " + (a.ageBand === "a70" ? "70 or over" : "65-69") + ".")
-    : " Assumes everyone on the policy is under 65 — add dates of birth (Settings → People) if not.";
+    : " Assumes everyone on the policy is under 65 — add dates of birth (Tax → People) if not.";
   return phiNoteCore(a, names, claimed) + ageNote;
 }
 function phiNoteCore(a, names, claimed){

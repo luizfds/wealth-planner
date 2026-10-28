@@ -77,7 +77,7 @@ import {
 } from "./components/scenarios.js";
 import { ACCOUNT_TYPE_KEYS, accountSourceOptions, setAccountBalance, resolveLink, accountBalance } from "./calc/accounts.js";
 import { addTransfer, deleteTransfer, splitTransaction, unsplit, bulkEditTransactions, bulkDeleteTransactions } from "./calc/cashflowlist.js";
-import { txFilters, txSelect, transferForm, splitEditing, resetTxFilters, setTxGrid } from "./components/cashflow.js";
+import { txFilters, txSelect, transferForm, splitEditing, resetTxFilters, setTxGrid, txFilterPanel } from "./components/cashflow.js";
 import { rulesPageHtml, setRuleField, ruleIsEmpty, ruleTest, ruleView, RULES_PAGE } from "./components/rules.js";
 import { normaliseDescription } from "./calc/bank-import.js";
 import { openAccounts, balanceEditing } from "./components/accounts.js";
@@ -1462,10 +1462,10 @@ import {
     var saleDelBtn = e.target.closest("[data-asset-sale-del]");
     if(saleDelBtn){
       var parts = saleDelBtn.getAttribute("data-asset-sale-del").split(":");
-      if(deleteAssetSale(Number(parts[0]), Number(parts[1]))){
-        showToast("Sale removed — the units are back in the holding");
+      withUndo("Sale removed — the units are back in the holding", function(){
+        if(!deleteAssetSale(Number(parts[0]), Number(parts[1]))) return false;
         afterAssetSaleChange();
-      }
+      });
       return;
     }
     var logBtn = e.target.closest("[data-asset-log]");
@@ -1741,10 +1741,11 @@ import {
     }
     var asDel = e.target.closest("[data-as-del]");
     if(asDel){
-      if(!confirm("Remove this statement and the rent and bills it logged?")) return;
-      removeAgentStatement(state, prop, asDel.getAttribute("data-as-del"));
-      agentStatementUi.open[prop.id] = true;
-      recalcComputedItems(); persist(); renderAll();
+      withUndo("Removed the statement and the rent and bills it logged", function(){
+        removeAgentStatement(state, prop, asDel.getAttribute("data-as-del"));
+        agentStatementUi.open[prop.id] = true;
+        recalcComputedItems(); renderAll();
+      });
     }
   });
   // v3.92.0: fill the statement form from the manager's PDF; the person checks it and logs it.
@@ -3063,6 +3064,8 @@ import {
     if(!b || b.disabled) return;
     if(b.hasAttribute("data-cf-dir")){ txFilters.direction = b.getAttribute("data-cf-dir"); setTransactionsShowAll(false); renderTransactions(); return; }
     if(b.hasAttribute("data-cf-clear")){ resetTxFilters(); renderTransactions(); return; }
+    if(b.hasAttribute("data-cf-panel")){ txFilterPanel.open = !txFilterPanel.open; renderTransactions(); var first = txFilterPanel.open && document.querySelector('#transactionsTable #cfFilterRow select'); if(first) first.focus(); return; }
+    if(b.hasAttribute("data-cf-chip-clear")){ txFilters[b.getAttribute("data-cf-chip-clear")] = ""; setTransactionsShowAll(false); renderTransactions(); var fb = document.querySelector('#transactionsTable [data-cf-panel]'); if(fb) fb.focus(); return; }
     if(b.hasAttribute("data-cf-select")){ txSelect.on = !txSelect.on; txSelect.picked = {}; renderTransactions(); return; }
     if(b.hasAttribute("data-cf-transfer")){ transferForm.open = true; renderTransactions(); var f = document.querySelector('#transactionsTable [data-tf="amount"]'); if(f) f.focus(); return; }
     if(b.hasAttribute("data-tf-cancel")){ transferForm.open = false; renderTransactions(); return; }
@@ -3121,11 +3124,11 @@ import {
     }
     if(b.hasAttribute("data-cf-bulk-delete")){
       var del = pickedIndices();
-      if(!del.length || !confirm("Delete " + del.length + " transaction" + (del.length === 1 ? "" : "s") + "?")) return;
+      if(!del.length) return;
       var removed = bulkDeleteTransactions(del);
       txSelect.picked = {};
       afterTransactionsChange();
-      showUndoToast("Deleted " + removed.length, function(){ removed.forEach(function(x){ state.transactions.splice(x.index, 0, x.t); }); afterTransactionsChange(); });
+      showUndoToast("Deleted " + removed.length + " transaction" + (removed.length === 1 ? "" : "s"), function(){ removed.forEach(function(x){ state.transactions.splice(x.index, 0, x.t); }); afterTransactionsChange(); });
       return;
     }
     if(b.hasAttribute("data-cf-split-add")){ splitEditing.parts.push({ linkedExpenseId: null, amount: "" }); renderTransactions(); return; }
@@ -3750,7 +3753,7 @@ import {
     var cloneBtn = e.target.closest("[data-clone]");
     if(cloneBtn){ cloneScenario(cloneBtn.getAttribute("data-clone")); return true; }
     var delBtn = e.target.closest("[data-delete]");
-    if(delBtn){ deleteScenario(delBtn.getAttribute("data-delete")); return true; }
+    if(delBtn){ var scName = delBtn.getAttribute("data-delete"); withUndo('Deleted "' + scName + '"', function(){ deleteScenario(scName); return state.scenarios.indexOf(scName) === -1; }); return true; }
     if(e.target.closest("#addScenarioBtn") || e.target.closest("#addScenarioBtn2")){ addScenario(); return true; }
     var editBtn = e.target.closest("[data-edit-scenario]");
     if(editBtn){ chooseScenario(editBtn.getAttribute("data-edit-scenario")); showPage("scenarios"); return true; }
@@ -4438,6 +4441,11 @@ import {
     showAssetsSubpage(btn.getAttribute("data-assets-sub"));
   });
 
+  // v3.138.0: the empty summary's "Add cash / shares / super" go to that tab.
+  document.getElementById("assetsSummaryStats").addEventListener("click", function(e){
+    var btn = e.target.closest("[data-empty-assets]");
+    if(btn) showAssetsSubpage(btn.getAttribute("data-empty-assets"));
+  });
   document.getElementById("dashboardSubnav").addEventListener("click", function(e){
     var btn = e.target.closest("[data-dashboard-sub]");
     if(!btn) return;
@@ -4759,6 +4767,14 @@ import {
   });
   trimBody.addEventListener("toggle", function(e){ if(e.target.matches && e.target.matches("[data-trim-mark]")) trimUi.markOpen = e.target.open; }, true);
 
+  // v3.138.0: a delete that used to ask "are you sure?" first now just happens, with Undo on the
+  // toast — the whole state as it was, put back. `change` returns false when it did nothing.
+  function withUndo(message, change){
+    var before = JSON.stringify(state);
+    if(change() === false) return;
+    persist();
+    showUndoToast(message, function(){ setState(JSON.parse(before)); persist(); renderAll(); });
+  }
   function renderAll(){
     document.getElementById("projHorizon").value = state.projection.horizonYears;
     document.getElementById("projInvestRate").value = state.projection.investReturnRate;
@@ -5194,9 +5210,8 @@ import {
     if(del){
       var id = del.getAttribute("data-trip-del");
       var trip2 = state.trips.find(function(x){ return x.id === id; });
-      if(!trip2 || !confirm("Remove the trip \u201c" + trip2.name + "\u201d? Transactions already moved to its line stay there.")) return;
-      state.trips = state.trips.filter(function(x){ return x.id !== id; });
-      persist(); renderTrips();
+      if(!trip2) return;
+      withUndo("Removed the trip \u201c" + trip2.name + "\u201d — transactions moved to its line stay there", function(){ state.trips = state.trips.filter(function(x){ return x.id !== id; }); renderTrips(); });
     }
   });
   renderTrips();

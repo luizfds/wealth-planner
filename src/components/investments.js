@@ -52,6 +52,6 @@ export function superContributionsCardHtml(rows, label){
       '<div class="inv-super-lines"><span>Employer ' + money(r.sg) + '</span>' + (r.other ? '<span>Salary sacrifice / personal ' + money(r.other) + '</span>' : '') +
         (r.over > 0 ? '<span class="down">' + money(r.over) + ' over the cap — taxed at your marginal rate</span>' : '<span class="up">' + money(r.room) + ' of room left</span>') +
         (r.div293 ? '<span>Division 293 ' + money(r.div293) + '</span>' : '') + '</div></div>';
-  }).join("") + '<p class="ledger-note" style="margin:6px 0 0">Concessional contributions in ' + escapeAttr(label) + ', from your income rows. The cap includes any carry-forward set under Settings → People. Using room before 30 June is on Tax → This year.</p>';
+  }).join("") + '<p class="ledger-note" style="margin:6px 0 0">Concessional contributions in ' + escapeAttr(label) + ', from your income rows. The cap includes any carry-forward set under Tax → People. Using room before 30 June is on Tax → This year.</p>';
   return card("Contributions — " + escapeAttr(label), "", body);
 }

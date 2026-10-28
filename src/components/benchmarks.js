@@ -85,7 +85,7 @@ export function householdCompareHtml(d){
     var c = superComparison(p.super, p.age);
     if(!c){
       out.push(row(esc(p.name) + "'s super", fmtCurrency0.format(p.super), "",
-        "Add " + esc(p.name) + "'s date of birth (Settings → People) to compare with people the same age.", ""));
+        "Add " + esc(p.name) + "'s date of birth (Tax → People) to compare with people the same age.", ""));
       return;
     }
     out.push(row(esc(p.name) + "'s super <small>age " + p.age + "</small>", fmtCurrency0.format(p.super),
@@ -175,7 +175,7 @@ export function investmentsHtml(d){
     '<label>and a fixed <input type="number" step="0.5" min="0" max="30" data-bm-rate value="' + Math.round(d.fixedRate * 1000) / 10 + '" style="width:64px"> % a year</label>' +
   '</div>';
   if(!d.flows.length){
-    return controls + '<p class="fire-note">Add purchase lots to your share holdings (Assets → Shares → a holding → Purchase lots) and this compares what your money did against the same dollars, on the same dates, in ' + esc(d.symbol) + ' and at a fixed rate.' +
+    return controls + '<p class="fire-note">Add purchase lots to your share holdings (Net worth → Investments → Shares → a holding → Purchase lots) and this compares what your money did against the same dollars, on the same dates, in ' + esc(d.symbol) + ' and at a fixed rate.' +
       (d.excluded.length ? " Holdings without lots: " + esc(d.excluded.join(", ")) + "." : "") + '</p>';
   }
   var bars = [{ label: "Your shares", value: d.value, rate: d.myRate, cls: "mine" }];

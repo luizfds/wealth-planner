@@ -404,3 +404,6 @@
   .lock-error{ color: var(--bad) !important; }
   .lock-error[hidden]{ display:none; }
   html.is-locked .app-shell, html.is-locked .mobile-tabbar, html.is-locked .quick-fab-wrap, html.is-locked .toast-root{ visibility:hidden; }
+
+/* v3.138.0: on Home the first card is net worth — the header pill would say it twice. */
+body[data-page="dashboard"] .global-metrics{ display:none; }

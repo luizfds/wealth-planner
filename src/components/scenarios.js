@@ -136,7 +136,6 @@ export function cloneScenario(sourceName){
 export function deleteScenario(name){
   if(state.scenarios.length <= 1){ showToast("You need at least one scenario"); return; }
   if(name === state.baselineScenario){ showToast('"' + name + '" is your Current situation baseline and can\'t be deleted — rename it instead if you want to reuse the slot.'); return; }
-  if(!confirm('Delete "' + name + '"? This removes its home-cost inputs.')) return;
   state.scenarios = state.scenarios.filter(function(s){ return s !== name; });
   delete state.home[name];
   delete state.purchase[name];
@@ -224,8 +223,8 @@ export function renderHomeBody(){
           '<span class="home-dot"></span><h4>' + escapeAttr(scenario) + '</h4>' +
           (isBaseline ? '<span class="home-baseline-badge" title="Your current, real-life situation — kept as the fixed baseline every other scenario is compared against">Current situation</span>' : "") +
           (showActiveBadge
-            ? '<span class="home-active-badge" title="This is the scenario shown on the Dashboard and compared against the others">Active on Dashboard</span>'
-            : (isActive ? "" : '<button type="button" class="home-setactive-btn" data-edit-scenario2="' + escapeAttr(scenario) + '" title="Make this the scenario shown on the Dashboard">Set active</button>')) +
+            ? '<span class="home-active-badge" title="This is the scenario shown on Home and compared against the others">Active on Home</span>'
+            : (isActive ? "" : '<button type="button" class="home-setactive-btn" data-edit-scenario2="' + escapeAttr(scenario) + '" title="Make this the scenario shown on Home">Set active</button>')) +
         '</div>' +
         '<div class="home-block-right" title="Total home cost per month — rent/repayment plus insurance, rates, water &amp; maintenance">' +
           '<span class="home-block-total-label">Home cost</span>' +

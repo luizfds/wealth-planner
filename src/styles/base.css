@@ -337,3 +337,11 @@ body:not(.help-hidden) .help-btn{ display:none; }
 .help-btn:focus-visible{ box-shadow: var(--focus-ring); }
 .help-btn-inline{ display:inline-flex; margin:0 0 6px -4px; }
 body.help-hidden .help-btn-inline{ display:flex; }
+/* v3.138.0: the page's ⓘ sits beside its title and shows the intro of whatever's on screen. */
+body.help-hidden .page-intro.help.help-open{ display:block; }
+body.help-hidden .page-intro-row:not(:has(.help-open)){ display:none; }
+.page-help-btn{ margin-left:-4px; }
+.page-help-btn[hidden]{ display:none; }
+.page-actions-slot{ display:flex; align-items:center; gap:6px; }
+.page-actions-slot .page-intro-actions{ margin:0; }
+.page-actions-slot .page-intro-actions[hidden]{ display:none; }

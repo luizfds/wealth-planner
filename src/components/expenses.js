@@ -11,7 +11,7 @@ import { spendingTrends, monthKeyLabel } from "../calc/trends.js";
 import { escapeAttr } from "../lib/html.js";
 import { renderAccountsPage, openAccounts } from "./accounts.js";
 import { cashflowEntries, filterEntries, entryTotals } from "../calc/cashflowlist.js";
-import { txGrid, txGridHtml, txViewToggleHtml, budgetPlanHtml, billsCalendarHtml, txFilters, txSelect, transferForm, splitEditing, filterBarHtml, totalsLineHtml, inRowHtml, transferRowHtml, selectBoxHtml, bulkBarHtml, transferFormHtml, splitEditorHtml } from "./cashflow.js";
+import { txGrid, txGridHtml, txViewToggleHtml, budgetPlanHtml, billsCalendarHtml, txFilters, txSelect, transferForm, splitEditing, filterBarHtml, directionControlHtml, dayHeaderHtml, totalsLineHtml, inRowHtml, transferRowHtml, selectBoxHtml, bulkBarHtml, transferFormHtml, splitEditorHtml } from "./cashflow.js";
 import { modernPlainRowHtml, modernRowSummaryHtml, modernRowEditHtml, modernRowShellHtml, optionsHtml } from "../lib/ledger-table.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { parseCsv } from "../lib/backup.js";
@@ -637,7 +637,7 @@ function renderBudgetLoanPointer(total){
   el.hidden = !(total > 0);
   if(!(total > 0)) return;
   el.innerHTML = 'Not in this total: <b>' + fmtCurrency0.format(total) + '/mo</b> of investment loan ' +
-    'repayments, which are worked out from each loan rather than budgeted. The Dashboard counts them, ' +
+    'repayments, which are worked out from each loan rather than budgeted. Home counts them, ' +
     'so its spending figure is that much higher. <button type="button" class="calc-hint-link" ' +
     'id="budgetLoanPointerLink">See them below</button>';
 }
@@ -1290,7 +1290,7 @@ function refundTargetLabel(t){
   if(!original) return null;
   return "refund of " + (original.date || "—") + "'s " + fmtCurrency2.format(Number(original.amount) || 0);
 }
-// Summary sub-line for a collapsed row — date, what it's linked to (or "One-off"), its resolved
+// Summary sub-line for a collapsed row — what it's linked to (or "One-off"), its resolved
 // account, and (for a refund picked from quickLogRefundChipsHtml's list) which purchase it
 // undoes, so the closed row already answers "what is this" without expanding it.
 // Exported so app.js's live-input handlers can re-derive it to patch an open row's header text
@@ -1298,7 +1298,8 @@ function refundTargetLabel(t){
 export function transactionSummaryText(t){
   var linked = t.linkedExpenseId && budgetLineItems().find(function(i){ return i.id === t.linkedExpenseId; });
   var acct = transactionAccount(t);
-  var bits = [t.date ? fmtDate(t.date) : "—", linked ? linked.what : "One-off"];
+  // v3.138.0: no date — the list is grouped under a header per day.
+  var bits = [linked ? linked.what : "One-off"];
   if(acct) bits.push(acct);
   var refundLabel = refundTargetLabel(t);
   if(refundLabel) bits.push(refundLabel);
@@ -1404,7 +1405,7 @@ export function renderTransactions(){
   var totals = entryTotals(shown);
   // The header figure stays what it always was — spending — but now follows the filters too.
   if(totalEl) totalEl.textContent = fmtCurrency0.format(totals.out);
-  var controlHtml = '<div class="tx-controls-row">' + transactionScopeControlHtml(transactionsRange) + txViewToggleHtml() + '</div>' + filterBarHtml(inScope, lines);
+  var controlHtml = '<div class="tx-controls-row"><div class="tx-controls-left">' + transactionScopeControlHtml(transactionsRange) + directionControlHtml() + '</div>' + txViewToggleHtml() + '</div>' + filterBarHtml(inScope, lines);
   var bulk = txSelect.on ? bulkBarHtml(transactionLinkOptionsHtml(null), transactionAccountOptionsHtml("")) : "";
   if(!shown.length){
     container.innerHTML = top + controlHtml + bulk +
@@ -1421,7 +1422,13 @@ export function renderTransactions(){
       (hasMore ? '<div class="ledger-footer"><button type="button" class="btn btn-sm btn-ghost" data-tx-show-all-toggle="' + (transactionsShowAll ? "0" : "1") + '">' + (transactionsShowAll ? "Show recent only" : "Show all " + shown.length) + '</button></div>' : '');
     return;
   }
+  var lastDay = null, today = localDateStr();
   var rows = visible.map(function(e){
+    var day = e.date && e.date !== lastDay ? dayHeaderHtml(e.date, today) : "";
+    if(e.date) lastDay = e.date;
+    return day + entryRowHtml(e);
+  }).join("");
+  function entryRowHtml(e){
     if(e.kind === "in") return inRowHtml(e);
     if(e.kind === "transfer") return transferRowHtml(e);
     var t = state.transactions[e.ref];
@@ -1429,7 +1436,7 @@ export function renderTransactions(){
     if(txSelect.on) row = '<div class="cf-row-wrap">' + selectBoxHtml(e.ref) + row + '</div>';
     if(splitEditing.idx === e.ref) row += splitEditorHtml(t, e.ref, function(id){ return transactionLinkOptionsHtml(id); });
     return row;
-  }).join("");
+  }
   var toggleHtml = hasMore
     ? '<div class="ledger-footer"><button type="button" class="btn btn-sm btn-ghost" data-tx-show-all-toggle="' + (transactionsShowAll ? "0" : "1") + '">' +
         (transactionsShowAll ? "Show recent only" : "Show all " + shown.length) +

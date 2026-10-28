@@ -177,8 +177,6 @@ export function renderDashboardStats(){
     ? "Your household finances at a glance. Nothing is pre-filled — start with your income, or load sample data to see what a filled-in plan looks like."
     : "Your money at a glance — what you're worth, how the month is going, and what needs doing." + (isComparing ? "" : " Add a second scenario under Plan to compare renting against buying.");
   renderSetupPanel(nothingEntered);
-  var totalNetWorth = totalNetWorthValue();
-  var itemCount = state.assets.length + state.properties.length;
   var active = state.activeScenario;
   var t = scenarioTotals(active);
   var horizon = Math.max(1, Number(state.projection.horizonYears) || 1);
@@ -198,7 +196,6 @@ export function renderDashboardStats(){
     return;
   }
   el.innerHTML =
-    '<div class="stat-tile"><span>Total net worth today</span><b>' + fmtCurrency0.format(totalNetWorth) + '</b><small>across ' + itemCount + ' item' + (itemCount === 1 ? "" : "s") + '</small></div>' +
     '<div class="stat-tile"><span>' + escapeAttr(active) + (active !== currentScenario() ? ' (what-if)' : '') + ' — net savings</span><b' + (regularOf(t) < 0 ? ' style="color:var(--bad)"' : '') + '>' + fmtCurrency0.format(regularOf(t)) + '/mo</b><small>' + fmtPercent1.format(t.rate) + ' savings rate' + (t.oneOffYearly > 0.5 ? ' · a normal month' : '') + '</small></div>' +
     '<div class="stat-tile"><span>Projected net worth</span><b>' + fmtCurrency0.format(projected) + '</b><small>in ' + horizon + ' years, ' + escapeAttr(active) + ', ' + (state.projection.realTerms !== false ? "today's" : "future") + ' dollars</small></div>' +
     runwayTile +
@@ -291,7 +288,7 @@ function renderStaleAssetsBanner(){
   var stale = staleAssets();
   if(!stale.length){ el.innerHTML = ""; return; }
   el.innerHTML =
-    '<div class="stale-assets-note" title="Record a fresh value for each (Investments → Record value) to keep net worth history and the Actual vs. expected panel accurate.">' +
+    '<div class="stale-assets-note" title="Record a fresh value for each (Record value on each one in Net worth → Investments) to keep net worth history and the Actual vs. expected panel accurate.">' +
       '<span>⏱</span> ' + escapeAttr(stale.length === 1 ? "Due a fresh value — " : stale.length + " assets are due a fresh value — ") + escapeAttr(staleAssetNamesList(stale, 3)) +
     '</div>';
 }
@@ -307,7 +304,7 @@ function renderActualVsExpectedPanel(scenario, t){
   if(!actual.hasData){
     panel.innerHTML =
       '<h3>Actual vs. expected <span style="font-weight:400;color:var(--ink-soft)">— last 30 days</span></h3>' +
-      '<p class="fire-note">Record a value for at least one asset (Investments → Record value) on two occasions ~a month apart to compare real growth against ' + escapeAttr(scenario) + '\'s expected monthly surplus.</p>';
+      '<p class="fire-note">Record a value for at least one asset (Record value on each one in Net worth → Investments) on two occasions ~a month apart to compare real growth against ' + escapeAttr(scenario) + '\'s expected monthly surplus.</p>';
     return;
   }
   var gap = actual.deltaSum - expected;

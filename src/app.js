@@ -33,7 +33,8 @@ import { renderCards, renderDashboardStats, renderDetail, setProjectionReference
 import {
   personBreakdownHtml, renderIncomeGroups, patchOpenRowBreakdowns, patchIncomeGroupTotals,
   patchSyntheticIncomeRows, patchIncomeSuperNotes, renderTaxSuper, withholdingCheckText, withholdingCheckHtml, payslipRead, salaryRowFor, flipTaxCard, patchAllTaxPersonOutputs, patchPhiNote,
-  modernIncomeRowOpen, parseIncomeImportCsv, renderIncomeImportPreview, clearIncomeImportPreview, commitIncomeImport
+  modernIncomeRowOpen, parseIncomeImportCsv, renderIncomeImportPreview, clearIncomeImportPreview, commitIncomeImport,
+  incomeHeaderTotal, setIncomeShowAs
 } from "./components/income.js";
 import {
   patchSharedGroupTotals, renderSharedGroups, renderPropertyExpensesSummary, modernSharedRowOpen,
@@ -77,7 +78,7 @@ import {
 } from "./components/scenarios.js";
 import { ACCOUNT_TYPE_KEYS, accountSourceOptions, setAccountBalance, resolveLink, accountBalance } from "./calc/accounts.js";
 import { addTransfer, deleteTransfer, splitTransaction, unsplit, bulkEditTransactions, bulkDeleteTransactions } from "./calc/cashflowlist.js";
-import { txFilters, txSelect, transferForm, splitEditing, resetTxFilters, setTxGrid } from "./components/cashflow.js";
+import { txFilters, txSelect, transferForm, splitEditing, resetTxFilters, setTxGrid, txFilterPanel } from "./components/cashflow.js";
 import { rulesPageHtml, setRuleField, ruleIsEmpty, ruleTest, ruleView, RULES_PAGE } from "./components/rules.js";
 import { normaliseDescription } from "./calc/bank-import.js";
 import { openAccounts, balanceEditing } from "./components/accounts.js";
@@ -207,7 +208,10 @@ import {
 
 
   function renderTotals(){
-    document.getElementById("totalIncomeMonthly").textContent = fmtCurrency0.format(sumField(effectiveIncomeItems(), "monthly"));
+    // v3.138.0: in the period Income is shown in (Show as).
+    var incTotal = incomeHeaderTotal(sumField(effectiveIncomeItems(), "monthly"));
+    document.getElementById("totalIncomeMonthly").textContent = incTotal.value;
+    document.getElementById("totalIncomeLabel").textContent = incTotal.label;
     // Totals what the list actually shows — shared plus the active scenario's housing — not just
     // state.shared, or the header disagrees with the cards beneath it by the size of your rent.
     // Scenario-resolved, matching the cards below it and every other total in the app.
@@ -891,7 +895,7 @@ import {
     var t = e.target, person = t.getAttribute("data-pp-person");
     if(!person) return;
     if(t.classList.contains("pp-name")){ renameTaxPerson(person, t.value); return; }
-    var cls = ["pp-dob", "pp-help", "pp-cap", "pp-carry", "pp-losses", "pp-wfh"].find(function(c){ return t.classList.contains(c); });
+    var cls = ["pp-dob", "pp-help", "pp-cap", "pp-carry", "pp-losses", "pp-wfh", "pp-week"].find(function(c){ return t.classList.contains(c); });
     if(!cls || !setPersonField(person, cls, t.value, t.getAttribute("data-fy"))) return;
     afterPeopleChange();
   });
@@ -1462,10 +1466,10 @@ import {
     var saleDelBtn = e.target.closest("[data-asset-sale-del]");
     if(saleDelBtn){
       var parts = saleDelBtn.getAttribute("data-asset-sale-del").split(":");
-      if(deleteAssetSale(Number(parts[0]), Number(parts[1]))){
-        showToast("Sale removed — the units are back in the holding");
+      withUndo("Sale removed — the units are back in the holding", function(){
+        if(!deleteAssetSale(Number(parts[0]), Number(parts[1]))) return false;
         afterAssetSaleChange();
-      }
+      });
       return;
     }
     var logBtn = e.target.closest("[data-asset-log]");
@@ -1741,10 +1745,11 @@ import {
     }
     var asDel = e.target.closest("[data-as-del]");
     if(asDel){
-      if(!confirm("Remove this statement and the rent and bills it logged?")) return;
-      removeAgentStatement(state, prop, asDel.getAttribute("data-as-del"));
-      agentStatementUi.open[prop.id] = true;
-      recalcComputedItems(); persist(); renderAll();
+      withUndo("Removed the statement and the rent and bills it logged", function(){
+        removeAgentStatement(state, prop, asDel.getAttribute("data-as-del"));
+        agentStatementUi.open[prop.id] = true;
+        recalcComputedItems(); renderAll();
+      });
     }
   });
   // v3.92.0: fill the statement form from the manager's PDF; the person checks it and logs it.
@@ -3063,6 +3068,8 @@ import {
     if(!b || b.disabled) return;
     if(b.hasAttribute("data-cf-dir")){ txFilters.direction = b.getAttribute("data-cf-dir"); setTransactionsShowAll(false); renderTransactions(); return; }
     if(b.hasAttribute("data-cf-clear")){ resetTxFilters(); renderTransactions(); return; }
+    if(b.hasAttribute("data-cf-panel")){ txFilterPanel.open = !txFilterPanel.open; renderTransactions(); var first = txFilterPanel.open && document.querySelector('#transactionsTable #cfFilterRow select'); if(first) first.focus(); return; }
+    if(b.hasAttribute("data-cf-chip-clear")){ txFilters[b.getAttribute("data-cf-chip-clear")] = ""; setTransactionsShowAll(false); renderTransactions(); var fb = document.querySelector('#transactionsTable [data-cf-panel]'); if(fb) fb.focus(); return; }
     if(b.hasAttribute("data-cf-select")){ txSelect.on = !txSelect.on; txSelect.picked = {}; renderTransactions(); return; }
     if(b.hasAttribute("data-cf-transfer")){ transferForm.open = true; renderTransactions(); var f = document.querySelector('#transactionsTable [data-tf="amount"]'); if(f) f.focus(); return; }
     if(b.hasAttribute("data-tf-cancel")){ transferForm.open = false; renderTransactions(); return; }
@@ -3121,11 +3128,11 @@ import {
     }
     if(b.hasAttribute("data-cf-bulk-delete")){
       var del = pickedIndices();
-      if(!del.length || !confirm("Delete " + del.length + " transaction" + (del.length === 1 ? "" : "s") + "?")) return;
+      if(!del.length) return;
       var removed = bulkDeleteTransactions(del);
       txSelect.picked = {};
       afterTransactionsChange();
-      showUndoToast("Deleted " + removed.length, function(){ removed.forEach(function(x){ state.transactions.splice(x.index, 0, x.t); }); afterTransactionsChange(); });
+      showUndoToast("Deleted " + removed.length + " transaction" + (removed.length === 1 ? "" : "s"), function(){ removed.forEach(function(x){ state.transactions.splice(x.index, 0, x.t); }); afterTransactionsChange(); });
       return;
     }
     if(b.hasAttribute("data-cf-split-add")){ splitEditing.parts.push({ linkedExpenseId: null, amount: "" }); renderTransactions(); return; }
@@ -3750,7 +3757,7 @@ import {
     var cloneBtn = e.target.closest("[data-clone]");
     if(cloneBtn){ cloneScenario(cloneBtn.getAttribute("data-clone")); return true; }
     var delBtn = e.target.closest("[data-delete]");
-    if(delBtn){ deleteScenario(delBtn.getAttribute("data-delete")); return true; }
+    if(delBtn){ var scName = delBtn.getAttribute("data-delete"); withUndo('Deleted "' + scName + '"', function(){ deleteScenario(scName); return state.scenarios.indexOf(scName) === -1; }); return true; }
     if(e.target.closest("#addScenarioBtn") || e.target.closest("#addScenarioBtn2")){ addScenario(); return true; }
     var editBtn = e.target.closest("[data-edit-scenario]");
     if(editBtn){ chooseScenario(editBtn.getAttribute("data-edit-scenario")); showPage("scenarios"); return true; }
@@ -4438,6 +4445,19 @@ import {
     showAssetsSubpage(btn.getAttribute("data-assets-sub"));
   });
 
+  // v3.138.0: Income → Show as — the same figures per year, month, fortnight, week, day or hour.
+  document.getElementById("incomeGroups").addEventListener("click", function(e){
+    var b = e.target.closest("[data-showas]");
+    if(!b) return;
+    setIncomeShowAs(b.getAttribute("data-showas"));
+    renderIncomeGroups();
+    renderTotals();
+  });
+  // v3.138.0: the empty summary's "Add cash / shares / super" go to that tab.
+  document.getElementById("assetsSummaryStats").addEventListener("click", function(e){
+    var btn = e.target.closest("[data-empty-assets]");
+    if(btn) showAssetsSubpage(btn.getAttribute("data-empty-assets"));
+  });
   document.getElementById("dashboardSubnav").addEventListener("click", function(e){
     var btn = e.target.closest("[data-dashboard-sub]");
     if(!btn) return;
@@ -4759,6 +4779,14 @@ import {
   });
   trimBody.addEventListener("toggle", function(e){ if(e.target.matches && e.target.matches("[data-trim-mark]")) trimUi.markOpen = e.target.open; }, true);
 
+  // v3.138.0: a delete that used to ask "are you sure?" first now just happens, with Undo on the
+  // toast — the whole state as it was, put back. `change` returns false when it did nothing.
+  function withUndo(message, change){
+    var before = JSON.stringify(state);
+    if(change() === false) return;
+    persist();
+    showUndoToast(message, function(){ setState(JSON.parse(before)); persist(); renderAll(); });
+  }
   function renderAll(){
     document.getElementById("projHorizon").value = state.projection.horizonYears;
     document.getElementById("projInvestRate").value = state.projection.investReturnRate;
@@ -5194,9 +5222,8 @@ import {
     if(del){
       var id = del.getAttribute("data-trip-del");
       var trip2 = state.trips.find(function(x){ return x.id === id; });
-      if(!trip2 || !confirm("Remove the trip \u201c" + trip2.name + "\u201d? Transactions already moved to its line stay there.")) return;
-      state.trips = state.trips.filter(function(x){ return x.id !== id; });
-      persist(); renderTrips();
+      if(!trip2) return;
+      withUndo("Removed the trip \u201c" + trip2.name + "\u201d — transactions moved to its line stay there", function(){ state.trips = state.trips.filter(function(x){ return x.id !== id; }); renderTrips(); });
     }
   });
   renderTrips();
@@ -5711,6 +5738,43 @@ import {
     showToast("Sample data generated");
     history.replaceState(history.state, "", location.pathname + location.hash);
   }
+
+  // ---------------- Keyboard shortcuts (v3.138.0) ----------------
+  // For a desktop: / search, n log a spend, g then a letter to go to a page, ? to list them. Never
+  // while typing in a field, and never with a modifier held (those belong to the browser).
+  var GO_KEYS = { h: ["dashboard", "Home"], c: ["expenses", "Cash flow"], w: ["networth", "Net worth"], t: ["tax", "Tax"], p: ["plan", "Plan"], r: ["reports", "Reports"], s: ["settings", "Settings"] };
+  var goPending = 0;
+  function shortcutsDialog(){
+    var d = document.getElementById("shortcutsDialog");
+    if(d) return d;
+    d = document.createElement("dialog");
+    d.id = "shortcutsDialog";
+    d.className = "shortcuts-dialog";
+    d.setAttribute("aria-label", "Keyboard shortcuts");
+    var row = function(k, what){ return '<li><span>' + k.map(function(x){ return "<kbd>" + x + "</kbd>"; }).join(" then ") + '</span>' + what + '</li>'; };
+    d.innerHTML = '<h2>Keyboard shortcuts</h2><ul>' + row(["/"], "Search") + row(["n"], "Log a spend") +
+      Object.keys(GO_KEYS).map(function(k){ return row(["g", k], "Go to " + GO_KEYS[k][1]); }).join("") + row(["?"], "This list") + row(["Esc"], "Close what's open") +
+      '</ul><form method="dialog"><button class="btn btn-sm">Close</button></form>';
+    document.body.appendChild(d);
+    return d;
+  }
+  document.addEventListener("keydown", function(e){
+    if(e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+    var t = e.target;
+    if(t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    if(document.querySelector("dialog[open]") && e.key !== "?") return;
+    if(goPending && Date.now() - goPending < 1200 && GO_KEYS[e.key]){
+      goPending = 0; e.preventDefault();
+      var nav = document.querySelector('.nav-item[data-page="' + GO_KEYS[e.key][0] + '"]');
+      if(nav) nav.click();
+      return;
+    }
+    goPending = 0;
+    if(e.key === "g"){ goPending = Date.now(); return; }
+    if(e.key === "/"){ e.preventDefault(); openSearchOverlay(); return; }
+    if(e.key === "n"){ e.preventDefault(); openQuickLogSheet(); return; }
+    if(e.key === "?"){ e.preventDefault(); var d = shortcutsDialog(); if(d.open) d.close(); else d.showModal(); }
+  });
 
   // Matching #appLoading's inline styles in index.html — fades out only once the real UI above
   // has actually been built, not on a fixed timer, so a slow first load (cold cache, slow device)

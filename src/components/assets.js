@@ -919,7 +919,7 @@ export function renderSharesSubpage(){
   // numbers in as if they were already AUD — see toAudAmount() in calc/engine.js).
   var hasUsdHoldings = allData.items.some(function(a){ return (MARKET_CURRENCY[a.market] || "AUD") !== "AUD"; });
   var fxNote = !hasUsdHoldings ? "" : (state.fx && state.fx.usdAud
-    ? '<p class="ledger-note" style="margin:8px 0"><b>USD → AUD:</b> 1 USD = ' + Number(state.fx.usdAud).toFixed(4) + ' AUD (as of ' + escapeAttr(fmtDate(state.fx.usdAudUpdated)) + ') — used to convert your USD holdings into Net worth, Dashboard, and allocation totals. Re-paste the template below (it includes a conversion row) any time to refresh it.</p>'
+    ? '<p class="ledger-note" style="margin:8px 0"><b>USD → AUD:</b> 1 USD = ' + Number(state.fx.usdAud).toFixed(4) + ' AUD (as of ' + escapeAttr(fmtDate(state.fx.usdAudUpdated)) + ') — used to convert your USD holdings into Net worth, Home, and allocation totals. Re-paste the template below (it includes a conversion row) any time to refresh it.</p>'
     : '');
   // v3.32.1: the no-rate warning used to live inside the collapsed paste tool, so the Shares total
   // and net worth silently added US$ as A$. It now sits above the list, with a field to type the
@@ -1103,6 +1103,14 @@ export function renderAssetsSummary(){
     var liquid = liquidAssets + offset;
     var illiquid = totalAssetsValue() - liquidAssets;
     var propEquity = propertiesIlliquidEquityToday();
+    // v3.138.0: four tiles of $0 tell someone new nothing; say where to start instead.
+    if(!state.assets.length && !state.properties.length){
+      statsEl.innerHTML = '<div class="empty-start"><b>Nothing here yet</b><p>Add what you own, one tab at a time — cash in Cash, holdings in Shares, each person\'s fund in Super — and this summary adds it up. Property has its own tab under Net worth.</p>' +
+        '<div class="empty-start-actions"><button type="button" class="btn btn-sm" data-empty-assets="Cash">Add cash</button><button type="button" class="btn btn-sm" data-empty-assets="Shares">Add shares</button><button type="button" class="btn btn-sm" data-empty-assets="Super">Add super</button></div></div>';
+      var alloc0 = document.getElementById("assetsAllocation");
+      if(alloc0) alloc0.innerHTML = renderAssetAllocationHtml();
+      return;
+    }
     statsEl.innerHTML =
       '<div class="stat-tile"><span>Total net worth</span><b>' + fmtCurrency0.format(totalNetWorthValue()) + '</b><small>assets + property equity</small></div>' +
       '<div class="stat-tile" title="Cash + Shares + any property offset balances — real, spendable cash"><span>Liquid assets</span><b>' + fmtCurrency0.format(liquid) + '</b><small>Cash + Shares + Offset</small></div>' +

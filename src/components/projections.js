@@ -29,7 +29,7 @@ export function projSourceHtml(a, source){
       (useActuals ? " Only those lines move below; everything not logged stays as planned." : "");
   }
   return '<div class="seg-control" role="group" aria-label="Based on">' +
-      btn("plan", "Plan", "Every figure as planned on the Income and Expenses pages.") +
+      btn("plan", "Plan", "Every figure as planned under Cash flow.") +
       btn("actuals", "Actuals", "The plan, corrected by what's really been received and spent lately on the lines that have any logged.", !a.available) +
     '</div><span class="proj-basis-note">' + escapeAttr(note) + '</span>';
 }

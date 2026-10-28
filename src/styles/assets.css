@@ -6,13 +6,13 @@
   .worth-table th{ text-align:left; color: var(--ink-soft); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.04em; background: var(--paper-sunken); }
   .worth-table td.num, .worth-table th.num{ text-align:right; font-family:var(--font-num); font-variant-numeric: tabular-nums; }
   .worth-table tr:last-child td{ border-bottom:none; font-weight:700; }
-  .worth-table td.short{ color: var(--bad); }
-  .worth-table td.ok{ color: var(--good); }
+  .worth-table td.short{ color: var(--bad-ink); }
+  .worth-table td.ok{ color: var(--good-ink); }
 
   /* ---------------- Asset tracking ---------------- */
   .asset-trend{ font-size:10.5px; margin-top:2px; padding-left:6px; }
-  .asset-trend.up{ color: var(--good); }
-  .asset-trend.down{ color: var(--bad); }
+  .asset-trend.up{ color: var(--good-ink); }
+  .asset-trend.down{ color: var(--bad-ink); }
   .asset-log-btn{
     all:unset; cursor:pointer; color: var(--ink-soft); font-size:11px; padding:3px 6px; border-radius:5px;
     display:inline-flex; align-items:center; justify-content:center; min-height:40px; min-width:40px;
@@ -44,8 +44,8 @@
     background: var(--brass); box-shadow: 0 0 0 2px var(--brass-wash);
   }
   .sparkline{ display:block; flex:none; color: var(--ink-soft); margin:0 4px; }
-  .sparkline.up{ color: var(--good); }
-  .sparkline.down{ color: var(--bad); }
+  .sparkline.up{ color: var(--good-ink); }
+  .sparkline.down{ color: var(--bad-ink); }
   .sparkline.sparkline-empty{ color: var(--border); }
   .m-row-share-value{ text-align:right; flex:none; }
   .m-row-share-value .asset-trend.gain-cell{ display:block; padding-left:0; margin-top:2px; text-align:right; }
@@ -156,7 +156,7 @@
     flex:none; font-size:10.5px; font-weight:600; padding:1px 7px; border-radius:100px;
     background: var(--paper-sunken); color: var(--ink-soft);
   }
-  .sale-discount.on{ background: var(--good-wash); color: var(--good); }
+  .sale-discount.on{ background: var(--good-wash); color: var(--good-ink); }
 
   /* Stacked-area bands. The 2px surface-coloured separator between bands is drawn in the SVG
      itself (see renderStackedAreaChart) rather than here, because it has to follow the band's
@@ -202,8 +202,8 @@
 .inv-tiles span{ font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
 .inv-tiles b{ font-size:16px; font-variant-numeric: tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .inv-tiles small{ font-size:11.5px; color: var(--ink-soft); }
-.inv-tiles .up, .inv-table .up, .inv-super .up{ color: var(--good); }
-.inv-tiles .down, .inv-table .down, .inv-super .down{ color: var(--bad); }
+.inv-tiles .up, .inv-table .up, .inv-super .up{ color: var(--good-ink); }
+.inv-tiles .down, .inv-table .down, .inv-super .down{ color: var(--bad-ink); }
 .inv-table{ display:flex; flex-direction:column; font-size:13px; }
 .inv-tr{ display:grid; grid-template-columns: minmax(0,1.4fr) repeat(4, minmax(0,1fr)); gap:8px; padding:6px 0; border-bottom:1px dashed var(--border); align-items:baseline; }
 .inv-tr > span:not(.inv-name){ text-align:right; font-variant-numeric: tabular-nums; white-space:nowrap; }
@@ -241,7 +241,7 @@
 .ps-url{ flex:1 1 240px; min-width:0; min-height:34px; }
 .ps-from{ font-size:12.5px; padding:2px 4px; }
 .ps-status{ font-size:12.5px; margin:6px 0; color: var(--ink-soft); line-height:1.5; }
-.ps-status.bad{ color: var(--bad); }
+.ps-status.bad{ color: var(--bad-ink); }
 .ps-note{ margin:6px 0 10px; }
 .ps-manual{ margin-top:6px; }
 .ps-manual > summary{ cursor:pointer; font-size:12.5px; color: var(--ink-soft); }
@@ -256,7 +256,7 @@
 .tr-new{ font-size:12px; color: var(--ink-soft); text-align:right; }
 .tr-skip{ font-size:12px; color: var(--ink-soft); margin-left:6px; white-space:nowrap; }
 .tr-none{ color: var(--ink-soft); }
-.tr-problem{ margin:4px 0 0; font-size:12px; color: var(--bad); }
+.tr-problem{ margin:4px 0 0; font-size:12px; color: var(--bad-ink); }
 @media (max-width: 520px){ .tr-row{ grid-template-columns: 52px minmax(0,1fr); } .tr-new{ grid-column: 1 / -1; text-align:left; } }
 
 /* v3.94.0: Accounts → Emergency fund */
@@ -272,7 +272,7 @@
 .ef-bar i{ display:block; height:100%; background: var(--brass); }
 .ef-bar i.ok{ background: var(--good); }
 .ef-status{ margin:0 0 12px; font-size:13px; }
-.ef-status.ok{ color: var(--good); }
+.ef-status.ok{ color: var(--good-ink); }
 .ef-sub{ font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); margin:12px 0 4px; }
 .ef-people ul, .ef-groups, .ef-lines ul{ list-style:none; margin:0; padding:0; }
 .ef-people li{ font-size:13px; line-height:1.45; padding:3px 0; }
@@ -283,3 +283,9 @@
 .ef-lines li small{ display:block; font-size:11.5px; color: var(--ink-soft); }
 .ef-note{ margin:10px 0 8px; }
 .ef-actions{ margin-top:6px; }
+
+/* v3.138.0: an empty page says where to start, in place of tiles reading $0. */
+.empty-start{ grid-column:1 / -1; padding:18px 20px; border:1px dashed var(--border); border-radius:14px; background: var(--paper-raised); }
+.empty-start b{ font-size:15px; }
+.empty-start p{ margin:6px 0 12px; color: var(--ink-soft); font-size:13.5px; max-width:62ch; }
+.empty-start-actions{ display:flex; gap:8px; flex-wrap:wrap; }

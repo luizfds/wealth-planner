@@ -736,6 +736,9 @@ export function persist(){
 export function setStatus(ok, text){
   document.getElementById("statusDot").className = "status-dot" + (ok ? "" : " warn");
   document.getElementById("statusText").textContent = text;
+  // v3.138.0: a mid-width header shows only the dot; the words stay on hover and for screen readers.
+  var chip = document.getElementById("statusChip");
+  if(chip){ chip.title = text; chip.setAttribute("aria-label", text); }
   // Mirrors into the sticky top bar's copy — the only place a mobile viewport (<880px,
   // where .actions is hidden in favor of the bottom tab bar) can see save status.
   document.getElementById("mobileStatusDot").className = "status-dot" + (ok ? "" : " warn");

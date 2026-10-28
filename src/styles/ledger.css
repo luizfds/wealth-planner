@@ -43,7 +43,7 @@
      month ×4") is the whole point of the line, and a wide amount column on a narrow phone would
      otherwise cut off exactly that. A second line on the few rows that need one beats hiding it. */
   .budget-progress-text{ min-width:0; }
-  .budget-progress-text.over{ color: var(--bad); }
+  .budget-progress-text.over{ color: var(--bad-ink); }
   /* A budget row with at least one transaction logged against it this month can expand in place
      to show exactly which ones — clicking anywhere on the row (not just the chevron) toggles it,
      matching the click-anywhere-on-the-row pattern used elsewhere (property-section-head,
@@ -168,7 +168,7 @@
   .due-note{ font-size:10.5px; color: var(--ink-soft); display:block; margin-top:2px; }
   .due-note.due-unset{ font-style:italic; }
   .due-note.due-soon{ color: var(--brass-strong); font-weight:600; }
-  .due-note.due-overdue{ color: var(--bad); font-weight:600; }
+  .due-note.due-overdue{ color: var(--bad-ink); font-weight:600; }
   .log-date{
     width:150px; font-size:11px; padding:4px 5px; border:1px solid var(--border); border-radius:5px;
     background: var(--paper); color: var(--ink); font-family:inherit; vertical-align:middle; margin-right:4px;
@@ -224,7 +224,7 @@
   .row-breakdown-panel{ display:inline-grid; grid-template-columns: auto auto; gap:5px 28px; min-width:280px; }
   .row-breakdown-panel .rb-label{ font-size:12px; color: var(--ink-soft); }
   .row-breakdown-panel .rb-value{ font-family:var(--font-num); font-size:13px; font-variant-numeric: tabular-nums; text-align:right; color: var(--ink); white-space:nowrap; }
-  .row-breakdown-panel .rb-row.neg .rb-value{ color: var(--bad); }
+  .row-breakdown-panel .rb-row.neg .rb-value{ color: var(--bad-ink); }
   .row-breakdown-panel .rb-row.rb-total .rb-label, .row-breakdown-panel .rb-row.rb-total .rb-value{
     border-top:1px solid var(--border); margin-top:2px; padding-top:7px; font-weight:700; color: var(--brass-strong); font-size:14.5px;
   }
@@ -333,7 +333,7 @@
     display:inline-block; padding:1px 7px; border-radius:100px; font-size:10.5px; font-weight:600;
     background: var(--paper-sunken); color: var(--ink-soft);
   }
-  .row-end-note.ended{ background: var(--bad-wash); color: var(--bad); }
+  .row-end-note.ended{ background: var(--bad-wash); color: var(--bad-ink); }
   .m-row-tag{
     font-size:9.5px; text-transform:uppercase; letter-spacing:.04em; font-weight:700; padding:2px 7px; border-radius:100px;
     background: var(--paper-sunken); color: var(--ink-soft); flex:none;
@@ -791,8 +791,8 @@
      because this is spending. Everywhere else (asset trends, capital gain) up is good. */
   .trend-headline{ font-size:14px; line-height:1.55; color: var(--ink-soft); margin:0 0 10px; }
   .trend-headline b{ color: var(--ink); font-weight:700; }
-  .trend-word.up{ color: var(--bad); }
-  .trend-word.down{ color: var(--good); }
+  .trend-word.up{ color: var(--bad-ink); }
+  .trend-word.down{ color: var(--good-ink); }
   .trend-partial-note{ margin-left:0 !important; }
 
   .trend-alerts{ display:flex; flex-wrap:wrap; gap:6px; margin:0 0 12px; }
@@ -800,8 +800,8 @@
     font-size:11px; font-weight:600; padding:3px 9px; border-radius:100px;
     background: var(--paper-sunken); color: var(--ink-soft);
   }
-  .trend-alert.up{ background: var(--bad-wash); color: var(--bad); }
-  .trend-alert.down{ background: var(--good-wash); color: var(--good); }
+  .trend-alert.up{ background: var(--bad-wash); color: var(--bad-ink); }
+  .trend-alert.down{ background: var(--good-wash); color: var(--good-ink); }
 
   /* auto-fit rather than a fixed column count: one strip fills the width on a phone, and a
      desktop gets as many side by side as fit without the rows ever going narrower than a
@@ -818,8 +818,8 @@
   }
   .trend-row-amt{ font-family:var(--font-num); font-size:12.5px; font-weight:600; flex:none; }
   .trend-delta{ flex:none; font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:100px; white-space:nowrap; }
-  .trend-delta.up{ background: var(--bad-wash); color: var(--bad); }
-  .trend-delta.down{ background: var(--good-wash); color: var(--good); }
+  .trend-delta.up{ background: var(--bad-wash); color: var(--bad-ink); }
+  .trend-delta.down{ background: var(--good-wash); color: var(--good-ink); }
   .trend-delta.flat, .trend-delta.none{ background: var(--paper-sunken); color: var(--ink-soft); }
   .trend-base{ font-size:10.5px; color: var(--ink-soft); flex:none; }
 
@@ -884,7 +884,7 @@
   .year-cat-pct{ flex:none; font-size:11px; color: var(--ink-soft); min-width:38px; text-align:right; }
   /* v3.32.0: the bar is spent against planned; over plan turns the fill and the amount to --bad. */
   .year-cat-row.over .year-cat-fill{ background: var(--bad); }
-  .year-cat-row.over .year-cat-amt{ color: var(--bad); }
+  .year-cat-row.over .year-cat-amt{ color: var(--bad-ink); }
 
   /* An ended row's amount: still shown (you have to see it to extend or delete the row) but
      struck through, because sumField no longer counts it in any total. Without this the list
@@ -904,7 +904,7 @@
      name and one the user taught it on an earlier import. Worth telling apart at a glance, since
      only the first kind is worth checking. */
   .bank-import-badge{ font-size:10px; text-transform:uppercase; letter-spacing:.04em; padding:2px 6px; border-radius:999px; background: var(--paper-raised); color: var(--ink-soft); font-weight:600; }
-  .bank-import-badge.is-rule{ background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good); }
+  .bank-import-badge.is-rule{ background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good-ink); }
   .bank-import-assign{ display:grid; grid-template-columns:1fr; gap:8px; padding:0 12px 12px; }
   .bank-import-field{ display:flex; flex-direction:column; gap:3px; min-width:0; }
   .bank-import-field > span{ font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
@@ -946,9 +946,9 @@
   /* A category that netted negative for the month — refunds outweighed spending. It has no bar
      segment (see categoryChartHtml), so the legend row is the only place it appears and has to
      read as a credit rather than as a missing colour. */
-  .rule-legend-item.is-credit b{ color: var(--good); }
-  .cat-credit-tag{ font-size:10px; text-transform:uppercase; letter-spacing:.04em; color: var(--good); }
-  .bank-import-badge.is-credit{ background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good); }
+  .rule-legend-item.is-credit b{ color: var(--good-ink); }
+  .cat-credit-tag{ font-size:10px; text-transform:uppercase; letter-spacing:.04em; color: var(--good-ink); }
+  .bank-import-badge.is-credit{ background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good-ink); }
 
   /* ---------------- Collapsible budget groups ---------------- */
   /* A 37-line budget is 4,000px of rows on a phone. Collapsed, each card still states its own
@@ -1050,7 +1050,7 @@
   .acct-totals div{ background: var(--paper-sunken); border:1px solid var(--border); border-radius:10px; padding:8px 12px; display:flex; flex-direction:column; gap:2px; min-width:0; }
   .acct-totals span{ font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
   .acct-totals b{ font-size:16px; font-variant-numeric: tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .acct-totals b.owed, .acct-bal.owed, .acct-loose-row b.owed{ color: var(--bad); }
+  .acct-totals b.owed, .acct-bal.owed, .acct-loose-row b.owed{ color: var(--bad-ink); }
   .acct-group{ margin-bottom:14px; }
   .acct-group-title{ font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); margin:0 0 6px; }
   .acct-card{ border:1px solid var(--border); border-radius:12px; background: var(--paper-raised); padding:10px 12px; margin-bottom:8px; }
@@ -1060,13 +1060,13 @@
   .acct-card-toggle:focus-visible{ box-shadow: var(--focus-ring); border-radius:6px; }
   .acct-card-name{ font-weight:600; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .acct-card-sub{ font-size:11.5px; color: var(--ink-soft); line-height:1.35; }
-  .acct-card-sub.warn{ color: var(--bad); }
+  .acct-card-sub.warn{ color: var(--bad-ink); }
   .acct-card-spark{ flex:none; color: var(--brass-strong); }
   .acct-card-spark:empty{ display:none; }
   .acct-bal{ flex:none; font-weight:700; font-size:15px; font-variant-numeric: tabular-nums; white-space:nowrap; }
   .acct-bal.muted{ font-weight:500; font-size:12px; color: var(--ink-soft); }
   .acct-card-update{ flex:none; }
-  .acct-del{ color: var(--bad); }
+  .acct-del{ color: var(--bad-ink); }
   .acct-bal-edit{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:8px; }
   .acct-bal-edit label{ display:flex; align-items:center; gap:6px; font-size:12.5px; color: var(--ink-soft); flex:1 1 180px; }
   .acct-bal-input, .acct-mgmt-limit, .acct-mgmt-link{ min-height:40px; padding:5px 8px; border:1px solid var(--border); border-radius:6px; background: var(--paper); color: var(--ink); font: inherit; font-size:13px; }
@@ -1100,18 +1100,37 @@
   .cf-filter select, .cf-filter input, .cf-split select, .cf-split input{ min-height:38px; padding:5px 8px; border:1px solid var(--border); border-radius:6px; background: var(--paper); color: var(--ink); font: inherit; font-size:13px; min-width:0; width:100%; box-sizing:border-box; }
   .cf-filter select:focus, .cf-filter input:focus, .cf-split select:focus, .cf-split input:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
   .cf-filter-actions{ display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+  /* v3.138.0: search, Filters, Select and + Transfer on one row; the dropdowns open under it. */
+  .cf-toolbar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .cf-search-input{ flex:1 1 220px; min-width:0; min-height:38px; padding:5px 10px; border:1px solid var(--border); border-radius:8px; background: var(--paper); color: var(--ink); font: inherit; font-size:13.5px; box-sizing:border-box; }
+  .cf-search-input:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
+  .cf-toolbar .cf-filter-actions{ margin-left:auto; }
+  .cf-more-btn[aria-expanded="true"]{ background: var(--brass-wash); color: var(--brass-strong); }
+  .cf-badge{ display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; padding:0 5px; margin-left:4px; border-radius:9px; background: var(--brass); color:#fff; font-size:11px; font-weight:700; box-sizing:border-box; }
+  .cf-chips{ display:flex; gap:6px; flex-wrap:wrap; }
+  .cf-chip{ all:unset; box-sizing:border-box; display:inline-flex; align-items:center; gap:4px; min-height:30px; padding:4px 10px; border-radius:15px; background: var(--brass-wash); color: var(--ink); font-size:12.5px; cursor:pointer; }
+  .cf-chip b{ font-weight:600; }
+  .cf-chip span{ color: var(--ink-soft); margin-left:2px; }
+  .cf-chip:hover span{ color: var(--bad-ink); }
+  .cf-chip:focus-visible{ box-shadow: var(--focus-ring); }
+  .tx-controls-left{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
   .cf-totals{ display:flex; gap:14px; flex-wrap:wrap; font-size:12.5px; color: var(--ink-soft); margin:6px 0 8px; }
   .cf-totals b{ color: var(--ink); font-variant-numeric: tabular-nums; }
-  .cf-totals b.in{ color: var(--good); } .cf-totals b.out{ color: var(--bad); }
+  .cf-totals b.in{ color: var(--good-ink); } .cf-totals b.out{ color: var(--bad-ink); }
   .cf-count{ margin-left:auto; }
   .cf-row-summary{ display:flex; align-items:center; gap:10px; cursor:default; }
   .cf-row-main{ flex:1 1 auto; min-width:0; }
   .cf-kind{ flex:none; width:26px; height:26px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; background: var(--paper-sunken); color: var(--ink-soft); }
-  .cf-kind.in{ background: var(--good-wash); color: var(--good); }
+  .cf-kind.in{ background: var(--good-wash); color: var(--good-ink); }
   .cf-kind.transfer{ background: var(--brass-wash); color: var(--brass-strong); }
   .cf-amt{ white-space:nowrap; font-variant-numeric: tabular-nums; }
-  .cf-amt.in{ color: var(--good); }
-  .cf-row-del{ flex:none; }
+  .cf-amt.in{ color: var(--good-ink); }
+  .cf-row-del{ flex:none; color: var(--ink-soft); }
+  .cf-row-del:hover{ color: var(--bad-ink); }
+  /* v3.138.0: with a mouse the bin shows on the row you're on; a touch screen always shows it. */
+  @media (hover: hover) and (pointer: fine){ .cf-row .cf-row-del{ opacity:0; } .cf-row:hover .cf-row-del, .cf-row .cf-row-del:focus-visible{ opacity:1; } }
+  .cf-day{ margin:14px 0 2px; padding:0 2px 4px; font-size:11.5px; font-weight:650; text-transform:uppercase; letter-spacing:.05em; color: var(--ink-soft); border-bottom:1px solid var(--border); }
+  .m-rows > .cf-day:first-child{ margin-top:4px; }
   .cf-row-wrap{ display:flex; align-items:flex-start; gap:6px; }
   .cf-row-wrap > .m-row{ flex:1 1 auto; min-width:0; }
   .cf-pick{ flex:none; display:flex; align-items:center; justify-content:center; width:36px; min-height:44px; cursor:pointer; }
@@ -1121,15 +1140,15 @@
     border:1px solid var(--brass); border-radius:12px; background: var(--paper-raised); box-shadow: var(--shadow); }
   .cf-bulk > b{ align-self:center; margin-right:auto; }
   .cf-bulk .cf-filter{ flex:1 1 150px; }
-  .cf-danger{ color: var(--bad); }
+  .cf-danger{ color: var(--bad-ink); }
   .cf-transfer-form, .cf-split{ border:1px solid var(--border); border-radius:12px; padding:12px; margin:8px 0; background: var(--paper-raised); display:flex; flex-direction:column; gap:8px; }
   .cf-tf-grid{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:8px; }
   .cf-tf-wide{ grid-column: 1 / -1; }
   .cf-tf-check{ display:flex; gap:8px; align-items:center; font-size:13px; }
   .cf-tf-actions, .cf-split-foot{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
   .cf-split-row{ display:grid; grid-template-columns: minmax(0,1fr) 120px 40px; gap:8px; align-items:center; }
-  .cf-split-left{ font-size:12.5px; color: var(--good); margin-right:auto; }
-  .cf-split-left.warn{ color:#b77800; font-weight:600; }
+  .cf-split-left{ font-size:12.5px; color: var(--good-ink); margin-right:auto; }
+  .cf-split-left.warn{ color:var(--warn-ink); font-weight:600; }
   @media (max-width: 480px){ .cf-tf-grid{ grid-template-columns: 1fr; } .cf-filter-row{ grid-template-columns: 1fr 1fr; } .cf-search{ grid-column: 1 / -1; } .cf-bulk{ top:120px; } }
 
   /* "Your month, planned" (v3.59.0) */
@@ -1137,15 +1156,15 @@
   .bp-head{ font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); text-align:right; }
   .bp-sec{ font-size:11px; font-weight:650; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); margin:10px 0 2px; }
   .bp-row{ font-size:13px; padding:5px 0; border-bottom:1px dashed var(--border); }
-  .bp-row span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .bp-row span{ overflow-wrap:anywhere; }
   .bp-row b, .bp-row em{ text-align:right; font-variant-numeric: tabular-nums; white-space:nowrap; }
   .bp-row b{ font-weight:600; }
-  .bp-row.in b{ color: var(--good); }
+  .bp-row.in b{ color: var(--good-ink); }
   .bp-row em{ font-style:normal; color: var(--ink-soft); }
-  .bp-row em.neg{ color: var(--bad); }
+  .bp-row em.neg{ color: var(--bad-ink); }
   .bp-total{ border-bottom:0; border-top:2px solid var(--ink); margin-top:4px; padding-top:8px; font-weight:700; }
-  .bp-total em{ color: var(--ink); font-size:15px; } .bp-total em.pos{ color: var(--good); }
-  #budgetPlanNet.neg{ color: var(--bad); }
+  .bp-total em{ color: var(--ink); font-size:15px; } .bp-total em.pos{ color: var(--good-ink); }
+  #budgetPlanNet.neg{ color: var(--bad-ink); }
   @media (max-width: 420px){ .bp-head, .bp-row{ grid-template-columns: minmax(0,1fr) 84px 84px; gap:6px; } }
 
   /* Settings → Import rules (v3.60.0) */
@@ -1183,7 +1202,7 @@
   .txg-new input, .txg-new select{ border-color: var(--border); background: var(--paper-raised); }
   .txg-ro td{ color: var(--ink-soft); }
   .txg-ro td.muted{ font-style:italic; }
-  .txg-in td.num{ color: var(--good); }
+  .txg-in td.num{ color: var(--good-ink); }
   @media (max-width:720px){ .tx-view-toggle{ display:none; } }
   /* v3.118.0: the report frame, charts and drill-down. */
   .rf-bar{ display:flex; gap:10px; flex-wrap:wrap; align-items:end; margin:10px 0; }
@@ -1262,11 +1281,13 @@
   .nw-head b{ font-family: var(--font-num); font-size:24px; }
   .nw-head div:first-child b{ font-size:30px; }
   .nw-est{ font-size:12.5px; color: var(--ink-soft); max-width:340px; }
-  .nw-bar{ display:flex; height:10px; border-radius:6px; overflow:hidden; margin:0 0 18px; background: var(--paper-sunken); }
+  .nw-bar{ display:flex; height:10px; border-radius:6px; overflow:hidden; margin:0 0 8px; background: var(--paper-sunken); }
+  .nw-legend{ list-style:none; display:flex; flex-wrap:wrap; gap:4px 16px; margin:0 0 18px; padding:0; font-size:12.5px; color: var(--ink-soft); }
+  .nw-legend b{ font-family: var(--font-num); font-weight:600; color: var(--ink); }
   .nw-bar span{ display:block; height:100%; background: var(--series-color); }
   .nw-group{ margin:0 0 16px; border:1px solid var(--border); border-radius:12px; background: var(--paper-raised); overflow:hidden; }
-  .nw-group h3{ display:flex; justify-content:space-between; margin:0; padding:10px 14px; font-size:13px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); border-bottom:1px solid var(--border); }
-  .nw-group h3 b{ font-family: var(--font-num); color: var(--ink); font-size:15px; letter-spacing:0; }
+  .nw-group h2{ display:flex; justify-content:space-between; margin:0; padding:10px 14px; font-size:13px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); border-bottom:1px solid var(--border); }
+  .nw-group h2 b{ font-family: var(--font-num); color: var(--ink); font-size:15px; letter-spacing:0; }
   .nw-dot{ display:inline-block; width:8px; height:8px; border-radius:50%; background: var(--series-color); margin-right:7px; vertical-align:1px; }
   .nw-group ul{ list-style:none; margin:0; padding:0; }
   .nw-group li{ display:flex; justify-content:space-between; align-items:center; gap:12px; padding:9px 14px; border-top:1px solid var(--border); }
@@ -1274,7 +1295,7 @@
   .nw-name{ display:flex; flex-direction:column; min-width:0; }
   .nw-name small{ font-size:12px; color: var(--ink-soft); }
   .nw-group li b{ font-family: var(--font-num); font-weight:600; white-space:nowrap; }
-  .nw-group li b.neg{ color: var(--bad); }
+  .nw-group li b.neg{ color: var(--bad-ink); }
   .rp-drill{ margin:10px 0; padding:8px 10px; border:1px solid var(--border); border-radius:10px; }
   .rp-drill-head{ display:flex; gap:8px; align-items:center; justify-content:space-between; font-size:13px; margin-bottom:6px; }
   .rp-table tr.compare td, .rp-table tr.compare th{ color: var(--ink-soft); font-style:italic; }
@@ -1315,13 +1336,13 @@
   .bc-list-date{ font-size:12px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
   .bc-list-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .bc-list-state{ font-size:11.5px; color: var(--ink-soft); }
-  .bc-list li.paid .bc-list-state{ color: var(--good); } .bc-list li.overdue .bc-list-state{ color: var(--bad); font-weight:600; }
+  .bc-list li.paid .bc-list-state{ color: var(--good-ink); } .bc-list li.overdue .bc-list-state{ color: var(--bad-ink); font-weight:600; }
   .bc-list b{ font-variant-numeric: tabular-nums; }
   .bc-undated{ margin-top:10px; font-size:12.5px; }
   .bc-undated summary{ cursor:pointer; color: var(--ink-soft); min-height:32px; }
   /* v3.83.0: card bills go out with the card payment; spending budgets aren't bills */
   .bc-bill.card-pay{ background: var(--ink); color: var(--paper); font-weight:600; }
-  .bc-bill.card-pay.paid{ background: var(--good); color: var(--paper); text-decoration:none; }
+  .bc-bill.card-pay.paid{ background: var(--good-ink); color: var(--paper); text-decoration:none; }
   .bc-bill.on-card{ background:none; border:1px dashed var(--border); color: var(--ink-soft); }
   .bc-bill.on-card.paid{ background:none; }
   .bc-dots i.card-pay{ background: var(--ink); border-radius:2px; }
@@ -1374,7 +1395,7 @@
   .sgl-name{ all:unset; cursor:pointer; font-weight:600; font-size:14px; min-height:32px; display:flex; align-items:center; }
   .sgl-name:focus-visible{ box-shadow: var(--focus-ring); border-radius:6px; }
   .sgl-status{ font-size:11px; font-weight:650; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
-  .sgl-status.ok{ color: var(--good); } .sgl-status.warn{ color:#b77800; }
+  .sgl-status.ok{ color: var(--good-ink); } .sgl-status.warn{ color:var(--warn-ink); }
   .sgl-amounts{ display:flex; gap:8px; align-items:baseline; flex-wrap:wrap; }
   .sgl-amounts b{ font-size:16px; font-variant-numeric: tabular-nums; }
   .sgl-amounts span{ font-size:12px; color: var(--ink-soft); }
@@ -1382,7 +1403,7 @@
   .sgl-bar i{ display:block; height:100%; background: var(--good); border-radius:4px; }
   .sgl-note{ margin:4px 0 0; font-size:12.5px; color: var(--ink-soft); line-height:1.45; }
   .sgl-cover{ margin:0 0 10px; font-size:13px; }
-  .sgl-cover.ok b{ color: var(--good); } .sgl-cover.warn{ color:#b77800; }
+  .sgl-cover.ok b{ color: var(--good-ink); } .sgl-cover.warn{ color:var(--warn-ink); }
   .sgl-edit{ display:grid; grid-template-columns: 2fr 1fr 1fr; gap:8px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
   .sgl-accts{ grid-column: 1 / -1; border:0; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:6px 14px; font-size:13px; }
   .sgl-accts legend{ font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); margin-bottom:4px; }
@@ -1399,7 +1420,7 @@
   .rc-main small{ font-size:12px; color: var(--ink-soft); }
   .rc-amt{ text-align:right; font-variant-numeric: tabular-nums; font-weight:600; display:flex; flex-direction:column; }
   .rc-amt small{ font-weight:400; font-size:11.5px; color: var(--ink-soft); }
-  .rc-amt.up{ color: var(--bad); }
+  .rc-amt.up{ color: var(--bad-ink); }
   .rc-actions{ display:flex; gap:6px; }
   @media (max-width: 560px){ .rc-row{ grid-template-columns: minmax(0,1fr) auto; } .rc-actions{ grid-column: 1 / -1; } }
   /* v3.95.0: the transactions behind a recurring row, collapsed */

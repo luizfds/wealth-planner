@@ -41,7 +41,7 @@
     background: var(--brass-wash); border-radius:100px; padding:2px 8px; flex:none;
   }
   .home-baseline-badge{
-    font-size:10px; text-transform:uppercase; letter-spacing:.04em; font-weight:700; color: var(--good);
+    font-size:10px; text-transform:uppercase; letter-spacing:.04em; font-weight:700; color: var(--good-ink);
     background: var(--good-wash); border-radius:100px; padding:2px 8px; flex:none;
   }
   .home-setactive-btn{
@@ -53,7 +53,7 @@
     font-size:10px; text-transform:uppercase; letter-spacing:.04em; font-weight:700;
     border-radius:100px; padding:2px 8px; flex:none;
   }
-  .gearing-badge.positive{ color: var(--good); background: var(--good-wash); }
+  .gearing-badge.positive{ color: var(--good-ink); background: var(--good-wash); }
   .gearing-badge.negative{ color: var(--brass-strong); background: var(--brass-wash); }
   .gearing-badge.neutral{ color: var(--ink-soft); background: var(--paper-sunken); }
 
@@ -76,8 +76,8 @@
      screenshot audit). Badges get their own row below instead, so they're free to wrap on their
      own without dragging the delete button around with them. */
   .property-card-head{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
-  .property-card-head h4{ margin:0; flex:1 1 auto; min-width:0; font-size:14px; font-weight:600; display:flex; align-items:center; gap:8px; }
-  .property-card-head h4 input, .property-card-head h4 select{ min-width:0; }
+  .property-card-head h3{ margin:0; flex:1 1 auto; min-width:0; font-size:14px; font-weight:600; display:flex; align-items:center; gap:8px; }
+  .property-card-head h3 input, .property-card-head h3 select{ min-width:0; }
   /* v3.107.0: reading first, fields on Edit details. Both are rendered; the card's class picks one. */
   .property-card:not(.is-editing) .prop-edit, .property-card.is-editing .prop-read{ display:none !important; }
   .prop-name{ font-size:16px; font-weight:650; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -117,7 +117,7 @@
      which is the only place it reads as a summary of the collapsed section rather than part of
      the heading. */
   .property-section-total{ margin-left:auto; font-family:var(--font-num); font-size:12px; font-variant-numeric: tabular-nums; color: var(--ink-soft); }
-  .property-section-total.is-warn{ color: var(--bad); font-weight:600; }
+  .property-section-total.is-warn{ color: var(--bad-ink); font-weight:600; }
   .property-card .calc-outputs{ background: var(--paper-sunken); }
   .prop-pmfee-panel{
     background: var(--paper-sunken); border:1px solid var(--border); border-radius:9px; padding:12px 14px; margin: 0 0 14px;
@@ -279,7 +279,7 @@
     .property-compare-name{ flex-basis:100%; }
   }
 
-  .home-block-total.short{ color: var(--bad); }
+  .home-block-total.short{ color: var(--bad-ink); }
   .prop-value-log{ display:flex; align-items:center; gap:8px; margin:4px 0 14px; }
   /* .calc-body is a flex column with its own gap:14px between every child — this is the one
      child (a <p>) that still had the browser's default paragraph margin, stacking an extra ~11px
@@ -346,14 +346,14 @@
 .fx-row{ display:grid; grid-template-columns: minmax(0,1fr) auto; gap:10px; align-items:center; padding:6px 0; border-bottom:1px dashed var(--border); font-size:13px; }
 .fx-row:last-child{ border-bottom:0; }
 .fx-main small{ display:block; color: var(--ink-soft); font-size:12.5px; margin-top:2px; }
-.fx-main .up{ color: var(--good); } .fx-main .down{ color: var(--bad); }
+.fx-main .up{ color: var(--good-ink); } .fx-main .down{ color: var(--bad-ink); }
 .fx-whatif{ display:flex; align-items:center; gap:6px; font-size:12px; color: var(--ink-soft); }
 .fx-whatif input{ width:80px; min-height:36px; padding:4px 6px; border:1px solid var(--border); border-radius:6px; background: var(--paper-raised); color: var(--ink); font: inherit; }
 .rentp-figs{ display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:8px; margin:6px 0 10px; }
 .rentp-figs > div{ display:flex; flex-direction:column; gap:1px; }
 .rentp-figs span, .cf-filter-l{ font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
 .rentp-figs b{ font-size:16px; }
-.rentp-figs b.up{ color: var(--good); } .rentp-figs b.down{ color: var(--bad); }
+.rentp-figs b.up{ color: var(--good-ink); } .rentp-figs b.down{ color: var(--bad-ink); }
 .rentp-figs small{ font-size:11.5px; color: var(--ink-soft); }
 .rentp-grid{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px; align-items:end; }
 .rentp-review{ display:flex; gap:6px; align-items:flex-end; }

@@ -733,12 +733,12 @@ function propertyCardHtml(p, colorIdx){
   if(capitalGain){
     allTiles.capitalgain = propertyStatTileHtml("capitalgain", "Capital gain",
       (capitalGain.gain >= 0 ? "+" : "") + fmtCurrency0.format(capitalGain.gain) + ' (' + (capitalGain.gain >= 0 ? "+" : "") + fmtPercent1.format(capitalGain.pct) + ')',
-      { title: capitalGainTitle(p, capitalGain), color: capitalGain.gain >= 0 ? "var(--good)" : "var(--bad)" });
+      { title: capitalGainTitle(p, capitalGain), color: capitalGain.gain >= 0 ? "var(--good-ink)" : "var(--bad-ink)" });
   }
   if(netCashFlowMonthly != null){
     allTiles.cashflow = propertyStatTileHtml("cashflow", "Net cash flow",
       (netCashFlowMonthly >= 0 ? "+" : "") + fmtCurrency0.format(netCashFlowMonthly) + '/mo',
-      { color: netCashFlowMonthly < 0 ? "var(--bad)" : "var(--good)" });
+      { color: netCashFlowMonthly < 0 ? "var(--bad-ink)" : "var(--good-ink)" });
   }
   // Third primary tile: whichever of "how this property is doing right now" is most relevant —
   // net cash flow for an IP (is it costing or earning money this month), capital gain for a PPOR
@@ -756,9 +756,9 @@ function propertyCardHtml(p, colorIdx){
   var editing = !!propertyEditing[p.id];
   return '<div class="property-card series-color-' + (colorIdx % 8) + (editing ? " is-editing" : "") + '" data-property-id="' + escapeAttr(p.id) + '" id="property-card-' + escapeAttr(p.id) + '">' +
     '<div class="property-card-head">' +
-      '<h4 class="prop-read"><span class="prop-name">' + (p.id ? detailLinkHtml("property", p.id, p.what || "Property") : escapeAttr(p.what || "Property")) + '</span><span class="prop-kind-pill">' + (p.kind === "IP" ? "Investment" : "Home") + '</span></h4>' +
-      '<h4 class="prop-edit"><input type="text" class="prop-what" value="' + escapeAttr(p.what) + '" aria-label="Property name">' +
-      '<select class="prop-kind" aria-label="Property kind">' + optionsHtml(["IP", "PPOR"], p.kind) + '</select></h4>' +
+      '<h3 class="prop-read"><span class="prop-name">' + (p.id ? detailLinkHtml("property", p.id, p.what || "Property") : escapeAttr(p.what || "Property")) + '</span><span class="prop-kind-pill">' + (p.kind === "IP" ? "Investment" : "Home") + '</span></h3>' +
+      '<h3 class="prop-edit"><input type="text" class="prop-what" value="' + escapeAttr(p.what) + '" aria-label="Property name">' +
+      '<select class="prop-kind" aria-label="Property kind">' + optionsHtml(["IP", "PPOR"], p.kind) + '</select></h3>' +
       '<button type="button" class="btn btn-ghost btn-sm row-del property-del-btn" data-property-del="' + escapeAttr(p.id) + '" aria-label="Delete property">✕</button>' +
     '</div>' +
     (lvrBadge || gearingBadge || yieldBadge ? '<div class="property-card-badges">' + lvrBadge + gearingBadge + yieldBadge + '</div>' : '') +
@@ -890,7 +890,7 @@ export function renderPropertiesSummary(){
         '<div class="stat-tile"><span>Total value</span><b>' + fmtCurrency0.format(propertiesTotalValue()) + '</b><small>across ' + state.properties.length + ' propert' + (state.properties.length === 1 ? "y" : "ies") + '</small></div>' +
         '<div class="stat-tile" title="Value minus what\'s owed after the offset — matches each card\'s own Net equity tile, summed across the portfolio"><span>Total equity</span><b>' + fmtCurrency0.format(propertiesTotalEquityToday()) + '</b><small>' + (propertiesOffsetTotal() > 0 ? "incl. " + fmtCurrency0.format(propertiesOffsetTotal()) + " in offset" : "value less loans") + '</small></div>' +
         '<div class="stat-tile"><span>Total mortgage</span><b>' + fmtCurrency0.format(propertiesTotalMortgageBalance()) + '</b><small>across every loan</small></div>' +
-        '<div class="stat-tile" title="Rent minus expenses and loan repayments, across every investment property"><span>Net cash flow</span><b style="color:' + (netCashFlow < 0 ? "var(--bad)" : "var(--good)") + '">' + (netCashFlow >= 0 ? "+" : "") + fmtCurrency0.format(netCashFlow) + '/mo</b><small>investment properties</small></div>' +
+        '<div class="stat-tile" title="Rent minus expenses and loan repayments, across every investment property"><span>Net cash flow</span><b style="color:' + (netCashFlow < 0 ? "var(--bad-ink)" : "var(--good-ink)") + '">' + (netCashFlow >= 0 ? "+" : "") + fmtCurrency0.format(netCashFlow) + '/mo</b><small>investment properties</small></div>' +
         '<div class="stat-tile" title="Annual rent ÷ value, weighted by each investment property\'s own value"><span>Avg gross yield</span><b>' + (weightedYield != null ? fmtPercent1.format(weightedYield) : "—") + '</b><small>investment properties</small></div>';
     }
   }
@@ -995,7 +995,7 @@ export function patchPropertyCardComputed(property){
   setOut("usableequity", fmtCurrency0.format(Math.max(0, (Number(property.value) || 0) * 0.8 - mortgageBalance)));
   if(property.kind === "IP"){
     var netCashFlowMonthly = propertyGearingAnnual(property) / 12;
-    setOut("cashflow", (netCashFlowMonthly >= 0 ? "+" : "") + fmtCurrency0.format(netCashFlowMonthly), netCashFlowMonthly < 0 ? "var(--bad)" : "var(--good)");
+    setOut("cashflow", (netCashFlowMonthly >= 0 ? "+" : "") + fmtCurrency0.format(netCashFlowMonthly), netCashFlowMonthly < 0 ? "var(--bad-ink)" : "var(--good-ink)");
   }
   (property.loans || []).forEach(function(loan, li){
     var row = card.querySelector('[data-loan-index="' + li + '"]');
@@ -1048,7 +1048,7 @@ export function patchPropertyCardComputed(property){
     var capitalGain = propertyCapitalGain(property);
     if(capitalGain){
       capitalGainOut.textContent = (capitalGain.gain >= 0 ? "+" : "") + fmtCurrency0.format(capitalGain.gain) + " (" + (capitalGain.gain >= 0 ? "+" : "") + fmtPercent1.format(capitalGain.pct) + ")";
-      capitalGainOut.style.color = capitalGain.gain >= 0 ? "var(--good)" : "var(--bad)";
+      capitalGainOut.style.color = capitalGain.gain >= 0 ? "var(--good-ink)" : "var(--bad-ink)";
       var capitalGainTile = capitalGainOut.closest(".calc-out");
       if(capitalGainTile) capitalGainTile.title = capitalGainTitle(property, capitalGain);
     }

@@ -36,10 +36,11 @@ export function decorateHelp(root){
     if(el.classList.contains("page-intro")) return;
     var host = hostFor(el);
     if(host){
-      var summary = host.querySelector(":scope > summary");
-      if(summary.querySelector(":scope [data-help-toggle]")) return;
-      var title = summary.querySelector(".ledger-title") || summary;
-      title.insertAdjacentHTML("beforeend", buttonHtml());
+      // v3.139.0: beside the <summary>, not inside it — a button inside the header's own toggle is
+      // one control inside another, announced as one. CSS (base.css) draws it back beside the title.
+      // It shows while the section is open, which is when there's anything for it to explain.
+      if(host.querySelector(":scope > [data-help-toggle]")) return;
+      host.querySelector(":scope > summary").insertAdjacentHTML("afterend", buttonHtml());
       return;
     }
     var prev = el.previousElementSibling;
@@ -116,15 +117,13 @@ export function initHelp(){
     }
     var btn = e.target.closest("[data-help-toggle]");
     if(!btn) return;
-    // Inside a <summary>, a click would also open/close the section; the ⓘ only reveals its text.
     e.preventDefault();
     e.stopPropagation();
     var open = btn.getAttribute("aria-expanded") !== "true";
     btn.setAttribute("aria-expanded", String(open));
-    var details = btn.closest("details");
-    if(details && btn.closest("summary")){
+    var details = btn.parentElement && btn.parentElement.tagName === "DETAILS" ? btn.parentElement : null;
+    if(details){
       details.classList.toggle("help-open", open);
-      if(open) details.open = true;
     } else {
       btn.classList.toggle("help-open", open);
     }

@@ -64,7 +64,7 @@ async function yahoo(t){
     let json = null; try { json = await r.json(); } catch(e){}
     const got = parseYahooChart(json);
     const why = json && json.chart && json.chart.error && json.chart.error.description;
-    if(!got) throw new Error("HTTP " + r.status + (why ? ": " + String(why).slice(0, 120) : ""));
+    if(!got) throw new Error(r.ok && !why ? "no closes in Yahoo's answer" : "HTTP " + r.status + (why ? ": " + String(why).slice(0, 120) : ""));
     return got;
   } finally { await sleep(700); }
 }

@@ -217,10 +217,13 @@ export function renderHomeBody(){
     var isCollapsed = !!homeBlockCollapsed[scenario];
     var total = sumField(state.home[scenario], "monthly");
     return '<div class="home-block' + (isActive ? " is-active" : "") + (isCollapsed ? " is-collapsed" : "") + '">' +
-      '<div class="home-block-head" data-collapse-toggle="' + escapeAttr(scenario) + '" role="button" tabindex="0" aria-expanded="' + (!isCollapsed) + '" aria-label="' + (isCollapsed ? "Expand" : "Collapse") + ' ' + escapeAttr(scenario) + '">' +
+      // v3.139.0: the whole header still opens and closes the card with a click, but the control a
+      // keyboard and a screen reader reach is the caret — the header itself holds Set active, Rename,
+      // Clone and Delete, and a button can't hold buttons.
+      '<div class="home-block-head" data-collapse-toggle="' + escapeAttr(scenario) + '">' +
         '<div class="home-block-head-left">' +
-          '<span class="icon-btn home-collapse-toggle" aria-hidden="true"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg></span>' +
-          '<span class="home-dot"></span><h4>' + escapeAttr(scenario) + '</h4>' +
+          '<button type="button" class="icon-btn home-collapse-toggle" aria-expanded="' + (!isCollapsed) + '" aria-label="' + (isCollapsed ? "Expand" : "Collapse") + ' ' + escapeAttr(scenario) + '"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg></button>' +
+          '<span class="home-dot"></span><h3>' + escapeAttr(scenario) + '</h3>' +
           (isBaseline ? '<span class="home-baseline-badge" title="Your current, real-life situation — kept as the fixed baseline every other scenario is compared against">Current situation</span>' : "") +
           (showActiveBadge
             ? '<span class="home-active-badge" title="This is the scenario shown on Home and compared against the others">Active on Home</span>'

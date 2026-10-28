@@ -189,8 +189,9 @@
   button:focus-visible, summary:focus-visible, [tabindex]:focus-visible{
     outline:none; box-shadow: var(--focus-ring);
   }
-  .btn-primary{ background: var(--brass); border-color: var(--brass); color: #ffffff; }
-  .btn-primary:hover{ background: var(--brass-strong); border-color: var(--brass-strong); }
+  /* v3.139.0: a shade deeper than --brass, so white text on it passes 4.5:1 in both themes. */
+  .btn-primary{ background: #2563eb; border-color: #2563eb; color: #ffffff; }
+  .btn-primary:hover{ background: #1d4ed8; border-color: #1d4ed8; }
   .btn-ghost{ background: transparent; border-color: transparent; color: var(--ink-soft); padding:7px 8px; }
   .btn-ghost:hover{ color: var(--bad-ink); }
   /* Small only in its type and padding — a "small" button is still something you tap on purpose,
@@ -348,6 +349,19 @@ body:not(.help-hidden) .help-btn{ display:none; }
 .help-btn:hover, .help-btn[aria-expanded="true"]{ color: var(--brass-strong); background: var(--brass-wash); }
 .help-btn:focus-visible{ box-shadow: var(--focus-ring); }
 .help-btn-inline{ display:inline-flex; margin:0 0 6px -4px; }
+/* v3.139.0: a section's ⓘ is the <details>' own child, after its <summary>. Where anchor
+   positioning works it sits beside the section's title, as it did inside the summary; elsewhere at
+   the header's right edge, with the header making room. */
+details:has(> .help-btn){ position:relative; }
+details > .help-btn{ position:absolute; top:12px; right:12px; }
+details:has(> .help-btn) > summary{ padding-right:52px; }
+@supports (anchor-name: --a) and (anchor-scope: --a){
+  details.ledger:has(> .help-btn){ anchor-scope: --help-title; }
+  details.ledger:has(> .help-btn) > summary .ledger-title{ anchor-name: --help-title; }
+  details.ledger > .help-btn{ position-anchor: --help-title; top: anchor(center); right:auto; left: anchor(right); translate: 0 -50%; margin-left:2px; }
+  details.ledger:has(> .help-btn) > summary{ padding-right:20px; }
+  details.ledger:has(> .help-btn) > summary .ledger-title{ margin-right:32px; }
+}
 body.help-hidden .help-btn-inline{ display:flex; }
 /* v3.138.0: the page's ⓘ sits beside its title and shows the intro of whatever's on screen. */
 body.help-hidden .page-intro.help.help-open{ display:block; }

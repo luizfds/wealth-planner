@@ -3,7 +3,7 @@ import { ASSET_CATEGORIES, LIQUID_CATEGORIES, SHARE_MARKETS, MARKET_CURRENCY } f
 import { propertiesOffsetTotal, propertiesIlliquidEquityToday, recalcPurchase, loanBalance } from "../calc/property.js";
 import { totalAssetsValue, totalNetWorthValue, totalDebtsValue, liquidAssetsValue, toAudAmount } from "../calc/engine.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, fmtCurrency0For, fmtCurrency2For, localDateStr, fmtDate, fmtQtyDisplay } from "../lib/format.js";
-import { escapeAttr } from "../lib/html.js";
+import { escapeAttr, segLabel } from "../lib/html.js";
 import { detailLinkHtml } from "./detail.js";
 // v3.128.0: a holding's name opens its own page.
 function nameLink(item){ return item.id ? detailLinkHtml("asset", item.id, item.what || "Holding") : escapeAttr(item.what); }
@@ -1253,7 +1253,7 @@ export function todaysMixHtml(buckets, today){
     return '<div class="rule-seg ' + r.colorClass + '" style="width:' + (share * 100) + '%" title="' +
       escapeAttr(r.key) + ' ' + fmtCurrency0.format(r.y) + ' — ' + fmtPercent1.format(share) + ' of what you own">' +
       // Only label a slice wide enough to hold the text; the legend below carries the rest.
-      (share >= 0.14 ? fmtPercent1.format(share) : "") + '</div>';
+      (share >= 0.14 ? segLabel(fmtPercent1.format(share)) : "") + '</div>';
   }).join("");
   var legend = rows.map(function(r){
     return '<div class="rule-legend-item"><span class="rule-swatch ' + r.colorClass + '"></span>' +

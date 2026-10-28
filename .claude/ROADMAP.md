@@ -3082,6 +3082,13 @@ person's hours a week (Tax → People, 38 until set; calc/showas.js). Not done: 
 still interactive-inside-interactive (axe "nested-interactive"); moving them out of the summary is its own change.
 
 
+## 169. `[~]` Loose ends from the polish pass
+- The ten ASX tickers Yahoo no longer knows (taken over, merged or renamed) out of the price list, renamed ones
+  under their new codes.
+- The ⓘ in a section's header out of its `<summary>` — a button inside the header's own toggle is one control
+  inside another, which screen readers announce as one.
+- The percentage labels inside coloured chart bars readable on every colour.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

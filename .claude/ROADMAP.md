@@ -3192,7 +3192,7 @@ check), and moves to `Statements/Imported` once confirmed. Cancelling leaves it 
 the card says where to drop one.
 
 
-## 182. `[ ]` Merge, not choose, when two devices both changed
+## 182. `[~]` Merge, not choose, when two devices both changed
 When two devices both edited since they last synced, the app made you keep one copy. Combine what doesn't
 overlap — rows added, removed or changed on one side only — and ask only about a row changed on both.
 

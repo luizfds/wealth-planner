@@ -132,7 +132,7 @@ import { exportTableCsv } from "./lib/backup.js";
 import { yearEndPrintHtml, yearEndDocumentsCsv } from "./components/yearend.js";
 import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodButton, renderPeriodMenu } from "./components/period.js";
 import { selectedYearWindow, yearStartOf, householdYearBasis } from "./calc/ledger.js";
-import { showPage, parseRouteFromLocation, closeNavMenu, closeMobileMore, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, taxSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
+import { showPage, parseRouteFromLocation, closeNavMenu, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, taxSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
 import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./components/search.js";
 import {
   startBankImport, reparseBankImportWith, clearBankImport,
@@ -209,7 +209,17 @@ import {
   }
 
 
+  // v3.140.0: the avatar is the household's first person's initial (a dot until there is one), and its
+  // menu says whether backup & sync is on.
+  function updateAvatar(){
+    var first = getTaxPeople()[0] || "";
+    var el = document.getElementById("avatarInitial");
+    if(el) el.textContent = first ? first.trim().charAt(0).toUpperCase() : "·";
+    var sync = document.getElementById("avatarSyncState");
+    if(sync) sync.textContent = syncOn() ? "on" : "off";
+  }
   function renderTotals(){
+    updateAvatar();
     // v3.138.0: in the period Income is shown in (Show as).
     var incTotal = incomeHeaderTotal(sumField(effectiveIncomeItems(), "monthly"));
     document.getElementById("totalIncomeMonthly").textContent = incTotal.value;
@@ -2966,7 +2976,6 @@ import {
     pushActiveOverlay(closeSearch);
   }
   document.getElementById("searchBtn").addEventListener("click", openSearchOverlay);
-  document.getElementById("mobileSearchBtn").addEventListener("click", openSearchOverlay);
   document.getElementById("searchRoot").addEventListener("click", function(e){
     if(e.target.closest("[data-search-close]") || e.target === e.target.closest("[data-search-backdrop]")){
       requestCloseActiveOverlay();
@@ -4130,7 +4139,6 @@ import {
   // else (most desktop browsers, notably) it stays hidden and Export remains the only path.
   if(canShareFiles()){
     document.getElementById("shareBtn").hidden = false;
-    document.getElementById("mobileShareBtn").hidden = false;
   }
   document.getElementById("shareBtn").addEventListener("click", doShare);
 
@@ -4274,7 +4282,6 @@ import {
     var mode = getThemePref();
     var label = mode === "light" ? "Theme: Light" : mode === "dark" ? "Theme: Dark" : "Theme: System";
     document.getElementById("themeToggleBtn").textContent = label;
-    document.getElementById("mobileThemeBtn").textContent = label;
   }
   document.getElementById("themeToggleBtn").addEventListener("click", function(){
     var current = getThemePref();
@@ -4306,23 +4313,12 @@ import {
   document.addEventListener("click", closeNavMenu);
   document.addEventListener("keydown", function(e){ if(e.key === "Escape") closeNavMenu(); });
 
-  // Mobile bottom tab bar — the primary nav on a mobile viewport (<880px), replacing the old
-  // dropdown above. Five pages are one tap away; Scenarios/Projections live behind "More"
-  // since they're occasional "what-if" pages rather than day-to-day data entry.
-  var mobileTabMore = document.getElementById("mobileTabMore");
-  var mobileMorePanel = document.getElementById("mobileMorePanel");
+  // Mobile bottom tab bar — the primary nav on a mobile viewport (<880px). v3.140.0: Home, Cash flow,
+  // Net worth, Tax and Plan; Reports and Settings are in the avatar's menu.
   document.getElementById("mobileTabbar").addEventListener("click", function(e){
-    var pageBtn = e.target.closest(".mobile-tab[data-page], .mobile-more-item[data-page]");
-    if(pageBtn){ showPage(pageBtn.getAttribute("data-page")); return; }
-    if(e.target.closest("#mobileTabMore")){
-      e.stopPropagation();
-      var willOpen = mobileMorePanel.hidden;
-      mobileMorePanel.hidden = !willOpen;
-      mobileTabMore.setAttribute("aria-expanded", String(willOpen));
-    }
+    var pageBtn = e.target.closest(".mobile-tab[data-page]");
+    if(pageBtn) showPage(pageBtn.getAttribute("data-page"));
   });
-  document.addEventListener("click", closeMobileMore);
-  document.addEventListener("keydown", function(e){ if(e.key === "Escape") closeMobileMore(); });
 
   // Quick-action button — one button, present on every page, retargeted per page/subpage by
   // nav.js's updateQuickFab() (data-fab-mode/data-fab-selector). "networth" is the one mode with
@@ -4398,27 +4394,22 @@ import {
     if(document.querySelector("[data-qfab-backdrop]")) requestCloseActiveOverlay();
   });
 
-  // Mirrors the sidebar footer's version text into the mobile "More" panel, which is the only
-  // place a mobile viewport (<880px, where .app-version is hidden) can see it.
-  document.getElementById("mobileMoreVersion").textContent = document.querySelector(".app-version-num").textContent;
-
-  // The utility actions (Theme/Import/Export/Sample data/Reset) live in .actions on desktop,
-  // hidden on mobile in favor of the bottom tab bar — these forward to the same real buttons
-  // rather than duplicating their logic, so behavior (confirms, dialogs, label state) matches
-  // exactly with nothing to keep in sync beyond the label mirrors above.
-  [
-    ["mobileThemeBtn", "themeToggleBtn"],
-    ["mobileShareBtn", "shareBtn"],
-    ["mobileImportBtn", "importBtn"],
-    ["mobileExportBtn", "exportBtn"],
-    ["mobileCheckUpdatesBtn", "checkUpdatesLink"],
-    ["mobileSampleDataBtn", "mockDataBtn"],
-    ["mobileResetBtn", "resetBtn"]
-  ].forEach(function(pair){
-    document.getElementById(pair[0]).addEventListener("click", function(){
-      closeMobileMore();
-      document.getElementById(pair[1]).click();
-    });
+  // v3.140.0: the avatar menu — the version, its links into the app, and the dot that says a save failed.
+  // On a phone the page title is the header: large at the top, slim once you scroll.
+  var topbar = document.querySelector(".app-topbar"), compact = false;
+  window.addEventListener("scroll", function(){
+    var c = window.scrollY > 24;
+    if(c !== compact){ compact = c; topbar.classList.toggle("is-compact", c); }
+  }, { passive: true });
+  document.getElementById("avatarVersion").textContent = document.querySelector(".app-version-num").textContent;
+  document.querySelector(".avatar-menu").addEventListener("click", function(e){
+    var go = e.target.closest("[data-avatar-go]");
+    if(!go) return;
+    var where = go.getAttribute("data-avatar-go");
+    closeAllOverflowMenus(null);
+    if(where === "updates"){ document.getElementById("checkUpdatesLink").click(); return; }
+    if(where === "backup"){ showPage("settings"); showAccountsSubpage("preferences"); return; }
+    showPage(where);
   });
 
   // The FIRE panel's two age inputs. Delegated from #firePanel rather than bound by id, because

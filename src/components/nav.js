@@ -140,7 +140,6 @@ export function parseRouteFromLocation(){
 // bar that rearranges itself by the calendar costs more than the one tap it saves.
 // v3.57.0: the bar is the four everyday jobs — Home, Cash flow, Accounts, Investments — and the
 // rest (Property, Tax, Plan, Settings) sit behind More.
-var MOBILE_MORE_PAGES = ["tax", "reports", "settings"];
 // v3.129.0: the pages under Net worth — its nav entry and tab stay lit on each of them.
 var NETWORTH_GROUP = ["networth", "accounts", "assets", "properties"];
 
@@ -311,8 +310,6 @@ export function showPage(id, opts){
       });
     });
     document.querySelectorAll(".nw-rail-item").forEach(function(b){ b.classList.toggle("active", b.getAttribute("data-page") === id); });
-    var moreTab = document.getElementById("mobileTabMore");
-    if(moreTab) moreTab.classList.toggle("active", MOBILE_MORE_PAGES.indexOf(id) !== -1);
     var page = PAGES.find(function(p){ return p.id === id; });
     // v3.138.0: styles can tell which page is showing (Home hides the header's net worth pill — its
     // first card says the same thing a few pixels below).
@@ -338,7 +335,6 @@ export function showPage(id, opts){
     updateQuickFab(id);
     if(!opts.skipScroll) window.scrollTo(0, 0);
     if(!opts.skipUrl) syncUrl(id, !!opts.replace);
-    closeMobileMore();
   }
 
   // A plain hidden-toggle instant swap is the single biggest "this is a website, not an app" tell
@@ -480,7 +476,4 @@ export function closeNavMenu(){
   document.getElementById("navMenuToggle").setAttribute("aria-expanded", "false");
 }
 
-export function closeMobileMore(){
-  document.getElementById("mobileMorePanel").hidden = true;
-  document.getElementById("mobileTabMore").setAttribute("aria-expanded", "false");
-}
+

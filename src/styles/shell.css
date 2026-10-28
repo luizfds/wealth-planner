@@ -423,3 +423,38 @@ body[data-current-page="dashboard"] .global-metrics{ display:none; }
   .status-chip #statusText{ display:none; }
   .status-chip{ padding-left:8px; padding-right:8px; }
 }
+
+/* ---------------- The avatar menu (v3.140.0) ----------------
+   Reports, Settings, your data, theme and the version, on every screen size — in place of the ⋯. */
+.avatar-btn{
+  all:unset; box-sizing:border-box; position:relative; display:inline-flex; align-items:center; justify-content:center;
+  width:34px; height:34px; border-radius:50%; cursor:pointer; flex:none;
+  background: var(--brass-wash); color: var(--brass-strong); font-weight:700; font-size:14px;
+}
+.avatar-btn:hover, .avatar-btn[aria-expanded="true"]{ box-shadow: 0 0 0 2px var(--brass); }
+.avatar-btn:focus-visible{ box-shadow: var(--focus-ring); }
+.avatar-dot{ position:absolute; top:-1px; right:-1px; width:10px; height:10px; border-radius:50%; background: var(--bad); border:2px solid var(--paper); box-sizing:border-box; }
+.avatar-dot[hidden]{ display:none; }
+.avatar-menu{ min-width:230px; top:42px; right:0; }
+.avatar-menu .btn, .avatar-menu .avatar-item{ justify-content:flex-start; text-align:left; width:100%; }
+.avatar-item small{ margin-left:auto; color: var(--ink-soft); font-weight:400; }
+.avatar-divider{ height:1px; background: var(--border); margin:4px 2px; }
+.avatar-version{ font: 11px var(--font-num); color: var(--ink-soft); margin:2px 8px 4px; }
+
+/* ---------------- A phone's header (v3.140.0) ----------------
+   No brand bar: the page title is the header, with search, notifications and the avatar beside it.
+   It shrinks to a slim bar once the page scrolls. The net worth pill and the saved chip stay off a
+   phone — Home says net worth, and the avatar's dot says when a save failed. */
+@media (max-width: 880px){
+  .app-sidebar{ display:none; }
+  .app-topbar{ padding: calc(12px + env(safe-area-inset-top)) 16px 10px; align-items:flex-start; flex-wrap:nowrap; gap:10px; transition: padding .15s ease; }
+  .app-topbar-left{ flex:1 1 0; min-width:0; gap:4px 6px; }
+  .app-topbar h1{ font-size:26px; letter-spacing:-0.02em; transition: font-size .15s ease; }
+  .app-topbar .period-wrap{ flex-basis:100%; }
+  .app-topbar .actions{ display:flex; flex:none; flex-wrap:nowrap; gap:4px; }
+  .app-topbar #statusChip, .app-topbar .global-metrics{ display:none; }
+  .app-topbar.is-compact{ padding-top: calc(8px + env(safe-area-inset-top)); padding-bottom:8px; align-items:center; }
+  .app-topbar.is-compact h1{ font-size:18px; }
+  .app-topbar.is-compact .period-wrap, .app-topbar.is-compact .page-help-btn, .app-topbar.is-compact .page-actions-slot{ display:none; }
+}
+.avatar-menu a.avatar-item{ text-decoration:none; color: var(--ink); }

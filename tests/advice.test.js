@@ -43,6 +43,10 @@ test("the rules read the household: a purchase under strain, borrowed deposit mo
     assert.ok(room.impactYearly > 0 && /carry-forward/.test(room.detail));
     var payg = a.find(function(x){ return x.id === "payg:Alex"; });
     assert.match(payg.detail, /more a month in the pay/);
+    assert.deepEqual(payg.go, { page: "tax", sub: "people" }, "to the tick that says it's done");
+    state.tax.settings = Object.assign({}, state.tax.settings, { Alex: Object.assign({}, (state.tax.settings || {}).Alex, { withholdingVariation: true }) });
+    assert.ok(!adviceFor({ today: "2026-10-20" }).some(function(x){ return x.id === "payg:Alex"; }), "once arranged, not suggested");
+    delete state.tax.settings.Alex.withholdingVariation;
     var off = a.find(function(x){ return x.id === "offset-move"; });
     assert.ok(off.impactYearly > 0, "a home loan's offset is worth more than a deductible loan's");
     var html = adviceHomeHtml(a);

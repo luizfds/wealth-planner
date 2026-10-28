@@ -121,11 +121,14 @@ export function adviceFor(opts){
   people.forEach(function(n){
     var ip = personIpResultAnnual(n, people);
     if(!(ip < 0) || !rates[n]) return;
+    // v3.148.0: already arranged (Tax → People's tick) — nothing to suggest.
+    var st = state.tax && state.tax.settings && state.tax.settings[n];
+    if(st && st.withholdingVariation) return;
     var refund = -ip * rates[n];
     if(refund < 1200) return;
     add({ id: "payg:" + n, area: "tax", kind: "opportunity", title: n + ": get the rental's tax benefit in each pay",
-      detail: "The rental's loss of " + money(ip) + " a year on " + n + "'s share comes back at tax time — about " + money(refund) + " in a refund. A PAYG withholding variation (an ATO form) lets the employer withhold less instead: about " + money(refund / 12) + " more a month in the pay, the same tax overall.",
-      impactYearly: null, go: { page: "tax" } });
+      detail: "The rental's loss of " + money(ip) + " a year on " + n + "'s share comes back at tax time — about " + money(refund) + " in a refund. A PAYG withholding variation (an ATO form) lets the employer withhold less instead: about " + money(refund / 12) + " more a month in the pay, the same tax overall. Once it's in place, tick “Pay already allows for the rental’s loss” for " + n + " in Tax → People and the plan's monthly take-home follows.",
+      impactYearly: null, go: { page: "tax", sub: "people" } });
   });
 
   // ---- Super: concessional room ----

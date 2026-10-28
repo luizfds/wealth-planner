@@ -353,7 +353,7 @@ export function recalcComputedItems(){
 
   var people = getTaxPeople();
   state.income = state.income.filter(function(i){ return !(i.syntheticNetFor && people.indexOf(i.syntheticNetFor) === -1); });
-  var liveOneOffs = {}, liveRefunds = {};
+  var liveOneOffs = {}, liveRefunds = {}, liveEnding = {};
   people.forEach(function(person){
     // v3.80.0: regular take-home only; each bonus gets its own yearly row below.
     // v3.145.0: and a rental's tax saving split out as the refund it arrives in (personTakeHomeParts).
@@ -362,7 +362,8 @@ export function recalcComputedItems(){
     var monthly = split.regularMonthly;
     var existing = state.income.find(function(i){ return i.syntheticNetFor === person; });
     var note = "auto: " + person + "'s regular take-home after tax & super, as a payslip pays it" +
-      (split.oneOffs.length || split.refund ? " — " + (split.oneOffs.length ? "bonuses" : "") + (split.oneOffs.length && split.refund ? " and " : "") + (split.refund ? "the rental's tax refund" : "") + " counted separately, in their month" : "") +
+      (function(){ var bits = [].concat(split.oneOffs.length ? ["bonuses"] : [], split.ending.length ? ["pay that ends this year"] : [], split.refund ? ["the rental's tax refund"] : []);
+        return bits.length ? " — " + bits.join(", ").replace(/, ([^,]*)$/, " and $1") + " counted separately" : ""; })() +
       (adj ? " — set to what actually lands, " + (adj < 0 ? "−" : "+") + "$" + Math.round(Math.abs(adj)).toLocaleString("en-AU") + "/mo against the tax estimate" : "");
     if(existing){
       existing.amount = monthly;
@@ -387,6 +388,17 @@ export function recalcComputedItems(){
       if(row) Object.assign(row, fields);
       else state.income.push(Object.assign({ syntheticOneOffFor: id, classification: "" }, fields));
     });
+    // v3.148.0: pay that stops within the year, after tax, as its own row that ends when it does.
+    split.ending.forEach(function(e){
+      var id = e.row.id;
+      if(!id) return;
+      liveEnding[id] = true;
+      var er = state.income.find(function(i){ return i.syntheticEndingFor === id; });
+      var ef = { what: (e.row.what || "Pay") + " — after tax", amount: e.monthly, freq: "Monthly", endDate: e.endDate, computed: true, incomeType: "Net", person: person, account: e.row.account || "",
+        computedNote: "auto: " + (e.row.what || "this pay") + " after tax, at " + person + "'s top rate — paid until " + fmtDate(e.endDate) + ", then gone" };
+      if(er) Object.assign(er, ef);
+      else state.income.push(Object.assign({ syntheticEndingFor: id, classification: "" }, ef));
+    });
     // v3.145.0: the rental's tax saving, once a year when the refund lands.
     if(split.refund){
       liveRefunds[person] = true;
@@ -400,6 +412,7 @@ export function recalcComputedItems(){
   });
   state.income = state.income.filter(function(i){ return !i.syntheticOneOffFor || liveOneOffs[i.syntheticOneOffFor]; });
   state.income = state.income.filter(function(i){ return !i.syntheticRefundFor || liveRefunds[i.syntheticRefundFor]; });
+  state.income = state.income.filter(function(i){ return !i.syntheticEndingFor || liveEnding[i.syntheticEndingFor]; });
 
   var ipPropertyIds = state.properties.filter(function(p){ return p.kind === "IP"; }).map(function(p){ return p.id; });
   state.income = state.income.filter(function(i){ return !(i.syntheticRentForProperty && ipPropertyIds.indexOf(i.syntheticRentForProperty) === -1); });

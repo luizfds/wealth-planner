@@ -103,6 +103,7 @@ import { unbudgetedRecurring, risingLines, catchAllSuggestions } from "./calc/re
 import { learnRule, mergeSimilarRules } from "./calc/import-rules.js";
 import { pdfLines } from "./lib/pdftext.js";
 import { parsePayslip, payFrequency } from "./calc/payslip.js";
+import { payslipCheck } from "./calc/payslipcheck.js";
 import { renderAdvice, adviceUi } from "./components/advice.js";
 import { renderTrim, trimUi, trimScenario } from "./components/trim.js";
 import { proposeBudget, applyBudgetProposals } from "./calc/budgetfromhistory.js";
@@ -3614,6 +3615,17 @@ import { inboxMessage } from "./calc/inbox.js";
       showToast("Year-to-date figures set from the payslip");
       return;
     }
+    // v3.148.0: the pay itself, logged as take-home received.
+    var lg = e.target.closest("[data-slip-log]");
+    if(lg){
+      var p3 = lg.getAttribute("data-slip-log"), r3 = payslipRead[p3], chk = r3 && payslipCheck(p3, r3);
+      if(!chk || !chk.loggable) return;
+      var srow = salaryRowFor(p3);
+      var rec = logIncomeReceived({ target: "net:" + p3, amount: chk.loggable.amount, date: chk.loggable.date, what: "Pay (from payslip)", account: srow ? srow.account || "" : "" });
+      persist(); renderAll(); redrawPayslipPanel(p3);
+      if(rec) showUndoToast("Pay logged as received", function(){ deleteIncomeReceived(rec.id); persist(); renderAll(); redrawPayslipPanel(p3); });
+      return;
+    }
     var sal = e.target.closest("[data-slip-salary]");
     if(sal){
       var p2 = sal.getAttribute("data-slip-salary"), r2 = payslipRead[p2], row = salaryRowFor(p2), freq = payFrequency(r2 || {});
@@ -4012,6 +4024,8 @@ import { inboxMessage } from "./calc/inbox.js";
       showToast("Reading the PDF…");
       file.arrayBuffer().then(function(buf){ return pdfLines(new Uint8Array(buf)); }).then(function(lines){
         var st = statementFromLines(lines);
+        // v3.148.0: a payslip, not a statement — to the payslip check instead.
+        if(openAsPayslip(lines, st, fromInbox)) return;
         if(!st.rows.length){ showToast("Couldn't find transactions in that PDF — a CSV export from your bank will work"); return; }
         startBankImport(statementCsv(st.rows), file.name);
         renderBankImportPanel();
@@ -4032,6 +4046,36 @@ import { inboxMessage } from "./calc/inbox.js";
     };
     reader.onerror = function(){ showToast("Couldn't read that file"); };
     reader.readAsText(file);
+  }
+  // v3.148.0: a payslip chosen or dropped in Statements reads as one (gross, net, and tax or super,
+  // and next to no statement rows) — it opens on that person's tax card (Tax → This year), checked
+  // against the plan.
+  // Whose: the person it names, else the one whose pay is nearest its gross.
+  function openAsPayslip(lines, st, fromInbox){
+    var text = lines.map(function(l){ return l.cells.map(function(c){ return c.s; }).join("   "); });
+    var slip = parsePayslip(text);
+    if(!(slip.gross > 0 && slip.net > 0 && (slip.tax != null || slip.super != null)) || st.rows.length > 2) return false;
+    var people = getTaxPeople();
+    if(!people.length) return false;
+    var all = text.join(" ").toLowerCase();
+    var named = people.filter(function(p){ return new RegExp("\\b" + p.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b").test(all); });
+    var freq = payFrequency(slip);
+    var near = function(p){ var row = salaryRowFor(p); return row && freq ? Math.abs(periodsOf(Number(row.amount) || 0, row.freq).yearly - periodsOf(slip.gross, freq).yearly) : Infinity; };
+    var person = named.length === 1 ? named[0] : (named.length ? named : people).slice().sort(function(a, b){ return near(a) - near(b); })[0];
+    payslipRead[person] = slip;
+    if(fromInbox) inboxFileDone(fromInbox);
+    inbox.current = null; renderInbox();
+    // The person's tax card, where the payslip panel lives: Tax → This year.
+    showPage("tax");
+    showTaxSubpage("year", { replace: true });
+    setTimeout(function(){
+      redrawPayslipPanel(person);
+      var host = [].find.call(document.querySelectorAll("[data-tax-person]"), function(el){ return el.getAttribute("data-tax-person") === person; });
+      var d = host && host.querySelector(".tax-ytd");
+      if(d) d.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 300);
+    showToast("A payslip — checked against " + person + "'s plan");
+    return true;
   }
   // Patched, not re-rendered. A full renderBankImportPanel() here would move the row the user just
   // touched out of "Needs you" and into "Ready" — reordering the list under their finger mid-review,
@@ -4788,6 +4832,8 @@ import { inboxMessage } from "./calc/inbox.js";
         else if(pg === "expenses") showExpensesSubpage(sub, { replace: true });
         else if(pg === "plan") showPlanSubpage(sub, { replace: true });
         else if(pg === "assets") showAssetsSubpage(sub, { replace: true });
+        // v3.148.0: Tax's tabs too (the withholding-variation advice opens People).
+        else if(pg === "tax"){ showTaxSubpage(sub, { replace: true }); if(sub === "people") renderPeopleTab(); }
       }
       return;
     }

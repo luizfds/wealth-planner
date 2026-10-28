@@ -502,6 +502,22 @@ function taxCalendarNotifications(){
   });
 }
 
+// ---------------- Pay that's about to stop (v3.148.0) ----------------
+// From 45 days before a pay row's end date (an allowance, a contract), what take-home drops by — the
+// after-tax row the plan keeps for it (calc/engine.js syntheticEndingFor). Pure apart from state.
+export function endingPayNotifications(today){
+  today = today || localDateStr();
+  return (state.income || []).filter(function(i){ return i.syntheticEndingFor && i.endDate && i.endDate >= today; }).map(function(i){
+    var days = daysUntil(i.endDate, today);
+    if(days > 45) return null;
+    var src = (state.income || []).find(function(r){ return r.id === i.syntheticEndingFor; });
+    return { id: "payends:" + i.syntheticEndingFor + ":" + i.endDate, type: "income", severity: days <= 14 ? "warn" : "info",
+      title: (src && src.what ? src.what : "Part of " + (i.person || "the") + " pay") + " ends " + fmtDate(i.endDate),
+      detail: "Take-home drops by about " + fmtCurrency0.format(Number(i.amount) || 0) + " a month after tax from then — the cash-flow forecast already counts it. If it's being extended, change its end date in Cash flow → Income.",
+      date: i.endDate, page: "expenses", sub: "income" };
+  }).filter(Boolean);
+}
+
 // The one local source today — a future remote source (fetched notifications from a backend)
 // would be added here as a sibling function and merged into getNotifications() below, unchanged
 // everywhere else.
@@ -521,6 +537,7 @@ export function getLocalNotifications(){
     taxCalendarNotifications(),
     rateChangeNotifications(),
     cardPaymentNotifications(),
+    endingPayNotifications(),
     monthReviewNotification(),
     dataHealthNotification(),
     storageNotification()

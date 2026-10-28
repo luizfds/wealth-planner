@@ -87,7 +87,7 @@ the last, so two sessions can't pick up the same one.
   odds), `lifeevents.js` (dated events on the projection), `agepension.js` (account-based pension
   drawdown and the Age Pension) and `networthlist.js` (everything owned and owed in one list); `inbox.js` (statements dropped into a
   Statements folder in Dropbox or the backup folder — `lib/inbox.js` lists, reads and moves them); and
-  `showas.js` (Income per year, month, fortnight, week, day or hour).
+  `showas.js` (Income per year, month, fortnight, week, day or hour); `payslipcheck.js` (a payslip against the plan, line by line).
 - `src/components/{dashboard,home,income,taxyear,expenses,cashflow,accounts,assets,investments,
   properties,projections,scenarios,reports,rules,period,safekeeping,savegoals,recurring,yearend,nav,
   bank-import,search,people,received,health,junemoves,monthreview,retirement,networth,detail,

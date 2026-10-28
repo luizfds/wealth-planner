@@ -25,9 +25,11 @@ import { getTaxPeople, computePersonTax, todayTaxFy } from "./tax.js";
 export function incomeTargets(){
   var out = [];
   getTaxPeople().forEach(function(person){
-    var net = (state.income || []).find(function(i){ return i.syntheticNetFor === person; });
+    // v3.148.0: with pay that ends this year (its own row, still running) — it lands in the same pay.
+    var today = localDateStr();
+    var payRows = (state.income || []).filter(function(i){ return i.syntheticNetFor === person || (i.syntheticEndingFor && i.person === person && (!i.endDate || i.endDate >= today)); });
     out.push({ key: "net:" + person, label: person + " — take-home pay", kind: "net",
-      monthly: net ? periodsOf(Number(net.amount) || 0, net.freq).monthly : 0, irregular: false });
+      monthly: payRows.reduce(function(t, i){ return t + periodsOf(Number(i.amount) || 0, i.freq).monthly; }, 0), irregular: false });
   });
   // v3.80.0: each bonus after tax, and each person's tax refund — once a year, not monthly.
   (state.income || []).forEach(function(i){

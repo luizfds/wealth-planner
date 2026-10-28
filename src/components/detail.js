@@ -157,7 +157,7 @@ export function detailView(kind, id, today){
   if(kind === "person"){
     if(getTaxPeople().indexOf(id) === -1) return null;
     var t = computePersonTax(id);
-    var inc = (state.income || []).filter(function(i){ return i.person === id && !i.computed && !i.syntheticNetFor && !i.syntheticOneOffFor && !i.syntheticRefundFor; });
+    var inc = (state.income || []).filter(function(i){ return i.person === id && !i.computed && !i.syntheticNetFor && !i.syntheticOneOffFor && !i.syntheticRefundFor && !i.syntheticEndingFor; });
     var sup = (state.assets || []).filter(function(a){ return a.category === "Super" && a.person === id; });
     var owns = (state.properties || []).filter(function(p){ return p.kind === "IP"; });
     return { title: id, kicker: "Person", history: null,

@@ -9,6 +9,7 @@ import { renderJuneMoves } from "./junemoves.js";
 import { superTopUp } from "../calc/supertopup.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr, fmtDate } from "../lib/format.js";
 import { payFrequency } from "../calc/payslip.js";
+import { payslipCheck } from "../calc/payslipcheck.js";
 import { escapeAttr } from "../lib/html.js";
 import { optionsHtml, historyTrendHtml, timingFieldsHtml, endDateNoteHtml, scenarioVaryNoteHtml, hasEnded, rowEditSlot } from "../lib/ledger-table.js";
 import { parseCsv } from "../lib/backup.js";
@@ -475,7 +476,7 @@ export function patchSyntheticIncomeRows(){
   var table = document.getElementById("incomeGroups");
   if(!table) return;
   state.income.forEach(function(item, idx){
-    if(!item.syntheticNetFor && !item.syntheticRentForProperty && !item.syntheticOneOffFor && !item.syntheticRefundFor) return;
+    if(!item.syntheticNetFor && !item.syntheticRentForProperty && !item.syntheticOneOffFor && !item.syntheticRefundFor && !item.syntheticEndingFor) return;
     var tr = table.querySelector('[data-index="' + idx + '"]');
     if(!tr) return;
     var amountInput = tr.querySelector(".f-amount");
@@ -684,6 +685,12 @@ function payslipReadHtml(person){
   if(row && freq && p.gross > 0){
     var planned = periodsOf(Number(row.amount) || 0, row.freq).yearly, read = periodsOf(p.gross, freq).yearly;
     if(Math.abs(read - planned) > Math.max(100, planned * 0.02)) actions.push('<button type="button" class="btn btn-sm" data-slip-salary="' + pid + '">Set “' + escapeAttr(row.what || "salary") + '” to ' + fmtCurrency2.format(p.gross) + ' ' + freq.toLowerCase() + '</button>');
+  }
+  // v3.148.0: the payslip against the plan, line by line (calc/payslipcheck.js), and logging the pay.
+  var chk = payslipCheck(person, p);
+  if(chk){
+    out += '<ul class="slip-check">' + chk.lines.map(function(l){ return '<li class="' + l.tone + '">' + escapeAttr(l.text) + '</li>'; }).join("") + '</ul>';
+    if(chk.loggable) actions.unshift('<button type="button" class="btn btn-sm btn-primary" data-slip-log="' + pid + '">Log ' + fmtCurrency2.format(chk.loggable.amount) + ' as received ' + escapeAttr(fmtDate(chk.loggable.date)) + '</button>');
   }
   return out + (actions.length ? '<div class="slip-actions">' + actions.join("") + '</div>' : '') + '</div>';
 }

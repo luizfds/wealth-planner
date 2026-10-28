@@ -3151,6 +3151,14 @@ A card's own ⓘ (Insights → What the app notices) sat on a row of its own; it
 
 Shipped as v3.139.0. lib/help.js: a help paragraph right under a heading gets its ⓘ in the heading. The inline ⓘs left are footnotes under a card's figures, not lone rows at the top.
 
+## 179. `[~]` A phone header like an app's, and an avatar menu
+On a phone the app spent about a quarter of the screen before any content: a "Wealth Planner" bar with its
+icons, then the title, period and net worth pill. The page title becomes the header (large, shrinking to a slim
+bar on scroll) with search, notifications and an avatar; the avatar's menu holds Settings, backup & sync,
+import/export, theme, updates, Reports and the version — on desktop too, in place of the ⋯. The bottom bar is
+Home · Cash flow · Net worth · Tax · Plan; More goes. The saved chip becomes a dot on the avatar when something
+needs attention.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

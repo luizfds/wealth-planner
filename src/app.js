@@ -128,6 +128,7 @@ import { goalsFireHtml } from "./components/retirement.js";
 import { renderReports, reportShown, reportPrintHtml, reportCsv, reportFrame, pinReport, openSavedReport, unpinReport } from "./components/reports.js";
 import { monthDetailUi, shownMonth as mdShownMonth } from "./components/monthdetail.js";
 import { shiftMonth as mdShiftMonth } from "./calc/monthdetail.js";
+import { cardPaymentsForMonth } from "./calc/bills.js";
 import { exportTableCsv } from "./lib/backup.js";
 import { yearEndPrintHtml, yearEndDocumentsCsv } from "./components/yearend.js";
 import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodButton, renderPeriodMenu } from "./components/period.js";
@@ -4358,6 +4359,7 @@ import {
     if(action.page === "expenses" && action.sub) showExpensesSubpage(action.sub, { replace: true });
     if(action.mode === "networth"){ logNetWorthSnapshot(); return; }
     if(action.mode === "received"){ setTimeout(function(){ openReceivedSheetFor(); }, 240); return; }
+    if(action.mode === "paycard"){ setTimeout(openPayCard, 240); return; }
     // Deferred for the same reason the search handler defers its scroll: showPage's render and
     // view transition have to settle before the target button exists in its final form.
     setTimeout(function(){
@@ -4366,6 +4368,28 @@ import {
         : firstVisibleAddButton(action.page);
       if(target) target.click();
     }, 240);
+  }
+  // v3.141.0 (item 180): the transfer form, filled in for the card's next repayment — the card (the
+  // first, if there are several), the account it's paid from (its direct debit, else an everyday
+  // account) and the payment the bills calendar expects, the soonest unpaid one from last month on.
+  function openPayCard(){
+    var card = (state.accounts || []).find(function(a){ return a.type === "credit" && a.name; });
+    var from = card && card.autoPayFrom ? card.autoPayFrom : ((state.accounts || []).find(function(a){ return a.type === "everyday" && a.name; }) || {}).name;
+    var amount = 0, today = localDateStr();
+    if(card){
+      var ym = today.slice(0, 7), months = [mdShiftMonth(ym, -1), ym, mdShiftMonth(ym, 1)];
+      for(var i = 0; i < months.length && !amount; i++){
+        var due = cardPaymentsForMonth(state.accounts, state.transactions, state.transfers, months[i], today).find(function(p){ return p.card === card.name && !p.paid && p.amount > 0; });
+        if(due) amount = due.amount;
+      }
+    }
+    transferForm.open = true;
+    transferForm.preset = { from: from || "", to: card ? card.name : "", amount: amount, what: card ? card.name + " repayment" : "" };
+    renderTransactions();
+    transferForm.preset = null;
+    var f = document.querySelector('#transactionsTable [data-tf="amount"]');
+    if(f){ f.scrollIntoView({ block: "center" }); f.focus(); }
+    if(!card) showToast("No credit card yet — add one under Net worth → Accounts");
   }
   // Income and Assets name their add buttons after the group they belong to (a person, an asset
   // category), so a quick action can't carry a fixed selector for them — it takes whichever one is

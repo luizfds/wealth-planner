@@ -3170,10 +3170,15 @@ navigation step taps the Tax and Net worth tabs and avatar → Reports.
 
 ### Phase H — less to do by hand (October 2026)
 
-## 180. `[~]` Pay a card from the + button
+## 180. `[x]` Pay a card from the + button
 A card repayment is a transfer, but the quick-add menu had no way in: it was Spending → + Transfer, with both
 accounts to pick. "Pay a card" opens the transfer form with the card (or the only card) as To, and From as the card's
 direct-debit account or the everyday account.
+
+Shipped as v3.141.0. Quick actions → Pay a card opens Cash flow → Spending with the transfer form filled in: To the first
+credit card, From its direct-debit account (item 170) or the first everyday account, the amount the bills calendar
+expects (the soonest unpaid repayment from last month on) and a note. `transferForm.preset` carries it for one render.
+
 
 ## 181. `[ ]` Statements from the Dropbox folder
 Drop a bank, card or property-manager statement (CSV or PDF) into the app's Dropbox folder, from any device; the

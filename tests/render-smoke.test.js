@@ -1395,3 +1395,18 @@ test("the automatic prices card, before and after a read", () => {
     assert.doesNotMatch(autoPricesCardHtml(), /data-ap="crypto"/);
   } finally { state.autoPrices = keep; }
 });
+
+test("the transfer form opens filled in for a card repayment", async function(){
+  const { transferFormHtml, transferForm } = await import("../src/components/cashflow.js");
+  var keep = state.accounts;
+  try {
+    state.accounts = [{ name: "Everyday", type: "everyday" }, { name: "Card A", type: "credit" }];
+    transferForm.preset = { from: "Everyday", to: "Card A", amount: 321.5, what: "Card A repayment" };
+    var html = transferFormHtml("2026-10-28");
+    assert.match(html, /data-tf="from">[^]*?<option value="Everyday" selected>/);
+    assert.match(html, /data-tf="to">[^]*?<option value="Card A" selected>/);
+    assert.match(html, /data-tf="amount"[^>]*value="321.5"/);
+    transferForm.preset = null;
+    assert.doesNotMatch(transferFormHtml("2026-10-28"), / selected>/);
+  } finally { state.accounts = keep; transferForm.preset = null; }
+});

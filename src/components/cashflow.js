@@ -113,17 +113,19 @@ export function bulkBarHtml(lineOptionsHtml, accountOptionsHtml){
     '<button type="button" class="btn btn-sm btn-ghost cf-danger" data-cf-bulk-delete' + (n ? "" : " disabled") + '>Delete</button></div>';
 }
 
+// transferForm.preset (v3.141.0): { from, to, amount, what } to open it filled in — "Pay a card".
 export function transferFormHtml(today){
   today = today || localDateStr();
-  var accts = (state.accounts || []).map(function(a){ return '<option value="' + escapeAttr(a.name) + '">' + escapeAttr(a.name) + '</option>'; }).join("");
+  var pre = transferForm.preset || {};
+  var accts = function(sel){ return (state.accounts || []).map(function(a){ return '<option value="' + escapeAttr(a.name) + '"' + (a.name === sel ? " selected" : "") + '>' + escapeAttr(a.name) + '</option>'; }).join(""); };
   return '<div class="cf-transfer-form" role="group" aria-label="New transfer"><b>Move money between your accounts</b>' +
     '<p class="ledger-note" style="margin:0">Not spending — paying off a card, topping up savings or an offset. It doesn\'t count in any budget total.</p>' +
     '<div class="cf-tf-grid">' +
-      '<label class="cf-filter"><span>From</span><select data-tf="from">' + accts + '</select></label>' +
-      '<label class="cf-filter"><span>To</span><select data-tf="to">' + accts + '</select></label>' +
-      '<label class="cf-filter"><span>Amount $</span><input type="number" step="0.01" min="0" data-tf="amount" aria-label="Transfer amount"></label>' +
+      '<label class="cf-filter"><span>From</span><select data-tf="from">' + accts(pre.from) + '</select></label>' +
+      '<label class="cf-filter"><span>To</span><select data-tf="to">' + accts(pre.to) + '</select></label>' +
+      '<label class="cf-filter"><span>Amount $</span><input type="number" step="0.01" min="0" data-tf="amount" aria-label="Transfer amount" value="' + (pre.amount > 0 ? pre.amount : "") + '"></label>' +
       '<label class="cf-filter"><span>Date</span><input type="date" data-tf="date" value="' + today + '"></label>' +
-      '<label class="cf-filter cf-tf-wide"><span>Note <small>(optional)</small></span><input type="text" data-tf="what" placeholder="e.g. Card repayment"></label>' +
+      '<label class="cf-filter cf-tf-wide"><span>Note <small>(optional)</small></span><input type="text" data-tf="what" placeholder="e.g. Card repayment" value="' + escapeAttr(pre.what || "") + '"></label>' +
     '</div>' +
     '<label class="cf-tf-check"><input type="checkbox" data-tf="balances" checked> Also move the two balances (where each account has one)</label>' +
     '<div class="cf-tf-actions"><button type="button" class="btn btn-sm btn-primary" data-tf-save>Save transfer</button><button type="button" class="btn btn-sm btn-ghost" data-tf-cancel>Cancel</button></div></div>';

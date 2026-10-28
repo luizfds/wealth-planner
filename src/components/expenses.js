@@ -393,7 +393,12 @@ export function renderBudgetPlan(){
   if(!el) return;
   var scen = state.activeScenario;
   var totals = scenarioTotals(scen);
-  var income = scenarioIncomeRows({ scenario: scen }).map(function(r){ return { label: r.what || "Income", monthly: periodsOf(Number(r.amount) || 0, r.freq).monthly, oneOff: !!r.oneOff }; });
+  // v3.149.0: pay that ends within the year (its own row since v3.148.0) says until when. Only
+  // today's month or earlier can be picked, and a row stops being counted once it's ended, so the
+  // month it leaves the plan is the month it stops being paid.
+  var income = scenarioIncomeRows({ scenario: scen }).map(function(r){
+    return { label: (r.what || "Income") + (r.endDate ? " — until " + fmtDate(r.endDate) : ""), monthly: periodsOf(Number(r.amount) || 0, r.freq).monthly, oneOff: !!r.oneOff };
+  });
   var groups = computeSharedGroups().map(function(g){ return { label: g.key === "N/A" ? "Other" : g.key, monthly: g.monthly }; });
   var grouped = groups.reduce(function(sum, g){ return sum + g.monthly; }, 0);
   var other = totals.expensesMonthly - grouped;

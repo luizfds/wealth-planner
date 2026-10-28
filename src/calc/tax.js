@@ -1,6 +1,6 @@
 import { state } from "../state.js";
 import { AU_TAX_BRACKETS, MAX_SUPER_BASE, HELP_REPAYMENT_RATES, MLS_TIERS, MLS_FAMILY_MULTIPLIER, WFH_FIXED_RATES, TAX_YEARS, MLS_RATES } from "../constants.js";
-import { periodsOf, resolveSharedAmount, householdYearWindow, isActiveOn, overlapDaysInclusive } from "./ledger.js";
+import { periodsOf, resolveSharedAmount, householdYearWindow, isActiveOn, overlapDaysInclusive, activeShareOfWindow } from "./ledger.js";
 import { ipNetResultAnnual, personIpResultAnnual, ipProperties, propertyOwnershipPct } from "./property.js";
 import { incomeStatementTotals, interestIncome, recordedDeductionsByLabel, rentalSchedule, yearDeductions } from "./taxyear.js";
 import { deductionYearFraction, rowDeductionAnnual, setClaimItemsProvider, claimItems } from "./claims.js";
@@ -804,6 +804,16 @@ export function effectiveIncomeItems(){
 function rowAmountFor(row, opts){
   return resolveSharedAmount(row, opts && opts.scenario);
 }
+// v3.149.0: the share of the tax year a pay row runs. An allowance that ends on 31 December is six
+// months' income in a July–June year, not twelve — counted in full it overstated the year's tax,
+// the refund-or-bill check and the take-home. The projection asks about whole future years and
+// passes wholeYears (its includeRow already decides which years a row is in).
+function rowYearShare(row, opts){
+  if(opts && opts.wholeYears) return 1;
+  if(!row || (!row.endDate && !row.startDate)) return 1;
+  var fy = opts && opts.fy != null ? Number(opts.fy) : currentTaxFy();
+  return activeShareOfWindow(row, fy + "-07-01", (fy + 1) + "-06-30");
+}
 // Default: the row counts if it hasn't ended. A caller with its own idea of "when" — the
 // projection, asking about a specific future year — passes includeRow and wins outright.
 //
@@ -933,9 +943,11 @@ export function personTakeHomeParts(person, opts){
   var total = split.total;
   var ending = endingRows(person, opts).map(function(r){
     var without = computePersonTax(person, Object.assign({}, opts || {}, { includeRow: function(x){ return x !== r && base(x); } })).netTakeHome;
-    return { row: r, monthly: Math.round((total - without) / 12 * 100) / 100, endDate: r.endDate };
+    // What it adds over the months of the year it's paid (v3.149.0: the year counts it only for those).
+    var share = rowYearShare(r, opts);
+    return { row: r, monthly: share > 0 ? Math.round((total - without) / (12 * share) * 100) / 100 : 0, share: share, endDate: r.endDate };
   }).filter(function(e){ return e.monthly > 0; });
-  var regular = split.regularNet - (refund ? refund.amount : 0) - ending.reduce(function(t, e){ return t + e.monthly * 12; }, 0);
+  var regular = split.regularNet - (refund ? refund.amount : 0) - ending.reduce(function(t, e){ return t + e.monthly * 12 * e.share; }, 0);
   return { regularMonthly: Math.round((regular / 12 + takeHomeAdjust(person)) * 100) / 100, oneOffs: split.oneOffs, refund: refund, ending: ending };
 }
 // What lands each month in pay, now: the regular take-home and whatever's still running of `ending`.
@@ -989,7 +1001,7 @@ export function personSuperRows(person, opts){
     return i.incomeType === "Gross" && i.person === person && rowIncluded(i, opts);
   });
   var uncapped = rows.map(function(row){
-    var annual = periodsOf(rowAmountFor(row, opts), row.freq).yearly;
+    var annual = periodsOf(rowAmountFor(row, opts), row.freq).yearly * rowYearShare(row, opts);
     return { row: row, annual: annual, split: rowSuperSplitUncapped(annual, row.superMode || "On top", sgRate) };
   });
   var ordinaryEarnings = uncapped.reduce(function(s, r){ return s + (r.split.superApplies ? r.split.cashPortion : 0); }, 0);

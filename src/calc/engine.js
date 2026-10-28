@@ -202,7 +202,9 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
   function activeIncomeMonthlyAt(year){
     return scenarioIncomeMonthly({
       scenario: scenario,
-      includeRow: function(row){ return isActiveInYear(row, year, todayStr); }
+      includeRow: function(row){ return isActiveInYear(row, year, todayStr); },
+      // v3.149.0: a projection year is a whole year — a row is in it or not (includeRow decides).
+      wholeYears: true
     });
   }
   // v3.52.0: on "actuals", income and living costs carry the monthly differences measured on the

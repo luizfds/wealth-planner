@@ -406,7 +406,7 @@
   html.is-locked .app-shell, html.is-locked .mobile-tabbar, html.is-locked .quick-fab-wrap, html.is-locked .toast-root{ visibility:hidden; }
 
 /* v3.138.0: on Home the first card is net worth — the header pill would say it twice. */
-body[data-page="dashboard"] .global-metrics{ display:none; }
+body[data-current-page="dashboard"] .global-metrics{ display:none; }
 
 /* v3.138.0: the keyboard shortcuts list (press ?). */
 .shortcuts-dialog{ border:1px solid var(--border); border-radius:14px; padding:18px 20px; background: var(--paper-raised); color: var(--ink); box-shadow: var(--shadow); min-width:300px; }

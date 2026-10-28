@@ -63,12 +63,23 @@ export function parsePayslip(lines){
       else if(end.length && !r.periodEnd) r.periodEnd = end[0];
     }
     // The label that comes first on the line: "Gross (before tax)" is gross, not tax.
+    // v3.148.0: "before tax" / "after-tax" name a kind of deduction or payment, never the tax itself —
+    // blanked out (same length, so positions hold) before looking for labels; "Total Before Tax
+    // Deductions $0.00" had been read as no tax at all.
+    var masked = text.replace(/\b(before|after|pre|post)[- ]tax\b/gi, function(m){ return " ".repeat(m.length); });
     var lab = null, at = Infinity;
-    LABELS.forEach(function(l){ var m = l.re.exec(text); if(m && m.index < at){ at = m.index; lab = l; } });
+    LABELS.forEach(function(l){ var m = l.re.exec(masked); if(m && m.index < at){ at = m.index; lab = l; } });
     if(!lab) return;
-    var amounts = amountsIn(text).map(Math.abs);
+    // Amounts from the label on: a summary column often shares its line with something else
+    // ("Annual (Hours) 100.02 … Total Gross $15,707.50 $81,380.44").
+    var amounts = amountsIn(text.slice(at)).map(Math.abs);
     if(!amounts.length) return;
-    if(r[lab.key] != null) return; // the first line with a label wins — summary lines come before detail
+    if(r[lab.key] != null){
+      // The first line with a label wins — but a later summary line that repeats this pay's figure
+      // with a year-to-date one beside it supplies the year to date.
+      if(amounts.length >= 2 && amounts[0] === r[lab.key] && r.ytd.hasOwnProperty(lab.key) && r.ytd[lab.key] == null) r.ytd[lab.key] = amounts[amounts.length - 1];
+      return;
+    }
     r[lab.key] = amounts[0];
     if(amounts.length >= 2 && r.ytd.hasOwnProperty(lab.key)) r.ytd[lab.key] = amounts[amounts.length - 1];
     r.found.push(lab.key);

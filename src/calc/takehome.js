@@ -1,5 +1,5 @@
 import { state } from "../state.js";
-import { getTaxPeople, personOneOffSplit, takeHomeAdjust } from "./tax.js";
+import { getTaxPeople, personTakeHomeParts, monthlyPayNow, takeHomeAdjust } from "./tax.js";
 import { receivedFor } from "./received.js";
 
 // ---------------- Pay received against the plan (v3.87.0) ----------------
@@ -24,9 +24,11 @@ export function takeHomeDrift(person, today){
     months.push({ ym: m, received: Math.round(got * 100) / 100 });
   }
   if(months.some(function(x){ return !(x.received > 0); })) return null;
-  var estimate = personOneOffSplit(person).regularNet / 12;
+  // v3.148.0: what a payslip pays now — not the year's take-home, which also holds the rental's tax
+  // refund (v3.145.0) — with pay that ends this year counted while it's still paid.
   var adjust = takeHomeAdjust(person);
-  var plan = estimate + adjust;
+  var plan = monthlyPayNow(personTakeHomeParts(person), today);
+  var estimate = plan - adjust;
   var actual = months.reduce(function(s, x){ return s + x.received; }, 0) / months.length;
   var tol = Math.max(150, plan * 0.04);
   var under = months.every(function(x){ return x.received < plan - tol; });

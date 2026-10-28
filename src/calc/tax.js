@@ -828,7 +828,7 @@ function rowIncluded(row, opts){
 export function scenarioIncomeRows(opts){
   var rows = [];
   state.income.forEach(function(row){
-    if(row.incomeType === "Gross" || row.syntheticNetFor || row.syntheticOneOffFor || row.syntheticRefundFor) return;
+    if(row.incomeType === "Gross" || row.syntheticNetFor || row.syntheticOneOffFor || row.syntheticRefundFor || row.syntheticEndingFor) return;
     if(!rowIncluded(row, opts)) return;
     var amount = rowAmountFor(row, opts);
     rows.push(amount === row.amount ? row : Object.assign({}, row, { amount: amount }));
@@ -849,6 +849,10 @@ export function scenarioIncomeRows(opts){
     split.oneOffs.forEach(function(o){
       rows.push({ what: (o.row.what || "Bonus") + " (after tax)", amount: o.net, freq: "Yearly", dueMonth: o.row.dueMonth || null,
         computed: true, oneOff: true, syntheticOneOffFor: o.row.id || "", person: person });
+    });
+    // v3.148.0: pay that stops within the year, after tax, until it stops.
+    (parts.ending || []).forEach(function(e){
+      rows.push({ what: (e.row.what || "Pay") + " (after tax)", amount: e.monthly, freq: "Monthly", endDate: e.endDate, computed: true, syntheticEndingFor: e.row.id || "", person: person });
     });
     // v3.145.0: the rental's tax saving, as the refund it arrives in.
     if(parts.refund) rows.push({ what: person + " — tax refund (rental loss)", amount: parts.refund.amount, freq: "Yearly", dueMonth: parts.refund.dueMonth,
@@ -906,12 +910,37 @@ export function rentalRefundFor(person, opts){
     .sort(function(a, b){ return a.date < b.date ? 1 : -1; })[0];
   return { amount: Math.round(effect * 100) / 100, dueMonth: last ? Number(last.date.slice(5, 7)) : REFUND_MONTH_DEFAULT };
 }
-// A person's take-home in the pieces it arrives in: { regularMonthly, oneOffs, refund }.
+// v3.148.0: regular pay that stops within the year (an allowance to 31 December, a contract) —
+// counted at its full rate while it's paid, then gone. Kept inside one monthly figure it made every
+// month look the same, and the drop invisible until it happened. Split out like a bonus (what it
+// adds after tax), as its own monthly row carrying the end date, it leaves the forecast and the
+// budget's months on the day it ends.
+var ENDING_WITHIN_DAYS = 366;
+function endingRows(person, opts){
+  var today = (opts && opts.today) || localDateStr();
+  var limit = new Date(Date.parse(today + "T00:00:00Z") + ENDING_WITHIN_DAYS * 86400000).toISOString().slice(0, 10);
+  return state.income.filter(function(r){
+    return r.person === person && r.incomeType === "Gross" && !r.irregular && !r.computed && r.endDate && r.endDate >= today && r.endDate <= limit &&
+      isActiveOn(r, today) && periodsOf(rowAmountFor(r, opts), r.freq).yearly > 0;
+  });
+}
+// A person's take-home in the pieces it arrives in: { regularMonthly, oneOffs, refund, ending }.
+// ending: [{ row, monthly, endDate }] — each one's after-tax amount a month, until its end date.
 export function personTakeHomeParts(person, opts){
   var split = personOneOffSplit(person, opts);
   var refund = rentalRefundFor(person, opts);
-  var regular = split.regularNet - (refund ? refund.amount : 0);
-  return { regularMonthly: Math.round((regular / 12 + takeHomeAdjust(person)) * 100) / 100, oneOffs: split.oneOffs, refund: refund };
+  var base = opts && opts.includeRow ? opts.includeRow : function(r){ return isActiveOn(r, localDateStr()); };
+  var total = split.total;
+  var ending = endingRows(person, opts).map(function(r){
+    var without = computePersonTax(person, Object.assign({}, opts || {}, { includeRow: function(x){ return x !== r && base(x); } })).netTakeHome;
+    return { row: r, monthly: Math.round((total - without) / 12 * 100) / 100, endDate: r.endDate };
+  }).filter(function(e){ return e.monthly > 0; });
+  var regular = split.regularNet - (refund ? refund.amount : 0) - ending.reduce(function(t, e){ return t + e.monthly * 12; }, 0);
+  return { regularMonthly: Math.round((regular / 12 + takeHomeAdjust(person)) * 100) / 100, oneOffs: split.oneOffs, refund: refund, ending: ending };
+}
+// What lands each month in pay, now: the regular take-home and whatever's still running of `ending`.
+export function monthlyPayNow(parts, today){
+  return Math.round((parts.regularMonthly + (parts.ending || []).reduce(function(t, e){ return t + (!today || e.endDate >= today ? e.monthly : 0); }, 0)) * 100) / 100;
 }
 // What's in a scenario's income that doesn't arrive monthly, as a yearly amount.
 export function scenarioOneOffYearly(opts){

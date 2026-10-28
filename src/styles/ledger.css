@@ -1196,6 +1196,14 @@
   .slip-pick{ align-self:flex-start; cursor:pointer; }
   .slip-paste textarea{ width:100%; margin:6px 0; font-family: var(--font-num); font-size:12px; }
   .slip-out{ margin:0; font-size:12.5px; color: var(--ink); display:flex; flex-wrap:wrap; gap:4px 12px; }
+  /* v3.148.0: the payslip against the plan, a line each. */
+  .slip-check{ list-style:none; margin:8px 0 0; padding:0; display:flex; flex-direction:column; gap:5px; font-size:12.5px; line-height:1.45; }
+  .slip-check li{ padding-left:14px; position:relative; color: var(--ink-soft); }
+  .slip-check li::before{ content:""; position:absolute; left:0; top:.55em; width:7px; height:7px; border-radius:50%; background: var(--border); }
+  .slip-check li.ok::before{ background: var(--good); }
+  .slip-check li.warn{ color: var(--ink); }
+  .slip-check li.warn::before{ background: var(--warn-ink); }
+  .slip-check li:first-child{ color: var(--ink); font-weight:600; }
   .slip-out b{ flex-basis:100%; }
   .slip-actions{ display:flex; gap:8px; flex-wrap:wrap; }
   /* v3.117.0: the transaction table — wide screens only. */

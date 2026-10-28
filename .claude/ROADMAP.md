@@ -3096,6 +3096,43 @@ shows while the section is open. The scenario cards' dot and the home blocks' ca
 and the in-bar percentages sit on a chip. axe-core over 16 views, light and dark: no violations left.
 
 
+### Phase G — from a review against a real household (October 2026)
+
+Found by running the app on a real backup (outside the repo). One PR for all nine.
+
+## 170. `[~]` A card paid by direct debit
+A card whose repayments are never logged as transfers shows its payment overdue every month. A card can say it is
+paid in full by direct debit from an account; the reminder then knows it's paid, and a bank statement's repayment
+line can be recognised as that transfer.
+
+## 171. `[~]` Net worth history that keeps itself
+The net worth trend rested on a handful of points recorded by hand. Record net worth by itself (once a day at
+most, when it changed), fill earlier weeks from what each record already knows, and say what moved it.
+
+## 172. `[~]` One surplus, explained
+"Left over each month" on the Budget tab spreads the year's bonuses over twelve months; the header and Home show a
+normal month. Show both, labelled.
+
+## 173. `[~]` Retirement leads with the age that holds up
+The headline age assumed steady returns; the page's own odds said later. Lead with the age that works in 9 runs
+in 10, the steady-returns age beside it.
+
+## 174. `[~]` Sold holdings out of the way
+A holding sold to nothing stays in Net worth and Investments at $0. Sold-out holdings move to a Sold list that
+keeps their history for capital gains.
+
+## 175. `[~]` Names that tell things apart
+Two offsets on one property had the same name. Name an offset by its loan, and Checks flags two things sharing a name.
+
+## 176. `[~]` LVR with the offset
+The property card's LVR badge counts the full loan while its equity counts the offset. Show both.
+
+## 177. `[~]` Holdings first on Shares
+The Prices panel opened above the holdings. Once automatic prices work it folds to one status line.
+
+## 178. `[~]` The last lone ⓘ
+A card's own ⓘ (Insights → What the app notices) sat on a row of its own; it moves beside the card's heading.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

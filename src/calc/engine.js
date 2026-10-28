@@ -8,7 +8,7 @@ import {
   propertiesTotalEquityToday, propertiesOffsetTotal, landTaxDetailForProperty
   , loanPaidOut
 } from "./property.js";
-import { getTaxPeople, computePersonTax, scenarioIncomeMonthly, personOneOffSplit, scenarioOneOffYearly, takeHomeAdjust } from "./tax.js";
+import { getTaxPeople, computePersonTax, scenarioIncomeMonthly, scenarioOneOffYearly, takeHomeAdjust, personTakeHomeParts } from "./tax.js";
 import { fmtCurrency0, localDateStr, fmtDate } from "../lib/format.js";
 import { dueAfterDays } from "./estimates.js";
 import { projectionRatios } from "./actuals.js";
@@ -353,14 +353,16 @@ export function recalcComputedItems(){
 
   var people = getTaxPeople();
   state.income = state.income.filter(function(i){ return !(i.syntheticNetFor && people.indexOf(i.syntheticNetFor) === -1); });
-  var liveOneOffs = {};
+  var liveOneOffs = {}, liveRefunds = {};
   people.forEach(function(person){
     // v3.80.0: regular take-home only; each bonus gets its own yearly row below.
-    var split = personOneOffSplit(person);
+    // v3.145.0: and a rental's tax saving split out as the refund it arrives in (personTakeHomeParts).
+    var split = personTakeHomeParts(person);
     var adj = takeHomeAdjust(person);
-    var monthly = Math.round((split.regularNet / 12 + adj) * 100) / 100;
+    var monthly = split.regularMonthly;
     var existing = state.income.find(function(i){ return i.syntheticNetFor === person; });
-    var note = "auto: " + person + "'s regular take-home after tax & super" + (split.oneOffs.length ? " — bonuses are counted separately, in their month" : "") +
+    var note = "auto: " + person + "'s regular take-home after tax & super, as a payslip pays it" +
+      (split.oneOffs.length || split.refund ? " — " + (split.oneOffs.length ? "bonuses" : "") + (split.oneOffs.length && split.refund ? " and " : "") + (split.refund ? "the rental's tax refund" : "") + " counted separately, in their month" : "") +
       (adj ? " — set to what actually lands, " + (adj < 0 ? "−" : "+") + "$" + Math.round(Math.abs(adj)).toLocaleString("en-AU") + "/mo against the tax estimate" : "");
     if(existing){
       existing.amount = monthly;
@@ -385,8 +387,19 @@ export function recalcComputedItems(){
       if(row) Object.assign(row, fields);
       else state.income.push(Object.assign({ syntheticOneOffFor: id, classification: "" }, fields));
     });
+    // v3.145.0: the rental's tax saving, once a year when the refund lands.
+    if(split.refund){
+      liveRefunds[person] = true;
+      var refundRow = state.income.find(function(i){ return i.syntheticRefundFor === person; });
+      var refundFields = { what: person + " — Tax refund (rental loss)", amount: split.refund.amount, freq: "Yearly", irregular: true, dueMonth: split.refund.dueMonth,
+        computed: true, incomeType: "Net", person: person,
+        computedNote: "auto: tax the investment property's loss saves " + person + " — not in any payslip; it comes back in the refund once the return is lodged. Tick “withholding already allows for it” in Tax → People if a PAYG variation puts it in each pay" };
+      if(refundRow) Object.assign(refundRow, refundFields);
+      else state.income.push(Object.assign({ syntheticRefundFor: person, classification: "", account: "" }, refundFields));
+    }
   });
   state.income = state.income.filter(function(i){ return !i.syntheticOneOffFor || liveOneOffs[i.syntheticOneOffFor]; });
+  state.income = state.income.filter(function(i){ return !i.syntheticRefundFor || liveRefunds[i.syntheticRefundFor]; });
 
   var ipPropertyIds = state.properties.filter(function(p){ return p.kind === "IP"; }).map(function(p){ return p.id; });
   state.income = state.income.filter(function(i){ return !(i.syntheticRentForProperty && ipPropertyIds.indexOf(i.syntheticRentForProperty) === -1); });

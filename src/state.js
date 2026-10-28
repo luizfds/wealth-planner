@@ -252,7 +252,7 @@ export function migrateState(s){
       if(item.superMode == null) item.superMode = item.superIncluded ? "Included" : "On top";
       // An id to log money received against (v3.46.0). The synthetic rows are rebuilt every
       // recalculation and are found by syntheticNetFor/syntheticRentForProperty instead.
-      if(!item.id && !item.syntheticNetFor && !item.syntheticRentForProperty && !item.syntheticOneOffFor) item.id = genId("inc");
+      if(!item.id && !item.syntheticNetFor && !item.syntheticRentForProperty && !item.syntheticOneOffFor && !item.syntheticRefundFor) item.id = genId("inc");
     });
   }
   if(!s.home) s.home = {};

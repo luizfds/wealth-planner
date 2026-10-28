@@ -210,6 +210,10 @@
 .pp-age::after{ content:" yrs"; }
 .pp-uses{ font-size:12.5px; color:var(--ink-soft); margin:6px 0 12px; line-height:1.45; }
 .pp-hours-wrap{ margin-top:12px; }
+/* v3.145.0: whether pay already allows for a rental's loss. */
+.pp-variation{ display:flex; gap:8px; align-items:flex-start; margin-top:12px; font-size:13px; line-height:1.45; cursor:pointer; }
+.pp-variation input{ margin-top:3px; flex:none; }
+.pp-variation small{ color: var(--ink-soft); }
 .pp-hours-row{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:8px; margin-top:6px; }
 .pp-hours small{ font-weight:500; }
 .pp-hours input{ width:100%; box-sizing:border-box; }

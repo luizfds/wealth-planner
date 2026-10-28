@@ -94,6 +94,31 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
       }
     }
   }
+  // v3.139.1: the navigation itself, tapped the way a person does — the views above are reached by
+  // script, which is how the mobile More menu went unnoticed when it stopped opening.
+  if(!SHOTS){
+    const where = scheme + " " + width + "px navigation";
+    const nav = await page.evaluate(async (w) => {
+      const wait = ms => new Promise(r => setTimeout(r, ms));
+      const current = () => document.body.getAttribute("data-current-page");
+      const out = [];
+      if(w < 880){
+        const more = document.getElementById("mobileTabMore"), panel = document.getElementById("mobileMorePanel");
+        more.click(); await wait(150);
+        if(panel.hidden) out.push("More doesn't open its menu");
+        const item = panel.querySelector(".mobile-more-item[data-page]");
+        if(item){ const to = item.getAttribute("data-page"); item.click(); await wait(600); if(current() !== to) out.push("More → " + to + " didn't open it"); if(!panel.hidden) out.push("More's menu stays open after choosing"); }
+        const tab = document.querySelector('.mobile-tab[data-page="networth"]');
+        if(tab){ tab.click(); await wait(600); if(current() !== "networth") out.push("the Net worth tab didn't open it"); }
+      } else {
+        const item = document.querySelector('.nav-item[data-page="tax"]');
+        if(item){ item.click(); await wait(600); if(current() !== "tax") out.push("the sidebar's Tax didn't open it"); }
+      }
+      return out;
+    }, width);
+    nav.forEach(f => failures.push(where + ": " + f));
+    errors.splice(0).forEach(e => failures.push(where + ": " + e));
+  }
   await ctx.close();
 }
 await browser.close();

@@ -4312,7 +4312,7 @@ import {
   var mobileTabMore = document.getElementById("mobileTabMore");
   var mobileMorePanel = document.getElementById("mobileMorePanel");
   document.getElementById("mobileTabbar").addEventListener("click", function(e){
-    var pageBtn = e.target.closest("[data-page]");
+    var pageBtn = e.target.closest(".mobile-tab[data-page], .mobile-more-item[data-page]");
     if(pageBtn){ showPage(pageBtn.getAttribute("data-page")); return; }
     if(e.target.closest("#mobileTabMore")){
       e.stopPropagation();

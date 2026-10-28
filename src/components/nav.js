@@ -316,7 +316,9 @@ export function showPage(id, opts){
     var page = PAGES.find(function(p){ return p.id === id; });
     // v3.138.0: styles can tell which page is showing (Home hides the header's net worth pill — its
     // first card says the same thing a few pixels below).
-    document.body.setAttribute("data-page", id);
+    // Its own name (v3.139.1): `data-page` marks the buttons that go to a page, and a click handler
+    // looking for the nearest one found <body> — the mobile More tab opened the current page instead.
+    document.body.setAttribute("data-current-page", id);
     document.getElementById("pageTitle").textContent = page ? page.label : "Home";
     var navLabel = document.getElementById("navMenuCurrentLabel");
     if(navLabel) navLabel.textContent = page ? page.label : "Home";

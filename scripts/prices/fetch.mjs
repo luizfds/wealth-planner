@@ -2,11 +2,12 @@
 //
 //   node scripts/prices/fetch.mjs
 //
-// Reads prices/universe.json (a fixed public list), asks Stooq for the US tickers and Twelve Data
-// for the ASX ones (TWELVE_DATA_KEY; without it ASX is skipped), and rewrites prices/latest.json and
+// Reads prices/universe.json (a fixed public list), asks Twelve Data for every ticker
+// (TWELVE_DATA_KEY; without it ASX is skipped and US falls back to Stooq, which GitHub's runners
+// mostly can't reach), and rewrites prices/latest.json and
 // prices/weekly.json. One weekly series per ticker gives both the five-year history and the latest
-// close (the week to date). Twelve Data's free plan allows 8 requests a minute and 800 a day, so ASX
-// is paced; Stooq is asked one at a time. A ticker that fails keeps yesterday's price for up to ten
+// close (the week to date). Twelve Data's free plan allows 8 requests a minute and 800 a day, so the
+// ~400 tickers are paced and take about 50 minutes. A ticker that fails keeps yesterday's price for up to ten
 // days. Writes a summary to GITHUB_STEP_SUMMARY when there is one. Never exits non-zero for a
 // ticker that failed — only for nothing working at all.
 import fs from "node:fs";
@@ -30,24 +31,43 @@ async function get(url, as){
   return as === "json" ? r.json() : r.text();
 }
 
+// One ticker's five years of weekly closes from Twelve Data (1 credit), paced to the plan's limit.
+async function twelve(t, exchange){
+  const started = Date.now();
+  try {
+    const json = await get("https://api.twelvedata.com/time_series?symbol=" + encodeURIComponent(t) + (exchange ? "&exchange=" + exchange : "") + "&interval=1week&outputsize=262&apikey=" + KEY, "json");
+    const rows = parseTwelveData(json);
+    if(!rows || !rows.length) throw new Error(json && json.message ? json.message.slice(0, 80) : "no rows");
+    return rows;
+  } finally { await sleep(Math.max(0, 60000 / PER_MINUTE - (Date.now() - started))); }
+}
+async function stooq(t){
+  const rows = parseStooqCsv(await get("https://stooq.com/q/d/l/?s=" + stooqSymbol(t) + "&i=w" + (STOOQ_KEY ? "&apikey=" + STOOQ_KEY : ""), "text"));
+  if(!rows.length) throw new Error("no rows");
+  await sleep(1000);
+  return rows;
+}
+const total = universe.asx.length + universe.us.length;
+let done = 0;
+const progress = () => { if(++done % 50 === 0) console.log(done + " of " + total + " asked…"); };
+// v3.136.2: US through Twelve Data as well — Stooq answers GitHub's runners with 403. Stooq is only
+// tried for a US ticker Twelve Data couldn't give, and only with STOOQ_APIKEY, or with no Twelve Data key.
 for(const t of universe.us){
   try {
-    const rows = parseStooqCsv(await get("https://stooq.com/q/d/l/?s=" + stooqSymbol(t) + "&i=w" + (STOOQ_KEY ? "&apikey=" + STOOQ_KEY : ""), "text"));
-    if(!rows.length) throw new Error("no rows");
+    let rows = null;
+    if(KEY){ try { rows = await twelve(t, ""); } catch(e){ if(!STOOQ_KEY) throw e; } }
+    if(!rows) rows = await stooq(t);
     fresh["US:" + t] = { weekly: rows, latest: latestFromWeekly(rows) };
   } catch(e){ failed.us.push(t + " (" + e.message + ")"); }
-  await sleep(1000);
+  progress();
 }
 if(KEY){
   for(const t of universe.asx){
-    const started = Date.now();
     try {
-      const json = await get("https://api.twelvedata.com/time_series?symbol=" + encodeURIComponent(t) + "&exchange=ASX&interval=1week&outputsize=262&apikey=" + KEY, "json");
-      const rows = parseTwelveData(json);
-      if(!rows || !rows.length) throw new Error(json && json.message ? json.message.slice(0, 80) : "no rows");
+      const rows = await twelve(t, "ASX");
       fresh["ASX:" + t] = { weekly: rows, latest: latestFromWeekly(rows) };
     } catch(e){ failed.asx.push(t + " (" + e.message + ")"); }
-    await sleep(Math.max(0, 60000 / PER_MINUTE - (Date.now() - started)));
+    progress();
   }
 }
 
@@ -56,7 +76,7 @@ fs.writeFileSync(path.join(dir, "latest.json"), JSON.stringify(out.latest));
 fs.writeFileSync(path.join(dir, "weekly.json"), JSON.stringify(out.weekly));
 const got = Object.keys(fresh).length;
 const summary = ["### Price file " + today, "",
-  "Fresh today: " + got + " of " + (universe.us.length + (KEY ? universe.asx.length : 0)) + " · in the file: " + Object.keys(out.latest.prices).length + ".",
+  "Fresh today: " + got + " of " + (universe.us.length + (KEY ? universe.asx.length : 0)) + " (US " + Object.keys(fresh).filter(k => k.startsWith("US:")).length + ", ASX " + Object.keys(fresh).filter(k => k.startsWith("ASX:")).length + ")" + " · in the file: " + Object.keys(out.latest.prices).length + ".",
   KEY ? "" : "ASX skipped: no TWELVE_DATA_KEY secret.",
   failed.us.length ? "US failed (" + failed.us.length + "): " + failed.us.slice(0, 30).join(", ") : "",
   failed.asx.length ? "ASX failed (" + failed.asx.length + "): " + failed.asx.slice(0, 30).join(", ") : ""].filter(Boolean).join("\n");

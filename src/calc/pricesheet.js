@@ -123,6 +123,7 @@ export function applyPrices(st, prices, today){
       var d = appendHistorySnapshot(item.history, item.amount, today);
       var e = item.history.find(function(h){ return h.date === d; });
       if(e) e.price = p.price;
+      thinPriceHistory(item.history, today);
     });
     updated += matches.length;
   });
@@ -162,12 +163,13 @@ export function backfillHistory(asset, points){
   return added;
 }
 
-export function applyBackfill(st, history){
+export function applyBackfill(st, history, today){
   var added = 0, holdings = 0;
   Object.keys(history || {}).forEach(function(sym){
     (st.assets || []).filter(function(a){ return a.category === "Shares" && (a.symbol || "").toUpperCase() === sym; }).forEach(function(a){
       var n = backfillHistory(a, history[sym]);
       if(n){ added += n; holdings++; }
+      if(today) thinPriceHistory(a.history, today);
     });
   });
   return { added: added, holdings: holdings };
@@ -183,4 +185,33 @@ export function backfillStart(asset, fallback){
 // Due for a refresh on open: a link is set and it hasn't been read today.
 export function sheetRefreshDue(sheet, today){
   return !!(sheet && sheet.url && sheet.lastRead !== today);
+}
+
+// ---- Price history thinned as it ages (v3.137.0, item 167) ----
+// Each price update adds a point per holding per day, and nothing reads that detail for long: the
+// 1D and 1W windows look at recent days, everything else at weeks and months. Price points (those
+// carrying a `price` — the daily update, a paste, a sheet, a backfill) are kept every day for
+// THIN_DAILY_DAYS, then only the last of each week (weeks start on Monday) until THIN_WEEKLY_DAYS,
+// then only the last of each month. Keeping the *last* point keeps every week-end and month-end
+// value exactly as it was, since a value on a date reads the latest point at or before it. Points
+// without a price — a value someone typed — are never removed. Mutates `history`; returns how many
+// points went.
+export var THIN_DAILY_DAYS = 90, THIN_WEEKLY_DAYS = 730;
+function utcDay(d){ return Date.parse(d + "T00:00:00Z"); }
+function mondayOf(d){ var t = utcDay(d); return new Date(t - ((new Date(t).getUTCDay() + 6) % 7) * 86400000).toISOString().slice(0, 10); }
+export function thinPriceHistory(history, today){
+  if(!Array.isArray(history) || history.length < 3 || !today) return 0;
+  var now = utcDay(today);
+  var bucket = function(h){
+    if(!h || h.price == null || !h.date) return null;
+    var age = (now - utcDay(h.date)) / 86400000;
+    if(!(age > THIN_DAILY_DAYS)) return null;
+    return age > THIN_WEEKLY_DAYS ? "m" + h.date.slice(0, 7) : "w" + mondayOf(h.date);
+  };
+  var last = {};
+  history.forEach(function(h){ var b = bucket(h); if(b && (!last[b] || h.date > last[b])) last[b] = h.date; });
+  var kept = history.filter(function(h){ var b = bucket(h); return !b || h.date === last[b]; });
+  var removed = history.length - kept.length;
+  if(removed){ history.length = 0; Array.prototype.push.apply(history, kept); }
+  return removed;
 }

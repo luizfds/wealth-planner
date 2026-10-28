@@ -3206,7 +3206,7 @@ its first conflict is still the old choice. Checked on a real backup (outside th
 changed, separate edits combined, about 0.1s.
 
 
-## 183. `[ ]` A review on the new layout
+## 183. `[~]` A review on the new layout
 The phone header, avatar menu and bottom bar, against a real household (outside the repo), at phone and desktop width.
 
 ## Conventions for whoever picks this up

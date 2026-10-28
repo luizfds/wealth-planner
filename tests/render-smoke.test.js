@@ -1466,3 +1466,11 @@ test("a Check's fix can ask for an amount first", async function(){
   assert.match(html, /data-hc-fix="card-log" data-hc-fix-arg="Card A\|2026-10-21">Save repayment/);
   assert.match(html, />Open Bills</);
 });
+
+test("under a person's own Income card a row doesn't repeat their name", async function(){
+  const { incomeRowLabel } = await import("../src/components/income.js");
+  assert.equal(incomeRowLabel({ syntheticNetFor: "Alex", what: "Alex — Net income (after tax & super)" }), "Net income (after tax & super)");
+  assert.equal(incomeRowLabel({ syntheticRefundFor: "Alex", person: "Alex", what: "Alex — Tax refund (rental loss)" }), "Tax refund (rental loss)");
+  assert.equal(incomeRowLabel({ person: "Alex", what: "Salary" }), "Salary");
+  assert.equal(incomeRowLabel({ what: "Sam — gift" }), "Sam — gift", "household rows keep theirs");
+});

@@ -405,6 +405,17 @@ function payHistoryHtml(item){
   var more = hist.length > 8 ? '<p class="ledger-note" style="margin:6px 0 0">and ' + (hist.length - 8) + ' earlier</p>' : "";
   return '<div class="pay-hist">' + rows + '</div>' + more;
 }
+// v3.146.1: under a person's own card a row needn't name them again — "Alex — Net income (after
+// tax & super)" reads as "Net income (after tax & super)" there. Elsewhere (Home, reports, search)
+// the full name stays, since nothing around it says whose it is.
+export function incomeRowLabel(item){
+  var what = String(item.what || ""), key = incomeGroupKey(item);
+  if(!key || key === "__household") return what;
+  var prefix = key + " — ";
+  if(what.indexOf(prefix) !== 0 || what.length <= prefix.length) return what;
+  var rest = what.slice(prefix.length);
+  return rest.charAt(0).toUpperCase() + rest.slice(1);
+}
 function modernIncomeRowHtml(item, idx, colorIdx){
   var isComputed = !!item.computed;
   var isGrossRef = item.incomeType === "Gross" && !isComputed;
@@ -415,7 +426,7 @@ function modernIncomeRowHtml(item, idx, colorIdx){
   var summary = '<div class="m-row-summary"' + (isComputed ? ' style="cursor:default"' : ' role="button" tabindex="0" data-row-toggle') + '>' +
     (isComputed ? "" : dot) +
     '<div style="flex:1 1 auto; min-width:0">' +
-      '<div class="m-row-name">' + escapeAttr(item.what) + '</div>' +
+      '<div class="m-row-name">' + escapeAttr(incomeRowLabel(item)) + '</div>' +
       (note ? '<div class="m-row-sub super-note">' + escapeAttr(note) + '</div>' : "") +
       (trendHtml ? '<div class="m-row-sub">' + trendHtml + '</div>' : "") +
       (isComputed ? "" : (function(){ var n = nextPayNoteHtml(item); return n ? '<div class="m-row-sub">' + n + '</div>' : ""; })()) +

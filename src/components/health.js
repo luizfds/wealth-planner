@@ -25,7 +25,9 @@ export function healthHtml(checks, hidden){
       // v3.105.0: both buttons in one cell — as two grid children the second wrapped into the 10px
       // dot column on its own row.
       '<div class="hc-actions">' +
-      (c.fix ? '<button type="button" class="btn btn-sm hc-fix" data-hc-fix="' + escapeAttr(c.fix.kind) + '">' + escapeAttr(c.fix.label) + '</button>' : '') +
+      // v3.146.0: a fix can carry an amount to check first (a card repayment's statement balance).
+      (c.fix && c.fix.amount != null ? '<label class="hc-fix-amt"><span>' + escapeAttr(c.fix.amountLabel || "Amount $") + '</span><input type="number" step="0.01" min="0" data-hc-fix-amount value="' + c.fix.amount + '"></label>' : '') +
+      (c.fix ? '<button type="button" class="btn btn-sm hc-fix" data-hc-fix="' + escapeAttr(c.fix.kind) + '"' + (c.fix.arg ? ' data-hc-fix-arg="' + escapeAttr(c.fix.arg) + '"' : '') + '>' + escapeAttr(c.fix.label) + '</button>' : '') +
       (w.page ? '<button type="button" class="btn btn-sm btn-ghost hc-go" data-hc-page="' + escapeAttr(w.page) + '"' + (w.sub ? ' data-hc-sub="' + escapeAttr(w.sub) + '"' : '') + (w.fy != null ? ' data-hc-fy="' + w.fy + '"' : '') + '>' + escapeAttr(w.label || WHERE_LABEL[w.page] || "Open") + '</button>' : '') +
       '<button type="button" class="btn btn-sm btn-ghost hc-ok" data-hc-dismiss="' + escapeAttr(c.id) + '">Looks right</button>' +
       '</div>' +

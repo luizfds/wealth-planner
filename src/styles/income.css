@@ -279,6 +279,9 @@
 .hc-detail{ font-size:12.5px; color:var(--ink-soft); margin:3px 0 0; line-height:1.45; }
 .hc-go{ white-space:nowrap; }
 .hc-actions{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; justify-content:flex-end; }
+/* v3.146.0: an amount to check before a fix saves it. */
+.hc-fix-amt{ display:inline-flex; align-items:center; gap:6px; font-size:12.5px; color: var(--ink-soft); }
+.hc-fix-amt input{ width:110px; }
 .hc-actions .btn{ white-space:nowrap; }
 .hc-clear{ font-size:13.5px; color:var(--ink-soft); margin:0; }
 @media (max-width:480px){ .hc-item{ grid-template-columns:10px minmax(0,1fr); } .hc-actions{ grid-column:2; justify-content:flex-start; } }

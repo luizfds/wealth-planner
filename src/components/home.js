@@ -16,7 +16,7 @@ import { fmtCurrency0, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { upcomingBills as calendarUpcoming } from "../calc/bills.js";
 import { netWorthOn } from "../calc/nwhistory.js";
-import { netWorthMovers } from "../calc/nwauto.js";
+import { netWorthMovers, netWorthSplit } from "../calc/nwauto.js";
 
 // ---------------- Home (v3.58.0) ----------------
 // The first screen answers four things before anything else: what we're worth, how the month is
@@ -74,13 +74,22 @@ export function homeTodos(today, opts){
 
 // v3.139.0 (item 171): what moved it most since the line began — the same rules both ends
 // (calc/nwhistory.js), so the parts add up. Nothing when no one thing explains much.
-function moverHtml(fromDate, today){
+function moverHtml(fromDate, today, change){
   if(!fromDate || fromDate >= today) return "";
   var a = netWorthOn(fromDate, today), b = netWorthOn(today, today);
   if(a.partial.length) return "";
-  var m = netWorthMovers(a.parts, b.parts)[0];
-  if(!m || Math.abs(m.change) < 100) return "";
-  return '<small class="home-nw-mover">Biggest change: ' + escapeAttr(m.label.toLowerCase()) + ' ' + signed(m.change) + '</small>';
+  // v3.146.0: in two parts — the money kept (or spent) and what the things owned are worth — so a
+  // revaluation doesn't read as a month of overspending.
+  var sp = netWorthSplit(netWorthMovers(a.parts, b.parts));
+  if(Math.abs(sp.money) < 100 && Math.abs(sp.values) < 100) return "";
+  var part = function(label, v, cls){ return '<span class="' + cls + '">' + label + ' <b class="' + (v >= 0 ? "up" : "down") + '">' + signed(v) + '</b></span>'; };
+  // The headline's change runs from the figure logged back then; the parts from that day rebuilt from
+  // today's records. A balance updated or back-dated since makes the two differ — said, not hidden,
+  // so the parts always add up to the headline.
+  var revised = change != null ? Math.round(change - sp.money - sp.values) : 0;
+  return '<small class="home-nw-mover">' + part("Cash &amp; loans", sp.money, "nw-part") + ' · ' +
+    part("Property &amp; investments", sp.values, "nw-part") + (sp.top ? ' <span class="nw-top">(mostly ' + escapeAttr(sp.top.label.toLowerCase()) + ')</span>' : '') +
+    (Math.abs(revised) >= Math.max(500, Math.abs(change) * 0.05) ? ' · ' + part("Records updated since", revised, "nw-part nw-revised") : '') + '</small>';
 }
 export function homeSummaryHtml(today, opts){
   today = today || localDateStr();
@@ -90,7 +99,7 @@ export function homeSummaryHtml(today, opts){
   // so the text and the line can't disagree.
   var trend = trendToToday(state.netWorthLog, nw, today, 12);
   var nwCard = '<div class="home-card home-nw"><span class="home-k">Net worth</span><b class="home-big">' + money(nw) + '</b>' +
-    (trend ? '<small class="' + (trend.change >= 0 ? "up" : "down") + '">' + signed(trend.change) + ' since ' + shortDate(trend.from.date) + '</small>' + moverHtml(trend.from.date, today) : '<small>The trend appears as the days go by</small>') +
+    (trend ? '<small class="' + (trend.change >= 0 ? "up" : "down") + '">' + signed(trend.change) + ' since ' + shortDate(trend.from.date) + '</small>' + moverHtml(trend.from.date, today, trend.change) : '<small>The trend appears as the days go by</small>') +
     '<span class="home-spark">' + (trend ? sparklineHtml(trend.points, { width: 120, height: 28 }) : "") + '</span>' +
     '<button type="button" class="link-btn home-link" data-home-go="assets">Net worth over time →</button></div>';
 

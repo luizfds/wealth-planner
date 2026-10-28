@@ -53,3 +53,23 @@ test("migration gives every goal an id and an account list", function(){
   assert.deepEqual(s.savingsGoals[0].accounts, []);
   assert.equal(s.savingsGoals[0].target, 200);
 });
+
+test("a goal past its target says by how much, and where the surplus could go", function(){
+  withState(function(){
+    state.assets.push({ id: "c2", what: "Deposit pot", category: "Cash", amount: 7000, history: [] });
+    state.accounts.push({ name: "Deposit saver", type: "savings", link: "asset:c2" }, { name: "Loan offset", type: "offset", link: "" });
+    addSavingsGoal({ name: "Emergency", target: 5000, accounts: ["Bank One Saver"] });
+    addSavingsGoal({ name: "Deposit", target: 10000, by: "2027-10-01", accounts: ["Deposit saver"] });
+    var ov = goalsOverview("2026-10-01", 1000);
+    var em = ov.goals[0];
+    assert.equal(em.over, 7000);
+    assert.equal(em.times, 2.4);
+    assert.deepEqual(em.surplusTo, { kind: "goal", name: "Deposit", amount: 3000, finishes: true });
+    var html = goalsSectionHtml("2026-10-01", 1000);
+    assert.match(html, /2\.4× the target/);
+    assert.match(html, /\$7,000 over\. Moving \$3,000 of it would finish Deposit\./);
+    // Nothing left to finish: the offset.
+    state.savingsGoals = state.savingsGoals.slice(0, 1);
+    assert.deepEqual(goalsOverview("2026-10-01", 1000).goals[0].surplusTo, { kind: "offset", name: "Loan offset", amount: 7000 });
+  });
+});

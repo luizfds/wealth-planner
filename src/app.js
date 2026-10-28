@@ -1093,6 +1093,19 @@ import { inboxMessage } from "./calc/inbox.js";
     // v3.144.0: a check that can fix itself.
     var fix = e.target.closest("[data-hc-fix]");
     if(fix){
+      // v3.146.0: a card repayment nobody logged, at the amount checked against the statement.
+      if(fix.getAttribute("data-hc-fix") === "card-log"){
+        var arg = (fix.getAttribute("data-hc-fix-arg") || "").split("|");
+        var item = fix.closest(".hc-item"), amtEl = item && item.querySelector("[data-hc-fix-amount]");
+        var amount = Math.round((Number(amtEl && amtEl.value) || 0) * 100) / 100;
+        if(!(amount > 0)){ showToast("Enter the statement balance"); return; }
+        var card = state.accounts.find(function(a){ return a.name === arg[0]; });
+        var from = card && usualCardSource(card, state.accounts, state.transfers);
+        if(!card || !from){ showToast("Couldn't tell which account pays this card — log it on Cash flow → Spending"); return; }
+        saveTransfer({ date: arg[1], amount: amount, from: from, to: card.name, what: card.name + " repayment" }, true, "Repayment saved");
+        renderHealth(); renderChecksBadge(); renderNotifBadge();
+        return;
+      }
       if(fix.getAttribute("data-hc-fix") === "card-from"){
         var was = [];
         oddCardRepayments(state.accounts, state.transfers).forEach(function(o){ if(o.usual){ was.push([o.transfer, o.transfer.from]); o.transfer.from = o.usual; } });
@@ -3116,30 +3129,8 @@ import { inboxMessage } from "./calc/inbox.js";
       var amt = Number(get("amount"));
       if(!(amt > 0)){ showToast("Enter the amount moved"); return; }
       if(!get("from") || get("from") === get("to")){ showToast("Pick two different accounts"); return; }
-      var rec = addTransfer({ date: get("date") || localDateStr(), amount: amt, from: get("from"), to: get("to"), what: get("what") });
-      var moved = [], before = [];
-      if(get("balances")){
-        [[rec.from, -1], [rec.to, 1]].forEach(function(pair){
-          var acct = state.accounts.find(function(a){ return a.name === pair[0]; });
-          if(!acct) return;
-          var bal = accountBalance(acct);
-          if(bal.balance == null) return;
-          before.push([acct, bal.balance]);
-          // Money into a card or loan lowers what's owed; out of one raises it.
-          var delta = (bal.owed ? -pair[1] : pair[1]) * amt;
-          setAccountBalance(acct, bal.balance + delta, rec.date);
-          moved.push(acct.name);
-        });
-      }
       transferForm.open = false;
-      renderAll();
-      persist();
-      // v3.144.0: undo puts the balances back too, not just the transfer.
-      showUndoToast("Transfer saved" + (moved.length ? " — " + moved.join(" and ") + " updated" : ""), function(){
-        deleteTransfer(rec.id);
-        before.forEach(function(b){ setAccountBalance(b[0], b[1], rec.date); });
-        renderAll(); persist();
-      });
+      saveTransfer({ date: get("date") || localDateStr(), amount: amt, from: get("from"), to: get("to"), what: get("what") }, get("balances"), "Transfer saved");
       return;
     }
     if(b.hasAttribute("data-cf-del-transfer")){
@@ -4096,6 +4087,34 @@ import { inboxMessage } from "./calc/inbox.js";
       }
     );
   });
+  // A transfer saved, and with `moveBalances` both accounts' balances moved by it (where each has
+  // one) — the transfer form and Checks' "Save repayment" (v3.146.0). Undo puts both back (v3.144.0).
+  function saveTransfer(t, moveBalances, message){
+    var rec = addTransfer(t);
+    var moved = [], before = [];
+    if(moveBalances){
+      [[rec.from, -1], [rec.to, 1]].forEach(function(pair){
+        var acct = state.accounts.find(function(a){ return a.name === pair[0]; });
+        if(!acct) return;
+        var bal = accountBalance(acct);
+        if(bal.balance == null) return;
+        before.push([acct, bal.balance]);
+        // Money into a card or loan lowers what's owed; out of one raises it.
+        var delta = (bal.owed ? -pair[1] : pair[1]) * rec.amount;
+        setAccountBalance(acct, bal.balance + delta, rec.date);
+        moved.push(acct.name);
+      });
+    }
+    renderAll();
+    persist();
+    showUndoToast(message + (moved.length ? " — " + moved.join(" and ") + " updated" : ""), function(){
+      deleteTransfer(rec.id);
+      before.forEach(function(b){ setAccountBalance(b[0], b[1], rec.date); });
+      renderAll(); persist();
+    });
+    return rec;
+  }
+
   // ---------------- Statements from a folder (v3.142.0, item 181) ----------------
   // What's waiting in Statements (Dropbox, or the backup folder) is listed once the app has opened
   // and synced; each goes through importBankFile like a chosen file, and moves to Statements/Imported

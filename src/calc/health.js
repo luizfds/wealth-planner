@@ -6,7 +6,7 @@ import { taxYearRecord } from "./taxyear.js";
 import { budgetComparison, rentalComparison, householdBudgetLines } from "./closeyear.js";
 import { localDateStr, fmtDate } from "../lib/format.js";
 import { takeHomeDrifts } from "./takehome.js";
-import { oddCardRepayments } from "./bills.js";
+import { oddCardRepayments, unloggedCardRepayments } from "./bills.js";
 
 // ---------------- Data health (v3.48.0) ----------------
 //
@@ -81,6 +81,17 @@ export function dataHealthChecks(opts){
       where: { page: "expenses", sub: "spending", label: "Open Spending" },
       fix: fixable.length ? { label: fixable.every(function(o){ return o.usual === usual; }) ? "Change to " + usual : "Change to the usual accounts", kind: "card-from" } : null });
   }
+
+  // v3.146.0: a card repayment day that's passed with nothing logged — check the amount against the
+  // statement and save it, from here (app.js data-hc-fix="card-log").
+  unloggedCardRepayments(state.accounts, state.transactions, state.transfers, today).forEach(function(r){
+    add({ id: "card-unlogged:" + r.card + ":" + r.date, severity: r.direct ? "info" : "warn",
+      title: r.card + " repayment on " + fmtDate(r.date) + " isn't logged",
+      detail: (r.direct ? "It comes out of " + r.from + " by direct debit, so it's taken as paid — logging it moves both balances. " : "If it's been paid, log it here; if not, it's overdue. ") +
+        "The amount is what was charged " + fmtDate(r.cycle.start) + " to " + fmtDate(r.cycle.end) + " — change it to the statement's closing balance if that's different.",
+      where: { page: "expenses", sub: "bills", label: "Open Bills" },
+      fix: r.from ? { label: "Save repayment", kind: "card-log", arg: r.card + "|" + r.date, amount: r.amount, amountLabel: "Statement balance $", from: r.from } : null });
+  });
 
   // Deductions that land nowhere, or nowhere real.
   var unclaimed = items.filter(function(i){ return i.deductible && !i.claimProperty && !i.deductiblePerson && people.length > 1; });

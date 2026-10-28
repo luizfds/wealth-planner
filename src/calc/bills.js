@@ -329,3 +329,22 @@ export function oddCardRepayments(accounts, transfers){
     return { transfer: t, card: card.name, fromType: byName[t.from].type, usual: usualCardSource(card, accounts, transfers) };
   });
 }
+
+// ---------------- Card repayments nobody logged (v3.146.0) ----------------
+// Repayment days in the last two months that have passed with no transfer to the card: a direct
+// debit taken as paid (item 170), or one simply not logged yet. Each comes with what the cycle
+// charged (the statement balance, as near as the app knows it) and where it's paid from, for a
+// Check to log in one step. [{ card, date, amount, from, cycle, direct }], oldest first.
+export function unloggedCardRepayments(accounts, transactions, transfers, today, kindOf){
+  var ym = String(today).slice(0, 7), out = [];
+  var cutoff = addDays(today, -62);
+  [addMonths(ym, -2), addMonths(ym, -1), ym].forEach(function(m){
+    cardPaymentsForMonth(accounts, transactions, transfers, m, today, kindOf).forEach(function(p){
+      if(p.date > today || p.date < cutoff) return;
+      if(!(p.assumed || p.overdue) || !(p.charges > 0)) return;
+      var card = (accounts || []).find(function(a){ return a.name === p.card; });
+      out.push({ card: p.card, date: p.date, amount: p.charges, from: card ? usualCardSource(card, accounts, transfers) : "", cycle: p.cycle, direct: !!p.assumed });
+    });
+  });
+  return out;
+}

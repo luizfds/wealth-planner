@@ -12,7 +12,12 @@ var STATUS = { done: ["Reached", "ok"], "on-track": ["On track", "ok"], possible
 
 function goalLine(g){
   var bits = [];
-  if(g.status === "done") bits.push("Target reached.");
+  if(g.status === "done"){
+    bits.push(g.over > 0 ? "Target reached — " + money(g.over) + " over." : "Target reached.");
+    var to = g.surplusTo;
+    if(to && to.kind === "goal") bits.push((to.finishes ? "Moving " + money(to.amount) + " of it would finish " : "It could go toward ") + to.name + (to.finishes ? "." : " (" + money(to.amount) + ")."));
+    else if(to && to.kind === "offset") bits.push("Kept in " + to.name + " instead, it would bring the loan's interest down.");
+  }
   else {
     if(g.neededMonthly != null) bits.push(money(g.neededMonthly) + "/mo needed to reach it by " + ym(g.by) + ".");
     if(g.pace != null) bits.push("Balances have moved " + (g.pace >= 0 ? "+" : "") + money(g.pace) + "/mo over the last " + g.paceMonths + " months" + (g.projected ? " — at that pace, " + ym(g.projected + "-01") + "." : "."));
@@ -28,9 +33,11 @@ export function goalCardHtml(g, i, opts){
   var open = !opts.compact && goalOpen[g.id];
   var head = '<div class="sgl-head"><button type="button" class="sgl-name" data-goal-toggle="' + escapeAttr(g.id) + '"' + (opts.compact ? ' data-goal-go' : '') + ' aria-expanded="' + !!open + '">' + escapeAttr(g.name) + '</button>' +
     '<span class="sgl-status ' + st[1] + '">' + st[0] + '</span></div>' +
-    '<div class="sgl-amounts"><b>' + money(g.current) + '</b><span>of ' + money(g.target) + (g.by ? ' by ' + ym(g.by) : '') + ' · ' + fmtPercent0.format(g.pct) + '</span></div>' +
+    '<div class="sgl-amounts"><b>' + money(g.current) + '</b><span>of ' + money(g.target) + (g.by ? ' by ' + ym(g.by) : '') + ' · ' + (g.over > 0 && g.times >= 1.1 ? g.times + '× the target' : fmtPercent0.format(g.pct)) + '</span></div>' +
     '<div class="sgl-bar"><i style="width:' + Math.max(1, Math.round(g.pct * 100)) + '%"></i></div>';
-  if(opts.compact) return '<div class="sgl sgl-compact">' + head + '</div>';
+  if(opts.compact) return '<div class="sgl sgl-compact">' + head + (g.over > 0 && g.surplusTo ? '<p class="sgl-hint">' + escapeAttr(g.surplusTo.kind === "goal"
+      ? money(g.over) + " over — " + (g.surplusTo.finishes ? money(g.surplusTo.amount) + " of it would finish " : "it could go toward ") + g.surplusTo.name
+      : money(g.over) + " over — in " + g.surplusTo.name + " it would cut the loan's interest") + '</p>' : '') + '</div>';
   var accts = (state.accounts || []).filter(function(a){ return a.name; });
   var edit = open ? '<div class="sgl-edit">' +
       '<label class="cf-filter"><span>Name</span><input type="text" data-goal-field="name" data-goal-index="' + i + '" value="' + escapeAttr(g.name) + '"></label>' +

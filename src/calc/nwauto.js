@@ -80,3 +80,19 @@ export function netWorthMovers(from, to){
 
 // Which log points the thinning may drop: the ones the app made, never one recorded by hand.
 export function isAutoPoint(p){ return !!(p && (p.auto || p.derived)); }
+
+// v3.146.0: the change in two parts — money (cash, offsets, what's owed on cards and loans: what was
+// kept or spent) and values (property, shares, super and the rest: the market, revaluations, and
+// money moved into them). movers: netWorthMovers' rows. { money, values, top } — `top` the values
+// row that accounts for most of the values part (70% or more), else null.
+var MONEY_KEYS = { "asset:Cash": 1, offsets: 1, loans: 1, debts: 1 };
+export function netWorthSplit(movers){
+  var money = 0, values = 0, valueRows = [];
+  (movers || []).forEach(function(r){
+    if(MONEY_KEYS[r.key]) money += r.change;
+    else { values += r.change; valueRows.push(r); }
+  });
+  var top = valueRows.slice().sort(function(a, b){ return Math.abs(b.change) - Math.abs(a.change); })[0] || null;
+  if(top && !(Math.abs(values) >= 1 && Math.sign(top.change) === Math.sign(values) && Math.abs(top.change) >= Math.abs(values) * 0.7)) top = null;
+  return { money: Math.round(money * 100) / 100, values: Math.round(values * 100) / 100, top: top };
+}

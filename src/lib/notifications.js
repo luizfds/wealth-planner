@@ -10,6 +10,7 @@ import { dataHealthChecks } from "../calc/health.js";
 import { sortedRateHistory, calcRepaymentMonthly } from "../calc/property.js";
 import { shiftMonth, monthLabel } from "../calc/monthreview.js";
 import { cardPaymentsForMonth, upcomingBills, billLineStatus, billsToConfirm } from "../calc/bills.js";
+import { storageUsedChars, storageLevel, storageLineText } from "./storageuse.js";
 
 // ---------------- Notifications: a small, backend-shaped layer over locally-computed alerts ----------------
 // This app has no backend (see CLAUDE.md) — every notification here is derived live from
@@ -333,6 +334,20 @@ function backupReminderNotification(){
   }];
 }
 
+// ---------------- Storage filling up (v3.138.0) ----------------
+function storageNotification(){
+  var used = typeof localStorage === "undefined" ? null : storageUsedChars(localStorage);
+  var l = storageLevel(used);
+  if(!l.level) return [];
+  return [{
+    id: "storage:" + (l.level === "warn" ? 85 : 70),
+    type: "data", severity: l.level,
+    title: "This browser's storage is " + Math.round(l.pct * 100) + "% full",
+    detail: storageLineText(used) + " Export a backup now — once it's full, changes stop being saved.",
+    date: todayStr(), page: "accounts", sub: "preferences"
+  }];
+}
+
 // ---------------- Monthly review (v3.54.0) ----------------
 // The first ten days of a month, until last month has been marked reviewed.
 function monthReviewNotification(){
@@ -507,7 +522,8 @@ export function getLocalNotifications(){
     rateChangeNotifications(),
     cardPaymentNotifications(),
     monthReviewNotification(),
-    dataHealthNotification()
+    dataHealthNotification(),
+    storageNotification()
   );
 }
 

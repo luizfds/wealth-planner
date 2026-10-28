@@ -30,7 +30,11 @@ export function moduleFiles(dir = path.join(root, "src")){
 export function stampedIndex(html, version, files){
   const imports = {};
   files.forEach(f => { imports["./" + f] = "./" + f + "?v=" + version; });
-  const block = START + '\n<script type="importmap">\n' + JSON.stringify({ imports }, null, 1) + "\n</script>\n" + END;
+  // v3.138.0: and a modulepreload for each, after the map (which has to come first). Without them the
+  // browser finds the ~130 modules an import level at a time — on a phone's latency, a waterfall of
+  // seconds. Every file under src/ is in app.js's static import graph, so none is fetched for nothing.
+  const preloads = files.map(f => '<link rel="modulepreload" href="./' + f + '?v=' + version + '">').join("\n");
+  const block = START + '\n<script type="importmap">\n' + JSON.stringify({ imports }, null, 1) + "\n</script>\n" + preloads + "\n" + END;
   let out = html.includes(START)
     ? html.replace(new RegExp(START + "[\\s\\S]*?" + END), block)
     : html.replace('<script type="module" src="src/app.js', block + '\n<script type="module" src="src/app.js');

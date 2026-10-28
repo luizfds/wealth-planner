@@ -4,6 +4,7 @@ import { syncLocal, syncVia } from "../lib/foldersync.js";
 import { appKey, dropboxConnected, keyIsBuiltIn, redirectUri } from "../lib/dropbox.js";
 import { escapeAttr } from "../lib/html.js";
 import { localDateStr, fmtDate } from "../lib/format.js";
+import { storageUsedChars, storageLineText } from "../lib/storageuse.js";
 
 // ---------------- Settings → Preferences → Keeping your data safe (v3.63.0) ----------------
 export function safekeepingHtml(folderName, today){
@@ -57,6 +58,8 @@ export function safekeepingHtml(folderName, today){
 export function renderSafekeeping(){
   var el = typeof document !== "undefined" && document.getElementById("safekeepingBody");
   if(!el) return Promise.resolve();
-  el.innerHTML = safekeepingHtml(null);
-  return savedFolder().then(function(h){ el.innerHTML = safekeepingHtml(h ? h.name : null); });
+  // v3.138.0: and how full this browser's storage is.
+  var storage = function(){ var t = storageLineText(storageUsedChars(localStorage)); return t ? '<p class="ledger-note sk-storage" style="margin:12px 0 0">' + t + '</p>' : ''; };
+  el.innerHTML = safekeepingHtml(null) + storage();
+  return savedFolder().then(function(h){ el.innerHTML = safekeepingHtml(h ? h.name : null) + storage(); });
 }

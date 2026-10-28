@@ -3055,7 +3055,7 @@ holding seeded with 1,246 daily points came out with 201 and its typed value int
 repo) history is already mostly weekly, so few points went, with no week-end value or chart range start changed.
 
 
-## 168. `[~]` A polish pass
+## 168. `[x]` A polish pass
 What made the app look less finished than it is, from a look at every page at 390 and 1280px:
 - **Words that are no longer true:** the sidebar's "nothing is sent anywhere" (sync and prices now do, by choice),
   and text still naming pages by their old names (Dashboard for Home, …).
@@ -3067,6 +3067,20 @@ What made the app look less finished than it is, from a look at every page at 39
 - **Feel:** undo for deletes, empty pages that say what to do, a first-load splash, an accessibility pass and
   keyboard shortcuts.
 - **Under the hood:** a lighter first load without a build step, and a warning before the browser's storage fills.
+
+Shipped as v3.138.0, in one PR with the Income "Show as" switch the user asked for along the way. Words: the sidebar's
+privacy note and page names in text. Layout: each page's ⓘ and ⋯ beside its title (lib/help.js moves them there),
+empty intro rows folded away, Home's net worth once, the net worth bar's legend. Spending: one toolbar with a Filters
+button, chips, rows by day, a bin for money-in and transfers. Undo in place of confirm() for scenario, trip, statement,
+share-sale and bulk deletes (`withUndo` snapshots the state). Empty Investments says where to start. Accessibility:
+standards mode (a doctype and lang — every view compared, tables a couple of pixels taller a row), a main landmark,
+heading order, `--good-ink`/`--bad-ink`/`--warn-ink` for coloured text (axe-core's contrast failures 194 → the
+white labels on coloured chart bars). Keyboard: / n g+letter ?. The saved chip is a dot from 881 to 1360px so the
+header keeps one row. modulepreload for every module (2.0s → 1.3s first load at 200ms latency over HTTP/2). A storage
+gauge and notification (lib/storageuse.js). Income: Show as year/month/fortnight/week/day/hour, per hour by each
+person's hours a week (Tax → People, 38 until set; calc/showas.js). Not done: the ⓘ buttons inside <summary> are
+still interactive-inside-interactive (axe "nested-interactive"); moving them out of the summary is its own change.
+
 
 ## Conventions for whoever picks this up
 

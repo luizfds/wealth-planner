@@ -81,7 +81,8 @@ the last, so two sessions can't pick up the same one.
   reads), `investreports.js` (returns by holding, distributions, CGT parcels), `assetreports.js`
   (property returns, the loan schedule and payoff), `outcomes.js` (Monte Carlo bands and retirement
   odds), `lifeevents.js` (dated events on the projection), `agepension.js` (account-based pension
-  drawdown and the Age Pension) and `networthlist.js` (everything owned and owed in one list).
+  drawdown and the Age Pension) and `networthlist.js` (everything owned and owed in one list); and
+  `showas.js` (Income per year, month, fortnight, week, day or hour).
 - `src/components/{dashboard,home,income,taxyear,expenses,cashflow,accounts,assets,investments,
   properties,projections,scenarios,reports,rules,period,safekeeping,savegoals,recurring,yearend,nav,
   bank-import,search,people,received,health,junemoves,monthreview,retirement,networth,detail,
@@ -101,6 +102,11 @@ the last, so two sessions can't pick up the same one.
   **There is no Classic mode any more** — `lib/uimode.js`, `state.uiMode` and the `buildTable`/
   `rowHtml` `<table>` renderers were all removed once every page went Modern-only. If you find a
   reference to any of them anywhere, it is stale.
+- `index.html` starts with `<!doctype html><html lang="en-AU">` (v3.138.0 — before that the app ran in
+  quirks mode). Text coloured as up/down/warning uses `--good-ink`/`--bad-ink`/`--warn-ink` (base.css),
+  which pass 4.5:1 contrast; `--good`/`--bad` are for fills, bars and dots.
+- `src/lib/storageuse.js` — how full localStorage is (a notification from 70%, a line in Settings →
+  Preferences). `src/lib/help.js` also puts each page's ⓘ and its own ⋯ actions beside the title.
 - `src/lib/backup.js` — JSON backup export/import (with optional Web Crypto passphrase
   encryption) and per-section CSV export. `applyImportedBackupJson` stays in `app.js` since it
   calls the permanent-resident `renderAll()`.
@@ -147,8 +153,10 @@ commit and a matching git tag:
    feature/behavior change, **Patch** (`v1.0.X`) for a bug fix — in a separate commit titled
    `Bump version to vX.Y.Z — <short reason>`.
    In the same commit, run `npm run stamp`: it writes the version onto every module URL (an import
-   map in `index.html`) and the stylesheet imports, so a browser can never pair a new page with an
-   old cached module. `tests/stamp.test.js` fails if you forget.
+   map in `index.html`, plus a `modulepreload` per module so a first visit fetches them all at once
+   rather than an import level at a time) and the stylesheet imports, so a browser can never pair a
+   new page with an old cached module. `tests/stamp.test.js` fails if you forget — and a new module
+   needs a stamp before the tests pass.
 3. `git tag -a vX.Y.Z -m "<short reason>"`.
 4. Push both `main` and the tag.
 

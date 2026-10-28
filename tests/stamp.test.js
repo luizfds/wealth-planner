@@ -20,5 +20,7 @@ test("the import map maps each module to one versioned URL", function(){
   assert.match(out, /src="src\/app\.js\?v=1\.2\.3"/);
   assert.match(out, /href="styles\.css\?v=1\.2\.3"/);
   assert.ok(out.indexOf("importmap") < out.indexOf('type="module"'), "the map comes before the module script");
+  assert.deepEqual(out.match(/<link rel="modulepreload" href="[^"]+">/g), ['<link rel="modulepreload" href="./src/app.js?v=1.2.3">', '<link rel="modulepreload" href="./src/state.js?v=1.2.3">']);
+  assert.ok(out.indexOf("importmap") < out.indexOf("modulepreload"), "the map comes before the preloads");
   assert.equal(stampedIndex(out, "1.2.4", ["src/app.js"]).match(/type="importmap"/g).length, 1, "re-stamping replaces, never adds");
 });

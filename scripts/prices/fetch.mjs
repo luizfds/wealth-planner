@@ -35,9 +35,12 @@ async function get(url, as){
 async function twelve(t, exchange){
   const started = Date.now();
   try {
-    const json = await get("https://api.twelvedata.com/time_series?symbol=" + encodeURIComponent(t) + (exchange ? "&exchange=" + exchange : "") + "&interval=1week&outputsize=262&apikey=" + KEY, "json");
+    // Twelve Data says why in the body (a plan limit, an unknown symbol) even on an HTTP error, so
+    // read it rather than stopping at the status.
+    const r = await fetch("https://api.twelvedata.com/time_series?symbol=" + encodeURIComponent(t) + (exchange ? "&exchange=" + exchange : "") + "&interval=1week&outputsize=262&apikey=" + KEY);
+    let json = null; try { json = await r.json(); } catch(e){}
     const rows = parseTwelveData(json);
-    if(!rows || !rows.length) throw new Error(json && json.message ? json.message.slice(0, 80) : "no rows");
+    if(!rows || !rows.length) throw new Error("HTTP " + r.status + (json && json.message ? ": " + json.message.slice(0, 120) : ""));
     return rows;
   } finally { await sleep(Math.max(0, 60000 / PER_MINUTE - (Date.now() - started))); }
 }
@@ -68,6 +71,13 @@ if(KEY){
       fresh["ASX:" + t] = { weekly: rows, latest: latestFromWeekly(rows) };
     } catch(e){ failed.asx.push(t + " (" + e.message + ")"); }
     progress();
+    // When the first dozen all fail, the plan doesn't cover the market — say so and stop, rather
+    // than spend another 40 minutes and 300 credits learning the same thing.
+    if(failed.asx.length === 12 && !Object.keys(fresh).some(k => k.startsWith("ASX:"))){
+      console.log("The first 12 ASX tickers all failed (" + failed.asx[0] + ") — skipping the rest.");
+      failed.asx.push("… and the other " + (universe.asx.length - 12) + ", not tried");
+      break;
+    }
   }
 }
 

@@ -160,14 +160,25 @@ export function budgetPlanHtml(opts){
     return '<div class="bp-row ' + (cls || "") + '"><span>' + escapeAttr(label) + '</span><b>' + (sign < 0 ? "−" : "+") + fmtCurrency0.format(Math.abs(amount)) + '</b>' +
       '<em class="' + (run < 0 ? "neg" : "") + '">' + (run < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(run)) + '</em></div>';
   };
-  var income = (opts.income || []).filter(function(r){ return Math.abs(r.monthly) >= 0.5; });
+  var all = (opts.income || []).filter(function(r){ return Math.abs(r.monthly) >= 0.5; });
+  // v3.139.0 (item 172): a bonus comes once a year, so it isn't part of a normal month — the header
+  // and Home leave it out, and this said "each month" with it spread in. Now the normal month first,
+  // then the bonuses averaged over the year, each total labelled for what it is.
+  var income = all.filter(function(r){ return !r.oneOff; }), bonuses = all.filter(function(r){ return r.oneOff; });
   var groups = (opts.groups || []).filter(function(g){ return Math.abs(g.monthly) >= 0.5; });
+  var total = function(label, v){ return '<div class="bp-row bp-total"><span>' + label + '</span><b></b><em class="' + (v < 0 ? "neg" : "pos") + '">' + (v < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(v)) + '</em></div>'; };
   var html = '<div class="bp-head"><span></span><span>per month</span><span>left</span></div>' +
     '<div class="bp-sec">Money in</div>' + income.map(function(r){ return row(r.label, r.monthly, 1, "in"); }).join("") +
     '<div class="bp-sec">Money out</div>' + groups.map(function(g){ return row(g.label, g.monthly, -1); }).join("") +
     (Math.abs(opts.other || 0) >= 0.5 ? row("Investment loan repayments", opts.other, -1) : "");
-  var net = opts.net != null ? opts.net : run;
-  return html + '<div class="bp-row bp-total"><span>Left over each month</span><b></b><em class="' + (net < 0 ? "neg" : "pos") + '">' + (net < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(net)) + '</em></div>';
+  if(!bonuses.length){
+    var net = opts.net != null ? opts.net : run;
+    return html + total("Left over each month", net);
+  }
+  var normal = run;
+  html += total("Left over in a normal month", normal);
+  html += '<div class="bp-sec">Once a year, averaged over twelve months</div>' + bonuses.map(function(r){ return row(r.label, r.monthly, 1, "in"); }).join("");
+  return html + total("Left over a month across the year", opts.net != null ? opts.net : run);
 }
 
 // ---------------- Cash flow → Bills (v3.60.0) ----------------
@@ -190,7 +201,7 @@ export function billsCalendarHtml(data, ym, today){
   for(var d = 1; d <= daysIn; d++){
     var key = ym + "-" + String(d).padStart(2, "0");
     // The card repayment first: it's the money actually leaving the bank that day.
-    var chips = (payOn[key] || []).map(function(p){ return { what: p.card + " payment", amount: p.amount, cls: "card-pay " + st(p), title: p.card + " payment " + fmtCurrency0.format(p.amount) + (p.paid ? " — paid" : p.overdue ? " — not logged yet" : "") }; })
+    var chips = (payOn[key] || []).map(function(p){ return { what: p.card + " payment", amount: p.amount, cls: "card-pay " + st(p), title: p.card + " payment " + fmtCurrency0.format(p.amount) + (p.assumed ? " — paid by direct debit from " + p.autoPayFrom + " (not logged)" : p.paid ? " — paid" : p.overdue ? " — not logged yet" : p.autoPayFrom ? " — by direct debit from " + p.autoPayFrom : "") }; })
       .concat((data.days[key] || []).map(function(b){ return { what: b.what, amount: b.amount, cls: (b.card ? "on-card " : "") + (b.agent ? "by-agent " : "") + st(b), title: b.what + " " + fmtCurrency0.format(b.amount) + (b.card ? " on the " + b.card + (b.payOn ? ", paid with the " + short(b.payOn) + " repayment" : "") : "") + (b.agent ? " — paid by " + b.agent + " from the rent" : "") + (b.paid ? " — paid" : b.overdue ? " — not logged yet" : "") }; }));
     cells.push('<div class="bc-cell' + (key === today ? " is-today" : "") + (chips.length ? " has-bills" : "") + '"><span class="bc-day">' + d + '</span>' +
       chips.slice(0, 3).map(function(c){ return '<span class="bc-bill ' + c.cls.trim() + '" title="' + escapeAttr(c.title) + '">' + escapeAttr(c.what) + '</span>'; }).join("") +

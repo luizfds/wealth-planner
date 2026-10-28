@@ -254,3 +254,21 @@ test("bills to confirm: fallen due, not logged, paid from an account — oldest 
   var early = tx.filter(function(t){ return t.date <= "2026-08-20"; });
   assert.deepEqual(billsToConfirm(items, early, "2026-08-20", { accounts: [] }).map(function(b){ return b.what; }), [], "paid this month, and nothing before the first payment counts as missed");
 });
+
+test("a card paid in full by direct debit is paid on its day, until the real repayment is logged", () => {
+  // Invented: a card charged in its cycle, its repayment day set on the card, nothing logged.
+  const accounts = [{ name: "Card A", type: "credit", statementStartDay: 1, payDay: 20, autoPayFrom: "Everyday" }, { name: "Everyday", type: "everyday" }];
+  const tx = [{ date: "2026-09-05", amount: 120, account: "Card A" }, { date: "2026-09-12", amount: 80, account: "Card A" }];
+  const before = cardPaymentsForMonth(accounts, tx, [], "2026-10", "2026-10-15");
+  assert.equal(before[0].date, "2026-10-20");
+  assert.equal(before[0].paid, false); assert.equal(before[0].overdue, false);
+  const after = cardPaymentsForMonth(accounts, tx, [], "2026-10", "2026-10-25");
+  assert.equal(after[0].paid, true); assert.equal(after[0].assumed, true); assert.equal(after[0].overdue, false);
+  assert.equal(after[0].amount, 200);
+  // The real repayment logged: paid, and no longer an assumption.
+  const logged = cardPaymentsForMonth(accounts, tx, [{ date: "2026-10-21", amount: 200, from: "Everyday", to: "Card A" }], "2026-10", "2026-10-25");
+  assert.equal(logged[0].paid, true); assert.equal(logged[0].assumed, false);
+  // Without direct debit, the same day passing unlogged is overdue.
+  const manual = cardPaymentsForMonth([{ name: "Card A", type: "credit", statementStartDay: 1, payDay: 20 }], tx, [], "2026-10", "2026-10-25");
+  assert.equal(manual[0].overdue, true);
+});

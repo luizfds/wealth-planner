@@ -10,6 +10,10 @@
 // st: state. toAud(asset, amount). Returns { groups: [{ key, label, rows: [{ kind, id, name, sub, value }], total }], total }.
 // adjust: { "asset:<id>": n, "debt:<id>": n, "offset:<loanId>": n } — what's been logged on each
 // account since its balance was recorded (calc/accounts.js loggedSinceRecorded), added to its row.
+// A share holding sold down to nothing: no units left, and sales to say where they went.
+export function isSoldOut(a){
+  return !!a && a.category === "Shares" && !((Number(a.quantity) || 0) > 0) && Array.isArray(a.sales) && a.sales.length > 0;
+}
 export function netWorthList(st, toAud, adjust){
   toAud = toAud || function(a, v){ return v; };
   adjust = adjust || {};
@@ -17,6 +21,8 @@ export function netWorthList(st, toAud, adjust){
   var G = { cash: [], invest: [], super: [], property: [], other: [], debts: [] };
   (st.assets || []).forEach(function(a){
     if(!a) return;
+    // v3.139.0 (item 174): a holding sold down to nothing owns nothing — it lives on under Shares → Sold.
+    if(isSoldOut(a)) return;
     var v = toAud(a, Number(a.amount) || 0) + adj("asset:" + a.id), c = a.category || "Other";
     var row = { kind: "asset", id: a.id, name: a.what || a.symbol || c, sub: [c === "Shares" && a.symbol ? a.symbol : null, a.person || null].filter(Boolean).join(" · "), value: v };
     if(c === "Cash") G.cash.push(row);
@@ -30,7 +36,11 @@ export function netWorthList(st, toAud, adjust){
       // As the header's net worth counts them: a paid-out loan owes nothing; an offset is cash.
       var paid = l.endedOn && l.endedOn <= new Date().toISOString().slice(0, 10);
       var bal = paid ? 0 : Number(l.balance) || 0, off = (Number(l.offsetBalance) || 0) + adj("offset:" + l.id);
-      if(off) G.cash.push({ kind: "loan", id: l.id, name: (p.what || "Property") + " offset", sub: "Offset", value: off });
+      // v3.139.0 (item 175): named by the account that holds it, else by its loan — two offsets on one
+      // property were both "<property> offset".
+      var acct = (st.accounts || []).find(function(a){ return a && a.link === "offset:" + l.id && a.name; });
+      var offName = acct ? acct.name : l.what ? l.what + " offset" : (p.what || "Property") + " offset" + ((p.loans || []).length > 1 ? " " + (i + 1) : "");
+      if(off) G.cash.push({ kind: "loan", id: l.id, name: offName, sub: "Offset" + (acct ? " · " + (l.what || p.what || "loan") : ""), value: off });
       if(bal) G.debts.push({ kind: "loan", id: l.id, name: l.what || (p.what || "Property") + " loan" + ((p.loans || []).length > 1 ? " " + (i + 1) : ""), sub: "Property loan", value: -bal });
     });
   });

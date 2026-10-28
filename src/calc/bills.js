@@ -96,7 +96,10 @@ function clampDay(ym, day){
 }
 function addMonths(ym, n){ var d = new Date(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)) - 1 + n, 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }
 function addDays(isoStr, n){ var d = parse(isoStr); d.setDate(d.getDate() + n); return iso(d); }
+// v3.139.0: a card can carry its repayment day (`payDay`) — needed when it's paid by direct debit and
+// nothing is logged to read the day from. Set, it wins over the logged repayments' day.
 export function cardRepaymentDay(card, transfers){
+  if(card && Number(card.payDay) >= 1) return Math.min(31, Math.round(Number(card.payDay)));
   var days = (transfers || []).filter(function(t){ return t.to === card.name && t.date && Number(t.amount) > 0; })
     .sort(function(a, b){ return a.date < b.date ? 1 : -1; }).slice(0, 6).map(function(t){ return Number(t.date.slice(8, 10)); });
   if(!days.length) return null;
@@ -139,11 +142,14 @@ export function cardPaymentsForMonth(accounts, transactions, transfers, ym, toda
       return s + (Number(t.amount) || 0);
     }, 0);
     var paid = paidTx.reduce(function(s, t){ return s + Number(t.amount); }, 0);
-    out.push({ card: card.name, date: date, payDay: payDay, cycle: cycle,
+    // v3.139.0: a card paid in full by direct debit (`autoPayFrom`, an account name) is taken as paid
+    // once its day has come, until the real repayment is logged — never "overdue" for want of logging.
+    var autoPaid = !paidTx.length && !!card.autoPayFrom && !!today && date <= today;
+    out.push({ card: card.name, date: date, payDay: payDay, cycle: cycle, autoPayFrom: card.autoPayFrom || "", assumed: autoPaid,
       charges: Math.round(charges * 100) / 100,
       split: { bills: Math.round(split.bill * 100) / 100, spending: Math.round(split.spending * 100) / 100, other: Math.round(split.other * 100) / 100 },
       amount: Math.round((paidTx.length ? paid : charges) * 100) / 100,
-      paid: paidTx.length > 0, overdue: !paidTx.length && !!today && date < today,
+      paid: paidTx.length > 0 || autoPaid, overdue: !paidTx.length && !autoPaid && !!today && date < today,
       // Charges still being made: the cycle hasn't closed yet, so this is "so far".
       open: !!today && cycle.end >= today });
   });

@@ -1,7 +1,7 @@
 import "./_env.js";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { netWorthList } from "../src/calc/networthlist.js";
+import { netWorthList, isSoldOut } from "../src/calc/networthlist.js";
 
 test("one list of everything owned and owed, grouped, with offsets as cash and loans as debts", () => {
   const st = {
@@ -19,4 +19,17 @@ test("one list of everything owned and owed, grouped, with offsets as cash and l
   assert.equal(l.total, 20000 + 30000 + 16500 + 90000 + 12000 + 600000 - 400000 - 1500);
   assert.equal(g("invest").rows[0].sub, "AAA");
   assert.deepEqual(netWorthList({}).groups, []);
+});
+
+test("a holding sold down to nothing isn't listed in net worth", () => {
+  const st = { assets: [
+    { id: "a1", category: "Shares", what: "Fern Ltd", symbol: "FRN", quantity: 0, amount: 0, sales: [{ date: "2026-05-01", units: 10, price: 3 }] },
+    { id: "a2", category: "Shares", what: "Bank One", symbol: "BKO", quantity: 5, amount: 500, sales: [{ date: "2026-05-01", units: 1, price: 90 }] },
+    { id: "a3", category: "Shares", what: "Not bought yet", symbol: "NBY", quantity: 0, amount: 0 }
+  ], properties: [], debts: [], accounts: [] };
+  const names = netWorthList(st).groups.flatMap(g => g.rows.map(r => r.name));
+  assert.ok(!names.includes("Fern Ltd"));
+  assert.ok(names.includes("Bank One"));
+  assert.ok(names.includes("Not bought yet"), "no sales: it isn't sold, just empty");
+  assert.equal(isSoldOut(st.assets[0]), true); assert.equal(isSoldOut(st.assets[1]), false); assert.equal(isSoldOut(st.assets[2]), false);
 });

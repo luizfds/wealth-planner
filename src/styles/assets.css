@@ -289,3 +289,10 @@
 .empty-start b{ font-size:15px; }
 .empty-start p{ margin:6px 0 12px; color: var(--ink-soft); font-size:13.5px; max-width:62ch; }
 .empty-start-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+
+/* v3.139.0: holdings sold down to nothing, folded under the ones still held. */
+.sold-list{ margin:14px 0 0; }
+.sold-list > summary{ cursor:pointer; font-weight:600; font-size:13.5px; padding:6px 0; }
+.sold-list > summary span{ font-weight:400; font-size:12.5px; color: var(--ink-soft); margin-left:6px; }
+.sold-list .m-card{ margin-top:6px; opacity:.85; }
+.ps-summary-line{ font-weight:400; text-transform:none; letter-spacing:0; color: var(--ink-soft); margin-left:6px; }

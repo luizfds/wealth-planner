@@ -115,7 +115,9 @@ import { statementFromLines, statementCsv, agentStatementFromLines } from "./cal
 import { tradesUi, readTradesText, useParsedTrades, currentTradePlan } from "./components/brokertrades.js";
 import { applyTrades, parseTradeSheets } from "./calc/brokertrades.js";
 import { readXlsx } from "./lib/xlsx.js";
-import { parseCsvGrid } from "./calc/pricesheet.js";
+import { parseCsvGrid, thinPriceHistory } from "./calc/pricesheet.js";
+import { netWorthOn } from "./calc/nwhistory.js";
+import { recordNetWorth, backfillNetWorth, isAutoPoint } from "./calc/nwauto.js";
 import { recordRentReview } from "./calc/propertylife.js";
 import { retirementHtml, retireLevers } from "./components/retirement.js";
 import { recurringHtml, recurringDismissed, recurringOpen, catchAllShown } from "./components/recurring.js";
@@ -3493,6 +3495,13 @@ import {
     else if(e.target.classList.contains("acct-mgmt-day")){
       a.statementStartDay = Math.min(28, Math.max(1, parseInt(e.target.value, 10) || 1));
     }
+    else if(e.target.classList.contains("acct-mgmt-autopay")){
+      if(e.target.value) a.autoPayFrom = e.target.value; else delete a.autoPayFrom;
+    }
+    else if(e.target.classList.contains("acct-mgmt-payday")){
+      var pd = parseInt(e.target.value, 10);
+      if(pd >= 1 && pd <= 31) a.payDay = pd; else delete a.payDay;
+    }
     else if(e.target.classList.contains("acct-mgmt-limit")){
       var lim = e.target.value === "" ? null : Number(e.target.value);
       if(lim == null || !(lim >= 0)) delete a.limit; else a.limit = lim;
@@ -5150,6 +5159,18 @@ import {
       return r;
     }).catch(function(){ syncBusy = false; if(opts.manual) showToast("Sync couldn't reach the folder"); });
   }
+  // v3.139.0 (item 171): net worth keeps its own history — the day's figure as the app saves,
+  // thinned as it ages. Recorded after a save, so it rides along with the next one.
+  function keepNetWorthHistory(){
+    if(!Array.isArray(state.netWorthLog)) state.netWorthLog = [];
+    // Nothing owned or owed yet: no history of zeroes.
+    if(!(state.assets || []).length && !(state.properties || []).length && !(state.debts || []).length) return false;
+    var today = localDateStr();
+    var changed = recordNetWorth(state.netWorthLog, totalNetWorthValue(), today);
+    if(thinPriceHistory(state.netWorthLog, today, isAutoPoint)) changed = true;
+    return changed;
+  }
+  onSaved(keepNetWorthHistory);
   onSaved(function(){
     if(!markChanged()) return;
     clearTimeout(syncTimer);
@@ -5705,6 +5726,14 @@ import {
     if(e.key === "Escape" && !periodMenu.hidden){ setPeriodMenuOpen(false); periodBtn.focus(); }
   });
 
+  // v3.139.0 (item 171): the weeks before the first automatic point, rebuilt once from what each
+  // record already knows, then today's point.
+  (function(){
+    if(!Array.isArray(state.netWorthLog)) state.netWorthLog = [];
+    var today = localDateStr();
+    var added = backfillNetWorth(state.netWorthLog, function(d){ return netWorthOn(d, today); }, today, 104);
+    if(keepNetWorthHistory() || added) persist();
+  })();
   renderAll();
   initTableScrollShadows();
   showPage(initialPage, { replace: true, skipScroll: true });

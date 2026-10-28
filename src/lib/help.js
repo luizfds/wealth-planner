@@ -44,6 +44,11 @@ export function decorateHelp(root){
       return;
     }
     var prev = el.previousElementSibling;
+    // v3.139.0 (item 178): right under a card's heading, the ⓘ goes in the heading — not a row of its own.
+    if(prev && /^H[2-4]$/.test(prev.tagName)){
+      if(!prev.querySelector("[data-help-toggle]")) prev.insertAdjacentHTML("beforeend", buttonHtml().replace('class="help-btn"', 'class="help-btn help-btn-heading"'));
+      return;
+    }
     if(prev && (prev.matches("[data-help-toggle]") || prev.classList.contains("help"))) return;
     el.insertAdjacentHTML("beforebegin", buttonHtml().replace('class="help-btn"', 'class="help-btn help-btn-inline"'));
   });

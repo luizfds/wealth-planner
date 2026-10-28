@@ -393,13 +393,15 @@ export function renderBudgetPlan(){
   if(!el) return;
   var scen = state.activeScenario;
   var totals = scenarioTotals(scen);
-  var income = scenarioIncomeRows({ scenario: scen }).map(function(r){ return { label: r.what || "Income", monthly: periodsOf(Number(r.amount) || 0, r.freq).monthly }; });
+  var income = scenarioIncomeRows({ scenario: scen }).map(function(r){ return { label: r.what || "Income", monthly: periodsOf(Number(r.amount) || 0, r.freq).monthly, oneOff: !!r.oneOff }; });
   var groups = computeSharedGroups().map(function(g){ return { label: g.key === "N/A" ? "Other" : g.key, monthly: g.monthly }; });
   var grouped = groups.reduce(function(sum, g){ return sum + g.monthly; }, 0);
   var other = totals.expensesMonthly - grouped;
   el.innerHTML = budgetPlanHtml({ income: income, groups: groups, other: other > 0.5 ? other : 0, net: totals.netMonthly });
   var netEl = document.getElementById("budgetPlanNet");
-  if(netEl){ netEl.textContent = (totals.netMonthly < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(totals.netMonthly)) + "/mo"; netEl.className = totals.netMonthly < 0 ? "neg" : ""; }
+  // A normal month, as the header and Home say it (v3.139.0).
+  var normalNet = totals.regularNetMonthly != null ? totals.regularNetMonthly : totals.netMonthly;
+  if(netEl){ netEl.textContent = (normalNet < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(normalNet)) + "/mo"; netEl.className = normalNet < 0 ? "neg" : ""; }
   var scEl = document.getElementById("budgetPlanScenario");
   if(scEl) scEl.textContent = scen;
 }
@@ -2360,4 +2362,6 @@ export function renameAccountEverywhere(oldName, newName){
     if(x.from === oldName) x.from = newName;
     if(x.to === oldName) x.to = newName;
   });
+  // A card paid by direct debit names the account it's paid from (v3.139.0).
+  (state.accounts || []).forEach(function(x){ if(x.autoPayFrom === oldName) x.autoPayFrom = newName; });
 }

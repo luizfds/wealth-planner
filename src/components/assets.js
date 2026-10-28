@@ -26,6 +26,7 @@ import { applyPrices } from "../calc/pricesheet.js";
 import { priceSheetCardHtml, priceSheetUi } from "./pricesheet.js";
 import { autoPricesCardHtml } from "./autoprices.js";
 import { tradesCardHtml } from "./brokertrades.js";
+import { isSoldOut } from "../calc/networthlist.js";
 
 // Every other figure in this app is implicitly AUD; a Shares holding's price/value is only
 // sometimes that (ASX), and otherwise USD (US, Crypto) — see MARKET_CURRENCY. Used to pick the
@@ -900,17 +901,29 @@ export function renderSharesSubpage(){
   var allData = assetCategoryItems("Shares");
   var total = allData.items.reduce(function(s, a){ return s + toAudAmount(a, a.amount); }, 0);
   var filteredPairs = allData.items.map(function(item, i){ return { item: item, idx: allData.indices[i] }; }).filter(function(p){ return sharesGainMatches(p.item); });
+  // v3.139.0 (item 174): holdings sold down to nothing go to a Sold list under the rest — kept for
+  // their history and capital gains, out of the way of what's held.
+  var soldPairs = filteredPairs.filter(function(p){ return isSoldOut(p.item); });
+  filteredPairs = filteredPairs.filter(function(p){ return !isSoldOut(p.item); });
   var data = sortShareData({ items: filteredPairs.map(function(p){ return p.item; }), indices: filteredPairs.map(function(p){ return p.idx; }) });
+  var soldData = { items: soldPairs.map(function(p){ return p.item; }), indices: soldPairs.map(function(p){ return p.idx; }) };
   var footerBtn = '<button type="button" class="btn btn-sm' + (allData.items.length ? " btn-ghost" : "") + '" data-add="holding" title="Track an individual holding — symbol, quantity, cost, and value. Set Market to Crypto to track a coin the same way.">+ Add share holding</button>';
   var toolbar = allData.items.length ? sharesFilterSortHtml() : "";
   var body;
   if(!allData.items.length){
     body = '<p class="ledger-note" style="margin:0 0 12px">No share holdings yet — set Market to "Crypto" on a holding to track a coin the same way (quantity, avg cost, gain/loss, sparkline).</p>' + footerBtn;
-  } else if(!data.items.length){
+  } else if(!data.items.length && !soldData.items.length){
     body = '<p class="ledger-note" style="margin:0 0 12px">No holdings match this filter.</p>';
+  } else if(!data.items.length){
+    body = '<p class="ledger-note" style="margin:0 0 12px">Nothing held that matches this filter.</p><div class="ledger-footer">' + footerBtn + '</div>';
   } else {
     var rowMeta = assetRowMeta(data);
     body = '<div class="m-card" id="assetsComp-Shares">' + modernAssetCompBarHtml(rowMeta) + '<div class="m-rows m-asset-rows">' + rowMeta.map(function(m){ return modernShareRowHtml(m.item, m.idx, m.colorIdx); }).join("") + '</div></div><div class="ledger-footer">' + footerBtn + '</div>';
+  }
+  if(soldData.items.length){
+    var soldMeta = assetRowMeta(soldData);
+    body += '<details class="sold-list"><summary>Sold <span>' + soldData.items.length + ' holding' + (soldData.items.length === 1 ? '' : 's') + ' with nothing left — kept for their history and capital gains</span></summary>' +
+      '<div class="m-card"><div class="m-rows m-asset-rows">' + soldMeta.map(function(m){ return modernShareRowHtml(m.item, m.idx, m.colorIdx); }).join("") + '</div></div></details>';
   }
   // Only worth mentioning once there's an actual USD-denominated holding for a rate to convert —
   // same gate sharesPriceTemplateTable() (lib/backup.js) uses to decide whether the template
@@ -931,9 +944,14 @@ export function renderSharesSubpage(){
   // v3.75.0: prices from a shared Google Sheet, read on open; the paste box stays as the manual way.
   // v3.132.0: automatic prices come first; the Sheet is for whatever they don't cover.
   var ap = state.autoPrices || {}, apr = ap.lastResult;
-  var apSettled = ap.on !== false && apr && apr.ok && !(apr.missing && apr.missing.length);
+  // v3.139.0 (item 177): settled — and folded to one line, so the holdings come first — when the
+  // automatic read worked and anything it doesn't cover is covered by a Google Sheet that read fine.
+  var ps = state.priceSheet || {}, psOk = !!(ps.url && ps.lastResult && ps.lastResult.ok);
+  var apSettled = ap.on !== false && apr && apr.ok && (!(apr.missing && apr.missing.length) || psOk);
+  var psLine = apr && apr.at ? (apr.ok ? "updated " : "tried ") + new Date(apr.at).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) +
+    (apr.missing && apr.missing.length ? (psOk ? " · your sheet covers " + apr.missing.length : " · " + apr.missing.length + " not covered") : "") : "";
   var pasteTool = allData.items.length
-    ? '<details class="tax-advanced" style="margin:0 0 14px"' + (apSettled && !priceSheetUi.open ? '' : ' open') + ' data-ps-panel><summary>Prices</summary>' +
+    ? '<details class="tax-advanced" style="margin:0 0 14px"' + (apSettled && !priceSheetUi.open ? '' : ' open') + ' data-ps-panel><summary>Prices' + (psLine ? ' <span class="ps-summary-line">' + escapeAttr(psLine) + '</span>' : '') + '</summary>' +
         autoPricesCardHtml() + fxNote +
         '<details class="ps-manual"' + (state.priceSheet && state.priceSheet.url ? ' open' : '') + '><summary>Your own Google Sheet — for anything the above doesn\'t cover</summary>' + priceSheetCardHtml() + '</details>' +
         '<details class="ps-manual"><summary>Or paste prices by hand</summary>' +
@@ -954,7 +972,7 @@ export function renderSharesSubpage(){
   container.innerHTML = '<div class="ledgers"><details class="ledger" open>' +
     '<summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Shares</h2></div>' +
     '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
-    '<div class="ledger-body"><div id="sharesGlance">' + sharesGainLossGlanceHtml(allData.items) + '</div>' + fxWarn + pasteTool + (allData.items.length ? tradesCardHtml() : '') + toolbar + body + '</div></details>' +
+    '<div class="ledger-body"><div id="sharesGlance">' + sharesGainLossGlanceHtml(allData.items.filter(function(a){ return !isSoldOut(a); })) + '</div>' + fxWarn + pasteTool + (allData.items.length ? tradesCardHtml() : '') + toolbar + body + '</div></details>' +
     // v3.61.0: the portfolio's performance and its distributions by year, over the same holdings.
     (allData.items.length ? performanceCardHtml(portfolioPerformance(allData.items.map(function(a){ return a; }), householdYearWindow()), householdYearWindow().label) + distributionsCardHtml(distributionHistory(allData.items)) : "") +
     historyPanel + '</div>';

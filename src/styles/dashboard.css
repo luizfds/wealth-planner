@@ -63,7 +63,8 @@
     all: unset; box-sizing: border-box; cursor:pointer; display:block; width:100%;
     border-radius: 14px;
   }
-  .card-select:focus-visible{ box-shadow: var(--focus-ring); }
+  .card-select:focus-visible, .card-select:has(.card-radio:focus-visible){ box-shadow: var(--focus-ring); }
+  .card-radio:focus-visible{ outline:none; }
   .card.is-active{ border-color: var(--brass); box-shadow: var(--shadow), 0 0 0 1.5px var(--brass); }
   .card-top{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
   /* A flex row, not a single truncated text run — a long scenario name plus the "Current
@@ -129,6 +130,7 @@
   .card-radio{
     width:16px; height:16px; border-radius:50%; border:1.5px solid var(--border); flex:none;
     display:flex; align-items:center; justify-content:center;
+    padding:0; margin:0; background:none; cursor:pointer; box-sizing:border-box; font:inherit; color:inherit;
   }
   .card.is-active .card-radio{ border-color: var(--brass); }
   .card.is-active .card-radio::after{ content:""; width:8px; height:8px; border-radius:50%; background: var(--brass); }

@@ -3781,12 +3781,6 @@ import {
     var cardSel = e.target.closest(".card-select");
     if(cardSel) chooseScenario(cardSel.getAttribute("data-scenario"));
   });
-  document.getElementById("cards").addEventListener("keydown", function(e){
-    if(e.key !== "Enter" && e.key !== " ") return;
-    var cardSel = e.target.closest(".card-select");
-    // Only the card itself — Enter on a button inside it (the ⋯ menu) must reach that button.
-    if(cardSel && e.target === cardSel){ e.preventDefault(); chooseScenario(cardSel.getAttribute("data-scenario")); }
-  });
   document.getElementById("homeBody").addEventListener("click", onScenarioControlClick);
 
   // Dashboard's own stats already tease the "Projected net worth" figure this links through to —

@@ -13,7 +13,7 @@ import { monthKeysBack, monthKeyLabel } from "../calc/trends.js";
 import { observationDates, categorySeries, trimUntracked, contributionsVsGrowth, monthlyCashFlow, spendCoverage } from "../calc/history.js";
 import { fmtCurrency0, fmtPercent1, fmtRunway, localDateStr, fmtDate } from "../lib/format.js";
 import { upcomingBills as calendarUpcoming } from "../calc/bills.js";
-import { escapeAttr } from "../lib/html.js";
+import { escapeAttr, segLabel } from "../lib/html.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { renderLineChart } from "../lib/charts.js";
 import { staleAssetNamesList } from "../lib/notifications.js";
@@ -32,7 +32,9 @@ export function renderCards(){
     var isActive = state.activeScenario === scenario;
     var isBaseline = state.baselineScenario === scenario;
     return (
-      '<div class="card-select" role="radio" tabindex="0" aria-checked="' + (isActive ? "true" : "false") + '" data-scenario="' + escapeAttr(scenario) + '">' +
+      // v3.139.0: the card is still clicked as a whole, but the radio a keyboard and a screen reader
+      // reach is its dot — the card also holds the ⋯ menu and an Edit link, and a radio can't hold buttons.
+      '<div class="card-select" data-scenario="' + escapeAttr(scenario) + '">' +
         '<div class="card' + (isActive ? " is-active" : "") + '">' +
           '<div class="card-top">' +
             '<span class="card-name"><span class="card-name-text">' + escapeAttr(scenario) + '</span>' + (isBaseline ? '<span class="home-baseline-badge" title="Your current, real-life situation">Current situation</span>' : "") + '</span>' +
@@ -47,7 +49,7 @@ export function renderCards(){
                   (canDelete && !isBaseline ? '<button type="button" class="btn btn-sm btn-ghost menu-danger" data-delete="' + escapeAttr(scenario) + '">Delete</button>' : "") +
                 '</span>' +
               '</span>' +
-              '<span class="card-radio"></span>' +
+              '<button type="button" class="card-radio" role="radio" aria-checked="' + (isActive ? "true" : "false") + '" aria-label="Show ' + escapeAttr(scenario) + ' on Home"></button>' +
             '</span>' +
           '</div>' +
           '<div>' +
@@ -345,9 +347,9 @@ export function renderDetail(){
 
   var bar = document.getElementById("ruleBar");
   bar.innerHTML =
-    '<div class="rule-seg needs" style="width:' + (needsPct*100) + '%">' + (needsPct > 0.1 ? fmtPercent1.format(safeDiv(needs,incomeMonthly)) : "") + '</div>' +
-    '<div class="rule-seg wants" style="width:' + (wantsPct*100) + '%">' + (wantsPct > 0.1 ? fmtPercent1.format(safeDiv(wants,incomeMonthly)) : "") + '</div>' +
-    '<div class="rule-seg savings" style="width:' + (savingsPct*100) + '%">' + (savingsPct > 0.1 ? fmtPercent1.format(safeDiv(savings,incomeMonthly)) : "") + '</div>' +
+    '<div class="rule-seg needs" style="width:' + (needsPct*100) + '%">' + (needsPct > 0.1 ? segLabel(fmtPercent1.format(safeDiv(needs,incomeMonthly))) : "") + '</div>' +
+    '<div class="rule-seg wants" style="width:' + (wantsPct*100) + '%">' + (wantsPct > 0.1 ? segLabel(fmtPercent1.format(safeDiv(wants,incomeMonthly))) : "") + '</div>' +
+    '<div class="rule-seg savings" style="width:' + (savingsPct*100) + '%">' + (savingsPct > 0.1 ? segLabel(fmtPercent1.format(safeDiv(savings,incomeMonthly))) : "") + '</div>' +
     '<div class="rule-target" style="left:50%"></div>' +
     '<div class="rule-target" style="left:80%"></div>';
 

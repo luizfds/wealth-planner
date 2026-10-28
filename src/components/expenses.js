@@ -8,7 +8,7 @@ import { billsForMonth, billsToConfirm } from "../calc/bills.js";
 import { scenarioIncomeRows } from "../calc/tax.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent0, fmtPercent1, localDateStr, fmtDate } from "../lib/format.js";
 import { spendingTrends, monthKeyLabel } from "../calc/trends.js";
-import { escapeAttr } from "../lib/html.js";
+import { escapeAttr, segLabel } from "../lib/html.js";
 import { renderAccountsPage, openAccounts } from "./accounts.js";
 import { cashflowEntries, filterEntries, entryTotals } from "../calc/cashflowlist.js";
 import { txGrid, txGridHtml, txViewToggleHtml, budgetPlanHtml, billsCalendarHtml, txFilters, txSelect, transferForm, splitEditing, filterBarHtml, directionControlHtml, dayHeaderHtml, totalsLineHtml, inRowHtml, transferRowHtml, selectBoxHtml, bulkBarHtml, transferFormHtml, splitEditorHtml } from "./cashflow.js";
@@ -296,7 +296,7 @@ function sharedCompositionBarHtml(groups){
   if(total <= 0 || groups.length < 2) return "";
   var segs = groups.map(function(g){
     var pct = g.monthly / total;
-    return '<div class="rule-seg ' + classificationSwatchClass(g.key) + '" style="width:' + (pct * 100) + '%" title="' + escapeAttr(groupLabel(g.key)) + ': ' + fmtCurrency0.format(g.monthly) + '/mo (' + fmtPercent1.format(pct) + ')">' + (pct > 0.1 ? fmtPercent1.format(pct) : "") + '</div>';
+    return '<div class="rule-seg ' + classificationSwatchClass(g.key) + '" style="width:' + (pct * 100) + '%" title="' + escapeAttr(groupLabel(g.key)) + ': ' + fmtCurrency0.format(g.monthly) + '/mo (' + fmtPercent1.format(pct) + ')">' + (pct > 0.1 ? segLabel(fmtPercent1.format(pct)) : "") + '</div>';
   }).join("");
   var legend = groups.map(function(g){
     return '<div class="rule-legend-item"><span class="rule-swatch ' + classificationSwatchClass(g.key) + '"></span>' + escapeAttr(groupLabel(g.key)) + ' <b>' + fmtCurrency0.format(g.monthly) + '</b></div>';
@@ -1899,7 +1899,7 @@ export function categoryChartHtml(groups, unit, opts){
     var pct = g.monthly / total;
     return '<div class="rule-seg cat-seg series-color-' + colorOf[g.key] + '" style="width:' + (pct * 100) + '%"' +
       ' title="' + escapeAttr(g.key) + ': ' + fmtCurrency0.format(g.monthly) + unit + ' (' + fmtPercent1.format(pct) + ')">' +
-      (pct > 0.12 ? fmtPercent1.format(pct) : "") + '</div>';
+      (pct > 0.12 ? segLabel(fmtPercent1.format(pct)) : "") + '</div>';
   }).join("");
   var legend = groups.map(function(g){
     return '<div class="rule-legend-item' + (g.monthly < 0 ? " is-credit" : "") + '"><span class="rule-swatch cat-seg series-color-' + colorOf[g.key] + '"></span>' +

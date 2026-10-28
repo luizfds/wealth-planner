@@ -93,7 +93,7 @@ import { refreshAutoPrices, autoPricesNeeded, autoPricesResultText } from "./com
 import { firstRun, startFirstRun, firstRunHtml } from "./components/firstrun.js";
 import { chooseFolder, backupToFolder, forgetFolder, maybeAutoBackup, setPasscode, clearPasscode, checkPasscode, newestFolderBackup, compareCopies, savedFolder } from "./lib/safekeeping.js";
 import { syncOn, unlockSync, syncNow, pulled, markChanged, stopSync } from "./lib/foldersync.js";
-import { setAppKey, connectDropbox, finishDropboxRedirect, disconnectDropbox } from "./lib/dropbox.js";
+import { setAppKey, connectDropbox, finishDropboxRedirect, disconnectDropbox, dropboxConnected } from "./lib/dropbox.js";
 import { renderSafekeeping } from "./components/safekeeping.js";
 import { goalsSectionHtml, goalOpen } from "./components/savegoals.js";
 import { addSavingsGoal } from "./calc/savegoals.js";
@@ -138,8 +138,10 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
 import {
   startBankImport, reparseBankImportWith, clearBankImport,
   setBankImportGroupLine, setBankImportGroupCategory, renderBankImportPanel, patchBankImportPanel, renderBankImportHelp,
-  setIncludePossibleDuplicates, commitBankImport, undoBankImport, setStatementAccount, setStatementBalanceOn
+  setIncludePossibleDuplicates, commitBankImport, undoBankImport, setStatementAccount, setStatementBalanceOn, inboxNoteHtml
 } from "./components/bank-import.js";
+import { listInbox, readInboxFile, markInboxFileImported } from "./lib/inbox.js";
+import { inboxMessage } from "./calc/inbox.js";
 
 (function(){
   "use strict";
@@ -3981,7 +3983,9 @@ import {
     }).catch(function(){});
   })();
   // One way in for a statement file, whether chosen here or shared to the app (v3.93.0).
-  function importBankFile(file){
+  function importBankFile(file, fromInbox){
+    inbox.current = fromInbox || null;
+    renderInbox();
     // v3.92.0: a PDF statement is read into the same CSV the import already understands.
     if(/\.pdf$/i.test(file.name) || file.type === "application/pdf"){
       showToast("Reading the PDF…");
@@ -4037,10 +4041,11 @@ import {
       renderBankImportPanel();
       return;
     }
-    if(e.target.closest("#bankImportCancelBtn")){ clearBankImport(); return; }
+    if(e.target.closest("#bankImportCancelBtn")){ clearBankImport(); inbox.current = null; renderInbox(); return; }
     if(!e.target.closest("#bankImportConfirmBtn")) return;
     var result = commitBankImport();
     clearBankImport();
+    if(inbox.current) inboxFileDone(inbox.current);
     refreshAfterBankImport();
     // Transfers and a statement balance reach Accounts, Home and net worth too.
     if((result.transferIds && result.transferIds.length) || result.balanceSet) renderAll();
@@ -4061,6 +4066,51 @@ import {
       }
     );
   });
+  // ---------------- Statements from a folder (v3.142.0, item 181) ----------------
+  // What's waiting in Statements (Dropbox, or the backup folder) is listed once the app has opened
+  // and synced; each goes through importBankFile like a chosen file, and moves to Statements/Imported
+  // once confirmed. Cancelling leaves it where it is, for next time.
+  var inbox = { files: [], places: [], current: null };
+  function inboxPlaces(){
+    var p = [];
+    if(dropboxConnected()) p.push("your Dropbox app folder");
+    return savedFolder().then(function(h){ if(h) p.push("the backup folder (" + h.name + ")"); return p; }).catch(function(){ return p; });
+  }
+  function renderInbox(){
+    var el = document.getElementById("bankInboxNote");
+    if(!el) return;
+    var html = inboxNoteHtml(inbox.files, inbox.places, inbox.current);
+    el.innerHTML = html;
+    el.hidden = !html;
+  }
+  function checkInbox(announce){
+    return Promise.all([listInbox(), inboxPlaces()]).then(function(r){
+      inbox.files = r[0]; inbox.places = r[1];
+      renderInbox();
+      if(announce && inbox.files.length) showPersistentToast(inboxMessage(inbox.files.length, inbox.files[0].label) + ".", "Review", openNextInbox);
+    }).catch(function(){});
+  }
+  function openNextInbox(){
+    var f = inbox.files[0];
+    if(!f) return;
+    showPage("expenses");
+    showExpensesSubpage("spending");
+    showToast("Opening " + f.name + "…");
+    readInboxFile(f).then(function(file){ importBankFile(file, f); }).catch(function(){ showToast("Couldn't open " + f.name + " — try again in a moment"); });
+  }
+  function inboxFileDone(f){
+    inbox.current = null;
+    inbox.files = inbox.files.filter(function(x){ return x !== f; });
+    renderInbox();
+    markInboxFileImported(f).catch(function(){ showToast("Imported, but " + f.name + " couldn't be moved to Imported — move it yourself so it isn't offered again"); });
+    if(inbox.files.length) setTimeout(function(){
+      showPersistentToast(inboxMessage(inbox.files.length, inbox.files[0].label) + ".", "Next", openNextInbox);
+    }, 4500);
+  }
+  document.getElementById("bankInboxNote").addEventListener("click", function(e){
+    if(e.target.closest("[data-inbox-next]")) openNextInbox();
+  });
+
   // Every panel on the Spending tab reads state.transactions, and an import moves all of them at
   // once — which is the point, and also why this is one named function rather than a list repeated
   // at the import and undo call sites where the two could drift apart.
@@ -5209,6 +5259,8 @@ import {
     if(r && !r.connected) showToast(r.reason === "access_denied" ? "Dropbox wasn't connected" : "Couldn't connect Dropbox");
     return syncOn() ? runSync({}) : null;
   }).catch(function(){});
+  // v3.142.0 (item 181): then the statements waiting in the Statements folder.
+  initialSync.then(function(){ return checkInbox(true); });
   if(!syncOn()) newestFolderBackup(false).then(function(r){
     if(r && r.newerThanHere && !r.fromThisDevice && !r.none && r.permission !== false){
       var when = new Date(r.savedAt).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });

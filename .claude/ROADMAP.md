@@ -3180,9 +3180,17 @@ credit card, From its direct-debit account (item 170) or the first everyday acco
 expects (the soonest unpaid repayment from last month on) and a note. `transferForm.preset` carries it for one render.
 
 
-## 181. `[~]` Statements from the Dropbox folder
+## 181. `[x]` Statements from the Dropbox folder
 Drop a bank, card or property-manager statement (CSV or PDF) into the app's Dropbox folder, from any device; the
 app picks it up on open, runs it through the importer and its rules, and asks only about rows it can't place.
+
+Shipped as v3.142.0. A `Statements` folder — in the app's Dropbox folder (made the first time it's listed) and inside
+the backup folder when the browser still has permission for it — is listed once the app has opened and synced
+(`lib/inbox.js`, rules in `calc/inbox.js`). Anything waiting gets a toast and a note in Spending → Import from your
+bank; each file, oldest first, goes through the same `importBankFile` as a chosen one (rules, transfers, duplicate
+check), and moves to `Statements/Imported` once confirmed. Cancelling leaves it for next time. With nothing waiting,
+the card says where to drop one.
+
 
 ## 182. `[ ]` Merge, not choose, when two devices both changed
 When two devices both edited since they last synced, the app made you keep one copy. Combine what doesn't

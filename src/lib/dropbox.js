@@ -116,3 +116,55 @@ export function disconnectDropbox(){
   if(!t || !t.access) return Promise.resolve();
   return fetch("https://api.dropboxapi.com/2/auth/token/revoke", { method: "POST", headers: { Authorization: "Bearer " + t.access } }).catch(function(){});
 }
+
+// ---- The Statements folder (v3.142.0, item 181) ----
+// Files someone drops into Apps/<app name>/Statements. Listing creates the folder the first time, so
+// it's there to find in Dropbox. A Dropbox app key made before this has the same scopes it needs
+// (listing comes with files.content.read, moving and making a folder with files.content.write).
+function api(path, body){
+  return accessToken().then(function(tok){
+    return fetch("https://api.dropboxapi.com/2/" + path, { method: "POST", headers: { Authorization: "Bearer " + tok, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  }).then(function(r){
+    if(r.status === 401){ setTokens(null); throw new Error("not-connected"); }
+    return r.json().catch(function(){ return {}; }).then(function(j){ return { status: r.status, ok: r.ok, json: j }; });
+  });
+}
+// [{ name, path, modified, size }] in `folder` (e.g. "/Statements"), files only.
+export function listDropboxFolder(folder){
+  return api("files/list_folder", { path: folder, recursive: false }).then(function(r){
+    if(r.status === 409){
+      if(/not_found/.test(JSON.stringify(r.json))) return api("files/create_folder_v2", { path: folder, autorename: false }).then(function(){ return []; });
+      throw new Error("HTTP 409");
+    }
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    var all = r.json.entries || [], more = r.json.has_more, cursor = r.json.cursor;
+    var next = function(){
+      if(!more) return all;
+      return api("files/list_folder/continue", { cursor: cursor }).then(function(c){
+        if(!c.ok) return all;
+        all = all.concat(c.json.entries || []); more = c.json.has_more; cursor = c.json.cursor;
+        return next();
+      });
+    };
+    return next();
+  }).then(function(entries){
+    return entries.filter(function(e){ return e[".tag"] === "file"; })
+      .map(function(e){ return { name: e.name, path: e.path_lower || e.path_display, modified: e.server_modified || e.client_modified || "", size: e.size }; });
+  });
+}
+export function downloadDropboxFile(path){
+  return accessToken().then(function(tok){
+    return fetch("https://content.dropboxapi.com/2/files/download", { method: "POST", headers: { Authorization: "Bearer " + tok, "Dropbox-API-Arg": JSON.stringify({ path: path }) } });
+  }).then(function(r){
+    if(r.status === 401){ setTokens(null); throw new Error("not-connected"); }
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    return r.blob();
+  });
+}
+// Into `to` (a full path); a file already there with that name keeps both.
+export function moveDropboxFile(from, to){
+  return api("files/move_v2", { from_path: from, to_path: to, autorename: true }).then(function(r){
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    return r.json;
+  });
+}

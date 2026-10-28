@@ -503,6 +503,8 @@
                    only after one fails to parse: the note above otherwise leaves the reader to
                    find out what's accepted by being rejected. -->
               <div id="bankImportHelp"></div>
+              <!-- v3.142.0: statements waiting in the Statements folder (renderInbox in app.js). -->
+              <div id="bankInboxNote" hidden></div>
               <!-- Rendered by renderBankImportPanel(). Nothing is written to state until the
                    Import button inside this panel is pressed. -->
               <div id="bankImportPanel" hidden></div>
@@ -1066,6 +1068,7 @@
   "./src/calc/health.js": "./src/calc/health.js?v=3.141.0",
   "./src/calc/history.js": "./src/calc/history.js?v=3.141.0",
   "./src/calc/import-rules.js": "./src/calc/import-rules.js?v=3.141.0",
+  "./src/calc/inbox.js": "./src/calc/inbox.js?v=3.141.0",
   "./src/calc/investments.js": "./src/calc/investments.js?v=3.141.0",
   "./src/calc/investreports.js": "./src/calc/investreports.js?v=3.141.0",
   "./src/calc/junemoves.js": "./src/calc/junemoves.js?v=3.141.0",
@@ -1158,6 +1161,7 @@
   "./src/lib/format.js": "./src/lib/format.js?v=3.141.0",
   "./src/lib/help.js": "./src/lib/help.js?v=3.141.0",
   "./src/lib/html.js": "./src/lib/html.js?v=3.141.0",
+  "./src/lib/inbox.js": "./src/lib/inbox.js?v=3.141.0",
   "./src/lib/ledger-table.js": "./src/lib/ledger-table.js?v=3.141.0",
   "./src/lib/notifications.js": "./src/lib/notifications.js?v=3.141.0",
   "./src/lib/pdftext.js": "./src/lib/pdftext.js?v=3.141.0",
@@ -1204,6 +1208,7 @@
 <link rel="modulepreload" href="./src/calc/health.js?v=3.141.0">
 <link rel="modulepreload" href="./src/calc/history.js?v=3.141.0">
 <link rel="modulepreload" href="./src/calc/import-rules.js?v=3.141.0">
+<link rel="modulepreload" href="./src/calc/inbox.js?v=3.141.0">
 <link rel="modulepreload" href="./src/calc/investments.js?v=3.141.0">
 <link rel="modulepreload" href="./src/calc/investreports.js?v=3.141.0">
 <link rel="modulepreload" href="./src/calc/junemoves.js?v=3.141.0">
@@ -1296,6 +1301,7 @@
 <link rel="modulepreload" href="./src/lib/format.js?v=3.141.0">
 <link rel="modulepreload" href="./src/lib/help.js?v=3.141.0">
 <link rel="modulepreload" href="./src/lib/html.js?v=3.141.0">
+<link rel="modulepreload" href="./src/lib/inbox.js?v=3.141.0">
 <link rel="modulepreload" href="./src/lib/ledger-table.js?v=3.141.0">
 <link rel="modulepreload" href="./src/lib/notifications.js?v=3.141.0">
 <link rel="modulepreload" href="./src/lib/pdftext.js?v=3.141.0">

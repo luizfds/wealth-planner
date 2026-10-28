@@ -1410,3 +1410,24 @@ test("the transfer form opens filled in for a card repayment", async function(){
     assert.doesNotMatch(transferFormHtml("2026-10-28"), / selected>/);
   } finally { state.accounts = keep; transferForm.preset = null; }
 });
+
+test("statements waiting in the Statements folder are listed, or where to put them", async function(){
+  const { inboxNoteHtml } = await import("../src/components/bank-import.js");
+  assert.equal(inboxNoteHtml([], []), "");
+  assert.match(inboxNoteHtml([], ["your Dropbox app folder"]), /Statements<\/b> folder in your Dropbox app folder/);
+  var files = [1, 2, 3, 4].map(function(i){ return { name: "Bank One " + i + ".csv", label: "Dropbox" }; });
+  var html = inboxNoteHtml(files, ["your Dropbox app folder"]);
+  assert.match(html, /4 statements are waiting in Dropbox → Statements/);
+  assert.match(html, /and 1 more/);
+  assert.match(html, /data-inbox-next/);
+  assert.match(inboxNoteHtml(files.slice(0, 1), []), /Review it/);
+});
+
+test("the statement under review is named, not offered again", async function(){
+  const { inboxNoteHtml } = await import("../src/components/bank-import.js");
+  var files = [{ name: "a.csv", label: "Dropbox" }, { name: "b.csv", label: "Dropbox" }];
+  var html = inboxNoteHtml(files, [], files[0]);
+  assert.match(html, /Reviewing <b>a.csv<\/b>/);
+  assert.match(html, /One more is waiting/);
+  assert.doesNotMatch(html, /data-inbox-next/);
+});

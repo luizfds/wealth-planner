@@ -14,6 +14,43 @@ import { optionsHtml, historyTrendHtml, timingFieldsHtml, endDateNoteHtml, scena
 import { parseCsv } from "../lib/backup.js";
 import { injectScenarioOverrideButtons } from "./expenses.js";
 import { renderTaxYear } from "./taxyear.js";
+import { SHOW_AS, showAsOption, fromMonthly, DEFAULT_HOURS_PER_WEEK } from "../calc/showas.js";
+
+// ---- Show as (v3.138.0): the Income tab read per year, month, fortnight, week, day or hour ----
+// A way of reading, not data: kept per device, like the ⓘ preference. calc/showas.js converts.
+var SHOW_AS_KEY = "wealthPlanner.incomeShowAs";
+export function incomeShowAs(){ try { return showAsOption(localStorage.getItem(SHOW_AS_KEY)).key; } catch(e){ return "month"; } }
+export function setIncomeShowAs(key){ try { localStorage.setItem(SHOW_AS_KEY, showAsOption(key).key); } catch(e){} }
+// A person's hours a week (Tax → People; 38 until set). The household group has none of its own.
+export function hoursPerWeekOf(groupKey){
+  if(!groupKey || groupKey === "__household") return null;
+  var st = state.tax.settings && state.tax.settings[groupKey];
+  var h = st && st.hoursPerWeek;
+  return h != null && h !== "" && Number(h) >= 0 ? Number(h) : DEFAULT_HOURS_PER_WEEK;
+}
+function everyonesHours(groups){
+  return groups.reduce(function(s, g){ return s + (hoursPerWeekOf(g.key) || 0); }, 0);
+}
+// A monthly figure as shown: "$1,234<span>/wk</span>"-style pieces, or a dash where per hour has
+// nobody's hours to go by.
+function shownAmount(monthly, hours, fmt){
+  var key = incomeShowAs(), v = fromMonthly(monthly, key, hours);
+  return v == null ? null : (fmt || fmtCurrency0).format(v);
+}
+var NO_HOURS = "Per hour goes by the hours a person works — shared income has no one's hours";
+// The Income header's figure: the monthly total it has always shown (the caller's), in the chosen period.
+export function incomeHeaderTotal(total){
+  var groups = computeIncomeGroups(), key = incomeShowAs();
+  var v = fromMonthly(total, key, everyonesHours(groups));
+  return { label: showAsOption(key).long + " total", value: v == null ? "—" : fmtCurrency0.format(v) };
+}
+function showAsControlHtml(){
+  var cur = incomeShowAs();
+  return '<div class="income-showas"><span class="cf-filter-l">Show as</span><div class="seg-control" role="group" aria-label="Show income per">' + SHOW_AS.map(function(o){
+    var on = o.key === cur;
+    return '<button type="button" class="seg-option' + (on ? " active" : "") + '" aria-pressed="' + on + '" data-showas="' + o.key + '">' + o.label + '</button>';
+  }).join("") + '</div>' + (cur === "hour" ? '<small>Each person\'s hours a week are under Tax → People (38 until set).</small>' : '') + '</div>';
+}
 
 export function personBreakdownHtml(person){
   var r = computePersonTax(person);
@@ -97,8 +134,16 @@ export function patchIncomeGroupTotals(){
   if(summaryEl){
     if(groups.length > 1){
       var total = groups.reduce(function(s, g){ return s + g.monthly; }, 0);
-      var parts = groups.map(function(g){ return (g.key === "__household" ? "Household" : g.key) + " " + fmtCurrency0.format(g.monthly); }).join(" + ");
-      summaryEl.innerHTML = "Adds up: " + parts + " = <b>" + fmtCurrency0.format(total) + " / mo</b> total household income";
+      var opt = showAsOption(incomeShowAs());
+      if(opt.key === "hour"){
+        // Per hour doesn't add up person by person (each divides by their own hours), so the line
+        // says what the household's figure is made of instead.
+        var t = shownAmount(total, everyonesHours(groups));
+        summaryEl.innerHTML = "Together: <b>" + (t || "—") + " " + opt.suffix + "</b> — the household's income over everyone's " + everyonesHours(groups) + " hours a week";
+      } else {
+        var parts = groups.map(function(g){ return (g.key === "__household" ? "Household" : g.key) + " " + shownAmount(g.monthly); }).join(" + ");
+        summaryEl.innerHTML = "Adds up: " + parts + " = <b>" + shownAmount(total) + " " + opt.suffix + "</b> total household income";
+      }
       summaryEl.style.display = "";
     } else {
       summaryEl.style.display = "none";
@@ -106,7 +151,7 @@ export function patchIncomeGroupTotals(){
   }
   document.querySelectorAll("#incomeGroups .m-card").forEach(function(card, gi){
     var totalEl = card.querySelector(".m-card-total");
-    if(totalEl && groups[gi]) totalEl.innerHTML = fmtCurrency0.format(groups[gi].monthly) + "<span>/mo</span>";
+    if(totalEl && groups[gi]) totalEl.innerHTML = groupTotalHtml(groups[gi]);
     var barWrap = card.querySelector("[data-comp-bar]");
     if(barWrap && groups[gi]){
       var freshBar = modernIncomeCompBarHtml(incomeGroupRowMeta(groups[gi]));
@@ -235,6 +280,14 @@ function incomeGroupRowMeta(g){
   });
 }
 
+function groupTotalHtml(g){
+  var v = shownAmount(g.monthly, hoursPerWeekOf(g.key));
+  return v == null ? '<span title="' + NO_HOURS + '">—</span>' : v + '<span>' + showAsOption(incomeShowAs()).suffix + '</span>';
+}
+function rowAmountText(item, monthly){
+  var v = shownAmount(monthly, hoursPerWeekOf(incomeGroupKey(item)), fmtCurrency2);
+  return v == null ? "—" : v + showAsOption(incomeShowAs()).suffix;
+}
 function modernIncomeCompBarHtml(rowMeta){
   var segs = rowMeta.filter(function(m){ return m.colorIdx != null; }).map(function(m){
     return { item: m.item, colorIdx: m.colorIdx, monthly: Math.max(0, periodsOf(m.item.amount, m.item.freq).monthly) };
@@ -253,7 +306,7 @@ export function renderIncomeGroups(){
   var groups = computeIncomeGroups();
   patchIncomeGroupTotals();
   var order = incomeGroupOrder();
-  container.innerHTML = '<div class="m-people">' + groups.map(function(g){
+  container.innerHTML = showAsControlHtml() + '<div class="m-people">' + groups.map(function(g){
     var label = g.key === "__household" ? "Household / Shared" : g.key;
     var addValue = g.key === "__household" ? "" : g.key;
     var avatarClass = g.key === "__household" ? "m-avatar-neutral" : "series-color-" + (order.indexOf(g.key) % 8);
@@ -263,7 +316,7 @@ export function renderIncomeGroups(){
     return '<div class="m-card">' +
       '<div class="m-card-head"><span class="m-avatar ' + avatarClass + '">' + initial + '</span>' +
       '<div class="m-card-name">' + escapeAttr(label) + '</div>' +
-      '<div class="m-card-total">' + fmtCurrency0.format(g.monthly) + '<span>/mo</span></div></div>' +
+      '<div class="m-card-total">' + groupTotalHtml(g) + '</div></div>' +
       modernIncomeCompBarHtml(rowMeta) +
       '<div class="m-rows">' + rows + '</div>' +
       '<button type="button" class="m-add-row" data-add="income:' + escapeAttr(addValue) + '">+ Add income</button>' +
@@ -369,7 +422,7 @@ function modernIncomeRowHtml(item, idx, colorIdx){
       (function(){ var v = scenarioVaryNoteHtml(item, state.activeScenario); return v ? '<div class="m-row-sub">' + v + '</div>' : ""; })() +
     '</div>' +
     (isGrossRef ? '<span class="m-row-tag gross">Gross</span>' : "") +
-    '<span class="m-row-amt' + (hasEnded(item) ? " row-amt-ended" : "") + '" data-computed="amt">' + fmtCurrency2.format(monthly) + '/mo</span>' +
+    '<span class="m-row-amt' + (hasEnded(item) ? " row-amt-ended" : "") + '" data-computed="amt">' + rowAmountText(item, monthly) + '</span>' +
     (isComputed ? "" : '<span class="m-row-chev" aria-hidden="true">✕</span>') +
   '</div>';
   if(isComputed){
@@ -417,7 +470,7 @@ export function patchSyntheticIncomeRows(){
     if(amountInput) amountInput.value = item.amount;
     var p = periodsOf(item.amount, item.freq);
     var modernAmt = tr.querySelector('[data-computed="amt"]');
-    if(modernAmt) modernAmt.textContent = fmtCurrency2.format(p.monthly) + "/mo";
+    if(modernAmt) modernAmt.textContent = rowAmountText(item, p.monthly);
   });
 }
 

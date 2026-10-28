@@ -58,6 +58,8 @@ export function personCardHtml(person, index, today){
         "Unused cap from the last five years, available while the total super balance was under $500,000 on 30 June last year — myGov shows it.") +
       field("Capital losses b/f $", numInput("pp-losses", person, st.capitalLossCarriedForward, "Capital losses carried forward for " + person, 100),
         "Net capital losses from earlier years, as on the last notice of assessment.") +
+      field("Hours worked a week", '<input type="number" min="0" max="168" step="0.5" class="pp-in pp-week" data-pp-person="' + pid + '" aria-label="Hours worked a week for ' + pid + '" value="' + (st.hoursPerWeek != null && st.hoursPerWeek !== "" ? st.hoursPerWeek : "") + '" placeholder="38">',
+        "What Cash flow → Income divides by when it's shown per hour. Empty counts as 38.") +
     '</div>' +
     '<div class="pp-hours-wrap"><div class="tax-inputs-label">Hours worked from home</div><div class="pp-hours-row">' + hours.join("") + '</div></div>' +
   '</div>';
@@ -84,6 +86,8 @@ export function setPersonField(person, cls, value, fy){
   else if(cls === "pp-cap") st.concessionalCap = n;
   else if(cls === "pp-carry") st.carryForward = n;
   else if(cls === "pp-losses") st.capitalLossCarriedForward = n;
+  // v3.138.0: hours a week, for income per hour; empty goes back to the 38 it's read as.
+  else if(cls === "pp-week"){ if(value === "" || value == null) delete st.hoursPerWeek; else st.hoursPerWeek = Math.min(168, n); }
   else if(cls === "pp-wfh"){
     if(!st.wfhHours || typeof st.wfhHours !== "object") st.wfhHours = {};
     if(value === "" || value == null) delete st.wfhHours[fy]; else st.wfhHours[fy] = n;

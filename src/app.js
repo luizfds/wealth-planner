@@ -33,7 +33,8 @@ import { renderCards, renderDashboardStats, renderDetail, setProjectionReference
 import {
   personBreakdownHtml, renderIncomeGroups, patchOpenRowBreakdowns, patchIncomeGroupTotals,
   patchSyntheticIncomeRows, patchIncomeSuperNotes, renderTaxSuper, withholdingCheckText, withholdingCheckHtml, payslipRead, salaryRowFor, flipTaxCard, patchAllTaxPersonOutputs, patchPhiNote,
-  modernIncomeRowOpen, parseIncomeImportCsv, renderIncomeImportPreview, clearIncomeImportPreview, commitIncomeImport
+  modernIncomeRowOpen, parseIncomeImportCsv, renderIncomeImportPreview, clearIncomeImportPreview, commitIncomeImport,
+  incomeHeaderTotal, setIncomeShowAs
 } from "./components/income.js";
 import {
   patchSharedGroupTotals, renderSharedGroups, renderPropertyExpensesSummary, modernSharedRowOpen,
@@ -207,7 +208,10 @@ import {
 
 
   function renderTotals(){
-    document.getElementById("totalIncomeMonthly").textContent = fmtCurrency0.format(sumField(effectiveIncomeItems(), "monthly"));
+    // v3.138.0: in the period Income is shown in (Show as).
+    var incTotal = incomeHeaderTotal(sumField(effectiveIncomeItems(), "monthly"));
+    document.getElementById("totalIncomeMonthly").textContent = incTotal.value;
+    document.getElementById("totalIncomeLabel").textContent = incTotal.label;
     // Totals what the list actually shows — shared plus the active scenario's housing — not just
     // state.shared, or the header disagrees with the cards beneath it by the size of your rent.
     // Scenario-resolved, matching the cards below it and every other total in the app.
@@ -891,7 +895,7 @@ import {
     var t = e.target, person = t.getAttribute("data-pp-person");
     if(!person) return;
     if(t.classList.contains("pp-name")){ renameTaxPerson(person, t.value); return; }
-    var cls = ["pp-dob", "pp-help", "pp-cap", "pp-carry", "pp-losses", "pp-wfh"].find(function(c){ return t.classList.contains(c); });
+    var cls = ["pp-dob", "pp-help", "pp-cap", "pp-carry", "pp-losses", "pp-wfh", "pp-week"].find(function(c){ return t.classList.contains(c); });
     if(!cls || !setPersonField(person, cls, t.value, t.getAttribute("data-fy"))) return;
     afterPeopleChange();
   });
@@ -4441,6 +4445,14 @@ import {
     showAssetsSubpage(btn.getAttribute("data-assets-sub"));
   });
 
+  // v3.138.0: Income → Show as — the same figures per year, month, fortnight, week, day or hour.
+  document.getElementById("incomeGroups").addEventListener("click", function(e){
+    var b = e.target.closest("[data-showas]");
+    if(!b) return;
+    setIncomeShowAs(b.getAttribute("data-showas"));
+    renderIncomeGroups();
+    renderTotals();
+  });
   // v3.138.0: the empty summary's "Add cash / shares / super" go to that tab.
   document.getElementById("assetsSummaryStats").addEventListener("click", function(e){
     var btn = e.target.closest("[data-empty-assets]");

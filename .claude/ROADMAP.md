@@ -3041,6 +3041,12 @@ it. On the demo the headline moved by a couple of dollars (its balances are reco
 line appears.
 
 
+## 167. `[~]` Price history thinned as it ages
+A holding's history gains a point every day the prices update. Nothing needs that detail for long: the charts'
+1D and 1W read recent days, everything else reads weeks or months. Automatic price points (those that carry a
+`price`) are kept daily for 90 days, then the last of each week to two years, then the last of each month; values
+someone logged by hand are never touched.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

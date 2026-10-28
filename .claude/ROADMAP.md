@@ -3055,6 +3055,19 @@ holding seeded with 1,246 daily points came out with 201 and its typed value int
 repo) history is already mostly weekly, so few points went, with no week-end value or chart range start changed.
 
 
+## 168. `[~]` A polish pass
+What made the app look less finished than it is, from a look at every page at 390 and 1280px:
+- **Words that are no longer true:** the sidebar's "nothing is sent anywhere" (sync and prices now do, by choice),
+  and text still naming pages by their old names (Dashboard for Home, …).
+- **Layout:** a lone ⓘ on its own row at the top of most pages; Home showing net worth three times and its cards
+  again under Overview; the floating buttons covering content on a phone; names cut short with room to spare;
+  the net worth bar with no labels.
+- **Spending:** three rows of toggles and five dropdowns before the first transaction; no day headers; a delete
+  cross on some rows and not others.
+- **Feel:** undo for deletes, empty pages that say what to do, a first-load splash, an accessibility pass and
+  keyboard shortcuts.
+- **Under the hood:** a lighter first load without a build step, and a warning before the browser's storage fills.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

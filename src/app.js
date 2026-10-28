@@ -5739,6 +5739,43 @@ import {
     history.replaceState(history.state, "", location.pathname + location.hash);
   }
 
+  // ---------------- Keyboard shortcuts (v3.138.0) ----------------
+  // For a desktop: / search, n log a spend, g then a letter to go to a page, ? to list them. Never
+  // while typing in a field, and never with a modifier held (those belong to the browser).
+  var GO_KEYS = { h: ["dashboard", "Home"], c: ["expenses", "Cash flow"], w: ["networth", "Net worth"], t: ["tax", "Tax"], p: ["plan", "Plan"], r: ["reports", "Reports"], s: ["settings", "Settings"] };
+  var goPending = 0;
+  function shortcutsDialog(){
+    var d = document.getElementById("shortcutsDialog");
+    if(d) return d;
+    d = document.createElement("dialog");
+    d.id = "shortcutsDialog";
+    d.className = "shortcuts-dialog";
+    d.setAttribute("aria-label", "Keyboard shortcuts");
+    var row = function(k, what){ return '<li><span>' + k.map(function(x){ return "<kbd>" + x + "</kbd>"; }).join(" then ") + '</span>' + what + '</li>'; };
+    d.innerHTML = '<h2>Keyboard shortcuts</h2><ul>' + row(["/"], "Search") + row(["n"], "Log a spend") +
+      Object.keys(GO_KEYS).map(function(k){ return row(["g", k], "Go to " + GO_KEYS[k][1]); }).join("") + row(["?"], "This list") + row(["Esc"], "Close what's open") +
+      '</ul><form method="dialog"><button class="btn btn-sm">Close</button></form>';
+    document.body.appendChild(d);
+    return d;
+  }
+  document.addEventListener("keydown", function(e){
+    if(e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+    var t = e.target;
+    if(t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    if(document.querySelector("dialog[open]") && e.key !== "?") return;
+    if(goPending && Date.now() - goPending < 1200 && GO_KEYS[e.key]){
+      goPending = 0; e.preventDefault();
+      var nav = document.querySelector('.nav-item[data-page="' + GO_KEYS[e.key][0] + '"]');
+      if(nav) nav.click();
+      return;
+    }
+    goPending = 0;
+    if(e.key === "g"){ goPending = Date.now(); return; }
+    if(e.key === "/"){ e.preventDefault(); openSearchOverlay(); return; }
+    if(e.key === "n"){ e.preventDefault(); openQuickLogSheet(); return; }
+    if(e.key === "?"){ e.preventDefault(); var d = shortcutsDialog(); if(d.open) d.close(); else d.showModal(); }
+  });
+
   // Matching #appLoading's inline styles in index.html — fades out only once the real UI above
   // has actually been built, not on a fixed timer, so a slow first load (cold cache, slow device)
   // keeps the loading screen up for exactly as long as it's needed and no longer.

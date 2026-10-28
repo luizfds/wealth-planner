@@ -330,12 +330,12 @@ test("under budget reads as good news on a regular line but not on a reserve lin
     // Regular monthly line, nothing spent: genuinely under this month's bill, so green.
     const regular = budgetComparisonRowHtml({ id: "r1", what: "Internet", amount: 99, freq: "Monthly",
       irregular: false, classification: "Needs", category: "", history: [] });
-    assert.match(regular, /var\(--good\)/);
+    assert.match(regular, /var\(--good-ink\)/);
     // Reserve line, nothing spent: being under a whole year's allowance is the normal state of
     // affairs, not an achievement, so no green.
     const reserve = budgetComparisonRowHtml({ id: "i1", what: "Trips", amount: 20000, freq: "Yearly",
       irregular: true, classification: "Wants", category: "", history: [] });
-    assert.ok(!reserve.includes("var(--good)"), "a reserve line under budget is not good news");
+    assert.ok(!reserve.includes("var(--good-ink)"), "a reserve line under budget is not good news");
   } finally { state.transactions = prev; }
 });
 

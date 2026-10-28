@@ -154,7 +154,7 @@ function taxTileHtml(){
     small = known.length ? (refund >= 0 ? "estimated refund" : "estimated to pay") : "estimated tax and levies for the year";
   }
   return '<button type="button" class="stat-tile stat-tile-link" data-dashboard-jump="taxyear" data-tax-fy="' + fy + '" title="Opens the tax return worksheet for ' + fyLabel(fy) + ' (Tax → Returns)">' +
-    '<span>' + escapeAttr(label) + '</span><b' + (urgent ? ' style="color:var(--bad)"' : '') + '>' + escapeAttr(big) + '</b>' +
+    '<span>' + escapeAttr(label) + '</span><b' + (urgent ? ' style="color:var(--bad-ink)"' : '') + '>' + escapeAttr(big) + '</b>' +
     '<small>' + escapeAttr(small) + '</small></button>';
 }
 
@@ -196,7 +196,7 @@ export function renderDashboardStats(){
     return;
   }
   el.innerHTML =
-    '<div class="stat-tile"><span>' + escapeAttr(active) + (active !== currentScenario() ? ' (what-if)' : '') + ' — net savings</span><b' + (regularOf(t) < 0 ? ' style="color:var(--bad)"' : '') + '>' + fmtCurrency0.format(regularOf(t)) + '/mo</b><small>' + fmtPercent1.format(t.rate) + ' savings rate' + (t.oneOffYearly > 0.5 ? ' · a normal month' : '') + '</small></div>' +
+    '<div class="stat-tile"><span>' + escapeAttr(active) + (active !== currentScenario() ? ' (what-if)' : '') + ' — net savings</span><b' + (regularOf(t) < 0 ? ' style="color:var(--bad-ink)"' : '') + '>' + fmtCurrency0.format(regularOf(t)) + '/mo</b><small>' + fmtPercent1.format(t.rate) + ' savings rate' + (t.oneOffYearly > 0.5 ? ' · a normal month' : '') + '</small></div>' +
     '<div class="stat-tile"><span>Projected net worth</span><b>' + fmtCurrency0.format(projected) + '</b><small>in ' + horizon + ' years, ' + escapeAttr(active) + ', ' + (state.projection.realTerms !== false ? "today's" : "future") + ' dollars</small></div>' +
     runwayTile +
     fiTileHtml(t) +
@@ -242,7 +242,7 @@ function renderCashFlowForecastPanel(){
     var note = g.steady
       ? (g.months.length > 1 ? g.months.length + " steady months" : "steady month")
       : first.items.map(function(it){ return escapeAttr(it.what) + " " + (it.side === "income" ? "+" : "−") + fmtCurrency0.format(it.amount); }).join(", ");
-    var color = g.net < -0.5 ? "var(--bad)" : (g.net > 0.5 ? "var(--good)" : "");
+    var color = g.net < -0.5 ? "var(--bad-ink)" : (g.net > 0.5 ? "var(--good-ink)" : "");
     return '<div class="forecast-row' + (g.steady ? " is-steady" : "") + '"><span class="forecast-when">' + escapeAttr(label) + '</span>' +
       '<span class="forecast-note">' + note + '</span>' +
       '<span class="forecast-amt"' + (color ? ' style="color:' + color + '"' : '') + '>' + (g.net >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(g.net)) +
@@ -311,9 +311,9 @@ function renderActualVsExpectedPanel(scenario, t){
   var gapWord = gap >= 0 ? "ahead of" : "behind";
   panel.innerHTML =
     '<h3>Actual vs. expected <span style="font-weight:400;color:var(--ink-soft)">— last 30 days</span></h3>' +
-    '<div class="fire-stat-row"><span>Actual asset growth</span><b' + (actual.deltaSum < 0 ? ' style="color:var(--bad)"' : '') + '>' + fmtCurrency0.format(actual.deltaSum) + '</b></div>' +
+    '<div class="fire-stat-row"><span>Actual asset growth</span><b' + (actual.deltaSum < 0 ? ' style="color:var(--bad-ink)"' : '') + '>' + fmtCurrency0.format(actual.deltaSum) + '</b></div>' +
     '<div class="fire-stat-row"><span>' + escapeAttr(scenario) + ' expected surplus</span><b>' + fmtCurrency0.format(expected) + '/mo</b></div>' +
-    '<div class="fire-stat-row"><span>Gap</span><b' + (gap < 0 ? ' style="color:var(--bad)"' : ' style="color:var(--good)"') + '>' + fmtCurrency0.format(Math.abs(gap)) + " " + gapWord + " plan</b></div>" +
+    '<div class="fire-stat-row"><span>Gap</span><b' + (gap < 0 ? ' style="color:var(--bad-ink)"' : ' style="color:var(--good-ink)"') + '>' + fmtCurrency0.format(Math.abs(gap)) + " " + gapWord + " plan</b></div>" +
     '<p class="fire-note help">Based on ' + actual.trackedCount + ' asset' + (actual.trackedCount === 1 ? "" : "s") + ' with a logged value from ~30 days ago and a current one. Doesn\'t include properties (no monthly re-valuation) or assets without an old-enough snapshot — log values regularly for a fuller picture.</p>';
 }
 
@@ -709,7 +709,7 @@ export function renderContributionsGrowth(){
   panel.innerHTML = '<h3>Saved vs grown <span style="font-weight:400;color:var(--ink-soft)">— since ' + escapeAttr(fmtDate(split.from)) + '</span></h3>' +
     '<div class="fire-stat-row"><span>Net worth then</span><b>' + fmtCurrency0.format(split.start) + '</b></div>' +
     '<div class="fire-stat-row"><span>Net worth now</span><b>' + fmtCurrency0.format(split.end) + '</b></div>' +
-    '<div class="fire-stat-row"><span>Change</span><b' + (split.totalChange < 0 ? ' style="color:var(--bad)"' : '') + '>' +
+    '<div class="fire-stat-row"><span>Change</span><b' + (split.totalChange < 0 ? ' style="color:var(--bad-ink)"' : '') + '>' +
       (split.totalChange >= 0 ? "+" : "") + fmtCurrency0.format(split.totalChange) + '</b></div>' +
     '<div class="rule-bar" style="margin-top:10px">' +
       '<div class="rule-seg series-color-0" style="width:' + pct(split.contributed) + '%" title="Money you added: ' + fmtCurrency0.format(split.contributed) + '"></div>' +

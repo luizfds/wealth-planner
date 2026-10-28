@@ -1,3 +1,5 @@
+<!doctype html>
+<html lang="en-AU">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!-- A genuinely first-ever visit (nothing saved yet, never seen either intro page) gets sent to
@@ -201,7 +203,7 @@
       </div>
     </header>
 
-    <div class="app-content" id="appContent">
+    <div class="app-content" id="appContent" role="main">
 
       <section class="app-page" id="page-dashboard">
         <p class="page-intro" id="dashboardIntro">Your money at a glance — what you're worth, how the month is going, and what needs doing.</p>
@@ -939,7 +941,7 @@
                 <div class="proj-field" title="Annual growth rate applied to a scenario's home value (if buying) and every property tracked on the Properties tab. Reduces equity growth if negative."><label for="projPropertyRate">Property growth % p.a.</label><input type="number" min="-10" max="30" step="0.1" id="projPropertyRate"><input type="range" class="proj-slider" min="-10" max="30" step="0.1" id="projPropertyRateRange" aria-label="Property growth % p.a. slider"></div>
                 <div class="proj-field" title="Annual increase applied to living costs and housing costs — rent included. A mortgage repayment stays fixed in nominal terms, as it does in reality. This is also the rate used to deflate the figures when you're viewing today&#39;s dollars."><label for="projInflationRate">Inflation % p.a.</label><input type="number" min="0" max="15" step="0.1" id="projInflationRate"><input type="range" class="proj-slider" min="0" max="15" step="0.1" id="projInflationRateRange" aria-label="Inflation % p.a. slider"></div>
                 <div class="proj-field" title="Annual pay rises, applied to every income row. Until now income was held flat for the whole horizon while expenses inflated, which made the surplus shrink every year and eventually go negative — set this to at least the inflation rate for the surplus to hold its value."><label for="projIncomeGrowth">Income growth % p.a.</label><input type="number" min="0" max="15" step="0.1" id="projIncomeGrowth"><input type="range" class="proj-slider" min="0" max="15" step="0.1" id="projIncomeGrowthRange" aria-label="Income growth % p.a. slider"></div>
-                <div class="proj-field"><label>Rate shock (+pp)</label><input type="number" min="0" max="10" step="0.25" id="projRateShock" title="Stress-test: adds this many percentage points to every buy scenario's interest rate, for the whole projection"><input type="range" class="proj-slider" min="0" max="10" step="0.25" id="projRateShockRange" aria-label="Rate shock slider"></div>
+                <div class="proj-field"><label>Rate shock (+pp)</label><input type="number" min="0" max="10" step="0.25" id="projRateShock" aria-label="Rate shock, percentage points" title="Stress-test: adds this many percentage points to every buy scenario's interest rate, for the whole projection"><input type="range" class="proj-slider" min="0" max="10" step="0.25" id="projRateShockRange" aria-label="Rate shock slider"></div>
                 <div class="proj-field" title="How far a year's investment return typically strays from the average — the standard deviation. About 10% for a balanced mix, 15% or more for all shares. Draws the shaded range on the chart."><label for="projInvestVol">Investment ups and downs %</label><input type="number" min="0" max="40" step="0.5" id="projInvestVol"><input type="range" class="proj-slider" min="0" max="40" step="0.5" id="projInvestVolRange" aria-label="Investment ups and downs slider"></div>
                 <div class="proj-field" title="How far a year's property growth typically strays from the average. Australian capital-city prices have run at about 5–8%."><label for="projPropertyVol">Property ups and downs %</label><input type="number" min="0" max="30" step="0.5" id="projPropertyVol"><input type="range" class="proj-slider" min="0" max="30" step="0.5" id="projPropertyVolRange" aria-label="Property ups and downs slider"></div>
               </div>

@@ -6,12 +6,16 @@
     --ink-soft: #475569;
     --border: #e2e8f0;
     --brass: #3b82f6;
-    --brass-strong: #2563eb;
+    --brass-strong: #1d4ed8;
     --brass-wash: #dbeafe;
     --good: #10b981;
     --good-wash: #d1fae5;
     --bad: #ef4444;
     --bad-wash: #fee2e2;
+    /* v3.138.0: the same colours dark enough to read as text (WCAG AA, 4.5:1). */
+    --good-ink: #047857;
+    --bad-ink: #b91c1c;
+    --warn-ink: #8a5a00;
     --shadow: 0 1px 2px rgba(15,23,42,0.05), 0 8px 24px -12px rgba(15,23,42,0.14);
     --focus-ring: 0 0 0 3px rgba(59,130,246,0.35);
     /* One number format (v3.69.0): every figure in the app — headline, row, table, input — sets in
@@ -36,6 +40,10 @@
       --good-wash: #0f2922;
       --bad: #ef4444;
       --bad-wash: #2c1417;
+      /* text-strength good / bad / warn */
+      --good-ink: #34d399;
+      --bad-ink: #f87171;
+      --warn-ink: #f0b429;
       --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 8px 24px -12px rgba(0,0,0,0.55);
       --focus-ring: 0 0 0 3px rgba(96,165,250,0.4);
     }
@@ -54,6 +62,10 @@
     --good-wash: #0f2922;
     --bad: #ef4444;
     --bad-wash: #2c1417;
+    /* text-strength good / bad / warn */
+    --good-ink: #34d399;
+    --bad-ink: #f87171;
+    --warn-ink: #f0b429;
     --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 8px 24px -12px rgba(0,0,0,0.55);
     --focus-ring: 0 0 0 3px rgba(96,165,250,0.4);
   }
@@ -180,7 +192,7 @@
   .btn-primary{ background: var(--brass); border-color: var(--brass); color: #ffffff; }
   .btn-primary:hover{ background: var(--brass-strong); border-color: var(--brass-strong); }
   .btn-ghost{ background: transparent; border-color: transparent; color: var(--ink-soft); padding:7px 8px; }
-  .btn-ghost:hover{ color: var(--bad); }
+  .btn-ghost:hover{ color: var(--bad-ink); }
   /* Small only in its type and padding — a "small" button is still something you tap on purpose,
      so it keeps a 40px box around its 12px label. */
   .btn-sm{ padding: 4px 9px; font-size: 12px; border-radius: 6px; min-height:40px; }
@@ -345,3 +357,5 @@ body.help-hidden .page-intro-row:not(:has(.help-open)){ display:none; }
 .page-actions-slot{ display:flex; align-items:center; gap:6px; }
 .page-actions-slot .page-intro-actions{ margin:0; }
 .page-actions-slot .page-intro-actions[hidden]{ display:none; }
+.page-actions-slot .page-overflow-btn{ width:32px; height:32px; border-color:transparent; background:none; }
+.page-actions-slot .page-overflow-btn:hover, .page-actions-slot .page-overflow-btn[aria-expanded="true"]{ border-color: var(--border); background: var(--paper-raised); }

@@ -33,7 +33,7 @@ export function netWorthPageHtml(){
   var shown = l.groups.filter(function(g){ return g.key !== "debts" && g.total > 0; }).map(function(g){ return g.key; });
   return head + bar + l.groups.map(function(g){
     var ci = shown.indexOf(g.key);
-    return '<section class="nw-group"><h3><span>' + (ci !== -1 ? '<i class="nw-dot series-color-' + ci + '" aria-hidden="true"></i>' : '') + escapeAttr(g.label) + '</span><b>' + money(g.total) + '</b></h3><ul>' + g.rows.map(function(r){
+    return '<section class="nw-group"><h2><span>' + (ci !== -1 ? '<i class="nw-dot series-color-' + ci + '" aria-hidden="true"></i>' : '') + escapeAttr(g.label) + '</span><b>' + money(g.total) + '</b></h2><ul>' + g.rows.map(function(r){
       return '<li><span class="nw-name">' + (r.id ? detailLinkHtml(r.kind, r.id, r.name) : escapeAttr(r.name)) + (r.sub ? '<small>' + escapeAttr(r.sub) + '</small>' : '') + '</span><b class="' + (r.value < 0 ? "neg" : "") + '">' + money(r.value) + '</b></li>';
     }).join("") + '</ul></section>';
   }).join("");

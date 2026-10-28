@@ -1532,7 +1532,7 @@ export function budgetComparisonRowHtml(item){
   var planned = Math.round(cycle.target * 100) / 100;
   var actual = Math.round(spentInCycle(item, cycle) * 100) / 100;
   var delta = actual - planned;
-  var color = delta > 0.5 ? "var(--bad)" : (delta < -0.5 && !cycle.reserve ? "var(--good)" : "");
+  var color = delta > 0.5 ? "var(--bad-ink)" : (delta < -0.5 && !cycle.reserve ? "var(--good-ink)" : "");
   var pct = planned > 0 ? Math.min(100, (actual / planned) * 100) : (actual > 0 ? 100 : 0);
   var remaining = planned - actual;
   // The period lives in the "planned <label>" half, so this half doesn't repeat it.
@@ -1719,7 +1719,7 @@ export function renderActualVsPlannedPanel(){
   // Framed from a spending point of view: spending less than planned is "good" (green), more is
   // "bad" (red) — the inverse of the up/down convention used for asset values elsewhere in the
   // app, where "up" is always good. Both read correctly for what they each represent.
-  var overallColor = overallDelta > 0.5 ? "var(--bad)" : (overallDelta < -0.5 ? "var(--good)" : "");
+  var overallColor = overallDelta > 0.5 ? "var(--bad-ink)" : (overallDelta < -0.5 ? "var(--good-ink)" : "");
   var overallPct = plannedTotal > 0 ? Math.min(100, (actualTotal / plannedTotal) * 100) : (actualTotal > 0 ? 100 : 0);
   // Only lines something was actually logged against this month. Every regular line's planned
   // figure and its progress against it now lives on the line's own row in the Budget tab (see

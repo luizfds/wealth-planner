@@ -111,7 +111,7 @@
   .page-overflow-menu .btn{ justify-content:flex-start; text-align:left; width:100%; }
   .app-sidebar-footer{ margin-top:auto; display:flex; flex-direction:column; gap:14px; padding-top:14px; border-top:1px solid var(--border); }
   .app-sidebar-note{ font-size:10.5px; color: var(--ink-soft); line-height:1.5; }
-  .app-version{ font-family:var(--font-num); font-size:10px; color: var(--ink-soft); opacity:.65; margin:6px 0 0; }
+  .app-version{ font-family:var(--font-num); font-size:10.5px; color: var(--ink-soft); margin:6px 0 0; }
   /* Sits inline after the version number, which is exactly where someone looks when wondering
      whether they're on the latest — so it inherits the version line's own muted treatment rather
      than becoming a third thing competing in the footer. */
@@ -135,8 +135,8 @@
   .global-metric{ display:flex; align-items:baseline; gap:6px; }
   .global-metric span{ font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; }
   .global-metric b{ font-family:"Inter", system-ui, sans-serif; font-weight:700; font-size:14.5px; font-variant-numeric: tabular-nums; color: var(--ink); white-space:nowrap; }
-  .global-metric b.neg{ color: var(--bad); }
-  .global-metric b.pos{ color: var(--good); }
+  .global-metric b.neg{ color: var(--bad-ink); }
+  .global-metric b.pos{ color: var(--good-ink); }
   .global-metric-divider{ width:1px; height:14px; background: var(--border); }
   @media (max-width: 1080px){ .global-metrics{ order:1; width:100%; justify-content:flex-start; } }
   /* The period selector (v3.55.0): the year every figure follows, beside the page title. Brass when
@@ -379,7 +379,7 @@
   .page-overflow-menu .btn[hidden]{ display:none; }
   .topbar-overflow .page-overflow-btn{ width:34px; height:34px; }
   .topbar-overflow .page-overflow-menu{ top:40px; }
-  .menu-danger{ color: var(--bad) !important; }
+  .menu-danger{ color: var(--bad-ink) !important; }
   /* The Checks count on Settings (v3.63.0). */
   .nav-badge{ display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; padding:0 5px; margin-left:6px; border-radius:9px;
     background: var(--bad); color:#fff; font-size:11px; font-weight:700; vertical-align:middle; font-variant-numeric: tabular-nums; }
@@ -401,9 +401,25 @@
   .lock-card p{ margin:0; color: var(--ink-soft); font-size:13.5px; }
   .lock-card input{ min-height:48px; font-size:20px; text-align:center; letter-spacing:.3em; border:1px solid var(--border); border-radius:10px; background: var(--paper-raised); color: var(--ink); }
   .lock-card input:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
-  .lock-error{ color: var(--bad) !important; }
+  .lock-error{ color: var(--bad-ink) !important; }
   .lock-error[hidden]{ display:none; }
   html.is-locked .app-shell, html.is-locked .mobile-tabbar, html.is-locked .quick-fab-wrap, html.is-locked .toast-root{ visibility:hidden; }
 
 /* v3.138.0: on Home the first card is net worth — the header pill would say it twice. */
 body[data-page="dashboard"] .global-metrics{ display:none; }
+
+/* v3.138.0: the keyboard shortcuts list (press ?). */
+.shortcuts-dialog{ border:1px solid var(--border); border-radius:14px; padding:18px 20px; background: var(--paper-raised); color: var(--ink); box-shadow: var(--shadow); min-width:300px; }
+.shortcuts-dialog::backdrop{ background: rgba(15,23,42,.35); }
+.shortcuts-dialog h2{ margin:0 0 10px; font-size:16px; }
+.shortcuts-dialog ul{ list-style:none; margin:0 0 14px; padding:0; display:grid; gap:6px; font-size:13.5px; }
+.shortcuts-dialog li{ display:grid; grid-template-columns: 110px 1fr; align-items:center; }
+.shortcuts-dialog kbd{ display:inline-block; min-width:20px; padding:1px 6px; border:1px solid var(--border); border-bottom-width:2px; border-radius:5px; background: var(--paper); font: 600 12px var(--font-num); text-align:center; }
+.shortcuts-dialog form{ display:flex; justify-content:flex-end; }
+
+/* v3.138.0: between the phone layout and a wide screen the header needs its room for the page's
+   own controls — the saved chip keeps its dot and says "Saved 08:41" on hover. */
+@media (min-width: 881px) and (max-width: 1360px){
+  .status-chip #statusText{ display:none; }
+  .status-chip{ padding-left:8px; padding-right:8px; }
+}

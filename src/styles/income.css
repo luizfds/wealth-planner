@@ -8,7 +8,7 @@
   .tax-person{ border:1px solid var(--border); border-radius:10px; background: var(--paper-sunken); padding:14px 16px; margin-bottom:14px; perspective:1000px; }
   .tax-person:last-child{ margin-bottom:0; }
   .tax-person-head{ display:flex; align-items:baseline; justify-content:space-between; gap:8px 10px; flex-wrap:wrap; margin-bottom:10px; }
-  .tax-person-head h4{ margin:0; font-size:14px; font-weight:600; display:flex; align-items:center; gap:2px; }
+  .tax-person-head h3{ margin:0; font-size:14px; font-weight:600; display:flex; align-items:center; gap:2px; }
   .tax-marginal{ font-size:11.5px; color: var(--ink-soft); }
   .m-flip-btn{
     all:unset; box-sizing:border-box; align-self:center; display:inline-flex; align-items:center; gap:4px;
@@ -31,7 +31,7 @@
   .tax-out span{ font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
   .tax-out b{ font-family:var(--font-num); font-size:14.5px; font-variant-numeric: tabular-nums; }
   .tax-out.emph b{ color: var(--brass-strong); font-size:16px; }
-  .tax-out.neg b{ color: var(--bad); }
+  .tax-out.neg b{ color: var(--bad-ink); }
   .tax-inputs-label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; margin:2px 0 6px; }
   .tax-inputs-panel{ background: var(--paper-raised); border:1px solid var(--border); border-radius:9px; padding:12px 14px; margin-bottom:12px; }
   .tax-inputs-panel .tax-inputs{ margin-bottom:0; }
@@ -47,7 +47,7 @@
   .cap-bar-fill.over{ background: var(--bad); }
   .tax-cap-note{ font-size:11.5px; color: var(--ink-soft); }
   .tax-package-note{ font-size:11.5px; color: var(--ink-soft); }
-  .tax-cap-note.warn{ color: var(--bad); font-weight:600; }
+  .tax-cap-note.warn{ color: var(--bad-ink); font-weight:600; }
   .tax-empty{ color: var(--ink-soft); font-size:12.5px; }
 
   .tax-hero{ margin-bottom:10px; }
@@ -73,7 +73,7 @@
   .tax-waterfall-item-value{ font-family:var(--font-num); font-size:13.5px; font-variant-numeric: tabular-nums; }
   .tax-secondary-line{ font-size:11.5px; color: var(--ink-soft); margin:0 0 10px; }
   .tax-secondary-line b{ font-family:var(--font-num); font-weight:600; font-variant-numeric: tabular-nums; color: var(--ink); }
-  .tax-secondary-line b.neg{ color: var(--bad); }
+  .tax-secondary-line b.neg{ color: var(--bad-ink); }
 
 
   /* ---------------- Pay schedule + pay-change history (Income rows) ---------------- */
@@ -96,8 +96,8 @@
      column of raises scannable as a series rather than as a list of rows. */
   .pay-hist-value{ flex:1 1 auto; text-align:right; font-family:var(--font-num); font-variant-numeric: tabular-nums; }
   .pay-hist-delta{ flex:none; font-size:11px; color: var(--ink-soft); min-width:74px; text-align:right; }
-  .pay-hist-delta.up{ color: var(--good); }
-  .pay-hist-delta.down{ color: var(--bad); }
+  .pay-hist-delta.up{ color: var(--good-ink); }
+  .pay-hist-delta.down{ color: var(--bad-ink); }
   /* The "Adds up: …" derivation, now on the Breakdown side above the figures it explains. */
   .rb-adds-up{ margin:0 0 10px; }
 
@@ -114,8 +114,8 @@
 .ty-refund{ display:flex; flex-direction:column; align-items:flex-end; }
 .ty-refund span{ font-size:11px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; font-weight:600; }
 .ty-refund b{ font-family:var(--font-num); font-size:20px; font-variant-numeric:tabular-nums; }
-.ty-refund.up b{ color:var(--good); }
-.ty-refund.down b{ color:var(--bad); }
+.ty-refund.up b{ color:var(--good-ink); }
+.ty-refund.down b{ color:var(--bad-ink); }
 .ty-refund.muted{ font-size:12px; color:var(--ink-soft); }
 .ty-row{ display:grid; gap:6px; align-items:center; padding:3px 0; }
 .ty-row-is{ grid-template-columns: minmax(0,1.3fr) minmax(0,1.1fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,.8fr) 32px; }
@@ -138,8 +138,8 @@
 .ty-cmp{ display:flex; flex-direction:column; font-size:12.5px; }
 .ty-cmp-row{ display:grid; grid-template-columns: minmax(0,1.5fr) repeat(3, minmax(0,1fr)); gap:6px; padding:3px 0; border-top:1px solid var(--border); }
 .ty-cmp-row > :not(:first-child){ text-align:right; font-family:var(--font-num); font-variant-numeric:tabular-nums; }
-.ty-cmp-row b.up{ color:var(--bad); }
-.ty-cmp-row b.down{ color:var(--good); }
+.ty-cmp-row b.up{ color:var(--bad-ink); }
+.ty-cmp-row b.down{ color:var(--good-ink); }
 .ty-ev{ display:flex; gap:8px; align-items:flex-start; font-size:13px; padding:4px 0; }
 /* Tax → Documents (v3.43.0) */
 .ty-docs-head{ display:flex; align-items:baseline; gap:10px; font-size:14px; font-weight:650; margin:14px 0 6px; }
@@ -197,7 +197,7 @@
   .tax-topup-field span{ text-transform:none; font-weight:400; margin-left:auto; }
   .tax-topup-amt{ width:120px; min-height:36px; padding:4px 8px; border:1px solid var(--border); border-radius:8px; background: var(--paper); color: var(--ink); font:inherit; font-size:14px; text-align:right; text-transform:none; letter-spacing:0; }
   .tax-topup-out{ margin:8px 0 0; font-size:12.5px; line-height:1.5; }
-  .tax-topup-out .warn{ color: var(--bad); }
+  .tax-topup-out .warn{ color: var(--bad-ink); }
 
 /* ---------------- Accounts → People (v3.44.0) ---------------- */
 .pp-list{ display:flex; flex-direction:column; gap:14px; }
@@ -227,8 +227,8 @@
 .rcv-bar{ grid-column:1 / -1; display:block; height:6px; border-radius:3px; background:var(--paper-sunken); overflow:hidden; }
 .rcv-bar > span{ display:block; height:100%; background:var(--series-color, #1baf7a); background:#1baf7a; }
 .rcv-status{ grid-column:1 / -1; font-size:12px; font-weight:600; }
-.rcv-status.up{ color:var(--good, #1a8a5a); }
-.rcv-status.down{ color:var(--bad, #c0392b); }
+.rcv-status.up{ color:var(--good-ink); }
+.rcv-status.down{ color:var(--bad-ink); }
 .rcv-status.muted{ color:var(--ink-soft); font-weight:500; }
 .rcv-detail{ padding:0 12px 10px; display:flex; flex-direction:column; gap:4px; }
 .rcv-item{ display:flex; align-items:center; gap:10px; font-size:13px; }
@@ -258,7 +258,7 @@
 .cy-row.is-fixed{ color:var(--ink-soft); }
 .cy-name small{ font-size:11px; font-weight:600; color:var(--brass-strong); }
 .cy-num, .cy-diff{ font-family:var(--font-num); font-size:12.5px; }
-.cy-diff.up{ color:var(--good, #1a8a5a); } .cy-diff.down{ color:var(--bad, #c0392b); }
+.cy-diff.up{ color:var(--good-ink); } .cy-diff.down{ color:var(--bad-ink); }
 .cy-nobox{ text-align:center; color:var(--ink-soft); }
 .ty-close .btn{ margin-top:12px; }
 @media (max-width:480px){
@@ -284,7 +284,7 @@
 .tax-ytd > summary{ font-size:13px; font-weight:650; cursor:pointer; color:var(--ink); }
 .tax-ytd-out{ font-size:13px; line-height:1.5; color:var(--ink-soft); margin:4px 0 0; }
 .tax-ytd-out b{ color:var(--ink); }
-.tax-ytd-out b.up{ color:var(--good, #1a8a5a); } .tax-ytd-out b.down{ color:var(--bad, #c0392b); }
+.tax-ytd-out b.up{ color:var(--good-ink); } .tax-ytd-out b.down{ color:var(--bad-ink); }
 
 /* Tax → This year → Before 30 June (v3.51.0) */
 .jm-lead{ font-size:13px; color:var(--ink-soft); margin:0 0 10px; }
@@ -294,7 +294,7 @@
 .jm-person h4 small{ font-weight:500; color:var(--ink-soft); font-size:12px; margin-left:6px; }
 .jm-move{ border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin-bottom:6px; background:var(--paper); }
 .jm-head{ display:flex; gap:10px; align-items:baseline; justify-content:space-between; flex-wrap:wrap; font-size:13.5px; }
-.jm-saves{ font-size:12.5px; font-weight:650; color:var(--good, #1a8a5a); white-space:nowrap; }
+.jm-saves{ font-size:12.5px; font-weight:650; color:var(--good-ink); white-space:nowrap; }
 .jm-move p{ font-size:12.5px; color:var(--ink-soft); margin:4px 0 0; line-height:1.45; }
 
   /* v3.87.0: take-home off the plan */

@@ -3180,7 +3180,7 @@ credit card, From its direct-debit account (item 170) or the first everyday acco
 expects (the soonest unpaid repayment from last month on) and a note. `transferForm.preset` carries it for one render.
 
 
-## 181. `[ ]` Statements from the Dropbox folder
+## 181. `[~]` Statements from the Dropbox folder
 Drop a bank, card or property-manager statement (CSV or PDF) into the app's Dropbox folder, from any device; the
 app picks it up on open, runs it through the importer and its rules, and asks only about rows it can't place.
 

@@ -828,19 +828,19 @@ function rowIncluded(row, opts){
 export function scenarioIncomeRows(opts){
   var rows = [];
   state.income.forEach(function(row){
-    if(row.incomeType === "Gross" || row.syntheticNetFor || row.syntheticOneOffFor) return;
+    if(row.incomeType === "Gross" || row.syntheticNetFor || row.syntheticOneOffFor || row.syntheticRefundFor) return;
     if(!rowIncluded(row, opts)) return;
     var amount = rowAmountFor(row, opts);
     rows.push(amount === row.amount ? row : Object.assign({}, row, { amount: amount }));
   });
   getTaxPeople().forEach(function(person){
-    var split = personOneOffSplit(person, opts);
+    var parts = personTakeHomeParts(person, opts), split = parts;
     // Every person with a Gross row gets a row even at $0 — a scenario where somebody stops
     // working is a real answer, and dropping the row would make it indistinguishable from a
     // person who was never there.
     rows.push({
       what: person + " — net income",
-      amount: Math.round((split.regularNet / 12 + takeHomeAdjust(person)) * 100) / 100,
+      amount: parts.regularMonthly,
       freq: "Monthly",
       computed: true,
       syntheticNetFor: person
@@ -850,6 +850,9 @@ export function scenarioIncomeRows(opts){
       rows.push({ what: (o.row.what || "Bonus") + " (after tax)", amount: o.net, freq: "Yearly", dueMonth: o.row.dueMonth || null,
         computed: true, oneOff: true, syntheticOneOffFor: o.row.id || "", person: person });
     });
+    // v3.145.0: the rental's tax saving, as the refund it arrives in.
+    if(parts.refund) rows.push({ what: person + " — tax refund (rental loss)", amount: parts.refund.amount, freq: "Yearly", dueMonth: parts.refund.dueMonth,
+      computed: true, oneOff: true, syntheticRefundFor: person, person: person });
   });
   return rows;
 }
@@ -884,6 +887,31 @@ export function personOneOffSplit(person, opts){
   });
   var regular = total - oneOffs.reduce(function(t, o){ return t + o.net; }, 0);
   return { total: total, regularNet: regular, oneOffs: oneOffs };
+}
+// v3.145.0: what a rental's tax loss is worth, as the refund it comes back as. Tax on a year's
+// income is worked out with an investment property's loss taken off (ipTaxEffect > 0), but an
+// employer withholds as if there were no property — so the saving isn't in any payslip; it lands
+// as part of the refund once the return is lodged. Split out like a bonus, the regular take-home
+// is what a payslip actually pays, and the parts still add up to the year's take-home. Not split:
+// a property making a profit (that's tax owed, left in the year), or a person whose withholding
+// already allows for it (tax.settings[person].withholdingVariation — a PAYG withholding variation).
+// The month: when this person's last refund was logged, else October (lodged by 31 October).
+export var REFUND_MONTH_DEFAULT = 10;
+export function rentalRefundFor(person, opts){
+  var s = state.tax && state.tax.settings && state.tax.settings[person];
+  if(s && s.withholdingVariation) return null;
+  var effect = computePersonTax(person, opts).ipTaxEffect;
+  if(!(effect > 0.5)) return null;
+  var last = (state.incomeLog || []).filter(function(r){ return r.target === "refund:" + person && r.date; })
+    .sort(function(a, b){ return a.date < b.date ? 1 : -1; })[0];
+  return { amount: Math.round(effect * 100) / 100, dueMonth: last ? Number(last.date.slice(5, 7)) : REFUND_MONTH_DEFAULT };
+}
+// A person's take-home in the pieces it arrives in: { regularMonthly, oneOffs, refund }.
+export function personTakeHomeParts(person, opts){
+  var split = personOneOffSplit(person, opts);
+  var refund = rentalRefundFor(person, opts);
+  var regular = split.regularNet - (refund ? refund.amount : 0);
+  return { regularMonthly: Math.round((regular / 12 + takeHomeAdjust(person)) * 100) / 100, oneOffs: split.oneOffs, refund: refund };
 }
 // What's in a scenario's income that doesn't arrive monthly, as a yearly amount.
 export function scenarioOneOffYearly(opts){

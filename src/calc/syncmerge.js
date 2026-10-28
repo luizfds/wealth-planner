@@ -22,7 +22,7 @@ var DEVICE_KEYS = { activeScenario: 1, showAllPeriods: 1, uiMode: 1, budgetGroup
 // The app's own bookkeeping: rebuilt or refreshed by itself, so either side will do.
 var AUTO_KEYS = { priceSheet: 1, fx: 1, benchmark: 1, projectionReference: 1 };
 function isLastDone(field){ return /^last[A-Z]|(At|Date|Updated)$/.test(String(field || "")); }
-function isAutoRow(r){ return !!(r && typeof r === "object" && (r.auto || r.derived || r.computed || r.syntheticNetFor || r.syntheticRentForProperty || r.syntheticOneOffFor)); }
+function isAutoRow(r){ return !!(r && typeof r === "object" && (r.auto || r.derived || r.computed || r.syntheticNetFor || r.syntheticRentForProperty || r.syntheticOneOffFor || r.syntheticRefundFor)); }
 
 function isObj(v){ return v != null && typeof v === "object" && !Array.isArray(v); }
 // Key order doesn't make two rows different.

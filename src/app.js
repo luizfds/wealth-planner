@@ -912,8 +912,8 @@ import { inboxMessage } from "./calc/inbox.js";
     var t = e.target, person = t.getAttribute("data-pp-person");
     if(!person) return;
     if(t.classList.contains("pp-name")){ renameTaxPerson(person, t.value); return; }
-    var cls = ["pp-dob", "pp-help", "pp-cap", "pp-carry", "pp-losses", "pp-wfh", "pp-week"].find(function(c){ return t.classList.contains(c); });
-    if(!cls || !setPersonField(person, cls, t.value, t.getAttribute("data-fy"))) return;
+    var cls = ["pp-dob", "pp-help", "pp-cap", "pp-carry", "pp-losses", "pp-wfh", "pp-week", "pp-var"].find(function(c){ return t.classList.contains(c); });
+    if(!cls || !setPersonField(person, cls, t.type === "checkbox" ? t.checked : t.value, t.getAttribute("data-fy"))) return;
     afterPeopleChange();
   });
   peopleTable.addEventListener("click", function(e){

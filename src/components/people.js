@@ -1,5 +1,5 @@
 import { state } from "../state.js";
-import { getTaxPeople, personTaxSettings, todayTaxFy, wfhRateForFy } from "../calc/tax.js";
+import { getTaxPeople, personTaxSettings, todayTaxFy, wfhRateForFy, computePersonTax } from "../calc/tax.js";
 import { fyLabel } from "../calc/property.js";
 import { personReferences, ageOn } from "../calc/people.js";
 import { localDateStr } from "../lib/format.js";
@@ -61,9 +61,14 @@ export function personCardHtml(person, index, today){
       field("Hours worked a week", '<input type="number" min="0" max="168" step="0.5" class="pp-in pp-week" data-pp-person="' + pid + '" aria-label="Hours worked a week for ' + pid + '" value="' + (st.hoursPerWeek != null && st.hoursPerWeek !== "" ? st.hoursPerWeek : "") + '" placeholder="38">',
         "What Cash flow → Income divides by when it's shown per hour. Empty counts as 38.") +
     '</div>' +
+    // v3.145.0: only for someone a rental's loss saves tax for — whether their pay already has it.
+    (ownsRentalLoss(person) ? '<label class="pp-variation"><input type="checkbox" class="pp-in pp-var" data-pp-person="' + pid + '"' + (st.withholdingVariation ? " checked" : "") + '> ' +
+      '<span>Pay already allows for the rental’s loss <small>— a PAYG withholding variation, so less tax comes out of each pay. Unticked, the tax it saves is planned as a refund after lodging, not in the monthly take-home.</small></span></label>' : '') +
     '<div class="pp-hours-wrap"><div class="tax-inputs-label">Hours worked from home</div><div class="pp-hours-row">' + hours.join("") + '</div></div>' +
   '</div>';
 }
+
+function ownsRentalLoss(person){ try { return computePersonTax(person).ipTaxEffect > 0.5; } catch(e){ return false; } }
 
 export function peopleHtml(today){
   today = today || localDateStr();
@@ -87,6 +92,7 @@ export function setPersonField(person, cls, value, fy){
   else if(cls === "pp-carry") st.carryForward = n;
   else if(cls === "pp-losses") st.capitalLossCarriedForward = n;
   // v3.138.0: hours a week, for income per hour; empty goes back to the 38 it's read as.
+  else if(cls === "pp-var"){ if(value === true || value === "true") st.withholdingVariation = true; else delete st.withholdingVariation; }
   else if(cls === "pp-week"){ if(value === "" || value == null) delete st.hoursPerWeek; else st.hoursPerWeek = Math.min(168, n); }
   else if(cls === "pp-wfh"){
     if(!st.wfhHours || typeof st.wfhHours !== "object") st.wfhHours = {};

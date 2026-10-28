@@ -85,9 +85,10 @@ export function personBreakdownHtml(person){
     var isBenefit = r.ipTaxEffect > 0;
     html += '<p class="calc-note rb-ip-note">' +
       (isBenefit ? "+" : "−") + fmtCurrency0.format(Math.abs(r.ipTaxEffect)) + "/yr " + (isBenefit ? "less" : "more") +
-      " tax from this property’s " + (r.ipShare < 0 ? "loss" : "profit") + " — “Net take-home” above already includes it, " +
-      "but it usually arrives as a lump sum after lodging a return (“Payslip take-home”), not spread through the year, " +
-      "unless you’ve arranged a PAYG withholding variation." +
+      " tax from this property’s " + (r.ipShare < 0 ? "loss" : "profit") + " — “Net take-home” above includes it for the year, " +
+      (isBenefit
+        ? "but it isn't in any payslip: the monthly take-home is the payslip figure, and this is planned as a refund after lodging (unless Tax → People says a PAYG withholding variation already puts it in each pay)."
+        : "but it's owed when the return is lodged, not taken from each pay.") +
     "</p>";
   }
   return html;
@@ -463,7 +464,7 @@ export function patchSyntheticIncomeRows(){
   var table = document.getElementById("incomeGroups");
   if(!table) return;
   state.income.forEach(function(item, idx){
-    if(!item.syntheticNetFor && !item.syntheticRentForProperty && !item.syntheticOneOffFor) return;
+    if(!item.syntheticNetFor && !item.syntheticRentForProperty && !item.syntheticOneOffFor && !item.syntheticRefundFor) return;
     var tr = table.querySelector('[data-index="' + idx + '"]');
     if(!tr) return;
     var amountInput = tr.querySelector(".f-amount");

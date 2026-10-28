@@ -213,10 +213,6 @@
              the next thing worth doing. Hides itself once every step is done or the user says so. -->
         <div class="setup-panel" id="dashboardSetup" hidden></div>
 
-        <div id="homeSummary"></div>
-
-        <div id="staleAssetsBanner"></div>
-
         <!-- Overview (top stats + scenario comparison) vs. Insights (50/30/20, FI progress, actual
              vs. expected, etc.) — a daily 5-second glance only needs the former; splitting them the
              same way Assets already splits Summary/Cash/Shares/... means Insights' six cards stop
@@ -228,7 +224,12 @@
           <button type="button" class="subnav-item" data-dashboard-sub="review">Review</button>
         </div>
 
+        <!-- v3.147.0: the tabs head the page, as on every other page; the summary cards are the
+             Overview tab rather than sitting above all four, so Insights, Benchmarks and Review
+             open on their own content instead of below the cards. -->
         <div class="dashboard-subpage" id="dashboardSub-overview">
+          <div id="homeSummary"></div>
+          <div id="staleAssetsBanner"></div>
           <p class="page-intro help" style="margin-top:0">Where you stand under the scenario you're looking at — switch scenarios, or compare them, in Plan.</p>
           <div class="stat-row" id="dashboardStats"></div>
           <button type="button" class="calc-hint-link" id="dashboardProjectionsLink" style="display:block;margin:4px 0 12px">See your long-term projection (all scenarios, 20 years out) →</button>

@@ -5820,8 +5820,8 @@ import { inboxMessage } from "./calc/inbox.js";
     if(go === "dashboard"){
       showDashboardSubpage(sub || "overview");
       if(sub === "review") renderMonthReview();
-      var sn = document.getElementById("dashboardSubnav");
-      if(sn) sn.scrollIntoView({ behavior: "smooth", block: "start" });
+      // v3.147.0: the tabs head the page now, so the top of it is where that tab starts.
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
     if(go === "settings"){ showAccountsSubpage(sub || "categories"); if(sub === "checks") renderHealth(); if(sub === "people") renderPeopleTab(); return; }

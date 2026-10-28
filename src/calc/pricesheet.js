@@ -199,11 +199,13 @@ export function sheetRefreshDue(sheet, today){
 export var THIN_DAILY_DAYS = 90, THIN_WEEKLY_DAYS = 730;
 function utcDay(d){ return Date.parse(d + "T00:00:00Z"); }
 function mondayOf(d){ var t = utcDay(d); return new Date(t - ((new Date(t).getUTCDay() + 6) % 7) * 86400000).toISOString().slice(0, 10); }
-export function thinPriceHistory(history, today){
+// `thinnable(point)` (v3.139.0) says which points may go — by default the ones carrying a price.
+export function thinPriceHistory(history, today, thinnable){
   if(!Array.isArray(history) || history.length < 3 || !today) return 0;
   var now = utcDay(today);
+  var may = thinnable || function(h){ return h.price != null; };
   var bucket = function(h){
-    if(!h || h.price == null || !h.date) return null;
+    if(!h || !h.date || !may(h)) return null;
     var age = (now - utcDay(h.date)) / 86400000;
     if(!(age > THIN_DAILY_DAYS)) return null;
     return age > THIN_WEEKLY_DAYS ? "m" + h.date.slice(0, 7) : "w" + mondayOf(h.date);

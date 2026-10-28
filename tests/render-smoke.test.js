@@ -1207,6 +1207,8 @@ test("Plan → Retirement: asks for an age, then answers with levers and links",
     assert.match(html, /What changes it/);
     assert.match(html, /data-rt="retireAge"/);
     assert.match(html, /Super cap room this year/);
+    // v3.139.0: the headline says which kind of age it is.
+    assert.match(html, /9 runs (of|in) 10|same return every year|not before 75/);
   } finally { state.fire = keep; }
 });
 

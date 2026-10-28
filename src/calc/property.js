@@ -688,6 +688,14 @@ export function propertyLVR(property){
   var balance = (property.loans || []).reduce(function(s, l){ return s + loanBalance(l); }, 0);
   return balance / value;
 }
+// v3.139.0 (item 176): the LVR with each loan's offset taken off it (never below nothing) — what the
+// loans cost interest on, beside the lender's own LVR on the full balance.
+export function propertyNetLVR(property){
+  var value = Number(property.value) || 0;
+  if(value <= 0) return null;
+  var net = (property.loans || []).reduce(function(s, l){ var b = loanBalance(l); return s + Math.max(0, b - Math.min(b, Number(l.offsetBalance) || 0)); }, 0);
+  return net / value;
+}
 export function propertiesOffsetTotal(){
   return state.properties.reduce(function(s, p){ return s + propertyOffsetTotal(p); }, 0);
 }

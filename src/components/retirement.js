@@ -30,9 +30,16 @@ export function retirementHtml(today){
     '<label class="cf-filter"><span>Super opens at</span><input type="number" min="55" max="70" data-rt-fire="preservationAge" value="' + (f.preservationAge != null ? f.preservationAge : 60) + '"></label></div>';
   if(plan.needsAge) return '<p class="ledger-note" style="margin:0 0 10px">Type your age to see when you could stop working. Everything else comes from the plan already in the app.</p>' + ages;
   var run = plan.run, inp = plan.inputs;
-  var headline = plan.earliest != null
-    ? '<div class="rt-head"><span>On these numbers you could stop working at</span><b>' + plan.earliest + '</b><small>' + (plan.earliest - inp.currentAge > 0 ? "in " + (plan.earliest - inp.currentAge) + " years" : "now") + ' — spending ' + money(inp.annualExpenses) + ' a year in today\'s dollars</small></div>'
-    : '<div class="rt-head warn"><span>On these numbers, not before 75</span><b>—</b><small>Try the levers below — spending, saving or super.</small></div>';
+  // v3.139.0 (item 173): lead with the age that holds up when returns rise and fall (9 runs in 10),
+  // the steady-returns age beside it — the steady one alone promised years the odds didn't back.
+  var safeAge = plan.earliest != null ? ageForOdds(inp, 0.9, { projection: state.projection }) : null;
+  var inYears = function(age){ return age - inp.currentAge > 0 ? "in " + (age - inp.currentAge) + " years" : "now"; };
+  var headline = plan.earliest == null
+    ? '<div class="rt-head warn"><span>On these numbers, not before 75</span><b>—</b><small>Try the levers below — spending, saving or super.</small></div>'
+    : safeAge != null
+      ? '<div class="rt-head"><span>To be safe in 9 runs of 10, you could stop working at</span><b>' + safeAge + '</b><small>' + inYears(safeAge) + ' — spending ' + money(inp.annualExpenses) + ' a year in today\'s dollars' +
+        (safeAge > plan.earliest ? '. With the same return every year it would be ' + plan.earliest + ' — markets rarely oblige.' : '.') + '</small></div>'
+      : '<div class="rt-head mid"><span>With the same return every year you could stop at</span><b>' + plan.earliest + '</b><small>' + inYears(plan.earliest) + ' — but with returns that rise and fall, not 9 runs in 10 by 75. Try the levers below.</small></div>';
   var expenses = retireLevers.annualExpenses != null ? retireLevers.annualExpenses : Math.round(inp.annualExpenses / 1000) * 1000;
   var sliders = '<div class="rt-sliders">' +
     slider("retireAge", "Stop working at", Math.max(inp.currentAge + 1, 35), 75, 1, plan.age, function(v){ return v; }) +
@@ -47,7 +54,7 @@ export function retirementHtml(today){
   // v3.125.0: the same plan with returns that rise and fall — how often it lasts, and the age that
   // makes it 9 in 10.
   var odds = run ? retirementOdds(plan.age, inp, { projection: state.projection }) : null;
-  var safeAge = odds ? ageForOdds(inp, 0.9, { projection: state.projection }) : null;
+  if(!odds) safeAge = null;
   var oddsHtml = odds ? '<div class="rt-odds ' + (odds.chance >= 0.9 ? "ok" : odds.chance >= 0.7 ? "mid" : "bad") + '"><span>With returns that rise and fall</span>' +
     '<b>' + Math.round(odds.chance * 100) + '%</b><small>of ' + odds.runs.toLocaleString("en-AU") + ' runs of stopping at ' + plan.age + ' last to ' + LIVE_TO +
     (odds.chance < 0.995 ? '; in the worst tenth the money runs out by ' + odds.worstTenthLastsTo : '') + '. ' +

@@ -116,6 +116,7 @@
 /* Plan → Retirement (v3.73.0) */
 .rt-head{ display:flex; flex-direction:column; gap:2px; padding:12px 14px; border-radius:12px; background: var(--good-wash); margin-bottom:14px; }
 .rt-head.warn{ background: var(--bad-wash); }
+.rt-head.mid{ background: var(--paper-sunken); }
 .rt-head span{ font-size:13px; color: var(--ink-soft); }
 .rt-head b{ font-size:34px; line-height:1.1; }
 .rt-head small{ font-size:12.5px; color: var(--ink-soft); }

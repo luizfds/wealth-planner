@@ -402,7 +402,7 @@ export function cardPaymentReminders(accounts, transactions, transfers, today){
       if(days >= 0 && days <= 5) out.push({
         id: "cardpay:" + p.card + ":" + p.date, type: "bill", severity: days <= 1 ? "warn" : "info",
         title: p.card + " payment " + (days === 0 ? "due today" : days === 1 ? "due tomorrow" : "due in " + days + " days") + " — about " + fmtCurrency0.format(p.amount),
-        detail: "What was charged " + fmtDate(p.cycle.start) + " to " + fmtDate(p.cycle.end) + ". Log the repayment as a transfer to the card once it's paid.",
+        detail: "What was charged " + fmtDate(p.cycle.start) + " to " + fmtDate(p.cycle.end) + "." + (p.autoPayFrom ? " It comes out of " + p.autoPayFrom + " by direct debit." : " Log the repayment as a transfer to the card once it's paid."),
         date: p.date, page: "expenses", sub: "bills"
       });
       else if(days < 0 && days >= -7) out.push({

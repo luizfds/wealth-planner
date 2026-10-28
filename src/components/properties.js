@@ -2,7 +2,7 @@ import { state, persist } from "../state.js";
 import {
   propertyEquityToday, propertyGearingAnnual, propertyLoanRepaymentMonthly, loanRepaymentDisplay,
   capitalWorksAnnual, plantDepreciationAnnual, propertyDepreciationForWindow, financialYearOf, fyLabel,
-  propertyCapitalGain, propertyYieldOnCost, propertyLVR, propertiesTotalValue, propertiesTotalEquityToday, propertiesOffsetTotal,
+  propertyCapitalGain, propertyYieldOnCost, propertyLVR, propertyNetLVR, propertiesTotalValue, propertiesTotalEquityToday, propertiesOffsetTotal,
   propertiesTotalMortgageBalance, propertiesNetCashFlowMonthly, propertiesWeightedGrossYield,
   propertyOwnershipPct, propertyOwnershipTotal, propertyTaxDeductibleResultAnnual, propertyTaxResultBreakdown, loanBalance, loanPaidOut,
   landTaxByState, totalLandTax, borrowingCostsSchedule, borrowingCostsDeduction, sortedRateHistory, calcRepaymentMonthly
@@ -177,6 +177,18 @@ function loanRowModernHtml(loan, li, propId, colorIdx){
 }
 // Rate history (v3.53.0) — calc/property.js. The rate field above is the rate now; recording a
 // change keeps when it moved, which a past year's interest and Close the year both read.
+// v3.139.0 (item 176): the lender's LVR (full balance ÷ value — what LMI and new borrowing go by)
+// and, when an offset holds money, the LVR net of it — the same equity the card's figures count.
+export function lvrBadgeParts(p){
+  var lvr = propertyLVR(p), net = propertyNetLVR(p), over = lvr > 0.8;
+  var withOffset = net != null && lvr - net >= 0.005;
+  return {
+    cls: over ? "negative" : "neutral",
+    text: fmtPercent1.format(lvr) + " LVR" + (withOffset ? " · " + fmtPercent1.format(net) + " net of offset" : ""),
+    title: "Loan balance ÷ current value" + (over ? " — above 80% typically triggers Lenders Mortgage Insurance on any new borrowing against this property" : "") +
+      (withOffset ? ". Net of offset: the balance less what sits in its offsets — what interest is charged on, and how the equity figures count it." : "")
+  };
+}
 export function rateHistoryHtml(loan, today){
   today = today || localDateStr();
   var hist = sortedRateHistory(loan);
@@ -692,10 +704,8 @@ function propertyCardHtml(p, colorIdx){
   // borrowing against this property — informational only, doesn't imply LMI is currently owed.
   var lvr = propertyLVR(p);
   if(lvr != null){
-    var lvrOverThreshold = lvr > 0.8;
-    lvrBadge = '<span class="gearing-badge ' + (lvrOverThreshold ? "negative" : "neutral") + '" data-badge="lvr" title="Loan balance ÷ current value' +
-      (lvrOverThreshold ? " — above 80% typically triggers Lenders Mortgage Insurance on any new borrowing against this property" : "") +
-      '">' + fmtPercent1.format(lvr) + ' LVR</span>';
+    var lb = lvrBadgeParts(p);
+    lvrBadge = '<span class="gearing-badge ' + lb.cls + '" data-badge="lvr" title="' + escapeAttr(lb.title) + '">' + escapeAttr(lb.text) + '</span>';
   }
   if(p.kind === "IP"){
     var gearing = propertyGearingAnnual(p);
@@ -1025,12 +1035,11 @@ export function patchPropertyCardComputed(property){
   }
   var lvrBadgeOut = card.querySelector('[data-badge="lvr"]');
   if(lvrBadgeOut){
-    var lvrNow = propertyLVR(property);
-    if(lvrNow != null){
-      var lvrOverThresholdNow = lvrNow > 0.8;
-      lvrBadgeOut.className = "gearing-badge " + (lvrOverThresholdNow ? "negative" : "neutral");
-      lvrBadgeOut.textContent = fmtPercent1.format(lvrNow) + " LVR";
-      lvrBadgeOut.title = "Loan balance ÷ current value" + (lvrOverThresholdNow ? " — above 80% typically triggers Lenders Mortgage Insurance on any new borrowing against this property" : "");
+    if(propertyLVR(property) != null){
+      var lbNow = lvrBadgeParts(property);
+      lvrBadgeOut.className = "gearing-badge " + lbNow.cls;
+      lvrBadgeOut.textContent = lbNow.text;
+      lvrBadgeOut.title = lbNow.title;
     }
   }
   var yieldBadge = card.querySelector('[data-badge="yield-value"]');

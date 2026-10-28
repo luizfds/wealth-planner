@@ -363,6 +363,8 @@ details:has(> .help-btn) > summary{ padding-right:52px; }
   details.ledger:has(> .help-btn) > summary .ledger-title{ margin-right:32px; }
 }
 body.help-hidden .help-btn-inline{ display:flex; }
+.help-btn-heading{ width:24px; height:24px; margin-left:4px; vertical-align:-5px; }
+body.help-hidden :is(h2, h3, h4):has(> .help-btn-heading.help-open) ~ .help{ display:block; }
 /* v3.138.0: the page's ⓘ sits beside its title and shows the intro of whatever's on screen. */
 body.help-hidden .page-intro.help.help-open{ display:block; }
 body.help-hidden .page-intro-row:not(:has(.help-open)){ display:none; }

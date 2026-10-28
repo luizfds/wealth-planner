@@ -5,7 +5,7 @@ import {
   bracketDuty, standardStampDuty, calcStampDuty, calcLMI, calcRepaymentMonthly,
   loanRepaymentMonthly, propertyLoanRepaymentMonthly, propertyOffsetTotal,
   propertyIlliquidEquityToday, propertyEquityToday, propertyGearingAnnual,
-  propertyCapitalGain, propertyYieldOnCost, propertyLVR, propertiesTotalValue,
+  propertyCapitalGain, propertyYieldOnCost, propertyLVR, propertyNetLVR, propertiesTotalValue,
   propertiesTotalMortgageBalance, propertiesNetCashFlowMonthly, propertiesWeightedGrossYield,
   scenarioInflatableHomeItems, scenarioInflatableMonthly,
   propertyOwnershipPct, propertyOwnershipTotal, ipOwnershipMismatches, personIpResultAnnual
@@ -563,4 +563,11 @@ test("a loan paid out mid-spread deducts the rest in that financial year", funct
 test("a payout date after the spread has ended changes nothing", function(){
   var loan = Object.assign({}, EXAMPLE_LOAN, { endedOn: "2031-01-01" });
   assert.equal(borrowingCostsSchedule(loan).length, 6);
+});
+
+test("LVR net of offset: each loan less what its offset holds, never below nothing", () => {
+  const p = { value: 800000, loans: [{ balance: 500000, offsetBalance: 100000 }, { balance: 100000, offsetBalance: 150000 }] };
+  assert.equal(propertyLVR(p), 0.75);
+  assert.equal(propertyNetLVR(p), 0.5);
+  assert.equal(propertyNetLVR({ value: 0, loans: [] }), null);
 });

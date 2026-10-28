@@ -90,7 +90,12 @@ export function accountRowHtml(a, idx, today){
           ACCOUNT_TYPES.map(function(t){ return '<option value="' + t.key + '"' + (a.type === t.key ? " selected" : "") + '>' + t.label + '</option>'; }).join("") + '</select></label>' +
         (a.type === "credit"
           ? '<label class="acct-field"><span>Cycle starts on day</span><input type="number" min="1" max="28" step="1" class="acct-mgmt-day" data-acct-index="' + idx + '" value="' + (a.statementStartDay || 1) + '" aria-label="Statement start day (1-28)"></label>' +
-            '<label class="acct-field"><span>Limit $</span><input type="number" min="0" step="100" class="acct-mgmt-limit" data-acct-index="' + idx + '" value="' + (a.limit != null ? a.limit : "") + '" placeholder="optional" aria-label="Credit limit"></label>'
+            '<label class="acct-field"><span>Limit $</span><input type="number" min="0" step="100" class="acct-mgmt-limit" data-acct-index="' + idx + '" value="' + (a.limit != null ? a.limit : "") + '" placeholder="optional" aria-label="Credit limit"></label>' +
+            // v3.139.0: paid in full by direct debit — the repayment is then taken as made on its day.
+            '<label class="acct-field"><span>Paid in full by direct debit from</span><select class="acct-mgmt-autopay" data-acct-index="' + idx + '" aria-label="Paid in full by direct debit from">' +
+              '<option value="">— not set: I log each repayment —</option>' + (state.accounts || []).filter(function(x){ return x && x.name && x !== a && ["everyday", "savings", "offset"].indexOf(x.type) !== -1; }).map(function(x){ return '<option value="' + escapeAttr(x.name) + '"' + (a.autoPayFrom === x.name ? " selected" : "") + '>' + escapeAttr(x.name) + '</option>'; }).join("") +
+              (a.autoPayFrom && !(state.accounts || []).some(function(x){ return x.name === a.autoPayFrom; }) ? '<option value="' + escapeAttr(a.autoPayFrom) + '" selected>' + escapeAttr(a.autoPayFrom) + ' (deleted)</option>' : '') + '</select></label>' +
+            '<label class="acct-field"><span>Repayment on day</span><input type="number" min="1" max="31" step="1" class="acct-mgmt-payday" data-acct-index="' + idx + '" value="' + (a.payDay || "") + '" placeholder="from your repayments" aria-label="Repayment day of the month"></label>'
           : '') +
         sourceSelectHtml(a, idx) +
         '<p class="ledger-note acct-field-wide" style="margin:0">' + (a.type === "credit"

@@ -95,3 +95,13 @@ test("the month planned runs income down through each group to what's left", fun
   assert.match(html, /Investment loan repayments<\/span><b>−\$300<\/b><em class="">\$1,900/);
   assert.match(html, /Left over each month<\/span><b><\/b><em class="pos">\$1,900/);
 });
+
+test("the month planned: a normal month first, then the year's bonuses averaged in", function(){
+  // Invented: pay 5,000 a month, spending 3,100, a bonus worth 600 a month across the year.
+  var html = budgetPlanHtml({ income: [{ label: "Pay", monthly: 5000 }, { label: "Bonus (after tax)", monthly: 600, oneOff: true }],
+    groups: [{ label: "Housing", monthly: 2000 }, { label: "Food", monthly: 800 }], other: 300, net: 2500 });
+  assert.match(html, /Left over in a normal month<\/span><b><\/b><em class="pos">\$1,900/);
+  assert.match(html, /Once a year, averaged over twelve months/);
+  assert.match(html, /Left over a month across the year<\/span><b><\/b><em class="pos">\$2,500/);
+  assert.ok(html.indexOf("normal month") < html.indexOf("Bonus (after tax)"), "the bonus comes after the normal month");
+});

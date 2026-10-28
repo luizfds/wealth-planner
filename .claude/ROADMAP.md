@@ -3096,6 +3096,61 @@ shows while the section is open. The scenario cards' dot and the home blocks' ca
 and the in-bar percentages sit on a chip. axe-core over 16 views, light and dark: no violations left.
 
 
+### Phase G — from a review against a real household (October 2026)
+
+Found by running the app on a real backup (outside the repo). One PR for all nine.
+
+## 170. `[x]` A card paid by direct debit
+A card whose repayments are never logged as transfers shows its payment overdue every month. A card can say it is
+paid in full by direct debit from an account; the reminder then knows it's paid, and a bank statement's repayment
+line can be recognised as that transfer.
+
+Shipped as v3.139.0. A card carries `autoPayFrom` (Accounts → the card → Paid in full by direct debit from) and `payDay`; `cardPaymentsForMonth` takes a direct-debit card as paid once its day has come (`assumed`) until the real repayment is logged, so it is never overdue for want of logging. Renaming the paying account renames it here too. On the real backup the repayments were in fact being logged — October's simply hadn't been yet — so the review's first reading of this was wrong; the setting is for a card nobody logs.
+
+## 171. `[x]` Net worth history that keeps itself
+The net worth trend rested on a handful of points recorded by hand. Record net worth by itself (once a day at
+most, when it changed), fill earlier weeks from what each record already knows, and say what moved it.
+
+Shipped as v3.139.0. `calc/nwauto.js`: the day's net worth recorded after each save (`auto`), the weeks before rebuilt once on open from `netWorthOn` (`derived`) back to the first week some record has no value, thinned like price history but never a point recorded by hand. Home's net worth card says the biggest change since its line began. On the real backup: five weeks rebuilt, rebuilt and live net worth within 0.2% of each other today.
+
+## 172. `[x]` One surplus, explained
+"Left over each month" on the Budget tab spreads the year's bonuses over twelve months; the header and Home show a
+normal month. Show both, labelled.
+
+Shipped as v3.139.0. Your month, planned: regular income and spending to "Left over in a normal month" (the header's and Home's figure), then the bonuses "once a year, averaged over twelve months" to "Left over a month across the year".
+
+## 173. `[x]` Retirement leads with the age that holds up
+The headline age assumed steady returns; the page's own odds said later. Lead with the age that works in 9 runs
+in 10, the steady-returns age beside it.
+
+Shipped as v3.139.0. The headline is the age that lasts in 9 runs of 10, with the steady-returns age beside it; if 9 in 10 isn't reached by 75 the steady age is shown as that, on a neutral background.
+
+## 174. `[x]` Sold holdings out of the way
+A holding sold to nothing stays in Net worth and Investments at $0. Sold-out holdings move to a Sold list that
+keeps their history for capital gains.
+
+Shipped as v3.139.0. `isSoldOut` (calc/networthlist.js): no units and sales recorded. Out of Net worth and Shares' list and glance; under Shares → Sold, folded.
+
+## 175. `[x]` Names that tell things apart
+Two offsets on one property had the same name. Name an offset by its loan, and Checks flags two things sharing a name.
+
+Shipped as v3.139.0. An offset is named by the account linked to it, else its loan. Checks: account names used twice (warn — they're how transactions find an account) and names shared by holdings, properties, loans or debts (info).
+
+## 176. `[x]` LVR with the offset
+The property card's LVR badge counts the full loan while its equity counts the offset. Show both.
+
+Shipped as v3.139.0. `propertyNetLVR`: each loan less its offset, never below nothing. The badge reads "X% LVR · Y% net of offset" when they differ.
+
+## 177. `[x]` Holdings first on Shares
+The Prices panel opened above the holdings. Once automatic prices work it folds to one status line.
+
+Shipped as v3.139.0. The Prices panel counts as settled when the automatic read worked and a Google Sheet that read fine covers the rest; its summary carries one status line.
+
+## 178. `[x]` The last lone ⓘ
+A card's own ⓘ (Insights → What the app notices) sat on a row of its own; it moves beside the card's heading.
+
+Shipped as v3.139.0. lib/help.js: a help paragraph right under a heading gets its ⓘ in the heading. The inline ⓘs left are footnotes under a card's figures, not lone rows at the top.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

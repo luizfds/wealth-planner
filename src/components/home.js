@@ -15,6 +15,8 @@ import { trendToToday } from "../calc/history.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { upcomingBills as calendarUpcoming } from "../calc/bills.js";
+import { netWorthOn } from "../calc/nwhistory.js";
+import { netWorthMovers } from "../calc/nwauto.js";
 
 // ---------------- Home (v3.58.0) ----------------
 // The first screen answers four things before anything else: what we're worth, how the month is
@@ -70,6 +72,16 @@ export function homeTodos(today, opts){
   return out;
 }
 
+// v3.139.0 (item 171): what moved it most since the line began — the same rules both ends
+// (calc/nwhistory.js), so the parts add up. Nothing when no one thing explains much.
+function moverHtml(fromDate, today){
+  if(!fromDate || fromDate >= today) return "";
+  var a = netWorthOn(fromDate, today), b = netWorthOn(today, today);
+  if(a.partial.length) return "";
+  var m = netWorthMovers(a.parts, b.parts)[0];
+  if(!m || Math.abs(m.change) < 100) return "";
+  return '<small class="home-nw-mover">Biggest change: ' + escapeAttr(m.label.toLowerCase()) + ' ' + signed(m.change) + '</small>';
+}
 export function homeSummaryHtml(today, opts){
   today = today || localDateStr();
   opts = opts || {};
@@ -78,7 +90,7 @@ export function homeSummaryHtml(today, opts){
   // so the text and the line can't disagree.
   var trend = trendToToday(state.netWorthLog, nw, today, 12);
   var nwCard = '<div class="home-card home-nw"><span class="home-k">Net worth</span><b class="home-big">' + money(nw) + '</b>' +
-    (trend ? '<small class="' + (trend.change >= 0 ? "up" : "down") + '">' + signed(trend.change) + ' since ' + shortDate(trend.from.date) + '</small>' : '<small>Record it now and then to see the trend</small>') +
+    (trend ? '<small class="' + (trend.change >= 0 ? "up" : "down") + '">' + signed(trend.change) + ' since ' + shortDate(trend.from.date) + '</small>' + moverHtml(trend.from.date, today) : '<small>The trend appears as the days go by</small>') +
     '<span class="home-spark">' + (trend ? sparklineHtml(trend.points, { width: 120, height: 28 }) : "") + '</span>' +
     '<button type="button" class="link-btn home-link" data-home-go="assets">Net worth over time →</button></div>';
 

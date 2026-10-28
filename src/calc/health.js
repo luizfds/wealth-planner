@@ -46,6 +46,26 @@ export function dataHealthChecks(opts){
     detail: names(limits.map(function(d){ return d.what; })) + " — net worth counts the whole amount as owed. On Accounts, open the card, type the limit in its Limit field, and Update its balance to what it actually owes.",
     where: { page: "accounts", sub: "accounts" } });
 
+  // v3.139.0 (item 175): two things with one name. An account's name is how every transaction finds
+  // it, so two accounts sharing one can't be told apart anywhere; two holdings, properties or loans
+  // sharing one just read as one in every list.
+  var dupes = function(list){
+    var seen = {}, out = [];
+    list.forEach(function(n){ var k = String(n || "").trim().toLowerCase(); if(!k) return; if(seen[k] === 1) out.push(String(n).trim()); seen[k] = (seen[k] || 0) + 1; });
+    return out;
+  };
+  var dupAccounts = dupes((state.accounts || []).map(function(a){ return a.name; }));
+  var dupOther = dupes((state.assets || []).map(function(a){ return a.what; })
+    .concat((state.properties || []).map(function(p){ return p.what; }))
+    .concat((state.properties || []).reduce(function(acc, p){ return acc.concat((p.loans || []).map(function(l){ return l.what; })); }, []))
+    .concat((state.debts || []).map(function(d){ return d.what; })));
+  if(dupAccounts.length) add({ id: "dup-accounts", severity: "warn", title: plural(dupAccounts.length, "account name") + " used twice",
+    detail: names(dupAccounts) + " — transactions name their account, so two accounts with one name can't be told apart. Rename one on Accounts.",
+    where: { page: "accounts", sub: "accounts" } });
+  if(dupOther.length) add({ id: "dup-names", severity: "info", title: plural(dupOther.length, "name") + " shared by two things",
+    detail: names(dupOther) + " — they read as one in Net worth and the reports. A name that says which is which helps.",
+    where: { page: "networth" } });
+
   // Deductions that land nowhere, or nowhere real.
   var unclaimed = items.filter(function(i){ return i.deductible && !i.claimProperty && !i.deductiblePerson && people.length > 1; });
   if(unclaimed.length) add({ id: "ded-noperson", severity: "bad", title: plural(unclaimed.length, "deductible line") + " claimed by nobody",

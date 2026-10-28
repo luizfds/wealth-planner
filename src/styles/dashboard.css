@@ -495,7 +495,7 @@
 .ai-claude > summary{ cursor:pointer; color: var(--ink-soft); min-height:32px; margin-top:8px; }
 .home-nw-mover{ font-size:11.5px; color: var(--ink-soft); }
 /* v3.146.0: the change in two parts. */
-.home-nw-mover .nw-part{ white-space:nowrap; }
+.home-nw-mover b{ white-space:nowrap; }
 .home-nw-mover b{ font-family: var(--font-num); font-weight:600; }
 .home-nw-mover b.up{ color: var(--good-ink); }
 .home-nw-mover b.down{ color: var(--bad-ink); }

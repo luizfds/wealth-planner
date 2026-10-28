@@ -48,3 +48,26 @@ export function latestFromWeekly(rows){ var r = rows && rows[rows.length - 1]; r
 
 // Stooq writes US tickers lower-case with ".us", and class shares with a hyphen (brk-b.us).
 export function stooqSymbol(t){ return t.toLowerCase().replace(/\./g, "-") + ".us"; }
+
+// Twelve Data writes class shares with a dot (BRK.B); the universe keeps Stooq's hyphen.
+export function twelveSymbol(t){ return t.replace(/-/g, "."); }
+
+// Yahoo Finance's chart answer (v8/finance/chart/<SYMBOL>.AX?range=5y&interval=1wk):
+// { chart: { result: [{ meta: { gmtoffset, regularMarketPrice, regularMarketTime }, timestamp: [...],
+//   indicators: { quote: [{ close: [...] }] } }], error } }. Times are UTC seconds, so each is moved
+// by the exchange's offset before taking its date (a Sydney Monday opens on Sunday, UTC). Closes can
+// be null (a week with no trade); the week to date can repeat a date. → { weekly, latest } or null.
+export function parseYahooChart(json){
+  var res = json && json.chart && json.chart.result && json.chart.result[0];
+  if(!res || !Array.isArray(res.timestamp)) return null;
+  var meta = res.meta || {}, off = Number(meta.gmtoffset) || 0;
+  var closes = (res.indicators && res.indicators.quote && res.indicators.quote[0] && res.indicators.quote[0].close) || [];
+  var day = function(ts){ return new Date((Number(ts) + off) * 1000).toISOString().slice(0, 10); };
+  var byDate = {};
+  res.timestamp.forEach(function(ts, i){ var c = Number(closes[i]); if(closes[i] != null && c > 0) byDate[day(ts)] = c; });
+  var weekly = Object.keys(byDate).sort().map(function(d){ return [d, byDate[d]]; });
+  if(!weekly.length) return null;
+  var price = Number(meta.regularMarketPrice);
+  var latest = price > 0 && meta.regularMarketTime ? { close: price, date: day(meta.regularMarketTime) } : latestFromWeekly(weekly);
+  return { weekly: weekly, latest: latest };
+}

@@ -1,7 +1,7 @@
 import "./_env.js";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseStooqCsv, parseTwelveData, mergeFiles, latestFromWeekly, stooqSymbol, KEEP_WEEKS } from "../scripts/prices/lib.mjs";
+import { parseStooqCsv, parseTwelveData, parseYahooChart, twelveSymbol, mergeFiles, latestFromWeekly, stooqSymbol, KEEP_WEEKS } from "../scripts/prices/lib.mjs";
 
 test("Stooq's CSV and Twelve Data's JSON into dated closes, oldest first", () => {
   assert.deepEqual(parseStooqCsv("Date,Open,High,Low,Close,Volume\n2026-10-17,10,11,9,10.5,100\n2026-10-24,10.5,12,10,11.25,120\n"), [["2026-10-17", 10.5], ["2026-10-24", 11.25]]);
@@ -22,4 +22,25 @@ test("a day's results merge into the files; a failed ticker keeps its price ten 
   assert.equal(out.weekly.weekly["ASX:BBB"].length, KEEP_WEEKS);
   assert.deepEqual(out.weekly.weekly["US:AAA"], [["2026-10-17", 5]]);
   assert.equal(out.latest.updated, "2026-10-27");
+});
+
+test("Yahoo's chart answer into weekly closes and the latest close, on the exchange's own dates", () => {
+  // Invented figures. Sydney is UTC+11 here: a Monday 10:00 open is Sunday 23:00 UTC.
+  const json = { chart: { error: null, result: [{
+    meta: { gmtoffset: 39600, regularMarketPrice: 52.3, regularMarketTime: 1793163600 }, // Wed 28 Oct 2026, 16:00 Sydney
+    timestamp: [1792364400, 1792969200, 1793059200, 1793163600],                        // Mon 19 Oct, Mon 26 Oct, a null, Wed 28 Oct
+    indicators: { quote: [{ close: [50.1, 51.75, null, 52.3] }] } }] } };
+  const got = parseYahooChart(json);
+  assert.deepEqual(got.weekly, [["2026-10-19", 50.1], ["2026-10-26", 51.75], ["2026-10-28", 52.3]]);
+  assert.deepEqual(got.latest, { close: 52.3, date: "2026-10-28" });
+  // Without the meta price, the last bar.
+  json.chart.result[0].meta = { gmtoffset: 39600 };
+  assert.deepEqual(parseYahooChart(json).latest, { close: 52.3, date: "2026-10-28" });
+  assert.equal(parseYahooChart({ chart: { result: null, error: { code: "Not Found", description: "No data found" } } }), null);
+  assert.equal(parseYahooChart({ chart: { result: [{ meta: {}, timestamp: [1792364400], indicators: { quote: [{ close: [null] }] } }] } }), null);
+  assert.equal(parseYahooChart(null), null);
+});
+
+test("Twelve Data's class-share spelling", () => {
+  assert.equal(twelveSymbol("BRK-B"), "BRK.B"); assert.equal(twelveSymbol("AAPL"), "AAPL");
 });

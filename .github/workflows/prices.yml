@@ -1,8 +1,11 @@
 # The daily price file (v3.133.0, roadmap item 145). Each weekday after the US close (and so after the
 # previous ASX close) this fetches end-of-day prices for the fixed public list in prices/universe.json
 # and commits prices/latest.json and prices/weekly.json, which the app reads from its own site.
-# Prices come from Twelve Data, which needs a free key in the repository secret TWELVE_DATA_KEY
-# (Settings → Secrets and variables → Actions); about 50 minutes at the free plan's 8 a minute.
+# US prices come from Twelve Data, which needs a free key in the repository secret TWELVE_DATA_KEY
+# (Settings → Secrets and variables → Actions); about 12 minutes at the free plan's 8 a minute.
+# Twelve Data's free plan doesn't cover the ASX, so ASX comes from Yahoo Finance (no key). Yahoo has no
+# official API and can stop answering: to turn it off, set ASX_FROM below to "" (ASX then tries Twelve
+# Data, which works on its Pro plan), and the app's Google Sheet covers ASX as before.
 # Run it by hand from the Actions tab.
 name: Prices
 on:
@@ -27,6 +30,7 @@ jobs:
         env:
           TWELVE_DATA_KEY: ${{ secrets.TWELVE_DATA_KEY }}
           STOOQ_APIKEY: ${{ secrets.STOOQ_APIKEY }}
+          ASX_FROM: yahoo
       - name: Commit the price file
         run: |
           git config user.name "wealth-planner prices"

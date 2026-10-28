@@ -25,7 +25,11 @@ the last, so two sessions can't pick up the same one.
   thing. Pages are `<section class="app-page" id="page-...">`, shown/hidden via `showPage()`, not
   separate documents; old ids (`income`, `scenarios`, `projections`) still work through `nav.js`
   ALIASES, and `showAccountsSubpage("people"|"checks")` and `/settings/people|checks` land where
-  those tabs moved (`MOVED_SETTINGS`).
+  those tabs moved (`MOVED_SETTINGS`). **Navigation (v3.140.0):** desktop has the sidebar; a phone
+  (≤880px) has no brand bar — the page title is the header (slim once scrolled) — and a bottom bar of
+  Home · Cash flow · Net worth · Tax · Plan. Both have the header's **avatar menu** (Reports, Settings,
+  backup & sync, import/export, theme, sample data, reset, updates, version); its dot means a save failed.
+  The smoke script taps the tabs and the avatar menu, so a broken nav fails CI.
 - **Numbers:** every figure uses `var(--font-num)` with tabular figures (base.css) — whole dollars in
   totals and summaries, cents only on single items. Don't reintroduce a second number font.
 - `styles.css` — just eight `@import` statements pulling in `src/styles/{base,shell,dashboard,

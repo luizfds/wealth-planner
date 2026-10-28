@@ -149,16 +149,6 @@
            bare in the <p>, the "Check for updates" button beside it would end up inside the match. -->
       <p class="app-version"><span class="app-version-num">v3.139.2</span> · <button type="button" class="link-btn" id="checkUpdatesLink">Check for updates</button></p>
     </div>
-    <div class="mobile-header-right">
-      <button type="button" class="icon-btn" id="mobileSearchBtn" aria-label="Search">
-        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="6"/><path d="M17 17l-4-4"/></svg>
-      </button>
-      <button type="button" class="notif-bell-btn mobile-notif-bell" id="mobileNotifBellBtn" aria-haspopup="true" aria-expanded="false" aria-label="Notifications">
-        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3a5 5 0 0 0-5 5v2.5L3.5 14h13L15 10.5V8a5 5 0 0 0-5-5z"/><path d="M8.2 16.5a1.9 1.9 0 0 0 3.6 0"/></svg>
-        <span class="notif-badge" hidden></span>
-      </button>
-      <span class="status-chip mobile-status-chip" id="mobileStatusChip"><span class="status-dot" id="mobileStatusDot"></span><span id="mobileStatusText">Saved</span></span>
-    </div>
   </nav>
 
   <div class="app-main">
@@ -189,15 +179,27 @@
              and Sample data replaces everything — neither belongs one stray click away. -->
         <!-- v3.105.0: Export backup and Theme moved in too — set once, not used every visit, and they
              took the header's width from the page's own title and figures. -->
-        <div class="page-overflow topbar-overflow">
-          <button type="button" class="page-overflow-btn" data-overflow-toggle aria-haspopup="true" aria-expanded="false" aria-label="More: backup, theme and data" title="Export, import, theme, sample data, reset">⋯</button>
-          <div class="page-overflow-menu" data-overflow-menu hidden>
+        <!-- v3.140.0: the avatar's menu — Reports, Settings, your data, how the app looks and the
+             version — in place of the ⋯, on a phone and on desktop alike. The buttons keep their
+             ids, so everything wired to them works as it did. Its dot shows when a save failed. -->
+        <div class="page-overflow avatar-wrap">
+          <button type="button" class="avatar-btn" id="avatarBtn" data-overflow-toggle aria-haspopup="true" aria-expanded="false" aria-label="Your menu: reports, settings, backup and more" title="Reports, settings, backup and more"><span id="avatarInitial" aria-hidden="true">·</span><i class="avatar-dot" id="avatarDot" hidden></i></button>
+          <div class="page-overflow-menu avatar-menu" data-overflow-menu hidden>
+            <button type="button" class="btn btn-sm btn-ghost avatar-item" data-avatar-go="reports">Reports</button>
+            <button type="button" class="btn btn-sm btn-ghost avatar-item" data-avatar-go="settings">Settings</button>
+            <button type="button" class="btn btn-sm btn-ghost avatar-item" data-avatar-go="backup">Backup &amp; sync <small id="avatarSyncState"></small></button>
+            <div class="avatar-divider"></div>
             <button class="btn btn-sm btn-ghost" id="exportBtn" title="Save a backup file — same data as Share, but downloaded instead of sent, with an optional passphrase">Export backup</button>
-            <button class="btn btn-sm btn-ghost" id="themeToggleBtn" title="Cycle between following your system theme, always light, or always dark">Theme: System</button>
-            <button class="btn btn-sm btn-ghost" id="shareBtn" hidden title="Send your data to another device — opens your phone/computer's share sheet (AirDrop, Messages, email, etc.) with a password-protected file and instructions. You'll set a passphrase to share it separately with whoever's receiving it.">Share securely</button>
             <button class="btn btn-sm btn-ghost" id="importBtn" title="Load a file from Share or Export">Import backup</button>
+            <button class="btn btn-sm btn-ghost" id="shareBtn" hidden title="Send your data to another device — opens your phone/computer's share sheet (AirDrop, Messages, email, etc.) with a password-protected file and instructions. You'll set a passphrase to share it separately with whoever's receiving it.">Share securely</button>
+            <button class="btn btn-sm btn-ghost" id="themeToggleBtn" title="Cycle between following your system theme, always light, or always dark">Theme: System</button>
+            <div class="avatar-divider"></div>
             <button class="btn btn-sm btn-ghost" id="mockDataBtn" title="Replaces everything currently entered with a sample household, so you can try the tool before entering your own">Load sample data</button>
             <button class="btn btn-sm btn-ghost menu-danger" id="resetBtn" title="Clear everything back to a blank slate">Reset everything…</button>
+            <div class="avatar-divider"></div>
+            <a class="btn btn-sm btn-ghost avatar-item" href="https://github.com/luizfds/wealth-planner/issues/new" target="_blank" rel="noopener noreferrer">Request a feature</a>
+            <button type="button" class="btn btn-sm btn-ghost avatar-item" data-avatar-go="updates">Check for updates</button>
+            <p class="avatar-version" id="avatarVersion"></p>
           </div>
         </div>
       </div>
@@ -996,35 +998,18 @@
       <span class="mobile-tab-label">Net worth</span>
     </span>
   </button>
+  <button type="button" class="mobile-tab" data-page="tax">
+    <span class="mobile-tab-pill">
+      <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 2.5h7l3 3v12H5z"/><path d="M12 2.5v3h3"/><path d="M8 14l4-5"/><circle cx="8.3" cy="9.3" r=".9"/><circle cx="11.7" cy="13.7" r=".9"/></svg>
+      <span class="mobile-tab-label">Tax</span>
+    </span>
+  </button>
   <button type="button" class="mobile-tab" data-page="plan">
     <span class="mobile-tab-pill">
       <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 16l4.5-5 3 3L17 6"/><path d="M13 6h4v4"/></svg>
       <span class="mobile-tab-label">Plan</span>
     </span>
   </button>
-  <button type="button" class="mobile-tab" id="mobileTabMore" aria-haspopup="true" aria-expanded="false">
-    <span class="mobile-tab-pill">
-      <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><circle cx="4" cy="10" r="1.6"/><circle cx="10" cy="10" r="1.6"/><circle cx="16" cy="10" r="1.6"/></svg>
-      <span class="mobile-tab-label">More</span>
-    </span>
-  </button>
-  <div class="mobile-more-panel" id="mobileMorePanel" hidden>
-    <button type="button" class="mobile-more-item" data-page="tax" id="mobileMoreTax">Tax</button>
-    <button type="button" class="mobile-more-item" data-page="reports">Reports</button>
-    <button type="button" class="mobile-more-item" data-page="settings">Settings</button>
-    <div class="mobile-more-divider"></div>
-    <button type="button" class="mobile-more-item" id="mobileThemeBtn">Theme: System</button>
-    <button type="button" class="mobile-more-item" id="mobileShareBtn" hidden>Share securely</button>
-    <button type="button" class="mobile-more-item" id="mobileImportBtn">Import backup</button>
-    <button type="button" class="mobile-more-item" id="mobileExportBtn">Export backup</button>
-    <div class="mobile-more-divider"></div>
-    <button type="button" class="mobile-more-item" id="mobileSampleDataBtn">Load sample data</button>
-    <button type="button" class="mobile-more-item menu-danger" id="mobileResetBtn">Reset everything…</button>
-    <div class="mobile-more-divider"></div>
-    <a class="mobile-more-item" href="https://github.com/luizfds/wealth-planner/issues/new" target="_blank" rel="noopener noreferrer">💡 Request a feature</a>
-    <button type="button" class="mobile-more-item" id="mobileCheckUpdatesBtn">Check for updates</button>
-    <p class="mobile-more-version" id="mobileMoreVersion"></p>
-  </div>
 </nav>
 
 <div class="quick-fab-wrap" id="quickFabWrap">

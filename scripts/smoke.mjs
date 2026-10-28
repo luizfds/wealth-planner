@@ -103,14 +103,22 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
       const current = () => document.body.getAttribute("data-current-page");
       const out = [];
       if(w < 880){
-        const more = document.getElementById("mobileTabMore"), panel = document.getElementById("mobileMorePanel");
-        more.click(); await wait(150);
-        if(panel.hidden) out.push("More doesn't open its menu");
-        const item = panel.querySelector(".mobile-more-item[data-page]");
-        if(item){ const to = item.getAttribute("data-page"); item.click(); await wait(600); if(current() !== to) out.push("More → " + to + " didn't open it"); if(!panel.hidden) out.push("More's menu stays open after choosing"); }
+        // v3.140.0: Home · Cash flow · Net worth · Tax · Plan, and the avatar's menu for the rest.
+        const tax = document.querySelector('.mobile-tab[data-page="tax"]');
+        if(!tax) out.push("no Tax tab"); else { tax.click(); await wait(600); if(current() !== "tax") out.push("the Tax tab didn't open it"); }
         const tab = document.querySelector('.mobile-tab[data-page="networth"]');
         if(tab){ tab.click(); await wait(600); if(current() !== "networth") out.push("the Net worth tab didn't open it"); }
-      } else {
+      }
+      // The avatar menu, at every width: it opens, and Reports in it opens Reports and closes it.
+      const avatar = document.getElementById("avatarBtn"), menu = document.querySelector(".avatar-menu");
+      if(!avatar || !avatar.getClientRects().length) out.push("no avatar in the header");
+      else {
+        avatar.click(); await wait(200);
+        if(menu.hidden) out.push("the avatar doesn't open its menu");
+        const rep = menu.querySelector('[data-avatar-go="reports"]');
+        if(rep){ rep.click(); await wait(600); if(current() !== "reports") out.push("avatar → Reports didn't open it"); if(!menu.hidden) out.push("the avatar's menu stays open after choosing"); }
+      }
+      if(w >= 880){
         const item = document.querySelector('.nav-item[data-page="tax"]');
         if(item){ item.click(); await wait(600); if(current() !== "tax") out.push("the sidebar's Tax didn't open it"); }
       }

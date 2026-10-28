@@ -739,10 +739,9 @@ export function setStatus(ok, text){
   // v3.138.0: a mid-width header shows only the dot; the words stay on hover (and in the DOM for screen readers).
   var chip = document.getElementById("statusChip");
   if(chip) chip.title = text;
-  // Mirrors into the sticky top bar's copy — the only place a mobile viewport (<880px,
-  // where .actions is hidden in favor of the bottom tab bar) can see save status.
-  document.getElementById("mobileStatusDot").className = "status-dot" + (ok ? "" : " warn");
-  document.getElementById("mobileStatusText").textContent = text;
+  // v3.140.0: a phone shows no saved chip — the avatar carries a dot when a save didn't go through.
+  var dot = document.getElementById("avatarDot");
+  if(dot){ dot.hidden = !!ok; dot.title = ok ? "" : text; }
 }
 
 // Mirrors calc/accounts.js resolveLink(), reduced to "is it still there".

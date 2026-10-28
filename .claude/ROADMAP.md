@@ -3151,13 +3151,22 @@ A card's own ⓘ (Insights → What the app notices) sat on a row of its own; it
 
 Shipped as v3.139.0. lib/help.js: a help paragraph right under a heading gets its ⓘ in the heading. The inline ⓘs left are footnotes under a card's figures, not lone rows at the top.
 
-## 179. `[~]` A phone header like an app's, and an avatar menu
+## 179. `[x]` A phone header like an app's, and an avatar menu
 On a phone the app spent about a quarter of the screen before any content: a "Wealth Planner" bar with its
 icons, then the title, period and net worth pill. The page title becomes the header (large, shrinking to a slim
 bar on scroll) with search, notifications and an avatar; the avatar's menu holds Settings, backup & sync,
 import/export, theme, updates, Reports and the version — on desktop too, in place of the ⋯. The bottom bar is
 Home · Cash flow · Net worth · Tax · Plan; More goes. The saved chip becomes a dot on the avatar when something
 needs attention.
+
+Shipped as v3.140.0 (with v3.139.2's field styling, in the same PR). The phone's sidebar bar and the More tab are
+gone: the page header carries search, notifications and the avatar, and shrinks once the page scrolls (`is-compact`);
+the period chip sits under the title and the net worth pill and saved chip stay off a phone. The avatar menu keeps
+the old buttons' ids (exportBtn, importBtn, shareBtn, themeToggleBtn, mockDataBtn, resetBtn), so their wiring is
+unchanged; `data-avatar-go` opens Reports, Settings, Settings → Preferences (backup & sync, with its on/off) and
+Check for updates. Its initial is the first person's; its dot replaces the saved chip on a phone. The smoke script's
+navigation step taps the Tax and Net worth tabs and avatar → Reports.
+
 
 ## Conventions for whoever picks this up
 

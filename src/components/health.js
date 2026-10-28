@@ -25,7 +25,8 @@ export function healthHtml(checks, hidden){
       // v3.105.0: both buttons in one cell — as two grid children the second wrapped into the 10px
       // dot column on its own row.
       '<div class="hc-actions">' +
-      (w.page ? '<button type="button" class="btn btn-sm btn-ghost hc-go" data-hc-page="' + escapeAttr(w.page) + '"' + (w.sub ? ' data-hc-sub="' + escapeAttr(w.sub) + '"' : '') + (w.fy != null ? ' data-hc-fy="' + w.fy + '"' : '') + '>' + (WHERE_LABEL[w.page] || "Open") + '</button>' : '') +
+      (c.fix ? '<button type="button" class="btn btn-sm hc-fix" data-hc-fix="' + escapeAttr(c.fix.kind) + '">' + escapeAttr(c.fix.label) + '</button>' : '') +
+      (w.page ? '<button type="button" class="btn btn-sm btn-ghost hc-go" data-hc-page="' + escapeAttr(w.page) + '"' + (w.sub ? ' data-hc-sub="' + escapeAttr(w.sub) + '"' : '') + (w.fy != null ? ' data-hc-fy="' + w.fy + '"' : '') + '>' + escapeAttr(w.label || WHERE_LABEL[w.page] || "Open") + '</button>' : '') +
       '<button type="button" class="btn btn-sm btn-ghost hc-ok" data-hc-dismiss="' + escapeAttr(c.id) + '">Looks right</button>' +
       '</div>' +
     '</div>';

@@ -78,7 +78,7 @@ import {
 } from "./components/scenarios.js";
 import { ACCOUNT_TYPE_KEYS, accountSourceOptions, setAccountBalance, resolveLink, accountBalance } from "./calc/accounts.js";
 import { addTransfer, deleteTransfer, splitTransaction, unsplit, bulkEditTransactions, bulkDeleteTransactions } from "./calc/cashflowlist.js";
-import { txFilters, txSelect, transferForm, splitEditing, resetTxFilters, setTxGrid, txFilterPanel } from "./components/cashflow.js";
+import { txFilters, txSelect, transferForm, splitEditing, resetTxFilters, setTxGrid, txFilterPanel, transferHint } from "./components/cashflow.js";
 import { rulesPageHtml, setRuleField, ruleIsEmpty, ruleTest, ruleView, RULES_PAGE } from "./components/rules.js";
 import { normaliseDescription } from "./calc/bank-import.js";
 import { openAccounts, balanceEditing } from "./components/accounts.js";
@@ -130,7 +130,7 @@ import { goalsFireHtml } from "./components/retirement.js";
 import { renderReports, reportShown, reportPrintHtml, reportCsv, reportFrame, pinReport, openSavedReport, unpinReport } from "./components/reports.js";
 import { monthDetailUi, shownMonth as mdShownMonth } from "./components/monthdetail.js";
 import { shiftMonth as mdShiftMonth } from "./calc/monthdetail.js";
-import { cardPaymentsForMonth } from "./calc/bills.js";
+import { cardPaymentsForMonth, oddCardRepayments, usualCardSource } from "./calc/bills.js";
 import { exportTableCsv } from "./lib/backup.js";
 import { yearEndPrintHtml, yearEndDocumentsCsv } from "./components/yearend.js";
 import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodButton, renderPeriodMenu } from "./components/period.js";
@@ -1087,6 +1087,18 @@ import { inboxMessage } from "./calc/inbox.js";
         dismissCheck(c, on);
         persist(); renderHealth(); renderChecksBadge(); renderHomeSummary(); renderNotifBadge();
         if(on) showUndoToast("Marked as looking right", function(){ dismissCheck(c, false); persist(); renderHealth(); renderChecksBadge(); renderHomeSummary(); renderNotifBadge(); });
+      }
+      return;
+    }
+    // v3.144.0: a check that can fix itself.
+    var fix = e.target.closest("[data-hc-fix]");
+    if(fix){
+      if(fix.getAttribute("data-hc-fix") === "card-from"){
+        var was = [];
+        oddCardRepayments(state.accounts, state.transfers).forEach(function(o){ if(o.usual){ was.push([o.transfer, o.transfer.from]); o.transfer.from = o.usual; } });
+        var redo = function(){ persist(); renderAll(); renderHealth(); renderChecksBadge(); renderNotifBadge(); };
+        redo();
+        showUndoToast(was.length + " repayment" + (was.length === 1 ? "" : "s") + " moved to " + (was[0] ? was[0][0].from : "the usual account"), function(){ was.forEach(function(w){ w[0].from = w[1]; }); redo(); });
       }
       return;
     }
@@ -3058,6 +3070,16 @@ import { inboxMessage } from "./calc/inbox.js";
   // ---------------- Transactions: real dated spend, separate from the planned budget ----------------
   // The Transactions time-range picker. Delegated off the card because renderTransactions()
   // rebuilds the control itself on every change.
+  // v3.144.0: the transfer form's word about a card repayment's From, as the accounts are picked.
+  document.getElementById("transactionsTable").addEventListener("change", function(e){
+    var k = e.target.getAttribute && e.target.getAttribute("data-tf");
+    if(k !== "from" && k !== "to") return;
+    var q = function(x){ var el = document.querySelector('#transactionsTable [data-tf="' + x + '"]'); return el ? el.value : ""; };
+    var hintEl = document.querySelector("#transactionsTable [data-tf-hint]");
+    if(!hintEl) return;
+    var text = transferHint(q("from"), q("to"), state.accounts, state.transfers);
+    hintEl.textContent = text; hintEl.hidden = !text;
+  });
   document.getElementById("transactionsTable").addEventListener("click", function(e){
     var rangeBtn = e.target.closest("[data-tx-range]");
     if(rangeBtn){ setTransactionsRange(rangeBtn.getAttribute("data-tx-range")); return; }
@@ -3095,13 +3117,14 @@ import { inboxMessage } from "./calc/inbox.js";
       if(!(amt > 0)){ showToast("Enter the amount moved"); return; }
       if(!get("from") || get("from") === get("to")){ showToast("Pick two different accounts"); return; }
       var rec = addTransfer({ date: get("date") || localDateStr(), amount: amt, from: get("from"), to: get("to"), what: get("what") });
-      var moved = [];
+      var moved = [], before = [];
       if(get("balances")){
         [[rec.from, -1], [rec.to, 1]].forEach(function(pair){
           var acct = state.accounts.find(function(a){ return a.name === pair[0]; });
           if(!acct) return;
           var bal = accountBalance(acct);
           if(bal.balance == null) return;
+          before.push([acct, bal.balance]);
           // Money into a card or loan lowers what's owed; out of one raises it.
           var delta = (bal.owed ? -pair[1] : pair[1]) * amt;
           setAccountBalance(acct, bal.balance + delta, rec.date);
@@ -3111,7 +3134,12 @@ import { inboxMessage } from "./calc/inbox.js";
       transferForm.open = false;
       renderAll();
       persist();
-      showUndoToast("Transfer saved" + (moved.length ? " — " + moved.join(" and ") + " updated" : ""), function(){ deleteTransfer(rec.id); renderAll(); persist(); });
+      // v3.144.0: undo puts the balances back too, not just the transfer.
+      showUndoToast("Transfer saved" + (moved.length ? " — " + moved.join(" and ") + " updated" : ""), function(){
+        deleteTransfer(rec.id);
+        before.forEach(function(b){ setAccountBalance(b[0], b[1], rec.date); });
+        renderAll(); persist();
+      });
       return;
     }
     if(b.hasAttribute("data-cf-del-transfer")){
@@ -4426,12 +4454,13 @@ import { inboxMessage } from "./calc/inbox.js";
   // account) and the payment the bills calendar expects, the soonest unpaid one from last month on.
   function openPayCard(){
     var card = (state.accounts || []).find(function(a){ return a.type === "credit" && a.name; });
-    var from = card && card.autoPayFrom ? card.autoPayFrom : ((state.accounts || []).find(function(a){ return a.type === "everyday" && a.name; }) || {}).name;
+    // v3.144.0: the direct-debit account, else where its other repayments came from, else everyday.
+    var from = (card && usualCardSource(card, state.accounts, state.transfers)) || ((state.accounts || []).find(function(a){ return a.type === "everyday" && a.name; }) || {}).name;
     var amount = 0, today = localDateStr();
     if(card){
       var ym = today.slice(0, 7), months = [mdShiftMonth(ym, -1), ym, mdShiftMonth(ym, 1)];
       for(var i = 0; i < months.length && !amount; i++){
-        var due = cardPaymentsForMonth(state.accounts, state.transactions, state.transfers, months[i], today).find(function(p){ return p.card === card.name && !p.paid && p.amount > 0; });
+        var due = cardPaymentsForMonth(state.accounts, state.transactions, state.transfers, months[i], today).find(function(p){ return p.card === card.name && (!p.paid || p.assumed) && p.amount > 0; });
         if(due) amount = due.amount;
       }
     }

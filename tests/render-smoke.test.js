@@ -1444,3 +1444,16 @@ test("the merge question lists each thing changed on both devices, this device's
   assert.match(html, /Deleted/);
   assert.match(html, /data-merge-ok/);
 });
+
+test("transfer accounts come grouped by kind, and a card paid from a loan gets a word", async function(){
+  const { transferAccountOptionsHtml, transferHint } = await import("../src/components/cashflow.js");
+  const accounts = [{ name: "Home loan", type: "loan" }, { name: "Home loan offset", type: "offset" }, { name: "Card A", type: "credit", autoPayFrom: "Home loan offset" }, { name: "Everyday", type: "everyday" }];
+  const html = transferAccountOptionsHtml(accounts, "Home loan offset");
+  assert.match(html, /<optgroup label="Everyday & savings"><option value="Everyday">/);
+  assert.match(html, /<optgroup label="Offsets"><option value="Home loan offset" selected>/);
+  assert.match(html, /<optgroup label="Loans"><option value="Home loan">/);
+  assert.match(transferHint("Home loan", "Card A", accounts, []), /That's a loan[^]*usually paid from Home loan offset/);
+  assert.match(transferHint("Everyday", "Card A", accounts, []), /direct debit from Home loan offset/);
+  assert.equal(transferHint("Home loan offset", "Card A", accounts, []), "");
+  assert.equal(transferHint("Everyday", "Home loan offset", accounts, []), "");
+});

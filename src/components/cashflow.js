@@ -3,6 +3,7 @@ import { filterChoices } from "../calc/cashflowlist.js";
 import { incomeTargets } from "../calc/received.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr, fmtDate } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
+import { usualCardSource } from "../calc/bills.js";
 
 // ---------------- Cash flow → Spending: the unified list's controls (v3.59.0) ----------------
 // components/expenses.js renders the list (its spending rows are the editable ones it always had);
@@ -114,10 +115,39 @@ export function bulkBarHtml(lineOptionsHtml, accountOptionsHtml){
 }
 
 // transferForm.preset (v3.141.0): { from, to, amount, what } to open it filled in — "Pay a card".
+// v3.144.0: the accounts grouped by kind, so an offset and the loan it sits against — which often
+// share most of a name — can't be mistaken for each other in one long list.
+var TF_GROUPS = [["Everyday & savings", { everyday: 1, savings: 1 }], ["Offsets", { offset: 1 }], ["Credit cards", { credit: 1 }], ["Loans", { loan: 1 }]];
+export function transferAccountOptionsHtml(accounts, sel){
+  var opt = function(a){ return '<option value="' + escapeAttr(a.name) + '"' + (a.name === sel ? " selected" : "") + '>' + escapeAttr(a.name) + '</option>'; };
+  var list = accounts || [], used = {};
+  var html = TF_GROUPS.map(function(g){
+    var rows = list.filter(function(a){ return g[1][a.type]; });
+    rows.forEach(function(a){ used[a.name] = 1; });
+    return rows.length ? '<optgroup label="' + g[0] + '">' + rows.map(opt).join("") + '</optgroup>' : "";
+  }).join("");
+  var rest = list.filter(function(a){ return !used[a.name]; });
+  return html + (rest.length ? '<optgroup label="Other">' + rest.map(opt).join("") + '</optgroup>' : "");
+}
+// A word under the form when a card repayment's From looks wrong: a loan or another card (it reads
+// as borrowing more), or not the account the card is paid from by direct debit.
+export function transferHint(from, to, accounts, transfers){
+  var byName = {}; (accounts || []).forEach(function(a){ byName[a.name] = a; });
+  var f = byName[from], t = byName[to];
+  if(!f || !t || t.type !== "credit" || from === to) return "";
+  var usual = usualCardSource(t, accounts, transfers);
+  var tail = usual && usual !== from ? " " + to + " is usually paid from " + usual + "." : "";
+  if(f.type === "loan") return "That's a loan — paying the card from it adds to what's owed on the loan." + tail;
+  if(f.type === "credit") return "That's another card — paying one card with another just moves the debt." + tail;
+  if(t.autoPayFrom && t.autoPayFrom !== from) return to + " is paid by direct debit from " + t.autoPayFrom + ".";
+  return "";
+}
+
 export function transferFormHtml(today){
   today = today || localDateStr();
   var pre = transferForm.preset || {};
-  var accts = function(sel){ return (state.accounts || []).map(function(a){ return '<option value="' + escapeAttr(a.name) + '"' + (a.name === sel ? " selected" : "") + '>' + escapeAttr(a.name) + '</option>'; }).join(""); };
+  var accts = function(sel){ return transferAccountOptionsHtml(state.accounts, sel); };
+  var hint = pre.from && pre.to ? transferHint(pre.from, pre.to, state.accounts, state.transfers) : "";
   return '<div class="cf-transfer-form" role="group" aria-label="New transfer"><b>Move money between your accounts</b>' +
     '<p class="ledger-note" style="margin:0">Not spending — paying off a card, topping up savings or an offset. It doesn\'t count in any budget total.</p>' +
     '<div class="cf-tf-grid">' +
@@ -127,6 +157,7 @@ export function transferFormHtml(today){
       '<label class="cf-filter"><span>Date</span><input type="date" data-tf="date" value="' + today + '"></label>' +
       '<label class="cf-filter cf-tf-wide"><span>Note <small>(optional)</small></span><input type="text" data-tf="what" placeholder="e.g. Card repayment" value="' + escapeAttr(pre.what || "") + '"></label>' +
     '</div>' +
+    '<p class="cf-tf-hint" data-tf-hint' + (hint ? '' : ' hidden') + '>' + escapeAttr(hint) + '</p>' +
     '<label class="cf-tf-check"><input type="checkbox" data-tf="balances" checked> Also move the two balances (where each account has one)</label>' +
     '<div class="cf-tf-actions"><button type="button" class="btn btn-sm btn-primary" data-tf-save>Save transfer</button><button type="button" class="btn btn-sm btn-ghost" data-tf-cancel>Cancel</button></div></div>';
 }

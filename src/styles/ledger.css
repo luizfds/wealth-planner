@@ -1154,6 +1154,9 @@
   .cf-tf-grid{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:8px; }
   .cf-tf-wide{ grid-column: 1 / -1; }
   .cf-tf-check{ display:flex; gap:8px; align-items:center; font-size:13px; }
+  /* v3.144.0: a card repayment from a loan, another card, or not its direct-debit account. */
+  .cf-tf-hint{ margin:0; font-size:12.5px; color: var(--warn-ink); }
+  .cf-tf-hint[hidden]{ display:none; }
   .cf-tf-actions, .cf-split-foot{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
   .cf-split-row{ display:grid; grid-template-columns: minmax(0,1fr) 120px 40px; gap:8px; align-items:center; }
   .cf-split-left{ font-size:12.5px; color: var(--good-ink); margin-right:auto; }

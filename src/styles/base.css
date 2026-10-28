@@ -114,6 +114,16 @@
 
   .display{ font-family:"Inter", system-ui, sans-serif; }
   .mono, td.num, input[type="number"]{ font-family:var(--font-num); font-variant-numeric: tabular-nums; }
+  /* v3.139.2: the fields that had no style of their own — no class (the trip form, the payslip box),
+     or a class nobody styled (the sheet link and its date, the payslip date, dates of birth) — kept
+     the browser's grey inset border and square corners. :where() makes this weigh nothing, so a rule
+     written for a particular field still wins; fields already styled aren't touched. */
+  :where(input:not([class]):not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"], [type="hidden"]), select:not([class]), textarea:not([class]), .ps-from, .ps-url, .tax-ytd-asof, .pp-dob){
+    font: inherit; font-size:13.5px; color: var(--ink); background: var(--paper);
+    border:1px solid var(--border); border-radius:6px; padding:5px 8px; min-height:36px; box-sizing:border-box; max-width:100%;
+  }
+  :where(textarea:not([class])){ min-height:72px; line-height:1.45; }
+  :where(input:not([class]), select:not([class]), textarea:not([class]), .ps-from, .ps-url, .tax-ytd-asof, .pp-dob):focus-visible{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
   input[type="number"]{ -moz-appearance:textfield; }
   input[type="number"]::-webkit-outer-spin-button,
   input[type="number"]::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }

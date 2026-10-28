@@ -42,3 +42,15 @@ test("net worth history thins its own points, never ones recorded by hand", () =
   assert.ok(log.some(p => p.date === "2024-03-13" && p.value === 2 && !p.auto));
   assert.ok(log.some(p => p.date === "2026-10-27"));
 });
+
+test("the change splits into money kept and what things are worth, naming what drove the second", async () => {
+  const { netWorthSplit } = await import("../src/calc/nwauto.js");
+  const sp = netWorthSplit([
+    { key: "property", label: "Property value", change: -20000 }, { key: "asset:Cash", label: "Cash", change: 3000 },
+    { key: "offsets", label: "Offset balances", change: 2500 }, { key: "loans", label: "Property loans", change: 900 }, { key: "asset:Shares", label: "Shares", change: 1200 }
+  ]);
+  assert.equal(sp.money, 6400);
+  assert.equal(sp.values, -18800);
+  assert.equal(sp.top.key, "property");
+  assert.equal(netWorthSplit([{ key: "asset:Shares", change: 500 }, { key: "asset:Super", change: 450 }]).top, null, "no one thing drove it");
+});

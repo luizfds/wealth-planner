@@ -24,3 +24,14 @@ test("a card repayment logged from a loan or another card is found, with where i
   assert.deepEqual(odd.map((o) => [o.transfer.id, o.fromType, o.usual]), [["x3", "loan", "Home loan offset"], ["x5", "credit", "Home loan offset"]]);
   assert.equal(oddCardRepayments(accounts, transfers.slice(0, 2)).length, 0);
 });
+
+test("repayment days passed with nothing logged are found, with the cycle's charges and the usual account", async () => {
+  const { unloggedCardRepayments } = await import("../src/calc/bills.js");
+  const accts = [{ name: "Home loan offset", type: "offset" }, { name: "Card A", type: "credit", statementStartDay: 8, autoPayFrom: "Home loan offset" }];
+  const tx = [{ id: "t1", date: "2026-09-12", account: "Card A", amount: 120 }, { id: "t2", date: "2026-10-02", account: "Card A", amount: 80 }, { id: "t3", date: "2026-10-12", account: "Card A", amount: 50 }];
+  const tr = [{ id: "x1", date: "2026-08-21", from: "Home loan offset", to: "Card A", amount: 300 }];
+  const out = unloggedCardRepayments(accts, tx, tr, "2026-10-29");
+  assert.deepEqual(out.map((o) => [o.date, o.amount, o.from, o.direct]), [["2026-10-21", 200, "Home loan offset", true]]);
+  const logged = tr.concat([{ id: "x2", date: "2026-10-21", from: "Home loan offset", to: "Card A", amount: 200 }]);
+  assert.equal(unloggedCardRepayments(accts, tx, logged, "2026-10-29").length, 0);
+});

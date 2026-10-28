@@ -63,7 +63,10 @@ export function goalStatus(goal, today, opts){
     : neededMonthly == null ? (pace != null && pace > 0 ? "moving" : "open")
     : pace != null ? (pace >= neededMonthly * 0.95 ? "on-track" : "behind")
     : (surplus != null && surplus >= neededMonthly ? "possible" : "behind");
+  // v3.146.0: past the target, by how much — `times` is how many targets' worth is there.
+  var over = target > 0 && current > target ? round(current - target) : 0;
   return { id: goal.id, name: goal.name, target: round(target), current: round(current), left: round(left), pct: target > 0 ? Math.min(1, Math.max(0, current / target)) : 0,
+    over: over, times: target > 0 ? Math.round(current / target * 10) / 10 : null,
     by: goal.by || "", months: months == null ? null : Math.round(months * 10) / 10, neededMonthly: neededMonthly == null ? null : round(neededMonthly),
     pace: pace == null ? null : round(pace), paceMonths: Math.round(span * 10) / 10, projected: projected, status: status, missing: missing, accounts: (goal.accounts || []).slice() };
 }
@@ -71,6 +74,19 @@ export function goalStatus(goal, today, opts){
 // Every goal, plus whether the plan's monthly surplus covers what all of them need together.
 export function goalsOverview(today, surplusMonthly){
   var list = (state.savingsGoals || []).map(function(g){ return goalStatus(g, today, { surplusMonthly: surplusMonthly }); });
+  // v3.146.0: where a goal's surplus could go — the unfinished goal it would finish soonest (one kept
+  // in other accounts; moving money between a goal's own accounts changes nothing), else an offset
+  // account it isn't already in, where it brings the loan's interest down.
+  list.forEach(function(g){
+    if(!(g.over > 0)) return;
+    var others = list.filter(function(o){ return o !== g && o.status !== "done" && o.left > 0 && !o.accounts.some(function(a){ return g.accounts.indexOf(a) !== -1; }); })
+      .sort(function(a, b){ return a.left - b.left; });
+    if(others.length) g.surplusTo = { kind: "goal", name: others[0].name, amount: round(Math.min(g.over, others[0].left)), finishes: g.over >= others[0].left };
+    else {
+      var offset = (state.accounts || []).find(function(a){ return a.type === "offset" && g.accounts.indexOf(a.name) === -1; });
+      if(offset) g.surplusTo = { kind: "offset", name: offset.name, amount: g.over };
+    }
+  });
   var needed = list.reduce(function(s, g){ return s + (g.status !== "done" && g.neededMonthly ? g.neededMonthly : 0); }, 0);
   return { goals: list, neededMonthly: round(needed), surplusMonthly: surplusMonthly == null ? null : round(surplusMonthly),
     covered: surplusMonthly == null ? null : surplusMonthly >= needed };

@@ -1457,3 +1457,12 @@ test("transfer accounts come grouped by kind, and a card paid from a loan gets a
   assert.equal(transferHint("Home loan offset", "Card A", accounts, []), "");
   assert.equal(transferHint("Everyday", "Home loan offset", accounts, []), "");
 });
+
+test("a Check's fix can ask for an amount first", async function(){
+  const { healthHtml } = await import("../src/components/health.js");
+  const html = healthHtml([{ id: "card-unlogged:Card A:2026-10-21", severity: "info", title: "Card A repayment on 21 Oct 2026 isn't logged", detail: "…",
+    where: { page: "expenses", sub: "bills", label: "Open Bills" }, fix: { label: "Save repayment", kind: "card-log", arg: "Card A|2026-10-21", amount: 432.1, amountLabel: "Statement balance $" } }], []);
+  assert.match(html, /Statement balance \$<\/span><input type="number"[^>]*data-hc-fix-amount value="432.1">/);
+  assert.match(html, /data-hc-fix="card-log" data-hc-fix-arg="Card A\|2026-10-21">Save repayment/);
+  assert.match(html, />Open Bills</);
+});

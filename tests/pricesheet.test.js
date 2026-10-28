@@ -2,7 +2,7 @@ import "./_env.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { state } from "../src/state.js";
-import { sheetCsvUrls, readPriceSheet, applyPrices, unitsOn, backfillHistory, applyBackfill, sheetRefreshDue, backfillStart } from "../src/calc/pricesheet.js";
+import { sheetCsvUrls, readPriceSheet, applyPrices, unitsOn, backfillHistory, applyBackfill, sheetRefreshDue, backfillStart, thinPriceHistory } from "../src/calc/pricesheet.js";
 
 test("a sheet link becomes the URLs worth trying", function(){
   var share = sheetCsvUrls("https://docs.google.com/spreadsheets/d/AbC_123-x/edit#gid=42");
@@ -85,4 +85,43 @@ test("the sheet is read once a day, only with a link", function(){
   assert.equal(sheetRefreshDue({ url: "", lastRead: "" }, "2026-02-01"), false);
   assert.equal(sheetRefreshDue({ url: "x", lastRead: "2026-01-31" }, "2026-02-01"), true);
   assert.equal(sheetRefreshDue({ url: "x", lastRead: "2026-02-01" }, "2026-02-01"), false);
+});
+
+test("price history thins as it ages: daily for 90 days, weekly to two years, then monthly", () => {
+  // Invented: a point every day from 2023-06-01 to 2026-10-28 at an invented price, plus a typed value.
+  const today = "2026-10-28", history = [];
+  for(let t = Date.parse("2023-06-01T00:00:00Z"); t <= Date.parse(today + "T00:00:00Z"); t += 86400000){
+    const d = new Date(t).toISOString().slice(0, 10);
+    history.push({ date: d, value: 1000 + (t / 86400000 % 50), price: 10 });
+  }
+  history.push({ date: "2024-01-10", value: 777 }); // typed by hand: no price
+  history.sort((a, b) => a.date < b.date ? -1 : 1);
+  const before = history.map(h => ({ ...h }));
+  const removed = thinPriceHistory(history, today);
+  assert.ok(removed > 1000);
+  assert.equal(before.length - history.length, removed);
+  const has = d => history.some(h => h.date === d);
+  // The last 90 days are all there.
+  assert.ok(has("2026-10-28") && has("2026-10-27") && has("2026-08-01"));
+  // Weekly from 90 days to two years: Sunday (the week's last day) stays, the Wednesday goes.
+  assert.ok(has("2026-03-01") && !has("2026-03-04"));
+  // Monthly past two years: the month's last day stays, the 15th goes.
+  assert.ok(has("2024-02-29") && !has("2024-02-15") && has("2023-06-30") && !has("2023-06-29"));
+  // The typed value stays, though it's old.
+  assert.ok(history.some(h => h.date === "2024-01-10" && h.value === 777));
+  // Every value that remains is untouched, in order.
+  history.forEach(h => assert.deepEqual(h, before.find(b => b.date === h.date && b.value === h.value)));
+  for(let i = 1; i < history.length; i++) assert.ok(history[i - 1].date <= history[i].date);
+  // Running again changes nothing.
+  assert.equal(thinPriceHistory(history, today), 0);
+  // Short or missing histories are left alone.
+  assert.equal(thinPriceHistory([{ date: "2020-01-01", price: 1, value: 1 }], today), 0);
+  assert.equal(thinPriceHistory(null, today), 0);
+});
+
+test("a price update thins the holding's history as it records today's price", () => {
+  const st = { benchmark: {}, fx: {}, assets: [{ category: "Shares", symbol: "FERN", quantity: 10, history: [
+    { date: "2026-01-05", value: 100, price: 10 }, { date: "2026-01-06", value: 101, price: 10.1 }, { date: "2026-01-07", value: 102, price: 10.2 }] }] };
+  applyPrices(st, [{ symbol: "FERN", price: 12 }], "2026-10-28");
+  assert.deepEqual(st.assets[0].history.map(h => h.date), ["2026-01-07", "2026-10-28"]);
 });

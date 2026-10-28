@@ -45,7 +45,7 @@ export function refreshPriceSheet(){
   return fetchSheet(sheet.url).then(function(text){
     var parsed = readPriceSheet(text);
     var p = applyPrices(state, parsed.prices, today);
-    var b = applyBackfill(state, parsed.history);
+    var b = applyBackfill(state, parsed.history, today);
     sheet.lastRead = today;
     sheet.lastResult = { ok: true, at: new Date().toISOString(), updated: p.updated, fx: p.fxUpdated, benchmarks: p.benchmarks,
       notFound: p.notFound, unreadable: parsed.unreadable, backfilled: b.added, backfilledHoldings: b.holdings };

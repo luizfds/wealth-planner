@@ -53,7 +53,7 @@ export function refreshAutoPrices(){
     }
     var applied = applyPrices(state, prices, today);
     res.updated = applied.updated; res.fx = applied.fxUpdated;
-    if(weekly && weekly.ok){ var b = applyBackfill(state, fileWeeklyFor(weekly.value, state.assets)); res.backfilled = b.added; }
+    if(weekly && weekly.ok){ var b = applyBackfill(state, fileWeeklyFor(weekly.value, state.assets), today); res.backfilled = b.added; }
     if(!prices.length && res.problems.length) res.ok = false;
     a.lastRead = today;
     a.lastResult = res;

@@ -3041,6 +3041,20 @@ it. On the demo the headline moved by a couple of dollars (its balances are reco
 line appears.
 
 
+## 167. `[x]` Price history thinned as it ages
+A holding's history gains a point every day the prices update. Nothing needs that detail for long: the charts'
+1D and 1W read recent days, everything else reads weeks or months. Automatic price points (those that carry a
+`price`) are kept daily for 90 days, then the last of each week to two years, then the last of each month; values
+someone logged by hand are never touched.
+
+Shipped as v3.137.0. `thinPriceHistory(history, today)` (calc/pricesheet.js) runs inside `applyPrices` for every holding
+it prices and after `applyBackfill` (which now takes `today`), so the daily update, a paste, a Google Sheet and the
+weekly backfill all leave a thinned history, and a save made before this is thinned on its first price update. It keeps
+the last point of each week or month, so a value read on a week-end or month-end date is unchanged. On the demo, a
+holding seeded with 1,246 daily points came out with 201 and its typed value intact; on a real backup (outside the
+repo) history is already mostly weekly, so few points went, with no week-end value or chart range start changed.
+
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

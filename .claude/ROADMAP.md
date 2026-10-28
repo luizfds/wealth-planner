@@ -3206,8 +3206,18 @@ its first conflict is still the old choice. Checked on a real backup (outside th
 changed, separate edits combined, about 0.1s.
 
 
-## 183. `[~]` A review on the new layout
+## 183. `[x]` A review on the new layout
 The phone header, avatar menu and bottom bar, against a real household (outside the repo), at phone and desktop width.
+
+Done as v3.144.1, on a real household's backup outside the repo, at 390 and 1280px: twelve views, the scrolled header
+and the avatar menu, with sideways scroll, controls past the edge, small tap targets, clipped labels and NaN text
+measured rather than eyeballed. No sideways scroll, no console errors; the avatar menu fits; the header goes slim once
+scrolled. Fixed: on a phone the header's ⓘ, ⋯, period, bell and avatar were 28–34px targets — each now catches a tap
+6px further out (an invisible `::after`), looking the same; and a rail of tabs with more past the edge (Investments,
+Property) fades there, by scroll position (`lib/scroll-shadow.js` now watches `.subnav` too), since a tab ending right at
+the edge looked like the end of the list. The same review found a card repayment logged from a loan — v3.144.0's
+grouped account list, warning and Check.
+
 
 ## Conventions for whoever picks this up
 

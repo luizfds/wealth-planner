@@ -468,3 +468,15 @@ body[data-current-page="dashboard"] .global-metrics{ display:none; }
 .merge-opt span{ display:flex; flex-direction:column; min-width:0; overflow-wrap:anywhere; }
 .merge-opt small{ color: var(--ink-soft); font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
 .merge-actions{ display:flex; justify-content:flex-end; gap:8px; }
+/* v3.144.1 (item 183): the phone header's small buttons — ⓘ, ⋯, the period, the bell, the avatar —
+   keep their look but take a tap 6px further out each way (a 28px ⓘ becomes a 40px target, the
+   34px avatar 46px). An invisible ::after does the catching; none of them use ::after already. */
+@media (max-width: 880px){
+  .app-topbar :is(.page-help-btn, .page-overflow-btn, .period-btn, .notif-bell-btn, .avatar-btn){ position:relative; }
+  .app-topbar :is(.page-help-btn, .page-overflow-btn, .period-btn, .notif-bell-btn, .avatar-btn)::after{ content:""; position:absolute; inset:-6px; }
+  /* A rail of tabs with more past the edge fades out there — the half-cut tab alone says nothing
+     when one happens to end right at the edge (lib/scroll-shadow.js sets the classes, by scroll). */
+  .subnav.can-scroll-right{ -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent); }
+  .subnav.can-scroll-left{ -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 44px), transparent); }
+  .subnav.can-scroll-left.can-scroll-right{ -webkit-mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent); }
+}

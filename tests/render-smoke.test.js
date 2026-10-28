@@ -1474,3 +1474,9 @@ test("under a person's own Income card a row doesn't repeat their name", async f
   assert.equal(incomeRowLabel({ person: "Alex", what: "Salary" }), "Salary");
   assert.equal(incomeRowLabel({ what: "Sam — gift" }), "Sam — gift", "household rows keep theirs");
 });
+
+test("the budget plan's money in shows pay that ends with its end date", async function(){
+  const { budgetPlanHtml } = await import("../src/components/cashflow.js");
+  const html = budgetPlanHtml({ income: [{ label: "Net income", monthly: 5000 }, { label: "Site allowance (after tax) — until 31 Dec 2026", monthly: 210 }], groups: [{ label: "Needs", monthly: 3000 }], net: 2210 });
+  assert.match(html, /Site allowance \(after tax\) — until 31 Dec 2026/);
+});

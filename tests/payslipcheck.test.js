@@ -31,7 +31,9 @@ test("pay that ends within the year is its own after-tax row with the end date; 
     assert.equal(parts.ending.length, 1);
     assert.ok(parts.ending[0].monthly > 0 && parts.ending[0].monthly < 400, "taxed at the top rate");
     var total = computePersonTax("Sam").netTakeHome;
-    assert.ok(Math.abs(parts.regularMonthly * 12 + parts.ending[0].monthly * 12 - total) < 1);
+    // v3.149.0: the year counts the allowance only for the months of it left to run.
+    assert.ok(parts.ending[0].share > 0 && parts.ending[0].share < 1);
+    assert.ok(Math.abs(parts.regularMonthly * 12 + parts.ending[0].monthly * 12 * parts.ending[0].share - total) < 1);
     var row = state.income.find(function(i){ return i.syntheticEndingFor === "a1"; });
     assert.ok(row && row.endDate === "2026-12-31" && row.freq === "Monthly" && row.computed && row.incomeType === "Net");
     assert.equal(monthlyPayNow(parts, "2027-01-15"), parts.regularMonthly, "gone after it ends");

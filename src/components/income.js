@@ -679,7 +679,11 @@ function payslipReadHtml(person){
     (p.sacrifice != null ? '<span>Salary sacrifice ' + money(p.sacrifice) + '</span>' : '') +
     (p.net != null ? '<span>Net ' + money(p.net) + '</span>' : '') + '</div>';
   var actions = [];
-  if(p.ytd.gross != null && p.ytd.tax != null && p.periodEnd) actions.push('<button type="button" class="btn btn-sm btn-primary" data-slip-use="' + pid + '">Use the year-to-date figures</button>');
+  // v3.149.0: the year-to-date figures are used as soon as they're read (app.js applyPayslipYtd);
+  // the button is only for when they weren't — the stored ones came from a later payslip.
+  var stY = personTaxSettings(person).ytd || {};
+  var inUse = stY.asOf === p.periodEnd && stY.gross === p.ytd.gross && stY.withheld === p.ytd.tax;
+  if(p.ytd.gross != null && p.ytd.tax != null && p.periodEnd){ if(!inUse) actions.push('<button type="button" class="btn btn-sm btn-primary" data-slip-use="' + pid + '">Use the year-to-date figures</button>'); }
   else out += '<p class="slip-out">' + (p.periodEnd ? "No year-to-date column found" : "No period dates found") + ' — type the figures above.</p>';
   var row = salaryRowFor(person);
   if(row && freq && p.gross > 0){

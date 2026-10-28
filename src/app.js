@@ -3587,7 +3587,23 @@ import { inboxMessage } from "./calc/inbox.js";
   function readPayslipLines(person, lines){
     var r = parsePayslip(lines);
     payslipRead[person] = r.found.length ? r : { error: "Nothing in that reads like a payslip — no Gross, Tax or Net lines with amounts." };
+    if(r.found.length) applyPayslipYtd(person, r);
     redrawPayslipPanel(person);
+  }
+  // v3.149.0: a payslip with a year-to-date column sets the refund-or-bill check straight away —
+  // unless what's there is from a later payslip. Undo puts the old figures back.
+  function applyPayslipYtd(person, r){
+    if(r.ytd.gross == null || r.ytd.tax == null || !r.periodEnd) return false;
+    var st = personTaxSettings(person), was = st.ytd ? Object.assign({}, st.ytd) : null;
+    if(was && was.asOf && was.asOf > r.periodEnd) return false;
+    if(was && was.asOf === r.periodEnd && was.gross === r.ytd.gross && was.withheld === r.ytd.tax) return false;
+    st.ytd = { asOf: r.periodEnd, gross: r.ytd.gross, withheld: r.ytd.tax };
+    persist();
+    showUndoToast("Refund-or-bill check updated from the payslip (to " + fmtDate(r.periodEnd) + ")", function(){
+      if(was) st.ytd = was; else delete st.ytd;
+      persist(); redrawPayslipPanel(person);
+    });
+    return true;
   }
   document.addEventListener("change", function(e){
     var person = e.target.getAttribute && e.target.getAttribute("data-slip-file");
@@ -4063,6 +4079,7 @@ import { inboxMessage } from "./calc/inbox.js";
     var near = function(p){ var row = salaryRowFor(p); return row && freq ? Math.abs(periodsOf(Number(row.amount) || 0, row.freq).yearly - periodsOf(slip.gross, freq).yearly) : Infinity; };
     var person = named.length === 1 ? named[0] : (named.length ? named : people).slice().sort(function(a, b){ return near(a) - near(b); })[0];
     payslipRead[person] = slip;
+    applyPayslipYtd(person, slip);
     if(fromInbox) inboxFileDone(fromInbox);
     inbox.current = null; renderInbox();
     // The person's tax card, where the payslip panel lives: Tax → This year.

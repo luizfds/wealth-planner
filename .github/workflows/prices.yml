@@ -1,8 +1,9 @@
 # The daily price file (v3.133.0, roadmap item 145). Each weekday after the US close (and so after the
 # previous ASX close) this fetches end-of-day prices for the fixed public list in prices/universe.json
 # and commits prices/latest.json and prices/weekly.json, which the app reads from its own site.
-# US prices come from Stooq; ASX from Twelve Data, which needs a free key in the repository secret
-# TWELVE_DATA_KEY (Settings → Secrets and variables → Actions). Run it by hand from the Actions tab.
+# Prices come from Twelve Data, which needs a free key in the repository secret TWELVE_DATA_KEY
+# (Settings → Secrets and variables → Actions); about 50 minutes at the free plan's 8 a minute.
+# Run it by hand from the Actions tab.
 name: Prices
 on:
   schedule:

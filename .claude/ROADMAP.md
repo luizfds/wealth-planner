@@ -3168,6 +3168,24 @@ Check for updates. Its initial is the first person's; its dot replaces the saved
 navigation step taps the Tax and Net worth tabs and avatar → Reports.
 
 
+### Phase H — less to do by hand (October 2026)
+
+## 180. `[~]` Pay a card from the + button
+A card repayment is a transfer, but the quick-add menu had no way in: it was Spending → + Transfer, with both
+accounts to pick. "Pay a card" opens the transfer form with the card (or the only card) as To, and From as the card's
+direct-debit account or the everyday account.
+
+## 181. `[ ]` Statements from the Dropbox folder
+Drop a bank, card or property-manager statement (CSV or PDF) into the app's Dropbox folder, from any device; the
+app picks it up on open, runs it through the importer and its rules, and asks only about rows it can't place.
+
+## 182. `[ ]` Merge, not choose, when two devices both changed
+When two devices both edited since they last synced, the app made you keep one copy. Combine what doesn't
+overlap — rows added, removed or changed on one side only — and ask only about a row changed on both.
+
+## 183. `[ ]` A review on the new layout
+The phone header, avatar menu and bottom bar, against a real household (outside the repo), at phone and desktop width.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

@@ -1431,3 +1431,16 @@ test("the statement under review is named, not offered again", async function(){
   assert.match(html, /One more is waiting/);
   assert.doesNotMatch(html, /data-inbox-next/);
 });
+
+test("the merge question lists each thing changed on both devices, this device's ticked", async function(){
+  const { mergeDialogHtml } = await import("../src/components/syncmerge.js");
+  const html = mergeDialogHtml([
+    { id: "accounts/id:a1/balance", top: "accounts", row: { name: "Everyday" }, field: "balance", ours: 150, theirs: 175 },
+    { id: "transactions/id:t2", top: "transactions", row: { what: "Fern Café", amount: 7 }, field: null, ours: { what: "Fern Café", amount: 7 }, theirs: undefined }
+  ], "Dropbox");
+  assert.match(html, /2 things/);
+  assert.match(html, /Accounts · Everyday · balance/);
+  assert.match(html, /value="ours" data-merge-id="accounts\/id:a1\/balance" checked/);
+  assert.match(html, /Deleted/);
+  assert.match(html, /data-merge-ok/);
+});

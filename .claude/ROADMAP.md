@@ -3192,9 +3192,19 @@ check), and moves to `Statements/Imported` once confirmed. Cancelling leaves it 
 the card says where to drop one.
 
 
-## 182. `[~]` Merge, not choose, when two devices both changed
+## 182. `[x]` Merge, not choose, when two devices both changed
 When two devices both edited since they last synced, the app made you keep one copy. Combine what doesn't
 overlap — rows added, removed or changed on one side only — and ask only about a row changed on both.
+
+Shipped as v3.143.0. Each write or load of the sync file keeps that copy in IndexedDB as the one both sides agreed on;
+on a conflict, `lib/foldersync.js` hands back the file's copy and that one, and `calc/syncmerge.js` merges three ways:
+rows by `id` (by `date` for the net worth log, by content for the few with neither), settings field by field. A change on
+one side only is taken; the same thing changed both ways goes into one dialog, a choice each, this device's ticked. View
+settings stay per device, the app's own bookkeeping (prices, automatic net worth points, computed rows) never asks,
+and "last done" dates take the later one. A device whose last sync was before this version has no agreed copy yet, so
+its first conflict is still the old choice. Checked on a real backup (outside the repo): nothing to ask when nothing
+changed, separate edits combined, about 0.1s.
+
 
 ## 183. `[ ]` A review on the new layout
 The phone header, avatar menu and bottom bar, against a real household (outside the repo), at phone and desktop width.

@@ -121,6 +121,8 @@ the last, so two sessions can't pick up the same one.
 - `src/lib/foldersync.js` + `src/lib/dropbox.js` — sync between devices (v3.134.0/v3.136.0): one encrypted file
   (`calc/syncfile.js` decides load / write / ask), written through the chosen backup folder or the app's Dropbox
   folder (OAuth PKCE, `DROPBOX_APP_KEY`). Per-device sync memory and tokens live in localStorage, never in `state`.
+  Since v3.143.0 a conflict is merged three ways (`calc/syncmerge.js`) against the last agreed copy, kept in IndexedDB;
+  only the same thing changed on both devices is asked about.
 - `prices/` — the daily price file (v3.133.0): `universe.json` is a fixed public ticker list (never add
   one because someone holds it — the repo is public), and `latest.json`/`weekly.json` are rewritten each
   weekday by `.github/workflows/prices.yml` (`scripts/prices/fetch.mjs`: Twelve Data for US with the

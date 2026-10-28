@@ -92,7 +92,9 @@ import { refreshPriceSheet, priceSheetDue, priceSheetResultText, defaultBackfill
 import { refreshAutoPrices, autoPricesNeeded, autoPricesResultText } from "./components/autoprices.js";
 import { firstRun, startFirstRun, firstRunHtml } from "./components/firstrun.js";
 import { chooseFolder, backupToFolder, forgetFolder, maybeAutoBackup, setPasscode, clearPasscode, checkPasscode, newestFolderBackup, compareCopies, savedFolder } from "./lib/safekeeping.js";
-import { syncOn, unlockSync, syncNow, pulled, markChanged, stopSync } from "./lib/foldersync.js";
+import { syncOn, unlockSync, syncNow, pulled, merged as syncMerged, markChanged, stopSync } from "./lib/foldersync.js";
+import { mergeStates } from "./calc/syncmerge.js";
+import { mergeDialogHtml } from "./components/syncmerge.js";
 import { setAppKey, connectDropbox, finishDropboxRedirect, disconnectDropbox, dropboxConnected } from "./lib/dropbox.js";
 import { renderSafekeeping } from "./components/safekeeping.js";
 import { goalsSectionHtml, goalOpen } from "./components/savegoals.js";
@@ -5217,12 +5219,50 @@ import { inboxMessage } from "./calc/inbox.js";
       else if(r.status === "not-connected") showPersistentToast("Sync needs Dropbox connecting again on this device.", "Connect", function(){ connectDropbox(); });
       else if(r.status === "locked") showPersistentToast("Sync needs its passphrase on this computer.", "Type it", function(){ var p = prompt("Sync passphrase:"); if(p) unlockSync(p, true).then(function(u){ if(u.ok) runSync({ interactive: true }); else showToast("That passphrase doesn't open the synced copy"); }); });
       else if(r.status === "other-key") showPersistentToast("The copy in " + r.folder + " was started again with a different passphrase (" + whenText(r.savedAt) + ").", "Type it", function(){ var p = prompt("That copy's passphrase:"); if(p) unlockSync(p, true).then(function(u){ if(u.ok) runSync({ interactive: true }); else showToast("That passphrase doesn't open it"); }); });
+      else if(r.status === "conflict" && r.text && r.base && !opts.force) mergeSync(r);
       else if(r.status === "conflict") showPersistentToast("This device and " + (r.fromThisDevice ? "an earlier session here" : "another one") + " both changed since they last synced (the copy in " + r.folder + ": " + whenText(r.savedAt) + ").", "Choose", function(){
         var load = confirm("Load the copy in " + r.folder + " (" + whenText(r.savedAt) + ")?\n\nOK — load it; this device's changes since the last sync are replaced.\nCancel — keep this device's copy and write it there instead.");
         runSync({ interactive: true, manual: true, force: load ? "pull" : "push" });
       });
       return r;
     }).catch(function(){ syncBusy = false; if(opts.manual) showToast("Sync couldn't reach the folder"); });
+  }
+  // v3.143.0 (item 182): both devices changed since they last synced — combine them. Everything
+  // changed on one side only is taken from that side; only the same thing changed both ways is asked,
+  // one choice each. Without the agreed copy (synced last on an older version) it's still a choice.
+  var mergeAskedAt = 0;
+  function mergeSync(r){
+    var base, theirs;
+    try { base = JSON.parse(r.base); theirs = migrateState(JSON.parse(r.text)); } catch(e){ showToast("The synced copy couldn't be read"); return; }
+    var theirsText = JSON.stringify(theirs);
+    // This device's copy as it is when combined — edits made while the question waited included.
+    var ours = function(){ return JSON.parse(JSON.stringify(state)); };
+    var apply = function(res){
+      mergeAskedAt = 0;
+      try { setState(migrateState(res.merged)); } catch(e){ showToast("Couldn't combine the two copies"); return; }
+      recalcComputedItems(); renderAll(); persist();
+      syncMerged(r.rev, theirsText).then(function(){ runSync({}); });
+      var n = res.fromTheirs;
+      showToast("Combined with the copy in " + r.folder + (n ? " — " + n + " change" + (n === 1 ? "" : "s") + " from there" : ""));
+    };
+    var first = mergeStates(base, ours(), JSON.parse(theirsText));
+    if(!first.conflicts.length){ apply(first); return; }
+    // Asked already and not answered yet: the next save's sync doesn't ask again for a while.
+    if(Date.now() - mergeAskedAt < 10 * 60 * 1000) return;
+    mergeAskedAt = Date.now();
+    showPersistentToast("This device and " + (r.fromThisDevice ? "an earlier session here" : "another one") + " both changed " +
+      (first.conflicts.length === 1 ? "the same thing" : first.conflicts.length + " of the same things") + ". Everything else combines by itself.", "Choose", function(){
+      var d = document.getElementById("mergeDialog");
+      if(!d){ d = document.createElement("dialog"); d.id = "mergeDialog"; d.className = "shortcuts-dialog merge-dialog"; d.setAttribute("aria-label", "Combine two copies"); document.body.appendChild(d); }
+      d.innerHTML = mergeDialogHtml(first.conflicts, r.folder, whenText(r.savedAt));
+      d.onclose = function(){
+        if(d.returnValue !== "ok") return;
+        var choices = {};
+        d.querySelectorAll("input[data-merge-id]:checked").forEach(function(i){ choices[i.getAttribute("data-merge-id")] = i.value; });
+        apply(mergeStates(base, ours(), JSON.parse(theirsText), choices));
+      };
+      d.showModal();
+    });
   }
   // v3.139.0 (item 171): net worth keeps its own history — the day's figure as the app saves,
   // thinned as it ages. Recorded after a save, so it rides along with the next one.

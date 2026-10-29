@@ -189,7 +189,7 @@ export function endDateNoteHtml(item){
   if(!item) return "";
   // A line that hasn't started yet says so — it's in the list but in none of the totals.
   if(item.startDate && item.startDate > todayStr()){
-    return '<span class="row-end-note">Starts ' + escapeAttr(item.startDate) + (item.endDate ? ", ends " + escapeAttr(item.endDate) : "") + '</span>';
+    return '<span class="row-end-note">Starts ' + escapeAttr(fmtDate(item.startDate)) + (item.endDate ? ", ends " + escapeAttr(fmtDate(item.endDate)) : "") + '</span>';
   }
   if(!item.endDate) return "";
   var ended = hasEnded(item);

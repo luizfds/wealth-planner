@@ -1497,3 +1497,27 @@ test("take-home a little over by an after-tax payment says so", async function()
     assert.equal(afterTaxInPay("Sam", 28.4), null);
   } finally { state.income = keep; }
 });
+
+test("pay that stops says what take-home drops by, on its own row", async function(){
+  const { endingNoteHtml } = await import("../src/components/income.js");
+  var keep = state.income;
+  try {
+    state.income = [{ id: "a1", what: "Site allowance", person: "Alex", incomeType: "Gross", amount: 400, freq: "Monthly", endDate: "2026-12-31" },
+      { syntheticEndingFor: "a1", computed: true, incomeType: "Net", person: "Alex", amount: -210.4, freq: "Monthly", startDate: "2027-01-01" }];
+    assert.match(endingNoteHtml(state.income[0]), /Take-home −\$210\/mo after tax from then/);
+    assert.equal(endingNoteHtml({ id: "x", endDate: "2026-12-31" }), "");
+  } finally { state.income = keep; }
+});
+
+test("the take-home row shows the payslip's net pay, with after-tax payments into the same account", async function(){
+  const { payslipNetLine } = await import("../src/components/income.js");
+  var keep = state.income;
+  try {
+    state.income = [{ id: "s1", what: "Salary", person: "Alex", incomeType: "Gross", amount: 7000, freq: "Monthly", account: "Bank One" },
+      { id: "p1", what: "Phone reimbursement", person: "Alex", incomeType: "Net", amount: 30, freq: "Monthly", account: "Bank One" },
+      { id: "o1", what: "Side work", person: "Alex", incomeType: "Net", amount: 200, freq: "Monthly", account: "Other bank" },
+      { syntheticNetFor: "Alex", computed: true, incomeType: "Net", amount: 5300.4, freq: "Monthly" }];
+    assert.equal(payslipNetLine(state.income[3]), "Net pay on the payslip: $5,330/mo, with Phone reimbursement");
+    assert.equal(payslipNetLine(state.income[0]), "");
+  } finally { state.income = keep; }
+});

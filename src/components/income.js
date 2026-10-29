@@ -1,6 +1,6 @@
 import { state } from "../state.js";
 import { FREQS, INCOME_TYPES, SUPER_MODES, SACRIFICE_MODES, MAX_SUPER_BASE, MONTH_NAMES, sacrificeModeToLabel, sacrificeLabelToMode } from "../constants.js";
-import { periodsOf, sumField, nextPayDate, payScheduleKindFor, daysUntil, WEEKDAY_NAMES, householdYearWindow } from "../calc/ledger.js";
+import { periodsOf, sumField, nextPayDate, payScheduleKindFor, daysUntil, WEEKDAY_NAMES, householdYearWindow, isActiveOn } from "../calc/ledger.js";
 import { ipNetResultAnnual, ipDepreciationAnnual, ipOwnershipMismatches, propertyOwnershipTotal, fyLabel } from "../calc/property.js";
 import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax, wfhRateForFy, phiRebateAdjustment, taxTablesFor, currentTaxFy, phiPremiumsAnnual, phiLine } from "../calc/tax.js";
 import { claimItems } from "../calc/claims.js";
@@ -275,7 +275,10 @@ export var modernIncomeRowOpen = {};
 // have to guess the same assignment a second way.
 function incomeGroupRowMeta(g){
   var contribIdx = 0;
-  return g.items.map(function(item, i){
+  // v3.151.2: pay that stops is said on the row that stops (endingNoteHtml), not as a negative row
+  // of income that "starts" the day after — that one is only for the forecast.
+  return g.items.map(function(item, i){ return { item: item, i: i }; }).filter(function(x){ return !x.item.syntheticEndingFor; }).map(function(x){
+    var item = x.item, i = x.i;
     var colorIdx = null;
     if(!item.computed){ colorIdx = contribIdx % 8; contribIdx++; }
     return { item: item, idx: g.indices[i], colorIdx: colorIdx };
@@ -417,6 +420,28 @@ export function incomeRowLabel(item){
   var rest = what.slice(prefix.length);
   return rest.charAt(0).toUpperCase() + rest.slice(1);
 }
+// v3.151.3: a payslip's "net pay" counts after-tax payments made with the salary (a phone
+// reimbursement) that the plan keeps as rows of their own. On the take-home row, the two together —
+// the figure to hold a payslip against — without adding them into it, which would count them twice.
+// After-tax rows: the person's own typed Net rows paid into the account their salary goes to.
+export function payslipNetLine(item){
+  if(!item || !item.syntheticNetFor) return "";
+  var person = item.syntheticNetFor, salary = salaryRowFor(person);
+  var acct = salary && salary.account;
+  if(!acct) return "";
+  var extra = (state.income || []).filter(function(i){ return i.person === person && i.incomeType === "Net" && !i.computed && i.account === acct && isActiveOn(i, localDateStr()); });
+  if(!extra.length) return "";
+  var add = extra.reduce(function(t, i){ return t + periodsOf(Number(i.amount) || 0, i.freq).monthly; }, 0);
+  if(!(Math.abs(add) >= 0.5)) return "";
+  return "Net pay on the payslip: " + fmtCurrency0.format((Number(item.amount) || 0) + add) + "/mo, with " + extra.map(function(i){ return i.what || "an after-tax payment"; }).join(" and ");
+}
+// v3.151.2: what take-home drops by once this row stops (its after-tax "ends" row, engine.js).
+export function endingNoteHtml(item){
+  if(!item || !item.id || !item.endDate) return "";
+  var e = (state.income || []).find(function(i){ return i.syntheticEndingFor === item.id; });
+  if(!e || !(Math.abs(Number(e.amount) || 0) >= 0.5)) return "";
+  return 'Take-home −' + fmtCurrency0.format(Math.abs(Number(e.amount))) + '/mo after tax from then';
+}
 function modernIncomeRowHtml(item, idx, colorIdx){
   var isComputed = !!item.computed;
   var isGrossRef = item.incomeType === "Gross" && !isComputed;
@@ -432,6 +457,8 @@ function modernIncomeRowHtml(item, idx, colorIdx){
       (trendHtml ? '<div class="m-row-sub">' + trendHtml + '</div>' : "") +
       (isComputed ? "" : (function(){ var n = nextPayNoteHtml(item); return n ? '<div class="m-row-sub">' + n + '</div>' : ""; })()) +
       (function(){ var e = endDateNoteHtml(item); return e ? '<div class="m-row-sub">' + e + '</div>' : ""; })() +
+      (function(){ var t = endingNoteHtml(item); return t ? '<div class="m-row-sub">' + escapeAttr(t) + '</div>' : ""; })() +
+      (function(){ var t = payslipNetLine(item); return t ? '<div class="m-row-sub">' + escapeAttr(t) + '</div>' : ""; })() +
       (function(){ var v = scenarioVaryNoteHtml(item, state.activeScenario); return v ? '<div class="m-row-sub">' + v + '</div>' : ""; })() +
     '</div>' +
     (isGrossRef ? '<span class="m-row-tag gross">Gross</span>' : "") +

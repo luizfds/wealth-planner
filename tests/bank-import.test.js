@@ -328,7 +328,7 @@ test("something logged by hand under another name, a few days off, is a possible
   ].join("\n")), { existing: existing, account: "Card" });
   var r = parsed.rows;
   assert.equal(r[0].possibleDuplicate, true);
-  assert.deepEqual(r[0].matched, { date: "2026-03-03", what: "Fern delivery" });
+  assert.deepEqual(r[0].matched, { id: "a", date: "2026-03-03", what: "Fern delivery", amount: 47.5 });
   assert.equal(r[1].possibleDuplicate, false, "logged on another account");
   assert.equal(r[2].possibleDuplicate, true, "a refund matches a refund");
   assert.equal(r[3].possibleDuplicate, false, "each logged entry absorbs one bank row only");

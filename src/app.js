@@ -4119,6 +4119,17 @@ import { inboxMessage } from "./calc/inbox.js";
       renderBankImportPanel();
       return;
     }
+    // v3.150.0: a row logged on the statement's account that the statement doesn't have.
+    var strayDel = e.target.closest("[data-bank-stray-del]");
+    if(strayDel){
+      var sid = strayDel.getAttribute("data-bank-stray-del");
+      var si = state.transactions.findIndex(function(t){ return t.id === sid; });
+      if(si === -1) return;
+      var gone = state.transactions.splice(si, 1)[0];
+      persist(); renderBankImportPanel(); refreshAfterBankImport();
+      showUndoToast("Deleted " + (gone.what || "the row"), function(){ state.transactions.splice(si, 0, gone); persist(); renderBankImportPanel(); refreshAfterBankImport(); });
+      return;
+    }
     // Folding the maybes in or out changes which rows exist, so this one does need a full render —
     // unlike assigning a group, where re-rendering would move the row out from under the finger.
     var maybesBtn = e.target.closest("[data-bank-maybes]");
@@ -4136,17 +4147,18 @@ import { inboxMessage } from "./calc/inbox.js";
     // Transfers and a statement balance reach Accounts, Home and net worth too.
     if((result.transferIds && result.transferIds.length) || result.balanceSet) renderAll();
     showUndoToast(
-      "Imported " + result.ids.length + " transaction" + (result.ids.length === 1 ? "" : "s") +
+      (result.ids.length || !(result.reconciled && result.reconciled.length) ? "Imported " + result.ids.length + " transaction" + (result.ids.length === 1 ? "" : "s") : "Nothing new") +
         (result.refunds ? " · " + result.refunds + " refund" + (result.refunds === 1 ? "" : "s") : "") +
         (result.receivedIds && result.receivedIds.length ? " · " + result.receivedIds.length + " income received" : "") +
         (result.transferIds && result.transferIds.length ? " · " + result.transferIds.length + " transfer" + (result.transferIds.length === 1 ? "" : "s") : "") +
+        (result.reconciled && result.reconciled.length ? " · " + result.reconciled.length + " matched to what you logged" : "") +
         (result.balanceSet ? " · " + result.balanceSet.account + " balance updated" : "") +
         (result.linesCreated ? " · " + result.linesCreated + " new budget line" + (result.linesCreated === 1 ? "" : "s") : "") +
         (result.learned ? " · learned " + result.learned + " shop" + (result.learned === 1 ? "" : "s") : ""),
       function(){
         // Rules the import taught are left in place on purpose — they're a preference, not part of
         // the data being undone, and re-importing the same file is the usual reason to undo.
-        undoBankImport(result.ids, result.lineIds, result.receivedIds, result.transferIds, result.balanceSet);
+        undoBankImport(result.ids, result.lineIds, result.receivedIds, result.transferIds, result.balanceSet, result.reconciled);
         refreshAfterBankImport();
         renderAll();
       }

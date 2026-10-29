@@ -330,6 +330,23 @@ export function parseBankCsv(rows, opts){
     });
     if(m){ r.possibleDuplicate = true; r.matched = { date: m.date, what: m.what }; }
   });
+  // v3.149.1: then a near amount on the same day or the next, when something says it's the same
+  // purchase — a word the two share ("Rideshare to the station" / "RIDESHARE *TRIP"), or a foreign fee on the
+  // statement line (logged before its 3% fee). Still only possible: within 3.5% (or 5c), last of all,
+  // so it never takes an entry an exact or same-amount match wanted. A bare different amount with
+  // nothing in common stays new.
+  var words = function(s){ return String(s || "").toLowerCase().split(/[^a-z]+/).filter(function(w){ return w.length >= 4; }); };
+  out.forEach(function(r){
+    if(r.duplicate || r.possibleDuplicate) return;
+    var cents = Math.round(r.amount * 100), spend = r.direction === "debit";
+    var desc = words(r.description), foreign = /foreign (fee|transaction)|\b[a-z]{3}\s*\+\s*foreign/i.test(r.description || "");
+    var m = take(function(e){
+      if(!(e.spend === spend && e.date && daysApart(e.date, r.date) <= 1 && Math.abs(e.cents - cents) <= Math.max(5, cents * 0.035))) return false;
+      if(opts.account && e.account && e.account !== opts.account) return false;
+      return (foreign && e.cents < cents) || words(e.what).some(function(w){ return desc.indexOf(w) !== -1; });
+    });
+    if(m){ r.possibleDuplicate = true; r.matched = { date: m.date, what: m.what, amount: m.cents / 100 }; }
+  });
   return { rows: out, errors: errors, columns: columns, dateOrder: dateOrder, headerOk: true };
 }
 

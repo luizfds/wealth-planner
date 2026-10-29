@@ -141,7 +141,7 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./com
 import {
   startBankImport, reparseBankImportWith, clearBankImport,
   setBankImportGroupLine, setBankImportGroupCategory, renderBankImportPanel, patchBankImportPanel, renderBankImportHelp,
-  setIncludePossibleDuplicates, commitBankImport, undoBankImport, setStatementAccount, setStatementBalanceOn, inboxNoteHtml
+  setIncludePossibleDuplicates, commitBankImport, undoBankImport, setStatementAccount, setStatementBalanceOn, inboxNoteHtml, bankImport
 } from "./components/bank-import.js";
 import { listInbox, readInboxFile, markInboxFileImported } from "./lib/inbox.js";
 import { inboxMessage } from "./calc/inbox.js";
@@ -4044,6 +4044,10 @@ import { inboxMessage } from "./calc/inbox.js";
         if(openAsPayslip(lines, st, fromInbox)) return;
         if(!st.rows.length){ showToast("Couldn't find transactions in that PDF — a CSV export from your bank will work"); return; }
         startBankImport(statementCsv(st.rows), file.name);
+        // v3.149.1: a card's statement (a limit, a minimum payment) with no account picked from its
+        // name: the only credit card, so its payment reads as a transfer and its balance can be set.
+        var cards = (state.accounts || []).filter(function(a){ return a.type === "credit" && a.name; });
+        if(st.card && cards.length === 1 && bankImport && !bankImport.account) setStatementAccount(cards[0].name);
         renderBankImportPanel();
         var card = document.getElementById("bankImportCard");
         if(card) card.scrollIntoView({ behavior: "smooth", block: "start" });

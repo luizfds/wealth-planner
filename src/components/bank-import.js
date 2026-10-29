@@ -122,6 +122,17 @@ function rebuildBankImport(parsed, fileName, rawRows, includePossibleDuplicates)
     r.tripId = trip.id; r.tripName = trip.name;
     r.suggestion = Object.assign({}, r.suggestion, { linkedExpenseId: trip.lineId, category: "", source: "trip" });
   });
+  // v3.149.1: a row that's a transfer already logged — a card repayment typed in by hand, then met
+  // again on the card's statement — is a duplicate too: same amount to the cent, within four days.
+  // Only transactions were checked, so the same repayment went in twice.
+  var DAY = 86400000;
+  suggested.forEach(function(r){
+    if(r.duplicate) return;
+    var amt = Math.abs(Number(r.amount) || 0), at = Date.parse(r.date);
+    if(!(amt > 0) || isNaN(at)) return;
+    var hit = (state.transfers || []).some(function(t){ return Math.abs((Number(t.amount) || 0) - amt) < 0.005 && Math.abs(Date.parse(t.date) - at) <= 4 * DAY; });
+    if(hit){ r.duplicate = true; r.duplicateOfTransfer = true; }
+  });
   var includeMaybes = !!includePossibleDuplicates;
   var spend = suggested.filter(function(r){
     if(r.direction !== "debit" || r.duplicate) return false;

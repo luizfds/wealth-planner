@@ -49,7 +49,7 @@ export function moneyOf(text){
 }
 
 var ROLE_WORDS = {
-  date: /^(date|transaction date|trans\.? date|posting date|processed)$/,
+  date: /^(date|date of|date of transaction|transaction date|trans\.? date|posting date|processed)$/,
   desc: /^(description|transaction|transaction details|details|particulars|narrative|transaction description)$/,
   debit: /^(debit|debits|withdrawal|withdrawals|withdrawal\(\$\)|debit\(\$\)|money out|paid out|debits \(\$\))$/,
   credit: /^(credit|credits|deposit|deposits|deposit\(\$\)|credit\(\$\)|money in|paid in|credits \(\$\))$/,
@@ -57,7 +57,9 @@ var ROLE_WORDS = {
   balance: /^(balance|balance\(\$\)|running balance)$/
 };
 function roleOf(s){
-  var k = String(s || "").trim().toLowerCase().replace(/\s+/g, " ").replace(/\s*\(\$\)$/, "");
+  // v3.149.1: a trailing note in brackets is about the column, not its name — "Credits (-)",
+  // "Debits ($)", "Amount (AUD)".
+  var k = String(s || "").trim().toLowerCase().replace(/\s+/g, " ").replace(/\s*\([^)]*\)$/, "");
   var keys = Object.keys(ROLE_WORDS);
   for(var i = 0; i < keys.length; i++) if(ROLE_WORDS[keys[i]].test(k)) return keys[i];
   return null;
@@ -88,6 +90,10 @@ export function statementFromLines(lines){
   });
   fullDates.sort();
   var minD = fullDates[0] || null, maxD = fullDates[fullDates.length - 1] || null;
+  // v3.149.1: a credit card's statement — a limit, a minimum payment. On a card an amount with no
+  // sign is a purchase (money out) and a minus or CR is a payment or refund: the opposite of a bank
+  // account's signed Amount column. Read the other way round, every purchase became income.
+  var isCard = (lines || []).some(function(l){ return /\b(credit limit|minimum (monthly )?(payment|repayment)( due)?|available credit)\b/i.test(l.cells.map(function(c){ return c.s; }).join(" ")); });
 
   function close(){ if(cur){ blocks.push(cur); cur = null; } }
   (lines || []).forEach(function(l){
@@ -157,8 +163,12 @@ export function statementFromLines(lines){
     if(!role.debit && !role.credit && (a = role.amount)){
       if(a.m.cr || (!a.m.neg && !a.m.dr && cols && cols.amount && !cols.debit)) credit = a.m.value;
       else debit = a.m.value;
-      // A signed Amount column: minus is money out, unsigned money in.
-      if(!a.m.cr && !a.m.dr){ if(a.m.neg){ debit = a.m.value; credit = 0; } else { credit = a.m.value; debit = 0; } }
+      // A signed Amount column: minus is money out, unsigned money in — on a bank account. On a
+      // card it's the other way round (v3.149.1).
+      if(!a.m.cr && !a.m.dr){
+        var out = isCard ? !a.m.neg : a.m.neg;
+        if(out){ debit = a.m.value; credit = 0; } else { credit = a.m.value; debit = 0; }
+      }
     }
     // A Debit/Withdrawal column that prints its amounts with a minus, or a credit column with
     // a "-" for a reversal: the column decides, the sign only flips a reversal.
@@ -169,7 +179,7 @@ export function statementFromLines(lines){
     rows.push({ date: date, description: description, debit: debit, credit: credit, balance: bal });
     prev = date;
   });
-  return { rows: rows, columns: cols, skipped: skipped };
+  return { rows: rows, columns: cols, skipped: skipped, card: isCard };
 }
 
 // The year for a date printed without one: the one in the statement's range, nearest the date

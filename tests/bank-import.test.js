@@ -340,3 +340,15 @@ test("an exact match later in the file keeps its entry from a near match earlier
   assert.equal(parsed.rows[1].duplicate, true);
   assert.equal(parsed.rows[0].possibleDuplicate, false);
 });
+
+test("a near amount the same day is a possible duplicate only with something in common", function(){
+  var handLogged = [{ id: "t1", date: "2026-03-11", amount: 64.33, what: "Rideshare to the station" }, { id: "t2", date: "2026-03-11", amount: 18.00, what: "Software plan" }, { id: "t3", date: "2026-03-11", amount: 12.10, what: "" }];
+  var parsed = parseBankCsv(parseCsv([
+    "Date,Description,Amount",
+    '11/03/2026,"RIDESHARE *TRIP EXAMPLE CITY",-64.30',
+    '11/03/2026,"EXAMPLE APP OVERSEAS 12.00 USD+FOREIGN FEE AUD 0.54",-18.54',
+    '11/03/2026,"FERN CAFE",-12.20'
+  ].join("\n")), { existing: handLogged });
+  assert.deepEqual(parsed.rows.map(function(r){ return r.possibleDuplicate; }), [true, true, false]);
+  assert.equal(parsed.rows[0].matched.what, "Rideshare to the station");
+});

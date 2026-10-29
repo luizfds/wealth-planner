@@ -3260,7 +3260,7 @@ it makes every later item look finished on arrival. Ease of use (191–198) is n
 last. Items are written so that one item is one PR. **Non-goals**, said once so nobody re-proposes them: credit
 scores, bill negotiation, ads, and anything that sends the household's data to a server by default.
 
-## 185. `[ ]` One type scale
+## 185. `[~]` One type scale
 57 size and weight combinations are why pages look assembled rather than designed. Text as small as 9.5px fails
 on a phone.
 

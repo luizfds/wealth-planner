@@ -1521,3 +1521,18 @@ test("the take-home row shows the payslip's net pay, with after-tax payments int
     assert.equal(payslipNetLine(state.income[0]), "");
   } finally { state.income = keep; }
 });
+
+test("a Gross row shows what it comes to after tax under its gross figure; the take-home sits under the rows", async function(){
+  const { afterTaxHtml, takeHomeLineHtml, resetAfterTaxCache } = await import("../src/components/income.js");
+  const { recalcComputedItems } = await import("../src/calc/engine.js");
+  var keep = { income: state.income, properties: state.properties };
+  try {
+    state.properties = [];
+    state.income = [{ id: "s1", what: "Salary", person: "Alex", incomeType: "Gross", amount: 7000, freq: "Monthly", superMode: "On top", sacrificeMode: "none", sacrificeValue: 0, account: "Bank One" },
+      { id: "b1", what: "Bonus", person: "Alex", incomeType: "Gross", amount: 6000, freq: "Yearly", irregular: true, dueMonth: 9, superMode: "On top", sacrificeMode: "none", sacrificeValue: 0 }];
+    recalcComputedItems(); resetAfterTaxCache();
+    assert.match(afterTaxHtml(state.income[0]), /class="m-row-after">\$[\d,]+\/mo after tax</);
+    assert.match(afterTaxHtml(state.income[1]), /after tax<br>\(\$[\d,]+ in Sep\)/);
+    assert.match(takeHomeLineHtml("Alex"), /Take-home pay[^]*\$[\d,]+\.\d\d\/mo/);
+  } finally { Object.assign(state, keep); recalcComputedItems(); }
+});

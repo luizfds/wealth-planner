@@ -32,7 +32,7 @@ import { setUseBudgetLines, setLineExcluded, RENT_EXPENSE_LINES, rentLineFor, se
 import { renderCards, renderDashboardStats, renderDetail, setProjectionReference, logNetWorthSnapshot } from "./components/dashboard.js";
 import {
   personBreakdownHtml, renderIncomeGroups, patchOpenRowBreakdowns, patchIncomeGroupTotals,
-  patchSyntheticIncomeRows, patchIncomeSuperNotes, renderTaxSuper, withholdingCheckText, withholdingCheckHtml, payslipRead, salaryRowFor, flipTaxCard, patchAllTaxPersonOutputs, patchPhiNote,
+  patchSyntheticIncomeRows, patchIncomeAfterTax, patchIncomeSuperNotes, renderTaxSuper, withholdingCheckText, withholdingCheckHtml, payslipRead, salaryRowFor, flipTaxCard, patchAllTaxPersonOutputs, patchPhiNote,
   modernIncomeRowOpen, parseIncomeImportCsv, renderIncomeImportPreview, clearIncomeImportPreview, commitIncomeImport,
   incomeHeaderTotal, setIncomeShowAs
 } from "./components/income.js";
@@ -418,6 +418,8 @@ import { inboxMessage } from "./calc/inbox.js";
       updatePersonSuggestions();
     } else if(section === "income"){
       patchSyntheticIncomeRows();
+      // v3.152.0: each pay row's after-tax figure and the take-home line, from the recomputed tax.
+      patchIncomeAfterTax();
       patchIncomeGroupTotals();
       patchOpenRowBreakdowns();
     } else if(isBudgetListSection(section) && structural){

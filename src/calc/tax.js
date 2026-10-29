@@ -861,11 +861,16 @@ export function scenarioIncomeRows(opts){
         computed: true, oneOff: true, syntheticOneOffFor: o.row.id || "", person: person });
     });
     // v3.148.0: pay that stops within the year, after tax, until it stops.
+    // From the day after it stops, take-home is that much lower. Only once it applies, unless the
+    // caller looks ahead month by month (the cash-flow forecast, opts.withFuture); a projection's
+    // includeRow decides for its own years.
     (parts.ending || []).forEach(function(e){
-      rows.push({ what: (e.row.what || "Pay") + " (after tax)", amount: e.monthly, freq: "Monthly", endDate: e.endDate, computed: true, syntheticEndingFor: e.row.id || "", person: person });
+      var row = { startDate: dayAfter(e.endDate) };
+      if(!(opts && opts.withFuture) && !(opts && opts.includeRow ? opts.includeRow(row) : isActiveOn(row, localDateStr()))) return;
+      rows.push({ what: (e.row.what || "Pay") + " ends (after tax)", amount: -e.monthly, freq: "Monthly", startDate: dayAfter(e.endDate), computed: true, syntheticEndingFor: e.row.id || "", person: person });
     });
     // v3.145.0: the rental's tax saving, as the refund it arrives in.
-    if(parts.refund) rows.push({ what: person + " — tax refund (rental loss)", amount: parts.refund.amount, freq: "Yearly", dueMonth: parts.refund.dueMonth,
+    if(parts.refund) rows.push({ what: person + (parts.refund.amount >= 0 ? " — tax refund at lodgement" : " — tax to pay at lodgement"), amount: parts.refund.amount, freq: "Yearly", dueMonth: parts.refund.dueMonth,
       computed: true, oneOff: true, syntheticRefundFor: person, person: person });
   });
   return rows;
@@ -911,6 +916,7 @@ export function personOneOffSplit(person, opts){
 // already allows for it (tax.settings[person].withholdingVariation — a PAYG withholding variation).
 // The month: when this person's last refund was logged, else October (lodged by 31 October).
 export var REFUND_MONTH_DEFAULT = 10;
+function dayAfter(iso){ return new Date(Date.parse(iso + "T00:00:00Z") + 86400000).toISOString().slice(0, 10); }
 export function rentalRefundFor(person, opts){
   var s = state.tax && state.tax.settings && state.tax.settings[person];
   if(s && s.withholdingVariation) return null;
@@ -934,25 +940,58 @@ function endingRows(person, opts){
       isActiveOn(r, today) && periodsOf(rowAmountFor(r, opts), r.freq).yearly > 0;
   });
 }
-// A person's take-home in the pieces it arrives in: { regularMonthly, oneOffs, refund, ending }.
-// ending: [{ row, monthly, endDate }] — each one's after-tax amount a month, until its end date.
+// v3.151.0: a person's take-home in the pieces it arrives in, the monthly one worked out the way an
+// employer withholds — this pay's rows (running today, at their full rate) as if every pay of the
+// year were this one, with no rental, no bonus and no deductions, because withholding knows none of
+// them. That's the figure a payslip shows, by construction (v3.145–3.149 built it the other way, from
+// the year's tax, and it drifted: the allowance and the bonus measured at the top rate, the rental's
+// saving taken out, an allowance ending part-way through). The rest of the year's take-home —
+// the rental's loss, the bonus taxed higher, pay that stops, deductions — settles at lodgement:
+// `refund`, a refund when positive, tax to pay when negative. The parts add up to the year exactly.
+//   regularMonthly: what a payslip pays now (plus takeHomeAdjust);
+//   oneOffs: bonuses after tax, as before;
+//   ending: [{ row, monthly, endDate, share }] — pay that stops within the year: `monthly` is what
+//     take-home drops by after `endDate`;
+//   refund: { amount, dueMonth, rental } or null — rental is the part that's the property's loss.
+function payNowNet(person, opts, include){
+  var o = Object.assign({}, opts || {}, { includeRow: include, wholeYears: true });
+  var r = computePersonTax(person, o);
+  var fy = opts && opts.fy != null ? Number(opts.fy) : currentTaxFy();
+  var taxable = Math.max(0, (r.gross || 0) - (r.sacrifice || 0));
+  var help = Number(personTaxSettings(person).helpBalance) || 0;
+  var tax = incomeTaxAU(taxable, fy) + medicareLevyAU(taxable, fy) + (help > 0 ? helpRepaymentAnnual(taxable, help, fy) : 0);
+  var net = (r.gross || 0) - (r.sacrifice || 0) - tax;
+  // A PAYG withholding variation puts the rental's saving in each pay.
+  var s = state.tax && state.tax.settings && state.tax.settings[person];
+  if(s && s.withholdingVariation && r.ipTaxEffect > 0) net += r.ipTaxEffect;
+  return net;
+}
+function lastRefundMonth(person){
+  var last = (state.incomeLog || []).filter(function(r){ return r.target === "refund:" + person && r.date; })
+    .sort(function(a, b){ return a.date < b.date ? 1 : -1; })[0];
+  return last ? Number(last.date.slice(5, 7)) : REFUND_MONTH_DEFAULT;
+}
 export function personTakeHomeParts(person, opts){
   var split = personOneOffSplit(person, opts);
-  var refund = rentalRefundFor(person, opts);
   var base = opts && opts.includeRow ? opts.includeRow : function(r){ return isActiveOn(r, localDateStr()); };
-  var total = split.total;
+  var inPay = function(r){ return base(r) && !isOneOffIncome(r); };
+  var payYear = payNowNet(person, opts, inPay);
   var ending = endingRows(person, opts).map(function(r){
-    var without = computePersonTax(person, Object.assign({}, opts || {}, { includeRow: function(x){ return x !== r && base(x); } })).netTakeHome;
-    // What it adds over the months of the year it's paid (v3.149.0: the year counts it only for those).
-    var share = rowYearShare(r, opts);
-    return { row: r, monthly: share > 0 ? Math.round((total - without) / (12 * share) * 100) / 100 : 0, share: share, endDate: r.endDate };
+    var without = payNowNet(person, opts, function(x){ return x !== r && inPay(x); });
+    return { row: r, monthly: Math.round((payYear - without) / 12 * 100) / 100, share: rowYearShare(r, opts), endDate: r.endDate };
   }).filter(function(e){ return e.monthly > 0; });
-  var regular = split.regularNet - (refund ? refund.amount : 0) - ending.reduce(function(t, e){ return t + e.monthly * 12 * e.share; }, 0);
-  return { regularMonthly: Math.round((regular / 12 + takeHomeAdjust(person)) * 100) / 100, oneOffs: split.oneOffs, refund: refund, ending: ending };
+  var monthly = payYear / 12;
+  // What pay actually brings in over the year: this month's take-home, less what stops when it stops.
+  var received = monthly * 12 - ending.reduce(function(t, e){ return t + e.monthly * 12 * (1 - e.share); }, 0);
+  var bonuses = split.oneOffs.reduce(function(t, o){ return t + o.net; }, 0);
+  var settle = Math.round((split.total - bonuses - received) * 100) / 100;
+  var rental = rentalRefundFor(person, opts);
+  var refund = Math.abs(settle) >= 1 ? { amount: settle, dueMonth: lastRefundMonth(person), rental: rental ? rental.amount : 0 } : null;
+  return { regularMonthly: Math.round((monthly + takeHomeAdjust(person)) * 100) / 100, oneOffs: split.oneOffs, refund: refund, ending: ending };
 }
-// What lands each month in pay, now: the regular take-home and whatever's still running of `ending`.
+// What lands each month in pay on `today`: the regular take-home, less what has stopped by then.
 export function monthlyPayNow(parts, today){
-  return Math.round((parts.regularMonthly + (parts.ending || []).reduce(function(t, e){ return t + (!today || e.endDate >= today ? e.monthly : 0); }, 0)) * 100) / 100;
+  return Math.round((parts.regularMonthly - (parts.ending || []).reduce(function(t, e){ return t + (today && e.endDate < today ? e.monthly : 0); }, 0)) * 100) / 100;
 }
 // What's in a scenario's income that doesn't arrive monthly, as a yearly amount.
 export function scenarioOneOffYearly(opts){

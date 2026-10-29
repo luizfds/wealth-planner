@@ -70,7 +70,7 @@ function collectCashFlowEntries(scenario){
     var amt = resolveSharedAmount(item, scenario);
     return amt === item.amount ? item : Object.assign({}, item, { amount: amt });
   });
-  var entries = toEntries(scenarioIncomeRows({ scenario: scenario }), "income", txns)
+  var entries = toEntries(scenarioIncomeRows({ scenario: scenario, withFuture: true }), "income", txns)
     .concat(toEntries(sharedResolved, "expense", txns))
     .concat(toEntries(state.home[scenario] || [], "expense", txns));
   ipProperties().forEach(function(p){

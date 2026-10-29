@@ -1480,3 +1480,9 @@ test("the budget plan's money in shows pay that ends with its end date", async f
   const html = budgetPlanHtml({ income: [{ label: "Net income", monthly: 5000 }, { label: "Site allowance (after tax) — until 31 Dec 2026", monthly: 210 }], groups: [{ label: "Needs", monthly: 3000 }], net: 2210 });
   assert.match(html, /Site allowance \(after tax\) — until 31 Dec 2026/);
 });
+
+test("the budget plan shows tax to pay at lodgement as money out of the year", async function(){
+  const { budgetPlanHtml } = await import("../src/components/cashflow.js");
+  const html = budgetPlanHtml({ income: [{ label: "Net income", monthly: 5000 }, { label: "Alex — tax to pay at lodgement", monthly: -100, oneOff: true }], groups: [{ label: "Needs", monthly: 3000 }] });
+  assert.match(html, /tax to pay at lodgement<\/span><b>−\$100/);
+});

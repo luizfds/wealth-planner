@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { state } from "../src/state.js";
 import { recalcComputedItems } from "../src/calc/engine.js";
-import { personTakeHomeParts, monthlyPayNow, computePersonTax } from "../src/calc/tax.js";
+import { personTakeHomeParts, monthlyPayNow, computePersonTax, incomeTaxAU, medicareLevyAU, currentTaxFy } from "../src/calc/tax.js";
 import { payslipCheck } from "../src/calc/payslipcheck.js";
 import { takeHomeDrift } from "../src/calc/takehome.js";
 import { incomeTargets } from "../src/calc/received.js";
@@ -24,21 +24,24 @@ function withPlan(rows, fn){
 }
 var TODAY = new Date().toISOString().slice(0, 10);
 
-test("pay that ends within the year is its own after-tax row with the end date; the parts still add up", function(){
+test("the monthly take-home is what withholding gives; pay that ends comes off from the day after; the year adds up", function(){
   if(TODAY > "2026-12-31") return; // the fixture's allowance has ended
   withPlan([SALARY, ALLOWANCE], function(){
     var parts = personTakeHomeParts("Sam");
+    var fy = currentTaxFy(), annual = (6000 + 400) * 12;
+    var withheld = annual - incomeTaxAU(annual, fy) - medicareLevyAU(annual, fy);
+    assert.ok(Math.abs(parts.regularMonthly * 12 - withheld) < 1, "as a payslip pays it: the allowance in, taxed as if every pay were this one");
     assert.equal(parts.ending.length, 1);
-    assert.ok(parts.ending[0].monthly > 0 && parts.ending[0].monthly < 400, "taxed at the top rate");
+    var e = parts.ending[0];
+    assert.ok(e.monthly > 0 && e.monthly < 400 && e.share > 0 && e.share < 1);
     var total = computePersonTax("Sam").netTakeHome;
-    // v3.149.0: the year counts the allowance only for the months of it left to run.
-    assert.ok(parts.ending[0].share > 0 && parts.ending[0].share < 1);
-    assert.ok(Math.abs(parts.regularMonthly * 12 + parts.ending[0].monthly * 12 * parts.ending[0].share - total) < 1);
+    var settle = parts.refund ? parts.refund.amount : 0;
+    assert.ok(Math.abs(parts.regularMonthly * 12 - e.monthly * 12 * (1 - e.share) + settle - total) < 1, "pay received plus what settles at lodgement is the year");
     var row = state.income.find(function(i){ return i.syntheticEndingFor === "a1"; });
-    assert.ok(row && row.endDate === "2026-12-31" && row.freq === "Monthly" && row.computed && row.incomeType === "Net");
-    assert.equal(monthlyPayNow(parts, "2027-01-15"), parts.regularMonthly, "gone after it ends");
+    assert.ok(row && row.startDate === "2027-01-01" && row.amount === -e.monthly && row.computed && row.incomeType === "Net");
+    assert.equal(monthlyPayNow(parts, "2027-01-15"), Math.round((parts.regularMonthly - e.monthly) * 100) / 100, "lower once it's stopped");
     var t = incomeTargets().find(function(x){ return x.key === "net:Sam"; });
-    assert.ok(Math.abs(t.monthly - monthlyPayNow(parts, TODAY)) < 0.01, "take-home received is expected with it while it's paid");
+    assert.ok(Math.abs(t.monthly - monthlyPayNow(parts, TODAY)) < 0.01, "take-home received is expected at today's pay");
   });
 });
 
@@ -82,7 +85,8 @@ test("a heads-up from 45 days before pay ends, and the forecast drops it after",
     var n = endingPayNotifications("2026-12-01");
     assert.equal(n.length, 1);
     assert.match(n[0].title, /Site allowance ends/);
-    var row = scenarioIncomeRows({ scenario: state.activeScenario }).find(function(r){ return r.syntheticEndingFor === "a1"; });
-    assert.equal(row.endDate, "2026-12-31");
+    var ahead = scenarioIncomeRows({ scenario: state.activeScenario, withFuture: true }).find(function(r){ return r.syntheticEndingFor === "a1"; });
+    assert.ok(ahead && ahead.startDate === "2027-01-01" && ahead.amount < 0, "the forecast sees it coming");
+    assert.equal(scenarioIncomeRows({ scenario: state.activeScenario }).filter(function(r){ return r.syntheticEndingFor; }).length, 0, "today's totals don't take it off yet");
   });
 });

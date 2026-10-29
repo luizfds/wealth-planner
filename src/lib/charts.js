@@ -119,7 +119,7 @@ export function renderLineChart(container, series, opts){
   container.innerHTML = "";
   var validSeries = series.filter(function(s){ return s.points && s.points.length; });
   if(!validSeries.length){
-    container.innerHTML = '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">' + (opts.emptyMessage || "Not enough data yet.") + '</p>';
+    container.innerHTML = '<p style="color:var(--ink-soft);font-size:var(--fs-sm);margin:0">' + (opts.emptyMessage || "Not enough data yet.") + '</p>';
     return;
   }
   var W = measuredWidth(container, 720), H = opts.height || 260;
@@ -164,7 +164,7 @@ export function renderLineChart(container, series, opts){
   // than as nothing entered yet — so the caller's empty message is the honest answer instead.
   if(yMax === yMin){
     if(yMax === 0){
-      container.innerHTML = '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">' +
+      container.innerHTML = '<p style="color:var(--ink-soft);font-size:var(--fs-sm);margin:0">' +
         (opts.emptyMessage || "Nothing to chart yet.") + '</p>';
       return;
     }
@@ -249,7 +249,11 @@ export function renderLineChart(container, series, opts){
   // labels were being shrunk to 6px along with everything else. Now that they render at their
   // real size, seven ticks across a 316px phone is about 36px apart — and "Aug 24" printed on top
   // of "Aug 27" at both ends of the axis.
-  var minGap = Math.max(44, Math.round(W / 7));
+  // v3.155.0: by each label's own width at the axis' 12px, not a fixed gap — "May 2025" is wider
+  // than "Aug 24", and a fixed 44px printed two of the long ones on top of each other.
+  var labelW = function(t){ return String(t).length * 12 * 0.6; };
+  var extent = function(x, t, anchor){ var w = labelW(t); return anchor === "start" ? [x, x + w] : anchor === "end" ? [x - w, x] : [x - w / 2, x + w / 2]; };
+  var lastRight = -Infinity, lastLeft = -Infinity;
   for(var ti = 0; ti < xTickCount; ti++){
     var xv = xMin + (xMax - xMin) * ti / (xTickCount - 1);
     var xPix = xScale(xv);
@@ -259,14 +263,17 @@ export function renderLineChart(container, series, opts){
     if(xText === lastXLabel) continue;
     // The last tick is the one label worth crowding for — it says where the line ends — so it
     // evicts its neighbour rather than being dropped by it.
-    if(xPix - lastXPix < minGap){
+    var anchor = ti === 0 ? "start" : (isLast ? "end" : "middle");
+    var ext = extent(xPix, xText, anchor);
+    if(ext[0] < lastRight + 8){
       if(!isLast) continue;
       if(svg.lastChild && svg.lastChild.getAttribute && svg.lastChild.getAttribute("class") === "proj-axislabel"){
         svg.removeChild(svg.lastChild);
+        // With its neighbour gone, the last label can still crowd the one before that.
+        if(ext[0] < lastLeft - 8 && svg.lastChild && svg.lastChild.getAttribute && svg.lastChild.getAttribute("class") === "proj-axislabel") svg.removeChild(svg.lastChild);
       }
     }
-    lastXLabel = xText; lastXPix = xPix;
-    var anchor = ti === 0 ? "start" : (isLast ? "end" : "middle");
+    lastXLabel = xText; lastXPix = xPix; lastLeft = ext[0]; lastRight = ext[1];
     var xlbl = svgEl("text", { x: xPix, y: H - 8, "text-anchor": anchor, class: "proj-axislabel" });
     xlbl.textContent = xText;
     svg.appendChild(xlbl);
@@ -406,7 +413,7 @@ export function renderStackedAreaChart(container, series, opts){
   container.innerHTML = "";
   var live = (series || []).filter(function(s){ return s.points && s.points.length; });
   if(live.length < 1 || live[0].points.length < 2){
-    container.innerHTML = '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">' +
+    container.innerHTML = '<p style="color:var(--ink-soft);font-size:var(--fs-sm);margin:0">' +
       (opts.emptyMessage || "Not enough logged history yet.") + '</p>';
     return;
   }
@@ -455,7 +462,7 @@ export function renderStackedAreaChart(container, series, opts){
     svg.appendChild(svgEl("line", { x1: padL, y1: gy, x2: W - padR, y2: gy,
       stroke: "var(--border)", "stroke-width": 1, "shape-rendering": "crispEdges" }));
     var lbl = svgEl("text", { x: padL - 8, y: gy + 4, "text-anchor": "end",
-      fill: "var(--ink-soft)", "font-size": "11" });
+      fill: "var(--ink-soft)", "font-size": "12" });
     lbl.textContent = opts.yFormat ? opts.yFormat(gv) : String(Math.round(gv));
     svg.appendChild(lbl);
   }
@@ -502,22 +509,25 @@ export function renderStackedAreaChart(container, series, opts){
   // Ticks spaced by *time*, not by array position. Observation dates cluster — a year of quarterly
   // snapshots followed by a fortnight of daily ones — so picking every nth point put four labels
   // inside the last centimetre, overprinted into a smear. Walking the time axis instead, and then
-  // dropping any label that would land within 56px of the previous one, keeps them readable
+  // dropping any label that would overlap the previous one, keeps them readable
   // however lumpy the logging was.
   var xLabels = svgEl("g", {});
   var labelCount = Math.max(2, Math.min(opts.xTickCount || 5, n));
-  var lastX = -Infinity, lastText = null;
+  var lastRight = -Infinity, lastText = null;
   for(var t = 0; t < labelCount; t++){
     var atTime = xMin + (xSpan * (labelCount === 1 ? 0 : t / (labelCount - 1)));
     var x = px(atTime);
     var text = opts.xFormat ? opts.xFormat(atTime) : new Date(atTime).toISOString().slice(0, 10);
-    if(x - lastX < 56 || text === lastText) continue;
     var anchor = t === 0 ? "start" : (t === labelCount - 1 ? "end" : "middle");
+    // v3.155.0: by the label's own width at 12px rather than a fixed 56px.
+    var w = String(text).length * 12 * 0.6;
+    var left = anchor === "start" ? x : anchor === "end" ? x - w : x - w / 2;
+    if(left < lastRight + 8 || text === lastText) continue;
     var tx = svgEl("text", { x: x, y: H - 6, "text-anchor": anchor,
-      fill: "var(--ink-soft)", "font-size": "11" });
+      fill: "var(--ink-soft)", "font-size": "12" });
     tx.textContent = text;
     xLabels.appendChild(tx);
-    lastX = x; lastText = text;
+    lastRight = left + w; lastText = text;
   }
   svg.appendChild(xLabels);
   container.appendChild(svg);

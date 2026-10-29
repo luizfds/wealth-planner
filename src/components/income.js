@@ -229,7 +229,7 @@ export function renderIncomeImportPreview(parsed){
   var summary = parsed.valid.length + " row" + (parsed.valid.length === 1 ? "" : "s") + " ready to import" +
     (parsed.errors.length ? ", " + parsed.errors.length + " skipped" : "");
   var errorsHtml = parsed.errors.length
-    ? '<ul style="margin:6px 0 0;padding-left:18px;font-size:12px;color:var(--ink-soft)">' +
+    ? '<ul style="margin:6px 0 0;padding-left:18px;font-size:var(--fs-xs);color:var(--ink-soft)">' +
         parsed.errors.slice(0, 10).map(function(e){ return "<li>Row " + e.row + ": " + escapeAttr(e.reason) + "</li>"; }).join("") +
         (parsed.errors.length > 10 ? "<li>and " + (parsed.errors.length - 10) + " more</li>" : "") +
       "</ul>"
@@ -730,7 +730,7 @@ function refreshOpenTaxYear(){
 function taxPersonHeadHtml(person, r, pi){
   var pid = escapeAttr(person);
   return '<div class="tax-person-head">' +
-      '<h3><span class="m-avatar series-color-' + (pi % 8) + '" style="width:24px;height:24px;font-size:11px;margin-right:8px">' + escapeAttr(person.charAt(0).toUpperCase()) + '</span>' + escapeAttr(person) + '</h3>' +
+      '<h3><span class="m-avatar series-color-' + (pi % 8) + '" style="width:24px;height:24px;font-size:var(--fs-xs);margin-right:8px">' + escapeAttr(person.charAt(0).toUpperCase()) + '</span>' + escapeAttr(person) + '</h3>' +
       '<span class="tax-marginal">Marginal rate ' + fmtPercent1.format(r.marginalRate) + ' · effective ' + fmtPercent1.format(r.effectiveRate) + '</span>' +
       '<button type="button" class="m-flip-btn" data-tax-flip="' + pid + '" aria-label="Flip ' + pid + '\'s card to see the calculation breakdown" title="Flip to see how this is calculated"><span aria-hidden="true">⇋</span> Breakdown</button>' +
     '</div>';

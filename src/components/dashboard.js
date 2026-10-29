@@ -54,7 +54,7 @@ export function renderCards(){
           '<div>' +
             // v3.102.0: /mo is a normal month — the same figure as the header — and the year carries
             // the bonuses, so the two never disagree without saying why.
-            '<div class="card-savings' + (regularOf(t) < 0 ? " neg" : "") + '">' + fmtCurrency0.format(regularOf(t)) + '<span style="font-size:13px;font-weight:400;color:var(--ink-soft)"> /mo</span></div>' +
+            '<div class="card-savings' + (regularOf(t) < 0 ? " neg" : "") + '">' + fmtCurrency0.format(regularOf(t)) + '<span style="font-size:var(--fs-sm);font-weight:400;color:var(--ink-soft)"> /mo</span></div>' +
             '<div class="card-sub">' + fmtCurrency0.format(t.netYearly) + ' / year net savings' + (t.oneOffYearly > 0.5 ? ', incl. ' + fmtCurrency0.format(t.oneOffYearly) + ' bonuses' : '') + '</div>' +
           '</div>' +
           '<div class="card-bar-track"><div class="card-bar-fill' + (t.rate < 0 ? " neg" : "") + '" style="width:' + Math.min(100, Math.abs(t.rate) / maxAbsRate * 100) + '%"></div></div>' +
@@ -343,7 +343,7 @@ export function renderDetail(){
     return '<div class="acct-row"><span class="acct-name" title="' + e[0] + '">' + e[0] + '</span>' +
       '<span class="acct-track"><span class="acct-fill series-color-' + (i % 8) + '" style="width:' + (e[1]/maxAcct*100) + '%"></span></span>' +
       '<span class="acct-amt">' + fmtCurrency0.format(e[1]) + '</span></div>';
-  }).join("") : '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">No expenses yet.</p>';
+  }).join("") : '<p style="color:var(--ink-soft);font-size:var(--fs-sm);margin:0">No expenses yet.</p>';
 
   renderFireProgress(scenario, t);
 }

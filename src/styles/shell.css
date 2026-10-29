@@ -6,16 +6,16 @@
     overscroll-behavior: contain;
   }
   .app-brand{ padding: 0 8px; }
-  .app-brand-name{ font-family:"Inter", system-ui, sans-serif; font-weight:600; font-size:18px; letter-spacing:-0.01em; display:flex; align-items:center; gap:8px; }
+  .app-brand-name{ font-family:"Inter", system-ui, sans-serif; font-weight:600; font-size:var(--fs-lg); letter-spacing:-0.01em; display:flex; align-items:center; gap:8px; }
   /* v3.106.0: the app icon's mark, not a coloured first letter. */
   .app-brand-mark{ color: var(--brass); flex:none; }
-  .app-brand-tag{ font-size:11px; color: var(--ink-soft); margin-top:2px; }
+  .app-brand-tag{ font-size:var(--fs-xs); color: var(--ink-soft); margin-top:2px; }
   .nav-menu-toggle{ display:none; }
   .app-nav{ display:flex; flex-direction:column; gap:2px; }
   .mobile-tabbar{ display:none; }
   .nav-item{
     all:unset; box-sizing:border-box; display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:8px;
-    font-size:13.5px; font-weight:500; color: var(--ink-soft); cursor:pointer;
+    font-size:var(--fs-md); font-weight:600; color: var(--ink-soft); cursor:pointer;
   }
   .nav-item:hover{ background: var(--paper-sunken); color: var(--ink); }
   .nav-item.active{ background: var(--brass-wash); color: var(--brass-strong); font-weight:600; }
@@ -39,7 +39,7 @@
   .subnav::-webkit-scrollbar{ display:none; }
   .subnav-item{
     all:unset; box-sizing:border-box; padding:9px 12px 10px;
-    font-size:13px; font-weight:600; color: var(--ink-soft); cursor:pointer;
+    font-size:var(--fs-sm); font-weight:600; color: var(--ink-soft); cursor:pointer;
     white-space:nowrap;
     /* Declared after all:unset (which strips it) — transparent on every tab so the active one's
        underline doesn't shift its neighbours by 2px when it moves. The negative margin sits it on
@@ -73,13 +73,13 @@
   .filter-chip{
     all:unset; box-sizing:border-box; display:inline-flex; align-items:center; gap:6px;
     padding:6px 11px; border-radius:8px; border:1px solid var(--border);
-    background: var(--paper-raised); color: var(--ink-soft); font-size:12px; cursor:pointer;
+    background: var(--paper-raised); color: var(--ink-soft); font-size:var(--fs-xs); cursor:pointer;
     white-space:nowrap; min-height:40px;
   }
   .filter-chip b{ color: var(--ink); font-weight:600; }
   .filter-chip:hover{ border-color: var(--brass); }
   .filter-chip:focus-visible{ box-shadow: var(--focus-ring); }
-  .filter-chip-caret{ color: var(--ink-soft); font-size:10px; }
+  .filter-chip-caret{ color: var(--ink-soft); font-size:var(--fs-xs); }
   #assetsPersonFilter[hidden]{ display:none; }
 
   /* Export/Import lived as three ghost buttons across the top of four pages — a row of controls
@@ -94,7 +94,7 @@
     all:unset; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center;
     width:40px; height:40px; border-radius:8px; cursor:pointer;
     border:1px solid var(--border); background: var(--paper-raised); color: var(--ink-soft);
-    font-size:18px; line-height:1;
+    font-size:var(--fs-lg); line-height:1;
   }
   .page-overflow-btn:hover{ border-color: var(--brass); color: var(--ink); }
   .page-overflow-btn:focus-visible{ box-shadow: var(--focus-ring); }
@@ -110,8 +110,8 @@
   .page-overflow-menu[hidden]{ display:none; }
   .page-overflow-menu .btn{ justify-content:flex-start; text-align:left; width:100%; }
   .app-sidebar-footer{ margin-top:auto; display:flex; flex-direction:column; gap:14px; padding-top:14px; border-top:1px solid var(--border); }
-  .app-sidebar-note{ font-size:10.5px; color: var(--ink-soft); line-height:1.5; }
-  .app-version{ font-family:var(--font-num); font-size:10.5px; color: var(--ink-soft); margin:6px 0 0; }
+  .app-sidebar-note{ font-size:var(--fs-xs); color: var(--ink-soft); line-height:1.5; }
+  .app-version{ font-family:var(--font-num); font-size:var(--fs-xs); color: var(--ink-soft); margin:6px 0 0; }
   /* Sits inline after the version number, which is exactly where someone looks when wondering
      whether they're on the latest — so it inherits the version line's own muted treatment rather
      than becoming a third thing competing in the footer. */
@@ -121,7 +121,7 @@
   }
   .app-version .link-btn:focus-visible{ box-shadow: var(--focus-ring); border-radius:3px; }
   .app-sidebar-note a.link-btn{ color: var(--brass-strong); text-decoration:underline; cursor:pointer; background:none; border:none; font: inherit; padding:0; }
-  .feature-request-link{ font-size:11.5px; color: var(--brass-strong); text-decoration:none; margin-top:-4px; }
+  .feature-request-link{ font-size:var(--fs-xs); color: var(--brass-strong); text-decoration:none; margin-top:-4px; }
   .feature-request-link:hover{ text-decoration:underline; }
 
   .app-main{ min-width:0; display:flex; flex-direction:column; }
@@ -129,12 +129,12 @@
     display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
     padding: 18px 28px; border-bottom:1px solid var(--border); background: var(--paper); position:sticky; top:0; z-index:4;
   }
-  .app-topbar h1{ font-family:"Inter", system-ui, sans-serif; font-weight:600; font-size:22px; margin:0; letter-spacing:-0.01em; }
+  .app-topbar h1{ font-family:"Inter", system-ui, sans-serif; font-weight:600; font-size:var(--fs-xl); margin:0; letter-spacing:-0.01em; }
   .app-topbar-left{ display:flex; align-items:center; gap:20px; flex-wrap:wrap; }
   .global-metrics{ display:flex; align-items:center; gap:14px; padding:6px 14px; border-radius:100px; background: var(--paper-sunken); border:1px solid var(--border); }
   .global-metric{ display:flex; align-items:baseline; gap:6px; }
-  .global-metric span{ font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; }
-  .global-metric b{ font-family:"Inter", system-ui, sans-serif; font-weight:700; font-size:14.5px; font-variant-numeric: tabular-nums; color: var(--ink); white-space:nowrap; }
+  .global-metric span{ font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; }
+  .global-metric b{ font-family:"Inter", system-ui, sans-serif; font-weight:600; font-size:var(--fs-md); font-variant-numeric: tabular-nums; color: var(--ink); white-space:nowrap; }
   .global-metric b.neg{ color: var(--bad-ink); }
   .global-metric b.pos{ color: var(--good-ink); }
   .global-metric-divider{ width:1px; height:14px; background: var(--border); }
@@ -143,27 +143,27 @@
      it isn't today, so a past year can't be mistaken for now. */
   .period-wrap{ position:relative; }
   .period-btn{ display:inline-flex; align-items:center; gap:6px; min-height:34px; padding:5px 12px; border-radius:100px;
-    border:1px solid var(--border); background: var(--paper); color: var(--ink); font: 600 13.5px/1 "Inter", system-ui, sans-serif;
+    border:1px solid var(--border); background: var(--paper); color: var(--ink); font: 600 var(--fs-md)/1 "Inter", system-ui, sans-serif;
     font-variant-numeric: tabular-nums; cursor:pointer; white-space:nowrap; }
   .period-btn:hover{ background: var(--paper-sunken); }
   .period-btn:focus-visible{ box-shadow: var(--focus-ring); outline:none; }
   .period-btn.is-past{ border-color: var(--brass-strong); background: var(--brass-wash); }
-  .period-btn-flag{ font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--brass-strong); }
+  .period-btn-flag{ font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--brass-strong); }
   .period-menu{ position:absolute; top:calc(100% + 8px); left:0; z-index:30; width:min(380px, calc(100vw - 32px));
     background: var(--paper-raised); border:1px solid var(--border); border-radius:14px; box-shadow: 0 12px 32px rgba(0,0,0,.18);
     padding:14px; display:flex; flex-direction:column; gap:12px; }
   .period-menu[hidden]{ display:none; }
   .period-menu-head{ display:flex; flex-direction:column; gap:3px; }
-  .period-menu-head b{ font-size:14px; }
-  .period-menu-head span{ font-size:12px; color: var(--ink-soft); line-height:1.4; }
-  .period-sec-title{ font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); margin-bottom:6px; }
+  .period-menu-head b{ font-size:var(--fs-md); }
+  .period-menu-head span{ font-size:var(--fs-xs); color: var(--ink-soft); line-height:1.4; }
+  .period-sec-title{ font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); margin-bottom:6px; }
   .period-sec-title small{ text-transform:none; letter-spacing:0; font-weight:400; }
   .period-chips{ display:flex; flex-wrap:wrap; gap:6px; }
   .period-months{ display:grid; grid-template-columns: repeat(4, 1fr); }
   .period-months .period-chip:first-child{ grid-column: 1 / -1; }
   .period-chip{ min-height:34px; padding:6px 10px; border-radius:8px; border:1px solid var(--border); background: var(--paper);
-    color: var(--ink); font: 500 13px/1.1 "Inter", system-ui, sans-serif; cursor:pointer; font-variant-numeric: tabular-nums; }
-  .period-chip small{ font-size:10px; color: var(--ink-soft); font-weight:600; text-transform:uppercase; }
+    color: var(--ink); font: 400 var(--fs-sm)/1.1 "Inter", system-ui, sans-serif; cursor:pointer; font-variant-numeric: tabular-nums; }
+  .period-chip small{ font-size:var(--fs-xs); color: var(--ink-soft); font-weight:600; text-transform:uppercase; }
   .period-chip:not(.active):not([disabled]):hover{ background: var(--paper-sunken); }
   .period-chip.active{ background: var(--ink); color: var(--paper); border-color: var(--ink); }
   .period-chip.active small{ color: inherit; opacity:.8; }
@@ -178,7 +178,7 @@
     .period-menu{ position:fixed; left:16px; right:16px; width:auto; max-height:calc(100vh - 120px); overflow:auto; }
   }
   .ty-yearnote{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-  .ty-yearnote b{ font-size:16px; }
+  .ty-yearnote b{ font-size:var(--fs-lg); }
   .app-content{ padding: 24px 28px 60px; width:100%; }
   /* Room under the last element for the floating controls to sit in. The fab and the scroll-to-top
      button are fixed to the bottom-right, so on a page too short to scroll they land on top of
@@ -191,7 +191,7 @@
     position:fixed; top:-100px; left:12px; z-index:100;
     background: var(--paper-raised); color: var(--brass-strong);
     border:1px solid var(--brass); border-radius:8px;
-    padding:12px 16px; font-size:13px; font-weight:600; text-decoration:none;
+    padding:12px 16px; font-size:var(--fs-sm); font-weight:600; text-decoration:none;
     min-height:44px; display:flex; align-items:center;
     transition: top .12s ease;
   }
@@ -199,7 +199,7 @@
 
   .app-page{ display:flex; flex-direction:column; gap:20px; padding-bottom:96px; }
   .app-page[hidden]{ display:none; }
-  .page-intro{ color: var(--ink-soft); font-size:13.5px; max-width:70ch; margin:0; }
+  .page-intro{ color: var(--ink-soft); font-size:var(--fs-md); max-width:70ch; margin:0; }
 
   .mobile-nav-toggle{ display:none; }
 
@@ -243,7 +243,7 @@
       color: var(--ink-soft); text-align:center; transition: background .15s ease, color .15s ease;
     }
     .mobile-tab-icon{ width:21px; height:21px; flex:none; }
-    .mobile-tab-label{ font-size:10.5px; font-weight:600; letter-spacing:.01em; }
+    .mobile-tab-label{ font-size:var(--fs-xs); font-weight:600; letter-spacing:.01em; }
     .mobile-tab:active .mobile-tab-pill{ background: var(--paper-sunken); }
     .mobile-tab.active .mobile-tab-pill{ color: var(--brass-strong); background: var(--brass-wash); }
     /* .mobile-tab sets its own display, so [hidden] needs saying again. */
@@ -256,7 +256,7 @@
     }
     .mobile-more-item{
       all:unset; box-sizing:border-box; display:block; width:100%; padding:10px 10px; border-radius:7px;
-      font-size:13.5px; color: var(--ink); cursor:pointer;
+      font-size:var(--fs-md); color: var(--ink); cursor:pointer;
     }
     /* [hidden] alone does nothing here — .mobile-more-item already sets its own display (see
        CLAUDE.md) — used to feature-detect-hide Share on devices without file-capable Web Share. */
@@ -265,7 +265,7 @@
     .mobile-more-item.active{ color: var(--brass-strong); font-weight:600; }
     .mobile-more-toggle{ display:flex; align-items:center; gap:9px; cursor:pointer; }
     .mobile-more-divider{ height:1px; background: var(--border); margin:6px 4px; }
-    .mobile-more-version{ font-size:10.5px; color: var(--ink-soft); padding:8px 10px 2px; margin:4px 0 0; border-top:1px solid var(--border); }
+    .mobile-more-version{ font-size:var(--fs-xs); color: var(--ink-soft); padding:8px 10px 2px; margin:4px 0 0; border-top:1px solid var(--border); }
   }
 
   /* ---------------- Quick-action button ---------------- */
@@ -372,7 +372,7 @@
     .mobile-tab-label{ max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   }
   @media (max-width: 360px){
-    .mobile-tab-label{ font-size:10px; }
+    .mobile-tab-label{ font-size:var(--fs-xs); }
   }
 
   /* v3.33.0 — the header toolbar: one style for every button, data actions in a menu. */
@@ -382,7 +382,7 @@
   .menu-danger{ color: var(--bad-ink) !important; }
   /* The Checks count on Settings (v3.63.0). */
   .nav-badge{ display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; padding:0 5px; margin-left:6px; border-radius:9px;
-    background: var(--bad); color:#fff; font-size:11px; font-weight:700; vertical-align:middle; font-variant-numeric: tabular-nums; }
+    background: var(--bad); color:#fff; font-size:var(--fs-xs); font-weight:600; vertical-align:middle; font-variant-numeric: tabular-nums; }
   .nav-badge[hidden]{ display:none; }
   .nav-badge-dot{ position:absolute; top:4px; right:calc(50% - 16px); min-width:8px; width:8px; height:8px; padding:0; margin:0; }
   .mobile-tab-pill{ position:relative; }
@@ -397,9 +397,9 @@
   .lock-screen{ position:fixed; inset:0; z-index:1000; background: var(--paper); display:flex; align-items:center; justify-content:center; padding:16px; }
   .lock-screen[hidden]{ display:none; }
   .lock-card{ width:min(360px, 100%); display:flex; flex-direction:column; gap:10px; text-align:center; }
-  .lock-card h2{ margin:0; font-size:20px; }
-  .lock-card p{ margin:0; color: var(--ink-soft); font-size:13.5px; }
-  .lock-card input{ min-height:48px; font-size:20px; text-align:center; letter-spacing:.3em; border:1px solid var(--border); border-radius:10px; background: var(--paper-raised); color: var(--ink); }
+  .lock-card h2{ margin:0; font-size:var(--fs-xl); }
+  .lock-card p{ margin:0; color: var(--ink-soft); font-size:var(--fs-md); }
+  .lock-card input{ min-height:48px; font-size:var(--fs-xl); text-align:center; letter-spacing:.3em; border:1px solid var(--border); border-radius:10px; background: var(--paper-raised); color: var(--ink); }
   .lock-card input:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
   .lock-error{ color: var(--bad-ink) !important; }
   .lock-error[hidden]{ display:none; }
@@ -411,10 +411,10 @@ body[data-current-page="dashboard"] .global-metrics{ display:none; }
 /* v3.138.0: the keyboard shortcuts list (press ?). */
 .shortcuts-dialog{ border:1px solid var(--border); border-radius:14px; padding:18px 20px; background: var(--paper-raised); color: var(--ink); box-shadow: var(--shadow); min-width:300px; }
 .shortcuts-dialog::backdrop{ background: rgba(15,23,42,.35); }
-.shortcuts-dialog h2{ margin:0 0 10px; font-size:16px; }
-.shortcuts-dialog ul{ list-style:none; margin:0 0 14px; padding:0; display:grid; gap:6px; font-size:13.5px; }
+.shortcuts-dialog h2{ margin:0 0 10px; font-size:var(--fs-lg); }
+.shortcuts-dialog ul{ list-style:none; margin:0 0 14px; padding:0; display:grid; gap:6px; font-size:var(--fs-md); }
 .shortcuts-dialog li{ display:grid; grid-template-columns: 110px 1fr; align-items:center; }
-.shortcuts-dialog kbd{ display:inline-block; min-width:20px; padding:1px 6px; border:1px solid var(--border); border-bottom-width:2px; border-radius:5px; background: var(--paper); font: 600 12px var(--font-num); text-align:center; }
+.shortcuts-dialog kbd{ display:inline-block; min-width:20px; padding:1px 6px; border:1px solid var(--border); border-bottom-width:2px; border-radius:5px; background: var(--paper); font: 600 var(--fs-xs) var(--font-num); text-align:center; }
 .shortcuts-dialog form{ display:flex; justify-content:flex-end; }
 
 /* v3.138.0: between the phone layout and a wide screen the header needs its room for the page's
@@ -429,7 +429,7 @@ body[data-current-page="dashboard"] .global-metrics{ display:none; }
 .avatar-btn{
   all:unset; box-sizing:border-box; position:relative; display:inline-flex; align-items:center; justify-content:center;
   width:34px; height:34px; border-radius:50%; cursor:pointer; flex:none;
-  background: var(--brass-wash); color: var(--brass-strong); font-weight:700; font-size:14px;
+  background: var(--brass-wash); color: var(--brass-strong); font-weight:600; font-size:var(--fs-md);
 }
 .avatar-btn:hover, .avatar-btn[aria-expanded="true"]{ box-shadow: 0 0 0 2px var(--brass); }
 .avatar-btn:focus-visible{ box-shadow: var(--focus-ring); }
@@ -439,7 +439,7 @@ body[data-current-page="dashboard"] .global-metrics{ display:none; }
 .avatar-menu .btn, .avatar-menu .avatar-item{ justify-content:flex-start; text-align:left; width:100%; }
 .avatar-item small{ margin-left:auto; color: var(--ink-soft); font-weight:400; }
 .avatar-divider{ height:1px; background: var(--border); margin:4px 2px; }
-.avatar-version{ font: 11px var(--font-num); color: var(--ink-soft); margin:2px 8px 4px; }
+.avatar-version{ font: var(--fs-xs) var(--font-num); color: var(--ink-soft); margin:2px 8px 4px; }
 
 /* ---------------- A phone's header (v3.140.0) ----------------
    No brand bar: the page title is the header, with search, notifications and the avatar beside it.
@@ -449,12 +449,12 @@ body[data-current-page="dashboard"] .global-metrics{ display:none; }
   .app-sidebar{ display:none; }
   .app-topbar{ padding: calc(12px + env(safe-area-inset-top)) 16px 10px; align-items:flex-start; flex-wrap:nowrap; gap:10px; transition: padding .15s ease; }
   .app-topbar-left{ flex:1 1 0; min-width:0; gap:4px 6px; }
-  .app-topbar h1{ font-size:26px; letter-spacing:-0.02em; transition: font-size .15s ease; }
+  .app-topbar h1{ font-size:var(--fs-2xl); letter-spacing:-0.02em; transition: font-size .15s ease; }
   .app-topbar .period-wrap{ flex-basis:100%; }
   .app-topbar .actions{ display:flex; flex:none; flex-wrap:nowrap; gap:4px; }
   .app-topbar #statusChip, .app-topbar .global-metrics{ display:none; }
   .app-topbar.is-compact{ padding-top: calc(8px + env(safe-area-inset-top)); padding-bottom:8px; align-items:center; }
-  .app-topbar.is-compact h1{ font-size:18px; }
+  .app-topbar.is-compact h1{ font-size:var(--fs-lg); }
   .app-topbar.is-compact .period-wrap, .app-topbar.is-compact .page-help-btn, .app-topbar.is-compact .page-actions-slot{ display:none; }
 }
 .avatar-menu a.avatar-item{ text-decoration:none; color: var(--ink); }
@@ -462,11 +462,11 @@ body[data-current-page="dashboard"] .global-metrics{ display:none; }
 .merge-dialog{ max-width:min(520px, calc(100vw - 32px)); max-height:min(80vh, 640px); overflow:auto; }
 .merge-list{ display:grid; gap:10px; margin:0 0 14px; }
 .merge-item{ border:1px solid var(--border); border-radius:10px; padding:8px 10px 10px; margin:0; min-width:0; }
-.merge-item legend{ font-size:12.5px; font-weight:600; padding:0 4px; overflow-wrap:anywhere; }
-.merge-opt{ display:flex; gap:8px; align-items:flex-start; padding:6px 2px; font-size:13.5px; cursor:pointer; min-height:40px; }
+.merge-item legend{ font-size:var(--fs-sm); font-weight:600; padding:0 4px; overflow-wrap:anywhere; }
+.merge-opt{ display:flex; gap:8px; align-items:flex-start; padding:6px 2px; font-size:var(--fs-md); cursor:pointer; min-height:40px; }
 .merge-opt input{ margin-top:3px; }
 .merge-opt span{ display:flex; flex-direction:column; min-width:0; overflow-wrap:anywhere; }
-.merge-opt small{ color: var(--ink-soft); font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+.merge-opt small{ color: var(--ink-soft); font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em; }
 .merge-actions{ display:flex; justify-content:flex-end; gap:8px; }
 /* v3.144.1 (item 183): the phone header's small buttons — ⓘ, ⋯, the period, the bell, the avatar —
    keep their look but take a tap 6px further out each way (a 28px ⓘ becomes a 40px target, the

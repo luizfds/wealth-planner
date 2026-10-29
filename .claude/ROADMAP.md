@@ -3260,7 +3260,7 @@ it makes every later item look finished on arrival. Ease of use (191–198) is n
 last. Items are written so that one item is one PR. **Non-goals**, said once so nobody re-proposes them: credit
 scores, bill negotiation, ads, and anything that sends the household's data to a server by default.
 
-## 185. `[ ]` One type scale
+## 185. `[x]` One type scale
 57 size and weight combinations are why pages look assembled rather than designed. Text as small as 9.5px fails
 on a phone.
 
@@ -3271,6 +3271,18 @@ do inline `style="font-size…"` in the components. Uppercase micro-labels (`11p
 Done when: the audit script (scratchpad pattern: count computed size/weight pairs on each page's visible text)
 finds ≤ 10 combinations across all pages and nothing under 12px; a test fails on a raw `font-size:` px value
 outside `base.css`.
+
+Shipped as v3.155.0. Seven sizes as tokens in `base.css` — 12 · 13 · 14 · 17 · 20 · 26 · 32px (`--fs-xs` … `--fs-3xl`) —
+and two weights, 400 and 600; every `font-size` in the stylesheets, components and `index.html` goes through a token,
+print sizes in pt aside. `b`, `strong`, `th` and headings are 600, so bold inside a semibold label no longer goes to 900.
+Measured over eleven pages at 390px: 57 size/weight combinations before, 11 after (two of those are the ⋯ and + glyphs),
+nothing under 12px. What the larger small text needed: chart date labels spaced by their own width (two "May 2025"s
+had printed on top of each other), the Show-as switch's options sharing the track, a share row's trend line giving up
+width below 420px and stepping aside below 380px so units · price keeps its digits, and the year's category names and
+the take-home legend allowed a second line. Text clipped by an ellipsis, measured on every page at 360/390/1280px:
+10 / 7 / 4 before, 11 / 9 / 4 after (one account name at 360px; the rest were already clipped). `tests/typescale.test.js`
+fails on a raw px size or another weight.
+
 
 ## 186. `[ ]` One button system
 32 different-looking buttons: outlined, ghost, link-styled, pill, uppercase `<summary>`s acting as buttons, and

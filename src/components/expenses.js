@@ -2239,8 +2239,8 @@ export function renderYearSpending(){
     '</div>';
   }).join("") + showAllButtonHtml("ytd", cappedYear.hidden, listsShowAll.ytd && groups.length > LIST_CAP + 2);
 
+  // v3.154.0: no stacked category bar here — Actual vs. planned above already draws one; these rows are the year's.
   panel.innerHTML = headline +
-    (categoryChartHtml(groups.filter(function(g){ return g.monthly > 0; }), "") || "") +
     '<div class="year-cat-rows">' + rows + '</div>' +
     (plannedTotal >= 1 ? '<p class="ledger-note help" style="margin:6px 0 0">Planned is each budget line\'s share of the year so far, from the day it starts to the day it ends. Bills that come once or twice a year are spread evenly, so one paid early reads as over plan until the year catches up.</p>' : '');
 }

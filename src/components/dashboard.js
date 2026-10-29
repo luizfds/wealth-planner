@@ -12,7 +12,6 @@ import { MONTH_NAMES } from "../constants.js";
 import { monthKeysBack, monthKeyLabel } from "../calc/trends.js";
 import { observationDates, categorySeries, trimUntracked, contributionsVsGrowth, monthlyCashFlow, spendCoverage } from "../calc/history.js";
 import { fmtCurrency0, fmtPercent1, fmtRunway, localDateStr, fmtDate } from "../lib/format.js";
-import { upcomingBills as calendarUpcoming } from "../calc/bills.js";
 import { escapeAttr, segLabel } from "../lib/html.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { renderLineChart } from "../lib/charts.js";
@@ -206,7 +205,6 @@ export function renderDashboardStats(){
     lastTile;
   renderStaleAssetsBanner();
   renderActualVsExpectedPanel(active, t);
-  renderUpcomingBillsPanel();
   renderCashFlowForecastPanel();
   renderProjectionAccuracyPanel();
   renderMonthlyCashFlow();
@@ -258,29 +256,8 @@ function renderCashFlowForecastPanel(){
     rows + reserveNote;
 }
 
-// Shared expenses with at least one logged transaction, projected forward via nextDueDate() from
-// the most recent one and sorted soonest-first — same-scenario expenses only (state.shared, not
-// state.home[scenario]). Sourced from state.transactions[] (via lastTransactionDateFor()), not a
-// manual field on the expense itself — see expenses.js's logExpenseTransaction()/isDueForReview().
-function renderUpcomingBillsPanel(){
-  var panel = document.getElementById("upcomingBillsPanel");
-  if(!panel) return;
-  // v3.94.1: the bills calendar's reading — see calc/bills.js upcomingBills.
-  var upcoming = calendarUpcoming(state.shared, state.transactions, localDateStr(), 31, { accounts: state.accounts, transfers: state.transfers });
-  if(!upcoming.length){
-    panel.innerHTML =
-      '<h3>Upcoming bills</h3>' +
-      '<p class="fire-note">Log a transaction against a shared expense (Cash flow) to see it projected here.</p>';
-    return;
-  }
-  var rows = upcoming.slice(0, 8).map(function(i){
-    var days = i.days;
-    var label = days < 0 ? ("overdue " + Math.abs(days) + "d") : (days === 0 ? "today" : "in " + days + "d");
-    var cls = days < 0 ? "due-overdue" : (days <= 7 ? "due-soon" : "");
-    return '<div class="fire-stat-row"><span>' + escapeAttr(i.what) + ' <span class="due-note ' + cls + '" style="display:inline">(' + label + ')</span></span><b>' + fmtCurrency0.format(i.amount) + '</b></div>';
-  }).join("");
-  panel.innerHTML = '<h3>Upcoming bills</h3>' + rows;
-}
+// v3.154.0: Insights' Upcoming bills panel is gone — the same list heads Home → Overview (Bills — next
+// 2 weeks) and the Bills tab has the month.
 
 // A nudge, not an error — this app has no backend, so there's no way to push a notification
 // when it's closed. This only ever surfaces on load/whenever the Dashboard re-renders.
@@ -708,7 +685,20 @@ export function renderContributionsGrowth(){
   // is a property valuation they typed in themselves, not a market that moved. "Revalued" names
   // what the app can actually see. The tooltip and the note below say the rest.
   var growthLabel = growthNeg ? "Assets revalued down" : "Assets grew";
+  // The reasoning, behind the heading's ⓘ.
+  var helpNote = '<p class="fire-note help">' +
+      (split.droppedPoints
+        ? 'Measured from ' + escapeAttr(fmtDate(split.from)) + ', not ' + escapeAttr(fmtDate(split.earliest)) +
+          ': that is when everything you track now was already being tracked. Comparing across the ' +
+          'earlier gap would count assets you added to the app as growth. '
+        : "") +
+      'The saved half is this scenario\'s net savings rate — ' +
+      fmtCurrency0.format(scenarioTotals(state.activeScenario).netMonthly) + '/mo — times the elapsed time; whatever the change doesn\'t account for is attributed to growth. ' +
+      'That makes it a <b>remainder, not a measurement</b>: a month you underspent your budget lands in it, ' +
+      'and so does any valuation you revised yourself — re-entering what your house is worth shows up here as ' +
+      'the assets moving. Treat the direction as solid and the exact split as rough.</p>';
   panel.innerHTML = '<h3>Saved vs grown <span style="font-weight:400;color:var(--ink-soft)">— since ' + escapeAttr(fmtDate(split.from)) + '</span></h3>' +
+    helpNote +
     '<div class="fire-stat-row"><span>Net worth then</span><b>' + fmtCurrency0.format(split.start) + '</b></div>' +
     '<div class="fire-stat-row"><span>Net worth now</span><b>' + fmtCurrency0.format(split.end) + '</b></div>' +
     '<div class="fire-stat-row"><span>Change</span><b' + (split.totalChange < 0 ? ' style="color:var(--bad-ink)"' : '') + '>' +
@@ -721,15 +711,6 @@ export function renderContributionsGrowth(){
       '<div class="rule-legend-item"><span class="rule-swatch series-color-0"></span>You saved <b>' + fmtCurrency0.format(split.contributed) + '</b></div>' +
       '<div class="rule-legend-item"><span class="rule-swatch series-color-3"></span>' + growthLabel + ' <b>' + fmtCurrency0.format(Math.abs(split.growth)) + '</b></div>' +
     '</div>' +
-    '<p class="fire-note">' +
-      (split.droppedPoints
-        ? 'Measured from ' + escapeAttr(fmtDate(split.from)) + ', not ' + escapeAttr(fmtDate(split.earliest)) +
-          ': that is when everything you track now was already being tracked. Comparing across the ' +
-          'earlier gap would count assets you added to the app as growth. '
-        : "") +
-      'Over ' + split.months.toFixed(1) + ' months. The saved half is this scenario\'s net savings rate — ' +
-      fmtCurrency0.format(scenarioTotals(state.activeScenario).netMonthly) + '/mo — times the elapsed time; whatever the change doesn\'t account for is attributed to growth. ' +
-      'That makes it a <b>remainder, not a measurement</b>: a month you underspent your budget lands in it, ' +
-      'and so does any valuation you revised yourself — re-entering what your house is worth shows up here as ' +
-      'the assets moving. Treat the direction as solid and the exact split as rough.</p>';
+    // v3.154.0: one line says how to read it; the reasoning is behind the ⓘ.
+    '<p class="fire-note">Over ' + split.months.toFixed(1) + ' months. The saved part is worked out from the plan, the rest counted as growth — trust the direction more than the split.</p>';
 }

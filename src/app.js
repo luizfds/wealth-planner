@@ -34,7 +34,7 @@ import {
   personBreakdownHtml, renderIncomeGroups, patchOpenRowBreakdowns, patchIncomeGroupTotals,
   patchSyntheticIncomeRows, patchIncomeAfterTax, patchIncomeSuperNotes, renderTaxSuper, withholdingCheckText, withholdingCheckHtml, payslipRead, salaryRowFor, flipTaxCard, patchAllTaxPersonOutputs, patchPhiNote,
   modernIncomeRowOpen, parseIncomeImportCsv, renderIncomeImportPreview, clearIncomeImportPreview, commitIncomeImport,
-  incomeHeaderTotal, setIncomeShowAs
+  incomeHeaderTotal, setIncomeShowAs, taxUi
 } from "./components/income.js";
 import {
   patchSharedGroupTotals, renderSharedGroups, renderPropertyExpensesSummary, modernSharedRowOpen,
@@ -4863,6 +4863,8 @@ import { inboxMessage } from "./calc/inbox.js";
   // ---------------- What the app notices + Ask Claude (v3.98.0) ----------------
   document.addEventListener("toggle", function(e){
     if(e.target.matches && e.target.matches("[data-adv-id]")) adviceUi.open[e.target.getAttribute("data-adv-id")] = e.target.open;
+    if(e.target.matches && e.target.matches("[data-adv-good]")) adviceUi.goodOpen = e.target.open;
+    if(e.target.matches && e.target.matches("[data-tax-household]")) taxUi.householdOpen = e.target.open;
   }, true);
   document.addEventListener("change", function(e){
     if(e.target.matches && e.target.matches("[data-ai-model]")) setAiModel(e.target.value);

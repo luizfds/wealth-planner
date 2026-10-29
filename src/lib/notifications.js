@@ -26,7 +26,7 @@ import { storageUsedChars, storageLevel, storageLineText } from "./storageuse.js
 
 var READ_KEY = "wealthPlanner.notifications.read";
 // How many days out counts as "due soon" — matches the Dashboard's own Upcoming Bills panel
-// (renderUpcomingBillsPanel's due-soon threshold in dashboard.js), so a bill doesn't earn a
+// (the bills list's due-soon threshold), so a bill doesn't earn a
 // different urgency label in two different places.
 var DUE_SOON_DAYS = 7;
 

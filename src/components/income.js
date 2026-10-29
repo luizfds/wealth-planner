@@ -687,7 +687,9 @@ export function renderTaxSuper(){
   var ipResult = ipNetResultAnnual();
   // Household-level, not per person: a hospital policy covers a household, and once you have a
   // spouse the surcharge is assessed on family income against family thresholds.
-  var html = '<div class="tax-global">' +
+  // v3.154.0: the household's settings fold away below the people — set once a year, read past every day.
+  var settingsHtml = '<details class="tax-advanced tax-household"' + (taxUi.householdOpen ? ' open' : '') + ' data-tax-household><summary>Household settings <span class="ps-summary-line">super guarantee, hospital cover, rebate tier' + (ipResult ? ', the rental\'s result' : '') + '</span></summary>' +
+    '<div class="tax-global">' +
     '<div class="proj-field"><label for="taxSgRate">Super guarantee % p.a.</label><input type="number" min="0" max="30" step="0.1" id="taxSgRate" value="' + (Number(state.tax.sgRate) || 11.5) + '"></div>' +
     '<div class="proj-field"><label class="m-checkbox-field" title="Private hospital cover (not extras-only) exempts you from the Medicare levy surcharge at any income."><input type="checkbox" id="taxPrivateCover"' + (state.tax.privateHospitalCover ? " checked" : "") + '> Private hospital cover</label></div>' +
     phiPremiumFieldsHtml() +
@@ -696,15 +698,16 @@ export function renderTaxSuper(){
     '</select></div>' +
     '<div class="proj-field"><label class="m-checkbox-field" title="Couples and anyone with dependants are assessed against family thresholds — roughly double the singles ones (+$1,500 per child after the first, which this app doesn\'t model)."><input type="checkbox" id="taxFamilyThresholds"' + (state.tax.familyThresholds ? " checked" : "") + '> Family thresholds</label></div>' +
     '</div>' +
-    '<p class="ledger-note tax-phi-note" style="margin:0 0 8px">' + phiNoteText() + '</p>' +
-    (taxTablesFor().assumed ? '<p class="ledger-note warn" style="margin:0 0 8px">' + householdYearWindow().label + ' rates aren\'t all published yet — this uses the latest year the app has (' + "FY" + String(taxTablesFor().borrowedFrom % 100).padStart(2, "0") + "/" + String((taxTablesFor().borrowedFrom + 1) % 100).padStart(2, "0") + ').</p>' : '');
+    '<p class="ledger-note tax-phi-note" style="margin:0 0 8px">' + phiNoteText() + '</p>';
+  var html = (taxTablesFor().assumed ? '<p class="ledger-note warn" style="margin:0 0 8px">' + householdYearWindow().label + ' rates aren\'t all published yet — this uses the latest year the app has (' + "FY" + String(taxTablesFor().borrowedFrom % 100).padStart(2, "0") + "/" + String((taxTablesFor().borrowedFrom + 1) % 100).padStart(2, "0") + ').</p>' : '');
   // Depreciation is named separately because it's the part of the result that isn't cash — leaving
   // it folded into one figure is how people conclude a property "costs" more or less than it does.
   var ipDepreciation = ipDepreciationAnnual();
-  html += '<p class="ledger-note" style="margin:0 0 12px">Investment property result this year: <b style="font-family:var(--font-num)">' + fmtCurrency0.format(ipResult) + '</b> (' + (ipResult < 0 ? "a loss — negatively geared, reduces taxable income" : "net rental profit — adds to taxable income") + '), split below by ownership share — set per property, on each card\'s <b>Ownership</b> section in Net worth → Property.' +
+  settingsHtml += '<p class="ledger-note tax-ip-note" style="margin:0">Investment property result this year: <b style="font-family:var(--font-num)">' + fmtCurrency0.format(ipResult) + '</b> (' + (ipResult < 0 ? "a loss — negatively geared, reduces taxable income" : "net rental profit — adds to taxable income") + '), shared out as each person\'s IP share above — by ownership, set per property, on each card\'s <b>Ownership</b> section in Net worth → Property.' +
     (ipDepreciation > 0
       ? ' Includes <b>' + fmtCurrency0.format(ipDepreciation) + '</b> of depreciation — a deduction that never leaves your bank account, so the cash result is that much better than the taxable one.'
-      : '') + '</p>' + ipOwnershipWarningHtml();
+      : '') + '</p></details>';
+  html += ipOwnershipWarningHtml();
 
   html += people.map(function(person, pi){
     var r = computePersonTax(person);
@@ -713,7 +716,7 @@ export function renderTaxSuper(){
       taxPersonHeadHtml(person, r, pi) +
       '<div class="m-taxp-flipface" data-flipface>' + (taxCardFlipped[person] ? personBreakdownHtml(person) : taxPersonFrontBodyHtml(person, r)) + '</div>' +
     '</div>';
-  }).join("");
+  }).join("") + settingsHtml;
   container.innerHTML = html;
   renderJuneMoves();
   refreshOpenTaxYear();
@@ -845,8 +848,6 @@ function taxPersonFrontBodyHtml(person, r){
       ) +
     '</div>' +
     '<div class="tax-cap-note tax-div293-note warn"' + (r.div293Tax > 0.5 ? '' : ' hidden') + ' title="Simplified: income for surcharge purposes is approximated as taxable income + your within-cap concessional contributions, ignoring reportable fringe benefits and net investment losses. Check with your accountant.">Division 293: your income is over the $250,000 threshold, so an extra 15% applies to ' + fmtCurrency0.format(Math.min(r.totalConcessional, r.capAvailable)) + ' of low-tax super contributions — ' + fmtCurrency0.format(r.div293Tax) + '/yr, assessed separately by the ATO (not withheld from take-home above).</div>' +
-    topUpHtml(person, r) +
-    withholdingCheckHtml(person) +
     '<div class="tax-cap-note tax-mscb-note"' + (r.superOverCap ? '' : ' hidden') + ' title="Employer super guarantee isn\'t compulsory on ordinary-time earnings above this threshold — indexed each financial year.">Your ordinary earnings are over the ' + fmtCurrency0.format(MAX_SUPER_BASE) + '/yr Maximum Super Contribution Base, so employer super isn\'t compulsory on the excess — SG above is capped accordingly.</div>' +
     // HELP is its own note rather than a line in the cap note above, because it isn't a super
     // figure and it isn't a tax — it's a debt repayment coming out of the same pay. The "next
@@ -861,6 +862,9 @@ function taxPersonFrontBodyHtml(person, r){
     '<div class="tax-cap-note tax-deduct-note"' + (r.deductions > 0 ? '' : ' hidden') + ' title="Taken from budget lines flagged as work-related on Cash flow. They reduce taxable income, which also reduces the Medicare levy and can move you under a surcharge tier — but not your HELP repayment, which is worked out on gross income.">' + deductionsNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-mls-note' + (r.medicareSurcharge > 0 ? " warn" : "") + '"' + (r.mlsIfUncovered > 0 ? '' : ' hidden') + ' title="Income for surcharge purposes is approximated as taxable income + your reportable super contributions, ignoring reportable fringe benefits and net investment losses — the same simplification Division 293 uses here.">' + mlsNoteText(r) + '</div>' +
     '<div class="tax-cap-note tax-help-note"' + (r.helpBalance > 0 ? '' : ' hidden') + ' title="Compulsory repayment, worked out as a flat percentage of your repayment income — which adds back salary sacrifice and any rental loss, so neither of those reduces it.">' + helpNoteText(r) + '</div>' +
+    // v3.154.0: what can be done (top up, check a payslip) after what the figures say, not between the notes.
+    topUpHtml(person, r) +
+    withholdingCheckHtml(person) +
     // v3.44.0: the person's own details (date of birth, HELP, caps, carry-forward, losses, home
     // hours) moved to Accounts → People. What stays is this year's choice: how much to sacrifice.
     '<div class="tax-inputs pp-on-tax">' +
@@ -1011,6 +1015,8 @@ function phiNoteCore(a, names, claimed){
 // breakdown instead of the normal front. Keyed by person so it survives a full re-render
 // (e.g. from an income edit elsewhere) without snapping back to the front on its own.
 var taxCardFlipped = {};
+// Whether Household settings is open — session only, kept across re-renders.
+export var taxUi = { householdOpen: false };
 
 export function flipTaxCard(panel, person){
   var face = panel.querySelector("[data-flipface]");
@@ -1121,7 +1127,7 @@ export function patchAllTaxPersonOutputs(){
     // No packagenote patch here any more: that note moved to the Breakdown side, which is rebuilt
     // wholesale by personBreakdownHtml() every time the card is flipped rather than patched in place.
   });
-  var ipNote = document.querySelector("#taxSuperBody .ledger-note b");
+  var ipNote = document.querySelector("#taxSuperBody .tax-ip-note b");
   if(ipNote) ipNote.textContent = fmtCurrency0.format(ipNetResultAnnual());
   refreshOpenTaxYear();
 }

@@ -56,6 +56,21 @@ test("the rules read the household: a purchase under strain, borrowed deposit mo
   });
 });
 
+test("what's on track folds under the rest on Insights and stays off a page's strip", function(){
+  var items = [
+    { id: "r", kind: "risk", area: "cashflow", title: "Short of cash", detail: "d" },
+    { id: "g1", kind: "good", area: "cashflow", title: "Holds up under a rate rise", detail: "d" },
+    { id: "g2", kind: "good", area: "cashflow", title: "Kept most of what came in", detail: "d" }
+  ];
+  var html = adviceHomeHtml(items);
+  assert.match(html, /data-adv-good><summary><span class="adv-kind">On track<\/span><span class="adv-title">2 things holding up/);
+  assert.ok(html.indexOf('data-adv-id="r"') < html.indexOf("data-adv-good"), "what to act on first");
+  assert.match(html, /data-adv-id="g2"/, "each one still there, inside the fold");
+  var strip = adviceStripHtml(items, "cashflow");
+  assert.ok(!/g1|g2/.test(strip) && /data-adv-id="r"/.test(strip));
+  assert.equal(adviceStripHtml(items.slice(1), "cashflow"), "", "nothing to act on, no strip");
+});
+
 test("the summary sent for a review carries no names, addresses or scenario names", function(){
   withHousehold(function(){
     var t = householdSummary(adviceFor({ today: "2026-10-20" }), { today: "2026-10-20" });

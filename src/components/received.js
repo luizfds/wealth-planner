@@ -19,7 +19,7 @@ export function renderReceived(){
 }
 export function toggleReceivedRow(key){ openRows[key] = !openRows[key]; }
 
-// v3.153.0: take-home logged as the same round figure month after month ($8,000, $8,000, $8,000) —
+// v3.153.0: take-home logged as the same round figure month after month ($6,000, $6,000, $6,000) —
 // what's moved into an account, more likely than what a payslip pays. The amount, or null.
 export function roundTakeHome(person){
   var logs = (state.incomeLog || []).filter(function(r){ return r.target === "net:" + person && r.date; })

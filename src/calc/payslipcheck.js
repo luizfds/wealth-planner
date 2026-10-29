@@ -67,7 +67,9 @@ export function payslipCheck(person, slip, opts){
       ? money(afterTax) + " paid on top after tax" + (match ? " — " + match.what + ", a row of its own in the plan." : " — a reimbursement or allowance not in the plan?")
       : money(afterTax) + " taken out after tax — a share plan, union fees or a donation? It isn't in the plan." });
   }
-  if(parts.refund) lines.push({ tone: "info", text: "The rental's loss isn't allowed for in withholding: the tax it saves (" + money(parts.refund.amount) + " a year) comes back in the refund, a row of its own in the plan." });
+  // v3.151.0: what settles at lodgement — the rental's loss among it, when there is one.
+  if(parts.refund && parts.refund.rental > 0) lines.push({ tone: "info", text: "The rental's loss isn't allowed for in withholding: the tax it saves (" + money(parts.refund.rental) + " a year) comes back at lodgement — in the plan's " + (parts.refund.amount >= 0 ? "refund" : "tax to pay") + " row (" + money(parts.refund.amount) + " all told)." });
+  else if(parts.refund && Math.abs(parts.refund.amount) >= 50) lines.push({ tone: "info", text: "Over the year, tax works out " + money(parts.refund.amount) + (parts.refund.amount >= 0 ? " less" : " more") + " than each pay withholds — the plan has it at lodgement." });
   (parts.ending || []).forEach(function(e){
     if(e.endDate < date) return;
     lines.push({ tone: "info", text: (e.row.what || "Part of this pay") + " ends " + fmtDate(e.endDate) + " — about " + money(e.monthly * 12 / n) + " less a " + freq.toLowerCase().replace(/ly$/, "") + " after tax from then." });

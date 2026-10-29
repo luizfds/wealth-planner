@@ -1133,7 +1133,7 @@ export function renderAssetsSummary(){
       '<div class="stat-tile"><span>Total net worth</span><b>' + fmtCurrency0.format(totalNetWorthValue()) + '</b><small>assets + property equity</small></div>' +
       '<div class="stat-tile" title="Cash + Shares + any property offset balances — real, spendable cash"><span>Liquid assets</span><b>' + fmtCurrency0.format(liquid) + '</b><small>Cash + Shares + Offset</small></div>' +
       '<div class="stat-tile"><span>Illiquid assets</span><b>' + fmtCurrency0.format(illiquid) + '</b><small>Super + Vehicle + Other</small></div>' +
-      '<div class="stat-tile" title="Value minus the full loan balance — only reachable by selling or refinancing. Offset balances are counted under Liquid instead, so this is the Properties tab\'s Total equity less them."><span>Property equity</span><b>' + fmtCurrency0.format(propEquity) + '</b><small>' + state.properties.length + ' propert' + (state.properties.length === 1 ? "y" : "ies") + (propertiesOffsetTotal() > 0 ? ' · offset counted in Liquid' : '') + '</small></div>';
+      '<div class="stat-tile" title="Value minus the full loan balance — only reachable by selling or refinancing. Offset balances are counted under Liquid instead, so this is the Property page\'s Total equity less them."><span>Property equity</span><b>' + fmtCurrency0.format(propEquity) + '</b><small>' + state.properties.length + ' propert' + (state.properties.length === 1 ? "y" : "ies") + (propertiesOffsetTotal() > 0 ? ' · offset counted in Liquid' : '') + '</small></div>';
   }
   var allocEl = document.getElementById("assetsAllocation");
   if(allocEl) allocEl.innerHTML = renderAssetAllocationHtml();
@@ -1698,7 +1698,7 @@ export function renderOffsetsSubpage(){
   });
   var total = propertiesOffsetTotal();
   var body = !rows.length
-    ? '<p class="ledger-note" style="margin:0">No property loans yet — add one on the Properties tab, and any offset account attached to it shows up here.</p>'
+    ? '<p class="ledger-note" style="margin:0">No property loans yet — add one in Net worth → Property, and any offset account attached to it shows up here.</p>'
     : '<p class="ledger-note help" style="margin:0 0 12px">Editing here changes the same field the loan\'s own Properties card shows — this is just a second place to see and update it.</p>' +
       '<div class="m-rows">' + rows.map(function(r, i){ return offsetRowHtml(r.property, r.loan, r.li, i % 8); }).join("") + '</div>';
   container.innerHTML = '<div class="ledgers"><details class="ledger" open>' +

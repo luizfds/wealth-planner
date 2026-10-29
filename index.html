@@ -84,7 +84,7 @@
   }catch(e){}
 </script>
 
-<link rel="stylesheet" href="styles.css?v=3.150.0">
+<link rel="stylesheet" href="styles.css?v=3.151.0">
 
 <!-- Inline, not in styles.css: this has to paint before the external stylesheet's chain of
      @imports (and its own network round-trip) resolves, or there's nothing here to show during
@@ -142,12 +142,12 @@
       <button type="button" class="nav-item" data-page="settings">Settings</button>
     </div>
     <div class="app-sidebar-footer">
-      <p class="app-sidebar-note">Your data lives in this browser and nowhere else — sync, if you turn it on, carries it encrypted, and price updates send only ticker names. Clearing your browser data clears it too, so <button class="link-btn" id="exportLink2">Export</button> a backup now and then.</p>
+      <p class="app-sidebar-note">Your data lives in this browser. It only leaves when you choose: sync carries it encrypted, price updates ask only for ticker names, and Ask Claude sends an anonymised summary. Clearing your browser data clears it too, so <button class="link-btn" id="exportLink2">Export</button> a backup now and then.</p>
       <a class="feature-request-link" href="https://github.com/luizfds/wealth-planner/issues/new" target="_blank" rel="noopener noreferrer">💡 Request a feature</a>
       <!-- The number lives in its own span because it is *parsed*, both out of this DOM and out of
            a freshly-fetched copy of this file, to decide whether a newer version is deployed. Left
            bare in the <p>, the "Check for updates" button beside it would end up inside the match. -->
-      <p class="app-version"><span class="app-version-num">v3.150.0</span> · <button type="button" class="link-btn" id="checkUpdatesLink">Check for updates</button></p>
+      <p class="app-version"><span class="app-version-num">v3.151.0</span> · <button type="button" class="link-btn" id="checkUpdatesLink">Check for updates</button></p>
     </div>
   </nav>
 
@@ -417,7 +417,7 @@
               <div class="ledger-total">Monthly total <b id="totalSharedMonthly">—</b></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note help" style="margin-left:0">Everything you plan to spend — housing, subscriptions, car, groceries and the rest — with what each is expected to cost and how often. Housing comes from the scenario you're currently in (<b id="budgetHousingScenario">—</b>), so switching scenarios on the Scenarios tab swaps it for that one's costs, and each investment property's costs come from the Properties tab.</p>
+              <p class="ledger-note help" style="margin-left:0">Everything you plan to spend — housing, subscriptions, car, groceries and the rest — with what each is expected to cost and how often. Housing comes from the scenario you're currently in (<b id="budgetHousingScenario">—</b>), so switching scenarios in Plan → Scenarios swaps it for that one's costs, and each investment property's costs come from Net worth → Property.</p>
               <!-- Rendered by renderPropertyExpensesSummary(). The Dashboard's 50/30/20 breakdown
                    counts investment loan repayments and this total doesn't, so the two pages show
                    figures that differ by exactly this amount. The card that explains why sits at
@@ -460,7 +460,7 @@
               <div class="ledger-total">Monthly total <b id="propertyExpensesTotal">—</b></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note help" style="margin-left:0">Read-only, and not counted in the budget total above — a repayment is worked out from the loan's balance, rate and term rather than budgeted. Each property's other costs are listed as ordinary budget lines above. Edit either on the Properties tab.</p>
+              <p class="ledger-note help" style="margin-left:0">Read-only, and not counted in the budget total above — a repayment is worked out from the loan's balance, rate and term rather than budgeted. Each property's other costs are listed as ordinary budget lines above. Edit either in Net worth → Property.</p>
               <div id="propertyExpensesModern"></div>
             </div>
           </details>
@@ -803,7 +803,7 @@
                 <div class="ledger-total">Total <b id="totalDebtsAmount">—</b></div>
               </summary>
               <div class="ledger-body">
-                <p class="ledger-note help" style="margin-left:0">Anything you owe outside a property loan — credit cards, personal loans, BNPL. Subtracted from your net worth as a flat balance (no interest/repayment modeling here — property loans have their own full amortisation on the Properties tab; don't duplicate them here).</p>
+                <p class="ledger-note help" style="margin-left:0">Anything you owe outside a property loan — credit cards, personal loans, BNPL. Subtracted from your net worth as a flat balance (no interest/repayment modeling here — property loans have their own full amortisation in Net worth → Property; don't duplicate them here).</p>
                 <div id="debtsTable"></div>
                 <div class="ledger-footer"><button class="btn btn-sm" id="addDebtBtn">+ Add debt</button></div>
               </div>
@@ -943,7 +943,7 @@
               <div class="proj-controls">
                 <div class="proj-field" title="How many years forward the chart and table below project."><label for="projHorizon">Horizon (years)</label><input type="number" min="1" max="50" step="1" id="projHorizon"></div>
                 <div class="proj-field" title="Annual growth rate applied to your surplus savings and existing non-property portfolio (Cash, Shares, Super, Other from Investments), compounded monthly. Doesn't apply to a scenario's own 'invest instead of buying' leg, which uses its own growth rate instead (Scenarios tab)."><label for="projInvestRate">Investment return % p.a.</label><input type="number" min="0" max="30" step="0.1" id="projInvestRate"><input type="range" class="proj-slider" min="0" max="30" step="0.1" id="projInvestRateRange" aria-label="Investment return % p.a. slider"></div>
-                <div class="proj-field" title="Annual growth rate applied to a scenario's home value (if buying) and every property tracked on the Properties tab. Reduces equity growth if negative."><label for="projPropertyRate">Property growth % p.a.</label><input type="number" min="-10" max="30" step="0.1" id="projPropertyRate"><input type="range" class="proj-slider" min="-10" max="30" step="0.1" id="projPropertyRateRange" aria-label="Property growth % p.a. slider"></div>
+                <div class="proj-field" title="Annual growth rate applied to a scenario's home value (if buying) and every property tracked in Net worth → Property. Reduces equity growth if negative."><label for="projPropertyRate">Property growth % p.a.</label><input type="number" min="-10" max="30" step="0.1" id="projPropertyRate"><input type="range" class="proj-slider" min="-10" max="30" step="0.1" id="projPropertyRateRange" aria-label="Property growth % p.a. slider"></div>
                 <div class="proj-field" title="Annual increase applied to living costs and housing costs — rent included. A mortgage repayment stays fixed in nominal terms, as it does in reality. This is also the rate used to deflate the figures when you're viewing today&#39;s dollars."><label for="projInflationRate">Inflation % p.a.</label><input type="number" min="0" max="15" step="0.1" id="projInflationRate"><input type="range" class="proj-slider" min="0" max="15" step="0.1" id="projInflationRateRange" aria-label="Inflation % p.a. slider"></div>
                 <div class="proj-field" title="Annual pay rises, applied to every income row. Until now income was held flat for the whole horizon while expenses inflated, which made the surplus shrink every year and eventually go negative — set this to at least the inflation rate for the surplus to hold its value."><label for="projIncomeGrowth">Income growth % p.a.</label><input type="number" min="0" max="15" step="0.1" id="projIncomeGrowth"><input type="range" class="proj-slider" min="0" max="15" step="0.1" id="projIncomeGrowthRange" aria-label="Income growth % p.a. slider"></div>
                 <div class="proj-field"><label>Rate shock (+pp)</label><input type="number" min="0" max="10" step="0.25" id="projRateShock" aria-label="Rate shock, percentage points" title="Stress-test: adds this many percentage points to every buy scenario's interest rate, for the whole projection"><input type="range" class="proj-slider" min="0" max="10" step="0.25" id="projRateShockRange" aria-label="Rate shock slider"></div>
@@ -1040,288 +1040,288 @@
 <script type="importmap">
 {
  "imports": {
-  "./src/app.js": "./src/app.js?v=3.150.0",
-  "./src/calc/accounts.js": "./src/calc/accounts.js?v=3.150.0",
-  "./src/calc/actuals.js": "./src/calc/actuals.js?v=3.150.0",
-  "./src/calc/advice.js": "./src/calc/advice.js?v=3.150.0",
-  "./src/calc/agentstatement.js": "./src/calc/agentstatement.js?v=3.150.0",
-  "./src/calc/agepension.js": "./src/calc/agepension.js?v=3.150.0",
-  "./src/calc/aisummary.js": "./src/calc/aisummary.js?v=3.150.0",
-  "./src/calc/assetreports.js": "./src/calc/assetreports.js?v=3.150.0",
-  "./src/calc/autoprices.js": "./src/calc/autoprices.js?v=3.150.0",
-  "./src/calc/bank-import.js": "./src/calc/bank-import.js?v=3.150.0",
-  "./src/calc/benchmarks.js": "./src/calc/benchmarks.js?v=3.150.0",
-  "./src/calc/bills.js": "./src/calc/bills.js?v=3.150.0",
-  "./src/calc/brokertrades.js": "./src/calc/brokertrades.js?v=3.150.0",
-  "./src/calc/budgetfromhistory.js": "./src/calc/budgetfromhistory.js?v=3.150.0",
-  "./src/calc/canbuy.js": "./src/calc/canbuy.js?v=3.150.0",
-  "./src/calc/cashflow.js": "./src/calc/cashflow.js?v=3.150.0",
-  "./src/calc/cashflowlist.js": "./src/calc/cashflowlist.js?v=3.150.0",
-  "./src/calc/claims.js": "./src/calc/claims.js?v=3.150.0",
-  "./src/calc/closeyear.js": "./src/calc/closeyear.js?v=3.150.0",
-  "./src/calc/demo.js": "./src/calc/demo.js?v=3.150.0",
-  "./src/calc/emergency.js": "./src/calc/emergency.js?v=3.150.0",
-  "./src/calc/engine.js": "./src/calc/engine.js?v=3.150.0",
-  "./src/calc/estimates.js": "./src/calc/estimates.js?v=3.150.0",
-  "./src/calc/fire.js": "./src/calc/fire.js?v=3.150.0",
-  "./src/calc/firstrun.js": "./src/calc/firstrun.js?v=3.150.0",
-  "./src/calc/goals.js": "./src/calc/goals.js?v=3.150.0",
-  "./src/calc/health.js": "./src/calc/health.js?v=3.150.0",
-  "./src/calc/history.js": "./src/calc/history.js?v=3.150.0",
-  "./src/calc/import-rules.js": "./src/calc/import-rules.js?v=3.150.0",
-  "./src/calc/inbox.js": "./src/calc/inbox.js?v=3.150.0",
-  "./src/calc/investments.js": "./src/calc/investments.js?v=3.150.0",
-  "./src/calc/investreports.js": "./src/calc/investreports.js?v=3.150.0",
-  "./src/calc/junemoves.js": "./src/calc/junemoves.js?v=3.150.0",
-  "./src/calc/ledger.js": "./src/calc/ledger.js?v=3.150.0",
-  "./src/calc/lifeevents.js": "./src/calc/lifeevents.js?v=3.150.0",
-  "./src/calc/loanstrategy.js": "./src/calc/loanstrategy.js?v=3.150.0",
-  "./src/calc/merchantbook.js": "./src/calc/merchantbook.js?v=3.150.0",
-  "./src/calc/merchants.js": "./src/calc/merchants.js?v=3.150.0",
-  "./src/calc/milestones.js": "./src/calc/milestones.js?v=3.150.0",
-  "./src/calc/monthdetail.js": "./src/calc/monthdetail.js?v=3.150.0",
-  "./src/calc/monthreview.js": "./src/calc/monthreview.js?v=3.150.0",
-  "./src/calc/networthlist.js": "./src/calc/networthlist.js?v=3.150.0",
-  "./src/calc/nwauto.js": "./src/calc/nwauto.js?v=3.150.0",
-  "./src/calc/nwcheck.js": "./src/calc/nwcheck.js?v=3.150.0",
-  "./src/calc/nwhistory.js": "./src/calc/nwhistory.js?v=3.150.0",
-  "./src/calc/outcomes.js": "./src/calc/outcomes.js?v=3.150.0",
-  "./src/calc/payslip.js": "./src/calc/payslip.js?v=3.150.0",
-  "./src/calc/payslipcheck.js": "./src/calc/payslipcheck.js?v=3.150.0",
-  "./src/calc/pdfstatement.js": "./src/calc/pdfstatement.js?v=3.150.0",
-  "./src/calc/people.js": "./src/calc/people.js?v=3.150.0",
-  "./src/calc/performance.js": "./src/calc/performance.js?v=3.150.0",
-  "./src/calc/pricesheet.js": "./src/calc/pricesheet.js?v=3.150.0",
-  "./src/calc/property.js": "./src/calc/property.js?v=3.150.0",
-  "./src/calc/propertylife.js": "./src/calc/propertylife.js?v=3.150.0",
-  "./src/calc/received.js": "./src/calc/received.js?v=3.150.0",
-  "./src/calc/recurring.js": "./src/calc/recurring.js?v=3.150.0",
-  "./src/calc/reportframe.js": "./src/calc/reportframe.js?v=3.150.0",
-  "./src/calc/reports.js": "./src/calc/reports.js?v=3.150.0",
-  "./src/calc/retirement.js": "./src/calc/retirement.js?v=3.150.0",
-  "./src/calc/sale.js": "./src/calc/sale.js?v=3.150.0",
-  "./src/calc/savegoals.js": "./src/calc/savegoals.js?v=3.150.0",
-  "./src/calc/showas.js": "./src/calc/showas.js?v=3.150.0",
-  "./src/calc/supertopup.js": "./src/calc/supertopup.js?v=3.150.0",
-  "./src/calc/syncfile.js": "./src/calc/syncfile.js?v=3.150.0",
-  "./src/calc/syncmerge.js": "./src/calc/syncmerge.js?v=3.150.0",
-  "./src/calc/takehome.js": "./src/calc/takehome.js?v=3.150.0",
-  "./src/calc/tax.js": "./src/calc/tax.js?v=3.150.0",
-  "./src/calc/taxyear.js": "./src/calc/taxyear.js?v=3.150.0",
-  "./src/calc/trends.js": "./src/calc/trends.js?v=3.150.0",
-  "./src/calc/trim.js": "./src/calc/trim.js?v=3.150.0",
-  "./src/calc/trips.js": "./src/calc/trips.js?v=3.150.0",
-  "./src/calc/withholding.js": "./src/calc/withholding.js?v=3.150.0",
-  "./src/components/accounts.js": "./src/components/accounts.js?v=3.150.0",
-  "./src/components/advice.js": "./src/components/advice.js?v=3.150.0",
-  "./src/components/askclaude.js": "./src/components/askclaude.js?v=3.150.0",
-  "./src/components/assets.js": "./src/components/assets.js?v=3.150.0",
-  "./src/components/autoprices.js": "./src/components/autoprices.js?v=3.150.0",
-  "./src/components/bank-import.js": "./src/components/bank-import.js?v=3.150.0",
-  "./src/components/benchmarks.js": "./src/components/benchmarks.js?v=3.150.0",
-  "./src/components/brokertrades.js": "./src/components/brokertrades.js?v=3.150.0",
-  "./src/components/budgethistory.js": "./src/components/budgethistory.js?v=3.150.0",
-  "./src/components/canbuy.js": "./src/components/canbuy.js?v=3.150.0",
-  "./src/components/cashflow.js": "./src/components/cashflow.js?v=3.150.0",
-  "./src/components/dashboard.js": "./src/components/dashboard.js?v=3.150.0",
-  "./src/components/detail.js": "./src/components/detail.js?v=3.150.0",
-  "./src/components/emergency.js": "./src/components/emergency.js?v=3.150.0",
-  "./src/components/expenses.js": "./src/components/expenses.js?v=3.150.0",
-  "./src/components/firstrun.js": "./src/components/firstrun.js?v=3.150.0",
-  "./src/components/health.js": "./src/components/health.js?v=3.150.0",
-  "./src/components/home.js": "./src/components/home.js?v=3.150.0",
-  "./src/components/income.js": "./src/components/income.js?v=3.150.0",
-  "./src/components/investments.js": "./src/components/investments.js?v=3.150.0",
-  "./src/components/junemoves.js": "./src/components/junemoves.js?v=3.150.0",
-  "./src/components/lifeevents.js": "./src/components/lifeevents.js?v=3.150.0",
-  "./src/components/monthdetail.js": "./src/components/monthdetail.js?v=3.150.0",
-  "./src/components/monthreview.js": "./src/components/monthreview.js?v=3.150.0",
-  "./src/components/nav.js": "./src/components/nav.js?v=3.150.0",
-  "./src/components/networth.js": "./src/components/networth.js?v=3.150.0",
-  "./src/components/people.js": "./src/components/people.js?v=3.150.0",
-  "./src/components/period.js": "./src/components/period.js?v=3.150.0",
-  "./src/components/pricesheet.js": "./src/components/pricesheet.js?v=3.150.0",
-  "./src/components/projections.js": "./src/components/projections.js?v=3.150.0",
-  "./src/components/properties.js": "./src/components/properties.js?v=3.150.0",
-  "./src/components/received.js": "./src/components/received.js?v=3.150.0",
-  "./src/components/recurring.js": "./src/components/recurring.js?v=3.150.0",
-  "./src/components/reports.js": "./src/components/reports.js?v=3.150.0",
-  "./src/components/retirement.js": "./src/components/retirement.js?v=3.150.0",
-  "./src/components/rules.js": "./src/components/rules.js?v=3.150.0",
-  "./src/components/safekeeping.js": "./src/components/safekeeping.js?v=3.150.0",
-  "./src/components/savegoals.js": "./src/components/savegoals.js?v=3.150.0",
-  "./src/components/scenarios.js": "./src/components/scenarios.js?v=3.150.0",
-  "./src/components/search.js": "./src/components/search.js?v=3.150.0",
-  "./src/components/syncmerge.js": "./src/components/syncmerge.js?v=3.150.0",
-  "./src/components/taxyear.js": "./src/components/taxyear.js?v=3.150.0",
-  "./src/components/trim.js": "./src/components/trim.js?v=3.150.0",
-  "./src/components/trips.js": "./src/components/trips.js?v=3.150.0",
-  "./src/components/yearend.js": "./src/components/yearend.js?v=3.150.0",
-  "./src/constants.js": "./src/constants.js?v=3.150.0",
-  "./src/lib/backup.js": "./src/lib/backup.js?v=3.150.0",
-  "./src/lib/charts.js": "./src/lib/charts.js?v=3.150.0",
-  "./src/lib/dropbox.js": "./src/lib/dropbox.js?v=3.150.0",
-  "./src/lib/foldersync.js": "./src/lib/foldersync.js?v=3.150.0",
-  "./src/lib/format.js": "./src/lib/format.js?v=3.150.0",
-  "./src/lib/help.js": "./src/lib/help.js?v=3.150.0",
-  "./src/lib/html.js": "./src/lib/html.js?v=3.150.0",
-  "./src/lib/inbox.js": "./src/lib/inbox.js?v=3.150.0",
-  "./src/lib/ledger-table.js": "./src/lib/ledger-table.js?v=3.150.0",
-  "./src/lib/notifications.js": "./src/lib/notifications.js?v=3.150.0",
-  "./src/lib/pdftext.js": "./src/lib/pdftext.js?v=3.150.0",
-  "./src/lib/reportcharts.js": "./src/lib/reportcharts.js?v=3.150.0",
-  "./src/lib/safekeeping.js": "./src/lib/safekeeping.js?v=3.150.0",
-  "./src/lib/scroll-shadow.js": "./src/lib/scroll-shadow.js?v=3.150.0",
-  "./src/lib/search.js": "./src/lib/search.js?v=3.150.0",
-  "./src/lib/setup.js": "./src/lib/setup.js?v=3.150.0",
-  "./src/lib/storageuse.js": "./src/lib/storageuse.js?v=3.150.0",
-  "./src/lib/swipe.js": "./src/lib/swipe.js?v=3.150.0",
-  "./src/lib/timerange.js": "./src/lib/timerange.js?v=3.150.0",
-  "./src/lib/toast.js": "./src/lib/toast.js?v=3.150.0",
-  "./src/lib/xlsx.js": "./src/lib/xlsx.js?v=3.150.0",
-  "./src/state.js": "./src/state.js?v=3.150.0"
+  "./src/app.js": "./src/app.js?v=3.151.0",
+  "./src/calc/accounts.js": "./src/calc/accounts.js?v=3.151.0",
+  "./src/calc/actuals.js": "./src/calc/actuals.js?v=3.151.0",
+  "./src/calc/advice.js": "./src/calc/advice.js?v=3.151.0",
+  "./src/calc/agentstatement.js": "./src/calc/agentstatement.js?v=3.151.0",
+  "./src/calc/agepension.js": "./src/calc/agepension.js?v=3.151.0",
+  "./src/calc/aisummary.js": "./src/calc/aisummary.js?v=3.151.0",
+  "./src/calc/assetreports.js": "./src/calc/assetreports.js?v=3.151.0",
+  "./src/calc/autoprices.js": "./src/calc/autoprices.js?v=3.151.0",
+  "./src/calc/bank-import.js": "./src/calc/bank-import.js?v=3.151.0",
+  "./src/calc/benchmarks.js": "./src/calc/benchmarks.js?v=3.151.0",
+  "./src/calc/bills.js": "./src/calc/bills.js?v=3.151.0",
+  "./src/calc/brokertrades.js": "./src/calc/brokertrades.js?v=3.151.0",
+  "./src/calc/budgetfromhistory.js": "./src/calc/budgetfromhistory.js?v=3.151.0",
+  "./src/calc/canbuy.js": "./src/calc/canbuy.js?v=3.151.0",
+  "./src/calc/cashflow.js": "./src/calc/cashflow.js?v=3.151.0",
+  "./src/calc/cashflowlist.js": "./src/calc/cashflowlist.js?v=3.151.0",
+  "./src/calc/claims.js": "./src/calc/claims.js?v=3.151.0",
+  "./src/calc/closeyear.js": "./src/calc/closeyear.js?v=3.151.0",
+  "./src/calc/demo.js": "./src/calc/demo.js?v=3.151.0",
+  "./src/calc/emergency.js": "./src/calc/emergency.js?v=3.151.0",
+  "./src/calc/engine.js": "./src/calc/engine.js?v=3.151.0",
+  "./src/calc/estimates.js": "./src/calc/estimates.js?v=3.151.0",
+  "./src/calc/fire.js": "./src/calc/fire.js?v=3.151.0",
+  "./src/calc/firstrun.js": "./src/calc/firstrun.js?v=3.151.0",
+  "./src/calc/goals.js": "./src/calc/goals.js?v=3.151.0",
+  "./src/calc/health.js": "./src/calc/health.js?v=3.151.0",
+  "./src/calc/history.js": "./src/calc/history.js?v=3.151.0",
+  "./src/calc/import-rules.js": "./src/calc/import-rules.js?v=3.151.0",
+  "./src/calc/inbox.js": "./src/calc/inbox.js?v=3.151.0",
+  "./src/calc/investments.js": "./src/calc/investments.js?v=3.151.0",
+  "./src/calc/investreports.js": "./src/calc/investreports.js?v=3.151.0",
+  "./src/calc/junemoves.js": "./src/calc/junemoves.js?v=3.151.0",
+  "./src/calc/ledger.js": "./src/calc/ledger.js?v=3.151.0",
+  "./src/calc/lifeevents.js": "./src/calc/lifeevents.js?v=3.151.0",
+  "./src/calc/loanstrategy.js": "./src/calc/loanstrategy.js?v=3.151.0",
+  "./src/calc/merchantbook.js": "./src/calc/merchantbook.js?v=3.151.0",
+  "./src/calc/merchants.js": "./src/calc/merchants.js?v=3.151.0",
+  "./src/calc/milestones.js": "./src/calc/milestones.js?v=3.151.0",
+  "./src/calc/monthdetail.js": "./src/calc/monthdetail.js?v=3.151.0",
+  "./src/calc/monthreview.js": "./src/calc/monthreview.js?v=3.151.0",
+  "./src/calc/networthlist.js": "./src/calc/networthlist.js?v=3.151.0",
+  "./src/calc/nwauto.js": "./src/calc/nwauto.js?v=3.151.0",
+  "./src/calc/nwcheck.js": "./src/calc/nwcheck.js?v=3.151.0",
+  "./src/calc/nwhistory.js": "./src/calc/nwhistory.js?v=3.151.0",
+  "./src/calc/outcomes.js": "./src/calc/outcomes.js?v=3.151.0",
+  "./src/calc/payslip.js": "./src/calc/payslip.js?v=3.151.0",
+  "./src/calc/payslipcheck.js": "./src/calc/payslipcheck.js?v=3.151.0",
+  "./src/calc/pdfstatement.js": "./src/calc/pdfstatement.js?v=3.151.0",
+  "./src/calc/people.js": "./src/calc/people.js?v=3.151.0",
+  "./src/calc/performance.js": "./src/calc/performance.js?v=3.151.0",
+  "./src/calc/pricesheet.js": "./src/calc/pricesheet.js?v=3.151.0",
+  "./src/calc/property.js": "./src/calc/property.js?v=3.151.0",
+  "./src/calc/propertylife.js": "./src/calc/propertylife.js?v=3.151.0",
+  "./src/calc/received.js": "./src/calc/received.js?v=3.151.0",
+  "./src/calc/recurring.js": "./src/calc/recurring.js?v=3.151.0",
+  "./src/calc/reportframe.js": "./src/calc/reportframe.js?v=3.151.0",
+  "./src/calc/reports.js": "./src/calc/reports.js?v=3.151.0",
+  "./src/calc/retirement.js": "./src/calc/retirement.js?v=3.151.0",
+  "./src/calc/sale.js": "./src/calc/sale.js?v=3.151.0",
+  "./src/calc/savegoals.js": "./src/calc/savegoals.js?v=3.151.0",
+  "./src/calc/showas.js": "./src/calc/showas.js?v=3.151.0",
+  "./src/calc/supertopup.js": "./src/calc/supertopup.js?v=3.151.0",
+  "./src/calc/syncfile.js": "./src/calc/syncfile.js?v=3.151.0",
+  "./src/calc/syncmerge.js": "./src/calc/syncmerge.js?v=3.151.0",
+  "./src/calc/takehome.js": "./src/calc/takehome.js?v=3.151.0",
+  "./src/calc/tax.js": "./src/calc/tax.js?v=3.151.0",
+  "./src/calc/taxyear.js": "./src/calc/taxyear.js?v=3.151.0",
+  "./src/calc/trends.js": "./src/calc/trends.js?v=3.151.0",
+  "./src/calc/trim.js": "./src/calc/trim.js?v=3.151.0",
+  "./src/calc/trips.js": "./src/calc/trips.js?v=3.151.0",
+  "./src/calc/withholding.js": "./src/calc/withholding.js?v=3.151.0",
+  "./src/components/accounts.js": "./src/components/accounts.js?v=3.151.0",
+  "./src/components/advice.js": "./src/components/advice.js?v=3.151.0",
+  "./src/components/askclaude.js": "./src/components/askclaude.js?v=3.151.0",
+  "./src/components/assets.js": "./src/components/assets.js?v=3.151.0",
+  "./src/components/autoprices.js": "./src/components/autoprices.js?v=3.151.0",
+  "./src/components/bank-import.js": "./src/components/bank-import.js?v=3.151.0",
+  "./src/components/benchmarks.js": "./src/components/benchmarks.js?v=3.151.0",
+  "./src/components/brokertrades.js": "./src/components/brokertrades.js?v=3.151.0",
+  "./src/components/budgethistory.js": "./src/components/budgethistory.js?v=3.151.0",
+  "./src/components/canbuy.js": "./src/components/canbuy.js?v=3.151.0",
+  "./src/components/cashflow.js": "./src/components/cashflow.js?v=3.151.0",
+  "./src/components/dashboard.js": "./src/components/dashboard.js?v=3.151.0",
+  "./src/components/detail.js": "./src/components/detail.js?v=3.151.0",
+  "./src/components/emergency.js": "./src/components/emergency.js?v=3.151.0",
+  "./src/components/expenses.js": "./src/components/expenses.js?v=3.151.0",
+  "./src/components/firstrun.js": "./src/components/firstrun.js?v=3.151.0",
+  "./src/components/health.js": "./src/components/health.js?v=3.151.0",
+  "./src/components/home.js": "./src/components/home.js?v=3.151.0",
+  "./src/components/income.js": "./src/components/income.js?v=3.151.0",
+  "./src/components/investments.js": "./src/components/investments.js?v=3.151.0",
+  "./src/components/junemoves.js": "./src/components/junemoves.js?v=3.151.0",
+  "./src/components/lifeevents.js": "./src/components/lifeevents.js?v=3.151.0",
+  "./src/components/monthdetail.js": "./src/components/monthdetail.js?v=3.151.0",
+  "./src/components/monthreview.js": "./src/components/monthreview.js?v=3.151.0",
+  "./src/components/nav.js": "./src/components/nav.js?v=3.151.0",
+  "./src/components/networth.js": "./src/components/networth.js?v=3.151.0",
+  "./src/components/people.js": "./src/components/people.js?v=3.151.0",
+  "./src/components/period.js": "./src/components/period.js?v=3.151.0",
+  "./src/components/pricesheet.js": "./src/components/pricesheet.js?v=3.151.0",
+  "./src/components/projections.js": "./src/components/projections.js?v=3.151.0",
+  "./src/components/properties.js": "./src/components/properties.js?v=3.151.0",
+  "./src/components/received.js": "./src/components/received.js?v=3.151.0",
+  "./src/components/recurring.js": "./src/components/recurring.js?v=3.151.0",
+  "./src/components/reports.js": "./src/components/reports.js?v=3.151.0",
+  "./src/components/retirement.js": "./src/components/retirement.js?v=3.151.0",
+  "./src/components/rules.js": "./src/components/rules.js?v=3.151.0",
+  "./src/components/safekeeping.js": "./src/components/safekeeping.js?v=3.151.0",
+  "./src/components/savegoals.js": "./src/components/savegoals.js?v=3.151.0",
+  "./src/components/scenarios.js": "./src/components/scenarios.js?v=3.151.0",
+  "./src/components/search.js": "./src/components/search.js?v=3.151.0",
+  "./src/components/syncmerge.js": "./src/components/syncmerge.js?v=3.151.0",
+  "./src/components/taxyear.js": "./src/components/taxyear.js?v=3.151.0",
+  "./src/components/trim.js": "./src/components/trim.js?v=3.151.0",
+  "./src/components/trips.js": "./src/components/trips.js?v=3.151.0",
+  "./src/components/yearend.js": "./src/components/yearend.js?v=3.151.0",
+  "./src/constants.js": "./src/constants.js?v=3.151.0",
+  "./src/lib/backup.js": "./src/lib/backup.js?v=3.151.0",
+  "./src/lib/charts.js": "./src/lib/charts.js?v=3.151.0",
+  "./src/lib/dropbox.js": "./src/lib/dropbox.js?v=3.151.0",
+  "./src/lib/foldersync.js": "./src/lib/foldersync.js?v=3.151.0",
+  "./src/lib/format.js": "./src/lib/format.js?v=3.151.0",
+  "./src/lib/help.js": "./src/lib/help.js?v=3.151.0",
+  "./src/lib/html.js": "./src/lib/html.js?v=3.151.0",
+  "./src/lib/inbox.js": "./src/lib/inbox.js?v=3.151.0",
+  "./src/lib/ledger-table.js": "./src/lib/ledger-table.js?v=3.151.0",
+  "./src/lib/notifications.js": "./src/lib/notifications.js?v=3.151.0",
+  "./src/lib/pdftext.js": "./src/lib/pdftext.js?v=3.151.0",
+  "./src/lib/reportcharts.js": "./src/lib/reportcharts.js?v=3.151.0",
+  "./src/lib/safekeeping.js": "./src/lib/safekeeping.js?v=3.151.0",
+  "./src/lib/scroll-shadow.js": "./src/lib/scroll-shadow.js?v=3.151.0",
+  "./src/lib/search.js": "./src/lib/search.js?v=3.151.0",
+  "./src/lib/setup.js": "./src/lib/setup.js?v=3.151.0",
+  "./src/lib/storageuse.js": "./src/lib/storageuse.js?v=3.151.0",
+  "./src/lib/swipe.js": "./src/lib/swipe.js?v=3.151.0",
+  "./src/lib/timerange.js": "./src/lib/timerange.js?v=3.151.0",
+  "./src/lib/toast.js": "./src/lib/toast.js?v=3.151.0",
+  "./src/lib/xlsx.js": "./src/lib/xlsx.js?v=3.151.0",
+  "./src/state.js": "./src/state.js?v=3.151.0"
  }
 }
 </script>
-<link rel="modulepreload" href="./src/app.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/accounts.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/actuals.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/advice.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/agentstatement.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/agepension.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/aisummary.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/assetreports.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/autoprices.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/bank-import.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/benchmarks.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/bills.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/brokertrades.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/budgetfromhistory.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/canbuy.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/cashflow.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/cashflowlist.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/claims.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/closeyear.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/demo.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/emergency.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/engine.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/estimates.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/fire.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/firstrun.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/goals.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/health.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/history.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/import-rules.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/inbox.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/investments.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/investreports.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/junemoves.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/ledger.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/lifeevents.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/loanstrategy.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/merchantbook.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/merchants.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/milestones.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/monthdetail.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/monthreview.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/networthlist.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/nwauto.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/nwcheck.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/nwhistory.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/outcomes.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/payslip.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/payslipcheck.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/pdfstatement.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/people.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/performance.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/pricesheet.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/property.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/propertylife.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/received.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/recurring.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/reportframe.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/reports.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/retirement.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/sale.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/savegoals.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/showas.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/supertopup.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/syncfile.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/syncmerge.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/takehome.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/tax.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/taxyear.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/trends.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/trim.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/trips.js?v=3.150.0">
-<link rel="modulepreload" href="./src/calc/withholding.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/accounts.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/advice.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/askclaude.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/assets.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/autoprices.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/bank-import.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/benchmarks.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/brokertrades.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/budgethistory.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/canbuy.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/cashflow.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/dashboard.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/detail.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/emergency.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/expenses.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/firstrun.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/health.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/home.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/income.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/investments.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/junemoves.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/lifeevents.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/monthdetail.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/monthreview.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/nav.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/networth.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/people.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/period.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/pricesheet.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/projections.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/properties.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/received.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/recurring.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/reports.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/retirement.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/rules.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/safekeeping.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/savegoals.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/scenarios.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/search.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/syncmerge.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/taxyear.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/trim.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/trips.js?v=3.150.0">
-<link rel="modulepreload" href="./src/components/yearend.js?v=3.150.0">
-<link rel="modulepreload" href="./src/constants.js?v=3.150.0">
-<link rel="modulepreload" href="./src/lib/backup.js?v=3.150.0">
-<link rel="modulepreload" href="./src/lib/charts.js?v=3.150.0">
-<link rel="modulepreload" href="./src/lib/dropbox.js?v=3.150.0">
-<link rel="modulepreload" href="./src/lib/foldersync.js?v=3.150.0">
-<link rel="modulepreload" href="./src/lib/format.js?v=3.150.0">
-<link rel="modulepreload" href="./src/lib/help.js?v=3.150.0">
-<link rel="modulepreload" href="./src/lib/html.js?v=3.150.0">
-<link rel="modulepreload" href="./src/lib/inbox.js?v=3.150.0">
-<link rel="modulepreload" href="./src/lib/ledger-table.js?v=3.150.0">
-<link rel="modulepreload" href="./src/lib/notifications.js?v=3.150.0">
-<link rel="modulepreload" href="./src/lib/pdftext.js?v=3.150.0">
-<link rel="modulepreload" href="./src/lib/reportcharts.js?v=3.150.0">
-<link rel="modulepreload" href="./src/lib/safekeeping.js?v=3.150.0">
-<link rel="modulepreload" href="./src/lib/scroll-shadow.js?v=3.150.0">
-<link rel="modulepreload" href="./src/lib/search.js?v=3.150.0">
-<link rel="modulepreload" href="./src/lib/setup.js?v=3.150.0">
-<link rel="modulepreload" href="./src/lib/storageuse.js?v=3.150.0">
-<link rel="modulepreload" href="./src/lib/swipe.js?v=3.150.0">
-<link rel="modulepreload" href="./src/lib/timerange.js?v=3.150.0">
-<link rel="modulepreload" href="./src/lib/toast.js?v=3.150.0">
-<link rel="modulepreload" href="./src/lib/xlsx.js?v=3.150.0">
-<link rel="modulepreload" href="./src/state.js?v=3.150.0">
+<link rel="modulepreload" href="./src/app.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/accounts.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/actuals.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/advice.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/agentstatement.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/agepension.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/aisummary.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/assetreports.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/autoprices.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/bank-import.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/benchmarks.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/bills.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/brokertrades.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/budgetfromhistory.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/canbuy.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/cashflow.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/cashflowlist.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/claims.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/closeyear.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/demo.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/emergency.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/engine.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/estimates.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/fire.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/firstrun.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/goals.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/health.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/history.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/import-rules.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/inbox.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/investments.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/investreports.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/junemoves.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/ledger.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/lifeevents.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/loanstrategy.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/merchantbook.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/merchants.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/milestones.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/monthdetail.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/monthreview.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/networthlist.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/nwauto.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/nwcheck.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/nwhistory.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/outcomes.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/payslip.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/payslipcheck.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/pdfstatement.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/people.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/performance.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/pricesheet.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/property.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/propertylife.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/received.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/recurring.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/reportframe.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/reports.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/retirement.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/sale.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/savegoals.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/showas.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/supertopup.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/syncfile.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/syncmerge.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/takehome.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/tax.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/taxyear.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/trends.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/trim.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/trips.js?v=3.151.0">
+<link rel="modulepreload" href="./src/calc/withholding.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/accounts.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/advice.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/askclaude.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/assets.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/autoprices.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/bank-import.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/benchmarks.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/brokertrades.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/budgethistory.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/canbuy.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/cashflow.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/dashboard.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/detail.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/emergency.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/expenses.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/firstrun.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/health.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/home.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/income.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/investments.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/junemoves.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/lifeevents.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/monthdetail.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/monthreview.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/nav.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/networth.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/people.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/period.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/pricesheet.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/projections.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/properties.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/received.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/recurring.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/reports.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/retirement.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/rules.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/safekeeping.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/savegoals.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/scenarios.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/search.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/syncmerge.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/taxyear.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/trim.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/trips.js?v=3.151.0">
+<link rel="modulepreload" href="./src/components/yearend.js?v=3.151.0">
+<link rel="modulepreload" href="./src/constants.js?v=3.151.0">
+<link rel="modulepreload" href="./src/lib/backup.js?v=3.151.0">
+<link rel="modulepreload" href="./src/lib/charts.js?v=3.151.0">
+<link rel="modulepreload" href="./src/lib/dropbox.js?v=3.151.0">
+<link rel="modulepreload" href="./src/lib/foldersync.js?v=3.151.0">
+<link rel="modulepreload" href="./src/lib/format.js?v=3.151.0">
+<link rel="modulepreload" href="./src/lib/help.js?v=3.151.0">
+<link rel="modulepreload" href="./src/lib/html.js?v=3.151.0">
+<link rel="modulepreload" href="./src/lib/inbox.js?v=3.151.0">
+<link rel="modulepreload" href="./src/lib/ledger-table.js?v=3.151.0">
+<link rel="modulepreload" href="./src/lib/notifications.js?v=3.151.0">
+<link rel="modulepreload" href="./src/lib/pdftext.js?v=3.151.0">
+<link rel="modulepreload" href="./src/lib/reportcharts.js?v=3.151.0">
+<link rel="modulepreload" href="./src/lib/safekeeping.js?v=3.151.0">
+<link rel="modulepreload" href="./src/lib/scroll-shadow.js?v=3.151.0">
+<link rel="modulepreload" href="./src/lib/search.js?v=3.151.0">
+<link rel="modulepreload" href="./src/lib/setup.js?v=3.151.0">
+<link rel="modulepreload" href="./src/lib/storageuse.js?v=3.151.0">
+<link rel="modulepreload" href="./src/lib/swipe.js?v=3.151.0">
+<link rel="modulepreload" href="./src/lib/timerange.js?v=3.151.0">
+<link rel="modulepreload" href="./src/lib/toast.js?v=3.151.0">
+<link rel="modulepreload" href="./src/lib/xlsx.js?v=3.151.0">
+<link rel="modulepreload" href="./src/state.js?v=3.151.0">
 <!-- /stamp:importmap -->
-<script type="module" src="src/app.js?v=3.150.0"></script>
+<script type="module" src="src/app.js?v=3.151.0"></script>

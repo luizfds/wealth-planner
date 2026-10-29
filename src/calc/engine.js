@@ -363,9 +363,9 @@ export function recalcComputedItems(){
     var adj = takeHomeAdjust(person);
     var monthly = split.regularMonthly;
     var existing = state.income.find(function(i){ return i.syntheticNetFor === person; });
-    var note = "auto: " + person + "'s regular take-home after tax & super, as a payslip pays it" +
-      (function(){ var bits = [].concat(split.oneOffs.length ? ["bonuses"] : [], split.ending.length ? ["pay that ends this year"] : [], split.refund ? ["the rental's tax refund"] : []);
-        return bits.length ? " — " + bits.join(", ").replace(/, ([^,]*)$/, " and $1") + " counted separately" : ""; })() +
+    var note = "auto: what " + person + "'s payslip pays now, after tax & super (tax as withheld)" +
+      (function(){ var bits = [].concat(split.oneOffs.length ? ["bonuses"] : [], split.ending.length ? ["pay that stops"] : [], split.refund ? ["what settles at lodgement"] : []);
+        return bits.length ? " — " + bits.join(", ").replace(/, ([^,]*)$/, " and $1") + " are rows of their own" : ""; })() +
       (adj ? " — set to what actually lands, " + (adj < 0 ? "−" : "+") + "$" + Math.round(Math.abs(adj)).toLocaleString("en-AU") + "/mo against the tax estimate" : "");
     if(existing){
       existing.amount = monthly;
@@ -390,24 +390,31 @@ export function recalcComputedItems(){
       if(row) Object.assign(row, fields);
       else state.income.push(Object.assign({ syntheticOneOffFor: id, classification: "" }, fields));
     });
-    // v3.148.0: pay that stops within the year, after tax, as its own row that ends when it does.
+    // v3.148.0 / v3.151.0: pay that stops within the year — the monthly take-home includes it while
+    // it's paid, as a payslip does; this row takes it off from the day after it stops.
     split.ending.forEach(function(e){
       var id = e.row.id;
       if(!id) return;
       liveEnding[id] = true;
       var er = state.income.find(function(i){ return i.syntheticEndingFor === id; });
-      var ef = { what: (e.row.what || "Pay") + " — after tax", amount: e.monthly, freq: "Monthly", endDate: e.endDate, computed: true, incomeType: "Net", person: person, account: e.row.account || "",
-        computedNote: "auto: " + (e.row.what || "this pay") + " after tax, at " + person + "'s top rate — paid until " + fmtDate(e.endDate) + ", then gone" };
+      var from = new Date(Date.parse(e.endDate + "T00:00:00Z") + 86400000).toISOString().slice(0, 10);
+      var ef = { what: (e.row.what || "Pay") + " ends " + fmtDate(e.endDate) + " — after tax", amount: -e.monthly, freq: "Monthly", startDate: from, endDate: "", computed: true, incomeType: "Net", person: person, account: e.row.account || "",
+        computedNote: "auto: " + (e.row.what || "this pay") + " stops after " + fmtDate(e.endDate) + " — take-home is this much lower from then" };
       if(er) Object.assign(er, ef);
       else state.income.push(Object.assign({ syntheticEndingFor: id, classification: "" }, ef));
     });
-    // v3.145.0: the rental's tax saving, once a year when the refund lands.
+    // v3.145.0 / v3.151.0: what settles at lodgement — the rental's loss, the bonus taxed above
+    // what was withheld, pay that stopped, deductions — once a year when the refund (or bill) lands.
     if(split.refund){
       liveRefunds[person] = true;
       var refundRow = state.income.find(function(i){ return i.syntheticRefundFor === person; });
-      var refundFields = { what: person + " — Tax refund (rental loss)", amount: split.refund.amount, freq: "Yearly", irregular: true, dueMonth: split.refund.dueMonth,
+      var amt = split.refund.amount, isRefund = amt >= 0;
+      var why = [];
+      if(split.refund.rental > 0) why.push("the investment property's loss (" + fmtCurrency0.format(split.refund.rental) + ")");
+      why.push("tax on the whole year against what each pay withholds");
+      var refundFields = { what: person + (isRefund ? " — Tax refund at lodgement" : " — Tax to pay at lodgement"), amount: amt, freq: "Yearly", irregular: true, dueMonth: split.refund.dueMonth,
         computed: true, incomeType: "Net", person: person,
-        computedNote: "auto: tax the investment property's loss saves " + person + " — not in any payslip; it comes back in the refund once the return is lodged. Tick “withholding already allows for it” in Tax → People if a PAYG variation puts it in each pay" };
+        computedNote: "auto: " + (isRefund ? "what comes back" : "what's owed") + " when " + person + "'s return is lodged — " + why.join(" and ") + ". Not in any payslip" };
       if(refundRow) Object.assign(refundRow, refundFields);
       else state.income.push(Object.assign({ syntheticRefundFor: person, classification: "", account: "" }, refundFields));
     }
@@ -421,7 +428,7 @@ export function recalcComputedItems(){
   state.properties.filter(function(p){ return p.kind === "IP"; }).forEach(function(p){
     var monthlyRent = Math.round(sumField(p.income, "monthly") * 100) / 100;
     var existingRent = state.income.find(function(i){ return i.syntheticRentForProperty === p.id; });
-    var note = "auto: rent for " + p.what + " — edit on the Properties tab";
+    var note = "auto: rent for " + p.what + " — edit in Net worth → Property";
     if(existingRent){
       existingRent.amount = monthlyRent;
       existingRent.freq = "Monthly";

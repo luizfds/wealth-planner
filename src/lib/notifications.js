@@ -237,7 +237,7 @@ function staleAssetNotifications(){
     type: "stale-asset",
     severity: "info",
     title: stale.length + " assets haven't been logged recently",
-    detail: staleAssetNamesList(stale.slice(0, 3)) + (extraCount > 0 ? " and " + extraCount + " more" : "") + " — log a fresh value on the Assets tab.",
+    detail: staleAssetNamesList(stale.slice(0, 3)) + (extraCount > 0 ? " and " + extraCount + " more" : "") + " — log a fresh value in Net worth → Investments.",
     date: todayStr(),
     page: "assets"
   }];
@@ -507,14 +507,16 @@ function taxCalendarNotifications(){
 // after-tax row the plan keeps for it (calc/engine.js syntheticEndingFor). Pure apart from state.
 export function endingPayNotifications(today){
   today = today || localDateStr();
-  return (state.income || []).filter(function(i){ return i.syntheticEndingFor && i.endDate && i.endDate >= today; }).map(function(i){
-    var days = daysUntil(i.endDate, today);
-    if(days > 45) return null;
+  return (state.income || []).filter(function(i){ return i.syntheticEndingFor; }).map(function(i){
     var src = (state.income || []).find(function(r){ return r.id === i.syntheticEndingFor; });
-    return { id: "payends:" + i.syntheticEndingFor + ":" + i.endDate, type: "income", severity: days <= 14 ? "warn" : "info",
-      title: (src && src.what ? src.what : "Part of " + (i.person || "the") + " pay") + " ends " + fmtDate(i.endDate),
-      detail: "Take-home drops by about " + fmtCurrency0.format(Number(i.amount) || 0) + " a month after tax from then — the cash-flow forecast already counts it. If it's being extended, change its end date in Cash flow → Income.",
-      date: i.endDate, page: "expenses", sub: "income" };
+    var ends = src && src.endDate;
+    if(!ends || ends < today) return null;
+    var days = daysUntil(ends, today);
+    if(days > 45) return null;
+    return { id: "payends:" + i.syntheticEndingFor + ":" + ends, type: "income", severity: days <= 14 ? "warn" : "info",
+      title: (src.what || "Part of " + (i.person || "the") + " pay") + " ends " + fmtDate(ends),
+      detail: "Take-home drops by about " + fmtCurrency0.format(Math.abs(Number(i.amount) || 0)) + " a month after tax from then — the cash-flow forecast already counts it. If it's being extended, change its end date in Cash flow → Income.",
+      date: ends, page: "expenses", sub: "income" };
   }).filter(Boolean);
 }
 

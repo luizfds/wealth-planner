@@ -25,9 +25,9 @@ import { getTaxPeople, computePersonTax, todayTaxFy } from "./tax.js";
 export function incomeTargets(){
   var out = [];
   getTaxPeople().forEach(function(person){
-    // v3.148.0: with pay that ends this year (its own row, still running) — it lands in the same pay.
     var today = localDateStr();
-    var payRows = (state.income || []).filter(function(i){ return i.syntheticNetFor === person || (i.syntheticEndingFor && i.person === person && (!i.endDate || i.endDate >= today)); });
+    // v3.151.0: the take-home row is what a payslip pays now; pay that has stopped since takes it down.
+    var payRows = (state.income || []).filter(function(i){ return i.syntheticNetFor === person || (i.syntheticEndingFor && i.person === person && (!i.startDate || i.startDate <= today)); });
     out.push({ key: "net:" + person, label: person + " — take-home pay", kind: "net",
       monthly: payRows.reduce(function(t, i){ return t + periodsOf(Number(i.amount) || 0, i.freq).monthly; }, 0), irregular: false });
   });

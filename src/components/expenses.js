@@ -611,7 +611,7 @@ function propertyLoansModernHtml(ips){
     return '<div class="m-row computed"><div class="m-row-summary" style="cursor:default">' +
       '<div style="flex:1 1 auto; min-width:0">' +
         '<div class="m-row-name">' + escapeAttr(p.what) + ' — Loan repayments</div>' +
-        '<div class="m-row-sub">auto: from the loan\'s balance and rate — edit on the Properties tab</div>' +
+        '<div class="m-row-sub">auto: from the loan\'s balance and rate — edit in Net worth → Property</div>' +
       '</div>' +
       '<span class="m-row-amt">' + fmtCurrency0.format(propertyLoanMonthly(p)) + '/mo</span>' +
     '</div></div>';

@@ -674,7 +674,7 @@ export function migrateState(s){
     });
     s.assets = (s.assets || []).filter(function(a){ return (a.category || "Other") !== "Property"; });
     s.assetPropertiesMigrated = true;
-    showToast("Moved " + legacyPropertyAssets.length + " propert" + (legacyPropertyAssets.length === 1 ? "y" : "ies") + " to the new Properties tab — check the kind (IP/PPOR) for each");
+    showToast("Moved " + legacyPropertyAssets.length + " propert" + (legacyPropertyAssets.length === 1 ? "y" : "ies") + " to Net worth → Property — check the kind (IP/PPOR) for each");
   }
 
   return s;

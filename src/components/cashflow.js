@@ -201,7 +201,8 @@ export function budgetPlanHtml(opts){
   var groups = (opts.groups || []).filter(function(g){ return Math.abs(g.monthly) >= 0.5; });
   var total = function(label, v){ return '<div class="bp-row bp-total"><span>' + label + '</span><b></b><em class="' + (v < 0 ? "neg" : "pos") + '">' + (v < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(v)) + '</em></div>'; };
   var html = '<div class="bp-head"><span></span><span>per month</span><span>left</span></div>' +
-    '<div class="bp-sec">Money in</div>' + income.map(function(r){ return row(r.label, r.monthly, 1, "in"); }).join("") +
+    // v3.151.0: money in can be negative — tax to pay at lodgement, pay that has stopped.
+    '<div class="bp-sec">Money in</div>' + income.map(function(r){ return row(r.label, Math.abs(r.monthly), r.monthly < 0 ? -1 : 1, "in"); }).join("") +
     '<div class="bp-sec">Money out</div>' + groups.map(function(g){ return row(g.label, g.monthly, -1); }).join("") +
     (Math.abs(opts.other || 0) >= 0.5 ? row("Investment loan repayments", opts.other, -1) : "");
   if(!bonuses.length){
@@ -210,7 +211,7 @@ export function budgetPlanHtml(opts){
   }
   var normal = run;
   html += total("Left over in a normal month", normal);
-  html += '<div class="bp-sec">Once a year, averaged over twelve months</div>' + bonuses.map(function(r){ return row(r.label, r.monthly, 1, "in"); }).join("");
+  html += '<div class="bp-sec">Once a year, averaged over twelve months</div>' + bonuses.map(function(r){ return row(r.label, Math.abs(r.monthly), r.monthly < 0 ? -1 : 1, "in"); }).join("");
   return html + total("Left over a month across the year", opts.net != null ? opts.net : run);
 }
 

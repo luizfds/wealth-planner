@@ -186,7 +186,7 @@ export function renderDashboardStats(){
   var projected = series[series.length - 1].y;
   var lastTile = isComparing
     ? '<div class="stat-tile"><span>Scenarios compared</span><b>' + state.scenarios.length + '</b><small>' + state.scenarios.map(escapeAttr).join(", ") + '</small></div>'
-    : '<div class="stat-tile"><span>Scenario</span><b>' + escapeAttr(active) + '</b><small>add another on the Scenarios tab to compare options</small></div>';
+    : '<div class="stat-tile"><span>Scenario</span><b>' + escapeAttr(active) + '</b><small>add another in Plan → Scenarios to compare options</small></div>';
   var runway = runwayMonths(t.expensesMonthly);
   var runwayTile = '<div class="stat-tile" title="Liquid assets (cash + shares + property offset) ÷ ' + escapeAttr(active) + '\'s monthly expenses — how long you could cover costs with zero income. A common rule of thumb targets 3-6 months."><span>Runway</span><b>' +
     (runway == null ? "—" : fmtRunway.format(runway) + " mo") + '</b><small>liquid assets ÷ monthly expenses</small></div>';

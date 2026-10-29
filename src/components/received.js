@@ -19,6 +19,16 @@ export function renderReceived(){
 }
 export function toggleReceivedRow(key){ openRows[key] = !openRows[key]; }
 
+// v3.153.0: take-home logged as the same round figure month after month ($6,000, $6,000, $6,000) —
+// what's moved into an account, more likely than what a payslip pays. The amount, or null.
+export function roundTakeHome(person){
+  var logs = (state.incomeLog || []).filter(function(r){ return r.target === "net:" + person && r.date; })
+    .sort(function(a, b){ return a.date < b.date ? 1 : -1; }).slice(0, 3);
+  if(logs.length < 3) return null;
+  var a = Number(logs[0].amount);
+  var round = logs.filter(function(r){ return Number(r.amount) === a; }).length >= 2 && logs.every(function(r){ return Number(r.amount) % 100 === 0; });
+  return round ? a : null;
+}
 // A person's own after-tax income row (typed, Net) whose monthly amount is within $5 of `diff`.
 export function afterTaxInPay(person, diff){
   return (state.income || []).find(function(i){
@@ -38,6 +48,7 @@ export function receivedPanelHtml(monthStr){
       // v3.151.1: take-home that's a little over by what an after-tax payment comes to — a phone
       // reimbursement paid with the salary — says so, rather than reading as a pay rise.
       var inPay = r.kind === "net" && diff > 0 ? afterTaxInPay(String(r.key).slice(4), diff) : null;
+      var rounded = r.kind === "net" && Math.abs(diff) >= 1 ? roundTakeHome(String(r.key).slice(4)) : null;
       var status = !r.rows.length ? '<span class="rcv-status muted">nothing logged ' + escapeAttr(r.period) + '</span>'
         : inPay ? '<span class="rcv-status up">+' + fmtCurrency0.format(diff) + ' — ' + escapeAttr(inPay.what || "an after-tax payment") + ' in the same pay</span>'
         : (r.planned > 0 && Math.abs(diff) >= 1
@@ -49,6 +60,7 @@ export function receivedPanelHtml(monthStr){
           '<span class="rcv-name">' + escapeAttr(r.label) + '<small>' + escapeAttr(r.period) + '</small></span>' +
           '<span class="rcv-figs"><b>' + fmtCurrency0.format(r.received) + '</b> of ' + fmtCurrency0.format(r.planned) + '</span>' +
           '<span class="rcv-bar"><span style="width:' + pct.toFixed(1) + '%"></span></span>' + status +
+          (rounded != null ? '<span class="rcv-hint">Logged as a round ' + fmtCurrency0.format(rounded) + ' most months — what\'s moved across, or the payslip\'s net pay? Reading a payslip (Tax → This year) logs the exact figure.</span>' : '') +
         '</button>' +
         (open ? '<div class="rcv-detail">' + (r.rows.length
           ? r.rows.map(function(x){

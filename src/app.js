@@ -132,6 +132,7 @@ import { renderReports, reportShown, reportPrintHtml, reportCsv, reportFrame, pi
 import { monthDetailUi, shownMonth as mdShownMonth } from "./components/monthdetail.js";
 import { shiftMonth as mdShiftMonth } from "./calc/monthdetail.js";
 import { cardPaymentsForMonth, oddCardRepayments, usualCardSource } from "./calc/bills.js";
+import { rentCheck } from "./calc/rentcheck.js";
 import { exportTableCsv } from "./lib/backup.js";
 import { yearEndPrintHtml, yearEndDocumentsCsv } from "./components/yearend.js";
 import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodButton, renderPeriodMenu } from "./components/period.js";
@@ -1097,6 +1098,19 @@ import { inboxMessage } from "./calc/inbox.js";
     var fix = e.target.closest("[data-hc-fix]");
     if(fix){
       // v3.146.0: a card repayment nobody logged, at the amount checked against the statement.
+      // v3.153.0: the rent the agent's statements add up to, into the plan (kept in its history).
+      if(fix.getAttribute("data-hc-fix") === "rent-from-statements"){
+        var rp = (state.properties || []).find(function(x){ return x.id === fix.getAttribute("data-hc-fix-arg"); });
+        var rc = rp && rentCheck(rp);
+        if(!rc) return;
+        var rrow = rp.income[0], wasAmt = rrow.amount, wasHist = (rrow.history || []).slice();
+        rrow.amount = rc.fromStatements;
+        if(!Array.isArray(rrow.history)) rrow.history = [];
+        appendHistorySnapshot(rrow.history, rc.fromStatements, localDateStr());
+        recalcComputedItems(); persist(); renderAll(); renderHealth(); renderChecksBadge(); renderNotifBadge();
+        showUndoToast("Rent set to " + fmtCurrency2.format(rc.fromStatements) + " " + rc.freq.toLowerCase(), function(){ rrow.amount = wasAmt; rrow.history = wasHist; recalcComputedItems(); persist(); renderAll(); renderHealth(); renderChecksBadge(); renderNotifBadge(); });
+        return;
+      }
       if(fix.getAttribute("data-hc-fix") === "card-log"){
         var arg = (fix.getAttribute("data-hc-fix-arg") || "").split("|");
         var item = fix.closest(".hc-item"), amtEl = item && item.querySelector("[data-hc-fix-amount]");

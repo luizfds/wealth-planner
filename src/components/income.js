@@ -437,14 +437,18 @@ export function payslipNetLine(item){
   if(!extra.length) return "";
   var add = extra.reduce(function(t, i){ return t + periodsOf(Number(i.amount) || 0, i.freq).monthly; }, 0);
   if(!(Math.abs(add) >= 0.5)) return "";
-  return "Net pay on the payslip: " + fmtCurrency0.format((Number(item.amount) || 0) + add) + "/mo, with " + extra.map(function(i){ return i.what || "an after-tax payment"; }).join(" and ");
+  // v3.152.1: in the period Income is shown in, like every other figure on the card.
+  var v = shownAmount((Number(item.amount) || 0) + add, hoursPerWeekOf(person), fmtCurrency0);
+  if(v == null) return "";
+  return "Net pay on the payslip: " + v + showAsOption(incomeShowAs()).suffix + ", with " + extra.map(function(i){ return i.what || "an after-tax payment"; }).join(" and ");
 }
 // v3.151.2: what take-home drops by once this row stops (its after-tax "ends" row, engine.js).
 export function endingNoteHtml(item){
   if(!item || !item.id || !item.endDate) return "";
   var e = (state.income || []).find(function(i){ return i.syntheticEndingFor === item.id; });
   if(!e || !(Math.abs(Number(e.amount) || 0) >= 0.5)) return "";
-  return 'Take-home −' + fmtCurrency0.format(Math.abs(Number(e.amount))) + '/mo after tax from then';
+  var v = shownAmount(Math.abs(Number(e.amount)), hoursPerWeekOf(item.person), fmtCurrency0);
+  return v == null ? "" : 'Take-home −' + v + showAsOption(incomeShowAs()).suffix + ' after tax from then';
 }
 // v3.152.0: what a Gross row comes to after tax (calc/tax.js personRowsAfterTax), under its gross
 // figure in the same column, in the period Income is shown in. Worked out once a person per render.

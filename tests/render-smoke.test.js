@@ -1518,6 +1518,10 @@ test("the take-home row shows the payslip's net pay, with after-tax payments int
       { id: "o1", what: "Side work", person: "Alex", incomeType: "Net", amount: 200, freq: "Monthly", account: "Other bank" },
       { syntheticNetFor: "Alex", computed: true, incomeType: "Net", amount: 5300.4, freq: "Monthly" }];
     assert.equal(payslipNetLine(state.income[3]), "Net pay on the payslip: $5,330/mo, with Phone reimbursement");
+    // v3.152.1: in the period Income is shown in.
+    const { setIncomeShowAs } = await import("../src/components/income.js");
+    setIncomeShowAs("week");
+    try { assert.equal(payslipNetLine(state.income[3]), "Net pay on the payslip: $1,230/wk, with Phone reimbursement"); } finally { setIncomeShowAs("month"); }
     assert.equal(payslipNetLine(state.income[0]), "");
   } finally { state.income = keep; }
 });
@@ -1535,4 +1539,15 @@ test("a Gross row shows what it comes to after tax under its gross figure; the t
     assert.match(afterTaxHtml(state.income[1]), /after tax<br>\(\$[\d,]+ in Sep\)/);
     assert.match(takeHomeLineHtml("Alex"), /Take-home pay[^]*\$[\d,]+\.\d\d\/mo/);
   } finally { Object.assign(state, keep); recalcComputedItems(); }
+});
+
+test("take-home logged as the same round figure most months is pointed out", async function(){
+  const { roundTakeHome } = await import("../src/components/received.js");
+  var keep = state.incomeLog;
+  try {
+    state.incomeLog = [["2026-07-14", 6000], ["2026-08-13", 6000], ["2026-09-17", 6300], ["2026-10-15", 6000]].map(function(x, i){ return { id: "r" + i, target: "net:Sam", date: x[0], amount: x[1] }; });
+    assert.equal(roundTakeHome("Sam"), 6000);
+    state.incomeLog[3].amount = 6012.40;
+    assert.equal(roundTakeHome("Sam"), null, "an exact figure is a payslip's");
+  } finally { state.incomeLog = keep; }
 });

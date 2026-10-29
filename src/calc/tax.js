@@ -989,6 +989,35 @@ export function personTakeHomeParts(person, opts){
   var refund = Math.abs(settle) >= 1 ? { amount: settle, dueMonth: lastRefundMonth(person), rental: rental ? rental.amount : 0 } : null;
   return { regularMonthly: Math.round((monthly + takeHomeAdjust(person)) * 100) / 100, oneOffs: split.oneOffs, refund: refund, ending: ending };
 }
+// v3.152.0: the take-home split across the rows that earn it, to show beside each one. Tax is a
+// person's, not a row's, so this is an attribution: each regular pay row is what it adds after tax
+// (withheld as v3.151.0 works it out); the largest takes the rest, so they add up to the take-home
+// exactly; a bonus is what it adds at the top. { [rowId]: { monthly, yearly, oneOff, dueMonth } }.
+export function personRowsAfterTax(person, opts){
+  var parts = personTakeHomeParts(person, opts);
+  var base = opts && opts.includeRow ? opts.includeRow : function(r){ return isActiveOn(r, localDateStr()); };
+  var pay = state.income.filter(function(r){ return r.person === person && r.incomeType === "Gross" && !r.computed && !isOneOffIncome(r) && base(r) && r.id; });
+  var out = {};
+  if(pay.length){
+    var inPay = function(r){ return base(r) && !isOneOffIncome(r); };
+    var all = payNowNet(person, opts, inPay);
+    var yearly = function(r){ return periodsOf(rowAmountFor(r, opts), r.freq).yearly; };
+    var main = pay.slice().sort(function(a, b){ return yearly(b) - yearly(a); })[0];
+    var others = 0;
+    pay.forEach(function(r){
+      if(r === main) return;
+      var m = (all - payNowNet(person, opts, function(x){ return x !== r && inPay(x); })) / 12;
+      others += m;
+      out[r.id] = { monthly: Math.round(m * 100) / 100, yearly: Math.round(m * 1200) / 100, oneOff: false };
+    });
+    var mm = parts.regularMonthly - others;
+    out[main.id] = { monthly: Math.round(mm * 100) / 100, yearly: Math.round(mm * 1200) / 100, oneOff: false };
+  }
+  parts.oneOffs.forEach(function(o){
+    if(o.row.id) out[o.row.id] = { monthly: Math.round(o.net / 12 * 100) / 100, yearly: o.net, oneOff: true, dueMonth: o.row.dueMonth || null };
+  });
+  return out;
+}
 // What lands each month in pay on `today`: the regular take-home, less what has stopped by then.
 export function monthlyPayNow(parts, today){
   return Math.round((parts.regularMonthly - (parts.ending || []).reduce(function(t, e){ return t + (today && e.endDate < today ? e.monthly : 0); }, 0)) * 100) / 100;

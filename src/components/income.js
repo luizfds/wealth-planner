@@ -2,7 +2,7 @@ import { state } from "../state.js";
 import { FREQS, INCOME_TYPES, SUPER_MODES, SACRIFICE_MODES, MAX_SUPER_BASE, MONTH_NAMES, sacrificeModeToLabel, sacrificeLabelToMode } from "../constants.js";
 import { periodsOf, sumField, nextPayDate, payScheduleKindFor, daysUntil, WEEKDAY_NAMES, householdYearWindow, isActiveOn } from "../calc/ledger.js";
 import { ipNetResultAnnual, ipDepreciationAnnual, ipOwnershipMismatches, propertyOwnershipTotal, fyLabel } from "../calc/property.js";
-import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax, wfhRateForFy, phiRebateAdjustment, taxTablesFor, currentTaxFy, phiPremiumsAnnual, phiLine } from "../calc/tax.js";
+import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax, wfhRateForFy, phiRebateAdjustment, taxTablesFor, currentTaxFy, phiPremiumsAnnual, phiLine, personRowsAfterTax } from "../calc/tax.js";
 import { claimItems } from "../calc/claims.js";
 import { projectWithholding } from "../calc/withholding.js";
 import { renderJuneMoves } from "./junemoves.js";
@@ -277,7 +277,9 @@ function incomeGroupRowMeta(g){
   var contribIdx = 0;
   // v3.151.2: pay that stops is said on the row that stops (endingNoteHtml), not as a negative row
   // of income that "starts" the day after — that one is only for the forecast.
-  return g.items.map(function(item, i){ return { item: item, i: i }; }).filter(function(x){ return !x.item.syntheticEndingFor; }).map(function(x){
+  // v3.152.0: and a person's take-home and bonus-after-tax rows — their figures sit on the rows that
+  // earn them now (afterTaxHtml), with the take-home under the list (takeHomeLineHtml).
+  return g.items.map(function(item, i){ return { item: item, i: i }; }).filter(function(x){ return !x.item.syntheticEndingFor && !x.item.syntheticNetFor && !x.item.syntheticOneOffFor; }).map(function(x){
     var item = x.item, i = x.i;
     var colorIdx = null;
     if(!item.computed){ colorIdx = contribIdx % 8; contribIdx++; }
@@ -309,6 +311,7 @@ export function renderIncomeGroups(){
   var container = document.getElementById("incomeGroups");
   if(!container) return;
   var groups = computeIncomeGroups();
+  resetAfterTaxCache();
   patchIncomeGroupTotals();
   var order = incomeGroupOrder();
   container.innerHTML = showAsControlHtml() + '<div class="m-people">' + groups.map(function(g){
@@ -317,7 +320,8 @@ export function renderIncomeGroups(){
     var avatarClass = g.key === "__household" ? "m-avatar-neutral" : "series-color-" + (order.indexOf(g.key) % 8);
     var initial = escapeAttr(label.charAt(0).toUpperCase());
     var rowMeta = incomeGroupRowMeta(g);
-    var rows = rowMeta.map(function(m){ return modernIncomeRowHtml(m.item, m.idx, m.colorIdx); }).join("");
+    var rows = rowMeta.map(function(m){ return modernIncomeRowHtml(m.item, m.idx, m.colorIdx); }).join("") +
+      (g.key === "__household" ? "" : takeHomeLineHtml(g.key));
     return '<div class="m-card">' +
       '<div class="m-card-head"><span class="m-avatar ' + avatarClass + '">' + initial + '</span>' +
       '<div class="m-card-name">' + escapeAttr(label) + '</div>' +
@@ -442,6 +446,30 @@ export function endingNoteHtml(item){
   if(!e || !(Math.abs(Number(e.amount) || 0) >= 0.5)) return "";
   return 'Take-home −' + fmtCurrency0.format(Math.abs(Number(e.amount))) + '/mo after tax from then';
 }
+// v3.152.0: what a Gross row comes to after tax (calc/tax.js personRowsAfterTax), under its gross
+// figure in the same column, in the period Income is shown in. Worked out once a person per render.
+var afterTaxCache = {};
+export function resetAfterTaxCache(){ afterTaxCache = {}; }
+var MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+export function afterTaxHtml(item){
+  if(!item || !item.person || !item.id) return "";
+  if(!afterTaxCache[item.person]){ try { afterTaxCache[item.person] = personRowsAfterTax(item.person); } catch(e){ afterTaxCache[item.person] = {}; } }
+  var a = afterTaxCache[item.person][item.id];
+  if(!a) return "";
+  var v = shownAmount(a.monthly, hoursPerWeekOf(item.person), fmtCurrency0);
+  if(v == null) return "";
+  return '<small class="m-row-after">' + v + showAsOption(incomeShowAs()).suffix + ' after tax' +
+    (a.oneOff ? '<br>(' + fmtCurrency0.format(a.yearly) + (a.dueMonth ? ' in ' + MONTH_SHORT[a.dueMonth - 1] : ' once a year') + ')' : '') + '</small>';
+}
+// Under a person's rows: their take-home, and the payslip's net pay when after-tax payments come with it.
+export function takeHomeLineHtml(person){
+  var net = (state.income || []).find(function(i){ return i.syntheticNetFor === person; });
+  if(!net) return "";
+  var v = shownAmount(periodsOf(Number(net.amount) || 0, net.freq).monthly, hoursPerWeekOf(person), fmtCurrency2);
+  var slip = payslipNetLine(net);
+  return '<div class="m-takehome" data-takehome="' + escapeAttr(person) + '"><span>Take-home pay<small>after tax & super, as a payslip pays it</small></span><b>' + (v == null ? "—" : v + showAsOption(incomeShowAs()).suffix) + '</b>' +
+    (slip ? '<small class="m-takehome-slip">' + escapeAttr(slip) + '</small>' : '') + '</div>';
+}
 function modernIncomeRowHtml(item, idx, colorIdx){
   var isComputed = !!item.computed;
   var isGrossRef = item.incomeType === "Gross" && !isComputed;
@@ -449,6 +477,7 @@ function modernIncomeRowHtml(item, idx, colorIdx){
   var note = isGrossRef ? incomeRowSuperNote(item) : "";
   var dot = colorIdx != null ? '<span class="m-row-dot series-color-' + colorIdx + '" aria-hidden="true"></span>' : "";
   var trendHtml = isComputed ? "" : historyTrendHtml(item);
+  var after = isGrossRef ? afterTaxHtml(item) : "";
   var summary = '<div class="m-row-summary"' + (isComputed ? ' style="cursor:default"' : ' role="button" tabindex="0" data-row-toggle') + '>' +
     (isComputed ? "" : dot) +
     '<div style="flex:1 1 auto; min-width:0">' +
@@ -457,12 +486,12 @@ function modernIncomeRowHtml(item, idx, colorIdx){
       (trendHtml ? '<div class="m-row-sub">' + trendHtml + '</div>' : "") +
       (isComputed ? "" : (function(){ var n = nextPayNoteHtml(item); return n ? '<div class="m-row-sub">' + n + '</div>' : ""; })()) +
       (function(){ var e = endDateNoteHtml(item); return e ? '<div class="m-row-sub">' + e + '</div>' : ""; })() +
-      (function(){ var t = endingNoteHtml(item); return t ? '<div class="m-row-sub">' + escapeAttr(t) + '</div>' : ""; })() +
-      (function(){ var t = payslipNetLine(item); return t ? '<div class="m-row-sub">' + escapeAttr(t) + '</div>' : ""; })() +
+      // With its after-tax figure beside it (v3.152.0), "Ends 31 Dec" already says what goes.
+      (after ? "" : (function(){ var t = endingNoteHtml(item); return t ? '<div class="m-row-sub">' + escapeAttr(t) + '</div>' : ""; })()) +
       (function(){ var v = scenarioVaryNoteHtml(item, state.activeScenario); return v ? '<div class="m-row-sub">' + v + '</div>' : ""; })() +
     '</div>' +
-    (isGrossRef ? '<span class="m-row-tag gross">Gross</span>' : "") +
-    '<span class="m-row-amt' + (hasEnded(item) ? " row-amt-ended" : "") + '" data-computed="amt">' + rowAmountText(item, monthly) + '</span>' +
+    (isGrossRef && !after ? '<span class="m-row-tag gross">Gross</span>' : "") +
+    '<span class="m-row-amt' + (after ? " has-after" : "") + (hasEnded(item) ? " row-amt-ended" : "") + '" data-computed="amt">' + rowAmountText(item, monthly) + (after || "") + '</span>' +
     (isComputed ? "" : '<span class="m-row-chev" aria-hidden="true">✕</span>') +
   '</div>';
   if(isComputed){
@@ -499,6 +528,26 @@ function modernIncomeRowHtml(item, idx, colorIdx){
   return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="income" data-index="' + idx + '">' + summary + rowEditSlot(isOpen, edit) + '</div>';
 }
 
+// v3.152.0: after an edit, every Gross row's figures (gross and after tax) and each person's
+// take-home line, without a full render — the row being edited stays open.
+export function patchIncomeAfterTax(){
+  var table = document.getElementById("incomeGroups");
+  if(!table) return;
+  resetAfterTaxCache();
+  state.income.forEach(function(item, idx){
+    if(item.incomeType !== "Gross" || item.computed) return;
+    var tr = table.querySelector('[data-index="' + idx + '"]');
+    var amt = tr && tr.querySelector('[data-computed="amt"]');
+    if(!amt) return;
+    var after = afterTaxHtml(item);
+    amt.innerHTML = rowAmountText(item, periodsOf(Number(item.amount) || 0, item.freq).monthly) + after;
+    amt.classList.toggle("has-after", !!after);
+  });
+  table.querySelectorAll("[data-takehome]").forEach(function(el){
+    var html = takeHomeLineHtml(el.getAttribute("data-takehome"));
+    if(html) el.outerHTML = html;
+  });
+}
 export function patchSyntheticIncomeRows(){
   var table = document.getElementById("incomeGroups");
   if(!table) return;

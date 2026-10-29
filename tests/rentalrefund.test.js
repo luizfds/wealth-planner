@@ -81,3 +81,16 @@ test("the refund expected for last year is the return as lodged, when it's recor
     assert.ok(t && t.yearly === 1234.5 && t.lodged && !t.estimated);
   });
 });
+
+test("each pay row's after-tax share adds up to the take-home; a bonus is what it adds", async function(){
+  const { personRowsAfterTax } = await import("../src/calc/tax.js");
+  withHousehold(function(){
+    state.income.push({ id: "a1", what: "Allowance", person: "Alex", incomeType: "Gross", amount: 500, freq: "Monthly", superMode: "On top", sacrificeMode: "none", sacrificeValue: 0 },
+      { id: "b1", what: "Bonus", person: "Alex", incomeType: "Gross", amount: 9000, freq: "Yearly", irregular: true, dueMonth: 9, superMode: "On top", sacrificeMode: "none", sacrificeValue: 0 });
+  }, function(){
+    var by = personRowsAfterTax("Alex"), parts = personTakeHomeParts("Alex");
+    assert.ok(Math.abs(by.s1.monthly + by.a1.monthly - parts.regularMonthly) < 0.02, "salary and allowance are the take-home");
+    assert.ok(by.a1.monthly > 0 && by.a1.monthly < 500, "the allowance after tax");
+    assert.ok(by.b1.oneOff && by.b1.dueMonth === 9 && Math.abs(by.b1.yearly - parts.oneOffs[0].net) < 0.01);
+  });
+});

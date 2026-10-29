@@ -270,9 +270,11 @@ export function parseBankCsv(rows, opts){
   // happens: "Fern delivery" logged by hand on the 3rd, "PAYPAL *FERN DELIVERY 1234" posted by
   // the bank on the 4th. Only the first is certain; the other two are possible duplicates, left out
   // by default and shown with what they matched so the person decides.
+  // v3.150.0: a row matched to a statement before keeps the bank's words as `bankWhat` (its own
+  // `what` is what the person typed) — those are what a re-import of the same statement compares.
   var pool = (opts.existing || []).map(function(t){
-    var amt = Number(t.amount) || 0;
-    return { described: !!normaliseDescription(t.what || ""), key: transactionKey(t.date, t.amount, t.what), ukey: transactionKey(t.date, t.amount, ""),
+    var amt = Number(t.amount) || 0, said = t.bankWhat || t.what || "";
+    return { id: t.id || null, described: !!normaliseDescription(said), key: transactionKey(t.date, t.amount, said), ukey: transactionKey(t.date, t.amount, ""),
       date: t.date || "", cents: Math.round(Math.abs(amt) * 100), spend: amt >= 0, account: t.account || "", what: t.what || "", used: false };
   });
   function take(test){
@@ -295,7 +297,8 @@ export function parseBankCsv(rows, opts){
     if(signed === 0) return; // a $0 line is a statement artifact, not a transaction
     var description = (columns.description !== undefined ? (cells[columns.description] || "") : "").trim();
     var key = transactionKey(dateStr, signed, description);
-    var duplicate = !!take(function(e){ return e.described && e.key === key; });
+    var dupOf = take(function(e){ return e.described && e.key === key; });
+    var duplicate = !!dupOf;
     // Only ever a *possible* duplicate, and only when it isn't already a certain one — consumed per
     // match, so two hand-logged $20 rows on a day absorb two bank rows and a third stays new.
     var possibleDuplicate = false, matched = null;
@@ -314,8 +317,10 @@ export function parseBankCsv(rows, opts){
       // balance from its statement.
       balance: columns.balance !== undefined ? parseBankAmount(cells[columns.balance]) : null,
       duplicate: duplicate,
+      // v3.150.0: which logged row it is, so what's logged and not on the statement can be named.
+      duplicateOf: dupOf ? dupOf.id : null,
       possibleDuplicate: possibleDuplicate,
-      matched: matched ? { date: matched.date, what: matched.what } : null
+      matched: matched ? { id: matched.id, date: matched.date, what: matched.what, amount: matched.cents / 100 } : null
     });
   });
   // The near pass runs after every exact match has had its pick, so a near match never takes the
@@ -328,7 +333,7 @@ export function parseBankCsv(rows, opts){
       return e.cents === cents && e.spend === spend && e.date && daysApart(e.date, r.date) <= NEAR_DAYS &&
         !(opts.account && e.account && e.account !== opts.account);
     });
-    if(m){ r.possibleDuplicate = true; r.matched = { date: m.date, what: m.what }; }
+    if(m){ r.possibleDuplicate = true; r.matched = { id: m.id, date: m.date, what: m.what, amount: m.cents / 100 }; }
   });
   // v3.149.1: then a near amount on the same day or the next, when something says it's the same
   // purchase — a word the two share ("Rideshare to the station" / "RIDESHARE *TRIP"), or a foreign fee on the
@@ -345,7 +350,7 @@ export function parseBankCsv(rows, opts){
       if(opts.account && e.account && e.account !== opts.account) return false;
       return (foreign && e.cents < cents) || words(e.what).some(function(w){ return desc.indexOf(w) !== -1; });
     });
-    if(m){ r.possibleDuplicate = true; r.matched = { date: m.date, what: m.what, amount: m.cents / 100 }; }
+    if(m){ r.possibleDuplicate = true; r.matched = { id: m.id, date: m.date, what: m.what, amount: m.cents / 100 }; }
   });
   return { rows: out, errors: errors, columns: columns, dateOrder: dateOrder, headerOk: true };
 }

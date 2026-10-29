@@ -9,6 +9,7 @@ import { state, persist } from "../state.js";
 import { parseCsv } from "../lib/backup.js";
 import { parseBankCsv, bankImportSummary, parseDiagnosis } from "../calc/bank-import.js";
 import { cleanMerchantName } from "../calc/merchantbook.js";
+import { transactionDisplayName } from "../calc/ledger.js";
 import { applySuggestions, learnRule, coverageOf, merchantKey, proposedLineFor, suggestedLineName, pruneRules, detectTransfer, closingBalance } from "../calc/import-rules.js";
 import { addTransfer, deleteTransfer } from "../calc/cashflowlist.js";
 import { accountBalance, setAccountBalance, isOwedType } from "../calc/accounts.js";
@@ -555,17 +556,31 @@ function bankImportAsideHtml(){
   // v3.77.0: what each one matched, so "is this the same purchase?" can be answered by looking.
   var shortDate = function(d){ var p = String(d || "").split("-"); return p.length === 3 ? Number(p[2]) + "/" + Number(p[1]) : d; };
   var examples = bankImport.possibleDuplicates.slice(0, 6).map(function(r){
+    var m = r.matched, differs = m && m.amount != null && Math.abs(m.amount - r.amount) >= 0.005;
     return '<li><span>' + escapeAttr(r.description || "(no description)") + ' · ' + shortDate(r.date) + '</span> <b>' + fmtCurrency2.format(r.amount) + '</b> ↔ <span>' +
-      escapeAttr(r.matched && r.matched.what ? r.matched.what : "logged by hand") + (r.matched ? ' · ' + shortDate(r.matched.date) : "") + '</span></li>';
+      escapeAttr(m && m.what ? m.what : "logged by hand") + (m ? ' · ' + shortDate(m.date) : "") + (differs ? ' · ' + fmtCurrency2.format(m.amount) : '') + '</span></li>';
   }).join("");
+  // v3.150.0: what was typed by hand is a placeholder until the statement arrives — matched, it
+  // takes the bank's amount and date (a fee, a few cents, the day it posted) and keeps its line,
+  // category and words. Imported as new instead only when asked.
   var maybeNote = maybes
-    ? '<div class="tax-cap-note' + (bankImport.includePossibleDuplicates ? "" : " warn") + '" style="margin:12px 0 0"><p style="margin:0">' +
-        maybes + ' row' + (maybes === 1 ? " looks" : "s look") + ' like something already in the app — the same amount, within a few days. ' +
+    ? '<div class="tax-cap-note" style="margin:12px 0 0"><p style="margin:0">' +
+        maybes + ' row' + (maybes === 1 ? " matches" : "s match") + ' something logged by hand — the same or a near amount, within a few days. ' +
         (bankImport.includePossibleDuplicates
-          ? 'They\'re being imported. <button type="button" class="calc-hint-link" data-bank-maybes="0">Leave them out</button>'
-          : 'They\'re being left out. <button type="button" class="calc-hint-link" data-bank-maybes="1">Import them anyway</button>') +
+          ? 'They\'re being imported as new. <button type="button" class="calc-hint-link" data-bank-maybes="0">Match them instead</button>'
+          : 'Importing updates what you logged to the bank\'s amount and date, keeping its budget line and category. <button type="button" class="calc-hint-link" data-bank-maybes="1">Import them as new instead</button>') +
       '</p><ul class="bank-maybe-list">' + examples + (maybes > 6 ? '<li>…and ' + (maybes - 6) + ' more</li>' : '') + '</ul></div>'
     : "";
+  // v3.150.0: logged here, not on the statement.
+  var strays = strayLogged();
+  if(strays.length){
+    var strayTotal = strays.reduce(function(t, x){ return t + (Number(x.amount) || 0); }, 0);
+    maybeNote += '<div class="tax-cap-note warn bank-strays" style="margin:12px 0 0"><p style="margin:0">' + strays.length + (strays.length === 1 ? ' row' : ' rows') + ' (' + fmtCurrency2.format(strayTotal) + ') logged on ' + escapeAttr(bankImport.account) +
+      ' between ' + shortDate(strays[0].date) + ' and ' + shortDate(strays[strays.length - 1].date) + (strays.length === 1 ? " isn't" : " aren't") + ' on this statement — posted later, paid another way, or logged twice?</p><ul class="bank-maybe-list">' +
+      strays.slice(0, 12).map(function(t){
+        return '<li><span>' + escapeAttr(transactionDisplayName(t, loggableBudgetLineItems()) || "(no description)") + ' · ' + shortDate(t.date) + '</span> <b>' + fmtCurrency2.format(Number(t.amount) || 0) + '</b> <button type="button" class="calc-hint-link" data-bank-stray-del="' + escapeAttr(t.id) + '">Delete</button></li>';
+      }).join("") + (strays.length > 12 ? '<li>…and ' + (strays.length - 12) + ' more</li>' : '') + '</ul></div>';
+  }
   var bits = [];
   if(bankImport.duplicates.length){
     bits.push(bankImport.duplicates.length + " row" + (bankImport.duplicates.length === 1 ? " was" : "s were") +
@@ -588,7 +603,29 @@ function bankImportAsideHtml(){
 // all duplicates and the refund is the one thing left to do.
 export function importableCount(){
   if(!bankImport) return 0;
-  return bankImport.coverage.total + assignedCreditRowCount();
+  return bankImport.coverage.total + assignedCreditRowCount() + reconcilable().length;
+}
+// v3.150.0: what's logged on the statement's account, inside the dates the statement covers, that
+// nothing on the statement accounts for — a purchase that posted later, one paid another way, one
+// logged twice. Named after an import so a gap points at rows, not a sum. Spending only (refunds
+// and transfers are matched elsewhere); a statement for no account names none.
+export function strayLogged(){
+  if(!bankImport || !bankImport.account) return [];
+  var rows = bankImport.parsed.rows || [];
+  if(!rows.length) return [];
+  var dates = rows.map(function(r){ return r.date; }).sort();
+  var from = dates[0], to = dates[dates.length - 1];
+  var seen = {};
+  // Imported as new instead, a possible match stays a separate row — and then it is one of these.
+  rows.forEach(function(r){ if(r.duplicateOf) seen[r.duplicateOf] = true; if(!bankImport.includePossibleDuplicates && r.matched && r.matched.id) seen[r.matched.id] = true; });
+  return state.transactions.filter(function(t){
+    return t.account === bankImport.account && t.date >= from && t.date <= to && (Number(t.amount) || 0) > 0 && !seen[t.id] && !t.bankWhat;
+  }).sort(function(a, b){ return a.date < b.date ? -1 : 1; });
+}
+// v3.150.0: possible duplicates to match to what was logged by hand (when not imported as new).
+function reconcilable(){
+  if(!bankImport || bankImport.includePossibleDuplicates) return [];
+  return bankImport.possibleDuplicates.filter(function(r){ return r.matched && r.matched.id && state.transactions.some(function(t){ return t.id === r.matched.id; }); });
 }
 function assignedCreditRowCount(){
   return bankImport.creditGroups.reduce(function(n, g){
@@ -743,6 +780,25 @@ export function commitBankImport(){
     if(!g.tripId) learnRule(state.importRules, g.label, g.choice, function(){ return genId("rule"); });
     if(state.importRules.length > before) learned++;
   });
+  // v3.150.0: what was logged by hand, matched to its statement row, takes the bank's amount, date
+  // and account; the bank's words go alongside (`bankWhat`) so a re-import knows it. Line, category
+  // and the person's own words stay. Remembered for undo.
+  var reconciled = [];
+  reconcilable().forEach(function(row){
+    var t = state.transactions.find(function(x){ return x.id === row.matched.id; });
+    if(!t) return;
+    reconciled.push({ id: t.id, date: t.date, amount: t.amount, what: t.what, account: t.account, bankWhat: t.bankWhat, matched: t.matched });
+    t.date = row.date;
+    t.amount = (Number(t.amount) || 0) < 0 ? -row.amount : row.amount;
+    if(row.description){
+      t.bankWhat = row.description;
+      // A row logged with no words of its own gets the bank's, as an imported row has.
+      if(!String(t.what || "").trim()) t.what = row.description;
+    }
+    // The statement says which account it went through — the bank is the record.
+    if(stAcct) t.account = stAcct;
+    t.matched = true;
+  });
   // The statement's closing balance onto its account (v3.64.0), remembering what it was for undo.
   var balanceSet = null;
   var acctRec = (state.accounts || []).find(function(a){ return a.name === stAcct; });
@@ -753,14 +809,20 @@ export function commitBankImport(){
   }
   persist();
   return { ids: created, learned: learned, groups: bankImport.groups.length, transferIds: transferIds, balanceSet: balanceSet,
-           lineIds: createdLineIds, linesCreated: createdLineIds.length, receivedIds: receivedIds,
+           lineIds: createdLineIds, linesCreated: createdLineIds.length, receivedIds: receivedIds, reconciled: reconciled,
            refunds: refundGroups.reduce(function(n, g){ return n + g.rows.length; }, 0) };
 }
 
 // Undo: drop exactly the transactions this import created. Rules it taught are deliberately left
 // alone — they're a preference the user expressed, not part of the data being undone, and
 // re-importing the same file is the normal reason to undo.
-export function undoBankImport(ids, lineIds, receivedIds, transferIds, balanceSet){
+export function undoBankImport(ids, lineIds, receivedIds, transferIds, balanceSet, reconciled){
+  // v3.150.0: matched rows go back to what was logged.
+  (reconciled || []).forEach(function(was){
+    var t = state.transactions.find(function(x){ return x.id === was.id; });
+    if(!t) return;
+    ["date", "amount", "what", "account", "bankWhat", "matched"].forEach(function(k){ if(was[k] === undefined) delete t[k]; else t[k] = was[k]; });
+  });
   (receivedIds || []).forEach(function(id){ deleteIncomeReceived(id); });
   (transferIds || []).forEach(function(id){ deleteTransfer(id); });
   // The balance goes back to what it was — or, if it had none, the snapshot this import added is removed.

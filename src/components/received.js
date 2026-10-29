@@ -1,3 +1,5 @@
+import { state } from "../state.js";
+import { periodsOf } from "../calc/ledger.js";
 import { incomeActuals, incomeTargets } from "../calc/received.js";
 import { takeHomeDrifts } from "../calc/takehome.js";
 import { getTaxPeople, takeHomeAdjust } from "../calc/tax.js";
@@ -17,6 +19,12 @@ export function renderReceived(){
 }
 export function toggleReceivedRow(key){ openRows[key] = !openRows[key]; }
 
+// A person's own after-tax income row (typed, Net) whose monthly amount is within $5 of `diff`.
+export function afterTaxInPay(person, diff){
+  return (state.income || []).find(function(i){
+    return i.person === person && i.incomeType === "Net" && !i.computed && Math.abs(periodsOf(Number(i.amount) || 0, i.freq).monthly - diff) <= 5;
+  }) || null;
+}
 export function receivedPanelHtml(monthStr){
   // A holding with no expected distribution and nothing logged this year is just noise in the list;
   // it stays one tap away in the sheet.
@@ -27,7 +35,11 @@ export function receivedPanelHtml(monthStr){
     '<div class="rcv-list">' + rows.map(function(r){
       var pct = r.planned > 0 ? Math.min(100, r.received / r.planned * 100) : (r.received > 0 ? 100 : 0);
       var diff = r.received - r.planned;
+      // v3.151.1: take-home that's a little over by what an after-tax payment comes to — a phone
+      // reimbursement paid with the salary — says so, rather than reading as a pay rise.
+      var inPay = r.kind === "net" && diff > 0 ? afterTaxInPay(String(r.key).slice(4), diff) : null;
       var status = !r.rows.length ? '<span class="rcv-status muted">nothing logged ' + escapeAttr(r.period) + '</span>'
+        : inPay ? '<span class="rcv-status up">+' + fmtCurrency0.format(diff) + ' — ' + escapeAttr(inPay.what || "an after-tax payment") + ' in the same pay</span>'
         : (r.planned > 0 && Math.abs(diff) >= 1
           ? '<span class="rcv-status ' + (diff >= 0 ? "up" : "down") + '">' + (diff >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(diff)) + (diff >= 0 ? " more" : " short") + '</span>'
           : '<span class="rcv-status up">as planned</span>');

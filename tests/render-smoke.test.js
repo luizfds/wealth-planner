@@ -1486,3 +1486,14 @@ test("the budget plan shows tax to pay at lodgement as money out of the year", a
   const html = budgetPlanHtml({ income: [{ label: "Net income", monthly: 5000 }, { label: "Alex — tax to pay at lodgement", monthly: -100, oneOff: true }], groups: [{ label: "Needs", monthly: 3000 }] });
   assert.match(html, /tax to pay at lodgement<\/span><b>−\$100/);
 });
+
+test("take-home a little over by an after-tax payment says so", async function(){
+  const { afterTaxInPay } = await import("../src/components/received.js");
+  var keep = state.income;
+  try {
+    state.income = [{ id: "p1", what: "Phone reimbursement", person: "Alex", incomeType: "Net", amount: 30, freq: "Monthly" }];
+    assert.equal(afterTaxInPay("Alex", 28.4).what, "Phone reimbursement");
+    assert.equal(afterTaxInPay("Alex", 120), null);
+    assert.equal(afterTaxInPay("Sam", 28.4), null);
+  } finally { state.income = keep; }
+});

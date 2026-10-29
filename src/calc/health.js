@@ -7,6 +7,7 @@ import { budgetComparison, rentalComparison, householdBudgetLines } from "./clos
 import { localDateStr, fmtDate } from "../lib/format.js";
 import { takeHomeDrifts } from "./takehome.js";
 import { oddCardRepayments, unloggedCardRepayments } from "./bills.js";
+import { rentCheck } from "./rentcheck.js";
 
 // ---------------- Data health (v3.48.0) ----------------
 //
@@ -91,6 +92,17 @@ export function dataHealthChecks(opts){
         "The amount is what was charged " + fmtDate(r.cycle.start) + " to " + fmtDate(r.cycle.end) + " — change it to the statement's closing balance if that's different.",
       where: { page: "expenses", sub: "bills", label: "Open Bills" },
       fix: r.from ? { label: "Save repayment", kind: "card-log", arg: r.card + "|" + r.date, amount: r.amount, amountLabel: "Statement balance $", from: r.from } : null });
+  });
+
+  // v3.153.0: a rental's rent in the plan that the agent's statements don't add up to.
+  (state.properties || []).forEach(function(p){
+    var rc = rentCheck(p);
+    if(!rc) return;
+    var per = rc.freq === "Weekly" ? "a week" : "a fortnight";
+    add({ id: "rent-vs-statements:" + p.id + ":" + rc.planned, severity: "warn", title: (p.what || "A rental") + ": rent in the plan doesn't match the statements",
+      detail: "The plan has $" + rc.planned.toFixed(2) + " " + per + ", but the last " + rc.statements + " statements are each a whole number of $" + rc.fromStatements.toFixed(2) + " payments. A monthly figure typed as " + rc.freq.toLowerCase() + "?",
+      where: { page: "properties", label: "Open the property" },
+      fix: { label: "Set it to $" + rc.fromStatements.toFixed(2) + " " + per, kind: "rent-from-statements", arg: p.id } });
   });
 
   // Deductions that land nowhere, or nowhere real.

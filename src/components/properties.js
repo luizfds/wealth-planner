@@ -925,7 +925,7 @@ export function renderPropertiesValueHistoryChart(){
   if(dates.indexOf(today) === -1) dates.push(today);
 
   if(dates.length < 2){
-    container.innerHTML = '<p class="section-empty" style="color:var(--ink-soft);font-size:12.5px;margin:0">Log a value for at least one property (the "Log" button under Property value) on two occasions to start tracking total property value over time.</p>';
+    container.innerHTML = '<p class="section-empty" style="color:var(--ink-soft);font-size:var(--fs-sm);margin:0">Log a value for at least one property (the "Log" button under Property value) on two occasions to start tracking total property value over time.</p>';
     return;
   }
 

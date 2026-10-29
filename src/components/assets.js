@@ -596,7 +596,7 @@ export function renderAssetCategoryHistoryChart(cat){
   // dates alone would draw a "trend" through a single logged point and a value typed in a box.
   var logged = observationDates(records.map(function(r){ return r.history; }), []);
   if(logged.length < 2){
-    container.innerHTML = '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">Press <b>Record value</b> on a ' +
+    container.innerHTML = '<p style="color:var(--ink-soft);font-size:var(--fs-sm);margin:0">Press <b>Record value</b> on a ' +
       escapeAttr(cat) + ' row at least twice — a month apart, say — and its value over time appears here. ' +
       (logged.length === 1 ? "One snapshot so far." : "None logged yet.") + '</p>';
     return;
@@ -960,7 +960,7 @@ export function renderSharesSubpage(){
           '<button type="button" class="btn btn-sm btn-ghost" id="sharesCopyPriceTemplateBtn" title="Just the Symbol and Price list, with a GOOGLEFINANCE formula for each holding">⧉ Copy price list</button>' +
           '<button type="button" class="btn btn-sm btn-ghost" id="sharesExportPriceTemplateBtn">⇩ Download price list</button>' +
         '</div>' +
-        '<textarea id="sharesPasteArea" rows="4" placeholder="CBA&#9;105.32&#10;BHP&#9;43.10" style="width:100%;box-sizing:border-box;font-family:var(--font-num);font-size:12.5px;padding:8px;background:var(--paper-sunken);border:1px solid var(--border);border-radius:8px;color:var(--ink);resize:vertical"></textarea>' +
+        '<textarea id="sharesPasteArea" rows="4" placeholder="CBA&#9;105.32&#10;BHP&#9;43.10" style="width:100%;box-sizing:border-box;font-family:var(--font-num);font-size:var(--fs-sm);padding:8px;background:var(--paper-sunken);border:1px solid var(--border);border-radius:8px;color:var(--ink);resize:vertical"></textarea>' +
         '<div style="margin-top:8px"><button type="button" class="btn btn-sm" id="sharesPasteApply">Update prices</button></div>' +
         '</details>' +
       '</details>'
@@ -995,7 +995,7 @@ export function renderSharesHistoryChart(){
   if(dates.indexOf(today) === -1) dates.push(today);
 
   if(!data.items.length || dates.length < 2){
-    container.innerHTML = '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">Log a value for at least one holding (or paste updated prices) to start tracking your Shares value over time.</p>';
+    container.innerHTML = '<p style="color:var(--ink-soft);font-size:var(--fs-sm);margin:0">Log a value for at least one holding (or paste updated prices) to start tracking your Shares value over time.</p>';
     return;
   }
 
@@ -1166,7 +1166,7 @@ export function renderNetWorthPanel(){
     : '';
   var panel = document.getElementById("netWorthPanel");
   if(!purchaseScenarios.length){
-    panel.innerHTML = '<p style="color:var(--ink-soft);font-size:12.5px;margin-top:14px">Turn on the purchase calculator for a scenario (under &quot;Your home&quot;) to see how buying would affect your net worth.</p>' + investNote;
+    panel.innerHTML = '<p style="color:var(--ink-soft);font-size:var(--fs-sm);margin-top:14px">Turn on the purchase calculator for a scenario (under &quot;Your home&quot;) to see how buying would affect your net worth.</p>' + investNote;
     return;
   }
   var rows = purchaseScenarios.map(function(s){
@@ -1291,7 +1291,7 @@ export function renderAllocationChart(){
   var buckets = allocationBuckets();
   container.innerHTML = "";
   if(!buckets.length){
-    container.innerHTML = '<p class="section-empty" style="color:var(--ink-soft);font-size:12.5px;margin:0">Add an asset or a property and the shape of your wealth — how much is super, shares, cash or property — appears here.</p>';
+    container.innerHTML = '<p class="section-empty" style="color:var(--ink-soft);font-size:var(--fs-sm);margin:0">Add an asset or a property and the shape of your wealth — how much is super, shares, cash or property — appears here.</p>';
     return;
   }
 
@@ -1395,7 +1395,7 @@ export function renderPortfolioHistoryChart(){
   if(dates.indexOf(today) === -1) dates.push(today);
 
   if(dates.length < 2){
-    container.innerHTML = '<p class="section-empty" style="color:var(--ink-soft);font-size:12.5px;margin:0">Log a value for at least one asset (click "Log" in the table above) to start tracking your net worth over time.</p>';
+    container.innerHTML = '<p class="section-empty" style="color:var(--ink-soft);font-size:var(--fs-sm);margin:0">Log a value for at least one asset (click "Log" in the table above) to start tracking your net worth over time.</p>';
     return;
   }
 
@@ -1590,7 +1590,7 @@ export function renderAssetsImportPreview(parsed){
   var summary = parsed.valid.length + " row" + (parsed.valid.length === 1 ? "" : "s") + " ready to import" +
     (parsed.errors.length ? ", " + parsed.errors.length + " skipped" : "");
   var errorsHtml = parsed.errors.length
-    ? '<ul style="margin:6px 0 0;padding-left:18px;font-size:12px;color:var(--ink-soft)">' +
+    ? '<ul style="margin:6px 0 0;padding-left:18px;font-size:var(--fs-xs);color:var(--ink-soft)">' +
         parsed.errors.slice(0, 10).map(function(e){ return "<li>Row " + e.row + ": " + escapeAttr(e.reason) + "</li>"; }).join("") +
         (parsed.errors.length > 10 ? "<li>and " + (parsed.errors.length - 10) + " more</li>" : "") +
       "</ul>"
@@ -1727,7 +1727,7 @@ export function renderDebts(){
   var total = totalDebtsValue();
   if(totalEl) totalEl.textContent = fmtCurrency0.format(total);
   if(!state.debts.length){
-    container.innerHTML = '<p style="color:var(--ink-soft);font-size:12.5px;margin:0">No debts tracked — add anything you owe outside a property loan (credit cards, personal loans, BNPL).</p>';
+    container.innerHTML = '<p style="color:var(--ink-soft);font-size:var(--fs-sm);margin:0">No debts tracked — add anything you owe outside a property loan (credit cards, personal loans, BNPL).</p>';
     return;
   }
   container.innerHTML = '<div class="m-rows">' + state.debts.map(function(d, idx){

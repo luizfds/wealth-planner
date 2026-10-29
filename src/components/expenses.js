@@ -218,7 +218,7 @@ export function renderExpensesImportPreview(parsed){
   var summary = parsed.valid.length + " row" + (parsed.valid.length === 1 ? "" : "s") + " ready to import" +
     (parsed.errors.length ? ", " + parsed.errors.length + " skipped" : "");
   var errorsHtml = parsed.errors.length
-    ? '<ul style="margin:6px 0 0;padding-left:18px;font-size:12px;color:var(--ink-soft)">' +
+    ? '<ul style="margin:6px 0 0;padding-left:18px;font-size:var(--fs-xs);color:var(--ink-soft)">' +
         parsed.errors.slice(0, 10).map(function(e){ return "<li>Row " + e.row + ": " + escapeAttr(e.reason) + "</li>"; }).join("") +
         (parsed.errors.length > 10 ? "<li>and " + (parsed.errors.length - 10) + " more</li>" : "") +
       "</ul>"
@@ -1556,7 +1556,7 @@ export function budgetComparisonRowHtml(item){
   return '<div class="budget-row' + (isExpandable ? " is-expandable" : "") + (isOpen ? " open" : "") + '"' +
       (isExpandable ? ' data-budget-row-toggle="' + escapeAttr(item.id) + '" role="button" tabindex="0" aria-expanded="' + isOpen + '"' : '') + '>' +
     '<div class="acct-row"><span class="acct-name" title="' + escapeAttr(item.what) + '">' + escapeAttr(item.what) + '</span>' +
-      '<span style="font-size:11px;color:var(--ink-soft)">' + fmtCurrency0.format(actual) + ' actual / ' + fmtCurrency0.format(planned) + ' planned ' + escapeAttr(cycle.label) + ' — ' + remainingLabel + '</span>' +
+      '<span style="font-size:var(--fs-xs);color:var(--ink-soft)">' + fmtCurrency0.format(actual) + ' actual / ' + fmtCurrency0.format(planned) + ' planned ' + escapeAttr(cycle.label) + ' — ' + remainingLabel + '</span>' +
       '<span class="acct-amt"' + (color ? ' style="color:' + color + '"' : '') + '>' + (delta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(delta)) + '</span>' + (isExpandable ? budgetRowChevHtml() : "") + '</div>' +
     '<div class="budget-bar-track"><div class="budget-bar-fill' + (delta > 0.5 ? " over" : "") + '" style="width:' + pct + '%"></div></div>' +
     (isOpen ? budgetRowTxnListHtml(txnPairs) : '') +
@@ -1776,7 +1776,7 @@ function creditStatementCyclesHtml(){
       .filter(function(t){ return transactionAccount(t) === a.name; });
     var total = cycleTxns.reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0);
     return '<div class="acct-row"><span class="acct-name" title="' + escapeAttr(a.name) + '">' + escapeAttr(a.name) + '</span>' +
-      '<span style="font-size:11px;color:var(--ink-soft)">' + fmtDate(cycle.start) + ' – ' + fmtDate(cycle.end) + ' · ' + cycleTxns.length + ' charge' + (cycleTxns.length === 1 ? "" : "s") + '</span>' +
+      '<span style="font-size:var(--fs-xs);color:var(--ink-soft)">' + fmtDate(cycle.start) + ' – ' + fmtDate(cycle.end) + ' · ' + cycleTxns.length + ' charge' + (cycleTxns.length === 1 ? "" : "s") + '</span>' +
       '<span class="acct-amt">' + fmtCurrency0.format(total) + '</span></div>';
   }).join("");
   return '<div style="margin-top:16px"><div class="fire-stat-row" style="margin-bottom:2px"><span>' + (isPeriodToday() ? 'This bill so far' : 'The bill open on ' + monthAnchorDate()) + ' — by statement cycle</span></div>' + rows + '</div>';

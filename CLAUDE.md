@@ -32,6 +32,8 @@ the last, so two sessions can't pick up the same one.
   The smoke script taps the tabs and the avatar menu, so a broken nav fails CI.
 - **Numbers:** every figure uses `var(--font-num)` with tabular figures (base.css) — whole dollars in
   totals and summaries, cents only on single items. Don't reintroduce a second number font.
+- **Type scale (v3.155.0):** every `font-size` is a `--fs-*` token from `base.css` (12 · 13 · 14 · 17 · 20 · 26 ·
+  32px) and weights are 400 or 600 — `tests/typescale.test.js` fails on a raw px size or another weight.
 - `styles.css` — just eight `@import` statements pulling in `src/styles/{base,shell,dashboard,
   ledger,income,properties,assets,projections}.css`, in that specific order. Light/dark theming is
   CSS custom properties + `prefers-color-scheme`, defined in `base.css`.

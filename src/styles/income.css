@@ -1,6 +1,6 @@
   .group-add-btn{ margin-top:6px; }
 
-  .income-summary-line{ font-size:11.5px; color: var(--ink-soft); margin:0 0 14px; }
+  .income-summary-line{ font-size:var(--fs-xs); color: var(--ink-soft); margin:0 0 14px; }
   .income-summary-line b{ color: var(--ink); font-weight:600; }
 
   /* ---------------- Tax & super ---------------- */
@@ -8,52 +8,52 @@
   .tax-person{ border:1px solid var(--border); border-radius:10px; background: var(--paper-sunken); padding:14px 16px; margin-bottom:14px; perspective:1000px; }
   .tax-person:last-child{ margin-bottom:0; }
   .tax-person-head{ display:flex; align-items:baseline; justify-content:space-between; gap:8px 10px; flex-wrap:wrap; margin-bottom:10px; }
-  .tax-person-head h3{ margin:0; font-size:14px; font-weight:600; display:flex; align-items:center; gap:2px; }
-  .tax-marginal{ font-size:11.5px; color: var(--ink-soft); }
+  .tax-person-head h3{ margin:0; font-size:var(--fs-md); font-weight:600; display:flex; align-items:center; gap:2px; }
+  .tax-marginal{ font-size:var(--fs-xs); color: var(--ink-soft); }
   .m-flip-btn{
     all:unset; box-sizing:border-box; align-self:center; display:inline-flex; align-items:center; gap:4px;
-    font-size:11px; font-weight:600; color: var(--ink-soft); cursor:pointer; padding:3px 9px; border-radius:100px;
+    font-size:var(--fs-xs); font-weight:600; color: var(--ink-soft); cursor:pointer; padding:3px 9px; border-radius:100px;
     border:1px solid var(--border); flex:none; white-space:nowrap; min-height:40px;
   }
   .m-flip-btn:hover{ color: var(--brass-strong); border-color: var(--brass); }
   .m-flip-btn:focus-visible{ box-shadow: var(--focus-ring); outline:none; }
-  .m-flip-btn span{ font-size:12px; }
+  .m-flip-btn span{ font-size:var(--fs-xs); }
   .m-taxp-flipface{ transform-style:preserve-3d; backface-visibility:hidden; }
   .m-taxp-flipface.is-flipping{ transition: transform .16s ease; }
   .m-taxp-flipface .row-breakdown-panel{ padding:4px 0 6px; min-width:0; width:100%; grid-template-columns:1fr auto; }
-  .tax-rows-summary{ font-size:11.5px; color: var(--ink-soft); margin:0 0 10px; }
+  .tax-rows-summary{ font-size:var(--fs-xs); color: var(--ink-soft); margin:0 0 10px; }
   .tax-rows-summary b{ color: var(--ink); font-weight:600; }
   .tax-grid{
     display:grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px 16px;
     padding:12px 14px; background: var(--paper-raised); border:1px solid var(--border); border-radius:9px; margin-bottom:12px;
   }
   .tax-out{ display:flex; flex-direction:column; gap:2px; }
-  .tax-out span{ font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
-  .tax-out b{ font-family:var(--font-num); font-size:14.5px; font-variant-numeric: tabular-nums; }
-  .tax-out.emph b{ color: var(--brass-strong); font-size:16px; }
+  .tax-out span{ font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
+  .tax-out b{ font-family:var(--font-num); font-size:var(--fs-md); font-variant-numeric: tabular-nums; }
+  .tax-out.emph b{ color: var(--brass-strong); font-size:var(--fs-lg); }
   .tax-out.neg b{ color: var(--bad-ink); }
-  .tax-inputs-label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; margin:2px 0 6px; }
+  .tax-inputs-label{ font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; margin:2px 0 6px; }
   .tax-inputs-panel{ background: var(--paper-raised); border:1px solid var(--border); border-radius:9px; padding:12px 14px; margin-bottom:12px; }
   .tax-inputs-panel .tax-inputs{ margin-bottom:0; }
   .tax-inputs{ display:grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap:10px 14px; margin-bottom:10px; }
   .tax-inputs .proj-field label{ min-height:30px; display:flex; align-items:flex-start; }
   .tax-advanced{ margin-bottom:0; margin-top:10px; }
-  .tax-advanced summary{ cursor:pointer; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; padding:6px 0; user-select:none; }
+  .tax-advanced summary{ cursor:pointer; font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; padding:6px 0; user-select:none; }
   .tax-advanced summary:hover{ color: var(--ink); }
   .tax-advanced[open] summary{ margin-bottom:8px; }
   .tax-advanced .tax-inputs{ margin-bottom:0; }
   .cap-bar-track{ height:8px; border-radius:100px; background: var(--paper-raised); border:1px solid var(--border); overflow:hidden; margin-bottom:6px; }
   .cap-bar-fill{ height:100%; background: var(--brass); border-radius:inherit; }
   .cap-bar-fill.over{ background: var(--bad); }
-  .tax-cap-note{ font-size:11.5px; color: var(--ink-soft); }
-  .tax-package-note{ font-size:11.5px; color: var(--ink-soft); }
+  .tax-cap-note{ font-size:var(--fs-xs); color: var(--ink-soft); }
+  .tax-package-note{ font-size:var(--fs-xs); color: var(--ink-soft); }
   .tax-cap-note.warn{ color: var(--bad-ink); font-weight:600; }
-  .tax-empty{ color: var(--ink-soft); font-size:12.5px; }
+  .tax-empty{ color: var(--ink-soft); font-size:var(--fs-sm); }
 
   .tax-hero{ margin-bottom:10px; }
-  .tax-hero-label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; }
-  .tax-hero-value{ font-family:"Inter", system-ui, sans-serif; font-weight:600; font-size:30px; line-height:1.1; letter-spacing:-0.01em; font-variant-numeric: tabular-nums; color: var(--brass-strong); }
-  .tax-hero-value small{ font-family:"Inter", sans-serif; font-weight:500; font-size:14px; font-variant-numeric: normal; color: var(--ink-soft); }
+  .tax-hero-label{ font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; }
+  .tax-hero-value{ font-family:"Inter", system-ui, sans-serif; font-weight:600; font-size:var(--fs-3xl); line-height:1.1; letter-spacing:-0.01em; font-variant-numeric: tabular-nums; color: var(--brass-strong); }
+  .tax-hero-value small{ font-family:"Inter", sans-serif; font-weight:600; font-size:var(--fs-md); font-variant-numeric: normal; color: var(--ink-soft); }
   .tax-waterfall{ margin-bottom:12px; }
   .tax-waterfall-bar{ display:flex; gap:2px; height:22px; border-radius:5px; overflow:hidden; background: var(--paper-raised); margin-bottom:10px; }
   .tax-waterfall-seg{ min-width:2px; background: var(--series-color); }
@@ -69,9 +69,9 @@
   .tax-waterfall-item[hidden]{ display:none; }
   .tax-waterfall-item .proj-swatch{ border-radius:3px; }
   .tax-waterfall-item-text{ display:flex; flex-direction:column; gap:1px; min-width:0; }
-  .tax-waterfall-item-label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .tax-waterfall-item-value{ font-family:var(--font-num); font-size:13.5px; font-variant-numeric: tabular-nums; }
-  .tax-secondary-line{ font-size:11.5px; color: var(--ink-soft); margin:0 0 10px; }
+  .tax-waterfall-item-label{ font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); overflow-wrap:anywhere; }
+  .tax-waterfall-item-value{ font-family:var(--font-num); font-size:var(--fs-md); font-variant-numeric: tabular-nums; }
+  .tax-secondary-line{ font-size:var(--fs-xs); color: var(--ink-soft); margin:0 0 10px; }
   .tax-secondary-line b{ font-family:var(--font-num); font-weight:600; font-variant-numeric: tabular-nums; color: var(--ink); }
   .tax-secondary-line b.neg{ color: var(--bad-ink); }
 
@@ -79,7 +79,7 @@
   /* ---------------- Pay schedule + pay-change history (Income rows) ---------------- */
   /* "Next pay Thu 10 Sep · today" on the row summary. Rendered only when the row has been told
      enough to know (see nextPayDate) — a blank beats an invented date. */
-  .next-pay{ font-size:11.5px; color: var(--ink-soft); }
+  .next-pay{ font-size:var(--fs-xs); color: var(--ink-soft); }
   /* Amount + date + button on one line. The amount leads because it's the field you came here to
      change; the date defaults to today and is usually left alone. */
   .pay-change{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
@@ -88,14 +88,14 @@
   .pay-hist{ margin-top:8px; border-top:1px solid var(--border); }
   .pay-hist-row{
     display:flex; align-items:center; gap:8px; padding:5px 0;
-    border-bottom:1px solid var(--border); font-size:12px;
+    border-bottom:1px solid var(--border); font-size:var(--fs-xs);
   }
   .pay-hist-row:last-child{ border-bottom:none; }
-  .pay-hist-date{ color: var(--ink-soft); font-family:var(--font-num); font-size:11px; flex:none; }
+  .pay-hist-date{ color: var(--ink-soft); font-family:var(--font-num); font-size:var(--fs-xs); flex:none; }
   /* The value takes the slack so the deltas line up on the right edge, which is what makes a
      column of raises scannable as a series rather than as a list of rows. */
   .pay-hist-value{ flex:1 1 auto; text-align:right; font-family:var(--font-num); font-variant-numeric: tabular-nums; }
-  .pay-hist-delta{ flex:none; font-size:11px; color: var(--ink-soft); min-width:74px; text-align:right; }
+  .pay-hist-delta{ flex:none; font-size:var(--fs-xs); color: var(--ink-soft); min-width:74px; text-align:right; }
   .pay-hist-delta.up{ color: var(--good-ink); }
   .pay-hist-delta.down{ color: var(--bad-ink); }
   /* The "Adds up: …" derivation, now on the Breakdown side above the figures it explains. */
@@ -106,44 +106,44 @@
    reads down in myTax's order. Amount columns are mono and right-aligned so a column of figures
    can be checked against a statement by eye. */
 .ty-top{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
-.ty-top label{ font-size:12px; font-weight:600; color:var(--ink-soft); }
-.ty-top select{ font:inherit; font-size:14px; font-weight:600; padding:6px 8px; border:1px solid var(--border); border-radius:8px; background:var(--paper); color:var(--ink); }
+.ty-top label{ font-size:var(--fs-xs); font-weight:600; color:var(--ink-soft); }
+.ty-top select{ font:inherit; font-size:var(--fs-md); font-weight:600; padding:6px 8px; border:1px solid var(--border); border-radius:8px; background:var(--paper); color:var(--ink); }
 .ty-person{ border:1px solid var(--border); border-radius:12px; padding:12px 14px; margin:12px 0; background:var(--paper-raised); }
 .ty-person-head{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
-.ty-person-head h3{ margin:0; font-size:16px; }
+.ty-person-head h3{ margin:0; font-size:var(--fs-lg); }
 .ty-refund{ display:flex; flex-direction:column; align-items:flex-end; }
-.ty-refund span{ font-size:11px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; font-weight:600; }
-.ty-refund b{ font-family:var(--font-num); font-size:20px; font-variant-numeric:tabular-nums; }
+.ty-refund span{ font-size:var(--fs-xs); color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; font-weight:600; }
+.ty-refund b{ font-family:var(--font-num); font-size:var(--fs-xl); font-variant-numeric:tabular-nums; }
 .ty-refund.up b{ color:var(--good-ink); }
 .ty-refund.down b{ color:var(--bad-ink); }
-.ty-refund.muted{ font-size:12px; color:var(--ink-soft); }
+.ty-refund.muted{ font-size:var(--fs-xs); color:var(--ink-soft); }
 .ty-row{ display:grid; gap:6px; align-items:center; padding:3px 0; }
 .ty-row-is{ grid-template-columns: minmax(0,1.3fr) minmax(0,1.1fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,.8fr) 32px; }
 .ty-row-int{ grid-template-columns: minmax(0,1.6fr) minmax(0,1fr) minmax(0,.6fr) 32px; }
 .ty-row-ded{ grid-template-columns: 64px minmax(0,1.6fr) minmax(0,1fr) 32px; }
-.ty-head-row{ font-size:10.5px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-soft); }
-.ty-row input, .ty-row select, .ty-rent-in{ min-width:0; width:100%; font-size:13px; padding:6px; border:1px solid var(--border); border-radius:6px; background:var(--paper); color:var(--ink); font-family:inherit; }
+.ty-head-row{ font-size:var(--fs-xs); font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-soft); }
+.ty-row input, .ty-row select, .ty-rent-in{ min-width:0; width:100%; font-size:var(--fs-sm); padding:6px; border:1px solid var(--border); border-radius:6px; background:var(--paper); color:var(--ink); font-family:inherit; }
 .ty-row input[type="number"], .ty-rent-in{ font-family:var(--font-num); text-align:right; }
 .ty-row .icon-btn{ width:32px; height:32px; }
 .ty-rent-grid{ display:flex; flex-direction:column; }
-.ty-rent-row{ display:grid; grid-template-columns: minmax(0,1fr) 120px; gap:8px; align-items:center; padding:3px 0; border-top:1px solid var(--border); font-size:13px; }
+.ty-rent-row{ display:grid; grid-template-columns: minmax(0,1fr) 120px; gap:8px; align-items:center; padding:3px 0; border-top:1px solid var(--border); font-size:var(--fs-sm); }
 .ty-rent-row.has-actual span{ font-weight:600; }
 .ty-rent-in::placeholder{ color:var(--ink-soft); opacity:.75; }
 .ty-ws{ margin:10px 0 4px; border-top:1px solid var(--border); }
-.ty-ws-section{ font-size:10.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-soft); margin:10px 0 2px; }
-.ty-ws-line{ display:flex; justify-content:space-between; gap:12px; font-size:13px; padding:2px 0; }
+.ty-ws-section{ font-size:var(--fs-xs); font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-soft); margin:10px 0 2px; }
+.ty-ws-line{ display:flex; justify-content:space-between; gap:12px; font-size:var(--fs-sm); padding:2px 0; }
 .ty-ws-line span{ min-width:0; overflow-wrap:anywhere; }
-.ty-ws-line b{ font-family:var(--font-num); font-weight:500; font-variant-numeric:tabular-nums; white-space:nowrap; }
-.ty-ws-line.strong b, .ty-ws-line.strong span{ font-weight:700; }
-.ty-cmp{ display:flex; flex-direction:column; font-size:12.5px; }
+.ty-ws-line b{ font-family:var(--font-num); font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.ty-ws-line.strong b, .ty-ws-line.strong span{ font-weight:600; }
+.ty-cmp{ display:flex; flex-direction:column; font-size:var(--fs-sm); }
 .ty-cmp-row{ display:grid; grid-template-columns: minmax(0,1.5fr) repeat(3, minmax(0,1fr)); gap:6px; padding:3px 0; border-top:1px solid var(--border); }
 .ty-cmp-row > :not(:first-child){ text-align:right; font-family:var(--font-num); font-variant-numeric:tabular-nums; }
 .ty-cmp-row b.up{ color:var(--bad-ink); }
 .ty-cmp-row b.down{ color:var(--good-ink); }
-.ty-ev{ display:flex; gap:8px; align-items:flex-start; font-size:13px; padding:4px 0; }
+.ty-ev{ display:flex; gap:8px; align-items:flex-start; font-size:var(--fs-sm); padding:4px 0; }
 /* Tax → Documents (v3.43.0) */
-.ty-docs-head{ display:flex; align-items:baseline; gap:10px; font-size:14px; font-weight:650; margin:14px 0 6px; }
-.ty-docs-count{ font-size:12px; font-weight:600; color:var(--ink-soft); }
+.ty-docs-head{ display:flex; align-items:baseline; gap:10px; font-size:var(--fs-md); font-weight:600; margin:14px 0 6px; }
+.ty-docs-count{ font-size:var(--fs-xs); font-weight:600; color:var(--ink-soft); }
 .ty-evidence{ display:flex; flex-direction:column; gap:2px; margin-bottom:10px; }
 /* Phone width: four fields on one line cut "98400" to "9840". The payer takes the first line,
    the three amounts and delete share the second — and the header row follows the same shape, so
@@ -184,7 +184,7 @@
   #printRoot .pr-table td, #printRoot .pr-table th{ padding:2pt 4pt; border-bottom:0.5pt solid #bbb; text-align:left; vertical-align:top; }
   #printRoot .pr-sec th{ font-size:8.5pt; text-transform:uppercase; letter-spacing:.05em; padding-top:8pt; border-bottom:1pt solid #000; }
   #printRoot .pr-num{ text-align:right !important; font-family:var(--font-num); white-space:nowrap; }
-  #printRoot .pr-strong td{ font-weight:700; }
+  #printRoot .pr-strong td{ font-weight:600; }
   #printRoot tr{ break-inside:avoid; }
   #printRoot .pr-ev{ padding-left:0; list-style:none; }
   #printRoot .pr-foot{ margin-top:14pt; font-size:8.5pt; }
@@ -193,29 +193,29 @@
   /* v3.42.0 — super top-up before 30 June. */
   .tax-topup{ margin:10px 0 4px; padding:10px 12px; border:1px dashed var(--border); border-radius:10px; }
   .tax-topup[hidden]{ display:none; }
-  .tax-topup-field{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
+  .tax-topup-field{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
   .tax-topup-field span{ text-transform:none; font-weight:400; margin-left:auto; }
-  .tax-topup-amt{ width:120px; min-height:36px; padding:4px 8px; border:1px solid var(--border); border-radius:8px; background: var(--paper); color: var(--ink); font:inherit; font-size:14px; text-align:right; text-transform:none; letter-spacing:0; }
-  .tax-topup-out{ margin:8px 0 0; font-size:12.5px; line-height:1.5; }
+  .tax-topup-amt{ width:120px; min-height:36px; padding:4px 8px; border:1px solid var(--border); border-radius:8px; background: var(--paper); color: var(--ink); font:inherit; font-size:var(--fs-md); text-align:right; text-transform:none; letter-spacing:0; }
+  .tax-topup-out{ margin:8px 0 0; font-size:var(--fs-sm); line-height:1.5; }
   .tax-topup-out .warn{ color: var(--bad-ink); }
 
 /* ---------------- Accounts → People (v3.44.0) ---------------- */
 .pp-list{ display:flex; flex-direction:column; gap:14px; }
 .pp-card{ border:1px solid var(--border); border-radius:12px; padding:14px; background:var(--paper); }
 .pp-head{ display:flex; align-items:center; gap:10px; }
-.pp-head .m-avatar{ width:30px; height:30px; font-size:13px; flex:none; }
-.pp-name{ flex:1 1 auto; min-width:0; font:inherit; font-size:16px; font-weight:650; color:var(--ink); background:transparent; border:1px solid transparent; border-radius:8px; padding:6px 8px; }
+.pp-head .m-avatar{ width:30px; height:30px; font-size:var(--fs-sm); flex:none; }
+.pp-name{ flex:1 1 auto; min-width:0; font:inherit; font-size:var(--fs-lg); font-weight:600; color:var(--ink); background:transparent; border:1px solid transparent; border-radius:8px; padding:6px 8px; }
 .pp-name:hover, .pp-name:focus{ border-color:var(--border); background:var(--paper-raised); outline:none; }
-.pp-age{ font-size:12px; font-weight:600; color:var(--ink-soft); white-space:nowrap; }
+.pp-age{ font-size:var(--fs-xs); font-weight:600; color:var(--ink-soft); white-space:nowrap; }
 .pp-age::after{ content:" yrs"; }
-.pp-uses{ font-size:12.5px; color:var(--ink-soft); margin:6px 0 12px; line-height:1.45; }
+.pp-uses{ font-size:var(--fs-sm); color:var(--ink-soft); margin:6px 0 12px; line-height:1.45; }
 .pp-hours-wrap{ margin-top:12px; }
 /* v3.145.0: whether pay already allows for a rental's loss. */
-.pp-variation{ display:flex; gap:8px; align-items:flex-start; margin-top:12px; font-size:13px; line-height:1.45; cursor:pointer; }
+.pp-variation{ display:flex; gap:8px; align-items:flex-start; margin-top:12px; font-size:var(--fs-sm); line-height:1.45; cursor:pointer; }
 .pp-variation input{ margin-top:3px; flex:none; }
 .pp-variation small{ color: var(--ink-soft); }
 .pp-hours-row{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:8px; margin-top:6px; }
-.pp-hours small{ font-weight:500; }
+.pp-hours small{ font-weight:600; }
 .pp-hours input{ width:100%; box-sizing:border-box; }
 @media (max-width:520px){ .pp-hours-row{ grid-template-columns:repeat(2, minmax(0,1fr)); } }
 
@@ -224,46 +224,46 @@
 .rcv-row{ border:1px solid var(--border); border-radius:10px; background:var(--paper); }
 .rcv-summary{ all:unset; box-sizing:border-box; width:100%; cursor:pointer; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 12px; padding:10px 12px; align-items:center; }
 .rcv-summary:focus-visible{ outline:2px solid var(--brass-strong); outline-offset:-2px; border-radius:10px; }
-.rcv-name{ font-size:13.5px; font-weight:600; color:var(--ink); min-width:0; }
-.rcv-name small{ display:block; font-size:11.5px; font-weight:500; color:var(--ink-soft); }
-.rcv-figs{ font-size:13px; color:var(--ink-soft); white-space:nowrap; text-align:right; }
+.rcv-name{ font-size:var(--fs-md); font-weight:600; color:var(--ink); min-width:0; }
+.rcv-name small{ display:block; font-size:var(--fs-xs); font-weight:600; color:var(--ink-soft); }
+.rcv-figs{ font-size:var(--fs-sm); color:var(--ink-soft); white-space:nowrap; text-align:right; }
 .rcv-figs b{ color:var(--ink); font-family:var(--font-num); }
 .rcv-bar{ grid-column:1 / -1; display:block; height:6px; border-radius:3px; background:var(--paper-sunken); overflow:hidden; }
 .rcv-bar > span{ display:block; height:100%; background:var(--series-color, #1baf7a); background:#1baf7a; }
-.rcv-status{ grid-column:1 / -1; font-size:12px; font-weight:600; }
+.rcv-status{ grid-column:1 / -1; font-size:var(--fs-xs); font-weight:600; }
 /* v3.153.0: take-home logged as a round figure month after month. */
-.rcv-hint{ grid-column:1 / -1; font-size:12px; color: var(--ink-soft); line-height:1.45; text-align:left; }
+.rcv-hint{ grid-column:1 / -1; font-size:var(--fs-xs); color: var(--ink-soft); line-height:1.45; text-align:left; }
 .rcv-status.up{ color:var(--good-ink); }
 .rcv-status.down{ color:var(--bad-ink); }
-.rcv-status.muted{ color:var(--ink-soft); font-weight:500; }
+.rcv-status.muted{ color:var(--ink-soft); font-weight:600; }
 .rcv-detail{ padding:0 12px 10px; display:flex; flex-direction:column; gap:4px; }
-.rcv-item{ display:flex; align-items:center; gap:10px; font-size:13px; }
+.rcv-item{ display:flex; align-items:center; gap:10px; font-size:var(--fs-sm); }
 .rcv-item span{ flex:1 1 auto; min-width:0; color:var(--ink-soft); }
 .rcv-item b{ font-family:var(--font-num); }
 
 /* Worksheet: statements checked against the plan, deductions line by line (v3.47.0) */
-.ty-checks{ margin:6px 0 8px; padding-left:18px; font-size:12.5px; color:var(--ink-soft); }
+.ty-checks{ margin:6px 0 8px; padding-left:18px; font-size:var(--fs-sm); color:var(--ink-soft); }
 .ty-checks b{ color:var(--ink); }
-.ty-uselines{ margin:2px 0 6px; font-size:13px; }
+.ty-uselines{ margin:2px 0 6px; font-size:var(--fs-sm); }
 .ty-lines{ display:flex; flex-direction:column; gap:2px; margin-bottom:8px; }
 .ty-lines.is-off{ opacity:.55; }
-.ty-line{ display:flex; align-items:center; gap:8px; font-size:13px; padding:3px 0; }
+.ty-line{ display:flex; align-items:center; gap:8px; font-size:var(--fs-sm); padding:3px 0; }
 .ty-line span{ flex:1 1 auto; min-width:0; }
 .ty-line small{ color:var(--ink-soft); font-weight:600; }
 .ty-line b{ font-family:var(--font-num); font-weight:600; }
-.ty-sub-label{ font-size:12px; font-weight:650; color:var(--ink-soft); margin:8px 0 4px; text-transform:uppercase; letter-spacing:.03em; }
+.ty-sub-label{ font-size:var(--fs-xs); font-weight:600; color:var(--ink-soft); margin:8px 0 4px; text-transform:uppercase; letter-spacing:.03em; }
 
 /* Tax → Returns → Close the year (v3.48.0) */
 .ty-close{ margin-top:14px; }
 .cy-cols, .cy-row{ display:grid; grid-template-columns: 22px minmax(0,1fr) 84px 84px 84px; gap:8px; align-items:center; }
-.cy-cols{ font-size:11px; font-weight:650; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.03em; margin-top:8px; }
+.cy-cols{ font-size:var(--fs-xs); font-weight:600; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.03em; margin-top:8px; }
 .cy-cols span:nth-child(n+3), .cy-num, .cy-diff{ text-align:right; }
-.cy-head{ font-size:13px; font-weight:650; margin:12px 0 4px; }
-.cy-head small{ font-weight:500; color:var(--ink-soft); margin-left:6px; }
-.cy-row{ font-size:13px; padding:4px 0; border-bottom:1px solid var(--border); }
+.cy-head{ font-size:var(--fs-sm); font-weight:600; margin:12px 0 4px; }
+.cy-head small{ font-weight:600; color:var(--ink-soft); margin-left:6px; }
+.cy-row{ font-size:var(--fs-sm); padding:4px 0; border-bottom:1px solid var(--border); }
 .cy-row.is-fixed{ color:var(--ink-soft); }
-.cy-name small{ font-size:11px; font-weight:600; color:var(--brass-strong); }
-.cy-num, .cy-diff{ font-family:var(--font-num); font-size:12.5px; }
+.cy-name small{ font-size:var(--fs-xs); font-weight:600; color:var(--brass-strong); }
+.cy-num, .cy-diff{ font-family:var(--font-num); font-size:var(--fs-sm); }
 .cy-diff.up{ color:var(--good-ink); } .cy-diff.down{ color:var(--bad-ink); }
 .cy-nobox{ text-align:center; color:var(--ink-soft); }
 .ty-close .btn{ margin-top:12px; }
@@ -277,41 +277,41 @@
 .hc-item{ display:grid; grid-template-columns:10px minmax(0,1fr) auto; gap:10px; align-items:start; padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:var(--paper); }
 .hc-dot{ width:8px; height:8px; border-radius:50%; margin-top:6px; background:var(--ink-soft); }
 .hc-bad .hc-dot{ background:#d64545; } .hc-warn .hc-dot{ background:#eda100; } .hc-info .hc-dot{ background:#2a78d6; }
-.hc-title{ font-size:13.5px; font-weight:650; color:var(--ink); }
-.hc-detail{ font-size:12.5px; color:var(--ink-soft); margin:3px 0 0; line-height:1.45; }
+.hc-title{ font-size:var(--fs-md); font-weight:600; color:var(--ink); }
+.hc-detail{ font-size:var(--fs-sm); color:var(--ink-soft); margin:3px 0 0; line-height:1.45; }
 .hc-go{ white-space:nowrap; }
 .hc-actions{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; justify-content:flex-end; }
 /* v3.146.0: an amount to check before a fix saves it. */
-.hc-fix-amt{ display:inline-flex; align-items:center; gap:6px; font-size:12.5px; color: var(--ink-soft); }
+.hc-fix-amt{ display:inline-flex; align-items:center; gap:6px; font-size:var(--fs-sm); color: var(--ink-soft); }
 .hc-fix-amt input{ width:110px; }
 .hc-actions .btn{ white-space:nowrap; }
-.hc-clear{ font-size:13.5px; color:var(--ink-soft); margin:0; }
+.hc-clear{ font-size:var(--fs-md); color:var(--ink-soft); margin:0; }
 @media (max-width:480px){ .hc-item{ grid-template-columns:10px minmax(0,1fr); } .hc-actions{ grid-column:2; justify-content:flex-start; } }
 
 /* Tax → This year: payslip check (v3.50.0) */
 .tax-ytd{ margin-top:12px; border-top:1px solid var(--border); padding-top:10px; }
-.tax-ytd > summary{ font-size:13px; font-weight:650; cursor:pointer; color:var(--ink); }
-.tax-ytd-out{ font-size:13px; line-height:1.5; color:var(--ink-soft); margin:4px 0 0; }
+.tax-ytd > summary{ font-size:var(--fs-sm); font-weight:600; cursor:pointer; color:var(--ink); }
+.tax-ytd-out{ font-size:var(--fs-sm); line-height:1.5; color:var(--ink-soft); margin:4px 0 0; }
 .tax-ytd-out b{ color:var(--ink); }
 .tax-ytd-out b.up{ color:var(--good-ink); } .tax-ytd-out b.down{ color:var(--bad-ink); }
 
 /* Tax → This year → Before 30 June (v3.51.0) */
-.jm-lead{ font-size:13px; color:var(--ink-soft); margin:0 0 10px; }
+.jm-lead{ font-size:var(--fs-sm); color:var(--ink-soft); margin:0 0 10px; }
 .jm-lead b{ color:var(--ink); }
 .jm-person{ margin-bottom:14px; }
-.jm-person h4{ font-size:14px; margin:0 0 6px; }
-.jm-person h4 small{ font-weight:500; color:var(--ink-soft); font-size:12px; margin-left:6px; }
+.jm-person h4{ font-size:var(--fs-md); margin:0 0 6px; }
+.jm-person h4 small{ font-weight:600; color:var(--ink-soft); font-size:var(--fs-xs); margin-left:6px; }
 .jm-move{ border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin-bottom:6px; background:var(--paper); }
-.jm-head{ display:flex; gap:10px; align-items:baseline; justify-content:space-between; flex-wrap:wrap; font-size:13.5px; }
-.jm-saves{ font-size:12.5px; font-weight:650; color:var(--good-ink); white-space:nowrap; }
-.jm-move p{ font-size:12.5px; color:var(--ink-soft); margin:4px 0 0; line-height:1.45; }
+.jm-head{ display:flex; gap:10px; align-items:baseline; justify-content:space-between; flex-wrap:wrap; font-size:var(--fs-md); }
+.jm-saves{ font-size:var(--fs-sm); font-weight:600; color:var(--good-ink); white-space:nowrap; }
+.jm-move p{ font-size:var(--fs-sm); color:var(--ink-soft); margin:4px 0 0; line-height:1.45; }
 
   /* v3.87.0: take-home off the plan */
-  .th-card{ border:1px solid var(--border); border-left:3px solid var(--brass); border-radius:8px; padding:10px 12px; margin:0 0 12px; background: var(--paper-raised); font-size:13px; }
+  .th-card{ border:1px solid var(--border); border-left:3px solid var(--brass); border-radius:8px; padding:10px 12px; margin:0 0 12px; background: var(--paper-raised); font-size:var(--fs-sm); }
   .th-card p{ margin:0 0 6px; line-height:1.45; }
   .th-set{ margin:0 0 10px; }
 
 /* v3.138.0: Income → Show as. */
 .income-showas{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 12px; }
 .income-showas .seg-control{ max-width:100%; overflow-x:auto; }
-.income-showas small{ font-size:12px; color: var(--ink-soft); flex-basis:100%; }
+.income-showas small{ font-size:var(--fs-xs); color: var(--ink-soft); flex-basis:100%; }

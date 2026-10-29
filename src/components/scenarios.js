@@ -250,7 +250,7 @@ export function renderHomeBody(){
       '</div>' +
       '</div>';
   }).join("") +
-  '<button type="button" class="add-scenario-row" id="addScenarioBtn2"><span class="add-plus" style="font-size:16px">+</span> Add another scenario</button>';
+  '<button type="button" class="add-scenario-row" id="addScenarioBtn2"><span class="add-plus" style="font-size:var(--fs-lg)">+</span> Add another scenario</button>';
   renderCanBuy();
 }
 
@@ -289,7 +289,7 @@ function renderPurchasePanelHtml(scenario){
     }).join("");
     var modernCostsCompBar = modernCostCompBarHtml(costRowMeta(cfg));
     var stampDutyHtml = out.stampDuty === null
-      ? '<input type="number" step="1" min="0" class="calc-manual-stampduty" value="' + (Number(cfg.manualStampDuty) || 0) + '" style="width:100%;font-family:var(--font-num);font-size:15px;background:transparent;border:1px solid var(--border);border-radius:6px;padding:2px 4px;">'
+      ? '<input type="number" step="1" min="0" class="calc-manual-stampduty" value="' + (Number(cfg.manualStampDuty) || 0) + '" style="width:100%;font-family:var(--font-num);font-size:var(--fs-lg);background:transparent;border:1px solid var(--border);border-radius:6px;padding:2px 4px;">'
       : fmtCurrency0.format(out.stampDuty);
     body =
       '<div class="calc-body">' +
@@ -307,12 +307,12 @@ function renderPurchasePanelHtml(scenario){
         '<div class="calc-outputs-label">At settlement — one-off</div>' +
         '<div class="calc-outputs">' +
           '<div class="calc-out"><span>Loan amount</span><b data-out="loan">' + fmtCurrency0.format(out.loanAmount) + '</b>' +
-            '<small data-out="loanlmicap" style="font-weight:400;font-size:10.5px;color:var(--ink-soft)' + (out.lmiCapitalized && out.lmi > 0 ? '' : ';display:none') + '">+ ' + fmtCurrency0.format(out.lmi) + ' capitalized LMI = ' + fmtCurrency0.format(out.loanBalance) + '</small>' +
+            '<small data-out="loanlmicap" style="font-weight:400;font-size:var(--fs-xs);color:var(--ink-soft)' + (out.lmiCapitalized && out.lmi > 0 ? '' : ';display:none') + '">+ ' + fmtCurrency0.format(out.lmi) + ' capitalized LMI = ' + fmtCurrency0.format(out.loanBalance) + '</small>' +
           '</div>' +
           '<div class="calc-out" title="Loan amount ÷ property price. Above 80% usually triggers Lenders Mortgage Insurance (LMI) below."><span>LVR</span><b data-out="lvr">' + fmtPercent1.format(out.lvr) + '</b></div>' +
           '<div class="calc-out"><span>Stamp duty' + (out.stampDuty === null ? " (enter manually)" : "") + '</span><b data-out="stampduty">' + stampDutyHtml + '</b></div>' +
           '<div class="calc-out" title="Lenders Mortgage Insurance — a one-off premium lenders charge when your deposit is under 20% (LVR over 80%), protecting the lender, not you. $0 below 80% LVR."><span>LMI (estimate)</span><b data-out="lmi">' + fmtCurrency0.format(out.lmi) + '</b>' +
-            '<label class="calc-check-inline" data-out="lmicapwrap" style="margin-top:4px;font-size:11px;padding:3px 6px' + (out.lmi > 0 ? '' : ';display:none') + '"><span class="switch" style="width:26px;height:15px"><input type="checkbox" class="calc-lmi-capitalize"' + (out.lmiCapitalized ? " checked" : "") + '><span class="switch-track"><span class="switch-thumb" style="width:11px;height:11px"></span></span></span> Capitalize into loan <span class="calc-help" title="Add the LMI premium to your loan balance instead of paying it as cash at settlement — increases your loan amount and repayments, but reduces the cash you need on hand. Most lenders default to this.">ⓘ</span></label>' +
+            '<label class="calc-check-inline" data-out="lmicapwrap" style="margin-top:4px;font-size:var(--fs-xs);padding:3px 6px' + (out.lmi > 0 ? '' : ';display:none') + '"><span class="switch" style="width:26px;height:15px"><input type="checkbox" class="calc-lmi-capitalize"' + (out.lmiCapitalized ? " checked" : "") + '><span class="switch-track"><span class="switch-thumb" style="width:11px;height:11px"></span></span></span> Capitalize into loan <span class="calc-help" title="Add the LMI premium to your loan balance instead of paying it as cash at settlement — increases your loan amount and repayments, but reduces the cash you need on hand. Most lenders default to this.">ⓘ</span></label>' +
           '</div>' +
           '<div class="calc-out"><span>Other costs</span><b data-out="othercosts">' + fmtCurrency0.format(out.otherTotal) + '</b></div>' +
           '<div class="calc-out emph" data-out="upfrontwrap" title="Deposit + stamp duty + other costs' + (out.lmiCapitalized ? " — LMI is capitalized into the loan, not paid as cash" : " + LMI") + ' — the cash you need available on settlement day."><span>Total upfront cash</span><b data-out="upfront">' + fmtCurrency0.format(out.upfrontCash) + '</b></div>' +
@@ -327,7 +327,7 @@ function renderPurchasePanelHtml(scenario){
           '<div class="m-card m-cost-rows">' + modernCostsCompBar + modernCostsRows + '</div>' +
           '<button type="button" class="btn btn-sm" style="margin-top:8px" data-cc-add="1">+ Add cost</button>' +
         '</div>' +
-        '<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;cursor:pointer">' +
+        '<label style="display:flex;align-items:center;gap:8px;font-size:var(--fs-sm);cursor:pointer">' +
           '<span class="switch"><input type="checkbox" class="calc-sync"' + (cfg.syncRepayment ? " checked" : "") + '><span class="switch-track"><span class="switch-thumb"></span></span></span> Use this repayment as "Rent / Home Loan" below' +
         '</label>' +
         '<p class="calc-note">P&amp;I repayment is exact (standard amortisation). Interest-only repayment is simplified — modelled flat for the full loan term rather than a fixed IO period reverting to P&amp;I, and the projection assumes the balance never reduces while IO is selected. Stamp duty (NSW/VIC) and LMI are estimates based on published general scales and typical lender premiums — all rates and fees vary by lender/insurer and change over time, so confirm exact figures with your bank, broker or state revenue office before relying on them.</p>' +

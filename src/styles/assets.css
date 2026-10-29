@@ -2,19 +2,19 @@
 
   /* ---------------- Assets & net worth ---------------- */
   .worth-table{ width:100%; border-collapse:collapse; margin-top:14px; }
-  .worth-table th, .worth-table td{ padding:8px 10px; font-size:13px; border-bottom:1px solid var(--border); }
-  .worth-table th{ text-align:left; color: var(--ink-soft); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.04em; background: var(--paper-sunken); }
+  .worth-table th, .worth-table td{ padding:8px 10px; font-size:var(--fs-sm); border-bottom:1px solid var(--border); }
+  .worth-table th{ text-align:left; color: var(--ink-soft); font-weight:600; font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em; background: var(--paper-sunken); }
   .worth-table td.num, .worth-table th.num{ text-align:right; font-family:var(--font-num); font-variant-numeric: tabular-nums; }
-  .worth-table tr:last-child td{ border-bottom:none; font-weight:700; }
+  .worth-table tr:last-child td{ border-bottom:none; font-weight:600; }
   .worth-table td.short{ color: var(--bad-ink); }
   .worth-table td.ok{ color: var(--good-ink); }
 
   /* ---------------- Asset tracking ---------------- */
-  .asset-trend{ font-size:10.5px; margin-top:2px; padding-left:6px; }
+  .asset-trend{ font-size:var(--fs-xs); margin-top:2px; padding-left:6px; }
   .asset-trend.up{ color: var(--good-ink); }
   .asset-trend.down{ color: var(--bad-ink); }
   .asset-log-btn{
-    all:unset; cursor:pointer; color: var(--ink-soft); font-size:11px; padding:3px 6px; border-radius:5px;
+    all:unset; cursor:pointer; color: var(--ink-soft); font-size:var(--fs-xs); padding:3px 6px; border-radius:5px;
     display:inline-flex; align-items:center; justify-content:center; min-height:40px; min-width:40px;
   }
   .asset-log-btn:hover{ background: var(--paper-sunken); color: var(--brass-strong); }
@@ -30,11 +30,13 @@
      640px" trade-off. A holding with no symbol set falls back to the name alone in the primary
      (.m-row-name) slot, same as before this existed. */
   .m-row-share-name{ flex:1 1 auto; min-width:0; }
+  /* Units · price stays on one line; at 12px it can still lose its end to an ellipsis on a narrow phone. */
+  .m-row-share-name .m-row-sub{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .m-row-name-line{ display:flex; align-items:baseline; gap:5px; min-width:0; }
   .m-row-name-line .m-row-name{ flex:none; }
   .m-row-name-secondary{
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;
-    font-size:12px; font-weight:500; color: var(--ink-soft);
+    font-size:var(--fs-xs); font-weight:600; color: var(--ink-soft);
   }
   /* .h-stale-dot is a flex:none sibling here too — min-width:0 above lets the secondary name
      keep shrinking/ellipsizing on its own while the dot never gets squeezed to 0 or clipped by
@@ -47,6 +49,9 @@
   .sparkline.up{ color: var(--good-ink); }
   .sparkline.down{ color: var(--bad-ink); }
   .sparkline.sparkline-empty{ color: var(--border); }
+  /* v3.155.0: on a narrow phone the trend line gives up width so units · price keeps its last digits. */
+  @media (max-width: 420px){ .m-row-summary .sparkline{ width:34px; margin:0 2px; } }
+  @media (max-width: 379px){ .m-row-summary .sparkline{ display:none; } }
   .m-row-share-value{ text-align:right; flex:none; }
   .m-row-share-value .asset-trend.gain-cell{ display:block; padding-left:0; margin-top:2px; text-align:right; }
   /* A USD gain/loss figure ("USD 2,100 (30.6%)") is the value block's widest line on a narrow
@@ -70,8 +75,8 @@
 
   /* ---------------- Shares: at-a-glance gain/loss summary ---------------- */
   .shares-glance{ margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid var(--border); }
-  .shares-glance-figure{ display:inline-block; padding-left:0; font-size:20px; font-weight:700; }
-  .shares-glance-sub{ font-size:11.5px; color: var(--ink-soft); margin:2px 0 10px; }
+  .shares-glance-figure{ display:inline-block; padding-left:0; font-size:var(--fs-xl); font-weight:600; }
+  .shares-glance-sub{ font-size:var(--fs-xs); color: var(--ink-soft); margin:2px 0 10px; }
   .shares-glance-bar{ margin-bottom:8px; }
 
   /* ---------------- Shares: winners/losers filter, sort, and change-window ---------------- */
@@ -79,7 +84,7 @@
   /* Label then control, left to right — space-between would shove the window picker to the far
      right, away from the word that names it. */
   .shares-toolbar-start{ justify-content:flex-start; }
-  .shares-toolbar-label{ font-size:11.5px; color: var(--ink-soft); font-weight:600; }
+  .shares-toolbar-label{ font-size:var(--fs-xs); color: var(--ink-soft); font-weight:600; }
   /* Both of these used to be .subnav containers with .subnav-item children, borrowed purely for
      the pill look. That was always a category error — they're controls inside a card, not page
      navigation — and it became a visible one when .subnav grew a hairline and an active underline:
@@ -93,7 +98,7 @@
   .chip{
     all:unset; box-sizing:border-box; padding:5px 10px; border-radius:100px;
     border:1px solid var(--border); background: var(--paper);
-    font-size:11px; font-weight:500; color: var(--ink-soft); cursor:pointer; white-space:nowrap;
+    font-size:var(--fs-xs); font-weight:600; color: var(--ink-soft); cursor:pointer; white-space:nowrap;
     display:inline-flex; align-items:center; min-height:40px;
   }
   .chip:hover{ color: var(--ink); border-color: var(--brass); }
@@ -109,8 +114,8 @@
   }
   .seg-control::-webkit-scrollbar{ display:none; }
   .seg-option{
-    all:unset; box-sizing:border-box; padding:5px 9px; border-radius:6px; text-align:center;
-    font-size:11px; font-weight:600; color: var(--ink-soft); cursor:pointer; white-space:nowrap;
+    all:unset; box-sizing:border-box; padding:5px 8px; border-radius:6px; text-align:center; flex:1 0 auto;
+    font-size:var(--fs-xs); font-weight:600; color: var(--ink-soft); cursor:pointer; white-space:nowrap;
     /* all:unset clears display, so the flex centring has to be restated along with the height. */
     display:inline-flex; align-items:center; justify-content:center; min-height:40px;
   }
@@ -120,7 +125,7 @@
   .seg-option.active{ background: var(--paper-raised); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,0.22); }
   .seg-option:focus-visible{ box-shadow: var(--focus-ring); }
   #sharesSortSelect{
-    font-size:11.5px; padding:6px 10px; border-radius:100px; border:1px solid var(--border);
+    font-size:var(--fs-xs); padding:6px 10px; border-radius:100px; border:1px solid var(--border);
     background: var(--paper); color: var(--ink); font-family:inherit; cursor:pointer; flex:none;
     appearance:none; -webkit-appearance:none;
   }
@@ -135,25 +140,25 @@
      column is fixed at the width Chrome needs for "dd/mm/yyyy" plus its picker icon; the amounts
      share the rest. */
   .lot-head, .lot-row{ display:grid; grid-template-columns: 124px minmax(0,.9fr) minmax(0,1.25fr) minmax(0,.85fr) 32px; gap:5px; align-items:center; }
-  .lot-head{ font-size:10.5px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-soft); padding:0 2px 4px; }
+  .lot-head{ font-size:var(--fs-xs); font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-soft); padding:0 2px 4px; }
   .lot-row{ padding:4px 0; border-top:1px solid var(--border); }
-  .lot-row input{ min-width:0; width:100%; font-size:13px; padding:6px 4px; border:1px solid var(--border); border-radius:6px; background:var(--paper); color:var(--ink); font-family:inherit; }
+  .lot-row input{ min-width:0; width:100%; font-size:var(--fs-sm); padding:6px 4px; border:1px solid var(--border); border-radius:6px; background:var(--paper); color:var(--ink); font-family:inherit; }
   .lot-row input[type="number"]{ font-family:var(--font-num); text-align:right; }
   .lot-row .icon-btn{ width:32px; height:32px; }
   .lot-row .icon-btn[disabled]{ opacity:.35; cursor:not-allowed; }
-  .lot-sold{ grid-column: 2 / -1; font-size:11px; color:var(--ink-soft); }
+  .lot-sold{ grid-column: 2 / -1; font-size:var(--fs-xs); color:var(--ink-soft); }
   /* Annual tax statements (v3.22.0): one bordered card per year, the year select and delete in a
      head row, then the labelled fields on the shared edit grid. */
   .stmt-card{ border:1px solid var(--border); border-radius:10px; padding:8px 10px 2px; margin-bottom:8px; }
   .stmt-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px; }
   .stmt-card .m-edit-grid{ align-items:end; }
-  .stmt-head select{ font-size:13px; font-weight:600; font-family:inherit; color:var(--ink); background:var(--paper); border:1px solid var(--border); border-radius:6px; padding:5px 6px; }
+  .stmt-head select{ font-size:var(--fs-sm); font-weight:600; font-family:inherit; color:var(--ink); background:var(--paper); border:1px solid var(--border); border-radius:6px; padding:5px 6px; }
   .sale-list{ display:flex; flex-direction:column; gap:2px; margin-top:10px; }
-  .sale-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:11.5px; padding:5px 2px; border-top:1px solid var(--border); }
+  .sale-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:var(--fs-xs); padding:5px 2px; border-top:1px solid var(--border); }
   .sale-date{ font-family:var(--font-num); color: var(--ink-soft); flex:none; }
   .sale-detail{ flex:1 1 160px; min-width:0; color: var(--ink-soft); }
   .sale-discount{
-    flex:none; font-size:10.5px; font-weight:600; padding:1px 7px; border-radius:100px;
+    flex:none; font-size:var(--fs-xs); font-weight:600; padding:1px 7px; border-radius:100px;
     background: var(--paper-sunken); color: var(--ink-soft);
   }
   .sale-discount.on{ background: var(--good-wash); color: var(--good-ink); }
@@ -187,9 +192,9 @@
   .chart-head-bare{ justify-content:flex-end; margin-bottom:10px; }
 
 /* v3.32.1 — US$ counted as A$ with no rate set: visible above the list, not inside the paste tool. */
-.fx-warn{ margin:10px 0 14px; padding:10px 12px; border:1px solid var(--bad); border-left-width:4px; border-radius:10px; background:var(--bad-wash); font-size:13px; }
+.fx-warn{ margin:10px 0 14px; padding:10px 12px; border:1px solid var(--bad); border-left-width:4px; border-radius:10px; background:var(--bad-wash); font-size:var(--fs-sm); }
 .fx-warn p{ margin:0 0 8px; color:var(--ink); }
-.fx-warn-field{ display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--ink-soft); }
+.fx-warn-field{ display:inline-flex; align-items:center; gap:6px; font-size:var(--fs-sm); color:var(--ink-soft); }
 .fx-warn-field input{ width:90px; min-height:36px; padding:4px 8px; border:1px solid var(--border); border-radius:8px; background:var(--paper); color:var(--ink); font:inherit; text-align:right; }
 
   /* v3.38.0 — distributions received: date, cash, franking credit, delete. */
@@ -199,33 +204,33 @@
 /* ---------------- Investments additions (v3.61.0) ---------------- */
 .inv-tiles{ display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:8px; margin-bottom:12px; }
 .inv-tiles > div{ border:1px solid var(--border); border-radius:10px; padding:8px 10px; background: var(--paper); display:flex; flex-direction:column; gap:2px; min-width:0; }
-.inv-tiles span{ font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
-.inv-tiles b{ font-size:16px; font-variant-numeric: tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.inv-tiles small{ font-size:11.5px; color: var(--ink-soft); }
+.inv-tiles span{ font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
+.inv-tiles b{ font-size:var(--fs-lg); font-variant-numeric: tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.inv-tiles small{ font-size:var(--fs-xs); color: var(--ink-soft); }
 .inv-tiles .up, .inv-table .up, .inv-super .up{ color: var(--good-ink); }
 .inv-tiles .down, .inv-table .down, .inv-super .down{ color: var(--bad-ink); }
-.inv-table{ display:flex; flex-direction:column; font-size:13px; }
+.inv-table{ display:flex; flex-direction:column; font-size:var(--fs-sm); }
 .inv-tr{ display:grid; grid-template-columns: minmax(0,1.4fr) repeat(4, minmax(0,1fr)); gap:8px; padding:6px 0; border-bottom:1px dashed var(--border); align-items:baseline; }
 .inv-tr > span:not(.inv-name){ text-align:right; font-variant-numeric: tabular-nums; white-space:nowrap; }
-.inv-th{ font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
+.inv-th{ font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
 .inv-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.inv-tr small{ color: var(--ink-soft); font-size:11px; }
+.inv-tr small{ color: var(--ink-soft); font-size:var(--fs-xs); }
 .inv-dist{ display:flex; flex-direction:column; gap:4px; }
 .inv-dist-year summary{ display:grid; grid-template-columns: 70px minmax(0,1fr) 90px; gap:10px; align-items:center; cursor:pointer; min-height:36px; list-style:none; }
 .inv-dist-year summary::-webkit-details-marker{ display:none; }
-.inv-dist-label{ font-size:13px; font-weight:600; }
+.inv-dist-label{ font-size:var(--fs-sm); font-weight:600; }
 .inv-dist-bar{ height:10px; background: var(--paper-sunken); border-radius:5px; overflow:hidden; }
 .inv-dist-bar i{ display:block; height:100%; background: var(--brass); border-radius:5px; }
 .inv-dist-year b{ text-align:right; font-variant-numeric: tabular-nums; }
-.inv-dist-list{ list-style:none; margin:0 0 8px; padding:0 0 0 80px; font-size:12.5px; }
+.inv-dist-list{ list-style:none; margin:0 0 8px; padding:0 0 0 80px; font-size:var(--fs-sm); }
 .inv-dist-list li{ display:flex; justify-content:space-between; gap:8px; padding:2px 0; }
 .inv-super{ margin-bottom:12px; }
-.inv-super-head{ display:flex; justify-content:space-between; gap:8px; font-size:13.5px; }
+.inv-super-head{ display:flex; justify-content:space-between; gap:8px; font-size:var(--fs-md); }
 .inv-super-head span{ color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 .inv-super-bar{ height:10px; background: var(--paper-sunken); border-radius:5px; overflow:hidden; margin:6px 0; }
 .inv-super-bar i{ display:block; height:100%; background: var(--good); border-radius:5px; }
 .inv-super-bar.over i{ background: var(--bad); }
-.inv-super-lines{ display:flex; flex-wrap:wrap; gap:4px 14px; font-size:12.5px; color: var(--ink-soft); }
+.inv-super-lines{ display:flex; flex-wrap:wrap; gap:4px 14px; font-size:var(--fs-sm); color: var(--ink-soft); }
 @media (max-width: 640px){
   .inv-tiles{ grid-template-columns: 1fr 1fr; }
   .inv-tr{ grid-template-columns: minmax(0,1fr) auto auto; }
@@ -236,63 +241,63 @@
 
 /* ---------------- Prices from Google Sheets (v3.75.0) ---------------- */
 .ps-card{ margin:8px 0 4px; }
-.ps-steps{ margin:8px 0; padding-left:20px; display:flex; flex-direction:column; gap:10px; font-size:13px; line-height:1.5; color: var(--ink); }
+.ps-steps{ margin:8px 0; padding-left:20px; display:flex; flex-direction:column; gap:10px; font-size:var(--fs-sm); line-height:1.5; color: var(--ink); }
 .ps-actions{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:6px; }
 .ps-url{ flex:1 1 240px; min-width:0; min-height:34px; }
-.ps-from{ font-size:12.5px; padding:2px 4px; }
-.ps-status{ font-size:12.5px; margin:6px 0; color: var(--ink-soft); line-height:1.5; }
+.ps-from{ font-size:var(--fs-sm); padding:2px 4px; }
+.ps-status{ font-size:var(--fs-sm); margin:6px 0; color: var(--ink-soft); line-height:1.5; }
 .ps-status.bad{ color: var(--bad-ink); }
 .ps-note{ margin:6px 0 10px; }
 .ps-manual{ margin-top:6px; }
-.ps-manual > summary{ cursor:pointer; font-size:12.5px; color: var(--ink-soft); }
+.ps-manual > summary{ cursor:pointer; font-size:var(--fs-sm); color: var(--ink-soft); }
 
 /* v3.91.0: Investments → Shares → Import trades */
 .tr-inputs{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:0 0 6px; }
-.tr-text{ width:100%; box-sizing:border-box; font: 12px/1.4 ui-monospace, monospace; border:1px solid var(--border); border-radius:6px; padding:6px 8px; background: var(--paper); color: var(--ink); margin:0 0 6px; }
+.tr-text{ width:100%; box-sizing:border-box; font: var(--fs-xs)/1.4 ui-monospace, monospace; border:1px solid var(--border); border-radius:6px; padding:6px 8px; background: var(--paper); color: var(--ink); margin:0 0 6px; }
 .tr-list{ list-style:none; margin:4px 0 10px; padding:0; }
-.tr-list li{ border-bottom:1px dashed var(--border); padding:6px 0; font-size:13px; }
+.tr-list li{ border-bottom:1px dashed var(--border); padding:6px 0; font-size:var(--fs-sm); }
 .tr-row{ display:grid; grid-template-columns: 64px minmax(0,1fr) auto; gap:8px; align-items:center; }
 .tr-row select{ max-width:100%; min-height:36px; border:1px solid var(--border); border-radius:6px; background: var(--paper); color: var(--ink); font: inherit; }
-.tr-new{ font-size:12px; color: var(--ink-soft); text-align:right; }
-.tr-skip{ font-size:12px; color: var(--ink-soft); margin-left:6px; white-space:nowrap; }
+.tr-new{ font-size:var(--fs-xs); color: var(--ink-soft); text-align:right; }
+.tr-skip{ font-size:var(--fs-xs); color: var(--ink-soft); margin-left:6px; white-space:nowrap; }
 .tr-none{ color: var(--ink-soft); }
-.tr-problem{ margin:4px 0 0; font-size:12px; color: var(--bad-ink); }
+.tr-problem{ margin:4px 0 0; font-size:var(--fs-xs); color: var(--bad-ink); }
 @media (max-width: 520px){ .tr-row{ grid-template-columns: 52px minmax(0,1fr); } .tr-new{ grid-column: 1 / -1; text-align:left; } }
 
 /* v3.94.0: Accounts → Emergency fund */
 .ef-seg{ margin:0 0 12px; }
 .ef-head{ display:flex; justify-content:space-between; align-items:flex-end; gap:10px 16px; flex-wrap:wrap; }
 .ef-head > div:first-child{ display:flex; flex-direction:column; }
-.ef-label{ font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
-.ef-target{ font-family: var(--font-num); font-size:28px; line-height:1.15; }
-.ef-head small{ font-size:12.5px; color: var(--ink-soft); }
-.ef-alts{ display:flex; gap:12px; flex-wrap:wrap; font-size:12.5px; color: var(--ink-soft); }
+.ef-label{ font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
+.ef-target{ font-family: var(--font-num); font-size:var(--fs-2xl); line-height:1.15; }
+.ef-head small{ font-size:var(--fs-sm); color: var(--ink-soft); }
+.ef-alts{ display:flex; gap:12px; flex-wrap:wrap; font-size:var(--fs-sm); color: var(--ink-soft); }
 .ef-alts b{ font-family: var(--font-num); color: var(--ink); }
 .ef-bar{ height:8px; border-radius:4px; background: var(--border); overflow:hidden; margin:12px 0 6px; }
 .ef-bar i{ display:block; height:100%; background: var(--brass); }
 .ef-bar i.ok{ background: var(--good); }
-.ef-status{ margin:0 0 12px; font-size:13px; }
+.ef-status{ margin:0 0 12px; font-size:var(--fs-sm); }
 .ef-status.ok{ color: var(--good-ink); }
-.ef-sub{ font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); margin:12px 0 4px; }
+.ef-sub{ font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); margin:12px 0 4px; }
 .ef-people ul, .ef-groups, .ef-lines ul{ list-style:none; margin:0; padding:0; }
-.ef-people li{ font-size:13px; line-height:1.45; padding:3px 0; }
-.ef-groups li, .ef-lines li{ display:flex; justify-content:space-between; gap:10px; font-size:13px; padding:4px 0; border-bottom:1px dashed var(--border); }
+.ef-people li{ font-size:var(--fs-sm); line-height:1.45; padding:3px 0; }
+.ef-groups li, .ef-lines li{ display:flex; justify-content:space-between; gap:10px; font-size:var(--fs-sm); padding:4px 0; border-bottom:1px dashed var(--border); }
 .ef-groups b, .ef-lines b{ font-family: var(--font-num); white-space:nowrap; }
-.ef-lines{ margin-top:8px; font-size:13px; }
+.ef-lines{ margin-top:8px; font-size:var(--fs-sm); }
 .ef-lines summary{ cursor:pointer; color: var(--ink-soft); min-height:32px; }
-.ef-lines li small{ display:block; font-size:11.5px; color: var(--ink-soft); }
+.ef-lines li small{ display:block; font-size:var(--fs-xs); color: var(--ink-soft); }
 .ef-note{ margin:10px 0 8px; }
 .ef-actions{ margin-top:6px; }
 
 /* v3.138.0: an empty page says where to start, in place of tiles reading $0. */
 .empty-start{ grid-column:1 / -1; padding:18px 20px; border:1px dashed var(--border); border-radius:14px; background: var(--paper-raised); }
-.empty-start b{ font-size:15px; }
-.empty-start p{ margin:6px 0 12px; color: var(--ink-soft); font-size:13.5px; max-width:62ch; }
+.empty-start b{ font-size:var(--fs-lg); }
+.empty-start p{ margin:6px 0 12px; color: var(--ink-soft); font-size:var(--fs-md); max-width:62ch; }
 .empty-start-actions{ display:flex; gap:8px; flex-wrap:wrap; }
 
 /* v3.139.0: holdings sold down to nothing, folded under the ones still held. */
 .sold-list{ margin:14px 0 0; }
-.sold-list > summary{ cursor:pointer; font-weight:600; font-size:13.5px; padding:6px 0; }
-.sold-list > summary span{ font-weight:400; font-size:12.5px; color: var(--ink-soft); margin-left:6px; }
+.sold-list > summary{ cursor:pointer; font-weight:600; font-size:var(--fs-md); padding:6px 0; }
+.sold-list > summary span{ font-weight:400; font-size:var(--fs-sm); color: var(--ink-soft); margin-left:6px; }
 .sold-list .m-card{ margin-top:6px; opacity:.85; }
 .ps-summary-line{ font-weight:400; text-transform:none; letter-spacing:0; color: var(--ink-soft); margin-left:6px; }

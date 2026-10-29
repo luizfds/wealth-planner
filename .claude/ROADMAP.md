@@ -3219,6 +3219,12 @@ the edge looked like the end of the list. The same review found a card repayment
 grouped account list, warning and Check.
 
 
+## 184. `[~]` A simpler read, page by page
+A default-state review of every page at phone width found the same things more than once: settled notices
+("on track") as loud as the ones to act on, a panel shown on two pages, explanations printed in full, settings
+above the figures they set, and headers squeezed onto three lines. Each fix keeps the feature; it moves or folds it.
+
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

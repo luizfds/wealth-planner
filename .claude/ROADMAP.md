@@ -3235,6 +3235,260 @@ stacked category bar — Actual vs. planned above draws the same one. Home dates
 ("since 30 Nov 2025").
 
 
+### Phase H — against the apps people compare it with (October 2026)
+
+Compared with what people use instead: Monarch Money, Copilot Money, YNAB, PocketSmith, Frollo and WeMoney (AU),
+Sharesight (AU shares) and ProjectionLab (planning). On depth this app is already ahead of all of them for an
+Australian household: tax and super worked out per person, property with loans and the rental's schedule,
+scenarios, a return worksheet, Age Pension. Where it falls behind is how it *feels*. Those apps look like one
+product, explain themselves in a few words, and put the next thing to do first.
+
+The default view of eleven pages, measured at 390px with the demo household at v3.154.0:
+
+| | This app | What the others do |
+|---|---|---|
+| Text styles (size and weight) | **57**, from 9.5px up | about 8, nothing under 12px |
+| Different-looking buttons | **32** | 4–5 (primary, secondary, ghost, link, danger) |
+| Spending, default view | 7.5 screens, 724 words | one list, its filters and a chart |
+| Tax → This year | 3.4 screens, 437 words | — (none of them go this deep) |
+| Category colour or icon on a row | none | every row (Copilot, Monarch, PocketSmith) |
+| New transactions to review | the import screen only | a standing review queue: swipe to approve (YNAB, Copilot) |
+| Bank feeds | CSV / PDF import, Statements folder | open banking (all but YNAB in AU) |
+
+The order is deliberate. Looking professional (185–190) is cheap and touches every page, so it comes first, and
+it makes every later item look finished on arrival. Ease of use (191–198) is next. New capability (199–206) comes
+last. Items are written so that one item is one PR. **Non-goals**, said once so nobody re-proposes them: credit
+scores, bill negotiation, ads, and anything that sends the household's data to a server by default.
+
+## 185. `[ ]` One type scale
+57 size and weight combinations are why pages look assembled rather than designed. Text as small as 9.5px fails
+on a phone.
+
+Do: about eight text styles as tokens in `base.css`: page title, section title, card figure, body, body strong,
+label, caption and number. 12px is the smallest. Every `font-size` in `src/styles/` goes through a token, and so
+do inline `style="font-size…"` in the components. Uppercase micro-labels (`11px/650`) become the one label style.
+
+Done when: the audit script (scratchpad pattern: count computed size/weight pairs on each page's visible text)
+finds ≤ 10 combinations across all pages and nothing under 12px; a test fails on a raw `font-size:` px value
+outside `base.css`.
+
+## 186. `[ ]` One button system
+32 different-looking buttons: outlined, ghost, link-styled, pill, uppercase `<summary>`s acting as buttons, and
+primary buttons in four sizes.
+
+Do: `btn` (secondary), `btn-primary`, `btn-ghost`, `link-btn` and `btn-danger`, each in two sizes. One primary per
+card at most. The `calc-hint-link`, `review-cta` and other one-offs map onto these. Folded sections inside a card
+(`tax-advanced`, `ps-manual`) get one disclosure style: sentence case with a chevron, not uppercase text.
+
+Done when: ≤ 6 computed button looks across the smoke views; screens diff reviewed page by page.
+
+## 187. `[ ]` Colour and an icon for each category
+Every competitor makes a list readable at a glance with a category colour and icon on each row. Here, a
+transaction row, a budget line and a chart segment for the same category share nothing.
+
+Do: each category gets a colour (from a fixed, contrast-checked palette) and an icon (a small hand-drawn SVG
+set, no emoji, no icon font from a CDN). Settings → Categories picks them, with sensible defaults by name
+(groceries, fuel, insurance…). They show on transaction rows, budget lines, Spending's charts and the Sankey.
+A merchant shows as a round avatar: its initials on the category's colour.
+
+Done when: the same category looks the same on Budget, Spending, Reports and Home; axe passes on every colour in
+light and dark.
+
+## 188. `[ ]` Half the words on screen
+Explanations were moved behind ⓘ once (v3.33.0), but the visible text kept growing: notes under figures, sentences
+in summary lines, paragraphs in notices. The others say one short line and link to more.
+
+Do: a copy pass, page by page. A visible note is one sentence. Anything longer goes behind the section's ⓘ or into
+the item's detail page. Summaries say a figure, not a sentence. Start with Spending (724 words), Tax → This year
+(437) and Plan → Projections (327).
+
+Done when: the visible words on those three pages are down by at least 40%, and no visible paragraph runs over 30
+words. Nothing explained before is unexplained after (each moved sentence is listed in the PR).
+
+## 189. `[ ]` One card, one chart style
+Cards differ in header layout (title left, figure right, or figure under), padding and how actions are placed.
+Charts differ in axes, gridlines, legends and whether they have tooltips.
+
+Do: one card anatomy: title, optional figure, optional ⋯ menu, body, footer actions. One chart style in
+`lib/charts.js`: the same axis font, light gridlines, a legend under the chart, and a tap or hover tooltip on every
+point. Loading shows a skeleton in the card's shape, not a blank.
+
+Done when: every Home, Insights, Investments and Plan card uses the shared card markup (render-smoke asserts it);
+every chart has a tooltip.
+
+## 190. `[ ]` Figures that read at a glance
+Long figures crowd small cards on a phone ("$4,499,450", "$1,889,000").
+
+Do: compact figures in cards and charts ($4.5M, $1.89M, $673.8k), with the exact one in the tooltip and on the
+detail page. Ledgers and tax keep whole dollars. Up and down always as arrow plus colour, never colour alone.
+
+Done when: no card figure wraps or truncates at 360px (measured); a test pins the compact formatter.
+
+## 191. `[ ]` Only the parts you use
+A renter with no shares still sees Property, Investments, Tax → Returns and a dozen cards about them. Monarch and
+Copilot simply don't show what you don't have.
+
+Do: Settings → Preferences → "What this household has": property, shares, super, a business, a partner. The
+answers are worked out from the data by default and can be changed. Navigation, Home cards, notices and Checks
+leave out what's off. Nothing is deleted, and turning a part on brings it back as it was.
+
+Done when: the first-run answers set it; with property off, no page, card, notice or check mentions one (driven
+in the browser); the smoke script runs both all-on and a minimal household.
+
+## 192. `[ ]` A first ten minutes that ends somewhere
+The first-run setup asks good questions, then leaves you on a full Home. Monarch and Copilot finish setup with
+your own numbers on screen and one next step.
+
+Do: setup ends on a "Your first month" Home. It shows the take-home it worked out, the budget it proposed (from
+`budgetfromhistory.js` if a statement was imported), and one next step at a time: import a statement, check the
+budget, add an account. The setup checklist becomes that one step, not a list. The demo household is offered
+first, as a way to look around.
+
+Done when: a new device can get from opening the app to a budget from a real statement in under ten steps,
+counted in a driven run.
+
+## 193. `[ ]` A review queue for new transactions
+Imported rows are reviewed once, on the import screen, and anything waved through is never looked at again. YNAB
+(Card Mode, 2026) and Copilot keep a standing "to review" queue.
+
+Do: every imported or Statements-folder row lands as `reviewed: false`. Home and Spending show "N to review". The
+queue is one row at a time: swipe right to keep, left to change the category, with the budget line it counts
+against shown. Correcting a category offers "Always do this for Fern Café?", which writes an import rule.
+Desktop gets the same with keyboard keys.
+
+Done when: a statement import shows its rows in the queue; a correction made there creates a rule that the next
+import applies; the swipe is driven on a phone width.
+
+## 194. `[ ]` A flexible budget as well as a detailed one
+Thirty budget lines is a lot to keep. Monarch's flex budgeting works with three numbers: fixed bills, one
+flexible amount, and non-monthly costs set aside.
+
+Do: Budget can be shown as Fixed / Flexible / Non-monthly, built from the same lines (a line's frequency and the
+needs/wants type decide where it goes; you can override per line). Flexible shows one amount left for the month.
+Each category can roll an unspent balance into next month. Nothing about the detailed lines changes.
+
+Done when: both views total the same; rollover carries over the period picker's months; tests over `calc/`.
+
+## 195. `[ ]` A Home you arrange
+Home's cards come in a fixed order. Monarch lets you choose what's on the dashboard.
+
+Do: Home → Overview gets "Edit" to reorder and hide its cards (net worth, this month, bills, goals, runway, FI, tax
+return, scenarios) and to add any Insights panel. The arrangement is per device, like the theme.
+
+Done when: the order survives a reload; a hidden card's notice still reaches the bell.
+
+## 196. `[ ]` Your week, in one card
+The app only speaks when opened. Copilot and Monarch send a weekly recap.
+
+Do: once a week (the first open from Monday), a "Your week" card: spent against your usual week, the biggest
+three, bills next week, rows to review, and one notice. It goes out as a local notification if notifications are
+on. It can be dismissed and is kept for four weeks.
+
+Done when: the figures match Spending for the same dates; it doesn't appear twice in a week across two devices
+(synced dismissal).
+
+## 197. `[ ]` Feels like an app on a phone
+Editing a row opens a centred modal, and lists have no swipe actions. Totals scroll away.
+
+Do: on a phone, row editors and pickers open as bottom sheets (drag to close). Rows get swipe actions (edit,
+split, delete with undo). A list's total sticks under the header. Pull to refresh runs prices and sync. Tap
+targets are at least 44px.
+
+Done when: measured tap targets ≥ 44px on the smoke views at 390px; bottom sheets driven open and closed; no
+change on desktop.
+
+## 198. `[ ]` Saved views of your transactions
+Search and filters exist but are lost when you leave. Monarch saves filtered views.
+
+Do: a filter set on Spending (account, category, person, trip, amount, text, dates) can be saved and named, and
+appears as a chip above the list. The views travel in the backup and sync. "Show me in Spending" from a report,
+notice or budget line opens a filtered list.
+
+Done when: a saved view's total equals the same filter set by hand; it survives a reload and a sync.
+
+## 199. `[ ]` OFX, QFX and QIF, and how to get them
+PocketSmith takes OFX, QFX, QIF and CSV. Here it's CSV or PDF, and finding a bank's export button is left to you.
+
+Do: parse OFX/QFX (SGML and XML) and QIF in `calc/bank-import.js`, so they go through the same review, rules and
+duplicate check. The import screen gets short "Where's the export?" steps for the major Australian banks and card
+issuers, written generically (no account details), and says which formats each offers.
+
+Done when: invented fixtures in each format import the same rows as the matching CSV; render-smoke covers the help.
+
+## 200. `[ ]` Decide: bank feeds or not
+Bank feeds are why people pick Frollo, WeMoney, PocketSmith or Monarch. Under Australia's Consumer Data Right they
+come through an accredited aggregator, which needs a server, an agreement and the household's data passing
+through someone else's hands. That runs against this app's first promise.
+
+Do: write up the options and choose one: (a) stay import-only and make it as easy as possible (199, and 181's Statements
+folder fed from a phone's share sheet); (b) let a household bring its own aggregator key and run a tiny proxy it controls; (c) an
+optional hosted feed with plain consent screens. Each option says its cost, risk and what changes on the privacy
+page. This item is the decision, not the build.
+
+Done when: the decision is recorded here with its reasons, and the privacy copy is checked against it.
+
+## 201. `[ ]` Receipts on a transaction
+Monarch and Copilot attach a photo or PDF to a transaction. For an Australian return, a deduction needs its
+receipt.
+
+Do: attach images or PDFs to any transaction, budget line or tax-year document, stored in IndexedDB (not
+localStorage) and included, encrypted, in the backup and sync file. Tax → Documents lists every deduction with or
+without its receipt. A size cap per file, with images shrunk on the device.
+
+Done when: a receipt survives backup → restore and a sync to a second browser; storage use counts it.
+
+## 202. `[ ]` Who changed what
+YNAB's "Who moved the money" (2026) shows each change with the person who made it. Two people syncing here can't
+see what the other did.
+
+Do: each device names its person (once, in Settings). Edits are written to a short activity log: what changed,
+from what, by whom, when. Kept for 90 days and synced. Each entry can be undone where an undo exists. The sync
+merge (182) names the other person in its question.
+
+Done when: an edit on device A shows on device B with A's name after a sync; the log stays under a size cap.
+
+## 203. `[ ]` Investments against a benchmark, and a target mix
+Sharesight compares a portfolio with an index and gives a money-weighted return; Empower and Copilot show
+allocation against a target and what to buy to rebalance.
+
+Do: return per holding and overall, money-weighted (IRR over buys, sells and distributions), beside the simple
+gain. "Against the ASX 200 / S&P 500" from the daily price file's index series. A target mix (by asset class,
+optional) with the gap in dollars and "next $X goes to…". A distributions calendar for the year ahead from past
+dates.
+
+Done when: IRR matches a hand-worked invented portfolio to the cent in tests; the benchmark line is driven on
+Investments.
+
+## 204. `[ ]` What-ifs you can drag
+ProjectionLab's plans move as you drag a slider. Here a what-if means editing a scenario's fields and switching
+tabs.
+
+Do: Plan → Projections gets a what-if strip: retire age, return, inflation, extra saved a month, a rate rise. Each
+is a slider redrawing the chart live against the saved plan (dashed). "Keep this" writes it into a new scenario.
+
+Done when: dragging redraws within a frame on a mid-range phone (measured); "Keep this" makes a scenario equal to
+the preview.
+
+## 205. `[ ]` Every subscription in one list
+Rocket Money and Monarch list every subscription with what it costs a year. `recurring.js` already finds repeating
+payees and rising charges, but only on Budget, mixed in with bills.
+
+Do: Cash flow → Bills gets a Subscriptions view: each repeating charge with its yearly cost, last price rise,
+next charge and a "cancel by" reminder you set. A charge that stops shows as stopped, not overdue.
+
+Done when: the list agrees with `recurring.js` on an invented statement; a reminder reaches notifications.
+
+## 206. `[ ]` Balance forecast by the day
+PocketSmith's headline is an account's balance projected day by day, with each bill and pay landing on its date.
+The 12-month forecast here is monthly and household-wide.
+
+Do: for each everyday account, a 90-day balance line from today's balance, pay days and bills on their dates, and
+the usual spending spread across the days. It warns when the lowest point falls below a buffer you set. It shows
+on the account's detail page and as a Home card when a warning is due.
+
+Done when: tests over an invented month land each bill and pay on its day; the warning shows in a driven run.
+
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

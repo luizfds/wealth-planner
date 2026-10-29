@@ -3219,10 +3219,20 @@ the edge looked like the end of the list. The same review found a card repayment
 grouped account list, warning and Check.
 
 
-## 184. `[~]` A simpler read, page by page
+## 184. `[x]` A simpler read, page by page
 A default-state review of every page at phone width found the same things more than once: settled notices
 ("on track") as loud as the ones to act on, a panel shown on two pages, explanations printed in full, settings
 above the figures they set, and headers squeezed onto three lines. Each fix keeps the feature; it moves or folds it.
+
+Shipped as v3.154.0. Insights: what's on track folds into one "N things holding up" line under what to act on, and a
+page's own strip leaves it out (on Budget it was half the strip); the Upcoming bills panel is gone — Home → Overview
+heads with the same list and Bills has the month; Saved vs grown says how to read it in one line, the reasoning behind
+its ⓘ. Tax → This year: the people come first and Household settings (super guarantee, hospital cover, rebate tier,
+the rental's result) fold below them, open across re-renders; on each person the notes come before the top-up and
+the payslip check, so a surcharge note no longer sits under the payslip fold. On a phone a section's title keeps its
+line and the figure beside it moves under it ("Your month, planned" was three lines). This year so far drops its
+stacked category bar — Actual vs. planned above draws the same one. Home dates from another year carry the year
+("since 30 Nov 2025").
 
 
 ## Conventions for whoever picks this up

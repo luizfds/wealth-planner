@@ -1525,3 +1525,11 @@
   .tr-mark ul{ list-style:none; margin:0; padding:0; columns: 2 220px; }
   .tr-mark li{ display:flex; justify-content:space-between; gap:8px; padding:3px 0; break-inside:avoid; }
   .tr-mark li small{ color: var(--ink-soft); white-space:nowrap; }
+
+  /* v3.154.0: on a phone a section's title keeps its line; the figure beside it moves under it when
+     both don't fit, rather than squeezing "Your month, planned" onto three lines. After the base rule. */
+  @media (max-width: 560px){
+    details.ledger > summary{ flex-wrap:wrap; row-gap:4px; }
+    details.ledger > summary > .ledger-title{ flex:1 0 auto; max-width:100%; }
+    details.ledger > summary > .ledger-total{ margin-left:auto; text-align:right; }
+  }

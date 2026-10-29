@@ -3284,7 +3284,7 @@ the take-home legend allowed a second line. Text clipped by an ellipsis, measure
 fails on a raw px size or another weight.
 
 
-## 186. `[~]` One button system
+## 186. `[x]` One button system
 32 different-looking buttons: outlined, ghost, link-styled, pill, uppercase `<summary>`s acting as buttons, and
 primary buttons in four sizes.
 
@@ -3293,6 +3293,18 @@ card at most. The `calc-hint-link`, `review-cta` and other one-offs map onto the
 (`tax-advanced`, `ps-manual`) get one disclosure style: sentence case with a chevron, not uppercase text.
 
 Done when: ≤ 6 computed button looks across the smoke views; screens diff reviewed page by page.
+
+Shipped as v3.156.0. Five kinds of button, two sizes, one 8px radius: `.btn` (secondary), `.btn-primary`, `.btn-ghost`
+(turns ink on hover, no longer red), `.btn-danger` (all 27 deletes, which had been ghosts that happened to hover red)
+and `.link-btn` — which had no style at all, so "See the figures →", "Paste an answer back →", "1 more →" and
+"Tax → People" were the browser's grey box; it's now the accent colour, underlined on hover and always inside a
+sentence. The one-offs follow: Catch up is primary, Breakdown and Set active are small secondary buttons rather than
+pills, "Max out cap", "Edit rent/home loan…" and Home's card links are links. Fold-outs inside a card
+(`.tax-advanced`, `.row-more-options`) are sentence case in the body's colour, not uppercase grey. Measured over
+18 views at 390px: the action buttons and fold-outs come in 8 looks (the five, the fold-out, a card-footer link and
+an in-sentence link), and nothing shows the browser's default button. `tests/buttons.test.js` fails on a delete that
+isn't `.btn-danger`.
+
 
 ## 187. `[ ]` Colour and an icon for each category
 Every competitor makes a list readable at a glance with a category colour and icon on each row. Here, a

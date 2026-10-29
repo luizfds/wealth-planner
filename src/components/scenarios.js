@@ -284,7 +284,7 @@ function renderPurchasePanelHtml(scenario){
         '<span class="m-row-dot series-color-' + m.colorIdx + '" aria-hidden="true"></span>' +
         '<input type="text" class="cc-what" value="' + escapeAttr(m.cost.what) + '" aria-label="Cost name" placeholder="Cost name">' +
         '<input type="number" step="1" min="0" class="cc-amount" value="' + m.cost.amount + '" aria-label="Cost amount">' +
-        '<button type="button" class="btn btn-ghost btn-sm row-del" data-cc-del="' + m.ci + '" aria-label="Remove cost">✕</button>' +
+        '<button type="button" class="btn btn-danger btn-sm row-del" data-cc-del="' + m.ci + '" aria-label="Remove cost">✕</button>' +
       '</div>';
     }).join("");
     var modernCostsCompBar = modernCostCompBarHtml(costRowMeta(cfg));

@@ -34,6 +34,9 @@ the last, so two sessions can't pick up the same one.
   totals and summaries, cents only on single items. Don't reintroduce a second number font.
 - **Type scale (v3.155.0):** every `font-size` is a `--fs-*` token from `base.css` (12 · 13 · 14 · 17 · 20 · 26 ·
   32px) and weights are 400 or 600 — `tests/typescale.test.js` fails on a raw px size or another weight.
+- **Buttons (v3.156.0):** `.btn` (secondary), `.btn-primary`, `.btn-ghost`, `.btn-danger` (every delete) and
+  `.link-btn`, each with `.btn-sm`; a fold-out inside a card is `.tax-advanced` or `.row-more-options`.
+  `tests/buttons.test.js` fails on a delete that isn't `.btn-danger`.
 - `styles.css` — just eight `@import` statements pulling in `src/styles/{base,shell,dashboard,
   ledger,income,properties,assets,projections}.css`, in that specific order. Light/dark theming is
   CSS custom properties + `prefers-color-scheme`, defined in `base.css`.

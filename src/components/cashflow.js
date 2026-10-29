@@ -90,14 +90,14 @@ export function inRowHtml(e){
     '<span class="cf-kind in" aria-hidden="true">↓</span>' +
     '<div class="cf-row-main"><div class="m-row-name">' + escapeAttr(e.label) + '</div><div class="m-row-sub">' + (e.account ? escapeAttr(e.account) + ' · ' : '') + 'money in</div></div>' +
     '<div class="m-row-amt cf-amt in">+' + fmtCurrency2.format(e.amount) + '</div>' +
-    '<button type="button" class="btn btn-ghost btn-sm cf-row-del" data-cf-del-in="' + escapeAttr(e.ref) + '" aria-label="Delete this money-in record" title="Delete">' + BIN + '</button></div></div>';
+    '<button type="button" class="btn btn-danger btn-sm cf-row-del" data-cf-del-in="' + escapeAttr(e.ref) + '" aria-label="Delete this money-in record" title="Delete">' + BIN + '</button></div></div>';
 }
 export function transferRowHtml(e){
   return '<div class="m-row cf-row cf-transfer"><div class="m-row-summary cf-row-summary">' +
     '<span class="cf-kind transfer" aria-hidden="true">⇄</span>' +
     '<div class="cf-row-main"><div class="m-row-name">' + escapeAttr(e.label) + '</div><div class="m-row-sub">' + escapeAttr(e.account || "?") + ' → ' + escapeAttr(e.toAccount || "?") + '</div></div>' +
     '<div class="m-row-amt cf-amt">' + fmtCurrency2.format(e.amount) + '</div>' +
-    '<button type="button" class="btn btn-ghost btn-sm cf-row-del" data-cf-del-transfer="' + escapeAttr(e.ref) + '" aria-label="Delete this transfer" title="Delete">' + BIN + '</button></div></div>';
+    '<button type="button" class="btn btn-danger btn-sm cf-row-del" data-cf-del-transfer="' + escapeAttr(e.ref) + '" aria-label="Delete this transfer" title="Delete">' + BIN + '</button></div></div>';
 }
 // A checkbox in front of a spending row while selecting.
 export function selectBoxHtml(idx){
@@ -111,7 +111,7 @@ export function bulkBarHtml(lineOptionsHtml, accountOptionsHtml){
     '<label class="cf-filter"><span>Line</span><select data-cf-bulk="line"' + (n ? "" : " disabled") + '><option value="__keep">— keep —</option>' + lineOptionsHtml + '</select></label>' +
     '<label class="cf-filter"><span>Account</span><select data-cf-bulk="account"' + (n ? "" : " disabled") + '><option value="__keep">— keep —</option>' + accountOptionsHtml + '</select></label>' +
     '<button type="button" class="btn btn-sm btn-primary" data-cf-bulk-apply' + (n ? "" : " disabled") + '>Apply</button>' +
-    '<button type="button" class="btn btn-sm btn-ghost cf-danger" data-cf-bulk-delete' + (n ? "" : " disabled") + '>Delete</button></div>';
+    '<button type="button" class="btn btn-sm btn-danger cf-danger" data-cf-bulk-delete' + (n ? "" : " disabled") + '>Delete</button></div>';
 }
 
 // transferForm.preset (v3.141.0): { from, to, amount, what } to open it filled in — "Pay a card".
@@ -172,7 +172,7 @@ export function splitEditorHtml(t, idx, lineOptionsFor){
     parts.map(function(p, i){
       return '<div class="cf-split-row"><select data-cf-split-line="' + i + '" aria-label="Part ' + (i + 1) + ' budget line">' + lineOptionsFor(p.linkedExpenseId) + '</select>' +
         '<input type="number" step="0.01" data-cf-split-amt="' + i + '" value="' + (p.amount !== "" && p.amount != null ? p.amount : "") + '" aria-label="Part ' + (i + 1) + ' amount">' +
-        (parts.length > 2 ? '<button type="button" class="btn btn-ghost btn-sm" data-cf-split-del="' + i + '" aria-label="Remove part ' + (i + 1) + '">✕</button>' : '<span></span>') + '</div>';
+        (parts.length > 2 ? '<button type="button" class="btn btn-danger btn-sm" data-cf-split-del="' + i + '" aria-label="Remove part ' + (i + 1) + '">✕</button>' : '<span></span>') + '</div>';
     }).join("") +
     '<div class="cf-split-foot"><button type="button" class="btn btn-sm btn-ghost" data-cf-split-add>+ Part</button>' +
       '<span class="cf-split-left' + (Math.abs(left) >= 0.01 ? " warn" : "") + '">' + (Math.abs(left) < 0.01 ? "All placed" : fmtCurrency2.format(Math.abs(left)) + (left > 0 ? " left to place" : " too much")) + '</span>' +

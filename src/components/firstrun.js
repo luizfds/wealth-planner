@@ -28,7 +28,7 @@ export function firstRunHtml(){
         return '<div class="fr-row fr-acct">' + field("Name", 'data-fr="accounts.' + i + '.name"', x.name) +
           '<label class="fr-field"><span>Type</span><select data-fr="accounts.' + i + '.type">' + [["everyday", "Everyday"], ["savings", "Savings"], ["offset", "Offset"], ["credit", "Credit card"]].map(function(o){ return '<option value="' + o[0] + '"' + (x.type === o[0] ? " selected" : "") + '>' + o[1] + '</option>'; }).join("") + '</select></label>' +
           field(x.type === "credit" ? "Owes $" : "Balance $", 'data-fr="accounts.' + i + '.balance"', x.balance, "number", ' step="1"') +
-          '<button type="button" class="btn btn-ghost btn-sm" data-fr-del-acct="' + i + '" aria-label="Remove this account">✕</button></div>';
+          '<button type="button" class="btn btn-danger btn-sm" data-fr-del-acct="' + i + '" aria-label="Remove this account">✕</button></div>';
       }).join("") + '<button type="button" class="btn btn-sm btn-ghost" data-fr-add-acct>+ Another account</button>';
   } else if(st === 2){
     body = '<p class="fr-lede">Pay before tax. Leave it blank to fill in later on Cash flow → Income.</p>' +

@@ -45,7 +45,7 @@ export function renderCards(){
                 '<span class="page-overflow-menu" data-overflow-menu hidden>' +
                   '<button type="button" class="btn btn-sm btn-ghost" data-rename="' + escapeAttr(scenario) + '">Rename</button>' +
                   '<button type="button" class="btn btn-sm btn-ghost" data-clone="' + escapeAttr(scenario) + '" title="Copy this scenario\'s home costs, purchase/invest setup and any overrides into a new one">Clone</button>' +
-                  (canDelete && !isBaseline ? '<button type="button" class="btn btn-sm btn-ghost menu-danger" data-delete="' + escapeAttr(scenario) + '">Delete</button>' : "") +
+                  (canDelete && !isBaseline ? '<button type="button" class="btn btn-sm btn-danger menu-danger" data-delete="' + escapeAttr(scenario) + '">Delete</button>' : "") +
                 '</span>' +
               '</span>' +
               '<button type="button" class="card-radio" role="radio" aria-checked="' + (isActive ? "true" : "false") + '" aria-label="Show ' + escapeAttr(scenario) + ' on Home"></button>' +

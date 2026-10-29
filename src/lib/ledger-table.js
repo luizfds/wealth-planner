@@ -377,7 +377,7 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
   // data-row-toggle re-uses wireModernRowToggle's existing "tap anything so-marked closes an open
   // row" handling — no separate click wiring needed for this to actually close the row.
   var doneButtonHtml = opts.showDone ? '<button type="button" class="btn btn-primary btn-sm" data-row-toggle>Done</button>' : '';
-  var actionsHtml = doneButtonHtml + '<button type="button" class="btn btn-ghost btn-sm row-del" data-del="' + escapeAttr(section) + ':' + idx + '">Delete</button>';
+  var actionsHtml = doneButtonHtml + '<button type="button" class="btn btn-danger btn-sm row-del" data-del="' + escapeAttr(section) + ':' + idx + '">Delete</button>';
   var edit = modernRowEditHtml(fieldsHtml, actionsHtml, moreOptionsHtml);
   return modernRowShellHtml(section, idx, openState, summary, edit, { primary: opts.primaryId && item.id === opts.primaryId, lineId: item.id });
 }

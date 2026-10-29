@@ -547,7 +547,7 @@ function modernAssetRowHtml(item, idx, colorIdx){
     '</div>' +
     // Sales live behind a disclosure: most holdings have none, and a CGT form permanently open on
     // every row would bury the fields people actually use daily.
-    '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm asset-log-btn" data-asset-log="' + idx + '" title="Record the value above as of today, so it shows up in the portfolio-over-time chart below">Record value</button><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete asset">Delete</button></div>' +
+    '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm asset-log-btn" data-asset-log="' + idx + '" title="Record the value above as of today, so it shows up in the portfolio-over-time chart below">Record value</button><button type="button" class="btn btn-danger btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete asset">Delete</button></div>' +
   '</div></div></div>';
   return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="assets" data-index="' + idx + '">' + summary + rowEditSlot(isOpen, edit) + '</div>';
 }
@@ -649,7 +649,7 @@ function modernVehicleRowHtml(item, idx, colorIdx){
       '<div class="m-edit-field"><label>Person</label><input type="text" class="v-person" list="personSuggestions" value="' + escapeAttr(item.person || "") + '" placeholder="Household" aria-label="Person"></div>' +
     '</div>' +
     '<p class="ledger-note v-value-cell" style="margin:8px 0 0">Current value <b>' + fmtCurrency0.format(Number(item.amount) || 0) + '</b>' + (item.computed ? '<span class="computed-note">auto</span>' : '<span class="computed-note">set price + date to auto-depreciate</span>') + '</p>' +
-    '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm asset-log-btn" data-asset-log="' + idx + '" title="Record the value above as of today, so it shows up in the portfolio-over-time chart below">Record value</button><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete vehicle">Delete</button></div>' +
+    '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm asset-log-btn" data-asset-log="' + idx + '" title="Record the value above as of today, so it shows up in the portfolio-over-time chart below">Record value</button><button type="button" class="btn btn-danger btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete vehicle">Delete</button></div>' +
   '</div></div></div>';
   return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="assets" data-index="' + idx + '">' + summary + rowEditSlot(isOpen, edit) + '</div>';
 }
@@ -751,7 +751,7 @@ function modernShareRowHtml(item, idx, colorIdx){
       '<div class="m-edit-actions"><button type="button" class="btn btn-sm btn-primary" data-asset-sale="' + idx + '">Record sale</button></div>' +
       salesListHtml(item, idx) +
     '</div></details>' +
-    '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm asset-log-btn" data-asset-log="' + idx + '" title="Record the value above as of today, so it shows up in the portfolio-over-time chart below">Record value</button><button type="button" class="btn btn-ghost btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete holding">Delete</button></div>' +
+    '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm asset-log-btn" data-asset-log="' + idx + '" title="Record the value above as of today, so it shows up in the portfolio-over-time chart below">Record value</button><button type="button" class="btn btn-danger btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete holding">Delete</button></div>' +
   '</div></div></div>';
   return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="assets" data-index="' + idx + '">' + summary + rowEditSlot(isOpen, edit) + '</div>';
 }
@@ -1735,7 +1735,7 @@ export function renderDebts(){
       '<div style="flex:1 1 auto;min-width:0"><input type="text" class="debt-what" data-debt-index="' + idx + '" value="' + escapeAttr(d.what) + '" aria-label="Debt name" style="all:unset;box-sizing:border-box;width:100%;min-height:40px;font:inherit;color:inherit">' + historyTrendHtml(d) + '</div>' +
       '<input type="number" step="100" min="0" class="debt-balance" data-debt-index="' + idx + '" value="' + d.balance + '" aria-label="Balance" style="width:110px;min-height:40px;text-align:right;font-family:var(--font-num);border:1px solid transparent;background:transparent;color:inherit;padding:5px 6px;border-radius:6px">' +
       '<button type="button" class="btn btn-sm btn-ghost" data-debt-log="' + idx + '" title="Record the balance above as of today">Update balance</button>' +
-      '<button type="button" class="btn btn-ghost btn-sm row-del" data-debt-del="' + idx + '" aria-label="Delete debt">✕</button>' +
+      '<button type="button" class="btn btn-danger btn-sm row-del" data-debt-del="' + idx + '" aria-label="Delete debt">✕</button>' +
     '</div></div>';
   }).join("") + '</div>';
 }

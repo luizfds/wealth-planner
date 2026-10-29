@@ -171,7 +171,7 @@ function loanRowModernHtml(loan, li, propId, colorIdx){
         ? '<div class="m-edit-field span3"><label>Manual repayment amount</label><input type="number" step="1" min="0" class="loan-manual-amount" value="' + (Number(loan.manualRepaymentAmount) || 0) + '" aria-label="Manual repayment amount"></div>'
         : "") +
     '</div>' +
-    '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm row-del" data-loan-del="' + li + '">Delete</button></div>' +
+    '<div class="m-edit-actions"><button type="button" class="btn btn-danger btn-sm row-del" data-loan-del="' + li + '">Delete</button></div>' +
   '</div></div></div>';
   return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="' + escapeAttr(section) + '" data-index="' + li + '" data-loan-index="' + li + '">' + summary + rowEditSlot(isOpen, edit) + '</div>';
 }
@@ -273,7 +273,7 @@ function acquisitionCostRowModernHtml(item, index, colorIdx, p){
     : "";
   var whatInput = '<input type="text" class="cc-what" data-acq-cost-index="' + index + '" value="' + escapeAttr(item.what) + '" placeholder="e.g. Stamp duty" aria-label="Acquisition cost description">';
   var amountInput = '<input type="number" step="100" min="0" class="cc-amount" data-acq-cost-index="' + index + '" value="' + (Number(item.amount) || 0) + '" aria-label="Amount">';
-  var delBtn = '<button type="button" class="btn btn-ghost btn-sm row-del" data-acq-cost-del="' + index + '" aria-label="Delete acquisition cost">✕</button>';
+  var delBtn = '<button type="button" class="btn btn-danger btn-sm row-del" data-acq-cost-del="' + index + '" aria-label="Delete acquisition cost">✕</button>';
   return '<div class="cc-row m-cost-row' + (canMove ? " has-move" : "") + (suggested ? " is-loan-cost" : "") + '" data-acq-cost-index="' + index + '">' +
     '<span class="m-row-dot series-color-' + colorIdx + '" aria-hidden="true"></span>' + whatInput + amountInput + delBtn + moveBtn +
   '</div>';
@@ -313,7 +313,7 @@ function depreciationScheduleHtml(p){
       '</select>' +
       '<input type="number" step="1" min="0" class="dep-sched-cw" data-dep-sched-index="' + i + '" value="' + (Number(r.capitalWorks) || 0) + '" aria-label="Capital works for ' + fyLabel(Number(r.fy)) + '" title="Capital works (Division 43) for this year, from the report">' +
       '<input type="number" step="1" min="0" class="dep-sched-plant" data-dep-sched-index="' + i + '" value="' + (Number(r.plant) || 0) + '" aria-label="Plant and equipment for ' + fyLabel(Number(r.fy)) + '" title="Plant & equipment (Division 40) for this year, from the report">' +
-      '<button type="button" class="btn btn-ghost btn-sm row-del" data-dep-sched-del="' + i + '" aria-label="Delete ' + fyLabel(Number(r.fy)) + '">✕</button>' +
+      '<button type="button" class="btn btn-danger btn-sm row-del" data-dep-sched-del="' + i + '" aria-label="Delete ' + fyLabel(Number(r.fy)) + '">✕</button>' +
     '</div>';
   }).join("");
   return '<div class="calc-costs-title" style="margin-top:14px">Quantity surveyor\'s schedule</div>' +
@@ -535,7 +535,7 @@ export function rentPanelHtml(p, today){
     return '<li>' + escapeAttr(rv.date) + ': ' + fmtCurrency0.format(rv.from) + ' → ' + fmtCurrency0.format(rv.to) + ' ' + escapeAttr(String(rv.freq || "").toLowerCase()) + (rv.change != null ? ' (' + (rv.change >= 0 ? "+" : "") + Math.round(rv.change * 1000) / 10 + '%)' : '') + '</li>';
   }).join("");
   var vac = (p.vacancies || []).map(function(v, i){
-    return '<li>' + escapeAttr(fmtDate(v.from)) + ' – ' + escapeAttr(v.to ? fmtDate(v.to) : "now") + ' <button type="button" class="btn btn-ghost btn-sm" data-vac-del="' + i + '" aria-label="Remove this vacancy">✕</button></li>';
+    return '<li>' + escapeAttr(fmtDate(v.from)) + ' – ' + escapeAttr(v.to ? fmtDate(v.to) : "now") + ' <button type="button" class="btn btn-danger btn-sm" data-vac-del="' + i + '" aria-label="Remove this vacancy">✕</button></li>';
   }).join("");
   var row = (p.income || [])[0];
   return '<div class="rentp"><div class="property-section-title">Rent — ' + escapeAttr(win.label) + (today < win.end ? ' so far' : '') + '</div>' +
@@ -562,7 +562,7 @@ function agentStatementHtml(p, win){
   var water = waterRatesLine(p);
   var recent = (p.agentStatements || []).slice(-4).reverse().map(function(r){
     return '<li><span>' + escapeAttr(r.date) + '</span> <span>rent ' + fmtCurrency0.format(r.rent) + (r.water ? ' + water ' + fmtCurrency0.format(r.water) : '') + ' · out ' + fmtCurrency0.format(statementTotals(r).moneyOut) + '</span> <b>' + fmtCurrency2.format(r.net) + '</b>' +
-      ' <button type="button" class="btn btn-ghost btn-sm" data-as-del="' + escapeAttr(r.id) + '" aria-label="Remove this statement">✕</button></li>';
+      ' <button type="button" class="btn btn-danger btn-sm" data-as-del="' + escapeAttr(r.id) + '" aria-label="Remove this statement">✕</button></li>';
   }).join("");
   var field = function(key, label, extra){ return '<label class="fr-field"><span>' + label + '</span><input type="number" inputmode="decimal" min="0" step="0.01" data-as="' + key + '"' + (extra || "") + '></label>'; };
   var accounts = (state.accounts || []).map(function(a){ return a.name; });
@@ -769,7 +769,7 @@ function propertyCardHtml(p, colorIdx){
       '<h3 class="prop-read"><span class="prop-name">' + (p.id ? detailLinkHtml("property", p.id, p.what || "Property") : escapeAttr(p.what || "Property")) + '</span><span class="prop-kind-pill">' + (p.kind === "IP" ? "Investment" : "Home") + '</span></h3>' +
       '<h3 class="prop-edit"><input type="text" class="prop-what" value="' + escapeAttr(p.what) + '" aria-label="Property name">' +
       '<select class="prop-kind" aria-label="Property kind">' + optionsHtml(["IP", "PPOR"], p.kind) + '</select></h3>' +
-      '<button type="button" class="btn btn-ghost btn-sm row-del property-del-btn" data-property-del="' + escapeAttr(p.id) + '" aria-label="Delete property">✕</button>' +
+      '<button type="button" class="btn btn-danger btn-sm row-del property-del-btn" data-property-del="' + escapeAttr(p.id) + '" aria-label="Delete property">✕</button>' +
     '</div>' +
     (lvrBadge || gearingBadge || yieldBadge ? '<div class="property-card-badges">' + lvrBadge + gearingBadge + yieldBadge + '</div>' : '') +
     '<div class="calc-outputs">' + primaryTiles + '</div>' +

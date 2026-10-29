@@ -45,10 +45,10 @@
     background: var(--good-wash); border-radius:100px; padding:2px 8px; flex:none;
   }
   .home-setactive-btn{
-    all:unset; font-size:var(--fs-xs); color: var(--ink-soft); cursor:pointer; padding:2px 8px; border-radius:100px; border:1px solid var(--border);
+    all:unset; box-sizing:border-box; font-size:var(--fs-xs); font-weight:600; color: var(--ink); cursor:pointer; padding:4px 10px; border-radius:8px; border:1px solid var(--border); background: var(--paper-raised);
     display:inline-flex; align-items:center; min-height:40px;
   }
-  .home-setactive-btn:hover{ color: var(--brass-strong); border-color: var(--brass); }
+  .home-setactive-btn:hover{ border-color: var(--brass); }
   .gearing-badge{
     font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em; font-weight:600;
     border-radius:100px; padding:2px 8px; flex:none;
@@ -187,7 +187,8 @@
     color: var(--ink-soft); font-size:var(--fs-sm); pointer-events:none;
   }
   .calc-hint{ font-size:var(--fs-xs); color: var(--ink-soft); }
-  .calc-hint-link{ all:unset; color: var(--brass-strong); text-decoration:underline; text-underline-offset:2px; cursor:pointer; font-size:var(--fs-xs); padding:4px 2px; }
+  .calc-hint-link{ all:unset; color: var(--brass-strong); font-weight:600; text-underline-offset:2px; cursor:pointer; font-size:var(--fs-sm); padding:4px 2px; }
+  .calc-hint-link:hover{ text-decoration:underline; }
   .calc-field label .calc-help{ text-transform:none; letter-spacing:normal; cursor:help; }
   .calc-check-inline{
     display:flex; align-items:center; gap:9px; font-size:var(--fs-sm); color: var(--ink); cursor:pointer;

@@ -214,11 +214,21 @@
   /* v3.139.0: a shade deeper than --brass, so white text on it passes 4.5:1 in both themes. */
   .btn-primary{ background: #2563eb; border-color: #2563eb; color: #ffffff; }
   .btn-primary:hover{ background: #1d4ed8; border-color: #1d4ed8; }
+  /* v3.156.0 (item 186): five kinds of button, two sizes — .btn (secondary), .btn-primary, .btn-ghost,
+     .btn-danger and .link-btn. A ghost button turns ink on hover; only a delete turns red. */
   .btn-ghost{ background: transparent; border-color: transparent; color: var(--ink-soft); padding:7px 8px; }
-  .btn-ghost:hover{ color: var(--bad-ink); }
+  .btn-ghost:hover{ color: var(--ink); background: var(--paper-sunken); border-color: transparent; }
+  .btn-danger{ background: transparent; border-color: transparent; color: var(--bad-ink); padding:7px 8px; }
+  .btn-danger:hover{ background: var(--bad-wash); border-color: transparent; }
+  .btn[disabled]{ opacity:.5; cursor:default; }
   /* Small only in its type and padding — a "small" button is still something you tap on purpose,
      so it keeps a 40px box around its 12px label. */
-  .btn-sm{ padding: 4px 9px; font-size: var(--fs-xs); border-radius: 6px; min-height:40px; }
+  .btn-sm{ padding: 4px 10px; font-size: var(--fs-xs); min-height:40px; }
+  /* A button that reads as a link: no box, the accent colour, underlined on hover — and always inside
+     a sentence, where colour alone shouldn't be what tells it apart. */
+  .link-btn{ background:none; border:0; padding:0; margin:0; font:inherit; font-weight:600; color: var(--brass-strong); cursor:pointer; text-align:left; text-underline-offset:2px; }
+  .link-btn:hover{ text-decoration:underline; }
+  p .link-btn, .ledger-note .link-btn, li .link-btn{ text-decoration:underline; }
   input[type="file"]{ display:none; }
 
   /* iOS Safari zooms the whole page in on focusing any text field whose font-size is below 16px,

@@ -1518,6 +1518,10 @@ test("the take-home row shows the payslip's net pay, with after-tax payments int
       { id: "o1", what: "Side work", person: "Alex", incomeType: "Net", amount: 200, freq: "Monthly", account: "Other bank" },
       { syntheticNetFor: "Alex", computed: true, incomeType: "Net", amount: 5300.4, freq: "Monthly" }];
     assert.equal(payslipNetLine(state.income[3]), "Net pay on the payslip: $5,330/mo, with Phone reimbursement");
+    // v3.152.1: in the period Income is shown in.
+    const { setIncomeShowAs } = await import("../src/components/income.js");
+    setIncomeShowAs("week");
+    try { assert.equal(payslipNetLine(state.income[3]), "Net pay on the payslip: $1,230/wk, with Phone reimbursement"); } finally { setIncomeShowAs("month"); }
     assert.equal(payslipNetLine(state.income[0]), "");
   } finally { state.income = keep; }
 });

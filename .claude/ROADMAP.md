@@ -3284,7 +3284,7 @@ the take-home legend allowed a second line. Text clipped by an ellipsis, measure
 fails on a raw px size or another weight.
 
 
-## 186. `[ ]` One button system
+## 186. `[~]` One button system
 32 different-looking buttons: outlined, ghost, link-styled, pill, uppercase `<summary>`s acting as buttons, and
 primary buttons in four sizes.
 

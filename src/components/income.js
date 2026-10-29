@@ -275,7 +275,10 @@ export var modernIncomeRowOpen = {};
 // have to guess the same assignment a second way.
 function incomeGroupRowMeta(g){
   var contribIdx = 0;
-  return g.items.map(function(item, i){
+  // v3.151.2: pay that stops is said on the row that stops (endingNoteHtml), not as a negative row
+  // of income that "starts" the day after — that one is only for the forecast.
+  return g.items.map(function(item, i){ return { item: item, i: i }; }).filter(function(x){ return !x.item.syntheticEndingFor; }).map(function(x){
+    var item = x.item, i = x.i;
     var colorIdx = null;
     if(!item.computed){ colorIdx = contribIdx % 8; contribIdx++; }
     return { item: item, idx: g.indices[i], colorIdx: colorIdx };
@@ -417,6 +420,13 @@ export function incomeRowLabel(item){
   var rest = what.slice(prefix.length);
   return rest.charAt(0).toUpperCase() + rest.slice(1);
 }
+// v3.151.2: what take-home drops by once this row stops (its after-tax "ends" row, engine.js).
+export function endingNoteHtml(item){
+  if(!item || !item.id || !item.endDate) return "";
+  var e = (state.income || []).find(function(i){ return i.syntheticEndingFor === item.id; });
+  if(!e || !(Math.abs(Number(e.amount) || 0) >= 0.5)) return "";
+  return 'Take-home −' + fmtCurrency0.format(Math.abs(Number(e.amount))) + '/mo after tax from then';
+}
 function modernIncomeRowHtml(item, idx, colorIdx){
   var isComputed = !!item.computed;
   var isGrossRef = item.incomeType === "Gross" && !isComputed;
@@ -432,6 +442,7 @@ function modernIncomeRowHtml(item, idx, colorIdx){
       (trendHtml ? '<div class="m-row-sub">' + trendHtml + '</div>' : "") +
       (isComputed ? "" : (function(){ var n = nextPayNoteHtml(item); return n ? '<div class="m-row-sub">' + n + '</div>' : ""; })()) +
       (function(){ var e = endDateNoteHtml(item); return e ? '<div class="m-row-sub">' + e + '</div>' : ""; })() +
+      (function(){ var t = endingNoteHtml(item); return t ? '<div class="m-row-sub">' + escapeAttr(t) + '</div>' : ""; })() +
       (function(){ var v = scenarioVaryNoteHtml(item, state.activeScenario); return v ? '<div class="m-row-sub">' + v + '</div>' : ""; })() +
     '</div>' +
     (isGrossRef ? '<span class="m-row-tag gross">Gross</span>' : "") +

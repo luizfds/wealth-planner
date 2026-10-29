@@ -97,3 +97,34 @@ test("a property manager's statement fills the form, and adds up to what reached
   assert.equal(r.received, 1700.5);
   assert.equal(Math.round((r.rent + r.water - r.fees - r.waterRates - 64) * 100) / 100, 1700.5);
 });
+
+// v3.149.1: a card statement whose headers read "Date of / Transaction" and "Credits (-)", and a
+// card statement with one unsigned amount per line. Invented, like the others.
+test("a card statement: 'Date of' and 'Credits (-)' are the columns; purchases are money out, payments in", function(){
+  var lines = [
+    L(1, 800, [[60, 200, "Credit Limit"], [300, 340, "9,000"], [400, 520, "Minimum Payment Due"], [530, 560, "50.00"]]),
+    L(1, 780, [[60, 160, "Statement From 3 Mar 2026"], [200, 300, "Statement To 02 Apr 2026"]]),
+    L(3, 700, [[54, 81, "Date of"], [112, 156, "Description"], [459, 483, "Debits"], [517, 555, "Credits (-)"]]),
+    L(3, 690, [[54, 100, "Transaction"]]),
+    L(3, 670, [[54, 90, "05 Mar 26"], [112, 300, "FERN CAFE SYDNEY AUS"], [460, 483, "12.40"]]),
+    L(3, 650, [[54, 90, "14 Mar 26"], [112, 300, "PAYMENT-BPAY-THANK YOU"], [520, 549, "300.00"], [551, 555, "-"]]),
+    L(3, 630, [[54, 90, "20 Mar 26"], [112, 300, "BANK ONE SHOP AUS"], [455, 483, "1,034.50"]])
+  ];
+  var st = statementFromLines(lines);
+  assert.equal(st.card, true);
+  assert.ok(st.columns && st.columns.debit && st.columns.credit, "both columns found");
+  assert.deepEqual(st.rows.map(function(r){ return [r.date, r.debit, r.credit]; }),
+    [["2026-03-05", 12.4, 0], ["2026-03-14", 0, 300], ["2026-03-20", 1034.5, 0]]);
+});
+
+test("a card statement with one unsigned amount: a purchase, not income; a minus is the payment", function(){
+  var lines = [
+    L(1, 800, [[60, 200, "Credit limit $5,000"]]),
+    L(1, 700, [[58, 160, "02 Apr 2026 Fern Cafe"], [460, 490, "18.00"]]),
+    L(1, 680, [[58, 160, "05 Apr 2026 Payment received"], [455, 490, "-200.00"]])
+  ];
+  var st = statementFromLines(lines);
+  assert.deepEqual(st.rows.map(function(r){ return [r.debit, r.credit]; }), [[18, 0], [0, 200]]);
+  // The same lines with no sign of a card stay a bank account's reading: unsigned is money in.
+  assert.deepEqual(statementFromLines(lines.slice(1)).rows.map(function(r){ return [r.debit, r.credit]; }), [[0, 18], [200, 0]]);
+});

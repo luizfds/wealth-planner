@@ -40,12 +40,16 @@ export function incomeTargets(){
   var lastFy = todayTaxFy() - 1;
   getTaxPeople().forEach(function(person){
     var est = null;
-    try { est = computePersonTax(person, { fy: lastFy }).refund; } catch(e){ est = null; }
+    // v3.151.1: the return as lodged, when it's been recorded — not the app's estimate of it.
+    var rec = state.taxYears && state.taxYears[lastFy], lodged = rec && rec.lodged && rec.lodged[person];
+    var lodgedRefund = lodged && lodged.refund != null && isFinite(Number(lodged.refund)) ? Number(lodged.refund) : null;
+    if(lodgedRefund != null) est = lodgedRefund;
+    else { try { est = computePersonTax(person, { fy: lastFy }).refund; } catch(e){ est = null; } }
     var y = est != null && est > 0 ? Math.round(est * 100) / 100 : 0;
     // Only when there's a refund to expect, or one already logged — not a standing $0 line.
     var logged = (state.incomeLog || []).some(function(r){ return r.target === "refund:" + person; });
     if(!(y > 0) && !logged) return;
-    out.push({ key: "refund:" + person, label: person + " — tax refund", kind: "refund", monthly: y / 12, yearly: y, irregular: true, estimated: est != null });
+    out.push({ key: "refund:" + person, label: person + " — tax refund", kind: "refund", monthly: y / 12, yearly: y, irregular: true, estimated: lodgedRefund == null && est != null, lodged: lodgedRefund != null });
   });
   (state.income || []).forEach(function(i){
     if(i.computed || i.syntheticNetFor || i.syntheticRentForProperty || i.incomeType === "Gross" || !i.id) return;

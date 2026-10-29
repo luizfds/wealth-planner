@@ -14,7 +14,7 @@ function lossMaker(){
     loans: [], acquisitionCosts: [], pmFee: { percent: 0, flat: 0 } };
 }
 function withHousehold(extra, fn){
-  var keys = ["income", "properties", "tax", "incomeLog"];
+  var keys = ["income", "properties", "tax", "incomeLog", "taxYears"];
   var keep = {}; keys.forEach(function(k){ keep[k] = state[k]; });
   try {
     state.income = [Object.assign({}, SALARY)];
@@ -71,4 +71,13 @@ test("Tax → People offers the withholding-variation tick only to someone a ren
   withHousehold(null, function(){ assert.match(peopleHtml("2026-10-29"), /class="pp-in pp-var" data-pp-person="Alex">/); });
   withHousehold(function(){ state.tax.settings.Alex.withholdingVariation = true; }, function(){ assert.match(peopleHtml("2026-10-29"), /pp-var" data-pp-person="Alex" checked>/); });
   withHousehold(function(){ state.properties = []; }, function(){ assert.doesNotMatch(peopleHtml("2026-10-29"), /pp-var/); });
+});
+
+test("the refund expected for last year is the return as lodged, when it's recorded", async function(){
+  const { incomeTargets } = await import("../src/calc/received.js");
+  const { todayTaxFy } = await import("../src/calc/tax.js");
+  withHousehold(function(){ state.taxYears = Object.assign({}, state.taxYears, { [todayTaxFy() - 1]: { people: {}, lodged: { Alex: { refund: 1234.5 } } } }); }, function(){
+    var t = incomeTargets().find(function(x){ return x.key === "refund:Alex"; });
+    assert.ok(t && t.yearly === 1234.5 && t.lodged && !t.estimated);
+  });
 });

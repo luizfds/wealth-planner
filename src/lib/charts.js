@@ -102,6 +102,42 @@ function gutterFor(labels, W, fontPx){
   return Math.min(Math.round(W * 0.4), Math.max(34, Math.ceil(widest * ((fontPx || 11) * 0.575)) + 12));
 }
 
+// v3.159.0 (item 189): one tooltip for every full chart — a dashed crosshair at the nearest point and a
+// card of values, on hover with a mouse and on a tap with a finger (which stays until the next tap
+// elsewhere, since a finger has no "leave"). `at(xInViewBox)` returns { xPix, html } for that spot.
+function wireChartTooltip(svg, hitRect, tooltip, crosshair, W, at){
+  function show(e){
+    var rect = svg.getBoundingClientRect();
+    if(!rect.width) return;
+    var hit = at((e.clientX - rect.left) * (W / rect.width));
+    if(!hit) return;
+    crosshair.setAttribute("x1", hit.xPix); crosshair.setAttribute("x2", hit.xPix);
+    crosshair.setAttribute("visibility", "visible");
+    tooltip.innerHTML = hit.html;
+    tooltip.classList.add("show");
+    var leftPx = (hit.xPix / W) * rect.width;
+    var tipW = tooltip.offsetWidth || 150;
+    // To the right of the line while there's room, to its left after.
+    var left = leftPx + 10 + tipW > rect.width ? leftPx - 10 - tipW : leftPx + 10;
+    tooltip.style.left = Math.max(4, Math.min(left, rect.width - tipW - 4)) + "px";
+    tooltip.style.top = "4px";
+  }
+  function hide(){ crosshair.setAttribute("visibility", "hidden"); tooltip.classList.remove("show"); }
+  hitRect.addEventListener("pointermove", function(e){ if(e.pointerType === "mouse") show(e); });
+  hitRect.addEventListener("pointerdown", show);
+  hitRect.addEventListener("pointerleave", function(e){ if(e.pointerType === "mouse") hide(); });
+  // One page-wide listener for every chart, not one per draw — charts redraw on every resize and edit.
+  openTips.push({ svg: svg, hide: hide });
+  if(!tapAwayWired){
+    tapAwayWired = true;
+    document.addEventListener("pointerdown", function(e){
+      openTips = openTips.filter(function(t){ return t.svg.isConnected; });
+      openTips.forEach(function(t){ if(!t.svg.contains(e.target)) t.hide(); });
+    });
+  }
+}
+var openTips = [], tapAwayWired = false;
+
 // Round gridlines (v3.105.0): a step of 1, 2, 2.5 or 5 × a power of ten, and an axis that starts and
 // ends on one, so the labels read $500k / $1M / $1.5M rather than $582,338 / $1,164,676. Pure.
 export function niceScale(lo, hi, maxTicks){
@@ -362,16 +398,10 @@ export function renderLineChart(container, series, opts){
     return nearestIndexInPoints(validSeries[0].points, xData);
   }
 
-  hitRect.addEventListener("mousemove", function(e){
-    var rect = svg.getBoundingClientRect();
-    var scaleX = W / rect.width;
-    var px = (e.clientX - rect.left) * scaleX;
+  wireChartTooltip(svg, hitRect, tooltip, crosshair, W, function(px){
     var xData = xInvert(px);
     var idx = nearestPointIndex(xData);
     var xVal = validSeries[0].points[idx].x;
-    var xPix = xScale(xVal);
-    crosshair.setAttribute("x1", xPix); crosshair.setAttribute("x2", xPix);
-    crosshair.setAttribute("visibility", "visible");
     var rows = validSeries.map(function(s, sidx){
       if(hiddenIdx[sidx]) return "";
       // Looked up independently per series (not the shared `idx` from series[0]'s grid) so two
@@ -381,19 +411,7 @@ export function renderLineChart(container, series, opts){
       var pt = s.points[nearestIndexInPoints(s.points, xData)];
       return '<div class="viz-tooltip-row"><span class="proj-swatch ' + s.colorClass + '"></span>' + escapeAttr(s.label) + ': <b>' + (opts.yFormat ? opts.yFormat(pt.y) : Math.round(pt.y)) + '</b></div>';
     }).join("");
-    tooltip.innerHTML = '<div style="margin-bottom:4px;color:var(--paper);opacity:.75">' + (opts.xFormat ? opts.xFormat(xVal) : xVal) + '</div>' + rows;
-    tooltip.classList.add("show");
-    var rectW = rect.width;
-    var leftPct = (xPix / W) * 100;
-    var tipWidthGuess = 150;
-    var leftPx = (xPix / W) * rectW;
-    var clampedLeft = Math.min(Math.max(leftPx, 4), rectW - tipWidthGuess - 4);
-    tooltip.style.left = clampedLeft + "px";
-    tooltip.style.top = "4px";
-  });
-  hitRect.addEventListener("mouseleave", function(){
-    crosshair.setAttribute("visibility", "hidden");
-    tooltip.classList.remove("show");
+    return { xPix: xScale(xVal), html: '<div class="viz-tooltip-head">' + (opts.xFormat ? opts.xFormat(xVal) : xVal) + '</div>' + rows };
   });
 }
 
@@ -530,7 +548,36 @@ export function renderStackedAreaChart(container, series, opts){
     lastRight = left + w; lastText = text;
   }
   svg.appendChild(xLabels);
-  container.appendChild(svg);
+  // v3.159.0 (item 189): the same crosshair and tooltip as the line chart — each band's value at the
+  // nearest date, and the total.
+  var crosshair = svgEl("line", { y1: padT, y2: H - padB, class: "proj-crosshair", visibility: "hidden" });
+  svg.appendChild(crosshair);
+  var hitRect = svgEl("rect", { x: padL, y: padT, width: innerW, height: innerH, fill: "transparent" });
+  hitRect.style.cursor = "crosshair";
+  svg.appendChild(hitRect);
+  var wrap = document.createElement("div");
+  wrap.className = "proj-chart-wrap";
+  var tooltip = document.createElement("div");
+  tooltip.className = "viz-tooltip";
+  wrap.appendChild(svg);
+  wrap.appendChild(tooltip);
+  container.appendChild(wrap);
+  var fmt = function(v){ return opts.yFormat ? opts.yFormat(v) : String(Math.round(v)); };
+  wireChartTooltip(svg, hitRect, tooltip, crosshair, W, function(xPixel){
+    var xData = xMin + ((xPixel - padL) / innerW) * xSpan;
+    var best = 0;
+    live[0].points.forEach(function(p, i){ if(Math.abs(p.x - xData) < Math.abs(live[0].points[best].x - xData)) best = i; });
+    var p0 = live[0].points[best];
+    var rows = live.slice().reverse().map(function(s){
+      var pt = s.points[best];
+      return '<div class="viz-tooltip-row"><span class="proj-swatch ' + (s.colorClass || "") + '"></span>' + escapeAttr(s.label || s.key) + ': <b>' + fmt(pt ? pt.y : 0) + '</b></div>';
+    }).join("");
+    var total = stackTops[best][stackTops[best].length - 1];
+    var when = /^\d{4}-\d{2}-\d{2}$/.test(p0.dateLabel || "")
+      ? new Date(p0.dateLabel + "T00:00:00").toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
+      : (p0.dateLabel || (opts.xFormat ? opts.xFormat(p0.x) : String(p0.x)));
+    return { xPix: px(p0.x), html: '<div class="viz-tooltip-head">' + escapeAttr(when) + ' · ' + fmt(total) + '</div>' + rows };
+  });
 
   // A legend is not optional with two or more bands: a stacked chart encodes identity in colour
   // alone, and the values in it also discharge the contrast warning on the lighter series. The one

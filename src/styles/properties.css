@@ -1,5 +1,5 @@
   .home-block{
-    margin-bottom: 18px; border:1px solid var(--border); border-radius:12px; background: var(--paper-sunken);
+    margin-bottom: 18px; border:1px solid var(--border); border-radius:var(--inner-radius); background: var(--paper-sunken);
     padding: 16px 18px;
   }
   .home-block:last-child{ margin-bottom:0; }
@@ -145,7 +145,7 @@
 
   /* ---------------- Purchase calculator ---------------- */
   .calc-panel{
-    border:1px solid var(--border); border-radius: 10px; background: var(--paper-raised);
+    border:1px solid var(--border); border-radius: var(--inner-radius); background: var(--paper-raised);
     padding: 12px 14px; margin-bottom: 12px;
   }
   .calc-enable{ display:flex; align-items:center; gap:8px; font-size:var(--fs-sm); font-weight:600; cursor:pointer; user-select:none; }

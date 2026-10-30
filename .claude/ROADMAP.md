@@ -3637,7 +3637,7 @@ page description ("no account, no server") both stay true — no change needed. 
 opens a way for a household to connect its own bank directly from the browser, without an intermediary holding the data.
 
 
-## 201. `[ ]` Receipts on a transaction
+## 201. `[~]` Receipts on a transaction
 Monarch and Copilot attach a photo or PDF to a transaction. For an Australian return, a deduction needs its
 receipt.
 

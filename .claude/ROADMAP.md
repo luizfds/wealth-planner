@@ -3510,7 +3510,7 @@ own width, so the others close up over a hidden one. Hiding is only hiding: the 
 survive a reload at 390 and 1280px.
 
 
-## 196. `[ ]` Your week, in one card
+## 196. `[~]` Your week, in one card
 The app only speaks when opened. Copilot and Monarch send a weekly recap.
 
 Do: once a week (the first open from Monday), a "Your week" card: spent against your usual week, the biggest

@@ -3329,7 +3329,7 @@ avatars were left for later: the category badge already marks each row. Found on
 transactions that carry their own category (from a bank import) aren't reached by a category rename.
 
 
-## 188. `[ ]` Half the words on screen
+## 188. `[~]` Half the words on screen
 Explanations were moved behind ⓘ once (v3.33.0), but the visible text kept growing: notes under figures, sentences
 in summary lines, paragraphs in notices. The others say one short line and link to more.
 

@@ -3602,7 +3602,7 @@ as CSV, OFX SGML, OFX XML, QFX and QIF imports the same rows; a re-import in ano
 render-smoke covers the help. Driven: an .ofx and a .qif chosen through the file picker give the same review.
 
 
-## 200. `[ ]` Decide: bank feeds or not
+## 200. `[~]` Decide: bank feeds or not
 Bank feeds are why people pick Frollo, WeMoney, PocketSmith or Monarch. Under Australia's Consumer Data Right they
 come through an accredited aggregator, which needs a server, an agreement and the household's data passing
 through someone else's hands. That runs against this app's first promise.

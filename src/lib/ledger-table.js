@@ -244,6 +244,8 @@ export function optionsHtml(list, value){
 export function modernRowSummaryHtml(opts){
   opts = opts || {};
   var dot = (!opts.computed && opts.colorIdx != null) ? '<span class="m-row-dot series-color-' + opts.colorIdx + '" aria-hidden="true"></span>' : "";
+  // v3.157.0: or a leading badge (a category's icon) in its place.
+  if(opts.leadHtml) dot = opts.leadHtml;
   var subs = (opts.subLines || []).filter(Boolean).map(function(s){ return '<div class="m-row-sub">' + s + '</div>'; }).join("");
   return '<div class="m-row-summary"' + (opts.computed ? ' style="cursor:default"' : ' role="button" tabindex="0" data-row-toggle') + '>' +
     dot +

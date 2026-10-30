@@ -118,6 +118,9 @@ export function defaultState(){
     // referencing row (renameCategoryEverywhere), which keeps CSV import/export and hand-edited
     // backups readable instead of full of opaque ids.
     categories: DEFAULT_CATEGORIES.slice(),
+    // v3.157.0 (item 187): a category's own colour and icon, by name — { [name]: { color, icon } }.
+    // Only what the household picked; everything else is worked out from the name (calc/categorylook.js).
+    categoryLooks: {},
     // Which axis the Budget tab groups its cards (and its composition bar) by: "type" is the
     // Needs/Wants/Savings budgeting frame, "category" the where-does-it-go rollup. Persisted
     // rather than session-only because it's a stable way of looking at your own budget, and
@@ -360,6 +363,7 @@ export function migrateState(s){
   if(s.yearBasis !== "calendar") s.yearBasis = "financial";
   if(!Array.isArray(s.categories)) s.categories = DEFAULT_CATEGORIES.slice();
   s.categories = s.categories.filter(function(name){ return typeof name === "string" && name.trim(); });
+  if(!s.categoryLooks || typeof s.categoryLooks !== "object" || Array.isArray(s.categoryLooks)) s.categoryLooks = {};
   // Every array the Budget tab lists, in the same order expenses.js's budgetLineSources() walks
   // them. Categories started out as a state.shared-only idea, but housing and investment-property
   // costs are budget lines now too — normalising and seeding from state.shared alone left a

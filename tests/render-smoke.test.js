@@ -2,8 +2,9 @@ import "./_env.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { state } from "../src/state.js";
+import { categoryIconHtml, categoryColorClass } from "../src/lib/caticons.js";
 import { modernPlainRowHtml, modernRowShellHtml, optionsHtml, historyTrendHtml } from "../src/lib/ledger-table.js";
-import { categoryChartHtml, irregularBudgetSectionHtml, budgetComparisonRowHtml, transactionAccountOptionsHtml, budgetLineOptgroupsHtml, lineMatchesFilter, sortedCategories } from "../src/components/expenses.js";
+import { categoryChartHtml, categoryLookPickerHtml, irregularBudgetSectionHtml, budgetComparisonRowHtml, transactionAccountOptionsHtml, budgetLineOptgroupsHtml, lineMatchesFilter, sortedCategories } from "../src/components/expenses.js";
 import { todaysMixHtml } from "../src/components/assets.js";
 import { sparklineHtml, sparklinePlaceholderHtml, dateAxisFormat } from "../src/lib/charts.js";
 import { parseAmountInput } from "../src/lib/format.js";
@@ -105,6 +106,21 @@ test("categoryChartHtml handles one group, many groups, and a negative one", fun
   assert.ok(withNegative.indexOf("is-credit") !== -1, "a net-refund category is labelled, not drawn as a slice");
   assert.ok(withNegative.indexOf("width:-") === -1, "and never given a negative width");
   assert.equal(categoryChartHtml([], "/mo"), "");
+});
+
+test("a category wears its colour and icon on a row, in a chart and in its picker (item 187)", function(){
+  var icon = categoryIconHtml("Groceries");
+  assert.match(icon, /class="cat-icon cat-c-\d+"/);
+  assert.match(icon, /<svg[^>]*aria-hidden="true"/);
+  var chart = categoryChartHtml([{ key: "Groceries", monthly: 300 }, { key: "Transport", monthly: 150 }], "/mo");
+  assert.ok(chart.indexOf("rule-seg cat-seg " + categoryColorClass("Groceries")) !== -1, "the slice is the category's colour");
+  state.categories = ["Groceries"];
+  state.categoryLooks = { Groceries: { color: 6 } };
+  var picker = categoryLookPickerHtml("Groceries", 0);
+  assert.equal((picker.match(/data-cat-color=/g) || []).length, 12);
+  assert.match(picker, /cat-swatch cat-c-6 is-on/);
+  assert.match(picker, /data-cat-look-reset/, "a picked look can go back to the default");
+  state.categoryLooks = {};
 });
 
 test("todaysMixHtml builds the composition bar, and refuses to when there is nothing to divide", function(){

@@ -273,6 +273,62 @@
   :root[data-theme="dark"] .series-color-6{ --series-color:#9085e9; }
   :root[data-theme="dark"] .series-color-7{ --series-color:#e66767; }
 
+  /* ---------------- Category colours (v3.157.0, item 187) ----------------
+     Twelve, the series palette's eight and four more, so a long category list repeats less. A
+     category's colour comes from calc/categorylook.js; .cat-c-N sets --cat for whatever draws it. */
+  .cat-c-0{ --cat:#2a78d6; } .cat-c-1{ --cat:#eb6834; } .cat-c-2{ --cat:#1baf7a; } .cat-c-3{ --cat:#eda100; } .cat-c-4{ --cat:#e87ba4; } .cat-c-5{ --cat:#008300; } .cat-c-6{ --cat:#4a3aa7; } .cat-c-7{ --cat:#e34948; } .cat-c-8{ --cat:#0e9aa7; } .cat-c-9{ --cat:#64748b; } .cat-c-10{ --cat:#a2672d; } .cat-c-11{ --cat:#7c3aed; }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]) .cat-c-0{ --cat:#3987e5; }
+    :root:not([data-theme="light"]) .cat-c-1{ --cat:#d95926; }
+    :root:not([data-theme="light"]) .cat-c-2{ --cat:#199e70; }
+    :root:not([data-theme="light"]) .cat-c-3{ --cat:#c98500; }
+    :root:not([data-theme="light"]) .cat-c-4{ --cat:#d55181; }
+    :root:not([data-theme="light"]) .cat-c-5{ --cat:#2ea043; }
+    :root:not([data-theme="light"]) .cat-c-6{ --cat:#9085e9; }
+    :root:not([data-theme="light"]) .cat-c-7{ --cat:#e66767; }
+    :root:not([data-theme="light"]) .cat-c-8{ --cat:#22b5c2; }
+    :root:not([data-theme="light"]) .cat-c-9{ --cat:#94a3b8; }
+    :root:not([data-theme="light"]) .cat-c-10{ --cat:#c8874a; }
+    :root:not([data-theme="light"]) .cat-c-11{ --cat:#a78bfa; }
+  }
+  :root[data-theme="dark"] .cat-c-0{ --cat:#3987e5; }
+  :root[data-theme="dark"] .cat-c-1{ --cat:#d95926; }
+  :root[data-theme="dark"] .cat-c-2{ --cat:#199e70; }
+  :root[data-theme="dark"] .cat-c-3{ --cat:#c98500; }
+  :root[data-theme="dark"] .cat-c-4{ --cat:#d55181; }
+  :root[data-theme="dark"] .cat-c-5{ --cat:#2ea043; }
+  :root[data-theme="dark"] .cat-c-6{ --cat:#9085e9; }
+  :root[data-theme="dark"] .cat-c-7{ --cat:#e66767; }
+  :root[data-theme="dark"] .cat-c-8{ --cat:#22b5c2; }
+  :root[data-theme="dark"] .cat-c-9{ --cat:#94a3b8; }
+  :root[data-theme="dark"] .cat-c-10{ --cat:#c8874a; }
+  :root[data-theme="dark"] .cat-c-11{ --cat:#a78bfa; }
+  .cat-icon{
+    flex:none; width:34px; height:34px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center;
+    color: var(--cat, var(--ink-soft)); background: color-mix(in srgb, var(--cat, var(--ink-soft)) 15%, transparent);
+  }
+  .cat-icon-sm{ width:24px; height:24px; }
+  .acct-name .cat-icon-sm{ display:inline-flex; vertical-align:-7px; margin-right:6px; }
+  /* Settings → Categories: the badge opens a choice of colour and icon. */
+  .cat-look{ position:relative; flex:none; }
+  .cat-look > summary{ list-style:none; cursor:pointer; border-radius:50%; display:flex; }
+  .cat-look > summary::-webkit-details-marker{ display:none; }
+  .cat-look[open] > summary .cat-icon{ box-shadow: 0 0 0 2px var(--cat); }
+  .cat-look-panel{
+    position:absolute; top:42px; left:0; z-index:20; width:min(336px, calc(100vw - 48px));
+    padding:12px; border:1px solid var(--border); border-radius:12px; background: var(--paper-raised); box-shadow: var(--shadow);
+    display:flex; flex-direction:column; gap:10px;
+  }
+  .cat-look-colors, .cat-look-icons{ display:flex; flex-wrap:wrap; gap:6px; }
+  .cat-swatch{ all:unset; box-sizing:border-box; width:32px; height:32px; border-radius:50%; background: var(--cat); cursor:pointer; border:2px solid var(--paper); box-shadow: 0 0 0 1px var(--border); }
+  .cat-swatch.is-on{ box-shadow: 0 0 0 2px var(--ink); }
+  .cat-icon-pick{ all:unset; box-sizing:border-box; width:36px; height:36px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; color: var(--cat); cursor:pointer; }
+  .cat-icon-pick:hover{ background: var(--paper-sunken); }
+  .cat-icon-pick.is-on{ background: color-mix(in srgb, var(--cat) 15%, transparent); box-shadow: inset 0 0 0 1.5px var(--cat); }
+  .cat-look-reset{ align-self:flex-start; font-size:var(--fs-sm); }
+  /* A chart segment or swatch coloured by category: the category's colour wins over the series one. */
+  .rule-seg[class*="cat-c-"], .rule-swatch[class*="cat-c-"]{ --series-color: var(--cat); }
+
   .viz-tooltip{
     position:absolute; pointer-events:none; background: var(--ink); color: var(--paper);
     padding:8px 10px; border-radius:8px; font-size:var(--fs-xs); line-height:1.5; box-shadow: var(--shadow);

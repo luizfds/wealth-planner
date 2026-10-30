@@ -37,6 +37,9 @@ the last, so two sessions can't pick up the same one.
 - **Buttons (v3.156.0):** `.btn` (secondary), `.btn-primary`, `.btn-ghost`, `.btn-danger` (every delete) and
   `.link-btn`, each with `.btn-sm`; a fold-out inside a card is `.tax-advanced` or `.row-more-options`.
   `tests/buttons.test.js` fails on a delete that isn't `.btn-danger`.
+- **Category looks (v3.157.0):** a category's colour (`.cat-c-0`…`11`, sets `--cat`) and icon come from
+  `calc/categorylook.js` (from its name, or `state.categoryLooks[name]`); `lib/caticons.js` draws the badge. A rename
+  or delete of a category carries or drops its look.
 - `styles.css` — just eight `@import` statements pulling in `src/styles/{base,shell,dashboard,
   ledger,income,properties,assets,projections}.css`, in that specific order. Light/dark theming is
   CSS custom properties + `prefers-color-scheme`, defined in `base.css`.

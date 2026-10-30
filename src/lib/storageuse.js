@@ -27,3 +27,11 @@ export function storageLineText(used, quota){
   var l = storageLevel(used, quota);
   return "Using " + kb(used) + " of about " + kb(quota || STORAGE_QUOTA_CHARS) + " this browser allows (" + Math.max(1, Math.round(l.pct * 100)) + "%).";
 }
+
+// v3.170.0 (item 201): receipts are kept in IndexedDB, which has far more room than localStorage —
+// said separately so the one doesn't read as filling the other.
+export function receiptsLineText(r){
+  if(!r || !r.count) return "";
+  var mb = r.bytes / 1048576;
+  return r.count + " receipt" + (r.count === 1 ? "" : "s") + " take " + (mb >= 0.1 ? (Math.round(mb * 10) / 10) + " MB" : Math.max(1, Math.round(r.bytes / 1024)) + " KB") + " of the browser's file storage.";
+}

@@ -7,6 +7,8 @@ import { transactionsInRange, householdYearToDate } from "../calc/ledger.js";
 import { shareFlows, priceDatesNeeded, benchmarkFormula } from "../calc/performance.js";
 import { toAudAmount } from "../calc/engine.js";
 import { backfillStart } from "../calc/pricesheet.js";
+import { withReceiptFiles } from "../calc/receipts.js";
+import { packReceipts } from "./receipts.js";
 
 function isoDateStamp(){
   var d = new Date();
@@ -23,6 +25,10 @@ function isoDateStamp(){
 // app — this only protects the exported *file* if it ends up somewhere less trusted
 // than this browser (cloud sync, email, a shared drive). Forgetting the passphrase
 // means the backup is unrecoverable; there's no reset path by design.
+// v3.170.0 (item 201): a backup carries the receipts' files with it (calc/receipts.js withReceiptFiles).
+export function backupText(pretty){
+  return packReceipts(state).then(function(files){ return JSON.stringify(withReceiptFiles(state, files), null, pretty ? 2 : 0); });
+}
 export function bufToBase64(buf){
   var bytes = new Uint8Array(buf), binary = "";
   for(var i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
@@ -80,17 +86,15 @@ export function doExport(){
   var passphrase = prompt("Optional: encrypt this backup with a passphrase (leave blank for a plain, unencrypted backup as before). You'll need this exact passphrase to import it again — it can't be recovered if you forget it.");
   if(passphrase === null) return;
   markBackedUp();
-  var payload = JSON.stringify(state, null, 2);
   var filename = "wealth-planner-backup-" + isoDateStamp() + (passphrase ? "-encrypted" : "") + ".json";
-  if(passphrase){
-    encryptBackup(payload, passphrase).then(function(encPayload){
+  backupText(true).then(function(payload){
+    if(!passphrase){ finishExport(payload, filename); return; }
+    return encryptBackup(payload, passphrase).then(function(encPayload){
       finishExport(encPayload, filename);
     }).catch(function(){
       showToast("Encryption failed — nothing was exported. Try again.");
     });
-  } else {
-    finishExport(payload, filename);
-  }
+  });
 }
 // ---------------- Share: hand the backup straight to another device ----------------
 // Same underlying data as Export, but framed as a device-to-device transfer instead of a backup —
@@ -140,7 +144,6 @@ export function doShare(){
     return;
   }
   markBackedUp();
-  var payload = JSON.stringify(state, null, 2);
   // Sent as .txt/text/plain, not .json/application/json, even though the content is identical
   // (still valid JSON once decrypted) — Chromium's navigator.share() only hands a file to the OS
   // share sheet if its type is on an internal safelist, checked again at share() time regardless
@@ -152,7 +155,7 @@ export function doShare(){
   // is valid JSON, never the filename or MIME type.
   var filename = "wealth-planner-backup-" + isoDateStamp() + "-encrypted.txt";
   var text = "My Wealth Planner data (password-protected). Open " + welcomeUrl() + " for how to load it, or go straight to Import and enter the passphrase I gave you.";
-  encryptBackup(payload, passphrase).then(function(encPayload){
+  backupText(true).then(function(payload){ return encryptBackup(payload, passphrase); }).then(function(encPayload){
     var file = new File([encPayload], filename, { type: "text/plain" });
     // navigator.share() only works when it's the direct, synchronous result of a user gesture —
     // encryption above is async (Web Crypto), so by the time it resolves, the click that started

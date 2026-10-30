@@ -1,5 +1,6 @@
 import { state, persist, deviceId } from "../state.js";
 import { localDateStr } from "./format.js";
+import { backupText } from "./backup.js";
 
 // ---------------- Safekeeping (v3.63.0): backups to a folder, and a passcode ----------------
 //
@@ -59,9 +60,11 @@ export function backupToFolder(interactive){
       state.lastFolderBackup = localDateStr();
       if(!state.savedAt) state.savedAt = now.toISOString();
       state.savedBy = deviceId();
-      var body = JSON.stringify(state, null, 2);
-      return handle.getFileHandle(name, { create: true }).then(function(fh){ return fh.createWritable(); })
-        .then(function(w){ return w.write(body).then(function(){ return w.close(); }); })
+      // v3.170.0: with the receipts' files, as Export does.
+      return backupText(true).then(function(body){
+        return handle.getFileHandle(name, { create: true }).then(function(fh){ return fh.createWritable(); })
+          .then(function(w){ return w.write(body).then(function(){ return w.close(); }); });
+      })
         .then(function(){ persist(); return { ok: true, name: name, folder: handle.name }; });
     });
   });

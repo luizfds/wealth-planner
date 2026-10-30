@@ -1680,3 +1680,24 @@ test("the bank import help names OFX, QFX and QIF and says where each bank keeps
   EXPORT_STEPS.forEach(function(b){ assert.ok(html.indexOf(b.bank.replace(/&/g, "&amp;")) !== -1, b.bank); });
   assert.doesNotMatch(html, /undefined|NaN/);
 });
+
+test("receipts: the attach control and Tax → Documents' deductions draw", async function(){
+  var rc = await import("../src/components/receipts.js");
+  var html = rc.receiptsFieldHtml("tx:t1", [{ id: "rc1", name: "drill.jpg", size: 120000 }]);
+  assert.match(html, /data-rc-open="rc1"/);
+  assert.match(html, /data-rc-del="rc1"[^>]*data-rc-owner="tx:t1"/);
+  assert.match(html, /class="btn btn-danger btn-sm rc-del"/);
+  assert.match(html, /Add another/);
+  assert.match(rc.receiptsFieldHtml("line:l1", []), /Attach a receipt/);
+  var was = { t: state.transactions, s: state.shared, ty: state.taxYears };
+  state.shared = [{ id: "l1", what: "Work tools", deductible: true, deductiblePerson: "Alex" }];
+  state.transactions = [{ id: "t1", date: "2026-08-04", amount: 129, what: "Fern Hardware", linkedExpenseId: "l1" }];
+  state.taxYears = {};
+  var d = rc.deductionReceiptsHtml(2026, state.shared);
+  assert.match(d, /Deductions and their receipts/);
+  assert.match(d, /0 of 1/);
+  assert.match(d, /No receipt/);
+  assert.match(d, /data-rc-add="tx:t1"/);
+  assert.doesNotMatch(d, /undefined|NaN/);
+  state.transactions = was.t; state.shared = was.s; state.taxYears = was.ty;
+});

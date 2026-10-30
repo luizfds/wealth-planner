@@ -85,6 +85,9 @@ import { openAccounts, balanceEditing } from "./components/accounts.js";
 import { renderHomeSummary, weekView } from "./components/home.js";
 import { dismissWeekRecap } from "./calc/weekrecap.js";
 import { saveView, deleteView, applyView, FILTER_FIELDS } from "./calc/txviews.js";
+import { attachReceipt, detachReceipt, takeReceiptFiles } from "./calc/receipts.js";
+import { saveReceiptFile, unpackReceipts, openReceipt, pruneReceipts } from "./lib/receipts.js";
+import { receiptHolder } from "./components/receipts.js";
 import { dataHealthChecks, dismissCheck } from "./calc/health.js";
 import { applyFirstRun, shouldOfferFirstRun } from "./calc/firstrun.js";
 import { normaliseTrip, applyTripRefile } from "./calc/trips.js";
@@ -4595,6 +4598,8 @@ import { inboxMessage } from "./calc/inbox.js";
           : "You already have data in Wealth Planner on this device. Importing will replace it — this can't be undone unless you've exported a backup first. Continue?";
         if(!confirm(msg)) return;
       }
+      // v3.170.0: the receipts' files the backup carries go back into this device's store.
+      unpackReceipts(takeReceiptFiles(parsed)).catch(function(){ showToast("The backup's receipts couldn't be stored on this device"); });
       setState(migrateState(parsed));
       renderAll();
       persist();
@@ -5559,7 +5564,7 @@ import { inboxMessage } from "./calc/inbox.js";
     return syncNow(opts).then(function(r){
       syncBusy = false;
       if(r.status === "pull"){
-        try { setState(migrateState(JSON.parse(r.text))); } catch(e){ showToast("The synced copy couldn't be read"); return r; }
+        try { var pulledObj = JSON.parse(r.text); unpackReceipts(takeReceiptFiles(pulledObj)).catch(function(){}); setState(migrateState(pulledObj)); } catch(e){ showToast("The synced copy couldn't be read"); return r; }
         pulled(r.rev);
         recalcComputedItems(); renderAll(); persist();
         showToast("Loaded the newer copy from " + r.folder + " (" + whenText(r.savedAt) + ")");
@@ -5583,7 +5588,12 @@ import { inboxMessage } from "./calc/inbox.js";
   var mergeAskedAt = 0;
   function mergeSync(r){
     var base, theirs;
-    try { base = JSON.parse(r.base); theirs = migrateState(JSON.parse(r.text)); } catch(e){ showToast("The synced copy couldn't be read"); return; }
+    try {
+      base = JSON.parse(r.base); takeReceiptFiles(base);
+      var theirsObj = JSON.parse(r.text);
+      unpackReceipts(takeReceiptFiles(theirsObj)).catch(function(){});
+      theirs = migrateState(theirsObj);
+    } catch(e){ showToast("The synced copy couldn't be read"); return; }
     var theirsText = JSON.stringify(theirs);
     // This device's copy as it is when combined — edits made while the question waited included.
     var ours = function(){ return JSON.parse(JSON.stringify(state)); };
@@ -5838,6 +5848,44 @@ import { inboxMessage } from "./calc/inbox.js";
   });
   document.addEventListener("keydown", function(e){ if(e.key === "Escape" && txReview.open) requestCloseActiveOverlay(); });
   document.addEventListener("click", function(e){ if(e.target.closest("[data-txr-open]")) openTxReview(); });
+  // ---------------- Receipts (v3.170.0, item 201) ----------------
+  // Attach: a hidden file input, told whose receipt it's for. The file goes to IndexedDB (shrunk if
+  // it's a photo) and the row gets its reference. Remove takes the reference (with undo); the file
+  // goes at the next start once nothing refers to it.
+  var receiptInput = document.getElementById("receiptFile");
+  var receiptFor = null;
+  function afterReceiptChange(){ persist(); renderTransactions(); rerenderTableFor("shared"); renderTaxYear(); }
+  document.addEventListener("click", function(e){
+    if(!e.target.closest) return;
+    var add = e.target.closest("[data-rc-add]");
+    if(add){ receiptFor = add.getAttribute("data-rc-add"); receiptInput.value = ""; receiptInput.click(); return; }
+    var op = e.target.closest("[data-rc-open]");
+    if(op){ openReceipt(op.getAttribute("data-rc-open")).then(function(ok){ if(!ok) showToast("That receipt's file isn't on this device yet — it arrives with the next sync or backup"); }); return; }
+    var del = e.target.closest("[data-rc-del]");
+    if(del){
+      var owner = del.getAttribute("data-rc-owner"), holder = receiptHolder(owner, false);
+      var gone = holder && detachReceipt(holder, del.getAttribute("data-rc-del"));
+      if(!gone) return;
+      afterReceiptChange();
+      showUndoToast('Removed "' + gone.name + '"', function(){ var h = receiptHolder(owner, true); if(h){ attachReceipt(h, gone); afterReceiptChange(); } });
+    }
+  });
+  receiptInput.addEventListener("change", function(){
+    var file = receiptInput.files && receiptInput.files[0], owner = receiptFor;
+    receiptFor = null;
+    if(!file || !owner) return;
+    saveReceiptFile(file, localDateStr()).then(function(ref){
+      var holder = receiptHolder(owner, true);
+      if(!holder){ showToast("That row has gone — the receipt wasn't attached"); return; }
+      // A transaction without an id gets one, so the receipt follows it through sync.
+      if(/^txi:/.test(owner) && !holder.id) holder.id = genId("t");
+      attachReceipt(holder, ref);
+      afterReceiptChange();
+      showToast("Receipt attached — " + ref.name);
+    }, function(err){ showToast((err && err.reason) || "Couldn't keep that file on this device"); });
+  });
+  setTimeout(function(){ pruneReceipts(state).catch(function(){}); }, 4000);
+
   // ---------------- Arrange Home (v3.165.0, item 195) — lib/homelayout.js decides ----------------
   var homeArrangeRoot = document.getElementById("homeArrangeRoot");
   var homeArrangeOpen = false;

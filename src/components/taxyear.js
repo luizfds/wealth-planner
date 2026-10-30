@@ -9,6 +9,7 @@ import { taxYearRecord, personYear, rentalSchedules, RENT_LINES, usesBudgetLines
 import { fmtCurrency0, fmtCurrency2 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { applyTaxYear } from "./period.js";
+import { receiptsFieldHtml, deductionReceiptsHtml } from "./receipts.js";
 
 // ---------------- The tax return worksheet (v3.26.0) ----------------
 //
@@ -346,9 +347,15 @@ export function taxDocumentsHtml(){
       '<button type="button" class="btn btn-sm btn-ghost" data-ty-import style="margin-left:auto" title="Merge a tax year file — one year\'s income statements, interest, deductions, rental schedule and fund statements — into this plan, leaving everything else as it is">Import a year</button></div>' +
     '<h3 class="ty-docs-head">To keep for ' + fyLabel(fy) + ' <span class="ty-docs-count">' + ticked + ' of ' + ev.length + '</span></h3>' +
     (ev.length
-      ? '<div class="ty-evidence">' + ev.map(function(i){ return '<label class="m-checkbox-field ty-ev"><input type="checkbox" data-ty-evidence="' + escapeAttr(i.key) + '"' + (rec && rec.evidence[i.key] ? " checked" : "") + '> ' + escapeAttr(i.text) + '</label>'; }).join("") + '</div>'
+      ? '<div class="ty-evidence">' + ev.map(function(i){
+          // v3.170.0: the document itself can be kept with its tick.
+          var files = rec && rec.evidenceReceipts && rec.evidenceReceipts[i.key];
+          return '<div class="ty-ev-row"><label class="m-checkbox-field ty-ev"><input type="checkbox" data-ty-evidence="' + escapeAttr(i.key) + '"' + (rec && rec.evidence[i.key] ? " checked" : "") + '> ' + escapeAttr(i.text) + '</label>' +
+            receiptsFieldHtml("ev:" + fy + ":" + i.key, files, { label: "Attach" }) + '</div>';
+        }).join("") + '</div>'
       : '<p class="ledger-note" style="margin-left:0">Nothing yet — the list grows from the year\'s income statements, holdings, sales and properties.</p>') +
-    '<p class="ledger-note" style="margin-left:0">Keep these for five years after lodging; purchase records for anything you still own until five years after you sell it.</p>' +
+    deductionReceiptsHtml(fy, claimItems()) +
+    '<p class="ledger-note" style="margin-left:0">Keep these for five years after lodging; purchase records for anything you still own until five years after you sell it. Receipts attached here stay on this device and travel in your backup and sync.</p>' +
     '<p class="ledger-note" style="margin-left:0"><b>Import a year</b> takes a tax year file — one year\'s income statements, interest, deductions, rental schedule and fund statements — and merges it in without touching anything else.</p>';
 }
 

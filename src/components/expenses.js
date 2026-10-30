@@ -12,6 +12,7 @@ import { escapeAttr, segLabel } from "../lib/html.js";
 import { renderAccountsPage, openAccounts } from "./accounts.js";
 import { cashflowEntries, filterEntries, entryTotals } from "../calc/cashflowlist.js";
 import { hasOwnDates } from "../calc/txviews.js";
+import { receiptsFieldHtml, txOwnerKey } from "./receipts.js";
 import { txGrid, txGridHtml, txViewToggleHtml, budgetPlanHtml, billsCalendarHtml, txFilters, txSelect, transferForm, splitEditing, currentTxFilter, viewsBarHtml, filterBarHtml, directionControlHtml, dayHeaderHtml, totalsLineHtml, inRowHtml, transferRowHtml, selectBoxHtml, bulkBarHtml, transferFormHtml, splitEditorHtml } from "./cashflow.js";
 import { modernPlainRowHtml, modernRowSummaryHtml, modernRowEditHtml, modernRowShellHtml, optionsHtml } from "../lib/ledger-table.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
@@ -471,7 +472,7 @@ export function renderSharedGroups(){
       // Each row renders under its own source section, so a housing line's edits, deletes and
       // logs land in state.home[scenario] while a shared line's land in state.shared — no
       // special-casing anywhere downstream, since every handler already keys off data-section.
-      '<div class="m-rows">' + g.members.map(function(line){ return modernPlainRowHtml(line.item, line.idx, line.section, modernSharedRowOpen, {showClass:true, showDone:true, categories: sortedCategories(), activeScenario: state.activeScenario, extraSubLine: budgetRowProgressHtml(line.item)}); }).join("") + '</div>' +
+      '<div class="m-rows">' + g.members.map(function(line){ return modernPlainRowHtml(line.item, line.idx, line.section, modernSharedRowOpen, {showClass:true, showDone:true, categories: sortedCategories(), activeScenario: state.activeScenario, extraSubLine: budgetRowProgressHtml(line.item), extraFieldsHtml: line.item.id ? '<div class="m-edit-field span3"><label>Receipts</label>' + receiptsFieldHtml("line:" + line.item.id, line.item.receipts, { label: "Attach a receipt or invoice" }) + '</div>' : ''}); }).join("") + '</div>' +
       '<button type="button" class="m-add-row" data-add="' + escapeAttr(addValue) + '">+ Add expense</button>' +
     '</div>';
   }).join("") + '</div>';
@@ -1370,7 +1371,9 @@ function transactionRowHtml(t, idx){
     '<div class="m-edit-field span3"><label>Description <span class="label-optional">(optional)</span></label>' + whatInput + '</div>' +
     '<div class="m-edit-field"><label>Amount</label>' + amountInput + '</div>' +
     '<div class="m-edit-field"><label>Date</label>' + dateInput + '</div>' +
-    '<div class="m-edit-field"><label>Account</label>' + acctSelect + '</div>';
+    '<div class="m-edit-field"><label>Account</label>' + acctSelect + '</div>' +
+    // v3.170.0 (item 201): the receipt — a photo or PDF, kept on this device and in the backup.
+    '<div class="m-edit-field span3"><label>Receipt</label>' + receiptsFieldHtml(txOwnerKey(t, idx), t.receipts) + '</div>';
   // See modernPlainRowHtml's identical doneButtonHtml for why: every field here already
   // auto-saves as you type, but a transaction reads as a deliberate, dated action, not a setting
   // you tweak, so it gets an explicit confirm button the generic rows don't. data-row-toggle

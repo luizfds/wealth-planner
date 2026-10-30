@@ -1594,3 +1594,21 @@
   .flex-cat-fig{ font-family:var(--font-num); font-weight:600; white-space:nowrap; }
   .flex-cat-fig.over{ color: var(--bad-ink); }
   .flex-roll{ display:flex; align-items:center; gap:4px; font-size:var(--fs-xs); color: var(--ink-soft); white-space:nowrap; min-height:32px; }
+  /* v3.170.0 (item 201): receipts — the attach control, and Tax → Documents' deductions. */
+  .rc-field{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; }
+  .rc-item{ display:inline-flex; align-items:center; gap:2px; max-width:100%; }
+  .rc-open{ display:inline-flex; align-items:center; gap:5px; min-width:0; max-width:240px; font-size:var(--fs-sm); }
+  .rc-open small{ font-weight:400; color: var(--ink-soft); white-space:nowrap; }
+  .rc-add{ gap:5px; }
+  .ty-ev-row{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:4px 12px; }
+  .ty-ev-row .m-checkbox-field{ flex:1 1 260px; }
+  .rc-deds{ display:flex; flex-direction:column; border:1px solid var(--border); border-radius: var(--inner-radius); margin:6px 0 10px; }
+  .rc-ded{ padding:10px 12px; border-bottom:1px solid var(--border); display:flex; flex-direction:column; gap:6px; }
+  .rc-ded:last-child{ border-bottom:0; }
+  .rc-ded-top{ display:flex; justify-content:space-between; gap:10px; align-items:baseline; }
+  .rc-ded-what{ display:flex; flex-direction:column; min-width:0; }
+  .rc-ded-what small{ color: var(--ink-soft); font-size:var(--fs-xs); }
+  .rc-ded-amt{ font-family:var(--font-num); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .rc-ded-foot{ display:flex; align-items:center; flex-wrap:wrap; gap:4px 12px; }
+  .rc-missing{ font-size:var(--fs-xs); font-weight:600; color: var(--warn-ink); }
+  .rc-via{ margin:0; font-size:var(--fs-xs); color: var(--ink-soft); }

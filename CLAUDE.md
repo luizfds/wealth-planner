@@ -49,6 +49,8 @@ the last, so two sessions can't pick up the same one.
   Settings → Preferences / the first-run setup (`state.parts`). Off adds `no-part-<key>` to `<body>`, hiding anything marked
   `data-part`; reports (`REPORTS[].part`), Benchmarks sections, notices and Checks (`partAllows(id)`) filter themselves.
   Something new about a property or shares gets a `data-part` or a `part`. The smoke script also runs an empty household.
+- **Home you arrange (v3.165.0):** Home's cards and figure tiles carry `data-home-card`; `lib/homelayout.js` reorders and
+  hides them and moves pinned Insights panels into `#homePinned`, per device in localStorage. A new Home card gets a key there.
 - `styles.css` — just eight `@import` statements pulling in `src/styles/{base,shell,dashboard,
   ledger,income,properties,assets,projections}.css`, in that specific order. Light/dark theming is
   CSS custom properties + `prefers-color-scheme`, defined in `base.css`.

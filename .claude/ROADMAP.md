@@ -3467,7 +3467,7 @@ a "fern cafe" rule and filed the other waiting Fern Cafe rows, and the next stat
 Eating out (and waiting in the queue). Driven at 1280px with the keys, from Home's To do.
 
 
-## 194. `[ ]` A flexible budget as well as a detailed one
+## 194. `[~]` A flexible budget as well as a detailed one
 Thirty budget lines is a lot to keep. Monarch's flex budgeting works with three numbers: fixed bills, one
 flexible amount, and non-monthly costs set aside.
 

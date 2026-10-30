@@ -1580,3 +1580,15 @@ test("What this household has: three choices per part, and Net worth's way back 
   assert.match(line, /data-part-show="shares"/);
   assert.equal(hiddenPartsLineHtml({ properties: [{ id: "p" }], assets: [{ category: "Shares" }], parts: {} }), "", "nothing hidden, nothing to say");
 });
+
+test("Your first month: the month's three figures and one next step (item 192)", async function(){
+  const { firstMonthHtml } = await import("../src/components/dashboard.js");
+  const { setupProgress } = await import("../src/lib/setup.js");
+  var st = { income: [], shared: [], assets: [], properties: [], transactions: [], scenarios: ["Renting"], activeScenario: "Renting", home: { Renting: [] } };
+  var html = firstMonthHtml(st, setupProgress(st), true);
+  assert.match(html, /Your first month/);
+  assert.match(html, /step 1 of 4/);
+  assert.match(html, /data-setup-go="expenses" data-setup-sub="income"/);
+  assert.equal((html.match(/data-setup-go=/g) || []).length, 1, "one next step, not a list");
+  assert.match(html, /Look around with sample data/);
+});

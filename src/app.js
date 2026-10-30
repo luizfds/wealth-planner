@@ -4198,6 +4198,17 @@ import { inboxMessage } from "./calc/inbox.js";
         renderAll();
       }
     );
+    // v3.162.0 (item 192): a first statement with three months in it and nothing budgeted yet goes
+    // straight on to the budget it suggests — the step a new household would otherwise have to find.
+    if(result.ids.length && !(state.shared || []).length){
+      var pb = currentHistoryBudget();
+      if(pb.ready && pb.proposals.length){
+        renderBudgetFromHistory();
+        showPage("expenses"); showExpensesSubpage("budget", { replace: true });
+        var hb = document.getElementById("historyBudgetCard");
+        if(hb){ hb.open = true; setTimeout(function(){ hb.scrollIntoView({ behavior: "smooth", block: "start" }); }, 120); }
+      }
+    }
   });
   // A transfer saved, and with `moveBalances` both accounts' balances moved by it (where each has
   // one) — the transfer form and Checks' "Save repayment" (v3.146.0). Undo puts both back (v3.144.0).
@@ -4479,14 +4490,21 @@ import { inboxMessage } from "./calc/inbox.js";
   document.getElementById("dashboardSetup").addEventListener("click", function(e){
     if(e.target.closest("[data-dash-start]")){ loadSampleData(); return; }
     var go = e.target.closest("[data-setup-go]");
-    if(go){ showPage(go.getAttribute("data-setup-go")); return; }
+    if(go){
+      // v3.162.0: straight to the place — the tab, and the card on it, opened and in view.
+      var gp = go.getAttribute("data-setup-go"), gs = go.getAttribute("data-setup-sub"), gopen = go.getAttribute("data-setup-open");
+      showPage(gp);
+      if(gs && gp === "expenses") showExpensesSubpage(gs, { replace: true });
+      if(gopen){ var card = document.getElementById(gopen); if(card){ card.open = true; setTimeout(function(){ card.scrollIntoView({ behavior: "smooth", block: "start" }); }, 120); } }
+      return;
+    }
     if(e.target.closest("[data-setup-dismiss]")){
       // Remembered, not session-only: re-offering a dismissed checklist every morning in a
       // daily-use app is its own small annoyance.
       state.setupDismissed = true;
       persist();
       renderDashboardStats();
-      showToast("Setup checklist hidden");
+      showToast("Hidden — every page stays in the menu");
     }
   });
 
@@ -5606,6 +5624,15 @@ import { inboxMessage } from "./calc/inbox.js";
     if(e.target.closest("[data-fr-add-acct]")){ a.accounts.push({ name: "", type: "savings", balance: "" }); renderFirstRun(); return; }
     var del = e.target.closest("[data-fr-del-acct]");
     if(del){ a.accounts.splice(Number(del.getAttribute("data-fr-del-acct")), 1); renderFirstRun(); return; }
+    // v3.162.0 (item 192): straight to a statement — pay and the rest wait as Home's next steps.
+    if(e.target.closest("[data-fr-statement]")){
+      state.firstRunSkipped = true; persist();
+      firstRun.open = false; activeOverlayClose = null; renderFirstRun();
+      showPage("expenses", { replace: true }); showExpensesSubpage("spending", { replace: true });
+      var ic = document.getElementById("bankImportCard");
+      if(ic){ ic.open = true; setTimeout(function(){ ic.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); }
+      return;
+    }
     if(e.target.closest("[data-fr-back]")){ firstRun.step = Math.max(0, firstRun.step - 1); renderFirstRun(); return; }
     if(e.target.closest("[data-fr-next]")){ firstRun.step++; renderFirstRun(); var f = firstRunRoot.querySelector("input,select"); if(f) f.focus(); return; }
     var fin = e.target.closest("[data-fr-finish]");

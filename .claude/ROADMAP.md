@@ -3417,7 +3417,7 @@ property · Add shares", which turns it on and opens it. Driven with an empty ho
 switch and the demo household (everything on); the smoke script now runs an empty household too.
 
 
-## 192. `[ ]` A first ten minutes that ends somewhere
+## 192. `[~]` A first ten minutes that ends somewhere
 The first-run setup asks good questions, then leaves you on a full Home. Monarch and Copilot finish setup with
 your own numbers on screen and one next step.
 

@@ -3637,7 +3637,7 @@ page description ("no account, no server") both stay true — no change needed. 
 opens a way for a household to connect its own bank directly from the browser, without an intermediary holding the data.
 
 
-## 201. `[~]` Receipts on a transaction
+## 201. `[x]` Receipts on a transaction
 Monarch and Copilot attach a photo or PDF to a transaction. For an Australian return, a deduction needs its
 receipt.
 
@@ -3646,6 +3646,23 @@ localStorage) and included, encrypted, in the backup and sync file. Tax → Docu
 without its receipt. A size cap per file, with images shrunk on the device.
 
 Done when: a receipt survives backup → restore and a sync to a second browser; storage use counts it.
+
+**Done (v3.170.0).** A photo or PDF can be attached to a transaction (its editor's Receipt field), a budget line (Receipts,
+for an annual invoice), a deduction typed on the worksheet, and each document on Tax → Documents' checklist. The file
+lives in IndexedDB on the device (`lib/receipts.js`, its own database) — a photo shrunk there to 1,600px as a JPEG (a
+23 MB test photo kept as 890 KB), a PDF kept as it is under 4 MB, anything else turned away. The row carries only the
+reference (`receipts: [{ id, name, type, size, added }]`, `calc/receipts.js`), so lists draw without waiting and the
+references sync and merge like any other field. **Backup and sync carry the files**: Export, Share, the backup folder and
+the sync file pack them as `receiptFiles` (base64, only those still referred to); restoring a backup or pulling or
+merging a synced copy unpacks them into IndexedDB, and state never holds them (the sync's agreed copy doesn't either, so
+receipts can't conflict). Removing one has undo; files nothing refers to go at the next start. **Tax → Documents** lists
+every deduction for the year — spending on a deductible line (covered by its own receipt or one on the line) and worksheet
+deductions — missing receipts first, "N of M" with one. Settings → Preferences says how much the receipts take, beside
+localStorage's use. Driven: attached on one browser; a backup restored into a second carries both files and opens them;
+the sync copy, applied in a third browser the way a pull is, keeps both through a reload. (Folder sync itself can't be
+driven headless — choosing an OPFS folder closes the page, on main too — so the sync path is tested through the same
+pack/unpack functions it calls, and `mergeStates` keeps receipts attached on two devices.)
+
 
 ## 202. `[ ]` Who changed what
 YNAB's "Who moved the money" (2026) shows each change with the person who made it. Two people syncing here can't

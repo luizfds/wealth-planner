@@ -64,6 +64,10 @@ the last, so two sessions can't pick up the same one.
   filtered — a budget line's drill-down, a Categories report row, Your week, a notice with `go.filter`.
 - **Statement formats (v3.169.0):** besides CSV and PDF, `calc/bank-import.js` reads OFX/QFX (SGML and XML) and QIF into the
   same CSV (`statementTextToCsv`), so every import goes through one review, rule and duplicate path.
+- **Receipts (v3.170.0):** files live in IndexedDB (`lib/receipts.js`); rows carry `receipts: [{ id, name, type, size }]`
+  (`calc/receipts.js`). Backup, share, the backup folder and the sync file pack them as `receiptFiles`; every load path
+  unpacks them (`takeReceiptFiles` → `unpackReceipts`) before `setState`, and `migrateState` drops any left. A new array
+  of rows that can hold receipts goes in `receiptRefs`, or its files are pruned at startup.
 - `styles.css` — just eight `@import` statements pulling in `src/styles/{base,shell,dashboard,
   ledger,income,properties,assets,projections}.css`, in that specific order. Light/dark theming is
   CSS custom properties + `prefers-color-scheme`, defined in `base.css`.

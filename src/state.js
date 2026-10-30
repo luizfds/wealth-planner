@@ -470,6 +470,8 @@ export function migrateState(s){
   if(!Array.isArray(s.savingsGoals)) s.savingsGoals = [];
   if(!Array.isArray(s.trips)) s.trips = [];
   if(!Array.isArray(s.txViews)) s.txViews = [];
+  // v3.170.0: a backup or sync copy's receipt files are unpacked into IndexedDB before this; never kept in state.
+  delete s.receiptFiles;
   s.trips = s.trips.filter(function(t){ return t && t.from; });
   if(!s.priceSheet || typeof s.priceSheet !== "object") s.priceSheet = {};
   ["url", "lastRead", "backfillFrom"].forEach(function(k){ if(typeof s.priceSheet[k] !== "string") s.priceSheet[k] = ""; });

@@ -369,7 +369,9 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
     '<div class="m-edit-field"><label>Frequency</label><select class="f-freq">' + optionsHtml(FREQS, item.freq) + '</select></div>' +
     accountField +
     rentLineField +
-    logField;
+    logField +
+    // v3.170.0: the caller's own extra fields (Budget's receipts).
+    (opts.extraFieldsHtml || "");
   // v3.164.0 (item 194): a budget line can say which part of the flexible view it counts in.
   var flexField = opts.showClass
     ? '<div class="m-edit-field"><label>Counts as</label><select class="f-flexkind" title="Where this line sits when Budget is grouped Flexible">' +

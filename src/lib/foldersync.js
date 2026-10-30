@@ -1,5 +1,7 @@
 import { state, deviceId } from "../state.js";
 import { savedFolder, idb } from "./safekeeping.js";
+import { packReceipts } from "./receipts.js";
+import { withReceiptFiles } from "../calc/receipts.js";
 import { deriveBackupKey, bufToBase64, base64ToBuf } from "./backup.js";
 import { SYNC_FILE, syncDecision, makeEnvelope, readEnvelope, contentHash } from "../calc/syncfile.js";
 import { dropboxConnected, readDropbox, writeDropbox, disconnectDropbox } from "./dropbox.js";
@@ -122,7 +124,9 @@ export function syncNow(opts, retried){
         var rev = Math.max(env ? Number(env.rev) || 0 : 0, Number(local.base) || 0) + 1;
         var meta = { rev: rev, savedAt: new Date().toISOString(), savedBy: deviceId() };
         var plain = JSON.stringify(state);
-        return encrypt(keyRec, plain).then(function(c){ return t.write(o, JSON.stringify(makeEnvelope(meta, c)), r.rev); }).then(function(){
+        // v3.170.0: the file carries the receipts' files too; the agreed copy kept here doesn't need them.
+        return packReceipts(state).then(function(files){ return encrypt(keyRec, JSON.stringify(withReceiptFiles(state, files))); })
+          .then(function(c){ return t.write(o, JSON.stringify(makeEnvelope(meta, c)), r.rev); }).then(function(){
           setSyncLocal({ base: rev, dirty: false, hash: contentHash(state), lastAt: meta.savedAt });
           putBase(plain);
           return { status: "pushed", folder: o.label, rev: rev };

@@ -4,7 +4,8 @@ import { syncLocal, syncVia } from "../lib/foldersync.js";
 import { appKey, dropboxConnected, keyIsBuiltIn, redirectUri } from "../lib/dropbox.js";
 import { escapeAttr } from "../lib/html.js";
 import { localDateStr, fmtDate } from "../lib/format.js";
-import { storageUsedChars, storageLineText } from "../lib/storageuse.js";
+import { storageUsedChars, storageLineText, receiptsLineText } from "../lib/storageuse.js";
+import { receiptsStorageUse } from "../lib/receipts.js";
 
 // ---------------- Settings → Preferences → Keeping your data safe (v3.63.0) ----------------
 export function safekeepingHtml(folderName, today){
@@ -59,7 +60,13 @@ export function renderSafekeeping(){
   var el = typeof document !== "undefined" && document.getElementById("safekeepingBody");
   if(!el) return Promise.resolve();
   // v3.138.0: and how full this browser's storage is.
-  var storage = function(){ var t = storageLineText(storageUsedChars(localStorage)); return t ? '<p class="ledger-note sk-storage" style="margin:12px 0 0">' + t + '</p>' : ''; };
+  // v3.170.0: and the receipts kept beside it, which live in IndexedDB rather than localStorage.
+  var rc = null;
+  var storage = function(){
+    var t = storageLineText(storageUsedChars(localStorage));
+    var r = rc && rc.count ? receiptsLineText(rc) : "";
+    return t || r ? '<p class="ledger-note sk-storage" style="margin:12px 0 0">' + [t, r].filter(Boolean).join(" ") + '</p>' : '';
+  };
   el.innerHTML = safekeepingHtml(null) + storage();
-  return savedFolder().then(function(h){ el.innerHTML = safekeepingHtml(h ? h.name : null) + storage(); });
+  return Promise.all([savedFolder(), receiptsStorageUse().catch(function(){ return null; })]).then(function(x){ rc = x[1]; el.innerHTML = safekeepingHtml(x[0] ? x[0].name : null) + storage(); });
 }

@@ -1055,6 +1055,7 @@
 <!-- v3.163.0 (item 193): the review queue for new transactions (components/reviewqueue.js). -->
 <div id="txReviewRoot"></div>
 <div id="homeArrangeRoot"></div>
+<input type="file" id="receiptFile" accept="image/*,application/pdf,.pdf" hidden>
 <div id="assetPersonSheetRoot"></div>
 <div id="notifPanelRoot"></div>
 <div id="searchRoot"></div>
@@ -1121,6 +1122,7 @@
   "./src/calc/pricesheet.js": "./src/calc/pricesheet.js?v=3.169.1",
   "./src/calc/property.js": "./src/calc/property.js?v=3.169.1",
   "./src/calc/propertylife.js": "./src/calc/propertylife.js?v=3.169.1",
+  "./src/calc/receipts.js": "./src/calc/receipts.js?v=3.169.1",
   "./src/calc/received.js": "./src/calc/received.js?v=3.169.1",
   "./src/calc/recurring.js": "./src/calc/recurring.js?v=3.169.1",
   "./src/calc/rentcheck.js": "./src/calc/rentcheck.js?v=3.169.1",
@@ -1175,6 +1177,7 @@
   "./src/components/pricesheet.js": "./src/components/pricesheet.js?v=3.169.1",
   "./src/components/projections.js": "./src/components/projections.js?v=3.169.1",
   "./src/components/properties.js": "./src/components/properties.js?v=3.169.1",
+  "./src/components/receipts.js": "./src/components/receipts.js?v=3.169.1",
   "./src/components/received.js": "./src/components/received.js?v=3.169.1",
   "./src/components/recurring.js": "./src/components/recurring.js?v=3.169.1",
   "./src/components/reports.js": "./src/components/reports.js?v=3.169.1",
@@ -1204,6 +1207,7 @@
   "./src/lib/ledger-table.js": "./src/lib/ledger-table.js?v=3.169.1",
   "./src/lib/notifications.js": "./src/lib/notifications.js?v=3.169.1",
   "./src/lib/pdftext.js": "./src/lib/pdftext.js?v=3.169.1",
+  "./src/lib/receipts.js": "./src/lib/receipts.js?v=3.169.1",
   "./src/lib/reportcharts.js": "./src/lib/reportcharts.js?v=3.169.1",
   "./src/lib/safekeeping.js": "./src/lib/safekeeping.js?v=3.169.1",
   "./src/lib/scroll-shadow.js": "./src/lib/scroll-shadow.js?v=3.169.1",
@@ -1275,6 +1279,7 @@
 <link rel="modulepreload" href="./src/calc/pricesheet.js?v=3.169.1">
 <link rel="modulepreload" href="./src/calc/property.js?v=3.169.1">
 <link rel="modulepreload" href="./src/calc/propertylife.js?v=3.169.1">
+<link rel="modulepreload" href="./src/calc/receipts.js?v=3.169.1">
 <link rel="modulepreload" href="./src/calc/received.js?v=3.169.1">
 <link rel="modulepreload" href="./src/calc/recurring.js?v=3.169.1">
 <link rel="modulepreload" href="./src/calc/rentcheck.js?v=3.169.1">
@@ -1329,6 +1334,7 @@
 <link rel="modulepreload" href="./src/components/pricesheet.js?v=3.169.1">
 <link rel="modulepreload" href="./src/components/projections.js?v=3.169.1">
 <link rel="modulepreload" href="./src/components/properties.js?v=3.169.1">
+<link rel="modulepreload" href="./src/components/receipts.js?v=3.169.1">
 <link rel="modulepreload" href="./src/components/received.js?v=3.169.1">
 <link rel="modulepreload" href="./src/components/recurring.js?v=3.169.1">
 <link rel="modulepreload" href="./src/components/reports.js?v=3.169.1">
@@ -1358,6 +1364,7 @@
 <link rel="modulepreload" href="./src/lib/ledger-table.js?v=3.169.1">
 <link rel="modulepreload" href="./src/lib/notifications.js?v=3.169.1">
 <link rel="modulepreload" href="./src/lib/pdftext.js?v=3.169.1">
+<link rel="modulepreload" href="./src/lib/receipts.js?v=3.169.1">
 <link rel="modulepreload" href="./src/lib/reportcharts.js?v=3.169.1">
 <link rel="modulepreload" href="./src/lib/safekeeping.js?v=3.169.1">
 <link rel="modulepreload" href="./src/lib/scroll-shadow.js?v=3.169.1">

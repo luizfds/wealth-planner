@@ -3532,7 +3532,7 @@ dated in those days, refunds netted; driven against the demo, the card's figure 
 same dates.
 
 
-## 197. `[ ]` Feels like an app on a phone
+## 197. `[~]` Feels like an app on a phone
 Editing a row opens a centred modal, and lists have no swipe actions. Totals scroll away.
 
 Do: on a phone, row editors and pickers open as bottom sheets (drag to close). Rows get swipe actions (edit,

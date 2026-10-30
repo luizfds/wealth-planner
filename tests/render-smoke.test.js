@@ -897,8 +897,8 @@ test("super top-up: the room as a placeholder, and the sums", async function(){
     state.tax = Object.assign({}, keep || {}, { settings: { Sam: { topUpAmount: 0 } } });
     const html = topUpHtml("Sam", { capAvailable: 30000, totalConcessional: 18000, taxable: 150000, div293Income: 168000, fy: 2026 });
     assert.match(html, /placeholder="12000"/);
-    assert.match(html, /Contributing <b>\$12,000<\/b> and claiming it/);
-    assert.match(html, /lands in super after \$1,800 contributions tax/);
+    assert.match(html, /back at tax time · \$10,200 into super · costs you/, "12,000 less 15% contributions tax");
+    assert.match(html, /class="tax-topup-how help"/, "how it works sits behind the ⓘ");
     assert.match(topUpHtml("Sam", { capAvailable: 30000, totalConcessional: 30000, taxable: 1, fy: 2026 }), /class="tax-topup" hidden/);
   } finally { state.tax = keep; }
 });
@@ -1056,7 +1056,7 @@ test("Projections: Plan / Actuals control explains itself either way", async fun
   var on = projSourceHtml({ available: true, months: 4, incomeRatio: 0.96, spendRatio: 0.95, incomeLines: 1, spendLines: 1,
     incomeReceivedMonthly: 4800, spendLoggedMonthly: 950, incomePlannedMonthly: 5000, spendPlannedMonthly: 1000 }, "actuals");
   assert.match(on, /data-proj-source="actuals" aria-pressed="true"/);
-  assert.match(on, /income at 96% of plan \(1 line\), spending at 95% \(1 line plus one-offs\)\. That's −\$150 a month worse than the plan on those lines\. Only those lines move below/);
+  assert.match(on, /income 96% of plan, spending 95% — \$150\/mo worse\. Lines with nothing logged stay as planned/);
 });
 
 test("Home → Review: a first-time intro, then one step at a time with progress", async function(){

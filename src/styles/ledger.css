@@ -1527,3 +1527,6 @@
     details.ledger > summary > .ledger-title{ flex:1 0 auto; max-width:100%; }
     details.ledger > summary > .ledger-total{ margin-left:auto; text-align:right; }
   }
+
+  /* v3.158.0 (item 188): one month axis for the stack of small charts — on the first, not under every one. */
+  .trend-row ~ .trend-row .trend-bar-label{ display:none; }

@@ -23,14 +23,14 @@ export function projSourceHtml(a, source){
   } else {
     var diff = a.incomeDeltaMonthly != null ? (a.incomeDeltaMonthly - a.spendDeltaMonthly)
       : (a.incomeReceivedMonthly - a.spendLoggedMonthly) - (a.incomePlannedMonthly - a.spendPlannedMonthly);
-    note = "Over the last " + a.months + " months: income at " + fmtPercent1.format(a.incomeRatio) + " of plan (" + a.incomeLines + " line" + (a.incomeLines === 1 ? "" : "s") + "), spending at " +
-      fmtPercent1.format(a.spendRatio) + " (" + a.spendLines + " line" + (a.spendLines === 1 ? "" : "s") + " plus one-offs)." +
-      " That's " + (diff >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(diff)) + " a month " + (diff >= 0 ? "better" : "worse") + " than the plan on those lines." +
-      (useActuals ? " Only those lines move below; everything not logged stays as planned." : "");
+    // v3.158.0 (item 188): shorter; the line counts moved to the Actuals button's tooltip.
+    note = "Last " + a.months + " months: income " + fmtPercent1.format(a.incomeRatio) + " of plan, spending " + fmtPercent1.format(a.spendRatio) +
+      " — " + fmtCurrency0.format(Math.abs(diff)) + "/mo " + (diff >= 0 ? "better" : "worse") + "." +
+      (useActuals ? " Lines with nothing logged stay as planned." : "");
   }
   return '<div class="seg-control" role="group" aria-label="Based on">' +
       btn("plan", "Plan", "Every figure as planned under Cash flow.") +
-      btn("actuals", "Actuals", "The plan, corrected by what's really been received and spent lately on the lines that have any logged.", !a.available) +
+      btn("actuals", "Actuals", "The plan, corrected by what's really been received and spent lately on the lines that have any logged" + (a.available ? " (" + a.incomeLines + " income and " + a.spendLines + " spending lines, plus one-offs)." : "."), !a.available) +
     '</div><span class="proj-basis-note">' + escapeAttr(note) + '</span>';
 }
 
@@ -57,7 +57,14 @@ export function renderProjectionOutputs(){
   var bandIdx = state.scenarios.indexOf(bandScenario);
   var bands = bandIdx !== -1 ? projectionBands(bandScenario, horizon, { realTerms: realTerms, projection: state.projection }) : null;
   var spread = bands && bands.hi[horizon] && bands.hi[horizon].y - bands.lo[horizon].y > 1 ? bands : null;
-  var srcRow = document.getElementById("projSourceRow");
+  // v3.158.0: the folded assumptions' summary — what the chart below is assuming, at a glance.
+  var asm = document.getElementById("projAssumptionsLine");
+  if(asm){
+    var pr = state.projection, evs = (state.lifeEvents || []).length;
+    asm.textContent = horizon + " years · " + (Number(pr.investReturnRate) || 0) + "% return · " + (Number(pr.propertyAppreciationRate) || 0) + "% property · " +
+      (Number(pr.inflationRate) || 0) + "% inflation" + (Number(pr.rateShockPct) ? " · +" + pr.rateShockPct + "pp rates" : "") + (evs ? " · " + evs + " life event" + (evs === 1 ? "" : "s") : "");
+  }
+    var srcRow = document.getElementById("projSourceRow");
   if(srcRow) srcRow.innerHTML = projSourceHtml(actualRatios(), state.projection.source);
   var headlineEl = document.getElementById("projHeadline");
   if(headlineEl){
@@ -69,19 +76,20 @@ export function renderProjectionOutputs(){
     // Spelled out in the headline as well as on the control above it: this sentence is the one
     // line most people read, and "$6,379,600 at year 20" means two very different things
     // depending on which dollars it's in.
-    var basisWord = realTerms ? " in today's dollars" : " in future dollars";
+    var basisWord = realTerms ? " (today's dollars)" : " (future dollars)";
     if(finals.length > 1){
       var margin = finals[0].value - finals[1].value;
-      headlineEl.innerHTML = "In " + horizon + " " + yrWord + ", <b>" + escapeAttr(finals[0].label) + "</b> comes out ahead at <b>" +
-        fmtCurrency0.format(finals[0].value) + "</b>" + basisWord + " — " + fmtCurrency0.format(margin) + " more than " + escapeAttr(finals[1].label) + ".";
+      // v3.158.0 (item 188): the same facts in fewer words.
+      headlineEl.innerHTML = "In " + horizon + " " + yrWord + ", <b>" + escapeAttr(finals[0].label) + "</b> leads at <b>" +
+        fmtCurrency0.format(finals[0].value) + "</b>" + basisWord + ", " + fmtCurrency0.format(margin) + " ahead of " + escapeAttr(finals[1].label) + ".";
     } else if(finals.length === 1){
       headlineEl.innerHTML = "In " + horizon + " " + yrWord + ", <b>" + escapeAttr(finals[0].label) + "</b> reaches <b>" + fmtCurrency0.format(finals[0].value) + "</b>" + basisWord + ".";
     } else {
       headlineEl.innerHTML = "";
     }
     if(spread){
-      headlineEl.innerHTML += ' <span class="proj-range-line">With returns that rise and fall, 8 in 10 of ' + spread.runs + ' runs of ' + escapeAttr(bandScenario) + ' end between <b>' +
-        fmtCurrency0.format(spread.lo[horizon].y) + '</b> and <b>' + fmtCurrency0.format(spread.hi[horizon].y) + '</b> (the shading); half end above ' + fmtCurrency0.format(spread.mid[horizon].y) + '.</span>';
+      headlineEl.innerHTML += ' <span class="proj-range-line" title="' + spread.runs + ' runs of ' + escapeAttr(bandScenario) + ' with returns that rise and fall">8 in 10 runs end between <b>' +
+        fmtCurrency0.format(spread.lo[horizon].y) + '</b> and <b>' + fmtCurrency0.format(spread.hi[horizon].y) + '</b> (shaded); half above ' + fmtCurrency0.format(spread.mid[horizon].y) + '.</span>';
     }
   }
 

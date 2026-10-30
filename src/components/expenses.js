@@ -16,6 +16,7 @@ import { modernPlainRowHtml, modernRowSummaryHtml, modernRowEditHtml, modernRowS
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { parseCsv } from "../lib/backup.js";
 import { categoryLook, renameCategoryLook, CATEGORY_COLORS, CATEGORY_ICONS } from "../calc/categorylook.js";
+import { FLEX_KINDS, FLEX_LABELS, flexKindOf, flexMonth, flexTotals } from "../calc/flexbudget.js";
 import { categoryIconHtml, categoryColorClass, iconSvg } from "../lib/caticons.js";
 
 // Which axis the Budget list is grouped by, and the value a given line sits under on it. The two
@@ -27,7 +28,10 @@ import { categoryIconHtml, categoryColorClass, iconSvg } from "../lib/caticons.j
 // toggle (see loggableGroups) — a dropdown grouped Needs/Wants is two headings over forty
 // options, which is the scrolling problem the grouping was meant to solve.
 function budgetGroupKeyOf(item, axis){
-  return (axis || state.budgetGroupBy) === "category"
+  axis = axis || state.budgetGroupBy;
+  // v3.164.0 (item 194): the flexible view — Fixed bills / Flexible / Non-monthly (calc/flexbudget.js).
+  if(axis === "flex") return flexKindOf(item);
+  return axis === "category"
     ? ((item.category || "").trim() || UNCATEGORISED)
     : (item.classification || "N/A");
 }
@@ -36,6 +40,9 @@ function budgetGroupKeyOf(item, axis){
 // into them. The charts sort by size instead, because a chart is read, not edited.
 function sharedGroupOrder(axis){
   var lineItems = allBudgetLines().map(function(line){ return line.item; });
+  if((axis || state.budgetGroupBy) === "flex"){
+    return FLEX_KINDS.filter(function(k){ return lineItems.some(function(item){ return flexKindOf(item) === k; }); });
+  }
   if((axis || state.budgetGroupBy) !== "category"){
     return CLASSES.filter(function(cls){
       return lineItems.some(function(item){ return (item.classification || "N/A") === cls; });
@@ -289,7 +296,7 @@ function classificationSwatchClass(cls){
 }
 
 // v3.105.0: "N/A" is the stored value, not a heading — it reads as missing data. "Other", as in Your month, planned.
-function groupLabel(key){ return key === "N/A" ? "Other" : key; }
+function groupLabel(key){ return FLEX_LABELS[key] || (key === "N/A" ? "Other" : key); }
 
 function sharedCompositionBarHtml(groups){
   // A $0 group has no slice and no business in the legend.
@@ -429,7 +436,9 @@ export function renderSharedGroups(){
   // One bar, and it always splits the money the same way the cards below it do. This is what the
   // toggle really buys: the alternative was showing both splits at once, and two stacked
   // percentage-labelled bars compete for a single glance instead of answering one question each.
-  var compositionHtml = byCategory
+  var byFlex = state.budgetGroupBy === "flex";
+  var compositionHtml = byFlex ? flexSummaryHtml()
+    : byCategory
     ? categoryChartHtml(groups.map(function(g){ return { key: g.key, monthly: g.monthly }; }), "/mo")
     : sharedCompositionBarHtml(groups);
   // "+ Add expense" on a card presets whichever group it sits under, on whichever axis is showing
@@ -437,13 +446,14 @@ export function renderSharedGroups(){
   // nothing, since it isn't a category you can put something into.
   var addPrefix = byCategory ? "sharedcat:" : "shared:";
   container.innerHTML = compositionHtml + '<div class="m-people">' + groups.map(function(g, gi){
-    var initial = (g.key === "N/A" || g.key === UNCATEGORISED) ? "–" : g.key.charAt(0);
+    var initial = (g.key === "N/A" || g.key === UNCATEGORISED) ? "–" : groupLabel(g.key).charAt(0);
     // Category avatars take the same cycling palette as the chart, so a card and its slice are
     // the same colour; classification keeps its fixed named swatches.
-    var avatarClass = byCategory
+    var avatarClass = byFlex ? "m-avatar-" + ({ fixed: "needs", flex: "wants", nonmonthly: "savings" }[g.key])
+      : byCategory
       ? (g.key === UNCATEGORISED ? "m-avatar-neutral" : "m-avatar-series series-color-" + (gi % 8))
       : "m-avatar-" + classificationSwatchClass(g.key);
-    var addValue = (byCategory && g.key === UNCATEGORISED) ? "shared" : addPrefix + g.key;
+    var addValue = byFlex || (byCategory && g.key === UNCATEGORISED) ? "shared" : addPrefix + g.key;
     // Collapsed by default (see migrateState). A 37-line budget is 4,023px of rows on a 390px
     // screen — you cannot reach Groceries without scrolling past thirty other things. Collapsed,
     // the same budget is seven headers that each still state their own monthly total, so the shape
@@ -1111,7 +1121,7 @@ export function renderQuickLogSheet(){
 export var transactionsShowAll = false;
 // Persisted rather than session-only (see state.js) — so this both writes and re-renders.
 export function setBudgetGroupBy(value){
-  state.budgetGroupBy = value === "category" ? "category" : "type";
+  state.budgetGroupBy = value === "category" || value === "flex" ? value : "type";
   renderSharedGroups();
   renderBudgetGroupByToggle();
   persist();
@@ -1129,16 +1139,17 @@ export function renderBudgetGroupByToggle(){
   // Hidden until there's a second way to slice the money: with no categories defined, "Group by"
   // offers a choice between one real grouping and a single "Uncategorised" pile.
   var anyCategorised = state.shared.some(function(item){ return (item.category || "").trim(); });
+  var flexAvailable = allBudgetLines().length > 0;
   // Expand/Collapse all applies whether or not there's a second axis to group by, so this row is
   // shown whenever there is more than one card to act on — the Group-by half is what's conditional,
   // not the row itself.
   var groupCount = computeSharedGroups().length;
-  el.hidden = !anyCategorised && groupCount < 2;
+  el.hidden = !anyCategorised && !flexAvailable;
   if(el.hidden) return;
-  el.innerHTML = (anyCategorised
+  el.innerHTML = (anyCategorised || groupCount > 0
     ? '<span class="groupby-label">Group by</span>' +
-      [["type", "Type"], ["category", "Category"]].map(function(pair){
-        var on = (state.budgetGroupBy === "category" ? "category" : "type") === pair[0];
+      (anyCategorised ? [["type", "Type"], ["category", "Category"], ["flex", "Flexible"]] : [["type", "Type"], ["flex", "Flexible"]]).map(function(pair){
+        var on = (state.budgetGroupBy === "category" || state.budgetGroupBy === "flex" ? state.budgetGroupBy : "type") === pair[0];
         return '<button type="button" class="groupby-option' + (on ? " is-selected" : "") + '"' +
           ' data-budget-groupby="' + pair[0] + '" aria-pressed="' + (on ? "true" : "false") + '">' + pair[1] + '</button>';
       }).join("")
@@ -1931,6 +1942,33 @@ export function categoryTotals(items, valueFor){
 // percentages, compete for the same glance and neither wins. What's genuinely new there is the
 // number ("Car $250/mo" across four separate lines), not another bar, so Budget gets the totals
 // and Spending — where "where did it actually go" is the whole question — gets the full chart.
+// v3.164.0 (item 194): the flexible view's head — the three totals (the same money the cards add up
+// to), and the one number to steer by: what's left of the flexible amount this month, category by
+// category, each able to roll what it doesn't spend into next month.
+export function flexSummaryHtml(){
+  var scenario = state.activeScenario;
+  var lines = allBudgetLines().map(function(l){ return { item: l.item, monthly: sumFieldForScenario([l.item], scenario, "monthly") }; });
+  if(!lines.length) return "";
+  var t = flexTotals(lines);
+  var ym = selectedMonth();
+  var m = flexMonth(lines, state.transactions, ym, { categoryOf: transactionCategory, rollover: state.rollover || {} });
+  var cell = function(k){ return '<div class="flex-tot flex-' + k + '"><span>' + FLEX_LABELS[k] + '</span><b>' + fmtCurrency0.format(t[k]) + '</b><small>/mo</small></div>'; };
+  var rows = m.byCategory.map(function(c){
+    // Over by less than 50 cents reads "$0 over" — that's on budget.
+    var over = c.left < -0.5;
+    return '<div class="flex-cat">' + categoryIconHtml(c.category === "Other" ? "" : c.category, { small: true }) +
+      '<div class="flex-cat-main"><span class="flex-cat-name">' + escapeAttr(c.category) + '</span>' +
+        '<small>' + fmtCurrency0.format(c.spent) + ' of ' + fmtCurrency0.format(c.planned) + (c.rolled ? ' ' + (c.rolled > 0 ? '+ ' : '− ') + fmtCurrency0.format(Math.abs(c.rolled)) + ' rolled over' : '') + '</small>' +
+        '<label class="flex-roll" title="Carry what this category doesn\'t spend (or overspends) into next month"><input type="checkbox" data-rollover="' + escapeAttr(c.category) + '"' + (c.rollover ? ' checked' : '') + '> Roll over</label></div>' +
+      '<span class="flex-cat-fig' + (over ? ' over' : '') + '">' + (over ? '▲\u00a0' + fmtCurrency0.format(-c.left) + ' over' : fmtCurrency0.format(Math.max(0, c.left)) + ' left') + '</span></div>';
+  }).join("");
+  return '<div class="flex-summary">' +
+    '<div class="flex-tots">' + cell("fixed") + cell("flex") + cell("nonmonthly") + '</div>' +
+    '<div class="flex-left"><span>Flexible ' + escapeAttr(monthPhrase(ym)) + '</span><b class="' + (m.left < -0.5 ? "over" : "") + '">' +
+      (m.left < -0.5 ? '<span aria-hidden="true">▲ </span>' + fmtCurrency0.format(-m.left) + ' over' : fmtCurrency0.format(Math.max(0, m.left)) + ' left') + '</b>' +
+      '<small>' + fmtCurrency0.format(m.spent) + ' spent of ' + fmtCurrency0.format(m.planned) + (m.rolled ? ', ' + (m.rolled > 0 ? '+' : '−') + fmtCurrency0.format(Math.abs(m.rolled)) + ' rolled over' : '') + '</small></div>' +
+    (rows ? '<div class="flex-cats">' + rows + '</div>' : '') + '</div>';
+}
 export function categoryChartHtml(groups, unit, opts){
   opts = opts || {};
   if(groups.length < 2) return "";

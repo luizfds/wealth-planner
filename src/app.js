@@ -136,7 +136,7 @@ import { rentCheck } from "./calc/rentcheck.js";
 import { exportTableCsv } from "./lib/backup.js";
 import { yearEndPrintHtml, yearEndDocumentsCsv } from "./components/yearend.js";
 import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodButton, renderPeriodMenu } from "./components/period.js";
-import { selectedYearWindow, yearStartOf, householdYearBasis } from "./calc/ledger.js";
+import { selectedYearWindow, yearStartOf, householdYearBasis, selectedMonth } from "./calc/ledger.js";
 import { applyParts, renderPartsSettings, setPart } from "./components/parts.js";
 import { txReview, txReviewHtml, reviewBannerHtml } from "./components/reviewqueue.js";
 import { toReview, keepTransaction, refileTransaction, applyRuleFromReview, keepAll, ruleOfferFor } from "./calc/reviewqueue.js";
@@ -335,6 +335,8 @@ import { inboxMessage } from "./calc/inbox.js";
     // Not structural: category is a reporting dimension, so it changes both by-category charts
     // but never which card this row sits in — no need to rebuild the list around it.
     else if(e.target.classList.contains("f-category")){ item.category = e.target.value; }
+    // v3.164.0 (item 194): which part of the flexible view a line counts in — blank is the app's guess.
+    else if(e.target.classList.contains("f-flexkind")){ if(e.target.value) item.flexKind = e.target.value; else delete item.flexKind; if(state.budgetGroupBy === "flex") structural = true; }
     else if(e.target.classList.contains("f-freq")){
       item.freq = e.target.value;
       // Income only: which pay-schedule field the row offers is chosen by the frequency (a weekday
@@ -4778,6 +4780,15 @@ import { inboxMessage } from "./calc/inbox.js";
   onHorizontalSwipe(document.getElementById("page-assets"), {
     onSwipeLeft: function(){ stepAssetsSubpage(1); },
     onSwipeRight: function(){ stepAssetsSubpage(-1); }
+  });
+  // v3.164.0 (item 194): a flexible category rolls what it doesn't spend into next month, from this month on.
+  document.addEventListener("change", function(e){
+    var cb = e.target.closest && e.target.closest("[data-rollover]");
+    if(!cb) return;
+    if(!state.rollover) state.rollover = {};
+    var cat = cb.getAttribute("data-rollover");
+    if(cb.checked) state.rollover[cat] = selectedMonth(); else delete state.rollover[cat];
+    renderSharedGroups(); persist();
   });
   document.getElementById("budgetGroupBy").addEventListener("click", function(e){
     var groupByBtn = e.target.closest("[data-budget-groupby]");

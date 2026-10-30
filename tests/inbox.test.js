@@ -5,6 +5,7 @@ import { isStatementName, statementFiles, inboxMessage } from "../src/calc/inbox
 test("only CSV and PDF files count as statements, not hidden or partial ones", () => {
   assert.equal(isStatementName("October.csv"), true);
   assert.equal(isStatementName("card statement.PDF"), true);
+  assert.equal(isStatementName("October.ofx"), true); assert.equal(isStatementName("card.QFX"), true); assert.equal(isStatementName("old.qif"), true);
   assert.equal(isStatementName(".October.csv"), false);
   assert.equal(isStatementName("~$sheet.csv"), false);
   assert.equal(isStatementName("notes.txt"), false);

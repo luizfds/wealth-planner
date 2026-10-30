@@ -401,3 +401,74 @@ export function bankImportSummary(parsed){
     dateOrder: parsed.dateOrder
   };
 }
+
+// ---------------- OFX, QFX and QIF (v3.169.0, item 199) ----------------
+// Many banks offer these beside (or instead of) CSV — "Quicken", "Money", "MYOB" or "OFX" on the
+// export screen. Each is read into the same CSV this file already understands (Date, Description,
+// Debit, Credit), so it goes through the same review, rules and duplicate check — nothing below
+// decides anything a CSV wouldn't. Pure.
+//
+// OFX 1.x is SGML (leaf tags never closed: <TRNAMT>-84.50 then a newline), 2.x is XML (closed). QFX is
+// OFX with Intuit's extra tags. Bank and card statements alike list <STMTTRN> blocks; reading each
+// tag's value up to the next "<" or line end handles both dialects with one rule. Dates are
+// YYYYMMDD[hhmmss[.xxx]][tz] — no ordering question. The amount is signed (negative = money out).
+export function statementFormat(text, fileName){
+  var head = String(text || "").slice(0, 2000);
+  if(/\.(ofx|qfx)$/i.test(fileName || "") || /OFXHEADER\s*:|<\?OFX|<OFX>/i.test(head)) return "ofx";
+  if(/\.qif$/i.test(fileName || "") || /^\s*!(Type|Account|Option)/im.test(head)) return "qif";
+  return "csv";
+}
+function ofxTag(block, tag){
+  var m = new RegExp("<" + tag + ">\\s*([^<\\r\\n]*)", "i").exec(block);
+  return m ? m[1].trim() : "";
+}
+function decodeEntities(s){
+  return String(s || "").replace(/&amp;/gi, "&").replace(/&lt;/gi, "<").replace(/&gt;/gi, ">").replace(/&quot;/gi, '"').replace(/&apos;|&#39;/gi, "'").replace(/&nbsp;/gi, " ");
+}
+// -> [{ date: "YYYY-MM-DD", description, amount (signed), id }]
+export function parseOfx(text){
+  var out = [];
+  var re = /<STMTTRN>([\s\S]*?)(?=<\/STMTTRN>|<STMTTRN>|<\/BANKTRANLIST>)/gi, m;
+  while((m = re.exec(String(text || "")))){
+    var b = m[1];
+    var d = /^(\d{4})(\d{2})(\d{2})/.exec(ofxTag(b, "DTPOSTED") || ofxTag(b, "DTUSER"));
+    var amount = parseBankAmount(ofxTag(b, "TRNAMT").replace(/,(\d{2})$/, ".$1"));
+    if(!d || amount == null) continue;
+    var name = decodeEntities(ofxTag(b, "NAME")), memo = decodeEntities(ofxTag(b, "MEMO"));
+    // The name is often cut at 32 characters with the rest in the memo; say both unless one holds the other.
+    var description = !memo ? name : !name ? memo : memo.toLowerCase().indexOf(name.toLowerCase()) !== -1 ? memo : name.toLowerCase().indexOf(memo.toLowerCase()) !== -1 ? name : name + " " + memo;
+    out.push({ date: d[1] + "-" + d[2] + "-" + d[3], description: description.replace(/\s+/g, " ").trim(), amount: amount, id: ofxTag(b, "FITID") });
+  }
+  return out;
+}
+// QIF: one field per line, a letter then the value — D date, T (or U) amount, P payee, M memo — and
+// "^" ends a record. Dates are whatever the bank wrote ("03/10/2026", "3/10'26", "10/ 3/26"), left as
+// written apart from the apostrophe year and stray spaces, so the CSV path's DD/MM-unless-proven
+// reading decides — the same as a CSV from the same bank. -> [{ date (as written), description, amount }]
+export function parseQif(text){
+  var out = [], cur = {};
+  String(text || "").split(/\r?\n/).forEach(function(line){
+    if(!line.trim() || line.charAt(0) === "!") return;
+    var k = line.charAt(0), v = line.slice(1).trim();
+    if(k === "^"){
+      if(cur.date && cur.amount != null) out.push({ date: cur.date, description: [cur.payee, cur.memo && cur.memo !== cur.payee ? cur.memo : ""].filter(Boolean).join(" "), amount: cur.amount });
+      cur = {};
+      return;
+    }
+    if(k === "D") cur.date = v.replace(/\s+/g, "").replace(/'\s*(\d{1,2})$/, "/20$1").replace(/'(\d{4})$/, "/$1");
+    else if((k === "T" || k === "U") && cur.amount == null) cur.amount = parseBankAmount(v);
+    else if(k === "P") cur.payee = v;
+    else if(k === "M") cur.memo = v;
+  });
+  return out;
+}
+// The CSV a statement in any of these formats reads as — or null for a CSV, which needs nothing.
+export function statementTextToCsv(text, fileName){
+  var fmt = statementFormat(text, fileName);
+  if(fmt === "csv") return null;
+  var rows = fmt === "ofx" ? parseOfx(text) : parseQif(text);
+  function q(s){ s = String(s == null ? "" : s); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+  return "Date,Description,Debit,Credit\n" + rows.map(function(r){
+    return [r.date, q(r.description), r.amount < 0 ? Math.abs(r.amount).toFixed(2) : "", r.amount > 0 ? r.amount.toFixed(2) : ""].join(",");
+  }).join("\n") + "\n";
+}

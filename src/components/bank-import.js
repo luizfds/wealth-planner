@@ -7,7 +7,7 @@
 // DOM event *registration* still lives in app.js, same as every other component here.
 import { state, persist } from "../state.js";
 import { parseCsv } from "../lib/backup.js";
-import { parseBankCsv, bankImportSummary, parseDiagnosis } from "../calc/bank-import.js";
+import { parseBankCsv, bankImportSummary, parseDiagnosis, statementTextToCsv } from "../calc/bank-import.js";
 import { cleanMerchantName } from "../calc/merchantbook.js";
 import { transactionDisplayName } from "../calc/ledger.js";
 import { applySuggestions, learnRule, coverageOf, merchantKey, proposedLineFor, suggestedLineName, pruneRules, detectTransfer, closingBalance } from "../calc/import-rules.js";
@@ -63,7 +63,9 @@ function groupRows(rows){
 
 // ---------------- Entry ----------------
 export function startBankImport(text, fileName){
-  var rows = parseCsv(text);
+  // v3.169.0: an OFX, QFX or QIF statement is read into the CSV the rest of this already understands.
+  var asCsv = statementTextToCsv(text, fileName);
+  var rows = parseCsv(asCsv != null ? asCsv : text);
   var parsed = parseBankCsv(rows, { existing: state.transactions, account: guessStatementAccount(fileName) });
   // Held here rather than handed back in by the caller: reparseBankImportWith() depends on it, and
   // a caller that forgot the second call would leave the date-order control silently doing nothing.
@@ -395,7 +397,27 @@ export function bankImportHelpHtml(){
       '<li><b>Dates</b> are read as DD/MM unless the file proves otherwise. The next screen says which way it read them and lets you flip it.</li>' +
       '<li><b>Amounts</b> can be <code>$1,234.56</code>, <code>(1,234.56)</code> or <code>-1234.56</code>.</li>' +
       '<li><b>Re-importing</b> an overlapping range is expected — anything already logged is detected and skipped.</li>' +
+      '<li><b>Other formats</b> — <b>OFX</b>, <b>QFX</b> and <b>QIF</b> (offered for Quicken, MYOB or Money) read the same way, and so does a <b>PDF</b> statement.</li>' +
     '</ul>' +
+  '</details>' + exportStepsHtml();
+}
+// v3.169.0 (item 199): where the export button is. Written for anyone — no account details — and in
+// "usually" terms, since banks rename their menus; the formats are what each says it offers. Exports
+// live in web banking far more often than in the apps, which is the first thing worth knowing.
+export var EXPORT_STEPS = [
+  { bank: "CommBank", where: "NetBank on a computer → the account → its transactions → Export.", formats: "CSV, OFX, QIF" },
+  { bank: "NAB", where: "Internet Banking → the account → Transaction history → Export.", formats: "CSV, QIF" },
+  { bank: "ANZ", where: "Internet Banking on a computer → the account → transactions → Download. (The ANZ Plus app gives PDF statements.)", formats: "CSV and accounting-software formats" },
+  { bank: "Westpac", where: "Online Banking → Overview → Exports and reports → Export CSV, QBO, QIF, OFX file.", formats: "CSV, OFX, QIF" },
+  { bank: "Other banks, credit unions and card issuers", where: "Web banking rather than the app: open the account's transactions and look for Export or Download. If there's only a PDF statement, use that.", formats: "usually CSV; often OFX or QIF" }
+];
+export function exportStepsHtml(){
+  return '<details class="bank-import-help bank-import-where">' +
+    '<summary>Where\'s the export?</summary>' +
+    '<p>Pick the longest date range it allows (two years is common), then choose CSV — or OFX, if it\'s offered: OFX says which way each amount went, so nothing is left to guess. Menu names change from time to time, so look for the nearest match.</p>' +
+    '<dl class="bank-export-steps">' + EXPORT_STEPS.map(function(b){
+      return '<div><dt>' + escapeAttr(b.bank) + ' <span>' + escapeAttr(b.formats) + '</span></dt><dd>' + escapeAttr(b.where) + '</dd></div>';
+    }).join("") + '</dl>' +
   '</details>';
 }
 

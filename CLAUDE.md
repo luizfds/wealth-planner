@@ -62,6 +62,8 @@ the last, so two sessions can't pick up the same one.
   text) can be saved as `state.txViews` (`calc/txviews.js`; synced, in the backup) and come back as chips. A filter with its
   own dates replaces the header's period. Any button with `data-sv` and `data-sv-<filter>` attributes opens Spending
   filtered — a budget line's drill-down, a Categories report row, Your week, a notice with `go.filter`.
+- **Statement formats (v3.169.0):** besides CSV and PDF, `calc/bank-import.js` reads OFX/QFX (SGML and XML) and QIF into the
+  same CSV (`statementTextToCsv`), so every import goes through one review, rule and duplicate path.
 - `styles.css` — just eight `@import` statements pulling in `src/styles/{base,shell,dashboard,
   ledger,income,properties,assets,projections}.css`, in that specific order. Light/dark theming is
   CSS custom properties + `prefers-color-scheme`, defined in `base.css`.

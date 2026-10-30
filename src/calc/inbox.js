@@ -10,11 +10,11 @@
 export var INBOX_DIR = "Statements";
 export var DONE_DIR = "Imported";
 
-// A statement the importer can read: a CSV or a PDF, not a hidden or partial file.
+// A statement the importer can read: a CSV, a PDF, or (v3.169.0) an OFX, QFX or QIF — not a hidden or partial file.
 export function isStatementName(name){
   name = String(name || "");
   if(!name || name.charAt(0) === "." || name.charAt(0) === "~") return false;
-  return /\.(csv|pdf)$/i.test(name);
+  return /\.(csv|pdf|ofx|qfx|qif)$/i.test(name);
 }
 
 // entries: [{ name, modified, size, … }] → the statements, oldest first (the order they happened in,

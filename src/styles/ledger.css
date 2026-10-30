@@ -932,6 +932,11 @@
     background: var(--paper-sunken); padding:1px 5px; border-radius:4px;
   }
   .bank-import-skipped > summary{ color: var(--ink-soft); }
+  /* v3.169.0: where each bank keeps its export. */
+  .bank-export-steps{ margin:8px 0 0; display:flex; flex-direction:column; gap:8px; }
+  .bank-export-steps dt{ font-weight:600; color: var(--ink); }
+  .bank-export-steps dt span{ font-weight:400; color: var(--ink-soft); margin-left:4px; }
+  .bank-export-steps dd{ margin:2px 0 0; line-height:1.55; }
   /* v3.142.0: statements waiting in the Statements folder. */
   #bankInboxNote[hidden]{ display:none; }
   .bank-inbox{ margin:10px 0 12px; padding:10px 12px; border-radius:10px; background: var(--paper-raised); border:1px solid var(--border); font-size:var(--fs-sm); }

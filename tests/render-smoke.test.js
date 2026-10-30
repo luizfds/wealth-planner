@@ -1671,3 +1671,12 @@ test("viewsBarHtml and the filter panel draw saved views, the new filters and th
   cf.txFilterPanel.open = false; cf.resetTxFilters();
   state.txViews = was; state.trips = wasTrips;
 });
+
+test("the bank import help names OFX, QFX and QIF and says where each bank keeps its export", async function(){
+  var { bankImportHelpHtml, EXPORT_STEPS } = await import("../src/components/bank-import.js");
+  var html = bankImportHelpHtml();
+  assert.match(html, /OFX<\/b>, <b>QFX<\/b> and <b>QIF/);
+  assert.match(html, /Where's the export\?/);
+  EXPORT_STEPS.forEach(function(b){ assert.ok(html.indexOf(b.bank.replace(/&/g, "&amp;")) !== -1, b.bank); });
+  assert.doesNotMatch(html, /undefined|NaN/);
+});

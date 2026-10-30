@@ -51,6 +51,8 @@ the last, so two sessions can't pick up the same one.
   Something new about a property or shares gets a `data-part` or a `part`. The smoke script also runs an empty household.
 - **Home you arrange (v3.165.0):** Home's cards and figure tiles carry `data-home-card`; `lib/homelayout.js` reorders and
   hides them and moves pinned Insights panels into `#homePinned`, per device in localStorage. A new Home card gets a key there.
+- **Your week (v3.166.0):** `calc/weekrecap.js` — from Monday, a card about last Monday–Sunday; dismissing it writes
+  `state.weekRecaps[monday]`, which syncs. Spent is Spending's rows for those days, refunds netted.
 - `styles.css` — just eight `@import` statements pulling in `src/styles/{base,shell,dashboard,
   ledger,income,properties,assets,projections}.css`, in that specific order. Light/dark theming is
   CSS custom properties + `prefers-color-scheme`, defined in `base.css`.

@@ -1630,3 +1630,18 @@ test("Budget grouped Flexible: three totals, what's left, a Roll over per catego
     assert.match(html, / left<\/b>/);
   } finally { state.shared = keep.shared; state.transactions = keep.transactions; state.rollover = keep.rollover; }
 });
+
+test("weekCardHtml draws the week, its biggest three, bills and the notice", async function(){
+  var { weekCardHtml } = await import("../src/components/home.js");
+  var html = weekCardHtml("2026-10-28", { start: "2026-10-19", end: "2026-10-25", back: 0, spent: 386.5, count: 4, usual: 250, vsUsual: 136.5,
+    biggest: [{ date: "2026-10-25", amount: 310, what: "Peak Fitness" }], bills: [{ what: "Power", due: "2026-10-29", days: 1, amount: 120 }], billsTotal: 120,
+    toReview: 2, notice: { title: "Something to look at", go: { page: "plan" } } });
+  assert.match(html, /data-home-card="week"/);
+  assert.match(html, /\$387/);
+  assert.match(html, /\$137 more than your usual week/);
+  assert.match(html, /Peak Fitness/);
+  assert.match(html, /Power/);
+  assert.match(html, /Review 2 new transactions/);
+  assert.match(html, /Something to look at/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+});

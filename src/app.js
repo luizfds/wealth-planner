@@ -82,7 +82,8 @@ import { txFilters, txSelect, transferForm, splitEditing, resetTxFilters, setTxG
 import { rulesPageHtml, setRuleField, ruleIsEmpty, ruleTest, ruleView, RULES_PAGE } from "./components/rules.js";
 import { normaliseDescription } from "./calc/bank-import.js";
 import { openAccounts, balanceEditing } from "./components/accounts.js";
-import { renderHomeSummary } from "./components/home.js";
+import { renderHomeSummary, weekView } from "./components/home.js";
+import { dismissWeekRecap } from "./calc/weekrecap.js";
 import { dataHealthChecks, dismissCheck } from "./calc/health.js";
 import { applyFirstRun, shouldOfferFirstRun } from "./calc/firstrun.js";
 import { normaliseTrip, applyTripRefile } from "./calc/trips.js";
@@ -6075,6 +6076,21 @@ import { inboxMessage } from "./calc/inbox.js";
   // ---------------- Home (v3.58.0): the summary's links and to-dos ----------------
   document.getElementById("homeSummary").addEventListener("click", function(e){
     if(e.target.closest("[data-goal-go]")){ showPage("accounts"); return; }
+    // v3.166.0: Your week — step back through the last four, or put this week's away (synced).
+    var step = e.target.closest("[data-wk-step]");
+    if(step){
+      weekView.back = Math.max(0, weekView.back + Number(step.getAttribute("data-wk-step")));
+      renderHomeSummary();
+      var again = document.querySelector('#homeSummary [data-wk-step="' + step.getAttribute("data-wk-step") + '"]:not([disabled]), #homeSummary [data-wk-step]:not([disabled])');
+      if(again) again.focus();
+      return;
+    }
+    if(e.target.closest("[data-wk-dismiss]")){
+      dismissWeekRecap(state, localDateStr()); weekView.back = 0; persist();
+      renderHomeSummary(); renderNotifBadge();
+      showToast("Put away until next Monday");
+      return;
+    }
     var b = e.target.closest("[data-home-go]");
     if(!b) return;
     var go = b.getAttribute("data-home-go"), sub = b.getAttribute("data-home-sub"), fy = b.getAttribute("data-home-fy");

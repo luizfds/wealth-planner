@@ -21,7 +21,7 @@ test("a saved order keeps its order, drops what's unknown and repeated, and adds
 
 test("moving a card swaps it with its neighbour in its own group, and stops at the ends", function(){
   var l = moveCard(normaliseLayout({}), "month", -1);
-  assert.deepEqual(l.order.slice(0, 2), ["month", "nw"]);
+  assert.ok(l.order.indexOf("month") < l.order.indexOf("nw"));
   assert.deepEqual(moveCard(l, "month", -1).order, l.order);
   // The first figure moving up doesn't jump into the cards.
   var f = moveCard(normaliseLayout({}), "savings", -1);
@@ -35,4 +35,5 @@ test("the sheet lists every card, figure and Insights panel", function(){
   HOME_CARDS.forEach(function(c){ assert.ok(html.indexOf('data-ha-show="' + c.key + '"') !== -1, c.key); });
   INSIGHT_PANELS.forEach(function(p){ assert.ok(html.indexOf('data-ha-pin="' + p.id + '"') !== -1, p.id); });
   assert.ok(html.indexOf('data-ha-move="goals"') === -1);
+  assert.ok(html.indexOf('data-ha-move="week"') === -1);
 });

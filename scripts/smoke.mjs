@@ -6,6 +6,7 @@
 //   - the page scrolling sideways
 //   - NaN / undefined / [object Object] / Infinity in the rendered text
 //   - a %-width bar that measures 0 inside a parent that doesn't (the account bars never drew)
+//   - on a phone, a control smaller than 44px each way (v3.167.0)
 //
 // Run: npm i --no-save playwright && npx playwright install chromium && node scripts/smoke.mjs
 // Not part of `npm test` on purpose — the suite stays dependency-free; CI runs this beside it.
@@ -81,12 +82,35 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
         const bad = ["NaN", "undefined", "[object Object]", "Infinity"].filter(t => text.includes(t));
         const zeroBars = [...pageEl.querySelectorAll('[style*="width:"]')].filter(e => e.style.width.endsWith("%") && parseFloat(e.style.width) > 0.5 &&
           e.getBoundingClientRect().width === 0 && e.parentElement.getBoundingClientRect().width > 0 && e.offsetParent !== null).map(e => e.className);
-        return { overflow: document.documentElement.scrollWidth > w ? document.documentElement.scrollWidth : 0, textLen: text.trim().length, bad, zeroBars };
+        // v3.167.0 (item 197): on a phone, every control is at least 44px each way — its own box, or the
+        // invisible ::before catch area the phone CSS gives a small mark. Inline links in a sentence are
+        // exempt (WCAG 2.5.8), and so is anything inside a closed row's editor (not on screen).
+        const small = [];
+        if(w < 880){
+          const roots = [pageEl, document.querySelector(".app-topbar"), document.querySelector(".mobile-tabbar, .mobile-tabs")].filter(Boolean);
+          roots.forEach(root => root.querySelectorAll('button, a[href], input:not([type=hidden]), select, textarea, summary, [role=button], [tabindex="0"]').forEach(el => {
+            let t = el;
+            if(el.matches("input[type=checkbox], input[type=radio]")){ const l = el.closest("label"); if(l) t = l; }
+            const r = t.getBoundingClientRect();
+            if(!r.width || !r.height || t.closest("[hidden]") || getComputedStyle(t).visibility === "hidden") return;
+            const cs = getComputedStyle(t), par = t.parentElement;
+            if(cs.display === "inline" && par && /^(P|LI|SPAN|SMALL|EM)$/.test(par.tagName) && par.textContent.trim().length > t.textContent.trim().length + 12) return;
+            let h = r.height, wd = r.width;
+            const pb = getComputedStyle(t, "::before");
+            if(pb.content !== "none" && pb.position === "absolute"){
+              h = Math.max(h, r.height - parseFloat(pb.top) - parseFloat(pb.bottom) || 0);
+              wd = Math.max(wd, r.width - parseFloat(pb.left) - parseFloat(pb.right) || 0);
+            }
+            if(h < 43.5 || wd < 43.5) small.push((t.className && typeof t.className === "string" ? t.tagName.toLowerCase() + "." + t.className.trim().split(/\s+/)[0] : t.tagName.toLowerCase()) + " " + Math.round(wd) + "×" + Math.round(h));
+          }));
+        }
+        return { overflow: document.documentElement.scrollWidth > w ? document.documentElement.scrollWidth : 0, textLen: text.trim().length, bad, zeroBars, small };
       }, width);
       if(r.textLen < 40) failures.push(where + ": page rendered almost nothing (" + r.textLen + " chars)");
       if(r.overflow) failures.push(where + ": scrolls sideways (" + r.overflow + "px wide)");
       if(r.bad.length) failures.push(where + ": text shows " + r.bad.join(", "));
       if(r.zeroBars.length) failures.push(where + ": bars that don't draw: " + [...new Set(r.zeroBars)].join(", "));
+      if(r.small.length) failures.push(where + ": tap targets under 44px: " + [...new Set(r.small)].slice(0, 6).join(", ") + (r.small.length > 6 ? " (" + r.small.length + " in all)" : ""));
       errors.splice(0).forEach(e => failures.push(where + ": " + e));
       if(SHOTS){
         await page.evaluate(() => document.querySelectorAll("#toastWrap .toast").forEach(t => t.remove()));

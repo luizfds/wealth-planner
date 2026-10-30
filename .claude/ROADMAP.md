@@ -3306,7 +3306,7 @@ an in-sentence link), and nothing shows the browser's default button. `tests/but
 isn't `.btn-danger`.
 
 
-## 187. `[ ]` Colour and an icon for each category
+## 187. `[~]` Colour and an icon for each category
 Every competitor makes a list readable at a glance with a category colour and icon on each row. Here, a
 transaction row, a budget line and a chart segment for the same category share nothing.
 

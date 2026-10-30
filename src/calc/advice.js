@@ -4,7 +4,7 @@ import { ipProperties, personIpResultAnnual, loanRateOn, loanPaidOut, calcRepaym
 import { canBuyAll } from "./canbuy.js";
 import { emergencyFund } from "./emergency.js";
 import { takeHomeDrifts } from "./takehome.js";
-import { monthFigures, shiftMonth } from "./monthdetail.js";
+import { monthFigures, shiftMonth, monthBounds } from "./monthdetail.js";
 import { totalNetWorthValue, toAudAmount } from "./engine.js";
 import { periodsOf } from "./ledger.js";
 import { localDateStr } from "../lib/format.js";
@@ -174,7 +174,7 @@ export function adviceFor(opts){
     add({ id: "savings-rate", area: "cashflow", kind: rate >= 0.2 ? "good" : rate < 0.05 ? "risk" : "info",
       title: "You kept " + Math.round(rate * 100) + "% of what came in",
       detail: "Over the last " + months + " months: " + money(inn) + " in, " + money(outM) + " spent. " + (rate >= 0.2 ? "That's a strong rate — before loan repayments taken straight from an offset, which aren't in spending." : rate < 0.05 ? "Almost nothing is being kept; the Wants lines are where it usually comes back." : "Loan repayments taken straight from an offset aren't in spending, so the real figure is a little lower."),
-      impactYearly: null, go: { page: "expenses", sub: "spending" } });
+      impactYearly: null, go: { page: "expenses", sub: "spending", filter: { direction: "out", from: shiftMonth(cur, -12) + "-01", to: monthBounds(shiftMonth(cur, -1)).end } } });
     // Wants: where the discretionary money goes.
     var lines = {};
     (state.shared || []).forEach(function(l){ if(l.id) lines[l.id] = l; });

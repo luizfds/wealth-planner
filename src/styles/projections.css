@@ -222,7 +222,7 @@
 @media (max-width: 880px){
   .btn, .btn-sm, .subnav-item, .period-chip, .seg-option, .chip, .filter-chip, .groupby-option, .home-todo-btn,
   .home-setactive-btn, .m-flip-btn, .add-scenario-row, .sgl-name, .pref-check, .m-row-summary, .proj-legend-item-toggle,
-  .mobile-tab, .rp-month-link, .md-cat > button, summary,
+  .mobile-tab, .rp-month-link, .md-cat > button, .cf-chip, .cf-view, summary,
   input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea{ min-height:44px !important; }
   .btn, .chip, .rp-month-link, .seg-option, summary{ min-width:44px !important; }
   .rp-month-link, .proj-legend-item-toggle{ display:inline-flex; align-items:center; }

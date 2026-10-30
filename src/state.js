@@ -194,6 +194,8 @@ export function defaultState(){
     // v3.75.0: the Google Sheet share prices are read from on open (calc/pricesheet.js).
     // v3.78.0: trips as date ranges (calc/trips.js).
     trips: [],
+    // v3.168.0: saved views of Spending (calc/txviews.js) — [{ id, name, filter }].
+    txViews: [],
     priceSheet: { url: "", lastRead: "", lastResult: null, backfillFrom: "" },
     // v3.132.0: prices with no setup (calc/autoprices.js).
     autoPrices: { on: true, crypto: true, fx: true, lastRead: "", lastResult: null },
@@ -467,6 +469,7 @@ export function migrateState(s){
   if(!s.checksDismissed || typeof s.checksDismissed !== "object" || Array.isArray(s.checksDismissed)) s.checksDismissed = {};
   if(!Array.isArray(s.savingsGoals)) s.savingsGoals = [];
   if(!Array.isArray(s.trips)) s.trips = [];
+  if(!Array.isArray(s.txViews)) s.txViews = [];
   s.trips = s.trips.filter(function(t){ return t && t.from; });
   if(!s.priceSheet || typeof s.priceSheet !== "object") s.priceSheet = {};
   ["url", "lastRead", "backfillFrom"].forEach(function(k){ if(typeof s.priceSheet[k] !== "string") s.priceSheet[k] = ""; });

@@ -11,7 +11,8 @@ import { spendingTrends, monthKeyLabel } from "../calc/trends.js";
 import { escapeAttr, segLabel } from "../lib/html.js";
 import { renderAccountsPage, openAccounts } from "./accounts.js";
 import { cashflowEntries, filterEntries, entryTotals } from "../calc/cashflowlist.js";
-import { txGrid, txGridHtml, txViewToggleHtml, budgetPlanHtml, billsCalendarHtml, txFilters, txSelect, transferForm, splitEditing, filterBarHtml, directionControlHtml, dayHeaderHtml, totalsLineHtml, inRowHtml, transferRowHtml, selectBoxHtml, bulkBarHtml, transferFormHtml, splitEditorHtml } from "./cashflow.js";
+import { hasOwnDates } from "../calc/txviews.js";
+import { txGrid, txGridHtml, txViewToggleHtml, budgetPlanHtml, billsCalendarHtml, txFilters, txSelect, transferForm, splitEditing, currentTxFilter, viewsBarHtml, filterBarHtml, directionControlHtml, dayHeaderHtml, totalsLineHtml, inRowHtml, transferRowHtml, selectBoxHtml, bulkBarHtml, transferFormHtml, splitEditorHtml } from "./cashflow.js";
 import { modernPlainRowHtml, modernRowSummaryHtml, modernRowEditHtml, modernRowShellHtml, optionsHtml } from "../lib/ledger-table.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { parseCsv } from "../lib/backup.js";
@@ -1423,13 +1424,15 @@ export function renderTransactions(){
       '<div class="cf-filter-actions" style="margin-top:8px"><button type="button" class="btn btn-sm btn-ghost" data-cf-transfer>+ Transfer</button></div>';
     return;
   }
-  var win = transactionScopeWindow(transactionsRange);
+  // v3.168.0: a view or filter with its own dates (or a trip) decides the dates, not the header's period.
+  var ownDates = hasOwnDates(txFilters);
+  var win = ownDates ? null : transactionScopeWindow(transactionsRange);
   var inScope = all.filter(function(e){ return !win || (e.date >= win.start && e.date <= win.end); });
-  var shown = filterEntries(inScope, txFilters);
+  var shown = filterEntries(inScope, currentTxFilter());
   var totals = entryTotals(shown);
   // The header figure stays what it always was — spending — but now follows the filters too.
   if(totalEl) totalEl.textContent = fmtCurrency0.format(totals.out);
-  var controlHtml = '<div class="tx-controls-row"><div class="tx-controls-left">' + transactionScopeControlHtml(transactionsRange) + directionControlHtml() + '</div>' + txViewToggleHtml() + '</div>' + filterBarHtml(inScope, lines);
+  var controlHtml = viewsBarHtml() + '<div class="tx-controls-row"><div class="tx-controls-left">' + (ownDates ? '<span class="cf-own-dates">Dates from the filter</span>' : transactionScopeControlHtml(transactionsRange)) + directionControlHtml() + '</div>' + txViewToggleHtml() + '</div>' + filterBarHtml(inScope, lines);
   var bulk = txSelect.on ? bulkBarHtml(transactionLinkOptionsHtml(null), transactionAccountOptionsHtml("")) : "";
   if(!shown.length){
     container.innerHTML = top + controlHtml + bulk +
@@ -1471,8 +1474,8 @@ export function renderTransactions(){
 // The entries currently on screen that are spending rows — what "Select all shown" picks.
 export function visibleSpendingIndices(){
   var all = cashflowEntries({ lines: budgetLineItems(), accountOf: transactionAccount, categoryOf: transactionCategory });
-  var win = transactionScopeWindow(transactionsRange);
-  return filterEntries(all.filter(function(e){ return !win || (e.date >= win.start && e.date <= win.end); }), txFilters)
+  var win = hasOwnDates(txFilters) ? null : transactionScopeWindow(transactionsRange);
+  return filterEntries(all.filter(function(e){ return !win || (e.date >= win.start && e.date <= win.end); }), currentTxFilter())
     .filter(function(e){ return e.kind === "out"; }).map(function(e){ return e.ref; });
 }
 export function addTransaction(){
@@ -1579,7 +1582,7 @@ export function budgetComparisonRowHtml(item){
         fmtCurrency0.format(actual) + ' of ' + fmtCurrency0.format(planned) + (cycle.label && cycle.label !== "this month" ? ' ' + escapeAttr(cycle.label) : '') + '</span>' +
       '<span class="acct-amt"' + (color ? ' style="color:' + color + '"' : '') + '>' + (delta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(delta)) + '</span>' + (isExpandable ? budgetRowChevHtml() : "") + '</div>' +
     '<div class="budget-bar-track"><div class="budget-bar-fill' + (delta > 0.5 ? " over" : "") + '" style="width:' + pct + '%"></div></div>' +
-    (isOpen ? budgetRowTxnListHtml(txnPairs) : '') +
+    (isOpen ? budgetRowTxnListHtml(txnPairs, item, cycle) : '') +
   '</div>';
 }
 // The expand panel's own transaction rows — deliberately read-only (date/description/amount +
@@ -1621,7 +1624,7 @@ function budgetRowMerchantsHtml(pairs){
   }
   return '<div class="budget-row-merchants"><div class="budget-row-merchants-title">Where it went</div>' + rows + '</div>';
 }
-function budgetRowTxnListHtml(pairs){
+function budgetRowTxnListHtml(pairs, item, cycle){
   var rows = pairs.map(function(pair){
     return '<div class="budget-row-txn">' +
       '<span class="budget-row-txn-date">' + escapeAttr(pair.t.date || "") + '</span>' +
@@ -1630,7 +1633,9 @@ function budgetRowTxnListHtml(pairs){
       '<button type="button" class="btn btn-danger btn-sm row-del" data-tx-del="' + pair.i + '" aria-label="Delete transaction">✕</button>' +
     '</div>';
   }).join("");
-  return budgetRowMerchantsHtml(pairs) + '<div class="budget-row-txns">' + rows + '</div>';
+  // v3.168.0: the same rows in Spending, where they can be filtered further or saved as a view.
+  var more = item && cycle ? '<button type="button" class="link-btn budget-row-sv" data-sv data-sv-line="' + escapeAttr(item.id) + '" data-sv-from="' + escapeAttr(cycle.start) + '" data-sv-to="' + escapeAttr(cycle.end) + '">Show these in Spending →</button>' : '';
+  return budgetRowMerchantsHtml(pairs) + '<div class="budget-row-txns">' + rows + '</div>' + more;
 }
 // Items marked "no fixed timing" (Extras, property maintenance, etc.) are lumpy by nature — a
 // $0 actual most months is expected, not a budget miss. Comparing them against this month's

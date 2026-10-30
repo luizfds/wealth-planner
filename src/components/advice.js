@@ -32,7 +32,10 @@ function card(a, withGo){
   return '<details class="adv-item adv-' + a.kind + '" data-adv-id="' + escapeAttr(a.id) + '"' + (open ? ' open' : '') + '><summary>' +
       '<span class="adv-kind">' + KIND[a.kind] + '</span><span class="adv-title">' + escapeAttr(a.title) + '</span>' + impact(a) + '</summary>' +
     '<p>' + escapeAttr(a.detail) + '</p>' +
-    (withGo && a.go ? '<button type="button" class="link-btn adv-go" data-adv-go="' + escapeAttr(a.go.page) + '"' + (a.go.sub ? ' data-adv-sub="' + escapeAttr(a.go.sub) + '"' : '') + '>See the figures →</button>' : '') +
+    (withGo && a.go ? (a.go.filter
+      // v3.168.0: a notice about spending opens Spending filtered to exactly what it counted.
+      ? '<button type="button" class="link-btn adv-go" data-sv' + Object.keys(a.go.filter).map(function(k){ return ' data-sv-' + k + '="' + escapeAttr(a.go.filter[k]) + '"'; }).join("") + '>Show me in Spending →</button>'
+      : '<button type="button" class="link-btn adv-go" data-adv-go="' + escapeAttr(a.go.page) + '"' + (a.go.sub ? ' data-adv-sub="' + escapeAttr(a.go.sub) + '"' : '') + '>See the figures →</button>') : '') +
   '</details>';
 }
 // v3.154.0: what's on track is worth knowing, not acting on — one fold under the rest, not a card each.

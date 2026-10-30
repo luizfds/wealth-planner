@@ -58,6 +58,10 @@ the last, so two sessions can't pick up the same one.
   dragged closed by their head (app.js), an open section's header sticky under `--topbar-h`. Spending's rows swipe left
   for Edit / Split / Delete; pulling the page down refreshes prices and sync. The smoke script fails on a target under
   44px at 390px; above 880px nothing changes (0 of 49 desktop views differ).
+- **Saved views (v3.168.0):** Spending's filters (direction, account, category, line, person, trip, amount range, dates,
+  text) can be saved as `state.txViews` (`calc/txviews.js`; synced, in the backup) and come back as chips. A filter with its
+  own dates replaces the header's period. Any button with `data-sv` and `data-sv-<filter>` attributes opens Spending
+  filtered — a budget line's drill-down, a Categories report row, Your week, a notice with `go.filter`.
 - `styles.css` — just eight `@import` statements pulling in `src/styles/{base,shell,dashboard,
   ledger,income,properties,assets,projections}.css`, in that specific order. Light/dark theming is
   CSS custom properties + `prefers-color-scheme`, defined in `base.css`.

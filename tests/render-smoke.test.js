@@ -1615,3 +1615,18 @@ test("the review queue: one card, keep and change, then the rule question (item 
     assert.equal(reviewBannerHtml(), "");
   } finally { state.transactions = keep; txReview.open = false; txReview.mode = "card"; txReview.choice = null; }
 });
+
+test("Budget grouped Flexible: three totals, what's left, a Roll over per category (item 194)", async function(){
+  const { flexSummaryHtml } = await import("../src/components/expenses.js");
+  var keep = { shared: state.shared, transactions: state.transactions, rollover: state.rollover };
+  try {
+    state.shared = [{ id: "g", what: "Groceries", category: "Groceries", classification: "Needs", freq: "Weekly", amount: 150 },
+      { id: "r", what: "Electricity", category: "Utilities", classification: "Needs", freq: "Monthly", amount: 160 }];
+    state.transactions = []; state.rollover = {};
+    var html = flexSummaryHtml();
+    assert.match(html, /Fixed bills/);
+    assert.match(html, /Non-monthly/);
+    assert.match(html, /data-rollover="Groceries"/);
+    assert.match(html, / left<\/b>/);
+  } finally { state.shared = keep.shared; state.transactions = keep.transactions; state.rollover = keep.rollover; }
+});

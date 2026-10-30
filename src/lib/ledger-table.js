@@ -370,7 +370,13 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
     accountField +
     rentLineField +
     logField;
-  var moreOptionsHtml = '<details class="row-more-options"><summary>More options</summary><div class="m-edit-grid" style="margin-top:8px">' + timingFieldsHtml(item, section) + '</div></details>';
+  // v3.164.0 (item 194): a budget line can say which part of the flexible view it counts in.
+  var flexField = opts.showClass
+    ? '<div class="m-edit-field"><label>Counts as</label><select class="f-flexkind" title="Where this line sits when Budget is grouped Flexible">' +
+        [["", "Worked out"], ["fixed", "Fixed bill"], ["flex", "Flexible"], ["nonmonthly", "Non-monthly"]].map(function(o){ return '<option value="' + o[0] + '"' + ((item.flexKind || "") === o[0] ? " selected" : "") + '>' + o[1] + '</option>'; }).join("") +
+      '</select></div>'
+    : "";
+  var moreOptionsHtml = '<details class="row-more-options"><summary>More options</summary><div class="m-edit-grid" style="margin-top:8px">' + flexField + timingFieldsHtml(item, section) + '</div></details>';
   // A visible "Done" (opts.showDone) — every field here already saves itself as you type, same as
   // any other row in the app, but on a full-screen mobile row editor there's otherwise nothing
   // that reads as "I'm finished, put this away" except the ✕ in the header, which reads more like

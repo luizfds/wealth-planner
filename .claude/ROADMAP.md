@@ -3467,7 +3467,7 @@ a "fern cafe" rule and filed the other waiting Fern Cafe rows, and the next stat
 Eating out (and waiting in the queue). Driven at 1280px with the keys, from Home's To do.
 
 
-## 194. `[ ]` A flexible budget as well as a detailed one
+## 194. `[x]` A flexible budget as well as a detailed one
 Thirty budget lines is a lot to keep. Monarch's flex budgeting works with three numbers: fixed bills, one
 flexible amount, and non-monthly costs set aside.
 
@@ -3476,6 +3476,19 @@ needs/wants type decide where it goes; you can override per line). Flexible show
 Each category can roll an unspent balance into next month. Nothing about the detailed lines changes.
 
 Done when: both views total the same; rollover carries over the period picker's months; tests over `calc/`.
+
+Shipped as v3.164.0. Budget → Group by → Flexible regroups the same lines into Fixed bills, Flexible and Non-monthly
+(`calc/flexbudget.js` `flexKindOf`): yearly, quarterly or irregular lines are non-monthly; housing, utilities, insurance,
+subscriptions, phone, school, childcare, loans and landlord costs are fixed whatever their frequency (a weekly rent is
+as fixed as a monthly power bill); Wants are flexible; any other Needs line is a bill if it's monthly and spending if
+it's weekly or fortnightly. A line says otherwise under More options → Counts as. Because it's a grouping of the same
+lines, the three cards total what the detailed view does (on the demo household both come to $6,887 a month, rounded).
+Above the cards: the three totals, and "Flexible this month: $X left" (or ▲ over) for the period picker's month —
+spending logged against a flexible line or against no line (a one-off) counts; a fixed bill doesn't — then each
+flexible category's spent of planned and what's left, with a Roll over tick: from the month it's ticked, each month's
+unspent (or overspent) carries into the next (`state.rollover[category]` = the starting month; `flexMonth`). Tests over
+the classification, the totals and rollover across months.
+
 
 ## 195. `[ ]` A Home you arrange
 Home's cards come in a fixed order. Monarch lets you choose what's on the dashboard.

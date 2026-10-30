@@ -354,7 +354,8 @@ export function migrateState(s){
   // Categories are a later addition, so an older save has none: seed the defaults so the feature
   // works on first load rather than presenting an empty manager. An existing (possibly emptied)
   // list is left exactly as the user left it — only a missing key seeds.
-  if(s.budgetGroupBy !== "category") s.budgetGroupBy = "type";
+  if(s.budgetGroupBy !== "category" && s.budgetGroupBy !== "flex") s.budgetGroupBy = "type";
+  if(!s.rollover || typeof s.rollover !== "object" || Array.isArray(s.rollover)) s.rollover = {};
   // A save from before the setup checklist existed has no preference either way. Left undefined it
   // would be falsy and so behave correctly, but normalising keeps the exported backup honest about
   // what the app stores.

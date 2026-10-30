@@ -3353,7 +3353,7 @@ so the chart comes first; the headline, the range line, the Actuals note (its li
 tooltip) and the life-events notes are shorter, the life-events footnote behind the ⓘ.
 
 
-## 189. `[ ]` One card, one chart style
+## 189. `[~]` One card, one chart style
 Cards differ in header layout (title left, figure right, or figure under), padding and how actions are placed.
 Charts differ in axes, gridlines, legends and whether they have tooltips.
 

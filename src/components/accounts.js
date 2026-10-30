@@ -103,7 +103,7 @@ export function accountRowHtml(a, idx, today){
           : a.type === "offset" ? "An offset's balance is the one on its loan — it lowers the interest that loan charges."
           : agent ? "The bills the agent pays out of the rent — on a statement — are tagged with this account, so they never show as a debit to chase or money leaving your accounts. It has no balance of its own."
           : bal.source ? "Stored on " + escapeAttr(bal.source.label) + " — the same figure net worth and the projections use." : "Spending tagged with this account still works without a balance.") + '</p>' +
-        '<div class="acct-field-wide acct-card-del"><button type="button" class="btn btn-ghost btn-sm row-del" data-acct-del="' + idx + '" aria-label="Delete account">Delete account</button></div>' +
+        '<div class="acct-field-wide acct-card-del"><button type="button" class="btn btn-danger btn-sm row-del" data-acct-del="' + idx + '" aria-label="Delete account">Delete account</button></div>' +
       '</div>'
     : '';
   return '<div class="acct-card' + (open ? " is-open" : "") + '" data-acct-index="' + idx + '">' + summary + balanceRow + edit + '</div>';

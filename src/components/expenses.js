@@ -1363,7 +1363,7 @@ function transactionRowHtml(t, idx){
     (t.splitGroup
       ? '<button type="button" class="btn btn-ghost btn-sm" data-tx-unsplit="' + escapeAttr(t.splitGroup) + '">Merge split</button>'
       : '<button type="button" class="btn btn-ghost btn-sm" data-tx-split="' + idx + '">Split</button>') +
-    '<button type="button" class="btn btn-ghost btn-sm row-del" data-tx-del="' + idx + '">Delete</button>';
+    '<button type="button" class="btn btn-danger btn-sm row-del" data-tx-del="' + idx + '">Delete</button>';
   var edit = modernRowEditHtml(fieldsHtml, actionsHtml);
   return modernRowShellHtml("tx", idx, modernTransactionRowOpen, summary, edit, { extraClass: "tx-row" + (t.splitGroup ? " is-split" : "") });
 }
@@ -1607,7 +1607,7 @@ function budgetRowTxnListHtml(pairs){
       '<span class="budget-row-txn-date">' + escapeAttr(pair.t.date || "") + '</span>' +
       '<span class="budget-row-txn-what" title="' + escapeAttr(transactionDisplayName(pair.t, state.shared)) + '">' + escapeAttr(transactionDisplayName(pair.t, state.shared)) + '</span>' +
       '<span class="budget-row-txn-amt">' + fmtCurrency2.format(Number(pair.t.amount) || 0) + '</span>' +
-      '<button type="button" class="btn btn-ghost btn-sm row-del" data-tx-del="' + pair.i + '" aria-label="Delete transaction">✕</button>' +
+      '<button type="button" class="btn btn-danger btn-sm row-del" data-tx-del="' + pair.i + '" aria-label="Delete transaction">✕</button>' +
     '</div>';
   }).join("");
   return budgetRowMerchantsHtml(pairs) + '<div class="budget-row-txns">' + rows + '</div>';
@@ -1799,7 +1799,7 @@ function categoryRowHtml(name, idx){
   var usedBy = budgetLineItems().filter(function(item){ return (item.category || "") === name; }).length;
   var nameInput = '<input type="text" class="cat-mgmt-name" data-cat-index="' + idx + '" value="' + escapeAttr(name) + '" placeholder="Category name" aria-label="Category name">';
   var usage = '<span class="cat-mgmt-count">' + (usedBy ? usedBy + (usedBy === 1 ? " line" : " lines") : "unused") + '</span>';
-  var delBtn = '<button type="button" class="btn btn-ghost btn-sm row-del" data-cat-del="' + idx + '" aria-label="Delete category">✕</button>';
+  var delBtn = '<button type="button" class="btn btn-danger btn-sm row-del" data-cat-del="' + idx + '" aria-label="Delete category">✕</button>';
   return '<div class="m-row acct-mgmt-row" data-cat-index="' + idx + '">' +
     '<div class="m-row-summary" style="cursor:default;flex-wrap:wrap;gap:8px">' + nameInput + usage + delBtn + '</div>' +
   '</div>';

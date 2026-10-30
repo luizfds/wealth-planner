@@ -86,7 +86,7 @@ export function rulesPageHtml(lines){
           '<label class="cf-filter"><span>or category</span><select data-rl-index="' + i + '" data-rl-key="category"' + (r.linkedExpenseId ? " disabled" : "") + '>' + optionList(catOpts, r.category || "", "—") + '</select></label>') +
       '<label class="cf-filter"><span>Account</span><select data-rl-index="' + i + '" data-rl-key="account">' + optionList(acctOpts, r.account || "", "— any —") + '</select></label>' +
       '<span class="rl-hits" title="Times this rule has been confirmed">' + (r.hits || 0) + '×</span>' +
-      '<button type="button" class="btn btn-ghost btn-sm" data-rl-del="' + i + '" aria-label="Delete rule ' + escapeAttr(r.match) + '">✕</button></div>';
+      '<button type="button" class="btn btn-danger btn-sm" data-rl-del="' + i + '" aria-label="Delete rule ' + escapeAttr(r.match) + '">✕</button></div>';
   }).join("");
   // v3.110.0: rules learnt before they generalised — one per branch — offered as one per merchant.
   var merge = mergeSimilarRules(rules);

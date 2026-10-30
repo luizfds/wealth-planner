@@ -17,7 +17,7 @@ export function lifeEventsHtml(today){
       '<label class="cf-filter le-year"><span>From</span><input type="number" min="' + thisYear + '" max="' + (thisYear + 60) + '" step="1" data-le-field="year" value="' + escapeAttr(ev.year) + '">' + at + '</label>' +
       (ev.kind === "lump" ? '' : '<label class="cf-filter le-num"><span>For years</span><input type="number" min="1" max="60" step="1" data-le-field="years" value="' + escapeAttr(ev.years) + '"></label>') +
       '<label class="cf-filter le-amt"><span>' + escapeAttr(k.help.charAt(0).toUpperCase() + k.help.slice(1)) + '</span><input type="number" step="500" data-le-field="amount" value="' + escapeAttr(ev.amount) + '"></label>' +
-      '<button type="button" class="btn btn-sm btn-ghost le-remove" data-le-remove="' + id + '" aria-label="Remove ' + escapeAttr(ev.what || k.label) + '">Remove</button></div>';
+      '<button type="button" class="btn btn-sm btn-danger le-remove" data-le-remove="' + id + '" aria-label="Remove ' + escapeAttr(ev.what || k.label) + '">Remove</button></div>';
   }).join("");
   return '<div class="le-card"><div class="property-section-title">Life events</div>' +
     (rows || '<p class="ledger-note" style="margin:0 0 8px">Nothing dated yet. Add what you can see coming — a child, a year off, a sale, an inheritance — and the projection carries it, marked on the chart.</p>') +

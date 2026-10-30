@@ -147,9 +147,9 @@
   .card-edit-link{
     all:unset; display:flex; align-items:center; min-height:40px; margin-top:10px; padding-top:9px;
     border-top:1px solid var(--border);
-    font-size:var(--fs-xs); color: var(--brass-strong); cursor:pointer; text-align:left;
+    font-size:var(--fs-sm); font-weight:600; color: var(--brass-strong); cursor:pointer; text-align:left;
   }
-  .card-edit-link:hover{ color: var(--brass); text-decoration:underline; }
+  .card-edit-link:hover{ text-decoration:underline; }
   .card-stats b{ color: var(--ink); font-weight:600; }
   .add-card{
     all:unset; box-sizing:border-box; cursor:pointer; width:100%; min-height:150px;
@@ -399,7 +399,8 @@
 .home-io b{ font-size:var(--fs-lg); font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .home-io em{ font-style:normal; font-size:var(--fs-xs); color:var(--ink-soft); }
 .home-note{ margin:0; font-size:var(--fs-sm); color:var(--ink-soft); line-height:1.45; }
-.home-link{ align-self:flex-start; margin-top:auto; font-size:var(--fs-sm); color:var(--brass-strong); background:none; border:0; padding:4px 0; cursor:pointer; }
+.home-link{ align-self:flex-start; margin-top:auto; font-size:var(--fs-sm); font-weight:600; color:var(--brass-strong); background:none; border:0; padding:4px 0; cursor:pointer; }
+.home-link:hover{ text-decoration:underline; }
 .home-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; }
 .home-bills .home-list li{ display:grid; grid-template-columns: minmax(0,1fr) auto auto; gap:8px; align-items:baseline; font-size:var(--fs-sm); padding:5px 0; border-bottom:1px dashed var(--border); }
 .home-bills .home-list li:last-child{ border-bottom:0; }

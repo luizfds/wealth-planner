@@ -526,7 +526,7 @@ function modernIncomeRowHtml(item, idx, colorIdx){
       '</div>' +
     '</details>' +
     '<div class="m-edit-actions">' +
-      '<button type="button" class="btn btn-ghost btn-sm row-del" data-del="income:' + idx + '">Delete</button>' +
+      '<button type="button" class="btn btn-danger btn-sm row-del" data-del="income:' + idx + '">Delete</button>' +
     '</div>' +
   '</div></div></div>';
   return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="income" data-index="' + idx + '">' + summary + rowEditSlot(isOpen, edit) + '</div>';

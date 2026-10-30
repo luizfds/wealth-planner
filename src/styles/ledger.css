@@ -166,8 +166,7 @@
   .import-preview-table td{ padding:6px 10px; border-bottom:1px solid var(--border); font-size:var(--fs-sm); white-space:nowrap; }
   .import-preview-table tr:last-child td{ border-bottom:none; }
   .import-preview-table td.num, .import-preview-table th.num{ text-align:right; font-family:var(--font-num); font-variant-numeric: tabular-nums; }
-  .row-del{ opacity:0.5; padding:8px 11px; }
-  .row-del:hover{ opacity:1; }
+  .row-del{ padding:8px 11px; }
   .computed-note{ font-size: var(--fs-xs); color: var(--ink-soft); display:block; margin-top:1px; }
   .due-note{ font-size:var(--fs-xs); color: var(--ink-soft); display:block; margin-top:2px; }
   .due-note.due-unset{ font-style:italic; }
@@ -470,8 +469,8 @@
      look as income.js's own bespoke .tax-advanced details, factored out so any row built on the
      shared modernPlainRowHtml() can use it too without depending on an income-specific class. */
   .row-more-options{ margin-top:10px; }
-  .row-more-options summary{ cursor:pointer; font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; padding:6px 0; user-select:none; }
-  .row-more-options summary:hover{ color: var(--ink); }
+  .row-more-options summary{ cursor:pointer; font-size:var(--fs-sm); color: var(--ink); font-weight:600; padding:8px 0; min-height:40px; box-sizing:border-box; user-select:none; }
+  .row-more-options summary:hover{ color: var(--brass-strong); }
   .row-more-options[open] summary{ margin-bottom:8px; }
   /* The 13px browser-default checkbox was the smallest target in the app. The box grows to 22px
      and the label row to 44px — and because the <input> sits inside its <label>, the whole row is
@@ -544,12 +543,8 @@
 
   /* ---------------- Review expenses: one-at-a-time swipe/confirm flow ---------------- */
   /* "Catch up on N overdue" — hidden entirely at zero (see renderExpenseReviewButton), so when
-     it is on screen it's a live prompt, not a permanent toolbar item, and gets a tint that says
-     so rather than the ghost-button treatment of the neighbouring CSV actions. */
-  .review-cta{
-    background: var(--brass-wash); color: var(--brass-strong); border:1px solid transparent; font-weight:600;
-  }
-  .review-cta:hover{ border-color: var(--brass); }
+     it is on screen it's a live prompt, not a permanent toolbar item. */
+  /* v3.156.0: the tint became .btn-primary (item 186) — one primary look across the app. */
   .review-backdrop{
     position:fixed; inset:0; z-index:100; background: rgba(0,0,0,0.45);
     display:flex; align-items:center; justify-content:center; padding:16px;

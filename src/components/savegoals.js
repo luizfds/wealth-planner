@@ -46,7 +46,7 @@ export function goalCardHtml(g, i, opts){
       '<fieldset class="sgl-accts"><legend>Counts the balance of</legend>' + (accts.length ? accts.map(function(a){
         return '<label><input type="checkbox" data-goal-acct="' + escapeAttr(a.name) + '" data-goal-index="' + i + '"' + (g.accounts.indexOf(a.name) !== -1 ? " checked" : "") + '> ' + escapeAttr(a.name) + '</label>';
       }).join("") : '<p class="ledger-note" style="margin:0">Add an account first.</p>') + '</fieldset>' +
-      '<div class="sgl-edit-foot"><button type="button" class="btn btn-ghost btn-sm acct-del" data-goal-del="' + i + '">Delete goal</button></div></div>' : '';
+      '<div class="sgl-edit-foot"><button type="button" class="btn btn-danger btn-sm acct-del" data-goal-del="' + i + '">Delete goal</button></div></div>' : '';
   return '<div class="sgl' + (open ? " is-open" : "") + '">' + head + '<p class="sgl-note">' + escapeAttr(goalLine(g)) + '</p>' + edit + '</div>';
 }
 

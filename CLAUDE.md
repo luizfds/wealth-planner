@@ -40,6 +40,9 @@ the last, so two sessions can't pick up the same one.
 - **Category looks (v3.157.0):** a category's colour (`.cat-c-0`…`11`, sets `--cat`) and icon come from
   `calc/categorylook.js` (from its name, or `state.categoryLooks[name]`); `lib/caticons.js` draws the badge. A rename
   or delete of a category carries or drops its look.
+- **Cards and charts (v3.159.0):** every top-level card takes `--card-radius` and `--card-py`/`--card-px` (tighter
+  under 700px), a card inside a card `--inner-radius`; a card's title is `--fs-lg`. Both full charts (`renderLineChart`,
+  `renderStackedAreaChart`) share `wireChartTooltip` — hover with a mouse, tap with a finger. `tests/cards.test.js` pins both.
 - `styles.css` — just eight `@import` statements pulling in `src/styles/{base,shell,dashboard,
   ledger,income,properties,assets,projections}.css`, in that specific order. Light/dark theming is
   CSS custom properties + `prefers-color-scheme`, defined in `base.css`.

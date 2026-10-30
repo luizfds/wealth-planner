@@ -3353,7 +3353,7 @@ so the chart comes first; the headline, the range line, the Actuals note (its li
 tooltip) and the life-events notes are shorter, the life-events footnote behind the ⓘ.
 
 
-## 189. `[ ]` One card, one chart style
+## 189. `[x]` One card, one chart style
 Cards differ in header layout (title left, figure right, or figure under), padding and how actions are placed.
 Charts differ in axes, gridlines, legends and whether they have tooltips.
 
@@ -3363,6 +3363,18 @@ point. Loading shows a skeleton in the card's shape, not a blank.
 
 Done when: every Home, Insights, Investments and Plan card uses the shared card markup (render-smoke asserts it);
 every chart has a tooltip.
+
+Shipped as v3.159.0. Cards: one set of tokens — `--card-radius` 14px, `--card-py`/`--card-px` 18/20px (16/16 under 700px),
+`--inner-radius` 10px for a card inside a card — used by every top-level card (`.panel`, `details.ledger`, `.stat-tile`,
+`.home-card`, `.home-goals`, the scenario `.card`, `.nw-group`) and the inner ones (`.m-card`, `.sgl`, `.cb-card`,
+`.calc-panel`, `.home-block`). Measured before: six paddings (10–18px) and three radii on top-level cards. A card's title
+(`.panel h3`) is now the section title's 17px, not 14; stat cards keep their small uppercase label over a figure — the
+two kinds of card, each always the same. Charts: `wireChartTooltip` is the one crosshair-and-tooltip, used by the line
+chart and now the stacked-area chart (each band's value at the nearest date and the total), on pointer events so a tap
+works on a phone (it stays until a tap elsewhere; one page-wide listener, not one per redraw). Both charts already
+shared the 12px axis labels and the recessive gridlines. Not done: the line chart's legend stays above it (it's the
+series toggles), and there is no skeleton state — nothing on these pages loads late enough to need one.
+
 
 ## 190. `[ ]` Figures that read at a glance
 Long figures crowd small cards on a phone ("$4,499,450", "$1,889,000").

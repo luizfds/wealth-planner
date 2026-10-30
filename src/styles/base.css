@@ -8,6 +8,12 @@
     --fs-xl: 20px;   /* card figures */
     --fs-2xl: 26px;  /* page titles, hero figures */
     --fs-3xl: 32px;  /* the one big number */
+    /* v3.159.0 (item 189): one card — every card on a page shares its corners and padding (tighter on a
+       phone, below), and a card inside a card shares the inner radius. */
+    --card-radius: 14px;
+    --card-px: 20px;
+    --card-py: 18px;
+    --inner-radius: 10px;
     --paper: #f8fafc;
     --paper-raised: #ffffff;
     --paper-sunken: #eef2f7;
@@ -98,6 +104,7 @@
     line-height: 1.45;
     -webkit-font-smoothing: antialiased;
   }
+  @media (max-width: 700px){ :root{ --card-px: 16px; --card-py: 16px; } }
   /* Two weights. A <b> inside a label already at 600 would otherwise go to 900 ("bolder"). */
   b, strong, th, h1, h2, h3, h4{ font-weight:600; }
   small{ font-size: var(--fs-xs); }
@@ -335,6 +342,7 @@
     white-space:nowrap; opacity:0; transition: opacity .1s; z-index:5;
   }
   .viz-tooltip.show{ opacity:1; }
+  .viz-tooltip-head{ margin-bottom:4px; opacity:.75; }
   .viz-tooltip-row{ display:flex; align-items:center; gap:6px; }
   .viz-tooltip-row .proj-swatch{ width:7px; height:7px; }
 

@@ -192,7 +192,7 @@
 /* v3.88.0: Plan → Scenarios → Can we buy? */
 .cb-now{ margin:0 0 10px; }
 .cb-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:12px; }
-.cb-card{ border:1px solid var(--border); border-radius:10px; padding:12px; background: var(--paper-raised); font-size:var(--fs-sm); min-width:0; }
+.cb-card{ border:1px solid var(--border); border-radius:var(--inner-radius); padding:12px; background: var(--paper-raised); font-size:var(--fs-sm); min-width:0; }
 .cb-title{ display:flex; justify-content:space-between; gap:8px; align-items:baseline; flex-wrap:wrap; margin-bottom:6px; }
 .cb-title span{ color: var(--ink-soft); font-family: var(--font-num); }
 .cb-verdict{ font-weight:600; padding:6px 8px; border-radius:6px; margin:0 0 8px; }

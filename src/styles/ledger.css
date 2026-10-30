@@ -76,10 +76,11 @@
   .fire-stat-row b{ color: var(--ink); font-family:var(--font-num); font-variant-numeric: tabular-nums; }
   .fire-note{ font-size:var(--fs-xs); color: var(--ink-soft); margin:8px 0 0; line-height:1.5; }
   .panel{
-    background: var(--paper-raised); border:1px solid var(--border); border-radius: 14px;
-    padding: 18px 20px; box-shadow: var(--shadow);
+    background: var(--paper-raised); border:1px solid var(--border); border-radius: var(--card-radius);
+    padding: var(--card-py) var(--card-px); box-shadow: var(--shadow);
   }
-  .panel h3{ margin:0 0 14px; font-size:var(--fs-md); font-weight:600; }
+  /* A card's title is the same size as a section's (.section-title), whichever kind of card it is. */
+  .panel h3{ margin:0 0 14px; font-size:var(--fs-lg); font-weight:600; }
 
   /* 50/30/20 bar */
   .rule-bar{ position:relative; height: 34px; border-radius:8px; overflow:hidden; display:flex; background: var(--paper-sunken); margin-bottom: 10px; }
@@ -141,11 +142,11 @@
   /* ---------------- Ledger tables ---------------- */
   .ledgers{ display:flex; flex-direction:column; gap:12px; }
   details.ledger{
-    background: var(--paper-raised); border:1px solid var(--border); border-radius: 14px;
+    background: var(--paper-raised); border:1px solid var(--border); border-radius: var(--card-radius);
     box-shadow: var(--shadow); overflow:hidden;
   }
   details.ledger > summary{
-    list-style:none; cursor:pointer; padding: 16px 20px; display:flex; align-items:center; justify-content:space-between; gap:12px;
+    list-style:none; cursor:pointer; padding: var(--card-py) var(--card-px); display:flex; align-items:center; justify-content:space-between; gap:12px;
   }
   details.ledger > summary::-webkit-details-marker{ display:none; }
   .ledger-title{ display:flex; align-items:center; gap:10px; }
@@ -154,8 +155,8 @@
   details[open] > summary .ledger-caret{ transform: rotate(90deg); }
   .ledger-total{ font-family:var(--font-num); font-size: var(--fs-sm); color: var(--ink-soft); font-variant-numeric: tabular-nums; }
   .ledger-total b{ color: var(--ink); font-weight:600; }
-  .ledger-note{ font-size:var(--fs-xs); color: var(--ink-soft); margin:0 20px 12px; }
-  .ledger-body{ padding: 0 20px 18px; }
+  .ledger-note{ font-size:var(--fs-xs); color: var(--ink-soft); margin:0 var(--card-px) 12px; }
+  .ledger-body{ padding: 0 var(--card-px) var(--card-py); }
 
   .table-scroll{ overflow-x:auto; overscroll-behavior-x: contain; border:1px solid var(--border); border-radius:10px; }
   .import-preview-table{ width:100%; border-collapse:collapse; }
@@ -309,7 +310,7 @@
   @media (min-width:1200px){
     .m-people{ display:grid; grid-template-columns: repeat(2, 1fr); align-items:start; gap:14px 16px; }
   }
-  .m-card{ border:1px solid var(--border); border-radius:12px; background: var(--paper-sunken); overflow:hidden; }
+  .m-card{ border:1px solid var(--border); border-radius:var(--inner-radius); background: var(--paper-sunken); overflow:hidden; }
   .m-card-head{ display:flex; align-items:center; gap:12px; padding:13px 16px; }
   .m-card-name{ font-weight:600; font-size:var(--fs-md); flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .m-card-total{ font-family:var(--font-num); font-weight:600; font-size:var(--fs-md); white-space:nowrap; }
@@ -1307,7 +1308,7 @@
   .nw-legend{ list-style:none; display:flex; flex-wrap:wrap; gap:4px 16px; margin:0 0 18px; padding:0; font-size:var(--fs-sm); color: var(--ink-soft); }
   .nw-legend b{ font-family: var(--font-num); font-weight:600; color: var(--ink); }
   .nw-bar span{ display:block; height:100%; background: var(--series-color); }
-  .nw-group{ margin:0 0 16px; border:1px solid var(--border); border-radius:12px; background: var(--paper-raised); overflow:hidden; }
+  .nw-group{ margin:0 0 16px; border:1px solid var(--border); border-radius:var(--card-radius); background: var(--paper-raised); overflow:hidden; box-shadow: var(--shadow); }
   .nw-group h2{ display:flex; justify-content:space-between; margin:0; padding:10px 14px; font-size:var(--fs-sm); text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); border-bottom:1px solid var(--border); }
   .nw-group h2 b{ font-family: var(--font-num); color: var(--ink); font-size:var(--fs-lg); letter-spacing:0; }
   .nw-dot{ display:inline-block; width:8px; height:8px; border-radius:50%; background: var(--series-color); margin-right:7px; vertical-align:1px; }
@@ -1411,7 +1412,7 @@
 
   /* Savings goals (v3.65.0) */
   .sgl-list{ display:flex; flex-direction:column; gap:8px; }
-  .sgl{ border:1px solid var(--border); border-radius:12px; padding:10px 12px; background: var(--paper-raised); }
+  .sgl{ border:1px solid var(--border); border-radius:var(--inner-radius); padding:10px 12px; background: var(--paper-raised); }
   .sgl.is-open{ border-color: var(--brass); }
   .sgl-head{ display:flex; align-items:center; gap:8px; justify-content:space-between; }
   .sgl-name{ all:unset; cursor:pointer; font-weight:600; font-size:var(--fs-md); min-height:32px; display:flex; align-items:center; }

@@ -2315,6 +2315,53 @@ import { inboxMessage } from "./calc/inbox.js";
     if(!activeOverlayClose) return;
     history.back();
   }
+  // v3.167.0 (item 197): an open section's header sticks under the page header on a phone, which
+  // changes height as it goes slim — so its height is kept as --topbar-h.
+  (function(){
+    var bar = document.querySelector(".app-topbar");
+    if(!bar || typeof ResizeObserver === "undefined") return;
+    new ResizeObserver(function(){ document.documentElement.style.setProperty("--topbar-h", bar.offsetHeight + "px"); }).observe(bar);
+  })();
+  // v3.167.0 (item 197): on a phone, a sheet (a row's editor, any dialog) closes by dragging it down
+  // by its top — past 110px, or a quick flick. It follows the finger while dragged and springs back
+  // when let go short. Closing goes through the same path as ✕ and the back button.
+  (function(){
+    var phone = window.matchMedia("(max-width: 880px)"), drag = null;
+    function closeSheet(sheet){
+      if(activeOverlayClose){ requestCloseActiveOverlay(); return; }
+      var x = sheet.querySelector('.review-head [aria-label="Close"], .review-head .icon-btn');
+      if(x) x.click();
+    }
+    document.addEventListener("touchstart", function(e){
+      if(!phone.matches || e.touches.length !== 1) return;
+      var head = e.target.closest(".review-backdrop > .review-panel > .review-head, .m-row.open > .m-row-summary");
+      if(!head || e.target.closest("input, select, textarea")) return;
+      var sheet = head.parentElement;
+      drag = { sheet: sheet, y0: e.touches[0].clientY, t0: Date.now(), dy: 0 };
+    }, { passive: true });
+    document.addEventListener("touchmove", function(e){
+      if(!drag) return;
+      drag.dy = Math.max(0, e.touches[0].clientY - drag.y0);
+      drag.sheet.style.transition = "none";
+      drag.sheet.style.transform = "translateY(" + drag.dy + "px)";
+    }, { passive: true });
+    function end(){
+      if(!drag) return;
+      var d = drag, flick = d.dy > 40 && d.dy / Math.max(1, Date.now() - d.t0) > 0.6;
+      drag = null;
+      if(!d.dy){ d.sheet.style.transition = d.sheet.style.transform = ""; return; }
+      d.sheet.style.transition = "transform .18s ease";
+      if(d.dy > 110 || flick){
+        d.sheet.style.transform = "translateY(100%)";
+        setTimeout(function(){ d.sheet.style.transition = d.sheet.style.transform = ""; closeSheet(d.sheet); }, 170);
+      } else {
+        d.sheet.style.transform = "";
+        setTimeout(function(){ d.sheet.style.transition = ""; }, 200);
+      }
+    }
+    document.addEventListener("touchend", end);
+    document.addEventListener("touchcancel", end);
+  })();
   // Navigating to another page while an overlay is open (open a row, tap another tab) used to
   // leave it open and, worse, strand its history entry under the page entry syncUrl() then
   // pushes — after which the overlay's own close path went back a *page* instead of closing it.
@@ -3228,6 +3275,60 @@ import { inboxMessage } from "./calc/inbox.js";
     }
   });
   var txTable = document.getElementById("transactionsTable");
+  // v3.167.0 (item 197): on a phone, swipe a transaction left for Edit, Split and Delete (with the
+  // usual undo); swipe it back, or tap anywhere else, to put them away. The tray's buttons carry the
+  // same data-tx-* attributes as the editor's, so the document's handlers do the work.
+  (function(){
+    var phone = window.matchMedia("(max-width: 880px)"), sw = null, shown = null, TRAY = 216;
+    function trayHtml(idx){
+      var t = state.transactions[idx] || {};
+      return '<div class="row-swipe-tray">' +
+        '<button type="button" class="btn btn-sm" data-swipe-edit>Edit</button>' +
+        (t.splitGroup ? '<button type="button" class="btn btn-sm" data-tx-unsplit="' + escapeAttr(t.splitGroup) + '">Merge</button>'
+          : '<button type="button" class="btn btn-sm" data-tx-split="' + idx + '">Split</button>') +
+        '<button type="button" class="btn btn-sm btn-danger" data-tx-del="' + idx + '">Delete</button></div>';
+    }
+    function putAway(){
+      if(!shown) return;
+      var row = shown; shown = null;
+      row.classList.remove("swiped");
+      setTimeout(function(){ if(!row.classList.contains("swiped")){ var t = row.querySelector(":scope > .row-swipe-tray"); if(t) t.remove(); } }, 200);
+    }
+    txTable.addEventListener("touchstart", function(e){
+      sw = null;
+      if(!phone.matches || e.touches.length !== 1 || e.target.closest(".row-swipe-tray")) return;
+      var row = e.target.closest(".m-row.tx-row:not(.open)");
+      if(!row) return;
+      sw = { row: row, x0: e.touches[0].clientX, y0: e.touches[0].clientY, dx: 0, horiz: null, base: row === shown ? -TRAY : 0 };
+    }, { passive: true });
+    txTable.addEventListener("touchmove", function(e){
+      if(!sw) return;
+      var dx = e.touches[0].clientX - sw.x0, dy = e.touches[0].clientY - sw.y0;
+      if(sw.horiz === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) sw.horiz = Math.abs(dx) > Math.abs(dy) * 1.5;
+      if(!sw.horiz) return;
+      if(sw.row !== shown) putAway();
+      if(!sw.row.querySelector(":scope > .row-swipe-tray")) sw.row.insertAdjacentHTML("beforeend", trayHtml(Number(sw.row.getAttribute("data-index"))));
+      sw.dx = dx;
+      var s = sw.row.querySelector(":scope > .m-row-summary");
+      s.style.transition = "none";
+      s.style.transform = "translateX(" + Math.max(-TRAY, Math.min(0, sw.base + dx)) + "px)";
+    }, { passive: true });
+    txTable.addEventListener("touchend", function(){
+      if(!sw || !sw.horiz){ sw = null; return; }
+      var row = sw.row, at = sw.base + sw.dx, s = row.querySelector(":scope > .m-row-summary");
+      sw = null;
+      s.style.transition = s.style.transform = "";
+      if(at < -TRAY / 3){ row.classList.add("swiped"); shown = row; }
+      else { shown = row; putAway(); }
+    });
+    // A tap outside the open tray puts it away; Edit opens the row's editor.
+    document.addEventListener("click", function(e){
+      if(!shown) return;
+      var edit = e.target.closest("[data-swipe-edit]");
+      if(edit){ var row = shown; putAway(); var s = row.querySelector(":scope > .m-row-summary"); if(s) s.click(); return; }
+      if(!e.target.closest(".row-swipe-tray")) putAway();
+    }, true);
+  })();
   txTable.addEventListener("change", function(e){
     var t = e.target;
     if(t.hasAttribute("data-cf-filter") && t.getAttribute("data-cf-filter") !== "text"){ txFilters[t.getAttribute("data-cf-filter")] = t.value; setTransactionsShowAll(false); renderTransactions(); return; }
@@ -5591,6 +5692,41 @@ import { inboxMessage } from "./calc/inbox.js";
     persist(); renderAll();
   });
   document.addEventListener("click", function(e){ if(e.target.closest && e.target.closest("[data-ap-read]")) readAutoPricesNow(true); });
+
+  // ---------------- Pull to refresh (v3.167.0, item 197) ----------------
+  // On a phone, pulling the page down from the top runs what "refresh" means here: share prices,
+  // when there are holdings to price, and sync, when it's on. Not while a sheet or the review is open.
+  (function(){
+    var phone = window.matchMedia("(max-width: 880px)"), ptr = document.createElement("div"), pull = null, busy = false;
+    ptr.className = "ptr"; ptr.setAttribute("aria-hidden", "true"); ptr.innerHTML = "<span>↻</span>";
+    document.body.appendChild(ptr);
+    function place(dy){ var d = Math.min(dy, 90); ptr.style.transform = "translateY(" + (d - 60) + "px) rotate(" + (d * 3) + "deg)"; ptr.style.opacity = String(Math.min(1, d / 70)); }
+    function hide(){ ptr.classList.remove("is-busy"); ptr.style.transition = "transform .2s ease, opacity .2s ease"; ptr.style.transform = ""; ptr.style.opacity = "0"; }
+    document.addEventListener("touchstart", function(e){
+      pull = null;
+      if(!phone.matches || busy || e.touches.length !== 1 || window.scrollY > 0) return;
+      if(e.target.closest(".review-backdrop, .m-row.open, input, select, textarea, .table-scroll, .subnav, .m-row.tx-row") || activeOverlayClose) return;
+      pull = { y0: e.touches[0].clientY, dy: 0 };
+    }, { passive: true });
+    document.addEventListener("touchmove", function(e){
+      if(!pull) return;
+      pull.dy = (e.touches[0].clientY - pull.y0) * 0.5;
+      if(pull.dy <= 0 || window.scrollY > 0){ pull.dy = 0; ptr.style.opacity = "0"; return; }
+      ptr.style.transition = "none"; place(pull.dy);
+    }, { passive: true });
+    document.addEventListener("touchend", function(){
+      if(!pull) return;
+      var go = pull.dy >= 70; pull = null;
+      if(!go){ hide(); return; }
+      var hasShares = state.assets.some(function(a){ return a.category === "Shares" && a.symbol; });
+      if(!hasShares && !syncOn()){ hide(); showToast("Nothing to refresh — prices and sync are for shares and a second device"); return; }
+      busy = true; ptr.classList.add("is-busy"); place(70);
+      (hasShares ? readAutoPricesNow(true) : Promise.resolve())
+        .then(function(){ return syncOn() ? runSync({ manual: true }) : null; })
+        .catch(function(){})
+        .then(function(){ busy = false; hide(); });
+    });
+  })();
   setTimeout(function(){ (typeof initialSync !== "undefined" ? initialSync : Promise.resolve()).then(function(){
     var first = autoPricesNeeded() && state.assets.some(function(a){ return a.category === "Shares" && a.symbol; }) ? readAutoPricesNow(false) : Promise.resolve();
     first.then(function(){ if(priceSheetDue()) return readPriceSheetNow(false); });
@@ -5662,7 +5798,7 @@ import { inboxMessage } from "./calc/inbox.js";
   function renderHomeArrange(focusSel){
     homeArrangeRoot.innerHTML = homeArrangeOpen ? homeArrangeHtml() : "";
     var f = homeArrangeOpen && homeArrangeRoot.querySelector(focusSel || "[data-ha-close]:not(.icon-btn)");
-    if(f) f.focus();
+    if(f) f.focus({ preventScroll: !focusSel });
   }
   function openHomeArrange(){ homeArrangeOpen = true; renderHomeArrange(); pushActiveOverlay(function(){ homeArrangeOpen = false; renderHomeArrange(); }); }
   function changeHomeLayout(fn, focusSel){ var l = loadHomeLayout(); fn(l); saveHomeLayout(l); applyHomeLayout(); renderHomeArrange(focusSel); }

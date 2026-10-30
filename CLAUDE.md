@@ -53,6 +53,11 @@ the last, so two sessions can't pick up the same one.
   hides them and moves pinned Insights panels into `#homePinned`, per device in localStorage. A new Home card gets a key there.
 - **Your week (v3.166.0):** `calc/weekrecap.js` — from Monday, a card about last Monday–Sunday; dismissing it writes
   `state.weekRecaps[monday]`, which syncs. Spent is Spending's rows for those days, refunds netted.
+- **On a phone (v3.167.0):** the end of `projections.css` holds the ≤880px floors — every control 44px each way (its own
+  box, or an invisible `::before` catch area on small marks), row editors and `.review-panel` dialogs as bottom sheets
+  dragged closed by their head (app.js), an open section's header sticky under `--topbar-h`. Spending's rows swipe left
+  for Edit / Split / Delete; pulling the page down refreshes prices and sync. The smoke script fails on a target under
+  44px at 390px; above 880px nothing changes (0 of 49 desktop views differ).
 - `styles.css` — just eight `@import` statements pulling in `src/styles/{base,shell,dashboard,
   ledger,income,properties,assets,projections}.css`, in that specific order. Light/dark theming is
   CSS custom properties + `prefers-color-scheme`, defined in `base.css`.
@@ -311,7 +316,7 @@ Three layers, and **knowing what each one cannot see is the whole point**:
 - **CI (`.github/workflows/checks.yml`) runs `npm test` and `scripts/smoke.mjs` on every PR.** The
   smoke script opens every page and subtab headless at 390/1280px, light and dark, and fails on page
   or console errors, an empty page, sideways scroll, NaN/undefined text, or a %-width bar measuring
-  0. Run it locally with `npm i --no-save playwright && npx playwright install chromium && node
+  0, or (at 390px) a tap target under 44px. Run it locally with `npm i --no-save playwright && npx playwright install chromium && node
   scripts/smoke.mjs`. It catches breakage, not layout taste — still look at what you changed.
   Adding a page, subtab or report means adding it to the smoke script's `VIEWS`.
 - **Screens (v3.130.0):** on a pull request the `screens` job runs the same script with `SHOTS_DIR`

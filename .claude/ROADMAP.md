@@ -3532,7 +3532,7 @@ dated in those days, refunds netted; driven against the demo, the card's figure 
 same dates.
 
 
-## 197. `[~]` Feels like an app on a phone
+## 197. `[x]` Feels like an app on a phone
 Editing a row opens a centred modal, and lists have no swipe actions. Totals scroll away.
 
 Do: on a phone, row editors and pickers open as bottom sheets (drag to close). Rows get swipe actions (edit,
@@ -3541,6 +3541,23 @@ targets are at least 44px.
 
 Done when: measured tap targets ≥ 44px on the smoke views at 390px; bottom sheets driven open and closed; no
 change on desktop.
+
+**Done (v3.167.0).** Phone only (≤880px) — the 49 desktop views were compared against main with the screens script: 0 changed.
+- **Tap targets.** Measured on every smoke view at 390px: 2,017 controls under 44px before, 0 after. A block at the end of
+  `projections.css` sets floors: buttons, tabs, chips, segmented options, fields, summaries and row bars are at least 44px;
+  small marks (ⓘ, ⋯, ✕, swatches, icon pickers, links under cards, chart bars) keep their look and catch taps in an
+  invisible 44×44 `::before` centred on them (the old 6px header reach folded into it). `scripts/smoke.mjs` now fails on a
+  target under 44px at 390px — it reports 98 failing views against main's code, none here.
+- **Bottom sheets.** A row's editor (it was a full page sliding in from the right) and every `.review-panel` dialog rise from
+  the bottom with a grip; dragging the head down past 110px, or a quick flick, closes it through the same path as ✕ and
+  Back, and a short drag springs back. Driven: row editor and Arrange opened, dragged short (stays), dragged long (closed).
+- **Swipe actions.** A transaction swiped left shows Edit, Split (Merge for a split) and Delete — Delete has the usual undo;
+  a tap elsewhere puts the tray away. The page's swipe-between-tabs now ignores a swipe that starts on a transaction.
+- **Totals stay.** An open section's header (title and total) sticks under the page header while its list scrolls
+  (`--topbar-h`, kept by a ResizeObserver as the header goes slim; `overflow:clip` instead of hidden so sticky works).
+- **Pull to refresh.** From the top of a page, pulling down runs share prices (when there are holdings) and sync (when on);
+  the browser's own pull-to-reload is turned off on a phone so the two don't fight.
+
 
 ## 198. `[ ]` Saved views of your transactions
 Search and filters exist but are lost when you leave. Monarch saves filtered views.

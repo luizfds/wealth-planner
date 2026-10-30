@@ -11,6 +11,7 @@
 var KEY = "wealthPlanner.homeLayout";
 
 export var HOME_CARDS = [
+  { key: "week", label: "Your week (Mondays, above the cards)", group: "strip" },
   { key: "nw", label: "Net worth", group: "cards" },
   { key: "month", label: "This month", group: "cards" },
   { key: "bills", label: "Bills — next 2 weeks", group: "cards" },
@@ -104,9 +105,12 @@ export function homeArrangeHtml(){
         '<button type="button" class="icon-btn" data-ha-move="' + k + '" data-ha-dir="1" aria-label="Move ' + c.label + ' down"' + (i === keys.length - 1 ? ' disabled' : '') + '>↓</button></span></li>';
     }).join("") + (group === "cards" ? strip() : "") + '</ul>';
   };
-  // The goals strip sits under the cards whatever their order: it can be hidden, not moved.
+  // The week card and the goals strip sit above and under the cards whatever their order: they can
+  // be hidden, not moved.
   var strip = function(){
-    return '<li class="ha-row"><label class="pref-check"><input type="checkbox" data-ha-show="goals"' + (l.hidden.goals ? '' : ' checked') + '> Goals (under the cards)</label></li>';
+    return HOME_CARDS.filter(function(c){ return c.group === "strip"; }).map(function(c){
+      return '<li class="ha-row"><label class="pref-check"><input type="checkbox" data-ha-show="' + c.key + '"' + (l.hidden[c.key] ? '' : ' checked') + '> ' + c.label + '</label></li>';
+    }).join("");
   };
   return '<div class="review-backdrop" data-ha-backdrop><div class="review-panel ha-panel" role="dialog" aria-modal="true" aria-label="Arrange Home">' +
     '<div class="review-head"><h4>Arrange Home</h4><button type="button" class="icon-btn" data-ha-close aria-label="Close">✕</button></div>' +

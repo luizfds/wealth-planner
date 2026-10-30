@@ -3510,7 +3510,7 @@ own width, so the others close up over a hidden one. Hiding is only hiding: the 
 survive a reload at 390 and 1280px.
 
 
-## 196. `[ ]` Your week, in one card
+## 196. `[x]` Your week, in one card
 The app only speaks when opened. Copilot and Monarch send a weekly recap.
 
 Do: once a week (the first open from Monday), a "Your week" card: spent against your usual week, the biggest
@@ -3519,6 +3519,18 @@ on. It can be dismissed and is kept for four weeks.
 
 Done when: the figures match Spending for the same dates; it doesn't appear twice in a week across two devices
 (synced dismissal).
+
+**Done (v3.166.0).** From Monday, Home → Overview opens with **Your week** about the week just finished (Monday to Sunday):
+what was spent and how many transactions, against your usual week (the median of the eight weeks before that had spending
+logged, once there are three); the biggest three; bills in the next seven days (the bills calendar's own reading); a
+Review button for rows waiting; and one notice — the most pressing of What the app notices. ‹ › step back through the
+last four weeks. ✕ puts it away until next Monday: `state.weekRecaps[monday] = "dismissed"`, kept four weeks, so it
+syncs (keyed by week, so two devices' dismissals merge without a conflict — tested through `mergeStates`). The bell has
+"Your week: $X spent" until then. It isn't shown for a week with no spending logged (a statement not imported yet would
+read "$0 spent"), and it's in Arrange to hide. `calc/weekrecap.js` counts spending as Spending does — every transaction
+dated in those days, refunds netted; driven against the demo, the card's figure is the sum of Spending's rows for the
+same dates.
+
 
 ## 197. `[ ]` Feels like an app on a phone
 Editing a row opens a centred modal, and lists have no swipe actions. Totals scroll away.

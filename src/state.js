@@ -96,6 +96,7 @@ export function defaultState(){
     incomeLog: [],
     // Dashboard → Review (v3.54.0): {ym: {statements: {account: amount}, done: date}}.
     monthReviews: {},
+    weekRecaps: {},
     // What the bank-import review screen has been taught: {id, match, linkedExpenseId, category,
     // account, hits}. Written only as a side effect of confirming an import — there is no rule
     // editor, because a rule you have to go and maintain is a rule you stop maintaining.
@@ -478,6 +479,7 @@ export function migrateState(s){
   s.savingsGoals.forEach(function(g){ if(!g.id) g.id = genId("sg"); if(!Array.isArray(g.accounts)) g.accounts = []; g.target = Math.max(0, Number(g.target) || 0); });
   if(!Array.isArray(s.incomeLog)) s.incomeLog = [];
   if(!s.monthReviews || typeof s.monthReviews !== "object" || Array.isArray(s.monthReviews)) s.monthReviews = {};
+  if(!s.weekRecaps || typeof s.weekRecaps !== "object" || Array.isArray(s.weekRecaps)) s.weekRecaps = {};
   if(s.projection && s.projection.source !== "actuals") s.projection.source = "plan";
   if(s.fx.usdAud === undefined) s.fx.usdAud = null;
   if(s.fx.usdAudUpdated == null) s.fx.usdAudUpdated = "";

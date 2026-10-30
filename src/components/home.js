@@ -19,6 +19,10 @@ import { upcomingBills as calendarUpcoming } from "../calc/bills.js";
 import { netWorthOn } from "../calc/nwhistory.js";
 import { netWorthMovers, netWorthSplit } from "../calc/nwauto.js";
 import { applyHomeLayout } from "../lib/homelayout.js";
+import { weekRecap, showWeekRecap, KEEP_WEEKS } from "../calc/weekrecap.js";
+import { transactionDisplayName } from "../calc/ledger.js";
+import { adviceFor } from "../calc/advice.js";
+import { partAllows } from "../calc/parts.js";
 
 // ---------------- Home (v3.58.0) ----------------
 // The first screen answers four things before anything else: what we're worth, how the month is
@@ -142,6 +146,7 @@ export function homeSummaryHtml(today, opts){
     }).join("") + '</ul>' : '<p class="home-note">All done — nothing needs you right now.</p>') + '</div>';
 
   return (isPeriodToday() ? '' : '<p class="home-period-note">Showing ' + escapeAttr(r.label) + ' — net worth, bills and to-dos are always as of today.</p>') +
+    (opts.week === false ? '' : weekCardHtml(today)) +
     '<div class="home-grid">' + nwCard + monthCard + billsCard + todoCard + '</div>' + goalsStripHtml(today);
 }
 
@@ -156,4 +161,56 @@ export function renderHomeSummary(){
   var el = typeof document !== "undefined" && document.getElementById("homeSummary");
   if(el) el.innerHTML = homeSummaryHtml();
   applyHomeLayout();
+}
+
+// ---------------- Your week (v3.166.0, item 196) — calc/weekrecap.js decides ----------------
+// Session-only: which week is on screen.
+export var weekView = { back: 0 };
+// The one notice: the most pressing thing to act on, as Insights orders them.
+function weekNotice(today){
+  var items;
+  try { items = adviceFor({ today: today }); } catch(e){ items = []; }
+  return items.filter(function(a){ return a.kind !== "good" && partAllows(a.id, state); })
+    .sort(function(a, b){ return (a.kind === "risk" ? 0 : 1) - (b.kind === "risk" ? 0 : 1) || Math.abs(b.impactYearly || 0) - Math.abs(a.impactYearly || 0); })[0] || null;
+}
+export function weekRecapFor(today, back){
+  return weekRecap(state.transactions, today, {
+    back: back,
+    bills: back ? [] : upcomingBills(loggableBudgetLineItems(currentScenario()), state.transactions, today, 7),
+    toReview: back ? 0 : toReview(state.transactions).length,
+    notice: back ? null : weekNotice(today)
+  });
+}
+function dayMonth(iso){ return Number(iso.slice(8, 10)) + " " + MONTHS[Number(iso.slice(5, 7)) - 1]; }
+// "19–25 Oct", or "28 Sep – 4 Oct" across a month's end.
+function weekRange(a, b){ return a.slice(0, 7) === b.slice(0, 7) ? Number(a.slice(8, 10)) + "–" + dayMonth(b) : dayMonth(a) + " – " + dayMonth(b); }
+export function weekCardHtml(today, recap){
+  today = today || localDateStr();
+  if(!recap && !showWeekRecap(state, today)) return "";
+  var w = recap || weekRecapFor(today, weekView.back);
+  var range = weekRange(w.start, w.end);
+  var vs = w.usual == null ? '<small>Your usual week shows here after three weeks of spending logged</small>'
+    : Math.abs(w.vsUsual) < 1 ? '<small>About your usual week</small>'
+    : '<small class="' + (w.vsUsual > 0 ? "down" : "up") + '">' + money(Math.abs(w.vsUsual)) + (w.vsUsual > 0 ? " more" : " less") + ' than your usual week (' + money(w.usual) + ')</small>';
+  var list = function(rows, fn){ return '<ul class="home-list">' + rows.map(fn).join("") + '</ul>'; };
+  var biggest = w.biggest.length ? '<div class="wk-part"><span class="wk-k">Biggest</span>' + list(w.biggest, function(t){
+    var name = transactionDisplayName(t, state.shared) || t.what || "A purchase";
+    return '<li><span title="' + escapeAttr(name) + '">' + escapeAttr(name) + '</span><em>' + dayMonth(t.date) + '</em><b>' + money(t.amount) + '</b></li>';
+  }) + '</div>' : '';
+  var bills = w.back ? '' : '<div class="wk-part"><span class="wk-k">Bills, next 7 days' + (w.bills.length ? ' · ' + money(w.billsTotal) : '') + '</span>' +
+    (w.bills.length ? list(w.bills.slice(0, 3), function(b){
+      return '<li><span title="' + escapeAttr(b.what) + '">' + escapeAttr(b.what) + '</span><em>' + (b.days === 0 ? "today" : b.days === 1 ? "tomorrow" : dayMonth(b.due)) + '</em><b>' + money(b.amount) + '</b></li>';
+    }) + (w.bills.length > 3 ? '<small>and ' + (w.bills.length - 3) + ' more</small>' : '') : '<p class="home-note">None due.</p>') + '</div>';
+  var foot = (w.toReview ? '<button type="button" class="btn btn-sm btn-primary" data-txr-open>Review ' + w.toReview + ' new transaction' + (w.toReview === 1 ? '' : 's') + '</button>' : '') +
+    (w.notice ? '<p class="wk-notice"><span class="wk-k">Worth a look</span> ' + escapeAttr(w.notice.title) +
+      (w.notice.go ? ' <button type="button" class="link-btn" data-adv-go="' + escapeAttr(w.notice.go.page) + '"' + (w.notice.go.sub ? ' data-adv-sub="' + escapeAttr(w.notice.go.sub) + '"' : '') + '>See →</button>' : '') + '</p>' : '');
+  return '<section class="home-card home-week" data-home-card="week" aria-label="Your week, ' + range + '">' +
+    '<div class="wk-head"><span class="home-k">' + (w.back ? "Week of " + dayMonth(w.start) : "Your week") + ' <span class="wk-range">· ' + range + '</span></span>' +
+      '<span class="wk-nav"><button type="button" class="icon-btn" data-wk-step="1" aria-label="The week before"' + (w.back >= KEEP_WEEKS - 1 ? ' disabled' : '') + '>‹</button>' +
+      '<button type="button" class="icon-btn" data-wk-step="-1" aria-label="The week after"' + (w.back ? '' : ' disabled') + '>›</button>' +
+      '<button type="button" class="icon-btn" data-wk-dismiss aria-label="Dismiss this week\'s card">✕</button></span></div>' +
+    '<div class="wk-body"><div class="wk-part wk-spent"><b class="home-big">' + money(w.spent) + '</b><span>spent · ' + w.count + ' transaction' + (w.count === 1 ? '' : 's') + '</span>' + vs +
+      '<button type="button" class="link-btn home-link" data-home-go="expenses" data-home-sub="spending">See spending →</button></div>' +
+      biggest + bills + '</div>' +
+    (foot ? '<div class="wk-foot">' + foot + '</div>' : '') + '</section>';
 }

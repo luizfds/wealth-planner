@@ -11,6 +11,7 @@ import { sortedRateHistory, calcRepaymentMonthly } from "../calc/property.js";
 import { shiftMonth, monthLabel } from "../calc/monthreview.js";
 import { cardPaymentsForMonth, upcomingBills, billLineStatus, billsToConfirm } from "../calc/bills.js";
 import { storageUsedChars, storageLevel, storageLineText } from "./storageuse.js";
+import { weekRecap, showWeekRecap } from "../calc/weekrecap.js";
 
 // ---------------- Notifications: a small, backend-shaped layer over locally-computed alerts ----------------
 // This app has no backend (see CLAUDE.md) — every notification here is derived live from
@@ -360,6 +361,17 @@ function monthReviewNotification(){
     detail: "Money in, card statements, checks and the month against the plan — Home → Review.", date: today, page: "dashboard", sub: "review" }];
 }
 
+// ---------------- Your week (v3.166.0, item 196) ----------------
+// From Monday, until the week's card is dismissed (on any device — state.weekRecaps syncs).
+function weekRecapNotification(){
+  var today = todayStr();
+  if(!showWeekRecap(state, today)) return [];
+  var w = weekRecap(state.transactions, today);
+  var vs = w.usual == null || Math.abs(w.vsUsual) < 1 ? "" : " — " + fmtCurrency0.format(Math.abs(w.vsUsual)) + (w.vsUsual > 0 ? " more" : " less") + " than usual";
+  return [{ id: "week:" + w.start, type: "week", severity: "info", title: "Your week: " + fmtCurrency0.format(w.spent) + " spent" + vs,
+    detail: "The biggest three, bills this week and anything to review — on Home.", date: today, page: "dashboard", sub: "overview" }];
+}
+
 // ---------------- Loan rate changes (v3.53.0) ----------------
 // A recorded rate change in the last 60 days: one notification each, with the new repayment, so
 // the budget's loan line can be checked against it.
@@ -541,6 +553,7 @@ export function getLocalNotifications(){
     cardPaymentNotifications(),
     endingPayNotifications(),
     monthReviewNotification(),
+    weekRecapNotification(),
     dataHealthNotification(),
     storageNotification()
   );

@@ -1,4 +1,6 @@
 import { dataHealthChecks } from "../calc/health.js";
+import { state } from "../state.js";
+import { partAllows } from "../calc/parts.js";
 import { escapeAttr } from "../lib/html.js";
 
 // ---------------- Accounts → Checks (v3.48.0) ----------------
@@ -42,7 +44,8 @@ export function healthSummaryText(checks){
 export function renderHealth(){
   var el = document.getElementById("healthBody");
   if(!el) return;
-  var all = dataHealthChecks({ includeDismissed: true });
+  // v3.161.0 (item 191): nothing about a part the household has switched off.
+  var all = dataHealthChecks({ includeDismissed: true }).filter(function(c){ return partAllows(c.id, state); });
   var checks = all.filter(function(c){ return !c.dismissed; });
   el.innerHTML = healthHtml(checks, all.filter(function(c){ return c.dismissed; }));
   var sum = document.getElementById("healthSummary");

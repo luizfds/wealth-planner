@@ -3394,7 +3394,7 @@ figures that had room kept whole dollars). Up and down: the one figure shown in 
 This year so far — now carries ▲ (and "Over plan" for a screen reader). `tests/compact.test.js` pins the rule.
 
 
-## 191. `[~]` Only the parts you use
+## 191. `[x]` Only the parts you use
 A renter with no shares still sees Property, Investments, Tax → Returns and a dozen cards about them. Monarch and
 Copilot simply don't show what you don't have.
 
@@ -3404,6 +3404,18 @@ leave out what's off. Nothing is deleted, and turning a part on brings it back a
 
 Done when: the first-run answers set it; with property off, no page, card, notice or check mentions one (driven
 in the browser); the smoke script runs both all-on and a minimal household.
+
+Shipped as v3.161.0. Two parts, `calc/parts.js`: a property and shares (super is in every Australian household's
+picture, a partner is a second person with nothing to hide, and there's nothing for a business yet). A part is on when
+the household has one — a property, a holding filed under Shares — or as answered: Settings → Preferences → What this
+household has (From my data / Yes / No, saying what "from my data" comes to now), and two ticks in the first-run setup's
+home step (ticked turns it on; unticked leaves it to the data, so adding one later shows it). Off hides — the Property
+tab on all four Net worth rails and Investments' Shares tab (`data-part`, `body.no-part-*`), the property and share
+reports, the two Benchmarks sections, and the notices and Checks about them (`partAllows`, by id) — and deletes nothing;
+anything there still counts in net worth. While a part is hidden, Net worth says "Own a property or shares too? Add a
+property · Add shares", which turns it on and opens it. Driven with an empty household, the first-run tick, the Settings
+switch and the demo household (everything on); the smoke script now runs an empty household too.
+
 
 ## 192. `[ ]` A first ten minutes that ends somewhere
 The first-run setup asks good questions, then leaves you on a full Home. Monarch and Copilot finish setup with

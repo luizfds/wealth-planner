@@ -613,7 +613,7 @@
           <button type="button" class="subnav-item nw-rail-item" data-page="networth">Overview</button>
           <button type="button" class="subnav-item nw-rail-item active" data-page="accounts">Accounts</button>
           <button type="button" class="subnav-item nw-rail-item" data-page="assets">Investments</button>
-          <button type="button" class="subnav-item nw-rail-item" data-page="properties">Property</button>
+          <button type="button" class="subnav-item nw-rail-item" data-page="properties" data-part="property">Property</button>
         </div>
         <div class="accounts-subpage" id="accountsSub-accounts">
         <div id="adviceStrip-accounts"></div>
@@ -704,6 +704,16 @@
               <p class="ledger-note" style="margin-left:0;margin-top:12px" id="yearBasisNote"></p>
             </div>
           </details>
+          <!-- v3.161.0 (item 191): what this household has — a part it doesn't have keeps out of the way. -->
+          <details class="ledger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">What this household has</h2></div>
+            </summary>
+            <div class="ledger-body">
+              <p class="ledger-note help" style="margin-left:0">A part you don't have keeps out of the way: its tab, its reports and Benchmarks, and the notices and checks about it. Turning one off hides it; nothing is deleted, and anything already there still counts in net worth. "From my data" shows a part once you add one.</p>
+              <div id="partsSettings"></div>
+            </div>
+          </details>
           <details class="ledger" open>
             <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Explanations</h2></div>
@@ -722,7 +732,7 @@
           <button type="button" class="subnav-item nw-rail-item" data-page="networth">Overview</button>
           <button type="button" class="subnav-item nw-rail-item" data-page="accounts">Accounts</button>
           <button type="button" class="subnav-item nw-rail-item" data-page="assets">Investments</button>
-          <button type="button" class="subnav-item nw-rail-item active" data-page="properties">Property</button>
+          <button type="button" class="subnav-item nw-rail-item active" data-page="properties" data-part="property">Property</button>
         </div>
         <div class="page-intro-row">
           <p class="page-intro help">What you actually own — value, loans, and the rent/expenses tied to each property.</p>
@@ -764,7 +774,7 @@
           <button type="button" class="subnav-item nw-rail-item" data-page="networth">Overview</button>
           <button type="button" class="subnav-item nw-rail-item" data-page="accounts">Accounts</button>
           <button type="button" class="subnav-item nw-rail-item active" data-page="assets">Investments</button>
-          <button type="button" class="subnav-item nw-rail-item" data-page="properties">Property</button>
+          <button type="button" class="subnav-item nw-rail-item" data-page="properties" data-part="property">Property</button>
         </div>
         <div class="page-intro-row">
           <p class="page-intro help">What you own today, tracked over time, and what buying would do to your net worth.</p>
@@ -783,7 +793,7 @@
         <div class="subnav" id="assetsSubnav">
           <button type="button" class="subnav-item active" data-assets-sub="summary">Summary</button>
           <button type="button" class="subnav-item" data-assets-sub="Cash">Cash</button>
-          <button type="button" class="subnav-item" data-assets-sub="Shares">Shares</button>
+          <button type="button" class="subnav-item" data-assets-sub="Shares" data-part="shares">Shares</button>
           <button type="button" class="subnav-item" data-assets-sub="Super">Super</button>
           <button type="button" class="subnav-item" data-assets-sub="Vehicle">Vehicle</button>
           <button type="button" class="subnav-item" data-assets-sub="Other">Other</button>
@@ -853,7 +863,7 @@
           <button type="button" class="subnav-item nw-rail-item active" data-page="networth">Overview</button>
           <button type="button" class="subnav-item nw-rail-item" data-page="accounts">Accounts</button>
           <button type="button" class="subnav-item nw-rail-item" data-page="assets">Investments</button>
-          <button type="button" class="subnav-item nw-rail-item" data-page="properties">Property</button>
+          <button type="button" class="subnav-item nw-rail-item" data-page="properties" data-part="property">Property</button>
         </div>
         <p class="page-intro help">Everything you own and owe in one list — open any of it for its history and detail, or use the tabs above to update balances, holdings and property.</p>
         <div id="netWorthBody" class="nw-page"></div>
@@ -1090,6 +1100,7 @@
   "./src/calc/nwcheck.js": "./src/calc/nwcheck.js?v=3.160.0",
   "./src/calc/nwhistory.js": "./src/calc/nwhistory.js?v=3.160.0",
   "./src/calc/outcomes.js": "./src/calc/outcomes.js?v=3.160.0",
+  "./src/calc/parts.js": "./src/calc/parts.js?v=3.160.0",
   "./src/calc/payslip.js": "./src/calc/payslip.js?v=3.160.0",
   "./src/calc/payslipcheck.js": "./src/calc/payslipcheck.js?v=3.160.0",
   "./src/calc/pdfstatement.js": "./src/calc/pdfstatement.js?v=3.160.0",
@@ -1143,6 +1154,7 @@
   "./src/components/monthreview.js": "./src/components/monthreview.js?v=3.160.0",
   "./src/components/nav.js": "./src/components/nav.js?v=3.160.0",
   "./src/components/networth.js": "./src/components/networth.js?v=3.160.0",
+  "./src/components/parts.js": "./src/components/parts.js?v=3.160.0",
   "./src/components/people.js": "./src/components/people.js?v=3.160.0",
   "./src/components/period.js": "./src/components/period.js?v=3.160.0",
   "./src/components/pricesheet.js": "./src/components/pricesheet.js?v=3.160.0",
@@ -1236,6 +1248,7 @@
 <link rel="modulepreload" href="./src/calc/nwcheck.js?v=3.160.0">
 <link rel="modulepreload" href="./src/calc/nwhistory.js?v=3.160.0">
 <link rel="modulepreload" href="./src/calc/outcomes.js?v=3.160.0">
+<link rel="modulepreload" href="./src/calc/parts.js?v=3.160.0">
 <link rel="modulepreload" href="./src/calc/payslip.js?v=3.160.0">
 <link rel="modulepreload" href="./src/calc/payslipcheck.js?v=3.160.0">
 <link rel="modulepreload" href="./src/calc/pdfstatement.js?v=3.160.0">
@@ -1289,6 +1302,7 @@
 <link rel="modulepreload" href="./src/components/monthreview.js?v=3.160.0">
 <link rel="modulepreload" href="./src/components/nav.js?v=3.160.0">
 <link rel="modulepreload" href="./src/components/networth.js?v=3.160.0">
+<link rel="modulepreload" href="./src/components/parts.js?v=3.160.0">
 <link rel="modulepreload" href="./src/components/people.js?v=3.160.0">
 <link rel="modulepreload" href="./src/components/period.js?v=3.160.0">
 <link rel="modulepreload" href="./src/components/pricesheet.js?v=3.160.0">

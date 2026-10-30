@@ -55,6 +55,11 @@ export function applyFirstRun(answers, today){
       amount: Number(c.amount), freq: c.freq || "Monthly", irregular: false, dueMonth: null });
     made.lines++;
   });
+  // v3.161.0 (item 191): a part ticked shows straight away; one left unticked shows once one is added.
+  if(answers.own){
+    if(!state.parts) state.parts = {};
+    ["property", "shares"].forEach(function(k){ if(answers.own[k] === true) state.parts[k] = "on"; });
+  }
   state.firstRunDone = true;
   return made;
 }

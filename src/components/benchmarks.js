@@ -6,6 +6,7 @@
 // Each section is an HTML builder over a plain data object (testable, see render-smoke) plus a
 // gather function that reads state.
 import { state } from "../state.js";
+import { partOn } from "../calc/parts.js";
 import { BENCHMARKS } from "../constants.js";
 import { getTaxPeople, computePersonTax, ageOnDate } from "../calc/tax.js";
 import { scenarioTotals, totalNetWorthValue, toAudAmount } from "../calc/engine.js";
@@ -397,19 +398,19 @@ export function registerBenchmarkSection(section){ SECTIONS.push(section); }
 registerBenchmarkSection({ id: "household", title: "How you compare", sub: "published Australian figures, people your age",
   html: function(){ return householdCompareHtml(gatherHousehold()); } });
 
-registerBenchmarkSection({ id: "investments", title: "Your shares against the market", sub: "the same dollars on the same dates",
+registerBenchmarkSection({ id: "investments", part: "shares", title: "Your shares against the market", sub: "the same dollars on the same dates",
   html: function(){ return investmentsHtml(gatherInvestments()); } });
 
 registerBenchmarkSection({ id: "targets", title: "Your targets", sub: "goals you set",
   html: function(){ return targetsHtml(gatherTargets()); } });
 
-registerBenchmarkSection({ id: "property", title: "Property against its suburb", sub: "growth, yield and rent",
+registerBenchmarkSection({ id: "property", part: "property", title: "Property against its suburb", sub: "growth, yield and rent",
   html: function(){ return propertyMarketHtml(gatherPropertyMarket()); } });
 
 export function renderBenchmarks(){
   var el = document.getElementById("benchmarksBody");
   if(!el || el.closest(".dashboard-subpage").hidden) return;
-  el.innerHTML = SECTIONS.map(function(s){
+  el.innerHTML = SECTIONS.filter(function(s){ return !s.part || partOn(s.part, state); }).map(function(s){
     return '<section class="panel bm-panel" id="bm-' + s.id + '"><h3>' + s.title + ' <span style="font-weight:400;color:var(--ink-soft)">— ' + s.sub + '</span></h3>' + s.html() + '</section>';
   }).join("");
 }

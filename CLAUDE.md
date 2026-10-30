@@ -45,6 +45,10 @@ the last, so two sessions can't pick up the same one.
 - **Cards and charts (v3.159.0):** every top-level card takes `--card-radius` and `--card-py`/`--card-px` (tighter
   under 700px), a card inside a card `--inner-radius`; a card's title is `--fs-lg`. Both full charts (`renderLineChart`,
   `renderStackedAreaChart`) share `wireChartTooltip` — hover with a mouse, tap with a finger. `tests/cards.test.js` pins both.
+- **Parts (v3.161.0):** a property and shares are *parts* (`calc/parts.js`): on when the household has one, or as set in
+  Settings → Preferences / the first-run setup (`state.parts`). Off adds `no-part-<key>` to `<body>`, hiding anything marked
+  `data-part`; reports (`REPORTS[].part`), Benchmarks sections, notices and Checks (`partAllows(id)`) filter themselves.
+  Something new about a property or shares gets a `data-part` or a `part`. The smoke script also runs an empty household.
 - `styles.css` — just eight `@import` statements pulling in `src/styles/{base,shell,dashboard,
   ledger,income,properties,assets,projections}.css`, in that specific order. Light/dark theming is
   CSS custom properties + `prefers-color-scheme`, defined in `base.css`.

@@ -129,6 +129,50 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
   }
   await ctx.close();
 }
+// v3.161.0 (item 191): a household with nothing in it — the parts it doesn't have (a property, shares)
+// keep out of the way, and the way back in works. The all-on demo above covers everything else.
+if(!SHOTS){
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await ctx.addInitScript(() => localStorage.setItem("wealthPlanner.hasSeenIntro", "1"));
+  await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on("pageerror", e => errors.push("page error: " + e.message));
+  page.on("console", m => { if(m.type() === "error" && !/Failed to load resource/.test(m.text())) errors.push("console: " + m.text()); });
+  await page.goto(base + "/index.html");
+  await page.waitForTimeout(1500);
+  await page.evaluate(() => { const c = document.querySelector("[data-fr-close]"); if(c) c.click(); });
+  await page.waitForTimeout(300);
+  const where = "minimal household 390px";
+  const r = await page.evaluate(async () => {
+    const wait = ms => new Promise(res => setTimeout(res, ms));
+    const out = [], go = p => { document.querySelector('[data-page="' + p + '"]').click(); return wait(500); };
+    const visible = sel => [...document.querySelectorAll(sel)].some(e => e.getClientRects().length);
+    const page = () => document.querySelector(".app-page:not([hidden])");
+    const checkPage = name => { const t = page().innerText; ["NaN", "undefined", "[object Object]"].forEach(b => { if(t.includes(b)) out.push(name + " shows " + b); }); if(document.documentElement.scrollWidth > 390) out.push(name + " scrolls sideways"); };
+    for(const p of ["dashboard", "expenses", "tax", "plan"]){ await go(p); checkPage(p); }
+    await go("networth"); checkPage("networth");
+    if(visible('.nw-rail-item[data-page="properties"]')) out.push("the Property tab shows with no property");
+    await go("assets");
+    if(visible('[data-assets-sub="Shares"]')) out.push("the Shares tab shows with no shares");
+    await go("reports"); checkPage("reports");
+    if(/Property P&L|Capital gains/.test(page().innerText)) out.push("property or share reports offered");
+    document.querySelector('[data-page="dashboard"]').click(); await wait(400);
+    const bm = document.querySelector('[data-dashboard-sub="benchmarks"]'); if(bm){ bm.click(); await wait(400); }
+    if(/Property against its suburb|Your shares against the market/.test(page().innerText)) out.push("property or share Benchmarks shown");
+    await go("settings"); const pref = document.querySelector('[data-accounts-sub="preferences"]'); if(pref){ pref.click(); await wait(400); }
+    if(!document.querySelector('[data-part-set="property"]')) out.push("no What this household has in Preferences");
+    await go("networth");
+    const add = document.querySelector('[data-part-show="property"]');
+    if(!add) out.push("no way back in from Net worth"); else { add.click(); await wait(700);
+      if(document.body.getAttribute("data-current-page") !== "properties") out.push("Add a property didn't open Property");
+      if(!visible('.nw-rail-item[data-page="properties"]')) out.push("the Property tab stayed hidden after Add a property"); }
+    return out;
+  });
+  r.forEach(f => failures.push(where + ": " + f));
+  errors.splice(0).forEach(e => failures.push(where + ": " + e));
+  await ctx.close();
+}
 await browser.close();
 server.close();
 if(failures.length && SHOTS){

@@ -4,17 +4,22 @@ import { incomeTargets } from "../calc/received.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr, fmtDate } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { usualCardSource } from "../calc/bills.js";
+import { emptyFilter, filterOf, filterActive, effectiveFilter, viewMatching, describeFilter } from "../calc/txviews.js";
 
 // ---------------- Cash flow → Spending: the unified list's controls (v3.59.0) ----------------
 // components/expenses.js renders the list (its spending rows are the editable ones it always had);
 // this owns what sits around them — the filters, the in/transfer rows, the bulk-edit bar, the
 // transfer form and the split editor — and the session state each needs.
-export var txFilters = { direction: "all", account: "", category: "", line: "", person: "", text: "" };
+// v3.168.0: trip, an amount range and dates too, and the lot can be saved as a view (calc/txviews.js).
+export var txFilters = emptyFilter();
+export var txViewForm = { open: false };
 export var txSelect = { on: false, picked: {} };
 export var transferForm = { open: false };
 export var splitEditing = { idx: null, parts: [] };
-export function resetTxFilters(){ txFilters.direction = "all"; txFilters.account = txFilters.category = txFilters.line = txFilters.person = txFilters.text = ""; }
-export function txFiltersActive(){ return txFilters.direction !== "all" || !!(txFilters.account || txFilters.category || txFilters.line || txFilters.person || txFilters.text); }
+export function resetTxFilters(){ Object.assign(txFilters, emptyFilter()); txViewForm.open = false; }
+export function txFiltersActive(){ return filterActive(txFilters); }
+// The filters as the list applies them — a trip becomes its dates.
+export function currentTxFilter(){ return effectiveFilter(txFilters, state.trips); }
 
 function selectHtml(key, label, values, current, labelOf){
   return '<label class="cf-filter"><span>' + label + '</span><select data-cf-filter="' + key + '" aria-label="Filter by ' + label.toLowerCase() + '">' +
@@ -34,7 +39,29 @@ export function lineLabeler(lines){
 // a chip that clears it. On a phone the first transaction is now on the first screen. The
 // direction (All / Spending / Money in / Transfers) sits with the Month / Year / All control above.
 export var txFilterPanel = { open: false };
-var FILTER_KEYS = [["account", "Account"], ["category", "Category"], ["line", "Line"], ["person", "Person"]];
+var FILTER_KEYS = [["account"], ["category"], ["line"], ["person"], ["trip"], ["min"], ["max"], ["from"], ["to"]];
+function tripName(id){ var t = (state.trips || []).find(function(x){ return x.id === id; }); return t ? t.name || "Trip" : "A deleted trip"; }
+function inputHtml(key, label, type, value, extra){
+  return '<label class="cf-filter"><span>' + label + '</span><input type="' + type + '" data-cf-filter="' + key + '" value="' + escapeAttr(value || "") + '" aria-label="Filter: ' + label.toLowerCase() + '"' + (extra || '') + '></label>';
+}
+// The saved views as chips over the list; the one you're on is marked. With filters set that aren't a
+// view yet, "Save view" names them; on a view, it can be deleted.
+export function viewsBarHtml(){
+  var views = state.txViews || [];
+  var on = viewMatching(views, txFilters);
+  var active = filterActive(txFilters);
+  if(!views.length && !active) return "";
+  var chips = views.map(function(v){
+    var cur = on && on.id === v.id;
+    return '<button type="button" class="cf-view' + (cur ? " active" : "") + '" aria-pressed="' + !!cur + '" data-cf-view="' + escapeAttr(v.id) + '">' + escapeAttr(v.name) + '</button>';
+  }).join("");
+  var tail = txViewForm.open
+    ? '<span class="cf-view-form"><input type="text" data-cf-view-name maxlength="40" placeholder="Name this view" aria-label="Name for this view">' +
+        '<button type="button" class="btn btn-sm btn-primary" data-cf-view-confirm>Save</button><button type="button" class="btn btn-sm btn-ghost" data-cf-view-cancel>Cancel</button></span>'
+    : on ? '<button type="button" class="btn btn-sm btn-danger" data-cf-view-del="' + escapeAttr(on.id) + '">Delete view</button>'
+    : active ? '<button type="button" class="btn btn-sm btn-ghost" data-cf-view-save>Save view</button>' : '';
+  return '<div class="cf-views" role="group" aria-label="Saved views">' + (views.length ? '<span class="cf-views-k">Views</span>' : '') + chips + tail + '</div>';
+}
 export function directionControlHtml(){
   var dirs = [["all", "All"], ["out", "Spending"], ["in", "Money in"], ["transfer", "Transfers"]];
   return '<div class="seg-control cf-dir" role="group" aria-label="Show">' + dirs.map(function(d){
@@ -47,8 +74,8 @@ export function filterBarHtml(entries, lines){
   var labelOf = lineLabeler(lines);
   var on = FILTER_KEYS.filter(function(k){ return txFilters[k[0]]; });
   var chips = !txFilterPanel.open && on.length ? '<div class="cf-chips">' + on.map(function(k){
-    var v = txFilters[k[0]], shown = k[0] === "line" ? labelOf(v) : v;
-    return '<button type="button" class="cf-chip" data-cf-chip-clear="' + k[0] + '" aria-label="' + escapeAttr("Remove filter " + k[1] + ": " + shown) + '">' + k[1] + ': <b>' + escapeAttr(shown) + '</b> <span aria-hidden="true">✕</span></button>';
+    var d = describeFilter(k[0], txFilters[k[0]], { lineName: labelOf, tripName: tripName, date: fmtDate });
+    return '<button type="button" class="cf-chip" data-cf-chip-clear="' + k[0] + '" aria-label="' + escapeAttr("Remove filter " + d.text) + '">' + escapeAttr(d.label + d.sep) + '<b>' + escapeAttr(d.value) + '</b> <span aria-hidden="true">✕</span></button>';
   }).join("") + '</div>' : '';
   return '<div class="cf-filters">' +
     '<div class="cf-toolbar">' +
@@ -65,6 +92,11 @@ export function filterBarHtml(entries, lines){
       selectHtml("category", "Category", ch.categories, txFilters.category) +
       selectHtml("line", "Line", ch.lines, txFilters.line, labelOf) +
       (ch.people.length ? selectHtml("person", "Person", ch.people, txFilters.person) : '') +
+      ((state.trips || []).length ? selectHtml("trip", "Trip", state.trips.map(function(t){ return t.id; }), txFilters.trip, tripName) : '') +
+      inputHtml("min", "Amount from", "number", txFilters.min, ' min="0" step="0.01" inputmode="decimal"') +
+      inputHtml("max", "Amount up to", "number", txFilters.max, ' min="0" step="0.01" inputmode="decimal"') +
+      inputHtml("from", "Date from", "date", txFilters.from) +
+      inputHtml("to", "Date to", "date", txFilters.to) +
     '</div>' : '') + chips +
   '</div>';
 }

@@ -78,12 +78,13 @@ import {
 } from "./components/scenarios.js";
 import { ACCOUNT_TYPE_KEYS, accountSourceOptions, setAccountBalance, resolveLink, accountBalance } from "./calc/accounts.js";
 import { addTransfer, deleteTransfer, splitTransaction, unsplit, bulkEditTransactions, bulkDeleteTransactions } from "./calc/cashflowlist.js";
-import { txFilters, txSelect, transferForm, splitEditing, resetTxFilters, setTxGrid, txFilterPanel, transferHint } from "./components/cashflow.js";
+import { txFilters, txSelect, transferForm, splitEditing, resetTxFilters, setTxGrid, txFilterPanel, transferHint, txViewForm } from "./components/cashflow.js";
 import { rulesPageHtml, setRuleField, ruleIsEmpty, ruleTest, ruleView, RULES_PAGE } from "./components/rules.js";
 import { normaliseDescription } from "./calc/bank-import.js";
 import { openAccounts, balanceEditing } from "./components/accounts.js";
 import { renderHomeSummary, weekView } from "./components/home.js";
 import { dismissWeekRecap } from "./calc/weekrecap.js";
+import { saveView, deleteView, applyView, FILTER_FIELDS } from "./calc/txviews.js";
 import { dataHealthChecks, dismissCheck } from "./calc/health.js";
 import { applyFirstRun, shouldOfferFirstRun } from "./calc/firstrun.js";
 import { normaliseTrip, applyTripRefile } from "./calc/trips.js";
@@ -3182,6 +3183,30 @@ import { inboxMessage } from "./calc/inbox.js";
     renderMonthReview();
     persist();
   }
+  function saveTxView(){
+    var el = document.querySelector("#transactionsTable [data-cf-view-name]");
+    var name = el ? el.value.trim() : "";
+    if(!name){ if(el) el.focus(); showToast("Give the view a name"); return; }
+    var v = saveView(state.txViews, name, txFilters, function(){ return genId("view"); });
+    txViewForm.open = false;
+    persist(); renderTransactions();
+    if(v) showToast('Saved "' + v.name + '" — it\'s a chip above the list');
+  }
+  // "Show me in Spending" from anywhere: a button with data-sv and a data-sv-<filter> per filter to set
+  // (data-sv-category, data-sv-line, data-sv-from …) opens Spending filtered to exactly that.
+  document.addEventListener("click", function(e){
+    var b = e.target.closest && e.target.closest("[data-sv]");
+    if(!b) return;
+    e.preventDefault();
+    resetTxFilters();
+    FILTER_FIELDS.forEach(function(k){ var v = b.getAttribute("data-sv-" + k); if(v != null) txFilters[k] = v; });
+    txFilterPanel.open = false;
+    setTransactionsShowAll(false);
+    showPage("expenses");
+    showExpensesSubpage("spending", { replace: true });
+    renderTransactions();
+    setTimeout(function(){ var t = document.getElementById("transactionsTable"); if(t) t.scrollIntoView({ behavior: "smooth", block: "start" }); }, 350);
+  });
   function pickedIndices(){
     return Object.keys(txSelect.picked).filter(function(k){ return txSelect.picked[k]; }).map(Number).filter(function(i){ return state.transactions[i]; });
   }
@@ -3190,6 +3215,23 @@ import { inboxMessage } from "./calc/inbox.js";
     if(!b || b.disabled) return;
     if(b.hasAttribute("data-cf-dir")){ txFilters.direction = b.getAttribute("data-cf-dir"); setTransactionsShowAll(false); renderTransactions(); return; }
     if(b.hasAttribute("data-cf-clear")){ resetTxFilters(); renderTransactions(); return; }
+    // v3.168.0: saved views — pick one, name the filters as one, or delete the one you're on.
+    if(b.hasAttribute("data-cf-view")){
+      var view = (state.txViews || []).find(function(v){ return v.id === b.getAttribute("data-cf-view"); });
+      if(view){ Object.assign(txFilters, applyView(view)); txFilterPanel.open = false; setTransactionsShowAll(false); renderTransactions(); }
+      return;
+    }
+    if(b.hasAttribute("data-cf-view-save")){ txViewForm.open = true; renderTransactions(); var nm = document.querySelector("#transactionsTable [data-cf-view-name]"); if(nm) nm.focus(); return; }
+    if(b.hasAttribute("data-cf-view-cancel")){ txViewForm.open = false; renderTransactions(); return; }
+    if(b.hasAttribute("data-cf-view-confirm")){ saveTxView(); return; }
+    if(b.hasAttribute("data-cf-view-del")){
+      var gone = deleteView(state.txViews, b.getAttribute("data-cf-view-del"));
+      if(gone){
+        persist(); renderTransactions();
+        showUndoToast('Deleted the view "' + gone.name + '"', function(){ state.txViews.push(gone); persist(); renderTransactions(); });
+      }
+      return;
+    }
     if(b.hasAttribute("data-cf-panel")){ txFilterPanel.open = !txFilterPanel.open; renderTransactions(); var first = txFilterPanel.open && document.querySelector('#transactionsTable #cfFilterRow select'); if(first) first.focus(); return; }
     if(b.hasAttribute("data-cf-chip-clear")){ txFilters[b.getAttribute("data-cf-chip-clear")] = ""; setTransactionsShowAll(false); renderTransactions(); var fb = document.querySelector('#transactionsTable [data-cf-panel]'); if(fb) fb.focus(); return; }
     if(b.hasAttribute("data-cf-select")){ txSelect.on = !txSelect.on; txSelect.picked = {}; renderTransactions(); return; }
@@ -3329,6 +3371,10 @@ import { inboxMessage } from "./calc/inbox.js";
       if(!e.target.closest(".row-swipe-tray")) putAway();
     }, true);
   })();
+  txTable.addEventListener("keydown", function(e){
+    if(e.key === "Enter" && e.target.hasAttribute && e.target.hasAttribute("data-cf-view-name")){ e.preventDefault(); saveTxView(); }
+    if(e.key === "Escape" && e.target.hasAttribute && e.target.hasAttribute("data-cf-view-name")){ txViewForm.open = false; renderTransactions(); }
+  });
   txTable.addEventListener("change", function(e){
     var t = e.target;
     if(t.hasAttribute("data-cf-filter") && t.getAttribute("data-cf-filter") !== "text"){ txFilters[t.getAttribute("data-cf-filter")] = t.value; setTransactionsShowAll(false); renderTransactions(); return; }

@@ -52,12 +52,19 @@ export function cashflowEntries(opts){
   return out.sort(function(a, b){ return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
 }
 
-// f: { direction: "all" | "out" | "in" | "transfer", account, category, line, person, text }.
+// f: { direction: "all" | "out" | "in" | "transfer", account, category, line, person, text, and since
+// v3.168.0 min / max (the amount's size, so a refund of $40 is "from $30") and from / to (dates,
+// inclusive) — a trip arrives as from / to, see calc/txviews.js effectiveFilter }.
 // An account filter matches a transfer on either side — it moved money in or out of that account.
 export function filterEntries(entries, f){
   f = f || {};
   var text = String(f.text || "").trim().toLowerCase();
+  var min = f.min === "" || f.min == null ? null : Number(f.min), max = f.max === "" || f.max == null ? null : Number(f.max);
   return entries.filter(function(e){
+    if(f.from && e.date < f.from) return false;
+    if(f.to && e.date > f.to) return false;
+    if(min != null && !isNaN(min) && Math.abs(e.amount) < min) return false;
+    if(max != null && !isNaN(max) && Math.abs(e.amount) > max) return false;
     if(f.direction && f.direction !== "all" && e.kind !== f.direction) return false;
     if(f.account && e.account !== f.account && e.toAccount !== f.account) return false;
     if(f.category && e.category !== f.category) return false;

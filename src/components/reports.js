@@ -81,6 +81,8 @@ function drillHtml(rep, opts){
       .sort(function(a, b){ return a.date < b.date ? 1 : -1; });
     if(!tx.length) return "";
     return '<div class="rp-drill"><div class="rp-drill-head"><b>' + escapeAttr(k) + '</b> — ' + tx.length + ' transaction' + (tx.length === 1 ? '' : 's') +
+      // v3.168.0: by category, the same rows in Spending — a filter there, and a view to keep.
+      (reportFrame.group === "category" ? '<button type="button" class="btn btn-ghost btn-sm" data-sv data-sv-direction="out" data-sv-category="' + escapeAttr(k) + '" data-sv-from="' + escapeAttr(opts.win.start) + '" data-sv-to="' + escapeAttr(opts.win.end) + '">Show in Spending</button>' : '') +
       '<button type="button" class="btn btn-ghost btn-sm" data-rf-drill="' + escapeAttr(k) + '">Close</button></div>' +
       '<table class="rp-table"><tbody>' + tx.slice(0, 60).map(function(t){
         return '<tr><td>' + escapeAttr(fmtDate(t.date)) + '</td><td>' + escapeAttr(transactionDisplayName(t, budgetLineItems())) + '</td><td class="num">' + fmtCurrency2.format(Number(t.amount) || 0) + '</td></tr>';

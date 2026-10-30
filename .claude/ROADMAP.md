@@ -3559,7 +3559,7 @@ change on desktop.
   the browser's own pull-to-reload is turned off on a phone so the two don't fight.
 
 
-## 198. `[ ]` Saved views of your transactions
+## 198. `[x]` Saved views of your transactions
 Search and filters exist but are lost when you leave. Monarch saves filtered views.
 
 Do: a filter set on Spending (account, category, person, trip, amount, text, dates) can be saved and named, and
@@ -3567,6 +3567,18 @@ appears as a chip above the list. The views travel in the backup and sync. "Show
 notice or budget line opens a filtered list.
 
 Done when: a saved view's total equals the same filter set by hand; it survives a reload and a sync.
+
+**Done (v3.168.0).** Spending's filters gained a trip, an amount range (the amount's size, so a refund counts by it) and
+dates, beside account, category, line, person, direction and search. **Save view** names the filter set; saved views
+(`state.txViews`, `calc/txviews.js` — so they're in the backup and sync, merged without a conflict when two devices each
+add one) are chips over the list, the one you're on marked, with Delete view (undo). A filter with its own dates, or a
+trip, replaces the header's period ("Dates from the filter"). **Show me in Spending**: a button with `data-sv` and
+`data-sv-<filter>` attributes opens Spending filtered — on a budget line's drill-down (the line, over its own cycle), a
+Categories report's opened row (the category over the report's period), Your week (its seven days) and the
+savings-rate notice (twelve whole months; `go.filter` on any notice). Driven at 390 and 1280px: a view's total equals
+the same filters set by hand ($3,535 over 13 entries on the demo), after a reload too; the Groceries line opens at its
+$1,367 actual and Your week at its $1,259.
+
 
 ## 199. `[ ]` OFX, QFX and QIF, and how to get them
 PocketSmith takes OFX, QFX, QIF and CSV. Here it's CSV or PDF, and finding a bank's export button is left to you.

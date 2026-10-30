@@ -1645,3 +1645,29 @@ test("weekCardHtml draws the week, its biggest three, bills and the notice", asy
   assert.match(html, /Something to look at/);
   assert.doesNotMatch(html, /undefined|NaN/);
 });
+
+test("viewsBarHtml and the filter panel draw saved views, the new filters and their chips", async function(){
+  var cf = await import("../src/components/cashflow.js");
+  var was = state.txViews, wasTrips = state.trips;
+  state.txViews = [{ id: "v1", name: "Cafes", filter: { category: "Eating out" } }];
+  state.trips = [{ id: "t1", name: "Coast", from: "2026-10-02", to: "2026-10-06" }];
+  cf.resetTxFilters();
+  cf.txFilters.category = "Eating out";
+  var bar = cf.viewsBarHtml();
+  assert.match(bar, /data-cf-view="v1"[^>]*>Cafes/);
+  assert.match(bar, /class="cf-view active"/);
+  assert.match(bar, /data-cf-view-del="v1"/);
+  cf.txFilters.min = "20"; cf.txFilters.trip = "t1";
+  assert.match(cf.viewsBarHtml(), /data-cf-view-save/);
+  var html = cf.filterBarHtml([], []);
+  assert.match(html, /At least <b>\$20/);
+  assert.match(html, /Trip: <b>Coast/);
+  cf.txFilterPanel.open = true;
+  html = cf.filterBarHtml([], []);
+  assert.match(html, /data-cf-filter="min"/);
+  assert.match(html, /data-cf-filter="from"/);
+  assert.match(html, /data-cf-filter="trip"/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+  cf.txFilterPanel.open = false; cf.resetTxFilters();
+  state.txViews = was; state.trips = wasTrips;
+});

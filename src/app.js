@@ -865,8 +865,8 @@ import { inboxMessage } from "./calc/inbox.js";
     var note = document.getElementById("projBasisNote");
     if(note){
       note.textContent = real
-        ? "Every figure below is deflated by " + (Number(state.projection.inflationRate) || 0) + "% a year — what it would buy today."
-        : "Raw future dollars, not adjusted for inflation.";
+        ? "Deflated " + (Number(state.projection.inflationRate) || 0) + "% a year."
+        : "Not adjusted for inflation.";
     }
   }
 

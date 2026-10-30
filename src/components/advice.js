@@ -48,8 +48,11 @@ export function adviceHomeHtml(items){
     body + askClaudeHtml() + '</div>';
 }
 // A page's strip is for what to act on; what's on track stays on Insights.
+// v3.158.0 (item 188): what the page itself already shows in full stays off its strip — on Tax, each
+// person's super room is the Top up box on their card.
+var SHOWN_ON_PAGE = { tax: /^super-room:/ };
 export function adviceStripHtml(items, area){
-  items = (items || []).filter(function(a){ return a.kind !== "good"; });
+  items = (items || []).filter(function(a){ return a.kind !== "good" && !(SHOWN_ON_PAGE[area] && SHOWN_ON_PAGE[area].test(a.id)); });
   if(!items.length) return "";
   var shown = items.slice(0, 3);
   return '<div class="adv-strip"><div class="adv-strip-head"><span>The app notices</span>' +

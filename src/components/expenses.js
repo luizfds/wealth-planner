@@ -1149,7 +1149,9 @@ export function setTransactionsShowAll(value){
   transactionsShowAll = value;
   renderTransactions();
 }
-var TRANSACTIONS_RECENT_COUNT = 25;
+// v3.158.0 (item 188): ten, not 25 — the list heads a page with four more sections under it, and 25
+// rows put them seven screens down on a phone. "Show all N" is one tap.
+var TRANSACTIONS_RECENT_COUNT = 10;
 // Modern-mode open/closed state per row, same lifetime/shape as modernSharedRowOpen etc. — keyed
 // "tx:<idx>" (idx is the transaction's real state.transactions[] position, stable across a
 // resort) so an in-progress edit stays open across the rebuild a date edit triggers.
@@ -1560,7 +1562,10 @@ export function budgetComparisonRowHtml(item){
   return '<div class="budget-row' + (isExpandable ? " is-expandable" : "") + (isOpen ? " open" : "") + '"' +
       (isExpandable ? ' data-budget-row-toggle="' + escapeAttr(item.id) + '" role="button" tabindex="0" aria-expanded="' + isOpen + '"' : '') + '>' +
     '<div class="acct-row"><span class="acct-name" title="' + escapeAttr(item.what) + '">' + categoryIconHtml(item.category, { small: true }) + escapeAttr(item.what) + '</span>' +
-      '<span style="font-size:var(--fs-xs);color:var(--ink-soft)">' + fmtCurrency0.format(actual) + ' actual / ' + fmtCurrency0.format(planned) + ' planned ' + escapeAttr(cycle.label) + ' — ' + remainingLabel + '</span>' +
+      // v3.158.0 (item 188): "$1,095 of $1,200" — what's left or over is the figure on the right; the
+      // window is named only when it isn't this month. The whole sentence stays in the tooltip.
+      '<span style="font-size:var(--fs-xs);color:var(--ink-soft)" title="' + escapeAttr(fmtCurrency0.format(actual) + ' actual / ' + fmtCurrency0.format(planned) + ' planned ' + cycle.label + ' — ' + remainingLabel) + '">' +
+        fmtCurrency0.format(actual) + ' of ' + fmtCurrency0.format(planned) + (cycle.label && cycle.label !== "this month" ? ' ' + escapeAttr(cycle.label) : '') + '</span>' +
       '<span class="acct-amt"' + (color ? ' style="color:' + color + '"' : '') + '>' + (delta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(delta)) + '</span>' + (isExpandable ? budgetRowChevHtml() : "") + '</div>' +
     '<div class="budget-bar-track"><div class="budget-bar-fill' + (delta > 0.5 ? " over" : "") + '" style="width:' + pct + '%"></div></div>' +
     (isOpen ? budgetRowTxnListHtml(txnPairs) : '') +
@@ -1761,8 +1766,8 @@ export function renderActualVsPlannedPanel(){
   el.innerHTML =
     '<div class="fire-stat-row"><span>' + (mp === "this month" ? "This month" : mp.slice(3)) + ' — spent vs. billed</span><b' + (overallColor ? ' style="color:' + overallColor + '"' : '') + '>' + fmtCurrency0.format(actualTotal) + ' / ' + fmtCurrency0.format(plannedTotal) + '</b></div>' +
     '<div class="fire-bar-track"><div class="fire-bar-fill' + (overallDelta > 0.5 ? " over" : "") + '" style="width:' + overallPct + '%"></div></div>' +
-    '<p class="fire-note" style="margin:2px 0 12px">' + (overallDelta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(overallDelta)) + (overallDelta > 0.5 ? " over what's billed " + mp + "." : overallDelta < -0.5 ? " under what's billed " + mp + "." : " right on what's billed " + mp + ".") + ' Smoothed average is ' + fmtCurrency0.format(smoothedMonthly) + '/mo.</p>' +
-    '<div class="ledger-note" style="margin:0 0 6px">Where it went — tap a line for the individual transactions.</div>' +
+    '<p class="fire-note" style="margin:2px 0 12px">' + (overallDelta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(overallDelta)) + (overallDelta > 0.5 ? " over what's billed " + mp + "." : overallDelta < -0.5 ? " under what's billed " + mp + "." : " right on what's billed " + mp + ".") + ' Smoothed: ' + fmtCurrency0.format(smoothedMonthly) + '/mo.</p>' +
+    '<div class="ledger-note" style="margin:0 0 6px">Tap a line for its transactions.</div>' +
     rows + unlinkedRow +
     creditStatementCyclesHtml() + irregularSection;
 }
@@ -1783,7 +1788,7 @@ function creditStatementCyclesHtml(){
       '<span style="font-size:var(--fs-xs);color:var(--ink-soft)">' + fmtDate(cycle.start) + ' – ' + fmtDate(cycle.end) + ' · ' + cycleTxns.length + ' charge' + (cycleTxns.length === 1 ? "" : "s") + '</span>' +
       '<span class="acct-amt">' + fmtCurrency0.format(total) + '</span></div>';
   }).join("");
-  return '<div style="margin-top:16px"><div class="fire-stat-row" style="margin-bottom:2px"><span>' + (isPeriodToday() ? 'This bill so far' : 'The bill open on ' + monthAnchorDate()) + ' — by statement cycle</span></div>' + rows + '</div>';
+  return '<div style="margin-top:16px"><div class="fire-stat-row" style="margin-bottom:2px"><span>' + (isPeriodToday() ? 'Card statements so far' : 'Card statements open on ' + monthAnchorDate()) + '</span></div>' + rows + '</div>';
 }
 
 // ---------------- Accounts: named money sources, used to group transactions into a credit card's statement cycle ----------------
@@ -1989,7 +1994,7 @@ export function renderSpendCategoryChart(){
   var groups = order.map(function(name){ return { key: name, monthly: byCategory[name] }; })
     .sort(function(a, b){ return b.monthly - a.monthly; });
   var html = categoryChartHtml(groups, "");
-  el.innerHTML = html ? '<div class="cat-chart-title">Spent by category ' + monthPhrase(selectedMonth()) + '</div>' + html : "";
+  el.innerHTML = html ? '<div class="cat-chart-title" title="Spent by category ' + escapeAttr(monthPhrase(selectedMonth())) + '">By category</div>' + html : "";
   el.hidden = !html;
 }
 // ---------------- Spending over time ----------------
@@ -2156,20 +2161,21 @@ export function renderSpendingTrends(){
   var comparing = view.monthsCovered >= TRENDS_MIN_MONTHS_FOR_COMPARISON;
   var sameDays = view.complete ? "" : " by the " + ordinal(view.throughDay);
   var spentSoFar = view.mtdTotals.length ? view.mtdTotals[view.mtdTotals.length - 1] : 0;
+  // v3.158.0 (item 188): "your usual $X" — how "usual" is worked out is the sentence's tooltip.
   var baselinePhrase = view.lookback === 1
-    ? "the " + fmtCurrency0.format(view.totalsTrend ? view.totalsTrend.average : 0) + " you'd spent by then last month"
-    : "the " + fmtCurrency0.format(view.totalsTrend ? view.totalsTrend.average : 0) + " you'd typically spent by then over the previous " + view.lookback + " months";
+    ? "last month's " + fmtCurrency0.format(view.totalsTrend ? view.totalsTrend.average : 0) + " by then"
+    : "your usual " + fmtCurrency0.format(view.totalsTrend ? view.totalsTrend.average : 0) + " by then";
   var completeBaselinePhrase = view.lookback === 1
     ? "last month's " + fmtCurrency0.format(view.totalsTrend ? view.totalsTrend.average : 0)
     : "your " + fmtCurrency0.format(view.totalsTrend ? view.totalsTrend.average : 0) + " average over the previous " + view.lookback + " months";
   var headline = (comparing && view.totalsTrend)
-    ? "You've spent <b>" + fmtCurrency0.format(view.totalsTrend.current) + "</b> this month" + sameDays + ", " +
+    ? "<b>" + fmtCurrency0.format(view.totalsTrend.current) + "</b> spent this month" + sameDays + ", " +
       (view.totalsTrend.direction === "flat"
         ? "level with "
         : "<b class=\"trend-word " + view.totalsTrend.direction + "\">" + fmtPercent0.format(Math.abs(view.totalsTrend.deltaPct)) + " " +
           (view.totalsTrend.direction === "up" ? "more" : "less") + "</b> than ") +
       (view.complete ? completeBaselinePhrase : baselinePhrase) + "."
-    : "You've spent <b>" + fmtCurrency0.format(spentSoFar) + "</b> this month" + sameDays + ".";
+    : "<b>" + fmtCurrency0.format(spentSoFar) + "</b> spent this month" + sameDays + ".";
   // Said once, plainly, instead of quietly omitting the deltas and leaving the reader to wonder.
   var earlyDaysNote = comparing ? "" :
     '<p class="ledger-note trend-partial-note help" style="margin:0 0 10px">' + view.monthsCovered + ' months logged so far. The bars below show what you\'ve recorded; comparisons start at ' +
@@ -2182,7 +2188,8 @@ export function renderSpendingTrends(){
     : "";
 
   // v3.109.0: the biggest categories over the window first, capped like the lists above.
-  var cappedTrend = capList(view.rows.map(function(r){ return { r: r, over: 0, size: r.values.reduce(function(s, v){ return s + (Number(v) || 0); }, 0) }; }), LIST_CAP, listsShowAll.trend);
+  // v3.158.0 (item 188): six small charts before "Show all", not eight.
+  var cappedTrend = capList(view.rows.map(function(r){ return { r: r, over: 0, size: r.values.reduce(function(s, v){ return s + (Number(v) || 0); }, 0) }; }), 6, listsShowAll.trend);
   var rowsHtml = cappedTrend.shown.map(function(x){ return x.r; }).map(function(r){
     return '<div class="trend-row">' +
       '<div class="trend-row-head">' +
@@ -2197,7 +2204,7 @@ export function renderSpendingTrends(){
       trendSparkHtml(r, view.months, view.monthProgress) +
     '</div>';
   }).join("");
-  var trendMoreHtml = showAllButtonHtml("trend", cappedTrend.hidden, listsShowAll.trend && view.rows.length > LIST_CAP + 2);
+  var trendMoreHtml = showAllButtonHtml("trend", cappedTrend.hidden, listsShowAll.trend && view.rows.length > 6 + 2);
 
   el.innerHTML =
     '<p class="trend-headline">' + headline + '</p>' +
@@ -2258,10 +2265,10 @@ export function renderYearSpending(){
   Object.keys(planned).forEach(function(k){ if(byCategory[k] == null && planned[k] >= 1) groups.push({ key: k, monthly: 0 }); });
 
   var progress = householdYearProgress();
-  var headline = '<p class="trend-headline"><b>' + fmtCurrency0.format(total) + '</b> logged in ' +
-    escapeAttr(win.label) + ', across ' + txns.length + ' transaction' + (txns.length === 1 ? "" : "s") +
-    (plannedTotal >= 1 ? ', against <b>' + fmtCurrency0.format(plannedTotal) + '</b> planned for the same stretch' : '') +
-    (win.complete ? "." : " — " + fmtPercent0.format(progress) + " of the way through the year.") + '</p>';
+  // v3.158.0 (item 188): the same three facts, shorter; the transaction count is the tooltip.
+  var headline = '<p class="trend-headline" title="' + txns.length + ' transaction' + (txns.length === 1 ? "" : "s") + ' logged in ' + escapeAttr(win.label) + '"><b>' + fmtCurrency0.format(total) + '</b> spent' +
+    (plannedTotal >= 1 ? ' against <b>' + fmtCurrency0.format(plannedTotal) + '</b> planned' : '') +
+    (win.complete ? " in " + escapeAttr(win.label) + "." : " so far · " + fmtPercent0.format(progress) + " through the year.") + '</p>';
 
   // Each bar is spent against planned for that category — the over/under question a year view
   // exists to answer — with the planned amount as the bar's full width and anything over it shown.

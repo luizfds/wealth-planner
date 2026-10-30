@@ -688,7 +688,7 @@ export function renderTaxSuper(){
   // Household-level, not per person: a hospital policy covers a household, and once you have a
   // spouse the surcharge is assessed on family income against family thresholds.
   // v3.154.0: the household's settings fold away below the people — set once a year, read past every day.
-  var settingsHtml = '<details class="tax-advanced tax-household"' + (taxUi.householdOpen ? ' open' : '') + ' data-tax-household><summary>Household settings <span class="ps-summary-line">super guarantee, hospital cover, rebate tier' + (ipResult ? ', the rental\'s result' : '') + '</span></summary>' +
+  var settingsHtml = '<details class="tax-advanced tax-household"' + (taxUi.householdOpen ? ' open' : '') + ' data-tax-household><summary>Household settings <span class="ps-summary-line">SG, hospital cover' + (ipResult ? ', the rental' : '') + '</span></summary>' +
     '<div class="tax-global">' +
     '<div class="proj-field"><label for="taxSgRate">Super guarantee % p.a.</label><input type="number" min="0" max="30" step="0.1" id="taxSgRate" value="' + (Number(state.tax.sgRate) || 11.5) + '"></div>' +
     '<div class="proj-field"><label class="m-checkbox-field" title="Private hospital cover (not extras-only) exempts you from the Medicare levy surcharge at any income."><input type="checkbox" id="taxPrivateCover"' + (state.tax.privateHospitalCover ? " checked" : "") + '> Private hospital cover</label></div>' +
@@ -785,7 +785,7 @@ export function withholdingCheckHtml(person){
   var st = personTaxSettings(person);
   var y = st.ytd || {};
   var pid = escapeAttr(person);
-  return '<details class="tax-ytd"' + (y.asOf ? " open" : "") + '><summary>Refund or bill? Check against your latest payslip</summary>' +
+  return '<details class="tax-ytd"' + (y.asOf ? " open" : "") + '><summary title="Refund or bill? Check the year so far against your latest payslip">Check a payslip</summary>' +
     '<div class="tax-inputs" style="margin-top:8px">' +
       '<div class="proj-field"><label>Payslip date</label><input type="date" class="tax-ytd-asof" aria-label="Payslip period end for ' + pid + '" value="' + escapeAttr(y.asOf || "") + '"></div>' +
       '<div class="proj-field"><label title="Year-to-date gross on the payslip, before tax — not counting super">Gross so far $</label><input type="number" min="0" step="100" class="tax-ytd-gross" aria-label="Year-to-date gross for ' + pid + '" value="' + (y.gross || "") + '"></div>' +
@@ -815,22 +815,22 @@ export function topUpHtml(person, r){
   var room = Math.max(0, (r.capAvailable || 0) - (r.totalConcessional || 0));
   if(room < 1 && !amount) return '<div class="tax-topup" hidden></div>';
   var t = superTopUp(r, amount || room, r.fy != null ? r.fy : currentTaxFy());
+  // v3.158.0 (item 188): the figures in one line; how it works sits behind the section's ⓘ.
   var out = t.amount > 0
-    ? 'Contributing <b>' + fmtCurrency0.format(t.amount) + '</b> and claiming it: about <b>' + fmtCurrency0.format(t.taxSaved) + '</b> back at tax time, ' +
-      fmtCurrency0.format(t.superAdded) + ' lands in super after ' + fmtCurrency0.format(t.contributionsTax + t.div293) + ' contributions tax' + (t.div293 ? ' (incl. Division 293)' : '') +
-      ' — it costs you ' + fmtCurrency0.format(t.outOfPocket) + ' after the refund, ' + fmtCurrency0.format(t.netGain) + ' better off than taking it as pay.' +
-      (t.overRoom ? ' <span class="warn">' + fmtCurrency0.format(t.overRoom) + ' is over the cap and left out.</span>' : '') +
-      ' The fund must have it by 30 June, and you send it a notice of intent to claim before you lodge. It stays in super until preservation age.'
+    ? '<b>' + fmtCurrency0.format(t.taxSaved) + '</b> back at tax time · ' + fmtCurrency0.format(t.superAdded) + ' into super · costs you ' +
+      fmtCurrency0.format(t.outOfPocket) + ' · <b>' + fmtCurrency0.format(t.netGain) + '</b> better off than as pay.' +
+      (t.overRoom ? ' <span class="warn">' + fmtCurrency0.format(t.overRoom) + ' is over the cap and left out.</span>' : '')
     : 'No concessional cap room left this year.';
   return '<div class="tax-topup"><label class="tax-topup-field">Top up super before 30 June <span>$</span><input type="number" min="0" step="500" class="tax-topup-amt" aria-label="Personal super contribution for ' + escapeAttr(person) + '" value="' + (amount || "") + '" placeholder="' + Math.round(room) + '"></label>' +
-    '<p class="tax-topup-out">' + out + '</p></div>';
+    '<p class="tax-topup-out">' + out + '</p>' +
+    '<p class="tax-topup-how help">A personal contribution you claim as a deduction is taxed 15% in the fund (more under Division 293), and saves tax at your marginal rate. The fund must have it by 30 June, and you send it a notice of intent to claim before you lodge. It stays in super until preservation age.</p></div>';
 }
 
 function taxPersonFrontBodyHtml(person, r){
   var settings = personTaxSettings(person);
   var pid = escapeAttr(person);
   var capPct = r.capAvailable > 0 ? Math.min(100, (r.totalConcessional / r.capAvailable) * 100) : 0;
-  var baseLabel = Math.abs(r.packageTotal - r.gross) > 1 ? "Base salary (excl. super) /yr" : "Total gross income /yr";
+  var baseLabel = Math.abs(r.packageTotal - r.gross) > 1 ? "Base salary (excl. super) /yr" : "Gross /yr";
   // "Adds up: …" and the super-inside-the-row note are *derivations* — they explain how a figure
   // was arrived at, which is exactly what the Breakdown flip already exists for. Together they were
   // 167px of the 841px this card takes on a 390px screen, sitting above the headline they explain.
@@ -838,13 +838,14 @@ function taxPersonFrontBodyHtml(person, r){
   // permanently in the way.
   return '<div class="tax-hero"><span class="tax-hero-label">Net take-home</span><div class="tax-hero-value"><span data-out="nettakehome">' + fmtCurrency0.format(r.netTakeHome) + '</span><small> /yr · <span data-out="nettakehomemo">' + fmtCurrency0.format(r.netTakeHome / 12) + '</span> /mo</small></div></div>' +
     '<div class="tax-waterfall">' + renderTaxWaterfallHtml(r) + '</div>' +
-    '<p class="tax-secondary-line">' + baseLabel.replace(" /yr", "") + ' <b data-out="gross">' + fmtCurrency0.format(r.gross) + '</b> · IP share <b data-out="ipshare" class="' + (r.ipShare < 0 ? "neg" : "") + '">' + (r.ipShare >= 0 ? "+" : "") + fmtCurrency0.format(r.ipShare) + '</b> · Taxable income <b data-out="taxable">' + fmtCurrency0.format(r.taxable) + '</b> /yr</p>' +
-    '<div class="tax-inputs-label">Concessional cap usage <span class="calc-help" title="Estimated from your inputs below — not something you set directly.">ⓘ</span></div>' +
+    '<p class="tax-secondary-line">' + baseLabel.replace(" /yr", "") + ' <b data-out="gross">' + fmtCurrency0.format(r.gross) + '</b> · IP share <b data-out="ipshare" class="' + (r.ipShare < 0 ? "neg" : "") + '">' + (r.ipShare >= 0 ? "+" : "") + fmtCurrency0.format(r.ipShare) + '</b> · Taxable <b data-out="taxable">' + fmtCurrency0.format(r.taxable) + '</b></p>' +
+    '<div class="tax-inputs-label">Super cap <span class="calc-help" title="Estimated from your inputs below — not something you set directly.">ⓘ</span></div>' +
     '<div class="cap-bar-track"><div class="cap-bar-fill' + (r.capExceeded > 0 ? " over" : "") + '" style="width:' + Math.min(100, capPct) + '%"></div></div>' +
     '<div class="tax-cap-note tax-cap-main' + (r.capExceeded > 0 ? " warn" : "") + '">' +
       (r.capExceeded > 0
         ? ('Over cap by ' + fmtCurrency0.format(r.capExceeded) + ' — excess concessional contributions are taxed at your marginal rate, not just 15%. Check with your accountant.')
-        : (fmtCurrency0.format(r.totalConcessional) + ' of ' + fmtCurrency0.format(r.capAvailable) + ' concessional cap used (SG ' + fmtCurrency0.format(r.sg) + (r.autoSacrifice > 0 ? ' + bonus/income sacrifice ' + fmtCurrency0.format(r.autoSacrifice) : '') + (r.manualSacrifice > 0 ? ' + manual sacrifice ' + fmtCurrency0.format(r.manualSacrifice) : '') + ') — super received net of 15% contributions tax: ' + fmtCurrency0.format(r.superNet))
+        // v3.158.0 (item 188): shorter; what makes up the total is said only when there's sacrifice in it.
+        : (fmtCurrency0.format(r.totalConcessional) + ' of ' + fmtCurrency0.format(r.capAvailable) + ' used' + (r.autoSacrifice > 0 || r.manualSacrifice > 0 ? ' (SG ' + fmtCurrency0.format(r.sg) + (r.autoSacrifice > 0 ? ' + bonus/income sacrifice ' + fmtCurrency0.format(r.autoSacrifice) : '') + (r.manualSacrifice > 0 ? ' + manual sacrifice ' + fmtCurrency0.format(r.manualSacrifice) : '') + ')' : '') + ' · ' + fmtCurrency0.format(r.superNet) + ' into super after 15% tax')
       ) +
     '</div>' +
     '<div class="tax-cap-note tax-div293-note warn"' + (r.div293Tax > 0.5 ? '' : ' hidden') + ' title="Simplified: income for surcharge purposes is approximated as taxable income + your within-cap concessional contributions, ignoring reportable fringe benefits and net investment losses. Check with your accountant.">Division 293: your income is over the $250,000 threshold, so an extra 15% applies to ' + fmtCurrency0.format(Math.min(r.totalConcessional, r.capAvailable)) + ' of low-tax super contributions — ' + fmtCurrency0.format(r.div293Tax) + '/yr, assessed separately by the ATO (not withheld from take-home above).</div>' +
@@ -870,7 +871,7 @@ function taxPersonFrontBodyHtml(person, r){
     '<div class="tax-inputs pp-on-tax">' +
       '<div class="proj-field"><label title="Separate from the Cash / Sacrifice column on income rows — use this for sacrifice not tied to a specific item">Manual sacrifice $/yr</label><input type="number" min="0" step="500" class="tax-sacrifice" aria-label="Manual super sacrifice per year for ' + pid + '" value="' + settings.superSacrificeAnnual + '"><button type="button" class="calc-hint-link" style="margin-top:4px" data-tax-maxcap="' + pid + '" title="Fills your remaining concessional cap headroom this year with manual sacrifice (SG and any auto/bonus sacrifice already counted): sets manual sacrifice to ' + fmtCurrency0.format(Math.max(0, r.capAvailable - r.sg - r.autoSacrifice)) + '">Max out cap</button></div>' +
     '</div>' +
-    '<p class="ledger-note pp-link-note" style="margin:8px 0 0">Date of birth, HELP, super caps, capital losses and home hours: <button type="button" class="link-btn" data-goto-people="' + pid + '">Tax → People</button></p>';
+    '<p class="ledger-note pp-link-note" style="margin:8px 0 0" title="Date of birth, HELP, super caps, capital losses and home hours">' + escapeAttr(person) + '\'s details: <button type="button" class="link-btn" data-goto-people="' + pid + '">Tax → People</button></p>';
 }
 
 // Capital gains for the household's year, netted as a return nets them: losses (this year's, then
@@ -937,18 +938,13 @@ function deductionsNoteText(r){
 // cover still prints a figure.
 function mlsNoteText(r){
   if(r.hasPrivateCover){
-    return "Medicare levy surcharge: none, because you hold private hospital cover. Without it you'd pay " +
-      fmtCurrency0.format(r.mlsIfUncovered) + "/yr at " + fmtCurrency0.format(r.surchargeIncome) +
-      " surcharge income (" + r.mlsTier.label + ") — that's what a policy has to beat to be worth it on tax alone.";
+    return "No Medicare levy surcharge — you hold private hospital cover. Without it: " +
+      fmtCurrency0.format(r.mlsIfUncovered) + "/yr (" + r.mlsTier.label + "), what a policy has to beat on tax alone.";
   }
-  return "Medicare levy surcharge: " + fmtPercent1.format(r.mlsTier.rate) + " of " +
-    fmtCurrency0.format(r.surchargeIncome) + " surcharge income = " + fmtCurrency0.format(r.medicareSurcharge) +
-    "/yr (" + r.mlsTier.label + "), because you don't hold private hospital cover. A policy cheaper than that saves money outright." +
-    (r.mlsNext
-      ? " Next tier is " + fmtCurrency0.format(r.mlsNext.at) + " (" + fmtCurrency0.format(r.mlsNext.away) +
-        " away) — crossing it takes the rate to " + fmtPercent1.format(r.mlsNext.rate) +
-        " of the whole amount, about " + fmtCurrency0.format(r.mlsNext.stepCost) + " more a year."
-      : "");
+  // v3.158.0: shorter — the rate and income it's worked on are in the line, the rest is one clause.
+  return "Medicare levy surcharge " + fmtCurrency0.format(r.medicareSurcharge) + "/yr (" + fmtPercent1.format(r.mlsTier.rate) + " of " +
+    fmtCurrency0.format(r.surchargeIncome) + ", " + r.mlsTier.label + ") — no private hospital cover. A cheaper policy saves money." +
+    (r.mlsNext ? " Next tier " + fmtCurrency0.format(r.mlsNext.away) + " away: +" + fmtCurrency0.format(r.mlsNext.stepCost) + "." : "");
 }
 
 // One builder for the HELP note, shared by the render above and patchAllTaxPersonOutputs below —
@@ -1075,7 +1071,7 @@ export function patchAllTaxPersonOutputs(){
       note.classList.toggle("warn", r.capExceeded > 0);
       note.textContent = r.capExceeded > 0
         ? ("Over cap by " + fmtCurrency0.format(r.capExceeded) + " — excess concessional contributions are taxed at your marginal rate, not just 15%. Check with your accountant.")
-        : (fmtCurrency0.format(r.totalConcessional) + " of " + fmtCurrency0.format(r.capAvailable) + " concessional cap used (SG " + fmtCurrency0.format(r.sg) + (r.autoSacrifice > 0 ? " + bonus/income sacrifice " + fmtCurrency0.format(r.autoSacrifice) : "") + (r.manualSacrifice > 0 ? " + manual sacrifice " + fmtCurrency0.format(r.manualSacrifice) : "") + ") — super received net of 15% contributions tax: " + fmtCurrency0.format(r.superNet));
+        : (fmtCurrency0.format(r.totalConcessional) + " of " + fmtCurrency0.format(r.capAvailable) + " used" + (r.autoSacrifice > 0 || r.manualSacrifice > 0 ? " (SG " + fmtCurrency0.format(r.sg) + (r.autoSacrifice > 0 ? " + bonus/income sacrifice " + fmtCurrency0.format(r.autoSacrifice) : "") + (r.manualSacrifice > 0 ? " + manual sacrifice " + fmtCurrency0.format(r.manualSacrifice) : "") + ")" : "") + " · " + fmtCurrency0.format(r.superNet) + " into super after 15% tax");
     }
     var topUp = panel.querySelector(".tax-topup");
     if(topUp){

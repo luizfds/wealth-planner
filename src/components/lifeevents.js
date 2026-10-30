@@ -20,9 +20,9 @@ export function lifeEventsHtml(today){
       '<button type="button" class="btn btn-sm btn-danger le-remove" data-le-remove="' + id + '" aria-label="Remove ' + escapeAttr(ev.what || k.label) + '">Remove</button></div>';
   }).join("");
   return '<div class="le-card"><div class="property-section-title">Life events</div>' +
-    (rows || '<p class="ledger-note" style="margin:0 0 8px">Nothing dated yet. Add what you can see coming — a child, a year off, a sale, an inheritance — and the projection carries it, marked on the chart.</p>') +
+    (rows || '<p class="ledger-note" style="margin:0 0 8px">Nothing dated yet — a child, a year off, a sale, an inheritance.</p>') +
     '<div class="le-add"><span>Add</span>' + EVENT_KINDS.map(function(k){ return '<button type="button" class="period-chip" data-le-add="' + k.key + '">' + escapeAttr(k.label) + '</button>'; }).join("") + '</div>' +
-    '<p class="ledger-note" style="margin:6px 0 0">In today\'s dollars, for every scenario. A sale here is its proceeds after the loan and costs; the property itself still grows on the chart unless you remove it.</p></div>';
+    '<p class="ledger-note help" style="margin:6px 0 0">Added to every scenario in today\'s dollars and marked on the chart. A sale here is its proceeds after the loan and costs; the property itself still grows on the chart unless you remove it.</p></div>';
 }
 export function addLifeEvent(kind, today){
   var ev = newEvent(kind, Number((today || localDateStr()).slice(0, 4)), genId("ev"));

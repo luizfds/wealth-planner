@@ -3329,7 +3329,7 @@ avatars were left for later: the category badge already marks each row. Found on
 transactions that carry their own category (from a bank import) aren't reached by a category rename.
 
 
-## 188. `[~]` Half the words on screen
+## 188. `[x]` Half the words on screen
 Explanations were moved behind ⓘ once (v3.33.0), but the visible text kept growing: notes under figures, sentences
 in summary lines, paragraphs in notices. The others say one short line and link to more.
 
@@ -3339,6 +3339,19 @@ the item's detail page. Summaries say a figure, not a sentence. Start with Spend
 
 Done when: the visible words on those three pages are down by at least 40%, and no visible paragraph runs over 30
 words. Nothing explained before is unexplained after (each moved sentence is listed in the PR).
+
+Shipped as v3.158.0. Visible words on the default view at 390px: Spending 718 → 428 (−40%), Tax → This year 437 → 258
+(−41%), Projections 327 → 193 (−41%); the longest visible paragraph on them is now 28 words. What moved where:
+Spending shows its 10 latest transactions before "Show all" (was 25) and six small trend charts (was eight), with one month
+axis on the first; Actual vs. planned lines read "$1,095 of $1,200" (the left/over is the figure beside it; the full
+sentence is the tooltip); the two headlines and the card-statement and "tap a line" notes are shorter. Tax: the super
+top-up is one line of figures, how it works behind the section's ⓘ; the cap line, the surcharge note and the gross /
+taxable line are shorter; "Check a payslip" replaces "Refund or bill? Check against your latest payslip"; each person's
+details link is one line; and the Tax notices strip leaves out the super-room notices the cards' Top up boxes already
+show. Projections: the assumptions and life events fold under one line that states them ("20 years · 7% return · …"),
+so the chart comes first; the headline, the range line, the Actuals note (its line counts moved to the button's
+tooltip) and the life-events notes are shorter, the life-events footnote behind the ⓘ.
+
 
 ## 189. `[ ]` One card, one chart style
 Cards differ in header layout (title left, figure right, or figure under), padding and how actions are placed.

@@ -21,7 +21,9 @@ export function firstRunHtml(){
     body = '<p class="fr-lede">The people whose money this is. Their pay comes next; tax and super are worked out from it.</p>' +
       a.people.map(function(p, i){
         return '<div class="fr-row">' + field("Name", 'data-fr="people.' + i + '.name"', p.name, "text", ' placeholder="' + (i === 0 ? "You" : "Partner") + '"') + field("Age", 'data-fr="people.' + i + '.age"', p.age, "number", ' min="16" max="100"') + '</div>';
-      }).join("") + (a.people.length < 2 ? '<button type="button" class="btn btn-sm btn-ghost" data-fr-add-person>+ Add a partner</button>' : '');
+      }).join("") + (a.people.length < 2 ? '<button type="button" class="btn btn-sm btn-ghost" data-fr-add-person>+ Add a partner</button>' : '') +
+      // v3.162.0 (item 192): the shortest way to a budget is a statement — this skips the rest for now.
+      '<p class="fr-shortcut">Have three months of bank statements to hand? <button type="button" class="link-btn" data-fr-statement>Start with a statement instead</button></p>';
   } else if(st === 1){
     body = '<p class="fr-lede">Where your money sits, and roughly what\'s in each today — rename or remove any. For a card, what it owes.</p>' +
       a.accounts.map(function(x, i){

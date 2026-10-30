@@ -107,6 +107,11 @@
   .setup-count{ font-size:var(--fs-xs); color: var(--ink-soft); margin-left:4px; white-space:nowrap; }
   .setup-track{ height:5px; border-radius:100px; background: var(--paper-sunken); overflow:hidden; margin:10px 0 12px; }
   .setup-fill{ height:100%; background: var(--brass); border-radius:inherit; transition: width .25s ease; }
+  /* v3.162.0 (item 192): Your first month — the month as set up so far. */
+  .fm-figures{ display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:8px; margin:4px 0 14px; }
+  .fm-figures span{ display:block; font-size:var(--fs-xs); color: var(--ink-soft); }
+  .fm-figures b{ font-family:var(--font-num); font-size:var(--fs-lg); font-weight:600; }
+  .fm-figures b.pos{ color: var(--good-ink); } .fm-figures b.neg{ color: var(--bad-ink); }
   .setup-next{ margin:0 0 12px; font-size:var(--fs-sm); line-height:1.5; }
   .setup-next span{ color: var(--ink-soft); font-size:var(--fs-sm); }
   .setup-actions{ display:flex; gap:10px; flex-wrap:wrap; }
@@ -506,3 +511,4 @@
 .home-nw-mover b{ font-family: var(--font-num); font-weight:600; }
 .home-nw-mover b.up{ color: var(--good-ink); }
 .home-nw-mover b.down{ color: var(--bad-ink); }
+.fr-shortcut{ margin:14px 0 0; font-size:var(--fs-sm); color: var(--ink-soft); }

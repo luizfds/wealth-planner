@@ -3417,7 +3417,7 @@ property · Add shares", which turns it on and opens it. Driven with an empty ho
 switch and the demo household (everything on); the smoke script now runs an empty household too.
 
 
-## 192. `[~]` A first ten minutes that ends somewhere
+## 192. `[x]` A first ten minutes that ends somewhere
 The first-run setup asks good questions, then leaves you on a full Home. Monarch and Copilot finish setup with
 your own numbers on screen and one next step.
 
@@ -3428,6 +3428,19 @@ first, as a way to look around.
 
 Done when: a new device can get from opening the app to a budget from a real statement in under ten steps,
 counted in a driven run.
+
+Shipped as v3.162.0. Home's "Set up your plan" checklist (five steps, the rest listed) is now "Your first month": the
+month as set up so far — comes in, planned out, left a month — and one next step with one button that goes straight to
+the place (the tab, and the card on it opened). Four steps, in the order a new household does them (`lib/setup.js`):
+add your pay; import a bank statement; check the budget the spending suggests (`proposeBudget` — "import 2 more months"
+until there are three, then "N lines suggested", done when none are left); add what you own. Housing left the list (the
+first-run setup asks it) and so did a second scenario (planning, not setting up). The setup sheet's first step offers
+"Start with a statement instead", and a first statement with three months in it and nothing budgeted goes straight on
+to the budget it suggests. Counted in a driven run with an invented four-month CSV, from a new device opening the app:
+Start from scratch → Start with a statement instead → choose the file → Import → Add the suggested lines — five steps
+to six budget lines from 57 transactions; Home then shows step 3 of 4, Add your pay. The demo household was already the
+intro page's first offer; the panel's own offer now reads "Look around with sample data".
+
 
 ## 193. `[ ]` A review queue for new transactions
 Imported rows are reviewed once, on the import screen, and anything waved through is never looked at again. YNAB

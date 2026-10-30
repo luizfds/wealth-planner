@@ -15,6 +15,7 @@ import { fmtCurrency0, fmtCompact, fmtPercent1, fmtRunway, localDateStr, fmtDate
 import { escapeAttr, segLabel } from "../lib/html.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { renderLineChart } from "../lib/charts.js";
+import { proposeBudget } from "../calc/budgetfromhistory.js";
 import { staleAssetNamesList } from "../lib/notifications.js";
 
 // What a normal month leaves: bonuses land in their own month, so they're in the year, not each month.
@@ -81,27 +82,41 @@ export function renderCards(){
 export function renderSetupPanel(nothingEntered){
   var el = document.getElementById("dashboardSetup");
   if(!el) return;
-  var show = shouldShowSetup(state);
+  var opts = setupOpts();
+  var show = shouldShowSetup(state, opts);
   el.hidden = !show;
   if(!show){ el.innerHTML = ""; return; }
-  var p = setupProgress(state);
-  var pct = (p.done / p.total) * 100;
-  // The remaining steps, but only the next one gets a button. Five "do this" links is a chore;
-  // one is a next move, and the rest are there so you can see how much is left.
-  var rest = p.steps.filter(function(x){ return !x.done && x.key !== p.next.key; })
-    .map(function(x){ return '<li>' + escapeAttr(x.label) + '</li>'; }).join("");
-  el.innerHTML =
-    '<div class="setup-head">' +
-      '<div><b>Set up your plan</b> <span class="setup-count">' + p.done + ' of ' + p.total + ' done</span></div>' +
-      '<button type="button" class="icon-btn" data-setup-dismiss aria-label="Hide setup checklist" title="Hide this — you can still reach every page from the tabs">✕</button>' +
-    '</div>' +
-    '<div class="setup-track"><div class="setup-fill" style="width:' + pct + '%"></div></div>' +
-    '<p class="setup-next"><b>' + escapeAttr(p.next.label) + '</b><br><span>' + escapeAttr(p.next.hint) + '</span></p>' +
+  el.innerHTML = firstMonthHtml(state, setupProgress(state, opts), nothingEntered);
+}
+// What the budget step needs to know: whether a budget can be proposed from the spending yet.
+function setupOpts(){
+  var lines = (state.shared || []).concat((state.home || {})[state.activeScenario] || []);
+  var budget = null;
+  try { budget = proposeBudget(state.transactions || [], lines, localDateStr()); } catch(e){ budget = null; }
+  return { budget: budget };
+}
+// v3.162.0 (item 192): "Your first month" — the household's own month as the setup has it so far, and
+// one next step. The list of everything left is gone: one step is a next move, five are a chore.
+export function firstMonthHtml(st, p, nothingEntered){
+  var t = null;
+  try { t = scenarioTotals(st.activeScenario); } catch(e){ t = null; }
+  var figures = t && t.incomeMonthly > 0
+    ? '<div class="fm-figures">' +
+        '<div><span>Comes in</span><b>' + fmtCurrency0.format(t.incomeMonthly) + '</b></div>' +
+        '<div><span>Planned out</span><b>' + fmtCurrency0.format(t.expensesMonthly) + '</b></div>' +
+        '<div><span>Left a month</span><b class="' + (t.netMonthly < 0 ? "neg" : "pos") + '">' + (t.netMonthly < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(t.netMonthly)) + '</b></div>' +
+      '</div>'
+    : '';
+  var n = p.next;
+  return '<div class="setup-head">' +
+      '<div><b>Your first month</b> <span class="setup-count">step ' + (p.done + 1) + ' of ' + p.total + '</span></div>' +
+      '<button type="button" class="icon-btn" data-setup-dismiss aria-label="Hide your first month" title="Hide this — every page stays in the menu">✕</button>' +
+    '</div>' + figures +
+    '<p class="setup-next"><b>' + escapeAttr(n.label) + '</b><br><span>' + escapeAttr(n.hint) + '</span></p>' +
     '<div class="setup-actions">' +
-      '<button type="button" class="btn btn-primary" data-setup-go="' + escapeAttr(p.next.page) + '">' + escapeAttr(p.next.label) + ' →</button>' +
-      (nothingEntered ? '<button type="button" class="btn" data-firstrun-open>Guided setup</button><button type="button" class="btn" data-dash-start="sample">Load sample data</button>' : "") +
-    '</div>' +
-    (rest ? '<ul class="setup-rest">' + rest + '</ul>' : "");
+      '<button type="button" class="btn btn-primary" data-setup-go="' + escapeAttr(n.page) + '"' + (n.sub ? ' data-setup-sub="' + escapeAttr(n.sub) + '"' : '') + (n.open ? ' data-setup-open="' + escapeAttr(n.open) + '"' : '') + '>' + escapeAttr(n.label) + ' →</button>' +
+      (nothingEntered ? '<button type="button" class="btn" data-firstrun-open>Guided setup</button><button type="button" class="btn" data-dash-start="sample">Look around with sample data</button>' : "") +
+    '</div>';
 }
 
 // v3.33.0: FI progress up front. The Insights panel has the whole story (ages, the bridge to

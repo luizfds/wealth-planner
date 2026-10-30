@@ -20,6 +20,6 @@
   ],
   "share_target": {
     "action": "./share-target", "method": "POST", "enctype": "multipart/form-data",
-    "params": { "title": "title", "text": "text", "files": [{ "name": "statement", "accept": ["text/csv", ".csv", "application/pdf", ".pdf", "text/plain"] }] }
+    "params": { "title": "title", "text": "text", "files": [{ "name": "statement", "accept": ["text/csv", ".csv", "application/pdf", ".pdf", "text/plain", "application/x-ofx", ".ofx", "application/vnd.intu.qfx", ".qfx", "application/qif", ".qif"] }] }
   }
 }

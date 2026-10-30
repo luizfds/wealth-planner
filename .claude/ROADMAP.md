@@ -3602,7 +3602,7 @@ as CSV, OFX SGML, OFX XML, QFX and QIF imports the same rows; a re-import in ano
 render-smoke covers the help. Driven: an .ofx and a .qif chosen through the file picker give the same review.
 
 
-## 200. `[~]` Decide: bank feeds or not
+## 200. `[x]` Decide: bank feeds or not
 Bank feeds are why people pick Frollo, WeMoney, PocketSmith or Monarch. Under Australia's Consumer Data Right they
 come through an accredited aggregator, which needs a server, an agreement and the household's data passing
 through someone else's hands. That runs against this app's first promise.
@@ -3613,6 +3613,29 @@ optional hosted feed with plain consent screens. Each option says its cost, risk
 page. This item is the decision, not the build.
 
 Done when: the decision is recorded here with its reasons, and the privacy copy is checked against it.
+
+**Decided (v3.169.1): (a) — stay import-only, and make importing as easy as possible.**
+
+| | (a) Import-only | (b) Your own aggregator key + your own proxy | (c) Optional hosted feed |
+|---|---|---|---|
+| Cost | Nothing ongoing; small UI work | Per-connection aggregator fees, plus hosting and looking after a proxy | A company, an arrangement with an accredited CDR provider, a server, support and compliance — ongoing |
+| Risk | None new | Bank data passes through the aggregator and the proxy; the household owns a key and its security | Someone holds many households' financial data |
+| Privacy page | Unchanged | A new section: with feeds on, transactions arrive from the aggregator through your proxy | Rewritten: no longer browser-only for anyone who opts in |
+| Catch | A statement to download every month or so | Aggregators sign up businesses, so a household may not be able to get a key at all | Changes what the app is |
+
+Why (a): the app's first promise is that the household's data lives in its browser and leaves only when it chooses
+(encrypted sync, ticker names for prices, an anonymised summary for Ask Claude). A bank feed under the Consumer Data
+Right can't keep that promise: it needs a server and an accredited third party between the bank and the browser.
+What a feed saves — a download every month or so — is already small: CSV, PDF, OFX/QFX/QIF (199) all import, the
+Statements folder (181) picks files up by itself, the review queue (193) files what's new, and rules learn as it goes.
+What's left to do under (a) is shortening that last step; v3.169.1 lets a phone's share sheet hand an OFX, QFX or QIF to
+the app (the manifest's share target listed only CSV and PDF).
+
+Privacy copy checked against it: the sidebar ("Your data lives in this browser. It only leaves when you choose: sync
+carries it encrypted, price updates ask only for ticker names, and Ask Claude sends an anonymised summary") and the
+page description ("no account, no server") both stay true — no change needed. Revisit only if the Consumer Data Right
+opens a way for a household to connect its own bank directly from the browser, without an intermediary holding the data.
+
 
 ## 201. `[ ]` Receipts on a transaction
 Monarch and Copilot attach a photo or PDF to a transaction. For an Australian return, a deduction needs its

@@ -2280,7 +2280,8 @@ export function renderYearSpending(){
     return '<div class="year-cat-row' + (over ? " over" : "") + '">' +
       '<span class="year-cat-name">' + escapeAttr(g.key) + '</span>' +
       '<span class="year-cat-bar" title="' + escapeAttr(plan > 0 ? fmtCurrency0.format(g.monthly) + " of " + fmtCurrency0.format(plan) + " planned so far" : "Not in the budget") + '"><span class="year-cat-fill" style="width:' + (share * 100) + '%"></span></span>' +
-      '<span class="year-cat-amt">' + fmtCurrency0.format(g.monthly) + '</span>' +
+      // v3.160.0 (item 190): over plan says so with an arrow too, not only in red.
+      '<span class="year-cat-amt">' + (over ? '<span aria-hidden="true">▲ </span><span class="visually-hidden">Over plan: </span>' : '') + fmtCurrency0.format(g.monthly) + '</span>' +
       '<span class="year-cat-pct">' + (plan > 0 ? "of " + fmtCurrency0.format(plan) : "unplanned") + '</span>' +
     '</div>';
   }).join("") + showAllButtonHtml("ytd", cappedYear.hidden, listsShowAll.ytd && groups.length > LIST_CAP + 2);

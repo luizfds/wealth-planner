@@ -1,4 +1,13 @@
 import { escapeAttr } from "./html.js";
+import { fmtCompact } from "./format.js";
+
+// v3.160.0 (item 190): an axis in dollars reads $2M, $575k — the exact figure is the tooltip's.
+// Any other axis (percentages, counts) keeps the caller's own format.
+function axisFormatter(opts){
+  if(opts.axisFormat) return opts.axisFormat;
+  if(opts.yFormat && /^\$/.test(String(opts.yFormat(1000)))) return fmtCompact;
+  return opts.yFormat || function(v){ return Math.round(v); };
+}
 
 var SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -215,7 +224,7 @@ export function renderLineChart(container, series, opts){
   var yLabels = [];
   for(var li = 0; li <= ticks; li++){
     var lv = yMin + (yMax - yMin) * li / ticks;
-    yLabels.push(opts.yFormat ? opts.yFormat(lv) : Math.round(lv));
+    yLabels.push(axisFormatter(opts)(lv));
   }
   var padL = gutterFor(yLabels, W, 10);
   var innerW = W - padL - padR, innerH = H - padT - padB;
@@ -266,7 +275,7 @@ export function renderLineChart(container, series, opts){
     var yPix = yScale(yVal);
     svg.appendChild(svgEl("line", { x1: padL, x2: W - padR, y1: yPix, y2: yPix, class: "proj-grid" }));
     var lbl = svgEl("text", { x: padL - 8, y: yPix + 4, "text-anchor": "end", class: "proj-axislabel" });
-    lbl.textContent = opts.yFormat ? opts.yFormat(yVal) : Math.round(yVal);
+    lbl.textContent = axisFormatter(opts)(yVal);
     svg.appendChild(lbl);
   }
   if(yMin < 0 && yMax > 0){
@@ -457,7 +466,7 @@ export function renderStackedAreaChart(container, series, opts){
   var tickLabels = [];
   for(var w = 0; w <= ticks; w++){
     var wv = (yMax / ticks) * w;
-    tickLabels.push(opts.yFormat ? opts.yFormat(wv) : Math.round(wv));
+    tickLabels.push(axisFormatter(opts)(wv));
   }
   var padL = gutterFor(tickLabels, W, 11);
   var innerW = W - padL - padR, innerH = H - padT - padB;
@@ -481,7 +490,7 @@ export function renderStackedAreaChart(container, series, opts){
       stroke: "var(--border)", "stroke-width": 1, "shape-rendering": "crispEdges" }));
     var lbl = svgEl("text", { x: padL - 8, y: gy + 4, "text-anchor": "end",
       fill: "var(--ink-soft)", "font-size": "12" });
-    lbl.textContent = opts.yFormat ? opts.yFormat(gv) : String(Math.round(gv));
+    lbl.textContent = String(axisFormatter(opts)(gv));
     svg.appendChild(lbl);
   }
 

@@ -18,16 +18,11 @@ import { GOAL_KINDS, goalKindInfo, goalProgress, monthFraction } from "../calc/g
 import { computeNetWorthSeries, runwayMonths } from "../calc/engine.js";
 import { transactionsInMonth } from "../calc/ledger.js";
 import { transactionCategory } from "./expenses.js";
-import { fmtCurrency0, fmtPercent1, localDateStr, fmtDate } from "../lib/format.js";
+import { fmtCurrency0, fmtCompact, fmtPercent1, localDateStr, fmtDate } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 
 function esc(t){ return escapeAttr(String(t == null ? "" : t)); }
-function short(v){
-  var a = Math.abs(v), s = v < 0 ? "-" : "";
-  if(a >= 1e6) return s + "$" + (a / 1e6).toFixed(a >= 1e7 ? 1 : 2) + "M";
-  if(a >= 1e4) return s + "$" + Math.round(a / 1e3) + "k";
-  return fmtCurrency0.format(v);
-}
+var short = fmtCompact;
 
 // A bar from 0 with the value filled and the references as ticks. `max` leaves headroom so a value
 // just past a tick doesn't sit on the edge.

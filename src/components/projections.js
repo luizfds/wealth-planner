@@ -3,7 +3,7 @@ import { computeNetWorthSeries, currentScenario } from "../calc/engine.js";
 import { projectionBands } from "../calc/outcomes.js";
 import { eventMarkers } from "../calc/lifeevents.js";
 import { fireSettings } from "../calc/fire.js";
-import { fmtCurrency0, localDateStr } from "../lib/format.js";
+import { fmtCurrency0, fmtCompact, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { renderLineChart } from "../lib/charts.js";
 import { firstYearAtLeast, debtFreeYear, leadChanges, milestoneAmounts } from "../calc/milestones.js";
@@ -155,7 +155,7 @@ export function projectionMilestonesHtml(series, realTerms){
   var shown = series.filter(function(s){ return s.points && s.points.length > 1; });
   if(!shown.length) return "";
   var amounts = milestoneAmounts(shown);
-  var fmtShort = function(v){ return v >= 1e6 ? "$" + (v / 1e6).toFixed(v % 1e6 ? 1 : 0) + "M" : "$" + Math.round(v / 1e3) + "k"; };
+  var fmtShort = fmtCompact;
   var head = '<div class="proj-ms-row proj-ms-head"><span>Scenario</span>' +
     amounts.map(function(a){ return '<span>' + fmtShort(a) + '</span>'; }).join("") + '<span>Loans gone</span></div>';
   var rows = shown.map(function(s){

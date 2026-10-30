@@ -31,7 +31,9 @@ the last, so two sessions can't pick up the same one.
   backup & sync, import/export, theme, sample data, reset, updates, version); its dot means a save failed.
   The smoke script taps the tabs and the avatar menu, so a broken nav fails CI.
 - **Numbers:** every figure uses `var(--font-num)` with tabular figures (base.css) — whole dollars in
-  totals and summaries, cents only on single items. Don't reintroduce a second number font.
+  totals and summaries, cents only on single items. Don't reintroduce a second number font. A figure read at
+  a glance — a chart axis, a long-horizon card — is `fmtCompact` (lib/format.js: $9,457 · $673.8k · $4.5M), the exact one
+  in its tooltip; there is no other compact formatter.
 - **Type scale (v3.155.0):** every `font-size` is a `--fs-*` token from `base.css` (12 · 13 · 14 · 17 · 20 · 26 ·
   32px) and weights are 400 or 600 — `tests/typescale.test.js` fails on a raw px size or another weight.
 - **Buttons (v3.156.0):** `.btn` (secondary), `.btn-primary`, `.btn-ghost`, `.btn-danger` (every delete) and

@@ -1,16 +1,11 @@
 import { escapeAttr } from "./html.js";
-import { fmtCurrency0 } from "./format.js";
+import { fmtCurrency0, fmtCompact } from "./format.js";
 
 // ---------------- Report charts (v3.118.0) ----------------
 // A chart over each report's table, as inline SVG so it prints with the page and needs no layout
 // pass: "bars" (one horizontal bar per group, a tick for the comparison) and "columns" (two series
 // per month, side by side). The table under it stays the record; this is the shape.
-function compact(v){
-  var a = Math.abs(v);
-  if(a >= 1e6) return (v < 0 ? "−" : "") + "$" + (a / 1e6).toFixed(a >= 1e7 ? 0 : 1) + "M";
-  if(a >= 1e4) return (v < 0 ? "−" : "") + "$" + Math.round(a / 1000) + "k";
-  return (v < 0 ? "−" : "") + fmtCurrency0.format(a);
-}
+var compact = fmtCompact;
 export function reportChartHtml(chart){
   if(!chart) return "";
   if(chart.type === "sankey") return sankeyHtml(chart);

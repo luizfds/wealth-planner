@@ -3664,7 +3664,7 @@ driven headless — choosing an OPFS folder closes the page, on main too — so 
 pack/unpack functions it calls, and `mergeStates` keeps receipts attached on two devices.)
 
 
-## 202. `[ ]` Who changed what
+## 202. `[~]` Who changed what
 YNAB's "Who moved the money" (2026) shows each change with the person who made it. Two people syncing here can't
 see what the other did.
 

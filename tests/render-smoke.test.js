@@ -1592,3 +1592,26 @@ test("Your first month: the month's three figures and one next step (item 192)",
   assert.equal((html.match(/data-setup-go=/g) || []).length, 1, "one next step, not a list");
   assert.match(html, /Look around with sample data/);
 });
+
+test("the review queue: one card, keep and change, then the rule question (item 193)", async function(){
+  const { txReviewHtml, txReview, reviewBannerHtml } = await import("../src/components/reviewqueue.js");
+  var keep = state.transactions;
+  try {
+    state.transactions = [{ id: "t1", date: "2026-09-04", what: "FERN CAFE EXAMPLE TOWN", amount: 18.5, category: "Eating out", reviewed: false }];
+    txReview.open = true; txReview.mode = "card"; txReview.choice = null;
+    var html = txReviewHtml();
+    assert.match(html, /1 to go/);
+    assert.match(html, /data-txr-keep/);
+    assert.match(html, /data-txr-change/);
+    assert.match(html, /Counts against<\/span> Eating out/);
+    txReview.mode = "change";
+    assert.match(txReviewHtml(), /data-txr-line/);
+    txReview.mode = "rule"; txReview.choice = { linkedExpenseId: null, category: "Eating out" };
+    assert.match(txReviewHtml(), /Always file <b>/);
+    assert.match(reviewBannerHtml(), /1<\/b> new transaction to review/);
+    state.transactions = [];
+    txReview.mode = "card";
+    assert.match(txReviewHtml(), /All reviewed/);
+    assert.equal(reviewBannerHtml(), "");
+  } finally { state.transactions = keep; txReview.open = false; txReview.mode = "card"; txReview.choice = null; }
+});

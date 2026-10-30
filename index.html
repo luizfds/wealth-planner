@@ -480,6 +480,7 @@
             </summary>
             <div class="ledger-body">
               <p class="ledger-note help" style="margin-left:0"><b>+ Log spend</b> is the quick way in: type the amount, tap which budget line it came out of, done. The budget itself never moves — only this list does.</p>
+              <div id="txReviewBanner"></div>
               <div id="transactionsTable"></div>
               <div class="ledger-footer">
                 <button class="btn btn-sm btn-primary" id="quickLogBtn" title="Log what you just spent in a couple of taps — amount, which budget line it came out of, done">+ Log spend</button>
@@ -1044,6 +1045,8 @@
 <div id="receivedRoot"></div>
 <div id="expenseReviewRoot"></div>
 <div id="firstRunRoot"></div>
+<!-- v3.163.0 (item 193): the review queue for new transactions (components/reviewqueue.js). -->
+<div id="txReviewRoot"></div>
 <div id="assetPersonSheetRoot"></div>
 <div id="notifPanelRoot"></div>
 <div id="searchRoot"></div>
@@ -1115,6 +1118,7 @@
   "./src/calc/reportframe.js": "./src/calc/reportframe.js?v=3.162.0",
   "./src/calc/reports.js": "./src/calc/reports.js?v=3.162.0",
   "./src/calc/retirement.js": "./src/calc/retirement.js?v=3.162.0",
+  "./src/calc/reviewqueue.js": "./src/calc/reviewqueue.js?v=3.162.0",
   "./src/calc/sale.js": "./src/calc/sale.js?v=3.162.0",
   "./src/calc/savegoals.js": "./src/calc/savegoals.js?v=3.162.0",
   "./src/calc/showas.js": "./src/calc/showas.js?v=3.162.0",
@@ -1164,6 +1168,7 @@
   "./src/components/recurring.js": "./src/components/recurring.js?v=3.162.0",
   "./src/components/reports.js": "./src/components/reports.js?v=3.162.0",
   "./src/components/retirement.js": "./src/components/retirement.js?v=3.162.0",
+  "./src/components/reviewqueue.js": "./src/components/reviewqueue.js?v=3.162.0",
   "./src/components/rules.js": "./src/components/rules.js?v=3.162.0",
   "./src/components/safekeeping.js": "./src/components/safekeeping.js?v=3.162.0",
   "./src/components/savegoals.js": "./src/components/savegoals.js?v=3.162.0",
@@ -1263,6 +1268,7 @@
 <link rel="modulepreload" href="./src/calc/reportframe.js?v=3.162.0">
 <link rel="modulepreload" href="./src/calc/reports.js?v=3.162.0">
 <link rel="modulepreload" href="./src/calc/retirement.js?v=3.162.0">
+<link rel="modulepreload" href="./src/calc/reviewqueue.js?v=3.162.0">
 <link rel="modulepreload" href="./src/calc/sale.js?v=3.162.0">
 <link rel="modulepreload" href="./src/calc/savegoals.js?v=3.162.0">
 <link rel="modulepreload" href="./src/calc/showas.js?v=3.162.0">
@@ -1312,6 +1318,7 @@
 <link rel="modulepreload" href="./src/components/recurring.js?v=3.162.0">
 <link rel="modulepreload" href="./src/components/reports.js?v=3.162.0">
 <link rel="modulepreload" href="./src/components/retirement.js?v=3.162.0">
+<link rel="modulepreload" href="./src/components/reviewqueue.js?v=3.162.0">
 <link rel="modulepreload" href="./src/components/rules.js?v=3.162.0">
 <link rel="modulepreload" href="./src/components/safekeeping.js?v=3.162.0">
 <link rel="modulepreload" href="./src/components/savegoals.js?v=3.162.0">

@@ -1,3 +1,4 @@
+import { toReview } from "../calc/reviewqueue.js";
 import { state } from "../state.js";
 import { nextDueDate, lastTransactionDateFor, daysUntil, selectedMonth, monthPhrase, isPeriodToday } from "../calc/ledger.js";
 import { totalNetWorthValue, scenarioTotals, currentScenario } from "../calc/engine.js";
@@ -42,6 +43,9 @@ export function upcomingBills(items, transactions, today, days){
 export function homeTodos(today, opts){
   opts = opts || {};
   var out = [];
+  // v3.163.0 (item 193): imported rows nobody has looked at yet come first.
+  var waiting = toReview(state.transactions).length;
+  if(waiting) out.push({ text: waiting + " new transaction" + (waiting === 1 ? "" : "s") + " to review", go: "txreview", tone: "warn" });
   var ym = reviewMonth(today);
   var rev = state.monthReviews && state.monthReviews[ym];
   if(!(rev && rev.done)) out.push({ text: "Review " + monthLabel(ym), go: "dashboard", sub: "review", tone: "warn" });

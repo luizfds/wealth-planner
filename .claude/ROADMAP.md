@@ -3442,7 +3442,7 @@ to six budget lines from 57 transactions; Home then shows step 3 of 4, Add your 
 intro page's first offer; the panel's own offer now reads "Look around with sample data".
 
 
-## 193. `[~]` A review queue for new transactions
+## 193. `[x]` A review queue for new transactions
 Imported rows are reviewed once, on the import screen, and anything waved through is never looked at again. YNAB
 (Card Mode, 2026) and Copilot keep a standing "to review" queue.
 
@@ -3453,6 +3453,19 @@ Desktop gets the same with keyboard keys.
 
 Done when: a statement import shows its rows in the queue; a correction made there creates a rule that the next
 import applies; the swipe is driven on a phone width.
+
+Shipped as v3.163.0. Every imported row (a statement chosen by hand, a PDF, or one from the Statements folder) lands
+with `reviewed: false`; rows saved before this count as reviewed. Home's To do says "N new transactions to review" first,
+and Spending's list has a banner with a Review button. The queue (`calc/reviewqueue.js`, `components/reviewqueue.js`)
+goes one row at a time, oldest first: the shop, the bank's words, the amount, the date and account, and what it counts
+against (its budget line, or its category, or "Not filed yet"). Keep — the button, → or K, or a swipe right — or Change
+— ←, C, or a swipe left — to a budget line or a category; a change then asks "Always file <shop> under <that>?": Always
+learns the import rule the way a confirmed import does (`learnRule`) and files every other row from that shop still
+waiting; Just this once files this one. "Keep all N" clears what's left as filed; Esc closes. Driven at 390px with an
+invented four-month statement and touch swipes: right kept (57 → 56 to go), left opened Change, Eating out + Always saved
+a "fern cafe" rule and filed the other waiting Fern Cafe rows, and the next statement's Fern Cafe row arrived filed under
+Eating out (and waiting in the queue). Driven at 1280px with the keys, from Home's To do.
+
 
 ## 194. `[ ]` A flexible budget as well as a detailed one
 Thirty budget lines is a lot to keep. Monarch's flex budgeting works with three numbers: fixed bills, one

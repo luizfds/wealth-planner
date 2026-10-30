@@ -138,6 +138,8 @@ import { yearEndPrintHtml, yearEndDocumentsCsv } from "./components/yearend.js";
 import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodButton, renderPeriodMenu } from "./components/period.js";
 import { selectedYearWindow, yearStartOf, householdYearBasis } from "./calc/ledger.js";
 import { applyParts, renderPartsSettings, setPart } from "./components/parts.js";
+import { txReview, txReviewHtml, reviewBannerHtml } from "./components/reviewqueue.js";
+import { toReview, keepTransaction, refileTransaction, applyRuleFromReview, keepAll, ruleOfferFor } from "./calc/reviewqueue.js";
 import { showPage, parseRouteFromLocation, closeNavMenu, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, taxSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
 import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./components/search.js";
 import {
@@ -4179,6 +4181,8 @@ import { inboxMessage } from "./calc/inbox.js";
     clearBankImport();
     if(inbox.current) inboxFileDone(inbox.current);
     refreshAfterBankImport();
+    // v3.163.0 (item 193): what was just imported waits to be reviewed — say so where it's counted.
+    renderTxReviewBanner(); renderHomeSummary();
     // Transfers and a statement balance reach Accounts, Home and net worth too.
     if((result.transferIds && result.transferIds.length) || result.balanceSet) renderAll();
     showUndoToast(
@@ -5043,6 +5047,7 @@ import { inboxMessage } from "./calc/inbox.js";
     // v3.161.0 (item 191): which parts show, before anything that lists them renders.
     applyParts();
     renderPartsSettings();
+    renderTxReviewBanner();
     document.getElementById("projHorizon").value = state.projection.horizonYears;
     document.getElementById("projInvestRate").value = state.projection.investReturnRate;
     document.getElementById("projInvestRateRange").value = state.projection.investReturnRate;
@@ -5583,6 +5588,61 @@ import { inboxMessage } from "./calc/inbox.js";
   // components/firstrun.js until Finish, so closing half-way writes nothing.
   var firstRunRoot = document.getElementById("firstRunRoot");
   function renderFirstRun(){ firstRunRoot.innerHTML = firstRun.open ? firstRunHtml() : ""; }
+
+  // ---------------- The review queue for new transactions (v3.163.0, item 193) ----------------
+  var txReviewRoot = document.getElementById("txReviewRoot");
+  function renderTxReviewBanner(){ var b = document.getElementById("txReviewBanner"); if(b) b.innerHTML = reviewBannerHtml(); }
+  function renderTxReview(){
+    txReviewRoot.innerHTML = txReview.open ? txReviewHtml() : "";
+    var card = txReviewRoot.querySelector("[data-txr-card]");
+    if(card) onHorizontalSwipe(card, { onSwipeRight: function(){ txrKeep(); }, onSwipeLeft: function(){ txrChange(); } });
+    var f = txReviewRoot.querySelector("[data-txr-keep], [data-txr-save], [data-txr-rule='always'], [data-txr-close]");
+    if(f) f.focus({ preventScroll: true });
+  }
+  function openTxReview(){
+    txReview.open = true; txReview.mode = "card"; txReview.choice = null; txReview.kept = 0;
+    renderTxReview(); pushActiveOverlay(closeTxReviewUi);
+  }
+  function closeTxReviewUi(){
+    txReview.open = false; renderTxReview();
+    renderTransactions(); renderActualVsPlannedPanel(); renderTxReviewBanner(); renderHomeSummary();
+  }
+  function txrCurrent(){ return toReview(state.transactions)[0]; }
+  function txrKeep(){ var t = txrCurrent(); if(!t || txReview.mode !== "card") return; keepTransaction(t); txReview.kept++; persist(); renderTxReview(); }
+  function txrChange(){ if(!txrCurrent() || txReview.mode !== "card") return; txReview.mode = "change"; renderTxReview(); }
+  txReviewRoot.addEventListener("click", function(e){
+    if(e.target.closest("[data-txr-close]") || e.target === e.target.closest("[data-txr-backdrop]")){ requestCloseActiveOverlay(); return; }
+    if(e.target.closest("[data-txr-keep]")){ txrKeep(); return; }
+    if(e.target.closest("[data-txr-change]")){ txrChange(); return; }
+    if(e.target.closest("[data-txr-back]")){ txReview.mode = "card"; renderTxReview(); return; }
+    if(e.target.closest("[data-txr-keepall]")){ var n = keepAll(state.transactions); txReview.kept += n; persist(); renderTxReview(); showToast("Kept " + n + " as filed"); return; }
+    if(e.target.closest("[data-txr-save]")){
+      var line = txReviewRoot.querySelector("[data-txr-line]").value, cat = txReviewRoot.querySelector("[data-txr-cat]").value;
+      txReview.choice = { linkedExpenseId: line || null, category: line ? "" : cat };
+      // Something to file it to, and a shop to learn: ask whether it's always so. Otherwise just file it.
+      var t = txrCurrent();
+      if((line || cat) && ruleOfferFor(t)){ txReview.mode = "rule"; renderTxReview(); return; }
+      refileTransaction(t, txReview.choice); txReview.kept++; txReview.mode = "card"; persist(); renderTxReview(); return;
+    }
+    var rule = e.target.closest("[data-txr-rule]");
+    if(rule){
+      var cur = txrCurrent();
+      refileTransaction(cur, txReview.choice); txReview.kept++;
+      if(rule.getAttribute("data-txr-rule") === "always"){
+        var also = applyRuleFromReview(state.importRules, state.transactions, cur, txReview.choice, function(){ return genId("rule"); });
+        txReview.kept += also;
+        showToast("Rule saved" + (also ? " · " + also + " more filed the same way" : ""));
+      }
+      txReview.mode = "card"; txReview.choice = null; persist(); renderTxReview();
+    }
+  });
+  document.addEventListener("keydown", function(e){
+    if(!txReview.open || txReview.mode !== "card" || /input|select|textarea/i.test((e.target && e.target.tagName) || "")) return;
+    if(e.key === "ArrowRight" || e.key === "k"){ e.preventDefault(); txrKeep(); }
+    else if(e.key === "ArrowLeft" || e.key === "c"){ e.preventDefault(); txrChange(); }
+  });
+  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && txReview.open) requestCloseActiveOverlay(); });
+  document.addEventListener("click", function(e){ if(e.target.closest("[data-txr-open]")) openTxReview(); });
   function openFirstRun(){
     startFirstRun(); renderFirstRun();
     pushActiveOverlay(closeFirstRunUi);
@@ -5975,6 +6035,7 @@ import { inboxMessage } from "./calc/inbox.js";
     if(!b) return;
     var go = b.getAttribute("data-home-go"), sub = b.getAttribute("data-home-sub"), fy = b.getAttribute("data-home-fy");
     if(go === "backup"){ var exp = document.getElementById("exportBtn"); if(exp) exp.click(); return; }
+    if(go === "txreview"){ openTxReview(); return; }
     if(go === "dashboard"){
       showDashboardSubpage(sub || "overview");
       if(sub === "review") renderMonthReview();

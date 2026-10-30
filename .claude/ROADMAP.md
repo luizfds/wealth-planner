@@ -3376,7 +3376,7 @@ shared the 12px axis labels and the recessive gridlines. Not done: the line char
 series toggles), and there is no skeleton state — nothing on these pages loads late enough to need one.
 
 
-## 190. `[ ]` Figures that read at a glance
+## 190. `[~]` Figures that read at a glance
 Long figures crowd small cards on a phone ("$4,499,450", "$1,889,000").
 
 Do: compact figures in cards and charts ($4.5M, $1.89M, $673.8k), with the exact one in the tooltip and on the

@@ -3394,7 +3394,7 @@ figures that had room kept whole dollars). Up and down: the one figure shown in 
 This year so far — now carries ▲ (and "Over plan" for a screen reader). `tests/compact.test.js` pins the rule.
 
 
-## 191. `[ ]` Only the parts you use
+## 191. `[~]` Only the parts you use
 A renter with no shares still sees Property, Investments, Tax → Returns and a dozen cards about them. Monarch and
 Copilot simply don't show what you don't have.
 

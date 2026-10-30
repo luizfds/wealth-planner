@@ -3580,7 +3580,7 @@ the same filters set by hand ($3,535 over 13 entries on the demo), after a reloa
 $1,367 actual and Your week at its $1,259.
 
 
-## 199. `[~]` OFX, QFX and QIF, and how to get them
+## 199. `[x]` OFX, QFX and QIF, and how to get them
 PocketSmith takes OFX, QFX, QIF and CSV. Here it's CSV or PDF, and finding a bank's export button is left to you.
 
 Do: parse OFX/QFX (SGML and XML) and QIF in `calc/bank-import.js`, so they go through the same review, rules and
@@ -3588,6 +3588,19 @@ duplicate check. The import screen gets short "Where's the export?" steps for th
 issuers, written generically (no account details), and says which formats each offers.
 
 Done when: invented fixtures in each format import the same rows as the matching CSV; render-smoke covers the help.
+
+**Done (v3.169.0).** `calc/bank-import.js` reads OFX 1.x (SGML) and 2.x (XML), QFX (OFX with Intuit's tags) and QIF:
+`statementFormat` tells them from CSV by content or name, `parseOfx` reads each `<STMTTRN>` (bank or card; the name joined
+with the memo when the memo adds to it; entities decoded; YYYYMMDD dates; signed amounts), `parseQif` reads D/T/P/M
+records (the apostrophe year and stray spaces tidied, the date left for the CSV path's DD/MM-unless-proven reading), and
+`statementTextToCsv` turns either into the Date/Description/Debit/Credit CSV the importer already reads — so review,
+rules and the duplicate check are the same. `startBankImport` calls it, so a file chosen, shared to the app or dropped in
+the Statements folder (which now lists .ofx/.qfx/.qif) all go one way. The import card's help names the formats and has
+**Where's the export?**: CommBank, NAB, ANZ, Westpac and everyone else, in general terms (no account details) with the
+formats each says it offers, and the advice to take the longest range and OFX where offered. Tests: one invented statement
+as CSV, OFX SGML, OFX XML, QFX and QIF imports the same rows; a re-import in another format is caught as a duplicate;
+render-smoke covers the help. Driven: an .ofx and a .qif chosen through the file picker give the same review.
+
 
 ## 200. `[ ]` Decide: bank feeds or not
 Bank feeds are why people pick Frollo, WeMoney, PocketSmith or Monarch. Under Australia's Consumer Data Right they

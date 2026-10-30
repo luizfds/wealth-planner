@@ -1531,3 +1531,27 @@
 
   /* v3.158.0 (item 188): one month axis for the stack of small charts — on the first, not under every one. */
   .trend-row ~ .trend-row .trend-bar-label{ display:none; }
+
+  /* ---------------- The review queue for new transactions (v3.163.0, item 193) ---------------- */
+  .txr-panel{ max-width:440px; }
+  .txr-left{ font-size:var(--fs-sm); font-weight:400; color: var(--ink-soft); margin-left:6px; }
+  .txr-card{ border:1px solid var(--border); border-radius: var(--inner-radius); background: var(--paper-raised); padding:16px; touch-action: pan-y; user-select:none; }
+  .txr-top{ display:flex; align-items:center; gap:12px; }
+  .txr-name{ flex:1 1 auto; min-width:0; display:flex; flex-direction:column; }
+  .txr-name b{ font-size:var(--fs-lg); overflow-wrap:anywhere; }
+  .txr-name small{ font-size:var(--fs-xs); color: var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .txr-amt{ font-family:var(--font-num); font-size:var(--fs-xl); white-space:nowrap; }
+  .txr-amt.in{ color: var(--good-ink); }
+  .txr-meta{ margin:10px 0 0; font-size:var(--fs-sm); color: var(--ink-soft); }
+  .txr-where{ margin:8px 0 0; font-size:var(--fs-md); }
+  .txr-where span{ display:block; font-size:var(--fs-xs); color: var(--ink-soft); }
+  .txr-where.unfiled{ color: var(--warn-ink); }
+  .txr-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:14px; }
+  .txr-main .btn{ flex:1 1 0; }
+  .txr-hint{ margin:10px 0 0; font-size:var(--fs-xs); color: var(--ink-soft); text-align:center; }
+  .txr-change{ display:flex; flex-direction:column; gap:10px; margin-top:12px; }
+  .txr-change select{ width:100%; }
+  .txr-ask{ font-size:var(--fs-md); margin:4px 0 8px; }
+  .txr-done{ font-size:var(--fs-md); margin:8px 0; }
+  .txr-banner{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; margin:0 0 12px;
+    border:1px solid var(--border); border-left:3px solid var(--brass); border-radius: var(--inner-radius); background: var(--brass-wash); font-size:var(--fs-sm); }

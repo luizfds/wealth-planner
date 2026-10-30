@@ -767,7 +767,9 @@ export function commitBankImport(){
         what: row.description || "",
         linkedExpenseId: g.choice.linkedExpenseId || null,
         account: g.choice.account || bankImport.account || "",
-        category: g.choice.linkedExpenseId ? "" : (g.choice.category || "")
+        category: g.choice.linkedExpenseId ? "" : (g.choice.category || ""),
+        // v3.163.0 (item 193): waits in the review queue until kept or refiled (calc/reviewqueue.js).
+        reviewed: false
       };
       state.transactions.push(t);
       created.push(t.id);

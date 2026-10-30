@@ -3442,7 +3442,7 @@ to six budget lines from 57 transactions; Home then shows step 3 of 4, Add your 
 intro page's first offer; the panel's own offer now reads "Look around with sample data".
 
 
-## 193. `[ ]` A review queue for new transactions
+## 193. `[~]` A review queue for new transactions
 Imported rows are reviewed once, on the import screen, and anything waved through is never looked at again. YNAB
 (Card Mode, 2026) and Copilot keep a standing "to review" queue.
 

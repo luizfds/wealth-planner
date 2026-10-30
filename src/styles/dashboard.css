@@ -548,3 +548,6 @@
 .wk-foot{ display:flex; align-items:center; flex-wrap:wrap; gap:8px 16px; border-top:1px solid var(--border); padding-top:10px; }
 .wk-notice{ margin:0; font-size:var(--fs-sm); flex:1 1 240px; min-width:0; }
 @media (max-width: 760px){ .wk-body{ grid-template-columns: 1fr; gap:12px; } }
+
+/* The card's "Edit … options →" scrolls a scenario's block into view — below the sticky page header. */
+.home-block{ scroll-margin-top: calc(var(--topbar-h, 72px) + 12px); }

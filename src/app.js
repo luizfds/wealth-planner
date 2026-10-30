@@ -4021,7 +4021,23 @@ import { inboxMessage } from "./calc/inbox.js";
     if(delBtn){ var scName = delBtn.getAttribute("data-delete"); withUndo('Deleted "' + scName + '"', function(){ deleteScenario(scName); return state.scenarios.indexOf(scName) === -1; }); return true; }
     if(e.target.closest("#addScenarioBtn") || e.target.closest("#addScenarioBtn2")){ addScenario(); return true; }
     var editBtn = e.target.closest("[data-edit-scenario]");
-    if(editBtn){ chooseScenario(editBtn.getAttribute("data-edit-scenario")); showPage("scenarios"); return true; }
+    // The card's "Edit rent/home loan, purchase & invest options →". It used to go from Home to the
+    // Scenarios page; since the cards moved onto Plan → Scenarios it pointed at the page it was on and
+    // did nothing — the scenario's own block in Your home, below, stayed folded. It opens that block now.
+    if(editBtn){
+      var en = editBtn.getAttribute("data-edit-scenario");
+      chooseScenario(en);
+      homeBlockCollapsed[en] = false;
+      showPage("plan");
+      showPlanSubpage("scenarios", { replace: true });
+      renderHomeBody();
+      setTimeout(function(){
+        var head = Array.prototype.find.call(document.querySelectorAll("#homeBody [data-collapse-toggle]"), function(h){ return h.getAttribute("data-collapse-toggle") === en; });
+        var block = head && head.closest(".home-block");
+        if(block) block.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 350);
+      return true;
+    }
     var setActiveBtn = e.target.closest("[data-edit-scenario2]");
     if(setActiveBtn){ chooseScenario(setActiveBtn.getAttribute("data-edit-scenario2")); return true; }
     var collapseBtn = e.target.closest("[data-collapse-toggle]");

@@ -3490,7 +3490,7 @@ unspent (or overspent) carries into the next (`state.rollover[category]` = the s
 the classification, the totals and rollover across months.
 
 
-## 195. `[ ]` A Home you arrange
+## 195. `[~]` A Home you arrange
 Home's cards come in a fixed order. Monarch lets you choose what's on the dashboard.
 
 Do: Home → Overview gets "Edit" to reorder and hide its cards (net worth, this month, bills, goals, runway, FI, tax

@@ -15,6 +15,8 @@ import { txGrid, txGridHtml, txViewToggleHtml, budgetPlanHtml, billsCalendarHtml
 import { modernPlainRowHtml, modernRowSummaryHtml, modernRowEditHtml, modernRowShellHtml, optionsHtml } from "../lib/ledger-table.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { parseCsv } from "../lib/backup.js";
+import { categoryLook, renameCategoryLook, CATEGORY_COLORS, CATEGORY_ICONS } from "../calc/categorylook.js";
+import { categoryIconHtml, categoryColorClass, iconSvg } from "../lib/caticons.js";
 
 // Which axis the Budget list is grouped by, and the value a given line sits under on it. The two
 // axes are deliberately different in kind: classification is a fixed four-value scale every line
@@ -451,7 +453,8 @@ export function renderSharedGroups(){
     return '<div class="m-card' + (collapsed ? " is-collapsed" : "") + '">' +
       '<div class="m-card-head" data-budget-group-toggle="' + escapeAttr(g.key) + '" role="button" tabindex="0" aria-expanded="' + (!collapsed) + '">' +
       '<span class="icon-btn m-card-caret" aria-hidden="true"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg></span>' +
-      '<span class="m-avatar ' + avatarClass + '">' + escapeAttr(initial) + '</span>' +
+      // v3.157.0: grouped by category, a card wears the category's icon.
+      (byCategory && g.key !== UNCATEGORISED ? categoryIconHtml(g.key) : '<span class="m-avatar ' + avatarClass + '">' + escapeAttr(initial) + '</span>') +
       '<div class="m-card-name">' + escapeAttr(groupLabel(g.key)) + '</div>' +
       '<div class="m-card-total">' + fmtCurrency0.format(g.monthly) + '<span>/mo</span></div></div>' +
       // Each row renders under its own source section, so a housing line's edits, deletes and
@@ -1336,6 +1339,7 @@ function transactionRowHtml(t, idx){
   var linkSelect = '<select class="tx-link" data-tx-index="' + idx + '" aria-label="Linked expense" title="Pick a budget line to log this transaction against — fills in its description and amount for you, or leave it as One-off for spend that has no matching budget line">' + transactionLinkOptionsHtml(t.linkedExpenseId) + '</select>';
   var acctSelect = '<select class="tx-account" data-tx-index="' + idx + '" aria-label="Account">' + transactionAccountOptionsHtml(t.account || "") + '</select>';
   var summary = modernRowSummaryHtml({
+    leadHtml: categoryIconHtml(transactionCategory(t)),
     name: transactionDisplayName(t, state.shared),
     // v3.111.0: the bank's own text, when the name shown is a cleaned-up version of it.
     nameTitle: (t.what || "").trim() && transactionDisplayName(t, state.shared) !== t.what.trim() ? t.what.trim() : "",
@@ -1555,7 +1559,7 @@ export function budgetComparisonRowHtml(item){
   var isOpen = isExpandable && !!budgetRowTxnsOpen[item.id];
   return '<div class="budget-row' + (isExpandable ? " is-expandable" : "") + (isOpen ? " open" : "") + '"' +
       (isExpandable ? ' data-budget-row-toggle="' + escapeAttr(item.id) + '" role="button" tabindex="0" aria-expanded="' + isOpen + '"' : '') + '>' +
-    '<div class="acct-row"><span class="acct-name" title="' + escapeAttr(item.what) + '">' + escapeAttr(item.what) + '</span>' +
+    '<div class="acct-row"><span class="acct-name" title="' + escapeAttr(item.what) + '">' + categoryIconHtml(item.category, { small: true }) + escapeAttr(item.what) + '</span>' +
       '<span style="font-size:var(--fs-xs);color:var(--ink-soft)">' + fmtCurrency0.format(actual) + ' actual / ' + fmtCurrency0.format(planned) + ' planned ' + escapeAttr(cycle.label) + ' — ' + remainingLabel + '</span>' +
       '<span class="acct-amt"' + (color ? ' style="color:' + color + '"' : '') + '>' + (delta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(delta)) + '</span>' + (isExpandable ? budgetRowChevHtml() : "") + '</div>' +
     '<div class="budget-bar-track"><div class="budget-bar-fill' + (delta > 0.5 ? " over" : "") + '" style="width:' + pct + '%"></div></div>' +
@@ -1801,8 +1805,37 @@ function categoryRowHtml(name, idx){
   var usage = '<span class="cat-mgmt-count">' + (usedBy ? usedBy + (usedBy === 1 ? " line" : " lines") : "unused") + '</span>';
   var delBtn = '<button type="button" class="btn btn-danger btn-sm row-del" data-cat-del="' + idx + '" aria-label="Delete category">✕</button>';
   return '<div class="m-row acct-mgmt-row" data-cat-index="' + idx + '">' +
-    '<div class="m-row-summary" style="cursor:default;flex-wrap:wrap;gap:8px">' + nameInput + usage + delBtn + '</div>' +
+    '<div class="m-row-summary" style="cursor:default;flex-wrap:wrap;gap:8px">' + categoryLookPickerHtml(name, idx) + nameInput + usage + delBtn + '</div>' +
   '</div>';
+}
+// v3.157.0 (item 187): the category's colour and icon — its badge opens a choice of both. Which one
+// is open lives here, by name, so a re-render after a pick keeps it open.
+export var categoryLookUi = { open: "" };
+export function categoryLookPickerHtml(name, idx){
+  if(!name) return '<span class="cat-icon cat-c-9" aria-hidden="true">' + iconSvg("dot") + '</span>';
+  var look = categoryLook(name, state.categoryLooks);
+  var colors = "";
+  for(var c = 0; c < CATEGORY_COLORS; c++){
+    colors += '<button type="button" class="cat-swatch cat-c-' + c + (c === look.color ? ' is-on' : '') + '" data-cat-look="' + idx + '" data-cat-color="' + c + '" aria-label="Colour ' + (c + 1) + '" aria-pressed="' + (c === look.color) + '"></button>';
+  }
+  var icons = CATEGORY_ICONS.map(function(ic){
+    return '<button type="button" class="cat-icon-pick cat-c-' + look.color + (ic === look.icon ? ' is-on' : '') + '" data-cat-look="' + idx + '" data-cat-icon="' + ic + '" aria-label="Icon: ' + ic + '" aria-pressed="' + (ic === look.icon) + '">' + iconSvg(ic) + '</button>';
+  }).join("");
+  return '<details class="cat-look"' + (categoryLookUi.open === name ? ' open' : '') + ' data-cat-look-for="' + escapeAttr(name) + '">' +
+    '<summary aria-label="Colour and icon for ' + escapeAttr(name) + '">' + categoryIconHtml(name) + '</summary>' +
+    '<div class="cat-look-panel"><div class="cat-look-colors">' + colors + '</div><div class="cat-look-icons">' + icons + '</div>' +
+    (look.custom ? '<button type="button" class="link-btn cat-look-reset" data-cat-look="' + idx + '" data-cat-look-reset>Back to the default</button>' : '') +
+    '</div></details>';
+}
+// Sets one of a category's colour or icon (or clears both, with reset).
+export function setCategoryLook(idx, field, value){
+  var name = state.categories[idx];
+  if(!name) return;
+  if(!state.categoryLooks) state.categoryLooks = {};
+  if(field === "reset"){ delete state.categoryLooks[name]; return; }
+  var own = Object.assign({}, state.categoryLooks[name] || {});
+  own[field] = field === "color" ? Number(value) : value;
+  state.categoryLooks[name] = own;
 }
 export function renderCategories(){
   var container = document.getElementById("categoriesTable");
@@ -1829,6 +1862,8 @@ export function renameCategoryEverywhere(oldName, newName){
   everyCategorisableArray().forEach(function(items){
     items.forEach(function(item){ if((item.category || "") === oldName) item.category = newName; });
   });
+  // Its colour and icon go with it.
+  state.categoryLooks = renameCategoryLook(state.categoryLooks, oldName, newName);
 }
 // Every array whose rows carry a category, across all scenarios and properties — deliberately
 // wider than budgetLineItems() (which is only what the Budget tab currently lists) because
@@ -1847,13 +1882,16 @@ export function deleteCategory(idx){
   var orphaned = everyCategorisableArray().reduce(function(acc, items){
     return acc.concat(items.filter(function(item){ return (item.category || "") === removed; }));
   }, []);
+  var removedLook = state.categoryLooks && state.categoryLooks[removed];
   state.categories.splice(idx, 1);
   orphaned.forEach(function(item){ item.category = ""; });
+  if(removedLook) delete state.categoryLooks[removed];
   renderCategories();
   persist();
   showUndoToast('Deleted "' + (removed || "category") + '"' + (orphaned.length ? " — " + orphaned.length + " line" + (orphaned.length === 1 ? "" : "s") + " uncategorised" : ""), function(){
     state.categories.splice(Math.min(idx, state.categories.length), 0, removed);
     orphaned.forEach(function(item){ item.category = removed; });
+    if(removedLook) state.categoryLooks[removed] = removedLook;
     renderCategories();
     persist();
   });
@@ -1900,16 +1938,17 @@ export function categoryChartHtml(groups, unit, opts){
   var positives = groups.filter(function(g){ return g.monthly > 0; });
   var total = positives.reduce(function(sum, g){ return sum + g.monthly; }, 0);
   if(total <= 0) return "";
+  // v3.157.0: each category in its own colour, the same one its rows and cards use.
   var colorOf = {};
-  groups.forEach(function(g, i){ colorOf[g.key] = i % 8; });
+  groups.forEach(function(g){ colorOf[g.key] = g.key === UNCATEGORISED ? "cat-c-9" : categoryColorClass(g.key); });
   var segs = positives.map(function(g){
     var pct = g.monthly / total;
-    return '<div class="rule-seg cat-seg series-color-' + colorOf[g.key] + '" style="width:' + (pct * 100) + '%"' +
+    return '<div class="rule-seg cat-seg ' + colorOf[g.key] + '" style="width:' + (pct * 100) + '%"' +
       ' title="' + escapeAttr(g.key) + ': ' + fmtCurrency0.format(g.monthly) + unit + ' (' + fmtPercent1.format(pct) + ')">' +
       (pct > 0.12 ? segLabel(fmtPercent1.format(pct)) : "") + '</div>';
   }).join("");
   var legend = groups.map(function(g){
-    return '<div class="rule-legend-item' + (g.monthly < 0 ? " is-credit" : "") + '"><span class="rule-swatch cat-seg series-color-' + colorOf[g.key] + '"></span>' +
+    return '<div class="rule-legend-item' + (g.monthly < 0 ? " is-credit" : "") + '"><span class="rule-swatch cat-seg ' + colorOf[g.key] + '"></span>' +
       escapeAttr(g.key) + ' <b>' + fmtCurrency0.format(g.monthly) + '</b>' +
       (g.monthly < 0 ? ' <span class="cat-credit-tag" title="More came back than went out in this category — refunds outweighed spending">net refund</span>' : "") + '</div>';
   }).join("");

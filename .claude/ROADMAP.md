@@ -3306,7 +3306,7 @@ an in-sentence link), and nothing shows the browser's default button. `tests/but
 isn't `.btn-danger`.
 
 
-## 187. `[~]` Colour and an icon for each category
+## 187. `[x]` Colour and an icon for each category
 Every competitor makes a list readable at a glance with a category colour and icon on each row. Here, a
 transaction row, a budget line and a chart segment for the same category share nothing.
 
@@ -3317,6 +3317,17 @@ A merchant shows as a round avatar: its initials on the category's colour.
 
 Done when: the same category looks the same on Budget, Spending, Reports and Home; axe passes on every colour in
 light and dark.
+
+Shipped as v3.157.0. `calc/categorylook.js` gives each category a colour (twelve, `--cat` via `.cat-c-0`…`11`, light and
+dark) and an icon (24 hand-drawn SVGs in `lib/caticons.js`, no font, no CDN), worked out from its name — groceries a
+cart, fuel a pump, the investment property a building — unless the household picked its own: Settings → Categories,
+tap a category's badge for twelve colours and 24 icons, "Back to the default" to undo. Picks live in
+`state.categoryLooks` by name; a rename carries them, a delete drops them (and undo puts them back). Shown on every
+transaction row, the Budget tab's cards when grouped by category, Actual vs. planned's lines and both category charts,
+whose slices and swatches are now the category's colour rather than the next colour in the series. Merchant initials
+avatars were left for later: the category badge already marks each row. Found on the way, not fixed here:
+transactions that carry their own category (from a bank import) aren't reached by a category rename.
+
 
 ## 188. `[ ]` Half the words on screen
 Explanations were moved behind ⓘ once (v3.33.0), but the visible text kept growing: notes under figures, sentences

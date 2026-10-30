@@ -47,7 +47,7 @@ import {
   openQuickLog, closeQuickLog, renderQuickLogSheet, setQuickLogLink, setQuickLogDateOpen,
   setQuickLogShowAllChips, setQuickLogChipFilter, setQuickLogSign, setQuickLogRefundOf, submitQuickLog, quickLogContextText, quickLog,
   renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, logExpenseTransaction,
-  renderCategories, addCategory, deleteCategory, renameCategoryEverywhere,
+  renderCategories, addCategory, deleteCategory, renameCategoryEverywhere, setCategoryLook, categoryLookUi,
   setBudgetGroupBy, renderBudgetGroupByToggle, budgetLineItems,
   toggleBudgetGroup, setAllBudgetGroupsCollapsed, allBudgetGroupsCollapsed, revealBudgetLine,
   renderYearSpending, renderYearBasisPreference, setYearBasis, transactionCategory,
@@ -3799,6 +3799,24 @@ import { inboxMessage } from "./calc/inbox.js";
     var delCatBtn = e.target.closest("[data-cat-del]");
     if(delCatBtn){ deleteCategory(Number(delCatBtn.getAttribute("data-cat-del"))); refreshCategoryUi(); }
   });
+  // v3.157.0 (item 187): a category's colour and icon, picked from its badge.
+  document.addEventListener("click", function(e){
+    var pick = e.target.closest("[data-cat-look]");
+    if(!pick) return;
+    var i = Number(pick.getAttribute("data-cat-look"));
+    if(pick.hasAttribute("data-cat-color")) setCategoryLook(i, "color", pick.getAttribute("data-cat-color"));
+    else if(pick.hasAttribute("data-cat-icon")) setCategoryLook(i, "icon", pick.getAttribute("data-cat-icon"));
+    else if(pick.hasAttribute("data-cat-look-reset")) setCategoryLook(i, "reset");
+    else return;
+    categoryLookUi.open = state.categories[i] || "";
+    renderCategories();
+    refreshCategoryUi();
+    renderTransactions();
+    persist();
+  });
+  document.addEventListener("toggle", function(e){
+    if(e.target.matches && e.target.matches("[data-cat-look-for]")) categoryLookUi.open = e.target.open ? e.target.getAttribute("data-cat-look-for") : (categoryLookUi.open === e.target.getAttribute("data-cat-look-for") ? "" : categoryLookUi.open);
+  }, true);
   document.addEventListener("input", function(e){
     if(!e.target.closest("#categoriesTable")) return;
     if(!e.target.classList.contains("cat-mgmt-name")) return;

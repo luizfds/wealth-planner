@@ -3580,7 +3580,7 @@ the same filters set by hand ($3,535 over 13 entries on the demo), after a reloa
 $1,367 actual and Your week at its $1,259.
 
 
-## 199. `[ ]` OFX, QFX and QIF, and how to get them
+## 199. `[~]` OFX, QFX and QIF, and how to get them
 PocketSmith takes OFX, QFX, QIF and CSV. Here it's CSV or PDF, and finding a bank's export button is left to you.
 
 Do: parse OFX/QFX (SGML and XML) and QIF in `calc/bank-import.js`, so they go through the same review, rules and

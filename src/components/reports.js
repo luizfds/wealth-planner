@@ -1,4 +1,5 @@
 import { state } from "../state.js";
+import { partOn } from "../calc/parts.js";
 import { REPORTS, REPORT_GROUPS, buildReport, reportCsvRows } from "../calc/reports.js";
 import { getTaxPeople } from "../calc/tax.js";
 import { transactionCategory, transactionAccount, budgetLineItems } from "./expenses.js";
@@ -142,7 +143,7 @@ function pickerHtml(){
         '<button type="button" class="rp-unpin" data-report-unpin="' + escapeAttr(r.id) + '" aria-label="Unpin ' + escapeAttr(r.name) + '" title="Unpin">×</button></span>';
     }).join("") + '</div></div>' : '';
   return pins + '<div class="rp-picker" role="tablist" aria-label="Reports">' + REPORT_GROUPS.map(function(g){
-    return '<div class="rp-group"><span class="rp-group-label">' + escapeAttr(g.label) + '</span><div class="rp-chips">' + REPORTS.filter(function(r){ return r.group === g.key; }).map(function(r){
+    return '<div class="rp-group"><span class="rp-group-label">' + escapeAttr(g.label) + '</span><div class="rp-chips">' + REPORTS.filter(function(r){ return r.group === g.key && (!r.part || partOn(r.part, state)); }).map(function(r){
       var on = r.key === reportShown.key;
       return '<button type="button" class="period-chip' + (on ? " active" : "") + '" role="tab" aria-selected="' + on + '" data-report="' + r.key + '">' + r.label + '</button>';
     }).join("") + '</div></div>';

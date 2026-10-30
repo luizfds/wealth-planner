@@ -1567,3 +1567,16 @@ test("take-home logged as the same round figure most months is pointed out", asy
     assert.equal(roundTakeHome("Sam"), null, "an exact figure is a payslip's");
   } finally { state.incomeLog = keep; }
 });
+
+test("What this household has: three choices per part, and Net worth's way back in (item 191)", async function(){
+  const { partsSettingsHtml, hiddenPartsLineHtml } = await import("../src/components/parts.js");
+  var renter = { properties: [], assets: [], parts: {} };
+  var html = partsSettingsHtml(renter);
+  assert.equal((html.match(/data-part-set="property"/g) || []).length, 3);
+  assert.match(html, /Right now: no — none added yet/);
+  assert.match(partsSettingsHtml({ properties: [], assets: [], parts: { shares: "on" } }), /data-part-set="shares" data-part-value="on" aria-pressed="true"/);
+  var line = hiddenPartsLineHtml(renter);
+  assert.match(line, /data-part-show="property"/);
+  assert.match(line, /data-part-show="shares"/);
+  assert.equal(hiddenPartsLineHtml({ properties: [{ id: "p" }], assets: [{ category: "Shares" }], parts: {} }), "", "nothing hidden, nothing to say");
+});

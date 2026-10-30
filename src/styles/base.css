@@ -471,3 +471,13 @@ body.help-hidden .page-intro-row:not(:has(.help-open)){ display:none; }
 .page-actions-slot .page-intro-actions[hidden]{ display:none; }
 .page-actions-slot .page-overflow-btn{ width:32px; height:32px; border-color:transparent; background:none; }
 .page-actions-slot .page-overflow-btn:hover, .page-actions-slot .page-overflow-btn[aria-expanded="true"]{ border-color: var(--border); background: var(--paper-raised); }
+
+  /* v3.161.0 (item 191): a part the household doesn't have keeps out of the way (components/parts.js). */
+  body.no-part-property [data-part="property"], body.no-part-shares [data-part="shares"]{ display:none !important; }
+  .parts-list{ display:flex; flex-direction:column; gap:14px; }
+  .parts-row{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px; }
+  .parts-name{ display:flex; flex-direction:column; min-width:160px; flex:1 1 160px; }
+  .parts-name small, .parts-auto{ font-size:var(--fs-xs); color: var(--ink-soft); }
+  .parts-auto{ flex-basis:100%; }
+  .fr-own{ display:flex; flex-direction:column; gap:6px; margin-top:14px; }
+  .fr-own > span{ font-size:var(--fs-sm); font-weight:600; }

@@ -137,6 +137,7 @@ import { exportTableCsv } from "./lib/backup.js";
 import { yearEndPrintHtml, yearEndDocumentsCsv } from "./components/yearend.js";
 import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodButton, renderPeriodMenu } from "./components/period.js";
 import { selectedYearWindow, yearStartOf, householdYearBasis } from "./calc/ledger.js";
+import { applyParts, renderPartsSettings, setPart } from "./components/parts.js";
 import { showPage, parseRouteFromLocation, closeNavMenu, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, taxSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
 import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./components/search.js";
 import {
@@ -5021,6 +5022,9 @@ import { inboxMessage } from "./calc/inbox.js";
     showUndoToast(message, function(){ setState(JSON.parse(before)); persist(); renderAll(); });
   }
   function renderAll(){
+    // v3.161.0 (item 191): which parts show, before anything that lists them renders.
+    applyParts();
+    renderPartsSettings();
     document.getElementById("projHorizon").value = state.projection.horizonYears;
     document.getElementById("projInvestRate").value = state.projection.investReturnRate;
     document.getElementById("projInvestRateRange").value = state.projection.investReturnRate;
@@ -5574,10 +5578,22 @@ import { inboxMessage } from "./calc/inbox.js";
     firstRunRoot.querySelectorAll("[data-fr]").forEach(function(el){
       var path = el.getAttribute("data-fr").split("."), o = firstRun.answers;
       for(var i = 0; i < path.length - 1; i++) o = o[path[i]];
-      o[path[path.length - 1]] = el.value;
+      o[path[path.length - 1]] = el.type === "checkbox" ? el.checked : el.value;
     });
   }
   document.addEventListener("click", function(e){ if(e.target.closest("[data-firstrun-open]")) openFirstRun(); });
+  // v3.161.0 (item 191): Settings → What this household has, and Net worth's "Add a property" while it's hidden.
+  document.addEventListener("click", function(e){
+    var set = e.target.closest("[data-part-set]");
+    if(set){ setPart(set.getAttribute("data-part-set"), set.getAttribute("data-part-value")); renderAll(); persist(); return; }
+    var show = e.target.closest("[data-part-show]");
+    if(show){
+      var key = show.getAttribute("data-part-show");
+      setPart(key, "on"); renderAll(); persist();
+      if(key === "property") showPage("properties");
+      else { showPage("assets"); showAssetsSubpage("Shares", { replace: true }); }
+    }
+  });
   firstRunRoot.addEventListener("change", function(e){
     if(e.target.matches("select[data-fr]")){ readFirstRunFields(); renderFirstRun(); }
   });

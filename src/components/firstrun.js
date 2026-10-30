@@ -8,7 +8,7 @@ export var firstRun = { open: false, step: 0, answers: null };
 export function startFirstRun(){
   firstRun.open = true; firstRun.step = 0;
   firstRun.answers = { people: [{ name: "", age: "", pay: "", payFreq: "Yearly" }], accounts: [{ name: "Everyday", type: "everyday", balance: "" }, { name: "Savings", type: "savings", balance: "" }, { name: "Credit card", type: "credit", balance: "" }],
-    housing: { kind: "rent", amount: "", freq: "Weekly" }, costs: COMMON_COSTS.map(function(c){ return { what: c.what, amount: "" }; }) };
+    housing: { kind: "rent", amount: "", freq: "Weekly" }, own: { property: false, shares: false }, costs: COMMON_COSTS.map(function(c){ return { what: c.what, amount: "" }; }) };
 }
 var STEPS = ["Who's in the household?", "Your accounts", "Your pay", "Home and everyday costs", "Bring in your spending"];
 
@@ -43,7 +43,11 @@ export function firstRunHtml(){
       '<div class="fr-row"><label class="fr-field"><span>Home</span><select data-fr="housing.kind"><option value="rent"' + (h.kind === "rent" ? " selected" : "") + '>Rent</option><option value="loan"' + (h.kind === "loan" ? " selected" : "") + '>Home loan</option><option value="none"' + (h.kind === "none" ? " selected" : "") + '>Neither</option></select></label>' +
         field("$", 'data-fr="housing.amount"', h.amount, "number") +
         '<label class="fr-field"><span>Per</span><select data-fr="housing.freq">' + ["Weekly", "Fortnightly", "Monthly"].map(function(f){ return '<option' + (h.freq === f ? " selected" : "") + '>' + f + '</option>'; }).join("") + '</select></label></div>' +
-      '<div class="fr-costs">' + a.costs.map(function(c, i){ return field(escapeAttr(c.what) + " — a month $", 'data-fr="costs.' + i + '.amount"', c.amount, "number"); }).join("") + '</div>';
+      '<div class="fr-costs">' + a.costs.map(function(c, i){ return field(escapeAttr(c.what) + " — a month $", 'data-fr="costs.' + i + '.amount"', c.amount, "number"); }).join("") + '</div>' +
+      // v3.161.0 (item 191): what else the household has — a part left unticked stays out of the way until one is added.
+      '<div class="fr-own"><span>Do you also have</span>' +
+        '<label class="pref-check"><input type="checkbox" data-fr="own.property"' + (a.own && a.own.property ? " checked" : "") + '> An investment property (or own your home)</label>' +
+        '<label class="pref-check"><input type="checkbox" data-fr="own.shares"' + (a.own && a.own.shares ? " checked" : "") + '> Shares, ETFs or crypto</label></div>';
   } else {
     // v3.117.0: statements are the main path — three months of them and the budget builds itself.
     body = '<p class="fr-lede">The quickest way in: download your last three months of statements (CSV or PDF — most banks have "Export" or "Download transactions") and import them. Well-known shops file themselves, the budget is proposed from what you actually spent (Cash flow → Budget), and a payslip on Tax fills in pay and tax so far.</p>' +

@@ -1,3 +1,4 @@
+import { hiddenPartsLineHtml } from "./parts.js";
 import { state } from "../state.js";
 import { netWorthList } from "../calc/networthlist.js";
 import { toAudAmount, totalNetWorthValue } from "../calc/engine.js";
@@ -16,7 +17,7 @@ export function netWorthPageHtml(){
   var today = localDateStr();
   var l = netWorthList(state, toAudAmount, loggedSinceRecorded(today).byRecord);
   var est = estimatesUplift(state, today);
-  if(!l.groups.length) return '<p class="ledger-note">Nothing here yet. Add an account, a holding or a property and it appears in this list.</p>';
+  if(!l.groups.length) return '<p class="ledger-note">Nothing here yet. Add an account, a holding or a property and it appears in this list.</p>' + hiddenPartsLineHtml();
   var owned = l.groups.filter(function(g){ return g.key !== "debts"; }).reduce(function(s, g){ return s + g.total; }, 0);
   var owed = l.groups.filter(function(g){ return g.key === "debts"; }).reduce(function(s, g){ return s - g.total; }, 0);
   var nw = totalNetWorthValue();
@@ -36,7 +37,7 @@ export function netWorthPageHtml(){
     return '<section class="nw-group"><h2><span>' + (ci !== -1 ? '<i class="nw-dot series-color-' + ci + '" aria-hidden="true"></i>' : '') + escapeAttr(g.label) + '</span><b>' + money(g.total) + '</b></h2><ul>' + g.rows.map(function(r){
       return '<li><span class="nw-name">' + (r.id ? detailLinkHtml(r.kind, r.id, r.name) : escapeAttr(r.name)) + (r.sub ? '<small>' + escapeAttr(r.sub) + '</small>' : '') + '</span><b class="' + (r.value < 0 ? "neg" : "") + '">' + money(r.value) + '</b></li>';
     }).join("") + '</ul></section>';
-  }).join("");
+  }).join("") + hiddenPartsLineHtml();
 }
 export function renderNetWorthPage(){
   var el = typeof document !== "undefined" && document.getElementById("netWorthBody");

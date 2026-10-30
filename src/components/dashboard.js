@@ -11,7 +11,7 @@ import { fireSettings, fireWealthSplit, simulateRetirementAt, earliestWorkableRe
 import { MONTH_NAMES } from "../constants.js";
 import { monthKeysBack, monthKeyLabel } from "../calc/trends.js";
 import { observationDates, categorySeries, trimUntracked, contributionsVsGrowth, monthlyCashFlow, spendCoverage } from "../calc/history.js";
-import { fmtCurrency0, fmtPercent1, fmtRunway, localDateStr, fmtDate } from "../lib/format.js";
+import { fmtCurrency0, fmtCompact, fmtPercent1, fmtRunway, localDateStr, fmtDate } from "../lib/format.js";
 import { escapeAttr, segLabel } from "../lib/html.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { renderLineChart } from "../lib/charts.js";
@@ -118,12 +118,6 @@ function fiTileHtml(t){
     '<span class="tile-meter" aria-hidden="true"><span style="width:' + Math.min(100, pct * 100).toFixed(1) + '%"></span></span>' +
     '<small>' + fmtCompact(split.accessible) + ' of ' + fmtCompact(target) + ' · super not counted</small></button>';
 }
-function fmtCompact(v){
-  var a = Math.abs(v);
-  if(a >= 1e6) return (v < 0 ? "-" : "") + "$" + (a / 1e6).toFixed(a >= 1e7 ? 1 : 2) + "M";
-  if(a >= 1e4) return (v < 0 ? "-" : "") + "$" + Math.round(a / 1e3) + "k";
-  return fmtCurrency0.format(v);
-}
 // v3.34.0: the tax return, on the page everyone lands on. July to October it's the year just ended
 // — days to 31 October, the refund the worksheet expects, and how many of the year's documents are
 // ticked off. The rest of the year it's this year's running estimate. Opens the worksheet.
@@ -198,7 +192,7 @@ export function renderDashboardStats(){
   }
   el.innerHTML =
     '<div class="stat-tile"><span>' + escapeAttr(active) + (active !== currentScenario() ? ' (what-if)' : '') + ' — net savings</span><b' + (regularOf(t) < 0 ? ' style="color:var(--bad-ink)"' : '') + '>' + fmtCurrency0.format(regularOf(t)) + '/mo</b><small>' + fmtPercent1.format(t.rate) + ' savings rate' + (t.oneOffYearly > 0.5 ? ' · a normal month' : '') + '</small></div>' +
-    '<div class="stat-tile"><span>Projected net worth</span><b>' + fmtCurrency0.format(projected) + '</b><small>in ' + horizon + ' years, ' + escapeAttr(active) + ', ' + (state.projection.realTerms !== false ? "today's" : "future") + ' dollars</small></div>' +
+    '<div class="stat-tile"><span>Projected net worth</span><b title="' + fmtCurrency0.format(projected) + '">' + fmtCompact(projected) + '</b><small>in ' + horizon + ' years, ' + escapeAttr(active) + ', ' + (state.projection.realTerms !== false ? "today's" : "future") + ' dollars</small></div>' +
     runwayTile +
     fiTileHtml(t) +
     taxTileHtml() +

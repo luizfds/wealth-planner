@@ -1,4 +1,15 @@
 export var fmtCurrency0 = new Intl.NumberFormat("en-AU", {style:"currency", currency:"AUD", maximumFractionDigits:0});
+// v3.160.0 (item 190): a figure read at a glance — $9,457 · $45.2k · $673.8k · $1.89M · $12.5M. Whole dollars
+// under $10,000; trailing zeros dropped ($2M, not $2.00M); a minus sign, not a hyphen. One rule for every card,
+// axis and chart in the app, where there used to be four. Ledgers, tax and tooltips keep the exact figure.
+export function fmtCompact(v){
+  v = Number(v) || 0;
+  var a = Math.abs(v), sign = v < 0 ? "\u2212" : "";
+  var trim = function(x){ return x.replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1"); };
+  if(a >= 999950) return sign + "$" + trim((a / 1e6).toFixed(a >= 9995000 ? 1 : 2)) + "M";
+  if(a >= 9999.5) return sign + "$" + trim((a / 1e3).toFixed(1)) + "k";
+  return sign + fmtCurrency0.format(a);
+}
 export var fmtCurrency2 = new Intl.NumberFormat("en-AU", {style:"currency", currency:"AUD", minimumFractionDigits:2, maximumFractionDigits:2});
 export var fmtPercent1 = new Intl.NumberFormat("en-AU", {style:"percent", maximumFractionDigits:1});
 // Whole percent, for a figure whose precision would be false. A month-on-month spending delta is

@@ -3376,13 +3376,23 @@ shared the 12px axis labels and the recessive gridlines. Not done: the line char
 series toggles), and there is no skeleton state — nothing on these pages loads late enough to need one.
 
 
-## 190. `[ ]` Figures that read at a glance
+## 190. `[x]` Figures that read at a glance
 Long figures crowd small cards on a phone ("$4,499,450", "$1,889,000").
 
 Do: compact figures in cards and charts ($4.5M, $1.89M, $673.8k), with the exact one in the tooltip and on the
 detail page. Ledgers and tax keep whole dollars. Up and down always as arrow plus colour, never colour alone.
 
 Done when: no card figure wraps or truncates at 360px (measured); a test pins the compact formatter.
+
+Shipped as v3.160.0. `fmtCompact` (lib/format.js): whole dollars under $10,000, then $45.2k, $673.8k, $1.89M, $12.5M —
+trailing zeros dropped, a minus sign, rolling over at the edges ($999,960 is $1M, not $1000k). It replaces four compact
+formatters that each rounded differently (Benchmarks, Home's FI tile, Projections' milestones, report charts). Every chart
+axis in dollars uses it ($2M, $575k — the gutter that held "$8,000,000" gives the plot the room back); tooltips keep the
+exact figure. Home's Projected net worth tile reads $4.5M with the exact figure as its tooltip. Measured at 360 and
+320px with the demo household: no card figure wraps or is cut off (it was already true at the default size; the card
+figures that had room kept whole dollars). Up and down: the one figure shown in colour alone — a category over plan in
+This year so far — now carries ▲ (and "Over plan" for a screen reader). `tests/compact.test.js` pins the rule.
+
 
 ## 191. `[ ]` Only the parts you use
 A renter with no shares still sees Property, Investments, Tax → Returns and a dozen cards about them. Monarch and

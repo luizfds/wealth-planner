@@ -3559,7 +3559,7 @@ change on desktop.
   the browser's own pull-to-reload is turned off on a phone so the two don't fight.
 
 
-## 198. `[ ]` Saved views of your transactions
+## 198. `[~]` Saved views of your transactions
 Search and filters exist but are lost when you leave. Monarch saves filtered views.
 
 Do: a filter set on Spending (account, category, person, trip, amount, text, dates) can be saved and named, and

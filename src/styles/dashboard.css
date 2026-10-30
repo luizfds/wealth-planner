@@ -387,7 +387,15 @@
 
 /* ---------------- Home (v3.58.0) ---------------- */
 .home-grid{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:12px; margin:0 0 16px; }
-@media (min-width: 1180px){ .home-grid{ grid-template-columns: 1fr 1.4fr 1.2fr 0.85fr; } }
+/* v3.165.0: a row of flex boxes rather than four fixed columns — each card keeps its own width
+   wherever it's been moved to, and the rest close up over one that's hidden. */
+@media (min-width: 1180px){
+  .home-grid{ display:flex; align-items:stretch; }
+  .home-grid > *{ flex:1 1 0; min-width:0; }
+  .home-grid > .home-month{ flex-grow:1.4; }
+  .home-grid > .home-bills{ flex-grow:1.2; }
+  .home-grid > .home-todo{ flex-grow:0.85; }
+}
 .home-card{ border:1px solid var(--border); border-radius:var(--card-radius); background:var(--paper-raised); padding: var(--card-py) var(--card-px); display:flex; flex-direction:column; gap:6px; min-width:0; box-shadow:var(--shadow); }
 .home-k{ font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); }
 .home-big{ font-size:var(--fs-2xl); font-weight:600; font-variant-numeric:tabular-nums; letter-spacing:-0.01em; }
@@ -512,3 +520,16 @@
 .home-nw-mover b.up{ color: var(--good-ink); }
 .home-nw-mover b.down{ color: var(--bad-ink); }
 .fr-shortcut{ margin:14px 0 0; font-size:var(--fs-sm); color: var(--ink-soft); }
+
+/* ---------------- Arrange Home (v3.165.0, item 195) ----------------
+   A card or tile set its own display, which beats the browser's [hidden] — so say it again here. */
+[data-home-card][hidden], .home-pinned[hidden]{ display:none; }
+.home-pinned{ margin:4px 0 16px; }
+.review-panel.ha-panel{ max-width:460px; }
+.ha-title{ margin:14px 0 4px; font-size:var(--fs-sm); font-weight:600; color:var(--ink-soft); }
+.ha-list{ list-style:none; margin:0; padding:0; }
+.ha-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:44px; border-bottom:1px solid var(--border); }
+.ha-row:last-child{ border-bottom:0; }
+.ha-row .pref-check{ flex:1 1 auto; min-width:0; }
+.ha-move{ display:flex; gap:4px; flex:0 0 auto; }
+.ha-move .icon-btn[disabled]{ opacity:.3; cursor:default; }

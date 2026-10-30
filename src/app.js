@@ -139,6 +139,7 @@ import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodButton, renderP
 import { selectedYearWindow, yearStartOf, householdYearBasis, selectedMonth } from "./calc/ledger.js";
 import { applyParts, renderPartsSettings, setPart } from "./components/parts.js";
 import { txReview, txReviewHtml, reviewBannerHtml } from "./components/reviewqueue.js";
+import { loadHomeLayout, saveHomeLayout, moveCard, applyHomeLayout, homeArrangeHtml } from "./lib/homelayout.js";
 import { toReview, keepTransaction, refileTransaction, applyRuleFromReview, keepAll, ruleOfferFor } from "./calc/reviewqueue.js";
 import { showPage, parseRouteFromLocation, closeNavMenu, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, taxSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
 import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./components/search.js";
@@ -5654,6 +5655,38 @@ import { inboxMessage } from "./calc/inbox.js";
   });
   document.addEventListener("keydown", function(e){ if(e.key === "Escape" && txReview.open) requestCloseActiveOverlay(); });
   document.addEventListener("click", function(e){ if(e.target.closest("[data-txr-open]")) openTxReview(); });
+  // ---------------- Arrange Home (v3.165.0, item 195) — lib/homelayout.js decides ----------------
+  var homeArrangeRoot = document.getElementById("homeArrangeRoot");
+  var homeArrangeOpen = false;
+  function renderHomeArrange(focusSel){
+    homeArrangeRoot.innerHTML = homeArrangeOpen ? homeArrangeHtml() : "";
+    var f = homeArrangeOpen && homeArrangeRoot.querySelector(focusSel || "[data-ha-close]:not(.icon-btn)");
+    if(f) f.focus();
+  }
+  function openHomeArrange(){ homeArrangeOpen = true; renderHomeArrange(); pushActiveOverlay(function(){ homeArrangeOpen = false; renderHomeArrange(); }); }
+  function changeHomeLayout(fn, focusSel){ var l = loadHomeLayout(); fn(l); saveHomeLayout(l); applyHomeLayout(); renderHomeArrange(focusSel); }
+  document.addEventListener("click", function(e){ if(e.target.closest("[data-ha-open]")) openHomeArrange(); });
+  homeArrangeRoot.addEventListener("click", function(e){
+    if(e.target.closest("[data-ha-close]") || e.target === e.target.closest("[data-ha-backdrop]")){ requestCloseActiveOverlay(); return; }
+    var mv = e.target.closest("[data-ha-move]");
+    if(mv){
+      var key = mv.getAttribute("data-ha-move"), dir = Number(mv.getAttribute("data-ha-dir"));
+      // Focus stays on the arrow that was pressed (or its twin, once the card reaches an end).
+      changeHomeLayout(function(l){ var m = moveCard(l, key, dir); l.order = m.order; },
+        '[data-ha-move="' + key + '"][data-ha-dir="' + dir + '"]:not([disabled]), [data-ha-move="' + key + '"]:not([disabled])');
+      return;
+    }
+    if(e.target.closest("[data-ha-reset]")){ changeHomeLayout(function(l){ l.order = []; l.hidden = {}; l.pinned = []; }); showToast("Home is back to the default"); }
+  });
+  homeArrangeRoot.addEventListener("change", function(e){
+    var show = e.target.closest("[data-ha-show]"), pin = e.target.closest("[data-ha-pin]");
+    if(show){ var k = show.getAttribute("data-ha-show"), on = show.checked; changeHomeLayout(function(l){ if(on) delete l.hidden[k]; else l.hidden[k] = true; }, '[data-ha-show="' + k + '"]'); }
+    if(pin){
+      var id = pin.getAttribute("data-ha-pin"), want = pin.checked;
+      changeHomeLayout(function(l){ l.pinned = l.pinned.filter(function(x){ return x !== id; }); if(want) l.pinned.push(id); }, '[data-ha-pin="' + id + '"]');
+    }
+  });
+  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && homeArrangeOpen) requestCloseActiveOverlay(); });
   function openFirstRun(){
     startFirstRun(); renderFirstRun();
     pushActiveOverlay(closeFirstRunUi);

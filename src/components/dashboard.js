@@ -17,6 +17,7 @@ import { showToast, showUndoToast } from "../lib/toast.js";
 import { renderLineChart } from "../lib/charts.js";
 import { proposeBudget } from "../calc/budgetfromhistory.js";
 import { staleAssetNamesList } from "../lib/notifications.js";
+import { applyHomeLayout } from "../lib/homelayout.js";
 
 // What a normal month leaves: bonuses land in their own month, so they're in the year, not each month.
 function regularOf(t){ return t.regularNetMonthly != null ? t.regularNetMonthly : t.netMonthly; }
@@ -128,7 +129,7 @@ function fiTileHtml(t){
   if(!(target > 0)) return "";
   var split = fireWealthSplit();
   var pct = Math.max(0, split.accessible) / target;
-  return '<button type="button" class="stat-tile stat-tile-link" data-dashboard-jump="insights" title="Money you could live on before preservation age (cash, shares, investment property equity, less debts) against 25× this scenario\'s yearly spending. Super is left out — it\'s locked until ' + fireSettings().preservationAge + '. Opens Insights.">' +
+  return '<button type="button" class="stat-tile stat-tile-link" data-home-card="fi" data-dashboard-jump="insights" title="Money you could live on before preservation age (cash, shares, investment property equity, less debts) against 25× this scenario\'s yearly spending. Super is left out — it\'s locked until ' + fireSettings().preservationAge + '. Opens Insights.">' +
     '<span>Financial independence</span><b>' + fmtPercent1.format(pct) + '</b>' +
     '<span class="tile-meter" aria-hidden="true"><span style="width:' + Math.min(100, pct * 100).toFixed(1) + '%"></span></span>' +
     '<small>' + fmtCompact(split.accessible) + ' of ' + fmtCompact(target) + ' · super not counted</small></button>';
@@ -163,7 +164,7 @@ function taxTileHtml(){
     big = known.length ? (refund >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(refund)) : fmtCurrency0.format(tax);
     small = known.length ? (refund >= 0 ? "estimated refund" : "estimated to pay") : "estimated tax and levies for the year";
   }
-  return '<button type="button" class="stat-tile stat-tile-link" data-dashboard-jump="taxyear" data-tax-fy="' + fy + '" title="Opens the tax return worksheet for ' + fyLabel(fy) + ' (Tax → Returns)">' +
+  return '<button type="button" class="stat-tile stat-tile-link" data-home-card="tax" data-dashboard-jump="taxyear" data-tax-fy="' + fy + '" title="Opens the tax return worksheet for ' + fyLabel(fy) + ' (Tax → Returns)">' +
     '<span>' + escapeAttr(label) + '</span><b' + (urgent ? ' style="color:var(--bad-ink)"' : '') + '>' + escapeAttr(big) + '</b>' +
     '<small>' + escapeAttr(small) + '</small></button>';
 }
@@ -193,10 +194,10 @@ export function renderDashboardStats(){
   var series = computeNetWorthSeries(active, horizon);
   var projected = series[series.length - 1].y;
   var lastTile = isComparing
-    ? '<div class="stat-tile"><span>Scenarios compared</span><b>' + state.scenarios.length + '</b><small>' + state.scenarios.map(escapeAttr).join(", ") + '</small></div>'
-    : '<div class="stat-tile"><span>Scenario</span><b>' + escapeAttr(active) + '</b><small>add another in Plan → Scenarios to compare options</small></div>';
+    ? '<div class="stat-tile" data-home-card="scenarios"><span>Scenarios compared</span><b>' + state.scenarios.length + '</b><small>' + state.scenarios.map(escapeAttr).join(", ") + '</small></div>'
+    : '<div class="stat-tile" data-home-card="scenarios"><span>Scenario</span><b>' + escapeAttr(active) + '</b><small>add another in Plan → Scenarios to compare options</small></div>';
   var runway = runwayMonths(t.expensesMonthly);
-  var runwayTile = '<div class="stat-tile" title="Liquid assets (cash + shares + property offset) ÷ ' + escapeAttr(active) + '\'s monthly expenses — how long you could cover costs with zero income. A common rule of thumb targets 3-6 months."><span>Runway</span><b>' +
+  var runwayTile = '<div class="stat-tile" data-home-card="runway" title="Liquid assets (cash + shares + property offset) ÷ ' + escapeAttr(active) + '\'s monthly expenses — how long you could cover costs with zero income. A common rule of thumb targets 3-6 months."><span>Runway</span><b>' +
     (runway == null ? "—" : fmtRunway.format(runway) + " mo") + '</b><small>liquid assets ÷ monthly expenses</small></div>';
   // Six tiles reading $0, $0/mo, $0 and an em-dash tell a first-time user nothing except that
   // they have entered nothing — which the setup panel above already says, with somewhere to go.
@@ -206,12 +207,13 @@ export function renderDashboardStats(){
     return;
   }
   el.innerHTML =
-    '<div class="stat-tile"><span>' + escapeAttr(active) + (active !== currentScenario() ? ' (what-if)' : '') + ' — net savings</span><b' + (regularOf(t) < 0 ? ' style="color:var(--bad-ink)"' : '') + '>' + fmtCurrency0.format(regularOf(t)) + '/mo</b><small>' + fmtPercent1.format(t.rate) + ' savings rate' + (t.oneOffYearly > 0.5 ? ' · a normal month' : '') + '</small></div>' +
-    '<div class="stat-tile"><span>Projected net worth</span><b title="' + fmtCurrency0.format(projected) + '">' + fmtCompact(projected) + '</b><small>in ' + horizon + ' years, ' + escapeAttr(active) + ', ' + (state.projection.realTerms !== false ? "today's" : "future") + ' dollars</small></div>' +
+    '<div class="stat-tile" data-home-card="savings"><span>' + escapeAttr(active) + (active !== currentScenario() ? ' (what-if)' : '') + ' — net savings</span><b' + (regularOf(t) < 0 ? ' style="color:var(--bad-ink)"' : '') + '>' + fmtCurrency0.format(regularOf(t)) + '/mo</b><small>' + fmtPercent1.format(t.rate) + ' savings rate' + (t.oneOffYearly > 0.5 ? ' · a normal month' : '') + '</small></div>' +
+    '<div class="stat-tile" data-home-card="projected"><span>Projected net worth</span><b title="' + fmtCurrency0.format(projected) + '">' + fmtCompact(projected) + '</b><small>in ' + horizon + ' years, ' + escapeAttr(active) + ', ' + (state.projection.realTerms !== false ? "today's" : "future") + ' dollars</small></div>' +
     runwayTile +
     fiTileHtml(t) +
     taxTileHtml() +
     lastTile;
+  applyHomeLayout();
   renderStaleAssetsBanner();
   renderActualVsExpectedPanel(active, t);
   renderCashFlowForecastPanel();

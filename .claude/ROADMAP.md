@@ -3490,13 +3490,25 @@ unspent (or overspent) carries into the next (`state.rollover[category]` = the s
 the classification, the totals and rollover across months.
 
 
-## 195. `[~]` A Home you arrange
+## 195. `[x]` A Home you arrange
 Home's cards come in a fixed order. Monarch lets you choose what's on the dashboard.
 
 Do: Home → Overview gets "Edit" to reorder and hide its cards (net worth, this month, bills, goals, runway, FI, tax
 return, scenarios) and to add any Insights panel. The arrangement is per device, like the theme.
 
 Done when: the order survives a reload; a hidden card's notice still reaches the bell.
+
+**Done (v3.165.0).** Home → Overview has an **Arrange** button beside the page title. Its sheet lists the four cards, the
+goals strip and the six figure tiles, each with a Show tick and ↑/↓ (cards move among cards, figures among figures; the
+goals strip can be hidden but always sits under the cards), and every Insights panel with a tick to bring it onto Home.
+`lib/homelayout.js` keeps the arrangement in localStorage (`wealthPlanner.homeLayout`) — per device, never in `state` or
+the sync file — and `applyHomeLayout()` runs after each render of the cards and tiles (`data-home-card` keys): it reorders,
+hides, and moves a pinned panel's own element into `#homePinned`, so the renderer that fills it by id keeps filling it,
+and puts it back where it was in Insights when it's unpinned. On wide screens the card row is flex boxes with each card's
+own width, so the others close up over a hidden one. Hiding is only hiding: the bell counts the same with Bills hidden
+(driven). Tests over normalising a saved layout and moving within a group; driven: order, hidden cards and pinned panels
+survive a reload at 390 and 1280px.
+
 
 ## 196. `[ ]` Your week, in one card
 The app only speaks when opened. Copilot and Monarch send a weekly recap.

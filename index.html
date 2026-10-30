@@ -230,8 +230,15 @@
         <div class="dashboard-subpage" id="dashboardSub-overview">
           <div id="homeSummary"></div>
           <div id="staleAssetsBanner"></div>
-          <p class="page-intro help" style="margin-top:0">Where you stand under the scenario you're looking at — switch scenarios, or compare them, in Plan.</p>
+          <div class="page-intro-row">
+            <p class="page-intro help" style="margin-top:0">Where you stand under the scenario you're looking at — switch scenarios, or compare them, in Plan.</p>
+            <div class="page-intro-actions">
+              <button type="button" class="btn btn-sm btn-ghost" id="homeArrangeBtn" data-ha-open title="Reorder and hide Home's cards, or bring Insights panels onto Home">Arrange</button>
+            </div>
+          </div>
           <div class="stat-row" id="dashboardStats"></div>
+          <!-- v3.165.0: Insights panels brought onto Home are moved in here (lib/homelayout.js). -->
+          <div class="detail-grid home-pinned" id="homePinned" hidden></div>
           <button type="button" class="calc-hint-link" id="dashboardProjectionsLink" style="display:block;margin:4px 0 12px">See your long-term projection (all scenarios, 20 years out) →</button>
           <button type="button" class="calc-hint-link" data-adv-go="plan" data-adv-sub="scenarios" style="display:block;margin:0 0 12px">Compare scenarios side by side in Plan →</button>
         </div>
@@ -264,12 +271,12 @@
           <div class="detail">
             <div class="detail-label">Active scenario detail — <strong id="activeLabel"></strong></div>
             <div class="detail-grid">
-              <div class="panel">
+              <div class="panel" id="rulePanel">
                 <h3>The 50/30/20 rule <span style="font-weight:400;color:var(--ink-soft)">— monthly</span></h3>
                 <div class="rule-bar" id="ruleBar"></div>
                 <div class="rule-legend" id="ruleLegend"></div>
               </div>
-              <div class="panel">
+              <div class="panel" id="acctPanel">
                 <h3>Monthly expenses by account</h3>
                 <div id="acctList"></div>
               </div>
@@ -1047,6 +1054,7 @@
 <div id="firstRunRoot"></div>
 <!-- v3.163.0 (item 193): the review queue for new transactions (components/reviewqueue.js). -->
 <div id="txReviewRoot"></div>
+<div id="homeArrangeRoot"></div>
 <div id="assetPersonSheetRoot"></div>
 <div id="notifPanelRoot"></div>
 <div id="searchRoot"></div>
@@ -1188,6 +1196,7 @@
   "./src/lib/foldersync.js": "./src/lib/foldersync.js?v=3.164.0",
   "./src/lib/format.js": "./src/lib/format.js?v=3.164.0",
   "./src/lib/help.js": "./src/lib/help.js?v=3.164.0",
+  "./src/lib/homelayout.js": "./src/lib/homelayout.js?v=3.164.0",
   "./src/lib/html.js": "./src/lib/html.js?v=3.164.0",
   "./src/lib/inbox.js": "./src/lib/inbox.js?v=3.164.0",
   "./src/lib/ledger-table.js": "./src/lib/ledger-table.js?v=3.164.0",
@@ -1339,6 +1348,7 @@
 <link rel="modulepreload" href="./src/lib/foldersync.js?v=3.164.0">
 <link rel="modulepreload" href="./src/lib/format.js?v=3.164.0">
 <link rel="modulepreload" href="./src/lib/help.js?v=3.164.0">
+<link rel="modulepreload" href="./src/lib/homelayout.js?v=3.164.0">
 <link rel="modulepreload" href="./src/lib/html.js?v=3.164.0">
 <link rel="modulepreload" href="./src/lib/inbox.js?v=3.164.0">
 <link rel="modulepreload" href="./src/lib/ledger-table.js?v=3.164.0">

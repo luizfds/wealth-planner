@@ -18,6 +18,7 @@ import { escapeAttr } from "../lib/html.js";
 import { upcomingBills as calendarUpcoming } from "../calc/bills.js";
 import { netWorthOn } from "../calc/nwhistory.js";
 import { netWorthMovers, netWorthSplit } from "../calc/nwauto.js";
+import { applyHomeLayout } from "../lib/homelayout.js";
 
 // ---------------- Home (v3.58.0) ----------------
 // The first screen answers four things before anything else: what we're worth, how the month is
@@ -106,7 +107,7 @@ export function homeSummaryHtml(today, opts){
   // v3.103.0: the line ends at today's figure and the change is measured from where the line starts,
   // so the text and the line can't disagree.
   var trend = trendToToday(state.netWorthLog, nw, today, 12);
-  var nwCard = '<div class="home-card home-nw"><span class="home-k">Net worth</span><b class="home-big">' + money(nw) + '</b>' +
+  var nwCard = '<div class="home-card home-nw" data-home-card="nw"><span class="home-k">Net worth</span><b class="home-big">' + money(nw) + '</b>' +
     (trend ? '<small class="' + (trend.change >= 0 ? "up" : "down") + '">' + signed(trend.change) + ' since ' + shortDate(trend.from.date, today) + '</small>' + moverHtml(trend.from.date, today, trend.change) : '<small>The trend appears as the days go by</small>') +
     '<span class="home-spark">' + (trend ? sparklineHtml(trend.points, { width: 120, height: 28 }) : "") + '</span>' +
     '<button type="button" class="link-btn home-link" data-home-go="assets">Net worth over time →</button></div>';
@@ -116,7 +117,7 @@ export function homeSummaryHtml(today, opts){
   var r = monthReview(ym, { accountOf: transactionAccount, categoryOf: transactionCategory, today: today, items: opts.items || budgetLineItems(currentScenario()) });
   var saved = r.incomeReceived - r.spent;
   var mp = monthPhrase(ym);
-  var monthCard = '<div class="home-card home-month"><span class="home-k">' + (mp === "this month" ? "This month" : escapeAttr(r.label)) + '</span>' +
+  var monthCard = '<div class="home-card home-month" data-home-card="month"><span class="home-k">' + (mp === "this month" ? "This month" : escapeAttr(r.label)) + '</span>' +
     '<div class="home-io"><div><small>Money in</small><b>' + money(r.incomeReceived) + '</b><em>of ' + money(r.incomePlanned) + ' planned</em></div>' +
     '<div><small>Money out</small><b>' + money(r.spent) + '</b><em>of ' + money(r.plannedSpend) + ' planned</em></div>' +
     // With nothing logged as received, "kept" is just spending with a minus sign — say what's missing instead.
@@ -127,7 +128,7 @@ export function homeSummaryHtml(today, opts){
     '<button type="button" class="link-btn home-link" data-home-go="expenses" data-home-sub="spending">See spending →</button></div>';
 
   var bills = upcomingBills(opts.items || loggableBudgetLineItems(currentScenario()), state.transactions, today, 14);
-  var billsCard = '<div class="home-card home-bills"><span class="home-k">Bills — next 2 weeks</span>' +
+  var billsCard = '<div class="home-card home-bills" data-home-card="bills"><span class="home-k">Bills — next 2 weeks</span>' +
     (bills.length ? '<ul class="home-list">' + bills.slice(0, 5).map(function(b){
       var when = b.days < 0 ? "overdue " + Math.abs(b.days) + "d" : b.days === 0 ? "today" : b.days === 1 ? "tomorrow" : shortDate(b.due, today);
       return '<li><span title="' + escapeAttr(b.what) + '">' + escapeAttr(b.what) + '</span><em class="' + (b.days < 0 ? "bad" : b.days <= 3 ? "warn" : "") + '">' + when + '</em><b>' + money(b.amount) + '</b></li>';
@@ -135,7 +136,7 @@ export function homeSummaryHtml(today, opts){
     : '<p class="home-note">Nothing expected. Bills appear here once a payment has been logged against their budget line.</p>') + '</div>';
 
   var todos = opts.todos || homeTodos(today, opts);
-  var todoCard = '<div class="home-card home-todo"><span class="home-k">To do</span>' +
+  var todoCard = '<div class="home-card home-todo" data-home-card="todo"><span class="home-k">To do</span>' +
     (todos.length ? '<ul class="home-list">' + todos.map(function(t){
       return '<li><button type="button" class="home-todo-btn ' + t.tone + '" data-home-go="' + t.go + '"' + (t.sub ? ' data-home-sub="' + t.sub + '"' : '') + (t.fy != null ? ' data-home-fy="' + t.fy + '"' : '') + '>' + escapeAttr(t.text) + ' <span aria-hidden="true">›</span></button></li>';
     }).join("") + '</ul>' : '<p class="home-note">All done — nothing needs you right now.</p>') + '</div>';
@@ -148,10 +149,11 @@ export function homeSummaryHtml(today, opts){
 function goalsStripHtml(today){
   if(!(state.savingsGoals || []).length) return "";
   var ov = goalsOverview(today, scenarioTotals(currentScenario()).netMonthly);
-  return '<div class="home-goals"><span class="home-k">Goals</span><div class="home-goals-list">' + ov.goals.slice(0, 4).map(function(g, i){ return goalCardHtml(g, i, { compact: true }); }).join("") + '</div>' +
+  return '<div class="home-goals" data-home-card="goals"><span class="home-k">Goals</span><div class="home-goals-list">' + ov.goals.slice(0, 4).map(function(g, i){ return goalCardHtml(g, i, { compact: true }); }).join("") + '</div>' +
     '<button type="button" class="link-btn home-link" data-home-go="accounts">All goals →</button></div>';
 }
 export function renderHomeSummary(){
   var el = typeof document !== "undefined" && document.getElementById("homeSummary");
   if(el) el.innerHTML = homeSummaryHtml();
+  applyHomeLayout();
 }

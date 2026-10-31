@@ -78,7 +78,8 @@ export function compareScenario(scenario, opts){
     upfront: r0(upfront), available: r0(available), short: r0(Math.max(0, upfront - available)),
     monthBeforeTax: r0(monthBefore), monthAfterTax: r0(monthAfter), monthUnderStress: r0(monthAfter - stress),
     lowestCash: r0(lowest),
-    netWorth: COMPARE_YEARS.map(function(yr){ return { year: yr, value: r0(series[Math.min(yr, series.length - 1)].y), vsBase: r0(series[Math.min(yr, series.length - 1)].y - baseSeries[Math.min(yr, baseSeries.length - 1)].y) }; }),
+    // The difference of the two figures as shown, so "vs today" always adds up to what's on screen.
+    netWorth: COMPARE_YEARS.map(function(yr){ var v = r0(series[Math.min(yr, series.length - 1)].y); return { year: yr, value: v, vsBase: v - r0(baseSeries[Math.min(yr, baseSeries.length - 1)].y) }; }),
     aheadFrom: aheadFrom, aheadForAWhile: aheadForAWhile
   };
   out.verdict = verdict(out);

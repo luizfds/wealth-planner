@@ -1,3 +1,4 @@
+import { lowBalanceCardHtml } from "./dailyforecast.js";
 import { toReview } from "../calc/reviewqueue.js";
 import { state } from "../state.js";
 import { nextDueDate, lastTransactionDateFor, daysUntil, selectedMonth, monthPhrase, isPeriodToday } from "../calc/ledger.js";
@@ -147,6 +148,7 @@ export function homeSummaryHtml(today, opts){
 
   return (isPeriodToday() ? '' : '<p class="home-period-note">Showing ' + escapeAttr(r.label) + ' — net worth, bills and to-dos are always as of today.</p>') +
     (opts.week === false ? '' : weekCardHtml(today)) +
+    (opts.lowBalance === false ? '' : lowBalanceCardHtml(today)) +
     '<div class="home-grid">' + nwCard + monthCard + billsCard + todoCard + '</div>' + goalsStripHtml(today);
 }
 

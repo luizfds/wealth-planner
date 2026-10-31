@@ -86,6 +86,8 @@ the last, so two sessions can't pick up the same one.
   (`xirr`, `indexValue` — also behind Home → Benchmarks and the reports): there is one IRR, reuse it.
 - **Subscriptions (v3.179.0):** `calc/recurring.js` `repeatingPayees` is the one repeating-payee detector — Budget's unbudgeted list and
   Bills' Subscriptions (`calc/subscriptions.js`, `state.subscriptionNotes`) both filter it; change detection there, not in either.
+- **Balance by the day (v3.180.0):** `calc/dailyforecast.js` — an everyday account's 90 days from the bills calendar (`billsForMonth`,
+  whose bills now carry `account`), pay landed before (`incomeLog`) and usual spending; `account.buffer` warns on its detail page and Home.
 - `styles.css` — just eight `@import` statements pulling in `src/styles/{base,shell,dashboard,
   ledger,income,properties,assets,projections}.css`, in that specific order. Light/dark theming is
   CSS custom properties + `prefers-color-scheme`, defined in `base.css`.

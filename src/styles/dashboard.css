@@ -551,3 +551,16 @@
 
 /* The card's "Edit … options →" scrolls a scenario's block into view — below the sticky page header. */
 .home-block{ scroll-margin-top: calc(var(--topbar-h, 72px) + 12px); }
+
+/* v3.180.0 (item 206): balance forecast by the day — the detail page section and Home's card */
+.fc-warn{ margin:0 0 8px; padding:8px 10px; border-radius: var(--inner-radius); background: var(--paper-sunken); border-left:3px solid var(--bad); font-size:var(--fs-sm); }
+.fc-warn b{ color: var(--bad-ink); }
+.fc-line{ margin:0 0 8px; font-size:var(--fs-sm); }
+.fc-buffer{ display:flex; align-items:center; gap:8px; margin:10px 0; font-size:var(--fs-sm); }
+.fc-buffer input{ width:130px; text-align:right; }
+.fc-list{ list-style:none; margin:0; padding:0; font-size:var(--fs-sm); }
+.fc-list li{ display:grid; grid-template-columns: 70px minmax(0,1fr) auto; gap:10px; padding:5px 0; border-bottom:1px dashed var(--border); }
+.fc-what{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fc-list b{ font-variant-numeric: tabular-nums; }
+.fc-list b.up{ color: var(--good-ink); }
+.home-lowbal{ margin:0 0 12px; padding: var(--card-py) var(--card-px); border:1px solid var(--border); border-left:3px solid var(--bad); border-radius: var(--card-radius); background: var(--paper); }

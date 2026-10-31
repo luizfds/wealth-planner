@@ -1,3 +1,4 @@
+import { balanceForecastHtml, renderBalanceForecastChart } from "./dailyforecast.js";
 import { state } from "../state.js";
 import { budgetLineItems, transactionCategory, transactionAccount } from "./expenses.js";
 import { transactionDisplayName, periodsOf } from "../calc/ledger.js";
@@ -73,6 +74,8 @@ export function detailView(kind, id, today){
     return { title: acct.name || "Account", kicker: accountTypeLabel(acct.type), history: bal.history,
       html: facts([["Balance", money(rolled.balance)], ["Last recorded", bal.date ? money(bal.balance) + " on " + fmtDate(bal.date, { year: true }) : "Not yet"],
         ["Logged since", rolled.count ? rolled.count + " item" + (rolled.count === 1 ? "" : "s") + ", " + money(rolled.moved) : null], ["Person", escapeAttr(acct.person || "")], ["Its balance is", tied]]) +
+        // v3.180.0 (item 206): an everyday account's next 90 days, day by day.
+        (acct.type === "everyday" ? section("The next 90 days", balanceForecastHtml(acct, today)) : "") +
         section("Spending on this account", monthlyChart(txs, today) + txTable(txs, { third: "Category" })) +
         section("Transfers", moves.length ? '<ul class="dt-list">' + moves.slice(-10).reverse().map(function(m){ return '<li>' + escapeAttr(fmtDate(m.date, { year: true })) + ' — ' + escapeAttr(m.from === acct.name ? "to " + m.to : "from " + m.from) + ' <b>' + money(m.amount) + '</b></li>'; }).join("") + '</ul>' : ""),
       edit: { label: "Edit on Accounts", to: { page: "accounts" } } };
@@ -186,6 +189,10 @@ export function renderDetailPage(){
   var v = detailTarget.kind ? detailView(detailTarget.kind, detailTarget.id) : null;
   var title = document.getElementById("pageTitle");
   if(title && v) title.textContent = v.kicker;
+  if(detailTarget.kind === "account"){
+    var fa = (state.accounts || []).find(function(a){ return a.id === detailTarget.id; });
+    if(fa && fa.type === "everyday") renderBalanceForecastChart(fa);
+  }
   var host = document.getElementById("detailChart");
   if(host && v && v.history){
     var pts = v.history.filter(function(h){ return h && h.date; }).slice().sort(function(a, b){ return a.date < b.date ? -1 : 1; })

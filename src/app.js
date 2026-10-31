@@ -145,7 +145,7 @@ import { recordRentReview } from "./calc/propertylife.js";
 import { retirementHtml, retireLevers } from "./components/retirement.js";
 import { recurringHtml, recurringDismissed, recurringOpen, catchAllShown } from "./components/recurring.js";
 import { lifeEventsHtml, addLifeEvent, setLifeEventField, removeLifeEvent } from "./components/lifeevents.js";
-import { detailTarget, detailView } from "./components/detail.js";
+import { detailTarget, detailView, renderDetailPage } from "./components/detail.js";
 import { renderCanBuy } from "./components/canbuy.js";
 import { goalsFireHtml } from "./components/retirement.js";
 import { renderReports, reportShown, reportPrintHtml, reportCsv, reportFrame, pinReport, openSavedReport, unpinReport } from "./components/reports.js";
@@ -5986,6 +5986,17 @@ import { inboxMessage } from "./calc/inbox.js";
     }
   });
   document.addEventListener("keydown", function(e){ if(e.key === "Escape" && startQ.open) requestCloseActiveOverlay(); });
+
+  // ---------------- Balance forecast by the day (v3.180.0, item 206) ----------------
+  document.addEventListener("change", function(e){
+    var id = e.target.getAttribute && e.target.getAttribute("data-acct-buffer");
+    if(id == null) return;
+    var a = (state.accounts || []).find(function(x){ return x.id === id; });
+    if(!a) return;
+    var v = e.target.value.trim();
+    if(v === "" || isNaN(Number(v))) delete a.buffer; else a.buffer = Math.max(0, Number(v));
+    persist(); renderDetailPage(); renderHomeSummary();
+  });
 
   // ---------------- Every subscription in one list (v3.179.0, item 205) ----------------
   function subNote(key){ if(!state.subscriptionNotes) state.subscriptionNotes = {}; return (state.subscriptionNotes[key] = state.subscriptionNotes[key] || {}); }

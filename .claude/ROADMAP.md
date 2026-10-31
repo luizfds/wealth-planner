@@ -3766,9 +3766,22 @@ stopped one; a cancel-by date reaching the reminders a week ahead and not once s
 cancel-by date set on the demo household's list, and the reminder read back from notifications.
 
 
-## 206. `[ ]` Balance forecast by the day
+## 206. `[x]` Balance forecast by the day
 PocketSmith's headline is an account's balance projected day by day, with each bill and pay landing on its date.
 The 12-month forecast here is monthly and household-wide.
+
+**Done (v3.180.0).** **The next 90 days** on an everyday account's detail page (`calc/dailyforecast.js`,
+`components/dailyforecast.js`): today's balance (rolled forward from the last recorded one), then day by day — pay on the
+rhythm it has landed in this account before (`state.incomeLog`, at its latest amount), the bills calendar's bills paid
+from this account and the card repayments it usually makes, each on its day, and the account's day-to-day spending (its
+last 90 days, bills left out) spread evenly. A line chart with the buffer dashed, the lowest point, what lands when, and
+a "Warn me below" buffer (`account.buffer`). When the balance heads under it, Home shows a **Balance ahead** card
+(`data-home-card="lowbal"`, arrangeable) that opens the account. Tests over an invented month: each pay, bill and card
+repayment on its own day, today's events already in today's balance, the lowest point (the day before pay) and the first
+day under the buffer, and no warning without a buffer. Driven at 1280 and 390px on the demo household: the forecast
+drawn, a buffer set from the page, the warning there and on Home.
+
+
 
 Do: for each everyday account, a 90-day balance line from today's balance, pay days and bills on their dates, and
 the usual spending spread across the days. It warns when the lowest point falls below a buffer you set. It shows

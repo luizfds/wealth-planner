@@ -1855,3 +1855,20 @@ test("the Subscriptions card lists repeating charges, a rise, a stopped one and 
   assert.doesNotMatch(html, /undefined|NaN/);
   assert.match(m.subscriptionsHtml("2026-10-20", { transactions: [], subscriptionNotes: {} }), /Nothing charges on a steady rhythm/);
 });
+
+test("an everyday account's next 90 days, and Home's card when it nears its buffer", async function(){
+  var m = await import("../src/components/dailyforecast.js");
+  var was = { assets: state.assets, accounts: state.accounts, transactions: state.transactions, incomeLog: state.incomeLog, shared: state.shared };
+  state.assets = [{ id: "c1", what: "Bank One Everyday", category: "Cash", amount: 900, history: [{ date: "2026-10-30", value: 900 }] }];
+  state.accounts = [{ id: "a1", name: "Bank One Everyday", type: "everyday", link: "asset:c1", buffer: 2000 }];
+  state.transactions = [{ date: "2026-10-20", what: "Fern Café", amount: 90, account: "Bank One Everyday" }];
+  state.incomeLog = []; state.shared = [];
+  var html = m.balanceForecastHtml(state.accounts[0], "2026-10-31");
+  assert.match(html, /Under your \$2,000 buffer <b>now<\/b>/);
+  assert.match(html, /data-acct-buffer="a1"/);
+  assert.match(m.lowBalanceCardHtml("2026-10-31"), /data-home-card="lowbal"/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+  state.accounts[0].buffer = "";
+  assert.equal(m.lowBalanceCardHtml("2026-10-31"), "");
+  Object.assign(state, was);
+});

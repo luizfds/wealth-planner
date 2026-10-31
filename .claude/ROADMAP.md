@@ -3980,13 +3980,23 @@ until then; $400,000 of super doesn't move it; a target never reached leaves it 
 Driven at 1280 and 390px: an investment property set to "when cash reaches $250,000" starts in year 5.
 
 
-## 215. `[ ]` The odds it works, and a bad start
+## 215. `[x]` The odds it works, and a bad start
 Boldin's chance of success; its market-risk explorer.
 
 Do: the comparison gets, per scenario, how many runs of 10 keep cash above zero (returns that rise and fall, as the
 projection's range), and the month and net worth after a bad first year (shares −20%, property −10%).
 
 Done when: tests: a scenario with no slack fails more runs than one with plenty; a bad start lowers year 10.
+
+**Done (v3.184.0).** Two rows in Side by side: **Cash lasts** — in how many runs of 10 the scenario's cash stays above zero
+for 20 years, from 60 runs with returns rising and falling (`cashLastsOdds` in calc/outcomes.js, the projection's spread, one
+seed for every scenario so they're measured on the same luck; filled in a scenario a tick after the table draws, so a click
+never waits on it); and **After a bad first year** — net worth in 10 years against the usual with shares −20% and property
+−10% in year 1 and the scenario's own return after (`badStartSeries`), and whether cash runs out. The verdict says "cash
+runs out after a bad first year" when that's the deal-breaker. Tests: a household spending a little more than it earns
+keeps its cash in fewer runs than one with slack (42 of 60 against 60), the same seed gives the same answer; a bad start
+lowers year 10 by no more than the loss would have grown. Driven at 1280px: the table draws in ~12 ms, the odds after.
+
 
 ## 216. `[ ]` Try a scenario on an account
 PocketSmith's scenarios are layers on an account's daily forecast.

@@ -12,6 +12,7 @@ import { scenarioTotals, computeNetWorthSeries, currentScenario, liquidAssetsVal
 import { recalcPurchase, calcRepaymentMonthly, purchaseActiveRate, ipProperties, shockedLoanRepaymentMonthly } from "./property.js";
 import { sumField } from "./ledger.js";
 import { ipFigures } from "./scenariolegs.js";
+import { badStartSeries } from "./outcomes.js";
 
 export var COMPARE_YEARS = [5, 10, 20];
 function r0(n){ return Math.round(n); }
@@ -71,6 +72,9 @@ export function compareScenario(scenario, opts){
     if(aheadFrom != null) aheadForAWhile = null;
   }
   var stress = stressMonthly(scenario);
+  // v3.184.0 (item 215): a bad first year (shares −20%, property −10%) — net worth at 10 years and the
+  // lowest cash, beside the usual.
+  var bad = badStartSeries(scenario, horizon), ten = Math.min(10, series.length - 1);
   var monthAfter = t.regularNetMonthly != null ? t.regularNetMonthly : t.netMonthly;
   var monthBefore = monthAfter - (t.changesTaxMonthly || 0);
   var out = {
@@ -80,7 +84,8 @@ export function compareScenario(scenario, opts){
     lowestCash: r0(lowest),
     // The difference of the two figures as shown, so "vs today" always adds up to what's on screen.
     netWorth: COMPARE_YEARS.map(function(yr){ var v = r0(series[Math.min(yr, series.length - 1)].y); return { year: yr, value: v, vsBase: v - r0(baseSeries[Math.min(yr, baseSeries.length - 1)].y) }; }),
-    aheadFrom: aheadFrom, aheadForAWhile: aheadForAWhile
+    aheadFrom: aheadFrom, aheadForAWhile: aheadForAWhile,
+    badStart: { netWorth10: r0(bad[ten].y), vsUsual: r0(bad[ten].y) - r0(series[ten].y), lowestCash: r0(bad.reduce(function(m, p){ return Math.min(m, p.investments); }, Infinity)) }
   };
   out.verdict = verdict(out);
   return out;
@@ -94,6 +99,7 @@ export function verdict(c){
   if(c.monthUnderStress < 0) parts.push("runs " + money(-c.monthUnderStress) + " a month short under stress");
   else if(c.monthAfterTax < 0) parts.push("runs " + money(-c.monthAfterTax) + " a month short");
   if(c.lowestCash < 0) parts.push("cash runs out along the way");
+  else if(c.badStart && c.badStart.lowestCash < 0) parts.push("cash runs out after a bad first year");
   var end = c.netWorth[c.netWorth.length - 1].year;
   var ahead = c.aheadFrom != null ? (c.aheadFrom <= 1 ? "ahead of staying put from the first year" : "ahead of staying put from year " + c.aheadFrom)
     : c.aheadForAWhile != null ? "ahead of staying put for a while from year " + c.aheadForAWhile + ", behind again by year " + end

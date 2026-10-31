@@ -1785,6 +1785,13 @@ test("compareHtml draws a column per scenario and the verdicts", async function(
   assert.match(html, /From year 7/);
   assert.match(html, /<b>Rentvest<\/b> Ahead of staying put/);
   assert.doesNotMatch(html, /undefined|NaN/);
+  // v3.184.0: the odds row waits to be filled in; a bad start shows its year-10 figure.
+  var { oddsCellHtml } = await import("../src/components/compare.js");
+  var h2 = compareHtml([mk("Today", true), mk("Rentvest", false, { badStart: { netWorth10: 700000, vsUsual: -200000, lowestCash: -5000 } })]);
+  assert.match(h2, /data-odds="Rentvest"/);
+  assert.match(h2, /cash runs out/);
+  assert.match(oddsCellHtml({ ofTen: 7, lasted: 42, runs: 60 }), /7 in 10.*3 in 10 run out/);
+  assert.doesNotMatch(h2, /undefined|NaN/);
 });
 
 test("the Make it real sheet lists what it will do and what it leaves", async function(){

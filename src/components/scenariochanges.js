@@ -86,6 +86,10 @@ export function scenarioChangesHtml(scenario){
   var rows = all.map(function(c){
     if(c.kind === "amount") return amountChangeHtml(c, scenario);
     if(c.kind === "home") return '<div class="sc-change"><span class="sc-what"><b>Lives somewhere else</b><small>Its home costs are listed under Recurring costs below; today\'s home lines are left out.</small></span></div>';
+    // v3.177.0 (item 204): kept from a what-if on Projections — they change the projection, not the month.
+    if(c.kind === "assume" || c.kind === "retire") return '<div class="sc-change"><span class="sc-what"><b>' + escapeAttr(changeSummary(c)) + '</b><small>' +
+        (c.kind === "retire" ? "In the projection, living costs come out of savings from then" : "Used for this scenario's projection instead of the household's") + '</small></span>' +
+      '<button type="button" class="btn btn-danger btn-sm" data-sc-del="' + escapeAttr(c.id) + '" data-sc-scenario="' + escapeAttr(scenario) + '" aria-label="' + escapeAttr("Remove: " + changeSummary(c)) + '">✕</button></div>';
     var m = legsMonthly([c], ctx), effect = m.incomeMonthly - m.expensesMonthly;
     var open = !!changeOpen[c.id];
     return '<div class="sc-change sc-leg' + (open ? " is-open" : "") + '"><button type="button" class="sc-what sc-leg-head" data-sc-toggle="' + escapeAttr(c.id) + '" aria-expanded="' + open + '"><b>' + escapeAttr(changeSummary(c, { money: function(n){ return fmtCurrency0.format(n); }, propertyName: propName })) + '</b>' +

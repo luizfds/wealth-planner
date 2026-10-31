@@ -1,3 +1,5 @@
+import { whatIfValues, resetWhatIf, wiFromSlider, wiValueText } from "./components/whatif.js";
+import { whatIfMoved, keepWhatIf } from "./calc/whatif.js";
 import { mrQ, makeRealSheetHtml } from "./components/makereal.js";
 import { applyMakeReal } from "./calc/makereal.js";
 import { state, setState, storageAvailable, persist, setStatus, defaultState, defaultPurchaseConfig, defaultHomeBlock, defaultInvestConfig, migrateState, genId, normalizeShareAsset, onSaved } from "./state.js";
@@ -70,7 +72,7 @@ import {
   logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan, setSaleWhatIfField, patchSaleWhatIf, setLoanStrategyField, patchLoanStrategy, propertyTabs, propertyEditing,
   fixedExpiryHtml, rentPanelHtml, fixedWhatIf, agentStatementUi, agentStatementFormValues
 } from "./components/properties.js";
-import { renderProjectionOutputs, projectionSeriesShown } from "./components/projections.js";
+import { renderProjectionOutputs, renderWhatIfDrag, projectionSeriesShown } from "./components/projections.js";
 import { renderBenchmarks, setBenchmarkField, applyBenchmarkPaste, addGoal, setGoalField, removeGoal, setPropertyMarketField } from "./components/benchmarks.js";
 import { copyBenchmarkTemplateToClipboard } from "./lib/backup.js";
 import {
@@ -5982,6 +5984,35 @@ import { inboxMessage } from "./calc/inbox.js";
     }
   });
   document.addEventListener("keydown", function(e){ if(e.key === "Escape" && startQ.open) requestCloseActiveOverlay(); });
+
+  // ---------------- What-ifs you can drag (v3.177.0, item 204) ----------------
+  var whatIfStrip = document.getElementById("whatIfStrip"), wiFrame = 0;
+  whatIfStrip.addEventListener("input", function(e){
+    var k = e.target.getAttribute && e.target.getAttribute("data-wi");
+    if(!k) return;
+    var w = whatIfValues();
+    w[k] = wiFromSlider(k, e.target.value);
+    var lab = whatIfStrip.querySelector('[data-wi-val="' + k + '"]');
+    if(lab) lab.textContent = wiValueText(k, w[k], w);
+    var moved = whatIfMoved(w);
+    whatIfStrip.querySelectorAll("[data-wi-keep], [data-wi-reset]").forEach(function(b){ b.disabled = !moved; });
+    if(wiFrame) return;
+    wiFrame = requestAnimationFrame(function(){ wiFrame = 0; renderWhatIfDrag(); });
+  });
+  // Let go: the table, milestones and the rest catch up.
+  whatIfStrip.addEventListener("change", function(e){ if(e.target.getAttribute && e.target.getAttribute("data-wi")) renderProjectionOutputs(); });
+  whatIfStrip.addEventListener("click", function(e){
+    if(e.target.closest("[data-wi-reset]")){ resetWhatIf(); whatIfStrip.innerHTML = ""; renderProjectionOutputs(); return; }
+    if(!e.target.closest("[data-wi-keep]")) return;
+    var w = whatIfValues();
+    if(!whatIfMoved(w)) return;
+    var made = keepWhatIf(currentScenario(), w, function(){ return genId("chg"); });
+    resetWhatIf();
+    whatIfStrip.innerHTML = "";
+    recalcComputedItems();
+    afterScenarioChange();
+    showToast('Kept as "' + made + '" — it\'s on Plan → Scenarios, and on the chart');
+  });
 
   // ---------------- Make it real (v3.176.0, item 211) ----------------
   var makeRealRoot = document.getElementById("makeRealRoot");

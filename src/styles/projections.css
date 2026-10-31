@@ -7,6 +7,17 @@
   .proj-basis-note{ font-size:var(--fs-xs); color: var(--ink-soft); }
   .proj-headline{ font-size:var(--fs-md); line-height:1.5; color: var(--ink-soft); margin:0 0 16px; }
   .proj-headline b{ color: var(--brass-strong); font-weight:600; }
+  /* v3.177.0 (item 204): what-ifs you can drag */
+  .wi-strip{ border:1px solid var(--border); border-radius: var(--inner-radius); padding:12px 14px; margin:0 0 14px; background: var(--paper); }
+  .wi-head{ display:flex; gap:10px; align-items:baseline; flex-wrap:wrap; margin-bottom:8px; }
+  .wi-head b{ font-size:var(--fs-md); }
+  .wi-hint, .wi-note{ font-size:var(--fs-xs); color: var(--ink-soft); }
+  .wi-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(124px, 1fr)); gap:10px 16px; align-items:end; }
+  .wi-field{ display:flex; flex-direction:column; gap:4px; min-width:0; }
+  .wi-label{ font-size:var(--fs-xs); color: var(--ink-soft); display:flex; justify-content:space-between; gap:6px; }
+  .wi-label b{ font-family: var(--font-num); font-variant-numeric: tabular-nums; color: var(--ink); font-weight:600; }
+  .wi-field .proj-slider{ width:100%; }
+  .wi-actions{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
   .proj-field{ display:flex; flex-direction:column; gap:3px; }
   .proj-field label{ font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; }
   .proj-field input[type="number"]{

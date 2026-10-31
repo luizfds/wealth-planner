@@ -169,9 +169,18 @@ export function changeSummary(c, ctx){
   var money = ctx.money || function(n){ return "$" + Math.round(n).toLocaleString("en-AU"); };
   var when = num(c.fromYear) > 0 ? " · from year " + (num(c.fromYear) + 1) : "";
   if(c.kind === "rent") return "Rent " + money(num(c.amount)) + " " + String(c.freq || "Weekly").toLowerCase() + when;
+  if(c.kind === "cost" && num(c.amount) < 0) return (c.what || "A saving") + ": " + money(-num(c.amount)) + " " + String(c.freq || "Monthly").toLowerCase() + " less spent" + when;
   if(c.kind === "cost") return (c.what || "A cost") + ": " + money(num(c.amount)) + " " + String(c.freq || "Monthly").toLowerCase() + when;
   if(c.kind === "ip") return (c.what || "Investment property") + ": " + money(num(c.price)) + " in " + (c.state || "NSW") + ", rent " + money(num(c.rentWeekly)) + "/week" + when;
   if(c.kind === "extra") return "Pay " + ((ctx.propertyName && ctx.propertyName(c.propertyId)) || "the loan") + " down by " + money(num(c.amount)) + " " + String(c.freq || "Monthly").toLowerCase() + " extra" + when;
+  if(c.kind === "retire") return "Retire at " + num(c.age) + " — pay stops from then";
+  if(c.kind === "assume"){
+    var a = [];
+    if(c.investReturnRate != null) a.push(num(c.investReturnRate) + "% return");
+    if(c.inflationRate != null) a.push(num(c.inflationRate) + "% inflation");
+    if(c.rateShockPct != null) a.push("rates +" + num(c.rateShockPct) + " points");
+    return "Its own assumptions: " + (a.join(", ") || "as the household's");
+  }
   if(c.kind === "sell") return "Sell " + ((ctx.propertyName && ctx.propertyName(c.propertyId)) || "a property") + " in year " + (num(c.fromYear) + 1);
   return "";
 }

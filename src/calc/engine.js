@@ -135,8 +135,26 @@ function addYearsIso(iso, years){
 // brings in the year it's sold and the cash it stops making.
 var LEG_KINDS = { rent: 1, ip: 1, cost: 1, sell: 1, extra: 1 };
 export function scenarioLegChanges(scenario){ return changesFor(scenario).filter(function(c){ return c && LEG_KINDS[c.kind]; }); }
+// v3.177.0 (item 204): a scenario can carry its own assumptions — an "assume" change (return, inflation,
+// a rate rise) laid over the household's projection settings. Everything the projection reads goes
+// through this, so a what-if kept as a scenario draws exactly what the sliders showed.
+function currentAgeOrNull(){ var a = state.fire && state.fire.currentAge; return a == null || a === "" || !isFinite(Number(a)) ? null : Number(a); }
+export function projectionFor(scenario){
+  var base = state.projection || {};
+  var a = changesFor(scenario).find(function(c){ return c && c.kind === "assume"; });
+  if(!a) return base;
+  var out = Object.assign({}, base);
+  ["investReturnRate", "inflationRate", "rateShockPct"].forEach(function(k){ if(a[k] != null && a[k] !== "" && isFinite(Number(a[k]))) out[k] = Number(a[k]); });
+  return out;
+}
+// The projection year a "retire" change stops pay from (1 = the coming twelve months), or null.
+export function retireYearFor(scenario, currentAge){
+  var r = changesFor(scenario).find(function(c){ return c && c.kind === "retire"; });
+  if(!r || currentAge == null || !isFinite(Number(r.age))) return null;
+  return Math.max(1, Math.round(Number(r.age) - currentAge) + 1);
+}
 export function scenarioLegContext(scenario){
-  var proj = state.projection || {};
+  var proj = projectionFor(scenario);
   var people = getTaxPeople(), rates = {};
   var rateOf = function(person){
     if(!(person in rates)){ var t = null; try { t = computePersonTax(person, { scenario: scenario }); } catch(e){} rates[person] = t ? Number(t.marginalRate) || 0 : 0; }
@@ -202,7 +220,7 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
   // the UI keeps them mutually exclusive, and migrateState() resolves it the same way on load —
   // but this keeps the math itself correct regardless of how state got here).
   var purchaseEnabled = !!(cfg && cfg.enabled) && !investEnabled;
-  var proj = state.projection || {};
+  var proj = projectionFor(scenario);
   var propRate = (Number(proj.propertyAppreciationRate) || 0) / 100;
   // A scenario can override the global growth rate (e.g. to reflect its own state's
   // long-run average) via cfg.propertyGrowthRate; null/unset falls back to the global rate.
@@ -297,6 +315,7 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
   var points = [];
   var legs = scenarioLegChanges(scenario), legCtx = legs.length ? scenarioLegContext(scenario) : null;
   var soldFrom = {};
+  var retireYear = (opts && opts.retireYear != null) ? opts.retireYear : retireYearFor(scenario, opts && opts.currentAge != null ? opts.currentAge : currentAgeOrNull());
   legs.forEach(function(c){ if(c.kind === "sell" && legCtx.sold[c.propertyId]) soldFrom[c.propertyId] = Math.max(0, Math.floor(Number(c.fromYear) || 0)) + 1; });
   for(var year = 0; year <= horizonYears; year++){
     var lg = legs.length && year > 0 ? legsInYear(legs, year, legCtx) : null;
@@ -306,6 +325,8 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
       if(!yc){ yc = { inflatable: activeInflatableMonthlyAt(year), income: activeIncomeMonthlyAt(year) }; if(cache) cache[year] = yc; }
       var inflatableThisYear = yc.inflatable * Math.pow(1 + inflationRate, year);
       var incomeThisYear = (yc.income + (ratios.incomeDelta || 0)) * Math.pow(1 + incomeGrowthRate, year);
+      // v3.177.0: retired — pay stops, and living costs come out of what's been saved.
+      if(retireYear && year >= retireYear) incomeThisYear = 0;
       if(investPath && investPath[year] != null) monthlyInvestRate = Math.pow(1 + investPath[year], 1 / 12) - 1;
       var ev = events.length ? eventEffects(events, year, thisYear) : null;
       var savingsThisYear = incomeThisYear - fixedMonthly - inflatableThisYear - (ev ? ev.yearly / 12 * Math.pow(1 + inflationRate, year) : 0);

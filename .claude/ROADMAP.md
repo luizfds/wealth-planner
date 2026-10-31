@@ -3702,7 +3702,7 @@ dates.
 Done when: IRR matches a hand-worked invented portfolio to the cent in tests; the benchmark line is driven on
 Investments.
 
-## 204. `[ ]` What-ifs you can drag
+## 204. `[x]` What-ifs you can drag
 ProjectionLab's plans move as you drag a slider. Here a what-if means editing a scenario's fields and switching
 tabs.
 
@@ -3711,6 +3711,19 @@ is a slider redrawing the chart live against the saved plan (dashed). "Keep this
 
 Done when: dragging redraws within a frame on a mid-range phone (measured); "Keep this" makes a scenario equal to
 the preview.
+
+**Done (v3.177.0).** A **What if…** strip on Plan → Projections (`calc/whatif.js`, `components/whatif.js`): retire at,
+investment return, inflation, saved more a month and rates up. Moving one redraws the chart as the household's saved plan
+(dashed) against the what-if, with a sentence on how far apart they end; nothing is saved. **Keep this as a scenario**
+makes it one, named from what moved ("Retire at 58, Save $1,500 more"). A scenario can now carry its own assumptions — an
+`assume` change (return, inflation, rate rise) read through `projectionFor(scenario)` — and a `retire` change (pay stops
+from the year of that age; living costs come out of savings), so the kept scenario projects exactly as previewed. Retire
+needs an age (Plan → Retirement); without one the slider says so. Speed: while dragging only the chart and headline
+redraw, and each year's income and costs and the saved plan are worked out once per drag — measured at 4× CPU slowdown
+(standing in for a mid-range phone) 5–9 ms a redraw after the first (~75 ms, which fills the cache), against ~200 ms
+redrawing everything. Tests: untouched sliders equal the saved plan; each slider moves the end the right way; a kept
+what-if's series equals the preview's year by year. Driven at 1280 and 390px.
+
 
 ## 205. `[ ]` Every subscription in one list
 Rocket Money and Monarch list every subscription with what it costs a year. `recurring.js` already finds repeating

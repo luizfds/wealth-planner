@@ -1801,3 +1801,19 @@ test("the Make it real sheet lists what it will do and what it leaves", async fu
   assert.doesNotMatch(html, /undefined|NaN/);
   m.mrQ.name = null;
 });
+
+test("the what-if strip draws its sliders, and Keep this only once one has moved", async function(){
+  var m = await import("../src/components/whatif.js");
+  var was = { fire: state.fire };
+  state.fire = Object.assign({}, state.fire, { currentAge: 41 });
+  m.resetWhatIf();
+  var html = m.whatIfStripHtml();
+  assert.match(html, /data-wi="retireAge"/);
+  assert.match(html, /data-wi="extraMonthly"/);
+  assert.match(html, /Keep working/);
+  assert.match(html, /data-wi-keep disabled/);
+  m.whatIfValues().extraMonthly = 250;
+  assert.doesNotMatch(m.whatIfStripHtml(), /data-wi-keep disabled/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+  m.resetWhatIf(); state.fire = was.fire;
+});

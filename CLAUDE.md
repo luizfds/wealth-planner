@@ -78,6 +78,8 @@ the last, so two sessions can't pick up the same one.
   the household's lines through `scenarioSharedItems(name)`. New scenario maths goes through those, not `state.shared` directly.
   **Make it real (v3.176.0):** `calc/makereal.js` is the one door back — a plan (dry run) then the same changes as rows; old
   home lines end the day before. An investment property's tax effect is the owners' tax with and without it (`taxEffectFor`).
+  **What-ifs (v3.177.0):** a scenario's own assumptions are an `assume` change, read through `projectionFor(scenario)` — never
+  `state.projection` directly in projection maths; a `retire` change stops pay from that age.
 - `styles.css` — just eight `@import` statements pulling in `src/styles/{base,shell,dashboard,
   ledger,income,properties,assets,projections}.css`, in that specific order. Light/dark theming is
   CSS custom properties + `prefers-color-scheme`, defined in `base.css`.

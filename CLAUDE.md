@@ -68,6 +68,10 @@ the last, so two sessions can't pick up the same one.
   (`calc/receipts.js`). Backup, share, the backup folder and the sync file pack them as `receiptFiles`; every load path
   unpacks them (`takeReceiptFiles` → `unpackReceipts`) before `setState`, and `migrateState` drops any left. A new array
   of rows that can hold receipts goes in `receiptRefs`, or its files are pruned at startup.
+- **Who changed what (v3.171.0):** `lib/activity.js` diffs the data a moment after each save (only if the page was touched)
+  and logs `state.activity` entries (`calc/activity.js`; 90 days, size-capped, synced). Every `setState` (sync, backup, sample
+  data) resets the baseline via `onStateReplaced`, so loads are never logged. A new view setting or bookkeeping key belongs
+  in `calc/activity.js` SKIP, or it shows up as somebody's edit.
 - `styles.css` — just eight `@import` statements pulling in `src/styles/{base,shell,dashboard,
   ledger,income,properties,assets,projections}.css`, in that specific order. Light/dark theming is
   CSS custom properties + `prefers-color-scheme`, defined in `base.css`.

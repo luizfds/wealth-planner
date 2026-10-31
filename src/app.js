@@ -87,6 +87,9 @@ import { dismissWeekRecap } from "./calc/weekrecap.js";
 import { saveView, deleteView, applyView, FILTER_FIELDS } from "./calc/txviews.js";
 import { attachReceipt, detachReceipt, takeReceiptFiles } from "./calc/receipts.js";
 import { saveReceiptFile, unpackReceipts, openReceipt, pruneReceipts } from "./lib/receipts.js";
+import { startActivityLog, setDevicePerson, devicePerson } from "./lib/activity.js";
+import { undoEntry } from "./calc/activity.js";
+import { renderActivity, activityUi } from "./components/activity.js";
 import { receiptHolder } from "./components/receipts.js";
 import { dataHealthChecks, dismissCheck } from "./calc/health.js";
 import { applyFirstRun, shouldOfferFirstRun } from "./calc/firstrun.js";
@@ -5291,6 +5294,7 @@ import { inboxMessage } from "./calc/inbox.js";
     renderReports();
     renderChecksBadge();
     renderSafekeeping();
+    renderActivity();
     renderSavingsGoals();
     var goalsFire = document.getElementById("goalsFireBody"); if(goalsFire) goalsFire.innerHTML = goalsFireHtml();
     renderAdvice();
@@ -5626,11 +5630,13 @@ import { inboxMessage } from "./calc/inbox.js";
     // Asked already and not answered yet: the next save's sync doesn't ask again for a while.
     if(Date.now() - mergeAskedAt < 10 * 60 * 1000) return;
     mergeAskedAt = Date.now();
-    showPersistentToast("This device and " + (r.fromThisDevice ? "an earlier session here" : "another one") + " both changed " +
+    // v3.171.0: the other copy says whose device it came from, inside the encrypted data.
+    var otherWho = r.fromThisDevice ? "an earlier session here" : theirs.savedByName ? theirs.savedByName + "'s device" : "another one";
+    showPersistentToast("This device and " + otherWho + " both changed " +
       (first.conflicts.length === 1 ? "the same thing" : first.conflicts.length + " of the same things") + ". Everything else combines by itself.", "Choose", function(){
       var d = document.getElementById("mergeDialog");
       if(!d){ d = document.createElement("dialog"); d.id = "mergeDialog"; d.className = "shortcuts-dialog merge-dialog"; d.setAttribute("aria-label", "Combine two copies"); document.body.appendChild(d); }
-      d.innerHTML = mergeDialogHtml(first.conflicts, r.folder, whenText(r.savedAt));
+      d.innerHTML = mergeDialogHtml(first.conflicts, r.folder, whenText(r.savedAt), theirs.savedByName);
       d.onclose = function(){
         if(d.returnValue !== "ok") return;
         var choices = {};
@@ -5864,6 +5870,32 @@ import { inboxMessage } from "./calc/inbox.js";
   });
   document.addEventListener("keydown", function(e){ if(e.key === "Escape" && txReview.open) requestCloseActiveOverlay(); });
   document.addEventListener("click", function(e){ if(e.target.closest("[data-txr-open]")) openTxReview(); });
+  // ---------------- Who changed what (v3.171.0, item 202) ----------------
+  // The watcher logs edits made here a moment after they're saved (lib/activity.js); this is the
+  // Settings section: whose device it is, the list, Undo.
+  startActivityLog();
+  onSaved(function(){ setTimeout(renderActivity, 1800); });
+  document.addEventListener("change", function(e){
+    if(!e.target.matches || !e.target.matches("[data-act-name]")) return;
+    var nm = e.target.value.trim();
+    setDevicePerson(nm);
+    persist(); // stamps the name on this copy, for the other device's merge question
+    showToast(nm ? "Changes made here now say they're from " + nm : "Changes made here are no longer named");
+    e.target.blur(); renderActivity();
+  });
+  document.addEventListener("click", function(e){
+    if(!e.target.closest) return;
+    if(e.target.closest("[data-act-more]")){ activityUi.shown += 40; renderActivity(); return; }
+    var u = e.target.closest("[data-act-undo]");
+    if(!u) return;
+    var entry = (state.activity || []).find(function(x){ return x.id === u.getAttribute("data-act-undo"); });
+    if(!entry) return;
+    if(!undoEntry(state, entry)){ showToast("That can't be undone any more — what it changed has changed again or gone"); return; }
+    entry.undone = true;
+    recalcComputedItems(); persist(); renderAll();
+    showToast("Undone: " + entry.what);
+  });
+
   // ---------------- Receipts (v3.170.0, item 201) ----------------
   // Attach: a hidden file input, told whose receipt it's for. The file goes to IndexedDB (shrunk if
   // it's a photo) and the row gets its reference. Remove takes the reference (with undo); the file

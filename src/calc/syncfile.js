@@ -45,7 +45,7 @@ export function readEnvelope(text){
 // What counts as a change worth syncing: the state without when/where it was saved and the price
 // readers' bookkeeping — a save that only stamps those (opening the app, a price check that found
 // nothing new) mustn't make two devices look as if both had been edited. FNV-1a over the JSON.
-var VOLATILE = { savedAt: 1, savedBy: 1, autoPrices: 1, lastFolderBackup: 1, lastBackupDate: 1 };
+var VOLATILE = { savedAt: 1, savedBy: 1, savedByName: 1, autoPrices: 1, lastFolderBackup: 1, lastBackupDate: 1 };
 export function contentHash(st){
   var json = JSON.stringify(st, function(k, v){
     if(this === st && VOLATILE[k]) return undefined;

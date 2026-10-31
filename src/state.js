@@ -472,6 +472,8 @@ export function migrateState(s){
   if(!Array.isArray(s.txViews)) s.txViews = [];
   // v3.170.0: a backup or sync copy's receipt files are unpacked into IndexedDB before this; never kept in state.
   delete s.receiptFiles;
+  // v3.171.0: who changed what (calc/activity.js).
+  if(!Array.isArray(s.activity)) s.activity = [];
   s.trips = s.trips.filter(function(t){ return t && t.from; });
   if(!s.priceSheet || typeof s.priceSheet !== "object") s.priceSheet = {};
   ["url", "lastRead", "backfillFrom"].forEach(function(k){ if(typeof s.priceSheet[k] !== "string") s.priceSheet[k] = ""; });
@@ -712,8 +714,12 @@ try{
   state = defaultState();
 }
 
+// v3.171.0: told when the whole copy is replaced (sync, a backup, sample data) — not an edit anyone made here.
+var replaced = [];
+export function onStateReplaced(fn){ replaced.push(fn); }
 export function setState(newState){
   state = newState;
+  replaced.forEach(function(fn){ try { fn(); } catch(e){} });
 }
 
 var saveTimer = null;
@@ -740,6 +746,10 @@ export function persist(){
       // devices' copies is newer.
       state.savedAt = new Date().toISOString();
       state.savedBy = deviceId();
+      // v3.171.0: and whose device it is, if it's been said — inside the data (so encrypted in the sync
+      // file), where the other device's "both changed" question reads it from.
+      var who = localStorage.getItem("wealthPlanner.devicePerson");
+      if(who) state.savedByName = who; else delete state.savedByName;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       setStatus(true, "Saved " + new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}));
       afterSave.forEach(function(fn){ try { fn(); } catch(err){} });

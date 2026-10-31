@@ -3664,7 +3664,7 @@ driven headless — choosing an OPFS folder closes the page, on main too — so 
 pack/unpack functions it calls, and `mergeStates` keeps receipts attached on two devices.)
 
 
-## 202. `[~]` Who changed what
+## 202. `[x]` Who changed what
 YNAB's "Who moved the money" (2026) shows each change with the person who made it. Two people syncing here can't
 see what the other did.
 
@@ -3673,6 +3673,22 @@ from what, by whom, when. Kept for 90 days and synced. Each entry can be undone 
 merge (182) names the other person in its question.
 
 Done when: an edit on device A shows on device B with A's name after a sync; the log stays under a size cap.
+
+**Done (v3.171.0).** Settings → Preferences has **Who changed what**: "This device is used by" (kept on the device,
+`lib/activity.js`; suggests the household's people) and the changes from every device, newest first by day — what
+changed and from what ("Car insurance: amount 95 → 132"), where (Budget, Spending…), who and when — with **Undo** where it
+can be undone (a field back to what it was, an added row removed, a removed row put back when it's small enough to keep).
+The log is `state.activity`, so it syncs and is in the backup; kept 90 days, at most 400 entries and 120,000 characters
+(`calc/activity.js`). It isn't written by each edit handler: a moment after a save, if someone touched the page in the
+last few seconds, what changed since the last look is diffed and summarised (`diffForLog` → `entriesFor`; a burst like an
+import is one entry, computed rows and this device's view settings aren't changes). A copy loaded from sync, a backup or
+the sample data only moves the look (`onStateReplaced`), so it's never logged as this device's edit; nor is a price
+refresh nobody pressed. Each save carries `savedByName` inside the data — so inside the encrypted sync file, never in its
+readable envelope — and a sync merge now asks "This device and Alex's device both changed…", with "You and Alex changed
+the same…" in its dialog. Driven on two browsers: Alex edits Car insurance on A; on B, after a pull, it shows under Alex's
+name and nothing is logged as B's; Sam undoes it on B (logged as Sam's change, Alex's entry marked Undone). Tests cover
+the diff, bursts, every undo, the caps, and two devices' logs merging without a conflict.
+
 
 ## 203. `[ ]` Investments against a benchmark, and a target mix
 Sharesight compares a portfolio with an index and gives a money-weighted return; Empower and Copilot show

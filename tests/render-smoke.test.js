@@ -1786,3 +1786,18 @@ test("compareHtml draws a column per scenario and the verdicts", async function(
   assert.match(html, /<b>Rentvest<\/b> Ahead of staying put/);
   assert.doesNotMatch(html, /undefined|NaN/);
 });
+
+test("the Make it real sheet lists what it will do and what it leaves", async function(){
+  var m = await import("../src/components/makereal.js");
+  var st = { scenarios: ["Today", "Move"], baselineScenario: "Today", shared: [{ id: "h", what: "Rent", amount: 500, freq: "Weekly", homeCost: true }], income: [], properties: [],
+    purchase: {}, invest: {}, home: {}, scenarioChanges: { Move: [{ id: "a", kind: "rent", what: "Rent", amount: 650, freq: "Weekly", fromYear: 0 }, { id: "b", kind: "extra", propertyId: "", amount: 100, freq: "Monthly", fromYear: 0 }] } };
+  m.mrQ.name = "Move";
+  var html = m.makeRealSheetHtml(st, "2026-11-02");
+  assert.match(html, /Make &quot;Move&quot; real|Make "Move" real/);
+  assert.match(html, /\$650 weekly/);
+  assert.match(html, /Extra loan repayments/);
+  assert.match(html, /data-mr-apply/);
+  assert.match(m.makeRealButtonHtml("Move"), /data-make-real="Move"/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+  m.mrQ.name = null;
+});

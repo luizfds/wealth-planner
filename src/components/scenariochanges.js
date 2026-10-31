@@ -53,7 +53,7 @@ function changeFormHtml(c, scenario, ctx){
       field(c, scenario, "growthPct", "Growth % a year", "number", ' placeholder="Projection\'s rate"'),
       field(c, scenario, "owner", "Owner", "select", [["", people.length > 1 ? "Shared evenly" : "The household"]].concat(people.map(function(p){ return [p, p]; }))),
       field(c, scenario, "fromYear", "Bought", "select", yearOptions()));
-    var fig = ipFigures(c, { marginalRate: ctx.marginalRateFor(c.owner) });
+    var fig = ipFigures(c, { marginalRate: ctx.marginalRateFor(c.owner), taxEffect: ctx.taxEffectFor ? function(tx){ return ctx.taxEffectFor(c.owner, tx); } : null });
     f.push('<p class="scf-figs"><span>Rent less costs and loan: <b>' + signed(fig.cashBeforeTaxMonthly) + '/mo</b></span><span>Tax effect: <b>' + signed(fig.taxEffectYearly / 12) + '/mo</b> (' + Math.round(fig.taxRate * 100) + '% on a ' + (fig.taxableYearly < 0 ? 'loss' : 'profit') + ' of ' + fmtCurrency0.format(Math.abs(fig.taxableYearly)) + ' a year)</span>' +
       '<span>After tax: <b>' + signed(fig.cashAfterTaxMonthly) + '/mo</b></span><span>Cash at settlement: <b>' + fmtCurrency0.format(fig.upfront) + '</b> (deposit ' + fmtCurrency0.format(fig.deposit) + ', stamp duty ' + fmtCurrency0.format(fig.stampDuty) + (fig.lmi ? ', LMI ' + fmtCurrency0.format(fig.lmi) : '') + ', other costs)</span></p>');
   } else if(c.kind === "extra"){

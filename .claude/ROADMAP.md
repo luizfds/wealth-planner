@@ -3841,12 +3841,25 @@ the lowest cash and the month after tax equal the projection's and the card's fo
 Driven at 1280 and 390px after making the scenario from the question sheet; no sideways scroll on the page.
 
 
-## 211. `[ ]` Make it real
+## 211. `[x]` Make it real
 Do: when a scenario happens, one button shows exactly what it will add to the household (a rent line, the property
 under Property with its loan, an income change) and applies it on confirm, with undo.
 
 Done when: applying the investment-property scenario gives a household whose figures equal the scenario's (tests);
 driven with undo.
+
+**Done (v3.176.0).** **Make it real…** at the foot of each scenario on Plan → Scenarios (`calc/makereal.js`,
+`components/makereal.js`): a sheet lists what will happen — today's home lines ended (the day before, not deleted, so
+their payments stay linked), the new rent or the new home's costs and loan repayment added to Budget as where you live, a
+home bought or an investment property added under Net worth → Property with its loan, rent, costs, management fee and
+depreciation, a line's different amount made its amount, a new cost added — and what's left for later and why (a change
+from a later year, a sale, extra repayments, investing instead). On confirm it's applied, the scenario removed if ticked,
+with Undo. An investment property's tax effect in a scenario is now the owners' tax worked out in full with and without it
+(`taxEffectFor` in `scenarioLegContext`, `computePersonTax`'s `extraIpResult`) rather than the marginal rate plus 2%, so the
+Medicare levy surcharge and the brackets count — on the invented test household ($110k, no private cover, a $600k unit at
+$600 a week) the refund goes from $264 to $356 a month, the surcharge the property's loss takes away. Tests: the plan's
+wording, and made real, the household's month equals the scenario's within $5. Driven at 1280 and 390px: made a rentvest
+scenario from the question sheet, made it real, undone.
 
 
 ## Conventions for whoever picks this up

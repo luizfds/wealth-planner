@@ -61,7 +61,9 @@ export function ipFigures(c, ctx){
   var depreciationYearly = Math.max(0, num(c.depreciationYearly));
   var taxableYearly = rentYearly - mgmtYearly - costsYearly - interestYearly - depreciationYearly;
   var taxRate = num(ctx.marginalRate) + MEDICARE;
-  var taxEffectYearly = -taxableYearly * taxRate; // a loss (negative result) comes back as a refund
+  // A loss (negative result) comes back as a refund. With the household to hand (ctx.taxEffect, v3.176.0)
+  // it's the owners' tax worked out in full; on its own, the marginal rate plus the Medicare levy.
+  var taxEffectYearly = ctx.taxEffect ? ctx.taxEffect(taxableYearly) : -taxableYearly * taxRate;
   var stampDuty = calcStampDuty(c.state || "NSW", price, false);
   var lmi = calcLMI(loan, price > 0 ? loan / price : 0);
   var otherUpfront = num(ctx.otherUpfront, 2500);
@@ -87,7 +89,8 @@ export function legsMonthly(changes, ctx){
     else if(c.kind === "cost"){ out.expensesMonthly += periodsOf(num(c.amount), c.freq || "Monthly").monthly; }
     else if(c.kind === "extra"){ var em = periodsOf(num(c.amount), c.freq || "Monthly").monthly; out.expensesMonthly += em; out.extraMonthly = (out.extraMonthly || 0) + em; }
     else if(c.kind === "ip"){
-      var f = ipFigures(c, { marginalRate: ctx.marginalRateFor ? ctx.marginalRateFor(c.owner) : 0, rateShockPts: ctx.rateShockPts });
+      var f = ipFigures(c, { marginalRate: ctx.marginalRateFor ? ctx.marginalRateFor(c.owner) : 0, rateShockPts: ctx.rateShockPts,
+        taxEffect: ctx.taxEffectFor ? function(tx){ return ctx.taxEffectFor(c.owner, tx); } : null });
       out.incomeMonthly += (f.rentYearly + f.taxEffectYearly) / 12;
       out.ipTaxMonthly += f.taxEffectYearly / 12;
       out.expensesMonthly += (f.mgmtYearly + f.costsYearly) / 12 + f.repaymentMonthly;
@@ -130,7 +133,8 @@ export function legsInYear(changes, year, ctx){
       var interest = repay * 12 - (balStart - balEnd);
       var rent = f.rentYearly * infl, mgmt = f.mgmtYearly * infl, costs = f.costsYearly * infl;
       var taxable = rent - mgmt - costs - interest - f.depreciationYearly;
-      out.savingsMonthly += (rent - mgmt - costs) / 12 - repay - taxable * f.taxRate / 12;
+      var taxEffect = ctx.taxEffectFor ? ctx.taxEffectFor(c.owner, taxable / infl) * infl : -taxable * f.taxRate;
+      out.savingsMonthly += (rent - mgmt - costs) / 12 - repay + taxEffect / 12;
       var value = f.price * Math.pow(1 + g, year);
       out.equity += value - balEnd;
       out.debt += balEnd;

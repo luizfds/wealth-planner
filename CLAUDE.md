@@ -76,6 +76,8 @@ the last, so two sessions can't pick up the same one.
   `state.activeScenario`. A scenario's differences live in `state.scenarioChanges[name]` (`calc/scenariochanges.js`), never on
   the household's rows; today's home costs are Budget lines with `homeCost: true`, and a scenario that lives elsewhere reads
   the household's lines through `scenarioSharedItems(name)`. New scenario maths goes through those, not `state.shared` directly.
+  **Make it real (v3.176.0):** `calc/makereal.js` is the one door back — a plan (dry run) then the same changes as rows; old
+  home lines end the day before. An investment property's tax effect is the owners' tax with and without it (`taxEffectFor`).
 - `styles.css` — just eight `@import` statements pulling in `src/styles/{base,shell,dashboard,
   ledger,income,properties,assets,projections}.css`, in that specific order. Light/dark theming is
   CSS custom properties + `prefers-color-scheme`, defined in `base.css`.

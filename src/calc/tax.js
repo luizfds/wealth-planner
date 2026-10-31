@@ -1146,6 +1146,9 @@ export function computePersonTax(person, opts){
   // personIpResultAnnual(). ownershipPct survives only as a display figure: the blended share of
   // the portfolio's result this person ends up carrying, which is what the card's note reports.
   var ipShare = personIpResultAnnual(person, people);
+  // v3.176.0: a scenario's hypothetical investment property — its year's result for this person, on top
+  // of the household's own (calc/scenariolegs.js prices its tax effect with this, in full).
+  if(opts && opts.extraIpResult) ipShare += Number(opts.extraIpResult) || 0;
   var ipTotal = ipNetResultAnnual();
   var ownershipPct = ipTotal !== 0 ? (ipShare / ipTotal) * 100 : (people.length ? 100 / people.length : 0);
   var manualSacrifice = Math.max(0, Number(settings.superSacrificeAnnual) || 0);

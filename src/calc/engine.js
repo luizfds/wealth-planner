@@ -146,6 +146,24 @@ export function scenarioLegContext(scenario){
     if(owner && people.indexOf(owner) !== -1) return rateOf(owner);
     return people.length ? people.reduce(function(sum, p){ return sum + rateOf(p); }, 0) / people.length : 0;
   };
+  // v3.176.0: the tax effect in full — each owner's tax with the property's result against without
+  // (so the Medicare levy surcharge, the brackets and the offsets all count), shared evenly when it's
+  // the household's. Remembered by the figure, to the nearest $10: the projection asks every year.
+  var taxMemo = {};
+  var totalTaxOf = function(person, extra){
+    var t = null;
+    try { t = computePersonTax(person, extra ? { scenario: scenario, extraIpResult: extra } : { scenario: scenario }); } catch(e){}
+    return t ? Number(t.totalTax) || 0 : 0;
+  };
+  var taxEffectFor = function(owner, taxableYearly){
+    var owners = owner && people.indexOf(owner) !== -1 ? [owner] : people;
+    if(!owners.length) return 0;
+    var key = owners.join("|") + ":" + Math.round(taxableYearly / 10);
+    if(key in taxMemo) return taxMemo[key];
+    var share = taxableYearly / owners.length, effect = 0;
+    owners.forEach(function(p){ effect += totalTaxOf(p, 0) - totalTaxOf(p, share); });
+    return (taxMemo[key] = effect);
+  };
   var propRate = (Number(proj.propertyAppreciationRate) || 0) / 100, rateShockPts = Number(proj.rateShockPct) || 0, todayStr = localDateStr();
   var sold = {};
   changesFor(scenario).forEach(function(c){
@@ -174,7 +192,7 @@ export function scenarioLegContext(scenario){
     if(!p) return Infinity;
     return (p.loans || []).reduce(function(sum, l){ return loanPaidOut(l, addYearsIso(todayStr, year)) ? sum : sum + Math.max(0, loanBalanceAfterMonths(l.balance, (Number(l.rate) || 0) + rateShockPts, l.termYears, year * 12, l.repaymentType) - (Number(l.offsetBalance) || 0)); }, 0);
   };
-  return { marginalRateFor: marginalRateFor, propRate: propRate, inflationRate: (Number(proj.inflationRate) || 0) / 100, rateShockPts: rateShockPts, sold: sold, loanBalanceAt: loanBalanceAt };
+  return { marginalRateFor: marginalRateFor, taxEffectFor: taxEffectFor, propRate: propRate, inflationRate: (Number(proj.inflationRate) || 0) / 100, rateShockPts: rateShockPts, sold: sold, loanBalanceAt: loanBalanceAt };
 }
 export function computeNetWorthSeries(scenario, horizonYears, opts){
   var cfg = state.purchase[scenario];

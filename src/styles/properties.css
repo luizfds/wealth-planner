@@ -407,6 +407,15 @@
 .sc-adders{ display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
 /* v3.174.0 (item 209): "What are you weighing?" */
 .review-panel.sq-panel{ max-width:520px; }
+/* v3.176.0 (item 211): Make it real */
+.mr-row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:14px; padding-top:12px; border-top:1px solid var(--border); }
+.mr-row .ledger-note{ margin:0; flex:1 1 220px; }
+.review-panel.mr-panel{ max-width:520px; }
+.mr-sub{ margin:8px 0 4px; font-size:var(--fs-sm); font-weight:600; }
+.mr-list{ margin:0 0 8px; padding-left:20px; font-size:var(--fs-sm); line-height:1.5; }
+.mr-skipped{ color: var(--ink-soft); }
+.mr-list small{ font-size:var(--fs-xs); }
+.mr-remove{ display:flex; align-items:center; gap:8px; margin:10px 0 0; font-size:var(--fs-sm); min-height:44px; }
 .sq-choices{ display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
 .sq-choice{ all:unset; box-sizing:border-box; display:flex; flex-direction:column; gap:4px; padding:12px; border:1px solid var(--border); border-radius: var(--inner-radius); background: var(--paper); cursor:pointer; min-height:44px; }
 .sq-choice:hover{ border-color: var(--brass); }

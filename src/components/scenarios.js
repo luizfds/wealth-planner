@@ -1,3 +1,4 @@
+import { makeRealButtonHtml } from "./makereal.js";
 import { state, persist, defaultHomeBlock, defaultPurchaseConfig, defaultInvestConfig, deepClone, genId } from "../state.js";
 import { renameScenarioChanges, cloneScenarioChanges, deleteScenarioChanges, setLivesElsewhere, homeRowsFromBudget, livesElsewhere, changesFor } from "../calc/scenariochanges.js";
 import { scenarioChangesHtml, todaysHomeHtml, todaysHomeMonthly } from "./scenariochanges.js";
@@ -265,9 +266,11 @@ export function renderHomeBody(){
         renderInvestPanelHtml(scenario) +
         (!livesElsewhere(scenario) ? '' :
         '<div class="home-recurring-label">Recurring costs — per month</div>' +
-        '<p class="income-summary-line home-recon-line">' + homeReconciliationHtml(scenario) + '</p>' +
+        ((state.home[scenario] || []).length ? '<p class="income-summary-line home-recon-line">' + homeReconciliationHtml(scenario) + '</p>'
+          : '<p class="ledger-note">Its rent is in the changes above. Add anything else living there costs — contents insurance, parking, utilities.</p>') +
         '<div class="m-card" id="homeCard_' + slug(scenario) + i + '">' + modernHomeCompBarHtml(homeRowMeta(scenario)) + '<div class="m-rows" id="homeRows_' + slug(scenario) + i + '">' + modernHomeListHtml(scenario) + '</div></div>' +
         '<div class="ledger-footer"><button class="btn btn-sm" data-add="home:' + escapeAttr(scenario) + '">+ Add item</button></div>') +
+        makeRealButtonHtml(scenario) +
       '</div>' +
       '</div>');
   }).join("") +

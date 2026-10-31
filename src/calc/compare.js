@@ -32,8 +32,9 @@ export function stressMonthly(scenario){
     legs.forEach(function(c){
       if(c.kind !== "ip") return;
       var rate = ctx.marginalRateFor(c.owner);
-      var base = ipFigures(c, { marginalRate: rate });
-      var hard = ipFigures(Object.assign({}, c, { rentWeekly: (Number(c.rentWeekly) || 0) * 0.9, vacancyWeeks: (Number(c.vacancyWeeks) || 0) + 4 }), { marginalRate: rate, rateShockPts: 2 });
+      var taxEffect = function(tx){ return ctx.taxEffectFor(c.owner, tx); };
+      var base = ipFigures(c, { marginalRate: rate, taxEffect: taxEffect });
+      var hard = ipFigures(Object.assign({}, c, { rentWeekly: (Number(c.rentWeekly) || 0) * 0.9, vacancyWeeks: (Number(c.vacancyWeeks) || 0) + 4 }), { marginalRate: rate, rateShockPts: 2, taxEffect: taxEffect });
       hit += base.cashAfterTaxMonthly - hard.cashAfterTaxMonthly;
     });
   }

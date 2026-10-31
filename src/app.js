@@ -1,3 +1,5 @@
+import { mrQ, makeRealSheetHtml } from "./components/makereal.js";
+import { applyMakeReal } from "./calc/makereal.js";
 import { state, setState, storageAvailable, persist, setStatus, defaultState, defaultPurchaseConfig, defaultHomeBlock, defaultInvestConfig, migrateState, genId, normalizeShareAsset, onSaved } from "./state.js";
 import { sacrificeModeToLabel, sacrificeLabelToMode, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, INVEST_LEG_TYPES } from "./constants.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr, fmtDate, parseAmountInput } from "./lib/format.js";
@@ -5947,7 +5949,9 @@ import { inboxMessage } from "./calc/inbox.js";
     while(state.scenarios.indexOf(name) !== -1) name = built.name + " (" + (n++) + ")";
     var st = templateContext().state;
     state.scenarios.push(name);
-    state.home[name] = built.home ? built.home.map(function(r){ return Object.assign({}, r); }) : defaultHomeBlock();
+    // A scenario that rents somewhere new has its rent as a change; no $0 placeholder home rows beside it.
+    var rents = (built.changes || []).some(function(c){ return c.kind === "rent"; });
+    state.home[name] = built.home ? built.home.map(function(r){ return Object.assign({}, r); }) : rents ? [] : defaultHomeBlock();
     var pc = built.purchase;
     state.purchase[name] = pc ? Object.assign(defaultPurchaseConfig(pc.price, pc.depositPct, pc.rate, pc.termYears || 30, pc.state || st, true), pc) : defaultPurchaseConfig(0, 20, 6.0, 30, st, false);
     state.invest[name] = built.invest ? Object.assign(defaultInvestConfig(built.invest.assetType), built.invest) : defaultInvestConfig();
@@ -5978,6 +5982,37 @@ import { inboxMessage } from "./calc/inbox.js";
     }
   });
   document.addEventListener("keydown", function(e){ if(e.key === "Escape" && startQ.open) requestCloseActiveOverlay(); });
+
+  // ---------------- Make it real (v3.176.0, item 211) ----------------
+  var makeRealRoot = document.getElementById("makeRealRoot");
+  function renderMakeReal(){
+    makeRealRoot.innerHTML = mrQ.open ? makeRealSheetHtml() : "";
+    var f = mrQ.open && makeRealRoot.querySelector("[data-mr-apply], [data-mr-close]");
+    if(f) f.focus();
+  }
+  document.addEventListener("click", function(e){
+    var b = e.target.closest && e.target.closest("[data-make-real]");
+    if(!b) return;
+    e.stopPropagation();
+    mrQ.open = true; mrQ.name = b.getAttribute("data-make-real"); mrQ.removeAfter = true;
+    renderMakeReal();
+    pushActiveOverlay(function(){ mrQ.open = false; renderMakeReal(); });
+  });
+  makeRealRoot.addEventListener("change", function(e){ if(e.target.matches("[data-mr-remove]")) mrQ.removeAfter = e.target.checked; });
+  makeRealRoot.addEventListener("click", function(e){
+    if(e.target.closest("[data-mr-close]") || e.target === e.target.closest("[data-mr-backdrop]")){ requestCloseActiveOverlay(); return; }
+    if(!e.target.closest("[data-mr-apply]")) return;
+    var name = mrQ.name, remove = mrQ.removeAfter;
+    requestCloseActiveOverlay();
+    withUndo('Made "' + name + '" real', function(){
+      applyMakeReal(state, name, localDateStr(), genId);
+      if(remove && name !== state.baselineScenario && state.scenarios.length > 1) deleteScenario(name);
+      else state.scenarioChanges[name] = [];
+      recalcComputedItems();
+    });
+    renderAll();
+  });
+  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && mrQ.open) requestCloseActiveOverlay(); });
 
   // ---------------- Who changed what (v3.171.0, item 202) ----------------
   // The watcher logs edits made here a moment after they're saved (lib/activity.js); this is the

@@ -135,7 +135,18 @@ function addYearsIso(iso, years){
 // rate (a shared property splits evenly, so it's their average) and, for a sale, what the property
 // brings in the year it's sold and the cash it stops making.
 var LEG_KINDS = { rent: 1, ip: 1, cost: 1, sell: 1, extra: 1 };
-export function scenarioLegChanges(scenario){ return changesFor(scenario).filter(function(c){ return c && LEG_KINDS[c.kind]; }); }
+// v3.183.0 (item 214): a change can start in a year (fromYear), at an age (when: "age", whenAge) or when cash
+// reaches an amount (when: "cash", whenCash). An age becomes its year here; with no age known it never
+// starts. Cash is decided year by year inside computeNetWorthSeries. Copies — the saved changes stay as typed.
+export function scenarioLegChanges(scenario){
+  var age = currentAgeOrNull();
+  return changesFor(scenario).filter(function(c){ return c && LEG_KINDS[c.kind]; }).map(function(c){
+    if(c.when !== "age") return c;
+    if(age == null || !isFinite(Number(c.whenAge))) return Object.assign({}, c, { never: true });
+    return Object.assign({}, c, { fromYear: Math.max(0, Math.round(Number(c.whenAge) - age)) });
+  }).filter(function(c){ return !c.never; });
+}
+export function isCashTriggered(c){ return !!(c && c.when === "cash" && c.kind !== "sell" && Number(c.whenCash) > 0); }
 // v3.177.0 (item 204): a scenario can carry its own assumptions — an "assume" change (return, inflation,
 // a rate rise) laid over the household's projection settings. Everything the projection reads goes
 // through this, so a what-if kept as a scenario draws exactly what the sliders showed.
@@ -265,6 +276,10 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
   var investInitial = investEnabled ? Math.max(0, Number(investCfg.initialAmount) || 0) : 0;
   var investBalance = investInitial;
   var portfolio = nonPropertyAssets - upfrontCash - investInitial;
+  // v3.183.0 (item 214): the money a deposit can come from — cash, shares and offsets (liquidAssetsValue,
+  // as "cash at settlement" counts it) — followed beside the portfolio, which also holds super. A change
+  // waiting on cash looks at this.
+  var cashTrack = liquidAssetsValue() + loggedSinceRecorded().total - upfrontCash - investInitial;
 
   var rateShockPts = Number(proj.rateShockPct) || 0;
   var ipLoansMonthlyShocked = ipProperties().reduce(function(s, p){
@@ -319,11 +334,24 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
     ipProperties().reduce(function(a, p){ return a.concat(p.expenses || [], p.income || []); }, [])).filter(function(r){ return r && (r.startDate || r.endDate); });
   var yearKey = function(y){ return datedRows.map(function(r){ return isActiveInYear(r, y, todayStr) ? "1" : "0"; }).join(""); };
   var lastYearKey = null, lastYc = null;
-  var legs = scenarioLegChanges(scenario), legCtx = legs.length ? scenarioLegContext(scenario) : null;
+  var allLegs = scenarioLegChanges(scenario), legCtx = allLegs.length ? scenarioLegContext(scenario) : null;
+  // v3.183.0 (item 214): a change waiting on cash joins the year cash first reaches its amount (at the
+  // year's start); until then it isn't in. triggers[id] = the year it started, or null if it never did.
+  var pending = allLegs.filter(isCashTriggered), legs = allLegs.filter(function(c){ return !isCashTriggered(c); });
+  var triggers = {};
+  pending.forEach(function(c){ triggers[c.id] = null; });
   var soldFrom = {};
   var retireYear = (opts && opts.retireYear != null) ? opts.retireYear : retireYearFor(scenario, opts && opts.currentAge != null ? opts.currentAge : currentAgeOrNull());
   legs.forEach(function(c){ if(c.kind === "sell" && legCtx.sold[c.propertyId]) soldFrom[c.propertyId] = Math.max(0, Math.floor(Number(c.fromYear) || 0)) + 1; });
   for(var year = 0; year <= horizonYears; year++){
+    if(year > 0 && pending.length){
+      pending = pending.filter(function(c){
+        if(cashTrack < Number(c.whenCash)) return true;
+        triggers[c.id] = year;
+        legs = legs.concat([Object.assign({}, c, { fromYear: year - 1 })]);
+        return false;
+      });
+    }
     var lg = legs.length && year > 0 ? legsInYear(legs, year, legCtx) : null;
     if(year > 0 && propPath) propFactor *= 1 + (propPath[year] != null ? propPath[year] : propRate);
     if(year > 0){
@@ -344,9 +372,9 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
       if(investPath && investPath[year] != null) monthlyInvestRate = Math.pow(1 + investPath[year], 1 / 12) - 1;
       var ev = events.length ? eventEffects(events, year, thisYear) : null;
       var savingsThisYear = incomeThisYear - fixedMonthly - inflatableThisYear - (ev ? ev.yearly / 12 * Math.pow(1 + inflationRate, year) : 0);
-      if(ev && ev.lump) portfolio += ev.lump * Math.pow(1 + inflationRate, year);
+      if(ev && ev.lump){ portfolio += ev.lump * Math.pow(1 + inflationRate, year); cashTrack += ev.lump * Math.pow(1 + inflationRate, year); }
       // v3.173.0: the scenario's own changes — rent elsewhere, an investment property, a cost, a sale.
-      if(lg){ savingsThisYear += lg.savingsMonthly; portfolio += lg.lump; }
+      if(lg){ savingsThisYear += lg.savingsMonthly; portfolio += lg.lump; cashTrack += lg.lump; }
       // "auto" mode redirects the scenario's own real monthly surplus into the invest leg's
       // growth rate instead of the generic portfolio rate — not an extra contribution on top of
       // it, which would double-count the same money. "manual" pins a fixed figure instead, and
@@ -356,6 +384,7 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
         : 0;
       for(var m = 0; m < 12; m++){
         portfolio = portfolio * (1 + monthlyInvestRate) + (savingsThisYear - investContribThisYear);
+        cashTrack = cashTrack * (1 + monthlyInvestRate) + (savingsThisYear - investContribThisYear);
         if(investEnabled) investBalance = investBalance * (1 + investGrowthMonthly) + investContribThisYear;
       }
     }
@@ -396,6 +425,7 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
       debt: (loanBal + propertiesDebt + (lg ? lg.debt : 0)) / deflate
     });
   }
+  points.triggers = triggers;
   return points;
 }
 

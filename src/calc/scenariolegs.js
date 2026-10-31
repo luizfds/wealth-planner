@@ -167,7 +167,10 @@ export function legsInYear(changes, year, ctx){
 export function changeSummary(c, ctx){
   ctx = ctx || {};
   var money = ctx.money || function(n){ return "$" + Math.round(n).toLocaleString("en-AU"); };
-  var when = num(c.fromYear) > 0 ? " · from year " + (num(c.fromYear) + 1) : "";
+  // v3.183.0 (item 214): or at an age, or when cash reaches an amount.
+  var when = c.when === "cash" && num(c.whenCash) > 0 && c.kind !== "sell" ? " · when cash reaches " + money(num(c.whenCash))
+    : c.when === "age" && c.whenAge !== "" && c.whenAge != null ? " · at age " + num(c.whenAge)
+    : num(c.fromYear) > 0 ? " · from year " + (num(c.fromYear) + 1) : "";
   if(c.kind === "rent") return "Rent " + money(num(c.amount)) + " " + String(c.freq || "Weekly").toLowerCase() + when;
   if(c.kind === "cost" && num(c.amount) < 0) return (c.what || "A saving") + ": " + money(-num(c.amount)) + " " + String(c.freq || "Monthly").toLowerCase() + " less spent" + when;
   if(c.kind === "cost") return (c.what || "A cost") + ": " + money(num(c.amount)) + " " + String(c.freq || "Monthly").toLowerCase() + when;
@@ -181,6 +184,6 @@ export function changeSummary(c, ctx){
     if(c.rateShockPct != null) a.push("rates +" + num(c.rateShockPct) + " points");
     return "Its own assumptions: " + (a.join(", ") || "as the household's");
   }
-  if(c.kind === "sell") return "Sell " + ((ctx.propertyName && ctx.propertyName(c.propertyId)) || "a property") + " in year " + (num(c.fromYear) + 1);
+  if(c.kind === "sell") return "Sell " + ((ctx.propertyName && ctx.propertyName(c.propertyId)) || "a property") + (c.when === "age" && c.whenAge != null && c.whenAge !== "" ? " at age " + num(c.whenAge) : " in year " + (num(c.fromYear) + 1));
   return "";
 }

@@ -3960,7 +3960,7 @@ in the projection's dollars). Driven at 1280 and 390px: a $3,000-a-month cost ad
 today's; adding a change paints in ~190 ms at 4× CPU slowdown.
 
 
-## 214. `[ ]` Changes that happen when something is true
+## 214. `[x]` Changes that happen when something is true
 ProjectionLab's milestones: "buy when the deposit's there", not "in year 3".
 
 Do: a change can start in a year, at an age, or when cash reaches an amount; the projection finds the year, and the
@@ -3968,6 +3968,17 @@ editor, the comparison and the list say which ("buys in year 4, when cash reache
 
 Done when: tests put a cash-triggered purchase in the year the hand-worked cash first reaches it; one that never
 does says so.
+
+**Done (v3.183.0).** A change (rent, an investment property, a cost, extra repayments, a sale) starts **in a year**, **at an
+age**, or — all but a sale — **when cash reaches** an amount (`when`, `whenAge`, `whenCash` on the change). An age becomes
+its year in `scenarioLegChanges` (none known: it never starts). Cash is decided in `computeNetWorthSeries`: the change joins
+the first year whose opening cash — cash, shares and offsets as "cash at settlement" counts them, followed beside the
+portfolio, so super never pays a deposit — reaches the amount; `points.triggers[id]` says which year, or null. The change's
+row says "— year 5" or "— cash doesn't reach it in 30 years"; Make it real leaves one waiting on cash or an age for later and
+says why. Tests: the purchase lands in the first year the same household's cash starts at $150,000, identical to today
+until then; $400,000 of super doesn't move it; a target never reached leaves it out; an age gives its year.
+Driven at 1280 and 390px: an investment property set to "when cash reaches $250,000" starts in year 5.
+
 
 ## 215. `[ ]` The odds it works, and a bad start
 Boldin's chance of success; its market-risk explorer.

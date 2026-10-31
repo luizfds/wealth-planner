@@ -1893,3 +1893,20 @@ test("a scenario's own page: its head with Save and Cancel, and the draft's figu
   d.discardDraft("Move"); m.editing.name = null; m.editing.key = null;
   state.scenarios = was.scenarios; state.purchase = was.purchase; state.invest = was.invest; state.home = was.home; state.scenarioChanges = was.ch; state.baselineScenario = was.base;
 });
+
+test("a change can start at an age or when cash reaches an amount, and says when", async function(){
+  var sc = await import("../src/components/scenariochanges.js");
+  var was = { ch: state.scenarioChanges, scen: state.scenarios, fire: state.fire };
+  state.scenarios = (state.scenarios || []).concat(["Wait"]);
+  state.fire = Object.assign({}, state.fire, { currentAge: 35 });
+  state.scenarioChanges = Object.assign({}, state.scenarioChanges, { Wait: [{ id: "w1", kind: "cost", what: "Second car", amount: 300, freq: "Monthly", when: "cash", whenCash: 999999999 }] });
+  sc.changeOpen.w1 = true;
+  var html = sc.scenarioChangesHtml("Wait");
+  assert.match(html, /when cash reaches \$999,999,999/);
+  assert.match(html, /cash doesn't reach it in 30 years/);
+  assert.match(html, /data-scf="whenCash"/);
+  assert.match(html, /<option value="cash" selected>When cash reaches/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+  delete sc.changeOpen.w1;
+  state.scenarioChanges = was.ch; state.scenarios = was.scen; state.fire = was.fire;
+});

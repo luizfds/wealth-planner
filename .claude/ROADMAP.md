@@ -3944,6 +3944,106 @@ carries it, and its edits aren't logged as anyone's change. Driven at 1280 and 3
 purchase price and a home row, Save, edit again and Cancel; the smoke script opens one, changes it and saves.
 
 
+### Phase J — scenarios, from what other planners do (November 2026)
+
+Looked at ProjectionLab (milestones, compare mode), Boldin (the odds a plan works, a bad start), PocketSmith (scenarios
+as layers on an account's forecast) and the Australian rentvesting calculators (CGT on sale, what a lender allows).
+
+## 213. `[x]` The scenario against today, drawn as you edit
+Do: the editor page draws the draft's net worth over 20 years against today's (dashed), redrawn on each change.
+
+Done when: the line follows a change in a driven run, and the page stays quick (measured).
+
+**Done (v3.182.0).** The editor page draws the draft's net worth over 20 years against today's (dashed), under its
+three figures, redrawn with them on every change (`renderScenarioEditorChart` in components/scenarios.js; both series
+in the projection's dollars). Driven at 1280 and 390px: a $3,000-a-month cost added and the draft's line drops below
+today's; adding a change paints in ~190 ms at 4× CPU slowdown.
+
+
+## 214. `[x]` Changes that happen when something is true
+ProjectionLab's milestones: "buy when the deposit's there", not "in year 3".
+
+Do: a change can start in a year, at an age, or when cash reaches an amount; the projection finds the year, and the
+editor, the comparison and the list say which ("buys in year 4, when cash reaches $150,000").
+
+Done when: tests put a cash-triggered purchase in the year the hand-worked cash first reaches it; one that never
+does says so.
+
+**Done (v3.183.0).** A change (rent, an investment property, a cost, extra repayments, a sale) starts **in a year**, **at an
+age**, or — all but a sale — **when cash reaches** an amount (`when`, `whenAge`, `whenCash` on the change). An age becomes
+its year in `scenarioLegChanges` (none known: it never starts). Cash is decided in `computeNetWorthSeries`: the change joins
+the first year whose opening cash — cash, shares and offsets as "cash at settlement" counts them, followed beside the
+portfolio, so super never pays a deposit — reaches the amount; `points.triggers[id]` says which year, or null. The change's
+row says "— year 5" or "— cash doesn't reach it in 30 years"; Make it real leaves one waiting on cash or an age for later and
+says why. Tests: the purchase lands in the first year the same household's cash starts at $150,000, identical to today
+until then; $400,000 of super doesn't move it; a target never reached leaves it out; an age gives its year.
+Driven at 1280 and 390px: an investment property set to "when cash reaches $250,000" starts in year 5.
+
+
+## 215. `[x]` The odds it works, and a bad start
+Boldin's chance of success; its market-risk explorer.
+
+Do: the comparison gets, per scenario, how many runs of 10 keep cash above zero (returns that rise and fall, as the
+projection's range), and the month and net worth after a bad first year (shares −20%, property −10%).
+
+Done when: tests: a scenario with no slack fails more runs than one with plenty; a bad start lowers year 10.
+
+**Done (v3.184.0).** Two rows in Side by side: **Cash lasts** — in how many runs of 10 the scenario's cash stays above zero
+for 20 years, from 60 runs with returns rising and falling (`cashLastsOdds` in calc/outcomes.js, the projection's spread, one
+seed for every scenario so they're measured on the same luck; filled in a scenario a tick after the table draws, so a click
+never waits on it); and **After a bad first year** — net worth in 10 years against the usual with shares −20% and property
+−10% in year 1 and the scenario's own return after (`badStartSeries`), and whether cash runs out. The verdict says "cash
+runs out after a bad first year" when that's the deal-breaker. Tests: a household spending a little more than it earns
+keeps its cash in fewer runs than one with slack (42 of 60 against 60), the same seed gives the same answer; a bad start
+lowers year 10 by no more than the loss would have grown. Driven at 1280px: the table draws in ~12 ms, the odds after.
+
+
+## 216. `[x]` Try a scenario on an account
+PocketSmith's scenarios are layers on an account's daily forecast.
+
+Do: the editor page can lay the draft over an everyday account's 90 days (206): settlement on a date, the new rent
+or repayments, the property's rent and costs on their days — with the lowest point against the buffer.
+
+Done when: tests land a scenario's settlement and first repayments on their days in an invented month; driven.
+
+**Done (v3.185.0).** **Try it on an account** on a scenario's page (`calc/scenarioaccount.js`, `components/scenarioaccount.js`):
+pick an everyday account and a settlement day, and its next 90 days (206) are drawn as they are (dashed) and with the
+scenario laid over them from that day — a new rent or cost on its rhythm, an investment property's rent each week (less
+vacancy and the manager) and its loan and costs each month, a home bought's repayments and costs, money invested each
+month — with today's home bills stopping from the day it moves (bill events now carry their line's id), and the lowest
+point against the account's buffer. The cash at settlement isn't taken from the account unless ticked ("Pay the $X at
+settlement from this account") — a deposit usually comes from savings, and Side by side says whether there's enough.
+Changes from a later year, an age or a cash target wait. Tests over an invented month: the old rent on 3 November and
+gone from 3 December, the new rent and settlement on the 14th, the unit's rent a week later and its loan ($1,600, interest
+only) and costs a month later, under the buffer from settlement; unticked, the settlement is reported, not taken.
+Driven at 1280 and 390px on the demo household.
+
+
+## 217. `[x]` Tax on a sale, and what a lender allows
+The rentvesting calculators: CGT with the main-residence exemption; a lender's serviceability buffer.
+
+Do: selling in a scenario works out CGT with the owners' tax in full (the discount after a year, nothing on the home
+lived in, a former home rented out exempt for up to six years); the comparison says whether a lender would likely
+lend each purchase (repayments at the rate plus 3 points against income after living costs).
+
+Done when: tests on hand-worked sales (an IP, the home, a former home rented four years and eight years) and on a
+loan that passes at the rate but fails with the buffer.
+
+**Done (v3.186.0).** `calc/salecgt.js`. **Selling in a scenario** now works out CGT as the rentvesting calculators do: the gain
+(sale less selling costs less the cost base), halved when held over a year, at the owners' tax in full (`taxEffectFor`, the
+sole owner or shared evenly); nothing on the home; a former home rented out exempt if sold within six years of moving out,
+past that taxed for the share of time owned beyond the six years. The sale change asks how it was used ("As its kind says",
+never, our home throughout, our home then rented out + the move-out date). An estimate, said on the form: the cost base
+resetting to market value when first rented isn't applied. **A lender would likely** (Side by side): every loan — the new
+purchase or investment property and the household's own — at its rate plus 3 points, principal and interest, against
+take-home pay plus 80% of rents less living costs (the scenario's budget without loan lines, its own home's costs, the
+properties' costs); "Lend — $X a month to spare" or "Say no — $X a month short", and a no goes into the verdict. Tests
+(hand-worked): an IP sold after ten years ($280,000 gain → $140,000 → $54,600 at 39%), the home (nothing), a former home
+four years away (nothing) and eight years away (731 of 3,653 days → $10,925.98); a $600,000 loan passing at 6% but $327.74
+short at 9%; in the engine the same property pays the CGT as an investment and not as the home; a lender passes a modest
+purchase and fails a large one. Driven at 1280 and 390px.
+
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

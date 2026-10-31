@@ -1785,6 +1785,15 @@ test("compareHtml draws a column per scenario and the verdicts", async function(
   assert.match(html, /From year 7/);
   assert.match(html, /<b>Rentvest<\/b> Ahead of staying put/);
   assert.doesNotMatch(html, /undefined|NaN/);
+  // v3.184.0: the odds row waits to be filled in; a bad start shows its year-10 figure.
+  var { oddsCellHtml } = await import("../src/components/compare.js");
+  var h2 = compareHtml([mk("Today", true), mk("Rentvest", false, { badStart: { netWorth10: 700000, vsUsual: -200000, lowestCash: -5000 } })]);
+  assert.match(h2, /data-odds="Rentvest"/);
+  assert.match(h2, /cash runs out/);
+  assert.match(oddsCellHtml({ ofTen: 7, lasted: 42, runs: 60 }), /7 in 10.*3 in 10 run out/);
+  var h3 = compareHtml([mk("Today", true), mk("Buy", false, { lender: { ok: false, surplus: -420, assessedMonthly: 5100 } })]);
+  assert.match(h3, /Say no.*\$420 a month short/);
+  assert.doesNotMatch(h2, /undefined|NaN/);
 });
 
 test("the Make it real sheet lists what it will do and what it leaves", async function(){
@@ -1892,4 +1901,38 @@ test("a scenario's own page: its head with Save and Cancel, and the draft's figu
   assert.doesNotMatch(head + sum, /undefined|NaN/);
   d.discardDraft("Move"); m.editing.name = null; m.editing.key = null;
   state.scenarios = was.scenarios; state.purchase = was.purchase; state.invest = was.invest; state.home = was.home; state.scenarioChanges = was.ch; state.baselineScenario = was.base;
+});
+
+test("a change can start at an age or when cash reaches an amount, and says when", async function(){
+  var sc = await import("../src/components/scenariochanges.js");
+  var was = { ch: state.scenarioChanges, scen: state.scenarios, fire: state.fire };
+  state.scenarios = (state.scenarios || []).concat(["Wait"]);
+  state.fire = Object.assign({}, state.fire, { currentAge: 35 });
+  state.scenarioChanges = Object.assign({}, state.scenarioChanges, { Wait: [{ id: "w1", kind: "cost", what: "Second car", amount: 300, freq: "Monthly", when: "cash", whenCash: 999999999 }] });
+  sc.changeOpen.w1 = true;
+  var html = sc.scenarioChangesHtml("Wait");
+  assert.match(html, /when cash reaches \$999,999,999/);
+  assert.match(html, /cash doesn't reach it in 30 years/);
+  assert.match(html, /data-scf="whenCash"/);
+  assert.match(html, /<option value="cash" selected>When cash reaches/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+  delete sc.changeOpen.w1;
+  state.scenarioChanges = was.ch; state.scenarios = was.scen; state.fire = was.fire;
+});
+
+test("trying a scenario on an account draws the picker, the note on settlement and the chart host", async function(){
+  var m = await import("../src/components/scenarioaccount.js");
+  var was = { assets: state.assets, accounts: state.accounts, transactions: state.transactions, incomeLog: state.incomeLog, shared: state.shared, ch: state.scenarioChanges, scen: state.scenarios, purchase: state.purchase, invest: state.invest, home: state.home };
+  state.assets = [{ id: "c1", what: "Bank One Everyday", category: "Cash", amount: 9000, history: [{ date: "2026-10-30", value: 9000 }] }];
+  state.accounts = [{ id: "a1", name: "Bank One Everyday", type: "everyday", link: "asset:c1", buffer: 1000 }];
+  state.transactions = []; state.incomeLog = []; state.shared = [];
+  state.scenarios = ["Today", "Move"]; state.purchase = { Today: { enabled: false }, Move: { enabled: false } }; state.invest = { Today: { enabled: false }, Move: { enabled: false } }; state.home = { Today: [], Move: [] };
+  state.scenarioChanges = { Move: [{ id: "i", kind: "ip", what: "Example unit", price: 400000, depositPct: 20, rate: 6, termYears: 30, repaymentType: "IO", state: "VIC", rentWeekly: 450, vacancyWeeks: 0, mgmtPct: 0, costsYearly: 2400, depreciationYearly: 0, growthPct: "", owner: "", fromYear: 0 }] };
+  var html = m.scenarioAccountHtml("Move", "2026-10-31");
+  assert.match(html, /data-try-account/);
+  assert.match(html, /data-try-settlement/);
+  assert.match(html, /isn't taken from this account/);
+  assert.match(html, /id="scAcctChart"/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+  Object.assign(state, { assets: was.assets, accounts: was.accounts, transactions: was.transactions, incomeLog: was.incomeLog, shared: was.shared, scenarioChanges: was.ch, scenarios: was.scen, purchase: was.purchase, invest: was.invest, home: was.home });
 });

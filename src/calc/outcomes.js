@@ -11,7 +11,8 @@
 // spread, independent year to year. The draws come from a fixed seed, so the band doesn't shift
 // every time the page redraws — change an input and only that input's effect shows. Pure apart
 // from what computeNetWorthSeries and simulateRetirementAt read.
-import { computeNetWorthSeries } from "./engine.js";
+import { computeNetWorthSeries, projectionFor } from "./engine.js";
+import { state } from "../state.js";
 import { simulateRetirementAt } from "./fire.js";
 import { projectionRatios } from "./actuals.js";
 
@@ -94,4 +95,30 @@ export function ageForOdds(inputs, target, opts){
     if(o && o.chance >= target) return age;
   }
   return null;
+}
+
+// v3.184.0 (item 215): how many of `runs` runs of a scenario keep cash above zero for `horizon` years,
+// with returns that rise and fall as the range on Projections does. The same seed for every scenario, so
+// they're measured on the same luck. { lasted, runs, ofTen } — ofTen rounded to a whole run in ten.
+export function cashLastsOdds(scenario, horizon, opts){
+  opts = opts || {};
+  var runs = opts.runs || 60, rng = seeded(opts.seed || 20261101), rt = rates(opts.projection || state.projection);
+  var cache = {}, ratios = projectionRatios(), lasted = 0;
+  for(var i = 0; i < runs; i++){
+    var pts = computeNetWorthSeries(scenario, horizon, { realTerms: false, cache: cache, ratios: ratios,
+      investReturns: returnPath(rng, horizon, rt.invest, rt.investVol), propertyReturns: returnPath(rng, horizon, rt.property, rt.propertyVol) });
+    if(pts.every(function(p){ return p.investments >= 0; })) lasted++;
+  }
+  return { lasted: lasted, runs: runs, ofTen: Math.round(lasted / runs * 10) };
+}
+// A bad first year — shares down 20%, property down 10% — and steady after: the series to set beside the usual one.
+export var BAD_START = { invest: -0.20, property: -0.10 };
+export function badStartSeries(scenario, horizon){
+  // The engine keeps a year's investment rate until a path says otherwise, so every later year is set
+  // back to the scenario's own rate (its assumptions, v3.177.0).
+  var steady = (Number(projectionFor(scenario).investReturnRate) || 0) / 100;
+  var inv = [], prop = [];
+  for(var y = 2; y <= horizon; y++) inv[y] = steady;
+  inv[1] = BAD_START.invest; prop[1] = BAD_START.property;
+  return computeNetWorthSeries(scenario, horizon, { investReturns: inv, propertyReturns: prop });
 }

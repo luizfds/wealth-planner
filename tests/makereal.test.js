@@ -63,3 +63,11 @@ test("made real, the household's month equals the scenario's", function(){
     assert.equal(ip.depreciationSchedule[0].fy, Number(today.slice(5, 7)) >= 7 ? Number(today.slice(0, 4)) : Number(today.slice(0, 4)) - 1);
   } finally { setState(keep); }
 });
+
+test("a change waiting on cash, or at an age not reached, is left for later and says why", function(){
+  var st = { scenarios: ["Today", "Wait"], baselineScenario: "Today", fire: { currentAge: 35 }, shared: [], income: [], properties: [], purchase: {}, invest: {}, home: {},
+    scenarioChanges: { Wait: [{ id: "c", kind: "cost", what: "Second car", amount: 300, freq: "Monthly", when: "cash", whenCash: 80000 },
+      { id: "d", kind: "cost", what: "Boat", amount: 200, freq: "Monthly", when: "age", whenAge: 50 }] } };
+  var plan = makeRealPlan(st, "Wait", "2026-11-01");
+  assert.deepEqual(plan.skipped.map(function(s){ return s.why; }), ["waits until cash reaches $80,000 — make it real then", "happens at age 50 — make it real then"]);
+});

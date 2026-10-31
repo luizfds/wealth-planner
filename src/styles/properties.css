@@ -419,6 +419,11 @@
 .sc-edit-summary b{ font-size:var(--fs-lg); font-family: var(--font-num); font-variant-numeric: tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .sc-edit-summary small{ font-size:var(--fs-xs); color: var(--ink-soft); }
 .sc-edit-summary .down{ color: var(--bad-ink); }
+.sc-edit-chart{ margin:0 0 14px; }
+.sca{ margin:0 0 16px; padding:12px; border:1px solid var(--border); border-radius: var(--inner-radius); background: var(--paper-raised); }
+.sca-pick{ display:flex; gap:10px; flex-wrap:wrap; margin:6px 0 10px; }
+.sca-check{ display:flex; align-items:center; gap:6px; font-size:var(--fs-sm); min-height:44px; }
+.sca-field{ display:flex; flex-direction:column; gap:3px; font-size:var(--fs-xs); color: var(--ink-soft); }
 .sc-edit-verdict{ margin:0 0 12px; font-size:var(--fs-sm); color: var(--ink-soft); }
 .sc-edit-body{ padding:0; }
 .card-draft{ display:inline-block; margin:6px 0 0; font-size:var(--fs-xs); font-weight:600; color: var(--warn-ink); }

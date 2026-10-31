@@ -35,7 +35,13 @@ function run(st, name, today, idFactory, apply){
   };
   var cfg = st.purchase && st.purchase[name], inv = st.invest && st.invest[name];
   var buying = !!(cfg && cfg.enabled && !(inv && inv.enabled));
-  var later = function(c){ return (Number(c.fromYear) || 0) > 0; };
+  // Later: a change dated in a later year, at an age not yet reached, or waiting on cash (v3.183.0).
+  var age = st.fire && st.fire.currentAge !== "" && st.fire.currentAge != null ? Number(st.fire.currentAge) : null;
+  var later = function(c){
+    if(c.when === "cash" && Number(c.whenCash) > 0 && c.kind !== "sell") return true;
+    if(c.when === "age") return age == null || Number(c.whenAge) > age;
+    return (Number(c.fromYear) || 0) > 0;
+  };
 
   // Where the household lives.
   var rent = changes.find(function(c){ return c.kind === "rent" && !later(c); });
@@ -60,7 +66,8 @@ function run(st, name, today, idFactory, apply){
 
   changes.forEach(function(c){
     if(c.kind === "home" || (c.kind === "rent" && c === rent)) return;
-    if(later(c)){ skipped.push({ text: changeText(c), why: "happens in year " + ((Number(c.fromYear) || 0) + 1) + " — make it real then" }); return; }
+    if(later(c)){ skipped.push({ text: changeText(c), why: (c.when === "cash" ? "waits until cash reaches " + money(Number(c.whenCash) || 0)
+      : c.when === "age" ? "happens at age " + (Number(c.whenAge) || 0) : "happens in year " + ((Number(c.fromYear) || 0) + 1)) + " — make it real then" }); return; }
     if(c.kind === "rent"){ skipped.push({ text: changeText(c), why: "a second rent — only one home is made real" }); return; }
     if(c.kind === "amount"){
       var r = rowOf(c.rowId);

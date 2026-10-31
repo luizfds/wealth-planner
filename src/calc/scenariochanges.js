@@ -28,8 +28,13 @@ export function amountChangeFor(name, rowId, st){
   var c = changesFor(name, st).find(function(x){ return x && x.kind === "amount" && x.rowId === rowId; });
   return c ? c.amount : null;
 }
+// Lives elsewhere: its own home rows ("home"), a rent somewhere new ("rent", v3.173.0), or buying a
+// home to live in (the purchase calculator on, with the invest leg off).
 export function livesElsewhere(name, st){
-  return changesFor(name, st).some(function(x){ return x && x.kind === "home"; });
+  st = st || state;
+  if(changesFor(name, st).some(function(x){ return x && (x.kind === "home" || x.kind === "rent"); })) return true;
+  var cfg = st.purchase && st.purchase[name], inv = st.invest && st.invest[name];
+  return !!(cfg && cfg.enabled && !(inv && inv.enabled) && name !== st.baselineScenario);
 }
 // The household's budget lines as a scenario sees them: today's home lines are left out by a
 // scenario that lives somewhere else.
@@ -141,7 +146,8 @@ export function migrateScenarios(st, idFactory){
   scenarios.forEach(function(name){
     if(name === base && !baseBuying) return;
     if(name === base) return;
-    if(!livesElsewhere(name, st)){ add(name, { id: gen("chg"), kind: "home" }); out.homeChanges++; }
+    // Its home rows are its housing, whether or not it's buying: say so in its changes.
+    if(!changesFor(name, st).some(function(x){ return x && (x.kind === "home" || x.kind === "rent"); })){ add(name, { id: gen("chg"), kind: "home" }); out.homeChanges++; }
   });
   st.scenarioModel = 2;
   return out;

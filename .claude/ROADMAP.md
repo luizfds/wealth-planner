@@ -3769,7 +3769,7 @@ no-op; changes carry through rename, copy and delete. Driven at 1280 and 390px: 
 Home's tiles and the header unchanged; a change to Groceries in Buy a house moves that card only.
 
 
-## 208. `[ ]` A scenario as a list of changes
+## 208. `[x]` A scenario as a list of changes
 Do: a scenario is the household plus changes, each from a chosen year: rent a new place ($/week); buy a home to live in
 (the purchase calculator); buy an investment property — price, deposit, loan, rent per week, vacancy, management,
 costs, growth, depreciation — as a hypothetical property in the shape of a real one, so the same rent, cost, interest,
@@ -3778,6 +3778,28 @@ a spending change. The projection runs the household with the scenario's changes
 
 Done when: "rent at $X/week + buy an investment property" on an invented household gives a monthly result and a tax
 effect matching a hand-worked figure (tests); built and edited in the browser at 390 and 1280px.
+
+**Done (v3.173.0).** A scenario is the household plus a list of changes, each from now or a later year
+(`calc/scenariolegs.js`): **rent somewhere new** (today's home lines stop in that scenario), **buy an investment property**
+(price, deposit, rate, interest-only or P&I, term, state, rent a week, weeks vacant, management %, costs, depreciation,
+growth, owner), **a new cost or saving**, **sell a property you own** (its equity — less selling costs and, for an
+investment property, capital gains tax on half the gain — becomes cash that year, and its rent, costs and loan stop), and
+**a line costs a different amount** (207). The investment property is priced like a real one: rent less vacancy and
+management, its costs and loan, and the tax effect — the year's result (rent less management, costs, interest,
+depreciation) at the owner's marginal rate plus Medicare (shared evenly: the people's average); a loss comes back as a
+refund. `scenarioTotals` adds a scenario's changes once they've all happened (and reports the cash needed at settlement);
+`computeNetWorthSeries` adds them year by year — cash at settlement out of savings in the year bought, the property's
+value and paid-down loan from then, rent and costs growing with inflation, the tax effect recomputed each year as the
+loan's interest changes; a sold property drops out of equity and debt from its year. On Plan each change is a sentence
+with its effect a month that opens into its form (the investment property's shows rent less costs and loan, the tax
+effect, after tax and cash at settlement); "+ Rent somewhere new / Buy an investment property / A new cost or saving /
+Sell a property you own" add them. A new scenario now starts as today (no changes, nothing bought); one lives elsewhere
+only when it rents elsewhere, has its own home rows or turns on the purchase calculator, and only then shows its home
+rows. Tests: a hand-worked investment property to the cent (interest $28,800, a $9,900 loss, $3,168 back at 32%, −$408.33
+before tax, −$144.33 after), P&I, a purchase in year 3, and "rent a bigger place + buy an investment property" on an
+invented household equal to the household's month less today's rent, less the new rent, plus the property after tax.
+Driven at 1280 and 390px: a new "Rentvest" scenario with rent $780 a week and a $620,000 investment property; Home unchanged.
+
 
 ## 209. `[ ]` Start from a question
 Do: "What are you weighing?" — buy a home; buy an investment property and keep renting; rent somewhere else; upgrade

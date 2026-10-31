@@ -1736,3 +1736,25 @@ test("a scenario's changes and today's block draw", async function(){
   assert.doesNotMatch(html, /undefined|NaN/);
   state.shared = was.shared; state.income = was.income; state.scenarioChanges = was.ch;
 });
+
+test("a scenario's changes list draws each kind, and an open investment property shows its figures", async function(){
+  var sc = await import("../src/components/scenariochanges.js");
+  var was = { shared: state.shared, income: state.income, ch: state.scenarioChanges, props: state.properties };
+  state.shared = [{ id: "g", what: "Groceries", amount: 260, freq: "Weekly" }];
+  state.income = [{ id: "p", what: "Salary", person: "Alex", amount: 100000, freq: "Yearly", incomeType: "Gross" }];
+  state.properties = [{ id: "pr1", what: "1 Example St", kind: "IP", value: 500000, income: [], expenses: [], loans: [] }];
+  state.scenarioChanges = { Rentvest: [{ id: "r", kind: "rent", what: "Rent", amount: 780, freq: "Weekly", fromYear: 0 },
+    { id: "i", kind: "ip", what: "Unit", price: 600000, depositPct: 20, rate: 6, termYears: 30, repaymentType: "IO", state: "NSW", rentWeekly: 600, vacancyWeeks: 2, mgmtPct: 7, costsYearly: 4000, depreciationYearly: 5000, growthPct: "", owner: "", fromYear: 0 },
+    { id: "s", kind: "sell", propertyId: "pr1", fromYear: 2, sellingCostsPct: 2.5 }, { id: "c", kind: "cost", what: "Childcare", amount: 900, freq: "Monthly", fromYear: 1 }] };
+  sc.changeOpen.i = true;
+  var html = sc.scenarioChangesHtml("Rentvest");
+  assert.match(html, /Rent \$780 weekly/);
+  assert.match(html, /Unit: \$600,000 in NSW/);
+  assert.match(html, /Sell 1 Example St in year 3/);
+  assert.match(html, /Childcare: \$900 monthly · from year 2/);
+  assert.match(html, /Cash at settlement/);
+  assert.match(html, /data-sc-new="ip"/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+  delete sc.changeOpen.i;
+  state.shared = was.shared; state.income = was.income; state.scenarioChanges = was.ch; state.properties = was.props;
+});

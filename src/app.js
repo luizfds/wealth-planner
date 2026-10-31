@@ -89,7 +89,9 @@ import { attachReceipt, detachReceipt, takeReceiptFiles } from "./calc/receipts.
 import { saveReceiptFile, unpackReceipts, openReceipt, pruneReceipts } from "./lib/receipts.js";
 import { startActivityLog, setDevicePerson, devicePerson } from "./lib/activity.js";
 import { undoEntry } from "./calc/activity.js";
-import { setAmountChange, removeChange } from "./calc/scenariochanges.js";
+import { setAmountChange, removeChange, changesFor } from "./calc/scenariochanges.js";
+import { newChange } from "./calc/scenariolegs.js";
+import { changeOpen } from "./components/scenariochanges.js";
 import { renderActivity, activityUi } from "./components/activity.js";
 import { receiptHolder } from "./components/receipts.js";
 import { dataHealthChecks, dismissCheck } from "./calc/health.js";
@@ -5888,6 +5890,35 @@ import { inboxMessage } from "./calc/inbox.js";
       afterScenarioChange();
       showUndoToast("Removed the change", function(){ (state.scenarioChanges[dsc] = state.scenarioChanges[dsc] || []).push(gone); afterScenarioChange(); });
     }
+  });
+  // v3.173.0 (item 208): the other kinds of change — rent elsewhere, an investment property, a cost, a sale.
+  var SC_NUMBERS = { amount: 1, fromYear: 1, price: 1, depositPct: 1, rate: 1, termYears: 1, rentWeekly: 1, vacancyWeeks: 1, mgmtPct: 1, costsYearly: 1, depreciationYearly: 1, sellingCostsPct: 1 };
+  document.addEventListener("click", function(e){
+    if(!e.target.closest) return;
+    var nb = e.target.closest("[data-sc-new]");
+    if(nb){
+      var sc = nb.getAttribute("data-sc-scenario");
+      var c = newChange(nb.getAttribute("data-sc-new"), genId("chg"), { properties: state.properties, state: (state.purchase[sc] && state.purchase[sc].state) || "NSW" });
+      (state.scenarioChanges[sc] = changesFor(sc).slice()).push(c);
+      changeOpen[c.id] = true;
+      afterScenarioChange();
+      var first = document.querySelector('[data-scf-id="' + c.id + '"]');
+      if(first) first.focus();
+      return;
+    }
+    var tg = e.target.closest("[data-sc-toggle]");
+    if(tg){ var tid = tg.getAttribute("data-sc-toggle"); changeOpen[tid] = !changeOpen[tid]; renderHomeBody(); var again = document.querySelector('[data-sc-toggle="' + tid + '"]'); if(again) again.focus(); }
+  });
+  document.addEventListener("change", function(e){
+    if(!e.target.matches || !e.target.matches("[data-scf]")) return;
+    var sc = e.target.getAttribute("data-scf-scenario"), id = e.target.getAttribute("data-scf-id"), key = e.target.getAttribute("data-scf");
+    var c = changesFor(sc).find(function(x){ return x.id === id; });
+    if(!c) return;
+    var v = e.target.value;
+    c[key] = SC_NUMBERS[key] ? (v === "" ? 0 : Number(v)) : (key === "growthPct" ? (v === "" ? "" : Number(v)) : v);
+    afterScenarioChange();
+    var back = document.querySelector('[data-scf="' + key + '"][data-scf-id="' + id + '"]');
+    if(back) back.focus();
   });
   document.addEventListener("change", function(e){
     if(!e.target.matches || !e.target.matches("[data-sc-amount]")) return;

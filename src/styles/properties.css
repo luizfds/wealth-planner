@@ -392,3 +392,16 @@
 .sc-add input{ width:170px; min-height:40px; border:1px solid var(--border); border-radius:7px; padding:6px 8px; font-family:var(--font-num); font-size:var(--fs-sm); background: var(--paper); color: var(--ink); }
 .sc-today p{ margin:0 0 8px; font-size:var(--fs-sm); line-height:1.55; }
 .sc-today-lines{ color: var(--ink-soft); }
+/* v3.173.0 (item 208): kinds of change, each a sentence that opens into its form. */
+.sc-leg{ flex-wrap:wrap; }
+.sc-leg-head{ all:unset; box-sizing:border-box; flex:1 1 calc(100% - 60px); min-width:0; display:flex; flex-direction:column; cursor:pointer; padding:2px 0; }
+.sc-leg-head:focus-visible{ box-shadow: var(--focus-ring); border-radius:6px; }
+.sc-leg-head small{ font-size:var(--fs-xs); color: var(--ink-soft); }
+.scf-grid{ flex:1 0 100%; display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap:10px 12px; padding:10px 0 4px; }
+.scf{ display:flex; flex-direction:column; gap:4px; min-width:0; }
+.scf span{ font-size:var(--fs-xs); font-weight:600; color: var(--ink-soft); }
+.scf input, .scf select{ min-height:40px; border:1px solid var(--border); border-radius:7px; padding:6px 8px; font:inherit; font-size:var(--fs-sm); background: var(--paper); color: var(--ink); min-width:0; }
+.scf input[type="number"]{ font-family:var(--font-num); }
+.scf-figs{ grid-column:1 / -1; margin:2px 0 0; display:flex; flex-wrap:wrap; gap:4px 18px; font-size:var(--fs-sm); color: var(--ink-soft); }
+.scf-figs b{ color: var(--ink); font-family:var(--font-num); }
+.sc-adders{ display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }

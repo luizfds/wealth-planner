@@ -1,5 +1,5 @@
 import { state, persist, defaultHomeBlock, defaultPurchaseConfig, defaultInvestConfig, deepClone, genId } from "../state.js";
-import { renameScenarioChanges, cloneScenarioChanges, deleteScenarioChanges, setLivesElsewhere, homeRowsFromBudget } from "../calc/scenariochanges.js";
+import { renameScenarioChanges, cloneScenarioChanges, deleteScenarioChanges, setLivesElsewhere, homeRowsFromBudget, livesElsewhere, changesFor } from "../calc/scenariochanges.js";
 import { scenarioChangesHtml, todaysHomeHtml, todaysHomeMonthly } from "./scenariochanges.js";
 import { PURCHASE_STATE_CODES, STATE_GROWTH_RATES, INVEST_LEG_TYPES } from "../constants.js";
 import { recalcPurchase } from "../calc/property.js";
@@ -29,10 +29,10 @@ export function addScenario(){
   if(!name) return;
   if(state.scenarios.indexOf(name) !== -1){ showToast('A scenario named "' + name + '" already exists'); return; }
   state.scenarios.push(name);
+  // v3.173.0 (item 208): a new scenario starts as today — no changes, nothing bought. Its home rows wait,
+  // empty, for when it buys a home to live in (the purchase calculator) or moves.
   state.home[name] = defaultHomeBlock();
-  // A new scenario is somewhere else to live (its own home rows); today's home lines stay out of it.
-  setLivesElsewhere(name, function(){ return genId("chg"); });
-  state.purchase[name] = defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", true);
+  state.purchase[name] = defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", false);
   state.invest[name] = defaultInvestConfig();
   state.activeScenario = name;
   persist();
@@ -231,7 +231,7 @@ export function renderHomeBody(){
     var isCollapsed = !!homeBlockCollapsed[scenario];
     // Today, unless it's itself buying (then its loan is the calculator's, and it keeps its own rows).
     var isToday = isBaseline && !(state.home[scenario] || []).length;
-    var total = isToday ? todaysHomeMonthly() : sumField(state.home[scenario], "monthly");
+    var total = scenarioHomeMonthly(scenario);
     return '<div class="home-block' + (isActive ? " is-active" : "") + (isCollapsed ? " is-collapsed" : "") + '">' +
       // v3.139.0: the whole header still opens and closes the card with a click, but the control a
       // keyboard and a screen reader reach is the caret — the header itself holds Set active, Rename,
@@ -261,10 +261,11 @@ export function renderHomeBody(){
         renderPurchasePanelHtml(scenario) +
         '<div class="calc-or-divider" aria-hidden="true"><span>or</span></div>' +
         renderInvestPanelHtml(scenario) +
+        (!livesElsewhere(scenario) ? '' :
         '<div class="home-recurring-label">Recurring costs — per month</div>' +
         '<p class="income-summary-line home-recon-line">' + homeReconciliationHtml(scenario) + '</p>' +
         '<div class="m-card" id="homeCard_' + slug(scenario) + i + '">' + modernHomeCompBarHtml(homeRowMeta(scenario)) + '<div class="m-rows" id="homeRows_' + slug(scenario) + i + '">' + modernHomeListHtml(scenario) + '</div></div>' +
-        '<div class="ledger-footer"><button class="btn btn-sm" data-add="home:' + escapeAttr(scenario) + '">+ Add item</button></div>' +
+        '<div class="ledger-footer"><button class="btn btn-sm" data-add="home:' + escapeAttr(scenario) + '">+ Add item</button></div>') +
       '</div>' +
       '</div>');
   }).join("") +
@@ -407,10 +408,18 @@ export function patchInvestOutputs(panel, scenario){
   if(noteB) noteB.textContent = investResolvedMonthlyLabel(scenario, cfg);
 }
 
+// v3.173.0: what living in a scenario costs a month — today's home lines for one that stays put, its own
+// home rows and any rent somewhere new for one that moves.
+function scenarioHomeMonthly(scenario){
+  var own = scenario === state.baselineScenario && (state.home[scenario] || []).length;
+  if(!own && !livesElsewhere(scenario)) return todaysHomeMonthly();
+  return sumField(state.home[scenario], "monthly") + changesFor(scenario).filter(function(c){ return c.kind === "rent"; })
+    .reduce(function(sum, c){ return sum + periodsOf(Number(c.amount) || 0, c.freq || "Weekly").monthly; }, 0);
+}
 export function renderHomeBodyTotalsOnly(){
   document.querySelectorAll('#homeBody .home-block').forEach(function(block, i){
     var scenario = state.scenarios[i];
-    var monthly = sumField(state.home[scenario], "monthly");
+    var monthly = scenarioHomeMonthly(scenario);
     var totalSpan = block.querySelector('.home-block-total');
     if(totalSpan) totalSpan.textContent = fmtCurrency0.format(monthly) + " / mo";
     var reconLine = block.querySelector('.home-recon-line');

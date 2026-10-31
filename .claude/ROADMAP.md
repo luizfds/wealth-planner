@@ -3944,6 +3944,51 @@ carries it, and its edits aren't logged as anyone's change. Driven at 1280 and 3
 purchase price and a home row, Save, edit again and Cancel; the smoke script opens one, changes it and saves.
 
 
+### Phase J — scenarios, from what other planners do (November 2026)
+
+Looked at ProjectionLab (milestones, compare mode), Boldin (the odds a plan works, a bad start), PocketSmith (scenarios
+as layers on an account's forecast) and the Australian rentvesting calculators (CGT on sale, what a lender allows).
+
+## 213. `[ ]` The scenario against today, drawn as you edit
+Do: the editor page draws the draft's net worth over 20 years against today's (dashed), redrawn on each change.
+
+Done when: the line follows a change in a driven run, and the page stays quick (measured).
+
+## 214. `[ ]` Changes that happen when something is true
+ProjectionLab's milestones: "buy when the deposit's there", not "in year 3".
+
+Do: a change can start in a year, at an age, or when cash reaches an amount; the projection finds the year, and the
+editor, the comparison and the list say which ("buys in year 4, when cash reaches $150,000").
+
+Done when: tests put a cash-triggered purchase in the year the hand-worked cash first reaches it; one that never
+does says so.
+
+## 215. `[ ]` The odds it works, and a bad start
+Boldin's chance of success; its market-risk explorer.
+
+Do: the comparison gets, per scenario, how many runs of 10 keep cash above zero (returns that rise and fall, as the
+projection's range), and the month and net worth after a bad first year (shares −20%, property −10%).
+
+Done when: tests: a scenario with no slack fails more runs than one with plenty; a bad start lowers year 10.
+
+## 216. `[ ]` Try a scenario on an account
+PocketSmith's scenarios are layers on an account's daily forecast.
+
+Do: the editor page can lay the draft over an everyday account's 90 days (206): settlement on a date, the new rent
+or repayments, the property's rent and costs on their days — with the lowest point against the buffer.
+
+Done when: tests land a scenario's settlement and first repayments on their days in an invented month; driven.
+
+## 217. `[ ]` Tax on a sale, and what a lender allows
+The rentvesting calculators: CGT with the main-residence exemption; a lender's serviceability buffer.
+
+Do: selling in a scenario works out CGT with the owners' tax in full (the discount after a year, nothing on the home
+lived in, a former home rented out exempt for up to six years); the comparison says whether a lender would likely
+lend each purchase (repayments at the rate plus 3 points against income after living costs).
+
+Done when: tests on hand-worked sales (an IP, the home, a former home rented four years and eight years) and on a
+loan that passes at the rate but fails with the buffer.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

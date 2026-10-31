@@ -12,6 +12,7 @@ import { shiftMonth, monthLabel } from "../calc/monthreview.js";
 import { cardPaymentsForMonth, upcomingBills, billLineStatus, billsToConfirm } from "../calc/bills.js";
 import { storageUsedChars, storageLevel, storageLineText } from "./storageuse.js";
 import { weekRecap, showWeekRecap } from "../calc/weekrecap.js";
+import { subscriptionList, cancelReminders, homeLineIds } from "../calc/subscriptions.js";
 
 // ---------------- Notifications: a small, backend-shaped layer over locally-computed alerts ----------------
 // This app has no backend (see CLAUDE.md) — every notification here is derived live from
@@ -532,6 +533,20 @@ export function endingPayNotifications(today){
   }).filter(Boolean);
 }
 
+// ---------------- Cancel-by reminders (v3.179.0, item 205) ----------------
+// A week before a subscription's cancel-by date, while it's still charging.
+export function cancelByNotifications(today){
+  today = today || localDateStr();
+  var list = subscriptionList(state.transactions, today, state.subscriptionNotes || {}, { homeLines: homeLineIds(state) });
+  return cancelReminders(list, today, 7).map(function(s){
+    var days = daysUntil(s.cancelBy, today);
+    return { id: "cancelby:" + s.key + ":" + s.cancelBy, type: "bill", severity: days <= 1 ? "warn" : "info",
+      title: "Cancel " + (s.name || s.label) + (days < 0 ? " — it was due " : " by ") + fmtDate(s.cancelBy),
+      detail: "It charges " + fmtCurrency0.format(s.amount) + " " + String(s.freq).toLowerCase() + (s.next ? ", next on " + fmtDate(s.next) : "") + " — about " + fmtCurrency0.format(s.yearly) + " a year. Once it stops charging it drops off; or clear the date under Cash flow → Bills.",
+      date: s.cancelBy, page: "expenses", sub: "bills" };
+  });
+}
+
 // The one local source today — a future remote source (fetched notifications from a backend)
 // would be added here as a sibling function and merged into getNotifications() below, unchanged
 // everywhere else.
@@ -552,6 +567,7 @@ export function getLocalNotifications(){
     rateChangeNotifications(),
     cardPaymentNotifications(),
     endingPayNotifications(),
+    cancelByNotifications(),
     monthReviewNotification(),
     weekRecapNotification(),
     dataHealthNotification(),

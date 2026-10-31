@@ -1626,3 +1626,25 @@
   .act-main small{ font-size:var(--fs-xs); color: var(--ink-soft); }
   .act-row.is-undone .act-what{ text-decoration:line-through; color: var(--ink-soft); }
   .act-undone{ font-size:var(--fs-xs); color: var(--ink-soft); }
+
+/* v3.179.0 (item 205): Subscriptions on Cash flow → Bills */
+.sub-total{ margin:0 0 8px; font-size:var(--fs-sm); }
+.sub-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; }
+.sub-row{ display:grid; grid-template-columns: minmax(0,2fr) minmax(0,.8fr) minmax(0,1.1fr) minmax(0,1.4fr); gap:10px; align-items:center; padding:8px 0; border-bottom:1px dashed var(--border); font-size:var(--fs-sm); }
+.sub-name{ display:flex; flex-direction:column; min-width:0; }
+.sub-name b{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sub-name small, .sub-year small, .sub-cancel small{ color: var(--ink-soft); font-size:var(--fs-xs); }
+.sub-rise{ color: var(--warn-ink) !important; }
+.sub-year{ display:flex; flex-direction:column; text-align:right; font-variant-numeric: tabular-nums; }
+.sub-when{ color: var(--ink-soft); }
+.sub-stopped{ color: var(--ink-soft); font-style:italic; }
+.sub-cancel{ display:flex; flex-direction:column; align-items:flex-end; gap:2px; }
+.sub-cancel label{ display:flex; align-items:center; gap:6px; }
+.sub-cancel small, .sub-cancel .link-btn{ white-space:nowrap; }
+.sub-row.is-stopped .sub-name b, .sub-row.is-ignored .sub-name b{ color: var(--ink-soft); }
+.sub-row.is-ignored{ opacity:.6; }
+@media (max-width:700px){
+  .sub-row{ grid-template-columns: minmax(0,1fr) auto; grid-template-areas: "name year" "when when" "cancel cancel"; row-gap:4px; }
+  .sub-name{ grid-area:name; } .sub-year{ grid-area:year; } .sub-when{ grid-area:when; font-size:var(--fs-xs); }
+  .sub-cancel{ grid-area:cancel; flex-direction:row; justify-content:space-between; align-items:center; }
+}

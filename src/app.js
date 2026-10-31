@@ -1,3 +1,4 @@
+import { renderSubscriptions, subsUi } from "./components/subscriptions.js";
 import { bench, benchmarkCardHtml, targetMixCardHtml } from "./components/investreturn.js";
 import { whatIfValues, resetWhatIf, wiFromSlider, wiValueText } from "./components/whatif.js";
 import { whatIfMoved, keepWhatIf } from "./calc/whatif.js";
@@ -5985,6 +5986,28 @@ import { inboxMessage } from "./calc/inbox.js";
     }
   });
   document.addEventListener("keydown", function(e){ if(e.key === "Escape" && startQ.open) requestCloseActiveOverlay(); });
+
+  // ---------------- Every subscription in one list (v3.179.0, item 205) ----------------
+  function subNote(key){ if(!state.subscriptionNotes) state.subscriptionNotes = {}; return (state.subscriptionNotes[key] = state.subscriptionNotes[key] || {}); }
+  function tidySubNote(key){ var n = state.subscriptionNotes[key]; if(n && !n.cancelBy && !n.ignored) delete state.subscriptionNotes[key]; }
+  document.addEventListener("change", function(e){
+    var k = e.target.getAttribute && e.target.getAttribute("data-sub-cancel");
+    if(k == null) return;
+    if(e.target.value) subNote(k).cancelBy = e.target.value; else { subNote(k); delete state.subscriptionNotes[k].cancelBy; tidySubNote(k); }
+    persist(); renderNotifBadge();
+    showToast(e.target.value ? "A reminder comes a week before " + fmtDate(e.target.value) : "Cancel-by date cleared");
+  });
+  document.addEventListener("click", function(e){
+    if(!e.target.closest) return;
+    var ig = e.target.closest("[data-sub-ignore]");
+    if(ig){
+      var k = ig.getAttribute("data-sub-ignore"), n = subNote(k);
+      if(n.ignored) delete n.ignored; else n.ignored = true;
+      tidySubNote(k); persist(); renderSubscriptions(); renderNotifBadge();
+      return;
+    }
+    if(e.target.closest("[data-sub-hidden]")){ subsUi.showHidden = !subsUi.showHidden; renderSubscriptions(); }
+  });
 
   // ---------------- Against the market, a target mix (v3.178.0, item 203) ----------------
   function redrawCard(id, html){ var el = document.getElementById(id); if(el) el.outerHTML = html; }

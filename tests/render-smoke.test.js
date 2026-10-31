@@ -1842,3 +1842,16 @@ test("against the market, the target mix and distributions ahead draw from inven
   m.bench.status = "idle"; m.bench.series = {};
   state.assets = was.assets; state.targetMix = was.targetMix;
 });
+
+test("the Subscriptions card lists repeating charges, a rise, a stopped one and the cancel-by field", async function(){
+  var m = await import("../src/components/subscriptions.js");
+  var t = [];
+  ["2026-06-03", "2026-07-03", "2026-08-03", "2026-09-03", "2026-10-03"].forEach(function(d, i){ t.push({ date: d, what: "STREAMFLIX PTY LTD", amount: i < 3 ? 16.99 : 18.99 }); });
+  ["2026-03-12", "2026-04-12", "2026-05-12"].forEach(function(d){ t.push({ date: d, what: "Bank One Cloud Storage", amount: 4.49 }); });
+  var html = m.subscriptionsHtml("2026-10-20", { transactions: t, subscriptionNotes: {} });
+  assert.match(html, /data-sub-cancel=/);
+  assert.match(html, /Up from \$16\.99/);
+  assert.match(html, /Stopped — last charged/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+  assert.match(m.subscriptionsHtml("2026-10-20", { transactions: [], subscriptionNotes: {} }), /Nothing charges on a steady rhythm/);
+});

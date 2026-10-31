@@ -31,13 +31,18 @@ export function cadenceOf(dates){
   return agree >= Math.ceil(gaps.length * 0.7) ? c.freq : null;
 }
 
-export function unbudgetedRecurring(transactions, today){
+// v3.179.0 (item 205): every payee that charges on a steady rhythm about the same each time, budgeted
+// or not, with each charge in date order and whether it has stopped (nothing for more than two cycles
+// and a bit). opts.includeLinked: count charges already filed to a budget line (the subscriptions list
+// does; "unbudgeted" doesn't). The one detector both lists use.
+export function repeatingPayees(transactions, today, opts){
+  opts = opts || {};
   var groups = {};
   (transactions || []).forEach(function(t, i){
-    if(!t || t.linkedExpenseId || !(Number(t.amount) > 0) || !t.date) return;
+    if(!t || (!opts.includeLinked && t.linkedExpenseId) || !(Number(t.amount) > 0) || !t.date) return;
     var key = merchantKey(t.what || "");
     if(!key) return;
-    (groups[key] = groups[key] || { key: key, label: t.what, items: [] }).items.push({ date: t.date, amount: Number(t.amount), index: i, category: t.category || "" });
+    (groups[key] = groups[key] || { key: key, label: t.what, items: [] }).items.push({ date: t.date, amount: Number(t.amount), index: i, category: t.category || "", line: t.linkedExpenseId || "" });
   });
   var out = [];
   Object.keys(groups).forEach(function(k){
@@ -49,15 +54,21 @@ export function unbudgetedRecurring(transactions, today){
     // A steady payee charges about the same each time; groceries at one shop don't.
     var similar = amounts.filter(function(a){ return Math.abs(a - med) <= Math.max(2, med * 0.15); }).length;
     if(similar < Math.ceil(amounts.length * 0.7)) return;
-    var last = g.items.map(function(x){ return x.date; }).sort().pop();
+    var charges = g.items.slice().sort(function(x, y){ return x.date < y.date ? -1 : x.date > y.date ? 1 : 0; });
+    var last = charges[charges.length - 1].date;
     var cad = CADENCES.find(function(c){ return c.freq === freq; });
-    // Stopped: nothing for more than two cycles.
-    if(today && days(last, today) > cad.days * 2.2) return;
     var cats = g.items.map(function(x){ return x.category; }).filter(Boolean);
     out.push({ key: k, name: suggestedLineName(k), label: g.label, freq: freq, amount: round(med), count: g.items.length, last: last,
-      monthly: round(periodsOf(med, freq).monthly), category: cats.length ? cats[cats.length - 1] : "", indices: g.items.map(function(x){ return x.index; }) });
+      monthly: round(periodsOf(med, freq).monthly), category: cats.length ? cats[cats.length - 1] : "", indices: g.items.map(function(x){ return x.index; }),
+      charges: charges, cycleDays: cad.days, stopped: !!(today && days(last, today) > cad.days * 2.2) });
   });
   return out.sort(function(a, b){ return b.monthly - a.monthly; });
+}
+
+export function unbudgetedRecurring(transactions, today){
+  return repeatingPayees(transactions, today).filter(function(r){ return !r.stopped; }).map(function(r){
+    return { key: r.key, name: r.name, label: r.label, freq: r.freq, amount: r.amount, count: r.count, last: r.last, monthly: r.monthly, category: r.category, indices: r.indices };
+  });
 }
 
 // Lines whose last three charges (median) run more than 5% and $2 above the budgeted amount.

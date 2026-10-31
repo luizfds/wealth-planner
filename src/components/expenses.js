@@ -1,3 +1,4 @@
+import { renderSubscriptions } from "./subscriptions.js";
 import { state, persist, genId } from "../state.js";
 import { CLASSES, FREQS, UNCATEGORISED } from "../constants.js";
 import { sumField, sumFieldForScenario, resolveSharedAmount, periodsOf, budgetCycleFor, reserveCycleFor, transactionDisplayName, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, plannedToDateByCategory, isOverdue, daysUntil, lastTransactionDateFor, refundableTransactions, reserveYearWindowFor, householdYearWindow, householdYearToDate, householdYearProgress, householdYearBasis, HOUSEHOLD_YEAR_BASES, selectedMonth, monthPhrase, selectedYearWindow, isPeriodToday, monthAnchorDate } from "../calc/ledger.js";
@@ -400,6 +401,7 @@ export function renderBillsCalendar(){
   if(!el) return;
   var ym = selectedMonth();
   el.innerHTML = billsCalendarHtml(billsForMonth(loggableBudgetLineItems(), state.transactions, ym, localDateStr(), { accounts: state.accounts, transfers: state.transfers }), ym);
+  renderSubscriptions(); // v3.179.0 (item 205)
 }
 // "Your month, planned" (v3.59.0) — components/cashflow.js budgetPlanHtml.
 export function renderBudgetPlan(){

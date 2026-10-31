@@ -3743,7 +3743,7 @@ redrawing everything. Tests: untouched sliders equal the saved plan; each slider
 what-if's series equals the preview's year by year. Driven at 1280 and 390px.
 
 
-## 205. `[ ]` Every subscription in one list
+## 205. `[x]` Every subscription in one list
 Rocket Money and Monarch list every subscription with what it costs a year. `recurring.js` already finds repeating
 payees and rising charges, but only on Budget, mixed in with bills.
 
@@ -3751,6 +3751,20 @@ Do: Cash flow → Bills gets a Subscriptions view: each repeating charge with it
 next charge and a "cancel by" reminder you set. A charge that stops shows as stopped, not overdue.
 
 Done when: the list agrees with `recurring.js` on an invented statement; a reminder reaches notifications.
+
+**Done (v3.179.0).** **Subscriptions** on Cash flow → Bills (`calc/subscriptions.js`, `components/subscriptions.js`):
+every payee charging on a steady rhythm, budgeted or not, from the same detector Budget's "repeating, not budgeted"
+uses (`repeatingPayees` in `calc/recurring.js`, which `unbudgetedRecurring` is now a filter of). Each with its latest
+charge, what that comes to a year, the rise to today's price (from what, when), the next charge (month ends kept;
+charges the statement hasn't caught up to skipped), and a **cancel by** date — a reminder in notifications from a week
+before, while it's still charging. One that stops charging shows as "Stopped — last charged …" for a year, never as
+overdue. Not counted: home costs (rent, the home loan — lines marked as where you live, or Housing) and payees that
+come close but never charge the same amount twice (fuel, top-ups); "Not a subscription" sets one aside.
+`state.subscriptionNotes`, synced and in the backup. Tests over an invented statement: everything Budget calls
+repeating and unbudgeted is in the list with the same rhythm; the yearly cost, the rise, the next charge and the
+stopped one; a cancel-by date reaching the reminders a week ahead and not once set aside. Driven at 1280 and 390px: a
+cancel-by date set on the demo household's list, and the reminder read back from notifications.
+
 
 ## 206. `[ ]` Balance forecast by the day
 PocketSmith's headline is an account's balance projected day by day, with each bill and pay landing on its date.

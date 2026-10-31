@@ -86,6 +86,9 @@ the last, so two sessions can't pick up the same one.
   invest / home / scenarioChanges; `editing` in components/scenarios.js). Anything looping scenarios by `state.scenarios` skips drafts — keep it so.
   **Triggers (v3.183.0):** a change starts at `fromYear`, `when: "age"` (`whenAge`) or `when: "cash"` (`whenCash`, on cash + shares + offsets,
   never super); `computeNetWorthSeries(...).triggers[id]` is the year it started. Read legs through `scenarioLegChanges`, not raw.
+  **Phase J (v3.182–186):** the editor draws the draft against today and lays it on an account (`calc/scenarioaccount.js`); Side by side
+  adds the odds (`cashLastsOdds`, filled in after drawing), a bad first year (`badStartSeries`) and a lender check (`lenderCheck`); a
+  sale's CGT is `calc/salecgt.js` — the one place sale tax is worked out.
 - **Investment returns (v3.178.0):** `calc/investreturn.js` — `xirr`, money-weighted per holding, the same money in an index
   (the price file's weekly A200 / IVV series, read once a session by `components/investreturn.js`), a target mix (`state.targetMix`,
   a holding's own `assetClass` overriding its market) and distributions ahead. The IRR and the index units are `calc/performance.js`'s

@@ -17,6 +17,7 @@ import { loggedSinceRecorded } from "./accounts.js";
 import { scenarioSharedItems, changesFor } from "./scenariochanges.js";
 import { legsMonthly, legsInYear } from "./scenariolegs.js";
 import { isDraftKey } from "./scenariodraft.js";
+import { saleCgt } from "./salecgt.js";
 
 // Every non-Shares asset, and every Shares holding on the ASX, is already AUD — the only
 // currency this app ever mixes in is USD (US-market and Crypto holdings, see MARKET_CURRENCY).
@@ -195,6 +196,8 @@ export function scenarioLegContext(scenario){
     return (taxMemo[key] = effect);
   };
   var propRate = (Number(proj.propertyAppreciationRate) || 0) / 100, rateShockPts = Number(proj.rateShockPct) || 0, todayStr = localDateStr();
+  // The owner a sale's gain is taxed to: the one who owns it all, else shared evenly.
+  var saleOwner = function(p){ var o = p.ownership || {}, names = Object.keys(o).filter(function(k){ return Number(o[k]) >= 100; }); return names.length === 1 ? names[0] : ""; };
   var sold = {};
   changesFor(scenario).forEach(function(c){
     if(!c || c.kind !== "sell") return;
@@ -209,9 +212,12 @@ export function scenarioLegContext(scenario){
         var value = (Number(p.value) || 0) * Math.pow(1 + propRate, year);
         var debt = (p.loans || []).reduce(function(s3, l){ return loanPaidOut(l, addYearsIso(todayStr, year)) ? s3 : s3 + loanBalanceAfterMonths(l.balance, (Number(l.rate) || 0) + rateShockPts, l.termYears, year * 12, l.repaymentType); }, 0);
         var selling = value * (Number(c.sellingCostsPct) || 0) / 100;
-        // Capital gains tax on an investment property held over a year: half the gain at the owners' rate.
-        var gain = costBase != null && p.kind === "IP" ? Math.max(0, value - selling - costBase) : 0;
-        var cgt = gain * 0.5 * (marginalRateFor("") + 0.02);
+        // v3.186.0 (item 217): capital gains tax as the sale works it out (calc/salecgt.js) — nothing on the
+        // home, a former home exempt for six years after moving out, half the gain after a year, at the owners'
+        // tax in full. With no cost base on record there's no gain to work out.
+        var use = c.use || (p.kind === "IP" ? "never" : "home");
+        var cgt = costBase == null ? 0 : saleCgt({ sale: value, sellingCosts: selling, costBase: costBase, bought: p.purchaseDate || "", sold: addYearsIso(todayStr, year),
+          use: use, movedOut: c.movedOut || "", taxOf: function(g){ return -taxEffectFor(saleOwner(p), g); } }).tax;
         return value - debt - selling - cgt;
       }
     };

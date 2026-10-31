@@ -4019,7 +4019,7 @@ only) and costs a month later, under the buffer from settlement; unticked, the s
 Driven at 1280 and 390px on the demo household.
 
 
-## 217. `[ ]` Tax on a sale, and what a lender allows
+## 217. `[x]` Tax on a sale, and what a lender allows
 The rentvesting calculators: CGT with the main-residence exemption; a lender's serviceability buffer.
 
 Do: selling in a scenario works out CGT with the owners' tax in full (the discount after a year, nothing on the home
@@ -4028,6 +4028,21 @@ lend each purchase (repayments at the rate plus 3 points against income after li
 
 Done when: tests on hand-worked sales (an IP, the home, a former home rented four years and eight years) and on a
 loan that passes at the rate but fails with the buffer.
+
+**Done (v3.186.0).** `calc/salecgt.js`. **Selling in a scenario** now works out CGT as the rentvesting calculators do: the gain
+(sale less selling costs less the cost base), halved when held over a year, at the owners' tax in full (`taxEffectFor`, the
+sole owner or shared evenly); nothing on the home; a former home rented out exempt if sold within six years of moving out,
+past that taxed for the share of time owned beyond the six years. The sale change asks how it was used ("As its kind says",
+never, our home throughout, our home then rented out + the move-out date). An estimate, said on the form: the cost base
+resetting to market value when first rented isn't applied. **A lender would likely** (Side by side): every loan — the new
+purchase or investment property and the household's own — at its rate plus 3 points, principal and interest, against
+take-home pay plus 80% of rents less living costs (the scenario's budget without loan lines, its own home's costs, the
+properties' costs); "Lend — $X a month to spare" or "Say no — $X a month short", and a no goes into the verdict. Tests
+(hand-worked): an IP sold after ten years ($280,000 gain → $140,000 → $54,600 at 39%), the home (nothing), a former home
+four years away (nothing) and eight years away (731 of 3,653 days → $10,925.98); a $600,000 loan passing at 6% but $327.74
+short at 9%; in the engine the same property pays the CGT as an investment and not as the home; a lender passes a modest
+purchase and fails a large one. Driven at 1280 and 390px.
+
 
 ## Conventions for whoever picks this up
 

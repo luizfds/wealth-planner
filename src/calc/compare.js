@@ -9,10 +9,15 @@
 
 import { state } from "../state.js";
 import { scenarioTotals, computeNetWorthSeries, currentScenario, liquidAssetsValue, scenarioLegChanges, scenarioLegContext } from "./engine.js";
-import { recalcPurchase, calcRepaymentMonthly, purchaseActiveRate, ipProperties, shockedLoanRepaymentMonthly } from "./property.js";
+import { recalcPurchase, calcRepaymentMonthly, purchaseActiveRate, ipProperties, shockedLoanRepaymentMonthly, loanPaidOut } from "./property.js";
 import { sumField } from "./ledger.js";
 import { ipFigures } from "./scenariolegs.js";
 import { badStartSeries } from "./outcomes.js";
+import { serviceability, SERVICE_BUFFER } from "./salecgt.js";
+import { scenarioSharedItems, livesElsewhere } from "./scenariochanges.js";
+import { scenarioIncomeMonthly } from "./tax.js";
+import { periodsOf } from "./ledger.js";
+import { localDateStr } from "../lib/format.js";
 
 export var COMPARE_YEARS = [5, 10, 20];
 function r0(n){ return Math.round(n); }
@@ -72,6 +77,7 @@ export function compareScenario(scenario, opts){
     if(aheadFrom != null) aheadForAWhile = null;
   }
   var stress = stressMonthly(scenario);
+  var lender = lenderCheck(scenario, base);
   // v3.184.0 (item 215): a bad first year (shares −20%, property −10%) — net worth at 10 years and the
   // lowest cash, beside the usual.
   var bad = badStartSeries(scenario, horizon), ten = Math.min(10, series.length - 1);
@@ -84,11 +90,42 @@ export function compareScenario(scenario, opts){
     lowestCash: r0(lowest),
     // The difference of the two figures as shown, so "vs today" always adds up to what's on screen.
     netWorth: COMPARE_YEARS.map(function(yr){ var v = r0(series[Math.min(yr, series.length - 1)].y); return { year: yr, value: v, vsBase: v - r0(baseSeries[Math.min(yr, baseSeries.length - 1)].y) }; }),
-    aheadFrom: aheadFrom, aheadForAWhile: aheadForAWhile,
+    aheadFrom: aheadFrom, aheadForAWhile: aheadForAWhile, lender: lender,
     badStart: { netWorth10: r0(bad[ten].y), vsUsual: r0(bad[ten].y) - r0(series[ten].y), lowestCash: r0(bad.reduce(function(m, p){ return Math.min(m, p.investments); }, Infinity)) }
   };
   out.verdict = verdict(out);
   return out;
+}
+
+// v3.186.0 (item 217): whether a lender would likely lend what a scenario borrows — null when it borrows
+// nothing new. Take-home pay (the household's), the rents (existing and new), living costs as the scenario
+// has them (loan repayments aside), and every loan, new and existing, at its rate plus the buffer.
+export function lenderCheck(scenario, base){
+  var cfg = state.purchase && state.purchase[scenario], inv = state.invest && state.invest[scenario];
+  var loans = [], rent = 0, living = 0;
+  if(cfg && cfg.enabled && !(inv && inv.enabled)){
+    var out = recalcPurchase(scenario);
+    if(out && out.loanBalance > 0) loans.push({ balance: out.loanBalance, rate: purchaseActiveRate(cfg), termYears: cfg.termYears });
+  }
+  scenarioLegChanges(scenario).forEach(function(c){
+    if(c.kind === "ip"){ var f = ipFigures(c, {}); loans.push({ balance: f.loan, rate: Number(c.rate) || 0, termYears: Number(c.termYears) || 30 }); rent += f.rentYearly / 12; living += f.costsYearly / 12; }
+    else if(c.kind === "rent" || c.kind === "cost") living += periodsOf(Number(c.amount) || 0, c.freq || "Monthly").monthly;
+  });
+  if(!loans.length) return null;
+  ipProperties().forEach(function(p){
+    rent += sumField(p.income || [], "monthly");
+    living += sumField(p.expenses || [], "monthly");
+    (p.loans || []).forEach(function(l){ if(!loanPaidOut(l, localDateStr())) loans.push({ balance: Math.max(0, (Number(l.balance) || 0) - (Number(l.offsetBalance) || 0)), rate: Number(l.rate) || 0, termYears: Number(l.termYears) || 30 }); });
+  });
+  (state.properties || []).filter(function(p){ return p.kind !== "IP"; }).forEach(function(p){
+    (p.loans || []).forEach(function(l){ if(!loanPaidOut(l, localDateStr())) loans.push({ balance: Math.max(0, (Number(l.balance) || 0) - (Number(l.offsetBalance) || 0)), rate: Number(l.rate) || 0, termYears: Number(l.termYears) || 30 }); });
+  });
+  // Living costs: the budget as this scenario has it, less lines that are loan repayments (the loans above
+  // are assessed instead), plus its own home's running costs.
+  living += sumField(scenarioSharedItems(scenario).filter(function(l){ return !/\b(loan|mortgage)\b/i.test(String(l.what || "")); }), "monthly");
+  if(livesElsewhere(scenario)) living += sumField((state.home[scenario] || []).filter(function(r){ return r.id !== "homeLoanRow"; }), "monthly");
+  var r = serviceability({ incomeMonthly: scenarioIncomeMonthly({ scenario: base }), rentMonthly: rent, livingMonthly: living, loans: loans });
+  return { ok: r.ok, surplus: Math.round(r.surplus), assessedMonthly: Math.round(r.assessedMonthly) };
 }
 
 // One line a person can act on: the deal-breakers first, then how it compares.
@@ -96,6 +133,7 @@ export function verdict(c){
   if(c.isBaseline) return "The household as it is — what every other scenario is measured against.";
   var parts = [];
   if(c.short > 0) parts.push("needs " + money(c.short) + " more cash at settlement than there is");
+  if(c.lender && !c.lender.ok) parts.push("a lender would likely say no (repayments at the rate plus " + SERVICE_BUFFER + " points)");
   if(c.monthUnderStress < 0) parts.push("runs " + money(-c.monthUnderStress) + " a month short under stress");
   else if(c.monthAfterTax < 0) parts.push("runs " + money(-c.monthAfterTax) + " a month short");
   if(c.lowestCash < 0) parts.push("cash runs out along the way");

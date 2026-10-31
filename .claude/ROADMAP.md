@@ -3732,6 +3732,57 @@ on the account's detail page and as a Home card when a warning is due.
 Done when: tests over an invented month land each bill and pay on its day; the warning shows in a driven run.
 
 
+### Phase I — scenarios as sealed sandboxes (October 2026)
+
+Asked for: "what if I buy an investment property and rent a new, more expensive house to live in?" — which the
+scenarios can't express — and that scenarios stop reaching into the rest of the app. Today a scenario is spread over
+four pages: the one picked on Plan changes Home's tiles, Income, Budget, the FI figures and the forecast; budget and
+income lines carry per-scenario amounts edited on their own pages; and where the household lives today is stored
+inside the "Current situation" scenario. The principle from here: **the household is the only truth, shown everywhere;
+a scenario is a sandbox on Plan → Scenarios that reads the household and never writes to it**, except through one
+explicit "Make it real". Built in one PR with 203–206, an item per commit pair, at the owner's request.
+
+## 207. `[ ]` Reality everywhere
+Do: today's home costs (the Current situation's rent or loan, rates, insurance…) become ordinary Budget lines; no page
+outside Plan → Scenarios reads the selected scenario (Home's tiles, Income, Budget, FI, the cash-flow forecast,
+Benchmarks, search show the household as it is); per-scenario amounts on budget and income lines become changes inside
+their scenario. Existing data converts on load.
+
+Done when: an invented household with scenarios, per-scenario overrides and home rows converts with every scenario's
+monthly figure unchanged (tests); picking a scenario on Plan changes nothing on Home or Cash flow (driven).
+
+## 208. `[ ]` A scenario as a list of changes
+Do: a scenario is the household plus changes, each from a chosen year: rent a new place ($/week); buy a home to live in
+(the purchase calculator); buy an investment property — price, deposit, loan, rent per week, vacancy, management,
+costs, growth, depreciation — as a hypothetical property in the shape of a real one, so the same rent, cost, interest,
+depreciation and tax maths applies, in that scenario only; sell a property you own; invest instead; an income change;
+a spending change. The projection runs the household with the scenario's changes.
+
+Done when: "rent at $X/week + buy an investment property" on an invented household gives a monthly result and a tax
+effect matching a hand-worked figure (tests); built and edited in the browser at 390 and 1280px.
+
+## 209. `[ ]` Start from a question
+Do: "What are you weighing?" — buy a home; buy an investment property and keep renting; rent somewhere else; upgrade
+the home; invest instead; pay the loan down faster. Each asks four to six questions and fills sensible defaults (stamp
+duty for the state, typical costs, a rent guess from price and yield), then opens the scenario.
+
+Done when: each template produces a valid scenario (tests); one is driven start to finish on a phone.
+
+## 210. `[ ]` Side by side
+Do: each scenario against "stay as we are": cash needed at settlement against cash available; money left a month
+before and after tax; the lowest cash gets; net worth in 5, 10 and 20 years; a stress test (rates +2%, a month vacant,
+rent −10%); the year it overtakes staying put; a one-line verdict.
+
+Done when: the figures match the projection for an invented household (tests); the comparison is driven at both widths.
+
+## 211. `[ ]` Make it real
+Do: when a scenario happens, one button shows exactly what it will add to the household (a rent line, the property
+under Property with its loan, an income change) and applies it on confirm, with undo.
+
+Done when: applying the investment-property scenario gives a household whose figures equal the scenario's (tests);
+driven with undo.
+
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

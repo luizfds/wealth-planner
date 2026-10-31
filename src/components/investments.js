@@ -12,22 +12,30 @@ function card(title, total, body){
     (total ? '<div class="ledger-total">' + total + '</div>' : '') + '</summary><div class="ledger-body">' + body + '</div></details>';
 }
 
-export function performanceCardHtml(perf, periodLabel){
+// v3.178.0 (item 203): mw = calc/investreturn.js moneyWeighted() — the return a year while the money
+// was in, per holding and overall, beside the simple gain.
+function perYear(r){ return r == null ? "" : pct(r) + " a year"; }
+export function performanceCardHtml(perf, periodLabel, mw){
   if(!perf.rows.length) return "";
+  var mwBy = {};
+  ((mw && mw.rows) || []).forEach(function(r){ mwBy[r.index] = r; });
   var tiles = '<div class="inv-tiles">' +
     '<div><span>Value</span><b>' + money(perf.value) + '</b><small>cost ' + money(perf.cost) + '</small></div>' +
     '<div><span>Unrealised gain</span><b class="' + (perf.gain >= 0 ? "up" : "down") + '">' + signedMoney(perf.gain) + '</b><small>' + pct(perf.gainPct) + '</small></div>' +
     '<div><span>Distributions</span><b>' + money(perf.incomeWindow) + '</b><small>' + escapeAttr(periodLabel) + ' · ' + money(perf.incomeAll) + ' all time</small></div>' +
-    '<div><span>Total return</span><b class="' + (perf.totalReturn >= 0 ? "up" : "down") + '">' + signedMoney(perf.totalReturn) + '</b><small>gain + distributions' + (perf.realised ? ' + ' + money(perf.realised) + ' realised' : '') + '</small></div></div>';
+    '<div><span>Total return</span><b class="' + (perf.totalReturn >= 0 ? "up" : "down") + '">' + signedMoney(perf.totalReturn) + '</b><small>gain + distributions' + (perf.realised ? ' + ' + money(perf.realised) + ' realised' : '') + '</small>' +
+      (mw && mw.irr != null ? '<small class="inv-mw" title="Money-weighted: the yearly rate that every buy, sale and distribution since ' + escapeAttr(mw.since) + ', and today\'s value, works out to — it counts how long each dollar was in">' + perYear(mw.irr) + ' money-weighted</small>' : '') + '</div></div>';
   var rows = '<div class="inv-table" role="table" aria-label="Performance by holding"><div class="inv-tr inv-th" role="row"><span>Holding</span><span>Value</span><span>Gain</span><span>Distributions</span><span>Total return</span></div>' +
     perf.rows.map(function(r){
       return '<div class="inv-tr" role="row"><span class="inv-name">' + escapeAttr(r.name) + (r.symbol && r.symbol !== r.name ? ' <small>' + escapeAttr(r.symbol) + '</small>' : '') + '</span>' +
         '<span>' + money(r.value) + '</span>' +
         '<span class="' + (r.gain >= 0 ? "up" : "down") + '">' + (r.hasCost ? signedMoney(r.gain) + ' <small>' + pct(r.gainPct) + '</small>' : '<small>no cost</small>') + '</span>' +
         '<span>' + money(r.incomeAll) + '</span>' +
-        '<span class="' + (r.totalReturn >= 0 ? "up" : "down") + '">' + signedMoney(r.totalReturn) + (r.totalReturnPct != null ? ' <small>' + pct(r.totalReturnPct) + '</small>' : '') + '</span></div>';
+        '<span class="' + (r.totalReturn >= 0 ? "up" : "down") + '">' + signedMoney(r.totalReturn) + (r.totalReturnPct != null ? ' <small>' + pct(r.totalReturnPct) + '</small>' : '') +
+          (mwBy[r.index] && mwBy[r.index].irr != null ? '<small class="inv-mw-row">' + perYear(mwBy[r.index].irr) + '</small>' : '') + '</span></div>';
     }).join("") + '</div>' +
     (perf.uncosted ? '<p class="ledger-note" style="margin:6px 0 0">' + perf.uncosted + ' holding' + (perf.uncosted === 1 ? " has" : "s have") + ' no cost recorded, so it isn\'t in the gain — add its purchase lots or an average cost.</p>' : '');
+  if(mw && mw.uncounted) rows += '<p class="ledger-note" style="margin:6px 0 0">' + mw.uncounted + ' holding' + (mw.uncounted === 1 ? " has" : "s have") + ' no dated purchase lots, so ' + (mw.uncounted === 1 ? "it isn't" : "they aren't") + ' in the money-weighted return.</p>';
   return card("Performance", 'Total return <b>' + signedMoney(perf.totalReturn) + '</b>', tiles + rows);
 }
 

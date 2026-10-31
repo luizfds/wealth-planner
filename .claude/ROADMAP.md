@@ -3690,7 +3690,7 @@ name and nothing is logged as B's; Sam undoes it on B (logged as Sam's change, A
 the diff, bursts, every undo, the caps, and two devices' logs merging without a conflict.
 
 
-## 203. `[ ]` Investments against a benchmark, and a target mix
+## 203. `[x]` Investments against a benchmark, and a target mix
 Sharesight compares a portfolio with an index and gives a money-weighted return; Empower and Copilot show
 allocation against a target and what to buy to rebalance.
 
@@ -3701,6 +3701,24 @@ dates.
 
 Done when: IRR matches a hand-worked invented portfolio to the cent in tests; the benchmark line is driven on
 Investments.
+
+**Done (v3.178.0).** On Investments → Shares (`calc/investreturn.js`, `components/investreturn.js`):
+- **Money-weighted return** — an XIRR (actual/365) over every dated purchase lot, sale and distribution (cash and
+  franking, as the Performance card counts them), with today's value as the last flow — overall in the Total return
+  tile and per holding under its total return. Holdings without dated lots are named as left out.
+- **Against the market** — every dollar in or out put into the ASX 200 (priced by A200) or the S&P 500 (IVV on the
+  ASX, in A$) on the same day, from the price file's weekly series (read once a session, only when this card shows),
+  with each index's dividends added back at a stated yield (4% and 1.3%) because the series is a price. Today's value
+  both ways, each as a yearly rate, and a chart of your recorded holding values against the index line (dashed).
+- **Target mix** — optional target % by kind (Australian shares, international shares, cash, crypto, other; super left
+  out), the gap in dollars, and where the next $X goes (to the classes furthest under target, in proportion). A
+  holding's kind comes from its market unless set on its row (an ASX-listed fund of US shares is international).
+  `state.targetMix`, synced and in the backup.
+- **Distributions in the year ahead** — each payment in the last year, a year on, scaled to the units held now.
+Tests: a hand-worked invented holding returns exactly 10% a year (and $2,310.00 to the cent); the same money in an index
+that also grew 10% ends level to the cent; the mix gaps and next-dollar split; the year ahead. Driven at 1280 and 390px
+on the demo household with the real price file (both benchmarks drawn), the mix set from its inputs.
+
 
 ## 204. `[x]` What-ifs you can drag
 ProjectionLab's plans move as you drag a slider. Here a what-if means editing a scenario's fields and switching

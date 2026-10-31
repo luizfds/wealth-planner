@@ -80,6 +80,9 @@ the last, so two sessions can't pick up the same one.
   home lines end the day before. An investment property's tax effect is the owners' tax with and without it (`taxEffectFor`).
   **What-ifs (v3.177.0):** a scenario's own assumptions are an `assume` change, read through `projectionFor(scenario)` — never
   `state.projection` directly in projection maths; a `retire` change stops pay from that age.
+- **Investment returns (v3.178.0):** `calc/investreturn.js` — `xirr`, money-weighted per holding, the same money in an index
+  (the price file's weekly A200 / IVV series, read once a session by `components/investreturn.js`), a target mix (`state.targetMix`,
+  a holding's own `assetClass` overriding its market) and distributions ahead. The only IRR in the app; reuse it.
 - `styles.css` — just eight `@import` statements pulling in `src/styles/{base,shell,dashboard,
   ledger,income,properties,assets,projections}.css`, in that specific order. Light/dark theming is
   CSS custom properties + `prefers-color-scheme`, defined in `base.css`.

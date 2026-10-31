@@ -21,6 +21,8 @@ function firstJson(urls){
   function next(e){ return i < urls.length ? getJson(urls[i++]).catch(next) : Promise.reject(e || new Error("unreachable")); }
   return next();
 }
+// v3.178.0: the app's own published files (prices/…), for other cards that read them.
+export function siteJson(file){ return getJson(siteUrl(file)); }
 function settle(p){ return p.then(function(v){ return { ok: true, value: v }; }, function(e){ return { ok: false, error: e }; }); }
 
 // Reads every source that's on and applies what came back. Resolves with state.autoPrices.lastResult.

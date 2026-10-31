@@ -17,6 +17,9 @@ import { observationDates, categorySeries, trimUntracked, allocationSeries, valu
 import { parseBenchmarkSymbol, setBenchmarkPrice } from "../calc/performance.js";
 import { holdingDividend, saleCapitalGain, fifoParcels, lotsUnitsAvailable, lotsAverageCost, lotRemainingUnits, lotCost, amitCostBaseAdjustmentPerUnit, getTaxPeople, currentTaxFy } from "../calc/tax.js";
 import { portfolioPerformance, distributionHistory, superContributions } from "../calc/investments.js";
+import { moneyWeighted, classOf, MIX_CLASSES } from "../calc/investreturn.js";
+import { bench, loadBenchmarks, benchmarkCardHtml, benchmarkChartSeries, targetMixCardHtml, distributionsAheadCardHtml } from "./investreturn.js";
+import { siteJson } from "./autoprices.js";
 import { performanceCardHtml, distributionsCardHtml, superContributionsCardHtml } from "./investments.js";
 import { financialYearOf, fyLabel } from "../calc/property.js";
 import { renderProjectionOutputs } from "./projections.js";
@@ -730,6 +733,8 @@ function modernShareRowHtml(item, idx, colorIdx){
       '<div class="m-edit-field"><label>Qty</label><input type="number" step="any" min="0" class="h-qty" value="' + qty + '" aria-label="Quantity"></div>' +
       '<div class="m-edit-field"><label>Price</label><input type="number" step="0.01" min="0" class="h-price" value="' + price + '" aria-label="Current price per ' + (item.market === "Crypto" ? "coin" : "share") + ' (' + currency + ')"><span class="computed-note h-price-note">' + priceNoteText(item) + '</span></div>' +
       '<div class="m-edit-field"><label>Market</label><select class="h-market">' + optionsHtml(SHARE_MARKETS, item.market || "ASX") + '</select></div>' +
+      // v3.178.0 (item 203): its kind for the target mix — from the market unless set (an ASX-listed fund of US shares is international).
+      '<div class="m-edit-field"><label>Kind</label><select class="h-class"><option value="">From its market (' + escapeAttr(classOf(Object.assign({}, item, { assetClass: "" })) || "") + ')</option>' + MIX_CLASSES.filter(function(c){ return c !== "Cash"; }).map(function(c){ return '<option value="' + c + '"' + (item.assetClass === c ? " selected" : "") + '>' + c + '</option>'; }).join("") + '</select></div>' +
       '<div class="m-edit-field"><label>Avg cost</label><input type="number" step="0.01" min="0" class="h-avgcost" value="' + (item.avgCost != null ? item.avgCost : "") + '" placeholder="—" aria-label="Average cost per share"></div>' +
       '<div class="m-edit-field"><label>Person</label><input type="text" class="h-person" list="personSuggestions" value="' + escapeAttr(item.person || "") + '" placeholder="Household" aria-label="Person"></div>' +
       // Per-unit, not a yearly total: a total would silently become wrong the moment units are
@@ -974,9 +979,26 @@ export function renderSharesSubpage(){
     '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
     '<div class="ledger-body"><div id="sharesGlance">' + sharesGainLossGlanceHtml(allData.items.filter(function(a){ return !isSoldOut(a); })) + '</div>' + fxWarn + pasteTool + (allData.items.length ? tradesCardHtml() : '') + toolbar + body + '</div></details>' +
     // v3.61.0: the portfolio's performance and its distributions by year, over the same holdings.
-    (allData.items.length ? performanceCardHtml(portfolioPerformance(allData.items.map(function(a){ return a; }), householdYearWindow()), householdYearWindow().label) + distributionsCardHtml(distributionHistory(allData.items)) : "") +
+    (allData.items.length ? performanceCardHtml(portfolioPerformance(allData.items.map(function(a){ return a; }), householdYearWindow()), householdYearWindow().label, moneyWeighted(allData.items, localDateStr(), toAudAmount)) +
+      // v3.178.0 (item 203): against an index, a target mix, and what's likely to be paid in the year ahead.
+      benchmarkCardHtml() + targetMixCardHtml() + distributionsAheadCardHtml() + distributionsCardHtml(distributionHistory(allData.items)) : "") +
     historyPanel + '</div>';
-  if(allData.items.length) renderSharesHistoryChart();
+  if(allData.items.length){ renderSharesHistoryChart(); renderBenchmark(); }
+}
+
+// v3.178.0 (item 203): the comparison reads the price file's weekly series once, then draws.
+export function renderBenchmark(){
+  var host = document.getElementById("benchCard");
+  if(!host) return;
+  if(bench.status === "idle"){
+    loadBenchmarks(siteJson).then(function(){ var c = document.getElementById("benchCard"); if(c){ c.outerHTML = benchmarkCardHtml(); renderBenchmark(); } });
+    return;
+  }
+  var chart = document.getElementById("benchChart"), data = chart && benchmarkChartSeries();
+  if(!data) return;
+  renderLineChart(chart, data.series, { height: 220, yFormat: function(v){ return fmtCurrency0.format(v); },
+    xFormat: function(v){ return new Date(data.t0 + v * 86400000).toLocaleDateString("en-AU", { month: "short", year: "2-digit" }); },
+    ariaLabel: "Your holdings against the same money in an index", alwaysLegend: true });
 }
 
 // Scoped to just this (person-filtered) Shares portfolio — deliberately reads allData, not the

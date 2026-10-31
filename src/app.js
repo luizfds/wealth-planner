@@ -1,3 +1,4 @@
+import { bench, benchmarkCardHtml, targetMixCardHtml } from "./components/investreturn.js";
 import { whatIfValues, resetWhatIf, wiFromSlider, wiValueText } from "./components/whatif.js";
 import { whatIfMoved, keepWhatIf } from "./calc/whatif.js";
 import { mrQ, makeRealSheetHtml } from "./components/makereal.js";
@@ -62,7 +63,7 @@ import {
 } from "./components/expenses.js";
 import {
   patchHoldingRow, patchVehicleRow, modernAssetRowOpen, patchAssetCategoryTotals,
-  renderNetWorthPanel, renderAssets, logAssetSnapshot, applySharesPaste, logDebtSnapshot, setUsdAudRate,
+  renderNetWorthPanel, renderAssets, renderBenchmark, logAssetSnapshot, applySharesPaste, logDebtSnapshot, setUsdAudRate,
   patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter, renderAssetPersonSheet, assetPersonSheetOpen, setAssetPersonSheetOpen, setSharesGainFilter, setSharesSortMode, setSharesChangeWindow, setAllocationRange, setPortfolioRange,
   parseAssetsImportCsv, renderAssetsImportPreview, clearAssetsImportPreview, commitAssetsImport, dividendNoteText,
   recordAssetSale, deleteAssetSale, renderAssetsSummary, patchOffsetsRow, addAssetLot, syncAvgCostFromLots, lotsSectionHtml, lotsNoteText, addAssetStatement, statementsSectionHtml, payoutsSectionHtml, payoutsNoteText, addAssetPayout
@@ -5984,6 +5985,37 @@ import { inboxMessage } from "./calc/inbox.js";
     }
   });
   document.addEventListener("keydown", function(e){ if(e.key === "Escape" && startQ.open) requestCloseActiveOverlay(); });
+
+  // ---------------- Against the market, a target mix (v3.178.0, item 203) ----------------
+  function redrawCard(id, html){ var el = document.getElementById(id); if(el) el.outerHTML = html; }
+  document.addEventListener("click", function(e){
+    var b = e.target.closest && e.target.closest("[data-bench]");
+    if(!b) return;
+    bench.pick = b.getAttribute("data-bench");
+    redrawCard("benchCard", benchmarkCardHtml());
+    renderBenchmark();
+  });
+  document.addEventListener("change", function(e){
+    if(!e.target.matches) return;
+    if(e.target.matches("[data-mix-target]")){
+      var c = e.target.getAttribute("data-mix-target"), v = e.target.value.trim();
+      if(!state.targetMix || typeof state.targetMix !== "object") state.targetMix = {};
+      if(v === "" || isNaN(Number(v))) delete state.targetMix[c]; else state.targetMix[c] = Math.max(0, Math.min(100, Number(v)));
+      persist();
+      redrawCard("mixCard", targetMixCardHtml());
+      var again = document.querySelector('[data-mix-target="' + c + '"]');
+      if(again) again.focus();
+    } else if(e.target.matches("[data-mix-next]")){
+      bench.nextAmount = Math.max(0, Number(e.target.value) || 0);
+      redrawCard("mixCard", targetMixCardHtml());
+    } else if(e.target.matches(".m-asset-rows .h-class")){
+      var row = e.target.closest("[data-index]"), a = row && state.assets[Number(row.getAttribute("data-index"))];
+      if(!a) return;
+      if(e.target.value) a.assetClass = e.target.value; else delete a.assetClass;
+      persist();
+      redrawCard("mixCard", targetMixCardHtml());
+    }
+  });
 
   // ---------------- What-ifs you can drag (v3.177.0, item 204) ----------------
   var whatIfStrip = document.getElementById("whatIfStrip"), wiFrame = 0;

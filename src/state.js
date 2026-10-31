@@ -201,6 +201,8 @@ export function defaultState(){
     priceSheet: { url: "", lastRead: "", lastResult: null, backfillFrom: "" },
     // v3.132.0: prices with no setup (calc/autoprices.js).
     autoPrices: { on: true, crypto: true, fx: true, lastRead: "", lastResult: null },
+    // v3.178.0 (item 203): a target mix by asset class, as percentages — optional, {} when not set.
+    targetMix: {},
     // Last time Export or Share produced a full backup — not touched by CSV/template exports
     // (those are partial, one-section-at-a-time, not a way to recover from data loss) or Import.
     // "" until the first one. Powers the backup-reminder notification (lib/notifications.js) —
@@ -480,6 +482,7 @@ export function migrateState(s){
   if(!s.priceSheet || typeof s.priceSheet !== "object") s.priceSheet = {};
   ["url", "lastRead", "backfillFrom"].forEach(function(k){ if(typeof s.priceSheet[k] !== "string") s.priceSheet[k] = ""; });
   if(s.priceSheet.lastResult === undefined) s.priceSheet.lastResult = null;
+  if(!s.targetMix || typeof s.targetMix !== "object" || Array.isArray(s.targetMix)) s.targetMix = {};
   if(!s.autoPrices || typeof s.autoPrices !== "object") s.autoPrices = {};
   ["on", "crypto", "fx"].forEach(function(k){ if(typeof s.autoPrices[k] !== "boolean") s.autoPrices[k] = true; });
   if(typeof s.autoPrices.lastRead !== "string") s.autoPrices.lastRead = "";

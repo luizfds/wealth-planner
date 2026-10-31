@@ -1817,3 +1817,28 @@ test("the what-if strip draws its sliders, and Keep this only once one has moved
   assert.doesNotMatch(html, /undefined|NaN/);
   m.resetWhatIf(); state.fire = was.fire;
 });
+
+test("against the market, the target mix and distributions ahead draw from invented holdings", async function(){
+  var m = await import("../src/components/investreturn.js");
+  var was = { assets: state.assets, targetMix: state.targetMix };
+  state.assets = [
+    { category: "Shares", market: "ASX", what: "Fern Index Fund", symbol: "FRN", quantity: 21, price: 110, amount: 2310,
+      lots: [{ date: "2021-01-01", units: 10, price: 100 }, { date: "2022-01-01", units: 11, price: 100 }],
+      payouts: [{ date: "2026-01-10", cash: 60 }], history: [{ date: "2021-01-01", value: 1000 }, { date: "2022-01-01", value: 2100 }] },
+    { category: "Cash", what: "Bank One saver", amount: 5000 }
+  ];
+  state.targetMix = { "Australian shares": 70, "Cash": 30 };
+  m.bench.status = "ready";
+  m.bench.series = { asx200: [{ date: "2021-01-01", close: 50 }, { date: "2022-01-01", close: 55 }, { date: "2026-10-01", close: 80 }], sp500: [] };
+  var html = m.benchmarkCardHtml("2026-10-31");
+  assert.match(html, /would be worth/);
+  assert.match(html, /data-bench="sp500"/);
+  assert.ok(m.benchmarkChartSeries("2026-10-31").series.length === 2);
+  var mix = m.targetMixCardHtml();
+  assert.match(mix, /data-mix-target="Australian shares"/);
+  assert.match(mix, /goes to/);
+  assert.match(m.distributionsAheadCardHtml("2026-10-31"), /Jan 2027/);
+  [html, mix].forEach(function(h){ assert.doesNotMatch(h, /undefined|NaN/); });
+  m.bench.status = "idle"; m.bench.series = {};
+  state.assets = was.assets; state.targetMix = was.targetMix;
+});

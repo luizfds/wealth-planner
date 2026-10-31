@@ -56,6 +56,10 @@ function changeFormHtml(c, scenario, ctx){
     var fig = ipFigures(c, { marginalRate: ctx.marginalRateFor(c.owner) });
     f.push('<p class="scf-figs"><span>Rent less costs and loan: <b>' + signed(fig.cashBeforeTaxMonthly) + '/mo</b></span><span>Tax effect: <b>' + signed(fig.taxEffectYearly / 12) + '/mo</b> (' + Math.round(fig.taxRate * 100) + '% on a ' + (fig.taxableYearly < 0 ? 'loss' : 'profit') + ' of ' + fmtCurrency0.format(Math.abs(fig.taxableYearly)) + ' a year)</span>' +
       '<span>After tax: <b>' + signed(fig.cashAfterTaxMonthly) + '/mo</b></span><span>Cash at settlement: <b>' + fmtCurrency0.format(fig.upfront) + '</b> (deposit ' + fmtCurrency0.format(fig.deposit) + ', stamp duty ' + fmtCurrency0.format(fig.stampDuty) + (fig.lmi ? ', LMI ' + fmtCurrency0.format(fig.lmi) : '') + ', other costs)</span></p>');
+  } else if(c.kind === "extra"){
+    var loaned = (state.properties || []).filter(function(p){ return (p.loans || []).length; }).map(function(p){ return [p.id, p.what || "A property"]; });
+    f.push(field(c, scenario, "propertyId", "Loan on", "select", loaned.length ? loaned : [["", "No property loans yet"]]), field(c, scenario, "amount", "Extra", "number"),
+      field(c, scenario, "freq", "How often", "select", FREQS), field(c, scenario, "rate", "Its interest %", "number"), field(c, scenario, "fromYear", "From", "select", yearOptions()));
   } else if(c.kind === "sell"){
     var props = (state.properties || []).map(function(p){ return [p.id, p.what || "A property"]; });
     f.push(field(c, scenario, "propertyId", "Property", "select", props.length ? props : [["", "No properties yet"]]), field(c, scenario, "fromYear", "Sold", "select", yearOptions()),
@@ -85,11 +89,14 @@ export function scenarioChangesHtml(scenario){
     var m = legsMonthly([c], ctx), effect = m.incomeMonthly - m.expensesMonthly;
     var open = !!changeOpen[c.id];
     return '<div class="sc-change sc-leg' + (open ? " is-open" : "") + '"><button type="button" class="sc-what sc-leg-head" data-sc-toggle="' + escapeAttr(c.id) + '" aria-expanded="' + open + '"><b>' + escapeAttr(changeSummary(c, { money: function(n){ return fmtCurrency0.format(n); }, propertyName: propName })) + '</b>' +
-        (c.kind !== "sell" ? '<small>' + signed(effect) + '/mo' + (c.kind === "ip" ? ' after tax · ' + fmtCurrency0.format(m.upfront) + ' at settlement' : '') + '</small>' : '<small>Its equity becomes cash that year, and its rent, costs and loan stop</small>') + '</button>' +
+        (c.kind === "sell" ? '<small>Its equity becomes cash that year, and its rent, costs and loan stop</small>'
+          : c.kind === "extra" ? '<small>' + signed(effect) + '/mo from savings, into the loan — kept as equity</small>'
+          : '<small>' + signed(effect) + '/mo' + (c.kind === "ip" ? ' after tax · ' + fmtCurrency0.format(m.upfront) + ' at settlement' : '') + '</small>') + '</button>' +
       '<button type="button" class="btn btn-danger btn-sm" data-sc-del="' + escapeAttr(c.id) + '" data-sc-scenario="' + escapeAttr(scenario) + '" aria-label="' + escapeAttr("Remove: " + changeSummary(c, { propertyName: propName })) + '">✕</button>' +
       (open ? changeFormHtml(c, scenario, ctx) : '') + '</div>';
   }).join("");
-  var adders = CHANGE_KINDS.filter(function(k){ return k.key !== "amount" && (k.key !== "sell" || (state.properties || []).length); }).map(function(k){
+  var hasLoan = (state.properties || []).some(function(p){ return (p.loans || []).length; });
+  var adders = CHANGE_KINDS.filter(function(k){ return k.key !== "amount" && (k.key !== "sell" || (state.properties || []).length) && (k.key !== "extra" || hasLoan); }).map(function(k){
     return '<button type="button" class="btn btn-sm" data-sc-new="' + k.key + '" data-sc-scenario="' + escapeAttr(scenario) + '" title="' + escapeAttr(k.hint) + '">+ ' + escapeAttr(k.label) + '</button>';
   }).join("");
   return '<div class="sc-changes"><div class="home-recurring-label">Changes from today</div>' +

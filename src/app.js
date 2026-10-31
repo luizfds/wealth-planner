@@ -1,4 +1,4 @@
-import { state, setState, storageAvailable, persist, setStatus, defaultState, defaultPurchaseConfig, defaultInvestConfig, migrateState, genId, normalizeShareAsset, onSaved } from "./state.js";
+import { state, setState, storageAvailable, persist, setStatus, defaultState, defaultPurchaseConfig, defaultHomeBlock, defaultInvestConfig, migrateState, genId, normalizeShareAsset, onSaved } from "./state.js";
 import { sacrificeModeToLabel, sacrificeLabelToMode, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, INVEST_LEG_TYPES } from "./constants.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr, fmtDate, parseAmountInput } from "./lib/format.js";
 import { showToast, showUndoToast, showPersistentToast } from "./lib/toast.js";
@@ -92,6 +92,8 @@ import { undoEntry } from "./calc/activity.js";
 import { setAmountChange, removeChange, changesFor } from "./calc/scenariochanges.js";
 import { newChange } from "./calc/scenariolegs.js";
 import { changeOpen } from "./components/scenariochanges.js";
+import { buildScenario } from "./calc/scenariotemplates.js";
+import { startQ, startSheetHtml, templateContext } from "./components/scenariotemplates.js";
 import { renderActivity, activityUi } from "./components/activity.js";
 import { receiptHolder } from "./components/receipts.js";
 import { dataHealthChecks, dismissCheck } from "./calc/health.js";
@@ -4020,7 +4022,8 @@ import { inboxMessage } from "./calc/inbox.js";
     if(cloneBtn){ cloneScenario(cloneBtn.getAttribute("data-clone")); return true; }
     var delBtn = e.target.closest("[data-delete]");
     if(delBtn){ var scName = delBtn.getAttribute("data-delete"); withUndo('Deleted "' + scName + '"', function(){ deleteScenario(scName); return state.scenarios.indexOf(scName) === -1; }); return true; }
-    if(e.target.closest("#addScenarioBtn") || e.target.closest("#addScenarioBtn2")){ addScenario(); return true; }
+    // v3.174.0 (item 209): adding a scenario starts from a question.
+    if(e.target.closest("#addScenarioBtn") || e.target.closest("#addScenarioBtn2")){ openStartSheet(); return true; }
     var editBtn = e.target.closest("[data-edit-scenario]");
     // The card's "Edit rent/home loan, purchase & invest options →". It used to go from Home to the
     // Scenarios page; since the cards moved onto Plan → Scenarios it pointed at the page it was on and
@@ -5892,7 +5895,7 @@ import { inboxMessage } from "./calc/inbox.js";
     }
   });
   // v3.173.0 (item 208): the other kinds of change — rent elsewhere, an investment property, a cost, a sale.
-  var SC_NUMBERS = { amount: 1, fromYear: 1, price: 1, depositPct: 1, rate: 1, termYears: 1, rentWeekly: 1, vacancyWeeks: 1, mgmtPct: 1, costsYearly: 1, depreciationYearly: 1, sellingCostsPct: 1 };
+  var SC_NUMBERS = { amount: 1, fromYear: 1, rate: 1, price: 1, depositPct: 1, rate: 1, termYears: 1, rentWeekly: 1, vacancyWeeks: 1, mgmtPct: 1, costsYearly: 1, depreciationYearly: 1, sellingCostsPct: 1 };
   document.addEventListener("click", function(e){
     if(!e.target.closest) return;
     var nb = e.target.closest("[data-sc-new]");
@@ -5928,6 +5931,51 @@ import { inboxMessage } from "./calc/inbox.js";
     setAmountChange(sc, c.rowId, Number(e.target.value), function(){ return genId("chg"); });
     afterScenarioChange();
   });
+
+  // ---------------- Start from a question (v3.174.0, item 209) ----------------
+  var startSheetRoot = document.getElementById("startSheetRoot");
+  function renderStartSheet(){
+    startSheetRoot.innerHTML = startQ.open ? startSheetHtml() : "";
+    var f = startQ.open && startSheetRoot.querySelector(startQ.key ? "[data-sq]" : "[data-sq-pick]:not([disabled])");
+    if(f) f.focus();
+  }
+  function openStartSheet(){ startQ.open = true; startQ.key = null; renderStartSheet(); pushActiveOverlay(function(){ startQ.open = false; startQ.key = null; renderStartSheet(); }); }
+  function makeScenarioFrom(built){
+    var name = built.name, n = 2;
+    while(state.scenarios.indexOf(name) !== -1) name = built.name + " (" + (n++) + ")";
+    var st = templateContext().state;
+    state.scenarios.push(name);
+    state.home[name] = built.home ? built.home.map(function(r){ return Object.assign({}, r); }) : defaultHomeBlock();
+    var pc = built.purchase;
+    state.purchase[name] = pc ? Object.assign(defaultPurchaseConfig(pc.price, pc.depositPct, pc.rate, pc.termYears || 30, pc.state || st, true), pc) : defaultPurchaseConfig(0, 20, 6.0, 30, st, false);
+    state.invest[name] = built.invest ? Object.assign(defaultInvestConfig(built.invest.assetType), built.invest) : defaultInvestConfig();
+    state.scenarioChanges[name] = built.changes || [];
+    homeBlockCollapsed[name] = false;
+    recalcComputedItems();
+    afterScenarioChange();
+    return name;
+  }
+  startSheetRoot.addEventListener("click", function(e){
+    if(e.target.closest("[data-sq-close]") || e.target === e.target.closest("[data-sq-backdrop]")){ requestCloseActiveOverlay(); return; }
+    var pick = e.target.closest("[data-sq-pick]");
+    if(pick){ startQ.key = pick.getAttribute("data-sq-pick"); renderStartSheet(); return; }
+    if(e.target.closest("[data-sq-back]")){ startQ.key = null; renderStartSheet(); return; }
+    if(e.target.closest("[data-sq-blank]")){ requestCloseActiveOverlay(); setTimeout(addScenario, 50); return; }
+    if(e.target.closest("[data-sq-make]")){
+      var answers = {};
+      startSheetRoot.querySelectorAll("[data-sq]").forEach(function(el){ answers[el.getAttribute("data-sq")] = el.value; });
+      var built = buildScenario(startQ.key, answers, Object.assign(templateContext(), { idFactory: function(){ return genId("chg"); } }));
+      var made = makeScenarioFrom(built);
+      requestCloseActiveOverlay();
+      showToast('Made "' + made + '" — every figure in it can be changed');
+      setTimeout(function(){
+        var head = Array.prototype.find.call(document.querySelectorAll("#homeBody [data-collapse-toggle]"), function(h){ return h.getAttribute("data-collapse-toggle") === made; });
+        var block = head && head.closest(".home-block");
+        if(block) block.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 400);
+    }
+  });
+  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && startQ.open) requestCloseActiveOverlay(); });
 
   // ---------------- Who changed what (v3.171.0, item 202) ----------------
   // The watcher logs edits made here a moment after they're saved (lib/activity.js); this is the

@@ -1758,3 +1758,19 @@ test("a scenario's changes list draws each kind, and an open investment property
   delete sc.changeOpen.i;
   state.shared = was.shared; state.income = was.income; state.scenarioChanges = was.ch; state.properties = was.props;
 });
+
+test("the 'What are you weighing?' sheet draws its choices and a choice's questions", async function(){
+  var m = await import("../src/components/scenariotemplates.js");
+  m.startQ.open = true; m.startQ.key = null;
+  var ctx = { renting: true, properties: [], state: "NSW" };
+  var html = m.startSheetHtml(ctx);
+  assert.match(html, /What are you weighing\?/);
+  assert.match(html, /data-sq-pick="rentvest"/);
+  assert.match(html, /data-sq-pick="payDown" disabled/);
+  m.startQ.key = "rentvest";
+  html = m.startSheetHtml(ctx);
+  assert.match(html, /Rent it would earn a week/);
+  assert.match(html, /data-sq-make/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+  m.startQ.open = false; m.startQ.key = null;
+});

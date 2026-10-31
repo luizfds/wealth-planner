@@ -3801,12 +3801,25 @@ invented household equal to the household's month less today's rent, less the ne
 Driven at 1280 and 390px: a new "Rentvest" scenario with rent $780 a week and a $620,000 investment property; Home unchanged.
 
 
-## 209. `[ ]` Start from a question
+## 209. `[x]` Start from a question
 Do: "What are you weighing?" — buy a home; buy an investment property and keep renting; rent somewhere else; upgrade
 the home; invest instead; pay the loan down faster. Each asks four to six questions and fills sensible defaults (stamp
 duty for the state, typical costs, a rent guess from price and yield), then opens the scenario.
 
 Done when: each template produces a valid scenario (tests); one is driven start to finish on a phone.
+
+**Done (v3.174.0).** "Add scenario" opens **What are you weighing?** (`calc/scenariotemplates.js`): buy a home to live in;
+buy an investment property (staying put, or renting somewhere new); rent somewhere else; move to a bigger home (sell the
+one you own and buy, or rent bigger); invest instead; pay the loan down faster. Each asks four to seven questions with
+defaults from the household (its state; the rent an investment property would earn guessed at 4% of its price a year;
+typical owning costs — rates, insurance, maintenance — from the price) and builds the scenario from the same changes and
+calculators as by hand, then opens it. "Or start from today, blank" is still there. A new change kind, **pay a loan down
+faster** (`extra`): each month's extra comes out of savings and into the loan at its rate, kept as equity up to what the
+loan owes. Tests: each choice's defaults build a valid scenario, the rent guess, selling and buying for an owner and
+renting bigger for a renter, and a built "buy a home" running through the engine (the loan and owning costs replace the
+rent). Driven on a phone: Add scenario → Buy an investment property → $600,000 in VIC, rent somewhere new at $820 a week
+→ the scenario appears open with both changes, and its card.
+
 
 ## 210. `[ ]` Side by side
 Do: each scenario against "stay as we are": cash needed at settlement against cash available; money left a month

@@ -133,7 +133,7 @@ function addYearsIso(iso, years){
 // v3.173.0 (item 208): what a scenario's own changes need from the household — each owner's marginal
 // rate (a shared property splits evenly, so it's their average) and, for a sale, what the property
 // brings in the year it's sold and the cash it stops making.
-var LEG_KINDS = { rent: 1, ip: 1, cost: 1, sell: 1 };
+var LEG_KINDS = { rent: 1, ip: 1, cost: 1, sell: 1, extra: 1 };
 export function scenarioLegChanges(scenario){ return changesFor(scenario).filter(function(c){ return c && LEG_KINDS[c.kind]; }); }
 export function scenarioLegContext(scenario){
   var proj = state.projection || {};
@@ -168,7 +168,13 @@ export function scenarioLegContext(scenario){
       }
     };
   });
-  return { marginalRateFor: marginalRateFor, propRate: propRate, inflationRate: (Number(proj.inflationRate) || 0) / 100, rateShockPts: rateShockPts, sold: sold };
+  // v3.174.0: what a property's loans still owe in a projected year — the most extra repayments can pay off.
+  var loanBalanceAt = function(propertyId, year){
+    var p = (state.properties || []).find(function(x){ return x.id === propertyId; });
+    if(!p) return Infinity;
+    return (p.loans || []).reduce(function(sum, l){ return loanPaidOut(l, addYearsIso(todayStr, year)) ? sum : sum + Math.max(0, loanBalanceAfterMonths(l.balance, (Number(l.rate) || 0) + rateShockPts, l.termYears, year * 12, l.repaymentType) - (Number(l.offsetBalance) || 0)); }, 0);
+  };
+  return { marginalRateFor: marginalRateFor, propRate: propRate, inflationRate: (Number(proj.inflationRate) || 0) / 100, rateShockPts: rateShockPts, sold: sold, loanBalanceAt: loanBalanceAt };
 }
 export function computeNetWorthSeries(scenario, horizonYears, opts){
   var cfg = state.purchase[scenario];

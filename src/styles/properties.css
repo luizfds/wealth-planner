@@ -405,3 +405,15 @@
 .scf-figs{ grid-column:1 / -1; margin:2px 0 0; display:flex; flex-wrap:wrap; gap:4px 18px; font-size:var(--fs-sm); color: var(--ink-soft); }
 .scf-figs b{ color: var(--ink); font-family:var(--font-num); }
 .sc-adders{ display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+/* v3.174.0 (item 209): "What are you weighing?" */
+.review-panel.sq-panel{ max-width:520px; }
+.sq-choices{ display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
+.sq-choice{ all:unset; box-sizing:border-box; display:flex; flex-direction:column; gap:4px; padding:12px; border:1px solid var(--border); border-radius: var(--inner-radius); background: var(--paper); cursor:pointer; min-height:44px; }
+.sq-choice:hover{ border-color: var(--brass); }
+.sq-choice:focus-visible{ box-shadow: var(--focus-ring); }
+.sq-choice[disabled]{ opacity:.5; cursor:default; }
+.sq-choice b{ font-size:var(--fs-sm); }
+.sq-choice small{ font-size:var(--fs-xs); color: var(--ink-soft); line-height:1.4; }
+.sq-blank{ display:block; margin:12px 0 0; font-size:var(--fs-sm); }
+.sq-form{ display:grid; grid-template-columns: 1fr 1fr; gap:10px 12px; }
+@media (max-width: 520px){ .sq-choices, .sq-form{ grid-template-columns: 1fr; } }

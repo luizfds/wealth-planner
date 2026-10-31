@@ -10,6 +10,8 @@
 //          growthPct (blank = the projection's property rate), depreciationYearly, owner ("" = shared), fromYear }
 //   cost — a cost (or, negative, a saving) the household doesn't have today: { kind: "cost", what, amount, freq, fromYear }
 //   sell — sell a property you own:              { kind: "sell", propertyId, fromYear, sellingCostsPct }
+//   extra — pay a loan down faster (v3.174.0):   { kind: "extra", propertyId, amount, freq, rate, fromYear } —
+//          out of each month's savings, into the loan at its rate (equity, not spending)
 //
 // The investment property is priced the way a real one is: rent less vacancy and management, its
 // costs, the loan, and the tax effect — the year's result (rent less management, costs, interest and
@@ -24,6 +26,7 @@ export var CHANGE_KINDS = [
   { key: "ip", label: "Buy an investment property", hint: "Rent coming in, its costs, the loan and the tax effect" },
   { key: "cost", label: "A new cost or saving", hint: "Childcare, a second car, a gym you'd stop" },
   { key: "sell", label: "Sell a property you own", hint: "Its equity becomes cash in the year you choose" },
+  { key: "extra", label: "Pay a loan down faster", hint: "Extra repayments each month, saved at the loan's rate" },
   { key: "amount", label: "A line costs a different amount", hint: "A budget line or a pay that would be different" }
 ];
 var MEDICARE = 0.02;
@@ -34,6 +37,7 @@ export function newChange(kind, id, ctx){
   ctx = ctx || {};
   if(kind === "rent") return { id: id, kind: "rent", what: "Rent", amount: 850, freq: "Weekly", fromYear: 0 };
   if(kind === "cost") return { id: id, kind: "cost", what: "A new cost", amount: 100, freq: "Monthly", fromYear: 0 };
+  if(kind === "extra") return { id: id, kind: "extra", propertyId: (ctx.properties && ctx.properties[0] && ctx.properties[0].id) || "", amount: 500, freq: "Monthly", rate: (ctx.loanRate != null ? ctx.loanRate : 6), fromYear: 0 };
   if(kind === "sell") return { id: id, kind: "sell", propertyId: (ctx.properties && ctx.properties[0] && ctx.properties[0].id) || "", fromYear: 1, sellingCostsPct: 2.5 };
   return { id: id, kind: "ip", what: "Investment property", price: 650000, depositPct: 20, rate: 6.2, termYears: 30, repaymentType: "IO",
     state: ctx.state || "NSW", rentWeekly: 580, vacancyWeeks: 2, mgmtPct: 7, costsYearly: 4500, growthPct: "", depreciationYearly: 4000, owner: "", fromYear: 0 };
@@ -76,11 +80,12 @@ export function ipFigures(c, ctx){
 // ctx: { marginalRateFor(owner) }.
 export function legsMonthly(changes, ctx){
   ctx = ctx || {};
-  var out = { incomeMonthly: 0, expensesMonthly: 0, homeMonthly: 0, ipTaxMonthly: 0, upfront: 0 };
+  var out = { incomeMonthly: 0, expensesMonthly: 0, homeMonthly: 0, ipTaxMonthly: 0, upfront: 0, extraMonthly: 0 };
   (changes || []).forEach(function(c){
     if(!c) return;
     if(c.kind === "rent"){ var m = periodsOf(num(c.amount), c.freq || "Weekly").monthly; out.homeMonthly += m; out.expensesMonthly += m; }
     else if(c.kind === "cost"){ out.expensesMonthly += periodsOf(num(c.amount), c.freq || "Monthly").monthly; }
+    else if(c.kind === "extra"){ var em = periodsOf(num(c.amount), c.freq || "Monthly").monthly; out.expensesMonthly += em; out.extraMonthly = (out.extraMonthly || 0) + em; }
     else if(c.kind === "ip"){
       var f = ipFigures(c, { marginalRate: ctx.marginalRateFor ? ctx.marginalRateFor(c.owner) : 0, rateShockPts: ctx.rateShockPts });
       out.incomeMonthly += (f.rentYearly + f.taxEffectYearly) / 12;
@@ -131,6 +136,19 @@ export function legsInYear(changes, year, ctx){
       out.debt += balEnd;
       return;
     }
+    if(c.kind === "extra"){
+      if(year < startYear) return;
+      // Each month's extra comes out of savings and pays the loan down; what's been paid in, with the
+      // interest it saved (the loan's rate), is equity — capped at what the loan owed.
+      var em = periodsOf(num(c.amount), c.freq || "Monthly").monthly, i = num(c.rate) / 100 / 12, n = (year - startYear + 1) * 12;
+      var fv = i > 0 ? em * (Math.pow(1 + i, n) - 1) / i : em * n;
+      var cap = ctx.loanBalanceAt ? ctx.loanBalanceAt(c.propertyId, year) : Infinity;
+      var kept = Math.min(fv, cap);
+      out.savingsMonthly -= kept >= cap ? 0 : em;
+      out.equity += kept;
+      out.debt -= kept;
+      return;
+    }
     if(c.kind === "sell"){
       var s = ctx.sold && ctx.sold[c.propertyId];
       if(!s) return;
@@ -149,6 +167,7 @@ export function changeSummary(c, ctx){
   if(c.kind === "rent") return "Rent " + money(num(c.amount)) + " " + String(c.freq || "Weekly").toLowerCase() + when;
   if(c.kind === "cost") return (c.what || "A cost") + ": " + money(num(c.amount)) + " " + String(c.freq || "Monthly").toLowerCase() + when;
   if(c.kind === "ip") return (c.what || "Investment property") + ": " + money(num(c.price)) + " in " + (c.state || "NSW") + ", rent " + money(num(c.rentWeekly)) + "/week" + when;
+  if(c.kind === "extra") return "Pay " + ((ctx.propertyName && ctx.propertyName(c.propertyId)) || "the loan") + " down by " + money(num(c.amount)) + " " + String(c.freq || "Monthly").toLowerCase() + " extra" + when;
   if(c.kind === "sell") return "Sell " + ((ctx.propertyName && ctx.propertyName(c.propertyId)) || "a property") + " in year " + (num(c.fromYear) + 1);
   return "";
 }

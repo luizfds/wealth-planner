@@ -10,6 +10,7 @@ import { PURCHASE_STATE_CODES, STATE_GROWTH_RATES, INVEST_LEG_TYPES } from "../c
 import { recalcPurchase } from "../calc/property.js";
 import { recalcComputedItems, scenarioTotals, currentScenario, computeNetWorthSeries } from "../calc/engine.js";
 import { renderLineChart } from "../lib/charts.js";
+import { buyInvestSummaryHtml, calcFor, calcScenarioHeadHtml } from "./calculators.js";
 import { scenarioAccountHtml, renderScenarioAccountChart } from "./scenarioaccount.js";
 import { periodsOf, sumField } from "../calc/ledger.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
@@ -298,9 +299,8 @@ export function renderHomeBody(){
     (isToday ? '<div class="home-block-body">' + todaysHomeHtml() + '</div>' :
     '<div class="home-block-body">' +
       scenarioChangesHtml(scenario) +
-      renderPurchasePanelHtml(scenario) +
-      '<div class="calc-or-divider" aria-hidden="true"><span>or</span></div>' +
-      renderInvestPanelHtml(scenario) +
+      // v3.189.0 (item 220): what buying or investing comes to; the calculators open on their own page.
+      buyInvestSummaryHtml(scenario) +
       (!livesElsewhere(scenario) ? '' :
       '<div class="home-recurring-label">Recurring costs — per month</div>' +
       ((state.home[scenario] || []).length ? '<p class="income-summary-line home-recon-line">' + homeReconciliationHtml(scenario) + '</p>'
@@ -310,6 +310,17 @@ export function renderHomeBody(){
     '</div>') +
   '</div>';
   renderCanBuy();
+  renderCalcScenario();
+}
+// v3.189.0 (item 220): the scenario's purchase and invest calculators, on the Calculators page when a
+// scenario's page opened it — drawn here so every control that redraws them (renderHomeBody) keeps working.
+export function renderCalcScenario(){
+  var el = typeof document !== "undefined" && document.getElementById("calcScenarioBody");
+  if(!el) return;
+  var key = calcFor.key;
+  if(!key || !state.purchase[key]){ el.innerHTML = ""; return; }
+  el.innerHTML = calcScenarioHeadHtml() + '<div class="cq-scenario">' + renderPurchasePanelHtml(key) +
+    '<div class="calc-or-divider" aria-hidden="true"><span>or</span></div>' + renderInvestPanelHtml(key) + '</div>';
 }
 
 // Every acquisition cost gets a color, cycling the same 8-color series used everywhere else —

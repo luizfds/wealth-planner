@@ -44,6 +44,7 @@ const VIEWS = [
   ["properties", null, [null]],
   ["tax", "tax-sub", ["year", "returns", "documents", "people"]],
   ["plan", "plan-sub", ["scenarios", "projections", "goals", "retirement"]],
+  ["calc", null, [null]], // v3.189.0: opened from the avatar menu
   ["reports", "report", ["cashflow", "categories", "income", "flow", "budget", "trends", "month", "networth", "nwcheck", "invest", "dividends", "cgt",
     "propreturns", "property", "debts", "super", "tax", "review", "lender", "yearend"]],
   ["settings", "accounts-sub", ["categories", "preferences", "rules"]]
@@ -64,7 +65,7 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
   await page.waitForTimeout(800);
   // Open every collapsible section so its contents render and get measured too.
   for (const [pg, attr, subs] of VIEWS) {
-    const hasPage = await page.evaluate(p => { const b = document.querySelector('[data-page="' + p + '"]'); if(b) b.click(); return !!b; }, pg);
+    const hasPage = await page.evaluate(p => { const b = document.querySelector('[data-page="' + p + '"]') || document.querySelector('[data-avatar-go="' + p + '"]'); if(b) b.click(); return !!b; }, pg);
     if(!hasPage && SHOTS) continue;
     await page.waitForTimeout(250);
     for (const sub of subs) {

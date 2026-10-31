@@ -1,3 +1,4 @@
+import { calcFor, calcQ, calcOutHtml } from "./components/calculators.js";
 import { tryQ, renderScenarioAccountChart } from "./components/scenarioaccount.js";
 import { openDraft, saveDraft, discardDraft, draftChanged } from "./calc/scenariodraft.js";
 import { renderSubscriptions, subsUi } from "./components/subscriptions.js";
@@ -82,7 +83,7 @@ import { copyBenchmarkTemplateToClipboard } from "./lib/backup.js";
 import {
   selectScenario, addScenario, renameScenario, cloneScenario, deleteScenario, renderHomeBody, renderHomeListModern, refreshScenarioDependentViews,
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
-  patchCalcOutputs, afterCalcChange, patchInvestOutputs, editing, renderScenarioEditor, editorUi, renderScenarioEditorChart
+  patchCalcOutputs, afterCalcChange, patchInvestOutputs, editing, renderScenarioEditor, editorUi, renderScenarioEditorChart, renderCalcScenario
 } from "./components/scenarios.js";
 import { ACCOUNT_TYPE_KEYS, accountSourceOptions, setAccountBalance, resolveLink, accountBalance } from "./calc/accounts.js";
 import { addTransfer, deleteTransfer, splitTransaction, unsplit, bulkEditTransactions, bulkDeleteTransactions } from "./calc/cashflowlist.js";
@@ -1289,6 +1290,12 @@ import { inboxMessage } from "./calc/inbox.js";
   });
 
   document.getElementById("homeBody").addEventListener("input", onCalcInput);
+  // v3.189.0 (item 220): a scenario's calculators also work on the Calculators page.
+  ["input", "change", "click"].forEach(function(type){
+    var el = document.getElementById("calcScenarioBody");
+    el.addEventListener(type, type === "input" ? onCalcInput : type === "change" ? onCalcChange : onCalcClick);
+    if(type !== "click") el.addEventListener(type, type === "input" ? onInvestInput : onInvestChange);
+  });
   document.getElementById("homeBody").addEventListener("change", onCalcChange);
   document.getElementById("homeBody").addEventListener("click", onCalcClick);
   document.getElementById("homeBody").addEventListener("input", onInvestInput);
@@ -6082,6 +6089,7 @@ import { inboxMessage } from "./calc/inbox.js";
   function closeScenarioEditor(saved){
     var name = editing.name;
     editing.name = null; editing.key = null;
+    calcFor.key = null; calcFor.name = null;
     renderHomeBody();
     recalcComputedItems();
     persist();
@@ -6107,6 +6115,23 @@ import { inboxMessage } from "./calc/inbox.js";
     }
   });
 
+  // v3.189.0 (item 220): the scenario's calculators on their own page, and back; the standalone ones.
+  document.addEventListener("click", function(e){
+    if(!e.target.closest) return;
+    if(e.target.closest("[data-sc-calc]") && editing.key){ calcFor.key = editing.key; calcFor.name = editing.name; showPage("calc"); window.scrollTo(0, 0); return; }
+    if(e.target.closest("[data-calc-done]")){ calcFor.key = null; calcFor.name = null; renderCalcScenario(); showPage("scenario"); window.scrollTo(0, 0); }
+  });
+  document.addEventListener("input", function(e){
+    var path = e.target.getAttribute && e.target.getAttribute("data-cq");
+    if(!path) return;
+    var parts = path.split("."), v = e.target.value;
+    calcQ[parts[0]][parts[1]] = e.target.tagName === "SELECT" ? v : (v === "" ? 0 : Number(v));
+    var out = document.querySelector('[data-cq-out="' + parts[0] + '"]');
+    if(out) out.innerHTML = calcOutHtml(parts[0]);
+  });
+  document.addEventListener("change", function(e){
+    if(e.target.matches && e.target.matches("select[data-cq]")) e.target.dispatchEvent(new Event("input", { bubbles: true }));
+  });
   // v3.188.0 (item 219): unsaved changes aren't lost by a tap elsewhere, the back button or closing the app.
   function unsavedDraft(){ return !!(editing.name && editing.key !== editing.name && draftChanged(editing.name)); }
   setLeaveGuard(function(){

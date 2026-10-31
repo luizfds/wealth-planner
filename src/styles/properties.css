@@ -484,3 +484,26 @@
 .cmp-table td.is-bad{ color: var(--bad-ink); }
 .cmp-verdicts{ margin:12px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:6px; font-size:var(--fs-sm); }
 .cmp-verdicts b{ margin-right:4px; }
+/* v3.189.0 (item 220): Calculators */
+.cq-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:14px; }
+.cq-card{ border:1px solid var(--border); border-radius: var(--card-radius); padding: var(--card-py) var(--card-px); background: var(--paper-raised); display:flex; flex-direction:column; gap:10px; }
+.cq-card h3{ margin:0; font-size:var(--fs-lg); }
+.cq-fields{ display:grid; grid-template-columns: 1fr 1fr; gap:8px 10px; }
+.cq-field{ display:flex; flex-direction:column; gap:3px; font-size:var(--fs-xs); color: var(--ink-soft); min-width:0; }
+.cq-field input, .cq-field select{ width:100%; box-sizing:border-box; }
+.cq-out{ border-top:1px dashed var(--border); padding-top:8px; }
+.cq-big{ margin:0; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size:var(--fs-xl); font-weight:600; }
+.cq-big small{ font-size:var(--fs-sm); font-weight:400; color: var(--ink-soft); }
+.cq-note, .cq-help{ margin:4px 0 0; font-size:var(--fs-xs); color: var(--ink-soft); line-height:1.5; }
+.cq-for{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; padding:10px 12px; margin:0 0 12px; border:1px solid var(--brass); border-radius: var(--inner-radius); background: var(--brass-wash); }
+.cq-for-k{ font-size:var(--fs-xs); color: var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; }
+.cq-for small{ color: var(--ink-soft); }
+.cq-scenario{ margin:0 0 18px; }
+.bis{ margin:10px 0; padding:12px; border:1px solid var(--border); border-radius: var(--inner-radius); background: var(--paper-raised); }
+.bis-head{ display:flex; flex-direction:column; gap:2px; margin-bottom:8px; }
+.bis-head small{ color: var(--ink-soft); font-size:var(--fs-xs); }
+.bis-figs{ display:grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap:6px 12px; }
+.bis-figs span{ display:flex; flex-direction:column; }
+.bis-figs small{ font-size:var(--fs-xs); color: var(--ink-soft); }
+.bis-figs b{ font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.bis-actions{ margin-top:10px; }

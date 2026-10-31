@@ -1,4 +1,5 @@
-import { renderHomeBody, renderScenarioEditor } from "./scenarios.js";
+import { renderCalcTools } from "./calculators.js";
+import { renderHomeBody, renderScenarioEditor, renderCalcScenario } from "./scenarios.js";
 import { renderProjectionsIfStale } from "./projections.js";
 import { renderDashboardStats } from "./dashboard.js";
 import { renderHomeSummary } from "./home.js";
@@ -32,7 +33,9 @@ var PAGES = [
   // v3.128.0: one page for any single thing — /detail/<kind>/<id>. In no menu; lists link to it.
   { id: "detail", label: "Details" },
   // v3.181.0 (item 212): one scenario being edited. In no menu; a scenario card's Edit opens it.
-  { id: "scenario", label: "Edit scenario" }
+  { id: "scenario", label: "Edit scenario" },
+  // v3.189.0 (item 220): in the avatar menu.
+  { id: "calc", label: "Calculators" }
 ];
 // Old page ids → [page, subpage]. Anything that still says showPage("income") — a notification, the
 // setup checklist, a search result, an old bookmark — lands on the subpage that replaced it.
@@ -340,6 +343,7 @@ export function showPage(id, opts){
     if(id === "reports") renderReports();
     if(id === "detail") renderDetailPage();
     if(id === "scenario"){ renderHomeBody(); renderScenarioEditor(); }
+    if(id === "calc"){ renderCalcScenario(); renderCalcTools(); }
     if(id === "plan" && currentPlanSub === "projections") renderProjectionsIfStale();
     if(id === "networth") renderNetWorthPage();
     // v3.98.0: each page's "The app notices" strip reads figures changed on other pages.

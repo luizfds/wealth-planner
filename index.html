@@ -186,6 +186,7 @@
           <button type="button" class="avatar-btn" id="avatarBtn" data-overflow-toggle aria-haspopup="true" aria-expanded="false" aria-label="Your menu: reports, settings, backup and more" title="Reports, settings, backup and more"><span id="avatarInitial" aria-hidden="true">·</span><i class="avatar-dot" id="avatarDot" hidden></i></button>
           <div class="page-overflow-menu avatar-menu" data-overflow-menu hidden>
             <button type="button" class="btn btn-sm btn-ghost avatar-item" data-avatar-go="reports">Reports</button>
+            <button type="button" class="btn btn-sm btn-ghost avatar-item" data-avatar-go="calc">Calculators</button>
             <button type="button" class="btn btn-sm btn-ghost avatar-item" data-avatar-go="settings">Settings</button>
             <button type="button" class="btn btn-sm btn-ghost avatar-item" data-avatar-go="backup">Backup &amp; sync <small id="avatarSyncState"></small></button>
             <div class="avatar-divider"></div>
@@ -890,6 +891,12 @@
         <p class="page-intro help">Everything you own and owe in one list — open any of it for its history and detail, or use the tabs above to update balances, holdings and property.</p>
         <div id="netWorthBody" class="nw-page"></div>
       </section>
+      <!-- v3.189.0 (item 220): stamp duty, LMI, repayments and borrowing — and a scenario's own calculators. -->
+      <section class="app-page" id="page-calc" hidden>
+        <div class="page-intro-row"><p class="page-intro help">Quick sums for buying — the same figures the scenarios use. Open from a scenario, its purchase and invest calculators are here too.</p></div>
+        <div id="calcScenarioBody"></div>
+        <div id="calcTools"></div>
+      </section>
       <!-- v3.181.0 (item 212): one scenario at a time, edited as a draft; Save updates everything else. -->
       <section class="app-page" id="page-scenario" hidden>
         <div id="scenarioEditHead"></div>
@@ -1094,6 +1101,7 @@
   "./src/calc/bills.js": "./src/calc/bills.js?v=3.188.0",
   "./src/calc/brokertrades.js": "./src/calc/brokertrades.js?v=3.188.0",
   "./src/calc/budgetfromhistory.js": "./src/calc/budgetfromhistory.js?v=3.188.0",
+  "./src/calc/calculators.js": "./src/calc/calculators.js?v=3.188.0",
   "./src/calc/canbuy.js": "./src/calc/canbuy.js?v=3.188.0",
   "./src/calc/cashflow.js": "./src/calc/cashflow.js?v=3.188.0",
   "./src/calc/cashflowlist.js": "./src/calc/cashflowlist.js?v=3.188.0",
@@ -1182,6 +1190,7 @@
   "./src/components/benchmarks.js": "./src/components/benchmarks.js?v=3.188.0",
   "./src/components/brokertrades.js": "./src/components/brokertrades.js?v=3.188.0",
   "./src/components/budgethistory.js": "./src/components/budgethistory.js?v=3.188.0",
+  "./src/components/calculators.js": "./src/components/calculators.js?v=3.188.0",
   "./src/components/canbuy.js": "./src/components/canbuy.js?v=3.188.0",
   "./src/components/cashflow.js": "./src/components/cashflow.js?v=3.188.0",
   "./src/components/compare.js": "./src/components/compare.js?v=3.188.0",
@@ -1275,6 +1284,7 @@
 <link rel="modulepreload" href="./src/calc/bills.js?v=3.188.0">
 <link rel="modulepreload" href="./src/calc/brokertrades.js?v=3.188.0">
 <link rel="modulepreload" href="./src/calc/budgetfromhistory.js?v=3.188.0">
+<link rel="modulepreload" href="./src/calc/calculators.js?v=3.188.0">
 <link rel="modulepreload" href="./src/calc/canbuy.js?v=3.188.0">
 <link rel="modulepreload" href="./src/calc/cashflow.js?v=3.188.0">
 <link rel="modulepreload" href="./src/calc/cashflowlist.js?v=3.188.0">
@@ -1363,6 +1373,7 @@
 <link rel="modulepreload" href="./src/components/benchmarks.js?v=3.188.0">
 <link rel="modulepreload" href="./src/components/brokertrades.js?v=3.188.0">
 <link rel="modulepreload" href="./src/components/budgethistory.js?v=3.188.0">
+<link rel="modulepreload" href="./src/components/calculators.js?v=3.188.0">
 <link rel="modulepreload" href="./src/components/canbuy.js?v=3.188.0">
 <link rel="modulepreload" href="./src/components/cashflow.js?v=3.188.0">
 <link rel="modulepreload" href="./src/components/compare.js?v=3.188.0">

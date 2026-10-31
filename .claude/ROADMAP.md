@@ -4077,13 +4077,24 @@ Ctrl/⌘+S saves (the field being typed in lands first) and Esc cancels when no 
 saving, Esc closing.
 
 
-## 220. `[ ]` Calculators
+## 220. `[x]` Calculators
 Do: a Calculators page in the avatar menu — stamp duty, LMI, loan repayments and what you could borrow — and the
 scenario's purchase and invest calculators open there from the editor, which shows just their results with "Change in
 the calculator"; Done comes back.
 
 Done when: tests on the borrowing-power arithmetic; driven: a scenario's purchase changed in the calculator shows in
 the editor.
+
+**Done (v3.189.0).** **Calculators** — a page in the avatar menu (`page-calc`, `components/calculators.js`, `calc/calculators.js`):
+stamp duty (with a first home buyer's saving), LMI (and the deposit that avoids it), a loan's repayments (monthly,
+fortnightly, interest over the term) and what a lender might lend (the repayment run backwards at the rate plus 3, from
+the household's own take-home and budget). On a scenario's page, buying or investing is now a summary — price, deposit,
+loan, repayments, stamp duty, LMI, cash at settlement, or what's invested — with "Change in the calculator", which opens
+the Calculators page working on that scenario's draft (its purchase and invest calculators drawn there by
+`renderCalcScenario`, every control as before); Done comes back. Tests: the stamp duty and LMI are the purchase
+calculator's, $600,000 at 6% over 30 years is $3,597.30 a month, and $4,827.74 spare borrows $600,000 at 9%. Driven at
+1280 and 390px: a scenario's price changed in the calculator shows in its summary, unsaved; the tools on their own.
+
 
 ## 221. `[ ]` Adding a change
 Do: one "+ Add a change" opens a sheet of the kinds with a sentence each; a scenario with no changes offers three to

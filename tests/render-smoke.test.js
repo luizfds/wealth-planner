@@ -1936,3 +1936,21 @@ test("trying a scenario on an account draws the picker, the note on settlement a
   assert.doesNotMatch(html, /undefined|NaN/);
   Object.assign(state, { assets: was.assets, accounts: was.accounts, transactions: was.transactions, incomeLog: was.incomeLog, shared: was.shared, scenarioChanges: was.ch, scenarios: was.scen, purchase: was.purchase, invest: was.invest, home: was.home });
 });
+
+test("the Calculators page's tools, and a scenario's buy-or-invest summary", async function(){
+  var m = await import("../src/components/calculators.js");
+  var html = m.calcToolsHtml();
+  ["Stamp duty", "Lenders mortgage insurance", "Loan repayments", "What a lender might lend"].forEach(function(t){ assert.match(html, new RegExp(t)); });
+  assert.match(html, /data-cq="bp.income"/);
+  assert.match(m.calcOutHtml("rep"), /\$3,597\.30/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+  var was = { purchase: state.purchase, invest: state.invest };
+  state.purchase = Object.assign({}, state.purchase, { "Draft · Buy": { enabled: true, price: 800000, depositPct: 20, rate: 6, ioRate: 6, termYears: 30, state: "VIC", repaymentType: "PI", otherCosts: [] } });
+  state.invest = Object.assign({}, state.invest, { "Draft · Buy": { enabled: false } });
+  var sum = m.buyInvestSummaryHtml("Draft · Buy");
+  assert.match(sum, /Buying a home to live in/);
+  assert.match(sum, /\$800,000/);
+  assert.match(sum, /data-sc-calc/);
+  assert.doesNotMatch(sum, /undefined|NaN/);
+  state.purchase = was.purchase; state.invest = was.invest;
+});

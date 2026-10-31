@@ -1917,3 +1917,20 @@ test("a change can start at an age or when cash reaches an amount, and says when
   delete sc.changeOpen.w1;
   state.scenarioChanges = was.ch; state.scenarios = was.scen; state.fire = was.fire;
 });
+
+test("trying a scenario on an account draws the picker, the note on settlement and the chart host", async function(){
+  var m = await import("../src/components/scenarioaccount.js");
+  var was = { assets: state.assets, accounts: state.accounts, transactions: state.transactions, incomeLog: state.incomeLog, shared: state.shared, ch: state.scenarioChanges, scen: state.scenarios, purchase: state.purchase, invest: state.invest, home: state.home };
+  state.assets = [{ id: "c1", what: "Bank One Everyday", category: "Cash", amount: 9000, history: [{ date: "2026-10-30", value: 9000 }] }];
+  state.accounts = [{ id: "a1", name: "Bank One Everyday", type: "everyday", link: "asset:c1", buffer: 1000 }];
+  state.transactions = []; state.incomeLog = []; state.shared = [];
+  state.scenarios = ["Today", "Move"]; state.purchase = { Today: { enabled: false }, Move: { enabled: false } }; state.invest = { Today: { enabled: false }, Move: { enabled: false } }; state.home = { Today: [], Move: [] };
+  state.scenarioChanges = { Move: [{ id: "i", kind: "ip", what: "Example unit", price: 400000, depositPct: 20, rate: 6, termYears: 30, repaymentType: "IO", state: "VIC", rentWeekly: 450, vacancyWeeks: 0, mgmtPct: 0, costsYearly: 2400, depreciationYearly: 0, growthPct: "", owner: "", fromYear: 0 }] };
+  var html = m.scenarioAccountHtml("Move", "2026-10-31");
+  assert.match(html, /data-try-account/);
+  assert.match(html, /data-try-settlement/);
+  assert.match(html, /isn't taken from this account/);
+  assert.match(html, /id="scAcctChart"/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+  Object.assign(state, { assets: was.assets, accounts: was.accounts, transactions: was.transactions, incomeLog: was.incomeLog, shared: was.shared, scenarioChanges: was.ch, scenarios: was.scen, purchase: was.purchase, invest: was.invest, home: was.home });
+});

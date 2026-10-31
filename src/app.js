@@ -1,3 +1,4 @@
+import { tryQ } from "./components/scenarioaccount.js";
 import { openDraft, saveDraft, discardDraft, draftChanged } from "./calc/scenariodraft.js";
 import { renderSubscriptions, subsUi } from "./components/subscriptions.js";
 import { bench, benchmarkCardHtml, targetMixCardHtml } from "./components/investreturn.js";
@@ -81,7 +82,7 @@ import { copyBenchmarkTemplateToClipboard } from "./lib/backup.js";
 import {
   selectScenario, addScenario, renameScenario, cloneScenario, deleteScenario, renderHomeBody, renderHomeListModern, refreshScenarioDependentViews,
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
-  patchCalcOutputs, afterCalcChange, patchInvestOutputs, editing
+  patchCalcOutputs, afterCalcChange, patchInvestOutputs, editing, renderScenarioEditor
 } from "./components/scenarios.js";
 import { ACCOUNT_TYPE_KEYS, accountSourceOptions, setAccountBalance, resolveLink, accountBalance } from "./calc/accounts.js";
 import { addTransfer, deleteTransfer, splitTransaction, unsplit, bulkEditTransactions, bulkDeleteTransactions } from "./calc/cashflowlist.js";
@@ -6104,6 +6105,14 @@ import { inboxMessage } from "./calc/inbox.js";
       if(editing.key !== editing.name) discardDraft(editing.name);
       closeScenarioEditor(false);
     }
+  });
+
+  // v3.185.0 (item 216): which account the scenario is tried on, and from when.
+  document.addEventListener("change", function(e){
+    if(!e.target.matches) return;
+    if(e.target.matches("[data-try-account]")){ tryQ.accountId = e.target.value; renderScenarioEditor(); }
+    else if(e.target.matches("[data-try-settle]")){ tryQ.settleOn = e.target.value || null; renderScenarioEditor(); }
+    else if(e.target.matches("[data-try-settlement]")){ tryQ.settlementHere = e.target.checked; renderScenarioEditor(); }
   });
 
   // ---------------- Make it real (v3.176.0, item 211) ----------------

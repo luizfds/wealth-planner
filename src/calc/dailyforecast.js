@@ -82,7 +82,7 @@ export function forecastInputs(st, account, today, days, opts){
       if(d <= today || d > end) return;
       m.days[d].forEach(function(b){
         if(b.paid || b.card || b.agent || b.account !== name) return;
-        events.push({ date: d, amount: -b.amount, what: b.what, kind: "bill" }); billCount++;
+        events.push({ date: d, amount: -b.amount, what: b.what, kind: "bill", id: b.id }); billCount++;
       });
     });
     m.cardPayments.forEach(function(p){

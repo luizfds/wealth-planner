@@ -3998,13 +3998,26 @@ keeps its cash in fewer runs than one with slack (42 of 60 against 60), the same
 lowers year 10 by no more than the loss would have grown. Driven at 1280px: the table draws in ~12 ms, the odds after.
 
 
-## 216. `[ ]` Try a scenario on an account
+## 216. `[x]` Try a scenario on an account
 PocketSmith's scenarios are layers on an account's daily forecast.
 
 Do: the editor page can lay the draft over an everyday account's 90 days (206): settlement on a date, the new rent
 or repayments, the property's rent and costs on their days — with the lowest point against the buffer.
 
 Done when: tests land a scenario's settlement and first repayments on their days in an invented month; driven.
+
+**Done (v3.185.0).** **Try it on an account** on a scenario's page (`calc/scenarioaccount.js`, `components/scenarioaccount.js`):
+pick an everyday account and a settlement day, and its next 90 days (206) are drawn as they are (dashed) and with the
+scenario laid over them from that day — a new rent or cost on its rhythm, an investment property's rent each week (less
+vacancy and the manager) and its loan and costs each month, a home bought's repayments and costs, money invested each
+month — with today's home bills stopping from the day it moves (bill events now carry their line's id), and the lowest
+point against the account's buffer. The cash at settlement isn't taken from the account unless ticked ("Pay the $X at
+settlement from this account") — a deposit usually comes from savings, and Side by side says whether there's enough.
+Changes from a later year, an age or a cash target wait. Tests over an invented month: the old rent on 3 November and
+gone from 3 December, the new rent and settlement on the 14th, the unit's rent a week later and its loan ($1,600, interest
+only) and costs a month later, under the buffer from settlement; unticked, the settlement is reported, not taken.
+Driven at 1280 and 390px on the demo household.
+
 
 ## 217. `[ ]` Tax on a sale, and what a lender allows
 The rentvesting calculators: CGT with the main-residence exemption; a lender's serviceability buffer.

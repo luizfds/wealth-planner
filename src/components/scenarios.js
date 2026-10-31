@@ -10,6 +10,7 @@ import { PURCHASE_STATE_CODES, STATE_GROWTH_RATES, INVEST_LEG_TYPES } from "../c
 import { recalcPurchase } from "../calc/property.js";
 import { recalcComputedItems, scenarioTotals, currentScenario, computeNetWorthSeries } from "../calc/engine.js";
 import { renderLineChart } from "../lib/charts.js";
+import { scenarioAccountHtml, renderScenarioAccountChart } from "./scenarioaccount.js";
 import { periodsOf, sumField } from "../calc/ledger.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
 import { escapeAttr, slug } from "../lib/html.js";
@@ -82,7 +83,9 @@ export function scenarioEditorSummaryHtml(){
     '<div><span>Net worth in ' + ten.year + ' years</span><b>' + fmtCurrency0.format(ten.value) + '</b><small>' + signed(ten.vsBase) + ' against today</small></div>' +
     '</div><p class="sc-edit-verdict">' + escapeAttr(c.verdict) + '</p>' +
     // v3.182.0 (item 213): the draft's net worth against today's, redrawn on every change.
-    '<div class="dt-chart sc-edit-chart" id="scEditChart"></div>';
+    '<div class="dt-chart sc-edit-chart" id="scEditChart"></div>' +
+    // v3.185.0 (item 216): laid over an everyday account's next 90 days.
+    scenarioAccountHtml(key);
 }
 export function renderScenarioEditorChart(){
   var host = typeof document !== "undefined" && document.getElementById("scEditChart");
@@ -101,7 +104,7 @@ export function renderScenarioEditor(){
   if(!head) return;
   head.innerHTML = scenarioEditorHeadHtml();
   var sum = document.getElementById("scenarioEditSummary");
-  if(sum){ sum.innerHTML = scenarioEditorSummaryHtml(); renderScenarioEditorChart(); }
+  if(sum){ sum.innerHTML = scenarioEditorSummaryHtml(); renderScenarioEditorChart(); if(editing.key) renderScenarioAccountChart(editing.key); }
 }
 export function refreshScenarioDependentViews(){
   if(editing.key && editing.key !== editing.name){ renderHomeBody(); renderScenarioEditor(); return; }

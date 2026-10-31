@@ -524,3 +524,10 @@
 .scf.is-changed input, .scf.is-changed select{ border-color: var(--brass); }
 .sc-was{ display:block; color: var(--ink-soft); font-size:var(--fs-xs); }
 .bis.is-changed{ border-color: var(--brass); }
+/* v3.192.0 (item 223): a timeline of when things happen */
+.sc-timeline{ list-style:none; margin:0 0 12px; padding:0 0 4px; display:flex; gap:8px; overflow-x:auto; scrollbar-width:thin; }
+.sc-timeline li{ flex:0 0 auto; display:flex; flex-direction:column; gap:2px; min-width:110px; max-width:170px; padding:8px 10px; border-left:3px solid var(--brass); background: var(--paper-raised); border-radius: 0 var(--inner-radius) var(--inner-radius) 0; }
+.sc-timeline li.is-never{ border-left-color: var(--border); opacity:.75; }
+.sct-when{ font-size:var(--fs-xs); font-weight:600; color: var(--brass-strong); text-transform:uppercase; letter-spacing:.03em; }
+.sc-timeline b{ font-size:var(--fs-sm); }
+.sc-timeline small{ font-size:var(--fs-xs); color: var(--ink-soft); }

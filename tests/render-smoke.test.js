@@ -1970,3 +1970,15 @@ test("the sheet of changes to add, and three starters for a scenario with none",
   assert.equal((html.match(/class="sc-starter"/g) || []).length, 3);
   state.scenarioChanges = was.ch;
 });
+
+test("the timeline strip lists each change at its year", async function(){
+  var m = await import("../src/components/scenarios.js");
+  var was = { ch: state.scenarioChanges, purchase: state.purchase, invest: state.invest, fire: state.fire };
+  state.scenarioChanges = Object.assign({}, state.scenarioChanges, { TL: [{ id: "r", kind: "rent", amount: 700, freq: "Weekly", fromYear: 0 }, { id: "s", kind: "cost", what: "A boat", amount: 300, freq: "Monthly", fromYear: 3 }] });
+  state.purchase = Object.assign({}, state.purchase, { TL: { enabled: false } }); state.invest = Object.assign({}, state.invest, { TL: { enabled: false } });
+  var html = m.scenarioTimelineHtml("TL");
+  assert.match(html, /Now<\/span><b>Rent \$700\/wk/);
+  assert.match(html, /Year 4<\/span><b>A boat/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+  Object.assign(state, { scenarioChanges: was.ch, purchase: was.purchase, invest: was.invest, fire: was.fire });
+});

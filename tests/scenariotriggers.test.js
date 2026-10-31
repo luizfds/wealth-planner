@@ -62,3 +62,10 @@ test("at an age: the year that age is reached; with no age known, never", functi
     assert.equal(scenarioLegChanges("Wait").length, 0);
   });
 });
+
+import { compareScenario } from "../src/calc/compare.js";
+test("cash at settlement counts what's bought now, not what waits for cash or a later year", function(){
+  run([unit({ when: "cash", whenCash: 150000 })], function(){ assert.equal(compareScenario("Wait", { baseline: "Today" }).upfront, 0); });
+  run([unit({ fromYear: 3 })], function(){ assert.equal(compareScenario("Wait", { baseline: "Today" }).upfront, 0); });
+  run([unit({})], function(){ assert.ok(compareScenario("Wait", { baseline: "Today" }).upfront > 100000); });
+});

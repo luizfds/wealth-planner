@@ -10,6 +10,7 @@ import { PURCHASE_STATE_CODES, STATE_GROWTH_RATES, INVEST_LEG_TYPES } from "../c
 import { recalcPurchase } from "../calc/property.js";
 import { recalcComputedItems, scenarioTotals, currentScenario, computeNetWorthSeries } from "../calc/engine.js";
 import { renderLineChart } from "../lib/charts.js";
+import { scenarioTimeline, yearText } from "../calc/scenariotimeline.js";
 import { buyInvestSummaryHtml, calcFor, calcScenarioHeadHtml } from "./calculators.js";
 import { scenarioAccountHtml, renderScenarioAccountChart } from "./scenarioaccount.js";
 import { periodsOf, sumField } from "../calc/ledger.js";
@@ -93,10 +94,25 @@ export function scenarioEditorSummaryHtml(){
     // v3.187.0 (item 218): the rest folds under the figures on a phone (open beside the controls on a desktop).
     '<details class="sc-more"' + (editorUi.moreOpen ? ' open' : '') + ' data-sc-more><summary>The verdict, the chart and an account</summary>' +
     '<p class="sc-edit-verdict">' + escapeAttr(c.verdict) + '</p>' +
+    // v3.192.0 (item 223): when each change lands.
+    scenarioTimelineHtml(key) +
     // v3.182.0 (item 213): the draft's net worth against today's, redrawn on every change.
     '<div class="dt-chart sc-edit-chart" id="scEditChart"></div>' +
     // v3.185.0 (item 216): laid over an everyday account's next 90 days.
     scenarioAccountHtml(key) + '</details>';
+}
+export function scenarioTimelineHtml(key){
+  var cfg = state.purchase[key], inv = state.invest[key];
+  var changes = changesFor(key);
+  var cashWaits = changes.some(function(c){ return c && c.when === "cash"; });
+  var age = state.fire && state.fire.currentAge !== "" && state.fire.currentAge != null ? Number(state.fire.currentAge) : null;
+  var events = scenarioTimeline({ changes: changes, triggers: cashWaits ? computeNetWorthSeries(key, 30).triggers : {}, age: age,
+    buying: !!(cfg && cfg.enabled && !(inv && inv.enabled)), investing: !!(inv && inv.enabled),
+    propertyName: function(id){ var p = (state.properties || []).find(function(x){ return x.id === id; }); return p ? p.what : null; } });
+  if(!events.length) return "";
+  return '<ol class="sc-timeline" aria-label="When each change happens">' + events.map(function(e){
+    return '<li class="' + (e.year == null ? "is-never" : "") + '"><span class="sct-when">' + escapeAttr(yearText(e.year)) + '</span><b>' + escapeAttr(e.label) + '</b>' + (e.why ? '<small>' + escapeAttr(e.why) + '</small>' : '') + '</li>';
+  }).join("") + '</ol>';
 }
 // Session only: whether the results' fold is open (open on a desktop, folded on a phone, until changed).
 export var editorUi = { moreOpen: typeof window === "undefined" || !window.matchMedia || !window.matchMedia("(max-width: 880px)").matches };

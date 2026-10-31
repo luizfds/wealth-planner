@@ -4125,10 +4125,18 @@ back, the draft then equal to saved. Driven at 1280px: a saved cost's amount cha
 lines), then back to saved ("No changes yet").
 
 
-## 223. `[ ]` A timeline of when things happen
+## 223. `[x]` A timeline of when things happen
 Do: above the chart, each change at its year — bought when cash reaches it, sold in year 2, retire at 58.
 
 Done when: render test; driven with a cash trigger.
+
+**Done (v3.192.0).** Above the chart, a strip of each change at the year it lands (`calc/scenariotimeline.js`): as set,
+at an age (from today's), or when cash reaches an amount (the year the projection found — "Not within 30 years" last
+when it never does), with buying or investing now and retiring at an age. With it, **cash at settlement** on the page and
+in Side by side counts only what's bought now: an investment property waiting for cash, a later year or an age is paid
+for then, from what's there then. Tests: the order and years (a cash trigger's, an age's, a year's, the unreached last);
+settlement leaves out a property bought later. Driven at 1280 and 390px with "when cash reaches $250,000".
+
 
 ## 224. `[ ]` Forms that explain themselves
 Do: an investment property's fields grouped (price and loan, rent, costs and tax, more), its figures first; plain hints

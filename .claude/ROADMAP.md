@@ -4096,11 +4096,19 @@ calculator's, $600,000 at 6% over 30 years is $3,597.30 a month, and $4,827.74 s
 1280 and 390px: a scenario's price changed in the calculator shows in its summary, unsaved; the tools on their own.
 
 
-## 221. `[ ]` Adding a change
+## 221. `[x]` Adding a change
 Do: one "+ Add a change" opens a sheet of the kinds with a sentence each; a scenario with no changes offers three to
 start from.
 
 Done when: driven at 390px.
+
+**Done (v3.190.0).** The five "+ …" buttons are one **+ Add a change**, opening a sheet of the kinds with what each is for
+(`addChangeSheetHtml`; a kind that can't apply yet — a sale with no property, extra repayments with no loan — is shown
+off, with why). Its buttons are ordinary `[data-sc-new]`, so the handler that adds a change adds it; the sheet closes.
+A scenario with no changes offers three starters (rent somewhere new, an investment property, a new cost). Toasts sit
+above the phone's save bar on this page. Driven at 390px: a blank scenario opens with the starters; the sheet adds an
+investment property and closes.
+
 
 ## 222. `[ ]` What changed since you opened it
 Do: the editor's figures read saved → now; the chart adds the saved scenario faintly; a changed field is marked, and each

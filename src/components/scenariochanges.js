@@ -121,13 +121,14 @@ export function scenarioChangesHtml(scenario){
       '<button type="button" class="btn btn-danger btn-sm" data-sc-del="' + escapeAttr(c.id) + '" data-sc-scenario="' + escapeAttr(scenario) + '" aria-label="' + escapeAttr("Remove: " + changeSummary(c, { propertyName: propName })) + '">✕</button>' +
       (open ? changeFormHtml(c, scenario, ctx) : '') + '</div>';
   }).join("");
-  var hasLoan = (state.properties || []).some(function(p){ return (p.loans || []).length; });
-  var adders = CHANGE_KINDS.filter(function(k){ return k.key !== "amount" && (k.key !== "sell" || (state.properties || []).length) && (k.key !== "extra" || hasLoan); }).map(function(k){
-    return '<button type="button" class="btn btn-sm" data-sc-new="' + k.key + '" data-sc-scenario="' + escapeAttr(scenario) + '" title="' + escapeAttr(k.hint) + '">+ ' + escapeAttr(k.label) + '</button>';
-  }).join("");
-  return '<div class="sc-changes"><div class="home-recurring-label">Changes from today</div>' +
-    (rows || '<p class="ledger-note" style="margin:0 0 8px">Nothing differs from today yet. Add what this scenario changes — renting somewhere new, an investment property, a cost — and it\'s worked out against the household as it is.</p>') +
-    '<div class="sc-adders">' + adders + '</div>' +
+  // v3.190.0 (item 221): one "+ Add a change" (a sheet of the kinds); a scenario with none offers three to start from.
+  var real = all.filter(function(c){ return c && c.kind !== "home"; });
+  var starter = function(kind, label){ return '<button type="button" class="sc-starter" data-sc-new="' + kind + '" data-sc-scenario="' + escapeAttr(scenario) + '">' + label + '</button>'; };
+  return '<div class="sc-changes"><div class="home-recurring-label">Changes from today</div>' + rows +
+    (real.length ? '' : '<div class="sc-empty"><p>Nothing differs from today yet. Start with one of these, or add anything else:</p><div class="sc-starters">' +
+      starter("rent", "<b>Rent somewhere new</b><small>a bigger place, a cheaper one</small>") + starter("ip", "<b>Buy an investment property</b><small>its rent, costs, loan and tax</small>") +
+      starter("cost", "<b>A new cost or saving</b><small>childcare, a car, a gym you'd stop</small>") + '</div></div>') +
+    '<div class="sc-adders"><button type="button" class="btn btn-sm" data-sc-addsheet="' + escapeAttr(scenario) + '">+ Add a change</button></div>' +
     '<div class="sc-add"><select data-sc-row="' + escapeAttr(scenario) + '" aria-label="A line that would be different in ' + escapeAttr(scenario) + '">' + rowOptionsHtml() + '</select>' +
       '<input type="number" step="0.01" min="0" data-sc-new-amount="' + escapeAttr(scenario) + '" placeholder="Amount, same frequency" aria-label="Its amount in ' + escapeAttr(scenario) + '">' +
       '<button type="button" class="btn btn-sm" data-sc-add="' + escapeAttr(scenario) + '">A line costs a different amount</button></div></div>';
@@ -144,4 +145,20 @@ export function todaysHomeHtml(){
 }
 export function todaysHomeMonthly(){
   return (state.shared || []).filter(function(l){ return l && l.homeCost; }).reduce(function(s, l){ return s + periodsOf(Number(l.amount) || 0, l.freq).monthly; }, 0);
+}
+
+// The kinds of change, each with what it's for (v3.190.0, item 221).
+export var addSheet = { open: false, scenario: null };
+export function addChangeSheetHtml(){
+  if(!addSheet.open) return "";
+  var scenario = addSheet.scenario;
+  var hasLoan = (state.properties || []).some(function(p){ return (p.loans || []).length; });
+  var items = CHANGE_KINDS.filter(function(k){ return k.key !== "amount"; }).map(function(k){
+    var off = (k.key === "sell" && !(state.properties || []).length) ? "There's no property to sell yet" : (k.key === "extra" && !hasLoan) ? "There's no property loan yet" : "";
+    return '<button type="button" class="sq-choice" data-sc-new="' + k.key + '" data-sc-scenario="' + escapeAttr(scenario) + '"' + (off ? ' disabled title="' + escapeAttr(off) + '"' : '') + '><b>' + escapeAttr(k.label) + '</b><small>' + escapeAttr(off || k.hint) + '</small></button>';
+  }).join("");
+  return '<div class="review-backdrop" data-acs-backdrop><div class="review-panel sq-panel" role="dialog" aria-modal="true" aria-label="Add a change">' +
+    '<div class="review-head"><h4>Add a change</h4><button type="button" class="icon-btn" data-acs-close aria-label="Close">✕</button></div>' +
+    '<div class="sq-choices">' + items + '</div>' +
+    '<p class="ledger-note" style="margin:10px 0 0">A line in your budget or pay that would cost (or pay) a different amount: choose it under the changes, beside "A line costs a different amount".</p></div></div>';
 }

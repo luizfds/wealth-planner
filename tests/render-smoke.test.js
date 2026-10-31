@@ -1753,7 +1753,7 @@ test("a scenario's changes list draws each kind, and an open investment property
   assert.match(html, /Sell 1 Example St in year 3/);
   assert.match(html, /Childcare: \$900 monthly · from year 2/);
   assert.match(html, /Cash at settlement/);
-  assert.match(html, /data-sc-new="ip"/);
+  assert.match(html, /data-sc-addsheet=/); // v3.190.0: one "+ Add a change", a sheet of the kinds
   assert.doesNotMatch(html, /undefined|NaN/);
   delete sc.changeOpen.i;
   state.shared = was.shared; state.income = was.income; state.scenarioChanges = was.ch; state.properties = was.props;
@@ -1953,4 +1953,20 @@ test("the Calculators page's tools, and a scenario's buy-or-invest summary", asy
   assert.match(sum, /data-sc-calc/);
   assert.doesNotMatch(sum, /undefined|NaN/);
   state.purchase = was.purchase; state.invest = was.invest;
+});
+
+test("the sheet of changes to add, and three starters for a scenario with none", async function(){
+  var sc = await import("../src/components/scenariochanges.js");
+  sc.addSheet.open = true; sc.addSheet.scenario = "Move";
+  var sheet = sc.addChangeSheetHtml();
+  ["rent", "ip", "cost", "sell", "extra"].forEach(function(k){ assert.match(sheet, new RegExp('data-sc-new="' + k + '"')); });
+  assert.doesNotMatch(sheet, /data-sc-new="amount"/);
+  sc.addSheet.open = false;
+  assert.equal(sc.addChangeSheetHtml(), "");
+  var was = { ch: state.scenarioChanges };
+  state.scenarioChanges = Object.assign({}, state.scenarioChanges, { Empty: [] });
+  var html = sc.scenarioChangesHtml("Empty");
+  assert.match(html, /sc-starters/);
+  assert.equal((html.match(/class="sc-starter"/g) || []).length, 3);
+  state.scenarioChanges = was.ch;
 });

@@ -100,7 +100,7 @@ import { startActivityLog, setDevicePerson, devicePerson } from "./lib/activity.
 import { undoEntry } from "./calc/activity.js";
 import { setAmountChange, removeChange, changesFor } from "./calc/scenariochanges.js";
 import { newChange } from "./calc/scenariolegs.js";
-import { changeOpen } from "./components/scenariochanges.js";
+import { changeOpen, addSheet, addChangeSheetHtml } from "./components/scenariochanges.js";
 import { buildScenario } from "./calc/scenariotemplates.js";
 import { renderCompare } from "./components/compare.js";
 import { startQ, startSheetHtml, templateContext } from "./components/scenariotemplates.js";
@@ -6114,6 +6114,22 @@ import { inboxMessage } from "./calc/inbox.js";
       closeScenarioEditor(false);
     }
   });
+
+  // v3.190.0 (item 221): the sheet of changes to add. A kind's button is an ordinary [data-sc-new], so the
+  // handler that adds changes adds it; the sheet just closes.
+  var addChangeRoot = document.getElementById("addChangeRoot");
+  function renderAddSheet(){ addChangeRoot.innerHTML = addChangeSheetHtml(); var f = addChangeRoot.querySelector("[data-sc-new]:not([disabled])"); if(f) f.focus(); }
+  document.addEventListener("click", function(e){
+    var b = e.target.closest && e.target.closest("[data-sc-addsheet]");
+    if(!b) return;
+    addSheet.open = true; addSheet.scenario = b.getAttribute("data-sc-addsheet"); renderAddSheet();
+    pushActiveOverlay(function(){ addSheet.open = false; renderAddSheet(); });
+  });
+  addChangeRoot.addEventListener("click", function(e){
+    if(e.target.closest("[data-acs-close]") || e.target === e.target.closest("[data-acs-backdrop]")){ requestCloseActiveOverlay(); return; }
+    if(e.target.closest("[data-sc-new]")) setTimeout(function(){ if(addSheet.open) requestCloseActiveOverlay(); }, 0);
+  });
+  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && addSheet.open){ e.preventDefault(); requestCloseActiveOverlay(); } });
 
   // v3.189.0 (item 220): the scenario's calculators on their own page, and back; the standalone ones.
   document.addEventListener("click", function(e){

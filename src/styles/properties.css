@@ -440,6 +440,7 @@
   .sc-edit-head .sc-edit-actions, .sc-edit-head .sc-edit-state{ display:none; }
   #page-scenario{ padding-bottom:72px; }
   body[data-current-page="scenario"] .quick-fab-wrap{ display:none; }
+  body[data-current-page="scenario"] .toast-wrap{ bottom: calc(18px + 66px + 62px + env(safe-area-inset-bottom)); }
   .sc-edit-layout{ grid-template-columns: minmax(0,1fr); gap:6px; }
   .sc-edit-aside{ order:-1; position:static; max-height:none; overflow:visible; }
 }
@@ -507,3 +508,12 @@
 .bis-figs small{ font-size:var(--fs-xs); color: var(--ink-soft); }
 .bis-figs b{ font-family: var(--font-num); font-variant-numeric: tabular-nums; }
 .bis-actions{ margin-top:10px; }
+/* v3.190.0 (item 221): adding a change */
+.sc-empty p{ margin:0 0 8px; font-size:var(--fs-sm); color: var(--ink-soft); }
+.sc-starters{ display:grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap:8px; margin-bottom:8px; }
+.sc-starter{ all:unset; box-sizing:border-box; display:flex; flex-direction:column; gap:3px; padding:10px 12px; min-height:44px; cursor:pointer;
+  border:1px dashed var(--brass); border-radius: var(--inner-radius); background: var(--paper-raised); }
+.sc-starter:hover{ background: var(--brass-wash); }
+.sc-starter:focus-visible{ box-shadow: var(--focus-ring); }
+.sc-starter b{ font-size:var(--fs-sm); }
+.sc-starter small{ font-size:var(--fs-xs); color: var(--ink-soft); }

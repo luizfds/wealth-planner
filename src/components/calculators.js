@@ -5,6 +5,7 @@
 // invest calculators, working on its draft. The scenario's page then shows just what they come to.
 
 import { state } from "../state.js";
+import { isDraftKey, DRAFT_PREFIX, buyInvestChanged } from "../calc/scenariodraft.js";
 import { stampDutyFigures, lmiFigures, repaymentFigures, borrowingPower } from "../calc/calculators.js";
 import { recalcPurchase } from "../calc/property.js";
 import { currentScenario } from "../calc/engine.js";
@@ -102,7 +103,10 @@ export function buyInvestSummaryHtml(key){
       line("Now", money(Number(inv.initialAmount) || 0)) + line("Each month", inv.contributionMode === "manual" ? money(Number(inv.monthlyContribution) || 0) : "what's left over") +
       line("Into", escapeAttr(inv.assetType || "Shares")) + line("Growth", (Number(inv.growthRatePct) || 0) + "% a year") + '</div>';
   } else body = '<div class="bis-head"><b>Not buying a home or investing a lump sum</b><small>Either is worked out in the calculators.</small></div>';
-  return '<div class="bis">' + body + '<div class="bis-actions"><button type="button" class="btn btn-sm" data-sc-calc>' + (buying || investing ? "Change in the calculator" : "Open the calculators") + ' →</button></div></div>';
+  // v3.191.0 (item 222): changed since it was opened, and back to as saved.
+  var name = isDraftKey(key) ? key.slice(DRAFT_PREFIX.length) : null, changed = !!(name && buyInvestChanged(name));
+  return '<div class="bis' + (changed ? ' is-changed' : '') + '">' + (changed ? '<span class="sc-badge">Changed</span>' : '') + body + '<div class="bis-actions"><button type="button" class="btn btn-sm" data-sc-calc>' + (buying || investing ? "Change in the calculator" : "Open the calculators") + ' →</button>' +
+    (changed ? ' <button type="button" class="link-btn sc-undo" data-sc-reset-buy>Back to saved</button>' : '') + '</div></div>';
 }
 
 export function renderCalcTools(){

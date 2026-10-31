@@ -4110,11 +4110,20 @@ above the phone's save bar on this page. Driven at 390px: a blank scenario opens
 investment property and closes.
 
 
-## 222. `[ ]` What changed since you opened it
+## 222. `[x]` What changed since you opened it
 Do: the editor's figures read saved → now; the chart adds the saved scenario faintly; a changed field is marked, and each
 change can go back to as saved.
 
 Done when: tests on reset; driven.
+
+**Done (v3.191.0).** While editing, the page measures against the scenario as saved too: each figure adds "saved: $X"
+once it differs, the chart adds the saved scenario (dashed) beside today's and the draft, a change reads **New** or
+**Changed** with **Take out** / **Back to saved**, a changed field carries a dot, and the buying or investing summary says
+Changed with its own Back to saved (`changeStatus`, `changedFields`, `resetChange`, `buyInvestChanged`, `resetBuyInvest`
+in calc/scenariodraft.js). Tests: a change's status and fields, a changed one put back, a new one taken out, buying put
+back, the draft then equal to saved. Driven at 1280px: a saved cost's amount changed (badge, dot, the saved figures, three
+lines), then back to saved ("No changes yet").
+
 
 ## 223. `[ ]` A timeline of when things happen
 Do: above the chart, each change at its year — bought when cash reaches it, sold in year 2, retire at 58.

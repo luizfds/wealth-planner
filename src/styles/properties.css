@@ -517,3 +517,10 @@
 .sc-starter:focus-visible{ box-shadow: var(--focus-ring); }
 .sc-starter b{ font-size:var(--fs-sm); }
 .sc-starter small{ font-size:var(--fs-xs); color: var(--ink-soft); }
+/* v3.191.0 (item 222): changed since it was opened */
+.sc-badge{ display:inline-block; margin-left:6px; padding:1px 7px; border-radius:999px; font-size:var(--fs-xs); font-weight:600; color: var(--warn-ink); background: var(--paper-sunken); vertical-align:middle; }
+.sc-undo{ font-size:var(--fs-xs); }
+.scf-dot{ display:inline-block; width:7px; height:7px; border-radius:50%; background: var(--warn-ink); margin-left:4px; vertical-align:middle; }
+.scf.is-changed input, .scf.is-changed select{ border-color: var(--brass); }
+.sc-was{ display:block; color: var(--ink-soft); font-size:var(--fs-xs); }
+.bis.is-changed{ border-color: var(--brass); }

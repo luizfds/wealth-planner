@@ -81,10 +81,14 @@ export function scenarioEditorSummaryHtml(){
   var base = compareScenario(currentScenario(), { baseline: currentScenario() });
   var signed = function(n){ return (n >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(n)); };
   var ten = c.netWorth.find(function(x){ return x.year === 10; }) || c.netWorth[0];
+  // v3.191.0 (item 222): what each figure was as saved, once the draft says something different.
+  var saved = key !== name && draftChanged(name) ? compareScenario(name, { baseline: currentScenario() }) : null;
+  var was = function(now, then){ return saved && Math.round(now) !== Math.round(then) ? '<small class="sc-was">saved: ' + fmtCurrency0.format(then) + '</small>' : ''; };
+  var savedTen = saved ? (saved.netWorth.find(function(x){ return x.year === 10; }) || saved.netWorth[0]) : null;
   return '<div class="sc-edit-summary">' +
-    '<div><span>A month, after tax</span><b class="' + (c.monthAfterTax < 0 ? "down" : "") + '">' + fmtCurrency0.format(c.monthAfterTax) + '</b><small>' + signed(c.monthAfterTax - base.monthAfterTax) + ' against today</small></div>' +
-    '<div><span>Cash at settlement</span><b>' + fmtCurrency0.format(c.upfront) + '</b><small>' + (c.short > 0 ? '<span class="down">' + fmtCurrency0.format(c.short) + ' short</span>' : fmtCurrency0.format(c.available) + ' available') + '</small></div>' +
-    '<div><span>Net worth in ' + ten.year + ' years</span><b>' + fmtCurrency0.format(ten.value) + '</b><small>' + signed(ten.vsBase) + ' against today</small></div>' +
+    '<div><span>A month, after tax</span><b class="' + (c.monthAfterTax < 0 ? "down" : "") + '">' + fmtCurrency0.format(c.monthAfterTax) + '</b><small>' + signed(c.monthAfterTax - base.monthAfterTax) + ' against today</small>' + (saved ? was(c.monthAfterTax, saved.monthAfterTax) : '') + '</div>' +
+    '<div><span>Cash at settlement</span><b>' + fmtCurrency0.format(c.upfront) + '</b><small>' + (c.short > 0 ? '<span class="down">' + fmtCurrency0.format(c.short) + ' short</span>' : fmtCurrency0.format(c.available) + ' available') + '</small>' + (saved ? was(c.upfront, saved.upfront) : '') + '</div>' +
+    '<div><span>Net worth in ' + ten.year + ' years</span><b>' + fmtCurrency0.format(ten.value) + '</b><small>' + signed(ten.vsBase) + ' against today</small>' + (savedTen ? was(ten.value, savedTen.value) : '') + '</div>' +
     '</div>' +
     // v3.187.0 (item 218): the rest folds under the figures on a phone (open beside the controls on a desktop).
     '<details class="sc-more"' + (editorUi.moreOpen ? ' open' : '') + ' data-sc-more><summary>The verdict, the chart and an account</summary>' +
@@ -105,6 +109,8 @@ export function renderScenarioEditorChart(){
     { label: "Today", colorClass: "series-color-0", dashed: true, points: computeNetWorthSeries(base, horizon, { realTerms: realTerms }) },
     { label: editing.name, colorClass: "series-color-1", points: computeNetWorthSeries(key, horizon, { realTerms: realTerms }) }
   ];
+  // v3.191.0 (item 222): and as saved, once the draft differs.
+  if(key !== editing.name && draftChanged(editing.name)) series.splice(1, 0, { label: "As saved", colorClass: "series-color-4", dashed: true, points: computeNetWorthSeries(editing.name, horizon, { realTerms: realTerms }) });
   renderLineChart(host, series, { height: 200, yFormat: function(v){ return fmtCurrency0.format(v); }, xFormat: function(v){ return "Yr " + v; },
     ariaLabel: "Net worth over 20 years: " + editing.name + " against today, in " + (realTerms ? "today's" : "future") + " dollars", alwaysLegend: true });
 }

@@ -50,3 +50,25 @@ test("editing a draft isn't somebody's change in the activity log", function(){
   after.scenarioChanges[key][0].amount = 900;
   assert.deepEqual(diffForLog(before, after), []);
 });
+
+import { changeStatus, changedFields, resetChange, buyInvestChanged, resetBuyInvest } from "../src/calc/scenariodraft.js";
+
+test("what changed since it was opened, and putting one change back", function(){
+  var st = household();
+  var key = openDraft("Rentvest", st);
+  assert.equal(changeStatus("Rentvest", "c1", st), "same");
+  st.scenarioChanges[key][0].amount = 850;
+  st.scenarioChanges[key].push({ id: "c2", kind: "cost", amount: 100, freq: "Monthly" });
+  assert.equal(changeStatus("Rentvest", "c1", st), "changed");
+  assert.deepEqual(changedFields("Rentvest", "c1", st), { amount: true });
+  assert.equal(changeStatus("Rentvest", "c2", st), "new");
+  resetChange("Rentvest", "c1", st);
+  assert.equal(st.scenarioChanges[key][0].amount, 700);
+  resetChange("Rentvest", "c2", st);
+  assert.equal(st.scenarioChanges[key].length, 1, "a new change goes when reset");
+  st.purchase[key].price = 777000;
+  assert.equal(buyInvestChanged("Rentvest", st), true);
+  resetBuyInvest("Rentvest", st);
+  assert.equal(buyInvestChanged("Rentvest", st), false);
+  assert.equal(draftChanged("Rentvest", st), false, "all back as saved");
+});

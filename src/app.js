@@ -1,6 +1,6 @@
 import { calcFor, calcQ, calcOutHtml } from "./components/calculators.js";
 import { tryQ, renderScenarioAccountChart } from "./components/scenarioaccount.js";
-import { openDraft, saveDraft, discardDraft, draftChanged } from "./calc/scenariodraft.js";
+import { openDraft, saveDraft, discardDraft, draftChanged, resetChange, resetBuyInvest } from "./calc/scenariodraft.js";
 import { renderSubscriptions, subsUi } from "./components/subscriptions.js";
 import { bench, benchmarkCardHtml, targetMixCardHtml } from "./components/investreturn.js";
 import { whatIfValues, resetWhatIf, wiFromSlider, wiValueText } from "./components/whatif.js";
@@ -6115,6 +6115,13 @@ import { inboxMessage } from "./calc/inbox.js";
     }
   });
 
+  // v3.191.0 (item 222): one change, or the buying / investing, back to as saved.
+  document.addEventListener("click", function(e){
+    if(!e.target.closest || !editing.name || editing.key === editing.name) return;
+    var r = e.target.closest("[data-sc-reset]");
+    if(r){ resetChange(editing.name, r.getAttribute("data-sc-reset")); afterScenarioChange(); return; }
+    if(e.target.closest("[data-sc-reset-buy]")){ resetBuyInvest(editing.name); recalcComputedItems(); afterScenarioChange(); }
+  });
   // v3.190.0 (item 221): the sheet of changes to add. A kind's button is an ordinary [data-sc-new], so the
   // handler that adds changes adds it; the sheet just closes.
   var addChangeRoot = document.getElementById("addChangeRoot");

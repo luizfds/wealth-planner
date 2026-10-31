@@ -1,5 +1,6 @@
 import { state } from "../state.js";
 import { changesFor } from "../calc/scenariochanges.js";
+import { isDraftKey, DRAFT_PREFIX, changeStatus, changedFields } from "../calc/scenariodraft.js";
 import { CHANGE_KINDS, ipFigures, legsMonthly, changeSummary } from "../calc/scenariolegs.js";
 import { scenarioLegContext, computeNetWorthSeries, isCashTriggered } from "../calc/engine.js";
 import { getTaxPeople } from "../calc/tax.js";
@@ -30,13 +31,16 @@ function rowOptionsHtml(){
 // v3.173.0 (item 208): which change forms are open (session only).
 export var changeOpen = {};
 var FREQS = ["Weekly", "Fortnightly", "Monthly", "Quarterly", "Yearly"];
+// v3.191.0 (item 222): the fields of the change being drawn that differ from the saved scenario's.
+var fieldMarks = {};
 function field(c, scenario, key, label, type, extra){
   var v = c[key] == null ? "" : c[key];
+  var marked = !!(fieldMarks[key] || (key === "fromYear" && (fieldMarks.when || fieldMarks.whenAge || fieldMarks.whenCash)));
   var attrs = ' data-scf="' + key + '" data-scf-id="' + escapeAttr(c.id) + '" data-scf-scenario="' + escapeAttr(scenario) + '"';
   var input;
   if(type === "select") input = '<select' + attrs + '>' + extra.map(function(o){ var val = Array.isArray(o) ? o[0] : o, lab = Array.isArray(o) ? o[1] : o; return '<option value="' + escapeAttr(val) + '"' + (String(val) === String(v) ? " selected" : "") + '>' + escapeAttr(lab) + '</option>'; }).join("") + '</select>';
   else input = '<input type="' + type + '"' + (type === "number" ? ' step="any"' : '') + attrs + ' value="' + escapeAttr(v) + '"' + (extra || "") + '>';
-  return '<label class="scf"><span>' + label + '</span>' + input + '</label>';
+  return '<label class="scf' + (marked ? ' is-changed' : '') + '"><span>' + label + (marked ? ' <i class="scf-dot" title="Changed since you opened it" aria-label="changed"></i>' : '') + '</span>' + input + '</label>';
 }
 // v3.183.0 (item 214): when a change starts — in a year, at an age, or when cash reaches an amount.
 function whenFields(c, scenario, label){
@@ -105,6 +109,7 @@ export function scenarioChangesHtml(scenario){
     var y = triggers[c.id];
     return y == null ? ' <span class="sc-when warn">— cash doesn\'t reach it in 30 years</span>' : ' <span class="sc-when">— year ' + y + (y === 1 ? ", the coming year" : "") + '</span>';
   };
+  var draftName = isDraftKey(scenario) ? scenario.slice(DRAFT_PREFIX.length) : null;
   var rows = all.map(function(c){
     if(c.kind === "amount") return amountChangeHtml(c, scenario);
     if(c.kind === "home") return '<div class="sc-change"><span class="sc-what"><b>Lives somewhere else</b><small>Its home costs are listed under Recurring costs below; today\'s home lines are left out.</small></span></div>';
@@ -114,12 +119,17 @@ export function scenarioChangesHtml(scenario){
       '<button type="button" class="btn btn-danger btn-sm" data-sc-del="' + escapeAttr(c.id) + '" data-sc-scenario="' + escapeAttr(scenario) + '" aria-label="' + escapeAttr("Remove: " + changeSummary(c)) + '">✕</button></div>';
     var m = legsMonthly([c], ctx), effect = m.incomeMonthly - m.expensesMonthly;
     var open = !!changeOpen[c.id];
-    return '<div class="sc-change sc-leg' + (open ? " is-open" : "") + '"><button type="button" class="sc-what sc-leg-head" data-sc-toggle="' + escapeAttr(c.id) + '" aria-expanded="' + open + '"><b>' + escapeAttr(changeSummary(c, { money: function(n){ return fmtCurrency0.format(n); }, propertyName: propName })) + startsText(c) + '</b>' +
+    // v3.191.0 (item 222): against the saved scenario, while editing its draft.
+    var status = draftName ? changeStatus(draftName, c.id) : "same";
+    fieldMarks = draftName && status === "changed" ? changedFields(draftName, c.id) : {};
+    var badge = status === "same" ? "" : '<span class="sc-badge">' + (status === "new" ? "New" : "Changed") + '</span>';
+    var undo = status === "same" ? "" : '<button type="button" class="link-btn sc-undo" data-sc-reset="' + escapeAttr(c.id) + '" data-sc-scenario="' + escapeAttr(scenario) + '">' + (status === "new" ? "Take out" : "Back to saved") + '</button>';
+    return '<div class="sc-change sc-leg' + (open ? " is-open" : "") + '"><button type="button" class="sc-what sc-leg-head" data-sc-toggle="' + escapeAttr(c.id) + '" aria-expanded="' + open + '"><b>' + escapeAttr(changeSummary(c, { money: function(n){ return fmtCurrency0.format(n); }, propertyName: propName })) + startsText(c) + badge + '</b>' +
         (c.kind === "sell" ? '<small>Its equity becomes cash that year, and its rent, costs and loan stop</small>'
           : c.kind === "extra" ? '<small>' + signed(effect) + '/mo from savings, into the loan — kept as equity</small>'
           : '<small>' + signed(effect) + '/mo' + (c.kind === "ip" ? ' after tax · ' + fmtCurrency0.format(m.upfront) + ' at settlement' : '') + '</small>') + '</button>' +
       '<button type="button" class="btn btn-danger btn-sm" data-sc-del="' + escapeAttr(c.id) + '" data-sc-scenario="' + escapeAttr(scenario) + '" aria-label="' + escapeAttr("Remove: " + changeSummary(c, { propertyName: propName })) + '">✕</button>' +
-      (open ? changeFormHtml(c, scenario, ctx) : '') + '</div>';
+      undo + (open ? changeFormHtml(c, scenario, ctx) : '') + '</div>';
   }).join("");
   // v3.190.0 (item 221): one "+ Add a change" (a sheet of the kinds); a scenario with none offers three to start from.
   var real = all.filter(function(c){ return c && c.kind !== "home"; });

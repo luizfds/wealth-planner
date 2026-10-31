@@ -4062,11 +4062,20 @@ page redraws; the charts draw when it opens). Driven at 1280px (the column stays
 and 390px.
 
 
-## 219. `[ ]` Save where your thumb is, and never lose a draft
+## 219. `[x]` Save where your thumb is, and never lose a draft
 Do: on a phone, Save and Cancel sit in a bar at the bottom; leaving with unsaved changes (a tab, the back button, closing
 the app) asks first; Ctrl/⌘+S saves and Esc cancels on a desktop.
 
 Done when: driven: a tab tapped with unsaved changes asks; the shortcuts work.
+
+**Done (v3.188.0).** On a phone, Save and Cancel (and "Unsaved changes") sit in a bar just above the tab bar
+(`.sc-savebar`; the quick-add button steps aside on this page). Leaving a scenario with unsaved changes — a tab, a menu, the
+back button — asks first (`setLeaveGuard` in nav.js; the Calculators page excepted, it's part of editing); leaving keeps the
+draft for later, staying puts the address back. Closing or reloading the app gets the browser's own warning. On a desktop
+Ctrl/⌘+S saves (the field being typed in lands first) and Esc cancels when no field or sheet has it. Driven at 390 and
+1280px: the bar above the tabs, a tab tapped with unsaved changes asking (stay, then leave with the draft kept), Ctrl+S
+saving, Esc closing.
+
 
 ## 220. `[ ]` Calculators
 Do: a Calculators page in the avatar menu — stamp duty, LMI, loan repayments and what you could borrow — and the

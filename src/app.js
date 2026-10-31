@@ -163,7 +163,7 @@ import { applyParts, renderPartsSettings, setPart } from "./components/parts.js"
 import { txReview, txReviewHtml, reviewBannerHtml } from "./components/reviewqueue.js";
 import { loadHomeLayout, saveHomeLayout, moveCard, applyHomeLayout, homeArrangeHtml } from "./lib/homelayout.js";
 import { toReview, keepTransaction, refileTransaction, applyRuleFromReview, keepAll, ruleOfferFor } from "./calc/reviewqueue.js";
-import { showPage, parseRouteFromLocation, closeNavMenu, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, taxSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
+import { setLeaveGuard, showPage, parseRouteFromLocation, closeNavMenu, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, taxSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
 import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./components/search.js";
 import {
   startBankImport, reparseBankImportWith, clearBankImport,
@@ -6107,6 +6107,27 @@ import { inboxMessage } from "./calc/inbox.js";
     }
   });
 
+  // v3.188.0 (item 219): unsaved changes aren't lost by a tap elsewhere, the back button or closing the app.
+  function unsavedDraft(){ return !!(editing.name && editing.key !== editing.name && draftChanged(editing.name)); }
+  setLeaveGuard(function(){
+    if(!unsavedDraft()) return true;
+    return confirm('"' + editing.name + '" has unsaved changes. Leave and keep them as a draft for later? (Cancel stays here.)');
+  });
+  window.addEventListener("beforeunload", function(e){ if(unsavedDraft()){ e.preventDefault(); e.returnValue = ""; } });
+  document.addEventListener("keydown", function(e){
+    if(document.body.getAttribute("data-current-page") !== "scenario" || !editing.name) return;
+    if((e.ctrlKey || e.metaKey) && (e.key === "s" || e.key === "S")){
+      e.preventDefault();
+      if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); // a field's change lands first
+      var save = document.querySelector("#scenarioEditHead .sc-edit-actions [data-sc-save]");
+      if(save && !save.disabled) save.click();
+      return;
+    }
+    if(e.key === "Escape" && !e.defaultPrevented && !document.querySelector(".review-backdrop") && !(document.activeElement && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName))){
+      var cancel = document.querySelector("#scenarioEditHead .sc-edit-actions [data-sc-cancel]");
+      if(cancel) cancel.click();
+    }
+  });
   // v3.187.0 (item 218): the results' fold keeps its state while the page redraws.
   document.addEventListener("toggle", function(e){ if(e.target.matches && e.target.matches("[data-sc-more]")){ editorUi.moreOpen = e.target.open; if(e.target.open && editing.key){ renderScenarioEditorChart(); renderScenarioAccountChart(editing.key); } } }, true);
   // v3.185.0 (item 216): which account the scenario is tried on, and from when.

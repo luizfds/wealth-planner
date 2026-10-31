@@ -67,7 +67,10 @@ export function scenarioEditorHeadHtml(){
     '<h2>' + escapeAttr(name || "") + '</h2>' +
     (editing.key !== name ? '<span class="sc-edit-state' + (changed ? ' is-changed' : '') + '">' + (changed ? "Unsaved changes" : "No changes yet") + '</span>' +
       '<span class="sc-edit-actions"><button type="button" class="btn btn-sm btn-ghost" data-sc-cancel>Cancel</button>' +
-      '<button type="button" class="btn btn-sm btn-primary" data-sc-save' + (changed ? '' : ' disabled') + '>Save</button></span>' : '') + '</div>';
+      '<button type="button" class="btn btn-sm btn-primary" data-sc-save' + (changed ? '' : ' disabled') + '>Save</button></span>' : '') + '</div>' +
+    // v3.188.0 (item 219): on a phone, Save and Cancel sit at the bottom, where a thumb reaches.
+    (editing.key !== name ? '<div class="sc-savebar" role="region" aria-label="Save or cancel"><span class="sc-edit-state' + (changed ? ' is-changed' : '') + '">' + (changed ? "Unsaved changes" : "No changes yet") + '</span>' +
+      '<button type="button" class="btn btn-sm btn-ghost" data-sc-cancel>Cancel</button><button type="button" class="btn btn-sm btn-primary" data-sc-save' + (changed ? '' : ' disabled') + '>Save</button></div>' : '');
 }
 export function scenarioEditorSummaryHtml(){
   var key = editing.key, name = editing.name;

@@ -3949,10 +3949,16 @@ purchase price and a home row, Save, edit again and Cancel; the smoke script ope
 Looked at ProjectionLab (milestones, compare mode), Boldin (the odds a plan works, a bad start), PocketSmith (scenarios
 as layers on an account's forecast) and the Australian rentvesting calculators (CGT on sale, what a lender allows).
 
-## 213. `[ ]` The scenario against today, drawn as you edit
+## 213. `[x]` The scenario against today, drawn as you edit
 Do: the editor page draws the draft's net worth over 20 years against today's (dashed), redrawn on each change.
 
 Done when: the line follows a change in a driven run, and the page stays quick (measured).
+
+**Done (v3.182.0).** The editor page draws the draft's net worth over 20 years against today's (dashed), under its
+three figures, redrawn with them on every change (`renderScenarioEditorChart` in components/scenarios.js; both series
+in the projection's dollars). Driven at 1280 and 390px: a $3,000-a-month cost added and the draft's line drops below
+today's; adding a change paints in ~190 ms at 4× CPU slowdown.
+
 
 ## 214. `[ ]` Changes that happen when something is true
 ProjectionLab's milestones: "buy when the deposit's there", not "in year 3".

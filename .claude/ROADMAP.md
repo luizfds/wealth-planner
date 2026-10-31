@@ -4044,6 +4044,59 @@ short at 9%; in the engine the same property pays the CGT as an investment and n
 purchase and fails a large one. Driven at 1280 and 390px.
 
 
+### Phase K — the scenario page, easier to use (November 2026)
+
+From driving the editor at both widths, and the household's own ask: calculators of their own, which a scenario opens.
+
+## 218. `[ ]` Results beside the controls
+Do: on a desktop the editor is two columns — the controls, and the results (figures, chart, the account) held in view
+beside them; on a phone the two figures that matter stay in a strip, the rest folded under it.
+
+Done when: driven at 1280px (the results stay in view while the controls scroll) and 390px.
+
+## 219. `[ ]` Save where your thumb is, and never lose a draft
+Do: on a phone, Save and Cancel sit in a bar at the bottom; leaving with unsaved changes (a tab, the back button, closing
+the app) asks first; Ctrl/⌘+S saves and Esc cancels on a desktop.
+
+Done when: driven: a tab tapped with unsaved changes asks; the shortcuts work.
+
+## 220. `[ ]` Calculators
+Do: a Calculators page in the avatar menu — stamp duty, LMI, loan repayments and what you could borrow — and the
+scenario's purchase and invest calculators open there from the editor, which shows just their results with "Change in
+the calculator"; Done comes back.
+
+Done when: tests on the borrowing-power arithmetic; driven: a scenario's purchase changed in the calculator shows in
+the editor.
+
+## 221. `[ ]` Adding a change
+Do: one "+ Add a change" opens a sheet of the kinds with a sentence each; a scenario with no changes offers three to
+start from.
+
+Done when: driven at 390px.
+
+## 222. `[ ]` What changed since you opened it
+Do: the editor's figures read saved → now; the chart adds the saved scenario faintly; a changed field is marked, and each
+change can go back to as saved.
+
+Done when: tests on reset; driven.
+
+## 223. `[ ]` A timeline of when things happen
+Do: above the chart, each change at its year — bought when cash reaches it, sold in year 2, retire at 58.
+
+Done when: render test; driven with a cash trigger.
+
+## 224. `[ ]` Forms that explain themselves
+Do: an investment property's fields grouped (price and loan, rent, costs and tax, more), its figures first; plain hints
+on the harder fields; values out of the usual range flagged, not refused.
+
+Done when: render test; driven at 390px.
+
+## 225. `[ ]` The scenario's own header
+Do: renamed in place; a note on why you're looking at it (on its card too); "lives somewhere else" said in the header
+with what it costs, not as a change you can't edit.
+
+Done when: driven: a rename while editing keeps the draft; the note shows on the card.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

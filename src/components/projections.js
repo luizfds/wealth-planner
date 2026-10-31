@@ -82,9 +82,21 @@ export function renderWhatIfDrag(){
   if(headlineEl) headlineEl.innerHTML = whatIfHeadline(series, horizon, realTerms);
 }
 
+// v3.180.1: the chart (and its range of outcomes, the slow part) only while Projections is on screen;
+// otherwise it's marked stale and drawn when the page is next shown (components/nav.js).
+var stale = false;
+export function renderProjectionsWhenSeen(){
+  var host = typeof document !== "undefined" && document.getElementById("projOutputs");
+  if(!host) return;
+  if(!host.offsetParent){ stale = true; return; }
+  renderProjectionOutputs();
+}
+export function renderProjectionsIfStale(){ if(stale) renderProjectionOutputs(); }
+
 export function renderProjectionOutputs(){
   var container = document.getElementById("projOutputs");
   if(!container) return;
+  stale = false;
   dragCache = null;
   var horizon = Math.max(1, Number(state.projection.horizonYears) || 1);
   var realTerms = state.projection.realTerms !== false;

@@ -197,6 +197,49 @@ if(!SHOTS){
   errors.splice(0).forEach(e => failures.push(where + ": " + e));
   await ctx.close();
 }
+// v3.181.0 (item 212): a scenario on its own page — opened from its card, changed, saved.
+if(!SHOTS){
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await ctx.addInitScript(() => localStorage.setItem("wealthPlanner.hasSeenIntro", "1"));
+  await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on("pageerror", e => errors.push("page error: " + e.message));
+  page.on("console", m => { if(m.type() === "error" && !/Failed to load resource/.test(m.text())) errors.push("console: " + m.text()); });
+  await page.goto(base + "/index.html?mock=1");
+  await page.waitForTimeout(1500);
+  const where = "scenario editor 390px";
+  const r = await page.evaluate(async () => {
+    const wait = ms => new Promise(res => setTimeout(res, ms));
+    const out = [];
+    document.querySelector('[data-page="plan"]').click(); await wait(400);
+    document.querySelector('[data-plan-sub="scenarios"]').click(); await wait(400);
+    const edits = [...document.querySelectorAll("#cards [data-edit-scenario]")];
+    const edit = edits[edits.length - 1];
+    if(!edit){ out.push("no Edit on the scenario cards"); return out; }
+    const name = edit.getAttribute("data-edit-scenario");
+    edit.click(); await wait(700);
+    if(document.body.getAttribute("data-current-page") !== "scenario") { out.push("Edit didn't open the scenario's page"); return out; }
+    const pg = document.getElementById("page-scenario");
+    const t = pg.innerText;
+    if(t.trim().length < 50) out.push("the scenario's page is empty");
+    ["NaN", "undefined", "[object Object]"].forEach(b => { if(t.includes(b)) out.push("the scenario's page shows " + b); });
+    if(document.documentElement.scrollWidth > 390) out.push("the scenario's page scrolls sideways");
+    const save = pg.querySelector("[data-sc-save]");
+    if(!save || !save.disabled) out.push("Save isn't there, or is on before anything changed");
+    const add = pg.querySelector('[data-sc-new="cost"]');
+    if(!add){ out.push("no way to add a change"); return out; }
+    add.click(); await wait(500);
+    const save2 = document.querySelector("#page-scenario [data-sc-save]");
+    if(!save2 || save2.disabled) { out.push("Save stayed off after a change"); return out; }
+    save2.click(); await wait(700);
+    if(document.body.getAttribute("data-current-page") !== "plan") out.push("Save didn't go back to the scenarios");
+    return out;
+  });
+  r.forEach(f => failures.push(where + ": " + f));
+  errors.splice(0).forEach(e => failures.push(where + ": " + e));
+  await ctx.close();
+}
 await browser.close();
 server.close();
 if(failures.length && SHOTS){

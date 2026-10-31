@@ -3918,6 +3918,32 @@ wording, and made real, the household's month equals the scenario's within $5. D
 scenario from the question sheet, made it real, undone.
 
 
+## 212. `[x]` A scenario on its own page
+Asked for after Phase I shipped: Plan → Scenarios held every scenario's controls in one long page, and each change
+redrew the app.
+
+Do: the scenario cards are the list; Edit opens the scenario on its own page with only what it changes — its changes,
+the purchase / invest calculators, its home costs — and what it comes to against today. Edits go to a draft that
+nothing else reads; Save writes it back and updates the rest once; Cancel drops it.
+
+Done when: a draft is a copy that leaves the saved scenario alone until Save (tests); open, change, save and cancel are
+driven, and the smoke script opens, changes and saves one.
+
+**Done (v3.181.0).** The cards on Plan → Scenarios are the list (the long "Your home" section with every scenario's
+controls is gone); each card's **Edit this scenario →** opens it on its own page (`page-scenario`, in no menu): a
+sticky head with ← Scenarios, Cancel and Save; the scenario as it would be against today (a month after tax, cash at
+settlement, net worth in 10 years, the verdict); and only its controls — changes, the purchase and invest
+calculators, its home costs. Edits go to a draft (`calc/scenariodraft.js`: a copy under `Draft · <name>` in the same
+maps, so every control works on it unchanged, kept out of `state.scenarios` and of the activity log); while the page
+is open a change redraws only the page. Save writes the draft back and updates the cards, the comparison and the
+projection once; Cancel (asking first if anything changed) drops it. A draft left behind — the page closed, the app
+reloaded — waits, and its card says "Unsaved changes · Continue editing". Rename and delete carry it; drafts' loan rows
+follow their calculator. Make it real moved into the card's ⋯ menu; a scenario made from "What are you weighing?"
+opens straight in its editor. Tests: a draft leaves the saved scenario alone until Save, Cancel drops it, a rename
+carries it, and its edits aren't logged as anyone's change. Driven at 1280 and 390px: open, change a change, the
+purchase price and a home row, Save, edit again and Cancel; the smoke script opens one, changes it and saves.
+
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

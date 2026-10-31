@@ -1,3 +1,4 @@
+import { openDraft, saveDraft, discardDraft, draftChanged } from "./calc/scenariodraft.js";
 import { renderSubscriptions, subsUi } from "./components/subscriptions.js";
 import { bench, benchmarkCardHtml, targetMixCardHtml } from "./components/investreturn.js";
 import { whatIfValues, resetWhatIf, wiFromSlider, wiValueText } from "./components/whatif.js";
@@ -74,13 +75,13 @@ import {
   logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan, setSaleWhatIfField, patchSaleWhatIf, setLoanStrategyField, patchLoanStrategy, propertyTabs, propertyEditing,
   fixedExpiryHtml, rentPanelHtml, fixedWhatIf, agentStatementUi, agentStatementFormValues
 } from "./components/properties.js";
-import { renderProjectionOutputs, renderWhatIfDrag, projectionSeriesShown } from "./components/projections.js";
+import { renderProjectionOutputs, renderProjectionsWhenSeen, renderWhatIfDrag, projectionSeriesShown } from "./components/projections.js";
 import { renderBenchmarks, setBenchmarkField, applyBenchmarkPaste, addGoal, setGoalField, removeGoal, setPropertyMarketField } from "./components/benchmarks.js";
 import { copyBenchmarkTemplateToClipboard } from "./lib/backup.js";
 import {
   selectScenario, addScenario, renameScenario, cloneScenario, deleteScenario, renderHomeBody, renderHomeListModern, refreshScenarioDependentViews,
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
-  patchCalcOutputs, afterCalcChange, patchInvestOutputs
+  patchCalcOutputs, afterCalcChange, patchInvestOutputs, editing
 } from "./components/scenarios.js";
 import { ACCOUNT_TYPE_KEYS, accountSourceOptions, setAccountBalance, resolveLink, accountBalance } from "./calc/accounts.js";
 import { addTransfer, deleteTransfer, splitTransaction, unsplit, bulkEditTransactions, bulkDeleteTransactions } from "./calc/cashflowlist.js";
@@ -478,7 +479,7 @@ import { inboxMessage } from "./calc/inbox.js";
     renderDetail();
     renderTotals();
     if(section.indexOf("home:") === 0) renderHomeBodyTotalsOnly();
-    renderProjectionOutputs();
+    renderProjectionsWhenSeen();
     if(section === "income" || section.indexOf("propinc:") === 0 || section.indexOf("propexp:") === 0) renderTaxSuper();
     persist();
   }
@@ -541,7 +542,7 @@ import { inboxMessage } from "./calc/inbox.js";
       rerenderTableFor("income");
       renderTaxSuper();
       renderCards(); renderDetail(); renderTotals();
-      renderProjectionOutputs();
+      renderProjectionsWhenSeen();
       persist();
       var move = newAmount - previousAmount;
       showToast(move === 0
@@ -563,7 +564,7 @@ import { inboxMessage } from "./calc/inbox.js";
         if(!Array.isArray(litem.history)) litem.history = [];
         var ldate = appendHistorySnapshot(litem.history, Number(litem.amount) || 0, logDate);
         rerenderTableFor(lsection);
-        renderProjectionOutputs();
+        renderProjectionsWhenSeen();
         persist();
         showToast("Logged " + fmtCurrency0.format(Number(litem.amount) || 0) + " for " + litem.what + " (" + ldate + ")");
       }
@@ -600,7 +601,7 @@ import { inboxMessage } from "./calc/inbox.js";
       if(editedProperty) patchPropertyCardComputed(editedProperty);
     }
     renderCards(); renderDetail(); renderTotals(); renderHomeBodyTotalsOnly();
-    renderProjectionOutputs();
+    renderProjectionsWhenSeen();
     persist();
   }
 
@@ -4032,23 +4033,8 @@ import { inboxMessage } from "./calc/inbox.js";
     // v3.174.0 (item 209): adding a scenario starts from a question.
     if(e.target.closest("#addScenarioBtn") || e.target.closest("#addScenarioBtn2")){ openStartSheet(); return true; }
     var editBtn = e.target.closest("[data-edit-scenario]");
-    // The card's "Edit rent/home loan, purchase & invest options →". It used to go from Home to the
-    // Scenarios page; since the cards moved onto Plan → Scenarios it pointed at the page it was on and
-    // did nothing — the scenario's own block in Your home, below, stayed folded. It opens that block now.
-    if(editBtn){
-      var en = editBtn.getAttribute("data-edit-scenario");
-      chooseScenario(en);
-      homeBlockCollapsed[en] = false;
-      showPage("plan");
-      showPlanSubpage("scenarios", { replace: true });
-      renderHomeBody();
-      setTimeout(function(){
-        var head = Array.prototype.find.call(document.querySelectorAll("#homeBody [data-collapse-toggle]"), function(h){ return h.getAttribute("data-collapse-toggle") === en; });
-        var block = head && head.closest(".home-block");
-        if(block) block.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 350);
-      return true;
-    }
+    // v3.181.0 (item 212): Edit opens the scenario on its own page, as a draft.
+    if(editBtn){ openScenarioEditor(editBtn.getAttribute("data-edit-scenario")); return true; }
     var setActiveBtn = e.target.closest("[data-edit-scenario2]");
     if(setActiveBtn){ chooseScenario(setActiveBtn.getAttribute("data-edit-scenario2")); return true; }
     var collapseBtn = e.target.closest("[data-collapse-toggle]");
@@ -5881,7 +5867,9 @@ import { inboxMessage } from "./calc/inbox.js";
   document.addEventListener("click", function(e){ if(e.target.closest("[data-txr-open]")) openTxReview(); });
   // ---------------- A scenario's changes (v3.172.0, item 207) ----------------
   // Plan → Scenarios: a line's amount in a scenario, kept in the scenario (calc/scenariochanges.js).
-  function afterScenarioChange(){ persist(); refreshScenarioDependentViews(); renderHomeBody(); renderCards(); renderProjectionOutputs(); renderCompare(); }
+  // v3.180.1: each view once — refreshScenarioDependentViews draws the cards, the comparison, the home
+  // blocks and (when it's on screen) the projection.
+  function afterScenarioChange(){ persist(); refreshScenarioDependentViews(); }
   document.addEventListener("click", function(e){
     if(!e.target.closest) return;
     var add = e.target.closest("[data-sc-add]");
@@ -5970,19 +5958,16 @@ import { inboxMessage } from "./calc/inbox.js";
     var pick = e.target.closest("[data-sq-pick]");
     if(pick){ startQ.key = pick.getAttribute("data-sq-pick"); renderStartSheet(); return; }
     if(e.target.closest("[data-sq-back]")){ startQ.key = null; renderStartSheet(); return; }
-    if(e.target.closest("[data-sq-blank]")){ requestCloseActiveOverlay(); setTimeout(addScenario, 50); return; }
+    if(e.target.closest("[data-sq-blank]")){ requestCloseActiveOverlay(); setTimeout(function(){ var n = state.scenarios.length; addScenario(); if(state.scenarios.length > n) openScenarioEditor(state.scenarios[state.scenarios.length - 1]); }, 50); return; }
     if(e.target.closest("[data-sq-make]")){
       var answers = {};
       startSheetRoot.querySelectorAll("[data-sq]").forEach(function(el){ answers[el.getAttribute("data-sq")] = el.value; });
       var built = buildScenario(startQ.key, answers, Object.assign(templateContext(), { idFactory: function(){ return genId("chg"); } }));
       var made = makeScenarioFrom(built);
       requestCloseActiveOverlay();
-      showToast('Made "' + made + '" — every figure in it can be changed');
-      setTimeout(function(){
-        var head = Array.prototype.find.call(document.querySelectorAll("#homeBody [data-collapse-toggle]"), function(h){ return h.getAttribute("data-collapse-toggle") === made; });
-        var block = head && head.closest(".home-block");
-        if(block) block.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 400);
+      showToast('Made "' + made + '" — change anything in it, then Save');
+      // v3.181.0: straight into its editor.
+      setTimeout(function(){ openScenarioEditor(made); }, 250);
     }
   });
   document.addEventListener("keydown", function(e){ if(e.key === "Escape" && startQ.open) requestCloseActiveOverlay(); });
@@ -6078,6 +6063,47 @@ import { inboxMessage } from "./calc/inbox.js";
     recalcComputedItems();
     afterScenarioChange();
     showToast('Kept as "' + made + '" — it\'s on Plan → Scenarios, and on the chart');
+  });
+
+  // ---------------- A scenario on its own page (v3.181.0, item 212) ----------------
+  // Edits go to a draft (calc/scenariodraft.js) and only the page redraws; Save writes it back and
+  // updates everything once; Cancel (or ← Scenarios) drops it, asking first if anything changed.
+  function openScenarioEditor(name){
+    if(state.scenarios.indexOf(name) === -1) return;
+    var today = name === state.baselineScenario && !(state.home[name] || []).length;
+    editing.name = name;
+    editing.key = today ? name : openDraft(name);
+    Object.keys(changeOpen).forEach(function(k){ delete changeOpen[k]; });
+    persist();
+    showPage("scenario");
+    window.scrollTo(0, 0);
+  }
+  function closeScenarioEditor(saved){
+    var name = editing.name;
+    editing.name = null; editing.key = null;
+    renderHomeBody();
+    recalcComputedItems();
+    persist();
+    refreshScenarioDependentViews();
+    renderProjectionsWhenSeen();
+    showPage("plan");
+    showPlanSubpage("scenarios", { replace: true });
+    if(saved) showToast('Saved "' + name + '"');
+  }
+  document.addEventListener("click", function(e){
+    if(!e.target.closest) return;
+    if(e.target.closest("[data-sc-save]")){
+      if(!editing.name) return;
+      saveDraft(editing.name);
+      closeScenarioEditor(true);
+      return;
+    }
+    if(e.target.closest("[data-sc-cancel]")){
+      if(!editing.name) return;
+      if(editing.key !== editing.name && draftChanged(editing.name) && !confirm('Discard the changes to "' + editing.name + '"?')) return;
+      if(editing.key !== editing.name) discardDraft(editing.name);
+      closeScenarioEditor(false);
+    }
   });
 
   // ---------------- Make it real (v3.176.0, item 211) ----------------

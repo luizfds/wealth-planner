@@ -16,6 +16,7 @@ import { eventEffects } from "./lifeevents.js";
 import { loggedSinceRecorded } from "./accounts.js";
 import { scenarioSharedItems, changesFor } from "./scenariochanges.js";
 import { legsMonthly, legsInYear } from "./scenariolegs.js";
+import { isDraftKey } from "./scenariodraft.js";
 
 // Every non-Shares asset, and every Shares holding on the ASX, is already AUD — the only
 // currency this app ever mixes in is USD (US-market and Crypto holdings, see MARKET_CURRENCY).
@@ -313,6 +314,11 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
   var events = opts && opts.events ? opts.events : (state.lifeEvents || []), thisYear = Number(todayStr.slice(0, 4));
   var propFactor = 1;
   var points = [];
+  // The rows whose dates decide whether they count in a year; a year's key is which of them do.
+  var datedRows = [].concat(state.income || [], scenarioSharedItems(scenario), scenarioInflatableHomeItems(scenario),
+    ipProperties().reduce(function(a, p){ return a.concat(p.expenses || [], p.income || []); }, [])).filter(function(r){ return r && (r.startDate || r.endDate); });
+  var yearKey = function(y){ return datedRows.map(function(r){ return isActiveInYear(r, y, todayStr) ? "1" : "0"; }).join(""); };
+  var lastYearKey = null, lastYc = null;
   var legs = scenarioLegChanges(scenario), legCtx = legs.length ? scenarioLegContext(scenario) : null;
   var soldFrom = {};
   var retireYear = (opts && opts.retireYear != null) ? opts.retireYear : retireYearFor(scenario, opts && opts.currentAge != null ? opts.currentAge : currentAgeOrNull());
@@ -322,7 +328,15 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
     if(year > 0 && propPath) propFactor *= 1 + (propPath[year] != null ? propPath[year] : propRate);
     if(year > 0){
       var yc = cache && cache[year];
-      if(!yc){ yc = { inflatable: activeInflatableMonthlyAt(year), income: activeIncomeMonthlyAt(year) }; if(cache) cache[year] = yc; }
+      if(!yc){
+        // v3.180.1: a year's income and costs only differ from the year before when a dated row starts
+        // or stops — otherwise the year before's (the tax worked out again for every year was most of
+        // a series' time, and Plan → Scenarios draws one per scenario on every click).
+        var key = yearKey(year);
+        yc = key === lastYearKey && lastYc ? lastYc : { inflatable: activeInflatableMonthlyAt(year), income: activeIncomeMonthlyAt(year) };
+        lastYearKey = key; lastYc = yc;
+        if(cache) cache[year] = yc;
+      }
       var inflatableThisYear = yc.inflatable * Math.pow(1 + inflationRate, year);
       var incomeThisYear = (yc.income + (ratios.incomeDelta || 0)) * Math.pow(1 + incomeGrowthRate, year);
       // v3.177.0: retired — pay stops, and living costs come out of what's been saved.
@@ -433,7 +447,8 @@ export function recalcComputedItems(){
       ? "auto: share of " + p.state + " land tax on $" + Math.round(landTaxDetail.groupLandValue).toLocaleString("en-AU") + " combined land value across " + landTaxDetail.groupCount + " properties"
       : "auto: " + p.state + " land tax on $" + Math.round(Number(p.landValue) || 0).toLocaleString("en-AU") + " land value";
   });
-  state.scenarios.forEach(function(scenario){
+  // v3.181.0: and any scenario being edited (its draft, calc/scenariodraft.js), so its loan row follows its calculator.
+  state.scenarios.concat(Object.keys(state.purchase || {}).filter(isDraftKey)).forEach(function(scenario){
     var cfg = state.purchase[scenario];
     var loanRow = (state.home[scenario] || []).find(function(i){ return i.id === "homeLoanRow"; });
     if(!loanRow) return;

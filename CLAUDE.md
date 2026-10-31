@@ -82,7 +82,8 @@ the last, so two sessions can't pick up the same one.
   `state.projection` directly in projection maths; a `retire` change stops pay from that age.
 - **Investment returns (v3.178.0):** `calc/investreturn.js` — `xirr`, money-weighted per holding, the same money in an index
   (the price file's weekly A200 / IVV series, read once a session by `components/investreturn.js`), a target mix (`state.targetMix`,
-  a holding's own `assetClass` overriding its market) and distributions ahead. The only IRR in the app; reuse it.
+  a holding's own `assetClass` overriding its market) and distributions ahead. The IRR and the index units are `calc/performance.js`'s
+  (`xirr`, `indexValue` — also behind Home → Benchmarks and the reports): there is one IRR, reuse it.
 - **Subscriptions (v3.179.0):** `calc/recurring.js` `repeatingPayees` is the one repeating-payee detector — Budget's unbudgeted list and
   Bills' Subscriptions (`calc/subscriptions.js`, `state.subscriptionNotes`) both filter it; change detection there, not in either.
 - `styles.css` — just eight `@import` statements pulling in `src/styles/{base,shell,dashboard,

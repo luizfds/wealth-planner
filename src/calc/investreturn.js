@@ -9,40 +9,23 @@
 //   - a target mix by asset class, the gap in dollars, and where the next $X should go to close it;
 //   - the distributions expected in the year ahead, from when each holding has paid before.
 // Pure: assets and series in, figures out. Amounts are in each holding's currency through toAud.
+// The rate itself and the index units are calc/performance.js's (Home → Benchmarks and the reports
+// use them too); this adds the flows with distributions, the price file's series and the mix.
+
+import { xirr, indexValue } from "./performance.js";
 
 function round(n){ return Math.round(n * 100) / 100; }
 function dayNum(iso){ var p = String(iso).split("-"); return Date.UTC(+p[0], +p[1] - 1, +p[2]) / 86400000; }
-function isoOf(days){ return new Date(days * 86400000).toISOString().slice(0, 10); }
 
-// XIRR on an actual/365 basis: the yearly rate at which every flow, discounted to the first, sums to
-// zero. flows: [{ date, amount }] — money put in negative, money taken out (and today's value) positive.
-// Null when there's no answer (all one sign, or under a day of history).
-export function xirr(flows){
-  var f = (flows || []).filter(function(x){ return x && x.date && isFinite(Number(x.amount)) && Number(x.amount) !== 0; });
-  if(f.length < 2 || !f.some(function(x){ return x.amount < 0; }) || !f.some(function(x){ return x.amount > 0; })) return null;
-  var d0 = Math.min.apply(null, f.map(function(x){ return dayNum(x.date); }));
-  var t = f.map(function(x){ return (dayNum(x.date) - d0) / 365; });
-  if(Math.max.apply(null, t) <= 1 / 365) return null;
-  var npv = function(r){ return f.reduce(function(s, x, i){ return s + x.amount / Math.pow(1 + r, t[i]); }, 0); };
-  var dnpv = function(r){ return f.reduce(function(s, x, i){ return s - t[i] * x.amount / Math.pow(1 + r, t[i] + 1); }, 0); };
-  var r = 0.1;
-  for(var k = 0; k < 60; k++){
-    var v = npv(r), d = dnpv(r);
-    if(!isFinite(v) || !isFinite(d) || d === 0) break;
-    var next = r - v / d;
-    if(next <= -0.9999) next = (r - 0.9999) / 2;
-    if(Math.abs(next - r) < 1e-12){ r = next; return r; }
-    r = next;
-  }
-  // Newton didn't settle: bisect between nearly −100% and +1,000%.
-  var lo = -0.9999, hi = 10, flo = npv(lo), fhi = npv(hi);
-  if(!isFinite(flo) || !isFinite(fhi) || flo * fhi > 0) return null;
-  for(var j = 0; j < 200; j++){
-    var mid = (lo + hi) / 2, fm = npv(mid);
-    if(Math.abs(fm) < 1e-9) return mid;
-    if(flo * fm < 0){ hi = mid; fhi = fm; } else { lo = mid; flo = fm; }
-  }
-  return (lo + hi) / 2;
+// The money-weighted rate over flows that end with today's value (the positive flows dated `today`):
+// calc/performance.js's xirr — the app's one IRR — with today's value split back out. Null when there's
+// no answer (nothing put in, or under a month of history).
+export function flowsIrr(flows, today){
+  var f = (flows || []).filter(function(x){ return x && x.date && Number(x.amount); });
+  var end = f.filter(function(x){ return x.date === today && x.amount > 0; });
+  var rest = f.filter(function(x){ return end.indexOf(x) === -1; });
+  if(!rest.length || !rest.some(function(x){ return x.amount < 0; })) return null;
+  return xirr(rest, end.reduce(function(t, x){ return t + x.amount; }, 0), today);
 }
 
 // One holding's flows: each dated purchase lot out (units × price + brokerage), each sale's proceeds
@@ -75,11 +58,11 @@ export function moneyWeighted(assets, today, toAud){
     if(!a || a.category !== "Shares") return;
     var f = holdingFlows(a, today, toAud);
     if(!f){ if((Number(a.quantity) || 0) > 0) uncounted++; return; }
-    rows.push({ index: i, name: a.what || a.symbol || "Holding", symbol: a.symbol || "", irr: xirr(f), since: f[0].date });
+    rows.push({ index: i, name: a.what || a.symbol || "Holding", symbol: a.symbol || "", irr: flowsIrr(f, today), since: f[0].date });
     all = all.concat(f);
   });
   all.sort(function(x, y){ return x.date < y.date ? -1 : x.date > y.date ? 1 : 0; });
-  return { rows: rows, irr: xirr(all), since: all.length ? all[0].date : null, flows: all, uncounted: uncounted };
+  return { rows: rows, irr: flowsIrr(all, today), since: all.length ? all[0].date : null, flows: all, uncounted: uncounted };
 }
 
 // The index's close on a date: the last weekly close on or before it (null before the series starts).
@@ -114,10 +97,10 @@ export function benchmark(flows, series, today, opts){
     if(!(units > 0) && fi === 0) return;
     points.push({ date: w.date, index: round(units * tr(w.date)), mine: opts.mineAt ? round(opts.mineAt(w.date)) : null });
   });
-  while(fi < money.length){ units += -money[fi].amount / tr(money[fi].date); fi++; }
-  var value = round(units * tr(today));
+  // Today's value: every flow in index units at its own (total-return) price — performance.js's indexValue.
+  var value = round(indexValue(money, tr, tr(today)).value);
   return { value: value, mine: round(valueNow.reduce(function(t, f){ return t + f.amount; }, 0)),
-    irr: xirr(money.concat([{ date: today, amount: value }])), points: points, coveredFrom: coveredFrom };
+    irr: xirr(money, value, today), points: points, coveredFrom: coveredFrom };
 }
 
 // ---- A target mix ----

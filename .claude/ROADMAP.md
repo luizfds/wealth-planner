@@ -3715,7 +3715,7 @@ Investments.
   holding's kind comes from its market unless set on its row (an ASX-listed fund of US shares is international).
   `state.targetMix`, synced and in the backup.
 - **Distributions in the year ahead** — each payment in the last year, a year on, scaled to the units held now.
-Tests: a hand-worked invented holding returns exactly 10% a year (and $2,310.00 to the cent); the same money in an index
+Tests: a hand-worked invented holding returns 10% a year ($3,607.69 to the cent; the rate is `calc/performance.js`'s `xirr` since v3.179.1 — 203 first shipped its own, now gone); the same money in an index
 that also grew 10% ends level to the cent; the mix gaps and next-dollar split; the year ahead. Driven at 1280 and 390px
 on the demo household with the real price file (both benchmarks drawn), the mix set from its inputs.
 

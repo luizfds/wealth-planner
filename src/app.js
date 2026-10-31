@@ -93,6 +93,7 @@ import { setAmountChange, removeChange, changesFor } from "./calc/scenariochange
 import { newChange } from "./calc/scenariolegs.js";
 import { changeOpen } from "./components/scenariochanges.js";
 import { buildScenario } from "./calc/scenariotemplates.js";
+import { renderCompare } from "./components/compare.js";
 import { startQ, startSheetHtml, templateContext } from "./components/scenariotemplates.js";
 import { renderActivity, activityUi } from "./components/activity.js";
 import { receiptHolder } from "./components/receipts.js";
@@ -5296,6 +5297,7 @@ import { inboxMessage } from "./calc/inbox.js";
     renderChecksBadge();
     renderSafekeeping();
     renderActivity();
+    renderCompare();
     renderSavingsGoals();
     var goalsFire = document.getElementById("goalsFireBody"); if(goalsFire) goalsFire.innerHTML = goalsFireHtml();
     renderAdvice();
@@ -5873,7 +5875,7 @@ import { inboxMessage } from "./calc/inbox.js";
   document.addEventListener("click", function(e){ if(e.target.closest("[data-txr-open]")) openTxReview(); });
   // ---------------- A scenario's changes (v3.172.0, item 207) ----------------
   // Plan → Scenarios: a line's amount in a scenario, kept in the scenario (calc/scenariochanges.js).
-  function afterScenarioChange(){ persist(); refreshScenarioDependentViews(); renderHomeBody(); renderCards(); renderProjectionOutputs(); }
+  function afterScenarioChange(){ persist(); refreshScenarioDependentViews(); renderHomeBody(); renderCards(); renderProjectionOutputs(); renderCompare(); }
   document.addEventListener("click", function(e){
     if(!e.target.closest) return;
     var add = e.target.closest("[data-sc-add]");

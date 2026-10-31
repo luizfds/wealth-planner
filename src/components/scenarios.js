@@ -1,6 +1,7 @@
 import { state, persist, defaultHomeBlock, defaultPurchaseConfig, defaultInvestConfig, deepClone, genId } from "../state.js";
 import { renameScenarioChanges, cloneScenarioChanges, deleteScenarioChanges, setLivesElsewhere, homeRowsFromBudget, livesElsewhere, changesFor } from "../calc/scenariochanges.js";
 import { scenarioChangesHtml, todaysHomeHtml, todaysHomeMonthly } from "./scenariochanges.js";
+import { renderCompare } from "./compare.js";
 import { PURCHASE_STATE_CODES, STATE_GROWTH_RATES, INVEST_LEG_TYPES } from "../constants.js";
 import { recalcPurchase } from "../calc/property.js";
 import { recalcComputedItems, scenarioTotals } from "../calc/engine.js";
@@ -53,6 +54,7 @@ export function addScenario(){
 // changed nothing else on screen. It isn't any more.
 export function refreshScenarioDependentViews(){
   renderCards();
+  renderCompare();
   renderDetail();
   renderHomeBody();
   renderSharedGroups();
@@ -487,6 +489,7 @@ export function afterCalcChange(scenario){
   recalcComputedItems();
   renderCanBuy();
   renderCards();
+  renderCompare();
   renderDetail();
   renderHomeBodyTotalsOnly();
   renderAssets();

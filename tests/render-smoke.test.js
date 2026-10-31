@@ -1774,3 +1774,15 @@ test("the 'What are you weighing?' sheet draws its choices and a choice's questi
   assert.doesNotMatch(html, /undefined|NaN/);
   m.startQ.open = false; m.startQ.key = null;
 });
+
+test("compareHtml draws a column per scenario and the verdicts", async function(){
+  var { compareHtml } = await import("../src/components/compare.js");
+  var mk = function(name, base, extra){ return Object.assign({ scenario: name, isBaseline: base, upfront: 0, available: 50000, short: 0, monthBeforeTax: 3000, monthAfterTax: 3000, monthUnderStress: 2500, lowestCash: 40000,
+    netWorth: [{ year: 5, value: 500000, vsBase: 0 }, { year: 10, value: 900000, vsBase: 0 }, { year: 20, value: 2000000, vsBase: 0 }], aheadFrom: null, verdict: "v" }, extra || {}); };
+  var html = compareHtml([mk("Today", true), mk("Rentvest", false, { upfront: 150000, short: 100000, aheadFrom: 7, verdict: "Ahead of staying put from year 7 — but needs $100,000 more." })]);
+  assert.match(html, /Today \(as we are\)/);
+  assert.match(html, /\$100,000 short/);
+  assert.match(html, /From year 7/);
+  assert.match(html, /<b>Rentvest<\/b> Ahead of staying put/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+});

@@ -417,3 +417,17 @@
 .sq-blank{ display:block; margin:12px 0 0; font-size:var(--fs-sm); }
 .sq-form{ display:grid; grid-template-columns: 1fr 1fr; gap:10px 12px; }
 @media (max-width: 520px){ .sq-choices, .sq-form{ grid-template-columns: 1fr; } }
+/* v3.175.0 (item 210): side by side. */
+.cmp-card{ border:1px solid var(--border); border-radius:var(--card-radius); background:var(--paper-raised); padding: var(--card-py) var(--card-px); box-shadow:var(--shadow); margin:0 0 16px; }
+.cmp-card .section-title{ font-size:var(--fs-lg); margin:0 0 4px; }
+.cmp-scroll{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+.cmp-table{ width:100%; border-collapse:collapse; font-size:var(--fs-sm); min-width:520px; }
+.cmp-table th, .cmp-table td{ text-align:right; padding:8px 10px; border-bottom:1px solid var(--border); vertical-align:top; font-variant-numeric:tabular-nums; }
+.cmp-table thead th{ font-weight:600; color: var(--ink); }
+.cmp-table tbody th{ text-align:left; font-weight:600; position:sticky; left:0; background: var(--paper-raised); }
+.cmp-table th small, .cmp-table td small{ display:block; font-weight:400; font-size:var(--fs-xs); color: var(--ink-soft); }
+.cmp-table td{ font-family:var(--font-num); }
+.cmp-table td small.up{ color: var(--good-ink); } .cmp-table td small.down{ color: var(--bad-ink); }
+.cmp-table td.is-bad{ color: var(--bad-ink); }
+.cmp-verdicts{ margin:12px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:6px; font-size:var(--fs-sm); }
+.cmp-verdicts b{ margin-right:4px; }

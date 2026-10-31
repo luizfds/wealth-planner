@@ -3821,12 +3821,25 @@ rent). Driven on a phone: Add scenario → Buy an investment property → $600,0
 → the scenario appears open with both changes, and its card.
 
 
-## 210. `[ ]` Side by side
+## 210. `[x]` Side by side
 Do: each scenario against "stay as we are": cash needed at settlement against cash available; money left a month
 before and after tax; the lowest cash gets; net worth in 5, 10 and 20 years; a stress test (rates +2%, a month vacant,
 rent −10%); the year it overtakes staying put; a one-line verdict.
 
 Done when: the figures match the projection for an invented household (tests); the comparison is driven at both widths.
+
+**Done (v3.175.0).** **Side by side** under the scenario cards on Plan → Scenarios (`calc/compare.js`): a column per
+scenario, "as we are" first, and rows for the cash needed at settlement (the purchase calculator's, an investment
+property's, a lump sum invested) against the cash available, with how much short; what a month leaves before and after an
+investment property's tax effect; the month under stress (purchase and investment-property loans and the household's own
+investment loans 2 points dearer, an extra month vacant, rent down a tenth); the lowest cash gets over the projection; net
+worth in 5, 10 and 20 years with the difference from staying put; and the year it's ahead of staying put for good (one
+that's ahead for a stretch and falls back says so). Under the table, a one-line verdict per scenario, deal-breakers first
+("…— but needs $41,930 more cash at settlement than there is"). Every figure is read off `scenarioTotals` and
+`computeNetWorthSeries`. Tests: on the invented sample household plus a rentvest scenario, net worth at 5 and 20 years,
+the lowest cash and the month after tax equal the projection's and the card's for every scenario; the verdict's wording.
+Driven at 1280 and 390px after making the scenario from the question sheet; no sideways scroll on the page.
+
 
 ## 211. `[ ]` Make it real
 Do: when a scenario happens, one button shows exactly what it will add to the household (a rent line, the property

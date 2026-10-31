@@ -1,5 +1,5 @@
 import { state } from "../state.js";
-import { toAudAmount, totalDebtsValue, totalNetWorthValue, liquidAssetsValue, scenarioTotals } from "./engine.js";
+import { toAudAmount, totalDebtsValue, totalNetWorthValue, liquidAssetsValue, scenarioTotals, currentScenario } from "./engine.js";
 import { propertyIlliquidEquityToday } from "./property.js";
 import { getTaxPeople, computePersonTax } from "./tax.js";
 import { projectionRatios } from "./actuals.js";
@@ -171,7 +171,7 @@ export function simulateRetirementAt(retireAge, opts){
 // the scenario's shared plus housing costs, excluding investment property (a business-like
 // expense funded by its own rent).
 export function fireAnnualExpenses(scenario){
-  var t = scenarioTotals(scenario || state.activeScenario);
+  var t = scenarioTotals(scenario || currentScenario());
   return (t.sharedMonthly + t.homeMonthly) * 12;
 }
 // After-tax cash surplus. effectiveIncomeItems() (via scenarioTotals) already excludes Gross rows
@@ -179,7 +179,7 @@ export function fireAnnualExpenses(scenario){
 // super is *not* in it — which is why super is contributed separately in the simulation above
 // rather than double-counted here.
 export function fireAnnualSavings(scenario){
-  var t = scenarioTotals(scenario || state.activeScenario);
+  var t = scenarioTotals(scenario || currentScenario());
   // v3.52.0: on "actuals", the same scaling the projection uses (calc/actuals.js).
   var r = projectionRatios();
   if(!r.actuals) return t.netMonthly * 12;

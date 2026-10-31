@@ -3742,7 +3742,7 @@ inside the "Current situation" scenario. The principle from here: **the househol
 a scenario is a sandbox on Plan → Scenarios that reads the household and never writes to it**, except through one
 explicit "Make it real". Built in one PR with 203–206, an item per commit pair, at the owner's request.
 
-## 207. `[ ]` Reality everywhere
+## 207. `[x]` Reality everywhere
 Do: today's home costs (the Current situation's rent or loan, rates, insurance…) become ordinary Budget lines; no page
 outside Plan → Scenarios reads the selected scenario (Home's tiles, Income, Budget, FI, the cash-flow forecast,
 Benchmarks, search show the household as it is); per-scenario amounts on budget and income lines become changes inside
@@ -3750,6 +3750,24 @@ their scenario. Existing data converts on load.
 
 Done when: an invented household with scenarios, per-scenario overrides and home rows converts with every scenario's
 monthly figure unchanged (tests); picking a scenario on Plan changes nothing on Home or Cash flow (driven).
+
+**Done (v3.172.0).** A scenario no longer reaches into the rest of the app. `calc/scenariochanges.js` keeps what a scenario
+does differently in the scenario, `state.scenarioChanges[name]` — `{ kind: "amount", rowId, amount }` (a budget or income
+row's amount there) and `{ kind: "home" }` (it lives elsewhere: its own home rows replace today's home lines) — and
+`resolveSharedAmount` reads them first. On load, once (`state.scenarioModel = 2`), every row's `scenarioOverrides` becomes an
+amount change in its scenario, today's home rows (the baseline's) become Budget lines marked `homeCost` under their own
+ids (so logged rent stays linked; untouched $0 placeholders go), and every other scenario gets a "home" change; a baseline
+that is itself buying keeps its rows. Every scenario calculation reads the household's lines through
+`scenarioSharedItems(name)`. Home, Insights, Budget, Income, Benchmarks, the forecast, FI, search, the CSV export, the
+first-run setup and the header read the household (`currentScenario()`), never the scenario picked on Plan; "Active on
+Home" and "Set active" are gone. The per-row "Vary" on Budget and Income is replaced by **Changes from today** in each
+scenario's block on Plan (a line, its amount there in the line's own frequency, remove with undo; add one from any budget
+line or pay); today's block says it's the household and lists today's home lines with a link to Budget. Lean (Trim) and
+the expenses CSV import write the new way. Tests: the invented sample household with per-scenario amounts on a line and a
+salary converts with every scenario's monthly income, costs, net and 20-year net worth identical; converting twice is a
+no-op; changes carry through rename, copy and delete. Driven at 1280 and 390px: picking another scenario on Plan leaves
+Home's tiles and the header unchanged; a change to Groceries in Buy a house moves that card only.
+
 
 ## 208. `[ ]` A scenario as a list of changes
 Do: a scenario is the household plus changes, each from a chosen year: rent a new place ($/week); buy a home to live in

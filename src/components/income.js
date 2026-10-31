@@ -334,7 +334,7 @@ export function renderIncomeGroups(){
   // Same post-render DOM patch the Expenses budget list uses, for the same reason: the "⇄ Vary"
   // button belongs to rows that can carry a per-scenario override, not to the generic row
   // renderers, which are shared with several sections that can't.
-  injectScenarioOverrideButtons("incomeGroups", "income");
+  // v3.172.0 (item 207): a row's amount in a scenario is set in that scenario, on Plan → Scenarios.
 }
 
 // Exactly one of these is shown per row, chosen by the frequency — see nextPayDate's own note on
@@ -492,7 +492,6 @@ function modernIncomeRowHtml(item, idx, colorIdx){
       (function(){ var e = endDateNoteHtml(item); return e ? '<div class="m-row-sub">' + e + '</div>' : ""; })() +
       // With its after-tax figure beside it (v3.152.0), "Ends 31 Dec" already says what goes.
       (after ? "" : (function(){ var t = endingNoteHtml(item); return t ? '<div class="m-row-sub">' + escapeAttr(t) + '</div>' : ""; })()) +
-      (function(){ var v = scenarioVaryNoteHtml(item, state.activeScenario); return v ? '<div class="m-row-sub">' + v + '</div>' : ""; })() +
     '</div>' +
     (isGrossRef && !after ? '<span class="m-row-tag gross">Gross</span>' : "") +
     '<span class="m-row-amt' + (after ? " has-after" : "") + (hasEnded(item) ? " row-amt-ended" : "") + '" data-computed="amt">' + rowAmountText(item, monthly) + (after || "") + '</span>' +

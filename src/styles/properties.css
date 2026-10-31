@@ -377,3 +377,18 @@
 .agent-list{ list-style:none; margin:4px 0 0; padding:0; font-size:var(--fs-sm); }
 .agent-list li{ display:flex; gap:8px; align-items:center; padding:4px 0; border-bottom:1px dashed var(--border); flex-wrap:wrap; }
 .agent-list b{ margin-left:auto; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+
+/* v3.172.0 (item 207): a scenario's own changes, and today's block. */
+.sc-changes{ margin:0 0 14px; }
+.sc-change{ display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); }
+.sc-change .sc-what{ flex:1 1 auto; min-width:0; display:flex; flex-direction:column; }
+.sc-change .sc-what small{ font-size:var(--fs-xs); color: var(--ink-soft); }
+.sc-change.is-gone .sc-what{ color: var(--ink-soft); font-style:italic; }
+.sc-amt{ display:flex; align-items:center; gap:6px; }
+.sc-amt small{ font-size:var(--fs-xs); color: var(--ink-soft); }
+.sc-amt input{ width:120px; min-height:40px; border:1px solid var(--border); border-radius:7px; padding:6px 8px; font-family:var(--font-num); font-size:var(--fs-sm); background: var(--paper); color: var(--ink); }
+.sc-add{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
+.sc-add select{ flex:1 1 220px; min-width:0; min-height:40px; border:1px solid var(--border); border-radius:7px; padding:6px 8px; font:inherit; font-size:var(--fs-sm); background: var(--paper); color: var(--ink); }
+.sc-add input{ width:170px; min-height:40px; border:1px solid var(--border); border-radius:7px; padding:6px 8px; font-family:var(--font-num); font-size:var(--fs-sm); background: var(--paper); color: var(--ink); }
+.sc-today p{ margin:0 0 8px; font-size:var(--fs-sm); line-height:1.55; }
+.sc-today-lines{ color: var(--ink-soft); }

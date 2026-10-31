@@ -1,7 +1,7 @@
 import { state } from "../state.js";
 import { getTaxPeople, computePersonTax, scenarioIncomeRows } from "./tax.js";
 import { ipProperties, loanRateOn, loanPaidOut, loanInvestShare, recalcPurchase } from "./property.js";
-import { scenarioTotals, toAudAmount, totalNetWorthValue } from "./engine.js";
+import { scenarioTotals, toAudAmount, totalNetWorthValue, currentScenario } from "./engine.js";
 import { periodsOf } from "./ledger.js";
 import { emergencyFund } from "./emergency.js";
 import { monthFigures, shiftMonth } from "./monthdetail.js";
@@ -83,7 +83,7 @@ export function householdSummary(findings, opts){
     var t = null; try { t = computePersonTax(n); } catch(e){}
     var gross = (state.income || []).filter(function(r){ return r.person === n && r.incomeType === "Gross"; })
       .reduce(function(s, r){ return s + periodsOf(Number(r.amount) || 0, r.freq).yearly; }, 0);
-    var net = (scenarioIncomeRows({ scenario: state.activeScenario }) || []).find(function(r){ return r.syntheticNetFor === n; });
+    var net = (scenarioIncomeRows({ scenario: currentScenario() }) || []).find(function(r){ return r.syntheticNetFor === n; });
     L.push("- " + n + ": gross " + m(gross) + "/yr; planned take-home " + (net ? m(net.amount) + "/mo" : "n/a") +
       (t ? "; marginal rate " + pct(t.marginalRate || 0) + "; concessional super " + m(t.totalConcessional) + " of a " + m(t.capAvailable) + " cap (incl. carry-forward)" : ""));
   });
@@ -99,7 +99,7 @@ export function householdSummary(findings, opts){
     byCat[k] = (byCat[k] || 0) + periodsOf(Number(l.amount) || 0, l.freq).monthly;
   });
   Object.keys(byCat).sort(function(a, b){ return byCat[b] - byCat[a]; }).slice(0, 18).forEach(function(k){ L.push("- " + k + ": " + m(byCat[k])); });
-  var home = ((state.home || {})[state.activeScenario] || []).reduce(function(s, l){ return s + periodsOf(Number(l.amount) || 0, l.freq).monthly; }, 0);
+  var home = ((state.home || {})[currentScenario()] || []).reduce(function(s, l){ return s + periodsOf(Number(l.amount) || 0, l.freq).monthly; }, 0);
   L.push("- Housing in the current scenario (rent or home loan and its costs): " + m(home));
   L.push("");
   L.push("ASSETS AND DEBTS");
@@ -130,7 +130,7 @@ export function householdSummary(findings, opts){
     try { c = canBuy(s); } catch(e){}
     var line = "- " + s + ": a normal month leaves " + m(t.regularNetMonthly);
     if(c) line += "; buying for " + m(c.price) + " in " + (c.state || "?") + ", cash needed " + m(c.upfront) + ", left after " + m(c.left) + ", new loan " + m(c.loan) + " at " + m(c.repaymentMonthly) + "/mo, investment interest up " + m(c.extraInterestYearly) + "/yr";
-    L.push(line + (s === state.activeScenario ? " (current)" : ""));
+    L.push(line + (s === currentScenario() ? " (current)" : ""));
   });
   if(findings && findings.length){
     L.push("");

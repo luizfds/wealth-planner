@@ -1719,3 +1719,20 @@ test("activityHtml draws whose device it is and the changes with their undo", as
   assert.match(activityHtml([], { name: "", people: [] }), /No changes logged yet/);
   assert.doesNotMatch(html, /undefined|NaN/);
 });
+
+test("a scenario's changes and today's block draw", async function(){
+  var sc = await import("../src/components/scenariochanges.js");
+  var was = { shared: state.shared, income: state.income, ch: state.scenarioChanges };
+  state.shared = [{ id: "g", what: "Groceries", amount: 260, freq: "Weekly" }, { id: "r", what: "Rent", amount: 620, freq: "Weekly", homeCost: true }];
+  state.income = [{ id: "p", what: "Salary", amount: 90000, freq: "Yearly", incomeType: "Gross" }];
+  state.scenarioChanges = { Move: [{ id: "c1", kind: "amount", rowId: "g", amount: 300 }, { id: "c2", kind: "amount", rowId: "gone", amount: 5 }] };
+  var html = sc.scenarioChangesHtml("Move");
+  assert.match(html, /Groceries/);
+  assert.match(html, /today \$260\.00 weekly/);
+  assert.match(html, /data-sc-amount="c1"/);
+  assert.match(html, /has since been deleted/);
+  assert.match(html, /<optgroup label="Income">/);
+  assert.match(sc.todaysHomeHtml(), /Rent \$2,687\/mo/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+  state.shared = was.shared; state.income = was.income; state.scenarioChanges = was.ch;
+});

@@ -1,6 +1,7 @@
 import { state } from "../state.js";
 import { fmtCurrency0 } from "./format.js";
 import { transactionDisplayName } from "../calc/ledger.js";
+import { currentScenario } from "../calc/engine.js";
 
 // Cross-page search over the app's main named records. Nothing here is indexed/cached — every
 // call rebuilds the list fresh from `state`, which is fine at the sizes this app deals with (a
@@ -30,7 +31,7 @@ export function searchApp(query){
   // searchable on the same terms. Mirrors expenses.js's budgetLineItems() without importing a
   // component into lib/; keep the two in step.
   function budgetLines(){
-    var lines = (state.shared || []).concat(state.home && state.home[state.activeScenario] || []);
+    var lines = (state.shared || []).concat(state.home && state.home[currentScenario()] || []);
     (state.properties || []).forEach(function(p){
       if(p.kind === "IP" && Array.isArray(p.expenses)) lines = lines.concat(p.expenses);
     });

@@ -72,6 +72,10 @@ the last, so two sessions can't pick up the same one.
   and logs `state.activity` entries (`calc/activity.js`; 90 days, size-capped, synced). Every `setState` (sync, backup, sample
   data) resets the baseline via `onStateReplaced`, so loads are never logged. A new view setting or bookkeeping key belongs
   in `calc/activity.js` SKIP, or it shows up as somebody's edit.
+- **Scenarios are sandboxes (v3.172.0):** every page outside Plan → Scenarios shows the household (`currentScenario()`), never
+  `state.activeScenario`. A scenario's differences live in `state.scenarioChanges[name]` (`calc/scenariochanges.js`), never on
+  the household's rows; today's home costs are Budget lines with `homeCost: true`, and a scenario that lives elsewhere reads
+  the household's lines through `scenarioSharedItems(name)`. New scenario maths goes through those, not `state.shared` directly.
 - `styles.css` — just eight `@import` statements pulling in `src/styles/{base,shell,dashboard,
   ledger,income,properties,assets,projections}.css`, in that specific order. Light/dark theming is
   CSS custom properties + `prefers-color-scheme`, defined in `base.css`.

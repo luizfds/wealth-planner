@@ -1,5 +1,7 @@
 import { STORAGE_KEY, HOME_CATEGORIES, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, INVEST_LEG_TYPES, DEFAULT_CATEGORIES, IP_CATEGORY } from "./constants.js";
 import { showToast } from "./lib/toast.js";
+// v3.172.0: a cycle (scenariochanges reads `state`), safe because neither module uses the other while loading.
+import { migrateScenarios } from "./calc/scenariochanges.js";
 
 export function defaultPurchaseConfig(price, depositPct, rate, termYears, stateCode, enabled){
   return {
@@ -694,6 +696,11 @@ export function migrateState(s){
     s.assetPropertiesMigrated = true;
     showToast("Moved " + legacyPropertyAssets.length + " propert" + (legacyPropertyAssets.length === 1 ? "y" : "ies") + " to Net worth → Property — check the kind (IP/PPOR) for each");
   }
+
+  // v3.172.0 (item 207): scenarios as sealed sandboxes — per-scenario amounts move into the scenario,
+  // today's home rows into Budget (calc/scenariochanges.js). Once.
+  if(!s.scenarioChanges || typeof s.scenarioChanges !== "object" || Array.isArray(s.scenarioChanges)) s.scenarioChanges = {};
+  migrateScenarios(s, genId);
 
   return s;
 }

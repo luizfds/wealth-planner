@@ -72,7 +72,7 @@ import { renderProjectionOutputs, projectionSeriesShown } from "./components/pro
 import { renderBenchmarks, setBenchmarkField, applyBenchmarkPaste, addGoal, setGoalField, removeGoal, setPropertyMarketField } from "./components/benchmarks.js";
 import { copyBenchmarkTemplateToClipboard } from "./lib/backup.js";
 import {
-  selectScenario, addScenario, renameScenario, cloneScenario, deleteScenario, renderHomeBody, renderHomeListModern,
+  selectScenario, addScenario, renameScenario, cloneScenario, deleteScenario, renderHomeBody, renderHomeListModern, refreshScenarioDependentViews,
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
   patchCalcOutputs, afterCalcChange, patchInvestOutputs
 } from "./components/scenarios.js";
@@ -89,6 +89,7 @@ import { attachReceipt, detachReceipt, takeReceiptFiles } from "./calc/receipts.
 import { saveReceiptFile, unpackReceipts, openReceipt, pruneReceipts } from "./lib/receipts.js";
 import { startActivityLog, setDevicePerson, devicePerson } from "./lib/activity.js";
 import { undoEntry } from "./calc/activity.js";
+import { setAmountChange, removeChange } from "./calc/scenariochanges.js";
 import { renderActivity, activityUi } from "./components/activity.js";
 import { receiptHolder } from "./components/receipts.js";
 import { dataHealthChecks, dismissCheck } from "./calc/health.js";
@@ -209,7 +210,7 @@ import { inboxMessage } from "./calc/inbox.js";
         renderHomeListModern(mHome[1], hi);
         // The active scenario's housing is also listed on the Budget tab (see budgetLineSources),
         // so it has two renderers to keep in step — the Scenarios block above and the budget list.
-        if(mHome[1] === state.activeScenario) renderSharedGroups();
+        if(mHome[1] === currentScenario()) renderSharedGroups();
       }
       var mPropInc = /^propinc:(.+)$/.exec(section);
       if(mPropInc){
@@ -246,7 +247,7 @@ import { inboxMessage } from "./calc/inbox.js";
     // Totals what the list actually shows — shared plus the active scenario's housing — not just
     // state.shared, or the header disagrees with the cards beneath it by the size of your rent.
     // Scenario-resolved, matching the cards below it and every other total in the app.
-    document.getElementById("totalSharedMonthly").textContent = fmtCurrency0.format(sumFieldForScenario(budgetLineItems(), state.activeScenario, "monthly"));
+    document.getElementById("totalSharedMonthly").textContent = fmtCurrency0.format(sumFieldForScenario(budgetLineItems(), currentScenario(), "monthly"));
     renderGlobalMetrics();
   }
 
@@ -272,11 +273,6 @@ import { inboxMessage } from "./calc/inbox.js";
     cashFlowEl.classList.toggle("neg", m < 0);
     var tip = "What a normal month leaves in " + cur + ".";
     if(t.oneOffYearly > 0.5) tip += " Plus " + fmtCurrency0.format(t.oneOffYearly) + " a year in bonuses, which land in their own month.";
-    if(state.activeScenario && state.activeScenario !== cur){
-      var a = scenarioTotals(state.activeScenario);
-      var am = a.regularNetMonthly != null ? a.regularNetMonthly : a.netMonthly;
-      tip += " " + state.activeScenario + " (selected on Plan) would leave " + fmtCurrency0.format(am) + "/mo.";
-    }
     cashFlowEl.title = tip;
   }
 
@@ -313,7 +309,7 @@ import { inboxMessage } from "./calc/inbox.js";
   // costs are editable from either end (its Properties card, or the budget list), and both write
   // to the same p.expenses array, so both need the same follow-up either way.
   function isBudgetListSection(section){
-    if(section === "shared" || section === "home:" + state.activeScenario) return true;
+    if(section === "shared" || section === "home:" + currentScenario()) return true;
     var mPropExp = /^propexp:(.+)$/.exec(section);
     if(!mPropExp) return false;
     var p = findProperty(mPropExp[1]);
@@ -408,7 +404,7 @@ import { inboxMessage } from "./calc/inbox.js";
     if(e.target.classList.contains("f-amount") || e.target.classList.contains("f-freq")){
       // Scenario-resolved, matching what the renderer puts there — otherwise editing the default
       // on an overridden row would overwrite the headline with a figure this scenario doesn't pay.
-      var p = periodsOf(resolveSharedAmount(item, state.activeScenario), item.freq);
+      var p = periodsOf(resolveSharedAmount(item, currentScenario()), item.freq);
       var modernAmt = tr.querySelector('[data-computed="amt"]');
       if(modernAmt) modernAmt.textContent = fmtCurrency2.format(p.monthly) + "/mo";
     }
@@ -5870,6 +5866,38 @@ import { inboxMessage } from "./calc/inbox.js";
   });
   document.addEventListener("keydown", function(e){ if(e.key === "Escape" && txReview.open) requestCloseActiveOverlay(); });
   document.addEventListener("click", function(e){ if(e.target.closest("[data-txr-open]")) openTxReview(); });
+  // ---------------- A scenario's changes (v3.172.0, item 207) ----------------
+  // Plan → Scenarios: a line's amount in a scenario, kept in the scenario (calc/scenariochanges.js).
+  function afterScenarioChange(){ persist(); refreshScenarioDependentViews(); renderHomeBody(); renderCards(); renderProjectionOutputs(); }
+  document.addEventListener("click", function(e){
+    if(!e.target.closest) return;
+    var add = e.target.closest("[data-sc-add]");
+    if(add){
+      var sc = add.getAttribute("data-sc-add"), box = add.closest(".sc-add");
+      var rowId = box && box.querySelector("[data-sc-row]").value, amt = box && box.querySelector("[data-sc-new-amount]").value;
+      if(!rowId){ showToast("Choose the line that would be different"); return; }
+      if(amt === "" || isNaN(Number(amt))){ showToast("Type its amount in " + sc); box.querySelector("[data-sc-new-amount]").focus(); return; }
+      setAmountChange(sc, rowId, Number(amt), function(){ return genId("chg"); });
+      afterScenarioChange();
+      return;
+    }
+    var del = e.target.closest("[data-sc-del]");
+    if(del){
+      var dsc = del.getAttribute("data-sc-scenario"), gone = removeChange(dsc, del.getAttribute("data-sc-del"));
+      if(!gone) return;
+      afterScenarioChange();
+      showUndoToast("Removed the change", function(){ (state.scenarioChanges[dsc] = state.scenarioChanges[dsc] || []).push(gone); afterScenarioChange(); });
+    }
+  });
+  document.addEventListener("change", function(e){
+    if(!e.target.matches || !e.target.matches("[data-sc-amount]")) return;
+    var sc = e.target.getAttribute("data-sc-scenario"), id = e.target.getAttribute("data-sc-amount");
+    var c = (state.scenarioChanges[sc] || []).find(function(x){ return x.id === id; });
+    if(!c || e.target.value === "" || isNaN(Number(e.target.value))) return;
+    setAmountChange(sc, c.rowId, Number(e.target.value), function(){ return genId("chg"); });
+    afterScenarioChange();
+  });
+
   // ---------------- Who changed what (v3.171.0, item 202) ----------------
   // The watcher logs edits made here a moment after they're saved (lib/activity.js); this is the
   // Settings section: whose device it is, the list, Undo.

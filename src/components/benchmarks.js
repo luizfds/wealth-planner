@@ -9,7 +9,7 @@ import { state } from "../state.js";
 import { partOn } from "../calc/parts.js";
 import { BENCHMARKS } from "../constants.js";
 import { getTaxPeople, computePersonTax, ageOnDate } from "../calc/tax.js";
-import { scenarioTotals, totalNetWorthValue, toAudAmount } from "../calc/engine.js";
+import { scenarioTotals, totalNetWorthValue, toAudAmount, currentScenario } from "../calc/engine.js";
 import { periodsOf } from "../calc/ledger.js";
 import { superComparison, netWorthComparison, retirementComparison, housingComparison, relativeText, cagr, propertyMarketComparison } from "../calc/benchmarks.js";
 import { sumField } from "../calc/ledger.js";
@@ -52,13 +52,13 @@ export function gatherHousehold(){
   });
   var ages = personRows.map(function(r){ return r.age; }).filter(function(a){ return a != null; });
   if(!people.length && fireAge != null) ages = [fireAge];
-  var t = scenarioTotals(state.activeScenario);
+  var t = scenarioTotals(currentScenario());
   // Gross household income: Gross rows as entered, Net rows as they are (slightly understates the
   // gross, so the housing share reads slightly high — said in the note).
   var grossYearly = state.income.filter(function(i){ return !i.computed; }).reduce(function(s, i){
     return s + periodsOf(Number(i.amount) || 0, i.freq).yearly;
   }, 0);
-  var buying = !!(state.purchase && state.purchase[state.activeScenario] && state.purchase[state.activeScenario].enabled);
+  var buying = !!(state.purchase && state.purchase[currentScenario()] && state.purchase[currentScenario()].enabled);
   return {
     people: personRows,
     oldestAge: ages.length ? Math.max.apply(null, ages) : null,
@@ -67,7 +67,7 @@ export function gatherHousehold(){
     couple: people.length > 1,
     savingsRate: t.incomeMonthly > 0 ? t.rate : null,
     housing: housingComparison(t.homeMonthly * 12, grossYearly, buying),
-    scenario: state.activeScenario
+    scenario: currentScenario()
   };
 }
 function row(title, value, bar, verdict, source){
@@ -240,7 +240,7 @@ export function setBenchmarkField(kind, key, value){
 // ---------------- Your own targets (item 69) ----------------
 export function gatherTargets(){
   var today = localDateStr();
-  var active = state.activeScenario;
+  var active = currentScenario();
   var t = scenarioTotals(active);
   var cats = {};
   transactionsInMonth(state.transactions, today.slice(0, 7)).forEach(function(tx){

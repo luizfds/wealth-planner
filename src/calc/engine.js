@@ -14,6 +14,7 @@ import { dueAfterDays } from "./estimates.js";
 import { projectionRatios } from "./actuals.js";
 import { eventEffects } from "./lifeevents.js";
 import { loggedSinceRecorded } from "./accounts.js";
+import { scenarioSharedItems } from "./scenariochanges.js";
 
 // Every non-Shares asset, and every Shares holding on the ASX, is already AUD — the only
 // currency this app ever mixes in is USD (US-market and Crypto holdings, see MARKET_CURRENCY).
@@ -211,7 +212,7 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
   // lines that have been logged (calc/actuals.js); everything else stays as planned.
   var ratios = (opts && opts.ratios) || projectionRatios();
   function activeInflatableMonthlyAt(year){
-    return (sumFieldActiveInYear(state.shared, "monthly", year, todayStr, function(item){
+    return (sumFieldActiveInYear(scenarioSharedItems(scenario), "monthly", year, todayStr, function(item){
         return resolveSharedAmount(item, scenario);
       }) +
       sumFieldActiveInYear(scenarioInflatableHomeItems(scenario), "monthly", year, todayStr) + (ratios.spendDelta || 0)) +
@@ -470,7 +471,8 @@ export function scenarioTotals(scenario){
   // housing costs.
   var incomeMonthly = scenarioIncomeMonthly({ scenario: scenario });
   var ipMonthly = ipExpensesMonthly() + ipLoansMonthly();
-  var sharedMonthly = sumFieldForScenario(state.shared, scenario, "monthly");
+  // v3.172.0: today's home lines are left out by a scenario that lives somewhere else.
+  var sharedMonthly = sumFieldForScenario(scenarioSharedItems(scenario), scenario, "monthly");
   var homeMonthly = sumField(state.home[scenario], "monthly");
   var expensesMonthly = ipMonthly + sharedMonthly + homeMonthly;
   var netMonthly = incomeMonthly - expensesMonthly;

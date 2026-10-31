@@ -38,14 +38,18 @@ test("the answers become ordinary rows: pay, accounts with balances, rent and mo
     assert.equal(accountBalance(state.accounts[0]).balance, 2500);
     assert.equal(accountBalance(state.accounts[1]).balance, 700, "a card stores what it owes, positive");
     assert.equal(accountBalance(state.accounts[2]).balance, null, "no balance typed, nothing invented");
-    var rent = state.home[state.activeScenario].find(function(r){ return r.what === "Rent"; });
+    // v3.172.0 (item 207): where the household lives is a budget line marked as the home.
+    var rent = state.shared.find(function(r){ return r.what === "Rent"; });
     assert.equal(rent.amount, 550);
     assert.equal(rent.freq, "Weekly");
     assert.equal(rent.account, "Bank One");
-    assert.equal(state.shared.length, 2);
-    assert.equal(state.shared[0].category, "Groceries");
-    assert.equal(state.shared[1].classification, "Wants");
-    assert.equal(state.shared[0].account, "Bank One");
+    assert.equal(rent.homeCost, true);
+    assert.equal(rent.category, "Housing");
+    var costs = state.shared.filter(function(r){ return !r.homeCost; });
+    assert.equal(costs.length, 2);
+    assert.equal(costs[0].category, "Groceries");
+    assert.equal(costs[1].classification, "Wants");
+    assert.equal(costs[0].account, "Bank One");
     assert.equal(state.firstRunDone, true);
     assert.equal(shouldOfferFirstRun(), false);
   } finally { setState(keep); }

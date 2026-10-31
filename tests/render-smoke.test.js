@@ -1719,3 +1719,156 @@ test("activityHtml draws whose device it is and the changes with their undo", as
   assert.match(activityHtml([], { name: "", people: [] }), /No changes logged yet/);
   assert.doesNotMatch(html, /undefined|NaN/);
 });
+
+test("a scenario's changes and today's block draw", async function(){
+  var sc = await import("../src/components/scenariochanges.js");
+  var was = { shared: state.shared, income: state.income, ch: state.scenarioChanges };
+  state.shared = [{ id: "g", what: "Groceries", amount: 260, freq: "Weekly" }, { id: "r", what: "Rent", amount: 620, freq: "Weekly", homeCost: true }];
+  state.income = [{ id: "p", what: "Salary", amount: 90000, freq: "Yearly", incomeType: "Gross" }];
+  state.scenarioChanges = { Move: [{ id: "c1", kind: "amount", rowId: "g", amount: 300 }, { id: "c2", kind: "amount", rowId: "gone", amount: 5 }] };
+  var html = sc.scenarioChangesHtml("Move");
+  assert.match(html, /Groceries/);
+  assert.match(html, /today \$260\.00 weekly/);
+  assert.match(html, /data-sc-amount="c1"/);
+  assert.match(html, /has since been deleted/);
+  assert.match(html, /<optgroup label="Income">/);
+  assert.match(sc.todaysHomeHtml(), /Rent \$2,687\/mo/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+  state.shared = was.shared; state.income = was.income; state.scenarioChanges = was.ch;
+});
+
+test("a scenario's changes list draws each kind, and an open investment property shows its figures", async function(){
+  var sc = await import("../src/components/scenariochanges.js");
+  var was = { shared: state.shared, income: state.income, ch: state.scenarioChanges, props: state.properties };
+  state.shared = [{ id: "g", what: "Groceries", amount: 260, freq: "Weekly" }];
+  state.income = [{ id: "p", what: "Salary", person: "Alex", amount: 100000, freq: "Yearly", incomeType: "Gross" }];
+  state.properties = [{ id: "pr1", what: "1 Example St", kind: "IP", value: 500000, income: [], expenses: [], loans: [] }];
+  state.scenarioChanges = { Rentvest: [{ id: "r", kind: "rent", what: "Rent", amount: 780, freq: "Weekly", fromYear: 0 },
+    { id: "i", kind: "ip", what: "Unit", price: 600000, depositPct: 20, rate: 6, termYears: 30, repaymentType: "IO", state: "NSW", rentWeekly: 600, vacancyWeeks: 2, mgmtPct: 7, costsYearly: 4000, depreciationYearly: 5000, growthPct: "", owner: "", fromYear: 0 },
+    { id: "s", kind: "sell", propertyId: "pr1", fromYear: 2, sellingCostsPct: 2.5 }, { id: "c", kind: "cost", what: "Childcare", amount: 900, freq: "Monthly", fromYear: 1 }] };
+  sc.changeOpen.i = true;
+  var html = sc.scenarioChangesHtml("Rentvest");
+  assert.match(html, /Rent \$780 weekly/);
+  assert.match(html, /Unit: \$600,000 in NSW/);
+  assert.match(html, /Sell 1 Example St in year 3/);
+  assert.match(html, /Childcare: \$900 monthly · from year 2/);
+  assert.match(html, /Cash at settlement/);
+  assert.match(html, /data-sc-new="ip"/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+  delete sc.changeOpen.i;
+  state.shared = was.shared; state.income = was.income; state.scenarioChanges = was.ch; state.properties = was.props;
+});
+
+test("the 'What are you weighing?' sheet draws its choices and a choice's questions", async function(){
+  var m = await import("../src/components/scenariotemplates.js");
+  m.startQ.open = true; m.startQ.key = null;
+  var ctx = { renting: true, properties: [], state: "NSW" };
+  var html = m.startSheetHtml(ctx);
+  assert.match(html, /What are you weighing\?/);
+  assert.match(html, /data-sq-pick="rentvest"/);
+  assert.match(html, /data-sq-pick="payDown" disabled/);
+  m.startQ.key = "rentvest";
+  html = m.startSheetHtml(ctx);
+  assert.match(html, /Rent it would earn a week/);
+  assert.match(html, /data-sq-make/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+  m.startQ.open = false; m.startQ.key = null;
+});
+
+test("compareHtml draws a column per scenario and the verdicts", async function(){
+  var { compareHtml } = await import("../src/components/compare.js");
+  var mk = function(name, base, extra){ return Object.assign({ scenario: name, isBaseline: base, upfront: 0, available: 50000, short: 0, monthBeforeTax: 3000, monthAfterTax: 3000, monthUnderStress: 2500, lowestCash: 40000,
+    netWorth: [{ year: 5, value: 500000, vsBase: 0 }, { year: 10, value: 900000, vsBase: 0 }, { year: 20, value: 2000000, vsBase: 0 }], aheadFrom: null, verdict: "v" }, extra || {}); };
+  var html = compareHtml([mk("Today", true), mk("Rentvest", false, { upfront: 150000, short: 100000, aheadFrom: 7, verdict: "Ahead of staying put from year 7 — but needs $100,000 more." })]);
+  assert.match(html, /Today \(as we are\)/);
+  assert.match(html, /\$100,000 short/);
+  assert.match(html, /From year 7/);
+  assert.match(html, /<b>Rentvest<\/b> Ahead of staying put/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+});
+
+test("the Make it real sheet lists what it will do and what it leaves", async function(){
+  var m = await import("../src/components/makereal.js");
+  var st = { scenarios: ["Today", "Move"], baselineScenario: "Today", shared: [{ id: "h", what: "Rent", amount: 500, freq: "Weekly", homeCost: true }], income: [], properties: [],
+    purchase: {}, invest: {}, home: {}, scenarioChanges: { Move: [{ id: "a", kind: "rent", what: "Rent", amount: 650, freq: "Weekly", fromYear: 0 }, { id: "b", kind: "extra", propertyId: "", amount: 100, freq: "Monthly", fromYear: 0 }] } };
+  m.mrQ.name = "Move";
+  var html = m.makeRealSheetHtml(st, "2026-11-02");
+  assert.match(html, /Make &quot;Move&quot; real|Make "Move" real/);
+  assert.match(html, /\$650 weekly/);
+  assert.match(html, /Extra loan repayments/);
+  assert.match(html, /data-mr-apply/);
+  assert.match(m.makeRealButtonHtml("Move"), /data-make-real="Move"/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+  m.mrQ.name = null;
+});
+
+test("the what-if strip draws its sliders, and Keep this only once one has moved", async function(){
+  var m = await import("../src/components/whatif.js");
+  var was = { fire: state.fire };
+  state.fire = Object.assign({}, state.fire, { currentAge: 41 });
+  m.resetWhatIf();
+  var html = m.whatIfStripHtml();
+  assert.match(html, /data-wi="retireAge"/);
+  assert.match(html, /data-wi="extraMonthly"/);
+  assert.match(html, /Keep working/);
+  assert.match(html, /data-wi-keep disabled/);
+  m.whatIfValues().extraMonthly = 250;
+  assert.doesNotMatch(m.whatIfStripHtml(), /data-wi-keep disabled/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+  m.resetWhatIf(); state.fire = was.fire;
+});
+
+test("against the market, the target mix and distributions ahead draw from invented holdings", async function(){
+  var m = await import("../src/components/investreturn.js");
+  var was = { assets: state.assets, targetMix: state.targetMix };
+  state.assets = [
+    { category: "Shares", market: "ASX", what: "Fern Index Fund", symbol: "FRN", quantity: 21, price: 110, amount: 2310,
+      lots: [{ date: "2021-01-01", units: 10, price: 100 }, { date: "2022-01-01", units: 11, price: 100 }],
+      payouts: [{ date: "2026-01-10", cash: 60 }], history: [{ date: "2021-01-01", value: 1000 }, { date: "2022-01-01", value: 2100 }] },
+    { category: "Cash", what: "Bank One saver", amount: 5000 }
+  ];
+  state.targetMix = { "Australian shares": 70, "Cash": 30 };
+  m.bench.status = "ready";
+  m.bench.series = { asx200: [{ date: "2021-01-01", close: 50 }, { date: "2022-01-01", close: 55 }, { date: "2026-10-01", close: 80 }], sp500: [] };
+  var html = m.benchmarkCardHtml("2026-10-31");
+  assert.match(html, /would be worth/);
+  assert.match(html, /data-bench="sp500"/);
+  assert.ok(m.benchmarkChartSeries("2026-10-31").series.length === 2);
+  var mix = m.targetMixCardHtml();
+  assert.match(mix, /data-mix-target="Australian shares"/);
+  assert.match(mix, /goes to/);
+  assert.match(m.distributionsAheadCardHtml("2026-10-31"), /Jan 2027/);
+  [html, mix].forEach(function(h){ assert.doesNotMatch(h, /undefined|NaN/); });
+  m.bench.status = "idle"; m.bench.series = {};
+  state.assets = was.assets; state.targetMix = was.targetMix;
+});
+
+test("the Subscriptions card lists repeating charges, a rise, a stopped one and the cancel-by field", async function(){
+  var m = await import("../src/components/subscriptions.js");
+  var t = [];
+  ["2026-06-03", "2026-07-03", "2026-08-03", "2026-09-03", "2026-10-03"].forEach(function(d, i){ t.push({ date: d, what: "STREAMFLIX PTY LTD", amount: i < 3 ? 16.99 : 18.99 }); });
+  ["2026-03-12", "2026-04-12", "2026-05-12"].forEach(function(d){ t.push({ date: d, what: "Bank One Cloud Storage", amount: 4.49 }); });
+  var html = m.subscriptionsHtml("2026-10-20", { transactions: t, subscriptionNotes: {} });
+  assert.match(html, /data-sub-cancel=/);
+  assert.match(html, /Up from \$16\.99/);
+  assert.match(html, /Stopped — last charged/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+  assert.match(m.subscriptionsHtml("2026-10-20", { transactions: [], subscriptionNotes: {} }), /Nothing charges on a steady rhythm/);
+});
+
+test("an everyday account's next 90 days, and Home's card when it nears its buffer", async function(){
+  var m = await import("../src/components/dailyforecast.js");
+  var was = { assets: state.assets, accounts: state.accounts, transactions: state.transactions, incomeLog: state.incomeLog, shared: state.shared };
+  state.assets = [{ id: "c1", what: "Bank One Everyday", category: "Cash", amount: 900, history: [{ date: "2026-10-30", value: 900 }] }];
+  state.accounts = [{ id: "a1", name: "Bank One Everyday", type: "everyday", link: "asset:c1", buffer: 2000 }];
+  state.transactions = [{ date: "2026-10-20", what: "Fern Café", amount: 90, account: "Bank One Everyday" }];
+  state.incomeLog = []; state.shared = [];
+  var html = m.balanceForecastHtml(state.accounts[0], "2026-10-31");
+  assert.match(html, /Under your \$2,000 buffer <b>now<\/b>/);
+  assert.match(html, /data-acct-buffer="a1"/);
+  assert.match(m.lowBalanceCardHtml("2026-10-31"), /data-home-card="lowbal"/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+  state.accounts[0].buffer = "";
+  assert.equal(m.lowBalanceCardHtml("2026-10-31"), "");
+  Object.assign(state, was);
+});

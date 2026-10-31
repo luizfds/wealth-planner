@@ -3,6 +3,8 @@ import { localDateStr } from "../lib/format.js";
 import { periodsOf, resolveSharedAmount, resolvedDueMonth, freqStepMonths } from "./ledger.js";
 import { scenarioIncomeRows } from "./tax.js";
 import { ipProperties, ipLoansMonthly } from "./property.js";
+import { scenarioSharedItems } from "./scenariochanges.js";
+import { currentScenario } from "./engine.js";
 
 // ---------------- 12-month cash flow forecast ----------------
 // Every other total in this app (scenarioTotals, the sticky-header "Monthly Cash" figure, the
@@ -66,7 +68,7 @@ function entryActiveInMonth(entry, d){
 // added as a straight baseline total below rather than walked item-by-item.
 function collectCashFlowEntries(scenario){
   var txns = state.transactions;
-  var sharedResolved = state.shared.map(function(item){
+  var sharedResolved = scenarioSharedItems(scenario).map(function(item){
     var amt = resolveSharedAmount(item, scenario);
     return amt === item.amount ? item : Object.assign({}, item, { amount: amt });
   });
@@ -87,7 +89,7 @@ function lumpyHitsMonth(entry, monthNum){
 }
 export function monthlyCashFlowForecast(monthsAhead){
   monthsAhead = monthsAhead || 12;
-  var entries = collectCashFlowEntries(state.activeScenario);
+  var entries = collectCashFlowEntries(currentScenario());
   var lumpyEntries = entries.filter(function(e){ return e.bucket === "lumpy"; });
   var smoothEntries = entries.filter(function(e){ return e.bucket !== "lumpy"; });
   // The smoothed side is summed per month rather than once up front, because a row with an end

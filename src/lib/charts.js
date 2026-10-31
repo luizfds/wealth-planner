@@ -361,7 +361,8 @@ export function renderLineChart(container, series, opts){
       if(!stepped) return "L" + x + "," + y;
       return "L" + x + "," + yScale(s.points[pidx - 1].y).toFixed(1) + " L" + x + "," + y;
     }).join(" ");
-    svg.appendChild(svgEl("path", { d: d, class: "series-line " + s.colorClass, "data-series-idx": idx }));
+    // v3.177.0: s.dashed — a reference line (the saved plan under a what-if).
+    svg.appendChild(svgEl("path", Object.assign({ d: d, class: "series-line " + s.colorClass, "data-series-idx": idx }, s.dashed ? { "stroke-dasharray": "6 5" } : {})));
     // v3.103.0: a stepped line of a few hand-logged readings marks each reading, so three values
     // read as three values rather than as a trend drawn between them.
     if(stepped && s.points.length <= 24){

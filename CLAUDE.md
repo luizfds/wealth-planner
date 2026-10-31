@@ -72,6 +72,22 @@ the last, so two sessions can't pick up the same one.
   and logs `state.activity` entries (`calc/activity.js`; 90 days, size-capped, synced). Every `setState` (sync, backup, sample
   data) resets the baseline via `onStateReplaced`, so loads are never logged. A new view setting or bookkeeping key belongs
   in `calc/activity.js` SKIP, or it shows up as somebody's edit.
+- **Scenarios are sandboxes (v3.172.0):** every page outside Plan → Scenarios shows the household (`currentScenario()`), never
+  `state.activeScenario`. A scenario's differences live in `state.scenarioChanges[name]` (`calc/scenariochanges.js`), never on
+  the household's rows; today's home costs are Budget lines with `homeCost: true`, and a scenario that lives elsewhere reads
+  the household's lines through `scenarioSharedItems(name)`. New scenario maths goes through those, not `state.shared` directly.
+  **Make it real (v3.176.0):** `calc/makereal.js` is the one door back — a plan (dry run) then the same changes as rows; old
+  home lines end the day before. An investment property's tax effect is the owners' tax with and without it (`taxEffectFor`).
+  **What-ifs (v3.177.0):** a scenario's own assumptions are an `assume` change, read through `projectionFor(scenario)` — never
+  `state.projection` directly in projection maths; a `retire` change stops pay from that age.
+- **Investment returns (v3.178.0):** `calc/investreturn.js` — `xirr`, money-weighted per holding, the same money in an index
+  (the price file's weekly A200 / IVV series, read once a session by `components/investreturn.js`), a target mix (`state.targetMix`,
+  a holding's own `assetClass` overriding its market) and distributions ahead. The IRR and the index units are `calc/performance.js`'s
+  (`xirr`, `indexValue` — also behind Home → Benchmarks and the reports): there is one IRR, reuse it.
+- **Subscriptions (v3.179.0):** `calc/recurring.js` `repeatingPayees` is the one repeating-payee detector — Budget's unbudgeted list and
+  Bills' Subscriptions (`calc/subscriptions.js`, `state.subscriptionNotes`) both filter it; change detection there, not in either.
+- **Balance by the day (v3.180.0):** `calc/dailyforecast.js` — an everyday account's 90 days from the bills calendar (`billsForMonth`,
+  whose bills now carry `account`), pay landed before (`incomeLog`) and usual spending; `account.buffer` warns on its detail page and Home.
 - `styles.css` — just eight `@import` statements pulling in `src/styles/{base,shell,dashboard,
   ledger,income,properties,assets,projections}.css`, in that specific order. Light/dark theming is
   CSS custom properties + `prefers-color-scheme`, defined in `base.css`.

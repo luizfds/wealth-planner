@@ -1,6 +1,7 @@
 import { state } from "../state.js";
 import { periodsOf, isActiveOn, resolveSharedAmount } from "./ledger.js";
 import { scenarioTotals } from "./engine.js";
+import { amountChangeFor, setAmountChange } from "./scenariochanges.js";
 
 // ---------------- Trimming the budget (v3.100.0) ----------------
 //
@@ -83,10 +84,11 @@ export function trimReport(opts){
 }
 
 // The level a flexible line is set to in a scenario: "keep", "half", "pause" (or "custom").
+// v3.172.0 (item 207): the level is a change kept in the scenario (calc/scenariochanges.js), not on the line.
 export function leanLevel(line, scenario){
-  var o = line && line.scenarioOverrides;
-  if(!o || o[scenario] == null) return "keep";
-  var base = Number(line.amount) || 0, v = Number(o[scenario]);
+  var own = line && line.id != null ? amountChangeFor(scenario, line.id) : null;
+  if(own == null) return "keep";
+  var base = Number(line.amount) || 0, v = Number(own);
   if(v === 0) return "pause";
   if(base > 0 && Math.abs(v - base / 2) < 0.01) return "half";
   if(Math.abs(v - base) < 0.01) return "keep";
@@ -95,9 +97,9 @@ export function leanLevel(line, scenario){
 export function setLeanLevel(line, scenario, level){
   if(!line) return;
   var base = Number(line.amount) || 0;
-  if(level === "keep"){ if(line.scenarioOverrides){ delete line.scenarioOverrides[scenario]; if(!Object.keys(line.scenarioOverrides).length) delete line.scenarioOverrides; } return; }
-  if(!line.scenarioOverrides) line.scenarioOverrides = {};
-  line.scenarioOverrides[scenario] = level === "pause" ? 0 : Math.round(base / 2 * 100) / 100;
+  if(line.id == null) return;
+  if(level === "keep"){ setAmountChange(scenario, line.id, null); return; }
+  setAmountChange(scenario, line.id, level === "pause" ? 0 : Math.round(base / 2 * 100) / 100, function(){ return "chg" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); });
 }
 // What the lean settings change in a scenario: what a normal month leaves with and without them.
 export function leanEffect(scenario, opts){

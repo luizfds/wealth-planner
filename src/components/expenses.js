@@ -1,3 +1,4 @@
+import { renderSubscriptions } from "./subscriptions.js";
 import { state, persist, genId } from "../state.js";
 import { CLASSES, FREQS, UNCATEGORISED } from "../constants.js";
 import { sumField, sumFieldForScenario, resolveSharedAmount, periodsOf, budgetCycleFor, reserveCycleFor, transactionDisplayName, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, plannedToDateByCategory, isOverdue, daysUntil, lastTransactionDateFor, refundableTransactions, reserveYearWindowFor, householdYearWindow, householdYearToDate, householdYearProgress, householdYearBasis, HOUSEHOLD_YEAR_BASES, selectedMonth, monthPhrase, selectedYearWindow, isPeriodToday, monthAnchorDate } from "../calc/ledger.js";
@@ -92,7 +93,7 @@ function sharedGroupOrder(axis){
 // budgeted, so there's nothing to edit and nothing to fall behind on logging. They keep their own
 // summary card below the list instead.
 function budgetLineSources(scenario){
-  scenario = scenario || state.activeScenario;
+  scenario = scenario || currentScenario();
   var sources = [{ section: "shared", items: state.shared }];
   var homeItems = state.home[scenario];
   if(homeItems && homeItems.length) sources.push({ section: "home:" + scenario, items: homeItems });
@@ -126,7 +127,7 @@ function computeSharedGroups(axis){
     // Scenario-resolved, like scenarioTotals() and computeNetWorthSeries(). Raw amounts left the
     // Expenses page quoting a different household cost than the Dashboard for the very same
     // scenario, by the size of every override.
-    return { key: key, members: members, items: items, monthly: sumFieldForScenario(items, state.activeScenario, "monthly") };
+    return { key: key, members: members, items: items, monthly: sumFieldForScenario(items, currentScenario(), "monthly") };
   });
 }
 
@@ -262,10 +263,13 @@ export function commitExpensesImport(items){
     // They need an id for the same reason every other budget line does (transactions link by it).
     var targetProperty = item.propertyId && state.properties.find(function(p){ return p.id === item.propertyId; });
     if(item.source === "Housing"){
+      // v3.172.0 (item 207): today's housing is an ordinary budget line, marked as the home.
       row.id = genId("exp");
       row.irregular = false;
       row.dueMonth = null;
-      (state.home[state.activeScenario] = state.home[state.activeScenario] || []).push(row);
+      row.homeCost = true;
+      row.category = row.category || "Housing";
+      state.shared.push(row);
     } else if(targetProperty){
       // Named an investment property, so it's that property's cost — the same row the Properties
       // tab edits. Resolved by id captured at parse time rather than re-matching the name here,
@@ -397,12 +401,13 @@ export function renderBillsCalendar(){
   if(!el) return;
   var ym = selectedMonth();
   el.innerHTML = billsCalendarHtml(billsForMonth(loggableBudgetLineItems(), state.transactions, ym, localDateStr(), { accounts: state.accounts, transfers: state.transfers }), ym);
+  renderSubscriptions(); // v3.179.0 (item 205)
 }
 // "Your month, planned" (v3.59.0) — components/cashflow.js budgetPlanHtml.
 export function renderBudgetPlan(){
   var el = typeof document !== "undefined" && document.getElementById("budgetPlanBody");
   if(!el) return;
-  var scen = state.activeScenario;
+  var scen = currentScenario();
   var totals = scenarioTotals(scen);
   // v3.149.0: pay that ends within the year (its own row since v3.148.0) says until when. Only
   // today's month or earlier can be picked, and a row stops being counted once it's ended, so the
@@ -429,9 +434,6 @@ export function renderSharedGroups(){
   renderBudgetPlan();
   var container = document.getElementById("sharedGroups");
   if(!container) return;
-  // Names the scenario the housing rows came from, so it's never a mystery why rent changed.
-  var scenarioLabel = document.getElementById("budgetHousingScenario");
-  if(scenarioLabel) scenarioLabel.textContent = state.activeScenario;
   var groups = computeSharedGroups();
   patchSharedGroupTotals();
   var byCategory = state.budgetGroupBy === "category";
@@ -472,11 +474,11 @@ export function renderSharedGroups(){
       // Each row renders under its own source section, so a housing line's edits, deletes and
       // logs land in state.home[scenario] while a shared line's land in state.shared — no
       // special-casing anywhere downstream, since every handler already keys off data-section.
-      '<div class="m-rows">' + g.members.map(function(line){ return modernPlainRowHtml(line.item, line.idx, line.section, modernSharedRowOpen, {showClass:true, showDone:true, categories: sortedCategories(), activeScenario: state.activeScenario, extraSubLine: budgetRowProgressHtml(line.item), extraFieldsHtml: line.item.id ? '<div class="m-edit-field span3"><label>Receipts</label>' + receiptsFieldHtml("line:" + line.item.id, line.item.receipts, { label: "Attach a receipt or invoice" }) + '</div>' : ''}); }).join("") + '</div>' +
+      '<div class="m-rows">' + g.members.map(function(line){ return modernPlainRowHtml(line.item, line.idx, line.section, modernSharedRowOpen, {showClass:true, showDone:true, categories: sortedCategories(), activeScenario: currentScenario(), extraSubLine: budgetRowProgressHtml(line.item), extraFieldsHtml: line.item.id ? '<div class="m-edit-field span3"><label>Receipts</label>' + receiptsFieldHtml("line:" + line.item.id, line.item.receipts, { label: "Attach a receipt or invoice" }) + '</div>' : ''}); }).join("") + '</div>' +
       '<button type="button" class="m-add-row" data-add="' + escapeAttr(addValue) + '">+ Add expense</button>' +
     '</div>';
   }).join("") + '</div>';
-  injectScenarioOverrideButtons();
+  // v3.172.0 (item 207): no "Vary" here — a line's amount in a scenario is set in that scenario.
 }
 
 // Only state.shared rows get a "vary by scenario" action — income/home/property rows use the
@@ -905,7 +907,7 @@ export function quickLogContextText(item){
   }
   if(!item) return "One-off spend — not counted against any budget line.";
   var spent = monthTransactionsForExpense(item.id).reduce(function(sum, pair){ return sum + (Number(pair.t.amount) || 0); }, 0);
-  var planned = resolveSharedAmount(item, state.activeScenario);
+  var planned = resolveSharedAmount(item, currentScenario());
   var monthlyPlanned = periodsOf(planned, item.freq).monthly;
   return fmtCurrency0.format(spent) + " of " + fmtCurrency0.format(monthlyPlanned) + " logged " + monthPhrase(selectedMonth());
 }
@@ -1954,7 +1956,7 @@ export function categoryTotals(items, valueFor){
 // to), and the one number to steer by: what's left of the flexible amount this month, category by
 // category, each able to roll what it doesn't spend into next month.
 export function flexSummaryHtml(){
-  var scenario = state.activeScenario;
+  var scenario = currentScenario();
   var lines = allBudgetLines().map(function(l){ return { item: l.item, monthly: sumFieldForScenario([l.item], scenario, "monthly") }; });
   if(!lines.length) return "";
   var t = flexTotals(lines);
@@ -2305,7 +2307,7 @@ export function renderYearSpending(){
   // so planning it here would read as permanently under-spent.
   var full = householdYearWindow();
   var planned = plannedToDateByCategory(loggableBudgetLineItems(), full.start, full.end, win.end,
-    function(item){ return resolveSharedAmount(item, state.activeScenario); },
+    function(item){ return resolveSharedAmount(item, currentScenario()); },
     function(item){ return (item.category || "").trim() || UNCATEGORISED; });
   var plannedTotal = Object.keys(planned).reduce(function(s, k){ return s + planned[k]; }, 0);
   Object.keys(planned).forEach(function(k){ if(byCategory[k] == null && planned[k] >= 1) groups.push({ key: k, monthly: 0 }); });

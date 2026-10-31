@@ -5,7 +5,7 @@ import { localDateStr } from "./format.js";
 import { ipProperties } from "../calc/property.js";
 import { transactionsInRange, householdYearToDate } from "../calc/ledger.js";
 import { shareFlows, priceDatesNeeded, benchmarkFormula } from "../calc/performance.js";
-import { toAudAmount } from "../calc/engine.js";
+import { toAudAmount, currentScenario } from "../calc/engine.js";
 import { backfillStart } from "../calc/pricesheet.js";
 import { withReceiptFiles } from "../calc/receipts.js";
 import { packReceipts } from "./receipts.js";
@@ -392,7 +392,7 @@ export function exportExpensesCsv(){
   // answers to it, so a renamed property degrades to a visible mismatch in the preview rather
   // than a row silently landing on the wrong property.
   var rows = rowsFrom(state.shared, "Shared")
-    .concat(rowsFrom(state.home[state.activeScenario], "Housing"));
+    .concat(rowsFrom(state.home[currentScenario()], "Housing"));
   ipProperties().forEach(function(p){ rows = rows.concat(rowsFrom(p.expenses, p.what || "Investment property")); });
   exportCsv("expenses-" + isoDateStamp() + ".csv", EXPENSES_CSV_HEADERS, rows);
 }

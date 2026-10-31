@@ -1,4 +1,10 @@
-import { state, setState, storageAvailable, persist, setStatus, defaultState, defaultPurchaseConfig, defaultInvestConfig, migrateState, genId, normalizeShareAsset, onSaved } from "./state.js";
+import { renderSubscriptions, subsUi } from "./components/subscriptions.js";
+import { bench, benchmarkCardHtml, targetMixCardHtml } from "./components/investreturn.js";
+import { whatIfValues, resetWhatIf, wiFromSlider, wiValueText } from "./components/whatif.js";
+import { whatIfMoved, keepWhatIf } from "./calc/whatif.js";
+import { mrQ, makeRealSheetHtml } from "./components/makereal.js";
+import { applyMakeReal } from "./calc/makereal.js";
+import { state, setState, storageAvailable, persist, setStatus, defaultState, defaultPurchaseConfig, defaultHomeBlock, defaultInvestConfig, migrateState, genId, normalizeShareAsset, onSaved } from "./state.js";
 import { sacrificeModeToLabel, sacrificeLabelToMode, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, INVEST_LEG_TYPES } from "./constants.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr, fmtDate, parseAmountInput } from "./lib/format.js";
 import { showToast, showUndoToast, showPersistentToast } from "./lib/toast.js";
@@ -58,7 +64,7 @@ import {
 } from "./components/expenses.js";
 import {
   patchHoldingRow, patchVehicleRow, modernAssetRowOpen, patchAssetCategoryTotals,
-  renderNetWorthPanel, renderAssets, logAssetSnapshot, applySharesPaste, logDebtSnapshot, setUsdAudRate,
+  renderNetWorthPanel, renderAssets, renderBenchmark, logAssetSnapshot, applySharesPaste, logDebtSnapshot, setUsdAudRate,
   patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter, renderAssetPersonSheet, assetPersonSheetOpen, setAssetPersonSheetOpen, setSharesGainFilter, setSharesSortMode, setSharesChangeWindow, setAllocationRange, setPortfolioRange,
   parseAssetsImportCsv, renderAssetsImportPreview, clearAssetsImportPreview, commitAssetsImport, dividendNoteText,
   recordAssetSale, deleteAssetSale, renderAssetsSummary, patchOffsetsRow, addAssetLot, syncAvgCostFromLots, lotsSectionHtml, lotsNoteText, addAssetStatement, statementsSectionHtml, payoutsSectionHtml, payoutsNoteText, addAssetPayout
@@ -68,11 +74,11 @@ import {
   logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan, setSaleWhatIfField, patchSaleWhatIf, setLoanStrategyField, patchLoanStrategy, propertyTabs, propertyEditing,
   fixedExpiryHtml, rentPanelHtml, fixedWhatIf, agentStatementUi, agentStatementFormValues
 } from "./components/properties.js";
-import { renderProjectionOutputs, projectionSeriesShown } from "./components/projections.js";
+import { renderProjectionOutputs, renderWhatIfDrag, projectionSeriesShown } from "./components/projections.js";
 import { renderBenchmarks, setBenchmarkField, applyBenchmarkPaste, addGoal, setGoalField, removeGoal, setPropertyMarketField } from "./components/benchmarks.js";
 import { copyBenchmarkTemplateToClipboard } from "./lib/backup.js";
 import {
-  selectScenario, addScenario, renameScenario, cloneScenario, deleteScenario, renderHomeBody, renderHomeListModern,
+  selectScenario, addScenario, renameScenario, cloneScenario, deleteScenario, renderHomeBody, renderHomeListModern, refreshScenarioDependentViews,
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
   patchCalcOutputs, afterCalcChange, patchInvestOutputs
 } from "./components/scenarios.js";
@@ -89,6 +95,12 @@ import { attachReceipt, detachReceipt, takeReceiptFiles } from "./calc/receipts.
 import { saveReceiptFile, unpackReceipts, openReceipt, pruneReceipts } from "./lib/receipts.js";
 import { startActivityLog, setDevicePerson, devicePerson } from "./lib/activity.js";
 import { undoEntry } from "./calc/activity.js";
+import { setAmountChange, removeChange, changesFor } from "./calc/scenariochanges.js";
+import { newChange } from "./calc/scenariolegs.js";
+import { changeOpen } from "./components/scenariochanges.js";
+import { buildScenario } from "./calc/scenariotemplates.js";
+import { renderCompare } from "./components/compare.js";
+import { startQ, startSheetHtml, templateContext } from "./components/scenariotemplates.js";
 import { renderActivity, activityUi } from "./components/activity.js";
 import { receiptHolder } from "./components/receipts.js";
 import { dataHealthChecks, dismissCheck } from "./calc/health.js";
@@ -133,7 +145,7 @@ import { recordRentReview } from "./calc/propertylife.js";
 import { retirementHtml, retireLevers } from "./components/retirement.js";
 import { recurringHtml, recurringDismissed, recurringOpen, catchAllShown } from "./components/recurring.js";
 import { lifeEventsHtml, addLifeEvent, setLifeEventField, removeLifeEvent } from "./components/lifeevents.js";
-import { detailTarget, detailView } from "./components/detail.js";
+import { detailTarget, detailView, renderDetailPage } from "./components/detail.js";
 import { renderCanBuy } from "./components/canbuy.js";
 import { goalsFireHtml } from "./components/retirement.js";
 import { renderReports, reportShown, reportPrintHtml, reportCsv, reportFrame, pinReport, openSavedReport, unpinReport } from "./components/reports.js";
@@ -209,7 +221,7 @@ import { inboxMessage } from "./calc/inbox.js";
         renderHomeListModern(mHome[1], hi);
         // The active scenario's housing is also listed on the Budget tab (see budgetLineSources),
         // so it has two renderers to keep in step — the Scenarios block above and the budget list.
-        if(mHome[1] === state.activeScenario) renderSharedGroups();
+        if(mHome[1] === currentScenario()) renderSharedGroups();
       }
       var mPropInc = /^propinc:(.+)$/.exec(section);
       if(mPropInc){
@@ -246,7 +258,7 @@ import { inboxMessage } from "./calc/inbox.js";
     // Totals what the list actually shows — shared plus the active scenario's housing — not just
     // state.shared, or the header disagrees with the cards beneath it by the size of your rent.
     // Scenario-resolved, matching the cards below it and every other total in the app.
-    document.getElementById("totalSharedMonthly").textContent = fmtCurrency0.format(sumFieldForScenario(budgetLineItems(), state.activeScenario, "monthly"));
+    document.getElementById("totalSharedMonthly").textContent = fmtCurrency0.format(sumFieldForScenario(budgetLineItems(), currentScenario(), "monthly"));
     renderGlobalMetrics();
   }
 
@@ -272,11 +284,6 @@ import { inboxMessage } from "./calc/inbox.js";
     cashFlowEl.classList.toggle("neg", m < 0);
     var tip = "What a normal month leaves in " + cur + ".";
     if(t.oneOffYearly > 0.5) tip += " Plus " + fmtCurrency0.format(t.oneOffYearly) + " a year in bonuses, which land in their own month.";
-    if(state.activeScenario && state.activeScenario !== cur){
-      var a = scenarioTotals(state.activeScenario);
-      var am = a.regularNetMonthly != null ? a.regularNetMonthly : a.netMonthly;
-      tip += " " + state.activeScenario + " (selected on Plan) would leave " + fmtCurrency0.format(am) + "/mo.";
-    }
     cashFlowEl.title = tip;
   }
 
@@ -313,7 +320,7 @@ import { inboxMessage } from "./calc/inbox.js";
   // costs are editable from either end (its Properties card, or the budget list), and both write
   // to the same p.expenses array, so both need the same follow-up either way.
   function isBudgetListSection(section){
-    if(section === "shared" || section === "home:" + state.activeScenario) return true;
+    if(section === "shared" || section === "home:" + currentScenario()) return true;
     var mPropExp = /^propexp:(.+)$/.exec(section);
     if(!mPropExp) return false;
     var p = findProperty(mPropExp[1]);
@@ -408,7 +415,7 @@ import { inboxMessage } from "./calc/inbox.js";
     if(e.target.classList.contains("f-amount") || e.target.classList.contains("f-freq")){
       // Scenario-resolved, matching what the renderer puts there — otherwise editing the default
       // on an overridden row would overwrite the headline with a figure this scenario doesn't pay.
-      var p = periodsOf(resolveSharedAmount(item, state.activeScenario), item.freq);
+      var p = periodsOf(resolveSharedAmount(item, currentScenario()), item.freq);
       var modernAmt = tr.querySelector('[data-computed="amt"]');
       if(modernAmt) modernAmt.textContent = fmtCurrency2.format(p.monthly) + "/mo";
     }
@@ -4022,7 +4029,8 @@ import { inboxMessage } from "./calc/inbox.js";
     if(cloneBtn){ cloneScenario(cloneBtn.getAttribute("data-clone")); return true; }
     var delBtn = e.target.closest("[data-delete]");
     if(delBtn){ var scName = delBtn.getAttribute("data-delete"); withUndo('Deleted "' + scName + '"', function(){ deleteScenario(scName); return state.scenarios.indexOf(scName) === -1; }); return true; }
-    if(e.target.closest("#addScenarioBtn") || e.target.closest("#addScenarioBtn2")){ addScenario(); return true; }
+    // v3.174.0 (item 209): adding a scenario starts from a question.
+    if(e.target.closest("#addScenarioBtn") || e.target.closest("#addScenarioBtn2")){ openStartSheet(); return true; }
     var editBtn = e.target.closest("[data-edit-scenario]");
     // The card's "Edit rent/home loan, purchase & invest options →". It used to go from Home to the
     // Scenarios page; since the cards moved onto Plan → Scenarios it pointed at the page it was on and
@@ -5295,6 +5303,7 @@ import { inboxMessage } from "./calc/inbox.js";
     renderChecksBadge();
     renderSafekeeping();
     renderActivity();
+    renderCompare();
     renderSavingsGoals();
     var goalsFire = document.getElementById("goalsFireBody"); if(goalsFire) goalsFire.innerHTML = goalsFireHtml();
     renderAdvice();
@@ -5870,6 +5879,238 @@ import { inboxMessage } from "./calc/inbox.js";
   });
   document.addEventListener("keydown", function(e){ if(e.key === "Escape" && txReview.open) requestCloseActiveOverlay(); });
   document.addEventListener("click", function(e){ if(e.target.closest("[data-txr-open]")) openTxReview(); });
+  // ---------------- A scenario's changes (v3.172.0, item 207) ----------------
+  // Plan → Scenarios: a line's amount in a scenario, kept in the scenario (calc/scenariochanges.js).
+  function afterScenarioChange(){ persist(); refreshScenarioDependentViews(); renderHomeBody(); renderCards(); renderProjectionOutputs(); renderCompare(); }
+  document.addEventListener("click", function(e){
+    if(!e.target.closest) return;
+    var add = e.target.closest("[data-sc-add]");
+    if(add){
+      var sc = add.getAttribute("data-sc-add"), box = add.closest(".sc-add");
+      var rowId = box && box.querySelector("[data-sc-row]").value, amt = box && box.querySelector("[data-sc-new-amount]").value;
+      if(!rowId){ showToast("Choose the line that would be different"); return; }
+      if(amt === "" || isNaN(Number(amt))){ showToast("Type its amount in " + sc); box.querySelector("[data-sc-new-amount]").focus(); return; }
+      setAmountChange(sc, rowId, Number(amt), function(){ return genId("chg"); });
+      afterScenarioChange();
+      return;
+    }
+    var del = e.target.closest("[data-sc-del]");
+    if(del){
+      var dsc = del.getAttribute("data-sc-scenario"), gone = removeChange(dsc, del.getAttribute("data-sc-del"));
+      if(!gone) return;
+      afterScenarioChange();
+      showUndoToast("Removed the change", function(){ (state.scenarioChanges[dsc] = state.scenarioChanges[dsc] || []).push(gone); afterScenarioChange(); });
+    }
+  });
+  // v3.173.0 (item 208): the other kinds of change — rent elsewhere, an investment property, a cost, a sale.
+  var SC_NUMBERS = { amount: 1, fromYear: 1, rate: 1, price: 1, depositPct: 1, rate: 1, termYears: 1, rentWeekly: 1, vacancyWeeks: 1, mgmtPct: 1, costsYearly: 1, depreciationYearly: 1, sellingCostsPct: 1 };
+  document.addEventListener("click", function(e){
+    if(!e.target.closest) return;
+    var nb = e.target.closest("[data-sc-new]");
+    if(nb){
+      var sc = nb.getAttribute("data-sc-scenario");
+      var c = newChange(nb.getAttribute("data-sc-new"), genId("chg"), { properties: state.properties, state: (state.purchase[sc] && state.purchase[sc].state) || "NSW" });
+      (state.scenarioChanges[sc] = changesFor(sc).slice()).push(c);
+      changeOpen[c.id] = true;
+      afterScenarioChange();
+      var first = document.querySelector('[data-scf-id="' + c.id + '"]');
+      if(first) first.focus();
+      return;
+    }
+    var tg = e.target.closest("[data-sc-toggle]");
+    if(tg){ var tid = tg.getAttribute("data-sc-toggle"); changeOpen[tid] = !changeOpen[tid]; renderHomeBody(); var again = document.querySelector('[data-sc-toggle="' + tid + '"]'); if(again) again.focus(); }
+  });
+  document.addEventListener("change", function(e){
+    if(!e.target.matches || !e.target.matches("[data-scf]")) return;
+    var sc = e.target.getAttribute("data-scf-scenario"), id = e.target.getAttribute("data-scf-id"), key = e.target.getAttribute("data-scf");
+    var c = changesFor(sc).find(function(x){ return x.id === id; });
+    if(!c) return;
+    var v = e.target.value;
+    c[key] = SC_NUMBERS[key] ? (v === "" ? 0 : Number(v)) : (key === "growthPct" ? (v === "" ? "" : Number(v)) : v);
+    afterScenarioChange();
+    var back = document.querySelector('[data-scf="' + key + '"][data-scf-id="' + id + '"]');
+    if(back) back.focus();
+  });
+  document.addEventListener("change", function(e){
+    if(!e.target.matches || !e.target.matches("[data-sc-amount]")) return;
+    var sc = e.target.getAttribute("data-sc-scenario"), id = e.target.getAttribute("data-sc-amount");
+    var c = (state.scenarioChanges[sc] || []).find(function(x){ return x.id === id; });
+    if(!c || e.target.value === "" || isNaN(Number(e.target.value))) return;
+    setAmountChange(sc, c.rowId, Number(e.target.value), function(){ return genId("chg"); });
+    afterScenarioChange();
+  });
+
+  // ---------------- Start from a question (v3.174.0, item 209) ----------------
+  var startSheetRoot = document.getElementById("startSheetRoot");
+  function renderStartSheet(){
+    startSheetRoot.innerHTML = startQ.open ? startSheetHtml() : "";
+    var f = startQ.open && startSheetRoot.querySelector(startQ.key ? "[data-sq]" : "[data-sq-pick]:not([disabled])");
+    if(f) f.focus();
+  }
+  function openStartSheet(){ startQ.open = true; startQ.key = null; renderStartSheet(); pushActiveOverlay(function(){ startQ.open = false; startQ.key = null; renderStartSheet(); }); }
+  function makeScenarioFrom(built){
+    var name = built.name, n = 2;
+    while(state.scenarios.indexOf(name) !== -1) name = built.name + " (" + (n++) + ")";
+    var st = templateContext().state;
+    state.scenarios.push(name);
+    // A scenario that rents somewhere new has its rent as a change; no $0 placeholder home rows beside it.
+    var rents = (built.changes || []).some(function(c){ return c.kind === "rent"; });
+    state.home[name] = built.home ? built.home.map(function(r){ return Object.assign({}, r); }) : rents ? [] : defaultHomeBlock();
+    var pc = built.purchase;
+    state.purchase[name] = pc ? Object.assign(defaultPurchaseConfig(pc.price, pc.depositPct, pc.rate, pc.termYears || 30, pc.state || st, true), pc) : defaultPurchaseConfig(0, 20, 6.0, 30, st, false);
+    state.invest[name] = built.invest ? Object.assign(defaultInvestConfig(built.invest.assetType), built.invest) : defaultInvestConfig();
+    state.scenarioChanges[name] = built.changes || [];
+    homeBlockCollapsed[name] = false;
+    recalcComputedItems();
+    afterScenarioChange();
+    return name;
+  }
+  startSheetRoot.addEventListener("click", function(e){
+    if(e.target.closest("[data-sq-close]") || e.target === e.target.closest("[data-sq-backdrop]")){ requestCloseActiveOverlay(); return; }
+    var pick = e.target.closest("[data-sq-pick]");
+    if(pick){ startQ.key = pick.getAttribute("data-sq-pick"); renderStartSheet(); return; }
+    if(e.target.closest("[data-sq-back]")){ startQ.key = null; renderStartSheet(); return; }
+    if(e.target.closest("[data-sq-blank]")){ requestCloseActiveOverlay(); setTimeout(addScenario, 50); return; }
+    if(e.target.closest("[data-sq-make]")){
+      var answers = {};
+      startSheetRoot.querySelectorAll("[data-sq]").forEach(function(el){ answers[el.getAttribute("data-sq")] = el.value; });
+      var built = buildScenario(startQ.key, answers, Object.assign(templateContext(), { idFactory: function(){ return genId("chg"); } }));
+      var made = makeScenarioFrom(built);
+      requestCloseActiveOverlay();
+      showToast('Made "' + made + '" — every figure in it can be changed');
+      setTimeout(function(){
+        var head = Array.prototype.find.call(document.querySelectorAll("#homeBody [data-collapse-toggle]"), function(h){ return h.getAttribute("data-collapse-toggle") === made; });
+        var block = head && head.closest(".home-block");
+        if(block) block.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 400);
+    }
+  });
+  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && startQ.open) requestCloseActiveOverlay(); });
+
+  // ---------------- Balance forecast by the day (v3.180.0, item 206) ----------------
+  document.addEventListener("change", function(e){
+    var id = e.target.getAttribute && e.target.getAttribute("data-acct-buffer");
+    if(id == null) return;
+    var a = (state.accounts || []).find(function(x){ return x.id === id; });
+    if(!a) return;
+    var v = e.target.value.trim();
+    if(v === "" || isNaN(Number(v))) delete a.buffer; else a.buffer = Math.max(0, Number(v));
+    persist(); renderDetailPage(); renderHomeSummary();
+  });
+
+  // ---------------- Every subscription in one list (v3.179.0, item 205) ----------------
+  function subNote(key){ if(!state.subscriptionNotes) state.subscriptionNotes = {}; return (state.subscriptionNotes[key] = state.subscriptionNotes[key] || {}); }
+  function tidySubNote(key){ var n = state.subscriptionNotes[key]; if(n && !n.cancelBy && !n.ignored) delete state.subscriptionNotes[key]; }
+  document.addEventListener("change", function(e){
+    var k = e.target.getAttribute && e.target.getAttribute("data-sub-cancel");
+    if(k == null) return;
+    if(e.target.value) subNote(k).cancelBy = e.target.value; else { subNote(k); delete state.subscriptionNotes[k].cancelBy; tidySubNote(k); }
+    persist(); renderNotifBadge();
+    showToast(e.target.value ? "A reminder comes a week before " + fmtDate(e.target.value) : "Cancel-by date cleared");
+  });
+  document.addEventListener("click", function(e){
+    if(!e.target.closest) return;
+    var ig = e.target.closest("[data-sub-ignore]");
+    if(ig){
+      var k = ig.getAttribute("data-sub-ignore"), n = subNote(k);
+      if(n.ignored) delete n.ignored; else n.ignored = true;
+      tidySubNote(k); persist(); renderSubscriptions(); renderNotifBadge();
+      return;
+    }
+    if(e.target.closest("[data-sub-hidden]")){ subsUi.showHidden = !subsUi.showHidden; renderSubscriptions(); }
+  });
+
+  // ---------------- Against the market, a target mix (v3.178.0, item 203) ----------------
+  function redrawCard(id, html){ var el = document.getElementById(id); if(el) el.outerHTML = html; }
+  document.addEventListener("click", function(e){
+    var b = e.target.closest && e.target.closest("[data-bench]");
+    if(!b) return;
+    bench.pick = b.getAttribute("data-bench");
+    redrawCard("benchCard", benchmarkCardHtml());
+    renderBenchmark();
+  });
+  document.addEventListener("change", function(e){
+    if(!e.target.matches) return;
+    if(e.target.matches("[data-mix-target]")){
+      var c = e.target.getAttribute("data-mix-target"), v = e.target.value.trim();
+      if(!state.targetMix || typeof state.targetMix !== "object") state.targetMix = {};
+      if(v === "" || isNaN(Number(v))) delete state.targetMix[c]; else state.targetMix[c] = Math.max(0, Math.min(100, Number(v)));
+      persist();
+      redrawCard("mixCard", targetMixCardHtml());
+      var again = document.querySelector('[data-mix-target="' + c + '"]');
+      if(again) again.focus();
+    } else if(e.target.matches("[data-mix-next]")){
+      bench.nextAmount = Math.max(0, Number(e.target.value) || 0);
+      redrawCard("mixCard", targetMixCardHtml());
+    } else if(e.target.matches(".m-asset-rows .h-class")){
+      var row = e.target.closest("[data-index]"), a = row && state.assets[Number(row.getAttribute("data-index"))];
+      if(!a) return;
+      if(e.target.value) a.assetClass = e.target.value; else delete a.assetClass;
+      persist();
+      redrawCard("mixCard", targetMixCardHtml());
+    }
+  });
+
+  // ---------------- What-ifs you can drag (v3.177.0, item 204) ----------------
+  var whatIfStrip = document.getElementById("whatIfStrip"), wiFrame = 0;
+  whatIfStrip.addEventListener("input", function(e){
+    var k = e.target.getAttribute && e.target.getAttribute("data-wi");
+    if(!k) return;
+    var w = whatIfValues();
+    w[k] = wiFromSlider(k, e.target.value);
+    var lab = whatIfStrip.querySelector('[data-wi-val="' + k + '"]');
+    if(lab) lab.textContent = wiValueText(k, w[k], w);
+    var moved = whatIfMoved(w);
+    whatIfStrip.querySelectorAll("[data-wi-keep], [data-wi-reset]").forEach(function(b){ b.disabled = !moved; });
+    if(wiFrame) return;
+    wiFrame = requestAnimationFrame(function(){ wiFrame = 0; renderWhatIfDrag(); });
+  });
+  // Let go: the table, milestones and the rest catch up.
+  whatIfStrip.addEventListener("change", function(e){ if(e.target.getAttribute && e.target.getAttribute("data-wi")) renderProjectionOutputs(); });
+  whatIfStrip.addEventListener("click", function(e){
+    if(e.target.closest("[data-wi-reset]")){ resetWhatIf(); whatIfStrip.innerHTML = ""; renderProjectionOutputs(); return; }
+    if(!e.target.closest("[data-wi-keep]")) return;
+    var w = whatIfValues();
+    if(!whatIfMoved(w)) return;
+    var made = keepWhatIf(currentScenario(), w, function(){ return genId("chg"); });
+    resetWhatIf();
+    whatIfStrip.innerHTML = "";
+    recalcComputedItems();
+    afterScenarioChange();
+    showToast('Kept as "' + made + '" — it\'s on Plan → Scenarios, and on the chart');
+  });
+
+  // ---------------- Make it real (v3.176.0, item 211) ----------------
+  var makeRealRoot = document.getElementById("makeRealRoot");
+  function renderMakeReal(){
+    makeRealRoot.innerHTML = mrQ.open ? makeRealSheetHtml() : "";
+    var f = mrQ.open && makeRealRoot.querySelector("[data-mr-apply], [data-mr-close]");
+    if(f) f.focus();
+  }
+  document.addEventListener("click", function(e){
+    var b = e.target.closest && e.target.closest("[data-make-real]");
+    if(!b) return;
+    e.stopPropagation();
+    mrQ.open = true; mrQ.name = b.getAttribute("data-make-real"); mrQ.removeAfter = true;
+    renderMakeReal();
+    pushActiveOverlay(function(){ mrQ.open = false; renderMakeReal(); });
+  });
+  makeRealRoot.addEventListener("change", function(e){ if(e.target.matches("[data-mr-remove]")) mrQ.removeAfter = e.target.checked; });
+  makeRealRoot.addEventListener("click", function(e){
+    if(e.target.closest("[data-mr-close]") || e.target === e.target.closest("[data-mr-backdrop]")){ requestCloseActiveOverlay(); return; }
+    if(!e.target.closest("[data-mr-apply]")) return;
+    var name = mrQ.name, remove = mrQ.removeAfter;
+    requestCloseActiveOverlay();
+    withUndo('Made "' + name + '" real', function(){
+      applyMakeReal(state, name, localDateStr(), genId);
+      if(remove && name !== state.baselineScenario && state.scenarios.length > 1) deleteScenario(name);
+      else state.scenarioChanges[name] = [];
+      recalcComputedItems();
+    });
+    renderAll();
+  });
+  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && mrQ.open) requestCloseActiveOverlay(); });
+
   // ---------------- Who changed what (v3.171.0, item 202) ----------------
   // The watcher logs edits made here a moment after they're saved (lib/activity.js); this is the
   // Settings section: whose device it is, the list, Undo.

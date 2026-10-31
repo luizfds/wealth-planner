@@ -6,7 +6,7 @@ import {
   shockedLoanRepaymentMonthly, scenarioInflatableHomeItems, calcStampDuty,
   calcLMI, calcRepaymentMonthly, purchaseActiveRate, loanBalanceAfterMonths,
   propertiesTotalEquityToday, propertiesOffsetTotal, landTaxDetailForProperty
-  , loanPaidOut
+  , loanPaidOut, propertyCostBase
 } from "./property.js";
 import { getTaxPeople, computePersonTax, scenarioIncomeMonthly, scenarioOneOffYearly, takeHomeAdjust, personTakeHomeParts } from "./tax.js";
 import { fmtCurrency0, localDateStr, fmtDate } from "../lib/format.js";
@@ -14,6 +14,8 @@ import { dueAfterDays } from "./estimates.js";
 import { projectionRatios } from "./actuals.js";
 import { eventEffects } from "./lifeevents.js";
 import { loggedSinceRecorded } from "./accounts.js";
+import { scenarioSharedItems, changesFor } from "./scenariochanges.js";
+import { legsMonthly, legsInYear } from "./scenariolegs.js";
 
 // Every non-Shares asset, and every Shares holding on the ASX, is already AUD — the only
 // currency this app ever mixes in is USD (US-market and Crypto holdings, see MARKET_CURRENCY).
@@ -128,6 +130,88 @@ export function staleAssets(){
 function addYearsIso(iso, years){
   return (Number(String(iso).slice(0, 4)) + years) + String(iso).slice(4);
 }
+// v3.173.0 (item 208): what a scenario's own changes need from the household — each owner's marginal
+// rate (a shared property splits evenly, so it's their average) and, for a sale, what the property
+// brings in the year it's sold and the cash it stops making.
+var LEG_KINDS = { rent: 1, ip: 1, cost: 1, sell: 1, extra: 1 };
+export function scenarioLegChanges(scenario){ return changesFor(scenario).filter(function(c){ return c && LEG_KINDS[c.kind]; }); }
+// v3.177.0 (item 204): a scenario can carry its own assumptions — an "assume" change (return, inflation,
+// a rate rise) laid over the household's projection settings. Everything the projection reads goes
+// through this, so a what-if kept as a scenario draws exactly what the sliders showed.
+function currentAgeOrNull(){ var a = state.fire && state.fire.currentAge; return a == null || a === "" || !isFinite(Number(a)) ? null : Number(a); }
+export function projectionFor(scenario){
+  var base = state.projection || {};
+  var a = changesFor(scenario).find(function(c){ return c && c.kind === "assume"; });
+  if(!a) return base;
+  var out = Object.assign({}, base);
+  ["investReturnRate", "inflationRate", "rateShockPct"].forEach(function(k){ if(a[k] != null && a[k] !== "" && isFinite(Number(a[k]))) out[k] = Number(a[k]); });
+  return out;
+}
+// The projection year a "retire" change stops pay from (1 = the coming twelve months), or null.
+export function retireYearFor(scenario, currentAge){
+  var r = changesFor(scenario).find(function(c){ return c && c.kind === "retire"; });
+  if(!r || currentAge == null || !isFinite(Number(r.age))) return null;
+  return Math.max(1, Math.round(Number(r.age) - currentAge) + 1);
+}
+export function scenarioLegContext(scenario){
+  var proj = projectionFor(scenario);
+  var people = getTaxPeople(), rates = {};
+  var rateOf = function(person){
+    if(!(person in rates)){ var t = null; try { t = computePersonTax(person, { scenario: scenario }); } catch(e){} rates[person] = t ? Number(t.marginalRate) || 0 : 0; }
+    return rates[person];
+  };
+  var marginalRateFor = function(owner){
+    if(owner && people.indexOf(owner) !== -1) return rateOf(owner);
+    return people.length ? people.reduce(function(sum, p){ return sum + rateOf(p); }, 0) / people.length : 0;
+  };
+  // v3.176.0: the tax effect in full — each owner's tax with the property's result against without
+  // (so the Medicare levy surcharge, the brackets and the offsets all count), shared evenly when it's
+  // the household's. Remembered by the figure, to the nearest $10: the projection asks every year.
+  var taxMemo = {};
+  var totalTaxOf = function(person, extra){
+    var t = null;
+    try { t = computePersonTax(person, extra ? { scenario: scenario, extraIpResult: extra } : { scenario: scenario }); } catch(e){}
+    return t ? Number(t.totalTax) || 0 : 0;
+  };
+  var taxEffectFor = function(owner, taxableYearly){
+    var owners = owner && people.indexOf(owner) !== -1 ? [owner] : people;
+    if(!owners.length) return 0;
+    var key = owners.join("|") + ":" + Math.round(taxableYearly / 10);
+    if(key in taxMemo) return taxMemo[key];
+    var share = taxableYearly / owners.length, effect = 0;
+    owners.forEach(function(p){ effect += totalTaxOf(p, 0) - totalTaxOf(p, share); });
+    return (taxMemo[key] = effect);
+  };
+  var propRate = (Number(proj.propertyAppreciationRate) || 0) / 100, rateShockPts = Number(proj.rateShockPct) || 0, todayStr = localDateStr();
+  var sold = {};
+  changesFor(scenario).forEach(function(c){
+    if(!c || c.kind !== "sell") return;
+    var p = (state.properties || []).find(function(x){ return x.id === c.propertyId; });
+    if(!p) return;
+    var rentYearly = sumField(p.income || [], "yearly"), expYearly = sumField(p.expenses || [], "yearly");
+    var loanMonthly = (p.loans || []).reduce(function(s2, l){ return s2 + shockedLoanRepaymentMonthly(l, rateShockPts); }, 0);
+    var costBase = propertyCostBase(p);
+    sold[p.id] = {
+      cashMonthly: (rentYearly - expYearly) / 12 - loanMonthly,
+      proceedsAt: function(year){
+        var value = (Number(p.value) || 0) * Math.pow(1 + propRate, year);
+        var debt = (p.loans || []).reduce(function(s3, l){ return loanPaidOut(l, addYearsIso(todayStr, year)) ? s3 : s3 + loanBalanceAfterMonths(l.balance, (Number(l.rate) || 0) + rateShockPts, l.termYears, year * 12, l.repaymentType); }, 0);
+        var selling = value * (Number(c.sellingCostsPct) || 0) / 100;
+        // Capital gains tax on an investment property held over a year: half the gain at the owners' rate.
+        var gain = costBase != null && p.kind === "IP" ? Math.max(0, value - selling - costBase) : 0;
+        var cgt = gain * 0.5 * (marginalRateFor("") + 0.02);
+        return value - debt - selling - cgt;
+      }
+    };
+  });
+  // v3.174.0: what a property's loans still owe in a projected year — the most extra repayments can pay off.
+  var loanBalanceAt = function(propertyId, year){
+    var p = (state.properties || []).find(function(x){ return x.id === propertyId; });
+    if(!p) return Infinity;
+    return (p.loans || []).reduce(function(sum, l){ return loanPaidOut(l, addYearsIso(todayStr, year)) ? sum : sum + Math.max(0, loanBalanceAfterMonths(l.balance, (Number(l.rate) || 0) + rateShockPts, l.termYears, year * 12, l.repaymentType) - (Number(l.offsetBalance) || 0)); }, 0);
+  };
+  return { marginalRateFor: marginalRateFor, taxEffectFor: taxEffectFor, propRate: propRate, inflationRate: (Number(proj.inflationRate) || 0) / 100, rateShockPts: rateShockPts, sold: sold, loanBalanceAt: loanBalanceAt };
+}
 export function computeNetWorthSeries(scenario, horizonYears, opts){
   var cfg = state.purchase[scenario];
   var investCfg = state.invest[scenario];
@@ -136,7 +220,7 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
   // the UI keeps them mutually exclusive, and migrateState() resolves it the same way on load —
   // but this keeps the math itself correct regardless of how state got here).
   var purchaseEnabled = !!(cfg && cfg.enabled) && !investEnabled;
-  var proj = state.projection || {};
+  var proj = projectionFor(scenario);
   var propRate = (Number(proj.propertyAppreciationRate) || 0) / 100;
   // A scenario can override the global growth rate (e.g. to reflect its own state's
   // long-run average) via cfg.propertyGrowthRate; null/unset falls back to the global rate.
@@ -211,7 +295,7 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
   // lines that have been logged (calc/actuals.js); everything else stays as planned.
   var ratios = (opts && opts.ratios) || projectionRatios();
   function activeInflatableMonthlyAt(year){
-    return (sumFieldActiveInYear(state.shared, "monthly", year, todayStr, function(item){
+    return (sumFieldActiveInYear(scenarioSharedItems(scenario), "monthly", year, todayStr, function(item){
         return resolveSharedAmount(item, scenario);
       }) +
       sumFieldActiveInYear(scenarioInflatableHomeItems(scenario), "monthly", year, todayStr) + (ratios.spendDelta || 0)) +
@@ -229,17 +313,26 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
   var events = opts && opts.events ? opts.events : (state.lifeEvents || []), thisYear = Number(todayStr.slice(0, 4));
   var propFactor = 1;
   var points = [];
+  var legs = scenarioLegChanges(scenario), legCtx = legs.length ? scenarioLegContext(scenario) : null;
+  var soldFrom = {};
+  var retireYear = (opts && opts.retireYear != null) ? opts.retireYear : retireYearFor(scenario, opts && opts.currentAge != null ? opts.currentAge : currentAgeOrNull());
+  legs.forEach(function(c){ if(c.kind === "sell" && legCtx.sold[c.propertyId]) soldFrom[c.propertyId] = Math.max(0, Math.floor(Number(c.fromYear) || 0)) + 1; });
   for(var year = 0; year <= horizonYears; year++){
+    var lg = legs.length && year > 0 ? legsInYear(legs, year, legCtx) : null;
     if(year > 0 && propPath) propFactor *= 1 + (propPath[year] != null ? propPath[year] : propRate);
     if(year > 0){
       var yc = cache && cache[year];
       if(!yc){ yc = { inflatable: activeInflatableMonthlyAt(year), income: activeIncomeMonthlyAt(year) }; if(cache) cache[year] = yc; }
       var inflatableThisYear = yc.inflatable * Math.pow(1 + inflationRate, year);
       var incomeThisYear = (yc.income + (ratios.incomeDelta || 0)) * Math.pow(1 + incomeGrowthRate, year);
+      // v3.177.0: retired — pay stops, and living costs come out of what's been saved.
+      if(retireYear && year >= retireYear) incomeThisYear = 0;
       if(investPath && investPath[year] != null) monthlyInvestRate = Math.pow(1 + investPath[year], 1 / 12) - 1;
       var ev = events.length ? eventEffects(events, year, thisYear) : null;
       var savingsThisYear = incomeThisYear - fixedMonthly - inflatableThisYear - (ev ? ev.yearly / 12 * Math.pow(1 + inflationRate, year) : 0);
       if(ev && ev.lump) portfolio += ev.lump * Math.pow(1 + inflationRate, year);
+      // v3.173.0: the scenario's own changes — rent elsewhere, an investment property, a cost, a sale.
+      if(lg){ savingsThisYear += lg.savingsMonthly; portfolio += lg.lump; }
       // "auto" mode redirects the scenario's own real monthly surplus into the invest leg's
       // growth rate instead of the generic portfolio rate — not an extra contribution on top of
       // it, which would double-count the same money. "manual" pins a fixed figure instead, and
@@ -257,6 +350,7 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
     var loanBal = purchaseEnabled ? loanBalanceAfterMonths(loanAmount0, rate, term, year * 12, cfg.repaymentType) : 0;
     var homeEquity = purchaseEnabled ? (homeValue - loanBal) : 0;
     var propertiesEquitySum = state.properties.reduce(function(sum, p){
+      if(soldFrom[p.id] && year >= soldFrom[p.id]) return sum; // sold in this scenario
       var val = (Number(p.value) || 0) * propGrowth;
       var loanNet = (p.loans || []).reduce(function(s, l){
         // v3.41.0: nothing owed from the year a "Paid out on" date has passed.
@@ -266,7 +360,7 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
       }, 0);
       return sum + (val - loanNet);
     }, 0);
-    var nominal = homeEquity + portfolio + investBalance + propertiesEquitySum;
+    var nominal = homeEquity + portfolio + investBalance + propertiesEquitySum + (lg ? lg.equity : 0);
     // Today's dollars by default. A nominal series is arithmetically fine and completely unusable
     // as a plan: "$6,379,600 at year 20" can't be weighed against the expenses actually typed in,
     // because those are in today's money and that isn't. Deflating by the same inflation rate the
@@ -275,6 +369,7 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
     // the year-by-year download. Charts only read x and y.
     var deflate = realTerms ? Math.pow(1 + inflationRate, year) : 1;
     var propertiesDebt = state.properties.reduce(function(sum, p){
+      if(soldFrom[p.id] && year >= soldFrom[p.id]) return sum;
       return sum + (p.loans || []).reduce(function(s, l){
         if(loanPaidOut(l, addYearsIso(todayStr, year))) return s;
         return s + Math.max(0, loanBalanceAfterMonths(l.balance, (Number(l.rate) || 0) + rateShockPts, l.termYears, year * 12, l.repaymentType) - (Number(l.offsetBalance) || 0));
@@ -283,8 +378,8 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
     points.push({
       x: year, y: nominal / deflate,
       investments: (portfolio + investBalance) / deflate,
-      propertyEquity: (homeEquity + propertiesEquitySum) / deflate,
-      debt: (loanBal + propertiesDebt) / deflate
+      propertyEquity: (homeEquity + propertiesEquitySum + (lg ? lg.equity : 0)) / deflate,
+      debt: (loanBal + propertiesDebt + (lg ? lg.debt : 0)) / deflate
     });
   }
   return points;
@@ -470,16 +565,31 @@ export function scenarioTotals(scenario){
   // housing costs.
   var incomeMonthly = scenarioIncomeMonthly({ scenario: scenario });
   var ipMonthly = ipExpensesMonthly() + ipLoansMonthly();
-  var sharedMonthly = sumFieldForScenario(state.shared, scenario, "monthly");
+  // v3.172.0: today's home lines are left out by a scenario that lives somewhere else.
+  var sharedMonthly = sumFieldForScenario(scenarioSharedItems(scenario), scenario, "monthly");
   var homeMonthly = sumField(state.home[scenario], "monthly");
   var expensesMonthly = ipMonthly + sharedMonthly + homeMonthly;
+  // v3.173.0 (item 208): the scenario's own changes, once they've all happened — rent elsewhere, an
+  // investment property (its rent, costs, loan and tax effect), a new cost; a sale takes away what
+  // that property brings in and costs.
+  var legs = scenarioLegChanges(scenario), legUpfront = 0, legTax = 0;
+  if(legs.length){
+    var lctx = scenarioLegContext(scenario);
+    var lm = legsMonthly(legs, lctx);
+    incomeMonthly += lm.incomeMonthly; expensesMonthly += lm.expensesMonthly; homeMonthly += lm.homeMonthly;
+    legUpfront = lm.upfront; legTax = lm.ipTaxMonthly;
+    legs.forEach(function(c){
+      var sold = c.kind === "sell" && lctx.sold[c.propertyId];
+      if(sold) incomeMonthly -= sold.cashMonthly;
+    });
+  }
   var netMonthly = incomeMonthly - expensesMonthly;
   // v3.80.0: what of that arrives once a year rather than monthly (bonuses), so the headline can
   // say what a normal month leaves. netMonthly stays the year's average for projections.
   var oneOffYearly = scenarioOneOffYearly({ scenario: scenario });
   return {
     incomeMonthly: incomeMonthly, ipMonthly: ipMonthly, sharedMonthly: sharedMonthly,
-    homeMonthly: homeMonthly, expensesMonthly: expensesMonthly,
+    homeMonthly: homeMonthly, expensesMonthly: expensesMonthly, changesUpfront: legUpfront, changesTaxMonthly: legTax,
     netMonthly: netMonthly, netYearly: netMonthly * 12,
     oneOffYearly: oneOffYearly, regularNetMonthly: netMonthly - oneOffYearly / 12,
     rate: incomeMonthly > 0 ? netMonthly / incomeMonthly : 0

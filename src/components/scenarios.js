@@ -1,4 +1,8 @@
-import { state, persist, defaultHomeBlock, defaultPurchaseConfig, defaultInvestConfig, deepClone } from "../state.js";
+import { makeRealButtonHtml } from "./makereal.js";
+import { state, persist, defaultHomeBlock, defaultPurchaseConfig, defaultInvestConfig, deepClone, genId } from "../state.js";
+import { renameScenarioChanges, cloneScenarioChanges, deleteScenarioChanges, setLivesElsewhere, homeRowsFromBudget, livesElsewhere, changesFor } from "../calc/scenariochanges.js";
+import { scenarioChangesHtml, todaysHomeHtml, todaysHomeMonthly } from "./scenariochanges.js";
+import { renderCompare } from "./compare.js";
 import { PURCHASE_STATE_CODES, STATE_GROWTH_RATES, INVEST_LEG_TYPES } from "../constants.js";
 import { recalcPurchase } from "../calc/property.js";
 import { recalcComputedItems, scenarioTotals } from "../calc/engine.js";
@@ -27,8 +31,10 @@ export function addScenario(){
   if(!name) return;
   if(state.scenarios.indexOf(name) !== -1){ showToast('A scenario named "' + name + '" already exists'); return; }
   state.scenarios.push(name);
+  // v3.173.0 (item 208): a new scenario starts as today — no changes, nothing bought. Its home rows wait,
+  // empty, for when it buys a home to live in (the purchase calculator) or moves.
   state.home[name] = defaultHomeBlock();
-  state.purchase[name] = defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", true);
+  state.purchase[name] = defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", false);
   state.invest[name] = defaultInvestConfig();
   state.activeScenario = name;
   persist();
@@ -47,8 +53,9 @@ export function addScenario(){
 //
 // selectScenario() only re-rendered the Dashboard, which was enough back when the active scenario
 // changed nothing else on screen. It isn't any more.
-function refreshScenarioDependentViews(){
+export function refreshScenarioDependentViews(){
   renderCards();
+  renderCompare();
   renderDetail();
   renderHomeBody();
   renderSharedGroups();
@@ -88,6 +95,8 @@ export function renameScenario(oldName){
     item.scenarioOverrides[name] = item.scenarioOverrides[oldName];
     delete item.scenarioOverrides[oldName];
   });
+  // v3.172.0: the scenario's own changes (calc/scenariochanges.js) go with its name.
+  renameScenarioChanges(oldName, name);
   persist();
   refreshScenarioDependentViews();
   renderAssets();
@@ -124,6 +133,13 @@ export function cloneScenario(sourceName){
       item.scenarioOverrides[name] = item.scenarioOverrides[sourceName];
     }
   });
+  // A copy of the baseline is a what-if about today's home, so it gets that home as its own rows
+  // and lives "elsewhere" from the start — editing its rent must not edit the household's.
+  if(sourceName === state.baselineScenario){
+    state.home[name] = homeRowsFromBudget();
+    cloneScenarioChanges(sourceName, name, function(){ return genId("chg"); });
+    setLivesElsewhere(name, function(){ return genId("chg"); });
+  } else cloneScenarioChanges(sourceName, name, function(){ return genId("chg"); });
   // Matches addScenario()'s own call: a newly-created scenario (cloned or blank) is what the user
   // almost certainly wants to look at and start tweaking next, not whichever was active before.
   state.activeScenario = name;
@@ -143,6 +159,7 @@ export function deleteScenario(name){
   overridableRows().forEach(function(item){
     if(item.scenarioOverrides) delete item.scenarioOverrides[name];
   });
+  deleteScenarioChanges(name);
   if(state.activeScenario === name) state.activeScenario = state.scenarios[0];
   persist();
   refreshScenarioDependentViews();
@@ -215,7 +232,9 @@ export function renderHomeBody(){
     // also has nothing meaningful to do at that point, so it's suppressed the same way.
     var showActiveBadge = isActive && state.scenarios.length > 1;
     var isCollapsed = !!homeBlockCollapsed[scenario];
-    var total = sumField(state.home[scenario], "monthly");
+    // Today, unless it's itself buying (then its loan is the calculator's, and it keeps its own rows).
+    var isToday = isBaseline && !(state.home[scenario] || []).length;
+    var total = scenarioHomeMonthly(scenario);
     return '<div class="home-block' + (isActive ? " is-active" : "") + (isCollapsed ? " is-collapsed" : "") + '">' +
       // v3.139.0: the whole header still opens and closes the card with a click, but the control a
       // keyboard and a screen reader reach is the caret — the header itself holds Set active, Rename,
@@ -225,9 +244,7 @@ export function renderHomeBody(){
           '<button type="button" class="icon-btn home-collapse-toggle" aria-expanded="' + (!isCollapsed) + '" aria-label="' + (isCollapsed ? "Expand" : "Collapse") + ' ' + escapeAttr(scenario) + '"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg></button>' +
           '<span class="home-dot"></span><h3>' + escapeAttr(scenario) + '</h3>' +
           (isBaseline ? '<span class="home-baseline-badge" title="Your current, real-life situation — kept as the fixed baseline every other scenario is compared against">Current situation</span>' : "") +
-          (showActiveBadge
-            ? '<span class="home-active-badge" title="This is the scenario shown on Home and compared against the others">Active on Home</span>'
-            : (isActive ? "" : '<button type="button" class="home-setactive-btn" data-edit-scenario2="' + escapeAttr(scenario) + '" title="Make this the scenario shown on Home">Set active</button>')) +
+          // v3.172.0 (item 207): no "Active on Home" — Home always shows the household as it is.
         '</div>' +
         '<div class="home-block-right" title="Total home cost per month — rent/repayment plus insurance, rates, water &amp; maintenance">' +
           '<span class="home-block-total-label">Home cost</span>' +
@@ -239,16 +256,23 @@ export function renderHomeBody(){
           (canDelete && !isBaseline ? '<button type="button" class="icon-btn icon-del" data-delete="' + escapeAttr(scenario) + '" aria-label="Delete ' + escapeAttr(scenario) + '" title="Delete">✕</button>' : "") +
         '</div>' +
       '</div>' +
+      // v3.172.0 (item 207): today is the household itself — its home is in Budget — and every other
+      // scenario lists what it does differently.
+      (isToday ? '<div class="home-block-body">' + todaysHomeHtml() + '</div></div>' :
       '<div class="home-block-body">' +
+        scenarioChangesHtml(scenario) +
         renderPurchasePanelHtml(scenario) +
         '<div class="calc-or-divider" aria-hidden="true"><span>or</span></div>' +
         renderInvestPanelHtml(scenario) +
+        (!livesElsewhere(scenario) ? '' :
         '<div class="home-recurring-label">Recurring costs — per month</div>' +
-        '<p class="income-summary-line home-recon-line">' + homeReconciliationHtml(scenario) + '</p>' +
+        ((state.home[scenario] || []).length ? '<p class="income-summary-line home-recon-line">' + homeReconciliationHtml(scenario) + '</p>'
+          : '<p class="ledger-note">Its rent is in the changes above. Add anything else living there costs — contents insurance, parking, utilities.</p>') +
         '<div class="m-card" id="homeCard_' + slug(scenario) + i + '">' + modernHomeCompBarHtml(homeRowMeta(scenario)) + '<div class="m-rows" id="homeRows_' + slug(scenario) + i + '">' + modernHomeListHtml(scenario) + '</div></div>' +
-        '<div class="ledger-footer"><button class="btn btn-sm" data-add="home:' + escapeAttr(scenario) + '">+ Add item</button></div>' +
+        '<div class="ledger-footer"><button class="btn btn-sm" data-add="home:' + escapeAttr(scenario) + '">+ Add item</button></div>') +
+        makeRealButtonHtml(scenario) +
       '</div>' +
-      '</div>';
+      '</div>');
   }).join("") +
   '<button type="button" class="add-scenario-row" id="addScenarioBtn2"><span class="add-plus" style="font-size:var(--fs-lg)">+</span> Add another scenario</button>';
   renderCanBuy();
@@ -389,10 +413,18 @@ export function patchInvestOutputs(panel, scenario){
   if(noteB) noteB.textContent = investResolvedMonthlyLabel(scenario, cfg);
 }
 
+// v3.173.0: what living in a scenario costs a month — today's home lines for one that stays put, its own
+// home rows and any rent somewhere new for one that moves.
+function scenarioHomeMonthly(scenario){
+  var own = scenario === state.baselineScenario && (state.home[scenario] || []).length;
+  if(!own && !livesElsewhere(scenario)) return todaysHomeMonthly();
+  return sumField(state.home[scenario], "monthly") + changesFor(scenario).filter(function(c){ return c.kind === "rent"; })
+    .reduce(function(sum, c){ return sum + periodsOf(Number(c.amount) || 0, c.freq || "Weekly").monthly; }, 0);
+}
 export function renderHomeBodyTotalsOnly(){
   document.querySelectorAll('#homeBody .home-block').forEach(function(block, i){
     var scenario = state.scenarios[i];
-    var monthly = sumField(state.home[scenario], "monthly");
+    var monthly = scenarioHomeMonthly(scenario);
     var totalSpan = block.querySelector('.home-block-total');
     if(totalSpan) totalSpan.textContent = fmtCurrency0.format(monthly) + " / mo";
     var reconLine = block.querySelector('.home-recon-line');
@@ -460,6 +492,7 @@ export function afterCalcChange(scenario){
   recalcComputedItems();
   renderCanBuy();
   renderCards();
+  renderCompare();
   renderDetail();
   renderHomeBodyTotalsOnly();
   renderAssets();

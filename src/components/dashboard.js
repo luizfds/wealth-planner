@@ -18,6 +18,7 @@ import { renderLineChart } from "../lib/charts.js";
 import { proposeBudget } from "../calc/budgetfromhistory.js";
 import { staleAssetNamesList } from "../lib/notifications.js";
 import { applyHomeLayout } from "../lib/homelayout.js";
+import { scenarioSharedItems } from "../calc/scenariochanges.js";
 
 // What a normal month leaves: bonuses land in their own month, so they're in the year, not each month.
 function regularOf(t){ return t.regularNetMonthly != null ? t.regularNetMonthly : t.netMonthly; }
@@ -91,7 +92,7 @@ export function renderSetupPanel(nothingEntered){
 }
 // What the budget step needs to know: whether a budget can be proposed from the spending yet.
 function setupOpts(){
-  var lines = (state.shared || []).concat((state.home || {})[state.activeScenario] || []);
+  var lines = (state.shared || []).concat((state.home || {})[currentScenario()] || []);
   var budget = null;
   try { budget = proposeBudget(state.transactions || [], lines, localDateStr()); } catch(e){ budget = null; }
   return { budget: budget };
@@ -188,7 +189,7 @@ export function renderDashboardStats(){
     ? "Your household finances at a glance. Nothing is pre-filled — start with your income, or load sample data to see what a filled-in plan looks like."
     : "Your money at a glance — what you're worth, how the month is going, and what needs doing." + (isComparing ? "" : " Add a second scenario under Plan to compare renting against buying.");
   renderSetupPanel(nothingEntered);
-  var active = state.activeScenario;
+  var active = currentScenario();
   var t = scenarioTotals(active);
   var horizon = Math.max(1, Number(state.projection.horizonYears) || 1);
   var series = computeNetWorthSeries(active, horizon);
@@ -207,7 +208,7 @@ export function renderDashboardStats(){
     return;
   }
   el.innerHTML =
-    '<div class="stat-tile" data-home-card="savings"><span>' + escapeAttr(active) + (active !== currentScenario() ? ' (what-if)' : '') + ' — net savings</span><b' + (regularOf(t) < 0 ? ' style="color:var(--bad-ink)"' : '') + '>' + fmtCurrency0.format(regularOf(t)) + '/mo</b><small>' + fmtPercent1.format(t.rate) + ' savings rate' + (t.oneOffYearly > 0.5 ? ' · a normal month' : '') + '</small></div>' +
+    '<div class="stat-tile" data-home-card="savings"><span>Net savings</span><b' + (regularOf(t) < 0 ? ' style="color:var(--bad-ink)"' : '') + '>' + fmtCurrency0.format(regularOf(t)) + '/mo</b><small>' + fmtPercent1.format(t.rate) + ' savings rate' + (t.oneOffYearly > 0.5 ? ' · a normal month' : '') + '</small></div>' +
     '<div class="stat-tile" data-home-card="projected"><span>Projected net worth</span><b title="' + fmtCurrency0.format(projected) + '">' + fmtCompact(projected) + '</b><small>in ' + horizon + ' years, ' + escapeAttr(active) + ', ' + (state.projection.realTerms !== false ? "today's" : "future") + ' dollars</small></div>' +
     runwayTile +
     fiTileHtml(t) +
@@ -262,7 +263,7 @@ function renderCashFlowForecastPanel(){
   var reserveNote = (forecast.reserveIncome || forecast.reserveExpense)
     ? '<p class="fire-note help">Includes ' + fmtCurrency0.format(Math.max(0, forecast.reserveExpense - forecast.reserveIncome)) + '/mo set aside for items marked "no fixed timing" (e.g. Extras, property maintenance) — spread evenly rather than expected on a specific date.</p>'
     : '';
-  panel.innerHTML = '<h3>12-month cash flow forecast <span style="font-weight:400;color:var(--ink-soft)">— ' + escapeAttr(state.activeScenario) + '</span></h3>' +
+  panel.innerHTML = '<h3>12-month cash flow forecast</h3>' +
     '<p class="fire-note help" style="margin-bottom:10px">Steady baseline ' + fmtCurrency0.format(forecast.baselineNet) + '/mo, adjusted below for annual/quarterly items landing in their actual month.</p>' +
     rows + reserveNote;
 }
@@ -309,16 +310,16 @@ function renderActualVsExpectedPanel(scenario, t){
 
 // ---------------- Rendering: 50/30/20 + accounts ----------------
 export function renderDetail(){
-  document.getElementById("activeLabel").textContent = state.activeScenario;
-  var scenario = state.activeScenario;
+  // v3.172.0 (item 207): Home and Insights describe the household as it is — never a scenario picked on Plan.
+  var scenario = currentScenario();
+  document.getElementById("activeLabel").textContent = "as it is today";
   // state.shared items may carry a per-scenario override (see scenarioOverrides) — resolve
   // each to its effective amount for the active scenario before this breakdown sums them, so
   // the 50/30/20 bar and accounts list agree with what scenarioTotals()/computeNetWorthSeries()
   // actually use for this scenario.
-  var sharedForScenario = state.shared.map(function(item){
-    return item.scenarioOverrides && item.scenarioOverrides[scenario] != null
-      ? Object.assign({}, item, { amount: resolveSharedAmount(item, scenario) })
-      : item;
+  var sharedForScenario = scenarioSharedItems(scenario).map(function(item){
+    var amt = resolveSharedAmount(item, scenario);
+    return amt === item.amount ? item : Object.assign({}, item, { amount: amt });
   });
   var combined = ipExpenseItemsForClassification().concat(sharedForScenario).concat(state.home[scenario]);
   // Scenario-resolved for the same reason the shared rows above are: this breakdown has to agree
@@ -461,7 +462,7 @@ function renderFireProgress(scenario, t){
 // be trying to see.
 export function setProjectionReference(){
   var old = state.projectionReference;
-  var scenario = state.activeScenario;
+  var scenario = currentScenario();
   var horizon = Math.max(1, Number(state.projection.horizonYears) || 1);
   state.projectionReference = {
     date: localDateStr(),
@@ -507,7 +508,7 @@ function renderProjectionAccuracyPanel(){
   if(!ref){
     panel.innerHTML =
       '<h3>Projection accuracy</h3>' +
-      '<p class="fire-note">Set a reference projection to start tracking how ' + escapeAttr(state.activeScenario) + '\'s projection holds up against reality over time. Once set, log your net worth roughly monthly ("Record net worth now" below) to build up the comparison.</p>' +
+      '<p class="fire-note">Set a reference projection to start tracking how ' + escapeAttr(currentScenario()) + '\'s projection holds up against reality over time. Once set, log your net worth roughly monthly ("Record net worth now" below) to build up the comparison.</p>' +
       '<div class="fire-stat-row" style="justify-content:flex-start;gap:8px">' + setBtnHtml + '</div>';
     return;
   }
@@ -548,7 +549,7 @@ export function renderMonthlyCashFlow(){
   if(!panel) return;
   var months = monthKeysBack(6);
   // v3.80.0: regular income every month, each one-off in its month.
-  var incRows = scenarioIncomeRows({ scenario: state.activeScenario });
+  var incRows = scenarioIncomeRows({ scenario: currentScenario() });
   var income = function(key){
     var mo = Number(key.slice(5, 7));
     return incRows.reduce(function(t, r){
@@ -616,11 +617,10 @@ export function renderMonthlyCashFlow(){
 // are measured against. Reuses the same combined list the 50/30/20 panel builds, so "your budget"
 // means one thing on this page.
 function budgetedMonthlySpend(){
-  var scenario = state.activeScenario;
-  var sharedForScenario = state.shared.map(function(item){
-    return item.scenarioOverrides && item.scenarioOverrides[scenario] != null
-      ? Object.assign({}, item, { amount: resolveSharedAmount(item, scenario) })
-      : item;
+  var scenario = currentScenario();
+  var sharedForScenario = scenarioSharedItems(scenario).map(function(item){
+    var amt = resolveSharedAmount(item, scenario);
+    return amt === item.amount ? item : Object.assign({}, item, { amount: amt });
   });
   var combined = ipExpenseItemsForClassification().concat(sharedForScenario).concat(state.home[scenario] || []);
   return sumByClassification(combined, "Needs", "monthly") + sumByClassification(combined, "Wants", "monthly");
@@ -671,7 +671,7 @@ export function renderContributionsGrowth(){
       };
     }));
   var points = trimUntracked(categorySeries(records, observationDates(histories, [today]), { today: today }));
-  var split = contributionsVsGrowth(points, scenarioTotals(state.activeScenario).netMonthly);
+  var split = contributionsVsGrowth(points, scenarioTotals(currentScenario()).netMonthly);
   if(!split){
     panel.innerHTML = '<h3>Saved vs grown</h3><p class="fire-note">Not enough logged history yet.</p>';
     return;
@@ -704,7 +704,7 @@ export function renderContributionsGrowth(){
           'earlier gap would count assets you added to the app as growth. '
         : "") +
       'The saved half is this scenario\'s net savings rate — ' +
-      fmtCurrency0.format(scenarioTotals(state.activeScenario).netMonthly) + '/mo — times the elapsed time; whatever the change doesn\'t account for is attributed to growth. ' +
+      fmtCurrency0.format(scenarioTotals(currentScenario()).netMonthly) + '/mo — times the elapsed time; whatever the change doesn\'t account for is attributed to growth. ' +
       'That makes it a <b>remainder, not a measurement</b>: a month you underspent your budget lands in it, ' +
       'and so does any valuation you revised yourself — re-entering what your house is worth shows up here as ' +
       'the assets moving. Treat the direction as solid and the exact split as rough.</p>';

@@ -9,6 +9,8 @@ import { renderLineChart } from "../lib/charts.js";
 import { firstYearAtLeast, debtFreeYear, leadChanges, milestoneAmounts } from "../calc/milestones.js";
 import { actualRatios, MIN_MONTHS } from "../calc/actuals.js";
 import { fmtPercent1 } from "../lib/format.js";
+import { whatIfMoved, previewSeries, whatIfName } from "../calc/whatif.js";
+import { whatIfValues, whatIfStripHtml } from "./whatif.js";
 
 // Plan or actuals (v3.52.0): the control and the sentence that says what "actuals" means right now.
 export function projSourceHtml(a, source){
@@ -38,12 +40,62 @@ export function projSourceHtml(a, source){
 var lastSeries = [];
 export function projectionSeriesShown(){ return lastSeries; }
 
+function chartOpts(horizon, realTerms, band){
+  return {
+    height: 280,
+    yFormat: function(v){ return fmtCurrency0.format(v); },
+    // v3.126.0: ages, once the Retirement page knows yours.
+    xFormat: function(v){ var a = fireSettings().currentAge; return a != null ? "Age " + (a + v) : "Yr " + v; },
+    markers: eventMarkers(state.lifeEvents, Number(localDateStr().slice(0, 4)), horizon),
+    ariaLabel: "Net worth projection by scenario, in " + (realTerms ? "today's" : "future") + " dollars",
+    interactiveLegend: true,
+    band: band,
+    emptyMessage: "Add your income and expenses and this projects every scenario's net worth forward from what you've entered."
+  };
+}
+function whatIfHeadline(series, horizon, realTerms){
+  var plan = series[0].points[horizon] ? series[0].points[horizon].y : 0, wy = series[1].points[horizon] ? series[1].points[horizon].y : 0;
+  return "In " + horizon + " " + (horizon === 1 ? "year" : "years") + ", the what-if reaches <b>" + fmtCurrency0.format(wy) + "</b>" + (realTerms ? " (today's dollars)" : " (future dollars)") + " — <b>" +
+    fmtCurrency0.format(Math.abs(wy - plan)) + (wy >= plan ? " more" : " less") + "</b> than the saved plan.";
+}
+function whatIfSeries(w, horizon, realTerms, cache){
+  var home = currentScenario(), homeIdx = Math.max(0, state.scenarios.indexOf(home));
+  return [
+    { label: home + " — saved plan", colorClass: "series-color-" + (homeIdx % 8), dashed: true, points: cache && cache.saved ? cache.saved : computeNetWorthSeries(home, horizon, { realTerms: realTerms, cache: cache && cache.yc }) },
+    { label: "What if: " + whatIfName(w), colorClass: "series-color-" + ((homeIdx + 1) % 8), points: previewSeries(home, w, horizon, { realTerms: realTerms, cache: cache && cache.yc }) }
+  ];
+}
+// v3.177.0 (item 204): while a slider is being dragged, only the chart and the headline redraw, and
+// the saved plan and each year's income and costs (which no slider changes) are worked out once.
+// The table and milestones catch up when the slider is let go (a full render).
+var lastChartHost = null, dragCache = null;
+export function renderWhatIfDrag(){
+  var w = whatIfValues();
+  if(!whatIfMoved(w) || !lastChartHost || !lastChartHost.isConnected) return renderProjectionOutputs();
+  var horizon = Math.max(1, Number(state.projection.horizonYears) || 1), realTerms = state.projection.realTerms !== false;
+  var key = horizon + "|" + realTerms;
+  if(!dragCache || dragCache.key !== key) dragCache = { key: key, yc: {} };
+  var series = whatIfSeries(w, horizon, realTerms, dragCache);
+  dragCache.saved = series[0].points;
+  renderLineChart(lastChartHost, series, chartOpts(horizon, realTerms, null));
+  var headlineEl = document.getElementById("projHeadline");
+  if(headlineEl) headlineEl.innerHTML = whatIfHeadline(series, horizon, realTerms);
+}
+
 export function renderProjectionOutputs(){
   var container = document.getElementById("projOutputs");
   if(!container) return;
+  dragCache = null;
   var horizon = Math.max(1, Number(state.projection.horizonYears) || 1);
   var realTerms = state.projection.realTerms !== false;
-  var series = state.scenarios.map(function(scenario, idx){
+  var strip = document.getElementById("whatIfStrip");
+  if(strip && !strip.contains(document.activeElement)) strip.innerHTML = whatIfStripHtml();
+  // v3.177.0 (item 204): with the what-if sliders moved, the chart is the household's saved plan
+  // (dashed) against the what-if — and nothing else, so dragging stays quick.
+  var w = whatIfValues(), whatIf = whatIfMoved(w);
+  var series;
+  if(whatIf) series = whatIfSeries(w, horizon, realTerms, null);
+  else series = state.scenarios.map(function(scenario, idx){
     return {
       label: scenario,
       colorClass: "series-color-" + (idx % 8),
@@ -55,7 +107,7 @@ export function renderProjectionOutputs(){
   // v3.125.0: the range around one scenario — the one being looked at — from runs with uneven returns.
   var bandScenario = state.scenarios.indexOf(state.activeScenario) !== -1 ? state.activeScenario : currentScenario();
   var bandIdx = state.scenarios.indexOf(bandScenario);
-  var bands = bandIdx !== -1 ? projectionBands(bandScenario, horizon, { realTerms: realTerms, projection: state.projection }) : null;
+  var bands = bandIdx !== -1 && !whatIf ? projectionBands(bandScenario, horizon, { realTerms: realTerms, projection: state.projection }) : null;
   var spread = bands && bands.hi[horizon] && bands.hi[horizon].y - bands.lo[horizon].y > 1 ? bands : null;
   // v3.158.0: the folded assumptions' summary — what the chart below is assuming, at a glance.
   var asm = document.getElementById("projAssumptionsLine");
@@ -77,7 +129,8 @@ export function renderProjectionOutputs(){
     // line most people read, and "$6,379,600 at year 20" means two very different things
     // depending on which dollars it's in.
     var basisWord = realTerms ? " (today's dollars)" : " (future dollars)";
-    if(finals.length > 1){
+    if(whatIf && finals.length === 2) headlineEl.innerHTML = whatIfHeadline(series, horizon, realTerms);
+    else if(finals.length > 1){
       var margin = finals[0].value - finals[1].value;
       // v3.158.0 (item 188): the same facts in fewer words.
       headlineEl.innerHTML = "In " + horizon + " " + yrWord + ", <b>" + escapeAttr(finals[0].label) + "</b> leads at <b>" +
@@ -99,17 +152,8 @@ export function renderProjectionOutputs(){
   container.innerHTML = "";
   var chartHost = document.createElement("div");
   container.appendChild(chartHost);
-  renderLineChart(chartHost, series, {
-    height: 280,
-    yFormat: function(v){ return fmtCurrency0.format(v); },
-    // v3.126.0: ages, once the Retirement page knows yours.
-    xFormat: function(v){ var a = fireSettings().currentAge; return a != null ? "Age " + (a + v) : "Yr " + v; },
-    markers: eventMarkers(state.lifeEvents, Number(localDateStr().slice(0, 4)), horizon),
-    ariaLabel: "Net worth projection by scenario, in " + (realTerms ? "today's" : "future") + " dollars",
-    interactiveLegend: true,
-    band: spread ? { lo: spread.lo, hi: spread.hi, colorClass: "series-color-" + (bandIdx % 8) } : null,
-    emptyMessage: "Add your income and expenses and this projects every scenario's net worth forward from what you've entered."
-  });
+  lastChartHost = chartHost;
+  renderLineChart(chartHost, series, chartOpts(horizon, realTerms, spread ? { lo: spread.lo, hi: spread.hi, colorClass: "series-color-" + (bandIdx % 8) } : null));
 
   var milestones = [0, 5, 10, 15, 20, horizon].filter(function(y, i, arr){ return y <= horizon && arr.indexOf(y) === i; }).sort(function(a,b){return a-b;});
   var table = document.createElement("table");

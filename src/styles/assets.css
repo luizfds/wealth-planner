@@ -215,6 +215,28 @@
 .inv-th{ font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
 .inv-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .inv-tr small{ color: var(--ink-soft); font-size:var(--fs-xs); }
+/* v3.178.0 (item 203): money-weighted, against the market, target mix, distributions ahead */
+.inv-mw-row{ display:block; }
+.inv-tiles small.inv-mw{ color: var(--ink); }
+.bench-line{ font-size:var(--fs-sm); line-height:1.5; margin:10px 0; }
+.bench-line .up{ color: var(--good-ink); } .bench-line .down{ color: var(--bad-ink); }
+.bench-tiles{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+.mix-table{ display:flex; flex-direction:column; font-size:var(--fs-sm); }
+.mix-row{ display:grid; grid-template-columns: minmax(0,1.3fr) minmax(0,1fr) 84px minmax(0,1fr); gap:8px; align-items:center; padding:4px 0; border-bottom:1px dashed var(--border); }
+.mix-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mix-now, .mix-gap{ text-align:right; font-variant-numeric: tabular-nums; white-space:nowrap; }
+.mix-now small{ color: var(--ink-soft); font-size:var(--fs-xs); }
+.mix-gap.up{ color: var(--good-ink); } .mix-gap.down{ color: var(--bad-ink); }
+.mix-target{ display:flex; align-items:center; gap:3px; color: var(--ink-soft); }
+.mix-target input{ width:56px; text-align:right; }
+.mix-next{ margin-top:10px; font-size:var(--fs-sm); line-height:1.8; }
+.mix-next input{ width:90px; text-align:right; }
+.dist-ahead{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; font-size:var(--fs-sm); }
+.dist-ahead li{ display:grid; grid-template-columns: 80px minmax(0,1fr) auto; gap:10px; padding:6px 0; border-bottom:1px dashed var(--border); align-items:baseline; }
+.dist-month{ font-weight:600; }
+.dist-items small{ color: var(--ink-soft); font-size:var(--fs-xs); }
+.dist-ahead b{ font-variant-numeric: tabular-nums; }
+@media (max-width:560px){ .mix-row{ grid-template-columns: minmax(0,1fr) 84px; } .mix-now{ text-align:left; } }
 .inv-dist{ display:flex; flex-direction:column; gap:4px; }
 .inv-dist-year summary{ display:grid; grid-template-columns: 70px minmax(0,1fr) 90px; gap:10px; align-items:center; cursor:pointer; min-height:36px; list-style:none; }
 .inv-dist-year summary::-webkit-details-marker{ display:none; }

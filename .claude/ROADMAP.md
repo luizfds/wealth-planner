@@ -3690,7 +3690,7 @@ name and nothing is logged as B's; Sam undoes it on B (logged as Sam's change, A
 the diff, bursts, every undo, the caps, and two devices' logs merging without a conflict.
 
 
-## 203. `[ ]` Investments against a benchmark, and a target mix
+## 203. `[x]` Investments against a benchmark, and a target mix
 Sharesight compares a portfolio with an index and gives a money-weighted return; Empower and Copilot show
 allocation against a target and what to buy to rebalance.
 
@@ -3702,7 +3702,25 @@ dates.
 Done when: IRR matches a hand-worked invented portfolio to the cent in tests; the benchmark line is driven on
 Investments.
 
-## 204. `[ ]` What-ifs you can drag
+**Done (v3.178.0).** On Investments → Shares (`calc/investreturn.js`, `components/investreturn.js`):
+- **Money-weighted return** — an XIRR (actual/365) over every dated purchase lot, sale and distribution (cash and
+  franking, as the Performance card counts them), with today's value as the last flow — overall in the Total return
+  tile and per holding under its total return. Holdings without dated lots are named as left out.
+- **Against the market** — every dollar in or out put into the ASX 200 (priced by A200) or the S&P 500 (IVV on the
+  ASX, in A$) on the same day, from the price file's weekly series (read once a session, only when this card shows),
+  with each index's dividends added back at a stated yield (4% and 1.3%) because the series is a price. Today's value
+  both ways, each as a yearly rate, and a chart of your recorded holding values against the index line (dashed).
+- **Target mix** — optional target % by kind (Australian shares, international shares, cash, crypto, other; super left
+  out), the gap in dollars, and where the next $X goes (to the classes furthest under target, in proportion). A
+  holding's kind comes from its market unless set on its row (an ASX-listed fund of US shares is international).
+  `state.targetMix`, synced and in the backup.
+- **Distributions in the year ahead** — each payment in the last year, a year on, scaled to the units held now.
+Tests: a hand-worked invented holding returns 10% a year ($3,607.69 to the cent; the rate is `calc/performance.js`'s `xirr` since v3.179.1 — 203 first shipped its own, now gone); the same money in an index
+that also grew 10% ends level to the cent; the mix gaps and next-dollar split; the year ahead. Driven at 1280 and 390px
+on the demo household with the real price file (both benchmarks drawn), the mix set from its inputs.
+
+
+## 204. `[x]` What-ifs you can drag
 ProjectionLab's plans move as you drag a slider. Here a what-if means editing a scenario's fields and switching
 tabs.
 
@@ -3712,7 +3730,20 @@ is a slider redrawing the chart live against the saved plan (dashed). "Keep this
 Done when: dragging redraws within a frame on a mid-range phone (measured); "Keep this" makes a scenario equal to
 the preview.
 
-## 205. `[ ]` Every subscription in one list
+**Done (v3.177.0).** A **What if…** strip on Plan → Projections (`calc/whatif.js`, `components/whatif.js`): retire at,
+investment return, inflation, saved more a month and rates up. Moving one redraws the chart as the household's saved plan
+(dashed) against the what-if, with a sentence on how far apart they end; nothing is saved. **Keep this as a scenario**
+makes it one, named from what moved ("Retire at 58, Save $1,500 more"). A scenario can now carry its own assumptions — an
+`assume` change (return, inflation, rate rise) read through `projectionFor(scenario)` — and a `retire` change (pay stops
+from the year of that age; living costs come out of savings), so the kept scenario projects exactly as previewed. Retire
+needs an age (Plan → Retirement); without one the slider says so. Speed: while dragging only the chart and headline
+redraw, and each year's income and costs and the saved plan are worked out once per drag — measured at 4× CPU slowdown
+(standing in for a mid-range phone) 5–9 ms a redraw after the first (~75 ms, which fills the cache), against ~200 ms
+redrawing everything. Tests: untouched sliders equal the saved plan; each slider moves the end the right way; a kept
+what-if's series equals the preview's year by year. Driven at 1280 and 390px.
+
+
+## 205. `[x]` Every subscription in one list
 Rocket Money and Monarch list every subscription with what it costs a year. `recurring.js` already finds repeating
 payees and rising charges, but only on Budget, mixed in with bills.
 
@@ -3721,7 +3752,21 @@ next charge and a "cancel by" reminder you set. A charge that stops shows as sto
 
 Done when: the list agrees with `recurring.js` on an invented statement; a reminder reaches notifications.
 
-## 206. `[ ]` Balance forecast by the day
+**Done (v3.179.0).** **Subscriptions** on Cash flow → Bills (`calc/subscriptions.js`, `components/subscriptions.js`):
+every payee charging on a steady rhythm, budgeted or not, from the same detector Budget's "repeating, not budgeted"
+uses (`repeatingPayees` in `calc/recurring.js`, which `unbudgetedRecurring` is now a filter of). Each with its latest
+charge, what that comes to a year, the rise to today's price (from what, when), the next charge (month ends kept;
+charges the statement hasn't caught up to skipped), and a **cancel by** date — a reminder in notifications from a week
+before, while it's still charging. One that stops charging shows as "Stopped — last charged …" for a year, never as
+overdue. Not counted: home costs (rent, the home loan — lines marked as where you live, or Housing) and payees that
+come close but never charge the same amount twice (fuel, top-ups); "Not a subscription" sets one aside.
+`state.subscriptionNotes`, synced and in the backup. Tests over an invented statement: everything Budget calls
+repeating and unbudgeted is in the list with the same rhythm; the yearly cost, the rise, the next charge and the
+stopped one; a cancel-by date reaching the reminders a week ahead and not once set aside. Driven at 1280 and 390px: a
+cancel-by date set on the demo household's list, and the reminder read back from notifications.
+
+
+## 206. `[x]` Balance forecast by the day
 PocketSmith's headline is an account's balance projected day by day, with each bill and pay landing on its date.
 The 12-month forecast here is monthly and household-wide.
 
@@ -3730,6 +3775,147 @@ the usual spending spread across the days. It warns when the lowest point falls 
 on the account's detail page and as a Home card when a warning is due.
 
 Done when: tests over an invented month land each bill and pay on its day; the warning shows in a driven run.
+
+**Done (v3.180.0).** **The next 90 days** on an everyday account's detail page (`calc/dailyforecast.js`,
+`components/dailyforecast.js`): today's balance (rolled forward from the last recorded one), then day by day — pay on the
+rhythm it has landed in this account before (`state.incomeLog`, at its latest amount), the bills calendar's bills paid
+from this account and the card repayments it usually makes, each on its day, and the account's day-to-day spending (its
+last 90 days, bills left out) spread evenly. A line chart with the buffer dashed, the lowest point, what lands when, and
+a "Warn me below" buffer (`account.buffer`). When the balance heads under it, Home shows a **Balance ahead** card
+(`data-home-card="lowbal"`, arrangeable) that opens the account. Tests over an invented month: each pay, bill and card
+repayment on its own day, today's events already in today's balance, the lowest point (the day before pay) and the first
+day under the buffer, and no warning without a buffer. Driven at 1280 and 390px on the demo household: the forecast
+drawn, a buffer set from the page, the warning there and on Home.
+
+
+### Phase I — scenarios as sealed sandboxes (October 2026)
+
+Asked for: "what if I buy an investment property and rent a new, more expensive house to live in?" — which the
+scenarios can't express — and that scenarios stop reaching into the rest of the app. Today a scenario is spread over
+four pages: the one picked on Plan changes Home's tiles, Income, Budget, the FI figures and the forecast; budget and
+income lines carry per-scenario amounts edited on their own pages; and where the household lives today is stored
+inside the "Current situation" scenario. The principle from here: **the household is the only truth, shown everywhere;
+a scenario is a sandbox on Plan → Scenarios that reads the household and never writes to it**, except through one
+explicit "Make it real". Built in one PR with 203–206, an item per commit pair, at the owner's request.
+
+## 207. `[x]` Reality everywhere
+Do: today's home costs (the Current situation's rent or loan, rates, insurance…) become ordinary Budget lines; no page
+outside Plan → Scenarios reads the selected scenario (Home's tiles, Income, Budget, FI, the cash-flow forecast,
+Benchmarks, search show the household as it is); per-scenario amounts on budget and income lines become changes inside
+their scenario. Existing data converts on load.
+
+Done when: an invented household with scenarios, per-scenario overrides and home rows converts with every scenario's
+monthly figure unchanged (tests); picking a scenario on Plan changes nothing on Home or Cash flow (driven).
+
+**Done (v3.172.0).** A scenario no longer reaches into the rest of the app. `calc/scenariochanges.js` keeps what a scenario
+does differently in the scenario, `state.scenarioChanges[name]` — `{ kind: "amount", rowId, amount }` (a budget or income
+row's amount there) and `{ kind: "home" }` (it lives elsewhere: its own home rows replace today's home lines) — and
+`resolveSharedAmount` reads them first. On load, once (`state.scenarioModel = 2`), every row's `scenarioOverrides` becomes an
+amount change in its scenario, today's home rows (the baseline's) become Budget lines marked `homeCost` under their own
+ids (so logged rent stays linked; untouched $0 placeholders go), and every other scenario gets a "home" change; a baseline
+that is itself buying keeps its rows. Every scenario calculation reads the household's lines through
+`scenarioSharedItems(name)`. Home, Insights, Budget, Income, Benchmarks, the forecast, FI, search, the CSV export, the
+first-run setup and the header read the household (`currentScenario()`), never the scenario picked on Plan; "Active on
+Home" and "Set active" are gone. The per-row "Vary" on Budget and Income is replaced by **Changes from today** in each
+scenario's block on Plan (a line, its amount there in the line's own frequency, remove with undo; add one from any budget
+line or pay); today's block says it's the household and lists today's home lines with a link to Budget. Lean (Trim) and
+the expenses CSV import write the new way. Tests: the invented sample household with per-scenario amounts on a line and a
+salary converts with every scenario's monthly income, costs, net and 20-year net worth identical; converting twice is a
+no-op; changes carry through rename, copy and delete. Driven at 1280 and 390px: picking another scenario on Plan leaves
+Home's tiles and the header unchanged; a change to Groceries in Buy a house moves that card only.
+
+
+## 208. `[x]` A scenario as a list of changes
+Do: a scenario is the household plus changes, each from a chosen year: rent a new place ($/week); buy a home to live in
+(the purchase calculator); buy an investment property — price, deposit, loan, rent per week, vacancy, management,
+costs, growth, depreciation — as a hypothetical property in the shape of a real one, so the same rent, cost, interest,
+depreciation and tax maths applies, in that scenario only; sell a property you own; invest instead; an income change;
+a spending change. The projection runs the household with the scenario's changes.
+
+Done when: "rent at $X/week + buy an investment property" on an invented household gives a monthly result and a tax
+effect matching a hand-worked figure (tests); built and edited in the browser at 390 and 1280px.
+
+**Done (v3.173.0).** A scenario is the household plus a list of changes, each from now or a later year
+(`calc/scenariolegs.js`): **rent somewhere new** (today's home lines stop in that scenario), **buy an investment property**
+(price, deposit, rate, interest-only or P&I, term, state, rent a week, weeks vacant, management %, costs, depreciation,
+growth, owner), **a new cost or saving**, **sell a property you own** (its equity — less selling costs and, for an
+investment property, capital gains tax on half the gain — becomes cash that year, and its rent, costs and loan stop), and
+**a line costs a different amount** (207). The investment property is priced like a real one: rent less vacancy and
+management, its costs and loan, and the tax effect — the year's result (rent less management, costs, interest,
+depreciation) at the owner's marginal rate plus Medicare (shared evenly: the people's average); a loss comes back as a
+refund. `scenarioTotals` adds a scenario's changes once they've all happened (and reports the cash needed at settlement);
+`computeNetWorthSeries` adds them year by year — cash at settlement out of savings in the year bought, the property's
+value and paid-down loan from then, rent and costs growing with inflation, the tax effect recomputed each year as the
+loan's interest changes; a sold property drops out of equity and debt from its year. On Plan each change is a sentence
+with its effect a month that opens into its form (the investment property's shows rent less costs and loan, the tax
+effect, after tax and cash at settlement); "+ Rent somewhere new / Buy an investment property / A new cost or saving /
+Sell a property you own" add them. A new scenario now starts as today (no changes, nothing bought); one lives elsewhere
+only when it rents elsewhere, has its own home rows or turns on the purchase calculator, and only then shows its home
+rows. Tests: a hand-worked investment property to the cent (interest $28,800, a $9,900 loss, $3,168 back at 32%, −$408.33
+before tax, −$144.33 after), P&I, a purchase in year 3, and "rent a bigger place + buy an investment property" on an
+invented household equal to the household's month less today's rent, less the new rent, plus the property after tax.
+Driven at 1280 and 390px: a new "Rentvest" scenario with rent $780 a week and a $620,000 investment property; Home unchanged.
+
+
+## 209. `[x]` Start from a question
+Do: "What are you weighing?" — buy a home; buy an investment property and keep renting; rent somewhere else; upgrade
+the home; invest instead; pay the loan down faster. Each asks four to six questions and fills sensible defaults (stamp
+duty for the state, typical costs, a rent guess from price and yield), then opens the scenario.
+
+Done when: each template produces a valid scenario (tests); one is driven start to finish on a phone.
+
+**Done (v3.174.0).** "Add scenario" opens **What are you weighing?** (`calc/scenariotemplates.js`): buy a home to live in;
+buy an investment property (staying put, or renting somewhere new); rent somewhere else; move to a bigger home (sell the
+one you own and buy, or rent bigger); invest instead; pay the loan down faster. Each asks four to seven questions with
+defaults from the household (its state; the rent an investment property would earn guessed at 4% of its price a year;
+typical owning costs — rates, insurance, maintenance — from the price) and builds the scenario from the same changes and
+calculators as by hand, then opens it. "Or start from today, blank" is still there. A new change kind, **pay a loan down
+faster** (`extra`): each month's extra comes out of savings and into the loan at its rate, kept as equity up to what the
+loan owes. Tests: each choice's defaults build a valid scenario, the rent guess, selling and buying for an owner and
+renting bigger for a renter, and a built "buy a home" running through the engine (the loan and owning costs replace the
+rent). Driven on a phone: Add scenario → Buy an investment property → $600,000 in VIC, rent somewhere new at $820 a week
+→ the scenario appears open with both changes, and its card.
+
+
+## 210. `[x]` Side by side
+Do: each scenario against "stay as we are": cash needed at settlement against cash available; money left a month
+before and after tax; the lowest cash gets; net worth in 5, 10 and 20 years; a stress test (rates +2%, a month vacant,
+rent −10%); the year it overtakes staying put; a one-line verdict.
+
+Done when: the figures match the projection for an invented household (tests); the comparison is driven at both widths.
+
+**Done (v3.175.0).** **Side by side** under the scenario cards on Plan → Scenarios (`calc/compare.js`): a column per
+scenario, "as we are" first, and rows for the cash needed at settlement (the purchase calculator's, an investment
+property's, a lump sum invested) against the cash available, with how much short; what a month leaves before and after an
+investment property's tax effect; the month under stress (purchase and investment-property loans and the household's own
+investment loans 2 points dearer, an extra month vacant, rent down a tenth); the lowest cash gets over the projection; net
+worth in 5, 10 and 20 years with the difference from staying put; and the year it's ahead of staying put for good (one
+that's ahead for a stretch and falls back says so). Under the table, a one-line verdict per scenario, deal-breakers first
+("…— but needs $41,930 more cash at settlement than there is"). Every figure is read off `scenarioTotals` and
+`computeNetWorthSeries`. Tests: on the invented sample household plus a rentvest scenario, net worth at 5 and 20 years,
+the lowest cash and the month after tax equal the projection's and the card's for every scenario; the verdict's wording.
+Driven at 1280 and 390px after making the scenario from the question sheet; no sideways scroll on the page.
+
+
+## 211. `[x]` Make it real
+Do: when a scenario happens, one button shows exactly what it will add to the household (a rent line, the property
+under Property with its loan, an income change) and applies it on confirm, with undo.
+
+Done when: applying the investment-property scenario gives a household whose figures equal the scenario's (tests);
+driven with undo.
+
+**Done (v3.176.0).** **Make it real…** at the foot of each scenario on Plan → Scenarios (`calc/makereal.js`,
+`components/makereal.js`): a sheet lists what will happen — today's home lines ended (the day before, not deleted, so
+their payments stay linked), the new rent or the new home's costs and loan repayment added to Budget as where you live, a
+home bought or an investment property added under Net worth → Property with its loan, rent, costs, management fee and
+depreciation, a line's different amount made its amount, a new cost added — and what's left for later and why (a change
+from a later year, a sale, extra repayments, investing instead). On confirm it's applied, the scenario removed if ticked,
+with Undo. An investment property's tax effect in a scenario is now the owners' tax worked out in full with and without it
+(`taxEffectFor` in `scenarioLegContext`, `computePersonTax`'s `extraIpResult`) rather than the marginal rate plus 2%, so the
+Medicare levy surcharge and the brackets count — on the invented test household ($110k, no private cover, a $600k unit at
+$600 a week) the refund goes from $264 to $356 a month, the surcharge the property's loss takes away. Tests: the plan's
+wording, and made real, the household's month equals the scenario's within $5. Driven at 1280 and 390px: made a rentvest
+scenario from the question sheet, made it real, undone.
 
 
 ## Conventions for whoever picks this up

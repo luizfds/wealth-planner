@@ -1,5 +1,7 @@
 import { STORAGE_KEY, HOME_CATEGORIES, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, INVEST_LEG_TYPES, DEFAULT_CATEGORIES, IP_CATEGORY } from "./constants.js";
 import { showToast } from "./lib/toast.js";
+// v3.172.0: a cycle (scenariochanges reads `state`), safe because neither module uses the other while loading.
+import { migrateScenarios } from "./calc/scenariochanges.js";
 
 export function defaultPurchaseConfig(price, depositPct, rate, termYears, stateCode, enabled){
   return {
@@ -199,6 +201,10 @@ export function defaultState(){
     priceSheet: { url: "", lastRead: "", lastResult: null, backfillFrom: "" },
     // v3.132.0: prices with no setup (calc/autoprices.js).
     autoPrices: { on: true, crypto: true, fx: true, lastRead: "", lastResult: null },
+    // v3.178.0 (item 203): a target mix by asset class, as percentages — optional, {} when not set.
+    targetMix: {},
+    // v3.179.0 (item 205): per repeating payee (merchant key) — { cancelBy, ignored }.
+    subscriptionNotes: {},
     // Last time Export or Share produced a full backup — not touched by CSV/template exports
     // (those are partial, one-section-at-a-time, not a way to recover from data loss) or Import.
     // "" until the first one. Powers the backup-reminder notification (lib/notifications.js) —
@@ -478,6 +484,8 @@ export function migrateState(s){
   if(!s.priceSheet || typeof s.priceSheet !== "object") s.priceSheet = {};
   ["url", "lastRead", "backfillFrom"].forEach(function(k){ if(typeof s.priceSheet[k] !== "string") s.priceSheet[k] = ""; });
   if(s.priceSheet.lastResult === undefined) s.priceSheet.lastResult = null;
+  if(!s.targetMix || typeof s.targetMix !== "object" || Array.isArray(s.targetMix)) s.targetMix = {};
+  if(!s.subscriptionNotes || typeof s.subscriptionNotes !== "object" || Array.isArray(s.subscriptionNotes)) s.subscriptionNotes = {};
   if(!s.autoPrices || typeof s.autoPrices !== "object") s.autoPrices = {};
   ["on", "crypto", "fx"].forEach(function(k){ if(typeof s.autoPrices[k] !== "boolean") s.autoPrices[k] = true; });
   if(typeof s.autoPrices.lastRead !== "string") s.autoPrices.lastRead = "";
@@ -694,6 +702,11 @@ export function migrateState(s){
     s.assetPropertiesMigrated = true;
     showToast("Moved " + legacyPropertyAssets.length + " propert" + (legacyPropertyAssets.length === 1 ? "y" : "ies") + " to Net worth → Property — check the kind (IP/PPOR) for each");
   }
+
+  // v3.172.0 (item 207): scenarios as sealed sandboxes — per-scenario amounts move into the scenario,
+  // today's home rows into Budget (calc/scenariochanges.js). Once.
+  if(!s.scenarioChanges || typeof s.scenarioChanges !== "object" || Array.isArray(s.scenarioChanges)) s.scenarioChanges = {};
+  migrateScenarios(s, genId);
 
   return s;
 }

@@ -212,7 +212,7 @@ export function billsForMonth(items, transactions, ym, today, opts){
       var paid = dates.some(function(x){ return Math.abs(daysBetween(x, d)) <= PAID_WINDOW_DAYS; });
       var bill = { id: i.id, what: i.what || "Bill", amount: Number(i.amount) || 0, date: d, paid: paid, overdue: !byAgent && !paid && today && d < today, estimated: estimated, overridden: !!i.billKind,
         card: onCard ? lastAcct : "", payOn: onCard && onCard.payDay ? repaymentFor(d, onCard.card.statementStartDay, onCard.payDay) : "",
-        agent: byAgent ? lastAcct : "" };
+        agent: byAgent ? lastAcct : "", account: lastAcct || "" };
       (days[d] = days[d] || []).push(bill);
       total += bill.amount;
       if(bill.card) cardTotal += bill.amount;

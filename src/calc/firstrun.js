@@ -43,10 +43,14 @@ export function applyFirstRun(answers, today){
     made.accounts++;
   });
   var h = answers.housing || {};
+  // v3.172.0 (item 207): where the household lives is a budget line like any other (a scenario that
+  // moves house replaces it — calc/scenariochanges.js).
   if(h.kind && h.kind !== "none" && Number(h.amount) > 0){
-    var block = state.home[state.activeScenario] || [];
-    var row = block.find(function(r){ return /rent|home loan/i.test(r.what || ""); }) || block[0];
-    if(row){ row.amount = Number(h.amount); row.freq = h.freq || "Monthly"; row.what = h.kind === "rent" ? "Rent" : "Home loan"; if(firstAccount && !row.account) row.account = firstAccount; made.lines++; }
+    var what = h.kind === "rent" ? "Rent" : "Home loan";
+    var row = state.shared.find(function(r){ return r.homeCost && /rent|home loan/i.test(r.what || ""); });
+    if(row){ row.amount = Number(h.amount); row.freq = h.freq || "Monthly"; row.what = what; if(firstAccount && !row.account) row.account = firstAccount; }
+    else state.shared.push({ id: genId("exp"), what: what, classification: "Needs", category: "Housing", account: firstAccount || "", amount: Number(h.amount), freq: h.freq || "Monthly", irregular: false, dueMonth: null, homeCost: true });
+    made.lines++;
   }
   (answers.costs || []).forEach(function(c){
     if(!(Number(c.amount) > 0)) return;

@@ -5,6 +5,7 @@ import { MONTH_NAMES } from "../constants.js";
 // rather than taking everything it needs as an argument.
 import { state } from "../state.js";
 import { cleanMerchantName } from "./merchantbook.js";
+import { amountChangeFor } from "./scenariochanges.js";
 
 export function toWeekly(amount, freq){
   amount = Number(amount) || 0;
@@ -52,7 +53,14 @@ export function safeDiv(a, b){ return b ? a / b : 0; }
 // scenarios/the baseline without needing a separate row per scenario. Absent map or absent key
 // for this scenario just falls back to the item's plain amount, so every existing item (which
 // has no scenarioOverrides field at all) behaves exactly as before.
+// v3.172.0 (item 207): the scenario's own figure for the row comes first — kept in the scenario
+// (calc/scenariochanges.js), not on the row; a row's old scenarioOverrides is read only until it's
+// moved there on load.
 export function resolveSharedAmount(item, scenarioName){
+  if(scenarioName && item && item.id != null){
+    var own = amountChangeFor(scenarioName, item.id);
+    if(own != null) return own;
+  }
   var overrides = item.scenarioOverrides;
   return (overrides && overrides[scenarioName] != null) ? overrides[scenarioName] : item.amount;
 }

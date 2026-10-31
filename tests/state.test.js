@@ -125,7 +125,10 @@ test("migrateState backfills irregular:false/dueMonth:null onto every ledger arr
     shared: [{ what: "Extras", amount: 100, freq: "Monthly" }],
     properties: [{ id: "p1", what: "1 Test St", income: [{ what: "Rent", amount: 400, freq: "Weekly" }], expenses: [{ what: "Maintenance", amount: 2000, freq: "Yearly" }] }]
   });
-  [s.home["Current situation"][0], s.income[0], s.shared[0], s.properties[0].income[0], s.properties[0].expenses[0]].forEach(function(item){
+  // v3.172.0: today's home rows are budget lines now (marked homeCost), and keep the backfill.
+  var home = s.shared.find(function(l){ return l.homeCost; });
+  assert.equal(home.what, "Home Insurance");
+  [home, s.income[0], s.shared[0], s.properties[0].income[0], s.properties[0].expenses[0]].forEach(function(item){
     assert.equal(item.irregular, false);
     assert.equal(item.dueMonth, null);
   });
@@ -186,7 +189,13 @@ test("migrateState gives every home row a stable id, unique per scenario", funct
     },
     shared: []
   });
-  var allRows = s.scenarios.reduce(function(acc, name){ return acc.concat(s.home[name]); }, []);
+  // v3.172.0 (item 207): Renting is today's home, so its rows are budget lines now — under the ids
+  // they had, so transactions logged against the rent stay linked. Buy Sydney keeps its own rows.
+  var todays = s.shared.filter(function(l){ return l.homeCost; });
+  assert.deepEqual(todays.map(function(l){ return l.what; }), ["Rent", "Water"]);
+  assert.equal(todays[0].id, "homeLoanRow");
+  assert.deepEqual(s.home["Renting"], []);
+  var allRows = s.scenarios.reduce(function(acc, name){ return acc.concat(s.home[name]); }, []).concat(todays);
   assert.ok(allRows.every(function(i){ return typeof i.id === "string" && i.id; }), "every home row is addressable by id");
   // Unique *within* a scenario, which is the scope anything resolves an id in — the Budget list
   // and its transactions only ever see the active scenario's housing.
@@ -198,14 +207,14 @@ test("migrateState gives every home row a stable id, unique per scenario", funct
   // "homeLoanRow" id, because engine.js and the purchase calculator look it up by that name
   // within a given scenario's block. Sharing it across scenarios is what makes "the housing
   // payment" resolve to whichever one you're actually living in.
-  assert.equal(s.home["Renting"][0].id, "homeLoanRow");
   assert.equal(s.home["Buy Sydney"][0].id, "homeLoanRow");
-  assert.notEqual(s.home["Renting"][1].id, s.home["Buy Sydney"][1].id,
+  assert.notEqual(todays[1].id, s.home["Buy Sydney"][1].id,
     "non-loan rows are per scenario — Renting's Water and Buy Sydney's Council Rates are different lines");
 });
 
 test("migrateState leaves home ids it has already assigned alone", function(){
-  var first = migrateState({ scenarios: ["Renting"], home: { "Renting": [{ what: "Rent" }, { what: "Water" }] }, shared: [] });
+  // A scenario other than today's keeps its home rows (today's become budget lines, v3.172.0).
+  var first = migrateState({ scenarios: ["Today", "Renting"], baselineScenario: "Today", activeScenario: "Today", home: { "Today": [], "Renting": [{ what: "Rent" }, { what: "Water" }] }, shared: [] });
   var waterId = first.home["Renting"][1].id;
   var second = migrateState(JSON.parse(JSON.stringify(first)));
   assert.equal(second.home["Renting"][1].id, waterId, "re-running migration must not orphan transactions linked to it");

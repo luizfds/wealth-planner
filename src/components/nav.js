@@ -1,3 +1,4 @@
+import { renderProjectionsIfStale } from "./projections.js";
 import { renderDashboardStats } from "./dashboard.js";
 import { renderHomeSummary } from "./home.js";
 import { renderReports } from "./reports.js";
@@ -326,6 +327,7 @@ export function showPage(id, opts){
     if(id === "dashboard"){ renderDashboardStats(); renderHomeSummary(); }
     if(id === "reports") renderReports();
     if(id === "detail") renderDetailPage();
+    if(id === "plan" && currentPlanSub === "projections") renderProjectionsIfStale();
     if(id === "networth") renderNetWorthPage();
     // v3.98.0: each page's "The app notices" strip reads figures changed on other pages.
     renderAdvice();
@@ -419,6 +421,7 @@ export function showPlanSubpage(id, opts){
     btn.classList.toggle("active", btn.getAttribute("data-plan-sub") === id);
   });
   scrollActiveSubnavIntoView("planSubnav");
+  if(id === "projections") renderProjectionsIfStale();
   updateQuickFab("plan");
   if(!opts.skipUrl) syncUrl("plan", !!opts.replace);
 }

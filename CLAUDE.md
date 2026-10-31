@@ -80,6 +80,8 @@ the last, so two sessions can't pick up the same one.
   home lines end the day before. An investment property's tax effect is the owners' tax with and without it (`taxEffectFor`).
   **What-ifs (v3.177.0):** a scenario's own assumptions are an `assume` change, read through `projectionFor(scenario)` — never
   `state.projection` directly in projection maths; a `retire` change stops pay from that age.
+  **Speed (v3.180.1):** a scenario change redraws the scenario views once (`refreshScenarioDependentViews`); the projection chart
+  goes through `renderProjectionsWhenSeen()` (drawn only on screen, else on next open) — call that, not `renderProjectionOutputs()`, from edits elsewhere.
 - **Investment returns (v3.178.0):** `calc/investreturn.js` — `xirr`, money-weighted per holding, the same money in an index
   (the price file's weekly A200 / IVV series, read once a session by `components/investreturn.js`), a target mix (`state.targetMix`,
   a holding's own `assetClass` overriding its market) and distributions ahead. The IRR and the index units are `calc/performance.js`'s

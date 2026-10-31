@@ -51,7 +51,7 @@ export function compareScenario(scenario, opts){
   var horizon = Math.max(20, Number(opts.horizon) || 20);
   var t = scenarioTotals(scenario);
   var series = computeNetWorthSeries(scenario, horizon);
-  var baseSeries = scenario === base ? series : computeNetWorthSeries(base, horizon);
+  var baseSeries = scenario === base ? series : (opts.baseSeries || computeNetWorthSeries(base, horizon));
   var cfg = state.purchase && state.purchase[scenario], inv = state.invest && state.invest[scenario];
   var buying = !!(cfg && cfg.enabled && !(inv && inv.enabled));
   var investing = !!(inv && inv.enabled);
@@ -103,6 +103,10 @@ export function verdict(c){
 function money(n){ return "$" + Math.round(n).toLocaleString("en-AU"); }
 function cap(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
 
+// The baseline's series is worked out once for every column, not once per scenario.
 export function compareAll(opts){
+  opts = Object.assign({}, opts);
+  var base = opts.baseline || currentScenario(), horizon = Math.max(20, Number(opts.horizon) || 20);
+  if(!opts.baseSeries) opts.baseSeries = computeNetWorthSeries(base, horizon);
   return (state.scenarios || []).map(function(s){ return compareScenario(s, opts); });
 }

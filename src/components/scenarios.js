@@ -1,3 +1,4 @@
+import { renderProjectionsWhenSeen } from "./projections.js";
 import { makeRealButtonHtml } from "./makereal.js";
 import { state, persist, defaultHomeBlock, defaultPurchaseConfig, defaultInvestConfig, deepClone, genId } from "../state.js";
 import { renameScenarioChanges, cloneScenarioChanges, deleteScenarioChanges, setLivesElsewhere, homeRowsFromBudget, livesElsewhere, changesFor } from "../calc/scenariochanges.js";
@@ -13,8 +14,6 @@ import { modernPlainRowHtml } from "../lib/ledger-table.js";
 import { showToast } from "../lib/toast.js";
 import { renderCards, renderDetail } from "./dashboard.js";
 import { renderAssets } from "./assets.js";
-import { renderSharedGroups, renderActualVsPlannedPanel } from "./expenses.js";
-import { renderIncomeGroups } from "./income.js";
 import { renderCanBuy } from "./canbuy.js";
 
 export function selectScenario(name){
@@ -53,14 +52,15 @@ export function addScenario(){
 //
 // selectScenario() only re-rendered the Dashboard, which was enough back when the active scenario
 // changed nothing else on screen. It isn't any more.
+// v3.180.1: only what a scenario changes. Budget and Income show the household (v3.172.0), so a
+// scenario edit can't change them — redrawing them on every click is what made Plan → Scenarios slow.
+// The projection chart redraws when it's on screen, or when Projections is next opened.
 export function refreshScenarioDependentViews(){
   renderCards();
   renderCompare();
   renderDetail();
   renderHomeBody();
-  renderSharedGroups();
-  renderActualVsPlannedPanel();
-  renderIncomeGroups();
+  renderProjectionsWhenSeen();
 }
 
 // The one place that knows which arrays hold rows carrying scenarioOverrides. Rename and delete

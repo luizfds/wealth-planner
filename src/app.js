@@ -74,7 +74,7 @@ import {
   logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan, setSaleWhatIfField, patchSaleWhatIf, setLoanStrategyField, patchLoanStrategy, propertyTabs, propertyEditing,
   fixedExpiryHtml, rentPanelHtml, fixedWhatIf, agentStatementUi, agentStatementFormValues
 } from "./components/properties.js";
-import { renderProjectionOutputs, renderWhatIfDrag, projectionSeriesShown } from "./components/projections.js";
+import { renderProjectionOutputs, renderProjectionsWhenSeen, renderWhatIfDrag, projectionSeriesShown } from "./components/projections.js";
 import { renderBenchmarks, setBenchmarkField, applyBenchmarkPaste, addGoal, setGoalField, removeGoal, setPropertyMarketField } from "./components/benchmarks.js";
 import { copyBenchmarkTemplateToClipboard } from "./lib/backup.js";
 import {
@@ -478,7 +478,7 @@ import { inboxMessage } from "./calc/inbox.js";
     renderDetail();
     renderTotals();
     if(section.indexOf("home:") === 0) renderHomeBodyTotalsOnly();
-    renderProjectionOutputs();
+    renderProjectionsWhenSeen();
     if(section === "income" || section.indexOf("propinc:") === 0 || section.indexOf("propexp:") === 0) renderTaxSuper();
     persist();
   }
@@ -541,7 +541,7 @@ import { inboxMessage } from "./calc/inbox.js";
       rerenderTableFor("income");
       renderTaxSuper();
       renderCards(); renderDetail(); renderTotals();
-      renderProjectionOutputs();
+      renderProjectionsWhenSeen();
       persist();
       var move = newAmount - previousAmount;
       showToast(move === 0
@@ -563,7 +563,7 @@ import { inboxMessage } from "./calc/inbox.js";
         if(!Array.isArray(litem.history)) litem.history = [];
         var ldate = appendHistorySnapshot(litem.history, Number(litem.amount) || 0, logDate);
         rerenderTableFor(lsection);
-        renderProjectionOutputs();
+        renderProjectionsWhenSeen();
         persist();
         showToast("Logged " + fmtCurrency0.format(Number(litem.amount) || 0) + " for " + litem.what + " (" + ldate + ")");
       }
@@ -600,7 +600,7 @@ import { inboxMessage } from "./calc/inbox.js";
       if(editedProperty) patchPropertyCardComputed(editedProperty);
     }
     renderCards(); renderDetail(); renderTotals(); renderHomeBodyTotalsOnly();
-    renderProjectionOutputs();
+    renderProjectionsWhenSeen();
     persist();
   }
 
@@ -5881,7 +5881,9 @@ import { inboxMessage } from "./calc/inbox.js";
   document.addEventListener("click", function(e){ if(e.target.closest("[data-txr-open]")) openTxReview(); });
   // ---------------- A scenario's changes (v3.172.0, item 207) ----------------
   // Plan → Scenarios: a line's amount in a scenario, kept in the scenario (calc/scenariochanges.js).
-  function afterScenarioChange(){ persist(); refreshScenarioDependentViews(); renderHomeBody(); renderCards(); renderProjectionOutputs(); renderCompare(); }
+  // v3.180.1: each view once — refreshScenarioDependentViews draws the cards, the comparison, the home
+  // blocks and (when it's on screen) the projection.
+  function afterScenarioChange(){ persist(); refreshScenarioDependentViews(); }
   document.addEventListener("click", function(e){
     if(!e.target.closest) return;
     var add = e.target.closest("[data-sc-add]");

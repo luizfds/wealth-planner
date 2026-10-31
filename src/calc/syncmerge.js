@@ -18,7 +18,7 @@
 
 // Kept as this device has them: how it shows things, not what's in them.
 var DEVICE_KEYS = { activeScenario: 1, showAllPeriods: 1, uiMode: 1, budgetGroupsCollapsed: 1, budgetGroupBy: 1, incomeCols: 1, expenseCols: 1,
-  homeCols: 1, assetCols: 1, setupDismissed: 1, checksDismissed: 1, savedAt: 1, savedBy: 1 };
+  homeCols: 1, assetCols: 1, setupDismissed: 1, checksDismissed: 1, savedAt: 1, savedBy: 1, savedByName: 1 };
 // The app's own bookkeeping: rebuilt or refreshed by itself, so either side will do.
 var AUTO_KEYS = { priceSheet: 1, fx: 1, benchmark: 1, projectionReference: 1 };
 function isLastDone(field){ return /^last[A-Z]|(At|Date|Updated)$/.test(String(field || "")); }
@@ -130,7 +130,7 @@ export function rowLabel(r){
 }
 var SECTION_LABELS = { transactions: "Spending", transfers: "Transfers", incomeLog: "Income received", shared: "Budget", income: "Income",
   assets: "Investments", properties: "Property", accounts: "Accounts", debts: "Debts", importRules: "Import rules", categories: "Categories",
-  savingsGoals: "Savings goals", goals: "Goals", trips: "Trips", txViews: "Saved views", taxYears: "Tax years", home: "Home costs", monthReviews: "Month reviews",
+  savingsGoals: "Savings goals", goals: "Goals", trips: "Trips", txViews: "Saved views", activity: "Who changed what", taxYears: "Tax years", home: "Home costs", monthReviews: "Month reviews",
   netWorthLog: "Net worth history", tax: "Tax settings", projection: "Projections", fire: "Retirement", purchase: "Purchase", invest: "Investing plan" };
 export function fieldLabel(f){ return String(f || "").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase(); }
 export function sectionLabel(top){ return SECTION_LABELS[top] || String(top || ""); }

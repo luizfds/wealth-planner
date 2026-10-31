@@ -1701,3 +1701,21 @@ test("receipts: the attach control and Tax → Documents' deductions draw", asyn
   assert.doesNotMatch(d, /undefined|NaN/);
   state.transactions = was.t; state.shared = was.s; state.taxYears = was.ty;
 });
+
+test("activityHtml draws whose device it is and the changes with their undo", async function(){
+  var { activityHtml } = await import("../src/components/activity.js");
+  var list = [
+    { id: "e1", at: "2026-10-30T09:00:00.000Z", by: "Alex", device: "devA", section: "Budget", what: "Groceries: amount 600 → 650", undo: { op: "fields" } },
+    { id: "e2", at: "2026-10-29T09:00:00.000Z", by: "", device: "devB", section: "Spending", what: "Added 30 rows", detail: "Row 0, Row 1, Row 2…" }
+  ];
+  var html = activityHtml(list, { device: "devB", name: "Sam", people: ["Alex", "Sam"], today: "2026-10-30" });
+  assert.match(html, /value="Sam"/);
+  assert.match(html, /Today/);
+  assert.match(html, /Yesterday/);
+  assert.match(html, /Budget · Alex/);
+  assert.match(html, /Spending · This device/);
+  assert.match(html, /data-act-undo="e1"/);
+  assert.doesNotMatch(html, /data-act-undo="e2"/);
+  assert.match(activityHtml([], { name: "", people: [] }), /No changes logged yet/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+});

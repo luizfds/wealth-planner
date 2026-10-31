@@ -67,6 +67,7 @@ export function renderCards(){
           '<div class="card-stats"><span>Savings rate</span><b>' + fmtPercent1.format(t.rate) + '</b></div>' +
           '<div class="card-stats"><span>Home cost / mo</span><b>' + fmtCurrency0.format(t.homeMonthly) + '</b></div>' +
           // v3.181.0 (item 212): Edit opens the scenario on its own page; a draft left there says so.
+          ((state.scenarioNotes || {})[scenario] ? '<p class="card-note">' + escapeAttr(state.scenarioNotes[scenario]) + '</p>' : '') +
           (hasDraft(scenario) && draftChanged(scenario) ? '<span class="card-draft">Unsaved changes</span>' : '') +
           '<button type="button" class="card-edit-link" data-edit-scenario="' + escapeAttr(scenario) + '">' + (isBaseline && !(state.home[scenario] || []).length ? "Where you live today →" : hasDraft(scenario) && draftChanged(scenario) ? "Continue editing →" : "Edit this scenario →") + '</button>' +
         '</div>' +

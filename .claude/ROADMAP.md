@@ -4154,11 +4154,19 @@ for every change's fields). "When" reads In a set year / At an age / When cash r
 390px: a 2% deposit flagged, the groups and hints shown.
 
 
-## 225. `[ ]` The scenario's own header
+## 225. `[x]` The scenario's own header
 Do: renamed in place; a note on why you're looking at it (on its card too); "lives somewhere else" said in the header
 with what it costs, not as a change you can't edit.
 
 Done when: driven: a rename while editing keeps the draft; the note shows on the card.
+
+**Done (v3.194.0).** The scenario's page has its own header: the name renamed in place (`renameScenarioTo`, which the
+old prompt now goes through too — the draft, its changes and its note go with it, and the page keeps editing it);
+under the pinned head, a note on why you're looking at it (`state.scenarioNotes`, synced, kept as typed, shown on its
+card) and, for a scenario that lives elsewhere, what living there costs a month — instead of the "Lives somewhere else"
+row that couldn't be edited. Driven at 1280 and 390px: renamed mid-edit with the draft kept, a note written and read
+back on the card after Save.
+
 
 ## Conventions for whoever picks this up
 

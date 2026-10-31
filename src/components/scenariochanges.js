@@ -143,7 +143,8 @@ export function scenarioChangesHtml(scenario){
   var draftName = isDraftKey(scenario) ? scenario.slice(DRAFT_PREFIX.length) : null;
   var rows = all.map(function(c){
     if(c.kind === "amount") return amountChangeHtml(c, scenario);
-    if(c.kind === "home") return '<div class="sc-change"><span class="sc-what"><b>Lives somewhere else</b><small>Its home costs are listed under Recurring costs below; today\'s home lines are left out.</small></span></div>';
+    // v3.194.0 (item 225): said in the scenario's header, with what it costs, when it's being edited.
+    if(c.kind === "home") return draftName ? '' : '<div class="sc-change"><span class="sc-what"><b>Lives somewhere else</b><small>Its home costs are listed under Recurring costs below; today\'s home lines are left out.</small></span></div>';
     // v3.177.0 (item 204): kept from a what-if on Projections — they change the projection, not the month.
     if(c.kind === "assume" || c.kind === "retire") return '<div class="sc-change"><span class="sc-what"><b>' + escapeAttr(changeSummary(c)) + '</b><small>' +
         (c.kind === "retire" ? "In the projection, living costs come out of savings from then" : "Used for this scenario's projection instead of the household's") + '</small></span>' +

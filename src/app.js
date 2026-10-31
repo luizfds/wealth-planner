@@ -81,7 +81,7 @@ import { renderProjectionOutputs, renderProjectionsWhenSeen, renderWhatIfDrag, p
 import { renderBenchmarks, setBenchmarkField, applyBenchmarkPaste, addGoal, setGoalField, removeGoal, setPropertyMarketField } from "./components/benchmarks.js";
 import { copyBenchmarkTemplateToClipboard } from "./lib/backup.js";
 import {
-  selectScenario, addScenario, renameScenario, cloneScenario, deleteScenario, renderHomeBody, renderHomeListModern, refreshScenarioDependentViews,
+  selectScenario, addScenario, renameScenario, renameScenarioTo, cloneScenario, deleteScenario, renderHomeBody, renderHomeListModern, refreshScenarioDependentViews,
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
   patchCalcOutputs, afterCalcChange, patchInvestOutputs, editing, renderScenarioEditor, editorUi, renderScenarioEditorChart, renderCalcScenario
 } from "./components/scenarios.js";
@@ -6115,6 +6115,25 @@ import { inboxMessage } from "./calc/inbox.js";
     }
   });
 
+  // v3.194.0 (item 225): renamed in place (its draft goes with it), and a note on why.
+  document.addEventListener("change", function(e){
+    if(!e.target.matches || !editing.name) return;
+    if(e.target.matches("[data-sc-rename-inline]")){
+      var done = renameScenarioTo(editing.name, e.target.value);
+      if(!done){ e.target.value = editing.name; return; }
+      renderScenarioEditor();
+      showToast('Renamed to "' + done + '"');
+    }
+  });
+  document.addEventListener("input", function(e){
+    if(!e.target.matches || !e.target.matches("[data-sc-note]") || !editing.name) return;
+    if(!state.scenarioNotes) state.scenarioNotes = {};
+    var v = e.target.value.trim();
+    if(v) state.scenarioNotes[editing.name] = e.target.value; else delete state.scenarioNotes[editing.name];
+    e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px";
+    persist();
+  });
+  document.addEventListener("keydown", function(e){ if(e.key === "Enter" && e.target.matches && e.target.matches("[data-sc-rename-inline]")) e.target.blur(); });
   // v3.191.0 (item 222): one change, or the buying / investing, back to as saved.
   document.addEventListener("click", function(e){
     if(!e.target.closest || !editing.name || editing.key === editing.name) return;

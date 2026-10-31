@@ -5,7 +5,7 @@ import { renameScenarioChanges, cloneScenarioChanges, deleteScenarioChanges, set
 import { scenarioChangesHtml, todaysHomeHtml, todaysHomeMonthly } from "./scenariochanges.js";
 import { renderCompare } from "./compare.js";
 import { compareScenario } from "../calc/compare.js";
-import { draftChanged, renameDraft, discardDraft } from "../calc/scenariodraft.js";
+import { draftChanged, renameDraft, discardDraft, DRAFT_PREFIX } from "../calc/scenariodraft.js";
 import { PURCHASE_STATE_CODES, STATE_GROWTH_RATES, INVEST_LEG_TYPES } from "../constants.js";
 import { recalcPurchase } from "../calc/property.js";
 import { recalcComputedItems, scenarioTotals, currentScenario, computeNetWorthSeries } from "../calc/engine.js";
@@ -66,13 +66,21 @@ export function addScenario(){
 export function scenarioEditorHeadHtml(){
   var name = editing.name, changed = editing.key !== name && draftChanged(name);
   return '<div class="sc-edit-head"><button type="button" class="link-btn" data-sc-cancel>← Scenarios</button>' +
-    '<h2>' + escapeAttr(name || "") + '</h2>' +
+    // v3.194.0 (item 225): renamed in place.
+    '<h2><input class="sc-name" data-sc-rename-inline value="' + escapeAttr(name || "") + '" aria-label="Scenario name" maxlength="60"></h2>' +
     (editing.key !== name ? '<span class="sc-edit-state' + (changed ? ' is-changed' : '') + '">' + (changed ? "Unsaved changes" : "No changes yet") + '</span>' +
       '<span class="sc-edit-actions"><button type="button" class="btn btn-sm btn-ghost" data-sc-cancel>Cancel</button>' +
       '<button type="button" class="btn btn-sm btn-primary" data-sc-save' + (changed ? '' : ' disabled') + '>Save</button></span>' : '') + '</div>' +
     // v3.188.0 (item 219): on a phone, Save and Cancel sit at the bottom, where a thumb reaches.
     (editing.key !== name ? '<div class="sc-savebar" role="region" aria-label="Save or cancel"><span class="sc-edit-state' + (changed ? ' is-changed' : '') + '">' + (changed ? "Unsaved changes" : "No changes yet") + '</span>' +
       '<button type="button" class="btn btn-sm btn-ghost" data-sc-cancel>Cancel</button><button type="button" class="btn btn-sm btn-primary" data-sc-save' + (changed ? '' : ' disabled') + '>Save</button></div>' : '');
+}
+// v3.194.0 (item 225): why you're looking at it, and where it lives — under the head, which stays pinned.
+export function scenarioEditorSubHtml(){
+  var name = editing.name, key = editing.key, elsewhere = key && key !== name && livesElsewhere(key);
+  if(!name) return "";
+  return '<div class="sc-edit-sub"><textarea class="sc-note" data-sc-note rows="1" placeholder="Why you\'re looking at this — a note for later (shows on its card)" aria-label="A note on this scenario">' + escapeAttr((state.scenarioNotes || {})[name] || "") + '</textarea>' +
+      (elsewhere ? '<p class="sc-elsewhere">Lives somewhere else — <b>' + fmtCurrency0.format(scenarioHomeMonthly(key)) + '/mo</b> to live there (rent and home costs), instead of today\'s home.</p>' : '') + '</div>';
 }
 export function scenarioEditorSummaryHtml(){
   var key = editing.key, name = editing.name;
@@ -134,6 +142,9 @@ export function renderScenarioEditor(){
   var head = typeof document !== "undefined" && document.getElementById("scenarioEditHead");
   if(!head) return;
   head.innerHTML = scenarioEditorHeadHtml();
+  var sub = document.getElementById("scenarioEditSub");
+  // The note isn't redrawn while it's being typed in.
+  if(sub && !sub.contains(document.activeElement)) sub.innerHTML = scenarioEditorSubHtml();
   var sum = document.getElementById("scenarioEditSummary");
   if(sum){ sum.innerHTML = scenarioEditorSummaryHtml(); renderScenarioEditorChart(); if(editing.key) renderScenarioAccountChart(editing.key); }
 }
@@ -155,11 +166,16 @@ function overridableRows(){
 export function renameScenario(oldName){
   var name = prompt("Rename scenario:", oldName);
   if(name === null) return;
-  name = name.trim();
-  if(!name || name === oldName) return;
-  if(state.scenarios.indexOf(name) !== -1){ showToast('A scenario named "' + name + '" already exists'); return; }
+  renameScenarioTo(oldName, name);
+}
+// v3.194.0 (item 225): the rename itself, also used in place on a scenario's page. Returns the new name,
+// or null when it can't (blank, the same, or taken — said in a toast).
+export function renameScenarioTo(oldName, name){
+  name = String(name || "").trim();
+  if(!name || name === oldName) return null;
+  if(state.scenarios.indexOf(name) !== -1){ showToast('A scenario named "' + name + '" already exists'); return null; }
   var idx = state.scenarios.indexOf(oldName);
-  if(idx === -1) return;
+  if(idx === -1) return null;
   state.scenarios[idx] = name;
   state.home[name] = state.home[oldName];
   delete state.home[oldName];
@@ -181,9 +197,12 @@ export function renameScenario(oldName){
   // v3.172.0: the scenario's own changes (calc/scenariochanges.js) go with its name.
   renameScenarioChanges(oldName, name);
   renameDraft(oldName, name);
+  if(state.scenarioNotes && oldName in state.scenarioNotes){ state.scenarioNotes[name] = state.scenarioNotes[oldName]; delete state.scenarioNotes[oldName]; }
+  if(editing.name === oldName){ editing.name = name; if(editing.key !== oldName) editing.key = DRAFT_PREFIX + name; else editing.key = name; }
   persist();
   refreshScenarioDependentViews();
   renderAssets();
+  return name;
 }
 
 // A near-identical starting point for a what-if, without rebuilding the purchase calculator,
@@ -245,6 +264,7 @@ export function deleteScenario(name){
   });
   deleteScenarioChanges(name);
   discardDraft(name);
+  if(state.scenarioNotes) delete state.scenarioNotes[name];
   if(state.activeScenario === name) state.activeScenario = state.scenarios[0];
   persist();
   refreshScenarioDependentViews();

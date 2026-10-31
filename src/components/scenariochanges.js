@@ -33,6 +33,28 @@ export var changeOpen = {};
 var FREQS = ["Weekly", "Fortnightly", "Monthly", "Quarterly", "Yearly"];
 // v3.191.0 (item 222): the fields of the change being drawn that differ from the saved scenario's.
 var fieldMarks = {};
+// v3.193.0 (item 224): a plain hint under a harder field, and a flag (not a refusal) on a value outside the usual.
+function n(v){ var x = Number(v); return isFinite(x) ? x : 0; }
+var HINTS = {
+  depositPct: function(c){ return c.kind === "ip" && n(c.price) > 0 ? fmtCurrency0.format(n(c.price) * n(c.depositPct) / 100) + " — under 20% adds LMI" : ""; },
+  rentWeekly: function(c){ return n(c.price) > 0 && n(c.rentWeekly) > 0 ? (n(c.rentWeekly) * 52 / n(c.price) * 100).toFixed(1) + "% of the price a year (gross yield)" : "what similar places rent for"; },
+  vacancyWeeks: function(){ return "2–3 weeks is typical"; },
+  mgmtPct: function(){ return "a property manager's fee, usually 5–8% of rent"; },
+  costsYearly: function(){ return "rates, insurance, strata, water, repairs"; },
+  depreciationYearly: function(){ return "from a quantity surveyor's report — often $3,000–8,000 for a newer place, little for an older one"; },
+  growthPct: function(){ return "blank uses the projection's rate"; },
+  whenCash: function(){ return "cash, shares and offsets — never super"; },
+  sellingCostsPct: function(){ return "agent's fees and marketing, usually 2–3%"; }
+};
+var ODD = {
+  depositPct: function(c){ return n(c.depositPct) < 5 || n(c.depositPct) > 100; },
+  rate: function(c){ return n(c.rate) < 1 || n(c.rate) > 15; },
+  rentWeekly: function(c){ var y = n(c.price) > 0 ? n(c.rentWeekly) * 52 / n(c.price) : 0.04; return n(c.rentWeekly) > 0 && (y < 0.015 || y > 0.1); },
+  mgmtPct: function(c){ return n(c.mgmtPct) > 15; },
+  vacancyWeeks: function(c){ return n(c.vacancyWeeks) > 12; },
+  termYears: function(c){ return n(c.termYears) > 40; },
+  sellingCostsPct: function(c){ return n(c.sellingCostsPct) > 8; }
+};
 function field(c, scenario, key, label, type, extra){
   var v = c[key] == null ? "" : c[key];
   var marked = !!(fieldMarks[key] || (key === "fromYear" && (fieldMarks.when || fieldMarks.whenAge || fieldMarks.whenCash)));
@@ -40,16 +62,23 @@ function field(c, scenario, key, label, type, extra){
   var input;
   if(type === "select") input = '<select' + attrs + '>' + extra.map(function(o){ var val = Array.isArray(o) ? o[0] : o, lab = Array.isArray(o) ? o[1] : o; return '<option value="' + escapeAttr(val) + '"' + (String(val) === String(v) ? " selected" : "") + '>' + escapeAttr(lab) + '</option>'; }).join("") + '</select>';
   else input = '<input type="' + type + '"' + (type === "number" ? ' step="any"' : '') + attrs + ' value="' + escapeAttr(v) + '"' + (extra || "") + '>';
-  return '<label class="scf' + (marked ? ' is-changed' : '') + '"><span>' + label + (marked ? ' <i class="scf-dot" title="Changed since you opened it" aria-label="changed"></i>' : '') + '</span>' + input + '</label>';
+  var hint = HINTS[key] ? HINTS[key](c) : "", odd = ODD[key] ? ODD[key](c) : false;
+  return '<label class="scf' + (marked ? ' is-changed' : '') + (odd ? ' is-odd' : '') + '"><span>' + label + (marked ? ' <i class="scf-dot" title="Changed since you opened it" aria-label="changed"></i>' : '') + '</span>' + input +
+    (odd ? '<small class="scf-odd">unusual — check it</small>' : hint ? '<small class="scf-hint">' + escapeAttr(hint) + '</small>' : '') + '</label>';
+}
+// A labelled group of fields (v3.193.0).
+function group(title, fields, folded){
+  return folded ? '<details class="scf-group scf-more"><summary>' + title + '</summary><div class="scf-grid">' + fields.join("") + '</div></details>'
+    : '<fieldset class="scf-group"><legend>' + title + '</legend><div class="scf-grid">' + fields.join("") + '</div></fieldset>';
 }
 // v3.183.0 (item 214): when a change starts — in a year, at an age, or when cash reaches an amount.
 function whenFields(c, scenario, label){
-  var kinds = [["year", "In a year"], ["age", "At an age"]].concat(c.kind === "sell" ? [] : [["cash", "When cash reaches"]]);
+  var kinds = [["year", "In a set year"], ["age", "At an age"]].concat(c.kind === "sell" ? [] : [["cash", "When cash reaches…"]]);
   var w = c.when === "age" || (c.when === "cash" && c.kind !== "sell") ? c.when : "year";
   var picker = field(Object.assign({}, c, { when: w }), scenario, "when", label, "select", kinds);
   if(w === "age") return [picker, field(c, scenario, "whenAge", "Age", "number", ' min="0" max="100" inputmode="numeric"')];
   if(w === "cash") return [picker, field(c, scenario, "whenCash", "Cash of", "number", ' min="0" step="1000" inputmode="decimal"')];
-  return [picker, field(c, scenario, "fromYear", "Year", "select", yearOptions())];
+  return [picker, field(c, scenario, "fromYear", "Which year", "select", yearOptions())];
 }
 function yearOptions(){ var o = [["0", "Now"]]; for(var y = 1; y <= 15; y++) o.push([String(y), "In " + y + " year" + (y === 1 ? "" : "s")]); return o; }
 function changeFormHtml(c, scenario, ctx){
@@ -59,17 +88,19 @@ function changeFormHtml(c, scenario, ctx){
     f = f.concat(whenFields(c, scenario, "From"));
   } else if(c.kind === "ip"){
     var people = getTaxPeople();
-    f.push(field(c, scenario, "what", "Name", "text"), field(c, scenario, "price", "Price", "number"), field(c, scenario, "depositPct", "Deposit %", "number"),
-      field(c, scenario, "rate", "Interest %", "number"), field(c, scenario, "repaymentType", "Loan", "select", [["IO", "Interest only"], ["PI", "Principal & interest"]]),
-      field(c, scenario, "termYears", "Term (years)", "number"), field(c, scenario, "state", "State", "select", PURCHASE_STATE_CODES),
-      field(c, scenario, "rentWeekly", "Rent a week", "number"), field(c, scenario, "vacancyWeeks", "Weeks vacant a year", "number"), field(c, scenario, "mgmtPct", "Management %", "number"),
-      field(c, scenario, "costsYearly", "Costs a year", "number", ' title="Rates, insurance, strata, water, repairs"'), field(c, scenario, "depreciationYearly", "Depreciation a year", "number"),
-      field(c, scenario, "growthPct", "Growth % a year", "number", ' placeholder="Projection\'s rate"'),
-      field(c, scenario, "owner", "Owner", "select", [["", people.length > 1 ? "Shared evenly" : "The household"]].concat(people.map(function(p){ return [p, p]; }))),
-      whenFields(c, scenario, "Bought")[0], whenFields(c, scenario, "Bought")[1]);
     var fig = ipFigures(c, { marginalRate: ctx.marginalRateFor(c.owner), taxEffect: ctx.taxEffectFor ? function(tx){ return ctx.taxEffectFor(c.owner, tx); } : null });
-    f.push('<p class="scf-figs"><span>Rent less costs and loan: <b>' + signed(fig.cashBeforeTaxMonthly) + '/mo</b></span><span>Tax effect: <b>' + signed(fig.taxEffectYearly / 12) + '/mo</b> (' + Math.round(fig.taxRate * 100) + '% on a ' + (fig.taxableYearly < 0 ? 'loss' : 'profit') + ' of ' + fmtCurrency0.format(Math.abs(fig.taxableYearly)) + ' a year)</span>' +
+    // v3.193.0 (item 224): its figures first, then the fields in groups, the rarer ones folded.
+    f.push('<p class="scf-figs"><span>Rent less costs and loan: <b>' + signed(fig.cashBeforeTaxMonthly) + '/mo</b></span><span>Tax effect: <b>' + signed(fig.taxEffectYearly / 12) + '/mo</b> (on a ' + (fig.taxableYearly < 0 ? 'loss' : 'profit') + ' of ' + fmtCurrency0.format(Math.abs(fig.taxableYearly)) + ' a year)</span>' +
       '<span>After tax: <b>' + signed(fig.cashAfterTaxMonthly) + '/mo</b></span><span>Cash at settlement: <b>' + fmtCurrency0.format(fig.upfront) + '</b> (deposit ' + fmtCurrency0.format(fig.deposit) + ', stamp duty ' + fmtCurrency0.format(fig.stampDuty) + (fig.lmi ? ', LMI ' + fmtCurrency0.format(fig.lmi) : '') + ', other costs)</span></p>');
+    var when = whenFields(c, scenario, "Bought");
+    return f.join("") +
+      group("Price and loan", [field(c, scenario, "what", "Name", "text"), field(c, scenario, "price", "Price", "number"), field(c, scenario, "state", "State", "select", PURCHASE_STATE_CODES),
+        field(c, scenario, "depositPct", "Deposit %", "number"), field(c, scenario, "rate", "Interest %", "number"), field(c, scenario, "repaymentType", "Loan", "select", [["IO", "Interest only"], ["PI", "Principal & interest"]]),
+        field(c, scenario, "termYears", "Term (years)", "number")]) +
+      group("Rent", [field(c, scenario, "rentWeekly", "Rent a week", "number"), field(c, scenario, "vacancyWeeks", "Weeks vacant a year", "number"), field(c, scenario, "mgmtPct", "Management %", "number")]) +
+      group("Costs and tax", [field(c, scenario, "costsYearly", "Costs a year", "number"), field(c, scenario, "depreciationYearly", "Depreciation a year", "number")]) +
+      group("More — growth, owner, when it's bought", [field(c, scenario, "growthPct", "Growth % a year", "number", ' placeholder="Projection\'s rate"'),
+        field(c, scenario, "owner", "Owner", "select", [["", people.length > 1 ? "Shared evenly" : "The household"]].concat(people.map(function(p){ return [p, p]; }))), when[0], when[1]], !(fieldMarks.growthPct || fieldMarks.owner || fieldMarks.when || fieldMarks.whenCash || fieldMarks.whenAge || fieldMarks.fromYear) && !c.when && !Number(c.fromYear));
   } else if(c.kind === "extra"){
     var loaned = (state.properties || []).filter(function(p){ return (p.loans || []).length; }).map(function(p){ return [p.id, p.what || "A property"]; });
     f.push(field(c, scenario, "propertyId", "Loan on", "select", loaned.length ? loaned : [["", "No property loans yet"]]), field(c, scenario, "amount", "Extra", "number"),

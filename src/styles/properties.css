@@ -531,3 +531,11 @@
 .sct-when{ font-size:var(--fs-xs); font-weight:600; color: var(--brass-strong); text-transform:uppercase; letter-spacing:.03em; }
 .sc-timeline b{ font-size:var(--fs-sm); }
 .sc-timeline small{ font-size:var(--fs-xs); color: var(--ink-soft); }
+/* v3.193.0 (item 224): forms that explain themselves */
+.scf-hint, .scf-odd{ display:block; margin-top:2px; font-size:var(--fs-xs); line-height:1.35; }
+.scf-hint{ color: var(--ink-soft); }
+.scf-odd{ color: var(--warn-ink); font-weight:600; }
+.scf.is-odd input, .scf.is-odd select{ border-color: var(--warn-ink); }
+.scf-group{ border:0; margin:10px 0 0; padding:0; min-width:0; }
+.scf-group > legend, .scf-more > summary{ font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); padding:0; margin-bottom:6px; }
+.scf-more > summary{ cursor:pointer; min-height:44px; display:flex; align-items:center; }

@@ -1753,6 +1753,11 @@ test("a scenario's changes list draws each kind, and an open investment property
   assert.match(html, /Sell 1 Example St in year 3/);
   assert.match(html, /Childcare: \$900 monthly · from year 2/);
   assert.match(html, /Cash at settlement/);
+  // v3.193.0: grouped, with hints; the rarer fields folded.
+  assert.match(html, /<legend>Price and loan<\/legend>/);
+  assert.match(html, /<legend>Rent<\/legend>/);
+  assert.match(html, /scf-more/);
+  assert.match(html, /gross yield/);
   assert.match(html, /data-sc-addsheet=/); // v3.190.0: one "+ Add a change", a sheet of the kinds
   assert.doesNotMatch(html, /undefined|NaN/);
   delete sc.changeOpen.i;

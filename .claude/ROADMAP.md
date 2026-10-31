@@ -4138,11 +4138,21 @@ for then, from what's there then. Tests: the order and years (a cash trigger's, 
 settlement leaves out a property bought later. Driven at 1280 and 390px with "when cash reaches $250,000".
 
 
-## 224. `[ ]` Forms that explain themselves
+## 224. `[x]` Forms that explain themselves
 Do: an investment property's fields grouped (price and loan, rent, costs and tax, more), its figures first; plain hints
 on the harder fields; values out of the usual range flagged, not refused.
 
 Done when: render test; driven at 390px.
+
+**Done (v3.193.0).** An investment property's form leads with its figures, then groups its fields — Price and loan, Rent,
+Costs and tax — with growth, owner and when it's bought folded under "More" (open when one of those is set or changed).
+Harder fields carry a plain hint (the deposit in dollars and the LMI line, rent as a gross yield, typical vacancy and
+management, what depreciation is and what it usually comes to, what counts as cash for a trigger, selling costs) and a
+value outside the usual (a deposit under 5%, an interest rate under 1% or over 15%, a yield under 1.5% or over 10%, more
+than 12 weeks vacant…) is flagged "unusual — check it", never refused (`HINTS` / `ODD` in components/scenariochanges.js,
+for every change's fields). "When" reads In a set year / At an age / When cash reaches…, with "Which year". Driven at
+390px: a 2% deposit flagged, the groups and hints shown.
+
 
 ## 225. `[ ]` The scenario's own header
 Do: renamed in place; a note on why you're looking at it (on its card too); "lives somewhere else" said in the header

@@ -3770,6 +3770,12 @@ cancel-by date set on the demo household's list, and the reminder read back from
 PocketSmith's headline is an account's balance projected day by day, with each bill and pay landing on its date.
 The 12-month forecast here is monthly and household-wide.
 
+Do: for each everyday account, a 90-day balance line from today's balance, pay days and bills on their dates, and
+the usual spending spread across the days. It warns when the lowest point falls below a buffer you set. It shows
+on the account's detail page and as a Home card when a warning is due.
+
+Done when: tests over an invented month land each bill and pay on its day; the warning shows in a driven run.
+
 **Done (v3.180.0).** **The next 90 days** on an everyday account's detail page (`calc/dailyforecast.js`,
 `components/dailyforecast.js`): today's balance (rolled forward from the last recorded one), then day by day — pay on the
 rhythm it has landed in this account before (`state.incomeLog`, at its latest amount), the bills calendar's bills paid
@@ -3780,14 +3786,6 @@ a "Warn me below" buffer (`account.buffer`). When the balance heads under it, Ho
 repayment on its own day, today's events already in today's balance, the lowest point (the day before pay) and the first
 day under the buffer, and no warning without a buffer. Driven at 1280 and 390px on the demo household: the forecast
 drawn, a buffer set from the page, the warning there and on Home.
-
-
-
-Do: for each everyday account, a 90-day balance line from today's balance, pay days and bills on their dates, and
-the usual spending spread across the days. It warns when the lowest point falls below a buffer you set. It shows
-on the account's detail page and as a Home card when a warning is due.
-
-Done when: tests over an invented month land each bill and pay on its day; the warning shows in a driven run.
 
 
 ### Phase I — scenarios as sealed sandboxes (October 2026)

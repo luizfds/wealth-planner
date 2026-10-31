@@ -16,6 +16,7 @@ import { eventEffects } from "./lifeevents.js";
 import { loggedSinceRecorded } from "./accounts.js";
 import { scenarioSharedItems, changesFor } from "./scenariochanges.js";
 import { legsMonthly, legsInYear } from "./scenariolegs.js";
+import { isDraftKey } from "./scenariodraft.js";
 
 // Every non-Shares asset, and every Shares holding on the ASX, is already AUD — the only
 // currency this app ever mixes in is USD (US-market and Crypto holdings, see MARKET_CURRENCY).
@@ -446,7 +447,8 @@ export function recalcComputedItems(){
       ? "auto: share of " + p.state + " land tax on $" + Math.round(landTaxDetail.groupLandValue).toLocaleString("en-AU") + " combined land value across " + landTaxDetail.groupCount + " properties"
       : "auto: " + p.state + " land tax on $" + Math.round(Number(p.landValue) || 0).toLocaleString("en-AU") + " land value";
   });
-  state.scenarios.forEach(function(scenario){
+  // v3.181.0: and any scenario being edited (its draft, calc/scenariodraft.js), so its loan row follows its calculator.
+  state.scenarios.concat(Object.keys(state.purchase || {}).filter(isDraftKey)).forEach(function(scenario){
     var cfg = state.purchase[scenario];
     var loanRow = (state.home[scenario] || []).find(function(i){ return i.id === "homeLoanRow"; });
     if(!loanRow) return;

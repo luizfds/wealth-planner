@@ -890,6 +890,12 @@
         <p class="page-intro help">Everything you own and owe in one list — open any of it for its history and detail, or use the tabs above to update balances, holdings and property.</p>
         <div id="netWorthBody" class="nw-page"></div>
       </section>
+      <!-- v3.181.0 (item 212): one scenario at a time, edited as a draft; Save updates everything else. -->
+      <section class="app-page" id="page-scenario" hidden>
+        <div id="scenarioEditHead"></div>
+        <div id="scenarioEditSummary"></div>
+        <div class="ledgers"><div class="ledger-body sc-edit-body"><div id="homeBody"></div></div></div>
+      </section>
       <section class="app-page" id="page-detail" hidden>
         <div id="detailBody" class="dt-page"></div>
       </section>
@@ -948,20 +954,6 @@
         <div class="cards" id="cards" role="radiogroup" aria-label="Choose active scenario"></div>
         <!-- v3.175.0 (item 210): side by side. -->
         <div id="scenarioCompare"></div>
-        <div class="page-intro-row">
-          <p class="page-intro help">What each scenario costs to live in — rent or a home loan, plus a purchase calculator for anything you're buying.</p>
-        </div>
-        <div class="ledgers">
-          <details class="ledger" open>
-            <summary>
-              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Your home</h2></div>
-              <div class="ledger-total">edit each scenario</div>
-            </summary>
-            <div class="ledger-body">
-              <div id="homeBody"></div>
-            </div>
-          </details>
-        </div>
         </div>
         <div class="plan-subpage" id="planSub-projections" hidden>
         <p class="page-intro help">Where each scenario's net worth could land years from now, under assumptions you control.</p>
@@ -1157,6 +1149,7 @@
   "./src/calc/sale.js": "./src/calc/sale.js?v=3.180.1",
   "./src/calc/savegoals.js": "./src/calc/savegoals.js?v=3.180.1",
   "./src/calc/scenariochanges.js": "./src/calc/scenariochanges.js?v=3.180.1",
+  "./src/calc/scenariodraft.js": "./src/calc/scenariodraft.js?v=3.180.1",
   "./src/calc/scenariolegs.js": "./src/calc/scenariolegs.js?v=3.180.1",
   "./src/calc/scenariotemplates.js": "./src/calc/scenariotemplates.js?v=3.180.1",
   "./src/calc/showas.js": "./src/calc/showas.js?v=3.180.1",
@@ -1334,6 +1327,7 @@
 <link rel="modulepreload" href="./src/calc/sale.js?v=3.180.1">
 <link rel="modulepreload" href="./src/calc/savegoals.js?v=3.180.1">
 <link rel="modulepreload" href="./src/calc/scenariochanges.js?v=3.180.1">
+<link rel="modulepreload" href="./src/calc/scenariodraft.js?v=3.180.1">
 <link rel="modulepreload" href="./src/calc/scenariolegs.js?v=3.180.1">
 <link rel="modulepreload" href="./src/calc/scenariotemplates.js?v=3.180.1">
 <link rel="modulepreload" href="./src/calc/showas.js?v=3.180.1">

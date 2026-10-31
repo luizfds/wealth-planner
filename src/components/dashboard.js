@@ -1,3 +1,4 @@
+import { hasDraft, draftChanged } from "../calc/scenariodraft.js";
 import { state, persist } from "../state.js";
 import { setupProgress, shouldShowSetup } from "../lib/setup.js";
 import { sumField, sumByClassification, sumByAccount, safeDiv, resolveSharedAmount, nextDueDate, daysUntil, appendHistorySnapshot, lastTransactionDateFor, periodsOf } from "../calc/ledger.js";
@@ -48,6 +49,8 @@ export function renderCards(){
                 '<span class="page-overflow-menu" data-overflow-menu hidden>' +
                   '<button type="button" class="btn btn-sm btn-ghost" data-rename="' + escapeAttr(scenario) + '">Rename</button>' +
                   '<button type="button" class="btn btn-sm btn-ghost" data-clone="' + escapeAttr(scenario) + '" title="Copy this scenario\'s home costs, purchase/invest setup and any overrides into a new one">Clone</button>' +
+                  // v3.181.0: Make it real moved here from the scenario's block.
+                  (!isBaseline ? '<button type="button" class="btn btn-sm btn-ghost" data-make-real="' + escapeAttr(scenario) + '">Make it real…</button>' : "") +
                   (canDelete && !isBaseline ? '<button type="button" class="btn btn-sm btn-danger menu-danger" data-delete="' + escapeAttr(scenario) + '">Delete</button>' : "") +
                 '</span>' +
               '</span>' +
@@ -63,7 +66,9 @@ export function renderCards(){
           '<div class="card-bar-track"><div class="card-bar-fill' + (t.rate < 0 ? " neg" : "") + '" style="width:' + Math.min(100, Math.abs(t.rate) / maxAbsRate * 100) + '%"></div></div>' +
           '<div class="card-stats"><span>Savings rate</span><b>' + fmtPercent1.format(t.rate) + '</b></div>' +
           '<div class="card-stats"><span>Home cost / mo</span><b>' + fmtCurrency0.format(t.homeMonthly) + '</b></div>' +
-          '<button type="button" class="card-edit-link" data-edit-scenario="' + escapeAttr(scenario) + '">Edit rent/home loan, purchase &amp; invest options →</button>' +
+          // v3.181.0 (item 212): Edit opens the scenario on its own page; a draft left there says so.
+          (hasDraft(scenario) && draftChanged(scenario) ? '<span class="card-draft">Unsaved changes</span>' : '') +
+          '<button type="button" class="card-edit-link" data-edit-scenario="' + escapeAttr(scenario) + '">' + (isBaseline && !(state.home[scenario] || []).length ? "Where you live today →" : hasDraft(scenario) && draftChanged(scenario) ? "Continue editing →" : "Edit this scenario →") + '</button>' +
         '</div>' +
       '</div>'
     );

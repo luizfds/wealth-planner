@@ -4,9 +4,11 @@ import { state, persist, defaultHomeBlock, defaultPurchaseConfig, defaultInvestC
 import { renameScenarioChanges, cloneScenarioChanges, deleteScenarioChanges, setLivesElsewhere, homeRowsFromBudget, livesElsewhere, changesFor } from "../calc/scenariochanges.js";
 import { scenarioChangesHtml, todaysHomeHtml, todaysHomeMonthly } from "./scenariochanges.js";
 import { renderCompare } from "./compare.js";
+import { compareScenario } from "../calc/compare.js";
+import { draftChanged, renameDraft, discardDraft } from "../calc/scenariodraft.js";
 import { PURCHASE_STATE_CODES, STATE_GROWTH_RATES, INVEST_LEG_TYPES } from "../constants.js";
 import { recalcPurchase } from "../calc/property.js";
-import { recalcComputedItems, scenarioTotals } from "../calc/engine.js";
+import { recalcComputedItems, scenarioTotals, currentScenario } from "../calc/engine.js";
 import { periodsOf, sumField } from "../calc/ledger.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
 import { escapeAttr, slug } from "../lib/html.js";
@@ -55,7 +57,39 @@ export function addScenario(){
 // v3.180.1: only what a scenario changes. Budget and Income show the household (v3.172.0), so a
 // scenario edit can't change them — redrawing them on every click is what made Plan → Scenarios slow.
 // The projection chart redraws when it's on screen, or when Projections is next opened.
+// v3.181.0 (item 212): the editor page — its head (Save, Cancel), what the draft comes to against
+// today, and its controls. While it's open a change redraws only this page; Save updates the rest.
+export function scenarioEditorHeadHtml(){
+  var name = editing.name, changed = editing.key !== name && draftChanged(name);
+  return '<div class="sc-edit-head"><button type="button" class="link-btn" data-sc-cancel>← Scenarios</button>' +
+    '<h2>' + escapeAttr(name || "") + '</h2>' +
+    (editing.key !== name ? '<span class="sc-edit-state' + (changed ? ' is-changed' : '') + '">' + (changed ? "Unsaved changes" : "No changes yet") + '</span>' +
+      '<span class="sc-edit-actions"><button type="button" class="btn btn-sm btn-ghost" data-sc-cancel>Cancel</button>' +
+      '<button type="button" class="btn btn-sm btn-primary" data-sc-save' + (changed ? '' : ' disabled') + '>Save</button></span>' : '') + '</div>';
+}
+export function scenarioEditorSummaryHtml(){
+  var key = editing.key, name = editing.name;
+  if(!key || key === name && state.baselineScenario === name) return "";
+  var c;
+  try { c = compareScenario(key, { baseline: currentScenario() }); } catch(e){ return ""; }
+  var base = compareScenario(currentScenario(), { baseline: currentScenario() });
+  var signed = function(n){ return (n >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(n)); };
+  var ten = c.netWorth.find(function(x){ return x.year === 10; }) || c.netWorth[0];
+  return '<div class="sc-edit-summary">' +
+    '<div><span>A month, after tax</span><b class="' + (c.monthAfterTax < 0 ? "down" : "") + '">' + fmtCurrency0.format(c.monthAfterTax) + '</b><small>' + signed(c.monthAfterTax - base.monthAfterTax) + ' against today</small></div>' +
+    '<div><span>Cash at settlement</span><b>' + fmtCurrency0.format(c.upfront) + '</b><small>' + (c.short > 0 ? '<span class="down">' + fmtCurrency0.format(c.short) + ' short</span>' : fmtCurrency0.format(c.available) + ' available') + '</small></div>' +
+    '<div><span>Net worth in ' + ten.year + ' years</span><b>' + fmtCurrency0.format(ten.value) + '</b><small>' + signed(ten.vsBase) + ' against today</small></div>' +
+    '</div><p class="sc-edit-verdict">' + escapeAttr(c.verdict) + '</p>';
+}
+export function renderScenarioEditor(){
+  var head = typeof document !== "undefined" && document.getElementById("scenarioEditHead");
+  if(!head) return;
+  head.innerHTML = scenarioEditorHeadHtml();
+  var sum = document.getElementById("scenarioEditSummary");
+  if(sum) sum.innerHTML = scenarioEditorSummaryHtml();
+}
 export function refreshScenarioDependentViews(){
+  if(editing.key && editing.key !== editing.name){ renderHomeBody(); renderScenarioEditor(); return; }
   renderCards();
   renderCompare();
   renderDetail();
@@ -97,6 +131,7 @@ export function renameScenario(oldName){
   });
   // v3.172.0: the scenario's own changes (calc/scenariochanges.js) go with its name.
   renameScenarioChanges(oldName, name);
+  renameDraft(oldName, name);
   persist();
   refreshScenarioDependentViews();
   renderAssets();
@@ -160,6 +195,7 @@ export function deleteScenario(name){
     if(item.scenarioOverrides) delete item.scenarioOverrides[name];
   });
   deleteScenarioChanges(name);
+  discardDraft(name);
   if(state.activeScenario === name) state.activeScenario = state.scenarios[0];
   persist();
   refreshScenarioDependentViews();
@@ -218,63 +254,35 @@ export function renderHomeListModern(scenario, i){
   if(container) container.innerHTML = modernHomeListHtml(scenario);
 }
 
+// v3.181.0 (item 212): one scenario, on its own page (page-scenario), being edited as a draft
+// (calc/scenariodraft.js). The cards on Plan → Scenarios are the list; Edit opens this.
+// editing = { name: the scenario, key: what the controls write to — its draft, or the scenario
+// itself for today, which has nothing to draft (its home is in Budget) }.
+export var editing = { name: null, key: null };
 export function renderHomeBody(){
   var body = document.getElementById("homeBody");
-  var canDelete = state.scenarios.length > 1;
-  state.scenarios.forEach(function(scenario){
-    if(!(scenario in homeBlockCollapsed)) homeBlockCollapsed[scenario] = (scenario !== state.activeScenario);
-  });
-  body.innerHTML = state.scenarios.map(function(scenario, i){
-    var isActive = state.activeScenario === scenario;
-    var isBaseline = state.baselineScenario === scenario;
-    // With only one scenario, "active" is trivially true and redundant next to the baseline
-    // badge (there's nothing else it could be compared against yet) — the "Set active" link
-    // also has nothing meaningful to do at that point, so it's suppressed the same way.
-    var showActiveBadge = isActive && state.scenarios.length > 1;
-    var isCollapsed = !!homeBlockCollapsed[scenario];
-    // Today, unless it's itself buying (then its loan is the calculator's, and it keeps its own rows).
-    var isToday = isBaseline && !(state.home[scenario] || []).length;
-    var total = scenarioHomeMonthly(scenario);
-    return '<div class="home-block' + (isActive ? " is-active" : "") + (isCollapsed ? " is-collapsed" : "") + '">' +
-      // v3.139.0: the whole header still opens and closes the card with a click, but the control a
-      // keyboard and a screen reader reach is the caret — the header itself holds Set active, Rename,
-      // Clone and Delete, and a button can't hold buttons.
-      '<div class="home-block-head" data-collapse-toggle="' + escapeAttr(scenario) + '">' +
-        '<div class="home-block-head-left">' +
-          '<button type="button" class="icon-btn home-collapse-toggle" aria-expanded="' + (!isCollapsed) + '" aria-label="' + (isCollapsed ? "Expand" : "Collapse") + ' ' + escapeAttr(scenario) + '"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg></button>' +
-          '<span class="home-dot"></span><h3>' + escapeAttr(scenario) + '</h3>' +
-          (isBaseline ? '<span class="home-baseline-badge" title="Your current, real-life situation — kept as the fixed baseline every other scenario is compared against">Current situation</span>' : "") +
-          // v3.172.0 (item 207): no "Active on Home" — Home always shows the household as it is.
-        '</div>' +
-        '<div class="home-block-right" title="Total home cost per month — rent/repayment plus insurance, rates, water &amp; maintenance">' +
-          '<span class="home-block-total-label">Home cost</span>' +
-          '<span class="home-block-total">' + fmtCurrency0.format(total) + ' / mo</span>' +
-          '<button type="button" class="icon-btn" data-rename="' + escapeAttr(scenario) + '" aria-label="Rename ' + escapeAttr(scenario) + '" title="Rename">✎</button>' +
-          '<button type="button" class="icon-btn" data-clone="' + escapeAttr(scenario) + '" aria-label="Clone ' + escapeAttr(scenario) + '" title="Clone — copy this scenario\'s home costs, purchase/invest setup and any overrides into a new one">' +
-            '<svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="7" width="9" height="9" rx="1.5"/><path d="M13 7V5a1.5 1.5 0 0 0-1.5-1.5H5A1.5 1.5 0 0 0 3.5 5v6.5A1.5 1.5 0 0 0 5 13h2"/></svg>' +
-          '</button>' +
-          (canDelete && !isBaseline ? '<button type="button" class="icon-btn icon-del" data-delete="' + escapeAttr(scenario) + '" aria-label="Delete ' + escapeAttr(scenario) + '" title="Delete">✕</button>' : "") +
-        '</div>' +
-      '</div>' +
-      // v3.172.0 (item 207): today is the household itself — its home is in Budget — and every other
-      // scenario lists what it does differently.
-      (isToday ? '<div class="home-block-body">' + todaysHomeHtml() + '</div></div>' :
-      '<div class="home-block-body">' +
-        scenarioChangesHtml(scenario) +
-        renderPurchasePanelHtml(scenario) +
-        '<div class="calc-or-divider" aria-hidden="true"><span>or</span></div>' +
-        renderInvestPanelHtml(scenario) +
-        (!livesElsewhere(scenario) ? '' :
-        '<div class="home-recurring-label">Recurring costs — per month</div>' +
-        ((state.home[scenario] || []).length ? '<p class="income-summary-line home-recon-line">' + homeReconciliationHtml(scenario) + '</p>'
-          : '<p class="ledger-note">Its rent is in the changes above. Add anything else living there costs — contents insurance, parking, utilities.</p>') +
-        '<div class="m-card" id="homeCard_' + slug(scenario) + i + '">' + modernHomeCompBarHtml(homeRowMeta(scenario)) + '<div class="m-rows" id="homeRows_' + slug(scenario) + i + '">' + modernHomeListHtml(scenario) + '</div></div>' +
-        '<div class="ledger-footer"><button class="btn btn-sm" data-add="home:' + escapeAttr(scenario) + '">+ Add item</button></div>') +
-        makeRealButtonHtml(scenario) +
-      '</div>' +
-      '</div>');
-  }).join("") +
-  '<button type="button" class="add-scenario-row" id="addScenarioBtn2"><span class="add-plus" style="font-size:var(--fs-lg)">+</span> Add another scenario</button>';
+  if(!body) return;
+  var name = editing.name, scenario = editing.key;
+  if(!name || !scenario){ body.innerHTML = ""; return; }
+  var i = state.scenarios.indexOf(scenario);
+  var isBaseline = state.baselineScenario === name;
+  // Today, unless it's itself buying (then its loan is the calculator's, and it keeps its own rows).
+  var isToday = isBaseline && !(state.home[scenario] || []).length;
+  body.innerHTML = '<div class="home-block sc-edit-block" data-home-scenario="' + escapeAttr(scenario) + '">' +
+    (isToday ? '<div class="home-block-body">' + todaysHomeHtml() + '</div>' :
+    '<div class="home-block-body">' +
+      scenarioChangesHtml(scenario) +
+      renderPurchasePanelHtml(scenario) +
+      '<div class="calc-or-divider" aria-hidden="true"><span>or</span></div>' +
+      renderInvestPanelHtml(scenario) +
+      (!livesElsewhere(scenario) ? '' :
+      '<div class="home-recurring-label">Recurring costs — per month</div>' +
+      ((state.home[scenario] || []).length ? '<p class="income-summary-line home-recon-line">' + homeReconciliationHtml(scenario) + '</p>'
+        : '<p class="ledger-note">Its rent is in the changes above. Add anything else living there costs — contents insurance, parking, utilities.</p>') +
+      '<div class="m-card" id="homeCard_' + slug(scenario) + i + '">' + modernHomeCompBarHtml(homeRowMeta(scenario)) + '<div class="m-rows" id="homeRows_' + slug(scenario) + i + '">' + modernHomeListHtml(scenario) + '</div></div>' +
+      '<div class="ledger-footer"><button class="btn btn-sm" data-add="home:' + escapeAttr(scenario) + '">+ Add item</button></div>') +
+    '</div>') +
+  '</div>';
   renderCanBuy();
 }
 
@@ -422,8 +430,9 @@ function scenarioHomeMonthly(scenario){
     .reduce(function(sum, c){ return sum + periodsOf(Number(c.amount) || 0, c.freq || "Weekly").monthly; }, 0);
 }
 export function renderHomeBodyTotalsOnly(){
-  document.querySelectorAll('#homeBody .home-block').forEach(function(block, i){
-    var scenario = state.scenarios[i];
+  document.querySelectorAll('#homeBody .home-block').forEach(function(block){
+    var scenario = block.getAttribute("data-home-scenario");
+    if(!scenario) return;
     var monthly = scenarioHomeMonthly(scenario);
     var totalSpan = block.querySelector('.home-block-total');
     if(totalSpan) totalSpan.textContent = fmtCurrency0.format(monthly) + " / mo";
@@ -432,6 +441,7 @@ export function renderHomeBodyTotalsOnly(){
     var barWrap = block.querySelector('[id^="homeCard_"] [data-comp-bar]');
     if(barWrap) barWrap.outerHTML = modernHomeCompBarHtml(homeRowMeta(scenario));
   });
+  if(editing.key) renderScenarioEditor();
 }
 
 export function patchHomeLoanRowIfSynced(scenario){
@@ -441,8 +451,7 @@ export function patchHomeLoanRowIfSynced(scenario){
   var idx = arr.findIndex(function(i){ return i.id === "homeLoanRow"; });
   if(idx === -1) return;
   var item = arr[idx];
-  var i = state.scenarios.indexOf(scenario);
-  if(i === -1) return;
+  var i = state.scenarios.indexOf(scenario); // −1 for a draft, as its rows' container is named
   var wrap = document.getElementById("homeRows_" + slug(scenario) + i);
   if(!wrap) return;
   var tr = wrap.querySelector('[data-index="' + idx + '"]');
@@ -489,6 +498,11 @@ export function patchCalcOutputs(panel, scenario){
 }
 
 export function afterCalcChange(scenario){
+  // A draft being edited: only its page (Save updates the rest).
+  if(editing.key && scenario === editing.key && editing.key !== editing.name){
+    recalcComputedItems(); patchHomeLoanRowIfSynced(scenario); renderHomeBodyTotalsOnly(); persist();
+    return;
+  }
   recalcComputedItems();
   renderCanBuy();
   renderCards();

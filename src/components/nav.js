@@ -1,3 +1,4 @@
+import { renderHomeBody, renderScenarioEditor } from "./scenarios.js";
 import { renderProjectionsIfStale } from "./projections.js";
 import { renderDashboardStats } from "./dashboard.js";
 import { renderHomeSummary } from "./home.js";
@@ -29,7 +30,9 @@ var PAGES = [
   { id: "reports", label: "Reports" },
   { id: "settings", label: "Settings" },
   // v3.128.0: one page for any single thing — /detail/<kind>/<id>. In no menu; lists link to it.
-  { id: "detail", label: "Details" }
+  { id: "detail", label: "Details" },
+  // v3.181.0 (item 212): one scenario being edited. In no menu; a scenario card's Edit opens it.
+  { id: "scenario", label: "Edit scenario" }
 ];
 // Old page ids → [page, subpage]. Anything that still says showPage("income") — a notification, the
 // setup checklist, a search result, an old bookmark — lands on the subpage that replaced it.
@@ -119,6 +122,8 @@ export function parseRouteFromLocation(){
     var did = raw[2] ? (function(){ try{ return decodeURIComponent(raw[2]); }catch(e){ return raw[2]; } })() : null;
     return did ? { page: "detail", sub: null, detail: { kind: segs[1], id: did } } : { page: "dashboard", sub: null };
   }
+  // An editor needs the scenario it was opened on: a reload lands on the list, where its draft waits.
+  if(segs[0] === "scenario") return { page: "plan", sub: "scenarios" };
   if(ALIASES[segs[0]]) return { page: ALIASES[segs[0]][0], sub: ALIASES[segs[0]][1] };
   var page = PAGES.find(function(p){ return p.id === segs[0]; });
   if(!page) return null;
@@ -323,10 +328,11 @@ export function showPage(id, opts){
     var navLabel = document.getElementById("navMenuCurrentLabel");
     if(navLabel) navLabel.textContent = page ? page.label : "Home";
     // A detail page needs its target, which a later visit won't have.
-    if(id !== "detail") try{ localStorage.setItem(PAGE_KEY, id); }catch(e){}
+    if(id !== "detail" && id !== "scenario") try{ localStorage.setItem(PAGE_KEY, id); }catch(e){}
     if(id === "dashboard"){ renderDashboardStats(); renderHomeSummary(); }
     if(id === "reports") renderReports();
     if(id === "detail") renderDetailPage();
+    if(id === "scenario"){ renderHomeBody(); renderScenarioEditor(); }
     if(id === "plan" && currentPlanSub === "projections") renderProjectionsIfStale();
     if(id === "networth") renderNetWorthPage();
     // v3.98.0: each page's "The app notices" strip reads figures changed on other pages.

@@ -82,6 +82,8 @@ the last, so two sessions can't pick up the same one.
   `state.projection` directly in projection maths; a `retire` change stops pay from that age.
   **Speed (v3.180.1):** a scenario change redraws the scenario views once (`refreshScenarioDependentViews`); the projection chart
   goes through `renderProjectionsWhenSeen()` (drawn only on screen, else on next open) — call that, not `renderProjectionOutputs()`, from edits elsewhere.
+  **Editor (v3.181.0):** a scenario is edited on `page-scenario` as a draft (`calc/scenariodraft.js`, key `Draft · <name>` in purchase /
+  invest / home / scenarioChanges; `editing` in components/scenarios.js). Anything looping scenarios by `state.scenarios` skips drafts — keep it so.
 - **Investment returns (v3.178.0):** `calc/investreturn.js` — `xirr`, money-weighted per holding, the same money in an index
   (the price file's weekly A200 / IVV series, read once a session by `components/investreturn.js`), a target mix (`state.targetMix`,
   a holding's own `assetClass` overriding its market) and distributions ahead. The IRR and the index units are `calc/performance.js`'s

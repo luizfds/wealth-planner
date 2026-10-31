@@ -1872,3 +1872,24 @@ test("an everyday account's next 90 days, and Home's card when it nears its buff
   assert.equal(m.lowBalanceCardHtml("2026-10-31"), "");
   Object.assign(state, was);
 });
+
+test("a scenario's own page: its head with Save and Cancel, and the draft's figures against today", async function(){
+  var m = await import("../src/components/scenarios.js");
+  var d = await import("../src/calc/scenariodraft.js");
+  var was = { scenarios: state.scenarios, purchase: state.purchase, invest: state.invest, home: state.home, ch: state.scenarioChanges, base: state.baselineScenario };
+  state.scenarios = ["Today", "Move"]; state.baselineScenario = "Today";
+  state.purchase = { Today: { enabled: false }, Move: { enabled: false } }; state.invest = { Today: { enabled: false }, Move: { enabled: false } };
+  state.home = { Today: [], Move: [] }; state.scenarioChanges = { Move: [{ id: "c1", kind: "rent", what: "Rent", amount: 650, freq: "Weekly", fromYear: 0 }] };
+  m.editing.name = "Move"; m.editing.key = d.openDraft("Move");
+  var head = m.scenarioEditorHeadHtml();
+  assert.match(head, /data-sc-save disabled/);
+  assert.match(head, /No changes yet/);
+  state.scenarioChanges[m.editing.key][0].amount = 700;
+  assert.match(m.scenarioEditorHeadHtml(), /Unsaved changes/);
+  var sum = m.scenarioEditorSummaryHtml();
+  assert.match(sum, /A month, after tax/);
+  assert.match(sum, /Net worth in 10 years/);
+  assert.doesNotMatch(head + sum, /undefined|NaN/);
+  d.discardDraft("Move"); m.editing.name = null; m.editing.key = null;
+  state.scenarios = was.scenarios; state.purchase = was.purchase; state.invest = was.invest; state.home = was.home; state.scenarioChanges = was.ch; state.baselineScenario = was.base;
+});

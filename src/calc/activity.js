@@ -11,6 +11,7 @@
 // entriesFor). A copy loaded from sync, a backup or the sample data resets the look instead of being
 // logged as this device's edit. Pure: before/after in, entries out.
 
+import { isDraftKey } from "./scenariodraft.js";
 import { rowLabel, fieldLabel, sectionLabel } from "./syncmerge.js";
 
 export var KEEP_DAYS = 90;
@@ -43,6 +44,8 @@ export function diffForLog(before, after){
   function walk(path, b, a, depth){
     var section = sectionLabel(path[0]) + (path.length > 1 ? " · " + path.slice(1).join(" · ") : "");
     if(same(b, a)) return;
+    // v3.181.0: a scenario being edited (calc/scenariodraft.js) — its Save is the change, not each edit.
+    if(path.length === 2 && isDraftKey(path[1])) return;
     if(rowsWithIds(b) || rowsWithIds(a)){
       var bi = {}, ai = {};
       (b || []).forEach(function(r){ bi[r.id] = r; });

@@ -81,12 +81,17 @@ export function scenarioEditorSummaryHtml(){
     '<div><span>A month, after tax</span><b class="' + (c.monthAfterTax < 0 ? "down" : "") + '">' + fmtCurrency0.format(c.monthAfterTax) + '</b><small>' + signed(c.monthAfterTax - base.monthAfterTax) + ' against today</small></div>' +
     '<div><span>Cash at settlement</span><b>' + fmtCurrency0.format(c.upfront) + '</b><small>' + (c.short > 0 ? '<span class="down">' + fmtCurrency0.format(c.short) + ' short</span>' : fmtCurrency0.format(c.available) + ' available') + '</small></div>' +
     '<div><span>Net worth in ' + ten.year + ' years</span><b>' + fmtCurrency0.format(ten.value) + '</b><small>' + signed(ten.vsBase) + ' against today</small></div>' +
-    '</div><p class="sc-edit-verdict">' + escapeAttr(c.verdict) + '</p>' +
+    '</div>' +
+    // v3.187.0 (item 218): the rest folds under the figures on a phone (open beside the controls on a desktop).
+    '<details class="sc-more"' + (editorUi.moreOpen ? ' open' : '') + ' data-sc-more><summary>The verdict, the chart and an account</summary>' +
+    '<p class="sc-edit-verdict">' + escapeAttr(c.verdict) + '</p>' +
     // v3.182.0 (item 213): the draft's net worth against today's, redrawn on every change.
     '<div class="dt-chart sc-edit-chart" id="scEditChart"></div>' +
     // v3.185.0 (item 216): laid over an everyday account's next 90 days.
-    scenarioAccountHtml(key);
+    scenarioAccountHtml(key) + '</details>';
 }
+// Session only: whether the results' fold is open (open on a desktop, folded on a phone, until changed).
+export var editorUi = { moreOpen: typeof window === "undefined" || !window.matchMedia || !window.matchMedia("(max-width: 880px)").matches };
 export function renderScenarioEditorChart(){
   var host = typeof document !== "undefined" && document.getElementById("scEditChart");
   var key = editing.key, base = currentScenario();

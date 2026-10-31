@@ -893,8 +893,11 @@
       <!-- v3.181.0 (item 212): one scenario at a time, edited as a draft; Save updates everything else. -->
       <section class="app-page" id="page-scenario" hidden>
         <div id="scenarioEditHead"></div>
-        <div id="scenarioEditSummary"></div>
-        <div class="ledgers"><div class="ledger-body sc-edit-body"><div id="homeBody"></div></div></div>
+        <!-- v3.187.0 (item 218): the controls, and the results held in view beside them (above them, folded, on a phone). -->
+        <div class="sc-edit-layout">
+          <div class="sc-edit-main"><div class="ledgers"><div class="ledger-body sc-edit-body"><div id="homeBody"></div></div></div></div>
+          <aside class="sc-edit-aside" aria-label="What this scenario comes to"><div id="scenarioEditSummary"></div></aside>
+        </div>
       </section>
       <section class="app-page" id="page-detail" hidden>
         <div id="detailBody" class="dt-page"></div>

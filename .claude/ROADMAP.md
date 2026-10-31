@@ -4048,11 +4048,19 @@ purchase and fails a large one. Driven at 1280 and 390px.
 
 From driving the editor at both widths, and the household's own ask: calculators of their own, which a scenario opens.
 
-## 218. `[ ]` Results beside the controls
+## 218. `[x]` Results beside the controls
 Do: on a desktop the editor is two columns — the controls, and the results (figures, chart, the account) held in view
 beside them; on a phone the two figures that matter stay in a strip, the rest folded under it.
 
 Done when: driven at 1280px (the results stay in view while the controls scroll) and 390px.
+
+**Done (v3.187.0).** The editor is two columns on a desktop: the controls, and beside them the results (the three
+figures, then the verdict, the chart and "Try it on an account") held in view while the controls scroll
+(`.sc-edit-layout` / `.sc-edit-aside`, sticky under the editor's head, which now sticks too). On a phone the results come
+first: the figures, and the rest folded under "The verdict, the chart and an account" (`editorUi.moreOpen`, kept while the
+page redraws; the charts draw when it opens). Driven at 1280px (the column stays in view scrolled down the controls)
+and 390px.
+
 
 ## 219. `[ ]` Save where your thumb is, and never lose a draft
 Do: on a phone, Save and Cancel sit in a bar at the bottom; leaving with unsaved changes (a tab, the back button, closing

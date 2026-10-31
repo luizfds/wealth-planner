@@ -1,4 +1,4 @@
-import { tryQ } from "./components/scenarioaccount.js";
+import { tryQ, renderScenarioAccountChart } from "./components/scenarioaccount.js";
 import { openDraft, saveDraft, discardDraft, draftChanged } from "./calc/scenariodraft.js";
 import { renderSubscriptions, subsUi } from "./components/subscriptions.js";
 import { bench, benchmarkCardHtml, targetMixCardHtml } from "./components/investreturn.js";
@@ -82,7 +82,7 @@ import { copyBenchmarkTemplateToClipboard } from "./lib/backup.js";
 import {
   selectScenario, addScenario, renameScenario, cloneScenario, deleteScenario, renderHomeBody, renderHomeListModern, refreshScenarioDependentViews,
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
-  patchCalcOutputs, afterCalcChange, patchInvestOutputs, editing, renderScenarioEditor
+  patchCalcOutputs, afterCalcChange, patchInvestOutputs, editing, renderScenarioEditor, editorUi, renderScenarioEditorChart
 } from "./components/scenarios.js";
 import { ACCOUNT_TYPE_KEYS, accountSourceOptions, setAccountBalance, resolveLink, accountBalance } from "./calc/accounts.js";
 import { addTransfer, deleteTransfer, splitTransaction, unsplit, bulkEditTransactions, bulkDeleteTransactions } from "./calc/cashflowlist.js";
@@ -6107,6 +6107,8 @@ import { inboxMessage } from "./calc/inbox.js";
     }
   });
 
+  // v3.187.0 (item 218): the results' fold keeps its state while the page redraws.
+  document.addEventListener("toggle", function(e){ if(e.target.matches && e.target.matches("[data-sc-more]")){ editorUi.moreOpen = e.target.open; if(e.target.open && editing.key){ renderScenarioEditorChart(); renderScenarioAccountChart(editing.key); } } }, true);
   // v3.185.0 (item 216): which account the scenario is tried on, and from when.
   document.addEventListener("change", function(e){
     if(!e.target.matches) return;

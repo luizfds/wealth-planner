@@ -119,16 +119,17 @@ the last, so two sessions can't pick up the same one.
   monolithic file did. Moving one `@import` line before another can silently flip such an
   override. Before reordering, re-run the cross-bucket conflict check described in
   `.claude/PROJECT_KNOWLEDGE.md`'s "Modularization progress" section.
-- `src/app.js` — the entry point (`<script type="module">`), ~5,800 lines (down from the original
-  4,618-line monolith, then back up as features landed — it is the app's event-wiring layer, and
-  that grows with every new control). All eight pages' rendering/routing and export/import/backup
-  have moved to `src/components/`/`src/lib/backup.js`; what's left is DOM event
-  wiring/registration, the purchase-calculator glue, and cross-cutting dispatch helpers
-  (`rerenderTableFor`, `getArrayForSection`, `findProperty`, `updatePersonSuggestions`,
-  `renderAll`) that route by a section-string key across every page and are expected
-  to stay here permanently — see "Modularization progress" in `.claude/PROJECT_KNOWLEDGE.md` for
-  the full list of functions deliberately pinned to `app.js` for good, not just for now. Both the
-  JS and CSS splits (see above) are now complete — the ES-modules migration is done.
+- `src/app.js` — the entry point (`<script type="module">`), about 320 lines since v3.206.1 (item 237a; it was ~6,950):
+  the theme, the overlay stack Back closes, the calc/lib providers, the route a load starts on, then each page's
+  `wire…()` in the order its listeners have always been added, `renderAll()` and the first page. Every listener
+  lives in a page's wiring module — `components/{rows,redraw,overlays,calcwiring,planwiring,taxwiring,assetswiring,
+  propertieswiring,cashflowwiring,searchwiring,spendingwiring,accountswiring,importwiring,settingswiring,homewiring,
+  datawiring,chromewiring,budgettoolswiring,safekeepingwiring,reportswiring,scenariowiring,notifpanel,updates}.js`:
+  `rows.js` holds a row's editor and the dispatch by section name (`getArrayForSection`, `rerenderTableFor`),
+  `redraw.js` the full redraw (`renderAll`, `defineViews`), the header's figures and `withUndo`. What a module needs
+  that stays in app.js it reaches through `app` (`lib/appctx.js`: `registerApp` / `defineVar`, filled in before any
+  listener can fire); nothing imports app.js. **A new listener goes in its page's wiring module**, called from that
+  module's `wire…()`; a new `app.<name>` must be registered in app.js (`tests/appctx.test.js` fails otherwise).
 - `src/state.js` — `state` (the single source of truth), `defaultState()`, `migrateState()`
   (schema migration + safe defaults for old/partial saves), `persist()` (debounced localStorage
   write), `setStatus()`. Since v3.203.2 (item 235a) `migrateState` runs `MIGRATION_STEPS` — numbered, named,
@@ -173,11 +174,7 @@ the last, so two sessions can't pick up the same one.
   bank-import,search,people,received,health,junemoves,monthreview,retirement,networth,detail,
   lifeevents,budgethistory,…}.js` — one file per page or card (plus `nav.js` for routing/page-switching, and
   `bank-import.js`/`search.js` for the two cross-page flows), each exporting its functions for
-  `app.js` to import and wire up. Not every function that "belongs" to a page lives in its
-  component — `renameTaxPerson`/`removeTaxPerson` (Income) and `showAssetsSubpage` (Assets)
-  turned out to be cross-cutting routing/dispatch code and stayed in `app.js`/moved to `nav.js`
-  instead. DOM event *registration* (every `addEventListener` call) also stays in `app.js` for
-  every component, `nav.js` included — only the callable render/patch/routing logic moved.
+  their page's wiring module (above) to wire up.
 - `src/constants.js`, `src/lib/{format,toast,html,ledger-table,charts,swipe,notifications,search,
   setup,timerange,scroll-shadow,safekeeping}.js` — static data tables and dependency-free utilities used across
   everything above: currency/percent formatters, toasts, `escapeAttr`/`slug`, the shared ledger row
@@ -193,8 +190,7 @@ the last, so two sessions can't pick up the same one.
 - `src/lib/storageuse.js` — how full localStorage is (a notification from 70%, a line in Settings →
   Preferences). `src/lib/help.js` also puts each page's ⓘ and its own ⋯ actions beside the title.
 - `src/lib/backup.js` — JSON backup export/import (with optional Web Crypto passphrase
-  encryption) and per-section CSV export. `applyImportedBackupJson` stays in `app.js` since it
-  calls the permanent-resident `renderAll()`.
+  encryption) and per-section CSV export. `applyImportedBackupJson` is in `components/importwiring.js`.
 - `vendor/pdfjs/` — pdf.js (Apache-2.0, its LICENSE alongside), vendored rather than loaded from a CDN so PDF
   import works offline and never depends on a third-party host. Loaded only when a PDF is chosen
   (`src/lib/pdftext.js`); outside `src/`, so `npm run stamp` leaves it alone.
@@ -215,7 +211,7 @@ the last, so two sessions can't pick up the same one.
   browser URL resolution instead of a JS runtime check. `sw.js` is network-first with
   cache-as-you-go (no fixed precache list): every online load refreshes the cache, and whatever's
   already cached keeps the app fully working offline, matching the fact that this app was already
-  100%-client-side/localStorage before the PWA work. Registered from `app.js` via
+  100%-client-side/localStorage before the PWA work. Registered from `components/updates.js` via
   `navigator.serviceWorker.register("sw.js")` — see `.claude/PROJECT_KNOWLEDGE.md` for two gotchas
   that cost real debugging time here: the `event.waitUntil()` requirement for any cache write that
   outlives the fetch handler's synchronous return, and same-origin `no-cors` (opaque) responses
@@ -229,8 +225,8 @@ app.js, components and lib against `eslint-rules/ratchet.json`: a file may not g
 baseline must come down (`node eslint-rules/ratchet.mjs --update`).
 
 **Pages drawn when seen (v3.205.0, item 236a).** `renderAll()` draws only the page on screen and what's on every
-page (header, badges, datalists); every other part is a *view* (`defineView(name, pages, draw)` in app.js's
-`defineViews`, registry in `lib/views.js`) left stale and drawn by `drawStale(page)` just before nav.js shows that
+page (header, badges, datalists); every other part is a *view* (`defineView(name, pages, draw)` in `defineViews`,
+components/redraw.js, registry in `lib/views.js`) left stale and drawn by `drawStale(page)` just before nav.js shows that
 page. Each view's pages were measured (its writes under a MutationObserver). A new part of the full redraw is a new
 `defineView` with the pages it draws into (`null` = every page); an edit's own redraw uses `redraw([names])`, which
 draws what's on screen and leaves the rest stale — not the render functions directly. **Since v3.206.0 (item 236b)** each view also says what it
@@ -240,7 +236,7 @@ edit's commit *is* its redraw; don't follow it with a hand-written list. A new v
 
 **`state` is a live import, not a value** — never reassign the imported `state` binding directly
 (`state = X` throws for an ES-module import). Use `setState(newState)` from `state.js` instead;
-`app.js` does this correctly today (Reset, Sample data, Import backup) — keep it that way.
+the wiring modules do this correctly today (Reset, Sample data, Import backup) — keep it that way.
 
 Because this is ES modules (`type="module"`), the app **cannot be opened via `file://`** — it
 must be served over HTTP. See "Running it" below.
@@ -336,12 +332,10 @@ not the bundled Chromium) is the standard way to drive/verify UI changes in this
   longer exists: a `<select>` whose value matches no option silently shows the *first* one, which is why
   `transactionAccountOptionsHtml()` emits an explicit `… (deleted)` option. Categories are still by name
   (`everyCategorisableArray()`).
-- **When extracting a component out of `app.js`, its session-only UI-state maps (e.g. Modern-row
-  open/closed state) can be mutated from code still in `app.js`** (the generic
-  `wireModernRowToggle` takes the map by reference). Forgetting to export one of these produces a
-  runtime `ReferenceError` on first interaction, not a syntax error — `node --check` won't catch
-  it, only actually clicking the thing in a browser will. See `.claude/PROJECT_KNOWLEDGE.md`'s
-  "Modularization progress" for the real instance of this.
+- **Moving code between modules: a name it lost is a `ReferenceError` only when its handler runs** — `node --check`
+  and the tests won't see it. `npm run check` (ESLint's `no-undef`) does; run it after any move, and
+  `tests/appctx.test.js` covers an `app.<name>` nobody registered. Item 237a's split was checked by recording every
+  `addEventListener` at startup on main and on the branch: the same 360, in the same order.
 - **CSS `[hidden]` silently does nothing** if any author rule sets `display` on that element —
   author CSS beats the browser's built-in `[hidden]{display:none}` regardless of specificity.
   Add an explicit `.your-class[hidden]{ display:none; }` override whenever you toggle `.hidden`

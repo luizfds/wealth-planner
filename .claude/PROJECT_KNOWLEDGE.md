@@ -455,6 +455,12 @@ purchase price/date rather than manually entered.
 
 ## Modularization progress
 
+**v3.206.1 (item 237a): app.js is a bootstrap.** Everything below describes how the split got to ~1,275 lines and back
+up; since 237a `app.js` is about 320 lines and every listener lives in a page's wiring module — see CLAUDE.md's
+Architecture for the list, and `lib/appctx.js` for how a module reaches what app.js still holds. The "pinned to
+app.js for good" list below is history: `renderAll` and friends are in `components/redraw.js`, the section dispatch
+(`getArrayForSection`, `rerenderTableFor`, `findProperty`) in `components/rows.js`.
+
 The app is mid-migration from one `app.js` closure (pre-v1.33.1) to native ES modules under
 `src/`, done in small verified steps rather than one rewrite — see the versioning rule below,
 each step is its own tagged commit. Current state:

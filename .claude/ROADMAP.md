@@ -4419,11 +4419,27 @@ third of a full redraw (the journey's limit tightened from 90% to 60%); a scenar
 (already only the editor). Smoke, journeys unchanged; driven: a transfer, a scenario saved and a budget amount typed,
 then each other page opened — drawn with it, nothing left stale.
 
-## 237. `[ ]` `app.js` down to a bootstrap
-Do: each page's event wiring in its own module (as the scenario editor's is, 230); the dispatch-by-section-name helpers
-(`rerenderTableFor`, `getArrayForSection`, …) become a registry each page adds itself to.
+## 237. `app.js` down to a bootstrap
+Split in two, one PR each.
 
+### 237a. `[x]` Each page's wiring in its own module
+Do: each page's event wiring in its own module (as the scenario editor's is, 230).
 Done when: `app.js` is under 500 lines; no visible change (smoke, screens, journeys).
+
+Done (v3.206.1): `app.js` 6,953 → about 320 lines — the theme, the overlay stack, the providers, the starting route,
+then each page's `wire…()` in the order its listeners were always added, `renderAll()` and the first page. Twenty-three
+modules took the rest (`components/*wiring.js`, `rows.js`, `redraw.js`, `overlays.js`, `notifpanel.js`, `updates.js`),
+moved mechanically: a script read app.js's scopes (eslint-scope), moved each contiguous run of listeners into a
+`wire…()` called where it was, moved functions by name, turned what moved code still needed from app.js into
+`app.<name>` (`lib/appctx.js`, registered before any listener can fire) and imports between modules. Checked: ESLint
+(`no-undef` sees a lost name), `tests/appctx.test.js` (an `app.<name>` nobody registered), smoke, journeys, a
+click-and-type sweep of every view against main (the same), and every `addEventListener` recorded at startup on main
+and the branch — the same 360 listeners in the same order with the same handlers.
+
+### 237b. `[ ]` Sections as a registry
+Do: the dispatch-by-section-name helpers (`rerenderTableFor`, `getArrayForSection`, … in `components/rows.js`) become a
+registry each page adds itself to; the overlay stack and the `app` context shrink as modules import what they need.
+Done when: rows.js names no page's sections; `app.<name>` used only for what app.js must hold; no visible change.
 
 ## 238. `[ ]` CSS in explicit layers
 Do: `@layer base, layout, components, pages, phone;` — every stylesheet in its layer, so which rule wins is declared,

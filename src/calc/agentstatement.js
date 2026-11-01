@@ -101,3 +101,8 @@ export function statementsForFy(p, fy){
   Object.keys(out).forEach(function(k){ if(k !== "count") out[k] = money(out[k]); });
   return out;
 }
+
+// v3.208.0 (item 240): a property's most recent statement, by date (null when none is logged).
+export function latestStatement(p){
+  return ((p && p.agentStatements) || []).reduce(function(best, r){ return !best || String(r.date || "") >= String(best.date || "") ? r : best; }, null);
+}

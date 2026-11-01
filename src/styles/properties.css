@@ -367,6 +367,9 @@
 @media (max-width: 560px){ .fx-row{ grid-template-columns: 1fr; } .rentp-grid{ grid-template-columns: 1fr; } .rentp-figs{ grid-template-columns: 1fr 1fr; } }
 
 /* ---------------- Property manager statement (v3.79.0) ---------------- */
+/* v3.208.0 (item 240): the last statement and "Log a statement" on an investment property's Overview. */
+.ps-statement{ display:flex; align-items:center; justify-content:space-between; gap:8px 12px; flex-wrap:wrap; margin:0 0 12px; padding:10px 12px; border:1px solid var(--border); border-radius:var(--inner-radius); font-size:var(--fs-sm); color: var(--ink-soft); }
+.ps-statement b{ color: var(--ink); font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight:600; }
 .agent-stmt{ margin-top:14px; border-top:1px dashed var(--border); padding-top:10px; }
 .agent-stmt > summary{ cursor:pointer; font-weight:600; font-size:var(--fs-sm); color: var(--ink); }
 .agent-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:8px 10px; margin-top:8px; }

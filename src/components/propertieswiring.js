@@ -25,6 +25,7 @@ import { recordLoanSnapshot } from "./taxwiring.js";
 import { defineSection } from "../lib/sections.js";
 import { renderPropListModern } from "./properties.js";
 import { renderSharedGroups } from "./expenses.js";
+import { fillAgentStatementForm, openStatementForm } from "./rentstatement.js";
 
 
 // ---------------- A property's lists, registered (v3.206.2, item 237b) ----------------
@@ -167,22 +168,7 @@ export function wireProperties(){
     file.arrayBuffer().then(function(buf){ return pdfLines(new Uint8Array(buf)); }).then(function(lines){
       var r = agentStatementFromLines(lines);
       if(!(r.rent > 0)){ showToast("Couldn't find the rent in that PDF — type it in"); return; }
-      var set = function(k, v){ var el = asPanel.querySelector('[data-as="' + k + '"]'); if(el) el.value = v; };
-      if(r.date) set("date", r.date);
-      set("rent", r.rent || ""); set("water", r.water || ""); set("fees", r.fees || ""); set("waterRates", r.waterRates || "");
-      var other = r.others.reduce(function(t, o){ return t + o.amount; }, 0);
-      set("otherAmount", other ? Math.round(other * 100) / 100 : "");
-      var sel = asPanel.querySelector('[data-as="otherLine"]');
-      if(sel && r.others.length){
-        var want = r.others[0].what.toLowerCase();
-        var hit = Array.prototype.find.call(sel.options, function(o){ return want.indexOf(o.text.toLowerCase().split(" ")[0]) !== -1; });
-        if(hit) sel.value = hit.value;
-      }
-      var out = asPanel.querySelector("[data-as-net]"), net = statementTotals(agentStatementFormValues(asPanel)).net;
-      if(out) out.textContent = fmtCurrency2.format(net);
-      showToast(r.received != null && Math.abs(net - r.received) >= 0.01
-        ? "Filled — but it adds to " + fmtCurrency2.format(net) + ", the statement says " + fmtCurrency2.format(r.received) + ". Check it before logging."
-        : "Filled from the statement" + (r.others.length ? " (other: " + r.others.map(function(o){ return o.what; }).join(", ") + ")" : "") + " — check it, then Log statement");
+      fillAgentStatementForm(asPanel, r);
     }).catch(function(){ showToast("Couldn't read that PDF"); });
   });
   document.getElementById("propertiesBody").addEventListener("input", function(e){
@@ -403,6 +389,9 @@ export function wireProperties(){
   });  // A property's tabs (v3.61.0): every panel is already rendered, so switching is a visibility
   // toggle — no re-render, nothing typed in another tab is lost.
   document.getElementById("propertiesBody").addEventListener("click", function(e){
+    // v3.208.0 (item 240): the Overview tab's "Log a statement" opens the form on Income & costs.
+    var asOpen = e.target.closest("[data-as-open]");
+    if(asOpen){ var asProp = findProperty(asOpen.getAttribute("data-as-open")); if(asProp) openStatementForm(asProp); return; }
     var tab = e.target.closest("[data-prop-tab]");
     if(!tab) return;
     var pid = tab.getAttribute("data-prop-tab"), key = tab.getAttribute("data-tab");

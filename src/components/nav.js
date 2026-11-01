@@ -14,6 +14,7 @@ import { renderAdvice } from "./advice.js";
 import { localDateStr } from "../lib/format.js";
 import { detailTarget, renderDetailPage } from "./detail.js";
 import { renderNetWorthPage } from "./networth.js";
+import { state } from "../state.js";
 
 // ---------------- Page navigation ----------------
 // Organised by job since v3.57.0 — what you're doing, not which kind of record it is. The ids are
@@ -203,6 +204,8 @@ export var QUICK_ACTIONS = [
   { label: "Log spend",     hint: "A real transaction against a budget line", page: "expenses",   sub: "spending", selector: "#quickLogBtn" },
   { label: "Add expense",   hint: "A new planned budget line",                page: "expenses",   sub: "budget",   selector: '[data-add="shared"]' },
   { label: "Log income",    hint: "Pay, rent or a distribution that arrived", page: "income",     mode: "received" },
+  // v3.208.0 (item 240): only offered with an investment property — the statement form, on its Income & costs tab.
+  { label: "Log a rent statement", hint: "A property manager's monthly statement", page: "properties", mode: "rentstatement", needsIP: true },
   // v3.141.0: a card repayment is a transfer — this opens the form with the card and its payment in.
   { label: "Pay a card",    hint: "A repayment from an account to a credit card", page: "expenses", sub: "spending", mode: "paycard" },
   // No selector on these three: Income and Assets build their add buttons per person/category
@@ -220,7 +223,9 @@ export var QUICK_ACTIONS = [
 // ledger.css), so this inherits the bottom-anchored-on-mobile treatment and the shared backdrop
 // behaviour for free rather than inventing a third overlay shape.
 export function quickActionsSheetHtml(){
+  var hasIP = (state.properties || []).some(function(p){ return p && p.kind === "IP"; });
   var rows = QUICK_ACTIONS.map(function(action, i){
+    if(action.needsIP && !hasIP) return "";
     return '<button type="button" class="qfab-action" data-quick-action="' + i + '">' +
       '<span class="qfab-action-label">' + escapeAttr(action.label) + '</span>' +
       '<span class="qfab-action-hint">' + escapeAttr(action.hint) + '</span>' +

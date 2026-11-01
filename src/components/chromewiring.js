@@ -31,6 +31,7 @@ import { renderTotals, renderAll } from "./redraw.js";
 import { runSync, initialSync } from "./safekeepingwiring.js";
 import { openSearchOverlay } from "./searchwiring.js";
 import { pushActiveOverlay, requestCloseActiveOverlay, overlayOpen, forgetActiveOverlay } from "../lib/overlaystack.js";
+import { chooseInvestmentProperty, openStatementForm } from "./rentstatement.js";
 
 var navMenuToggle, quickFabMore, topbar, compact, ASSETS_SUB_ORDER, EXPENSES_SUB_ORDER, periodBtn, periodMenu, GO_KEYS, goPending;
 
@@ -57,6 +58,7 @@ function runQuickAction(action){
   if(action.mode === "networth"){ logNetWorthSnapshot(); return; }
   if(action.mode === "received"){ setTimeout(function(){ openReceivedSheetFor(); }, 240); return; }
   if(action.mode === "paycard"){ setTimeout(openPayCard, 240); return; }
+  if(action.mode === "rentstatement"){ setTimeout(function(){ chooseInvestmentProperty("Log a statement for…", function(p){ openStatementForm(p); }); }, 240); return; }
   // Deferred for the same reason the search handler defers its scroll: showPage's render and
   // view transition have to settle before the target button exists in its final form.
   setTimeout(function(){

@@ -21,7 +21,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { STATEMENT_CSV, statementPdf } from "./journeys/fixtures.mjs";
+import { STATEMENT_CSV, statementPdf, agentStatementPdf } from "./journeys/fixtures.mjs";
 
 const root = process.env.SMOKE_ROOT ? path.resolve(process.env.SMOKE_ROOT) : path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".json": "application/json",
@@ -155,6 +155,18 @@ const JOURNEYS = {
     check(await page.evaluate(() => /3 transactions to import/.test(document.getElementById("bankImportPanel").innerText)), "the PDF's three purchases weren't read");
     await click(page, "#bankImportConfirmBtn"); await page.waitForTimeout(600);
     check((await st(page, "state.transactions.length")) === before + 3, "the PDF's purchases didn't land");
+  },
+  // v3.208.0 (item 240): a property manager's statement dropped into the same import lands in its property's form.
+  async rentstatement(page){
+    await go(page, "expenses", "data-expenses-sub", "spending");
+    const before = await st(page, "state.incomeLog.length");
+    await page.setInputFiles("#bankImportFile", { name: "owner-statement.pdf", mimeType: "application/pdf", buffer: agentStatementPdf() });
+    await page.waitForFunction(() => [...document.querySelectorAll("[data-as-panel]")].some(d => d.open && d.offsetParent && d.querySelector('[data-as="rent"]').value), null, { timeout: 20000 });
+    const form = await page.evaluate(() => { const p = [...document.querySelectorAll("[data-as-panel]")].find(d => d.open && d.offsetParent); const v = k => p.querySelector('[data-as="' + k + '"]').value; return { rent: v("rent"), fees: v("fees"), net: p.querySelector("[data-as-net]").textContent }; });
+    check(form.rent === "1200" && form.fees === "84" && /1,116\.00/.test(form.net), "the statement didn't fill its property's form: " + JSON.stringify(form));
+    check(!(await page.evaluate(() => !!document.getElementById("bankImportConfirmBtn"))), "it was read as a bank statement too");
+    await page.evaluate(() => [...document.querySelectorAll("[data-as-log]")].find(b => b.offsetParent).click()); await page.waitForTimeout(600);
+    check((await st(page, "state.incomeLog.length")) === before + 1, "logging it didn't record the rent received");
   }
 };
 

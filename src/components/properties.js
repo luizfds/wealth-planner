@@ -14,7 +14,7 @@ import { loanStrategy } from "../calc/loanstrategy.js";
 import { LAND_TAX_STATES, LAND_TAX_YEAR } from "../constants.js";
 import { sumField, householdYearWindow } from "../calc/ledger.js";
 import { fixedRateView, rentSummary } from "../calc/propertylife.js";
-import { statementTotals, statementsForFy, waterRatesLine } from "../calc/agentstatement.js";
+import { statementTotals, statementsForFy, waterRatesLine, latestStatement } from "../calc/agentstatement.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr, fmtDate } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { detailLinkHtml } from "./detail.js";
@@ -553,6 +553,16 @@ export function rentPanelHtml(p, today){
     agentStatementHtml(p, win) + '</div>';
 }
 
+// v3.208.0 (item 240): an investment property's Overview says when its last statement was logged, with the way to log
+// the next one (components/rentstatement.js opens the form on Income & costs).
+export function statementLineHtml(p){
+  if(!p || p.kind !== "IP") return "";
+  var last = latestStatement(p);
+  return '<div class="ps-statement"><span>' + (last
+    ? 'Last statement ' + escapeAttr(fmtDate(last.date)) + ' · <b>' + fmtCurrency0.format(Number(last.net) || 0) + '</b> paid to you'
+    : 'No property manager statement logged yet') + '</span>' +
+    '<button type="button" class="btn btn-sm" data-as-open="' + escapeAttr(p.id) + '">Log a statement</button></div>';
+}
 // v3.79.0: a property manager's monthly statement, entered once (calc/agentstatement.js).
 export var agentStatementUi = { open: {} };
 function agentStatementHtml(p, win){
@@ -780,7 +790,7 @@ function propertyCardHtml(p, colorIdx){
       '<button type="button" class="btn btn-ghost btn-sm property-collapse-btn" data-prop-collapse-toggle="' + escapeAttr(p.id) + '">' + (allSectionsCollapsed ? "Expand all" : "Collapse all") + '</button>' +
     '</div>' +
     propertyTabBarHtml(p, tabs, current) +
-    panel("overview", '<div class="prop-read">' + propertySummaryHtml(p) +
+    panel("overview", '<div class="prop-read">' + propertySummaryHtml(p) + statementLineHtml(p) +
       '<button type="button" class="btn btn-sm" data-prop-edit="' + escapeAttr(p.id) + '">Edit details</button></div>' +
       '<div class="prop-edit"><div class="prop-edit-bar"><button type="button" class="btn btn-sm" data-prop-edit-done="' + escapeAttr(p.id) + '">Done</button></div>' +
       propertySectionHtml(p, "value",

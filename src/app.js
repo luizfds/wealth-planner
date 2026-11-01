@@ -100,7 +100,7 @@ import { attachReceipt, detachReceipt, takeReceiptFiles } from "./calc/receipts.
 import { saveReceiptFile, unpackReceipts, openReceipt, pruneReceipts } from "./lib/receipts.js";
 import { startActivityLog, setDevicePerson, devicePerson } from "./lib/activity.js";
 import { undoEntry } from "./calc/activity.js";
-import { setAmountChange, removeChange, changesFor } from "./calc/scenariochanges.js";
+import { setAmountChange, removeChange, changesFor, includeCandidates } from "./calc/scenariochanges.js";
 import { newChange } from "./calc/scenariolegs.js";
 import { changeOpen, addSheet, addChangeSheetHtml } from "./components/scenariochanges.js";
 import { buildScenario } from "./calc/scenariotemplates.js";
@@ -5907,7 +5907,7 @@ import { inboxMessage } from "./calc/inbox.js";
     var nb = e.target.closest("[data-sc-new]");
     if(nb){
       var sc = nb.getAttribute("data-sc-scenario");
-      var c = newChange(nb.getAttribute("data-sc-new"), genId("chg"), { properties: state.properties, state: (state.purchase[sc] && state.purchase[sc].state) || "NSW" });
+      var c = newChange(nb.getAttribute("data-sc-new"), genId("chg"), { properties: state.properties, state: (state.purchase[sc] && state.purchase[sc].state) || "NSW", include: includeCandidates(sc)[0] });
       (state.scenarioChanges[sc] = changesFor(sc).slice()).push(c);
       changeOpen[c.id] = true;
       afterScenarioChange();

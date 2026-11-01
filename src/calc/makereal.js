@@ -9,7 +9,7 @@
 // listed and left alone. makeRealPlan says what would happen; applyMakeReal does exactly that. Pure
 // apart from the state it's handed.
 
-import { changesFor } from "./scenariochanges.js";
+import { changesFor, effectiveChanges } from "./scenariochanges.js";
 import { ipFigures } from "./scenariolegs.js";
 import { recalcPurchase } from "./property.js";
 import { IP_CATEGORY } from "../constants.js";
@@ -22,7 +22,8 @@ function money(n){ return "$" + Math.round(n).toLocaleString("en-AU"); }
 function run(st, name, today, idFactory, apply){
   var id = idFactory || (function(){ var n = 0; return function(p){ return (p || "id") + "r" + (++n); }; })();
   var actions = [], skipped = [];
-  var changes = changesFor(name, st);
+  // v3.199.0: a combined scenario makes its included scenarios' changes real too.
+  var changes = effectiveChanges(name, st);
   var homeLines = (st.shared || []).filter(function(l){ return l && l.homeCost; });
   var rowOf = function(rid){ return (st.shared || []).concat(st.income || []).find(function(r){ return r && r.id === rid; }); };
   var replaceHome = function(newLines, why){

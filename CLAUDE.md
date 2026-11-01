@@ -94,6 +94,8 @@ the last, so two sessions can't pick up the same one.
   (`calc/scenariotimeline.js`), grouped forms with `HINTS`/`ODD`, an in-place rename and `state.scenarioNotes`. The purchase and
   invest calculators live on the **Calculators** page (`page-calc`, avatar menu); the editor shows `buyInvestSummaryHtml` and
   `renderHomeBody` also draws the scenario's panels there (`renderCalcScenario`) — keep both in that one render.
+  **Combined (v3.199.0):** an `include` change counts another scenario's changes (never copied, own wins, once each, loops stop);
+  maths reads `effectiveChanges(name)` (calc/scenariochanges.js), the editor's own list `changesFor(name)`.
 - **Investment returns (v3.178.0):** `calc/investreturn.js` — `xirr`, money-weighted per holding, the same money in an index
   (the price file's weekly A200 / IVV series, read once a session by `components/investreturn.js`), a target mix (`state.targetMix`,
   a holding's own `assetClass` overriding its market) and distributions ahead. The IRR and the index units are `calc/performance.js`'s

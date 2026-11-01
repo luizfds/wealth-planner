@@ -4188,11 +4188,22 @@ error. Speed on that household: a scenario change redraws in about 20ms (90ms at
 10ms (40ms).
 
 
-## 227. `[ ]` Combine scenarios
+## 227. `[x]` Combine scenarios
 Do: a scenario can include others ("Rentvest" + "Second car"): their changes counted together, without copying, on the
 card, the comparison, the projection and an account.
 
 Done when: tests: a combination equals the same changes made by hand; a change to an included scenario flows through.
+
+**Done (v3.199.0).** A change of kind `include` ("Include another scenario" in + Add a change) counts another
+scenario's changes with this one's — read from where they live (`effectiveChanges`, calc/scenariochanges.js), so
+editing the included scenario changes this. Its own come first and win where both say something about the same
+line, assumptions or retirement; each included scenario counts once however it's reached, a loop stops, and what's
+set up outside the list of changes (its own home rows, a home bought in the calculators) stays with it — the row
+says so. The card, Side by side (the lender check included), the projection, the timeline, an account and Make it
+real all read through it; renaming an included scenario follows it, deleting it takes the include out.
+`tests/scenariocombine.test.js`: a combination equals the same changes made by hand (month, 20 years, lender), and
+an edit to an included scenario flows through. Driven at 1280 and 390px.
+
 
 ## 228. `[x]` A former home's market value when first rented
 Do: selling a former home asks for its value when it was first rented out and uses it as the cost base where the rules

@@ -14,7 +14,7 @@ import { dueAfterDays } from "./estimates.js";
 import { projectionRatios } from "./actuals.js";
 import { eventEffects } from "./lifeevents.js";
 import { loggedSinceRecorded } from "./accounts.js";
-import { scenarioSharedItems, changesFor } from "./scenariochanges.js";
+import { scenarioSharedItems, changesFor, effectiveChanges } from "./scenariochanges.js";
 import { legsMonthly, legsInYear } from "./scenariolegs.js";
 import { isDraftKey } from "./scenariodraft.js";
 import { saleCgt } from "./salecgt.js";
@@ -141,7 +141,7 @@ var LEG_KINDS = { rent: 1, ip: 1, cost: 1, sell: 1, extra: 1 };
 // starts. Cash is decided year by year inside computeNetWorthSeries. Copies — the saved changes stay as typed.
 export function scenarioLegChanges(scenario){
   var age = currentAgeOrNull();
-  return changesFor(scenario).filter(function(c){ return c && LEG_KINDS[c.kind]; }).map(function(c){
+  return effectiveChanges(scenario).filter(function(c){ return c && LEG_KINDS[c.kind]; }).map(function(c){
     if(c.when !== "age") return c;
     if(age == null || !isFinite(Number(c.whenAge))) return Object.assign({}, c, { never: true });
     return Object.assign({}, c, { fromYear: Math.max(0, Math.round(Number(c.whenAge) - age)) });
@@ -154,7 +154,7 @@ export function isCashTriggered(c){ return !!(c && c.when === "cash" && c.kind !
 function currentAgeOrNull(){ var a = state.fire && state.fire.currentAge; return a == null || a === "" || !isFinite(Number(a)) ? null : Number(a); }
 export function projectionFor(scenario){
   var base = state.projection || {};
-  var a = changesFor(scenario).find(function(c){ return c && c.kind === "assume"; });
+  var a = effectiveChanges(scenario).find(function(c){ return c && c.kind === "assume"; });
   if(!a) return base;
   var out = Object.assign({}, base);
   ["investReturnRate", "inflationRate", "rateShockPct"].forEach(function(k){ if(a[k] != null && a[k] !== "" && isFinite(Number(a[k]))) out[k] = Number(a[k]); });
@@ -162,7 +162,7 @@ export function projectionFor(scenario){
 }
 // The projection year a "retire" change stops pay from (1 = the coming twelve months), or null.
 export function retireYearFor(scenario, currentAge){
-  var r = changesFor(scenario).find(function(c){ return c && c.kind === "retire"; });
+  var r = effectiveChanges(scenario).find(function(c){ return c && c.kind === "retire"; });
   if(!r || currentAge == null || !isFinite(Number(r.age))) return null;
   return Math.max(1, Math.round(Number(r.age) - currentAge) + 1);
 }
@@ -199,7 +199,7 @@ export function scenarioLegContext(scenario){
   // The owner a sale's gain is taxed to: the one who owns it all, else shared evenly.
   var saleOwner = function(p){ var o = p.ownership || {}, names = Object.keys(o).filter(function(k){ return Number(o[k]) >= 100; }); return names.length === 1 ? names[0] : ""; };
   var sold = {};
-  changesFor(scenario).forEach(function(c){
+  effectiveChanges(scenario).forEach(function(c){
     if(!c || c.kind !== "sell") return;
     var p = (state.properties || []).find(function(x){ return x.id === c.propertyId; });
     if(!p) return;

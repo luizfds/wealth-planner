@@ -1,7 +1,7 @@
 import { renderProjectionsWhenSeen } from "./projections.js";
 import { makeRealButtonHtml } from "./makereal.js";
 import { state, persist, defaultHomeBlock, defaultPurchaseConfig, defaultInvestConfig, deepClone, genId } from "../state.js";
-import { renameScenarioChanges, cloneScenarioChanges, deleteScenarioChanges, setLivesElsewhere, homeRowsFromBudget, livesElsewhere, changesFor } from "../calc/scenariochanges.js";
+import { renameScenarioChanges, cloneScenarioChanges, deleteScenarioChanges, setLivesElsewhere, homeRowsFromBudget, livesElsewhere, changesFor, effectiveChanges } from "../calc/scenariochanges.js";
 import { scenarioChangesHtml, todaysHomeHtml, todaysHomeMonthly } from "./scenariochanges.js";
 import { renderCompare } from "./compare.js";
 import { compareScenario } from "../calc/compare.js";
@@ -111,7 +111,7 @@ export function scenarioEditorSummaryHtml(){
 }
 export function scenarioTimelineHtml(key){
   var cfg = state.purchase[key], inv = state.invest[key];
-  var changes = changesFor(key);
+  var changes = effectiveChanges(key);
   var cashWaits = changes.some(function(c){ return c && c.when === "cash"; });
   var age = state.fire && state.fire.currentAge !== "" && state.fire.currentAge != null ? Number(state.fire.currentAge) : null;
   var events = scenarioTimeline({ changes: changes, triggers: cashWaits ? computeNetWorthSeries(key, 30).triggers : {}, age: age,
@@ -505,7 +505,7 @@ export function patchInvestOutputs(panel, scenario){
 function scenarioHomeMonthly(scenario){
   var own = scenario === state.baselineScenario && (state.home[scenario] || []).length;
   if(!own && !livesElsewhere(scenario)) return todaysHomeMonthly();
-  return sumField(state.home[scenario], "monthly") + changesFor(scenario).filter(function(c){ return c.kind === "rent"; })
+  return sumField(state.home[scenario], "monthly") + effectiveChanges(scenario).filter(function(c){ return c.kind === "rent"; })
     .reduce(function(sum, c){ return sum + periodsOf(Number(c.amount) || 0, c.freq || "Weekly").monthly; }, 0);
 }
 export function renderHomeBodyTotalsOnly(){

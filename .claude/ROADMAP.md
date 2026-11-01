@@ -4491,6 +4491,14 @@ catch (a lost name after a move — `no-undef`; import order — layers). `tests
 lines, its links resolving and every record indexed.
 
 
+## 240. `[~]` Rent statements where you'd look for them
+Do: a property manager's statement PDF dropped into the main import (Spending, the Statements folder, a shared file) is
+recognised and opens that property's statement form filled in, as a payslip opens the payslip check; an investment
+property's Overview tab shows its last statement and a "Log a statement" button; the + menu offers "Log a rent
+statement".
+Done when: the same PDF through any of those three doors lands in the filled form; with several investment properties
+it asks which; a bank statement is never mistaken for one; driven.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

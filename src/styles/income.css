@@ -67,7 +67,6 @@
      [hidden]{display:none} regardless of specificity, so without this every $0 segment row would
      stay visible and the six-segment legend would read "$0" three times for most people. */
   .tax-waterfall-item[hidden]{ display:none; }
-  .tax-waterfall-item .proj-swatch{ border-radius:3px; }
   .tax-waterfall-item-text{ display:flex; flex-direction:column; gap:1px; min-width:0; }
   .tax-waterfall-item-label{ font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); overflow-wrap:anywhere; }
   .tax-waterfall-item-value{ font-family:var(--font-num); font-size:var(--fs-md); font-variant-numeric: tabular-nums; }
@@ -195,7 +194,7 @@
   .tax-topup[hidden]{ display:none; }
   .tax-topup-field{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
   .tax-topup-field span{ text-transform:none; font-weight:400; margin-left:auto; }
-  .tax-topup-amt{ width:120px; min-height:36px; padding:4px 8px; border:1px solid var(--border); border-radius:8px; background: var(--paper); color: var(--ink); font:inherit; font-size:var(--fs-md); text-align:right; text-transform:none; letter-spacing:0; }
+  .tax-topup-amt{ width:120px; min-height:36px; padding:4px 8px; border:1px solid var(--border); border-radius:8px; background: var(--paper); color: var(--ink); font:inherit; font-size:var(--fs-md); font-family:var(--font-num); font-variant-numeric:tabular-nums; text-align:right; text-transform:none; letter-spacing:0; }
   .tax-topup-out{ margin:8px 0 0; font-size:var(--fs-sm); line-height:1.5; }
   .tax-topup-out .warn{ color: var(--bad-ink); }
 

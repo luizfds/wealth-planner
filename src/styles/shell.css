@@ -87,6 +87,11 @@
      monthly. Behind a ⋯ they stop competing without going anywhere. Deliberately not a portal or
      a popover element: the menu is a plain absolutely-positioned box next to its own button, so
      the buttons inside keep their ids and every existing handler works untouched. */
+  /* The page's ⓘ and actions slot in the header (from base.css, item 238 — before the compact header's rules,
+     which hide them). */
+  .page-help-btn{ margin-left:-4px; }
+  .page-help-btn[hidden]{ display:none; }
+  .page-actions-slot{ display:flex; align-items:center; gap:6px; }
   .page-overflow{ position:relative; }
   /* Bordered at rest, not just on hover: this is the only control left in the page header, and on
      a phone there is no hover — three bare dots floating in whitespace don't read as a button. */
@@ -169,8 +174,6 @@
   .period-chip.active small{ color: inherit; opacity:.8; }
   .period-chip[disabled]{ opacity:.35; cursor:default; }
   .period-chip:focus-visible{ box-shadow: var(--focus-ring); outline:none; }
-  .period-menu .seg-control{ width:100%; }
-  .period-menu .seg-option{ flex:1; }
   .period-foot{ display:flex; justify-content:flex-end; }
   /* On a phone the button sits mid-row, so an absolutely placed menu runs off the right edge — pin it
      to the viewport instead, just under the button (app.js sets `top` when it opens). */
@@ -377,8 +380,6 @@
 
   /* v3.33.0 — the header toolbar: one style for every button, data actions in a menu. */
   .page-overflow-menu .btn[hidden]{ display:none; }
-  .topbar-overflow .page-overflow-btn{ width:34px; height:34px; }
-  .topbar-overflow .page-overflow-menu{ top:40px; }
   .menu-danger{ color: var(--bad-ink) !important; }
   /* The Checks count on Settings (v3.63.0). */
   .nav-badge{ display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; padding:0 5px; margin-left:6px; border-radius:9px;

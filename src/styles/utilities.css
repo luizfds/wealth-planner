@@ -1,0 +1,17 @@
+/* ---------------- Utilities (v3.207.1, item 238) ----------------
+   Rules that adjust whatever component or page they land on, so they sit in the layer after `pages` (styles.css):
+   they win over a component's or a page's own rule by layer, not by out-specifying it. */
+
+/* v3.139.0: a section's ⓘ is the <details>' own child, after its <summary>. Where anchor
+   positioning works it sits beside the section's title, as it did inside the summary; elsewhere at
+   the header's right edge, with the header making room. */
+details:has(> .help-btn){ position:relative; }
+details > .help-btn{ position:absolute; top:12px; right:12px; }
+details:has(> .help-btn) > summary{ padding-right:52px; }
+@supports (anchor-name: --a) and (anchor-scope: --a){
+  details.ledger:has(> .help-btn){ anchor-scope: --help-title; }
+  details.ledger:has(> .help-btn) > summary .ledger-title{ anchor-name: --help-title; }
+  details.ledger > .help-btn{ position-anchor: --help-title; top: anchor(center); right:auto; left: anchor(right); translate: 0 -50%; margin-left:2px; }
+  details.ledger:has(> .help-btn) > summary{ padding-right:20px; }
+  details.ledger:has(> .help-btn) > summary .ledger-title{ margin-right:32px; }
+}

@@ -1,410 +1,99 @@
 # Wealth Planner
 
-A single-page Australian personal finance / property-investment planner. No backend, no build
-step — a static site (`index.html` + `styles.css` + ES modules under `src/`) that persists
-everything to `localStorage` in the browser. Deployed via GitHub Pages.
+A single-page Australian personal finance and property-investment planner. No backend and no build step: `index.html`,
+`styles.css` and ES modules under `src/`, persisting to `localStorage` in the browser, deployed by GitHub Pages.
 
-For the full detail behind every point below — business-logic assumptions, the complete gotcha
-list with explanations, established UI patterns, and what's still pending — see
-[`.claude/PROJECT_KNOWLEDGE.md`](.claude/PROJECT_KNOWLEDGE.md). This file is the short version.
+- **Why it's built this way:** [`docs/decisions/`](docs/decisions/README.md), one short record per decision.
+- **What lives where:** [`docs/architecture.md`](docs/architecture.md).
+- **Business rules, history and older gotchas:** [`.claude/PROJECT_KNOWLEDGE.md`](.claude/PROJECT_KNOWLEDGE.md).
+- **Before starting new work, read [`.claude/ROADMAP.md`](.claude/ROADMAP.md)** — the agreed build order, with a
+  status per item. Flip an item to `[~]` in the *first* commit of the work, so two sessions can't pick up the same one.
 
-**Before starting new work, read [`.claude/ROADMAP.md`](.claude/ROADMAP.md)** — the agreed build
-order, with a status marker per item. Flip an item to `[~]` in the *first* commit of the work, not
-the last, so two sessions can't pick up the same one.
+## The shape of it
 
-## Architecture
+- `index.html` holds every page's markup; `showPage()` (`components/nav.js`) shows one. Home · Cash flow · Net worth ·
+  Tax · Plan, plus Reports, Settings, Calculators and a Details page — see docs/architecture.md.
+- `src/app.js` only starts the app. Every listener lives in a page's wiring module (`components/*wiring.js`, `rows.js`,
+  `redraw.js`…), called from app.js in the order listeners have always been added. Nothing imports app.js
+  ([0008](docs/decisions/0008-app-js-is-a-bootstrap.md)).
+- `src/state.js`: `state` is the single source of truth ([0003](docs/decisions/0003-local-first-data.md)). `src/calc/` is
+  pure financial maths, no DOM ([0011](docs/decisions/0011-one-place-for-each-sum.md)). `src/components/` renders,
+  `src/lib/` holds dependency-free utilities.
+- `styles.css` puts every `src/styles/*.css` in a cascade layer: `base, layout, components, pages, utilities, phone`
+  ([0009](docs/decisions/0009-css-cascade-layers.md)).
 
-- `index.html` — all markup for every page/section. Since v3.57.0 the pages are organised by job,
-  and since v3.129.0 by what you own: Home (`page-dashboard`: Overview / Insights / Benchmarks /
-  Review — Checks sit in Review), Cash flow (`page-expenses`: Budget / Income / Spending / Bills),
-  **Net worth** — one menu entry over four pages sharing a rail of tabs: the overview
-  (`page-networth`), Accounts, Investments (`page-assets`) and Property (`page-properties`) — Tax
-  (Year / Returns / Documents / People), Plan (`page-plan`: Scenarios — the scenario cards live here
-  — / Projections / Goals / Retirement), Reports, Settings (`page-settings`: Categories / Preferences /
-  Import rules) and a Details page (`page-detail`, `/detail/<kind>/<id>`, in no menu) for any one
-  thing. Pages are `<section class="app-page" id="page-...">`, shown/hidden via `showPage()`, not
-  separate documents; old ids (`income`, `scenarios`, `projections`) still work through `nav.js`
-  ALIASES, and `showAccountsSubpage("people"|"checks")` and `/settings/people|checks` land where
-  those tabs moved (`MOVED_SETTINGS`). **Navigation (v3.140.0):** desktop has the sidebar; a phone
-  (≤880px) has no brand bar — the page title is the header (slim once scrolled) — and a bottom bar of
-  Home · Cash flow · Net worth · Tax · Plan. Both have the header's **avatar menu** (Reports, Settings,
-  backup & sync, import/export, theme, sample data, reset, updates, version); its dot means a save failed.
-  The smoke script taps the tabs and the avatar menu, so a broken nav fails CI.
-- **Numbers:** every figure uses `var(--font-num)` with tabular figures (base.css) — whole dollars in
-  totals and summaries, cents only on single items. Don't reintroduce a second number font. A figure read at
-  a glance — a chart axis, a long-horizon card — is `fmtCompact` (lib/format.js: $9,457 · $673.8k · $4.5M), the exact one
-  in its tooltip; there is no other compact formatter.
-- **Type scale (v3.155.0):** every `font-size` is a `--fs-*` token from `base.css` (12 · 13 · 14 · 17 · 20 · 26 ·
-  32px) and weights are 400 or 600 — `tests/typescale.test.js` fails on a raw px size or another weight.
-- **Buttons (v3.156.0):** `.btn` (secondary), `.btn-primary`, `.btn-ghost`, `.btn-danger` (every delete) and
-  `.link-btn`, each with `.btn-sm`; a fold-out inside a card is `.tax-advanced` or `.row-more-options`.
-  `tests/buttons.test.js` fails on a delete that isn't `.btn-danger`.
-- **Category looks (v3.157.0):** a category's colour (`.cat-c-0`…`11`, sets `--cat`) and icon come from
-  `calc/categorylook.js` (from its name, or `state.categoryLooks[name]`); `lib/caticons.js` draws the badge. A rename
-  or delete of a category carries or drops its look.
-- **Cards and charts (v3.159.0):** every top-level card takes `--card-radius` and `--card-py`/`--card-px` (tighter
-  under 700px), a card inside a card `--inner-radius`; a card's title is `--fs-lg`. Both full charts (`renderLineChart`,
-  `renderStackedAreaChart`) share `wireChartTooltip` — hover with a mouse, tap with a finger. `tests/cards.test.js` pins both.
-- **Parts (v3.161.0):** a property and shares are *parts* (`calc/parts.js`): on when the household has one, or as set in
-  Settings → Preferences / the first-run setup (`state.parts`). Off adds `no-part-<key>` to `<body>`, hiding anything marked
-  `data-part`; reports (`REPORTS[].part`), Benchmarks sections, notices and Checks (`partAllows(id)`) filter themselves.
-  Something new about a property or shares gets a `data-part` or a `part`. The smoke script also runs an empty household.
-- **Home you arrange (v3.165.0):** Home's cards and figure tiles carry `data-home-card`; `lib/homelayout.js` reorders and
-  hides them and moves pinned Insights panels into `#homePinned`, per device in localStorage. A new Home card gets a key there.
-- **Your week (v3.166.0):** `calc/weekrecap.js` — from Monday, a card about last Monday–Sunday; dismissing it writes
-  `state.weekRecaps[monday]`, which syncs. Spent is Spending's rows for those days, refunds netted.
-- **On a phone (v3.167.0):** the end of `projections.css` holds the ≤880px floors — every control 44px each way (its own
-  box, or an invisible `::before` catch area on small marks), row editors and `.review-panel` dialogs as bottom sheets
-  dragged closed by their head (app.js), an open section's header sticky under `--topbar-h`. Spending's rows swipe left
-  for Edit / Split / Delete; pulling the page down refreshes prices and sync. The smoke script fails on a target under
-  44px at 390px; above 880px nothing changes (0 of 49 desktop views differ).
-- **Saved views (v3.168.0):** Spending's filters (direction, account, category, line, person, trip, amount range, dates,
-  text) can be saved as `state.txViews` (`calc/txviews.js`; synced, in the backup) and come back as chips. A filter with its
-  own dates replaces the header's period. Any button with `data-sv` and `data-sv-<filter>` attributes opens Spending
-  filtered — a budget line's drill-down, a Categories report row, Your week, a notice with `go.filter`.
-- **Statement formats (v3.169.0):** besides CSV and PDF, `calc/bank-import.js` reads OFX/QFX (SGML and XML) and QIF into the
-  same CSV (`statementTextToCsv`), so every import goes through one review, rule and duplicate path.
-- **Receipts (v3.170.0):** files live in IndexedDB (`lib/receipts.js`); rows carry `receipts: [{ id, name, type, size }]`
-  (`calc/receipts.js`). Backup, share, the backup folder and the sync file pack them as `receiptFiles`; every load path
-  unpacks them (`takeReceiptFiles` → `unpackReceipts`) before `setState`, and `migrateState` drops any left. A new array
-  of rows that can hold receipts goes in `receiptRefs`, or its files are pruned at startup.
-- **Who changed what (v3.171.0):** `lib/activity.js` diffs the data a moment after each save (only if the page was touched)
-  and logs `state.activity` entries (`calc/activity.js`; 90 days, size-capped, synced). Every `setState` (sync, backup, sample
-  data) resets the baseline via `onStateReplaced`, so loads are never logged. A new view setting or bookkeeping key belongs
-  in `calc/activity.js` SKIP, or it shows up as somebody's edit.
-- **Scenarios are sandboxes (v3.172.0):** every page outside Plan → Scenarios shows the household (`currentScenario()`), never
-  `state.activeScenario`. A scenario's differences live in `state.scenarioChanges[name]` (`calc/scenariochanges.js`), never on
-  the household's rows; today's home costs are Budget lines with `homeCost: true`, and a scenario that lives elsewhere reads
-  the household's lines through `scenarioSharedItems(name)`. New scenario maths goes through those, not `state.shared` directly.
-  **Make it real (v3.176.0):** `calc/makereal.js` is the one door back — a plan (dry run) then the same changes as rows; old
-  home lines end the day before. An investment property's tax effect is the owners' tax with and without it (`taxEffectFor`).
-  **What-ifs (v3.177.0):** a scenario's own assumptions are an `assume` change, read through `projectionFor(scenario)` — never
-  `state.projection` directly in projection maths; a `retire` change stops pay from that age.
-  **Speed (v3.180.1):** a scenario change redraws the scenario views once (`refreshScenarioDependentViews`); the projection chart
-  goes through `renderProjectionsWhenSeen()` (drawn only on screen, else on next open) — call that, not `renderProjectionOutputs()`, from edits elsewhere.
-  **Editor (v3.181.0):** a scenario is edited on `page-scenario` as a draft (`calc/scenariodraft.js`, key `Draft · <name>` in purchase /
-  invest / home / scenarioChanges; `editing` in components/scenarios.js). Anything looping scenarios by `state.scenarios` skips drafts — keep it so.
-  **Triggers (v3.183.0):** a change starts at `fromYear`, `when: "age"` (`whenAge`) or `when: "cash"` (`whenCash`, on cash + shares + offsets,
-  never super); `computeNetWorthSeries(...).triggers[id]` is the year it started. Read legs through `scenarioLegChanges`, not raw.
-  **Phase J (v3.182–186):** the editor draws the draft against today and lays it on an account (`calc/scenarioaccount.js`); Side by side
-  adds the odds (`cashLastsOdds`, filled in after drawing), a bad first year (`badStartSeries`) and a lender check (`lenderCheck`); a
-  sale's CGT is `calc/salecgt.js` — the one place sale tax is worked out.
-  **Phase K (v3.187–194):** the editor is two columns (results pinned beside), Save bar at the bottom on a phone, a leave guard
-  (`setLeaveGuard` in nav.js), one "+ Add a change" sheet, saved-vs-draft marks (`changeStatus`/`resetChange`), a timeline
-  (`calc/scenariotimeline.js`), grouped forms with `HINTS`/`ODD`, an in-place rename and `state.scenarioNotes`. The purchase and
-  invest calculators live on the **Calculators** page (`page-calc`, avatar menu); the editor shows `buyInvestSummaryHtml` and
-  `renderHomeBody` also draws the scenario's panels there (`renderCalcScenario`) — keep both in that one render.
-  **Wiring (v3.200.0):** the events for a scenario's changes, the question sheet, its page, the Calculators round trip and Make it
-  real are registered in `components/scenariowiring.js` (`wireScenarioEditor`, called from app.js where they used to sit).
-  **Combined (v3.199.0):** an `include` change counts another scenario's changes (never copied, own wins, once each, loops stop);
-  maths reads `effectiveChanges(name)` (calc/scenariochanges.js), the editor's own list `changesFor(name)`.
-- **Investment returns (v3.178.0):** `calc/investreturn.js` — `xirr`, money-weighted per holding, the same money in an index
-  (the price file's weekly A200 / IVV series, read once a session by `components/investreturn.js`), a target mix (`state.targetMix`,
-  a holding's own `assetClass` overriding its market) and distributions ahead. The IRR and the index units are `calc/performance.js`'s
-  (`xirr`, `indexValue` — also behind Home → Benchmarks and the reports): there is one IRR, reuse it.
-- **Subscriptions (v3.179.0):** `calc/recurring.js` `repeatingPayees` is the one repeating-payee detector — Budget's unbudgeted list and
-  Bills' Subscriptions (`calc/subscriptions.js`, `state.subscriptionNotes`) both filter it; change detection there, not in either.
-- **Balance by the day (v3.180.0):** `calc/dailyforecast.js` — an everyday account's 90 days from the bills calendar (`billsForMonth`,
-  whose bills now carry `account`), pay landed before (`incomeLog`) and usual spending; `account.buffer` warns on its detail page and Home.
-- **Automatic payments (v3.196.0):** `calc/autopay.js` — `state.autoPayments` (from, to, amount, freq, a `start` day, `asksFrom`,
-  optional Budget `line` it stands for, `answers` by date). On the day Home (`data-home-card="autopay"`) and the bell ask; an
-  answer records a transfer tagged `autoPay`/`autoPayDate` (or nothing, for skipped); a transfer between the same accounts within
-  3 days answers it too. The bills calendar and an account's 90 days draw it in place of its line. Renames walk `from`/`to`.
-- `styles.css` — just eight `@import` statements pulling in `src/styles/{base,shell,dashboard,
-  ledger,income,properties,assets,projections}.css`, in that specific order. Light/dark theming is
-  CSS custom properties + `prefers-color-scheme`, defined in `base.css`.
-  **Import order is load-bearing, not cosmetic** — several classes with equal specificity are
-  combined on the same element (e.g. `class="income-summary-line home-recon-line"` in
-  `scenarios.js`) and rely on source order to resolve which value wins, exactly as the original
-  monolithic file did. Moving one `@import` line before another can silently flip such an
-  override. Before reordering, re-run the cross-bucket conflict check described in
-  `.claude/PROJECT_KNOWLEDGE.md`'s "Modularization progress" section.
-- `src/app.js` — the entry point (`<script type="module">`), about 260 lines since v3.206.2 (item 237; it was ~6,950):
-  the theme (`lib/theme.js`), the calc/lib providers, the route a load starts on and Back (`lib/overlaystack.js`
-  is the overlay Back closes), then each page's
-  `wire…()` in the order its listeners have always been added, `renderAll()` and the first page. Every listener
-  lives in a page's wiring module — `components/{rows,redraw,overlays,calcwiring,planwiring,taxwiring,assetswiring,
-  propertieswiring,cashflowwiring,searchwiring,spendingwiring,accountswiring,importwiring,settingswiring,homewiring,
-  datawiring,chromewiring,budgettoolswiring,safekeepingwiring,reportswiring,scenariowiring,notifpanel,updates}.js`:
-  `rows.js` holds a row's editor (open, type, add, delete, discard an untouched new row), `redraw.js` the full redraw
-  (`renderAll`, `defineViews`), the header's figures and `withUndo`. Nothing imports app.js, and app.js holds nothing a
-  module needs. **A new listener goes in its page's wiring module**, called from that module's `wire…()`.
-  **Sections (v3.206.2, item 237b):** a row's `data-section` (`income`, `shared`, `home:<scenario>`, `propinc:<id>`,
-  `assets`, `tx`…) is registered by its page — `defineSection(kind, { rows, redraw, inBudget, editor, … })` in
-  `lib/sections.js`, called from the page's wiring module — and rows.js asks the registry (`getArrayForSection`,
-  `rerenderTableFor`); a page's own buttons inside rows are `defineRowAction(selector, fn)`. A new list of editable
-  rows registers its kind there; rows.js names no page.
-- `src/state.js` — `state` (the single source of truth), `defaultState()`, `migrateState()`
-  (schema migration + safe defaults for old/partial saves), `persist()` (debounced localStorage
-  write), `setStatus()`. Since v3.203.2 (item 235a) `migrateState` runs `MIGRATION_STEPS` — numbered, named,
-  idempotent steps run on every load, in order. A new field or change of shape is a new step at the end with
-  a test in `tests/migrations.test.js` from the shape before it (that file fails if a step has no test).
-- `src/calc/{ledger,property,tax,engine,cashflow,fire,history,trends,bank-import,import-rules,claims,people,received,closeyear,health,withholding,junemoves,actuals,monthreview}.js` —
-  pure financial math and parsing, no DOM access. `ledger.js`
-  (period conversions, sums), `property.js` (stamp duty, LMI, loan repayments, gearing, equity —
-  `propertyEquityToday()` and friends), `tax.js` (AU income tax/Medicare, super contribution caps,
-  Division 293), `engine.js` (net-worth projection series, `totalNetWorthValue()`, the "recompute
-  all derived/synthetic rows" pass), `cashflow.js` (the smoothed/reserve split), `fire.js` (the
-  accessible-vs-super FI split and the bridge-to-preservation-age simulation), `history.js` and
-  `trends.js` (logged values over time, month-over-month spending), and
-  `bank-import.js`/`import-rules.js` (CSV parsing and merchant-name cleanup), `claims.js` (what a
-  deductible line claims and against whom — a person or a property), `people.js` (renaming a person
-  everywhere they're named), `received.js` (income received, kept apart from spending
-  transactions), `closeyear.js` (a finished year's actuals into next year's plan), `health.js`
-  (the Settings → Checks consistency list), `withholding.js` (the payslip refund-or-bill check),
-  `junemoves.js` (Before 30 June), `actuals.js` (the plan corrected by what's been logged),
-  `monthreview.js` (Home → Review), `accounts.js` (account types and balances, read and written
-  through `account.link` to the record that holds the money), `cashflowlist.js` (one list of money
-  in, out and transfers; splits; bulk edit), `bills.js` (the bills calendar), `investments.js`
-  (portfolio performance, distributions by year, super against the cap), `reports.js`,
-  `savegoals.js` (savings goals on account balances), `firstrun.js` (the first-run setup's answers into rows), `pricesheet.js` (share prices and weekly backfill read from a shared Google Sheet), `trips.js` (spending in a trip's dates filed to its line), `agentstatement.js` (a property manager's statement in one step), `monthdetail.js` (a month against your own usual month), `nwcheck.js` (whether what you kept explains how net worth moved), `recurring.js` (repeating payees and rising
-  lines; what's hiding in a catch-all line), `nwhistory.js` (net worth on a past date), `takehome.js` (pay
-  received against the plan), `canbuy.js` (Plan → Can we buy?), `brokertrades.js` (a broker's trade
-  history into lots), `pdfstatement.js` (a PDF bank, card or property manager statement into rows),
-  `emergency.js` (an emergency fund sized on essentials), `trim.js` (padding in the plan, flexible
-  lines, lean scenarios), `advice.js` (what the app notices),
-  `aisummary.js` (the anonymised summary behind Ask Claude), and from the October 2026 roadmap
-  (items 135–165): `estimates.js` (a super or property value between logs), `merchantbook.js`
-  (well-known merchants), `budgetfromhistory.js` (a budget proposed from spending), `payslip.js`
-  (a payslip's text read), `reportframe.js` (the shared period / comparison / grouping every report
-  reads), `investreports.js` (returns by holding, distributions, CGT parcels), `assetreports.js`
-  (property returns, the loan schedule and payoff), `outcomes.js` (Monte Carlo bands and retirement
-  odds), `lifeevents.js` (dated events on the projection), `agepension.js` (account-based pension
-  drawdown and the Age Pension) and `networthlist.js` (everything owned and owed in one list); `inbox.js` (statements dropped into a
-  Statements folder in Dropbox or the backup folder — `lib/inbox.js` lists, reads and moves them); and
-  `showas.js` (Income per year, month, fortnight, week, day or hour); `payslipcheck.js` (a payslip against the plan, line by line).
-- `src/components/{dashboard,home,income,taxyear,expenses,cashflow,accounts,assets,investments,
-  properties,projections,scenarios,reports,rules,period,safekeeping,savegoals,recurring,yearend,nav,
-  bank-import,search,people,received,health,junemoves,monthreview,retirement,networth,detail,
-  lifeevents,budgethistory,…}.js` — one file per page or card (plus `nav.js` for routing/page-switching, and
-  `bank-import.js`/`search.js` for the two cross-page flows), each exporting its functions for
-  their page's wiring module (above) to wire up.
-- `src/constants.js`, `src/lib/{format,toast,html,ledger-table,charts,swipe,notifications,search,
-  setup,timerange,scroll-shadow,safekeeping}.js` — static data tables and dependency-free utilities used across
-  everything above: currency/percent formatters, toasts, `escapeAttr`/`slug`, the shared ledger row
-  renderers (`modernPlainRowHtml`/`modernRowShellHtml`/`timingFieldsHtml`) used by every ledger
-  page, the hand-rolled SVG charts (`renderLineChart`, `renderStackedAreaChart`), the local
-  notification layer, cross-page search, and the setup checklist.
-  **There is no Classic mode any more** — `lib/uimode.js`, `state.uiMode` and the `buildTable`/
-  `rowHtml` `<table>` renderers were all removed once every page went Modern-only. If you find a
-  reference to any of them anywhere, it is stale.
-- `index.html` starts with `<!doctype html><html lang="en-AU">` (v3.138.0 — before that the app ran in
-  quirks mode). Text coloured as up/down/warning uses `--good-ink`/`--bad-ink`/`--warn-ink` (base.css),
-  which pass 4.5:1 contrast; `--good`/`--bad` are for fills, bars and dots.
-- `src/lib/storageuse.js` — how full localStorage is (a notification from 70%, a line in Settings →
-  Preferences). `src/lib/help.js` also puts each page's ⓘ and its own ⋯ actions beside the title.
-- `src/lib/backup.js` — JSON backup export/import (with optional Web Crypto passphrase
-  encryption) and per-section CSV export. `applyImportedBackupJson` is in `components/importwiring.js`.
-- `vendor/pdfjs/` — pdf.js (Apache-2.0, its LICENSE alongside), vendored rather than loaded from a CDN so PDF
-  import works offline and never depends on a third-party host. Loaded only when a PDF is chosen
-  (`src/lib/pdftext.js`); outside `src/`, so `npm run stamp` leaves it alone.
-- `src/lib/foldersync.js` + `src/lib/dropbox.js` — sync between devices (v3.134.0/v3.136.0): one encrypted file
-  (`calc/syncfile.js` decides load / write / ask), written through the chosen backup folder or the app's Dropbox
-  folder (OAuth PKCE, `DROPBOX_APP_KEY`). Per-device sync memory and tokens live in localStorage, never in `state`.
-  Since v3.143.0 a conflict is merged three ways (`calc/syncmerge.js`) against the last agreed copy, kept in IndexedDB;
-  only the same thing changed on both devices is asked about.
-- `prices/` — the daily price file (v3.133.0): `universe.json` is a fixed public ticker list (never add
-  one because someone holds it — the repo is public), and `latest.json`/`weekly.json` are rewritten each
-  weekday by `.github/workflows/prices.yml` (`scripts/prices/fetch.mjs`: Twelve Data for US with the
-  `TWELVE_DATA_KEY` secret — its free plan has no ASX — and Yahoo Finance for ASX while the workflow sets
-  `ASX_FROM: yahoo`; Stooq refuses GitHub's runners). The app reads them from its own site (`components/autoprices.js`).
-- `manifest.webmanifest`, `sw.js`, `icons/` — installable PWA support. The manifest's
-  `start_url`/`scope` are `"."` (relative to the manifest's own URL) rather than an absolute
-  path, so the same file works unmodified from both local dev (served at root) and GitHub Pages
-  (served under `/wealth-planner/`) — same reasoning as `nav.js`'s `BASE_PATH` detection, just via
-  browser URL resolution instead of a JS runtime check. `sw.js` is network-first with
-  cache-as-you-go (no fixed precache list): every online load refreshes the cache, and whatever's
-  already cached keeps the app fully working offline, matching the fact that this app was already
-  100%-client-side/localStorage before the PWA work. Registered from `components/updates.js` via
-  `navigator.serviceWorker.register("sw.js")` — see `.claude/PROJECT_KNOWLEDGE.md` for two gotchas
-  that cost real debugging time here: the `event.waitUntil()` requirement for any cache write that
-  outlives the fetch handler's synchronous return, and same-origin `no-cors` (opaque) responses
-  always reporting `.ok === false` even on success.
+## Rules that always apply
 
-**Edits say what they touched (v3.204.1, item 235c).** `commit(["transactions", "accounts"])` from state.js saves
-(it calls `persist()`) and tells `onCommit` listeners which top-level keys of `state` changed; item 236 redraws only
-the views that read them. A new edit uses `commit` with what it touches, never a bare `persist()`. `npm run check`'s
-`local/ratchet` counts bare `persist()` calls and direct writes into `state` (`state.x = …`, `state.x.push(…)`) in
-app.js, components and lib against `eslint-rules/ratchet.json`: a file may not gain one, and when it loses one the
-baseline must come down (`node eslint-rules/ratchet.mjs --update`).
+**Every shipped change is a release — never bump the version by hand** ([0002](docs/decisions/0002-every-change-is-a-release.md)).
+The Release workflow versions, stamps, tests and tags after a merge. You: commit the change, open a PR, and label it
+`release: minor` (feature or behaviour change), `release: patch` (fix, or a refactor nobody can see) or
+`release: none` (nothing ships). A PR that adds a module or an inline `<script>` runs `npm run stamp` (import map and
+CSP hashes; `tests/stamp.test.js` fails otherwise).
 
-**Pages drawn when seen (v3.205.0, item 236a).** `renderAll()` draws only the page on screen and what's on every
-page (header, badges, datalists); every other part is a *view* (`defineView(name, pages, draw)` in `defineViews`,
-components/redraw.js, registry in `lib/views.js`) left stale and drawn by `drawStale(page)` just before nav.js shows that
-page. Each view's pages were measured (its writes under a MutationObserver). A new part of the full redraw is a new
-`defineView` with the pages it draws into (`null` = every page); an edit's own redraw uses `redraw([names])`, which
-draws what's on screen and leaves the rest stale — not the render functions directly. **Since v3.206.0 (item 236b)** each view also says what it
-reads (`defineView(name, pages, draw, reads)`: top-level keys of `state`, `"balances"` for money moved in an account,
-loan or offset, `["*"]` for anything) and every `commit(touched)` redraws the views reading what it touched — so an
-edit's commit *is* its redraw; don't follow it with a hand-written list. A new view gives its reads.
+**Always open a pull request for finished work**, without being asked: one PR per coherent piece of work.
 
-**`state` is a live import, not a value** — never reassign the imported `state` binding directly
-(`state = X` throws for an ES-module import). Use `setState(newState)` from `state.js` instead;
-the wiring modules do this correctly today (Reset, Sample data, Import backup) — keep it that way.
+**Never commit real personal data — this repo and its history are public** ([0004](docs/decisions/0004-no-real-personal-data.md)).
+No real names, places, employers, banks, merchants, account numbers, amounts, dates or ages anywhere — code, tests,
+fixtures, comments, docs, commits, PRs — including the owner's own. Fixtures are invented from scratch (Alex, Sam,
+Employer A, 1 Example St, Fern Café, Bank One), never a real figure altered. Check against real data outside the repo
+and report without figures. Before every push, grep the diff for names, places and non-round amounts.
 
-Because this is ES modules (`type="module"`), the app **cannot be opened via `file://`** — it
-must be served over HTTP. See "Running it" below.
+**Security** ([0014](docs/decisions/0014-security-baseline.md)): a new third-party host goes in the CSP in
+`index.html`; text a person typed or a file brought in goes into HTML through `escapeAttr()`.
 
-## The one rule that matters most: every shipped change is a release
+## When you add something
 
-Since v3.202.0 (item 233) **the Release workflow (`.github/workflows/release.yml`) does the versioning — never
-bump by hand.** After a merge to main, `scripts/release.mjs` decides the release and the workflow bumps
-`<span class="app-version-num">` in `index.html`, runs `npm run stamp`, runs the tests, commits
-`Bump version to vX.Y.Z — <PR title>` and pushes it with its tag. What you do:
+- **An edit** saves with `commit([...top-level keys it touched])`, never a bare `persist()` or a write the ratchet
+  counts; its commit *is* its redraw — no list of render calls after it
+  ([0007](docs/decisions/0007-edits-redraw-what-they-touched.md)).
+- **A new part of the full redraw** is a `defineView(name, pages, draw, reads)` in `components/redraw.js`; an edit's own
+  partial redraw is `redraw([names])`. The projection chart goes through `renderProjectionsWhenSeen()`.
+- **A new listener** goes in its page's wiring module; **a new list of editable rows** registers its kind with
+  `defineSection` (`lib/sections.js`); a page's own button inside rows is `defineRowAction`.
+- **A new field or change of shape** in `state` is a new `MIGRATION_STEPS` entry with a test in
+  `tests/migrations.test.js`. Replace `state` with `setState()`, never `state = …`.
+- **A new array of rows** that names an account goes in `everyAccountLink`
+  ([0006](docs/decisions/0006-accounts-linked-by-id.md)); one that can hold receipts in `receiptRefs`; a new view
+  setting or bookkeeping key in `calc/activity.js`'s SKIP ([0012](docs/decisions/0012-sync-without-a-server.md)).
+- **Scenario maths** reads `effectiveChanges(name)`, `scenarioSharedItems(name)` and `projectionFor(scenario)` — never
+  the household's rows or `state.projection` directly; every other page shows the household (`currentScenario()`)
+  ([0005](docs/decisions/0005-scenarios-are-sandboxes.md)).
+- **Something about a property or shares** gets a `data-part` or a `part`; a new Home card a `data-home-card`
+  ([0010](docs/decisions/0010-one-design-system.md)).
+- **Styles** use the tokens: `--fs-*` sizes, weights 400/600, `var(--font-num)` for figures, `fmtCompact` for a figure
+  read at a glance, `.btn-danger` for every delete, `--good-ink`/`--bad-ink`/`--warn-ink` for coloured text. A rule
+  that adjusts another file's rule goes after it or in a later layer, not in a more specific selector; no page sets
+  `min-height`/`min-width` `!important` (the phone floors are, and `!important` reverses layers).
+- **A new page, subtab or report** goes in the smoke script's `VIEWS`; **a function that builds HTML from data** in
+  `tests/render-smoke.test.js`; **a flow people rely on** gets a journey in `scripts/journeys.mjs`.
 
-1. Commit the functional change on its own, as before.
-2. Label the PR: **`release: minor`** for a new feature or behaviour change, **`release: patch`** for a bug fix,
-   **`release: none`** for something that doesn't ship. Without a label: nothing under `src/` (or index.html,
-   styles.css, sw.js, vendor, icons) changed → none; every commit titled "Fix …" → patch; otherwise minor.
-3. A PR that adds a module or an inline `<script>` still runs `npm run stamp` (it maps the new file and
-   rehashes the CSP) — `tests/stamp.test.js` fails otherwise. It doesn't change the version.
+## Traps no check catches
 
-Do this for every shipped change, without being asked. This is a strong, explicit standing preference.
+- **"This year" and "this month" are the header's period, not today.** Anything genuinely about *now* — notifications,
+  Before 30 June, the last finished year — passes today explicitly (`todayTaxFy()`, `localDateStr()`).
+- **Transfers and money received are never spending.** Spending totals sum `state.transactions` only.
+- **`showPage()` applies later, inside a view transition.** Two navigations in one tick resolve "newest wins".
+- **A deleted account's name stays on its rows**, so a `<select>` of accounts must offer `… (deleted)` — a value matching
+  no option silently shows the first one.
+- **CSS `[hidden]` does nothing** on an element with its own `display` rule — add `.your-class[hidden]{ display:none; }`.
+- **Inside one stylesheet, a `@media` override must come after the rule it overrides** — same layer and specificity,
+  so source order decides, whatever the media condition.
+- **A checkbox's `preventDefault()` reverts its checked state** after all its click listeners run. Let each mirrored
+  checkbox toggle itself and sync on `change`.
 
-**Security (v3.202.0):** `index.html` carries a Content-Security-Policy. A new third-party host the app talks
-to goes in its `connect-src` (or the right directive), or the browser blocks it — the smoke run fails on the
-console error. Inline scripts run only by hash, which `npm run stamp` keeps current. Text a person typed or a
-file brought in goes into HTML through `escapeAttr()`; `npm run check`'s `local/no-unescaped-text` rule flags a
-row field (`.what`, `.description`, `.name`…) joined into markup raw. Uncaught errors are kept on the device
-(`lib/errorlog.js`, imported first in app.js) and listed in Settings → Keeping your data safe.
-
-## Never commit real personal data — this repo is public
-
-Nothing from a real person's finances or identity goes into this repository: not in code, tests,
-fixtures, comments, docs, commit messages or PR descriptions. That covers names, addresses,
-employers, banks and lenders, merchants and places, account / card / tax file numbers, salaries,
-balances, transactions, tax-return figures, purchase or settlement dates, ages and birthdays. It
-applies just as much when the data is the repo owner's own — a backup, a payslip or a lodged return
-shared during a session.
-
-- **Every test and fixture uses invented data, far from anything real.** Placeholder people
-  (Alex, Sam), "Employer A", "1 Example St", generic merchants (Fern Café, Bank One), and amounts
-  made up from scratch. Never scale, round or lightly alter a real figure — invent a new one.
-- **Verify against real data outside the repo.** Checking the engine against a real backup or a
-  lodged return is good practice; do it in a scratch directory, and report the result without the
-  figures ("every label matches", not the dollar amounts).
-- **Files made from someone's real data** (a tax year import file, a corrected backup) go to them
-  directly — never committed, never attached to a PR.
-- **Before every push, grep the diff** for names, places, employers and non-round amounts that
-  look like someone's real numbers. If in doubt, leave it out.
-
-Git history is public too. Removing something later means rewriting history and asking GitHub
-Support to purge cached pull-request commits, so getting this right before the push is the only
-cheap option.
-
-## Always open a pull request for shipped work
-
-Pushing the branch is not the end of the job. Once a piece of work is complete and pushed, open a
-pull request for it without being asked — same standing-preference weight as the version rule
-above. One PR per coherent piece of work, covering however many increments it took; don't leave
-finished commits sitting on a branch with no PR, and don't wait to be prompted.
-
-## Running it locally
+## Running and testing
 
 ```
-python3 -m http.server 8934   # from the repo root
+python3 -m http.server 8934   # then http://localhost:8934/index.html — modules don't load from file://
+npm test                      # node --test over tests/*.test.js — no framework, no dependencies
+npm run check                 # ESLint (+ local rules: escaping, the commit ratchet), tsc over calc/, stylelint
+npm run stamp                 # after adding a module or an inline script
 ```
 
-Then open `http://localhost:8934/index.html`. A real browser (Playwright + an installed Chrome,
-not the bundled Chromium) is the standard way to drive/verify UI changes in this repo — see
-`.claude/PROJECT_KNOWLEDGE.md` for the exact pattern used throughout this project's history.
-
-## A few things that will bite you
-
-- **"This year" and "this month" are the header's period, not today.** `householdYearWindow()`,
-  `transactionsInMonth()`, `budgetCycleFor()` and friends default to the period picked beside the
-  page title (`calc/ledger.js` `selectedYearWindow`/`selectedMonth`/`periodAnchorDate`). Anything
-  that is genuinely about *now* — notifications, Before 30 June, Checks' last finished year, which
-  years can be closed — must pass today explicitly (`todayTaxFy()`, `localDateStr()`).
-- **`showPage()` applies inside a view transition, i.e. later.** Two navigations in one tick (e.g.
-  `showPage("accounts")` then `showAccountsSubpage("checks")`, which moves on to Settings) are
-  resolved by "newest wins" — `applyPageChange` bails if `currentPage` moved on. Don't remove that.
-- **Transfers and money received are never spending.** They live in `state.transfers` and
-  `state.incomeLog`; every spending total sums `state.transactions` only. A split is several
-  ordinary transactions sharing `splitGroup`, so totals need no special case.
-- **Accounts are linked by id (v3.204.0, item 235b).** Every link carries the account's id beside its name —
-  `account`/`accountId` on rows (budget lines, income, transactions, money received, home rows, a property's rows,
-  import rules), `from`/`fromId` and `to`/`toId` on transfers and automatic payments, a card's
-  `autoPayFrom`/`autoPayFromId`, a rule's `transferAccount`/`transferAccountId`; goals, saved views and month
-  statements follow by id too. The name is a copy for display: `renameAccount` (calc/accountlinks.js) writes the
-  new name onto every row linked by id, and migration step 23 (`linkAllByName`) links rows written by name only —
-  an edit by name moves the link. **A new array of rows that names an account goes in `everyAccountLink`**, or it's
-  neither linked nor renamed (tests/accountlinks.test.js counts them). Reading a name stays plain `row.account`;
-  `accountFor`/`isLinkedTo`/`link` (or `rowAccount`/`setRowAccount` in calc/accounts.js) when the account itself
-  matters. **Deleting an account deliberately leaves the name on the rows** — it records where money moved, and
-  re-adding an account spelled the same way relinks them — so a list of accounts must cope with a name that no
-  longer exists: a `<select>` whose value matches no option silently shows the *first* one, which is why
-  `transactionAccountOptionsHtml()` emits an explicit `… (deleted)` option. Categories are still by name
-  (`everyCategorisableArray()`).
-- **Moving code between modules: a name it lost is a `ReferenceError` only when its handler runs** — `node --check`
-  and the tests won't see it. `npm run check` (ESLint's `no-undef`) does; run it after any move. Item 237's split was
-  checked by recording every `addEventListener` at startup on main and on the branch: the same 360, in the same order.
-- **CSS `[hidden]` silently does nothing** if any author rule sets `display` on that element —
-  author CSS beats the browser's built-in `[hidden]{display:none}` regardless of specificity.
-  Add an explicit `.your-class[hidden]{ display:none; }` override whenever you toggle `.hidden`
-  on an element that also has its own `display` rule.
-- **A same-specificity CSS rule wins by *source order*, not by whether its `@media` condition is
-  the "more specific" one.** A `@media (max-width:880px){ .foo{ display:none } }` block placed
-  *before* an unconditional `.foo{ display:flex }` rule loses to it on every viewport, mobile
-  included. Always place a responsive override *after* the base rule it's meant to override.
-  (This bit three different elements in one session before the pattern was recognized.)
-- **Checkbox `preventDefault()` reverts the checkbox's own checked state after all its click
-  listeners finish running** — regardless of what a listener sets `.checked` to in the meantime.
-  Don't use a "preventDefault + forward to the real control" pattern for mirrored checkboxes;
-  let each one toggle itself natively and sync via plain `.checked = ...` assignment on `change`.
-- **A service worker `fetch` handler's async side effects (e.g. `cache.put()`) need
-  `event.waitUntil()`** if they happen after the response you hand back — the browser is free to
-  suspend/kill the worker the instant `event.respondWith()`'s promise resolves, mid-write, since
-  nothing told it to wait. `sw.js`'s cache-as-you-go writes were silently no-ops for a while
-  because the `caches.open().then(cache.put)` chain wasn't wrapped in `waitUntil()`.
-- **A same-origin `fetch()` made in `no-cors` mode (which browsers use for plain `<link
-  rel="stylesheet">`/`@import`/font fetches, even same-origin) always returns an opaque response
-  with `status: 0` and `.ok === false`, even on success** — you cannot tell it apart from a real
-  failure from JS. `sw.js` caches on `response.ok || response.type === "opaque"`, not `.ok` alone,
-  or every CSS/font request would silently never get cached.
-
-## Testing conventions
-
-`npm test` runs Node's built-in runner over `tests/*.test.js`. No framework, no dependencies — that
-is deliberate, and any fix that needs jsdom or a bundler to be testable is the wrong fix.
-
-Three layers, and **knowing what each one cannot see is the whole point**:
-
-1. **`tests/*.test.js` over `calc/`** — the financial arithmetic. Deep coverage, and none of it
-   touches the DOM.
-2. **`tests/render-smoke.test.js`** — calls the pure HTML builders (`modernPlainRowHtml`,
-   `categoryChartHtml`, `sparklineHtml`, …) with fixture data and asserts they return markup.
-   It exists because **a fully green suite twice sat on top of a page that did not render at all**:
-   once from a function imported out of the wrong module, once from a variable referenced outside
-   its scope. Both passed `node --check`. Both passed every test. Both were found by opening a
-   browser. If you add a function that builds HTML from data, add it here.
-3. **Driving the app** (Playwright + real Chrome against the http.server above), screenshotting,
-   reading the DOM and console. Still the only thing that sees event wiring, CSS cascade, layout,
-   and anything reached through `document`.
-
-- **Fixtures are invented** — see "Never commit real personal data" above. A test that was checked
-  against a real return keeps its logic and gets made-up inputs, with expectations rebuilt by hand.
-- **CI (`.github/workflows/checks.yml`) runs `npm test` and `scripts/smoke.mjs` on every PR.** The
-  smoke script opens every page and subtab headless at 390/1280px, light and dark, and fails on page
-  or console errors, an empty page, sideways scroll, NaN/undefined text, or a %-width bar measuring
-  0, or (at 390px) a tap target under 44px. Run it locally with `npm i --no-save playwright && npx playwright install chromium && node
-  scripts/smoke.mjs`. It catches breakage, not layout taste — still look at what you changed.
-  Adding a page, subtab or report means adding it to the smoke script's `VIEWS`.
-- **Journeys and a speed budget (v3.203.1):** `scripts/journeys.mjs`, in CI as `journeys`, does what people do —
-  confirm bills, a transfer with Undo, an automatic payment answered on Home, edit and save a scenario and open Make
-  it real, a CSV and a PDF import (invented statements in `scripts/journeys/fixtures.mjs`) — at 390px on the sample
-  household with the date fixed. Then, on a large invented household at 4× CPU, it times startup, saving a transfer
-  and adding a scenario change against limits, and a transfer against a full redraw in the same run (`?perf=1`
-  exposes `window.__wpRenderAll` for that): a step that redraws everything fails whatever the machine. A new flow
-  people rely on gets a journey there. `npm run coverage` is the suite with coverage, summarised in CI.
-- **Screens (v3.130.0):** on a pull request the `screens` job runs the same script with `SHOTS_DIR`
-  (a full-page picture of every view, light, 390/1280px, clock fixed) against the base branch
-  (`SMOKE_ROOT`) and the PR, and `scripts/shotdiff.mjs` lists what changed in the job summary and the
-  "screens" artifact. Informational only — read it, it never fails.
-- **A green run is not evidence the app renders.** Nothing in layers 1–2 loads a component or
-  fires a listener. Any change to a component, a template or a stylesheet gets driven before it is
-  called done.
-- Prefer checking computed styles/behavior over eyeballing when a bug might be CSS-cascade-related
-  — several real bugs in this project were only found via `getComputedStyle()` audits, not visual
-  inspection. The same goes for geometry: measure `getBoundingClientRect()` rather than deciding
-  a bar or a tap target looks about right.
+Three layers, each blind to something ([0013](docs/decisions/0013-testing-in-three-layers.md)): the `calc/` tests (no
+DOM), the render smoke test (builders return markup, nothing wired), and driving the app with Playwright — the only
+one that sees wiring, the cascade and layout. CI runs the tests, `scripts/smoke.mjs` (every view at 390/1280px, light
+and dark, and an empty household), `scripts/journeys.mjs` (real flows and a speed budget) and the `screens` diff
+(informational). **A green run is not evidence the app renders** — drive any change to a component, template or
+stylesheet before calling it done, and measure (`getComputedStyle`, `getBoundingClientRect`) rather than eyeball.
+Locally: `npm i --no-save playwright && npx playwright install chromium && node scripts/smoke.mjs`.

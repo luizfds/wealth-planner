@@ -1,0 +1,109 @@
+/* ---------------- On a phone (v3.167.0, item 197; its own layer since v3.207.1, item 238) ----------------
+   The ≤880px floors: tap targets, bottom sheets, a list's sticky total, swipe and pull to refresh. The
+   `phone` layer is declared last in styles.css, so these win over every page's own rules on a phone by
+   layer — not by being last in the file — and nothing here applies above 880px. The tap-target floors
+   are !important, and an !important declaration in a *later* layer is the *weaker* one: no page rule
+   below may mark min-height or min-width !important, or it beats these. */
+/* ---------------- Tap targets on a phone (v3.167.0, item 197) ----------------
+   Last in the cascade on purpose: every rule here is a phone-only floor under a control's own size.
+   The floors are !important because they are floors — a page's own rule sizing a control (often more
+   specific than these) decides its look above them, never that it may be smaller than a thumb.
+   Nothing changes above 880px.
+   Two ways to 44px. A control that can simply be taller is (buttons, tabs, chips, fields, a row's
+   bar). A small mark that would look wrong at 44px — ⓘ, ⋯, ✕, a colour swatch, a link under a card —
+   keeps its look and catches taps in an invisible 44×44 box centred on it (::before; ::after is
+   taken on some of these). Inline links in a sentence get the box too, as a vertical reach only. */
+@media (max-width: 880px){
+  .btn, .btn-sm, .subnav-item, .period-chip, .seg-option, .chip, .filter-chip, .groupby-option, .home-todo-btn,
+  .home-setactive-btn, .m-flip-btn, .add-scenario-row, .sgl-name, .pref-check, .m-row-summary, .proj-legend-item-toggle,
+  .mobile-tab, .rp-month-link, .md-cat > button, .cf-chip, .cf-view, summary,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea{ min-height:44px !important; }
+  .btn, .chip, .rp-month-link, .seg-option, summary{ min-width:44px !important; }
+  .rp-month-link, .proj-legend-item-toggle{ display:inline-flex; align-items:center; }
+  details:not([class]) > summary, .adv-good-fold > summary{ display:flex; align-items:center; }
+  label:has(> input[type="checkbox"]), label:has(> input[type="radio"]){ min-height:44px !important; display:inline-flex; align-items:center; gap:8px; }
+  :is(.help-btn, .icon-btn, .page-overflow-btn, .period-btn, .notif-bell-btn, .avatar-btn, .cat-icon-pick, .cat-swatch,
+    .card-radio, .link-btn, .detail-link, .calc-hint-link, .md-bar, .tx-sign, .rp-unpin):not(details > .help-btn){ position:relative; }
+  :is(.help-btn, .icon-btn, .page-overflow-btn, .period-btn, .notif-bell-btn, .avatar-btn, .cat-icon-pick, .cat-swatch,
+    .card-radio, .link-btn, .detail-link, .calc-hint-link, .md-bar, .tx-sign, .rp-unpin)::before{
+    content:""; position:absolute;
+    top:min(0px, calc(50% - 22px)); bottom:min(0px, calc(50% - 22px));
+    left:min(0px, calc(50% - 22px)); right:min(0px, calc(50% - 22px));
+  }
+}
+
+/* ---------------- Bottom sheets on a phone (v3.167.0, item 197) ----------------
+   A row's editor and every dialog built on .review-backdrop/.review-panel rise from the bottom on a
+   phone, under the thumb, with a grip to drag them down by (app.js closes them past 110px, or on a
+   quick flick). The row editor used to be a full page sliding in from the right; it's the same
+   element and JS, only the presentation moves again (see ledger.css's notes on .m-row.open). After
+   both base rules in the cascade, so these win on a phone and nothing changes above 880px. */
+@keyframes sheetUp{ from{ transform:translateY(100%); } to{ transform:translateY(0); } }
+@media (max-width: 880px){
+  .review-backdrop{ align-items:flex-end; padding:0; }
+  .review-backdrop > .review-panel{
+    position:relative; width:100%; max-width:none; max-height:calc(100dvh - 24px);
+    border-radius:16px 16px 0 0; border-bottom:0; padding-top:24px;
+    padding-bottom:calc(16px + env(safe-area-inset-bottom, 0px)); animation: sheetUp .22s ease;
+  }
+  .m-row.open{
+    top:auto; bottom:0; height:auto; max-height:calc(100dvh - 24px);
+    border-radius:16px 16px 0 0; border-top:1px solid var(--border); box-shadow: 0 -8px 32px rgba(0,0,0,0.25);
+  }
+  .m-row.open.is-entering{ animation: sheetUp .22s ease; }
+  .m-row.open > .m-row-summary{ border-radius:16px 16px 0 0; padding-top:24px; padding-bottom:14px; }
+  .m-row.open .m-row-edit-pad{ padding-bottom:calc(16px + env(safe-area-inset-bottom, 0px)); }
+  /* The grip: a short bar at the top centre, drawn on the panel itself (the head is what's dragged). */
+  .review-backdrop > .review-panel::after, .m-row.open::after{
+    content:""; position:absolute; top:8px; left:50%; width:36px; height:4px; margin-left:-18px;
+    border-radius:2px; background: var(--ink-soft); opacity:.35; pointer-events:none; z-index:2;
+  }
+  .review-backdrop > .review-panel > .review-head, .m-row.open > .m-row-summary{ touch-action:none; }
+  @media (prefers-reduced-motion: reduce){ .review-backdrop > .review-panel, .m-row.open.is-entering{ animation:none; } }
+}
+
+/* ---------------- A list's total stays in view; swipe a row; pull to refresh (v3.167.0, item 197) ----------------
+   An open section's header — its title and total — sticks under the page header while its list
+   scrolls past (app.js keeps --topbar-h, which changes as the header goes slim). overflow:clip keeps
+   the rounded corners without making the section a scroll box, which would stop sticky working. */
+@media (max-width: 880px){
+  details.ledger{ overflow:clip; }
+  details.ledger[open] > summary{ position:sticky; top:var(--topbar-h, 0px); z-index:3; background: var(--paper-raised); }
+  /* Swipe a transaction left: Edit, Split, Delete behind it (app.js builds the tray). */
+  .m-row.tx-row:not(.open){ position:relative; overflow:hidden; }
+  .m-row.tx-row:not(.open) > .m-row-summary{ position:relative; z-index:1; background: var(--paper-raised); transition: transform .18s ease; }
+  .m-row.tx-row.swiped:not(.open) > .m-row-summary{ transform:translateX(-216px); }
+  .row-swipe-tray{ position:absolute; top:0; right:0; bottom:0; display:flex; }
+  .row-swipe-tray .btn{ width:72px; height:100%; border-radius:0; border:0; border-left:1px solid var(--border); background: var(--paper-sunken); }
+  .row-swipe-tray .btn-danger{ background: var(--bad-wash); }
+  /* The page itself takes the pull, not the browser's own pull-to-reload. */
+  html, body{ overscroll-behavior-y:contain; }
+  .ptr{ position:fixed; left:50%; top:calc(8px + env(safe-area-inset-top, 0px)); z-index:5; width:36px; height:36px; margin-left:-18px;
+    border-radius:50%; background: var(--paper-raised); border:1px solid var(--border); box-shadow: var(--shadow);
+    display:flex; align-items:center; justify-content:center; color: var(--brass-strong); font-size:var(--fs-lg);
+    transform:translateY(-60px); opacity:0; pointer-events:none; }
+  .ptr.is-busy span{ animation: ptrSpin .8s linear infinite; }
+  @keyframes ptrSpin{ to{ transform:rotate(360deg); } }
+}
+.ptr{ display:none; }
+@media (max-width: 880px){ .ptr{ display:flex; } }
+
+/* ---------------- Text fields at 16px on a phone (moved from base.css, item 238) ---------------- */
+/* iOS Safari zooms the whole page in on focusing any text field whose font-size is below 16px,
+   and does not zoom back out when the field blurs — so on a phone every tap into an amount left
+   the app scaled up until the user pinched it back out by hand. 16px only at phone widths: on a
+   desktop the app's 13px fields are the right size and there is no zoom behaviour to work around.
+   Text entry only, deliberately not <select>: a select opens a native picker rather than a
+   keyboard and never triggers the zoom, and forcing 16px on one would blow out the badge-styled
+   dropdowns (.prop-kind is 10.5px uppercase by design).
+   In the phone layer it beats every component's own size for a field (.m-edit-field input, .calc-field input…)
+   by layer; it stays !important for the two fields sized by an inline style (the stamp duty override, the shares
+   paste box), which a layered rule can only beat that way. */
+@media (max-width: 640px){
+  input[type="text"], input[type="number"], input[type="date"], input[type="search"],
+  input[type="email"], input[type="tel"], input[type="password"], input:not([type]), textarea{
+    font-size:var(--fs-lg) !important;
+  }
+}
+/* Exceptions are !important rules in an *earlier* layer — an earlier layer's !important beats this one, whatever
+   the specificity: #quickLogAmount's headline size (ledger.css) is one. */

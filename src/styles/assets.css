@@ -124,6 +124,11 @@
      thumb reads as sitting on top either way rather than needing a per-theme override. */
   .seg-option.active{ background: var(--paper-raised); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,0.22); }
   .seg-option:focus-visible{ box-shadow: var(--focus-ring); }
+  /* Trim's own segmented control (moved from ledger.css, item 238: it adjusts .seg-option, so it comes after it). */
+  .tr-seg .seg-option{ min-height:32px; padding:4px 10px; font-size:var(--fs-sm); }
+  /* The period menu's control fills its row (moved from shell.css, item 238). */
+  .period-menu .seg-control{ width:100%; }
+  .period-menu .seg-option{ flex:1; }
   #sharesSortSelect{
     font-size:var(--fs-xs); padding:6px 10px; border-radius:100px; border:1px solid var(--border);
     background: var(--paper); color: var(--ink); font-family:inherit; cursor:pointer; flex:none;

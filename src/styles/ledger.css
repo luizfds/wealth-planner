@@ -286,6 +286,17 @@
      one — where space-between has nothing to space against and leaves them stranded on the left,
      directly above the tab rail. Pushed right, the ⋯ stays out of the rail's way at every width. */
   .page-intro-actions{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-left:auto; }
+  /* v3.138.0: the page's ⓘ sits beside its title and shows the intro of whatever's on screen; the page's own
+     actions sit in the header's slot. After .page-intro-row and .page-intro-actions, which these adjust (item 238). */
+  body.help-hidden .page-intro.help.help-open{ display:block; }
+  body.help-hidden .page-intro-row:not(:has(.help-open)){ display:none; }
+  .page-actions-slot .page-intro-actions{ margin:0; }
+  .page-actions-slot .page-intro-actions[hidden]{ display:none; }
+  .page-actions-slot .page-overflow-btn{ width:32px; height:32px; border-color:transparent; background:none; }
+  .page-actions-slot .page-overflow-btn:hover, .page-actions-slot .page-overflow-btn[aria-expanded="true"]{ border-color: var(--border); background: var(--paper-raised); }
+  /* The header toolbar's own ⋯ (moved from shell.css, item 238: after the slot's, which it overrides). */
+  .topbar-overflow .page-overflow-btn{ width:34px; height:34px; }
+  .topbar-overflow .page-overflow-menu{ top:40px; }
 
   .m-avatar{
     width:30px; height:30px; border-radius:50%; flex:none; display:flex; align-items:center; justify-content:center;
@@ -627,17 +638,15 @@
   .qlog-currency{ flex:0 0 auto; white-space:nowrap; font-size:var(--fs-2xl); font-weight:600; color: var(--ink-soft); }
   .qlog-amount{
     flex:1 1 auto; min-width:0; all:unset; box-sizing:border-box; width:100%;
-    font-weight:600; font-family:inherit; color: var(--ink); line-height:1.1;
+    font-weight:600; font-family:var(--font-num); color: var(--ink); line-height:1.1;
   }
-  /* font-size lives in its own rule, keyed to the id rather than the class, because base.css's
-     phone-width "bump every text field to (at least) 16px, so iOS Safari doesn't zoom on focus"
-     rule is !important — which always wins over a plain declaration whatever the specificity,
-     including this one, where the point was 34px headline text, not 16. With no padding on this
-     field, font-size is most of its box height, so losing that fight collapsed the quick-log
-     sheet's amount input to a ~17px sliver rather than merely shrinking its text. An id selector
-     is the one thing specific enough to out-rank that rule's attribute selector once both carry
-     !important (id beats attribute+element on specificity alone) — and this input's id
-     (quickLogAmount) is unique to it, unlike its class. */
+  /* After all:unset, which took the base focus ring with it once layers made this rule win (item 238). */
+  .qlog-amount:focus-visible{ outline:none; box-shadow: var(--focus-ring); }
+  /* font-size lives in its own rule because phone.css's "every text field at least 16px on a phone, so iOS Safari
+     doesn't zoom on focus" rule is !important — and here the point is 34px headline text. With no padding on this
+     field, font-size is most of its box height, so losing that fight collapsed the amount to a ~17px sliver. This
+     wins as an !important in an earlier layer than phone's (an earlier layer's !important beats a later one's,
+     item 238); before layers it needed the id to out-rank that rule's attribute selector. */
   #quickLogAmount{ font-size:var(--fs-3xl) !important; }
   .qlog-amount::placeholder{ color: var(--ink-soft); opacity:.45; }
   /* Chrome/Safari render number inputs with spinner arrows that crowd a field this size and are
@@ -981,7 +990,6 @@
   /* A 37-line budget is 4,000px of rows on a phone. Collapsed, each card still states its own
      monthly total, so the shape of the spending stays legible and the detail is one tap away. */
   .m-card-head[data-budget-group-toggle]{ cursor:pointer; }
-  .m-card-caret{ width:18px; height:18px; margin-right:-2px; flex:0 0 auto; }
   .m-card:not(.is-collapsed) .m-card-caret .ledger-caret{ transform: rotate(90deg); }
   /* Both need the explicit display:none: .m-rows and .m-add-row each set their own display, and an
      author rule that sets display beats the browser's [hidden]/inherited hiding (CLAUDE.md). */
@@ -1277,8 +1285,6 @@
   .sk-node{ fill: var(--brass); } .sk-node.sk-tax{ fill:#e07a5f; } .sk-node.sk-super{ fill:#7b61ff; } .sk-node.sk-kept{ fill: var(--good); } .sk-node.sk-drawn{ fill: var(--bad); }
   .rp-table td.heat-p1{ background: rgba(214,69,69,.10); } .rp-table td.heat-p2{ background: rgba(214,69,69,.22); } .rp-table td.heat-p3{ background: rgba(214,69,69,.38); }
   .rp-table td.heat-n1{ background: rgba(23,163,98,.10); } .rp-table td.heat-n2{ background: rgba(23,163,98,.20); } .rp-table td.heat-n3{ background: rgba(23,163,98,.32); }
-  .rp-table tr.sub th{ padding-left:18px; font-weight:400; }
-  .rp-table tr.head td{ font-weight:600; padding-top:14px; }
   .rp-story{ margin:4px 0 16px; padding-left:20px; display:grid; gap:6px; font-size:var(--fs-lg); line-height:1.5; }
   /* v3.124.0: the picker in groups, pinned reports, and the printout's title block. */
   .rp-picker{ display:grid; gap:8px; margin-bottom:14px; }
@@ -1546,7 +1552,6 @@
   .tr-flex-name{ min-width:0; display:flex; flex-direction:column; }
   .tr-flex-name small{ font-size:var(--fs-xs); color: var(--ink-soft); }
   .tr-seg{ flex-shrink:0; }
-  .tr-seg .seg-option{ min-height:32px; padding:4px 10px; font-size:var(--fs-sm); }
   .tr-effect{ margin:10px 0 4px; padding:10px 12px; border-radius:8px; background: var(--paper-raised); border:1px solid var(--border); font-size:var(--fs-sm); }
   .tr-effect > div{ display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; align-items:baseline; }
   .tr-effect b{ font-family: var(--font-num); font-size:var(--fs-lg); }

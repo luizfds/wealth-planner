@@ -2,7 +2,7 @@
 //
 // What the app notices and Ask Claude, Cash flow → Budget → Trim, a budget from history and recurring payments.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
-// added, so they're added in the same order. What it shares with app.js it reaches through `app` (lib/appctx.js).
+// added, so they're added in the same order.
 import { adviceFor } from "../calc/advice.js";
 import { householdSummary } from "../calc/aisummary.js";
 import { proposeBudget, applyBudgetProposals } from "../calc/budgetfromhistory.js";

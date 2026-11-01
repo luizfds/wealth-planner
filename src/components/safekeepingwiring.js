@@ -2,7 +2,7 @@
 //
 // The passcode, folder backups and sync through the folder or Dropbox.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
-// added, so they're added in the same order. What it shares with app.js it reaches through `app` (lib/appctx.js).
+// added, so they're added in the same order.
 import { recalcComputedItems, totalNetWorthValue } from "../calc/engine.js";
 import { recordNetWorth, isAutoPoint } from "../calc/nwauto.js";
 import { thinPriceHistory } from "../calc/pricesheet.js";

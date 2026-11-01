@@ -3,14 +3,14 @@
 // Cash flow's sheets and panels: a scenario's override panel, bills to confirm, quick log, money received, the
 // bills calendar, the balance forecast, subscriptions, the budget's grouping and automatic payments.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
-// added, so they're added in the same order. What it shares with app.js it reaches through `app` (lib/appctx.js).
+// added, so they're added in the same order.
 import { renderNotifBadge } from "./notifpanel.js";
+import { defineSection, defineRowAction } from "../lib/sections.js";
 import { answerAutoPay, makeAutoPay } from "../calc/autopay.js";
 import { transactionDisplayName } from "../calc/ledger.js";
 import { logIncomeReceived, deleteIncomeReceived } from "../calc/received.js";
 import { setTakeHomeAdjust } from "../calc/takehome.js";
 import { takeHomeAdjust } from "../calc/tax.js";
-import { app } from "../lib/appctx.js";
 import { fmtCurrency2, localDateStr, fmtDate, parseAmountInput } from "../lib/format.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { state, persist, commit, genId } from "../state.js";
@@ -23,10 +23,113 @@ import { renderTaxSuper } from "./income.js";
 import { renderMonthReview } from "./monthreview.js";
 import { renderReceived, toggleReceivedRow, receivedSheet, openReceivedSheet, closeReceivedSheet, setReceivedTarget, receivedSheetHtml } from "./received.js";
 import { renderAll } from "./redraw.js";
-import { refreshAfterLedgerChange } from "./rows.js";
+import { addRow, refreshAfterLedgerChange, rerenderTableFor } from "./rows.js";
 import { renderSubscriptions, subsUi } from "./subscriptions.js";
+import { recalcComputedItems } from "../calc/engine.js";
+import { appendHistorySnapshot } from "../calc/ledger.js";
+import { fmtCurrency0 } from "../lib/format.js";
+import { renderCards, renderDetail } from "./dashboard.js";
+import { renderSharedGroups, modernSharedRowOpen, openScenarioOverridePanel } from "./expenses.js";
+import { personBreakdownHtml, renderIncomeGroups, patchOpenRowBreakdowns, patchIncomeGroupTotals, patchSyntheticIncomeRows, patchIncomeAfterTax, patchIncomeSuperNotes, modernIncomeRowOpen } from "./income.js";
+import { renderProjectionsWhenSeen } from "./projections.js";
+import { renderTotals, updatePersonSuggestions } from "./redraw.js";
+import { pushActiveOverlay, requestCloseActiveOverlay } from "../lib/overlaystack.js";
 
 var reviewBtn, quickLogBtn;
+
+// ---------------- Cash flow's lists, registered (v3.206.2, item 237b) ----------------
+// Income and the Budget's lines, as the generic row code sees them (lib/sections.js).
+defineSection("income", {
+  rows: function(){ return state.income; },
+  redraw: function(){ renderIncomeGroups(); },
+  editor: { container: "incomeGroups", openState: modernIncomeRowOpen },
+  noClassification: true,
+  newRow: function(item, person){ item.id = genId("inc"); item.person = person != null ? person : ""; item.incomeType = "Net"; },
+  freqRebuilds: true,
+  taxes: true,
+  // A single row's edit can shift the Maximum Super Contribution Base cap for every one of this person's
+  // Gross rows (the cap is shared across all of them), so refresh every note, not just this row's.
+  beforeRecalc: function(arg, e){
+    if(e.target.classList.contains("f-amount") || e.target.classList.contains("f-freq") || e.target.classList.contains("f-superincluded")) patchIncomeSuperNotes();
+  },
+  afterEdit: function(arg, ctx){
+    if(ctx.structural){ rerenderTableFor("income"); updatePersonSuggestions(); return; }
+    patchSyntheticIncomeRows();
+    // v3.152.0: each pay row's after-tax figure and the take-home line, from the recomputed tax.
+    patchIncomeAfterTax();
+    patchIncomeGroupTotals();
+    patchOpenRowBreakdowns();
+  }
+});
+defineSection("shared", {
+  rows: function(){ return state.shared; },
+  redraw: function(){ renderSharedGroups(); },
+  inBudget: function(){ return true; },
+  editor: { container: "sharedGroups", openState: modernSharedRowOpen }
+});
+// "sharedcat:<name>" is the same add as "shared:" but presets the category instead of the
+// classification — what "+ Add expense" on a card means while the list is grouped by category.
+defineSection("sharedcat", { add: function(category){ addRow("shared", null, category || ""); return true; } });
+defineRowAction(".row-breakdown-toggle", function(breakdownBtn){
+  var tr = breakdownBtn.closest("tr");
+  var next = tr.nextElementSibling;
+  if(next && next.classList.contains("row-breakdown-row")){
+    next.remove();
+    breakdownBtn.setAttribute("aria-expanded", "false");
+    breakdownBtn.textContent = "▸ Breakdown";
+  } else {
+    var person = breakdownBtn.getAttribute("data-breakdown-person");
+    var newRow = document.createElement("tr");
+    newRow.className = "row-breakdown-row";
+    newRow.setAttribute("data-breakdown-person", person);
+    var td = document.createElement("td");
+    td.colSpan = tr.children.length;
+    td.innerHTML = personBreakdownHtml(person);
+    newRow.appendChild(td);
+    tr.parentNode.insertBefore(newRow, tr.nextSibling);
+    breakdownBtn.setAttribute("aria-expanded", "true");
+    breakdownBtn.textContent = "▾ Breakdown";
+  }
+});
+defineRowAction("[data-vary-scenario]", function(varyBtn){
+  openScenarioOverridePanel(varyBtn.getAttribute("data-vary-section") || "shared", Number(varyBtn.getAttribute("data-vary-scenario")));
+});
+// "Record a pay change" (Income). Distinct from [data-log] below, which snapshots whatever is
+// already in the Amount field: this takes the new figure directly and *applies* it, which is
+// what a pay rise actually is — the amount changes, as of a date.
+defineRowAction("[data-pay-change]", function(payChangeBtn){
+  var pIdx = Number(payChangeBtn.getAttribute("data-pay-change"));
+  var pItem = state.income[pIdx];
+  var pWrap = payChangeBtn.closest(".pay-change");
+  var amountEl = pWrap && pWrap.querySelector(".pay-change-amount");
+  var dateEl = pWrap && pWrap.querySelector(".pay-change-date");
+  var newAmount = amountEl ? parseFloat(amountEl.value) : NaN;
+  if(!pItem || isNaN(newAmount)){ showToast("Enter the new amount first."); return; }
+  var effectiveFrom = (dateEl && dateEl.value) || undefined;
+  var previousAmount = Number(pItem.amount) || 0;
+  if(!Array.isArray(pItem.history)) pItem.history = [];
+  // Seed the history with what it was *before* this change, so a first-ever recorded rise
+  // still produces a comparison rather than a lone entry with nothing to be a change from.
+  // Dated the day before, since the old amount applied right up until the new one started.
+  if(!pItem.history.length && previousAmount && previousAmount !== newAmount){
+    var dayBefore = new Date((effectiveFrom || localDateStr()) + "T00:00:00");
+    dayBefore.setDate(dayBefore.getDate() - 1);
+    pItem.history.push({ date: localDateStr(dayBefore), value: previousAmount });
+  }
+  pItem.amount = newAmount;
+  var recordedOn = appendHistorySnapshot(pItem.history, newAmount, effectiveFrom);
+  recalcComputedItems();
+  rerenderTableFor("income");
+  renderTaxSuper();
+  renderCards(); renderDetail(); renderTotals();
+  renderProjectionsWhenSeen();
+  persist();
+  var move = newAmount - previousAmount;
+  showToast(move === 0
+    ? pItem.what + " recorded at " + fmtCurrency0.format(newAmount) + " from " + fmtDate(recordedOn)
+    : pItem.what + " " + (move > 0 ? "up" : "down") + " " + fmtCurrency0.format(Math.abs(move)) +
+      " to " + fmtCurrency0.format(newAmount) + " from " + fmtDate(recordedOn));
+});
 
 // ---------------- Per-scenario override panel (shared expenses and income) ----------------
 // The panel carries its own section now, because the same dialog serves state.shared and
@@ -54,7 +157,7 @@ function performReviewConfirm(){
 // sheet's markup and session state, this owns the DOM events and the cross-cutting refresh.
 function openQuickLogSheet(){
   openQuickLog();
-  if(document.querySelector("[data-qlog-backdrop]")) app.pushActiveOverlay(closeQuickLog);
+  if(document.querySelector("[data-qlog-backdrop]")) pushActiveOverlay(closeQuickLog);
 }
 // Chip changes and expanding the date row re-render the sheet, which would otherwise discard
 // whatever's already been typed into the amount/note. Read them out first, put them back after.
@@ -90,7 +193,7 @@ function performQuickLog(){
   var catEl = document.getElementById("quickLogCategory");
   var t = submitQuickLog(amount, noteEl ? noteEl.value : "", dateEl && dateEl.value ? dateEl.value : undefined, catEl ? catEl.value : "");
   if(!t) return;
-  app.requestCloseActiveOverlay();
+  requestCloseActiveOverlay();
   refreshAfterLedgerChange("shared");
   renderTransactions();
   // The whole point of logging is watching this move — refreshAfterLedgerChange only covers the
@@ -116,7 +219,7 @@ function closeReceivedSheetDom(){
 function openReceivedSheetFor(target, date){
   openReceivedSheet(target, date);
   renderReceivedSheet();
-  app.pushActiveOverlay(closeReceivedSheetDom);
+  pushActiveOverlay(closeReceivedSheetDom);
 }
 // A logged distribution is a holding's payout too, which moves its return and the year's tax.
 function afterReceivedChange(){
@@ -135,7 +238,7 @@ function submitReceived(){
   if(!(amount > 0)){ amountEl.focus(); showToast("Type the amount that arrived"); return; }
   var rec = logIncomeReceived({ target: receivedSheet.target, amount: amount, date: document.getElementById("rcvDate").value, what: document.getElementById("rcvNote").value });
   if(!rec){ showToast("Pick what it was"); return; }
-  app.requestCloseActiveOverlay();
+  requestCloseActiveOverlay();
   afterReceivedChange();
   showUndoToast("Logged " + fmtCurrency2.format(amount) + " received", function(){ deleteIncomeReceived(rec.id); afterReceivedChange(); });
 }
@@ -202,18 +305,18 @@ export function wireCashflowSheets(){  reviewBtn = document.getElementById("revi
     openExpenseReview();
     // openExpenseReview() can no-op (nothing due for review, or no expenses at all — see its own
     // early-return toasts), so check the panel actually rendered before claiming a history entry.
-    if(document.querySelector("[data-review-backdrop]")) app.pushActiveOverlay(closeExpenseReview);
+    if(document.querySelector("[data-review-backdrop]")) pushActiveOverlay(closeExpenseReview);
   });
   document.getElementById("expenseReviewRoot").addEventListener("click", function(e){
     if(e.target.closest("[data-review-close]") || e.target === e.target.closest("[data-review-backdrop]")){
-      app.requestCloseActiveOverlay();
+      requestCloseActiveOverlay();
       return;
     }
     if(e.target.closest("[data-review-confirm]")){ performReviewConfirm(); return; }
   });
   document.addEventListener("keydown", function(e){
     if(e.key !== "Escape") return;
-    if(document.querySelector("[data-review-backdrop]")) app.requestCloseActiveOverlay();
+    if(document.querySelector("[data-review-backdrop]")) requestCloseActiveOverlay();
   });  // The Confirm button counts the ticked bills as they're ticked.
   document.getElementById("expenseReviewRoot").addEventListener("change", function(e){
     if(!e.target.classList.contains("bc-confirm-check")) return;
@@ -224,7 +327,7 @@ export function wireCashflowSheets(){  reviewBtn = document.getElementById("revi
   if(quickLogBtn) quickLogBtn.addEventListener("click", openQuickLogSheet);
   document.getElementById("quickLogRoot").addEventListener("click", function(e){
     if(e.target.closest("[data-qlog-close]") || e.target === e.target.closest("[data-qlog-backdrop]")){
-      app.requestCloseActiveOverlay();
+      requestCloseActiveOverlay();
       return;
     }
     var chip = e.target.closest("[data-qlog-chip]");
@@ -331,7 +434,7 @@ export function wireCashflowSheets(){  reviewBtn = document.getElementById("revi
   });
   document.addEventListener("keydown", function(e){
     if(e.key !== "Escape") return;
-    if(document.querySelector("[data-qlog-backdrop]")) app.requestCloseActiveOverlay();
+    if(document.querySelector("[data-qlog-backdrop]")) requestCloseActiveOverlay();
   });
   document.getElementById("logReceivedBtn").addEventListener("click", function(){ openReceivedSheetFor(); });
   document.getElementById("receivedBody").addEventListener("click", function(e){
@@ -356,7 +459,7 @@ export function wireCashflowSheets(){  reviewBtn = document.getElementById("revi
     if(tog){ toggleReceivedRow(tog.getAttribute("data-rcv-toggle")); renderReceived(); }
   });
   document.getElementById("receivedRoot").addEventListener("click", function(e){
-    if(e.target.closest("[data-rcv-close]") || e.target === e.target.closest("[data-rcv-backdrop]")){ app.requestCloseActiveOverlay(); return; }
+    if(e.target.closest("[data-rcv-close]") || e.target === e.target.closest("[data-rcv-backdrop]")){ requestCloseActiveOverlay(); return; }
     var chip = e.target.closest("[data-rcv-chip]");
     if(chip){
       var amountEl = document.getElementById("rcvAmount"), noteEl = document.getElementById("rcvNote"), dateEl = document.getElementById("rcvDate");
@@ -374,7 +477,7 @@ export function wireCashflowSheets(){  reviewBtn = document.getElementById("revi
     if(e.key === "Enter" && (e.target.id === "rcvAmount" || e.target.id === "rcvNote")){ e.preventDefault(); submitReceived(); }
   });
   document.addEventListener("keydown", function(e){
-    if(e.key === "Escape" && document.querySelector("[data-rcv-backdrop]")) app.requestCloseActiveOverlay();
+    if(e.key === "Escape" && document.querySelector("[data-rcv-backdrop]")) requestCloseActiveOverlay();
   });
 }
 

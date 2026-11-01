@@ -2,7 +2,7 @@
 //
 // A payslip, spreadsheets for expenses, income and assets, a bank CSV or PDF, and statements from a folder.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
-// added, so they're added in the same order. What it shares with app.js it reaches through `app` (lib/appctx.js).
+// added, so they're added in the same order.
 import { inboxMessage } from "../calc/inbox.js";
 import { periodsOf } from "../calc/ledger.js";
 import { parsePayslip, payFrequency } from "../calc/payslip.js";
@@ -10,7 +10,6 @@ import { payslipCheck } from "../calc/payslipcheck.js";
 import { statementFromLines, statementCsv } from "../calc/pdfstatement.js";
 import { logIncomeReceived, deleteIncomeReceived } from "../calc/received.js";
 import { getTaxPeople, personTaxSettings } from "../calc/tax.js";
-import { app } from "../lib/appctx.js";
 import { exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv, exportAssetsImportTemplateCsv } from "../lib/backup.js";
 import { dropboxConnected } from "../lib/dropbox.js";
 import { fmtDate } from "../lib/format.js";
@@ -31,6 +30,10 @@ import { renderProjectionOutputs } from "./projections.js";
 import { renderReceived } from "./received.js";
 import { renderTotals, renderAll } from "./redraw.js";
 import { renderTrips, renderTxReviewBanner } from "./spendingwiring.js";
+
+// Rows read from a spreadsheet, waiting for Import — nothing touches state.shared, state.income or state.assets
+// until its confirm button (handled in assetswiring.js's click delegate).
+export var pendingImport = { expenses: [], income: [], assets: [] };
 
 var inbox;
 
@@ -244,7 +247,7 @@ export function wireImports(){  document.getElementById("expenseDownloadTemplate
     var reader = new FileReader();
     reader.onload = function(){
       var parsed = parseExpensesImportCsv(String(reader.result));
-      app.pendingExpensesImport = renderExpensesImportPreview(parsed);
+      pendingImport.expenses = renderExpensesImportPreview(parsed);
     };
     reader.onerror = function(){ showToast("Couldn't read that file"); };
     reader.readAsText(file);
@@ -378,7 +381,7 @@ export function wireImports(){  document.getElementById("expenseDownloadTemplate
     var reader = new FileReader();
     reader.onload = function(){
       var parsed = parseIncomeImportCsv(String(reader.result));
-      app.pendingIncomeImport = renderIncomeImportPreview(parsed);
+      pendingImport.income = renderIncomeImportPreview(parsed);
     };
     reader.onerror = function(){ showToast("Couldn't read that file"); };
     reader.readAsText(file);
@@ -394,7 +397,7 @@ export function wireImports(){  document.getElementById("expenseDownloadTemplate
     var reader = new FileReader();
     reader.onload = function(){
       var parsed = parseAssetsImportCsv(String(reader.result));
-      app.pendingAssetsImport = renderAssetsImportPreview(parsed);
+      pendingImport.assets = renderAssetsImportPreview(parsed);
     };
     reader.onerror = function(){ showToast("Couldn't read that file"); };
     reader.readAsText(file);

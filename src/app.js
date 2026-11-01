@@ -18,7 +18,7 @@ import { backfillNetWorth } from "./calc/nwauto.js";
 import { detailTarget } from "./components/detail.js";
 import { showPage, parseRouteFromLocation, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, taxSubpage, setOverlayCleanup, PAGE_KEY } from "./components/nav.js";
 import { wireLedgerEdits, wireRowEditors, wireMoreRowEditors, wireAddButtons } from "./components/rows.js";
-import { wireSuggestions, renderGlobalMetrics, withUndo, renderAll } from "./components/redraw.js";
+import { wireSuggestions, renderGlobalMetrics, renderAll } from "./components/redraw.js";
 import { wirePhoneSheets, wireOverflowMenus } from "./components/overlays.js";
 import { wireCalculators } from "./components/calcwiring.js";
 import { wireProjections, wireProjectionCsv, wireWhatIfs, wireRetirement } from "./components/planwiring.js";
@@ -39,31 +39,12 @@ import { wireSafekeeping, keepNetWorthHistory } from "./components/safekeepingwi
 import { wireReports } from "./components/reportswiring.js";
 import { wireNotifications } from "./components/notifpanel.js";
 import { wireUpdates } from "./components/updates.js";
-import { registerApp, defineVar } from "./lib/appctx.js";
+import { applyTheme, getThemePref } from "./lib/theme.js";
+import { overlayOpen, closeActiveOverlayNow } from "./lib/overlaystack.js";
 
 (function(){
   "use strict";
-  // What the page modules reach in app.js, through `app` (lib/appctx.js) — before any listener can fire.
-  registerApp({ applyTheme, getThemePref, pushActiveOverlay, requestCloseActiveOverlay });
-  defineVar("THEME_KEY", function(){ return THEME_KEY; }, function(x){ THEME_KEY = x; });
-  defineVar("THEME_MODES", function(){ return THEME_MODES; }, function(x){ THEME_MODES = x; });
-  defineVar("activeOverlayClose", function(){ return activeOverlayClose; }, function(x){ activeOverlayClose = x; });
-  defineVar("afterScenarioChange", function(){ return afterScenarioChange; }, function(x){ afterScenarioChange = x; });
-  defineVar("openScenarioEditor", function(){ return openScenarioEditor; }, function(x){ openScenarioEditor = x; });
-  defineVar("openStartSheet", function(){ return openStartSheet; }, function(x){ openStartSheet = x; });
-  defineVar("pendingAssetsImport", function(){ return pendingAssetsImport; }, function(x){ pendingAssetsImport = x; });
-  defineVar("pendingExpensesImport", function(){ return pendingExpensesImport; }, function(x){ pendingExpensesImport = x; });
-  defineVar("pendingIncomeImport", function(){ return pendingIncomeImport; }, function(x){ pendingIncomeImport = x; });
 
-  var THEME_KEY = "wealthPlanner.theme";
-  var THEME_MODES = ["system", "light", "dark"];
-  function applyTheme(mode){
-    if(mode === "light" || mode === "dark") document.documentElement.setAttribute("data-theme", mode);
-    else document.documentElement.removeAttribute("data-theme");
-  }
-  function getThemePref(){
-    try{ return localStorage.getItem(THEME_KEY) || "system"; }catch(e){ return "system"; }
-  }
   applyTheme(getThemePref());
   wireProjections();
   wireTax();
@@ -81,26 +62,7 @@ import { registerApp, defineVar } from "./lib/appctx.js";
   // #mRowBackdrop) fixes all of them at once, without touching any page's own field-building or
   // state-mutation code — only where that same already-correct content visually renders.
   //
-  // ---------------- Overlay history integration ----------------
-  // Any full-page-feeling overlay in this app (a row's edit modal below, cross-page search,
-  // expense review) pushes exactly one history entry for as long as it's open, and every one of
-  // its on-screen close affordances (tap outside, an explicit X, Escape) routes through
-  // requestCloseActiveOverlay() rather than tearing itself down immediately. That makes the same
-  // single entry what a device/browser back-button press naturally pops too — the popstate
-  // handler below is the one place that actually runs the close callback, whichever way it was
-  // triggered. Without this, opening one of these silently occupied no space in the browser's
-  // back-history, so pressing back while one was open fell through to whatever the *page*
-  // underneath was doing there instead — another page, or leaving the app — rather than just
-  // closing the thing in front of you.
-  var activeOverlayClose = null; // the pure cleanup function for whichever overlay is open, if any
-  function pushActiveOverlay(onClose, replace){
-    activeOverlayClose = onClose;
-    try{ history[replace ? "replaceState" : "pushState"]({ overlayOpen: true }, "", location.href); }catch(e){}
-  }
-  function requestCloseActiveOverlay(){
-    if(!activeOverlayClose) return;
-    history.back();
-  }
+  // The overlay Back closes: lib/overlaystack.js.
   wirePhoneSheets();
 
   // Two providers registered once at startup, both for the same reason: calc/ and lib/ can't import
@@ -116,12 +78,7 @@ import { registerApp, defineVar } from "./lib/appctx.js";
   setDeductionPeopleProvider(getTaxPeople);
   setDeductionPropertiesProvider(function(){ return state.properties.filter(function(p){ return p.kind === "IP"; }).map(function(p){ return { id: p.id, what: p.what }; }); });
   setRentLinesProvider(function(){ return { lines: RENT_EXPENSE_LINES, lineFor: rentLineFor }; });
-  setOverlayCleanup(function(){
-    if(!activeOverlayClose) return;
-    var closeOverlay = activeOverlayClose;
-    activeOverlayClose = null;
-    closeOverlay();
-  });
+  setOverlayCleanup(function(){ closeActiveOverlayNow(); });
   wireAssetPersonSheet();
   wireOverflowMenus();
   wireRowEditors();
@@ -136,17 +93,9 @@ import { registerApp, defineVar } from "./lib/appctx.js";
   wireCards();
   wireAddButtons();
 
-  // ---------------- Expenses: import from a spreadsheet ----------------
-  // Parsed rows live here (not in expenses.js) between file-select and the confirm click — nothing
-  // touches state.shared until expenseImportConfirmBtn, handled in the global click delegate below.
-  var pendingExpensesImport = [];
   wireImports();
 
-  // ---------------- Income: import from a spreadsheet ----------------
-  var pendingIncomeImport = [];
 
-  // ---------------- Assets: import from a spreadsheet ----------------
-  var pendingAssetsImport = [];
   wireData();
   wireNavigation();
   wireMonthReview();
@@ -196,10 +145,8 @@ import { registerApp, defineVar } from "./lib/appctx.js";
     // the overlay's own close callback and stop, rather than also running the page-nav logic
     // below: the URL/page never actually changed underneath it, so that logic would at best no-op
     // and at worst reset scroll position for no reason.
-    if(activeOverlayClose && !(e.state && e.state.overlayOpen)){
-      var closeOverlay = activeOverlayClose;
-      activeOverlayClose = null;
-      closeOverlay();
+    if(overlayOpen() && !(e.state && e.state.overlayOpen)){
+      closeActiveOverlayNow();
       return;
     }
     var route = parseRouteFromLocation() || { page: "dashboard", sub: null };
@@ -243,8 +190,7 @@ import { registerApp, defineVar } from "./lib/appctx.js";
   wireReviewQueue();
   // ---------------- Plan → Scenarios: changes, the question sheet, a scenario's page, Make it real ----------------
   // v3.200.0 (item 230): wired in components/scenariowiring.js, from here — the order listeners are added in is kept.
-  var scenarioWiring = wireScenarioEditor({ pushActiveOverlay: pushActiveOverlay, requestCloseActiveOverlay: requestCloseActiveOverlay, withUndo: withUndo, renderAll: renderAll });
-  var openStartSheet = scenarioWiring.openStartSheet, openScenarioEditor = scenarioWiring.openScenarioEditor, afterScenarioChange = scenarioWiring.afterScenarioChange;
+  wireScenarioEditor();
   wireForecast();
   wireMarket();
   wireWhatIfs();

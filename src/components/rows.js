@@ -1,29 +1,31 @@
 // ---------------- A row's editor and the ledgers' edits, wired (v3.206.1, item 237) ----------------
 //
-// Every list's rows — open one in its editor (a sheet on a phone), type into it, add, delete — and the
-// dispatch by section name (getArrayForSection, rerenderTableFor) that finds the list a row belongs to.
+// Every list's rows — open one in its editor (a sheet on a phone), type into it, add, delete. Which list a row
+// belongs to, and what else an edit to it redraws, is whatever its page registered (lib/sections.js,
+// v3.206.2, item 237b): getArrayForSection and rerenderTableFor ask the registry, and nothing here names a page.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
-// added, so they're added in the same order. What it shares with app.js it reaches through `app` (lib/appctx.js).
+// added, so they're added in the same order.
 import { recalcComputedItems, currentScenario } from "../calc/engine.js";
 import { periodsOf, resolveSharedAmount, appendHistorySnapshot, transactionDisplayName } from "../calc/ledger.js";
 import { sacrificeLabelToMode } from "../constants.js";
-import { app } from "../lib/appctx.js";
 import { exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv } from "../lib/backup.js";
-import { fmtCurrency0, fmtCurrency2, localDateStr, fmtDate } from "../lib/format.js";
+import { fmtCurrency0, fmtCurrency2 } from "../lib/format.js";
 import { materializeRowEdit } from "../lib/ledger-table.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
+import { sectionOf, parseAdd, runRowAction } from "../lib/sections.js";
 import { redraw } from "../lib/views.js";
-import { state, persist, genId } from "../state.js";
-import { modernAssetRowOpen, renderAssets } from "./assets.js";
+import { state, persist } from "../state.js";
+import { modernAssetRowOpen } from "./assets.js";
 import { renderCards, renderDetail } from "./dashboard.js";
-import { patchSharedGroupTotals, renderSharedGroups, modernSharedRowOpen, openScenarioOverridePanel, renderTransactions, renderActualVsPlannedPanel, transactionSummaryText, budgetLineItems } from "./expenses.js";
-import { personBreakdownHtml, renderIncomeGroups, patchOpenRowBreakdowns, patchIncomeGroupTotals, patchSyntheticIncomeRows, patchIncomeAfterTax, patchIncomeSuperNotes, renderTaxSuper, modernIncomeRowOpen } from "./income.js";
+import { patchSharedGroupTotals, renderSharedGroups, modernSharedRowOpen, renderActualVsPlannedPanel, transactionSummaryText, budgetLineItems } from "./expenses.js";
+import { patchIncomeGroupTotals, patchSyntheticIncomeRows, renderTaxSuper, modernIncomeRowOpen } from "./income.js";
 import { renderProjectionOutputs, renderProjectionsWhenSeen } from "./projections.js";
-import { modernPropRowOpen, renderPropListModern, renderProperties, patchPropertyCardComputed } from "./properties.js";
-import { renderTotals, updatePersonSuggestions } from "./redraw.js";
-import { renderHomeListModern, renderHomeBodyTotalsOnly, modernHomeRowOpen } from "./scenarios.js";
+import { modernPropRowOpen } from "./properties.js";
+import { renderTotals } from "./redraw.js";
+import { renderHomeBodyTotalsOnly, modernHomeRowOpen } from "./scenarios.js";
 import { patchCategoryCharts } from "./settingswiring.js";
 import { syncClaimFields } from "./taxwiring.js";
+import { pushActiveOverlay, requestCloseActiveOverlay } from "../lib/overlaystack.js";
 
 // True for any section the Budget tab lists: state.shared, plus the active scenario's housing
 // (see budgetLineSources in expenses.js). A housing row edited there needs the same live totals,
@@ -42,43 +44,15 @@ var activeModernRow = null;
 function findProperty(id){
   return state.properties.find(function(p){ return p.id === id; });
 }
+// The array a row's section lives in, and its list(s) rebuilt — whichever page registered the section
+// (lib/sections.js, defineSection) says how.
 function getArrayForSection(section){
-  if(section === "income") return state.income;
-  if(section === "shared") return state.shared;
-  var mHome = /^home:(.+)$/.exec(section);
-  if(mHome) return state.home[mHome[1]];
-  var mPropInc = /^propinc:(.+)$/.exec(section);
-  if(mPropInc){ var pi = findProperty(mPropInc[1]); return pi ? pi.income : null; }
-  var mPropExp = /^propexp:(.+)$/.exec(section);
-  if(mPropExp){ var pe = findProperty(mPropExp[1]); return pe ? pe.expenses : null; }
-  return null;
+  var sec = sectionOf(section);
+  return sec && sec.def.rows ? sec.def.rows(sec.arg) || null : null;
 }
 function rerenderTableFor(section){
-  if(section === "income") renderIncomeGroups();
-  else if(section === "shared") renderSharedGroups();
-  else {
-    var mHome = /^home:(.+)$/.exec(section);
-    if(mHome){
-      var hi = state.scenarios.indexOf(mHome[1]);
-      renderHomeListModern(mHome[1], hi);
-      // The active scenario's housing is also listed on the Budget tab (see budgetLineSources),
-      // so it has two renderers to keep in step — the Scenarios block above and the budget list.
-      if(mHome[1] === currentScenario()) renderSharedGroups();
-    }
-    var mPropInc = /^propinc:(.+)$/.exec(section);
-    if(mPropInc){
-      var pi = findProperty(mPropInc[1]);
-      if(pi) renderPropListModern(pi.id, section, pi.income, false);
-    }
-    var mPropExp = /^propexp:(.+)$/.exec(section);
-    if(mPropExp){
-      var pe = findProperty(mPropExp[1]);
-      if(pe) renderPropListModern(pe.id, section, pe.expenses, true);
-      // Same two-renderer situation as housing above: an IP's costs are shown both on its
-      // Properties card and as budget lines on the Expenses page, off the one array.
-      if(pe && pe.kind === "IP") renderSharedGroups();
-    }
-  }
+  var sec = sectionOf(section);
+  if(sec && sec.def.redraw) sec.def.redraw(sec.arg);
 }
 // Live-refresh the labels of every rendered transaction that takes its display name from a
 // budget line being renamed — the rows whose own description is blank. Also repoints their
@@ -105,11 +79,8 @@ function patchLinkedTransactionNames(item){
 // costs are editable from either end (its Properties card, or the budget list), and both write
 // to the same p.expenses array, so both need the same follow-up either way.
 function isBudgetListSection(section){
-  if(section === "shared" || section === "home:" + currentScenario()) return true;
-  var mPropExp = /^propexp:(.+)$/.exec(section);
-  if(!mPropExp) return false;
-  var p = findProperty(mPropExp[1]);
-  return !!(p && p.kind === "IP");
+  var sec = sectionOf(section);
+  return !!(sec && sec.def.inBudget && sec.def.inBudget(sec.arg));
 }
 // ---------------- Event wiring ----------------
 function onLedgerInput(e){
@@ -119,6 +90,7 @@ function onLedgerInput(e){
   var idx = Number(tr.getAttribute("data-index"));
   var arr = getArrayForSection(section);
   if(!arr) return;
+  var sec = sectionOf(section);
   var item = arr[idx];
   var structural = false;
   // A deduction edit changes somebody's taxable income, which changes their net income row, which
@@ -139,11 +111,11 @@ function onLedgerInput(e){
   else if(e.target.classList.contains("f-flexkind")){ if(e.target.value) item.flexKind = e.target.value; else delete item.flexKind; if(state.budgetGroupBy === "flex") structural = true; }
   else if(e.target.classList.contains("f-freq")){
     item.freq = e.target.value;
-    // Income only: which pay-schedule field the row offers is chosen by the frequency (a weekday
-    // for Weekly, an anchor date for Fortnightly, a day of the month otherwise), so changing it
-    // has to rebuild the row. Everywhere else a frequency change is still just a number change
+    // Income only (freqRebuilds): which pay-schedule field the row offers is chosen by the frequency
+    // (a weekday for Weekly, an anchor date for Fortnightly, a day of the month otherwise), so changing
+    // it has to rebuild the row. Everywhere else a frequency change is still just a number change
     // and a re-render would needlessly tear down whatever row is being edited.
-    if(section === "income") structural = true;
+    if(sec.def.freqRebuilds) structural = true;
   }
   else if(e.target.classList.contains("f-amount")) item.amount = parseFloat(e.target.value) || 0;
   else if(e.target.classList.contains("f-person")){ item.person = e.target.value; structural = true; }
@@ -203,12 +175,7 @@ function onLedgerInput(e){
     var modernAmt = tr.querySelector('[data-computed="amt"]');
     if(modernAmt) modernAmt.textContent = fmtCurrency2.format(p.monthly) + "/mo";
   }
-  if(section === "income" && (e.target.classList.contains("f-amount") || e.target.classList.contains("f-freq") || e.target.classList.contains("f-superincluded"))){
-    // A single row's edit can shift the Maximum Super Contribution Base cap for every one of
-    // this person's Gross rows (the cap is shared across all of them), so refresh every note,
-    // not just this row's.
-    patchIncomeSuperNotes();
-  }
+  if(sec.def.beforeRecalc) sec.def.beforeRecalc(sec.arg, e);
 
   recalcComputedItems();
   if(taxDeductionsChanged){
@@ -219,15 +186,8 @@ function onLedgerInput(e){
     patchIncomeGroupTotals();
   }
 
-  if(section === "income" && structural){
-    rerenderTableFor("income");
-    updatePersonSuggestions();
-  } else if(section === "income"){
-    patchSyntheticIncomeRows();
-    // v3.152.0: each pay row's after-tax figure and the take-home line, from the recomputed tax.
-    patchIncomeAfterTax();
-    patchIncomeGroupTotals();
-    patchOpenRowBreakdowns();
+  if(sec.def.afterEdit){
+    sec.def.afterEdit(sec.arg, { e: e, item: item, structural: structural });
   } else if(isBudgetListSection(section) && structural){
     rerenderTableFor(section);
   } else if(isBudgetListSection(section)){
@@ -249,92 +209,23 @@ function onLedgerInput(e){
     // Changing which twelve months a reserve is measured over changes its numbers immediately —
     // and it's the one edit whose whole point is the figure on the panel below.
     if(e.target.classList.contains("f-reserveyear")) renderActualVsPlannedPanel();
-  } else if(section.indexOf("propinc:") === 0){
-    rerenderTableFor("propexp:" + section.slice(8));
-    patchSyntheticIncomeRows();
   }
-  if(section.indexOf("propinc:") === 0 || section.indexOf("propexp:") === 0){
-    var editedProperty = findProperty(section.slice(section.indexOf(":") + 1));
-    if(editedProperty) patchPropertyCardComputed(editedProperty);
-  }
+  if(sec.def.afterAnyEdit) sec.def.afterAnyEdit(sec.arg);
 
   // v3.206.0 (item 236b): the cards and Home's detail only if they're on screen — on Cash flow they're left
   // stale for when Home or Plan opens, not redrawn on every keystroke. (Not a commit: that would redraw the
   // list being typed into; the list is patched above.)
   redraw(["cards", "detail"]);
   renderTotals();
-  if(section.indexOf("home:") === 0) renderHomeBodyTotalsOnly();
+  if(sec.def.homeTotals) renderHomeBodyTotalsOnly();
   renderProjectionsWhenSeen();
-  if(section === "income" || section.indexOf("propinc:") === 0 || section.indexOf("propexp:") === 0) renderTaxSuper();
+  if(sec.def.taxes) renderTaxSuper();
   persist();
 }
 function onLedgerClick(e){
-  var breakdownBtn = e.target.closest(".row-breakdown-toggle");
-  if(breakdownBtn){
-    var tr = breakdownBtn.closest("tr");
-    var next = tr.nextElementSibling;
-    if(next && next.classList.contains("row-breakdown-row")){
-      next.remove();
-      breakdownBtn.setAttribute("aria-expanded", "false");
-      breakdownBtn.textContent = "▸ Breakdown";
-    } else {
-      var person = breakdownBtn.getAttribute("data-breakdown-person");
-      var newRow = document.createElement("tr");
-      newRow.className = "row-breakdown-row";
-      newRow.setAttribute("data-breakdown-person", person);
-      var td = document.createElement("td");
-      td.colSpan = tr.children.length;
-      td.innerHTML = personBreakdownHtml(person);
-      newRow.appendChild(td);
-      tr.parentNode.insertBefore(newRow, tr.nextSibling);
-      breakdownBtn.setAttribute("aria-expanded", "true");
-      breakdownBtn.textContent = "▾ Breakdown";
-    }
-    return;
-  }
-  var varyBtn = e.target.closest("[data-vary-scenario]");
-  if(varyBtn){
-    openScenarioOverridePanel(varyBtn.getAttribute("data-vary-section") || "shared", Number(varyBtn.getAttribute("data-vary-scenario")));
-    return;
-  }
-  // "Record a pay change" (Income). Distinct from [data-log] below, which snapshots whatever is
-  // already in the Amount field: this takes the new figure directly and *applies* it, which is
-  // what a pay rise actually is — the amount changes, as of a date.
-  var payChangeBtn = e.target.closest("[data-pay-change]");
-  if(payChangeBtn){
-    var pIdx = Number(payChangeBtn.getAttribute("data-pay-change"));
-    var pItem = state.income[pIdx];
-    var pWrap = payChangeBtn.closest(".pay-change");
-    var amountEl = pWrap && pWrap.querySelector(".pay-change-amount");
-    var dateEl = pWrap && pWrap.querySelector(".pay-change-date");
-    var newAmount = amountEl ? parseFloat(amountEl.value) : NaN;
-    if(!pItem || isNaN(newAmount)){ showToast("Enter the new amount first."); return; }
-    var effectiveFrom = (dateEl && dateEl.value) || undefined;
-    var previousAmount = Number(pItem.amount) || 0;
-    if(!Array.isArray(pItem.history)) pItem.history = [];
-    // Seed the history with what it was *before* this change, so a first-ever recorded rise
-    // still produces a comparison rather than a lone entry with nothing to be a change from.
-    // Dated the day before, since the old amount applied right up until the new one started.
-    if(!pItem.history.length && previousAmount && previousAmount !== newAmount){
-      var dayBefore = new Date((effectiveFrom || localDateStr()) + "T00:00:00");
-      dayBefore.setDate(dayBefore.getDate() - 1);
-      pItem.history.push({ date: localDateStr(dayBefore), value: previousAmount });
-    }
-    pItem.amount = newAmount;
-    var recordedOn = appendHistorySnapshot(pItem.history, newAmount, effectiveFrom);
-    recalcComputedItems();
-    rerenderTableFor("income");
-    renderTaxSuper();
-    renderCards(); renderDetail(); renderTotals();
-    renderProjectionsWhenSeen();
-    persist();
-    var move = newAmount - previousAmount;
-    showToast(move === 0
-      ? pItem.what + " recorded at " + fmtCurrency0.format(newAmount) + " from " + fmtDate(recordedOn)
-      : pItem.what + " " + (move > 0 ? "up" : "down") + " " + fmtCurrency0.format(Math.abs(move)) +
-        " to " + fmtCurrency0.format(newAmount) + " from " + fmtDate(recordedOn));
-    return;
-  }
+  // A page's own buttons inside its rows (Income's breakdown and "Record a pay change", a line's scenario
+  // override) — registered by the page (lib/sections.js, defineRowAction), tried in the order registered.
+  if(runRowAction(e)) return;
   var logBtn2 = e.target.closest("[data-log]");
   if(logBtn2){
     var lparts = logBtn2.getAttribute("data-log").split(":");
@@ -377,12 +268,8 @@ function onLedgerClick(e){
 function refreshAfterLedgerChange(section){
   recalcComputedItems();
   rerenderTableFor(section);
-  if(section.indexOf("propinc:") === 0 || section.indexOf("propexp:") === 0){
-    patchSyntheticIncomeRows();
-    renderTaxSuper();
-    var editedProperty = findProperty(section.slice(section.indexOf(":") + 1));
-    if(editedProperty) patchPropertyCardComputed(editedProperty);
-  }
+  var sec = sectionOf(section);
+  if(sec && sec.def.afterRemove) sec.def.afterRemove(sec.arg);
   redraw(["cards", "detail"]); renderTotals(); renderHomeBodyTotalsOnly();
   renderProjectionsWhenSeen();
   persist();
@@ -433,22 +320,13 @@ function findModernRowElement(section, idx, containerId){
 // later Escape/backdrop-close reaching this function must not splice out whatever now happens to
 // sit at the old index.
 function discardUneditedRow(section, idx, freshItem){
-  // getArrayForSection covers income/shared/home:/propinc:/propexp: — the three sections that
-  // add straight into state.assets, a property's own loans, and a manually-added transaction
-  // each live outside that helper's reach (see the matching "+Add" branches below), so they're
-  // resolved here on the same terms rather than widening what every *other* caller of
-  // getArrayForSection has to expect back.
-  var mLoan = section.indexOf("loan:") === 0 ? /^loan:(.+)$/.exec(section) : null;
-  var loanProperty = mLoan ? findProperty(mLoan[1]) : null;
-  var arr = section === "assets" ? state.assets
-    : section === "tx" ? state.transactions
-    : mLoan ? (loanProperty ? loanProperty.loans : null)
-    : getArrayForSection(section);
+  // A section whose rows the generic edit code leaves alone (an asset, a loan, a transaction) still says where
+  // its rows are for this (discardRows), and redraws itself (discard) instead of the shared refresh.
+  var sec = sectionOf(section);
+  var arr = sec && sec.def.discardRows ? sec.def.discardRows(sec.arg) : getArrayForSection(section);
   if(!arr || idx < 0 || idx >= arr.length || arr[idx] !== freshItem) return;
   arr.splice(idx, 1);
-  if(section === "assets"){ renderAssets(); renderProjectionOutputs(); persist(); return; }
-  if(section === "tx"){ renderTransactions(); renderActualVsPlannedPanel(); persist(); return; }
-  if(mLoan){ renderProperties(); renderProjectionOutputs(); persist(); return; }
+  if(sec && sec.def.discard){ sec.def.discard(sec.arg); return; }
   refreshAfterLedgerChange(section);
 }
 function closeActiveModernRowUI(){
@@ -485,7 +363,7 @@ function closeActiveModernRowUI(){
 // below.
 function closeActiveModernRow(){
   if(!activeModernRow) return;
-  app.requestCloseActiveOverlay();
+  requestCloseActiveOverlay();
 }
 // Exported to module scope (not just wireModernRowToggle's closure) so every "+Add" handler
 // below can open the row it just created as a modal immediately — matching a native app's
@@ -533,7 +411,7 @@ function openModernRow(row, openState, key, autoFocus, freshItem){
     freshSnapshot: freshItem ? JSON.stringify(freshItem) : null
   };
   document.getElementById("mRowBackdrop").hidden = false;
-  app.pushActiveOverlay(closeActiveModernRowUI, switchingRow);
+  pushActiveOverlay(closeActiveModernRowUI, switchingRow);
   if(!autoFocus) return;
   var firstField = row.querySelector(".m-row-edit input, .m-row-edit select");
   if(firstField){
@@ -620,80 +498,12 @@ export function wireAddButtons(){
   document.addEventListener("click", function(e){
     var addBtn = e.target.closest("[data-add]");
     if(!addBtn) return;
-    var raw = addBtn.getAttribute("data-add");
-    var section, groupValue;
-    // "home:", "propinc:" and "propexp:" all embed a further-qualified id after their own colon
-    // (a scenario name, a property id) that's part of the section itself, not a separate group
-    // value — unlike "shared:Needs"/"income:Sam"/"assets:Cash", where the part after the colon
-    // really is a separate classification/person/category. Splitting on the first colon
-    // regardless used to silently break propinc:/propexp: specifically (section became just
-    // "propinc"/"propexp" with the property id lost, which getArrayForSection() never matches —
-    // "+ Add income"/"+ Add expense" on a property card did nothing at all, with no error).
-    if(raw.indexOf("home:") === 0 || raw.indexOf("propinc:") === 0 || raw.indexOf("propexp:") === 0){
-      section = raw; groupValue = null;
-    } else {
-      var colonIdx = raw.indexOf(":");
-      section = colonIdx === -1 ? raw : raw.slice(0, colonIdx);
-      groupValue = colonIdx === -1 ? null : raw.slice(colonIdx + 1);
-    }
-    if(section === "assets"){
-      var assetCat = groupValue != null ? groupValue : "Cash";
-      var newAsset = { what:"New asset", category: assetCat, amount:0 };
-      state.assets.push(newAsset);
-      renderAssets();
-      openNewRowModal("assetsSub-" + assetCat, "assets", state.assets.length - 1, modernAssetRowOpen, newAsset);
-      persist();
-      return;
-    }
-    if(section === "holding"){
-      var newHolding = { what:"New holding", category:"Shares", symbol:"", market:"ASX", quantity:0, avgCost:null, price:0, priceUpdated:"", person: groupValue != null ? groupValue : "", amount:0 };
-      state.assets.push(newHolding);
-      renderAssets();
-      openNewRowModal("assetsSub-Shares", "assets", state.assets.length - 1, modernAssetRowOpen, newHolding);
-      persist();
-      return;
-    }
-    if(section === "vehicle"){
-      var newVehicle = { what:"New vehicle", category:"Vehicle", purchasePrice:0, purchaseDate:"", depreciationRate:15, amount:0 };
-      state.assets.push(newVehicle);
-      recalcComputedItems();
-      renderAssets();
-      openNewRowModal("assetsSub-Vehicle", "assets", state.assets.length - 1, modernAssetRowOpen, newVehicle);
-      persist();
-      return;
-    }
-    // "sharedcat:<name>" is the same add as "shared:" but presets the category instead of the
-    // classification — what "+ Add expense" on a card means while the list is grouped by category.
-    var addCategory = "";
-    if(section === "sharedcat"){ addCategory = groupValue || ""; section = "shared"; groupValue = null; }
-    var arr = getArrayForSection(section);
-    if(!arr) return;
-    var showClass = section !== "income" && section.indexOf("propinc:") !== 0;
-    var newItem = { what:"New item", classification: showClass ? (groupValue != null ? groupValue : "Needs") : "", category: addCategory, account:"", amount:0, freq:"Monthly" };
-    if(section === "income"){ newItem.id = genId("inc"); newItem.person = groupValue != null ? groupValue : ""; newItem.incomeType = "Net"; }
-    arr.push(newItem);
-    var newIdx = arr.length - 1;
-    rerenderTableFor(section);
-    if(section === "income") openNewRowModal("incomeGroups", "income", newIdx, modernIncomeRowOpen, newItem);
-    else if(section === "shared") openNewRowModal("sharedGroups", "shared", newIdx, modernSharedRowOpen, newItem);
-    else if(section.indexOf("propinc:") === 0 || section.indexOf("propexp:") === 0) openNewRowModal("propertiesBody", section, newIdx, modernPropRowOpen, newItem);
-    else if(section.indexOf("home:") === 0) openNewRowModal("homeBody", section, newIdx, modernHomeRowOpen, newItem);
-    if(section.indexOf("propinc:") === 0){
-      recalcComputedItems();
-      rerenderTableFor("propexp:" + section.slice(8));
-      patchSyntheticIncomeRows();
-      var addedToProperty = findProperty(section.slice(8));
-      if(addedToProperty) patchPropertyCardComputed(addedToProperty);
-    } else if(section.indexOf("propexp:") === 0){
-      recalcComputedItems();
-      var expAddedProperty = findProperty(section.slice(8));
-      if(expAddedProperty) patchPropertyCardComputed(expAddedProperty);
-    }
-    if(section.indexOf("home:") === 0) renderHomeBodyTotalsOnly();
-    renderCards(); renderDetail(); renderTotals();
-    renderTaxSuper();
-    renderProjectionOutputs();
-    persist();
+    // A scenario or a property after the colon is part of the section (qualified); anything else is a group to
+    // file the new row under — a classification, a person, a category (lib/sections.js, parseAdd).
+    var parsed = parseAdd(addBtn.getAttribute("data-add"));
+    var sec = sectionOf(parsed.section);
+    if(sec && sec.def.add && sec.def.add(parsed.group)) return;
+    addRow(parsed.section, parsed.group, "");
   });
   document.getElementById("incomeExportCsvBtn").addEventListener("click", exportIncomeCsv);
   document.getElementById("expenseExportCsvBtn").addEventListener("click", exportExpensesCsv);
@@ -701,4 +511,23 @@ export function wireAddButtons(){
   document.getElementById("propertyLoansExportCsvBtn").addEventListener("click", exportPropertyLoansCsv);
 }
 
-export { closeActiveModernRow, findProperty, openNewRowModal, refreshAfterLedgerChange, rerenderTableFor, wireModernRowToggle };
+// "+ Add" on a list: a new row with the generic defaults and the section's own, opened in its editor.
+function addRow(section, groupValue, addCategory){
+  var arr = getArrayForSection(section);
+  if(!arr) return;
+  var sec = sectionOf(section);
+  var newItem = { what:"New item", classification: sec.def.noClassification ? "" : (groupValue != null ? groupValue : "Needs"), category: addCategory || "", account:"", amount:0, freq:"Monthly" };
+  if(sec.def.newRow) sec.def.newRow(newItem, groupValue);
+  arr.push(newItem);
+  var newIdx = arr.length - 1;
+  rerenderTableFor(section);
+  if(sec.def.editor) openNewRowModal(sec.def.editor.container, section, newIdx, sec.def.editor.openState, newItem);
+  if(sec.def.afterAdd) sec.def.afterAdd(sec.arg);
+  if(sec.def.homeTotals) renderHomeBodyTotalsOnly();
+  renderCards(); renderDetail(); renderTotals();
+  renderTaxSuper();
+  renderProjectionOutputs();
+  persist();
+}
+
+export { addRow, closeActiveModernRow, findProperty, openNewRowModal, refreshAfterLedgerChange, rerenderTableFor, wireModernRowToggle };

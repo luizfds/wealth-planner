@@ -2,7 +2,7 @@
 //
 // Reports: choosing, pinning, printing and CSV.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
-// added, so they're added in the same order. What it shares with app.js it reaches through `app` (lib/appctx.js).
+// added, so they're added in the same order.
 import { shiftMonth as mdShiftMonth } from "../calc/monthdetail.js";
 import { exportTableCsv } from "../lib/backup.js";
 import { localDateStr } from "../lib/format.js";

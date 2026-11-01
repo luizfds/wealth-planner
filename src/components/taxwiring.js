@@ -2,7 +2,7 @@
 //
 // People, the Tax & super card, Checks' fixes, the year's worksheet and documents, and Close the year.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
-// added, so they're added in the same order. What it shares with app.js it reaches through `app` (lib/appctx.js).
+// added, so they're added in the same order.
 import { renderNotifBadge } from "./notifpanel.js";
 import { oddCardRepayments, usualCardSource } from "../calc/bills.js";
 import { applyRentalComparison, applyBudgetComparison, householdBudgetLines } from "../calc/closeyear.js";

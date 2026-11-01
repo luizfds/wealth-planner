@@ -4,12 +4,11 @@
 // statements and sales, share prices from a sheet or the price file, a broker's trades, the exchange rate and
 // how the holdings compare with the market.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
-// added, so they're added in the same order. What it shares with app.js it reaches through `app` (lib/appctx.js).
+// added, so they're added in the same order.
 import { applyTrades, parseTradeSheets } from "../calc/brokertrades.js";
 import { recalcComputedItems, totalDebtsValue } from "../calc/engine.js";
 import { parseCsvGrid } from "../calc/pricesheet.js";
 import { saleCapitalGain, lotsUnitsAvailable } from "../calc/tax.js";
-import { app } from "../lib/appctx.js";
 import { exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard, copyPriceSheetTemplate } from "../lib/backup.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
@@ -29,6 +28,42 @@ import { patchPropertyCardComputed } from "./properties.js";
 import { renderTotals, withUndo, renderAll, updatePersonSuggestions } from "./redraw.js";
 import { findProperty, refreshAfterLedgerChange } from "./rows.js";
 import { recordLoanSnapshot } from "./taxwiring.js";
+import { defineSection } from "../lib/sections.js";
+import { openNewRowModal } from "./rows.js";
+import { modernAssetRowOpen } from "./assets.js";
+import { pushActiveOverlay, requestCloseActiveOverlay } from "../lib/overlaystack.js";
+import { pendingImport } from "./importwiring.js";
+
+
+// ---------------- Investments' lists, registered (v3.206.2, item 237b) ----------------
+// "+ Add" on Investments makes its own rows (an asset, a holding, a vehicle), edited by their own handlers here;
+// the generic row code only discards an untouched new one ("assets").
+function addAssetRow(item, containerId){
+  state.assets.push(item);
+  renderAssets();
+  openNewRowModal(containerId, "assets", state.assets.length - 1, modernAssetRowOpen, item);
+  persist();
+  return true;
+}
+defineSection("assets", {
+  add: function(group){ var cat = group != null ? group : "Cash"; return addAssetRow({ what:"New asset", category: cat, amount:0 }, "assetsSub-" + cat); },
+  discardRows: function(){ return state.assets; },
+  discard: function(){ renderAssets(); renderProjectionOutputs(); persist(); }
+});
+defineSection("holding", {
+  add: function(person){ return addAssetRow({ what:"New holding", category:"Shares", symbol:"", market:"ASX", quantity:0, avgCost:null, price:0, priceUpdated:"", person: person != null ? person : "", amount:0 }, "assetsSub-Shares"); }
+});
+defineSection("vehicle", {
+  add: function(){
+    var newVehicle = { what:"New vehicle", category:"Vehicle", purchasePrice:0, purchaseDate:"", depreciationRate:15, amount:0 };
+    state.assets.push(newVehicle);
+    recalcComputedItems();
+    renderAssets();
+    openNewRowModal("assetsSub-Vehicle", "assets", state.assets.length - 1, modernAssetRowOpen, newVehicle);
+    persist();
+    return true;
+  }
+});
 
 // Navigating to another page while an overlay is open (open a row, tap another tab) used to
 // leave it open and, worse, strand its history entry under the page entry syncUrl() then
@@ -131,7 +166,7 @@ function closeAssetPersonSheetUi(){
 function openAssetPersonSheet(){
   setAssetPersonSheetOpen(true);
   renderAssetPersonSheet();
-  if(document.querySelector("[data-asset-person-backdrop]")) app.pushActiveOverlay(closeAssetPersonSheetUi);
+  if(document.querySelector("[data-asset-person-backdrop]")) pushActiveOverlay(closeAssetPersonSheetUi);
 }
 // ---------------- Share prices from a Google Sheet (v3.75.0) ----------------
 // Read once a day on open when a link is set; "Read now" reads on demand. Either way the result
@@ -452,16 +487,16 @@ export function wireAssets(){
     if(e.target.id === "sharesExportPriceTemplateBtn") exportSharesPriceTemplateCsv();
     if(e.target.id === "sharesCopyPriceTemplateBtn") copySharesPriceTemplateToClipboard();
     if(e.target.id === "expenseImportCancelBtn"){
-      app.pendingExpensesImport = [];
+      pendingImport.expenses = [];
       clearExpensesImportPreview();
       return;
     }
     if(e.target.id === "expenseImportConfirmBtn"){
-      if(!app.pendingExpensesImport.length) return;
-      var importCount = app.pendingExpensesImport.length;
+      if(!pendingImport.expenses.length) return;
+      var importCount = pendingImport.expenses.length;
       var startingSharedLength = state.shared.length;
-      commitExpensesImport(app.pendingExpensesImport);
-      app.pendingExpensesImport = [];
+      commitExpensesImport(pendingImport.expenses);
+      pendingImport.expenses = [];
       clearExpensesImportPreview();
       refreshAfterLedgerChange("shared");
       showUndoToast(importCount + " expense" + (importCount === 1 ? "" : "s") + " imported", function(){
@@ -471,16 +506,16 @@ export function wireAssets(){
       return;
     }
     if(e.target.id === "incomeImportCancelBtn"){
-      app.pendingIncomeImport = [];
+      pendingImport.income = [];
       clearIncomeImportPreview();
       return;
     }
     if(e.target.id === "incomeImportConfirmBtn"){
-      if(!app.pendingIncomeImport.length) return;
-      var incomeImportCount = app.pendingIncomeImport.length;
+      if(!pendingImport.income.length) return;
+      var incomeImportCount = pendingImport.income.length;
       var startingIncomeLength = state.income.length;
-      commitIncomeImport(app.pendingIncomeImport);
-      app.pendingIncomeImport = [];
+      commitIncomeImport(pendingImport.income);
+      pendingImport.income = [];
       clearIncomeImportPreview();
       refreshAfterLedgerChange("income");
       updatePersonSuggestions();
@@ -492,16 +527,16 @@ export function wireAssets(){
       return;
     }
     if(e.target.id === "assetsImportCancelBtn"){
-      app.pendingAssetsImport = [];
+      pendingImport.assets = [];
       clearAssetsImportPreview();
       return;
     }
     if(e.target.id === "assetsImportConfirmBtn"){
-      if(!app.pendingAssetsImport.length) return;
-      var assetsImportCount = app.pendingAssetsImport.length;
+      if(!pendingImport.assets.length) return;
+      var assetsImportCount = pendingImport.assets.length;
       var startingAssetsLength = state.assets.length;
-      commitAssetsImport(app.pendingAssetsImport);
-      app.pendingAssetsImport = [];
+      commitAssetsImport(pendingImport.assets);
+      pendingImport.assets = [];
       clearAssetsImportPreview();
       recalcComputedItems();
       renderAssets();
@@ -520,7 +555,7 @@ export function wireAssets(){
       setAssetPersonFilter(personFilterBtn.getAttribute("data-asset-person-filter"));
       // renderAssets() has already redrawn the chip with the new name; this closes the sheet the
       // choice was made in, through the overlay stack so the back button stays in step.
-      if(assetPersonSheetOpen) app.requestCloseActiveOverlay();
+      if(assetPersonSheetOpen) requestCloseActiveOverlay();
       return;
     }
     var gainFilterBtn = e.target.closest("[data-shares-gain-filter]");
@@ -618,14 +653,14 @@ export function wireAssets(){
 
 export function wireAssetPersonSheet(){  document.getElementById("assetPersonSheetRoot").addEventListener("click", function(e){
     if(e.target.closest("[data-asset-person-close]") || e.target === e.target.closest("[data-asset-person-backdrop]")){
-      app.requestCloseActiveOverlay();
+      requestCloseActiveOverlay();
     }
     // Picking a person is handled by the page-level [data-asset-person-filter] handler above —
     // this root sits outside .app-page, so the click never reaches it otherwise.
   });
   document.addEventListener("keydown", function(e){
     if(e.key !== "Escape") return;
-    if(document.querySelector("[data-asset-person-backdrop]")) app.requestCloseActiveOverlay();
+    if(document.querySelector("[data-asset-person-backdrop]")) requestCloseActiveOverlay();
   });
 }
 

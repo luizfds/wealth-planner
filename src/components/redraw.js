@@ -3,7 +3,7 @@
 // The full redraw (renderAll, the views it's made of — lib/views.js), the header's figures, the badges, the
 // suggestion lists and Undo's snapshot.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
-// added, so they're added in the same order. What it shares with app.js it reaches through `app` (lib/appctx.js).
+// added, so they're added in the same order.
 import { renderNotifBadge } from "./notifpanel.js";
 import { recalcComputedItems, scenarioTotals, currentScenario, totalNetWorthValue } from "../calc/engine.js";
 import { dataHealthChecks } from "../calc/health.js";

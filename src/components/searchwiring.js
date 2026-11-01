@@ -2,18 +2,18 @@
 //
 // Cross-page search and the links that open a detail page.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
-// added, so they're added in the same order. What it shares with app.js it reaches through `app` (lib/appctx.js).
-import { app } from "../lib/appctx.js";
+// added, so they're added in the same order.
 import { persist } from "../state.js";
 import { detailTarget, detailView } from "./detail.js";
 import { renderSharedGroups, renderBudgetGroupByToggle, revealBudgetLine } from "./expenses.js";
 import { showPage, showAssetsSubpage, showExpensesSubpage } from "./nav.js";
 import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./search.js";
+import { pushActiveOverlay, requestCloseActiveOverlay, forgetActiveOverlay } from "../lib/overlaystack.js";
 
 // ---------------- Cross-page search ----------------
 function openSearchOverlay(){
   openSearch();
-  app.pushActiveOverlay(closeSearch);
+  pushActiveOverlay(closeSearch);
 }
 // A place in the app: a page, a subtab, and a row to open and scroll to. Search results and a
 // detail page's "Edit on …" both go through here.
@@ -55,7 +55,7 @@ function openDetail(kind, id, opts){
 export function wireSearch(){  document.getElementById("searchBtn").addEventListener("click", openSearchOverlay);
   document.getElementById("searchRoot").addEventListener("click", function(e){
     if(e.target.closest("[data-search-close]") || e.target === e.target.closest("[data-search-backdrop]")){
-      app.requestCloseActiveOverlay();
+      requestCloseActiveOverlay();
       return;
     }
     var resultBtn = e.target.closest("[data-search-result]");
@@ -69,7 +69,7 @@ export function wireSearch(){  document.getElementById("searchBtn").addEventList
     // the search-open history entry gets replaced by that destination's own (via showPage's
     // {replace:true}) instead of popped: pressing back from there should land wherever the user
     // was *before* opening search, not resurrect an empty search overlay in between.
-    app.activeOverlayClose = null;
+    forgetActiveOverlay();
     // v3.128.0: a thing with a page of its own lands there.
     if(result.extra.detail){ openDetail(result.extra.detail.kind, result.extra.detail.id, { replace: true }); return; }
     goToPlace(result.page, result.extra, { replace: true });
@@ -88,7 +88,7 @@ export function wireSearch(){  document.getElementById("searchBtn").addEventList
   });
   document.addEventListener("keydown", function(e){
     if(e.key !== "Escape") return;
-    if(document.querySelector("[data-search-backdrop]")) app.requestCloseActiveOverlay();
+    if(document.querySelector("[data-search-backdrop]")) requestCloseActiveOverlay();
   });
 }
 

@@ -3,10 +3,9 @@
 // Projections' assumptions and sliders, life events, the projection as CSV, what-ifs you can drag and Plan →
 // Retirement.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
-// added, so they're added in the same order. What it shares with app.js it reaches through `app` (lib/appctx.js).
+// added, so they're added in the same order.
 import { recalcComputedItems, currentScenario } from "../calc/engine.js";
 import { whatIfMoved, keepWhatIf } from "../calc/whatif.js";
-import { app } from "../lib/appctx.js";
 import { exportProjectionCsv } from "../lib/backup.js";
 import { fmtCurrency0 } from "../lib/format.js";
 import { showToast } from "../lib/toast.js";
@@ -19,8 +18,29 @@ import { renderProjectionOutputs, renderWhatIfDrag, projectionSeriesShown } from
 import { renderAll } from "./redraw.js";
 import { retirementHtml, retireLevers } from "./retirement.js";
 import { whatIfValues, resetWhatIf, wiFromSlider, wiValueText } from "./whatif.js";
+import { defineSection } from "../lib/sections.js";
+import { renderHomeListModern, modernHomeRowOpen } from "./scenarios.js";
+import { renderSharedGroups } from "./expenses.js";
+import { scenarioActions } from "./scenariowiring.js";
 
 var leBody, whatIfStrip, wiFrame, retireBody, RT_FMT;
+
+// ---------------- A scenario's home costs, registered (v3.206.2, item 237b) ----------------
+// "home:<scenario>": the scenario's home rows. Today's — the household's own scenario — are Budget lines too.
+defineSection("home", {
+  qualified: true,
+  rows: function(name){ return state.home[name]; },
+  redraw: function(name){
+    renderHomeListModern(name, state.scenarios.indexOf(name));
+    // The active scenario's housing is also listed on the Budget tab (see budgetLineSources),
+    // so it has two renderers to keep in step — the Scenarios block above and the budget list.
+    if(name === currentScenario()) renderSharedGroups();
+  },
+  inBudget: function(name){ return name === currentScenario(); },
+  editor: { container: "homeBody", openState: modernHomeRowOpen },
+  homeTotals: true
+});
+
 
 // Pairs each projection number input with a same-range slider: dragging the slider
 // writes into the number input and fires its native "input" event so the existing
@@ -185,7 +205,7 @@ export function wireWhatIfs(){
     resetWhatIf();
     whatIfStrip.innerHTML = "";
     recalcComputedItems();
-    app.afterScenarioChange();
+    scenarioActions.afterScenarioChange();
     showToast('Kept as "' + made + '" — it\'s on Plan → Scenarios, and on the chart');
   });
 }

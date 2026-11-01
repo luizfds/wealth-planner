@@ -3,7 +3,7 @@
 // Accounts — named money sources, their balances and statement cycles — Plan → Goals, savings goals and the
 // emergency fund.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
-// added, so they're added in the same order. What it shares with app.js it reaches through `app` (lib/appctx.js).
+// added, so they're added in the same order.
 import { ACCOUNT_TYPE_KEYS, accountSourceOptions, setAccountBalance, resolveLink } from "../calc/accounts.js";
 import { fillAgentAccount } from "../calc/agentstatement.js";
 import { emergencyFund } from "../calc/emergency.js";

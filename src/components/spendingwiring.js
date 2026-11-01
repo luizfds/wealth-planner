@@ -3,7 +3,7 @@
 // Cash flow → Spending: the list's filters, money in, transfers, splits, bulk edit, the transaction table, trips,
 // the review queue for new transactions and receipts.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
-// added, so they're added in the same order. What it shares with app.js it reaches through `app` (lib/appctx.js).
+// added, so they're added in the same order.
 import { setAccountBalance, accountBalance } from "../calc/accounts.js";
 import { addTransfer, deleteTransfer, splitTransaction, unsplit, bulkEditTransactions, bulkDeleteTransactions } from "../calc/cashflowlist.js";
 import { transactionDisplayName } from "../calc/ledger.js";
@@ -12,7 +12,6 @@ import { deleteIncomeReceived } from "../calc/received.js";
 import { toReview, keepTransaction, refileTransaction, applyRuleFromReview, keepAll, ruleOfferFor } from "../calc/reviewqueue.js";
 import { normaliseTrip, applyTripRefile } from "../calc/trips.js";
 import { saveView, deleteView, applyView, FILTER_FIELDS } from "../calc/txviews.js";
-import { app } from "../lib/appctx.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr, parseAmountInput } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { saveReceiptFile, openReceipt, pruneReceipts } from "../lib/receipts.js";
@@ -31,8 +30,18 @@ import { txReview, txReviewHtml, reviewBannerHtml } from "./reviewqueue.js";
 import { rerenderTableFor, closeActiveModernRow, wireModernRowToggle, openNewRowModal } from "./rows.js";
 import { renderTaxYear } from "./taxyear.js";
 import { tripsCardHtml, tripPlan, tripProtectedLineIds } from "./trips.js";
+import { defineSection } from "../lib/sections.js";
+import { pushActiveOverlay, requestCloseActiveOverlay } from "../lib/overlaystack.js";
 
 var txTable, cfSearchTimer, txGridWide, txGridTimer, firstRunRoot, txReviewRoot, receiptInput, receiptFor;
+
+// ---------------- Spending's list, registered (v3.206.2, item 237b) ----------------
+// "tx": a transaction, edited by Spending's own handlers — the generic row code only discards an untouched new one.
+defineSection("tx", {
+  discardRows: function(){ return state.transactions; },
+  discard: function(){ renderTransactions(); renderActualVsPlannedPanel(); persist(); }
+});
+
 
 // ---------------- Cash flow → Spending: filters, money in, transfers, splits, bulk edit (v3.59.0) ----------------
 // v3.206.0 (item 236b): the commit redraws what reads them (lib/views.js) — on screen now, the rest when opened.
@@ -192,7 +201,7 @@ function renderTxReview(){
 }
 function openTxReview(){
   txReview.open = true; txReview.mode = "card"; txReview.choice = null; txReview.kept = 0;
-  renderTxReview(); app.pushActiveOverlay(closeTxReviewUi);
+  renderTxReview(); pushActiveOverlay(closeTxReviewUi);
 }
 function closeTxReviewUi(){
   txReview.open = false; renderTxReview();
@@ -583,7 +592,7 @@ export function wireReviewQueue(){
   // ---------------- The review queue for new transactions (v3.163.0, item 193) ----------------
   txReviewRoot = document.getElementById("txReviewRoot");
   txReviewRoot.addEventListener("click", function(e){
-    if(e.target.closest("[data-txr-close]") || e.target === e.target.closest("[data-txr-backdrop]")){ app.requestCloseActiveOverlay(); return; }
+    if(e.target.closest("[data-txr-close]") || e.target === e.target.closest("[data-txr-backdrop]")){ requestCloseActiveOverlay(); return; }
     if(e.target.closest("[data-txr-keep]")){ txrKeep(); return; }
     if(e.target.closest("[data-txr-change]")){ txrChange(); return; }
     if(e.target.closest("[data-txr-back]")){ txReview.mode = "card"; renderTxReview(); return; }
@@ -613,7 +622,7 @@ export function wireReviewQueue(){
     if(e.key === "ArrowRight" || e.key === "k"){ e.preventDefault(); txrKeep(); }
     else if(e.key === "ArrowLeft" || e.key === "c"){ e.preventDefault(); txrChange(); }
   });
-  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && txReview.open) app.requestCloseActiveOverlay(); });
+  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && txReview.open) requestCloseActiveOverlay(); });
   document.addEventListener("click", function(e){ if(e.target.closest("[data-txr-open]")) openTxReview(); });
 }
 

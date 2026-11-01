@@ -119,17 +119,21 @@ the last, so two sessions can't pick up the same one.
   monolithic file did. Moving one `@import` line before another can silently flip such an
   override. Before reordering, re-run the cross-bucket conflict check described in
   `.claude/PROJECT_KNOWLEDGE.md`'s "Modularization progress" section.
-- `src/app.js` — the entry point (`<script type="module">`), about 320 lines since v3.206.1 (item 237a; it was ~6,950):
-  the theme, the overlay stack Back closes, the calc/lib providers, the route a load starts on, then each page's
+- `src/app.js` — the entry point (`<script type="module">`), about 260 lines since v3.206.2 (item 237; it was ~6,950):
+  the theme (`lib/theme.js`), the calc/lib providers, the route a load starts on and Back (`lib/overlaystack.js`
+  is the overlay Back closes), then each page's
   `wire…()` in the order its listeners have always been added, `renderAll()` and the first page. Every listener
   lives in a page's wiring module — `components/{rows,redraw,overlays,calcwiring,planwiring,taxwiring,assetswiring,
   propertieswiring,cashflowwiring,searchwiring,spendingwiring,accountswiring,importwiring,settingswiring,homewiring,
   datawiring,chromewiring,budgettoolswiring,safekeepingwiring,reportswiring,scenariowiring,notifpanel,updates}.js`:
-  `rows.js` holds a row's editor and the dispatch by section name (`getArrayForSection`, `rerenderTableFor`),
-  `redraw.js` the full redraw (`renderAll`, `defineViews`), the header's figures and `withUndo`. What a module needs
-  that stays in app.js it reaches through `app` (`lib/appctx.js`: `registerApp` / `defineVar`, filled in before any
-  listener can fire); nothing imports app.js. **A new listener goes in its page's wiring module**, called from that
-  module's `wire…()`; a new `app.<name>` must be registered in app.js (`tests/appctx.test.js` fails otherwise).
+  `rows.js` holds a row's editor (open, type, add, delete, discard an untouched new row), `redraw.js` the full redraw
+  (`renderAll`, `defineViews`), the header's figures and `withUndo`. Nothing imports app.js, and app.js holds nothing a
+  module needs. **A new listener goes in its page's wiring module**, called from that module's `wire…()`.
+  **Sections (v3.206.2, item 237b):** a row's `data-section` (`income`, `shared`, `home:<scenario>`, `propinc:<id>`,
+  `assets`, `tx`…) is registered by its page — `defineSection(kind, { rows, redraw, inBudget, editor, … })` in
+  `lib/sections.js`, called from the page's wiring module — and rows.js asks the registry (`getArrayForSection`,
+  `rerenderTableFor`); a page's own buttons inside rows are `defineRowAction(selector, fn)`. A new list of editable
+  rows registers its kind there; rows.js names no page.
 - `src/state.js` — `state` (the single source of truth), `defaultState()`, `migrateState()`
   (schema migration + safe defaults for old/partial saves), `persist()` (debounced localStorage
   write), `setStatus()`. Since v3.203.2 (item 235a) `migrateState` runs `MIGRATION_STEPS` — numbered, named,
@@ -333,9 +337,8 @@ not the bundled Chromium) is the standard way to drive/verify UI changes in this
   `transactionAccountOptionsHtml()` emits an explicit `… (deleted)` option. Categories are still by name
   (`everyCategorisableArray()`).
 - **Moving code between modules: a name it lost is a `ReferenceError` only when its handler runs** — `node --check`
-  and the tests won't see it. `npm run check` (ESLint's `no-undef`) does; run it after any move, and
-  `tests/appctx.test.js` covers an `app.<name>` nobody registered. Item 237a's split was checked by recording every
-  `addEventListener` at startup on main and on the branch: the same 360, in the same order.
+  and the tests won't see it. `npm run check` (ESLint's `no-undef`) does; run it after any move. Item 237's split was
+  checked by recording every `addEventListener` at startup on main and on the branch: the same 360, in the same order.
 - **CSS `[hidden]` silently does nothing** if any author rule sets `display` on that element —
   author CSS beats the browser's built-in `[hidden]{display:none}` regardless of specificity.
   Add an explicit `.your-class[hidden]{ display:none; }` override whenever you toggle `.hidden`

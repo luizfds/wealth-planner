@@ -2,11 +2,10 @@
 //
 // Home: the scenario cards' and figures' links, Review, Benchmarks, arranging Home and the summary's to-dos.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
-// added, so they're added in the same order. What it shares with app.js it reaches through `app` (lib/appctx.js).
+// added, so they're added in the same order.
 import { renderNotifBadge } from "./notifpanel.js";
 import { markReviewed, setStatementAmount, monthLabel, monthBounds } from "../calc/monthreview.js";
 import { dismissWeekRecap } from "../calc/weekrecap.js";
-import { app } from "../lib/appctx.js";
 import { copyBenchmarkTemplateToClipboard } from "../lib/backup.js";
 import { localDateStr } from "../lib/format.js";
 import { loadHomeLayout, saveHomeLayout, moveCard, applyHomeLayout, homeArrangeHtml } from "../lib/homelayout.js";
@@ -23,6 +22,8 @@ import { renameScenario, cloneScenario, deleteScenario, renderHomeBody, homeBloc
 import { openTxReview } from "./spendingwiring.js";
 import { renderPeopleTab } from "./taxwiring.js";
 import { renderTaxYear, setTaxYearSelected } from "./taxyear.js";
+import { pushActiveOverlay, requestCloseActiveOverlay } from "../lib/overlaystack.js";
+import { scenarioActions } from "./scenariowiring.js";
 
 var monthReviewBody, benchmarksBody, homeArrangeRoot, homeArrangeOpen;
 
@@ -37,10 +38,10 @@ function onScenarioControlClick(e){
   var delBtn = e.target.closest("[data-delete]");
   if(delBtn){ var scName = delBtn.getAttribute("data-delete"); withUndo('Deleted "' + scName + '"', function(){ deleteScenario(scName); return state.scenarios.indexOf(scName) === -1; }); return true; }
   // v3.174.0 (item 209): adding a scenario starts from a question.
-  if(e.target.closest("#addScenarioBtn") || e.target.closest("#addScenarioBtn2")){ app.openStartSheet(); return true; }
+  if(e.target.closest("#addScenarioBtn") || e.target.closest("#addScenarioBtn2")){ scenarioActions.openStartSheet(); return true; }
   var editBtn = e.target.closest("[data-edit-scenario]");
   // v3.181.0 (item 212): Edit opens the scenario on its own page, as a draft.
-  if(editBtn){ app.openScenarioEditor(editBtn.getAttribute("data-edit-scenario")); return true; }
+  if(editBtn){ scenarioActions.openScenarioEditor(editBtn.getAttribute("data-edit-scenario")); return true; }
   var setActiveBtn = e.target.closest("[data-edit-scenario2]");
   if(setActiveBtn){ chooseScenario(setActiveBtn.getAttribute("data-edit-scenario2")); return true; }
   var collapseBtn = e.target.closest("[data-collapse-toggle]");
@@ -64,7 +65,7 @@ function renderHomeArrange(focusSel){
   var f = homeArrangeOpen && homeArrangeRoot.querySelector(focusSel || "[data-ha-close]:not(.icon-btn)");
   if(f) f.focus({ preventScroll: !focusSel });
 }
-function openHomeArrange(){ homeArrangeOpen = true; renderHomeArrange(); app.pushActiveOverlay(function(){ homeArrangeOpen = false; renderHomeArrange(); }); }
+function openHomeArrange(){ homeArrangeOpen = true; renderHomeArrange(); pushActiveOverlay(function(){ homeArrangeOpen = false; renderHomeArrange(); }); }
 function changeHomeLayout(fn, focusSel){ var l = loadHomeLayout(); fn(l); saveHomeLayout(l); applyHomeLayout(); renderHomeArrange(focusSel); }
 
 export function wireCards(){
@@ -210,7 +211,7 @@ export function wireHomeArrange(){
   homeArrangeOpen = false;
   document.addEventListener("click", function(e){ if(e.target.closest("[data-ha-open]")) openHomeArrange(); });
   homeArrangeRoot.addEventListener("click", function(e){
-    if(e.target.closest("[data-ha-close]") || e.target === e.target.closest("[data-ha-backdrop]")){ app.requestCloseActiveOverlay(); return; }
+    if(e.target.closest("[data-ha-close]") || e.target === e.target.closest("[data-ha-backdrop]")){ requestCloseActiveOverlay(); return; }
     var mv = e.target.closest("[data-ha-move]");
     if(mv){
       var key = mv.getAttribute("data-ha-move"), dir = Number(mv.getAttribute("data-ha-dir"));
@@ -229,7 +230,7 @@ export function wireHomeArrange(){
       changeHomeLayout(function(l){ l.pinned = l.pinned.filter(function(x){ return x !== id; }); if(want) l.pinned.push(id); }, '[data-ha-pin="' + id + '"]');
     }
   });
-  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && homeArrangeOpen) app.requestCloseActiveOverlay(); });
+  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && homeArrangeOpen) requestCloseActiveOverlay(); });
 }
 
 export function wireHomeSummary(){

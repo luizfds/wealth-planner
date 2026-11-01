@@ -12,8 +12,8 @@
   "stateWrites": 5
  },
  "src/components/assetswiring.js": {
-  "persist": 23,
-  "stateWrites": 20
+  "persist": 26,
+  "stateWrites": 22
  },
  "src/components/autoprices.js": {
   "persist": 1,
@@ -36,7 +36,7 @@
   "stateWrites": 2
  },
  "src/components/cashflowwiring.js": {
-  "persist": 8,
+  "persist": 9,
   "stateWrites": 8
  },
  "src/components/chromewiring.js": {
@@ -88,7 +88,7 @@
   "stateWrites": 0
  },
  "src/components/propertieswiring.js": {
-  "persist": 31,
+  "persist": 32,
   "stateWrites": 3
  },
  "src/components/redraw.js": {
@@ -104,8 +104,8 @@
   "stateWrites": 0
  },
  "src/components/rows.js": {
-  "persist": 11,
-  "stateWrites": 3
+  "persist": 4,
+  "stateWrites": 0
  },
  "src/components/safekeepingwiring.js": {
   "persist": 2,
@@ -128,7 +128,7 @@
   "stateWrites": 6
  },
  "src/components/spendingwiring.js": {
-  "persist": 12,
+  "persist": 13,
   "stateWrites": 7
  },
  "src/components/taxwiring.js": {

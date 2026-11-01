@@ -3,7 +3,7 @@
 // Export, share, import and backups, a tax year file, Reset, sample data, the setup checklist, the theme and the
 // first-run setup.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
-// added, so they're added in the same order. What it shares with app.js it reaches through `app` (lib/appctx.js).
+// added, so they're added in the same order.
 import { demoHousehold, demoReceipts } from "../calc/demo.js";
 import { recalcComputedItems } from "../calc/engine.js";
 import { applyFirstRun, shouldOfferFirstRun } from "../calc/firstrun.js";
@@ -12,7 +12,6 @@ import { takeReceiptFiles } from "../calc/receipts.js";
 import { incomeTargets } from "../calc/received.js";
 import { getTaxPeople, computePersonTax } from "../calc/tax.js";
 import { mergeTaxYearFile, matchPerson, taxYearRecord, TAX_YEAR_FILE_KIND } from "../calc/taxyear.js";
-import { app } from "../lib/appctx.js";
 import { decryptBackup, doExport, doShare, canShareFiles } from "../lib/backup.js";
 import { localDateStr } from "../lib/format.js";
 import { unpackReceipts } from "../lib/receipts.js";
@@ -26,6 +25,8 @@ import { setPart } from "./parts.js";
 import { renderAll } from "./redraw.js";
 import { firstRunRoot, renderFirstRun } from "./spendingwiring.js";
 import { renderTaxYear, setTaxYearSelected, lodgedSnapshot } from "./taxyear.js";
+import { pushActiveOverlay, requestCloseActiveOverlay, forgetActiveOverlay } from "../lib/overlaystack.js";
+import { THEME_KEY, THEME_MODES, applyTheme, getThemePref } from "../lib/theme.js";
 
 // Sample data (v3.104.0): one fixed, invented household with about eighteen months of history —
 // calc/demo.js. Pay and rent received are added once recalc has made the take-home rows.
@@ -123,13 +124,13 @@ function loadSampleData(){
   showToast("Sample data generated");
 }
 function updateThemeButtonLabel(){
-  var mode = app.getThemePref();
+  var mode = getThemePref();
   var label = mode === "light" ? "Theme: Light" : mode === "dark" ? "Theme: Dark" : "Theme: System";
   document.getElementById("themeToggleBtn").textContent = label;
 }
 function openFirstRun(){
   startFirstRun(); renderFirstRun();
-  app.pushActiveOverlay(closeFirstRunUi);
+  pushActiveOverlay(closeFirstRunUi);
   var f = firstRunRoot.querySelector("input"); if(f) f.focus();
 }
 function closeFirstRunUi(){
@@ -221,10 +222,10 @@ export function wireData(){
     }
   });
   document.getElementById("themeToggleBtn").addEventListener("click", function(){
-    var current = app.getThemePref();
-    var next = app.THEME_MODES[(app.THEME_MODES.indexOf(current) + 1) % app.THEME_MODES.length];
-    try{ localStorage.setItem(app.THEME_KEY, next); }catch(e){}
-    app.applyTheme(next);
+    var current = getThemePref();
+    var next = THEME_MODES[(THEME_MODES.indexOf(current) + 1) % THEME_MODES.length];
+    try{ localStorage.setItem(THEME_KEY, next); }catch(e){}
+    applyTheme(next);
     updateThemeButtonLabel();
   });
   updateThemeButtonLabel();
@@ -246,7 +247,7 @@ export function wireFirstRun(){  document.addEventListener("click", function(e){
     if(e.target.matches("select[data-fr]")){ readFirstRunFields(); renderFirstRun(); }
   });
   firstRunRoot.addEventListener("click", function(e){
-    if(e.target.closest("[data-fr-close]") || e.target === e.target.closest("[data-fr-backdrop]")){ app.requestCloseActiveOverlay(); return; }
+    if(e.target.closest("[data-fr-close]") || e.target === e.target.closest("[data-fr-backdrop]")){ requestCloseActiveOverlay(); return; }
     var a = firstRun.answers;
     if(!a) return;
     readFirstRunFields();
@@ -257,7 +258,7 @@ export function wireFirstRun(){  document.addEventListener("click", function(e){
     // v3.162.0 (item 192): straight to a statement — pay and the rest wait as Home's next steps.
     if(e.target.closest("[data-fr-statement]")){
       state.firstRunSkipped = true; persist();
-      firstRun.open = false; app.activeOverlayClose = null; renderFirstRun();
+      firstRun.open = false; forgetActiveOverlay(); renderFirstRun();
       showPage("expenses", { replace: true }); showExpensesSubpage("spending", { replace: true });
       var ic = document.getElementById("bankImportCard");
       if(ic){ ic.open = true; setTimeout(function(){ ic.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); }
@@ -271,7 +272,7 @@ export function wireFirstRun(){  document.addEventListener("click", function(e){
       recalcComputedItems();
       persist();
       // Like a search result: the sheet's history entry is replaced by the destination, not popped.
-      firstRun.open = false; app.activeOverlayClose = null; renderFirstRun();
+      firstRun.open = false; forgetActiveOverlay(); renderFirstRun();
       renderAll();
       showToast("Set up: " + made.people + (made.people === 1 ? " person, " : " people, ") + made.accounts + (made.accounts === 1 ? " account, " : " accounts, ") + made.lines + " budget lines");
       if(fin.getAttribute("data-fr-finish") === "import"){
@@ -281,7 +282,7 @@ export function wireFirstRun(){  document.addEventListener("click", function(e){
       } else showPage("dashboard", { replace: true });
     }
   });
-  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && firstRun.open) app.requestCloseActiveOverlay(); });
+  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && firstRun.open) requestCloseActiveOverlay(); });
   if(shouldOfferFirstRun()) setTimeout(openFirstRun, 300);
 }
 

@@ -3,7 +3,7 @@
 // Settings → Import rules, Categories and Preferences, the year's transactions as CSV, who changed what and the
 // problems the app hit.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
-// added, so they're added in the same order. What it shares with app.js it reaches through `app` (lib/appctx.js).
+// added, so they're added in the same order.
 import { undoEntry } from "../calc/activity.js";
 import { normaliseDescription } from "../calc/bank-import.js";
 import { recalcComputedItems } from "../calc/engine.js";

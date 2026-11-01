@@ -3,12 +3,11 @@
 // Navigation, the + button and its quick actions, the avatar menu, sub-tabs and swiping between them, pull to
 // refresh, the period selector and keyboard shortcuts.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
-// added, so they're added in the same order. What it shares with app.js it reaches through `app` (lib/appctx.js).
+// added, so they're added in the same order.
 import { runManualUpdateCheck } from "./updates.js";
 import { cardPaymentsForMonth, usualCardSource } from "../calc/bills.js";
 import { selectedYearWindow, yearStartOf, householdYearBasis, selectedMonth } from "../calc/ledger.js";
 import { shiftMonth as mdShiftMonth } from "../calc/monthdetail.js";
-import { app } from "../lib/appctx.js";
 import { syncOn } from "../lib/foldersync.js";
 import { localDateStr } from "../lib/format.js";
 import { onHorizontalSwipe } from "../lib/swipe.js";
@@ -31,13 +30,14 @@ import { priceSheetDue } from "./pricesheet.js";
 import { renderTotals, renderAll } from "./redraw.js";
 import { runSync, initialSync } from "./safekeepingwiring.js";
 import { openSearchOverlay } from "./searchwiring.js";
+import { pushActiveOverlay, requestCloseActiveOverlay, overlayOpen, forgetActiveOverlay } from "../lib/overlaystack.js";
 
 var navMenuToggle, quickFabMore, topbar, compact, ASSETS_SUB_ORDER, EXPENSES_SUB_ORDER, periodBtn, periodMenu, GO_KEYS, goPending;
 
 // ---------------- Quick actions menu (the fab's chevron) ----------------
 function openQuickActions(){
   document.getElementById("quickFabRoot").innerHTML = quickActionsSheetHtml();
-  app.pushActiveOverlay(closeQuickActions);
+  pushActiveOverlay(closeQuickActions);
 }
 function closeQuickActions(){
   document.getElementById("quickFabRoot").innerHTML = "";
@@ -50,7 +50,7 @@ function closeQuickActions(){
 // menu, not resurrect the menu on the way.
 function runQuickAction(action){
   closeQuickActions();
-  app.activeOverlayClose = null;
+  forgetActiveOverlay();
   showPage(action.page, { replace: true });
   if(action.page === "assets" && action.sub) showAssetsSubpage(action.sub, { replace: true });
   if(action.page === "expenses" && action.sub) showExpensesSubpage(action.sub, { replace: true });
@@ -186,7 +186,7 @@ export function wireNavigation(){
   if(quickFabMore) quickFabMore.addEventListener("click", openQuickActions);
   document.getElementById("quickFabRoot").addEventListener("click", function(e){
     if(e.target.closest("[data-qfab-close]") || e.target === e.target.closest("[data-qfab-backdrop]")){
-      app.requestCloseActiveOverlay();
+      requestCloseActiveOverlay();
       return;
     }
     var actionBtn = e.target.closest("[data-quick-action]");
@@ -196,7 +196,7 @@ export function wireNavigation(){
   });
   document.addEventListener("keydown", function(e){
     if(e.key !== "Escape") return;
-    if(document.querySelector("[data-qfab-backdrop]")) app.requestCloseActiveOverlay();
+    if(document.querySelector("[data-qfab-backdrop]")) requestCloseActiveOverlay();
   });
   // v3.140.0: the avatar menu — the version, its links into the app, and the dot that says a save failed.
   // On a phone the page title is the header: large at the top, slim once you scroll.
@@ -342,7 +342,7 @@ export function wirePullToRefresh(){
     document.addEventListener("touchstart", function(e){
       pull = null;
       if(!phone.matches || busy || e.touches.length !== 1 || window.scrollY > 0) return;
-      if(e.target.closest(".review-backdrop, .m-row.open, input, select, textarea, .table-scroll, .subnav, .m-row.tx-row") || app.activeOverlayClose) return;
+      if(e.target.closest(".review-backdrop, .m-row.open, input, select, textarea, .table-scroll, .subnav, .m-row.tx-row") || overlayOpen()) return;
       pull = { y0: e.touches[0].clientY, dy: 0 };
     }, { passive: true });
     document.addEventListener("touchmove", function(e){

@@ -2,7 +2,7 @@
 //
 // A scenario's purchase and invest-instead calculators, in Plan and on the Calculators page.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
-// added, so they're added in the same order. What it shares with app.js it reaches through `app` (lib/appctx.js).
+// added, so they're added in the same order.
 import { recalcComputedItems } from "../calc/engine.js";
 import { TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE } from "../constants.js";
 import { state, persist, defaultInvestConfig } from "../state.js";

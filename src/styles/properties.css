@@ -434,13 +434,16 @@
 /* v3.188.0 (item 219): Save and Cancel at the bottom on a phone */
 .sc-savebar{ display:none; }
 @media (max-width:880px){
+  /* Editing a scenario is a task of its own: no bottom tabs (leaving is "← Scenarios", Save or Cancel), and
+     the Save bar takes their place at the very bottom. */
+  body[data-current-page="scenario"] .mobile-tabbar{ display:none; }
   .sc-savebar{ display:flex; align-items:center; gap:8px; position:fixed; left:0; right:0; z-index:14;
-    bottom: calc(70px + env(safe-area-inset-bottom)); padding:8px 16px; background: var(--paper-raised); border-top:1px solid var(--border); box-shadow: 0 -4px 12px rgba(0,0,0,0.08); }
+    bottom:0; padding:8px 16px calc(8px + env(safe-area-inset-bottom)); background: var(--paper-raised); border-top:1px solid var(--border); box-shadow: 0 -4px 12px rgba(0,0,0,0.08); }
   .sc-savebar .sc-edit-state{ flex:1 1 auto; }
   .sc-edit-head .sc-edit-actions, .sc-edit-head .sc-edit-state{ display:none; }
   #page-scenario{ padding-bottom:72px; }
   body[data-current-page="scenario"] .quick-fab-wrap{ display:none; }
-  body[data-current-page="scenario"] .toast-wrap{ bottom: calc(18px + 66px + 62px + env(safe-area-inset-bottom)); }
+  body[data-current-page="scenario"] .toast-wrap{ bottom: calc(18px + 62px + env(safe-area-inset-bottom)); }
   .sc-edit-layout{ grid-template-columns: minmax(0,1fr); gap:6px; }
   .sc-edit-aside{ order:-1; position:static; max-height:none; overflow:visible; }
 }

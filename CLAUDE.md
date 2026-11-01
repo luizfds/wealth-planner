@@ -372,6 +372,13 @@ Three layers, and **knowing what each one cannot see is the whole point**:
   0, or (at 390px) a tap target under 44px. Run it locally with `npm i --no-save playwright && npx playwright install chromium && node
   scripts/smoke.mjs`. It catches breakage, not layout taste — still look at what you changed.
   Adding a page, subtab or report means adding it to the smoke script's `VIEWS`.
+- **Journeys and a speed budget (v3.204.0):** `scripts/journeys.mjs`, in CI as `journeys`, does what people do —
+  confirm bills, a transfer with Undo, an automatic payment answered on Home, edit and save a scenario and open Make
+  it real, a CSV and a PDF import (invented statements in `scripts/journeys/fixtures.mjs`) — at 390px on the sample
+  household with the date fixed. Then, on a large invented household at 4× CPU, it times startup, saving a transfer
+  and adding a scenario change against limits, and a transfer against a full redraw in the same run (`?perf=1`
+  exposes `window.__wpRenderAll` for that): a step that redraws everything fails whatever the machine. A new flow
+  people rely on gets a journey there. `npm run coverage` is the suite with coverage, summarised in CI.
 - **Screens (v3.130.0):** on a pull request the `screens` job runs the same script with `SHOTS_DIR`
   (a full-page picture of every view, light, 390/1280px, clock fixed) against the base branch
   (`SMOKE_ROOT`) and the PR, and `scripts/shotdiff.mjs` lists what changed in the job summary and the

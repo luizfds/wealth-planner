@@ -4316,13 +4316,23 @@ fields joined into markup raw) with its own self-test — nothing a person types
 `lib/errorlog.js`, imported first; Settings → Keeping your data safe lists the device's errors with Copy and Clear;
 driven with a thrown error and a rejected promise. CLAUDE.md's version rule now says: label the PR, never bump by hand.
 
-## 234. `[ ]` Journeys and a speed budget in CI
+## 234. `[x]` Journeys and a speed budget in CI
 Do: Playwright journey tests on invented data — log a bill and confirm it, save a transfer with balances (and Undo),
 answer an automatic payment, edit and save a scenario, Make it real, import a CSV and a PDF — run in CI beside the smoke
 script; coverage reporting for `npm test`; a speed budget: a full render and each journey's slowest step on a large
 invented household, failing past a set time at 4× CPU slowdown.
 
 Done when: the journeys pass in CI; reverting v3.200.2's transfer fix fails the speed budget.
+
+**Done (v3.204.0).** `scripts/journeys.mjs` (CI job `journeys`): six journeys at 390px on the sample household with
+the date fixed — bills confirmed, a transfer with balances and Undo, an automatic payment answered with a new amount
+kept, a scenario edited and saved (its card moves; no bottom tabs while editing; Make it real shows its plan), a CSV
+and a PDF statement imported (both invented, `scripts/journeys/fixtures.mjs`; the PDF written by hand). Speed budget
+on the sample household's spending copied six times back (about 3,200 transactions) at 4× CPU: startup, a transfer
+and a scenario change against limits about twice today's times, and a transfer as a share of a full redraw in the
+same run — about half today, 99–112% with v3.200.2's fix reverted, so the revert fails it (checked). `npm run
+coverage` in CI's tests job, totals in the summary: `calc/` 97% of lines, `src/` 75%. Found on the way: on that
+household a transfer still costs about half a full redraw — the notification count and Home — which is 236's to fix.
 
 ## 235. `[ ]` State changed through actions; accounts by id
 Do: every change to `state` goes through an action function that records what it touched (transactions, transfers,

@@ -221,6 +221,13 @@ the last, so two sessions can't pick up the same one.
   outlives the fetch handler's synchronous return, and same-origin `no-cors` (opaque) responses
   always reporting `.ok === false` even on success.
 
+**Edits say what they touched (v3.207.0, item 235c).** `commit(["transactions", "accounts"])` from state.js saves
+(it calls `persist()`) and tells `onCommit` listeners which top-level keys of `state` changed; item 236 redraws only
+the views that read them. A new edit uses `commit` with what it touches, never a bare `persist()`. `npm run check`'s
+`local/ratchet` counts bare `persist()` calls and direct writes into `state` (`state.x = …`, `state.x.push(…)`) in
+app.js, components and lib against `eslint-rules/ratchet.json`: a file may not gain one, and when it loses one the
+baseline must come down (`node eslint-rules/ratchet.mjs --update`).
+
 **`state` is a live import, not a value** — never reassign the imported `state` binding directly
 (`state = X` throws for an ES-module import). Use `setState(newState)` from `state.js` instead;
 `app.js` does this correctly today (Reset, Sample data, Import backup) — keep it that way.

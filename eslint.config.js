@@ -4,18 +4,20 @@
 import js from "@eslint/js";
 import globals from "globals";
 import noUnescapedText from "./eslint-rules/no-unescaped-text.js";
+import ratchet from "./eslint-rules/ratchet.js";
 
 export default [
   { ignores: ["vendor/**", "node_modules/**", "prices/**"] },
   js.configs.recommended,
   {
     files: ["src/**/*.js", "sw.js"],
-    plugins: { local: { rules: { "no-unescaped-text": noUnescapedText } } },
+    plugins: { local: { rules: { "no-unescaped-text": noUnescapedText, "ratchet": ratchet } } },
     languageOptions: { ecmaVersion: 2022, sourceType: "module", globals: { ...globals.browser } },
     rules: {
       "no-unused-vars": ["error", { args: "none", caughtErrors: "none", varsIgnorePattern: "^_" }],
       "no-empty": ["error", { allowEmptyCatch: true }],
       "local/no-unescaped-text": "error",
+      "local/ratchet": "error",
       // `var x = null;` before a try, or a default that a branch then sets, is how this code reads.
       "no-useless-assignment": "off"
     }

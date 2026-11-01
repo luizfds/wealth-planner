@@ -5,7 +5,7 @@
 // (startBankImport), one exit (commitBankImport), and session-only state that nothing else reads —
 // so it splits cleanly, unlike the page-level render functions that genuinely belong together.
 // DOM event *registration* still lives in app.js, same as every other component here.
-import { state, persist } from "../state.js";
+import { state, commit } from "../state.js";
 import { parseCsv } from "../lib/backup.js";
 import { parseBankCsv, bankImportSummary, parseDiagnosis, statementTextToCsv } from "../calc/bank-import.js";
 import { cleanMerchantName } from "../calc/merchantbook.js";
@@ -831,7 +831,7 @@ export function commitBankImport(){
     var value = isOwedType(acctRec.type) ? Math.abs(bankImport.closing.balance) : bankImport.closing.balance;
     if(setAccountBalance(acctRec, value, bankImport.closing.date)) balanceSet = { account: acctRec.name, value: value, prev: prev.balance, prevDate: prev.date, date: bankImport.closing.date };
   }
-  persist();
+  commit(["transactions", "incomeLog", "transfers", "importRules", "shared", "accounts", "assets", "debts", "properties"]);
   return { ids: created, learned: learned, groups: bankImport.groups.length, transferIds: transferIds, balanceSet: balanceSet,
            lineIds: createdLineIds, linesCreated: createdLineIds.length, receivedIds: receivedIds, reconciled: reconciled,
            refunds: refundGroups.reduce(function(n, g){ return n + g.rows.length; }, 0) };
@@ -874,5 +874,5 @@ export function undoBankImport(ids, lineIds, receivedIds, transferIds, balanceSe
     // same failure pruneRules() exists for.
     state.importRules = pruneRules(state.importRules, loggableBudgetLineItems());
   }
-  persist();
+  commit(["transactions", "incomeLog", "transfers", "importRules", "shared", "accounts", "assets", "debts", "properties"]);
 }

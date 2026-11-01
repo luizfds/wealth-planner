@@ -4,7 +4,7 @@ import { renderSubscriptions, subsUi } from "./components/subscriptions.js";
 import { bench, benchmarkCardHtml, targetMixCardHtml } from "./components/investreturn.js";
 import { whatIfValues, resetWhatIf, wiFromSlider, wiValueText } from "./components/whatif.js";
 import { whatIfMoved, keepWhatIf } from "./calc/whatif.js";
-import { state, setState, storageAvailable, persist, setStatus, defaultState, defaultInvestConfig, migrateState, genId, normalizeShareAsset, onSaved } from "./state.js";
+import { state, setState, storageAvailable, persist, commit, setStatus, defaultState, defaultInvestConfig, migrateState, genId, normalizeShareAsset, onSaved } from "./state.js";
 import { sacrificeLabelToMode, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE } from "./constants.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr, fmtDate, parseAmountInput } from "./lib/format.js";
 import { showToast, showUndoToast, showPersistentToast } from "./lib/toast.js";
@@ -3198,7 +3198,7 @@ import { inboxMessage } from "./calc/inbox.js";
     renderSharedGroups();
     renderHomeSummary();
     renderMonthReview();
-    persist();
+    commit(["transactions", "transfers", "incomeLog"]);
   }
   function saveTxView(){
     var el = document.querySelector("#transactionsTable [data-cf-view-name]");
@@ -3206,7 +3206,7 @@ import { inboxMessage } from "./calc/inbox.js";
     if(!name){ if(el) el.focus(); showToast("Give the view a name"); return; }
     var v = saveView(state.txViews, name, txFilters, function(){ return genId("view"); });
     txViewForm.open = false;
-    persist(); renderTransactions();
+    commit(["txViews"]); renderTransactions();
     if(v) showToast('Saved "' + v.name + '" — it\'s a chip above the list');
   }
   // "Show me in Spending" from anywhere: a button with data-sv and a data-sv-<filter> per filter to set
@@ -3244,8 +3244,8 @@ import { inboxMessage } from "./calc/inbox.js";
     if(b.hasAttribute("data-cf-view-del")){
       var gone = deleteView(state.txViews, b.getAttribute("data-cf-view-del"));
       if(gone){
-        persist(); renderTransactions();
-        showUndoToast('Deleted the view "' + gone.name + '"', function(){ state.txViews.push(gone); persist(); renderTransactions(); });
+        commit(["txViews"]); renderTransactions();
+        showUndoToast('Deleted the view "' + gone.name + '"', function(){ state.txViews.push(gone); commit(["txViews"]); renderTransactions(); });
       }
       return;
     }
@@ -3265,8 +3265,8 @@ import { inboxMessage } from "./calc/inbox.js";
     }
     if(b.hasAttribute("data-cf-del-transfer")){
       var goneTransfer = deleteTransfer(b.getAttribute("data-cf-del-transfer"));
-      renderTransactions(); persist();
-      if(goneTransfer) showUndoToast("Transfer deleted (balances unchanged)", function(){ state.transfers.splice(goneTransfer.index, 0, goneTransfer.record); renderTransactions(); persist(); });
+      renderTransactions(); commit(["transfers"]);
+      if(goneTransfer) showUndoToast("Transfer deleted (balances unchanged)", function(){ state.transfers.splice(goneTransfer.index, 0, goneTransfer.record); renderTransactions(); commit(["transfers"]); });
       return;
     }
     if(b.hasAttribute("data-cf-del-in")){
@@ -3647,7 +3647,7 @@ import { inboxMessage } from "./calc/inbox.js";
     if(!setAccountBalance(a, inp.value)){ showToast("Pick the loan this offset sits against first"); return; }
     delete balanceEditing[a.id];
     renderAll();
-    persist();
+    commit(["accounts", "assets", "debts", "properties"]);
     showToast("Updated " + (a.name || "the account") + " to " + fmtCurrency0.format(Number(inp.value)));
   }
   document.getElementById("accountsTable").addEventListener("keydown", function(e){
@@ -3678,7 +3678,7 @@ import { inboxMessage } from "./calc/inbox.js";
       state.accounts.push({ id: genId("acct"), name: src ? src.label.replace(/ — offset$/, " offset") : "Account", type: adopt.getAttribute("data-acct-adopt-type") || "savings", statementStartDay: 1, link: link });
       updateAccountSuggestions();
       renderAll();
-      persist();
+      commit(["accounts", "assets", "debts", "properties"]);
       showToast("Added " + (src ? src.label : "the account") + " to Accounts");
       return;
     }
@@ -3705,7 +3705,7 @@ import { inboxMessage } from "./calc/inbox.js";
         if(filled) showToast(filled + " bill" + (filled === 1 ? "" : "s") + " from statements now on " + (a.name || "this account"));
       }
       renderActualVsPlannedPanel();
-      persist();
+      commit(["accounts", "assets", "debts", "properties"]);
       // Deferred: showing/hiding the statement-day field means rebuilding #accountsTable, an
       // ancestor of this <select> that's still mid-event right now — same reentrant-DOM-mutation
       // issue as the Transactions date field above.
@@ -3729,13 +3729,13 @@ import { inboxMessage } from "./calc/inbox.js";
     else if(e.target.classList.contains("acct-mgmt-link")){
       a.link = e.target.value;
       if(a.type === "agent") fillAgentAccount(state);
-      persist();
+      commit(["accounts", "assets", "debts", "properties"]);
       setTimeout(function(){ renderAll(); }, 0);
       return;
     }
     else return;
     renderActualVsPlannedPanel();
-    persist();
+    commit(["accounts", "assets", "debts", "properties"]);
   });
 
   // ---------------- Categories: the spending rollup ----------------
@@ -4389,6 +4389,9 @@ import { inboxMessage } from "./calc/inbox.js";
   // ahead, payments to confirm), the bills calendar, Checks, the month's review and the bell — not every page
   // (renderAll took the best part of a second on a phone with a real household's data). When balances
   // moved, what reads them too: net worth, the assets and properties they're stored on, the cards.
+  // What a transfer touches: the transfers, and — when it moved both balances — the accounts and the
+  // records that hold their money (a Cash asset, a debt, a property's loan or offset).
+  function transferTouched(balancesMoved){ return balancesMoved ? ["transfers", "accounts", "assets", "debts", "properties"] : ["transfers"]; }
   function refreshAfterTransfer(balancesMoved){
     renderTransactions();
     renderAccounts();
@@ -4416,12 +4419,12 @@ import { inboxMessage } from "./calc/inbox.js";
         moved.push(acct.name);
       });
     }
-    persist();
+    commit(transferTouched(moved.length > 0));
     refreshAfterTransfer(moved.length > 0);
     showUndoToast(message + (moved.length ? " — " + moved.join(" and ") + " updated" : ""), function(){
       deleteTransfer(rec.id);
       before.forEach(function(b){ setAccountBalance(b[0], b[1], rec.date); });
-      persist(); refreshAfterTransfer(before.length > 0);
+      commit(transferTouched(before.length > 0)); refreshAfterTransfer(before.length > 0);
     });
     return rec;
   }
@@ -6463,7 +6466,7 @@ import { inboxMessage } from "./calc/inbox.js";
 
   // ---------------- Automatic payments (v3.196.0, item 231) ----------------
   // Set up on an account's card; answered on Home. calc/autopay.js does the recording.
-  function afterAutoPay(){ persist(); refreshAfterTransfer(false); }
+  function afterAutoPay(){ commit(["autoPayments", "transfers"]); refreshAfterTransfer(false); }
   function answerAndUndo(id, date, answer, said){
     var r = answerAutoPay(state, id, date, answer, genId);
     if(!r) return;
@@ -6479,7 +6482,7 @@ import { inboxMessage } from "./calc/inbox.js";
       var owed = acct.type === "loan" || acct.type === "credit";
       if(!Array.isArray(state.autoPayments)) state.autoPayments = [];
       state.autoPayments.push(makeAutoPay({ from: owed ? "" : name, to: owed ? name : "", freq: "Monthly" }, localDateStr(), genId("ap")));
-      persist(); renderAccounts();
+      commit(["autoPayments"]); renderAccounts();
       return;
     }
     var del = e.target.closest("[data-ap-del]");
@@ -6523,7 +6526,7 @@ import { inboxMessage } from "./calc/inbox.js";
     else if(field === "line"){ if(v) ap.line = v; else delete ap.line; }
     else if(field === "what") ap.what = v.trim();
     else ap[field] = v;
-    persist();
+    commit(["autoPayments"]);
     renderHomeSummary(); renderNotifBadge();
     // Rebuilt after the event: the note under it ("Next on …") follows the day and how often.
     if(field === "start" || field === "freq" || field === "line") setTimeout(renderAccounts, 0);

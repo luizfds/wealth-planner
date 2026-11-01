@@ -1,0 +1,74 @@
+{
+ "src/app.js": {
+  "persist": 178,
+  "stateWrites": 101
+ },
+ "src/components/assets.js": {
+  "persist": 4,
+  "stateWrites": 5
+ },
+ "src/components/autoprices.js": {
+  "persist": 1,
+  "stateWrites": 0
+ },
+ "src/components/bank-import.js": {
+  "persist": 0,
+  "stateWrites": 5
+ },
+ "src/components/benchmarks.js": {
+  "persist": 6,
+  "stateWrites": 2
+ },
+ "src/components/dashboard.js": {
+  "persist": 3,
+  "stateWrites": 2
+ },
+ "src/components/expenses.js": {
+  "persist": 0,
+  "stateWrites": 28
+ },
+ "src/components/income.js": {
+  "persist": 0,
+  "stateWrites": 1
+ },
+ "src/components/lifeevents.js": {
+  "persist": 0,
+  "stateWrites": 2
+ },
+ "src/components/parts.js": {
+  "persist": 0,
+  "stateWrites": 3
+ },
+ "src/components/pricesheet.js": {
+  "persist": 2,
+  "stateWrites": 0
+ },
+ "src/components/properties.js": {
+  "persist": 3,
+  "stateWrites": 0
+ },
+ "src/components/reports.js": {
+  "persist": 0,
+  "stateWrites": 2
+ },
+ "src/components/scenarios.js": {
+  "persist": 7,
+  "stateWrites": 29
+ },
+ "src/components/scenariowiring.js": {
+  "persist": 0,
+  "stateWrites": 12
+ },
+ "src/lib/activity.js": {
+  "persist": 1,
+  "stateWrites": 1
+ },
+ "src/lib/backup.js": {
+  "persist": 1,
+  "stateWrites": 1
+ },
+ "src/lib/safekeeping.js": {
+  "persist": 1,
+  "stateWrites": 4
+ }
+}

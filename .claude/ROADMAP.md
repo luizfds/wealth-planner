@@ -4334,7 +4334,7 @@ same run — about half today, 99–112% with v3.200.2's fix reverted, so the re
 coverage` in CI's tests job, totals in the summary: `calc/` 97% of lines, `src/` 75%. Found on the way: on that
 household a transfer still costs about half a full redraw — the notification count and Home — which is 236's to fix.
 
-## 235. `[~]` State changed through actions; accounts by id
+## 235. `[x]` State changed through actions; accounts by id
 Split into three PRs (each its own review), in this order:
 
 ### 235a. `[x]` Migrations as numbered, tested steps
@@ -4368,15 +4368,24 @@ delete and re-add, step 23. Checked on a real backup outside the repo: all 558 t
 every account's balance and every scenario's figures identical before and after. Driven: an account renamed letter by
 letter on its card — transactions, budget lines and transfers follow.
 
-### 235c. `[~]` State changed through actions
+### 235c. `[x]` State changed through actions
 Do: every change to `state` goes through an action function that records what it touched (transactions, transfers,
 accounts, a scenario…), which 236 uses to redraw only what reads it.
 Done when: no component assigns into `state` directly (a lint rule).
 
+**Done (v3.207.0), as a ratchet.** `commit(touched)` in state.js: saves and tells `onCommit` listeners which
+top-level keys an edit touched (`["*"]` when it doesn't say). The flows that matter most say it now: transfers
+(with what moving balances touches), automatic payments, saved views, Spending's edits, accounts (their editor,
+balances, add and delete), categories, the year basis, budget grouping, the bank import and its undo, and every
+scenario edit. `local/ratchet` (eslint-rules/ratchet.js, with ratchet.json): a file may not gain a bare `persist()`
+or a direct write into `state`, and the baseline has to come down when the file's count does — 241 bare persists
+became 207; 198 direct writes remain. Moving the rest is part of 236, view by view, as each view is made to redraw
+on what it reads.
+
 ## 236. `[ ]` Views that follow the data, drawn when seen
-Do: each view declares what it reads; an action redraws only the views that read what it touched, on the page that's
+Do: each view declares what it reads; a commit redraws only the views that read what it touched, on the page that's
 open; other pages are marked stale and drawn when opened. `renderAll()` goes, and so do hand-written redraw lists like
-`refreshAfterTransfer`.
+`refreshAfterTransfer`. Each view's edits move to `commit(touched)` as it goes (235c's ratchet counts down).
 
 Done when: startup draws one page; the speed budget's full-render and edit numbers drop on a phone; the smoke script and
 journeys pass unchanged.

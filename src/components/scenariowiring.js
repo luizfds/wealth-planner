@@ -12,7 +12,7 @@ import { newChange } from "../calc/scenariolegs.js";
 import { buildScenario } from "../calc/scenariotemplates.js";
 import { localDateStr } from "../lib/format.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
-import { persist, genId, state, defaultHomeBlock, defaultPurchaseConfig, defaultInvestConfig } from "../state.js";
+import { commit, genId, state, defaultHomeBlock, defaultPurchaseConfig, defaultInvestConfig } from "../state.js";
 import { calcFor, calcQ, calcOutHtml } from "./calculators.js";
 import { mrQ, makeRealSheetHtml } from "./makereal.js";
 import { showPage, showPlanSubpage, setLeaveGuard } from "./nav.js";
@@ -30,7 +30,7 @@ export function wireScenarioEditor(app){
   // Plan → Scenarios: a line's amount in a scenario, kept in the scenario (calc/scenariochanges.js).
   // v3.180.1: each view once — refreshScenarioDependentViews draws the cards, the comparison, the home
   // blocks and (when it's on screen) the projection.
-  function afterScenarioChange(){ persist(); refreshScenarioDependentViews(); }
+  function afterScenarioChange(){ commit(["scenarioChanges", "scenarios", "purchase", "invest", "home"]); refreshScenarioDependentViews(); }
   document.addEventListener("click", function(e){
     if(!e.target.closest) return;
     var add = e.target.closest("[data-sc-add]");
@@ -141,7 +141,7 @@ export function wireScenarioEditor(app){
     editing.name = name;
     editing.key = today ? name : openDraft(name);
     Object.keys(changeOpen).forEach(function(k){ delete changeOpen[k]; });
-    persist();
+    commit(["scenarioChanges", "scenarios", "purchase", "invest", "home"]);
     showPage("scenario");
     window.scrollTo(0, 0);
   }
@@ -151,7 +151,7 @@ export function wireScenarioEditor(app){
     calcFor.key = null; calcFor.name = null;
     renderHomeBody();
     recalcComputedItems();
-    persist();
+    commit(["scenarioChanges", "scenarios", "purchase", "invest", "home"]);
     refreshScenarioDependentViews();
     renderProjectionsWhenSeen();
     showPage("plan");
@@ -190,7 +190,7 @@ export function wireScenarioEditor(app){
     var v = e.target.value.trim();
     if(v) state.scenarioNotes[editing.name] = e.target.value; else delete state.scenarioNotes[editing.name];
     e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px";
-    persist();
+    commit(["scenarioNotes"]);
   });
   document.addEventListener("keydown", function(e){ if(e.key === "Enter" && e.target.matches && e.target.matches("[data-sc-rename-inline]")) e.target.blur(); });
   // v3.191.0 (item 222): one change, or the buying / investing, back to as saved.
@@ -228,7 +228,7 @@ export function wireScenarioEditor(app){
     var parts = path.split("."), v = e.target.value;
     calcQ[parts[0]][parts[1]] = e.target.tagName === "SELECT" ? v : (v === "" ? 0 : Number(v));
     // v3.198.0: the household's dependants are kept — the lender check in Side by side counts them too.
-    if(path === "bp.dependants"){ state.dependants = Math.max(0, Math.floor(Number(v) || 0)); persist(); }
+    if(path === "bp.dependants"){ state.dependants = Math.max(0, Math.floor(Number(v) || 0)); commit(["dependants"]); }
     var out = document.querySelector('[data-cq-out="' + parts[0] + '"]');
     if(out) out.innerHTML = calcOutHtml(parts[0]);
   });

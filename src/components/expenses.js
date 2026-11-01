@@ -1,5 +1,5 @@
 import { renderSubscriptions } from "./subscriptions.js";
-import { state, persist, genId } from "../state.js";
+import { state, commit, genId } from "../state.js";
 import { CLASSES, FREQS, UNCATEGORISED } from "../constants.js";
 import { sumField, sumFieldForScenario, resolveSharedAmount, periodsOf, budgetCycleFor, reserveCycleFor, transactionDisplayName, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, plannedToDateByCategory, refundableTransactions, householdYearWindow, householdYearToDate, householdYearProgress, householdYearBasis, HOUSEHOLD_YEAR_BASES, selectedMonth, monthPhrase, selectedYearWindow, isPeriodToday, monthAnchorDate } from "../calc/ledger.js";
 import { merchantGroups, worthShowingMerchants, recentMerchants } from "../calc/merchants.js";
@@ -1134,7 +1134,7 @@ export function setBudgetGroupBy(value){
   state.budgetGroupBy = value === "category" || value === "flex" ? value : "type";
   renderSharedGroups();
   renderBudgetGroupByToggle();
-  persist();
+  commit(["budgetGroupBy"]);
 }
 // Rendered beside the Group-by toggle rather than in the card footer, because it acts on every
 // card at once and the toggle it sits next to is the other control that reshapes the whole list.
@@ -1493,7 +1493,7 @@ export function addTransaction(){
   state.transactions.push({ id: genId("t"), date: localDateStr(), amount: 0, what: "", linkedExpenseId: null, account: "" });
   renderTransactions();
   renderActualVsPlannedPanel();
-  persist();
+  commit(["transactions"]);
 }
 export function deleteTransaction(idx){
   var removed = state.transactions[idx];
@@ -1501,12 +1501,12 @@ export function deleteTransaction(idx){
   state.transactions.splice(idx, 1);
   renderTransactions();
   renderActualVsPlannedPanel();
-  persist();
+  commit(["transactions"]);
   showUndoToast("Deleted transaction", function(){
     state.transactions.splice(Math.min(idx, state.transactions.length), 0, removed);
     renderTransactions();
     renderActualVsPlannedPanel();
-    persist();
+    commit(["transactions"]);
   });
 }
 
@@ -1881,7 +1881,7 @@ export function renderCategories(){
 export function addCategory(){
   state.categories.push("");
   renderCategories();
-  persist();
+  commit(["categories"]);
 }
 // Renaming retargets every budget line pointing at the old name, so a rename is a rename rather
 // than a silent orphaning — same contract as renameAccountEverywhere below.
@@ -1919,13 +1919,13 @@ export function deleteCategory(idx){
   orphaned.forEach(function(item){ item.category = ""; });
   if(removedLook) delete state.categoryLooks[removed];
   renderCategories();
-  persist();
+  commit(["categories", "categoryLooks", "shared", "home", "properties", "transactions"]);
   showUndoToast('Deleted "' + (removed || "category") + '"' + (orphaned.length ? " — " + orphaned.length + " line" + (orphaned.length === 1 ? "" : "s") + " uncategorised" : ""), function(){
     state.categories.splice(Math.min(idx, state.categories.length), 0, removed);
     orphaned.forEach(function(item){ item.category = removed; });
     if(removedLook) state.categoryLooks[removed] = removedLook;
     renderCategories();
-    persist();
+    commit(["categories", "categoryLooks", "shared", "home", "properties", "transactions"]);
   });
 }
 // Every category that currently carries something, plus an "Uncategorised" bucket when anything
@@ -2371,7 +2371,7 @@ export function renderYearBasisPreference(){
 export function setYearBasis(basis){
   if(HOUSEHOLD_YEAR_BASES.indexOf(basis) === -1) return;
   state.yearBasis = basis;
-  persist();
+  commit(["yearBasis", "shared", "home", "properties"]);
 }
 
 // The page itself is components/accounts.js since v3.56.0 (balances, types, grouping).
@@ -2381,7 +2381,7 @@ export function addAccount(type){
   state.accounts.push(a);
   openAccounts[a.id] = true;
   renderAccounts();
-  persist();
+  commit(["accounts"]);
 }
 // Every array whose rows carry an `account` name — the account-side twin of
 // everyCategorisableArray(), and for the same reason: renaming or deleting an account has to reach
@@ -2444,14 +2444,14 @@ export function deleteAccount(idx){
   renderAccounts();
   renderTransactions();
   renderActualVsPlannedPanel();
-  persist();
+  commit(["accounts"]);
   showUndoToast('Deleted "' + (name || "account") + '"' +
     (stranded ? " — " + stranded + " line" + (stranded === 1 ? "" : "s") + " still name it; re-add an account called \"" + name + "\" to relink them" : ""), function(){
     state.accounts.splice(Math.min(idx, state.accounts.length), 0, removed);
     renderAccounts();
     renderTransactions();
     renderActualVsPlannedPanel();
-    persist();
+    commit(["accounts"]);
   });
 }
 // v3.206.0 (item 235b): a rename is the account's record, then every copy of its name on rows linked to

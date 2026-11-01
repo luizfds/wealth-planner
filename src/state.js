@@ -836,6 +836,20 @@ export function persist(){
     }
   }, 300);
 }
+// ---------------- Commits (v3.207.0, item 235c) ----------------
+// An edit says what it touched: commit(["transactions", "accounts"]) saves (persist) and tells everyone
+// listening (onCommit) which parts of `state` changed — top-level keys — so a view that reads none of them
+// can stay as it is (item 236). persist() on its own is an edit that didn't say: listeners hear ["*"],
+// meaning anything may have changed. A new edit uses commit with what it touches; npm run check counts
+// the bare persist() calls left in each file and fails if a file gains one (eslint-rules/ratchet.json).
+var commitListeners = [];
+export function onCommit(fn){ commitListeners.push(fn); }
+export function commit(touched){
+  persist();
+  var t = Array.isArray(touched) && touched.length ? touched.slice() : ["*"];
+  commitListeners.forEach(function(fn){ try { fn(t); } catch(err){} });
+  return t;
+}
 export function setStatus(ok, text){
   document.getElementById("statusDot").className = "status-dot" + (ok ? "" : " warn");
   document.getElementById("statusText").textContent = text;

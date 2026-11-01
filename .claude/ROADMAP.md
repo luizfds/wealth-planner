@@ -4351,7 +4351,7 @@ with the same id sequence: the old and new `migrateState` give identical output 
 household, an invented old-shape save (the single investment property, property assets, a portfolio-wide ownership
 split, a lump-sum acquisition cost) and a real backup.
 
-### 235b. `[ ]` Accounts by id
+### 235b. `[~]` Accounts by id
 Do: rows link accounts by id, names kept for display (a migration step); renames become a one-line change.
 Done when: renaming an account touches one record; a deleted account's rows still say its name.
 

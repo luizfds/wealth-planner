@@ -28,7 +28,7 @@ export function wireScenarioEditor(app){
   pushActiveOverlay = app.pushActiveOverlay; requestCloseActiveOverlay = app.requestCloseActiveOverlay; withUndo = app.withUndo; renderAll = app.renderAll;
   // ---------------- A scenario's changes (v3.172.0, item 207) ----------------
   // Plan → Scenarios: a line's amount in a scenario, kept in the scenario (calc/scenariochanges.js).
-  // v3.209.0 (item 236b): the commit redraws the views that read scenarios (the home blocks, the cards, the
+  // v3.206.0 (item 236b): the commit redraws the views that read scenarios (the home blocks, the cards, the
   // comparison) on the page on screen, the rest when opened; what isn't a view — the draft's editor, the
   // projection chart — is drawn here.
   function afterScenarioChange(){

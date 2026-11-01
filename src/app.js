@@ -473,7 +473,7 @@ import { inboxMessage } from "./calc/inbox.js";
       if(editedProperty) patchPropertyCardComputed(editedProperty);
     }
 
-    // v3.209.0 (item 236b): the cards and Home's detail only if they're on screen — on Cash flow they're left
+    // v3.206.0 (item 236b): the cards and Home's detail only if they're on screen — on Cash flow they're left
     // stale for when Home or Plan opens, not redrawn on every keystroke. (Not a commit: that would redraw the
     // list being typed into; the list is patched above.)
     redraw(["cards", "detail"]);
@@ -3192,7 +3192,7 @@ import { inboxMessage } from "./calc/inbox.js";
   });
 
   // ---------------- Cash flow → Spending: filters, money in, transfers, splits, bulk edit (v3.59.0) ----------------
-  // v3.209.0 (item 236b): the commit redraws what reads them (lib/views.js) — on screen now, the rest when opened.
+  // v3.206.0 (item 236b): the commit redraws what reads them (lib/views.js) — on screen now, the rest when opened.
   function afterTransactionsChange(){ commit(["transactions", "transfers", "incomeLog"]); }
   function saveTxView(){
     var el = document.querySelector("#transactionsTable [data-cf-view-name]");
@@ -3683,7 +3683,7 @@ import { inboxMessage } from "./calc/inbox.js";
     var a = state.accounts[idx];
     if(!a) return;
     if(e.target.classList.contains("acct-mgmt-name")){
-      // v3.206.0 (item 235b): the account's record, then the name copies on rows linked to it by id.
+      // v3.204.0 (item 235b): the account's record, then the name copies on rows linked to it by id.
       renameAccountEverywhere(a, e.target.value);
       renderTransactions();
       updateAccountSuggestions();
@@ -4379,7 +4379,7 @@ import { inboxMessage } from "./calc/inbox.js";
   });
   // A transfer saved, and with `moveBalances` both accounts' balances moved by it (where each has
   // one) — the transfer form and Checks' "Save repayment" (v3.146.0). Undo puts both back (v3.144.0).
-  // What a transfer touches (v3.209.0, item 236b: its commit redraws what reads them): the transfers, and —
+  // What a transfer touches (v3.206.0, item 236b: its commit redraws what reads them): the transfers, and —
   // when it moved both balances — "balances": the money in the accounts and the records that hold it (a Cash
   // asset, a debt, a property's loan or offset). Not "accounts" — nothing about an account but its balance
   // changed, and every Cash flow list reads accounts for their names.
@@ -5222,7 +5222,7 @@ import { inboxMessage } from "./calc/inbox.js";
     persist();
     showUndoToast(message, function(){ setState(JSON.parse(before)); persist(); renderAll(); });
   }
-  // v3.208.0 (item 236a): a full redraw draws the page on screen and what's on every page; every other page is
+  // v3.205.0 (item 236a): a full redraw draws the page on screen and what's on every page; every other page is
   // marked stale and drawn when it's opened (lib/views.js — nav.js calls drawStale before showing a page). The
   // data work (applying parts, recalculating derived rows) still happens here, every time, whatever's showing.
   // Each view's pages were measured: its writes, run under a MutationObserver, landed in those pages.
@@ -5230,7 +5230,7 @@ import { inboxMessage } from "./calc/inbox.js";
   function defineViews(){
     if(viewsDefined) return;
     viewsDefined = true;
-    // v3.209.0 (item 236b): every commit redraws the views that read what it touched (lib/views.js).
+    // v3.206.0 (item 236b): every commit redraws the views that read what it touched (lib/views.js).
     onCommit(redrawTouched);
     defineView("partsSettings", ["settings"], renderPartsSettings, ["parts", "properties", "assets"]);
     defineView("txReviewBanner", null, renderTxReviewBanner, ["transactions"]);
@@ -6637,7 +6637,7 @@ import { inboxMessage } from "./calc/inbox.js";
   renderAll();
   initTableScrollShadows();
   showPage(initialPage, { replace: true, skipScroll: true });
-  // v3.204.0 (item 234): the speed budget (scripts/journeys.mjs) times startup to here.
+  // v3.203.1 (item 234): the speed budget (scripts/journeys.mjs) times startup to here.
   try { performance.mark("wp:ready"); } catch(e){}
   document.documentElement.setAttribute("data-wp-ready", "");
   // The speed budget compares a step with a full redraw, in the same browser at the same speed — only with ?perf=1.

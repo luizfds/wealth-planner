@@ -5,7 +5,7 @@ import fs from "node:fs";
 import { MIGRATION_STEPS, migrateState } from "../src/state.js";
 import { demoHousehold } from "../src/calc/demo.js";
 
-// v3.205.0 (item 235a): each migration step, from the shape before it. Invented data throughout.
+// v3.203.2 (item 235a): each migration step, from the shape before it. Invented data throughout.
 const step = n => MIGRATION_STEPS[n - 1];
 const run = (n, s) => { step(n).run(s); return s; };
 const clone = o => JSON.parse(JSON.stringify(o));

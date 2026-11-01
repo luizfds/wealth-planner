@@ -1,4 +1,4 @@
-// ---------------- Pages drawn when seen (v3.208.0, item 236a) ----------------
+// ---------------- Pages drawn when seen (v3.205.0, item 236a) ----------------
 //
 // A full redraw used to draw every page into its hidden section — the household's Home, Cash flow, Net worth,
 // Tax, Plan, Reports and Settings — whichever one was on screen: about 0.9s on a phone with a real household,
@@ -12,7 +12,7 @@
 var views = [];
 var stale = {};
 
-// v3.209.0 (item 236b): reads — the top-level keys of `state` it draws from (["*"]: anything), plus "balances"
+// v3.206.0 (item 236b): reads — the top-level keys of `state` it draws from (["*"]: anything), plus "balances"
 // for a view showing what's in an account, a loan or an offset (a transfer moves those without touching
 // anything else about the records); opts.later — drawn
 // just after the edit's frame rather than inside it (the bell's count, which reads everything and is slow).
@@ -62,7 +62,7 @@ export function redraw(names){
   });
 }
 
-// v3.209.0 (item 236b): after an edit (state.js commit, via onCommit): the views that read what it touched —
+// v3.206.0 (item 236b): after an edit (state.js commit, via onCommit): the views that read what it touched —
 // drawn if they're on the page on screen, else left stale for when it's opened. Nothing else is drawn.
 export function viewsReading(touched){
   var all = touched.indexOf("*") !== -1;

@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { defineView, drawViews, drawStale, redraw, staleViews, viewsReading, redrawTouched } from "../src/lib/views.js";
 
-// v3.208.0 (item 236a): pages drawn when seen. A stand-in page whose current page the test sets.
+// v3.205.0 (item 236a): pages drawn when seen. A stand-in page whose current page the test sets.
 let page = "expenses";
 globalThis.document = { body: { getAttribute: () => page } };
 const drawn = [];
@@ -46,7 +46,7 @@ test("an edit's own redraw: what's on screen now, the rest when its page opens",
   assert.ok(drawn.includes("spending") && drawn.filter(x => x === "home").length === 2, "all: every view, whatever's showing");
 });
 
-// v3.209.0 (item 236b): an edit says what it touched (state.js commit); the views that read it are redrawn.
+// v3.206.0 (item 236b): an edit says what it touched (state.js commit); the views that read it are redrawn.
 test("an edit redraws only the views that read what it touched", function(){
   page = "expenses";
   defineView("ledger", ["expenses"], () => drawn.push("ledger"), ["transactions", "transfers"]);

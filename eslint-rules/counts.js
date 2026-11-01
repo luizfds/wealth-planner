@@ -1,4 +1,4 @@
-// What the ratchet counts in a file's syntax tree (v3.207.0, item 235c): a persist() with no word on what
+// What the ratchet counts in a file's syntax tree (v3.204.1, item 235c): a persist() with no word on what
 // changed, and a write straight into `state` (state.x = …, state.x.push(…), delete state.x…). Shared by the
 // ESLint rule and the script that writes the baseline.
 const MUTATORS = /^(push|splice|pop|shift|unshift|sort|reverse)$/;

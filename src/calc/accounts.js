@@ -3,7 +3,7 @@ import { appendHistorySnapshot } from "./ledger.js";
 import { localDateStr } from "../lib/format.js";
 import { linkedName, link, accountFor } from "./accountlinks.js";
 
-// v3.206.0 (item 235b): a row's account, read and written through its id (calc/accountlinks.js) — the
+// v3.204.0 (item 235b): a row's account, read and written through its id (calc/accountlinks.js) — the
 // app's own state. Pure code that takes a state uses linkedName/link from accountlinks.js with it.
 export function rowAccount(row, field){ return linkedName(row, field || "account", state); }
 export function rowAccountRecord(row, field){ return accountFor(row, field || "account", state); }

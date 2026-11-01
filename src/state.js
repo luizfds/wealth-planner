@@ -268,7 +268,7 @@ function applyTimingDefaults(item){
   if(item.deductionLabel == null) item.deductionLabel = "";
 }
 
-// ---------------- Migrations (v3.205.0, item 235a) ----------------
+// ---------------- Migrations (v3.203.2, item 235a) ----------------
 //
 // Every load, backup, sync copy and sample household goes through these, in order: each step brings one
 // part of an older (or partial) save up to today's shape. Every step is idempotent — it runs on every load
@@ -764,7 +764,7 @@ export var MIGRATION_STEPS = [
     if(!s.scenarioChanges || typeof s.scenarioChanges !== "object" || Array.isArray(s.scenarioChanges)) s.scenarioChanges = {};
     migrateScenarios(s, genId);
   } },
-  // v3.206.0 (item 235b): every account link carries the account's id; see calc/accountlinks.js.
+  // v3.204.0 (item 235b): every account link carries the account's id; see calc/accountlinks.js.
   { n: 23, name: "accounts linked by id, not just by name", run: function(s){
     linkAllByName(s);
   } }
@@ -836,7 +836,7 @@ export function persist(){
     }
   }, 300);
 }
-// ---------------- Commits (v3.207.0, item 235c) ----------------
+// ---------------- Commits (v3.204.1, item 235c) ----------------
 // An edit says what it touched: commit(["transactions", "accounts"]) saves (persist) and tells everyone
 // listening (onCommit) which parts of `state` changed — top-level keys — so a view that reads none of them
 // can stay as it is (item 236). persist() on its own is an edit that didn't say: listeners hear ["*"],

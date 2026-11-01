@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { accountFor, linkedName, isLinkedTo, link, linkAllByName, renameAccount, goalAccounts, everyAccountLink } from "../src/calc/accountlinks.js";
 
-// v3.206.0 (item 235b): account links by id. Invented accounts and rows.
+// v3.204.0 (item 235b): account links by id. Invented accounts and rows.
 function household(){
   return linkAllByName({
     accounts: [{ id: "a1", name: "Bank One Everyday", type: "everyday" }, { id: "a2", name: "Card A", type: "credit", autoPayFrom: "Bank One Everyday" }],

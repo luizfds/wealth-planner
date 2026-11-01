@@ -1,4 +1,4 @@
-// ratchet (v3.207.0, item 235c): edits go through commit(touched) — see state.js — so a view can redraw
+// ratchet (v3.204.1, item 235c): edits go through commit(touched) — see state.js — so a view can redraw
 // only what an edit touched (item 236). Moving every edit over is done a piece at a time; meanwhile each
 // file may hold no more bare persist() calls and direct writes into `state` than eslint-rules/ratchet.json
 // says, and the number written there has to come down when the file's does (node eslint-rules/ratchet.mjs

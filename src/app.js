@@ -4,7 +4,7 @@ import { renderSubscriptions, subsUi } from "./components/subscriptions.js";
 import { bench, benchmarkCardHtml, targetMixCardHtml } from "./components/investreturn.js";
 import { whatIfValues, resetWhatIf, wiFromSlider, wiValueText } from "./components/whatif.js";
 import { whatIfMoved, keepWhatIf } from "./calc/whatif.js";
-import { state, setState, storageAvailable, persist, commit, setStatus, defaultState, defaultInvestConfig, migrateState, genId, normalizeShareAsset, onSaved } from "./state.js";
+import { state, setState, storageAvailable, persist, commit, onCommit, setStatus, defaultState, defaultInvestConfig, migrateState, genId, normalizeShareAsset, onSaved } from "./state.js";
 import { sacrificeLabelToMode, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE } from "./constants.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr, fmtDate, parseAmountInput } from "./lib/format.js";
 import { showToast, showUndoToast, showPersistentToast } from "./lib/toast.js";
@@ -99,7 +99,7 @@ import { startActivityLog, setDevicePerson } from "./lib/activity.js";
 import { undoEntry } from "./calc/activity.js";
 import { renderCompare } from "./components/compare.js";
 import { wireScenarioEditor } from "./components/scenariowiring.js";
-import { defineView, drawViews, redraw, currentPageId } from "./lib/views.js";
+import { defineView, drawViews, redraw, redrawTouched } from "./lib/views.js";
 import { renderActivity, activityUi } from "./components/activity.js";
 import { receiptHolder } from "./components/receipts.js";
 import { dataHealthChecks, dismissCheck } from "./calc/health.js";
@@ -473,8 +473,10 @@ import { inboxMessage } from "./calc/inbox.js";
       if(editedProperty) patchPropertyCardComputed(editedProperty);
     }
 
-    renderCards();
-    renderDetail();
+    // v3.206.0 (item 236b): the cards and Home's detail only if they're on screen — on Cash flow they're left
+    // stale for when Home or Plan opens, not redrawn on every keystroke. (Not a commit: that would redraw the
+    // list being typed into; the list is patched above.)
+    redraw(["cards", "detail"]);
     renderTotals();
     if(section.indexOf("home:") === 0) renderHomeBodyTotalsOnly();
     renderProjectionsWhenSeen();
@@ -598,7 +600,7 @@ import { inboxMessage } from "./calc/inbox.js";
       var editedProperty = findProperty(section.slice(section.indexOf(":") + 1));
       if(editedProperty) patchPropertyCardComputed(editedProperty);
     }
-    renderCards(); renderDetail(); renderTotals(); renderHomeBodyTotalsOnly();
+    redraw(["cards", "detail"]); renderTotals(); renderHomeBodyTotalsOnly();
     renderProjectionsWhenSeen();
     persist();
   }
@@ -3190,17 +3192,8 @@ import { inboxMessage } from "./calc/inbox.js";
   });
 
   // ---------------- Cash flow → Spending: filters, money in, transfers, splits, bulk edit (v3.59.0) ----------------
-  function afterTransactionsChange(){
-    renderRecurring();
-    renderBudgetFromHistory();
-    renderTrips();
-    renderTransactions();
-    renderActualVsPlannedPanel();
-    renderSharedGroups();
-    renderHomeSummary();
-    renderMonthReview();
-    commit(["transactions", "transfers", "incomeLog"]);
-  }
+  // v3.206.0 (item 236b): the commit redraws what reads them (lib/views.js) — on screen now, the rest when opened.
+  function afterTransactionsChange(){ commit(["transactions", "transfers", "incomeLog"]); }
   function saveTxView(){
     var el = document.querySelector("#transactionsTable [data-cf-view-name]");
     var name = el ? el.value.trim() : "";
@@ -3690,7 +3683,7 @@ import { inboxMessage } from "./calc/inbox.js";
     var a = state.accounts[idx];
     if(!a) return;
     if(e.target.classList.contains("acct-mgmt-name")){
-      // v3.206.0 (item 235b): the account's record, then the name copies on rows linked to it by id.
+      // v3.204.0 (item 235b): the account's record, then the name copies on rows linked to it by id.
       renameAccountEverywhere(a, e.target.value);
       renderTransactions();
       updateAccountSuggestions();
@@ -4386,22 +4379,11 @@ import { inboxMessage } from "./calc/inbox.js";
   });
   // A transfer saved, and with `moveBalances` both accounts' balances moved by it (where each has
   // one) — the transfer form and Checks' "Save repayment" (v3.146.0). Undo puts both back (v3.144.0).
-  // v3.200.2: a transfer redraws only what reads transfers — Spending's list, the accounts, Home (balance
-  // ahead, payments to confirm), the bills calendar, Checks, the month's review and the bell — not every page
-  // (renderAll took the best part of a second on a phone with a real household's data). When balances
-  // moved, what reads them too: net worth, the assets and properties they're stored on, the cards.
-  // What a transfer touches: the transfers, and — when it moved both balances — the accounts and the
-  // records that hold their money (a Cash asset, a debt, a property's loan or offset).
-  function transferTouched(balancesMoved){ return balancesMoved ? ["transfers", "accounts", "assets", "debts", "properties"] : ["transfers"]; }
-  function refreshAfterTransfer(balancesMoved){
-    defineViews();
-    // v3.208.0 (item 236a): only what's on screen now; the rest when its page is opened.
-    redraw(["transactions", "accounts", "homeSummary", "health", "checksBadge", "monthReview", "notifBadge", "detail"]
-      .concat(balancesMoved ? ["totals", "assets", "properties", "cards"] : []));
-    // The bills calendar is drawn by Spending's actual-vs-planned view: just the calendar while it's on screen,
-    // else that view is left stale and draws it, calendar and all, when Cash flow is opened.
-    if(currentPageId() === "expenses") renderBillsCalendar(); else redraw(["actualVsPlanned"]);
-  }
+  // What a transfer touches (v3.206.0, item 236b: its commit redraws what reads them): the transfers, and —
+  // when it moved both balances — "balances": the money in the accounts and the records that hold it (a Cash
+  // asset, a debt, a property's loan or offset). Not "accounts" — nothing about an account but its balance
+  // changed, and every Cash flow list reads accounts for their names.
+  function transferTouched(balancesMoved){ return balancesMoved ? ["transfers", "balances"] : ["transfers"]; }
 
   function saveTransfer(t, moveBalances, message){
     var rec = addTransfer(t);
@@ -4420,11 +4402,10 @@ import { inboxMessage } from "./calc/inbox.js";
       });
     }
     commit(transferTouched(moved.length > 0));
-    refreshAfterTransfer(moved.length > 0);
     showUndoToast(message + (moved.length ? " — " + moved.join(" and ") + " updated" : ""), function(){
       deleteTransfer(rec.id);
       before.forEach(function(b){ setAccountBalance(b[0], b[1], rec.date); });
-      commit(transferTouched(before.length > 0)); refreshAfterTransfer(before.length > 0);
+      commit(transferTouched(before.length > 0));
     });
     return rec;
   }
@@ -5241,7 +5222,7 @@ import { inboxMessage } from "./calc/inbox.js";
     persist();
     showUndoToast(message, function(){ setState(JSON.parse(before)); persist(); renderAll(); });
   }
-  // v3.208.0 (item 236a): a full redraw draws the page on screen and what's on every page; every other page is
+  // v3.205.0 (item 236a): a full redraw draws the page on screen and what's on every page; every other page is
   // marked stale and drawn when it's opened (lib/views.js — nav.js calls drawStale before showing a page). The
   // data work (applying parts, recalculating derived rows) still happens here, every time, whatever's showing.
   // Each view's pages were measured: its writes, run under a MutationObserver, landed in those pages.
@@ -5249,8 +5230,10 @@ import { inboxMessage } from "./calc/inbox.js";
   function defineViews(){
     if(viewsDefined) return;
     viewsDefined = true;
-    defineView("partsSettings", ["settings"], renderPartsSettings);
-    defineView("txReviewBanner", null, renderTxReviewBanner);
+    // v3.206.0 (item 236b): every commit redraws the views that read what it touched (lib/views.js).
+    onCommit(redrawTouched);
+    defineView("partsSettings", ["settings"], renderPartsSettings, ["parts", "properties", "assets"]);
+    defineView("txReviewBanner", null, renderTxReviewBanner, ["transactions"]);
     defineView("projectionInputs", ["plan"], function(){
       document.getElementById("projHorizon").value = state.projection.horizonYears;
       document.getElementById("projInvestRate").value = state.projection.investReturnRate;
@@ -5269,48 +5252,50 @@ import { inboxMessage } from "./calc/inbox.js";
       document.getElementById("projPropertyVol").value = state.projection.propertyVolatility;
       document.getElementById("projPropertyVolRange").value = state.projection.propertyVolatility;
       syncProjBasisControl();
-    });
+    }, ["projection", "lifeEvents"]);
     // Static copy, but rendered from the component that owns the parser it describes — see renderBankImportHelp.
-    defineView("bankImportHelp", ["expenses"], renderBankImportHelp);
-    defineView("incomeGroups", ["expenses"], renderIncomeGroups);
-    defineView("properties", ["properties", "expenses"], renderProperties);
-    defineView("sharedGroups", ["expenses"], renderSharedGroups);
-    defineView("accounts", ["accounts"], renderAccounts);
-    defineView("categories", ["settings"], renderCategories);
-    defineView("budgetGroupBy", ["expenses"], renderBudgetGroupByToggle);
-    defineView("yearBasis", ["settings"], renderYearBasisPreference);
-    defineView("transactions", ["expenses"], renderTransactions);
-    defineView("actualVsPlanned", ["expenses"], renderActualVsPlannedPanel);
-    defineView("homeBody", ["plan", "scenario", "calc"], renderHomeBody);
-    defineView("cards", ["plan", "dashboard"], renderCards);
-    defineView("detail", ["dashboard"], renderDetail);
-    defineView("benchmarks", ["dashboard"], renderBenchmarks);
-    defineView("totals", null, renderTotals);
-    defineView("assets", ["assets", "plan"], renderAssets);
-    defineView("personSuggestions", null, updatePersonSuggestions);
-    defineView("accountSuggestions", null, updateAccountSuggestions);
-    defineView("taxSuper", ["tax"], renderTaxSuper);
-    defineView("taxYear", ["tax"], renderTaxYear);
-    defineView("people", ["tax"], renderPeopleTab);
-    defineView("received", ["expenses"], renderReceived);
-    defineView("health", ["dashboard"], renderHealth);
-    defineView("monthReview", ["dashboard"], renderMonthReview);
-    defineView("notifBadge", null, renderNotifBadge);
-    defineView("periodButton", null, renderPeriodButton);
-    defineView("homeSummary", ["dashboard"], renderHomeSummary);
-    defineView("reports", ["reports"], renderReports);
-    defineView("checksBadge", null, renderChecksBadge);
-    defineView("safekeeping", ["settings"], renderSafekeeping);
-    defineView("activity", ["settings"], renderActivity);
-    defineView("compare", ["plan"], renderCompare);
-    defineView("savingsGoals", ["plan"], renderSavingsGoals);
-    defineView("goalsFire", ["plan"], function(){ var goalsFire = document.getElementById("goalsFireBody"); if(goalsFire) goalsFire.innerHTML = goalsFireHtml(); });
-    defineView("advice", ["dashboard", "plan", "expenses", "tax"], renderAdvice);
-    defineView("trim", ["expenses"], renderTrim);
-    defineView("recurring", ["expenses"], renderRecurring);
-    defineView("budgetFromHistory", ["expenses"], renderBudgetFromHistory);
-    defineView("trips", ["expenses"], renderTrips);
-    defineView("retirement", ["plan"], renderRetirement);
+    defineView("bankImportHelp", ["expenses"], renderBankImportHelp, []);
+    defineView("incomeGroups", ["expenses"], renderIncomeGroups, ["income", "incomeLog", "tax", "properties", "people", "accounts"]);
+    defineView("properties", ["properties", "expenses"], renderProperties, ["properties", "balances", "shared", "transactions", "accounts", "income", "tax"]);
+    defineView("sharedGroups", ["expenses"], renderSharedGroups, ["shared", "transactions", "home", "categories", "categoryLooks", "properties", "accounts", "budgetGroupBy", "budgetGroupsCollapsed", "rollover", "yearBasis", "autoPayments"]);
+    defineView("accounts", ["accounts"], renderAccounts, ["accounts", "balances", "assets", "debts", "properties", "transactions", "transfers", "incomeLog", "autoPayments", "savingsGoals"]);
+    defineView("categories", ["settings"], renderCategories, ["categories", "categoryLooks", "shared", "transactions", "home", "properties"]);
+    defineView("budgetGroupBy", ["expenses"], renderBudgetGroupByToggle, ["budgetGroupBy"]);
+    defineView("yearBasis", ["settings"], renderYearBasisPreference, ["yearBasis"]);
+    defineView("transactions", ["expenses"], renderTransactions, ["transactions", "transfers", "incomeLog", "shared", "home", "properties", "accounts", "txViews", "trips", "categories", "categoryLooks", "income"]);
+    defineView("actualVsPlanned", ["expenses"], renderActualVsPlannedPanel, ["transactions", "shared", "home", "properties", "accounts", "income", "incomeLog", "categories"]);
+    // The bills calendar is drawn by the panel above too; a transfer or an automatic payment touches only it.
+    defineView("billsCalendar", ["expenses"], renderBillsCalendar, ["transfers", "autoPayments"]);
+    defineView("homeBody", ["plan", "scenario", "calc"], renderHomeBody, ["scenarioChanges", "scenarios", "purchase", "invest", "home", "shared", "properties", "scenarioNotes", "income"]);
+    defineView("cards", ["plan", "dashboard"], renderCards, ["*"]);
+    defineView("detail", ["dashboard"], renderDetail, ["*"]);
+    defineView("benchmarks", ["dashboard"], renderBenchmarks, ["*"]);
+    defineView("totals", null, renderTotals, ["*"]);
+    defineView("assets", ["assets", "plan"], renderAssets, ["*"]);
+    defineView("personSuggestions", null, updatePersonSuggestions, ["income", "assets"]);
+    defineView("accountSuggestions", null, updateAccountSuggestions, ["accounts"]);
+    defineView("taxSuper", ["tax"], renderTaxSuper, ["*"]);
+    defineView("taxYear", ["tax"], renderTaxYear, ["*"]);
+    defineView("people", ["tax"], renderPeopleTab, ["*"]);
+    defineView("received", ["expenses"], renderReceived, ["incomeLog", "income", "properties", "accounts"]);
+    defineView("health", ["dashboard"], renderHealth, ["*"]);
+    defineView("monthReview", ["dashboard"], renderMonthReview, ["*"]);
+    defineView("notifBadge", null, renderNotifBadge, ["*"], { later: true });
+    defineView("periodButton", null, renderPeriodButton, ["yearBasis"]);
+    defineView("homeSummary", ["dashboard"], renderHomeSummary, ["*"]);
+    defineView("reports", ["reports"], renderReports, ["*"]);
+    defineView("checksBadge", null, renderChecksBadge, ["*"], { later: true });
+    defineView("safekeeping", ["settings"], renderSafekeeping, ["*"]);
+    defineView("activity", ["settings"], renderActivity, ["*"]);
+    defineView("compare", ["plan"], renderCompare, ["*"]);
+    defineView("savingsGoals", ["plan"], renderSavingsGoals, ["*"]);
+    defineView("goalsFire", ["plan"], function(){ var goalsFire = document.getElementById("goalsFireBody"); if(goalsFire) goalsFire.innerHTML = goalsFireHtml(); }, ["*"]);
+    defineView("advice", ["dashboard", "plan", "expenses", "tax"], renderAdvice, ["*"]);
+    defineView("trim", ["expenses"], renderTrim, ["shared", "transactions", "home", "scenarioChanges", "scenarios"]);
+    defineView("recurring", ["expenses"], renderRecurring, ["transactions", "shared"]);
+    defineView("budgetFromHistory", ["expenses"], renderBudgetFromHistory, ["transactions", "shared"]);
+    defineView("trips", ["expenses"], renderTrips, ["trips", "transactions", "shared"]);
+    defineView("retirement", ["plan"], renderRetirement, ["*"]);
   }
   function renderAll(){
     defineViews();
@@ -6479,7 +6464,7 @@ import { inboxMessage } from "./calc/inbox.js";
 
   // ---------------- Automatic payments (v3.196.0, item 231) ----------------
   // Set up on an account's card; answered on Home. calc/autopay.js does the recording.
-  function afterAutoPay(){ commit(["autoPayments", "transfers"]); refreshAfterTransfer(false); }
+  function afterAutoPay(){ commit(["autoPayments", "transfers"]); }
   function answerAndUndo(id, date, answer, said){
     var r = answerAutoPay(state, id, date, answer, genId);
     if(!r) return;
@@ -6652,7 +6637,7 @@ import { inboxMessage } from "./calc/inbox.js";
   renderAll();
   initTableScrollShadows();
   showPage(initialPage, { replace: true, skipScroll: true });
-  // v3.204.0 (item 234): the speed budget (scripts/journeys.mjs) times startup to here.
+  // v3.203.1 (item 234): the speed budget (scripts/journeys.mjs) times startup to here.
   try { performance.mark("wp:ready"); } catch(e){}
   document.documentElement.setAttribute("data-wp-ready", "");
   // The speed budget compares a step with a full redraw, in the same browser at the same speed — only with ?perf=1.

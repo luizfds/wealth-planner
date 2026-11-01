@@ -2454,7 +2454,7 @@ export function deleteAccount(idx){
     commit(["accounts"]);
   });
 }
-// v3.206.0 (item 235b): a rename is the account's record, then every copy of its name on rows linked to
+// v3.204.0 (item 235b): a rename is the account's record, then every copy of its name on rows linked to
 // it by id (calc/accountlinks.js renameAccount) — matched by id, never by name, so a row that only shares
 // the old name isn't caught and none linked to it is missed.
 export function renameAccountEverywhere(account, newName){

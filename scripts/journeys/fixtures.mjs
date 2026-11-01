@@ -1,4 +1,4 @@
-// Invented statements for the journeys (v3.204.0, item 234) — no real bank, person or amount.
+// Invented statements for the journeys (v3.203.1, item 234) — no real bank, person or amount.
 
 // A bank CSV, the way most Australian banks export it.
 export const STATEMENT_CSV = "Date,Description,Amount\n" +

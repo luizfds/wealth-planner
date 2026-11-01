@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { state } from "../src/state.js";
 import { renameAccountEverywhere } from "../src/components/expenses.js";
 
-// v3.206.0 (item 235b): rows link accounts by id now (calc/accountlinks.js) and a rename reaches them
+// v3.204.0 (item 235b): rows link accounts by id now (calc/accountlinks.js) and a rename reaches them
 // through that link. These tests began when an account was a name only and a rename walked every array
 // by hand — and the array that got missed was state.home —
 // one per scenario, its rows carrying accounts exactly like shared expenses do. On a real

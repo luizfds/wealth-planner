@@ -131,7 +131,7 @@ the last, so two sessions can't pick up the same one.
   JS and CSS splits (see above) are now complete — the ES-modules migration is done.
 - `src/state.js` — `state` (the single source of truth), `defaultState()`, `migrateState()`
   (schema migration + safe defaults for old/partial saves), `persist()` (debounced localStorage
-  write), `setStatus()`. Since v3.205.0 (item 235a) `migrateState` runs `MIGRATION_STEPS` — numbered, named,
+  write), `setStatus()`. Since v3.203.2 (item 235a) `migrateState` runs `MIGRATION_STEPS` — numbered, named,
   idempotent steps run on every load, in order. A new field or change of shape is a new step at the end with
   a test in `tests/migrations.test.js` from the shape before it (that file fails if a step has no test).
 - `src/calc/{ledger,property,tax,engine,cashflow,fire,history,trends,bank-import,import-rules,claims,people,received,closeyear,health,withholding,junemoves,actuals,monthreview}.js` —
@@ -221,19 +221,22 @@ the last, so two sessions can't pick up the same one.
   outlives the fetch handler's synchronous return, and same-origin `no-cors` (opaque) responses
   always reporting `.ok === false` even on success.
 
-**Edits say what they touched (v3.207.0, item 235c).** `commit(["transactions", "accounts"])` from state.js saves
+**Edits say what they touched (v3.204.1, item 235c).** `commit(["transactions", "accounts"])` from state.js saves
 (it calls `persist()`) and tells `onCommit` listeners which top-level keys of `state` changed; item 236 redraws only
 the views that read them. A new edit uses `commit` with what it touches, never a bare `persist()`. `npm run check`'s
 `local/ratchet` counts bare `persist()` calls and direct writes into `state` (`state.x = …`, `state.x.push(…)`) in
 app.js, components and lib against `eslint-rules/ratchet.json`: a file may not gain one, and when it loses one the
 baseline must come down (`node eslint-rules/ratchet.mjs --update`).
 
-**Pages drawn when seen (v3.208.0, item 236a).** `renderAll()` draws only the page on screen and what's on every
+**Pages drawn when seen (v3.205.0, item 236a).** `renderAll()` draws only the page on screen and what's on every
 page (header, badges, datalists); every other part is a *view* (`defineView(name, pages, draw)` in app.js's
 `defineViews`, registry in `lib/views.js`) left stale and drawn by `drawStale(page)` just before nav.js shows that
 page. Each view's pages were measured (its writes under a MutationObserver). A new part of the full redraw is a new
 `defineView` with the pages it draws into (`null` = every page); an edit's own redraw uses `redraw([names])`, which
-draws what's on screen and leaves the rest stale — not the render functions directly.
+draws what's on screen and leaves the rest stale — not the render functions directly. **Since v3.206.0 (item 236b)** each view also says what it
+reads (`defineView(name, pages, draw, reads)`: top-level keys of `state`, `"balances"` for money moved in an account,
+loan or offset, `["*"]` for anything) and every `commit(touched)` redraws the views reading what it touched — so an
+edit's commit *is* its redraw; don't follow it with a hand-written list. A new view gives its reads.
 
 **`state` is a live import, not a value** — never reassign the imported `state` binding directly
 (`state = X` throws for an ES-module import). Use `setState(newState)` from `state.js` instead;
@@ -319,7 +322,7 @@ not the bundled Chromium) is the standard way to drive/verify UI changes in this
 - **Transfers and money received are never spending.** They live in `state.transfers` and
   `state.incomeLog`; every spending total sums `state.transactions` only. A split is several
   ordinary transactions sharing `splitGroup`, so totals need no special case.
-- **Accounts are linked by id (v3.206.0, item 235b).** Every link carries the account's id beside its name —
+- **Accounts are linked by id (v3.204.0, item 235b).** Every link carries the account's id beside its name —
   `account`/`accountId` on rows (budget lines, income, transactions, money received, home rows, a property's rows,
   import rules), `from`/`fromId` and `to`/`toId` on transfers and automatic payments, a card's
   `autoPayFrom`/`autoPayFromId`, a rule's `transferAccount`/`transferAccountId`; goals, saved views and month
@@ -390,7 +393,7 @@ Three layers, and **knowing what each one cannot see is the whole point**:
   0, or (at 390px) a tap target under 44px. Run it locally with `npm i --no-save playwright && npx playwright install chromium && node
   scripts/smoke.mjs`. It catches breakage, not layout taste — still look at what you changed.
   Adding a page, subtab or report means adding it to the smoke script's `VIEWS`.
-- **Journeys and a speed budget (v3.204.0):** `scripts/journeys.mjs`, in CI as `journeys`, does what people do —
+- **Journeys and a speed budget (v3.203.1):** `scripts/journeys.mjs`, in CI as `journeys`, does what people do —
   confirm bills, a transfer with Undo, an automatic payment answered on Home, edit and save a scenario and open Make
   it real, a CSV and a PDF import (invented statements in `scripts/journeys/fixtures.mjs`) — at 390px on the sample
   household with the date fixed. Then, on a large invented household at 4× CPU, it times startup, saving a transfer

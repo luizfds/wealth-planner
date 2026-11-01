@@ -4324,7 +4324,7 @@ invented household, failing past a set time at 4× CPU slowdown.
 
 Done when: the journeys pass in CI; reverting v3.200.2's transfer fix fails the speed budget.
 
-**Done (v3.204.0).** `scripts/journeys.mjs` (CI job `journeys`): six journeys at 390px on the sample household with
+**Done (v3.203.1).** `scripts/journeys.mjs` (CI job `journeys`): six journeys at 390px on the sample household with
 the date fixed — bills confirmed, a transfer with balances and Undo, an automatic payment answered with a new amount
 kept, a scenario edited and saved (its card moves; no bottom tabs while editing; Make it real shows its plan), a CSV
 and a PDF statement imported (both invented, `scripts/journeys/fixtures.mjs`; the PDF written by hand). Speed budget
@@ -4344,7 +4344,7 @@ Done when: every step has a test from the shape before it; running all of them t
 identical to the old `migrateState` on the sample household, an empty save and old-shape saves (checked outside the repo
 on a real backup too).
 
-**Done (v3.205.0).** `MIGRATION_STEPS` in `state.js`: `migrateState`'s blocks moved verbatim, in order, into 22 numbered,
+**Done (v3.203.2).** `MIGRATION_STEPS` in `state.js`: `migrateState`'s blocks moved verbatim, in order, into 22 numbered,
 named steps, each run on every load as before; `migrateState` runs them. `tests/migrations.test.js`: a test per step from
 the shape before it (the file fails if a step has none), and every step run twice equals once. Checked outside the repo
 with the same id sequence: the old and new `migrateState` give identical output on an empty save, the sample
@@ -4356,7 +4356,7 @@ Do: rows link accounts by id, names kept for display (a migration step); renames
 Done when: a rename reaches every row through its id (no list of arrays to remember at rename time); a deleted
 account's rows still say its name; real data unchanged.
 
-**Done (v3.206.0).** `calc/accountlinks.js`: every account link carries the account's id beside its name (rows'
+**Done (v3.204.0).** `calc/accountlinks.js`: every account link carries the account's id beside its name (rows'
 `accountId`, transfers' and automatic payments' `fromId`/`toId`, a card's `autoPayFromId`, a rule's
 `transferAccountId`; goals' `accountIds`, saved views' `filter.accountId`, month reviews' `statementsById`). The name
 stays as the copy everything reads: `renameAccount` writes the new name onto every link by id; migration step 23
@@ -4373,7 +4373,7 @@ Do: every change to `state` goes through an action function that records what it
 accounts, a scenario…), which 236 uses to redraw only what reads it.
 Done when: no component assigns into `state` directly (a lint rule).
 
-**Done (v3.207.0), as a ratchet.** `commit(touched)` in state.js: saves and tells `onCommit` listeners which
+**Done (v3.204.1), as a ratchet.** `commit(touched)` in state.js: saves and tells `onCommit` listeners which
 top-level keys an edit touched (`["*"]` when it doesn't say). The flows that matter most say it now: transfers
 (with what moving balances touches), automatic payments, saved views, Spending's edits, accounts (their editor,
 balances, add and delete), categories, the year basis, budget grouping, the bank import and its undo, and every
@@ -4391,7 +4391,7 @@ other page is marked stale and drawn when it's opened. Startup draws one page.
 Done when: startup and a full redraw draw one page (the speed budget's numbers drop); the smoke script, journeys and
 screens are unchanged.
 
-**Done (v3.208.0).** `lib/views.js`: the full redraw's 45 parts are views, each with the pages it draws into —
+**Done (v3.205.0).** `lib/views.js`: the full redraw's 45 parts are views, each with the pages it draws into —
 measured, by running each under a MutationObserver and recording which pages its writes landed in. `renderAll()`
 keeps the data work (parts, derived rows) and draws the page on screen plus what's on every page; the rest are
 stale until nav.js shows their page (`drawStale`). The transfer's own redraw goes through `redraw(names)` the same
@@ -4399,12 +4399,25 @@ way. Speed budget, large invented household at 4× CPU: startup about 3.0s → 1
 saving a transfer about 1.0s → 0.4s. Smoke, journeys unchanged; driven: a transfer saved on Spending, then Accounts
 and Home opened — each drawn with it.
 
-### 236b. `[ ]` Edits redraw what they touched
+### 236b. `[x]` Edits redraw what they touched
 Do: each view declares what it reads; a commit redraws only the views that read what it touched, on the page that's
 open, and marks the rest stale. Hand-written redraw lists (`refreshAfterTransfer`…) go; each view's edits move to
 `commit(touched)` as it goes (235c's ratchet counts down).
 Done when: a transfer, a scenario change and a budget edit redraw only what reads them; the speed budget's edit
 numbers drop on a phone; smoke and journeys unchanged.
+
+Done (v3.206.0): `defineView(name, pages, draw, reads)` — the keys of `state` each view reads (`["*"]` for the ones
+that read everything: Home's figures, the reports, Tax); `onCommit(redrawTouched)` redraws the views reading what a
+commit touched, on screen now, the rest when opened. A transfer touches `transfers` and, when it moved money,
+`balances` — a key of its own, read by the views that show balances, so the Cash flow lists that read accounts for
+their names stay put; the bills calendar is its own view. Gone: `refreshAfterTransfer`, the automatic payment's and a
+transaction edit's lists, the scenario refresh after a change (the draft's editor and the projection still drawn
+there). A budget line typed into leaves Home's cards and detail stale instead of redrawing them on every keystroke
+(not a commit — that would redraw the list being typed into). The bell and the Checks badge are `later`: drawn once,
+just after the edit. Speed budget, large invented household at 4× CPU: saving a transfer about 0.4s → 0.23s, about a
+third of a full redraw (the journey's limit tightened from 90% to 60%); a scenario change unchanged at about 0.5s
+(already only the editor). Smoke, journeys unchanged; driven: a transfer, a scenario saved and a budget amount typed,
+then each other page opened — drawn with it, nothing left stale.
 
 ## 237. `[ ]` `app.js` down to a bootstrap
 Do: each page's event wiring in its own module (as the scenario editor's is, 230); the dispatch-by-section-name helpers

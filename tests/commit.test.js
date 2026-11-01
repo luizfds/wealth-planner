@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { commit, onCommit } from "../src/state.js";
 
-// v3.207.0 (item 235c): an edit says what it touched; listeners hear it. A bare persist() isn't heard
+// v3.204.1 (item 235c): an edit says what it touched; listeners hear it. A bare persist() isn't heard
 // (it says nothing), and commit() with nothing named is heard as ["*"] — anything may have changed.
 test("commit tells its listeners which parts of the state an edit touched", function(){
   // persist() saves a moment later and then shows the saved status — a stand-in for the page it writes to.

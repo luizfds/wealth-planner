@@ -4399,12 +4399,25 @@ way. Speed budget, large invented household at 4× CPU: startup about 3.0s → 1
 saving a transfer about 1.0s → 0.4s. Smoke, journeys unchanged; driven: a transfer saved on Spending, then Accounts
 and Home opened — each drawn with it.
 
-### 236b. `[~]` Edits redraw what they touched
+### 236b. `[x]` Edits redraw what they touched
 Do: each view declares what it reads; a commit redraws only the views that read what it touched, on the page that's
 open, and marks the rest stale. Hand-written redraw lists (`refreshAfterTransfer`…) go; each view's edits move to
 `commit(touched)` as it goes (235c's ratchet counts down).
 Done when: a transfer, a scenario change and a budget edit redraw only what reads them; the speed budget's edit
 numbers drop on a phone; smoke and journeys unchanged.
+
+Done (v3.209.0): `defineView(name, pages, draw, reads)` — the keys of `state` each view reads (`["*"]` for the ones
+that read everything: Home's figures, the reports, Tax); `onCommit(redrawTouched)` redraws the views reading what a
+commit touched, on screen now, the rest when opened. A transfer touches `transfers` and, when it moved money,
+`balances` — a key of its own, read by the views that show balances, so the Cash flow lists that read accounts for
+their names stay put; the bills calendar is its own view. Gone: `refreshAfterTransfer`, the automatic payment's and a
+transaction edit's lists, the scenario refresh after a change (the draft's editor and the projection still drawn
+there). A budget line typed into leaves Home's cards and detail stale instead of redrawing them on every keystroke
+(not a commit — that would redraw the list being typed into). The bell and the Checks badge are `later`: drawn once,
+just after the edit. Speed budget, large invented household at 4× CPU: saving a transfer about 0.4s → 0.23s, about a
+third of a full redraw (the journey's limit tightened from 90% to 60%); a scenario change unchanged at about 0.5s
+(already only the editor). Smoke, journeys unchanged; driven: a transfer, a scenario saved and a budget amount typed,
+then each other page opened — drawn with it, nothing left stale.
 
 ## 237. `[ ]` `app.js` down to a bootstrap
 Do: each page's event wiring in its own module (as the scenario editor's is, 230); the dispatch-by-section-name helpers

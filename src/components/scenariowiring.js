@@ -19,7 +19,7 @@ import { showPage, showPlanSubpage, setLeaveGuard } from "./nav.js";
 import { renderProjectionsWhenSeen } from "./projections.js";
 import { renderScenarioAccountChart, tryQ } from "./scenarioaccount.js";
 import { changeOpen, addChangeSheetHtml, addSheet } from "./scenariochanges.js";
-import { refreshScenarioDependentViews, renderHomeBody, homeBlockCollapsed, addScenario, editing, renameScenarioTo, renderScenarioEditor, renderCalcScenario, editorUi, renderScenarioEditorChart, deleteScenario } from "./scenarios.js";
+import { renderHomeBody, homeBlockCollapsed, addScenario, editing, renameScenarioTo, renderScenarioEditor, renderCalcScenario, editorUi, renderScenarioEditorChart, deleteScenario } from "./scenarios.js";
 import { startQ, startSheetHtml, templateContext } from "./scenariotemplates.js";
 
 var pushActiveOverlay, requestCloseActiveOverlay, withUndo, renderAll;
@@ -28,9 +28,14 @@ export function wireScenarioEditor(app){
   pushActiveOverlay = app.pushActiveOverlay; requestCloseActiveOverlay = app.requestCloseActiveOverlay; withUndo = app.withUndo; renderAll = app.renderAll;
   // ---------------- A scenario's changes (v3.172.0, item 207) ----------------
   // Plan → Scenarios: a line's amount in a scenario, kept in the scenario (calc/scenariochanges.js).
-  // v3.180.1: each view once — refreshScenarioDependentViews draws the cards, the comparison, the home
-  // blocks and (when it's on screen) the projection.
-  function afterScenarioChange(){ commit(["scenarioChanges", "scenarios", "purchase", "invest", "home"]); refreshScenarioDependentViews(); }
+  // v3.209.0 (item 236b): the commit redraws the views that read scenarios (the home blocks, the cards, the
+  // comparison) on the page on screen, the rest when opened; what isn't a view — the draft's editor, the
+  // projection chart — is drawn here.
+  function afterScenarioChange(){
+    commit(["scenarioChanges", "scenarios", "purchase", "invest", "home"]);
+    if(editing.key && editing.key !== editing.name) renderScenarioEditor();
+    else renderProjectionsWhenSeen();
+  }
   document.addEventListener("click", function(e){
     if(!e.target.closest) return;
     var add = e.target.closest("[data-sc-add]");
@@ -149,10 +154,8 @@ export function wireScenarioEditor(app){
     var name = editing.name;
     editing.name = null; editing.key = null;
     calcFor.key = null; calcFor.name = null;
-    renderHomeBody();
     recalcComputedItems();
     commit(["scenarioChanges", "scenarios", "purchase", "invest", "home"]);
-    refreshScenarioDependentViews();
     renderProjectionsWhenSeen();
     showPage("plan");
     showPlanSubpage("scenarios", { replace: true });

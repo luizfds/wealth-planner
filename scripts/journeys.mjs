@@ -175,8 +175,9 @@ if(!process.env.SPEED_ONLY) for(const name of pick){
 // (several years of a household that logs everything), at 4× CPU slowdown.
 const BUDGET = { startup: 8000, transfer: 2000, scenarioChange: 1500 };
 // And as a share of a full redraw, measured in the same run: saving a transfer was a full redraw before
-// v3.200.2 (over 100%); about half of one now, the notification count and Home being most of it.
-const SHARE = { transfer: 0.9 };
+// v3.200.2 (over 100%); about half of one after v3.208.0; about a third since v3.209.0 (item 236b), when its
+// commit redraws only the views that read transfers and balances.
+const SHARE = { transfer: 0.6 };
 if(process.env.SPEED !== "0"){
   const { demoHousehold } = await import(path.join(root, "src/calc/demo.js"));
   const big = demoHousehold(TODAY.slice(0, 10));

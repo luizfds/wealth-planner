@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { defineView, drawViews, drawStale, redraw, staleViews } from "../src/lib/views.js";
+import { defineView, drawViews, drawStale, redraw, staleViews, viewsReading, redrawTouched } from "../src/lib/views.js";
 
 // v3.208.0 (item 236a): pages drawn when seen. A stand-in page whose current page the test sets.
 let page = "expenses";
@@ -44,4 +44,37 @@ test("an edit's own redraw: what's on screen now, the rest when its page opens",
   globalThis.setTimeout = (fn) => { try { fn(); } catch(e){} };
   try { drawViews({ all: true }); } finally { globalThis.setTimeout = keep; }
   assert.ok(drawn.includes("spending") && drawn.filter(x => x === "home").length === 2, "all: every view, whatever's showing");
+});
+
+// v3.209.0 (item 236b): an edit says what it touched (state.js commit); the views that read it are redrawn.
+test("an edit redraws only the views that read what it touched", function(){
+  page = "expenses";
+  defineView("ledger", ["expenses"], () => drawn.push("ledger"), ["transactions", "transfers"]);
+  defineView("plan", ["plan"], () => drawn.push("plan"), ["scenarioChanges"]);
+  defineView("budget", ["expenses"], () => drawn.push("budget"), ["shared"]);
+  const names = viewsReading(["transfers"]);
+  assert.ok(names.includes("ledger") && !names.includes("plan") && !names.includes("budget"));
+  assert.ok(names.includes("header") && names.includes("home"), "a view that reads anything reads this too");
+  assert.ok(viewsReading(["*"]).includes("plan"), "touched everything: every view");
+  drawn.length = 0;
+  const keep = globalThis.setTimeout;
+  globalThis.setTimeout = (fn) => { try { fn(); } catch(e){} };
+  try { redrawTouched(["scenarioChanges"]); } finally { globalThis.setTimeout = keep; }
+  assert.ok(!drawn.includes("plan") && staleViews().includes("plan"), "off screen: left for when Plan opens");
+  assert.ok(!drawn.includes("ledger") && !drawn.includes("budget"), "what doesn't read it isn't drawn");
+});
+
+test("a later view is drawn once after the edit's frame, however many edits ask", function(){
+  const queued = [];
+  const keep = globalThis.setTimeout;
+  globalThis.setTimeout = (fn) => { queued.push(fn); };
+  let n = 0;
+  try {
+    defineView("bell", null, () => { n++; }, ["*"], { later: true });
+    redraw(["bell"]); redraw(["bell"]);
+    assert.equal(n, 0, "not inside the edit");
+    assert.equal(queued.length, 1, "queued once");
+    queued[0]();
+    assert.equal(n, 1);
+  } finally { globalThis.setTimeout = keep; }
 });

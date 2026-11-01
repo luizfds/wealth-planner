@@ -233,7 +233,10 @@ page (header, badges, datalists); every other part is a *view* (`defineView(name
 `defineViews`, registry in `lib/views.js`) left stale and drawn by `drawStale(page)` just before nav.js shows that
 page. Each view's pages were measured (its writes under a MutationObserver). A new part of the full redraw is a new
 `defineView` with the pages it draws into (`null` = every page); an edit's own redraw uses `redraw([names])`, which
-draws what's on screen and leaves the rest stale — not the render functions directly.
+draws what's on screen and leaves the rest stale — not the render functions directly. **Since v3.209.0 (item 236b)** each view also says what it
+reads (`defineView(name, pages, draw, reads)`: top-level keys of `state`, `"balances"` for money moved in an account,
+loan or offset, `["*"]` for anything) and every `commit(touched)` redraws the views reading what it touched — so an
+edit's commit *is* its redraw; don't follow it with a hand-written list. A new view gives its reads.
 
 **`state` is a live import, not a value** — never reassign the imported `state` binding directly
 (`state = X` throws for an ES-module import). Use `setState(newState)` from `state.js` instead;

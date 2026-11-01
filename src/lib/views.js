@@ -12,11 +12,23 @@
 var views = [];
 var stale = {};
 
-export function defineView(name, pages, draw){
-  views.push({ name: name, pages: pages, draw: draw });
+// v3.209.0 (item 236b): reads — the top-level keys of `state` it draws from (["*"]: anything), plus "balances"
+// for a view showing what's in an account, a loan or an offset (a transfer moves those without touching
+// anything else about the records); opts.later — drawn
+// just after the edit's frame rather than inside it (the bell's count, which reads everything and is slow).
+export function defineView(name, pages, draw, reads, opts){
+  views.push({ name: name, pages: pages, draw: draw, reads: reads || ["*"], later: !!(opts && opts.later) });
 }
 function shows(view, page){ return !view.pages || (page && view.pages.indexOf(page) !== -1); }
-function run(view){
+var laterQueued = {};
+function run(view, now){
+  if(view.later && !now){
+    if(laterQueued[view.name]) return;
+    laterQueued[view.name] = true;
+    delete stale[view.name];
+    setTimeout(function(){ delete laterQueued[view.name]; run(view, true); }, 0);
+    return;
+  }
   delete stale[view.name];
   try { view.draw(); }
   catch(e){ setTimeout(function(){ throw e; }, 0); } // reported (lib/errorlog.js), without stopping the others
@@ -49,3 +61,12 @@ export function redraw(names){
     if(shows(v, page)) run(v); else stale[v.name] = true;
   });
 }
+
+// v3.209.0 (item 236b): after an edit (state.js commit, via onCommit): the views that read what it touched —
+// drawn if they're on the page on screen, else left stale for when it's opened. Nothing else is drawn.
+export function viewsReading(touched){
+  var all = touched.indexOf("*") !== -1;
+  return views.filter(function(v){ return all || v.reads.indexOf("*") !== -1 || v.reads.some(function(r){ return touched.indexOf(r) !== -1; }); })
+    .map(function(v){ return v.name; });
+}
+export function redrawTouched(touched){ redraw(viewsReading(touched)); }

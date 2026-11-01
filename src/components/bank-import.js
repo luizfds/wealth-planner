@@ -66,7 +66,7 @@ export function startBankImport(text, fileName){
   // v3.169.0: an OFX, QFX or QIF statement is read into the CSV the rest of this already understands.
   var asCsv = statementTextToCsv(text, fileName);
   var rows = parseCsv(asCsv != null ? asCsv : text);
-  var parsed = parseBankCsv(rows, { existing: state.transactions, account: guessStatementAccount(fileName) });
+  var parsed = parseBankCsv(rows, { existing: state.transactions, received: state.incomeLog, transfers: state.transfers, account: guessStatementAccount(fileName) });
   // Held here rather than handed back in by the caller: reparseBankImportWith() depends on it, and
   // a caller that forgot the second call would leave the date-order control silently doing nothing.
   return rebuildBankImport(parsed, fileName, rows);
@@ -76,7 +76,7 @@ export function startBankImport(text, fileName){
 // misread date order is the one mistake worth being able to undo without finding the file again.
 export function reparseBankImportWith(order){
   if(!bankImport) return null;
-  var parsed = parseBankCsv(bankImport.rawRows, { existing: state.transactions, dateOrder: order, account: bankImport.account });
+  var parsed = parseBankCsv(bankImport.rawRows, { existing: state.transactions, received: state.incomeLog, transfers: state.transfers, dateOrder: order, account: bankImport.account });
   return rebuildBankImport(parsed, bankImport.fileName, bankImport.rawRows, bankImport.includePossibleDuplicates);
 }
 // Which account a statement is for (v3.64.0): one whose name appears in the file name, if exactly
@@ -587,10 +587,10 @@ function bankImportAsideHtml(){
   // category and words. Imported as new instead only when asked.
   var maybeNote = maybes
     ? '<div class="tax-cap-note" style="margin:12px 0 0"><p style="margin:0">' +
-        maybes + ' row' + (maybes === 1 ? " matches" : "s match") + ' something logged by hand — the same or a near amount, within a few days. ' +
+        maybes + ' row' + (maybes === 1 ? " matches" : "s match") + ' something already logged — the same or a near amount, within a few days. ' +
         (bankImport.includePossibleDuplicates
           ? 'They\'re being imported as new. <button type="button" class="calc-hint-link" data-bank-maybes="0">Match them instead</button>'
-          : 'Importing updates what you logged to the bank\'s amount and date, keeping its budget line and category. <button type="button" class="calc-hint-link" data-bank-maybes="1">Import them as new instead</button>') +
+          : 'Importing updates spending you logged to the bank\'s amount and date, keeping its budget line and category; money received and transfers already logged are left as they are. <button type="button" class="calc-hint-link" data-bank-maybes="1">Import them as new instead</button>') +
       '</p><ul class="bank-maybe-list">' + examples + (maybes > 6 ? '<li>…and ' + (maybes - 6) + ' more</li>' : '') + '</ul></div>'
     : "";
   // v3.150.0: logged here, not on the statement.

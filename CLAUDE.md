@@ -131,7 +131,9 @@ the last, so two sessions can't pick up the same one.
   JS and CSS splits (see above) are now complete — the ES-modules migration is done.
 - `src/state.js` — `state` (the single source of truth), `defaultState()`, `migrateState()`
   (schema migration + safe defaults for old/partial saves), `persist()` (debounced localStorage
-  write), `setStatus()`.
+  write), `setStatus()`. Since v3.205.0 (item 235a) `migrateState` runs `MIGRATION_STEPS` — numbered, named,
+  idempotent steps run on every load, in order. A new field or change of shape is a new step at the end with
+  a test in `tests/migrations.test.js` from the shape before it (that file fails if a step has no test).
 - `src/calc/{ledger,property,tax,engine,cashflow,fire,history,trends,bank-import,import-rules,claims,people,received,closeyear,health,withholding,junemoves,actuals,monthreview}.js` —
   pure financial math and parsing, no DOM access. `ledger.js`
   (period conversions, sums), `property.js` (stamp duty, LMI, loan repayments, gearing, equity —

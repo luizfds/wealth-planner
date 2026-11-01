@@ -267,458 +267,506 @@ function applyTimingDefaults(item){
   if(item.deductionLabel == null) item.deductionLabel = "";
 }
 
-export function migrateState(s){
-  if(Array.isArray(s.income)){
-    s.income.forEach(function(item){
-      if(item.superMode == null) item.superMode = item.superIncluded ? "Included" : "On top";
-      // An id to log money received against (v3.46.0). The synthetic rows are rebuilt every
-      // recalculation and are found by syntheticNetFor/syntheticRentForProperty instead.
-      if(!item.id && !item.syntheticNetFor && !item.syntheticRentForProperty && !item.syntheticOneOffFor && !item.syntheticRefundFor && !item.syntheticEndingFor) item.id = genId("inc");
-    });
-  }
-  if(!s.home) s.home = {};
-  if(!Array.isArray(s.scenarios) || !s.scenarios.length) s.scenarios = Object.keys(s.home);
-  if(!s.scenarios.length) s.scenarios = ["Renting"];
-  s.scenarios.forEach(function(name){ if(!s.home[name]) s.home[name] = defaultHomeBlock(); });
-  s.scenarios.forEach(function(name){ (s.home[name] || []).forEach(applyTimingDefaults); });
-  s.scenarios.forEach(function(name){
-    var block = s.home[name];
-    if(block && block.length && !block.some(function(i){ return i.id === "homeLoanRow"; })) block[0].id = "homeLoanRow";
-  });
-  // Housing rows need stable ids for the same reason shared expenses do: a transaction links to
-  // its budget line by id, and the Budget tab now lists housing alongside everything else, so
-  // rent and rates can be logged against and get their own progress bars. Only the loan row
-  // carried an id before (it's found by a fixed "homeLoanRow" id, above); the rest were addressed
-  // purely by array position, which no transaction can hold onto.
-  //
-  // Ids are per scenario, deliberately: "Council Rates" under Buy Sydney and under Buy Melbourne
-  // are different amounts for different hypothetical houses, so sharing an id would let a
-  // transaction logged against one silently count towards the other.
-  s.scenarios.forEach(function(name){
-    (s.home[name] || []).forEach(function(item){ if(!item.id) item.id = genId("exp"); });
-  });
-  if(!s.activeScenario || s.scenarios.indexOf(s.activeScenario) === -1) s.activeScenario = s.scenarios[0];
-  // One-shot-per-load (not flagged — cheap and idempotent): if there's no baseline yet, or the
-  // named baseline no longer exists (e.g. it was renamed before this field existed), designate
-  // whichever scenario is currently active as "Current situation" and pin it at index 0 so
-  // every renderer that just iterates state.scenarios in order shows it first automatically.
-  if(!s.baselineScenario || s.scenarios.indexOf(s.baselineScenario) === -1){
-    s.baselineScenario = s.activeScenario;
-    var baseIdx = s.scenarios.indexOf(s.baselineScenario);
-    if(baseIdx > 0){
-      s.scenarios.splice(baseIdx, 1);
-      s.scenarios.unshift(s.baselineScenario);
+// ---------------- Migrations (v3.205.0, item 235a) ----------------
+//
+// Every load, backup, sync copy and sample household goes through these, in order: each step brings one
+// part of an older (or partial) save up to today's shape. Every step is idempotent — it runs on every load
+// and changes nothing the second time; the few true one-offs carry their own flag (ipCategorySeeded,
+// propertiesMigratedFromIp…). A new field or a change of shape is a new step at the end, with a test in
+// tests/migrations.test.js from the shape before it.
+export var MIGRATION_STEPS = [
+  { n: 1, name: "income rows: how super is paid, and an id to log money against", run: function(s){
+    if(Array.isArray(s.income)){
+      s.income.forEach(function(item){
+        if(item.superMode == null) item.superMode = item.superIncluded ? "Included" : "On top";
+        // An id to log money received against (v3.46.0). The synthetic rows are rebuilt every
+        // recalculation and are found by syntheticNetFor/syntheticRentForProperty instead.
+        if(!item.id && !item.syntheticNetFor && !item.syntheticRentForProperty && !item.syntheticOneOffFor && !item.syntheticRefundFor && !item.syntheticEndingFor) item.id = genId("inc");
+      });
     }
-  }
-  if(!s.purchase) s.purchase = {};
-  s.scenarios.forEach(function(name){
-    if(!s.purchase[name]) s.purchase[name] = defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", false);
-    var pcfg = s.purchase[name];
-    if(pcfg.repaymentType == null) pcfg.repaymentType = "PI";
-    if(pcfg.ioRate == null) pcfg.ioRate = pcfg.rate;
-    if(pcfg.propertyGrowthRate === undefined) pcfg.propertyGrowthRate = null;
-    if(pcfg.lmiCapitalized == null) pcfg.lmiCapitalized = false;
-  });
-  if(!s.invest) s.invest = {};
-  s.scenarios.forEach(function(name){
-    if(!s.invest[name]) s.invest[name] = defaultInvestConfig();
-    var icfg = s.invest[name];
-    if(icfg.assetType == null || !INVEST_LEG_TYPES.some(function(t){ return t.key === icfg.assetType; })) icfg.assetType = INVEST_LEG_TYPES[0].key;
-    if(icfg.initialAmount == null) icfg.initialAmount = 0;
-    if(icfg.contributionMode !== "manual") icfg.contributionMode = "auto";
-    if(icfg.monthlyContribution == null) icfg.monthlyContribution = 0;
-    if(icfg.growthRatePct == null) icfg.growthRatePct = defaultInvestConfig(icfg.assetType).growthRatePct;
-    // Never carry both legs enabled at once out of a partial/manual edit to a saved backup —
-    // see computeNetWorthSeries() for why that would double-count. Invest wins if both are
-    // somehow true, matching computeNetWorthSeries()'s own precedence; the UI itself keeps them
-    // mutually exclusive so this should only ever bite a hand-edited or very old backup.
-    if(icfg.enabled && s.purchase[name]) s.purchase[name].enabled = false;
-  });
-  if(!Array.isArray(s.debts)) s.debts = [];
-  // v3.124.0: reports pinned with their settings — { id, name, key, frame: { range, from, to, compare, group } }.
-  if(!Array.isArray(s.savedReports)) s.savedReports = [];
-  s.savedReports = s.savedReports.filter(function(r){ return r && r.key; });
-  // v3.126.0: life events on the projection — { id, kind, what, year, years, amount } (calc/lifeevents.js).
-  if(!Array.isArray(s.lifeEvents)) s.lifeEvents = [];
-  s.lifeEvents = s.lifeEvents.filter(function(e){ return e && e.kind; });
-  s.lifeEvents.forEach(function(e){ if(!e.id) e.id = genId("ev"); });
-  s.debts.forEach(function(d){ if(d.balance == null) d.balance = 0; });
-  if(!Array.isArray(s.shared)) s.shared = [];
-  // A stable id so a transaction (see below) can still find the right expense after this array
-  // is reordered/added to elsewhere — an array index would silently point at the wrong row.
-  s.shared.forEach(function(item){ if(!item.id) item.id = genId("exp"); applyTimingDefaults(item); });
-  if(!Array.isArray(s.transactions)) s.transactions = [];
-  // The tax-year record (v3.26.0) — actuals per financial year, see calc/taxyear.js.
-  if(!s.taxYears || typeof s.taxYears !== "object" || Array.isArray(s.taxYears)) s.taxYears = {};
-  // Which budget groups on the Expenses tab are collapsed, keyed by group name. Persisted rather
-  // than session-only for the same reason a property card's sections are: a structural edit
-  // anywhere on the page rebuilds the whole list, which would otherwise reset every group to its
-  // default state mid-session.
-  if(!s.budgetGroupsCollapsed || typeof s.budgetGroupsCollapsed !== "object" || Array.isArray(s.budgetGroupsCollapsed)){
-    s.budgetGroupsCollapsed = {};
-  }
-  if(!Array.isArray(s.importRules)) s.importRules = [];
-  if(!Array.isArray(s.transfers)) s.transfers = [];
-  s.transfers = s.transfers.filter(function(x){ return x && x.date && Number(x.amount); });
-  s.transfers.forEach(function(x){ if(!x.id) x.id = genId("x"); });
-  s.dependants = Math.max(0, Math.floor(Number(s.dependants) || 0));
-  if(!Array.isArray(s.autoPayments)) s.autoPayments = [];
-  s.autoPayments = s.autoPayments.filter(function(x){ return x && typeof x === "object"; });
-  s.autoPayments.forEach(function(x){ if(!x.id) x.id = genId("ap"); if(!x.answers || typeof x.answers !== "object" || Array.isArray(x.answers)) x.answers = {}; });
-  // A rule with no match string can never fire and would sit in a backup forever; one with neither
-  // a line nor a category fires and files the row nowhere, which reads as the app forgetting.
-  s.importRules = s.importRules.filter(function(r){
-    return r && typeof r.match === "string" && r.match.trim() && (r.linkedExpenseId || (r.category || "").trim() || r.incomeTarget || r.transferAccount);
-  });
-  // Categories are a later addition, so an older save has none: seed the defaults so the feature
-  // works on first load rather than presenting an empty manager. An existing (possibly emptied)
-  // list is left exactly as the user left it — only a missing key seeds.
-  if(s.budgetGroupBy !== "category" && s.budgetGroupBy !== "flex") s.budgetGroupBy = "type";
-  if(!s.rollover || typeof s.rollover !== "object" || Array.isArray(s.rollover)) s.rollover = {};
-  // A save from before the setup checklist existed has no preference either way. Left undefined it
-  // would be falsy and so behave correctly, but normalising keeps the exported backup honest about
-  // what the app stores.
-  s.setupDismissed = s.setupDismissed === true;
-  // A save from before the household year existed gets the financial year — the app's new default
-  // — rather than being pinned to the calendar year its reserve lines happened to use. Those lines
-  // keep any basis the user chose explicitly; only ones left on the old implicit default follow
-  // the household now (see applyTimingDefaults).
-  if(s.yearBasis !== "calendar") s.yearBasis = "financial";
-  if(!Array.isArray(s.categories)) s.categories = DEFAULT_CATEGORIES.slice();
-  s.categories = s.categories.filter(function(name){ return typeof name === "string" && name.trim(); });
-  if(!s.categoryLooks || typeof s.categoryLooks !== "object" || Array.isArray(s.categoryLooks)) s.categoryLooks = {};
-  if(!s.parts || typeof s.parts !== "object" || Array.isArray(s.parts)) s.parts = {};
-  // Every array the Budget tab lists, in the same order expenses.js's budgetLineSources() walks
-  // them. Categories started out as a state.shared-only idea, but housing and investment-property
-  // costs are budget lines now too — normalising and seeding from state.shared alone left a
-  // category typed onto one of those missing from the manager (and its usage count wrong).
-  function everyBudgetArray(){
-    var arrays = [s.shared];
-    Object.keys(s.home || {}).forEach(function(name){ if(Array.isArray(s.home[name])) arrays.push(s.home[name]); });
-    (s.properties || []).forEach(function(p){ if(Array.isArray(p.expenses)) arrays.push(p.expenses); });
-    return arrays;
-  }
-  everyBudgetArray().forEach(function(items){
-    items.forEach(function(item){ if(typeof item.category !== "string") item.category = ""; });
-  });
-  // Same idempotent, every-load seeding as accounts below: pick up any category name already on a
-  // budget line (a CSV import, a restored backup) that isn't in the registry yet, so nothing a row
-  // references is missing from the manager.
-  (function seedCategoriesFromUsage(){
-    var knownCats = {};
-    s.categories.forEach(function(name){ knownCats[name] = true; });
+  } },
+  { n: 2, name: "scenarios: each has a home block with ids; one is the household (the baseline), first", run: function(s){
+    if(!s.home) s.home = {};
+    if(!Array.isArray(s.scenarios) || !s.scenarios.length) s.scenarios = Object.keys(s.home);
+    if(!s.scenarios.length) s.scenarios = ["Renting"];
+    s.scenarios.forEach(function(name){ if(!s.home[name]) s.home[name] = defaultHomeBlock(); });
+    s.scenarios.forEach(function(name){ (s.home[name] || []).forEach(applyTimingDefaults); });
+    s.scenarios.forEach(function(name){
+      var block = s.home[name];
+      if(block && block.length && !block.some(function(i){ return i.id === "homeLoanRow"; })) block[0].id = "homeLoanRow";
+    });
+    // Housing rows need stable ids for the same reason shared expenses do: a transaction links to
+    // its budget line by id, and the Budget tab now lists housing alongside everything else, so
+    // rent and rates can be logged against and get their own progress bars. Only the loan row
+    // carried an id before (it's found by a fixed "homeLoanRow" id, above); the rest were addressed
+    // purely by array position, which no transaction can hold onto.
+    //
+    // Ids are per scenario, deliberately: "Council Rates" under Buy Sydney and under Buy Melbourne
+    // are different amounts for different hypothetical houses, so sharing an id would let a
+    // transaction logged against one silently count towards the other.
+    s.scenarios.forEach(function(name){
+      (s.home[name] || []).forEach(function(item){ if(!item.id) item.id = genId("exp"); });
+    });
+    if(!s.activeScenario || s.scenarios.indexOf(s.activeScenario) === -1) s.activeScenario = s.scenarios[0];
+    // One-shot-per-load (not flagged — cheap and idempotent): if there's no baseline yet, or the
+    // named baseline no longer exists (e.g. it was renamed before this field existed), designate
+    // whichever scenario is currently active as "Current situation" and pin it at index 0 so
+    // every renderer that just iterates state.scenarios in order shows it first automatically.
+    if(!s.baselineScenario || s.scenarios.indexOf(s.baselineScenario) === -1){
+      s.baselineScenario = s.activeScenario;
+      var baseIdx = s.scenarios.indexOf(s.baselineScenario);
+      if(baseIdx > 0){
+        s.scenarios.splice(baseIdx, 1);
+        s.scenarios.unshift(s.baselineScenario);
+      }
+    }
+  } },
+  { n: 3, name: "each scenario's purchase settings", run: function(s){
+    if(!s.purchase) s.purchase = {};
+    s.scenarios.forEach(function(name){
+      if(!s.purchase[name]) s.purchase[name] = defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", false);
+      var pcfg = s.purchase[name];
+      if(pcfg.repaymentType == null) pcfg.repaymentType = "PI";
+      if(pcfg.ioRate == null) pcfg.ioRate = pcfg.rate;
+      if(pcfg.propertyGrowthRate === undefined) pcfg.propertyGrowthRate = null;
+      if(pcfg.lmiCapitalized == null) pcfg.lmiCapitalized = false;
+    });
+  } },
+  { n: 4, name: "each scenario's invest settings; never both legs on", run: function(s){
+    if(!s.invest) s.invest = {};
+    s.scenarios.forEach(function(name){
+      if(!s.invest[name]) s.invest[name] = defaultInvestConfig();
+      var icfg = s.invest[name];
+      if(icfg.assetType == null || !INVEST_LEG_TYPES.some(function(t){ return t.key === icfg.assetType; })) icfg.assetType = INVEST_LEG_TYPES[0].key;
+      if(icfg.initialAmount == null) icfg.initialAmount = 0;
+      if(icfg.contributionMode !== "manual") icfg.contributionMode = "auto";
+      if(icfg.monthlyContribution == null) icfg.monthlyContribution = 0;
+      if(icfg.growthRatePct == null) icfg.growthRatePct = defaultInvestConfig(icfg.assetType).growthRatePct;
+      // Never carry both legs enabled at once out of a partial/manual edit to a saved backup —
+      // see computeNetWorthSeries() for why that would double-count. Invest wins if both are
+      // somehow true, matching computeNetWorthSeries()'s own precedence; the UI itself keeps them
+      // mutually exclusive so this should only ever bite a hand-edited or very old backup.
+      if(icfg.enabled && s.purchase[name]) s.purchase[name].enabled = false;
+    });
+  } },
+  { n: 5, name: "debts, saved reports and life events", run: function(s){
+    if(!Array.isArray(s.debts)) s.debts = [];
+    // v3.124.0: reports pinned with their settings — { id, name, key, frame: { range, from, to, compare, group } }.
+    if(!Array.isArray(s.savedReports)) s.savedReports = [];
+    s.savedReports = s.savedReports.filter(function(r){ return r && r.key; });
+    // v3.126.0: life events on the projection — { id, kind, what, year, years, amount } (calc/lifeevents.js).
+    if(!Array.isArray(s.lifeEvents)) s.lifeEvents = [];
+    s.lifeEvents = s.lifeEvents.filter(function(e){ return e && e.kind; });
+    s.lifeEvents.forEach(function(e){ if(!e.id) e.id = genId("ev"); });
+    s.debts.forEach(function(d){ if(d.balance == null) d.balance = 0; });
+  } },
+  { n: 6, name: "budget lines and transactions, the tax-year record, collapsed budget groups", run: function(s){
+    if(!Array.isArray(s.shared)) s.shared = [];
+    // A stable id so a transaction (see below) can still find the right expense after this array
+    // is reordered/added to elsewhere — an array index would silently point at the wrong row.
+    s.shared.forEach(function(item){ if(!item.id) item.id = genId("exp"); applyTimingDefaults(item); });
+    if(!Array.isArray(s.transactions)) s.transactions = [];
+    // The tax-year record (v3.26.0) — actuals per financial year, see calc/taxyear.js.
+    if(!s.taxYears || typeof s.taxYears !== "object" || Array.isArray(s.taxYears)) s.taxYears = {};
+    // Which budget groups on the Expenses tab are collapsed, keyed by group name. Persisted rather
+    // than session-only for the same reason a property card's sections are: a structural edit
+    // anywhere on the page rebuilds the whole list, which would otherwise reset every group to its
+    // default state mid-session.
+    if(!s.budgetGroupsCollapsed || typeof s.budgetGroupsCollapsed !== "object" || Array.isArray(s.budgetGroupsCollapsed)){
+      s.budgetGroupsCollapsed = {};
+    }
+  } },
+  { n: 7, name: "import rules, transfers, automatic payments, dependants", run: function(s){
+    if(!Array.isArray(s.importRules)) s.importRules = [];
+    if(!Array.isArray(s.transfers)) s.transfers = [];
+    s.transfers = s.transfers.filter(function(x){ return x && x.date && Number(x.amount); });
+    s.transfers.forEach(function(x){ if(!x.id) x.id = genId("x"); });
+    s.dependants = Math.max(0, Math.floor(Number(s.dependants) || 0));
+    if(!Array.isArray(s.autoPayments)) s.autoPayments = [];
+    s.autoPayments = s.autoPayments.filter(function(x){ return x && typeof x === "object"; });
+    s.autoPayments.forEach(function(x){ if(!x.id) x.id = genId("ap"); if(!x.answers || typeof x.answers !== "object" || Array.isArray(x.answers)) x.answers = {}; });
+    // A rule with no match string can never fire and would sit in a backup forever; one with neither
+    // a line nor a category fires and files the row nowhere, which reads as the app forgetting.
+    s.importRules = s.importRules.filter(function(r){
+      return r && typeof r.match === "string" && r.match.trim() && (r.linkedExpenseId || (r.category || "").trim() || r.incomeTarget || r.transferAccount);
+    });
+  } },
+  { n: 8, name: "budget preferences: grouping, rollover, the setup checklist, the household year", run: function(s){
+    // Categories are a later addition, so an older save has none: seed the defaults so the feature
+    // works on first load rather than presenting an empty manager. An existing (possibly emptied)
+    // list is left exactly as the user left it — only a missing key seeds.
+    if(s.budgetGroupBy !== "category" && s.budgetGroupBy !== "flex") s.budgetGroupBy = "type";
+    if(!s.rollover || typeof s.rollover !== "object" || Array.isArray(s.rollover)) s.rollover = {};
+    // A save from before the setup checklist existed has no preference either way. Left undefined it
+    // would be falsy and so behave correctly, but normalising keeps the exported backup honest about
+    // what the app stores.
+    s.setupDismissed = s.setupDismissed === true;
+    // A save from before the household year existed gets the financial year — the app's new default
+    // — rather than being pinned to the calendar year its reserve lines happened to use. Those lines
+    // keep any basis the user chose explicitly; only ones left on the old implicit default follow
+    // the household now (see applyTimingDefaults).
+    if(s.yearBasis !== "calendar") s.yearBasis = "financial";
+  } },
+  { n: 9, name: "categories: the registry, looks, parts; every name a line uses is in it", run: function(s){
+    if(!Array.isArray(s.categories)) s.categories = DEFAULT_CATEGORIES.slice();
+    s.categories = s.categories.filter(function(name){ return typeof name === "string" && name.trim(); });
+    if(!s.categoryLooks || typeof s.categoryLooks !== "object" || Array.isArray(s.categoryLooks)) s.categoryLooks = {};
+    if(!s.parts || typeof s.parts !== "object" || Array.isArray(s.parts)) s.parts = {};
+    // Every array the Budget tab lists, in the same order expenses.js's budgetLineSources() walks
+    // them. Categories started out as a state.shared-only idea, but housing and investment-property
+    // costs are budget lines now too — normalising and seeding from state.shared alone left a
+    // category typed onto one of those missing from the manager (and its usage count wrong).
+    function everyBudgetArray(){
+      var arrays = [s.shared];
+      Object.keys(s.home || {}).forEach(function(name){ if(Array.isArray(s.home[name])) arrays.push(s.home[name]); });
+      (s.properties || []).forEach(function(p){ if(Array.isArray(p.expenses)) arrays.push(p.expenses); });
+      return arrays;
+    }
     everyBudgetArray().forEach(function(items){
-      items.forEach(function(item){
-        var name = (item.category || "").trim();
-        if(name && !knownCats[name]){ knownCats[name] = true; s.categories.push(name); }
+      items.forEach(function(item){ if(typeof item.category !== "string") item.category = ""; });
+    });
+    // Same idempotent, every-load seeding as accounts below: pick up any category name already on a
+    // budget line (a CSV import, a restored backup) that isn't in the registry yet, so nothing a row
+    // references is missing from the manager.
+    (function seedCategoriesFromUsage(){
+      var knownCats = {};
+      s.categories.forEach(function(name){ knownCats[name] = true; });
+      everyBudgetArray().forEach(function(items){
+        items.forEach(function(item){
+          var name = (item.category || "").trim();
+          if(name && !knownCats[name]){ knownCats[name] = true; s.categories.push(name); }
+        });
       });
+    })();
+  } },
+  { n: 10, name: "accounts: the registry, every name a row uses is in it, links", run: function(s){
+    if(!Array.isArray(s.accounts)) s.accounts = [];
+    s.accounts.forEach(function(a){
+      if(!a.id) a.id = genId("acct");
+      if(a.statementStartDay == null) a.statementStartDay = 1;
     });
-  })();
-  if(!Array.isArray(s.accounts)) s.accounts = [];
-  s.accounts.forEach(function(a){
-    if(!a.id) a.id = genId("acct");
-    if(a.statementStartDay == null) a.statementStartDay = 1;
-  });
-  // One-shot-per-load, idempotent: pick up every distinct account name already typed into an
-  // "Account" field before this registry existed, so nothing gets silently orphaned. Only adds
-  // names not already present — safe to re-run every load, unlike the one-off migrations below.
-  (function seedAccountsFromUsage(){
-    var known = {};
-    s.accounts.forEach(function(a){ known[a.name] = true; });
-    function collect(items){
-      (items || []).forEach(function(item){
-        var name = (item.account || "").trim();
-        if(name && !known[name]){
-          known[name] = true;
-          s.accounts.push({ id: genId("acct"), name: name, type: "everyday", statementStartDay: 1 });
-        }
-      });
-    }
-    collect(s.income);
-    collect(s.shared);
-    (s.properties || []).forEach(function(p){ collect(p.income); collect(p.expenses); });
-  })();
-  migrateAccounts(s);
-  // Ages for the FIRE bridge (calc/fire.js). null means "not told yet", which the panel reports as
-  // a prompt rather than inventing a plausible age — the whole point of the bridge view is that
-  // it's specific to when *you* want to stop working.
-  if(!s.fire) s.fire = {};
-  if(s.fire.currentAge === undefined) s.fire.currentAge = null;
-  if(s.fire.retireAge === undefined) s.fire.retireAge = null;
-  if(s.fire.preservationAge == null) s.fire.preservationAge = 60;
-  if(s.projectionReference === undefined) s.projectionReference = null;
-  if(!Array.isArray(s.netWorthLog)) s.netWorthLog = [];
-  if(!Array.isArray(s.assets)) s.assets = [];
-  s.assets.forEach(function(a){
-    if((a.category || "Other") === "Shares") normalizeShareAsset(a);
-  });
-  if(!s.projection) s.projection = { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0 };
-  if(s.projection.inflationRate == null) s.projection.inflationRate = 3;
-  if(s.projection.rateShockPct == null) s.projection.rateShockPct = 0;
-  // An existing save has been running with an implicit 0% — but 0 was never a considered choice,
-  // it was the absence of one, so this seeds the same default a new save gets rather than
-  // preserving an assumption nobody made. Called out in the release notes for that reason.
-  if(s.projection.incomeGrowthRate == null) s.projection.incomeGrowthRate = s.projection.inflationRate != null ? s.projection.inflationRate : 3;
-  if(s.projection.realTerms == null) s.projection.realTerms = true;
-  // v3.125.0: how unevenly returns arrive, for the range of outcomes (calc/outcomes.js).
-  if(s.projection.investVolatility == null || s.projection.investVolatility === "") s.projection.investVolatility = 12;
-  if(s.projection.propertyVolatility == null || s.projection.propertyVolatility === "") s.projection.propertyVolatility = 6;
-  if(!s.tax) s.tax = { sgRate: 12, settings: {} };
-  if(!s.tax.settings) s.tax.settings = {};
-  if(s.tax.sgRate == null) s.tax.sgRate = 11.5;
-  // Default false for both: assuming someone holds private hospital cover would silently zero a
-  // real cost, and assuming family thresholds would halve a real one. An unset save gets the
-  // conservative reading, and the toggles are right there on the card.
-  if(typeof s.tax.privateHospitalCover !== "boolean") s.tax.privateHospitalCover = false;
-  // Private health rebate (v3.25.0): annual premiums before the rebate, and the tier the insurer
-  // applies (0-3, -1 = none taken up front). 0 premiums = not modelled.
-  if(s.tax.phiPremiums == null) s.tax.phiPremiums = 0;
-  if(s.tax.phiTierClaimed == null) s.tax.phiTierClaimed = 0;
-  if(typeof s.tax.familyThresholds !== "boolean") s.tax.familyThresholds = false;
-  if(!s.fx) s.fx = { usdAud: null, usdAudUpdated: "" };
-  if(!s.benchmark || typeof s.benchmark !== "object") s.benchmark = { symbol: "IOZ", fixedRate: 7, prices: {} };
-  if(!s.benchmark.prices || typeof s.benchmark.prices !== "object") s.benchmark.prices = {};
-  if(s.benchmark.fixedRate == null || s.benchmark.fixedRate === "") s.benchmark.fixedRate = 7;
-  if(!s.benchmark.symbol) s.benchmark.symbol = "IOZ";
-  if(!Array.isArray(s.goals)) s.goals = [];
-  // Checks marked "Looks right" (v3.70.0): {checkId: signature}.
-  if(!s.checksDismissed || typeof s.checksDismissed !== "object" || Array.isArray(s.checksDismissed)) s.checksDismissed = {};
-  if(!Array.isArray(s.savingsGoals)) s.savingsGoals = [];
-  if(!Array.isArray(s.trips)) s.trips = [];
-  if(!Array.isArray(s.txViews)) s.txViews = [];
-  // v3.170.0: a backup or sync copy's receipt files are unpacked into IndexedDB before this; never kept in state.
-  delete s.receiptFiles;
-  // v3.171.0: who changed what (calc/activity.js).
-  if(!Array.isArray(s.activity)) s.activity = [];
-  s.trips = s.trips.filter(function(t){ return t && t.from; });
-  if(!s.priceSheet || typeof s.priceSheet !== "object") s.priceSheet = {};
-  ["url", "lastRead", "backfillFrom"].forEach(function(k){ if(typeof s.priceSheet[k] !== "string") s.priceSheet[k] = ""; });
-  if(s.priceSheet.lastResult === undefined) s.priceSheet.lastResult = null;
-  if(!s.targetMix || typeof s.targetMix !== "object" || Array.isArray(s.targetMix)) s.targetMix = {};
-  if(!s.subscriptionNotes || typeof s.subscriptionNotes !== "object" || Array.isArray(s.subscriptionNotes)) s.subscriptionNotes = {};
-  if(!s.scenarioNotes || typeof s.scenarioNotes !== "object" || Array.isArray(s.scenarioNotes)) s.scenarioNotes = {};
-  if(!s.autoPrices || typeof s.autoPrices !== "object") s.autoPrices = {};
-  ["on", "crypto", "fx"].forEach(function(k){ if(typeof s.autoPrices[k] !== "boolean") s.autoPrices[k] = true; });
-  if(typeof s.autoPrices.lastRead !== "string") s.autoPrices.lastRead = "";
-  if(s.autoPrices.lastResult === undefined) s.autoPrices.lastResult = null;
-  s.savingsGoals = s.savingsGoals.filter(function(g){ return g && typeof g === "object"; });
-  s.savingsGoals.forEach(function(g){ if(!g.id) g.id = genId("sg"); if(!Array.isArray(g.accounts)) g.accounts = []; g.target = Math.max(0, Number(g.target) || 0); });
-  if(!Array.isArray(s.incomeLog)) s.incomeLog = [];
-  if(!s.monthReviews || typeof s.monthReviews !== "object" || Array.isArray(s.monthReviews)) s.monthReviews = {};
-  if(!s.weekRecaps || typeof s.weekRecaps !== "object" || Array.isArray(s.weekRecaps)) s.weekRecaps = {};
-  if(s.projection && s.projection.source !== "actuals") s.projection.source = "plan";
-  if(s.fx.usdAud === undefined) s.fx.usdAud = null;
-  if(s.fx.usdAudUpdated == null) s.fx.usdAudUpdated = "";
-  if(s.lastBackupDate == null) s.lastBackupDate = "";
-  // The last automatic backup into a chosen folder (v3.63.0, lib/safekeeping.js).
-  if(s.lastFolderBackup == null) s.lastFolderBackup = "";
-  (s.income || []).forEach(function(i){
-    if(i.sacrificeMode == null) i.sacrificeMode = "none";
-    if(i.sacrificeValue == null) i.sacrificeValue = 0;
-    // When this row is actually paid. Three fields rather than one polymorphic "payDay" because
-    // each frequency family needs different information (see calc/ledger.js's nextPayDate) — and
-    // because keeping them apart means switching a row from Monthly to Weekly and back doesn't
-    // throw away what was already set. null throughout = not told yet, which reads as "—" and
-    // produces no next-pay date rather than a guess.
-    if(i.payDay === undefined) i.payDay = null;          // 1–31 or "last"  (Monthly and less often)
-    if(i.payWeekday === undefined) i.payWeekday = null;  // 0=Sun … 6=Sat   (Weekly)
-    if(i.payAnchor === undefined) i.payAnchor = "";      // a real pay date (Fortnightly)
-    applyTimingDefaults(i);
-  });
-
-  if(!Array.isArray(s.properties)) s.properties = [];
-  s.properties.forEach(function(p){
-    if(!Array.isArray(p.loans)) p.loans = [];
-    if(!Array.isArray(p.income)) p.income = [];
-    if(!Array.isArray(p.expenses)) p.expenses = [];
-    p.income.forEach(applyTimingDefaults);
-    p.expenses.forEach(applyTimingDefaults);
-    // Same reason housing rows got ids above: an investment property's costs are budget lines on
-    // the Expenses page now, so a transaction has to be able to link to one and a review queue has
-    // to be able to hold onto it across a re-render. Per property, never shared between them —
-    // "Council Rates" on two different properties are two different bills.
-    p.expenses.forEach(function(item){ if(!item.id) item.id = genId("exp"); });
-    if(!Array.isArray(p.history)) p.history = [];
-    if(p.kind !== "IP" && p.kind !== "PPOR") p.kind = "IP";
-    if(p.value == null) p.value = 0;
-    // Land value and state, purely so land tax can be computed (calc/property.js). Both default to
-    // "unset" rather than a guess: land value is a specific figure off the council/valuer-general
-    // notice and is nothing like a fraction of market value you could infer, and a wrong state
-    // would silently apply the wrong scale. With either missing the property is simply left out of
-    // the land tax calculation, which is the honest answer — see landTaxableProperties().
-    if(p.landValue == null) p.landValue = 0;
-    if(p.state == null) p.state = "";
-    // What was actually paid, and when — distinct from p.value (kept current via the Value
-    // section's own Log button) and from p.history (a log of *current* value over time, which for
-    // a property added to the app well after buying it starts from whatever day it was first
-    // logged, not the purchase date). null/"" until set — capital gain and yield-on-cost both
-    // gate on purchasePrice > 0 rather than guessing $0, same convention as Vehicle assets'
-    // identical purchasePrice/purchaseDate fields (assets.js).
-    if(p.purchasePrice === undefined) p.purchasePrice = null;
-    if(p.purchaseDate == null) p.purchaseDate = "";
-    // Stamp duty, legal/conveyancing, buyer's agent, building/pest inspection — itemized as
-    // {id, what, amount} rows rather than auto-calculated from calcStampDuty() (that function's
-    // brackets are today's rates, meant for planning a *future* purchase; recomputing "what stamp
-    // duty would've been" for a property bought years ago against current brackets would misstate
-    // a fixed historical fact, not approximate it). Meaningless without a purchase price, so it
-    // only ever adds to the cost base alongside it — see propertyCapitalGain()/
-    // propertyYieldOnCost() in calc/property.js, which sum this array.
-    //
-    // Was a single lump-sum number before itemization — a positive legacy value becomes one row
-    // rather than being dropped, so nobody's already-entered total silently vanishes.
-    if(typeof p.acquisitionCosts === "number"){
-      p.acquisitionCosts = p.acquisitionCosts > 0 ? [{ id: genId("ac"), what: "Acquisition costs", amount: p.acquisitionCosts }] : [];
-    }
-    if(!Array.isArray(p.acquisitionCosts)) p.acquisitionCosts = [];
-    // Depreciation (v2.86.0). Two schedules, kept separate because they are two different things
-    // with different rules — see calc/property.js.
-    //
-    // constructionCost is the original BUILD cost, not the purchase price: land isn't depreciable,
-    // and conflating the two is the commonest way capital works gets overstated. Defaults to 0
-    // (claim nothing) rather than guessing a share of the purchase price, because a wrong
-    // depreciation figure is a wrong tax return.
-    if(p.constructionCost == null) p.constructionCost = 0;
-    if(p.constructionDate == null) p.constructionDate = "";
-    if(p.plantValue == null) p.plantValue = 0;
-    if(p.plantEffectiveLife == null) p.plantEffectiveLife = 10;
-    // Second-hand plant (v3.18.0) — see calc/property.js plantIsClaimable(). Defaults to false so an
-    // existing save's figures don't move; the field's own note says when it applies.
-    if(p.plantSecondHand == null) p.plantSecondHand = false;
-    // A quantity surveyor's year-by-year table (v3.19.0): [{fy, capitalWorks, plant}], fy = the
-    // calendar year the financial year starts in. Empty = use the formula. See calc/property.js.
-    if(!Array.isArray(p.depreciationSchedule)) p.depreciationSchedule = [];
-    p.acquisitionCosts.forEach(function(c){
-      if(c.id == null) c.id = genId("ac");
-      if(c.what == null) c.what = "";
-      if(c.amount == null) c.amount = 0;
+    // One-shot-per-load, idempotent: pick up every distinct account name already typed into an
+    // "Account" field before this registry existed, so nothing gets silently orphaned. Only adds
+    // names not already present — safe to re-run every load, unlike the one-off migrations below.
+    (function seedAccountsFromUsage(){
+      var known = {};
+      s.accounts.forEach(function(a){ known[a.name] = true; });
+      function collect(items){
+        (items || []).forEach(function(item){
+          var name = (item.account || "").trim();
+          if(name && !known[name]){
+            known[name] = true;
+            s.accounts.push({ id: genId("acct"), name: name, type: "everyday", statementStartDay: 1 });
+          }
+        });
+      }
+      collect(s.income);
+      collect(s.shared);
+      (s.properties || []).forEach(function(p){ collect(p.income); collect(p.expenses); });
+    })();
+    migrateAccounts(s);
+  } },
+  { n: 11, name: "ages for the FIRE bridge, the projection reference, the net worth log", run: function(s){
+    // Ages for the FIRE bridge (calc/fire.js). null means "not told yet", which the panel reports as
+    // a prompt rather than inventing a plausible age — the whole point of the bridge view is that
+    // it's specific to when *you* want to stop working.
+    if(!s.fire) s.fire = {};
+    if(s.fire.currentAge === undefined) s.fire.currentAge = null;
+    if(s.fire.retireAge === undefined) s.fire.retireAge = null;
+    if(s.fire.preservationAge == null) s.fire.preservationAge = 60;
+    if(s.projectionReference === undefined) s.projectionReference = null;
+    if(!Array.isArray(s.netWorthLog)) s.netWorthLog = [];
+  } },
+  { n: 12, name: "assets: shares normalised", run: function(s){
+    if(!Array.isArray(s.assets)) s.assets = [];
+    s.assets.forEach(function(a){
+      if((a.category || "Other") === "Shares") normalizeShareAsset(a);
     });
-    if(!p.pmFee) p.pmFee = { percent: 6, flat: 5.5 };
-    if(p.pmFee.percent == null) p.pmFee.percent = 6;
-    if(p.pmFee.flat == null) p.pmFee.flat = 5.5;
-    // Purely informational — doesn't feed any calculation. Rent is typically entered/quoted
-    // weekly (the AU market convention), but a property manager usually batches it into one
-    // monthly disbursement — this just notes that expectation on the card, defaulting to the
-    // overwhelmingly common case rather than leaving it unset.
-    if(p.incomePaidFreq == null) p.incomePaidFreq = "Monthly";
-    // Which of the card's five sections (value/acquisition/loans/income/expenses) are collapsed —
-    // was a session-only in-memory map (propertySectionCollapsed) before this, which meant every
-    // reload started from the same all-open state no matter what the user last set. Defaulting
-    // everyone to acquisition/loans/income/expenses collapsed (value stays open) on first migration
-    // through this code is deliberate, not just a placeholder default: a property card stacking all
-    // five open is the single longest scroll in the app on mobile, and nobody has "customized" this
-    // away from all-open before now since persistence didn't exist yet to customize.
-    if(!p.sectionsCollapsed || typeof p.sectionsCollapsed !== "object"){
-      p.sectionsCollapsed = { acquisition: true, loans: true, income: true, expenses: true };
-    }
-    // Who owns this property, as person -> percent. Seeded from the old single global
-    // state.tax.ipOwnership, which applied one split to the whole portfolio: with two investment
-    // properties owned differently there was no way to say so, and nothing ever checked that the
-    // percentages summed to 100 — two people could each claim 100% and the app would deduct the
-    // same negative-gearing loss twice, silently. An absent/empty map still means "split evenly
-    // between everyone with a Gross income row", exactly as before; see propertyOwnershipPct().
-    if(!p.ownership || typeof p.ownership !== "object" || Array.isArray(p.ownership)) p.ownership = {};
-    // Same reasoning as the all-collapsed default above: a card that grew a section shouldn't grow
-    // by a section's height on everyone's next load. Keyed off `in` rather than truthiness so
-    // deliberately expanding it and reloading doesn't re-collapse it.
-    if(!("ownership" in p.sectionsCollapsed)) p.sectionsCollapsed.ownership = true;
-    if(!("sale" in p.sectionsCollapsed)) p.sectionsCollapsed.sale = true;
-    if(!("strategy" in p.sectionsCollapsed)) p.sectionsCollapsed.strategy = true;
-    p.loans.forEach(function(l){
-      if(l.id == null) l.id = genId("l");
-      if(l.repaymentMode !== "manual") l.repaymentMode = "auto";
-      if(l.manualRepaymentAmount == null) l.manualRepaymentAmount = 0;
-      if(l.manualRepaymentFreq == null) l.manualRepaymentFreq = "Monthly";
-      if(l.offsetBalance == null) l.offsetBalance = 0;
-      if(l.repaymentType !== "IO") l.repaymentType = "PI";
-      if(l.balance == null) l.balance = 0;
-      if(l.rate == null) l.rate = 0;
-      if(l.termYears == null) l.termYears = 30;
-      // Borrowing costs (v3.17.0) — see calc/property.js. settlementDate starts the five-year
-      // clock; borrowingTermYears is the loan's ORIGINAL term, only consulted when it's under five
-      // years (termYears above is what's left, which is a different number).
-      if(l.borrowingCosts == null) l.borrowingCosts = 0;
-      if(l.settlementDate == null) l.settlementDate = "";
-      if(l.borrowingTermYears == null) l.borrowingTermYears = 0;
-      // Paid out / refinanced on (v3.27.0): the undeducted borrowing costs are written off that year.
-      if(l.endedOn == null) l.endedOn = "";
+  } },
+  { n: 13, name: "projection settings", run: function(s){
+    if(!s.projection) s.projection = { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0 };
+    if(s.projection.inflationRate == null) s.projection.inflationRate = 3;
+    if(s.projection.rateShockPct == null) s.projection.rateShockPct = 0;
+    // An existing save has been running with an implicit 0% — but 0 was never a considered choice,
+    // it was the absence of one, so this seeds the same default a new save gets rather than
+    // preserving an assumption nobody made. Called out in the release notes for that reason.
+    if(s.projection.incomeGrowthRate == null) s.projection.incomeGrowthRate = s.projection.inflationRate != null ? s.projection.inflationRate : 3;
+    if(s.projection.realTerms == null) s.projection.realTerms = true;
+    // v3.125.0: how unevenly returns arrive, for the range of outcomes (calc/outcomes.js).
+    if(s.projection.investVolatility == null || s.projection.investVolatility === "") s.projection.investVolatility = 12;
+    if(s.projection.propertyVolatility == null || s.projection.propertyVolatility === "") s.projection.propertyVolatility = 6;
+  } },
+  { n: 14, name: "tax settings", run: function(s){
+    if(!s.tax) s.tax = { sgRate: 12, settings: {} };
+    if(!s.tax.settings) s.tax.settings = {};
+    if(s.tax.sgRate == null) s.tax.sgRate = 11.5;
+    // Default false for both: assuming someone holds private hospital cover would silently zero a
+    // real cost, and assuming family thresholds would halve a real one. An unset save gets the
+    // conservative reading, and the toggles are right there on the card.
+    if(typeof s.tax.privateHospitalCover !== "boolean") s.tax.privateHospitalCover = false;
+    // Private health rebate (v3.25.0): annual premiums before the rebate, and the tier the insurer
+    // applies (0-3, -1 = none taken up front). 0 premiums = not modelled.
+    if(s.tax.phiPremiums == null) s.tax.phiPremiums = 0;
+    if(s.tax.phiTierClaimed == null) s.tax.phiTierClaimed = 0;
+    if(typeof s.tax.familyThresholds !== "boolean") s.tax.familyThresholds = false;
+  } },
+  { n: 15, name: "exchange rate, benchmark, goals, notes, logs and price settings", run: function(s){
+    if(!s.fx) s.fx = { usdAud: null, usdAudUpdated: "" };
+    if(!s.benchmark || typeof s.benchmark !== "object") s.benchmark = { symbol: "IOZ", fixedRate: 7, prices: {} };
+    if(!s.benchmark.prices || typeof s.benchmark.prices !== "object") s.benchmark.prices = {};
+    if(s.benchmark.fixedRate == null || s.benchmark.fixedRate === "") s.benchmark.fixedRate = 7;
+    if(!s.benchmark.symbol) s.benchmark.symbol = "IOZ";
+    if(!Array.isArray(s.goals)) s.goals = [];
+    // Checks marked "Looks right" (v3.70.0): {checkId: signature}.
+    if(!s.checksDismissed || typeof s.checksDismissed !== "object" || Array.isArray(s.checksDismissed)) s.checksDismissed = {};
+    if(!Array.isArray(s.savingsGoals)) s.savingsGoals = [];
+    if(!Array.isArray(s.trips)) s.trips = [];
+    if(!Array.isArray(s.txViews)) s.txViews = [];
+    // v3.170.0: a backup or sync copy's receipt files are unpacked into IndexedDB before this; never kept in state.
+    delete s.receiptFiles;
+    // v3.171.0: who changed what (calc/activity.js).
+    if(!Array.isArray(s.activity)) s.activity = [];
+    s.trips = s.trips.filter(function(t){ return t && t.from; });
+    if(!s.priceSheet || typeof s.priceSheet !== "object") s.priceSheet = {};
+    ["url", "lastRead", "backfillFrom"].forEach(function(k){ if(typeof s.priceSheet[k] !== "string") s.priceSheet[k] = ""; });
+    if(s.priceSheet.lastResult === undefined) s.priceSheet.lastResult = null;
+    if(!s.targetMix || typeof s.targetMix !== "object" || Array.isArray(s.targetMix)) s.targetMix = {};
+    if(!s.subscriptionNotes || typeof s.subscriptionNotes !== "object" || Array.isArray(s.subscriptionNotes)) s.subscriptionNotes = {};
+    if(!s.scenarioNotes || typeof s.scenarioNotes !== "object" || Array.isArray(s.scenarioNotes)) s.scenarioNotes = {};
+    if(!s.autoPrices || typeof s.autoPrices !== "object") s.autoPrices = {};
+    ["on", "crypto", "fx"].forEach(function(k){ if(typeof s.autoPrices[k] !== "boolean") s.autoPrices[k] = true; });
+    if(typeof s.autoPrices.lastRead !== "string") s.autoPrices.lastRead = "";
+    if(s.autoPrices.lastResult === undefined) s.autoPrices.lastResult = null;
+    s.savingsGoals = s.savingsGoals.filter(function(g){ return g && typeof g === "object"; });
+    s.savingsGoals.forEach(function(g){ if(!g.id) g.id = genId("sg"); if(!Array.isArray(g.accounts)) g.accounts = []; g.target = Math.max(0, Number(g.target) || 0); });
+    if(!Array.isArray(s.incomeLog)) s.incomeLog = [];
+    if(!s.monthReviews || typeof s.monthReviews !== "object" || Array.isArray(s.monthReviews)) s.monthReviews = {};
+    if(!s.weekRecaps || typeof s.weekRecaps !== "object" || Array.isArray(s.weekRecaps)) s.weekRecaps = {};
+    if(s.projection && s.projection.source !== "actuals") s.projection.source = "plan";
+    if(s.fx.usdAud === undefined) s.fx.usdAud = null;
+    if(s.fx.usdAudUpdated == null) s.fx.usdAudUpdated = "";
+    if(s.lastBackupDate == null) s.lastBackupDate = "";
+    // The last automatic backup into a chosen folder (v3.63.0, lib/safekeeping.js).
+    if(s.lastFolderBackup == null) s.lastFolderBackup = "";
+  } },
+  { n: 16, name: "income rows: salary sacrifice and when each is paid", run: function(s){
+    (s.income || []).forEach(function(i){
+      if(i.sacrificeMode == null) i.sacrificeMode = "none";
+      if(i.sacrificeValue == null) i.sacrificeValue = 0;
+      // When this row is actually paid. Three fields rather than one polymorphic "payDay" because
+      // each frequency family needs different information (see calc/ledger.js's nextPayDate) — and
+      // because keeping them apart means switching a row from Monthly to Weekly and back doesn't
+      // throw away what was already set. null throughout = not told yet, which reads as "—" and
+      // produces no next-pay date rather than a guess.
+      if(i.payDay === undefined) i.payDay = null;          // 1–31 or "last"  (Monthly and less often)
+      if(i.payWeekday === undefined) i.payWeekday = null;  // 0=Sun … 6=Sat   (Weekly)
+      if(i.payAnchor === undefined) i.payAnchor = "";      // a real pay date (Fortnightly)
+      applyTimingDefaults(i);
     });
-  });
-
-  // The one-off half of the ownership migration above: copy the retired global split onto every
-  // investment property that doesn't carry one yet, so an existing save's tax figures don't move
-  // on the upgrade. Flagged rather than idempotent, so that later setting a property back to the
-  // even split isn't undone on the next load. The legacy key is dropped once it's been read —
-  // leaving it would give the app two sources of truth for the same number.
-  if(!s.ipOwnershipPerProperty && s.tax && s.tax.ipOwnership && Object.keys(s.tax.ipOwnership).length){
-    (s.properties || []).forEach(function(p){
-      if(p.kind !== "IP") return;
-      if(Object.keys(p.ownership || {}).length) return;
-      p.ownership = Object.assign({}, s.tax.ipOwnership);
-    });
-    s.ipOwnershipPerProperty = true;
-  }
-  if(s.tax) delete s.tax.ipOwnership;
-
-  // One-off: give every existing investment-property cost the "Investment property" category, so
-  // the Budget tab's Group-by-Category view and the spending charts have something meaningful to
-  // roll them up under from the first load rather than a wall of "Uncategorised". Flagged rather
-  // than idempotent on purpose — deliberately clearing or re-categorising one of these rows must
-  // stick, and an every-load seed would silently undo that on the next refresh.
-  if(!s.ipCategorySeeded){
-    var seededAny = false;
+  } },
+  { n: 17, name: "properties: loans, income, costs, depreciation, ownership, sections", run: function(s){
+    if(!Array.isArray(s.properties)) s.properties = [];
     s.properties.forEach(function(p){
-      if(p.kind !== "IP") return;
-      p.expenses.forEach(function(item){
-        if(!(item.category || "").trim()){ item.category = IP_CATEGORY; seededAny = true; }
+      if(!Array.isArray(p.loans)) p.loans = [];
+      if(!Array.isArray(p.income)) p.income = [];
+      if(!Array.isArray(p.expenses)) p.expenses = [];
+      p.income.forEach(applyTimingDefaults);
+      p.expenses.forEach(applyTimingDefaults);
+      // Same reason housing rows got ids above: an investment property's costs are budget lines on
+      // the Expenses page now, so a transaction has to be able to link to one and a review queue has
+      // to be able to hold onto it across a re-render. Per property, never shared between them —
+      // "Council Rates" on two different properties are two different bills.
+      p.expenses.forEach(function(item){ if(!item.id) item.id = genId("exp"); });
+      if(!Array.isArray(p.history)) p.history = [];
+      if(p.kind !== "IP" && p.kind !== "PPOR") p.kind = "IP";
+      if(p.value == null) p.value = 0;
+      // Land value and state, purely so land tax can be computed (calc/property.js). Both default to
+      // "unset" rather than a guess: land value is a specific figure off the council/valuer-general
+      // notice and is nothing like a fraction of market value you could infer, and a wrong state
+      // would silently apply the wrong scale. With either missing the property is simply left out of
+      // the land tax calculation, which is the honest answer — see landTaxableProperties().
+      if(p.landValue == null) p.landValue = 0;
+      if(p.state == null) p.state = "";
+      // What was actually paid, and when — distinct from p.value (kept current via the Value
+      // section's own Log button) and from p.history (a log of *current* value over time, which for
+      // a property added to the app well after buying it starts from whatever day it was first
+      // logged, not the purchase date). null/"" until set — capital gain and yield-on-cost both
+      // gate on purchasePrice > 0 rather than guessing $0, same convention as Vehicle assets'
+      // identical purchasePrice/purchaseDate fields (assets.js).
+      if(p.purchasePrice === undefined) p.purchasePrice = null;
+      if(p.purchaseDate == null) p.purchaseDate = "";
+      // Stamp duty, legal/conveyancing, buyer's agent, building/pest inspection — itemized as
+      // {id, what, amount} rows rather than auto-calculated from calcStampDuty() (that function's
+      // brackets are today's rates, meant for planning a *future* purchase; recomputing "what stamp
+      // duty would've been" for a property bought years ago against current brackets would misstate
+      // a fixed historical fact, not approximate it). Meaningless without a purchase price, so it
+      // only ever adds to the cost base alongside it — see propertyCapitalGain()/
+      // propertyYieldOnCost() in calc/property.js, which sum this array.
+      //
+      // Was a single lump-sum number before itemization — a positive legacy value becomes one row
+      // rather than being dropped, so nobody's already-entered total silently vanishes.
+      if(typeof p.acquisitionCosts === "number"){
+        p.acquisitionCosts = p.acquisitionCosts > 0 ? [{ id: genId("ac"), what: "Acquisition costs", amount: p.acquisitionCosts }] : [];
+      }
+      if(!Array.isArray(p.acquisitionCosts)) p.acquisitionCosts = [];
+      // Depreciation (v2.86.0). Two schedules, kept separate because they are two different things
+      // with different rules — see calc/property.js.
+      //
+      // constructionCost is the original BUILD cost, not the purchase price: land isn't depreciable,
+      // and conflating the two is the commonest way capital works gets overstated. Defaults to 0
+      // (claim nothing) rather than guessing a share of the purchase price, because a wrong
+      // depreciation figure is a wrong tax return.
+      if(p.constructionCost == null) p.constructionCost = 0;
+      if(p.constructionDate == null) p.constructionDate = "";
+      if(p.plantValue == null) p.plantValue = 0;
+      if(p.plantEffectiveLife == null) p.plantEffectiveLife = 10;
+      // Second-hand plant (v3.18.0) — see calc/property.js plantIsClaimable(). Defaults to false so an
+      // existing save's figures don't move; the field's own note says when it applies.
+      if(p.plantSecondHand == null) p.plantSecondHand = false;
+      // A quantity surveyor's year-by-year table (v3.19.0): [{fy, capitalWorks, plant}], fy = the
+      // calendar year the financial year starts in. Empty = use the formula. See calc/property.js.
+      if(!Array.isArray(p.depreciationSchedule)) p.depreciationSchedule = [];
+      p.acquisitionCosts.forEach(function(c){
+        if(c.id == null) c.id = genId("ac");
+        if(c.what == null) c.what = "";
+        if(c.amount == null) c.amount = 0;
+      });
+      if(!p.pmFee) p.pmFee = { percent: 6, flat: 5.5 };
+      if(p.pmFee.percent == null) p.pmFee.percent = 6;
+      if(p.pmFee.flat == null) p.pmFee.flat = 5.5;
+      // Purely informational — doesn't feed any calculation. Rent is typically entered/quoted
+      // weekly (the AU market convention), but a property manager usually batches it into one
+      // monthly disbursement — this just notes that expectation on the card, defaulting to the
+      // overwhelmingly common case rather than leaving it unset.
+      if(p.incomePaidFreq == null) p.incomePaidFreq = "Monthly";
+      // Which of the card's five sections (value/acquisition/loans/income/expenses) are collapsed —
+      // was a session-only in-memory map (propertySectionCollapsed) before this, which meant every
+      // reload started from the same all-open state no matter what the user last set. Defaulting
+      // everyone to acquisition/loans/income/expenses collapsed (value stays open) on first migration
+      // through this code is deliberate, not just a placeholder default: a property card stacking all
+      // five open is the single longest scroll in the app on mobile, and nobody has "customized" this
+      // away from all-open before now since persistence didn't exist yet to customize.
+      if(!p.sectionsCollapsed || typeof p.sectionsCollapsed !== "object"){
+        p.sectionsCollapsed = { acquisition: true, loans: true, income: true, expenses: true };
+      }
+      // Who owns this property, as person -> percent. Seeded from the old single global
+      // state.tax.ipOwnership, which applied one split to the whole portfolio: with two investment
+      // properties owned differently there was no way to say so, and nothing ever checked that the
+      // percentages summed to 100 — two people could each claim 100% and the app would deduct the
+      // same negative-gearing loss twice, silently. An absent/empty map still means "split evenly
+      // between everyone with a Gross income row", exactly as before; see propertyOwnershipPct().
+      if(!p.ownership || typeof p.ownership !== "object" || Array.isArray(p.ownership)) p.ownership = {};
+      // Same reasoning as the all-collapsed default above: a card that grew a section shouldn't grow
+      // by a section's height on everyone's next load. Keyed off `in` rather than truthiness so
+      // deliberately expanding it and reloading doesn't re-collapse it.
+      if(!("ownership" in p.sectionsCollapsed)) p.sectionsCollapsed.ownership = true;
+      if(!("sale" in p.sectionsCollapsed)) p.sectionsCollapsed.sale = true;
+      if(!("strategy" in p.sectionsCollapsed)) p.sectionsCollapsed.strategy = true;
+      p.loans.forEach(function(l){
+        if(l.id == null) l.id = genId("l");
+        if(l.repaymentMode !== "manual") l.repaymentMode = "auto";
+        if(l.manualRepaymentAmount == null) l.manualRepaymentAmount = 0;
+        if(l.manualRepaymentFreq == null) l.manualRepaymentFreq = "Monthly";
+        if(l.offsetBalance == null) l.offsetBalance = 0;
+        if(l.repaymentType !== "IO") l.repaymentType = "PI";
+        if(l.balance == null) l.balance = 0;
+        if(l.rate == null) l.rate = 0;
+        if(l.termYears == null) l.termYears = 30;
+        // Borrowing costs (v3.17.0) — see calc/property.js. settlementDate starts the five-year
+        // clock; borrowingTermYears is the loan's ORIGINAL term, only consulted when it's under five
+        // years (termYears above is what's left, which is a different number).
+        if(l.borrowingCosts == null) l.borrowingCosts = 0;
+        if(l.settlementDate == null) l.settlementDate = "";
+        if(l.borrowingTermYears == null) l.borrowingTermYears = 0;
+        // Paid out / refinanced on (v3.27.0): the undeducted borrowing costs are written off that year.
+        if(l.endedOn == null) l.endedOn = "";
       });
     });
-    if(seededAny && s.categories.indexOf(IP_CATEGORY) === -1) s.categories.push(IP_CATEGORY);
-    s.ipCategorySeeded = true;
-  }
-
-  var hasLegacyIp = (s.income || []).some(function(i){ return i.id === "rentIncome"; }) || !!(s.ip && s.ip.length > 0);
-  if(hasLegacyIp && !s.propertiesMigratedFromIp){
-    var rentIdx = (s.income || []).findIndex(function(i){ return i.id === "rentIncome"; });
-    var rentRow = rentIdx !== -1 ? s.income.splice(rentIdx, 1)[0] : null;
-    var pmFeeIdx = (s.ip || []).findIndex(function(i){ return i.id === "pmFee6"; });
-    var pmFeeRow = pmFeeIdx !== -1 ? s.ip.splice(pmFeeIdx, 1)[0] : null;
-    var remainingExpenses = (s.ip || []).slice();
-    s.properties.push({
-      id: genId("p"),
-      what: rentRow ? (rentRow.what || "Investment Property").replace(/\s*-\s*Rent$/i, "") : "Investment Property",
-      kind: "IP", value: 0, history: [], loans: [],
-      pmFee: {
-        percent: (s.pmFee && s.pmFee.percent != null) ? s.pmFee.percent : 6,
-        flat: (s.pmFee && s.pmFee.flat != null) ? s.pmFee.flat : 5.5
-      },
-      incomePaidFreq: "Monthly",
-      income: rentRow ? [{ what: rentRow.what || "Rent", account: rentRow.account || "", amount: rentRow.amount || 0, freq: rentRow.freq || "Monthly", classification: "" }] : [],
-      expenses: remainingExpenses.concat(pmFeeRow ? [pmFeeRow] : [])
-    });
-    s.ip = [];
-    s.propertiesMigratedFromIp = true;
-  }
-
-  var legacyPropertyAssets = (s.assets || []).filter(function(a){ return (a.category || "Other") === "Property"; });
-  if(legacyPropertyAssets.length && !s.assetPropertiesMigrated){
-    legacyPropertyAssets.forEach(function(a){
+  } },
+  { n: 18, name: "once: the old portfolio-wide ownership split onto each investment property", run: function(s){
+    // The one-off half of the ownership migration above: copy the retired global split onto every
+    // investment property that doesn't carry one yet, so an existing save's tax figures don't move
+    // on the upgrade. Flagged rather than idempotent, so that later setting a property back to the
+    // even split isn't undone on the next load. The legacy key is dropped once it's been read —
+    // leaving it would give the app two sources of truth for the same number.
+    if(!s.ipOwnershipPerProperty && s.tax && s.tax.ipOwnership && Object.keys(s.tax.ipOwnership).length){
+      (s.properties || []).forEach(function(p){
+        if(p.kind !== "IP") return;
+        if(Object.keys(p.ownership || {}).length) return;
+        p.ownership = Object.assign({}, s.tax.ipOwnership);
+      });
+      s.ipOwnershipPerProperty = true;
+    }
+    if(s.tax) delete s.tax.ipOwnership;
+  } },
+  { n: 19, name: "once: investment-property costs get the Investment property category", run: function(s){
+    // One-off: give every existing investment-property cost the "Investment property" category, so
+    // the Budget tab's Group-by-Category view and the spending charts have something meaningful to
+    // roll them up under from the first load rather than a wall of "Uncategorised". Flagged rather
+    // than idempotent on purpose — deliberately clearing or re-categorising one of these rows must
+    // stick, and an every-load seed would silently undo that on the next refresh.
+    if(!s.ipCategorySeeded){
+      var seededAny = false;
+      s.properties.forEach(function(p){
+        if(p.kind !== "IP") return;
+        p.expenses.forEach(function(item){
+          if(!(item.category || "").trim()){ item.category = IP_CATEGORY; seededAny = true; }
+        });
+      });
+      if(seededAny && s.categories.indexOf(IP_CATEGORY) === -1) s.categories.push(IP_CATEGORY);
+      s.ipCategorySeeded = true;
+    }
+  } },
+  { n: 20, name: "once: the old single investment property (state.ip) becomes a property", run: function(s){
+    var hasLegacyIp = (s.income || []).some(function(i){ return i.id === "rentIncome"; }) || !!(s.ip && s.ip.length > 0);
+    if(hasLegacyIp && !s.propertiesMigratedFromIp){
+      var rentIdx = (s.income || []).findIndex(function(i){ return i.id === "rentIncome"; });
+      var rentRow = rentIdx !== -1 ? s.income.splice(rentIdx, 1)[0] : null;
+      var pmFeeIdx = (s.ip || []).findIndex(function(i){ return i.id === "pmFee6"; });
+      var pmFeeRow = pmFeeIdx !== -1 ? s.ip.splice(pmFeeIdx, 1)[0] : null;
+      var remainingExpenses = (s.ip || []).slice();
       s.properties.push({
-        id: genId("p"), what: a.what || "Property", kind: "IP",
-        value: Number(a.amount) || 0, history: Array.isArray(a.history) ? a.history : [],
-        pmFee: { percent: 6, flat: 5.5 }, incomePaidFreq: "Monthly",
-        loans: [], income: [], expenses: []
+        id: genId("p"),
+        what: rentRow ? (rentRow.what || "Investment Property").replace(/\s*-\s*Rent$/i, "") : "Investment Property",
+        kind: "IP", value: 0, history: [], loans: [],
+        pmFee: {
+          percent: (s.pmFee && s.pmFee.percent != null) ? s.pmFee.percent : 6,
+          flat: (s.pmFee && s.pmFee.flat != null) ? s.pmFee.flat : 5.5
+        },
+        incomePaidFreq: "Monthly",
+        income: rentRow ? [{ what: rentRow.what || "Rent", account: rentRow.account || "", amount: rentRow.amount || 0, freq: rentRow.freq || "Monthly", classification: "" }] : [],
+        expenses: remainingExpenses.concat(pmFeeRow ? [pmFeeRow] : [])
       });
-    });
-    s.assets = (s.assets || []).filter(function(a){ return (a.category || "Other") !== "Property"; });
-    s.assetPropertiesMigrated = true;
-    showToast("Moved " + legacyPropertyAssets.length + " propert" + (legacyPropertyAssets.length === 1 ? "y" : "ies") + " to Net worth → Property — check the kind (IP/PPOR) for each");
-  }
+      s.ip = [];
+      s.propertiesMigratedFromIp = true;
+    }
+  } },
+  { n: 21, name: "once: property assets become properties", run: function(s){
+    var legacyPropertyAssets = (s.assets || []).filter(function(a){ return (a.category || "Other") === "Property"; });
+    if(legacyPropertyAssets.length && !s.assetPropertiesMigrated){
+      legacyPropertyAssets.forEach(function(a){
+        s.properties.push({
+          id: genId("p"), what: a.what || "Property", kind: "IP",
+          value: Number(a.amount) || 0, history: Array.isArray(a.history) ? a.history : [],
+          pmFee: { percent: 6, flat: 5.5 }, incomePaidFreq: "Monthly",
+          loans: [], income: [], expenses: []
+        });
+      });
+      s.assets = (s.assets || []).filter(function(a){ return (a.category || "Other") !== "Property"; });
+      s.assetPropertiesMigrated = true;
+      showToast("Moved " + legacyPropertyAssets.length + " propert" + (legacyPropertyAssets.length === 1 ? "y" : "ies") + " to Net worth → Property — check the kind (IP/PPOR) for each");
+    }
+  } },
+  { n: 22, name: "once: scenarios as sealed sandboxes (calc/scenariochanges.js)", run: function(s){
+    // v3.172.0 (item 207): scenarios as sealed sandboxes — per-scenario amounts move into the scenario,
+    // today's home rows into Budget (calc/scenariochanges.js). Once.
+    if(!s.scenarioChanges || typeof s.scenarioChanges !== "object" || Array.isArray(s.scenarioChanges)) s.scenarioChanges = {};
+    migrateScenarios(s, genId);
+  } }
+];
 
-  // v3.172.0 (item 207): scenarios as sealed sandboxes — per-scenario amounts move into the scenario,
-  // today's home rows into Budget (calc/scenariochanges.js). Once.
-  if(!s.scenarioChanges || typeof s.scenarioChanges !== "object" || Array.isArray(s.scenarioChanges)) s.scenarioChanges = {};
-  migrateScenarios(s, genId);
-
+export function migrateState(s){
+  MIGRATION_STEPS.forEach(function(step){ step.run(s); });
   return s;
 }
 

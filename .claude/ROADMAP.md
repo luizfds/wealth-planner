@@ -4337,12 +4337,19 @@ household a transfer still costs about half a full redraw — the notification c
 ## 235. `[~]` State changed through actions; accounts by id
 Split into three PRs (each its own review), in this order:
 
-### 235a. `[~]` Migrations as numbered, tested steps
+### 235a. `[x]` Migrations as numbered, tested steps
 Do: `migrateState`'s 450 lines as an ordered list of numbered steps (`MIGRATION_STEPS`, each `{ n, name, run }`), the
 same code in the same order — every step idempotent and run on every load, as now.
 Done when: every step has a test from the shape before it; running all of them twice equals once; the output is
 identical to the old `migrateState` on the sample household, an empty save and old-shape saves (checked outside the repo
 on a real backup too).
+
+**Done (v3.205.0).** `MIGRATION_STEPS` in `state.js`: `migrateState`'s blocks moved verbatim, in order, into 22 numbered,
+named steps, each run on every load as before; `migrateState` runs them. `tests/migrations.test.js`: a test per step from
+the shape before it (the file fails if a step has none), and every step run twice equals once. Checked outside the repo
+with the same id sequence: the old and new `migrateState` give identical output on an empty save, the sample
+household, an invented old-shape save (the single investment property, property assets, a portfolio-wide ownership
+split, a lump-sum acquisition cost) and a real backup.
 
 ### 235b. `[ ]` Accounts by id
 Do: rows link accounts by id, names kept for display (a migration step); renames become a one-line change.

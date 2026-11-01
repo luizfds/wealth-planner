@@ -4475,7 +4475,7 @@ open states (row editors, quick log, search, menus, the bell, money received, th
 property being edited, an ⓘ open) and 50 views printed — all identical; with the `@import` lines reversed, identical
 again. The base text-field floor's `!important` and the quick log's id trick became layer order.
 
-## 239. `[ ]` Documentation that stays short
+## 239. `[~]` Documentation that stays short
 Do: CLAUDE.md cut to an architecture overview and the rules that still need a person to remember them; the rest as
 short decision records in `docs/decisions/` (no build step, scenarios as sandboxes, accounts by id, layers); gotchas the
 guardrails above now catch, removed.

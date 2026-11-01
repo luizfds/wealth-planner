@@ -67,6 +67,10 @@ are resolved "newest wins" (`applyPageChange` bails if `currentPage` moved on).
   result — rent from statements and money received, costs from statements and payments against its lines (and lines
   claimed against it), interest, depreciation and borrowing costs worked out to today — beside the plan for the
   same share of the year.
+- **The rental schedule from what's logged** (`rentalLogged`, calc/propertyactuals.js): Tax → Returns' rental schedule
+  shows under each return line what's logged for the year (statements, rent received, payments against the property's
+  cost lines by their return line, claimed lines at their deductible share); "Use logged figures" makes them the
+  year's actuals (undoable). Interest, borrowing costs and depreciation stay worked out.
 - **Investment returns** (`calc/investreturn.js`): money-weighted per holding, the same money in an index (the price
   file's weekly A200 / IVV), a target mix (`state.targetMix`), distributions ahead.
 - **On a phone**: rows and `.review-panel` dialogs are bottom sheets dragged closed by their head; Spending's rows swipe

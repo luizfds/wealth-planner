@@ -4522,6 +4522,21 @@ borrowing costs pro rata for the same days; the plan × the share of the year go
 the whole year; nothing logged says how to start. Tested on an invented property (statements and their payments
 counted once, last year's left out); driven at 390 and 1280px, the columns aligned.
 
+## 242. `[x]` The rental schedule from what's logged
+Do: Tax → Returns' rental schedule shows, beside each return line, what's logged for the year — rent and agent fees
+from statements and rent received, council rates, insurance, repairs and the rest from payments against the property's
+cost lines (by the return line each maps to), interest, depreciation and borrowing costs worked out — and "Use logged
+figures" fills them in as the year's actuals. Lines with nothing logged keep the plan and say so.
+Done when: the logged figures reconcile with the year-so-far section and with what's logged; a typed figure still wins;
+driven.
+
+Done (v3.210.0): `rentalLogged` (calc/propertyactuals.js) — statements' rent → Rental income, water recovered → Other
+rental-related income, fees → Agent fees; payments against the property's lines → their return line (`rentLineFor`);
+bills a statement paid without a line → by their words; claimed household lines at their deductible share (now also
+in the year-so-far section, which had counted them in full). Each schedule line shows "Logged $x (so far)"; "Use
+logged figures" sets those lines' actuals in one undoable step; lines with nothing logged keep the plan. Tested
+against the year-so-far totals; driven at 390 and 1280px (fill, the figures, Undo).
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

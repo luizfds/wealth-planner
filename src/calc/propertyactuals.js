@@ -1,5 +1,6 @@
 import { financialYearOf, fyWindow, loanInterestForWindow, loanInvestShare, borrowingCostsDeduction, propertyDepreciationForFy, propertyTaxResultBreakdown } from "./property.js";
 import { propertyClaimLines } from "./claims.js";
+import { rentLineFor, rentLineForExpense } from "./taxyear.js";
 import { overlapDaysInclusive } from "./ledger.js";
 
 // ---------------- A property's financial year so far, actual (v3.209.0, item 241) ----------------
@@ -9,7 +10,8 @@ import { overlapDaysInclusive } from "./ledger.js";
 //   rent         — each property manager statement's rent and water recovered, plus rent received directly
 //                  (money received on the property that no statement wrote);
 //   costs        — the statements' agency fees, plus every payment logged against the property's cost lines,
-//                  the bills its statements paid, and household budget lines claimed against it;
+//                  the bills its statements paid, and household budget lines claimed against it (at their
+//                  deductible share);
 //   interest, depreciation, borrowing costs — never logged, so worked out for the same days, as the tax
 //                  worksheet does: interest from the loans' rates, depreciation and borrowing costs pro rata.
 // Beside it, the plan for the same days (the year's plan × the share of the year gone), so a gap reads as a gap
@@ -17,6 +19,8 @@ import { overlapDaysInclusive } from "./ledger.js";
 
 function r2(n){ return Math.round((Number(n) || 0) * 100) / 100; }
 function within(d, a, b){ return !!d && d >= a && d <= b; }
+// The share of a claimed household line that's deductible (deductiblePct, 100 when unset).
+function deductibleShare(i){ return i.deductiblePct == null ? 1 : Math.max(0, Math.min(100, Number(i.deductiblePct) || 0)) / 100; }
 
 // `fy`: the financial year (2026 = FY26/27). `today`: "YYYY-MM-DD". `st`: the app state. `items`: the household's
 // claimable lines (claimItems()), when known. Null when the year hasn't started.
@@ -33,12 +37,13 @@ export function propertyYearActual(p, fy, today, st, items){
   var rent = stmts.reduce(function(s, r){ return s + (Number(r.rent) || 0) + (Number(r.water) || 0); }, 0) +
     direct.reduce(function(s, r){ return s + (Number(r.amount) || 0); }, 0);
   // Costs: the agency's fees, and payments against the property's own lines or lines claimed against it.
+  // A property's own line counts in full; a household line claimed against it, at its deductible share.
   var lines = {};
-  (p.expenses || []).forEach(function(e){ if(e && e.id) lines[e.id] = true; });
-  propertyClaimLines(p.id, items).forEach(function(i){ if(i.id) lines[i.id] = true; });
-  var paid = (st.transactions || []).filter(function(t){ return within(t.date, win.start, end) && ((t.linkedExpenseId && lines[t.linkedExpenseId]) || stmtTx[t.id]); });
+  propertyClaimLines(p.id, items).forEach(function(i){ if(i.id) lines[i.id] = deductibleShare(i); });
+  (p.expenses || []).forEach(function(e){ if(e && e.id) lines[e.id] = 1; });
+  var paid = (st.transactions || []).filter(function(t){ return within(t.date, win.start, end) && ((t.linkedExpenseId && lines[t.linkedExpenseId] != null) || stmtTx[t.id]); });
   var fees = stmts.reduce(function(s, r){ return s + (Number(r.fees) || 0); }, 0);
-  var costs = fees + paid.reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0);
+  var costs = fees + paid.reduce(function(s, t){ var share = t.linkedExpenseId && lines[t.linkedExpenseId] != null ? lines[t.linkedExpenseId] : 1; return s + (Number(t.amount) || 0) * share; }, 0);
   // Worked out for the same days.
   var interest = (p.loans || []).reduce(function(s, l){
     if(l.endedOn && l.endedOn < win.start) return s;
@@ -70,4 +75,43 @@ export function propertyYearActual(p, fy, today, st, items){
 // The financial year the Tax tab means: the one holding today, or the household's chosen period's if that's over.
 export function actualFyFor(periodEnd, today){
   return financialYearOf(periodEnd && periodEnd < today ? periodEnd : today);
+}
+
+// ---------------- The rental schedule from what's logged (v3.210.0, item 242) ----------------
+//
+// The same logged money as propertyYearActual, by the return line each piece goes on (calc/taxyear.js RENT_LINES):
+// statements' rent → Rental income, the tenant's water recovered → Other rental-related income, the agency's fees →
+// Agent fees; a payment against one of the property's cost lines → that line's return line (rentLineFor: its own
+// choice, else its name — council rates, insurance, repairs…); a bill a statement paid without a line → by its
+// words; a household line claimed against the property → its return line, at its deductible share. Interest,
+// borrowing costs and depreciation aren't logged; the schedule works those out already. `has` names the lines with
+// anything logged, so a line with nothing keeps the plan rather than becoming zero.
+export function rentalLogged(p, fy, today, st, items){
+  var win = fyWindow(fy);
+  var out = { lines: {}, has: {}, count: 0, end: today < win.end ? today : win.end, wholeYear: today >= win.end };
+  if(today < win.start) return out;
+  var end = out.end;
+  var add = function(key, amount){ if(!amount) return; out.lines[key] = Math.round(((out.lines[key] || 0) + amount) * 100) / 100; out.has[key] = true; };
+  var stmtIncome = {}, stmtTx = {};
+  (p.agentStatements || []).forEach(function(r){
+    if(r.incomeId) stmtIncome[r.incomeId] = true;
+    (r.txIds || []).forEach(function(id){ stmtTx[id] = true; });
+    if(!within(r.date, win.start, end)) return;
+    out.count++;
+    add("rent", Number(r.rent) || 0); add("otherIncome", Number(r.water) || 0); add("agentFees", Number(r.fees) || 0);
+  });
+  (st.incomeLog || []).forEach(function(r){
+    if(r.target === "rent:" + p.id && !stmtIncome[r.id] && within(r.date, win.start, end)){ out.count++; add("rent", Number(r.amount) || 0); }
+  });
+  var own = {}, claimed = {};
+  (p.expenses || []).forEach(function(e){ if(e && e.id) own[e.id] = e; });
+  propertyClaimLines(p.id, items).forEach(function(i){ if(i.id) claimed[i.id] = i; });
+  (st.transactions || []).forEach(function(t){
+    if(!within(t.date, win.start, end)) return;
+    var amt = Number(t.amount) || 0, line = t.linkedExpenseId && (own[t.linkedExpenseId] || claimed[t.linkedExpenseId]);
+    if(line){
+      out.count++; add(rentLineFor(line), amt * (own[t.linkedExpenseId] ? 1 : deductibleShare(line)));
+    } else if(stmtTx[t.id]){ out.count++; add(rentLineForExpense(t.what), amt); }
+  });
+  return out;
 }

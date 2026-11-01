@@ -1,7 +1,7 @@
 import "./_env.js";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { propertyYearActual, actualFyFor } from "../src/calc/propertyactuals.js";
+import { propertyYearActual, actualFyFor, rentalLogged } from "../src/calc/propertyactuals.js";
 
 // v3.209.0 (item 241): a property's financial year so far, as it went. Invented property and amounts.
 function setup(){
@@ -63,4 +63,28 @@ test("a finished year is the whole year; a year not started yet is nothing; noth
 test("which financial year: today's, or the chosen period's once it's over", function(){
   assert.equal(actualFyFor("2027-06-30", "2026-11-01"), 2026);
   assert.equal(actualFyFor("2026-06-30", "2026-11-01"), 2025);
+});
+
+// v3.210.0 (item 242): the same money, by the return line it goes on.
+test("the rental schedule from what's logged: each return line, nothing invented for lines with nothing logged", function(){
+  const { p, st } = setup();
+  // A household line claimed against the property at half, and a payment on it.
+  const items = [{ id: "ph", what: "Phone", deductible: true, claimProperty: "ip1", deductiblePct: 50, rentLine: "stationery" }];
+  st.transactions.push({ id: "t5", date: "2026-09-02", amount: 80, linkedExpenseId: "ph" });
+  const r = rentalLogged(p, 2026, "2026-09-30", st, items);
+  assert.equal(r.lines.rent, 2000 + 2000 + 600, "statements' rent and rent received directly");
+  assert.equal(r.lines.otherIncome, 50, "water recovered from the tenant");
+  assert.equal(r.lines.agentFees, 300);
+  assert.equal(r.lines.insurance, 1200);
+  assert.equal(r.lines.water, 190, "the water rates the agent paid, on the water line");
+  assert.equal(r.lines.stationery, 40, "a claimed line at its deductible share");
+  assert.equal(r.has.councilRates, undefined, "nothing logged: no figure, so the schedule keeps the plan");
+  assert.equal(r.has.interest, undefined, "interest is worked out, never logged");
+  assert.equal(r.wholeYear, false);
+  // It agrees with the year-so-far section.
+  const a = propertyYearActual(p, 2026, "2026-09-30", st, items);
+  const income = r.lines.rent + r.lines.otherIncome;
+  const costs = Object.keys(r.lines).filter(k => k !== "rent" && k !== "otherIncome").reduce((s, k) => s + r.lines[k], 0);
+  assert.equal(income, a.rows.find(x => x.key === "rent").actual);
+  assert.equal(-costs, a.rows.find(x => x.key === "expenses").actual, "both count a claimed line at its deductible share");
 });

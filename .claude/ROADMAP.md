@@ -4272,6 +4272,75 @@ days it falls due and each answer. Driven at 1280 and 390px: set up on the loan'
 on the day, a different amount recorded and kept for good, the calendar ticked.
 
 
+### Phase M — engineering practice (November 2026)
+
+Guardrails that catch whole kinds of bug before anyone opens a page, and a structure that stays fast as the app grows.
+One pull request per item, in this order: the cheap checks first, then the tests that make the big refactors safe, then
+the refactors. Nothing here changes what anyone sees, except speed. The app stays a static site with no runtime
+dependencies and no build step: anything installed is a dev-only check, run in CI.
+
+## 232. `[~]` Lint and type-check, with no build step
+Do: ESLint (no-undef, no-unused-vars, import checks), `tsc --checkJs --noEmit` over `src/` with JSDoc types where
+inference needs them, stylelint over `src/styles/` (no `!important`, no broad element selectors in components) — all
+dev-only, run by `npm run check` and in CI's checks workflow. Fix what they find.
+
+Done when: `npm run check` passes and CI runs it on every PR; a deliberately undefined name or wrong import fails it.
+
+## 233. `[ ]` Releases on merge, and the browser locked down
+Do: a workflow that, on a merge to main, bumps the version from the PR (minor for features, patch for fixes — a label or
+the commit titles), runs `npm run stamp`, commits and tags — so no hand-written bump commits and no unpushed tags. A
+Content-Security-Policy `<meta>` (self, the price file, Dropbox, the font host); a lint rule that every `innerHTML` built
+from data goes through `escapeAttr`/`escapeHtml`; an app error log kept locally and shown in Settings.
+
+Done when: a merged PR produces a tagged, stamped release with no manual step; the CSP blocks an injected inline script
+in a test page; the error log records a thrown error.
+
+## 234. `[ ]` Journeys and a speed budget in CI
+Do: Playwright journey tests on invented data — log a bill and confirm it, save a transfer with balances (and Undo),
+answer an automatic payment, edit and save a scenario, Make it real, import a CSV and a PDF — run in CI beside the smoke
+script; coverage reporting for `npm test`; a speed budget: a full render and each journey's slowest step on a large
+invented household, failing past a set time at 4× CPU slowdown.
+
+Done when: the journeys pass in CI; reverting v3.200.2's transfer fix fails the speed budget.
+
+## 235. `[ ]` State changed through actions; accounts by id
+Do: every change to `state` goes through an action function that records what it touched (transactions, transfers,
+accounts, a scenario…); rows link accounts by id, names kept for display (a migration, and renames become a one-line
+change); `migrateState` split into one numbered, tested step per schema version.
+
+Done when: no component assigns into `state` directly (a lint rule); renaming an account touches one record; each
+migration step has a test from the shape before it.
+
+## 236. `[ ]` Views that follow the data, drawn when seen
+Do: each view declares what it reads; an action redraws only the views that read what it touched, on the page that's
+open; other pages are marked stale and drawn when opened. `renderAll()` goes, and so do hand-written redraw lists like
+`refreshAfterTransfer`.
+
+Done when: startup draws one page; the speed budget's full-render and edit numbers drop on a phone; the smoke script and
+journeys pass unchanged.
+
+## 237. `[ ]` `app.js` down to a bootstrap
+Do: each page's event wiring in its own module (as the scenario editor's is, 230); the dispatch-by-section-name helpers
+(`rerenderTableFor`, `getArrayForSection`, …) become a registry each page adds itself to.
+
+Done when: `app.js` is under 500 lines; no visible change (smoke, screens, journeys).
+
+## 238. `[ ]` CSS in explicit layers
+Do: `@layer base, layout, components, pages, phone;` — every stylesheet in its layer, so which rule wins is declared,
+not the result of `@import` order and specificity (the bills-to-confirm bug, v3.200.1). The phone floors in their own
+layer; overrides that needed doubled selectors or `:where()` tricks simplified.
+
+Done when: reordering the `@import` lines changes nothing (screens diff empty); the "import order is load-bearing"
+warning leaves CLAUDE.md.
+
+## 239. `[ ]` Documentation that stays short
+Do: CLAUDE.md cut to an architecture overview and the rules that still need a person to remember them; the rest as
+short decision records in `docs/decisions/` (no build step, scenarios as sandboxes, accounts by id, layers); gotchas the
+guardrails above now catch, removed.
+
+Done when: CLAUDE.md is under 150 lines and every decision it used to explain has a record.
+
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

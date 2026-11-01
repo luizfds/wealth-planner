@@ -4508,6 +4508,20 @@ in the form, filled and in view, at 390 and 1280px; two properties ask, and the 
 has no + entry. A `rentstatement` journey does it with an invented statement; a bank statement with Money In / Money
 Out columns and rent is tested not to be taken for one.
 
+## 241. `[x]` A property's financial year so far, actual
+Do: under the plan's rental result on an investment property's Tax tab, the financial year so far as it actually went
+— rent from statements and money received, costs from statements and payments logged against its lines, interest,
+depreciation and borrowing costs worked out to today — beside the plan for the same days.
+Done when: the figures reconcile with what's logged (statements, rent received, transactions); a past year shows the
+whole year; nothing logged says how to start; driven.
+
+Done (v3.209.0): `calc/propertyactuals.js` `propertyYearActual` — statements' rent, water recovered and fees, rent
+received with no statement behind it, payments against the property's lines (and the bills its statements paid, and
+household lines claimed against it) from 1 July to today; interest from the loans' rates and depreciation and
+borrowing costs pro rata for the same days; the plan × the share of the year gone beside it. A finished year shows
+the whole year; nothing logged says how to start. Tested on an invented property (statements and their payments
+counted once, last year's left out); driven at 390 and 1280px, the columns aligned.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

@@ -9,7 +9,7 @@ import {
 } from "../calc/property.js";
 import { getTaxPeople, computePersonTax } from "../calc/tax.js";
 import { saleScenario } from "../calc/sale.js";
-import { propertyClaimLines, rowDeductionAnnual } from "../calc/claims.js";
+import { propertyClaimLines, rowDeductionAnnual, claimItems } from "../calc/claims.js";
 import { loanStrategy } from "../calc/loanstrategy.js";
 import { LAND_TAX_STATES, LAND_TAX_YEAR } from "../constants.js";
 import { sumField, householdYearWindow } from "../calc/ledger.js";
@@ -25,6 +25,7 @@ import { appendHistorySnapshot } from "../calc/ledger.js";
 import { renderLineChart, dateAxisFormat, sparklineHtml, sparklinePlaceholderHtml } from "../lib/charts.js";
 import { renderPropertyExpensesSummary } from "./expenses.js";
 import { renderProjectionOutputs } from "./projections.js";
+import { propertyYearActual, actualFyFor } from "../calc/propertyactuals.js";
 
 // Real-world payment cadences (loan repayments, and how a property manager actually disburses
 // rent) are only ever weekly, fortnightly, or monthly — unlike income/expense rows elsewhere in
@@ -683,6 +684,31 @@ export function propertyTaxTabHtml(p){
     (owners ? '<div class="property-section-title" style="margin-top:10px">Each owner\'s share</div>' + owners : '') +
     '<p class="ledger-note" style="margin:6px 0 0">From the plan for the year; Tax → Returns has the year as lodged. The tax effect is at each person\'s marginal rate plus Medicare.</p></div>';
 }
+// v3.209.0 (item 241): the financial year so far as it actually went (calc/propertyactuals.js), beside the plan for
+// the same days — under the plan's rental result.
+export function propertyActualHtml(p, today){
+  today = today || localDateStr();
+  var fy = actualFyFor(householdYearWindow().end, today);
+  var a = propertyYearActual(p, fy, today, state, claimItems());
+  if(!a) return "";
+  var money = function(n){ return (n < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(n)); };
+  var rows = a.rows.filter(function(r){ return Math.abs(r.actual) >= 0.5 || Math.abs(r.plan) >= 0.5; }).map(function(r){
+    return '<div class="ptx-row ptx-act"><span>' + r.label + (r.logged ? '' : ' <small>worked out</small>') + '</span><b>' + money(r.actual) + '</b><b class="ptx-plan">' + money(r.plan) + '</b></div>';
+  }).join("");
+  var note = a.nothingLogged
+    ? "Nothing logged for this property yet this year. Log its property manager statements (Overview → Log a statement), rent as it arrives, and payments against its cost lines, and this fills in."
+    : "Rent and costs from what's logged: " + [
+        a.statements ? a.statements + " statement" + (a.statements === 1 ? "" : "s") : "",
+        a.received ? a.received + " rent payment" + (a.received === 1 ? "" : "s") + " received" : "",
+        a.payments ? a.payments + " cost" + (a.payments === 1 ? "" : "s") + " paid" : ""
+      ].filter(Boolean).join(", ") + ". Interest, depreciation and borrowing costs are worked out for the same days." +
+      (a.wholeYear ? "" : " Plan to date is the year's plan for the " + Math.round(a.share * 100) + "% of the year gone.");
+  return '<div class="ptx ptx-actual"><div class="property-section-title">' + escapeAttr(fyLabel(fy)) + (a.wholeYear ? ' as it went' : ' so far — to ' + escapeAttr(fmtDate(a.end))) + '</div>' +
+    '<div class="ptx-row ptx-act ptx-act-head"><span></span><b>Actual</b><b class="ptx-plan">' + (a.wholeYear ? 'Plan' : 'Plan to date') + '</b></div>' +
+    rows +
+    '<div class="ptx-row ptx-act ptx-total"><span>' + (a.net < 0 ? "Net rental loss" : "Net rental income") + '</span><b>' + money(a.net) + '</b><b class="ptx-plan">' + money(a.planNet) + '</b></div>' +
+    '<p class="ledger-note" style="margin:6px 0 0">' + note + '</p></div>';
+}
 function propertyCardHtml(p, colorIdx){
   var equity = propertyEquityToday(p);
   var hasPmFee = p.kind === "IP";
@@ -823,7 +849,7 @@ function propertyCardHtml(p, colorIdx){
       '<div class="m-card"><div class="m-rows" id="propExpRows_' + escapeAttr(p.id) + '">' + modernPropListHtml(p.expenses, "propexp:" + p.id, true) + '</div></div>' +
       '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="propexp:' + escapeAttr(p.id) + '">+ Add expense</button>' +
       (p.kind === "IP" ? claimedHereHtml(p) : ""))) +
-    (p.kind === "IP" ? panel("tax", propertyTaxTabHtml(p) + (p.kind === "IP" ? depreciationSectionHtml(p) : "")) : "") +
+    (p.kind === "IP" ? panel("tax", propertyTaxTabHtml(p) + propertyActualHtml(p) + (p.kind === "IP" ? depreciationSectionHtml(p) : "")) : "") +
     (p.kind === "IP" ? panel("sale", (p.kind === "IP" ? propertySectionHtml(p, "sale",
       '<div class="property-section-title">If you sold</div>',
       '<div class="sale-body" data-sale-property="' + escapeAttr(p.id) + '">' + saleWhatIfHtml(p, saleWhatIfData(p)) + '</div>') : "")) : "") +

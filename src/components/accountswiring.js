@@ -37,7 +37,8 @@ function saveAccountBalance(idx){
   renderAll();
   commit(["accounts", "assets", "debts", "properties"]);
   showToast("Updated " + (a.name || "the account") + " to " + fmtCurrency0.format(Number(inp.value)));
-}// v3.129.0: Plan → Goals — the emergency fund and savings goals (from Accounts), Can we buy? and
+}
+// v3.129.0: Plan → Goals — the emergency fund and savings goals (from Accounts), Can we buy? and
 // where financial independence stands.
 function renderGoalsTab(){ renderSavingsGoals(); renderCanBuy(); var f = document.getElementById("goalsFireBody"); if(f) f.innerHTML = goalsFireHtml(); }
 // ---------------- Accounts → Savings goals (v3.65.0) ----------------
@@ -54,10 +55,12 @@ export function wireAccounts(){  // ---------------- Accounts: named money sourc
     var nameIn = document.querySelector("#accountsTable .acct-card.is-open:last-of-type .acct-mgmt-name") || document.querySelectorAll("#accountsTable .acct-mgmt-name");
     if(nameIn && nameIn.length !== undefined) nameIn = nameIn[nameIn.length - 1];
     if(nameIn) nameIn.focus();
-  });  document.getElementById("accountsTable").addEventListener("keydown", function(e){
+  });
+  document.getElementById("accountsTable").addEventListener("keydown", function(e){
     if(e.key === "Enter" && e.target.classList.contains("acct-bal-input")){ e.preventDefault(); saveAccountBalance(Number(e.target.getAttribute("data-acct-index"))); }
     if(e.key === "Escape" && e.target.classList.contains("acct-bal-input")){ var id = (state.accounts[Number(e.target.getAttribute("data-acct-index"))] || {}).id; delete balanceEditing[id]; renderAccounts(); }
-  });  document.addEventListener("click", function(e){
+  });
+  document.addEventListener("click", function(e){
     var delAcctBtn = e.target.closest("[data-acct-del]");
     if(delAcctBtn){ deleteAccount(Number(delAcctBtn.getAttribute("data-acct-del"))); updateAccountSuggestions(); return; }
     var tog = e.target.closest("[data-acct-toggle]");
@@ -85,7 +88,8 @@ export function wireAccounts(){  // ---------------- Accounts: named money sourc
       showToast("Added " + (src ? src.label : "the account") + " to Accounts");
       return;
     }
-  });  document.addEventListener("input", function(e){
+  });
+  document.addEventListener("input", function(e){
     if(!e.target.closest("#accountsTable")) return;
     var idx = Number(e.target.getAttribute("data-acct-index"));
     var a = state.accounts[idx];
@@ -185,7 +189,9 @@ export function wireGoals(){  // ---------------- Accounts → Emergency fund (v
         state.savingsGoals = state.savingsGoals.filter(function(x){ return x.id !== ng.id; }); persist(); renderSavingsGoals(); renderHomeSummary();
       });
     }
-  });  goalsBody = document.getElementById("savingsGoalsBody");  goalsBody.addEventListener("click", function(e){
+  });
+  goalsBody = document.getElementById("savingsGoalsBody");
+  goalsBody.addEventListener("click", function(e){
     if(e.target.closest("[data-goal-add]")){
       var g = addSavingsGoal({ name: "New goal", target: 0, accounts: state.accounts.filter(function(a){ return a.type === "savings"; }).map(function(a){ return a.name; }) });
       goalOpen[g.id] = true;
@@ -203,7 +209,8 @@ export function wireGoals(){  // ---------------- Accounts → Emergency fund (v
       persist(); renderSavingsGoals(); renderHomeSummary();
       if(gone) showUndoToast("Goal deleted", function(){ state.savingsGoals.splice(i, 0, gone); persist(); renderSavingsGoals(); renderHomeSummary(); });
     }
-  });  goalsBody.addEventListener("change", function(e){
+  });
+  goalsBody.addEventListener("change", function(e){
     var t = e.target, i = t.getAttribute("data-goal-index");
     if(i == null) return;
     var g = state.savingsGoals[Number(i)];

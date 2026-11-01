@@ -4436,7 +4436,7 @@ moved mechanically: a script read app.js's scopes (eslint-scope), moved each con
 click-and-type sweep of every view against main (the same), and every `addEventListener` recorded at startup on main
 and the branch — the same 360 listeners in the same order with the same handlers.
 
-### 237b. `[ ]` Sections as a registry
+### 237b. `[~]` Sections as a registry
 Do: the dispatch-by-section-name helpers (`rerenderTableFor`, `getArrayForSection`, … in `components/rows.js`) become a
 registry each page adds itself to; the overlay stack and the `app` context shrink as modules import what they need.
 Done when: rows.js names no page's sections; `app.<name>` used only for what app.js must hold; no visible change.

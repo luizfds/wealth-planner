@@ -36,7 +36,8 @@ var txTable, cfSearchTimer, txGridWide, txGridTimer, firstRunRoot, txReviewRoot,
 
 // ---------------- Cash flow → Spending: filters, money in, transfers, splits, bulk edit (v3.59.0) ----------------
 // v3.206.0 (item 236b): the commit redraws what reads them (lib/views.js) — on screen now, the rest when opened.
-function afterTransactionsChange(){ commit(["transactions", "transfers", "incomeLog"]); }function saveTxView(){
+function afterTransactionsChange(){ commit(["transactions", "transfers", "incomeLog"]); }
+function saveTxView(){
   var el = document.querySelector("#transactionsTable [data-cf-view-name]");
   var name = el ? el.value.trim() : "";
   if(!name){ if(el) el.focus(); showToast("Give the view a name"); return; }
@@ -44,9 +45,11 @@ function afterTransactionsChange(){ commit(["transactions", "transfers", "income
   txViewForm.open = false;
   commit(["txViews"]); renderTransactions();
   if(v) showToast('Saved "' + v.name + '" — it\'s a chip above the list');
-}function pickedIndices(){
+}
+function pickedIndices(){
   return Object.keys(txSelect.picked).filter(function(k){ return txSelect.picked[k]; }).map(Number).filter(function(i){ return state.transactions[i]; });
-}function onCashflowListClick(e){
+}
+function onCashflowListClick(e){
   var b = e.target.closest("button");
   if(!b || b.disabled) return;
   if(b.hasAttribute("data-cf-dir")){ txFilters.direction = b.getAttribute("data-cf-dir"); setTransactionsShowAll(false); renderTransactions(); return; }
@@ -128,7 +131,8 @@ function afterTransactionsChange(){ commit(["transactions", "transfers", "income
     if(made){ afterTransactionsChange(); showToast("Split into " + made.length + " transactions"); }
     return;
   }
-}// The collapsed row's title/subline (built once, at render time, from t.what and
+}
+// The collapsed row's title/subline (built once, at render time, from t.what and
 // transactionSummaryText()) is also what's visible in an *open* row's sticky header — but
 // editing tx-what/tx-link/tx-account only ever mutated state.transactions directly, with
 // nothing re-deriving that header text afterward. The edit was always saved correctly; the
@@ -140,7 +144,8 @@ function patchTransactionRowHeader(row, t){
   if(nameEl) nameEl.textContent = transactionDisplayName(t, budgetLineItems());
   var subEl = row.querySelector(".m-row-sub");
   if(subEl) subEl.innerHTML = transactionSummaryText(t);
-}// A transfer saved, and with `moveBalances` both accounts' balances moved by it (where each has
+}
+// A transfer saved, and with `moveBalances` both accounts' balances moved by it (where each has
 // one) — the transfer form and Checks' "Save repayment" (v3.146.0). Undo puts both back (v3.144.0).
 // What a transfer touches (v3.206.0, item 236b: its commit redraws what reads them): the transfers, and —
 // when it moved both balances — "balances": the money in the accounts and the records that hold it (a Cash
@@ -175,19 +180,28 @@ function saveTransfer(t, moveBalances, message){
 function renderTrips(){
   var el = document.getElementById("tripsBody");
   if(el) el.innerHTML = tripsCardHtml();
-}function renderFirstRun(){ firstRunRoot.innerHTML = firstRun.open ? firstRunHtml() : ""; }function renderTxReviewBanner(){ var b = document.getElementById("txReviewBanner"); if(b) b.innerHTML = reviewBannerHtml(); }function renderTxReview(){
+}
+function renderFirstRun(){ firstRunRoot.innerHTML = firstRun.open ? firstRunHtml() : ""; }
+function renderTxReviewBanner(){ var b = document.getElementById("txReviewBanner"); if(b) b.innerHTML = reviewBannerHtml(); }
+function renderTxReview(){
   txReviewRoot.innerHTML = txReview.open ? txReviewHtml() : "";
   var card = txReviewRoot.querySelector("[data-txr-card]");
   if(card) onHorizontalSwipe(card, { onSwipeRight: function(){ txrKeep(); }, onSwipeLeft: function(){ txrChange(); } });
   var f = txReviewRoot.querySelector("[data-txr-keep], [data-txr-save], [data-txr-rule='always'], [data-txr-close]");
   if(f) f.focus({ preventScroll: true });
-}function openTxReview(){
+}
+function openTxReview(){
   txReview.open = true; txReview.mode = "card"; txReview.choice = null; txReview.kept = 0;
   renderTxReview(); app.pushActiveOverlay(closeTxReviewUi);
-}function closeTxReviewUi(){
+}
+function closeTxReviewUi(){
   txReview.open = false; renderTxReview();
   renderTransactions(); renderActualVsPlannedPanel(); renderTxReviewBanner(); renderHomeSummary();
-}function txrCurrent(){ return toReview(state.transactions)[0]; }function txrKeep(){ var t = txrCurrent(); if(!t || txReview.mode !== "card") return; keepTransaction(t); txReview.kept++; persist(); renderTxReview(); }function txrChange(){ if(!txrCurrent() || txReview.mode !== "card") return; txReview.mode = "change"; renderTxReview(); }function afterReceiptChange(){ persist(); renderTransactions(); rerenderTableFor("shared"); renderTaxYear(); }
+}
+function txrCurrent(){ return toReview(state.transactions)[0]; }
+function txrKeep(){ var t = txrCurrent(); if(!t || txReview.mode !== "card") return; keepTransaction(t); txReview.kept++; persist(); renderTxReview(); }
+function txrChange(){ if(!txrCurrent() || txReview.mode !== "card") return; txReview.mode = "change"; renderTxReview(); }
+function afterReceiptChange(){ persist(); renderTransactions(); rerenderTableFor("shared"); renderTaxYear(); }
 
 export function wireSpending(){
   // ---------------- Transactions: real dated spend, separate from the planned budget ----------------
@@ -202,7 +216,8 @@ export function wireSpending(){
     if(!hintEl) return;
     var text = transferHint(q("from"), q("to"), state.accounts, state.transfers);
     hintEl.textContent = text; hintEl.hidden = !text;
-  });  document.getElementById("transactionsTable").addEventListener("click", function(e){
+  });
+  document.getElementById("transactionsTable").addEventListener("click", function(e){
     var rangeBtn = e.target.closest("[data-tx-range]");
     if(rangeBtn){ setTransactionsRange(rangeBtn.getAttribute("data-tx-range")); return; }
     onCashflowListClick(e);
@@ -242,7 +257,8 @@ export function wireSpending(){
       closeActiveModernRow();
       if(merged){ afterTransactionsChange(); showToast("Merged back into one transaction — link it to a line"); }
     }
-  });  txTable = document.getElementById("transactionsTable");  // v3.167.0 (item 197): on a phone, swipe a transaction left for Edit, Split and Delete (with the
+  });
+  txTable = document.getElementById("transactionsTable");  // v3.167.0 (item 197): on a phone, swipe a transaction left for Edit, Split and Delete (with the
   // usual undo); swipe it back, or tap anywhere else, to put them away. The tray's buttons carry the
   // same data-tx-* attributes as the editor's, so the document's handlers do the work.
   (function(){
@@ -295,15 +311,19 @@ export function wireSpending(){
       if(edit){ var row = shown; putAway(); var s = row.querySelector(":scope > .m-row-summary"); if(s) s.click(); return; }
       if(!e.target.closest(".row-swipe-tray")) putAway();
     }, true);
-  })();  txTable.addEventListener("keydown", function(e){
+  })();
+  txTable.addEventListener("keydown", function(e){
     if(e.key === "Enter" && e.target.hasAttribute && e.target.hasAttribute("data-cf-view-name")){ e.preventDefault(); saveTxView(); }
     if(e.key === "Escape" && e.target.hasAttribute && e.target.hasAttribute("data-cf-view-name")){ txViewForm.open = false; renderTransactions(); }
-  });  txTable.addEventListener("change", function(e){
+  });
+  txTable.addEventListener("change", function(e){
     var t = e.target;
     if(t.hasAttribute("data-cf-filter") && t.getAttribute("data-cf-filter") !== "text"){ txFilters[t.getAttribute("data-cf-filter")] = t.value; setTransactionsShowAll(false); renderTransactions(); return; }
     if(t.hasAttribute("data-cf-pick")){ txSelect.picked[t.getAttribute("data-cf-pick")] = t.checked; renderTransactions(); return; }
     if(t.hasAttribute("data-cf-split-line")){ splitEditing.parts[Number(t.getAttribute("data-cf-split-line"))].linkedExpenseId = t.value || null; return; }
-  });  cfSearchTimer = null;  txTable.addEventListener("input", function(e){
+  });
+  cfSearchTimer = null;
+  txTable.addEventListener("input", function(e){
     var t = e.target;
     if(t.getAttribute("data-cf-filter") === "text"){
       txFilters.text = t.value;
@@ -325,11 +345,14 @@ export function wireSpending(){
       if(leftEl){ leftEl.textContent = Math.abs(left) < 0.01 ? "All placed" : fmtCurrency2.format(Math.abs(left)) + (left > 0 ? " left to place" : " too much"); leftEl.classList.toggle("warn", Math.abs(left) >= 0.01); }
       if(saveEl) saveEl.disabled = Math.abs(left) >= 0.01;
     }
-  });  document.getElementById("addTransactionBtn").addEventListener("click", function(){
+  });
+  document.getElementById("addTransactionBtn").addEventListener("click", function(){
     addTransaction();
     var newTx = state.transactions[state.transactions.length - 1];
     openNewRowModal("transactionsTable", "tx", state.transactions.length - 1, modernTransactionRowOpen, newTx);
-  });  wireModernRowToggle("transactionsTable", modernTransactionRowOpen);  document.addEventListener("click", function(e){
+  });
+  wireModernRowToggle("transactionsTable", modernTransactionRowOpen);
+  document.addEventListener("click", function(e){
     var delTxBtn = e.target.closest("[data-tx-del]");
     if(delTxBtn){ deleteTransaction(Number(delTxBtn.getAttribute("data-tx-del"))); return; }
     var txShowAllBtn = e.target.closest("[data-tx-show-all-toggle]");
@@ -387,13 +410,15 @@ export function wireSpending(){
     var key = toggleRow.getAttribute("data-budget-row-toggle");
     budgetRowTxnsOpen[key] = !budgetRowTxnsOpen[key];
     renderActualVsPlannedPanel();
-  });  document.getElementById("actualVsPlannedPanel").addEventListener("keydown", function(e){
+  });
+  document.getElementById("actualVsPlannedPanel").addEventListener("keydown", function(e){
     if(e.key !== "Enter" && e.key !== " ") return;
     var toggleRow = e.target.closest("[data-budget-row-toggle]");
     if(!toggleRow) return;
     e.preventDefault();
     toggleRow.click();
-  });  document.addEventListener("input", function(e){
+  });
+  document.addEventListener("input", function(e){
     if(!e.target.closest("#transactionsTable")) return;
     var idx = Number(e.target.getAttribute("data-tx-index"));
     var t = state.transactions[idx];
@@ -481,10 +506,12 @@ export function wireSpending(){
     renderTransactions();
   });  // Narrowed past a phone's width (or widened back), the table and the list swap.
   txGridWide = window.innerWidth > 720;
-  txGridTimer = null;  window.addEventListener("resize", function(){
+  txGridTimer = null;
+  window.addEventListener("resize", function(){
     clearTimeout(txGridTimer);
     txGridTimer = setTimeout(function(){ var w = window.innerWidth > 720; if(w !== txGridWide){ txGridWide = w; renderTransactions(); } }, 200);
-  });  document.addEventListener("keydown", function(e){
+  });
+  document.addEventListener("keydown", function(e){
     if(e.key !== "Enter" || !e.target.closest || !e.target.closest(".tx-grid")) return;
     var newRow = e.target.closest(".txg-new");
     if(newRow){
@@ -544,7 +571,8 @@ export function wireTrips(){  document.getElementById("tripsBody").addEventListe
       if(!trip2) return;
       withUndo("Removed the trip \u201c" + trip2.name + "\u201d — transactions moved to its line stay there", function(){ state.trips = state.trips.filter(function(x){ return x.id !== id; }); renderTrips(); });
     }
-  });  renderTrips();
+  });
+  renderTrips();
 }
 
 export function wireReviewQueue(){
@@ -553,7 +581,8 @@ export function wireReviewQueue(){
   // components/firstrun.js until Finish, so closing half-way writes nothing.
   firstRunRoot = document.getElementById("firstRunRoot");
   // ---------------- The review queue for new transactions (v3.163.0, item 193) ----------------
-  txReviewRoot = document.getElementById("txReviewRoot");  txReviewRoot.addEventListener("click", function(e){
+  txReviewRoot = document.getElementById("txReviewRoot");
+  txReviewRoot.addEventListener("click", function(e){
     if(e.target.closest("[data-txr-close]") || e.target === e.target.closest("[data-txr-backdrop]")){ app.requestCloseActiveOverlay(); return; }
     if(e.target.closest("[data-txr-keep]")){ txrKeep(); return; }
     if(e.target.closest("[data-txr-change]")){ txrChange(); return; }
@@ -578,11 +607,14 @@ export function wireReviewQueue(){
       }
       txReview.mode = "card"; txReview.choice = null; persist(); renderTxReview();
     }
-  });  document.addEventListener("keydown", function(e){
+  });
+  document.addEventListener("keydown", function(e){
     if(!txReview.open || txReview.mode !== "card" || /input|select|textarea/i.test((e.target && e.target.tagName) || "")) return;
     if(e.key === "ArrowRight" || e.key === "k"){ e.preventDefault(); txrKeep(); }
     else if(e.key === "ArrowLeft" || e.key === "c"){ e.preventDefault(); txrChange(); }
-  });  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && txReview.open) app.requestCloseActiveOverlay(); });  document.addEventListener("click", function(e){ if(e.target.closest("[data-txr-open]")) openTxReview(); });
+  });
+  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && txReview.open) app.requestCloseActiveOverlay(); });
+  document.addEventListener("click", function(e){ if(e.target.closest("[data-txr-open]")) openTxReview(); });
 }
 
 export function wireReceipts(){
@@ -590,7 +622,9 @@ export function wireReceipts(){
   // Attach: a hidden file input, told whose receipt it's for. The file goes to IndexedDB (shrunk if
   // it's a photo) and the row gets its reference. Remove takes the reference (with undo); the file
   // goes at the next start once nothing refers to it.
-  receiptInput = document.getElementById("receiptFile");  receiptFor = null;  document.addEventListener("click", function(e){
+  receiptInput = document.getElementById("receiptFile");
+  receiptFor = null;
+  document.addEventListener("click", function(e){
     if(!e.target.closest) return;
     var add = e.target.closest("[data-rc-add]");
     if(add){ receiptFor = add.getAttribute("data-rc-add"); receiptInput.value = ""; receiptInput.click(); return; }
@@ -604,7 +638,8 @@ export function wireReceipts(){
       afterReceiptChange();
       showUndoToast('Removed "' + gone.name + '"', function(){ var h = receiptHolder(owner, true); if(h){ attachReceipt(h, gone); afterReceiptChange(); } });
     }
-  });  receiptInput.addEventListener("change", function(){
+  });
+  receiptInput.addEventListener("change", function(){
     var file = receiptInput.files && receiptInput.files[0], owner = receiptFor;
     receiptFor = null;
     if(!file || !owner) return;
@@ -617,7 +652,8 @@ export function wireReceipts(){
       afterReceiptChange();
       showToast("Receipt attached — " + ref.name);
     }, function(err){ showToast((err && err.reason) || "Couldn't keep that file on this device"); });
-  });  setTimeout(function(){ pruneReceipts(state).catch(function(){}); }, 4000);
+  });
+  setTimeout(function(){ pruneReceipts(state).catch(function(){}); }, 4000);
 }
 
 export { firstRunRoot, openTxReview, renderFirstRun, renderTrips, renderTxReviewBanner, saveTransfer };

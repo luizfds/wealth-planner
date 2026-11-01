@@ -55,7 +55,8 @@ function performReviewConfirm(){
 function openQuickLogSheet(){
   openQuickLog();
   if(document.querySelector("[data-qlog-backdrop]")) app.pushActiveOverlay(closeQuickLog);
-}// Chip changes and expanding the date row re-render the sheet, which would otherwise discard
+}
+// Chip changes and expanding the date row re-render the sheet, which would otherwise discard
 // whatever's already been typed into the amount/note. Read them out first, put them back after.
 function rerenderQuickLogPreservingInput(apply){
   var amountEl = document.getElementById("quickLogAmount");
@@ -67,7 +68,8 @@ function rerenderQuickLogPreservingInput(apply){
   var newNote = document.getElementById("quickLogNote");
   if(newAmount) newAmount.value = amount;
   if(newNote) newNote.value = note;
-}function performQuickLog(){
+}
+function performQuickLog(){
   var amountEl = document.getElementById("quickLogAmount");
   var noteEl = document.getElementById("quickLogNote");
   var dateEl = document.getElementById("quickLogDate");
@@ -105,15 +107,18 @@ function renderReceivedSheet(){
   if(root) root.innerHTML = receivedSheetHtml();
   var amt = document.getElementById("rcvAmount");
   if(amt) amt.focus();
-}function closeReceivedSheetDom(){
+}
+function closeReceivedSheetDom(){
   closeReceivedSheet();
   var root = document.getElementById("receivedRoot");
   if(root) root.innerHTML = "";
-}function openReceivedSheetFor(target, date){
+}
+function openReceivedSheetFor(target, date){
   openReceivedSheet(target, date);
   renderReceivedSheet();
   app.pushActiveOverlay(closeReceivedSheetDom);
-}// A logged distribution is a holding's payout too, which moves its return and the year's tax.
+}
+// A logged distribution is a holding's payout too, which moves its return and the year's tax.
 function afterReceivedChange(){
   renderReceived();
   renderTransactions();
@@ -122,7 +127,8 @@ function afterReceivedChange(){
   renderAssets();
   renderTaxSuper();
   persist();
-}function submitReceived(){
+}
+function submitReceived(){
   if(!receivedSheet) return;
   var amountEl = document.getElementById("rcvAmount");
   var amount = parseAmountInput(amountEl.value || amountEl.placeholder);
@@ -134,10 +140,12 @@ function afterReceivedChange(){
   showUndoToast("Logged " + fmtCurrency2.format(amount) + " received", function(){ deleteIncomeReceived(rec.id); afterReceivedChange(); });
 }
 // ---------------- Every subscription in one list (v3.179.0, item 205) ----------------
-function subNote(key){ if(!state.subscriptionNotes) state.subscriptionNotes = {}; return (state.subscriptionNotes[key] = state.subscriptionNotes[key] || {}); }function tidySubNote(key){ var n = state.subscriptionNotes[key]; if(n && !n.cancelBy && !n.ignored) delete state.subscriptionNotes[key]; }
+function subNote(key){ if(!state.subscriptionNotes) state.subscriptionNotes = {}; return (state.subscriptionNotes[key] = state.subscriptionNotes[key] || {}); }
+function tidySubNote(key){ var n = state.subscriptionNotes[key]; if(n && !n.cancelBy && !n.ignored) delete state.subscriptionNotes[key]; }
 // ---------------- Automatic payments (v3.196.0, item 231) ----------------
 // Set up on an account's card; answered on Home. calc/autopay.js does the recording.
-function afterAutoPay(){ commit(["autoPayments", "transfers"]); }function answerAndUndo(id, date, answer, said){
+function afterAutoPay(){ commit(["autoPayments", "transfers"]); }
+function answerAndUndo(id, date, answer, said){
   var r = answerAutoPay(state, id, date, answer, genId);
   if(!r) return;
   autoPayView.other = "";
@@ -166,7 +174,8 @@ export function wireOverrides(){  document.getElementById("scenarioOverrideRoot"
       renderScenarioOverridePanel();
       return;
     }
-  });  document.getElementById("scenarioOverrideRoot").addEventListener("change", function(e){
+  });
+  document.getElementById("scenarioOverrideRoot").addEventListener("change", function(e){
     var input = e.target.closest(".scen-override-input");
     if(!input) return;
     var target = overrideBackdropTarget(e);
@@ -181,24 +190,28 @@ export function wireOverrides(){  document.getElementById("scenarioOverrideRoot"
     // checkbox preventDefault gotcha elsewhere in this codebase, just triggered by innerHTML
     // replacement instead of a checked-state revert.
     setTimeout(renderScenarioOverridePanel, 0);
-  });  document.addEventListener("keydown", function(e){
+  });
+  document.addEventListener("keydown", function(e){
     if(e.key !== "Escape") return;
     if(document.querySelector("[data-override-backdrop]")) closeScenarioOverridePanel();
   });
 }
 
-export function wireCashflowSheets(){  reviewBtn = document.getElementById("reviewExpensesBtn");  if(reviewBtn) reviewBtn.addEventListener("click", function(){
+export function wireCashflowSheets(){  reviewBtn = document.getElementById("reviewExpensesBtn");
+  if(reviewBtn) reviewBtn.addEventListener("click", function(){
     openExpenseReview();
     // openExpenseReview() can no-op (nothing due for review, or no expenses at all — see its own
     // early-return toasts), so check the panel actually rendered before claiming a history entry.
     if(document.querySelector("[data-review-backdrop]")) app.pushActiveOverlay(closeExpenseReview);
-  });  document.getElementById("expenseReviewRoot").addEventListener("click", function(e){
+  });
+  document.getElementById("expenseReviewRoot").addEventListener("click", function(e){
     if(e.target.closest("[data-review-close]") || e.target === e.target.closest("[data-review-backdrop]")){
       app.requestCloseActiveOverlay();
       return;
     }
     if(e.target.closest("[data-review-confirm]")){ performReviewConfirm(); return; }
-  });  document.addEventListener("keydown", function(e){
+  });
+  document.addEventListener("keydown", function(e){
     if(e.key !== "Escape") return;
     if(document.querySelector("[data-review-backdrop]")) app.requestCloseActiveOverlay();
   });  // The Confirm button counts the ticked bills as they're ticked.
@@ -206,7 +219,10 @@ export function wireCashflowSheets(){  reviewBtn = document.getElementById("revi
     if(!e.target.classList.contains("bc-confirm-check")) return;
     var btn = document.querySelector("[data-review-confirm]");
     if(btn) btn.textContent = "Confirm " + document.querySelectorAll("#expenseReviewRoot .bc-confirm-check:checked").length;
-  });  quickLogBtn = document.getElementById("quickLogBtn");  if(quickLogBtn) quickLogBtn.addEventListener("click", openQuickLogSheet);  document.getElementById("quickLogRoot").addEventListener("click", function(e){
+  });
+  quickLogBtn = document.getElementById("quickLogBtn");
+  if(quickLogBtn) quickLogBtn.addEventListener("click", openQuickLogSheet);
+  document.getElementById("quickLogRoot").addEventListener("click", function(e){
     if(e.target.closest("[data-qlog-close]") || e.target === e.target.closest("[data-qlog-backdrop]")){
       app.requestCloseActiveOverlay();
       return;
@@ -312,10 +328,13 @@ export function wireCashflowSheets(){  reviewBtn = document.getElementById("revi
       return;
     }
     performQuickLog();
-  });  document.addEventListener("keydown", function(e){
+  });
+  document.addEventListener("keydown", function(e){
     if(e.key !== "Escape") return;
     if(document.querySelector("[data-qlog-backdrop]")) app.requestCloseActiveOverlay();
-  });  document.getElementById("logReceivedBtn").addEventListener("click", function(){ openReceivedSheetFor(); });  document.getElementById("receivedBody").addEventListener("click", function(e){
+  });
+  document.getElementById("logReceivedBtn").addEventListener("click", function(){ openReceivedSheetFor(); });
+  document.getElementById("receivedBody").addEventListener("click", function(e){
     var del = e.target.closest("[data-rcv-del]");
     if(del){
       var restore = deleteIncomeReceived(del.getAttribute("data-rcv-del"));
@@ -335,7 +354,8 @@ export function wireCashflowSheets(){  reviewBtn = document.getElementById("revi
     if(log){ openReceivedSheetFor(log.getAttribute("data-rcv-log")); return; }
     var tog = e.target.closest("[data-rcv-toggle]");
     if(tog){ toggleReceivedRow(tog.getAttribute("data-rcv-toggle")); renderReceived(); }
-  });  document.getElementById("receivedRoot").addEventListener("click", function(e){
+  });
+  document.getElementById("receivedRoot").addEventListener("click", function(e){
     if(e.target.closest("[data-rcv-close]") || e.target === e.target.closest("[data-rcv-backdrop]")){ app.requestCloseActiveOverlay(); return; }
     var chip = e.target.closest("[data-rcv-chip]");
     if(chip){
@@ -349,9 +369,11 @@ export function wireCashflowSheets(){  reviewBtn = document.getElementById("revi
       return;
     }
     if(e.target.closest("[data-rcv-submit]")) submitReceived();
-  });  document.getElementById("receivedRoot").addEventListener("keydown", function(e){
+  });
+  document.getElementById("receivedRoot").addEventListener("keydown", function(e){
     if(e.key === "Enter" && (e.target.id === "rcvAmount" || e.target.id === "rcvNote")){ e.preventDefault(); submitReceived(); }
-  });  document.addEventListener("keydown", function(e){
+  });
+  document.addEventListener("keydown", function(e){
     if(e.key === "Escape" && document.querySelector("[data-rcv-backdrop]")) app.requestCloseActiveOverlay();
   });
 }
@@ -393,13 +415,15 @@ export function wireForecast(){
     var v = e.target.value.trim();
     if(v === "" || isNaN(Number(v))) delete a.buffer; else a.buffer = Math.max(0, Number(v));
     persist(); renderDetailPage(); renderHomeSummary();
-  });  document.addEventListener("change", function(e){
+  });
+  document.addEventListener("change", function(e){
     var k = e.target.getAttribute && e.target.getAttribute("data-sub-cancel");
     if(k == null) return;
     if(e.target.value) subNote(k).cancelBy = e.target.value; else { subNote(k); delete state.subscriptionNotes[k].cancelBy; tidySubNote(k); }
     persist(); renderNotifBadge();
     showToast(e.target.value ? "A reminder comes a week before " + fmtDate(e.target.value) : "Cancel-by date cleared");
-  });  document.addEventListener("click", function(e){
+  });
+  document.addEventListener("click", function(e){
     if(!e.target.closest) return;
     var ig = e.target.closest("[data-sub-ignore]");
     if(ig){
@@ -448,11 +472,13 @@ export function wireAutoPay(){  document.addEventListener("click", function(e){
     if(!(amt > 0)){ showToast("Type the amount that went out"); return; }
     var keep = !!(row.querySelector(".ap-other-keep") || {}).checked;
     answerAndUndo(id, date, { paid: true, amount: amt, keep: keep }, "Recorded " + fmtCurrency2.format(amt) + (keep ? " — and the amount from now on" : ""));
-  });  document.addEventListener("keydown", function(e){
+  });
+  document.addEventListener("keydown", function(e){
     if(e.key === "Enter" && e.target.classList && e.target.classList.contains("ap-other-amount")){
       var save = e.target.closest(".ap-due-row").querySelector("[data-ap-other-save]"); if(save) save.click();
     }
-  });  document.addEventListener("change", function(e){
+  });
+  document.addEventListener("change", function(e){
     var field = e.target.getAttribute && e.target.getAttribute("data-ap-field");
     if(!field) return;
     var ap = (state.autoPayments || []).find(function(x){ return x.id === e.target.getAttribute("data-ap-id"); });

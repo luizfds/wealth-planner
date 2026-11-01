@@ -56,11 +56,13 @@ export function wireProperties(){
     panel.innerHTML = fixedExpiryHtml(prop);
     var again = panel.querySelector('[data-fixed-whatif="' + wi + '"]');
     if(again){ again.focus(); try{ again.setSelectionRange(pos, pos); }catch(err){} }
-  });  document.getElementById("propertiesBody").addEventListener("change", function(e){
+  });
+  document.getElementById("propertiesBody").addEventListener("change", function(e){
     if(!e.target.hasAttribute("data-rent-next")) return;
     var c = e.target.closest("[data-property-id]"), prop = c && findProperty(c.getAttribute("data-property-id"));
     if(prop){ prop.nextRentReview = e.target.value || ""; persist(); renderAll(); }
-  });  document.getElementById("propertiesBody").addEventListener("click", function(e){
+  });
+  document.getElementById("propertiesBody").addEventListener("click", function(e){
     var c = e.target.closest("[data-property-id]"), prop = c && findProperty(c.getAttribute("data-property-id"));
     if(!prop) return;
     var rentPanel = function(){ var el = c.querySelector("[data-rent-panel]"); if(el) el.innerHTML = rentPanelHtml(prop); };
@@ -137,13 +139,16 @@ export function wireProperties(){
         ? "Filled — but it adds to " + fmtCurrency2.format(net) + ", the statement says " + fmtCurrency2.format(r.received) + ". Check it before logging."
         : "Filled from the statement" + (r.others.length ? " (other: " + r.others.map(function(o){ return o.what; }).join(", ") + ")" : "") + " — check it, then Log statement");
     }).catch(function(){ showToast("Couldn't read that PDF"); });
-  });  document.getElementById("propertiesBody").addEventListener("input", function(e){
+  });
+  document.getElementById("propertiesBody").addEventListener("input", function(e){
     if(!e.target.matches || !e.target.matches("[data-as]")) return;
     var asPanel = e.target.closest("[data-as-panel]"), out = asPanel && asPanel.querySelector("[data-as-net]");
     if(out) out.textContent = fmtCurrency2.format(statementTotals(agentStatementFormValues(asPanel)).net);
-  });  document.getElementById("propertiesBody").addEventListener("toggle", function(e){
+  });
+  document.getElementById("propertiesBody").addEventListener("toggle", function(e){
     if(e.target.matches && e.target.matches("[data-as-panel]")) agentStatementUi.open[e.target.getAttribute("data-as-panel")] = e.target.open;
-  }, true);  document.getElementById("propertiesBody").addEventListener("input", function(e){
+  }, true);
+  document.getElementById("propertiesBody").addEventListener("input", function(e){
     var card = e.target.closest("[data-property-id]");
     if(!card) return;
     var property = findProperty(card.getAttribute("data-property-id"));
@@ -360,7 +365,8 @@ export function wireProperties(){
     var card = tab.closest(".property-card");
     card.querySelectorAll("[data-prop-tab]").forEach(function(b){ var on = b === tab; b.classList.toggle("active", on); b.setAttribute("aria-selected", on ? "true" : "false"); });
     card.querySelectorAll("[data-prop-panel]").forEach(function(pn){ pn.hidden = pn.getAttribute("data-prop-panel") !== key; });
-  });  document.getElementById("propertiesBody").addEventListener("click", function(e){
+  });
+  document.getElementById("propertiesBody").addEventListener("click", function(e){
     var sectionToggleBtn = e.target.closest("[data-prop-section-toggle]");
     if(sectionToggleBtn){
       var toggleCard = sectionToggleBtn.closest("[data-property-id]");

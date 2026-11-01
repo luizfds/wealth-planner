@@ -38,7 +38,8 @@ function pairSlider(numberId, sliderId){
   numberInput.addEventListener("input", function(){
     slider.value = numberInput.value || 0;
   });
-}// v3.126.0: life events under the projection's assumptions.
+}
+// v3.126.0: life events under the projection's assumptions.
 function renderLifeEvents(){ var el = document.getElementById("lifeEventsBody"); if(el) el.innerHTML = lifeEventsHtml(); }
 // Both halves of the basis control in one place: the segmented button's pressed state, and the
 // sentence next to it that says what the choice actually means. Called on load and on every
@@ -73,21 +74,25 @@ export function wireProjections(){
     state.projection.horizonYears = Math.max(1, Math.min(50, parseInt(e.target.value, 10) || 1));
     renderProjectionOutputs();
     persist();
-  });  document.getElementById("projInvestRate").addEventListener("input", function(e){
+  });
+  document.getElementById("projInvestRate").addEventListener("input", function(e){
     state.projection.investReturnRate = parseFloat(e.target.value) || 0;
     renderProjectionOutputs();
     persist();
-  });  document.getElementById("projPropertyRate").addEventListener("input", function(e){
+  });
+  document.getElementById("projPropertyRate").addEventListener("input", function(e){
     state.projection.propertyAppreciationRate = parseFloat(e.target.value) || 0;
     renderProjectionOutputs();
     persist();
-  });  document.getElementById("projInflationRate").addEventListener("input", function(e){
+  });
+  document.getElementById("projInflationRate").addEventListener("input", function(e){
     state.projection.inflationRate = parseFloat(e.target.value) || 0;
     // The basis note quotes this rate ("deflated by 3% a year"), so it goes stale otherwise.
     syncProjBasisControl();
     renderProjectionOutputs();
     persist();
-  });  document.getElementById("projIncomeGrowth").addEventListener("input", function(e){
+  });
+  document.getElementById("projIncomeGrowth").addEventListener("input", function(e){
     state.projection.incomeGrowthRate = parseFloat(e.target.value) || 0;
     renderProjectionOutputs();
     persist();
@@ -100,24 +105,34 @@ export function wireProjections(){
     syncProjBasisControl();
     renderProjectionOutputs();
     persist();
-  });  document.getElementById("projSourceRow").addEventListener("click", function(e){
+  });
+  document.getElementById("projSourceRow").addEventListener("click", function(e){
     var btn = e.target.closest("[data-proj-source]");
     if(!btn || btn.disabled) return;
     state.projection.source = btn.getAttribute("data-proj-source") === "actuals" ? "actuals" : "plan";
     renderProjectionOutputs();
     renderDetail();
     persist();
-  });  document.getElementById("projRateShock").addEventListener("input", function(e){
+  });
+  document.getElementById("projRateShock").addEventListener("input", function(e){
     state.projection.rateShockPct = Math.max(0, parseFloat(e.target.value) || 0);
     renderProjectionOutputs();
     persist();
-  });  pairSlider("projInvestRate", "projInvestRateRange");  pairSlider("projPropertyRate", "projPropertyRateRange");  pairSlider("projInflationRate", "projInflationRateRange");  pairSlider("projIncomeGrowth", "projIncomeGrowthRange");  pairSlider("projRateShock", "projRateShockRange");  leBody = document.getElementById("lifeEventsBody");  leBody.addEventListener("click", function(e){
+  });
+  pairSlider("projInvestRate", "projInvestRateRange");
+  pairSlider("projPropertyRate", "projPropertyRateRange");
+  pairSlider("projInflationRate", "projInflationRateRange");
+  pairSlider("projIncomeGrowth", "projIncomeGrowthRange");
+  pairSlider("projRateShock", "projRateShockRange");
+  leBody = document.getElementById("lifeEventsBody");
+  leBody.addEventListener("click", function(e){
     var add = e.target.closest("[data-le-add]");
     if(add){ var ev = addLifeEvent(add.getAttribute("data-le-add")); persist(); renderLifeEvents(); renderProjectionOutputs();
       var f = leBody.querySelector('[data-le-id="' + ev.id + '"] [data-le-field="what"]'); if(f){ f.focus(); f.select(); } return; }
     var rm = e.target.closest("[data-le-remove]");
     if(rm){ removeLifeEvent(rm.getAttribute("data-le-remove")); persist(); renderLifeEvents(); renderProjectionOutputs(); }
-  });  leBody.addEventListener("change", function(e){
+  });
+  leBody.addEventListener("change", function(e){
     var k = e.target.getAttribute("data-le-field"), row = e.target.closest("[data-le-id]");
     if(!k || !row) return;
     if(setLifeEventField(row.getAttribute("data-le-id"), k, e.target.value)){
@@ -126,7 +141,9 @@ export function wireProjections(){
       // (on the blur) in the middle of its own redraw.
       if(k === "year") setTimeout(renderLifeEvents, 0);
     }
-  });  pairSlider("projInvestVol", "projInvestVolRange");  pairSlider("projPropertyVol", "projPropertyVolRange");  // v3.125.0: the spread of returns behind the shaded range.
+  });
+  pairSlider("projInvestVol", "projInvestVolRange");
+  pairSlider("projPropertyVol", "projPropertyVolRange");  // v3.125.0: the spread of returns behind the shaded range.
   ["projInvestVol", "projPropertyVol"].forEach(function(id){
     document.getElementById(id).addEventListener("input", function(e){
       state.projection[id === "projInvestVol" ? "investVolatility" : "propertyVolatility"] = Math.max(0, parseFloat(e.target.value) || 0);
@@ -145,7 +162,8 @@ export function wireProjectionCsv(){  // v3.34.0: the projection, every year, as
 export function wireWhatIfs(){
   // ---------------- What-ifs you can drag (v3.177.0, item 204) ----------------
   whatIfStrip = document.getElementById("whatIfStrip");
-  wiFrame = 0;  whatIfStrip.addEventListener("input", function(e){
+  wiFrame = 0;
+  whatIfStrip.addEventListener("input", function(e){
     var k = e.target.getAttribute && e.target.getAttribute("data-wi");
     if(!k) return;
     var w = whatIfValues();
@@ -157,7 +175,8 @@ export function wireWhatIfs(){
     if(wiFrame) return;
     wiFrame = requestAnimationFrame(function(){ wiFrame = 0; renderWhatIfDrag(); });
   });  // Let go: the table, milestones and the rest catch up.
-  whatIfStrip.addEventListener("change", function(e){ if(e.target.getAttribute && e.target.getAttribute("data-wi")) renderProjectionOutputs(); });  whatIfStrip.addEventListener("click", function(e){
+  whatIfStrip.addEventListener("change", function(e){ if(e.target.getAttribute && e.target.getAttribute("data-wi")) renderProjectionOutputs(); });
+  whatIfStrip.addEventListener("click", function(e){
     if(e.target.closest("[data-wi-reset]")){ resetWhatIf(); whatIfStrip.innerHTML = ""; renderProjectionOutputs(); return; }
     if(!e.target.closest("[data-wi-keep]")) return;
     var w = whatIfValues();
@@ -171,12 +190,15 @@ export function wireWhatIfs(){
   });
 }
 
-export function wireRetirement(){  retireBody = document.getElementById("retirementBody");  RT_FMT = { retireAge: function(v){ return v; } };  retireBody.addEventListener("input", function(e){
+export function wireRetirement(){  retireBody = document.getElementById("retirementBody");
+  RT_FMT = { retireAge: function(v){ return v; } };
+  retireBody.addEventListener("input", function(e){
     var k = e.target.getAttribute("data-rt");
     if(!k) return;
     var out = retireBody.querySelector('[data-rt-out="' + k + '"]');
     if(out) out.textContent = RT_FMT[k] ? RT_FMT[k](Number(e.target.value)) : fmtCurrency0.format(Number(e.target.value));
-  });  retireBody.addEventListener("change", function(e){
+  });
+  retireBody.addEventListener("change", function(e){
     var k = e.target.getAttribute("data-rt");
     if(k){
       retireLevers[k] = Number(e.target.value);
@@ -191,7 +213,8 @@ export function wireRetirement(){  retireBody = document.getElementById("retirem
       state.fire[fk] = e.target.value === "" ? null : Number(e.target.value);
       persist(); renderAll();
     }
-  });  retireBody.addEventListener("click", function(e){
+  });
+  retireBody.addEventListener("click", function(e){
     var g = e.target.closest("[data-rt-go]");
     if(!g) return;
     if(g.getAttribute("data-rt-go") === "super"){ showPage("assets"); showAssetsSubpage("Super", { replace: true }); }

@@ -65,7 +65,8 @@ function afterLotListChange(idx){
     renderAssets();
   }
   persist();
-}// v3.38.0: the same in-place swap for distributions, then the tax chain.
+}
+// v3.38.0: the same in-place swap for distributions, then the tax chain.
 function afterPayoutListChange(idx){
   var item = state.assets[idx];
   var row = document.querySelector('.m-asset-rows [data-index="' + idx + '"]');
@@ -80,7 +81,8 @@ function afterPayoutListChange(idx){
     renderAssets();
   }
   afterPayoutChange();
-}function afterPayoutChange(){
+}
+function afterPayoutChange(){
   recalcComputedItems();
   renderTaxSuper();
   patchSyntheticIncomeRows();
@@ -88,7 +90,8 @@ function afterPayoutListChange(idx){
   renderCards(); renderDetail(); renderTotals();
   renderProjectionOutputs();
   persist();
-}// Same in-place swap as afterLotListChange, then the tax chain — a statement is taxable income.
+}
+// Same in-place swap as afterLotListChange, then the tax chain — a statement is taxable income.
 function afterStatementListChange(idx){
   var item = state.assets[idx];
   var row = document.querySelector('.m-asset-rows [data-index="' + idx + '"]');
@@ -109,7 +112,8 @@ function afterStatementListChange(idx){
   renderCards(); renderDetail(); renderTotals();
   renderProjectionOutputs();
   persist();
-}function afterAssetSaleChange(){
+}
+function afterAssetSaleChange(){
   recalcComputedItems();
   renderAssets();
   renderTaxSuper();
@@ -118,11 +122,13 @@ function afterStatementListChange(idx){
   renderCards(); renderDetail(); renderTotals();
   renderProjectionOutputs();
   persist();
-}// ---------------- Assets: "Showing <person>" sheet ----------------
+}
+// ---------------- Assets: "Showing <person>" sheet ----------------
 function closeAssetPersonSheetUi(){
   setAssetPersonSheetOpen(false);
   renderAssetPersonSheet();
-}function openAssetPersonSheet(){
+}
+function openAssetPersonSheet(){
   setAssetPersonSheetOpen(true);
   renderAssetPersonSheet();
   if(document.querySelector("[data-asset-person-backdrop]")) app.pushActiveOverlay(closeAssetPersonSheetUi);
@@ -139,7 +145,8 @@ function readPriceSheetNow(manual){
     if(manual || !r.ok || r.updated || r.backfilled) showToast(r.ok ? "Prices: " + priceSheetResultText(r) : r.reason);
     return r;
   });
-}// v3.132.0: automatic prices first, then the person's own Sheet (which wins where both price a holding).
+}
+// v3.132.0: automatic prices first, then the person's own Sheet (which wins where both price a holding).
 function readAutoPricesNow(manual){
   var btn = document.querySelector("[data-ap-read]");
   if(btn){ btn.disabled = true; btn.textContent = "Updating…"; }
@@ -274,7 +281,8 @@ export function wireAssets(){
       renderNetWorthPanel();
       persist();
     }
-  });  document.addEventListener("change", function(e){
+  });
+  document.addEventListener("change", function(e){
     if(e.target.id === "sharesSortSelect"){ setSharesSortMode(e.target.value); return; }
     if(e.target.closest(".m-asset-rows") && e.target.classList.contains("a-category")){
       var tr = e.target.closest("[data-index]");
@@ -309,7 +317,8 @@ export function wireAssets(){
       // name into a still-focused field doesn't blow away that same field's own focus mid-edit.
       renderAssetPersonFilter();
     }
-  });  document.addEventListener("click", function(e){
+  });
+  document.addEventListener("click", function(e){
     var delBtn = e.target.closest("[data-asset-del]");
     if(delBtn){
       var idx = Number(delBtn.getAttribute("data-asset-del"));
@@ -545,7 +554,8 @@ export function wireAssets(){
       });
       return;
     }
-  });  document.getElementById("addDebtBtn").addEventListener("click", function(){
+  });
+  document.getElementById("addDebtBtn").addEventListener("click", function(){
     state.debts.push({ what: "New debt", balance: 0 });
     renderAssets();
     renderDashboardStats();
@@ -612,7 +622,8 @@ export function wireAssetPersonSheet(){  document.getElementById("assetPersonShe
     }
     // Picking a person is handled by the page-level [data-asset-person-filter] handler above —
     // this root sits outside .app-page, so the click never reaches it otherwise.
-  });  document.addEventListener("keydown", function(e){
+  });
+  document.addEventListener("keydown", function(e){
     if(e.key !== "Escape") return;
     if(document.querySelector("[data-asset-person-backdrop]")) app.requestCloseActiveOverlay();
   });
@@ -627,15 +638,18 @@ export function wireFxRate(){  // v3.32.1: the exchange rate typed into the Shar
 
 export function wirePrices(){  document.addEventListener("toggle", function(e){
     if(e.target.matches && e.target.matches("[data-ps-panel]")) priceSheetUi.open = e.target.open;
-  }, true);  document.addEventListener("change", function(e){
+  }, true);
+  document.addEventListener("change", function(e){
     if(e.target.matches && e.target.matches("[data-ps-from]")){ state.priceSheet.backfillFrom = e.target.value || ""; persist(); }
-  });  document.addEventListener("change", function(e){
+  });
+  document.addEventListener("change", function(e){
     var k = e.target.getAttribute && e.target.getAttribute("data-ap");
     if(!k) return;
     state.autoPrices[k] = !!e.target.checked;
     if(k === "on" && e.target.checked) state.autoPrices.lastRead = "";
     persist(); renderAll();
-  });  document.addEventListener("click", function(e){ if(e.target.closest && e.target.closest("[data-ap-read]")) readAutoPricesNow(true); });
+  });
+  document.addEventListener("click", function(e){ if(e.target.closest && e.target.closest("[data-ap-read]")) readAutoPricesNow(true); });
 }
 
 export function wireMarket(){  document.addEventListener("click", function(e){
@@ -644,7 +658,8 @@ export function wireMarket(){  document.addEventListener("click", function(e){
     bench.pick = b.getAttribute("data-bench");
     redrawCard("benchCard", benchmarkCardHtml());
     renderBenchmark();
-  });  document.addEventListener("change", function(e){
+  });
+  document.addEventListener("change", function(e){
     if(!e.target.matches) return;
     if(e.target.matches("[data-mix-target]")){
       var c = e.target.getAttribute("data-mix-target"), v = e.target.value.trim();
@@ -685,9 +700,11 @@ export function wireTrades(){  document.addEventListener("change", function(e){
     }
     if(e.target.matches("[data-tr-pick]")){ tradesUi.choice[e.target.getAttribute("data-tr-pick")] = e.target.value === "skip" ? "skip" : Number(e.target.value); renderAssets(); return; }
     if(e.target.matches("[data-tr-skip]")){ if(e.target.checked) tradesUi.choice[e.target.getAttribute("data-tr-skip")] = "skip"; else delete tradesUi.choice[e.target.getAttribute("data-tr-skip")]; renderAssets(); return; }
-  });  document.addEventListener("toggle", function(e){
+  });
+  document.addEventListener("toggle", function(e){
     if(e.target.matches && e.target.matches("[data-tr-panel]")) tradesUi.open = e.target.open;
-  }, true);  document.addEventListener("click", function(e){
+  }, true);
+  document.addEventListener("click", function(e){
     if(!e.target.closest) return;
     if(e.target.closest("[data-tr-read]")){
       var ta = document.querySelector("[data-tr-text]");

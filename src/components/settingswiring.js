@@ -34,13 +34,15 @@ function renderRules(){
   if(el) el.innerHTML = rulesPageHtml(budgetLineItems());
   var c = document.getElementById("rulesCount");
   if(c) c.textContent = (state.importRules || []).length + " rule" + ((state.importRules || []).length === 1 ? "" : "s");
-}function renderSettingsTab(id){
+}
+function renderSettingsTab(id){
   if(id === "rules") renderRules();
   if(id === "categories") renderCategories();
   if(id === "people") renderPeopleTab();
   if(id === "checks") renderHealth();
   if(id === "preferences") renderYearBasisPreference();
-}// A category rename or delete changes what the Budget rows' selects offer and what both
+}
+// A category rename or delete changes what the Budget rows' selects offer and what both
 // by-category charts total, so all of it is re-derived together rather than left to whatever
 // happens to re-render next. Not renderCategories() itself — that would rebuild the row being
 // typed into and drop the caret.
@@ -48,7 +50,8 @@ function refreshCategoryUi(){
   renderBudgetGroupByToggle();
   renderSharedGroups();
   renderActualVsPlannedPanel();
-}// Recategorising a line from the row editor can change which groups exist and what the
+}
+// Recategorising a line from the row editor can change which groups exist and what the
 // composition bar shows — but only when the list is grouped by category, and a full
 // renderSharedGroups() there would rebuild the very row the <select> lives in, closing the open
 // modal mid-edit. So the list is left alone until the row is closed; the Spending tab's chart
@@ -57,7 +60,8 @@ function patchCategoryCharts(){
   renderBudgetGroupByToggle();
 }
 
-export function wireSettings(){  rulesBody = document.getElementById("rulesBody");  rulesBody.addEventListener("change", function(e){
+export function wireSettings(){  rulesBody = document.getElementById("rulesBody");
+  rulesBody.addEventListener("change", function(e){
     if(e.target.hasAttribute("data-rl-sort")){ ruleView.sort = e.target.value; ruleView.shown = RULES_PAGE; renderRules(); return; }
     var t = e.target, i = t.getAttribute("data-rl-index");
     if(i == null) return;
@@ -66,7 +70,9 @@ export function wireSettings(){  rulesBody = document.getElementById("rulesBody"
     persist();
     renderRules();
     if(r && ruleIsEmpty(r)) showToast("This rule now files nothing — give it a line or a category, or it's removed next time the app opens");
-  });  rulesTestTimer = null;  rulesBody.addEventListener("input", function(e){
+  });
+  rulesTestTimer = null;
+  rulesBody.addEventListener("input", function(e){
     var finding = e.target.hasAttribute("data-rl-find");
     if(!finding && !e.target.hasAttribute("data-rl-test")) return;
     if(finding){ ruleView.q = e.target.value; ruleView.shown = RULES_PAGE; }
@@ -79,7 +85,8 @@ export function wireSettings(){  rulesBody = document.getElementById("rulesBody"
       var again = rulesBody.querySelector(which);
       if(again){ again.focus(); try{ again.setSelectionRange(pos, pos); }catch(err){} }
     }, 180);
-  });  rulesBody.addEventListener("click", function(e){
+  });
+  rulesBody.addEventListener("click", function(e){
     if(e.target.closest("[data-rl-merge]")){
       var before = state.importRules.slice().map(function(r){ return Object.assign({}, r); });
       var res = mergeSimilarRules(state.importRules);
@@ -107,7 +114,8 @@ export function wireSettings(){  rulesBody = document.getElementById("rulesBody"
       persist(); renderRules();
       showToast(existing ? "Updated the rule for “" + key + "”" : "Added a rule for “" + key + "”");
     }
-  });  document.getElementById("accountsSubnav").addEventListener("click", function(e){
+  });
+  document.getElementById("accountsSubnav").addEventListener("click", function(e){
     var accountsSubBtn = e.target.closest("[data-accounts-sub]");
     if(!accountsSubBtn) return;
     var accountsSubId = accountsSubBtn.getAttribute("data-accounts-sub");
@@ -124,7 +132,8 @@ export function wireSettings(){  rulesBody = document.getElementById("rulesBody"
     // derived from today's date ("FY26/27 so far", "20% through it"), so they go stale on their
     // own without anything having changed.
     if(accountsSubId === "preferences") renderYearBasisPreference();
-  });  document.getElementById("yearBasisControl").addEventListener("click", function(e){
+  });
+  document.getElementById("yearBasisControl").addEventListener("click", function(e){
     var btn = e.target.closest("[data-year-basis]");
     if(!btn) return;
     setYearBasis(btn.getAttribute("data-year-basis"));
@@ -139,7 +148,8 @@ export function wireSettings(){  rulesBody = document.getElementById("rulesBody"
     renderSharedGroups();
     renderAssets();
     renderTaxSuper();
-  });  document.getElementById("exportYearTransactionsBtn").addEventListener("click", function(){
+  });
+  document.getElementById("exportYearTransactionsBtn").addEventListener("click", function(){
     // The resolvers are passed in because the walks they do (a transaction's category via its
     // linked budget line, that line's name, the account) live in components/expenses.js, and
     // lib/backup.js can't import a component.
@@ -155,13 +165,15 @@ export function wireSettings(){  rulesBody = document.getElementById("rulesBody"
       },
       accountFor: function(t){ return t.account || ""; }
     });
-  });  document.getElementById("addCategoryBtn").addEventListener("click", function(){
+  });
+  document.getElementById("addCategoryBtn").addEventListener("click", function(){
     addCategory();
     // Straight into the new (blank) row's name field — a category with no name is useless, and
     // this saves a tap on the one control that has to be filled in.
     var lastCatInput = document.querySelector("#categoriesTable .m-row:last-child .cat-mgmt-name");
     if(lastCatInput) lastCatInput.focus();
-  });  document.addEventListener("click", function(e){
+  });
+  document.addEventListener("click", function(e){
     var delCatBtn = e.target.closest("[data-cat-del]");
     if(delCatBtn){ deleteCategory(Number(delCatBtn.getAttribute("data-cat-del"))); refreshCategoryUi(); }
   });  // v3.157.0 (item 187): a category's colour and icon, picked from its badge.
@@ -178,9 +190,11 @@ export function wireSettings(){  rulesBody = document.getElementById("rulesBody"
     refreshCategoryUi();
     renderTransactions();
     persist();
-  });  document.addEventListener("toggle", function(e){
+  });
+  document.addEventListener("toggle", function(e){
     if(e.target.matches && e.target.matches("[data-cat-look-for]")) categoryLookUi.open = e.target.open ? e.target.getAttribute("data-cat-look-for") : (categoryLookUi.open === e.target.getAttribute("data-cat-look-for") ? "" : categoryLookUi.open);
-  }, true);  document.addEventListener("input", function(e){
+  }, true);
+  document.addEventListener("input", function(e){
     if(!e.target.closest("#categoriesTable")) return;
     if(!e.target.classList.contains("cat-mgmt-name")) return;
     var catIdx = Number(e.target.getAttribute("data-cat-index"));
@@ -197,14 +211,17 @@ export function wireActivity(){
   // ---------------- Who changed what (v3.171.0, item 202) ----------------
   // The watcher logs edits made here a moment after they're saved (lib/activity.js); this is the
   // Settings section: whose device it is, the list, Undo.
-  startActivityLog();  onSaved(function(){ setTimeout(renderActivity, 1800); });  document.addEventListener("change", function(e){
+  startActivityLog();
+  onSaved(function(){ setTimeout(renderActivity, 1800); });
+  document.addEventListener("change", function(e){
     if(!e.target.matches || !e.target.matches("[data-act-name]")) return;
     var nm = e.target.value.trim();
     setDevicePerson(nm);
     persist(); // stamps the name on this copy, for the other device's merge question
     showToast(nm ? "Changes made here now say they're from " + nm : "Changes made here are no longer named");
     e.target.blur(); renderActivity();
-  });  document.addEventListener("click", function(e){
+  });
+  document.addEventListener("click", function(e){
     if(!e.target.closest) return;
     if(e.target.closest("[data-act-more]")){ activityUi.shown += 40; renderActivity(); return; }
     var u = e.target.closest("[data-act-undo]");

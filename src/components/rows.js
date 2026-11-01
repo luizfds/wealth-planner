@@ -99,7 +99,8 @@ function patchLinkedTransactionNames(item){
     var subEl = row.querySelector(".m-row-sub");
     if(subEl) subEl.innerHTML = transactionSummaryText(t);
   });
-}// "Does a row in this section appear in the Budget tab's list?" — which is what decides whether
+}
+// "Does a row in this section appear in the Budget tab's list?" — which is what decides whether
 // an edit has to keep #sharedGroups in step, not which page the edit was made from. An IP's
 // costs are editable from either end (its Properties card, or the budget list), and both write
 // to the same p.expenses array, so both need the same follow-up either way.
@@ -385,7 +386,8 @@ function refreshAfterLedgerChange(section){
   redraw(["cards", "detail"]); renderTotals(); renderHomeBodyTotalsOnly();
   renderProjectionsWhenSeen();
   persist();
-}// section+index does NOT identify a row uniquely across the document: the same underlying row
+}
+// section+index does NOT identify a row uniquely across the document: the same underlying row
 // can be rendered on two pages at once. The active scenario's housing appears both in the
 // Scenarios block and in the Expenses page's budget list, and an investment property's costs
 // appear both on its Properties card and in that same list — by design, since both ends edit
@@ -401,7 +403,8 @@ function containerIdForRow(row){
   var el = row && row.parentElement;
   while(el && !el.id) el = el.parentElement;
   return el ? el.id : null;
-}// Looked up fresh by data-section/data-index rather than a cached element reference — an
+}
+// Looked up fresh by data-section/data-index rather than a cached element reference — an
 // action taken *while* a row is open (e.g. the "Log" button inside a shared expense's edit
 // panel) can trigger a full re-render of that row's container (renderSharedGroups() and
 // friends replace the whole innerHTML), which detaches the original element from the document
@@ -414,7 +417,8 @@ function containerIdForRow(row){
 function findModernRowElement(section, idx, containerId){
   var scope = (containerId && document.getElementById(containerId)) || document;
   return scope.querySelector('.m-row[data-section="' + CSS.escape(section) + '"][data-index="' + CSS.escape(String(idx)) + '"]');
-}// Pure DOM/state cleanup, no history involved — used both as the overlay's close callback (the
+}
+// Pure DOM/state cleanup, no history involved — used both as the overlay's close callback (the
 // entry's already gone by the time the popstate handler calls this) and internally when
 // swapping directly from one open row to another (see openModernRow's switchingRow case), where
 // touching history would mean an async round-trip through popstate for what should be an
@@ -446,7 +450,8 @@ function discardUneditedRow(section, idx, freshItem){
   if(section === "tx"){ renderTransactions(); renderActualVsPlannedPanel(); persist(); return; }
   if(mLoan){ renderProperties(); renderProjectionOutputs(); persist(); return; }
   refreshAfterLedgerChange(section);
-}function closeActiveModernRowUI(){
+}
+function closeActiveModernRowUI(){
   if(!activeModernRow) return;
   var row = findModernRowElement(activeModernRow.section, activeModernRow.idx, activeModernRow.containerId);
   if(row) row.classList.remove("open");
@@ -474,13 +479,15 @@ function discardUneditedRow(section, idx, freshItem){
   // while the modal is open would tear the row out from under the person editing it. So it's
   // deferred to here, the moment the modal closes.
   if(wasBudgetRow && budgetRegroupPending){ budgetRegroupPending = false; renderSharedGroups(); }
-}// The close entry point for every on-screen affordance (tap the row/header, Escape, tap the
+}
+// The close entry point for every on-screen affordance (tap the row/header, Escape, tap the
 // backdrop) — see wireModernRowToggle, the Escape listener, and #mRowBackdrop's click listener
 // below.
 function closeActiveModernRow(){
   if(!activeModernRow) return;
   app.requestCloseActiveOverlay();
-}// Exported to module scope (not just wireModernRowToggle's closure) so every "+Add" handler
+}
+// Exported to module scope (not just wireModernRowToggle's closure) so every "+Add" handler
 // below can open the row it just created as a modal immediately — matching a native app's
 // "tap + → the new entry's fields are already in front of you" flow, instead of silently
 // appending a collapsed row somewhere in the list that has to be found and tapped first.
@@ -536,7 +543,8 @@ function openModernRow(row, openState, key, autoFocus, freshItem){
     // requiring a select-all first.
     if(firstField.tagName === "INPUT" && /^New /.test(firstField.value)) firstField.select();
   }
-}function wireModernRowToggle(containerId, openState){
+}
+function wireModernRowToggle(containerId, openState){
   var container = document.getElementById(containerId);
   if(!container) return;
   container.addEventListener("click", function(e){
@@ -584,19 +592,26 @@ function openNewRowModal(containerId, section, idx, openState, item){
 export function wireLedgerEdits(){
   document.addEventListener("input", function(e){
     if(e.target.closest("table.ledger-table") || e.target.closest(".m-rows")) onLedgerInput(e);
-  });  document.addEventListener("change", function(e){
+  });
+  document.addEventListener("change", function(e){
     if((e.target.closest("table.ledger-table") || e.target.closest(".m-rows")) && (e.target.tagName === "SELECT")) onLedgerInput(e);
-  });  document.addEventListener("click", onLedgerClick);
+  });
+  document.addEventListener("click", onLedgerClick);
 }
 
 export function wireRowEditors(){
-  document.getElementById("mRowBackdrop").addEventListener("click", closeActiveModernRow);  document.addEventListener("keydown", function(e){
+  document.getElementById("mRowBackdrop").addEventListener("click", closeActiveModernRow);
+  document.addEventListener("keydown", function(e){
     if(e.key === "Escape" && activeModernRow) closeActiveModernRow();
-  });  wireModernRowToggle("incomeGroups", modernIncomeRowOpen);  wireModernRowToggle("sharedGroups", modernSharedRowOpen);
+  });
+  wireModernRowToggle("incomeGroups", modernIncomeRowOpen);
+  wireModernRowToggle("sharedGroups", modernSharedRowOpen);
 }
 
 export function wireMoreRowEditors(){
-  wireModernRowToggle("propertiesBody", modernPropRowOpen);  wireModernRowToggle("homeBody", modernHomeRowOpen);  ["Cash", "Shares", "Super", "Vehicle", "Other"].forEach(function(cat){
+  wireModernRowToggle("propertiesBody", modernPropRowOpen);
+  wireModernRowToggle("homeBody", modernHomeRowOpen);
+  ["Cash", "Shares", "Super", "Vehicle", "Other"].forEach(function(cat){
     wireModernRowToggle("assetsSub-" + cat, modernAssetRowOpen);
   });
 }
@@ -680,7 +695,10 @@ export function wireAddButtons(){
     renderProjectionOutputs();
     persist();
   });
-  document.getElementById("incomeExportCsvBtn").addEventListener("click", exportIncomeCsv);  document.getElementById("expenseExportCsvBtn").addEventListener("click", exportExpensesCsv);  document.getElementById("assetsExportCsvBtn").addEventListener("click", exportAssetsCsv);  document.getElementById("propertyLoansExportCsvBtn").addEventListener("click", exportPropertyLoansCsv);
+  document.getElementById("incomeExportCsvBtn").addEventListener("click", exportIncomeCsv);
+  document.getElementById("expenseExportCsvBtn").addEventListener("click", exportExpensesCsv);
+  document.getElementById("assetsExportCsvBtn").addEventListener("click", exportAssetsCsv);
+  document.getElementById("propertyLoansExportCsvBtn").addEventListener("click", exportPropertyLoansCsv);
 }
 
 export { closeActiveModernRow, findProperty, openNewRowModal, refreshAfterLedgerChange, rerenderTableFor, wireModernRowToggle };

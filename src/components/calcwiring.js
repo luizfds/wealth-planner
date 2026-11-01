@@ -173,5 +173,9 @@ export function wireCalculators(){
     var el = document.getElementById("calcScenarioBody");
     el.addEventListener(type, type === "input" ? onCalcInput : type === "change" ? onCalcChange : onCalcClick);
     if(type !== "click") el.addEventListener(type, type === "input" ? onInvestInput : onInvestChange);
-  });  document.getElementById("homeBody").addEventListener("change", onCalcChange);  document.getElementById("homeBody").addEventListener("click", onCalcClick);  document.getElementById("homeBody").addEventListener("input", onInvestInput);  document.getElementById("homeBody").addEventListener("change", onInvestChange);
+  });
+  document.getElementById("homeBody").addEventListener("change", onCalcChange);
+  document.getElementById("homeBody").addEventListener("click", onCalcClick);
+  document.getElementById("homeBody").addEventListener("input", onInvestInput);
+  document.getElementById("homeBody").addEventListener("change", onInvestChange);
 }

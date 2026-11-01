@@ -14,7 +14,8 @@ import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./sea
 function openSearchOverlay(){
   openSearch();
   app.pushActiveOverlay(closeSearch);
-}// A place in the app: a page, a subtab, and a row to open and scroll to. Search results and a
+}
+// A place in the app: a page, a subtab, and a row to open and scroll to. Search results and a
 // detail page's "Edit on …" both go through here.
 function goToPlace(page, extra, opts){
   extra = extra || {};
@@ -44,13 +45,15 @@ function goToPlace(page, extra, opts){
       if(el) el.scrollIntoView({ block: "center", behavior: "smooth" });
     }, 200);
   }
-}// ---------------- Detail pages (v3.128.0) ----------------
+}
+// ---------------- Detail pages (v3.128.0) ----------------
 function openDetail(kind, id, opts){
   detailTarget.kind = kind; detailTarget.id = id;
   showPage("detail", { replace: !!(opts && opts.replace) });
 }
 
-export function wireSearch(){  document.getElementById("searchBtn").addEventListener("click", openSearchOverlay);  document.getElementById("searchRoot").addEventListener("click", function(e){
+export function wireSearch(){  document.getElementById("searchBtn").addEventListener("click", openSearchOverlay);
+  document.getElementById("searchRoot").addEventListener("click", function(e){
     if(e.target.closest("[data-search-close]") || e.target === e.target.closest("[data-search-backdrop]")){
       app.requestCloseActiveOverlay();
       return;
@@ -70,7 +73,8 @@ export function wireSearch(){  document.getElementById("searchBtn").addEventList
     // v3.128.0: a thing with a page of its own lands there.
     if(result.extra.detail){ openDetail(result.extra.detail.kind, result.extra.detail.id, { replace: true }); return; }
     goToPlace(result.page, result.extra, { replace: true });
-  });  document.addEventListener("click", function(e){
+  });
+  document.addEventListener("click", function(e){
     var link = e.target.closest("[data-detail]");
     if(link){ e.preventDefault(); e.stopPropagation(); openDetail(link.getAttribute("data-detail"), link.getAttribute("data-detail-id")); return; }
     if(e.target.closest("[data-detail-back]")){ if(history.length > 1) history.back(); else showPage("dashboard"); return; }
@@ -78,9 +82,11 @@ export function wireSearch(){  document.getElementById("searchBtn").addEventList
       var v = detailView(detailTarget.kind, detailTarget.id);
       if(v && v.edit) goToPlace(v.edit.to.page, v.edit.to);
     }
-  }, true);  document.getElementById("searchRoot").addEventListener("input", function(e){
+  }, true);
+  document.getElementById("searchRoot").addEventListener("input", function(e){
     if(e.target.id === "searchInput") setSearchQuery(e.target.value);
-  });  document.addEventListener("keydown", function(e){
+  });
+  document.addEventListener("keydown", function(e){
     if(e.key !== "Escape") return;
     if(document.querySelector("[data-search-backdrop]")) app.requestCloseActiveOverlay();
   });

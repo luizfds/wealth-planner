@@ -38,9 +38,11 @@ var navMenuToggle, quickFabMore, topbar, compact, ASSETS_SUB_ORDER, EXPENSES_SUB
 function openQuickActions(){
   document.getElementById("quickFabRoot").innerHTML = quickActionsSheetHtml();
   app.pushActiveOverlay(closeQuickActions);
-}function closeQuickActions(){
+}
+function closeQuickActions(){
   document.getElementById("quickFabRoot").innerHTML = "";
-}// Unlike the fab itself — which only ever clicks something already on screen — a quick action
+}
+// Unlike the fab itself — which only ever clicks something already on screen — a quick action
 // usually has to travel first: "Add shares" from the Dashboard means Assets, then the Shares
 // subpage, and only then the add button. Same shape as the search-result handler above,
 // including why the menu's own history entry is replaced rather than popped: we're navigating
@@ -63,7 +65,8 @@ function runQuickAction(action){
       : firstVisibleAddButton(action.page);
     if(target) target.click();
   }, 240);
-}// v3.141.0 (item 180): the transfer form, filled in for the card's next repayment — the card (the
+}
+// v3.141.0 (item 180): the transfer form, filled in for the card's next repayment — the card (the
 // first, if there are several), the account it's paid from (its direct debit, else an everyday
 // account) and the payment the bills calendar expects, the soonest unpaid one from last month on.
 function openPayCard(){
@@ -85,7 +88,8 @@ function openPayCard(){
   var f = document.querySelector('#transactionsTable [data-tf="amount"]');
   if(f){ f.scrollIntoView({ block: "center" }); f.focus(); }
   if(!card) showToast("No credit card yet — add one under Net worth → Accounts");
-}// Income and Assets name their add buttons after the group they belong to (a person, an asset
+}
+// Income and Assets name their add buttons after the group they belong to (a person, an asset
 // category), so a quick action can't carry a fixed selector for them — it takes whichever one is
 // on screen once we've navigated to the right page and subpage, exactly as updateQuickFab does.
 function firstVisibleAddButton(pageId){
@@ -94,21 +98,24 @@ function firstVisibleAddButton(pageId){
   return Array.prototype.find.call(section.querySelectorAll("[data-add]"), function(el){
     return el.offsetParent !== null;
   }) || null;
-}function stepAssetsSubpage(step){
+}
+function stepAssetsSubpage(step){
   if(!window.matchMedia("(max-width: 880px)").matches) return;
   var activeBtn = document.querySelector("#assetsSubnav .subnav-item.active");
   var current = activeBtn ? activeBtn.getAttribute("data-assets-sub") : "summary";
   var nextIndex = ASSETS_SUB_ORDER.indexOf(current) + step;
   if(nextIndex < 0 || nextIndex >= ASSETS_SUB_ORDER.length) return;
   showAssetsSubpage(ASSETS_SUB_ORDER[nextIndex]);
-}function stepExpensesSubpage(step){
+}
+function stepExpensesSubpage(step){
   if(!window.matchMedia("(max-width: 880px)").matches) return;
   var activeExpensesBtn = document.querySelector("#expensesSubnav .subnav-item.active");
   var currentExpensesTab = activeExpensesBtn ? activeExpensesBtn.getAttribute("data-expenses-sub") : "budget";
   var nextExpensesIndex = EXPENSES_SUB_ORDER.indexOf(currentExpensesTab) + step;
   if(nextExpensesIndex < 0 || nextExpensesIndex >= EXPENSES_SUB_ORDER.length) return;
   showExpensesSubpage(EXPENSES_SUB_ORDER[nextExpensesIndex]);
-}function setPeriodMenuOpen(open){
+}
+function setPeriodMenuOpen(open){
   periodMenu.hidden = !open;
   periodBtn.setAttribute("aria-expanded", open ? "true" : "false");
   if(open){
@@ -117,7 +124,8 @@ function firstVisibleAddButton(pageId){
     var first = periodMenu.querySelector(".period-chip.active, .seg-option.active");
     if(first) first.focus();
   }
-}function shortcutsDialog(){
+}
+function shortcutsDialog(){
   var d = document.getElementById("shortcutsDialog");
   if(d) return d;
   d = document.createElement("dialog");
@@ -142,12 +150,16 @@ export function wireNavigation(){
   });
   // Mobile-only dropdown: appNav is a vertical panel behind this toggle below 880px
   // (see styles.css), so a page's 7 tabs stay reachable without horizontal scroll-hunting.
-  navMenuToggle = document.getElementById("navMenuToggle");  navMenuToggle.addEventListener("click", function(e){
+  navMenuToggle = document.getElementById("navMenuToggle");
+  navMenuToggle.addEventListener("click", function(e){
     e.stopPropagation();
     var willOpen = !document.querySelector(".app-sidebar").classList.contains("nav-open");
     document.querySelector(".app-sidebar").classList.toggle("nav-open", willOpen);
     navMenuToggle.setAttribute("aria-expanded", String(willOpen));
-  });  document.getElementById("appNav").addEventListener("click", function(e){ e.stopPropagation(); });  document.addEventListener("click", closeNavMenu);  document.addEventListener("keydown", function(e){ if(e.key === "Escape") closeNavMenu(); });
+  });
+  document.getElementById("appNav").addEventListener("click", function(e){ e.stopPropagation(); });
+  document.addEventListener("click", closeNavMenu);
+  document.addEventListener("keydown", function(e){ if(e.key === "Escape") closeNavMenu(); });
   // Mobile bottom tab bar — the primary nav on a mobile viewport (<880px). v3.140.0: Home, Cash flow,
   // Net worth, Tax and Plan; Reports and Settings are in the avatar's menu.
   document.getElementById("mobileTabbar").addEventListener("click", function(e){
@@ -169,7 +181,10 @@ export function wireNavigation(){
     if(!target) return;
     target.scrollIntoView({ block: "center", behavior: "smooth" });
     setTimeout(function(){ target.click(); }, 220);
-  });  quickFabMore = document.getElementById("quickFabMore");  if(quickFabMore) quickFabMore.addEventListener("click", openQuickActions);  document.getElementById("quickFabRoot").addEventListener("click", function(e){
+  });
+  quickFabMore = document.getElementById("quickFabMore");
+  if(quickFabMore) quickFabMore.addEventListener("click", openQuickActions);
+  document.getElementById("quickFabRoot").addEventListener("click", function(e){
     if(e.target.closest("[data-qfab-close]") || e.target === e.target.closest("[data-qfab-backdrop]")){
       app.requestCloseActiveOverlay();
       return;
@@ -178,17 +193,21 @@ export function wireNavigation(){
     if(!actionBtn) return;
     var action = QUICK_ACTIONS[Number(actionBtn.getAttribute("data-quick-action"))];
     if(action) runQuickAction(action);
-  });  document.addEventListener("keydown", function(e){
+  });
+  document.addEventListener("keydown", function(e){
     if(e.key !== "Escape") return;
     if(document.querySelector("[data-qfab-backdrop]")) app.requestCloseActiveOverlay();
   });
   // v3.140.0: the avatar menu — the version, its links into the app, and the dot that says a save failed.
   // On a phone the page title is the header: large at the top, slim once you scroll.
   topbar = document.querySelector(".app-topbar");
-  compact = false;  window.addEventListener("scroll", function(){
+  compact = false;
+  window.addEventListener("scroll", function(){
     var c = window.scrollY > 24;
     if(c !== compact){ compact = c; topbar.classList.toggle("is-compact", c); }
-  }, { passive: true });  document.getElementById("avatarVersion").textContent = document.querySelector(".app-version-num").textContent;  document.querySelector(".avatar-menu").addEventListener("click", function(e){
+  }, { passive: true });
+  document.getElementById("avatarVersion").textContent = document.querySelector(".app-version-num").textContent;
+  document.querySelector(".avatar-menu").addEventListener("click", function(e){
     var go = e.target.closest("[data-avatar-go]");
     if(!go) return;
     var where = go.getAttribute("data-avatar-go");
@@ -232,7 +251,8 @@ export function wireNavigation(){
   document.getElementById("assetsSummaryStats").addEventListener("click", function(e){
     var btn = e.target.closest("[data-empty-assets]");
     if(btn) showAssetsSubpage(btn.getAttribute("data-empty-assets"));
-  });  document.getElementById("dashboardSubnav").addEventListener("click", function(e){
+  });
+  document.getElementById("dashboardSubnav").addEventListener("click", function(e){
     var btn = e.target.closest("[data-dashboard-sub]");
     if(!btn) return;
     showDashboardSubpage(btn.getAttribute("data-dashboard-sub"));
@@ -246,7 +266,8 @@ export function wireSubpages(){
   // the subnav buttons within easy reach, so this only kicks in below the app's usual mobile
   // breakpoint. No wraparound (swiping past the last tab does nothing) — a jump from Other back
   // to Summary would be more disorienting than a swipe that simply stops.
-  ASSETS_SUB_ORDER = ["summary", "Cash", "Shares", "Super", "Vehicle", "Other"];  onHorizontalSwipe(document.getElementById("page-assets"), {
+  ASSETS_SUB_ORDER = ["summary", "Cash", "Shares", "Super", "Vehicle", "Other"];
+  onHorizontalSwipe(document.getElementById("page-assets"), {
     onSwipeLeft: function(){ stepAssetsSubpage(1); },
     onSwipeRight: function(){ stepAssetsSubpage(-1); }
   });  // v3.164.0 (item 194): a flexible category rolls what it doesn't spend into next month, from this month on.
@@ -257,7 +278,8 @@ export function wireSubpages(){
     var cat = cb.getAttribute("data-rollover");
     if(cb.checked) state.rollover[cat] = selectedMonth(); else delete state.rollover[cat];
     renderSharedGroups(); persist();
-  });  document.getElementById("budgetGroupBy").addEventListener("click", function(e){
+  });
+  document.getElementById("budgetGroupBy").addEventListener("click", function(e){
     var groupByBtn = e.target.closest("[data-budget-groupby]");
     if(groupByBtn){ setBudgetGroupBy(groupByBtn.getAttribute("data-budget-groupby")); return; }
     if(!e.target.closest("#budgetCollapseAllBtn")) return;
@@ -274,7 +296,8 @@ export function wireSubpages(){
     renderSharedGroups();
     renderBudgetGroupByToggle();
     persist();
-  });  document.getElementById("sharedGroups").addEventListener("keydown", function(e){
+  });
+  document.getElementById("sharedGroups").addEventListener("keydown", function(e){
     if(e.key !== "Enter" && e.key !== " ") return;
     var head = e.target.closest("[data-budget-group-toggle]");
     if(!head) return;
@@ -292,13 +315,15 @@ export function wireSubpages(){
     if(!loanCard) return;
     if(loanCard.tagName === "DETAILS") loanCard.open = true;
     loanCard.scrollIntoView({ behavior: "smooth", block: "start" });
-  });  document.getElementById("expensesSubnav").addEventListener("click", function(e){
+  });
+  document.getElementById("expensesSubnav").addEventListener("click", function(e){
     var expensesSubBtn = e.target.closest("[data-expenses-sub]");
     if(!expensesSubBtn) return;
     showExpensesSubpage(expensesSubBtn.getAttribute("data-expenses-sub"));
   });  // Same swipe-between-tabs affordance as Assets above, and same mobile-only guard: two tabs, so
   // a swipe simply stops at either end rather than wrapping.
-  EXPENSES_SUB_ORDER = ["budget", "income", "spending", "bills"];  onHorizontalSwipe(document.getElementById("page-expenses"), {
+  EXPENSES_SUB_ORDER = ["budget", "income", "spending", "bills"];
+  onHorizontalSwipe(document.getElementById("page-expenses"), {
     onSwipeLeft: function(){ stepExpensesSubpage(1); },
     onSwipeRight: function(){ stepExpensesSubpage(-1); }
   });
@@ -338,7 +363,8 @@ export function wirePullToRefresh(){
         .catch(function(){})
         .then(function(){ busy = false; hide(); });
     });
-  })();  setTimeout(function(){ (typeof initialSync !== "undefined" ? initialSync : Promise.resolve()).then(function(){
+  })();
+  setTimeout(function(){ (typeof initialSync !== "undefined" ? initialSync : Promise.resolve()).then(function(){
     var first = autoPricesNeeded() && state.assets.some(function(a){ return a.category === "Shares" && a.symbol; }) ? readAutoPricesNow(false) : Promise.resolve();
     first.then(function(){ if(priceSheetDue()) return readPriceSheetNow(false); });
   }); }, 800);
@@ -349,7 +375,12 @@ export function wirePeriod(){
   // One year (and optionally a month) beside the page title that every page reads — see
   // components/period.js. Choosing re-renders everything; the menu stays open so a year and then a
   // month can be picked in one go.
-  loadPeriod();  setPeriodRerender(function(){ renderAll(); renderPeriodMenu(); });  periodBtn = document.getElementById("periodBtn");  periodMenu = document.getElementById("periodMenu");  periodBtn.addEventListener("click", function(){ setPeriodMenuOpen(periodMenu.hidden); });  periodMenu.addEventListener("click", function(e){
+  loadPeriod();
+  setPeriodRerender(function(){ renderAll(); renderPeriodMenu(); });
+  periodBtn = document.getElementById("periodBtn");
+  periodMenu = document.getElementById("periodMenu");
+  periodBtn.addEventListener("click", function(){ setPeriodMenuOpen(periodMenu.hidden); });
+  periodMenu.addEventListener("click", function(e){
     var b = e.target.closest("button");
     if(!b || b.disabled) return;
     if(b.hasAttribute("data-period-basis")){
@@ -369,13 +400,15 @@ export function wirePeriod(){
     }
     var again = periodMenu.querySelector(b.hasAttribute("data-period-month") ? '[data-period-month="' + b.getAttribute("data-period-month") + '"]' : ".period-chip.active");
     if(again) again.focus();
-  });  document.addEventListener("click", function(e){
+  });
+  document.addEventListener("click", function(e){
     if(periodMenu.hidden) return;
     // A chip inside the menu is rebuilt by the re-render its own click causes, so by the time this
     // runs it's detached and .closest() finds nothing — that's still a click inside.
     if(!e.target.isConnected) return;
     if(!e.target.closest(".period-wrap")) setPeriodMenuOpen(false);
-  });  document.addEventListener("keydown", function(e){
+  });
+  document.addEventListener("keydown", function(e){
     if(e.key === "Escape" && !periodMenu.hidden){ setPeriodMenuOpen(false); periodBtn.focus(); }
   });
 }
@@ -384,7 +417,9 @@ export function wireShortcuts(){
   // ---------------- Keyboard shortcuts (v3.138.0) ----------------
   // For a desktop: / search, n log a spend, g then a letter to go to a page, ? to list them. Never
   // while typing in a field, and never with a modifier held (those belong to the browser).
-  GO_KEYS = { h: ["dashboard", "Home"], c: ["expenses", "Cash flow"], w: ["networth", "Net worth"], t: ["tax", "Tax"], p: ["plan", "Plan"], r: ["reports", "Reports"], s: ["settings", "Settings"] };  goPending = 0;  document.addEventListener("keydown", function(e){
+  GO_KEYS = { h: ["dashboard", "Home"], c: ["expenses", "Cash flow"], w: ["networth", "Net worth"], t: ["tax", "Tax"], p: ["plan", "Plan"], r: ["reports", "Reports"], s: ["settings", "Settings"] };
+  goPending = 0;
+  document.addEventListener("keydown", function(e){
     if(e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
     var t = e.target;
     if(t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;

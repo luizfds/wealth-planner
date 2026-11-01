@@ -58,7 +58,8 @@ function updateAvatar(){
   if(el) el.textContent = first ? first.trim().charAt(0).toUpperCase() : "·";
   var sync = document.getElementById("avatarSyncState");
   if(sync) sync.textContent = syncOn() ? "on" : "off";
-}function renderTotals(){
+}
+function renderTotals(){
   updateAvatar();
   // v3.138.0: in the period Income is shown in (Show as).
   var incTotal = incomeHeaderTotal(sumField(effectiveIncomeItems(), "monthly"));
@@ -100,7 +101,8 @@ function withUndo(message, change){
   if(change() === false) return;
   persist();
   showUndoToast(message, function(){ setState(JSON.parse(before)); persist(); renderAll(); });
-}function defineViews(){
+}
+function defineViews(){
   if(viewsDefined) return;
   viewsDefined = true;
   // v3.206.0 (item 236b): every commit redraws the views that read what it touched (lib/views.js).
@@ -169,7 +171,8 @@ function withUndo(message, change){
   defineView("budgetFromHistory", ["expenses"], renderBudgetFromHistory, ["transactions", "shared"]);
   defineView("trips", ["expenses"], renderTrips, ["trips", "transactions", "shared"]);
   defineView("retirement", ["plan"], renderRetirement, ["*"]);
-}function renderAll(){
+}
+function renderAll(){
   defineViews();
   // v3.161.0 (item 191): which parts show, before anything that lists them renders.
   applyParts();
@@ -198,7 +201,8 @@ function renderChecksBadge(){
     el.textContent = el.classList.contains("nav-badge-dot") ? "" : String(n);
     el.setAttribute("aria-label", n + " check" + (n === 1 ? "" : "s") + " to fix");
   });
-}// A few generic starting points, plus whatever the user has actually named in the Accounts
+}
+// A few generic starting points, plus whatever the user has actually named in the Accounts
 // card (Expenses page) — real names first since they're the ones actually meaningful to
 // autocomplete against.
 function updateAccountSuggestions(){
@@ -206,7 +210,8 @@ function updateAccountSuggestions(){
   var names = state.accounts.map(function(a){ return a.name; }).filter(Boolean);
   defaults.forEach(function(n){ if(names.indexOf(n) === -1) names.push(n); });
   datalist.innerHTML = names.map(function(n){ return '<option value="' + escapeAttr(n) + '">'; }).join("");
-}function updatePersonSuggestions(){
+}
+function updatePersonSuggestions(){
   var names = {};
   state.income.forEach(function(i){ if(i.person) names[i.person] = true; });
   state.assets.forEach(function(a){ if(a.person) names[a.person] = true; });
@@ -214,8 +219,13 @@ function updateAccountSuggestions(){
 }
 
 export function wireSuggestions(){
-  datalist = document.createElement("datalist");  datalist.id = "acctSuggestions";  document.body.appendChild(datalist);  updateAccountSuggestions();
-  personDatalist = document.createElement("datalist");  personDatalist.id = "personSuggestions";  document.body.appendChild(personDatalist);
+  datalist = document.createElement("datalist");
+  datalist.id = "acctSuggestions";
+  document.body.appendChild(datalist);
+  updateAccountSuggestions();
+  personDatalist = document.createElement("datalist");
+  personDatalist.id = "personSuggestions";
+  document.body.appendChild(personDatalist);
 }
 
 export { chooseScenario, renderAll, renderChecksBadge, renderGlobalMetrics, renderTotals, updateAccountSuggestions, updatePersonSuggestions, withUndo };

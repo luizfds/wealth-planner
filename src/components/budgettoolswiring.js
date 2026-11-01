@@ -32,15 +32,18 @@ function afterTrimChange(){ recalcComputedItems(); persist(); renderAll(); }
 function currentRecurring(){
   return { u: unbudgetedRecurring(state.transactions, localDateStr()), r: risingLines(loggableBudgetLineItems(), state.transactions),
     c: catchAllSuggestions(loggableBudgetLineItems(), state.transactions, localDateStr()) };
-}// v3.115.0: Budget → Build from what you've spent.
-function currentHistoryBudget(){ return proposeBudget(state.transactions, budgetLineItems(), localDateStr()); }function renderBudgetFromHistory(){
+}
+// v3.115.0: Budget → Build from what you've spent.
+function currentHistoryBudget(){ return proposeBudget(state.transactions, budgetLineItems(), localDateStr()); }
+function renderBudgetFromHistory(){
   var el = document.getElementById("historyBudgetBody");
   if(!el) return;
   var r = currentHistoryBudget();
   el.innerHTML = budgetFromHistoryHtml(r);
   var cnt = document.getElementById("historyBudgetCount");
   if(cnt) cnt.textContent = r.ready && r.proposals.length ? r.proposals.length + " to add" : "";
-}function renderRecurring(){
+}
+function renderRecurring(){
   var el = document.getElementById("recurringBody");
   if(!el) return;
   var c = currentRecurring();
@@ -56,11 +59,14 @@ export function wireAdvice(){
     if(e.target.matches && e.target.matches("[data-adv-id]")) adviceUi.open[e.target.getAttribute("data-adv-id")] = e.target.open;
     if(e.target.matches && e.target.matches("[data-adv-good]")) adviceUi.goodOpen = e.target.open;
     if(e.target.matches && e.target.matches("[data-tax-household]")) taxUi.householdOpen = e.target.open;
-  }, true);  document.addEventListener("change", function(e){
+  }, true);
+  document.addEventListener("change", function(e){
     if(e.target.matches && e.target.matches("[data-ai-model]")) setAiModel(e.target.value);
-  });  document.addEventListener("input", function(e){
+  });
+  document.addEventListener("input", function(e){
     if(e.target.matches && e.target.matches("[data-ai-q]")) askUi.question = e.target.value;
-  });  document.addEventListener("click", function(e){
+  });
+  document.addEventListener("click", function(e){
     if(!e.target.closest) return;
     var go = e.target.closest("[data-adv-go]");
     if(go){
@@ -134,7 +140,8 @@ export function wireAdvice(){
     }
   });
   // ---------------- Cash flow → Budget → Trim (v3.100.0) ----------------
-  trimBody = document.getElementById("trimBody");  trimBody.addEventListener("click", function(e){
+  trimBody = document.getElementById("trimBody");
+  trimBody.addEventListener("click", function(e){
     var one = e.target.closest("[data-trim-set]");
     if(one){
       var line = state.shared.find(function(l){ return l.id === one.getAttribute("data-trim-set"); });
@@ -166,7 +173,8 @@ export function wireAdvice(){
       state.shared.forEach(function(l){ var k = leanLevel(l, sc); if(k === "half" || k === "pause") setLeanLevel(l, sc, "keep"); });
       afterTrimChange();
     }
-  });  trimBody.addEventListener("change", function(e){
+  });
+  trimBody.addEventListener("change", function(e){
     if(e.target.matches("[data-trim-scenario]")){ trimUi.scenario = e.target.value; renderTrim(); return; }
     if(e.target.matches("[data-trim-flex]")){
       var l = state.shared.find(function(x){ return x.id === e.target.getAttribute("data-trim-flex"); });
@@ -175,7 +183,8 @@ export function wireAdvice(){
       trimUi.markOpen = true;
       persist(); renderTrim(); renderAdvice();
     }
-  });  trimBody.addEventListener("toggle", function(e){ if(e.target.matches && e.target.matches("[data-trim-mark]")) trimUi.markOpen = e.target.open; }, true);
+  });
+  trimBody.addEventListener("toggle", function(e){ if(e.target.matches && e.target.matches("[data-trim-mark]")) trimUi.markOpen = e.target.open; }, true);
 }
 
 export function wireBudgetHistory(){  document.getElementById("historyBudgetBody").addEventListener("change", function(e){
@@ -183,7 +192,8 @@ export function wireBudgetHistory(){  document.getElementById("historyBudgetBody
     if(k == null) return;
     if(e.target.checked) delete historyBudgetUi.off[k]; else historyBudgetUi.off[k] = true;
     renderBudgetFromHistory();
-  });  document.getElementById("historyBudgetBody").addEventListener("click", function(e){
+  });
+  document.getElementById("historyBudgetBody").addEventListener("click", function(e){
     if(!e.target.closest("[data-bh-apply]")) return;
     var chosen = currentHistoryBudget().proposals.filter(function(p){ return !historyBudgetUi.off[p.key]; });
     if(!chosen.length) return;
@@ -205,7 +215,8 @@ export function wireBudgetHistory(){  document.getElementById("historyBudgetBody
     recurringOpen.keys[k] = e.target.open;
     renderRecurring();
     renderBudgetFromHistory();
-  }, true);  document.getElementById("recurringBody").addEventListener("click", function(e){
+  }, true);
+  document.getElementById("recurringBody").addEventListener("click", function(e){
     var dis = e.target.closest("[data-rc-dismiss]");
     if(dis){ recurringDismissed.keys[dis.getAttribute("data-rc-dismiss")] = true; renderRecurring(); return; }
     var add = e.target.closest("[data-rc-add]");

@@ -51,17 +51,21 @@ function onScenarioControlClick(e){
     return true;
   }
   return false;
-}// "Other ASX code…": show the code field without changing the stored symbol until one is typed.
+}
+// "Other ASX code…": show the code field without changing the stored symbol until one is typed.
 function renderBenchmarksOther(){
   var sel = benchmarksBody.querySelector("[data-bm-symbol]");
   if(!sel || benchmarksBody.querySelector("[data-bm-other]")) return;
   sel.closest("label").insertAdjacentHTML("afterend", '<label>ASX code <input type="text" data-bm-other maxlength="8" style="width:80px;text-transform:uppercase" placeholder="A200"></label>');
   benchmarksBody.querySelector("[data-bm-other]").focus();
-}function renderHomeArrange(focusSel){
+}
+function renderHomeArrange(focusSel){
   homeArrangeRoot.innerHTML = homeArrangeOpen ? homeArrangeHtml() : "";
   var f = homeArrangeOpen && homeArrangeRoot.querySelector(focusSel || "[data-ha-close]:not(.icon-btn)");
   if(f) f.focus({ preventScroll: !focusSel });
-}function openHomeArrange(){ homeArrangeOpen = true; renderHomeArrange(); app.pushActiveOverlay(function(){ homeArrangeOpen = false; renderHomeArrange(); }); }function changeHomeLayout(fn, focusSel){ var l = loadHomeLayout(); fn(l); saveHomeLayout(l); applyHomeLayout(); renderHomeArrange(focusSel); }
+}
+function openHomeArrange(){ homeArrangeOpen = true; renderHomeArrange(); app.pushActiveOverlay(function(){ homeArrangeOpen = false; renderHomeArrange(); }); }
+function changeHomeLayout(fn, focusSel){ var l = loadHomeLayout(); fn(l); saveHomeLayout(l); applyHomeLayout(); renderHomeArrange(focusSel); }
 
 export function wireCards(){
   document.getElementById("cards").addEventListener("click", function(e){
@@ -71,7 +75,8 @@ export function wireCards(){
     if(e.target.closest(".card-overflow")) return;
     var cardSel = e.target.closest(".card-select");
     if(cardSel) chooseScenario(cardSel.getAttribute("data-scenario"));
-  });  document.getElementById("homeBody").addEventListener("click", onScenarioControlClick);
+  });
+  document.getElementById("homeBody").addEventListener("click", onScenarioControlClick);
   // Dashboard's own stats already tease the "Projected net worth" figure this links through to —
   // Projections itself had no reachable link from Dashboard at all, and lives behind the mobile
   // "More" tab (an occasional what-if page, not day-to-day data entry), so this is the one
@@ -90,7 +95,8 @@ export function wireCards(){
       showTaxSubpage("returns", { replace: true });
       renderTaxYear();
     }
-  });  document.getElementById("homeBody").addEventListener("keydown", function(e){
+  });
+  document.getElementById("homeBody").addEventListener("keydown", function(e){
     if(e.key !== "Enter" && e.key !== " ") return;
     var collapseBtn = e.target.closest("[data-collapse-toggle]");
     if(!collapseBtn) return;
@@ -100,7 +106,8 @@ export function wireCards(){
 }
 
 export function wireMonthReview(){  // Dashboard → Review (v3.54.0): every control in the four parts.
-  monthReviewBody = document.getElementById("monthReviewBody");  monthReviewBody.addEventListener("click", function(e){
+  monthReviewBody = document.getElementById("monthReviewBody");
+  monthReviewBody.addEventListener("click", function(e){
     var step = e.target.closest("[data-mr-step]");
     if(step && !step.disabled){ stepReviewMonth(Number(step.getAttribute("data-mr-step"))); renderMonthReview(); return; }
     if(e.target.closest("[data-mr-intro-ok]")){ dismissReviewIntro(); renderMonthReview(); return; }
@@ -134,7 +141,8 @@ export function wireMonthReview(){  // Dashboard → Review (v3.54.0): every con
       renderNotifBadge();
       if(!was) showToast(monthLabel(ym) + " reviewed");
     }
-  });  monthReviewBody.addEventListener("change", function(e){
+  });
+  monthReviewBody.addEventListener("change", function(e){
     var acct = e.target.getAttribute("data-mr-statement");
     if(acct == null) return;
     setStatementAmount(reviewMonthShown(), acct, e.target.value);
@@ -145,7 +153,8 @@ export function wireMonthReview(){  // Dashboard → Review (v3.54.0): every con
 
 export function wireBenchmarks(){  // v3.35.0: Dashboard → Benchmarks controls. One delegated pair of listeners for every section;
   // each change persists and re-renders the tab.
-  benchmarksBody = document.getElementById("benchmarksBody");  benchmarksBody.addEventListener("change", function(e){
+  benchmarksBody = document.getElementById("benchmarksBody");
+  benchmarksBody.addEventListener("change", function(e){
     var t = e.target;
     if(t.matches("[data-bm-symbol]")){
       if(t.value === "__other"){ renderBenchmarksOther(); return; }
@@ -166,7 +175,8 @@ export function wireBenchmarks(){  // v3.35.0: Dashboard → Benchmarks controls
     else if(t.matches("[data-pm-field]")) setPropertyMarketField(t.getAttribute("data-pm-id"), t.getAttribute("data-pm-field"), t.value);
     else return;
     renderBenchmarks();
-  });  benchmarksBody.addEventListener("click", function(e){
+  });
+  benchmarksBody.addEventListener("click", function(e){
     if(e.target.closest("[data-bm-copy]")){ copyBenchmarkTemplateToClipboard(); return; }
     if(e.target.closest("[data-goal-add]")){
       var kind = benchmarksBody.querySelector("[data-goal-kind]").value;
@@ -196,7 +206,10 @@ export function wireBenchmarks(){  // v3.35.0: Dashboard → Benchmarks controls
 
 export function wireHomeArrange(){
   // ---------------- Arrange Home (v3.165.0, item 195) — lib/homelayout.js decides ----------------
-  homeArrangeRoot = document.getElementById("homeArrangeRoot");  homeArrangeOpen = false;  document.addEventListener("click", function(e){ if(e.target.closest("[data-ha-open]")) openHomeArrange(); });  homeArrangeRoot.addEventListener("click", function(e){
+  homeArrangeRoot = document.getElementById("homeArrangeRoot");
+  homeArrangeOpen = false;
+  document.addEventListener("click", function(e){ if(e.target.closest("[data-ha-open]")) openHomeArrange(); });
+  homeArrangeRoot.addEventListener("click", function(e){
     if(e.target.closest("[data-ha-close]") || e.target === e.target.closest("[data-ha-backdrop]")){ app.requestCloseActiveOverlay(); return; }
     var mv = e.target.closest("[data-ha-move]");
     if(mv){
@@ -207,14 +220,16 @@ export function wireHomeArrange(){
       return;
     }
     if(e.target.closest("[data-ha-reset]")){ changeHomeLayout(function(l){ l.order = []; l.hidden = {}; l.pinned = []; }); showToast("Home is back to the default"); }
-  });  homeArrangeRoot.addEventListener("change", function(e){
+  });
+  homeArrangeRoot.addEventListener("change", function(e){
     var show = e.target.closest("[data-ha-show]"), pin = e.target.closest("[data-ha-pin]");
     if(show){ var k = show.getAttribute("data-ha-show"), on = show.checked; changeHomeLayout(function(l){ if(on) delete l.hidden[k]; else l.hidden[k] = true; }, '[data-ha-show="' + k + '"]'); }
     if(pin){
       var id = pin.getAttribute("data-ha-pin"), want = pin.checked;
       changeHomeLayout(function(l){ l.pinned = l.pinned.filter(function(x){ return x !== id; }); if(want) l.pinned.push(id); }, '[data-ha-pin="' + id + '"]');
     }
-  });  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && homeArrangeOpen) app.requestCloseActiveOverlay(); });
+  });
+  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && homeArrangeOpen) app.requestCloseActiveOverlay(); });
 }
 
 export function wireHomeSummary(){

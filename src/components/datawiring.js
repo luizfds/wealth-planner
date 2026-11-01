@@ -34,14 +34,16 @@ function buildDemoState(){
   setState(migrateState(demoHousehold(today)));
   recalcComputedItems();
   demoReceipts(state, today, incomeTargets());
-}// "Have they actually started using the app" — not just "does localStorage have an entry",
+}
+// "Have they actually started using the app" — not just "does localStorage have an entry",
 // since state.js's own load path writes a fresh defaultState() back to STORAGE_KEY on first
 // run, before the user has touched anything. A genuinely untouched install has none of these
 // (home's own default scenario block doesn't count — that always exists).
 function hasRealUserData(){
   return !!(state.income.length || state.shared.length || state.assets.length ||
     state.properties.length || state.transactions.length || state.debts.length);
-}// v3.40.0: a tax year file merges one year into the plan — see calc/taxyear.js mergeTaxYearFile().
+}
+// v3.40.0: a tax year file merges one year into the plan — see calc/taxyear.js mergeTaxYearFile().
 function applyTaxYearFile(parsed){
   var people = getTaxPeople();
   var names = Object.keys(parsed.people || {});
@@ -73,7 +75,8 @@ function applyTaxYearFile(parsed){
     showTaxSubpage("returns", { replace: true });
     renderTaxYear();
   });
-}function applyImportedBackupJson(jsonStr){
+}
+function applyImportedBackupJson(jsonStr){
   try{
     var parsed = JSON.parse(jsonStr);
     // A tax year file picked from the main Import merges instead of replacing everything.
@@ -100,7 +103,8 @@ function applyTaxYearFile(parsed){
   }catch(err){
     showToast("That file doesn't look like a valid backup");
   }
-}// A backup's text, plain or encrypted — from a picked file or the backup folder (v3.71.0).
+}
+// A backup's text, plain or encrypted — from a picked file or the backup folder (v3.71.0).
 function importBackupText(raw){
   var envelope;
   try{ envelope = JSON.parse(raw); }catch(err){ showToast("That file doesn't look like a valid backup"); return; }
@@ -122,14 +126,17 @@ function updateThemeButtonLabel(){
   var mode = app.getThemePref();
   var label = mode === "light" ? "Theme: Light" : mode === "dark" ? "Theme: Dark" : "Theme: System";
   document.getElementById("themeToggleBtn").textContent = label;
-}function openFirstRun(){
+}
+function openFirstRun(){
   startFirstRun(); renderFirstRun();
   app.pushActiveOverlay(closeFirstRunUi);
   var f = firstRunRoot.querySelector("input"); if(f) f.focus();
-}function closeFirstRunUi(){
+}
+function closeFirstRunUi(){
   if(firstRun.open && !state.firstRunDone){ state.firstRunSkipped = true; persist(); }
   firstRun.open = false; renderFirstRun();
-}function readFirstRunFields(){
+}
+function readFirstRunFields(){
   firstRunRoot.querySelectorAll("[data-fr]").forEach(function(el){
     var path = el.getAttribute("data-fr").split("."), o = firstRun.answers;
     for(var i = 0; i < path.length - 1; i++) o = o[path[i]];
@@ -151,15 +158,18 @@ export function wireData(){
     target.focus({ preventScroll: true });
     target.scrollIntoView({ block: "start" });
   });
-  document.getElementById("exportBtn").addEventListener("click", doExport);  document.getElementById("exportLink2").addEventListener("click", doExport);
+  document.getElementById("exportBtn").addEventListener("click", doExport);
+  document.getElementById("exportLink2").addEventListener("click", doExport);
   // Only shown where the browser can actually hand a file to the OS share sheet — everywhere
   // else (most desktop browsers, notably) it stays hidden and Export remains the only path.
   if(canShareFiles()){
     document.getElementById("shareBtn").hidden = false;
-  }  document.getElementById("shareBtn").addEventListener("click", doShare);
+  }
+  document.getElementById("shareBtn").addEventListener("click", doShare);
   document.getElementById("importBtn").addEventListener("click", function(){
     document.getElementById("importFile").click();
-  });  document.getElementById("taxYearImportFile").addEventListener("change", function(e){
+  });
+  document.getElementById("taxYearImportFile").addEventListener("change", function(e){
     var file = e.target.files[0];
     e.target.value = "";
     if(!file) return;
@@ -171,7 +181,8 @@ export function wireData(){
       applyTaxYearFile(parsed);
     };
     reader.readAsText(file);
-  });  document.getElementById("importFile").addEventListener("change", function(e){
+  });
+  document.getElementById("importFile").addEventListener("change", function(e){
     var file = e.target.files[0];
     if(!file) return;
     var reader = new FileReader();
@@ -185,7 +196,8 @@ export function wireData(){
     renderAll();
     persist();
     showToast("Cleared");
-  });  document.getElementById("mockDataBtn").addEventListener("click", loadSampleData);
+  });
+  document.getElementById("mockDataBtn").addEventListener("click", loadSampleData);
   // The Dashboard's first-run actions. Same handler as the toolbar button above — the point of
   // these is only that they are reachable on a phone, where that button isn't rendered at all.
   document.getElementById("dashboardSetup").addEventListener("click", function(e){
@@ -207,13 +219,15 @@ export function wireData(){
       renderDashboardStats();
       showToast("Hidden — every page stays in the menu");
     }
-  });  document.getElementById("themeToggleBtn").addEventListener("click", function(){
+  });
+  document.getElementById("themeToggleBtn").addEventListener("click", function(){
     var current = app.getThemePref();
     var next = app.THEME_MODES[(app.THEME_MODES.indexOf(current) + 1) % app.THEME_MODES.length];
     try{ localStorage.setItem(app.THEME_KEY, next); }catch(e){}
     app.applyTheme(next);
     updateThemeButtonLabel();
-  });  updateThemeButtonLabel();
+  });
+  updateThemeButtonLabel();
 }
 
 export function wireFirstRun(){  document.addEventListener("click", function(e){ if(e.target.closest("[data-firstrun-open]")) openFirstRun(); });  // v3.161.0 (item 191): Settings → What this household has, and Net worth's "Add a property" while it's hidden.
@@ -227,9 +241,11 @@ export function wireFirstRun(){  document.addEventListener("click", function(e){
       if(key === "property") showPage("properties");
       else { showPage("assets"); showAssetsSubpage("Shares", { replace: true }); }
     }
-  });  firstRunRoot.addEventListener("change", function(e){
+  });
+  firstRunRoot.addEventListener("change", function(e){
     if(e.target.matches("select[data-fr]")){ readFirstRunFields(); renderFirstRun(); }
-  });  firstRunRoot.addEventListener("click", function(e){
+  });
+  firstRunRoot.addEventListener("click", function(e){
     if(e.target.closest("[data-fr-close]") || e.target === e.target.closest("[data-fr-backdrop]")){ app.requestCloseActiveOverlay(); return; }
     var a = firstRun.answers;
     if(!a) return;
@@ -264,7 +280,9 @@ export function wireFirstRun(){  document.addEventListener("click", function(e){
         if(card){ card.open = true; setTimeout(function(){ card.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); }
       } else showPage("dashboard", { replace: true });
     }
-  });  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && firstRun.open) app.requestCloseActiveOverlay(); });  if(shouldOfferFirstRun()) setTimeout(openFirstRun, 300);
+  });
+  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && firstRun.open) app.requestCloseActiveOverlay(); });
+  if(shouldOfferFirstRun()) setTimeout(openFirstRun, 300);
 }
 
 export { buildDemoState, importBackupText };

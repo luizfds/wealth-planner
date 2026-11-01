@@ -83,7 +83,8 @@ export function wireOverflowMenus(){  document.addEventListener("click", functio
     // on their own ids and don't know this menu exists, so closing is this handler's job either
     // way, whether the click was inside or outside.
     closeAllOverflowMenus(null);
-  });  document.addEventListener("keydown", function(e){
+  });
+  document.addEventListener("keydown", function(e){
     if(e.key === "Escape") closeAllOverflowMenus(null);
   });
 }

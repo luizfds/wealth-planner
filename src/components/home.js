@@ -24,6 +24,7 @@ import { weekRecap, showWeekRecap, KEEP_WEEKS } from "../calc/weekrecap.js";
 import { transactionDisplayName } from "../calc/ledger.js";
 import { adviceFor } from "../calc/advice.js";
 import { partAllows } from "../calc/parts.js";
+import { autoPayCardHtml } from "./autopay.js";
 
 // ---------------- Home (v3.58.0) ----------------
 // The first screen answers four things before anything else: what we're worth, how the month is
@@ -148,6 +149,7 @@ export function homeSummaryHtml(today, opts){
 
   return (isPeriodToday() ? '' : '<p class="home-period-note">Showing ' + escapeAttr(r.label) + ' — net worth, bills and to-dos are always as of today.</p>') +
     (opts.week === false ? '' : weekCardHtml(today)) +
+    (opts.autoPay === false ? '' : autoPayCardHtml(today)) +
     (opts.lowBalance === false ? '' : lowBalanceCardHtml(today)) +
     '<div class="home-grid">' + nwCard + monthCard + billsCard + todoCard + '</div>' + goalsStripHtml(today);
 }

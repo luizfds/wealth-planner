@@ -106,6 +106,8 @@ export function defaultState(){
     // Money moved between the household's own accounts (v3.59.0): {id, date, amount, from, to, what}.
     // Never spending, so never in state.transactions — see calc/cashflowlist.js.
     transfers: [],
+    // Automatic payments between them, confirmed on the day (v3.196.0) — see calc/autopay.js.
+    autoPayments: [],
     // Expenses → Budget: which group cards are collapsed, by group name. See migrateState.
     budgetGroupsCollapsed: {},
     // Named money sources referenced by the free-text "account" field elsewhere (income, shared
@@ -357,6 +359,9 @@ export function migrateState(s){
   if(!Array.isArray(s.transfers)) s.transfers = [];
   s.transfers = s.transfers.filter(function(x){ return x && x.date && Number(x.amount); });
   s.transfers.forEach(function(x){ if(!x.id) x.id = genId("x"); });
+  if(!Array.isArray(s.autoPayments)) s.autoPayments = [];
+  s.autoPayments = s.autoPayments.filter(function(x){ return x && typeof x === "object"; });
+  s.autoPayments.forEach(function(x){ if(!x.id) x.id = genId("ap"); if(!x.answers || typeof x.answers !== "object" || Array.isArray(x.answers)) x.answers = {}; });
   // A rule with no match string can never fire and would sit in a backup forever; one with neither
   // a line nor a category fires and files the row nowhere, which reads as the app forgetting.
   s.importRules = s.importRules.filter(function(r){

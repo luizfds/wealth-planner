@@ -102,6 +102,10 @@ the last, so two sessions can't pick up the same one.
   Bills' Subscriptions (`calc/subscriptions.js`, `state.subscriptionNotes`) both filter it; change detection there, not in either.
 - **Balance by the day (v3.180.0):** `calc/dailyforecast.js` — an everyday account's 90 days from the bills calendar (`billsForMonth`,
   whose bills now carry `account`), pay landed before (`incomeLog`) and usual spending; `account.buffer` warns on its detail page and Home.
+- **Automatic payments (v3.196.0):** `calc/autopay.js` — `state.autoPayments` (from, to, amount, freq, a `start` day, `asksFrom`,
+  optional Budget `line` it stands for, `answers` by date). On the day Home (`data-home-card="autopay"`) and the bell ask; an
+  answer records a transfer tagged `autoPay`/`autoPayDate` (or nothing, for skipped); a transfer between the same accounts within
+  3 days answers it too. The bills calendar and an account's 90 days draw it in place of its line. Renames walk `from`/`to`.
 - `styles.css` — just eight `@import` statements pulling in `src/styles/{base,shell,dashboard,
   ledger,income,properties,assets,projections}.css`, in that specific order. Light/dark theming is
   CSS custom properties + `prefers-color-scheme`, defined in `base.css`.

@@ -260,6 +260,10 @@ export function billsCalendarHtml(data, ym, today){
   var pays = data.cardPayments || [];
   var payOn = {};
   pays.forEach(function(p){ (payOn[p.date] = payOn[p.date] || []).push(p); });
+  // v3.196.0: automatic payments between your own accounts — paid once confirmed (or a transfer matches).
+  var autos = data.autoPays || [], autoOn = {};
+  function apSt(p){ return p.status === "paid" ? "paid" : p.status === "due" ? "overdue" : p.status === "skipped" ? "skipped" : ""; }
+  autos.forEach(function(p){ (autoOn[p.date] = autoOn[p.date] || []).push(p); });
   var first = new Date(y, m - 1, 1), daysIn = new Date(y, m, 0).getDate();
   var lead = (first.getDay() + 6) % 7;
   var cells = [];
@@ -268,6 +272,7 @@ export function billsCalendarHtml(data, ym, today){
     var key = ym + "-" + String(d).padStart(2, "0");
     // The card repayment first: it's the money actually leaving the bank that day.
     var chips = (payOn[key] || []).map(function(p){ return { what: p.card + " payment", amount: p.amount, cls: "card-pay " + st(p), title: p.card + " payment " + fmtCurrency0.format(p.amount) + (p.assumed ? " — paid by direct debit from " + p.autoPayFrom + " (not logged)" : p.paid ? " — paid" : p.overdue ? " — not logged yet" : p.autoPayFrom ? " — by direct debit from " + p.autoPayFrom : "") }; })
+      .concat((autoOn[key] || []).map(function(p){ return { what: p.what, amount: p.amount, cls: "auto-pay " + apSt(p), title: p.what + " " + fmtCurrency0.format(p.amount) + " — automatic, " + p.from + " → " + p.to + (p.status === "paid" ? " — paid" : p.status === "skipped" ? " — skipped" : p.status === "due" ? " — not confirmed yet" : "") }; }))
       .concat((data.days[key] || []).map(function(b){ return { what: b.what, amount: b.amount, cls: (b.card ? "on-card " : "") + (b.agent ? "by-agent " : "") + st(b), title: b.what + " " + fmtCurrency0.format(b.amount) + (b.card ? " on the " + b.card + (b.payOn ? ", paid with the " + short(b.payOn) + " repayment" : "") : "") + (b.agent ? " — paid by " + b.agent + " from the rent" : "") + (b.paid ? " — paid" : b.overdue ? " — not logged yet" : "") }; }));
     cells.push('<div class="bc-cell' + (key === today ? " is-today" : "") + (chips.length ? " has-bills" : "") + '"><span class="bc-day">' + d + '</span>' +
       chips.slice(0, 3).map(function(c){ return '<span class="bc-bill ' + c.cls.trim() + '" title="' + escapeAttr(c.title) + '">' + escapeAttr(c.what) + '</span>'; }).join("") +
@@ -291,6 +296,11 @@ export function billsCalendarHtml(data, ym, today){
       }
       var sub = 'Everything charged ' + short(p.cycle.start) + ' – ' + short(p.cycle.end) + (p.paid ? '' : p.open ? ', so far' : '') + (parts.length ? ': ' + parts.join(' · ') : '');
       return { date: p.date, html: row(p.date, '<span class="bc-card-tag">Card</span>' + escapeAttr(p.card) + ' payment', sub, st(p), p.amount) };
+    }))
+    .concat(autos.map(function(p){
+      var stt = apSt(p) === "overdue" ? "confirm" : apSt(p);
+      return { date: p.date, html: '<li class="' + stt + '"><span class="bc-list-date">' + short(p.date) + '</span><span class="bc-list-name"><span class="bc-card-tag">Auto</span>' + escapeAttr(p.what) + '<small>' + escapeAttr(p.from) + ' → ' + escapeAttr(p.to) + '</small></span>' +
+        '<span class="bc-list-state">' + (p.status === "paid" ? "paid ✓" : p.status === "skipped" ? "skipped" : p.status === "due" ? "to confirm" : p.date === today ? "today" : "due") + '</span><b>' + fmtCurrency0.format(p.amount) + '</b></li>' };
     }))
     .sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
   var onCard = all.filter(function(b){ return b.card; });

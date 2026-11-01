@@ -564,3 +564,12 @@
 .fc-list b{ font-variant-numeric: tabular-nums; }
 .fc-list b.up{ color: var(--good-ink); }
 .home-lowbal{ margin:0 0 12px; padding: var(--card-py) var(--card-px); border:1px solid var(--border); border-left:3px solid var(--bad); border-radius: var(--card-radius); background: var(--paper); }
+.home-autopay{ margin:0 0 12px; padding: var(--card-py) var(--card-px); border:1px solid var(--border); border-left:3px solid var(--brass); border-radius: var(--card-radius); background: var(--paper); }
+.ap-due{ list-style:none; margin:8px 0 0; padding:0; display:flex; flex-direction:column; gap:10px; }
+.ap-due-row{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 12px; }
+.ap-due-row + .ap-due-row{ border-top:1px dashed var(--border); padding-top:10px; }
+.ap-due-what{ display:flex; flex-direction:column; min-width:0; }
+.ap-due-what span{ font-size:var(--fs-sm); color: var(--ink-soft); }
+.ap-due-actions, .ap-due-other{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; }
+.ap-due-other label{ display:flex; align-items:center; gap:6px; font-size:var(--fs-sm); }
+.ap-due-other input[type=number]{ width:110px; }

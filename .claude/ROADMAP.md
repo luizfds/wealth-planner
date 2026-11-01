@@ -4212,7 +4212,7 @@ pages' render code already did — nothing a person sees changes.
 
 Done when: smoke and drives unchanged; app.js shorter by the moved lines.
 
-## 231. `[ ]` Automatic repayments and transfers, confirmed on the day
+## 231. `[x]` Automatic repayments and transfers, confirmed on the day
 Asked for: a loan repaid by direct debit from one account to another, confirmed on the day it should happen.
 
 Do: a loan or any account can have an automatic payment (from, to, amount, how often, the day); on the day the bell and
@@ -4220,6 +4220,19 @@ Home ask "paid?" — Yes records the transfer, a different amount records that (
 rate change), Skipped records nothing; until then it shows on the bills calendar and an account's 90 days.
 
 Done when: tests on the days it falls due and on each answer; driven: confirmed on the day, an amount changed for good.
+
+**Done (v3.196.0).** `calc/autopay.js`: `state.autoPayments` — from, to, amount, how often, a day it comes out
+(the rhythm) and, optionally, the Budget line it stands for. Set up on any account's card (Net worth → Accounts →
+"+ Add an automatic payment"; a loan or card starts as the "to", anything else as the "from"). On the day — and for a
+month after, until answered, never for days before it was set up — Home's "Did these go through?" card and the bell
+ask: **Yes** records the transfer (tagged `autoPay`), **A different amount** records that and, ticked, makes it the
+amount from now on (a rate change), **It didn't** records nothing; each has Undo. A transfer between the same two
+accounts within three days (a statement import) answers it on its own. The bills calendar shows it (ticked once
+paid, outlined until), and an everyday account's 90 days count it out of one account and into the other — in place
+of its Budget line, so nothing's counted twice. Account renames walk both ends. `tests/autopay.test.js` covers the
+days it falls due and each answer. Driven at 1280 and 390px: set up on the loan's card, asked on Home and in the bell
+on the day, a different amount recorded and kept for good, the calendar ticked.
+
 
 ## Conventions for whoever picks this up
 

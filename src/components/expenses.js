@@ -6,6 +6,7 @@ import { merchantGroups, worthShowingMerchants, recentMerchants } from "../calc/
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
 import { scenarioTotals, currentScenario } from "../calc/engine.js";
 import { billsForMonth, billsToConfirm } from "../calc/bills.js";
+import { autoPaysForMonth, autoPayLineIds } from "../calc/autopay.js";
 import { scenarioIncomeRows } from "../calc/tax.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent0, fmtPercent1, localDateStr, fmtDate } from "../lib/format.js";
 import { spendingTrends, monthKeyLabel } from "../calc/trends.js";
@@ -400,7 +401,11 @@ export function renderBillsCalendar(){
   var el = typeof document !== "undefined" && document.getElementById("billsCalendar");
   if(!el) return;
   var ym = selectedMonth();
-  el.innerHTML = billsCalendarHtml(billsForMonth(loggableBudgetLineItems(), state.transactions, ym, localDateStr(), { accounts: state.accounts, transfers: state.transfers }), ym);
+  // v3.196.0: an automatic payment shows on its days, in place of a Budget line it stands for.
+  var apLines = autoPayLineIds(state), today = localDateStr();
+  var data = billsForMonth(loggableBudgetLineItems().filter(function(i){ return !apLines[i.id]; }), state.transactions, ym, today, { accounts: state.accounts, transfers: state.transfers });
+  data.autoPays = autoPaysForMonth(state, ym, today).filter(function(p){ return p.status !== "before"; });
+  el.innerHTML = billsCalendarHtml(data, ym);
   renderSubscriptions(); // v3.179.0 (item 205)
 }
 // "Your month, planned" (v3.59.0) — components/cashflow.js budgetPlanHtml.
@@ -2464,4 +2469,9 @@ export function renameAccountEverywhere(oldName, newName){
   });
   // A card paid by direct debit names the account it's paid from (v3.139.0).
   (state.accounts || []).forEach(function(x){ if(x.autoPayFrom === oldName) x.autoPayFrom = newName; });
+  // So does an automatic payment, both ends (v3.196.0).
+  (state.autoPayments || []).forEach(function(x){
+    if(x.from === oldName) x.from = newName;
+    if(x.to === oldName) x.to = newName;
+  });
 }

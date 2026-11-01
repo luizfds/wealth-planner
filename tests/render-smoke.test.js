@@ -1987,3 +1987,28 @@ test("the timeline strip lists each change at its year", async function(){
   assert.doesNotMatch(html, /undefined|NaN/);
   Object.assign(state, { scenarioChanges: was.ch, purchase: was.purchase, invest: was.invest, fire: was.fire });
 });
+
+test("automatic payments: the Home card asks, the account's card sets them up (v3.196.0)", async function(){
+  var S = await import("../src/state.js"), setState = S.setState;
+  var { autoPayCardHtml, accountAutoPaysHtml, autoPayView } = await import("../src/components/autopay.js");
+  var keep = S.state;
+  try {
+    setState(Object.assign({}, keep, {
+      accounts: [{ name: "Bank One Everyday", type: "everyday" }, { name: "Home Loan", type: "loan" }], transfers: [], shared: [{ id: "l1", what: "Loan repayment" }],
+      autoPayments: [{ id: "ap1", what: "Loan repayment", from: "Bank One Everyday", to: "Home Loan", amount: 1850, freq: "Monthly", start: "2026-10-15", asksFrom: "2026-10-01", answers: {} }]
+    }));
+    var html = autoPayCardHtml("2026-10-15");
+    assert.match(html, /data-home-card="autopay"/);
+    assert.match(html, /Yes, \$1,850\.00/);
+    assert.match(html, /data-ap-skip/);
+    assert.equal(autoPayCardHtml("2026-10-14"), "");
+    autoPayView.other = "ap1|2026-10-15";
+    assert.match(autoPayCardHtml("2026-10-15"), /ap-other-amount[\s\S]*The amount from now on/);
+    autoPayView.other = "";
+    var acct = accountAutoPaysHtml(S.state.accounts[1], "2026-10-01");
+    assert.match(acct, /data-ap-field="from"[\s\S]*Bank One Everyday/);
+    assert.match(acct, /Next on/);
+    assert.match(acct, /data-ap-add="Home Loan"/);
+    assert.ok(!/NaN|undefined/.test(html + acct));
+  } finally { setState(keep); }
+});

@@ -92,6 +92,8 @@ import { rulesPageHtml, setRuleField, ruleIsEmpty, ruleTest, ruleView, RULES_PAG
 import { normaliseDescription } from "./calc/bank-import.js";
 import { openAccounts, balanceEditing } from "./components/accounts.js";
 import { renderHomeSummary, weekView } from "./components/home.js";
+import { autoPayView } from "./components/autopay.js";
+import { answerAutoPay, makeAutoPay } from "./calc/autopay.js";
 import { dismissWeekRecap } from "./calc/weekrecap.js";
 import { saveView, deleteView, applyView, FILTER_FIELDS } from "./calc/txviews.js";
 import { attachReceipt, detachReceipt, takeReceiptFiles } from "./calc/receipts.js";
@@ -6715,6 +6717,74 @@ import { inboxMessage } from "./calc/inbox.js";
         else showToast("Close the year appears on Returns once the year is over");
       }
     }
+  });
+
+  // ---------------- Automatic payments (v3.196.0, item 231) ----------------
+  // Set up on an account's card; answered on Home. calc/autopay.js does the recording.
+  function afterAutoPay(){ persist(); renderAll(); renderNotifBadge(); }
+  function answerAndUndo(id, date, answer, said){
+    var r = answerAutoPay(state, id, date, answer, genId);
+    if(!r) return;
+    autoPayView.other = "";
+    afterAutoPay();
+    showUndoToast(said, function(){ answerAutoPay(state, id, date, { undo: true }); afterAutoPay(); });
+  }
+  document.addEventListener("click", function(e){
+    var add = e.target.closest("[data-ap-add]");
+    if(add){
+      var name = add.getAttribute("data-ap-add");
+      var acct = (state.accounts || []).find(function(x){ return x.name === name; }) || {};
+      var owed = acct.type === "loan" || acct.type === "credit";
+      if(!Array.isArray(state.autoPayments)) state.autoPayments = [];
+      state.autoPayments.push(makeAutoPay({ from: owed ? "" : name, to: owed ? name : "", freq: "Monthly" }, localDateStr(), genId("ap")));
+      persist(); renderAccounts();
+      return;
+    }
+    var del = e.target.closest("[data-ap-del]");
+    if(del){
+      var di = (state.autoPayments || []).findIndex(function(x){ return x.id === del.getAttribute("data-ap-del"); });
+      if(di === -1) return;
+      var gone = state.autoPayments.splice(di, 1)[0];
+      afterAutoPay();
+      showUndoToast("Deleted the automatic payment — transfers it recorded stay", function(){ state.autoPayments.splice(di, 0, gone); afterAutoPay(); });
+      return;
+    }
+    var b = e.target.closest("[data-ap-yes],[data-ap-skip],[data-ap-other],[data-ap-other-save],[data-ap-other-cancel]");
+    if(!b) return;
+    var id = b.getAttribute("data-ap-id"), date = b.getAttribute("data-ap-date");
+    if(b.hasAttribute("data-ap-other-cancel")){ autoPayView.other = ""; renderHomeSummary(); return; }
+    if(b.hasAttribute("data-ap-other")){
+      autoPayView.other = id + "|" + date; renderHomeSummary();
+      var inp = document.querySelector("#homeSummary .ap-other-amount"); if(inp){ inp.focus(); inp.select(); }
+      return;
+    }
+    if(b.hasAttribute("data-ap-skip")){ answerAndUndo(id, date, { skipped: true }, "Marked as not gone through — nothing recorded"); return; }
+    if(b.hasAttribute("data-ap-yes")){ answerAndUndo(id, date, { paid: true }, "Recorded as a transfer"); return; }
+    var row = b.closest(".ap-due-row");
+    var amt = Number((row.querySelector(".ap-other-amount") || {}).value);
+    if(!(amt > 0)){ showToast("Type the amount that went out"); return; }
+    var keep = !!(row.querySelector(".ap-other-keep") || {}).checked;
+    answerAndUndo(id, date, { paid: true, amount: amt, keep: keep }, "Recorded " + fmtCurrency2.format(amt) + (keep ? " — and the amount from now on" : ""));
+  });
+  document.addEventListener("keydown", function(e){
+    if(e.key === "Enter" && e.target.classList && e.target.classList.contains("ap-other-amount")){
+      var save = e.target.closest(".ap-due-row").querySelector("[data-ap-other-save]"); if(save) save.click();
+    }
+  });
+  document.addEventListener("change", function(e){
+    var field = e.target.getAttribute && e.target.getAttribute("data-ap-field");
+    if(!field) return;
+    var ap = (state.autoPayments || []).find(function(x){ return x.id === e.target.getAttribute("data-ap-id"); });
+    if(!ap) return;
+    var v = e.target.value;
+    if(field === "amount") ap.amount = Math.round((Number(v) || 0) * 100) / 100;
+    else if(field === "line"){ if(v) ap.line = v; else delete ap.line; }
+    else if(field === "what") ap.what = v.trim();
+    else ap[field] = v;
+    persist();
+    renderHomeSummary(); renderNotifBadge();
+    // Rebuilt after the event: the note under it ("Next on …") follows the day and how often.
+    if(field === "start" || field === "freq" || field === "line") setTimeout(renderAccounts, 0);
   });
 
   // ---------------- Home (v3.58.0): the summary's links and to-dos ----------------

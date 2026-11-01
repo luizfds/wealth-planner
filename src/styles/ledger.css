@@ -1091,6 +1091,10 @@
   .acct-bal-input:focus, .acct-mgmt-limit:focus, .acct-mgmt-link:focus, .acct-mgmt-autopay:focus, .acct-mgmt-payday:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
   .acct-card-edit{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
   .acct-field{ display:flex; flex-direction:column; gap:4px; min-width:0; }
+  /* v3.196.0: automatic payments on an account's card */
+  .ap-section{ display:flex; flex-direction:column; gap:8px; align-items:flex-start; }
+  .ap-title{ font-size:var(--fs-sm); font-weight:600; }
+  .ap-row{ align-self:stretch; display:grid; grid-template-columns: 1fr 1fr; gap:10px; padding:10px; border:1px solid var(--border); border-radius: var(--inner-radius); }
   .acct-field > span{ font-size:var(--fs-xs); font-weight:600; color: var(--ink-soft); }
   .acct-field-wide{ grid-column: 1 / -1; }
   .acct-card-edit .acct-mgmt-name, .acct-card-edit .acct-mgmt-type, .acct-card-edit .acct-mgmt-day{ width:100%; flex:none; box-sizing:border-box; text-align:left; }
@@ -1101,6 +1105,7 @@
   .acct-loose-row button{ white-space:nowrap; }
   @media (max-width: 480px){
     .acct-card-edit{ grid-template-columns: 1fr; }
+    .ap-row{ grid-template-columns: 1fr; }
     .acct-card-spark{ display:none; }
     .acct-loose-row{ flex-wrap:wrap; row-gap:2px; }
     .acct-loose-row span{ flex-basis:100%; white-space:normal; }
@@ -1393,6 +1398,14 @@
   /* v3.101.0: paid by the property manager out of the rent */
   .bc-bill.by-agent{ background:none; border:1px dotted var(--border); color: var(--ink-soft); }
   .bc-dots i.by-agent{ background:none; box-shadow: inset 0 0 0 1px var(--border); }
+  /* v3.196.0: an automatic payment between your own accounts — outlined, ticked once confirmed */
+  .bc-bill.auto-pay{ background: var(--paper-raised); box-shadow: inset 0 0 0 1px var(--brass); }
+  .bc-bill.auto-pay.paid{ background: var(--good-wash); box-shadow:none; }
+  .bc-bill.auto-pay.overdue{ background: var(--brass-wash); box-shadow: inset 0 0 0 1px var(--warn-ink); }
+  .bc-bill.auto-pay.skipped{ background:none; text-decoration: line-through; color: var(--ink-soft); }
+  .bc-dots i.auto-pay{ background:none; box-shadow: inset 0 0 0 2px var(--brass); }
+  .bc-dots i.auto-pay.paid{ background: var(--good); box-shadow:none; }
+  .bc-list li.confirm .bc-list-state{ color: var(--warn-ink); font-weight:600; }
   .bc-list.is-agent li{ color: var(--ink-soft); }
   .bc-list.is-agent li b{ color: var(--ink); }
   .bc-list-name small{ display:block; font-size:var(--fs-xs); color: var(--ink-soft); white-space:normal; }

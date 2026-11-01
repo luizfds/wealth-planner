@@ -112,8 +112,8 @@ function changeFormHtml(c, scenario, ctx){
       field(c, scenario, "sellingCostsPct", "Selling costs %", "number"),
       // v3.186.0 (item 217): how it was used decides the capital gains tax.
       field(c, scenario, "use", "Lived in it", "select", [["", "As its kind says"], ["never", "Never"], ["home", "Our home throughout"], ["former", "Our home, then rented out"]]));
-    if(c.use === "former") f.push(field(c, scenario, "movedOut", "Moved out", "date"));
-    f.push('<p class="scf-figs"><span>Capital gains tax: half the gain after a year, at the owners\' tax; none on the home you live in, and none on a former home sold within six years of moving out (past that, the share of time beyond the six years). An estimate — the cost base resetting to market value when first rented isn\'t applied.</span></p>');
+    if(c.use === "former") f.push(field(c, scenario, "movedOut", "Moved out", "date"), field(c, scenario, "firstRentedValue", "Its value when first rented", "number", ' placeholder="a valuation then, if you had one"'));
+    f.push('<p class="scf-figs"><span>Capital gains tax: half the gain after a year, at the owners\' tax; none on the home you live in, and none on a former home sold within six years of moving out (past that, the share of time beyond the six years' + (c.use === "former" ? ', worked from its value when first rented where you give it — the home first used to earn income' : '') + '). An estimate — an accountant confirms it.</span></p>');
   }
   return '<div class="scf-grid">' + f.join("") + '</div>';
 }

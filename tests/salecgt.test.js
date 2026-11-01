@@ -31,6 +31,34 @@ test("a former home rented out: exempt for six years after moving out, then the 
   assert.equal(r.tax, 10925.98);
 });
 
+// v3.197.0 (item 228), worked by hand: bought 1 Jul 2010 for a $400,000 cost base, lived in until 1 Jul 2015, then
+// rented out; sold 1 Jul 2025 for $1,000,000 with $20,000 of selling costs. Six years away ends 1 Jul 2021, so the
+// 1,461 days from then to the sale are taxed.
+var former = { sale: 1000000, sellingCosts: 20000, costBase: 400000, bought: "2010-07-01", sold: "2025-07-01", use: "former", movedOut: "2015-07-01", taxOf: function(g){ return g * 0.39; } };
+test("a former home past six years: without its value when first rented, the original cost over all the years owned", function(){
+  var r = saleCgt(former);
+  // $580,000 gain × 1,461 of 5,479 days owned × ½ = $77,329.80.
+  assert.equal(r.gain, 580000);
+  assert.equal(r.taxedShare, 1461 / 5479);
+  assert.equal(r.taxable, 77329.8);
+  assert.equal(r.marketValue, false);
+});
+test("a former home past six years: with its value when first rented, that value and the years since moving out", function(){
+  var r = saleCgt(Object.assign({}, former, { firstRentedValue: 600000 }));
+  // $380,000 gain × 1,461 of 3,653 days since moving out × ½ = $75,989.60.
+  assert.equal(r.gain, 380000);
+  assert.equal(r.taxedShare, 1461 / 3653);
+  assert.equal(r.taxable, 75989.6);
+  assert.equal(r.tax, Math.round(75989.6 * 0.39 * 100) / 100);
+  assert.equal(r.marketValue, true);
+  assert.equal(r.discounted, true);
+  // Within six years nothing's taxed either way; an investment property never had the reset.
+  assert.equal(saleCgt(Object.assign({}, former, { firstRentedValue: 600000, sold: "2021-06-30" })).tax, 0);
+  assert.equal(saleCgt(Object.assign({}, former, { firstRentedValue: 600000, sold: "2021-06-30" })).marketValue, false);
+  var ip = saleCgt(Object.assign({}, former, { use: "never", firstRentedValue: 600000 }));
+  assert.equal(ip.gain, 580000); assert.equal(ip.marketValue, false);
+});
+
 test("a lender's buffer: a loan that passes at its rate but not 3 points above it", function(){
   // $600,000 over 30 years: $3,597.30 a month at 6%, $4,827.74 at 9%. Take-home $7,500, living $3,000.
   var at = serviceability({ incomeMonthly: 7500, livingMonthly: 3000, loans: [{ balance: 600000, rate: 6, termYears: 30 }], buffer: 0 });
@@ -66,6 +94,12 @@ test("selling in a scenario: the home pays no CGT, the same place as an investme
   var home = nwAt(household("IP", { use: "home" }), 5), ip = nwAt(household("IP"), 5), former = nwAt(household("IP", { use: "former", movedOut: "2024-01-01" }), 5);
   assert.ok(home > ip + 50000, "CGT on a ~$470,000 gain, halved, at the owner's tax: " + Math.round(home - ip));
   assert.equal(Math.round(former), Math.round(home), "moved out in 2024, sold in year 2: still exempt");
+});
+
+test("selling a former home in a scenario: its value when first rented lowers the tax past six years", function(){
+  var plain = nwAt(household("IP", { use: "former", movedOut: "2017-01-01" }), 9);
+  var valued = nwAt(household("IP", { use: "former", movedOut: "2017-01-01", firstRentedValue: 700000 }), 9);
+  assert.ok(valued > plain + 1000, "a higher cost base, a smaller gain: " + Math.round(valued - plain));
 });
 
 test("a lender check: a modest loan passes, a large one fails at the rate plus 3", function(){

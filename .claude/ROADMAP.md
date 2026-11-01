@@ -4194,11 +4194,19 @@ card, the comparison, the projection and an account.
 
 Done when: tests: a combination equals the same changes made by hand; a change to an included scenario flows through.
 
-## 228. `[ ]` A former home's market value when first rented
+## 228. `[x]` A former home's market value when first rented
 Do: selling a former home asks for its value when it was first rented out and uses it as the cost base where the rules
 do (the home first used to earn income), instead of the original cost.
 
 Done when: hand-worked tests with and without it.
+
+**Done (v3.197.0).** A sale change for a former home ("Our home, then rented out") asks for its value when first
+rented. Past the six years, `saleCgt` takes it as the cost (the home first used to earn income) and counts the time
+owned — for the taxed share and the year for the discount — from moving out, and says so (`marketValue`); left
+empty, the original cost over all the years owned, as before. `tests/salecgt.test.js` has both worked by hand, and
+a scenario's net worth with and without it. Driven: the field appears for a former home, saves in the draft and
+moves the 10-year figure.
+
 
 ## 229. `[ ]` The lender check's living-cost floor
 Do: lenders take the higher of declared living costs and their own benchmark for the household (HEM-like, by income and

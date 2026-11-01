@@ -217,7 +217,7 @@ export function scenarioLegContext(scenario){
         // tax in full. With no cost base on record there's no gain to work out.
         var use = c.use || (p.kind === "IP" ? "never" : "home");
         var cgt = costBase == null ? 0 : saleCgt({ sale: value, sellingCosts: selling, costBase: costBase, bought: p.purchaseDate || "", sold: addYearsIso(todayStr, year),
-          use: use, movedOut: c.movedOut || "", taxOf: function(g){ return -taxEffectFor(saleOwner(p), g); } }).tax;
+          use: use, movedOut: c.movedOut || "", firstRentedValue: Number(c.firstRentedValue) || 0, taxOf: function(g){ return -taxEffectFor(saleOwner(p), g); } }).tax;
         return value - debt - selling - cgt;
       }
     };

@@ -1,0 +1,61 @@
+# Releases on merge (v3.202.0, item 233). After every push to main, scripts/release.mjs decides whether it
+# ships something and which version it is — a `release: minor`, `release: patch` or `release: none` label on
+# the merged PR, or else from what changed (see decideBump). Then it writes the version into index.html,
+# stamps every module URL and the Content-Security-Policy hashes (npm run stamp), runs the tests, and
+# commits "Bump version to vX.Y.Z — <PR title>" with its tag. No hand-written bump commits, no tag left
+# unpushed. A push by this workflow doesn't start it again (pushes made with GITHUB_TOKEN never do).
+#
+# If main is ever protected against direct pushes, allow GitHub Actions to bypass that rule, or this job's
+# push is refused (the merge itself is untouched, just unreleased).
+name: Release
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["prices/**"]
+permissions:
+  contents: write
+  pull-requests: read
+  pages: write
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Decide
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: node scripts/release.mjs decide
+      - name: Bump, stamp and test
+        id: apply
+        if: steps.decide.outputs.bump != 'none'
+        run: |
+          node scripts/release.mjs apply "${{ steps.decide.outputs.bump }}"
+          npm test
+      - name: Commit, tag and push
+        if: steps.decide.outputs.bump != 'none'
+        env:
+          VERSION: ${{ steps.apply.outputs.version }}
+          TITLE: ${{ steps.decide.outputs.title }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Bump version to v$VERSION — $TITLE"
+          git tag -a "v$VERSION" -m "$TITLE"
+          git push origin HEAD:main
+          git push origin "v$VERSION"
+      - name: Rebuild the site
+        # A push made with GITHUB_TOKEN may not start a Pages build on its own; ask for one. Harmless if it does.
+        if: steps.decide.outputs.bump != 'none'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X POST "repos/${{ github.repository }}/pages/builds" || echo "Pages build request not accepted — the next push rebuilds it"

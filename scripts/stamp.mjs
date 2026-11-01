@@ -9,6 +9,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import crypto from "node:crypto";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const START = "<!-- stamp:importmap -->", END = "<!-- /stamp:importmap -->";
@@ -40,7 +41,21 @@ export function stampedIndex(html, version, files){
     : html.replace('<script type="module" src="src/app.js', block + '\n<script type="module" src="src/app.js');
   out = out.replace(/<script type="module" src="src\/app\.js(\?v=[0-9.]+)?"><\/script>/, '<script type="module" src="src/app.js?v=' + version + '"></script>');
   out = out.replace(/<link rel="stylesheet" href="styles\.css(\?v=[0-9.]+)?">/, '<link rel="stylesheet" href="styles.css?v=' + version + '">');
+  return withScriptHashes(out);
+}
+// v3.202.0 (item 233): the Content-Security-Policy allows an inline <script> only by the hash of its exact
+// text — the import map above changes with every version, so its hash is worked out here, every stamp.
+export function inlineScriptHashes(html){
+  const out = [], re = /<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g;
+  let m;
+  while((m = re.exec(html))) out.push("'sha256-" + crypto.createHash("sha256").update(m[1], "utf8").digest("base64") + "'");
   return out;
+}
+export function withScriptHashes(html){
+  return html.replace(/(<meta http-equiv="Content-Security-Policy" content="[^"]*?script-src 'self')((?: 'sha256-[A-Za-z0-9+/=]+')*)/, function(all, head){
+    const hashes = inlineScriptHashes(html);
+    return head + (hashes.length ? " " + hashes.join(" ") : "");
+  });
 }
 export function stampedStyles(css, version){
   return css.replace(/@import url\("(src\/styles\/[a-z-]+\.css)(\?v=[0-9.]+)?"\);/g, '@import url("$1?v=' + version + '");');

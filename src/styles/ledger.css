@@ -1671,3 +1671,14 @@
   .sub-name{ grid-area:name; } .sub-year{ grid-area:year; } .sub-when{ grid-area:when; font-size:var(--fs-xs); }
   .sub-cancel{ grid-area:cancel; flex-direction:row; justify-content:space-between; align-items:center; }
 }
+/* v3.202.0 (item 233): problems the app hit, in Settings → Keeping your data safe */
+.el-log{ margin-top:12px; }
+.el-log summary{ cursor:pointer; min-height:32px; }
+.el-list{ list-style:none; margin:0 0 8px; padding:0; max-height:260px; overflow:auto; border:1px solid var(--border); border-radius: var(--inner-radius); }
+.el-list li{ display:grid; grid-template-columns: 120px minmax(0,1fr); gap:8px; padding:6px 10px; border-bottom:1px solid var(--border); font-size:var(--fs-sm); }
+.el-list li:last-child{ border-bottom:0; }
+.el-when{ color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.el-msg{ overflow-wrap:anywhere; }
+.el-msg small{ display:block; color: var(--ink-soft); font-size:var(--fs-xs); }
+.el-actions{ display:flex; gap:8px; }
+@media (max-width:560px){ .el-list li{ grid-template-columns: 1fr; gap:2px; } }

@@ -6,6 +6,7 @@ import { escapeAttr } from "../lib/html.js";
 import { localDateStr, fmtDate } from "../lib/format.js";
 import { storageUsedChars, storageLineText, receiptsLineText } from "../lib/storageuse.js";
 import { receiptsStorageUse } from "../lib/receipts.js";
+import { errorLog, errorLogHtml } from "../lib/errorlog.js";
 
 // ---------------- Settings → Preferences → Keeping your data safe (v3.63.0) ----------------
 export function safekeepingHtml(folderName, today){
@@ -65,7 +66,9 @@ export function renderSafekeeping(){
   var storage = function(){
     var t = storageLineText(storageUsedChars(localStorage));
     var r = rc && rc.count ? receiptsLineText(rc) : "";
-    return t || r ? '<p class="ledger-note sk-storage" style="margin:12px 0 0">' + [t, r].filter(Boolean).join(" ") + '</p>' : '';
+    return (t || r ? '<p class="ledger-note sk-storage" style="margin:12px 0 0">' + [t, r].filter(Boolean).join(" ") + '</p>' : '') +
+      // v3.202.0 (item 233): errors the app hit on this device, to copy into a bug report.
+      errorLogHtml(errorLog(), escapeAttr);
   };
   el.innerHTML = safekeepingHtml(null) + storage();
   return Promise.all([savedFolder(), receiptsStorageUse().catch(function(){ return null; })]).then(function(x){ rc = x[1]; el.innerHTML = safekeepingHtml(x[0] ? x[0].name : null) + storage(); });

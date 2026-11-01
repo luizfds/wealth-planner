@@ -5,7 +5,7 @@
   "description": "Static, no-build personal finance / property-investment planner. The app has no runtime dependencies and no build step; npm test runs Node's built-in test runner with nothing installed. The devDependencies are checks only (ESLint, TypeScript's checker over JSDoc, stylelint), run by npm run check and in CI.",
   "scripts": {
     "test": "node --test tests/*.test.js",
-    "check": "eslint . && tsc -p jsconfig.json && stylelint \"src/styles/*.css\" styles.css",
+    "check": "eslint . && node eslint-rules/selftest.mjs && tsc -p jsconfig.json && stylelint \"src/styles/*.css\" styles.css",
     "stamp": "node scripts/stamp.mjs"
   },
   "devDependencies": {

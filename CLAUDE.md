@@ -89,6 +89,11 @@ the last, so two sessions can't pick up the same one.
   **Phase J (v3.182–186):** the editor draws the draft against today and lays it on an account (`calc/scenarioaccount.js`); Side by side
   adds the odds (`cashLastsOdds`, filled in after drawing), a bad first year (`badStartSeries`) and a lender check (`lenderCheck`); a
   sale's CGT is `calc/salecgt.js` — the one place sale tax is worked out.
+  **Phase K (v3.187–194):** the editor is two columns (results pinned beside), Save bar at the bottom on a phone, a leave guard
+  (`setLeaveGuard` in nav.js), one "+ Add a change" sheet, saved-vs-draft marks (`changeStatus`/`resetChange`), a timeline
+  (`calc/scenariotimeline.js`), grouped forms with `HINTS`/`ODD`, an in-place rename and `state.scenarioNotes`. The purchase and
+  invest calculators live on the **Calculators** page (`page-calc`, avatar menu); the editor shows `buyInvestSummaryHtml` and
+  `renderHomeBody` also draws the scenario's panels there (`renderCalcScenario`) — keep both in that one render.
 - **Investment returns (v3.178.0):** `calc/investreturn.js` — `xirr`, money-weighted per holding, the same money in an index
   (the price file's weekly A200 / IVV series, read once a session by `components/investreturn.js`), a target mix (`state.targetMix`,
   a holding's own `assetClass` overriding its market) and distributions ahead. The IRR and the index units are `calc/performance.js`'s

@@ -1,5 +1,6 @@
-import { tryQ } from "./components/scenarioaccount.js";
-import { openDraft, saveDraft, discardDraft, draftChanged } from "./calc/scenariodraft.js";
+import { calcFor, calcQ, calcOutHtml } from "./components/calculators.js";
+import { tryQ, renderScenarioAccountChart } from "./components/scenarioaccount.js";
+import { openDraft, saveDraft, discardDraft, draftChanged, resetChange, resetBuyInvest } from "./calc/scenariodraft.js";
 import { renderSubscriptions, subsUi } from "./components/subscriptions.js";
 import { bench, benchmarkCardHtml, targetMixCardHtml } from "./components/investreturn.js";
 import { whatIfValues, resetWhatIf, wiFromSlider, wiValueText } from "./components/whatif.js";
@@ -80,9 +81,9 @@ import { renderProjectionOutputs, renderProjectionsWhenSeen, renderWhatIfDrag, p
 import { renderBenchmarks, setBenchmarkField, applyBenchmarkPaste, addGoal, setGoalField, removeGoal, setPropertyMarketField } from "./components/benchmarks.js";
 import { copyBenchmarkTemplateToClipboard } from "./lib/backup.js";
 import {
-  selectScenario, addScenario, renameScenario, cloneScenario, deleteScenario, renderHomeBody, renderHomeListModern, refreshScenarioDependentViews,
+  selectScenario, addScenario, renameScenario, renameScenarioTo, cloneScenario, deleteScenario, renderHomeBody, renderHomeListModern, refreshScenarioDependentViews,
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
-  patchCalcOutputs, afterCalcChange, patchInvestOutputs, editing, renderScenarioEditor
+  patchCalcOutputs, afterCalcChange, patchInvestOutputs, editing, renderScenarioEditor, editorUi, renderScenarioEditorChart, renderCalcScenario
 } from "./components/scenarios.js";
 import { ACCOUNT_TYPE_KEYS, accountSourceOptions, setAccountBalance, resolveLink, accountBalance } from "./calc/accounts.js";
 import { addTransfer, deleteTransfer, splitTransaction, unsplit, bulkEditTransactions, bulkDeleteTransactions } from "./calc/cashflowlist.js";
@@ -99,7 +100,7 @@ import { startActivityLog, setDevicePerson, devicePerson } from "./lib/activity.
 import { undoEntry } from "./calc/activity.js";
 import { setAmountChange, removeChange, changesFor } from "./calc/scenariochanges.js";
 import { newChange } from "./calc/scenariolegs.js";
-import { changeOpen } from "./components/scenariochanges.js";
+import { changeOpen, addSheet, addChangeSheetHtml } from "./components/scenariochanges.js";
 import { buildScenario } from "./calc/scenariotemplates.js";
 import { renderCompare } from "./components/compare.js";
 import { startQ, startSheetHtml, templateContext } from "./components/scenariotemplates.js";
@@ -163,7 +164,7 @@ import { applyParts, renderPartsSettings, setPart } from "./components/parts.js"
 import { txReview, txReviewHtml, reviewBannerHtml } from "./components/reviewqueue.js";
 import { loadHomeLayout, saveHomeLayout, moveCard, applyHomeLayout, homeArrangeHtml } from "./lib/homelayout.js";
 import { toReview, keepTransaction, refileTransaction, applyRuleFromReview, keepAll, ruleOfferFor } from "./calc/reviewqueue.js";
-import { showPage, parseRouteFromLocation, closeNavMenu, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, taxSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
+import { setLeaveGuard, showPage, parseRouteFromLocation, closeNavMenu, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, taxSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
 import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./components/search.js";
 import {
   startBankImport, reparseBankImportWith, clearBankImport,
@@ -1289,6 +1290,12 @@ import { inboxMessage } from "./calc/inbox.js";
   });
 
   document.getElementById("homeBody").addEventListener("input", onCalcInput);
+  // v3.189.0 (item 220): a scenario's calculators also work on the Calculators page.
+  ["input", "change", "click"].forEach(function(type){
+    var el = document.getElementById("calcScenarioBody");
+    el.addEventListener(type, type === "input" ? onCalcInput : type === "change" ? onCalcChange : onCalcClick);
+    if(type !== "click") el.addEventListener(type, type === "input" ? onInvestInput : onInvestChange);
+  });
   document.getElementById("homeBody").addEventListener("change", onCalcChange);
   document.getElementById("homeBody").addEventListener("click", onCalcClick);
   document.getElementById("homeBody").addEventListener("input", onInvestInput);
@@ -6082,6 +6089,7 @@ import { inboxMessage } from "./calc/inbox.js";
   function closeScenarioEditor(saved){
     var name = editing.name;
     editing.name = null; editing.key = null;
+    calcFor.key = null; calcFor.name = null;
     renderHomeBody();
     recalcComputedItems();
     persist();
@@ -6107,6 +6115,88 @@ import { inboxMessage } from "./calc/inbox.js";
     }
   });
 
+  // v3.194.0 (item 225): renamed in place (its draft goes with it), and a note on why.
+  document.addEventListener("change", function(e){
+    if(!e.target.matches || !editing.name) return;
+    if(e.target.matches("[data-sc-rename-inline]")){
+      var done = renameScenarioTo(editing.name, e.target.value);
+      if(!done){ e.target.value = editing.name; return; }
+      renderScenarioEditor();
+      showToast('Renamed to "' + done + '"');
+    }
+  });
+  document.addEventListener("input", function(e){
+    if(!e.target.matches || !e.target.matches("[data-sc-note]") || !editing.name) return;
+    if(!state.scenarioNotes) state.scenarioNotes = {};
+    var v = e.target.value.trim();
+    if(v) state.scenarioNotes[editing.name] = e.target.value; else delete state.scenarioNotes[editing.name];
+    e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px";
+    persist();
+  });
+  document.addEventListener("keydown", function(e){ if(e.key === "Enter" && e.target.matches && e.target.matches("[data-sc-rename-inline]")) e.target.blur(); });
+  // v3.191.0 (item 222): one change, or the buying / investing, back to as saved.
+  document.addEventListener("click", function(e){
+    if(!e.target.closest || !editing.name || editing.key === editing.name) return;
+    var r = e.target.closest("[data-sc-reset]");
+    if(r){ resetChange(editing.name, r.getAttribute("data-sc-reset")); afterScenarioChange(); return; }
+    if(e.target.closest("[data-sc-reset-buy]")){ resetBuyInvest(editing.name); recalcComputedItems(); afterScenarioChange(); }
+  });
+  // v3.190.0 (item 221): the sheet of changes to add. A kind's button is an ordinary [data-sc-new], so the
+  // handler that adds changes adds it; the sheet just closes.
+  var addChangeRoot = document.getElementById("addChangeRoot");
+  function renderAddSheet(){ addChangeRoot.innerHTML = addChangeSheetHtml(); var f = addChangeRoot.querySelector("[data-sc-new]:not([disabled])"); if(f) f.focus(); }
+  document.addEventListener("click", function(e){
+    var b = e.target.closest && e.target.closest("[data-sc-addsheet]");
+    if(!b) return;
+    addSheet.open = true; addSheet.scenario = b.getAttribute("data-sc-addsheet"); renderAddSheet();
+    pushActiveOverlay(function(){ addSheet.open = false; renderAddSheet(); });
+  });
+  addChangeRoot.addEventListener("click", function(e){
+    if(e.target.closest("[data-acs-close]") || e.target === e.target.closest("[data-acs-backdrop]")){ requestCloseActiveOverlay(); return; }
+    if(e.target.closest("[data-sc-new]")) setTimeout(function(){ if(addSheet.open) requestCloseActiveOverlay(); }, 0);
+  });
+  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && addSheet.open){ e.preventDefault(); requestCloseActiveOverlay(); } });
+
+  // v3.189.0 (item 220): the scenario's calculators on their own page, and back; the standalone ones.
+  document.addEventListener("click", function(e){
+    if(!e.target.closest) return;
+    if(e.target.closest("[data-sc-calc]") && editing.key){ calcFor.key = editing.key; calcFor.name = editing.name; showPage("calc"); window.scrollTo(0, 0); return; }
+    if(e.target.closest("[data-calc-done]")){ calcFor.key = null; calcFor.name = null; renderCalcScenario(); showPage("scenario"); window.scrollTo(0, 0); }
+  });
+  document.addEventListener("input", function(e){
+    var path = e.target.getAttribute && e.target.getAttribute("data-cq");
+    if(!path) return;
+    var parts = path.split("."), v = e.target.value;
+    calcQ[parts[0]][parts[1]] = e.target.tagName === "SELECT" ? v : (v === "" ? 0 : Number(v));
+    var out = document.querySelector('[data-cq-out="' + parts[0] + '"]');
+    if(out) out.innerHTML = calcOutHtml(parts[0]);
+  });
+  document.addEventListener("change", function(e){
+    if(e.target.matches && e.target.matches("select[data-cq]")) e.target.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  // v3.188.0 (item 219): unsaved changes aren't lost by a tap elsewhere, the back button or closing the app.
+  function unsavedDraft(){ return !!(editing.name && editing.key !== editing.name && draftChanged(editing.name)); }
+  setLeaveGuard(function(){
+    if(!unsavedDraft()) return true;
+    return confirm('"' + editing.name + '" has unsaved changes. Leave and keep them as a draft for later? (Cancel stays here.)');
+  });
+  window.addEventListener("beforeunload", function(e){ if(unsavedDraft()){ e.preventDefault(); e.returnValue = ""; } });
+  document.addEventListener("keydown", function(e){
+    if(document.body.getAttribute("data-current-page") !== "scenario" || !editing.name) return;
+    if((e.ctrlKey || e.metaKey) && (e.key === "s" || e.key === "S")){
+      e.preventDefault();
+      if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); // a field's change lands first
+      var save = document.querySelector("#scenarioEditHead .sc-edit-actions [data-sc-save]");
+      if(save && !save.disabled) save.click();
+      return;
+    }
+    if(e.key === "Escape" && !e.defaultPrevented && !document.querySelector(".review-backdrop") && !(document.activeElement && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName))){
+      var cancel = document.querySelector("#scenarioEditHead .sc-edit-actions [data-sc-cancel]");
+      if(cancel) cancel.click();
+    }
+  });
+  // v3.187.0 (item 218): the results' fold keeps its state while the page redraws.
+  document.addEventListener("toggle", function(e){ if(e.target.matches && e.target.matches("[data-sc-more]")){ editorUi.moreOpen = e.target.open; if(e.target.open && editing.key){ renderScenarioEditorChart(); renderScenarioAccountChart(editing.key); } } }, true);
   // v3.185.0 (item 216): which account the scenario is tried on, and from when.
   document.addEventListener("change", function(e){
     if(!e.target.matches) return;

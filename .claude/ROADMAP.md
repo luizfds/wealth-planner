@@ -4044,6 +4044,130 @@ short at 9%; in the engine the same property pays the CGT as an investment and n
 purchase and fails a large one. Driven at 1280 and 390px.
 
 
+### Phase K — the scenario page, easier to use (November 2026)
+
+From driving the editor at both widths, and the household's own ask: calculators of their own, which a scenario opens.
+
+## 218. `[x]` Results beside the controls
+Do: on a desktop the editor is two columns — the controls, and the results (figures, chart, the account) held in view
+beside them; on a phone the two figures that matter stay in a strip, the rest folded under it.
+
+Done when: driven at 1280px (the results stay in view while the controls scroll) and 390px.
+
+**Done (v3.187.0).** The editor is two columns on a desktop: the controls, and beside them the results (the three
+figures, then the verdict, the chart and "Try it on an account") held in view while the controls scroll
+(`.sc-edit-layout` / `.sc-edit-aside`, sticky under the editor's head, which now sticks too). On a phone the results come
+first: the figures, and the rest folded under "The verdict, the chart and an account" (`editorUi.moreOpen`, kept while the
+page redraws; the charts draw when it opens). Driven at 1280px (the column stays in view scrolled down the controls)
+and 390px.
+
+
+## 219. `[x]` Save where your thumb is, and never lose a draft
+Do: on a phone, Save and Cancel sit in a bar at the bottom; leaving with unsaved changes (a tab, the back button, closing
+the app) asks first; Ctrl/⌘+S saves and Esc cancels on a desktop.
+
+Done when: driven: a tab tapped with unsaved changes asks; the shortcuts work.
+
+**Done (v3.188.0).** On a phone, Save and Cancel (and "Unsaved changes") sit in a bar just above the tab bar
+(`.sc-savebar`; the quick-add button steps aside on this page). Leaving a scenario with unsaved changes — a tab, a menu, the
+back button — asks first (`setLeaveGuard` in nav.js; the Calculators page excepted, it's part of editing); leaving keeps the
+draft for later, staying puts the address back. Closing or reloading the app gets the browser's own warning. On a desktop
+Ctrl/⌘+S saves (the field being typed in lands first) and Esc cancels when no field or sheet has it. Driven at 390 and
+1280px: the bar above the tabs, a tab tapped with unsaved changes asking (stay, then leave with the draft kept), Ctrl+S
+saving, Esc closing.
+
+
+## 220. `[x]` Calculators
+Do: a Calculators page in the avatar menu — stamp duty, LMI, loan repayments and what you could borrow — and the
+scenario's purchase and invest calculators open there from the editor, which shows just their results with "Change in
+the calculator"; Done comes back.
+
+Done when: tests on the borrowing-power arithmetic; driven: a scenario's purchase changed in the calculator shows in
+the editor.
+
+**Done (v3.189.0).** **Calculators** — a page in the avatar menu (`page-calc`, `components/calculators.js`, `calc/calculators.js`):
+stamp duty (with a first home buyer's saving), LMI (and the deposit that avoids it), a loan's repayments (monthly,
+fortnightly, interest over the term) and what a lender might lend (the repayment run backwards at the rate plus 3, from
+the household's own take-home and budget). On a scenario's page, buying or investing is now a summary — price, deposit,
+loan, repayments, stamp duty, LMI, cash at settlement, or what's invested — with "Change in the calculator", which opens
+the Calculators page working on that scenario's draft (its purchase and invest calculators drawn there by
+`renderCalcScenario`, every control as before); Done comes back. Tests: the stamp duty and LMI are the purchase
+calculator's, $600,000 at 6% over 30 years is $3,597.30 a month, and $4,827.74 spare borrows $600,000 at 9%. Driven at
+1280 and 390px: a scenario's price changed in the calculator shows in its summary, unsaved; the tools on their own.
+
+
+## 221. `[x]` Adding a change
+Do: one "+ Add a change" opens a sheet of the kinds with a sentence each; a scenario with no changes offers three to
+start from.
+
+Done when: driven at 390px.
+
+**Done (v3.190.0).** The five "+ …" buttons are one **+ Add a change**, opening a sheet of the kinds with what each is for
+(`addChangeSheetHtml`; a kind that can't apply yet — a sale with no property, extra repayments with no loan — is shown
+off, with why). Its buttons are ordinary `[data-sc-new]`, so the handler that adds a change adds it; the sheet closes.
+A scenario with no changes offers three starters (rent somewhere new, an investment property, a new cost). Toasts sit
+above the phone's save bar on this page. Driven at 390px: a blank scenario opens with the starters; the sheet adds an
+investment property and closes.
+
+
+## 222. `[x]` What changed since you opened it
+Do: the editor's figures read saved → now; the chart adds the saved scenario faintly; a changed field is marked, and each
+change can go back to as saved.
+
+Done when: tests on reset; driven.
+
+**Done (v3.191.0).** While editing, the page measures against the scenario as saved too: each figure adds "saved: $X"
+once it differs, the chart adds the saved scenario (dashed) beside today's and the draft, a change reads **New** or
+**Changed** with **Take out** / **Back to saved**, a changed field carries a dot, and the buying or investing summary says
+Changed with its own Back to saved (`changeStatus`, `changedFields`, `resetChange`, `buyInvestChanged`, `resetBuyInvest`
+in calc/scenariodraft.js). Tests: a change's status and fields, a changed one put back, a new one taken out, buying put
+back, the draft then equal to saved. Driven at 1280px: a saved cost's amount changed (badge, dot, the saved figures, three
+lines), then back to saved ("No changes yet").
+
+
+## 223. `[x]` A timeline of when things happen
+Do: above the chart, each change at its year — bought when cash reaches it, sold in year 2, retire at 58.
+
+Done when: render test; driven with a cash trigger.
+
+**Done (v3.192.0).** Above the chart, a strip of each change at the year it lands (`calc/scenariotimeline.js`): as set,
+at an age (from today's), or when cash reaches an amount (the year the projection found — "Not within 30 years" last
+when it never does), with buying or investing now and retiring at an age. With it, **cash at settlement** on the page and
+in Side by side counts only what's bought now: an investment property waiting for cash, a later year or an age is paid
+for then, from what's there then. Tests: the order and years (a cash trigger's, an age's, a year's, the unreached last);
+settlement leaves out a property bought later. Driven at 1280 and 390px with "when cash reaches $250,000".
+
+
+## 224. `[x]` Forms that explain themselves
+Do: an investment property's fields grouped (price and loan, rent, costs and tax, more), its figures first; plain hints
+on the harder fields; values out of the usual range flagged, not refused.
+
+Done when: render test; driven at 390px.
+
+**Done (v3.193.0).** An investment property's form leads with its figures, then groups its fields — Price and loan, Rent,
+Costs and tax — with growth, owner and when it's bought folded under "More" (open when one of those is set or changed).
+Harder fields carry a plain hint (the deposit in dollars and the LMI line, rent as a gross yield, typical vacancy and
+management, what depreciation is and what it usually comes to, what counts as cash for a trigger, selling costs) and a
+value outside the usual (a deposit under 5%, an interest rate under 1% or over 15%, a yield under 1.5% or over 10%, more
+than 12 weeks vacant…) is flagged "unusual — check it", never refused (`HINTS` / `ODD` in components/scenariochanges.js,
+for every change's fields). "When" reads In a set year / At an age / When cash reaches…, with "Which year". Driven at
+390px: a 2% deposit flagged, the groups and hints shown.
+
+
+## 225. `[x]` The scenario's own header
+Do: renamed in place; a note on why you're looking at it (on its card too); "lives somewhere else" said in the header
+with what it costs, not as a change you can't edit.
+
+Done when: driven: a rename while editing keeps the draft; the note shows on the card.
+
+**Done (v3.194.0).** The scenario's page has its own header: the name renamed in place (`renameScenarioTo`, which the
+old prompt now goes through too — the draft, its changes and its note go with it, and the page keeps editing it);
+under the pinned head, a note on why you're looking at it (`state.scenarioNotes`, synced, kept as typed, shown on its
+card) and, for a scenario that lives elsewhere, what living there costs a month — instead of the "Lives somewhere else"
+row that couldn't be edited. Driven at 1280 and 390px: renamed mid-edit with the draft kept, a note written and read
+back on the card after Save.
+
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

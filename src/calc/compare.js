@@ -8,7 +8,7 @@
 // computeNetWorthSeries), so this can't disagree with the cards or the projection.
 
 import { state } from "../state.js";
-import { scenarioTotals, computeNetWorthSeries, currentScenario, liquidAssetsValue, scenarioLegChanges, scenarioLegContext } from "./engine.js";
+import { scenarioTotals, computeNetWorthSeries, currentScenario, liquidAssetsValue, scenarioLegChanges, scenarioLegContext, isCashTriggered } from "./engine.js";
 import { recalcPurchase, calcRepaymentMonthly, purchaseActiveRate, ipProperties, shockedLoanRepaymentMonthly, loanPaidOut } from "./property.js";
 import { sumField } from "./ledger.js";
 import { ipFigures } from "./scenariolegs.js";
@@ -61,7 +61,13 @@ export function compareScenario(scenario, opts){
   var cfg = state.purchase && state.purchase[scenario], inv = state.invest && state.invest[scenario];
   var buying = !!(cfg && cfg.enabled && !(inv && inv.enabled));
   var investing = !!(inv && inv.enabled);
-  var upfront = (buying ? (recalcPurchase(scenario) || {}).upfrontCash || 0 : 0) + (t.changesUpfront || 0) + (investing ? Number(inv.initialAmount) || 0 : 0);
+  // Cash at settlement: what's needed now — an investment property bought in a later year, at an age not
+  // reached or once cash reaches an amount is paid for then, from what's there then (v3.192.0).
+  var upfrontNow = scenarioLegChanges(scenario).reduce(function(sum, c){
+    if(c.kind !== "ip" || (Number(c.fromYear) || 0) > 0 || isCashTriggered(c)) return sum;
+    return sum + ipFigures(c, {}).upfront;
+  }, 0);
+  var upfront = (buying ? (recalcPurchase(scenario) || {}).upfrontCash || 0 : 0) + upfrontNow + (investing ? Number(inv.initialAmount) || 0 : 0);
   var available = liquidAssetsValue();
   var lowest = series.reduce(function(m, p){ return Math.min(m, p.investments); }, Infinity);
   // Ahead from a year means ahead from then to the end: the first year after the last one it was

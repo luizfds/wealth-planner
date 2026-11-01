@@ -1753,7 +1753,12 @@ test("a scenario's changes list draws each kind, and an open investment property
   assert.match(html, /Sell 1 Example St in year 3/);
   assert.match(html, /Childcare: \$900 monthly · from year 2/);
   assert.match(html, /Cash at settlement/);
-  assert.match(html, /data-sc-new="ip"/);
+  // v3.193.0: grouped, with hints; the rarer fields folded.
+  assert.match(html, /<legend>Price and loan<\/legend>/);
+  assert.match(html, /<legend>Rent<\/legend>/);
+  assert.match(html, /scf-more/);
+  assert.match(html, /gross yield/);
+  assert.match(html, /data-sc-addsheet=/); // v3.190.0: one "+ Add a change", a sheet of the kinds
   assert.doesNotMatch(html, /undefined|NaN/);
   delete sc.changeOpen.i;
   state.shared = was.shared; state.income = was.income; state.scenarioChanges = was.ch; state.properties = was.props;
@@ -1935,4 +1940,50 @@ test("trying a scenario on an account draws the picker, the note on settlement a
   assert.match(html, /id="scAcctChart"/);
   assert.doesNotMatch(html, /undefined|NaN/);
   Object.assign(state, { assets: was.assets, accounts: was.accounts, transactions: was.transactions, incomeLog: was.incomeLog, shared: was.shared, scenarioChanges: was.ch, scenarios: was.scen, purchase: was.purchase, invest: was.invest, home: was.home });
+});
+
+test("the Calculators page's tools, and a scenario's buy-or-invest summary", async function(){
+  var m = await import("../src/components/calculators.js");
+  var html = m.calcToolsHtml();
+  ["Stamp duty", "Lenders mortgage insurance", "Loan repayments", "What a lender might lend"].forEach(function(t){ assert.match(html, new RegExp(t)); });
+  assert.match(html, /data-cq="bp.income"/);
+  assert.match(m.calcOutHtml("rep"), /\$3,597\.30/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+  var was = { purchase: state.purchase, invest: state.invest };
+  state.purchase = Object.assign({}, state.purchase, { "Draft · Buy": { enabled: true, price: 800000, depositPct: 20, rate: 6, ioRate: 6, termYears: 30, state: "VIC", repaymentType: "PI", otherCosts: [] } });
+  state.invest = Object.assign({}, state.invest, { "Draft · Buy": { enabled: false } });
+  var sum = m.buyInvestSummaryHtml("Draft · Buy");
+  assert.match(sum, /Buying a home to live in/);
+  assert.match(sum, /\$800,000/);
+  assert.match(sum, /data-sc-calc/);
+  assert.doesNotMatch(sum, /undefined|NaN/);
+  state.purchase = was.purchase; state.invest = was.invest;
+});
+
+test("the sheet of changes to add, and three starters for a scenario with none", async function(){
+  var sc = await import("../src/components/scenariochanges.js");
+  sc.addSheet.open = true; sc.addSheet.scenario = "Move";
+  var sheet = sc.addChangeSheetHtml();
+  ["rent", "ip", "cost", "sell", "extra"].forEach(function(k){ assert.match(sheet, new RegExp('data-sc-new="' + k + '"')); });
+  assert.doesNotMatch(sheet, /data-sc-new="amount"/);
+  sc.addSheet.open = false;
+  assert.equal(sc.addChangeSheetHtml(), "");
+  var was = { ch: state.scenarioChanges };
+  state.scenarioChanges = Object.assign({}, state.scenarioChanges, { Empty: [] });
+  var html = sc.scenarioChangesHtml("Empty");
+  assert.match(html, /sc-starters/);
+  assert.equal((html.match(/class="sc-starter"/g) || []).length, 3);
+  state.scenarioChanges = was.ch;
+});
+
+test("the timeline strip lists each change at its year", async function(){
+  var m = await import("../src/components/scenarios.js");
+  var was = { ch: state.scenarioChanges, purchase: state.purchase, invest: state.invest, fire: state.fire };
+  state.scenarioChanges = Object.assign({}, state.scenarioChanges, { TL: [{ id: "r", kind: "rent", amount: 700, freq: "Weekly", fromYear: 0 }, { id: "s", kind: "cost", what: "A boat", amount: 300, freq: "Monthly", fromYear: 3 }] });
+  state.purchase = Object.assign({}, state.purchase, { TL: { enabled: false } }); state.invest = Object.assign({}, state.invest, { TL: { enabled: false } });
+  var html = m.scenarioTimelineHtml("TL");
+  assert.match(html, /Now<\/span><b>Rent \$700\/wk/);
+  assert.match(html, /Year 4<\/span><b>A boat/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+  Object.assign(state, { scenarioChanges: was.ch, purchase: was.purchase, invest: was.invest, fire: was.fire });
 });

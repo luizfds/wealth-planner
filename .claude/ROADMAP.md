@@ -4382,13 +4382,21 @@ or a direct write into `state`, and the baseline has to come down when the file'
 became 207; 198 direct writes remain. Moving the rest is part of 236, view by view, as each view is made to redraw
 on what it reads.
 
-## 236. `[ ]` Views that follow the data, drawn when seen
-Do: each view declares what it reads; a commit redraws only the views that read what it touched, on the page that's
-open; other pages are marked stale and drawn when opened. `renderAll()` goes, and so do hand-written redraw lists like
-`refreshAfterTransfer`. Each view's edits move to `commit(touched)` as it goes (235c's ratchet counts down).
+## 236. `[~]` Views that follow the data, drawn when seen
+Two PRs:
 
-Done when: startup draws one page; the speed budget's full-render and edit numbers drop on a phone; the smoke script and
-journeys pass unchanged.
+### 236a. `[~]` Pages drawn when seen
+Do: a full redraw (`renderAll`) draws the page on screen and what's on every page (the header, badges, sheets); every
+other page is marked stale and drawn when it's opened. Startup draws one page.
+Done when: startup and a full redraw draw one page (the speed budget's numbers drop); the smoke script, journeys and
+screens are unchanged.
+
+### 236b. `[ ]` Edits redraw what they touched
+Do: each view declares what it reads; a commit redraws only the views that read what it touched, on the page that's
+open, and marks the rest stale. Hand-written redraw lists (`refreshAfterTransfer`…) go; each view's edits move to
+`commit(touched)` as it goes (235c's ratchet counts down).
+Done when: a transfer, a scenario change and a budget edit redraw only what reads them; the speed budget's edit
+numbers drop on a phone; smoke and journeys unchanged.
 
 ## 237. `[ ]` `app.js` down to a bootstrap
 Do: each page's event wiring in its own module (as the scenario editor's is, 230); the dispatch-by-section-name helpers

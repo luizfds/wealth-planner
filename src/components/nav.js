@@ -1,5 +1,6 @@
 import { renderCalcTools } from "./calculators.js";
 import { renderHomeBody, renderScenarioEditor, renderCalcScenario } from "./scenarios.js";
+import { drawStale } from "../lib/views.js";
 import { renderProjectionsIfStale } from "./projections.js";
 import { renderDashboardStats } from "./dashboard.js";
 import { renderHomeSummary } from "./home.js";
@@ -319,6 +320,8 @@ export function showPage(id, opts){
     closeScenarioOverridePanel();
     if(overlayCleanup) overlayCleanup();
     var navId = NETWORTH_GROUP.indexOf(id) !== -1 ? "networth" : id;
+    // v3.208.0 (item 236a): what a full redraw left for later, drawn before the page shows.
+    drawStale(id);
     PAGES.forEach(function(p){
       var section = document.getElementById("page-" + p.id);
       if(section) section.hidden = (p.id !== id);

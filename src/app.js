@@ -99,6 +99,7 @@ import { startActivityLog, setDevicePerson } from "./lib/activity.js";
 import { undoEntry } from "./calc/activity.js";
 import { renderCompare } from "./components/compare.js";
 import { wireScenarioEditor } from "./components/scenariowiring.js";
+import { defineView, drawViews, redraw, currentPageId } from "./lib/views.js";
 import { renderActivity, activityUi } from "./components/activity.js";
 import { receiptHolder } from "./components/receipts.js";
 import { dataHealthChecks, dismissCheck } from "./calc/health.js";
@@ -4393,16 +4394,15 @@ import { inboxMessage } from "./calc/inbox.js";
   // records that hold their money (a Cash asset, a debt, a property's loan or offset).
   function transferTouched(balancesMoved){ return balancesMoved ? ["transfers", "accounts", "assets", "debts", "properties"] : ["transfers"]; }
   function refreshAfterTransfer(balancesMoved){
-    renderTransactions();
-    renderAccounts();
-    renderBillsCalendar();
-    renderHomeSummary();
-    renderHealth(); renderChecksBadge();
-    renderMonthReview();
-    renderNotifBadge();
-    renderDetail();
-    if(balancesMoved){ renderTotals(); renderAssets(); renderProperties(); renderCards(); }
+    defineViews();
+    // v3.208.0 (item 236a): only what's on screen now; the rest when its page is opened.
+    redraw(["transactions", "accounts", "homeSummary", "health", "checksBadge", "monthReview", "notifBadge", "detail"]
+      .concat(balancesMoved ? ["totals", "assets", "properties", "cards"] : []));
+    // The bills calendar is drawn by Spending's actual-vs-planned view: just the calendar while it's on screen,
+    // else that view is left stale and draws it, calendar and all, when Cash flow is opened.
+    if(currentPageId() === "expenses") renderBillsCalendar(); else redraw(["actualVsPlanned"]);
   }
+
   function saveTransfer(t, moveBalances, message){
     var rec = addTransfer(t);
     var moved = [], before = [];
@@ -5241,31 +5241,81 @@ import { inboxMessage } from "./calc/inbox.js";
     persist();
     showUndoToast(message, function(){ setState(JSON.parse(before)); persist(); renderAll(); });
   }
+  // v3.208.0 (item 236a): a full redraw draws the page on screen and what's on every page; every other page is
+  // marked stale and drawn when it's opened (lib/views.js — nav.js calls drawStale before showing a page). The
+  // data work (applying parts, recalculating derived rows) still happens here, every time, whatever's showing.
+  // Each view's pages were measured: its writes, run under a MutationObserver, landed in those pages.
+  var viewsDefined = false;
+  function defineViews(){
+    if(viewsDefined) return;
+    viewsDefined = true;
+    defineView("partsSettings", ["settings"], renderPartsSettings);
+    defineView("txReviewBanner", null, renderTxReviewBanner);
+    defineView("projectionInputs", ["plan"], function(){
+      document.getElementById("projHorizon").value = state.projection.horizonYears;
+      document.getElementById("projInvestRate").value = state.projection.investReturnRate;
+      document.getElementById("projInvestRateRange").value = state.projection.investReturnRate;
+      document.getElementById("projPropertyRate").value = state.projection.propertyAppreciationRate;
+      document.getElementById("projPropertyRateRange").value = state.projection.propertyAppreciationRate;
+      document.getElementById("projInflationRate").value = state.projection.inflationRate;
+      document.getElementById("projInflationRateRange").value = state.projection.inflationRate;
+      document.getElementById("projIncomeGrowth").value = state.projection.incomeGrowthRate;
+      document.getElementById("projIncomeGrowthRange").value = state.projection.incomeGrowthRate;
+      document.getElementById("projRateShock").value = state.projection.rateShockPct;
+      document.getElementById("projRateShockRange").value = state.projection.rateShockPct;
+      renderLifeEvents();
+      document.getElementById("projInvestVol").value = state.projection.investVolatility;
+      document.getElementById("projInvestVolRange").value = state.projection.investVolatility;
+      document.getElementById("projPropertyVol").value = state.projection.propertyVolatility;
+      document.getElementById("projPropertyVolRange").value = state.projection.propertyVolatility;
+      syncProjBasisControl();
+    });
+    // Static copy, but rendered from the component that owns the parser it describes — see renderBankImportHelp.
+    defineView("bankImportHelp", ["expenses"], renderBankImportHelp);
+    defineView("incomeGroups", ["expenses"], renderIncomeGroups);
+    defineView("properties", ["properties", "expenses"], renderProperties);
+    defineView("sharedGroups", ["expenses"], renderSharedGroups);
+    defineView("accounts", ["accounts"], renderAccounts);
+    defineView("categories", ["settings"], renderCategories);
+    defineView("budgetGroupBy", ["expenses"], renderBudgetGroupByToggle);
+    defineView("yearBasis", ["settings"], renderYearBasisPreference);
+    defineView("transactions", ["expenses"], renderTransactions);
+    defineView("actualVsPlanned", ["expenses"], renderActualVsPlannedPanel);
+    defineView("homeBody", ["plan", "scenario", "calc"], renderHomeBody);
+    defineView("cards", ["plan", "dashboard"], renderCards);
+    defineView("detail", ["dashboard"], renderDetail);
+    defineView("benchmarks", ["dashboard"], renderBenchmarks);
+    defineView("totals", null, renderTotals);
+    defineView("assets", ["assets", "plan"], renderAssets);
+    defineView("personSuggestions", null, updatePersonSuggestions);
+    defineView("accountSuggestions", null, updateAccountSuggestions);
+    defineView("taxSuper", ["tax"], renderTaxSuper);
+    defineView("taxYear", ["tax"], renderTaxYear);
+    defineView("people", ["tax"], renderPeopleTab);
+    defineView("received", ["expenses"], renderReceived);
+    defineView("health", ["dashboard"], renderHealth);
+    defineView("monthReview", ["dashboard"], renderMonthReview);
+    defineView("notifBadge", null, renderNotifBadge);
+    defineView("periodButton", null, renderPeriodButton);
+    defineView("homeSummary", ["dashboard"], renderHomeSummary);
+    defineView("reports", ["reports"], renderReports);
+    defineView("checksBadge", null, renderChecksBadge);
+    defineView("safekeeping", ["settings"], renderSafekeeping);
+    defineView("activity", ["settings"], renderActivity);
+    defineView("compare", ["plan"], renderCompare);
+    defineView("savingsGoals", ["plan"], renderSavingsGoals);
+    defineView("goalsFire", ["plan"], function(){ var goalsFire = document.getElementById("goalsFireBody"); if(goalsFire) goalsFire.innerHTML = goalsFireHtml(); });
+    defineView("advice", ["dashboard", "plan", "expenses", "tax"], renderAdvice);
+    defineView("trim", ["expenses"], renderTrim);
+    defineView("recurring", ["expenses"], renderRecurring);
+    defineView("budgetFromHistory", ["expenses"], renderBudgetFromHistory);
+    defineView("trips", ["expenses"], renderTrips);
+    defineView("retirement", ["plan"], renderRetirement);
+  }
   function renderAll(){
+    defineViews();
     // v3.161.0 (item 191): which parts show, before anything that lists them renders.
     applyParts();
-    renderPartsSettings();
-    renderTxReviewBanner();
-    document.getElementById("projHorizon").value = state.projection.horizonYears;
-    document.getElementById("projInvestRate").value = state.projection.investReturnRate;
-    document.getElementById("projInvestRateRange").value = state.projection.investReturnRate;
-    document.getElementById("projPropertyRate").value = state.projection.propertyAppreciationRate;
-    document.getElementById("projPropertyRateRange").value = state.projection.propertyAppreciationRate;
-    document.getElementById("projInflationRate").value = state.projection.inflationRate;
-    document.getElementById("projInflationRateRange").value = state.projection.inflationRate;
-    document.getElementById("projIncomeGrowth").value = state.projection.incomeGrowthRate;
-    document.getElementById("projIncomeGrowthRange").value = state.projection.incomeGrowthRate;
-    document.getElementById("projRateShock").value = state.projection.rateShockPct;
-    document.getElementById("projRateShockRange").value = state.projection.rateShockPct;
-    renderLifeEvents();
-    document.getElementById("projInvestVol").value = state.projection.investVolatility;
-    document.getElementById("projInvestVolRange").value = state.projection.investVolatility;
-    document.getElementById("projPropertyVol").value = state.projection.propertyVolatility;
-    document.getElementById("projPropertyVolRange").value = state.projection.propertyVolatility;
-    syncProjBasisControl();
-    // Static copy, but rendered from the component that owns the parser it describes — see
-    // renderBankImportHelp. Cheap enough to redo here rather than needing its own lifecycle.
-    renderBankImportHelp();
     // recalcComputedItems() rewrites the derived rows — a vehicle's declining-balance value, the
     // synthetic net-income rows — against *today*. It has always run here and the result has never
     // been persisted, so localStorage kept whatever those rows were when something was last edited:
@@ -5279,46 +5329,9 @@ import { inboxMessage } from "./calc/inbox.js";
     // Only when it actually changed something: persist() on every render would write to
     // localStorage on every page switch for no reason.
     if(JSON.stringify(state.income) + JSON.stringify(state.assets) !== beforeRecalc) persist();
-    renderIncomeGroups();
-    renderProperties();
-    renderSharedGroups();
-    renderAccounts();
-    renderCategories();
-    renderBudgetGroupByToggle();
-    renderYearBasisPreference();
-    renderTransactions();
-    renderActualVsPlannedPanel();
-    renderHomeBody();
-    renderCards();
-    renderDetail();
-    renderBenchmarks();
-    renderTotals();
-    renderAssets();
-    updatePersonSuggestions();
-    updateAccountSuggestions();
-    renderTaxSuper();
-    renderTaxYear();
-    renderPeopleTab();
-    renderReceived();
-    renderHealth();
-    renderMonthReview();
-    renderNotifBadge();
-    renderPeriodButton();
-    renderHomeSummary();
-    renderReports();
-    renderChecksBadge();
-    renderSafekeeping();
-    renderActivity();
-    renderCompare();
-    renderSavingsGoals();
-    var goalsFire = document.getElementById("goalsFireBody"); if(goalsFire) goalsFire.innerHTML = goalsFireHtml();
-    renderAdvice();
-    renderTrim();
-    renderRecurring();
-    renderBudgetFromHistory();
-    renderTrips();
-    renderRetirement();
+    drawViews();
   }
+
   // Settings carries the number of Checks that need fixing (v3.63.0), so they're seen without
   // opening the tab — on the sidebar, the More tab and its Settings item.
   function renderChecksBadge(){

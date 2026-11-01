@@ -228,6 +228,13 @@ the views that read them. A new edit uses `commit` with what it touches, never a
 app.js, components and lib against `eslint-rules/ratchet.json`: a file may not gain one, and when it loses one the
 baseline must come down (`node eslint-rules/ratchet.mjs --update`).
 
+**Pages drawn when seen (v3.208.0, item 236a).** `renderAll()` draws only the page on screen and what's on every
+page (header, badges, datalists); every other part is a *view* (`defineView(name, pages, draw)` in app.js's
+`defineViews`, registry in `lib/views.js`) left stale and drawn by `drawStale(page)` just before nav.js shows that
+page. Each view's pages were measured (its writes under a MutationObserver). A new part of the full redraw is a new
+`defineView` with the pages it draws into (`null` = every page); an edit's own redraw uses `redraw([names])`, which
+draws what's on screen and leaves the rest stale — not the render functions directly.
+
 **`state` is a live import, not a value** — never reassign the imported `state` binding directly
 (`state = X` throws for an ES-module import). Use `setState(newState)` from `state.js` instead;
 `app.js` does this correctly today (Reset, Sample data, Import backup) — keep it that way.

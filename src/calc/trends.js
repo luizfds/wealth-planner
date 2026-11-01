@@ -245,6 +245,7 @@ export function spendingTrends(transactions, opts){
   var covered = coveredMonthCount(coverageTotals, { coverageFraction: opts.coverageFraction });
 
   var months = covered > 0 ? allMonths.slice(allMonths.length - covered) : [];
+  /** @type {any[]} */
   var fullRows = months.length ? rowsFor(months, 0) : [];
   var mtdRows = months.length ? (complete ? fullRows : rowsFor(months, throughDay)) : [];
   var mtdByCategory = {};

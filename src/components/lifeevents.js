@@ -1,7 +1,7 @@
 import { state, genId } from "../state.js";
 import { EVENT_KINDS, kindOf, newEvent } from "../calc/lifeevents.js";
 import { fireSettings } from "../calc/fire.js";
-import { fmtCurrency0, localDateStr } from "../lib/format.js";
+import { localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 
 // ---------------- Plan → Projections: life events (v3.126.0) ----------------

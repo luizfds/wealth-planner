@@ -1,7 +1,7 @@
 import { renderSubscriptions } from "./subscriptions.js";
 import { state, persist, genId } from "../state.js";
 import { CLASSES, FREQS, UNCATEGORISED } from "../constants.js";
-import { sumField, sumFieldForScenario, resolveSharedAmount, periodsOf, budgetCycleFor, reserveCycleFor, transactionDisplayName, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, plannedToDateByCategory, isOverdue, daysUntil, lastTransactionDateFor, refundableTransactions, reserveYearWindowFor, householdYearWindow, householdYearToDate, householdYearProgress, householdYearBasis, HOUSEHOLD_YEAR_BASES, selectedMonth, monthPhrase, selectedYearWindow, isPeriodToday, monthAnchorDate } from "../calc/ledger.js";
+import { sumField, sumFieldForScenario, resolveSharedAmount, periodsOf, budgetCycleFor, reserveCycleFor, transactionDisplayName, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, plannedToDateByCategory, refundableTransactions, householdYearWindow, householdYearToDate, householdYearProgress, householdYearBasis, HOUSEHOLD_YEAR_BASES, selectedMonth, monthPhrase, selectedYearWindow, isPeriodToday, monthAnchorDate } from "../calc/ledger.js";
 import { merchantGroups, worthShowingMerchants, recentMerchants } from "../calc/merchants.js";
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
 import { scenarioTotals, currentScenario } from "../calc/engine.js";
@@ -187,7 +187,7 @@ export function parseExpensesImportCsv(text){
     var amountRaw = (cells[colOf.amount] || "").trim();
     if(!what && !amountRaw && cells.every(function(c){ return !c || !c.trim(); })) return; // fully blank row
     if(!what){ errors.push({ row: rowNum, reason: 'Missing "What"' }); return; }
-    var amount = parseFloat(amountRaw.replace(/[^0-9.\-]/g, ""));
+    var amount = parseFloat(amountRaw.replace(/[^0-9.-]/g, ""));
     if(!amountRaw || isNaN(amount)){ errors.push({ row: rowNum, reason: 'Amount "' + amountRaw + '" isn\'t a number' }); return; }
     var classRaw = colOf.classification !== undefined ? (cells[colOf.classification] || "").trim() : "";
     var classMatch = CLASSES.find(function(c){ return c.toLowerCase() === classRaw.toLowerCase(); });
@@ -548,8 +548,8 @@ function scenarioOverridePanelHtml(section, idx){
   var isGross = section === "income" && item.incomeType === "Gross";
   var incomeNote = section !== "income" ? "" :
     '<p class="scen-override-note">' + (isGross
-      ? "This is a <b>pre-tax</b> amount, so each scenario\'s tax, Medicare levy and employer super are worked out again from the figure you set here — take-home won\'t move by the same amount you do."
-      : "This amount is already after tax, so it carries straight into each scenario\'s savings.") +
+      ? "This is a <b>pre-tax</b> amount, so each scenario's tax, Medicare levy and employer super are worked out again from the figure you set here — take-home won't move by the same amount you do."
+      : "This amount is already after tax, so it carries straight into each scenario's savings.") +
     '</p>';
   var rows = state.scenarios.map(function(name){
     var isBaseline = name === state.baselineScenario;

@@ -534,7 +534,7 @@ function groupRowHtml(g){
     '<div class="bank-import-assign">' +
       '<label class="bank-import-field"><span>Goes to</span>' +
         '<select class="bank-group-line" data-bank-group="' + escapeAttr(g.key) + '">' +
-          '<option value="">' + (g.isCredit ? "— don\'t import —" : "— not linked —") + '</option>' +
+          '<option value="">' + (g.isCredit ? "— don't import —" : "— not linked —") + '</option>' +
           (g.isCredit ? "" : '<option value="' + NEW_LINE_VALUE + '"' + (g.choice.newLine ? " selected" : "") + '>+ New line "' + escapeAttr(suggestedLineName(g.key)) + '"</option>') +
           (g.isCredit ? receivedOptgroupHtml(g) : "") +
           transferOptgroupHtml(g) +

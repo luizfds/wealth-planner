@@ -54,7 +54,7 @@ export function compareWindow(win, compare){
   }
   if(compare === "prev"){
     var s = parse(win.start), e = parse(win.end);
-    var days = Math.round((e - s) / 86400000) + 1;
+    var days = Math.round((e.getTime() - s.getTime()) / 86400000) + 1;
     var pe = new Date(s); pe.setDate(pe.getDate() - 1);
     var ps = new Date(pe); ps.setDate(ps.getDate() - days + 1);
     return { start: ymd(ps), end: ymd(pe), label: "the period before" };

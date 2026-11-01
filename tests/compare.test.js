@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { state, setState, migrateState } from "../src/state.js";
 import { demoHousehold } from "../src/calc/demo.js";
 import { computeNetWorthSeries, scenarioTotals, recalcComputedItems } from "../src/calc/engine.js";
-import { compareScenario, compareAll, verdict } from "../src/calc/compare.js";
+import { compareAll, verdict } from "../src/calc/compare.js";
 
 test("side by side reads the same figures as the projection and the cards", function(){
   var keep = state;

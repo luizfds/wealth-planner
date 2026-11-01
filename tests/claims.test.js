@@ -2,7 +2,7 @@ import "./_env.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { state } from "../src/state.js";
-import { propertyClaimLines, propertyClaimsAnnual, setClaimItemsProvider } from "../src/calc/claims.js";
+import { propertyClaimLines, propertyClaimsAnnual } from "../src/calc/claims.js";
 import { deductionRows, setDeductibleItemsProvider } from "../src/calc/tax.js";
 import { propertyTaxDeductibleResultAnnual, propertyCashResultAnnual } from "../src/calc/property.js";
 import { rentalSchedule, rentLineFor } from "../src/calc/taxyear.js";

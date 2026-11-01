@@ -54,6 +54,7 @@ export function applyFirstRun(answers, today){
   }
   (answers.costs || []).forEach(function(c){
     if(!(Number(c.amount) > 0)) return;
+    /** @type {any} */
     var preset = COMMON_COSTS.find(function(x){ return x.what === c.what; }) || {};
     state.shared.push({ id: genId("exp"), what: c.what, classification: preset.classification || "Needs", category: preset.category || "", account: firstAccount,
       amount: Number(c.amount), freq: c.freq || "Monthly", irregular: false, dueMonth: null });

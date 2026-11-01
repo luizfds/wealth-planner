@@ -13,9 +13,8 @@ import { renderLineChart, renderStackedAreaChart, dateAxisFormat, sparklineHtml,
 import { showToast } from "../lib/toast.js";
 import { appendHistorySnapshot, daysUntil, householdYearWindow, householdYearBasis } from "../calc/ledger.js";
 import { TIME_RANGES, rangeLabel, rangeByKey, rangeStartDate, bestFitRange, timeRangeControlHtml } from "../lib/timerange.js";
-import { observationDates, categorySeries, trimUntracked, allocationSeries, valueOn, coverageStart } from "../calc/history.js";
-import { parseBenchmarkSymbol, setBenchmarkPrice } from "../calc/performance.js";
-import { holdingDividend, saleCapitalGain, fifoParcels, lotsUnitsAvailable, lotsAverageCost, lotRemainingUnits, lotCost, amitCostBaseAdjustmentPerUnit, getTaxPeople, currentTaxFy } from "../calc/tax.js";
+import { observationDates, categorySeries, trimUntracked, allocationSeries, coverageStart } from "../calc/history.js";
+import { holdingDividend, saleCapitalGain, fifoParcels, lotsUnitsAvailable, lotsAverageCost, amitCostBaseAdjustmentPerUnit, getTaxPeople, currentTaxFy } from "../calc/tax.js";
 import { portfolioPerformance, distributionHistory, superContributions } from "../calc/investments.js";
 import { moneyWeighted, classOf, MIX_CLASSES } from "../calc/investreturn.js";
 import { bench, loadBenchmarks, benchmarkCardHtml, benchmarkChartSeries, targetMixCardHtml, distributionsAheadCardHtml } from "./investreturn.js";
@@ -750,7 +749,7 @@ function modernShareRowHtml(item, idx, colorIdx){
         '<div class="m-edit-field"><label>Units sold</label><input type="number" step="any" min="0" class="h-sale-units" placeholder="0" aria-label="Units sold"></div>' +
         '<div class="m-edit-field"><label>Sold for (total)</label><input type="number" step="0.01" min="0" class="h-sale-proceeds" placeholder="0" title="Total proceeds, after brokerage" aria-label="Sale proceeds"></div>' +
         '<div class="m-edit-field"><label>Sold on</label><input type="date" class="h-sale-date" value="' + localDateStr() + '" aria-label="Sale date"></div>' +
-        '<div class="m-edit-field"><label>Acquired on</label><input type="date" class="h-sale-acquired"' + (lotsUnitsAvailable(item) > 0 ? ' placeholder="from purchase lots"' : '') + ' title="When you bought these units. Held more than 12 months, an individual\'s gain is halved — and \"more than\" is exact: 12 months to the day does not qualify." aria-label="Acquisition date"></div>' +
+        '<div class="m-edit-field"><label>Acquired on</label><input type="date" class="h-sale-acquired"' + (lotsUnitsAvailable(item) > 0 ? ' placeholder="from purchase lots"' : '') + ' title="When you bought these units. Held more than 12 months, an individual\'s gain is halved — and "more than" is exact: 12 months to the day does not qualify." aria-label="Acquisition date"></div>' +
         '<div class="m-edit-field span2"><label>Cost base</label><input type="number" step="0.01" min="0" class="h-sale-costbase" placeholder="' + (lotsUnitsAvailable(item) > 0 ? "from purchase lots" : (item.avgCost != null ? "avg cost x units" : "0")) + '" title="What the units cost you, including brokerage. Left blank it is worked out from the Avg cost above." aria-label="Cost base"></div>' +
       '</div>' +
       '<div class="m-edit-actions"><button type="button" class="btn btn-sm btn-primary" data-asset-sale="' + idx + '">Record sale</button></div>' +
@@ -1090,7 +1089,7 @@ export function parseSharesPasteLine(line){
   if(parts.length < 2) parts = trimmed.split(/\s+/);
   if(parts.length < 2) return null;
   var symbol = parts[0].trim().replace(/^["']|["']$/g, "").replace(/^[A-Za-z]+:/, "").toUpperCase();
-  var price = parseFloat(parts[parts.length - 1].replace(/[^0-9.\-]/g, ""));
+  var price = parseFloat(parts[parts.length - 1].replace(/[^0-9.-]/g, ""));
   if(!symbol || isNaN(price)) return null;
   return { symbol: symbol, price: price };
 }
@@ -1559,14 +1558,14 @@ export function parseAssetsImportCsv(text){
       var symbol = assetsImportCell(cells, colOf, "symbol");
       if(!symbol){ errors.push({ row: rowNum, reason: "Shares row needs a Symbol" }); return; }
       var quantityRaw = assetsImportCell(cells, colOf, "quantity");
-      var quantity = parseFloat(quantityRaw.replace(/[^0-9.\-]/g, ""));
+      var quantity = parseFloat(quantityRaw.replace(/[^0-9.-]/g, ""));
       if(!quantityRaw || isNaN(quantity)){ errors.push({ row: rowNum, reason: 'Quantity "' + quantityRaw + '" isn\'t a number' }); return; }
       var marketRaw = assetsImportCell(cells, colOf, "market");
       var marketMatch = SHARE_MARKETS.find(function(m){ return m.toLowerCase() === marketRaw.toLowerCase(); });
       var avgCostRaw = assetsImportCell(cells, colOf, "avg cost");
-      var avgCostNum = avgCostRaw === "" ? NaN : parseFloat(avgCostRaw.replace(/[^0-9.\-]/g, ""));
+      var avgCostNum = avgCostRaw === "" ? NaN : parseFloat(avgCostRaw.replace(/[^0-9.-]/g, ""));
       var priceRaw = assetsImportCell(cells, colOf, "price");
-      var price = priceRaw === "" ? 0 : (parseFloat(priceRaw.replace(/[^0-9.\-]/g, "")) || 0);
+      var price = priceRaw === "" ? 0 : (parseFloat(priceRaw.replace(/[^0-9.-]/g, "")) || 0);
       item.symbol = symbol.toUpperCase();
       item.market = marketMatch || "ASX";
       item.quantity = quantity;
@@ -1576,13 +1575,13 @@ export function parseAssetsImportCsv(text){
     } else if(category === "Vehicle"){
       var purchasePriceRaw = assetsImportCell(cells, colOf, "purchase price");
       var depRaw = assetsImportCell(cells, colOf, "depreciation %/yr");
-      item.purchasePrice = purchasePriceRaw === "" ? 0 : (parseFloat(purchasePriceRaw.replace(/[^0-9.\-]/g, "")) || 0);
+      item.purchasePrice = purchasePriceRaw === "" ? 0 : (parseFloat(purchasePriceRaw.replace(/[^0-9.-]/g, "")) || 0);
       item.purchaseDate = assetsImportCell(cells, colOf, "purchase date");
-      item.depreciationRate = depRaw === "" ? 15 : (parseFloat(depRaw.replace(/[^0-9.\-]/g, "")) || 0);
+      item.depreciationRate = depRaw === "" ? 15 : (parseFloat(depRaw.replace(/[^0-9.-]/g, "")) || 0);
       item.amount = 0; // auto-recalculated once purchasePrice+purchaseDate land in state — see recalcComputedItems()
     } else {
       var amountRaw = assetsImportCell(cells, colOf, "amount");
-      var amount = parseFloat(amountRaw.replace(/[^0-9.\-]/g, ""));
+      var amount = parseFloat(amountRaw.replace(/[^0-9.-]/g, ""));
       if(!amountRaw || isNaN(amount)){ errors.push({ row: rowNum, reason: 'Amount "' + amountRaw + '" isn\'t a number' }); return; }
       item.amount = amount;
     }

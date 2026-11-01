@@ -18,7 +18,7 @@ export function tradeDate(v){
   var s = String(v || "").trim();
   var m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s);
   if(m) return m[1] + "-" + pad(m[2]) + "-" + pad(m[3]);
-  m = /^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/.exec(s);
+  m = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})/.exec(s);
   if(m){ var y = m[3].length === 2 ? "20" + m[3] : m[3]; return y + "-" + pad(m[2]) + "-" + pad(m[1]); }
   m = /^(\d{1,2})[\s-]([A-Za-z]{3})[A-Za-z]*[\s-](\d{2,4})/.exec(s);
   if(m && MONTHS[m[2].toLowerCase()]){ var yy = m[3].length === 2 ? "20" + m[3] : m[3]; return yy + "-" + pad(MONTHS[m[2].toLowerCase()]) + "-" + pad(m[1]); }

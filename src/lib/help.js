@@ -115,9 +115,9 @@ export function initHelp(){
   document.addEventListener("click", function(e){
     var page = e.target.closest("[data-page-help]");
     if(page){
-      var intros = introsOnScreen(), open = page.getAttribute("aria-expanded") !== "true";
-      intros.forEach(function(el){ el.classList.toggle("help-open", open); });
-      page.setAttribute("aria-expanded", String(open));
+      var intros = introsOnScreen(), openAll = page.getAttribute("aria-expanded") !== "true";
+      intros.forEach(function(el){ el.classList.toggle("help-open", openAll); });
+      page.setAttribute("aria-expanded", String(openAll));
       return;
     }
     var btn = e.target.closest("[data-help-toggle]");

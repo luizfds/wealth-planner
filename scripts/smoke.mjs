@@ -218,7 +218,6 @@ if(!SHOTS){
     const edits = [...document.querySelectorAll("#cards [data-edit-scenario]")];
     const edit = edits[edits.length - 1];
     if(!edit){ out.push("no Edit on the scenario cards"); return out; }
-    const name = edit.getAttribute("data-edit-scenario");
     edit.click(); await wait(700);
     if(document.body.getAttribute("data-current-page") !== "scenario") { out.push("Edit didn't open the scenario's page"); return out; }
     const pg = document.getElementById("page-scenario");

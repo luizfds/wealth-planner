@@ -285,7 +285,7 @@ export function capitalWorksAnnual(property, todayStr){
   if(!cost) return 0;
   var built = property.constructionDate;
   if(built){
-    var years = (new Date((todayStr || localDateStr()) + "T00:00:00") - new Date(built + "T00:00:00")) / (365.25 * 86400000);
+    var years = (new Date((todayStr || localDateStr()) + "T00:00:00").getTime() - new Date(built + "T00:00:00").getTime()) / (365.25 * 86400000);
     if(years >= CAPITAL_WORKS_YEARS) return 0;
   }
   return Math.round(cost * CAPITAL_WORKS_RATE * 100) / 100;

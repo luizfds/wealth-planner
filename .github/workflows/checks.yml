@@ -1,5 +1,7 @@
 # Runs on every pull request and every push to main (v3.43.0).
 #   tests — the Node test suite (npm test), no dependencies.
+#   lint — npm run check (v3.201.0): ESLint, TypeScript's checker over src/calc, stylelint. Dev-only tools
+#          from package.json's devDependencies, installed here from the lockfile.
 #   pages — scripts/smoke.mjs: every page and subtab in headless Chromium at 390px and 1280px,
 #           light and dark, failing on page errors, empty pages, sideways scroll, NaN/undefined
 #           text and bars that don't draw. Playwright is installed here only, never added to
@@ -23,6 +25,16 @@ jobs:
         with:
           node-version: 22
       - run: npm test
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
   pages:
     # Pinned: ubuntu-latest moved to 26.04, where Playwright 1.56 can't install Chromium. Move both
     # together (the runner and the Playwright version) when upgrading.

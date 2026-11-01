@@ -9,7 +9,7 @@
 // listed and left alone. makeRealPlan says what would happen; applyMakeReal does exactly that. Pure
 // apart from the state it's handed.
 
-import { changesFor, effectiveChanges } from "./scenariochanges.js";
+import { effectiveChanges } from "./scenariochanges.js";
 import { ipFigures } from "./scenariolegs.js";
 import { recalcPurchase } from "./property.js";
 import { IP_CATEGORY } from "../constants.js";

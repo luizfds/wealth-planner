@@ -10,7 +10,7 @@
 //                      (with the date its discount starts and the gain if it were sold today)
 // Pure: assets and the benchmark come in as arguments; toAud converts a USD holding's figures.
 import { lotCost, lotRemainingUnits, qualifiesForCgtDiscount, CGT_DISCOUNT_MIN_DAYS } from "./tax.js";
-import { xirr, fixedRateValue, indexValue, benchmarkPriceOn } from "./performance.js";
+import { xirr, indexValue, benchmarkPriceOn } from "./performance.js";
 import { MARKET_CURRENCY } from "../constants.js";
 
 function r2(n){ return Math.round((Number(n) || 0) * 100) / 100; }

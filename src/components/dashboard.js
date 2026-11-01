@@ -1,7 +1,7 @@
 import { hasDraft, draftChanged } from "../calc/scenariodraft.js";
 import { state, persist } from "../state.js";
 import { setupProgress, shouldShowSetup } from "../lib/setup.js";
-import { sumField, sumByClassification, sumByAccount, safeDiv, resolveSharedAmount, nextDueDate, daysUntil, appendHistorySnapshot, lastTransactionDateFor, periodsOf } from "../calc/ledger.js";
+import { sumByClassification, sumByAccount, safeDiv, resolveSharedAmount, appendHistorySnapshot, periodsOf } from "../calc/ledger.js";
 import { ipExpenseItemsForClassification, fyLabel, loanBalance } from "../calc/property.js";
 import { scenarioIncomeMonthly, scenarioIncomeRows, getTaxPeople, computePersonTax } from "../calc/tax.js";
 import { lodgementStatus, taxYearRecord } from "../calc/taxyear.js";

@@ -1,7 +1,7 @@
 import { state } from "../state.js";
 import { periodsOf } from "./ledger.js";
 import {
-  ipProperties, loanInterestMonthly, loanInterestMonthlyRaw, loanInterestForWindow, loanInvestShare, borrowingCostsDeduction, propertyDepreciationForFy, fyWindow
+  ipProperties, loanInterestForWindow, loanInvestShare, borrowingCostsDeduction, propertyDepreciationForFy, fyWindow
 } from "./property.js";
 import { propertyClaimLines, rowDeductionAnnual } from "./claims.js";
 
@@ -197,6 +197,7 @@ export var RENT_LINES = [
   { key: "other", label: "Other expenses" }
 ];
 // Most specific first: "Water rates" is water, not council rates; "Land Tax" isn't rates either.
+/** @type {Array<[string, RegExp]>} */
 var EXPENSE_MATCHERS = [
   ["landTax", /land tax/i], ["water", /water/i], ["pestControl", /pest/i], ["insurance", /insur/i],
   ["agentFees", /agent|property manag|management fee|letting|\bpm\b/i], ["bodyCorporate", /body corp|strata|owners corp/i],

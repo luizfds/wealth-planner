@@ -52,7 +52,7 @@ export function wireScenarioEditor(app){
     }
   });
   // v3.173.0 (item 208): the other kinds of change — rent elsewhere, an investment property, a cost, a sale.
-  var SC_NUMBERS = { amount: 1, fromYear: 1, whenAge: 1, whenCash: 1, rate: 1, price: 1, depositPct: 1, rate: 1, termYears: 1, rentWeekly: 1, vacancyWeeks: 1, mgmtPct: 1, costsYearly: 1, depreciationYearly: 1, sellingCostsPct: 1, firstRentedValue: 1 };
+  var SC_NUMBERS = { amount: 1, fromYear: 1, whenAge: 1, whenCash: 1, rate: 1, price: 1, depositPct: 1, termYears: 1, rentWeekly: 1, vacancyWeeks: 1, mgmtPct: 1, costsYearly: 1, depreciationYearly: 1, sellingCostsPct: 1, firstRentedValue: 1 };
   document.addEventListener("click", function(e){
     if(!e.target.closest) return;
     var nb = e.target.closest("[data-sc-new]");

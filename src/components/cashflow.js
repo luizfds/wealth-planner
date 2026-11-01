@@ -4,7 +4,7 @@ import { incomeTargets } from "../calc/received.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr, fmtDate } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { usualCardSource } from "../calc/bills.js";
-import { emptyFilter, filterOf, filterActive, effectiveFilter, viewMatching, describeFilter } from "../calc/txviews.js";
+import { emptyFilter, filterActive, effectiveFilter, viewMatching, describeFilter } from "../calc/txviews.js";
 
 // ---------------- Cash flow → Spending: the unified list's controls (v3.59.0) ----------------
 // components/expenses.js renders the list (its spending rows are the editable ones it always had);

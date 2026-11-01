@@ -10,6 +10,7 @@ export var CATEGORY_ICONS = ["cart", "fork", "fuel", "bus", "car", "house", "bui
   "heart", "dumbbell", "book", "child", "repeat", "bag", "user", "paw", "plane", "gift", "ticket", "receipt", "piggy", "dot"];
 
 // First match wins, so the more particular words come before the general ones.
+/** @type {Array<[RegExp, string, number]>} */
 var RULES = [
   [/^(other|misc|miscellaneous|general)$/i, "dot", 9],
   [/investment property|rental|strata|council|body corp/i, "building", 10],

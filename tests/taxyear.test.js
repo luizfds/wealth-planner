@@ -2,8 +2,8 @@ import "./_env.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { state } from "../src/state.js";
-import { computePersonTax, personCapitalGains } from "../src/calc/tax.js";
-import { taxYearRecord, personYear, rentalSchedule, rentLineForExpense, setRentalActual, incomeStatementTotals, interestIncome } from "../src/calc/taxyear.js";
+import { computePersonTax } from "../src/calc/tax.js";
+import { personYear, rentalSchedule, rentLineForExpense, setRentalActual, incomeStatementTotals, interestIncome } from "../src/calc/taxyear.js";
 
 // ---------------- A return, end to end (v3.26.0) ----------------
 //

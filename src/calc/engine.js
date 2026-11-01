@@ -14,7 +14,7 @@ import { dueAfterDays } from "./estimates.js";
 import { projectionRatios } from "./actuals.js";
 import { eventEffects } from "./lifeevents.js";
 import { loggedSinceRecorded } from "./accounts.js";
-import { scenarioSharedItems, changesFor, effectiveChanges } from "./scenariochanges.js";
+import { scenarioSharedItems, effectiveChanges } from "./scenariochanges.js";
 import { legsMonthly, legsInYear } from "./scenariolegs.js";
 import { isDraftKey } from "./scenariodraft.js";
 import { saleCgt } from "./salecgt.js";
@@ -334,6 +334,7 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
   // v3.126.0: life events (calc/lifeevents.js), in today's dollars, inflated to the year they land.
   var events = opts && opts.events ? opts.events : (state.lifeEvents || []), thisYear = Number(todayStr.slice(0, 4));
   var propFactor = 1;
+  /** @type {any} */
   var points = [];
   // The rows whose dates decide whether they count in a year; a year's key is which of them do.
   var datedRows = [].concat(state.income || [], scenarioSharedItems(scenario), scenarioInflatableHomeItems(scenario),

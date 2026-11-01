@@ -22,7 +22,7 @@ import { localDateStr } from "../lib/format.js";
 export function detectDateOrder(rawDates){
   var dayFirstProof = 0, monthFirstProof = 0;
   (rawDates || []).forEach(function(raw){
-    var m = /^\s*(\d{1,2})\s*[\/\-.]\s*(\d{1,2})\s*[\/\-.]\s*(\d{2,4})\s*$/.exec(raw || "");
+    var m = /^\s*(\d{1,2})\s*[/\-.]\s*(\d{1,2})\s*[/\-.]\s*(\d{2,4})\s*$/.exec(raw || "");
     if(!m) return;
     var a = Number(m[1]), b = Number(m[2]);
     if(a > 12 && b <= 12) dayFirstProof++;
@@ -45,19 +45,19 @@ export function parseBankDate(raw, order){
   var iso = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s);
   if(iso) return isoFrom(Number(iso[1]), Number(iso[2]), Number(iso[3]));
   // "15 Mar 2026", "15-Mar-26", "Mar 15 2026"
-  var named = /^(\d{1,2})\s*[\-\s\/]\s*([A-Za-z]{3,})\s*[\-\s\/]\s*(\d{2,4})$/.exec(s);
+  var named = /^(\d{1,2})\s*[-\s/]\s*([A-Za-z]{3,})\s*[-\s/]\s*(\d{2,4})$/.exec(s);
   if(named){
     var mi = MONTH_NAMES_SHORT.indexOf(named[2].slice(0, 3).toLowerCase());
     if(mi === -1) return null;
     return isoFrom(fullYear(Number(named[3])), mi + 1, Number(named[1]));
   }
-  var namedFirst = /^([A-Za-z]{3,})\s*[\-\s\/]\s*(\d{1,2})\s*[\-\s,\/]+\s*(\d{2,4})$/.exec(s);
+  var namedFirst = /^([A-Za-z]{3,})\s*[-\s/]\s*(\d{1,2})\s*[-\s,/]+\s*(\d{2,4})$/.exec(s);
   if(namedFirst){
     var mi2 = MONTH_NAMES_SHORT.indexOf(namedFirst[1].slice(0, 3).toLowerCase());
     if(mi2 === -1) return null;
     return isoFrom(fullYear(Number(namedFirst[3])), mi2 + 1, Number(namedFirst[2]));
   }
-  var m = /^(\d{1,2})\s*[\/\-.]\s*(\d{1,2})\s*[\/\-.]\s*(\d{2,4})$/.exec(s);
+  var m = /^(\d{1,2})\s*[/\-.]\s*(\d{1,2})\s*[/\-.]\s*(\d{2,4})$/.exec(s);
   if(!m) return null;
   var first = Number(m[1]), second = Number(m[2]), year = fullYear(Number(m[3]));
   var day = order === "MDY" ? second : first;
@@ -157,7 +157,7 @@ export function detectColumns(rows){
       var cell = (r[c] || "").trim();
       if(!cell) return;
       if(parseBankDate(cell, "DMY") !== null){ dates++; return; }
-      if(/^[\(\-\+\$\s]*[\d,]+\.?\d*\s*\)?$/.test(cell) && /\d/.test(cell)){ amounts++; return; }
+      if(/^[(\-+$\s]*[\d,]+\.?\d*\s*\)?$/.test(cell) && /\d/.test(cell)){ amounts++; return; }
       texts++;
       longest = Math.max(longest, cell.length);
     });

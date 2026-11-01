@@ -1,7 +1,6 @@
 import { renderProjectionsWhenSeen } from "./projections.js";
-import { makeRealButtonHtml } from "./makereal.js";
 import { state, persist, defaultHomeBlock, defaultPurchaseConfig, defaultInvestConfig, deepClone, genId } from "../state.js";
-import { renameScenarioChanges, cloneScenarioChanges, deleteScenarioChanges, setLivesElsewhere, homeRowsFromBudget, livesElsewhere, changesFor, effectiveChanges } from "../calc/scenariochanges.js";
+import { renameScenarioChanges, cloneScenarioChanges, deleteScenarioChanges, setLivesElsewhere, homeRowsFromBudget, livesElsewhere, effectiveChanges } from "../calc/scenariochanges.js";
 import { scenarioChangesHtml, todaysHomeHtml, todaysHomeMonthly } from "./scenariochanges.js";
 import { renderCompare } from "./compare.js";
 import { compareScenario } from "../calc/compare.js";

@@ -1,5 +1,5 @@
 import { state } from "../state.js";
-import { nextDueDate, daysUntil, lastTransactionDateFor, isOverdue, transactionsInMonth, sumField } from "../calc/ledger.js";
+import { daysUntil, lastTransactionDateFor, transactionsInMonth, sumField } from "../calc/ledger.js";
 import { staleAssets } from "../calc/engine.js";
 import { fmtCurrency0, localDateStr, fmtDate } from "./format.js";
 import { MARKET_CURRENCY } from "../constants.js";

@@ -17,7 +17,7 @@ function iso(y, m, d){ y = Number(y); if(y < 100) y += 2000; return y + "-" + pa
 // Every date on a line, as YYYY-MM-DD: 31/10/2026, 31-10-26, 31 Oct 2026, 2026-10-31.
 export function datesIn(text){
   var out = [], s = String(text || ""), m;
-  var re = /(\d{4})-(\d{2})-(\d{2})|(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})|(\d{1,2})\s+([A-Za-z]{3,9})\.?\s+(\d{4})/g;
+  var re = /(\d{4})-(\d{2})-(\d{2})|(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})|(\d{1,2})\s+([A-Za-z]{3,9})\.?\s+(\d{4})/g;
   while((m = re.exec(s))){
     if(m[1]) out.push(iso(m[1], m[2], m[3]));
     else if(m[4]){ if(Number(m[5]) <= 12) out.push(iso(m[6], m[5], m[4])); }
@@ -28,7 +28,7 @@ export function datesIn(text){
 // The amounts on a line — "4,500.00", "$1,234.56", "(120.00)" negative — leaving out anything that
 // sits inside a date and bare small integers like hours or rates of "38".
 export function amountsIn(text){
-  var s = String(text || "").replace(/(\d{4})-(\d{2})-(\d{2})|\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}/g, " ");
+  var s = String(text || "").replace(/(\d{4})-(\d{2})-(\d{2})|\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}/g, " ");
   var out = [], m, re = /(\()?-?\$?\s?(\d{1,3}(?:,\d{3})+|\d+)\.(\d{2})\)?/g;
   while((m = re.exec(s))){ var v = Number(m[2].replace(/,/g, "") + "." + m[3]); out.push(m[1] ? -v : v); }
   return out;
@@ -77,11 +77,11 @@ export function parsePayslip(lines){
     if(r[lab.key] != null){
       // The first line with a label wins — but a later summary line that repeats this pay's figure
       // with a year-to-date one beside it supplies the year to date.
-      if(amounts.length >= 2 && amounts[0] === r[lab.key] && r.ytd.hasOwnProperty(lab.key) && r.ytd[lab.key] == null) r.ytd[lab.key] = amounts[amounts.length - 1];
+      if(amounts.length >= 2 && amounts[0] === r[lab.key] && Object.prototype.hasOwnProperty.call(r.ytd, lab.key) && r.ytd[lab.key] == null) r.ytd[lab.key] = amounts[amounts.length - 1];
       return;
     }
     r[lab.key] = amounts[0];
-    if(amounts.length >= 2 && r.ytd.hasOwnProperty(lab.key)) r.ytd[lab.key] = amounts[amounts.length - 1];
+    if(amounts.length >= 2 && Object.prototype.hasOwnProperty.call(r.ytd, lab.key)) r.ytd[lab.key] = amounts[amounts.length - 1];
     r.found.push(lab.key);
   });
   if(!r.periodEnd && r.payDate) r.periodEnd = r.payDate;

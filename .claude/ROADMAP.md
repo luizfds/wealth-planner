@@ -4234,11 +4234,21 @@ hand, a frugal household assessed at the floor and a big spender at their own fi
 and in Side by side's check. Driven: the calculator with a low living-cost figure and two dependants.
 
 
-## 230. `[ ]` The scenario editor's wiring in its own module
+## 230. `[x]` The scenario editor's wiring in its own module
 Do: the editor's, the calculators' and the comparison's event wiring move out of app.js into their own module, as the
 pages' render code already did — nothing a person sees changes.
 
 Done when: smoke and drives unchanged; app.js shorter by the moved lines.
+
+**Done (v3.200.0).** `components/scenariowiring.js` — the event wiring for a scenario's changes, the "start from a
+question" sheet, a scenario on its own page (draft, Save / Cancel, the leave guard, "+ Add a change", the Calculators
+round trip) and Make it real, moved out of app.js as it was (about 280 lines). app.js calls `wireScenarioEditor()`
+where that code sat, so listeners are added in the same order; it hands over the four helpers that stay in app.js
+(`pushActiveOverlay`, `requestCloseActiveOverlay`, `withUndo`, `renderAll`) and gets back the three it still calls.
+Moved mechanically (acorn: the moved statements' free names became the module's imports or those four), with the
+imports nothing else used dropped from app.js. No visible change: the tests, the smoke run, and the same drive (a
+scenario from a question, a change, Save, Make it real, the Calculators and back) against the commit before it.
+
 
 ## 231. `[x]` Automatic repayments and transfers, confirmed on the day
 Asked for: a loan repaid by direct debit from one account to another, confirmed on the day it should happen.

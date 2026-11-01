@@ -94,6 +94,8 @@ the last, so two sessions can't pick up the same one.
   (`calc/scenariotimeline.js`), grouped forms with `HINTS`/`ODD`, an in-place rename and `state.scenarioNotes`. The purchase and
   invest calculators live on the **Calculators** page (`page-calc`, avatar menu); the editor shows `buyInvestSummaryHtml` and
   `renderHomeBody` also draws the scenario's panels there (`renderCalcScenario`) — keep both in that one render.
+  **Wiring (v3.200.0):** the events for a scenario's changes, the question sheet, its page, the Calculators round trip and Make it
+  real are registered in `components/scenariowiring.js` (`wireScenarioEditor`, called from app.js where they used to sit).
   **Combined (v3.199.0):** an `include` change counts another scenario's changes (never copied, own wins, once each, loops stop);
   maths reads `effectiveChanges(name)` (calc/scenariochanges.js), the editor's own list `changesFor(name)`.
 - **Investment returns (v3.178.0):** `calc/investreturn.js` — `xirr`, money-weighted per holding, the same money in an index

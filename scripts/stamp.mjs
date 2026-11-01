@@ -58,7 +58,8 @@ export function withScriptHashes(html){
   });
 }
 export function stampedStyles(css, version){
-  return css.replace(/@import url\("(src\/styles\/[a-z-]+\.css)(\?v=[0-9.]+)?"\);/g, '@import url("$1?v=' + version + '");');
+  // v3.207.1 (item 238): each import carries its cascade layer, kept as it is.
+  return css.replace(/@import url\("(src\/styles\/[a-z-]+\.css)(\?v=[0-9.]+)?"\)( layer\([a-z.-]+\))?;/g, function(m, file, v, layer){ return '@import url("' + file + '?v=' + version + '")' + (layer || "") + ";"; });
 }
 
 if(process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)){

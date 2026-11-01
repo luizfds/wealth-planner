@@ -4455,13 +4455,25 @@ editing, discarding and deleting rows in every kind (income, a pay change, Budge
 a property's income and costs, an asset, a holding, a vehicle, a transaction) giving the same results on main and
 here, Back closing a row and the theme button the same, smoke, journeys and the sweep.
 
-## 238. `[ ]` CSS in explicit layers
+## 238. `[x]` CSS in explicit layers
 Do: `@layer base, layout, components, pages, phone;` — every stylesheet in its layer, so which rule wins is declared,
 not the result of `@import` order and specificity (the bills-to-confirm bug, v3.200.1). The phone floors in their own
 layer; overrides that needed doubled selectors or `:where()` tricks simplified.
 
 Done when: reordering the `@import` lines changes nothing (screens diff empty); the "import order is load-bearing"
 warning leaves CLAUDE.md.
+
+Done (v3.207.1): `styles.css` declares `@layer base, layout, components, pages, utilities, phone` (pages per file) and
+imports each stylesheet into its layer; the phone floors moved to `phone.css`, the ⓘ's room in a section header to
+`utilities.css`. Putting files in layers changes who wins wherever a rule in a later file had lost on specificity to
+one in an earlier file: found by reading, in Chrome (DevTools protocol), every rule matching each of ~5,900 distinct
+elements on main and listing the pairs the layer order would flip (`all:unset` and shorthands included) — about 20,
+each fixed by moving the overriding rule after what it adjusts, deleting a declaration that never applied, or
+stating a value that used to be inherited from a losing rule (the quick log amount's font and focus ring). Checked
+by every element's full computed style against main: 200 views (every page and subtab, 390/1280px, light/dark), 64
+open states (row editors, quick log, search, menus, the bell, money received, the scenario editor and its sheet, a
+property being edited, an ⓘ open) and 50 views printed — all identical; with the `@import` lines reversed, identical
+again. The base text-field floor's `!important` and the quick log's id trick became layer order.
 
 ## 239. `[ ]` Documentation that stays short
 Do: CLAUDE.md cut to an architecture overview and the rules that still need a person to remember them; the rest as

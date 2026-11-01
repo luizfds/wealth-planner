@@ -238,23 +238,7 @@
   p .link-btn, .ledger-note .link-btn, li .link-btn{ text-decoration:underline; }
   input[type="file"]{ display:none; }
 
-  /* iOS Safari zooms the whole page in on focusing any text field whose font-size is below 16px,
-     and does not zoom back out when the field blurs — so on a phone every tap into an amount left
-     the app scaled up until the user pinched it back out by hand. 16px only at phone widths: on a
-     desktop the app's 13px fields are the right size and there is no zoom behaviour to work around.
-     Text entry only, deliberately not <select>: a select opens a native picker rather than a
-     keyboard and never triggers the zoom, and forcing 16px on one would blow out the badge-styled
-     dropdowns (.prop-kind is 10.5px uppercase by design).
-     !important because every one of these fields is sized by its own component rule — .m-edit-field
-     input, .calc-field input, .acct-mgmt-name and friends — and a class selector beats a bare
-     element one whatever the source order. The alternative is repeating this in a dozen rules that
-     the next new field would forget to join. */
-  @media (max-width: 640px){
-    input[type="text"], input[type="number"], input[type="date"], input[type="search"],
-    input[type="email"], input[type="tel"], input[type="password"], input:not([type]), textarea{
-      font-size:var(--fs-lg) !important;
-    }
-  }
+  /* The 16px text-field floor on a phone (iOS Safari's zoom) is in phone.css since v3.207.1 (item 238). */
 
   /* ---------------- Categorical series palette (validated: dataviz skill) ---------------- */
   .series-color-0{ --series-color:#2a78d6; } .series-color-1{ --series-color:#eb6834; }
@@ -445,32 +429,12 @@ body:not(.help-hidden) .help-btn{ display:none; }
 .help-btn:hover, .help-btn[aria-expanded="true"]{ color: var(--brass-strong); background: var(--brass-wash); }
 .help-btn:focus-visible{ box-shadow: var(--focus-ring); }
 .help-btn-inline{ display:inline-flex; margin:0 0 6px -4px; }
-/* v3.139.0: a section's ⓘ is the <details>' own child, after its <summary>. Where anchor
-   positioning works it sits beside the section's title, as it did inside the summary; elsewhere at
-   the header's right edge, with the header making room. */
-details:has(> .help-btn){ position:relative; }
-details > .help-btn{ position:absolute; top:12px; right:12px; }
-details:has(> .help-btn) > summary{ padding-right:52px; }
-@supports (anchor-name: --a) and (anchor-scope: --a){
-  details.ledger:has(> .help-btn){ anchor-scope: --help-title; }
-  details.ledger:has(> .help-btn) > summary .ledger-title{ anchor-name: --help-title; }
-  details.ledger > .help-btn{ position-anchor: --help-title; top: anchor(center); right:auto; left: anchor(right); translate: 0 -50%; margin-left:2px; }
-  details.ledger:has(> .help-btn) > summary{ padding-right:20px; }
-  details.ledger:has(> .help-btn) > summary .ledger-title{ margin-right:32px; }
-}
+/* v3.139.0: where a section's ⓘ sits, and the room its header makes for it — utilities.css (item 238). */
 body.help-hidden .help-btn-inline{ display:flex; }
 .help-btn-heading{ width:24px; height:24px; margin-left:4px; vertical-align:-5px; }
 body.help-hidden :is(h2, h3, h4):has(> .help-btn-heading.help-open) ~ .help{ display:block; }
-/* v3.138.0: the page's ⓘ sits beside its title and shows the intro of whatever's on screen. */
-body.help-hidden .page-intro.help.help-open{ display:block; }
-body.help-hidden .page-intro-row:not(:has(.help-open)){ display:none; }
-.page-help-btn{ margin-left:-4px; }
-.page-help-btn[hidden]{ display:none; }
-.page-actions-slot{ display:flex; align-items:center; gap:6px; }
-.page-actions-slot .page-intro-actions{ margin:0; }
-.page-actions-slot .page-intro-actions[hidden]{ display:none; }
-.page-actions-slot .page-overflow-btn{ width:32px; height:32px; border-color:transparent; background:none; }
-.page-actions-slot .page-overflow-btn:hover, .page-actions-slot .page-overflow-btn[aria-expanded="true"]{ border-color: var(--border); background: var(--paper-raised); }
+/* v3.138.0: the page's ⓘ beside its title and the page's own actions — in ledger.css since v3.207.1 (item 238), after
+   the .page-intro-row / .page-intro-actions they adjust. */
 
   /* v3.161.0 (item 191): a part the household doesn't have keeps out of the way (components/parts.js). */
   body.no-part-property [data-part="property"], body.no-part-shares [data-part="shares"]{ display:none !important; }

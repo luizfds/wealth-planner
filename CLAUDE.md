@@ -110,15 +110,14 @@ the last, so two sessions can't pick up the same one.
   optional Budget `line` it stands for, `answers` by date). On the day Home (`data-home-card="autopay"`) and the bell ask; an
   answer records a transfer tagged `autoPay`/`autoPayDate` (or nothing, for skipped); a transfer between the same accounts within
   3 days answers it too. The bills calendar and an account's 90 days draw it in place of its line. Renames walk `from`/`to`.
-- `styles.css` — just eight `@import` statements pulling in `src/styles/{base,shell,dashboard,
-  ledger,income,properties,assets,projections}.css`, in that specific order. Light/dark theming is
+- `styles.css` — the cascade layers, then one `@import` per `src/styles/*.css` into its layer (v3.207.1, item 238):
+  `@layer base, layout, components, pages, utilities, phone` (pages split per file: `pages.dashboard`, `pages.income`…).
+  Between files the declared layer order decides — not the `@import` order, not specificity (reversing the imports
+  changes no computed style). Inside a file it's specificity then source order, as ever. A rule that adjusts another
+  file's rule goes in that file or a later layer; `utilities.css` holds overrides meant to win over any page (a
+  section's ⓘ), `phone.css` the ≤880px floors. **`!important` reverses layers** — an earlier layer's `!important` beats
+  a later one's — so no page sets `min-height`/`min-width` `!important` (tests/layers.test.js). Light/dark theming is
   CSS custom properties + `prefers-color-scheme`, defined in `base.css`.
-  **Import order is load-bearing, not cosmetic** — several classes with equal specificity are
-  combined on the same element (e.g. `class="income-summary-line home-recon-line"` in
-  `scenarios.js`) and rely on source order to resolve which value wins, exactly as the original
-  monolithic file did. Moving one `@import` line before another can silently flip such an
-  override. Before reordering, re-run the cross-bucket conflict check described in
-  `.claude/PROJECT_KNOWLEDGE.md`'s "Modularization progress" section.
 - `src/app.js` — the entry point (`<script type="module">`), about 260 lines since v3.206.2 (item 237; it was ~6,950):
   the theme (`lib/theme.js`), the calc/lib providers, the route a load starts on and Back (`lib/overlaystack.js`
   is the overlay Back closes), then each page's

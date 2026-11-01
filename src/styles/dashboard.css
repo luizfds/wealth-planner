@@ -131,6 +131,9 @@
   .icon-btn:hover{ background: var(--paper-sunken); color: var(--ink); }
   .icon-btn:focus-visible{ box-shadow: var(--focus-ring); }
   .icon-btn.icon-del:hover{ color: var(--bad-ink); }
+  /* A budget card's caret is an .icon-btn at its own size — after .icon-btn's all:unset, which it overrides
+     (moved from ledger.css, item 238). */
+  .m-card-caret{ width:18px; height:18px; margin-right:-2px; flex:0 0 auto; }
   .card-radio{
     width:16px; height:16px; border-radius:50%; border:1.5px solid var(--border); flex:none;
     display:flex; align-items:center; justify-content:center;
@@ -428,7 +431,8 @@
 @media (max-width: 640px){ .home-grid{ grid-template-columns: 1fr; } }
 
 /* ---------------- Reports (v3.62.0) ---------------- */
-.rp-picker{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+/* The picker's layout is ledger.css's (grouped, v3.124.0); flex-wrap stays from the first version. */
+.rp-picker{ flex-wrap:wrap; }
 .rp-sheet{ border:1px solid var(--border); border-radius:14px; background:var(--paper-raised); padding:16px; box-shadow:var(--shadow); }
 .rp-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
 .rp-head h2{ margin:0; font-size:var(--fs-lg); }
@@ -439,6 +443,8 @@
 .rp-table th, .rp-table td{ padding:6px 8px; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap; }
 .rp-table thead th{ font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); }
 .rp-table tbody th{ font-weight:600; }
+.rp-table tr.sub th{ padding-left:18px; font-weight:400; }
+.rp-table tr.head td{ font-weight:600; padding-top:14px; }
 .rp-table .num{ text-align:right; font-variant-numeric:tabular-nums; }
 .rp-table td.neg{ color:var(--bad-ink); }
 .rp-table tr.total th, .rp-table tr.total td{ font-weight:600; border-top:2px solid var(--ink); }
@@ -462,7 +468,6 @@
 
 /* v3.98.0: what the app notices, and Ask Claude */
 .adv-panel{ margin:0 0 16px; }
-.adv-note{ margin:0 0 10px; }
 .adv-list{ display:flex; flex-direction:column; gap:6px; }
 .adv-item{ border:1px solid var(--border); border-left:3px solid var(--ink-soft); border-radius:8px; background: var(--paper-raised); font-size:var(--fs-sm); }
 .adv-item summary{ display:grid; grid-template-columns: auto minmax(0,1fr) auto; gap:4px 10px; align-items:baseline; padding:9px 12px; cursor:pointer; list-style:none; }

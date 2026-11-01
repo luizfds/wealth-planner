@@ -56,7 +56,7 @@ if(process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.met
       : sh("git", ["log", "--format=%s", before + ".." + sha]).split("\n").filter(Boolean);
     const bump = decideBump({ labels: pr ? pr.labels.map(l => l.name) : [], titles, files, versionChanged });
     output("bump", bump);
-    output("title", pr ? pr.title : (titles[titles.length - 1] || "release"));
+    output("title", pr ? pr.title : (titles[0] || "release"));
     output("pr", pr ? pr.number : "");
   } else if(cmd === "apply"){
     const indexPath = path.join(root, "index.html");

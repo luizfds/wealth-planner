@@ -4297,7 +4297,7 @@ expressions written as escapes. No undefined names in the app. `!important` is s
 deliberately undefined name and a misnamed import each fail it.
 
 
-## 233. `[~]` Releases on merge, and the browser locked down
+## 233. `[x]` Releases on merge, and the browser locked down
 Do: a workflow that, on a merge to main, bumps the version from the PR (minor for features, patch for fixes — a label or
 the commit titles), runs `npm run stamp`, commits and tags — so no hand-written bump commits and no unpushed tags. A
 Content-Security-Policy `<meta>` (self, the price file, Dropbox, the font host); a lint rule that every `innerHTML` built
@@ -4305,6 +4305,16 @@ from data goes through `escapeAttr`/`escapeHtml`; an app error log kept locally 
 
 Done when: a merged PR produces a tagged, stamped release with no manual step; the CSP blocks an injected inline script
 in a test page; the error log records a thrown error.
+
+**Done (v3.202.0).** Releases: `.github/workflows/release.yml` + `scripts/release.mjs` — after a merge to main, a
+`release: minor/patch/none` label (else: nothing shipped → none, all "Fix …" commits → patch, otherwise minor) picks
+the release; the workflow bumps, stamps, tests, commits `Bump version to …` and pushes it with its tag, then asks
+Pages to rebuild. This PR is its first run — it releases itself as v3.202.0. CSP: a `<meta>` in index.html, inline
+scripts by hash (`npm run stamp` rehashes), network only to the services the app names; driven: every page loads
+with no violation, an injected inline script is blocked. Escaping: ESLint rule `local/no-unescaped-text` (row
+fields joined into markup raw) with its own self-test — nothing a person types reached HTML unescaped. Error log:
+`lib/errorlog.js`, imported first; Settings → Keeping your data safe lists the device's errors with Copy and Clear;
+driven with a thrown error and a rejected promise. CLAUDE.md's version rule now says: label the PR, never bump by hand.
 
 ## 234. `[ ]` Journeys and a speed budget in CI
 Do: Playwright journey tests on invented data — log a bill and confirm it, save a transfer with balances (and Undo),

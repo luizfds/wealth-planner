@@ -4297,7 +4297,7 @@ expressions written as escapes. No undefined names in the app. `!important` is s
 deliberately undefined name and a misnamed import each fail it.
 
 
-## 233. `[ ]` Releases on merge, and the browser locked down
+## 233. `[~]` Releases on merge, and the browser locked down
 Do: a workflow that, on a merge to main, bumps the version from the PR (minor for features, patch for fixes — a label or
 the commit titles), runs `npm run stamp`, commits and tags — so no hand-written bump commits and no unpushed tags. A
 Content-Security-Policy `<meta>` (self, the price file, Dropbox, the font host); a lint rule that every `innerHTML` built

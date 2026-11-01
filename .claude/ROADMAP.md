@@ -4334,13 +4334,24 @@ same run — about half today, 99–112% with v3.200.2's fix reverted, so the re
 coverage` in CI's tests job, totals in the summary: `calc/` 97% of lines, `src/` 75%. Found on the way: on that
 household a transfer still costs about half a full redraw — the notification count and Home — which is 236's to fix.
 
-## 235. `[ ]` State changed through actions; accounts by id
-Do: every change to `state` goes through an action function that records what it touched (transactions, transfers,
-accounts, a scenario…); rows link accounts by id, names kept for display (a migration, and renames become a one-line
-change); `migrateState` split into one numbered, tested step per schema version.
+## 235. `[~]` State changed through actions; accounts by id
+Split into three PRs (each its own review), in this order:
 
-Done when: no component assigns into `state` directly (a lint rule); renaming an account touches one record; each
-migration step has a test from the shape before it.
+### 235a. `[~]` Migrations as numbered, tested steps
+Do: `migrateState`'s 450 lines as an ordered list of numbered steps (`MIGRATION_STEPS`, each `{ n, name, run }`), the
+same code in the same order — every step idempotent and run on every load, as now.
+Done when: every step has a test from the shape before it; running all of them twice equals once; the output is
+identical to the old `migrateState` on the sample household, an empty save and old-shape saves (checked outside the repo
+on a real backup too).
+
+### 235b. `[ ]` Accounts by id
+Do: rows link accounts by id, names kept for display (a migration step); renames become a one-line change.
+Done when: renaming an account touches one record; a deleted account's rows still say its name.
+
+### 235c. `[ ]` State changed through actions
+Do: every change to `state` goes through an action function that records what it touched (transactions, transfers,
+accounts, a scenario…), which 236 uses to redraw only what reads it.
+Done when: no component assigns into `state` directly (a lint rule).
 
 ## 236. `[ ]` Views that follow the data, drawn when seen
 Do: each view declares what it reads; an action redraws only the views that read what it touched, on the page that's

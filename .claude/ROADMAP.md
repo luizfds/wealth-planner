@@ -4385,11 +4385,19 @@ on what it reads.
 ## 236. `[~]` Views that follow the data, drawn when seen
 Two PRs:
 
-### 236a. `[~]` Pages drawn when seen
+### 236a. `[x]` Pages drawn when seen
 Do: a full redraw (`renderAll`) draws the page on screen and what's on every page (the header, badges, sheets); every
 other page is marked stale and drawn when it's opened. Startup draws one page.
 Done when: startup and a full redraw draw one page (the speed budget's numbers drop); the smoke script, journeys and
 screens are unchanged.
+
+**Done (v3.208.0).** `lib/views.js`: the full redraw's 45 parts are views, each with the pages it draws into —
+measured, by running each under a MutationObserver and recording which pages its writes landed in. `renderAll()`
+keeps the data work (parts, derived rows) and draws the page on screen plus what's on every page; the rest are
+stale until nav.js shows their page (`drawStale`). The transfer's own redraw goes through `redraw(names)` the same
+way. Speed budget, large invented household at 4× CPU: startup about 3.0s → 1.4s, a full redraw about 1.5s → 0.9s,
+saving a transfer about 1.0s → 0.4s. Smoke, journeys unchanged; driven: a transfer saved on Spending, then Accounts
+and Home opened — each drawn with it.
 
 ### 236b. `[ ]` Edits redraw what they touched
 Do: each view declares what it reads; a commit redraws only the views that read what it touched, on the page that's

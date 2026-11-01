@@ -4522,6 +4522,14 @@ borrowing costs pro rata for the same days; the plan × the share of the year go
 the whole year; nothing logged says how to start. Tested on an invented property (statements and their payments
 counted once, last year's left out); driven at 390 and 1280px, the columns aligned.
 
+## 242. `[~]` The rental schedule from what's logged
+Do: Tax → Year's rental schedule shows, beside each return line, what's logged for the year — rent and agent fees
+from statements and rent received, council rates, insurance, repairs and the rest from payments against the property's
+cost lines (by the return line each maps to), interest, depreciation and borrowing costs worked out — and "Use logged
+figures" fills them in as the year's actuals. Lines with nothing logged keep the plan and say so.
+Done when: the logged figures reconcile with the year-so-far section and with what's logged; a typed figure still wins;
+driven.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

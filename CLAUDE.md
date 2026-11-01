@@ -226,27 +226,28 @@ the last, so two sessions can't pick up the same one.
 Because this is ES modules (`type="module"`), the app **cannot be opened via `file://`** — it
 must be served over HTTP. See "Running it" below.
 
-## The one rule that matters most: version + tag every shipped change
+## The one rule that matters most: every shipped change is a release
 
-Every commit that ships a real change to the app must be followed by its own version-bump
-commit and a matching git tag:
+Since v3.202.0 (item 233) **the Release workflow (`.github/workflows/release.yml`) does the versioning — never
+bump by hand.** After a merge to main, `scripts/release.mjs` decides the release and the workflow bumps
+`<span class="app-version-num">` in `index.html`, runs `npm run stamp`, runs the tests, commits
+`Bump version to vX.Y.Z — <PR title>` and pushes it with its tag. What you do:
 
-1. Make the functional change, commit it on its own.
-2. Bump `<span class="app-version-num">vX.Y.Z</span>` in `index.html` (inside `<p class="app-version">`
-   — the number sits in its own span because it's parsed, both from the live DOM and from a
-   freshly-fetched copy of the file, to detect a newer deployed version) — **Minor** (`v1.X.0`) for a new
-   feature/behavior change, **Patch** (`v1.0.X`) for a bug fix — in a separate commit titled
-   `Bump version to vX.Y.Z — <short reason>`.
-   In the same commit, run `npm run stamp`: it writes the version onto every module URL (an import
-   map in `index.html`, plus a `modulepreload` per module so a first visit fetches them all at once
-   rather than an import level at a time) and the stylesheet imports, so a browser can never pair a
-   new page with an old cached module. `tests/stamp.test.js` fails if you forget — and a new module
-   needs a stamp before the tests pass.
-3. `git tag -a vX.Y.Z -m "<short reason>"`.
-4. Push both `main` and the tag.
+1. Commit the functional change on its own, as before.
+2. Label the PR: **`release: minor`** for a new feature or behaviour change, **`release: patch`** for a bug fix,
+   **`release: none`** for something that doesn't ship. Without a label: nothing under `src/` (or index.html,
+   styles.css, sw.js, vendor, icons) changed → none; every commit titled "Fix …" → patch; otherwise minor.
+3. A PR that adds a module or an inline `<script>` still runs `npm run stamp` (it maps the new file and
+   rehashes the CSP) — `tests/stamp.test.js` fails otherwise. It doesn't change the version.
 
-Do this for every shipped change, without being asked. This is a strong, explicit standing
-preference — not optional polish.
+Do this for every shipped change, without being asked. This is a strong, explicit standing preference.
+
+**Security (v3.202.0):** `index.html` carries a Content-Security-Policy. A new third-party host the app talks
+to goes in its `connect-src` (or the right directive), or the browser blocks it — the smoke run fails on the
+console error. Inline scripts run only by hash, which `npm run stamp` keeps current. Text a person typed or a
+file brought in goes into HTML through `escapeAttr()`; `npm run check`'s `local/no-unescaped-text` rule flags a
+row field (`.what`, `.description`, `.name`…) joined into markup raw. Uncaught errors are kept on the device
+(`lib/errorlog.js`, imported first in app.js) and listed in Settings → Keeping your data safe.
 
 ## Never commit real personal data — this repo is public
 

@@ -1,3 +1,5 @@
+// v3.202.0 (item 233): first, so it is listening before any other module runs.
+import { errorLog, clearErrorLog } from "./lib/errorlog.js";
 import { renderSubscriptions, subsUi } from "./components/subscriptions.js";
 import { bench, benchmarkCardHtml, targetMixCardHtml } from "./components/investreturn.js";
 import { whatIfValues, resetWhatIf, wiFromSlider, wiValueText } from "./components/whatif.js";
@@ -6526,6 +6528,15 @@ import { inboxMessage } from "./calc/inbox.js";
     renderHomeSummary(); renderNotifBadge();
     // Rebuilt after the event: the note under it ("Next on …") follows the day and how often.
     if(field === "start" || field === "freq" || field === "line") setTimeout(renderAccounts, 0);
+  });
+
+  // ---------------- Problems the app hit (v3.202.0, item 233) — lib/errorlog.js ----------------
+  document.addEventListener("click", function(e){
+    if(e.target.closest("[data-el-clear]")){ clearErrorLog(); renderSafekeeping(); showToast("Cleared"); return; }
+    if(e.target.closest("[data-el-copy]")){
+      var text = errorLog().map(function(x){ return [x.at, x.kind, x.message, x.where, x.version, x.count > 1 ? "x" + x.count : ""].filter(Boolean).join(" | "); }).join("\n");
+      (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(function(){ showToast("Copied"); }, function(){ showToast("Couldn't copy — select the list instead"); });
+    }
   });
 
   // ---------------- Home (v3.58.0): the summary's links and to-dos ----------------

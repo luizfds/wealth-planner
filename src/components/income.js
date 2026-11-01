@@ -2,7 +2,7 @@ import { state } from "../state.js";
 import { FREQS, INCOME_TYPES, SUPER_MODES, SACRIFICE_MODES, MAX_SUPER_BASE, MONTH_NAMES, sacrificeModeToLabel, sacrificeLabelToMode } from "../constants.js";
 import { periodsOf, sumField, nextPayDate, payScheduleKindFor, daysUntil, WEEKDAY_NAMES, householdYearWindow, isActiveOn } from "../calc/ledger.js";
 import { ipNetResultAnnual, ipDepreciationAnnual, ipOwnershipMismatches, propertyOwnershipTotal, fyLabel } from "../calc/property.js";
-import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax, wfhRateForFy, phiRebateAdjustment, taxTablesFor, currentTaxFy, phiPremiumsAnnual, phiLine, personRowsAfterTax } from "../calc/tax.js";
+import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax, phiRebateAdjustment, taxTablesFor, currentTaxFy, phiPremiumsAnnual, phiLine, personRowsAfterTax } from "../calc/tax.js";
 import { claimItems } from "../calc/claims.js";
 import { projectWithholding } from "../calc/withholding.js";
 import { renderJuneMoves } from "./junemoves.js";
@@ -11,9 +11,8 @@ import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr, fmtDate } from "
 import { payFrequency } from "../calc/payslip.js";
 import { payslipCheck } from "../calc/payslipcheck.js";
 import { escapeAttr } from "../lib/html.js";
-import { optionsHtml, historyTrendHtml, timingFieldsHtml, endDateNoteHtml, scenarioVaryNoteHtml, hasEnded, rowEditSlot } from "../lib/ledger-table.js";
+import { optionsHtml, historyTrendHtml, timingFieldsHtml, endDateNoteHtml, hasEnded, rowEditSlot } from "../lib/ledger-table.js";
 import { parseCsv } from "../lib/backup.js";
-import { injectScenarioOverrideButtons } from "./expenses.js";
 import { renderTaxYear } from "./taxyear.js";
 import { SHOW_AS, showAsOption, fromMonthly, DEFAULT_HOURS_PER_WEEK } from "../calc/showas.js";
 
@@ -190,7 +189,7 @@ export function parseIncomeImportCsv(text){
     var amountRaw = (cells[colOf.amount] || "").trim();
     if(!what && cells.every(function(c){ return !c || !c.trim(); })) return; // fully blank row
     if(!what){ errors.push({ row: rowNum, reason: 'Missing "What"' }); return; }
-    var amount = parseFloat(amountRaw.replace(/[^0-9.\-]/g, ""));
+    var amount = parseFloat(amountRaw.replace(/[^0-9.-]/g, ""));
     if(!amountRaw || isNaN(amount)){ errors.push({ row: rowNum, reason: 'Amount "' + amountRaw + '" isn\'t a number' }); return; }
     var typeRaw = colOf.type !== undefined ? (cells[colOf.type] || "").trim() : "";
     var typeMatch = INCOME_TYPES.find(function(t){ return t.toLowerCase() === typeRaw.toLowerCase(); });
@@ -201,7 +200,7 @@ export function parseIncomeImportCsv(text){
     var sacrificeRaw = colOf["sacrifice mode"] !== undefined ? (cells[colOf["sacrifice mode"]] || "").trim() : "";
     var sacrificeLabelMatch = SACRIFICE_MODES.find(function(s){ return s.toLowerCase() === sacrificeRaw.toLowerCase(); });
     var sacrificeValueRaw = colOf["sacrifice value"] !== undefined ? (cells[colOf["sacrifice value"]] || "").trim() : "";
-    var sacrificeValue = parseFloat(sacrificeValueRaw.replace(/[^0-9.\-]/g, ""));
+    var sacrificeValue = parseFloat(sacrificeValueRaw.replace(/[^0-9.-]/g, ""));
     var person = colOf.person !== undefined ? (cells[colOf.person] || "").trim() : "";
     var account = colOf.account !== undefined ? (cells[colOf.account] || "").trim() : "";
     valid.push({

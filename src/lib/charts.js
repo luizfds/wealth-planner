@@ -288,7 +288,7 @@ export function renderLineChart(container, series, opts){
   // repeated label rather than showing "Jul 2026" twice in a row with nothing distinguishing
   // them. Only checked against the *previous* tick, not all previous ticks, so a label is free
   // to legitimately recur later (e.g. a multi-year axis crossing back into "Q1" territory).
-  var lastXLabel = null, lastXPix = -Infinity;
+  var lastXLabel = null;
   // Also drop any label that would land within a label's width of the previous one. Skipping only
   // *identical* neighbours was enough while the canvas was a nominal 720 units wide, because the
   // labels were being shrunk to 6px along with everything else. Now that they render at their
@@ -318,7 +318,7 @@ export function renderLineChart(container, series, opts){
         if(ext[0] < lastLeft - 8 && svg.lastChild && svg.lastChild.getAttribute && svg.lastChild.getAttribute("class") === "proj-axislabel") svg.removeChild(svg.lastChild);
       }
     }
-    lastXLabel = xText; lastXPix = xPix; lastLeft = ext[0]; lastRight = ext[1];
+    lastXLabel = xText; lastLeft = ext[0]; lastRight = ext[1];
     var xlbl = svgEl("text", { x: xPix, y: H - 8, "text-anchor": anchor, class: "proj-axislabel" });
     xlbl.textContent = xText;
     svg.appendChild(xlbl);
@@ -548,14 +548,14 @@ export function renderStackedAreaChart(container, series, opts){
     var text = opts.xFormat ? opts.xFormat(atTime) : new Date(atTime).toISOString().slice(0, 10);
     var anchor = t === 0 ? "start" : (t === labelCount - 1 ? "end" : "middle");
     // v3.155.0: by the label's own width at 12px rather than a fixed 56px.
-    var w = String(text).length * 12 * 0.6;
-    var left = anchor === "start" ? x : anchor === "end" ? x - w : x - w / 2;
+    var labelW = String(text).length * 12 * 0.6;
+    var left = anchor === "start" ? x : anchor === "end" ? x - labelW : x - labelW / 2;
     if(left < lastRight + 8 || text === lastText) continue;
     var tx = svgEl("text", { x: x, y: H - 6, "text-anchor": anchor,
       fill: "var(--ink-soft)", "font-size": "12" });
     tx.textContent = text;
     xLabels.appendChild(tx);
-    lastRight = left + w; lastText = text;
+    lastRight = left + labelW; lastText = text;
   }
   svg.appendChild(xLabels);
   // v3.159.0 (item 189): the same crosshair and tooltip as the line chart — each band's value at the

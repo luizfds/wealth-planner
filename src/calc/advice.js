@@ -1,12 +1,11 @@
 import { state } from "../state.js";
 import { getTaxPeople, computePersonTax } from "./tax.js";
-import { ipProperties, personIpResultAnnual, loanRateOn, loanPaidOut, calcRepaymentMonthly, recalcPurchase, propertiesTotalEquityToday } from "./property.js";
+import { ipProperties, personIpResultAnnual, loanRateOn, loanPaidOut, calcRepaymentMonthly, propertiesTotalEquityToday } from "./property.js";
 import { canBuyAll } from "./canbuy.js";
 import { emergencyFund } from "./emergency.js";
 import { takeHomeDrifts } from "./takehome.js";
 import { monthFigures, shiftMonth, monthBounds } from "./monthdetail.js";
 import { totalNetWorthValue, toAudAmount } from "./engine.js";
-import { periodsOf } from "./ledger.js";
 import { localDateStr } from "../lib/format.js";
 import { trimReport } from "./trim.js";
 

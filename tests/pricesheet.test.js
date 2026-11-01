@@ -1,7 +1,6 @@
 import "./_env.js";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { state } from "../src/state.js";
 import { sheetCsvUrls, readPriceSheet, applyPrices, unitsOn, backfillHistory, applyBackfill, sheetRefreshDue, backfillStart, thinPriceHistory } from "../src/calc/pricesheet.js";
 
 test("a sheet link becomes the URLs worth trying", function(){

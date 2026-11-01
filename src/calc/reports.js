@@ -1,8 +1,8 @@
 import { state } from "../state.js";
 import { selectedYearWindow } from "./ledger.js";
 import { getTaxPeople, computePersonTax, currentTaxFy } from "./tax.js";
-import { totalNetWorthValue, totalDebtsValue, toAudAmount } from "./engine.js";
-import { ipProperties, propertyTaxResultBreakdown, propertiesTotalValue, propertiesTotalMortgageBalance, propertiesOffsetTotal, fyLabel } from "./property.js";
+import { totalNetWorthValue, toAudAmount } from "./engine.js";
+import { ipProperties, propertyTaxResultBreakdown, fyLabel } from "./property.js";
 import { localDateStr, fmtDate } from "../lib/format.js";
 import { netWorthOn, shiftDate } from "./nwhistory.js";
 import { netWorthChecks } from "./nwcheck.js";
@@ -64,6 +64,7 @@ export function cashflowReport(opts){
   var win = opts.win || selectedYearWindow(today);
   var months = monthsOf(win, today);
   var running = 0, tin = 0, tout = 0;
+  /** @type {any[]} */
   var rows = months.map(function(ym){
     var inn = (state.incomeLog || []).filter(function(r){ return (r.date || "").slice(0, 7) === ym; }).reduce(function(s, r){ return s + (Number(r.amount) || 0); }, 0);
     var out = (state.transactions || []).filter(function(t){ return (t.date || "").slice(0, 7) === ym; }).reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0);
@@ -105,6 +106,7 @@ export function categoryReport(opts){
   }).sort(function(a, b){ return b.total - a.total; });
   var columns = [{ key: "cat", label: "Category" }].concat(months.map(function(ym){ return { key: ym, label: ymLabel(ym), num: true }; }))
     .concat([{ key: "total", label: "Total", num: true }, { key: "avg", label: "Per month", num: true }]);
+  /** @type {any[]} */
   var rows = cats.map(function(x){
     var cells = { cat: x.c, total: r2(x.total), avg: r2(months.length ? x.total / months.length : 0) };
     months.forEach(function(ym){ cells[ym] = r2(grid[x.c][ym] || 0); });
@@ -143,6 +145,7 @@ export function netWorthReport(opts){
   // v3.105.0: a total for an earlier date that leaves out something held today isn't a total — blank,
   // like the net worth line below, rather than printed beside today's as if comparable.
   var totalCol = function(fn){ return col(function(sn){ return sn !== now && sn.partial.length ? null : fn(sn); }); };
+  /** @type {any[]} */
   var rows = [{ cls: "head", cells: { item: "What you own" } }];
   Object.keys(cats).sort().forEach(function(c){
     rows.push({ cells: Object.assign({ item: c }, col(function(sn){ return sn.parts.assets[c] != null ? r2(sn.parts.assets[c]) : null; })) });
@@ -176,6 +179,7 @@ export function propertyReport(){
   var labels = { rent: "Rent", expenses: "Expenses", interest: "Loan interest", depreciation: "Depreciation", borrowing: "Borrowing costs", claims: "Claimed from the budget" };
   var cols = [{ key: "line", label: "" }].concat(props.map(function(p){ return { key: p.id, label: p.what || "Property", num: true }; })).concat(props.length > 1 ? [{ key: "all", label: "All", num: true }] : []);
   var bs = props.map(function(p){ return propertyTaxResultBreakdown(p); });
+  /** @type {any[]} */
   var rows = keys.map(function(k){
     var cells = { line: labels[k] }, all = 0;
     props.forEach(function(p, i){ var a = bs[i].rows.find(function(r){ return r.key === k; }).amount; cells[p.id] = r2(a); all += a; });
@@ -279,9 +283,9 @@ export function moneyFlowReport(opts){
   var win = opts.win || selectedYearWindow(today);
   var scale = monthsOf(win, today).length / 12;
   var classOf = opts.classOf || function(){ return "Other"; };
-  var gross = 0, sg = 0, sac = 0, tax = 0, planTake = 0;
+  var sg = 0, sac = 0, tax = 0, planTake = 0;
   getTaxPeople().forEach(function(p){
-    try { var r = computePersonTax(p); gross += r.gross || 0; sg += r.sg || 0; sac += r.sacrifice || 0; tax += (r.totalTax || 0) + (r.helpRepayment || 0); planTake += r.netTakeHome || 0; } catch(e){}
+    try { var r = computePersonTax(p); sg += r.sg || 0; sac += r.sacrifice || 0; tax += (r.totalTax || 0) + (r.helpRepayment || 0); planTake += r.netTakeHome || 0; } catch(e){}
   });
   var recPay = 0, other = 0;
   (state.incomeLog || []).forEach(function(r){ if(r.date >= win.start && r.date <= win.end){ if(inKind(r.target) === "pay") recPay += Number(r.amount) || 0; else other += Number(r.amount) || 0; } });
@@ -304,8 +308,9 @@ export function moneyFlowReport(opts){
   var uses = ["Needs", "Wants", "Other", "kept"].map(function(id){ return { id: id, value: id === "kept" ? Math.max(0, kept) : spend[id] }; }).filter(function(u){ return u.value > 0.5; });
   var useTotal = uses.reduce(function(s, u){ return s + u.value; }, 0);
   [["take", take], ["other", other], ["drawn", drawn]].forEach(function(src){
-    if(!(src[1] > 0.5) || !(useTotal > 0)) return;
-    uses.forEach(function(u){ links.push({ from: src[0], to: u.id, value: src[1] * u.value / useTotal }); });
+    var from = String(src[0]), amount = Number(src[1]);
+    if(!(amount > 0.5) || !(useTotal > 0)) return;
+    uses.forEach(function(u){ links.push({ from: from, to: u.id, value: amount * u.value / useTotal }); });
   });
   links = links.filter(function(l){ return l.value > 0.5; });
   var rows = nodes.map(function(n){ return { cls: n.id === "pay" || n.id === "take" || n.id === "kept" ? "total" : "", cells: { line: n.label, value: r2(n.value) } }; });
@@ -374,6 +379,7 @@ export function trendsReport(opts){
   (state.transactions || []).forEach(function(t){ if(t && t.date && t.date >= prevStart && t.date <= prevEnd) logged[t.date.slice(0, 7)] = true; });
   var prevMonths = Object.keys(logged).length, full = prevMonths >= 10;
   var pctOf = function(c){ return !full || c.pct == null ? null : Math.round(c.pct * 1000) / 10; };
+  /** @type {any[]} */
   var rows = keys.map(function(k){
     var c = change(cur[k] || 0, prev[k] || 0);
     return { drill: null, cells: { cat: k, cur: r2(cur[k] || 0), prev: r2(prev[k] || 0), chg: c.diff, pct: pctOf(c) } };
@@ -476,6 +482,7 @@ export function propertyReturnsReport(opts){
   var pctRow = function(label, k){ var c = { line: label }; ps.forEach(function(p){ c[p.id] = p[k] == null ? null : Math.round(p[k] * 1000) / 10; }); return { cls: "pct", cells: c }; };
   var row = function(label, k, cls){ var c = { line: label }; ps.forEach(function(p){ c[p.id] = p[k]; }); return { cls: cls, cells: c }; };
   var ips = ps.some(function(p){ return p.ip; });
+  /** @type {any[]} */
   var rows = [row("Value", "value"), row("Paid, with costs", "cost"), row("Loans", "loans"), row("Equity (with offsets)", "equity"), pctRow("Loan to value %", "lvr")];
   if(ips) rows = rows.concat([{ cls: "head", cells: { line: "A year at today's rates" } }, row("Rent", "rent"), row("Expenses", "expenses"),
     pctRow("Gross yield %", "grossYield"), pctRow("Net yield %", "netYield"),
@@ -502,6 +509,7 @@ export function debtsReport(opts){
   opts = opts || {};
   var today = opts.today || localDateStr();
   var d = debtSchedule(state.properties, state.debts, { today: today });
+  /** @type {any[]} */
   var rows = d.rows.map(function(x){
     return { cells: { name: x.name, balance: x.balance, then: x.then, rate: x.rate == null ? "" : (Math.round(x.rate * 100) / 100) + "%", monthly: x.monthly,
       thisYear: x.interestThisYear, lastYear: x.interestLastYear, deductible: x.deductibleLastYear,
@@ -678,7 +686,7 @@ export function buildReport(key, opts){
   if(key === "nwcheck") return netWorthCheckReport(opts);
   if(key === "categories") return categoryReport(opts);
   if(key === "networth") return netWorthReport(opts);
-  if(key === "property") return propertyReport(opts);
+  if(key === "property") return propertyReport();
   if(key === "tax") return taxReport(opts);
   return cashflowReport(opts);
 }

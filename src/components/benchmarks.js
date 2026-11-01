@@ -8,7 +8,7 @@
 import { state } from "../state.js";
 import { partOn } from "../calc/parts.js";
 import { BENCHMARKS } from "../constants.js";
-import { getTaxPeople, computePersonTax, ageOnDate } from "../calc/tax.js";
+import { getTaxPeople, ageOnDate } from "../calc/tax.js";
 import { scenarioTotals, totalNetWorthValue, toAudAmount, currentScenario } from "../calc/engine.js";
 import { periodsOf } from "../calc/ledger.js";
 import { superComparison, netWorthComparison, retirementComparison, housingComparison, relativeText, cagr, propertyMarketComparison } from "../calc/benchmarks.js";
@@ -215,7 +215,7 @@ export function applyBenchmarkPaste(text){
     var parts = line.trim().split(/\t+|,+|\s+/);
     if(parts.length < 2) return;
     var bm = parseBenchmarkSymbol(parts[0].replace(/^["']|["']$/g, ""));
-    var price = parseFloat(parts[parts.length - 1].replace(/[^0-9.\-]/g, ""));
+    var price = parseFloat(parts[parts.length - 1].replace(/[^0-9.-]/g, ""));
     if(!bm || !(price > 0)) return;
     setBenchmarkPrice(state.benchmark, bm.symbol, bm.date, price, today);
     n++;

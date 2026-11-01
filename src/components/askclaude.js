@@ -95,7 +95,7 @@ export function askClaudeHtml(){
   // v3.99.0: any assistant, no key — copy the prompt, paste the answer back.
   var anyAi = '<div class="ai-any"><div class="ai-sub">Any AI — no key needed</div>' +
     '<p class="ledger-note help">Copies one prompt — how to answer, in a standard layout, and your figures with names and places replaced by labels — to paste into ChatGPT, Gemini, Claude or any assistant. Paste its answer back below and it\'s shown here, with your own names.</p>' +
-    '<div class="ai-actions"><button type="button" class="btn btn-sm btn-ghost" data-ai-preview>' + (askUi.preview ? "Hide preview" : "Preview what\'s copied") + '</button>' +
+    '<div class="ai-actions"><button type="button" class="btn btn-sm btn-ghost" data-ai-preview>' + (askUi.preview ? "Hide preview" : "Preview what's copied") + '</button>' +
       '<button type="button" class="btn btn-sm btn-primary" data-ai-copy>Copy for any AI</button></div>' +
     (askUi.pasteOpen
       ? '<textarea class="ai-paste" rows="6" data-ai-paste placeholder="Paste the assistant\'s answer here" aria-label="The assistant\'s answer"></textarea>' +

@@ -20,7 +20,6 @@ export var TEMPLATES = [
 export function questionsFor(key, ctx){
   ctx = ctx || {};
   var st = ctx.state || "NSW";
-  var props = (ctx.properties || []).map(function(p){ return [p.id, p.what || "A property"]; });
   var owned = (ctx.properties || []).filter(function(p){ return p.kind !== "IP"; }).map(function(p){ return [p.id, p.what || "Your home"]; });
   var withLoans = (ctx.properties || []).filter(function(p){ return (p.loans || []).length; }).map(function(p){ return [p.id, p.what || "A property"]; });
   var STATES = ["NSW", "VIC", "QLD", "WA", "SA", "TAS", "ACT", "NT"];

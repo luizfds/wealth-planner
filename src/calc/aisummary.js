@@ -1,6 +1,6 @@
 import { state } from "../state.js";
 import { getTaxPeople, computePersonTax, scenarioIncomeRows } from "./tax.js";
-import { ipProperties, loanRateOn, loanPaidOut, loanInvestShare, recalcPurchase } from "./property.js";
+import { ipProperties, loanRateOn, loanPaidOut, loanInvestShare } from "./property.js";
 import { scenarioTotals, toAudAmount, totalNetWorthValue, currentScenario } from "./engine.js";
 import { periodsOf } from "./ledger.js";
 import { emergencyFund } from "./emergency.js";

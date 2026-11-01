@@ -1,8 +1,8 @@
 import { state } from "../state.js";
-import { AU_TAX_BRACKETS, MAX_SUPER_BASE, HELP_REPAYMENT_RATES, MLS_TIERS, MLS_FAMILY_MULTIPLIER, WFH_FIXED_RATES, TAX_YEARS, MLS_RATES } from "../constants.js";
+import { MAX_SUPER_BASE, MLS_FAMILY_MULTIPLIER, WFH_FIXED_RATES, TAX_YEARS, MLS_RATES } from "../constants.js";
 import { periodsOf, resolveSharedAmount, householdYearWindow, isActiveOn, overlapDaysInclusive, activeShareOfWindow } from "./ledger.js";
 import { ipNetResultAnnual, personIpResultAnnual, ipProperties, propertyOwnershipPct } from "./property.js";
-import { incomeStatementTotals, interestIncome, recordedDeductionsByLabel, rentalSchedule, yearDeductions } from "./taxyear.js";
+import { incomeStatementTotals, interestIncome, rentalSchedule, yearDeductions } from "./taxyear.js";
 import { deductionYearFraction, rowDeductionAnnual, setClaimItemsProvider, claimItems } from "./claims.js";
 export { deductionYearFraction, rowDeductionAnnual };
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
@@ -80,7 +80,7 @@ export var CGT_DISCOUNT_MIN_DAYS = 366;
 export function heldDays(acquired, sold){
   if(!acquired || !sold) return 0;
   var a = new Date(acquired + "T00:00:00"), b = new Date(sold + "T00:00:00");
-  return Math.round((b - a) / 86400000);
+  return Math.round((b.getTime() - a.getTime()) / 86400000);
 }
 export function qualifiesForCgtDiscount(acquired, sold){
   return heldDays(acquired, sold) >= CGT_DISCOUNT_MIN_DAYS;

@@ -1,7 +1,7 @@
 import { lowBalanceCardHtml } from "./dailyforecast.js";
 import { toReview } from "../calc/reviewqueue.js";
 import { state } from "../state.js";
-import { nextDueDate, lastTransactionDateFor, daysUntil, selectedMonth, monthPhrase, isPeriodToday } from "../calc/ledger.js";
+import { selectedMonth, monthPhrase, isPeriodToday } from "../calc/ledger.js";
 import { totalNetWorthValue, scenarioTotals, currentScenario } from "../calc/engine.js";
 import { goalsOverview } from "../calc/savegoals.js";
 import { goalCardHtml } from "./savegoals.js";

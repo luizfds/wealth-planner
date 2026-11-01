@@ -96,7 +96,7 @@ export function parseAmountInput(raw){
   if(bracketed){ s = "-" + bracketed[1]; }
   s = s
     .replace(/[−‒–—―]/g, "-")   // every dash that isn't ASCII "-"
-    .replace(/[\s ]/g, "")                          // spaces, including the non-breaking kind
+    .replace(/[\s\u00A0]/g, "")                          // spaces, including the non-breaking kind
     .replace(/[$€£¥]/g, "")               // the currency symbols a copy tends to bring along
     .replace(/,/g, "")                                   // thousands separators
     .replace(/^\+/, "");

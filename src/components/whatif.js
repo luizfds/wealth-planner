@@ -4,7 +4,6 @@
 // what-if is a question, not a plan, until "Keep this" makes it a scenario); calc/whatif.js turns
 // them into changes and the projection draws them against the saved plan, dashed.
 
-import { state } from "../state.js";
 import { whatIfDefaults, whatIfMoved } from "../calc/whatif.js";
 import { fmtCurrency0 } from "../lib/format.js";
 

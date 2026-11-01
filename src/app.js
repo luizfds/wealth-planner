@@ -3,7 +3,7 @@ import { bench, benchmarkCardHtml, targetMixCardHtml } from "./components/invest
 import { whatIfValues, resetWhatIf, wiFromSlider, wiValueText } from "./components/whatif.js";
 import { whatIfMoved, keepWhatIf } from "./calc/whatif.js";
 import { state, setState, storageAvailable, persist, setStatus, defaultState, defaultInvestConfig, migrateState, genId, normalizeShareAsset, onSaved } from "./state.js";
-import { sacrificeModeToLabel, sacrificeLabelToMode, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, INVEST_LEG_TYPES } from "./constants.js";
+import { sacrificeLabelToMode, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE } from "./constants.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr, fmtDate, parseAmountInput } from "./lib/format.js";
 import { showToast, showUndoToast, showPersistentToast } from "./lib/toast.js";
 import { initHelp, setShowHelp, showHelpPreference } from "./lib/help.js";
@@ -14,7 +14,7 @@ import { initTableScrollShadows } from "./lib/scroll-shadow.js";
 import { setDeductionPeopleProvider, setDeductionPropertiesProvider, setRentLinesProvider, materializeRowEdit } from "./lib/ledger-table.js";
 import {
   decryptBackup, doExport, doShare, canShareFiles, exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv, exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard, copyPriceSheetTemplate, exportYearTransactionsCsv,
-  exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv, exportAssetsImportTemplateCsv, parseCsv, exportProjectionCsv
+  exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv, exportAssetsImportTemplateCsv, exportProjectionCsv
 } from "./lib/backup.js";
 import { periodsOf, sumField, sumFieldForScenario, resolveSharedAmount, appendHistorySnapshot, transactionDisplayName } from "./calc/ledger.js";
 import { phiPremiumsAnnual, effectiveIncomeItems, getTaxPeople, personTaxSettings, computePersonTax, setDeductibleItemsProvider, saleCapitalGain, lotsUnitsAvailable, takeHomeAdjust } from "./calc/tax.js";
@@ -41,16 +41,16 @@ import {
   incomeHeaderTotal, setIncomeShowAs, taxUi
 } from "./components/income.js";
 import {
-  patchSharedGroupTotals, renderSharedGroups, renderPropertyExpensesSummary, modernSharedRowOpen,
+  patchSharedGroupTotals, renderSharedGroups, modernSharedRowOpen,
   openScenarioOverridePanel, closeScenarioOverridePanel, renderScenarioOverridePanel,
   setScenarioOverride, resetScenarioOverride, copyScenarioAmountToAll,
   openExpenseReview, closeExpenseReview, renderExpenseReviewPanel,
-  confirmReviewBills, expenseReview,
+  confirmReviewBills, 
   renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel,
   setTransactionsShowAll, setTransactionsRange, modernTransactionRowOpen, budgetRowTxnsOpen, transactionSummaryText, visibleSpendingIndices, loggableBudgetLineItems, renderBillsCalendar,
   openQuickLog, closeQuickLog, renderQuickLogSheet, setQuickLogLink, setQuickLogDateOpen,
   setQuickLogShowAllChips, setQuickLogChipFilter, setQuickLogSign, setQuickLogRefundOf, submitQuickLog, quickLogContextText, quickLog,
-  renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, logExpenseTransaction,
+  renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, 
   renderCategories, addCategory, deleteCategory, renameCategoryEverywhere, setCategoryLook, categoryLookUi,
   setBudgetGroupBy, renderBudgetGroupByToggle, budgetLineItems,
   toggleBudgetGroup, setAllBudgetGroupsCollapsed, allBudgetGroupsCollapsed, revealBudgetLine,
@@ -78,7 +78,7 @@ import { copyBenchmarkTemplateToClipboard } from "./lib/backup.js";
 import {
   selectScenario, renameScenario, cloneScenario, deleteScenario, renderHomeBody, renderHomeListModern,
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
-  patchCalcOutputs, afterCalcChange, patchInvestOutputs, editing
+  patchCalcOutputs, afterCalcChange, patchInvestOutputs
 } from "./components/scenarios.js";
 import { ACCOUNT_TYPE_KEYS, accountSourceOptions, setAccountBalance, resolveLink, accountBalance } from "./calc/accounts.js";
 import { addTransfer, deleteTransfer, splitTransaction, unsplit, bulkEditTransactions, bulkDeleteTransactions } from "./calc/cashflowlist.js";
@@ -93,7 +93,7 @@ import { dismissWeekRecap } from "./calc/weekrecap.js";
 import { saveView, deleteView, applyView, FILTER_FIELDS } from "./calc/txviews.js";
 import { attachReceipt, detachReceipt, takeReceiptFiles } from "./calc/receipts.js";
 import { saveReceiptFile, unpackReceipts, openReceipt, pruneReceipts } from "./lib/receipts.js";
-import { startActivityLog, setDevicePerson, devicePerson } from "./lib/activity.js";
+import { startActivityLog, setDevicePerson } from "./lib/activity.js";
 import { undoEntry } from "./calc/activity.js";
 import { renderCompare } from "./components/compare.js";
 import { wireScenarioEditor } from "./components/scenariowiring.js";
@@ -3262,9 +3262,9 @@ import { inboxMessage } from "./calc/inbox.js";
       return;
     }
     if(b.hasAttribute("data-cf-del-transfer")){
-      var gone = deleteTransfer(b.getAttribute("data-cf-del-transfer"));
+      var goneTransfer = deleteTransfer(b.getAttribute("data-cf-del-transfer"));
       renderTransactions(); persist();
-      if(gone) showUndoToast("Transfer deleted (balances unchanged)", function(){ state.transfers.splice(gone.index, 0, gone.record); renderTransactions(); persist(); });
+      if(goneTransfer) showUndoToast("Transfer deleted (balances unchanged)", function(){ state.transfers.splice(goneTransfer.index, 0, goneTransfer.record); renderTransactions(); persist(); });
       return;
     }
     if(b.hasAttribute("data-cf-del-in")){
@@ -4924,7 +4924,7 @@ import { inboxMessage } from "./calc/inbox.js";
       var where = go.getAttribute("data-mr-go");
       if(where === "checks"){ showAccountsSubpage("checks"); renderHealth(); }
       else if(where === "accounts"){ showPage("accounts"); }
-      else { showPage("expenses"); showExpensesSubpage("spending", { replace: true }); var card = document.getElementById("bankImportCard"); if(card){ card.open = true; setTimeout(function(){ card.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); } }
+      else { showPage("expenses"); showExpensesSubpage("spending", { replace: true }); var importCard = document.getElementById("bankImportCard"); if(importCard){ importCard.open = true; setTimeout(function(){ importCard.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); } }
       return;
     }
     var done = e.target.closest("[data-mr-done]");

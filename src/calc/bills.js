@@ -10,7 +10,7 @@ import { freqStepMonths, periodsOf, isActiveOn } from "./ledger.js";
 var PAID_WINDOW_DAYS = 6;
 function iso(d){ return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
 function parse(s){ var p = String(s).split("-"); return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])); }
-function daysBetween(a, b){ return Math.round((parse(a) - parse(b)) / 86400000); }
+function daysBetween(a, b){ return Math.round((parse(a).getTime() - parse(b).getTime()) / 86400000); }
 
 // Every date the line falls on within [start, end], stepping from `anchor` in both directions.
 // Month steps keep the anchor's day, clamped to short months (31 Jan → 28 Feb → 31 Mar, not 3 Mar).

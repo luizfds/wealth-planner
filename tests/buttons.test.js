@@ -13,7 +13,7 @@ test("every delete button is .btn-danger", function(){
   var bad = [];
   sources.forEach(function(f){
     (fs.readFileSync(path.join(root, f), "utf8").match(/<button[^>]*>/g) || []).forEach(function(t){
-      if(/btn-ghost/.test(t) && /data-[a-z-]*-del(?:ete)?[=\"' ]|data-delete=|row-del|menu-danger/.test(t)) bad.push(f + ": " + t.slice(0, 80));
+      if(/btn-ghost/.test(t) && /data-[a-z-]*-del(?:ete)?[="' ]|data-delete=|row-del|menu-danger/.test(t)) bad.push(f + ": " + t.slice(0, 80));
     });
   });
   assert.deepEqual(bad, []);

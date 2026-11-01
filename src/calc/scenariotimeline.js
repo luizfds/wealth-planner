@@ -32,6 +32,6 @@ export function scenarioTimeline(opts){
     else year = Math.max(0, Math.floor(num(c.fromYear)));
     out.push({ year: year, label: label, why: why });
   });
-  return out.sort(function(a, b){ return (a.year == null) - (b.year == null) || (a.year || 0) - (b.year || 0); });
+  return out.sort(function(a, b){ return Number(a.year == null) - Number(b.year == null) || (a.year || 0) - (b.year || 0); });
 }
 export function yearText(y){ return y == null ? "Not within 30 years" : y === 0 ? "Now" : "Year " + (y + 1); }

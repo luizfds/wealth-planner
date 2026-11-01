@@ -1,4 +1,3 @@
-import { state } from "../state.js";
 import { compareAll, COMPARE_YEARS } from "../calc/compare.js";
 import { fmtCurrency0, fmtCompact } from "../lib/format.js";
 import { cashLastsOdds } from "../calc/outcomes.js";

@@ -4279,12 +4279,23 @@ One pull request per item, in this order: the cheap checks first, then the tests
 the refactors. Nothing here changes what anyone sees, except speed. The app stays a static site with no runtime
 dependencies and no build step: anything installed is a dev-only check, run in CI.
 
-## 232. `[~]` Lint and type-check, with no build step
+## 232. `[x]` Lint and type-check, with no build step
 Do: ESLint (no-undef, no-unused-vars, import checks), `tsc --checkJs --noEmit` over `src/` with JSDoc types where
 inference needs them, stylelint over `src/styles/` (no `!important`, no broad element selectors in components) — all
 dev-only, run by `npm run check` and in CI's checks workflow. Fix what they find.
 
 Done when: `npm run check` passes and CI runs it on every PR; a deliberately undefined name or wrong import fails it.
+
+**Done (v3.201.0).** `npm run check` — ESLint (`eslint.config.js`: undefined names, unused imports and variables, code
+that can't run), TypeScript's checker over JSDoc (`jsconfig.json`: `src/calc/`, `state.js`, `constants.js` — the maths;
+components wait for 237, when their DOM code is small enough to type) and stylelint (`stylelint.config.js`: unknown
+properties, units and selectors, broken syntax). Dev-only, pinned in `devDependencies` with a lockfile; `npm test`
+still needs nothing installed. CI's checks workflow runs it as `lint`. What it found, fixed: a CSS comment closed
+early in dashboard.css, which silently dropped the ≤380px rule for Home's figure tiles; 60-odd unused imports;
+names declared twice in one function; a duplicate key; useless escapes; two invisible characters in regular
+expressions written as escapes. No undefined names in the app. `!important` is still allowed until 238. Checked: a
+deliberately undefined name and a misnamed import each fail it.
+
 
 ## 233. `[ ]` Releases on merge, and the browser locked down
 Do: a workflow that, on a merge to main, bumps the version from the PR (minor for features, patch for fixes — a label or

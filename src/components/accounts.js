@@ -3,7 +3,7 @@ import { ACCOUNT_TYPES, accountTypeLabel, accountSourceOptions, accountBalance, 
 import { transactionAccount } from "./expenses.js";
 import { currentStatementCycle } from "../calc/ledger.js";
 import { sparklineHtml, renderLineChart, dateAxisFormat } from "../lib/charts.js";
-import { fmtCurrency0, fmtCurrency2, localDateStr } from "../lib/format.js";
+import { fmtCurrency0, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { detailLinkHtml } from "./detail.js";
 import { accountAutoPaysHtml } from "./autopay.js";

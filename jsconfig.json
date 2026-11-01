@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "checkJs": true,
+    "allowJs": true,
+    "noEmit": true,
+    "target": "es2022",
+    "module": "es2022",
+    "moduleResolution": "bundler",
+    "lib": [
+      "es2022",
+      "dom",
+      "dom.iterable",
+      "webworker.importscripts"
+    ],
+    "strict": false,
+    "skipLibCheck": true
+  },
+  "include": [
+    "src/calc/**/*.js",
+    "src/state.js",
+    "src/constants.js"
+  ]
+}

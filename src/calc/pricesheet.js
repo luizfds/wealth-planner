@@ -41,7 +41,7 @@ export function sheetCsvUrls(link){
 
 export function parseCsvGrid(text){
   var rows = [], row = [], cell = "", q = false;
-  text = String(text || "").replace(/^﻿/, "");
+  text = String(text || "").replace(/^\uFEFF/, "");
   for(var i = 0; i < text.length; i++){
     var ch = text[i];
     if(q){
@@ -61,7 +61,7 @@ export function parseCsvGrid(text){
 function num(v){
   var s = String(v == null ? "" : v).trim();
   if(!s || /^#/.test(s)) return null;
-  var n = parseFloat(s.replace(/[^0-9.\-]/g, ""));
+  var n = parseFloat(s.replace(/[^0-9.-]/g, ""));
   return isNaN(n) ? null : n;
 }
 function cleanSymbol(v){ return String(v || "").trim().replace(/^["']|["']$/g, "").replace(/^[A-Za-z]+:/, "").toUpperCase(); }

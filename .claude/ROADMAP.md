@@ -4368,7 +4368,7 @@ delete and re-add, step 23. Checked on a real backup outside the repo: all 558 t
 every account's balance and every scenario's figures identical before and after. Driven: an account renamed letter by
 letter on its card — transactions, budget lines and transfers follow.
 
-### 235c. `[ ]` State changed through actions
+### 235c. `[~]` State changed through actions
 Do: every change to `state` goes through an action function that records what it touched (transactions, transfers,
 accounts, a scenario…), which 236 uses to redraw only what reads it.
 Done when: no component assigns into `state` directly (a lint rule).

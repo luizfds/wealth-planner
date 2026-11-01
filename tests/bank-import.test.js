@@ -352,3 +352,28 @@ test("a near amount the same day is a possible duplicate only with something in 
   assert.deepEqual(parsed.rows.map(function(r){ return r.possibleDuplicate; }), [true, true, false]);
   assert.equal(parsed.rows[0].matched.what, "Rideshare to the station");
 });
+
+// v3.209.1: money received and transfers already logged are in the app too — a bank statement that shows them
+// again (a property manager's payment logged from its statement, a transfer typed in) doesn't import them twice.
+test("money received and transfers already logged are possible duplicates, matched the way the money moved", function(){
+  var received = [{ id: "r1", date: "2026-03-03", amount: 1116, what: "Statement 2026-03-03", account: "Bank One", target: "rent:ip1" }];
+  var transfers = [{ id: "x1", date: "2026-03-10", amount: 500, from: "Bank One", to: "Savings" }];
+  var csv = function(lines){ return parseCsv(["Date,Description,Amount"].concat(lines).join("\n")); };
+  // The statement's payment, a day later at the bank; and the transfer leaving this account.
+  var r = parseBankCsv(csv(["04/03/2026,EXAMPLE REALTY OWNER PMT,1116.00", "10/03/2026,TRANSFER TO SAVINGS,-500.00", "12/03/2026,FERN CAFE,-1116.00"]),
+    { existing: [], received: received, transfers: transfers, account: "Bank One" }).rows;
+  assert.equal(r[0].possibleDuplicate, true);
+  assert.deepEqual(r[0].matched, { id: "r1", date: "2026-03-03", what: "Money received: Statement 2026-03-03", amount: 1116, kind: "received" });
+  assert.equal(r[1].possibleDuplicate, true);
+  assert.equal(r[1].matched.kind, "transfer");
+  assert.equal(r[2].possibleDuplicate, false, "money received never matches money going out");
+  // The same transfer arriving, on the other account's statement — and not on a third account's.
+  var savings = parseBankCsv(csv(["11/03/2026,TRANSFER FROM BANK ONE,+500.00"]), { existing: [], received: received, transfers: transfers, account: "Savings" }).rows;
+  assert.equal(savings[0].possibleDuplicate, true);
+  var other = parseBankCsv(csv(["04/03/2026,SOMETHING,1116.00", "10/03/2026,SOMETHING,-500.00"]), { existing: [], received: received, transfers: transfers, account: "Card" }).rows;
+  assert.equal(other[0].possibleDuplicate, false, "received into another account");
+  assert.equal(other[1].possibleDuplicate, false, "a transfer between two other accounts");
+  // Too far apart is a different payment.
+  var later = parseBankCsv(csv(["20/03/2026,EXAMPLE REALTY OWNER PMT,+1116.00"]), { existing: [], received: received, account: "Bank One" }).rows;
+  assert.equal(later[0].possibleDuplicate, false);
+});

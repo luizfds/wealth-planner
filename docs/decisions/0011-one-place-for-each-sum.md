@@ -16,6 +16,8 @@ detectors, spending totals that counted transfers.
   `periodAnchorDate` in `calc/ledger.js`). Anything about *now* — notifications, Before 30 June, the last finished
   year, which years can close — passes today explicitly (`todayTaxFy()`, `localDateStr()`).
 - **Imports:** CSV, PDF, OFX/QFX and QIF all become one CSV (`statementTextToCsv`, `calc/bank-import.js`) and go through
-  one review, rule and duplicate path.
+  one review, rule and duplicate path. A bank row is checked against everything already logged — spending, money
+  received and transfers, matched the way the money moved and through the same account — so a payment logged from
+  a property manager's statement or typed in isn't imported twice.
 
 **Checked by:** `tests/*.test.js` over `calc/`.

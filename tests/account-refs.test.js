@@ -4,8 +4,9 @@ import assert from "node:assert/strict";
 import { state } from "../src/state.js";
 import { renameAccountEverywhere } from "../src/components/expenses.js";
 
-// An account name is a foreign key by string: nothing in the app holds an account *id*, so a
-// rename has to walk every array that carries one. The array that got missed was state.home —
+// v3.206.0 (item 235b): rows link accounts by id now (calc/accountlinks.js) and a rename reaches them
+// through that link. These tests began when an account was a name only and a rename walked every array
+// by hand — and the array that got missed was state.home —
 // one per scenario, its rows carrying accounts exactly like shared expenses do. On a real
 // three-scenario household that was ten housing rows (Rent, Council Rates, Home Insurance, …)
 // left pointing at a name that no longer existed, with no error and nothing on screen to show it.
@@ -15,6 +16,8 @@ import { renameAccountEverywhere } from "../src/components/expenses.js";
 // by driving the app.
 
 function seed(){
+  state.accounts = [{ id: "b1", name: "Bank One", type: "everyday" }, { id: "b2", name: "Bank Two", type: "everyday" }];
+  state.transfers = []; state.autoPayments = []; state.importRules = []; state.incomeLog = []; state.savingsGoals = [];
   state.income = [{ id: "i1", what: "Salary", account: "Bank One" }];
   state.shared = [{ id: "e1", what: "Groceries", account: "Bank One" },
                   { id: "e2", what: "Power", account: "Bank Two" }];
@@ -40,7 +43,7 @@ function countOf(name){
 test("renaming an account retargets housing rows in every scenario", () => {
   seed();
   assert.equal(countOf("Bank One"), 7);
-  renameAccountEverywhere("Bank One", "Bank One Savings");
+  renameAccountEverywhere(state.accounts[0], "Bank One Savings");
   assert.equal(countOf("Bank One"), 0, "no row may still point at the old name");
   assert.equal(countOf("Bank One Savings"), 7);
   // The specific rows that used to be missed.
@@ -50,22 +53,23 @@ test("renaming an account retargets housing rows in every scenario", () => {
 
 test("renaming an account leaves other accounts alone", () => {
   seed();
-  renameAccountEverywhere("Bank One", "Bank One Savings");
+  renameAccountEverywhere(state.accounts[0], "Bank One Savings");
   assert.equal(countOf("Bank Two"), 3);
   assert.equal(state.home["Renting"][0].account, "Bank Two");
 });
 
 test("renaming to the same name, or from nothing, is a no-op", () => {
   seed();
-  renameAccountEverywhere("Bank One", "Bank One");
+  renameAccountEverywhere(state.accounts[0], "Bank One");
   assert.equal(countOf("Bank One"), 7);
-  renameAccountEverywhere("", "Whatever");
+  state.accounts.push({ id: "b3", name: "", type: "everyday" });
+  renameAccountEverywhere(state.accounts[2], "Whatever");
   assert.equal(countOf("Bank One"), 7);
 });
 
 test("renaming copes with a scenario that has no housing rows", () => {
   seed();
   state.home["Empty"] = [];
-  assert.doesNotThrow(() => renameAccountEverywhere("Bank One", "Bank One Savings"));
+  assert.doesNotThrow(() => renameAccountEverywhere(state.accounts[0], "Bank One Savings"));
   assert.equal(countOf("Bank One Savings"), 7);
 });

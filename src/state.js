@@ -2,6 +2,7 @@ import { STORAGE_KEY, HOME_CATEGORIES, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_B
 import { showToast } from "./lib/toast.js";
 // v3.172.0: a cycle (scenariochanges reads `state`), safe because neither module uses the other while loading.
 import { migrateScenarios } from "./calc/scenariochanges.js";
+import { linkAllByName } from "./calc/accountlinks.js";
 
 export function defaultPurchaseConfig(price, depositPct, rate, termYears, stateCode, enabled){
   return {
@@ -762,6 +763,10 @@ export var MIGRATION_STEPS = [
     // today's home rows into Budget (calc/scenariochanges.js). Once.
     if(!s.scenarioChanges || typeof s.scenarioChanges !== "object" || Array.isArray(s.scenarioChanges)) s.scenarioChanges = {};
     migrateScenarios(s, genId);
+  } },
+  // v3.206.0 (item 235b): every account link carries the account's id; see calc/accountlinks.js.
+  { n: 23, name: "accounts linked by id, not just by name", run: function(s){
+    linkAllByName(s);
   } }
 ];
 

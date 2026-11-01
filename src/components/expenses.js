@@ -7,6 +7,7 @@ import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
 import { scenarioTotals, currentScenario } from "../calc/engine.js";
 import { billsForMonth, billsToConfirm } from "../calc/bills.js";
 import { autoPaysForMonth, autoPayLineIds } from "../calc/autopay.js";
+import { renameAccount } from "../calc/accountlinks.js";
 import { scenarioIncomeRows } from "../calc/tax.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent0, fmtPercent1, localDateStr, fmtDate } from "../lib/format.js";
 import { spendingTrends, monthKeyLabel } from "../calc/trends.js";
@@ -2453,25 +2454,10 @@ export function deleteAccount(idx){
     persist();
   });
 }
-// Cascades a rename across every plain "account" string in the app — those fields predate
-// state.accounts[] and were never a foreign key, so nothing else keeps them in sync automatically.
-export function renameAccountEverywhere(oldName, newName){
-  if(!oldName || oldName === newName) return;
-  everyAccountBearingArray().forEach(function(items){
-    items.forEach(function(row){ if((row.account || "") === oldName) row.account = newName; });
-  });
-  // Savings goals list the accounts they count (v3.65.0).
-  (state.savingsGoals || []).forEach(function(g){ g.accounts = (g.accounts || []).map(function(n){ return n === oldName ? newName : n; }); });
-  // Transfers name two accounts, in `from` and `to` (v3.59.0).
-  (state.transfers || []).forEach(function(x){
-    if(x.from === oldName) x.from = newName;
-    if(x.to === oldName) x.to = newName;
-  });
-  // A card paid by direct debit names the account it's paid from (v3.139.0).
-  (state.accounts || []).forEach(function(x){ if(x.autoPayFrom === oldName) x.autoPayFrom = newName; });
-  // So does an automatic payment, both ends (v3.196.0).
-  (state.autoPayments || []).forEach(function(x){
-    if(x.from === oldName) x.from = newName;
-    if(x.to === oldName) x.to = newName;
-  });
+// v3.206.0 (item 235b): a rename is the account's record, then every copy of its name on rows linked to
+// it by id (calc/accountlinks.js renameAccount) — matched by id, never by name, so a row that only shares
+// the old name isn't caught and none linked to it is missed.
+export function renameAccountEverywhere(account, newName){
+  if(!account || account.name === newName) return;
+  renameAccount(state, account, newName);
 }

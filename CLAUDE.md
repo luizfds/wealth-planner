@@ -305,18 +305,20 @@ not the bundled Chromium) is the standard way to drive/verify UI changes in this
 - **Transfers and money received are never spending.** They live in `state.transfers` and
   `state.incomeLog`; every spending total sums `state.transactions` only. A split is several
   ordinary transactions sharing `splitGroup`, so totals need no special case.
-- **An account name is a foreign key by string, and nothing enforces it.** No row anywhere stores
-  an account *id* — `item.account` and `t.account` are plain names — so renaming or deleting an
-  account has to walk every array that carries one, `state.home` (one per scenario) included.
-  Both helpers live in `expenses.js` and both go through `everyAccountBearingArray()`; the
-  category side has its own twin, `everyCategorisableArray()`. Adding a new array of rows that
-  carries `account` or `category` means adding it to those, or renames silently orphan it.
-  **Deleting an account deliberately leaves the name on the rows** (unlike deleting a category,
-  which blanks it) — an account records where money actually moved, and keeping the name means
-  re-adding one spelled the same way relinks everything for free. The cost is that a row can name
-  an account that no longer exists, so anything offering a list of accounts must handle that: a
-  `<select>` whose value matches no option silently shows the *first* one, which is why
-  `transactionAccountOptionsHtml()` emits an explicit `… (deleted)` option.
+- **Accounts are linked by id (v3.206.0, item 235b).** Every link carries the account's id beside its name —
+  `account`/`accountId` on rows (budget lines, income, transactions, money received, home rows, a property's rows,
+  import rules), `from`/`fromId` and `to`/`toId` on transfers and automatic payments, a card's
+  `autoPayFrom`/`autoPayFromId`, a rule's `transferAccount`/`transferAccountId`; goals, saved views and month
+  statements follow by id too. The name is a copy for display: `renameAccount` (calc/accountlinks.js) writes the
+  new name onto every row linked by id, and migration step 23 (`linkAllByName`) links rows written by name only —
+  an edit by name moves the link. **A new array of rows that names an account goes in `everyAccountLink`**, or it's
+  neither linked nor renamed (tests/accountlinks.test.js counts them). Reading a name stays plain `row.account`;
+  `accountFor`/`isLinkedTo`/`link` (or `rowAccount`/`setRowAccount` in calc/accounts.js) when the account itself
+  matters. **Deleting an account deliberately leaves the name on the rows** — it records where money moved, and
+  re-adding an account spelled the same way relinks them — so a list of accounts must cope with a name that no
+  longer exists: a `<select>` whose value matches no option silently shows the *first* one, which is why
+  `transactionAccountOptionsHtml()` emits an explicit `… (deleted)` option. Categories are still by name
+  (`everyCategorisableArray()`).
 - **When extracting a component out of `app.js`, its session-only UI-state maps (e.g. Modern-row
   open/closed state) can be mutated from code still in `app.js`** (the generic
   `wireModernRowToggle` takes the map by reference). Forgetting to export one of these produces a

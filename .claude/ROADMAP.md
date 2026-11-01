@@ -4316,7 +4316,7 @@ fields joined into markup raw) with its own self-test — nothing a person types
 `lib/errorlog.js`, imported first; Settings → Keeping your data safe lists the device's errors with Copy and Clear;
 driven with a thrown error and a rejected promise. CLAUDE.md's version rule now says: label the PR, never bump by hand.
 
-## 234. `[ ]` Journeys and a speed budget in CI
+## 234. `[~]` Journeys and a speed budget in CI
 Do: Playwright journey tests on invented data — log a bill and confirm it, save a transfer with balances (and Undo),
 answer an automatic payment, edit and save a scenario, Make it real, import a CSV and a PDF — run in CI beside the smoke
 script; coverage reporting for `npm test`; a speed budget: a full render and each journey's slowest step on a large

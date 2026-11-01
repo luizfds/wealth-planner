@@ -4399,7 +4399,7 @@ way. Speed budget, large invented household at 4× CPU: startup about 3.0s → 1
 saving a transfer about 1.0s → 0.4s. Smoke, journeys unchanged; driven: a transfer saved on Spending, then Accounts
 and Home opened — each drawn with it.
 
-### 236b. `[ ]` Edits redraw what they touched
+### 236b. `[~]` Edits redraw what they touched
 Do: each view declares what it reads; a commit redraws only the views that read what it touched, on the page that's
 open, and marks the rest stale. Hand-written redraw lists (`refreshAfterTransfer`…) go; each view's edits move to
 `commit(touched)` as it goes (235c's ratchet counts down).

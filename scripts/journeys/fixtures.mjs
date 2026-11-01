@@ -39,3 +39,17 @@ export function statementPdf(lines){
   pdf += "trailer\n<< /Size " + (objs.length + 1) + " /Root 1 0 R >>\nstartxref\n" + xref + "\n%%EOF\n";
   return Buffer.from(pdf, "latin1");
 }
+
+// v3.208.0 (item 240): a property manager's monthly statement — Money Out / Money In columns, rent in, the agency's
+// fee out, what reached the owner. Invented: no real agency, property or amount.
+export function agentStatementPdf(){
+  return statementPdf([
+    ["Example Realty — owner statement"],
+    ["31 Oct 2026"],
+    ["Property: 1 Example St"],
+    ["Details", "", "Money Out", "Money In"],
+    ["Rent paid to 24/10/2026", "", "", "1,200.00"],
+    ["Management Fee", "", "84.00", ""],
+    ["You Received", "", "", "", "1,116.00"]
+  ]);
+}

@@ -1281,6 +1281,20 @@ test("Property → rent panel: the statement form and the year's statements", as
   assert.doesNotMatch(html, /NaN|undefined/);
 });
 
+// v3.208.0 (item 240): an investment property's Overview says when its last statement was logged, with the way in.
+test("Property → Overview: the last statement and Log a statement", async function(){
+  const { statementLineHtml } = await import("../src/components/properties.js");
+  var p = { id: "p1", what: "1 Example St", kind: "IP",
+    agentStatements: [{ id: "a", date: "2026-07-01", net: 900 }, { id: "b", date: "2026-08-01", net: 1880 }] };
+  var html = statementLineHtml(p);
+  assert.match(html, /Last statement/);
+  assert.match(html, /1,880/, "the latest one");
+  assert.match(html, /data-as-open="p1"/);
+  assert.match(statementLineHtml({ id: "p2", kind: "IP" }), /No property manager statement logged yet/);
+  assert.equal(statementLineHtml({ id: "h", kind: "Home" }), "", "a home has no manager's statements");
+  assert.doesNotMatch(html, /NaN|undefined/);
+});
+
 test("Reports → Month in detail renders a month and an empty one", async function(){
   const { monthDetailHtml, monthDetailUi } = await import("../src/components/monthdetail.js");
   var keep = { transactions: state.transactions, incomeLog: state.incomeLog };

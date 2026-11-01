@@ -59,6 +59,10 @@ are resolved "newest wins" (`applyPageChange` bails if `currentPage` moved on).
 - **Automatic payments** (`calc/autopay.js`, `state.autoPayments`): on the day, Home and the bell ask; an answer records
   a transfer tagged `autoPay` / `autoPayDate`; a transfer between the same accounts within 3 days answers it too. The
   bills calendar and an account's 90 days draw it in place of its Budget line.
+- **A property manager's statement** (`calc/agentstatement.js`) is logged on its property's Income & costs tab. The
+  same form opens filled in from the main import (`isAgentStatement` in `calc/pdfstatement.js` tells it from a bank
+  statement, `propertyNamedIn` finds its property, else it asks), from an investment property's Overview and from
+  the + menu — `components/rentstatement.js`.
 - **Investment returns** (`calc/investreturn.js`): money-weighted per holding, the same money in an index (the price
   file's weekly A200 / IVV), a target mix (`state.targetMix`), distributions ahead.
 - **On a phone**: rows and `.review-panel` dialogs are bottom sheets dragged closed by their head; Spending's rows swipe

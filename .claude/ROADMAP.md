@@ -4491,13 +4491,22 @@ catch (a lost name after a move — `no-undef`; import order — layers). `tests
 lines, its links resolving and every record indexed.
 
 
-## 240. `[~]` Rent statements where you'd look for them
+## 240. `[x]` Rent statements where you'd look for them
 Do: a property manager's statement PDF dropped into the main import (Spending, the Statements folder, a shared file) is
 recognised and opens that property's statement form filled in, as a payslip opens the payslip check; an investment
 property's Overview tab shows its last statement and a "Log a statement" button; the + menu offers "Log a rent
 statement".
 Done when: the same PDF through any of those three doors lands in the filled form; with several investment properties
 it asks which; a bank statement is never mistaken for one; driven.
+
+Done (v3.208.0): `isAgentStatement` (rent in the money-in column and an agency fee or a "you received" line) routes a
+statement from the main import to `components/rentstatement.js`, which opens the property's form on Income & costs,
+filled; `propertyNamedIn` picks the property from its name in the text, else the only one, else a sheet asks. The
+Overview tab shows the last statement with "Log a statement"; the + menu has "Log a rent statement" when there's an
+investment property. Driven with a real statement (outside the repo): the import, the Overview and the + menu all land
+in the form, filled and in view, at 390 and 1280px; two properties ask, and the chosen one gets it; an empty household
+has no + entry. A `rentstatement` journey does it with an invented statement; a bank statement with Money In / Money
+Out columns and rent is tested not to be taken for one.
 
 ## Conventions for whoever picks this up
 

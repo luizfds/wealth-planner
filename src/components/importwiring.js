@@ -30,6 +30,8 @@ import { renderProjectionOutputs } from "./projections.js";
 import { renderReceived } from "./received.js";
 import { renderTotals, renderAll } from "./redraw.js";
 import { renderTrips, renderTxReviewBanner } from "./spendingwiring.js";
+import { chooseInvestmentProperty, openStatementForm, investmentProperties } from "./rentstatement.js";
+import { agentStatementFromLines, isAgentStatement, propertyNamedIn } from "../calc/pdfstatement.js";
 
 // Rows read from a spreadsheet, waiting for Import — nothing touches state.shared, state.income or state.assets
 // until its confirm button (handled in assetswiring.js's click delegate).
@@ -75,6 +77,8 @@ function importBankFile(file, fromInbox){
       var st = statementFromLines(lines);
       // v3.148.0: a payslip, not a statement — to the payslip check instead.
       if(openAsPayslip(lines, st, fromInbox)) return;
+      // v3.208.0 (item 240): a property manager's statement — to its property's statement form, filled in.
+      if(openAsAgentStatement(lines, fromInbox)) return;
       if(!st.rows.length){ showToast("Couldn't find transactions in that PDF — a CSV export from your bank will work"); return; }
       startBankImport(statementCsv(st.rows), file.name);
       // v3.149.1: a card's statement (a limit, a minimum payment) with no account picked from its
@@ -129,6 +133,19 @@ function openAsPayslip(lines, st, fromInbox){
     if(d) d.scrollIntoView({ behavior: "smooth", block: "start" });
   }, 300);
   showToast("A payslip — checked against " + person + "'s plan");
+  return true;
+}
+function openAsAgentStatement(lines, fromInbox){
+  var r = agentStatementFromLines(lines);
+  if(!isAgentStatement(r)) return false;
+  inbox.current = null; renderInbox();
+  var text = lines.map(function(l){ return l.cells.map(function(c){ return c.s; }).join(" "); }).join(" ");
+  var go = function(p){
+    if(fromInbox) inboxFileDone(fromInbox);
+    openStatementForm(p, r);
+  };
+  var named = propertyNamedIn(text, investmentProperties());
+  if(named) go(named); else chooseInvestmentProperty("Which property is this statement for?", go);
   return true;
 }
 function inboxPlaces(){

@@ -249,3 +249,18 @@ export function agentStatementFromLines(lines){
   return { date: date, rent: r2(out.rent), water: r2(out.water), fees: r2(out.fees), waterRates: r2(out.waterRates),
     others: out.others.map(function(o){ return { what: o.what, amount: r2(o.amount) }; }), received: received };
 }
+
+// v3.208.0 (item 240): whether a PDF read by agentStatementFromLines is a property manager's statement — rent in the
+// money-in column, and an agency fee or a "you received" line. A bank statement has neither, so the main import
+// can send one to the property's statement form instead of reading it as bank transactions.
+export function isAgentStatement(r){
+  return !!r && r.rent > 0 && (r.fees > 0 || r.received != null);
+}
+// The investment property a statement names — its name (usually the address) appearing in the text, matched on
+// letters and digits only — or null when none or several do.
+export function propertyNamedIn(text, properties){
+  var flat = function(s){ return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(); };
+  var hay = " " + flat(text) + " ";
+  var hits = (properties || []).filter(function(p){ var n = flat(p && p.what); return n.length >= 4 && hay.indexOf(" " + n + " ") !== -1; });
+  return hits.length === 1 ? hits[0] : null;
+}

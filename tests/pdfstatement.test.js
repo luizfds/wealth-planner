@@ -1,7 +1,7 @@
 import "./_env.js";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { statementFromLines, statementCsv, leadingDate, moneyOf, agentStatementFromLines } from "../src/calc/pdfstatement.js";
+import { statementFromLines, statementCsv, leadingDate, moneyOf, agentStatementFromLines, isAgentStatement, propertyNamedIn } from "../src/calc/pdfstatement.js";
 import { linesOf } from "../src/lib/pdftext.js";
 import { parseCsvGrid as parseCsv } from "../src/calc/pricesheet.js";
 
@@ -96,6 +96,31 @@ test("a property manager's statement fills the form, and adds up to what reached
   assert.deepEqual(r.others, [{ what: "Smoke alarm service", amount: 64 }]);
   assert.equal(r.received, 1700.5);
   assert.equal(Math.round((r.rent + r.water - r.fees - r.waterRates - 64) * 100) / 100, 1700.5);
+});
+
+// v3.208.0 (item 240): the main import sends a property manager's statement to the property's form — never a bank's.
+test("a property manager's statement is told apart from a bank statement, and finds its property", function(){
+  var pm = [
+    L(1, 580, [[424, 470, "Money In"], [507, 545, "$900.00"]]),
+    L(1, 520, [[424, 480, "You Received"], [507, 545, "$840.00"]]),
+    L(1, 460, [[28, 140, "Details"], [472, 512, "Money Out"], [533, 570, "Money In"]]),
+    L(1, 380, [[28, 300, "Rent paid to 6/03/2026"], [538, 570, "$900.00"]]),
+    L(1, 330, [[28, 200, "Management Fee *"], [484, 512, "$60.00"]])
+  ];
+  assert.equal(isAgentStatement(agentStatementFromLines(pm)), true);
+  // A bank statement with the same column names, rent arriving and a bank fee: no agency fee, no "you received".
+  var bank = [
+    L(1, 700, [[58, 78, "Date"], [90, 140, "Description"], [362, 400, "Money Out"], [411, 450, "Money In"], [499, 528, "Balance"]]),
+    L(1, 680, [[58, 200, "3 Mar 2026 Rent from tenant"], [420, 450, "$450.00"], [502, 528, "$1,450.00"]]),
+    L(1, 660, [[58, 200, "4 Mar 2026 Account fee"], [370, 400, "$5.00"], [502, 528, "$1,445.00"]])
+  ];
+  assert.equal(isAgentStatement(agentStatementFromLines(bank)), false);
+  assert.equal(isAgentStatement(agentStatementFromLines([])), false);
+  var props = [{ id: "a", what: "1 Example St" }, { id: "b", what: "22 Sample Rd" }];
+  assert.equal(propertyNamedIn("Statement for 22 Sample Rd, Townsville", props).id, "b");
+  assert.equal(propertyNamedIn("Statement for 1 example st.", props).id, "a", "case and punctuation don't matter");
+  assert.equal(propertyNamedIn("Statement for 122 Sample Rd", props), null, "a longer number isn't a match");
+  assert.equal(propertyNamedIn("Nothing about either", props), null);
 });
 
 // v3.149.1: a card statement whose headers read "Date of / Transaction" and "Credits (-)", and a

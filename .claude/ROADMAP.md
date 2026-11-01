@@ -4475,12 +4475,20 @@ open states (row editors, quick log, search, menus, the bell, money received, th
 property being edited, an ⓘ open) and 50 views printed — all identical; with the `@import` lines reversed, identical
 again. The base text-field floor's `!important` and the quick log's id trick became layer order.
 
-## 239. `[~]` Documentation that stays short
+## 239. `[x]` Documentation that stays short
 Do: CLAUDE.md cut to an architecture overview and the rules that still need a person to remember them; the rest as
 short decision records in `docs/decisions/` (no build step, scenarios as sandboxes, accounts by id, layers); gotchas the
 guardrails above now catch, removed.
 
 Done when: CLAUDE.md is under 150 lines and every decision it used to explain has a record.
+
+Done (v3.207.1, with 238): CLAUDE.md 409 → 99 lines — the shape of the app, the rules that always apply, what to do
+when adding something, the traps no check catches, and how to run and test. The why moved to fourteen records in
+`docs/decisions/` (no build step, releases, local-first data and migrations, no real data, scenarios as sandboxes,
+accounts by id, redraws, the bootstrap and sections, CSS layers, the design system, one place for each sum, sync and
+receipts, testing, security); the module and feature map to `docs/architecture.md`. Gone: the warnings guardrails now
+catch (a lost name after a move — `no-undef`; import order — layers). `tests/docs.test.js` keeps CLAUDE.md under 150
+lines, its links resolving and every record indexed.
 
 
 ## Conventions for whoever picks this up

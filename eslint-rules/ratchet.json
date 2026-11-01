@@ -1,11 +1,19 @@
 {
  "src/app.js": {
-  "persist": 178,
-  "stateWrites": 101
+  "persist": 2,
+  "stateWrites": 1
+ },
+ "src/components/accountswiring.js": {
+  "persist": 9,
+  "stateWrites": 6
  },
  "src/components/assets.js": {
   "persist": 4,
   "stateWrites": 5
+ },
+ "src/components/assetswiring.js": {
+  "persist": 23,
+  "stateWrites": 20
  },
  "src/components/autoprices.js": {
   "persist": 1,
@@ -19,13 +27,41 @@
   "persist": 6,
   "stateWrites": 2
  },
+ "src/components/budgettoolswiring.js": {
+  "persist": 8,
+  "stateWrites": 12
+ },
+ "src/components/calcwiring.js": {
+  "persist": 3,
+  "stateWrites": 2
+ },
+ "src/components/cashflowwiring.js": {
+  "persist": 8,
+  "stateWrites": 8
+ },
+ "src/components/chromewiring.js": {
+  "persist": 5,
+  "stateWrites": 5
+ },
  "src/components/dashboard.js": {
   "persist": 3,
   "stateWrites": 2
  },
+ "src/components/datawiring.js": {
+  "persist": 10,
+  "stateWrites": 3
+ },
  "src/components/expenses.js": {
   "persist": 0,
   "stateWrites": 28
+ },
+ "src/components/homewiring.js": {
+  "persist": 4,
+  "stateWrites": 1
+ },
+ "src/components/importwiring.js": {
+  "persist": 9,
+  "stateWrites": 2
  },
  "src/components/income.js": {
   "persist": 0,
@@ -39,6 +75,10 @@
   "persist": 0,
   "stateWrites": 3
  },
+ "src/components/planwiring.js": {
+  "persist": 13,
+  "stateWrites": 11
+ },
  "src/components/pricesheet.js": {
   "persist": 2,
   "stateWrites": 0
@@ -47,9 +87,29 @@
   "persist": 3,
   "stateWrites": 0
  },
+ "src/components/propertieswiring.js": {
+  "persist": 31,
+  "stateWrites": 3
+ },
+ "src/components/redraw.js": {
+  "persist": 3,
+  "stateWrites": 0
+ },
  "src/components/reports.js": {
   "persist": 0,
   "stateWrites": 2
+ },
+ "src/components/reportswiring.js": {
+  "persist": 2,
+  "stateWrites": 0
+ },
+ "src/components/rows.js": {
+  "persist": 11,
+  "stateWrites": 3
+ },
+ "src/components/safekeepingwiring.js": {
+  "persist": 2,
+  "stateWrites": 1
  },
  "src/components/scenarios.js": {
   "persist": 7,
@@ -58,6 +118,22 @@
  "src/components/scenariowiring.js": {
   "persist": 0,
   "stateWrites": 12
+ },
+ "src/components/searchwiring.js": {
+  "persist": 1,
+  "stateWrites": 0
+ },
+ "src/components/settingswiring.js": {
+  "persist": 10,
+  "stateWrites": 6
+ },
+ "src/components/spendingwiring.js": {
+  "persist": 12,
+  "stateWrites": 7
+ },
+ "src/components/taxwiring.js": {
+  "persist": 12,
+  "stateWrites": 10
  },
  "src/lib/activity.js": {
   "persist": 1,

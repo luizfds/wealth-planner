@@ -4,7 +4,7 @@
 <!-- v3.202.0 (item 233): what this page may load and run. Inline scripts only by hash (npm run stamp
      works them out — the import map changes every version); styles may be inline (style="" in the markup the
      components build); network only to this site and the services the app names in Settings. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-7hJPW0a/cKYJNMogn6g62PLSRlxhwSwWux4r0u6+5VY=' 'sha256-ogL24sunRadwm9LH6Jw0u1aTI7tlA28ySqIHiHCL7gY=' 'sha256-TC3k1aZhoKOF0fgTfkMRjiJE7/T0iFhpm9ITZ+8UoP8=' 'sha256-4j8iTcP7ctwcIZNAZ3asA7y6sgCtcp7gSzpvuYLvzDw='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://docs.google.com https://*.googleusercontent.com https://api.dropboxapi.com https://content.dropboxapi.com https://api.coingecko.com https://api.frankfurter.app https://api.frankfurter.dev https://api.anthropic.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-7hJPW0a/cKYJNMogn6g62PLSRlxhwSwWux4r0u6+5VY=' 'sha256-ogL24sunRadwm9LH6Jw0u1aTI7tlA28ySqIHiHCL7gY=' 'sha256-TC3k1aZhoKOF0fgTfkMRjiJE7/T0iFhpm9ITZ+8UoP8=' 'sha256-XKRsxgDG6VCP1Ht6NRossrZcT4ewfcntYHJ209ZbS4s='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://docs.google.com https://*.googleusercontent.com https://api.dropboxapi.com https://content.dropboxapi.com https://api.coingecko.com https://api.frankfurter.app https://api.frankfurter.dev https://api.anthropic.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!-- A genuinely first-ever visit (nothing saved yet, never seen either intro page) gets sent to
      the onboarding tutorial instead of straight into an empty Dashboard. Plain synchronous
@@ -1190,28 +1190,37 @@
   "./src/calc/whatif.js": "./src/calc/whatif.js?v=3.206.0",
   "./src/calc/withholding.js": "./src/calc/withholding.js?v=3.206.0",
   "./src/components/accounts.js": "./src/components/accounts.js?v=3.206.0",
+  "./src/components/accountswiring.js": "./src/components/accountswiring.js?v=3.206.0",
   "./src/components/activity.js": "./src/components/activity.js?v=3.206.0",
   "./src/components/advice.js": "./src/components/advice.js?v=3.206.0",
   "./src/components/askclaude.js": "./src/components/askclaude.js?v=3.206.0",
   "./src/components/assets.js": "./src/components/assets.js?v=3.206.0",
+  "./src/components/assetswiring.js": "./src/components/assetswiring.js?v=3.206.0",
   "./src/components/autopay.js": "./src/components/autopay.js?v=3.206.0",
   "./src/components/autoprices.js": "./src/components/autoprices.js?v=3.206.0",
   "./src/components/bank-import.js": "./src/components/bank-import.js?v=3.206.0",
   "./src/components/benchmarks.js": "./src/components/benchmarks.js?v=3.206.0",
   "./src/components/brokertrades.js": "./src/components/brokertrades.js?v=3.206.0",
   "./src/components/budgethistory.js": "./src/components/budgethistory.js?v=3.206.0",
+  "./src/components/budgettoolswiring.js": "./src/components/budgettoolswiring.js?v=3.206.0",
   "./src/components/calculators.js": "./src/components/calculators.js?v=3.206.0",
+  "./src/components/calcwiring.js": "./src/components/calcwiring.js?v=3.206.0",
   "./src/components/canbuy.js": "./src/components/canbuy.js?v=3.206.0",
   "./src/components/cashflow.js": "./src/components/cashflow.js?v=3.206.0",
+  "./src/components/cashflowwiring.js": "./src/components/cashflowwiring.js?v=3.206.0",
+  "./src/components/chromewiring.js": "./src/components/chromewiring.js?v=3.206.0",
   "./src/components/compare.js": "./src/components/compare.js?v=3.206.0",
   "./src/components/dailyforecast.js": "./src/components/dailyforecast.js?v=3.206.0",
   "./src/components/dashboard.js": "./src/components/dashboard.js?v=3.206.0",
+  "./src/components/datawiring.js": "./src/components/datawiring.js?v=3.206.0",
   "./src/components/detail.js": "./src/components/detail.js?v=3.206.0",
   "./src/components/emergency.js": "./src/components/emergency.js?v=3.206.0",
   "./src/components/expenses.js": "./src/components/expenses.js?v=3.206.0",
   "./src/components/firstrun.js": "./src/components/firstrun.js?v=3.206.0",
   "./src/components/health.js": "./src/components/health.js?v=3.206.0",
   "./src/components/home.js": "./src/components/home.js?v=3.206.0",
+  "./src/components/homewiring.js": "./src/components/homewiring.js?v=3.206.0",
+  "./src/components/importwiring.js": "./src/components/importwiring.js?v=3.206.0",
   "./src/components/income.js": "./src/components/income.js?v=3.206.0",
   "./src/components/investments.js": "./src/components/investments.js?v=3.206.0",
   "./src/components/investreturn.js": "./src/components/investreturn.js?v=3.206.0",
@@ -1222,20 +1231,28 @@
   "./src/components/monthreview.js": "./src/components/monthreview.js?v=3.206.0",
   "./src/components/nav.js": "./src/components/nav.js?v=3.206.0",
   "./src/components/networth.js": "./src/components/networth.js?v=3.206.0",
+  "./src/components/notifpanel.js": "./src/components/notifpanel.js?v=3.206.0",
+  "./src/components/overlays.js": "./src/components/overlays.js?v=3.206.0",
   "./src/components/parts.js": "./src/components/parts.js?v=3.206.0",
   "./src/components/people.js": "./src/components/people.js?v=3.206.0",
   "./src/components/period.js": "./src/components/period.js?v=3.206.0",
+  "./src/components/planwiring.js": "./src/components/planwiring.js?v=3.206.0",
   "./src/components/pricesheet.js": "./src/components/pricesheet.js?v=3.206.0",
   "./src/components/projections.js": "./src/components/projections.js?v=3.206.0",
   "./src/components/properties.js": "./src/components/properties.js?v=3.206.0",
+  "./src/components/propertieswiring.js": "./src/components/propertieswiring.js?v=3.206.0",
   "./src/components/receipts.js": "./src/components/receipts.js?v=3.206.0",
   "./src/components/received.js": "./src/components/received.js?v=3.206.0",
   "./src/components/recurring.js": "./src/components/recurring.js?v=3.206.0",
+  "./src/components/redraw.js": "./src/components/redraw.js?v=3.206.0",
   "./src/components/reports.js": "./src/components/reports.js?v=3.206.0",
+  "./src/components/reportswiring.js": "./src/components/reportswiring.js?v=3.206.0",
   "./src/components/retirement.js": "./src/components/retirement.js?v=3.206.0",
   "./src/components/reviewqueue.js": "./src/components/reviewqueue.js?v=3.206.0",
+  "./src/components/rows.js": "./src/components/rows.js?v=3.206.0",
   "./src/components/rules.js": "./src/components/rules.js?v=3.206.0",
   "./src/components/safekeeping.js": "./src/components/safekeeping.js?v=3.206.0",
+  "./src/components/safekeepingwiring.js": "./src/components/safekeepingwiring.js?v=3.206.0",
   "./src/components/savegoals.js": "./src/components/savegoals.js?v=3.206.0",
   "./src/components/scenarioaccount.js": "./src/components/scenarioaccount.js?v=3.206.0",
   "./src/components/scenariochanges.js": "./src/components/scenariochanges.js?v=3.206.0",
@@ -1243,15 +1260,21 @@
   "./src/components/scenariotemplates.js": "./src/components/scenariotemplates.js?v=3.206.0",
   "./src/components/scenariowiring.js": "./src/components/scenariowiring.js?v=3.206.0",
   "./src/components/search.js": "./src/components/search.js?v=3.206.0",
+  "./src/components/searchwiring.js": "./src/components/searchwiring.js?v=3.206.0",
+  "./src/components/settingswiring.js": "./src/components/settingswiring.js?v=3.206.0",
+  "./src/components/spendingwiring.js": "./src/components/spendingwiring.js?v=3.206.0",
   "./src/components/subscriptions.js": "./src/components/subscriptions.js?v=3.206.0",
   "./src/components/syncmerge.js": "./src/components/syncmerge.js?v=3.206.0",
+  "./src/components/taxwiring.js": "./src/components/taxwiring.js?v=3.206.0",
   "./src/components/taxyear.js": "./src/components/taxyear.js?v=3.206.0",
   "./src/components/trim.js": "./src/components/trim.js?v=3.206.0",
   "./src/components/trips.js": "./src/components/trips.js?v=3.206.0",
+  "./src/components/updates.js": "./src/components/updates.js?v=3.206.0",
   "./src/components/whatif.js": "./src/components/whatif.js?v=3.206.0",
   "./src/components/yearend.js": "./src/components/yearend.js?v=3.206.0",
   "./src/constants.js": "./src/constants.js?v=3.206.0",
   "./src/lib/activity.js": "./src/lib/activity.js?v=3.206.0",
+  "./src/lib/appctx.js": "./src/lib/appctx.js?v=3.206.0",
   "./src/lib/backup.js": "./src/lib/backup.js?v=3.206.0",
   "./src/lib/caticons.js": "./src/lib/caticons.js?v=3.206.0",
   "./src/lib/charts.js": "./src/lib/charts.js?v=3.206.0",
@@ -1380,28 +1403,37 @@
 <link rel="modulepreload" href="./src/calc/whatif.js?v=3.206.0">
 <link rel="modulepreload" href="./src/calc/withholding.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/accounts.js?v=3.206.0">
+<link rel="modulepreload" href="./src/components/accountswiring.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/activity.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/advice.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/askclaude.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/assets.js?v=3.206.0">
+<link rel="modulepreload" href="./src/components/assetswiring.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/autopay.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/autoprices.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/bank-import.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/benchmarks.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/brokertrades.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/budgethistory.js?v=3.206.0">
+<link rel="modulepreload" href="./src/components/budgettoolswiring.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/calculators.js?v=3.206.0">
+<link rel="modulepreload" href="./src/components/calcwiring.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/canbuy.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/cashflow.js?v=3.206.0">
+<link rel="modulepreload" href="./src/components/cashflowwiring.js?v=3.206.0">
+<link rel="modulepreload" href="./src/components/chromewiring.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/compare.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/dailyforecast.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/dashboard.js?v=3.206.0">
+<link rel="modulepreload" href="./src/components/datawiring.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/detail.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/emergency.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/expenses.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/firstrun.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/health.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/home.js?v=3.206.0">
+<link rel="modulepreload" href="./src/components/homewiring.js?v=3.206.0">
+<link rel="modulepreload" href="./src/components/importwiring.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/income.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/investments.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/investreturn.js?v=3.206.0">
@@ -1412,20 +1444,28 @@
 <link rel="modulepreload" href="./src/components/monthreview.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/nav.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/networth.js?v=3.206.0">
+<link rel="modulepreload" href="./src/components/notifpanel.js?v=3.206.0">
+<link rel="modulepreload" href="./src/components/overlays.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/parts.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/people.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/period.js?v=3.206.0">
+<link rel="modulepreload" href="./src/components/planwiring.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/pricesheet.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/projections.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/properties.js?v=3.206.0">
+<link rel="modulepreload" href="./src/components/propertieswiring.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/receipts.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/received.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/recurring.js?v=3.206.0">
+<link rel="modulepreload" href="./src/components/redraw.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/reports.js?v=3.206.0">
+<link rel="modulepreload" href="./src/components/reportswiring.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/retirement.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/reviewqueue.js?v=3.206.0">
+<link rel="modulepreload" href="./src/components/rows.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/rules.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/safekeeping.js?v=3.206.0">
+<link rel="modulepreload" href="./src/components/safekeepingwiring.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/savegoals.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/scenarioaccount.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/scenariochanges.js?v=3.206.0">
@@ -1433,15 +1473,21 @@
 <link rel="modulepreload" href="./src/components/scenariotemplates.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/scenariowiring.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/search.js?v=3.206.0">
+<link rel="modulepreload" href="./src/components/searchwiring.js?v=3.206.0">
+<link rel="modulepreload" href="./src/components/settingswiring.js?v=3.206.0">
+<link rel="modulepreload" href="./src/components/spendingwiring.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/subscriptions.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/syncmerge.js?v=3.206.0">
+<link rel="modulepreload" href="./src/components/taxwiring.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/taxyear.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/trim.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/trips.js?v=3.206.0">
+<link rel="modulepreload" href="./src/components/updates.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/whatif.js?v=3.206.0">
 <link rel="modulepreload" href="./src/components/yearend.js?v=3.206.0">
 <link rel="modulepreload" href="./src/constants.js?v=3.206.0">
 <link rel="modulepreload" href="./src/lib/activity.js?v=3.206.0">
+<link rel="modulepreload" href="./src/lib/appctx.js?v=3.206.0">
 <link rel="modulepreload" href="./src/lib/backup.js?v=3.206.0">
 <link rel="modulepreload" href="./src/lib/caticons.js?v=3.206.0">
 <link rel="modulepreload" href="./src/lib/charts.js?v=3.206.0">

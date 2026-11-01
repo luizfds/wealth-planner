@@ -23,7 +23,8 @@ import { readFileSync } from "node:fs";
 // come back is the *spelling*, and no runtime assertion would catch someone reintroducing it in a
 // file this test doesn't happen to exercise.
 
-var APP = readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
+// v3.206.1 (item 237): the update check and service-worker registration moved from app.js to components/updates.js.
+var APP = readFileSync(new URL("../src/app.js", import.meta.url), "utf8") + "\n" + readFileSync(new URL("../src/components/updates.js", import.meta.url), "utf8");
 var NAV = readFileSync(new URL("../src/components/nav.js", import.meta.url), "utf8");
 
 // Strip comments — the explanations of this very bug quote the broken forms verbatim, so leaving

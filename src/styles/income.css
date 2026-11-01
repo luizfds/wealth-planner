@@ -128,6 +128,9 @@
 .ty-rent-row{ display:grid; grid-template-columns: minmax(0,1fr) 120px; gap:8px; align-items:center; padding:3px 0; border-top:1px solid var(--border); font-size:var(--fs-sm); }
 .ty-rent-row.has-actual span{ font-weight:600; }
 .ty-rent-in::placeholder{ color:var(--ink-soft); opacity:.75; }
+/* v3.210.0 (item 242): what's logged for the year under each return line, and the way to use it. */
+.ty-logged{ display:block; font-size:var(--fs-xs); font-weight:400; color: var(--ink-soft); font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.ty-logged-bar{ display:flex; align-items:center; justify-content:space-between; gap:8px 12px; flex-wrap:wrap; margin:6px 0 10px; font-size:var(--fs-sm); color: var(--ink-soft); }
 .ty-ws{ margin:10px 0 4px; border-top:1px solid var(--border); }
 .ty-ws-section{ font-size:var(--fs-xs); font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-soft); margin:10px 0 2px; }
 .ty-ws-line{ display:flex; justify-content:space-between; gap:12px; font-size:var(--fs-sm); padding:2px 0; }

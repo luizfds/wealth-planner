@@ -30,6 +30,9 @@ import { renderTotals, renderAll, renderChecksBadge, updatePersonSuggestions } f
 import { findProperty, rerenderTableFor, openNewRowModal } from "./rows.js";
 import { saveTransfer } from "./spendingwiring.js";
 import { taxYearFillStatements, renderTaxYear, setTaxYearSelected, taxYearAddRow, taxYearDeleteRow, taxYearRestoreRow, taxYearSetField, taxYearToggleEvidence, taxYearMarkLodged, worksheetText, taxYearSelected, taxYearPrintHtml } from "./taxyear.js";
+import { rentalLogged } from "../calc/propertyactuals.js";
+import { claimItems } from "../calc/claims.js";
+import { withUndo } from "./redraw.js";
 
 var peopleTable, taxYearBody, taxDocsBody;
 
@@ -390,6 +393,19 @@ export function wireTax(){  peopleTable = document.getElementById("peopleTable")
     if(cyApply){ closeYear(Number(cyApply.getAttribute("data-cy-apply"))); return; }
     var fill = e.target.closest("[data-ty-fill]");
     if(fill){ taxYearFillStatements(fill.getAttribute("data-ty-fill")); afterTaxYearEdit(); return; }
+    // v3.210.0 (item 242): every return line with something logged takes the logged figure; the rest keep theirs.
+    var useLogged = e.target.closest("[data-ty-uselogged]");
+    if(useLogged){
+      var lp = findProperty(useLogged.getAttribute("data-ty-uselogged"));
+      if(!lp) return;
+      var lfy = taxYearSelected(), lg = rentalLogged(lp, lfy, localDateStr(), state, claimItems()), keys = Object.keys(lg.has);
+      if(!keys.length) return;
+      withUndo("Filled " + keys.length + " line" + (keys.length === 1 ? "" : "s") + " of " + (lp.what || "the property") + "'s schedule from what's logged", function(){
+        keys.forEach(function(k){ setRentalActual(lfy, lp.id, k, lg.lines[k]); });
+        renderTaxYear();
+      });
+      return;
+    }
     var add = e.target.closest("[data-ty-add]");
     if(add){
       taxYearAddRow(add.getAttribute("data-ty-add"), add.getAttribute("data-ty-person"));

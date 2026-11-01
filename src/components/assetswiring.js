@@ -4,12 +4,11 @@
 // statements and sales, share prices from a sheet or the price file, a broker's trades, the exchange rate and
 // how the holdings compare with the market.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
-// added, so they're added in the same order. What it shares with app.js it reaches through `app` (lib/appctx.js).
+// added, so they're added in the same order.
 import { applyTrades, parseTradeSheets } from "../calc/brokertrades.js";
 import { recalcComputedItems, totalDebtsValue } from "../calc/engine.js";
 import { parseCsvGrid } from "../calc/pricesheet.js";
 import { saleCapitalGain, lotsUnitsAvailable } from "../calc/tax.js";
-import { app } from "../lib/appctx.js";
 import { exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard, copyPriceSheetTemplate } from "../lib/backup.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
@@ -29,6 +28,42 @@ import { patchPropertyCardComputed } from "./properties.js";
 import { renderTotals, withUndo, renderAll, updatePersonSuggestions } from "./redraw.js";
 import { findProperty, refreshAfterLedgerChange } from "./rows.js";
 import { recordLoanSnapshot } from "./taxwiring.js";
+import { defineSection } from "../lib/sections.js";
+import { openNewRowModal } from "./rows.js";
+import { modernAssetRowOpen } from "./assets.js";
+import { pushActiveOverlay, requestCloseActiveOverlay } from "../lib/overlaystack.js";
+import { pendingImport } from "./importwiring.js";
+
+
+// ---------------- Investments' lists, registered (v3.206.2, item 237b) ----------------
+// "+ Add" on Investments makes its own rows (an asset, a holding, a vehicle), edited by their own handlers here;
+// the generic row code only discards an untouched new one ("assets").
+function addAssetRow(item, containerId){
+  state.assets.push(item);
+  renderAssets();
+  openNewRowModal(containerId, "assets", state.assets.length - 1, modernAssetRowOpen, item);
+  persist();
+  return true;
+}
+defineSection("assets", {
+  add: function(group){ var cat = group != null ? group : "Cash"; return addAssetRow({ what:"New asset", category: cat, amount:0 }, "assetsSub-" + cat); },
+  discardRows: function(){ return state.assets; },
+  discard: function(){ renderAssets(); renderProjectionOutputs(); persist(); }
+});
+defineSection("holding", {
+  add: function(person){ return addAssetRow({ what:"New holding", category:"Shares", symbol:"", market:"ASX", quantity:0, avgCost:null, price:0, priceUpdated:"", person: person != null ? person : "", amount:0 }, "assetsSub-Shares"); }
+});
+defineSection("vehicle", {
+  add: function(){
+    var newVehicle = { what:"New vehicle", category:"Vehicle", purchasePrice:0, purchaseDate:"", depreciationRate:15, amount:0 };
+    state.assets.push(newVehicle);
+    recalcComputedItems();
+    renderAssets();
+    openNewRowModal("assetsSub-Vehicle", "assets", state.assets.length - 1, modernAssetRowOpen, newVehicle);
+    persist();
+    return true;
+  }
+});
 
 // Navigating to another page while an overlay is open (open a row, tap another tab) used to
 // leave it open and, worse, strand its history entry under the page entry syncUrl() then
@@ -65,7 +100,8 @@ function afterLotListChange(idx){
     renderAssets();
   }
   persist();
-}// v3.38.0: the same in-place swap for distributions, then the tax chain.
+}
+// v3.38.0: the same in-place swap for distributions, then the tax chain.
 function afterPayoutListChange(idx){
   var item = state.assets[idx];
   var row = document.querySelector('.m-asset-rows [data-index="' + idx + '"]');
@@ -80,7 +116,8 @@ function afterPayoutListChange(idx){
     renderAssets();
   }
   afterPayoutChange();
-}function afterPayoutChange(){
+}
+function afterPayoutChange(){
   recalcComputedItems();
   renderTaxSuper();
   patchSyntheticIncomeRows();
@@ -88,7 +125,8 @@ function afterPayoutListChange(idx){
   renderCards(); renderDetail(); renderTotals();
   renderProjectionOutputs();
   persist();
-}// Same in-place swap as afterLotListChange, then the tax chain — a statement is taxable income.
+}
+// Same in-place swap as afterLotListChange, then the tax chain — a statement is taxable income.
 function afterStatementListChange(idx){
   var item = state.assets[idx];
   var row = document.querySelector('.m-asset-rows [data-index="' + idx + '"]');
@@ -109,7 +147,8 @@ function afterStatementListChange(idx){
   renderCards(); renderDetail(); renderTotals();
   renderProjectionOutputs();
   persist();
-}function afterAssetSaleChange(){
+}
+function afterAssetSaleChange(){
   recalcComputedItems();
   renderAssets();
   renderTaxSuper();
@@ -118,14 +157,16 @@ function afterStatementListChange(idx){
   renderCards(); renderDetail(); renderTotals();
   renderProjectionOutputs();
   persist();
-}// ---------------- Assets: "Showing <person>" sheet ----------------
+}
+// ---------------- Assets: "Showing <person>" sheet ----------------
 function closeAssetPersonSheetUi(){
   setAssetPersonSheetOpen(false);
   renderAssetPersonSheet();
-}function openAssetPersonSheet(){
+}
+function openAssetPersonSheet(){
   setAssetPersonSheetOpen(true);
   renderAssetPersonSheet();
-  if(document.querySelector("[data-asset-person-backdrop]")) app.pushActiveOverlay(closeAssetPersonSheetUi);
+  if(document.querySelector("[data-asset-person-backdrop]")) pushActiveOverlay(closeAssetPersonSheetUi);
 }
 // ---------------- Share prices from a Google Sheet (v3.75.0) ----------------
 // Read once a day on open when a link is set; "Read now" reads on demand. Either way the result
@@ -139,7 +180,8 @@ function readPriceSheetNow(manual){
     if(manual || !r.ok || r.updated || r.backfilled) showToast(r.ok ? "Prices: " + priceSheetResultText(r) : r.reason);
     return r;
   });
-}// v3.132.0: automatic prices first, then the person's own Sheet (which wins where both price a holding).
+}
+// v3.132.0: automatic prices first, then the person's own Sheet (which wins where both price a holding).
 function readAutoPricesNow(manual){
   var btn = document.querySelector("[data-ap-read]");
   if(btn){ btn.disabled = true; btn.textContent = "Updating…"; }
@@ -274,7 +316,8 @@ export function wireAssets(){
       renderNetWorthPanel();
       persist();
     }
-  });  document.addEventListener("change", function(e){
+  });
+  document.addEventListener("change", function(e){
     if(e.target.id === "sharesSortSelect"){ setSharesSortMode(e.target.value); return; }
     if(e.target.closest(".m-asset-rows") && e.target.classList.contains("a-category")){
       var tr = e.target.closest("[data-index]");
@@ -309,7 +352,8 @@ export function wireAssets(){
       // name into a still-focused field doesn't blow away that same field's own focus mid-edit.
       renderAssetPersonFilter();
     }
-  });  document.addEventListener("click", function(e){
+  });
+  document.addEventListener("click", function(e){
     var delBtn = e.target.closest("[data-asset-del]");
     if(delBtn){
       var idx = Number(delBtn.getAttribute("data-asset-del"));
@@ -443,16 +487,16 @@ export function wireAssets(){
     if(e.target.id === "sharesExportPriceTemplateBtn") exportSharesPriceTemplateCsv();
     if(e.target.id === "sharesCopyPriceTemplateBtn") copySharesPriceTemplateToClipboard();
     if(e.target.id === "expenseImportCancelBtn"){
-      app.pendingExpensesImport = [];
+      pendingImport.expenses = [];
       clearExpensesImportPreview();
       return;
     }
     if(e.target.id === "expenseImportConfirmBtn"){
-      if(!app.pendingExpensesImport.length) return;
-      var importCount = app.pendingExpensesImport.length;
+      if(!pendingImport.expenses.length) return;
+      var importCount = pendingImport.expenses.length;
       var startingSharedLength = state.shared.length;
-      commitExpensesImport(app.pendingExpensesImport);
-      app.pendingExpensesImport = [];
+      commitExpensesImport(pendingImport.expenses);
+      pendingImport.expenses = [];
       clearExpensesImportPreview();
       refreshAfterLedgerChange("shared");
       showUndoToast(importCount + " expense" + (importCount === 1 ? "" : "s") + " imported", function(){
@@ -462,16 +506,16 @@ export function wireAssets(){
       return;
     }
     if(e.target.id === "incomeImportCancelBtn"){
-      app.pendingIncomeImport = [];
+      pendingImport.income = [];
       clearIncomeImportPreview();
       return;
     }
     if(e.target.id === "incomeImportConfirmBtn"){
-      if(!app.pendingIncomeImport.length) return;
-      var incomeImportCount = app.pendingIncomeImport.length;
+      if(!pendingImport.income.length) return;
+      var incomeImportCount = pendingImport.income.length;
       var startingIncomeLength = state.income.length;
-      commitIncomeImport(app.pendingIncomeImport);
-      app.pendingIncomeImport = [];
+      commitIncomeImport(pendingImport.income);
+      pendingImport.income = [];
       clearIncomeImportPreview();
       refreshAfterLedgerChange("income");
       updatePersonSuggestions();
@@ -483,16 +527,16 @@ export function wireAssets(){
       return;
     }
     if(e.target.id === "assetsImportCancelBtn"){
-      app.pendingAssetsImport = [];
+      pendingImport.assets = [];
       clearAssetsImportPreview();
       return;
     }
     if(e.target.id === "assetsImportConfirmBtn"){
-      if(!app.pendingAssetsImport.length) return;
-      var assetsImportCount = app.pendingAssetsImport.length;
+      if(!pendingImport.assets.length) return;
+      var assetsImportCount = pendingImport.assets.length;
       var startingAssetsLength = state.assets.length;
-      commitAssetsImport(app.pendingAssetsImport);
-      app.pendingAssetsImport = [];
+      commitAssetsImport(pendingImport.assets);
+      pendingImport.assets = [];
       clearAssetsImportPreview();
       recalcComputedItems();
       renderAssets();
@@ -511,7 +555,7 @@ export function wireAssets(){
       setAssetPersonFilter(personFilterBtn.getAttribute("data-asset-person-filter"));
       // renderAssets() has already redrawn the chip with the new name; this closes the sheet the
       // choice was made in, through the overlay stack so the back button stays in step.
-      if(assetPersonSheetOpen) app.requestCloseActiveOverlay();
+      if(assetPersonSheetOpen) requestCloseActiveOverlay();
       return;
     }
     var gainFilterBtn = e.target.closest("[data-shares-gain-filter]");
@@ -545,7 +589,8 @@ export function wireAssets(){
       });
       return;
     }
-  });  document.getElementById("addDebtBtn").addEventListener("click", function(){
+  });
+  document.getElementById("addDebtBtn").addEventListener("click", function(){
     state.debts.push({ what: "New debt", balance: 0 });
     renderAssets();
     renderDashboardStats();
@@ -608,13 +653,14 @@ export function wireAssets(){
 
 export function wireAssetPersonSheet(){  document.getElementById("assetPersonSheetRoot").addEventListener("click", function(e){
     if(e.target.closest("[data-asset-person-close]") || e.target === e.target.closest("[data-asset-person-backdrop]")){
-      app.requestCloseActiveOverlay();
+      requestCloseActiveOverlay();
     }
     // Picking a person is handled by the page-level [data-asset-person-filter] handler above —
     // this root sits outside .app-page, so the click never reaches it otherwise.
-  });  document.addEventListener("keydown", function(e){
+  });
+  document.addEventListener("keydown", function(e){
     if(e.key !== "Escape") return;
-    if(document.querySelector("[data-asset-person-backdrop]")) app.requestCloseActiveOverlay();
+    if(document.querySelector("[data-asset-person-backdrop]")) requestCloseActiveOverlay();
   });
 }
 
@@ -627,15 +673,18 @@ export function wireFxRate(){  // v3.32.1: the exchange rate typed into the Shar
 
 export function wirePrices(){  document.addEventListener("toggle", function(e){
     if(e.target.matches && e.target.matches("[data-ps-panel]")) priceSheetUi.open = e.target.open;
-  }, true);  document.addEventListener("change", function(e){
+  }, true);
+  document.addEventListener("change", function(e){
     if(e.target.matches && e.target.matches("[data-ps-from]")){ state.priceSheet.backfillFrom = e.target.value || ""; persist(); }
-  });  document.addEventListener("change", function(e){
+  });
+  document.addEventListener("change", function(e){
     var k = e.target.getAttribute && e.target.getAttribute("data-ap");
     if(!k) return;
     state.autoPrices[k] = !!e.target.checked;
     if(k === "on" && e.target.checked) state.autoPrices.lastRead = "";
     persist(); renderAll();
-  });  document.addEventListener("click", function(e){ if(e.target.closest && e.target.closest("[data-ap-read]")) readAutoPricesNow(true); });
+  });
+  document.addEventListener("click", function(e){ if(e.target.closest && e.target.closest("[data-ap-read]")) readAutoPricesNow(true); });
 }
 
 export function wireMarket(){  document.addEventListener("click", function(e){
@@ -644,7 +693,8 @@ export function wireMarket(){  document.addEventListener("click", function(e){
     bench.pick = b.getAttribute("data-bench");
     redrawCard("benchCard", benchmarkCardHtml());
     renderBenchmark();
-  });  document.addEventListener("change", function(e){
+  });
+  document.addEventListener("change", function(e){
     if(!e.target.matches) return;
     if(e.target.matches("[data-mix-target]")){
       var c = e.target.getAttribute("data-mix-target"), v = e.target.value.trim();
@@ -685,9 +735,11 @@ export function wireTrades(){  document.addEventListener("change", function(e){
     }
     if(e.target.matches("[data-tr-pick]")){ tradesUi.choice[e.target.getAttribute("data-tr-pick")] = e.target.value === "skip" ? "skip" : Number(e.target.value); renderAssets(); return; }
     if(e.target.matches("[data-tr-skip]")){ if(e.target.checked) tradesUi.choice[e.target.getAttribute("data-tr-skip")] = "skip"; else delete tradesUi.choice[e.target.getAttribute("data-tr-skip")]; renderAssets(); return; }
-  });  document.addEventListener("toggle", function(e){
+  });
+  document.addEventListener("toggle", function(e){
     if(e.target.matches && e.target.matches("[data-tr-panel]")) tradesUi.open = e.target.open;
-  }, true);  document.addEventListener("click", function(e){
+  }, true);
+  document.addEventListener("click", function(e){
     if(!e.target.closest) return;
     if(e.target.closest("[data-tr-read]")){
       var ta = document.querySelector("[data-tr-text]");

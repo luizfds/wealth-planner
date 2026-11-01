@@ -3,7 +3,7 @@
 // The event wiring for a scenario's changes, the "start from a question" sheet, a scenario on its own page
 // (draft, Save / Cancel, the leave guard, "+ Add a change", the Calculators round trip) and Make it real —
 // moved out of app.js as it was, listener for listener. app.js calls wireScenarioEditor() where this code
-// used to sit, handing over the four helpers that stay there, and gets back the three it still calls.
+// used to sit; Home and Plan reach the question sheet, a scenario's page and a saved change through scenarioActions.
 import { recalcComputedItems } from "../calc/engine.js";
 import { applyMakeReal } from "../calc/makereal.js";
 import { setAmountChange, removeChange, includeCandidates, changesFor } from "../calc/scenariochanges.js";
@@ -21,11 +21,14 @@ import { renderScenarioAccountChart, tryQ } from "./scenarioaccount.js";
 import { changeOpen, addChangeSheetHtml, addSheet } from "./scenariochanges.js";
 import { renderHomeBody, homeBlockCollapsed, addScenario, editing, renameScenarioTo, renderScenarioEditor, renderCalcScenario, editorUi, renderScenarioEditorChart, deleteScenario } from "./scenarios.js";
 import { startQ, startSheetHtml, templateContext } from "./scenariotemplates.js";
+import { pushActiveOverlay, requestCloseActiveOverlay } from "../lib/overlaystack.js";
+import { withUndo, renderAll } from "./redraw.js";
 
-var pushActiveOverlay, requestCloseActiveOverlay, withUndo, renderAll;
+// What Home and Plan call from here — the question sheet, a scenario's page, a change saved — filled in by
+// wireScenarioEditor (v3.206.2, item 237b: exported rather than handed back to app.js).
+export var scenarioActions = {};
 
-export function wireScenarioEditor(app){
-  pushActiveOverlay = app.pushActiveOverlay; requestCloseActiveOverlay = app.requestCloseActiveOverlay; withUndo = app.withUndo; renderAll = app.renderAll;
+export function wireScenarioEditor(){
   // ---------------- A scenario's changes (v3.172.0, item 207) ----------------
   // Plan → Scenarios: a line's amount in a scenario, kept in the scenario (calc/scenariochanges.js).
   // v3.206.0 (item 236b): the commit redraws the views that read scenarios (the home blocks, the cards, the
@@ -300,5 +303,7 @@ export function wireScenarioEditor(app){
   });
   document.addEventListener("keydown", function(e){ if(e.key === "Escape" && mrQ.open) requestCloseActiveOverlay(); });
 
-  return { openStartSheet: openStartSheet, openScenarioEditor: openScenarioEditor, afterScenarioChange: afterScenarioChange };
+  scenarioActions.openStartSheet = openStartSheet;
+  scenarioActions.openScenarioEditor = openScenarioEditor;
+  scenarioActions.afterScenarioChange = afterScenarioChange;
 }

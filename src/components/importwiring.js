@@ -2,7 +2,7 @@
 //
 // A payslip, spreadsheets for expenses, income and assets, a bank CSV or PDF, and statements from a folder.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
-// added, so they're added in the same order. What it shares with app.js it reaches through `app` (lib/appctx.js).
+// added, so they're added in the same order.
 import { inboxMessage } from "../calc/inbox.js";
 import { periodsOf } from "../calc/ledger.js";
 import { parsePayslip, payFrequency } from "../calc/payslip.js";
@@ -10,7 +10,6 @@ import { payslipCheck } from "../calc/payslipcheck.js";
 import { statementFromLines, statementCsv } from "../calc/pdfstatement.js";
 import { logIncomeReceived, deleteIncomeReceived } from "../calc/received.js";
 import { getTaxPeople, personTaxSettings } from "../calc/tax.js";
-import { app } from "../lib/appctx.js";
 import { exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv, exportAssetsImportTemplateCsv } from "../lib/backup.js";
 import { dropboxConnected } from "../lib/dropbox.js";
 import { fmtDate } from "../lib/format.js";
@@ -32,6 +31,10 @@ import { renderReceived } from "./received.js";
 import { renderTotals, renderAll } from "./redraw.js";
 import { renderTrips, renderTxReviewBanner } from "./spendingwiring.js";
 
+// Rows read from a spreadsheet, waiting for Import — nothing touches state.shared, state.income or state.assets
+// until its confirm button (handled in assetswiring.js's click delegate).
+export var pendingImport = { expenses: [], income: [], assets: [] };
+
 var inbox;
 
 // ---------------- A payslip, read (v3.116.0) ----------------
@@ -39,12 +42,14 @@ function redrawPayslipPanel(person){
   var host = [].find.call(document.querySelectorAll("[data-tax-person]"), function(el){ return el.getAttribute("data-tax-person") === person; });
   var d = host && host.querySelector(".tax-ytd");
   if(d){ d.outerHTML = withholdingCheckHtml(person); var again = host.querySelector(".tax-ytd"); if(again) again.open = true; }
-}function readPayslipLines(person, lines){
+}
+function readPayslipLines(person, lines){
   var r = parsePayslip(lines);
   payslipRead[person] = r.found.length ? r : { error: "Nothing in that reads like a payslip — no Gross, Tax or Net lines with amounts." };
   if(r.found.length) applyPayslipYtd(person, r);
   redrawPayslipPanel(person);
-}// v3.149.0: a payslip with a year-to-date column sets the refund-or-bill check straight away —
+}
+// v3.149.0: a payslip with a year-to-date column sets the refund-or-bill check straight away —
 // unless what's there is from a later payslip. Undo puts the old figures back.
 function applyPayslipYtd(person, r){
   if(r.ytd.gross == null || r.ytd.tax == null || !r.periodEnd) return false;
@@ -58,7 +63,8 @@ function applyPayslipYtd(person, r){
     persist(); redrawPayslipPanel(person);
   });
   return true;
-}// One way in for a statement file, whether chosen here or shared to the app (v3.93.0).
+}
+// One way in for a statement file, whether chosen here or shared to the app (v3.93.0).
 function importBankFile(file, fromInbox){
   inbox.current = fromInbox || null;
   renderInbox();
@@ -93,7 +99,8 @@ function importBankFile(file, fromInbox){
   };
   reader.onerror = function(){ showToast("Couldn't read that file"); };
   reader.readAsText(file);
-}// v3.148.0: a payslip chosen or dropped in Statements reads as one (gross, net, and tax or super,
+}
+// v3.148.0: a payslip chosen or dropped in Statements reads as one (gross, net, and tax or super,
 // and next to no statement rows) — it opens on that person's tax card (Tax → This year), checked
 // against the plan.
 // Whose: the person it names, else the one whose pay is nearest its gross.
@@ -123,30 +130,35 @@ function openAsPayslip(lines, st, fromInbox){
   }, 300);
   showToast("A payslip — checked against " + person + "'s plan");
   return true;
-}function inboxPlaces(){
+}
+function inboxPlaces(){
   var p = [];
   if(dropboxConnected()) p.push("your Dropbox app folder");
   return savedFolder().then(function(h){ if(h) p.push("the backup folder (" + h.name + ")"); return p; }).catch(function(){ return p; });
-}function renderInbox(){
+}
+function renderInbox(){
   var el = document.getElementById("bankInboxNote");
   if(!el) return;
   var html = inboxNoteHtml(inbox.files, inbox.places, inbox.current);
   el.innerHTML = html;
   el.hidden = !html;
-}function checkInbox(announce){
+}
+function checkInbox(announce){
   return Promise.all([listInbox(), inboxPlaces()]).then(function(r){
     inbox.files = r[0]; inbox.places = r[1];
     renderInbox();
     if(announce && inbox.files.length) showPersistentToast(inboxMessage(inbox.files.length, inbox.files[0].label) + ".", "Review", openNextInbox);
   }).catch(function(){});
-}function openNextInbox(){
+}
+function openNextInbox(){
   var f = inbox.files[0];
   if(!f) return;
   showPage("expenses");
   showExpensesSubpage("spending");
   showToast("Opening " + f.name + "…");
   readInboxFile(f).then(function(file){ importBankFile(file, f); }).catch(function(){ showToast("Couldn't open " + f.name + " — try again in a moment"); });
-}function inboxFileDone(f){
+}
+function inboxFileDone(f){
   inbox.current = null;
   inbox.files = inbox.files.filter(function(x){ return x !== f; });
   renderInbox();
@@ -182,7 +194,8 @@ export function wirePayslip(){  document.addEventListener("change", function(e){
     file.arrayBuffer().then(function(buf){ return pdfLines(new Uint8Array(buf)); }).then(function(lines){
       readPayslipLines(person, lines.map(function(l){ return l.cells.map(function(c){ return c.s; }).join("   "); }));
     }).catch(function(){ payslipRead[person] = { error: "That PDF couldn't be read. Paste its text instead." }; redrawPayslipPanel(person); });
-  });  document.addEventListener("click", function(e){
+  });
+  document.addEventListener("click", function(e){
     var read = e.target.closest("[data-slip-read]");
     if(read){
       var p0 = read.getAttribute("data-slip-read");
@@ -223,16 +236,18 @@ export function wirePayslip(){  document.addEventListener("change", function(e){
   });
 }
 
-export function wireImports(){  document.getElementById("expenseDownloadTemplateBtn").addEventListener("click", exportExpensesImportTemplateCsv);  document.getElementById("expenseImportBtn").addEventListener("click", function(){
+export function wireImports(){  document.getElementById("expenseDownloadTemplateBtn").addEventListener("click", exportExpensesImportTemplateCsv);
+  document.getElementById("expenseImportBtn").addEventListener("click", function(){
     document.getElementById("expenseImportFile").click();
-  });  document.getElementById("expenseImportFile").addEventListener("change", function(e){
+  });
+  document.getElementById("expenseImportFile").addEventListener("change", function(e){
     var file = e.target.files[0];
     e.target.value = "";
     if(!file) return;
     var reader = new FileReader();
     reader.onload = function(){
       var parsed = parseExpensesImportCsv(String(reader.result));
-      app.pendingExpensesImport = renderExpensesImportPreview(parsed);
+      pendingImport.expenses = renderExpensesImportPreview(parsed);
     };
     reader.onerror = function(){ showToast("Couldn't read that file"); };
     reader.readAsText(file);
@@ -243,7 +258,8 @@ export function wireImports(){  document.getElementById("expenseDownloadTemplate
   // transaction list exactly as it was.
   document.getElementById("bankImportPickBtn").addEventListener("click", function(){
     document.getElementById("bankImportFile").click();
-  });  document.getElementById("bankImportFile").addEventListener("change", function(e){
+  });
+  document.getElementById("bankImportFile").addEventListener("change", function(e){
     var file = e.target.files[0];
     e.target.value = "";
     if(!file) return;
@@ -280,7 +296,8 @@ export function wireImports(){  document.getElementById("expenseDownloadTemplate
     var catSel = e.target.closest(".bank-group-category");
     if(catSel) setBankImportGroupCategory(catSel.getAttribute("data-bank-group"), catSel.value);
     if(lineSel || catSel) patchBankImportPanel((lineSel || catSel).getAttribute("data-bank-group"));
-  });  document.getElementById("bankImportPanel").addEventListener("click", function(e){
+  });
+  document.getElementById("bankImportPanel").addEventListener("click", function(e){
     var orderBtn = e.target.closest("[data-bank-date-order]");
     if(orderBtn){
       reparseBankImportWith(orderBtn.getAttribute("data-bank-date-order"));
@@ -349,31 +366,38 @@ export function wireImports(){  document.getElementById("expenseDownloadTemplate
   // What's waiting in Statements (Dropbox, or the backup folder) is listed once the app has opened
   // and synced; each goes through importBankFile like a chosen file, and moves to Statements/Imported
   // once confirmed. Cancelling leaves it where it is, for next time.
-  inbox = { files: [], places: [], current: null };  document.getElementById("bankInboxNote").addEventListener("click", function(e){
+  inbox = { files: [], places: [], current: null };
+  document.getElementById("bankInboxNote").addEventListener("click", function(e){
     if(e.target.closest("[data-inbox-next]")) openNextInbox();
-  });  document.getElementById("incomeDownloadTemplateBtn").addEventListener("click", exportIncomeImportTemplateCsv);  document.getElementById("incomeImportBtn").addEventListener("click", function(){
+  });
+  document.getElementById("incomeDownloadTemplateBtn").addEventListener("click", exportIncomeImportTemplateCsv);
+  document.getElementById("incomeImportBtn").addEventListener("click", function(){
     document.getElementById("incomeImportFile").click();
-  });  document.getElementById("incomeImportFile").addEventListener("change", function(e){
+  });
+  document.getElementById("incomeImportFile").addEventListener("change", function(e){
     var file = e.target.files[0];
     e.target.value = "";
     if(!file) return;
     var reader = new FileReader();
     reader.onload = function(){
       var parsed = parseIncomeImportCsv(String(reader.result));
-      app.pendingIncomeImport = renderIncomeImportPreview(parsed);
+      pendingImport.income = renderIncomeImportPreview(parsed);
     };
     reader.onerror = function(){ showToast("Couldn't read that file"); };
     reader.readAsText(file);
-  });  document.getElementById("assetsDownloadTemplateBtn").addEventListener("click", exportAssetsImportTemplateCsv);  document.getElementById("assetsImportBtn").addEventListener("click", function(){
+  });
+  document.getElementById("assetsDownloadTemplateBtn").addEventListener("click", exportAssetsImportTemplateCsv);
+  document.getElementById("assetsImportBtn").addEventListener("click", function(){
     document.getElementById("assetsImportFile").click();
-  });  document.getElementById("assetsImportFile").addEventListener("change", function(e){
+  });
+  document.getElementById("assetsImportFile").addEventListener("change", function(e){
     var file = e.target.files[0];
     e.target.value = "";
     if(!file) return;
     var reader = new FileReader();
     reader.onload = function(){
       var parsed = parseAssetsImportCsv(String(reader.result));
-      app.pendingAssetsImport = renderAssetsImportPreview(parsed);
+      pendingImport.assets = renderAssetsImportPreview(parsed);
     };
     reader.onerror = function(){ showToast("Couldn't read that file"); };
     reader.readAsText(file);

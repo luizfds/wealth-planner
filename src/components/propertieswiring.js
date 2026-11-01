@@ -3,7 +3,7 @@
 // A property's card — its loans, offsets, depreciation, rent and costs, a loan strategy, "If you sold" — the
 // comparison list and + Add property.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
-// added, so they're added in the same order. What it shares with app.js it reaches through `app` (lib/appctx.js).
+// added, so they're added in the same order.
 import { renderNotifBadge } from "./notifpanel.js";
 import { logAgentStatement, removeAgentStatement, statementTotals } from "../calc/agentstatement.js";
 import { recalcComputedItems } from "../calc/engine.js";
@@ -22,6 +22,51 @@ import { modernPropRowOpen, renderProperties, patchPropertyCardComputed, logProp
 import { renderTotals, withUndo, renderAll } from "./redraw.js";
 import { findProperty, rerenderTableFor, openNewRowModal } from "./rows.js";
 import { recordLoanSnapshot } from "./taxwiring.js";
+import { defineSection } from "../lib/sections.js";
+import { renderPropListModern } from "./properties.js";
+import { renderSharedGroups } from "./expenses.js";
+
+
+// ---------------- A property's lists, registered (v3.206.2, item 237b) ----------------
+// "propinc:<id>" and "propexp:<id>": a property's income and costs; "loan:<id>": its loans (edited by their own
+// handlers here — the generic row code only discards an untouched new one).
+function propertyCardFigures(id){ var p = findProperty(id); if(p) patchPropertyCardComputed(p); }
+defineSection("propinc", {
+  qualified: true,
+  rows: function(id){ var p = findProperty(id); return p ? p.income : null; },
+  redraw: function(id){ var p = findProperty(id); if(p) renderPropListModern(p.id, "propinc:" + id, p.income, false); },
+  editor: { container: "propertiesBody", openState: modernPropRowOpen },
+  noClassification: true,
+  taxes: true,
+  afterEdit: function(id){ rerenderTableFor("propexp:" + id); patchSyntheticIncomeRows(); },
+  afterAnyEdit: propertyCardFigures,
+  afterAdd: function(id){ recalcComputedItems(); rerenderTableFor("propexp:" + id); patchSyntheticIncomeRows(); propertyCardFigures(id); },
+  afterRemove: function(id){ patchSyntheticIncomeRows(); renderTaxSuper(); propertyCardFigures(id); }
+});
+defineSection("propexp", {
+  qualified: true,
+  rows: function(id){ var p = findProperty(id); return p ? p.expenses : null; },
+  redraw: function(id){
+    var p = findProperty(id);
+    if(p) renderPropListModern(p.id, "propexp:" + id, p.expenses, true);
+    // Same two-renderer situation as a scenario's housing: an IP's costs are shown both on its
+    // Properties card and as budget lines on the Expenses page, off the one array.
+    if(p && p.kind === "IP") renderSharedGroups();
+  },
+  // An IP's costs are editable from either end (its Properties card, or the budget list), and both write to
+  // the same p.expenses array, so both need the same follow-up either way.
+  inBudget: function(id){ var p = findProperty(id); return !!(p && p.kind === "IP"); },
+  editor: { container: "propertiesBody", openState: modernPropRowOpen },
+  taxes: true,
+  afterAnyEdit: propertyCardFigures,
+  afterAdd: function(id){ recalcComputedItems(); propertyCardFigures(id); },
+  afterRemove: function(id){ patchSyntheticIncomeRows(); renderTaxSuper(); propertyCardFigures(id); }
+});
+defineSection("loan", {
+  qualified: true,
+  discardRows: function(id){ var p = findProperty(id); return p ? p.loans : null; },
+  discard: function(){ renderProperties(); renderProjectionOutputs(); persist(); }
+});
 
 // Depreciation changes the property's taxable result, which changes each owner's taxable income,
 // their synthetic net-income row, and every total derived from it — and the depreciation
@@ -56,11 +101,13 @@ export function wireProperties(){
     panel.innerHTML = fixedExpiryHtml(prop);
     var again = panel.querySelector('[data-fixed-whatif="' + wi + '"]');
     if(again){ again.focus(); try{ again.setSelectionRange(pos, pos); }catch(err){} }
-  });  document.getElementById("propertiesBody").addEventListener("change", function(e){
+  });
+  document.getElementById("propertiesBody").addEventListener("change", function(e){
     if(!e.target.hasAttribute("data-rent-next")) return;
     var c = e.target.closest("[data-property-id]"), prop = c && findProperty(c.getAttribute("data-property-id"));
     if(prop){ prop.nextRentReview = e.target.value || ""; persist(); renderAll(); }
-  });  document.getElementById("propertiesBody").addEventListener("click", function(e){
+  });
+  document.getElementById("propertiesBody").addEventListener("click", function(e){
     var c = e.target.closest("[data-property-id]"), prop = c && findProperty(c.getAttribute("data-property-id"));
     if(!prop) return;
     var rentPanel = function(){ var el = c.querySelector("[data-rent-panel]"); if(el) el.innerHTML = rentPanelHtml(prop); };
@@ -137,13 +184,16 @@ export function wireProperties(){
         ? "Filled — but it adds to " + fmtCurrency2.format(net) + ", the statement says " + fmtCurrency2.format(r.received) + ". Check it before logging."
         : "Filled from the statement" + (r.others.length ? " (other: " + r.others.map(function(o){ return o.what; }).join(", ") + ")" : "") + " — check it, then Log statement");
     }).catch(function(){ showToast("Couldn't read that PDF"); });
-  });  document.getElementById("propertiesBody").addEventListener("input", function(e){
+  });
+  document.getElementById("propertiesBody").addEventListener("input", function(e){
     if(!e.target.matches || !e.target.matches("[data-as]")) return;
     var asPanel = e.target.closest("[data-as-panel]"), out = asPanel && asPanel.querySelector("[data-as-net]");
     if(out) out.textContent = fmtCurrency2.format(statementTotals(agentStatementFormValues(asPanel)).net);
-  });  document.getElementById("propertiesBody").addEventListener("toggle", function(e){
+  });
+  document.getElementById("propertiesBody").addEventListener("toggle", function(e){
     if(e.target.matches && e.target.matches("[data-as-panel]")) agentStatementUi.open[e.target.getAttribute("data-as-panel")] = e.target.open;
-  }, true);  document.getElementById("propertiesBody").addEventListener("input", function(e){
+  }, true);
+  document.getElementById("propertiesBody").addEventListener("input", function(e){
     var card = e.target.closest("[data-property-id]");
     if(!card) return;
     var property = findProperty(card.getAttribute("data-property-id"));
@@ -360,7 +410,8 @@ export function wireProperties(){
     var card = tab.closest(".property-card");
     card.querySelectorAll("[data-prop-tab]").forEach(function(b){ var on = b === tab; b.classList.toggle("active", on); b.setAttribute("aria-selected", on ? "true" : "false"); });
     card.querySelectorAll("[data-prop-panel]").forEach(function(pn){ pn.hidden = pn.getAttribute("data-prop-panel") !== key; });
-  });  document.getElementById("propertiesBody").addEventListener("click", function(e){
+  });
+  document.getElementById("propertiesBody").addEventListener("click", function(e){
     var sectionToggleBtn = e.target.closest("[data-prop-section-toggle]");
     if(sectionToggleBtn){
       var toggleCard = sectionToggleBtn.closest("[data-property-id]");

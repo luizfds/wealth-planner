@@ -4436,10 +4436,24 @@ moved mechanically: a script read app.js's scopes (eslint-scope), moved each con
 click-and-type sweep of every view against main (the same), and every `addEventListener` recorded at startup on main
 and the branch — the same 360 listeners in the same order with the same handlers.
 
-### 237b. `[ ]` Sections as a registry
+### 237b. `[x]` Sections as a registry
 Do: the dispatch-by-section-name helpers (`rerenderTableFor`, `getArrayForSection`, … in `components/rows.js`) become a
 registry each page adds itself to; the overlay stack and the `app` context shrink as modules import what they need.
 Done when: rows.js names no page's sections; `app.<name>` used only for what app.js must hold; no visible change.
+
+Done (v3.206.2): `lib/sections.js` — each page registers its row kinds from its wiring module (`defineSection`: Cash
+flow's income, Budget lines and add-by-category; Plan's `home:<scenario>`; a property's `propinc:` / `propexp:` /
+`loan:`; Investments' assets, holdings and vehicles; Spending's transactions) with what rows.js used to know by name:
+where the rows live, how the list redraws, whether it shows in the Budget, a new row's defaults and editor, and what
+else an edit, an add or a removal redraws. Income's breakdown, "Record a pay change" and a line's scenario override
+are row actions (`defineRowAction`), tried in the old order. rows.js names no section. The overlay stack moved to
+`lib/overlaystack.js`, the theme to `lib/theme.js`, the pending spreadsheet imports into importwiring.js and the
+scenario editor's actions to `scenarioActions` — so app.js holds nothing a module needs and `lib/appctx.js` is gone
+(app.js 318 → 264 lines). The 237a split also lost line breaks between consecutive statements; restored. Checked:
+the same 360 listeners at startup in the same order (two handlers' bodies changed, as meant), a script adding,
+editing, discarding and deleting rows in every kind (income, a pay change, Budget lines by type and by category,
+a property's income and costs, an asset, a holding, a vehicle, a transaction) giving the same results on main and
+here, Back closing a row and the theme button the same, smoke, journeys and the sweep.
 
 ## 238. `[ ]` CSS in explicit layers
 Do: `@layer base, layout, components, pages, phone;` — every stylesheet in its layer, so which rule wins is declared,

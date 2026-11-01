@@ -2,7 +2,7 @@
 //
 // The passcode, folder backups and sync through the folder or Dropbox.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
-// added, so they're added in the same order. What it shares with app.js it reaches through `app` (lib/appctx.js).
+// added, so they're added in the same order.
 import { recalcComputedItems, totalNetWorthValue } from "../calc/engine.js";
 import { recordNetWorth, isAutoPoint } from "../calc/nwauto.js";
 import { thinPriceHistory } from "../calc/pricesheet.js";
@@ -30,22 +30,26 @@ function showLock(){
   lockScreen.hidden = false;
   document.getElementById("lockError").hidden = true;
   var inp = document.getElementById("lockInput"); inp.value = ""; setTimeout(function(){ inp.focus(); }, 30);
-}function unlock(){
+}
+function unlock(){
   try{ sessionStorage.setItem("wealthPlanner.unlocked", "1"); }catch(e){}
   document.documentElement.classList.remove("is-locked");
   lockScreen.hidden = true;
-}function askNewPasscode(){
+}
+function askNewPasscode(){
   var a = prompt("New passcode (at least 4 characters):");
   if(a == null) return Promise.resolve(false);
   if(a.length < 4){ showToast("A passcode needs at least 4 characters"); return Promise.resolve(false); }
   var b = prompt("Type it again:");
   if(b !== a){ if(b != null) showToast("They didn't match — nothing changed"); return Promise.resolve(false); }
   return setPasscode(a).then(function(){ try{ sessionStorage.setItem("wealthPlanner.unlocked", "1"); }catch(e){} return true; });
-}function folderResult(r){
+}
+function folderResult(r){
   if(r.ok) showToast("Backed up to " + r.folder + " (" + r.name + ")");
   else if(r.reason === "permission") showToast("The browser didn't allow writing to " + r.folder);
   renderSafekeeping(); renderHomeSummary();
-}// ---------------- Sync through the folder (v3.134.0) — lib/foldersync.js ----------------
+}
+// ---------------- Sync through the folder (v3.134.0) — lib/foldersync.js ----------------
 // v3.136.0: Dropbox's passphrase step, after connecting (or on a new device).
 function dropboxPassphrase(){
   var pass = prompt("The passphrase for the synced copy. Use the same one on each device — it isn't stored anywhere, so keep it somewhere safe:");
@@ -60,7 +64,9 @@ function dropboxPassphrase(){
     renderSafekeeping();
     return runSync({ interactive: true });
   }).catch(function(){ showToast("Couldn't reach Dropbox"); });
-}function whenText(iso){ try{ return new Date(iso).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); }catch(e){ return iso || ""; } }function runSync(opts){
+}
+function whenText(iso){ try{ return new Date(iso).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); }catch(e){ return iso || ""; } }
+function runSync(opts){
   opts = opts || {};
   if(syncBusy) return Promise.resolve();
   syncBusy = true;
@@ -84,7 +90,8 @@ function dropboxPassphrase(){
     });
     return r;
   }).catch(function(){ syncBusy = false; if(opts.manual) showToast("Sync couldn't reach the folder"); });
-}function mergeSync(r){
+}
+function mergeSync(r){
   var base, theirs;
   try {
     base = JSON.parse(r.base); takeReceiptFiles(base);
@@ -123,7 +130,8 @@ function dropboxPassphrase(){
     };
     d.showModal();
   });
-}// v3.139.0 (item 171): net worth keeps its own history — the day's figure as the app saves,
+}
+// v3.139.0 (item 171): net worth keeps its own history — the day's figure as the app saves,
 // thinned as it ages. Recorded after a save, so it rides along with the next one.
 function keepNetWorthHistory(){
   if(!Array.isArray(state.netWorthLog)) state.netWorthLog = [];
@@ -137,12 +145,15 @@ function keepNetWorthHistory(){
 
 export function wireSafekeeping(){
   // ---------------- Safekeeping (v3.63.0): folder backups and the passcode ----------------
-  lockScreen = document.getElementById("lockScreen");  document.getElementById("lockForm").addEventListener("submit", function(e){
+  lockScreen = document.getElementById("lockScreen");
+  document.getElementById("lockForm").addEventListener("submit", function(e){
     e.preventDefault();
     checkPasscode(document.getElementById("lockInput").value).then(function(ok){
       if(ok) unlock(); else { document.getElementById("lockError").hidden = false; document.getElementById("lockInput").select(); }
     });
-  });  if(document.documentElement.classList.contains("is-locked")) showLock();  document.getElementById("safekeepingBody").addEventListener("click", function(e){
+  });
+  if(document.documentElement.classList.contains("is-locked")) showLock();
+  document.getElementById("safekeepingBody").addEventListener("click", function(e){
     var b = e.target.closest("[data-sk]");
     if(!b) return;
     var act = b.getAttribute("data-sk");
@@ -196,15 +207,19 @@ export function wireSafekeeping(){
       return;
     }
     if(act === "lock-now"){ try{ sessionStorage.removeItem("wealthPlanner.unlocked"); }catch(err){} showLock(); }
-  });  syncBusy = false;
+  });
+  syncBusy = false;
   syncTimer = null;  // v3.143.0 (item 182): both devices changed since they last synced — combine them. Everything
   // changed on one side only is taken from that side; only the same thing changed both ways is asked,
   // one choice each. Without the agreed copy (synced last on an older version) it's still a choice.
-  mergeAskedAt = 0;  onSaved(keepNetWorthHistory);  onSaved(function(){
+  mergeAskedAt = 0;
+  onSaved(keepNetWorthHistory);
+  onSaved(function(){
     if(!markChanged()) return;
     clearTimeout(syncTimer);
     syncTimer = setTimeout(function(){ runSync({}); }, 8000);
-  });  document.addEventListener("visibilitychange", function(){ if(document.visibilityState === "hidden" && syncOn()){ clearTimeout(syncTimer); runSync({}); } });  // A quiet weekly backup into the chosen folder, if the browser still allows it.
+  });
+  document.addEventListener("visibilitychange", function(){ if(document.visibilityState === "hidden" && syncOn()){ clearTimeout(syncTimer); runSync({}); } });  // A quiet weekly backup into the chosen folder, if the browser still allows it.
   // v3.71.0: first, is there a newer copy from another device in the folder? Then offer it, and
   // don't back up over the top of it until the person has chosen.
   // v3.134.0: with sync on, the encrypted sync copy does both jobs — no unencrypted weekly file.
@@ -221,7 +236,8 @@ export function wireSafekeeping(){
     if(r && !r.connected) showToast(r.reason === "access_denied" ? "Dropbox wasn't connected" : "Couldn't connect Dropbox");
     return syncOn() ? runSync({}) : null;
   }).catch(function(){});  // v3.142.0 (item 181): then the statements waiting in the Statements folder.
-  initialSync.then(function(){ return checkInbox(true); });  if(!syncOn()) newestFolderBackup(false).then(function(r){
+  initialSync.then(function(){ return checkInbox(true); });
+  if(!syncOn()) newestFolderBackup(false).then(function(r){
     if(r && r.newerThanHere && !r.fromThisDevice && !r.none && r.permission !== false){
       var when = new Date(r.savedAt).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
       showPersistentToast("A newer copy from another device (" + when + ") is in " + r.folder + ".", "Open it", function(){ importBackupText(r.text); });

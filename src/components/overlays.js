@@ -3,8 +3,8 @@
 // Which overlay Back and Escape close (pushActiveOverlay / requestCloseActiveOverlay), the header's height for
 // sticky sections and dragging a sheet closed on a phone.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
-// added, so they're added in the same order. What it shares with app.js it reaches through `app` (lib/appctx.js).
-import { app } from "../lib/appctx.js";
+// added, so they're added in the same order.
+import { requestCloseActiveOverlay, overlayOpen } from "../lib/overlaystack.js";
 
 // ---------------- Page-header ⋯ menus ----------------
 // One delegated handler for all four (Income, Expenses, Properties, Assets). The menu is a
@@ -32,7 +32,7 @@ export function wirePhoneSheets(){  // v3.167.0 (item 197): an open section's he
   (function(){
     var phone = window.matchMedia("(max-width: 880px)"), drag = null;
     function closeSheet(sheet){
-      if(app.activeOverlayClose){ app.requestCloseActiveOverlay(); return; }
+      if(overlayOpen()){ requestCloseActiveOverlay(); return; }
       var x = sheet.querySelector('.review-head [aria-label="Close"], .review-head .icon-btn');
       if(x) x.click();
     }
@@ -83,7 +83,8 @@ export function wireOverflowMenus(){  document.addEventListener("click", functio
     // on their own ids and don't know this menu exists, so closing is this handler's job either
     // way, whether the click was inside or outside.
     closeAllOverflowMenus(null);
-  });  document.addEventListener("keydown", function(e){
+  });
+  document.addEventListener("keydown", function(e){
     if(e.key === "Escape") closeAllOverflowMenus(null);
   });
 }

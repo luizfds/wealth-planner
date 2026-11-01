@@ -2,7 +2,7 @@
 //
 // People, the Tax & super card, Checks' fixes, the year's worksheet and documents, and Close the year.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
-// added, so they're added in the same order. What it shares with app.js it reaches through `app` (lib/appctx.js).
+// added, so they're added in the same order.
 import { renderNotifBadge } from "./notifpanel.js";
 import { oddCardRepayments, usualCardSource } from "../calc/bills.js";
 import { applyRentalComparison, applyBudgetComparison, householdBudgetLines } from "../calc/closeyear.js";
@@ -39,7 +39,8 @@ var peopleTable, taxYearBody, taxDocsBody;
 function syncClaimFields(tr, item){
   tr.querySelectorAll(".f-claim-prop").forEach(function(el){ el.hidden = !(item.deductible && item.claimProperty); });
   tr.querySelectorAll(".f-claim-person").forEach(function(el){ el.hidden = !(item.deductible && !item.claimProperty); });
-}// People (v3.44.0): the rename and remove themselves live in calc/people.js, which walks every
+}
+// People (v3.44.0): the rename and remove themselves live in calc/people.js, which walks every
 // row and record that names a person; this is the refresh after either.
 function afterPeopleChange(){
   recalcComputedItems();
@@ -52,22 +53,27 @@ function afterPeopleChange(){
   renderTotals();
   renderProjectionOutputs();
   persist();
-}function renderPeopleTab(){
+}
+function renderPeopleTab(){
   renderPeople();
   var sum = document.getElementById("peopleSummary");
   if(sum) sum.textContent = peopleSummaryText();
-}function renameTaxPerson(oldName, newName){
+}
+function renameTaxPerson(oldName, newName){
   var res = renamePersonEverywhere(oldName, newName);
   if(res.error){ showToast(res.error); renderPeopleTab(); return; }
   if(res.changed) afterPeopleChange();
-}function removeTaxPerson(name){
+}
+function removeTaxPerson(name){
   if(!confirm('Remove "' + name + '" from tax? Their income rows go back to Type "Net" (counted as-is, at face value) and keep their current amounts; their date of birth, HELP and property shares are cleared.')) return;
   removePersonFromTax(name);
   afterPeopleChange();
-}function openPeopleTab(){
+}
+function openPeopleTab(){
   showAccountsSubpage("people");
   renderPeopleTab();
-}function flipTaxCardFromSwipe(e){
+}
+function flipTaxCardFromSwipe(e){
   if(!window.matchMedia("(max-width: 880px)").matches) return;
   var panel = e.target.closest("[data-tax-person]");
   if(!panel) return;
@@ -79,7 +85,8 @@ function afterPeopleChange(){
 function afterTaxYearEdit(){
   renderTaxYear();
   persist();
-}// Close the year (v3.48.0): the ticked lines become the plan. Undo puts back exactly what was
+}
+// Close the year (v3.48.0): the ticked lines become the plan. Undo puts back exactly what was
 // there — the rows' amounts and histories — so it's a snapshot rather than a reversed edit.
 function closeYear(fy){
   var body = document.getElementById("taxYearBody");
@@ -104,20 +111,24 @@ function closeYear(fy){
     state.properties = snap.properties; state.shared = snap.shared; state.home = snap.home;
     afterCloseYear();
   });
-}// A loan's balance or offset edited on Property or Investments → Offsets is the same number the
+}
+// A loan's balance or offset edited on Property or Investments → Offsets is the same number the
 // matching account shows (v3.56.0) — record it in that history too, so the account's chart, its
 // savings-goal pace and the net worth comparison see the change wherever it was typed (v3.67.1).
 // Same-day edits replace each other, so typing doesn't pile up snapshots.
 function recordLoanSnapshot(loan, key, value){
   if(!Array.isArray(loan[key])) loan[key] = [];
   appendHistorySnapshot(loan[key], Math.round((Number(value) || 0) * 100) / 100, localDateStr());
-}function afterCloseYear(){
+}
+function afterCloseYear(){
   recalcComputedItems();
   renderAll();
   persist();
-}// Builds the static print copy at the top level, prints, and takes it away again. afterprint
+}
+// Builds the static print copy at the top level, prints, and takes it away again. afterprint
 // fires once the dialog closes, whatever the user chose.
-function printTaxYear(){ printStatic(taxYearPrintHtml()); }function printStatic(html){
+function printTaxYear(){ printStatic(taxYearPrintHtml()); }
+function printStatic(html){
   var root = document.getElementById("printRoot");
   if(!root){ root = document.createElement("div"); root.id = "printRoot"; document.body.appendChild(root); }
   root.innerHTML = html;
@@ -129,7 +140,8 @@ function printTaxYear(){ printStatic(taxYearPrintHtml()); }function printStatic(
   };
   window.addEventListener("afterprint", done);
   window.print();
-}function onTaxYearChange(e){
+}
+function onTaxYearChange(e){
   var t = e.target;
   if(t.hasAttribute("data-ty-evidence")){
     taxYearToggleEvidence(t.getAttribute("data-ty-evidence"), t.checked);
@@ -161,17 +173,20 @@ function printTaxYear(){ printStatic(taxYearPrintHtml()); }function printStatic(
   }
 }
 
-export function wireTax(){  peopleTable = document.getElementById("peopleTable");  peopleTable.addEventListener("change", function(e){
+export function wireTax(){  peopleTable = document.getElementById("peopleTable");
+  peopleTable.addEventListener("change", function(e){
     var t = e.target, person = t.getAttribute("data-pp-person");
     if(!person) return;
     if(t.classList.contains("pp-name")){ renameTaxPerson(person, t.value); return; }
     var cls = ["pp-dob", "pp-help", "pp-cap", "pp-carry", "pp-losses", "pp-wfh", "pp-week", "pp-var"].find(function(c){ return t.classList.contains(c); });
     if(!cls || !setPersonField(person, cls, t.type === "checkbox" ? t.checked : t.value, t.getAttribute("data-fy"))) return;
     afterPeopleChange();
-  });  peopleTable.addEventListener("click", function(e){
+  });
+  peopleTable.addEventListener("click", function(e){
     var rm = e.target.closest("[data-pp-remove]");
     if(rm) removeTaxPerson(rm.getAttribute("data-pp-remove"));
-  });  document.getElementById("addPersonBtn").addEventListener("click", function(){
+  });
+  document.getElementById("addPersonBtn").addEventListener("click", function(){
     var name = prompt("Their name — they're added with a Gross income row you can fill in:");
     if(name === null) return;
     name = name.trim();
@@ -186,7 +201,8 @@ export function wireTax(){  peopleTable = document.getElementById("peopleTable")
     // indexOf, not length - 1: the recalculation above appends the new person's synthetic
     // net-income row after theirs.
     setTimeout(function(){ openNewRowModal("incomeGroups", "income", state.income.indexOf(row), modernIncomeRowOpen, row); }, 240);
-  });  document.addEventListener("click", function(e){
+  });
+  document.addEventListener("click", function(e){
     if(e.target.closest("[data-goto-people]")) openPeopleTab();
   });
   document.getElementById("taxSuperBody").addEventListener("click", function(e){
@@ -348,21 +364,28 @@ export function wireTax(){  peopleTable = document.getElementById("peopleTable")
       var close = document.querySelector("#taxYearBody .ty-close");
       if(close){ close.open = true; setTimeout(function(){ close.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60); }
     }
-  });  taxYearBody = document.getElementById("taxYearBody");  taxDocsBody = document.getElementById("taxDocsBody");  taxYearBody.addEventListener("change", onTaxYearChange);  taxDocsBody.addEventListener("change", onTaxYearChange);  // "Open FY25/26" while the current year is still running: moves the whole app's period there.
+  });
+  taxYearBody = document.getElementById("taxYearBody");
+  taxDocsBody = document.getElementById("taxDocsBody");
+  taxYearBody.addEventListener("change", onTaxYearChange);
+  taxDocsBody.addEventListener("change", onTaxYearChange);  // "Open FY25/26" while the current year is still running: moves the whole app's period there.
   [taxYearBody, taxDocsBody].forEach(function(body){
     body.addEventListener("click", function(e){
       var b = e.target.closest("button[data-ty-year]");
       if(b) setTaxYearSelected(b.getAttribute("data-ty-year"));
     });
-  });  taxDocsBody.addEventListener("click", function(e){
+  });
+  taxDocsBody.addEventListener("click", function(e){
     if(e.target.closest("[data-ty-import]")) document.getElementById("taxYearImportFile").click();
-  });  document.getElementById("taxSubnav").addEventListener("click", function(e){
+  });
+  document.getElementById("taxSubnav").addEventListener("click", function(e){
     var btn = e.target.closest("[data-tax-sub]");
     if(!btn) return;
     showTaxSubpage(btn.getAttribute("data-tax-sub"));
     if(btn.getAttribute("data-tax-sub") === "people") renderPeopleTab();
     renderTaxYear();
-  });  taxYearBody.addEventListener("click", function(e){
+  });
+  taxYearBody.addEventListener("click", function(e){
     var cyApply = e.target.closest("[data-cy-apply]");
     if(cyApply){ closeYear(Number(cyApply.getAttribute("data-cy-apply"))); return; }
     var fill = e.target.closest("[data-ty-fill]");

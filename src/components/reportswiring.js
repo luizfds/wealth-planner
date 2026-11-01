@@ -2,7 +2,7 @@
 //
 // Reports: choosing, pinning, printing and CSV.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
-// added, so they're added in the same order. What it shares with app.js it reaches through `app` (lib/appctx.js).
+// added, so they're added in the same order.
 import { shiftMonth as mdShiftMonth } from "../calc/monthdetail.js";
 import { exportTableCsv } from "../lib/backup.js";
 import { localDateStr } from "../lib/format.js";
@@ -28,7 +28,8 @@ export function wireReports(){
     if(k === "group" || k === "range") reportFrame.open = {};
     if(k === "range" && e.target.value === "custom" && !reportFrame.from){ var t0 = localDateStr(); reportFrame.to = t0; reportFrame.from = (Number(t0.slice(0, 4)) - 1) + t0.slice(4); }
     renderReports();
-  });  document.getElementById("reportsBody").addEventListener("click", function(e){
+  });
+  document.getElementById("reportsBody").addEventListener("click", function(e){
     var pick = e.target.closest("[data-report]");
     if(pick){ reportShown.key = pick.getAttribute("data-report"); renderReports(); return; }
     // v3.124.0: pinned reports.

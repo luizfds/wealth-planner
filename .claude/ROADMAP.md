@@ -4168,6 +4168,49 @@ row that couldn't be edited. Driven at 1280 and 390px: renamed mid-edit with the
 back on the card after Save.
 
 
+### Phase L — checked against real data, and money that moves on its own (November 2026)
+
+## 226. `[~]` The scenario work, checked against a real household
+Everything since 207 was built on invented and demo households.
+
+Do: load a real backup outside the repo; check the scenarios (sandboxing, Make it real, triggers, the odds, CGT on a sale,
+the lender check, Calculators) and how fast Plan → Scenarios is on it; fix what's wrong — reported without figures.
+
+Done when: each finding is fixed or listed with why not; timings on the real data recorded (no figures from it).
+
+## 227. `[ ]` Combine scenarios
+Do: a scenario can include others ("Rentvest" + "Second car"): their changes counted together, without copying, on the
+card, the comparison, the projection and an account.
+
+Done when: tests: a combination equals the same changes made by hand; a change to an included scenario flows through.
+
+## 228. `[ ]` A former home's market value when first rented
+Do: selling a former home asks for its value when it was first rented out and uses it as the cost base where the rules
+do (the home first used to earn income), instead of the original cost.
+
+Done when: hand-worked tests with and without it.
+
+## 229. `[ ]` The lender check's living-cost floor
+Do: lenders take the higher of declared living costs and their own benchmark for the household (HEM-like, by income and
+dependants); the check does too, and says which it used.
+
+Done when: tests: a frugal household is assessed at the floor; a big spender at their own figure.
+
+## 230. `[ ]` The scenario editor's wiring in its own module
+Do: the editor's, the calculators' and the comparison's event wiring move out of app.js into their own module, as the
+pages' render code already did — nothing a person sees changes.
+
+Done when: smoke and drives unchanged; app.js shorter by the moved lines.
+
+## 231. `[ ]` Automatic repayments and transfers, confirmed on the day
+Asked for: a loan repaid by direct debit from one account to another, confirmed on the day it should happen.
+
+Do: a loan or any account can have an automatic payment (from, to, amount, how often, the day); on the day the bell and
+Home ask "paid?" — Yes records the transfer, a different amount records that (and can be the amount from now on, for a
+rate change), Skipped records nothing; until then it shows on the bills calendar and an account's 90 days.
+
+Done when: tests on the days it falls due and on each answer; driven: confirmed on the day, an amount changed for good.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

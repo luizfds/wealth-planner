@@ -4170,13 +4170,23 @@ back on the card after Save.
 
 ### Phase L — checked against real data, and money that moves on its own (November 2026)
 
-## 226. `[~]` The scenario work, checked against a real household
+## 226. `[x]` The scenario work, checked against a real household
 Everything since 207 was built on invented and demo households.
 
 Do: load a real backup outside the repo; check the scenarios (sandboxing, Make it real, triggers, the odds, CGT on a sale,
 the lender check, Calculators) and how fast Plan → Scenarios is on it; fix what's wrong — reported without figures.
 
 Done when: each finding is fixed or listed with why not; timings on the real data recorded (no figures from it).
+
+**Done (v3.195.0).** Checked against a real household's backup, in a scratch directory (no figures here): the move to
+sealed scenarios (v3.172.0) and everything since leave every scenario's month, net worth today and in 5, 10 and 20
+years exactly where the app before it put them. One regression found and fixed: after today's home moved into Budget
+(`homeCost` lines), the household's own "Home cost / mo" and Benchmarks' housing read $0 — `scenarioTotals` now counts
+those lines as the home's cost (the total is unchanged); `tests/scenariochanges.test.js` pins it. Every page, the
+editor of each scenario, Side by side, the Make it real plan and the Calculators showed no NaN, undefined or console
+error. Speed on that household: a scenario change redraws in about 20ms (90ms at 4× CPU slowdown), Side by side about
+10ms (40ms).
+
 
 ## 227. `[ ]` Combine scenarios
 Do: a scenario can include others ("Rentvest" + "Second car"): their changes counted together, without copying, on the

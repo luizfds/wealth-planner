@@ -23,7 +23,7 @@ function figures(){
   state.scenarios.forEach(function(name){
     var t = scenarioTotals(name);
     var series = computeNetWorthSeries(name, 20);
-    out[name] = { income: t.incomeMonthly.toFixed(2), expenses: t.expensesMonthly.toFixed(2), net: t.netMonthly.toFixed(2), in20: series[series.length - 1].y.toFixed(0) };
+    out[name] = { income: t.incomeMonthly.toFixed(2), home: t.homeMonthly.toFixed(2), expenses: t.expensesMonthly.toFixed(2), net: t.netMonthly.toFixed(2), in20: series[series.length - 1].y.toFixed(0) };
   });
   return out;
 }

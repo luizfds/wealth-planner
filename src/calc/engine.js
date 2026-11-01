@@ -617,8 +617,12 @@ export function scenarioTotals(scenario){
   var incomeMonthly = scenarioIncomeMonthly({ scenario: scenario });
   var ipMonthly = ipExpensesMonthly() + ipLoansMonthly();
   // v3.172.0: today's home lines are left out by a scenario that lives somewhere else.
-  var sharedMonthly = sumFieldForScenario(scenarioSharedItems(scenario), scenario, "monthly");
-  var homeMonthly = sumField(state.home[scenario], "monthly");
+  // v3.195.0 (item 226): today's home lines (Budget, homeCost) count as the home's cost, not as other
+  // spending — the total's the same, but the card's "Home cost" and Benchmarks' housing read $0 for the
+  // household itself after its home moved into Budget (v3.172.0).
+  var sharedItems = scenarioSharedItems(scenario);
+  var sharedMonthly = sumFieldForScenario(sharedItems.filter(function(l){ return !(l && l.homeCost); }), scenario, "monthly");
+  var homeMonthly = sumField(state.home[scenario], "monthly") + sumFieldForScenario(sharedItems.filter(function(l){ return l && l.homeCost; }), scenario, "monthly");
   var expensesMonthly = ipMonthly + sharedMonthly + homeMonthly;
   // v3.173.0 (item 208): the scenario's own changes, once they've all happened — rent elsewhere, an
   // investment property (its rent, costs, loan and tax effect), a new cost; a sale takes away what

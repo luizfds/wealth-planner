@@ -4508,6 +4508,13 @@ in the form, filled and in view, at 390 and 1280px; two properties ask, and the 
 has no + entry. A `rentstatement` journey does it with an invented statement; a bank statement with Money In / Money
 Out columns and rent is tested not to be taken for one.
 
+## 241. `[~]` A property's financial year so far, actual
+Do: under the plan's rental result on an investment property's Tax tab, the financial year so far as it actually went
+— rent from statements and money received, costs from statements and payments logged against its lines, interest,
+depreciation and borrowing costs worked out to today — beside the plan for the same days.
+Done when: the figures reconcile with what's logged (statements, rent received, transactions); a past year shows the
+whole year; nothing logged says how to start; driven.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

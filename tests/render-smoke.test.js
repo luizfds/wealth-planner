@@ -1281,6 +1281,20 @@ test("Property → rent panel: the statement form and the year's statements", as
   assert.doesNotMatch(html, /NaN|undefined/);
 });
 
+// v3.209.0 (item 241): an investment property's year so far, actual beside the plan to date.
+test("Property → Tax: the financial year so far, actual and plan to date", async function(){
+  const { propertyActualHtml } = await import("../src/components/properties.js");
+  var p = { id: "p1", what: "1 Example St", kind: "IP", income: [{ what: "Rent", amount: 500, freq: "Weekly" }], expenses: [], loans: [],
+    agentStatements: [{ id: "a", date: "2026-08-01", rent: 2000, water: 0, fees: 120, waterRates: 0, others: [], net: 1880, incomeId: null, txIds: [] }] };
+  var html = propertyActualHtml(p, "2026-09-30");
+  assert.match(html, /FY26\/27 so far/);
+  assert.match(html, /Plan to date/);
+  assert.match(html, /1 statement/);
+  assert.match(html, /2,000/);
+  assert.doesNotMatch(html, /NaN|undefined/);
+  assert.match(propertyActualHtml({ id: "p2", kind: "IP", income: [], expenses: [], loans: [] }, "2026-09-30"), /Nothing logged for this property yet/);
+});
+
 // v3.208.0 (item 240): an investment property's Overview says when its last statement was logged, with the way in.
 test("Property → Overview: the last statement and Log a statement", async function(){
   const { statementLineHtml } = await import("../src/components/properties.js");

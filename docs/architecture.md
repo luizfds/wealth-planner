@@ -63,6 +63,10 @@ are resolved "newest wins" (`applyPageChange` bails if `currentPage` moved on).
   same form opens filled in from the main import (`isAgentStatement` in `calc/pdfstatement.js` tells it from a bank
   statement, `propertyNamedIn` finds its property, else it asks), from an investment property's Overview and from
   the + menu — `components/rentstatement.js`.
+- **A property's year so far** (`calc/propertyactuals.js`): on an investment property's Tax tab, under the plan's
+  result — rent from statements and money received, costs from statements and payments against its lines (and lines
+  claimed against it), interest, depreciation and borrowing costs worked out to today — beside the plan for the
+  same share of the year.
 - **Investment returns** (`calc/investreturn.js`): money-weighted per holding, the same money in an index (the price
   file's weekly A200 / IVV), a target mix (`state.targetMix`), distributions ahead.
 - **On a phone**: rows and `.review-panel` dialogs are bottom sheets dragged closed by their head; Spending's rows swipe

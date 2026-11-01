@@ -336,6 +336,12 @@
 .ptx-row b{ text-align:right; font-variant-numeric: tabular-nums; }
 .ptx-row em{ font-style:normal; font-size:var(--fs-xs); color: var(--ink-soft); text-align:right; }
 .ptx-total{ border-bottom:0; border-top:2px solid var(--ink); font-weight:600; margin-top:2px; }
+/* v3.209.0 (item 241): the year so far — label, actual, plan to date, on every width. */
+.ptx-row.ptx-act{ grid-template-columns: minmax(0,1fr) 10ch 10ch; column-gap:12px; align-items:baseline; }
+.ptx-row.ptx-act .ptx-plan{ color: var(--ink-soft); font-weight:400; }
+.ptx-act span small{ display:block; font-size:var(--fs-xs); color: var(--ink-soft); }
+.ptx-act-head{ border-bottom:0; padding-bottom:0; }
+.ptx-act-head b{ font-size:var(--fs-xs); font-weight:600; color: var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; }
 @media (max-width: 480px){
   .ptx-row{ grid-template-columns: minmax(0,1fr) auto; }
   .ptx-row em{ grid-column: 1 / -1; text-align:left; }

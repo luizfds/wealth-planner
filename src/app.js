@@ -6637,6 +6637,11 @@ import { inboxMessage } from "./calc/inbox.js";
   renderAll();
   initTableScrollShadows();
   showPage(initialPage, { replace: true, skipScroll: true });
+  // v3.204.0 (item 234): the speed budget (scripts/journeys.mjs) times startup to here.
+  try { performance.mark("wp:ready"); } catch(e){}
+  document.documentElement.setAttribute("data-wp-ready", "");
+  // The speed budget compares a step with a full redraw, in the same browser at the same speed — only with ?perf=1.
+  if(/[?&]perf=1\b/.test(location.search)) window.__wpRenderAll = renderAll;
   if(initialPage === "assets") showAssetsSubpage(initialAssetsSub, { replace: true });
   // Always applied, not just when landing on Expenses: showExpensesSubpage seeds the module's
   // currentExpensesSub, which buildRoutePath needs to be correct the first time the user

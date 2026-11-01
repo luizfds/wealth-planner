@@ -1,5 +1,8 @@
 # Runs on every pull request and every push to main (v3.43.0).
 #   tests — the Node test suite (npm test), no dependencies.
+#   journeys — scripts/journeys.mjs (v3.204.0): bills, a transfer, an automatic payment, a scenario, a CSV
+#          and a PDF import, end to end on invented data; then the speed budget on a large invented
+#          household at 4x CPU slowdown. Fails on a broken journey or a step over budget.
 #   lint — npm run check (v3.201.0): ESLint, TypeScript's checker over src/calc, stylelint. Dev-only tools
 #          from package.json's devDependencies, installed here from the lockfile.
 #   pages — scripts/smoke.mjs: every page and subtab in headless Chromium at 390px and 1280px,
@@ -24,7 +27,21 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm test
+      # v3.204.0: the suite with coverage — the totals go in the job summary.
+      - run: npm run coverage | tee coverage.txt
+      - run: |
+          { echo "### Test coverage"; echo '```'; grep -E "^# (file|all files| *[a-z]+/ *\|)" coverage.txt | sed 's/^# //' | grep -E "^(file|all files)"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+  journeys:
+    # Pinned with the pages job: Playwright 1.56 and ubuntu-24.04 move together.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save playwright@1.56.0
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/journeys.mjs
   lint:
     runs-on: ubuntu-latest
     steps:

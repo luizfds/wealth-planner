@@ -1,7 +1,7 @@
 import "./_env.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { saleCgt, serviceability } from "../src/calc/salecgt.js";
+import { saleCgt, serviceability, livingFloor, assessedLiving } from "../src/calc/salecgt.js";
 
 // Worked by hand: bought 1 Jan 2020 with a $500,000 cost base, sold 1 Jan 2030 for $800,000 with $20,000 of
 // selling costs — a $280,000 gain. Tax at an invented flat 39% (37% + the 2% Medicare levy).
@@ -115,5 +115,41 @@ test("a lender check: a modest loan passes, a large one fails at the rate plus 3
     assert.equal(big.ok, false);
     assert.ok(big.assessedMonthly > small.assessedMonthly * 4);
     assert.equal(lenderCheck("Today", "Today"), null, "nothing new borrowed");
+  } finally { setState(keep); }
+});
+
+// v3.198.0 (item 229): lenders' living-cost floor, worked by hand from its constants — one adult $1,500, two
+// $2,300, $450 a dependant, plus 10% of take-home past $6,000 a month.
+test("the living-cost floor: by adults, dependants and income", function(){
+  assert.equal(livingFloor({ adults: 1, dependants: 0, incomeMonthly: 5000 }), 1500);
+  assert.equal(livingFloor({ adults: 2, dependants: 2, incomeMonthly: 5000 }), 3200);
+  // $10,000 take-home: 2,300 + 450 + 10% of 4,000.
+  assert.equal(livingFloor({ adults: 2, dependants: 1, incomeMonthly: 10000 }), 3150);
+  // Three adults count as two; a nonsense count as none.
+  assert.equal(livingFloor({ adults: 3, dependants: -1, incomeMonthly: 0 }), 2300);
+});
+test("assessed living costs: a frugal household at the floor, a big spender at their own figure", function(){
+  var floor = livingFloor({ adults: 2, dependants: 1, incomeMonthly: 10000 });
+  assert.deepEqual(assessedLiving(2200, floor), { used: 3150, declared: 2200, floor: 3150, source: "floor" });
+  assert.deepEqual(assessedLiving(5400, floor), { used: 5400, declared: 5400, floor: 3150, source: "yours" });
+  // And what it does to a loan: the frugal household is assessed $950 a month worse than its own figure.
+  var loan = { incomeMonthly: 10000, rentMonthly: 0, loans: [{ balance: 600000, rate: 6, termYears: 30 }] };
+  var own = serviceability(Object.assign({ livingMonthly: 2200 }, loan)), atFloor = serviceability(Object.assign({ livingMonthly: assessedLiving(2200, floor).used }, loan));
+  assert.equal(Math.round((own.surplus - atFloor.surplus) * 100) / 100, 950);
+});
+test("the lender check in Side by side says which living costs it used", function(){
+  var keep = state;
+  try {
+    var mk = function(groceries, deps){ var h = household("PPOR"); h.purchase.Sell = { enabled: true, price: 600000, depositPct: 20, rate: 6, ioRate: 6, termYears: 30, state: "VIC", repaymentType: "PI", firstHomeBuyer: false };
+      h.scenarioChanges.Sell = []; h.shared[0].amount = groceries; h.dependants = deps; return h; };
+    setState(mk(1200, 2)); recalcComputedItems();
+    var frugal = lenderCheck("Sell", "Today");
+    assert.equal(frugal.livingSource, "floor");
+    assert.equal(frugal.livingDeclared, 1200);
+    assert.ok(frugal.living >= 1500 + 900, "one adult in this household, two dependants: at least 1,500 + 900, more for income: " + frugal.living);
+    setState(mk(6000, 0)); recalcComputedItems();
+    var spender = lenderCheck("Sell", "Today");
+    assert.equal(spender.livingSource, "yours");
+    assert.equal(spender.living, 6000);
   } finally { setState(keep); }
 });

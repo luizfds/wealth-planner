@@ -15,6 +15,10 @@
 // household's own, assessed principal-and-interest at its rate plus a buffer (3 points), against
 // take-home pay plus most of the rent (80%) less living costs.
 //
+// v3.198.0 (item 229): lenders take the higher of the living costs you declare and their own benchmark for a
+// household like yours (HEM, by adults, dependants and income). livingFloor is an approximation of that kind
+// of benchmark — not HEM itself, whose tables are licensed — and assessedLiving says which figure was used.
+//
 // Pure: everything comes in as arguments; tax through taxOf(gain) so the caller's tax model decides.
 
 import { calcRepaymentMonthly } from "./property.js";
@@ -58,4 +62,19 @@ export function serviceability(inp){
   }, 0);
   var surplus = (Number(inp.incomeMonthly) || 0) + (Number(inp.rentMonthly) || 0) * RENT_COUNTED - (Number(inp.livingMonthly) || 0) - assessed;
   return { assessedMonthly: r2(assessed), surplus: r2(surplus), ok: surplus >= 0 };
+}
+
+// A household's living-cost floor a month, the kind lenders benchmark against: a base for one adult or two,
+// more for each dependant, rising with take-home pay past $6,000 a month (lenders' benchmarks rise with
+// income — a household earning more is assumed to spend more).
+export var FLOOR_ONE = 1500, FLOOR_TWO = 2300, FLOOR_DEPENDANT = 450, FLOOR_INCOME_FROM = 6000, FLOOR_INCOME_SHARE = 0.1;
+export function livingFloor(inp){
+  var adults = Number(inp && inp.adults) >= 2 ? 2 : 1, deps = Math.max(0, Math.floor(Number(inp && inp.dependants) || 0));
+  var income = Number(inp && inp.incomeMonthly) || 0;
+  return r2((adults === 2 ? FLOOR_TWO : FLOOR_ONE) + deps * FLOOR_DEPENDANT + Math.max(0, income - FLOOR_INCOME_FROM) * FLOOR_INCOME_SHARE);
+}
+// → { used, declared, floor, source: "floor" | "yours" }
+export function assessedLiving(declared, floor){
+  declared = r2(Number(declared) || 0); floor = r2(Number(floor) || 0);
+  return floor > declared ? { used: floor, declared: declared, floor: floor, source: "floor" } : { used: declared, declared: declared, floor: floor, source: "yours" };
 }

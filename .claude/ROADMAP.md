@@ -4208,11 +4208,20 @@ a scenario's net worth with and without it. Driven: the field appears for a form
 moves the 10-year figure.
 
 
-## 229. `[ ]` The lender check's living-cost floor
+## 229. `[x]` The lender check's living-cost floor
 Do: lenders take the higher of declared living costs and their own benchmark for the household (HEM-like, by income and
 dependants); the check does too, and says which it used.
 
 Done when: tests: a frugal household is assessed at the floor; a big spender at their own figure.
+
+**Done (v3.198.0).** `livingFloor` (calc/salecgt.js) — a benchmark of the kind lenders use, by one adult or two,
+dependants and take-home (an approximation, not HEM's licensed tables) — and `assessedLiving`, the higher of it and
+the household's own figure. Side by side's lender check uses it for the household's living costs (a property's
+running costs come on top either way) and says when it's at the floor; the Calculators' "What a lender might lend"
+asks for adults and dependants (`state.dependants`, kept) and says which figure it used. Tests: the floor worked by
+hand, a frugal household assessed at the floor and a big spender at their own figure, in the calculator's arithmetic
+and in Side by side's check. Driven: the calculator with a low living-cost figure and two dependants.
+
 
 ## 230. `[ ]` The scenario editor's wiring in its own module
 Do: the editor's, the calculators' and the comparison's event wiring move out of app.js into their own module, as the

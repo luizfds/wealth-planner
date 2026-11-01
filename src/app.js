@@ -6170,6 +6170,8 @@ import { inboxMessage } from "./calc/inbox.js";
     if(!path) return;
     var parts = path.split("."), v = e.target.value;
     calcQ[parts[0]][parts[1]] = e.target.tagName === "SELECT" ? v : (v === "" ? 0 : Number(v));
+    // v3.198.0: the household's dependants are kept — the lender check in Side by side counts them too.
+    if(path === "bp.dependants"){ state.dependants = Math.max(0, Math.floor(Number(v) || 0)); persist(); }
     var out = document.querySelector('[data-cq-out="' + parts[0] + '"]');
     if(out) out.innerHTML = calcOutHtml(parts[0]);
   });

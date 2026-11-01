@@ -4384,6 +4384,21 @@ import { inboxMessage } from "./calc/inbox.js";
   });
   // A transfer saved, and with `moveBalances` both accounts' balances moved by it (where each has
   // one) — the transfer form and Checks' "Save repayment" (v3.146.0). Undo puts both back (v3.144.0).
+  // v3.200.2: a transfer redraws only what reads transfers — Spending's list, the accounts, Home (balance
+  // ahead, payments to confirm), the bills calendar, Checks, the month's review and the bell — not every page
+  // (renderAll took the best part of a second on a phone with a real household's data). When balances
+  // moved, what reads them too: net worth, the assets and properties they're stored on, the cards.
+  function refreshAfterTransfer(balancesMoved){
+    renderTransactions();
+    renderAccounts();
+    renderBillsCalendar();
+    renderHomeSummary();
+    renderHealth(); renderChecksBadge();
+    renderMonthReview();
+    renderNotifBadge();
+    renderDetail();
+    if(balancesMoved){ renderTotals(); renderAssets(); renderProperties(); renderCards(); }
+  }
   function saveTransfer(t, moveBalances, message){
     var rec = addTransfer(t);
     var moved = [], before = [];
@@ -4400,12 +4415,12 @@ import { inboxMessage } from "./calc/inbox.js";
         moved.push(acct.name);
       });
     }
-    renderAll();
     persist();
+    refreshAfterTransfer(moved.length > 0);
     showUndoToast(message + (moved.length ? " — " + moved.join(" and ") + " updated" : ""), function(){
       deleteTransfer(rec.id);
       before.forEach(function(b){ setAccountBalance(b[0], b[1], rec.date); });
-      renderAll(); persist();
+      persist(); refreshAfterTransfer(before.length > 0);
     });
     return rec;
   }
@@ -6447,7 +6462,7 @@ import { inboxMessage } from "./calc/inbox.js";
 
   // ---------------- Automatic payments (v3.196.0, item 231) ----------------
   // Set up on an account's card; answered on Home. calc/autopay.js does the recording.
-  function afterAutoPay(){ persist(); renderAll(); renderNotifBadge(); }
+  function afterAutoPay(){ persist(); refreshAfterTransfer(false); }
   function answerAndUndo(id, date, answer, said){
     var r = answerAutoPay(state, id, date, answer, genId);
     if(!r) return;

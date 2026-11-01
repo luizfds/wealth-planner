@@ -566,10 +566,20 @@
   .bc-confirm-name small{ display:block; font-weight:400; font-size:var(--fs-xs); color: var(--ink-soft); }
   .bc-confirm-amt{ display:flex; align-items:center; gap:4px; color: var(--ink-soft); }
   .bc-confirm-amt input, .bc-confirm-date{ width:100%; min-width:0; }
-  @media (max-width:480px){
-    .bc-confirm-row{ grid-template-columns:24px minmax(0,1fr) 96px; }
-    .bc-confirm-date{ grid-column:2; grid-row:2; }
-    .bc-confirm-amt{ grid-column:3; grid-row:1 / span 2; }
+  /* The fields look like every other field (they carry classes, so the base field style skips them). */
+  .bc-confirm-date, .bc-confirm-amount, .ap-other-amount{
+    font: inherit; font-size:var(--fs-md); color: var(--ink); background: var(--paper); color-scheme: inherit;
+    border:1px solid var(--border); border-radius:6px; padding:5px 8px; min-height:36px; box-sizing:border-box;
+  }
+  .bc-confirm-date:focus-visible, .bc-confirm-amount:focus-visible, .ap-other-amount:focus-visible{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
+  /* A phone or a bottom sheet (≤880px): the name gets the whole first line (wrapping, never cut short), date and amount share the second. */
+  @media (max-width:880px){
+    /* .bc-confirm-list > label: outweighs the phone rule that makes every checkbox's label a flex row (projections.css). */
+    .bc-confirm-list > label.bc-confirm-row{ display:grid; grid-template-columns:24px minmax(0,1.4fr) minmax(0,1fr); grid-template-areas: "check name name" ". date amt"; row-gap:8px; padding:10px 12px; }
+    .bc-confirm-check{ grid-area:check; }
+    .bc-confirm-name{ grid-area:name; white-space:normal; overflow:visible; overflow-wrap:anywhere; }
+    .bc-confirm-date{ grid-area:date; }
+    .bc-confirm-amt{ grid-area:amt; }
   }
   .review-head h4{ margin:0; font-size:var(--fs-md); color: var(--ink); }
   .review-progress{ font-size:var(--fs-xs); color: var(--ink-soft); font-weight:600; }

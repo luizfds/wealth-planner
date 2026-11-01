@@ -6,6 +6,7 @@ import { sparklineHtml, renderLineChart, dateAxisFormat } from "../lib/charts.js
 import { fmtCurrency0, fmtCurrency2, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { detailLinkHtml } from "./detail.js";
+import { accountAutoPaysHtml } from "./autopay.js";
 
 // ---------------- Accounts → Accounts (v3.56.0) ----------------
 // Every place money sits, grouped the way a bank app groups them — cash, cards, loans — each with
@@ -103,6 +104,7 @@ export function accountRowHtml(a, idx, today){
           : a.type === "offset" ? "An offset's balance is the one on its loan — it lowers the interest that loan charges."
           : agent ? "The bills the agent pays out of the rent — on a statement — are tagged with this account, so they never show as a debit to chase or money leaving your accounts. It has no balance of its own."
           : bal.source ? "Stored on " + escapeAttr(bal.source.label) + " — the same figure net worth and the projections use." : "Spending tagged with this account still works without a balance.") + '</p>' +
+        accountAutoPaysHtml(a, today) +
         '<div class="acct-field-wide acct-card-del"><button type="button" class="btn btn-danger btn-sm row-del" data-acct-del="' + idx + '" aria-label="Delete account">Delete account</button></div>' +
       '</div>'
     : '';

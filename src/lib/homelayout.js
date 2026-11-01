@@ -12,6 +12,7 @@ var KEY = "wealthPlanner.homeLayout";
 
 export var HOME_CARDS = [
   { key: "week", label: "Your week (Mondays, above the cards)", group: "strip" },
+  { key: "autopay", label: "Automatic payments to confirm (on the day)", group: "strip" },
   { key: "lowbal", label: "Balance ahead (when an account nears its buffer)", group: "strip" },
   { key: "nw", label: "Net worth", group: "cards" },
   { key: "month", label: "This month", group: "cards" },

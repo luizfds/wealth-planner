@@ -13,6 +13,7 @@ import { billsForMonth, usualCardSource, lineKind } from "./bills.js";
 import { rolledBalance } from "./accounts.js";
 import { cadenceOf } from "./recurring.js";
 import { nextCharge } from "./subscriptions.js";
+import { autoPayEvents, autoPayLineIds } from "./autopay.js";
 
 function r2(n){ return Math.round(n * 100) / 100; }
 function addDays(iso, n){ var d = new Date(iso + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
@@ -71,9 +72,13 @@ export function forecastInputs(st, account, today, days, opts){
   var end = addDays(today, days), name = account.name;
   var accountOf = opts.accountOf || function(t){ return t.account || ""; };
   var start = rolledBalance(account, { today: today, accountOf: accountOf }).balance;
-  var items = opts.items || st.shared || [];
+  // A Budget line an automatic payment stands for is drawn as that payment, not twice (v3.196.0).
+  var apLines = autoPayLineIds(st);
+  var items = (opts.items || st.shared || []).filter(function(i){ return !(i && apLines[i.id]); });
   var events = payEvents(st.incomeLog, name, today, end);
   var payFound = events.length > 0;
+  var autoPays = autoPayEvents(st, name, today, end);
+  events = events.concat(autoPays);
   // Bills from the calendar, month by month across the window.
   var billCount = 0;
   for(var ym = today.slice(0, 7); ym <= end.slice(0, 7); ym = addMonthsYm(ym, 1)){
@@ -102,7 +107,7 @@ export function forecastInputs(st, account, today, days, opts){
     if(t.linkedExpenseId && billLine[t.linkedExpenseId]) return;
     spent += Number(t.amount) || 0;
   });
-  return { start: start, events: events, spendDaily: r2(Math.max(0, spent) / 90), buffer: account.buffer, payFound: payFound, billCount: billCount };
+  return { start: start, events: events, spendDaily: r2(Math.max(0, spent) / 90), buffer: account.buffer, payFound: payFound, billCount: billCount + autoPays.length };
 }
 
 export function accountForecast(st, account, today, days, opts){

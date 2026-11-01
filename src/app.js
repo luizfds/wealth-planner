@@ -1,13 +1,8 @@
-import { calcFor, calcQ, calcOutHtml } from "./components/calculators.js";
-import { tryQ, renderScenarioAccountChart } from "./components/scenarioaccount.js";
-import { openDraft, saveDraft, discardDraft, draftChanged, resetChange, resetBuyInvest } from "./calc/scenariodraft.js";
 import { renderSubscriptions, subsUi } from "./components/subscriptions.js";
 import { bench, benchmarkCardHtml, targetMixCardHtml } from "./components/investreturn.js";
 import { whatIfValues, resetWhatIf, wiFromSlider, wiValueText } from "./components/whatif.js";
 import { whatIfMoved, keepWhatIf } from "./calc/whatif.js";
-import { mrQ, makeRealSheetHtml } from "./components/makereal.js";
-import { applyMakeReal } from "./calc/makereal.js";
-import { state, setState, storageAvailable, persist, setStatus, defaultState, defaultPurchaseConfig, defaultHomeBlock, defaultInvestConfig, migrateState, genId, normalizeShareAsset, onSaved } from "./state.js";
+import { state, setState, storageAvailable, persist, setStatus, defaultState, defaultInvestConfig, migrateState, genId, normalizeShareAsset, onSaved } from "./state.js";
 import { sacrificeModeToLabel, sacrificeLabelToMode, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, INVEST_LEG_TYPES } from "./constants.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr, fmtDate, parseAmountInput } from "./lib/format.js";
 import { showToast, showUndoToast, showPersistentToast } from "./lib/toast.js";
@@ -81,9 +76,9 @@ import { renderProjectionOutputs, renderProjectionsWhenSeen, renderWhatIfDrag, p
 import { renderBenchmarks, setBenchmarkField, applyBenchmarkPaste, addGoal, setGoalField, removeGoal, setPropertyMarketField } from "./components/benchmarks.js";
 import { copyBenchmarkTemplateToClipboard } from "./lib/backup.js";
 import {
-  selectScenario, addScenario, renameScenario, renameScenarioTo, cloneScenario, deleteScenario, renderHomeBody, renderHomeListModern, refreshScenarioDependentViews,
+  selectScenario, renameScenario, cloneScenario, deleteScenario, renderHomeBody, renderHomeListModern,
   renderHomeBodyTotalsOnly, homeBlockCollapsed, modernHomeRowOpen, patchHomeLoanRowIfSynced,
-  patchCalcOutputs, afterCalcChange, patchInvestOutputs, editing, renderScenarioEditor, editorUi, renderScenarioEditorChart, renderCalcScenario
+  patchCalcOutputs, afterCalcChange, patchInvestOutputs, editing
 } from "./components/scenarios.js";
 import { ACCOUNT_TYPE_KEYS, accountSourceOptions, setAccountBalance, resolveLink, accountBalance } from "./calc/accounts.js";
 import { addTransfer, deleteTransfer, splitTransaction, unsplit, bulkEditTransactions, bulkDeleteTransactions } from "./calc/cashflowlist.js";
@@ -92,18 +87,16 @@ import { rulesPageHtml, setRuleField, ruleIsEmpty, ruleTest, ruleView, RULES_PAG
 import { normaliseDescription } from "./calc/bank-import.js";
 import { openAccounts, balanceEditing } from "./components/accounts.js";
 import { renderHomeSummary, weekView } from "./components/home.js";
+import { autoPayView } from "./components/autopay.js";
+import { answerAutoPay, makeAutoPay } from "./calc/autopay.js";
 import { dismissWeekRecap } from "./calc/weekrecap.js";
 import { saveView, deleteView, applyView, FILTER_FIELDS } from "./calc/txviews.js";
 import { attachReceipt, detachReceipt, takeReceiptFiles } from "./calc/receipts.js";
 import { saveReceiptFile, unpackReceipts, openReceipt, pruneReceipts } from "./lib/receipts.js";
 import { startActivityLog, setDevicePerson, devicePerson } from "./lib/activity.js";
 import { undoEntry } from "./calc/activity.js";
-import { setAmountChange, removeChange, changesFor } from "./calc/scenariochanges.js";
-import { newChange } from "./calc/scenariolegs.js";
-import { changeOpen, addSheet, addChangeSheetHtml } from "./components/scenariochanges.js";
-import { buildScenario } from "./calc/scenariotemplates.js";
 import { renderCompare } from "./components/compare.js";
-import { startQ, startSheetHtml, templateContext } from "./components/scenariotemplates.js";
+import { wireScenarioEditor } from "./components/scenariowiring.js";
 import { renderActivity, activityUi } from "./components/activity.js";
 import { receiptHolder } from "./components/receipts.js";
 import { dataHealthChecks, dismissCheck } from "./calc/health.js";
@@ -164,7 +157,7 @@ import { applyParts, renderPartsSettings, setPart } from "./components/parts.js"
 import { txReview, txReviewHtml, reviewBannerHtml } from "./components/reviewqueue.js";
 import { loadHomeLayout, saveHomeLayout, moveCard, applyHomeLayout, homeArrangeHtml } from "./lib/homelayout.js";
 import { toReview, keepTransaction, refileTransaction, applyRuleFromReview, keepAll, ruleOfferFor } from "./calc/reviewqueue.js";
-import { setLeaveGuard, showPage, parseRouteFromLocation, closeNavMenu, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, taxSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
+import { showPage, parseRouteFromLocation, closeNavMenu, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, taxSubpage, setOverlayCleanup, QUICK_ACTIONS, quickActionsSheetHtml, PAGE_KEY, appAssetUrl } from "./components/nav.js";
 import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./components/search.js";
 import {
   startBankImport, reparseBankImportWith, clearBankImport,
@@ -5873,112 +5866,10 @@ import { inboxMessage } from "./calc/inbox.js";
   });
   document.addEventListener("keydown", function(e){ if(e.key === "Escape" && txReview.open) requestCloseActiveOverlay(); });
   document.addEventListener("click", function(e){ if(e.target.closest("[data-txr-open]")) openTxReview(); });
-  // ---------------- A scenario's changes (v3.172.0, item 207) ----------------
-  // Plan → Scenarios: a line's amount in a scenario, kept in the scenario (calc/scenariochanges.js).
-  // v3.180.1: each view once — refreshScenarioDependentViews draws the cards, the comparison, the home
-  // blocks and (when it's on screen) the projection.
-  function afterScenarioChange(){ persist(); refreshScenarioDependentViews(); }
-  document.addEventListener("click", function(e){
-    if(!e.target.closest) return;
-    var add = e.target.closest("[data-sc-add]");
-    if(add){
-      var sc = add.getAttribute("data-sc-add"), box = add.closest(".sc-add");
-      var rowId = box && box.querySelector("[data-sc-row]").value, amt = box && box.querySelector("[data-sc-new-amount]").value;
-      if(!rowId){ showToast("Choose the line that would be different"); return; }
-      if(amt === "" || isNaN(Number(amt))){ showToast("Type its amount in " + sc); box.querySelector("[data-sc-new-amount]").focus(); return; }
-      setAmountChange(sc, rowId, Number(amt), function(){ return genId("chg"); });
-      afterScenarioChange();
-      return;
-    }
-    var del = e.target.closest("[data-sc-del]");
-    if(del){
-      var dsc = del.getAttribute("data-sc-scenario"), gone = removeChange(dsc, del.getAttribute("data-sc-del"));
-      if(!gone) return;
-      afterScenarioChange();
-      showUndoToast("Removed the change", function(){ (state.scenarioChanges[dsc] = state.scenarioChanges[dsc] || []).push(gone); afterScenarioChange(); });
-    }
-  });
-  // v3.173.0 (item 208): the other kinds of change — rent elsewhere, an investment property, a cost, a sale.
-  var SC_NUMBERS = { amount: 1, fromYear: 1, whenAge: 1, whenCash: 1, rate: 1, price: 1, depositPct: 1, rate: 1, termYears: 1, rentWeekly: 1, vacancyWeeks: 1, mgmtPct: 1, costsYearly: 1, depreciationYearly: 1, sellingCostsPct: 1 };
-  document.addEventListener("click", function(e){
-    if(!e.target.closest) return;
-    var nb = e.target.closest("[data-sc-new]");
-    if(nb){
-      var sc = nb.getAttribute("data-sc-scenario");
-      var c = newChange(nb.getAttribute("data-sc-new"), genId("chg"), { properties: state.properties, state: (state.purchase[sc] && state.purchase[sc].state) || "NSW" });
-      (state.scenarioChanges[sc] = changesFor(sc).slice()).push(c);
-      changeOpen[c.id] = true;
-      afterScenarioChange();
-      var first = document.querySelector('[data-scf-id="' + c.id + '"]');
-      if(first) first.focus();
-      return;
-    }
-    var tg = e.target.closest("[data-sc-toggle]");
-    if(tg){ var tid = tg.getAttribute("data-sc-toggle"); changeOpen[tid] = !changeOpen[tid]; renderHomeBody(); var again = document.querySelector('[data-sc-toggle="' + tid + '"]'); if(again) again.focus(); }
-  });
-  document.addEventListener("change", function(e){
-    if(!e.target.matches || !e.target.matches("[data-scf]")) return;
-    var sc = e.target.getAttribute("data-scf-scenario"), id = e.target.getAttribute("data-scf-id"), key = e.target.getAttribute("data-scf");
-    var c = changesFor(sc).find(function(x){ return x.id === id; });
-    if(!c) return;
-    var v = e.target.value;
-    c[key] = SC_NUMBERS[key] ? (v === "" ? 0 : Number(v)) : (key === "growthPct" ? (v === "" ? "" : Number(v)) : v);
-    afterScenarioChange();
-    var back = document.querySelector('[data-scf="' + key + '"][data-scf-id="' + id + '"]');
-    if(back) back.focus();
-  });
-  document.addEventListener("change", function(e){
-    if(!e.target.matches || !e.target.matches("[data-sc-amount]")) return;
-    var sc = e.target.getAttribute("data-sc-scenario"), id = e.target.getAttribute("data-sc-amount");
-    var c = (state.scenarioChanges[sc] || []).find(function(x){ return x.id === id; });
-    if(!c || e.target.value === "" || isNaN(Number(e.target.value))) return;
-    setAmountChange(sc, c.rowId, Number(e.target.value), function(){ return genId("chg"); });
-    afterScenarioChange();
-  });
-
-  // ---------------- Start from a question (v3.174.0, item 209) ----------------
-  var startSheetRoot = document.getElementById("startSheetRoot");
-  function renderStartSheet(){
-    startSheetRoot.innerHTML = startQ.open ? startSheetHtml() : "";
-    var f = startQ.open && startSheetRoot.querySelector(startQ.key ? "[data-sq]" : "[data-sq-pick]:not([disabled])");
-    if(f) f.focus();
-  }
-  function openStartSheet(){ startQ.open = true; startQ.key = null; renderStartSheet(); pushActiveOverlay(function(){ startQ.open = false; startQ.key = null; renderStartSheet(); }); }
-  function makeScenarioFrom(built){
-    var name = built.name, n = 2;
-    while(state.scenarios.indexOf(name) !== -1) name = built.name + " (" + (n++) + ")";
-    var st = templateContext().state;
-    state.scenarios.push(name);
-    // A scenario that rents somewhere new has its rent as a change; no $0 placeholder home rows beside it.
-    var rents = (built.changes || []).some(function(c){ return c.kind === "rent"; });
-    state.home[name] = built.home ? built.home.map(function(r){ return Object.assign({}, r); }) : rents ? [] : defaultHomeBlock();
-    var pc = built.purchase;
-    state.purchase[name] = pc ? Object.assign(defaultPurchaseConfig(pc.price, pc.depositPct, pc.rate, pc.termYears || 30, pc.state || st, true), pc) : defaultPurchaseConfig(0, 20, 6.0, 30, st, false);
-    state.invest[name] = built.invest ? Object.assign(defaultInvestConfig(built.invest.assetType), built.invest) : defaultInvestConfig();
-    state.scenarioChanges[name] = built.changes || [];
-    homeBlockCollapsed[name] = false;
-    recalcComputedItems();
-    afterScenarioChange();
-    return name;
-  }
-  startSheetRoot.addEventListener("click", function(e){
-    if(e.target.closest("[data-sq-close]") || e.target === e.target.closest("[data-sq-backdrop]")){ requestCloseActiveOverlay(); return; }
-    var pick = e.target.closest("[data-sq-pick]");
-    if(pick){ startQ.key = pick.getAttribute("data-sq-pick"); renderStartSheet(); return; }
-    if(e.target.closest("[data-sq-back]")){ startQ.key = null; renderStartSheet(); return; }
-    if(e.target.closest("[data-sq-blank]")){ requestCloseActiveOverlay(); setTimeout(function(){ var n = state.scenarios.length; addScenario(); if(state.scenarios.length > n) openScenarioEditor(state.scenarios[state.scenarios.length - 1]); }, 50); return; }
-    if(e.target.closest("[data-sq-make]")){
-      var answers = {};
-      startSheetRoot.querySelectorAll("[data-sq]").forEach(function(el){ answers[el.getAttribute("data-sq")] = el.value; });
-      var built = buildScenario(startQ.key, answers, Object.assign(templateContext(), { idFactory: function(){ return genId("chg"); } }));
-      var made = makeScenarioFrom(built);
-      requestCloseActiveOverlay();
-      showToast('Made "' + made + '" — change anything in it, then Save');
-      // v3.181.0: straight into its editor.
-      setTimeout(function(){ openScenarioEditor(made); }, 250);
-    }
-  });
-  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && startQ.open) requestCloseActiveOverlay(); });
+  // ---------------- Plan → Scenarios: changes, the question sheet, a scenario's page, Make it real ----------------
+  // v3.200.0 (item 230): wired in components/scenariowiring.js, from here — the order listeners are added in is kept.
+  var scenarioWiring = wireScenarioEditor({ pushActiveOverlay: pushActiveOverlay, requestCloseActiveOverlay: requestCloseActiveOverlay, withUndo: withUndo, renderAll: renderAll });
+  var openStartSheet = scenarioWiring.openStartSheet, openScenarioEditor = scenarioWiring.openScenarioEditor, afterScenarioChange = scenarioWiring.afterScenarioChange;
 
   // ---------------- Balance forecast by the day (v3.180.0, item 206) ----------------
   document.addEventListener("change", function(e){
@@ -6072,169 +5963,6 @@ import { inboxMessage } from "./calc/inbox.js";
     afterScenarioChange();
     showToast('Kept as "' + made + '" — it\'s on Plan → Scenarios, and on the chart');
   });
-
-  // ---------------- A scenario on its own page (v3.181.0, item 212) ----------------
-  // Edits go to a draft (calc/scenariodraft.js) and only the page redraws; Save writes it back and
-  // updates everything once; Cancel (or ← Scenarios) drops it, asking first if anything changed.
-  function openScenarioEditor(name){
-    if(state.scenarios.indexOf(name) === -1) return;
-    var today = name === state.baselineScenario && !(state.home[name] || []).length;
-    editing.name = name;
-    editing.key = today ? name : openDraft(name);
-    Object.keys(changeOpen).forEach(function(k){ delete changeOpen[k]; });
-    persist();
-    showPage("scenario");
-    window.scrollTo(0, 0);
-  }
-  function closeScenarioEditor(saved){
-    var name = editing.name;
-    editing.name = null; editing.key = null;
-    calcFor.key = null; calcFor.name = null;
-    renderHomeBody();
-    recalcComputedItems();
-    persist();
-    refreshScenarioDependentViews();
-    renderProjectionsWhenSeen();
-    showPage("plan");
-    showPlanSubpage("scenarios", { replace: true });
-    if(saved) showToast('Saved "' + name + '"');
-  }
-  document.addEventListener("click", function(e){
-    if(!e.target.closest) return;
-    if(e.target.closest("[data-sc-save]")){
-      if(!editing.name) return;
-      saveDraft(editing.name);
-      closeScenarioEditor(true);
-      return;
-    }
-    if(e.target.closest("[data-sc-cancel]")){
-      if(!editing.name) return;
-      if(editing.key !== editing.name && draftChanged(editing.name) && !confirm('Discard the changes to "' + editing.name + '"?')) return;
-      if(editing.key !== editing.name) discardDraft(editing.name);
-      closeScenarioEditor(false);
-    }
-  });
-
-  // v3.194.0 (item 225): renamed in place (its draft goes with it), and a note on why.
-  document.addEventListener("change", function(e){
-    if(!e.target.matches || !editing.name) return;
-    if(e.target.matches("[data-sc-rename-inline]")){
-      var done = renameScenarioTo(editing.name, e.target.value);
-      if(!done){ e.target.value = editing.name; return; }
-      renderScenarioEditor();
-      showToast('Renamed to "' + done + '"');
-    }
-  });
-  document.addEventListener("input", function(e){
-    if(!e.target.matches || !e.target.matches("[data-sc-note]") || !editing.name) return;
-    if(!state.scenarioNotes) state.scenarioNotes = {};
-    var v = e.target.value.trim();
-    if(v) state.scenarioNotes[editing.name] = e.target.value; else delete state.scenarioNotes[editing.name];
-    e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px";
-    persist();
-  });
-  document.addEventListener("keydown", function(e){ if(e.key === "Enter" && e.target.matches && e.target.matches("[data-sc-rename-inline]")) e.target.blur(); });
-  // v3.191.0 (item 222): one change, or the buying / investing, back to as saved.
-  document.addEventListener("click", function(e){
-    if(!e.target.closest || !editing.name || editing.key === editing.name) return;
-    var r = e.target.closest("[data-sc-reset]");
-    if(r){ resetChange(editing.name, r.getAttribute("data-sc-reset")); afterScenarioChange(); return; }
-    if(e.target.closest("[data-sc-reset-buy]")){ resetBuyInvest(editing.name); recalcComputedItems(); afterScenarioChange(); }
-  });
-  // v3.190.0 (item 221): the sheet of changes to add. A kind's button is an ordinary [data-sc-new], so the
-  // handler that adds changes adds it; the sheet just closes.
-  var addChangeRoot = document.getElementById("addChangeRoot");
-  function renderAddSheet(){ addChangeRoot.innerHTML = addChangeSheetHtml(); var f = addChangeRoot.querySelector("[data-sc-new]:not([disabled])"); if(f) f.focus(); }
-  document.addEventListener("click", function(e){
-    var b = e.target.closest && e.target.closest("[data-sc-addsheet]");
-    if(!b) return;
-    addSheet.open = true; addSheet.scenario = b.getAttribute("data-sc-addsheet"); renderAddSheet();
-    pushActiveOverlay(function(){ addSheet.open = false; renderAddSheet(); });
-  });
-  addChangeRoot.addEventListener("click", function(e){
-    if(e.target.closest("[data-acs-close]") || e.target === e.target.closest("[data-acs-backdrop]")){ requestCloseActiveOverlay(); return; }
-    if(e.target.closest("[data-sc-new]")) setTimeout(function(){ if(addSheet.open) requestCloseActiveOverlay(); }, 0);
-  });
-  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && addSheet.open){ e.preventDefault(); requestCloseActiveOverlay(); } });
-
-  // v3.189.0 (item 220): the scenario's calculators on their own page, and back; the standalone ones.
-  document.addEventListener("click", function(e){
-    if(!e.target.closest) return;
-    if(e.target.closest("[data-sc-calc]") && editing.key){ calcFor.key = editing.key; calcFor.name = editing.name; showPage("calc"); window.scrollTo(0, 0); return; }
-    if(e.target.closest("[data-calc-done]")){ calcFor.key = null; calcFor.name = null; renderCalcScenario(); showPage("scenario"); window.scrollTo(0, 0); }
-  });
-  document.addEventListener("input", function(e){
-    var path = e.target.getAttribute && e.target.getAttribute("data-cq");
-    if(!path) return;
-    var parts = path.split("."), v = e.target.value;
-    calcQ[parts[0]][parts[1]] = e.target.tagName === "SELECT" ? v : (v === "" ? 0 : Number(v));
-    var out = document.querySelector('[data-cq-out="' + parts[0] + '"]');
-    if(out) out.innerHTML = calcOutHtml(parts[0]);
-  });
-  document.addEventListener("change", function(e){
-    if(e.target.matches && e.target.matches("select[data-cq]")) e.target.dispatchEvent(new Event("input", { bubbles: true }));
-  });
-  // v3.188.0 (item 219): unsaved changes aren't lost by a tap elsewhere, the back button or closing the app.
-  function unsavedDraft(){ return !!(editing.name && editing.key !== editing.name && draftChanged(editing.name)); }
-  setLeaveGuard(function(){
-    if(!unsavedDraft()) return true;
-    return confirm('"' + editing.name + '" has unsaved changes. Leave and keep them as a draft for later? (Cancel stays here.)');
-  });
-  window.addEventListener("beforeunload", function(e){ if(unsavedDraft()){ e.preventDefault(); e.returnValue = ""; } });
-  document.addEventListener("keydown", function(e){
-    if(document.body.getAttribute("data-current-page") !== "scenario" || !editing.name) return;
-    if((e.ctrlKey || e.metaKey) && (e.key === "s" || e.key === "S")){
-      e.preventDefault();
-      if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); // a field's change lands first
-      var save = document.querySelector("#scenarioEditHead .sc-edit-actions [data-sc-save]");
-      if(save && !save.disabled) save.click();
-      return;
-    }
-    if(e.key === "Escape" && !e.defaultPrevented && !document.querySelector(".review-backdrop") && !(document.activeElement && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName))){
-      var cancel = document.querySelector("#scenarioEditHead .sc-edit-actions [data-sc-cancel]");
-      if(cancel) cancel.click();
-    }
-  });
-  // v3.187.0 (item 218): the results' fold keeps its state while the page redraws.
-  document.addEventListener("toggle", function(e){ if(e.target.matches && e.target.matches("[data-sc-more]")){ editorUi.moreOpen = e.target.open; if(e.target.open && editing.key){ renderScenarioEditorChart(); renderScenarioAccountChart(editing.key); } } }, true);
-  // v3.185.0 (item 216): which account the scenario is tried on, and from when.
-  document.addEventListener("change", function(e){
-    if(!e.target.matches) return;
-    if(e.target.matches("[data-try-account]")){ tryQ.accountId = e.target.value; renderScenarioEditor(); }
-    else if(e.target.matches("[data-try-settle]")){ tryQ.settleOn = e.target.value || null; renderScenarioEditor(); }
-    else if(e.target.matches("[data-try-settlement]")){ tryQ.settlementHere = e.target.checked; renderScenarioEditor(); }
-  });
-
-  // ---------------- Make it real (v3.176.0, item 211) ----------------
-  var makeRealRoot = document.getElementById("makeRealRoot");
-  function renderMakeReal(){
-    makeRealRoot.innerHTML = mrQ.open ? makeRealSheetHtml() : "";
-    var f = mrQ.open && makeRealRoot.querySelector("[data-mr-apply], [data-mr-close]");
-    if(f) f.focus();
-  }
-  document.addEventListener("click", function(e){
-    var b = e.target.closest && e.target.closest("[data-make-real]");
-    if(!b) return;
-    e.stopPropagation();
-    mrQ.open = true; mrQ.name = b.getAttribute("data-make-real"); mrQ.removeAfter = true;
-    renderMakeReal();
-    pushActiveOverlay(function(){ mrQ.open = false; renderMakeReal(); });
-  });
-  makeRealRoot.addEventListener("change", function(e){ if(e.target.matches("[data-mr-remove]")) mrQ.removeAfter = e.target.checked; });
-  makeRealRoot.addEventListener("click", function(e){
-    if(e.target.closest("[data-mr-close]") || e.target === e.target.closest("[data-mr-backdrop]")){ requestCloseActiveOverlay(); return; }
-    if(!e.target.closest("[data-mr-apply]")) return;
-    var name = mrQ.name, remove = mrQ.removeAfter;
-    requestCloseActiveOverlay();
-    withUndo('Made "' + name + '" real', function(){
-      applyMakeReal(state, name, localDateStr(), genId);
-      if(remove && name !== state.baselineScenario && state.scenarios.length > 1) deleteScenario(name);
-      else state.scenarioChanges[name] = [];
-      recalcComputedItems();
-    });
-    renderAll();
-  });
-  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && mrQ.open) requestCloseActiveOverlay(); });
 
   // ---------------- Who changed what (v3.171.0, item 202) ----------------
   // The watcher logs edits made here a moment after they're saved (lib/activity.js); this is the
@@ -6715,6 +6443,74 @@ import { inboxMessage } from "./calc/inbox.js";
         else showToast("Close the year appears on Returns once the year is over");
       }
     }
+  });
+
+  // ---------------- Automatic payments (v3.196.0, item 231) ----------------
+  // Set up on an account's card; answered on Home. calc/autopay.js does the recording.
+  function afterAutoPay(){ persist(); renderAll(); renderNotifBadge(); }
+  function answerAndUndo(id, date, answer, said){
+    var r = answerAutoPay(state, id, date, answer, genId);
+    if(!r) return;
+    autoPayView.other = "";
+    afterAutoPay();
+    showUndoToast(said, function(){ answerAutoPay(state, id, date, { undo: true }); afterAutoPay(); });
+  }
+  document.addEventListener("click", function(e){
+    var add = e.target.closest("[data-ap-add]");
+    if(add){
+      var name = add.getAttribute("data-ap-add");
+      var acct = (state.accounts || []).find(function(x){ return x.name === name; }) || {};
+      var owed = acct.type === "loan" || acct.type === "credit";
+      if(!Array.isArray(state.autoPayments)) state.autoPayments = [];
+      state.autoPayments.push(makeAutoPay({ from: owed ? "" : name, to: owed ? name : "", freq: "Monthly" }, localDateStr(), genId("ap")));
+      persist(); renderAccounts();
+      return;
+    }
+    var del = e.target.closest("[data-ap-del]");
+    if(del){
+      var di = (state.autoPayments || []).findIndex(function(x){ return x.id === del.getAttribute("data-ap-del"); });
+      if(di === -1) return;
+      var gone = state.autoPayments.splice(di, 1)[0];
+      afterAutoPay();
+      showUndoToast("Deleted the automatic payment — transfers it recorded stay", function(){ state.autoPayments.splice(di, 0, gone); afterAutoPay(); });
+      return;
+    }
+    var b = e.target.closest("[data-ap-yes],[data-ap-skip],[data-ap-other],[data-ap-other-save],[data-ap-other-cancel]");
+    if(!b) return;
+    var id = b.getAttribute("data-ap-id"), date = b.getAttribute("data-ap-date");
+    if(b.hasAttribute("data-ap-other-cancel")){ autoPayView.other = ""; renderHomeSummary(); return; }
+    if(b.hasAttribute("data-ap-other")){
+      autoPayView.other = id + "|" + date; renderHomeSummary();
+      var inp = document.querySelector("#homeSummary .ap-other-amount"); if(inp){ inp.focus(); inp.select(); }
+      return;
+    }
+    if(b.hasAttribute("data-ap-skip")){ answerAndUndo(id, date, { skipped: true }, "Marked as not gone through — nothing recorded"); return; }
+    if(b.hasAttribute("data-ap-yes")){ answerAndUndo(id, date, { paid: true }, "Recorded as a transfer"); return; }
+    var row = b.closest(".ap-due-row");
+    var amt = Number((row.querySelector(".ap-other-amount") || {}).value);
+    if(!(amt > 0)){ showToast("Type the amount that went out"); return; }
+    var keep = !!(row.querySelector(".ap-other-keep") || {}).checked;
+    answerAndUndo(id, date, { paid: true, amount: amt, keep: keep }, "Recorded " + fmtCurrency2.format(amt) + (keep ? " — and the amount from now on" : ""));
+  });
+  document.addEventListener("keydown", function(e){
+    if(e.key === "Enter" && e.target.classList && e.target.classList.contains("ap-other-amount")){
+      var save = e.target.closest(".ap-due-row").querySelector("[data-ap-other-save]"); if(save) save.click();
+    }
+  });
+  document.addEventListener("change", function(e){
+    var field = e.target.getAttribute && e.target.getAttribute("data-ap-field");
+    if(!field) return;
+    var ap = (state.autoPayments || []).find(function(x){ return x.id === e.target.getAttribute("data-ap-id"); });
+    if(!ap) return;
+    var v = e.target.value;
+    if(field === "amount") ap.amount = Math.round((Number(v) || 0) * 100) / 100;
+    else if(field === "line"){ if(v) ap.line = v; else delete ap.line; }
+    else if(field === "what") ap.what = v.trim();
+    else ap[field] = v;
+    persist();
+    renderHomeSummary(); renderNotifBadge();
+    // Rebuilt after the event: the note under it ("Next on …") follows the day and how often.
+    if(field === "start" || field === "freq" || field === "line") setTimeout(renderAccounts, 0);
   });
 
   // ---------------- Home (v3.58.0): the summary's links and to-dos ----------------

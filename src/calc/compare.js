@@ -13,9 +13,9 @@ import { recalcPurchase, calcRepaymentMonthly, purchaseActiveRate, ipProperties,
 import { sumField } from "./ledger.js";
 import { ipFigures } from "./scenariolegs.js";
 import { badStartSeries } from "./outcomes.js";
-import { serviceability, SERVICE_BUFFER } from "./salecgt.js";
+import { serviceability, SERVICE_BUFFER, livingFloor, assessedLiving } from "./salecgt.js";
 import { scenarioSharedItems, livesElsewhere } from "./scenariochanges.js";
-import { scenarioIncomeMonthly } from "./tax.js";
+import { scenarioIncomeMonthly, getTaxPeople } from "./tax.js";
 import { periodsOf } from "./ledger.js";
 import { localDateStr } from "../lib/format.js";
 
@@ -108,19 +108,19 @@ export function compareScenario(scenario, opts){
 // has them (loan repayments aside), and every loan, new and existing, at its rate plus the buffer.
 export function lenderCheck(scenario, base){
   var cfg = state.purchase && state.purchase[scenario], inv = state.invest && state.invest[scenario];
-  var loans = [], rent = 0, living = 0;
+  var loans = [], rent = 0, living = 0, propCosts = 0;
   if(cfg && cfg.enabled && !(inv && inv.enabled)){
     var out = recalcPurchase(scenario);
     if(out && out.loanBalance > 0) loans.push({ balance: out.loanBalance, rate: purchaseActiveRate(cfg), termYears: cfg.termYears });
   }
   scenarioLegChanges(scenario).forEach(function(c){
-    if(c.kind === "ip"){ var f = ipFigures(c, {}); loans.push({ balance: f.loan, rate: Number(c.rate) || 0, termYears: Number(c.termYears) || 30 }); rent += f.rentYearly / 12; living += f.costsYearly / 12; }
+    if(c.kind === "ip"){ var f = ipFigures(c, {}); loans.push({ balance: f.loan, rate: Number(c.rate) || 0, termYears: Number(c.termYears) || 30 }); rent += f.rentYearly / 12; propCosts += f.costsYearly / 12; }
     else if(c.kind === "rent" || c.kind === "cost") living += periodsOf(Number(c.amount) || 0, c.freq || "Monthly").monthly;
   });
   if(!loans.length) return null;
   ipProperties().forEach(function(p){
     rent += sumField(p.income || [], "monthly");
-    living += sumField(p.expenses || [], "monthly");
+    propCosts += sumField(p.expenses || [], "monthly");
     (p.loans || []).forEach(function(l){ if(!loanPaidOut(l, localDateStr())) loans.push({ balance: Math.max(0, (Number(l.balance) || 0) - (Number(l.offsetBalance) || 0)), rate: Number(l.rate) || 0, termYears: Number(l.termYears) || 30 }); });
   });
   (state.properties || []).filter(function(p){ return p.kind !== "IP"; }).forEach(function(p){
@@ -130,8 +130,12 @@ export function lenderCheck(scenario, base){
   // are assessed instead), plus its own home's running costs.
   living += sumField(scenarioSharedItems(scenario).filter(function(l){ return !/\b(loan|mortgage)\b/i.test(String(l.what || "")); }), "monthly");
   if(livesElsewhere(scenario)) living += sumField((state.home[scenario] || []).filter(function(r){ return r.id !== "homeLoanRow"; }), "monthly");
-  var r = serviceability({ incomeMonthly: scenarioIncomeMonthly({ scenario: base }), rentMonthly: rent, livingMonthly: living, loans: loans });
-  return { ok: r.ok, surplus: Math.round(r.surplus), assessedMonthly: Math.round(r.assessedMonthly) };
+  // v3.198.0 (item 229): the household's own living costs, or the lenders'-style floor for a household like
+  // it where that's higher; a property's running costs come on top either way.
+  var income = scenarioIncomeMonthly({ scenario: base });
+  var lv = assessedLiving(living, livingFloor({ adults: getTaxPeople().length, dependants: state.dependants, incomeMonthly: income }));
+  var r = serviceability({ incomeMonthly: income, rentMonthly: rent, livingMonthly: lv.used + propCosts, loans: loans });
+  return { ok: r.ok, surplus: Math.round(r.surplus), assessedMonthly: Math.round(r.assessedMonthly), living: Math.round(lv.used), livingSource: lv.source, livingDeclared: Math.round(lv.declared) };
 }
 
 // One line a person can act on: the deal-breakers first, then how it compares.

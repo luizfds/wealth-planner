@@ -22,17 +22,66 @@ export function changesFor(name, st){
   var all = st.scenarioChanges && st.scenarioChanges[name];
   return Array.isArray(all) ? all : [];
 }
+// ---------------- Combined scenarios (v3.199.0, item 227) ----------------
+// A scenario can include others — { kind: "include", scenario: name } — and their changes count with its
+// own, read from where they live (never copied), so a change to an included scenario flows through.
+// Its own come first: where both say something about the same thing (a line's amount, its assumptions,
+// when pay stops), its own wins. Included scenarios are counted once each however they're reached, never
+// themselves (a loop stops), and what's set up outside the list of changes — its own home rows ("Lives
+// somewhere else") or a home bought in the calculators — stays with it.
+var INCLUDE_PREFIX = "Draft · ";
+function bare(name){ return String(name || "").indexOf(INCLUDE_PREFIX) === 0 ? String(name).slice(INCLUDE_PREFIX.length) : String(name || ""); }
+export function includedNames(name, st){
+  st = st || state;
+  var seen = {}, out = [];
+  seen[bare(name)] = true;
+  (function walk(n){
+    changesFor(n, st).forEach(function(c){
+      if(!c || c.kind !== "include" || !c.scenario || seen[c.scenario]) return;
+      if((st.scenarios || []).indexOf(c.scenario) === -1) return;
+      seen[c.scenario] = true; out.push(c.scenario); walk(c.scenario);
+    });
+  })(name);
+  return out;
+}
+var ONE_OF = { assume: 1, retire: 1 };
+export function effectiveChanges(name, st){
+  st = st || state;
+  var own = changesFor(name, st).filter(function(c){ return c && c.kind !== "include"; });
+  var names = includedNames(name, st);
+  if(!names.length) return own;
+  var out = own.slice(), rows = {}, kinds = {};
+  own.forEach(function(c){ if(c.kind === "amount") rows[c.rowId] = true; if(ONE_OF[c.kind]) kinds[c.kind] = true; });
+  names.forEach(function(n){
+    changesFor(n, st).forEach(function(c){
+      if(!c || c.kind === "include" || c.kind === "home") return;
+      if(c.kind === "amount"){ if(rows[c.rowId]) return; rows[c.rowId] = true; }
+      if(ONE_OF[c.kind]){ if(kinds[c.kind]) return; kinds[c.kind] = true; }
+      out.push(Object.assign({ from: n }, c));
+    });
+  });
+  return out;
+}
+// The scenarios `name` could include: saved ones, not the household, not itself, not one including it.
+export function includeCandidates(name, st){
+  st = st || state;
+  var me = bare(name);
+  return (st.scenarios || []).filter(function(n){
+    return n !== me && n !== st.baselineScenario && String(n).indexOf(INCLUDE_PREFIX) !== 0 && includedNames(n, st).indexOf(me) === -1;
+  });
+}
+
 // A row's amount in a scenario: the scenario's own figure for it, else the row's.
 export function amountChangeFor(name, rowId, st){
   if(!name || rowId == null) return null;
-  var c = changesFor(name, st).find(function(x){ return x && x.kind === "amount" && x.rowId === rowId; });
+  var c = effectiveChanges(name, st).find(function(x){ return x && x.kind === "amount" && x.rowId === rowId; });
   return c ? c.amount : null;
 }
 // Lives elsewhere: its own home rows ("home"), a rent somewhere new ("rent", v3.173.0), or buying a
 // home to live in (the purchase calculator on, with the invest leg off).
 export function livesElsewhere(name, st){
   st = st || state;
-  if(changesFor(name, st).some(function(x){ return x && (x.kind === "home" || x.kind === "rent"); })) return true;
+  if(effectiveChanges(name, st).some(function(x){ return x && (x.kind === "home" || x.kind === "rent"); })) return true;
   var cfg = st.purchase && st.purchase[name], inv = st.invest && st.invest[name];
   return !!(cfg && cfg.enabled && !(inv && inv.enabled) && name !== st.baselineScenario);
 }
@@ -83,9 +132,13 @@ export function removeChange(name, id, st){
 // Renaming, copying and deleting a scenario carry its changes.
 export function renameScenarioChanges(oldName, name, st){
   st = st || state;
-  if(!st.scenarioChanges || !(oldName in st.scenarioChanges)) return;
-  st.scenarioChanges[name] = st.scenarioChanges[oldName];
-  delete st.scenarioChanges[oldName];
+  if(!st.scenarioChanges) return;
+  if(oldName in st.scenarioChanges){
+    st.scenarioChanges[name] = st.scenarioChanges[oldName];
+    delete st.scenarioChanges[oldName];
+  }
+  // Scenarios that include it follow the new name (v3.199.0).
+  Object.keys(st.scenarioChanges).forEach(function(k){ (st.scenarioChanges[k] || []).forEach(function(c){ if(c && c.kind === "include" && c.scenario === oldName) c.scenario = name; }); });
 }
 export function cloneScenarioChanges(from, name, idFactory, st){
   st = st || state;
@@ -94,7 +147,10 @@ export function cloneScenarioChanges(from, name, idFactory, st){
 }
 export function deleteScenarioChanges(name, st){
   st = st || state;
-  if(st.scenarioChanges) delete st.scenarioChanges[name];
+  if(!st.scenarioChanges) return;
+  delete st.scenarioChanges[name];
+  // And nothing goes on including a scenario that's gone.
+  Object.keys(st.scenarioChanges).forEach(function(k){ st.scenarioChanges[k] = (st.scenarioChanges[k] || []).filter(function(c){ return !(c && c.kind === "include" && c.scenario === name); }); });
 }
 
 // The one-time move into this shape (st.scenarioModel = 2 once done):

@@ -10,6 +10,8 @@
 //          growthPct (blank = the projection's property rate), depreciationYearly, owner ("" = shared), fromYear }
 //   cost — a cost (or, negative, a saving) the household doesn't have today: { kind: "cost", what, amount, freq, fromYear }
 //   sell — sell a property you own:              { kind: "sell", propertyId, fromYear, sellingCostsPct }
+//   include — another scenario's changes counted too (v3.199.0): { kind: "include", scenario } — see
+//          effectiveChanges in calc/scenariochanges.js
 //   extra — pay a loan down faster (v3.174.0):   { kind: "extra", propertyId, amount, freq, rate, fromYear } —
 //          out of each month's savings, into the loan at its rate (equity, not spending)
 //
@@ -27,6 +29,7 @@ export var CHANGE_KINDS = [
   { key: "cost", label: "A new cost or saving", hint: "Childcare, a second car, a gym you'd stop" },
   { key: "sell", label: "Sell a property you own", hint: "Its equity becomes cash in the year you choose" },
   { key: "extra", label: "Pay a loan down faster", hint: "Extra repayments each month, saved at the loan's rate" },
+  { key: "include", label: "Include another scenario", hint: "Its changes counted here too — kept where they are, so editing it changes this" },
   { key: "amount", label: "A line costs a different amount", hint: "A budget line or a pay that would be different" }
 ];
 var MEDICARE = 0.02;
@@ -35,6 +38,7 @@ function num(v, d){ var n = Number(v); return isFinite(n) && v !== "" && v != nu
 
 export function newChange(kind, id, ctx){
   ctx = ctx || {};
+  if(kind === "include") return { id: id, kind: "include", scenario: ctx.include || "" };
   if(kind === "rent") return { id: id, kind: "rent", what: "Rent", amount: 850, freq: "Weekly", fromYear: 0 };
   if(kind === "cost") return { id: id, kind: "cost", what: "A new cost", amount: 100, freq: "Monthly", fromYear: 0 };
   if(kind === "extra") return { id: id, kind: "extra", propertyId: (ctx.properties && ctx.properties[0] && ctx.properties[0].id) || "", amount: 500, freq: "Monthly", rate: (ctx.loanRate != null ? ctx.loanRate : 6), fromYear: 0 };
@@ -176,6 +180,7 @@ export function changeSummary(c, ctx){
   if(c.kind === "cost") return (c.what || "A cost") + ": " + money(num(c.amount)) + " " + String(c.freq || "Monthly").toLowerCase() + when;
   if(c.kind === "ip") return (c.what || "Investment property") + ": " + money(num(c.price)) + " in " + (c.state || "NSW") + ", rent " + money(num(c.rentWeekly)) + "/week" + when;
   if(c.kind === "extra") return "Pay " + ((ctx.propertyName && ctx.propertyName(c.propertyId)) || "the loan") + " down by " + money(num(c.amount)) + " " + String(c.freq || "Monthly").toLowerCase() + " extra" + when;
+  if(c.kind === "include") return c.scenario ? "Everything in \u201c" + c.scenario + "\u201d" : "Another scenario — pick one";
   if(c.kind === "retire") return "Retire at " + num(c.age) + " — pay stops from then";
   if(c.kind === "assume"){
     var a = [];

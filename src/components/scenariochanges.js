@@ -1,5 +1,5 @@
 import { state } from "../state.js";
-import { changesFor } from "../calc/scenariochanges.js";
+import { changesFor, includeCandidates } from "../calc/scenariochanges.js";
 import { isDraftKey, DRAFT_PREFIX, changeStatus, changedFields } from "../calc/scenariodraft.js";
 import { CHANGE_KINDS, ipFigures, legsMonthly, changeSummary } from "../calc/scenariolegs.js";
 import { scenarioLegContext, computeNetWorthSeries, isCashTriggered } from "../calc/engine.js";
@@ -112,8 +112,8 @@ function changeFormHtml(c, scenario, ctx){
       field(c, scenario, "sellingCostsPct", "Selling costs %", "number"),
       // v3.186.0 (item 217): how it was used decides the capital gains tax.
       field(c, scenario, "use", "Lived in it", "select", [["", "As its kind says"], ["never", "Never"], ["home", "Our home throughout"], ["former", "Our home, then rented out"]]));
-    if(c.use === "former") f.push(field(c, scenario, "movedOut", "Moved out", "date"));
-    f.push('<p class="scf-figs"><span>Capital gains tax: half the gain after a year, at the owners\' tax; none on the home you live in, and none on a former home sold within six years of moving out (past that, the share of time beyond the six years). An estimate — the cost base resetting to market value when first rented isn\'t applied.</span></p>');
+    if(c.use === "former") f.push(field(c, scenario, "movedOut", "Moved out", "date"), field(c, scenario, "firstRentedValue", "Its value when first rented", "number", ' placeholder="a valuation then, if you had one"'));
+    f.push('<p class="scf-figs"><span>Capital gains tax: half the gain after a year, at the owners\' tax; none on the home you live in, and none on a former home sold within six years of moving out (past that, the share of time beyond the six years' + (c.use === "former" ? ', worked from its value when first rented where you give it — the home first used to earn income' : '') + '). An estimate — an accountant confirms it.</span></p>');
   }
   return '<div class="scf-grid">' + f.join("") + '</div>';
 }
@@ -128,6 +128,25 @@ function amountChangeHtml(c, scenario){
       (Math.abs(monthlyDiff) >= 0.5 ? ' · ' + (monthlyDiff > 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(monthlyDiff)) + '/mo' : '') + '</small></span>' +
     '<label class="sc-amt"><span class="visually-hidden">Amount in ' + escapeAttr(scenario) + '</span><input type="number" step="0.01" min="0" value="' + (Number(c.amount) || 0) + '" data-sc-amount="' + escapeAttr(c.id) + '" data-sc-scenario="' + escapeAttr(scenario) + '" aria-label="' + escapeAttr((r.what || "Line") + " in " + scenario + ", " + String(r.freq || "").toLowerCase()) + '"><small>' + escapeAttr(String(r.freq || "").toLowerCase()) + '</small></label>' +
     '<button type="button" class="btn btn-danger btn-sm" data-sc-del="' + escapeAttr(c.id) + '" data-sc-scenario="' + escapeAttr(scenario) + '" aria-label="' + escapeAttr("Remove the change to " + (r.what || "this line")) + '">✕</button></div>';
+}
+function includeChangeHtml(c, scenario, draftName){
+  var options = includeCandidates(scenario);
+  if(c.scenario && options.indexOf(c.scenario) === -1) options = [c.scenario].concat(options);
+  var theirs = c.scenario ? changesFor(c.scenario).filter(function(x){ return x && x.kind !== "include"; }) : [];
+  var ctx = { money: function(n){ return fmtCurrency0.format(n); }, propertyName: function(id){ var p = (state.properties || []).find(function(x){ return x.id === id; }); return p ? p.what : null; } };
+  var list = theirs.filter(function(x){ return x.kind !== "home"; }).map(function(x){ return x.kind === "amount" ? ((rowById(x.rowId) || {}).row || {}).what + " at " + fmtCurrency2.format(Number(x.amount) || 0) : changeSummary(x, ctx); }).filter(Boolean);
+  var left = [];
+  if(theirs.some(function(x){ return x.kind === "home"; })) left.push("its own home costs");
+  var cfg = c.scenario && state.purchase && state.purchase[c.scenario];
+  if(cfg && cfg.enabled) left.push("its home purchase");
+  var status = draftName ? changeStatus(draftName, c.id) : "same";
+  var badge = status === "same" ? "" : '<span class="sc-badge">' + (status === "new" ? "New" : "Changed") + '</span>';
+  var a = ' data-scf-id="' + escapeAttr(c.id) + '" data-scf-scenario="' + escapeAttr(scenario) + '"';
+  return '<div class="sc-change sc-include"><span class="sc-what"><b>' + escapeAttr(changeSummary(c)) + badge + '</b>' +
+      '<small>' + (c.scenario ? (list.length ? escapeAttr(list.join(" · ")) : "Nothing in it differs from today yet") + (left.length ? " — " + escapeAttr(left.join(" and ")) + " stay" + (left.length === 1 ? "s" : "") + " with it" : "") : "") + '</small>' +
+      '<label class="scf"><span>Include</span><select data-scf="scenario"' + a + '>' + (c.scenario ? '' : '<option value="">— pick a scenario —</option>') +
+        options.map(function(n){ return '<option value="' + escapeAttr(n) + '"' + (n === c.scenario ? " selected" : "") + '>' + escapeAttr(n) + '</option>'; }).join("") + '</select></label></span>' +
+    '<button type="button" class="btn btn-danger btn-sm" data-sc-del="' + escapeAttr(c.id) + '" data-sc-scenario="' + escapeAttr(scenario) + '" aria-label="' + escapeAttr("Remove: " + changeSummary(c)) + '">✕</button></div>';
 }
 export function scenarioChangesHtml(scenario){
   var all = changesFor(scenario);
@@ -145,6 +164,8 @@ export function scenarioChangesHtml(scenario){
     if(c.kind === "amount") return amountChangeHtml(c, scenario);
     // v3.194.0 (item 225): said in the scenario's header, with what it costs, when it's being edited.
     if(c.kind === "home") return draftName ? '' : '<div class="sc-change"><span class="sc-what"><b>Lives somewhere else</b><small>Its home costs are listed under Recurring costs below; today\'s home lines are left out.</small></span></div>';
+    // v3.199.0 (item 227): another scenario's changes, counted here — which one, and what it brings.
+    if(c.kind === "include") return includeChangeHtml(c, scenario, draftName);
     // v3.177.0 (item 204): kept from a what-if on Projections — they change the projection, not the month.
     if(c.kind === "assume" || c.kind === "retire") return '<div class="sc-change"><span class="sc-what"><b>' + escapeAttr(changeSummary(c)) + '</b><small>' +
         (c.kind === "retire" ? "In the projection, living costs come out of savings from then" : "Used for this scenario's projection instead of the household's") + '</small></span>' +
@@ -196,7 +217,8 @@ export function addChangeSheetHtml(){
   var scenario = addSheet.scenario;
   var hasLoan = (state.properties || []).some(function(p){ return (p.loans || []).length; });
   var items = CHANGE_KINDS.filter(function(k){ return k.key !== "amount"; }).map(function(k){
-    var off = (k.key === "sell" && !(state.properties || []).length) ? "There's no property to sell yet" : (k.key === "extra" && !hasLoan) ? "There's no property loan yet" : "";
+    var off = (k.key === "sell" && !(state.properties || []).length) ? "There's no property to sell yet" : (k.key === "extra" && !hasLoan) ? "There's no property loan yet"
+      : (k.key === "include" && !includeCandidates(scenario).length) ? "There's no other scenario to include yet" : "";
     return '<button type="button" class="sq-choice" data-sc-new="' + k.key + '" data-sc-scenario="' + escapeAttr(scenario) + '"' + (off ? ' disabled title="' + escapeAttr(off) + '"' : '') + '><b>' + escapeAttr(k.label) + '</b><small>' + escapeAttr(off || k.hint) + '</small></button>';
   }).join("");
   return '<div class="review-backdrop" data-acs-backdrop><div class="review-panel sq-panel" role="dialog" aria-modal="true" aria-label="Add a change">' +

@@ -12,6 +12,7 @@ import { shiftMonth, monthLabel } from "../calc/monthreview.js";
 import { cardPaymentsForMonth, upcomingBills, billLineStatus, billsToConfirm } from "../calc/bills.js";
 import { storageUsedChars, storageLevel, storageLineText } from "./storageuse.js";
 import { weekRecap, showWeekRecap } from "../calc/weekrecap.js";
+import { dueAutoPays } from "../calc/autopay.js";
 import { subscriptionList, cancelReminders, homeLineIds } from "../calc/subscriptions.js";
 
 // ---------------- Notifications: a small, backend-shaped layer over locally-computed alerts ----------------
@@ -428,6 +429,20 @@ export function cardPaymentReminders(accounts, transactions, transfers, today){
   });
   return out;
 }
+// ---------------- Automatic payments (v3.196.0, item 231) ----------------
+// On the day (and until answered, for a month): did it go through? Answered on Home.
+export function autoPayReminders(st, today){
+  return dueAutoPays(st, today).map(function(p){
+    return { id: "autopay:" + p.id + ":" + p.date, type: "bill", severity: p.days < -3 ? "warn" : "info",
+      title: p.what + " — " + fmtCurrency0.format(p.amount) + (p.days === 0 ? " today" : " on " + fmtDate(p.date)) + ": did it go through?",
+      detail: "Automatic, " + p.from + " → " + p.to + ". Confirm it on Home — yes records the transfer, or say it was a different amount or didn't happen.",
+      date: p.date, page: "dashboard", sub: "overview" };
+  });
+}
+function autoPayNotifications(){
+  if(!(state.autoPayments || []).length) return [];
+  return autoPayReminders(state, todayStr());
+}
 function cardPaymentNotifications(){
   if(!(state.accounts || []).some(function(a){ return a.type === "credit"; })) return [];
   return cardPaymentReminders(state.accounts, state.transactions, state.transfers, todayStr());
@@ -566,6 +581,7 @@ export function getLocalNotifications(){
     taxCalendarNotifications(),
     rateChangeNotifications(),
     cardPaymentNotifications(),
+    autoPayNotifications(),
     endingPayNotifications(),
     cancelByNotifications(),
     monthReviewNotification(),

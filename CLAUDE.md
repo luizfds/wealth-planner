@@ -94,6 +94,10 @@ the last, so two sessions can't pick up the same one.
   (`calc/scenariotimeline.js`), grouped forms with `HINTS`/`ODD`, an in-place rename and `state.scenarioNotes`. The purchase and
   invest calculators live on the **Calculators** page (`page-calc`, avatar menu); the editor shows `buyInvestSummaryHtml` and
   `renderHomeBody` also draws the scenario's panels there (`renderCalcScenario`) — keep both in that one render.
+  **Wiring (v3.200.0):** the events for a scenario's changes, the question sheet, its page, the Calculators round trip and Make it
+  real are registered in `components/scenariowiring.js` (`wireScenarioEditor`, called from app.js where they used to sit).
+  **Combined (v3.199.0):** an `include` change counts another scenario's changes (never copied, own wins, once each, loops stop);
+  maths reads `effectiveChanges(name)` (calc/scenariochanges.js), the editor's own list `changesFor(name)`.
 - **Investment returns (v3.178.0):** `calc/investreturn.js` — `xirr`, money-weighted per holding, the same money in an index
   (the price file's weekly A200 / IVV series, read once a session by `components/investreturn.js`), a target mix (`state.targetMix`,
   a holding's own `assetClass` overriding its market) and distributions ahead. The IRR and the index units are `calc/performance.js`'s
@@ -102,6 +106,10 @@ the last, so two sessions can't pick up the same one.
   Bills' Subscriptions (`calc/subscriptions.js`, `state.subscriptionNotes`) both filter it; change detection there, not in either.
 - **Balance by the day (v3.180.0):** `calc/dailyforecast.js` — an everyday account's 90 days from the bills calendar (`billsForMonth`,
   whose bills now carry `account`), pay landed before (`incomeLog`) and usual spending; `account.buffer` warns on its detail page and Home.
+- **Automatic payments (v3.196.0):** `calc/autopay.js` — `state.autoPayments` (from, to, amount, freq, a `start` day, `asksFrom`,
+  optional Budget `line` it stands for, `answers` by date). On the day Home (`data-home-card="autopay"`) and the bell ask; an
+  answer records a transfer tagged `autoPay`/`autoPayDate` (or nothing, for skipped); a transfer between the same accounts within
+  3 days answers it too. The bills calendar and an account's 90 days draw it in place of its line. Renames walk `from`/`to`.
 - `styles.css` — just eight `@import` statements pulling in `src/styles/{base,shell,dashboard,
   ledger,income,properties,assets,projections}.css`, in that specific order. Light/dark theming is
   CSS custom properties + `prefers-color-scheme`, defined in `base.css`.

@@ -3,13 +3,21 @@
 // saleCgt — the capital gains tax when a scenario sells a property, the way the rentvesting calculators
 // do it: the gain (sale less selling costs less the cost base), halved when held more than a year, and
 // nothing on the home lived in. A former home rented out stays exempt for up to six years after moving
-// out; past that, the share of the time owned beyond those six years is taxed. An estimate: the rule that
-// resets the cost base to the market value when a home is first rented out isn't applied (it usually
-// lowers the gain), and an accountant confirms the real figure.
+// out; past that, the share of the time owned beyond those six years is taxed. An estimate, and an
+// accountant confirms the real figure.
+//
+// v3.197.0 (item 228): a home lived in from purchase and then first rented out is taken to have been
+// bought at its market value on that day (the home first used to earn income) when the sale would be only
+// partly exempt — given that value (`firstRentedValue`), the gain is worked from it, the time owned (for
+// the taxed share and the year for the discount) runs from moving out, and `marketValue` says so.
 //
 // serviceability — whether a lender would likely lend: every loan's repayments, the new ones and the
 // household's own, assessed principal-and-interest at its rate plus a buffer (3 points), against
 // take-home pay plus most of the rent (80%) less living costs.
+//
+// v3.198.0 (item 229): lenders take the higher of the living costs you declare and their own benchmark for a
+// household like yours (HEM, by adults, dependants and income). livingFloor is an approximation of that kind
+// of benchmark — not HEM itself, whose tables are licensed — and assessedLiving says which figure was used.
 //
 // Pure: everything comes in as arguments; tax through taxOf(gain) so the caller's tax model decides.
 
@@ -19,25 +27,27 @@ function dayNum(iso){ var p = String(iso).split("-"); return Date.UTC(+p[0], +p[
 function plusYears(iso, n){ return (Number(iso.slice(0, 4)) + n) + iso.slice(4); }
 function r2(n){ return Math.round(n * 100) / 100; }
 
-// inp: { sale, sellingCosts, costBase, bought, sold, use: "never" | "home" | "former", movedOut, taxOf(taxableGain) }
-// → { gain, taxedShare, discounted, taxable, tax }
+// inp: { sale, sellingCosts, costBase, bought, sold, use: "never" | "home" | "former", movedOut, firstRentedValue,
+//        taxOf(taxableGain) } → { gain, taxedShare, discounted, taxable, tax, marketValue }
 export function saleCgt(inp){
-  var gain = Math.max(0, (Number(inp.sale) || 0) - (Number(inp.sellingCosts) || 0) - (Number(inp.costBase) || 0));
-  var share = 1;
+  var base = Number(inp.costBase) || 0, bought = inp.bought, share = 1, marketValue = false;
   if(inp.use === "home") share = 0;
   else if(inp.use === "former" && inp.movedOut){
     var exemptUntil = plusYears(inp.movedOut, 6);
     if(inp.sold <= exemptUntil) share = 0;
     else {
+      // Its value when first rented, where given, stands in for the cost — and the clock starts then.
+      if(Number(inp.firstRentedValue) > 0){ base = Number(inp.firstRentedValue); bought = inp.movedOut; marketValue = true; }
       // Owned from purchase (or, unknown, from moving out) to sale; taxed for the part past six years away.
-      var from = inp.bought || inp.movedOut, owned = dayNum(inp.sold) - dayNum(from);
+      var from = bought || inp.movedOut, owned = dayNum(inp.sold) - dayNum(from);
       share = owned > 0 ? Math.min(1, (dayNum(inp.sold) - dayNum(exemptUntil)) / owned) : 1;
     }
   }
-  var held = !inp.bought || dayNum(inp.sold) - dayNum(inp.bought) > 365;
+  var gain = Math.max(0, (Number(inp.sale) || 0) - (Number(inp.sellingCosts) || 0) - base);
+  var held = !bought || dayNum(inp.sold) - dayNum(bought) > 365;
   var taxable = gain * share * (held ? 0.5 : 1);
   var tax = taxable > 0 && inp.taxOf ? Math.max(0, inp.taxOf(taxable)) : 0;
-  return { gain: r2(gain), taxedShare: share, discounted: held, taxable: r2(taxable), tax: r2(tax) };
+  return { gain: r2(gain), taxedShare: share, discounted: held, taxable: r2(taxable), tax: r2(tax), marketValue: marketValue };
 }
 
 export var SERVICE_BUFFER = 3;
@@ -52,4 +62,19 @@ export function serviceability(inp){
   }, 0);
   var surplus = (Number(inp.incomeMonthly) || 0) + (Number(inp.rentMonthly) || 0) * RENT_COUNTED - (Number(inp.livingMonthly) || 0) - assessed;
   return { assessedMonthly: r2(assessed), surplus: r2(surplus), ok: surplus >= 0 };
+}
+
+// A household's living-cost floor a month, the kind lenders benchmark against: a base for one adult or two,
+// more for each dependant, rising with take-home pay past $6,000 a month (lenders' benchmarks rise with
+// income — a household earning more is assumed to spend more).
+export var FLOOR_ONE = 1500, FLOOR_TWO = 2300, FLOOR_DEPENDANT = 450, FLOOR_INCOME_FROM = 6000, FLOOR_INCOME_SHARE = 0.1;
+export function livingFloor(inp){
+  var adults = Number(inp && inp.adults) >= 2 ? 2 : 1, deps = Math.max(0, Math.floor(Number(inp && inp.dependants) || 0));
+  var income = Number(inp && inp.incomeMonthly) || 0;
+  return r2((adults === 2 ? FLOOR_TWO : FLOOR_ONE) + deps * FLOOR_DEPENDANT + Math.max(0, income - FLOOR_INCOME_FROM) * FLOOR_INCOME_SHARE);
+}
+// → { used, declared, floor, source: "floor" | "yours" }
+export function assessedLiving(declared, floor){
+  declared = r2(Number(declared) || 0); floor = r2(Number(floor) || 0);
+  return floor > declared ? { used: floor, declared: declared, floor: floor, source: "floor" } : { used: declared, declared: declared, floor: floor, source: "yours" };
 }

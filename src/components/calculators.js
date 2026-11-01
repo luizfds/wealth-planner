@@ -9,7 +9,8 @@ import { isDraftKey, DRAFT_PREFIX, buyInvestChanged } from "../calc/scenariodraf
 import { stampDutyFigures, lmiFigures, repaymentFigures, borrowingPower } from "../calc/calculators.js";
 import { recalcPurchase } from "../calc/property.js";
 import { currentScenario } from "../calc/engine.js";
-import { scenarioIncomeMonthly } from "../calc/tax.js";
+import { scenarioIncomeMonthly, getTaxPeople } from "../calc/tax.js";
+import { livingFloor, assessedLiving } from "../calc/salecgt.js";
 import { scenarioSharedItems } from "../calc/scenariochanges.js";
 import { sumField } from "../calc/ledger.js";
 import { PURCHASE_STATE_CODES } from "../constants.js";
@@ -22,12 +23,14 @@ function money(n){ return n == null ? "—" : (n < 0 ? "−" : "") + fmtCurrency
 export var calcFor = { key: null, name: null };
 // Session only: what's typed into the standalone calculators.
 export var calcQ = { sd: { state: "NSW", price: 750000, fhb: "no" }, lmi: { price: 750000, deposit: 10 },
-  rep: { loan: 600000, rate: 6, term: 30, type: "PI" }, bp: { income: null, living: null, other: 0, rate: 6, term: 30 } };
+  rep: { loan: 600000, rate: 6, term: 30, type: "PI" }, bp: { income: null, living: null, other: 0, rate: 6, term: 30, adults: null, dependants: null } };
 
 function householdDefaults(){
   if(calcQ.bp.income != null) return;
   var cs = currentScenario();
   try { calcQ.bp.income = Math.round(scenarioIncomeMonthly({ scenario: cs })); } catch(e){ calcQ.bp.income = 0; }
+  calcQ.bp.adults = Math.min(2, Math.max(1, getTaxPeople().length));
+  calcQ.bp.dependants = Number(state.dependants) || 0;
   calcQ.bp.living = Math.round(sumField(scenarioSharedItems(cs).filter(function(l){ return !/\b(loan|mortgage)\b/i.test(String(l.what || "")); }), "monthly"));
 }
 function field(path, label, type, opts){
@@ -55,8 +58,12 @@ export function calcOutHtml(tool){
     return '<p class="cq-big">' + fmtCurrency2.format(r.monthly) + ' <small>a month</small></p><p class="cq-note">' + fmtCurrency2.format(r.fortnightly) + ' a fortnight · ' + money(r.totalInterest) + ' of interest over the term.</p>';
   }
   if(tool === "bp"){
-    var b = borrowingPower(q.income, q.living, q.other, q.rate, q.term);
-    return '<p class="cq-big">' + money(b.maxLoan) + '</p><p class="cq-note">' + money(b.spare) + ' a month spare, assessed at ' + b.assessedRate + '% over ' + (Number(q.term) || 30) + ' years. Lenders differ — a broker can tell you what yours would do.</p>';
+    // v3.198.0 (item 229): living costs as a lender takes them — yours, or their floor where that's higher.
+    var lv = assessedLiving(q.living, livingFloor({ adults: q.adults, dependants: q.dependants, incomeMonthly: q.income }));
+    var b = borrowingPower(q.income, lv.used, q.other, q.rate, q.term);
+    return '<p class="cq-big">' + money(b.maxLoan) + '</p><p class="cq-note">' + money(b.spare) + ' a month spare, assessed at ' + b.assessedRate + '% over ' + (Number(q.term) || 30) + ' years' +
+      (lv.source === "floor" ? ', with living costs at ' + money(lv.used) + ' — lenders\' floor for ' + (Number(q.adults) >= 2 ? 'two adults' : 'one adult') + (Number(q.dependants) > 0 ? ' and ' + q.dependants + ' dependant' + (Number(q.dependants) === 1 ? '' : 's') : '') + ' on this income, above the ' + money(lv.declared) + ' typed' : ', with your living costs (above lenders\' floor of ' + money(lv.floor) + ')') +
+      '. Lenders differ — a broker can tell you what yours would do.</p>';
   }
   return "";
 }
@@ -74,8 +81,8 @@ export function calcToolsHtml(){
     card("rep", "Loan repayments", [field("rep.loan", "Loan", "number", { step: 1000 }), field("rep.rate", "Interest %", "number", { step: 0.05 }), field("rep.term", "Years", "number", { step: 1 }),
       field("rep.type", "Type", "select", { options: [["PI", "Principal & interest"], ["IO", "Interest only"]] })]) +
     card("bp", "What a lender might lend", [field("bp.income", "Take-home a month", "number", { step: 100 }), field("bp.living", "Living costs a month", "number", { step: 100 }),
-      field("bp.other", "Other repayments a month", "number", { step: 50 }), field("bp.rate", "Interest %", "number", { step: 0.05 }), field("bp.term", "Years", "number", { step: 1 })],
-      "Starts from your household's take-home and budget (loan lines left out). Assessed at the rate plus 3 points, as lenders do; take rent out of living costs if buying would end it.") +
+      field("bp.other", "Other repayments a month", "number", { step: 50 }), field("bp.adults", "Adults", "select", { options: [["1", "One"], ["2", "Two"]] }), field("bp.dependants", "Dependants", "number", { step: 1 }), field("bp.rate", "Interest %", "number", { step: 0.05 }), field("bp.term", "Years", "number", { step: 1 })],
+      "Starts from your household's take-home and budget (loan lines left out). Assessed at the rate plus 3 points, and at the higher of your living costs and a benchmark like lenders' for the household (an estimate, not their tables); take rent out of living costs if buying would end it.") +
     '</div>';
 }
 // The scenario section at the top of the page, when a scenario opened it. Its panels are drawn by

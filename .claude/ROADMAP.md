@@ -4168,6 +4168,110 @@ row that couldn't be edited. Driven at 1280 and 390px: renamed mid-edit with the
 back on the card after Save.
 
 
+### Phase L — checked against real data, and money that moves on its own (November 2026)
+
+## 226. `[x]` The scenario work, checked against a real household
+Everything since 207 was built on invented and demo households.
+
+Do: load a real backup outside the repo; check the scenarios (sandboxing, Make it real, triggers, the odds, CGT on a sale,
+the lender check, Calculators) and how fast Plan → Scenarios is on it; fix what's wrong — reported without figures.
+
+Done when: each finding is fixed or listed with why not; timings on the real data recorded (no figures from it).
+
+**Done (v3.195.0).** Checked against a real household's backup, in a scratch directory (no figures here): the move to
+sealed scenarios (v3.172.0) and everything since leave every scenario's month, net worth today and in 5, 10 and 20
+years exactly where the app before it put them. One regression found and fixed: after today's home moved into Budget
+(`homeCost` lines), the household's own "Home cost / mo" and Benchmarks' housing read $0 — `scenarioTotals` now counts
+those lines as the home's cost (the total is unchanged); `tests/scenariochanges.test.js` pins it. Every page, the
+editor of each scenario, Side by side, the Make it real plan and the Calculators showed no NaN, undefined or console
+error. Speed on that household: a scenario change redraws in about 20ms (90ms at 4× CPU slowdown), Side by side about
+10ms (40ms).
+
+
+## 227. `[x]` Combine scenarios
+Do: a scenario can include others ("Rentvest" + "Second car"): their changes counted together, without copying, on the
+card, the comparison, the projection and an account.
+
+Done when: tests: a combination equals the same changes made by hand; a change to an included scenario flows through.
+
+**Done (v3.199.0).** A change of kind `include` ("Include another scenario" in + Add a change) counts another
+scenario's changes with this one's — read from where they live (`effectiveChanges`, calc/scenariochanges.js), so
+editing the included scenario changes this. Its own come first and win where both say something about the same
+line, assumptions or retirement; each included scenario counts once however it's reached, a loop stops, and what's
+set up outside the list of changes (its own home rows, a home bought in the calculators) stays with it — the row
+says so. The card, Side by side (the lender check included), the projection, the timeline, an account and Make it
+real all read through it; renaming an included scenario follows it, deleting it takes the include out.
+`tests/scenariocombine.test.js`: a combination equals the same changes made by hand (month, 20 years, lender), and
+an edit to an included scenario flows through. Driven at 1280 and 390px.
+
+
+## 228. `[x]` A former home's market value when first rented
+Do: selling a former home asks for its value when it was first rented out and uses it as the cost base where the rules
+do (the home first used to earn income), instead of the original cost.
+
+Done when: hand-worked tests with and without it.
+
+**Done (v3.197.0).** A sale change for a former home ("Our home, then rented out") asks for its value when first
+rented. Past the six years, `saleCgt` takes it as the cost (the home first used to earn income) and counts the time
+owned — for the taxed share and the year for the discount — from moving out, and says so (`marketValue`); left
+empty, the original cost over all the years owned, as before. `tests/salecgt.test.js` has both worked by hand, and
+a scenario's net worth with and without it. Driven: the field appears for a former home, saves in the draft and
+moves the 10-year figure.
+
+
+## 229. `[x]` The lender check's living-cost floor
+Do: lenders take the higher of declared living costs and their own benchmark for the household (HEM-like, by income and
+dependants); the check does too, and says which it used.
+
+Done when: tests: a frugal household is assessed at the floor; a big spender at their own figure.
+
+**Done (v3.198.0).** `livingFloor` (calc/salecgt.js) — a benchmark of the kind lenders use, by one adult or two,
+dependants and take-home (an approximation, not HEM's licensed tables) — and `assessedLiving`, the higher of it and
+the household's own figure. Side by side's lender check uses it for the household's living costs (a property's
+running costs come on top either way) and says when it's at the floor; the Calculators' "What a lender might lend"
+asks for adults and dependants (`state.dependants`, kept) and says which figure it used. Tests: the floor worked by
+hand, a frugal household assessed at the floor and a big spender at their own figure, in the calculator's arithmetic
+and in Side by side's check. Driven: the calculator with a low living-cost figure and two dependants.
+
+
+## 230. `[x]` The scenario editor's wiring in its own module
+Do: the editor's, the calculators' and the comparison's event wiring move out of app.js into their own module, as the
+pages' render code already did — nothing a person sees changes.
+
+Done when: smoke and drives unchanged; app.js shorter by the moved lines.
+
+**Done (v3.200.0).** `components/scenariowiring.js` — the event wiring for a scenario's changes, the "start from a
+question" sheet, a scenario on its own page (draft, Save / Cancel, the leave guard, "+ Add a change", the Calculators
+round trip) and Make it real, moved out of app.js as it was (about 280 lines). app.js calls `wireScenarioEditor()`
+where that code sat, so listeners are added in the same order; it hands over the four helpers that stay in app.js
+(`pushActiveOverlay`, `requestCloseActiveOverlay`, `withUndo`, `renderAll`) and gets back the three it still calls.
+Moved mechanically (acorn: the moved statements' free names became the module's imports or those four), with the
+imports nothing else used dropped from app.js. No visible change: the tests, the smoke run, and the same drive (a
+scenario from a question, a change, Save, Make it real, the Calculators and back) against the commit before it.
+
+
+## 231. `[x]` Automatic repayments and transfers, confirmed on the day
+Asked for: a loan repaid by direct debit from one account to another, confirmed on the day it should happen.
+
+Do: a loan or any account can have an automatic payment (from, to, amount, how often, the day); on the day the bell and
+Home ask "paid?" — Yes records the transfer, a different amount records that (and can be the amount from now on, for a
+rate change), Skipped records nothing; until then it shows on the bills calendar and an account's 90 days.
+
+Done when: tests on the days it falls due and on each answer; driven: confirmed on the day, an amount changed for good.
+
+**Done (v3.196.0).** `calc/autopay.js`: `state.autoPayments` — from, to, amount, how often, a day it comes out
+(the rhythm) and, optionally, the Budget line it stands for. Set up on any account's card (Net worth → Accounts →
+"+ Add an automatic payment"; a loan or card starts as the "to", anything else as the "from"). On the day — and for a
+month after, until answered, never for days before it was set up — Home's "Did these go through?" card and the bell
+ask: **Yes** records the transfer (tagged `autoPay`), **A different amount** records that and, ticked, makes it the
+amount from now on (a rate change), **It didn't** records nothing; each has Undo. A transfer between the same two
+accounts within three days (a statement import) answers it on its own. The bills calendar shows it (ticked once
+paid, outlined until), and an everyday account's 90 days count it out of one account and into the other — in place
+of its Budget line, so nothing's counted twice. Account renames walk both ends. `tests/autopay.test.js` covers the
+days it falls due and each answer. Driven at 1280 and 390px: set up on the loan's card, asked on Home and in the bell
+on the day, a different amount recorded and kept for good, the calendar ticked.
+
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

@@ -4351,9 +4351,22 @@ with the same id sequence: the old and new `migrateState` give identical output 
 household, an invented old-shape save (the single investment property, property assets, a portfolio-wide ownership
 split, a lump-sum acquisition cost) and a real backup.
 
-### 235b. `[ ]` Accounts by id
+### 235b. `[x]` Accounts by id
 Do: rows link accounts by id, names kept for display (a migration step); renames become a one-line change.
-Done when: renaming an account touches one record; a deleted account's rows still say its name.
+Done when: a rename reaches every row through its id (no list of arrays to remember at rename time); a deleted
+account's rows still say its name; real data unchanged.
+
+**Done (v3.206.0).** `calc/accountlinks.js`: every account link carries the account's id beside its name (rows'
+`accountId`, transfers' and automatic payments' `fromId`/`toId`, a card's `autoPayFromId`, a rule's
+`transferAccountId`; goals' `accountIds`, saved views' `filter.accountId`, month reviews' `statementsById`). The name
+stays as the copy everything reads: `renameAccount` writes the new name onto every link by id; migration step 23
+(`linkAllByName`) links what's written by name — an account picked from a list moves the link, a deleted account's
+rows keep its name and an account re-added with it picks them back up. Chosen over rewriting every read to resolve
+ids (about 180 reads in 35 files): the copy is always current, so reads stay as they are, and nothing is matched by
+name at rename time. Tests: each link kind followed through a rename, an edit by name not undone by a later rename,
+delete and re-add, step 23. Checked on a real backup outside the repo: all 558 transactions and 34 transfers linked,
+every account's balance and every scenario's figures identical before and after. Driven: an account renamed letter by
+letter on its card — transactions, budget lines and transfers follow.
 
 ### 235c. `[ ]` State changed through actions
 Do: every change to `state` goes through an action function that records what it touched (transactions, transfers,

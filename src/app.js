@@ -3689,9 +3689,8 @@ import { inboxMessage } from "./calc/inbox.js";
     var a = state.accounts[idx];
     if(!a) return;
     if(e.target.classList.contains("acct-mgmt-name")){
-      var oldName = a.name;
-      a.name = e.target.value;
-      renameAccountEverywhere(oldName, a.name);
+      // v3.206.0 (item 235b): the account's record, then the name copies on rows linked to it by id.
+      renameAccountEverywhere(a, e.target.value);
       renderTransactions();
       updateAccountSuggestions();
     }

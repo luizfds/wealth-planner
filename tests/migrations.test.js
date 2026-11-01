@@ -228,3 +228,26 @@ test("step 22: scenarios as sealed sandboxes — a map of changes, an old per-ro
   assert.ok(!s.shared[0].scenarioOverrides, "nothing per scenario left on the row");
   assert.ok((s.scenarioChanges.Bigger || []).some(c => c.kind === "amount" && c.rowId === "g" && c.amount === 950));
 });
+
+test("step 23: every account link gets the account's id; goals, saved views and statements follow", function(){
+  const s = run(23, {
+    accounts: [{ id: "a1", name: "Bank One Everyday", type: "everyday" }, { id: "a2", name: "Card A", type: "credit", autoPayFrom: "Bank One Everyday" }],
+    shared: [{ what: "Groceries", account: "Card A" }, { what: "Gym", account: "Gone Bank" }], income: [], transactions: [{ account: "Bank One Everyday" }],
+    transfers: [{ from: "Bank One Everyday", to: "Card A", amount: 5, date: "2026-01-01" }], autoPayments: [], importRules: [{ match: "fern", account: "Card A", transferAccount: "" }],
+    savingsGoals: [{ name: "Trip", accounts: ["Bank One Everyday", "Gone Bank"] }], txViews: [{ name: "v", filter: { account: "Card A" } }],
+    monthReviews: { "2026-10": { statements: { "Card A": 812.5 } } }, home: {}, properties: [] });
+  assert.equal(s.shared[0].accountId, "a2");
+  assert.equal(s.shared[1].accountId, undefined, "no account of that name: the name stays, unlinked");
+  assert.equal(s.shared[1].account, "Gone Bank");
+  assert.equal(s.transactions[0].accountId, "a1");
+  assert.deepEqual([s.transfers[0].fromId, s.transfers[0].toId], ["a1", "a2"]);
+  assert.equal(s.accounts[1].autoPayFromId, "a1");
+  assert.equal(s.importRules[0].accountId, "a2");
+  assert.deepEqual(s.savingsGoals[0].accountIds, ["a1"]);
+  assert.equal(s.txViews[0].filter.accountId, "a2");
+  assert.deepEqual(s.monthReviews["2026-10"].statementsById, { a2: 812.5 });
+  // Linked, a row's kept name follows the account.
+  s.accounts[1].name = "Card B";
+  run(23, s);
+  assert.equal(s.shared[0].account, "Card B");
+});

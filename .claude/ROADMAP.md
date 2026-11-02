@@ -4537,6 +4537,16 @@ in the year-so-far section, which had counted them in full). Each schedule line 
 logged figures" sets those lines' actuals in one undoable step; lines with nothing logged keep the plan. Tested
 against the year-so-far totals; driven at 390 and 1280px (fill, the figures, Undo).
 
+## 243. `[~]` Loans as the bank charged them
+Do: a loan account's statement (an account of type Loan linked to a property's loan) is read as loan activity, not
+spending: interest charges and fees are recorded on the loan, a drawdown sets when it settled, repayments are matched
+to the transfers already logged, and the closing balance updates the loan. Interest wherever it's used — the
+year-so-far section, the rental schedule, the debts report — is the bank's charges for the days they cover, worked out
+only for the days after; no interest before the loan settled. When the bank's repayment differs from the worked-out
+one, the loan offers to use it.
+Done when: a loan statement imports with nothing landing as spending; the year so far and the schedule show the
+charged interest and say how far it runs; undo removes it all; driven.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

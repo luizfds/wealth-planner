@@ -7,6 +7,7 @@
 //                 kept for good: the transfer is recorded and the amount changes
 //   scenario    — open a scenario, add a change, Save: its card moves; Make it real shows its plan
 //   csv import  — a bank CSV through the review into Spending
+//   loanstatement — a loan account's statement: its interest and fees go on the loan, not into Spending
 //   pdf import  — a PDF statement read into the same review
 //
 // Then the speed budget, on a large invented household at 4× CPU slowdown (about a mid-range phone):
@@ -21,7 +22,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { STATEMENT_CSV, statementPdf, agentStatementPdf } from "./journeys/fixtures.mjs";
+import { STATEMENT_CSV, statementPdf, agentStatementPdf, LOAN_STATEMENT_CSV } from "./journeys/fixtures.mjs";
 
 const root = process.env.SMOKE_ROOT ? path.resolve(process.env.SMOKE_ROOT) : path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".json": "application/json",
@@ -167,6 +168,18 @@ const JOURNEYS = {
     check(!(await page.evaluate(() => !!document.getElementById("bankImportConfirmBtn"))), "it was read as a bank statement too");
     await page.evaluate(() => [...document.querySelectorAll("[data-as-log]")].find(b => b.offsetParent).click()); await page.waitForTimeout(600);
     check((await st(page, "state.incomeLog.length")) === before + 1, "logging it didn't record the rent received");
+  },
+  // Item 243: a loan account's statement — its interest and fees go on the loan, nothing lands as spending.
+  async loanstatement(page){
+    await go(page, "expenses", "data-expenses-sub", "spending");
+    const tx = await st(page, "state.transactions.length");
+    await page.setInputFiles("#bankImportFile", { name: "Investment loan statement.csv", mimeType: "text/csv", buffer: Buffer.from(LOAN_STATEMENT_CSV) });
+    await page.waitForSelector("[data-bank-loan]", { timeout: 10000 });
+    check(/Record 5 on the loan/.test(await page.evaluate(() => document.getElementById("bankImportConfirmBtn").textContent)), "the loan's charges weren't offered");
+    await click(page, "#bankImportConfirmBtn"); await page.waitForTimeout(600);
+    check((await st(page, "state.transactions.length")) === tx, "a loan charge landed as spending");
+    const loan = await st(page, "({ n: state.properties[0].loans[0].charges.length, bank: (state.properties[0].loans[0].bankRepayment || {}).amount })");
+    check(loan.n === 5 && loan.bank === 2950, "the charges or the bank's repayment weren't recorded: " + JSON.stringify(loan));
   }
 };
 

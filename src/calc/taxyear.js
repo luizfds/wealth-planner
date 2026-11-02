@@ -1,9 +1,10 @@
 import { state } from "../state.js";
 import { periodsOf } from "./ledger.js";
 import {
-  ipProperties, loanInterestForWindow, loanInvestShare, borrowingCostsDeduction, propertyDepreciationForFy, fyWindow
+  ipProperties, loanInvestShare, borrowingCostsDeduction, propertyDepreciationForFy, fyWindow
 } from "./property.js";
 import { propertyClaimLines, rowDeductionAnnual } from "./claims.js";
+import { loanInterestCharged } from "./loancharges.js";
 
 // ---------------- The tax-year record (v3.26.0) ----------------
 //
@@ -240,8 +241,9 @@ export function rentalSchedule(property, fy){
     if(l.endedOn && l.endedOn < win.start) return s;
     // Interest stops the day it's paid out: charged up to the day before.
     var end = l.endedOn && l.endedOn <= win.end ? new Date(Date.parse(l.endedOn) - 86400000).toISOString().slice(0, 10) : win.end;
-    // v3.85.0: only the share of the loan's money used to invest.
-    return s + loanInterestForWindow(l, win.start, end) * loanInvestShare(l);
+    // v3.85.0: only the share of the loan's money used to invest. Item 243: as the bank charged it, where its
+    // statements were imported, worked out for the rest of the year.
+    return s + loanInterestCharged(l, win.start, end).amount * loanInvestShare(l);
   }, 0);
   model.borrowing = (property.loans || []).reduce(function(s, l){ return s + borrowingCostsDeduction(l, win); }, 0);
   var dep = propertyDepreciationForFy(property, fy);

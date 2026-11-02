@@ -1454,6 +1454,9 @@
   .bank-import-balance{ display:flex; gap:8px; align-items:flex-start; font-size:var(--fs-sm); margin:0 0 8px; line-height:1.4; }
   .bank-import-balance input{ margin-top:2px; }
   .bank-import-badge.is-transfer{ background: var(--brass-wash); color: var(--brass-strong); }
+  /* A loan account's statement: what goes on the loan (item 243) */
+  .bank-loan-part{ margin:0 0 10px; }
+  .bank-loan-part ul{ margin:6px 0 0; padding-left:18px; font-size:var(--fs-sm); line-height:1.45; }
 
   /* Savings goals (v3.65.0) */
   .sgl-list{ display:flex; flex-direction:column; gap:8px; }

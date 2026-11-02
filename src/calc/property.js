@@ -237,9 +237,12 @@ export function recordRateChange(loan, date, rate, today){
 }
 // Interest over [start, end] on today's interest balance, day by day at the rate on each day.
 // (The balance is today's — the app doesn't keep a balance history — which is the same
-// approximation the model has always made; the rates are what this fixes.)
+// approximation the model has always made; the rates are what this fixes.) Item 243: nothing before
+// the loan settled — a split drawn in August charged nothing in July. What the bank actually charged
+// is calc/loancharges.js loanInterestCharged, which uses this only for the days its charges don't cover.
 export function loanInterestForWindow(loan, start, end){
   var interestBalance = Math.max(0, (Number(loan.balance) || 0) - (Number(loan.offsetBalance) || 0));
+  if(loan.settlementDate && loan.settlementDate > start) start = loan.settlementDate;
   if(end < start || !interestBalance) return 0;
   var hist = sortedRateHistory(loan);
   var bounds = [start];

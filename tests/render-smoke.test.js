@@ -2040,3 +2040,20 @@ test("automatic payments: the Home card asks, the account's card sets them up (v
     assert.ok(!/NaN|undefined/.test(html + acct));
   } finally { setState(keep); }
 });
+
+// Item 243: a loan as the bank charged it — this year's charges, and the bank's repayment when it differs.
+test("Property → Loans: the bank's interest charges and repayment", async function(){
+  const { loanBankHtml } = await import("../src/components/properties.js");
+  var l = { id: "L1", what: "Loan A", balance: 365000, rate: 6, termYears: 25, repaymentType: "PI", settlementDate: "2020-01-01",
+    bankRepayment: { amount: 2500, freq: "Monthly" },
+    charges: [{ id: "a", date: "2026-07-31", amount: 1800, kind: "interest" }, { id: "b", date: "2026-08-31", amount: 1790.5, kind: "interest" }] };
+  var html = loanBankHtml(l, "2026-09-10");
+  assert.match(html, /Interest the bank charged FY26\/27/);
+  assert.match(html, /3,590\.50/);
+  assert.match(html, /2 charges/);
+  assert.match(html, /data-loan-usebank/);
+  assert.doesNotMatch(html, /NaN|undefined/);
+  var none = loanBankHtml({ id: "L2", balance: 1000, rate: 5, termYears: 10, repaymentType: "PI", charges: [] }, "2026-09-10");
+  assert.match(none, /worked out from the balance and rate/);
+  assert.doesNotMatch(none, /data-loan-usebank/);
+});

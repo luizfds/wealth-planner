@@ -349,20 +349,21 @@ export function wireImports(){  document.getElementById("expenseDownloadTemplate
     // v3.163.0 (item 193): what was just imported waits to be reviewed — say so where it's counted.
     renderTxReviewBanner(); renderHomeSummary();
     // Transfers and a statement balance reach Accounts, Home and net worth too.
-    if((result.transferIds && result.transferIds.length) || result.balanceSet) renderAll();
+    if((result.transferIds && result.transferIds.length) || result.balanceSet || result.loanSet) renderAll();
     showUndoToast(
-      (result.ids.length || !(result.reconciled && result.reconciled.length) ? "Imported " + result.ids.length + " transaction" + (result.ids.length === 1 ? "" : "s") : "Nothing new") +
+      (result.ids.length || !(result.reconciled && result.reconciled.length || result.loanSet) ? "Imported " + result.ids.length + " transaction" + (result.ids.length === 1 ? "" : "s") : result.loanSet ? "Loan statement recorded" : "Nothing new") +
         (result.refunds ? " · " + result.refunds + " refund" + (result.refunds === 1 ? "" : "s") : "") +
         (result.receivedIds && result.receivedIds.length ? " · " + result.receivedIds.length + " income received" : "") +
         (result.transferIds && result.transferIds.length ? " · " + result.transferIds.length + " transfer" + (result.transferIds.length === 1 ? "" : "s") : "") +
         (result.reconciled && result.reconciled.length ? " · " + result.reconciled.length + " matched to what you logged" : "") +
+        (result.loanCharges ? " · " + result.loanCharges + " loan charge" + (result.loanCharges === 1 ? "" : "s") : "") +
         (result.balanceSet ? " · " + result.balanceSet.account + " balance updated" : "") +
         (result.linesCreated ? " · " + result.linesCreated + " new budget line" + (result.linesCreated === 1 ? "" : "s") : "") +
         (result.learned ? " · learned " + result.learned + " shop" + (result.learned === 1 ? "" : "s") : ""),
       function(){
         // Rules the import taught are left in place on purpose — they're a preference, not part of
         // the data being undone, and re-importing the same file is the usual reason to undo.
-        undoBankImport(result.ids, result.lineIds, result.receivedIds, result.transferIds, result.balanceSet, result.reconciled);
+        undoBankImport(result.ids, result.lineIds, result.receivedIds, result.transferIds, result.balanceSet, result.reconciled, result.loanSet);
         refreshAfterBankImport();
         renderAll();
       }

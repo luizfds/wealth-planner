@@ -46,7 +46,7 @@ const VIEWS = [
   ["plan", "plan-sub", ["scenarios", "projections", "goals", "retirement"]],
   ["calc", null, [null]], // v3.189.0: opened from the avatar menu
   ["reports", "report", ["cashflow", "categories", "income", "flow", "budget", "trends", "month", "networth", "nwcheck", "invest", "dividends", "cgt",
-    "propreturns", "property", "debts", "super", "tax", "review", "lender", "yearend"]],
+    "propreturns", "property", "debts", "super", "tax", "taxpack", "review", "lender", "yearend"]],
   ["settings", "accounts-sub", ["categories", "preferences", "rules"]]
 ];
 const failures = [];

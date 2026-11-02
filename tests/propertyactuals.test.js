@@ -88,3 +88,26 @@ test("the rental schedule from what's logged: each return line, nothing invented
   assert.equal(income, a.rows.find(x => x.key === "rent").actual);
   assert.equal(-costs, a.rows.find(x => x.key === "expenses").actual, "both count a claimed line at its deductible share");
 });
+
+// Item 244: one ledger behind the year so far and the schedule.
+test("the property ledger: every logged piece once, with its return line, source and share", async function(){
+  const { propertyLedger, ledgerCounts } = await import("../src/calc/propertyactuals.js");
+  var p = { id: "ip1", what: "1 Example St", kind: "IP", income: [],
+    expenses: [{ id: "ins", what: "Landlord insurance", amount: 1200, freq: "Yearly" }],
+    loans: [{ id: "L1", what: "Loan A", balance: 1000, rate: 5, investPct: 50, charges: [{ id: "c1", date: "2026-07-31", amount: 400, kind: "interest" }] }],
+    agentStatements: [{ id: "s1", date: "2026-08-01", rent: 2000, water: 50, fees: 120, incomeId: "in1", txIds: ["t2"] }] };
+  var st = {
+    incomeLog: [{ id: "in1", date: "2026-08-01", amount: 1810, target: "rent:ip1" }, { id: "in2", date: "2026-09-01", amount: 500, target: "rent:ip1" }],
+    transactions: [{ id: "t1", date: "2026-08-20", amount: 1200, linkedExpenseId: "ins" }, { id: "t2", date: "2026-08-01", amount: 70, what: "Water rates" },
+      { id: "t3", date: "2026-08-02", amount: 99, linkedExpenseId: "groceries" }]
+  };
+  var l = propertyLedger(p, "2026-07-01", "2026-09-30", st, []);
+  assert.deepEqual(l.map(function(e){ return [e.key, e.line, e.amount]; }), [
+    ["lc:c1", "interest", 200],
+    ["st:s1:rent", "rent", 2000], ["st:s1:water", "otherIncome", 50], ["st:s1:fees", "agentFees", 120], ["tx:t2", "water", 70],
+    ["tx:t1", "insurance", 1200],
+    ["rc:in2", "rent", 500]
+  ]);
+  assert.equal(l.find(function(e){ return e.key === "tx:t2"; }).ref.statementId, "s1");
+  assert.deepEqual(ledgerCounts(l), { statements: 1, received: 1, payments: 2, charges: 1, records: 5 });
+});

@@ -65,6 +65,16 @@ export function loanRowKind(row){
   return null;
 }
 
+// Item 245: a statement that reads like a loan account's — interest the bank charged, and nearly everything else on it
+// interest, fees, a drawdown or money paid in. A card statement has interest too, but mostly purchases.
+export function looksLikeLoanStatement(rows){
+  var list = rows || [];
+  if(!list.length) return false;
+  var charged = list.some(function(r){ return r.direction === "debit" && loanRowKind(r) === "interest"; });
+  var loanish = list.filter(function(r){ return loanRowKind(r) != null; }).length;
+  return charged && loanish / list.length >= 0.8;
+}
+
 function chargeKey(kind, date, amount){ return kind + "|" + date + "|" + r2(Math.abs(amount)).toFixed(2); }
 
 // Splits a loan statement's rows: { charges: [{ row, kind, amount }], drawdown: row | null, repayments: [row], rest:

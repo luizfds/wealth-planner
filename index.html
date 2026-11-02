@@ -4,7 +4,7 @@
 <!-- v3.202.0 (item 233): what this page may load and run. Inline scripts only by hash (npm run stamp
      works them out — the import map changes every version); styles may be inline (style="" in the markup the
      components build); network only to this site and the services the app names in Settings. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-7hJPW0a/cKYJNMogn6g62PLSRlxhwSwWux4r0u6+5VY=' 'sha256-ogL24sunRadwm9LH6Jw0u1aTI7tlA28ySqIHiHCL7gY=' 'sha256-TC3k1aZhoKOF0fgTfkMRjiJE7/T0iFhpm9ITZ+8UoP8=' 'sha256-eTXHUNF1EXXubHtrQcOEd8PJMCOxwiOUHBpUOAwNIvQ='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://docs.google.com https://*.googleusercontent.com https://api.dropboxapi.com https://content.dropboxapi.com https://api.coingecko.com https://api.frankfurter.app https://api.frankfurter.dev https://api.anthropic.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-7hJPW0a/cKYJNMogn6g62PLSRlxhwSwWux4r0u6+5VY=' 'sha256-ogL24sunRadwm9LH6Jw0u1aTI7tlA28ySqIHiHCL7gY=' 'sha256-TC3k1aZhoKOF0fgTfkMRjiJE7/T0iFhpm9ITZ+8UoP8=' 'sha256-NMZZN36KnzAaoce+4yTBc5YEW9qWbHlhnMryTcztqK8='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://docs.google.com https://*.googleusercontent.com https://api.dropboxapi.com https://content.dropboxapi.com https://api.coingecko.com https://api.frankfurter.app https://api.frankfurter.dev https://api.anthropic.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!-- A genuinely first-ever visit (nothing saved yet, never seen either intro page) gets sent to
      the onboarding tutorial instead of straight into an empty Dashboard. Plain synchronous
@@ -1183,6 +1183,7 @@
   "./src/calc/syncmerge.js": "./src/calc/syncmerge.js?v=3.211.0",
   "./src/calc/takehome.js": "./src/calc/takehome.js?v=3.211.0",
   "./src/calc/tax.js": "./src/calc/tax.js?v=3.211.0",
+  "./src/calc/taxpack.js": "./src/calc/taxpack.js?v=3.211.0",
   "./src/calc/taxyear.js": "./src/calc/taxyear.js?v=3.211.0",
   "./src/calc/trends.js": "./src/calc/trends.js?v=3.211.0",
   "./src/calc/trim.js": "./src/calc/trim.js?v=3.211.0",
@@ -1243,6 +1244,7 @@
   "./src/components/projections.js": "./src/components/projections.js?v=3.211.0",
   "./src/components/properties.js": "./src/components/properties.js?v=3.211.0",
   "./src/components/propertieswiring.js": "./src/components/propertieswiring.js?v=3.211.0",
+  "./src/components/propertyactivity.js": "./src/components/propertyactivity.js?v=3.211.0",
   "./src/components/receipts.js": "./src/components/receipts.js?v=3.211.0",
   "./src/components/received.js": "./src/components/received.js?v=3.211.0",
   "./src/components/recurring.js": "./src/components/recurring.js?v=3.211.0",
@@ -1401,6 +1403,7 @@
 <link rel="modulepreload" href="./src/calc/syncmerge.js?v=3.211.0">
 <link rel="modulepreload" href="./src/calc/takehome.js?v=3.211.0">
 <link rel="modulepreload" href="./src/calc/tax.js?v=3.211.0">
+<link rel="modulepreload" href="./src/calc/taxpack.js?v=3.211.0">
 <link rel="modulepreload" href="./src/calc/taxyear.js?v=3.211.0">
 <link rel="modulepreload" href="./src/calc/trends.js?v=3.211.0">
 <link rel="modulepreload" href="./src/calc/trim.js?v=3.211.0">
@@ -1461,6 +1464,7 @@
 <link rel="modulepreload" href="./src/components/projections.js?v=3.211.0">
 <link rel="modulepreload" href="./src/components/properties.js?v=3.211.0">
 <link rel="modulepreload" href="./src/components/propertieswiring.js?v=3.211.0">
+<link rel="modulepreload" href="./src/components/propertyactivity.js?v=3.211.0">
 <link rel="modulepreload" href="./src/components/receipts.js?v=3.211.0">
 <link rel="modulepreload" href="./src/components/received.js?v=3.211.0">
 <link rel="modulepreload" href="./src/components/recurring.js?v=3.211.0">

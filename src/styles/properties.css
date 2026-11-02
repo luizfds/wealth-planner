@@ -561,3 +561,22 @@
 .sc-note{ width:100%; box-sizing:border-box; resize:vertical; min-height:36px; font:inherit; font-size:var(--fs-sm); padding:6px 8px; border:1px dashed var(--border); border-radius: var(--inner-radius); background: var(--paper-raised); color: var(--ink); }
 .sc-elsewhere{ margin:0; font-size:var(--fs-sm); color: var(--ink-soft); }
 .card-note{ margin:6px 0 0; font-size:var(--fs-xs); color: var(--ink-soft); font-style:italic; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+
+/* A property's Activity: everything logged this year, from the one ledger (item 244) */
+.pa-sum{ margin:4px 0 8px; }
+.pa-list{ border-top:1px solid var(--border); }
+.pa-row{ display:grid; grid-template-columns: 6.5ch minmax(0,1fr) auto; column-gap:12px; row-gap:6px; align-items:baseline; padding:10px 0; border-bottom:1px solid var(--border); }
+.pa-date{ font-size:var(--fs-sm); color: var(--ink-soft); font-family: var(--font-num); }
+.pa-main{ min-width:0; }
+.pa-what{ font-weight:600; overflow-wrap:anywhere; }
+.pa-sub{ font-size:var(--fs-sm); color: var(--ink-soft); line-height:1.4; }
+.pa-sub small{ font-size:var(--fs-xs); }
+.pa-tools{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:6px; font-size:var(--fs-xs); color: var(--ink-soft); }
+.pa-tools select{ min-height:34px; max-width:100%; padding:4px 8px; border:1px solid var(--border); border-radius:6px; background: var(--paper); color: var(--ink); font: inherit; font-size:var(--fs-sm); }
+.pa-amt{ font-family: var(--font-num); font-weight:600; text-align:right; white-space:nowrap; }
+.pa-amt.is-in{ color: var(--good-ink); }
+.pa-end{ display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
+.pa-add{ margin-top:12px; font-size:var(--fs-sm); }
+.pa-add summary{ cursor:pointer; font-weight:600; }
+.pa-add-row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.pa-add-row input, .pa-add-row select{ flex:1 1 120px; min-width:0; min-height:38px; padding:5px 8px; border:1px solid var(--border); border-radius:6px; background: var(--paper); color: var(--ink); font: inherit; }

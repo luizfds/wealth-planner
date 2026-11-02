@@ -1161,7 +1161,7 @@ test("property Tax tab: the year's rental result line by line, and each owner's 
   assert.match(html, /Rent<\/span><b>\$24,000/);
   assert.match(html, /Expenses<\/span><b>−\$2,400/);
   assert.match(html, /Net rental income<\/span><b>\$21,600/);
-  assert.deepEqual(propertyTabsFor(p).map(function(t){ return t.key; }), ["overview", "loans", "income", "tax", "sale"]);
+  assert.deepEqual(propertyTabsFor(p).map(function(t){ return t.key; }), ["overview", "loans", "income", "activity", "tax", "sale"]);
   assert.deepEqual(propertyTabsFor({ kind: "PPOR" }).map(function(t){ return t.key; }), ["overview", "loans", "income"]);
 });
 
@@ -2056,4 +2056,41 @@ test("Property → Loans: the bank's interest charges and repayment", async func
   var none = loanBankHtml({ id: "L2", balance: 1000, rate: 5, termYears: 10, repaymentType: "PI", charges: [] }, "2026-09-10");
   assert.match(none, /worked out from the balance and rate/);
   assert.doesNotMatch(none, /data-loan-usebank/);
+});
+
+// Item 244: an investment property's Activity — everything logged this year, from the one ledger.
+test("Property → Activity: logged records, their return lines, remove and move", async function(){
+  const { propertyActivityHtml } = await import("../src/components/propertyactivity.js");
+  var p = { id: "p1", what: "1 Example St", kind: "IP", income: [], loans: [{ id: "L1", what: "Loan A", balance: 1000, rate: 5, charges: [{ id: "c1", date: "2026-07-31", amount: 400, kind: "interest", what: "Interest Charge" }] }],
+    expenses: [{ id: "ins", what: "Landlord insurance", amount: 1200, freq: "Yearly" }],
+    agentStatements: [{ id: "a", date: "2026-08-01", rent: 2000, water: 0, fees: 120, waterRates: 0, others: [], net: 1880, incomeId: null, txIds: [] }] };
+  var html = propertyActivityHtml(p, "2026-09-30");
+  assert.match(html, /2 records/);
+  assert.match(html, /Property manager statement/);
+  assert.match(html, /Agent fees/);
+  assert.match(html, /Interest on loans/);
+  assert.match(html, /data-pa-del="statement:a"/);
+  assert.match(html, /data-pa-del="charge:c1:L1"/);
+  assert.match(html, /data-pa-charge-add="p1"/);
+  assert.doesNotMatch(html, /NaN|undefined/);
+  assert.match(propertyActivityHtml({ id: "p2", kind: "IP", income: [], expenses: [], loans: [] }, "2026-09-30"), /Nothing logged for this property yet/);
+});
+
+// Item 246: the rental tax pack — every schedule line, where it came from, and what's logged.
+test("Reports → Rental tax pack", async function(){
+  const { taxPackReport } = await import("../src/calc/taxpack.js");
+  const { state } = await import("../src/state.js");
+  var saved = state.properties;
+  state.properties = [{ id: "p1", what: "1 Example St", kind: "IP", income: [{ what: "Rent", amount: 500, freq: "Weekly" }], expenses: [], loans: [{ id: "L1", what: "Loan A", balance: 100000, rate: 6, charges: [{ id: "c", date: "2026-07-31", amount: 500, kind: "interest" }] }],
+    agentStatements: [{ id: "a", date: "2026-08-01", rent: 2000, water: 0, fees: 120, waterRates: 0, others: [], net: 1880, incomeId: null, txIds: [] }] }];
+  try {
+    var rep = taxPackReport({ today: "2026-09-30" });
+    assert.equal(rep.title, "Rental tax pack");
+    var line = function(l){ return rep.rows.find(function(r){ return r.cells.line === l; }); };
+    assert.equal(line("Rental income").cells.value, 26000);
+    assert.equal(line("Rental income").cells.logged, 2000);
+    assert.equal(line("Agent fees").cells.logged, -120);
+    assert.match(line("Interest on loans").cells.source, /Bank's charges to/);
+    assert.ok(rep.rows.some(function(r){ return r.cls === "total"; }));
+  } finally { state.properties = saved; }
 });

@@ -63,6 +63,11 @@ are resolved "newest wins" (`applyPageChange` bails if `currentPage` moved on).
   same form opens filled in from the main import (`isAgentStatement` in `calc/pdfstatement.js` tells it from a bank
   statement, `propertyNamedIn` finds its property, else it asks), from an investment property's Overview and from
   the + menu — `components/rentstatement.js`.
+- **One property ledger** (`propertyLedger`, calc/propertyactuals.js): everything logged about a property — statements,
+  rent received, payments against its lines, claimed household lines at their deductible share, its loans' interest and
+  fees — one entry each with its return line and source. The year so far, the schedule's logged figures, the property's
+  Activity tab (`components/propertyactivity.js`: remove a record, move a payment to another line, type an interest
+  charge) and the Rental tax pack report (`calc/taxpack.js`) all add up this list; nothing else walks those stores.
 - **A property's year so far** (`calc/propertyactuals.js`): on an investment property's Tax tab, under the plan's
   result — rent from statements and money received, costs from statements and payments against its lines (and lines
   claimed against it), interest, depreciation and borrowing costs worked out to today — beside the plan for the
@@ -75,7 +80,8 @@ are resolved "newest wins" (`applyPageChange` bails if `currentPage` moved on).
   to a property's loan keeps its interest charges and fees on the loan (`loan.charges`), sets its settled-on date from
   a drawdown and notes the bank's repayment (`loan.bankRepayment`, offered on the loan as "Use the bank's"). Interest
   everywhere — year so far, rental schedule, debts report — is `loanInterestCharged`: the charges for the days they
-  cover, `loanInterestForWindow` (never before settlement) for the rest.
+  cover, `loanInterestForWindow` (never before settlement) for the rest. A statement that reads like a loan's with no
+  loan account picked (`looksLikeLoanStatement`) asks which loan, and `loanAccountFor` makes or finds its account.
 - **Investment returns** (`calc/investreturn.js`): money-weighted per holding, the same money in an index (the price
   file's weekly A200 / IVV), a target mix (`state.targetMix`), distributions ahead.
 - **On a phone**: rows and `.review-panel` dialogs are bottom sheets dragged closed by their head; Spending's rows swipe

@@ -4556,6 +4556,26 @@ rental schedule (and its logged figures: interest, fees by their words) and the 
 Tested; journey `loanstatement`; driven at 390 and 1280px (import, Undo, re-import, switching the account, the
 loan's note and nudge, the year so far).
 
+## 244. `[~]` One property ledger, and its Activity list
+Do: every logged thing about a property — statements, rent received, bills against its lines, household lines claimed
+against it, its loans' interest and fees — comes from one function (`propertyLedger`), each entry with its date,
+amount, return line and source. The year so far, the rental schedule's logged figures and the reports add that list up
+instead of each walking the stores themselves. An investment property gets an Activity tab listing it by date, with the
+return line, a way to remove an entry or move a payment to another line, and a way to type a loan interest charge.
+Done when: the year so far and the schedule reconcile because they read the same list; every entry can be found and
+removed from the property; driven.
+
+## 245. `[~]` Loan statements without setting up an account
+Do: a statement with interest charges whose account isn't a linked loan asks "This looks like a loan statement — which
+loan?"; picking one creates the Loan account linked to it (or links the one picked) and reads the statement as a loan's.
+Done when: a loan statement imported with no loan account set up lands on the loan in one step; driven.
+
+## 246. `[~]` A tax pack per property
+Do: Reports gets a per-property tax pack for a financial year: each rental schedule line with its figure, where it came
+from (logged, typed, worked out, the plan), how far the logged figures run and how many entries make them, printable and
+as CSV for an accountant.
+Done when: its totals equal the rental schedule's; prints and downloads; driven.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

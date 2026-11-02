@@ -4556,7 +4556,7 @@ rental schedule (and its logged figures: interest, fees by their words) and the 
 Tested; journey `loanstatement`; driven at 390 and 1280px (import, Undo, re-import, switching the account, the
 loan's note and nudge, the year so far).
 
-## 244. `[~]` One property ledger, and its Activity list
+## 244. `[x]` One property ledger, and its Activity list
 Do: every logged thing about a property — statements, rent received, bills against its lines, household lines claimed
 against it, its loans' interest and fees — comes from one function (`propertyLedger`), each entry with its date,
 amount, return line and source. The year so far, the rental schedule's logged figures and the reports add that list up
@@ -4565,16 +4565,29 @@ return line, a way to remove an entry or move a payment to another line, and a w
 Done when: the year so far and the schedule reconcile because they read the same list; every entry can be found and
 removed from the property; driven.
 
-## 245. `[~]` Loan statements without setting up an account
+Done: `propertyLedger` / `ledgerCounts` / `removeLedgerRecord` (calc/propertyactuals.js); `propertyYearActual` and
+`rentalLogged` are now sums over it (every existing test unchanged). Activity tab (components/propertyactivity.js) on
+investment properties: records newest first with their return lines and shares, Remove (undoable), a payment moved to
+another of the property's lines, "Type a loan interest charge". Driven at 390 and 1280px.
+
+## 245. `[x]` Loan statements without setting up an account
 Do: a statement with interest charges whose account isn't a linked loan asks "This looks like a loan statement — which
 loan?"; picking one creates the Loan account linked to it (or links the one picked) and reads the statement as a loan's.
 Done when: a loan statement imported with no loan account set up lands on the loan in one step; driven.
 
-## 246. `[~]` A tax pack per property
+Done: `looksLikeLoanStatement` (interest charged, and 80%+ of rows loan activity — a card's purchases fail it);
+the review asks "This looks like a loan statement — which loan?"; `loanAccountFor` (calc/accounts.js) finds or makes
+the linked Loan account. Journey `loanguess`.
+
+## 246. `[x]` A tax pack per property
 Do: Reports gets a per-property tax pack for a financial year: each rental schedule line with its figure, where it came
 from (logged, typed, worked out, the plan), how far the logged figures run and how many entries make them, printable and
 as CSV for an accountant.
 Done when: its totals equal the rental schedule's; prints and downloads; driven.
+
+Done: `taxPackReport` (calc/taxpack.js), Reports → Tax and the year → Rental tax pack: per property, each schedule
+line's figure for the return and where it came from (typed, the plan, worked out, the bank's charges to a date), beside
+what's logged, how many entries and the latest; the total is the schedule's net. In the smoke views; driven.
 
 ## Conventions for whoever picks this up
 

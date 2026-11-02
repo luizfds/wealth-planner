@@ -13,6 +13,7 @@ import { holdingReturns, distributionYears, cgtParcels } from "./investreports.j
 import { propertyReturns, debtSchedule } from "./assetreports.js";
 import { superContributions } from "./investments.js";
 import { valueOn } from "./history.js";
+import { taxPackReport } from "./taxpack.js";
 import { fyWindow, financialYearOf, loanRepaymentMonthly, loanBalance } from "./property.js";
 
 // ---------------- Reports (v3.62.0) ----------------
@@ -53,6 +54,8 @@ export var REPORTS = [
   { key: "debts", label: "Loans and debts", group: "own" },
   { key: "super", label: "Super", group: "own" },
   { key: "tax", label: "Tax summary", group: "year" },
+  // Item 246: each investment property's rental schedule with where every figure came from.
+  { key: "taxpack", label: "Rental tax pack", group: "year", part: "property" },
   { key: "review", label: "Year in review", group: "year" },
   { key: "lender", label: "Lender pack", group: "year" },
   { key: "yearend", label: "Year-end pack", group: "year" }
@@ -688,6 +691,7 @@ export function buildReport(key, opts){
   if(key === "networth") return netWorthReport(opts);
   if(key === "property") return propertyReport();
   if(key === "tax") return taxReport(opts);
+  if(key === "taxpack") return taxPackReport(opts);
   return cashflowReport(opts);
 }
 export function reportCsvRows(rep){

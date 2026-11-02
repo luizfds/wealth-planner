@@ -26,8 +26,7 @@ import { defineSection } from "../lib/sections.js";
 import { renderPropListModern } from "./properties.js";
 import { renderSharedGroups } from "./expenses.js";
 import { fillAgentStatementForm, openStatementForm } from "./rentstatement.js";
-
-
+import { removeLedgerRecord } from "../calc/propertyactuals.js";
 // ---------------- A property's lists, registered (v3.206.2, item 237b) ----------------
 // "propinc:<id>" and "propexp:<id>": a property's income and costs; "loan:<id>": its loans (edited by their own
 // handlers here — the generic row code only discards an untouched new one).
@@ -102,6 +101,18 @@ export function wireProperties(){
     panel.innerHTML = fixedExpiryHtml(prop);
     var again = panel.querySelector('[data-fixed-whatif="' + wi + '"]');
     if(again){ again.focus(); try{ again.setSelectionRange(pos, pos); }catch(err){} }
+  });
+  // Item 244: a payment in a property's Activity moved to another of its cost lines.
+  document.getElementById("propertiesBody").addEventListener("change", function(e){
+    var sel = e.target.closest("[data-pa-line]");
+    if(!sel || !sel.value) return;
+    var t = state.transactions.find(function(x){ return x.id === sel.getAttribute("data-pa-line"); });
+    if(!t || t.linkedExpenseId === sel.value) return;
+    withUndo("Moved to " + (sel.options[sel.selectedIndex].text || "another line"), function(){
+      t.linkedExpenseId = sel.value;
+      t.category = "";
+      commit(["transactions"]);
+    });
   });
   document.getElementById("propertiesBody").addEventListener("change", function(e){
     if(!e.target.hasAttribute("data-rent-next")) return;
@@ -435,6 +446,31 @@ export function wireProperties(){
         renderProjectionOutputs();
         persist();
       }
+      return;
+    }
+    // Item 244: a property's Activity — remove a record, or type a loan interest charge.
+    var paDel = e.target.closest("[data-pa-del]");
+    if(paDel){
+      var paCard = e.target.closest("[data-property-id]"), paProp = paCard && findProperty(paCard.getAttribute("data-property-id"));
+      if(!paProp) return;
+      var parts = paDel.getAttribute("data-pa-del").split(":");
+      withUndo("Removed from " + (paProp.what || "the property"), function(){
+        if(!removeLedgerRecord(state, paProp, parts[0], parts[1], parts[2])) return false;
+        commit(["properties", "transactions", "incomeLog"]);
+      });
+      return;
+    }
+    var paAdd = e.target.closest("[data-pa-charge-add]");
+    if(paAdd){
+      var aProp = findProperty(paAdd.getAttribute("data-pa-charge-add")), box = paAdd.closest(".pa-add-row");
+      var aLoan = aProp && (aProp.loans || []).find(function(l){ return l.id === box.querySelector("[data-pa-charge-loan]").value; });
+      var aDate = box.querySelector("[data-pa-charge-date]").value, aAmt = parseFloat(box.querySelector("[data-pa-charge-amount]").value);
+      if(!aLoan || !aDate || !(aAmt > 0)){ showToast("Type the date and the interest charged"); return; }
+      withUndo("Interest charge added to " + (aLoan.what || "the loan"), function(){
+        if(!Array.isArray(aLoan.charges)) aLoan.charges = [];
+        aLoan.charges.push({ id: genId("lc"), date: aDate, amount: Math.round(aAmt * 100) / 100, kind: "interest", what: "Interest charge (typed)" });
+        commit(["properties"]);
+      });
       return;
     }
     // Item 243: the bank's repayment, from the loan's last imported statement, becomes the one it uses.

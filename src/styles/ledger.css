@@ -1456,6 +1456,8 @@
   .bank-import-badge.is-transfer{ background: var(--brass-wash); color: var(--brass-strong); }
   /* A loan account's statement: what goes on the loan (item 243) */
   .bank-loan-part{ margin:0 0 10px; }
+  .bank-loan-pick{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:8px; font-size:var(--fs-sm); }
+  .bank-loan-pick select{ min-height:38px; padding:5px 8px; border:1px solid var(--border); border-radius:6px; background: var(--paper); color: var(--ink); font: inherit; max-width:100%; }
   .bank-loan-part ul{ margin:6px 0 0; padding-left:18px; font-size:var(--fs-sm); line-height:1.45; }
 
   /* Savings goals (v3.65.0) */

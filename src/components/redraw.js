@@ -131,7 +131,7 @@ function defineViews(){
   // Static copy, but rendered from the component that owns the parser it describes — see renderBankImportHelp.
   defineView("bankImportHelp", ["expenses"], renderBankImportHelp, []);
   defineView("incomeGroups", ["expenses"], renderIncomeGroups, ["income", "incomeLog", "tax", "properties", "people", "accounts"]);
-  defineView("properties", ["properties", "expenses"], renderProperties, ["properties", "balances", "shared", "transactions", "accounts", "income", "tax"]);
+  defineView("properties", ["properties", "expenses"], renderProperties, ["properties", "balances", "shared", "transactions", "accounts", "income", "tax", "incomeLog"]);
   defineView("sharedGroups", ["expenses"], renderSharedGroups, ["shared", "transactions", "home", "categories", "categoryLooks", "properties", "accounts", "budgetGroupBy", "budgetGroupsCollapsed", "rollover", "yearBasis", "autoPayments"]);
   defineView("accounts", ["accounts"], renderAccounts, ["accounts", "balances", "assets", "debts", "properties", "transactions", "transfers", "incomeLog", "autoPayments", "savingsGoals"]);
   defineView("categories", ["settings"], renderCategories, ["categories", "categoryLooks", "shared", "transactions", "home", "properties"]);

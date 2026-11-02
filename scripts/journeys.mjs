@@ -8,6 +8,7 @@
 //   scenario    — open a scenario, add a change, Save: its card moves; Make it real shows its plan
 //   csv import  — a bank CSV through the review into Spending
 //   loanstatement — a loan account's statement: its interest and fees go on the loan, not into Spending
+//   loanguess   — the same statement with no account picked: the import asks which loan
 //   pdf import  — a PDF statement read into the same review
 //
 // Then the speed budget, on a large invented household at 4× CPU slowdown (about a mid-range phone):
@@ -180,6 +181,15 @@ const JOURNEYS = {
     check((await st(page, "state.transactions.length")) === tx, "a loan charge landed as spending");
     const loan = await st(page, "({ n: state.properties[0].loans[0].charges.length, bank: (state.properties[0].loans[0].bankRepayment || {}).amount })");
     check(loan.n === 5 && loan.bank === 2950, "the charges or the bank's repayment weren't recorded: " + JSON.stringify(loan));
+  },
+  // Item 245: the same statement under a name that says nothing — the import asks which loan.
+  async loanguess(page){
+    await go(page, "expenses", "data-expenses-sub", "spending");
+    await page.setInputFiles("#bankImportFile", { name: "export.csv", mimeType: "text/csv", buffer: Buffer.from(LOAN_STATEMENT_CSV) });
+    await page.waitForSelector("[data-bank-loanguess]", { timeout: 10000 });
+    await click(page, "[data-bank-loanpick]");
+    await page.waitForSelector("[data-bank-loan]", { timeout: 5000 });
+    check(/Record 5 on the loan/.test(await page.evaluate(() => document.getElementById("bankImportConfirmBtn").textContent)), "picking the loan didn't read it as the loan's");
   }
 };
 

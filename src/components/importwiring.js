@@ -19,7 +19,7 @@ import { savedFolder } from "../lib/safekeeping.js";
 import { showToast, showUndoToast, showPersistentToast } from "../lib/toast.js";
 import { state, persist } from "../state.js";
 import { parseAssetsImportCsv, renderAssetsImportPreview } from "./assets.js";
-import { startBankImport, reparseBankImportWith, clearBankImport, setBankImportGroupLine, setBankImportGroupCategory, renderBankImportPanel, patchBankImportPanel, setIncludePossibleDuplicates, commitBankImport, undoBankImport, setStatementAccount, setStatementBalanceOn, inboxNoteHtml, bankImport } from "./bank-import.js";
+import { useLoanForStatement, startBankImport, reparseBankImportWith, clearBankImport, setBankImportGroupLine, setBankImportGroupCategory, renderBankImportPanel, patchBankImportPanel, setIncludePossibleDuplicates, commitBankImport, undoBankImport, setStatementAccount, setStatementBalanceOn, inboxNoteHtml, bankImport } from "./bank-import.js";
 import { currentHistoryBudget, renderBudgetFromHistory, renderRecurring } from "./budgettoolswiring.js";
 import { renderCards, renderDetail } from "./dashboard.js";
 import { renderSharedGroups, renderTransactions, renderActualVsPlannedPanel, renderYearSpending, parseExpensesImportCsv, renderExpensesImportPreview, renderSpendCategoryChart, renderSpendingTrends } from "./expenses.js";
@@ -337,6 +337,13 @@ export function wireImports(){  document.getElementById("expenseDownloadTemplate
     var maybesBtn = e.target.closest("[data-bank-maybes]");
     if(maybesBtn){
       setIncludePossibleDuplicates(maybesBtn.getAttribute("data-bank-maybes") === "1");
+      renderBankImportPanel();
+      return;
+    }
+    // Item 245: "This looks like a loan statement" — read it as the loan picked.
+    var loanPick = e.target.closest("[data-bank-loanpick]");
+    if(loanPick){
+      useLoanForStatement(loanPick.parentElement.querySelector("[data-bank-loanpick-sel]").value);
       renderBankImportPanel();
       return;
     }

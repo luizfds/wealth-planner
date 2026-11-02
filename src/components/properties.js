@@ -27,6 +27,7 @@ import { renderPropertyExpensesSummary } from "./expenses.js";
 import { renderProjectionOutputs } from "./projections.js";
 import { propertyYearActual, actualFyFor } from "../calc/propertyactuals.js";
 import { loanInterestCharged, loanFeesCharged, bankRepaymentNudge } from "../calc/loancharges.js";
+import { propertyActivityHtml } from "./propertyactivity.js";
 
 // Real-world payment cadences (loan repayments, and how a property manager actually disburses
 // rent) are only ever weekly, fortnightly, or monthly — unlike income/expense rows elsewhere in
@@ -670,7 +671,8 @@ export function propertySummaryHtml(p){
 }
 export function propertyTabsFor(p){
   var t = [{ key: "overview", label: "Overview" }, { key: "loans", label: "Loans" }, { key: "income", label: "Income & costs" }];
-  if(p.kind === "IP") t.push({ key: "tax", label: "Tax" }, { key: "sale", label: "Sale" });
+  // Item 244: an investment property's Activity — everything logged for it this year.
+  if(p.kind === "IP") t.push({ key: "activity", label: "Activity" }, { key: "tax", label: "Tax" }, { key: "sale", label: "Sale" });
   return t;
 }
 export function propertyTabShown(p){
@@ -873,6 +875,7 @@ function propertyCardHtml(p, colorIdx){
       '<div class="m-card"><div class="m-rows" id="propExpRows_' + escapeAttr(p.id) + '">' + modernPropListHtml(p.expenses, "propexp:" + p.id, true) + '</div></div>' +
       '<button type="button" class="btn btn-sm btn-ghost group-add-btn" data-add="propexp:' + escapeAttr(p.id) + '">+ Add expense</button>' +
       (p.kind === "IP" ? claimedHereHtml(p) : ""))) +
+    (p.kind === "IP" ? panel("activity", propertyActivityHtml(p)) : "") +
     (p.kind === "IP" ? panel("tax", propertyTaxTabHtml(p) + propertyActualHtml(p) + (p.kind === "IP" ? depreciationSectionHtml(p) : "")) : "") +
     (p.kind === "IP" ? panel("sale", (p.kind === "IP" ? propertySectionHtml(p, "sale",
       '<div class="property-section-title">If you sold</div>',

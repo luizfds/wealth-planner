@@ -12,8 +12,8 @@ import { cleanMerchantName } from "../calc/merchantbook.js";
 import { transactionDisplayName } from "../calc/ledger.js";
 import { applySuggestions, learnRule, coverageOf, merchantKey, proposedLineFor, suggestedLineName, pruneRules, detectTransfer, closingBalance } from "../calc/import-rules.js";
 import { addTransfer, deleteTransfer } from "../calc/cashflowlist.js";
-import { accountBalance, setAccountBalance, isOwedType, resolveLink } from "../calc/accounts.js";
-import { splitLoanStatement, bankRepaymentOf, loanRowKind } from "../calc/loancharges.js";
+import { accountBalance, setAccountBalance, isOwedType, resolveLink, loanAccountFor } from "../calc/accounts.js";
+import { splitLoanStatement, bankRepaymentOf, loanRowKind, looksLikeLoanStatement } from "../calc/loancharges.js";
 import { fmtCurrency0, fmtCurrency2 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { loggableBudgetLineItems, budgetLineOptgroupsHtml, sortedCategories } from "./expenses.js";
@@ -179,6 +179,8 @@ function rebuildBankImport(parsed, fileName, rawRows, includePossibleDuplicates)
     account: statementAccount,
     // Item 243: a loan account's charges, drawdown and repayment (takeLoanRows), or null.
     loan: loanPart.loan,
+    // Item 245: no loan account picked, but it reads like one — the review asks which loan.
+    loanGuess: !loanPart.loan && looksLikeLoanStatement(suggested) && propertyLoans().length > 0,
     closing: closingBalance(parsed.rows),
     setBalance: true,
     duplicates: suggested.filter(function(r){ return r.duplicate; }),
@@ -670,9 +672,29 @@ function loanRowCount(){
   if(!lp) return 0;
   return lp.charges.length + (lp.drawdown && lp.drawdown.date !== lp.settledWas ? 1 : 0);
 }
+function propertyLoans(){
+  var out = [];
+  (state.properties || []).forEach(function(p){ (p.loans || []).forEach(function(l){ if(l && l.id && !l.endedOn) out.push({ id: l.id, label: (l.what || "Loan") + ((state.properties || []).length > 1 ? " — " + (p.what || "Property") : "") }); }); });
+  return out;
+}
+// Item 245: which loan a statement is for, when no loan account was picked — its account is made (or found) and linked.
+export function useLoanForStatement(loanId){
+  if(!bankImport) return;
+  var name = loanAccountFor(loanId);
+  if(!name) return;
+  commit(["accounts"]);
+  setStatementAccount(name);
+}
+function loanGuessHtml(){
+  var loans = propertyLoans();
+  return '<div class="tax-cap-note bank-loan-part" data-bank-loanguess><p style="margin:0"><b>This looks like a loan statement.</b> Which loan is it for? Its interest and fees then go on the loan, not into spending.</p>' +
+    '<div class="bank-loan-pick">' + (loans.length > 1 ? '<select data-bank-loanpick-sel aria-label="Which loan this statement is for">' + loans.map(function(l){ return '<option value="' + escapeAttr(l.id) + '">' + escapeAttr(l.label) + '</option>'; }).join("") + '</select>'
+      : '<input type="hidden" data-bank-loanpick-sel value="' + escapeAttr(loans[0].id) + '"><span>' + escapeAttr(loans[0].label) + '</span>') +
+    '<button type="button" class="btn btn-sm btn-primary" data-bank-loanpick>Read it as this loan\'s</button></div></div>';
+}
 function loanPartHtml(){
   var lp = bankImport.loan;
-  if(!lp) return "";
+  if(!lp) return bankImport.loanGuess ? loanGuessHtml() : "";
   var items = [];
   var sum = function(kind){ return lp.charges.filter(function(c){ return c.kind === kind; }); };
   var interest = sum("interest"), fees = sum("fee");

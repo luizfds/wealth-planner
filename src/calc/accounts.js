@@ -57,6 +57,20 @@ export function agentAccountNames(accounts){
   return out;
 }
 
+// Item 245: the account for a property loan — the one linked to it, else a new Loan account linked to it, named after
+// the loan. Returns its name.
+export function loanAccountFor(loanId, s){
+  s = s || state;
+  var hit = (s.accounts || []).find(function(a){ return a.link === "loan:" + loanId; });
+  if(hit) return hit.name;
+  var x = allLoans(s).find(function(y){ return y.loan.id === loanId; });
+  if(!x) return "";
+  var base = x.loan.what || ((x.property.what || "Property") + " loan"), name = base, n = 2;
+  while((s.accounts || []).some(function(a){ return a.name === name; })) name = base + " " + n++;
+  if(!Array.isArray(s.accounts)) s.accounts = [];
+  s.accounts.push({ id: genId("acct"), name: name, type: "loan", statementStartDay: 1, link: "loan:" + loanId });
+  return name;
+}
 function allLoans(s){
   var out = [];
   ((s || state).properties || []).forEach(function(p){

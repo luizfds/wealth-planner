@@ -13,7 +13,7 @@ import { recordRentReview } from "../calc/propertylife.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr } from "../lib/format.js";
 import { pdfLines } from "../lib/pdftext.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
-import { state, persist, genId } from "../state.js";
+import { state, persist, genId, commit } from "../state.js";
 import { renderAssetsSummary, patchOffsetsRow } from "./assets.js";
 import { renderCards, renderDetail } from "./dashboard.js";
 import { patchIncomeGroupTotals, patchSyntheticIncomeRows, renderTaxSuper } from "./income.js";
@@ -435,6 +435,21 @@ export function wireProperties(){
         renderProjectionOutputs();
         persist();
       }
+      return;
+    }
+    // Item 243: the bank's repayment, from the loan's last imported statement, becomes the one it uses.
+    var useBank = e.target.closest("[data-loan-usebank]");
+    if(useBank){
+      var bCard = e.target.closest("[data-property-id]"), bRow = e.target.closest("[data-loan-index]");
+      var bProp = bCard && findProperty(bCard.getAttribute("data-property-id"));
+      var bLoan = bProp && bRow && bProp.loans[Number(bRow.getAttribute("data-loan-index"))];
+      if(!bLoan || !bLoan.bankRepayment) return;
+      withUndo((bLoan.what || "The loan") + " now uses the bank's repayment", function(){
+        bLoan.repaymentMode = "manual";
+        bLoan.manualRepaymentAmount = Number(bLoan.bankRepayment.amount) || 0;
+        bLoan.manualRepaymentFreq = bLoan.bankRepayment.freq || "Monthly";
+        commit(["properties"]);
+      });
       return;
     }
     // Rate changes (v3.53.0): recorded with their date; a past year's interest follows them.

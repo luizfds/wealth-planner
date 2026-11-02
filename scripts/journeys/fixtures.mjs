@@ -53,3 +53,14 @@ export function agentStatementPdf(){
     ["You Received", "", "", "", "1,116.00"]
   ]);
 }
+
+// Item 243: a loan account's statement — the bank's interest charges, a fee and the repayments. Invented amounts.
+export const LOAN_STATEMENT_CSV = "Date,Description,Amount,Balance\n" +
+  "31/07/2026,Interest Charge,-2310.40,-452100.40\n" +
+  "15/08/2026,Repayment,2950.00,-449150.40\n" +
+  "20/08/2026,Loan Service Fee,-10.00,-449160.40\n" +
+  "31/08/2026,Interest Charge,-2295.10,-451455.50\n" +
+  "15/09/2026,Repayment,2950.00,-448505.50\n" +
+  "30/09/2026,Interest Charge,-2201.75,-450707.25\n" +
+  "15/10/2026,Repayment,2950.00,-447757.25\n" +
+  "31/10/2026,Interest Charge,-2260.30,-450017.55\n";

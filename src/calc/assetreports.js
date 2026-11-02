@@ -8,10 +8,11 @@
 //                     and last, the deductible share, and when it's paid off at today's repayments
 //   loanPayoff      — months to pay a balance off at a fixed repayment, with an offset
 // Pure apart from the property helpers it reads loans and depreciation through.
+import { loanInterestCharged } from "./loancharges.js";
 import { valueOn } from "./history.js";
 import { sumField } from "./ledger.js";
 import { propertyCostBase, propertyCashResultAnnual, propertyGearingAnnual, propertyTaxDeductibleResultAnnual,
-  loanBalance, loanPaidOut, loanInterestForWindow, loanInvestShare, loanRepaymentMonthly, loanRateOn, fyWindow, financialYearOf, fyLabel } from "./property.js";
+  loanBalance, loanPaidOut, loanInvestShare, loanRepaymentMonthly, loanRateOn, fyWindow, financialYearOf, fyLabel } from "./property.js";
 
 function r2(n){ return Math.round((Number(n) || 0) * 100) / 100; }
 export function shiftMonths(iso, n){
@@ -89,7 +90,7 @@ export function debtSchedule(props, debts, opts){
       var monthly = loanRepaymentMonthly(l), rate = Number(loanRateOn(l, today)) || Number(l.rate) || 0;
       var share = loanInvestShare(l), io = l.repaymentType === "IO" && l.repaymentMode !== "manual";
       var months = io ? null : loanPayoff(bal, rate, monthly, l.offsetBalance);
-      var thisYear = loanInterestForWindow(l, cur.start, today < cur.end ? today : cur.end), lastYear = loanInterestForWindow(l, prev.start, prev.end);
+      var thisYear = loanInterestCharged(l, cur.start, today < cur.end ? today : cur.end).amount, lastYear = loanInterestCharged(l, prev.start, prev.end).amount;
       rows.push({ name: (p.what || "Property") + ((p.loans || []).length > 1 ? " — " + (l.what || "loan " + (i + 1)) : ""), kind: "loan",
         balance: r2(bal), then: then == null ? null : r2(then), offset: r2(Number(l.offsetBalance) || 0), rate: rate, monthly: r2(monthly),
         interestThisYear: r2(thisYear), interestLastYear: r2(lastYear), deductibleShare: p.kind === "IP" ? share : 0,

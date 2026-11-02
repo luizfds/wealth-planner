@@ -767,6 +767,12 @@ export var MIGRATION_STEPS = [
   // v3.204.0 (item 235b): every account link carries the account's id; see calc/accountlinks.js.
   { n: 23, name: "accounts linked by id, not just by name", run: function(s){
     linkAllByName(s);
+  } },
+  // Item 243: the interest and fees the bank charged on a loan, from its imported statements (calc/loancharges.js).
+  { n: 24, name: "loans keep the bank's charges", run: function(s){
+    (Array.isArray(s.properties) ? s.properties : []).forEach(function(p){
+      (p && Array.isArray(p.loans) ? p.loans : []).forEach(function(l){ if(l && !Array.isArray(l.charges)) l.charges = []; });
+    });
   } }
 ];
 

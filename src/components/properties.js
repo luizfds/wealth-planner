@@ -5,7 +5,7 @@ import {
   propertyCapitalGain, propertyYieldOnCost, propertyLVR, propertyNetLVR, propertiesTotalValue, propertiesTotalEquityToday, propertiesOffsetTotal,
   propertiesTotalMortgageBalance, propertiesNetCashFlowMonthly, propertiesWeightedGrossYield,
   propertyOwnershipPct, propertyOwnershipTotal, propertyTaxDeductibleResultAnnual, propertyTaxResultBreakdown, loanBalance, loanPaidOut,
-  landTaxByState, borrowingCostsSchedule, borrowingCostsDeduction, sortedRateHistory, calcRepaymentMonthly
+  landTaxByState, fyWindow, borrowingCostsSchedule, borrowingCostsDeduction, sortedRateHistory, calcRepaymentMonthly
 } from "../calc/property.js";
 import { getTaxPeople, computePersonTax } from "../calc/tax.js";
 import { saleScenario } from "../calc/sale.js";
@@ -26,6 +26,7 @@ import { renderLineChart, dateAxisFormat, sparklineHtml, sparklinePlaceholderHtm
 import { renderPropertyExpensesSummary } from "./expenses.js";
 import { renderProjectionOutputs } from "./projections.js";
 import { propertyYearActual, actualFyFor } from "../calc/propertyactuals.js";
+import { loanInterestCharged, loanFeesCharged, bankRepaymentNudge } from "../calc/loancharges.js";
 
 // Real-world payment cadences (loan repayments, and how a property manager actually disburses
 // rent) are only ever weekly, fortnightly, or monthly — unlike income/expense rows elsewhere in
@@ -140,7 +141,7 @@ function loanRowModernHtml(loan, li, propId, colorIdx){
     dot +
     '<div style="flex:1 1 auto; min-width:0">' +
       '<div class="m-row-name">' + escapeAttr(loan.what) + '</div>' +
-      '<div class="m-row-sub" data-computed="sub">' + (loanPaidOut(loan) ? 'paid out ' + escapeAttr(loan.endedOn) + ' · ' : '') + fmtCurrency0.format(Number(loan.balance) || 0) + ' balance · ' + rateDisplay + '% · ' + loan.repaymentType + " · paid " + disp.freq.toLowerCase() + (loan.repaymentMode === "manual" ? " (manual)" : "") + (loan.fixedUntil && loan.fixedUntil >= localDateStr() ? ' · fixed to ' + escapeAttr(loan.fixedUntil) : '') + '</div>' +
+      '<div class="m-row-sub" data-computed="sub">' + (loanPaidOut(loan) ? 'paid out ' + escapeAttr(loan.endedOn) + ' · ' : '') + fmtCurrency0.format(Number(loan.balance) || 0) + ' balance · ' + rateDisplay + '% · ' + loan.repaymentType + " · paid " + disp.freq.toLowerCase() + (loan.repaymentMode === "manual" ? " (manual)" : "") + (loan.fixedUntil && loan.fixedUntil >= localDateStr() ? ' · fixed to ' + escapeAttr(loan.fixedUntil) : '') + bankSubText(loan) + '</div>' +
     '</div>' +
     '<span class="m-row-amt" data-computed="amt">' + fmtCurrency2.format(disp.amount) + suffix + '</span>' +
     '<span class="m-row-chev" aria-hidden="true">✕</span>' +
@@ -168,6 +169,7 @@ function loanRowModernHtml(loan, li, propId, colorIdx){
       '<div class="m-edit-field"><label>Rate after %</label><input type="number" step="0.01" min="0" class="loan-revert-rate" value="' + (loan.revertRate != null ? loan.revertRate : "") + '" placeholder="' + rateDisplay + '" aria-label="Rate after the fixed period" title="What the lender says it reverts to — check your loan statement. Blank uses today\'s rate."></div>' +
       '<div class="m-edit-field span3"><span class="computed-note" data-computed="borrow">' + borrowingNoteText(loan) + '</span></div>' +
       rateHistoryHtml(loan) +
+      loanBankHtml(loan) +
       (loan.repaymentMode === "manual"
         ? '<div class="m-edit-field span3"><label>Manual repayment amount</label><input type="number" step="1" min="0" class="loan-manual-amount" value="' + (Number(loan.manualRepaymentAmount) || 0) + '" aria-label="Manual repayment amount"></div>'
         : "") +
@@ -175,6 +177,25 @@ function loanRowModernHtml(loan, li, propId, colorIdx){
     '<div class="m-edit-actions"><button type="button" class="btn btn-danger btn-sm row-del" data-loan-del="' + li + '">Delete</button></div>' +
   '</div></div></div>';
   return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="' + escapeAttr(section) + '" data-index="' + li + '" data-loan-index="' + li + '">' + summary + rowEditSlot(isOpen, edit) + '</div>';
+}
+// Item 243: the loan as the bank charged it — this financial year's interest from its imported statements, and the
+// bank's repayment when it differs from the one this loan uses.
+function bankSubText(loan){
+  var n = bankRepaymentNudge(loan);
+  return n ? " · bank takes " + fmtCurrency2.format(n.amount) : "";
+}
+export function loanBankHtml(loan, today){
+  today = today || localDateStr();
+  var fy = financialYearOf(today), win = fyWindow(fy), end = today < win.end ? today : win.end;
+  var ic = loanInterestCharged(loan, win.start, end), fees = loanFeesCharged(loan, win.start, end), nudge = bankRepaymentNudge(loan);
+  var note = ic.count
+    ? 'Interest the bank charged ' + fyLabel(fy) + ': <b>' + fmtCurrency2.format(ic.charged) + '</b> (' + ic.count + ' charge' + (ic.count === 1 ? '' : 's') + ', to ' + escapeAttr(fmtDate(ic.to)) + ')' +
+      (ic.modelled >= 0.005 ? ', and ' + fmtCurrency0.format(ic.modelled) + ' worked out for the days since' : '') + (fees ? '. Fees ' + fmtCurrency2.format(fees) : '') + '.'
+    : 'Interest is worked out from the balance and rate. Import this loan\'s statement into an account of type Loan linked to it, and the bank\'s own charges are used instead.';
+  return '<div class="m-edit-field span3 loan-bank" data-computed="bank"><span class="computed-note">' + note + '</span>' +
+    (nudge ? '<div class="loan-bank-nudge"><span>The bank takes <b>' + fmtCurrency2.format(nudge.amount) + ' ' + escapeAttr(nudge.freq.toLowerCase()) + '</b>; this loan works out ' + fmtCurrency2.format(nudge.current) + '.</span>' +
+      '<button type="button" class="btn btn-sm" data-loan-usebank>Use the bank\'s</button></div>' : '') +
+  '</div>';
 }
 // Rate history (v3.53.0) — calc/property.js. The rate field above is the rate now; recording a
 // change keeps when it moved, which a past year's interest and Close the year both read.
@@ -693,15 +714,18 @@ export function propertyActualHtml(p, today){
   if(!a) return "";
   var money = function(n){ return (n < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(n)); };
   var rows = a.rows.filter(function(r){ return Math.abs(r.actual) >= 0.5 || Math.abs(r.plan) >= 0.5; }).map(function(r){
-    return '<div class="ptx-row ptx-act"><span>' + r.label + (r.logged ? '' : ' <small>worked out</small>') + '</span><b>' + money(r.actual) + '</b><b class="ptx-plan">' + money(r.plan) + '</b></div>';
+    // Item 243: interest as the bank charged it, as far as its statements go.
+    var how = r.charged ? ' <small>' + (r.logged ? 'as charged' : 'charged to ' + escapeAttr(fmtDate(r.chargedTo)) + ', then worked out') + '</small>' : r.logged ? '' : ' <small>worked out</small>';
+    return '<div class="ptx-row ptx-act"><span>' + r.label + how + '</span><b>' + money(r.actual) + '</b><b class="ptx-plan">' + money(r.plan) + '</b></div>';
   }).join("");
   var note = a.nothingLogged
     ? "Nothing logged for this property yet this year. Log its property manager statements (Overview → Log a statement), rent as it arrives, and payments against its cost lines, and this fills in."
     : "Rent and costs from what's logged: " + [
         a.statements ? a.statements + " statement" + (a.statements === 1 ? "" : "s") : "",
         a.received ? a.received + " rent payment" + (a.received === 1 ? "" : "s") + " received" : "",
-        a.payments ? a.payments + " cost" + (a.payments === 1 ? "" : "s") + " paid" : ""
-      ].filter(Boolean).join(", ") + ". Interest, depreciation and borrowing costs are worked out for the same days." +
+        a.payments ? a.payments + " cost" + (a.payments === 1 ? "" : "s") + " paid" : "",
+        a.charges ? a.charges + " loan interest charge" + (a.charges === 1 ? "" : "s") : ""
+      ].filter(Boolean).join(", ") + "." + (a.charges ? " Depreciation and borrowing costs are worked out for the same days." : " Interest, depreciation and borrowing costs are worked out for the same days — import the loans' statements for the interest the bank charged.") +
       (a.wholeYear ? "" : " Plan to date is the year's plan for the " + Math.round(a.share * 100) + "% of the year gone.");
   return '<div class="ptx ptx-actual"><div class="property-section-title">' + escapeAttr(fyLabel(fy)) + (a.wholeYear ? ' as it went' : ' so far — to ' + escapeAttr(fmtDate(a.end))) + '</div>' +
     '<div class="ptx-row ptx-act ptx-act-head"><span></span><b>Actual</b><b class="ptx-plan">' + (a.wholeYear ? 'Plan' : 'Plan to date') + '</b></div>' +
@@ -1055,7 +1079,7 @@ export function patchPropertyCardComputed(property){
     var sub = row.querySelector('[data-computed="sub"]');
     if(sub){
       var rateDisplay = Math.round((Number(loan.rate) || 0) * 100) / 100;
-      sub.textContent = (loanPaidOut(loan) ? "paid out " + loan.endedOn + " · " : "") + fmtCurrency0.format(Number(loan.balance) || 0) + " balance · " + rateDisplay + "% · " + loan.repaymentType + " · paid " + disp.freq.toLowerCase() + (loan.repaymentMode === "manual" ? " (manual)" : "");
+      sub.textContent = (loanPaidOut(loan) ? "paid out " + loan.endedOn + " · " : "") + fmtCurrency0.format(Number(loan.balance) || 0) + " balance · " + rateDisplay + "% · " + loan.repaymentType + " · paid " + disp.freq.toLowerCase() + (loan.repaymentMode === "manual" ? " (manual)" : "") + bankSubText(loan);
     }
   });
   var loanBarWrap = card.querySelector('#propLoanRows_' + CSS.escape(property.id) + ' [data-comp-bar]');

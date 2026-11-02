@@ -70,7 +70,12 @@ are resolved "newest wins" (`applyPageChange` bails if `currentPage` moved on).
 - **The rental schedule from what's logged** (`rentalLogged`, calc/propertyactuals.js): Tax → Returns' rental schedule
   shows under each return line what's logged for the year (statements, rent received, payments against the property's
   cost lines by their return line, claimed lines at their deductible share); "Use logged figures" makes them the
-  year's actuals (undoable). Interest, borrowing costs and depreciation stay worked out.
+  year's actuals (undoable). Borrowing costs and depreciation stay worked out.
+- **Loans as the bank charged them** (`calc/loancharges.js`): a statement imported into an account of type Loan linked
+  to a property's loan keeps its interest charges and fees on the loan (`loan.charges`), sets its settled-on date from
+  a drawdown and notes the bank's repayment (`loan.bankRepayment`, offered on the loan as "Use the bank's"). Interest
+  everywhere — year so far, rental schedule, debts report — is `loanInterestCharged`: the charges for the days they
+  cover, `loanInterestForWindow` (never before settlement) for the rest.
 - **Investment returns** (`calc/investreturn.js`): money-weighted per holding, the same money in an index (the price
   file's weekly A200 / IVV), a target mix (`state.targetMix`), distributions ahead.
 - **On a phone**: rows and `.review-panel` dialogs are bottom sheets dragged closed by their head; Spending's rows swipe

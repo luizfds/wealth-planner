@@ -12,7 +12,8 @@ import { cleanMerchantName } from "../calc/merchantbook.js";
 import { transactionDisplayName } from "../calc/ledger.js";
 import { applySuggestions, learnRule, coverageOf, merchantKey, proposedLineFor, suggestedLineName, pruneRules, detectTransfer, closingBalance } from "../calc/import-rules.js";
 import { addTransfer, deleteTransfer } from "../calc/cashflowlist.js";
-import { accountBalance, setAccountBalance, isOwedType } from "../calc/accounts.js";
+import { accountBalance, setAccountBalance, isOwedType, resolveLink } from "../calc/accounts.js";
+import { splitLoanStatement, bankRepaymentOf, loanRowKind } from "../calc/loancharges.js";
 import { fmtCurrency0, fmtCurrency2 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { loggableBudgetLineItems, budgetLineOptgroupsHtml, sortedCategories } from "./expenses.js";
@@ -107,6 +108,30 @@ function markTransfers(groups, statementAccount, isCredit){
   });
   return groups;
 }
+// Item 243: the property loan a statement's account is linked to ({ loan, property, label }), or null.
+function loanOfAccount(name){
+  var a = name && (state.accounts || []).find(function(x){ return x.name === name; });
+  var src = a && a.link && String(a.link).indexOf("loan:") === 0 ? resolveLink(a.link) : null;
+  return src && src.kind === "loan" ? { loan: src.record, property: src.property, label: src.label } : null;
+}
+// A loan account's statement: its interest charges, fees and drawdown are the loan's, not spending — taken out of
+// the rows here and recorded on the loan at import (calc/loancharges.js). Its repayments stay in the review, where
+// they match the transfers already logged or are placed as one; what the bank takes is noted for the loan.
+function takeLoanRows(suggested, statementAccount){
+  var hit = loanOfAccount(statementAccount);
+  if(!hit) return { rows: suggested, loan: null };
+  var split = splitLoanStatement(suggested.filter(function(r){ return !r.duplicate || r.duplicateOfTransfer; }), hit.loan);
+  var taken = new Set(split.charges.map(function(c){ return c.row; }));
+  if(split.drawdown) taken.add(split.drawdown);
+  // A charge already recorded, met again on a re-import, is neither spending nor new.
+  suggested.forEach(function(r){ var k = loanRowKind(r); if((k === "interest" || k === "fee") && !split.charges.some(function(c){ return c.row === r; })) taken.add(r); });
+  return {
+    rows: suggested.filter(function(r){ return !taken.has(r); }),
+    loan: { loanId: hit.loan.id, label: hit.label, charges: split.charges, drawdown: split.drawdown, known: split.known,
+      settledWas: hit.loan.settlementDate || "",
+      repayment: bankRepaymentOf(suggested.filter(function(r){ return r.direction === "credit" && loanRowKind(r) === "repayment"; })) }
+  };
+}
 function rebuildBankImport(parsed, fileName, rawRows, includePossibleDuplicates){
   var lines = loggableBudgetLineItems();
   var keepAccount = bankImport && bankImport.fileName === (fileName || "") ? bankImport.account : null;
@@ -136,6 +161,8 @@ function rebuildBankImport(parsed, fileName, rawRows, includePossibleDuplicates)
     var hit = (state.transfers || []).some(function(t){ return Math.abs((Number(t.amount) || 0) - amt) < 0.005 && Math.abs(Date.parse(t.date) - at) <= 4 * DAY; });
     if(hit){ r.duplicate = true; r.duplicateOfTransfer = true; }
   });
+  var loanPart = takeLoanRows(suggested, statementAccount);
+  suggested = loanPart.rows;
   var includeMaybes = !!includePossibleDuplicates;
   var spend = suggested.filter(function(r){
     if(r.direction !== "debit" || r.duplicate) return false;
@@ -150,6 +177,8 @@ function rebuildBankImport(parsed, fileName, rawRows, includePossibleDuplicates)
     groups: markTransfers(groupRows(spend), statementAccount, false),
     // v3.64.0: the account this statement is for, its closing balance, and whether to set it.
     account: statementAccount,
+    // Item 243: a loan account's charges, drawdown and repayment (takeLoanRows), or null.
+    loan: loanPart.loan,
     closing: closingBalance(parsed.rows),
     setBalance: true,
     duplicates: suggested.filter(function(r){ return r.duplicate; }),
@@ -291,7 +320,14 @@ function transferOptgroupHtml(g){
   }
   return '<optgroup label="' + label + '">' + opts + '</optgroup>';
 }
-export function setStatementAccount(name){ if(bankImport){ bankImport.account = name || ""; markTransfers(bankImport.groups, bankImport.account); markTransfers(bankImport.creditGroups, bankImport.account); bankImport.coverage = coverageOfGroups(bankImport.groups); } }
+export function setStatementAccount(name){
+  // To or from a loan account, the rows themselves change (takeLoanRows): read the statement again for it.
+  if(bankImport && (loanOfAccount(bankImport.account) || loanOfAccount(name))){
+    bankImport.account = name || "";
+    rebuildBankImport(bankImport.parsed, bankImport.fileName, bankImport.rawRows, bankImport.includePossibleDuplicates);
+    return;
+  }
+  if(bankImport){ bankImport.account = name || ""; markTransfers(bankImport.groups, bankImport.account); markTransfers(bankImport.creditGroups, bankImport.account); bankImport.coverage = coverageOfGroups(bankImport.groups); } }
 export function setStatementBalanceOn(on){ if(bankImport) bankImport.setBalance = !!on; }
 function receivedOptgroupHtml(g){
   var targets = incomeTargets();
@@ -313,7 +349,7 @@ export function renderBankImportPanel(){
     panel.innerHTML = bankImportFailureHtml() + bankImportActionsHtml(false);
     return;
   }
-  if(!bankImport.groups.length && !bankImport.duplicates.length && !bankImport.credits.length && !bankImport.possibleDuplicates.length){
+  if(!bankImport.groups.length && !bankImport.duplicates.length && !bankImport.credits.length && !bankImport.possibleDuplicates.length && !loanRowCount()){
     panel.innerHTML = '<p class="ledger-note bank-import-problem">Nothing importable in that file' +
       (s.skipped ? " — " + s.skipped + " row" + (s.skipped === 1 ? "" : "s") + " couldn't be read." : ".") + '</p>' +
       bankImportActionsHtml(false);
@@ -321,6 +357,7 @@ export function renderBankImportPanel(){
   }
   panel.innerHTML =
     bankImportHeaderHtml(s) +
+    loanPartHtml() +
     bankImportGroupsHtml() +
     bankImportAsideHtml() +
     bankImportActionsHtml(true);
@@ -470,8 +507,8 @@ function bankImportHeaderHtml(s){
   }
   var acctLine = '<label class="bank-import-account"><span>This statement is for</span><select data-bank-account aria-label="Which account this statement is for">' + acctOpts + '</select></label>';
   return '<div class="bank-import-head">' + acctLine + balLine +
-    '<p class="ledger-note" style="margin:0"><b>' + count + ' transaction' + (count === 1 ? "" : "s") + '</b> to import' +
-      (amount > 0 ? ", " + fmtCurrency0.format(amount) + " in total" : "") + '.' +
+    '<p class="ledger-note" style="margin:0">' + (!count && bankImport.loan ? 'No spending in it.' : '<b>' + count + ' transaction' + (count === 1 ? "" : "s") + '</b> to import' +
+      (amount > 0 ? ", " + fmtCurrency0.format(amount) + " in total" : "") + '.') +
       (s.duplicates ? " " + s.duplicates + " already logged." : "") +
       (s.skipped ? " " + s.skipped + " row" + (s.skipped === 1 ? "" : "s") + " couldn't be read." : "") +
     '</p>' +
@@ -625,7 +662,29 @@ function bankImportAsideHtml(){
 // all duplicates and the refund is the one thing left to do.
 export function importableCount(){
   if(!bankImport) return 0;
-  return bankImport.coverage.total + assignedCreditRowCount() + reconcilable().length;
+  return bankImport.coverage.total + assignedCreditRowCount() + reconcilable().length + loanRowCount();
+}
+// Item 243: what a loan statement records on the loan — its new charges and a drawdown that moves when it settled.
+function loanRowCount(){
+  var lp = bankImport && bankImport.loan;
+  if(!lp) return 0;
+  return lp.charges.length + (lp.drawdown && lp.drawdown.date !== lp.settledWas ? 1 : 0);
+}
+function loanPartHtml(){
+  var lp = bankImport.loan;
+  if(!lp) return "";
+  var items = [];
+  var sum = function(kind){ return lp.charges.filter(function(c){ return c.kind === kind; }); };
+  var interest = sum("interest"), fees = sum("fee");
+  var total = function(list){ return list.reduce(function(s, c){ return s + c.amount; }, 0); };
+  var span = function(list){ var d = list.map(function(c){ return c.row.date; }).sort(); return d.length > 1 ? " (" + escapeAttr(d[0]) + " → " + escapeAttr(d[d.length - 1]) + ")" : d.length ? " (" + escapeAttr(d[0]) + ")" : ""; };
+  if(interest.length) items.push('<li><b>' + interest.length + ' interest charge' + (interest.length === 1 ? "" : "s") + '</b>, ' + fmtCurrency2.format(total(interest)) + span(interest) + ' — the interest the year so far and the tax return use, in place of the worked-out figure.</li>');
+  if(fees.length) items.push('<li><b>' + fees.length + ' fee' + (fees.length === 1 ? "" : "s") + '</b>, ' + fmtCurrency2.format(total(fees)) + span(fees) + ' — deductible costs of the loan.</li>');
+  if(lp.drawdown && lp.drawdown.date !== lp.settledWas) items.push('<li>Drawn down on <b>' + escapeAttr(lp.drawdown.date) + '</b> — becomes the loan\'s settled-on date' + (lp.settledWas ? ' (now ' + escapeAttr(lp.settledWas) + ')' : '') + ', so no interest is counted before it.</li>');
+  if(lp.known) items.push('<li>' + lp.known + ' charge' + (lp.known === 1 ? " is" : "s are") + ' already recorded.</li>');
+  if(lp.repayment) items.push('<li>The bank takes <b>' + fmtCurrency2.format(lp.repayment.amount) + ' ' + lp.repayment.freq.toLowerCase() + '</b>. Repayments below are transfers into the loan; ones already logged are matched.</li>');
+  if(!items.length) items.push('<li>No interest, fees or drawdown in this statement.</li>');
+  return '<div class="tax-cap-note bank-loan-part" data-bank-loan><p style="margin:0"><b>Loan statement for ' + escapeAttr(lp.label) + '.</b> Recorded on the loan, not as spending:</p><ul>' + items.join("") + '</ul></div>';
 }
 // v3.150.0: what's logged on the statement's account, inside the dates the statement covers, that
 // nothing on the statement accounts for — a purchase that posted later, one paid another way, one
@@ -655,9 +714,13 @@ function assignedCreditRowCount(){
   }, 0);
 }
 function bankImportActionsHtml(canImport){
-  var n = canImport ? importableCount() : 0;
+  var n = canImport ? importableCount() : 0, loanN = canImport ? loanRowCount() : 0, txN = n - loanN;
+  // Item 243: what goes on the loan is said apart from the transactions.
+  var label = !loanN ? "Import " + n + " transaction" + (n === 1 ? "" : "s")
+    : txN ? "Import " + txN + " transaction" + (txN === 1 ? "" : "s") + " + " + loanN + " for the loan"
+    : "Record " + loanN + " on the loan";
   return '<div class="bank-import-actions">' +
-    (canImport && n ? '<button type="button" class="btn btn-sm btn-primary" id="bankImportConfirmBtn">Import ' + n + ' transaction' + (n === 1 ? "" : "s") + '</button>' : "") +
+    (canImport && n ? '<button type="button" class="btn btn-sm btn-primary" id="bankImportConfirmBtn">' + label + '</button>' : "") +
     '<button type="button" class="btn btn-sm btn-ghost" id="bankImportCancelBtn">Cancel</button>' +
   '</div>';
 }
@@ -831,8 +894,22 @@ export function commitBankImport(){
     var value = isOwedType(acctRec.type) ? Math.abs(bankImport.closing.balance) : bankImport.closing.balance;
     if(setAccountBalance(acctRec, value, bankImport.closing.date)) balanceSet = { account: acctRec.name, value: value, prev: prev.balance, prevDate: prev.date, date: bankImport.closing.date };
   }
+  // Item 243: a loan statement's charges, drawdown and repayment onto the loan, remembering what it had for undo.
+  var loanSet = null, lp = bankImport.loan;
+  var loanHit = lp && loanOfAccount(stAcct);
+  if(loanHit && loanHit.loan.id === lp.loanId){
+    var loan = loanHit.loan;
+    if(!Array.isArray(loan.charges)) loan.charges = [];
+    loanSet = { loanId: loan.id, ids: [], settledWas: loan.settlementDate || "", repaymentWas: loan.bankRepayment || null };
+    lp.charges.forEach(function(c){
+      var rec = { id: genId("lc"), date: c.row.date, amount: Math.round(c.amount * 100) / 100, kind: c.kind, what: c.row.description || "" };
+      loan.charges.push(rec); loanSet.ids.push(rec.id);
+    });
+    if(lp.drawdown) loan.settlementDate = lp.drawdown.date;
+    if(lp.repayment) loan.bankRepayment = lp.repayment;
+  }
   commit(["transactions", "incomeLog", "transfers", "importRules", "shared", "accounts", "assets", "debts", "properties"]);
-  return { ids: created, learned: learned, groups: bankImport.groups.length, transferIds: transferIds, balanceSet: balanceSet,
+  return { loanSet: loanSet, loanCharges: loanSet ? loanSet.ids.length : 0, ids: created, learned: learned, groups: bankImport.groups.length, transferIds: transferIds, balanceSet: balanceSet,
            lineIds: createdLineIds, linesCreated: createdLineIds.length, receivedIds: receivedIds, reconciled: reconciled,
            refunds: refundGroups.reduce(function(n, g){ return n + g.rows.length; }, 0) };
 }
@@ -840,7 +917,18 @@ export function commitBankImport(){
 // Undo: drop exactly the transactions this import created. Rules it taught are deliberately left
 // alone — they're a preference the user expressed, not part of the data being undone, and
 // re-importing the same file is the normal reason to undo.
-export function undoBankImport(ids, lineIds, receivedIds, transferIds, balanceSet, reconciled){
+export function undoBankImport(ids, lineIds, receivedIds, transferIds, balanceSet, reconciled, loanSet){
+  // Item 243: the loan's charges, settled-on date and the bank's repayment go back.
+  if(loanSet){
+    var gone = {};
+    loanSet.ids.forEach(function(id){ gone[id] = true; });
+    (state.properties || []).forEach(function(p){ (p.loans || []).forEach(function(l){
+      if(l.id !== loanSet.loanId) return;
+      l.charges = (l.charges || []).filter(function(c){ return !gone[c.id]; });
+      l.settlementDate = loanSet.settledWas;
+      if(loanSet.repaymentWas) l.bankRepayment = loanSet.repaymentWas; else delete l.bankRepayment;
+    }); });
+  }
   // v3.150.0: matched rows go back to what was logged.
   (reconciled || []).forEach(function(was){
     var t = state.transactions.find(function(x){ return x.id === was.id; });

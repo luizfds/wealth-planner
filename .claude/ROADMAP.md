@@ -4537,7 +4537,7 @@ in the year-so-far section, which had counted them in full). Each schedule line 
 logged figures" sets those lines' actuals in one undoable step; lines with nothing logged keep the plan. Tested
 against the year-so-far totals; driven at 390 and 1280px (fill, the figures, Undo).
 
-## 243. `[~]` Loans as the bank charged them
+## 243. `[x]` Loans as the bank charged them
 Do: a loan account's statement (an account of type Loan linked to a property's loan) is read as loan activity, not
 spending: interest charges and fees are recorded on the loan, a drawdown sets when it settled, repayments are matched
 to the transfers already logged, and the closing balance updates the loan. Interest wherever it's used — the
@@ -4546,6 +4546,15 @@ only for the days after; no interest before the loan settled. When the bank's re
 one, the loan offers to use it.
 Done when: a loan statement imports with nothing landing as spending; the year so far and the schedule show the
 charged interest and say how far it runs; undo removes it all; driven.
+
+Done: `calc/loancharges.js` — `loanRowKind` / `splitLoanStatement` read a loan account's statement (interest charges
+and fees onto `loan.charges`, a drawdown sets `settlementDate`, repayments stay in the review as transfers, already
+recorded charges are skipped); `loanInterestCharged` is the charges for the days they cover (a month-end charge covers
+its month) plus `loanInterestForWindow` — now never before settlement — for the rest, used by the year so far, the
+rental schedule (and its logged figures: interest, fees by their words) and the debts report; `bankRepaymentOf` /
+`bankRepaymentNudge` offer "Use the bank's" repayment on the loan. Migration step 24 gives every loan `charges`.
+Tested; journey `loanstatement`; driven at 390 and 1280px (import, Undo, re-import, switching the account, the
+loan's note and nudge, the year so far).
 
 ## Conventions for whoever picks this up
 

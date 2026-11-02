@@ -251,3 +251,11 @@ test("step 23: every account link gets the account's id; goals, saved views and 
   run(23, s);
   assert.equal(s.shared[0].account, "Card B");
 });
+
+test("step 24: every property loan gets a list of the bank's charges; one it has is kept", function(){
+  const kept = [{ id: "c1", date: "2026-07-31", amount: 100, kind: "interest", what: "Interest charge" }];
+  const s = run(24, { properties: [{ loans: [{ id: "L1" }, { id: "L2", charges: kept }] }, { what: "No loans" }] });
+  assert.deepEqual(s.properties[0].loans[0].charges, []);
+  assert.equal(s.properties[0].loans[1].charges, kept);
+  assert.deepEqual(run(24, {}), {});
+});

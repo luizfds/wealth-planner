@@ -10,7 +10,7 @@ import { periodsOf, resolveSharedAmount, appendHistorySnapshot, transactionDispl
 import { sacrificeLabelToMode } from "../constants.js";
 import { exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv } from "../lib/backup.js";
 import { fmtCurrency0, fmtCurrency2 } from "../lib/format.js";
-import { materializeRowEdit } from "../lib/ledger-table.js";
+import { materializeRowEdit, editRowEditSource } from "../lib/ledger-table.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { sectionOf, parseAdd, runRowAction } from "../lib/sections.js";
 import { redraw } from "../lib/views.js";
@@ -63,10 +63,10 @@ function patchLinkedTransactionNames(item){
   container.querySelectorAll(".m-row[data-section='tx']").forEach(function(row){
     var t = state.transactions[Number(row.getAttribute("data-index"))];
     if(!t || t.linkedExpenseId !== item.id) return;
-    // A closed row's form is still in its <template> (v3.108.0) — patch it there.
-    var tpl = row.querySelector(":scope > template.m-row-edit-tpl");
-    var whatField = row.querySelector(".tx-what") || (tpl && tpl.content.querySelector(".tx-what"));
+    // A closed row's form is kept as text until it opens (v3.108.0, lib/ledger-table.js) — patch it there.
+    var whatField = row.querySelector(".tx-what");
     if(whatField) whatField.placeholder = item.what || "Optional note";
+    else editRowEditSource(row, function(form){ var f = form.querySelector(".tx-what"); if(f) f.setAttribute("placeholder", item.what || "Optional note"); });
     if((t.what || "").trim()) return;
     var nameEl = row.querySelector(".m-row-name");
     if(nameEl) nameEl.textContent = transactionDisplayName(t, budgetLineItems());

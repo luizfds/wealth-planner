@@ -279,17 +279,31 @@ export function modernRowEditHtml(fieldsHtml, actionsHtml, moreOptionsHtml){
 function lineIdAttr(lineId){
   return lineId ? ' data-line-id="' + escapeAttr(lineId) + '"' : "";
 }
-// v3.108.0: a closed row's edit form goes in a <template>. Its content isn't laid out, focusable or
-// found by querySelectorAll, and goes when the row does — a page of closed rows no longer carries
-// every row's form (Cash flow had well over 1,500 controls with a year of data). openModernRow()
-// unpacks it with materializeRowEdit() before the row opens; a row rendered open gets it inline.
+// v3.108.0: a closed row's edit form isn't in the page — not laid out, focusable or found by querySelectorAll —
+// and openModernRow() builds it with materializeRowEdit() before the row opens; a row rendered open gets it inline.
+// It was kept in a <template>, which still builds every element of every form, inert: on Cash flow with a real
+// household that was ~50,000 of the page's ~78,000 nodes (each form's dropdowns run to hundreds), memory a phone's
+// tab can be killed for. Now it's kept as text, in a script element that's never run (its type isn't JavaScript),
+// and parsed only when its row opens. Text people typed is already escaped in the form, so it can't close the element.
 export function rowEditSlot(isOpen, editHtml){
   if(!editHtml) return "";
-  return isOpen ? editHtml : '<template class="m-row-edit-tpl">' + editHtml + '</template>';
+  return isOpen ? editHtml : '<script type="text/x-row-edit" class="m-row-edit-tpl">' + editHtml.replace(/<\/(script)/gi, "<\\/$1") + '</script>';
 }
 export function materializeRowEdit(row){
-  var t = row && row.querySelector(":scope > template.m-row-edit-tpl");
-  if(t) t.replaceWith(t.content);
+  var t = row && row.querySelector(":scope > script.m-row-edit-tpl");
+  if(!t) return;
+  t.insertAdjacentHTML("afterend", t.textContent);
+  t.remove();
+}
+// A closed row's form, as markup to change and put back (rows.js renames a placeholder in it).
+export function editRowEditSource(row, change){
+  var t = row && row.querySelector(":scope > script.m-row-edit-tpl");
+  if(!t) return false;
+  var tpl = document.createElement("template");
+  tpl.innerHTML = t.textContent;
+  change(tpl.content);
+  t.textContent = tpl.innerHTML;
+  return true;
 }
 
 // extraClass lets a caller add its own marker class (e.g. Transactions' "tx-row") alongside "m-row".

@@ -308,15 +308,6 @@ export function wireSubpages(){
     renderSharedGroups();
     renderBudgetGroupByToggle();
     persist();
-  });  // The budget total's "See them below" link. Delegated off document because the pointer line is
-  // re-rendered by renderPropertyExpensesSummary() whenever a loan changes, so a listener bound to
-  // the element itself would be thrown away on the first edit.
-  document.addEventListener("click", function(e){
-    if(!e.target.closest("#budgetLoanPointerLink")) return;
-    var loanCard = document.getElementById("propertyExpensesCard");
-    if(!loanCard) return;
-    if(loanCard.tagName === "DETAILS") loanCard.open = true;
-    loanCard.scrollIntoView({ behavior: "smooth", block: "start" });
   });
   document.getElementById("expensesSubnav").addEventListener("click", function(e){
     var expensesSubBtn = e.target.closest("[data-expenses-sub]");

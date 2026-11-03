@@ -484,6 +484,7 @@ export function renderSharedGroups(){
       '<button type="button" class="m-add-row" data-add="' + escapeAttr(addValue) + '">+ Add expense</button>' +
     '</div>';
   }).join("") + '</div>';
+  renderPropertyExpensesSummary(); // item 247: the loan repayments, under the lines
   // v3.172.0 (item 207): no "Vary" here — a line's amount in a scenario is set in that scenario.
 }
 
@@ -616,60 +617,53 @@ export function copyScenarioAmountToAll(section, idx, scenarioName){
   showToast('Set "' + item.what + '" to ' + fmtCurrency2.format(value) + ' for every scenario');
 }
 
-// What's left of the old read-only "Investment property costs" mirror. Its expense half is gone:
-// those rows are real budget lines in the list above now (see budgetLineSources), so keeping the
-// mirror would have shown every strata and rates bill twice on one page.
-//
-// Loan repayments stay, and stay read-only, because they aren't budgeted — each is derived from
-// its loan's balance, rate, term and repayment type, so there is nothing here to edit and nothing
-// to fall behind on logging. They're still the single biggest line an investment property carries,
-// though, and the Budget total above deliberately excludes them (it totals the list, and they
-// aren't in it), so dropping them entirely would have left the Expenses page quietly understating
-// what a property costs to hold. This card is the honest remainder.
-function propertyLoanMonthly(p){
-  return (p.loans || []).reduce(function(s, l){ return s + loanRepaymentMonthly(l); }, 0);
+// Investment loan repayments, in the Budget list (item 247). Each property's other costs are real budget lines (see
+// budgetLineSources); a repayment isn't — it's worked out from the loan's balance, rate, term and repayment type,
+// so there's nothing to edit and nothing to log against, and it stays out of budgetLineItems() (bills, catch-up,
+// the CSV, the Income statement's lines). But it is money that goes out every month, and the Budget total left it
+// out while Home's savings took it off: a household read "Budget $12k" and "Income $22k" and couldn't find where
+// $4.5k went. So it's listed here as a read-only group of its own, one row per loan, and counted in the total.
+function loanRows(){
+  var out = [];
+  ipProperties().forEach(function(p){
+    (p.loans || []).forEach(function(l){
+      var m = loanRepaymentMonthly(l);
+      if(m > 0.005) out.push({ property: p, loan: l, monthly: m });
+    });
+  });
+  return out;
 }
-function propertyLoansModernHtml(ips){
-  var rows = ips.map(function(p){
-    return '<div class="m-row computed"><div class="m-row-summary" style="cursor:default">' +
-      '<div style="flex:1 1 auto; min-width:0">' +
-        '<div class="m-row-name">' + escapeAttr(p.what) + ' — Loan repayments</div>' +
-        '<div class="m-row-sub">auto: from the loan\'s balance and rate — edit in Net worth → Property</div>' +
-      '</div>' +
-      '<span class="m-row-amt">' + fmtCurrency0.format(propertyLoanMonthly(p)) + '/mo</span>' +
-    '</div></div>';
-  }).join("");
-  return '<div class="m-card"><div class="m-rows">' + rows + '</div></div>';
+export function investmentLoanRepaymentsMonthly(){
+  return loanRows().reduce(function(s, r){ return s + r.monthly; }, 0);
 }
-
+// The Budget's "Monthly total": every budget line, as the scenario has it, and the investment loan repayments.
+export function budgetMonthlyTotal(){
+  return sumFieldForScenario(budgetLineItems(), currentScenario(), "monthly") + investmentLoanRepaymentsMonthly();
+}
+export function propertyLoansGroupHtml(rows){
+  if(!rows.length) return "";
+  var total = rows.reduce(function(s, r){ return s + r.monthly; }, 0);
+  return '<div class="m-people budget-loans"><div class="m-card" data-budget-loans>' +
+    '<div class="m-card-head" style="cursor:default">' +
+      '<span class="m-avatar m-avatar-neutral" aria-hidden="true">–</span>' +
+      '<div class="m-card-name">Investment loan repayments</div>' +
+      '<div class="m-card-total">' + fmtCurrency0.format(total) + '<span>/mo</span></div></div>' +
+    '<div class="m-rows">' + rows.map(function(r){
+      return '<div class="m-row computed"><div class="m-row-summary" style="cursor:default">' +
+        '<div style="flex:1 1 auto; min-width:0">' +
+          '<div class="m-row-name">' + escapeAttr(r.loan.what || ((r.property.what || "Property") + " — loan")) + '</div>' +
+          '<div class="m-row-sub">auto: worked out from the loan\'s balance, rate and term — edit in Net worth → Property</div>' +
+        '</div>' +
+        '<span class="m-row-amt">' + fmtCurrency0.format(r.monthly) + '/mo</span>' +
+      '</div></div>';
+    }).join("") + '</div></div></div>';
+}
 export function renderPropertyExpensesSummary(){
-  var wrap = document.getElementById("propertyExpensesCard");
-  var modernWrap = document.getElementById("propertyExpensesModern");
-  if(!wrap || !modernWrap) return;
-  // Only properties that actually carry a loan — an unencumbered IP has nothing to say here, and
-  // an empty card headed "Investment loan repayments" reads like a bug.
-  var ips = ipProperties().filter(function(p){ return propertyLoanMonthly(p) > 0; });
-  wrap.hidden = !ips.length;
-  if(!ips.length) return;
-  var total = ips.reduce(function(s, p){ return s + propertyLoanMonthly(p); }, 0);
-  document.getElementById("propertyExpensesTotal").textContent = fmtCurrency0.format(total);
-  modernWrap.innerHTML = propertyLoansModernHtml(ips);
-  renderBudgetLoanPointer(total);
-}
-
-// The forward reference from the budget total to the loan card below it. Without it the Expenses
-// page says the household spends $7,980/mo and the Dashboard's 50/30/20 bar says $11,580 — a
-// $3,600 disagreement on the same data, with the explanation 4,700px further down the page.
-// Naming the amount here means the two figures reconcile on sight rather than after a scroll.
-function renderBudgetLoanPointer(total){
-  var el = document.getElementById("budgetLoanPointer");
-  if(!el) return;
-  el.hidden = !(total > 0);
-  if(!(total > 0)) return;
-  el.innerHTML = 'Not in this total: <b>' + fmtCurrency0.format(total) + '/mo</b> of investment loan ' +
-    'repayments, which are worked out from each loan rather than budgeted. Home counts them, ' +
-    'so its spending figure is that much higher. <button type="button" class="calc-hint-link" ' +
-    'id="budgetLoanPointerLink">See them below</button>';
+  var wrap = document.getElementById("propertyExpensesModern");
+  if(!wrap) return;
+  wrap.innerHTML = propertyLoansGroupHtml(loanRows());
+  var totalEl = document.getElementById("totalSharedMonthly");
+  if(totalEl) totalEl.textContent = fmtCurrency0.format(budgetMonthlyTotal());
 }
 
 // ---------------- Review expenses: one-at-a-time swipe/confirm flow ----------------

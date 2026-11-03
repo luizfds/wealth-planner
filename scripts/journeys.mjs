@@ -10,6 +10,8 @@
 //   loanstatement — a loan account's statement: its interest and fees go on the loan, not into Spending
 //   loanguess   — the same statement with no account picked: the import asks which loan
 //   pdf import  — a PDF statement read into the same review
+//   savings     — Home's net savings opens how it's worked out: the lines end at the tile's figure, an
+//                 investment property's loan repayments among them, and the Budget's total counts them too
 //
 // Then the speed budget, on a large invented household at 4× CPU slowdown (about a mid-range phone):
 // startup to the first full draw, saving a transfer, and adding a change to a scenario. Each has a
@@ -183,6 +185,29 @@ const JOURNEYS = {
     check(loan.n === 5 && loan.bank === 2950, "the charges or the bank's repayment weren't recorded: " + JSON.stringify(loan));
   },
   // Item 245: the same statement under a name that says nothing — the import asks which loan.
+  async savings(page){
+    await go(page, "dashboard", "data-dashboard-sub", "overview");
+    await click(page, '#dashboardStats [data-savings-why]');
+    await page.waitForSelector("#savingsBreakdown:not([hidden])", { timeout: 5000 });
+    const r = await page.evaluate(() => {
+      const el = document.getElementById("savingsBreakdown");
+      const total = [...el.querySelectorAll(".bp-total")].find(x => /normal month|each month/.test(x.textContent));
+      const money = s => Number(String(s).replace(/[^0-9.−-]/g, "").replace("−", "-"));
+      return { tile: money(document.querySelector('#dashboardStats [data-home-card="savings"] b').textContent), total: total ? money(total.querySelector("em").textContent) : null,
+        loans: [...el.querySelectorAll(".bp-row span")].some(x => /loan repayments/.test(x.textContent)), docW: document.documentElement.scrollWidth };
+    });
+    check(r.total === r.tile, "the breakdown ends at " + r.total + ", the tile says " + r.tile);
+    check(r.loans, "no investment loan repayments line in the breakdown");
+    check(r.docW <= 390, "the breakdown is wider than the phone");
+    await go(page, "expenses", "data-expenses-sub", "budget");
+    const b = await page.evaluate(async () => {
+      const m = await import("/src/components/expenses.js");
+      const group = document.querySelector("#propertyExpensesModern [data-budget-loans]");
+      return { group: !!group, total: document.getElementById("totalSharedMonthly").textContent, expected: m.budgetMonthlyTotal(), loans: m.investmentLoanRepaymentsMonthly() };
+    });
+    check(b.group && b.loans > 0, "the Budget lists no investment loan repayments");
+    check(Number(b.total.replace(/[^0-9.]/g, "")) === Math.round(b.expected), "the Budget total " + b.total + " isn't its lines plus the loan repayments");
+  },
   async loanguess(page){
     await go(page, "expenses", "data-expenses-sub", "spending");
     await page.setInputFiles("#bankImportFile", { name: "export.csv", mimeType: "text/csv", buffer: Buffer.from(LOAN_STATEMENT_CSV) });

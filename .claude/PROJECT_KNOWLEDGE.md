@@ -405,9 +405,13 @@ The `rolling12` window clamps the day-of-month before stepping back a year: `new
 a test for exactly this.
 
 Investment *loan repayments* are the one IP cost that is not a budget line — derived from
-balance/rate/term, nothing to edit and nothing to fall behind on. They keep the read-only
-"Investment loan repayments" card at the bottom of the page (`#propertyExpensesCard`), which is
-explicitly *not* counted in the budget total above it.
+balance/rate/term, nothing to edit and nothing to fall behind on, so they stay out of
+`budgetLineItems()` (bills, catch-up, the CSV). Since item 247 they're a read-only "Investment loan
+repayments" group under the Budget's lines (`#propertyExpensesModern`, `propertyLoansGroupHtml`), one row
+per loan, and the Budget's Monthly total counts them (`budgetMonthlyTotal()`) — before, the total left
+them out while Home's net savings took them off, and the two couldn't be reconciled by reading either.
+Home's Net savings tile opens the same sum line by line (`savingsBreakdown()` in calc/engine.js); the
+Income statement's Plan counts them too, and its months the transfers into a loan-linked account.
 
 ### Two different "Log" buttons, and only one records money moving
 

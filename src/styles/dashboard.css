@@ -36,6 +36,17 @@
   .stat-tile span{ font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; }
   .stat-tile b{ font-family:"Inter", system-ui, sans-serif; font-weight:600; font-size:var(--fs-xl); letter-spacing:-0.01em; font-variant-numeric: tabular-nums; }
   .stat-tile small{ font-size:var(--fs-xs); color: var(--ink-soft); }
+  /* Item 247: Net savings → "How it's worked out" — the tile's link, and the statement it opens under the tiles. */
+  .stat-tile .savings-why-btn{ align-self:flex-start; margin-top:2px; font-size:var(--fs-xs); }
+  .savings-why{
+    background: var(--paper-raised); border:1px solid var(--border); border-radius:var(--card-radius);
+    padding: var(--card-py) var(--card-px); box-shadow: var(--shadow); margin-top:14px;
+  }
+  .savings-why[hidden]{ display:none; }
+  .savings-why-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .savings-why-head b{ font-size:var(--fs-md); font-weight:600; }
+  .savings-why-note{ margin:6px 0 4px; font-size:var(--fs-sm); color: var(--ink-soft); }
+  .savings-why-links{ margin:10px 0 0; font-size:var(--fs-sm); color: var(--ink-soft); }
 
   .stale-assets-note{
     display:flex; align-items:flex-start; gap:8px; font-size:var(--fs-xs); color: var(--ink-soft);

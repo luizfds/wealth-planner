@@ -242,6 +242,7 @@
             </div>
           </div>
           <div class="stat-row" id="dashboardStats"></div>
+          <div class="savings-why" id="savingsBreakdown" hidden></div>
           <!-- v3.165.0: Insights panels brought onto Home are moved in here (lib/homelayout.js). -->
           <div class="detail-grid home-pinned" id="homePinned" hidden></div>
           <button type="button" class="calc-hint-link" id="dashboardProjectionsLink" style="display:block;margin:4px 0 12px">See your long-term projection (all scenarios, 20 years out) →</button>
@@ -428,17 +429,12 @@
               <div class="ledger-total">Monthly total <b id="totalSharedMonthly">—</b></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note help" style="margin-left:0">Everything you plan to spend — housing, subscriptions, car, groceries and the rest — with what each is expected to cost and how often. Housing is where you live today — rent or the home loan, rates, insurance — as ordinary lines; a scenario on Plan that moves house replaces them only in that scenario. Each investment property's costs come from Net worth → Property.</p>
-              <!-- Rendered by renderPropertyExpensesSummary(). The Dashboard's 50/30/20 breakdown
-                   counts investment loan repayments and this total doesn't, so the two pages show
-                   figures that differ by exactly this amount. The card that explains why sits at
-                   the bottom of the page — 4,700px down on a phone — which is no use next to the
-                   number that raises the question. -->
-              <p class="ledger-note budget-loan-pointer" id="budgetLoanPointer" hidden style="margin-left:0"></p>
+              <p class="ledger-note help" style="margin-left:0">Everything you plan to spend — housing, subscriptions, car, groceries and the rest — with what each is expected to cost and how often. Housing is where you live today — rent or the home loan, rates, insurance — as ordinary lines; a scenario on Plan that moves house replaces them only in that scenario. Each investment property's costs and loan repayments come from Net worth → Property; the repayments are worked out from each loan, so they're listed but not edited here.</p>
               <div id="expenseImportPreview" hidden></div>
               <p class="income-summary-line" id="sharedSummaryLine" style="display:none"></p>
               <div class="groupby" id="budgetGroupBy" hidden></div>
               <div id="sharedGroups"></div>
+              <div id="propertyExpensesModern"></div>
               <div class="ledger-footer">
                 <button class="btn btn-sm" data-add="shared">+ Add expense</button>
               </div>
@@ -464,16 +460,6 @@
               <div class="ledger-total" id="recurringCount"></div>
             </summary>
             <div class="ledger-body"><div id="recurringBody"></div></div>
-          </details>
-          <details class="ledger" id="propertyExpensesCard" open hidden>
-            <summary>
-              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Investment loan repayments</h2></div>
-              <div class="ledger-total">Monthly total <b id="propertyExpensesTotal">—</b></div>
-            </summary>
-            <div class="ledger-body">
-              <p class="ledger-note help" style="margin-left:0">Read-only, and not counted in the budget total above — a repayment is worked out from the loan's balance, rate and term rather than budgeted. Each property's other costs are listed as ordinary budget lines above. Edit either in Net worth → Property.</p>
-              <div id="propertyExpensesModern"></div>
-            </div>
           </details>
         </div>
         </div>

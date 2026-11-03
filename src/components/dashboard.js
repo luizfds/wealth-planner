@@ -6,8 +6,9 @@ import { ipExpenseItemsForClassification, fyLabel, loanBalance } from "../calc/p
 import { scenarioIncomeMonthly, scenarioIncomeRows, getTaxPeople, computePersonTax } from "../calc/tax.js";
 import { lodgementStatus, taxYearRecord } from "../calc/taxyear.js";
 import { evidenceItems } from "./taxyear.js";
-import { scenarioTotals, currentScenario, computeNetWorthSeries, totalNetWorthValue, runwayMonths, actualAssetGrowthLastMonth, staleAssets, toAudAmount } from "../calc/engine.js";
+import { scenarioTotals, savingsBreakdown, currentScenario, computeNetWorthSeries, totalNetWorthValue, runwayMonths, actualAssetGrowthLastMonth, staleAssets, toAudAmount } from "../calc/engine.js";
 import { monthlyCashFlowForecast } from "../calc/cashflow.js";
+import { budgetPlanHtml } from "./cashflow.js";
 import { fireSettings, fireWealthSplit, simulateRetirementAt, earliestWorkableRetirementAge } from "../calc/fire.js";
 import { MONTH_NAMES } from "../constants.js";
 import { monthKeysBack, monthKeyLabel } from "../calc/trends.js";
@@ -211,22 +212,57 @@ export function renderDashboardStats(){
   // The tiles earn their space once they have values in them.
   if(nothingEntered){
     el.innerHTML = '<p class="stat-empty">Your net worth, savings rate, projection and runway appear here once you\'ve entered your income, expenses and what you own.</p>';
+    renderSavingsBreakdown(active);
     return;
   }
   el.innerHTML =
-    '<div class="stat-tile" data-home-card="savings"><span>Net savings</span><b' + (regularOf(t) < 0 ? ' style="color:var(--bad-ink)"' : '') + '>' + fmtCurrency0.format(regularOf(t)) + '/mo</b><small>' + fmtPercent1.format(t.rate) + ' savings rate' + (t.oneOffYearly > 0.5 ? ' · a normal month' : '') + '</small></div>' +
+    '<div class="stat-tile" data-home-card="savings"><span>Net savings</span><b' + (regularOf(t) < 0 ? ' style="color:var(--bad-ink)"' : '') + '>' + fmtCurrency0.format(regularOf(t)) + '/mo</b><small>' + fmtPercent1.format(t.rate) + ' savings rate' + (t.oneOffYearly > 0.5 ? ' · a normal month' : '') + '</small>' +
+      '<button type="button" class="calc-hint-link savings-why-btn" data-savings-why aria-controls="savingsBreakdown" aria-expanded="' + (savingsWhyOpen ? "true" : "false") + '">How it\'s worked out</button></div>' +
     '<div class="stat-tile" data-home-card="projected"><span>Projected net worth</span><b title="' + fmtCurrency0.format(projected) + '">' + fmtCompact(projected) + '</b><small>in ' + horizon + ' years, ' + escapeAttr(active) + ', ' + (state.projection.realTerms !== false ? "today's" : "future") + ' dollars</small></div>' +
     runwayTile +
     fiTileHtml(t) +
     taxTileHtml() +
     lastTile;
   applyHomeLayout();
+  renderSavingsBreakdown(active);
   renderStaleAssetsBanner();
   renderActualVsExpectedPanel(active, t);
   renderCashFlowForecastPanel();
   renderProjectionAccuracyPanel();
   renderMonthlyCashFlow();
   renderContributionsGrowth();
+}
+
+// Item 247: the Net savings tile's "How it's worked out" — the figure as a statement, line by line, each line
+// pointing to where it's changed. Session-only: it opens for a question and closes after it.
+export var savingsWhyOpen = false;
+export function setSavingsWhyOpen(open){ savingsWhyOpen = !!open; }
+var SAVINGS_GO = {
+  income: ["expenses", "income", "Income"], budget: ["expenses", "budget", "Budget"],
+  property: ["properties", "", "Net worth → Property"], scenario: ["plan", "scenarios", "Plan → Scenarios"]
+};
+export function savingsBreakdownHtml(b, scenario){
+  var line = function(r){ return { label: r.label, monthly: r.monthly, oneOff: r.oneOff }; };
+  var used = {};
+  b.income.concat(b.out).forEach(function(r){ if(r.go) used[r.go] = true; });
+  var links = Object.keys(SAVINGS_GO).filter(function(k){ return used[k]; }).map(function(k){
+    var g = SAVINGS_GO[k];
+    return '<button type="button" class="calc-hint-link" data-adv-go="' + g[0] + '"' + (g[1] ? ' data-adv-sub="' + g[1] + '"' : '') + '>' + escapeAttr(g[2]) + '</button>';
+  });
+  return '<div class="savings-why-head"><b>How ' + escapeAttr(scenario) + '\'s net savings are worked out</b>' +
+      '<button type="button" class="icon-btn" data-savings-why aria-label="Close">✕</button></div>' +
+    '<p class="savings-why-note">Money in after tax, less everything that goes out each month — the budget and, worked out from each loan, ' +
+      'an investment property\'s repayments. Bonuses and refunds come once a year, so a normal month leaves them out.</p>' +
+    budgetPlanHtml({ income: b.income.map(line), groups: b.out.map(line), net: b.average }) +
+    (links.length ? '<p class="savings-why-links">Change these in ' + links.join(" · ") + '</p>' : '');
+}
+function renderSavingsBreakdown(scenario){
+  var el = typeof document !== "undefined" && document.getElementById("savingsBreakdown");
+  if(!el) return;
+  var tile = document.querySelector('#dashboardStats [data-home-card="savings"]');
+  var show = savingsWhyOpen && !!tile && !tile.hidden;
+  el.hidden = !show;
+  el.innerHTML = show ? savingsBreakdownHtml(savingsBreakdown(scenario), scenario) : "";
 }
 
 // Every other total on this page (scenarioTotals, the cards above) smooths every item — Weekly

@@ -1,14 +1,14 @@
 import { state } from "../state.js";
 import { selectedYearWindow } from "./ledger.js";
 import { getTaxPeople, computePersonTax, currentTaxFy } from "./tax.js";
-import { totalNetWorthValue, toAudAmount } from "./engine.js";
+import { totalNetWorthValue, toAudAmount, currentScenario } from "./engine.js";
 import { ipProperties, propertyTaxResultBreakdown, fyLabel } from "./property.js";
 import { localDateStr, fmtDate } from "../lib/format.js";
 import { netWorthOn, shiftDate } from "./nwhistory.js";
 import { netWorthChecks } from "./nwcheck.js";
 import { monthsIn, spendingByGroup, change } from "./reportframe.js";
 import { incomeTargets } from "./received.js";
-import { periodsOf } from "./ledger.js";
+import { periodsOf, sumFieldForScenario } from "./ledger.js";
 import { holdingReturns, distributionYears, cgtParcels } from "./investreports.js";
 import { propertyReturns, debtSchedule } from "./assetreports.js";
 import { superContributions } from "./investments.js";
@@ -234,6 +234,17 @@ export function netWorthCheckReport(opts){
 // Money in by kind (pay, rent, other), spending by Needs / Wants / other, what was kept and the
 // savings rate — month by month over the frame's window, with the plan for the same months beside
 // it. opts.classOf(t) gives a transaction's Needs/Wants/Other; opts.budgetLines the plan's lines.
+// The accounts linked to an investment property's loan (item 245's "loan:<id>" link), by id and by name.
+function investmentLoanAccounts(){
+  var loanIds = {};
+  ipProperties().forEach(function(p){ (p.loans || []).forEach(function(l){ if(l.id) loanIds[l.id] = true; }); });
+  var out = { ids: {}, names: {} };
+  (state.accounts || []).forEach(function(a){
+    var m = /^loan:(.+)$/.exec(a.link || "");
+    if(m && loanIds[m[1]]){ if(a.id) out.ids[a.id] = true; if(a.name) out.names[a.name] = true; }
+  });
+  return out;
+}
 function inKind(target){ var k = String(target || "").split(":")[0]; return k === "net" || k === "oneoff" ? "pay" : k === "rent" ? "rent" : "other"; }
 function classKey(c){ return c === "Needs" || c === "Wants" ? c : "Other"; }
 export function incomeStatementReport(opts){
@@ -243,24 +254,41 @@ export function incomeStatementReport(opts){
   var months = monthsOf(win, today);
   var classOf = opts.classOf || function(){ return "Other"; };
   var grid = {};
-  months.forEach(function(ym){ grid[ym] = { pay: 0, rent: 0, other: 0, Needs: 0, Wants: 0, Other: 0 }; });
+  months.forEach(function(ym){ grid[ym] = { pay: 0, rent: 0, other: 0, Needs: 0, Wants: 0, Other: 0, loans: 0 }; });
   (state.incomeLog || []).forEach(function(r){ var g = grid[(r.date || "").slice(0, 7)]; if(g && r.date >= win.start && r.date <= win.end) g[inKind(r.target)] += Number(r.amount) || 0; });
   (state.transactions || []).forEach(function(t){ var g = grid[(t.date || "").slice(0, 7)]; if(g && t.date >= win.start && t.date <= win.end) g[classKey(classOf(t))] += Number(t.amount) || 0; });
+  // Item 247: an investment property's loan repayments go out every month and aren't spending (a transfer, never
+  // a transaction) — logged, they're the transfers into an account linked to one of its loans.
+  var loanAcct = investmentLoanAccounts();
+  (state.transfers || []).forEach(function(x){
+    var g = grid[(x.date || "").slice(0, 7)];
+    if(!g || !(x.date >= win.start && x.date <= win.end)) return;
+    var to = x.toId ? loanAcct.ids[x.toId] : loanAcct.names[x.to];
+    var from = x.fromId ? loanAcct.ids[x.fromId] : loanAcct.names[x.from];
+    if(to && !from) g.loans += Number(x.amount) || 0;
+  });
   // The plan for the same number of months.
-  var plan = { pay: 0, rent: 0, other: 0, Needs: 0, Wants: 0, Other: 0 };
+  var plan = { pay: 0, rent: 0, other: 0, Needs: 0, Wants: 0, Other: 0, loans: 0 };
+  plan.loans = ipProperties().reduce(function(s, p){ return s + (p.loans || []).reduce(function(t, l){ return t + loanRepaymentMonthly(l); }, 0); }, 0) * months.length;
   try { incomeTargets().forEach(function(t){ plan[inKind(t.key)] += (Number(t.monthly) || 0) * months.length; }); } catch(e){}
-  (opts.budgetLines || []).forEach(function(l){ plan[classKey(l.classification)] += periodsOf(Number(l.amount) || 0, l.freq).monthly * months.length; });
+  // Item 247: each line as the household has it (a scenario's own amount, a line that's ended), the same sum the
+  // Budget and Home make; and not the property manager's fee, which the rent above already has taken off.
+  var planScenario = opts.scenario || currentScenario();
+  (opts.budgetLines || []).forEach(function(l){
+    if(l && l.computed && /^pmFee/.test(l.id || "")) return;
+    plan[classKey(l.classification)] += sumFieldForScenario([l], planScenario, "monthly") * months.length;
+  });
   var lines = [
     ["pay", "Pay received"], ["rent", "Rent"], ["other", "Other money in"], ["in", "Total in", "total"],
-    ["Needs", "Needs"], ["Wants", "Wants"], ["Other", "Other spending"], ["out", "Total out", "total"],
+    ["Needs", "Needs"], ["Wants", "Wants"], ["Other", "Other spending"], ["loans", "Investment loan repayments"], ["out", "Total out", "total"],
     ["kept", "Kept", "total"], ["rate", "Savings rate", "pct"]
   ];
   var calc = function(g){
-    var tin = g.pay + g.rent + g.other, tout = g.Needs + g.Wants + g.Other;
+    var tin = g.pay + g.rent + g.other, tout = g.Needs + g.Wants + g.Other + (g.loans || 0);
     return Object.assign({ in: tin, out: tout, kept: tin - tout, rate: tin > 0 ? (tin - tout) / tin : null }, g);
   };
   var cols = months.map(function(ym){ return calc(grid[ym]); });
-  var total = calc(months.reduce(function(acc, ym){ Object.keys(acc).forEach(function(k){ acc[k] += grid[ym][k]; }); return acc; }, { pay: 0, rent: 0, other: 0, Needs: 0, Wants: 0, Other: 0 }));
+  var total = calc(months.reduce(function(acc, ym){ Object.keys(acc).forEach(function(k){ acc[k] += grid[ym][k]; }); return acc; }, { pay: 0, rent: 0, other: 0, Needs: 0, Wants: 0, Other: 0, loans: 0 }));
   var planned = calc(plan);
   var rows = lines.map(function(l){
     var cells = { line: l[1] };
@@ -274,7 +302,7 @@ export function incomeStatementReport(opts){
       .concat([{ key: "total", label: "Total", num: true }, { key: "plan", label: "Plan", num: true }]),
     rows: rows, wide: true,
     chart: { type: "columns", series: ["Money in", "Money out"], items: months.map(function(ym, i){ return { label: ymLabel(ym), a: r2(cols[i].in), b: r2(cols[i].out), ym: ym }; }) },
-    note: "Money in is what's been logged as received; spending is logged transactions, by their budget line's Needs or Wants. Savings rate is kept ÷ money in, in %. Plan is the budget and the expected income for the same number of months." };
+    note: "Money in is what's been logged as received; spending is logged transactions, by their budget line's Needs or Wants. Investment loan repayments are what's been transferred into a loan account linked to an investment property's loan; in the plan, each loan's repayment. Savings rate is kept ÷ money in, in %. Plan is the budget, the loan repayments and the expected income for the same number of months — a tax refund as last year's, and distributions, so it can sit a little off Home's figure, which estimates this year's refund." };
 }
 
 // Pay (with the employer's super) into tax, super and take-home; take-home and other money in into

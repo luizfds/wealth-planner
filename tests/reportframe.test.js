@@ -67,6 +67,34 @@ test("the income statement: money in by kind, spending by Needs/Wants, kept and 
   } finally { Object.assign(state, keep); }
 });
 
+// Item 247: an investment property's loan repayments are money out — planned from the loan, logged as the transfers
+// into its linked loan account (never spending, and a transfer out of that account isn't one).
+test("the income statement counts investment loan repayments: planned from each loan, logged as transfers in", () => {
+  const keys = ["transactions", "incomeLog", "transfers", "accounts", "properties"];
+  const keep = {}; keys.forEach(k => { keep[k] = state[k]; });
+  try {
+    state.incomeLog = [{ date: "2026-08-15", amount: 8000, target: "net:Alex" }];
+    state.transactions = [{ date: "2026-08-03", amount: 3000, cls: "Needs" }];
+    state.properties = [{ id: "p1", what: "1 Example St", kind: "IP", income: [], expenses: [],
+      loans: [{ id: "L1", what: "Loan A", balance: 300000, offsetBalance: 0, rate: 6, termYears: 25, repaymentType: "PI", settlementDate: "2022-03-01" }] }];
+    state.accounts = [{ id: "acE", name: "Everyday", type: "everyday" }, { id: "acL", name: "Loan A", type: "loan", link: "loan:L1" }];
+    state.transfers = [
+      { id: "t1", date: "2026-08-01", amount: 1900, from: "Everyday", fromId: "acE", to: "Loan A", toId: "acL" },
+      { id: "t2", date: "2026-08-10", amount: 400, from: "Loan A", fromId: "acL", to: "Everyday", toId: "acE" },
+      { id: "t3", date: "2026-07-31", amount: 1900, from: "Everyday", fromId: "acE", to: "Loan A", toId: "acL" }
+    ];
+    const win = { start: "2026-08-01", end: "2026-08-31", label: "Aug" };
+    const r = incomeStatementReport({ win, today: "2026-09-01", classOf: t => t.cls, budgetLines: [] });
+    const row = k => r.rows.find(x => x.cells.line === k).cells;
+    assert.equal(row("Investment loan repayments").total, 1900, "the repayment into the loan, in the window; a redraw out isn't one");
+    assert.equal(row("Total out").total, 4900);
+    assert.equal(row("Kept").total, 3100);
+    const planned = loanRepaymentMonthly(state.properties[0].loans[0]);
+    assert.ok(Math.abs(row("Investment loan repayments").plan - planned) < 0.01, "the plan is the loan's own repayment");
+  } finally { keys.forEach(k => { state[k] = keep[k]; }); }
+});
+import { loanRepaymentMonthly } from "../src/calc/property.js";
+
 import { budgetActualReport, trendsReport } from "../src/calc/reports.js";
 test("budget vs actual: a month-by-month variance per line, shaded, lumpy lines judged on their total", (t) => {
   const keep = state.transactions; t.after(() => { state.transactions = keep; });

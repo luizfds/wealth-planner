@@ -1531,6 +1531,33 @@ test("the budget plan shows tax to pay at lodgement as money out of the year", a
   assert.match(html, /tax to pay at lodgement<\/span><b>−\$100/);
 });
 
+// Item 247: Net savings → "How it's worked out", and the Budget's investment loan repayments.
+test("the savings breakdown lists each line, a normal month, then the year's average, and where to change them", async function(){
+  const { savingsBreakdownHtml } = await import("../src/components/dashboard.js");
+  const html = savingsBreakdownHtml({
+    income: [{ label: "Alex — net income", monthly: 9000, go: "income" }, { label: "1 Example St — Rent", monthly: 2000, go: "property" }, { label: "Sam — bonus (after tax)", monthly: 500, oneOff: true, go: "income" }],
+    out: [{ label: "Everyday spending", monthly: 4000, go: "budget" }, { label: "1 Example St — loan repayments", monthly: 3000, go: "property" }],
+    regular: 4000, oneOffMonthly: 500, average: 4500
+  }, "Renting <today>");
+  assert.match(html, /1 Example St — loan repayments<\/span><b>−\$3,000/);
+  assert.match(html, /Left over in a normal month<\/span><b><\/b><em class="pos">\$4,000/);
+  assert.match(html, /Left over a month across the year<\/span><b><\/b><em class="pos">\$4,500/);
+  assert.match(html, /data-adv-go="properties"/);
+  assert.match(html, /Renting &lt;today>/, "the scenario's name is escaped");
+});
+test("the Budget lists each investment loan's repayment, read-only, with the group's total", async function(){
+  const { propertyLoansGroupHtml } = await import("../src/components/expenses.js");
+  assert.equal(propertyLoansGroupHtml([]), "");
+  const html = propertyLoansGroupHtml([
+    { property: { what: "1 Example St" }, loan: { what: "Loan <A>" }, monthly: 2500 },
+    { property: { what: "1 Example St" }, loan: {}, monthly: 500 }
+  ]);
+  assert.match(html, /Investment loan repayments<\/div><div class="m-card-total">\$3,000/);
+  assert.match(html, /Loan &lt;A>/);
+  assert.match(html, /1 Example St — loan/);
+  assert.doesNotMatch(html, /data-section=|data-del/, "nothing to edit or delete");
+});
+
 test("take-home a little over by an after-tax payment says so", async function(){
   const { afterTaxInPay } = await import("../src/components/received.js");
   var keep = state.income;

@@ -321,6 +321,8 @@
   @media (min-width:1200px){
     .m-people{ display:grid; grid-template-columns: repeat(2, 1fr); align-items:start; gap:14px 16px; }
   }
+  /* Item 247: the Budget's investment loan repayments — a group of their own under the lines, spaced like one. */
+  .budget-loans{ margin-top:14px; }
   .m-card{ border:1px solid var(--border); border-radius:var(--inner-radius); background: var(--paper-sunken); overflow:hidden; }
   .m-card-head{ display:flex; align-items:center; gap:12px; padding:13px 16px; }
   .m-card-name{ font-weight:600; font-size:var(--fs-md); flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

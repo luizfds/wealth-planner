@@ -7,7 +7,7 @@
 import { renderNotifBadge } from "./notifpanel.js";
 import { recalcComputedItems, scenarioTotals, currentScenario, totalNetWorthValue } from "../calc/engine.js";
 import { dataHealthChecks } from "../calc/health.js";
-import { sumField, sumFieldForScenario } from "../calc/ledger.js";
+import { sumField } from "../calc/ledger.js";
 import { effectiveIncomeItems, getTaxPeople } from "../calc/tax.js";
 import { syncOn } from "../lib/foldersync.js";
 import { fmtCurrency0 } from "../lib/format.js";
@@ -24,7 +24,7 @@ import { renderBenchmarks } from "./benchmarks.js";
 import { renderBudgetFromHistory, renderRecurring } from "./budgettoolswiring.js";
 import { renderCompare } from "./compare.js";
 import { renderCards, renderDetail } from "./dashboard.js";
-import { renderSharedGroups, renderTransactions, renderActualVsPlannedPanel, renderBillsCalendar, renderAccounts, renderCategories, renderBudgetGroupByToggle, budgetLineItems, renderYearBasisPreference } from "./expenses.js";
+import { renderSharedGroups, renderTransactions, renderActualVsPlannedPanel, renderBillsCalendar, renderAccounts, renderCategories, renderBudgetGroupByToggle, budgetMonthlyTotal, renderYearBasisPreference } from "./expenses.js";
 import { renderHealth } from "./health.js";
 import { renderHomeSummary } from "./home.js";
 import { renderIncomeGroups, renderTaxSuper, incomeHeaderTotal } from "./income.js";
@@ -68,7 +68,8 @@ function renderTotals(){
   // Totals what the list actually shows — shared plus the active scenario's housing — not just
   // state.shared, or the header disagrees with the cards beneath it by the size of your rent.
   // Scenario-resolved, matching the cards below it and every other total in the app.
-  document.getElementById("totalSharedMonthly").textContent = fmtCurrency0.format(sumFieldForScenario(budgetLineItems(), currentScenario(), "monthly"));
+  // Item 247: and the investment loan repayments listed under them, so the Budget total is everything that goes out.
+  document.getElementById("totalSharedMonthly").textContent = fmtCurrency0.format(budgetMonthlyTotal());
   renderGlobalMetrics();
 }
 // Selecting a scenario re-renders the pages that follow it; the header follows the Current situation

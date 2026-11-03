@@ -14,6 +14,7 @@ import { state, persist } from "../state.js";
 import { renderBenchmarks, setBenchmarkField, applyBenchmarkPaste, addGoal, setGoalField, removeGoal, setPropertyMarketField } from "./benchmarks.js";
 import { openReceivedSheetFor } from "./cashflowwiring.js";
 import { renderHealth } from "./health.js";
+import { renderDashboardStats, savingsWhyOpen, setSavingsWhyOpen } from "./dashboard.js";
 import { renderHomeSummary, weekView } from "./home.js";
 import { renderMonthReview, stepReviewMonth, reviewMonthShown, setReviewMonth, setReviewStep, dismissReviewIntro } from "./monthreview.js";
 import { showPage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage } from "./nav.js";
@@ -96,6 +97,18 @@ export function wireCards(){
       showTaxSubpage("returns", { replace: true });
       renderTaxYear();
     }
+  });
+  // Item 247: Net savings → "How it's worked out", and the breakdown's own ✕. Delegated off the Overview, which
+  // holds both the tile and the panel under it.
+  document.getElementById("dashboardSub-overview").addEventListener("click", function(e){
+    var why = e.target.closest("[data-savings-why]");
+    if(!why) return;
+    var opening = !savingsWhyOpen;
+    setSavingsWhyOpen(opening);
+    renderDashboardStats();
+    var panel = document.getElementById("savingsBreakdown");
+    if(opening && panel && !panel.hidden) panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    else if(!opening){ var b = document.querySelector("#dashboardStats [data-savings-why]"); if(b) b.focus(); }
   });
   document.getElementById("homeBody").addEventListener("keydown", function(e){
     if(e.key !== "Enter" && e.key !== " ") return;

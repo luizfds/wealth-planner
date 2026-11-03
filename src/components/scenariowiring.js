@@ -84,6 +84,8 @@ export function wireScenarioEditor(){
     if(!c) return;
     var v = e.target.value;
     c[key] = SC_NUMBERS[key] ? (v === "" ? 0 : Number(v)) : (key === "growthPct" ? (v === "" ? "" : Number(v)) : v);
+    // Item 249: following the cash rate starts from where it is now (calc/cashrate.js applyCashRate).
+    if(key === "rateFollowsCash") c.rateCashAt = v && state.cashRate && state.cashRate.rate >= 0 ? state.cashRate.rate : null;
     afterScenarioChange();
     var back = document.querySelector('[data-scf="' + key + '"][data-scf-id="' + id + '"]');
     if(back) back.focus();

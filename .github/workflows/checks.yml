@@ -15,8 +15,8 @@ on:
   pull_request:
   push:
     branches: [main]
-    # The daily price commit (prices.yml) changes data, not code.
-    paths-ignore: ["prices/**"]
+    # The daily price commit (prices.yml) and the cash rate commit (cashrate.yml) change data, not code.
+    paths-ignore: ["prices/**", "rates/**"]
 permissions:
   contents: read
 jobs:

@@ -13,7 +13,7 @@ import { scenarioTimeline, yearText } from "../calc/scenariotimeline.js";
 import { buyInvestSummaryHtml, calcFor, calcScenarioHeadHtml } from "./calculators.js";
 import { scenarioAccountHtml, renderScenarioAccountChart } from "./scenarioaccount.js";
 import { periodsOf, sumField } from "../calc/ledger.js";
-import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
+import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr } from "../lib/format.js";
 import { escapeAttr, slug } from "../lib/html.js";
 import { modernPlainRowHtml } from "../lib/ledger-table.js";
 import { showToast } from "../lib/toast.js";
@@ -114,7 +114,7 @@ export function scenarioTimelineHtml(key){
   var cashWaits = changes.some(function(c){ return c && c.when === "cash"; });
   var age = state.fire && state.fire.currentAge !== "" && state.fire.currentAge != null ? Number(state.fire.currentAge) : null;
   var events = scenarioTimeline({ changes: changes, triggers: cashWaits ? computeNetWorthSeries(key, 30).triggers : {}, age: age,
-    buying: !!(cfg && cfg.enabled && !(inv && inv.enabled)), investing: !!(inv && inv.enabled),
+    buying: !!(cfg && cfg.enabled && !(inv && inv.enabled)), investing: !!(inv && inv.enabled), buyMonth: cfg && cfg.buyMonth, today: localDateStr(),
     propertyName: function(id){ var p = (state.properties || []).find(function(x){ return x.id === id; }); return p ? p.what : null; } });
   if(!events.length) return "";
   return '<ol class="sc-timeline" aria-label="When each change happens">' + events.map(function(e){
@@ -407,9 +407,13 @@ function renderPurchasePanelHtml(scenario){
           '<div class="calc-field"><label>Property price</label><div class="calc-input-wrap"><span class="calc-currency-prefix" aria-hidden="true">$</span><input type="number" step="1000" min="0" class="calc-price" value="' + cfg.price + '"></div></div>' +
           '<div class="calc-field" title="Below 20% usually means paying Lenders Mortgage Insurance (LMI) — see the settlement costs below."><label>Deposit %</label><input type="number" step="1" min="0" max="100" class="calc-depositPct" value="' + cfg.depositPct + '"><span class="calc-hint" data-out="deposit">' + fmtCurrency0.format(out.depositAmt) + '</span></div>' +
           '<div class="calc-field"><label>Loan term (years)</label><input type="number" step="1" min="1" class="calc-term" value="' + cfg.termYears + '"></div>' +
+          // Item 251: bought now, or in a month to come — renting until then is a change of its own.
+          '<div class="calc-field" title="Leave blank to buy now. A later month: the projection owns nothing and pays nothing for it until then, and its cash leaves that year."><label>When you buy</label><input type="month" class="calc-buy-month" value="' + escapeAttr(cfg.buyMonth || "") + '"><span class="calc-hint">' + (cfg.buyMonth ? "" : "now") + '</span></div>' +
           '<div class="calc-field"><label>State</label><select class="calc-state">' + stateOptions + '</select></div>' +
           '<div class="calc-field" title="Overrides the global Property growth % p.a. (Projections tab) for this scenario only. Leave blank to use the global rate for every scenario alike."><label>Property growth % p.a. <span style="text-transform:none;font-weight:400">(this scenario)</span></label><input type="number" step="0.1" min="-10" max="30" class="calc-growth-override" placeholder="Global: ' + (Number(state.projection.propertyAppreciationRate) || 0) + '%" value="' + (cfg.propertyGrowthRate != null ? cfg.propertyGrowthRate : '') + '"><span class="calc-hint">' + (STATE_GROWTH_RATES[cfg.state] != null ? (cfg.state + ' long-run avg ' + STATE_GROWTH_RATES[cfg.state] + '%/yr (1980–2022) — <button type="button" class="calc-hint-link" data-use-growth="' + STATE_GROWTH_RATES[cfg.state] + '">use this</button>') : '') + '</span></div>' +
-          '<div class="calc-field" title="Rate for a standard principal &amp; interest loan — get your bank/broker\'s quoted rate for an accurate comparison."><label>Interest rate % p.a. (P&amp;I)</label><input type="number" step="0.05" min="0" class="calc-rate" value="' + cfg.rate + '"></div>' +
+          '<div class="calc-field" title="Rate for a standard principal &amp; interest loan — get your bank/broker\'s quoted rate for an accurate comparison."><label>Interest rate % p.a. (P&amp;I)</label><input type="number" step="0.05" min="0" class="calc-rate" value="' + cfg.rate + '">' +
+            // Item 249: or moved by as much as the RBA moves the cash rate.
+            '<label class="calc-check-inline calc-follows" title="When the RBA moves the cash rate, both rates here move by the same amount — the rate you type is your lender\'s margin over it."><input type="checkbox" class="calc-rate-follows"' + (cfg.rateFollowsCash ? " checked" : "") + '> Moves with the RBA cash rate' + (state.cashRate && state.cashRate.rate >= 0 ? ' (' + Number(state.cashRate.rate.toFixed(2)) + '%)' : '') + '</label></div>' +
           '<div class="calc-field" title="Interest-only rate — lenders usually price this higher than P&amp;I. Get the actual IO rate quoted by your bank, don\'t assume it matches P&amp;I."><label>Interest rate % p.a. (IO)</label><input type="number" step="0.05" min="0" class="calc-iorate" value="' + cfg.ioRate + '"></div>' +
           '<div class="calc-field" title="Which repayment feeds your budget below and the long-term projection. Both are shown for comparison regardless of this choice."><label>Repayment type used</label><select class="calc-repaymenttype"><option value="PI"' + (cfg.repaymentType !== "IO" ? " selected" : "") + '>Principal &amp; interest</option><option value="IO"' + (cfg.repaymentType === "IO" ? " selected" : "") + '>Interest only</option></select></div>' +
           '<div class="calc-field"><label>First home buyer <span class="calc-help" title="Applies first-home-buyer stamp duty savings: full exemption below $800k (NSW) / $600k (VIC), tapering down to no discount at $1M (NSW) / $750k (VIC). No effect when State is \'Other\' — stamp duty is entered manually there.">ⓘ</span></label><label class="calc-check-inline"><span class="switch"><input type="checkbox" class="calc-fhb"' + (cfg.firstHomeBuyer ? " checked" : "") + '><span class="switch-track"><span class="switch-thumb"></span></span></span> Yes</label></div>' +

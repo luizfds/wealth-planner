@@ -34,12 +34,12 @@ are resolved "newest wins" (`applyPageChange` bails if `currentPage` moved on).
   `actuals.js`, `monthreview.js`, `accounts.js` / `accountlinks.js` (decision 0006), `cashflowlist.js`, `bills.js`,
   `investments.js` / `investreturn.js` / `performance.js`, `reports.js` / `reportframe.js` and the report modules,
   `savegoals.js`, `firstrun.js`, `pricesheet.js`, `trips.js`, `recurring.js` / `subscriptions.js`, `nwhistory.js`,
-  `takehome.js`, `canbuy.js`, `emergency.js`, `trim.js`, `advice.js`, `aisummary.js` (the anonymised summary behind
+  `takehome.js`, `canbuy.js` / `cashdraw.js` (where a purchase's cash comes from, and what emptying an offset costs), `cashrate.js` (the RBA cash rate), `emergency.js`, `trim.js`, `advice.js`, `aisummary.js` (the anonymised summary behind
   Ask Claude), `estimates.js`, `merchantbook.js`, `budgetfromhistory.js`, `outcomes.js` (Monte Carlo), `lifeevents.js`,
   `agepension.js`, `networthlist.js`, `inbox.js`, `showas.js`, `payslipcheck.js`, `dailyforecast.js`, `autopay.js`,
   `txviews.js`, `receipts.js`, `activity.js`, `syncfile.js` / `syncmerge.js`, `parts.js`, `categorylook.js`, and the
   scenario modules (`scenariochanges.js`, `scenariodraft.js`, `scenariolegs.js`, `scenariotemplates.js`,
-  `scenarioaccount.js`, `scenariotimeline.js`, `makereal.js`, `salecgt.js`).
+  `scenarioaccount.js`, `scenariotimeline.js`, `scenariostress.js` (rate rises and break-even growth on each card), `makereal.js`, `salecgt.js`).
 - `src/components/` — one file per page or card, exporting render and patch functions, and the wiring modules
   (`*wiring.js`, `rows.js`, `redraw.js`, `overlays.js`, `notifpanel.js`, `updates.js`) that register every listener.
 - `src/lib/` — dependency-free utilities: formatters (`format.js`), toasts, `escapeAttr` (`html.js`), the shared row
@@ -49,6 +49,8 @@ are resolved "newest wins" (`applyPageChange` bails if `currentPage` moved on).
   error log, pdf text (`pdftext.js`, loading `vendor/pdfjs/`).
 - `src/styles/` — the stylesheets, each in a cascade layer (decision 0009).
 - `prices/`, `scripts/prices/` — the daily price file (decision 0012).
+- `rates/`, `scripts/cashrate/` — the RBA cash rate file, written by `.github/workflows/cashrate.yml` each weekday
+  afternoon and read by the app from its own site, like the price file.
 
 ## Features worth knowing before you touch them
 

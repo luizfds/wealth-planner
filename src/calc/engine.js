@@ -15,9 +15,10 @@ import { projectionRatios } from "./actuals.js";
 import { eventEffects } from "./lifeevents.js";
 import { loggedSinceRecorded } from "./accounts.js";
 import { scenarioSharedItems, effectiveChanges } from "./scenariochanges.js";
-import { legsMonthly, legsInYear } from "./scenariolegs.js";
+import { legsMonthly, legsInYear, monthsFromNow } from "./scenariolegs.js";
 import { isDraftKey } from "./scenariodraft.js";
 import { saleCgt } from "./salecgt.js";
+import { drawFor } from "./cashdraw.js";
 
 // Every non-Shares asset, and every Shares holding on the ASX, is already AUD — the only
 // currency this app ever mixes in is USD (US-market and Crypto holdings, see MARKET_CURRENCY).
@@ -135,13 +136,22 @@ function addYearsIso(iso, years){
 // v3.173.0 (item 208): what a scenario's own changes need from the household — each owner's marginal
 // rate (a shared property splits evenly, so it's their average) and, for a sale, what the property
 // brings in the year it's sold and the cash it stops making.
-var LEG_KINDS = { rent: 1, ip: 1, cost: 1, sell: 1, extra: 1 };
+var LEG_KINDS = { rent: 1, ip: 1, cost: 1, sell: 1, extra: 1, once: 1 };
 // v3.183.0 (item 214): a change can start in a year (fromYear), at an age (when: "age", whenAge) or when cash
 // reaches an amount (when: "cash", whenCash). An age becomes its year here; with no age known it never
 // starts. Cash is decided year by year inside computeNetWorthSeries. Copies — the saved changes stay as typed.
 export function scenarioLegChanges(scenario){
   var age = currentAgeOrNull();
+  var today = localDateStr();
   return effectiveChanges(scenario).filter(function(c){ return c && LEG_KINDS[c.kind]; }).map(function(c){
+    // Item 251: a month becomes months from now (and the year it falls in); rent or a cost can stop in one.
+    var endMonth = (c.kind === "rent" || c.kind === "cost") ? monthsFromNow(c.untilMonth, today) : null;
+    if(c.when === "month" || endMonth != null){
+      var startMonth = c.when === "month" ? (monthsFromNow(c.fromMonth, today) || 0) : null;
+      c = Object.assign({}, c, { endMonth: endMonth });
+      if(startMonth != null){ c.startMonth = startMonth; c.fromYear = Math.floor(startMonth / 12); }
+      if(c.when === "month") return c;
+    }
     if(c.when !== "age") return c;
     if(age == null || !isFinite(Number(c.whenAge))) return Object.assign({}, c, { never: true });
     return Object.assign({}, c, { fromYear: Math.max(0, Math.round(Number(c.whenAge) - age)) });
@@ -245,6 +255,8 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
   var homePropRate = (cfg && cfg.propertyGrowthRate != null && cfg.propertyGrowthRate !== "")
     ? (Number(cfg.propertyGrowthRate) || 0) / 100
     : propRate;
+  // Item 252: the home's growth tried at another rate (calc/scenariostress.js finds the one that breaks even).
+  if(opts && opts.homeGrowthPct != null) homePropRate = (Number(opts.homeGrowthPct) || 0) / 100;
   var investRate = (Number(proj.investReturnRate) || 0) / 100;
   var inflationRate = (Number(proj.inflationRate) || 0) / 100;
   // opts.realTerms lets a caller pin the basis explicitly — the projection-accuracy panel compares
@@ -281,6 +293,13 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
   var investGrowthMonthly = investEnabled ? Math.pow(1 + (Number(investCfg.growthRatePct) || 0) / 100, 1 / 12) - 1 : 0;
   var investInitial = investEnabled ? Math.max(0, Number(investCfg.initialAmount) || 0) : 0;
   var investBalance = investInitial;
+  // Item 251: a purchase can happen in a later month (cfg.buyMonth "YYYY-MM"). Until then nothing is owned or owed,
+  // its repayment and home costs don't run, and its cash leaves at the start of the year it falls in.
+  var buyMonth = purchaseEnabled ? (monthsFromNow(cfg.buyMonth, localDateStr()) || 0) : 0;
+  var buyYear = buyMonth > 0 ? Math.floor(buyMonth / 12) + 1 : 0;
+  var ownedShare = function(y){ return buyMonth <= 0 ? 1 : Math.max(0, Math.min(12, y * 12 - Math.max(buyMonth, (y - 1) * 12))) / 12; };
+  var upfrontLater = buyYear ? upfrontCash : 0;
+  if(buyYear) upfrontCash = 0;
   var portfolio = nonPropertyAssets - upfrontCash - investInitial;
   // v3.183.0 (item 214): the money a deposit can come from — cash, shares and offsets (liquidAssetsValue,
   // as "cash at settlement" counts it) — followed beside the portfolio, which also holds super. A change
@@ -291,7 +310,7 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
   var ipLoansMonthlyShocked = ipProperties().reduce(function(s, p){
     return s + p.loans.reduce(function(ss, l){ return ss + shockedLoanRepaymentMonthly(l, rateShockPts); }, 0);
   }, 0);
-  var fixedMonthly = ipLoansMonthlyShocked + repaymentMonthly;
+  var fixedMonthly = ipLoansMonthlyShocked; // the purchase's repayment is added per year: ownedShare
   // Income grew at 0% for the whole horizon until now — not as a modelling choice but because
   // scenarioTotals() was read once, before the loop. Against expenses inflating every year that
   // had the surplus shrinking annually and going negative partway through a 20-year horizon. The
@@ -319,12 +338,13 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
   function activeInflatableMonthlyAt(year){
     return (sumFieldActiveInYear(scenarioSharedItems(scenario), "monthly", year, todayStr, function(item){
         return resolveSharedAmount(item, scenario);
-      }) +
-      sumFieldActiveInYear(scenarioInflatableHomeItems(scenario), "monthly", year, todayStr) + (ratios.spendDelta || 0)) +
+      }) + (ratios.spendDelta || 0)) +
       ipProperties().reduce(function(sum, p){
         return sum + sumFieldActiveInYear(p.expenses, "monthly", year, todayStr);
       }, 0);
   }
+  // The scenario's own home costs, apart: a home bought later doesn't cost anything before it's bought.
+  function activeHomeMonthlyAt(year){ return sumFieldActiveInYear(scenarioInflatableHomeItems(scenario), "monthly", year, todayStr); }
 
   // v3.125.0: a range of outcomes runs this hundreds of times with a different sequence of returns
   // each time (calc/outcomes.js) — opts.investReturns[year] and opts.propertyReturns[year] replace
@@ -368,17 +388,19 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
         // or stops — otherwise the year before's (the tax worked out again for every year was most of
         // a series' time, and Plan → Scenarios draws one per scenario on every click).
         var key = yearKey(year);
-        yc = key === lastYearKey && lastYc ? lastYc : { inflatable: activeInflatableMonthlyAt(year), income: activeIncomeMonthlyAt(year) };
+        yc = key === lastYearKey && lastYc ? lastYc : { inflatable: activeInflatableMonthlyAt(year), home: activeHomeMonthlyAt(year), income: activeIncomeMonthlyAt(year) };
         lastYearKey = key; lastYc = yc;
         if(cache) cache[year] = yc;
       }
-      var inflatableThisYear = yc.inflatable * Math.pow(1 + inflationRate, year);
+      var owned = ownedShare(year);
+      var inflatableThisYear = (yc.inflatable + (yc.home || 0) * owned) * Math.pow(1 + inflationRate, year);
       var incomeThisYear = (yc.income + (ratios.incomeDelta || 0)) * Math.pow(1 + incomeGrowthRate, year);
       // v3.177.0: retired — pay stops, and living costs come out of what's been saved.
       if(retireYear && year >= retireYear) incomeThisYear = 0;
       if(investPath && investPath[year] != null) monthlyInvestRate = Math.pow(1 + investPath[year], 1 / 12) - 1;
       var ev = events.length ? eventEffects(events, year, thisYear) : null;
-      var savingsThisYear = incomeThisYear - fixedMonthly - inflatableThisYear - (ev ? ev.yearly / 12 * Math.pow(1 + inflationRate, year) : 0);
+      var savingsThisYear = incomeThisYear - fixedMonthly - repaymentMonthly * owned - inflatableThisYear - (ev ? ev.yearly / 12 * Math.pow(1 + inflationRate, year) : 0);
+      if(year === buyYear){ portfolio -= upfrontLater; cashTrack -= upfrontLater; }
       if(ev && ev.lump){ portfolio += ev.lump * Math.pow(1 + inflationRate, year); cashTrack += ev.lump * Math.pow(1 + inflationRate, year); }
       // v3.173.0: the scenario's own changes — rent elsewhere, an investment property, a cost, a sale.
       if(lg){ savingsThisYear += lg.savingsMonthly; portfolio += lg.lump; cashTrack += lg.lump; }
@@ -397,7 +419,10 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
     }
     var propGrowth = propPath ? propFactor : Math.pow(1 + propRate, year);
     var homeValue = price * (propPath ? propFactor * Math.pow((1 + homePropRate) / (1 + propRate), year) : Math.pow(1 + homePropRate, year));
-    var loanBal = purchaseEnabled ? loanBalanceAfterMonths(loanAmount0, rate, term, year * 12, cfg.repaymentType) : 0;
+    // Item 251: bought later — at its price then (what's typed), growing from that month; owed from it.
+    var heldMonths = year * 12 - buyMonth;
+    if(buyMonth > 0) homeValue = heldMonths >= 0 ? homeValue / Math.pow(1 + homePropRate, buyMonth / 12) : 0;
+    var loanBal = purchaseEnabled && heldMonths >= 0 ? loanBalanceAfterMonths(loanAmount0, rate, term, heldMonths, cfg.repaymentType) : 0;
     var homeEquity = purchaseEnabled ? (homeValue - loanBal) : 0;
     var propertiesEquitySum = state.properties.reduce(function(sum, p){
       if(soldFrom[p.id] && year >= soldFrom[p.id]) return sum; // sold in this scenario
@@ -639,17 +664,44 @@ export function scenarioTotals(scenario){
       if(sold) incomeMonthly -= sold.cashMonthly;
     });
   }
-  var netMonthly = incomeMonthly - expensesMonthly;
   // v3.80.0: what of that arrives once a year rather than monthly (bonuses), so the headline can
   // say what a normal month leaves. netMonthly stays the year's average for projections.
   var oneOffYearly = scenarioOneOffYearly({ scenario: scenario });
+  // Item 248: the cash this scenario spends — its home's deposit and costs, what its changes buy — comes out of
+  // cash, then offsets (calc/cashdraw.js, the order "Can we buy?" uses). An offset that's emptied stops saving its
+  // loan's interest, and that is money out every month; the tax back on the deductible part comes once a year. The
+  // household as it is spends nothing, and a scenario that's only somewhere cheaper to rent spends nothing either.
+  var cashOut = scenarioCashOut(scenario, legUpfront), draw = null;
+  if(cashOut > 0){
+    draw = drawFor(cashOut);
+    if(draw.extraInterestYearly > 0){
+      expensesMonthly += draw.extraInterestYearly / 12;
+      incomeMonthly += draw.taxBackYearly / 12;
+      oneOffYearly += draw.taxBackYearly;
+    }
+  }
+  var netMonthly = incomeMonthly - expensesMonthly;
   return {
     incomeMonthly: incomeMonthly, ipMonthly: ipMonthly, sharedMonthly: sharedMonthly,
     homeMonthly: homeMonthly, expensesMonthly: expensesMonthly, changesUpfront: legUpfront, changesTaxMonthly: legTax,
     netMonthly: netMonthly, netYearly: netMonthly * 12,
     oneOffYearly: oneOffYearly, regularNetMonthly: netMonthly - oneOffYearly / 12,
-    rate: incomeMonthly > 0 ? netMonthly / incomeMonthly : 0
+    rate: incomeMonthly > 0 ? netMonthly / incomeMonthly : 0,
+    cashOut: cashOut, draw: draw,
+    drawInterestMonthly: draw ? draw.extraInterestYearly / 12 : 0, drawTaxBackYearly: draw ? draw.taxBackYearly : 0
   };
+}
+// The cash a scenario spends: its home's upfront cost (when it buys one, and isn't the household as it is) and
+// what its changes take up front.
+export function scenarioCashOut(scenario, legUpfront){
+  if(!scenario || scenario === state.baselineScenario) return Math.max(0, Number(legUpfront) || 0);
+  var cfg = state.purchase && state.purchase[scenario], inv = state.invest && state.invest[scenario];
+  var home = 0;
+  if(cfg && cfg.enabled && !(inv && inv.enabled)){
+    var p = recalcPurchase(scenario);
+    home = p ? p.upfrontCash : 0;
+  }
+  return Math.max(0, home + (Number(legUpfront) || 0));
 }
 
 // Item 247: the Home card's net savings as the lines that make it — so "how am I saving this?" has an answer on
@@ -674,6 +726,12 @@ export function savingsBreakdown(scenario){
     out.push({ label: (p.what || "Property") + " — running costs", monthly: sumField(p.expenses, "monthly"), go: "budget" });
     out.push({ label: (p.what || "Property") + " — loan repayments", monthly: (p.loans || []).reduce(function(s, l){ return s + loanRepaymentMonthly(l); }, 0), go: "property" });
   });
+  // Item 248: what taking the cash out of an offset costs, and the tax back on it.
+  if(t.draw) t.draw.draws.forEach(function(d){
+    if(!(d.interestYearly > 0)) return;
+    out.push({ label: d.name + " — interest on the " + fmtCurrency0.format(d.take) + " taken out", monthly: d.interestYearly / 12, go: "property" });
+  });
+  if(t.drawTaxBackYearly > 0) income.push({ label: "Tax back on that interest", monthly: t.drawTaxBackYearly / 12, oneOff: true, go: "property" });
   // Whatever's left is the scenario's own changes (rent elsewhere, a property bought or sold) — none for the
   // household as it is, but the lines must add up to the card for any scenario.
   var listedIn = income.reduce(function(s, r){ return s + r.monthly; }, 0);

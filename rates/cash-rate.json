@@ -1,0 +1,9 @@
+{
+  "updated": "2026-11-03",
+  "source": "Reserve Bank of Australia — cash rate target",
+  "current": { "rate": 4.85, "effective": "2026-11-04" },
+  "previous": { "rate": 4.6, "effective": null },
+  "decisions": [
+    { "effective": "2026-11-04", "rate": 4.85, "change": 0.25 }
+  ]
+}

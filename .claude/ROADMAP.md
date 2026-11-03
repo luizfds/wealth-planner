@@ -4610,6 +4610,62 @@ the plan expects last year's tax refund and distributions (incomeTargets), Home 
 says so. Benchmarks and the runway read sharedMonthly/homeMonthly/expensesMonthly, unchanged. Journey `savings`;
 driven at 390 and 1280px.
 
+## Phase N — scenarios that hold up (November 2026)
+
+Found while running a real household's buy-or-wait question through Plan → Scenarios: a purchase looked
+~$1,100/mo better than it was, rates typed into scenarios went stale after an RBA rise, and four things had to be
+worked out by hand. One PR — the six change the same scenario figures and cards together.
+
+## 248. `[x]` A deposit taken from an offset costs interest
+Do: when a scenario's purchase (or an investment property it buys, or a one-off cost) is paid from cash, draw it in
+the same order "Can we buy?" does — cash, own-savings offsets, borrowed money last — and count the interest the
+drawn offsets stop saving as money out each month, and the tax back on the deductible part as once a year.
+Done when: the scenario's normal month and the breakdown include it; "Can we buy?" and the scenario agree; tested.
+
+Done: `calc/cashdraw.js` (moved from canbuy.js) — `drawFor`; `scenarioTotals` adds `cashOut`, `draw`,
+`drawInterestMonthly`, `drawTaxBackYearly`; the savings breakdown names the offset's interest and the tax back.
+"Can we buy?" counts the purchase only; a scenario also counts what its changes buy — they agree on a purchase alone.
+
+## 249. `[x]` Rates that follow the RBA
+Do: a scheduled job reads the RBA's cash rate decisions into a file on the site (like the price file); the app reads
+it, says when the cash rate has moved, and offers to record the move on each variable loan. A scenario's purchase or
+investment property can follow the cash rate (its rate is the cash rate plus a margin) instead of a typed rate.
+Done when: a new decision shows once; recording it adds the rate change to the loans picked; a following scenario's
+rate moves with the cash rate; the job fails loudly if the RBA's file changes shape; tested.
+
+Done: `scripts/cashrate/fetch.mjs` + `cashrate.yml` (A2, falling back to F1.1; fails loudly), `rates/cash-rate.json`
+starting at the 3 Nov 2026 decision; `calc/cashrate.js`; `state.cashRate` (migration 25, SKIP in the activity log);
+the bell and a panel on Net worth → Property; "Moves with the RBA cash rate" on a purchase and an investment
+property change. Journey `cashrate`. The RBA's CSV layout couldn't be fetched from the build session — the parser
+was written to the published layout and tested on a copy of its shape; the first scheduled run confirms it.
+
+## 250. `[x]` One-off costs in a scenario
+Do: a change for a cost that happens once — moving, furniture, a second move — in a given month; it comes out of cash
+then (drawn like a deposit) and shows on the card, not as a monthly cost.
+Done when: the projection takes it in its year; the card and "cash needed" show it; tested.
+
+Done: change kind `once` (`legsInYear` lump in its year; `legsMonthly` upfront), in the Add a change sheet.
+
+## 251. `[x]` Changes in a given month
+Do: a change starts in a month from now, not only at the start of a year; rent and costs can stop in a month; the
+scenario's purchase can happen in a month from now — so "rent in Melbourne for six months, then buy" is one scenario.
+Done when: the projection counts part-years; the editor sets months; tested.
+
+Done: "In a set month" (`fromMonth`), "Until" (`untilMonth`) on rent and costs, "When you buy" (`buyMonth`) on the
+purchase calculator; the projection counts shares of years and owns nothing before the purchase month.
+
+## 252. `[x]` Break-even growth on a buying scenario
+Do: a scenario that buys says what yearly price growth it needs to match the household over ten years.
+Done when: the card shows it, found by the same projection the chart uses; within the speed budget; tested.
+
+Done: `breakEvenGrowth` (calc/scenariostress.js; `homeGrowthPct` option on `computeNetWorthSeries`), on the card.
+
+## 253. `[x]` Rate rises on the card
+Do: each scenario card with a loan says what a normal month leaves at +0.5% and +1%, every variable loan included.
+Done when: the card shows both; tested.
+
+Done: `rateStress` (calc/scenariostress.js), on the card.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

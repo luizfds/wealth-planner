@@ -1,0 +1,67 @@
+import "./_env.js";
+import test from "node:test";
+import assert from "node:assert/strict";
+import { state, defaultPurchaseConfig, defaultInvestConfig } from "../src/state.js";
+import { scenarioTotals, computeNetWorthSeries, recalcComputedItems } from "../src/calc/engine.js";
+import { calcRepaymentMonthly, recalcPurchase } from "../src/calc/property.js";
+import { rateStress, breakEvenGrowth, breakEvenGrowthCached } from "../src/calc/scenariostress.js";
+import { scenarioSturdinessHtml, breakEvenText } from "../src/components/dashboard.js";
+
+// Items 252, 253. Invented household: a rental with a loan, renting where it lives, a scenario that buys.
+function withHousehold(fn){
+  var keys = ["properties", "assets", "purchase", "scenarios", "home", "invest", "income", "shared", "baselineScenario", "activeScenario", "scenarioChanges", "debts", "projection"];
+  var keep = {}; keys.forEach(function(k){ keep[k] = state[k]; });
+  try {
+    state.scenarios = ["Renting", "Buy"];
+    state.baselineScenario = "Renting"; state.activeScenario = "Renting";
+    state.scenarioChanges = {}; state.debts = [];
+    state.assets = [{ category: "Cash", what: "Savings", amount: 250000 }];
+    state.home = { Renting: [], Buy: [] };
+    state.invest = { Renting: defaultInvestConfig(), Buy: defaultInvestConfig() };
+    state.purchase = { Renting: defaultPurchaseConfig(0, 20, 6, 30, "VIC", false), Buy: Object.assign(defaultPurchaseConfig(800000, 20, 6, 30, "VIC", true), { otherCosts: [] }) };
+    state.income = [{ id: "i1", what: "Alex — pay", incomeType: "Net", amount: 14000, freq: "Monthly" }];
+    state.shared = [{ id: "s1", what: "Rent", amount: 2600, freq: "Monthly", homeCost: true }, { id: "s2", what: "Groceries", amount: 1200, freq: "Monthly" }];
+    state.properties = [{ id: "ip", what: "1 Example St", kind: "IP", value: 600000, purchaseDate: "2022-03-01", ownership: {}, pmFee: { percent: 0, flat: 0 }, income: [], expenses: [],
+      loans: [{ id: "a", what: "Loan A", balance: 400000, offsetBalance: 0, rate: 6, termYears: 25, repaymentType: "PI", settlementDate: "2022-03-01" }] }];
+    state.projection = Object.assign({}, keep.projection, { investReturnRate: 6, propertyAppreciationRate: 4, inflationRate: 0, incomeGrowthRate: 0, rateShockPct: 0, realTerms: true, source: "plan" });
+    recalcComputedItems();
+    fn();
+  } finally { keys.forEach(function(k){ state[k] = keep[k]; }); }
+}
+
+test("a normal month if rates rise: every variable loan's repayment, the purchase's too", () => {
+  withHousehold(() => {
+    const ip = calcRepaymentMonthly(400000, 7, 25, "PI") - calcRepaymentMonthly(400000, 6, 25, "PI");
+    const base = rateStress("Renting", 1);
+    assert.equal(base.extraMonthly, Math.round(ip));
+    assert.equal(base.regularNetMonthly, Math.round(scenarioTotals("Renting").regularNetMonthly - ip));
+    const loan = recalcPurchase("Buy").loanBalance;
+    const home = calcRepaymentMonthly(loan, 7, 30, "PI") - calcRepaymentMonthly(loan, 6, 30, "PI");
+    assert.equal(rateStress("Buy", 1).extraMonthly, Math.round(ip + home), "cash came from savings, so no offset in it");
+    assert.ok(rateStress("Buy", 0.5).extraMonthly < rateStress("Buy", 1).extraMonthly);
+  });
+});
+
+test("break-even growth: at that rate the purchase ends ten years on level with the household", () => {
+  withHousehold(() => {
+    const be = breakEvenGrowth("Buy", 10);
+    assert.ok(be && be.pct != null && be.against === "Renting");
+    const target = computeNetWorthSeries("Renting", 10)[10].y;
+    const at = g => computeNetWorthSeries("Buy", 10, { homeGrowthPct: g })[10].y;
+    assert.ok(at(be.pct + 0.2) > target && at(be.pct - 0.2) < target, "the answer sits where the two cross");
+    assert.equal(breakEvenGrowth("Renting", 10), null, "the household itself has nothing to break even with");
+    assert.equal(breakEvenGrowthCached("Buy", 10, "k"), breakEvenGrowthCached("Buy", 10, "k"));
+    assert.equal(breakEvenText({ pct: 4.3 }), "4.3%/yr");
+    assert.equal(breakEvenText({ below: -5 }), "even if they fall");
+  });
+});
+
+test("on the card: both rate steps, and a place for the break-even", () => {
+  withHousehold(() => {
+    const html = scenarioSturdinessHtml("Buy", scenarioTotals("Buy"));
+    assert.match(html, /If rates rise 0\.5% · 1%/);
+    assert.match(html, /data-card-breakeven="Buy"/);
+    assert.match(html, /Matches Renting in 10 yrs if prices grow/);
+    assert.doesNotMatch(scenarioSturdinessHtml("Renting", scenarioTotals("Renting")), /data-card-breakeven/);
+  });
+});

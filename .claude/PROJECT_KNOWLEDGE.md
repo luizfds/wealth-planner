@@ -413,6 +413,23 @@ them out while Home's net savings took them off, and the two couldn't be reconci
 Home's Net savings tile opens the same sum line by line (`savingsBreakdown()` in calc/engine.js); the
 Income statement's Plan counts them too, and its months the transfers into a loan-linked account.
 
+### Scenarios that hold up (items 248–253)
+
+- A scenario's monthly figure counts what its cash costs: the deposit (and any investment property or one-off cost it
+  buys) is drawn by `calc/cashdraw.js` in "Can we buy?"'s order — cash, own-savings offsets, borrowed offsets last —
+  and the interest the drawn offsets stop saving is money out each month (`t.drawInterestMonthly`), with the tax
+  back on the deductible part once a year. The projection already takes the deposit out of investments, so it does
+  *not* add this interest again.
+- `state.cashRate` comes from `rates/cash-rate.json` (the site's file, written by a scheduled job), read once a day.
+  It never changes a loan by itself: a move asks to be recorded on the loans ticked, from a date. A scenario rate
+  set to follow it (`rateFollowsCash`, `rateCashAt`) moves by however much the cash rate moved since.
+- A change's month is stored as `"YYYY-MM"` (`fromMonth`, `untilMonth`; a purchase's `buyMonth`) and counted from
+  today in `scenarioLegChanges` / `computeNetWorthSeries` — never stored as months-from-now, which would age.
+  `scenarioTotals` is the month once every change has happened: rent that stops isn't in it, a one-off cost is cash
+  out (`cashOut`), not a monthly cost.
+- Break-even growth runs the projection a few dozen times (halving the range); the cards fill it in just after they
+  draw and keep it until its inputs change.
+
 ### Two different "Log" buttons, and only one records money moving
 
 They look alike and do unrelated things — a real source of confusion, so keep them straight:

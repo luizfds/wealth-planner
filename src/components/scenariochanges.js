@@ -73,9 +73,11 @@ function group(title, fields, folded){
 }
 // v3.183.0 (item 214): when a change starts — in a year, at an age, or when cash reaches an amount.
 function whenFields(c, scenario, label){
-  var kinds = [["year", "In a set year"], ["age", "At an age"]].concat(c.kind === "sell" ? [] : [["cash", "When cash reaches…"]]);
-  var w = c.when === "age" || (c.when === "cash" && c.kind !== "sell") ? c.when : "year";
+  // Item 251: or in a month.
+  var kinds = [["month", "In a set month"], ["year", "In a set year"], ["age", "At an age"]].concat(c.kind === "sell" ? [] : [["cash", "When cash reaches…"]]);
+  var w = c.when === "age" || c.when === "month" || (c.when === "cash" && c.kind !== "sell") ? c.when : "year";
   var picker = field(Object.assign({}, c, { when: w }), scenario, "when", label, "select", kinds);
+  if(w === "month") return [picker, field(c, scenario, "fromMonth", "Month", "month", ' placeholder="YYYY-MM"')];
   if(w === "age") return [picker, field(c, scenario, "whenAge", "Age", "number", ' min="0" max="100" inputmode="numeric"')];
   if(w === "cash") return [picker, field(c, scenario, "whenCash", "Cash of", "number", ' min="0" step="1000" inputmode="decimal"')];
   return [picker, field(c, scenario, "fromYear", "Which year", "select", yearOptions())];
@@ -86,6 +88,12 @@ function changeFormHtml(c, scenario, ctx){
   if(c.kind === "rent" || c.kind === "cost"){
     f.push(field(c, scenario, "what", "What", "text"), field(c, scenario, "amount", "Amount", "number"), field(c, scenario, "freq", "How often", "select", FREQS));
     f = f.concat(whenFields(c, scenario, "From"));
+    // Item 251: and when it stops — rent until the home you're buying.
+    f.push(field(c, scenario, "untilMonth", "Until (blank: no end)", "month", ' placeholder="YYYY-MM"'));
+  } else if(c.kind === "once"){
+    // Item 250: once, out of cash.
+    f.push(field(c, scenario, "what", "What", "text"), field(c, scenario, "amount", "Amount", "number"));
+    f = f.concat(whenFields(c, scenario, "When"));
   } else if(c.kind === "ip"){
     var people = getTaxPeople();
     var fig = ipFigures(c, { marginalRate: ctx.marginalRateFor(c.owner), taxEffect: ctx.taxEffectFor ? function(tx){ return ctx.taxEffectFor(c.owner, tx); } : null });
@@ -95,7 +103,10 @@ function changeFormHtml(c, scenario, ctx){
     var when = whenFields(c, scenario, "Bought");
     return f.join("") +
       group("Price and loan", [field(c, scenario, "what", "Name", "text"), field(c, scenario, "price", "Price", "number"), field(c, scenario, "state", "State", "select", PURCHASE_STATE_CODES),
-        field(c, scenario, "depositPct", "Deposit %", "number"), field(c, scenario, "rate", "Interest %", "number"), field(c, scenario, "repaymentType", "Loan", "select", [["IO", "Interest only"], ["PI", "Principal & interest"]]),
+        field(c, scenario, "depositPct", "Deposit %", "number"), field(c, scenario, "rate", "Interest %", "number"),
+        // Item 249: or moved by as much as the RBA moves the cash rate.
+        field(c, scenario, "rateFollowsCash", "Its rate", "select", [["", "Stays as typed"], ["1", "Moves with the RBA cash rate"]]),
+        field(c, scenario, "repaymentType", "Loan", "select", [["IO", "Interest only"], ["PI", "Principal & interest"]]),
         field(c, scenario, "termYears", "Term (years)", "number")]) +
       group("Rent", [field(c, scenario, "rentWeekly", "Rent a week", "number"), field(c, scenario, "vacancyWeeks", "Weeks vacant a year", "number"), field(c, scenario, "mgmtPct", "Management %", "number")]) +
       group("Costs and tax", [field(c, scenario, "costsYearly", "Costs a year", "number"), field(c, scenario, "depreciationYearly", "Depreciation a year", "number")]) +
@@ -180,6 +191,7 @@ export function scenarioChangesHtml(scenario){
     return '<div class="sc-change sc-leg' + (open ? " is-open" : "") + '"><button type="button" class="sc-what sc-leg-head" data-sc-toggle="' + escapeAttr(c.id) + '" aria-expanded="' + open + '"><b>' + escapeAttr(changeSummary(c, { money: function(n){ return fmtCurrency0.format(n); }, propertyName: propName })) + startsText(c) + badge + '</b>' +
         (c.kind === "sell" ? '<small>Its equity becomes cash that year, and its rent, costs and loan stop</small>'
           : c.kind === "extra" ? '<small>' + signed(effect) + '/mo from savings, into the loan — kept as equity</small>'
+          : c.kind === "once" ? '<small>Out of cash once, not each month — counted in what the scenario needs up front</small>'
           : '<small>' + signed(effect) + '/mo' + (c.kind === "ip" ? ' after tax · ' + fmtCurrency0.format(m.upfront) + ' at settlement' : '') + '</small>') + '</button>' +
       '<button type="button" class="btn btn-danger btn-sm" data-sc-del="' + escapeAttr(c.id) + '" data-sc-scenario="' + escapeAttr(scenario) + '" aria-label="' + escapeAttr("Remove: " + changeSummary(c, { propertyName: propName })) + '">✕</button>' +
       undo + (open ? changeFormHtml(c, scenario, ctx) : '') + '</div>';

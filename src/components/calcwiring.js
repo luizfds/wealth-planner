@@ -25,6 +25,7 @@ function onCalcInput(e){
   else if(t.classList.contains("calc-rate")) cfg.rate = parseFloat(t.value) || 0;
   else if(t.classList.contains("calc-iorate")) cfg.ioRate = parseFloat(t.value) || 0;
   else if(t.classList.contains("calc-term")) cfg.termYears = Math.max(1, parseFloat(t.value) || 1);
+  else if(t.classList.contains("calc-buy-month")) cfg.buyMonth = /^\d{4}-\d{2}$/.test(t.value) ? t.value : "";
   else if(t.classList.contains("calc-manual-stampduty")) cfg.manualStampDuty = parseFloat(t.value) || 0;
   else if(t.classList.contains("calc-growth-override")) cfg.propertyGrowthRate = t.value === "" ? null : (parseFloat(t.value) || 0);
   else if(t.classList.contains("cc-what") || t.classList.contains("cc-amount")){
@@ -48,7 +49,12 @@ function onCalcChange(e){
   var cfg = state.purchase[scenario];
   if(!cfg) return;
   var t = e.target;
-  if(t.classList.contains("calc-enabled")){
+  if(t.classList.contains("calc-rate-follows")){
+    // Item 249: from the cash rate as it is now; calc/cashrate.js applyCashRate moves it from here.
+    cfg.rateFollowsCash = t.checked;
+    cfg.rateCashAt = t.checked && state.cashRate && state.cashRate.rate >= 0 ? state.cashRate.rate : null;
+  }
+  else if(t.classList.contains("calc-enabled")){
     cfg.enabled = t.checked;
     // Mutually exclusive with the invest-instead leg — see the invest-enabled handler below
     // and computeNetWorthSeries()'s own precedence for why both enabled would double-count.

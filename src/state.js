@@ -206,6 +206,8 @@ export function defaultState(){
     priceSheet: { url: "", lastRead: "", lastResult: null, backfillFrom: "" },
     // v3.132.0: prices with no setup (calc/autoprices.js).
     autoPrices: { on: true, crypto: true, fx: true, lastRead: "", lastResult: null },
+    // Item 249: the RBA cash rate as last read from the site's file (calc/cashrate.js); null until then.
+    cashRate: null,
     // v3.178.0 (item 203): a target mix by asset class, as percentages — optional, {} when not set.
     targetMix: {},
     // v3.179.0 (item 205): per repeating payee (merchant key) — { cancelBy, ignored }.
@@ -773,6 +775,10 @@ export var MIGRATION_STEPS = [
     (Array.isArray(s.properties) ? s.properties : []).forEach(function(p){
       (p && Array.isArray(p.loans) ? p.loans : []).forEach(function(l){ if(l && !Array.isArray(l.charges)) l.charges = []; });
     });
+  } },
+  // Item 249: the RBA cash rate, read from the site's file (calc/cashrate.js) — nothing until the first read.
+  { n: 25, name: "a place for the RBA cash rate", run: function(s){
+    if(!s.cashRate || typeof s.cashRate !== "object" || Array.isArray(s.cashRate)) s.cashRate = null;
   } }
 ];
 

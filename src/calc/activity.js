@@ -24,7 +24,7 @@ var MAX_UNDO_ROW = 4000;            // a removed row bigger than this is logged 
 var SKIP = { activity: 1, savedAt: 1, savedBy: 1, savedByName: 1, activeScenario: 1, showAllPeriods: 1, uiMode: 1,
   budgetGroupsCollapsed: 1, budgetGroupBy: 1, incomeCols: 1, expenseCols: 1, homeCols: 1, assetCols: 1, setupDismissed: 1,
   checksDismissed: 1, priceSheet: 1, fx: 1, benchmark: 1, projectionReference: 1, autoPrices: 1, lastBackupDate: 1,
-  lastFolderBackup: 1, netWorthLog: 1, weekRecaps: 1, firstRunDone: 1, firstRunSkipped: 1, rollover: 1 };
+  lastFolderBackup: 1, netWorthLog: 1, weekRecaps: 1, firstRunDone: 1, firstRunSkipped: 1, rollover: 1, cashRate: 1 };
 function isAutoRow(r){ return !!(r && typeof r === "object" && (r.auto || r.derived || r.computed || r.syntheticNetFor || r.syntheticRentForProperty || r.syntheticOneOffFor || r.syntheticRefundFor || r.syntheticEndingFor)); }
 function isObj(v){ return v != null && typeof v === "object" && !Array.isArray(v); }
 function same(a, b){ return a === b || JSON.stringify(a) === JSON.stringify(b); }

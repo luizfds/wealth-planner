@@ -2,7 +2,7 @@ import { hasDraft, draftChanged } from "../calc/scenariodraft.js";
 import { state, persist } from "../state.js";
 import { setupProgress, shouldShowSetup } from "../lib/setup.js";
 import { sumByClassification, sumByAccount, safeDiv, resolveSharedAmount, appendHistorySnapshot, periodsOf } from "../calc/ledger.js";
-import { ipExpenseItemsForClassification, fyLabel, loanBalance } from "../calc/property.js";
+import { ipExpenseItemsForClassification, fyLabel, loanBalance, ipProperties } from "../calc/property.js";
 import { scenarioIncomeMonthly, scenarioIncomeRows, getTaxPeople, computePersonTax } from "../calc/tax.js";
 import { lodgementStatus, taxYearRecord } from "../calc/taxyear.js";
 import { evidenceItems } from "./taxyear.js";
@@ -20,9 +20,47 @@ import { renderLineChart } from "../lib/charts.js";
 import { proposeBudget } from "../calc/budgetfromhistory.js";
 import { staleAssetNamesList } from "../lib/notifications.js";
 import { applyHomeLayout } from "../lib/homelayout.js";
-import { scenarioSharedItems } from "../calc/scenariochanges.js";
+import { scenarioSharedItems, effectiveChanges } from "../calc/scenariochanges.js";
+import { rateStress, breakEvenGrowthCached } from "../calc/scenariostress.js";
 
 // What a normal month leaves: bonuses land in their own month, so they're in the year, not each month.
+// Items 252, 253: on each card, a normal month if rates rise, and — for a scenario that buys its home — the price
+// growth it needs to match the household in ten years. The second runs the projection a few dozen times, so it's
+// filled in just after the cards are drawn, and kept until what it depends on changes.
+var RATE_STEPS = [0.5, 1];
+export function scenarioSturdinessHtml(scenario, t){
+  var hasLoan = ipProperties().some(function(p){ return (p.loans || []).length; }) || scenarioBuysHome(scenario) || effectiveChanges(scenario).some(function(c){ return c && c.kind === "ip"; });
+  var stress = hasLoan ? RATE_STEPS.map(function(p){ return rateStress(scenario, p, t); }) : [];
+  var money = function(n){ return (n < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(n)); };
+  return (stress.length ? '<div class="card-stats card-stress" title="A normal month if every variable rate — your loans, this scenario\'s purchase and anything it buys — rose this much"><span>If rates rise ' + RATE_STEPS.map(function(p){ return p + "%"; }).join(" · ") + '</span><b>' +
+      stress.map(function(x){ return '<span class="' + (x.regularNetMonthly < 0 ? "neg" : "") + '">' + money(x.regularNetMonthly) + '</span>'; }).join(" · ") + '<small>/mo</small></b></div>' : '') +
+    (scenarioBuysHome(scenario) && scenario !== currentScenario() ? '<div class="card-stats card-breakeven" data-card-breakeven="' + escapeAttr(scenario) + '" title="The yearly growth in this home\'s price at which, ten years from now, this scenario\'s net worth matches ' + escapeAttr(currentScenario()) + '\'s — the projection on Plan, with only the price growth changed"><span>Matches ' + escapeAttr(currentScenario()) + ' in 10 yrs if prices grow</span><b>…</b></div>' : '');
+}
+function scenarioBuysHome(scenario){
+  var cfg = state.purchase && state.purchase[scenario], inv = state.invest && state.invest[scenario];
+  return !!(cfg && cfg.enabled && !(inv && inv.enabled));
+}
+export function breakEvenText(be){
+  if(!be) return "";
+  if(be.below != null) return "even if they fall";
+  if(be.above != null) return "over " + be.above + "%/yr";
+  return be.pct + "%/yr";
+}
+var breakEvenTimer = null;
+function fillBreakEvensSoon(){
+  if(breakEvenTimer) clearTimeout(breakEvenTimer);
+  breakEvenTimer = setTimeout(function(){
+    breakEvenTimer = null;
+    var base = currentScenario();
+    var baseKey = JSON.stringify([state.projection, scenarioTotals(base).netMonthly, totalNetWorthValue(), state.cashRate && state.cashRate.rate]);
+    document.querySelectorAll("#cards [data-card-breakeven]").forEach(function(el){
+      var sc = el.getAttribute("data-card-breakeven");
+      var key = baseKey + JSON.stringify([state.purchase[sc], effectiveChanges(sc), scenarioTotals(sc).netMonthly]);
+      var b = el.querySelector("b");
+      if(b) b.textContent = breakEvenText(breakEvenGrowthCached(sc, 10, key)) || "—";
+    });
+  }, 0);
+}
 function regularOf(t){ return t.regularNetMonthly != null ? t.regularNetMonthly : t.netMonthly; }
 
 export function renderCards(){
@@ -67,6 +105,7 @@ export function renderCards(){
           '<div class="card-bar-track"><div class="card-bar-fill' + (t.rate < 0 ? " neg" : "") + '" style="width:' + Math.min(100, Math.abs(t.rate) / maxAbsRate * 100) + '%"></div></div>' +
           '<div class="card-stats"><span>Savings rate</span><b>' + fmtPercent1.format(t.rate) + '</b></div>' +
           '<div class="card-stats"><span>Home cost / mo</span><b>' + fmtCurrency0.format(t.homeMonthly) + '</b></div>' +
+          scenarioSturdinessHtml(scenario, t) +
           // v3.181.0 (item 212): Edit opens the scenario on its own page; a draft left there says so.
           ((state.scenarioNotes || {})[scenario] ? '<p class="card-note">' + escapeAttr(state.scenarioNotes[scenario]) + '</p>' : '') +
           (hasDraft(scenario) && draftChanged(scenario) ? '<span class="card-draft">Unsaved changes</span>' : '') +
@@ -78,6 +117,7 @@ export function renderCards(){
   '<button type="button" class="add-card" id="addScenarioBtn"><span class="add-plus">+</span><span class="add-label">Add scenario</span></button>';
 
   el.innerHTML = html;
+  fillBreakEvensSoon();
   renderDashboardStats();
 }
 

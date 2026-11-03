@@ -169,6 +169,12 @@
   }
   .card-edit-link:hover{ text-decoration:underline; }
   .card-stats b{ color: var(--ink); font-weight:600; }
+  /* Items 252, 253: a normal month if rates rise, and the growth a buy needs to break even — label and figure may wrap. */
+  .card-stress, .card-breakeven{ gap:8px; align-items:baseline; }
+  .card-stress span:first-child, .card-breakeven span{ min-width:0; }
+  .card-stress b, .card-breakeven b{ white-space:nowrap; font-family: var(--font-num); }
+  .card-stress b .neg{ color: var(--bad-ink); }
+  .card-stress b small{ font-weight:400; color: var(--ink-soft); }
   .add-card{
     all:unset; box-sizing:border-box; cursor:pointer; width:100%; min-height:150px;
     border:1.5px dashed var(--border); border-radius:14px; color: var(--ink-soft);

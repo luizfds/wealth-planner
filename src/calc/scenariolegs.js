@@ -14,6 +14,12 @@
 //          effectiveChanges in calc/scenariochanges.js
 //   extra — pay a loan down faster (v3.174.0):   { kind: "extra", propertyId, amount, freq, rate, fromYear } —
 //          out of each month's savings, into the loan at its rate (equity, not spending)
+//   once — a cost that happens once (item 250):  { kind: "once", what, amount, when: "month", fromMonth } —
+//          moving, furniture; out of cash in its month, never a monthly cost
+//
+// Item 251: a change can start in a month — when: "month", fromMonth "YYYY-MM" — and rent or a cost can stop in one
+// (untilMonth "YYYY-MM"). engine.js scenarioLegChanges turns them into startMonth / endMonth, months from today, and
+// fromYear, the year the start falls in, so everything that only knows years still works.
 //
 // The investment property is priced the way a real one is: rent less vacancy and management, its
 // costs, the loan, and the tax effect — the year's result (rent less management, costs, interest and
@@ -29,18 +35,33 @@ export var CHANGE_KINDS = [
   { key: "cost", label: "A new cost or saving", hint: "Childcare, a second car, a gym you'd stop" },
   { key: "sell", label: "Sell a property you own", hint: "Its equity becomes cash in the year you choose" },
   { key: "extra", label: "Pay a loan down faster", hint: "Extra repayments each month, saved at the loan's rate" },
+  { key: "once", label: "A one-off cost", hint: "Moving, furniture, a second move — once, in the month you pick" },
   { key: "include", label: "Include another scenario", hint: "Its changes counted here too — kept where they are, so editing it changes this" },
   { key: "amount", label: "A line costs a different amount", hint: "A budget line or a pay that would be different" }
 ];
 var MEDICARE = 0.02;
 function r2(n){ return Math.round(n * 100) / 100; }
 function num(v, d){ var n = Number(v); return isFinite(n) && v !== "" && v != null ? n : (d || 0); }
+// Item 251: whole months from today's month to "YYYY-MM" (or a date) — 0 for this month or one gone by; null when blank.
+export function monthsFromNow(ym, today){
+  var m = /^(\d{4})-(\d{2})/.exec(String(ym || "")), t = /^(\d{4})-(\d{2})/.exec(String(today || ""));
+  if(!m || !t) return null;
+  return Math.max(0, (Number(m[1]) - Number(t[1])) * 12 + Number(m[2]) - Number(t[2]));
+}
+// How much of projection year `year` (1 = the coming twelve months) a change runs: from its start month to its end.
+function shareOfYear(c, year){
+  var start = c.startMonth != null ? c.startMonth : Math.max(0, Math.floor(num(c.fromYear))) * 12;
+  var end = c.endMonth != null ? c.endMonth : Infinity;
+  var a = Math.max(start, (year - 1) * 12), b = Math.min(end, year * 12);
+  return Math.max(0, Math.min(12, b - a)) / 12;
+}
 
 export function newChange(kind, id, ctx){
   ctx = ctx || {};
   if(kind === "include") return { id: id, kind: "include", scenario: ctx.include || "" };
   if(kind === "rent") return { id: id, kind: "rent", what: "Rent", amount: 850, freq: "Weekly", fromYear: 0 };
   if(kind === "cost") return { id: id, kind: "cost", what: "A new cost", amount: 100, freq: "Monthly", fromYear: 0 };
+  if(kind === "once") return { id: id, kind: "once", what: "Moving", amount: 8000, when: "month", fromMonth: ctx.month || "", fromYear: 0 };
   if(kind === "extra") return { id: id, kind: "extra", propertyId: (ctx.properties && ctx.properties[0] && ctx.properties[0].id) || "", amount: 500, freq: "Monthly", rate: (ctx.loanRate != null ? ctx.loanRate : 6), fromYear: 0 };
   if(kind === "sell") return { id: id, kind: "sell", propertyId: (ctx.properties && ctx.properties[0] && ctx.properties[0].id) || "", fromYear: 1, sellingCostsPct: 2.5 };
   return { id: id, kind: "ip", what: "Investment property", price: 650000, depositPct: 20, rate: 6.2, termYears: 30, repaymentType: "IO",
@@ -89,6 +110,10 @@ export function legsMonthly(changes, ctx){
   var out = { incomeMonthly: 0, expensesMonthly: 0, homeMonthly: 0, ipTaxMonthly: 0, upfront: 0, extraMonthly: 0 };
   (changes || []).forEach(function(c){
     if(!c) return;
+    // Item 251: rent or a cost that stops isn't part of the month once everything has happened; item 250: a one-off
+    // cost comes out of cash, not out of a month.
+    if((c.kind === "rent" || c.kind === "cost") && c.endMonth != null) return;
+    if(c.kind === "once"){ out.upfront += Math.max(0, num(c.amount)); return; }
     if(c.kind === "rent"){ var m = periodsOf(num(c.amount), c.freq || "Weekly").monthly; out.homeMonthly += m; out.expensesMonthly += m; }
     else if(c.kind === "cost"){ out.expensesMonthly += periodsOf(num(c.amount), c.freq || "Monthly").monthly; }
     else if(c.kind === "extra"){ var em = periodsOf(num(c.amount), c.freq || "Monthly").monthly; out.expensesMonthly += em; out.extraMonthly = (out.extraMonthly || 0) + em; }
@@ -118,10 +143,18 @@ export function legsInYear(changes, year, ctx){
     var from = Math.max(0, Math.floor(num(c.fromYear)));
     var startYear = from + 1; // "now" is the first projected year
     if(c.kind === "rent" || c.kind === "cost"){
-      if(year < startYear) return;
+      // Item 251: the share of this year it runs — all of it, unless it starts or stops partway.
+      var share = c.startMonth != null || c.endMonth != null ? shareOfYear(c, year) : (year < startYear ? 0 : 1);
+      if(!share) return;
       var m = periodsOf(num(c.amount), c.freq || "Monthly").monthly;
-      out.savingsMonthly -= m * infl;
-      out.inflatableMonthly += m;
+      out.savingsMonthly -= m * infl * share;
+      out.inflatableMonthly += m * share;
+      return;
+    }
+    if(c.kind === "once"){
+      // Item 250: out of cash at the start of the year its month falls in, in that year's dollars.
+      var at = c.startMonth != null ? Math.floor(c.startMonth / 12) + 1 : startYear;
+      if(year === at) out.lump -= Math.max(0, num(c.amount)) * infl;
       return;
     }
     if(c.kind === "ip"){
@@ -167,6 +200,8 @@ export function legsInYear(changes, year, ctx){
   return out;
 }
 
+var MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+export function monthName(ym){ var m = /^(\d{4})-(\d{2})/.exec(String(ym || "")); return m ? MONTH_NAMES[Number(m[2]) - 1] + " " + m[1] : ""; }
 // In words, for the scenario's list.
 export function changeSummary(c, ctx){
   ctx = ctx || {};
@@ -174,10 +209,13 @@ export function changeSummary(c, ctx){
   // v3.183.0 (item 214): or at an age, or when cash reaches an amount.
   var when = c.when === "cash" && num(c.whenCash) > 0 && c.kind !== "sell" ? " · when cash reaches " + money(num(c.whenCash))
     : c.when === "age" && c.whenAge !== "" && c.whenAge != null ? " · at age " + num(c.whenAge)
+    : c.when === "month" && c.fromMonth ? (c.kind === "once" ? " · in " : " · from ") + monthName(c.fromMonth)
     : num(c.fromYear) > 0 ? " · from year " + (num(c.fromYear) + 1) : "";
-  if(c.kind === "rent") return "Rent " + money(num(c.amount)) + " " + String(c.freq || "Weekly").toLowerCase() + when;
-  if(c.kind === "cost" && num(c.amount) < 0) return (c.what || "A saving") + ": " + money(-num(c.amount)) + " " + String(c.freq || "Monthly").toLowerCase() + " less spent" + when;
-  if(c.kind === "cost") return (c.what || "A cost") + ": " + money(num(c.amount)) + " " + String(c.freq || "Monthly").toLowerCase() + when;
+  var until = (c.kind === "rent" || c.kind === "cost") && c.untilMonth ? " until " + monthName(c.untilMonth) : "";
+  if(c.kind === "rent") return "Rent " + money(num(c.amount)) + " " + String(c.freq || "Weekly").toLowerCase() + when + until;
+  if(c.kind === "cost" && num(c.amount) < 0) return (c.what || "A saving") + ": " + money(-num(c.amount)) + " " + String(c.freq || "Monthly").toLowerCase() + " less spent" + when + until;
+  if(c.kind === "cost") return (c.what || "A cost") + ": " + money(num(c.amount)) + " " + String(c.freq || "Monthly").toLowerCase() + when + until;
+  if(c.kind === "once") return (c.what || "A one-off cost") + ": " + money(num(c.amount)) + " once" + (when || " · now");
   if(c.kind === "ip") return (c.what || "Investment property") + ": " + money(num(c.price)) + " in " + (c.state || "NSW") + ", rent " + money(num(c.rentWeekly)) + "/week" + when;
   if(c.kind === "extra") return "Pay " + ((ctx.propertyName && ctx.propertyName(c.propertyId)) || "the loan") + " down by " + money(num(c.amount)) + " " + String(c.freq || "Monthly").toLowerCase() + " extra" + when;
   if(c.kind === "include") return c.scenario ? "Everything in \u201c" + c.scenario + "\u201d" : "Another scenario — pick one";

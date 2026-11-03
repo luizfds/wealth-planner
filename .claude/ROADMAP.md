@@ -4589,7 +4589,7 @@ Done: `taxPackReport` (calc/taxpack.js), Reports → Tax and the year → Rental
 line's figure for the return and where it came from (typed, the plan, worked out, the bank's charges to a date), beside
 what's logged, how many entries and the latest; the total is the schedule's net. In the smoke views; driven.
 
-## 247. `[~]` Where a month's savings come from
+## 247. `[x]` Where a month's savings come from
 Do: the Home card's net savings opens a breakdown that adds up to it — regular money in by source, the budget, where you
 live, each property's running costs and loan repayments, then the bonuses and refunds that make the yearly average. The
 Income statement's Plan counts the property loan repayments (and its months show what was transferred to those loans),
@@ -4597,6 +4597,18 @@ so its planned "Kept" equals the Home card's. The Budget shows each investment p
 read-only line in that property's group, so the Budget total is everything that comes off a month.
 Done when: the breakdown's lines sum to the card; the Income statement's Plan "Kept" equals the card × months; the
 Budget total equals the money out; benchmarks and the runway unchanged; driven.
+
+Done: `savingsBreakdown(scenario)` (calc/engine.js) — scenarioTotals' parts, named, with any remainder as "This
+scenario's changes", so they add up for every scenario (tested). Home → Net savings → "How it's worked out" opens it
+(`savingsBreakdownHtml`, the Budget plan's statement layout) with links to where each line is changed. The Budget's
+loan card moved into the list as a read-only group, one row per loan, counted in the Monthly total; the pointer line
+and the bottom card are gone. The Income statement has an "Investment loan repayments" row: plan from each loan,
+months from transfers into a loan-linked account (a transfer out of one isn't a repayment). Its Plan also now
+resolves budget lines for the household's scenario and leaves out the property manager's fee, which the planned
+rent is already net of — both were overstating planned spending. Struck: the Plan "Kept" isn't exactly the card × months —
+the plan expects last year's tax refund and distributions (incomeTargets), Home this year's estimate; the report's note
+says so. Benchmarks and the runway read sharedMonthly/homeMonthly/expensesMonthly, unchanged. Journey `savings`;
+driven at 390 and 1280px.
 
 ## Conventions for whoever picks this up
 

@@ -1,14 +1,14 @@
 import { state } from "../state.js";
 import { LIQUID_CATEGORIES, MARKET_CURRENCY, IP_CATEGORY } from "../constants.js";
-import { toWeekly, sumField, sumFieldForScenario, sumFieldActiveInYear, isActiveInYear, resolveSharedAmount } from "./ledger.js";
+import { periodsOf, toWeekly, sumField, sumFieldForScenario, sumFieldActiveInYear, isActiveInYear, resolveSharedAmount } from "./ledger.js";
 import {
   recalcPurchase, ipProperties, ipExpensesMonthly, ipLoansMonthly,
   shockedLoanRepaymentMonthly, scenarioInflatableHomeItems, calcStampDuty,
   calcLMI, calcRepaymentMonthly, purchaseActiveRate, loanBalanceAfterMonths,
   propertiesTotalEquityToday, propertiesOffsetTotal, landTaxDetailForProperty
-  , loanPaidOut, propertyCostBase
+  , loanPaidOut, propertyCostBase, loanRepaymentMonthly
 } from "./property.js";
-import { getTaxPeople, computePersonTax, scenarioIncomeMonthly, scenarioOneOffYearly, takeHomeAdjust, personTakeHomeParts } from "./tax.js";
+import { getTaxPeople, computePersonTax, scenarioIncomeMonthly, scenarioIncomeRows, scenarioOneOffYearly, takeHomeAdjust, personTakeHomeParts } from "./tax.js";
 import { fmtCurrency0, localDateStr, fmtDate } from "../lib/format.js";
 import { dueAfterDays } from "./estimates.js";
 import { projectionRatios } from "./actuals.js";
@@ -649,5 +649,41 @@ export function scenarioTotals(scenario){
     netMonthly: netMonthly, netYearly: netMonthly * 12,
     oneOffYearly: oneOffYearly, regularNetMonthly: netMonthly - oneOffYearly / 12,
     rate: incomeMonthly > 0 ? netMonthly / incomeMonthly : 0
+  };
+}
+
+// Item 247: the Home card's net savings as the lines that make it — so "how am I saving this?" has an answer on
+// the card that raises it. The same parts scenarioTotals() adds up, named: money in by row (after tax, as the
+// scenario has it), then the household budget, where you live, each investment property's running costs and its
+// loan repayments (worked out from the loans, never a budget line), and the scenario's own changes. `regular` is
+// a normal month (the card); bonuses and refunds follow, averaged, to `average` (netMonthly, the projection's).
+// Each line: { label, monthly, oneOff?, go? } — go names where it's changed: income, budget, property.
+export function savingsBreakdown(scenario){
+  var t = scenarioTotals(scenario);
+  var round = function(n){ return Math.round(n * 100) / 100; };
+  var income = scenarioIncomeRows({ scenario: scenario }).map(function(r){
+    return { label: r.what || "Income", monthly: periodsOf(Number(r.amount) || 0, r.freq).monthly, oneOff: !!(r.oneOff || r.irregular), go: r.syntheticRentForProperty ? "property" : "income" };
+  });
+  var sharedItems = scenarioSharedItems(scenario);
+  var homeShared = sumFieldForScenario(sharedItems.filter(function(l){ return l && l.homeCost; }), scenario, "monthly");
+  var out = [
+    { label: "Everyday spending", monthly: t.sharedMonthly, go: "budget" },
+    { label: "Where you live", monthly: sumField(state.home[scenario], "monthly") + homeShared, go: "budget" }
+  ];
+  ipProperties().forEach(function(p){
+    out.push({ label: (p.what || "Property") + " — running costs", monthly: sumField(p.expenses, "monthly"), go: "budget" });
+    out.push({ label: (p.what || "Property") + " — loan repayments", monthly: (p.loans || []).reduce(function(s, l){ return s + loanRepaymentMonthly(l); }, 0), go: "property" });
+  });
+  // Whatever's left is the scenario's own changes (rent elsewhere, a property bought or sold) — none for the
+  // household as it is, but the lines must add up to the card for any scenario.
+  var listedIn = income.reduce(function(s, r){ return s + r.monthly; }, 0);
+  var listedOut = out.reduce(function(s, r){ return s + r.monthly; }, 0);
+  var changesIn = t.incomeMonthly - listedIn, changesOut = t.expensesMonthly - listedOut;
+  if(Math.abs(changesIn) >= 0.005) income.push({ label: "This scenario's changes", monthly: round(changesIn), oneOff: false, go: "scenario" });
+  if(Math.abs(changesOut) >= 0.005) out.push({ label: "This scenario's changes", monthly: round(changesOut), go: "scenario" });
+  return {
+    income: income.map(function(r){ return Object.assign(r, { monthly: round(r.monthly) }); }),
+    out: out.filter(function(r){ return Math.abs(r.monthly) >= 0.005; }).map(function(r){ return Object.assign(r, { monthly: round(r.monthly) }); }),
+    regular: t.regularNetMonthly, oneOffMonthly: t.oneOffYearly / 12, average: t.netMonthly
   };
 }

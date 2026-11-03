@@ -206,9 +206,19 @@ export function wireNavigation(){
   // On a phone the page title is the header: large at the top, slim once you scroll.
   topbar = document.querySelector(".app-topbar");
   compact = false;
+  // Going slim takes ~50px off the header, and the browser keeps what you're looking at in place by moving the
+  // scroll position up as much — which, with one threshold, put it back under the line, the header grew, the
+  // position went back down, and the header flickered between the two many times a second. So it goes slim only
+  // past more than it loses, and comes back only at the top: neither change can undo itself.
+  var shrinkBy = 56;
   window.addEventListener("scroll", function(){
-    var c = window.scrollY > 24;
-    if(c !== compact){ compact = c; topbar.classList.toggle("is-compact", c); }
+    var y = window.scrollY;
+    var c = compact ? y > 4 : y > shrinkBy + 24;
+    if(c === compact) return;
+    var before = topbar.offsetHeight;
+    compact = c; topbar.classList.toggle("is-compact", c);
+    // Measured from the transition's end state, not mid-way: the larger of what it's lost before.
+    if(c) requestAnimationFrame(function(){ setTimeout(function(){ shrinkBy = Math.max(shrinkBy, before - topbar.offsetHeight); }, 200); });
   }, { passive: true });
   document.getElementById("avatarVersion").textContent = document.querySelector(".app-version-num").textContent;
   document.querySelector(".avatar-menu").addEventListener("click", function(e){

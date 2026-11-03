@@ -25,7 +25,12 @@ export function wirePhoneSheets(){  // v3.167.0 (item 197): an open section's he
   (function(){
     var bar = document.querySelector(".app-topbar");
     if(!bar || typeof ResizeObserver === "undefined") return;
-    new ResizeObserver(function(){ document.documentElement.style.setProperty("--topbar-h", bar.offsetHeight + "px"); }).observe(bar);
+    // The border box: going slim changes the header's padding as well as its content, and a content-box observer
+    // misses the padding — it kept the height from partway through, leaving a strip where the page showed
+    // through between the header and a section header pinned under it (Edit scenario's, an open ledger's).
+    var set = function(){ document.documentElement.style.setProperty("--topbar-h", bar.offsetHeight + "px"); };
+    new ResizeObserver(set).observe(bar, { box: "border-box" });
+    bar.addEventListener("transitionend", set);
   })();  // v3.167.0 (item 197): on a phone, a sheet (a row's editor, any dialog) closes by dragging it down
   // by its top — past 110px, or a quick flick. It follows the finger while dragged and springs back
   // when let go short. Closing goes through the same path as ✕ and the back button.

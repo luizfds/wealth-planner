@@ -1352,15 +1352,17 @@ test("propertySummaryHtml summarises a property, and skips what isn't known", ()
   assert.doesNotMatch(bare, /<dt>Loans<\/dt>|<dt>Rent<\/dt>|NaN|undefined/);
 });
 
-// v3.108.0: a closed row carries its form in a <template>; an open row has it inline.
-import { modernPlainRowHtml as plainRow } from "../src/lib/ledger-table.js";
-test("a closed row's edit form is a template until the row opens", () => {
-  const item = { id: "l1", what: "Groceries", amount: 120, freq: "Weekly", classification: "Needs" };
+// v3.108.0: a closed row carries its form as text (a script that never runs) until it opens; an open row has it inline.
+import { modernPlainRowHtml as plainRow, rowEditSlot } from "../src/lib/ledger-table.js";
+test("a closed row's edit form is text until the row opens", () => {
+  const item = { id: "l1", what: "Groceries </script><b>", amount: 120, freq: "Weekly", classification: "Needs" };
   const closed = plainRow(item, 0, "shared", {}, { showClass: true });
-  assert.match(closed, /<template class="m-row-edit-tpl"><div class="m-row-edit">/);
-  assert.match(closed, /class="f-amount"/, "the form is still there, inert, for when it opens");
+  assert.match(closed, /<script type="text\/x-row-edit" class="m-row-edit-tpl"><div class="m-row-edit">/);
+  assert.match(closed, /class="f-amount"/, "the form is still there, as text, for when it opens");
+  assert.equal(closed.match(/<\/script>/gi).length, 1, "text someone typed can't end it early");
+  assert.equal(rowEditSlot(false, '<p>a</p></SCRIPT><p>b</p>'), '<script type="text/x-row-edit" class="m-row-edit-tpl"><p>a</p><\\/SCRIPT><p>b</p></script>');
   const open = plainRow(item, 0, "shared", { "shared:0": true }, { showClass: true });
-  assert.doesNotMatch(open, /<template/);
+  assert.doesNotMatch(open, /<script|<template/);
   assert.match(open, /<div class="m-row open"[^>]*>.*<div class="m-row-edit">/s);
 });
 

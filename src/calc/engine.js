@@ -255,6 +255,8 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
   var homePropRate = (cfg && cfg.propertyGrowthRate != null && cfg.propertyGrowthRate !== "")
     ? (Number(cfg.propertyGrowthRate) || 0) / 100
     : propRate;
+  // Item 252: the home's growth tried at another rate (calc/scenariostress.js finds the one that breaks even).
+  if(opts && opts.homeGrowthPct != null) homePropRate = (Number(opts.homeGrowthPct) || 0) / 100;
   var investRate = (Number(proj.investReturnRate) || 0) / 100;
   var inflationRate = (Number(proj.inflationRate) || 0) / 100;
   // opts.realTerms lets a caller pin the basis explicitly — the projection-accuracy panel compares

@@ -10,6 +10,7 @@
 //   loanstatement — a loan account's statement: its interest and fees go on the loan, not into Spending
 //   loanguess   — the same statement with no account picked: the import asks which loan
 //   pdf import  — a PDF statement read into the same review
+//   cashrate    — the RBA's move, read from the site's file, recorded on the household's loans from a date
 //   savings     — Home's net savings opens how it's worked out: the lines end at the tile's figure, an
 //                 investment property's loan repayments among them, and the Budget's total counts them too
 //
@@ -185,6 +186,25 @@ const JOURNEYS = {
     check(loan.n === 5 && loan.bank === 2950, "the charges or the bank's repayment weren't recorded: " + JSON.stringify(loan));
   },
   // Item 245: the same statement under a name that says nothing — the import asks which loan.
+  async cashrate(page){
+    // The site's file is read a moment after startup; the sample household has loans to record it on.
+    for(let i = 0; i < 40 && !(await st(page, "!!state.cashRate")); i++) await page.waitForTimeout(250);
+    check(await st(page, "!!(state.cashRate && state.cashRate.rate > 0)"), "the cash rate file wasn't read");
+    await go(page, "properties");
+    await page.waitForSelector("#cashRatePanel [data-cr-record]", { timeout: 5000 });
+    const picks = await page.evaluate(() => [...document.querySelectorAll("#cashRatePanel [data-cr-loan]:checked")].map(x => x.getAttribute("data-cr-loan")));
+    check(picks.length > 0, "no loans offered for the rate change");
+    await page.fill("#cashRatePanel [data-cr-date]", "2026-11-20");
+    await click(page, "#cashRatePanel [data-cr-record]"); await page.waitForTimeout(400);
+    const r = await page.evaluate(async (key) => {
+      const s = (await import("/src/state.js")).state, P = await import("/src/calc/property.js");
+      const [pid, i] = key.split(":"), l = s.properties.find(p => p.id === pid).loans[Number(i)];
+      return { before: P.loanRateOn(l, "2026-11-19"), after: P.loanRateOn(l, "2026-11-20"), change: s.cashRate.change, seen: s.cashRate.seen === s.cashRate.effective,
+        panel: !!document.querySelector("#cashRatePanel [data-cr-record]") };
+    }, picks[0]);
+    check(Math.abs(r.after - r.before - r.change) < 0.001, "the loan's rate moved " + (r.after - r.before) + ", the cash rate " + r.change);
+    check(r.seen && !r.panel, "the move still asks to be recorded");
+  },
   async savings(page){
     await go(page, "dashboard", "data-dashboard-sub", "overview");
     await click(page, '#dashboardStats [data-savings-why]');

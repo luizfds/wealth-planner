@@ -191,6 +191,7 @@ export function scenarioChangesHtml(scenario){
     return '<div class="sc-change sc-leg' + (open ? " is-open" : "") + '"><button type="button" class="sc-what sc-leg-head" data-sc-toggle="' + escapeAttr(c.id) + '" aria-expanded="' + open + '"><b>' + escapeAttr(changeSummary(c, { money: function(n){ return fmtCurrency0.format(n); }, propertyName: propName })) + startsText(c) + badge + '</b>' +
         (c.kind === "sell" ? '<small>Its equity becomes cash that year, and its rent, costs and loan stop</small>'
           : c.kind === "extra" ? '<small>' + signed(effect) + '/mo from savings, into the loan — kept as equity</small>'
+          : c.kind === "once" ? '<small>Out of cash once, not each month — counted in what the scenario needs up front</small>'
           : '<small>' + signed(effect) + '/mo' + (c.kind === "ip" ? ' after tax · ' + fmtCurrency0.format(m.upfront) + ' at settlement' : '') + '</small>') + '</button>' +
       '<button type="button" class="btn btn-danger btn-sm" data-sc-del="' + escapeAttr(c.id) + '" data-sc-scenario="' + escapeAttr(scenario) + '" aria-label="' + escapeAttr("Remove: " + changeSummary(c, { propertyName: propName })) + '">✕</button>' +
       undo + (open ? changeFormHtml(c, scenario, ctx) : '') + '</div>';

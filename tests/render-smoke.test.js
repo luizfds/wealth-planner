@@ -1558,6 +1558,17 @@ test("the Budget lists each investment loan's repayment, read-only, with the gro
   assert.doesNotMatch(html, /data-section=|data-del/, "nothing to edit or delete");
 });
 
+// Items 249, 252, 253: the cash rate panel and the scenario card's sturdiness lines, on an empty household.
+test("the cash rate panel and a card's rate-rise and break-even lines build on an empty household", async function(){
+  const { cashRatePanelHtml } = await import("../src/components/cashrate.js");
+  const { scenarioSturdinessHtml } = await import("../src/components/dashboard.js");
+  const { scenarioTotals, currentScenario } = await import("../src/calc/engine.js");
+  assert.equal(cashRatePanelHtml({ cashRate: null, properties: [] }, "2026-11-05"), "");
+  assert.match(cashRatePanelHtml({ cashRate: { rate: 4.85, effective: "2026-11-04", previous: 4.6, change: 0.25, seen: null }, properties: [] }, "2026-11-05"), /data-cr-dismiss/);
+  const sc = currentScenario();
+  assert.equal(typeof scenarioSturdinessHtml(sc, scenarioTotals(sc)), "string");
+});
+
 test("take-home a little over by an after-tax payment says so", async function(){
   const { afterTaxInPay } = await import("../src/components/received.js");
   var keep = state.income;

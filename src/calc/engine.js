@@ -18,6 +18,7 @@ import { scenarioSharedItems, effectiveChanges } from "./scenariochanges.js";
 import { legsMonthly, legsInYear } from "./scenariolegs.js";
 import { isDraftKey } from "./scenariodraft.js";
 import { saleCgt } from "./salecgt.js";
+import { drawFor } from "./cashdraw.js";
 
 // Every non-Shares asset, and every Shares holding on the ASX, is already AUD — the only
 // currency this app ever mixes in is USD (US-market and Crypto holdings, see MARKET_CURRENCY).
@@ -639,17 +640,44 @@ export function scenarioTotals(scenario){
       if(sold) incomeMonthly -= sold.cashMonthly;
     });
   }
-  var netMonthly = incomeMonthly - expensesMonthly;
   // v3.80.0: what of that arrives once a year rather than monthly (bonuses), so the headline can
   // say what a normal month leaves. netMonthly stays the year's average for projections.
   var oneOffYearly = scenarioOneOffYearly({ scenario: scenario });
+  // Item 248: the cash this scenario spends — its home's deposit and costs, what its changes buy — comes out of
+  // cash, then offsets (calc/cashdraw.js, the order "Can we buy?" uses). An offset that's emptied stops saving its
+  // loan's interest, and that is money out every month; the tax back on the deductible part comes once a year. The
+  // household as it is spends nothing, and a scenario that's only somewhere cheaper to rent spends nothing either.
+  var cashOut = scenarioCashOut(scenario, legUpfront), draw = null;
+  if(cashOut > 0){
+    draw = drawFor(cashOut);
+    if(draw.extraInterestYearly > 0){
+      expensesMonthly += draw.extraInterestYearly / 12;
+      incomeMonthly += draw.taxBackYearly / 12;
+      oneOffYearly += draw.taxBackYearly;
+    }
+  }
+  var netMonthly = incomeMonthly - expensesMonthly;
   return {
     incomeMonthly: incomeMonthly, ipMonthly: ipMonthly, sharedMonthly: sharedMonthly,
     homeMonthly: homeMonthly, expensesMonthly: expensesMonthly, changesUpfront: legUpfront, changesTaxMonthly: legTax,
     netMonthly: netMonthly, netYearly: netMonthly * 12,
     oneOffYearly: oneOffYearly, regularNetMonthly: netMonthly - oneOffYearly / 12,
-    rate: incomeMonthly > 0 ? netMonthly / incomeMonthly : 0
+    rate: incomeMonthly > 0 ? netMonthly / incomeMonthly : 0,
+    cashOut: cashOut, draw: draw,
+    drawInterestMonthly: draw ? draw.extraInterestYearly / 12 : 0, drawTaxBackYearly: draw ? draw.taxBackYearly : 0
   };
+}
+// The cash a scenario spends: its home's upfront cost (when it buys one, and isn't the household as it is) and
+// what its changes take up front.
+export function scenarioCashOut(scenario, legUpfront){
+  if(!scenario || scenario === state.baselineScenario) return Math.max(0, Number(legUpfront) || 0);
+  var cfg = state.purchase && state.purchase[scenario], inv = state.invest && state.invest[scenario];
+  var home = 0;
+  if(cfg && cfg.enabled && !(inv && inv.enabled)){
+    var p = recalcPurchase(scenario);
+    home = p ? p.upfrontCash : 0;
+  }
+  return Math.max(0, home + (Number(legUpfront) || 0));
 }
 
 // Item 247: the Home card's net savings as the lines that make it — so "how am I saving this?" has an answer on
@@ -674,6 +702,12 @@ export function savingsBreakdown(scenario){
     out.push({ label: (p.what || "Property") + " — running costs", monthly: sumField(p.expenses, "monthly"), go: "budget" });
     out.push({ label: (p.what || "Property") + " — loan repayments", monthly: (p.loans || []).reduce(function(s, l){ return s + loanRepaymentMonthly(l); }, 0), go: "property" });
   });
+  // Item 248: what taking the cash out of an offset costs, and the tax back on it.
+  if(t.draw) t.draw.draws.forEach(function(d){
+    if(!(d.interestYearly > 0)) return;
+    out.push({ label: d.name + " — interest on the " + fmtCurrency0.format(d.take) + " taken out", monthly: d.interestYearly / 12, go: "property" });
+  });
+  if(t.drawTaxBackYearly > 0) income.push({ label: "Tax back on that interest", monthly: t.drawTaxBackYearly / 12, oneOff: true, go: "property" });
   // Whatever's left is the scenario's own changes (rent elsewhere, a property bought or sold) — none for the
   // household as it is, but the lines must add up to the card for any scenario.
   var listedIn = income.reduce(function(s, r){ return s + r.monthly; }, 0);

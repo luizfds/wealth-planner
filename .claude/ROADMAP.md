@@ -4589,6 +4589,15 @@ Done: `taxPackReport` (calc/taxpack.js), Reports → Tax and the year → Rental
 line's figure for the return and where it came from (typed, the plan, worked out, the bank's charges to a date), beside
 what's logged, how many entries and the latest; the total is the schedule's net. In the smoke views; driven.
 
+## 247. `[~]` Where a month's savings come from
+Do: the Home card's net savings opens a breakdown that adds up to it — regular money in by source, the budget, where you
+live, each property's running costs and loan repayments, then the bonuses and refunds that make the yearly average. The
+Income statement's Plan counts the property loan repayments (and its months show what was transferred to those loans),
+so its planned "Kept" equals the Home card's. The Budget shows each investment property's loan repayments as a
+read-only line in that property's group, so the Budget total is everything that comes off a month.
+Done when: the breakdown's lines sum to the card; the Income statement's Plan "Kept" equals the card × months; the
+Budget total equals the money out; benchmarks and the runway unchanged; driven.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

@@ -25,6 +25,7 @@ function onCalcInput(e){
   else if(t.classList.contains("calc-rate")) cfg.rate = parseFloat(t.value) || 0;
   else if(t.classList.contains("calc-iorate")) cfg.ioRate = parseFloat(t.value) || 0;
   else if(t.classList.contains("calc-term")) cfg.termYears = Math.max(1, parseFloat(t.value) || 1);
+  else if(t.classList.contains("calc-buy-month")) cfg.buyMonth = /^\d{4}-\d{2}$/.test(t.value) ? t.value : "";
   else if(t.classList.contains("calc-manual-stampduty")) cfg.manualStampDuty = parseFloat(t.value) || 0;
   else if(t.classList.contains("calc-growth-override")) cfg.propertyGrowthRate = t.value === "" ? null : (parseFloat(t.value) || 0);
   else if(t.classList.contains("cc-what") || t.classList.contains("cc-amount")){

@@ -73,9 +73,11 @@ function group(title, fields, folded){
 }
 // v3.183.0 (item 214): when a change starts — in a year, at an age, or when cash reaches an amount.
 function whenFields(c, scenario, label){
-  var kinds = [["year", "In a set year"], ["age", "At an age"]].concat(c.kind === "sell" ? [] : [["cash", "When cash reaches…"]]);
-  var w = c.when === "age" || (c.when === "cash" && c.kind !== "sell") ? c.when : "year";
+  // Item 251: or in a month.
+  var kinds = [["month", "In a set month"], ["year", "In a set year"], ["age", "At an age"]].concat(c.kind === "sell" ? [] : [["cash", "When cash reaches…"]]);
+  var w = c.when === "age" || c.when === "month" || (c.when === "cash" && c.kind !== "sell") ? c.when : "year";
   var picker = field(Object.assign({}, c, { when: w }), scenario, "when", label, "select", kinds);
+  if(w === "month") return [picker, field(c, scenario, "fromMonth", "Month", "month", ' placeholder="YYYY-MM"')];
   if(w === "age") return [picker, field(c, scenario, "whenAge", "Age", "number", ' min="0" max="100" inputmode="numeric"')];
   if(w === "cash") return [picker, field(c, scenario, "whenCash", "Cash of", "number", ' min="0" step="1000" inputmode="decimal"')];
   return [picker, field(c, scenario, "fromYear", "Which year", "select", yearOptions())];
@@ -86,6 +88,12 @@ function changeFormHtml(c, scenario, ctx){
   if(c.kind === "rent" || c.kind === "cost"){
     f.push(field(c, scenario, "what", "What", "text"), field(c, scenario, "amount", "Amount", "number"), field(c, scenario, "freq", "How often", "select", FREQS));
     f = f.concat(whenFields(c, scenario, "From"));
+    // Item 251: and when it stops — rent until the home you're buying.
+    f.push(field(c, scenario, "untilMonth", "Until (blank: no end)", "month", ' placeholder="YYYY-MM"'));
+  } else if(c.kind === "once"){
+    // Item 250: once, out of cash.
+    f.push(field(c, scenario, "what", "What", "text"), field(c, scenario, "amount", "Amount", "number"));
+    f = f.concat(whenFields(c, scenario, "When"));
   } else if(c.kind === "ip"){
     var people = getTaxPeople();
     var fig = ipFigures(c, { marginalRate: ctx.marginalRateFor(c.owner), taxEffect: ctx.taxEffectFor ? function(tx){ return ctx.taxEffectFor(c.owner, tx); } : null });

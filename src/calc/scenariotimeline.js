@@ -4,15 +4,19 @@
 // age; when cash reaches an amount, the year the projection found — or not within 30 years), a home bought
 // or money invested now, retiring at an age. Pure: the changes, the projection's triggers and an age in.
 
+import { monthsFromNow } from "./scenariolegs.js";
+
 function num(v){ var n = Number(v); return isFinite(n) ? n : 0; }
 function money(n){ return "$" + Math.round(n).toLocaleString("en-AU"); }
 
-// opts: { changes, triggers: { id: year|null }, age, buying, investing, propertyName(id) }
+// opts: { changes, triggers: { id: year|null }, age, buying, buyMonth ("YYYY-MM"), investing, propertyName(id), today }
 // → [{ year (0 = now, null = not within the projection), label, why }] sorted, the unreached last.
 export function scenarioTimeline(opts){
   opts = opts || {};
   var out = [];
-  if(opts.buying) out.push({ year: 0, label: "Buy the home", why: "" });
+  // Item 251: a home, or a change, in a month — the year that month falls in.
+  var yearOfMonth = function(ym){ return Math.floor((monthsFromNow(ym, opts.today || "") || 0) / 12); };
+  if(opts.buying) out.push({ year: opts.buyMonth && opts.today ? yearOfMonth(opts.buyMonth) : 0, label: "Buy the home", why: "" });
   if(opts.investing) out.push({ year: 0, label: "Invest instead", why: "" });
   (opts.changes || []).forEach(function(c){
     if(!c || c.kind === "home" || c.kind === "amount" || c.kind === "assume") return;
@@ -21,6 +25,7 @@ export function scenarioTimeline(opts){
       : c.kind === "cost" ? (num(c.amount) < 0 ? "Save " + money(-num(c.amount)) : (c.what || "A new cost"))
       : c.kind === "sell" ? "Sell " + ((opts.propertyName && opts.propertyName(c.propertyId)) || "a property")
       : c.kind === "extra" ? "Extra repayments"
+      : c.kind === "once" ? (c.what || "A one-off cost") + " " + money(num(c.amount))
       : c.kind === "retire" ? "Retire at " + num(c.age) : "A change";
     var year, why = "";
     if(c.kind === "retire"){ year = opts.age == null ? null : Math.max(0, Math.round(num(c.age) - opts.age)); why = opts.age == null ? "your age isn't set" : ""; }
@@ -29,6 +34,7 @@ export function scenarioTimeline(opts){
       year = year == null ? null : year - 1; // the year it starts in, counted from now
       why = "when cash reaches " + money(num(c.whenCash));
     } else if(c.when === "age"){ year = opts.age == null ? null : Math.max(0, Math.round(num(c.whenAge) - opts.age)); why = "at " + num(c.whenAge); }
+    else if(c.when === "month" && c.fromMonth && opts.today) year = yearOfMonth(c.fromMonth);
     else year = Math.max(0, Math.floor(num(c.fromYear)));
     out.push({ year: year, label: label, why: why });
   });

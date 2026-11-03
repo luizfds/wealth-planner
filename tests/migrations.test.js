@@ -259,3 +259,10 @@ test("step 24: every property loan gets a list of the bank's charges; one it has
   assert.equal(s.properties[0].loans[1].charges, kept);
   assert.deepEqual(run(24, {}), {});
 });
+
+test("step 25: a place for the RBA cash rate — null until read; a read one is kept, a broken one cleared", function(){
+  assert.equal(run(25, {}).cashRate, null);
+  const kept = { rate: 4.85, effective: "2026-11-04", previous: 4.6, change: 0.25, seen: null, readOn: "2026-11-05" };
+  assert.equal(run(25, { cashRate: kept }).cashRate, kept);
+  assert.equal(run(25, { cashRate: [4.85] }).cashRate, null);
+});

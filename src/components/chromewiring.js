@@ -15,6 +15,8 @@ import { showToast } from "../lib/toast.js";
 import { state, persist } from "../state.js";
 import { readPriceSheetNow, readAutoPricesNow } from "./assetswiring.js";
 import { autoPricesNeeded } from "./autoprices.js";
+import { cashRateDue, readCashRateNow } from "./cashrate.js";
+import { renderNotifBadge } from "./notifpanel.js";
 import { renderBenchmarks } from "./benchmarks.js";
 import { transferForm } from "./cashflow.js";
 import { openQuickLogSheet, openReceivedSheetFor } from "./cashflowwiring.js";
@@ -359,7 +361,9 @@ export function wirePullToRefresh(){
   })();
   setTimeout(function(){ (typeof initialSync !== "undefined" ? initialSync : Promise.resolve()).then(function(){
     var first = autoPricesNeeded() && state.assets.some(function(a){ return a.category === "Shares" && a.symbol; }) ? readAutoPricesNow(false) : Promise.resolve();
-    first.then(function(){ if(priceSheetDue()) return readPriceSheetNow(false); });
+    first.then(function(){ if(priceSheetDue()) return readPriceSheetNow(false); })
+      // Item 249: the RBA cash rate, once a day, from this site's file.
+      .then(function(){ if(cashRateDue()) return readCashRateNow().then(function(news){ if(news) renderNotifBadge(); }); });
   }); }, 800);
 }
 

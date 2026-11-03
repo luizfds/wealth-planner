@@ -27,6 +27,7 @@ import { renderPropListModern } from "./properties.js";
 import { renderSharedGroups } from "./expenses.js";
 import { fillAgentStatementForm, openStatementForm } from "./rentstatement.js";
 import { removeLedgerRecord } from "../calc/propertyactuals.js";
+import { recordCashRateMove, setCashRateMoveAside } from "../calc/cashrate.js";
 // ---------------- A property's lists, registered (v3.206.2, item 237b) ----------------
 // "propinc:<id>" and "propexp:<id>": a property's income and costs; "loan:<id>": its loans (edited by their own
 // handlers here — the generic row code only discards an untouched new one).
@@ -83,6 +84,22 @@ function refreshAfterDepreciationChange(){
 }
 
 export function wireProperties(){
+  // Item 249: the RBA moved the cash rate — record it on the loans ticked, or let it be.
+  document.getElementById("cashRatePanel").addEventListener("click", function(e){
+    var rec = e.target.closest("[data-cr-record]"), dis = e.target.closest("[data-cr-dismiss]");
+    if(!rec && !dis) return;
+    if(dis){ setCashRateMoveAside(state); commit(["cashRate"]); renderNotifBadge(); return; }
+    var panel = e.target.closest("[data-cr-panel]");
+    var date = panel.querySelector("[data-cr-date]").value;
+    if(!date){ showToast("Pick the date the new rate starts"); return; }
+    var picks = Array.prototype.map.call(panel.querySelectorAll("[data-cr-loan]:checked"), function(x){ return x.getAttribute("data-cr-loan"); });
+    withUndo(picks.length ? "Rate change recorded on " + picks.length + " loan" + (picks.length === 1 ? "" : "s") : "Rate change set aside", function(){
+      recordCashRateMove(state, picks, date, localDateStr());
+      recalcComputedItems();
+      commit(["cashRate", "properties"]);
+    });
+    renderNotifBadge();
+  });
   document.getElementById("propertiesBody").addEventListener("keydown", function(e){
     if(e.key !== "Enter" && e.key !== " ") return;
     var sectionToggleBtn = e.target.closest("[data-prop-section-toggle]");

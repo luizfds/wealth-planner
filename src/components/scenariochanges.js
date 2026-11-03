@@ -95,7 +95,10 @@ function changeFormHtml(c, scenario, ctx){
     var when = whenFields(c, scenario, "Bought");
     return f.join("") +
       group("Price and loan", [field(c, scenario, "what", "Name", "text"), field(c, scenario, "price", "Price", "number"), field(c, scenario, "state", "State", "select", PURCHASE_STATE_CODES),
-        field(c, scenario, "depositPct", "Deposit %", "number"), field(c, scenario, "rate", "Interest %", "number"), field(c, scenario, "repaymentType", "Loan", "select", [["IO", "Interest only"], ["PI", "Principal & interest"]]),
+        field(c, scenario, "depositPct", "Deposit %", "number"), field(c, scenario, "rate", "Interest %", "number"),
+        // Item 249: or moved by as much as the RBA moves the cash rate.
+        field(c, scenario, "rateFollowsCash", "Its rate", "select", [["", "Stays as typed"], ["1", "Moves with the RBA cash rate"]]),
+        field(c, scenario, "repaymentType", "Loan", "select", [["IO", "Interest only"], ["PI", "Principal & interest"]]),
         field(c, scenario, "termYears", "Term (years)", "number")]) +
       group("Rent", [field(c, scenario, "rentWeekly", "Rent a week", "number"), field(c, scenario, "vacancyWeeks", "Weeks vacant a year", "number"), field(c, scenario, "mgmtPct", "Management %", "number")]) +
       group("Costs and tax", [field(c, scenario, "costsYearly", "Costs a year", "number"), field(c, scenario, "depreciationYearly", "Depreciation a year", "number")]) +

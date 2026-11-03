@@ -48,7 +48,12 @@ function onCalcChange(e){
   var cfg = state.purchase[scenario];
   if(!cfg) return;
   var t = e.target;
-  if(t.classList.contains("calc-enabled")){
+  if(t.classList.contains("calc-rate-follows")){
+    // Item 249: from the cash rate as it is now; calc/cashrate.js applyCashRate moves it from here.
+    cfg.rateFollowsCash = t.checked;
+    cfg.rateCashAt = t.checked && state.cashRate && state.cashRate.rate >= 0 ? state.cashRate.rate : null;
+  }
+  else if(t.classList.contains("calc-enabled")){
     cfg.enabled = t.checked;
     // Mutually exclusive with the invest-instead leg — see the invest-enabled handler below
     // and computeNetWorthSeries()'s own precedence for why both enabled would double-count.

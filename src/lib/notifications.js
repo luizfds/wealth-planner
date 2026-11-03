@@ -14,6 +14,7 @@ import { storageUsedChars, storageLevel, storageLineText } from "./storageuse.js
 import { weekRecap, showWeekRecap } from "../calc/weekrecap.js";
 import { dueAutoPays } from "../calc/autopay.js";
 import { subscriptionList, cancelReminders, homeLineIds } from "../calc/subscriptions.js";
+import { cashRateMove } from "../calc/cashrate.js";
 
 // ---------------- Notifications: a small, backend-shaped layer over locally-computed alerts ----------------
 // This app has no backend (see CLAUDE.md) — every notification here is derived live from
@@ -377,6 +378,17 @@ function weekRecapNotification(){
 // ---------------- Loan rate changes (v3.53.0) ----------------
 // A recorded rate change in the last 60 days: one notification each, with the new repayment, so
 // the budget's loan line can be checked against it.
+// Item 249: the RBA moved the cash rate and the household hasn't said what it means for its loans yet.
+function cashRateNotifications(){
+  var move = cashRateMove(state);
+  if(!move) return [];
+  var pctOf = function(n){ return String(Number((Number(n) || 0).toFixed(2))) + "%"; };
+  var hasLoans = (state.properties || []).some(function(p){ return (p.loans || []).length; });
+  return [{ id: "cashrate:" + move.effective, type: "loan", severity: move.change > 0 ? "warn" : "info",
+    title: "RBA cash rate " + (move.change > 0 ? "up " : "down ") + pctOf(Math.abs(move.change)) + " to " + pctOf(move.rate),
+    detail: "From " + fmtDate(move.effective) + "." + (hasLoans ? " Variable loans usually follow within a few weeks — record it on yours in Net worth → Property." : ""),
+    date: move.effective, page: "properties" }];
+}
 function rateChangeNotifications(){
   var today = todayStr();
   var since = new Date(Date.parse(today) - 60 * 86400000).toISOString().slice(0, 10);
@@ -580,6 +592,7 @@ export function getLocalNotifications(){
     budgetNotifications(),
     taxCalendarNotifications(),
     rateChangeNotifications(),
+    cashRateNotifications(),
     cardPaymentNotifications(),
     autoPayNotifications(),
     endingPayNotifications(),

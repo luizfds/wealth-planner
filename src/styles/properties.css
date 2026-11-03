@@ -580,3 +580,23 @@
 .pa-add summary{ cursor:pointer; font-weight:600; }
 .pa-add-row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
 .pa-add-row input, .pa-add-row select{ flex:1 1 120px; min-width:0; min-height:38px; padding:5px 8px; border:1px solid var(--border); border-radius:6px; background: var(--paper); color: var(--ink); font: inherit; }
+
+/* Item 249: the RBA cash rate on Net worth → Property — a line, or a move to record on the loans. */
+.cash-rate[hidden]{ display:none; }
+.cash-rate{ margin:0 0 14px; }
+.cr-line{ margin:0; font-size:var(--fs-sm); color: var(--ink-soft); }
+.cr-panel{
+  background: var(--paper-raised); border:1px solid var(--border); border-left:3px solid var(--warn-ink);
+  border-radius:var(--card-radius); padding: var(--card-py) var(--card-px);
+}
+.cr-head{ margin:0; display:flex; flex-wrap:wrap; gap:4px 10px; align-items:baseline; }
+.cr-head b{ font-weight:600; }
+.cr-head span{ font-size:var(--fs-sm); color: var(--ink-soft); }
+.cr-note{ margin:6px 0 10px; font-size:var(--fs-sm); color: var(--ink-soft); }
+.cr-loans{ display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
+.cr-loan{ display:flex; align-items:center; gap:8px; font-size:var(--fs-sm); min-width:0; }
+.cr-loan span{ flex:1 1 auto; min-width:0; overflow-wrap:anywhere; }
+.cr-loan b{ font-weight:600; font-family: var(--font-num); white-space:nowrap; }
+.cr-actions{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.cr-date{ display:flex; align-items:center; gap:6px; font-size:var(--fs-sm); }
+.calc-follows{ margin-top:4px; font-size:var(--fs-xs); }

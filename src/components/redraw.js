@@ -42,6 +42,7 @@ import { renderTrips, renderTxReviewBanner } from "./spendingwiring.js";
 import { renderPeopleTab } from "./taxwiring.js";
 import { renderTaxYear } from "./taxyear.js";
 import { renderTrim } from "./trim.js";
+import { renderCashRatePanel } from "./cashrate.js";
 
 // v3.205.0 (item 236a): a full redraw draws the page on screen and what's on every page; every other page is
 // marked stale and drawn when it's opened (lib/views.js — nav.js calls drawStale before showing a page). The
@@ -132,6 +133,7 @@ function defineViews(){
   // Static copy, but rendered from the component that owns the parser it describes — see renderBankImportHelp.
   defineView("bankImportHelp", ["expenses"], renderBankImportHelp, []);
   defineView("incomeGroups", ["expenses"], renderIncomeGroups, ["income", "incomeLog", "tax", "properties", "people", "accounts"]);
+  defineView("cashRate", ["properties"], renderCashRatePanel, ["cashRate", "properties"]); // item 249
   defineView("properties", ["properties", "expenses"], renderProperties, ["properties", "balances", "shared", "transactions", "accounts", "income", "tax", "incomeLog"]);
   defineView("sharedGroups", ["expenses"], renderSharedGroups, ["shared", "transactions", "home", "categories", "categoryLooks", "properties", "accounts", "budgetGroupBy", "budgetGroupsCollapsed", "rollover", "yearBasis", "autoPayments"]);
   defineView("accounts", ["accounts"], renderAccounts, ["accounts", "balances", "assets", "debts", "properties", "transactions", "transfers", "incomeLog", "autoPayments", "savingsGoals"]);

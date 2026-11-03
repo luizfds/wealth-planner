@@ -1,0 +1,42 @@
+# The RBA cash rate file (item 249). Each weekday afternoon in Sydney — after a 2:30pm decision — this reads the
+# RBA's cash rate table and commits rates/cash-rate.json when the rate has changed; the app reads it from its own
+# site, as it does the price file. A failed run means the RBA's file couldn't be read or changed shape: the app keeps
+# the last good file. Run it by hand from the Actions tab.
+name: Cash rate
+on:
+  schedule:
+    - cron: "23 6 * * 1-5"
+  workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+concurrency:
+  group: cashrate
+  cancel-in-progress: false
+jobs:
+  cashrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/cashrate/fetch.mjs
+      - name: Commit the cash rate file
+        id: commit
+        run: |
+          git config user.name "wealth-planner cash rate"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add rates/cash-rate.json
+          if git diff --cached --quiet; then echo "No change."; exit 0; fi
+          git commit -m "Cash rate $(node -e 'console.log(require("./rates/cash-rate.json").current.rate)')% for $(date -u +%Y-%m-%d)"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+          echo "pushed=1" >> "$GITHUB_OUTPUT"
+      - name: Rebuild the site
+        # A push made with GITHUB_TOKEN may not start a Pages build on its own; ask for one, as Release does.
+        if: steps.commit.outputs.pushed == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X POST "repos/${{ github.repository }}/pages/builds" || echo "Pages build request not accepted — the next push rebuilds it"

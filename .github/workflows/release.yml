@@ -11,7 +11,7 @@ name: Release
 on:
   push:
     branches: [main]
-    paths-ignore: ["prices/**"]
+    paths-ignore: ["prices/**", "rates/**"]
 permissions:
   contents: write
   pull-requests: read

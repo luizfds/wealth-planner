@@ -1681,7 +1681,10 @@
 @media (max-width:700px){
   .sub-row{ grid-template-columns: minmax(0,1fr) auto; grid-template-areas: "name year" "when when" "cancel cancel"; row-gap:4px; }
   .sub-name{ grid-area:name; } .sub-year{ grid-area:year; } .sub-when{ grid-area:when; font-size:var(--fs-xs); }
-  .sub-cancel{ grid-area:cancel; flex-direction:row; justify-content:space-between; align-items:center; }
+  .sub-cancel{ grid-area:cancel; flex-direction:row; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px 10px; min-width:0; }
+  /* The date field gives way, so "Not a subscription" stays on screen at a phone's width rather than off its edge. */
+  .sub-cancel label{ min-width:0; flex:1 1 auto; }
+  .sub-cancel input[type="date"]{ min-width:0; max-width:160px; flex:1 1 auto; }
 }
 /* v3.202.0 (item 233): problems the app hit, in Settings → Keeping your data safe */
 .el-log{ margin-top:12px; }

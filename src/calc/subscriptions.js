@@ -27,9 +27,14 @@ export function nextCharge(last, freq, today){
 }
 // The rise to today's price: the latest charge more than 2% (and 50c) above the one before it, where
 // that new amount is still what it charges (a price that went up and back down again has no rise).
+// Item 255: a day with two charges (an adjustment beside the bill, a refund re-charged) says nothing about the price
+// before, so it's passed over rather than read as one.
 export function lastRise(charges){
   var latest = charges.length ? charges[charges.length - 1].amount : 0;
+  var perDay = {};
+  charges.forEach(function(c){ perDay[c.date] = (perDay[c.date] || 0) + 1; });
   for(var i = charges.length - 1; i > 0; i--){
+    if(perDay[charges[i - 1].date] > 1) continue;
     var a = charges[i - 1].amount, b = charges[i].amount;
     if(Math.abs(b - latest) > Math.max(0.01, latest * 0.01)) return null;
     if(b > a * 1.02 && b - a >= 0.5) return { date: charges[i].date, from: round(a), to: round(b) };
@@ -54,12 +59,21 @@ export function subscriptionList(transactions, today, notes, opts){
   var home = {};
   ((opts && opts.homeLines) || []).forEach(function(id){ home[id] = true; });
   var yearAgo = addDays(today, -365);
-  return repeatingPayees(transactions, today, { includeLinked: true }).filter(function(r){
+  // Item 255: payments to one budget line under several descriptions, one after the other, are one subscription.
+  return repeatingPayees(transactions, today, { includeLinked: true, mergeByLine: true }).filter(function(r){
     if(r.stopped && r.last < yearAgo) return false;
     if(r.category === "Housing" || r.charges.some(function(c){ return c.line && home[c.line]; })) return false;
+    // Item 255: a joined one is steady when each name it went by was (a new plan, a new price, a new name).
+    if((r.keys || []).length > 1){
+      var byKey = {};
+      r.charges.forEach(function(c){ var mk = c.key || ""; (byKey[mk] = byKey[mk] || []).push(c); });
+      return Object.keys(byKey).every(function(k){ return byKey[k].length < 3 || steadyAmounts(byKey[k]); });
+    }
     return steadyAmounts(r.charges);
   }).map(function(r){
-    var latest = r.charges[r.charges.length - 1].amount, n = notes[r.key] || {};
+    // A note set under a name it used to have (a cancel-by date, "not a subscription") stays with it.
+    var noteKey = (r.keys || [r.key]).find(function(k){ return notes[k]; });
+    var latest = r.charges[r.charges.length - 1].amount, n = (noteKey && notes[noteKey]) || {};
     var lines = r.charges.map(function(c){ return c.line; }).filter(Boolean);
     return { key: r.key, name: r.name, label: r.label, freq: r.freq, amount: round(latest), yearly: round(periodsOf(latest, r.freq).yearly),
       lastRise: lastRise(r.charges), last: r.last, next: r.stopped ? null : nextCharge(r.last, r.freq, today), stopped: r.stopped,

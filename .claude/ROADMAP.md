@@ -4681,6 +4681,19 @@ $20,254 on $1,144,000 at 88%); `purchaseLMI` takes `cfg.lmiQuote` ("Your quote" 
 the state and price (migration 26 tags rows still at an old default; typing a figure makes the row the person's).
 The cash needed for the broker's $1.3M case: $212,052 against the broker's $212,652 — the rest is their legal fees.
 
+## 255. `[x]` One subscription however the bank names it
+Do: payments filed to the same budget line that follow on from each other — the bank's description changed, it moved
+from a direct debit to a card, someone renamed the transaction — are one subscription in Bills' list, with one cost a
+year and one history; two that charge over the same months stay two (two services filed to one line).
+Done when: a bill paid under three descriptions in a year shows once, its price rise included; two overlapping ones
+on one line still show apart; a cancel-by date set under the old name stays; tested.
+
+Done: `repeatingPayees(…, { mergeByLine })` joins payee groups filed mostly to one budget line when one starts no more
+than 20 days before the other's last charge (calc/recurring.js `mergeFollowOns`); the joined one takes the newest name
+and keeps every name (`keys`), so a note set under an old one still applies; it's steady when each name was. Bills'
+Subscriptions uses it. Also: `lastRise` passes over a day with two charges (an adjustment beside a bill read as the
+old price), and the list's Cancel by / Not a subscription row wraps at a phone's width instead of running off it.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

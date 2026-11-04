@@ -81,3 +81,43 @@ test("rent and a fuel stop aren't subscriptions", function(){
   var subs = subscriptionList(t, "2026-06-20", {}, { homeLines: ["rent"] });
   assert.ok(!subs.some(function(s){ return /realty|fuel/i.test(s.label); }), subs.map(function(s){ return s.label; }).join(", "));
 });
+
+// Item 255: one bill under several descriptions, one after the other, filed to the same budget line.
+function monthly(what, line, from, n, amount, day){
+  const out = [];
+  for(let i = 0; i < n; i++){
+    const y = 2026 + Math.floor((from - 1 + i) / 12), m = ((from - 1 + i) % 12) + 1;
+    out.push({ date: y + "-" + String(m).padStart(2, "0") + "-" + String(day || 9).padStart(2, "0"), what, amount: typeof amount === "function" ? amount(i) : amount, linkedExpenseId: line });
+  }
+  return out;
+}
+test("one bill the bank names three ways — direct debit, then a card, then renamed — is one subscription", function(){
+  const tx = [].concat(
+    monthly("From EXAMPLE NET -", "net", 1, 5, 85, 28),
+    monthly("Example Net card Town A AUS", "net", 6, 3, 95, 1),
+    monthly("Internet", "net", 9, 2, 99, 1));
+  const list = subscriptionList(tx, "2026-10-20", {});
+  const net = list.filter(s => s.line === "net");
+  assert.equal(net.length, 1, "once, not three times");
+  assert.equal(net[0].count, 10);
+  assert.equal(net[0].amount, 99);
+  assert.equal(net[0].name, "Internet", "the newest name");
+  assert.deepEqual(net[0].lastRise && [net[0].lastRise.from, net[0].lastRise.to], [95, 99]);
+});
+test("two services filed to one line that charge over the same months stay two", function(){
+  const tx = [].concat(monthly("STREAM ONE", "subs", 1, 8, 15.99), monthly("STREAM TWO", "subs", 1, 8, 9.99, 12));
+  const list = subscriptionList(tx, "2026-08-20", {});
+  assert.equal(list.filter(s => s.line === "subs").length, 2);
+});
+test("a cancel-by date set under the old name stays with the joined subscription", function(){
+  const tx = [].concat(monthly("OLD NAME INSURE", "car", 1, 6, 118.79), monthly("Car insurance", "car", 7, 3, 118.79));
+  const oldKey = repeatingPayees(tx.slice(0, 6), "2026-06-20", { includeLinked: true })[0].key;
+  const list = subscriptionList(tx, "2026-09-20", { [oldKey]: { cancelBy: "2026-12-01" } });
+  assert.equal(list.length, 1);
+  assert.equal(list[0].cancelBy, "2026-12-01");
+});
+test("a day with two charges isn't read as the old price", function(){
+  const c = [{ date: "2025-11-07", amount: 118.95 }, { date: "2025-11-07", amount: 89.95 }, { date: "2025-12-09", amount: 118.79 }, { date: "2026-01-07", amount: 118.79 }];
+  assert.equal(lastRise(c), null);
+  assert.deepEqual(lastRise([{ date: "2026-01-01", amount: 35 }, { date: "2026-02-01", amount: 35 }, { date: "2026-03-01", amount: 40 }]), { date: "2026-03-01", from: 35, to: 40 });
+});

@@ -42,8 +42,11 @@ export function repeatingPayees(transactions, today, opts){
     if(!t || (!opts.includeLinked && t.linkedExpenseId) || !(Number(t.amount) > 0) || !t.date) return;
     var key = merchantKey(t.what || "");
     if(!key) return;
-    (groups[key] = groups[key] || { key: key, label: t.what, items: [] }).items.push({ date: t.date, amount: Number(t.amount), index: i, category: t.category || "", line: t.linkedExpenseId || "" });
+    var g = groups[key] = groups[key] || { key: key, keys: [key], label: t.what, items: [] };
+    g.items.push({ date: t.date, amount: Number(t.amount), index: i, category: t.category || "", line: t.linkedExpenseId || "", key: key });
+    if(!g.lastDate || t.date >= g.lastDate){ g.lastDate = t.date; g.label = t.what; }
   });
+  if(opts.mergeByLine) groups = mergeFollowOns(groups);
   var out = [];
   Object.keys(groups).forEach(function(k){
     var g = groups[k];
@@ -58,11 +61,55 @@ export function repeatingPayees(transactions, today, opts){
     var last = charges[charges.length - 1].date;
     var cad = CADENCES.find(function(c){ return c.freq === freq; });
     var cats = g.items.map(function(x){ return x.category; }).filter(Boolean);
-    out.push({ key: k, name: suggestedLineName(k), label: g.label, freq: freq, amount: round(med), count: g.items.length, last: last,
+    out.push({ key: k, keys: g.keys || [k], name: suggestedLineName(k), label: g.label, freq: freq, amount: round(med), count: g.items.length, last: last,
       monthly: round(periodsOf(med, freq).monthly), category: cats.length ? cats[cats.length - 1] : "", indices: g.items.map(function(x){ return x.index; }),
       charges: charges, cycleDays: cad.days, stopped: !!(today && days(last, today) > cad.days * 2.2) });
   });
   return out.sort(function(a, b){ return b.monthly - a.monthly; });
+}
+
+// Item 255: one bill, several descriptions — the bank's wording changed, it moved from a direct debit to a card, or
+// someone renamed the transaction. Payee groups filed mostly to the same budget line are joined when one follows on
+// from the other (it starts no more than a few weeks before the other's last charge); two that keep charging over the
+// same months are two things filed to one line and stay apart. The joined group takes the newest name, and keeps
+// every name it had (`keys`) so a note set under an old one still finds it.
+var FOLLOW_ON_DAYS = 20;
+function mainLine(g){
+  var n = {}, best = "", most = 0;
+  g.items.forEach(function(x){ if(x.line){ n[x.line] = (n[x.line] || 0) + 1; if(n[x.line] > most){ most = n[x.line]; best = x.line; } } });
+  return most * 2 > g.items.length ? best : "";
+}
+function span(g){
+  var d = g.items.map(function(x){ return x.date; }).sort();
+  return { first: d[0], last: d[d.length - 1] };
+}
+function mergeFollowOns(groups){
+  var byLine = {}, out = {};
+  Object.keys(groups).forEach(function(k){
+    var g = groups[k], line = mainLine(g);
+    if(!line){ out[k] = g; return; }
+    (byLine[line] = byLine[line] || []).push(g);
+  });
+  Object.keys(byLine).forEach(function(line){
+    var list = byLine[line].map(function(g){ return { g: g, s: span(g) }; })
+      .sort(function(a, b){ return a.s.first < b.s.first ? -1 : a.s.first > b.s.first ? 1 : 0; });
+    var chains = [];
+    list.forEach(function(x){
+      // Joined onto the chain it follows: the latest-ending one it starts after (give or take a few weeks).
+      var into = null;
+      chains.forEach(function(c){ if(days(x.s.first, c.last) <= FOLLOW_ON_DAYS && (!into || c.last > into.last)) into = c; });
+      if(into){ into.members.push(x.g); if(x.s.last > into.last) into.last = x.s.last; }
+      else chains.push({ members: [x.g], last: x.s.last });
+    });
+    chains.forEach(function(c){
+      if(c.members.length === 1){ out[c.members[0].key] = c.members[0]; return; }
+      var newest = c.members.slice().sort(function(a, b){ return (a.lastDate || "") < (b.lastDate || "") ? 1 : -1; })[0];
+      out[newest.key] = { key: newest.key, label: newest.label, lastDate: newest.lastDate,
+        keys: [newest.key].concat(c.members.filter(function(m){ return m !== newest; }).map(function(m){ return m.key; })),
+        items: c.members.reduce(function(a, m){ return a.concat(m.items); }, []) };
+    });
+  });
+  return out;
 }
 
 export function unbudgetedRecurring(transactions, today){

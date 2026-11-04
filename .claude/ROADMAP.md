@@ -4681,6 +4681,13 @@ $20,254 on $1,144,000 at 88%); `purchaseLMI` takes `cfg.lmiQuote` ("Your quote" 
 the state and price (migration 26 tags rows still at an old default; typing a figure makes the row the person's).
 The cash needed for the broker's $1.3M case: $212,052 against the broker's $212,652 — the rest is their legal fees.
 
+## 255. `[~]` One subscription however the bank names it
+Do: payments filed to the same budget line that follow on from each other — the bank's description changed, it moved
+from a direct debit to a card, someone renamed the transaction — are one subscription in Bills' list, with one cost a
+year and one history; two that charge over the same months stay two (two services filed to one line).
+Done when: a bill paid under three descriptions in a year shows once, its price rise included; two overlapping ones
+on one line still show apart; a cancel-by date set under the old name stays; tested.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

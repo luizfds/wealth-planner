@@ -266,3 +266,13 @@ test("step 25: a place for the RBA cash rate — null until read; a read one is 
   assert.equal(run(25, { cashRate: kept }).cashRate, kept);
   assert.equal(run(25, { cashRate: [4.85] }).cashRate, null);
 });
+
+test("step 26: a purchase's default government fee rows follow its state and price; a typed one stays the person's", function(){
+  const s = run(26, { purchase: {
+    A: { state: "NSW", otherCosts: [{ what: "Transfer Fee", amount: 154 }, { what: "Mortgage Registration Fee", amount: 154 }, { what: "Conveyancing / Legal Fees", amount: 1800 }] },
+    B: { state: "VIC", otherCosts: [{ what: "Transfer Fee", amount: 2100 }, { what: "Mortgage Registration Fee", amount: 118.3 }] },
+    C: null } });
+  assert.deepEqual(s.purchase.A.otherCosts.map(c => c.fee || null), ["transfer", "mortgage", null]);
+  assert.deepEqual(s.purchase.B.otherCosts.map(c => c.fee || null), [null, "mortgage"], "a fee someone typed in is kept as theirs");
+  assert.deepEqual(run(26, {}), {});
+});

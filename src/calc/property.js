@@ -1,5 +1,5 @@
 import { state } from "../state.js";
-import { STAMP_DUTY_BRACKETS, FHB_RULES, LMI_BANDS, LAND_TAX_BRACKETS } from "../constants.js";
+import { STAMP_DUTY_BRACKETS, FHB_RULES, LMI_BANDS, LMI_SIZE_FACTORS, LAND_TAX_BRACKETS, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, VIC_TRANSFER_FEE } from "../constants.js";
 import { periodsOf, sumField, sumFieldForScenario, isoDayNumber, overlapDaysInclusive, householdYearWindow } from "./ledger.js";
 import { localDateStr } from "../lib/format.js";
 import { propertyClaimsAnnual } from "./claims.js";
@@ -46,7 +46,35 @@ export function calcStampDuty(stateCode, price, isFHB){
 export function calcLMI(loanAmount, lvr){
   if(lvr <= 0.8) return 0;
   var band = LMI_BANDS.find(function(b){ return lvr <= b.upTo; }) || LMI_BANDS[LMI_BANDS.length - 1];
-  return Math.max(0, loanAmount) * band.rate;
+  var loan = Math.max(0, Number(loanAmount) || 0);
+  // Item 254: and by the loan's size (constants.js LMI_SIZE_FACTORS).
+  var size = LMI_SIZE_FACTORS.find(function(b){ return loan <= b.upTo; }) || LMI_SIZE_FACTORS[LMI_SIZE_FACTORS.length - 1];
+  return Math.round(loan * band.rate * size.factor * 100) / 100;
+}
+// A purchase's LMI: the quote typed in for it, when there is one, else the estimate.
+export function purchaseLMI(cfg, loanAmount, lvr){
+  var q = cfg && cfg.lmiQuote;
+  if(q != null && q !== "" && isFinite(Number(q)) && Number(q) >= 0) return lvr > 0.8 ? Number(q) : 0;
+  return calcLMI(loanAmount, lvr);
+}
+// Item 254: the land registry's fees for lodging the transfer and the mortgage, in a state, at a price. NSW's are
+// flat; Victoria's transfer fee is worked out from the price.
+export function governmentFee(kind, stateCode, price){
+  if(kind === "transfer" && stateCode === "VIC"){
+    var p = Math.max(0, Number(price) || 0);
+    return Math.round(Math.min(VIC_TRANSFER_FEE.cap, VIC_TRANSFER_FEE.base + VIC_TRANSFER_FEE.perThousand * p / 1000) * 100) / 100;
+  }
+  var table = kind === "transfer" ? TRANSFER_FEE_BY_STATE : MORTGAGE_REG_FEE_BY_STATE;
+  return table[stateCode] != null ? table[stateCode] : table.Other;
+}
+// One of a purchase's other costs: a government fee row (`fee`: "transfer" | "mortgage") follows the purchase's
+// state and price; any other row, or one someone typed over, is its own amount.
+export function purchaseCostAmount(cost, cfg, price){
+  if(cost && (cost.fee === "transfer" || cost.fee === "mortgage")) return governmentFee(cost.fee, cfg && cfg.state, price);
+  return Number(cost && cost.amount) || 0;
+}
+export function purchaseOtherTotal(cfg, price){
+  return ((cfg && cfg.otherCosts) || []).reduce(function(s, c){ return s + purchaseCostAmount(c, cfg, price); }, 0);
 }
 
 export function calcRepaymentMonthly(loanAmount, annualRatePct, termYears, repaymentType){
@@ -73,13 +101,14 @@ export function recalcPurchase(scenario){
   // then optionally added on top of that same loan, not the other way around.
   var lvr = price > 0 ? loanAmount / price : 0;
   var stampDuty = calcStampDuty(cfg.state, price, cfg.firstHomeBuyer);
-  var lmi = calcLMI(loanAmount, lvr);
+  var lmi = purchaseLMI(cfg, loanAmount, lvr);
+  var lmiEstimated = !(cfg.lmiQuote != null && cfg.lmiQuote !== "");
   var lmiCapitalized = !!cfg.lmiCapitalized;
   // The actual balance you'd owe and repay against — most lenders capitalize LMI onto the loan
   // by default rather than requiring it as extra cash, so this (not the pre-LMI loanAmount) is
   // what repayments should be calculated on whenever that's how this scenario is set up.
   var loanBalance = lmiCapitalized ? loanAmount + lmi : loanAmount;
-  var otherTotal = (cfg.otherCosts || []).reduce(function(s, c){ return s + (Number(c.amount) || 0); }, 0);
+  var otherTotal = purchaseOtherTotal(cfg, price);
   var stampDutyForTotal = stampDuty === null ? (Number(cfg.manualStampDuty) || 0) : stampDuty;
   var upfrontCash = depositAmt + stampDutyForTotal + otherTotal + (lmiCapitalized ? 0 : lmi);
   var repaymentMonthlyPI = calcRepaymentMonthly(loanBalance, cfg.rate, cfg.termYears, "PI");
@@ -87,7 +116,7 @@ export function recalcPurchase(scenario){
   var repaymentMonthly = cfg.repaymentType === "IO" ? repaymentMonthlyIO : repaymentMonthlyPI;
   return {
     price: price, depositAmt: depositAmt, loanAmount: loanAmount, loanBalance: loanBalance, lvr: lvr,
-    stampDuty: stampDuty, stampDutyForTotal: stampDutyForTotal, lmi: lmi, lmiCapitalized: lmiCapitalized,
+    stampDuty: stampDuty, stampDutyForTotal: stampDutyForTotal, lmi: lmi, lmiEstimated: lmiEstimated, lmiCapitalized: lmiCapitalized,
     otherTotal: otherTotal, upfrontCash: upfrontCash, repaymentMonthly: repaymentMonthly,
     repaymentMonthlyPI: repaymentMonthlyPI, repaymentMonthlyIO: repaymentMonthlyIO,
     repaymentPeriods: periodsOf(repaymentMonthly, "Monthly")

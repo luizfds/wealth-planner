@@ -599,4 +599,11 @@
 .cr-loan b{ font-weight:600; font-family: var(--font-num); white-space:nowrap; }
 .cr-actions{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
 .cr-date{ display:flex; align-items:center; gap:6px; font-size:var(--fs-sm); }
-.calc-follows{ margin-top:4px; font-size:var(--fs-xs); }
+/* A sentence under the rate, not another field: .calc-field label's capitals and .calc-check-inline's box don't apply. */
+.calc-field label.calc-follows{ text-transform:none; letter-spacing:normal; font-weight:400; color: var(--ink-soft); font-size:var(--fs-xs);
+  border:0; background:none; padding:2px 0 0; min-height:32px; gap:6px; }
+
+/* Item 254: where the LMI figure comes from, and a box for an actual quote. */
+.calc-lmi-src{ font-size:var(--fs-xs); color: var(--ink-soft); font-weight:400; }
+.calc-lmi-quote-wrap{ display:flex; align-items:center; gap:6px; margin-top:4px; font-size:var(--fs-xs); color: var(--ink-soft); }
+.calc-lmi-quote-wrap input{ width:100%; min-width:0; max-width:130px; font-family: var(--font-num); }

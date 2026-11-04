@@ -4666,6 +4666,14 @@ Done when: the card shows both; tested.
 
 Done: `rateStress` (calc/scenariostress.js), on the card.
 
+## 254. `[~]` Purchase costs as a broker quotes them
+Do: LMI estimated by loan size as well as LVR (premiums rise with the loan), with a box for an actual quote that
+replaces the estimate everywhere; NSW transfer duty and land registry fees at their 2026–27 figures; Victoria's
+transfer fee worked out from the price (it isn't a flat fee) and its 2026–27 mortgage fee; the government fee rows
+of a purchase follow its state and price until someone types their own figure.
+Done when: a $1.3M NSW purchase at 88% matches a broker's funding summary to within a few hundred dollars (duty and
+fees exactly); a quote typed in replaces the estimate in the calculator, the scenario and the projection; tested.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

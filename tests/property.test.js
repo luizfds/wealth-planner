@@ -37,10 +37,11 @@ test("bracketDuty is $0 at price $0, not a negative top-bracket extrapolation", 
   assert.equal(standardStampDuty("VIC", 0), 0);
 });
 
+// Item 254: Revenue NSW's 2026–27 thresholds.
 test("standardStampDuty NSW matches the bracket table at known price points", function(){
-  assert.ok(Math.abs(standardStampDuty("NSW", 17000) - 212.5) < 1e-9);
-  assert.ok(Math.abs(standardStampDuty("NSW", 500000) - 17029) < 1e-9);
-  assert.ok(Math.abs(standardStampDuty("NSW", 700000) - 26029) < 1e-9);
+  assert.ok(Math.abs(standardStampDuty("NSW", 18000) - 225) < 1e-9);
+  assert.ok(Math.abs(standardStampDuty("NSW", 500000) - (11602 + 113000 * 0.045)) < 1e-9);
+  assert.ok(Math.abs(standardStampDuty("NSW", 700000) - (11602 + 313000 * 0.045)) < 1e-9);
 });
 
 test("standardStampDuty VIC switches to the flat-rate formulas above $960k", function(){

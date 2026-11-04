@@ -4666,13 +4666,20 @@ Done when: the card shows both; tested.
 
 Done: `rateStress` (calc/scenariostress.js), on the card.
 
-## 254. `[~]` Purchase costs as a broker quotes them
+## 254. `[x]` Purchase costs as a broker quotes them
 Do: LMI estimated by loan size as well as LVR (premiums rise with the loan), with a box for an actual quote that
 replaces the estimate everywhere; NSW transfer duty and land registry fees at their 2026–27 figures; Victoria's
 transfer fee worked out from the price (it isn't a flat fee) and its 2026–27 mortgage fee; the government fee rows
 of a purchase follow its state and price until someone types their own figure.
 Done when: a $1.3M NSW purchase at 88% matches a broker's funding summary to within a few hundred dollars (duty and
 fees exactly); a quote typed in replaces the estimate in the calculator, the scenario and the projection; tested.
+
+Done: `calcLMI` scales each LVR band by loan size (`LMI_SIZE_FACTORS`, calibrated at the top: within $30 of a broker's
+$20,254 on $1,144,000 at 88%); `purchaseLMI` takes `cfg.lmiQuote` ("Your quote" in the calculator) over the estimate in
+`recalcPurchase` and the projection. NSW 2026–27 duty ($52,787 at $1.3M, as the broker's) and fees ($182.73 each);
+`governmentFee` — Victoria's transfer fee from the price, its mortgage fee $129.20; fee rows carry `fee` and follow
+the state and price (migration 26 tags rows still at an old default; typing a figure makes the row the person's).
+The cash needed for the broker's $1.3M case: $212,052 against the broker's $212,652 — the rest is their legal fees.
 
 ## Conventions for whoever picks this up
 

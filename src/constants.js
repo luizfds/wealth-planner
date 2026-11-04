@@ -133,13 +133,14 @@ export var MLS_FAMILY_MULTIPLIER = 2;
 // Standard general (non-concession) transfer-duty marginal brackets.
 // Estimates only: state revenue offices update these periodically — confirm before settlement.
 export var STAMP_DUTY_BRACKETS = {
+  // Item 254: Revenue NSW's thresholds from 1 July 2026 (indexed to CPI each July).
   NSW: [
-    {from:0, to:17000, base:0, rate:0.0125},
-    {from:17000, to:36000, base:212, rate:0.015},
-    {from:36000, to:97000, base:497, rate:0.0175},
-    {from:97000, to:364000, base:1564, rate:0.035},
-    {from:364000, to:1212000, base:10909, rate:0.045},
-    {from:1212000, to:Infinity, base:48079, rate:0.055}
+    {from:0, to:18000, base:0, rate:0.0125},
+    {from:18000, to:38000, base:225, rate:0.015},
+    {from:38000, to:103000, base:525, rate:0.0175},
+    {from:103000, to:387000, base:1662, rate:0.035},
+    {from:387000, to:1290000, base:11602, rate:0.045},
+    {from:1290000, to:Infinity, base:52237, rate:0.055}
   ],
   VIC: [
     {from:0, to:25000, base:0, rate:0.014},
@@ -157,8 +158,15 @@ export var FHB_RULES = {
 // unlike stamp duty above, but still indexed annually by each state's land registry. Same
 // NSW/VIC-precise, "Other" is a generic estimate scope as STAMP_DUTY_BRACKETS — confirm current
 // figures with the relevant land registry before settlement.
-export var TRANSFER_FEE_BY_STATE = { NSW: 154, VIC: 118.30, Other: 154 };
-export var MORTGAGE_REG_FEE_BY_STATE = { NSW: 154, VIC: 118.30, Other: 154 };
+// Item 254: 2026–27 figures — NSW Land Registry Services ($182.73 each); Victoria's mortgage $129.20. Victoria's
+// transfer fee isn't flat: it's worked out from the price (VIC_TRANSFER_FEE). The figures they replaced (NSW $154,
+// VIC $118.30) are kept so a purchase saved with them is recognised as using the defaults (state.js step 26).
+export var TRANSFER_FEE_BY_STATE = { NSW: 182.73, VIC: 118.30, Other: 182.73 };
+export var MORTGAGE_REG_FEE_BY_STATE = { NSW: 182.73, VIC: 129.20, Other: 182.73 };
+export var OLD_DEFAULT_REG_FEES = [154, 118.3, 182.73, 129.2];
+// Land Use Victoria's transfer fee from 1 July 2026: about $104.80 plus $2.34 per $1,000 of the price, at most
+// $3,614 (lodged electronically) — from its published examples ($1,712 at $687,000; the cap from $1.5M).
+export var VIC_TRANSFER_FEE = { base: 104.8, perThousand: 2.34, cap: 3614 };
 
 // Indicative single-premium LMI as a % of the loan amount. Real premiums are
 // lender/insurer-specific (Helia, QBE, etc.) and vary by loan size and risk fee — estimate only.
@@ -168,6 +176,19 @@ export var LMI_BANDS = [
   {upTo:0.90, rate:0.013},
   {upTo:0.95, rate:0.028},
   {upTo:1.01, rate:0.045}
+];
+// Item 254: premiums rise with the loan as well as the LVR, so each band's rate above is scaled by the loan's size.
+// Calibrated at the top, where there are published figures to match: 1.752% at 87–88% LVR for a $750k–$1M loan
+// (a published premium table), and $20,254 on $1,144,000 at 88% (1.77%, a broker's 2026 quote) for over $1M. The
+// smaller-loan steps follow the shape of insurers' tables (cheaper the smaller the loan) but are not taken from
+// one. Still an estimate — the purchase calculator takes an actual quote, which replaces it.
+export var LMI_SIZE_FACTORS = [
+  {upTo:300000, factor:0.85},
+  {upTo:500000, factor:1},
+  {upTo:600000, factor:1.15},
+  {upTo:750000, factor:1.25},
+  {upTo:1000000, factor:1.35},
+  {upTo:Infinity, factor:1.36}
 ];
 
 export var PERIODS = [

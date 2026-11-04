@@ -6,7 +6,7 @@ import { renderCompare } from "./compare.js";
 import { compareScenario } from "../calc/compare.js";
 import { draftChanged, renameDraft, discardDraft, DRAFT_PREFIX } from "../calc/scenariodraft.js";
 import { PURCHASE_STATE_CODES, STATE_GROWTH_RATES, INVEST_LEG_TYPES } from "../constants.js";
-import { recalcPurchase } from "../calc/property.js";
+import { recalcPurchase, purchaseCostAmount } from "../calc/property.js";
 import { recalcComputedItems, scenarioTotals, currentScenario, computeNetWorthSeries } from "../calc/engine.js";
 import { renderLineChart } from "../lib/charts.js";
 import { scenarioTimeline, yearText } from "../calc/scenariotimeline.js";
@@ -367,10 +367,11 @@ export function renderCalcScenario(){
 // Every acquisition cost gets a color, cycling the same 8-color series used everywhere else —
 // shared by each row's identity dot and this list's composition bar so the two stay in sync.
 function costRowMeta(cfg){
-  return (cfg.otherCosts || []).map(function(c, ci){ return { cost: c, ci: ci, colorIdx: ci % 8 }; });
+  var price = Math.max(0, Number(cfg.price) || 0);
+  return (cfg.otherCosts || []).map(function(c, ci){ return { cost: c, ci: ci, colorIdx: ci % 8, amount: purchaseCostAmount(c, cfg, price) }; });
 }
 function modernCostCompBarHtml(rowMeta){
-  var segs = rowMeta.map(function(m){ return { cost: m.cost, colorIdx: m.colorIdx, amount: Math.max(0, Number(m.cost.amount) || 0) }; })
+  var segs = rowMeta.map(function(m){ return { cost: m.cost, colorIdx: m.colorIdx, amount: Math.max(0, m.amount) }; })
     .filter(function(x){ return x.amount > 0.5; });
   if(segs.length < 2) return "";
   var total = segs.reduce(function(s, x){ return s + x.amount; }, 0);
@@ -393,7 +394,8 @@ function renderPurchasePanelHtml(scenario){
       return '<div class="cc-row m-cost-row">' +
         '<span class="m-row-dot series-color-' + m.colorIdx + '" aria-hidden="true"></span>' +
         '<input type="text" class="cc-what" value="' + escapeAttr(m.cost.what) + '" aria-label="Cost name" placeholder="Cost name">' +
-        '<input type="number" step="1" min="0" class="cc-amount" value="' + m.cost.amount + '" aria-label="Cost amount">' +
+        // Item 254: a government fee follows the state and price (titled so); typing a figure makes it yours.
+        '<input type="number" step="0.01" min="0" class="cc-amount" value="' + Math.round(m.amount * 100) / 100 + '" aria-label="Cost amount"' + (m.cost.fee ? ' data-cc-fee="' + escapeAttr(m.cost.fee) + '" title="Worked out from the state and price — type a figure to use your own"' : '') + '>' +
         '<button type="button" class="btn btn-danger btn-sm row-del" data-cc-del="' + m.ci + '" aria-label="Remove cost">✕</button>' +
       '</div>';
     }).join("");
@@ -425,7 +427,10 @@ function renderPurchasePanelHtml(scenario){
           '</div>' +
           '<div class="calc-out" title="Loan amount ÷ property price. Above 80% usually triggers Lenders Mortgage Insurance (LMI) below."><span>LVR</span><b data-out="lvr">' + fmtPercent1.format(out.lvr) + '</b></div>' +
           '<div class="calc-out"><span>Stamp duty' + (out.stampDuty === null ? " (enter manually)" : "") + '</span><b data-out="stampduty">' + stampDutyHtml + '</b></div>' +
-          '<div class="calc-out" title="Lenders Mortgage Insurance — a one-off premium lenders charge when your deposit is under 20% (LVR over 80%), protecting the lender, not you. $0 below 80% LVR."><span>LMI (estimate)</span><b data-out="lmi">' + fmtCurrency0.format(out.lmi) + '</b>' +
+          '<div class="calc-out" title="Lenders Mortgage Insurance — a one-off premium lenders charge when your deposit is under 20% (LVR over 80%), protecting the lender, not you. $0 below 80% LVR."><span>LMI</span><b data-out="lmi">' + fmtCurrency0.format(out.lmi) + '</b>' +
+            // Item 254: an estimate by LVR and loan size, or the quote a broker or lender gave.
+            '<small data-out="lmisrc" class="calc-lmi-src">' + (out.lmi > 0 ? (out.lmiEstimated ? "estimate — by LVR and loan size" : "your quote") : "") + '</small>' +
+            '<label class="calc-lmi-quote-wrap">Your quote <input type="number" step="1" min="0" class="calc-lmi-quote" placeholder="blank: estimate" value="' + (cfg.lmiQuote != null && cfg.lmiQuote !== "" ? escapeAttr(cfg.lmiQuote) : "") + '" aria-label="LMI quote from a broker or lender"></label>' +
             '<label class="calc-check-inline" data-out="lmicapwrap" style="margin-top:4px;font-size:var(--fs-xs);padding:3px 6px' + (out.lmi > 0 ? '' : ';display:none') + '"><span class="switch" style="width:26px;height:15px"><input type="checkbox" class="calc-lmi-capitalize"' + (out.lmiCapitalized ? " checked" : "") + '><span class="switch-track"><span class="switch-thumb" style="width:11px;height:11px"></span></span></span> Capitalize into loan <span class="calc-help" title="Add the LMI premium to your loan balance instead of paying it as cash at settlement — increases your loan amount and repayments, but reduces the cash you need on hand. Most lenders default to this.">ⓘ</span></label>' +
           '</div>' +
           '<div class="calc-out"><span>Other costs</span><b data-out="othercosts">' + fmtCurrency0.format(out.otherTotal) + '</b></div>' +
@@ -575,6 +580,13 @@ export function patchCalcOutputs(panel, scenario){
   }
   var upfrontWrap = panel.querySelector('[data-out="upfrontwrap"]');
   if(upfrontWrap) upfrontWrap.title = "Deposit + stamp duty + other costs" + (out.lmiCapitalized ? " — LMI is capitalized into the loan, not paid as cash" : " + LMI") + " — the cash you need available on settlement day.";
+  // Item 254: the government fee rows move with the price (Victoria's transfer fee is worked out from it).
+  var meta = costRowMeta(state.purchase[scenario]);
+  panel.querySelectorAll(".cc-amount[data-cc-fee]").forEach(function(inp){
+    var row = inp.closest(".cc-row"), i = row ? Array.prototype.indexOf.call(row.parentNode.querySelectorAll(".cc-row"), row) : -1;
+    if(meta[i] && document.activeElement !== inp) inp.value = Math.round(meta[i].amount * 100) / 100;
+  });
+  setOut("lmisrc", out.lmi > 0 ? (out.lmiEstimated ? "estimate — by LVR and loan size" : "your quote") : "");
   var barWrap = panel.querySelector(".m-cost-rows [data-comp-bar]");
   if(barWrap) barWrap.outerHTML = modernCostCompBarHtml(costRowMeta(state.purchase[scenario]));
 }

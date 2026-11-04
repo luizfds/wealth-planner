@@ -1,4 +1,4 @@
-import { STORAGE_KEY, HOME_CATEGORIES, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, INVEST_LEG_TYPES, DEFAULT_CATEGORIES, IP_CATEGORY } from "./constants.js";
+import { STORAGE_KEY, HOME_CATEGORIES, TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE, OLD_DEFAULT_REG_FEES, INVEST_LEG_TYPES, DEFAULT_CATEGORIES, IP_CATEGORY } from "./constants.js";
 import { showToast } from "./lib/toast.js";
 // v3.172.0: a cycle (scenariochanges reads `state`), safe because neither module uses the other while loading.
 import { migrateScenarios } from "./calc/scenariochanges.js";
@@ -22,8 +22,10 @@ export function defaultPurchaseConfig(price, depositPct, rate, termYears, stateC
       {what:"Conveyancing / Legal Fees", amount:1800},
       {what:"Building & Pest Inspection", amount:500},
       {what:"Loan Application Fee", amount:600},
-      {what:"Mortgage Registration Fee", amount: MORTGAGE_REG_FEE_BY_STATE[stateCode] != null ? MORTGAGE_REG_FEE_BY_STATE[stateCode] : MORTGAGE_REG_FEE_BY_STATE.Other},
-      {what:"Transfer Fee", amount: TRANSFER_FEE_BY_STATE[stateCode] != null ? TRANSFER_FEE_BY_STATE[stateCode] : TRANSFER_FEE_BY_STATE.Other}
+      // Item 254: `fee` rows follow the purchase's state and price (calc/property.js purchaseCostAmount); `amount` is
+      // what they came to when made, kept for anyone reading the saved figures.
+      {what:"Mortgage Registration Fee", fee:"mortgage", amount: MORTGAGE_REG_FEE_BY_STATE[stateCode] != null ? MORTGAGE_REG_FEE_BY_STATE[stateCode] : MORTGAGE_REG_FEE_BY_STATE.Other},
+      {what:"Transfer Fee", fee:"transfer", amount: TRANSFER_FEE_BY_STATE[stateCode] != null ? TRANSFER_FEE_BY_STATE[stateCode] : TRANSFER_FEE_BY_STATE.Other}
     ]
   };
 }
@@ -779,6 +781,18 @@ export var MIGRATION_STEPS = [
   // Item 249: the RBA cash rate, read from the site's file (calc/cashrate.js) — nothing until the first read.
   { n: 25, name: "a place for the RBA cash rate", run: function(s){
     if(!s.cashRate || typeof s.cashRate !== "object" || Array.isArray(s.cashRate)) s.cashRate = null;
+  } },
+  // Item 254: a purchase's transfer and mortgage registration fees follow its state and price — the rows still at a
+  // default the app once filled in (never one someone typed their own figure into).
+  { n: 26, name: "a purchase's government fees follow its state and price", run: function(s){
+    var p = s.purchase && typeof s.purchase === "object" ? s.purchase : {};
+    Object.keys(p).forEach(function(k){
+      ((p[k] && Array.isArray(p[k].otherCosts)) ? p[k].otherCosts : []).forEach(function(c){
+        if(!c || c.fee) return;
+        var kind = c.what === "Transfer Fee" ? "transfer" : c.what === "Mortgage Registration Fee" ? "mortgage" : null;
+        if(kind && OLD_DEFAULT_REG_FEES.indexOf(Math.round((Number(c.amount) || 0) * 100) / 100) !== -1) c.fee = kind;
+      });
+    });
   } }
 ];
 

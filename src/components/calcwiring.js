@@ -4,7 +4,7 @@
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
 // added, so they're added in the same order.
 import { recalcComputedItems } from "../calc/engine.js";
-import { TRANSFER_FEE_BY_STATE, MORTGAGE_REG_FEE_BY_STATE } from "../constants.js";
+import { purchaseCostAmount } from "../calc/property.js";
 import { state, persist, defaultInvestConfig } from "../state.js";
 import { renderAssets } from "./assets.js";
 import { renderCards, renderDetail } from "./dashboard.js";
@@ -27,13 +27,15 @@ function onCalcInput(e){
   else if(t.classList.contains("calc-term")) cfg.termYears = Math.max(1, parseFloat(t.value) || 1);
   else if(t.classList.contains("calc-buy-month")) cfg.buyMonth = /^\d{4}-\d{2}$/.test(t.value) ? t.value : "";
   else if(t.classList.contains("calc-manual-stampduty")) cfg.manualStampDuty = parseFloat(t.value) || 0;
+  else if(t.classList.contains("calc-lmi-quote")) cfg.lmiQuote = t.value === "" ? null : Math.max(0, parseFloat(t.value) || 0);
   else if(t.classList.contains("calc-growth-override")) cfg.propertyGrowthRate = t.value === "" ? null : (parseFloat(t.value) || 0);
   else if(t.classList.contains("cc-what") || t.classList.contains("cc-amount")){
     var tr = t.closest(".cc-row");
     var idx = Array.prototype.indexOf.call(tr.parentNode.children, tr);
     var cost = (cfg.otherCosts || [])[idx];
     if(!cost) return;
-    if(t.classList.contains("cc-what")) cost.what = t.value; else cost.amount = parseFloat(t.value) || 0;
+    // Item 254: a figure typed over a government fee row makes it the person's own (it stops following the state).
+    if(t.classList.contains("cc-what")) cost.what = t.value; else { cost.amount = parseFloat(t.value) || 0; delete cost.fee; t.removeAttribute("data-cc-fee"); }
   } else { matched = false; }
   if(!matched) return;
 
@@ -62,15 +64,9 @@ function onCalcChange(e){
   }
   else if(t.classList.contains("calc-state")){
     cfg.state = t.value;
-    // Transfer/Mortgage Registration are flat statutory land-registry fees, not something a
-    // user has any reason to hand-tune the way Conveyancing or Building & Pest costs vary by
-    // provider — so unlike every other otherCosts row, these two re-sync to the new state's
-    // figure automatically, matching stamp duty's own state-driven recalculation just above.
-    // Matched by exact label so a row the user has renamed/repurposed is left alone.
-    (cfg.otherCosts || []).forEach(function(c){
-      if(c.what === "Transfer Fee") c.amount = TRANSFER_FEE_BY_STATE[cfg.state] != null ? TRANSFER_FEE_BY_STATE[cfg.state] : TRANSFER_FEE_BY_STATE.Other;
-      else if(c.what === "Mortgage Registration Fee") c.amount = MORTGAGE_REG_FEE_BY_STATE[cfg.state] != null ? MORTGAGE_REG_FEE_BY_STATE[cfg.state] : MORTGAGE_REG_FEE_BY_STATE.Other;
-    });
+    // Item 254: the transfer and mortgage registration fee rows (`fee`) follow the state by themselves
+    // (calc/property.js purchaseCostAmount); what's stored is brought up to date for anyone reading it.
+    (cfg.otherCosts || []).forEach(function(c){ if(c.fee) c.amount = purchaseCostAmount(c, cfg, cfg.price); });
   }
   else if(t.classList.contains("calc-fhb")) cfg.firstHomeBuyer = t.checked;
   else if(t.classList.contains("calc-sync")) cfg.syncRepayment = t.checked;

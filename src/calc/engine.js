@@ -4,9 +4,9 @@ import { periodsOf, toWeekly, sumField, sumFieldForScenario, sumFieldActiveInYea
 import {
   recalcPurchase, ipProperties, ipExpensesMonthly, ipLoansMonthly,
   shockedLoanRepaymentMonthly, scenarioInflatableHomeItems, calcStampDuty,
-  calcLMI, calcRepaymentMonthly, purchaseActiveRate, loanBalanceAfterMonths,
+  calcRepaymentMonthly, purchaseActiveRate, loanBalanceAfterMonths,
   propertiesTotalEquityToday, propertiesOffsetTotal, landTaxDetailForProperty
-  , loanPaidOut, propertyCostBase, loanRepaymentMonthly
+  , loanPaidOut, propertyCostBase, loanRepaymentMonthly, purchaseLMI, purchaseOtherTotal
 } from "./property.js";
 import { getTaxPeople, computePersonTax, scenarioIncomeMonthly, scenarioIncomeRows, scenarioOneOffYearly, takeHomeAdjust, personTakeHomeParts } from "./tax.js";
 import { fmtCurrency0, localDateStr, fmtDate } from "../lib/format.js";
@@ -282,8 +282,8 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
   if(purchaseEnabled){
     var lvr0 = price > 0 ? loanAmount0 / price : 0;
     var stampDuty0 = calcStampDuty(cfg.state, price, cfg.firstHomeBuyer);
-    var lmi0 = calcLMI(loanAmount0, lvr0);
-    var otherTotal0 = (cfg.otherCosts || []).reduce(function(s, c){ return s + (Number(c.amount) || 0); }, 0);
+    var lmi0 = purchaseLMI(cfg, loanAmount0, lvr0);
+    var otherTotal0 = purchaseOtherTotal(cfg, price);
     var stampDutyForTotal0 = stampDuty0 === null ? (Number(cfg.manualStampDuty) || 0) : stampDuty0;
     upfrontCash = depositAmt + stampDutyForTotal0 + lmi0 + otherTotal0;
   }

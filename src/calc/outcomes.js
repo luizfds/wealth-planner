@@ -167,3 +167,18 @@ export function cashFlowStressSeries(scenario, horizon, opts){
     cashFlowStress: cashFlowStressOptions(opts)
   });
 }
+
+/**
+ * One deterministic downside path combining market losses and cash-flow shocks.
+ * All overrides are explicit; this does not mutate saved scenario assumptions.
+ */
+export function combinedStressSeries(scenario, horizon, opts){
+  opts = opts || {};
+  var market = correlatedShockPaths(horizon, opts);
+  return computeNetWorthSeries(scenario, horizon, {
+    realTerms: opts.realTerms,
+    investReturns: market.investReturns,
+    propertyReturns: market.propertyReturns,
+    cashFlowStress: cashFlowStressOptions(opts)
+  });
+}

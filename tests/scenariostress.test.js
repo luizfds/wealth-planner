@@ -42,6 +42,55 @@ test("a normal month if rates rise: every variable loan's repayment, the purchas
   });
 });
 
+
+test("rate stress: P&I offset withdrawal does not increase the repayment shock", () => {
+  withHousehold(() => {
+    const loan = state.properties[0].loans[0];
+    loan.offsetBalance = 100000;
+    const expected = calcRepaymentMonthly(400000, 7, 25, "PI") - calcRepaymentMonthly(400000, 6, 25, "PI");
+    const regular = scenarioTotals("Renting").regularNetMonthly;
+    for(const take of [0, 50000, 100000]){
+      const t = { regularNetMonthly: regular, draw: { draws: [{ take, interestOnly: false }] } };
+      assert.equal(rateStress("Renting", 1, t).extraMonthly, Math.round(expected), "P&I shock must not double count withdrawn offset");
+    }
+    assert.equal(rateStress("Renting", 0, { regularNetMonthly: regular, draw: { draws: [{ take: 50000, interestOnly: false }] } }).extraMonthly, 0);
+  });
+});
+
+test("rate stress: IO partial and full offset withdrawals add exactly the drawn interest", () => {
+  withHousehold(() => {
+    const loan = state.properties[0].loans[0];
+    loan.repaymentType = "IO";
+    loan.offsetBalance = 100000;
+    const regular = scenarioTotals("Renting").regularNetMonthly;
+    for(const take of [0, 25000, 100000]){
+      const t = { regularNetMonthly: regular, draw: { draws: [{ take, interestOnly: true }] } };
+      const expected = (400000 - 100000 + take) / 1200;
+      assert.equal(rateStress("Renting", 1, t).extraMonthly, Math.round(expected));
+      assert.equal(rateStress("Renting", 0, t).extraMonthly, 0, "withdrawal alone must not create a rate-rise delta");
+    }
+    loan.offsetBalance = 400000;
+    const fullyOffset = { regularNetMonthly: regular, draw: { draws: [{ take: 100000, interestOnly: true }] } };
+    assert.equal(rateStress("Renting", 1, fullyOffset).extraMonthly, Math.round(100000 / 1200));
+  });
+});
+
+test("rate stress: multiple loans count IO draw once and never add P&I draw", () => {
+  withHousehold(() => {
+    const loans = state.properties[0].loans;
+    loans[0].offsetBalance = 50000;
+    loans.push({ id: "b", what: "Loan B", balance: 120000, offsetBalance: 80000, rate: 6, termYears: 20, repaymentType: "IO" });
+    const regular = scenarioTotals("Renting").regularNetMonthly;
+    const piRise = calcRepaymentMonthly(400000, 7, 25, "PI") - calcRepaymentMonthly(400000, 6, 25, "PI");
+    const ioRise = (120000 - 80000 + 30000) / 1200;
+    const t = { regularNetMonthly: regular, draw: { draws: [
+      { take: 40000, interestOnly: false }, { take: 30000, interestOnly: true }
+    ] } };
+    assert.equal(rateStress("Renting", 1, t).extraMonthly, Math.round(piRise + ioRise));
+    assert.equal(rateStress("Renting", 0, t).extraMonthly, 0);
+  });
+});
+
 test("break-even growth: at that rate the purchase ends ten years on level with the household", () => {
   withHousehold(() => {
     const be = breakEvenGrowth("Buy", 10);

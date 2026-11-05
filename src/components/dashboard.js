@@ -251,7 +251,24 @@ export function scenarioTradeoffRows(scenarios, totalsFn, baseline, reserveFn){
         coveredMonths: reserve.coveredMonths, target: reserve.target, unclassified: (reserve.unclassified || []).length } : null };
   });
 }
-export function scenarioTradeoffHtml(rows, baseline){
+// Explicitly flag inputs that make a comparison incomplete or potentially outdated.
+export function scenarioComparisonDataNotes(rows, staleCount, hasIncome, hasExpenses){
+  var notes = [];
+  if(!hasIncome) notes.push('Income is missing; monthly cash-flow comparisons are incomplete.');
+  if(!hasExpenses) notes.push('Expenses are missing; savings and runway comparisons are incomplete.');
+  if(staleCount > 0) notes.push(staleCount + ' asset value(s) are due an update; liquidity and net-worth figures may be outdated.');
+  if(rows.some(function(r){ return r.reserve && r.reserve.unclassified > 0; }))
+    notes.push('Some expenses are unclassified; essential-reserve estimates may change.');
+  if(rows.some(function(r){ return r.fundingShortfall > 0; }))
+    notes.push('At least one scenario has an upfront funding gap; do not treat it as fully funded.');
+  return notes;
+}
+export function scenarioComparisonDataNotesHtml(notes){
+  if(!notes.length) return '';
+  return '<div class="ledger-note" role="note" aria-label="Comparison data quality"><strong>Check these inputs</strong><ul>' +
+    notes.map(function(note){ return '<li>' + escapeAttr(note) + '</li>'; }).join('') + '</ul></div>';
+}
+export function scenarioTradeoffHtml(rows, baseline, notes){
   if(rows.length < 2) return '';
   var money = function(n){ return (n < 0 ? '−' : '+') + fmtCurrency0.format(Math.abs(n)); };
   var hasReserve = rows.every(function(r){ return !!r.reserve; });
@@ -263,7 +280,7 @@ export function scenarioTradeoffHtml(rows, baseline){
     rows.map(function(r){ return '<tr><th scope="row">' + escapeAttr(r.name) + '</th><td>' + money(r.monthly) +
       '</td><td>' + money(r.monthlyDifference) + '</td><td>' + fmtCurrency0.format(r.homeMonthly) +
       '</td><td>' + money(r.expenseDifference) + '</td>' + (hasFunding ? '<td>' + fmtCurrency0.format(r.upfrontCash) + '</td><td>' + (r.fundingShortfall > 0 ? fmtCurrency0.format(r.fundingShortfall) + ' short' : '—') + '</td>' : '') + (hasReserve ? '<td>' + fmtCurrency0.format(r.reserve.essentialMonthly) + '</td><td>' + fmtCurrency0.format(r.reserve.available) + '</td><td>' + coverage(r) + (r.reserve.unclassified ? ' (check classifications)' : '') + '</td>' : '') + '</tr>'; }).join('') +
-    '</tbody></table></div><p class="ledger-note">Differences use the current situation as reference. Positive cost difference means more spending. Normal months exclude one-off income. Upfront cash and funding gap come from each scenario’s existing purchase and cash-draw calculation. A funding gap means the modeled cash sources cannot fully cover the upfront cost. Essential runway uses the current recorded cash and offset balances for every scenario, not a forecast of cash left after a future purchase or investment. A dash means essential spending is missing or zero. These are estimates, not guarantees.</p></details>';
+    '</tbody></table></div>' + scenarioComparisonDataNotesHtml(notes || []) + '<p class="ledger-note">Differences use the current situation as reference. Positive cost difference means more spending. Normal months exclude one-off income. Upfront cash and funding gap come from each scenario’s existing purchase and cash-draw calculation. A funding gap means the modeled cash sources cannot fully cover the upfront cost. Essential runway uses the current recorded cash and offset balances for every scenario, not a forecast of cash left after a future purchase or investment. A dash means essential spending is missing or zero. These are estimates, not guarantees.</p></details>';
 }
 export function renderDashboardStats(){
   var el = document.getElementById("dashboardStats");
@@ -289,7 +306,13 @@ export function renderDashboardStats(){
   var horizon = Math.max(1, Number(state.projection.horizonYears) || 1);
   var series = computeNetWorthSeries(active, horizon);
   var projected = series[series.length - 1].y;
-  var tradeoffHtml = isComparing ? scenarioTradeoffHtml(scenarioTradeoffRows(state.scenarios, scenarioTotals, state.baselineScenario || active, function(name){ return emergencyFund({ scenario: name }); }), state.baselineScenario || active) : '';
+  var tradeoffHtml = '';
+  if(isComparing){
+    var comparisonRows = scenarioTradeoffRows(state.scenarios, scenarioTotals, state.baselineScenario || active, function(name){ return emergencyFund({ scenario: name }); });
+    var comparisonNotes = scenarioComparisonDataNotes(comparisonRows, staleAssets().length,
+      state.income.length > 0, comparisonRows.some(function(r){ return scenarioTotals(r.name).expensesMonthly > 0; }));
+    tradeoffHtml = scenarioTradeoffHtml(comparisonRows, state.baselineScenario || active, comparisonNotes);
+  }
   var lastTile = isComparing
     ? '<div class="stat-tile" data-home-card="scenarios"><span>Scenarios compared</span><b>' + state.scenarios.length + '</b><small>' + state.scenarios.map(escapeAttr).join(", ") + '</small>' + tradeoffHtml + '</div>'
     : '<div class="stat-tile" data-home-card="scenarios"><span>Scenario</span><b>' + escapeAttr(active) + '</b><small>add another in Plan → Scenarios to compare options</small></div>';

@@ -12,15 +12,17 @@ export function runLoan(balance, ratePct, repayment, opts){
   var offset = Math.max(0, Number(opts.offset) || 0);
   var pay = Math.max(0, Number(repayment) || 0) + Math.max(0, Number(opts.extra) || 0);
   var months = 0, interest = 0;
-  var cap = opts.maxMonths || 600;
+  var cap = opts.maxMonths == null ? 600 : Number(opts.maxMonths);
+  if(!Number.isSafeInteger(cap) || cap < 1){ throw new RangeError("maxMonths must be a positive safe integer"); }
   while(bal > 0.005 && months < cap){
     var i = Math.max(0, bal - offset) * r;
     interest += i;
     bal = bal + i - pay;
     months++;
-    if(pay <= i && offset < bal){ return { months: null, interest: null, neverPaid: true }; }
+    if(pay <= i && bal > 0.005){ return { months: null, interest: null, neverPaid: true, status: "non-amortising" }; }
   }
-  return { months: months, interest: Math.round(interest), neverPaid: false };
+  if(bal > 0.005){ return { months: null, interest: null, neverPaid: true, status: "capped" }; }
+  return { months: months, interest: Math.round(interest), neverPaid: false, status: "paid-off" };
 }
 // Everything the Loan strategy section shows, for one loan. s = the loan's saved inputs.
 export function loanStrategy(loan, s){
@@ -37,7 +39,9 @@ export function loanStrategy(loan, s){
   if(!io && extra > 0){
     var withExtra = runLoan(balance, rate, repayment, { offset: offset, extra: extra });
     out.extra = { amount: extra, months: withExtra.months, interest: withExtra.interest,
-      monthsSaved: base.months - withExtra.months, interestSaved: base.interest - withExtra.interest };
+      status: withExtra.status,
+      monthsSaved: base.status === "paid-off" && withExtra.status === "paid-off" ? base.months - withExtra.months : null,
+      interestSaved: base.status === "paid-off" && withExtra.status === "paid-off" ? base.interest - withExtra.interest : null };
   }
   var offsetAdd = Number(s.offsetAdd) || 0;
   if(offsetAdd > 0){
@@ -46,8 +50,9 @@ export function loanStrategy(loan, s){
     if(!io){
       var withOffset = runLoan(balance, rate, repayment, { offset: offset + offsetAdd });
       out.offset.months = withOffset.months;
-      out.offset.monthsSaved = base.months - withOffset.months;
-      out.offset.interestSaved = base.interest - withOffset.interest;
+      out.offset.status = withOffset.status;
+      out.offset.monthsSaved = base.status === "paid-off" && withOffset.status === "paid-off" ? base.months - withOffset.months : null;
+      out.offset.interestSaved = base.status === "paid-off" && withOffset.status === "paid-off" ? base.interest - withOffset.interest : null;
     }
   }
   var newRate = s.newRate === "" || s.newRate == null ? null : Number(s.newRate);

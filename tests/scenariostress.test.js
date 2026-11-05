@@ -192,3 +192,25 @@ test("scenario comparison distinguishes upfront commitments from cash funding ga
   assert.match(html, /cash sources cannot fully cover/);
   assert.match(html, /not a forecast of cash left/);
 });
+
+test("scenario funding table has a header for every value and preserves column order", async () => {
+  const { scenarioTradeoffRows, scenarioTradeoffHtml } = await import("../src/components/dashboard.js");
+  const totals = {
+    Stay: { regularNetMonthly: 1000, homeMonthly: 1000, expensesMonthly: 2000, cashOut: 0 },
+    Buy: { regularNetMonthly: -100, homeMonthly: 3200, expensesMonthly: 4000, cashOut: 60000, draw: { short: 10000 } }
+  };
+  const reserves = {
+    Stay: { monthly: 1200, available: 12000, coveredMonths: 10, unclassified: [] },
+    Buy: { monthly: 2800, available: 12000, coveredMonths: 12 / 2.8, unclassified: [] }
+  };
+  const rows = scenarioTradeoffRows(["Stay", "Buy"], name => totals[name], "Stay", name => reserves[name]);
+  const html = scenarioTradeoffHtml(rows, "Stay");
+  const headers = [...html.matchAll(/<th scope="col">([^<]+)<\/th>/g)].map(m => m[1]);
+  assert.deepEqual(headers, ["Scenario", "Net / mo", "Difference / mo", "Home / mo",
+    "Costs difference / mo", "Upfront cash", "Funding gap", "Essential / mo", "Cash + offsets", "Essential runway"]);
+  const body = html.match(/<tbody>([\s\S]*?)<\/tbody>/)[1];
+  const cells = [...body.matchAll(/<tr>([\s\S]*?)<\/tr>/g)];
+  assert.equal(cells.length, 2);
+  cells.forEach(m => assert.equal((m[1].match(/<(?:td|th)\b/g) || []).length, headers.length));
+  assert.match(cells[1][1], /10,000 short/);
+});

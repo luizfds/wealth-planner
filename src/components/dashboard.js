@@ -69,6 +69,8 @@ export function renderCards(){
   var maxAbsRate = Math.max.apply(null, allRates.map(Math.abs).concat([0.01]));
   var canDelete = state.scenarios.length > 1;
 
+  var baseT = null;
+  try { baseT = scenarioTotals(currentScenario()); } catch(e){ baseT = null; }
   var html = state.scenarios.map(function(scenario){
     var t = scenarioTotals(scenario);
     var isActive = state.activeScenario === scenario;
@@ -106,6 +108,9 @@ export function renderCards(){
           '<div class="card-stats"><span>Savings rate</span><b>' + fmtPercent1.format(t.rate) + '</b></div>' +
           '<div class="card-stats"><span>Home cost / mo</span><b>' + fmtCurrency0.format(t.homeMonthly) + '</b></div>' +
           scenarioSturdinessHtml(scenario, t) +
+          // Item 257: what it changes in a month's spending, opening the breakdown on its page.
+          (!isBaseline && baseT && Math.abs(t.expensesMonthly - baseT.expensesMonthly) >= 1 ? '<button type="button" class="card-diff-link" data-edit-scenario="' + escapeAttr(scenario) + '" data-sc-open-diff>' +
+            (t.expensesMonthly >= baseT.expensesMonthly ? 'Costs ' + fmtCurrency0.format(t.expensesMonthly - baseT.expensesMonthly) + '/mo more than today' : 'Costs ' + fmtCurrency0.format(baseT.expensesMonthly - t.expensesMonthly) + '/mo less than today') + ' →</button>' : '') +
           // v3.181.0 (item 212): Edit opens the scenario on its own page; a draft left there says so.
           ((state.scenarioNotes || {})[scenario] ? '<p class="card-note">' + escapeAttr(state.scenarioNotes[scenario]) + '</p>' : '') +
           (hasDraft(scenario) && draftChanged(scenario) ? '<span class="card-draft">Unsaved changes</span>' : '') +

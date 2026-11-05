@@ -42,7 +42,17 @@ function onScenarioControlClick(e){
   if(e.target.closest("#addScenarioBtn") || e.target.closest("#addScenarioBtn2")){ scenarioActions.openStartSheet(); return true; }
   var editBtn = e.target.closest("[data-edit-scenario]");
   // v3.181.0 (item 212): Edit opens the scenario on its own page, as a draft.
-  if(editBtn){ scenarioActions.openScenarioEditor(editBtn.getAttribute("data-edit-scenario")); return true; }
+  if(editBtn){
+    scenarioActions.openScenarioEditor(editBtn.getAttribute("data-edit-scenario"));
+    // Item 257: the card's "Costs $X/mo more than today" opens the page at its breakdown.
+    // The page changes inside a view transition (nav.js), so wait until it's showing, then a frame more.
+    if(editBtn.hasAttribute("data-sc-open-diff")) (function toDiff(n){
+      var d = document.getElementById("scDiff");
+      if(d && document.body.getAttribute("data-current-page") === "scenario") requestAnimationFrame(function(){ requestAnimationFrame(function(){ d.scrollIntoView({ block: "start" }); }); });
+      else if(n < 30) setTimeout(function(){ toDiff(n + 1); }, 60);
+    })(0);
+    return true;
+  }
   var setActiveBtn = e.target.closest("[data-edit-scenario2]");
   if(setActiveBtn){ chooseScenario(setActiveBtn.getAttribute("data-edit-scenario2")); return true; }
   var collapseBtn = e.target.closest("[data-collapse-toggle]");

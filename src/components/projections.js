@@ -160,7 +160,7 @@ export function renderProjectionOutputs(){
       points: combinedStressSeries(combinedScenario, horizon, {
         investLoss: -projectionStress.investLossPct / 100,
         propertyLoss: -projectionStress.propertyLossPct / 100,
-        duration: Math.max(projectionStress.duration, cashStress.duration),
+        marketDuration: projectionStress.duration,\n        duration: cashStress.duration,
         lostIncomeMonthly: cashStress.lostIncomeMonthly,
         vacancyCostMonthly: cashStress.vacancyCostMonthly,
         maintenanceCost: cashStress.maintenanceCost,

@@ -155,3 +155,26 @@ test("staleAssets flags never-logged assets and ones logged 30+ days ago, not re
   assert.ok(names.indexOf("Logged 45 days ago") !== -1);
   assert.ok(names.indexOf("Logged today") === -1);
 });
+
+test("one-year market crash recovers to baseline return in later years", function(){
+  resetState();
+  state.income = [];
+  state.assets = [{ what: "Cash", category: "Cash", amount: 100000 }];
+  state.projection.investReturnRate = 10;
+  var shocked = computeNetWorthSeries("Test", 3, { investReturns: [undefined, -0.20] });
+  var baseline = computeNetWorthSeries("Test", 3);
+  assert.ok(Math.abs(shocked[1].y - 80000) < 1);
+  assert.ok(Math.abs(shocked[2].y - 88000) < 1);
+  assert.ok(Math.abs(shocked[3].y - 96800) < 1);
+  assert.ok(shocked[3].y < baseline[3].y);
+});
+
+test("explicit zero return in a path overrides the configured rate for that year only", function(){
+  resetState();
+  state.income = [];
+  state.assets = [{ what: "Cash", category: "Cash", amount: 100000 }];
+  state.projection.investReturnRate = 10;
+  var pts = computeNetWorthSeries("Test", 2, { investReturns: [undefined, 0] });
+  assert.ok(Math.abs(pts[1].y - 100000) < 1);
+  assert.ok(Math.abs(pts[2].y - 110000) < 1);
+});

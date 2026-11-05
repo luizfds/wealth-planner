@@ -172,3 +172,23 @@ test("scenario comparison shows essential runway from reserve calculator and war
   assert.match(scenarioTradeoffHtml(missing, "Current"), /Essential runway<\/th>/);
   assert.match(scenarioTradeoffHtml(missing, "Current"), /<td>—<\/td>/);
 });
+
+test("scenario comparison distinguishes upfront commitments from cash funding gaps", async () => {
+  const { scenarioTradeoffRows, scenarioTradeoffHtml } = await import("../src/components/dashboard.js");
+  const totals = {
+    Stay: { regularNetMonthly: 800, homeMonthly: 2000, expensesMonthly: 3000, cashOut: 0, draw: null },
+    Buy: { regularNetMonthly: -400, homeMonthly: 4000, expensesMonthly: 5200, cashOut: 90000, draw: { short: 25000 } },
+    Invest: { regularNetMonthly: 300, homeMonthly: 2100, expensesMonthly: 3500, cashOut: 15000, draw: { short: 0 } }
+  };
+  const rows = scenarioTradeoffRows(["Stay", "Buy", "Invest"], name => totals[name], "Stay");
+  assert.equal(rows[0].upfrontCash, 0);
+  assert.equal(rows[1].upfrontCash, 90000);
+  assert.equal(rows[1].fundingShortfall, 25000);
+  assert.equal(rows[2].fundingShortfall, 0);
+  const html = scenarioTradeoffHtml(rows, "Stay");
+  assert.match(html, /Upfront cash/);
+  assert.match(html, /Funding gap/);
+  assert.match(html, /25,000 short/);
+  assert.match(html, /cash sources cannot fully cover/);
+  assert.match(html, /not a forecast of cash left/);
+});

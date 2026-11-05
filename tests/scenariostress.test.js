@@ -127,3 +127,22 @@ test("dashboard risk signals flag negative cash flow and inadequate essential re
   assert.deepEqual(dashboardRiskSignals({ regularNetMonthly: 500 }, { ...emergency, available: 20000, unclassified: [] }, false), []);
   assert.match(dashboardRiskSignals({ netMonthly: 0 }, { ...emergency, monthly: 0 }, true)[0], /Add income/);
 });
+
+test("scenario trade-off comparison uses shared calculation totals and baseline differences", async () => {
+  const { scenarioTradeoffRows, scenarioTradeoffHtml } = await import("../src/components/dashboard.js");
+  const totals = {
+    Rent: { regularNetMonthly: 1500, netMonthly: 2000, homeMonthly: 2500, expensesMonthly: 4000 },
+    Buy: { regularNetMonthly: -300, netMonthly: 100, homeMonthly: 4300, expensesMonthly: 5800 }
+  };
+  const rows = scenarioTradeoffRows(["Rent", "Buy"], name => totals[name], "Rent");
+  assert.equal(rows[0].monthlyDifference, 0);
+  assert.equal(rows[1].monthly, -300);
+  assert.equal(rows[1].monthlyDifference, -1800);
+  assert.equal(rows[1].expenseDifference, 1800);
+  const html = scenarioTradeoffHtml(rows, "Rent");
+  assert.match(html, /<caption>Normal-month cash flow/);
+  assert.match(html, /scope="row"/);
+  assert.match(html, /−\$300/);
+  assert.match(html, /Positive cost difference means more spending/);
+  assert.equal(scenarioTradeoffHtml([rows[0]], "Rent"), "");
+});

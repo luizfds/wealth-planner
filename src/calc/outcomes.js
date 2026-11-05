@@ -144,5 +144,5 @@ export function correlatedShockPaths(horizon, opts){
   return { investReturns: invest, propertyReturns: property };
 }
 export function correlatedShockSeries(scenario, horizon, opts){
-  return computeNetWorthSeries(scenario, horizon, correlatedShockPaths(horizon, opts));
+  return computeNetWorthSeries(scenario, horizon, Object.assign({ realTerms: opts && opts.realTerms }, correlatedShockPaths(horizon, opts)));
 }

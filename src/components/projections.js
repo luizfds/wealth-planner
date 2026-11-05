@@ -52,7 +52,9 @@ export function projectionStressHtml(){
     '<label>Monthly vacancy shortfall ($) <input type="number" min="0" step="100" data-proj-cash-vacancy value="' + cashStress.vacancyCostMonthly + '"></label> ' +
     '<label>One-off repairs ($) <input type="number" min="0" step="500" data-proj-cash-maintenance value="' + cashStress.maintenanceCost + '"></label> ' +
     '<label>Years <input type="number" min="1" max="10" step="1" data-proj-cash-years value="' + cashStress.duration + '"></label>' +
-    '<p class="ledger-note">Estimated net cash impacts starting in year 1. Repairs are charged once; income loss and vacancy costs recur during selected years. Enable both stress scenarios to compare their combined impact. This is not a prediction or tax calculation.</p></div>';
+    '<p class="ledger-note">Estimated net cash impacts starting in year 1. Repairs are charged once; income loss and vacancy costs recur during selected years. Enable both stress scenarios to compare their combined impact. This is not a prediction or tax calculation.</p></div>' +
+    '<details class="proj-stress-disclosure"><summary>How to interpret these estimates</summary>' +
+    '<p class="ledger-note">These are illustrative estimates, not forecasts or guarantees. The shaded 10th–90th percentile range comes from 300 seeded simulations with independent annual investment and property returns; it does not include job loss, vacancy, repairs or correlated crashes. Stress lines are separate deterministic examples, not probabilities, and are excluded from the saved-plan ranking. Check your input dates, assumptions and cash-flow figures before relying on any comparison.</p></details>';
 }
 // Kept for the CSV button, which downloads exactly what's on screen.
 export function scenarioComparisonSeries(series){

@@ -52,7 +52,7 @@ export function projectionStressHtml(){
     '<label>Monthly vacancy shortfall ($) <input type="number" min="0" step="100" data-proj-cash-vacancy value="' + cashStress.vacancyCostMonthly + '"></label> ' +
     '<label>One-off repairs ($) <input type="number" min="0" step="500" data-proj-cash-maintenance value="' + cashStress.maintenanceCost + '"></label> ' +
     '<label>Years <input type="number" min="1" max="10" step="1" data-proj-cash-years value="' + cashStress.duration + '"></label>' +
-    '<p class="ledger-note">Estimated net cash impacts starting in year 1. Repairs are charged once; income loss and vacancy costs recur during selected years. This is not a prediction or tax calculation.</p></div>';
+    '<p class="ledger-note">Estimated net cash impacts starting in year 1. Repairs are charged once; income loss and vacancy costs recur during selected years. Enable both stress scenarios to compare their combined impact. This is not a prediction or tax calculation.</p></div>';
 }
 // Kept for the CSV button, which downloads exactly what's on screen.
 var lastSeries = [];

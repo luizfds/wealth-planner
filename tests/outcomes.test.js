@@ -1,7 +1,7 @@
 import "./_env.js";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { seeded, returnPath, percentile, retirementOdds, ageForOdds } from "../src/calc/outcomes.js";
+import { seeded, returnPath, percentile, retirementOdds, ageForOdds, correlatedShockPaths } from "../src/calc/outcomes.js";
 import { simulateRetirementAt } from "../src/calc/fire.js";
 
 test("drawn returns average the set rate with the set spread, the same every time from one seed", () => {
@@ -32,4 +32,25 @@ test("the odds rise with the retirement age, and the age for 9 in 10 comes no so
   assert.ok(late.chance > 0.8);
   const half = ageForOdds(inputs, 0.5), nine = ageForOdds(inputs, 0.9);
   assert.ok(half != null && nine != null && nine >= half);
+});
+
+test("zero volatility gives a constant deterministic return", () => {
+  assert.ok(returnPath(seeded(42), 3, 0.05, 0, true).every(x => Math.abs(x - 0.05) < 1e-12));
+});
+
+test("correlated multi-year losses affect both asset classes on identical years", () => {
+  const p = correlatedShockPaths(5, { startYear: 2, duration: 3, investLoss: -0.3, propertyLoss: -0.15 });
+  assert.equal(p.investReturns[1], undefined);
+  assert.deepEqual(p.investReturns.slice(2, 5), [-0.3, -0.3, -0.3]);
+  assert.deepEqual(p.propertyReturns.slice(2, 5), [-0.15, -0.15, -0.15]);
+  assert.equal(p.propertyReturns[5], undefined);
+  assert.deepEqual(correlatedShockPaths(5), correlatedShockPaths(5));
+});
+
+test("reject invalid return and shock assumptions", () => {
+  for(const [mean, vol] of [[-1, 0.1], [0.04, -0.2], [Infinity, 0.1], [0.04, NaN]]){
+    assert.throws(() => returnPath(seeded(1), 5, mean, vol), RangeError);
+  }
+  assert.throws(() => correlatedShockPaths(3, { investLoss: -1 }), RangeError);
+  assert.throws(() => correlatedShockPaths(3, { duration: 0 }), RangeError);
 });

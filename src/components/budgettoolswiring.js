@@ -64,7 +64,7 @@ export function wireAdvice(){
     if(e.target.matches && e.target.matches("[data-ai-model]")) setAiModel(e.target.value);
   });
   document.addEventListener("input", function(e){
-    if(e.target.matches && e.target.matches("[data-ai-q]")) askUi.question = e.target.value;
+    if(e.target.matches && e.target.matches("[data-ai-q]")){ askUi.question = e.target.value; askUi.approvalPending = false; }
   });
   document.addEventListener("click", function(e){
     if(!e.target.closest) return;
@@ -128,6 +128,14 @@ export function wireAdvice(){
       if(askUi.busy) return;
       var q = askUi.question.trim();
       var summary = householdSummary(adviceFor({ today: localDateStr() }), { today: localDateStr() });
+      var payload = copyPrompt(summary, q);
+      if(!askUi.approvalPending || askUi.preview !== payload){
+        askUi.preview = payload; askUi.approvalPending = true; renderAdvice();
+        showToast("Review the data preview, then press Confirm & send to Claude");
+        return;
+      }
+      if(!window.confirm("Send the displayed financial summary and your question to Anthropic? Financial figures can still be identifying.")) return;
+      askUi.approvalPending = false;
       askUi.busy = true; askUi.error = ""; renderAdvice();
       askClaude(summary, q).then(function(text){
         setLastReview({ at: localDateStr(), question: q, text: text });

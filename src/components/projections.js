@@ -1,6 +1,6 @@
 import { state } from "../state.js";
 import { computeNetWorthSeries, currentScenario } from "../calc/engine.js";
-import { projectionBands, correlatedShockSeries, cashFlowStressSeries } from "../calc/outcomes.js";
+import { projectionBands, correlatedShockSeries, cashFlowStressSeries, combinedStressSeries } from "../calc/outcomes.js";
 import { eventMarkers } from "../calc/lifeevents.js";
 import { fireSettings } from "../calc/fire.js";
 import { fmtCurrency0, fmtCompact, localDateStr } from "../lib/format.js";
@@ -149,6 +149,24 @@ export function renderProjectionOutputs(){
       maintenanceCost: cashStress.maintenanceCost, duration: cashStress.duration, realTerms: realTerms
     });
     series.push({ label: chosen + " — cash-flow shock (illustrative)", colorClass: "series-color-" + ((state.scenarios.indexOf(chosen) + 2) % 8), dashed: true, points: cashPoints });
+  }
+  // Show the joint impact as well as each isolated stress, without modifying saved plans.
+  if(!whatIf && projectionStress.enabled && cashStress.enabled && state.scenarios.length){
+    var combinedScenario = state.scenarios.includes(state.activeScenario) ? state.activeScenario : currentScenario();
+    series.push({
+      label: combinedScenario + " — combined market and cash shock (illustrative)",
+      colorClass: "series-color-" + ((state.scenarios.indexOf(combinedScenario) + 3) % 8),
+      dashed: true,
+      points: combinedStressSeries(combinedScenario, horizon, {
+        investLoss: -projectionStress.investLossPct / 100,
+        propertyLoss: -projectionStress.propertyLossPct / 100,
+        duration: Math.max(projectionStress.duration, cashStress.duration),
+        lostIncomeMonthly: cashStress.lostIncomeMonthly,
+        vacancyCostMonthly: cashStress.vacancyCostMonthly,
+        maintenanceCost: cashStress.maintenanceCost,
+        realTerms: realTerms
+      })
+    });
   }
   lastSeries = series;
   // v3.125.0: the range around one scenario — the one being looked at — from runs with uneven returns.

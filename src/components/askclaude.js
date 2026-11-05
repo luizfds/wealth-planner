@@ -6,7 +6,7 @@ import { deanonymiser } from "../calc/aisummary.js";
 // An optional written review from Claude, using the person's own Anthropic API key. The key lives
 // in sessionStorage only (cleared when the browser session ends), never in a backup — and
 // nothing is sent until "Ask Claude" is pressed. What's sent is calc/aisummary.js's summary, with
-// names, places and account names already swapped for labels; "Preview" shows it word for word.
+// identifying free-text fields excluded; "Preview" shows it word for word.
 var KEY = "wealthPlanner.anthropicKey", MODEL = "wealthPlanner.anthropicModel", LAST = "wealthPlanner.lastClaudeReview";
 export var MODELS = [
   { id: "claude-sonnet-5-5", label: "Sonnet 5.5 — balanced" },
@@ -25,7 +25,7 @@ export function setAiModel(v){ var s = ls(); try { if(s) s.setItem(MODEL, v); } 
 export function lastReview(){ var s = ls(); try { var r = s && s.getItem(LAST); return r ? JSON.parse(r) : null; } catch(e){ return null; } }
 export function setLastReview(r){ var s = ls(); try { if(s) s.setItem(LAST, JSON.stringify(r)); } catch(e){} }
 
-export var askUi = { busy: false, preview: "", error: "", question: "", pasteOpen: false };
+export var askUi = { busy: false, preview: "", error: "", question: "", pasteOpen: false, approvalPending: false };
 
 // v3.99.0: one standard shape for the answer, whichever AI writes it — so a review pasted back from
 // any assistant reads the same here, and two reviews can be compared section by section.
@@ -52,7 +52,7 @@ export var SYSTEM_PROMPT = "You are reviewing an Australian household's finances
 export function copyPrompt(summary, question){
   return "Please review my household's finances.\n\n" +
     "HOW TO ANSWER\n" + SYSTEM_PROMPT + "\n\n" +
-    "MY FINANCES (from my planning app; names and places replaced by labels)\n" + summary +
+    "MY FINANCES (from my planning app; identifying free-text fields excluded)\n" + summary +
     (question ? "\n\nMY QUESTION\n" + question : "") + "\n";
 }
 
@@ -98,7 +98,7 @@ export function askClaudeHtml(){
   var q = '<textarea class="ai-q" rows="2" data-ai-q placeholder="Optional — a question, e.g. &quot;Sydney or Melbourne?&quot; or &quot;What should we do before 30 June?&quot;" aria-label="Your question">' + escapeAttr(askUi.question) + '</textarea>';
   // v3.99.0: any assistant, no key — copy the prompt, paste the answer back.
   var anyAi = '<div class="ai-any"><div class="ai-sub">Any AI — no key needed</div>' +
-    '<p class="ledger-note help">Copies one prompt — how to answer, in a standard layout, and your figures with names and places replaced by labels — to paste into ChatGPT, Gemini, Claude or any assistant. Paste its answer back below and it\'s shown here, with your own names.</p>' +
+    '<p class="ledger-note help">Copies one prompt — how to answer, in a standard layout, and your figures with identifying free-text fields excluded — to paste into ChatGPT, Gemini, Claude or any assistant. Paste its answer back below and it\'s shown here, with your own names.</p>' +
     '<div class="ai-actions"><button type="button" class="btn btn-sm btn-ghost" data-ai-preview>' + (askUi.preview ? "Hide preview" : "Preview what's copied") + '</button>' +
       '<button type="button" class="btn btn-sm btn-primary" data-ai-copy>Copy for any AI</button></div>' +
     (askUi.pasteOpen
@@ -109,7 +109,7 @@ export function askClaudeHtml(){
   var claude = key
     ? '<div class="ai-claude"><div class="ai-sub">Or ask Claude directly — with your API key</div>' +
         '<div class="ai-actions"><select data-ai-model aria-label="Model">' + MODELS.map(function(x){ return '<option value="' + x.id + '"' + (x.id === aiModel() ? ' selected' : '') + '>' + escapeAttr(x.label) + '</option>'; }).join("") + '</select>' +
-        '<button type="button" class="btn btn-sm btn-primary" data-ai-ask' + (askUi.busy ? ' disabled' : '') + '>' + (askUi.busy ? 'Thinking…' : 'Ask Claude') + '</button>' +
+        '<button type="button" class="btn btn-sm btn-primary" data-ai-ask' + (askUi.busy ? ' disabled' : '') + '>' + (askUi.busy ? 'Thinking…' : askUi.approvalPending ? 'Confirm & send to Claude' : 'Review before sending') + '</button>' +
         '<button type="button" class="link-btn ai-forget" data-ai-forget>Forget key</button></div></div>'
     : '<details class="ai-claude"><summary>Or ask Claude directly, with an API key</summary>' +
         '<p class="ledger-note">Sends the same summary to Anthropic when you press Ask, and shows the answer here — no copying. It needs an Anthropic API key (console.anthropic.com); each review costs a few cents on your account. The key is kept for this browser session only, not in a backup. You may need to enter it again after closing the browser.</p>' +

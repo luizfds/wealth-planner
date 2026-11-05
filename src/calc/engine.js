@@ -405,7 +405,8 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
         incomeThisYear = Math.max(0, incomeThisYear - stress.lostIncomeMonthly);
         inflatableThisYear += stress.vacancyCostMonthly;
       }
-      // A return override applies only to its specified year; subsequent years recover to the scenario rate.\n      monthlyInvestRate = Math.pow(1 + (investPath && investPath[year] != null ? investPath[year] : investRate), 1 / 12) - 1;
+      // A return override applies only to its specified year; subsequent years recover to the scenario rate.
+      monthlyInvestRate = Math.pow(1 + (investPath && investPath[year] != null ? investPath[year] : investRate), 1 / 12) - 1;
       var ev = events.length ? eventEffects(events, year, thisYear) : null;
       var savingsThisYear = incomeThisYear - fixedMonthly - repaymentMonthly * owned - inflatableThisYear - (ev ? ev.yearly / 12 * Math.pow(1 + inflationRate, year) : 0);
       if(stressedYear && year === stress.startYear){

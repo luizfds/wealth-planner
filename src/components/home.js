@@ -154,12 +154,13 @@ export function homeSummaryHtml(today, opts){
     '<div class="home-grid">' + nwCard + monthCard + billsCard + todoCard + '</div>' + goalsStripHtml(today);
 }
 
-// Savings goals (v3.65.0): a strip under the cards, each its progress bar, linking to Accounts.
+// Savings goals (v3.65.0): a strip under the cards, each its progress bar, linking to where goals are kept — Plan → Goals
+// since goals moved there (it linked to Accounts, where they used to be).
 function goalsStripHtml(today){
   if(!(state.savingsGoals || []).length) return "";
   var ov = goalsOverview(today, scenarioTotals(currentScenario()).netMonthly);
   return '<div class="home-goals" data-home-card="goals"><span class="home-k">Goals</span><div class="home-goals-list">' + ov.goals.slice(0, 4).map(function(g, i){ return goalCardHtml(g, i, { compact: true }); }).join("") + '</div>' +
-    '<button type="button" class="link-btn home-link" data-home-go="accounts">All goals →</button></div>';
+    '<button type="button" class="link-btn home-link" data-home-go="plan" data-home-sub="goals">All goals →</button></div>';
 }
 export function renderHomeSummary(){
   var el = typeof document !== "undefined" && document.getElementById("homeSummary");

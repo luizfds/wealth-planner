@@ -294,6 +294,8 @@ export function savingsBreakdownHtml(b, scenario){
     '<p class="savings-why-note">Money in after tax, less everything that goes out each month — the budget and, worked out from each loan, ' +
       'an investment property\'s repayments. Bonuses and refunds come once a year, so a normal month leaves them out.</p>' +
     budgetPlanHtml({ income: b.income.map(line), groups: b.out.map(line), net: b.average }) +
+    // Item 256: what isn't money out but still costs — a P&I loan paying down slower.
+    ((b.notes || []).length ? '<ul class="savings-why-notes">' + b.notes.map(function(n){ return '<li>' + escapeAttr(n) + '</li>'; }).join("") + '</ul>' : '') +
     (links.length ? '<p class="savings-why-links">Change these in ' + links.join(" · ") + '</p>' : '');
 }
 function renderSavingsBreakdown(scenario){

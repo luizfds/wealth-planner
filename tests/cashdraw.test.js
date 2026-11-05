@@ -42,25 +42,32 @@ test("cash first, then the offset: the interest the offset stops saving is what 
   });
 });
 
-test("a buying scenario's month counts that interest; the household's doesn't", function(){
+// Item 256: on a P&I loan the repayment is the same either way — the loan shrinks slower; only an interest-only
+// loan's repayment (its interest) is money out.
+test("a P&I loan's emptied offset slows its paydown and leaves the month alone; the household's is untouched", function(){
   withHousehold(function(){
     var upfront = recalcPurchase("Buy").upfrontCash;
     var t = scenarioTotals("Buy");
     assert.equal(t.cashOut, upfront);
-    assert.ok(Math.abs(t.drawInterestMonthly - (upfront - 10000) * 0.06 / 12) < 0.01);
-    var withoutDraw = t.incomeMonthly - t.drawTaxBackYearly / 12 - (t.expensesMonthly - t.drawInterestMonthly);
-    assert.ok(Math.abs(t.netMonthly - (withoutDraw - t.drawInterestMonthly + t.drawTaxBackYearly / 12)) < 0.01);
-    assert.ok(t.regularNetMonthly < withoutDraw - t.drawInterestMonthly + 0.01, "the tax back isn't in a normal month");
+    assert.equal(t.drawInterestMonthly, 0, "no money out for a P&I loan");
+    assert.ok(Math.abs(t.drawSlowerPaydownYearly - (upfront - 10000) * 0.06) < 0.01, "said as a slower paydown");
     var base = scenarioTotals("Renting");
     assert.equal(base.cashOut, 0);
-    assert.equal(base.drawInterestMonthly, 0);
-    assert.equal(canBuy("Buy").extraInterestYearly, Math.round(t.drawInterestMonthly * 12), "Can we buy? and the scenario agree");
+    assert.equal(base.drawSlowerPaydownYearly, 0);
+    assert.equal(canBuy("Buy").extraInterestYearly, Math.round(t.drawSlowerPaydownYearly), "Can we buy? still says what it costs");
+    var b = savingsBreakdown("Buy");
+    assert.ok(!b.out.some(function(r){ return /taken out/.test(r.label); }));
+    assert.match(b.notes[0], /^Loan A pays down about \$[\d,]+ a year slower/);
   });
 });
 
-test("the breakdown names the offset's interest and the tax back, and still adds up to the card", function(){
+test("an interest-only loan's emptied offset is money out each month, and the breakdown names it", function(){
   withHousehold(function(){
+    state.properties[0].loans[0].repaymentType = "IO";
     var t = scenarioTotals("Buy"), b = savingsBreakdown("Buy");
+    var upfront = recalcPurchase("Buy").upfrontCash;
+    assert.ok(Math.abs(t.drawInterestMonthly - (upfront - 10000) * 0.06 / 12) < 0.01);
+    assert.equal(t.drawSlowerPaydownYearly, 0);
     var line = b.out.find(function(r){ return /Loan A offset — interest on the \$/.test(r.label); });
     assert.ok(line && Math.abs(line.monthly - t.drawInterestMonthly) < 0.01);
     assert.ok(!b.out.some(function(r){ return r.label === "This scenario's changes"; }), "nothing left over");

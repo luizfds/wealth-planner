@@ -25,7 +25,10 @@ export function cashSources(st){
       if(!(off > 0)) return;
       var borrowed = !!(p.purchaseDate && l.settlementDate && l.settlementDate > p.purchaseDate);
       out.push({ name: (l.what || "Loan") + " offset", amount: off, rate: Number(loanRateOn(l, localDateStr())) || Number(l.rate) || 0,
-        kind: borrowed ? "borrowed" : "offset", deductible: !borrowed, property: p, loanId: l.id || "" });
+        kind: borrowed ? "borrowed" : "offset", deductible: !borrowed, property: p, loanId: l.id || "",
+        // Item 256: an interest-only repayment IS the interest, so it rises; a P&I repayment stays the same and the
+        // loan shrinks slower instead.
+        interestOnly: l.repaymentType === "IO" });
     });
   });
   var rank = { cash: 0, offset: 1, borrowed: 2 };
@@ -45,7 +48,8 @@ function taxBackRate(p, marginal){
 }
 
 // `amount` of cash taken in that order: what each source gives, the interest the offsets stop saving (a year), how
-// much of it is deductible, and the tax back on that part. Asking for more than there is takes it all; `short` says
+// much of it is deductible, and the tax back on that part. Item 256: on a P&I loan that interest isn't money out —
+// the repayment is the same, the loan shrinks slower — so it's split into the cash part and the slower paydown. Asking for more than there is takes it all; `short` says
 // by how much.
 export function drawFor(amount){
   var sources = cashSources();
@@ -64,10 +68,13 @@ export function drawFor(amount){
     return rates[person];
   };
   var extra = draws.reduce(function(t, d){ return t + d.interestYearly; }, 0);
+  var cash = draws.reduce(function(t, d){ return t + (d.interestOnly ? d.interestYearly : 0); }, 0);
   var deductible = draws.reduce(function(t, d){ return t + (d.deductible ? d.interestYearly : 0); }, 0);
   var taxBack = draws.reduce(function(t, d){ return t + (d.deductible && d.property && d.interestYearly > 0 ? d.interestYearly * taxBackRate(d.property, marginal) : 0); }, 0);
   return {
     draws: draws, available: sources.reduce(function(t, s){ return t + s.amount; }, 0), short: need > 0 ? need : 0,
-    extraInterestYearly: extra, deductibleYearly: deductible, nonDeductibleYearly: extra - deductible, taxBackYearly: taxBack
+    extraInterestYearly: extra, deductibleYearly: deductible, nonDeductibleYearly: extra - deductible, taxBackYearly: taxBack,
+    // Item 256: of the extra interest, what comes out as money (interest-only loans) and what slows a P&I loan's paydown.
+    cashInterestYearly: cash, slowerPaydownYearly: extra - cash
   };
 }

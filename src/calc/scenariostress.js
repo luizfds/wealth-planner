@@ -38,7 +38,9 @@ export function rateStress(scenario, pts, t){
     var a = legsMonthly(legs, ctx), b = legsMonthly(legs, Object.assign({}, ctx, { rateShockPts: (Number(ctx.rateShockPts) || 0) + pts }));
     more += (b.expensesMonthly - a.expensesMonthly) - (b.incomeMonthly - a.incomeMonthly);
   }
-  if(t.draw) t.draw.draws.forEach(function(d){ if(d.kind !== "cash") more += d.take * pts / 1200; });
+  // Item 256: an emptied offset's loan costs more as rates rise only where its repayment is the interest; a P&I
+  // loan's repayment rise is already above, on its whole balance.
+  if(t.draw) t.draw.draws.forEach(function(d){ if(d.interestOnly) more += d.take * pts / 1200; });
   return { pts: pts, regularNetMonthly: r0(t.regularNetMonthly - more), extraMonthly: r0(more) };
 }
 

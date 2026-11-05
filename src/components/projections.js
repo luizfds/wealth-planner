@@ -55,6 +55,9 @@ export function projectionStressHtml(){
     '<p class="ledger-note">Estimated net cash impacts starting in year 1. Repairs are charged once; income loss and vacancy costs recur during selected years. Enable both stress scenarios to compare their combined impact. This is not a prediction or tax calculation.</p></div>';
 }
 // Kept for the CSV button, which downloads exactly what's on screen.
+export function scenarioComparisonSeries(series){
+  return series.filter(function(s){ return !s.illustrativeStress; });
+}
 var lastSeries = [];
 export function projectionSeriesShown(){ return lastSeries; }
 
@@ -140,7 +143,7 @@ export function renderProjectionOutputs(){
       investLoss: -projectionStress.investLossPct / 100, propertyLoss: -projectionStress.propertyLossPct / 100,
       duration: projectionStress.duration, realTerms: realTerms
     });
-    series.push({ label: active + " — correlated downturn (illustrative)", colorClass: "series-color-" + ((idx + 1) % 8), dashed: true, points: stressPts });
+    series.push({ label: active + " — correlated downturn (illustrative)", colorClass: "series-color-" + ((idx + 1) % 8), dashed: true, illustrativeStress: true, points: stressPts });
   }
   if(!whatIf && cashStress.enabled && state.scenarios.length){
     var chosen = state.scenarios.includes(state.activeScenario) ? state.activeScenario : currentScenario();
@@ -148,7 +151,7 @@ export function renderProjectionOutputs(){
       lostIncomeMonthly: cashStress.lostIncomeMonthly, vacancyCostMonthly: cashStress.vacancyCostMonthly,
       maintenanceCost: cashStress.maintenanceCost, duration: cashStress.duration, realTerms: realTerms
     });
-    series.push({ label: chosen + " — cash-flow shock (illustrative)", colorClass: "series-color-" + ((state.scenarios.indexOf(chosen) + 2) % 8), dashed: true, points: cashPoints });
+    series.push({ label: chosen + " — cash-flow shock (illustrative)", colorClass: "series-color-" + ((state.scenarios.indexOf(chosen) + 2) % 8), dashed: true, illustrativeStress: true, points: cashPoints });
   }
   // Show the joint impact as well as each isolated stress, without modifying saved plans.
   if(!whatIf && projectionStress.enabled && cashStress.enabled && state.scenarios.length){
@@ -157,6 +160,7 @@ export function renderProjectionOutputs(){
       label: combinedScenario + " — combined market and cash shock (illustrative)",
       colorClass: "series-color-" + ((state.scenarios.indexOf(combinedScenario) + 3) % 8),
       dashed: true,
+      illustrativeStress: true,
       points: combinedStressSeries(combinedScenario, horizon, {
         investLoss: -projectionStress.investLossPct / 100,
         propertyLoss: -projectionStress.propertyLossPct / 100,
@@ -186,7 +190,8 @@ export function renderProjectionOutputs(){
   if(srcRow) srcRow.innerHTML = projSourceHtml(actualRatios(), state.projection.source);
   var headlineEl = document.getElementById("projHeadline");
   if(headlineEl){
-    var finals = series.map(function(s){
+    // Downside overlays are not competing household plans.
+    var finals = scenarioComparisonSeries(series).map(function(s){
       var pt = s.points.find(function(p){ return p.x === horizon; });
       return { label: s.label, value: pt ? pt.y : 0 };
     }).sort(function(a, b){ return b.value - a.value; });
@@ -281,10 +286,11 @@ export function projectionMilestonesHtml(series, realTerms){
       }).join("") +
       '<span>' + (!hasDebt ? '<i>none</i>' : (debtFree == null ? '<i>after yr ' + s.points[s.points.length - 1].x + '</i>' : "yr " + debtFree)) + '</span></div>';
   }).join("");
-  var changes = leadChanges(shown);
+  var comparable = scenarioComparisonSeries(shown);
+  var changes = leadChanges(comparable);
   var changeText = changes.length
     ? changes.map(function(c){ return '<b>' + escapeAttr(c.leader) + '</b> overtakes ' + escapeAttr(c.behind) + ' in year ' + c.year; }).join("; ") + "."
-    : (shown.length > 1 ? "No scenario overtakes another within the horizon — the one in front today stays in front." : "");
+    : (comparable.length > 1 ? "No scenario overtakes another within the horizon — the one in front today stays in front." : "");
   return '<h3 class="proj-ms-title">Milestones <span>— first year net worth reaches each amount, ' + (realTerms ? "today's" : "future") + ' dollars</span></h3>' +
     '<div class="proj-ms-table" style="--ms-cols:' + amounts.length + '">' + head + rows + '</div>' +
     (changeText ? '<p class="ledger-note" style="margin:8px 0 0">' + changeText + '</p>' : '');

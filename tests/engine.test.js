@@ -178,3 +178,27 @@ test("explicit zero return in a path overrides the configured rate for that year
   assert.ok(Math.abs(pts[1].y - 100000) < 1);
   assert.ok(Math.abs(pts[2].y - 110000) < 1);
 });
+
+test("combined downside includes both lost income and market crash, without altering the saved plan", async function(){
+  resetState();
+  state.assets = [{ what: "Cash", category: "Cash", amount: 100000 }];
+  state.projection.investReturnRate = 10;
+  var { combinedStressSeries } = await import("../src/calc/outcomes.js");
+  var opts = { investLoss: -0.20, propertyLoss: -0.10, marketDuration: 1,
+    duration: 2, lostIncomeMonthly: 1000, vacancyCostMonthly: 500, maintenanceCost: 5000, realTerms: false };
+  var before = JSON.stringify({ income: state.income, assets: state.assets, projection: state.projection });
+  var combined = combinedStressSeries("Test", 3, opts);
+  var combinedAgain = combinedStressSeries("Test", 3, opts);
+  var baseline = computeNetWorthSeries("Test", 3, { realTerms: false });
+  assert.deepEqual(combined, combinedAgain);
+  assert.ok(combined[1].y < baseline[1].y);
+  assert.ok(combined[2].y < baseline[2].y);
+  assert.equal(JSON.stringify({ income: state.income, assets: state.assets, projection: state.projection }), before);
+});
+
+test("combined downside rejects invalid market or cash assumptions", async function(){
+  resetState();
+  var { combinedStressSeries } = await import("../src/calc/outcomes.js");
+  assert.throws(() => combinedStressSeries("Test", 3, { marketDuration: 0 }), RangeError);
+  assert.throws(() => combinedStressSeries("Test", 3, { lostIncomeMonthly: -5 }), RangeError);
+});

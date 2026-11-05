@@ -54,7 +54,7 @@ test("reject invalid return and shock assumptions", () => {
   assert.throws(() => correlatedShockPaths(3, { investLoss: -1 }), RangeError);
   assert.throws(() => correlatedShockPaths(3, { duration: 0 }), RangeError);
 });
-\nimport { projectionStress, projectionStressHtml } from "../src/components/projections.js";
+import { projectionStress, projectionStressHtml } from "../src/components/projections.js";
 
 test("projection stress controls are editable and labelled as illustrative", () => {
   const html = projectionStressHtml();

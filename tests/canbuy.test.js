@@ -60,3 +60,29 @@ test("first home buyer ticked while owning a property is flagged", function(){
     assert.equal(canBuy("Buy").fhbButOwns, true);
   }, 500000);
 });
+
+test("purchase runway shows essential and total costs separately", function(){
+  withHousehold(function(){
+    state.shared = [
+      { id: "needs", what: "Groceries", amount: 1000, freq: "Monthly", classification: "Needs" },
+      { id: "wants", what: "Dining out", amount: 500, freq: "Monthly", classification: "Wants" }
+    ];
+    var c = canBuy("Buy");
+    assert.ok(c.essentialsMonthly > 0);
+    assert.ok(c.expensesMonthly >= c.essentialsMonthly);
+    assert.ok(c.essentialsBufferMonths >= c.bufferMonths);
+    var html = canBuyHtml([c]);
+    assert.match(html, /Runway after settlement — essential costs/);
+    assert.match(html, /Runway after settlement — all costs/);
+  }, 400000);
+});
+
+test("runway is unavailable rather than infinite when no cash remains", function(){
+  withHousehold(function(){
+    var c = canBuy("Buy");
+    assert.ok(c.short > 0);
+    assert.equal(c.bufferMonths, null);
+    assert.equal(c.essentialsBufferMonths, null);
+    assert.doesNotMatch(canBuyHtml([c]), /Infinity|NaN/);
+  }, 1200000);
+});

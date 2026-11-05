@@ -8,6 +8,7 @@ import { lodgementStatus, taxYearRecord } from "../calc/taxyear.js";
 import { evidenceItems } from "./taxyear.js";
 import { scenarioTotals, savingsBreakdown, currentScenario, computeNetWorthSeries, totalNetWorthValue, runwayMonths, actualAssetGrowthLastMonth, staleAssets, toAudAmount } from "../calc/engine.js";
 import { monthlyCashFlowForecast } from "../calc/cashflow.js";
+import { emergencyFund } from "../calc/emergency.js";
 import { budgetPlanHtml } from "./cashflow.js";
 import { fireSettings, fireWealthSplit, simulateRetirementAt, earliestWorkableRetirementAge } from "../calc/fire.js";
 import { MONTH_NAMES } from "../constants.js";
@@ -250,8 +251,9 @@ export function renderDashboardStats(){
     ? '<div class="stat-tile" data-home-card="scenarios"><span>Scenarios compared</span><b>' + state.scenarios.length + '</b><small>' + state.scenarios.map(escapeAttr).join(", ") + '</small></div>'
     : '<div class="stat-tile" data-home-card="scenarios"><span>Scenario</span><b>' + escapeAttr(active) + '</b><small>add another in Plan → Scenarios to compare options</small></div>';
   var runway = runwayMonths(t.expensesMonthly);
+  var emergency = emergencyFund({ scenario: active });
   var runwayTile = '<div class="stat-tile" data-home-card="runway" title="Liquid assets (cash + shares + property offset) ÷ ' + escapeAttr(active) + '\'s monthly expenses — how long you could cover costs with zero income. A common rule of thumb targets 3-6 months."><span>Runway</span><b>' +
-    (runway == null ? "—" : fmtRunway.format(runway) + " mo") + '</b><small>liquid assets ÷ monthly expenses</small></div>';
+    (runway == null ? "—" : fmtRunway.format(runway) + " mo") + '</b><small>All spending · liquid assets</small><small>Essential costs · cash + offsets: ' + (emergency.coveredMonths == null ? "—" : fmtRunway.format(emergency.coveredMonths) + " mo") + '</small></div>';
   // Six tiles reading $0, $0/mo, $0 and an em-dash tell a first-time user nothing except that
   // they have entered nothing — which the setup panel above already says, with somewhere to go.
   // The tiles earn their space once they have values in them.

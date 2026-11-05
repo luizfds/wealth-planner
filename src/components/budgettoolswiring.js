@@ -14,7 +14,7 @@ import { fmtCurrency0, fmtCurrency2, localDateStr } from "../lib/format.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { state, persist, genId } from "../state.js";
 import { renderAdvice, adviceUi } from "./advice.js";
-import { askUi, setAiKey, setAiModel, askClaude, setLastReview, copyPrompt } from "./askclaude.js";
+import { askUi, setAiKey, setAiModel, askClaude, setLastReview, copyPrompt, askBody } from "./askclaude.js";
 import { budgetFromHistoryHtml, historyBudgetUi } from "./budgethistory.js";
 import { loggableBudgetLineItems, budgetLineItems } from "./expenses.js";
 import { taxUi } from "./income.js";
@@ -64,7 +64,7 @@ export function wireAdvice(){
     if(e.target.matches && e.target.matches("[data-ai-model]")) setAiModel(e.target.value);
   });
   document.addEventListener("input", function(e){
-    if(e.target.matches && e.target.matches("[data-ai-q]")) askUi.question = e.target.value;
+    if(e.target.matches && e.target.matches("[data-ai-q]")){ askUi.question = e.target.value; askUi.approvalPending = false; }
   });
   document.addEventListener("click", function(e){
     if(!e.target.closest) return;
@@ -128,6 +128,14 @@ export function wireAdvice(){
       if(askUi.busy) return;
       var q = askUi.question.trim();
       var summary = householdSummary(adviceFor({ today: localDateStr() }), { today: localDateStr() });
+      var payload = JSON.stringify(askBody(summary, q), null, 2);
+      if(!askUi.approvalPending || askUi.preview !== payload){
+        askUi.preview = payload; askUi.approvalPending = true; renderAdvice();
+        showToast("Review the data preview, then press Confirm & send to Claude");
+        return;
+      }
+      if(!window.confirm("Send the displayed financial summary and your question to Anthropic? Financial figures can still be identifying.")) return;
+      askUi.approvalPending = false;
       askUi.busy = true; askUi.error = ""; renderAdvice();
       askClaude(summary, q).then(function(text){
         setLastReview({ at: localDateStr(), question: q, text: text });

@@ -16,6 +16,7 @@ import { canBuy } from "./canbuy.js";
 // included. The text is shown to the person before it's sent; this builds it, the component sends
 // it only on their say-so. Pure apart from reading state.
 function m(n){ var v = Math.round(Number(n) || 0); return (v < 0 ? "−$" : "$") + Math.abs(v).toLocaleString("en-AU"); }
+function safeRegion(s){ return ["NSW", "VIC", "QLD", "SA", "WA", "TAS", "ACT", "NT"].includes(s) ? s : "AU"; }
 function pct(n){ return (Math.round(n * 1000) / 10) + "%"; }
 
 // [from, to] pairs, longest first, applied to every line of text that came from the app.
@@ -73,18 +74,19 @@ export function deanonymiser(st){
 export function householdSummary(findings, opts){
   opts = opts || {};
   var today = opts.today || "";
-  var scrub = anonymiser(state);
+  // Strict output allowlist: never interpolate user-entered strings into the outbound summary.
+  // Names are used for local lookup only; labels and financial numbers are the only outputs.
   var L = [];
   var people = getTaxPeople();
   L.push("Australian household. Figures are in AUD, from the planning app's own records.");
   L.push("");
   L.push("INCOME");
-  people.forEach(function(n){
+  people.forEach(function(n, personIndex){
     var t = null; try { t = computePersonTax(n); } catch(e){}
     var gross = (state.income || []).filter(function(r){ return r.person === n && r.incomeType === "Gross"; })
       .reduce(function(s, r){ return s + periodsOf(Number(r.amount) || 0, r.freq).yearly; }, 0);
     var net = (scenarioIncomeRows({ scenario: currentScenario() }) || []).find(function(r){ return r.syntheticNetFor === n; });
-    L.push("- " + n + ": gross " + m(gross) + "/yr; planned take-home " + (net ? m(net.amount) + "/mo" : "n/a") +
+    L.push("- " + (["Partner A", "Partner B", "Person C", "Person D"][personIndex] || "Person " + (personIndex + 1)) + ": gross " + m(gross) + "/yr; planned take-home " + (net ? m(net.amount) + "/mo" : "n/a") +
       (t ? "; marginal rate " + pct(t.marginalRate || 0) + "; concessional super " + m(t.totalConcessional) + " of a " + m(t.capAvailable) + " cap (incl. carry-forward)" : ""));
   });
   var cur = String(today).slice(0, 7), inn = 0, out = 0, months = 0;
@@ -95,7 +97,10 @@ export function householdSummary(findings, opts){
   var byCat = {};
   (state.shared || []).forEach(function(l){
     if(l.computed) return;
-    var k = (l.classification || "?") + " · " + (l.category || "Other");
+    var classification = l.classification === "Needs" ? "Needs" : l.classification === "Wants" ? "Wants" : "Unclassified";
+    var allowedCategories = ["Housing", "Groceries", "Utilities", "Transport", "Health", "Insurance", "Pets", "Car", "Eating out", "Subscriptions", "Travel", "Shopping", "Fitness", "Education", "Other"];
+    var category = allowedCategories.includes(l.category) ? l.category : "Other";
+    var k = classification + " · " + category;
     byCat[k] = (byCat[k] || 0) + periodsOf(Number(l.amount) || 0, l.freq).monthly;
   });
   Object.keys(byCat).sort(function(a, b){ return byCat[b] - byCat[a]; }).slice(0, 18).forEach(function(k){ L.push("- " + k + ": " + m(byCat[k])); });
@@ -105,19 +110,19 @@ export function householdSummary(findings, opts){
   L.push("ASSETS AND DEBTS");
   L.push("- Net worth: " + m(totalNetWorthValue()));
   var byAsset = {};
-  (state.assets || []).forEach(function(a){ var k = a.category || "Other"; byAsset[k] = (byAsset[k] || 0) + toAudAmount(a, Number(a.amount) || 0); });
+  (state.assets || []).forEach(function(a){ var k = ["Cash", "Shares", "Super", "Crypto", "Property", "Other"].includes(a.category) ? a.category : "Other"; byAsset[k] = (byAsset[k] || 0) + toAudAmount(a, Number(a.amount) || 0); });
   Object.keys(byAsset).forEach(function(k){ L.push("- " + k + ": " + m(byAsset[k])); });
   var holdings = (state.assets || []).filter(function(a){ return a.category === "Shares" && Number(a.amount) > 0; })
-    .map(function(a){ return (a.symbol || "?") + " " + m(toAudAmount(a, Number(a.amount) || 0)); });
+    .map(function(a, i){ return "Holding " + (i + 1) + " " + m(toAudAmount(a, Number(a.amount) || 0)); });
   if(holdings.length) L.push("- Holdings: " + holdings.join(", "));
   (state.debts || []).forEach(function(d){ if(Number(d.balance) > 0) L.push("- Debt: " + m(d.balance) + (d.rate ? " at " + d.rate + "%" : "")); });
   ipProperties().forEach(function(p, i){
     var rent = (p.income || []).reduce(function(s, r){ return s + periodsOf(Number(r.amount) || 0, r.freq).yearly; }, 0);
     var costs = (p.expenses || []).reduce(function(s, r){ return s + periodsOf(Number(r.amount) || 0, r.freq).yearly; }, 0);
-    L.push("- Investment property " + (i + 1) + " (" + (p.state || "AU") + "): value " + m(p.value) + ", bought " + m(p.purchasePrice) + (p.purchaseDate ? " in " + p.purchaseDate.slice(0, 4) : "") + ", rent " + m(rent) + "/yr, costs " + m(costs) + "/yr");
+    L.push("- Investment property " + (i + 1) + " (" + safeRegion(p.state) + "): value " + m(p.value) + ", bought " + m(p.purchasePrice) + (p.purchaseDate ? " in " + p.purchaseDate.slice(0, 4) : "") + ", rent " + m(rent) + "/yr, costs " + m(costs) + "/yr");
     (p.loans || []).forEach(function(l, j){
       if(loanPaidOut(l)) return;
-      L.push("  - Loan " + (j + 1) + ": " + m(l.balance) + " at " + (loanRateOn(l, today) || l.rate) + "% " + (l.repaymentType || "") + ", offset " + m(l.offsetBalance) + ", used to invest " + Math.round(loanInvestShare(l) * 100) + "%" +
+      L.push("  - Loan " + (j + 1) + ": " + m(l.balance) + " at " + (Number(loanRateOn(l, today) || l.rate) || 0) + "% " + (l.repaymentType === "IO" ? "IO" : "PI") + ", offset " + m(l.offsetBalance) + ", used to invest " + Math.round(loanInvestShare(l) * 100) + "%" +
         (p.purchaseDate && l.settlementDate && l.settlementDate > p.purchaseDate ? ", drawn after the purchase" : ""));
     });
   });
@@ -128,14 +133,16 @@ export function householdSummary(findings, opts){
   (state.scenarios || []).forEach(function(s){
     var t = scenarioTotals(s), c = null;
     try { c = canBuy(s); } catch(e){}
-    var line = "- " + s + ": a normal month leaves " + m(t.regularNetMonthly);
-    if(c) line += "; buying for " + m(c.price) + " in " + (c.state || "?") + ", cash needed " + m(c.upfront) + ", left after " + m(c.left) + ", new loan " + m(c.loan) + " at " + m(c.repaymentMonthly) + "/mo, investment interest up " + m(c.extraInterestYearly) + "/yr";
+    var line = "- Scenario " + (state.scenarios.indexOf(s) + 1) + ": a normal month leaves " + m(t.regularNetMonthly);
+    if(c) line += "; buying for " + m(c.price) + " in " + safeRegion(c.state) + ", cash needed " + m(c.upfront) + ", left after " + m(c.left) + ", new loan " + m(c.loan) + " at " + m(c.repaymentMonthly) + "/mo, investment interest up " + m(c.extraInterestYearly) + "/yr";
     L.push(line + (s === currentScenario() ? " (current)" : ""));
   });
   if(findings && findings.length){
     L.push("");
     L.push("WHAT THE APP'S OWN RULES FOUND");
-    findings.forEach(function(a){ L.push("- [" + a.kind + "] " + a.title + ": " + a.detail); });
+    var counts = { risk: 0, opportunity: 0, good: 0 };
+    findings.forEach(function(a){ if(Object.prototype.hasOwnProperty.call(counts, a.kind)) counts[a.kind]++; });
+    Object.keys(counts).forEach(function(k){ if(counts[k]) L.push("- " + k + " findings: " + counts[k]); });
   }
-  return scrub(L.join("\n"));
+  return L.join("\n");
 }

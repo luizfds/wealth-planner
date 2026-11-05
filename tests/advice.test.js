@@ -78,7 +78,8 @@ test("the summary sent for a review carries no names, addresses or scenario name
     assert.match(t, /Partner A/);
     assert.match(t, /Investment property 1 \(/);
     assert.match(t, /Scenario 2/);
-    assert.match(t, /FND/);
+    assert.match(t, /Holding 1/);
+    assert.doesNotMatch(t, /FND|TN1|TN2/);
     assert.equal(anonymiser(state)("Fund (Alex) on Loan B"), "FND on Property 1 loan 2");
     // The answer comes back with labels; on this device they read as the household's own names.
     assert.equal(deanonymiser(state)("Partner A should check Scenario 2 and Property 1 loan 2 (Scenario 12 isn't one)."),
@@ -107,4 +108,23 @@ test("the prompt for any AI: how to answer, in the standard layout, then the fig
   assert.match(h, /data-ai-copy>Copy for any AI/);
   assert.match(h, /data-ai-paste/);
   askUi.pasteOpen = false;
+});
+
+test("AI summary excludes arbitrary names, addresses, nested notes, tickers and finding prose", function(){
+  withHousehold(function(){
+    const secret = "PRIVATE_IDENTIFIER_DO_NOT_TRANSMIT";
+    state.shared.push({ id: "x", what: secret, category: secret, classification: secret, amount: 120, freq: "Monthly", notes: secret });
+    state.assets.push({ category: secret, what: secret, symbol: secret, amount: 1234, notes: { nested: secret } });
+    state.properties[0].what = secret;
+    state.properties[0].state = "NSW";
+    state.properties[0].loans[0].what = secret;
+    state.scenarios[1] = secret;
+    state.purchase[secret] = state.purchase["Buy Example Town"];
+    state.home[secret] = [];
+    const output = householdSummary([{ kind: "risk", title: secret, detail: secret, notes: { nested: secret } }], { today: "2026-10-20" });
+    assert.ok(!output.includes(secret), "no arbitrary user-entered string is transmitted");
+    assert.match(output, /Partner A/);
+    assert.match(output, /Scenario 2/);
+    assert.match(output, /risk findings: 1/);
+  });
 });

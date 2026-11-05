@@ -1,6 +1,6 @@
 import { state } from "../state.js";
 import { computeNetWorthSeries, currentScenario } from "../calc/engine.js";
-import { projectionBands, correlatedShockSeries } from "../calc/outcomes.js";
+import { projectionBands, correlatedShockSeries, cashFlowStressSeries } from "../calc/outcomes.js";
 import { eventMarkers } from "../calc/lifeevents.js";
 import { fireSettings } from "../calc/fire.js";
 import { fmtCurrency0, fmtCompact, localDateStr } from "../lib/format.js";
@@ -36,7 +36,7 @@ export function projSourceHtml(a, source){
     '</div><span class="proj-basis-note">' + escapeAttr(note) + '</span>';
 }
 
-export var projectionStress = { enabled: false, investLossPct: 25, propertyLossPct: 12, duration: 2 };
+export var projectionStress = { enabled: false, investLossPct: 25, propertyLossPct: 12, duration: 2 };\nexport var cashStress = { enabled: false, lostIncomeMonthly: 0, vacancyCostMonthly: 0, maintenanceCost: 0, duration: 1 };
 export function projectionStressHtml(){
   var v = projectionStress;
   return '<div class="proj-stress-controls" role="group" aria-label="Illustrative correlated downturn">' +
@@ -44,7 +44,7 @@ export function projectionStressHtml(){
     '<label>Shares loss (%) <input type="number" min="0" max="99" step="1" data-proj-stress-invest value="' + v.investLossPct + '"></label> ' +
     '<label>Property loss (%) <input type="number" min="0" max="99" step="1" data-proj-stress-property value="' + v.propertyLossPct + '"></label> ' +
     '<label>Years <input type="number" min="1" max="10" step="1" data-proj-stress-years value="' + v.duration + '"></label>' +
-    '<p class="ledger-note">Illustrative simultaneous losses, not a prediction. Monte Carlo bands assume independent returns and do not model job loss, vacancy or unexpected repairs.</p></div>';
+    '<p class="ledger-note">Illustrative simultaneous losses, not a prediction. Monte Carlo bands assume independent annual returns.</p></div>' +\n    '<div class="proj-stress-controls" role="group" aria-label="Illustrative cash flow shocks">' +\n    '<label><input type="checkbox" data-proj-cash-enabled' + (cashStress.enabled ? ' checked' : '') + '> Show cash-flow shock</label> ' +\n    '<label>Lost monthly income ($) <input type="number" min="0" step="100" data-proj-cash-income value="' + cashStress.lostIncomeMonthly + '"></label> ' +\n    '<label>Monthly vacancy shortfall ($) <input type="number" min="0" step="100" data-proj-cash-vacancy value="' + cashStress.vacancyCostMonthly + '"></label> ' +\n    '<label>One-off repairs ($) <input type="number" min="0" step="500" data-proj-cash-maintenance value="' + cashStress.maintenanceCost + '"></label> ' +\n    '<label>Years <input type="number" min="1" max="10" step="1" data-proj-cash-years value="' + cashStress.duration + '"></label>' +\n    '<p class="ledger-note">Estimated net cash impacts starting in year 1. Repairs are charged once; income loss and vacancy costs recur during selected years. This is not a prediction or tax calculation.</p></div>';
 }
 // Kept for the CSV button, which downloads exactly what's on screen.
 var lastSeries = [];
@@ -133,6 +133,14 @@ export function renderProjectionOutputs(){
       duration: projectionStress.duration, realTerms: realTerms
     });
     series.push({ label: active + " — correlated downturn (illustrative)", colorClass: "series-color-" + ((idx + 1) % 8), dashed: true, points: stressPts });
+  }
+  if(!whatIf && cashStress.enabled && state.scenarios.length){
+    var chosen = state.scenarios.includes(state.activeScenario) ? state.activeScenario : currentScenario();
+    var cashPoints = cashFlowStressSeries(chosen, horizon, {
+      lostIncomeMonthly: cashStress.lostIncomeMonthly, vacancyCostMonthly: cashStress.vacancyCostMonthly,
+      maintenanceCost: cashStress.maintenanceCost, duration: cashStress.duration, realTerms: realTerms
+    });
+    series.push({ label: chosen + " — cash-flow shock (illustrative)", colorClass: "series-color-" + ((state.scenarios.indexOf(chosen) + 2) % 8), dashed: true, points: cashPoints });
   }
   lastSeries = series;
   // v3.125.0: the range around one scenario — the one being looked at — from runs with uneven returns.
@@ -258,14 +266,14 @@ export function projectionMilestonesHtml(series, realTerms){
 if(typeof document !== "undefined"){
   document.addEventListener("change", function(e){
     var el = e.target;
-    if(!el || !el.matches || !el.matches("[data-proj-stress-enabled], [data-proj-stress-invest], [data-proj-stress-property], [data-proj-stress-years]")) return;
+    if(!el || !el.matches || !el.matches("[data-proj-stress-enabled], [data-proj-stress-invest], [data-proj-stress-property], [data-proj-stress-years], [data-proj-cash-enabled], [data-proj-cash-income], [data-proj-cash-vacancy], [data-proj-cash-maintenance], [data-proj-cash-years]")) return;
     if(el.matches("[data-proj-stress-enabled]")) projectionStress.enabled = !!el.checked;
     else {
       var n = Number(el.value);
       if(!Number.isFinite(n)) return;
       if(el.matches("[data-proj-stress-invest]")) projectionStress.investLossPct = Math.min(99, Math.max(0, n));
       if(el.matches("[data-proj-stress-property]")) projectionStress.propertyLossPct = Math.min(99, Math.max(0, n));
-      if(el.matches("[data-proj-stress-years]")) projectionStress.duration = Math.min(10, Math.max(1, Math.round(n)));
+      if(el.matches("[data-proj-stress-years]")) projectionStress.duration = Math.min(10, Math.max(1, Math.round(n)));\n      if(el.matches("[data-proj-cash-income]")) cashStress.lostIncomeMonthly = Math.min(1e9, Math.max(0, n));\n      if(el.matches("[data-proj-cash-vacancy]")) cashStress.vacancyCostMonthly = Math.min(1e9, Math.max(0, n));\n      if(el.matches("[data-proj-cash-maintenance]")) cashStress.maintenanceCost = Math.min(1e9, Math.max(0, n));\n      if(el.matches("[data-proj-cash-years]")) cashStress.duration = Math.min(10, Math.max(1, Math.round(n)));
     }
     renderProjectionOutputs();
   });

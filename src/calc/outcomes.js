@@ -146,3 +146,24 @@ export function correlatedShockPaths(horizon, opts){
 export function correlatedShockSeries(scenario, horizon, opts){
   return computeNetWorthSeries(scenario, horizon, Object.assign({ realTerms: opts && opts.realTerms }, correlatedShockPaths(horizon, opts)));
 }
+
+export function cashFlowStressOptions(opts){
+  opts = opts || {};
+  var fields = ["startYear", "duration", "lostIncomeMonthly", "vacancyCostMonthly", "maintenanceCost"];
+  var defaults = [1, 1, 0, 0, 0];
+  var result = {};
+  fields.forEach(function(k, i){
+    var n = opts[k] == null ? defaults[i] : Number(opts[k]);
+    if(!Number.isFinite(n) || n < (i < 2 ? 1 : 0) || (i < 2 && !Number.isInteger(n)) ||
+       (i < 2 && n > 150) || (i >= 2 && n > 1e9)) throw new RangeError("Invalid cash-flow stress: " + k);
+    result[k] = n;
+  });
+  return result;
+}
+export function cashFlowStressSeries(scenario, horizon, opts){
+  opts = opts || {};
+  return computeNetWorthSeries(scenario, horizon, {
+    realTerms: opts.realTerms,
+    cashFlowStress: cashFlowStressOptions(opts)
+  });
+}

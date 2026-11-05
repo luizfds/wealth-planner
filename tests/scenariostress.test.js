@@ -239,3 +239,25 @@ test("scenario comparison warns about stale, missing, unclassified and unfunded 
   assert.deepEqual(scenarioComparisonDataNotes([], 0, true, true), []);
   assert.equal(scenarioComparisonDataNotesHtml([]), "");
 });
+
+test("scenario comparison projects net worth on a common horizon without treating missing data as zero", async () => {
+  const { scenarioTradeoffRows, scenarioTradeoffHtml } = await import("../src/components/dashboard.js");
+  const totals = {
+    Rent: { regularNetMonthly: 1200, homeMonthly: 2000, expensesMonthly: 3500, cashOut: 0 },
+    Buy: { regularNetMonthly: 200, homeMonthly: 3600, expensesMonthly: 5100, cashOut: 50000, draw: { short: 0 } }
+  };
+  const values = { Rent: 450000, Buy: 520000 };
+  const rows = scenarioTradeoffRows(["Rent", "Buy"], name => totals[name], "Rent", null, name => values[name]);
+  assert.equal(rows[0].projectedNetWorth, 450000);
+  assert.equal(rows[1].projectedNetWorth, 520000);
+  const html = scenarioTradeoffHtml(rows, "Rent", [], 10);
+  assert.match(html, /Projected net worth \(10 yr\)/);
+  assert.match(html, /\$450,000/);
+  assert.match(html, /\$520,000/);
+  assert.match(html, /not a guaranteed outcome/);
+  const missing = scenarioTradeoffRows(["Rent", "Buy"], name => totals[name], "Rent", null,
+    name => name === "Buy" ? null : 450000);
+  assert.equal(missing[1].projectedNetWorth, null);
+  assert.doesNotMatch(scenarioTradeoffHtml(missing, "Rent", [], 10), /Projected net worth \(10 yr\)/);
+  assert.doesNotMatch(scenarioTradeoffHtml(rows, "Rent", [], undefined), /Projected net worth/);
+});

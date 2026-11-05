@@ -17,7 +17,8 @@ import { renderHealth } from "./health.js";
 import { renderDashboardStats, savingsWhyOpen, setSavingsWhyOpen } from "./dashboard.js";
 import { renderHomeSummary, weekView } from "./home.js";
 import { renderMonthReview, stepReviewMonth, reviewMonthShown, setReviewMonth, setReviewStep, dismissReviewIntro } from "./monthreview.js";
-import { showPage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage } from "./nav.js";
+import { showPage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage } from "./nav.js";
+import { renderGoalsTab } from "./accountswiring.js";
 import { chooseScenario, withUndo } from "./redraw.js";
 import { renameScenario, cloneScenario, deleteScenario, renderHomeBody, homeBlockCollapsed } from "./scenarios.js";
 import { openTxReview } from "./spendingwiring.js";
@@ -287,6 +288,8 @@ export function wireHomeSummary(){
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
+    // Savings goals live on Plan → Goals, drawn when its tab opens (as planwiring's own links do).
+    if(go === "plan" && sub === "goals"){ showPage("plan"); showPlanSubpage("goals", { replace: true }); renderGoalsTab(); return; }
     if(go === "settings"){ showAccountsSubpage(sub || "categories"); if(sub === "checks") renderHealth(); if(sub === "people") renderPeopleTab(); return; }
     if(go === "tax"){ if(fy) setTaxYearSelected(fy); showPage("tax"); showTaxSubpage(sub || "returns", { replace: true }); renderTaxYear(); return; }
     showPage(go);

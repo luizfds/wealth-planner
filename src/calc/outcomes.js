@@ -34,7 +34,7 @@ function normal(rng){ var u = 0, v = 0; while(u === 0) u = rng(); while(v === 0)
 // `years` yearly returns averaging `mean` with standard deviation `vol` (both as fractions).
 // index 0 is left undefined so path[year] lines up with the projection's year numbers.
 export function returnPath(rng, years, mean, vol, fromZero){
-  if(!Number.isInteger(years) || years < 0 || years > 150 || !Number.isFinite(mean) || mean <= -1 || !Number.isFinite(vol) || vol < 0 || vol > 5) throw new RangeError("Invalid return-path assumptions");
+  if(!Number.isInteger(years) || years < 0 || years > 100000 || !Number.isFinite(mean) || mean <= -1 || !Number.isFinite(vol) || vol < 0 || vol > 5) throw new RangeError("Invalid return-path assumptions");
   var g = 1 + mean;
   var s2 = Math.log(1 + (vol * vol) / (g * g)), mu = Math.log(g) - s2 / 2, s = Math.sqrt(s2);
   var out = [];
@@ -145,4 +145,25 @@ export function correlatedShockPaths(horizon, opts){
 }
 export function correlatedShockSeries(scenario, horizon, opts){
   return computeNetWorthSeries(scenario, horizon, Object.assign({ realTerms: opts && opts.realTerms }, correlatedShockPaths(horizon, opts)));
+}
+
+export function cashFlowStressOptions(opts){
+  opts = opts || {};
+  var fields = ["startYear", "duration", "lostIncomeMonthly", "vacancyCostMonthly", "maintenanceCost"];
+  var defaults = [1, 1, 0, 0, 0];
+  var result = {};
+  fields.forEach(function(k, i){
+    var n = opts[k] == null ? defaults[i] : Number(opts[k]);
+    if(!Number.isFinite(n) || n < (i < 2 ? 1 : 0) || (i < 2 && !Number.isInteger(n)) ||
+       (i < 2 && n > 150) || (i >= 2 && n > 1e9)) throw new RangeError("Invalid cash-flow stress: " + k);
+    result[k] = n;
+  });
+  return result;
+}
+export function cashFlowStressSeries(scenario, horizon, opts){
+  opts = opts || {};
+  return computeNetWorthSeries(scenario, horizon, {
+    realTerms: opts.realTerms,
+    cashFlowStress: cashFlowStressOptions(opts)
+  });
 }

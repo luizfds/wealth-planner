@@ -397,9 +397,21 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
       var incomeThisYear = (yc.income + (ratios.incomeDelta || 0)) * Math.pow(1 + incomeGrowthRate, year);
       // v3.177.0: retired — pay stops, and living costs come out of what's been saved.
       if(retireYear && year >= retireYear) incomeThisYear = 0;
+      // Explicit cash-flow stress overlays are caller-owned; the saved plan is unchanged.
+      // Lost income and rent shortfall are net monthly cash impacts; maintenance is a one-off.
+      var stress = opts && opts.cashFlowStress;
+      var stressedYear = stress && year >= stress.startYear && year < stress.startYear + stress.duration;
+      if(stressedYear){
+        incomeThisYear = Math.max(0, incomeThisYear - stress.lostIncomeMonthly);
+        inflatableThisYear += stress.vacancyCostMonthly;
+      }
       if(investPath && investPath[year] != null) monthlyInvestRate = Math.pow(1 + investPath[year], 1 / 12) - 1;
       var ev = events.length ? eventEffects(events, year, thisYear) : null;
       var savingsThisYear = incomeThisYear - fixedMonthly - repaymentMonthly * owned - inflatableThisYear - (ev ? ev.yearly / 12 * Math.pow(1 + inflationRate, year) : 0);
+      if(stressedYear && year === stress.startYear){
+        portfolio -= stress.maintenanceCost;
+        cashTrack -= stress.maintenanceCost;
+      }
       if(year === buyYear){ portfolio -= upfrontLater; cashTrack -= upfrontLater; }
       if(ev && ev.lump){ portfolio += ev.lump * Math.pow(1 + inflationRate, year); cashTrack += ev.lump * Math.pow(1 + inflationRate, year); }
       // v3.173.0: the scenario's own changes — rent elsewhere, an investment property, a cost, a sale.

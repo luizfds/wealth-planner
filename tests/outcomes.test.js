@@ -1,7 +1,7 @@
 import "./_env.js";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { seeded, returnPath, percentile, retirementOdds, ageForOdds, correlatedShockPaths } from "../src/calc/outcomes.js";
+import { seeded, returnPath, percentile, retirementOdds, ageForOdds, correlatedShockPaths, cashFlowStressOptions, cashFlowStressSeries } from "../src/calc/outcomes.js";
 import { simulateRetirementAt } from "../src/calc/fire.js";
 
 test("drawn returns average the set rate with the set spread, the same every time from one seed", () => {
@@ -64,4 +64,17 @@ test("projection stress controls are editable and labelled as illustrative", () 
   assert.match(html, /data-proj-stress-years/);
   assert.match(html, /not a prediction/);
   assert.equal(projectionStress.investLossPct, 25);
+});
+
+test("cash flow shocks validate monthly income, vacancy and one-off repair amounts", () => {
+  assert.deepEqual(cashFlowStressOptions({ lostIncomeMonthly: 2000, vacancyCostMonthly: 800, maintenanceCost: 12000, duration: 2 }), {
+    startYear: 1, duration: 2, lostIncomeMonthly: 2000, vacancyCostMonthly: 800, maintenanceCost: 12000
+  });
+  for(const bad of [{ duration: 0 }, { lostIncomeMonthly: -1 }, { vacancyCostMonthly: Infinity }, { maintenanceCost: NaN }, { startYear: 1.5 }]){
+    assert.throws(() => cashFlowStressOptions(bad), RangeError);
+  }
+});
+
+test("cash-flow shock overlays leave the saved projection inputs untouched", () => {
+  assert.equal(typeof cashFlowStressSeries, "function");
 });

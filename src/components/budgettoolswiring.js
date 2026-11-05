@@ -14,7 +14,7 @@ import { fmtCurrency0, fmtCurrency2, localDateStr } from "../lib/format.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { state, persist, genId } from "../state.js";
 import { renderAdvice, adviceUi } from "./advice.js";
-import { askUi, setAiKey, setAiModel, askClaude, setLastReview, copyPrompt } from "./askclaude.js";
+import { askUi, setAiKey, setAiModel, askClaude, setLastReview, copyPrompt, askBody } from "./askclaude.js";
 import { budgetFromHistoryHtml, historyBudgetUi } from "./budgethistory.js";
 import { loggableBudgetLineItems, budgetLineItems } from "./expenses.js";
 import { taxUi } from "./income.js";
@@ -128,7 +128,7 @@ export function wireAdvice(){
       if(askUi.busy) return;
       var q = askUi.question.trim();
       var summary = householdSummary(adviceFor({ today: localDateStr() }), { today: localDateStr() });
-      var payload = copyPrompt(summary, q);
+      var payload = JSON.stringify(askBody(summary, q), null, 2);
       if(!askUi.approvalPending || askUi.preview !== payload){
         askUi.preview = payload; askUi.approvalPending = true; renderAdvice();
         showToast("Review the data preview, then press Confirm & send to Claude");

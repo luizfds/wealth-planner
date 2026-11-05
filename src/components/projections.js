@@ -1,6 +1,6 @@
 import { state } from "../state.js";
 import { computeNetWorthSeries, currentScenario } from "../calc/engine.js";
-import { projectionBands } from "../calc/outcomes.js";
+import { projectionBands, correlatedShockSeries } from "../calc/outcomes.js";
 import { eventMarkers } from "../calc/lifeevents.js";
 import { fireSettings } from "../calc/fire.js";
 import { fmtCurrency0, fmtCompact, localDateStr } from "../lib/format.js";
@@ -36,6 +36,16 @@ export function projSourceHtml(a, source){
     '</div><span class="proj-basis-note">' + escapeAttr(note) + '</span>';
 }
 
+export var projectionStress = { enabled: false, investLossPct: 25, propertyLossPct: 12, duration: 2 };
+export function projectionStressHtml(){
+  var v = projectionStress;
+  return '<div class="proj-stress-controls" role="group" aria-label="Illustrative correlated downturn">' +
+    '<label><input type="checkbox" data-proj-stress-enabled' + (v.enabled ? ' checked' : '') + '> Show correlated downturn</label> ' +
+    '<label>Shares loss (%) <input type="number" min="0" max="99" step="1" data-proj-stress-invest value="' + v.investLossPct + '"></label> ' +
+    '<label>Property loss (%) <input type="number" min="0" max="99" step="1" data-proj-stress-property value="' + v.propertyLossPct + '"></label> ' +
+    '<label>Years <input type="number" min="1" max="10" step="1" data-proj-stress-years value="' + v.duration + '"></label>' +
+    '<p class="ledger-note">Illustrative simultaneous losses, not a prediction. Monte Carlo bands assume independent returns and do not model job loss, vacancy or unexpected repairs.</p></div>';
+}
 // Kept for the CSV button, which downloads exactly what's on screen.
 var lastSeries = [];
 export function projectionSeriesShown(){ return lastSeries; }
@@ -115,6 +125,15 @@ export function renderProjectionOutputs(){
     };
   });
 
+  if(!whatIf && projectionStress.enabled && state.scenarios.length){
+    var active = state.scenarios.includes(state.activeScenario) ? state.activeScenario : currentScenario();
+    var idx = state.scenarios.indexOf(active);
+    var stressPts = correlatedShockSeries(active, horizon, {
+      investLoss: -projectionStress.investLossPct / 100, propertyLoss: -projectionStress.propertyLossPct / 100,
+      duration: projectionStress.duration, realTerms: realTerms
+    });
+    series.push({ label: active + " — correlated downturn (illustrative)", colorClass: "series-color-" + ((idx + 1) % 8), dashed: true, points: stressPts });
+  }
   lastSeries = series;
   // v3.125.0: the range around one scenario — the one being looked at — from runs with uneven returns.
   var bandScenario = state.scenarios.indexOf(state.activeScenario) !== -1 ? state.activeScenario : currentScenario();
@@ -162,6 +181,9 @@ export function renderProjectionOutputs(){
   // changes — which it always does once, because the first render happens while the page is hidden —
   // and a redraw empties the container, so the milestone table appended beside it vanished.
   container.innerHTML = "";
+  var stressPanel = document.createElement("div");
+  stressPanel.innerHTML = projectionStressHtml();
+  container.appendChild(stressPanel);
   var chartHost = document.createElement("div");
   container.appendChild(chartHost);
   lastChartHost = chartHost;
@@ -231,4 +253,20 @@ export function projectionMilestonesHtml(series, realTerms){
   return '<h3 class="proj-ms-title">Milestones <span>— first year net worth reaches each amount, ' + (realTerms ? "today's" : "future") + ' dollars</span></h3>' +
     '<div class="proj-ms-table" style="--ms-cols:' + amounts.length + '">' + head + rows + '</div>' +
     (changeText ? '<p class="ledger-note" style="margin:8px 0 0">' + changeText + '</p>' : '');
+}
+
+if(typeof document !== "undefined"){
+  document.addEventListener("change", function(e){
+    var el = e.target;
+    if(!el || !el.matches || !el.matches("[data-proj-stress-enabled], [data-proj-stress-invest], [data-proj-stress-property], [data-proj-stress-years]")) return;
+    if(el.matches("[data-proj-stress-enabled]")) projectionStress.enabled = !!el.checked;
+    else {
+      var n = Number(el.value);
+      if(!Number.isFinite(n)) return;
+      if(el.matches("[data-proj-stress-invest]")) projectionStress.investLossPct = Math.min(99, Math.max(0, n));
+      if(el.matches("[data-proj-stress-property]")) projectionStress.propertyLossPct = Math.min(99, Math.max(0, n));
+      if(el.matches("[data-proj-stress-years]")) projectionStress.duration = Math.min(10, Math.max(1, Math.round(n)));
+    }
+    renderProjectionOutputs();
+  });
 }

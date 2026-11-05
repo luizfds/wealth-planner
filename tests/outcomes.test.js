@@ -78,3 +78,14 @@ test("cash flow shocks validate monthly income, vacancy and one-off repair amoun
 test("cash-flow shock overlays leave the saved projection inputs untouched", () => {
   assert.equal(typeof cashFlowStressSeries, "function");
 });
+
+test("illustrative stress lines are excluded from scenario ranking but preserved in charts", async () => {
+  const { scenarioComparisonSeries } = await import("../src/components/projections.js");
+  const normal = { label: "Plan", points: [{ x: 0, y: 100 }] };
+  const crash = { label: "Plan — crash", illustrativeStress: true, points: [{ x: 0, y: 50 }] };
+  const jobLoss = { label: "Plan — income loss", illustrativeStress: true, points: [{ x: 0, y: 80 }] };
+  const series = [normal, crash, jobLoss];
+  assert.deepEqual(scenarioComparisonSeries(series), [normal]);
+  assert.equal(series.length, 3);
+  assert.deepEqual(scenarioComparisonSeries([{ label: "Saved" }, { label: "What if" }]).map(x => x.label), ["Saved", "What if"]);
+});

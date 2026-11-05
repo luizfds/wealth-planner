@@ -44,7 +44,7 @@ function loggedByLine(transactions, today){
   return { byLine: out, months: months };
 }
 
-export function isEssential(line){ return !!line && line.classification === "Needs"; }
+export function isEssential(line){ return !!line && line.classification !== "Wants"; }
 
 // { lines: [{what, category, planned, actual, counted}], groups: [{category, monthly}], monthly,
 //   plannedMonthly, ipShortfall, months, target, available, coveredMonths, perPerson: [...] }
@@ -56,6 +56,7 @@ export function emergencyFund(opts){
   var logged = loggedByLine(state.transactions, today);
   var useActual = logged.months >= 6;
   var lines = [];
+  var unclassified = [];
   function add(item, category, amount){
     var planned = periodsOf(amount, item.freq).monthly;
     var actual = useActual && item.id && logged.byLine[item.id] != null ? logged.byLine[item.id] / Math.max(1, logged.months) : null;
@@ -65,11 +66,13 @@ export function emergencyFund(opts){
   }
   (state.shared || []).forEach(function(i){
     if(i.computed || !isEssential(i) || !isActiveOn(i, today)) return;
+    if(!i.classification) unclassified.push(i.what || "Unnamed expense");
     add(i, i.category, resolveSharedAmount(i, scenario));
   });
   // The home you live in: rent or the home loan, rates, insurance. Essential unless marked Wants.
   ((state.home || {})[scenario] || []).forEach(function(i){
     if(i.classification === "Wants" || !isActiveOn(i, today)) return;
+    if(!i.classification) unclassified.push(i.what || "Unnamed housing expense");
     add(i, i.category || "Housing", i.amount);
   });
   // An investment property keeps its rent through a job loss; what it costs beyond that rent
@@ -100,7 +103,7 @@ export function emergencyFund(opts){
       lastsMonths: draw > 0 ? available / draw : null };
   }) : [];
   return {
-    months: months, lines: lines.sort(function(a, b){ return b.counted - a.counted; }),
+    months: months, unclassified: unclassified, lines: lines.sort(function(a, b){ return b.counted - a.counted; }),
     groups: Object.keys(groups).map(function(k){ return { category: k, monthly: r0(groups[k]) }; }).sort(function(a, b){ return b.monthly - a.monthly; }),
     monthly: r0(monthly), plannedMonthly: r0(plannedMonthly), usedActual: useActual, ipShortfall: r0(ipShortfall),
     target: r0(monthly * months), targets: EMERGENCY_MONTHS.map(function(m){ return { months: m, target: r0(monthly * m) }; }),

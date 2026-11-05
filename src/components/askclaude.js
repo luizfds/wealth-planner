@@ -4,7 +4,7 @@ import { deanonymiser } from "../calc/aisummary.js";
 // ---------------- Ask Claude (v3.98.0) ----------------
 //
 // An optional written review from Claude, using the person's own Anthropic API key. The key lives
-// in this browser's localStorage only — never in state, so never in a backup or a synced file — and
+// in sessionStorage only (cleared when the browser session ends), never in a backup — and
 // nothing is sent until "Ask Claude" is pressed. What's sent is calc/aisummary.js's summary, with
 // names, places and account names already swapped for labels; "Preview" shows it word for word.
 var KEY = "wealthPlanner.anthropicKey", MODEL = "wealthPlanner.anthropicModel", LAST = "wealthPlanner.lastClaudeReview";
@@ -14,8 +14,12 @@ export var MODELS = [
   { id: "claude-haiku-5-5", label: "Haiku 5.5 — quickest, cheapest" }
 ];
 function ls(){ try { return window.localStorage; } catch(e){ return null; } }
-export function aiKey(){ var s = ls(); try { return (s && s.getItem(KEY)) || ""; } catch(e){ return ""; } }
-export function setAiKey(v){ var s = ls(); try { if(!s) return; if(v) s.setItem(KEY, v); else s.removeItem(KEY); } catch(e){} }
+function ss(){ try { return window.sessionStorage; } catch(e){ return null; } }
+// Existing persistent keys are removed rather than silently migrated to another storage lifetime.
+// Users who previously saved a key must enter it again for the current browser session.
+function clearLegacyKey(){ var s = ls(); try { if(s) s.removeItem(KEY); } catch(e){} }
+export function aiKey(){ clearLegacyKey(); var s = ss(); try { return (s && s.getItem(KEY)) || ""; } catch(e){ return ""; } }
+export function setAiKey(v){ clearLegacyKey(); var s = ss(); try { if(!s) return; if(v) s.setItem(KEY, v); else s.removeItem(KEY); } catch(e){} }
 export function aiModel(){ var s = ls(), v = ""; try { v = (s && s.getItem(MODEL)) || ""; } catch(e){} return MODELS.some(function(x){ return x.id === v; }) ? v : MODELS[0].id; }
 export function setAiModel(v){ var s = ls(); try { if(s) s.setItem(MODEL, v); } catch(e){} }
 export function lastReview(){ var s = ls(); try { var r = s && s.getItem(LAST); return r ? JSON.parse(r) : null; } catch(e){ return null; } }
@@ -108,8 +112,8 @@ export function askClaudeHtml(){
         '<button type="button" class="btn btn-sm btn-primary" data-ai-ask' + (askUi.busy ? ' disabled' : '') + '>' + (askUi.busy ? 'Thinking…' : 'Ask Claude') + '</button>' +
         '<button type="button" class="link-btn ai-forget" data-ai-forget>Forget key</button></div></div>'
     : '<details class="ai-claude"><summary>Or ask Claude directly, with an API key</summary>' +
-        '<p class="ledger-note">Sends the same summary to Anthropic when you press Ask, and shows the answer here — no copying. It needs an Anthropic API key (console.anthropic.com); each review costs a few cents on your account. The key stays in this browser only — it\'s never in a backup.</p>' +
-        '<div class="ai-key"><input type="password" autocomplete="off" placeholder="sk-ant-…" data-ai-key aria-label="Anthropic API key"><button type="button" class="btn btn-sm" data-ai-save-key>Save key</button></div></details>';
+        '<p class="ledger-note">Sends the same summary to Anthropic when you press Ask, and shows the answer here — no copying. It needs an Anthropic API key (console.anthropic.com); each review costs a few cents on your account. The key is kept for this browser session only, not in a backup. You may need to enter it again after closing the browser.</p>' +
+        '<div class="ai-key"><input type="password" autocomplete="off" placeholder="sk-ant-…" data-ai-key aria-label="Anthropic API key"><button type="button" class="btn btn-sm" data-ai-save-key>Use key for this session</button></div></details>';
   return '<div class="ai-box" id="askClaudeBox"><div class="ai-head"><b>A written review from an AI</b><span>optional · nothing is sent unless you choose to</span></div>' +
     q + anyAi + claude +
     (askUi.preview ? '<details class="ai-preview" open><summary>Exactly what would be copied or sent</summary><pre>' + escapeAttr(askUi.preview) + '</pre></details>' : '') +

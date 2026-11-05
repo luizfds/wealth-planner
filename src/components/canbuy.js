@@ -11,6 +11,7 @@ export function renderCanBuy(){
   el.innerHTML = canBuyHtml(canBuyAll());
 }
 function money(n){ return fmtCurrency0.format(Math.round(n)); }
+function months(n){ return n == null || !Number.isFinite(n) ? "—" : (Math.round(n * 10) / 10) + " mo"; }
 export function canBuyHtml(list){
   if(!list.length) return '<p class="ledger-note" style="margin:0">Turn on the purchase calculator in a scenario below and this shows whether the cash is there, where it would come from, and what taking it costs.</p>';
   var now = (state.scenarios || []).filter(function(s){ return !(state.purchase[s] && state.purchase[s].enabled); })[0];
@@ -30,7 +31,9 @@ export function canBuyHtml(list){
     var delta = c.regularNetMonthly - (nowNet != null ? nowNet : c.regularNetMonthly);
     return '<div class="cb-card' + (ok ? '' : ' short') + '">' +
       '<div class="cb-title"><b>' + escapeAttr(c.scenario) + '</b><span>' + money(c.price) + (c.state ? ' · ' + escapeAttr(c.state) : '') + '</span></div>' +
-      '<div class="cb-verdict ' + (ok ? 'ok' : 'no') + '">' + (ok ? 'The cash is there — ' + money(c.left) + ' left after settlement' + (c.bufferMonths >= 0.5 ? ' (about ' + Math.round(c.bufferMonths) + ' month' + (Math.round(c.bufferMonths) === 1 ? '' : 's') + ' of costs)' : '') : money(c.short) + ' short of the cash needed') + '</div>' +
+      '<div class="cb-verdict ' + (ok ? 'ok' : 'no') + '">' + (ok ? 'The cash is there — ' + money(c.left) + ' left after settlement' : money(c.short) + ' short of the cash needed') + '</div>' +
+      '<div class="cb-row"><span>Runway after settlement — essential costs</span><b>' + months(c.essentialsBufferMonths) + '</b></div>' +
+      '<div class="cb-row cb-sub"><span>Runway after settlement — all costs</span><b>' + months(c.bufferMonths) + '</b></div>' +
       '<div class="cb-row"><span>Cash needed at settlement</span><b>' + money(c.upfront) + '</b></div>' +
       '<div class="cb-row cb-sub"><span>deposit ' + money(c.deposit) + ' · stamp duty ' + (c.stampDuty == null ? 'entered by hand' : money(c.stampDuty)) + (c.lmi > 0 ? ' · LMI ' + money(c.lmi) + (c.lmiCapitalized ? ' (added to the loan)' : '') : '') + '</span></div>' +
       (drawn ? '<div class="cb-from">Taken from<ul>' + drawn + '</ul></div>' : '') +

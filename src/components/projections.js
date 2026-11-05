@@ -36,7 +36,8 @@ export function projSourceHtml(a, source){
     '</div><span class="proj-basis-note">' + escapeAttr(note) + '</span>';
 }
 
-export var projectionStress = { enabled: false, investLossPct: 25, propertyLossPct: 12, duration: 2 };\nexport var cashStress = { enabled: false, lostIncomeMonthly: 0, vacancyCostMonthly: 0, maintenanceCost: 0, duration: 1 };
+export var projectionStress = { enabled: false, investLossPct: 25, propertyLossPct: 12, duration: 2 };
+export var cashStress = { enabled: false, lostIncomeMonthly: 0, vacancyCostMonthly: 0, maintenanceCost: 0, duration: 1 };
 export function projectionStressHtml(){
   var v = projectionStress;
   return '<div class="proj-stress-controls" role="group" aria-label="Illustrative correlated downturn">' +

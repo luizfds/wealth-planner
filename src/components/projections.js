@@ -130,7 +130,7 @@ export function renderProjectionOutputs(){
     var idx = state.scenarios.indexOf(active);
     var stressPts = correlatedShockSeries(active, horizon, {
       investLoss: -projectionStress.investLossPct / 100, propertyLoss: -projectionStress.propertyLossPct / 100,
-      duration: projectionStress.duration
+      duration: projectionStress.duration, realTerms: realTerms
     });
     series.push({ label: active + " — correlated downturn (illustrative)", colorClass: "series-color-" + ((idx + 1) % 8), dashed: true, points: stressPts });
   }

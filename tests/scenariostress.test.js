@@ -146,3 +146,29 @@ test("scenario trade-off comparison uses shared calculation totals and baseline 
   assert.match(html, /Positive cost difference means more spending/);
   assert.equal(scenarioTradeoffHtml([rows[0]], "Rent"), "");
 });
+
+test("scenario comparison shows essential runway from reserve calculator and warns about liquidity limits", async () => {
+  const { scenarioTradeoffRows, scenarioTradeoffHtml } = await import("../src/components/dashboard.js");
+  const totals = {
+    Current: { regularNetMonthly: 1000, homeMonthly: 1500, expensesMonthly: 3200 },
+    Purchase: { regularNetMonthly: -500, homeMonthly: 3500, expensesMonthly: 5200 }
+  };
+  const reserves = {
+    Current: { monthly: 2000, available: 12000, coveredMonths: 6, target: 12000, unclassified: [] },
+    Purchase: { monthly: 4000, available: 12000, coveredMonths: 3, target: 24000, unclassified: ["Housing"] }
+  };
+  const rows = scenarioTradeoffRows(["Current", "Purchase"], name => totals[name], "Current", name => reserves[name]);
+  assert.equal(rows[1].reserve.essentialMonthly, 4000);
+  assert.equal(rows[1].reserve.coveredMonths, 3);
+  assert.equal(rows[1].monthlyDifference, -1500);
+  const html = scenarioTradeoffHtml(rows, "Current");
+  assert.match(html, /Essential runway/);
+  assert.match(html, /6 mo/);
+  assert.match(html, /3 mo/);
+  assert.match(html, /check classifications/);
+  assert.match(html, /not a forecast of cash left after a future purchase/);
+  const missing = scenarioTradeoffRows(["Current", "Purchase"], name => totals[name], "Current",
+    () => ({ monthly: 0, available: 0, coveredMonths: null, target: 0, unclassified: [] }));
+  assert.match(scenarioTradeoffHtml(missing, "Current"), /Essential runway<\/th>/);
+  assert.match(scenarioTradeoffHtml(missing, "Current"), /<td>—<\/td>/);
+});

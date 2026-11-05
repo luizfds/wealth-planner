@@ -16,6 +16,7 @@ import { canBuy } from "./canbuy.js";
 // included. The text is shown to the person before it's sent; this builds it, the component sends
 // it only on their say-so. Pure apart from reading state.
 function m(n){ var v = Math.round(Number(n) || 0); return (v < 0 ? "−$" : "$") + Math.abs(v).toLocaleString("en-AU"); }
+function safeRegion(s){ return ["NSW", "VIC", "QLD", "SA", "WA", "TAS", "ACT", "NT"].includes(s) ? s : "AU"; }
 function pct(n){ return (Math.round(n * 1000) / 10) + "%"; }
 
 // [from, to] pairs, longest first, applied to every line of text that came from the app.
@@ -118,7 +119,7 @@ export function householdSummary(findings, opts){
   ipProperties().forEach(function(p, i){
     var rent = (p.income || []).reduce(function(s, r){ return s + periodsOf(Number(r.amount) || 0, r.freq).yearly; }, 0);
     var costs = (p.expenses || []).reduce(function(s, r){ return s + periodsOf(Number(r.amount) || 0, r.freq).yearly; }, 0);
-    L.push("- Investment property " + (i + 1) + " (" + (p.state || "AU") + "): value " + m(p.value) + ", bought " + m(p.purchasePrice) + (p.purchaseDate ? " in " + p.purchaseDate.slice(0, 4) : "") + ", rent " + m(rent) + "/yr, costs " + m(costs) + "/yr");
+    L.push("- Investment property " + (i + 1) + " (" + safeRegion(p.state) + "): value " + m(p.value) + ", bought " + m(p.purchasePrice) + (p.purchaseDate ? " in " + p.purchaseDate.slice(0, 4) : "") + ", rent " + m(rent) + "/yr, costs " + m(costs) + "/yr");
     (p.loans || []).forEach(function(l, j){
       if(loanPaidOut(l)) return;
       L.push("  - Loan " + (j + 1) + ": " + m(l.balance) + " at " + (Number(loanRateOn(l, today) || l.rate) || 0) + "% " + (l.repaymentType === "IO" ? "IO" : "PI") + ", offset " + m(l.offsetBalance) + ", used to invest " + Math.round(loanInvestShare(l) * 100) + "%" +
@@ -133,7 +134,7 @@ export function householdSummary(findings, opts){
     var t = scenarioTotals(s), c = null;
     try { c = canBuy(s); } catch(e){}
     var line = "- Scenario " + (state.scenarios.indexOf(s) + 1) + ": a normal month leaves " + m(t.regularNetMonthly);
-    if(c) line += "; buying for " + m(c.price) + " in " + (c.state || "?") + ", cash needed " + m(c.upfront) + ", left after " + m(c.left) + ", new loan " + m(c.loan) + " at " + m(c.repaymentMonthly) + "/mo, investment interest up " + m(c.extraInterestYearly) + "/yr";
+    if(c) line += "; buying for " + m(c.price) + " in " + safeRegion(c.state) + ", cash needed " + m(c.upfront) + ", left after " + m(c.left) + ", new loan " + m(c.loan) + " at " + m(c.repaymentMonthly) + "/mo, investment interest up " + m(c.extraInterestYearly) + "/yr";
     L.push(line + (s === currentScenario() ? " (current)" : ""));
   });
   if(findings && findings.length){

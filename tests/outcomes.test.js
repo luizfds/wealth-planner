@@ -89,3 +89,12 @@ test("illustrative stress lines are excluded from scenario ranking but preserved
   assert.equal(series.length, 3);
   assert.deepEqual(scenarioComparisonSeries([{ label: "Saved" }, { label: "What if" }]).map(x => x.label), ["Saved", "What if"]);
 });
+
+test("projection disclosure distinguishes seeded bands from deterministic stress paths", () => {
+  const html = projectionStressHtml();
+  assert.match(html, /<details class="proj-stress-disclosure">/);
+  assert.match(html, /300 seeded simulations/);
+  assert.match(html, /does not include job loss, vacancy, repairs or correlated crashes/);
+  assert.match(html, /not forecasts or guarantees/);
+  assert.match(html, /excluded from the saved-plan ranking/);
+});

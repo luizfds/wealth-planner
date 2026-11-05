@@ -47,6 +47,7 @@
   .savings-why-head b{ font-size:var(--fs-md); font-weight:600; }
   .savings-why-note{ margin:6px 0 4px; font-size:var(--fs-sm); color: var(--ink-soft); }
   .savings-why-links{ margin:10px 0 0; font-size:var(--fs-sm); color: var(--ink-soft); }
+  .savings-why-notes{ margin:10px 0 0; padding-left:18px; font-size:var(--fs-sm); color: var(--ink-soft); }
 
   .stale-assets-note{
     display:flex; align-items:flex-start; gap:8px; font-size:var(--fs-xs); color: var(--ink-soft);

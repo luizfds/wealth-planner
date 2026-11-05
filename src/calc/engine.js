@@ -671,11 +671,13 @@ export function scenarioTotals(scenario){
   // cash, then offsets (calc/cashdraw.js, the order "Can we buy?" uses). An offset that's emptied stops saving its
   // loan's interest, and that is money out every month; the tax back on the deductible part comes once a year. The
   // household as it is spends nothing, and a scenario that's only somewhere cheaper to rent spends nothing either.
+  // Item 256: only an interest-only loan's repayment rises with it; a P&I loan's stays the same and pays down slower,
+  // which is said beside the month (slowerPaydownYearly), not taken out of it.
   var cashOut = scenarioCashOut(scenario, legUpfront), draw = null;
   if(cashOut > 0){
     draw = drawFor(cashOut);
     if(draw.extraInterestYearly > 0){
-      expensesMonthly += draw.extraInterestYearly / 12;
+      expensesMonthly += draw.cashInterestYearly / 12;
       incomeMonthly += draw.taxBackYearly / 12;
       oneOffYearly += draw.taxBackYearly;
     }
@@ -688,7 +690,8 @@ export function scenarioTotals(scenario){
     oneOffYearly: oneOffYearly, regularNetMonthly: netMonthly - oneOffYearly / 12,
     rate: incomeMonthly > 0 ? netMonthly / incomeMonthly : 0,
     cashOut: cashOut, draw: draw,
-    drawInterestMonthly: draw ? draw.extraInterestYearly / 12 : 0, drawTaxBackYearly: draw ? draw.taxBackYearly : 0
+    drawInterestMonthly: draw ? draw.cashInterestYearly / 12 : 0, drawTaxBackYearly: draw ? draw.taxBackYearly : 0,
+    drawSlowerPaydownYearly: draw ? draw.slowerPaydownYearly : 0
   };
 }
 // The cash a scenario spends: its home's upfront cost (when it buys one, and isn't the household as it is) and
@@ -727,9 +730,12 @@ export function savingsBreakdown(scenario){
     out.push({ label: (p.what || "Property") + " — loan repayments", monthly: (p.loans || []).reduce(function(s, l){ return s + loanRepaymentMonthly(l); }, 0), go: "property" });
   });
   // Item 248: what taking the cash out of an offset costs, and the tax back on it.
+  // Item 256: an interest-only loan's is money out; a P&I loan's is said as a note — it slows the paydown.
+  var notes = [];
   if(t.draw) t.draw.draws.forEach(function(d){
     if(!(d.interestYearly > 0)) return;
-    out.push({ label: d.name + " — interest on the " + fmtCurrency0.format(d.take) + " taken out", monthly: d.interestYearly / 12, go: "property" });
+    if(d.interestOnly) out.push({ label: d.name + " — interest on the " + fmtCurrency0.format(d.take) + " taken out", monthly: d.interestYearly / 12, go: "property" });
+    else notes.push((d.name.replace(/ offset$/, "") || "The loan") + " pays down about " + fmtCurrency0.format(d.interestYearly) + " a year slower, with " + fmtCurrency0.format(d.take) + " out of its offset — its repayment stays the same.");
   });
   if(t.drawTaxBackYearly > 0) income.push({ label: "Tax back on that interest", monthly: t.drawTaxBackYearly / 12, oneOff: true, go: "property" });
   // Whatever's left is the scenario's own changes (rent elsewhere, a property bought or sold) — none for the
@@ -742,6 +748,6 @@ export function savingsBreakdown(scenario){
   return {
     income: income.map(function(r){ return Object.assign(r, { monthly: round(r.monthly) }); }),
     out: out.filter(function(r){ return Math.abs(r.monthly) >= 0.005; }).map(function(r){ return Object.assign(r, { monthly: round(r.monthly) }); }),
-    regular: t.regularNetMonthly, oneOffMonthly: t.oneOffYearly / 12, average: t.netMonthly
+    regular: t.regularNetMonthly, oneOffMonthly: t.oneOffYearly / 12, average: t.netMonthly, notes: notes
   };
 }

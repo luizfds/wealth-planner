@@ -1546,6 +1546,9 @@ test("the savings breakdown lists each line, a normal month, then the year's ave
   assert.match(html, /Left over a month across the year<\/span><b><\/b><em class="pos">\$4,500/);
   assert.match(html, /data-adv-go="properties"/);
   assert.match(html, /Renting &lt;today>/, "the scenario's name is escaped");
+  // Item 256: a P&I loan paying down slower is said under the lines, not taken out of them.
+  const withNotes = savingsBreakdownHtml({ income: [], out: [], regular: 0, oneOffMonthly: 0, average: 0, notes: ["Loan A pays down about $9,000 a year slower <b>"] }, "Buy");
+  assert.match(withNotes, /<ul class="savings-why-notes"><li>Loan A pays down about \$9,000 a year slower &lt;b><\/li><\/ul>/);
 });
 test("the Budget lists each investment loan's repayment, read-only, with the group's total", async function(){
   const { propertyLoansGroupHtml } = await import("../src/components/expenses.js");

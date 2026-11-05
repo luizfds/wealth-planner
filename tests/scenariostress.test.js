@@ -261,3 +261,24 @@ test("scenario comparison projects net worth on a common horizon without treatin
   assert.doesNotMatch(scenarioTradeoffHtml(missing, "Rent", [], 10), /Projected net worth \(10 yr\)/);
   assert.doesNotMatch(scenarioTradeoffHtml(rows, "Rent", [], undefined), /Projected net worth/);
 });
+
+test("projected net worth differences use the baseline projection at the same horizon", async () => {
+  const { scenarioTradeoffRows, scenarioTradeoffHtml } = await import("../src/components/dashboard.js");
+  const totals = {
+    Rent: { regularNetMonthly: 500, homeMonthly: 1800, expensesMonthly: 3000 },
+    Buy: { regularNetMonthly: -200, homeMonthly: 3400, expensesMonthly: 4600 },
+    Invest: { regularNetMonthly: 100, homeMonthly: 1900, expensesMonthly: 3500 }
+  };
+  const projected = { Rent: 400000, Buy: 470000, Invest: 365000 };
+  const rows = scenarioTradeoffRows(["Buy", "Invest"], name => totals[name], "Rent", null, name => projected[name]);
+  assert.deepEqual(rows.map(r => r.projectedDifference), [70000, -35000]);
+  const html = scenarioTradeoffHtml(rows, "Rent", [], 10);
+  assert.match(html, /Projected difference vs baseline/);
+  assert.match(html, /\+\$70,000/);
+  assert.match(html, /−\$35,000/);
+  assert.match(html, /not with today’s net worth/);
+  const absent = scenarioTradeoffRows(["Buy", "Invest"], name => totals[name], "Rent", null,
+    name => name === "Rent" ? null : projected[name]);
+  assert.deepEqual(absent.map(r => r.projectedDifference), [null, null]);
+  assert.doesNotMatch(scenarioTradeoffHtml(absent, "Rent", [], 10), /Projected difference vs baseline/);
+});

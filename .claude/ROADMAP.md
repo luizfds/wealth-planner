@@ -4708,6 +4708,14 @@ Done: `drawFor` marks each draw `interestOnly` and splits the extra interest int
 the savings breakdown lists an interest-only loan's as a line and a P&I loan's as a note; `rateStress` adds the drawn
 amount only for interest-only loans. "Can we buy?" still states the whole extra interest — it's what the purchase costs.
 
+## 257. `[~]` What a scenario changes each month
+Do: a scenario's page says, against the household as it is, what it adds each month and what goes — each line marked
+fixed (a loan, rates, insurance, a lease), partly fixed (water, energy) or budgeted (maintenance, a new cost), with how
+often it's actually paid — and the net extra spent; how much of a new loan's repayment is principal (kept, as equity)
+and so what owning costs above renting; and what isn't in the month (an offset's loan paying down slower, tax back).
+Its card says the net in one line that opens it. A maintenance figure under 0.5% of the home's value a year is flagged.
+Done when: the lines add up to the difference in the scenario's spending; driven on the page and the card; tested.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

@@ -237,24 +237,29 @@ export function dashboardRiskSignalsHtml(warnings){
   return '<ul class="ledger-note" aria-label="Financial decision risks">' + warnings.map(function(w){ return '<li>' + escapeAttr(w) + '</li>'; }).join("") + '</ul>';
 }
 // Side-by-side scenario trade-offs reuse the same monthly figures as the scenario cards.
-export function scenarioTradeoffRows(scenarios, totalsFn, baseline){
+export function scenarioTradeoffRows(scenarios, totalsFn, baseline, reserveFn){
   var base = totalsFn(baseline);
   return scenarios.map(function(name){
     var t = totalsFn(name);
+    var reserve = reserveFn ? reserveFn(name) : null;
     return { name: name, monthly: regularOf(t), monthlyDifference: regularOf(t) - regularOf(base),
-      homeMonthly: t.homeMonthly, expenseDifference: t.expensesMonthly - base.expensesMonthly };
+      homeMonthly: t.homeMonthly, expenseDifference: t.expensesMonthly - base.expensesMonthly,
+      reserve: reserve ? { essentialMonthly: reserve.monthly, available: reserve.available,
+        coveredMonths: reserve.coveredMonths, target: reserve.target, unclassified: (reserve.unclassified || []).length } : null };
   });
 }
 export function scenarioTradeoffHtml(rows, baseline){
   if(rows.length < 2) return '';
   var money = function(n){ return (n < 0 ? '−' : '+') + fmtCurrency0.format(Math.abs(n)); };
+  var hasReserve = rows.every(function(r){ return !!r.reserve; });
+  var coverage = function(r){ return r.reserve.essentialMonthly > 0 && r.reserve.coveredMonths != null && Number.isFinite(r.reserve.coveredMonths) ? fmtRunway.format(r.reserve.coveredMonths) + ' mo' : '—'; };
   return '<details class="scenario-tradeoffs"><summary>Compare monthly trade-offs</summary>' +
     '<div class="ledger-note" style="overflow-x:auto"><table><caption>Normal-month cash flow and spending, compared with ' + escapeAttr(baseline) + '</caption>' +
-    '<thead><tr><th scope="col">Scenario</th><th scope="col">Net / mo</th><th scope="col">Difference / mo</th><th scope="col">Home / mo</th><th scope="col">Costs difference / mo</th></tr></thead><tbody>' +
+    '<thead><tr><th scope="col">Scenario</th><th scope="col">Net / mo</th><th scope="col">Difference / mo</th><th scope="col">Home / mo</th><th scope="col">Costs difference / mo</th>' + (hasReserve ? '<th scope="col">Essential / mo</th><th scope="col">Cash + offsets</th><th scope="col">Essential runway</th>' : '') + '</tr></thead><tbody>' +
     rows.map(function(r){ return '<tr><th scope="row">' + escapeAttr(r.name) + '</th><td>' + money(r.monthly) +
       '</td><td>' + money(r.monthlyDifference) + '</td><td>' + fmtCurrency0.format(r.homeMonthly) +
-      '</td><td>' + money(r.expenseDifference) + '</td></tr>'; }).join('') +
-    '</tbody></table></div><p class="ledger-note">Differences use the current situation as reference. Positive cost difference means more spending. Normal months exclude one-off income; these are estimates, not guarantees.</p></details>';
+      '</td><td>' + money(r.expenseDifference) + '</td>' + (hasReserve ? '<td>' + fmtCurrency0.format(r.reserve.essentialMonthly) + '</td><td>' + fmtCurrency0.format(r.reserve.available) + '</td><td>' + coverage(r) + (r.reserve.unclassified ? ' (check classifications)' : '') + '</td>' : '') + '</tr>'; }).join('') +
+    '</tbody></table></div><p class="ledger-note">Differences use the current situation as reference. Positive cost difference means more spending. Normal months exclude one-off income. Essential runway uses the current recorded cash and offset balances for every scenario, not a forecast of cash left after a future purchase or investment. A dash means essential spending is missing or zero. These are estimates, not guarantees.</p></details>';
 }
 export function renderDashboardStats(){
   var el = document.getElementById("dashboardStats");
@@ -280,7 +285,7 @@ export function renderDashboardStats(){
   var horizon = Math.max(1, Number(state.projection.horizonYears) || 1);
   var series = computeNetWorthSeries(active, horizon);
   var projected = series[series.length - 1].y;
-  var tradeoffHtml = isComparing ? scenarioTradeoffHtml(scenarioTradeoffRows(state.scenarios, scenarioTotals, state.baselineScenario || active), state.baselineScenario || active) : '';
+  var tradeoffHtml = isComparing ? scenarioTradeoffHtml(scenarioTradeoffRows(state.scenarios, scenarioTotals, state.baselineScenario || active, function(name){ return emergencyFund({ scenario: name }); }), state.baselineScenario || active) : '';
   var lastTile = isComparing
     ? '<div class="stat-tile" data-home-card="scenarios"><span>Scenarios compared</span><b>' + state.scenarios.length + '</b><small>' + state.scenarios.map(escapeAttr).join(", ") + '</small>' + tradeoffHtml + '</div>'
     : '<div class="stat-tile" data-home-card="scenarios"><span>Scenario</span><b>' + escapeAttr(active) + '</b><small>add another in Plan → Scenarios to compare options</small></div>';

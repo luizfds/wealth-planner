@@ -34,6 +34,7 @@ function normal(rng){ var u = 0, v = 0; while(u === 0) u = rng(); while(v === 0)
 // `years` yearly returns averaging `mean` with standard deviation `vol` (both as fractions).
 // index 0 is left undefined so path[year] lines up with the projection's year numbers.
 export function returnPath(rng, years, mean, vol, fromZero){
+  if(!Number.isInteger(years) || years < 0 || years > 150 || !Number.isFinite(mean) || mean <= -1 || !Number.isFinite(vol) || vol < 0 || vol > 5) throw new RangeError("Invalid return-path assumptions");
   var g = 1 + mean;
   var s2 = Math.log(1 + (vol * vol) / (g * g)), mu = Math.log(g) - s2 / 2, s = Math.sqrt(s2);
   var out = [];
@@ -121,4 +122,27 @@ export function badStartSeries(scenario, horizon){
   for(var y = 2; y <= horizon; y++) inv[y] = steady;
   inv[1] = BAD_START.invest; prop[1] = BAD_START.property;
   return computeNetWorthSeries(scenario, horizon, { investReturns: inv, propertyReturns: prop });
+}
+
+// Deterministic, explicitly correlated adverse years. These are illustrative shocks,
+// not probabilities or predictions; the ordinary Monte Carlo bands remain independent.
+export function correlatedShockPaths(horizon, opts){
+  opts = opts || {};
+  if(!Number.isInteger(horizon) || horizon < 1 || horizon > 150) throw new RangeError("Invalid horizon");
+  var start = opts.startYear == null ? 1 : Number(opts.startYear);
+  var duration = opts.duration == null ? 2 : Number(opts.duration);
+  var investLoss = opts.investLoss == null ? -0.25 : Number(opts.investLoss);
+  var propertyLoss = opts.propertyLoss == null ? -0.12 : Number(opts.propertyLoss);
+  if(!Number.isInteger(start) || start < 1 || !Number.isInteger(duration) || duration < 1 ||
+     !Number.isFinite(investLoss) || investLoss <= -1 || !Number.isFinite(propertyLoss) || propertyLoss <= -1)
+    throw new RangeError("Invalid shock assumptions");
+  var invest = [], property = [];
+  for(var y = 1; y <= horizon; y++){
+    invest[y] = y >= start && y < start + duration ? investLoss : undefined;
+    property[y] = y >= start && y < start + duration ? propertyLoss : undefined;
+  }
+  return { investReturns: invest, propertyReturns: property };
+}
+export function correlatedShockSeries(scenario, horizon, opts){
+  return computeNetWorthSeries(scenario, horizon, correlatedShockPaths(horizon, opts));
 }

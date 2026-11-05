@@ -174,7 +174,7 @@ export function cashFlowStressSeries(scenario, horizon, opts){
  */
 export function combinedStressSeries(scenario, horizon, opts){
   opts = opts || {};
-  var market = correlatedShockPaths(horizon, opts);
+  var market = correlatedShockPaths(horizon, Object.assign({}, opts, { duration: opts.marketDuration == null ? opts.duration : opts.marketDuration }));
   return computeNetWorthSeries(scenario, horizon, {
     realTerms: opts.realTerms,
     investReturns: market.investReturns,

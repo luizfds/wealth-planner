@@ -114,3 +114,16 @@ test("on the card: both rate steps, and a place for the break-even", () => {
     assert.doesNotMatch(scenarioSturdinessHtml("Renting", scenarioTotals("Renting")), /data-card-breakeven/);
   });
 });
+
+test("dashboard risk signals flag negative cash flow and inadequate essential reserves", async () => {
+  const { dashboardRiskSignals, dashboardRiskSignalsHtml } = await import("../src/components/dashboard.js");
+  const emergency = { monthly: 3000, available: 2000, target: 18000, months: 6, unclassified: ["Groceries"] };
+  const warnings = dashboardRiskSignals({ regularNetMonthly: -200 }, emergency, false);
+  assert.equal(warnings.length, 3);
+  assert.match(warnings[0], /negative/);
+  assert.match(warnings[1], /6-month target/);
+  assert.match(warnings[2], /classification/);
+  assert.match(dashboardRiskSignalsHtml(warnings), /aria-label="Financial decision risks"/);
+  assert.deepEqual(dashboardRiskSignals({ regularNetMonthly: 500 }, { ...emergency, available: 20000, unclassified: [] }, false), []);
+  assert.match(dashboardRiskSignals({ netMonthly: 0 }, { ...emergency, monthly: 0 }, true)[0], /Add income/);
+});

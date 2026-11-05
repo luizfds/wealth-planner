@@ -223,6 +223,19 @@ function taxTileHtml(){
     '<small>' + escapeAttr(small) + '</small></button>';
 }
 
+export function dashboardRiskSignals(t, emergency, missing){
+  if(missing) return ["Add income and spending to assess cash-flow risk."];
+  var warnings = [], monthly = t.regularNetMonthly != null ? t.regularNetMonthly : t.netMonthly;
+  if(Number.isFinite(monthly) && monthly < 0) warnings.push("Normal-month cash flow is negative; review income and costs.");
+  if(emergency.monthly > 0 && emergency.available < emergency.target) warnings.push("Essential cash reserve is below the " + emergency.months + "-month target.");
+  if(emergency.unclassified && emergency.unclassified.length) warnings.push(emergency.unclassified.length + " expense line(s) need classification; reserve estimate may change.");
+  if(!emergency.monthly) warnings.push("Essential expenses are missing or zero; reserve coverage cannot be assessed.");
+  return warnings;
+}
+export function dashboardRiskSignalsHtml(warnings){
+  if(!warnings.length) return '<p class="ledger-note">No immediate cash-flow or essential-reserve warnings from entered figures. Estimates only.</p>';
+  return '<ul class="ledger-note" aria-label="Financial decision risks">' + warnings.map(function(w){ return '<li>' + escapeAttr(w) + '</li>'; }).join("") + '</ul>';
+}
 export function renderDashboardStats(){
   var el = document.getElementById("dashboardStats");
   if(!el || el.closest(".app-page").hidden) return;
@@ -252,8 +265,9 @@ export function renderDashboardStats(){
     : '<div class="stat-tile" data-home-card="scenarios"><span>Scenario</span><b>' + escapeAttr(active) + '</b><small>add another in Plan → Scenarios to compare options</small></div>';
   var runway = runwayMonths(t.expensesMonthly);
   var emergency = emergencyFund({ scenario: active });
+  var riskHtml = dashboardRiskSignalsHtml(dashboardRiskSignals(t, emergency, nothingEntered));
   var runwayTile = '<div class="stat-tile" data-home-card="runway" title="Liquid assets (cash + shares + property offset) ÷ ' + escapeAttr(active) + '\'s monthly expenses — how long you could cover costs with zero income. A common rule of thumb targets 3-6 months."><span>Runway</span><b>' +
-    (runway == null ? "—" : fmtRunway.format(runway) + " mo") + '</b><small>All spending · liquid assets</small><small>Essential costs · cash + offsets: ' + (emergency.coveredMonths == null ? "—" : fmtRunway.format(emergency.coveredMonths) + " mo") + '</small></div>';
+    (runway == null ? "—" : fmtRunway.format(runway) + " mo") + '</b><small>All spending · liquid assets</small><small>Essential costs · cash + offsets: ' + (emergency.coveredMonths == null ? "—" : fmtRunway.format(emergency.coveredMonths) + " mo") + '</small><details><summary>Cash-flow and reserve risks</summary>' + riskHtml + '</details></div>';
   // Six tiles reading $0, $0/mo, $0 and an em-dash tell a first-time user nothing except that
   // they have entered nothing — which the setup panel above already says, with somewhere to go.
   // The tiles earn their space once they have values in them.

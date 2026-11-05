@@ -2,6 +2,7 @@ import { state } from "../state.js";
 import { recalcPurchase } from "./property.js";
 import { cashSources, drawFor } from "./cashdraw.js";
 import { scenarioTotals } from "./engine.js";
+import { emergencyFund } from "./emergency.js";
 
 // ---------------- Can we buy? (v3.88.0) ----------------
 //
@@ -21,6 +22,7 @@ export function canBuy(scenario){
   var extra = d.extraInterestYearly, deductibleExtra = d.deductibleYearly, taxBack = d.taxBackYearly;
   var totals = scenarioTotals(scenario);
   var left = available - out.upfrontCash;
+  var essentials = emergencyFund({ scenario: scenario }).monthly;
   return {
     scenario: scenario, price: out.price != null ? out.price : Number(cfg.price) || 0, state: cfg.state,
     deposit: out.depositAmt, stampDuty: out.stampDuty, lmi: out.lmi, lmiCapitalized: !!out.lmiCapitalized,
@@ -30,7 +32,9 @@ export function canBuy(scenario){
     draws: draws, extraInterestYearly: r0(extra), deductibleExtra: r0(deductibleExtra), nonDeductibleExtra: r0(extra - deductibleExtra),
     taxBackYearly: r0(taxBack), afterTaxCostYearly: r0(extra - taxBack),
     netMonthly: totals.netMonthly, regularNetMonthly: totals.regularNetMonthly, expensesMonthly: totals.expensesMonthly,
-    bufferMonths: left > 0 && totals.expensesMonthly > 0 ? left / totals.expensesMonthly : 0,
+    bufferMonths: left > 0 && totals.expensesMonthly > 0 ? left / totals.expensesMonthly : null,
+    essentialsMonthly: essentials,
+    essentialsBufferMonths: left > 0 && essentials > 0 ? left / essentials : null,
     // Owning any property in Australia ends first-home-buyer concessions (most states' rules).
     fhbButOwns: !!cfg.firstHomeBuyer && (state.properties || []).length > 0
   };

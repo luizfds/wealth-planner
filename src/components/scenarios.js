@@ -7,6 +7,7 @@ import { compareScenario } from "../calc/compare.js";
 import { draftChanged, renameDraft, discardDraft, DRAFT_PREFIX } from "../calc/scenariodraft.js";
 import { PURCHASE_STATE_CODES, STATE_GROWTH_RATES, INVEST_LEG_TYPES } from "../constants.js";
 import { recalcPurchase, purchaseCostAmount } from "../calc/property.js";
+import { scenarioMonthlyChange } from "../calc/scenariodiff.js";
 import { recalcComputedItems, scenarioTotals, currentScenario, computeNetWorthSeries } from "../calc/engine.js";
 import { renderLineChart } from "../lib/charts.js";
 import { scenarioTimeline, yearText } from "../calc/scenariotimeline.js";
@@ -81,6 +82,33 @@ export function scenarioEditorSubHtml(){
   return '<div class="sc-edit-sub"><textarea class="sc-note" data-sc-note rows="1" placeholder="Why you\'re looking at this — a note for later (shows on its card)" aria-label="A note on this scenario">' + escapeAttr((state.scenarioNotes || {})[name] || "") + '</textarea>' +
       (elsewhere ? '<p class="sc-elsewhere">Lives somewhere else — <b>' + fmtCurrency0.format(scenarioHomeMonthly(key)) + '/mo</b> to live there (rent and home costs), instead of today\'s home.</p>' : '') + '</div>';
 }
+// Item 257: a scenario's month against today's — added, gone, the net, what of a new loan is principal, what isn't
+// in the month. Fixed / partly fixed / budgeted, and how often each is really paid.
+var KIND_LABEL = { fixed: "fixed", partly: "partly fixed", budgeted: "budgeted" };
+var PAID = { Weekly: "weekly", Fortnightly: "fortnightly", Monthly: "monthly", Quarterly: "quarterly", "Half-yearly": "half-yearly", Yearly: "yearly" };
+export function scenarioMonthlyChangeHtml(d){
+  if(!d || (!d.added.length && !d.gone.length)) return "";
+  var money = function(n){ return (n < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(n)); };
+  var row = function(x){
+    var paid = PAID[x.freq] || String(x.freq || "").toLowerCase();
+    var each = x.freq && x.freq !== "Monthly" && x.each ? " (" + fmtCurrency0.format(x.each) + ")" : "";
+    return '<li class="scd-row"><span class="scd-what">' + escapeAttr(x.label) + '<small>' + escapeAttr(paid + each) + '</small></span>' +
+      '<span class="scd-kind scd-' + x.kind + '">' + KIND_LABEL[x.kind] + '</span><b>' + money(x.monthly) + '</b></li>';
+  };
+  var more = d.extraMonthly >= 0;
+  return '<section class="sc-diff" id="scDiff" aria-label="What changes each month">' +
+    '<div class="scd-head"><h3>What changes each month</h3><small>against ' + escapeAttr(d.against) + '</small></div>' +
+    (d.added.length ? '<p class="scd-sec">Added</p><ul class="scd-list">' + d.added.map(row).join("") + '</ul>' : '') +
+    (d.gone.length ? '<p class="scd-sec">Gone</p><ul class="scd-list">' + d.gone.map(row).join("") + '</ul>' : '') +
+    '<p class="scd-total"><span>' + (more ? "Extra spent each month" : "Less spent each month") + '</span><b class="' + (more ? "down" : "") + '">' + money(Math.abs(d.extraMonthly)) + '</b></p>' +
+    '<ul class="scd-notes">' +
+      (d.principalMonthly > 0.5 ? '<li>Of the repayment, <b>' + money(d.principalMonthly) + '/mo</b> pays the loan down — that part is yours. What owning costs above what it replaces: <b>' + money(d.costAboveMonthly) + '/mo</b>.</li>' : '') +
+      (d.added.some(function(x){ return x.freq && x.freq !== "Monthly" && x.freq !== "Weekly" && x.freq !== "Fortnightly"; }) ? '<li>Bills paid quarterly or yearly land in lumps, not evenly each month.</li>' : '') +
+      (d.slowerPaydownMonthly > 0.5 ? '<li>Not in the month: an investment loan pays down about <b>' + money(d.slowerPaydownMonthly) + '/mo</b> slower, with its offset emptied for the deposit.</li>' : '') +
+      (d.taxBackMonthly > 0.5 ? '<li>About <b>' + money(d.taxBackMonthly) + '/mo</b> comes back at tax time, on that extra interest.</li>' : '') +
+      (d.maintenanceLight ? '<li class="scd-warn">Maintenance of ' + fmtCurrency0.format(d.maintenanceLight.yearly) + ' a year is light for a home this price — ' + fmtCurrency0.format(d.maintenanceLight.floorYearly) + '–' + fmtCurrency0.format(d.maintenanceLight.toYearly) + ' (0.5–1% of its value) is a common rule of thumb.</li>' : '') +
+    '</ul></section>';
+}
 export function scenarioEditorSummaryHtml(){
   var key = editing.key, name = editing.name;
   if(!key || key === name && state.baselineScenario === name) return "";
@@ -98,6 +126,8 @@ export function scenarioEditorSummaryHtml(){
     '<div><span>Cash at settlement</span><b>' + fmtCurrency0.format(c.upfront) + '</b><small>' + (c.short > 0 ? '<span class="down">' + fmtCurrency0.format(c.short) + ' short</span>' : fmtCurrency0.format(c.available) + ' available') + '</small>' + (saved ? was(c.upfront, saved.upfront) : '') + '</div>' +
     '<div><span>Net worth in ' + ten.year + ' years</span><b>' + fmtCurrency0.format(ten.value) + '</b><small>' + signed(ten.vsBase) + ' against today</small>' + (savedTen ? was(ten.value, savedTen.value) : '') + '</div>' +
     '</div>' +
+    // Item 257: what it adds to a month and what goes, against today.
+    scenarioMonthlyChangeHtml(scenarioMonthlyChange(key)) +
     // v3.187.0 (item 218): the rest folds under the figures on a phone (open beside the controls on a desktop).
     '<details class="sc-more"' + (editorUi.moreOpen ? ' open' : '') + ' data-sc-more><summary>The verdict, the chart and an account</summary>' +
     '<p class="sc-edit-verdict">' + escapeAttr(c.verdict) + '</p>' +

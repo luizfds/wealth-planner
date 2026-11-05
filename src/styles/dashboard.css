@@ -596,3 +596,6 @@
 .ap-due-actions, .ap-due-other{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; }
 .ap-due-other label{ display:flex; align-items:center; gap:6px; font-size:var(--fs-sm); }
 .ap-due-other input[type=number]{ width:110px; }
+/* Item 257: a scenario card's one-line difference, opening its breakdown. */
+.card-diff-link{ all:unset; cursor:pointer; display:flex; align-items:center; margin-top:2px; font-size:var(--fs-xs); color: var(--brass-strong); min-height:44px; }
+.card-diff-link:hover{ text-decoration:underline; }

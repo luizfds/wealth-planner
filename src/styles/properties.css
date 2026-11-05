@@ -607,3 +607,23 @@
 .calc-lmi-src{ font-size:var(--fs-xs); color: var(--ink-soft); font-weight:400; }
 .calc-lmi-quote-wrap{ display:flex; align-items:center; gap:6px; margin-top:4px; font-size:var(--fs-xs); color: var(--ink-soft); }
 .calc-lmi-quote-wrap input{ width:100%; min-width:0; max-width:130px; font-family: var(--font-num); }
+
+/* Item 257: what a scenario changes each month, on its page. */
+.sc-diff{ border:1px solid var(--border); border-radius: var(--inner-radius); background: var(--paper); padding:10px 12px; margin:0 0 10px; scroll-margin-top: calc(var(--topbar-h, 0px) + 84px); }
+.scd-head{ display:flex; align-items:baseline; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+.scd-head h3{ margin:0; font-size:var(--fs-md); font-weight:600; }
+.scd-head small{ font-size:var(--fs-xs); color: var(--ink-soft); }
+.scd-sec{ margin:10px 0 2px; font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
+.scd-list{ list-style:none; margin:0; padding:0; }
+.scd-row{ display:grid; grid-template-columns: minmax(0,1fr) auto auto; gap:8px; align-items:baseline; padding:5px 0; border-bottom:1px dashed var(--border); font-size:var(--fs-sm); }
+.scd-what{ display:flex; flex-direction:column; min-width:0; overflow-wrap:anywhere; }
+.scd-what small{ font-size:var(--fs-xs); color: var(--ink-soft); }
+.scd-kind{ font-size:var(--fs-xs); color: var(--ink-soft); white-space:nowrap; }
+.scd-row b{ font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight:600; text-align:right; white-space:nowrap; }
+.scd-total{ display:flex; justify-content:space-between; align-items:baseline; margin:8px 0 0; font-weight:600; font-size:var(--fs-sm); }
+.scd-total b{ font-family: var(--font-num); font-size:var(--fs-lg); }
+.scd-total b.down{ color: var(--bad-ink); }
+.scd-notes{ margin:8px 0 0; padding-left:18px; font-size:var(--fs-xs); color: var(--ink-soft); }
+.scd-notes li{ margin:2px 0; }
+.scd-notes b{ color: var(--ink); font-family: var(--font-num); }
+.scd-warn{ color: var(--warn-ink); }

@@ -4694,6 +4694,15 @@ and keeps every name (`keys`), so a note set under an old one still applies; it'
 Subscriptions uses it. Also: `lastRise` passes over a day with two charges (an adjustment beside a bill read as the
 old price), and the list's Cancel by / Not a subscription row wraps at a phone's width instead of running off it.
 
+## 256. `[~]` An emptied offset on a P&I loan slows the paydown; it isn't money out
+Do: item 248 counted the interest an emptied offset stops saving as money out every month. On a principal-and-interest
+loan the bank takes the same repayment either way — more of it goes to interest, less to the loan — so the month's cash
+doesn't change; the loan just shrinks slower. Only an interest-only loan's repayment (its interest) rises. A scenario's
+monthly figure counts the interest-only part; the P&I part is said beside it as "paid down $X a year slower"; the tax
+back on the extra (deductible) interest stays once a year, either way.
+Done when: a deposit from a P&I loan's offset leaves the month unchanged and says the slower paydown; from an
+interest-only loan's offset it's money out; rate rises the same; tested.
+
 ## Conventions for whoever picks this up
 
 Read `CLAUDE.md` and `.claude/PROJECT_KNOWLEDGE.md` first — in particular the version-and-tag rule

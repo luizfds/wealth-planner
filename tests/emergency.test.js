@@ -68,3 +68,15 @@ test("one income stopping: the other's take-home covers part of it", function(){
     assert.match(emergencyHtml(f), /If one income stopped/);
   });
 });
+
+test("unclassified shared expenses count as essential and are flagged for review", function(){
+  withHousehold(function(){
+    state.shared.push({ id: "u", what: "Unclassified insurance", category: "Insurance", amount: 100, freq: "Monthly" });
+    var f = emergencyFund({ today: "2026-10-20" });
+    assert.ok(f.lines.some(function(l){ return l.what === "Unclassified insurance"; }));
+    assert.ok(f.unclassified.includes("Unclassified insurance"));
+    assert.match(emergencyHtml(f), /Counted as essential until classified/);
+    assert.match(emergencyHtml(f), /Unclassified insurance/);
+    assert.ok(!f.lines.some(function(l){ return l.what === "Coffee"; }), "Wants remain excluded");
+  });
+});

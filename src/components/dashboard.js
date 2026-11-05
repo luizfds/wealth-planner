@@ -239,6 +239,7 @@ export function dashboardRiskSignalsHtml(warnings){
 // Side-by-side scenario trade-offs reuse the same monthly figures as the scenario cards.
 export function scenarioTradeoffRows(scenarios, totalsFn, baseline, reserveFn, projectionFn){
   var base = totalsFn(baseline);
+  var baselineProjection = projectionFn ? projectionFn(baseline) : null;
   return scenarios.map(function(name){
     var t = totalsFn(name);
     var reserve = reserveFn ? reserveFn(name) : null;
@@ -247,6 +248,7 @@ export function scenarioTradeoffRows(scenarios, totalsFn, baseline, reserveFn, p
     return { name: name, monthly: regularOf(t), monthlyDifference: regularOf(t) - regularOf(base),
       homeMonthly: t.homeMonthly, expenseDifference: t.expensesMonthly - base.expensesMonthly,
       projectedNetWorth: Number.isFinite(projected) ? projected : null,
+      projectedDifference: Number.isFinite(projected) && Number.isFinite(baselineProjection) ? projected - baselineProjection : null,
       upfrontCash: Number(t.cashOut) || 0,
       fundingShortfall: funding ? Math.max(0, Number(funding.short) || 0) : 0,
       reserve: reserve ? { essentialMonthly: reserve.monthly, available: reserve.available,
@@ -275,15 +277,16 @@ export function scenarioTradeoffHtml(rows, baseline, notes, horizonYears){
   var money = function(n){ return (n < 0 ? '−' : '+') + fmtCurrency0.format(Math.abs(n)); };
   var hasReserve = rows.every(function(r){ return !!r.reserve; });
   var hasProjection = Number.isFinite(horizonYears) && horizonYears > 0 && rows.every(function(r){ return Number.isFinite(r.projectedNetWorth); });
+  var hasProjectedDifference = hasProjection && rows.every(function(r){ return Number.isFinite(r.projectedDifference); });
   var hasFunding = rows.every(function(r){ return Number.isFinite(r.upfrontCash) && Number.isFinite(r.fundingShortfall); });
   var coverage = function(r){ return r.reserve.essentialMonthly > 0 && r.reserve.coveredMonths != null && Number.isFinite(r.reserve.coveredMonths) ? fmtRunway.format(r.reserve.coveredMonths) + ' mo' : '—'; };
   return '<details class="scenario-tradeoffs"><summary>Compare monthly trade-offs</summary>' +
     '<div class="ledger-note" style="overflow-x:auto"><table><caption>Normal-month cash flow and spending, compared with ' + escapeAttr(baseline) + '</caption>' +
-    '<thead><tr><th scope="col">Scenario</th><th scope="col">Net / mo</th><th scope="col">Difference / mo</th><th scope="col">Home / mo</th><th scope="col">Costs difference / mo</th>' + (hasProjection ? '<th scope="col">Projected net worth (' + horizonYears + ' yr)</th>' : '') + (hasFunding ? '<th scope="col">Upfront cash</th><th scope="col">Funding gap</th>' : '') + (hasReserve ? '<th scope="col">Essential / mo</th><th scope="col">Cash + offsets</th><th scope="col">Essential runway</th>' : '') + '</tr></thead><tbody>' +
+    '<thead><tr><th scope="col">Scenario</th><th scope="col">Net / mo</th><th scope="col">Difference / mo</th><th scope="col">Home / mo</th><th scope="col">Costs difference / mo</th>' + (hasProjection ? '<th scope="col">Projected net worth (' + horizonYears + ' yr)</th>' : '') + (hasProjectedDifference ? '<th scope="col">Projected difference vs baseline</th>' : '') + (hasFunding ? '<th scope="col">Upfront cash</th><th scope="col">Funding gap</th>' : '') + (hasReserve ? '<th scope="col">Essential / mo</th><th scope="col">Cash + offsets</th><th scope="col">Essential runway</th>' : '') + '</tr></thead><tbody>' +
     rows.map(function(r){ return '<tr><th scope="row">' + escapeAttr(r.name) + '</th><td>' + money(r.monthly) +
       '</td><td>' + money(r.monthlyDifference) + '</td><td>' + fmtCurrency0.format(r.homeMonthly) +
-      '</td><td>' + money(r.expenseDifference) + '</td>' + (hasProjection ? '<td>' + fmtCurrency0.format(r.projectedNetWorth) + '</td>' : '') + (hasFunding ? '<td>' + fmtCurrency0.format(r.upfrontCash) + '</td><td>' + (r.fundingShortfall > 0 ? fmtCurrency0.format(r.fundingShortfall) + ' short' : '—') + '</td>' : '') + (hasReserve ? '<td>' + fmtCurrency0.format(r.reserve.essentialMonthly) + '</td><td>' + fmtCurrency0.format(r.reserve.available) + '</td><td>' + coverage(r) + (r.reserve.unclassified ? ' (check classifications)' : '') + '</td>' : '') + '</tr>'; }).join('') +
-    '</tbody></table></div>' + scenarioComparisonDataNotesHtml(notes || []) + '<p class="ledger-note">Differences use the current situation as reference. Positive cost difference means more spending. Normal months exclude one-off income. Projected net worth uses the same scenario projection engine and selected horizon as the Home forecast; it depends on assumed returns, rates and costs and is not a guaranteed outcome. Upfront cash and funding gap come from each scenario’s existing purchase and cash-draw calculation. A funding gap means the modeled cash sources cannot fully cover the upfront cost. Essential runway uses the current recorded cash and offset balances for every scenario, not a forecast of cash left after a future purchase or investment. A dash means essential spending is missing or zero. These are estimates, not guarantees.</p></details>';
+      '</td><td>' + money(r.expenseDifference) + '</td>' + (hasProjection ? '<td>' + fmtCurrency0.format(r.projectedNetWorth) + '</td>' : '') + (hasProjectedDifference ? '<td>' + money(r.projectedDifference) + '</td>' : '') + (hasFunding ? '<td>' + fmtCurrency0.format(r.upfrontCash) + '</td><td>' + (r.fundingShortfall > 0 ? fmtCurrency0.format(r.fundingShortfall) + ' short' : '—') + '</td>' : '') + (hasReserve ? '<td>' + fmtCurrency0.format(r.reserve.essentialMonthly) + '</td><td>' + fmtCurrency0.format(r.reserve.available) + '</td><td>' + coverage(r) + (r.reserve.unclassified ? ' (check classifications)' : '') + '</td>' : '') + '</tr>'; }).join('') +
+    '</tbody></table></div>' + scenarioComparisonDataNotesHtml(notes || []) + '<p class="ledger-note">Differences use the current situation as reference. Positive cost difference means more spending. Normal months exclude one-off income. Projected difference compares each scenario with the baseline at the same horizon, not with today’s net worth. Projected net worth uses the same scenario projection engine and selected horizon as the Home forecast; it depends on assumed returns, rates and costs and is not a guaranteed outcome. Upfront cash and funding gap come from each scenario’s existing purchase and cash-draw calculation. A funding gap means the modeled cash sources cannot fully cover the upfront cost. Essential runway uses the current recorded cash and offset balances for every scenario, not a forecast of cash left after a future purchase or investment. A dash means essential spending is missing or zero. These are estimates, not guarantees.</p></details>';
 }
 export function renderDashboardStats(){
   var el = document.getElementById("dashboardStats");

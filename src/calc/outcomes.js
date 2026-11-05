@@ -60,7 +60,7 @@ function rates(projection){
 // each year across `runs` runs of the scenario. opts: { runs, seed, realTerms, projection }.
 export function projectionBands(scenario, horizon, opts){
   opts = opts || {};
-  var runs = opts.runs || 300, rng = seeded(opts.seed || 20260701), rt = rates(opts.projection);
+  var runs = opts.runs || 300, rng = seeded(opts.seed || 20260701), rt = rates(opts.projection || state.projection);
   var cache = {}, ratios = projectionRatios(), byYear = [];
   for(var i = 0; i < runs; i++){
     var pts = computeNetWorthSeries(scenario, horizon, { realTerms: opts.realTerms, cache: cache, ratios: ratios,

@@ -214,3 +214,28 @@ test("scenario funding table has a header for every value and preserves column o
   cells.forEach(m => assert.equal((m[1].match(/<(?:td|th)\b/g) || []).length, headers.length));
   assert.match(cells[1][1], /10,000 short/);
 });
+
+test("scenario comparison warns about stale, missing, unclassified and unfunded inputs", async () => {
+  const { scenarioComparisonDataNotes, scenarioComparisonDataNotesHtml, scenarioTradeoffHtml } =
+    await import("../src/components/dashboard.js");
+  const rows = [
+    { name: "Current", monthly: 100, monthlyDifference: 0, homeMonthly: 1000,
+      expenseDifference: 0, upfrontCash: 0, fundingShortfall: 0,
+      reserve: { essentialMonthly: 1200, available: 6000, coveredMonths: 5, unclassified: 0 } },
+    { name: "Buy", monthly: -200, monthlyDifference: -300, homeMonthly: 2000,
+      expenseDifference: 1000, upfrontCash: 50000, fundingShortfall: 5000,
+      reserve: { essentialMonthly: 2200, available: 6000, coveredMonths: 2.7, unclassified: 2 } }
+  ];
+  const notes = scenarioComparisonDataNotes(rows, 2, false, false);
+  assert.equal(notes.length, 5);
+  assert.match(notes[0], /Income is missing/);
+  assert.match(notes[1], /Expenses are missing/);
+  assert.match(notes[2], /2 asset value/);
+  assert.match(notes[3], /unclassified/);
+  assert.match(notes[4], /funding gap/);
+  const html = scenarioTradeoffHtml(rows, "Current", notes);
+  assert.match(html, /aria-label="Comparison data quality"/);
+  assert.match(html, /Check these inputs/);
+  assert.deepEqual(scenarioComparisonDataNotes([], 0, true, true), []);
+  assert.equal(scenarioComparisonDataNotesHtml([]), "");
+});

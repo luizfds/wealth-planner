@@ -281,7 +281,11 @@ if(typeof document !== "undefined"){
       if(!Number.isFinite(n)) return;
       if(el.matches("[data-proj-stress-invest]")) projectionStress.investLossPct = Math.min(99, Math.max(0, n));
       if(el.matches("[data-proj-stress-property]")) projectionStress.propertyLossPct = Math.min(99, Math.max(0, n));
-      if(el.matches("[data-proj-stress-years]")) projectionStress.duration = Math.min(10, Math.max(1, Math.round(n)));\n      if(el.matches("[data-proj-cash-income]")) cashStress.lostIncomeMonthly = Math.min(1e9, Math.max(0, n));\n      if(el.matches("[data-proj-cash-vacancy]")) cashStress.vacancyCostMonthly = Math.min(1e9, Math.max(0, n));\n      if(el.matches("[data-proj-cash-maintenance]")) cashStress.maintenanceCost = Math.min(1e9, Math.max(0, n));\n      if(el.matches("[data-proj-cash-years]")) cashStress.duration = Math.min(10, Math.max(1, Math.round(n)));
+      if(el.matches("[data-proj-stress-years]")) projectionStress.duration = Math.min(10, Math.max(1, Math.round(n)));
+      if(el.matches("[data-proj-cash-income]")) cashStress.lostIncomeMonthly = Math.min(1e9, Math.max(0, n));
+      if(el.matches("[data-proj-cash-vacancy]")) cashStress.vacancyCostMonthly = Math.min(1e9, Math.max(0, n));
+      if(el.matches("[data-proj-cash-maintenance]")) cashStress.maintenanceCost = Math.min(1e9, Math.max(0, n));
+      if(el.matches("[data-proj-cash-years]")) cashStress.duration = Math.min(10, Math.max(1, Math.round(n)));
     }
     renderProjectionOutputs();
   });

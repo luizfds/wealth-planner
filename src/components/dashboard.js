@@ -310,7 +310,7 @@ export function renderDashboardStats(){
   if(isComparing){
     var comparisonRows = scenarioTradeoffRows(state.scenarios, scenarioTotals, state.baselineScenario || active, function(name){ return emergencyFund({ scenario: name }); });
     var comparisonNotes = scenarioComparisonDataNotes(comparisonRows, staleAssets().length,
-      state.income.length > 0, state.shared.length > 0 || state.scenarios.some(function(name){ return (state.home[name] || []).length > 0; }));
+      state.income.length > 0, comparisonRows.some(function(r){ return scenarioTotals(r.name).expensesMonthly > 0; }));
     tradeoffHtml = scenarioTradeoffHtml(comparisonRows, state.baselineScenario || active, comparisonNotes);
   }
   var lastTile = isComparing

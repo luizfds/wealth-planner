@@ -91,17 +91,19 @@ test("the review request and the answer's rendering", function(){
   var b = askBody("SUMMARY", "Should we buy?", "claude-sonnet-5-5");
   assert.equal(b.model, "claude-sonnet-5-5");
   assert.equal(b.system, SYSTEM_PROMPT);
-  assert.match(b.messages[0].content, /SUMMARY[\s\S]*THEIR QUESTION\nShould we buy\?/);
+  assert.match(b.messages[0].content, /SUMMARY[\\s\\S]*general review/);
+  assert.doesNotMatch(b.messages[0].content, /Should we buy/);
   var h = reviewHtml("## Buying\n- **Cash** is fine\n- rates <b>\n\nPlain line");
   assert.match(h, /<h4>Buying<\/h4><ul><li><b>Cash<\/b> is fine<\/li><li>rates &lt;b><\/li><\/ul><p>Plain line<\/p>/);
 });
 
-test("the prompt for any AI: how to answer, in the standard layout, then the figures and the question", function(){
+test("the prompt for any AI: how to answer, in the standard layout, then the approved figures only", function(){
   var t = copyPrompt("SUMMARY LINES", "Sydney or Melbourne?");
-  assert.ok(t.indexOf("HOW TO ANSWER") < t.indexOf("MY FINANCES") && t.indexOf("MY FINANCES") < t.indexOf("MY QUESTION"));
+  assert.ok(t.indexOf("HOW TO ANSWER") < t.indexOf("MY FINANCES"));
   assert.ok(t.indexOf(REVIEW_FORMAT) !== -1, "the standard headings travel with it");
-  assert.match(t, /use those labels exactly as written/);
+  assert.match(t, /Use the labels as written/);
   assert.match(t, /## Priorities/);
+  assert.doesNotMatch(t, /Sydney or Melbourne/);
   assert.ok(copyPrompt("S", "").indexOf("MY QUESTION") === -1);
   askUi.pasteOpen = true;
   var h = askClaudeHtml();
@@ -127,4 +129,17 @@ test("AI summary excludes arbitrary names, addresses, nested notes, tickers and 
     assert.match(output, /Scenario 2/);
     assert.match(output, /risk findings: 1/);
   });
+});
+
+test("free-text questions with identifiers never reach direct or copy AI payloads", function(){
+  const secret = "PRIVATE_ACCOUNT_12345 Example Street";
+  const direct = askBody("Aggregated income $1000", secret, "claude-sonnet-5-5");
+  const copied = copyPrompt("Aggregated income $1000", secret);
+  assert.equal(JSON.stringify(direct).includes(secret), false);
+  assert.equal(copied.includes(secret), false);
+  assert.match(direct.messages[0].content, /Aggregated income/);
+  assert.match(copied, /Aggregated income/);
+  const html = askClaudeHtml();
+  assert.match(html, /personal questions and free-text notes are not included/);
+  assert.doesNotMatch(html, /data-ai-q/);
 });

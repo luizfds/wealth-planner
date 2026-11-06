@@ -100,7 +100,7 @@ test("the prompt for any AI: how to answer, in the standard layout, then the app
   var t = copyPrompt("SUMMARY LINES", "Sydney or Melbourne?");
   assert.ok(t.indexOf("HOW TO ANSWER") < t.indexOf("MY FINANCES"));
   assert.ok(t.indexOf(REVIEW_FORMAT) !== -1, "the standard headings travel with it");
-  assert.match(t, /Use the labels as written/);
+  assert.match(t, /Do not infer missing individual details/);
   assert.match(t, /## Priorities/);
   assert.doesNotMatch(t, /Sydney or Melbourne/);
   assert.ok(copyPrompt("S", "").indexOf("MY QUESTION") === -1);

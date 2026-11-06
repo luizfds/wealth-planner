@@ -1,11 +1,11 @@
 import { state } from "../state.js";
-import { getTaxPeople, computePersonTax, scenarioIncomeRows } from "./tax.js";
-import { ipProperties, loanRateOn, loanPaidOut, loanInvestShare } from "./property.js";
-import { scenarioTotals, toAudAmount, totalNetWorthValue, currentScenario } from "./engine.js";
+import { getTaxPeople } from "./tax.js";
+
+import { toAudAmount, totalNetWorthValue, currentScenario } from "./engine.js";
 import { periodsOf } from "./ledger.js";
 import { emergencyFund } from "./emergency.js";
-import { monthFigures, shiftMonth } from "./monthdetail.js";
-import { canBuy } from "./canbuy.js";
+
+
 
 // ---------------- A summary of the household for a written review (v3.98.0) ----------------
 //
@@ -15,8 +15,6 @@ import { canBuy } from "./canbuy.js";
 // identify a household. A separate preview and explicit confirmation are required before sharing.
 // Pure apart from reading state.
 function m(n){ var v = Math.round(Number(n) || 0); return (v < 0 ? "−$" : "$") + Math.abs(v).toLocaleString("en-AU"); }
-function safeRegion(s){ return ["NSW", "VIC", "QLD", "SA", "WA", "TAS", "ACT", "NT"].includes(s) ? s : "AU"; }
-function pct(n){ return (Math.round(n * 1000) / 10) + "%"; }
 
 // [from, to] pairs, longest first, applied to every line of text that came from the app.
 export function anonymiser(st){
@@ -70,78 +68,81 @@ export function deanonymiser(st){
   };
 }
 
-export function householdSummary(findings, opts){
+// The only externally shared fields are aggregate numbers and fixed labels from this
+// explicit allowlist. No account, property, loan, holding, person or scenario rows leave.
+export const AI_SUMMARY_FIELDS = Object.freeze([
+  "householdGrossAnnual", "budgetNeedsMonthly", "budgetWantsMonthly",
+  "budgetUnclassifiedMonthly", "housingMonthly", "netWorth",
+  "cashAssets", "investmentAssets", "otherAssets",
+  "essentialMonthly", "liquidReserve", "findingRiskCount",
+  "findingOpportunityCount", "findingGoodCount"
+]);
+
+export function aiAggregateSnapshot(findings, opts){
   opts = opts || {};
   var today = opts.today || "";
-  // Strict output allowlist: never interpolate user-entered strings into the outbound summary.
-  // Names are used for local lookup only; labels and financial numbers are the only outputs.
-  var L = [];
-  var people = getTaxPeople();
-  L.push("Australian household. Figures are in AUD, from the planning app's own records.");
-  L.push("");
-  L.push("INCOME");
-  people.forEach(function(n, personIndex){
-    var t = null; try { t = computePersonTax(n); } catch(e){}
-    var gross = (state.income || []).filter(function(r){ return r.person === n && r.incomeType === "Gross"; })
-      .reduce(function(s, r){ return s + periodsOf(Number(r.amount) || 0, r.freq).yearly; }, 0);
-    var net = (scenarioIncomeRows({ scenario: currentScenario() }) || []).find(function(r){ return r.syntheticNetFor === n; });
-    L.push("- " + (["Partner A", "Partner B", "Person C", "Person D"][personIndex] || "Person " + (personIndex + 1)) + ": gross " + m(gross) + "/yr; planned take-home " + (net ? m(net.amount) + "/mo" : "n/a") +
-      (t ? "; marginal rate " + pct(t.marginalRate || 0) + "; concessional super " + m(t.totalConcessional) + " of a " + m(t.capAvailable) + " cap (incl. carry-forward)" : ""));
-  });
-  var cur = String(today).slice(0, 7), inn = 0, out = 0, months = 0;
-  for(var i = 1; i <= 12; i++){ var f = monthFigures(state, shiftMonth(cur, -i)); if(f.count || f.in){ months++; inn += f.in; out += f.out; } }
-  if(months) L.push("- Logged over the last " + months + " months: " + m(inn) + " in, " + m(out) + " spent (loan repayments drawn from offsets not included in spending).");
-  L.push("");
-  L.push("SPENDING (budget, monthly)");
-  var byCat = {};
+  var result = Object.fromEntries(AI_SUMMARY_FIELDS.map(function(k){ return [k, 0]; }));
+  var income = (state.income || []).filter(function(r){ return r.incomeType === "Gross"; });
+  result.householdGrossAnnual = income.reduce(function(sum, r){
+    return sum + periodsOf(Number(r.amount) || 0, r.freq).yearly;
+  }, 0);
   (state.shared || []).forEach(function(l){
     if(l.computed) return;
-    var classification = l.classification === "Needs" ? "Needs" : l.classification === "Wants" ? "Wants" : "Unclassified";
-    var allowedCategories = ["Housing", "Groceries", "Utilities", "Transport", "Health", "Insurance", "Pets", "Car", "Eating out", "Subscriptions", "Travel", "Shopping", "Fitness", "Education", "Other"];
-    var category = allowedCategories.includes(l.category) ? l.category : "Other";
-    var k = classification + " · " + category;
-    byCat[k] = (byCat[k] || 0) + periodsOf(Number(l.amount) || 0, l.freq).monthly;
+    var key = l.classification === "Needs" ? "budgetNeedsMonthly" :
+      l.classification === "Wants" ? "budgetWantsMonthly" : "budgetUnclassifiedMonthly";
+    result[key] += periodsOf(Number(l.amount) || 0, l.freq).monthly;
   });
-  Object.keys(byCat).sort(function(a, b){ return byCat[b] - byCat[a]; }).slice(0, 18).forEach(function(k){ L.push("- " + k + ": " + m(byCat[k])); });
-  var home = ((state.home || {})[currentScenario()] || []).reduce(function(s, l){ return s + periodsOf(Number(l.amount) || 0, l.freq).monthly; }, 0);
-  L.push("- Housing in the current scenario (rent or home loan and its costs): " + m(home));
-  L.push("");
-  L.push("ASSETS AND DEBTS");
-  L.push("- Net worth: " + m(totalNetWorthValue()));
-  var byAsset = {};
-  (state.assets || []).forEach(function(a){ var k = ["Cash", "Shares", "Super", "Crypto", "Property", "Other"].includes(a.category) ? a.category : "Other"; byAsset[k] = (byAsset[k] || 0) + toAudAmount(a, Number(a.amount) || 0); });
-  Object.keys(byAsset).forEach(function(k){ L.push("- " + k + ": " + m(byAsset[k])); });
-  var holdings = (state.assets || []).filter(function(a){ return a.category === "Shares" && Number(a.amount) > 0; })
-    .map(function(a, i){ return "Holding " + (i + 1) + " " + m(toAudAmount(a, Number(a.amount) || 0)); });
-  if(holdings.length) L.push("- Holdings: " + holdings.join(", "));
-  (state.debts || []).forEach(function(d){ if(Number(d.balance) > 0) L.push("- Debt: " + m(d.balance) + (d.rate ? " at " + d.rate + "%" : "")); });
-  ipProperties().forEach(function(p, i){
-    var rent = (p.income || []).reduce(function(s, r){ return s + periodsOf(Number(r.amount) || 0, r.freq).yearly; }, 0);
-    var costs = (p.expenses || []).reduce(function(s, r){ return s + periodsOf(Number(r.amount) || 0, r.freq).yearly; }, 0);
-    L.push("- Investment property " + (i + 1) + " (" + safeRegion(p.state) + "): value " + m(p.value) + ", bought " + m(p.purchasePrice) + (p.purchaseDate ? " in " + p.purchaseDate.slice(0, 4) : "") + ", rent " + m(rent) + "/yr, costs " + m(costs) + "/yr");
-    (p.loans || []).forEach(function(l, j){
-      if(loanPaidOut(l)) return;
-      L.push("  - Loan " + (j + 1) + ": " + m(l.balance) + " at " + (Number(loanRateOn(l, today) || l.rate) || 0) + "% " + (l.repaymentType === "IO" ? "IO" : "PI") + ", offset " + m(l.offsetBalance) + ", used to invest " + Math.round(loanInvestShare(l) * 100) + "%" +
-        (p.purchaseDate && l.settlementDate && l.settlementDate > p.purchaseDate ? ", drawn after the purchase" : ""));
-    });
+  result.housingMonthly = ((state.home || {})[currentScenario()] || []).reduce(function(sum, l){
+    return sum + periodsOf(Number(l.amount) || 0, l.freq).monthly;
+  }, 0);
+  result.netWorth = totalNetWorthValue();
+  (state.assets || []).forEach(function(a){
+    var amount = toAudAmount(a, Number(a.amount) || 0);
+    var key = a.category === "Cash" ? "cashAssets" :
+      ["Shares", "Super", "Crypto"].includes(a.category) ? "investmentAssets" : "otherAssets";
+    result[key] += amount;
   });
-  var ef = null; try { ef = emergencyFund({ today: today }); } catch(e){}
-  if(ef && ef.monthly) L.push("- Essentials about " + m(ef.monthly) + "/mo; cash and offsets " + m(ef.available));
-  L.push("");
-  L.push("SCENARIOS");
-  (state.scenarios || []).forEach(function(s){
-    var t = scenarioTotals(s), c = null;
-    try { c = canBuy(s); } catch(e){}
-    var line = "- Scenario " + (state.scenarios.indexOf(s) + 1) + ": a normal month leaves " + m(t.regularNetMonthly);
-    if(c) line += "; buying for " + m(c.price) + " in " + safeRegion(c.state) + ", cash needed " + m(c.upfront) + ", left after " + m(c.left) + ", new loan " + m(c.loan) + " at " + m(c.repaymentMonthly) + "/mo, investment interest up " + m(c.extraInterestYearly) + "/yr";
-    L.push(line + (s === currentScenario() ? " (current)" : ""));
-  });
-  if(findings && findings.length){
-    L.push("");
-    L.push("WHAT THE APP'S OWN RULES FOUND");
-    var counts = { risk: 0, opportunity: 0, good: 0 };
-    findings.forEach(function(a){ if(Object.prototype.hasOwnProperty.call(counts, a.kind)) counts[a.kind]++; });
-    Object.keys(counts).forEach(function(k){ if(counts[k]) L.push("- " + k + " findings: " + counts[k]); });
+  var ef = null;
+  try { ef = emergencyFund({ today: today }); } catch(e){}
+  if(ef){
+    result.essentialMonthly = Number(ef.monthly) || 0;
+    result.liquidReserve = Number(ef.available) || 0;
   }
-  return L.join("\n");
+  (findings || []).forEach(function(a){
+    if(a.kind === "risk") result.findingRiskCount++;
+    else if(a.kind === "opportunity") result.findingOpportunityCount++;
+    else if(a.kind === "good") result.findingGoodCount++;
+  });
+  // Exclude non-finite outputs instead of transmitting invalid or coerced identifiers.
+  return Object.fromEntries(AI_SUMMARY_FIELDS.map(function(k){
+    return [k, Number.isFinite(result[k]) ? result[k] : null];
+  }));
+}
+
+export function householdSummary(findings, opts){
+  var data = aiAggregateSnapshot(findings, opts);
+  var labels = {
+    householdGrossAnnual: "Household gross income / yr",
+    budgetNeedsMonthly: "Essential-classified budget / mo",
+    budgetWantsMonthly: "Discretionary-classified budget / mo",
+    budgetUnclassifiedMonthly: "Unclassified budget / mo",
+    housingMonthly: "Current scenario housing budget / mo",
+    netWorth: "Net worth",
+    cashAssets: "Cash assets",
+    investmentAssets: "Investments and super assets",
+    otherAssets: "Other assets",
+    essentialMonthly: "Estimated essential expenses / mo",
+    liquidReserve: "Cash and offset reserve",
+    findingRiskCount: "Risk findings (count)",
+    findingOpportunityCount: "Opportunity findings (count)",
+    findingGoodCount: "Positive findings (count)"
+  };
+  return [
+    "Australian household, AUD. Aggregated planning estimates only.",
+    "These figures are pseudonymised, not anonymous; combinations may still identify a household.",
+    "No person, property, loan, account, holding, scenario names or free-text notes are included."
+  ].concat(AI_SUMMARY_FIELDS.map(function(k){
+    return "- " + labels[k] + ": " + (data[k] === null ? "unavailable" :
+      k.endsWith("Count") ? String(data[k]) : m(data[k]));
+  })).join("\n");
 }

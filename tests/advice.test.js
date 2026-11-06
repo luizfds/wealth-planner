@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { state, defaultPurchaseConfig } from "../src/state.js";
 import { recalcComputedItems } from "../src/calc/engine.js";
 import { adviceFor } from "../src/calc/advice.js";
-import { householdSummary, anonymiser, deanonymiser } from "../src/calc/aisummary.js";
+import { householdSummary, aiAggregateSnapshot, AI_SUMMARY_FIELDS, anonymiser, deanonymiser } from "../src/calc/aisummary.js";
 import { adviceHomeHtml, adviceStripHtml } from "../src/components/advice.js";
 import { reviewHtml, askBody, SYSTEM_PROMPT, copyPrompt, REVIEW_FORMAT, askClaudeHtml, askUi } from "../src/components/askclaude.js";
 
@@ -75,10 +75,9 @@ test("the summary sent for a review carries no names, addresses or scenario name
   withHousehold(function(){
     var t = householdSummary(adviceFor({ today: "2026-10-20" }), { today: "2026-10-20" });
     ["Alex", "Sam", "Example St", "Example Town", "Everyday"].forEach(function(w){ assert.ok(t.indexOf(w) === -1, w + " leaked"); });
-    assert.match(t, /Partner A/);
-    assert.match(t, /Investment property 1 \(/);
-    assert.match(t, /Scenario 2/);
-    assert.match(t, /Holding 1/);
+    assert.match(t, /Household gross income/);
+    assert.match(t, /Net worth/);
+    assert.doesNotMatch(t, /Partner A|Investment property 1|Scenario 2|Holding 1/);
     assert.doesNotMatch(t, /FND|TN1|TN2/);
     assert.equal(anonymiser(state)("Fund (Alex) on Loan B"), "FND on Property 1 loan 2");
     // The answer comes back with labels; on this device they read as the household's own names.
@@ -101,7 +100,7 @@ test("the prompt for any AI: how to answer, in the standard layout, then the app
   var t = copyPrompt("SUMMARY LINES", "Sydney or Melbourne?");
   assert.ok(t.indexOf("HOW TO ANSWER") < t.indexOf("MY FINANCES"));
   assert.ok(t.indexOf(REVIEW_FORMAT) !== -1, "the standard headings travel with it");
-  assert.match(t, /Use the labels as written/);
+  assert.match(t, /Do not infer missing individual details/);
   assert.match(t, /## Priorities/);
   assert.doesNotMatch(t, /Sydney or Melbourne/);
   assert.ok(copyPrompt("S", "").indexOf("MY QUESTION") === -1);
@@ -125,9 +124,8 @@ test("AI summary excludes arbitrary names, addresses, nested notes, tickers and 
     state.home[secret] = [];
     const output = householdSummary([{ kind: "risk", title: secret, detail: secret, notes: { nested: secret } }], { today: "2026-10-20" });
     assert.ok(!output.includes(secret), "no arbitrary user-entered string is transmitted");
-    assert.match(output, /Partner A/);
-    assert.match(output, /Scenario 2/);
-    assert.match(output, /risk findings: 1/);
+    assert.doesNotMatch(output, /Partner A|Scenario 2|Holding 1/);
+    assert.match(output, /Risk findings \(count\): 1/);
   });
 });
 
@@ -142,4 +140,18 @@ test("free-text questions with identifiers never reach direct or copy AI payload
   const html = askClaudeHtml();
   assert.match(html, /personal questions and free-text notes are not included/);
   assert.doesNotMatch(html, /data-ai-q/);
+});
+
+test("AI aggregate snapshot has only allowlisted fields and no individual financial rows", function(){
+  withHousehold(function(){
+    const snapshot = aiAggregateSnapshot([{ kind: "risk", detail: "PRIVATE_NOTE" }], { today: "2026-10-20" });
+    assert.deepEqual(Object.keys(snapshot), [...AI_SUMMARY_FIELDS]);
+    assert.equal(snapshot.householdGrossAnnual, 285000);
+    assert.equal(snapshot.findingRiskCount, 1);
+    assert.equal(snapshot.budgetUnclassifiedMonthly, 0);
+    const summary = householdSummary([], { today: "2026-10-20" });
+    assert.doesNotMatch(summary, /Alex|Sam|Example|Loan A|Loan B|Holding 1|Scenario 1|2022/);
+    assert.doesNotMatch(summary, /PRIVATE_NOTE/);
+    assert.match(summary, /pseudonymised, not anonymous/);
+  });
 });

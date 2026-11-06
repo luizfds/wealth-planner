@@ -171,9 +171,9 @@ export function planningReadinessHtml(s, today){
     (missing.length ? '<p>Continue setup from the Income, Budget, Net worth and Goals areas. You can still use reports with a partial profile.</p>' : '<p>All tracked setup sections have entries. Review values periodically.</p>') +
     '</details></section>';
 }
-export function reportDisclosureHtml(info){
+export function reportDisclosureHtml(info, expanded){
   return '<section class="ledger-note" role="note" aria-label="Report assumptions and data quality">' +
-    '<details><summary>As of ' + escapeAttr(info.asOf) + ' · Assumptions and data quality</summary>' +
+    '<details' + (expanded ? ' open' : '') + '><summary>As of ' + escapeAttr(info.asOf) + ' · Assumptions and data quality</summary>' +
     '<p>Profile sections entered: ' + escapeAttr(info.progress) + ' · Last saved: ' + escapeAttr(info.lastSaved) + '</p>' +
     '<ul>' + info.warnings.concat(info.assumptions).map(function(x){ return '<li>' + escapeAttr(x) + '</li>'; }).join('') + '</ul></details></section>';
 }
@@ -196,7 +196,7 @@ export function renderReports(){
 export function reportPrintHtml(){
   var opts = reportOpts();
   var rep = buildReport(reportShown.key, opts);
-  return '<div class="pr-page pr-report">' + printTitleHtml(rep) + storyHtml(rep) + reportChartHtml(rep.chart) + reportTableHtml(rep) + drillHtml(rep, opts) + reportDisclosureHtml(reportDisclosure(state, localDateStr(), rep)) + (rep.note ? '<p>' + escapeAttr(rep.note) + '</p>' : '') + '</div>';
+  return '<div class="pr-page pr-report">' + printTitleHtml(rep) + storyHtml(rep) + reportChartHtml(rep.chart) + reportTableHtml(rep) + drillHtml(rep, opts) + reportDisclosureHtml(reportDisclosure(state, localDateStr(), rep), true) + (rep.note ? '<p>' + escapeAttr(rep.note) + '</p>' : '') + '</div>';
 }
 export function reportCsv(){
   var rep = buildReport(reportShown.key, reportOpts());

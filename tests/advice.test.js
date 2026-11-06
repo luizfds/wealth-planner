@@ -6,7 +6,7 @@ import { recalcComputedItems } from "../src/calc/engine.js";
 import { adviceFor } from "../src/calc/advice.js";
 import { householdSummary, aiAggregateSnapshot, AI_SUMMARY_FIELDS, anonymiser, deanonymiser } from "../src/calc/aisummary.js";
 import { adviceHomeHtml, adviceStripHtml } from "../src/components/advice.js";
-import { reviewHtml, askBody, SYSTEM_PROMPT, copyPrompt, REVIEW_FORMAT, askClaudeHtml, askUi } from "../src/components/askclaude.js";
+import { reviewHtml, askBody, askClaude, SYSTEM_PROMPT, copyPrompt, REVIEW_FORMAT, askClaudeHtml, askUi } from "../src/components/askclaude.js";
 
 // What the app notices (v3.98.0), invented household.
 function withHousehold(fn){
@@ -154,4 +154,27 @@ test("AI aggregate snapshot has only allowlisted fields and no individual financ
     assert.doesNotMatch(summary, /PRIVATE_NOTE/);
     assert.match(summary, /pseudonymised, not anonymous/);
   });
+});
+
+test("AI transport refuses missing, cancelled or stale approval without a network request", async function(){
+  const oldFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async function(_url, opts){
+    calls++;
+    return { ok: true, json: async () => ({ content: [{ type: "text", text: opts.body }] }) };
+  };
+  try {
+    const summary = "Household net worth $100,000";
+    const approved = JSON.stringify(askBody(summary, ""), null, 2);
+    await assert.rejects(askClaude(summary, ""), /not approved/);
+    await assert.rejects(askClaude(summary, "", ""), /not approved/);
+    await assert.rejects(askClaude(summary + " changed", "", approved), /not approved/);
+    await assert.rejects(askClaude(summary, "", JSON.stringify(askBody(summary, ""))), /not approved/);
+    assert.equal(calls, 0, "no fetch without exact approved body");
+    const answer = await askClaude(summary, "", approved);
+    assert.equal(answer, approved);
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = oldFetch;
+  }
 });

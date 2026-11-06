@@ -97,7 +97,7 @@ export function wireAdvice(){
     }
     // v3.99.0: the prompt for any assistant, to the clipboard; the answer pasted back.
     if(e.target.closest("[data-ai-copy]")){
-      var text = copyPrompt(householdSummary(adviceFor({ today: localDateStr() }), { today: localDateStr() }), askUi.question.trim());
+      var text = copyPrompt(householdSummary(adviceFor({ today: localDateStr() }), { today: localDateStr() }), "");
       if(askUi.preview !== text){
         askUi.preview = text; askUi.approvalPending = true; renderAdvice();
         showToast("Review the exact prompt, then press Copy for any AI again");
@@ -141,10 +141,11 @@ export function wireAdvice(){
         showToast("Review the data preview, then press Confirm & send to Claude");
         return;
       }
-      if(!window.confirm("Send the displayed financial summary and your question to Anthropic? Financial figures can still be identifying.")) return;
+      if(!window.confirm("Send exactly the displayed aggregate financial figures to Anthropic? Financial figures can still be identifying.")) return;
+      var approvedPayload = askUi.preview;
       askUi.approvalPending = false;
       askUi.busy = true; askUi.error = ""; renderAdvice();
-      askClaude(summary, "").then(function(text){
+      askClaude(summary, "", approvedPayload).then(function(text){
         setLastReview({ at: localDateStr(), question: "", text: text });
         askUi.busy = false; askUi.preview = ""; renderAdvice();
       }).catch(function(err){

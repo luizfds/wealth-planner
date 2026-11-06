@@ -64,11 +64,16 @@ export function askBody(summary, _question, model){
   };
 }
 // The Messages API, straight from the browser with the person's own key.
-export function askClaude(summary, question){
+// Fail closed: only send a payload whose exact bytes were previewed and approved.
+// The caller must supply the approved serialized body; do not reconstruct it after consent.
+export function askClaude(summary, question, approvedBody){
+  var expected = JSON.stringify(askBody(summary, question), null, 2);
+  if(typeof approvedBody !== "string" || approvedBody !== expected)
+    return Promise.reject(new Error("AI request changed or was not approved; review the preview again"));
   return fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "content-type": "application/json", "x-api-key": aiKey(), "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-    body: JSON.stringify(askBody(summary, question))
+    body: approvedBody
   }).then(function(r){
     return r.json().then(function(j){
       if(!r.ok) throw new Error((j && j.error && j.error.message) || ("HTTP " + r.status));

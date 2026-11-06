@@ -27,6 +27,14 @@ export function setLastReview(r){ var s = ls(); try { if(s) s.setItem(LAST, JSON
 
 export var askUi = { busy: false, preview: "", error: "", question: "", pasteOpen: false, approvalPending: false };
 
+// A cancelled review must clear both the displayed payload and the consent state.
+export function cancelAiApproval(){
+  askUi.preview = "";
+  askUi.approvalPending = false;
+  askUi.error = "";
+}
+
+
 // v3.99.0: one standard shape for the answer, whichever AI writes it — so a review pasted back from
 // any assistant reads the same here, and two reviews can be compared section by section.
 export var REVIEW_FORMAT = [
@@ -122,7 +130,7 @@ export function askClaudeHtml(){
         '<div class="ai-key"><input type="password" autocomplete="off" placeholder="sk-ant-…" data-ai-key aria-label="Anthropic API key"><button type="button" class="btn btn-sm" data-ai-save-key>Use key for this session</button></div></details>';
   return '<div class="ai-box" id="askClaudeBox"><div class="ai-head"><b>A written review from an AI</b><span>optional · nothing is sent unless you choose to</span></div>' +
     q + anyAi + claude +
-    (askUi.preview ? '<details class="ai-preview" open><summary>Exactly what would be copied or sent</summary><pre>' + escapeAttr(askUi.preview) + '</pre></details>' : '') +
+    (askUi.preview ? '<details class="ai-preview" open><summary>Exactly what would be copied or sent</summary><pre>' + escapeAttr(askUi.preview) + '</pre><button type="button" class="btn btn-sm btn-ghost" data-ai-cancel>Cancel sharing</button></details>' : '') +
     (askUi.error ? '<p class="ai-error">' + escapeAttr(askUi.error) + '</p>' : '') +
     (last ? '<div class="ai-review"><div class="ai-review-meta">Review from ' + escapeAttr(last.at || "") + (last.source ? ' by ' + escapeAttr(last.source) : '') + (last.question ? ' — “' + escapeAttr(last.question) + '”' : '') + ' · labels shown as your own names here</div>' + reviewHtml(deanonymiser()(last.text)) + '</div>' : '') +
   '</div>';

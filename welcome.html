@@ -66,7 +66,7 @@
 </style>
 </head>
 <body>
-  <div class="welcome-wrap">
+  <main class="welcome-wrap">
     <div class="welcome-brand">
       <div class="app-brand-name"><svg class="app-brand-mark" width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="6" fill="currentColor"/><path d="M5.6 8l3 8.2 3.4-6.4 3.4 6.4 3-8.2" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Wealth Planner</div>
       <p>Budget · Property · Tax · Net worth</p>
@@ -86,8 +86,8 @@
       <a class="welcome-cta btn" href="index.html">Open Wealth Planner, import later →</a>
       <p class="welcome-alt">Just exploring, no file to import? <a href="index.html">Open the app and start fresh →</a></p>
     </div>
-  </div>
-  <div class="toast-wrap" id="toastWrap"></div>
+  </main>
+  <div class="toast-wrap" id="toastWrap" role="status" aria-live="polite" aria-atomic="false"></div>
   <script type="module">
     import { STORAGE_KEY } from "./src/constants.js";
     import { migrateState } from "./src/state.js";

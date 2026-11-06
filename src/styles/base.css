@@ -26,6 +26,7 @@
     --good: #10b981;
     --good-wash: #d1fae5;
     --bad: #ef4444;
+    --bad-strong: #b91c1c; /* White badge text needs 4.5:1 in both themes. */
     --bad-wash: #fee2e2;
     /* v3.138.0: the same colours dark enough to read as text (WCAG AA, 4.5:1). */
     --good-ink: #047857;
@@ -367,7 +368,7 @@
   .notif-bell-btn:focus-visible{ box-shadow: var(--focus-ring); outline:none; }
   .notif-badge{
     position:absolute; top:2px; right:2px; min-width:15px; height:15px; padding:0 3px; border-radius:100px;
-    background: var(--bad); color:#fff; font-size:var(--fs-xs); font-weight:600; line-height:1;
+    background: var(--bad-strong); color:#fff; font-size:var(--fs-xs); font-weight:600; line-height:1;
     display:flex; align-items:center; justify-content:center; font-family:"Inter", system-ui, sans-serif;
   }
   /* [hidden] alone does nothing here — .notif-badge already sets its own display, which beats the

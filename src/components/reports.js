@@ -98,7 +98,7 @@ function cell(v, num){
 function pctCell(v){ return v == null || v === "" ? "" : (Math.round(v * 10) / 10) + "%"; }
 export function reportTableHtml(rep){
   if(!rep.rows.length) return '<p class="ledger-note" style="margin:0">Nothing to report yet for this one.</p>';
-  return '<div class="rp-scroll"><table class="rp-table' + (rep.wide ? " rp-wide" : "") + '"><thead><tr>' + rep.columns.map(function(c){ return '<th' + (c.num ? ' class="num"' : '') + ' scope="col">' + escapeAttr(c.label) + '</th>'; }).join("") + '</tr></thead><tbody>' +
+  return '<div class="rp-scroll" role="region" aria-label="' + escapeAttr((rep.title || 'Report') + '; scroll horizontally for more columns') + '" tabindex="0"><table class="rp-table' + (rep.wide ? " rp-wide" : "") + '"><thead><tr>' + rep.columns.map(function(c){ return '<th' + (c.num ? ' class="num"' : '') + ' scope="col">' + escapeAttr(c.label || 'Item') + '</th>'; }).join("") + '</tr></thead><tbody>' +
     rep.rows.map(function(r){
       return '<tr' + (r.cls ? ' class="' + r.cls + '"' : '') + '>' + rep.columns.map(function(c, i){
         var v = r.cells[c.key];

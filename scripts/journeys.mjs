@@ -77,6 +77,50 @@ async function go(page, pageId, subAttr, sub){
 const click = (page, sel) => page.evaluate(s => { const el = document.querySelector(s); if(!el) throw new Error("No " + s); el.click(); }, sel);
 
 const JOURNEYS = {
+  async keyboardaudit(page){
+    page.setDefaultTimeout(10000);
+    const original = await st(page, 'JSON.stringify(state)');
+    await page.evaluate(async () => {
+      const s = await import('/src/state.js'); s.setState(s.defaultState());
+      (await import('/src/calc/engine.js')).recalcComputedItems();
+      (await import('/src/components/redraw.js')).renderAll();
+    });
+    await go(page, 'dashboard');
+    const opener = page.locator('#dashboardSetup [data-firstrun-open]');
+    await opener.focus(); await page.keyboard.press('Enter');
+    const dialog = page.getByRole('dialog', { name: 'Set up Wealth Planner' });
+    const first = dialog.locator('[data-fr-close]'), last = dialog.locator('[data-fr-next]');
+    await last.focus(); await page.keyboard.press('Tab');
+    check(await first.evaluate(el => el === document.activeElement), 'Tab escaped the setup dialog');
+    await first.focus(); await page.keyboard.press('Shift+Tab');
+    check(await last.evaluate(el => el === document.activeElement), 'Shift+Tab escaped the setup dialog');
+    check(await page.locator('.app-shell').evaluate(el => el.inert), 'background remains available to assistive technology');
+    await dialog.locator('[data-fr="people.0.name"]').fill('Alex');
+    await last.click();
+    const type = dialog.locator('[data-fr="accounts.0.type"]');
+    check(await type.evaluate(el => el.getBoundingClientRect().width >= 110), 'mobile account type picker truncates its labels');
+    await type.focus();
+    await type.selectOption('savings');
+    check(await type.evaluate(el => el === document.activeElement), 'changing account type lost keyboard focus');
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
+    check(await opener.evaluate(el => el === document.activeElement), 'closing setup did not return focus to its opener');
+    check(await page.locator('.app-shell').evaluate(el => !el.inert), 'closing setup left the app inert');
+    await page.evaluate(async original => {
+      const s = await import('/src/state.js'); s.setState(s.migrateState(JSON.parse(original)));
+      (await import('/src/calc/engine.js')).recalcComputedItems();
+      (await import('/src/components/redraw.js')).renderAll();
+    }, original);
+    await go(page, 'plan', 'data-plan-sub', 'scenarios');
+    const compare = page.locator('.cmp-scroll');
+    await compare.focus(); await page.keyboard.press('ArrowRight'); await page.waitForTimeout(300);
+    check(await compare.evaluate(el => el.scrollLeft > 0), 'scenario table cannot scroll with the keyboard');
+    await go(page, 'reports');
+    await page.locator('[data-report="networth"]').click();
+    const report = page.locator('#reportSheet .rp-scroll');
+    await report.focus(); await page.keyboard.press('ArrowRight'); await page.waitForTimeout(300);
+    check(await report.evaluate(el => el.scrollLeft > 0), 'net worth report cannot scroll with the keyboard');
+  },
   async onboardingaudit(page){
     page.setDefaultTimeout(10000);
     await page.evaluate(async () => {

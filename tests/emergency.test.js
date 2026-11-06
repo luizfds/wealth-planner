@@ -80,3 +80,48 @@ test("unclassified shared expenses count as essential and are flagged for review
     assert.ok(!f.lines.some(function(l){ return l.what === "Coffee"; }), "Wants remain excluded");
   });
 });
+
+test("zero or missing essential spending never produces infinite emergency runway", function(){
+  withHousehold(function(){
+    state.shared = [];
+    state.home = { Renting: [] };
+    state.properties = [];
+    const f = emergencyFund({ today: "2026-10-20" });
+    assert.equal(f.monthly, 0);
+    assert.equal(f.target, 0);
+    assert.equal(f.coveredMonths, null);
+    const html = emergencyHtml(f);
+    assert.match(html, /Mark the budget lines/);
+    assert.doesNotMatch(html, /Infinity|NaN|months of essentials/);
+  });
+});
+
+test("reclassifying an expense recalculates essential runway without changing total spending", function(){
+  withHousehold(function(){
+    const before = emergencyFund({ today: "2026-10-20" });
+    const totalBudget = state.shared.reduce(function(sum, line){ return sum + Number(line.amount || 0); }, 0);
+    const trip = state.shared.find(function(line){ return line.id === "t"; });
+    trip.classification = "Needs";
+    const after = emergencyFund({ today: "2026-10-20" });
+    assert.ok(after.monthly > before.monthly);
+    assert.ok(after.coveredMonths < before.coveredMonths);
+    assert.equal(state.shared.reduce(function(sum, line){ return sum + Number(line.amount || 0); }, 0), totalBudget);
+    trip.classification = "Wants";
+    assert.equal(emergencyFund({ today: "2026-10-20" }).monthly, before.monthly);
+  });
+});
+
+test("all-essential and unknown classifications are counted, but wants are excluded", function(){
+  withHousehold(function(){
+    state.shared.forEach(function(line){ line.classification = "Needs"; });
+    const all = emergencyFund({ today: "2026-10-20" });
+    assert.ok(all.lines.some(function(line){ return line.what === "Coffee"; }));
+    state.shared[0].classification = undefined;
+    const unknown = emergencyFund({ today: "2026-10-20" });
+    assert.ok(unknown.unclassified.includes("Groceries"));
+    assert.equal(unknown.monthly, all.monthly);
+    state.shared[0].classification = "Wants";
+    const mixed = emergencyFund({ today: "2026-10-20" });
+    assert.ok(mixed.monthly < all.monthly);
+  });
+});

@@ -282,3 +282,27 @@ test("projected net worth differences use the baseline projection at the same ho
   assert.deepEqual(absent.map(r => r.projectedDifference), [null, null]);
   assert.doesNotMatch(scenarioTradeoffHtml(absent, "Rent", [], 10), /Projected difference vs baseline/);
 });
+
+test("comparison highlights explain trade-offs without ranking and escape scenario labels", async () => {
+  const { scenarioTradeoffHighlightsHtml, scenarioTradeoffHtml } = await import("../src/components/dashboard.js");
+  const rows = [
+    { name: "Rent", monthly: 300, monthlyDifference: 0, homeMonthly: 1000, expenseDifference: 0,
+      projectedNetWorth: 200000, projectedDifference: 0, upfrontCash: 0, fundingShortfall: 0 },
+    { name: "<Buy & move>", monthly: -200, monthlyDifference: -500, homeMonthly: 2500,
+      expenseDifference: 1500, projectedNetWorth: 260000, projectedDifference: 60000,
+      upfrontCash: 80000, fundingShortfall: 12000 }
+  ];
+  const highlights = scenarioTradeoffHighlightsHtml(rows, "Rent");
+  assert.match(highlights, /aria-label="Scenario comparison highlights"/);
+  assert.match(highlights, /normal-month difference −\$500/);
+  assert.match(highlights, /projected net-worth difference \+\$60,000/);
+  assert.match(highlights, /upfront funding gap \$12,000/);
+  assert.match(highlights, /not a recommendation or ranking/);
+  assert.doesNotMatch(highlights, /<Buy & move>/);
+  assert.match(highlights, /&lt;Buy &amp; move&gt;/);
+  const html = scenarioTradeoffHtml(rows, "Rent", [], 10);
+  assert.ok(html.indexOf('At a glance') < html.indexOf('<table>'));
+  assert.equal(scenarioTradeoffHighlightsHtml([rows[0]], "Rent"), "");
+  const noProjection = [{ ...rows[0], projectedDifference: null }, { ...rows[1], projectedDifference: null }];
+  assert.doesNotMatch(scenarioTradeoffHighlightsHtml(noProjection, "Rent"), /projected net-worth difference/);
+});

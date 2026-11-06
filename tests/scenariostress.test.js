@@ -335,3 +335,18 @@ test("reserve target gaps are separate from upfront funding shortfalls", async (
   assert.equal(missing[0].reserve.targetGap, null);
   assert.doesNotMatch(scenarioTradeoffHtml(missing, "Stay"), /Reserve target gap<\/th>/);
 });
+
+test("wide scenario comparisons expose keyboard-focusable horizontal scrolling and semantic table headers", async () => {
+  const { scenarioTradeoffHtml } = await import("../src/components/dashboard.js");
+  const rows = [
+    { name: "Rent", monthly: 200, monthlyDifference: 0, homeMonthly: 1200, expenseDifference: 0, upfrontCash: 0, fundingShortfall: 0 },
+    { name: "Buy", monthly: -300, monthlyDifference: -500, homeMonthly: 2800, expenseDifference: 1600, upfrontCash: 50000, fundingShortfall: 2000 }
+  ];
+  const html = scenarioTradeoffHtml(rows, "Rent");
+  assert.match(html, /role="region" aria-label="Scenario comparison table; scroll horizontally to see all columns" tabindex="0" style="overflow-x:auto"/);
+  assert.match(html, /<caption>Normal-month cash flow and spending/);
+  assert.match(html, /<th scope="col">Scenario<\/th>/);
+  assert.match(html, /<th scope="row">Rent<\/th>/);
+  assert.match(html, /<th scope="row">Buy<\/th>/);
+  assert.match(html, /<summary>Compare monthly trade-offs<\/summary>/);
+});

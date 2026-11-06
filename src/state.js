@@ -827,7 +827,20 @@ export function setState(newState){
   replaced.forEach(function(fn){ try { fn(); } catch(e){} });
 }
 
-var saveTimer = null;
+// Session-only revision guard: an older tab must never overwrite a newer saved copy.
+var storageRevision = typeof raw === "string" ? raw : null;
+try { storageRevision = localStorage.getItem(STORAGE_KEY); } catch(e){}
+var storageConflict = false;
+var conflictListeners = [];
+export function onStorageConflict(fn){ conflictListeners.push(fn); }
+export function checkStorageRevision(){
+  if(storageConflict) return false;
+  if(localStorage.getItem(STORAGE_KEY) === storageRevision) return true;
+  storageConflict = true;
+  setStatus(false, "Not saved — another tab changed this household");
+  conflictListeners.forEach(function(fn){ fn(); });
+  return false;
+}
 // A random id for this browser, kept in its own storage (never in a backup's meaning of "who").
 export function deviceId(){
   try{
@@ -842,27 +855,26 @@ export function onSaved(fn){ afterSave.push(fn); }
 export function persist(){
   if(!storageAvailable){
     setStatus(false, "Not saved — storage unavailable");
-    return;
+    return false;
   }
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(function(){
-    try{
-      // When and where this copy last changed (v3.71.0) — what tells a restore which of two
-      // devices' copies is newer.
-      state.savedAt = new Date().toISOString();
-      state.savedBy = deviceId();
-      // v3.171.0: and whose device it is, if it's been said — inside the data (so encrypted in the sync
-      // file), where the other device's "both changed" question reads it from.
-      var who = localStorage.getItem("wealthPlanner.devicePerson");
-      if(who) state.savedByName = who; else delete state.savedByName;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      setStatus(true, "Saved " + new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}));
-      afterSave.forEach(function(fn){ try { fn(); } catch(err){} });
-    }catch(e){
-      storageAvailable = false;
-      setStatus(false, "Not saved — storage unavailable");
-    }
-  }, 300);
+  try{
+    if(!checkStorageRevision()) return false;
+    // Save before returning: a reload or a closed tab cannot discard a delayed write.
+    state.savedAt = new Date().toISOString();
+    state.savedBy = deviceId();
+    var who = localStorage.getItem("wealthPlanner.devicePerson");
+    if(who) state.savedByName = who; else delete state.savedByName;
+    var next = JSON.stringify(state);
+    localStorage.setItem(STORAGE_KEY, next);
+    storageRevision = next;
+    setStatus(true, "Saved " + new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}));
+    afterSave.forEach(function(fn){ try { fn(); } catch(err){} });
+    return true;
+  }catch(e){
+    storageAvailable = false;
+    setStatus(false, "Not saved — storage unavailable");
+    return false;
+  }
 }
 // ---------------- Commits (v3.204.1, item 235c) ----------------
 // An edit says what it touched: commit(["transactions", "accounts"]) saves (persist) and tells everyone

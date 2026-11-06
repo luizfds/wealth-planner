@@ -11,15 +11,15 @@
 var KEY = "wealthPlanner.homeLayout";
 
 export var HOME_CARDS = [
-  { key: "week", label: "Your week (Mondays, above the cards)", group: "strip" },
+  { key: "week", label: "Your week (expandable recap)", group: "strip" },
   { key: "autopay", label: "Automatic payments to confirm (on the day)", group: "strip" },
   { key: "lowbal", label: "Balance ahead (when an account nears its buffer)", group: "strip" },
-  { key: "nw", label: "Net worth", group: "cards" },
   { key: "month", label: "This month", group: "cards" },
+  { key: "nw", label: "Net worth", group: "cards" },
   { key: "bills", label: "Bills — next 2 weeks", group: "cards" },
   { key: "todo", label: "To do", group: "cards" },
   { key: "goals", label: "Goals (under the cards)", group: "strip" },
-  { key: "savings", label: "Net savings", group: "figures" },
+  { key: "savings", label: "Planned monthly surplus", group: "figures" },
   { key: "projected", label: "Projected net worth", group: "figures" },
   { key: "runway", label: "Runway", group: "figures" },
   { key: "fi", label: "Financial independence", group: "figures" },

@@ -4,7 +4,7 @@
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
 // added, so they're added in the same order.
 import { shiftMonth as mdShiftMonth } from "../calc/monthdetail.js";
-import { exportTableCsv } from "../lib/backup.js";
+import { shareTableCsv, exportTableCsv } from "../lib/backup.js";
 import { localDateStr } from "../lib/format.js";
 import { showToast } from "../lib/toast.js";
 import { persist } from "../state.js";
@@ -49,6 +49,7 @@ export function wireReports(){
     var mdCat = e.target.closest("[data-md-cat]");
     if(mdCat){ var cn = mdCat.getAttribute("data-md-cat"); monthDetailUi.open[cn] = !monthDetailUi.open[cn]; renderReports(); return; }
     if(e.target.closest("[data-report-print]")){ printStatic(reportPrintHtml()); return; }
+    if(e.target.closest("[data-report-share]")){ var shared = reportCsv(); shareTableCsv(shared.filename, shared.headers, shared.rows); return; }
     if(e.target.closest("[data-report-csv]")){ var c = reportCsv(); exportTableCsv(c.filename, c.headers, c.rows); return; }
     // Year-end pack (v3.68.0)
     if(e.target.closest("[data-ye-print]")){ printStatic(yearEndPrintHtml()); return; }

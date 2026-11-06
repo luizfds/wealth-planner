@@ -178,6 +178,7 @@ export function wireNavigation(){
   document.getElementById("quickFab").addEventListener("click", function(e){
     var fab = e.currentTarget;
     var fabMode = fab.getAttribute("data-fab-mode");
+    if(fabMode === "spending"){ runQuickAction(QUICK_ACTIONS[0]); return; }
     if(fabMode === "networth"){ logNetWorthSnapshot(); return; }
     if(fabMode === "menu"){ openQuickActions(); return; }
     var selector = fab.getAttribute("data-fab-selector");

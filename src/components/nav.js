@@ -248,8 +248,9 @@ export function updateQuickFab(pageId){
   var label = null, mode = null, selector = null;
   var grouped = null;
   if(pageId === "dashboard"){
-    label = "Record net worth now";
-    mode = "networth";
+    label = "Log spending";
+    selector = "#quickLogBtn";
+    mode = "spending";
   } else if(pageId === "accounts"){
     label = "Add account"; selector = "#addAccountBtn";
   } else if(pageId === "settings"){
@@ -272,6 +273,8 @@ export function updateQuickFab(pageId){
   // menu instead of hiding, and the chevron stands down rather than duplicating it.
   fab.hidden = false;
   if(more) more.hidden = !label;
+  var visibleLabel = document.getElementById("quickFabLabel");
+  if(visibleLabel) visibleLabel.textContent = label || "Quick actions";
   if(!label){
     fab.setAttribute("data-fab-mode", "menu");
     fab.removeAttribute("data-fab-selector");
@@ -373,7 +376,11 @@ export function showPage(id, opts){
   // pure enhancement with no fallback path to maintain.
   var prefersReducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if(document.startViewTransition && !prefersReducedMotion){
-    document.startViewTransition(applyPageChange);
+    var transition = document.startViewTransition(applyPageChange);
+    // Starting another transition rejects ready, but still runs the update callback.
+    // Handle that expected cancellation without hiding failures in applyPageChange.
+    transition.ready.catch(function(err){ if(err.name !== "AbortError") console.error(err); });
+    transition.finished.catch(function(err){ if(err.name !== "AbortError") console.error(err); });
   } else {
     applyPageChange();
   }

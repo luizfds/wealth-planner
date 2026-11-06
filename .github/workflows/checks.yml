@@ -73,7 +73,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install --no-save playwright@1.56.0 axe-core@4.10.3
+      - run: npm install --no-save playwright@1.56.0 axe-core@4.14.0
       - run: npx playwright install --with-deps chromium
       - run: node scripts/accessibility.mjs
         env:

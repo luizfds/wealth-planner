@@ -272,6 +272,18 @@ export function scenarioComparisonDataNotesHtml(notes){
   return '<div class="ledger-note" role="note" aria-label="Comparison data quality"><strong>Check these inputs</strong><ul>' +
     notes.map(function(note){ return '<li>' + escapeAttr(note) + '</li>'; }).join('') + '</ul></div>';
 }
+// A short, readable overview before the wide comparison table on narrow screens.
+export function scenarioTradeoffHighlightsHtml(rows, baseline){
+  if(rows.length < 2) return '';
+  var signed = function(n){ return (n < 0 ? '−' : '+') + fmtCurrency0.format(Math.abs(n)); };
+  return '<div class="ledger-note" role="group" aria-label="Scenario comparison highlights"><strong>At a glance</strong><ul>' +
+    rows.map(function(r){
+      var parts = ['normal-month difference ' + signed(r.monthlyDifference)];
+      if(Number.isFinite(r.projectedDifference)) parts.push('projected net-worth difference ' + signed(r.projectedDifference));
+      if(r.fundingShortfall > 0) parts.push('upfront funding gap ' + fmtCurrency0.format(r.fundingShortfall));
+      return '<li><strong>' + escapeAttr(r.name) + '</strong>: ' + parts.join('; ') + '</li>';
+    }).join('') + '</ul><small>Differences are against ' + escapeAttr(baseline) + '. These figures are not a recommendation or ranking; review the full comparison and assumptions below.</small></div>';
+}
 export function scenarioTradeoffHtml(rows, baseline, notes, horizonYears){
   if(rows.length < 2) return '';
   var money = function(n){ return (n < 0 ? '−' : '+') + fmtCurrency0.format(Math.abs(n)); };
@@ -281,7 +293,7 @@ export function scenarioTradeoffHtml(rows, baseline, notes, horizonYears){
   var hasFunding = rows.every(function(r){ return Number.isFinite(r.upfrontCash) && Number.isFinite(r.fundingShortfall); });
   var coverage = function(r){ return r.reserve.essentialMonthly > 0 && r.reserve.coveredMonths != null && Number.isFinite(r.reserve.coveredMonths) ? fmtRunway.format(r.reserve.coveredMonths) + ' mo' : '—'; };
   return '<details class="scenario-tradeoffs"><summary>Compare monthly trade-offs</summary>' +
-    '<div class="ledger-note" style="overflow-x:auto"><table><caption>Normal-month cash flow and spending, compared with ' + escapeAttr(baseline) + '</caption>' +
+    scenarioTradeoffHighlightsHtml(rows, baseline) + '<div class="ledger-note" style="overflow-x:auto"><table><caption>Normal-month cash flow and spending, compared with ' + escapeAttr(baseline) + '</caption>' +
     '<thead><tr><th scope="col">Scenario</th><th scope="col">Net / mo</th><th scope="col">Difference / mo</th><th scope="col">Home / mo</th><th scope="col">Costs difference / mo</th>' + (hasProjection ? '<th scope="col">Projected net worth (' + horizonYears + ' yr)</th>' : '') + (hasProjectedDifference ? '<th scope="col">Projected difference vs baseline</th>' : '') + (hasFunding ? '<th scope="col">Upfront cash</th><th scope="col">Funding gap</th>' : '') + (hasReserve ? '<th scope="col">Essential / mo</th><th scope="col">Cash + offsets</th><th scope="col">Essential runway</th>' : '') + '</tr></thead><tbody>' +
     rows.map(function(r){ return '<tr><th scope="row">' + escapeAttr(r.name) + '</th><td>' + money(r.monthly) +
       '</td><td>' + money(r.monthlyDifference) + '</td><td>' + fmtCurrency0.format(r.homeMonthly) +

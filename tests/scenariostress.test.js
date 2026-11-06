@@ -207,7 +207,7 @@ test("scenario funding table has a header for every value and preserves column o
   const html = scenarioTradeoffHtml(rows, "Stay");
   const headers = [...html.matchAll(/<th scope="col">([^<]+)<\/th>/g)].map(m => m[1]);
   assert.deepEqual(headers, ["Scenario", "Net / mo", "Difference / mo", "Home / mo",
-    "Costs difference / mo", "Upfront cash", "Funding gap", "Essential / mo", "Cash + offsets", "Essential runway"]);
+    "Costs difference / mo", "Upfront cash", "Funding gap", "Essential / mo", "Cash + offsets", "Essential runway", "Reserve target gap"]);
   const body = html.match(/<tbody>([\s\S]*?)<\/tbody>/)[1];
   const cells = [...body.matchAll(/<tr>([\s\S]*?)<\/tr>/g)];
   assert.equal(cells.length, 2);
@@ -305,4 +305,33 @@ test("comparison highlights explain trade-offs without ranking and escape scenar
   assert.equal(scenarioTradeoffHighlightsHtml([rows[0]], "Rent"), "");
   const noProjection = [{ ...rows[0], projectedDifference: null }, { ...rows[1], projectedDifference: null }];
   assert.doesNotMatch(scenarioTradeoffHighlightsHtml(noProjection, "Rent"), /projected net-worth difference/);
+});
+
+test("reserve target gaps are separate from upfront funding shortfalls", async () => {
+  const { scenarioTradeoffRows, scenarioTradeoffHtml, scenarioTradeoffHighlightsHtml } =
+    await import("../src/components/dashboard.js");
+  const totals = {
+    Stay: { regularNetMonthly: 400, homeMonthly: 1500, expensesMonthly: 3000, cashOut: 0 },
+    Buy: { regularNetMonthly: -100, homeMonthly: 3300, expensesMonthly: 4800,
+      cashOut: 75000, draw: { short: 5000 } }
+  };
+  const reserves = {
+    Stay: { monthly: 2000, available: 12000, target: 12000, coveredMonths: 6, unclassified: [] },
+    Buy: { monthly: 3500, available: 12000, target: 21000, coveredMonths: 12 / 3.5, unclassified: [] }
+  };
+  const rows = scenarioTradeoffRows(["Stay", "Buy"], name => totals[name], "Stay", name => reserves[name]);
+  assert.equal(rows[0].reserve.targetGap, 0);
+  assert.equal(rows[1].reserve.targetGap, 9000);
+  assert.equal(rows[1].fundingShortfall, 5000);
+  const html = scenarioTradeoffHtml(rows, "Stay");
+  assert.match(html, /Reserve target gap/);
+  assert.match(html, /9,000 short/);
+  assert.match(html, /not the same as an upfront funding gap/);
+  const highlights = scenarioTradeoffHighlightsHtml(rows, "Stay");
+  assert.match(highlights, /essential-reserve target gap \$9,000/);
+  assert.match(highlights, /upfront funding gap \$5,000/);
+  const missing = scenarioTradeoffRows(["Stay", "Buy"], name => totals[name], "Stay", name =>
+    name === "Stay" ? { ...reserves.Stay, target: undefined } : reserves.Buy);
+  assert.equal(missing[0].reserve.targetGap, null);
+  assert.doesNotMatch(scenarioTradeoffHtml(missing, "Stay"), /Reserve target gap<\/th>/);
 });

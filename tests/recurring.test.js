@@ -41,3 +41,29 @@ test("a line whose recent charges run above its budget", function(){
   assert.equal(r[0].extraMonthly, 5);
   assert.match(recurringHtml([], r), /Update to \$45\.00/);
 });
+
+test("calendar month-end cadence handles February in leap and non-leap years", function(){
+  assert.equal(cadenceOf(["2024-01-31", "2024-02-29", "2024-03-31", "2024-04-30"]), "Monthly");
+  assert.equal(cadenceOf(["2025-01-31", "2025-02-28", "2025-03-31", "2025-04-30"]), "Monthly");
+  assert.equal(cadenceOf(["2026-01-15", "2026-02-15", "2026-03-15"]), "Monthly");
+});
+
+test("month-end recurring suggestions are estimates, not generated transactions", function(){
+  const tx = [
+    { date: "2024-01-31", amount: 49, what: "SAMPLE SERVICE" },
+    { date: "2024-02-29", amount: 49, what: "SAMPLE SERVICE" },
+    { date: "2024-03-31", amount: 49, what: "SAMPLE SERVICE" },
+    { date: "2024-04-30", amount: 49, what: "SAMPLE SERVICE" }
+  ];
+  const original = JSON.stringify(tx);
+  const suggestions = unbudgetedRecurring(tx, "2024-05-05");
+  assert.equal(suggestions.length, 1);
+  assert.equal(suggestions[0].freq, "Monthly");
+  assert.equal(suggestions[0].count, 4);
+  assert.equal(JSON.stringify(tx), original, "detection does not generate or mutate transactions");
+});
+
+test("skipped and irregular calendar periods do not establish a monthly rule", function(){
+  assert.equal(cadenceOf(["2024-01-31", "2024-03-31", "2024-06-30"]), null);
+  assert.equal(cadenceOf(["2024-01-31", "2024-02-29"]), null);
+});

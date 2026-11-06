@@ -19,9 +19,29 @@ function round(n){ return Math.round(n * 100) / 100; }
 
 // The cadence a list of dates keeps, or null: the median gap within 25% of a known rhythm, and
 // most gaps agreeing with it.
+// Calendar-month recurrence can move from the 31st to the 28th/29th and back.
+// Check consecutive calendar months before comparing approximate day gaps.
+function calendarMonthCadence(dates){
+  var parsed = dates.map(function(iso){
+    if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(iso)) return null;
+    var y = Number(iso.slice(0, 4)), m = Number(iso.slice(5, 7)), day = Number(iso.slice(8, 10));
+    var last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    if(m < 1 || m > 12 || day < 1 || day > last) return null;
+    return { index: y * 12 + m, day: day, last: last };
+  });
+  if(parsed.some(function(p){ return !p; })) return null;
+  var anchors = parsed.map(function(p){ return p.day === p.last ? 31 : p.day; });
+  var endOfMonth = parsed.every(function(p){ return p.day === p.last; });
+  var anchor = anchors[0];
+  if(!endOfMonth && !parsed.every(function(p){ return p.day === Math.min(anchor, p.last); })) return null;
+  var gaps = [];
+  for(var i = 1; i < parsed.length; i++) gaps.push(parsed[i].index - parsed[i - 1].index);
+  return gaps.every(function(g){ return g === 1; }) ? "Monthly" : null;
+}
 export function cadenceOf(dates){
   var d = dates.slice().sort();
   if(d.length < 3) return null;
+  if(calendarMonthCadence(d)) return "Monthly";
   var gaps = [];
   for(var i = 1; i < d.length; i++) gaps.push(days(d[i - 1], d[i]));
   var g = median(gaps);

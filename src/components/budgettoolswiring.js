@@ -9,11 +9,11 @@ import { proposeBudget, applyBudgetProposals } from "../calc/budgetfromhistory.j
 import { recalcComputedItems } from "../calc/engine.js";
 import { learnRule } from "../calc/import-rules.js";
 import { unbudgetedRecurring, risingLines, catchAllSuggestions } from "../calc/recurring.js";
-import { recurringRuleManagerHtml, validateRecurringRule, approvedOccurrences, categoryInsightsHtml } from "./recurringrules.js";
+import { recurringRuleManagerHtml, validateRecurringRule, approvedOccurrences, categoryInsightsHtml, upsertRecurringRule, toggleRecurringRule, deleteRecurringRule, recordApprovedOccurrences } from "./recurringrules.js";
 import { setLeanLevel, leanLevel, trimReport } from "../calc/trim.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr } from "../lib/format.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
-import { state, persist, genId } from "../state.js";
+import { state, persist, commit, genId } from "../state.js";
 import { renderAdvice, adviceUi } from "./advice.js";
 import { askUi, cancelAiApproval, setAiKey, setAiModel, askClaude, setLastReview, copyPrompt, askBody } from "./askclaude.js";
 import { budgetFromHistoryHtml, historyBudgetUi } from "./budgethistory.js";
@@ -307,10 +307,9 @@ export function wireBudgetHistory(){  document.getElementById("historyBudgetBody
       category: fields.get("category"), enabled: original ? original.enabled : true
     });
     if(!rule){ showToast("Check the recurrence dates, amount and frequency."); return; }
-    if(!Array.isArray(state.recurringRules)) state.recurringRules = [];
-    if(original) Object.assign(original, rule); else state.recurringRules.push(rule);
+    upsertRecurringRule(state, rule);
     editingRecurringRule = null;
-    persist(); renderRecurring();
+    commit(["recurringRules"]); renderRecurring();
     showToast("Recurring rule saved locally. No transactions have been created.");
   });
   document.getElementById("recurringBody").addEventListener("click", function(e){
@@ -322,14 +321,14 @@ export function wireBudgetHistory(){  document.getElementById("historyBudgetBody
     if(!rule) return;
     if(action.hasAttribute("data-rr-edit")){ editingRecurringRule = id; renderRecurring(); return; }
     if(action.hasAttribute("data-rr-toggle")){
-      rule.enabled = rule.enabled === false;
-      persist(); renderRecurring(); return;
+      toggleRecurringRule(state, id);
+      commit(["recurringRules"]); renderRecurring(); return;
     }
     if(action.hasAttribute("data-rr-delete")){
       if(!window.confirm("Delete this recurring rule? Previously recorded transactions will remain.")) return;
-      state.recurringRules = state.recurringRules.filter(function(r){ return r.id !== id; });
+      deleteRecurringRule(state, id);
       if(editingRecurringRule === id) editingRecurringRule = null;
-      persist(); renderRecurring(); return;
+      commit(["recurringRules"]); renderRecurring(); return;
     }
     if(rule.enabled === false){ showToast("Resume the rule before previewing occurrences."); return; }
     var today = localDateStr();
@@ -341,11 +340,9 @@ export function wireBudgetHistory(){  document.getElementById("historyBudgetBody
     if(!window.confirm("Record these " + pending.length + " " + rule.kind.toLowerCase() + " occurrence(s)?\\n\\n" +
       details + "\\n\\nOnly confirm if these payments actually occurred. Check imported transactions to avoid double-counting.")) return;
     // Recompute at the write boundary: repeated clicks cannot duplicate a recorded rule/date.
-    var confirmed = approvedOccurrences(rule, state.transactions, state.incomeLog, from, today);
-    if(rule.kind === "Income") state.incomeLog.push.apply(state.incomeLog, confirmed);
-    else state.transactions.push.apply(state.transactions, confirmed);
-    persist(); renderAll();
-    showToast("Recorded " + confirmed.length + " approved occurrence(s).");
+    var count = recordApprovedOccurrences(state, rule, from, today);
+    commit([rule.kind === "Income" ? "incomeLog" : "transactions"]); renderAll();
+    showToast("Recorded " + count + " approved occurrence(s).");
   });
 }
 

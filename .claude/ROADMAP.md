@@ -4736,7 +4736,16 @@ and the one-PR-per-coherent-piece rule, both of which apply to every item here.
 
 ## GitHub acceptance audit — issues #214, #215, #216
 
-`[~]` Verify the three acceptance checklists against main; consolidate confirmed recurrence,
+`[x]` Verify the three acceptance checklists against main; consolidate confirmed recurrence,
 report freshness/setup and CI test-gate defects with synthetic regression journeys.
 Evidence and release decision: `docs/audits/issues-214-216.md`. Keep issues open until
-verification on main; draft PR only, with no merge or deployment authorized.
+verification on main. PR #250 was subsequently merged by the owner, post-merge checks passed,
+and issues #214–216 were closed.
+
+
+## Usability and accessibility follow-up — v3.227.1
+
+`[~]` Walk through onboarding, comparisons, recurring rules and reports with synthetic data.
+Fix confirmed keyboard, landmark, table, mobile layout and contrast defects; add a repeatable
+accessibility CI job and browser regression. Evidence: `docs/audits/usability-accessibility-v3.227.1.md`.
+Draft PR only; physical device and actual screen-reader validation remain separate limitations.

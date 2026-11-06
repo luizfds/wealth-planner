@@ -36,7 +36,7 @@
     background:var(--paper-raised); border:1px solid var(--border); border-radius:14px;
     padding:24px 22px; box-shadow:var(--shadow); margin-bottom:16px;
   }
-  .ob-card h1{ font-size:19px; margin:0 0 8px; letter-spacing:-0.01em; }
+  .ob-card h1, .ob-card h2{ font-size:19px; margin:0 0 8px; letter-spacing:-0.01em; }
   .ob-card > p{ color:var(--ink-soft); font-size:13.5px; margin:0; line-height:1.6; }
   .ob-sections{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:16px; }
   .ob-sections li{ display:flex; gap:12px; align-items:flex-start; font-size:13.5px; }
@@ -63,7 +63,7 @@
 </style>
 </head>
 <body>
-  <div class="ob-wrap">
+  <main class="ob-wrap">
     <div class="ob-brand">
       <div class="app-brand-name"><svg class="app-brand-mark" width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="6" fill="currentColor"/><path d="M5.6 8l3 8.2 3.4-6.4 3.4 6.4 3-8.2" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Wealth Planner</div>
     </div>
@@ -85,7 +85,7 @@
     </div>
 
     <div class="ob-card">
-      <h1>What's inside</h1>
+      <h2>What's inside</h2>
       <p style="margin-bottom:18px">Five places, one set of numbers — what you log in one shows up in the others.</p>
       <ul class="ob-sections">
         <li><span class="ob-icon">⌂</span><span><b>Home</b><span>Net worth and how it moved, this month against the plan, bills due, and a monthly review that checks the figures add up.</span></span></li>
@@ -103,7 +103,7 @@
       </div>
     </div>
 
-  </div>
+  </main>
   <script>
     // Landing here at all means the auto-redirect that brought a first-time visitor here has
     // done its job — never show it again, even if they back out without picking either option.

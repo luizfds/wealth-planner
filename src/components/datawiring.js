@@ -283,7 +283,18 @@ export function wireFirstRun(){  document.addEventListener("click", function(e){
       } else showPage("dashboard", { replace: true });
     }
   });
-  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && firstRun.open) requestCloseActiveOverlay(); });
+  document.addEventListener("keydown", function(e){
+    if(!firstRun.open) return;
+    if(e.key === "Escape"){ e.preventDefault(); requestCloseActiveOverlay(); return; }
+    if(e.key !== "Tab") return;
+    var dialog = firstRunRoot.querySelector('[role="dialog"]');
+    var stops = Array.from(dialog.querySelectorAll('button,input,select,textarea,a[href],[tabindex]')).filter(function(el){
+      return !el.disabled && el.tabIndex >= 0 && el.getClientRects().length > 0;
+    });
+    var first = stops[0], last = stops[stops.length - 1];
+    if(e.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))){ e.preventDefault(); first.focus(); }
+  });
   if(shouldOfferFirstRun()) setTimeout(openFirstRun, 300);
 }
 

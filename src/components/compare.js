@@ -18,7 +18,7 @@ export function compareHtml(rows){
   var row = function(label, fn, help){ return '<tr><th scope="row">' + label + (help ? '<small>' + help + '</small>' : '') + '</th>' + ordered.map(fn).join("") + '</tr>'; };
   return '<div class="cmp-card"><h2 class="section-title">Side by side</h2>' +
     '<p class="ledger-note" style="margin:0 0 10px">Each scenario against staying as you are, from the same figures as the cards and the projection.</p>' +
-    '<div class="cmp-scroll"><table class="cmp-table"><thead><tr><th scope="col"></th>' + ordered.map(function(r){ return '<th scope="col">' + escapeAttr(r.isBaseline ? r.scenario + " (as we are)" : r.scenario) + '</th>'; }).join("") + '</tr></thead><tbody>' +
+    '<div class="cmp-scroll" role="region" aria-label="Scenario comparison; scroll horizontally for more scenarios" tabindex="0"><table class="cmp-table"><thead><tr><th scope="col">Metric</th>' + ordered.map(function(r){ return '<th scope="col">' + escapeAttr(r.isBaseline ? r.scenario + " (as we are)" : r.scenario) + '</th>'; }).join("") + '</tr></thead><tbody>' +
       row("Cash at settlement", function(r){ return cell(r, r.upfront ? money(r.upfront) + (r.short ? '<small class="down">' + money(r.short) + ' short</small>' : '') : "—", r.short ? "is-bad" : ""); }, money(base.available) + " available") +
       row("A month, before tax", function(r){ return cell(r, money(r.monthBeforeTax), r.monthBeforeTax < 0 ? "is-bad" : ""); }) +
       row("A month, after tax", function(r){ return cell(r, money(r.monthAfterTax), r.monthAfterTax < 0 ? "is-bad" : ""); }, "with a property's tax effect") +

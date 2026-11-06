@@ -190,7 +190,35 @@ function renderTrips(){
   var el = document.getElementById("tripsBody");
   if(el) el.innerHTML = tripsCardHtml();
 }
-function renderFirstRun(){ firstRunRoot.innerHTML = firstRun.open ? firstRunHtml() : ""; }
+var firstRunReturnFocus = null, firstRunInertSiblings = [];
+function renderFirstRun(){
+  var wasOpen = !!firstRunRoot.querySelector('[role="dialog"]');
+  var focused = document.activeElement;
+  var field = firstRunRoot.contains(focused) && focused.getAttribute("data-fr");
+  if(firstRun.open && !wasOpen){
+    firstRunReturnFocus = focused;
+    // Hide the background from keyboard and accessibility-tree navigation while modal.
+    firstRunInertSiblings = Array.from(document.body.children).filter(function(el){ return el !== firstRunRoot && !el.inert; });
+    firstRunInertSiblings.forEach(function(el){ el.inert = true; });
+  }
+  firstRunRoot.innerHTML = firstRun.open ? firstRunHtml() : "";
+  if(firstRun.open){
+    var target = field && Array.from(firstRunRoot.querySelectorAll("[data-fr]")).find(function(el){ return el.getAttribute("data-fr") === field; });
+    if(!target) target = firstRunRoot.querySelector("input,select") || firstRunRoot.querySelector("button");
+    if(target) target.focus();
+  } else if(wasOpen){
+    firstRunInertSiblings.forEach(function(el){ el.inert = false; });
+    firstRunInertSiblings = [];
+    var opener = firstRunReturnFocus;
+    firstRunReturnFocus = null;
+    // A redraw may have replaced the opener while the sheet was open.
+    setTimeout(function(){
+      if(firstRun.open) return;
+      var target = opener && opener.isConnected ? opener : Array.from(document.querySelectorAll('[data-firstrun-open]')).find(function(el){ return el.getClientRects().length > 0; });
+      if(target) target.focus();
+    }, 0);
+  }
+}
 function renderTxReviewBanner(){ var b = document.getElementById("txReviewBanner"); if(b) b.innerHTML = reviewBannerHtml(); }
 function renderTxReview(){
   txReviewRoot.innerHTML = txReview.open ? txReviewHtml() : "";

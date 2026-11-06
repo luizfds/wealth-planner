@@ -56,10 +56,10 @@ export function firstRunHtml(){
       '<p class="ledger-note">After that, a monthly review on Home keeps it current in about ten minutes.</p>';
   }
   var last = st === STEPS.length - 1;
-  return '<div class="review-backdrop" data-fr-backdrop><div class="review-panel fr-panel" role="dialog" aria-modal="true" aria-label="Set up Wealth Planner">' +
+  return '<div class="review-backdrop" data-fr-backdrop><div class="review-panel fr-panel" role="dialog" aria-modal="true" aria-label="Set up Wealth Planner" aria-describedby="firstRunProgress">' +
     '<div class="review-head"><h4>' + STEPS[st] + '</h4><button type="button" class="icon-btn" data-fr-close aria-label="Close">✕</button></div>' +
     '<div class="fr-progress" aria-hidden="true">' + STEPS.map(function(_, i){ return '<i class="' + (i <= st ? "on" : "") + '"></i>'; }).join("") + '</div>' +
-    '<div class="fr-step-k">Step ' + (st + 1) + ' of ' + STEPS.length + '</div>' + body +
+    '<div class="fr-step-k" id="firstRunProgress" role="status">Step ' + (st + 1) + ' of ' + STEPS.length + '</div>' + body +
     '<div class="fr-foot">' + (st > 0 ? '<button type="button" class="btn btn-ghost" data-fr-back>Back</button>' : '<span></span>') +
       (last ? '<div class="fr-finish"><button type="button" class="btn btn-ghost" data-fr-finish="home">Finish</button><button type="button" class="btn btn-primary" data-fr-finish="import">Finish and import statements</button></div>'
         : '<button type="button" class="btn btn-primary" data-fr-next>Next</button>') + '</div></div></div>';

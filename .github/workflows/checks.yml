@@ -66,6 +66,24 @@ jobs:
       - run: npm install --no-save playwright@1.56.0
       - run: npx playwright install --with-deps chromium
       - run: node scripts/smoke.mjs
+  accessibility:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save playwright@1.56.0 axe-core@4.10.3
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/accessibility.mjs
+        env:
+          A11Y_DIR: accessibility-report
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: accessibility-report
+          path: accessibility-report
+          retention-days: 14
   # v3.130.0: what a pull request changes on screen. The same smoke script photographs every view of
   # the base branch and of the PR (light, 390px and 1280px, at a fixed date and time so identical code
   # gives identical pictures), scripts/shotdiff.mjs compares them pixel by pixel, and the changed views

@@ -43,7 +43,9 @@ function buildDemoState(){
 // (home's own default scenario block doesn't count — that always exists).
 export function hasRealUserData(){
   return ["income", "shared", "assets", "properties", "transactions", "debts", "accounts", "incomeLog", "transfers", "savingsGoals", "recurringRules"].some(function(k){ return (state[k] || []).length > 0; }) ||
-    Object.keys(state.taxYears || {}).length > 0 || !!state.firstRunDone || (state.scenarios || []).length > 1;
+    Object.keys(state.taxYears || {}).length > 0 ||
+    Object.values(state.home || {}).some(function(rows){ return rows.some(function(r){ return Number(r.amount) !== 0 || r.account || (r.history || []).length; }); }) ||
+    Object.values(state.purchase || {}).some(function(p){ return p.enabled; }) || !!state.firstRunDone || (state.scenarios || []).length > 1;
 }
 // v3.40.0: a tax year file merges one year into the plan — see calc/taxyear.js mergeTaxYearFile().
 function applyTaxYearFile(parsed){

@@ -2157,3 +2157,23 @@ test("recurring management and partial-profile disclosures render without privat
   assert.equal((setup.match(/data-setup-go=/g) || []).length, 5);
   assert.match(reportDisclosureHtml(reportDisclosure({}, "2026-11-03", {}), true), /<details open>/);
 });
+
+test("the Investments purchase table uses cash and offsets, without assuming unsold shares fund settlement", async function(){
+  const { setState, migrateState } = await import("../src/state.js");
+  const { demoHousehold } = await import("../src/calc/demo.js");
+  const { recalcComputedItems } = await import("../src/calc/engine.js");
+  const { netWorthPurchaseHtml } = await import("../src/components/assets.js");
+  const { canBuy } = await import("../src/calc/canbuy.js");
+  const keep=state;
+  try {
+    setState(migrateState(demoHousehold("2026-10-15"))); recalcComputedItems();
+    const buy=canBuy(state.scenarios.find(s=>state.purchase[s] && state.purchase[s].enabled));
+    const html=netWorthPurchaseHtml();
+    assert.match(html,/Cash and offsets available/);
+    assert.ok(html.includes(fmtCurrencyForTest(buy.available)));
+    assert.ok(html.includes(fmtCurrencyForTest(buy.short)));
+    assert.match(html,/Selling investments is not assumed/);
+    assert.doesNotMatch(html,/Liquid assets \(cash \+ shares/);
+  } finally {setState(keep);}
+  function fmtCurrencyForTest(n){return new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD',maximumFractionDigits:0}).format(n);}
+});

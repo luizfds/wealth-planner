@@ -125,6 +125,11 @@ const JOURNEYS = {
       return checked.length;
     });
     check(protectedSections===5,'sample guard did not protect partially entered households');
+    check(await page.evaluate(async()=>{
+      const m=await import('/src/state.js'), data=await import('/src/components/datawiring.js'), saved=m.state;
+      try {m.setState(m.defaultState()); m.state.home[m.state.baselineScenario][0].amount=430; return data.hasRealUserData();}
+      finally {m.setState(saved);}
+    }), 'sample guard missed a housing-only household');
   },
   async backupstatus(page){
     await page.evaluate(async () => {
@@ -186,6 +191,22 @@ const JOURNEYS = {
     await longterm.locator('summary').focus(); await page.keyboard.press('Enter');
     check(await longterm.evaluate(e=>e.open), 'long-term comparison is not keyboard operable');
     check((await page.locator('.cmp-card').innerText()).includes('Indicative serviceability check'), 'comparison implies a lending approval');
+    await page.setViewportSize({width:1280,height:844});
+    await go(page,'assets','data-assets-sub','summary');
+    check(await page.evaluate(()=>{
+      const title=document.getElementById('pageTitle').getBoundingClientRect(), actions=document.querySelector('.app-topbar .actions').getBoundingClientRect();
+      return Math.abs((title.top+title.height/2)-(actions.top+actions.height/2))<12;
+    }), 'desktop Investments header wrapped its actions onto another row');
+    const funding=await page.evaluate(async()=>{
+      const rows=[...document.querySelectorAll('#netWorthPanel tbody tr')];
+      const m=await import('/src/calc/canbuy.js');
+      return rows.every(row=>{
+        const cells=row.querySelectorAll('td'), buy=m.canBuy(cells[0].textContent);
+        return Number(cells[2].textContent.replace(/[^0-9.]/g,''))===Math.round(buy.available) &&
+          Number(cells[3].textContent.replace(/[^0-9.]/g,''))===Math.round(Math.abs(buy.left));
+      });
+    });
+    check(funding,'Investments settlement table disagrees with the purchase warning');
   },
   async keyboardaudit(page){
     page.setDefaultTimeout(10000);

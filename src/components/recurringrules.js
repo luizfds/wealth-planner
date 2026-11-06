@@ -65,3 +65,22 @@ export function categoryInsightsHtml(transactions, today){
         (r.currentCount === 0 ? ' — no transactions recorded this month' : '') + '</li>';
     }).join('') + '</ul></details>';
 }
+
+export function upsertRecurringRule(data, rule){
+  if(!Array.isArray(data.recurringRules)) data.recurringRules = [];
+  const idx = data.recurringRules.findIndex(function(r){ return r.id === rule.id; });
+  if(idx >= 0) data.recurringRules[idx] = rule; else data.recurringRules.push(rule);
+}
+export function toggleRecurringRule(data, id){
+  const rule = (data.recurringRules || []).find(function(r){ return r.id === id; });
+  if(rule) rule.enabled = rule.enabled === false;
+}
+export function deleteRecurringRule(data, id){
+  data.recurringRules = (data.recurringRules || []).filter(function(r){ return r.id !== id; });
+}
+export function recordApprovedOccurrences(data, rule, from, through){
+  const approved = approvedOccurrences(rule, data.transactions, data.incomeLog, from, through);
+  if(rule.kind === "Income") data.incomeLog.push(...approved);
+  else data.transactions.push(...approved);
+  return approved.length;
+}

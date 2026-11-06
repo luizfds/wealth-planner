@@ -1,11 +1,11 @@
 import { state } from "../state.js";
-import { getTaxPeople, computePersonTax, scenarioIncomeRows } from "./tax.js";
-import { ipProperties, loanRateOn, loanPaidOut, loanInvestShare } from "./property.js";
-import { scenarioTotals, toAudAmount, totalNetWorthValue, currentScenario } from "./engine.js";
+import { getTaxPeople } from "./tax.js";
+
+import { toAudAmount, totalNetWorthValue, currentScenario } from "./engine.js";
 import { periodsOf } from "./ledger.js";
 import { emergencyFund } from "./emergency.js";
-import { monthFigures, shiftMonth } from "./monthdetail.js";
-import { canBuy } from "./canbuy.js";
+
+
 
 // ---------------- A summary of the household for a written review (v3.98.0) ----------------
 //
@@ -15,8 +15,6 @@ import { canBuy } from "./canbuy.js";
 // identify a household. A separate preview and explicit confirmation are required before sharing.
 // Pure apart from reading state.
 function m(n){ var v = Math.round(Number(n) || 0); return (v < 0 ? "−$" : "$") + Math.abs(v).toLocaleString("en-AU"); }
-function safeRegion(s){ return ["NSW", "VIC", "QLD", "SA", "WA", "TAS", "ACT", "NT"].includes(s) ? s : "AU"; }
-function pct(n){ return (Math.round(n * 1000) / 10) + "%"; }
 
 // [from, to] pairs, longest first, applied to every line of text that came from the app.
 export function anonymiser(st){

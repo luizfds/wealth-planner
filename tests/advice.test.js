@@ -91,7 +91,7 @@ test("the review request and the answer's rendering", function(){
   var b = askBody("SUMMARY", "Should we buy?", "claude-sonnet-5-5");
   assert.equal(b.model, "claude-sonnet-5-5");
   assert.equal(b.system, SYSTEM_PROMPT);
-  assert.match(b.messages[0].content, /SUMMARY[\\s\\S]*general review/);
+  assert.match(b.messages[0].content, /SUMMARY[\s\S]*general review/);
   assert.doesNotMatch(b.messages[0].content, /Should we buy/);
   var h = reviewHtml("## Buying\n- **Cash** is fine\n- rates <b>\n\nPlain line");
   assert.match(h, /<h4>Buying<\/h4><ul><li><b>Cash<\/b> is fine<\/li><li>rates &lt;b><\/li><\/ul><p>Plain line<\/p>/);

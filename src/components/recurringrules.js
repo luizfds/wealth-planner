@@ -14,11 +14,16 @@ export function validateRecurringRule(input){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(r.startDate)) return null;
   const start = new Date(r.startDate + "T00:00:00Z");
   if(!Number.isFinite(start.getTime()) || start.toISOString().slice(0, 10) !== r.startDate) return null;
-  if(r.endDate && (r.endDate < r.startDate || !/^\d{4}-\d{2}-\d{2}$/.test(r.endDate))) return null;
+  if(r.endDate){
+    const end = new Date(r.endDate + "T00:00:00Z");
+    if(r.endDate < r.startDate || !/^\d{4}-\d{2}-\d{2}$/.test(r.endDate) ||
+      !Number.isFinite(end.getTime()) || end.toISOString().slice(0, 10) !== r.endDate) return null;
+  }
   return r;
 }
 export function approvedOccurrences(rule, transactions, incomeLog, from, through){
-  const existing = rule.kind === "Income" ? incomeLog : transactions;
+  // A type edit must not regenerate occurrences already recorded in the other log.
+  const existing = (transactions || []).concat(incomeLog || []);
   return recurringCandidates(rule, existing, from, through).map(function(x){
     return { ...x, id: rule.id + ":" + x.date, what: rule.what, amount: rule.amount,
       category: rule.category, ...(rule.kind === "Income" ? { target: "" } : { linkedExpenseId: null }) };
@@ -36,7 +41,7 @@ export function recurringRuleManagerHtml(rules, transactions, incomeLog, today, 
       '<div class="rc-actions"><button type="button" class="btn btn-sm" data-rr-edit="' + safe(r.id) + '">Edit</button>' +
       '<button type="button" class="btn btn-sm" data-rr-preview="' + safe(r.id) + '">Preview due</button>' +
       '<button type="button" class="btn btn-sm btn-ghost" data-rr-toggle="' + safe(r.id) + '">' + (r.enabled === false ? 'Resume' : 'Pause') + '</button>' +
-      '<button type="button" class="btn btn-sm btn-ghost" data-rr-delete="' + safe(r.id) + '">Delete</button></div></div>';
+      '<button type="button" class="btn btn-sm btn-danger" data-rr-delete="' + safe(r.id) + '">Delete</button></div></div>';
   });
   const r = edit || { what: "", amount: "", kind: "Expense", frequency: "Monthly", startDate: today, endDate: "", intervalDays: 10, category: "" };
   html += '<details' + (edit ? ' open' : '') + '><summary>' + (edit ? 'Edit rule' : 'Add recurring rule') + '</summary>' +

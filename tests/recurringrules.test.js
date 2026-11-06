@@ -12,6 +12,9 @@ test("approved recurring rules are validated before saving", () => {
   assert.equal(validateRecurringRule({ ...rule, frequency: "Custom", intervalDays: 0 }), null);
   assert.equal(validateRecurringRule({ ...rule, startDate: "2024-02-30" }), null);
   assert.equal(validateRecurringRule({ ...rule, endDate: "2023-01-01" }), null);
+  assert.equal(validateRecurringRule({ ...rule, endDate: "2024-02-30" }), null);
+  assert.equal(validateRecurringRule({ ...rule, endDate: "2025-02-29" }), null);
+  assert.equal(validateRecurringRule({ ...rule, endDate: "2024-02-29" }).endDate, "2024-02-29");
   assert.equal(validateRecurringRule({ ...rule, frequency: "Custom", intervalDays: 9 }).intervalDays, 9);
 });
 
@@ -43,4 +46,13 @@ test("rule management escapes labels and exposes explicit controls", () => {
   assert.match(html, /data-rr-delete="example-rule"/);
   assert.match(html, /id="recurringRuleForm"/);
   assert.match(html, /only recorded after you preview and confirm/);
+});
+
+
+test("changing rule type preserves occurrence identity across both logs", () => {
+  const first = approvedOccurrences(rule, [], [], "2024-01-01", "2024-01-31");
+  assert.deepEqual(approvedOccurrences({ ...rule, kind: "Income" }, first, [],
+    "2024-01-01", "2024-01-31"), []);
+  const income = approvedOccurrences({ ...rule, kind: "Income" }, [], [], "2024-01-01", "2024-01-31");
+  assert.deepEqual(approvedOccurrences(rule, [], income, "2024-01-01", "2024-01-31"), []);
 });

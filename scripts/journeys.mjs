@@ -77,6 +77,120 @@ async function go(page, pageId, subAttr, sub){
 const click = (page, sel) => page.evaluate(s => { const el = document.querySelector(s); if(!el) throw new Error("No " + s); el.click(); }, sel);
 
 const JOURNEYS = {
+  async onboardingaudit(page){
+    page.setDefaultTimeout(10000);
+    await page.evaluate(async () => {
+      const s = await import('/src/state.js');
+      s.setState(s.defaultState());
+      const e = await import('/src/calc/engine.js'); e.recalcComputedItems();
+      const r = await import('/src/components/redraw.js'); r.renderAll();
+    });
+    await go(page, 'dashboard');
+    await page.locator('#dashboardSetup [data-firstrun-open]').click();
+    const dialog = page.getByRole('dialog', { name: 'Set up Wealth Planner' });
+    check((await dialog.innerText()).includes('Step 1 of 5'), 'setup has no readable progress');
+    await dialog.locator('[data-fr="people.0.name"]').fill('Alex');
+    await dialog.locator('[data-fr-next]').click();
+    check((await dialog.innerText()).includes('Step 2 of 5'), 'setup did not advance');
+    await dialog.locator('[data-fr-close]').click();
+    check(await st(page, 'state.income.length') === 0, 'cancelling setup saved an incomplete draft');
+    await page.locator('#dashboardSetup [data-firstrun-open]').click();
+    await dialog.locator('[data-fr="people.0.name"]').fill('Alex');
+    await dialog.locator('[data-fr-next]').click();
+    await dialog.locator('[data-fr-next]').click();
+    await dialog.locator('[data-fr="people.0.pay"]').fill('60000');
+    await dialog.locator('[data-fr-next]').click();
+    await dialog.locator('[data-fr-next]').click();
+    await dialog.locator('[data-fr-finish="home"]').click();
+    check(await st(page, 'state.income.length') > 0, 'finishing setup did not save income');
+    await go(page, 'reports');
+    const progress = page.locator('[aria-label="Planning setup progress"]');
+    await progress.locator('summary').click();
+    check((await progress.innerText()).includes('Not entered: Goals'), 'partial profile goals were presented as entered');
+    check(!(await page.locator('body').innerText()).match(/NaN|undefined/), 'partial profile produced invalid figures');
+  },
+  async recurringrules(page){
+    page.setDefaultTimeout(10000);
+    await go(page, "expenses", "data-expenses-sub", "budget");
+    await page.locator('#recurringRuleForm').evaluate(el => el.closest('details').open = true);
+    await page.locator('#recurringRuleForm [name="what"]').fill('Synthetic service');
+    await page.evaluate(async () => (await import('/src/components/budgettoolswiring.js')).renderRecurring());
+    check(await page.locator('#recurringRuleForm [name="what"]').inputValue() === 'Synthetic service', 'background redraw discarded the open rule draft');
+    await page.locator('#recurringRuleForm [name="amount"]').fill('25');
+    await page.locator('#recurringRuleForm [name="startDate"]').fill('2026-10-01');
+    const before = await st(page, "state.transactions.length");
+    await page.locator('#recurringRuleForm button[type="submit"]').click();
+    check(await st(page, "state.transactions.length") === before, 'saving a rule generated transactions without approval');
+    const id = await st(page, "state.recurringRules.find(r => r.what === 'Synthetic service').id");
+    const preview = page.locator('[data-rr-preview="' + id + '"]');
+    let message = '';
+    page.once('dialog', async d => { message = d.message(); await d.dismiss(); });
+    await preview.click();
+    check(message.includes('\n\n2026-10-01') && !message.includes('\\n'), 'preview must show readable occurrence lines');
+    check(await st(page, "state.transactions.length") === before, 'cancelled preview wrote transactions');
+    page.once('dialog', d => d.accept());
+    await preview.click();
+    check(await st(page, "state.transactions.length") === before + 2, 'approved monthly occurrences were not recorded');
+    await preview.click();
+    check(await st(page, "state.transactions.length") === before + 2, 'repeated preview duplicated occurrences');
+    await page.locator('[data-rr-edit="' + id + '"]').click();
+    await page.locator('#recurringRuleForm [name="kind"]').selectOption('Income');
+    await page.locator('#recurringRuleForm [name="category"]').fill('Synthetic category');
+    await page.locator('#recurringRuleForm button[type="submit"]').click();
+    const incomeBefore = await st(page, "state.incomeLog.length");
+    await preview.click();
+    check(await st(page, "state.incomeLog.length") === incomeBefore, 'type edit duplicated previously recorded dates');
+    await page.locator('[data-rr-toggle="' + id + '"]').click();
+    check(await st(page, "state.recurringRules.find(r => r.what === 'Synthetic service').enabled") === false, 'pause was not saved');
+    await page.waitForFunction(() => {
+      const saved = JSON.parse(localStorage.getItem('wealthPlanner.v1') || '{}');
+      return (saved.recurringRules || []).some(r => r.what === 'Synthetic service' && r.enabled === false);
+    });
+    // Re-enter via the static entry point; this test server does not emulate Pages 404 routing.
+    await page.goto(base + "/index.html");
+    await page.waitForFunction(() => document.documentElement.hasAttribute('data-wp-ready'));
+    await go(page, "expenses", "data-expenses-sub", "budget");
+    check(await st(page, "state.recurringRules.find(r => r.what === 'Synthetic service').category") === 'Synthetic category', 'rule edit did not persist locally');
+    page.once('dialog', d => d.accept());
+    await page.locator('[data-rr-delete="' + id + '"]').click();
+    check(await st(page, "state.recurringRules.some(r => r.what === 'Synthetic service')") === false, 'rule deletion did not persist');
+    check(await st(page, "state.transactions.length") === before + 2, 'deleting a rule deleted its historical payments');
+  },
+  async reportaudit(page){
+    page.setDefaultTimeout(10000);
+    await go(page, "reports");
+    await page.locator('[data-report="cashflow"]').click();
+    const disclosure = page.locator('[aria-label="Report assumptions and data quality"]');
+    await disclosure.locator('summary').focus();
+    await page.keyboard.press('Enter');
+    check(await disclosure.locator('details').evaluate(el => el.open), 'report disclosure is not keyboard operable');
+    check((await disclosure.innerText()).includes('2026-11-03'), 'report has no as-of date');
+    const result = await page.evaluate(async () => {
+      const m = await import('/src/components/reports.js');
+      const csv = m.reportCsv(), printed = m.reportPrintHtml();
+      const calc = await import('/src/calc/reports.js');
+      const rep = calc.buildReport('cashflow', m.reportOpts());
+      return { csv, printed, expected: calc.reportCsvRows(rep) };
+    });
+    check(JSON.stringify(result.csv.headers) === JSON.stringify(result.expected.headers), 'CSV headers disagree with report');
+    check(JSON.stringify(result.csv.rows.slice(0, result.expected.rows.length)) === JSON.stringify(result.expected.rows), 'CSV calculations disagree with report');
+    check(result.csv.rows.some(r => r[0] === 'As of' && r[1] === '2026-11-03'), 'CSV omits as-of metadata');
+    check(result.printed.includes('<details open>') && result.printed.includes('2026-11-03'), 'print omits visible disclosures');
+    const download = page.waitForEvent('download');
+    await page.locator('[data-report-csv]').click();
+    const file = await download;
+    check(file.suggestedFilename().endsWith('.csv'), 'report download did not produce a CSV');
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
+    check(!overflow, 'report scrolls sideways on mobile');
+    const setup = page.locator('[aria-label="Planning setup progress"]');
+    await setup.locator('summary').click();
+    const goals = setup.getByRole('button', { name: 'Review Goals', exact: true });
+    await goals.focus();
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(500);
+    check(await page.locator('#planSub-goals').isVisible(), 'setup Goals action did not open Plan goals');
+  },
+
   async bills(page){
     await go(page, "expenses", "data-expenses-sub", "spending");
     const before = await st(page, "state.transactions.length");

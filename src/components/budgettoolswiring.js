@@ -45,9 +45,12 @@ function renderBudgetFromHistory(){
   var cnt = document.getElementById("historyBudgetCount");
   if(cnt) cnt.textContent = r.ready && r.proposals.length ? r.proposals.length + " to add" : "";
 }
-function renderRecurring(){
+function renderRecurring(force){
   var el = document.getElementById("recurringBody");
   if(!el) return;
+  // Background redraws must not discard a rule while its form is being edited.
+  var form = el.querySelector("#recurringRuleForm");
+  if(!force && form && form.closest("details").open) return;
   var c = currentRecurring();
   el.innerHTML = recurringHtml(c.u, c.r, c.c, state.transactions) + recurringRuleManagerHtml(state.recurringRules || [], state.transactions, state.incomeLog, localDateStr(), editingRecurringRule) + categoryInsightsHtml(state.transactions, localDateStr());
   var n = c.u.filter(function(x){ return !recurringDismissed.keys["u:" + x.key]; }).length + c.r.filter(function(x){ return !recurringDismissed.keys["r:" + x.id + ":" + x.recent]; }).length + catchAllShown(c.c);
@@ -309,7 +312,7 @@ export function wireBudgetHistory(){  document.getElementById("historyBudgetBody
     if(!rule){ showToast("Check the recurrence dates, amount and frequency."); return; }
     upsertRecurringRule(state, rule);
     editingRecurringRule = null;
-    commit(["recurringRules"]); renderRecurring();
+    commit(["recurringRules"]); renderRecurring(true);
     showToast("Recurring rule saved locally. No transactions have been created.");
   });
   document.getElementById("recurringBody").addEventListener("click", function(e){
@@ -319,16 +322,16 @@ export function wireBudgetHistory(){  document.getElementById("historyBudgetBody
       action.getAttribute("data-rr-toggle") || action.getAttribute("data-rr-delete");
     var rule = (state.recurringRules || []).find(function(r){ return r.id === id; });
     if(!rule) return;
-    if(action.hasAttribute("data-rr-edit")){ editingRecurringRule = id; renderRecurring(); return; }
+    if(action.hasAttribute("data-rr-edit")){ editingRecurringRule = id; renderRecurring(true); return; }
     if(action.hasAttribute("data-rr-toggle")){
       toggleRecurringRule(state, id);
-      commit(["recurringRules"]); renderRecurring(); return;
+      commit(["recurringRules"]); renderRecurring(true); return;
     }
     if(action.hasAttribute("data-rr-delete")){
       if(!window.confirm("Delete this recurring rule? Previously recorded transactions will remain.")) return;
       deleteRecurringRule(state, id);
       if(editingRecurringRule === id) editingRecurringRule = null;
-      commit(["recurringRules"]); renderRecurring(); return;
+      commit(["recurringRules"]); renderRecurring(true); return;
     }
     if(rule.enabled === false){ showToast("Resume the rule before previewing occurrences."); return; }
     var today = localDateStr();
@@ -336,9 +339,9 @@ export function wireBudgetHistory(){  document.getElementById("historyBudgetBody
     var pending = approvedOccurrences(rule, state.transactions, state.incomeLog, from, today);
     if(!pending.length){ showToast("No unrecorded occurrences in the last 60 days."); return; }
     if(pending.length > 30){ showToast("Too many occurrences to approve at once. Narrow the rule interval."); return; }
-    var details = pending.map(function(x){ return x.date + " — " + x.what + " — $" + x.amount.toFixed(2); }).join("\\n");
-    if(!window.confirm("Record these " + pending.length + " " + rule.kind.toLowerCase() + " occurrence(s)?\\n\\n" +
-      details + "\\n\\nOnly confirm if these payments actually occurred. Check imported transactions to avoid double-counting.")) return;
+    var details = pending.map(function(x){ return x.date + " — " + x.what + " — $" + x.amount.toFixed(2); }).join("\n");
+    if(!window.confirm("Record these " + pending.length + " " + rule.kind.toLowerCase() + " occurrence(s)?\n\n" +
+      details + "\n\nOnly confirm if these payments actually occurred. Check imported transactions to avoid double-counting.")) return;
     // Recompute at the write boundary: repeated clicks cannot duplicate a recorded rule/date.
     var count = recordApprovedOccurrences(state, rule, from, today);
     commit([rule.kind === "Income" ? "incomeLog" : "transactions"]); renderAll();

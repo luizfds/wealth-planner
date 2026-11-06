@@ -165,7 +165,7 @@ export function planningReadinessHtml(s, today){
   return '<section class="ledger-note" role="region" aria-label="Planning setup progress"><details><summary>Planning setup · ' + r.done + ' of ' + r.total + ' sections entered</summary>' +
     '<p>These are entry indicators, not proof of financial completeness. Loans and goals are optional; a missing loan entry does not imply you have no debt.</p>' +
     '<ul>' + r.steps.map(function(x){
-      return '<li>' + (x.done ? 'Entered: ' : 'Not entered: ') + escapeAttr(x.label) + (x.optional ? ' (optional)' : '') + '</li>';
+      return '<li>' + (x.done ? 'Entered: ' : 'Not entered: ') + escapeAttr(x.label) + (x.optional ? ' (optional)' : '') + ' <button type="button" class="btn btn-sm" data-setup-go="' + escapeAttr(x.page) + '"' + (x.sub ? ' data-setup-sub="' + escapeAttr(x.sub) + '"' : '') + '>Review ' + escapeAttr(x.label) + '</button></li>';
     }).join('') + '</ul>' +
     (r.stale ? '<p>Some saved inputs may be stale (last saved more than 90 days ago).</p>' : '') +
     (missing.length ? '<p>Continue setup from the Income, Budget, Net worth and Goals areas. You can still use reports with a partial profile.</p>' : '<p>All tracked setup sections have entries. Review values periodically.</p>') +

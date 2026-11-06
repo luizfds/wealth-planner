@@ -29,6 +29,8 @@ jobs:
           node-version: 22
       # v3.204.0: the suite with coverage — the totals go in the job summary.
       - run: npm run coverage | tee coverage.txt
+        # Explicit bash enables pipefail, so tee cannot hide failing tests.
+        shell: bash
       - run: |
           { echo "### Test coverage"; echo '```'; grep -E "^# (file|all files| *[a-z]+/ *\|)" coverage.txt | sed 's/^# //' | grep -E "^(file|all files)"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
   journeys:

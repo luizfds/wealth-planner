@@ -27,6 +27,7 @@ for(const width of widths)for(const scheme of schemes){
  await context.route(/fonts\.(googleapis|gstatic)\.com|docs\.google\.com|coingecko|frankfurter|dropboxapi|anthropic/,r=>r.abort());
  await context.addInitScript(()=>localStorage.setItem('wealthPlanner.hasSeenIntro','1'));
  const page=await context.newPage();
+ const cdp=await context.newCDPSession(page);
  await page.goto(base+'/index.html?mock=1');await page.waitForFunction(()=>document.documentElement.hasAttribute('data-wp-ready'));await page.waitForTimeout(1200);
  await page.evaluate(axe);
  async function scan(name){
@@ -55,7 +56,8 @@ for(const width of widths)for(const scheme of schemes){
    return {contrastChecks,violations:r.violations.map(v=>({id:v.id,impact:v.impact,description:v.description,help:v.help,nodes:v.nodes.map(n=>({target:n.target,html:n.html,summary:n.failureSummary}))})),incomplete:r.incomplete.map(v=>({id:v.id,count:v.nodes.length,nodes:v.nodes.map(n=>({target:n.target,html:n.html,summary:n.failureSummary}))}))};
   });
   const layout = await page.evaluate(() => ({viewport:innerWidth,scrollWidth:document.documentElement.scrollWidth}));
-  const accessibilityTree = await page.locator('body').ariaSnapshot();
+  const nativeTree = await cdp.send('Accessibility.getFullAXTree');
+  const accessibilityTree = nativeTree.nodes.filter(n=>!n.ignored).map(n=>({id:n.nodeId,role:n.role?.value,name:n.name?.value,description:n.description?.value,children:n.childIds}));
   results.push({name,width,scheme,...result,accessibilityTree,layout});
   if(process.env.A11Y_DIR && ['onboarding','plan/scenarios','reports/networth','setup/1','setup/2'].includes(name)){
    fs.mkdirSync(process.env.A11Y_DIR,{recursive:true});

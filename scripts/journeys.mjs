@@ -95,6 +95,12 @@ const JOURNEYS = {
     await first.focus(); await page.keyboard.press('Shift+Tab');
     check(await last.evaluate(el => el === document.activeElement), 'Shift+Tab escaped the setup dialog');
     check(await page.locator('.app-shell').evaluate(el => el.inert), 'background remains available to assistive technology');
+    const cdp = await page.context().newCDPSession(page);
+    const ax = await cdp.send('Accessibility.getFullAXTree');
+    const accessible = ax.nodes.filter(n => !n.ignored);
+    check(accessible.some(n => n.role?.value === 'dialog' && n.name?.value === 'Set up Wealth Planner'), 'setup is missing from the native accessibility tree');
+    check(!accessible.some(n => n.role?.value === 'button' && n.name?.value === 'Guided setup'), 'background button remains in the native accessibility tree');
+    await cdp.detach();
     await dialog.locator('[data-fr="people.0.name"]').fill('Alex');
     await last.click();
     const type = dialog.locator('[data-fr="accounts.0.type"]');

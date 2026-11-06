@@ -44,22 +44,23 @@ export var SYSTEM_PROMPT = "You are reviewing an Australian household's finances
   "Write in plain English for the household itself. Be specific: use their numbers, say what each point is worth a year where you can, and order points by how much they matter. " +
   "Apply Australian rules (income tax and Medicare, negative gearing, the purpose test for interest deductibility, offset accounts, concessional super caps and carry-forward, CGT discount, stamp duty, LMI, PAYG withholding variations). " +
   "Skip anything the data can't support, and say what you'd want confirmed by an accountant or licensed adviser. Don't repeat the summary back. Keep it under 800 words. " +
-  "The people, property, loans, scenarios and accounts are labels (Partner A, Scenario 2, Property 1 loan 2…): use those labels exactly as written, so the app can show them as the household's own names. " +
+  "The people, property, loans, scenarios and accounts use generic labels. These labels are pseudonyms, not anonymisation; financial combinations can still identify a household. Use the labels as written. " +
   "Answer in Markdown using exactly these headings, in this order:\n" + REVIEW_FORMAT + "\n" +
   "End with one line: these are general observations, not personal financial advice.";
 
 // The whole thing for any assistant, as one paste: what to do, how to answer, the figures, their question.
-export function copyPrompt(summary, question){
+// Only the precomputed numeric summary and fixed instructions may leave the app.
+// Free-form questions can contain names, addresses or account identifiers and are local-only.
+export function copyPrompt(summary, _question){
   return "Please review my household's finances.\n\n" +
     "HOW TO ANSWER\n" + SYSTEM_PROMPT + "\n\n" +
-    "MY FINANCES (from my planning app; identifying free-text fields excluded)\n" + summary +
-    (question ? "\n\nMY QUESTION\n" + question : "") + "\n";
+    "MY FINANCES (approved aggregate figures; no free-text questions)\n" + summary + "\n";
 }
 
-export function askBody(summary, question, model){
+export function askBody(summary, _question, model){
   return {
     model: model || aiModel(), max_tokens: 2000, system: SYSTEM_PROMPT,
-    messages: [{ role: "user", content: summary + (question ? "\n\nTHEIR QUESTION\n" + question : "\n\nGive them your review.") }]
+    messages: [{ role: "user", content: summary + "\n\nGive the household a general review of these figures." }]
   };
 }
 // The Messages API, straight from the browser with the person's own key.
@@ -95,10 +96,10 @@ export function reviewHtml(md){
 export function askClaudeHtml(){
   var key = aiKey();
   var last = lastReview();
-  var q = '<textarea class="ai-q" rows="2" data-ai-q placeholder="Optional — a question, e.g. &quot;Sydney or Melbourne?&quot; or &quot;What should we do before 30 June?&quot;" aria-label="Your question">' + escapeAttr(askUi.question) + '</textarea>';
+  var q = '<p class="ledger-note help">Privacy-first: personal questions and free-text notes are not included in AI requests. The preview shows the exact request. Even aggregate financial figures may be identifying.</p>';
   // v3.99.0: any assistant, no key — copy the prompt, paste the answer back.
   var anyAi = '<div class="ai-any"><div class="ai-sub">Any AI — no key needed</div>' +
-    '<p class="ledger-note help">Copies one prompt — how to answer, in a standard layout, and your figures with identifying free-text fields excluded — to paste into ChatGPT, Gemini, Claude or any assistant. Paste its answer back below and it\'s shown here, with your own names.</p>' +
+    '<p class="ledger-note help">Copies a fixed review prompt and aggregated financial figures without free-text questions. Review the preview before copying or sharing with any AI. Paste its answer back below and it\'s shown here, with your own names.</p>' +
     '<div class="ai-actions"><button type="button" class="btn btn-sm btn-ghost" data-ai-preview>' + (askUi.preview ? "Hide preview" : "Preview what's copied") + '</button>' +
       '<button type="button" class="btn btn-sm btn-primary" data-ai-copy>Copy for any AI</button></div>' +
     (askUi.pasteOpen

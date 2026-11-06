@@ -9,12 +9,11 @@ import { canBuy } from "./canbuy.js";
 
 // ---------------- A summary of the household for a written review (v3.98.0) ----------------
 //
-// What "Ask Claude" sends: the figures that matter for a review, with everything that identifies
-// the household swapped for labels before it leaves — people become Partner A and B, the property
-// "Investment property 1" (its state kept, its address and suburb not), scenarios "Scenario 1…",
-// accounts "Account 1…", holdings by ticker. Merchants, employers and account numbers are never
-// included. The text is shown to the person before it's sent; this builds it, the component sends
-// it only on their say-so. Pure apart from reading state.
+// External AI summaries are constructed from fixed, numeric/enum-derived fields only.
+// User-entered names, notes, labels, account identifiers and arbitrary free text are excluded.
+// Generic labels are pseudonymisation, not anonymisation: even financial combinations can
+// identify a household. A separate preview and explicit confirmation are required before sharing.
+// Pure apart from reading state.
 function m(n){ var v = Math.round(Number(n) || 0); return (v < 0 ? "−$" : "$") + Math.abs(v).toLocaleString("en-AU"); }
 function safeRegion(s){ return ["NSW", "VIC", "QLD", "SA", "WA", "TAS", "ACT", "NT"].includes(s) ? s : "AU"; }
 function pct(n){ return (Math.round(n * 1000) / 10) + "%"; }

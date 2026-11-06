@@ -91,13 +91,20 @@ export function wireAdvice(){
     }
     if(e.target.closest("[data-ai-forget]")){ setAiKey(""); askUi.preview = ""; renderAdvice(); showToast("Key removed from this browser"); return; }
     if(e.target.closest("[data-ai-preview]")){
-      askUi.preview = askUi.preview ? "" : copyPrompt(householdSummary(adviceFor({ today: localDateStr() }), { today: localDateStr() }), askUi.question.trim());
+      askUi.preview = askUi.preview ? "" : copyPrompt(householdSummary(adviceFor({ today: localDateStr() }), { today: localDateStr() }), "");
       renderAdvice();
       return;
     }
     // v3.99.0: the prompt for any assistant, to the clipboard; the answer pasted back.
     if(e.target.closest("[data-ai-copy]")){
       var text = copyPrompt(householdSummary(adviceFor({ today: localDateStr() }), { today: localDateStr() }), askUi.question.trim());
+      if(askUi.preview !== text){
+        askUi.preview = text; askUi.approvalPending = true; renderAdvice();
+        showToast("Review the exact prompt, then press Copy for any AI again");
+        return;
+      }
+      if(!window.confirm("Copy the displayed financial figures for sharing with an external AI? Aggregated figures may still identify you.")) return;
+      askUi.approvalPending = false;
       var fallback = function(){
         var ta = document.createElement("textarea");
         ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
@@ -126,7 +133,7 @@ export function wireAdvice(){
     }
     if(e.target.closest("[data-ai-ask]")){
       if(askUi.busy) return;
-      var q = askUi.question.trim();
+      var q = "";
       var summary = householdSummary(adviceFor({ today: localDateStr() }), { today: localDateStr() });
       var payload = JSON.stringify(askBody(summary, q), null, 2);
       if(!askUi.approvalPending || askUi.preview !== payload){
@@ -137,8 +144,8 @@ export function wireAdvice(){
       if(!window.confirm("Send the displayed financial summary and your question to Anthropic? Financial figures can still be identifying.")) return;
       askUi.approvalPending = false;
       askUi.busy = true; askUi.error = ""; renderAdvice();
-      askClaude(summary, q).then(function(text){
-        setLastReview({ at: localDateStr(), question: q, text: text });
+      askClaude(summary, "").then(function(text){
+        setLastReview({ at: localDateStr(), question: "", text: text });
         askUi.busy = false; askUi.preview = ""; renderAdvice();
       }).catch(function(err){
         askUi.busy = false;

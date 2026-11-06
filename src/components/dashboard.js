@@ -267,6 +267,14 @@ export function scenarioComparisonDataNotes(rows, staleCount, hasIncome, hasExpe
     notes.push('Some expenses are unclassified; essential-reserve estimates may change.');
   if(rows.some(function(r){ return r.fundingShortfall > 0; }))
     notes.push('At least one scenario has an upfront funding gap; do not treat it as fully funded.');
+  if(rows.some(function(r){ return Number.isFinite(r.monthly) && r.monthly < 0; }))
+    notes.push('At least one scenario has negative normal-month cash flow; review how ongoing shortfalls would be funded.');
+  if(rows.some(function(r){ return !Number.isFinite(r.monthly) || !Number.isFinite(r.homeMonthly) || !Number.isFinite(r.expenseDifference); }))
+    notes.push('At least one scenario has missing or invalid cash-flow inputs; comparisons may be incomplete.');
+  if(rows.some(function(r){ return Number.isFinite(r.homeMonthly) && r.homeMonthly < 0; }))
+    notes.push('At least one scenario has negative housing costs; check for incorrectly signed or duplicated inputs.');
+  if(rows.some(function(r){ return r.reserve && Number.isFinite(r.reserve.essentialMonthly) && r.reserve.essentialMonthly < 0; }))
+    notes.push('At least one scenario has negative essential expenses; check classifications and expense amounts.');
   return notes;
 }
 export function scenarioComparisonDataNotesHtml(notes){

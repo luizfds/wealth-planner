@@ -350,3 +350,24 @@ test("wide scenario comparisons expose keyboard-focusable horizontal scrolling a
   assert.match(html, /<th scope="row">Buy<\/th>/);
   assert.match(html, /<summary>Compare monthly trade-offs<\/summary>/);
 });
+
+test("comparison data-quality notes flag negative cash flow and contradictory inputs", async () => {
+  const { scenarioComparisonDataNotes, scenarioComparisonDataNotesHtml } = await import("../src/components/dashboard.js");
+  const healthy = { monthly: 250, homeMonthly: 1800, expenseDifference: 0, fundingShortfall: 0 };
+  assert.deepEqual(scenarioComparisonDataNotes([healthy], 0, true, true), []);
+  const bad = {
+    monthly: -450, homeMonthly: -120, expenseDifference: Number.NaN, fundingShortfall: 0,
+    reserve: { essentialMonthly: -50, unclassified: 0 }
+  };
+  const notes = scenarioComparisonDataNotes([healthy, bad], 0, true, true);
+  assert.equal(notes.length, 4);
+  assert.ok(notes.some(n => n.includes("negative normal-month cash flow")));
+  assert.ok(notes.some(n => n.includes("missing or invalid cash-flow inputs")));
+  assert.ok(notes.some(n => n.includes("negative housing costs")));
+  assert.ok(notes.some(n => n.includes("negative essential expenses")));
+  const html = scenarioComparisonDataNotesHtml(notes);
+  assert.match(html, /role="note" aria-label="Comparison data quality"/);
+  assert.match(html, /negative normal-month cash flow/);
+  assert.doesNotMatch(html, /NaN|Infinity/);
+  assert.deepEqual(scenarioComparisonDataNotes([{ ...healthy, monthly: Number.POSITIVE_INFINITY }], 0, true, true).length, 1);
+});

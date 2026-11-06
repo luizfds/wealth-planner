@@ -1,4 +1,5 @@
 import { state } from "../state.js";
+import { planningReadiness, reportDisclosure, reportDisclosureRows } from "../calc/planningreadiness.js";
 import { partOn } from "../calc/parts.js";
 import { REPORTS, REPORT_GROUPS, buildReport, reportCsvRows } from "../calc/reports.js";
 import { getTaxPeople } from "../calc/tax.js";
@@ -158,16 +159,34 @@ function printTitleHtml(rep){
   return '<header class="pr-title"><p class="pr-who">' + escapeAttr(householdName()) + '</p><h1>' + escapeAttr(rep.title) + '</h1>' +
     '<p>' + escapeAttr(rep.subtitle || "") + '</p><p class="pr-when">Printed ' + escapeAttr(fmtDate(localDateStr(), { year: true })) + (v ? ' · Wealth Planner ' + escapeAttr(v.textContent) : '') + '</p></header>';
 }
+export function planningReadinessHtml(s, today){
+  var r = planningReadiness(s, today);
+  var missing = r.steps.filter(function(x){ return !x.done; });
+  return '<section class="ledger-note" role="region" aria-label="Planning setup progress"><details><summary>Planning setup · ' + r.done + ' of ' + r.total + ' sections entered</summary>' +
+    '<p>These are entry indicators, not proof of financial completeness. Loans and goals are optional; a missing loan entry does not imply you have no debt.</p>' +
+    '<ul>' + r.steps.map(function(x){
+      return '<li>' + (x.done ? 'Entered: ' : 'Not entered: ') + escapeAttr(x.label) + (x.optional ? ' (optional)' : '') + '</li>';
+    }).join('') + '</ul>' +
+    (r.stale ? '<p>Some saved inputs may be stale (last saved more than 90 days ago).</p>' : '') +
+    (missing.length ? '<p>Continue setup from the Income, Budget, Net worth and Goals areas. You can still use reports with a partial profile.</p>' : '<p>All tracked setup sections have entries. Review values periodically.</p>') +
+    '</details></section>';
+}
+export function reportDisclosureHtml(info){
+  return '<section class="ledger-note" role="note" aria-label="Report assumptions and data quality">' +
+    '<details><summary>As of ' + escapeAttr(info.asOf) + ' · Assumptions and data quality</summary>' +
+    '<p>Profile sections entered: ' + escapeAttr(info.progress) + ' · Last saved: ' + escapeAttr(info.lastSaved) + '</p>' +
+    '<ul>' + info.warnings.concat(info.assumptions).map(function(x){ return '<li>' + escapeAttr(x) + '</li>'; }).join('') + '</ul></details></section>';
+}
 export function reportsPageHtml(opts){
   var picker = pickerHtml();
   // v3.68.0: the year-end pack is a checklist with hand-off buttons, not a table.
   if(reportShown.key === "yearend") return picker + yearEndHtml();
   if(reportShown.key === "month") return picker + monthDetailHtml();
   var rep = buildReport(reportShown.key, opts);
-  return picker + frameControlsHtml(rep) +
+  return picker + planningReadinessHtml(state, localDateStr()) + frameControlsHtml(rep) +
     '<section class="rp-sheet" id="reportSheet"><div class="rp-head"><div><h2>' + escapeAttr(rep.title) + '</h2><span>' + escapeAttr(rep.subtitle) + '</span></div>' +
       '<div class="rp-actions"><button type="button" class="btn btn-sm btn-ghost" data-report-pin title="Keep this report with its settings above the list">Pin</button><button type="button" class="btn btn-sm btn-ghost" data-report-print>Print / PDF</button><button type="button" class="btn btn-sm btn-ghost" data-report-csv>Download CSV</button></div></div>' +
-      storyHtml(rep) + reportChartHtml(rep.chart) + reportTableHtml(rep) + drillHtml(rep, opts) + (rep.note ? '<p class="ledger-note rp-note">' + escapeAttr(rep.note) + '</p>' : '') + '</section>';
+      storyHtml(rep) + reportChartHtml(rep.chart) + reportTableHtml(rep) + drillHtml(rep, opts) + reportDisclosureHtml(reportDisclosure(state, localDateStr(), rep)) + (rep.note ? '<p class="ledger-note rp-note">' + escapeAttr(rep.note) + '</p>' : '') + '</section>';
 }
 export function renderReports(){
   var el = typeof document !== "undefined" && document.getElementById("reportsBody");
@@ -177,10 +196,10 @@ export function renderReports(){
 export function reportPrintHtml(){
   var opts = reportOpts();
   var rep = buildReport(reportShown.key, opts);
-  return '<div class="pr-page pr-report">' + printTitleHtml(rep) + storyHtml(rep) + reportChartHtml(rep.chart) + reportTableHtml(rep) + drillHtml(rep, opts) + (rep.note ? '<p>' + escapeAttr(rep.note) + '</p>' : '') + '</div>';
+  return '<div class="pr-page pr-report">' + printTitleHtml(rep) + storyHtml(rep) + reportChartHtml(rep.chart) + reportTableHtml(rep) + drillHtml(rep, opts) + reportDisclosureHtml(reportDisclosure(state, localDateStr(), rep)) + (rep.note ? '<p>' + escapeAttr(rep.note) + '</p>' : '') + '</div>';
 }
 export function reportCsv(){
   var rep = buildReport(reportShown.key, reportOpts());
   var c = reportCsvRows(rep);
-  return { filename: "wealth-planner-" + rep.key + "-" + rep.subtitle.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase() + ".csv", headers: c.headers, rows: c.rows };
+  return { filename: "wealth-planner-" + rep.key + "-" + rep.subtitle.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase() + ".csv", headers: c.headers, rows: c.rows.concat(reportDisclosureRows(reportDisclosure(state, localDateStr(), rep)).map(function(row){ return row.concat(Array(Math.max(0, c.headers.length - row.length)).fill("")); })) };
 }

@@ -1,8 +1,9 @@
+import { emergencyFund } from "../calc/emergency.js";
 import { lowBalanceCardHtml } from "./dailyforecast.js";
 import { toReview } from "../calc/reviewqueue.js";
 import { state } from "../state.js";
 import { selectedMonth, monthPhrase, isPeriodToday } from "../calc/ledger.js";
-import { totalNetWorthValue, scenarioTotals, currentScenario } from "../calc/engine.js";
+import { totalNetWorthValue, scenarioTotals, currentScenario, staleAssets } from "../calc/engine.js";
 import { goalsOverview } from "../calc/savegoals.js";
 import { goalCardHtml } from "./savegoals.js";
 import { monthReview, reviewMonth, monthLabel } from "../calc/monthreview.js";
@@ -113,8 +114,10 @@ export function homeSummaryHtml(today, opts){
   // v3.103.0: the line ends at today's figure and the change is measured from where the line starts,
   // so the text and the line can't disagree.
   var trend = trendToToday(state.netWorthLog, nw, today, 12);
+  var stale = staleAssets().length;
   var nwCard = '<div class="home-card home-nw" data-home-card="nw"><span class="home-k">Net worth</span><b class="home-big">' + money(nw) + '</b>' +
     (trend ? '<small class="' + (trend.change >= 0 ? "up" : "down") + '">' + signed(trend.change) + ' since ' + shortDate(trend.from.date, today) + '</small>' + moverHtml(trend.from.date, today, trend.change) : '<small>The trend appears as the days go by</small>') +
+    '<small>Recorded balances · as of ' + escapeAttr(today) + (stale ? ' · ' + stale + ' values need updating' : '') + '</small>' +
     '<span class="home-spark">' + (trend ? sparklineHtml(trend.points, { width: 120, height: 28 }) : "") + '</span>' +
     '<button type="button" class="link-btn home-link" data-home-go="assets">Net worth over time →</button></div>';
 
@@ -123,15 +126,20 @@ export function homeSummaryHtml(today, opts){
   var r = monthReview(ym, { accountOf: transactionAccount, categoryOf: transactionCategory, today: today, items: opts.items || budgetLineItems(currentScenario()) });
   var saved = r.incomeReceived - r.spent;
   var mp = monthPhrase(ym);
-  var monthCard = '<div class="home-card home-month" data-home-card="month"><span class="home-k">' + (mp === "this month" ? "This month" : escapeAttr(r.label)) + '</span>' +
-    '<div class="home-io"><div><small>Money in</small><b>' + money(r.incomeReceived) + '</b><em>of ' + money(r.incomePlanned) + ' planned</em></div>' +
-    '<div><small>Money out</small><b>' + money(r.spent) + '</b><em>of ' + money(r.plannedSpend) + ' planned</em></div>' +
+  var monthCard = '<div class="home-card home-month" data-home-card="month"><span class="home-k">' + (mp === "this month" ? "This month" : escapeAttr(r.label)) + '</span><small>Logged activity · ' + escapeAttr(r.label) + '</small>' +
+    '<div class="home-io"><div><small>Received</small><b>' + money(r.incomeReceived) + '</b><em>of ' + money(r.incomePlanned) + ' planned</em></div>' +
+    '<div><small>Spent</small><b>' + money(r.spent) + '</b><em>of ' + money(r.plannedSpend) + ' planned</em></div>' +
     // With nothing logged as received, "kept" is just spending with a minus sign — say what's missing instead.
     (r.incomeReceived === 0 && r.income.length
-      ? '<div><small>Kept</small><b>—</b><em>log money in to see it</em></div></div>'
-      : '<div><small>Kept</small><b class="' + (saved >= 0 ? "up" : "down") + '">' + (saved < 0 ? "−" : "") + money(Math.abs(saved)) + '</b><em>' + r.transactions + ' transaction' + (r.transactions === 1 ? "" : "s") + '</em></div></div>') +
+      ? '<div><small>Left from received</small><b>—</b><em>log money in to see it</em></div></div>'
+      : '<div><small>Left from received</small><b class="' + (saved >= 0 ? "up" : "down") + '">' + (saved < 0 ? "−" : "") + money(Math.abs(saved)) + '</b><em>' + r.transactions + ' transaction' + (r.transactions === 1 ? "" : "s") + '</em></div></div>') +
     (r.missingIncome ? '<p class="home-note">' + r.missingIncome + ' income line' + (r.missingIncome === 1 ? " hasn't" : "s haven't") + ' been logged ' + escapeAttr(mp) + '.</p>' : '') +
-    '<button type="button" class="link-btn home-link" data-home-go="expenses" data-home-sub="spending">See spending →</button></div>';
+    '<button type="button" class="link-btn home-link" data-home-go="expenses" data-home-sub="spending">See spending →</button>';
+
+  var planned = scenarioTotals(currentScenario());
+  var reserve = emergencyFund();
+  monthCard += '<p class="home-plan-context">Planned monthly surplus <b>' + money(planned.regularNetMonthly != null ? planned.regularNetMonthly : planned.netMonthly) +
+    '</b> · estimate from your budget' + (reserve.coveredMonths != null ? '<br>Cash and offsets cover <b>' + reserve.coveredMonths.toFixed(1) + ' months</b> of essential costs' : '<br>Add essential costs to assess your reserve') + '</p></div>';
 
   var bills = upcomingBills(opts.items || loggableBudgetLineItems(currentScenario()), state.transactions, today, 14);
   var billsCard = '<div class="home-card home-bills" data-home-card="bills"><span class="home-k">Bills — next 2 weeks</span>' +
@@ -148,10 +156,10 @@ export function homeSummaryHtml(today, opts){
     }).join("") + '</ul>' : '<p class="home-note">All done — nothing needs you right now.</p>') + '</div>';
 
   return (isPeriodToday() ? '' : '<p class="home-period-note">Showing ' + escapeAttr(r.label) + ' — net worth, bills and to-dos are always as of today.</p>') +
-    (opts.week === false ? '' : weekCardHtml(today)) +
     (opts.autoPay === false ? '' : autoPayCardHtml(today)) +
     (opts.lowBalance === false ? '' : lowBalanceCardHtml(today)) +
-    '<div class="home-grid">' + nwCard + monthCard + billsCard + todoCard + '</div>' + goalsStripHtml(today);
+    '<div class="home-grid">' + monthCard + nwCard + billsCard + todoCard + '</div>' +
+    (opts.week === false ? '' : weekCardHtml(today)) + goalsStripHtml(today);
 }
 
 // Savings goals (v3.65.0): a strip under the cards, each its progress bar, linking to where goals are kept — Plan → Goals
@@ -214,8 +222,8 @@ export function weekCardHtml(today, recap){
       '<span class="wk-nav"><button type="button" class="icon-btn" data-wk-step="1" aria-label="The week before"' + (w.back >= KEEP_WEEKS - 1 ? ' disabled' : '') + '>‹</button>' +
       '<button type="button" class="icon-btn" data-wk-step="-1" aria-label="The week after"' + (w.back ? '' : ' disabled') + '>›</button>' +
       '<button type="button" class="icon-btn" data-wk-dismiss aria-label="Dismiss this week\'s card">✕</button></span></div>' +
-    '<div class="wk-body"><div class="wk-part wk-spent"><b class="home-big">' + money(w.spent) + '</b><span>spent · ' + w.count + ' transaction' + (w.count === 1 ? '' : 's') + '</span>' + vs +
+    '<details class="wk-details"><summary>Weekly recap · ' + money(w.spent) + ' spent</summary><div class="wk-body"><div class="wk-part wk-spent"><b class="home-big">' + money(w.spent) + '</b><span>spent · ' + w.count + ' transaction' + (w.count === 1 ? '' : 's') + '</span>' + vs +
       '<button type="button" class="link-btn home-link" data-sv data-sv-direction="out" data-sv-from="' + w.start + '" data-sv-to="' + w.end + '">See this week in Spending →</button></div>' +
       biggest + bills + '</div>' +
-    (foot ? '<div class="wk-foot">' + foot + '</div>' : '') + '</section>';
+    (foot ? '<div class="wk-foot">' + foot + '</div>' : '') + '</details></section>';
 }

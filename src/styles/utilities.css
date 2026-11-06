@@ -15,3 +15,17 @@ details:has(> .help-btn) > summary{ padding-right:52px; }
   details.ledger:has(> .help-btn) > summary{ padding-right:20px; }
   details.ledger:has(> .help-btn) > summary .ledger-title{ margin-right:32px; }
 }
+
+/* A save conflict stays visible until the person has kept their copy or reloaded. */
+.storage-conflict { padding: 16px; margin: 0 0 16px; border: 1px solid var(--warn-ink); border-radius: 12px; background: var(--paper-raised); }
+.storage-conflict p { margin: 8px 0; }
+[aria-label="Approved recurring rules"] > details > summary { padding: 12px 0; min-height: 44px; }
+
+.home-plan-context { margin: 10px 0 0; font-size: var(--fs-xs); color: var(--ink-soft); }
+.home-plan-context b { font-family: var(--font-num); color: var(--ink); }
+.wk-details > summary, .cmp-longterm > summary { padding: 12px 0; min-height: 44px; cursor: pointer; }
+.quick-fab { background: var(--action-fill); width: auto; padding: 0 16px; gap: 8px; border-radius: 28px; font-size: var(--fs-sm); font-weight: 600; }
+.quick-fab-wrap { align-items: flex-end; }
+.card-funding { margin: 8px 0; font-size: var(--fs-sm); }
+
+.quick-fab:hover { background: var(--action-fill); filter: brightness(1.08); }

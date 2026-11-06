@@ -1,3 +1,4 @@
+import { canShareCsv } from "../lib/backup.js";
 import { state } from "../state.js";
 import { planningReadiness, reportDisclosure, reportDisclosureRows } from "../calc/planningreadiness.js";
 import { partOn } from "../calc/parts.js";
@@ -185,7 +186,7 @@ export function reportsPageHtml(opts){
   var rep = buildReport(reportShown.key, opts);
   return picker + planningReadinessHtml(state, localDateStr()) + frameControlsHtml(rep) +
     '<section class="rp-sheet" id="reportSheet"><div class="rp-head"><div><h2>' + escapeAttr(rep.title) + '</h2><span>' + escapeAttr(rep.subtitle) + '</span></div>' +
-      '<div class="rp-actions"><button type="button" class="btn btn-sm btn-ghost" data-report-pin title="Keep this report with its settings above the list">Pin</button><button type="button" class="btn btn-sm btn-ghost" data-report-print>Print / PDF</button><button type="button" class="btn btn-sm btn-ghost" data-report-csv>Download CSV</button></div></div>' +
+      '<div class="rp-actions"><button type="button" class="btn btn-sm btn-ghost" data-report-pin title="Keep this report with its settings above the list">Pin</button><button type="button" class="btn btn-sm btn-ghost" data-report-print>Print / PDF</button><button type="button" class="btn btn-sm btn-ghost" data-report-csv>Download CSV</button>' + (canShareCsv() ? '<button type="button" class="btn btn-sm btn-ghost" data-report-share>Share CSV</button>' : '') + '</div></div>' +
       storyHtml(rep) + reportChartHtml(rep.chart) + reportTableHtml(rep) + drillHtml(rep, opts) + reportDisclosureHtml(reportDisclosure(state, localDateStr(), rep)) + (rep.note ? '<p class="ledger-note rp-note">' + escapeAttr(rep.note) + '</p>' : '') + '</section>';
 }
 export function renderReports(){

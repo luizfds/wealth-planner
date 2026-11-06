@@ -1868,7 +1868,7 @@ test("compareHtml draws a column per scenario and the verdicts", async function(
   assert.match(h2, /cash runs out/);
   assert.match(oddsCellHtml({ ofTen: 7, lasted: 42, runs: 60 }), /7 in 10.*3 in 10 run out/);
   var h3 = compareHtml([mk("Today", true), mk("Buy", false, { lender: { ok: false, surplus: -420, assessedMonthly: 5100 } })]);
-  assert.match(h3, /Say no.*\$420 a month short/);
+  assert.match(h3, /Does not pass.*\$420 a month short/);
   assert.doesNotMatch(h2, /undefined|NaN/);
 });
 

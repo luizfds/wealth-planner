@@ -12,6 +12,9 @@ var notifPanelOpen;
 
 export function renderNotifBadge(){
   var count = unreadNotificationCount();
+  document.querySelectorAll(".notif-bell-btn").forEach(function(btn){
+    btn.setAttribute("aria-label", count ? "Notifications, " + (count > 9 ? "9+" : count) + " unread" : "Notifications");
+  });
   document.querySelectorAll(".notif-badge").forEach(function(el){
     el.textContent = count > 9 ? "9+" : String(count);
     el.hidden = count === 0;

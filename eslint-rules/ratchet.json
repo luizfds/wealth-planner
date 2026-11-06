@@ -140,7 +140,7 @@
   "stateWrites": 1
  },
  "src/lib/backup.js": {
-  "persist": 1,
+  "persist": 0,
   "stateWrites": 1
  },
  "src/lib/safekeeping.js": {

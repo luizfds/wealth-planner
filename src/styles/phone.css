@@ -107,3 +107,8 @@
 }
 /* Exceptions are !important rules in an *earlier* layer — an earlier layer's !important beats this one, whatever
    the specificity: #quickLogAmount's headline size (ledger.css) is one. */
+
+/* Stress inputs need room for both the value and their touch target. */
+@media (max-width: 880px) {
+  input[data-proj-stress-invest], input[data-proj-stress-property], input[data-proj-stress-years], input[data-proj-cash-years] { width: 52px; }
+}

@@ -16,7 +16,7 @@ const server=http.createServer((req,res)=>{
 });
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const base='http://127.0.0.1:'+server.address().port;
-const browser=await chromium.launch();
+const browser=await chromium.launch(process.env.CHROME_PATH ? {executablePath:process.env.CHROME_PATH} : {});
 const axe=fs.readFileSync(createRequire(import.meta.url).resolve('axe-core/axe.min.js'),'utf8');
 const results=[];
 const views=[['dashboard','dashboard-sub','overview'],['dashboard','dashboard-sub','insights'],['expenses','expenses-sub','budget'],['expenses','expenses-sub','spending'],['plan','plan-sub','scenarios'],['reports','report','cashflow'],['reports','report','networth']];

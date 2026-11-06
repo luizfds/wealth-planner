@@ -4,6 +4,7 @@
 // first-run setup.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
 // added, so they're added in the same order.
+import { STORAGE_KEY } from "../constants.js";
 import { demoHousehold, demoReceipts } from "../calc/demo.js";
 import { recalcComputedItems } from "../calc/engine.js";
 import { applyFirstRun, shouldOfferFirstRun } from "../calc/firstrun.js";
@@ -12,12 +13,12 @@ import { takeReceiptFiles } from "../calc/receipts.js";
 import { incomeTargets } from "../calc/received.js";
 import { getTaxPeople, computePersonTax } from "../calc/tax.js";
 import { mergeTaxYearFile, matchPerson, taxYearRecord, TAX_YEAR_FILE_KIND } from "../calc/taxyear.js";
-import { decryptBackup, doExport, doShare, canShareFiles } from "../lib/backup.js";
+import { downloadBackupCopy, decryptBackup, doExport, doShare, canShareFiles } from "../lib/backup.js";
 import { localDateStr } from "../lib/format.js";
 import { unpackReceipts } from "../lib/receipts.js";
 import { compareCopies } from "../lib/safekeeping.js";
 import { showToast, showPersistentToast } from "../lib/toast.js";
-import { state, setState, persist, defaultState, migrateState, genId } from "../state.js";
+import { state, setState, persist, defaultState, migrateState, genId, onStorageConflict, checkStorageRevision } from "../state.js";
 import { renderDashboardStats } from "./dashboard.js";
 import { firstRun, startFirstRun } from "./firstrun.js";
 import { showPage, showAssetsSubpage, showExpensesSubpage, showTaxSubpage, showPlanSubpage } from "./nav.js";
@@ -40,9 +41,9 @@ function buildDemoState(){
 // since state.js's own load path writes a fresh defaultState() back to STORAGE_KEY on first
 // run, before the user has touched anything. A genuinely untouched install has none of these
 // (home's own default scenario block doesn't count — that always exists).
-function hasRealUserData(){
-  return !!(state.income.length || state.shared.length || state.assets.length ||
-    state.properties.length || state.transactions.length || state.debts.length);
+export function hasRealUserData(){
+  return ["income", "shared", "assets", "properties", "transactions", "debts", "accounts", "incomeLog", "transfers", "savingsGoals", "recurringRules"].some(function(k){ return (state[k] || []).length > 0; }) ||
+    Object.keys(state.taxYears || {}).length > 0 || !!state.firstRunDone || (state.scenarios || []).length > 1;
 }
 // v3.40.0: a tax year file merges one year into the plan — see calc/taxyear.js mergeTaxYearFile().
 function applyTaxYearFile(parsed){
@@ -146,6 +147,20 @@ function readFirstRunFields(){
 }
 
 export function wireData(){
+  onStorageConflict(function(){
+    if(document.getElementById("storageConflict")) return;
+    var banner = document.createElement("section");
+    banner.id = "storageConflict";
+    banner.className = "storage-conflict";
+    banner.setAttribute("role", "alert");
+    banner.innerHTML = '<b>Another tab saved a newer household.</b><p>Changes in this tab are not being saved. Download this tab’s copy to keep your edits, then reload the latest saved household.</p><button type="button" class="btn btn-sm" data-storage-copy>Download this tab’s copy</button> <button type="button" class="btn btn-sm btn-primary" data-storage-reload>Reload latest</button>';
+    document.getElementById("appContent").prepend(banner);
+    banner.addEventListener("click", function(e){
+      if(e.target.closest("[data-storage-copy]")) downloadBackupCopy();
+      if(e.target.closest("[data-storage-reload]") && confirm("Reload the saved household? Changes made in this tab will be replaced. Download this tab’s copy first if you need them.")) location.reload();
+    });
+  });
+  window.addEventListener("storage", function(e){ if(e.key === STORAGE_KEY || e.key === null) checkStorageRevision(); });
   // The skip link moves focus, not just the scroll position. An href="#id" alone scrolls a <div>
   // into view and leaves focus where it was, so the very next Tab goes back to the nav item after
   // the link — which is exactly the 22 stops the user was trying to skip. tabindex="-1" makes the
@@ -295,7 +310,7 @@ export function wireFirstRun(){  document.addEventListener("click", function(e){
     if(e.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))){ e.preventDefault(); last.focus(); }
     else if(!e.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))){ e.preventDefault(); first.focus(); }
   });
-  if(shouldOfferFirstRun()) setTimeout(openFirstRun, 300);
+  if(shouldOfferFirstRun()) setTimeout(function(){ if(shouldOfferFirstRun()) openFirstRun(); }, 300);
 }
 
 export { buildDemoState, importBackupText };

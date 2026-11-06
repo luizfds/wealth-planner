@@ -1,4 +1,4 @@
-import { state, persist } from "../state.js";
+import { state, commit } from "../state.js";
 import { sacrificeModeToLabel, MARKET_CURRENCY } from "../constants.js";
 import { showToast, showPersistentToast } from "./toast.js";
 import { localDateStr } from "./format.js";
@@ -72,29 +72,29 @@ export function decryptBackup(envelope, passphrase){
   });
 }
 
-// Stamps today as the last time a full backup was produced — called before payload capture in
-// both doExport() and doShare() below, so the exported/shared file's own state.lastBackupDate
-// already reflects itself. Deliberately not touched by the per-section CSV/template exports
-// (buildCsv/exportCsv above) — those are a partial, one-section snapshot, not a way to recover
-// from data loss, so they shouldn't silence the backup-reminder notification (lib/notifications.js).
+// Only a completed download handoff or successful share clears the reminder. Browser downloads
+// cannot confirm the person kept the file; cancellation and encryption failures never count.
+function preparedBackup(){
+  return backupText(true).then(function(payload){
+    var copy = JSON.parse(payload);
+    copy.lastBackupDate = localDateStr();
+    return JSON.stringify(copy, null, 2);
+  });
+}
 function markBackedUp(){
   state.lastBackupDate = localDateStr();
-  persist();
+  commit(["lastBackupDate"]);
 }
 
 export function doExport(){
   var passphrase = prompt("Optional: encrypt this backup with a passphrase (leave blank for a plain, unencrypted backup as before). You'll need this exact passphrase to import it again — it can't be recovered if you forget it.");
   if(passphrase === null) return;
-  markBackedUp();
   var filename = "wealth-planner-backup-" + isoDateStamp() + (passphrase ? "-encrypted" : "") + ".json";
-  backupText(true).then(function(payload){
-    if(!passphrase){ finishExport(payload, filename); return; }
-    return encryptBackup(payload, passphrase).then(function(encPayload){
-      finishExport(encPayload, filename);
-    }).catch(function(){
-      showToast("Encryption failed — nothing was exported. Try again.");
-    });
-  });
+  return preparedBackup().then(function(payload){
+    return passphrase ? encryptBackup(payload, passphrase) : payload;
+  }).then(function(payload){
+    return finishExport(payload, filename).then(function(ok){ if(ok) markBackedUp(); return ok; });
+  }).catch(function(){ showToast("Backup failed — nothing was exported. Try again."); return false; });
 }
 // ---------------- Share: hand the backup straight to another device ----------------
 // Same underlying data as Export, but framed as a device-to-device transfer instead of a backup —
@@ -143,7 +143,6 @@ export function doShare(){
     if(passphrase !== null) showToast("A passphrase is required to share — nothing was sent.");
     return;
   }
-  markBackedUp();
   // Sent as .txt/text/plain, not .json/application/json, even though the content is identical
   // (still valid JSON once decrypted) — Chromium's navigator.share() only hands a file to the OS
   // share sheet if its type is on an internal safelist, checked again at share() time regardless
@@ -155,7 +154,7 @@ export function doShare(){
   // is valid JSON, never the filename or MIME type.
   var filename = "wealth-planner-backup-" + isoDateStamp() + "-encrypted.txt";
   var text = "My Wealth Planner data (password-protected). Open " + welcomeUrl() + " for how to load it, or go straight to Import and enter the passphrase I gave you.";
-  backupText(true).then(function(payload){ return encryptBackup(payload, passphrase); }).then(function(encPayload){
+  preparedBackup().then(function(payload){ return encryptBackup(payload, passphrase); }).then(function(encPayload){
     var file = new File([encPayload], filename, { type: "text/plain" });
     // navigator.share() only works when it's the direct, synchronous result of a user gesture —
     // encryption above is async (Web Crypto), so by the time it resolves, the click that started
@@ -170,6 +169,7 @@ export function doShare(){
       // means it's there to paste manually regardless of what the receiving app decided to show.
       if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).catch(function(){});
       navigator.share({ files: [file], title: "Wealth Planner backup", text: text }).then(function(){
+        markBackedUp();
         showToast("Shared — message also copied, paste it if it didn't come through with the file");
       }).catch(function(err){
         if(err && err.name === "AbortError") return; // user dismissed the share sheet — not a failure
@@ -184,7 +184,7 @@ export function doShare(){
         // and buries the actually-reassuring part (a file WAS saved). One short, plainly positive
         // toast instead of two competing ones.
         console.error("navigator.share() failed:", err);
-        fallbackExport(encPayload, filename, "text/plain", "Couldn't attach the file — saved it instead");
+        if(fallbackExport(encPayload, filename, "text/plain", "Couldn't attach the file — downloaded it instead")) markBackedUp();
         // Attaching the file is the part that can still fail even for a broadly-accepted type —
         // plain text/link shares (no file attached at all) don't have that problem, since
         // virtually every messaging/email app accepts those. Offer a second,
@@ -212,20 +212,20 @@ export function doShare(){
 
 function finishExport(payload, filename, mime, savedMsg){
   mime = mime || "application/json";
-  savedMsg = savedMsg || "Backup saved";
+  savedMsg = savedMsg || "Backup download started";
+  // Download and Share are deliberate, separate actions, regardless of browser capabilities.
   if(window.claude && window.claude.use){
-    window.claude.use("downloads").then(function(downloads){
-      if(!downloads){ shareExport(payload, filename, mime, savedMsg); return; }
-      downloads.save({filename: filename, data: payload}).then(function(){
-        showToast(savedMsg);
-      }).catch(function(err){
-        if(err && err.code === "declined") return;
-        shareExport(payload, filename, mime, savedMsg);
-      });
-    }).catch(function(){ shareExport(payload, filename, mime, savedMsg); });
-  } else {
-    shareExport(payload, filename, mime, savedMsg);
+    return window.claude.use("downloads").then(function(downloads){
+      if(!downloads) return fallbackExport(payload, filename, mime, savedMsg);
+      return downloads.save({filename: filename, data: payload}).then(function(){ showToast(savedMsg); return true; })
+        .catch(function(err){ return err && err.code === "declined" ? false : fallbackExport(payload, filename, mime, savedMsg); });
+    }).catch(function(){ return fallbackExport(payload, filename, mime, savedMsg); });
   }
+  return Promise.resolve(fallbackExport(payload, filename, mime, savedMsg));
+}
+// Recovery exports never mark the saved household as backed up: they contain unsaved edits.
+export function downloadBackupCopy(){
+  return backupText(true).then(function(payload){ return finishExport(payload, "wealth-planner-unsaved-" + isoDateStamp() + ".json", "application/json", "Unsaved copy download started"); });
 }
 // On iPad/Android, a plain download link just dumps the file into Downloads with no
 // choice of where it goes — the same friction Import avoids by using the OS's native
@@ -258,8 +258,10 @@ function fallbackExport(payload, filename, mime, savedMsg){
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
     showToast(savedMsg);
+    return true;
   }catch(e){
-    showToast("Couldn't save a file here — copy is in your clipboard? Try again from a full browser tab.");
+    showToast("Couldn't download the file. Try again from a full browser tab.");
+    return false;
   }
 }
 
@@ -282,6 +284,13 @@ function exportCsv(filename, headers, rows){
 }
 // Any table as a CSV (v3.62.0) — Reports' "Download CSV".
 export function exportTableCsv(filename, headers, rows){ exportCsv(filename, headers, rows); }
+export function canShareCsv(){
+  try { return !!navigator.canShare && navigator.canShare({ files: [new File(["x"], "report.csv", { type: "text/csv" })] }); } catch(e){ return false; }
+}
+export function shareTableCsv(filename, headers, rows){
+  if(!rows.length){ showToast("Nothing to share yet"); return; }
+  shareExport(buildCsv(headers, rows), filename, "text/csv", "CSV saved");
+}
 // Inverse of csvCell()/buildCsv() above — a small state-machine parser rather than a naive
 // split(","), since a quoted field can itself contain commas, embedded newlines, or an escaped
 // ("") quote (all of which csvCell() produces on the way out, so a round-tripped export needs to

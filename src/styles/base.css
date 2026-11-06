@@ -20,6 +20,7 @@
     --ink: #0f172a;
     --ink-soft: #475569;
     --border: #e2e8f0;
+    --action-fill: #1d4ed8; /* White action labels retain contrast in both themes. */
     --brass: #3b82f6;
     --brass-strong: #1d4ed8;
     --brass-wash: #dbeafe;

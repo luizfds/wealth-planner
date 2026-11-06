@@ -20,7 +20,7 @@ import { showToast, showPersistentToast } from "../lib/toast.js";
 import { state, setState, persist, defaultState, migrateState, genId } from "../state.js";
 import { renderDashboardStats } from "./dashboard.js";
 import { firstRun, startFirstRun } from "./firstrun.js";
-import { showPage, showAssetsSubpage, showExpensesSubpage, showTaxSubpage } from "./nav.js";
+import { showPage, showAssetsSubpage, showExpensesSubpage, showTaxSubpage, showPlanSubpage } from "./nav.js";
 import { setPart } from "./parts.js";
 import { renderAll } from "./redraw.js";
 import { firstRunRoot, renderFirstRun } from "./spendingwiring.js";
@@ -201,7 +201,7 @@ export function wireData(){
   document.getElementById("mockDataBtn").addEventListener("click", loadSampleData);
   // The Dashboard's first-run actions. Same handler as the toolbar button above — the point of
   // these is only that they are reachable on a phone, where that button isn't rendered at all.
-  document.getElementById("dashboardSetup").addEventListener("click", function(e){
+  document.addEventListener("click", function(e){
     if(e.target.closest("[data-dash-start]")){ loadSampleData(); return; }
     var go = e.target.closest("[data-setup-go]");
     if(go){
@@ -209,6 +209,7 @@ export function wireData(){
       var gp = go.getAttribute("data-setup-go"), gs = go.getAttribute("data-setup-sub"), gopen = go.getAttribute("data-setup-open");
       showPage(gp);
       if(gs && gp === "expenses") showExpensesSubpage(gs, { replace: true });
+      if(gs && gp === "plan") showPlanSubpage(gs, { replace: true });
       if(gopen){ var card = document.getElementById(gopen); if(card){ card.open = true; setTimeout(function(){ card.scrollIntoView({ behavior: "smooth", block: "start" }); }, 120); } }
       return;
     }

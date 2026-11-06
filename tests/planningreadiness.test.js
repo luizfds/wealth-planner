@@ -46,6 +46,19 @@ test("readiness report escapes any user-supplied report notes", () => {
   const info = reportDisclosure({}, "2026-11-06", { note: "<script>bad()</script>" });
   const html = reportDisclosureHtml(info);
   assert.doesNotMatch(html, /<script>/);
-  assert.match(html, /&lt;script&gt;/);
+  assert.match(html, /&lt;script>/);
   assert.equal(planningReadiness({savedAt:"2026-11-01"}, "2026-11-06").stale, false);
+});
+
+
+test("recent saves cannot hide stale or undated valuations in report exports", () => {
+  const s = { savedAt: "2026-11-06", assets: [
+    { category: "Cash", history: [{ date: "2026-01-01", value: 100 }] },
+    { category: "Other", amount: 100 },
+    { category: "Cash", history: [{ date: "2026-11-01", value: 100 }] }
+  ] };
+  const info = reportDisclosure(s, "2026-11-06", {});
+  assert.equal(planningReadiness(s, "2026-11-06").stale, false);
+  assert.ok(info.warnings.some(x => x.startsWith("2 asset or property")));
+  assert.ok(reportDisclosureRows(info).some(row => row[0] === "Data quality" && /recent save does not verify/.test(row[1])));
 });

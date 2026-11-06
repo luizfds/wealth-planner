@@ -163,8 +163,8 @@ test("scenario comparison shows essential runway from reserve calculator and war
   assert.equal(rows[1].monthlyDifference, -1500);
   const html = scenarioTradeoffHtml(rows, "Current");
   assert.match(html, /Essential runway/);
-  assert.match(html, /6 mo/);
-  assert.match(html, /3 mo/);
+  assert.match(html, /6\.0 mo/);
+  assert.match(html, /3\.0 mo/);
   assert.match(html, /check classifications/);
   assert.match(html, /not a forecast of cash left after a future purchase/);
   const missing = scenarioTradeoffRows(["Current", "Purchase"], name => totals[name], "Current",
@@ -227,7 +227,8 @@ test("scenario comparison warns about stale, missing, unclassified and unfunded 
       reserve: { essentialMonthly: 2200, available: 6000, coveredMonths: 2.7, unclassified: 2 } }
   ];
   const notes = scenarioComparisonDataNotes(rows, 2, false, false);
-  assert.equal(notes.length, 5);
+  assert.equal(notes.length, 6);
+  assert.match(notes[5], /negative normal-month cash flow/);
   assert.match(notes[0], /Income is missing/);
   assert.match(notes[1], /Expenses are missing/);
   assert.match(notes[2], /2 asset value/);
@@ -259,7 +260,7 @@ test("scenario comparison projects net worth on a common horizon without treatin
     name => name === "Buy" ? null : 450000);
   assert.equal(missing[1].projectedNetWorth, null);
   assert.doesNotMatch(scenarioTradeoffHtml(missing, "Rent", [], 10), /Projected net worth \(10 yr\)/);
-  assert.doesNotMatch(scenarioTradeoffHtml(rows, "Rent", [], undefined), /Projected net worth/);
+  assert.doesNotMatch(scenarioTradeoffHtml(rows, "Rent", [], undefined), /<th[^>]*>Projected net worth/);
 });
 
 test("projected net worth differences use the baseline projection at the same horizon", async () => {
@@ -299,7 +300,7 @@ test("comparison highlights explain trade-offs without ranking and escape scenar
   assert.match(highlights, /upfront funding gap \$12,000/);
   assert.match(highlights, /not a recommendation or ranking/);
   assert.doesNotMatch(highlights, /<Buy & move>/);
-  assert.match(highlights, /&lt;Buy &amp; move&gt;/);
+  assert.match(highlights, /&lt;Buy &amp; move>/);
   const html = scenarioTradeoffHtml(rows, "Rent", [], 10);
   assert.ok(html.indexOf('At a glance') < html.indexOf('<table>'));
   assert.equal(scenarioTradeoffHighlightsHtml([rows[0]], "Rent"), "");

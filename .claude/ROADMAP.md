@@ -4733,3 +4733,10 @@ and the one-PR-per-coherent-piece rule, both of which apply to every item here.
   the app was run against realistic data.
 - **Anything that changes a headline figure** gets the before-and-after in the PR body. These items
   move numbers the user has already read and formed expectations about.
+
+## GitHub acceptance audit — issues #214, #215, #216
+
+`[~]` Verify the three acceptance checklists against main; consolidate confirmed recurrence,
+report freshness/setup and CI test-gate defects with synthetic regression journeys.
+Evidence and release decision: `docs/audits/issues-214-216.md`. Keep issues open until
+verification on main; draft PR only, with no merge or deployment authorized.

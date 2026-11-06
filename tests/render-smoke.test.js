@@ -2137,3 +2137,23 @@ test("Reports → Rental tax pack", async function(){
     assert.ok(rep.rows.some(function(r){ return r.cls === "total"; }));
   } finally { state.properties = saved; }
 });
+
+// Issue audit: exercise the new builders alongside the older page builders.
+import { recurringRuleManagerHtml, categoryInsightsHtml } from "../src/components/recurringrules.js";
+import { planningReadinessHtml, reportDisclosureHtml } from "../src/components/reports.js";
+import { reportDisclosure } from "../src/calc/planningreadiness.js";
+test("recurring management and partial-profile disclosures render without private data", () => {
+  const rule = { id: "sample-rule", what: "Sample service", kind: "Expense", amount: 25,
+    frequency: "Monthly", startDate: "2026-01-31", category: "Utilities", enabled: true };
+  for(const editing of [null, rule.id]){
+    const html = recurringRuleManagerHtml([rule], [], [], "2026-11-03", editing);
+    assert.match(html, /recurringRuleForm/);
+    assert.match(html, /btn-danger/);
+    assert.doesNotMatch(html, /undefined|NaN/);
+  }
+  assert.match(categoryInsightsHtml([], "2026-11-03"), /No category/);
+  const setup = planningReadinessHtml({}, "2026-11-03");
+  assert.match(setup, /data-setup-go="plan" data-setup-sub="goals"/);
+  assert.equal((setup.match(/data-setup-go=/g) || []).length, 5);
+  assert.match(reportDisclosureHtml(reportDisclosure({}, "2026-11-03", {}), true), /<details open>/);
+});

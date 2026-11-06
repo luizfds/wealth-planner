@@ -200,8 +200,8 @@ test("scenario funding table has a header for every value and preserves column o
     Buy: { regularNetMonthly: -100, homeMonthly: 3200, expensesMonthly: 4000, cashOut: 60000, draw: { short: 10000 } }
   };
   const reserves = {
-    Stay: { monthly: 1200, available: 12000, coveredMonths: 10, unclassified: [] },
-    Buy: { monthly: 2800, available: 12000, coveredMonths: 12 / 2.8, unclassified: [] }
+    Stay: { monthly: 1200, available: 12000, target: 12000, coveredMonths: 10, unclassified: [] },
+    Buy: { monthly: 2800, available: 12000, target: 16800, coveredMonths: 12 / 2.8, unclassified: [] }
   };
   const rows = scenarioTradeoffRows(["Stay", "Buy"], name => totals[name], "Stay", name => reserves[name]);
   const html = scenarioTradeoffHtml(rows, "Stay");

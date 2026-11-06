@@ -30,7 +30,6 @@ export function recurringRuleManagerHtml(rules, transactions, incomeLog, today, 
   let html = '<div class="ledger-note" role="region" aria-label="Approved recurring rules"><strong>Your recurring rules</strong><p>Rules stay in this device’s saved financial data. Occurrences are only recorded after you preview and confirm them. Imported bank transactions are not generated automatically.</p>';
   if(!(rules || []).length) html += '<p>No rules configured yet.</p>';
   (rules || []).forEach(function(r){
-    const candidates = approvedOccurrences(r, transactions, incomeLog, today, today, today);
     html += '<div class="rc-row"><b>' + safe(r.what) + '</b> · ' + safe(r.kind) + ' · ' + safe(r.frequency) + ' · ' + safe(r.amount) +
       (r.enabled === false ? ' · Paused' : '') +
       '<div class="rc-actions"><button type="button" class="btn btn-sm" data-rr-edit="' + safe(r.id) + '">Edit</button>' +

@@ -9,7 +9,7 @@ import { proposeBudget, applyBudgetProposals } from "../calc/budgetfromhistory.j
 import { recalcComputedItems } from "../calc/engine.js";
 import { learnRule } from "../calc/import-rules.js";
 import { unbudgetedRecurring, risingLines, catchAllSuggestions } from "../calc/recurring.js";
-import { recurringRuleManagerHtml, validateRecurringRule, approvedOccurrences } from "./recurringrules.js";
+import { recurringRuleManagerHtml, validateRecurringRule, approvedOccurrences, categoryInsightsHtml } from "./recurringrules.js";
 import { setLeanLevel, leanLevel, trimReport } from "../calc/trim.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr } from "../lib/format.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
@@ -49,7 +49,7 @@ function renderRecurring(){
   var el = document.getElementById("recurringBody");
   if(!el) return;
   var c = currentRecurring();
-  el.innerHTML = recurringHtml(c.u, c.r, c.c, state.transactions) + recurringRuleManagerHtml(state.recurringRules || [], state.transactions, state.incomeLog, localDateStr(), editingRecurringRule);
+  el.innerHTML = recurringHtml(c.u, c.r, c.c, state.transactions) + recurringRuleManagerHtml(state.recurringRules || [], state.transactions, state.incomeLog, localDateStr(), editingRecurringRule) + categoryInsightsHtml(state.transactions, localDateStr());
   var n = c.u.filter(function(x){ return !recurringDismissed.keys["u:" + x.key]; }).length + c.r.filter(function(x){ return !recurringDismissed.keys["r:" + x.id + ":" + x.recent]; }).length + catchAllShown(c.c);
   var cnt = document.getElementById("recurringCount");
   if(cnt) cnt.textContent = n ? n + " to look at" : "";

@@ -1,3 +1,4 @@
+import { categorySpendingChanges } from "../calc/spendinginsights.js";
 import { escapeAttr } from "../lib/html.js";
 import { recurringCandidates } from "../calc/recurringschedule.js";
 
@@ -49,4 +50,18 @@ export function recurringRuleManagerHtml(rules, transactions, incomeLog, today, 
     '<label>Category <input name="category" maxlength="80" value="' + safe(r.category) + '"></label> ' +
     '<button class="btn btn-sm btn-primary" type="submit">Save rule</button></form></details></div>';
   return html;
+}
+
+export function categoryInsightsHtml(transactions, today){
+  const month = String(today || "").slice(0, 7);
+  const rows = categorySpendingChanges(transactions, month);
+  const safe = function(v){ return escapeAttr(String(v)); };
+  if(!rows.length) return '<p class="ledger-note">No category spending comparisons available for this month and last month.</p>';
+  return '<details class="ledger-note"><summary>Category spending changes (' + rows.length + ')</summary>' +
+    '<p>Observed transactions only. The current month may be incomplete, imports may be missing, and a change does not establish its cause. Review the underlying transactions before drawing conclusions.</p><ul>' +
+    rows.map(function(r){
+      return '<li><strong>' + safe(r.category) + '</strong>: $' + r.current.toFixed(2) + ' this month vs $' + r.previous.toFixed(2) +
+        ' last month (' + (r.delta >= 0 ? '+' : '') + '$' + r.delta.toFixed(2) + ')' +
+        (r.currentCount === 0 ? ' — no transactions recorded this month' : '') + '</li>';
+    }).join('') + '</ul></details>';
 }

@@ -1,6 +1,7 @@
 import { hasDraft, draftChanged } from "../calc/scenariodraft.js";
 import { state, persist } from "../state.js";
 import { setupProgress, shouldShowSetup } from "../lib/setup.js";
+import { planningReadiness } from "../calc/planningreadiness.js";
 import { sumByClassification, sumByAccount, safeDiv, resolveSharedAmount, appendHistorySnapshot, periodsOf } from "../calc/ledger.js";
 import { ipExpenseItemsForClassification, fyLabel, loanBalance, ipProperties } from "../calc/property.js";
 import { scenarioIncomeMonthly, scenarioIncomeRows, getTaxPeople, computePersonTax } from "../calc/tax.js";
@@ -141,7 +142,10 @@ export function renderSetupPanel(nothingEntered){
   var show = shouldShowSetup(state, opts);
   el.hidden = !show;
   if(!show){ el.innerHTML = ""; return; }
-  el.innerHTML = firstMonthHtml(state, setupProgress(state, opts), nothingEntered);
+  var readiness = planningReadiness(state, localDateStr());
+  el.innerHTML = firstMonthHtml(state, setupProgress(state, opts), nothingEntered) +
+    '<p class="ledger-note" role="status">Planning profile: ' + readiness.done + ' of ' + readiness.total +
+    ' sections entered (income, expenses, assets, loans and goals). Loans and goals are optional; missing entries do not mean zero balances.</p>';
 }
 // What the budget step needs to know: whether a budget can be proposed from the spending yet.
 function setupOpts(){

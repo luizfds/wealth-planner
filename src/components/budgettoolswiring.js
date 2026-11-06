@@ -9,10 +9,11 @@ import { proposeBudget, applyBudgetProposals } from "../calc/budgetfromhistory.j
 import { recalcComputedItems } from "../calc/engine.js";
 import { learnRule } from "../calc/import-rules.js";
 import { unbudgetedRecurring, risingLines, catchAllSuggestions } from "../calc/recurring.js";
+import { recurringRuleManagerHtml, validateRecurringRule, approvedOccurrences, categoryInsightsHtml, upsertRecurringRule, toggleRecurringRule, deleteRecurringRule, recordApprovedOccurrences } from "./recurringrules.js";
 import { setLeanLevel, leanLevel, trimReport } from "../calc/trim.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr } from "../lib/format.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
-import { state, persist, genId } from "../state.js";
+import { state, persist, commit, genId } from "../state.js";
 import { renderAdvice, adviceUi } from "./advice.js";
 import { askUi, cancelAiApproval, setAiKey, setAiModel, askClaude, setLastReview, copyPrompt, askBody } from "./askclaude.js";
 import { budgetFromHistoryHtml, historyBudgetUi } from "./budgethistory.js";
@@ -26,6 +27,7 @@ import { renderPeopleTab } from "./taxwiring.js";
 import { renderTrim, trimUi, trimScenario } from "./trim.js";
 
 var trimBody;
+var editingRecurringRule = null;
 
 function afterTrimChange(){ recalcComputedItems(); persist(); renderAll(); }
 // ---------------- Cash flow → Budget → Recurring payments (v3.66.0) ----------------
@@ -47,7 +49,7 @@ function renderRecurring(){
   var el = document.getElementById("recurringBody");
   if(!el) return;
   var c = currentRecurring();
-  el.innerHTML = recurringHtml(c.u, c.r, c.c, state.transactions);
+  el.innerHTML = recurringHtml(c.u, c.r, c.c, state.transactions) + recurringRuleManagerHtml(state.recurringRules || [], state.transactions, state.incomeLog, localDateStr(), editingRecurringRule) + categoryInsightsHtml(state.transactions, localDateStr());
   var n = c.u.filter(function(x){ return !recurringDismissed.keys["u:" + x.key]; }).length + c.r.filter(function(x){ return !recurringDismissed.keys["r:" + x.id + ":" + x.recent]; }).length + catchAllShown(c.c);
   var cnt = document.getElementById("recurringCount");
   if(cnt) cnt.textContent = n ? n + " to look at" : "";
@@ -289,6 +291,58 @@ export function wireBudgetHistory(){  document.getElementById("historyBudgetBody
       recalcComputedItems(); persist(); renderAll();
       showUndoToast((item.what || "Line") + " updated to " + fmtCurrency2.format(to), function(){ item.amount = was; recalcComputedItems(); persist(); renderAll(); });
     }
+  });
+  // Rule management is local-first; never post a scheduled occurrence without an explicit confirmation.
+  document.getElementById("recurringBody").addEventListener("submit", function(e){
+    if(e.target.id !== "recurringRuleForm") return;
+    e.preventDefault();
+    var form = e.target;
+    var fields = new FormData(form);
+    var original = (state.recurringRules || []).find(function(r){ return r.id === editingRecurringRule; });
+    var rule = validateRecurringRule({
+      id: original ? original.id : genId("rec"),
+      what: fields.get("what"), kind: fields.get("kind"), amount: fields.get("amount"),
+      frequency: fields.get("frequency"), intervalDays: fields.get("intervalDays"),
+      startDate: fields.get("startDate"), endDate: fields.get("endDate"),
+      category: fields.get("category"), enabled: original ? original.enabled : true
+    });
+    if(!rule){ showToast("Check the recurrence dates, amount and frequency."); return; }
+    upsertRecurringRule(state, rule);
+    editingRecurringRule = null;
+    commit(["recurringRules"]); renderRecurring();
+    showToast("Recurring rule saved locally. No transactions have been created.");
+  });
+  document.getElementById("recurringBody").addEventListener("click", function(e){
+    var action = e.target.closest("[data-rr-edit],[data-rr-preview],[data-rr-toggle],[data-rr-delete]");
+    if(!action) return;
+    var id = action.getAttribute("data-rr-edit") || action.getAttribute("data-rr-preview") ||
+      action.getAttribute("data-rr-toggle") || action.getAttribute("data-rr-delete");
+    var rule = (state.recurringRules || []).find(function(r){ return r.id === id; });
+    if(!rule) return;
+    if(action.hasAttribute("data-rr-edit")){ editingRecurringRule = id; renderRecurring(); return; }
+    if(action.hasAttribute("data-rr-toggle")){
+      toggleRecurringRule(state, id);
+      commit(["recurringRules"]); renderRecurring(); return;
+    }
+    if(action.hasAttribute("data-rr-delete")){
+      if(!window.confirm("Delete this recurring rule? Previously recorded transactions will remain.")) return;
+      deleteRecurringRule(state, id);
+      if(editingRecurringRule === id) editingRecurringRule = null;
+      commit(["recurringRules"]); renderRecurring(); return;
+    }
+    if(rule.enabled === false){ showToast("Resume the rule before previewing occurrences."); return; }
+    var today = localDateStr();
+    var from = new Date(Date.parse(today + "T00:00:00Z") - 60 * 86400000).toISOString().slice(0, 10);
+    var pending = approvedOccurrences(rule, state.transactions, state.incomeLog, from, today);
+    if(!pending.length){ showToast("No unrecorded occurrences in the last 60 days."); return; }
+    if(pending.length > 30){ showToast("Too many occurrences to approve at once. Narrow the rule interval."); return; }
+    var details = pending.map(function(x){ return x.date + " — " + x.what + " — $" + x.amount.toFixed(2); }).join("\\n");
+    if(!window.confirm("Record these " + pending.length + " " + rule.kind.toLowerCase() + " occurrence(s)?\\n\\n" +
+      details + "\\n\\nOnly confirm if these payments actually occurred. Check imported transactions to avoid double-counting.")) return;
+    // Recompute at the write boundary: repeated clicks cannot duplicate a recorded rule/date.
+    var count = recordApprovedOccurrences(state, rule, from, today);
+    commit([rule.kind === "Income" ? "incomeLog" : "transactions"]); renderAll();
+    showToast("Recorded " + count + " approved occurrence(s).");
   });
 }
 

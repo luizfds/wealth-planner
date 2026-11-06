@@ -96,6 +96,7 @@ export function defaultState(){
     // budgeted for it; unlinked (linkedExpenseId: null) covers a one-off that has no matching
     // budget line at all. See expenses.js's renderTransactions()/renderActualVsPlannedPanel().
     transactions: [],
+    recurringRules: [], // User-approved local schedules; never auto-post transactions.
     // Money received against an income line, a property's rent or (as payouts) a holding — see
     // calc/received.js (v3.46.0). Kept apart from transactions, which are spending.
     incomeLog: [],
@@ -798,6 +799,7 @@ export var MIGRATION_STEPS = [
 
 export function migrateState(s){
   MIGRATION_STEPS.forEach(function(step){ step.run(s); });
+  if(!Array.isArray(s.recurringRules)) s.recurringRules = [];
   return s;
 }
 

@@ -14,7 +14,7 @@ import { fmtCurrency0, fmtCurrency2, localDateStr } from "../lib/format.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { state, persist, genId } from "../state.js";
 import { renderAdvice, adviceUi } from "./advice.js";
-import { askUi, setAiKey, setAiModel, askClaude, setLastReview, copyPrompt, askBody } from "./askclaude.js";
+import { askUi, cancelAiApproval, setAiKey, setAiModel, askClaude, setLastReview, copyPrompt, askBody } from "./askclaude.js";
 import { budgetFromHistoryHtml, historyBudgetUi } from "./budgethistory.js";
 import { loggableBudgetLineItems, budgetLineItems } from "./expenses.js";
 import { taxUi } from "./income.js";
@@ -89,9 +89,11 @@ export function wireAdvice(){
       setAiKey(v); renderAdvice(); showToast("Key saved in this browser only");
       return;
     }
-    if(e.target.closest("[data-ai-forget]")){ setAiKey(""); askUi.preview = ""; renderAdvice(); showToast("Key removed from this browser"); return; }
+    if(e.target.closest("[data-ai-forget]")){ setAiKey(""); cancelAiApproval(); renderAdvice(); showToast("Key removed from this browser"); return; }
+    if(e.target.closest("[data-ai-cancel]")){ cancelAiApproval(); renderAdvice(); return; }
     if(e.target.closest("[data-ai-preview]")){
-      askUi.preview = askUi.preview ? "" : copyPrompt(householdSummary(adviceFor({ today: localDateStr() }), { today: localDateStr() }), "");
+      if(askUi.preview){ cancelAiApproval(); }
+      else { askUi.preview = copyPrompt(householdSummary(adviceFor({ today: localDateStr() }), { today: localDateStr() }), ""); askUi.approvalPending = false; }
       renderAdvice();
       return;
     }
@@ -103,7 +105,7 @@ export function wireAdvice(){
         showToast("Review the exact prompt, then press Copy for any AI again");
         return;
       }
-      if(!window.confirm("Copy the displayed financial figures for sharing with an external AI? Aggregated figures may still identify you.")) return;
+      if(!window.confirm("Copy the displayed financial figures for sharing with an external AI? Aggregated figures may still identify you.")){ cancelAiApproval(); renderAdvice(); return; }
       askUi.approvalPending = false;
       var fallback = function(){
         var ta = document.createElement("textarea");
@@ -141,7 +143,7 @@ export function wireAdvice(){
         showToast("Review the data preview, then press Confirm & send to Claude");
         return;
       }
-      if(!window.confirm("Send exactly the displayed aggregate financial figures to Anthropic? Financial figures can still be identifying.")) return;
+      if(!window.confirm("Send exactly the displayed aggregate financial figures to Anthropic? Financial figures can still be identifying.")){ cancelAiApproval(); renderAdvice(); return; }
       var approvedPayload = askUi.preview;
       askUi.approvalPending = false;
       askUi.busy = true; askUi.error = ""; renderAdvice();

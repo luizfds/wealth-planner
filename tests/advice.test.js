@@ -6,7 +6,7 @@ import { recalcComputedItems } from "../src/calc/engine.js";
 import { adviceFor } from "../src/calc/advice.js";
 import { householdSummary, aiAggregateSnapshot, AI_SUMMARY_FIELDS, anonymiser, deanonymiser } from "../src/calc/aisummary.js";
 import { adviceHomeHtml, adviceStripHtml } from "../src/components/advice.js";
-import { reviewHtml, askBody, askClaude, SYSTEM_PROMPT, copyPrompt, REVIEW_FORMAT, askClaudeHtml, askUi } from "../src/components/askclaude.js";
+import { reviewHtml, askBody, askClaude, SYSTEM_PROMPT, copyPrompt, REVIEW_FORMAT, askClaudeHtml, askUi, cancelAiApproval } from "../src/components/askclaude.js";
 
 // What the app notices (v3.98.0), invented household.
 function withHousehold(fn){
@@ -176,5 +176,23 @@ test("AI transport refuses missing, cancelled or stale approval without a networ
     assert.equal(calls, 1);
   } finally {
     globalThis.fetch = oldFetch;
+  }
+});
+
+test("cancel AI sharing revokes approval and removes the exact payload preview", function(){
+  const original = { preview: askUi.preview, approvalPending: askUi.approvalPending, error: askUi.error };
+  try {
+    askUi.preview = "SYNTHETIC_AGGREGATE_PAYLOAD";
+    askUi.approvalPending = true;
+    askUi.error = "old error";
+    assert.match(askClaudeHtml(), /data-ai-cancel>Cancel sharing/);
+    cancelAiApproval();
+    assert.equal(askUi.preview, "");
+    assert.equal(askUi.approvalPending, false);
+    assert.equal(askUi.error, "");
+    assert.doesNotMatch(askClaudeHtml(), /SYNTHETIC_AGGREGATE_PAYLOAD/);
+    assert.doesNotMatch(askClaudeHtml(), /data-ai-cancel/);
+  } finally {
+    Object.assign(askUi, original);
   }
 });

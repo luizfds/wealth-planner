@@ -9,7 +9,7 @@ import { escapeAttr, segLabel } from "../lib/html.js";
 import { detailLinkHtml } from "./detail.js";
 // v3.128.0: a holding's name opens its own page.
 function nameLink(item){ return item.id ? detailLinkHtml("asset", item.id, item.what || "Holding") : escapeAttr(item.what); }
-import { optionsHtml, historyTrendHtml, ledgerFields, rowEditSlot } from "../lib/ledger-table.js";
+import { historyTrendHtml, ledgerFields, rowEditSlot } from "../lib/ledger-table.js";
 import { superEstimate } from "../calc/estimates.js";
 import { renderLineChart, renderStackedAreaChart, dateAxisFormat, sparklineHtml, sparklinePlaceholderHtml } from "../lib/charts.js";
 import { showToast } from "../lib/toast.js";
@@ -123,6 +123,8 @@ function salesListHtml(item, idx){
   }).join("") + '</div>';
 }
 
+// A shared field whose help the handlers keep current: that help paragraph also carries their class.
+function withNoteClass(html, cls){ return html.replace('<p class="field-help"', '<p class="field-help computed-note ' + cls + '"'); }
 // Purchase lots (v3.21.0) — see calc/tax.js. One row per buy, as it appears on the broker's
 // statement: date, units, price per unit, brokerage. A lot that sales have used shows how much of
 // it is gone, and its units can't be set below that. Kept in a collapsed section because most
@@ -131,18 +133,22 @@ export function lotsSectionHtml(item, idx){
   var lots = Array.isArray(item.lots) ? item.lots : [];
   var rows = lots.map(function(lot, li){
     var sold = Number(lot.soldUnits) || 0;
+    // #261: a compact grid (docs/design/fields.md) — named by the column it's under and its lot, as several lots read
+    // alike; the help that was a title tooltip is the visible line under the grid (lotsHelp), and describes them.
+    var n = " (lot " + (li + 1) + ")", soldId = "lot-" + idx + "-" + li + "-sold";
     return '<div class="lot-row" data-lot-index="' + li + '">' +
-      '<input type="date" class="lot-date" data-lot-index="' + li + '" value="' + escapeAttr(lot.date || "") + '" aria-label="Bought on">' +
-      '<input type="number" step="any" min="' + sold + '" class="lot-units" data-lot-index="' + li + '" value="' + (Number(lot.units) || 0) + '" aria-label="Units bought" title="Units bought' + (sold ? " — " + fmtQtyDisplay.format(sold) + " already sold" : "") + '">' +
-      '<input type="number" step="any" min="0" class="lot-price" data-lot-index="' + li + '" value="' + (Number(lot.price) || 0) + '" aria-label="Price per unit">' +
-      '<input type="number" step="0.01" min="0" class="lot-brokerage" data-lot-index="' + li + '" value="' + (Number(lot.brokerage) || 0) + '" aria-label="Brokerage" title="Brokerage and fees on the purchase — part of the cost base">' +
-      '<button type="button" class="icon-btn" data-lot-del="' + idx + ':' + li + '" aria-label="Delete this lot"' + (sold ? ' disabled title="Sales use this lot — delete those first"' : '') + '>✕</button>' +
-      (sold ? '<span class="lot-sold">' + fmtQtyDisplay.format(sold) + ' of ' + fmtQtyDisplay.format(Number(lot.units) || 0) + ' sold</span>' : '') +
+      '<input type="date" class="lot-date" data-lot-index="' + li + '" value="' + escapeAttr(lot.date || "") + '" aria-label="Bought on' + n + '">' +
+      '<input type="number" step="any" min="' + sold + '" class="lot-units" data-lot-index="' + li + '" value="' + (Number(lot.units) || 0) + '" aria-label="Units bought' + n + '"' + (sold ? ' aria-describedby="' + soldId + '"' : '') + '>' +
+      '<input type="number" step="any" min="0" class="lot-price" data-lot-index="' + li + '" value="' + (Number(lot.price) || 0) + '" aria-label="Price per unit' + n + '">' +
+      '<input type="number" step="0.01" min="0" class="lot-brokerage" data-lot-index="' + li + '" value="' + (Number(lot.brokerage) || 0) + '" aria-label="Brokerage' + n + '" aria-describedby="lots-help-' + idx + '">' +
+      '<button type="button" class="icon-btn" data-lot-del="' + idx + ':' + li + '" aria-label="Delete lot ' + (li + 1) + '"' + (sold ? ' disabled' : '') + '>✕</button>' +
+      (sold ? '<span class="lot-sold" id="' + soldId + '">' + fmtQtyDisplay.format(sold) + ' of ' + fmtQtyDisplay.format(Number(lot.units) || 0) + ' sold — sales use this lot, so delete those first to remove it</span>' : '') +
     '</div>';
   }).join("");
   var note = lotsNoteText(item);
   return '<details class="row-more-options lots-section"><summary>Purchase lots' + (lots.length ? " (" + lots.length + ")" : "") + '</summary><div style="margin-top:8px">' +
     (lots.length ? '<div class="lot-head" aria-hidden="true"><span>Bought on</span><span>Units</span><span>Price</span><span>Brokerage</span><span></span></div>' + rows : "") +
+    (lots.length ? '<p class="field-help" id="lots-help-' + idx + '">Brokerage and fees on each purchase are part of its cost base.</p>' : '') +
     '<p class="ledger-note lots-note" style="margin-left:0">' + note + '</p>' +
     '<button type="button" class="btn btn-sm btn-ghost" data-lot-add="' + idx + '">+ Add lot</button>' +
   '</div></details>';
@@ -154,14 +160,16 @@ export function payoutsSectionHtml(item, idx){
   var pays = Array.isArray(item.payouts) ? item.payouts : [];
   var rows = pays.map(function(p, pi){
     return '<div class="lot-row payout-row" data-payout-index="' + pi + '">' +
-      '<input type="date" class="po-date" data-payout-index="' + pi + '" value="' + escapeAttr(p.date || "") + '" aria-label="Paid on">' +
-      '<input type="number" step="0.01" min="0" class="po-cash" data-payout-index="' + pi + '" value="' + (Number(p.cash) || 0) + '" aria-label="Cash received">' +
-      '<input type="number" step="0.01" min="0" class="po-credit" data-payout-index="' + pi + '" value="' + (Number(p.credit) || 0) + '" aria-label="Franking credit" title="The franking credit on the payment advice — 0 for unfranked or foreign income">' +
-      '<button type="button" class="icon-btn" data-payout-del="' + idx + ':' + pi + '" aria-label="Delete this payment">✕</button>' +
+      // #261: as the lots — numbered in their names, the franking help visible under the grid.
+      '<input type="date" class="po-date" data-payout-index="' + pi + '" value="' + escapeAttr(p.date || "") + '" aria-label="Paid on (payment ' + (pi + 1) + ')">' +
+      '<input type="number" step="0.01" min="0" class="po-cash" data-payout-index="' + pi + '" value="' + (Number(p.cash) || 0) + '" aria-label="Cash received (payment ' + (pi + 1) + ')">' +
+      '<input type="number" step="0.01" min="0" class="po-credit" data-payout-index="' + pi + '" value="' + (Number(p.credit) || 0) + '" aria-label="Franking credit (payment ' + (pi + 1) + ')" aria-describedby="payouts-help-' + idx + '">' +
+      '<button type="button" class="icon-btn" data-payout-del="' + idx + ':' + pi + '" aria-label="Delete payment ' + (pi + 1) + '">✕</button>' +
     '</div>';
   }).join("");
   return '<details class="row-more-options payouts-section"><summary>Distributions received' + (pays.length ? " (" + pays.length + ")" : "") + '</summary><div style="margin-top:8px">' +
     (pays.length ? '<div class="lot-head payout-row" aria-hidden="true"><span>Paid on</span><span>Cash</span><span>Franking credit</span><span></span></div>' + rows : "") +
+    (pays.length ? '<p class="field-help" id="payouts-help-' + idx + '">The franking credit is on the payment advice — 0 for unfranked or foreign income.</p>' : '') +
     '<p class="ledger-note payouts-note" style="margin-left:0">' + payoutsNoteText(item) + '</p>' +
     '<button type="button" class="btn btn-sm btn-ghost" data-payout-add="' + idx + '">+ Add payment</button>' +
   '</div></details>';
@@ -728,32 +736,41 @@ function modernShareRowHtml(item, idx, colorIdx){
     '</div>' +
     '<span class="m-row-chev" aria-hidden="true">✕</span>' +
   '</div>';
+  var field = ledgerFields(item, "assets", idx, "holding");
   var edit = '<div class="m-row-edit"><div class="m-row-edit-inner"><div class="m-row-edit-pad">' +
     '<div class="m-edit-grid">' +
-      '<div class="m-edit-field span3"><label>What</label><input type="text" class="h-what" value="' + escapeAttr(item.what) + '" aria-label="Holding name"></div>' +
-      '<div class="m-edit-field"><label>Symbol</label><input type="text" class="h-symbol" value="' + escapeAttr(item.symbol || "") + '" placeholder="e.g. CBA" aria-label="Ticker symbol"></div>' +
-      '<div class="m-edit-field"><label>Qty</label><input type="number" step="any" min="0" class="h-qty" value="' + qty + '" aria-label="Quantity"></div>' +
-      '<div class="m-edit-field"><label>Price</label><input type="number" step="0.01" min="0" class="h-price" value="' + price + '" aria-label="Current price per ' + (item.market === "Crypto" ? "coin" : "share") + ' (' + currency + ')"><span class="computed-note h-price-note">' + priceNoteText(item) + '</span></div>' +
-      '<div class="m-edit-field"><label>Market</label><select class="h-market">' + optionsHtml(SHARE_MARKETS, item.market || "ASX") + '</select></div>' +
+      // #261: on the shared field adapter (lib/ledger-table.js) — labels tied to their fields, names that start with what's
+      // on screen ("Qty" was named "Quantity"), and help that was a title tooltip shows under its field. The two notes the
+      // handlers keep current (.h-price-note, .h-div-note) are those fields' help, so they're described too.
+      field("h-what", "Holding name", { value: item.what || "" }, { className: "span3" }) +
+      field("h-symbol", "Symbol", { value: item.symbol || "", placeholder: "e.g. CBA", help: "Its ticker — what prices are matched on." }) +
+      field("h-qty", "Quantity", { type: "number", value: qty, attrs: { step: "any", min: "0" } }) +
+      withNoteClass(field("h-price", "Price per " + (item.market === "Crypto" ? "coin" : "share") + " (" + currency + ")", { type: "number", value: price, attrs: { step: "0.01", min: "0" }, help: priceNoteText(item) }), "h-price-note") +
+      field("h-market", "Market", { type: "select", value: item.market || "ASX", options: SHARE_MARKETS.map(function(m){ return { value: m, label: m }; }) }) +
       // v3.178.0 (item 203): its kind for the target mix — from the market unless set (an ASX-listed fund of US shares is international).
-      '<div class="m-edit-field"><label>Kind</label><select class="h-class"><option value="">From its market (' + escapeAttr(classOf(Object.assign({}, item, { assetClass: "" })) || "") + ')</option>' + MIX_CLASSES.filter(function(c){ return c !== "Cash"; }).map(function(c){ return '<option value="' + c + '"' + (item.assetClass === c ? " selected" : "") + '>' + c + '</option>'; }).join("") + '</select></div>' +
-      '<div class="m-edit-field"><label>Avg cost</label><input type="number" step="0.01" min="0" class="h-avgcost" value="' + (item.avgCost != null ? item.avgCost : "") + '" placeholder="—" aria-label="Average cost per share"></div>' +
-      '<div class="m-edit-field"><label>Person</label><input type="text" class="h-person" list="personSuggestions" value="' + escapeAttr(item.person || "") + '" placeholder="Household" aria-label="Person"></div>' +
+      field("h-class", "Kind", { type: "select", value: item.assetClass || "", options: [{ value: "", label: "From its market (" + (classOf(Object.assign({}, item, { assetClass: "" })) || "") + ")" }]
+        .concat(MIX_CLASSES.filter(function(c){ return c !== "Cash"; }).map(function(c){ return { value: c, label: c }; })), help: "Its kind in the target mix." }) +
+      field("h-avgcost", "Average cost per " + (item.market === "Crypto" ? "coin" : "share"), { type: "number", value: item.avgCost != null ? item.avgCost : "", placeholder: "—", attrs: { step: "0.01", min: "0" } }) +
+      field("h-person", "Person", { value: item.person || "", placeholder: "Household", attrs: { list: "personSuggestions" } }) +
       // Per-unit, not a yearly total: a total would silently become wrong the moment units are
       // bought or sold, which is exactly when nobody thinks to revisit it.
-      '<div class="m-edit-field"><label>Dividend / unit /yr</label><input type="number" step="0.01" min="0" class="h-dividend" value="' + (Number(item.dividendPerUnit) || 0) + '" placeholder="0" title="Yearly distribution per share or unit. Multiplied by the quantity above, so it follows the holding if you buy or sell." aria-label="Yearly dividend per unit"></div>' +
-      '<div class="m-edit-field"><label>Franked %</label><input type="number" step="5" min="0" max="100" class="h-franked" value="' + (item.frankedPct == null ? 100 : item.frankedPct) + '" title="How much of the dividend carries a franking credit for company tax already paid. Fully franked is 100; LICs, REITs and foreign income are often less." aria-label="Franked percentage"><span class="computed-note h-div-note">' + dividendNoteText(item) + '</span></div>' +
+      field("h-dividend", "Dividend per unit, yearly", { type: "number", value: Number(item.dividendPerUnit) || 0, placeholder: "0", attrs: { step: "0.01", min: "0" },
+        help: "Yearly distribution per share or unit. Multiplied by the quantity, so it follows the holding when you buy or sell." }) +
+      withNoteClass(field("h-franked", "Franked %", { type: "number", value: item.frankedPct == null ? 100 : item.frankedPct, attrs: { step: "5", min: "0", max: "100" },
+        help: "How much of the dividend carries a franking credit for company tax already paid — fully franked is 100; LICs, REITs and foreign income are often less. " + dividendNoteText(item) }), "h-div-note") +
     '</div>' +
     lotsSectionHtml(item, idx) +
     payoutsSectionHtml(item, idx) +
     statementsSectionHtml(item, idx) +
     '<details class="row-more-options"><summary>Record a sale (capital gains)</summary><div style="margin-top:8px">' +
       '<div class="m-edit-grid">' +
-        '<div class="m-edit-field"><label>Units sold</label><input type="number" step="any" min="0" class="h-sale-units" placeholder="0" aria-label="Units sold"></div>' +
-        '<div class="m-edit-field"><label>Sold for (total)</label><input type="number" step="0.01" min="0" class="h-sale-proceeds" placeholder="0" title="Total proceeds, after brokerage" aria-label="Sale proceeds"></div>' +
-        '<div class="m-edit-field"><label>Sold on</label><input type="date" class="h-sale-date" value="' + localDateStr() + '" aria-label="Sale date"></div>' +
-        '<div class="m-edit-field"><label>Acquired on</label><input type="date" class="h-sale-acquired"' + (lotsUnitsAvailable(item) > 0 ? ' placeholder="from purchase lots"' : '') + ' title="When you bought these units. Held more than 12 months, an individual\'s gain is halved — and "more than" is exact: 12 months to the day does not qualify." aria-label="Acquisition date"></div>' +
-        '<div class="m-edit-field span2"><label>Cost base</label><input type="number" step="0.01" min="0" class="h-sale-costbase" placeholder="' + (lotsUnitsAvailable(item) > 0 ? "from purchase lots" : (item.avgCost != null ? "avg cost x units" : "0")) + '" title="What the units cost you, including brokerage. Left blank it is worked out from the Avg cost above." aria-label="Cost base"></div>' +
+        field("h-sale-units", "Units sold", { type: "number", placeholder: "0", attrs: { step: "any", min: "0" } }) +
+        field("h-sale-proceeds", "Sold for (total)", { type: "number", placeholder: "0", attrs: { step: "0.01", min: "0" }, help: "Total proceeds, after brokerage." }) +
+        field("h-sale-date", "Sold on", { type: "date", value: localDateStr() }) +
+        field("h-sale-acquired", "Acquired on", { type: "date", placeholder: lotsUnitsAvailable(item) > 0 ? "from purchase lots" : "",
+          help: "When you bought these units. Held more than 12 months, an individual's gain is halved — and \u201cmore than\u201d is exact: 12 months to the day doesn't qualify." }) +
+        field("h-sale-costbase", "Cost base", { type: "number", placeholder: lotsUnitsAvailable(item) > 0 ? "from purchase lots" : (item.avgCost != null ? "avg cost x units" : "0"), attrs: { step: "0.01", min: "0" },
+          help: "What the units cost you, including brokerage. Left blank, it's worked out from " + (lotsUnitsAvailable(item) > 0 ? "the purchase lots." : "the average cost above.") }, { className: "span2" }) +
       '</div>' +
       '<div class="m-edit-actions"><button type="button" class="btn btn-sm btn-primary" data-asset-sale="' + idx + '">Record sale</button></div>' +
       salesListHtml(item, idx) +
@@ -962,12 +979,14 @@ export function renderSharesSubpage(){
         autoPricesCardHtml() + fxNote +
         '<details class="ps-manual"' + (state.priceSheet && state.priceSheet.url ? ' open' : '') + '><summary>Your own Google Sheet — for anything the above doesn\'t cover</summary>' + priceSheetCardHtml() + '</details>' +
         '<details class="ps-manual"><summary>Or paste prices by hand</summary>' +
-        '<p class="ledger-note" style="margin:8px 0">Copy the Symbol and Price columns from any sheet and paste the two-column range below. Matches holdings by ticker; a USDAUD row updates the exchange rate.</p>' +
+        '<p class="ledger-note" id="sharesPasteHelp" style="margin:8px 0">Copy the Symbol and Price columns from any sheet and paste the two-column range below. Matches holdings by ticker; a USDAUD row updates the exchange rate.</p>' +
         '<div style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap">' +
           '<button type="button" class="btn btn-sm btn-ghost" id="sharesCopyPriceTemplateBtn" title="Just the Symbol and Price list, with a GOOGLEFINANCE formula for each holding">⧉ Copy price list</button>' +
           '<button type="button" class="btn btn-sm btn-ghost" id="sharesExportPriceTemplateBtn">⇩ Download price list</button>' +
         '</div>' +
-        '<textarea id="sharesPasteArea" rows="4" placeholder="CBA&#9;105.32&#10;BHP&#9;43.10" style="width:100%;box-sizing:border-box;font-family:var(--font-num);font-size:var(--fs-sm);padding:8px;background:var(--paper-sunken);border:1px solid var(--border);border-radius:8px;color:var(--ink);resize:vertical"></textarea>' +
+        // #261: a label the box keeps once something's pasted — it had a placeholder only.
+        '<label class="field-label" for="sharesPasteArea">Prices to paste (Symbol and Price)</label>' +
+        '<textarea id="sharesPasteArea" aria-describedby="sharesPasteHelp" rows="4" placeholder="CBA&#9;105.32&#10;BHP&#9;43.10" style="width:100%;box-sizing:border-box;font-family:var(--font-num);font-size:var(--fs-sm);padding:8px;background:var(--paper-sunken);border:1px solid var(--border);border-radius:8px;color:var(--ink);resize:vertical"></textarea>' +
         '<div style="margin-top:8px"><button type="button" class="btn btn-sm" id="sharesPasteApply">Update prices</button></div>' +
         '</details>' +
       '</details>'

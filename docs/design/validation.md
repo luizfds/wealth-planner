@@ -41,7 +41,7 @@ Each was reproduced in the browser before the change, against what's saved in st
 | Salary sacrifice (`.f-sacrificevalue`) | Error: "Enter how much — 0 for none." | Saved | Saved, as before | — | Blank saved `0` |
 | Claimable share (`.f-deductpct`) | Error: "Enter the claimable share, from 0 to 100%." | Saved (claims nothing) | Error | 0–100, error outside it | 150 saved `100`, −10 saved `0`, blank saved `0` |
 
-**Negative amounts** are left as they were. The original fields had `min="0"`, which never stopped a save, and `-40` saves today. The generic shared ledger editor now omits that contradictory native minimum; the income-specific editor still awaits migration.
+**Negative amounts** are left as they were. The original fields had `min="0"`, which never stopped a save, and `-40` saves today. The generic shared ledger editor and primary income Amount now omit that contradictory native minimum. Pay-change and sacrifice controls keep their existing native constraints and save handlers.
 Whether a negative budget or income line is ever meant (an offset, a reimbursement) is a rules decision, and #263 says
 not to blanket-ban negatives. It's an open question below, not a change made here.
 

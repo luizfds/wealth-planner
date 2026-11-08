@@ -1,7 +1,7 @@
 # One field: inventory and spec (#254)
 
 **Status: foundation shipped (PR #272); shared ledger editors migrated in the current follow-up.** The shared field exists (tokens, `.field` / `.field-control`, `lib/field.js`).
-Benchmarks and the generic ledger editor use it. The touch floors are fixed everywhere. Every other family moves onto it in its own PR,
+Benchmarks, the generic ledger editor and the income editor use it. The touch floors are fixed everywhere. Every other family moves onto it in its own PR,
 once this spec is agreed. Part of #253.
 
 ## How this was measured
@@ -86,7 +86,7 @@ Counts are text-entry controls at 1280px (236 per width).
 | Family | Controls | Maps to | Notes |
 |---|---|---|---|
 | Benchmarks (`.bm-controls`) | 2 | **Shared field (migrated in this PR)** | Was 8px corners, 4px padding |
-| Cash flow budget editor (`.m-edit-field`, `.bc-kind`) | 37 | Shared field (generic row migrated) | The separate group picker and income-specific controls remain |
+| Cash flow budget editor (`.m-edit-field`, `.bc-kind`) | 37 | Shared field (generic row migrated) | The separate group picker remains; income controls are migrated below |
 | Investments: holdings, lots, offsets (`.h-*`, `.lot-*`, `.po-*`, `.offset-*`) | 31 | Shared field; lots → *compact* | 7px corners on holdings |
 | Tax: this year, returns (`.ty-*`, `.tax-*`) | 31 | Shared field; rent grid → *compact* | Mix of 6/7/8px |
 | Tax: people (`.pp-*`) | 22 | Shared field | 7–8px corners |
@@ -124,7 +124,7 @@ Counts are text-entry controls at 1280px (236 per width).
 ## Shared ledger migration (#261, first family)
 
 The generic budget, scenario home-cost and property income/cost row now uses `fieldHtml`, including its shared
-More options fields. Income inherits the shared timing/deduction fields; its main editor remains a separate migration.
+More options fields. Income inherits the shared timing/deduction fields; its main editor is covered by the income migration below.
 Existing field classes and delegated edit handlers stay in place. Each surface has its own stable id scope, so the
 same property cost can be opened from Budget and Property without duplicate control/help/error ids. Row sorting keeps
 those ids stable. Grouped claim choices retain deleted-property recovery and escape names.
@@ -145,5 +145,28 @@ plus a 320px light pass. The #278 follow-up restores full-document scans for the
 **Manual verification task (pending):** using VoiceOver/Safari and NVDA/Firefox, open a Budget row, expand More options,
 read the date and tax help, switch person/property claim, clear/retype an amount and close/reopen the editor. Confirm
 names, descriptions, error announcements and focus order, on a physical phone as well as desktop. Remaining families
-under #261: income-specific controls/pay changes, holdings/lots, full property/loan editors, tax forms, scenario changes,
+under #261: holdings/lots, full property/loan editors, tax forms, scenario changes,
 goals, calculators and Settings. The wider issue stays open.
+
+## Income migration (#254 / #261)
+
+Income now uses the same `ledgerFields` adapter as the generic row. It supplies stable ids and existing grid wrappers
+around `fieldHtml`; the main fields and More options use the same income/record scope. Computed income rows remain
+read-only summaries. Item name, Income type, Amount, Frequency, Super treatment, Salary sacrifice, Account and each
+conditional pay-schedule control have linked visible labels. Super/sacrifice/date explanations are visible and described.
+
+The sacrifice mode and its conditional percentage/amount have separate labels; percentage and dollar units remain visible.
+Monthly income offers day-of-month/Last day, Weekly offers a weekday (including Sunday/0), and Fortnightly asks for a
+recent actual pay date. The anchor date spans the row. Account spans the row too, matching the generic Budget editor
+and giving account names room. The existing native sacrifice bounds/steps and all calculation/save rules are unchanged.
+The main income Amount now omits the contradictory minimum, matching its existing support for negative values.
+
+Record a pay change is a named fieldset. Its New amount and Effective from fields are drafts until Record change is
+chosen, as before. The date help states the blank/today default, and recorded amounts remain in history. On phones the
+fields stack and the native date has a full row. Pay-change validation continues to use its existing submit handler.
+
+Income structural redraws use `keepUi`, retaining focus on Frequency/Salary sacrifice/Income type and open More options.
+The browser journey checks labels, blank/retyped/negative Amount, sacrifice modes and blank error, super choices,
+weekly/monthly/fortnightly schedules, draft-versus-recorded pay history, focus, unique ids, described help and field sizes
+at 320/390/1280px. Full-document accessibility adds the collapsed Income view plus seven expanded/conditional states.
+Actual screen-reader/physical-device checks remain the manual task above; the wider #261/#254 issues stay open.

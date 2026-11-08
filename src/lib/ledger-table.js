@@ -6,7 +6,7 @@ import { fieldHtml } from "./field.js";
 
 // Stable ids include the surface: the same property cost is editable from Budget and Property.
 // Keep the existing grid/conditional wrappers; fieldHtml owns the label, control, help and error.
-function ledgerFields(item, section, idx, surface){
+export function ledgerFields(item, section, idx, surface){
   var key = encodeURIComponent((surface || "ledger") + ":" + (section || "income") + ":" + (item.id == null ? idx : item.id));
   return function(name, label, options, layout){
     layout = layout || {};

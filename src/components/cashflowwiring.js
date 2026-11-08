@@ -1,3 +1,4 @@
+import { keepUi } from "../lib/keepui.js";
 // ---------------- Cash flow, wired (v3.206.1, item 237) ----------------
 //
 // Cash flow's sheets and panels: a scenario's override panel, bills to confirm, quick log, money received, the
@@ -41,7 +42,7 @@ var reviewBtn, quickLogBtn;
 // Income and the Budget's lines, as the generic row code sees them (lib/sections.js).
 defineSection("income", {
   rows: function(){ return state.income; },
-  redraw: function(){ renderIncomeGroups(); },
+  redraw: function(){ keepUi(renderIncomeGroups); },
   editor: { container: "incomeGroups", openState: modernIncomeRowOpen },
   noClassification: true,
   newRow: function(item, person){ item.id = genId("inc"); item.person = person != null ? person : ""; item.incomeType = "Net"; },

@@ -85,7 +85,7 @@ async function applyImportedBackupJson(jsonStr){
   try{
     var parsed = JSON.parse(jsonStr);
     // A tax year file picked from the main Import merges instead of replacing everything.
-    if(parsed && parsed.kind === TAX_YEAR_FILE_KIND){ return applyTaxYearFile(parsed); }
+    if(parsed && parsed.kind === TAX_YEAR_FILE_KIND){ return await applyTaxYearFile(parsed); }
     if(!parsed || !parsed.income || !parsed.home) throw new Error("bad shape");
     // v3.71.0: say which copy is newer, so restoring on a second device can't quietly put an
     // older copy over a newer one.
@@ -249,11 +249,11 @@ export function wireData(){
     e.target.value = "";
     if(!file) return;
     var reader = new FileReader();
-    reader.onload = function(){
+    reader.onload = async function(){
       var parsed;
       try{ parsed = JSON.parse(reader.result); }catch(err){ showToast("That file isn't JSON"); return; }
       if(!parsed || parsed.kind !== TAX_YEAR_FILE_KIND){ showToast("That isn't a tax year file — a full backup goes through Import backup"); return; }
-      applyTaxYearFile(parsed);
+      try{ await applyTaxYearFile(parsed); }catch(err){ showToast("That tax year file could not be imported. Check it and try again."); }
     };
     reader.readAsText(file);
   });

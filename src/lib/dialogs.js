@@ -2,7 +2,8 @@ import { pushModalOverlay } from "./overlaystack.js";
 
 // Promise-based questions: callers must await the answer before touching data. A second click while
 // a question is open is cancelled rather than queued against records which may no longer exist.
-var active = false;
+var active = false, idleWaiters = [];
+export function whenDialogsClosed(){ return active ? new Promise(function(resolve){ idleWaiters.push(resolve); }) : Promise.resolve(); }
 export function dialogOpen(){ return active; }
 function question(message, options){
   if(active) return Promise.resolve(null);
@@ -86,6 +87,7 @@ function question(message, options){
       }
       restoreFocus();
       resolve(answer);
+      queueMicrotask(function(){ if(!active) idleWaiters.splice(0).forEach(function(done){ done(); }); });
       // The answer can redraw the opener. Restore its replacement after that draw, unless the
       // caller intentionally moved focus somewhere else (or opened the next question).
       requestAnimationFrame(function(){ if(!active && document.activeElement === document.body) restoreFocus(); });

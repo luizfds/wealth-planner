@@ -1,4 +1,4 @@
-import { textDialog, confirmDialog, choiceDialog, dialogOpen } from "../lib/dialogs.js";
+import { textDialog, confirmDialog, choiceDialog, whenDialogsClosed } from "../lib/dialogs.js";
 // ---------------- Safekeeping and sync, wired (v3.206.1, item 237) ----------------
 //
 // The passcode, folder backups and sync through the folder or Dropbox.
@@ -10,7 +10,7 @@ import { thinPriceHistory } from "../calc/pricesheet.js";
 import { takeReceiptFiles } from "../calc/receipts.js";
 import { mergeStates } from "../calc/syncmerge.js";
 import { setAppKey, connectDropbox, finishDropboxRedirect, disconnectDropbox } from "../lib/dropbox.js";
-import { syncOn, unlockSync, syncNow, pulled, merged as syncMerged, markChanged, stopSync } from "../lib/foldersync.js";
+import { syncOn, inspectSyncCopy, unlockSync, syncNow, pulled, merged as syncMerged, markChanged, stopSync } from "../lib/foldersync.js";
 import { localDateStr } from "../lib/format.js";
 import { unpackReceipts } from "../lib/receipts.js";
 import { chooseFolder, backupToFolder, forgetFolder, maybeAutoBackup, setPasscode, clearPasscode, checkPasscode, newestFolderBackup, savedFolder } from "../lib/safekeeping.js";
@@ -24,7 +24,8 @@ import { renderAll } from "./redraw.js";
 import { renderSafekeeping } from "./safekeeping.js";
 import { mergeDialogHtml } from "./syncmerge.js";
 
-var lockScreen, syncBusy, syncTimer, mergeAskedAt, initialSync;
+var lockScreen, syncTimer, mergeAskedAt, initialSync;
+var syncInFlight = null;
 
 function showLock(){
   document.documentElement.classList.add("is-locked");
@@ -52,10 +53,19 @@ function folderResult(r){
 }
 // ---------------- Sync through the folder (v3.134.0) — lib/foldersync.js ----------------
 // v3.136.0: Dropbox's passphrase step, after connecting (or on a new device).
+async function syncPassphrase(via){
+  var copy;
+  try{ copy = await inspectSyncCopy(true, via); }
+  catch(e){ showToast("Couldn't read the synced copy. Check the connection and try again."); return null; }
+  if(!copy.ok){ showToast("Couldn't open the synced copy. Check the connection or folder permission and try again."); return null; }
+  var pass = await textDialog(copy.existing ? "Enter the passphrase for the existing synced copy." : "Choose a passphrase for the new synced copy. Keep it somewhere safe; it cannot be recovered.", "", {title:copy.existing ? "Unlock synced copy" : "Create synced copy",label:"Passphrase",accept:copy.existing ? "Unlock sync" : "Create synced copy",password:true,repeat:!copy.existing,required:true});
+  return pass === null ? null : { pass:pass, existing:copy.existing };
+}
 async function dropboxPassphrase(){
-  var pass = (await textDialog("The passphrase for the synced copy. Use the same one on each device — it isn't stored anywhere, so keep it somewhere safe:", "", {"title":"Protect your data","label":"Passphrase","accept":"Unlock sync","password":true,"repeat":true,"required":true}));
-  if(!pass) return Promise.resolve();
-  return unlockSync(pass, true, "dropbox").then(function(r){
+  var answer = await syncPassphrase("dropbox");
+  if(!answer) return;
+  var pass = answer.pass;
+  return unlockSync(pass, true, "dropbox", answer.existing).then(function(r){
     if(!r.ok){ showToast(r.reason === "wrong-passphrase" ? "That passphrase doesn't open the copy already in Dropbox" : r.reason === "not-connected" ? "Connect Dropbox first" : "Couldn't reach Dropbox"); return; }
     showToast(r.existing ? "Sync on — checking the copy in Dropbox" : "Sync on");
     renderSafekeeping();
@@ -65,15 +75,13 @@ async function dropboxPassphrase(){
 function whenText(iso){ try{ return new Date(iso).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); }catch(e){ return iso || ""; } }
 function runSync(opts){
   opts = opts || {};
-  // Native questions used to pause JS. Shared dialogs are asynchronous: a background sync must
-  // not redraw the records or forms the person is currently deciding about.
-  function deferSync(){ clearTimeout(syncTimer); syncTimer = setTimeout(function(){ runSync({}); }, 3000); }
-  if(dialogOpen()){ deferSync(); return Promise.resolve(); }
-  if(syncBusy) return Promise.resolve();
-  syncBusy = true;
-  return syncNow(opts).then(function(r){
-    syncBusy = false;
-    if(dialogOpen()){ deferSync(); return r; }
+  // Network work (especially a hidden-tab push) starts immediately with the original options.
+  // Only applying its result waits for a question; never discard a requested pull or permission.
+  if(syncInFlight) return syncInFlight.then(function(){ return runSync(opts); }, function(){ return runSync(opts); });
+  var flight = syncNow(opts);
+  syncInFlight = flight;
+  return flight.finally(function(){ if(syncInFlight === flight) syncInFlight = null; }).then(async function(r){
+    await whenDialogsClosed();
     if(r.status === "pull"){
       try { var pulledObj = JSON.parse(r.text); unpackReceipts(takeReceiptFiles(pulledObj)).catch(function(){}); setState(migrateState(pulledObj)); } catch(e){ showToast("The synced copy couldn't be read"); return r; }
       pulled(r.rev);
@@ -92,7 +100,7 @@ function runSync(opts){
       runSync({ interactive: true, manual: true, force: choice === "accept" ? "pull" : "push" });
     });
     return r;
-  }).catch(function(){ syncBusy = false; if(opts.manual) showToast("Sync couldn't reach the folder"); });
+  }).catch(function(){ if(opts.manual) showToast("Sync couldn't reach the folder"); });
 }
 function mergeSync(r){
   var base, theirs;
@@ -178,9 +186,10 @@ export function wireSafekeeping(){
     // v3.134.0: sync through the folder.
     if(act === "sync-on"){
       savedFolder().then(function(h){ return h ? h : chooseFolder(); }).then(async function(){
-        var pass = (await textDialog("A passphrase for the synced copy. Use the same one on each computer — it isn't stored anywhere, so keep it somewhere safe:", "", {"title":"Protect your data","label":"Passphrase","accept":"Unlock sync","password":true,"repeat":true,"required":true}));
-        if(!pass) return;
-        return unlockSync(pass, true, "folder").then(function(r){
+        var answer = await syncPassphrase("folder");
+        if(!answer) return;
+        var pass = answer.pass;
+        return unlockSync(pass, true, "folder", answer.existing).then(function(r){
           if(!r.ok){ showToast(r.reason === "wrong-passphrase" ? "That passphrase doesn't open the copy already in the folder" : "Couldn't use the folder"); return; }
           showToast(r.existing ? "Sync on — checking the copy in the folder" : "Sync on");
           renderSafekeeping();
@@ -207,7 +216,7 @@ export function wireSafekeeping(){
     }
     if(act === "lock-now"){ try{ sessionStorage.removeItem("wealthPlanner.unlocked"); }catch(err){} showLock(); }
   });
-  syncBusy = false;
+  syncInFlight = null;
   syncTimer = null;  // v3.143.0 (item 182): both devices changed since they last synced — combine them. Everything
   // changed on one side only is taken from that side; only the same thing changed both ways is asked,
   // one choice each. Without the agreed copy (synced last on an older version) it's still a choice.

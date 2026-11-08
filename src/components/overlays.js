@@ -4,7 +4,7 @@
 // sticky sections and dragging a sheet closed on a phone.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
 // added, so they're added in the same order.
-import { requestCloseActiveOverlay, overlayOpen } from "../lib/overlaystack.js";
+import { requestCloseActiveOverlay, overlayOpen, handleModalHistory } from "../lib/overlaystack.js";
 
 // ---------------- Page-header ⋯ menus ----------------
 // One delegated handler for all four (Income, Expenses, Properties, Assets). The menu is a
@@ -95,3 +95,6 @@ export function wireOverflowMenus(){  document.addEventListener("click", functio
 }
 
 export { closeAllOverflowMenus };
+
+// Wired explicitly before the page history listener, including on the standalone import page.
+export function wireModalHistory(){ window.addEventListener("popstate", handleModalHistory, true); }

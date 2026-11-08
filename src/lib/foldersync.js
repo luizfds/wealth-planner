@@ -70,16 +70,26 @@ function decrypt(keyRec, env){
     .then(function(buf){ return new TextDecoder().decode(buf); });
 }
 
+// Read whether a copy already exists without changing keys or enabling sync.
+export function inspectSyncCopy(interactive, via){
+  var t = transport(via);
+  return t.open(interactive).then(function(o){
+    if(!o.ok) return { ok:false, reason:o.status };
+    return t.read(o).then(function(r){ return { ok:true, existing:!!r.env }; });
+  });
+}
+
 // Turning it on (or on a new device): the passphrase becomes this device's key. If the folder (or
 // Dropbox) already holds a sync file, the passphrase has to open it. `via` is "folder" or "dropbox".
 // Resolves { ok, reason, existing }.
-export function unlockSync(passphrase, interactive, via){
+export function unlockSync(passphrase, interactive, via, expectedExisting){
   via = via || syncVia();
   var t = transport(via);
   return t.open(interactive).then(function(o){
     if(!o.ok) return { ok: false, reason: o.status === "no-folder" ? "no-folder" : o.status === "not-connected" ? "not-connected" : "permission" };
     return t.read(o).then(function(r){
       var env = r.env;
+      if(expectedExisting !== undefined && expectedExisting !== !!env) return { ok:false, reason:"copy-changed" };
       var salt = env ? env.salt : bufToBase64(crypto.getRandomValues(new Uint8Array(16)));
       return deriveBackupKey(passphrase, new Uint8Array(base64ToBuf(salt))).then(function(key){
         var rec = { key: key, salt: salt };

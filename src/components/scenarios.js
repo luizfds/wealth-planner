@@ -39,8 +39,6 @@ export async function addScenario(){
   var name = (await textDialog('Name the new scenario:', "", {"title":"Add scenario","label":"Scenario name","accept":"Create scenario","required":true,validate:scenarioNameError}));
   if(name === null) return;
   name = name.trim();
-  if(!name) return;
-  if(state.scenarios.indexOf(name) !== -1){ showToast('A scenario named "' + name + '" already exists'); return; }
   state.scenarios.push(name);
   // v3.173.0 (item 208): a new scenario starts as today — no changes, nothing bought. Its home rows wait,
   // empty, for when it buys a home to live in (the purchase calculator) or moves.
@@ -208,7 +206,8 @@ export async function renameScenario(oldName){
 export function renameScenarioTo(oldName, name){
   name = String(name || "").trim();
   if(!name || name === oldName) return null;
-  if(state.scenarios.indexOf(name) !== -1){ showToast('A scenario named "' + name + '" already exists'); return null; }
+  var problem = scenarioNameError(name, oldName);
+  if(problem){ showToast(problem); return null; }
   var idx = state.scenarios.indexOf(oldName);
   if(idx === -1) return null;
   state.scenarios[idx] = name;
@@ -258,8 +257,6 @@ export async function cloneScenario(sourceName){
   var name = (await textDialog('Name for the copy of "' + sourceName + '":', sourceName + " copy", {"title":"Copy scenario","label":"Scenario name","accept":"Create copy","required":true,validate:scenarioNameError}));
   if(name === null) return;
   name = name.trim();
-  if(!name) return;
-  if(state.scenarios.indexOf(name) !== -1){ showToast('A scenario named "' + name + '" already exists'); return; }
   // Inserted right after the original rather than appended — a clone belongs next to the thing it
   // was copied from, not at the end of a list that may already have several scenarios in it.
   state.scenarios.splice(state.scenarios.indexOf(sourceName) + 1, 0, name);

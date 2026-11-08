@@ -89,11 +89,14 @@
   </main>
   <div class="toast-wrap" id="toastWrap" role="status" aria-live="polite" aria-atomic="false"></div>
   <script type="module">
+    import { wireModalHistory } from "./src/components/overlays.js";
     import { textDialog, confirmDialog } from "./src/lib/dialogs.js";
     import { STORAGE_KEY } from "./src/constants.js";
     import { migrateState } from "./src/state.js";
     import { decryptBackup } from "./src/lib/backup.js";
     import { showToast } from "./src/lib/toast.js";
+
+    wireModalHistory();
 
     // Landing here at all (share recipient or not) means the generic first-time-visitor
     // onboarding tutorial isn't the right thing to show if they later open the bare app —

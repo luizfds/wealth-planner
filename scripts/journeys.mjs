@@ -62,6 +62,14 @@ async function fresh(opts){
     sessionStorage.setItem("journeyLoaded", "1");
   }, [opts.stored || null]);
   await ctx.route(/fonts\.(googleapis|gstatic)\.com|docs\.google\.com|coingecko|frankfurter|dropboxapi|anthropic/, r => r.abort());
+  if(opts.taxFailure){
+    await ctx.route('**/src/components/taxyear.js*', r => {
+      const source = fs.readFileSync(path.join(root,'src/components/taxyear.js'),'utf8');
+      const faulty = source.replace('export function lodgedSnapshot(r){', 'export function lodgedSnapshot(r){ if(globalThis.__failLodged) throw new Error("Synthetic post-merge failure");');
+      if(faulty === source) throw new Error('Tax error probe no longer matches the snapshot boundary');
+      return r.fulfill({contentType:'text/javascript',body:faulty});
+    });
+  }
   const page = await ctx.newPage();
   // The journeys run on a fixed date (an automatic payment falls due on it); the speed budget on the real
   // clock, since Playwright's fixed clock stops performance marks.
@@ -136,6 +144,64 @@ async function runBackup(page, action, value){
 }
 
 const JOURNEYS = {
+  async taximporterrors(page){
+    await page.evaluate(()=>{window.__failLodged=true;});
+    const file={kind:'wealth-planner-tax-year',fy:2026,markLodged:true,people:{Alex:{}}};
+    for(const picker of ['#importFile','#taxYearImportFile']){
+      await page.evaluate(()=>document.querySelectorAll('#toastWrap .toast').forEach(e=>e.remove()));
+      await page.locator(picker).setInputFiles({name:'example-tax-year.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(file))});
+      await answerDialog(page,true);
+      await page.locator('#toastWrap').getByText(picker==='#importFile'?"That file doesn't look like a valid backup":"That tax year file could not be imported. Check it and try again.",{exact:true}).waitFor();
+    }
+    // Encrypt a tax-year file with the same real crypto as backup imports, then fail after decryption.
+    const encrypted=await page.evaluate(async file=>{
+      const b=await import('/src/lib/backup.js');const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
+      const key=await b.deriveBackupKey('invented-error-check',salt);
+      const cipher=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(JSON.stringify(file)));
+      return JSON.stringify({wealthPlannerEncrypted:true,v:1,salt:b.bufToBase64(salt),iv:b.bufToBase64(iv),ciphertext:b.bufToBase64(cipher)});
+    },file);
+    await page.evaluate(()=>document.querySelectorAll('#toastWrap .toast').forEach(e=>e.remove()));
+    await page.locator('#importFile').setInputFiles({name:'encrypted-tax-year.json',mimeType:'application/json',buffer:Buffer.from(encrypted)});
+    await answerDialog(page,true,'invented-error-check');await answerDialog(page,true);
+    await page.locator('#toastWrap').getByText("That file doesn't look like a valid backup",{exact:true}).waitFor();
+    check(!(await page.locator('#toastWrap').innerText()).includes('Wrong passphrase'),'post-merge failure was blamed on the password');
+  },
+  async dialognavigation(page){
+    await go(page,'plan','data-plan-sub','scenarios');
+    const editor=page.locator('#cards [data-edit-scenario]').last();
+    const scenarioName=await editor.getAttribute('data-edit-scenario');await editor.click();
+    await page.locator('[data-sc-addsheet]').click();await page.locator('#addChangeRoot [data-sc-new="cost"]').click();
+    await page.waitForFunction(()=>!document.querySelector('[data-acs-backdrop]'));
+    const cases=[['pairedsettings','/settings/preferences'],['pairedpeople','/tax/people'],['settings','/settings/preferences'],['income','/expenses/income'],['projections','/plan/projections'],['people','/tax/people'],['checks','/dashboard']];
+    for(const [route,expected]of cases){
+      const before=await page.evaluate(async()=>({url:location.pathname,settings:(await import('/src/components/nav.js')).settingsSubpage(),tax:(await import('/src/components/nav.js')).taxSubpage(),plan:document.querySelector('#planSubnav .active')?.dataset.planSub,expense:document.querySelector('#expensesSubnav .active')?.dataset.expensesSub}));
+      async function request(){await page.evaluate(async route=>{
+        const n=await import('/src/components/nav.js');window.__navigationDone=false;
+        if(route==='pairedsettings') n.showPage('settings');
+        if(route==='pairedpeople') n.showPage('accounts');
+        const task=['settings','pairedsettings'].includes(route)?n.showAccountsSubpage('preferences'):route==='pairedpeople'?n.showAccountsSubpage('people'):['people','checks'].includes(route)?n.showAccountsSubpage(route):n.showPage(route);
+        Promise.resolve(task).then(()=>window.__navigationDone=true);
+      },route);}
+      await request();await page.locator('.app-dialog').waitFor();
+      check(await page.evaluate(()=>location.pathname)===before.url,route+': URL changed before approval');
+      check(await page.evaluate(async()=>(await import('/src/components/nav.js')).settingsSubpage())===before.settings,route+': Settings changed before approval');
+      check(await page.evaluate(async()=>(await import('/src/components/nav.js')).taxSubpage())===before.tax,route+': Tax changed before approval');
+      check(await page.evaluate(()=>document.querySelector('#planSubnav .active')?.dataset.planSub)===before.plan,route+': Plan changed before approval');
+      check(await page.evaluate(()=>document.querySelector('#expensesSubnav .active')?.dataset.expensesSub)===before.expense,route+': Cash flow changed before approval');
+      await answerDialog(page,false);await page.waitForFunction(()=>window.__navigationDone);
+      check(await page.evaluate(()=>location.pathname)===before.url,route+': Cancel changed URL');
+      check(await page.evaluate(()=>document.body.dataset.currentPage)==='scenario',route+': Cancel left the editor');
+      await request();await answerDialog(page,true);await page.waitForFunction(()=>window.__navigationDone);
+      await page.waitForFunction(expected=>location.pathname===expected,expected);
+      check(await page.evaluate(()=>document.querySelector('.app-page:not([hidden])').id)==='page-'+expected.split('/')[1],route+': URL and visible page disagree');
+      await page.goBack();
+      // Existing routing reopens /scenario as the list, where its retained draft waits.
+      await page.waitForFunction(()=>document.body.dataset.currentPage==='plan');
+      check(await page.evaluate(()=>location.pathname)===before.url,route+': Back did not return to the source history entry');
+      await page.locator('#cards .card-edit-link[data-edit-scenario="'+scenarioName+'"]').click();
+      await page.waitForFunction(()=>document.body.dataset.currentPage==='scenario');
+    }
+  },
   async welcomedialogs(page){
     await page.goto(base+'/welcome.html');
     // state.js normalises loaded data before the import starts; compare at the dialog boundary.
@@ -209,6 +275,8 @@ const JOURNEYS = {
     await page.goBack();await page.locator('.app-dialog').waitFor({state:'detached'});
     check(await page.evaluate(()=>window.__dialogResult===null),'Back selected a destructive choice');
     check(await page.locator('#quickLogAmount').inputValue()==='123','Back closed the underlying sheet or lost typing');
+    await page.goForward();await page.waitForFunction(()=>!history.state?.appDialog);
+    check(await page.locator('#quickLogAmount').inputValue()==='123','Forward onto a dismissed question closed the editor');
     await page.keyboard.press('Escape');await page.locator('#quickLogAmount').waitFor({state:'hidden'});
     for(const choice of ['alternative','accept']){
       await page.evaluate(async()=>{
@@ -341,6 +409,8 @@ const JOURNEYS = {
     await page.waitForFunction(() => document.documentElement.hasAttribute('data-wp-ready'));
     check(await st(page, 'state.shared[0].amount') === 320, 'Reload latest did not adopt the saved household');
     await page.goto(base + '/index.html?mock=1');
+    await page.locator('.app-dialog').waitFor();
+    check(await page.locator('#appLoading:not(.is-hidden)').count()===0,'sample question blocked bootstrap completion');
     await answerDialog(page, false);
     await page.waitForFunction(() => document.documentElement.hasAttribute('data-wp-ready'));
     check(await st(page, 'state.shared[0].amount') === 320, 'declining sample data replaced the household');
@@ -780,7 +850,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh();
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors"});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

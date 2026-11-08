@@ -130,7 +130,7 @@ export function wireScenarioEditor(){
     var pick = e.target.closest("[data-sq-pick]");
     if(pick){ startQ.key = pick.getAttribute("data-sq-pick"); renderStartSheet(); return; }
     if(e.target.closest("[data-sq-back]")){ startQ.key = null; renderStartSheet(); return; }
-    if(e.target.closest("[data-sq-blank]")){ await requestCloseActiveOverlay(); var n = state.scenarios.length; await addScenario(); if(state.scenarios.length > n) openScenarioEditor(state.scenarios[state.scenarios.length - 1]); return; }
+    if(e.target.closest("[data-sq-blank]")){ if(!await requestCloseActiveOverlay()) return; var n = state.scenarios.length; await addScenario(); if(state.scenarios.length > n) openScenarioEditor(state.scenarios[state.scenarios.length - 1]); return; }
     if(e.target.closest("[data-sq-make]")){
       var answers = {};
       startSheetRoot.querySelectorAll("[data-sq]").forEach(function(el){ answers[el.getAttribute("data-sq")] = el.value; });

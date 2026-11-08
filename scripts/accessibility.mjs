@@ -78,11 +78,12 @@ for(const width of widths)for(const scheme of schemes){
  }
 
  // Shared questions: names, password/error states and explicit three-way cancellation (#256).
- for(const kind of ['text','password','error','confirm','choice']){
+ for(const kind of ['text','password','unlock','error','confirm','choice']){
   await page.evaluate(async kind=>{
    const d=await import('/src/lib/dialogs.js');
    if(kind==='text')d.textDialog('Name this example scenario.','',{title:'Scenario name',required:true});
    else if(kind==='password'||kind==='error')d.textDialog('Keep this passphrase somewhere safe.','',{title:'Protect your data',label:'Passphrase',password:true,repeat:true,required:true});
+   else if(kind==='unlock')d.textDialog('Enter the passphrase for the existing synced copy.','',{title:'Unlock synced copy',label:'Passphrase',accept:'Unlock sync',password:true,required:true});
    else if(kind==='choice')d.choiceDialog('Choose which copy to keep.',{title:'Choose copy',accept:'Load saved copy',alternative:'Use this copy'});
    else d.confirmDialog('This replaces the example household.',{title:'Replace household',accept:'Replace household',danger:true});
   },kind);

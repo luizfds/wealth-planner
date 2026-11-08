@@ -20,7 +20,7 @@ import { detailTarget } from "./components/detail.js";
 import { showPage, parseRouteFromLocation, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, taxSubpage, setOverlayCleanup, PAGE_KEY } from "./components/nav.js";
 import { wireLedgerEdits, wireRowEditors, wireMoreRowEditors, wireAddButtons } from "./components/rows.js";
 import { wireSuggestions, renderGlobalMetrics, renderAll } from "./components/redraw.js";
-import { wirePhoneSheets, wireOverflowMenus } from "./components/overlays.js";
+import { wirePhoneSheets, wireOverflowMenus, wireModalHistory } from "./components/overlays.js";
 import { wireCalculators } from "./components/calcwiring.js";
 import { wireProjections, wireProjectionCsv, wireWhatIfs, wireRetirement } from "./components/planwiring.js";
 import { wireTax, renderPeopleTab } from "./components/taxwiring.js";
@@ -41,9 +41,9 @@ import { wireReports } from "./components/reportswiring.js";
 import { wireNotifications } from "./components/notifpanel.js";
 import { wireUpdates } from "./components/updates.js";
 import { applyTheme, getThemePref } from "./lib/theme.js";
-import { overlayOpen, closeActiveOverlayNow } from "./lib/overlaystack.js";
+import { closeActiveOverlayNow, handleOverlayHistory } from "./lib/overlaystack.js";
 
-(async function(){
+(function(){
   "use strict";
 
   applyTheme(getThemePref());
@@ -140,16 +140,14 @@ import { overlayOpen, closeActiveOverlayNow } from "./lib/overlaystack.js";
     if(initialPage === "settings") initialSettingsSub = "categories";
   }
 
+  wireModalHistory();
   window.addEventListener("popstate", function(e){
     // A back navigation while an overlay (row modal, search, expense review) was open pops the
     // history entry pushActiveOverlay() pushed for it — this is that entry landing, so just run
     // the overlay's own close callback and stop, rather than also running the page-nav logic
     // below: the URL/page never actually changed underneath it, so that logic would at best no-op
     // and at worst reset scroll position for no reason.
-    if(overlayOpen() && !(e.state && e.state.overlayOpen)){
-      closeActiveOverlayNow();
-      return;
-    }
+    if(handleOverlayHistory(e)) return;
     var route = parseRouteFromLocation() || { page: "dashboard", sub: null };
     if(route.page === "detail" && route.detail){ detailTarget.kind = route.detail.kind; detailTarget.id = route.detail.id; }
     showPage(route.page, { skipUrl: true });
@@ -242,12 +240,13 @@ import { overlayOpen, closeActiveOverlayNow } from "./lib/overlaystack.js";
   // onboarding.html's "Try it with sample data" link lands here with ?mock=1 — generate it
   // after confirming replacement if a household already exists. A sample link can be
   // revisited after setup, so the URL alone is never permission to discard saved data.
-  if(new URLSearchParams(location.search).get("mock") === "1" && (!hasRealUserData() || (await confirmDialog("Replace this household with sample data? Export a backup first to keep your data.", {"title":"Use sample data","accept":"Replace with sample","danger":true})))){
-    buildDemoState();
-    renderAll();
-    persist();
-    showToast("Sample data generated");
-  }
+  var wantsSample = new URLSearchParams(location.search).get("mock") === "1";
+  function fillSample(){ buildDemoState(); renderAll(); persist(); showToast("Sample data generated"); }
+  if(wantsSample && !hasRealUserData()) fillSample();
+  else if(wantsSample) queueMicrotask(function(){
+    confirmDialog("Replace this household with sample data? Export a backup first to keep your data.", {title:"Use sample data",accept:"Replace with sample",danger:true})
+      .then(function(ok){ if(ok) fillSample(); }).catch(function(){ showToast("Sample data could not be loaded."); });
+  });
   if(new URLSearchParams(location.search).has("mock")) history.replaceState(history.state, "", location.pathname + location.hash);
   wireShortcuts();
 

@@ -30,13 +30,15 @@ explicit action labels. At phone widths it is a bottom sheet with safe-area padd
 fields retain the existing phone typography/target floors.
 
 `overlaystack.js` keeps the question's history separate from any underlying editor. Its modal popstate listener
-is installed before the app's page/overlay listener. Back cancels just the question. Closing a sheet can be awaited:
+is wired explicitly from `components/overlays.js` before the app's page/overlay listener (and on the welcome page). Back cancels just the question. Closing a sheet can be awaited:
 scenario creation no longer relies on a fixed delay before opening the name question. Scenario navigation awaits
 its leave decision without turning all existing navigation calls into asynchronous operations.
 
 An open native dialog is already pending work under #269, so other tabs cannot redraw it. Folder/Dropbox sync
-also defers while a shared question is open, including applying an in-flight response; the normal sync is retried
-against current state instead of redrawing a form the person is deciding about.
+starts network work immediately with the requested permission/manual/force options, including on tab hiding.
+Only applying its response waits until the questions close; the response and the original choice are retained.
+Sync setup inspects the copy without changing keys, asks for confirmation only for a new secret, and refuses
+to enable sync if a copy appeared/disappeared while the question was open.
 
 ## Verification
 
@@ -54,3 +56,28 @@ against current state instead of redrawing a form the person is deciding about.
 Final check results are recorded in the PR. All fixtures and screenshots use synthetic data. Chromium emulation
 is not a physical iOS/Android or actual screen-reader test. No real Dropbox/folder account was connected; cloud
 sync cancellation was checked in source and its generic three-way dialog exercised locally.
+
+## PR review follow-up
+
+All ten review points are addressed on the same branch:
+
+1. Navigation returns its acceptance/completion result; Settings, aliases and moved destinations wait before
+   changing subpages or URL. Other paired subpage calls defer behind the pending leave decision.
+2. Both tax-year import entry points await post-confirm work inside their error boundaries. Encrypted imports
+   distinguish a post-merge failure from a bad passphrase.
+3. Sync retains permission/manual/force options and the actual response while a question is open.
+4. Network pushes do not wait for a dialog or a hidden-tab timer; only the UI response waits.
+5. Existing sync copies ask for one password; new copies require confirmation before enabling sync. The copy's
+   existence is checked again at unlock so a race cannot silently create a new key.
+6. Overlay close waiters belong to their editor. Failed history insertion closes directly; replacement cancels
+   old waiters; a bounded fallback handles a missing popstate without firing a later unrelated action.
+7. Bootstrap is synchronous; the populated-household sample question is queued after all listeners are wired.
+8. Modal history wiring is explicit, without a global listener side effect from importing a library.
+9. Forward onto a dismissed question steps past its inert entry without closing the editor underneath.
+10. Dialog-only create/copy flows use the single name validator; inline rename also uses that same rule.
+
+New regression coverage includes Settings/alias/moved-destination cancellation and approval, visible-page/URL
+agreement, Back/Forward with an unsaved editor, and injected post-merge failures through normal, dedicated and
+encrypted tax-year imports. Isolated tests cover failed/replaced/missing overlay history, retained sync options
+and responses, immediate network pushes while UI waits, and existing/new sync setup cancellation. A synthetic
+folder transport exercises actual encryption, read-only inspection, correct/wrong passphrases and copy races.

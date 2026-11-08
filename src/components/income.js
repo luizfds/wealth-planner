@@ -751,11 +751,18 @@ export function salaryRowFor(person){
   return (state.income || []).filter(function(i){ return i.person === person && i.incomeType === "Gross" && !i.computed && !i.irregular; })
     .sort(function(a, b){ return periodsOf(Number(b.amount) || 0, b.freq).yearly - periodsOf(Number(a.amount) || 0, a.freq).yearly; })[0] || null;
 }
+// #261: an id per person for this year's tax fields — names can hold spaces, so a safe form plus a checksum.
+function personIdKey(person){
+  var sum = 0; String(person).split("").forEach(function(c, i){ sum = (sum * 31 + c.charCodeAt(0) + i) % 100000; });
+  return String(person).replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 24) + "-" + sum;
+}
 function payslipReadHtml(person){
-  var pid = escapeAttr(person);
+  var pid = escapeAttr(person), k = personIdKey(person);
   var p = payslipRead[person];
   var out = '<div class="slip-read"><label class="btn btn-sm btn-ghost slip-pick">Read a payslip (PDF)<input type="file" accept=".pdf,application/pdf" data-slip-file="' + pid + '" hidden></label>' +
-    '<details class="slip-paste"><summary>or paste its text</summary><textarea rows="5" data-slip-text="' + pid + '" placeholder="Copy everything on the payslip and paste it here"></textarea>' +
+    // #261: a label the box keeps once something's typed — it had a placeholder only.
+    '<details class="slip-paste"><summary>or paste its text</summary><label class="field-label" for="slip-text-' + k + '">Payslip text<span class="visually-hidden"> for ' + pid + '</span></label>' +
+      '<textarea rows="5" id="slip-text-' + k + '" data-slip-text="' + pid + '" placeholder="Copy everything on the payslip and paste it here"></textarea>' +
     '<button type="button" class="btn btn-sm" data-slip-read="' + pid + '">Read it</button></details>';
   if(!p) return out + '</div>';
   if(p.error) return out + '<p class="slip-out warn">' + escapeAttr(p.error) + '</p></div>';
@@ -790,12 +797,17 @@ function payslipReadHtml(person){
 export function withholdingCheckHtml(person){
   var st = personTaxSettings(person);
   var y = st.ytd || {};
-  var pid = escapeAttr(person);
-  return '<details class="tax-ytd"' + (y.asOf ? " open" : "") + '><summary title="Refund or bill? Check the year so far against your latest payslip">Check a payslip</summary>' +
+  var pid = escapeAttr(person), k = personIdKey(person);
+  var who = '<span class="visually-hidden"> for ' + pid + '</span>';
+  // #261: labels tied to their fields (the accessible name starts with what's on screen — "Payslip date for Alex", not a
+  // different "Payslip period end"), and help that was a title tooltip shows, described.
+  return '<details class="tax-ytd"' + (y.asOf ? " open" : "") + '><summary>Check a payslip</summary>' +
+    '<p class="field-help" style="margin:6px 0 0">Refund or bill? Check the year so far against your latest payslip.</p>' +
     '<div class="tax-inputs" style="margin-top:8px">' +
-      '<div class="proj-field"><label>Payslip date</label><input type="date" class="tax-ytd-asof" aria-label="Payslip period end for ' + pid + '" value="' + escapeAttr(y.asOf || "") + '"></div>' +
-      '<div class="proj-field"><label title="Year-to-date gross on the payslip, before tax — not counting super">Gross so far $</label><input type="number" min="0" step="100" class="tax-ytd-gross" aria-label="Year-to-date gross for ' + pid + '" value="' + (y.gross || "") + '"></div>' +
-      '<div class="proj-field"><label>Tax withheld so far $</label><input type="number" min="0" step="100" class="tax-ytd-withheld" aria-label="Year-to-date tax withheld for ' + pid + '" value="' + (y.withheld || "") + '"></div>' +
+      '<div class="proj-field"><label for="ytd-asof-' + k + '">Payslip date' + who + '</label><input type="date" class="tax-ytd-asof" id="ytd-asof-' + k + '" value="' + escapeAttr(y.asOf || "") + '"></div>' +
+      '<div class="proj-field"><label for="ytd-gross-' + k + '">Gross so far $' + who + '</label><input type="number" min="0" step="100" class="tax-ytd-gross" id="ytd-gross-' + k + '" aria-describedby="ytd-gross-' + k + '-help" value="' + (y.gross || "") + '">' +
+        '<p class="field-help" id="ytd-gross-' + k + '-help">Year to date on the payslip, before tax — not counting super.</p></div>' +
+      '<div class="proj-field"><label for="ytd-withheld-' + k + '">Tax withheld so far $' + who + '</label><input type="number" min="0" step="100" class="tax-ytd-withheld" id="ytd-withheld-' + k + '" value="' + (y.withheld || "") + '"></div>' +
     '</div><p class="tax-ytd-out">' + withholdingCheckText(person) + '</p>' + payslipReadHtml(person) + '</details>';
 }
 export function withholdingCheckText(person){
@@ -875,7 +887,7 @@ function taxPersonFrontBodyHtml(person, r){
     // v3.44.0: the person's own details (date of birth, HELP, caps, carry-forward, losses, home
     // hours) moved to Accounts → People. What stays is this year's choice: how much to sacrifice.
     '<div class="tax-inputs pp-on-tax">' +
-      '<div class="proj-field"><label title="Separate from the Cash / Sacrifice column on income rows — use this for sacrifice not tied to a specific item">Manual sacrifice $/yr</label><input type="number" min="0" step="500" class="tax-sacrifice" aria-label="Manual super sacrifice per year for ' + pid + '" value="' + settings.superSacrificeAnnual + '"><button type="button" class="calc-hint-link" style="margin-top:4px" data-tax-maxcap="' + pid + '" title="Fills your remaining concessional cap headroom this year with manual sacrifice (SG and any auto/bonus sacrifice already counted): sets manual sacrifice to ' + fmtCurrency0.format(Math.max(0, r.capAvailable - r.sg - r.autoSacrifice)) + '">Max out cap</button></div>' +
+      '<div class="proj-field"><label for="tax-sac-' + personIdKey(person) + '">Manual sacrifice $/yr<span class="visually-hidden"> for ' + pid + '</span></label><input type="number" min="0" step="500" class="tax-sacrifice" id="tax-sac-' + personIdKey(person) + '" aria-describedby="tax-sac-' + personIdKey(person) + '-help" value="' + settings.superSacrificeAnnual + '"><button type="button" class="calc-hint-link" style="margin-top:4px" data-tax-maxcap="' + pid + '" title="Fills your remaining concessional cap headroom this year with manual sacrifice (SG and any auto/bonus sacrifice already counted): sets manual sacrifice to ' + fmtCurrency0.format(Math.max(0, r.capAvailable - r.sg - r.autoSacrifice)) + '">Max out cap</button><p class="field-help" id="tax-sac-' + personIdKey(person) + '-help">Separate from the Cash / Sacrifice column on income rows — for sacrifice not tied to a specific item.</p></div>' +
     '</div>' +
     '<p class="ledger-note pp-link-note" style="margin:8px 0 0" title="Date of birth, HELP, super caps, capital losses and home hours">' + escapeAttr(person) + '\'s details: <button type="button" class="link-btn" data-goto-people="' + pid + '">Tax → People</button></p>';
 }

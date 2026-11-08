@@ -11,6 +11,7 @@
 //   loanguess   — the same statement with no account picked: the import asks which loan
 //   pdf import  — a PDF statement read into the same review
 //   cashrate    — the RBA's move, read from the site's file, recorded on the household's loans from a date
+//   transitiontimeout — a skipped animation still completes navigation and its alias subpage
 //   appdialogs  — shared text/password/decision dialogs, keyboard, nested Back, and scenario leave guards
 //   welcomedialogs — standalone import cancellation and approval preserve/replace the saved household
 //   datasafety  — a reload keeps the last edit; a tab with work in progress keeps it when another tab saves,
@@ -293,6 +294,22 @@ const JOURNEYS = {
     await page.waitForURL('**/index.html');
     await page.waitForFunction(()=>document.documentElement.hasAttribute('data-wp-ready'));
     check(await st(page,'state.shared[0].amount')===500,'welcome import did not apply the chosen backup');
+  },
+  async transitiontimeout(page){
+    // Force Chromium's animation-only failure while running the real page update.
+    // Navigation must finish, including an alias subpage, without hiding render errors.
+    await page.evaluate(async()=>{
+      const original=document.startViewTransition;
+      document.startViewTransition=callback=>{
+        const updateCallbackDone=Promise.resolve().then(callback);
+        return {updateCallbackDone,ready:Promise.reject(new DOMException('Animation timed out','TimeoutError')),finished:updateCallbackDone};
+      };
+      try{
+        const nav=await import('/src/components/nav.js');
+        if(!await nav.showPage('income')) throw new Error('Navigation did not complete');
+        if(location.pathname!=='/expenses/income' || document.querySelector('#expensesSub-income').hidden || document.body.dataset.currentPage!=='expenses') throw new Error('Page and route disagree after animation timeout');
+      }finally{ document.startViewTransition=original; }
+    });
   },
   async appdialogs(page){
     await page.setViewportSize({width:320,height:844});

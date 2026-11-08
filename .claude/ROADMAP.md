@@ -4799,4 +4799,4 @@ The shared-field foundation (#254) is next, and in progress.
 
 ## Navigation transition timeout — issue #273
 
-`[~]` Distinguish a skipped page animation from a failed page update; keep genuine render errors visible and cover navigation completion deterministically.
+`[x]` Distinguish a skipped page animation from a failed page update. `pageTransitionDone` classifies AbortError/TimeoutError only after a successful DOM update; rendering failures still reject navigation and other animation errors stay reported. Five unit cases and a deterministic browser journey cover the distinction and alias routing. Implemented on `codex/fix-dialog-journey-timeout`; awaiting PR review and release.

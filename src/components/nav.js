@@ -1,3 +1,4 @@
+import { pageTransitionDone } from "../lib/pagetransition.js";
 import { renderCalcTools } from "./calculators.js";
 import { renderHomeBody, renderScenarioEditor, renderCalcScenario } from "./scenarios.js";
 import { drawStale } from "../lib/views.js";
@@ -399,11 +400,9 @@ export function showPage(id, opts){
   var prefersReducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if(document.startViewTransition && !prefersReducedMotion){
     var transition = document.startViewTransition(applyPageChange);
-    // Starting another transition rejects ready, but still runs the update callback.
-    // Handle that expected cancellation without hiding failures in applyPageChange.
-    transition.ready.catch(function(err){ if(err.name !== "AbortError") console.error(err); });
-    transition.finished.catch(function(err){ if(err.name !== "AbortError") console.error(err); });
-    return transition.updateCallbackDone.then(function(){ return currentPage === id; });
+    // Chromium may time out the animation even though the synchronous page update succeeds.
+    // Await the update separately so real render failures still reject navigation.
+    return pageTransitionDone(transition).then(function(){ return currentPage === id; });
   } else {
     applyPageChange();
   }
